@@ -33,6 +33,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { shownPlotName } from "./plots";
+import { nameKey } from "./text";
 
 /**
  * What the world sends out: an input's events as the wire shows them, who may see each, and the
@@ -189,7 +190,7 @@ export function repeatJoins(state: WorldState, untouched: (r: Resident) => boole
   const byName = new Map<string, Resident[]>();
   for (const r of Object.values(state.residents)) {
     if (isTownsfolk(state, r.id)) continue;
-    const name = r.name.toLowerCase();
+    const name = nameKey(r.name);
     byName.set(name, [...(byName.get(name) ?? []), r]);
   }
   return [...byName.values()].flatMap((same) => {

@@ -387,10 +387,12 @@ export const uploadSizes = [...new Set(Object.values(MEDIA_TYPES).map((t) => t.k
 /** How long a repeat of a `once` link returns the first answer instead of acting again. */
 export const REPEAT_WINDOW_MS = 2 * 60_000;
 /**
- * The code in a join link's `confirm` (decision 0148). The page `GET /v1/join` shows first hands
- * out a fresh one; the same link opened again with it gets the first answer back.
+ * The code in a join link's `confirm` (decision 0148). The page `GET /v1/join` shows first issues
+ * a fresh one for that join; the same link opened again with it gets the first answer back.
  */
 export const JOIN_CONFIRM_CODE = /^[0-9a-z]{16,64}$/;
+/** How long a code from the first page of `GET /v1/join` works. */
+export const JOIN_CODE_MS = 10 * 60_000;
 /** Most tiles one move link walks. Each step is one move in the world. */
 export const MOVE_MAX_STEPS = 10;
 

@@ -88,7 +88,7 @@ import {
 } from "./snapshots";
 import type { Store } from "./store";
 import { count, crumb, gauge, report, span } from "./telemetry";
-import { cleanText } from "./text";
+import { cleanText, nameKey } from "./text";
 import type { TownEvent } from "./town-events";
 import {
   type ActionContext,
@@ -1068,6 +1068,19 @@ export class WorldService {
     return { ...result, residentId, token };
   }
 
+  /**
+   * The refusal for a join with a name another resident has, townsfolk included, or undefined.
+   * Names are unique (decision 0148, issue #46), so one resident keeps one record even after
+   * losing their token or link key, compared on `nameKey`. Decided here, before anything is
+   * logged, so old logs replay unchanged: their joins were each fine when they were logged.
+   */
+  nameTaken(name: string): { code: "name_taken"; message: string } | undefined {
+    const wanted = nameKey(cleanText(name));
+    return Object.values(this.state.residents).some((r) => nameKey(r.name) === wanted)
+      ? { code: "name_taken", message: NAME_TAKEN }
+      : undefined;
+  }
+
   /** A new resident in the world, with no bearer token. `GET /v1/join` gives it a link key instead. */
   createResident(
     request: { name: string; kind: ResidentKind } & LooseProfile,
@@ -1078,15 +1091,8 @@ export class WorldService {
       filtered(this.moderation, "name", cleanText(name), {}) ??
       filtered(this.moderation, "note", profile.note && cleanText(profile.note), {});
     if (refused) return refused;
-    // Names are unique (decision 0148, issue #46): one resident keeps one record even after
-    // losing their token or link key and joining again. Compared case-insensitively on the
-    // cleaned name, townsfolk included; the sim keeps the casing the joiner chose. Server-side,
-    // like the filters above, so old logs replay unchanged: their joins were each fine when
-    // they were logged.
-    const wanted = cleanText(name).toLowerCase();
-    if (Object.values(this.state.residents).some((r) => r.name.toLowerCase() === wanted)) {
-      return { ok: false, error: { code: "name_taken", message: NAME_TAKEN } };
-    }
+    const taken = this.nameTaken(name);
+    if (taken) return { ok: false, error: taken };
     // A brand-new resident owns no uploads, so any media here is refused.
     const media = checkLookMedia(this.actions.mediaType, residentId, profile);
     if (media) return media;

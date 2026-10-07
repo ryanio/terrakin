@@ -484,6 +484,8 @@ describe("revoking a compromised agent", () => {
     townsfolk.add(bram.residentId);
     const codeFor = (id: string, who: Who = mira) =>
       call("POST", `/v1/owner/rekey-codes/${id}`, undefined, who.token);
+    // No token at all is refused before anything else.
+    expect((await call("POST", `/v1/owner/rekey-codes/${wren.residentId}`)).status).toBe(401);
     // Not locked out, and still refused to anyone who isn't a maintainer, the owner included.
     expect((await rekeyCode(hazel)).status).toBe(403);
     expect((await rekeyCode(ivy)).status).toBe(403);

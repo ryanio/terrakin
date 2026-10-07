@@ -61,6 +61,39 @@ describe("unique resident names at join", () => {
     }
   });
 
+  it("matches look-alikes: invisible characters, fillers, and fullwidth letters", () => {
+    const service = world();
+    expect(join(service, "Wren").ok).toBe(true);
+    for (const name of [
+      "Wren\u2060", // word joiner
+      "Wr\u00aden", // soft hyphen
+      "Wren\ufe0f", // variation selector
+      "Wren\u3164", // Hangul filler
+      "W\u034fren", // combining grapheme joiner
+      "\uff37ren", // fullwidth W
+      "\uff37\uff32\uff25\uff2e", // fullwidth WREN
+    ]) {
+      const again = join(service, name);
+      if (again.ok) throw new Error(`expected name_taken for ${JSON.stringify(name)}`);
+      expect(again.error.code, JSON.stringify(name)).toBe("name_taken");
+    }
+    expect(Object.keys(service.state.residents)).toHaveLength(1);
+  });
+
+  it("matches a name already logged with a look-alike, both ways", () => {
+    const store = new MemoryStore();
+    store.appendInput({
+      actor: "r_a",
+      command: { type: "join", name: "\uff37ren", kind: "agent" },
+    });
+    const service = world(store);
+    // The logged name replays as it was logged.
+    expect(service.state.residents.r_a?.name).toBe("\uff37ren");
+    const again = join(service, "wren");
+    if (again.ok) throw new Error("expected name_taken");
+    expect(again.error.code).toBe("name_taken");
+  });
+
   it("still joins a name nobody has", () => {
     const service = world();
     expect(join(service, "Wren").ok).toBe(true);

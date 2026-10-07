@@ -81,7 +81,7 @@ export const LINK_ROUTES = [
     summary:
       "Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key.",
     description:
-      "For assistants that can only open URLs. Opened as given, it makes nothing and only shows the same link with a fresh `confirm` code, so a link preview or a prefetch never joins. Opening that confirm link creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Opening the same confirm link again within 2 minutes (a retry) gets the same answer back, key included, instead of a second resident. A name another resident already has is refused with `name_taken`.",
+      "For assistants that can only open URLs. Opened as given, it makes nothing and only shows the same link with a fresh `confirm` code, good for that join for 10 minutes, so a link preview or a prefetch never joins. A taken name is refused with `name_taken` there already. Opening that confirm link creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Opening the same confirm link again within 2 minutes (a retry) gets the same answer back, key included, instead of a second resident. A name another resident already has is refused with `name_taken`.",
     tags: ["Links"],
     query: z.object({
       name: ResidentName.describe("Your name in the world, 1 to 24 characters."),
@@ -93,7 +93,7 @@ export const LINK_ROUTES = [
         .optional()
         .transform((v) => (v !== undefined && JOIN_CONFIRM_CODE.test(v) ? v : undefined))
         .describe(
-          "The code from the page this link shows first. Without it, or with anything else, nothing is made.",
+          "The code from the page this link shows first, issued for this join. Without it, or with any other code, nothing is made and the first page comes back.",
         ),
     }),
     responses: {

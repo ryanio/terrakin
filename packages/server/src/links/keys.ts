@@ -1,9 +1,25 @@
-import { CHECKIN_SUGGESTED_HOURS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
+import { CHECKIN_SUGGESTED_HOURS, JOIN_CODE_MS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
 import { HAIR_COLORS, HAIR_STYLES, RESIDENT_COLORS, RESIDENT_SHAPES } from "@terrakin/sim";
 import { type Handlers, ipKey, RATE_LIMITED } from "../handlers/shared";
-import { randomBytes, toHex } from "../world-credentials";
 import { type LinkCtx, linksFor, list, ok, PLACEHOLDER, page, placeholderRefusal } from "./shared";
 import { at, quote, untrusted } from "./words";
+
+/**
+ * The fields of a join link a confirm code is issued for, as one string: `name`, `note`, `color`,
+ * and `shape`, URL-encoded in that order (a space as `%20`). The first page writes its confirm link from it, and the
+ * dispatcher reads it back from the link opened, so a code works only for the join it was made
+ * for (decision 0148).
+ */
+export function joinFields(get: (key: "name" | "note" | "color" | "shape") => string | undefined) {
+  return new URLSearchParams(
+    (["name", "note", "color", "shape"] as const).flatMap((key) => {
+      const value = get(key);
+      return value === undefined ? [] : [[key, value] as [string, string]];
+    }),
+  )
+    .toString()
+    .replace(/\+/g, "%20");
+}
 
 /** Joining by link, minting and turning off link keys, and the owner links. */
 export function keyLinks(
@@ -18,28 +34,32 @@ export function keyLinks(
       if (PLACEHOLDER.test(query.name)) return placeholderRefusal("name");
       if (query.note !== undefined && PLACEHOLDER.test(query.note))
         return placeholderRefusal("note");
-      if (!query.confirm) {
+      // A taken name is said here, before there's a link to open (decision 0148).
+      const taken = service.nameTaken(query.name);
+      if (taken) return failed(taken.code, taken.message);
+      const join = joinFields((key) => query[key]);
+      if (!query.confirm || !api.joinCodeWorks(query.confirm, join)) {
         // Link previews and prefetchers open URLs too, so this page makes nothing (decision
-        // 0148). The code it adds makes the confirm link safe to retry: the dispatcher answers a
-        // repeat within the window with the first answer, key and all.
-        const fields = [
-          ["name", query.name],
-          ["note", query.note],
-          ["color", query.color],
-          ["shape", query.shape],
-          ["confirm", toHex(randomBytes(10))],
-        ].flatMap(([k, v]) => (v === undefined ? [] : [`${k}=${encodeURIComponent(v)}`]));
+        // 0148). Its code works only for this join, for a few minutes, and only from here: the
+        // dispatcher answers a repeat of the confirm link within the window with the first
+        // answer, key and all. A code this page didn't issue gets the page again.
+        const code = api.issueJoinCode(join);
         return ok(
           page(
             "# One more link to join",
-            `Open the link below yourself to make your resident. If the answer doesn't reach you, open the same link again within ${REPEAT_WINDOW_MS / 60_000} minutes: you get the same answer back, not a second resident. Don't share it, since it shows your secret link key.`,
-            `Open: ${origin}/v1/join?${fields.join("&")}`,
+            `Open the link below yourself, within ${JOIN_CODE_MS / 60_000} minutes, to make your resident. If the answer doesn't reach you, open the same link again within ${REPEAT_WINDOW_MS / 60_000} minutes: you get the same answer back, not a second resident. Don't share it, since it shows your secret link key.`,
+            `Open: ${origin}/v1/join?${join}&confirm=${code}`,
           ),
         );
       }
       // Only a join spends from the per-IP session limit, the one `POST /v1/session` uses.
-      if (!api.limiters.sessions.take(ipKey(ip))) {
-        return failed("rate_limited", RATE_LIMITED.sessions);
+      const take = api.limiters.sessions.takeInfo(ipKey(ip));
+      if (!take.allowed) {
+        return {
+          error: "rate_limited",
+          message: RATE_LIMITED.sessions,
+          retryAfter: take.retryAfter,
+        };
       }
       const result = service.createResident({
         name: query.name,

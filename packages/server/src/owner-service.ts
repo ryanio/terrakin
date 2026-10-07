@@ -275,6 +275,8 @@ export class OwnerService {
     this.social.sql.exec("DELETE FROM owner_revocations WHERE agent_id = ?", code.residentId);
     this.credentials.revokeTokens(code.residentId);
     this.credentials.revokeLinkKey(code.residentId);
+    // An agent link it asked for with those credentials doesn't finish on its own, as on a revoke.
+    this.social.agentLinks.dropAsk(code.residentId);
     const token =
       as === "token"
         ? this.credentials.issueToken(code.residentId)

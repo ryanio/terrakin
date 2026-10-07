@@ -12,6 +12,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
+import { nameKey } from "./text";
 
 /**
  * The newcomer funnel behind `GET /v1/admin/newcomers` (decision 0141): for each UTC week of
@@ -138,7 +139,7 @@ export function newcomerFunnel(s: NewcomerSources): NewcomersResponse {
     if (!r || isTownsfolk(state, id)) continue;
     const steps = stepsOf(r, s, plotHolders);
     const side = r.kind === "human" ? "people" : "agents";
-    const name = r.name.trim().toLowerCase();
+    const name = nameKey(r.name);
     const repeat = names.has(name);
     names.add(name);
     const day = s.joinedDay.get(id);

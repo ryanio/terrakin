@@ -9,6 +9,7 @@ import {
   type Issue,
   isBinaryBody,
   isWriteRoute,
+  JOIN_CODE_MS,
   JOIN_CONFIRM_CODE,
   MAX_BODY_BYTES,
   MODERATOR_SUSPEND_MAX_DAYS,
@@ -76,7 +77,14 @@ import { togetherHandlers } from "./handlers/together";
 import { townHallHandlers } from "./handlers/town-hall";
 import { worldHandlers } from "./handlers/world";
 import { IdempotencyStore, sha256Hex } from "./idempotency";
-import { BAD_LINK_KEY, DEFAULT_ORIGIN, linkHandlers, linkHelp, REPEAT_NOTE } from "./links";
+import {
+  BAD_LINK_KEY,
+  DEFAULT_ORIGIN,
+  joinFields,
+  linkHandlers,
+  linkHelp,
+  REPEAT_NOTE,
+} from "./links";
 import {
   familyMiss,
   LiveSession,
@@ -100,6 +108,7 @@ import { anchorPlot, suggestPlots } from "./together";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
+import { randomBytes, toHex } from "./world-credentials";
 import { DAY_MS, utcDay, type WorldService } from "./world-service";
 
 /**
@@ -122,6 +131,8 @@ export { MAX_BODY_BYTES };
 
 /** Most `once` answers kept in memory: a short Markdown page each, keyed by a URL up to a few KB. */
 const MAX_REPEATS = 2_000;
+/** Most join codes kept at once; the oldest go first. Losing one only means its link shows the page again. */
+const MAX_JOIN_CODES = 2_000;
 
 /** Plot photos being drawn at once. Each waits on the renderer and then holds a PNG in memory. */
 const MAX_PHOTOS_IN_FLIGHT = 2;
@@ -307,6 +318,8 @@ export class Api {
   readonly handlers: Handlers;
   private readonly onResponse: ApiOptions["onResponse"];
   readonly now: () => number;
+  /** Codes the first page of `GET /v1/join` issued, each with the join it's for (decision 0148). */
+  private readonly joinCodes = new Map<string, { join: string; at: number }>();
   /** Answers to `once` links, by route, resident, and query, for REPEAT_WINDOW_MS. */
   private readonly repeats = new Map<string, { at: number; response: Promise<ApiResponse> }>();
   private readonly idempotency = new IdempotencyStore();
@@ -471,11 +484,9 @@ export class Api {
       if ("error" in staff) return render(route, staff);
       return this.run(match, req, staff.actor, origin);
     }
-    // A join link has no resident yet: the code in its `confirm`, which only the reader who
-    // opened the page before it saw, stands in for one (decision 0148).
-    const confirm = req.query.get("confirm") ?? "";
-    const opener =
-      viewer ?? (route.auth === "none" && JOIN_CONFIRM_CODE.test(confirm) ? confirm : "");
+    // A join link has no resident yet: a code the join page issued for exactly this join stands
+    // in for one (decision 0148).
+    const opener = viewer ?? (route.auth === "none" ? this.issuedJoinCode(req.query) : undefined);
     if (route.once && opener) {
       const query = new URLSearchParams(req.query);
       query.sort();
@@ -669,6 +680,34 @@ export class Api {
       forget();
       throw err;
     }
+  }
+
+  /**
+   * A fresh code for a join link's `confirm`, good for `join` (`joinFields` of the link) for
+   * `JOIN_CODE_MS` (decision 0148).
+   */
+  issueJoinCode(join: string): string {
+    const code = toHex(randomBytes(10));
+    this.joinCodes.set(code, { join, at: this.now() });
+    while (this.joinCodes.size > MAX_JOIN_CODES) {
+      const oldest = this.joinCodes.keys().next().value;
+      if (oldest === undefined) break;
+      this.joinCodes.delete(oldest);
+    }
+    return code;
+  }
+
+  /** Whether `code` was issued for `join` and still works. */
+  joinCodeWorks(code: string, join: string): boolean {
+    const issued = this.joinCodes.get(code);
+    return issued !== undefined && issued.join === join && this.now() - issued.at < JOIN_CODE_MS;
+  }
+
+  /** The `confirm` code in a join link's query when it was issued for that link's join. */
+  private issuedJoinCode(query: URLSearchParams): string | undefined {
+    const code = query.get("confirm") ?? "";
+    const join = joinFields((key) => query.get(key) ?? undefined);
+    return JOIN_CONFIRM_CODE.test(code) && this.joinCodeWorks(code, join) ? code : undefined;
   }
 
   requireSocial(): SocialService {
@@ -1109,8 +1148,11 @@ export class Api {
     const today = utcDay(this.now());
     for (const [ip, used] of this.ipUploads) if (used.day !== today) this.ipUploads.delete(ip);
     for (const limits of Object.values(this.limiters)) limits.prune();
+    // A join's answer holds a link key in plain text: keep it no longer than a retry needs.
     const cutoff = this.now() - REPEAT_WINDOW_MS;
     for (const [key, { at }] of this.repeats) if (at < cutoff) this.repeats.delete(key);
+    const codesCutoff = this.now() - JOIN_CODE_MS;
+    for (const [code, { at }] of this.joinCodes) if (at <= codesCutoff) this.joinCodes.delete(code);
     this.idempotency.sweep();
   }
 

@@ -8,6 +8,21 @@ export function cleanText(input: string): string {
   return input.normalize("NFC").replace(UNSAFE, " ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * What two resident names are compared on (decision 0148): compatibility forms folded (a
+ * fullwidth "Ｗ" is a "W"), invisible characters dropped (soft hyphens, joiners, variation
+ * selectors, fillers), spaces collapsed, and case ignored. Only for comparing: a name is stored
+ * and shown as it was logged.
+ */
+export function nameKey(name: string): string {
+  return name
+    .normalize("NFKC")
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 // The same as UNSAFE, minus the newline, for text where line breaks are allowed.
 const UNSAFE_MULTILINE =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters is the point.

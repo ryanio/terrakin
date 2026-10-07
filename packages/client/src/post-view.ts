@@ -55,11 +55,11 @@ export function postView(id: string, ctx: ViewContext): View {
     if (destroyed) return;
     const r = profile.ok ? profile.data.resident : undefined;
     const card = pulseShell(
-      "post-author",
+      "post-about",
       `About ${author.name}`,
       h("p", { class: "eyebrow pulse-eyebrow", text: "Written by" }),
       personLink(author, { size: "lg" }),
-      r?.bio ? h("p", { class: "post-author-bio", text: r.bio }) : null,
+      r?.bio ? h("p", { class: "post-about-bio", text: r.bio }) : null,
       r
         ? h("p", {
             class: "pulse-foot",

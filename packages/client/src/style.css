@@ -2388,7 +2388,7 @@ button.profile-avatar.editable:disabled {
 }
 
 /* Beside a post: who wrote it, and a few more of their posts, each cut to three lines. */
-.post-author-bio {
+.post-about-bio {
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--ink-soft);

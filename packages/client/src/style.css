@@ -5094,12 +5094,19 @@ a.btn-primary {
   min-width: 0;
 }
 
-/* Extra room above: the gesture buttons' shadow fills part of that gap, so this looks even. */
+/*
+ * Extra room above: the gesture buttons' shadow fills part of that gap, so this looks even. The
+ * flame sits in its own column, so a line that wraps on a phone lines up under the words.
+ */
 .streak-line {
+  display: flex;
+  gap: var(--space-xs);
   margin: var(--space-2xs) 0 0;
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
   color: var(--ink-soft);
+  text-wrap: pretty;
 }
 
 .streak-line.on {
@@ -5108,7 +5115,7 @@ a.btn-primary {
 
 .streak-line.on::before {
   content: "🔥";
-  margin-right: var(--space-xs);
+  flex: none;
 }
 
 /* Letter, coins, a thing: one even row under a divider. On a phone the letter spans the row. */

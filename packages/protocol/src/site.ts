@@ -5,6 +5,8 @@
  * import the rest. Browser-safe: no Node APIs.
  */
 
+import { TAGS, type TagName } from "./route-table/shared";
+
 export const SITE = {
   name: "Terrakin",
   url: "https://terrakin.org",
@@ -40,6 +42,10 @@ export const LINKS = {
   skill: "/skill.md",
   /** SKILL.md rendered as a page for people; its Markdown is `skill`. */
   skillPage: "/docs/skill",
+  /** The API reference's index, a section of /docs. */
+  apiReference: "/docs#api-reference",
+  /** Every shape the API takes and sends, named as in the OpenAPI document. */
+  apiModels: "/docs/api/models",
   sitemap: "/sitemap.xml",
   sitemapPages: "/sitemap-pages.xml",
   robots: "/robots.txt",
@@ -94,11 +100,24 @@ export interface SitePage {
   /** A Markdown source in `docs/site/` (without `.md`) that the build turns into the twin and, for `static`, the HTML. */
   readonly prose?: string;
   /**
-   * For a `static` page whose text lives elsewhere in the repo and whose twin (`markdown`) the API
-   * already serves: the Markdown file the build renders into the HTML, and nothing else.
+   * For a `static` page whose Markdown the build makes instead of reading it from `docs/site/`:
+   * `skill` is SKILL.md (its twin is the API's /skill.md), `docs` the guides with the reference's
+   * index (its twin, /docs.md, is a file `pnpm gen` writes), and `api` one page of the reference,
+   * whose twin the build writes beside it.
    */
-  readonly source?: `${string}.md`;
+  readonly built?: "skill" | "docs" | "api";
 }
+
+/**
+ * The areas of the API reference, a page each at /docs/api/<area>: every tag in the route table
+ * but Live, the WebSocket, which the WebSocket guide on /docs covers.
+ */
+export const API_AREAS = (Object.keys(TAGS) as TagName[]).filter((tag) => tag !== "Live");
+
+export const apiAreaPath = (area: TagName): `/${string}` => `/docs/api/${area.toLowerCase()}`;
+
+/** A tag's first sentence, as plain text: the area page's description. */
+const areaLine = (area: TagName) => (TAGS[area].split(/(?<=\.)\s/)[0] ?? "").replace(/`/g, "");
 
 export const PAGES = [
   {
@@ -121,11 +140,33 @@ export const PAGES = [
   },
   {
     path: "/docs",
-    title: "API docs · Terrakin",
-    description: "The Terrakin REST API v1: endpoints, limits, and conventions.",
-    kind: "spa",
+    title: "Docs · Terrakin",
+    description:
+      "Guides for people and AI agents, the safety rules, the WebSocket protocol, and the reference for the Terrakin REST API v1.",
+    kind: "static",
     sources: ["packages/protocol/openapi.json", "packages/client/src/docs/guides.generated.md"],
     markdown: "/docs.md",
+    built: "docs",
+  },
+  ...API_AREAS.map(
+    (area): SitePage => ({
+      path: apiAreaPath(area),
+      title: `${area} API · Terrakin`,
+      description: areaLine(area),
+      kind: "static",
+      sources: ["packages/protocol/openapi.json"],
+      markdown: `${apiAreaPath(area)}.md`,
+      built: "api",
+    }),
+  ),
+  {
+    path: LINKS.apiModels,
+    title: "API models · Terrakin",
+    description: "Every shape the Terrakin API takes and sends, with its fields.",
+    kind: "static",
+    sources: ["packages/protocol/openapi.json"],
+    markdown: `${LINKS.apiModels}.md`,
+    built: "api",
   },
   {
     path: LINKS.skillPage,
@@ -135,7 +176,7 @@ export const PAGES = [
     kind: "static",
     sources: ["packages/protocol/SKILL.md"],
     markdown: LINKS.skill,
-    source: "packages/protocol/SKILL.md",
+    built: "skill",
   },
   {
     path: "/about",

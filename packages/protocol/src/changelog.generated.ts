@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-the-docs-are-plain-pages-with-each-area-of-the-api-on-its-ow",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "The docs are plain pages, with each area of the API on its own page and in Markdown",
+    "body": "`/docs` has the guides and the reference's index; each area of the API (World, Social, Links, and the rest) is at `/docs/api/<area>`, with every route's token, limits, parameters, body and answer fields, and error codes, and every shape is at `/docs/api/models`. Add `.md` to any of them for Markdown.\nOld links like `/docs#tag/social` now land at the top of /docs.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-recipes-are-learned-on-terrakin-org",
     "date": "2026-10-07",
     "kind": "changed",

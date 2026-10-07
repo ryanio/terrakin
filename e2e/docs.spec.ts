@@ -1,12 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 
 /**
- * terrakin.org/docs: the API reference and guides rendered from the generated OpenAPI document.
- * Runs against the production build, so the real Content-Security-Policy applies. Any CSP
- * violation, console error, or request to another host fails the test. The whole walk runs at phone
- * size; at desktop size the page only has to lay out its sidebar, since the same code opens an
- * operation and a deep link at either size. What the reference says comes from the generated
- * OpenAPI document, which `packages/protocol` tests and `pnpm gen:check` keep current.
+ * terrakin.org/docs: static pages built from the generated guides and the OpenAPI document
+ * (decision 0195), walked at phone size against the production build, so the real
+ * Content-Security-Policy applies. Any CSP violation, console error, script, or request to another
+ * host fails the test. What the pages say is the protocol's `reference.test.ts` and the client's
+ * `site-page.test.ts` to check; the desktop layout is the one every static page shares.
  */
 
 /** Collect everything that should never happen on the page. */
@@ -19,7 +18,8 @@ async function watch(page: Page, baseURL: string | undefined) {
   page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
   page.on("request", (r) => {
     const url = r.url();
-    if (!url.startsWith(origin) && !/^(data|blob):/.test(url)) problems.push(`request: ${url}`);
+    if (!url.startsWith(origin)) problems.push(`request: ${url}`);
+    if (r.resourceType() === "script") problems.push(`script: ${url}`);
   });
   await page.exposeFunction("reportCsp", (text: string) => problems.push(`csp: ${text}`));
   await page.addInitScript(() => {
@@ -32,89 +32,72 @@ async function watch(page: Page, baseURL: string | undefined) {
   return problems;
 }
 
+/** Nothing on the page scrolls sideways. */
+async function fits(page: Page) {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+}
+
 test.describe("docs at phone size", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test("shows the sidebar, opens an operation, and survives a reload on a deep link", async ({
+  test("reads the guides, follows the reference to a route and a model, and keeps a deep link", async ({
     page,
     baseURL,
   }) => {
     const problems = await watch(page, baseURL);
 
-    await test.step("the sidebar opens an operation", async () => {
+    await test.step("/docs has the guides and the reference's index", async () => {
       await page.goto("/docs");
-      await expect(page).toHaveTitle(/Terrakin docs/);
-      await expect(page.locator('link[rel="alternate"][type="application/json"]')).toHaveAttribute(
-        "href",
-        "/v1/openapi.json",
-      );
-
-      await page.getByRole("button", { name: "Open Menu" }).click();
-      const sidebar = page.getByRole("complementary", { name: /Sidebar/ });
+      await expect(page).toHaveTitle("Docs · Terrakin");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terrakin docs");
       for (const guide of ["Getting started for people", "Quickstart for AI agents", "Safety"]) {
-        await expect(sidebar.getByRole("link", { name: guide, exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { level: 2, name: guide })).toBeAttached();
       }
-      await expect(sidebar.getByRole("link", { name: "World", exact: true })).toBeVisible();
-      await sidebar.getByRole("button", { name: "Open Group - Social" }).click();
-      await sidebar
-        .getByRole("link", { name: /^Post, reply with replyTo, or quote a post with quote\./ })
-        .click();
+      await fits(page);
+      // The page's own contents list, first in the article.
+      const article = page.locator(".layout-main");
+      await article.getByRole("link", { name: "API reference", exact: true }).first().click();
+      await expect(page.getByRole("heading", { name: "API reference" })).toBeInViewport();
+    });
 
-      await expect(page).toHaveURL(/#tag\/social\/POST\/v1\/posts$/);
-      const operation = page.locator('[id$="tag/social/POST/v1/posts"]').first();
-      await expect(
-        operation.getByRole("heading", {
-          name: "Post, reply with replyTo, or quote a post with quote.",
-        }),
-      ).toBeVisible();
-      await expect(operation.getByText("CreatePostRequest").first()).toBeVisible();
-      await expect(operation.getByRole("button", { name: /Test Request/ })).toBeVisible();
+    await test.step("an area lists its routes, each with its body, answer, and errors", async () => {
+      await page.getByRole("table").getByRole("link", { name: "Social", exact: true }).click();
+      await expect(page).toHaveURL(/\/docs\/api\/social$/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Social");
+      await page
+        .locator(".layout-main")
+        .getByRole("link", { name: "POST /v1/posts", exact: true })
+        .click();
+      const route = page.getByRole("heading", { name: "POST /v1/posts", exact: true });
+      await expect(route).toBeInViewport();
+      await fits(page);
+      await page.getByRole("link", { name: "CreatePostRequest" }).first().click();
+      await expect(page).toHaveURL(/\/docs\/api\/models#createpostrequest$/);
+      await expect(page.getByRole("heading", { name: "CreatePostRequest" })).toBeInViewport();
     });
 
     await test.step("a deep link survives a reload", async () => {
-      // The Social tag's section, not the guide heading of the same name.
-      const social = page
-        .getByLabel("Social", { exact: true })
-        .getByRole("heading", { name: "Social" });
-      // A fresh load, not a jump within the page already open.
       await page.goto("about:blank");
-      // The reference lays out the whole API before it scrolls to the tag, which takes a slow CI
-      // runner more than the default 5 s now that the API is large.
-      await page.goto("/docs#tag/social");
-      await expect(social).toBeInViewport({ timeout: 20_000 });
+      await page.goto("/docs/api/social#post-v1posts");
+      const route = page.getByRole("heading", { name: "POST /v1/posts", exact: true });
+      await expect(route).toBeInViewport();
       await page.reload();
-      await expect(page).toHaveTitle(/Terrakin docs/);
-      await expect(social).toBeInViewport({ timeout: 20_000 });
+      await expect(route).toBeInViewport();
     });
     expect(problems).toEqual([]);
 
     await test.step("the site's main bar links to the docs, and still fits a phone", async () => {
       await page.goto("/");
-      const width = await page.evaluate(() => document.documentElement.scrollWidth);
-      expect(width).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+      await fits(page);
       await page
         .getByRole("navigation", { name: "Main" })
         .getByRole("link", { name: "Docs" })
         .click();
-      await expect(page).toHaveURL(/\/docs(#.*)?$/);
-      // The reference renders from the whole OpenAPI document, as in the steps above.
-      await expect(page.getByRole("heading", { name: "Terrakin API" })).toBeVisible({
-        timeout: 20_000,
-      });
+      await expect(page).toHaveURL(/\/docs$/);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terrakin docs");
     });
-  });
-});
-
-test.describe("docs at desktop size", () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
-
-  test("lays out the sidebar beside the reference", async ({ page, baseURL }) => {
-    const problems = await watch(page, baseURL);
-    await page.goto("/docs");
-    await expect(page).toHaveTitle(/Terrakin docs/);
-    const sidebar = page.getByRole("complementary", { name: /Sidebar/ });
-    await expect(sidebar.getByRole("link", { name: "World", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open Menu" })).toBeHidden();
-    expect(problems).toEqual([]);
   });
 });

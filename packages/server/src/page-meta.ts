@@ -69,8 +69,12 @@ export type Page =
 export const OWN_DOCUMENTS: ReadonlySet<string> = new Set(
   PAGES.filter((p) => p.kind === "static" || p.path === LINKS.docs).map((p) => p.path),
 );
-/** The card slug for a page with its own file: its path without the first `/`, with `-` for any other. */
-export const cardSlug = (path: string) => path.slice(1).replaceAll("/", "-");
+/**
+ * The card slug for a page with its own file: its path without the first `/`, with `-` for any
+ * other. The API reference's pages share the docs card.
+ */
+export const cardSlug = (path: string) =>
+  path.startsWith("/docs/api/") ? "docs" : path.slice(1).replaceAll("/", "-");
 const DEVLOG_PAGES: ReadonlySet<string> = new Set(DEVLOG_POSTS.map((p) => devlogPath(p.date)));
 
 const ID = "([A-Za-z0-9_-]{1,64})";

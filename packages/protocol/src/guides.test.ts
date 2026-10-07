@@ -4,7 +4,6 @@ import { parseChangelog } from "./changelog";
 import {
   docsGuides,
   GUIDE_TITLES,
-  headingAnchor,
   MORE_TITLE,
   QUICKSTART_SECTIONS,
   skillHeadings,
@@ -42,26 +41,21 @@ describe("docs guides", () => {
     expect(guides).not.toContain("| Method | Path |");
   });
 
-  it("links only to anchors the renderer has", () => {
-    const sidebar = new Set(
+  it("links in the page only to headings it has", () => {
+    const ids = new Set(
       guides
         .split("\n")
-        .filter((line) => /^#{1,2} /.test(line))
-        .map((line) => headingAnchor(slugify(line.replace(/^#+ /, "")))),
+        .filter((line) => /^#{1,6} /.test(line))
+        .map((line) => slugify(line.replace(/^#+ /, ""))),
     );
-    const tags = new Set(
-      (buildOpenApi().tags as { name: string }[]).map((t) => `#tag/${slugify(t.name)}`),
-    );
-    const anchors = [...guides.matchAll(/\]\((#[^)]+)\)/g)].map((m) => m[1]);
+    const anchors = [...guides.matchAll(/\]\(#([^)]+)\)/g)].map((m) => m[1] ?? "");
     expect(anchors.length).toBeGreaterThan(5);
-    for (const anchor of anchors) {
-      expect(sidebar.has(anchor ?? "") || tags.has(anchor ?? ""), anchor).toBe(true);
-    }
+    for (const anchor of anchors) expect(ids.has(anchor), anchor).toBe(true);
   });
 
   it("stays small enough for the docs page to draw quickly", () => {
-    // The renderer parses and draws every byte before the page shows anything: about 1 second per
-    // 200 KB on a laptop, several on a phone (decision 0193).
+    // /docs carries the guides that get someone going; the rest of SKILL.md is on /docs/skill
+    // (decision 0193).
     expect(guides.length).toBeLessThan(80_000);
   });
 

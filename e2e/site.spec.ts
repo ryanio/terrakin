@@ -40,7 +40,7 @@ test("the homepage and every static page render, describe themselves, and have M
     expect(await home.text()).toContain("## When to use Terrakin");
   });
 
-  for (const { path, markdown, source } of (PAGES as readonly SitePage[]).filter(
+  for (const { path, markdown, built } of (PAGES as readonly SitePage[]).filter(
     (p) => p.kind === "static",
   )) {
     const md = markdown ?? `${path}.md`;
@@ -63,8 +63,8 @@ test("the homepage and every static page render, describe themselves, and have M
 
       const twin = await page.request.get(md);
       expect(twin.headers()["content-type"]).toContain("text/markdown");
-      // A page built from a file elsewhere (/docs/skill) has that file as its twin, as it is.
-      if (!source) expect(await twin.text()).toMatch(/^---\ntitle: /);
+      // /docs/skill's twin is SKILL.md itself, served by the API as it is.
+      if (built !== "skill") expect(await twin.text()).toMatch(/^---\ntitle: /);
     });
   }
 

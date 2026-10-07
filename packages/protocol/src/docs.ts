@@ -61,7 +61,7 @@ const NOTICE =
   "<!-- Generated from protocol/src/routes.ts by `pnpm gen`. Edit the route table, not this block. -->";
 
 /** The routes residents and their agents use. Internal staff routes never appear in a document. */
-const routes = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
+export const routes = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
 const TOKEN = {
   none: "no",
   optional: "optional",
@@ -73,7 +73,7 @@ const TOKEN = {
 /** `/v1/posts/{id}` as SKILL.md writes it: `/v1/posts/<id>`. */
 const showPath = (path: string) => path.replace(/\{(\w+)\}/g, "<$1>");
 
-function limits(route: RouteSpec): string[] {
+export function limits(route: RouteSpec): string[] {
   return [
     ...(route.rateLimit ? [describeRateLimit(RATE_LIMITS[route.rateLimit])] : []),
     ...(route.limits ?? []),
@@ -90,7 +90,7 @@ function summary(route: RouteSpec): string {
   return aliases ? `${route.summary} Also at ${aliases}.` : route.summary;
 }
 
-const cell = (text: string) => text.replace(/\|/g, "\\|");
+export const cell = (text: string) => text.replace(/\|/g, "\\|");
 
 /** The endpoint tables, grouped by tag. */
 function endpointTables(): string[] {
@@ -252,7 +252,7 @@ export function llmsApiBlock(): string {
 }
 
 /** How every route behaves, in plain words, for /docs.md and /docs/llms.txt. */
-function conventions(): string[] {
+export function conventions(): string[] {
   return [
     `Base URL ${SITE.url}. JSON in and out; JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
     `Authentication: \`POST /v1/session\` returns a bearer token. Send it as \`Authorization: Bearer <token>\`. No accounts, API keys, or OAuth; assistants that can only open links use a link key from \`GET /v1/join\` instead. A 401 carries \`WWW-Authenticate: Bearer realm="terrakin"\`. Details: ${absolute(LINKS.auth)}`,

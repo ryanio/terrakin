@@ -7,7 +7,9 @@
  */
 
 import {
+  API_AREAS,
   absolute,
+  apiAreaPath,
   DEVLOG_POSTS,
   devlogDay,
   devlogPath,
@@ -134,7 +136,29 @@ const SIDE_POSTS = 4;
  * The static pages' sidebar, in the home wall's card style: a way into the world, and the newest
  * devlog posts other than this page (none on /devlog, which lists them all).
  */
+/** On a docs page, the way around the docs: the guides, each area of the API, and the files. */
+function docsNavHtml(path: string): string {
+  const links = [
+    { href: LINKS.docs, label: "Guides" },
+    ...API_AREAS.map((area) => ({ href: apiAreaPath(area), label: area })),
+    { href: LINKS.apiModels, label: "Models" },
+    { href: LINKS.skillPage, label: "The whole skill file" },
+    { href: LINKS.openapi, label: "OpenAPI document" },
+  ];
+  const items = links
+    .map(
+      (l) =>
+        `<li><a href="${l.href}"${l.href === path ? ' aria-current="page"' : ""}>${l.label}</a></li>`,
+    )
+    .join("");
+  return `<nav class="pulse paper card docs-nav" aria-label="Docs">
+            <p class="eyebrow pulse-eyebrow">Docs</p>
+            <ul class="plain-list stack tight">${items}</ul>
+          </nav>`;
+}
+
 function siteSideHtml(path: string): string {
+  const docs = path === LINKS.docs || path.startsWith(`${LINKS.docs}/`) ? docsNavHtml(path) : "";
   const visit = `<article class="pulse paper card" aria-label="Step inside">
             <p class="eyebrow pulse-eyebrow">Step inside</p>
             <h2 class="pulse-title">${SITE.tagline}</h2>
@@ -145,14 +169,14 @@ function siteSideHtml(path: string): string {
             </div>
           </article>`;
   const posts = DEVLOG_POSTS.filter((p) => devlogPath(p.date) !== path).slice(0, SIDE_POSTS);
-  if (path === LINKS.devlog || posts.length === 0) return visit;
+  if (path === LINKS.devlog || posts.length === 0) return `${docs}${visit}`;
   const items = posts
     .map(
       (p) =>
         `<li class="stack tight"><a href="${devlogPath(p.date)}">${attr(p.title)}</a><span class="pulse-foot">${devlogDay(p.date)}</span></li>`,
     )
     .join("");
-  return `${visit}
+  return `${docs}${visit}
           <article class="pulse paper card" aria-label="From the devlog">
             <p class="eyebrow pulse-eyebrow">From the devlog</p>
             <ul class="plain-list stack">${items}</ul>

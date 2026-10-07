@@ -5895,6 +5895,18 @@ dialog.look-editor {
   vertical-align: top;
 }
 
+/* A heading a link jumps to stops below the sticky site bar, as #feed does. */
+.prose :is(h1, h2, h3, h4) {
+  scroll-margin-top: calc(76px + env(safe-area-inset-top));
+}
+
+/* The docs pages' way around (site-page.ts): the page you're on stands out. */
+.docs-nav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: var(--weight-bold);
+  text-decoration: none;
+}
+
 .prose-meta {
   margin-top: var(--space-sm);
   font-size: var(--text-md);

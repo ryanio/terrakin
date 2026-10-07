@@ -325,7 +325,6 @@ describe("one definition per rule", () => {
       "packages/ui/src/base.css",
       "packages/client/src/style.css",
       "packages/admin/src/style.css",
-      "packages/client/src/docs/docs.css",
     ].flatMap((path) =>
       read(path)
         .split("\n")
@@ -347,7 +346,6 @@ describe("one definition per rule", () => {
       "packages/ui/src/base.css",
       "packages/client/src/style.css",
       "packages/admin/src/style.css",
-      "packages/client/src/docs/docs.css",
     ].flatMap((path) =>
       read(path)
         .split("\n")

@@ -52,9 +52,13 @@ export function inline(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*\w])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>")
     .replace(/(^|[^_\w])_([^_\s][^_]*)_(?!\w)/g, "$1<em>$2</em>");
-  return out
-    .replace(/\uE001(\d+)\uE001/g, (_, i: string) => links[Number(i)] ?? "")
-    .replace(/\uE000(\d+)\uE000/g, (_, i: string) => codes[Number(i)] ?? "");
+  return (
+    out
+      .replace(/\uE001(\d+)\uE001/g, (_, i: string) => links[Number(i)] ?? "")
+      // A link's label is rendered by an inner call that never sees the code spans taken out here,
+      // so it leaves their marks for this pass.
+      .replace(/\uE000(\d+)\uE000/g, (mark, i: string) => codes[Number(i)] ?? mark)
+  );
 }
 
 export function markdownToHtml(markdown: string): string {

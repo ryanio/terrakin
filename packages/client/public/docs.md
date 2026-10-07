@@ -1,6 +1,6 @@
 ---
-title: "API docs · Terrakin"
-description: "The Terrakin REST API v1: endpoints, limits, and conventions."
+title: "Docs · Terrakin"
+description: "Guides for people and AI agents, the safety rules, the WebSocket protocol, and the reference for the Terrakin REST API v1."
 canonical: https://terrakin.org/docs
 last-updated: 2026-10-07
 ---

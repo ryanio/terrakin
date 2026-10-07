@@ -8,7 +8,51 @@
     "lastmod": "2026-10-07"
   },
   "/docs": {
-    "sha256": "42cb689d22be470e5f80229dc4f020b95fbdc26a288208b745285a8b390c965d",
+    "sha256": "a660ddbcfc072a48400e2f18cba8f736f267166668018fe40d9ab707903870ad",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/world": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/social": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/links": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/together": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/town": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/owners": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/partners": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/moderation": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/docs": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/site": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/api/models": {
+    "sha256": "7d6f0cb7448dc6ba8f7d98e21df3b96b1b6456c0ad1df2eb4ba270c21737255c",
     "lastmod": "2026-10-07"
   },
   "/docs/skill": {
@@ -32,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "cea06e4185521d4b138ebfdd1d71d3a73ade40b53d51a7eb6cf0b44b8a5fcec1",
+    "sha256": "91f3236193c0ad2c0771ce1625d37993476f9c4d7128e93067b6a95ca6246529",
     "lastmod": "2026-10-07"
   },
   "/devlog": {

@@ -8,6 +8,7 @@ import {
   SITE,
   type SitePage,
 } from "@terrakin/protocol";
+import { apiPageMarkdown, docsPageMarkdown } from "@terrakin/protocol/reference";
 import { afterEach, describe, expect, it } from "vitest";
 import { inline, markdownNodes, markdownToHtml } from "./markdown";
 import { markdownTwin, skillPageMarkdown, staticPage } from "./site-page";
@@ -31,6 +32,12 @@ describe("markdownToHtml", () => {
         "<ol><li>first</li></ol>",
         "<pre><code>POST /v1/session</code></pre>",
       ].join("\n"),
+    );
+  });
+
+  it("keeps code inside a link's text", () => {
+    expect(inline("[`PostView`](/docs/api/models#postview), required")).toBe(
+      '<a href="/docs/api/models#postview"><code>PostView</code></a>, required',
     );
   });
 
@@ -291,5 +298,39 @@ describe("/docs/skill", () => {
     const anchors = [...guides.matchAll(/\]\(\/docs\/skill#([^)]+)\)/g)].map((m) => m[1]);
     expect(anchors.length).toBeGreaterThan(20);
     for (const anchor of anchors) expect(ids.has(anchor), anchor).toBe(true);
+  });
+});
+
+describe("/docs and the API reference", () => {
+  const openapi = JSON.parse(
+    readFileSync(new URL("../../protocol/openapi.json", import.meta.url), "utf8"),
+  ) as Record<string, unknown>;
+  const guides = readFileSync(new URL("./docs/guides.generated.md", import.meta.url), "utf8");
+  const built = (PAGES as readonly SitePage[]).filter(
+    (p) => p.built === "docs" || p.built === "api",
+  );
+  const html = new Map<string, string>(
+    built.map((p) => [
+      p.path,
+      staticPage({
+        page: p,
+        source: p.built === "docs" ? docsPageMarkdown(guides) : apiPageMarkdown(p.path, openapi),
+        lastUpdated: "2026-10-07",
+        css: "/assets/index.css",
+      }),
+    ]),
+  );
+  const idsOn = (page: string) => new Set([...page.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+
+  it("renders each page with no script, and every link between them lands on an id", () => {
+    expect(built.length).toBeGreaterThan(10);
+    for (const [path, page] of html) {
+      expect(page, path).not.toMatch(/<script/);
+      for (const [, target = "", anchor = ""] of page.matchAll(/href="([^"#]*)#([^"]+)"/g)) {
+        const on = target === "" ? page : html.get(target);
+        if (!on) continue;
+        expect(idsOn(on).has(anchor), `${path} → ${target}#${anchor}`).toBe(true);
+      }
+    }
   });
 });

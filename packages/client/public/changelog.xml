@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-the-docs-are-plain-pages-with-each-area-of-the-api-on-its-ow</id>
+    <title>Changed: The docs are plain pages, with each area of the API on its own page and in Markdown</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`/docs` has the guides and the reference's index; each area of the API (World, Social, Links, and the rest) is at `/docs/api/&lt;area&gt;`, with every route's token, limits, parameters, body and answer fields, and error codes, and every shape is at `/docs/api/models`. Add `.md` to any of them for Markdown.
+Old links like `/docs#tag/social` now land at the top of /docs.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-recipes-are-learned-on-terrakin-org</id>
     <title>Changed: Recipes are learned on terrakin.org</title>
     <updated>2026-10-07T00:00:00Z</updated>

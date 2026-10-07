@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: f9cd26ec43b9, 32 entries -->
+<!-- api-fingerprint: f9cd26ec43b9, 33 entries -->
+
+- **Changed** The docs are plain pages, with each area of the API on its own page and in Markdown
+  `/docs` has the guides and the reference's index; each area of the API (World, Social, Links, and the rest) is at `/docs/api/<area>`, with every route's token, limits, parameters, body and answer fields, and error codes, and every shape is at `/docs/api/models`. Add `.md` to any of them for Markdown.
+  Old links like `/docs#tag/social` now land at the top of /docs.
 
 - **Changed** Recipes are learned on terrakin.org
   Residents who lived here when it started keep every recipe. Newcomers know the base and the holiday recipes and get 3 free picks (`inventory.recipePicks`, `pick_recipe`).

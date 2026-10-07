@@ -10,6 +10,7 @@ import {
   PAGES,
   type SitePage,
 } from "@terrakin/protocol";
+import { apiPageMarkdown, docsPageMarkdown } from "@terrakin/protocol/reference";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
 import { footerHtml, markdownTwin, skillPageMarkdown, staticPage } from "./src/site-page";
@@ -20,7 +21,7 @@ const repo = (path: string) => fileURLToPath(new URL(`../../${path}`, import.met
 
 /**
  * A Content-Security-Policy for the production build, as a meta tag at the top of every page
- * (index.html and docs.html).
+ * (index.html).
  * Dev skips it, because Vite's hot reload injects inline scripts and talks to its own socket.
  *
  * Scripts: our own files, the inline scripts in each page (by hash, computed here so an edit
@@ -118,25 +119,38 @@ function icons(): Plugin {
  * - the homepage's JSON-LD (WebSite, Organization, WebApplication, FAQPage) in index.html,
  * - a Markdown twin for every page with `prose` (`/index.md`, `/about.md`, `/pricing.md`, ...),
  *   with frontmatter for title, description, canonical, and last-updated,
- * - static HTML for the `static` pages (`/about.html`, served at `/about`), with no scripts, and
- *   for /docs/skill from SKILL.md (its twin is the API's /skill.md, so no twin is written),
+ * - static HTML for the `static` pages (`/about.html`, served at `/about`), with no scripts,
+ * - the docs (decision 0195): /docs from the generated guides and the API reference's index (its
+ *   twin, /docs.md, is a file `pnpm gen` writes), a page and a twin for each area of the API and
+ *   for its models (`/docs/api/world.html` and `.md`), from the OpenAPI document, and /docs/skill
+ *   from SKILL.md (its twin is the API's /skill.md),
  * - a static page and a twin for each devlog post (`/devlog/2026-10-06.html` and `.md`), from the
  *   posts `pnpm gen` built into the protocol (decision 0105), each dated by its day.
  *
  * Dates come from docs/site/lastmod.json, which `pnpm gen` keeps.
  */
 function sitePages(): Plugin {
-  const prose = (PAGES as readonly SitePage[]).filter((p) => p.prose || p.source);
+  const prose = (PAGES as readonly SitePage[]).filter((p) => p.prose || p.built);
   const lastmod = () =>
     JSON.parse(readFileSync(repo("docs/site/lastmod.json"), "utf8")) as Record<
       string,
       { lastmod: string }
     >;
-  // The one page with a `source` is /docs/skill, from SKILL.md.
-  const read = (page: SitePage) =>
-    page.source
-      ? skillPageMarkdown(readFileSync(repo(page.source), "utf8"))
-      : readFileSync(repo(`docs/site/${page.prose}.md`), "utf8");
+  const file = (path: string) => readFileSync(repo(path), "utf8");
+  const read = (page: SitePage): string => {
+    switch (page.built) {
+      case "skill":
+        return skillPageMarkdown(file("packages/protocol/SKILL.md"));
+      case "docs":
+        return docsPageMarkdown(file("packages/client/src/docs/guides.generated.md"));
+      case "api":
+        return apiPageMarkdown(page.path, JSON.parse(file("packages/protocol/openapi.json")));
+      default:
+        return file(`docs/site/${page.prose}.md`);
+    }
+  };
+  /** Whether the build writes the page's twin; /skill.md and /docs.md come from elsewhere. */
+  const ownTwin = (page: SitePage) => page.prose !== undefined || page.built === "api";
   const dated = (page: SitePage) => lastmod()[page.path]?.lastmod ?? "";
   const twinFile = (page: SitePage) => (page.markdown ?? page.path).slice(1);
   const htmlFile = (page: SitePage) => `${page.path.slice(1)}.html`;
@@ -150,7 +164,6 @@ function sitePages(): Plugin {
     name: "terrakin-site",
     transformIndexHtml(raw, ctx) {
       const html = raw.replaceAll("<!-- site:footer -->", footerHtml());
-      // The homepage's description; the docs page (docs.html) has its own.
       if (ctx.path !== "/index.html") return html;
       const json = JSON.stringify(homeJsonLd()).replace(/</g, "\\u003c");
       const script = `<script type="application/ld+json">${json}</script>`;
@@ -161,7 +174,7 @@ function sitePages(): Plugin {
       dev.middlewares.use((req, res, next) => {
         const path = (req.url ?? "").split("?")[0];
         for (const page of prose) {
-          if (!page.source && path === `/${twinFile(page)}`) {
+          if (ownTwin(page) && path === `/${twinFile(page)}`) {
             res.setHeader("content-type", "text/markdown; charset=utf-8");
             return res.end(markdownTwin(page, read(page), dated(page)));
           }
@@ -188,7 +201,6 @@ function sitePages(): Plugin {
       const entry = Object.values(bundle).find(
         (c) => c.type === "chunk" && c.isEntry && c.facadeModuleId?.endsWith("/index.html"),
       );
-      // Only the app build: the docs build reuses this config for docs.html alone.
       if (!entry) return;
       const css =
         entry?.type === "chunk" ? [...(entry.viteMetadata?.importedCss ?? [])][0] : undefined;
@@ -197,7 +209,7 @@ function sitePages(): Plugin {
         const source = read(page);
         const lastUpdated = dated(page);
         if (!lastUpdated) throw new Error(`No lastmod for ${page.path}; run pnpm gen`);
-        if (!page.source) {
+        if (ownTwin(page)) {
           this.emitFile({
             type: "asset",
             fileName: twinFile(page),
@@ -244,7 +256,6 @@ function firstLoadBudget(): Plugin {
       const entry = Object.values(bundle).find(
         (c) => c.type === "chunk" && c.isEntry && c.facadeModuleId?.endsWith("/index.html"),
       );
-      // Only the app build: the docs build reuses this config for docs.html alone.
       if (entry?.type !== "chunk") return;
       const chunks = new Set<string>();
       const styles = new Set<string>();

@@ -133,8 +133,8 @@ describe("router", () => {
     const origin = "https://terrakin.org";
     expect(isAppLink(new URL("https://terrakin.org/r/r_1"), origin)).toBe(true);
     expect(isAppLink(new URL("https://terrakin.org/v1/skill"), origin)).toBe(false);
-    // The docs are their own page (docs.html), so a link there is a full page load.
-    expect(isAppLink(new URL("https://terrakin.org/docs#tag/social"), origin)).toBe(false);
+    // The docs are static pages of their own, so a link there is a full page load.
+    expect(isAppLink(new URL("https://terrakin.org/docs/api/social"), origin)).toBe(false);
     expect(isAppLink(new URL("https://github.com/"), origin)).toBe(false);
   });
 });

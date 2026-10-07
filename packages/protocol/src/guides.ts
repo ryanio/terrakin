@@ -4,14 +4,14 @@
  * document, and the newest day of the changelog (CHANGELOG.md). `pnpm gen` writes the result to
  * packages/client/src/docs/guides.generated.md and `pnpm gen:check` fails when that copy is stale.
  *
- * The docs page hands this markdown to the renderer as the document's description. Its `#`
- * headings become top-level sidebar entries and its `##` headings their children. The renderer
- * parses and draws all of it before the page shows anything, so the agent quickstart carries only
- * the sections an assistant needs to get going (`QUICKSTART_SECTIONS`); the rest of SKILL.md is
- * linked on its own page, /docs/skill (decision 0193).
+ * The client build renders it into /docs (`docsPageMarkdown` in reference.ts), each `#` heading a
+ * guide. The agent quickstart carries only the sections an assistant needs to get going
+ * (`QUICKSTART_SECTIONS`); the rest of SKILL.md is linked on its own page, /docs/skill
+ * (decision 0193).
  */
 
 import { CHANGELOG_HOW_TO_FOLLOW, type Changelog, latestChangelogLines } from "./changelog";
+import { headingId } from "./reference";
 import { LINKS } from "./site";
 
 type Json = Record<string, unknown>;
@@ -67,14 +67,11 @@ export const GUIDE_TITLES = {
   changelog: "What's new",
 } as const;
 
-/** The renderer's anchor for a heading in the guides: `#description/<slug>`. */
-export const headingAnchor = (slug: string) => `#description/${slug}`;
-
-/** Anchors in SKILL.md that point at sections the docs page shows somewhere else. */
+/** Anchors in SKILL.md that point at sections /docs shows somewhere else. */
 const MOVED_ANCHORS: Record<string, string> = {
-  "#api-reference": "#tag/world",
-  "#live-updates-websocket": headingAnchor(slugify(GUIDE_TITLES.websocket)),
-  "#safety-rules-read-first": headingAnchor(slugify(GUIDE_TITLES.safety)),
+  "#api-reference": LINKS.apiReference,
+  "#live-updates-websocket": `#${slugify(GUIDE_TITLES.websocket)}`,
+  "#safety-rules-read-first": `#${slugify(GUIDE_TITLES.safety)}`,
 };
 
 const NOTICE =
@@ -171,55 +168,40 @@ function splitSkill(skill: string): { intro: string; sections: Section[] } {
 const trimBlock = (lines: string[]) => lines.join("\n").trim();
 
 /**
- * Point every in-page link at the renderer's anchor for it: a guide heading becomes
- * `#description/<slug>`, a moved SKILL.md section goes where it lives now, `#tag/...` links to the
- * reference stay, and a heading of SKILL.md the guides leave out links to its place on
- * /docs/skill. A link to anything else throws, so a renamed heading fails `pnpm gen`.
+ * Check every in-page link and point it where it lands: a guide heading stays as it is, a moved
+ * SKILL.md section goes where it lives now, and a heading of SKILL.md the guides leave out links
+ * to its place on /docs/skill. A link to anything else throws, so a renamed heading fails
+ * `pnpm gen`.
  */
 function rewriteAnchors(markdown: string, skill: Set<string>): string {
-  const targets = headingTargets(markdown);
+  const targets = headingIds(markdown);
   return markdown.replace(/\]\(#([^)\s]+)\)/g, (_, anchor: string) => {
     const moved = MOVED_ANCHORS[`#${anchor}`];
     if (moved) return `](${moved})`;
-    if (anchor.startsWith("tag/")) return `](#${anchor})`;
-    const target = targets.get(anchor);
-    if (target) return `](${headingAnchor(target)})`;
+    if (targets.has(anchor)) return `](#${anchor})`;
     if (skill.has(anchor)) return `](${LINKS.skillPage}#${anchor})`;
     throw new Error(`The docs guides link to #${anchor}, which is not a heading in them`);
   });
 }
 
-/** The slug of every heading in SKILL.md, each an id on /docs/skill. */
-export function skillHeadings(skill: string): Set<string> {
-  return new Set(headingTargets(skill).keys());
-}
+/** The id of every heading in SKILL.md, each an anchor on /docs/skill. */
+export const skillHeadings = (skill: string): Set<string> => headingIds(skill);
 
-/**
- * Each heading's slug, mapped to the slug the renderer can scroll to. It only anchors `#` and `##`
- * headings (the ones in the sidebar), so a deeper heading maps to the `##` or `#` above it.
- */
-function headingTargets(markdown: string): Map<string, string> {
-  const targets = new Map<string, string>();
+/** The id the page renderer gives each heading outside fenced code. */
+function headingIds(markdown: string): Set<string> {
+  const ids = new Set<string>();
   let fenced = false;
-  let section = "";
   for (const line of markdown.split("\n")) {
     if (/^\s*```/.test(line)) fenced = !fenced;
-    const heading = fenced ? null : /^(#{1,6}) (.+)$/.exec(line);
-    if (!heading?.[1] || !heading[2]) continue;
-    const slug = slugify(heading[2]);
-    if (heading[1].length <= 2) section = slug;
-    targets.set(slug, section);
+    const heading = fenced ? null : /^#{1,6} (.+)$/.exec(line);
+    if (heading?.[1]) ids.add(slugify(heading[1]));
   }
-  return targets;
+  return ids;
 }
 
-/** GitHub-style heading slug, which is what the renderer generates for guide headings. */
+/** A heading's id, as the page renderer makes it (`slug` in the client's markdown.ts). */
 export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]/gu, "")
-    .trim()
-    .replace(/\s/g, "-");
+  return headingId(text);
 }
 
 // ---------- the WebSocket guide, from x-websocket and the message schemas ----------
@@ -256,13 +238,13 @@ function websocketGuide(openapi: Json, liveSection: string): string {
     "",
     messageTable(messageRows(openapi, client)),
     "",
-    `Full shapes: \`${client}\` under Models.`,
+    `Full shapes: [\`${client}\`](${LINKS.apiModels}#${slugify(client)}).`,
     "",
     "## Messages you receive",
     "",
     messageTable(messageRows(openapi, server)),
     "",
-    `Full shapes: \`${server}\` under Models.`,
+    `Full shapes: [\`${server}\`](${LINKS.apiModels}#${slugify(server)}).`,
   ].join("\n");
 }
 

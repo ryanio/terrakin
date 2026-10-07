@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./SKILL.md": "./SKILL.md",
-    "./openapi.json": "./openapi.json"
+    "./openapi.json": "./openapi.json",
+    "./reference": "./src/reference.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

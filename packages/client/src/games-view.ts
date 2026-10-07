@@ -18,7 +18,7 @@ import {
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { formatCount, plural } from "@terrakin/ui/format";
 import { avatarStack, personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import {
@@ -207,7 +207,7 @@ export function gamesView(ctx: ViewContext): View {
           personLink(row.resident),
           h("span", {
             class: "ladder-rating",
-            text: `${row.rating.toLocaleString("en-US")} · ${plural(row.games, "game", "games")}`,
+            text: `${formatCount(row.rating)} · ${plural(row.games, "game", "games")}`,
           }),
         ),
       ),
@@ -393,7 +393,7 @@ export function tableView(id: string, ctx: ViewContext): View {
           t.status === "over"
             ? s.place === null
               ? ""
-              : `${ordinal(s.place)}${s.rating ? `, rating ${s.rating.rating.toLocaleString("en-US")} (${s.rating.change >= 0 ? "+" : ""}${s.rating.change})` : ""}`
+              : `${ordinal(s.place)}${s.rating ? `, rating ${formatCount(s.rating.rating)} (${s.rating.change >= 0 ? "+" : ""}${s.rating.change})` : ""}`
             : s.away
               ? "Away: the server plays for them"
               : t.status === "playing"

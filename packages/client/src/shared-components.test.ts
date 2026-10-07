@@ -50,9 +50,13 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "paper menu"/, use: "moreMenu (ui.ts)" },
   { pattern: /copyText\(/, use: "copyButton or copyBlock (ui.ts)" },
   {
-    pattern: /\} \$\{\w+ === 1 \? "\w+" : "\w+"\}|=== 1 \? "1 \w+"/,
-    use: "plural (format.ts), or coins (purse.ts) for money",
-    home: "packages/client/src/purse.ts",
+    pattern: /[\w.]+ === 1 \? (?:"[\w ]+" : "[\w ]+"|"1 \w+"|one : many)/,
+    use: "plural or pluralWord (format.ts), or coins (purse.ts) for money",
+  },
+  { pattern: /toLocaleString\("en-US"\)/, use: "formatCount (format.ts)" },
+  {
+    pattern: /Intl\.DateTimeFormat\("en-US"/,
+    use: "shortDate, relativeTime, or fullDate (format.ts)",
   },
   { pattern: /dataset\.confirm/, use: "confirmTwice (ui.ts)" },
   { pattern: /"0 0 24 24"/, use: "icon (dom.ts), with a Lucide glyph added to icons.ts" },

@@ -16,7 +16,7 @@ import {
 } from "@terrakin/protocol";
 import { NOTE_MAX_LENGTH, PATTERN_LABELS, THEME_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, karmaLine, plural } from "@terrakin/ui/format";
+import { compactCount, isMediaUrl, karmaLine, plural, pluralWord } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { collectionPath, plot3dPath, profilePath } from "@terrakin/ui/paths";
@@ -275,10 +275,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       counts.followers.textContent = compactCount(r.followers);
       counts.following.textContent = compactCount(r.following);
       counts.friends.textContent = compactCount(r.friends ?? 0);
-      labels.friends.textContent = r.friends === 1 ? "friend" : "friends";
+      labels.friends.textContent = pluralWord(r.friends ?? 0, "friend", "friends");
       counts.praise.textContent = compactCount(r.praise ?? 0);
-      labels.posts.textContent = r.posts === 1 ? "post" : "posts";
-      labels.followers.textContent = r.followers === 1 ? "follower" : "followers";
+      labels.posts.textContent = pluralWord(r.posts, "post", "posts");
+      labels.followers.textContent = pluralWord(r.followers, "follower", "followers");
     };
     paintCounts();
 

@@ -20,7 +20,7 @@ import {
   type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
-import { plural, relativeTime } from "@terrakin/ui/format";
+import { formatCount, plural, pluralWord, relativeTime } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
 import {
@@ -232,7 +232,7 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
     if (target.plotNames) {
       out.push({
         kind: "clear_plot_names",
-        label: target.plotNames === 1 ? "Take down plot name" : "Take down plot names",
+        label: `Take down ${pluralWord(target.plotNames, "plot name", "plot names")}`,
         target: item.id,
         primary: false,
         confirm: "Tap again to take it down",
@@ -461,7 +461,7 @@ export function triageLine(t: AdminOverviewResponse["triage"], nowMs: number): s
   if (t.pausedUntil && Date.parse(t.pausedUntil) > nowMs) {
     return "AI triage is paused after repeated errors. Reports wait for people until it's back.";
   }
-  const n = (x: number) => x.toLocaleString("en-US");
+  const n = formatCount;
   const used = `AI triage today: ${n(t.callsToday)} of ${n(t.callsPerDay)} calls, ${n(t.tokensToday)} of ${n(t.tokensPerDay)} tokens.`;
   const agreed = t.agreement.decided
     ? ` Staff agreed with it on ${t.agreement.agreed} of ${plural(t.agreement.decided, "decision", "decisions")}.`
@@ -530,8 +530,7 @@ export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number):
     posts: `posts, likes and reacts${when}`,
     all: `posts, replies, reacts, praises, admires plots and waves${when}`,
   }[c.mode];
-  const n = (x: number) => x.toLocaleString("en-US");
-  const used = ` Today: ${n(c.callsToday)} of ${n(c.callsPerDay)} calls.`;
+  const used = ` Today: ${formatCount(c.callsToday)} of ${formatCount(c.callsPerDay)} calls.`;
   const last = c.lastRun
     ? ` Last run: ${CHATTER_SKIPS[c.lastRun.result] ?? plural(c.lastRun.result.split(",").length, "call", "calls")}.`
     : "";

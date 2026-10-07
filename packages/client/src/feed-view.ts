@@ -12,6 +12,7 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
@@ -716,7 +717,7 @@ export function feedView(ctx: ViewContext): View {
             return {
               key: `mint:${n.line.seq}`,
               lead: "The town treasury",
-              rest: `minted ${n.line.amount.toLocaleString("en-US")} coins for today`,
+              rest: `minted ${formatCount(n.line.amount)} coins for today`,
               href: "/town",
               at,
               tone: "coins",

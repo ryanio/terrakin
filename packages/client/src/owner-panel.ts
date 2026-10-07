@@ -7,7 +7,7 @@
 
 import { MAX_AGENTS_PER_OWNER, type ProfileView, type ResidentBrief } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, plural } from "@terrakin/ui/format";
+import { compactCount, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
@@ -271,7 +271,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       note.hidden = words === "";
       const set = (s: ReturnType<typeof stat>, n: number, one: string, many: string) => {
         s.n.textContent = compactCount(n);
-        s.word.textContent = n === 1 ? one : many;
+        s.word.textContent = pluralWord(n, one, many);
       };
       set(counts.posts, r.posts, "post", "posts");
       set(counts.followers, r.followers, "follower", "followers");

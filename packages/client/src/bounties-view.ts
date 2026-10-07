@@ -6,6 +6,7 @@
  */
 import type { Action, BountiesResponse, BountyView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { shortDate } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
 import {
   confirmTwice,
@@ -85,8 +86,7 @@ export function bountyStatus(
 }
 
 /** "Open until Nov 4". */
-const until = (iso: string) =>
-  `Open until ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(Date.parse(iso))}`;
+const until = (iso: string) => `Open until ${shortDate(Date.parse(iso), undefined, "UTC")}`;
 
 export function bountiesView(ctx: ViewContext): View {
   ctx.setTitle("Bounties · Terrakin");

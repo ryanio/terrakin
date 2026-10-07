@@ -4,7 +4,7 @@
  */
 import type { PurseLine, PurseResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { formatCount, plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { itemRow, itemRows, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
@@ -56,7 +56,7 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
 
 /** "+10", "−5". */
 export const signed = (n: number) =>
-  n > 0 ? `+${n.toLocaleString("en-US")}` : `−${Math.abs(n).toLocaleString("en-US")}`;
+  n > 0 ? `+${formatCount(n)}` : `−${formatCount(Math.abs(n))}`;
 
 function lineItem(line: PurseLine): HTMLLIElement {
   const other = line.with;

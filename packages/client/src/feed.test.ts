@@ -3,13 +3,16 @@ import {
   clampAspect,
   countNew,
   firstParagraphs,
+  formatCount,
   initial,
   isMediaUrl,
   isModelResource,
   karmaLine,
   mediaLayout,
   plural,
+  pluralWord,
   relativeTime,
+  shortDate,
 } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
 import { isAppLink, matchRoute, routeTemplate } from "./router";
@@ -31,6 +34,42 @@ describe("relative time", () => {
     expect(relativeTime("2025-12-31T12:00:00Z", now, TZ)).toBe("Dec 31, 2025");
     expect(relativeTime("2026-10-04T18:05:00Z", now, TZ)).toBe("now");
     expect(relativeTime("not a date", now, TZ)).toBe("");
+  });
+});
+
+describe("short date", () => {
+  it("adds the year only when it isn't now's year", () => {
+    // The devlog card's eyebrow and a collection book's first-found day.
+    const oct6 = Date.parse("2026-10-06T00:00:00Z");
+    expect(shortDate(oct6, now, TZ)).toBe("Oct 6");
+    expect(shortDate(oct6, Date.parse("2027-01-01T00:30:00Z"), TZ)).toBe("Oct 6, 2026");
+    expect(shortDate(Date.parse("2025-10-06T00:00:00Z"), now, TZ)).toBe("Oct 6, 2025");
+  });
+
+  it("never adds the year without now, as a bounty's closing day", () => {
+    expect(shortDate(Date.parse("2026-11-04T12:00:00Z"), undefined, TZ)).toBe("Nov 4");
+    expect(shortDate(Date.parse("2027-01-04T12:00:00Z"), undefined, TZ)).toBe("Jan 4");
+  });
+
+  it("reads the day in the time zone it's given", () => {
+    const late = Date.parse("2026-12-31T23:30:00Z");
+    expect(shortDate(late, now, TZ)).toBe("Dec 31");
+    expect(shortDate(late, now, "Asia/Tokyo")).toBe("Jan 1, 2027");
+  });
+});
+
+describe("counts in words", () => {
+  it("groups thousands for ratings, coins, and staff numbers", () => {
+    expect(formatCount(7)).toBe("7");
+    expect(formatCount(1200)).toBe("1,200");
+    expect(formatCount(1234567)).toBe("1,234,567");
+  });
+
+  it("picks the word alone for a count shown apart from it", () => {
+    expect(pluralWord(1, "follower", "followers")).toBe("follower");
+    expect(pluralWord(0, "follower", "followers")).toBe("followers");
+    expect(pluralWord(2, "plot name", "plot names")).toBe("plot names");
+    expect(plural(1, "post", "posts")).toBe("1 post");
   });
 });
 

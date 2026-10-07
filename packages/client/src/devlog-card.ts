@@ -6,6 +6,7 @@
  */
 import { type DevlogPost, devlogLead } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { shortDate } from "@terrakin/ui/format";
 import { announce, disclosure } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { markdownNodes } from "./markdown";
@@ -17,16 +18,7 @@ const SEEN_KEY = "terrakin.devlogSeen";
 const showDevlog = (date: string, seen: string | null): boolean => seen === null || date > seen;
 
 /** A post's day, short enough for the card's eyebrow on a phone: "Oct 6", with a year if not this one. */
-function shortDay(date: string): string {
-  const ms = Date.parse(`${date}T00:00:00Z`);
-  const thisYear = new Date(ms).getUTCFullYear() === new Date().getUTCFullYear();
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    ...(thisYear ? {} : { year: "numeric" }),
-    timeZone: "UTC",
-  }).format(ms);
-}
+const shortDay = (date: string) => shortDate(Date.parse(`${date}T00:00:00Z`), Date.now(), "UTC");
 
 function seenDay(): string | null {
   try {

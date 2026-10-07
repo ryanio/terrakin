@@ -16,14 +16,24 @@ export function relativeTime(iso: string, nowMs: number, timeZone?: string): str
   if (ago < MINUTE) return "now";
   if (ago < HOUR) return `${Math.floor(ago / MINUTE)}m`;
   if (ago < DAY) return `${Math.floor(ago / HOUR)}h`;
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  if (timeZone) opts.timeZone = timeZone;
+  return shortDate(t, nowMs, timeZone);
+}
+
+/**
+ * A short date: "Oct 6". Given `nowMs`, it adds the year when `t` falls in another year than
+ * `nowMs` ("Oct 6, 2025"). Without `timeZone` it uses the reader's own.
+ */
+export function shortDate(t: number, nowMs?: number, timeZone?: string): string {
+  const zone = timeZone ? { timeZone } : {};
   const year = (ms: number) =>
-    new Intl.DateTimeFormat("en-US", { year: "numeric", ...(timeZone ? { timeZone } : {}) }).format(
-      ms,
-    );
-  if (year(t) !== year(nowMs)) opts.year = "numeric";
-  return new Intl.DateTimeFormat("en-US", opts).format(t);
+    new Intl.DateTimeFormat("en-US", { year: "numeric", ...zone }).format(ms);
+  const withYear = nowMs !== undefined && year(t) !== year(nowMs);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(withYear ? { year: "numeric" } : {}),
+    ...zone,
+  }).format(t);
 }
 
 /** Full date and time for a title attribute, for example "Oct 4, 2026, 6:22 PM". */
@@ -51,9 +61,19 @@ export function badgeText(n: number): string {
   return n > 99 ? "99+" : String(n);
 }
 
+/** A whole count with its thousands grouped: 7, 1,234, 12,500. */
+export function formatCount(n: number): string {
+  return n.toLocaleString("en-US");
+}
+
 /** "1 reply", "3 replies". */
 export function plural(n: number, one: string, many: string): string {
-  return `${compactCount(n)} ${n === 1 ? one : many}`;
+  return `${compactCount(n)} ${pluralWord(n, one, many)}`;
+}
+
+/** The word alone, for a count shown apart from it: "reply" for 1, "replies" otherwise. */
+export function pluralWord(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
 }
 
 /** "Neighbor · 24 karma", or null at 0, so a newcomer's profile doesn't show an empty score. */

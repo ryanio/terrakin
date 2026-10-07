@@ -26,7 +26,7 @@ import {
   SWEET_RECIPES,
   type SweetKind,
 } from "@terrakin/sim";
-import { listOf } from "@terrakin/ui/format";
+import { formatCount, listOf, shortDate } from "@terrakin/ui/format";
 import { coins } from "./purse";
 
 /** "Lemon", "Bunch of herbs". */
@@ -70,14 +70,7 @@ export const collectedLine = (c: { count: number; total: number }) =>
  * year's.
  */
 export function dayLabel(day: number, nowMs: number): string {
-  const ms = day * 86_400_000;
-  const year = (t: number) => new Date(t).getUTCFullYear();
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-    ...(year(ms) === year(nowMs) ? {} : { year: "numeric" }),
-  }).format(ms);
+  return shortDate(day * 86_400_000, nowMs, "UTC");
 }
 
 /** When something turns up only in some seasons: "In autumn", "In spring and summer". */
@@ -231,7 +224,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
 /** "Admired once", "Admired 4 times", or null for a thing nobody has admired yet. */
 export function admiredLine(n: number | undefined): string | null {
   if (!n || n <= 0) return null;
-  return n === 1 ? "Admired once" : `Admired ${n.toLocaleString("en-US")} times`;
+  return n === 1 ? "Admired once" : `Admired ${formatCount(n)} times`;
 }
 
 /** How long a gift can still be sent back, in plain words. */

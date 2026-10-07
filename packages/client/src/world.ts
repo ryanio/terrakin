@@ -122,6 +122,7 @@ const fishButton = $<HTMLButtonElement>("world-fish");
 const claimButton = $<HTMLButtonElement>("claim");
 /** Takes Claim plot's place once you own all the plots you may: your things are a tap away. */
 const thingsLink = $<HTMLAnchorElement>("hud-things");
+const enterButton = $<HTMLButtonElement>("world-enter");
 const host3d = $("world-3d");
 /** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
 const sound = new SoundSwitch($<HTMLButtonElement>("sound"));
@@ -1381,6 +1382,7 @@ function frame() {
     paintGatherButton();
     paintFishButton();
     paintClaim();
+    paintEnterButton();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
@@ -1477,6 +1479,38 @@ function castLine() {
 
 fishButton.addEventListener("click", () => castLine());
 
+/** The Town Hall or the shop, when one is right beside where you stand: where its button goes. */
+function placeNear(): "/town" | "/shop" | undefined {
+  const r = self();
+  const m = mirror;
+  if (!r || !m) return undefined;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (m.isTownHall(r.x + dx, r.y + dy)) return "/town";
+      if (m.isShop(r.x + dx, r.y + dy)) return "/shop";
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Show "Town Hall" or "Shop" while you stand beside one, out of build mode. Walking up to a
+ * building only bumps into it, so this is the way in that doesn't depend on tapping the building.
+ */
+function paintEnterButton() {
+  const place = buildMode || !navigate ? undefined : placeNear();
+  enterButton.hidden = !place;
+  if (!place || enterButton.dataset.place === place) return;
+  enterButton.dataset.place = place;
+  const text = enterButton.querySelector("span");
+  if (text) text.textContent = place === "/shop" ? "Shop" : "Town Hall";
+}
+
+enterButton.addEventListener("click", () => {
+  const place = enterButton.dataset.place;
+  if (place && navigate) navigate(place);
+});
+
 petButton.addEventListener("click", async () => {
   const owner = petNear;
   const pet = owner ? mirror?.residents.get(owner)?.pet : undefined;
@@ -1548,6 +1582,7 @@ export function stopWorld() {
   gatherButton.hidden = true;
   gathering?.done();
   fishButton.hidden = true;
+  enterButton.hidden = true;
   rods = new Set();
   casts = [];
   landing.setJoining(false);

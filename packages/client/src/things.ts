@@ -142,6 +142,26 @@ export function missingLine<K extends ItemKind>(
   return short.length > 0 ? `Needs ${short.join(", ")}` : null;
 }
 
+/**
+ * A station's recipes as its sheet lays them out: what you have everything for first, then the
+ * rest by how few things they're short, in catalog order otherwise. `shown` is everything you can
+ * make, topped up to `few` with the closest when that's fewer; `more` waits behind a "Show more".
+ */
+export function recipeShelf<R extends { needs: readonly { kind: K; count: number }[] }, K>(
+  recipes: readonly R[],
+  held: (kind: K) => number,
+  few = 3,
+): { shown: R[]; more: R[] } {
+  const short = (r: R) =>
+    r.needs.reduce((n, need) => n + Math.max(0, need.count - held(need.kind)), 0);
+  const sorted = recipes
+    .map((r, i) => ({ r, i, short: short(r) }))
+    .sort((a, b) => a.short - b.short || a.i - b.i);
+  const ready = sorted.filter((s) => s.short === 0).length;
+  const cut = Math.max(ready, few);
+  return { shown: sorted.slice(0, cut).map((s) => s.r), more: sorted.slice(cut).map((s) => s.r) };
+}
+
 /** The crop a seed kind grows, if it is one. */
 export function cropOfSeed(kind: ItemKind): Crop | undefined {
   return (Object.keys(CROP_INFO) as Crop[]).find((c) => CROP_INFO[c].seed === kind);

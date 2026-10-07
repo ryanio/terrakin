@@ -242,8 +242,13 @@
           <svg class="icon" data-icon="cube" aria-hidden="true"></svg>
           <span>3D view</span>
         </button>
-        <!-- What you can do where you stand, above the 3D toggle: cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
+        <!-- What you can do where you stand, above the 3D toggle: go into the Town Hall or the shop beside you, cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
         <div class="stack tight start world-near">
+          <button type="button" id="world-enter" class="pill-button" data-place="/town" hidden>
+            <svg class="icon enter-town" data-icon="town" aria-hidden="true"></svg>
+            <svg class="icon enter-shop" data-icon="shop" aria-hidden="true"></svg>
+            <span>Town Hall</span>
+          </button>
           <button type="button" id="world-fish" class="pill-button" hidden>
             <svg class="icon" data-icon="fishing" aria-hidden="true"></svg>
             <span>Fish</span>

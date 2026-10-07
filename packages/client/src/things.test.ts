@@ -17,6 +17,7 @@ import {
   noSeedsHint,
   othersPickupLine,
   pantryWords,
+  recipeShelf,
   sendBackLine,
   thingCount,
   toastMs,
@@ -195,6 +196,37 @@ describe("things", () => {
     expect(missingLine(needs, held({ lemon: 2, jar: 1 }))).toBe("Needs 1 more lemon");
     expect(missingLine(needs, held({}))).toBe("Needs 3 more lemons, 1 more jar");
     expect(missingLine(needs, held({ lemon: 5, jar: 1 }))).toBeNull();
+  });
+
+  it("lists what you can make first and keeps the rest for Show more", () => {
+    const recipe = (name: string, needs: Record<string, number>) => ({
+      name,
+      needs: Object.entries(needs).map(([kind, count]) => ({ kind, count })),
+    });
+    const tea = recipe("tea", { herb: 2, jar: 1 });
+    const jam = recipe("jam", { lemon: 3, sugar: 1, jar: 1 });
+    const pie = recipe("pie", { pumpkin: 2, sugar: 1 });
+    const soup = recipe("soup", { pumpkin: 1, herb: 1, jar: 1 });
+    const stew = recipe("stew", { carp: 1, tomato: 1, herb: 1 });
+    const all = [jam, pie, soup, stew, tea];
+    const names = (s: { shown: { name: string }[]; more: { name: string }[] }) => [
+      s.shown.map((r) => r.name),
+      s.more.map((r) => r.name),
+    ];
+    const has = (counts: Record<string, number>) => (kind: string) => counts[kind] ?? 0;
+    // Tea and soup can be made: they lead, topped up to three with the closest, pie (1 short).
+    expect(names(recipeShelf(all, has({ herb: 2, jar: 1, pumpkin: 1, sugar: 1 })))).toEqual([
+      ["soup", "tea", "pie"],
+      ["stew", "jam"],
+    ]);
+    // Everything you can make is shown, however many.
+    const plenty = has({ herb: 9, jar: 9, pumpkin: 9, sugar: 9, lemon: 9 });
+    expect(recipeShelf(all, plenty).shown).toHaveLength(4);
+    // Nothing made yet: the three closest, in catalog order when they tie.
+    expect(names(recipeShelf(all, has({})))).toEqual([
+      ["pie", "soup", "stew"],
+      ["tea", "jam"],
+    ]);
   });
 
   it("only promises seeds from the pantry when it could still bring them", () => {

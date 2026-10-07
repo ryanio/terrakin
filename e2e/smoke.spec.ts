@@ -73,7 +73,8 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     const east = free({ x: spawn.x + 2, y: row }, { x: spawn.x + 3, y: row });
     // Back beside spawn: straight down, along the row, and straight down again, since a tap
     // down and to the left lands on the 3D view button or the ones above it (Pat, Gather all).
-    const down = free({ x: east.x, y: spawn.y - 2 }, { x: east.x, y: spawn.y - 3 });
+    // Down stops two rows clear of the hall, so its "Town Hall" button is gone before the tap west.
+    const down = free({ x: east.x, y: spawn.y - 1 }, { x: east.x, y: spawn.y + 1 });
     const along = free({ x: spawn.x - 1, y: down.y }, { x: spawn.x - 2, y: down.y });
     const back = free({ x: along.x, y: spawn.y }, { x: along.x, y: spawn.y + 1 });
     expect(onHall({ x: spawn.x, y: row })).toBe(true);
@@ -92,6 +93,8 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
         )
         .toEqual([to.x, to.y]);
       at = to;
+      // Beside the hall's west end, a button says how to go in.
+      if (to === west) await expect(page.locator("#world-enter")).toHaveText("Town Hall");
     }
     expect(seen.filter(onHall)).toEqual([]);
   });

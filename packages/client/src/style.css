@@ -8522,6 +8522,12 @@ html.view3d-open body {
 
 .game-where {
   font-size: var(--text-md);
+/* Into the Town Hall or the shop beside you: the button shows the one icon for where it goes. */
+#world-enter[data-place="/town"] .enter-shop,
+#world-enter[data-place="/shop"] .enter-town {
+  display: none;
+}
+
   font-weight: var(--weight-semibold);
   color: var(--ink-soft);
 }

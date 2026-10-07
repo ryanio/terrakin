@@ -4,13 +4,22 @@
  * under its own heading: it stacks and takes no label. It only sends actions; the server decides,
  * and its answer shows as a toast in the world. A button your things already show the server
  * would turn down (an unripe crop, missing ingredients, today's making done) is off, with the
- * reason in its row. Labels are your own words, sent as text.
+ * reason in its row. What you can make leads the list and the rest waits behind "Show more", so
+ * a long kitchen doesn't bury today's choice. Labels are your own words, sent as text.
  */
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
 import { type BlockKind, type Crop, harvestFits, isReady } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
-import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
+import {
+  closeOverlay,
+  disclosure,
+  errorLine,
+  itemRow,
+  itemRows,
+  openOverlay,
+  sheet,
+} from "@terrakin/ui/ui";
 import { api } from "./api";
 import {
   cropOfSeed,
@@ -18,6 +27,7 @@ import {
   missingLine,
   needsLine,
   noSeedsHint,
+  recipeShelf,
   thingCount,
   thingName,
 } from "./things";
@@ -57,8 +67,38 @@ function row(
   });
 }
 
+/**
+ * A list that shows its first rows and keeps the rest behind "Show 9 more recipes", which opens
+ * them in place.
+ */
+function shelved(noun: string) {
+  const shown = itemRows([], { className: "workshop-list" });
+  const rest = itemRows([], { className: "workshop-list" });
+  rest.hidden = true;
+  const toggle = h("button", {
+    class: "pill-button small workshop-more",
+    attrs: { type: "button", hidden: true },
+  });
+  let hiddenCount = 0;
+  const label = (open: boolean) => {
+    toggle.textContent = open ? "Show fewer" : `Show ${hiddenCount} more ${noun}`;
+  };
+  disclosure(toggle, rest, undefined, label);
+  return {
+    el: h("div", { class: "stack tight" }, shown, rest, toggle),
+    fill(first: readonly Element[], more: readonly Element[]) {
+      shown.replaceChildren(...first);
+      rest.replaceChildren(...more);
+      hiddenCount = more.length;
+      toggle.hidden = more.length === 0;
+      label(!rest.hidden);
+    },
+  };
+}
+
 export function openTileSheet(o: TileSheetOptions) {
   const list = itemRows([], { className: "workshop-list" });
+  const goods = shelved("recipes");
   const hint = h("p", { class: "sheet-lede workshop-hint", text: "Looking in your things…" });
   const things = h(
     "a",
@@ -78,6 +118,9 @@ export function openTileSheet(o: TileSheetOptions) {
     },
   });
   const station = o.block === "kitchen" || o.block === "workbench";
+  // A planter lists seeds or its crop; a station lists what it makes, a few at a time.
+  list.hidden = station;
+  goods.el.hidden = !station;
   const labelField = station
     ? h(
         "div",
@@ -92,7 +135,7 @@ export function openTileSheet(o: TileSheetOptions) {
     : null;
   const problem = errorLine("workshop-error");
   // Furniture (RFC 0016): its own list, under the goods, at a workbench only.
-  const furnitureList = itemRows([], { className: "workshop-list" });
+  const furnitureList = shelved("pieces");
   const furniture = h(
     "section",
     { class: "stack tight workshop-furniture", attrs: { "aria-labelledby": "workshop-furniture" } },
@@ -101,7 +144,7 @@ export function openTileSheet(o: TileSheetOptions) {
       class: "sheet-lede",
       text: "Made from wood and stone you gather. It stacks in your things; place it from Build, on the Furniture tab.",
     }),
-    furnitureList,
+    furnitureList.el,
   );
   furniture.hidden = true;
   const s = sheet(
@@ -114,6 +157,7 @@ export function openTileSheet(o: TileSheetOptions) {
     hint,
     labelField,
     list,
+    goods.el,
     furniture,
     problem,
     things,
@@ -222,10 +266,18 @@ export function openTileSheet(o: TileSheetOptions) {
         itemArt(r.recipe, { size: 32 }),
       );
     };
-    list.replaceChildren(...recipes.filter((r) => !r.furniture).map(recipeRow));
-    const pieces = recipes.filter((r) => r.furniture).map(recipeRow);
-    furnitureList.replaceChildren(...pieces);
-    furniture.hidden = pieces.length === 0;
+    const has = (kind: (typeof recipes)[number]["needs"][number]["kind"]) => held.get(kind) ?? 0;
+    const made = recipeShelf(
+      recipes.filter((r) => !r.furniture),
+      has,
+    );
+    goods.fill(made.shown.map(recipeRow), made.more.map(recipeRow));
+    const pieces = recipeShelf(
+      recipes.filter((r) => r.furniture),
+      has,
+    );
+    furnitureList.fill(pieces.shown.map(recipeRow), pieces.more.map(recipeRow));
+    furniture.hidden = pieces.shown.length === 0;
   }
 
   openOverlay(s.dialog);

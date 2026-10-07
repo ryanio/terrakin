@@ -2,7 +2,7 @@ import { PAT_LIMITS, type ServerMessage, type WorldEvent } from "@terrakin/proto
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { pickTryNext } from "./checkin";
+import { pickTryNext } from "./checkin-suggest";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";

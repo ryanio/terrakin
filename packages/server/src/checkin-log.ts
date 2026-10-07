@@ -1,5 +1,5 @@
 import type { CheckinStats } from "@terrakin/protocol";
-import { SUGGEST_AGAIN_DAYS } from "./checkin";
+import { SUGGEST_AGAIN_DAYS } from "./checkin-suggest";
 import type { SqlExec } from "./sql-store";
 
 const MINUTE_MS = 60_000;

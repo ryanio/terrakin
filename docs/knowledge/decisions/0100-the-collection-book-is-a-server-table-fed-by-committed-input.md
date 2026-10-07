@@ -26,4 +26,4 @@ tags: [server, protocol, client, agents, privacy, items]
 - A first day before the book's start is approximate for things given, bought, or found then. The world was days old.
 - Partner characters' halos never count; if that should change, it's a change to `COLLECTIBLE_WEAR`.
 - The page shows finds first, then the rest in the catalog's order; the API keeps the catalog's order.
-- Code: `packages/server/src/collection.ts` (`CollectionBook`, `collectionView`), its wiring in `packages/server/src/api.ts`, `collected` in `packages/server/src/social-service.ts`, `forage` and `finish_family` in `packages/server/src/checkin.ts`, `packages/protocol/src/collection.ts`, and `packages/client/src/collection-view.ts`.
+- Code: `packages/server/src/collection.ts` (`CollectionBook`, `collectionView`), its wiring in `packages/server/src/api.ts`, `collected` in `packages/server/src/social-service.ts`, `forage` and `finish_family` in `packages/server/src/checkin-suggest.ts`, `packages/protocol/src/collection.ts`, and `packages/client/src/collection-view.ts`.

@@ -102,7 +102,8 @@ import {
   waterBeside,
 } from "@terrakin/sim";
 import type { Api } from "./api";
-import { checkinChangelog, checkinView, startsIn } from "./checkin";
+import { checkinChangelog, checkinView } from "./checkin";
+import { startsIn } from "./checkin-todo";
 import { checkinEvents } from "./events";
 import type { Failure, Handlers } from "./handlers/shared";
 import { gardenOf } from "./items";

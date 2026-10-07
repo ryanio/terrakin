@@ -8,14 +8,8 @@ import {
 import { dayOfDate, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import {
-  checkinDigest,
-  checkinSince,
-  type DigestParts,
-  fingerprint,
-  pickTryNext,
-  TRY_NEXT,
-} from "./checkin";
+import { checkinDigest, checkinSince, type DigestParts, fingerprint } from "./checkin";
+import { CRANBERRY_KINDS, PUMPKIN_KINDS, pickTryNext, TRY_NEXT } from "./checkin-suggest";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -52,6 +46,7 @@ async function start(
     items?: boolean;
     shop?: boolean;
     finds?: boolean;
+    bounties?: boolean;
   } = {},
 ) {
   let now = 1_700_000_000_000;
@@ -781,6 +776,134 @@ describe("first-visit steps and things to try", () => {
     const ash = join("Ash");
     await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
     expect(pickTryNext(service.state, ash.id, gardener, new Set())?.id).toBe("visit");
+  });
+  it("reads a season's crop from the catalog: its seeds, the crop, and the goods made from it", () => {
+    expect(PUMPKIN_KINDS).toEqual(
+      new Set(["pumpkin_seed", "pumpkin", "pumpkin_pie", "pumpkin_soup"]),
+    );
+    expect(CRANBERRY_KINDS).toEqual(
+      new Set(["cranberry_seed", "cranberry", "cranberry_jam", "cranberry_punch"]),
+    );
+  });
+});
+
+describe("the order of a check-in's todo lines", () => {
+  it("puts first-visit steps first and today's suggestion last, with everything else in between in one order", async () => {
+    const world = { days: true, economy: true, items: true, bounties: true };
+    const { join, ok, checkin, advance, service, social, now } = await start(world);
+    const [wren, ash, bo] = [join("Wren"), join("Ash"), join("Bo")];
+    const act = (token: string, action: Json) => ok("POST", "/v1/actions", action, token);
+    for (const [r, px] of [
+      [wren, 1],
+      [ash, 3],
+      [bo, 5],
+    ] as const) {
+      await act(r.token, { type: "settle", px, py: 1 });
+      await act(r.token, { type: "build_starter_home" });
+    }
+    await act(wren.token, { type: "place", x: 6, y: 6, block: "planter" });
+    await act(wren.token, { type: "plant", x: 6, y: 6, seed: "flower" });
+    await act(wren.token, { type: "adopt_pet", kind: "cat", coat: "ginger", name: "Moss" });
+    for (let d = 0; d < 3; d++) {
+      advance(DAY);
+      service.tick();
+    }
+    // Events (RFC 0010): one on now that Wren is going to, one on now she isn't, then a new day
+    // with Wren away from her hearth, so today's coins wait for her.
+    const at = (hours: number) => new Date(Math.floor(now() / HOUR + hours) * HOUR).toISOString();
+    const event = (px: number, hours: number) => ({
+      type: "schedule_event",
+      kind: "listening",
+      title: "Records",
+      text: "Bring a song.",
+      px,
+      py: 1,
+      startsAt: at(hours),
+      minutes: 60,
+    });
+    await act(ash.token, event(3, 2));
+    await act(bo.token, event(5, 2));
+    await ok("POST", "/v1/events/e_1/going", undefined, wren.token);
+    await act(wren.token, { type: "move", dir: "n" });
+    advance(2 * HOUR + 60_000);
+    service.tick();
+    // One she hosts, and one she's going to, both coming up.
+    await act(wren.token, event(1, 2));
+    await act(ash.token, event(3, 3));
+    await ok("POST", "/v1/events/e_4/going", undefined, wren.token);
+    // Two tables: one waiting on her move, and one she can start.
+    await act(wren.token, { type: "open_table", game: "hearth_race", pace: "slow" });
+    await act(ash.token, { type: "sit", table: "g_1" });
+    await act(wren.token, { type: "start_game", table: "g_1" });
+    await act(wren.token, { type: "open_table", game: "hearth_race", pace: "slow" });
+    await act(ash.token, { type: "sit", table: "g_2" });
+    // A thing and coins as gifts, and bounties: hers done, one that paid her, and a new one.
+    await act(ash.token, { type: "give", to: wren.id, item: "flower_seed" });
+    await act(ash.token, { type: "give_coins", to: wren.id, amount: 1 });
+    const bounty = { type: "post_bounty", title: "Water my lemons", text: "Twice.", reward: 5 };
+    await act(wren.token, bounty);
+    await act(ash.token, { type: "claim_bounty", bounty: "b_1" });
+    await act(ash.token, { type: "complete_bounty", bounty: "b_1" });
+    await act(ash.token, bounty);
+    await act(wren.token, { type: "claim_bounty", bounty: "b_2" });
+    await act(ash.token, { type: "confirm_bounty", bounty: "b_2", to: wren.id });
+    await act(ash.token, bounty);
+    // A post staff took down, an admire, a pat, a mention, a letter, a wave, and a proposal.
+    const taken = (await ok("POST", "/v1/posts", { text: "Buy my stuff" }, wren.token)).post;
+    expect((await social.safety.hidePost("staff", taken.id, "spam", "spam")).ok).toBe(true);
+    await act(ash.token, { type: "visit", px: 1, py: 1 });
+    await ok("POST", "/v1/plots/1/1/admire", undefined, ash.token);
+    await ok("POST", `/v1/residents/${wren.id}/pet/pat`, undefined, ash.token);
+    await ok("PUT", "/v1/profile", { handle: "wren" }, wren.token);
+    await ok("PUT", `/v1/residents/${ash.id}/follow`, undefined, wren.token);
+    await ok("POST", "/v1/posts", { text: "Morning @wren" }, ash.token);
+    await ok("POST", "/v1/letters", { to: wren.id, text: "Tea later?" }, ash.token);
+    await ok("POST", `/v1/residents/${wren.id}/gesture`, { kind: "wave" }, ash.token);
+    await act(ash.token, { type: "propose", kind: "advisory", title: "More benches" });
+
+    // Each line's start, with resident ids left out.
+    const starts = (c: Json) =>
+      c.todo.map((t: string) => t.replace(/r_[0-9a-f]+/g, "<id>").slice(0, 32));
+    const between = [
+      "Your move at table g_1 (Hearth r",
+      "Table g_2 has enough players, an",
+      "Come home to your hearth for tod",
+      '1 crop you planted is ready: {"t',
+      "1 thing came in as gifts today. ",
+      "Staff took down something of you",
+      "<id> says your bounty b_1 is don",
+      "1 bounty or grant paid you today",
+      "1 bounty posted since 2023-11-17",
+      "1 gift of coins came in today. T",
+      "1 resident admired your plot (`p",
+      "You have 6 unread notifications.",
+      "Residents patted your pet or gav",
+      "You have 1 unread letter. Open e",
+      "1 gesture came in. Send one back",
+      "Proposal t_1 is open and you hav",
+      "1 new post from people you follo",
+      "Your event e_3 starts in 2 hours",
+      "e_4 starts in 3 hours (2023-11-1",
+      "e_1, which you said you're going",
+      "1 event is on now (e_2). Read th",
+      "Terrakin changed. Read `changelo",
+      "The Terrakin devlog has a new po",
+    ];
+    expect(starts(await checkin(wren.token))).toEqual([
+      "First visit: write a short bio: ",
+      "First visit: choose a look from ",
+      "First visit: introduce yourself ",
+      ...between,
+    ]);
+    // With her first visit done, the same check-in ends with today's suggestion: naming her plot,
+    // a step added after the test clock's 2023, when she joined.
+    await ok("PUT", "/v1/profile", { bio: "a muse" }, wren.token);
+    await act(wren.token, { type: "profile", theme: "meadow" });
+    await ok("POST", "/v1/posts", { text: "Hello" }, wren.token);
+    expect(starts(await checkin(wren.token))).toEqual([
+      ...between,
+      "Something to try today: name you",
+    ]);
   });
 });
 

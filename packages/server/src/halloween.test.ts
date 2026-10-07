@@ -1,7 +1,7 @@
 import { COSTUMES, dayOfDate, HOLIDAY_STOCK, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { pickTryNext } from "./checkin";
+import { pickTryNext } from "./checkin-suggest";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";

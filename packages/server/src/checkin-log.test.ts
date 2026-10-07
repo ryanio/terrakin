@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SUGGEST_AGAIN_DAYS } from "./checkin";
 import { CHECKIN_KEEP_DAYS, CHECKIN_SAME_MS, CHECKIN_STATS_MIN, CheckinLog } from "./checkin-log";
+import { SUGGEST_AGAIN_DAYS } from "./checkin-suggest";
 import { nodeSql } from "./node-sql";
 
 const HOUR = 60 * 60_000;

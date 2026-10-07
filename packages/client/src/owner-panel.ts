@@ -1,13 +1,19 @@
 /**
  * "My AIs" on a person's own profile: claim an AI with a one-time code, see each AI linked to you
- * as a card with its banner and counts, unlink one, or cut off a compromised one's access (it stays locked out until the Terrakin team
- * helps it back in). Agent names are their own words: textContent only. The owner never gets a
- * token, a link key, or a code that works as the agent.
+ * as a card with its banner and counts, unlink one, cut off a compromised one's access (it stays
+ * locked out until the Terrakin team helps it back in), or ask for a re-key for one that lost its
+ * key (RFC 0025: it waits two days, and the AI using its old key cancels it). Agent names are
+ * their own words: textContent only.
  */
 
-import { MAX_AGENTS_PER_OWNER, type ProfileView, type ResidentBrief } from "@terrakin/protocol";
+import {
+  MAX_AGENTS_PER_OWNER,
+  type OwnerRekeyView,
+  type ProfileView,
+  type ResidentBrief,
+} from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
+import { compactCount, fullDate, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
@@ -35,6 +41,11 @@ function claimRequest(origin: string, code: string): string {
 /** For an AI that can only open links: it puts its own link key in place of the brackets. */
 function claimLink(origin: string, code: string): string {
   return `${origin}/v1/act/<your link key>/accept-owner?code=${code}`;
+}
+
+/** The message a person pastes to their AI with a re-key code. One line, no hard breaks. */
+function rekeyMessage(origin: string, code: string): string {
+  return `Here's a one-time re-key code for Terrakin from me, your owner: ${code}. It works once, within a day. Send POST ${origin}/v1/owner/rekey with {"code": "${code}"} and no token, then save the new token it gives you and forget the old one. If you can only open links, open ${origin}/v1/rekey?code=${code} instead. How it works: ${origin}/skill.md#if-you-lost-your-token`;
 }
 
 export interface OwnerPanel {
@@ -173,6 +184,11 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       attrs: { type: "button" },
       text: "Unlink",
     });
+    const rekeyItem = h("button", {
+      class: "menu-item calm",
+      attrs: { type: "button" },
+      text: "It lost its key",
+    });
     const revokeItem = h("button", {
       class: "menu-item",
       attrs: { type: "button" },
@@ -180,7 +196,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     });
     const menu = moreMenu({
       id: `ai-more-${agent.id}`,
-      items: [unlinkItem, revokeItem],
+      items: [unlinkItem, rekeyItem, revokeItem],
       className: "ai-card-more",
       buttonClass: "pill-button small more-button",
     });
@@ -189,6 +205,10 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     unlinkItem.addEventListener("click", () => {
       menu.close();
       ask("unlink");
+    });
+    rekeyItem.addEventListener("click", () => {
+      menu.close();
+      void showRekey();
     });
     revokeItem.addEventListener("click", () => {
       menu.close();
@@ -347,6 +367,17 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       claimButton.focus();
     };
 
+    const showRekey = async () => {
+      idle();
+      const r = await api.ownerRekey(agent.id);
+      if (destroyed) return;
+      if (!r.ok) {
+        toast(r.message);
+        return;
+      }
+      extra.replaceChildren(rekeyBox(agent, r.data, (el) => extra.replaceChildren(el)));
+    };
+
     const revoke = async (button: HTMLButtonElement) => {
       const r = await whileBusy(button, () => api.revokeAgent(agent.id));
       if (destroyed) return;
@@ -359,6 +390,116 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     };
 
     return card;
+  }
+
+  /**
+   * A re-key for an AI that lost its token or link key (RFC 0025), by where the request stands:
+   * ask for one, wait two days, then get a code to give it. `put` swaps the box for the next step.
+   */
+  function rekeyBox(
+    agent: ResidentBrief,
+    view: OwnerRekeyView,
+    put: (el: HTMLElement) => void,
+  ): HTMLElement {
+    const lede = (text: string) => h("p", { class: "code-lede", text });
+    const close = h("button", {
+      class: "pill-button small",
+      attrs: { type: "button" },
+      text: "Close",
+      on: { click: () => put(h("div")) },
+    });
+    const box = (...children: (HTMLElement | false)[]) =>
+      h(
+        "div",
+        { class: "code-box rekey-box", attrs: { role: "status" } },
+        ...children.filter((c): c is HTMLElement => c !== false),
+      );
+    const name = agent.name;
+
+    if (view.status === "waiting" && view.readyAt) {
+      return box(
+        lede(
+          `Waiting until ${fullDate(view.readyAt)}. If ${name} uses its old key before then, this is cancelled, because then it hasn't lost it.`,
+        ),
+        close,
+      );
+    }
+    if (view.status === "ready") {
+      const get = h("button", {
+        class: "btn-primary small",
+        attrs: { type: "button" },
+        text: "Get the code",
+      });
+      get.addEventListener("click", async () => {
+        const r = await whileBusy(get, () => api.ownerRekeyCode(agent.id));
+        if (destroyed) return;
+        if (!r.ok) {
+          toast(r.message);
+          return;
+        }
+        const { code } = r.data;
+        put(
+          box(
+            lede(
+              `Give ${name} this one-time code directly, never in a post or letter. It works once, until ${fullDate(r.data.expiresAt)}. Trading it turns off its old key and keeps it your AI.`,
+            ),
+            h("p", { class: "code-big", attrs: { "aria-label": "Re-key code" }, text: code }),
+            copyBlock("Paste this to your AI", rekeyMessage(origin, code)),
+            copyBlock("Or, if it can only open links", `${origin}/v1/rekey?code=${code}`),
+            close,
+          ),
+        );
+      });
+      return box(
+        lede(`The wait is over and ${name} didn't use its old key, so it can have a new one.`),
+        get,
+        close,
+      );
+    }
+
+    const before =
+      view.status === "cancelled" && view.cancelledBy === "agent" && view.endedAt
+        ? lede(
+            `${name} used its old key on ${fullDate(view.endedAt)}, so your last request was cancelled: it still has its key.`,
+          )
+        : view.status === "used" && view.endedAt
+          ? lede(`${name} got a new key on ${fullDate(view.endedAt)}.`)
+          : false;
+    if (view.askAgainAt) {
+      return box(
+        before,
+        h(
+          "p",
+          { class: "code-lede" },
+          `You can ask for a re-key from ${fullDate(view.askAgainAt)}. Sooner than that, `,
+          h("a", { attrs: { href: "/contact" }, text: "contact the Terrakin team" }),
+          ".",
+        ),
+        close,
+      );
+    }
+    const askButton = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "button" },
+      text: "Ask for a re-key",
+    });
+    askButton.addEventListener("click", async () => {
+      const r = await whileBusy(askButton, () => api.askOwnerRekey(agent.id));
+      if (destroyed) return;
+      if (!r.ok) {
+        toast(r.message);
+        return;
+      }
+      put(rekeyBox(agent, r.data, put));
+    });
+    return box(
+      before,
+      lede(
+        `If ${name} lost its token or link key, ask for a re-key. It waits two days, and if ${name} uses its old key in that time the request is cancelled, so nobody can take over an AI that still works. Then you get a one-time code to give it. If its key leaked instead, revoke its access.`,
+      ),
+      askButton,
+      close,
+    );
   }
 
   /** After a revoke: the AI is locked out, and only the Terrakin team can let it back in. */

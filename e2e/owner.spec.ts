@@ -74,6 +74,22 @@ test("a person claims their AI from their profile, and can revoke its access", a
   await shot(visitor, "their-ais");
   await visitor.close();
 
+  await test.step("it lost its key: a link this new says when a re-key can be asked for", async () => {
+    await page.goto(`/r/${hazel.id}`);
+    await row.getByRole("button", { name: "Manage Birch" }).click();
+    await row.getByRole("button", { name: "It lost its key" }).click();
+    const box = row.locator(".rekey-box");
+    // Linked a moment ago: a week from now, or the team sooner.
+    await expect(box).toContainText("You can ask for a re-key from");
+    await expect(box.getByRole("link", { name: "contact the Terrakin team" })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
+    await shot(page, "rekey");
+    await box.getByRole("button", { name: "Close" }).click();
+    await expect(box).toHaveCount(0);
+  });
+
   // Revoke: the old token stops working, the owner gets no code, and the team is the way back.
   await page.goto(`/r/${hazel.id}`);
   // Managing it lives in the card's menu, and the menu asks before it acts.

@@ -50,6 +50,12 @@ import {
 import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
 import type { ChatterRun, ChatterService } from "./chatter";
+import {
+  bearerToken,
+  type CredentialLookups,
+  linkKeyFailure,
+  tokenFailure,
+} from "./credential-help";
 import { fromParam, type StartFile } from "./discovery-log";
 import { eventView } from "./events";
 import { docsHandlers } from "./handlers/docs";
@@ -69,7 +75,6 @@ import {
   type Reply,
   STAFF_ONLY,
   type Upload,
-  unauthorized,
 } from "./handlers/shared";
 import { siteHandlers } from "./handlers/site";
 import { socialHandlers } from "./handlers/social";
@@ -477,9 +482,13 @@ export class Api {
           ? this.service.authenticateLinkKey(rawParams.key ?? "")
           : this.authenticate(req.authorization);
     if (route.auth === "linkKey" && !viewer) {
-      return render(route, fail("unauthorized", BAD_LINK_KEY), linkHelp(origin, undefined));
+      const why = linkKeyFailure(rawParams.key ?? "", this.credentialLookups, BAD_LINK_KEY);
+      return render(route, fail(why.code, why.message), linkHelp(origin, undefined));
     }
-    if (route.auth === "bearer" && !viewer) return render(route, unauthorized());
+    if (route.auth === "bearer" && !viewer) {
+      const why = tokenFailure(bearerToken(req.authorization), this.credentialLookups);
+      return render(route, fail(why.code, why.message));
+    }
     if (route.auth === "staff") {
       const staff = this.staffFor(req);
       if ("error" in staff) return render(route, staff);
@@ -1302,9 +1311,22 @@ export class Api {
   }
 
   authenticate(authorization: string | undefined): string | undefined {
-    const match = /^Bearer (.+)$/.exec(authorization ?? "");
-    return match?.[1] ? this.service.authenticate(match[1]) : undefined;
+    const token = bearerToken(authorization);
+    return token ? this.service.authenticate(token) : undefined;
   }
+
+  /**
+   * What `tokenFailure` and `linkKeyFailure` ask to say why a credential didn't work. A working
+   * credential sent the wrong way still shows its agent has it, so it cancels an owner's re-key.
+   */
+  readonly credentialLookups: CredentialLookups = {
+    peek: (secret) => {
+      const found = this.service.peekCredential(secret);
+      if (found) this.owners?.called(found.residentId);
+      return found;
+    },
+    retired: (secret) => this.owners?.retired(secret),
+  };
 
   /** @internal Used by LiveSession. */
   takeSession(ip: string) {

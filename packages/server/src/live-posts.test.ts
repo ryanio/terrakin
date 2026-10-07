@@ -235,7 +235,7 @@ describe("post messages on /v1/live", () => {
     await s.ready;
     service.revokeTokens(agent.id);
     await expect.poll(() => s.closed()).toBe(4003);
-    expect(s.messages.at(-1)).toMatchObject({ type: "error", error: { code: "unauthorized" } });
+    expect(s.messages.at(-1)).toMatchObject({ type: "error", error: { code: "revoked" } });
   });
 
   it("only watches: no actions, no hello on the same socket, and a bad token is refused", async () => {

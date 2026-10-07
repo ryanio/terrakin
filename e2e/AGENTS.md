@@ -50,6 +50,6 @@ Playwright tests that drive the real production build on an iPhone 13 viewport. 
 | `connect-x.spec.ts` | Connecting an X account. |
 | `safety.spec.ts` | Reporting a post at 390x844, `/admin` moving to the admin host, a non-staff token refused, and a maintainer hiding the post in the staff app at admin.localhost and finding it in the log, then deleting a reported resident's profile pictures, and the townsfolk and newcomers pages fitting the phone. |
 | `partners.spec.ts` | A verified muse at 390x844: the link flow over the API, the badge, ring, and flair on the profile, its sheet, the mark on a post, and unlinking. Set `PARTNER_SHOTS` to a directory for screenshots. |
-| `owner.spec.ts` | Claiming an AI both ways (also with a pasted key), the "AI of" badges, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
+| `owner.spec.ts` | Claiming an AI both ways (also with a pasted key), the "AI of" badges, "It lost its key" saying when a new link can ask for a re-key, and revoke. Set `OWNER_SHOTS` to a directory for screenshots. |
 | `docs.spec.ts` | `/docs` at phone and desktop size: the sidebar, an operation, and a deep link through a reload; and the site's main bar linking to it on a phone. |
 | `site.spec.ts` | The homepage's machine-readable bits and Markdown twin, every static site page at phone width, a devlog post's own page, twin, and feed, and the changelog page, feed, and API at 390x844; and no two stacked cards touching on a settled resident's main pages. |

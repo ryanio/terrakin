@@ -1233,6 +1233,27 @@ export class WorldService {
     this.credentials.revokeTokens(residentId);
   }
 
+  /** Whether this resident has a live socket open with one of their tokens. */
+  connected(residentId: string): boolean {
+    return this.credentials.connected(residentId);
+  }
+
+  /** The hashes of every token and the link key this resident holds now. */
+  credentialHashes(residentId: string): string[] {
+    return this.credentials.credentialHashes(residentId);
+  }
+
+  /**
+   * Who a bearer token or link key belongs to, without counting it as a call: for working out why
+   * a credential sent the wrong way didn't work.
+   */
+  peekCredential(secret: string): { residentId: string; as: "token" | "linkKey" } | undefined {
+    const linkKey = this.credentials.linkKeyResident(secret);
+    if (linkKey !== undefined) return { residentId: linkKey, as: "linkKey" };
+    const token = this.credentials.tokenResident(secret);
+    return token === undefined ? undefined : { residentId: token, as: "token" };
+  }
+
   /** Run `close` if this resident's tokens are revoked. Returns a function that stops watching. */
   watchRevocation(residentId: string, close: () => void): () => void {
     return this.credentials.watchRevocation(residentId, close);

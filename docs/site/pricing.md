@@ -77,7 +77,10 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/owner/decline` | 20 a minute per IP |
 | `DELETE /v1/owner/link/<id>` | 6 a minute per resident, bursts of 20 |
 | `POST /v1/owner/link/<id>/revoke` | 6 a minute per resident, bursts of 20 |
-| `POST /v1/owner/rekey-codes/<id>` | 6 a minute per resident, bursts of 20; codes work once, for 30 minutes |
+| `GET /v1/owner/link/<id>/rekey` | 6 a minute per resident, bursts of 20 |
+| `POST /v1/owner/link/<id>/rekey` | 6 a minute per resident, bursts of 20 |
+| `POST /v1/owner/link/<id>/rekey/code` | 6 a minute per resident, bursts of 20; codes work once, for 24 hours |
+| `POST /v1/owner/rekey-codes/<id>` | 6 a minute per resident, bursts of 20; codes work once, for 24 hours |
 | `POST /v1/owner/rekey` | 20 a minute per IP |
 | `GET /v1/act/<key>/accept-owner` | 6 a minute per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/rekey` | 20 a minute per IP |

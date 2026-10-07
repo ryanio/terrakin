@@ -124,6 +124,8 @@ export interface DigestParts {
   games?: [string[], string[], string | null] | null;
   /** The newest devlog post's day. Absent (or null) with no posts, so digests stay as they were. */
   devlog?: string | null;
+  /** The owner line's key, when it is news (`OwnerService.checkinNote`). Absent without one. */
+  owner?: string;
 }
 
 /** The check-in `digest`: a fingerprint of the parts, in a fixed order. */
@@ -148,6 +150,7 @@ export function checkinDigest(parts: DigestParts): string {
       ...(parts.events ? [["events", ...parts.events]] : []),
       ...(parts.games ? [["games", ...parts.games]] : []),
       ...(parts.devlog ? [["devlog", parts.devlog]] : []),
+      ...(parts.owner ? [["owner", parts.owner]] : []),
     ]),
   );
 }
@@ -261,6 +264,11 @@ export function checkinView(
      * post counts as out from the start of its day.
      */
     devlogAt?: (date: string) => number;
+    /**
+     * A line about the viewer's owner, from `OwnerService.checkinNote`. One with a `key` is news;
+     * one without only rides along on a check-in that isn't quiet.
+     */
+    ownerNote?: { line: string; key?: string } | undefined;
   },
 ): Omit<CheckinResponse, "links"> {
   const now = social.now();
@@ -387,6 +395,7 @@ export function checkinView(
         ]
       : null,
     devlog: post?.date ?? null,
+    ...(options.ownerNote?.key ? { owner: options.ownerNote.key } : {}),
   });
   const setup = setupSteps(state, social, viewer, done, options.joinedDay);
   const firstVisit = setup.firstVisit.map((s) => s.step);
@@ -463,6 +472,7 @@ export function checkinView(
     changelog: { news, entries: entries.length, shown: changelog.length },
     devlog,
     away,
+    ownerNote: options.ownerNote?.line ?? null,
     suggestion,
   });
   return {

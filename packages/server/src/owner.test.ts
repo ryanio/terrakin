@@ -1,14 +1,20 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MAX_AGENTS_PER_OWNER, OWNER_CODE_TTL_MS, type ServerMessage } from "@terrakin/protocol";
+import {
+  MAX_AGENTS_PER_OWNER,
+  OWNER_CODE_TTL_MS,
+  OWNER_REKEY,
+  REKEY_CODE_TTL_MS,
+  type ServerMessage,
+} from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { normalizeCode } from "./owner-service";
+import { normalizeCode, OwnerService } from "./owner-service";
 import { SocialService } from "./social-service";
 import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
@@ -38,7 +44,8 @@ interface Who {
 
 async function start() {
   let now = 1_700_000_000_000;
-  const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+  // One clock for the world and the social layer, so days agree (a check-in compares them).
+  const service = new WorldService({ store: new MemoryStore(), config: CONFIG, now: () => now });
   const sql = nodeSql();
   // Granted by server config in production. Tests add to them after creating a resident.
   const townsfolk = new Set<string>();
@@ -96,6 +103,7 @@ async function start() {
     profile,
     sql,
     service,
+    social,
     townsfolk,
     maintainers,
     advance: (ms: number) => {
@@ -424,6 +432,9 @@ describe("revoking a compromised agent", () => {
     // The old token is dead everywhere.
     const stale = await call("POST", "/v1/posts", { text: "still me?" }, wren.token);
     expect(stale.status).toBe(401);
+    // It says why, so the agent doesn't have to guess (RFC 0025).
+    expect(stale.body.error.code).toBe("revoked");
+    expect(stale.body.error.message).toContain("Your owner turned off this token");
     expect((await call("POST", "/v1/actions", { type: "home" }, wren.token)).status).toBe(401);
     // The owner's own token is untouched, and it can't mint a way in.
     expect((await call("POST", "/v1/posts", { text: "Fixed it." }, hazel.token)).status).toBe(201);
@@ -523,13 +534,13 @@ describe("revoking a compromised agent", () => {
     expect((await call("POST", "/v1/posts", { text: "fine" }, wren.token)).status).toBe(201);
   });
 
-  it("replaces an unused re-key code, and lets a code expire", async () => {
+  it("replaces an unused re-key code, and lets a code expire after a day", async () => {
     const { call, revoke, rekeyCode, advance } = await cast();
     await revoke();
     const first = (await rekeyCode()).body.code;
     const second = (await rekeyCode()).body.code;
     expect((await call("POST", "/v1/owner/rekey", { code: first })).status).toBe(404);
-    advance(OWNER_CODE_TTL_MS);
+    advance(REKEY_CODE_TTL_MS);
     expect((await call("POST", "/v1/owner/rekey", { code: second })).status).toBe(404);
     const third = (await rekeyCode()).body.code;
     expect((await call("POST", "/v1/owner/rekey", { code: third })).status).toBe(200);
@@ -566,7 +577,7 @@ describe("revoking a compromised agent", () => {
 
     await call("POST", `/v1/owner/link/${wren.residentId}/revoke`, undefined, hazel.token);
     expect(await closed).toBe(4003);
-    expect(messages.at(-1)).toMatchObject({ type: "error", error: { code: "unauthorized" } });
+    expect(messages.at(-1)).toMatchObject({ type: "error", error: { code: "revoked" } });
 
     // And the old token can't open a new one.
     const again = new WebSocket(`${base.replace("http", "ws")}/v1/live`);
@@ -575,8 +586,248 @@ describe("revoking a compromised agent", () => {
     );
     await new Promise((done) => again.once("open", done));
     again.send(JSON.stringify({ type: "hello", v: 1, token: wren.token }));
-    expect(await reply).toMatchObject({ type: "error", error: { code: "unauthorized" } });
+    expect(await reply).toMatchObject({ type: "error", error: { code: "revoked" } });
     again.close();
+  });
+});
+
+describe("an owner re-keys an agent that lost its key (RFC 0025)", () => {
+  const DAY = 86_400_000;
+
+  async function lost() {
+    const t = await start();
+    const hazel = await t.join("Hazel", "human");
+    const wren = await t.join("Wren", "agent");
+    const mira = await t.join("Mira", "human");
+    await t.claim(hazel, wren);
+    const path = `/v1/owner/link/${wren.residentId}/rekey`;
+    const status = (who: Who = hazel) => t.call("GET", path, undefined, who.token);
+    const ask = (who: Who = hazel) => t.call("POST", path, undefined, who.token);
+    const code = (who: Who = hazel) => t.call("POST", `${path}/code`, undefined, who.token);
+    return { ...t, hazel, wren, mira, status, ask, code };
+  }
+
+  it("waits two days, then gives a code the agent trades for a new token, and the link stays", async () => {
+    const { call, wren, hazel, status, ask, code, advance, profile } = await lost();
+    expect((await status()).body.status).toBe("none");
+    advance(OWNER_REKEY.linkedDays * DAY);
+
+    const asked = await ask();
+    expect(asked.status).toBe(201);
+    expect(asked.body).toMatchObject({ status: "waiting", cancelledBy: null, askAgainAt: null });
+    expect(Date.parse(asked.body.readyAt) - Date.parse(asked.body.askedAt)).toBe(
+      OWNER_REKEY.waitMs,
+    );
+    // Asking again while it waits answers with the same one.
+    expect((await ask()).body.askedAt).toBe(asked.body.askedAt);
+    const early = await code();
+    expect(early.status).toBe(409);
+    expect(early.body.error.code).toBe("too_soon");
+
+    advance(OWNER_REKEY.waitMs);
+    expect((await status()).body.status).toBe("ready");
+    const issued = await code();
+    expect(issued.status).toBe(201);
+    expect(Date.parse(issued.body.expiresAt) - Date.parse(asked.body.readyAt)).toBe(
+      REKEY_CODE_TTL_MS,
+    );
+
+    const back = await call("POST", "/v1/owner/rekey", { code: issued.body.code });
+    expect(back.status).toBe(200);
+    expect(back.body.residentId).toBe(wren.residentId);
+    const stale = await call("POST", "/v1/posts", { text: "old" }, wren.token);
+    expect(stale.body.error.code).toBe("revoked");
+    expect(stale.body.error.message).toContain("replaced when you were re-keyed");
+    expect((await call("POST", "/v1/posts", { text: "Back." }, back.body.token)).status).toBe(201);
+    // Unlike the team's re-key, the owner's keeps the link.
+    expect((await profile(wren.residentId)).owner.id).toBe(hazel.residentId);
+    expect((await status()).body.status).toBe("used");
+  });
+
+  it("is cancelled by any call the agent makes with its old key, which its check-in tells it", async () => {
+    const { call, wren, status, ask, code, advance } = await lost();
+    advance(OWNER_REKEY.linkedDays * DAY);
+    await ask();
+    const key = (await call("POST", "/v1/link-key", undefined, wren.token)).body.key as string;
+
+    expect((await status()).body).toMatchObject({ status: "cancelled", cancelledBy: "agent" });
+    const checkin = await call("GET", "/v1/checkin", undefined, wren.token);
+    expect(checkin.body.todo.join("\n")).toContain("Your owner asked for a new key for you");
+    advance(OWNER_REKEY.waitMs);
+    expect((await code()).status).toBe(404);
+
+    // A code already given is voided too, here by the link key.
+    advance(OWNER_REKEY.everyDays * DAY);
+    expect((await ask()).status).toBe(201);
+    advance(OWNER_REKEY.waitMs);
+    const issued = await code();
+    expect(issued.status).toBe(201);
+    expect((await call("GET", `/v1/act/${key}/me`)).status).toBe(200);
+    expect((await call("POST", "/v1/owner/rekey", { code: issued.body.code })).status).toBe(404);
+    expect((await status()).body.cancelledBy).toBe("agent");
+  });
+
+  it("is for the owner only, after the link is a week old, once a month, and never after a revoke", async () => {
+    const { call, wren, mira, hazel, ask, status, advance } = await lost();
+    const young = await ask();
+    expect(young.status).toBe(409);
+    expect(young.body.error.code).toBe("too_soon");
+    advance(OWNER_REKEY.linkedDays * DAY);
+    expect((await ask(mira)).status).toBe(403);
+    expect((await status(mira)).status).toBe(403);
+    expect((await ask(wren)).status).toBe(403);
+
+    expect((await ask()).status).toBe(201);
+    await call("GET", "/v1/me", undefined, wren.token);
+    const again = await ask();
+    expect(again.status).toBe(409);
+    expect((await status()).body.askAgainAt).not.toBeNull();
+
+    advance(OWNER_REKEY.everyDays * DAY);
+    expect((await ask()).status).toBe(201);
+    await call("POST", `/v1/owner/link/${wren.residentId}/revoke`, undefined, hazel.token);
+    // The revoke cancelled it, and the team handles it from here.
+    expect((await status()).body).toMatchObject({ status: "cancelled", cancelledBy: "revoke" });
+    advance(OWNER_REKEY.everyDays * DAY);
+    expect((await ask()).status).toBe(403);
+  });
+
+  it("is cancelled by a live socket, which also keeps the code from being given or traded", async () => {
+    const { base, wren, status, ask, code, advance } = await lost();
+    advance(OWNER_REKEY.linkedDays * DAY);
+    const socket = async () => {
+      const ws = new WebSocket(`${base.replace("http", "ws")}/v1/live`);
+      const messages: ServerMessage[] = [];
+      ws.on("message", (data) => messages.push(JSON.parse(String(data))));
+      await new Promise((done) => ws.once("open", done));
+      cleanups.push(() => ws.close());
+      return { ws, messages };
+    };
+
+    // Saying hello is a call.
+    await ask();
+    const first = await socket();
+    first.ws.send(JSON.stringify({ type: "hello", v: 1, token: `Bearer ${wren.token}` }));
+    await expect.poll(() => first.messages.some((m) => m.type === "welcome")).toBe(true);
+    expect((await status()).body).toMatchObject({ status: "cancelled", cancelledBy: "agent" });
+
+    // An agent connected before the request and quiet since still has its key.
+    advance(OWNER_REKEY.everyDays * DAY);
+    await ask();
+    advance(OWNER_REKEY.waitMs);
+    const refused = await code();
+    expect(refused.status).toBe(404);
+    expect(refused.body.error.message).toContain("connected to Terrakin with its old key");
+    expect((await status()).body.cancelledBy).toBe("agent");
+
+    // And any message on the socket counts as a call.
+    first.ws.close();
+    await expect.poll(() => first.ws.readyState).toBe(WebSocket.CLOSED);
+    advance(OWNER_REKEY.everyDays * DAY);
+    await ask();
+    const second = await socket();
+    second.ws.send(JSON.stringify({ type: "watch", v: 1, token: wren.token }));
+    await expect.poll(() => second.messages.some((m) => m.type === "watching")).toBe(true);
+    expect((await status()).body.cancelledBy).toBe("agent");
+  });
+
+  it("is cancelled by the agent's key sent the wrong way, by unlinking, and by the team's re-key", async () => {
+    const { call, sql, wren, hazel, mira, maintainers, claim, ask, advance } = await lost();
+    maintainers.add(mira.residentId);
+    const row = () => [...sql.exec("SELECT status, cancelled_by FROM owner_rekeys")][0];
+    advance(OWNER_REKEY.linkedDays * DAY);
+    const key = (await call("POST", "/v1/link-key", undefined, wren.token)).body.key as string;
+
+    await ask();
+    // A link key sent as a token doesn't work, but shows the agent still has it.
+    expect((await call("GET", "/v1/me", undefined, key)).status).toBe(401);
+    expect(row()).toMatchObject({ status: "cancelled", cancelled_by: "agent" });
+
+    advance(OWNER_REKEY.everyDays * DAY);
+    await ask();
+    const unlinked = await call(
+      "DELETE",
+      `/v1/owner/link/${wren.residentId}`,
+      undefined,
+      hazel.token,
+    );
+    expect(unlinked.status).toBe(204);
+    expect(row()).toMatchObject({ status: "cancelled", cancelled_by: "unlink" });
+
+    await claim(hazel, wren);
+    advance(OWNER_REKEY.everyDays * DAY);
+    expect((await ask()).status).toBe(201);
+    const team = await call(
+      "POST",
+      `/v1/owner/rekey-codes/${wren.residentId}`,
+      undefined,
+      mira.token,
+    );
+    expect(team.status).toBe(201);
+    expect(row()).toMatchObject({ status: "cancelled", cancelled_by: "unlink" });
+  });
+
+  it("still cancels after a restart, from the table", async () => {
+    const { sql, service, social, wren, ask, advance } = await lost();
+    advance(OWNER_REKEY.linkedDays * DAY);
+    await ask();
+    // A fresh owner service, as after a restart, knows the request is open from its row.
+    const again = new OwnerService({ social, credentials: service });
+    again.called(wren.residentId);
+    expect([...sql.exec("SELECT status, cancelled_by FROM owner_rekeys")][0]).toMatchObject({
+      status: "cancelled",
+      cancelled_by: "agent",
+    });
+  });
+
+  it("nudges an agent with no owner, the day after it joins and then weekly", async () => {
+    const { call, join, advance } = await start();
+    const moss = await join("Moss", "agent");
+    const todo = async () =>
+      ((await call("GET", "/v1/checkin", undefined, moss.token)).body.todo as string[]).join("\n");
+    expect(await todo()).not.toContain("no owner linked");
+    advance(DAY);
+    expect(await todo()).toContain("You have no owner linked");
+    advance(DAY);
+    expect(await todo()).not.toContain("no owner linked");
+    advance(6 * DAY);
+    expect(await todo()).toContain("You have no owner linked");
+  });
+});
+
+describe("a credential that doesn't work says why", () => {
+  it("forgives quotes, case, and a doubled Bearer, and names a wrong or unknown credential", async () => {
+    const { base, call, join } = await start();
+    const wren = await join("Wren", "agent");
+    const key = (await call("POST", "/v1/link-key", undefined, wren.token)).body.key as string;
+    const send = (authorization: string) =>
+      fetch(`${base}/v1/me`, { headers: { authorization } }).then(async (r) => ({
+        status: r.status,
+        body: (await r.json()) as { error: { code: string; message: string } },
+      }));
+
+    for (const header of [
+      `bearer ${wren.token}`,
+      `Bearer "${wren.token}"`,
+      `Bearer Bearer ${wren.token}`,
+      `Bearer <${wren.token}>`,
+      ` ${wren.token} `,
+    ]) {
+      expect((await send(header)).status).toBe(200);
+    }
+    const unknown = await send(`Bearer ${wren.token.slice(0, -2)}`);
+    expect(unknown.status).toBe(401);
+    expect(unknown.body.error.code).toBe("unauthorized");
+    expect(unknown.body.error.message).toContain("no record of turning it off");
+    expect(unknown.body.error.message).toContain("#if-you-lost-your-token");
+    expect((await send("")).body.error.message).toContain("Missing token");
+    expect((await send(`Bearer ${key}`)).body.error.message).toContain("That's a link key");
+    // And never echoes what was sent.
+    expect(JSON.stringify(unknown.body)).not.toContain(wren.token.slice(0, 20));
+
+    const tokenInLink = await fetch(`${base}/v1/act/${wren.token}/me`).then((r) => r.text());
+    expect(tokenInLink).toContain("That's your API token, not a link key");
+    expect(tokenInLink).not.toContain(wren.token);
   });
 });
 

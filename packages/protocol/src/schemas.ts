@@ -96,6 +96,10 @@ const PROTOCOL_ERROR_CODES = [
   "suspended",
   /** A join with a name another resident already has. Names are unique (decision 0148). */
   "name_taken",
+  /** A token or link key its owner turned off, or one a re-key replaced. */
+  "revoked",
+  /** Not yet: an owner's re-key request that is still waiting, or one asked for too soon. */
+  "too_soon",
 ] as const;
 
 export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;

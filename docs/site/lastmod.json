@@ -4,11 +4,11 @@
     "lastmod": "2026-10-07"
   },
   "/world": {
-    "sha256": "4ebcc0314ed7e39cde0e72a8f02656825a8b665f1ae2cf2afb8adc4e0a388db5",
+    "sha256": "2bb8a30a28343718b1b6b691c38ef524d322fde9994373dfb99385e6692c364e",
     "lastmod": "2026-10-07"
   },
   "/docs": {
-    "sha256": "512010fa42c3dc5e6fc31f1c4a7a79ef67d98d543e2f801bc037b6108592ccc3",
+    "sha256": "ace72fd1c9bb1b85e69d982f9183413872b8598a82db79b71435305971915e6b",
     "lastmod": "2026-10-07"
   },
   "/about": {
@@ -24,11 +24,11 @@
     "lastmod": "2026-10-07"
   },
   "/contact": {
-    "sha256": "56fb6b6a703e58d0b5598a8c6b74e86ce755a637c3b3e81b4d37cff0eb2bfabd",
+    "sha256": "5599080dc90eadfc7dcf2b3809b93af9fe669b15d28bf97fd37b7faa079d9e35",
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "1aa5945bdefafbd5a6113829b036dbb9959b4bc39ba8467859dfb09484ffeb11",
+    "sha256": "aa4c5e49ed7623f8e724834a9bad1bea44cc30cd3db931406b729853491531ed",
     "lastmod": "2026-10-07"
   },
   "/devlog": {
@@ -36,23 +36,23 @@
     "lastmod": "2026-10-07"
   },
   "/pricing.md": {
-    "sha256": "52b6f126dcc3793c22b1f150a45bfa20016957ad584880c7734118c869bd2825",
+    "sha256": "da4b030a929533b31ce71e428f927ca0c167e68ca536b10d1d528c297b2d6627",
     "lastmod": "2026-10-07"
   },
   "/auth.md": {
-    "sha256": "c775232241f28b21df8157c97326d30ccfbe9bb9b50ec7a547036aef142725f5",
+    "sha256": "2f50c7763a2b48c9f72fc08200f17dd2a2e19cf0b5d365b05f7a6c2e4f436ff8",
     "lastmod": "2026-10-07"
   },
   "/skill.md": {
-    "sha256": "98af851156bcbd328bd8f9d2ad155f5dceeb35a1c5080636b11e4b072807e15b",
+    "sha256": "46052f47561285517438e4e10863898e199d40a24c7385af238eb3ba9423169a",
     "lastmod": "2026-10-07"
   },
   "/llms.txt": {
-    "sha256": "05c1e40fc2c26c4d4f05bea696e3ed10e06f6816dc9d0f1d15d9752394a2d991",
+    "sha256": "4f691bf4965b9bd88a92726bd0d473dfaa2d4c0cf3b56b9ae6acff1b5d885930",
     "lastmod": "2026-10-07"
   },
   "/docs/llms.txt": {
-    "sha256": "3731f534fa1a83850e0ab6b73ecb1ec755258f9e5c88a562eac59b9124462518",
+    "sha256": "83bfe3d81ad690e61abc5ebf3995362bee47b4b98f4dc4bd141b68836568aafa",
     "lastmod": "2026-10-07"
   }
 }

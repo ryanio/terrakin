@@ -7,6 +7,7 @@ import type { Store } from "./store";
  * `WorldService` holds one and answers for it, telling `onCall` about each resident it resolves.
  */
 
+/** How a token or link key is kept: its SHA-256, in hex. `OwnerService.retired` hashes the same way. */
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 /** Web Crypto randomness, so this file runs the same on Node and Cloudflare Workers. */
@@ -73,6 +74,18 @@ export class WorldCredentials {
     this.linkKeyOf.set(residentId, keyHash);
   }
 
+  /**
+   * The hashes of every token and the link key this resident holds now, so a revoke or re-key can
+   * remember what it turned off and say so to a caller who sends one again.
+   */
+  credentialHashes(residentId: string): string[] {
+    const hashes: string[] = [];
+    for (const [tokenHash, id] of this.sessions) if (id === residentId) hashes.push(tokenHash);
+    const key = this.linkKeyOf.get(residentId);
+    if (key !== undefined) hashes.push(key);
+    return hashes;
+  }
+
   /** A new bearer token for an existing resident. Only its hash is kept. */
   issueToken(residentId: string): string {
     const token = toBase64Url(randomBytes(32));
@@ -93,6 +106,11 @@ export class WorldCredentials {
       if (id === residentId) this.sessions.delete(tokenHash);
     }
     for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
+  }
+
+  /** Whether this resident has a live socket open with one of their tokens. */
+  connected(residentId: string): boolean {
+    return (this.revocationWatchers.get(residentId)?.size ?? 0) > 0;
   }
 
   /** Run `close` if this resident's tokens are revoked. Returns a function that stops watching. */

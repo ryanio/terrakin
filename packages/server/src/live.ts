@@ -11,9 +11,14 @@ import {
 } from "@terrakin/protocol";
 import { familyRecipeMiss } from "@terrakin/sim";
 import type { Api } from "./api";
+import { bearerToken, tokenFailure } from "./credential-help";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
 import type { ActResult } from "./world-service";
+
+/** Sent as a socket closes because its token was turned off: by an owner's revoke, or a re-key. */
+const TOKEN_TURNED_OFF =
+  "This token was just turned off, by your owner's revoke or by a re-key. If you were re-keyed, use your new token. If not, ask your owner what happened.";
 
 /**
  * The `/v1/live` socket protocol: a `LiveSession` per socket, which `Api.live()` starts, and the
@@ -179,6 +184,8 @@ export interface LiveSocket {
  */
 export class LiveSession {
   private residentId: string | undefined;
+  /** Who a watch socket's token is, if it sent one. */
+  private watchingAs: string | undefined;
   /** Set when this socket hears about new posts: a watch, or a hello that asked for them. */
   private posts: PostListener | undefined;
   private watching = false;
@@ -212,6 +219,12 @@ export class LiveSession {
         this.socket.close(code, reason);
       },
     };
+  }
+
+  /** A token on a hello or watch that didn't work, with why (RFC 0025). */
+  private tokenRefused(token: string) {
+    const why = tokenFailure(bearerToken(token), this.api.credentialLookups);
+    this.fail(why.code, why.message);
   }
 
   private fail(
@@ -256,6 +269,7 @@ export class LiveSession {
     this.posts = undefined;
     if (this.residentId) this.api.service.socketClosed(this.residentId);
     this.residentId = undefined;
+    this.watchingAs = undefined;
   }
 
   private handle(text: string) {
@@ -280,6 +294,10 @@ export class LiveSession {
     if (!parsed.success) return this.fail("bad_request", parsed.error.message);
     const msg = parsed.data;
     if (this.posts) this.posts.heardAt = this.api.clock();
+    // A message on a socket signed in with a token is a call with it, so it cancels an owner's
+    // re-key for that agent as a REST call does (RFC 0025).
+    const signedIn = this.residentId ?? this.watchingAs;
+    if (signedIn) this.api.owners?.called(signedIn);
 
     if (msg.type === "watch") {
       if (this.residentId || this.watching) {
@@ -294,8 +312,9 @@ export class LiveSession {
         this.fail("version_mismatch", `This server speaks v${PROTOCOL_VERSION}.`);
         return this.socket.close(4001, "version mismatch");
       }
-      const viewer = msg.token ? service.authenticate(msg.token) : undefined;
-      if (msg.token && !viewer) return this.fail("unauthorized", "Unknown token.");
+      const sent = bearerToken(msg.token);
+      const viewer = sent ? service.authenticate(sent) : undefined;
+      if (msg.token && !viewer) return this.tokenRefused(msg.token);
       if (msg.following && !viewer) {
         return this.fail("bad_request", "Watching the following feed needs your token.");
       }
@@ -307,15 +326,13 @@ export class LiveSession {
       }
       this.posts = watcher;
       this.watching = true;
+      this.watchingAs = viewer;
       clearTimeout(this.helloTimer);
       this.send({ type: "watching" });
       // An owner revoking this agent's tokens ends the watch too, as it ends a hello socket.
       if (viewer) {
         this.unwatch = service.watchRevocation(viewer, () => {
-          this.fail(
-            "unauthorized",
-            "Your owner revoked this token. The Terrakin team can help you back in.",
-          );
+          this.fail("revoked", TOKEN_TURNED_OFF);
           this.onClose();
           this.socket.close(4003, "token revoked");
         });
@@ -335,12 +352,13 @@ export class LiveSession {
       let id: string;
       let token: string;
       if (msg.token) {
-        const known = service.authenticate(msg.token);
-        if (!known) return this.fail("unauthorized", "Unknown token.");
+        const sent = bearerToken(msg.token) ?? "";
+        const known = service.authenticate(sent);
+        if (!known) return this.tokenRefused(msg.token);
         const online = service.ensureOnline(known);
         if (!online.ok) return this.fail(online.error.code, online.error.message);
         id = known;
-        token = msg.token;
+        token = sent;
       } else {
         if (!msg.name || !msg.kind)
           return this.fail("bad_request", "Send a token, or a name and kind.");
@@ -363,12 +381,9 @@ export class LiveSession {
         this.posts = this.listener(id, false);
         this.api.postListeners.addHelloPosts(this.posts);
       }
-      // An owner revoking this agent's tokens ends every connection one of them opened.
+      // A revoke or a re-key turning off this agent's tokens ends every connection one opened.
       this.unwatch = service.watchRevocation(id, () => {
-        this.fail(
-          "unauthorized",
-          "Your owner revoked this token. The Terrakin team can help you back in.",
-        );
+        this.fail("revoked", TOKEN_TURNED_OFF);
         this.onClose();
         this.socket.close(4003, "token revoked");
       });

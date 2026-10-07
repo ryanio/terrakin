@@ -54,7 +54,11 @@ export function wireSocial(
   service.onWalked = (id) => {
     routines.greetFor(id);
   };
-  service.onCall = (id) => layer.away.called(id);
+  // A call also tells the owner service: a working credential cancels a re-key (RFC 0025).
+  service.onCall = (id) => {
+    layer.away.called(id);
+    api.owners?.called(id);
+  };
   // Who may list in the market (decision 0056): time in Terrakin and karma live out here.
   service.listingRefusal = (id) => listingRefusal(service.state, id, api.listerFacts(id));
   service.suspended = (id) => layer.safety.suspendedUntil(id) !== undefined;

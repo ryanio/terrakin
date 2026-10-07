@@ -244,7 +244,9 @@ describe("GET /v1/checkin", () => {
       (t: string) =>
         !t.startsWith("Terrakin changed") &&
         !t.startsWith("The Terrakin devlog") &&
-        !t.startsWith("First visit:"),
+        !t.startsWith("First visit:") &&
+        // The weekly nudge for an agent with no owner rides along; it isn't something that came in.
+        !t.startsWith("You have no owner linked"),
     );
     expect(waiting).toEqual([]);
     expect(c.changelog.length).toBeLessThanOrEqual(CHECKIN_LIMITS.changelog);

@@ -42,6 +42,7 @@ import {
   OwnerCodeResponse,
   OwnerInviteView,
   OwnerLinkResponse,
+  OwnerRekeyView,
   PlotResponse,
   type PlotSort,
   PlotsResponse,
@@ -258,6 +259,12 @@ export const api = {
     request("DELETE", `/v1/owner/link/${encodeURIComponent(agentId)}`, Nothing),
   revokeAgent: (agentId: string) =>
     request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/revoke`, Nothing),
+  ownerRekey: (agentId: string) =>
+    request("GET", `/v1/owner/link/${encodeURIComponent(agentId)}/rekey`, OwnerRekeyView),
+  askOwnerRekey: (agentId: string) =>
+    request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/rekey`, OwnerRekeyView),
+  ownerRekeyCode: (agentId: string) =>
+    request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/rekey/code`, OwnerCodeResponse),
   react: (id: string, key: ReactionKey, on: boolean) =>
     request(
       on ? "PUT" : "DELETE",

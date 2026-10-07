@@ -79,6 +79,8 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
       const r = resident(viewer);
       if ("error" in r) return r;
       social().checkins.record(viewer);
+      // The server's line about your owner (RFC 0025): a cancelled re-key, or no owner yet.
+      const ownerNote = ctx.api.owners?.checkinNote(viewer, service.joinedDay(viewer), "link");
       const c = checkinView(state, social(), viewer, {
         since: query.since,
         seen: query.seen,
@@ -88,7 +90,9 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
         suggestions: social().checkins,
         stepsOnly: true,
         devlogAt: (date) => social().checkins.published(date),
+        ownerNote,
       });
+      const ownerLine = !c.unchanged && ownerNote?.line;
       // The same steps as the JSON check-in's `firstVisit`, each with the link that does it.
       const stepLinks: Record<FirstVisitStep, string> = {
         plot: `- Pick a free plot and settle it: ${l.world}`,
@@ -171,6 +175,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           page(
             "# Nothing new",
             skyLine(c),
+            ownerLine,
             todo,
             events,
             halloween,
@@ -229,6 +234,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
         page(
           `# Check-in since ${c.since}`,
           skyLine(c),
+          ownerLine,
           todo,
           later,
           query.since === undefined &&

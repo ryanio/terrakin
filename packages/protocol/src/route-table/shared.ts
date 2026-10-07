@@ -11,6 +11,7 @@ import {
   FEED_MAX_LIMIT,
   MEDIA_TYPES,
   OWNER_CODE_TTL_MS,
+  REKEY_CODE_TTL_MS,
   ReactionKey,
 } from "../social";
 
@@ -111,6 +112,7 @@ export function describeRateLimit(limit: RateLimit): string {
 const PROTOCOL_ERROR_STATUS: Partial<Record<ErrorCode, number>> = {
   bad_request: 400,
   unauthorized: 401,
+  revoked: 401,
   forbidden: 403,
   not_found: 404,
   rate_limited: 429,
@@ -118,6 +120,7 @@ const PROTOCOL_ERROR_STATUS: Partial<Record<ErrorCode, number>> = {
   internal: 500,
   unavailable: 503,
   suspended: 403,
+  too_soon: 409,
 };
 
 /** The HTTP status for an error code. World rule rejections (like `invalid_name`) are 400. */
@@ -268,13 +271,15 @@ export function isWriteRoute(route: RouteSpec): boolean {
 
 /**
  * Every error code a route can answer with, apart from `internal`: the ones it declares, plus
- * `bad_request` and `idempotency_conflict` when it takes an `Idempotency-Key`, and `suspended` and
- * `rate_limited` when it writes.
+ * `bad_request` and `idempotency_conflict` when it takes an `Idempotency-Key`, `suspended` and
+ * `rate_limited` when it writes, and `revoked` wherever it can answer `unauthorized`.
  */
 export function routeErrors(route: RouteSpec): readonly ErrorCode[] {
   const extra: ErrorCode[] = [];
   if (acceptsIdempotencyKey(route)) extra.push("bad_request", "idempotency_conflict");
   if (isWriteRoute(route)) extra.push("suspended", "rate_limited");
+  // A credential a revoke or a re-key turned off answers `revoked` wherever one is checked.
+  if (route.errors.includes("unauthorized")) extra.push("revoked");
   return extra.length === 0 ? route.errors : [...new Set<ErrorCode>([...route.errors, ...extra])];
 }
 
@@ -347,6 +352,7 @@ export const CodeParams = z.object({
   code: z.string().min(1).max(64).describe("The invite code, like `abcd-efgh-jkmn-pqrs`."),
 });
 export const codeLife = `codes work once, for ${OWNER_CODE_TTL_MS / 60_000} minutes`;
+export const rekeyCodeLife = `codes work once, for ${REKEY_CODE_TTL_MS / 3_600_000} hours`;
 export const ReactionParams = PostParams.extend({
   key: ReactionKey.describe(
     "One of `heart`, `laugh`, `wow`, `sprout`, `home`, `clap`, `hug`, `yum`, `thanks`, `sparkle`. More may be added.",

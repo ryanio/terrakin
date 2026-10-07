@@ -557,7 +557,7 @@ function onMessage(msg: ServerMessage) {
       if (gathering && msg.id === gathering.id) gathering.done();
       // Before the welcome, any refusal is about joining: the form says why.
       if (joiningFresh && !me) return joinRefused(code, message);
-      if (code === "unauthorized") return keyNotFound();
+      if (code === "unauthorized" || code === "revoked") return keyNotFound();
       // A refused chat line stays in the input, so it isn't lost.
       if (pendingChat && msg.id === pendingChat.id) pendingChat = undefined;
       // A second tap on Claim lands after the first made the plot yours: nothing went wrong.

@@ -40,6 +40,21 @@ export function ownerHandlers(
       fromResult(owners().unlink(viewer, params.id), () => ({ status: 204 as const })),
     revokeAgentAccess: ({ viewer, params }) =>
       fromResult(owners().revoke(viewer, params.id), () => ({ status: 204 as const })),
+    getOwnerRekey: ({ viewer, params }) =>
+      fromResult(owners().rekeyView(viewer, params.id), (view) => ({
+        status: 200 as const,
+        body: view,
+      })),
+    askOwnerRekey: ({ viewer, params }) =>
+      fromResult(owners().askRekey(viewer, params.id), (view) => ({
+        status: 201 as const,
+        body: view,
+      })),
+    createOwnerRekeyCode: ({ viewer, params }) =>
+      fromResult(owners().rekeyCode(viewer, params.id), (code) => ({
+        status: 201 as const,
+        body: code,
+      })),
     createRekeyCode: ({ viewer, params }) =>
       fromResult(owners().maintainerRekey(viewer, params.id), (code) => ({
         status: 201 as const,

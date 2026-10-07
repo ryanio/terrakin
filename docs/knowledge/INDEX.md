@@ -150,6 +150,7 @@ What we chose and why. Newest last.
 - [Recipes phase 1: the shelf is its own list in the shop, a card's season is its good's, and the switch waits for the shop](decisions/0180-recipes-phase-1-the-shelf-is-its-own-list-in-the-shop-a-card.md) · 2026-10-07 · accepted · `sim` `protocol` `server` `economy` `replay` `items`
 - [Recipes on the web: picks are asked at each kitchen or workbench while they last, and e2e opens recipes on a borrowed server](decisions/0181-recipes-on-the-web-picks-are-asked-at-each-kitchen-or-workbe.md) · 2026-10-07 · accepted · `client` `e2e` `testing` `items`
 - [The site has two page layouts: a column, and the home wall's main column with a sidebar](decisions/0182-the-site-has-two-page-layouts-a-column-and-the-home-wall-s-m.md) · 2026-10-07 · accepted · `client` `ui` `design`
+- [An owner can re-key their AI that lost its key after a two-day wait its old key cancels](decisions/0183-an-owner-can-re-key-their-ai-that-lost-its-key-after-a-two-d.md) · 2026-10-07 · accepted · `security` `server` `protocol` `agents` `identity`
 
 ## Learnings
 

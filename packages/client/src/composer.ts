@@ -389,7 +389,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     submit.removeAttribute("aria-busy");
     if (!r.ok) {
       error.textContent =
-        r.code === "unauthorized"
+        r.code === "unauthorized" || r.code === "revoked"
           ? "Your session has ended. Step into the world again to post."
           : r.message;
       update();

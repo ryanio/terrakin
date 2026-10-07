@@ -58,6 +58,8 @@ export interface CheckinFacts {
   changelog: { news: boolean; entries: number; shown: number };
   devlog: CheckinResponse["devlog"];
   away: CheckinResponse["away"]["items"];
+  /** The server's line about the resident's owner (a cancelled re-key, or no owner yet). */
+  ownerNote: string | null;
   suggestion: Suggestion | null;
 }
 
@@ -270,6 +272,7 @@ const TODO: readonly TodoEntry[] = [
         ]
       : [],
   (f) => awayTodo(f.away),
+  ({ ownerNote }) => (ownerNote ? [ownerNote] : []),
   ({ suggestion }) =>
     suggestion
       ? [

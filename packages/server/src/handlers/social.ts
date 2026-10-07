@@ -232,6 +232,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         joinedDay: service.joinedDay(viewer),
         suggestions: social().checkins,
         devlogAt: (date) => social().checkins.published(date),
+        ownerNote: api.owners?.checkinNote(viewer, service.joinedDay(viewer), "api"),
       });
       const home = api.homeField(viewer).home;
       return { status: 200, body: checkinWithLinks(origin, viewer, home, view) };

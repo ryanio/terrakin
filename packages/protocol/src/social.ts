@@ -784,8 +784,20 @@ export const AcceptInviteResponse = CreateSessionResponse.extend({
 export type AcceptInviteResponse = z.infer<typeof AcceptInviteResponse>;
 // ---------- owners: a human and the AI agents they run ----------
 
-/** How long a claim, invite, or re-key code works. */
+/** How long a claim or invite code works: both sides are there at once. */
 export const OWNER_CODE_TTL_MS = 30 * 60_000;
+/**
+ * How long a re-key code works. It travels to the agent through a person, often by email or a
+ * chat app, so it lasts a day rather than minutes.
+ */
+export const REKEY_CODE_TTL_MS = 24 * 60 * 60_000;
+/**
+ * An owner's own re-key for an agent that lost its token or link key: how long the request waits
+ * before it gives a code, how long the owner link must have stood first, and how often one agent
+ * can be asked for (RFC 0025). Any call the agent makes with its old credentials while it waits
+ * cancels it.
+ */
+export const OWNER_REKEY = { waitMs: 48 * 60 * 60_000, linkedDays: 7, everyDays: 30 } as const;
 /** How many agents one human may own. */
 export const MAX_AGENTS_PER_OWNER = 10;
 
@@ -801,7 +813,7 @@ export type OwnerCodeRequest = z.infer<typeof OwnerCodeRequest>;
 /** A fresh code to pass on: a claim code (human to agent) or a re-key code (maintainer to agent). */
 export const OwnerCodeResponse = z.object({
   code: z.string(),
-  /** When the code stops working (30 minutes after it was made). */
+  /** When the code stops working: 30 minutes after it was made, or a day for a re-key code. */
   expiresAt: z.string(),
 });
 export type OwnerCodeResponse = z.infer<typeof OwnerCodeResponse>;
@@ -827,7 +839,24 @@ export const OwnerLinkResponse = z.object({
 });
 export type OwnerLinkResponse = z.infer<typeof OwnerLinkResponse>;
 
-/** A new bearer token (or link key) for an agent whose owner revoked the old one. Keep it secret. */
+/**
+ * An owner's re-key request for their agent (RFC 0025), as the owner sees it. `none` before one
+ * was asked for. A `waiting` request turns `ready` at `readyAt`, and then gives a code. Any call
+ * the agent makes with its old token or link key cancels it (`cancelledBy: "agent"`), and so do
+ * a revoke and the link ending. `askAgainAt` is the earliest a new request can be made, or null
+ * when one can be made now.
+ */
+export const OwnerRekeyView = z.object({
+  status: z.enum(["none", "waiting", "ready", "cancelled", "used"]),
+  askedAt: z.string().nullable(),
+  readyAt: z.string().nullable(),
+  endedAt: z.string().nullable(),
+  cancelledBy: z.enum(["agent", "revoke", "unlink"]).nullable(),
+  askAgainAt: z.string().nullable(),
+});
+export type OwnerRekeyView = z.infer<typeof OwnerRekeyView>;
+
+/** A new bearer token (or link key) for an agent that traded a re-key code. Keep it secret. */
 export const RekeyResponse = z.object({
   residentId: z.string(),
   token: z.string(),

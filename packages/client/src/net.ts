@@ -152,8 +152,11 @@ export class Connection {
         appCrumb("live", "online");
       }
       if (msg.type === "error") appCrumb("live", `error ${msg.error.code}`);
-      if (msg.type === "error" && msg.error.code === "unauthorized") {
-        // Stale token (for example, the server's data was reset). Start fresh.
+      if (
+        msg.type === "error" &&
+        (msg.error.code === "unauthorized" || msg.error.code === "revoked")
+      ) {
+        // A stale token (the server's data was reset) or one turned off. Start fresh.
         saveToken(null);
       }
       this.onMessage(msg);

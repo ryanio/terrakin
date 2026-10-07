@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { peopleEmpty, peoplePath, tabCount } from "./people-view";
+import { peopleEmpty, peoplePath } from "./people-view";
 import { matchRoute, routeTemplate } from "./router";
 
 describe("people pages", () => {
@@ -10,13 +10,6 @@ describe("people pages", () => {
       expect(routeTemplate(route)).toBe(`/r/:id/${tab}`);
     }
     expect(matchRoute("/r/r_abc/enemies").name).toBe("not-found");
-  });
-
-  it("counts each tab from the profile", () => {
-    const r = { followers: 3, following: 5, friends: 2 };
-    expect(tabCount(r, "followers")).toBe(3);
-    expect(tabCount(r, "following")).toBe(5);
-    expect(tabCount(r, "friends")).toBe(2);
   });
 
   it("talks to you on your own page and about them on theirs", () => {

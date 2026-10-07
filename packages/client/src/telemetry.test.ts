@@ -36,12 +36,19 @@ describe("error reports carry nothing private", () => {
     expect(filterBreadcrumb({ message: "no category" })).toBeNull();
   });
 
-  it("keeps navigation and request breadcrumbs, without query strings", () => {
+  it("keeps navigation and request breadcrumbs, without query strings or ids", () => {
     const crumb = filterBreadcrumb({
       category: "fetch",
       data: { url: "/v1/world?x=1", method: "GET" },
     });
     expect(crumb?.data).toEqual({ url: "/v1/world", method: "GET" });
+    const nav = filterBreadcrumb({
+      category: "navigation",
+      data: { from: "/r/r_abc", to: "/p/p_def?x=1" },
+    });
+    expect(nav?.data).toEqual({ from: "/r/:id", to: "/p/:id" });
+    const event = scrubEvent({ request: { url: "https://terrakin.org/r/r_abc" } }, null);
+    expect(JSON.stringify(event)).not.toContain("r_abc");
   });
 
   it("reduces a click to tag, id, and classes, never its labels", () => {
@@ -80,14 +87,27 @@ describe("error reports carry nothing private", () => {
     });
   });
 
-  it("templates claim codes and invite codes in paths", () => {
-    expect(templateIds("/claim/abcd-efgh-jkmn-pqrs")).toBe("/claim/:id");
-    expect(templateIds("/i/x7y8z9")).toBe("/i/:id");
-  });
-
-  it("templates the place a link into the world names", () => {
-    expect(templateIds("/world?at=t_ivy&view=3d")).toBe("/world?at=:at&view=3d");
-    expect(templateIds("/world?view=3d&at=12,4")).toBe("/world?view=3d&at=:at");
+  it("templates ids, handles, codes, and a world link's place wherever they appear", () => {
+    for (const [raw, templated] of [
+      ["/r/r_abc123", "/r/:id"],
+      ["https://terrakin.org/p/p_0123456789abcdef", "https://terrakin.org/p/:id"],
+      ["/v1/residents/r_abc/posts?before=x", "/v1/residents/:id/posts?before=x"],
+      ["/v1/residents/r_abc/following", "/v1/residents/:id/following"],
+      ["/media/m_0123456789abcdef", "/media/:id"],
+      ["https://terrakin.org/u/wren_bot", "https://terrakin.org/u/:handle"],
+      ["/v1/residents/by-handle/wren", "/v1/residents/by-handle/:handle"],
+      ['{"upTo":"n_0123456789abcdef"}', '{"upTo":":id"}'],
+      ["/claim/abcd-efgh-jkmn-pqrs", "/claim/:id"],
+      ["/i/x7y8z9", "/i/:id"],
+      ["/world?at=t_ivy&view=3d", "/world?at=:at&view=3d"],
+      ["/world?view=3d&at=12,4", "/world?view=3d&at=:at"],
+      [
+        "DELETE /v1/owner/link/r_0123456789abcdef 500 internal",
+        "DELETE /v1/owner/link/:id 500 internal",
+      ],
+    ] as const) {
+      expect(templateIds(raw), raw).toBe(templated);
+    }
   });
 
   it("names spans by template and drops query strings from them", () => {
@@ -128,12 +148,6 @@ describe("error reports carry nothing private", () => {
       "sentry.op": "ui.interaction.click",
       "url.full": "https://terrakin.org/v1/owner/link/:id",
     });
-  });
-
-  it("templates a server id wherever it appears", () => {
-    expect(templateIds("DELETE /v1/owner/link/r_0123456789abcdef 500 internal")).toBe(
-      "DELETE /v1/owner/link/:id 500 internal",
-    );
   });
 
   it("drops a click it can't describe, rather than keep Sentry's message", () => {

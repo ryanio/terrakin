@@ -74,7 +74,7 @@ import {
   planLists,
   planWords,
   proposalPlan,
-  statusWord,
+  STATUS_WORDS,
   stayWords,
   tallyBar,
   tapPlan,
@@ -380,7 +380,7 @@ export function townView(ctx: ViewContext): View {
         text:
           p.status === "open" && p.closesAt
             ? closesIn(p.closesAt, Date.now())
-            : statusWord(p.status),
+            : STATUS_WORDS[p.status],
       }),
     );
     const byline = h("p", { class: "proposal-by" }, personLink(p.author));

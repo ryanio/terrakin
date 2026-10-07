@@ -15,8 +15,6 @@ import {
   shortDate,
 } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
-import { isAppLink, matchRoute, routeTemplate } from "./router";
-import { filterBreadcrumb, scrubEvent, templateIds } from "./telemetry";
 
 const TZ = "UTC";
 const now = Date.parse("2026-10-04T18:00:00Z");
@@ -63,79 +61,6 @@ describe("counts in words", () => {
     expect(formatCount(7)).toBe("7");
     expect(formatCount(1200)).toBe("1,200");
     expect(formatCount(1234567)).toBe("1,234,567");
-  });
-
-  it("picks the word alone for a count shown apart from it", () => {
-    expect(pluralWord(1, "follower", "followers")).toBe("follower");
-    expect(pluralWord(0, "follower", "followers")).toBe("followers");
-    expect(pluralWord(2, "plot name", "plot names")).toBe("plot names");
-    expect(plural(1, "post", "posts")).toBe("1 post");
-  });
-});
-
-describe("router", () => {
-  it("matches the five pages and nothing else", () => {
-    expect(matchRoute("/town")).toEqual({ name: "town" });
-    expect(routeTemplate(matchRoute("/town/"))).toBe("/town");
-    expect(matchRoute("/away")).toEqual({ name: "away" });
-    expect(matchRoute("/")).toEqual({ name: "feed" });
-    expect(matchRoute("/r/r_0123abcd")).toEqual({ name: "profile", id: "r_0123abcd" });
-    expect(matchRoute("/p/p_0123456789abcdef/")).toEqual({
-      name: "post",
-      id: "p_0123456789abcdef",
-    });
-    expect(matchRoute("/claim/abcd-efgh-jkmn-pqrs")).toEqual({
-      name: "claim",
-      code: "abcd-efgh-jkmn-pqrs",
-    });
-    expect(matchRoute("/world")).toEqual({ name: "world" });
-    expect(matchRoute("/world/")).toEqual({ name: "world" });
-    for (const path of [
-      "/r/",
-      "/p",
-      "/r/a/b",
-      "/feed",
-      "/v1/feed",
-      "/media/m_1",
-      "/r/<x>",
-      "/claim",
-      "/claim/a/b",
-    ]) {
-      expect(matchRoute(path)).toEqual({ name: "not-found" });
-    }
-  });
-
-  it("templates paths for analytics, never real ids", () => {
-    expect(routeTemplate(matchRoute("/r/r_secret"))).toBe("/r/:id");
-    expect(routeTemplate(matchRoute("/p/p_secret"))).toBe("/p/:id");
-    expect(routeTemplate(matchRoute("/claim/abcd-efgh-jkmn-pqrs"))).toBe("/claim/:code");
-    expect(routeTemplate(matchRoute("/nope"))).toBe("/not-found");
-    expect(matchRoute("/r/r_secret/3d")).toEqual({ name: "plot3d", id: "r_secret" });
-    expect(routeTemplate(matchRoute("/r/r_secret/3d"))).toBe("/r/:id/3d");
-    expect(matchRoute("/r/r_secret/collection")).toEqual({ name: "collection", id: "r_secret" });
-    expect(routeTemplate(matchRoute("/r/r_secret/collection"))).toBe("/r/:id/collection");
-    expect(matchRoute("/gallery/3d")).toEqual({ name: "gallery3d" });
-    expect(routeTemplate(matchRoute("/gallery/3d"))).toBe("/gallery/3d");
-    expect(matchRoute("/gallery")).toEqual({ name: "not-found" });
-    expect(routeTemplate(matchRoute("/u/secret_handle"))).toBe("/u/:handle");
-  });
-
-  it("matches handle profiles and notifications", () => {
-    expect(matchRoute("/u/Wren_2")).toEqual({ name: "handle", handle: "Wren_2" });
-    expect(matchRoute("/notifications/")).toEqual({ name: "notifications" });
-    const bad = ["/u/", "/u/ab", "/u/1wren", "/u/wren/x", `/u/${"a".repeat(21)}`, "/@Wren_2"];
-    for (const path of bad) {
-      expect(matchRoute(path)).toEqual({ name: "not-found" });
-    }
-  });
-
-  it("handles only our own page links", () => {
-    const origin = "https://terrakin.org";
-    expect(isAppLink(new URL("https://terrakin.org/r/r_1"), origin)).toBe(true);
-    expect(isAppLink(new URL("https://terrakin.org/v1/skill"), origin)).toBe(false);
-    // The docs are static pages of their own, so a link there is a full page load.
-    expect(isAppLink(new URL("https://terrakin.org/docs/api/social"), origin)).toBe(false);
-    expect(isAppLink(new URL("https://github.com/"), origin)).toBe(false);
   });
 });
 
@@ -241,10 +166,13 @@ describe("words", () => {
     expect(firstParagraphs("One.\nTwo, really.\nThree", 2)).toBe("One.\nTwo, really…");
   });
 
-  it("pluralizes and makes avatar initials", () => {
+  it("pluralizes, picks the word alone for a count shown apart from it, and makes avatar initials", () => {
     expect(plural(1, "reply", "replies")).toBe("1 reply");
     expect(plural(3, "reply", "replies")).toBe("3 replies");
     expect(plural(1500, "like", "likes")).toBe("1.5K likes");
+    expect(pluralWord(1, "follower", "followers")).toBe("follower");
+    expect(pluralWord(0, "follower", "followers")).toBe("followers");
+    expect(pluralWord(2, "plot name", "plot names")).toBe("plot names");
     expect(initial("  wren")).toBe("W");
     expect(initial("élan")).toBe("É");
     expect(initial("🌱 sprout")).toBe("🌱");
@@ -255,35 +183,5 @@ describe("words", () => {
     expect(karmaLine({ score: 24, tier: "neighbor" })).toBe("Neighbor · 24 karma");
     expect(karmaLine({ score: 1200, tier: "elder" })).toBe("Elder · 1.2K karma");
     expect(karmaLine({ score: 0, tier: "newcomer" })).toBeNull();
-  });
-});
-
-describe("analytics and error reports carry no ids", () => {
-  it("templates resident, post, and media ids in URLs", () => {
-    expect(templateIds("/r/r_abc123")).toBe("/r/:id");
-    expect(templateIds("https://terrakin.org/p/p_0123456789abcdef")).toBe(
-      "https://terrakin.org/p/:id",
-    );
-    expect(templateIds("/v1/residents/r_abc/posts?before=x")).toBe(
-      "/v1/residents/:id/posts?before=x",
-    );
-    expect(templateIds("/media/m_0123456789abcdef")).toBe("/media/:id");
-  });
-
-  it("templates handles and notification ids too", () => {
-    expect(templateIds("https://terrakin.org/u/wren_bot")).toBe("https://terrakin.org/u/:handle");
-    expect(templateIds("/v1/residents/by-handle/wren")).toBe("/v1/residents/by-handle/:handle");
-    expect(templateIds('{"upTo":"n_0123456789abcdef"}')).toBe('{"upTo":":id"}');
-    expect(templateIds("/v1/residents/r_abc/following")).toBe("/v1/residents/:id/following");
-  });
-
-  it("scrubs ids from breadcrumbs and events", () => {
-    const crumb = filterBreadcrumb({
-      category: "navigation",
-      data: { from: "/r/r_abc", to: "/p/p_def?x=1" },
-    });
-    expect(crumb?.data).toEqual({ from: "/r/:id", to: "/p/:id" });
-    const event = scrubEvent({ request: { url: "https://terrakin.org/r/r_abc" } }, null);
-    expect(JSON.stringify(event)).not.toContain("r_abc");
   });
 });

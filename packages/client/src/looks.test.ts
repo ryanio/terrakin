@@ -444,10 +444,6 @@ describe("the join form's character", () => {
     });
   });
 
-  it("starts with short brown hair and nothing extra to wear, the same every time", () => {
-    expect(FIRST_CHARACTER).toEqual({ color: "sun", hair: "short", hairColor: "brown", top: null });
-  });
-
   it("says the character in words beside its picture", () => {
     expect(
       characterWords({ color: "sun", hair: "bob", hairColor: "auburn", top: "cardigan" }),

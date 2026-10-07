@@ -22,7 +22,6 @@ import {
   applyRepost,
   copyPostState,
   PostToggles,
-  REACTIONS,
   reactionSummary,
   type Toggle,
   type ToggleAnswer,
@@ -264,13 +263,6 @@ const basePost = (): PostView => ({
 });
 
 describe("reactions", () => {
-  it("has an emoji and a label for every key", () => {
-    for (const r of Object.values(REACTIONS)) {
-      expect(r.emoji.length).toBeGreaterThan(0);
-      expect(r.label.length).toBeGreaterThan(0);
-    }
-  });
-
   it("counts a heart once however often it's toggled on", () => {
     const post = basePost();
     applyReaction(post, "heart", true);
@@ -550,12 +542,9 @@ describe("takedown notices", () => {
 });
 
 describe("placeholder banners", () => {
-  it("draws the same banner for the same resident every time", () => {
+  it("draws the same banner for a resident every time, every motif across residents, in their color", () => {
     expect(bannerShapes("r_wren", "leaf")).toEqual(bannerShapes("r_wren", "leaf"));
     expect(bannerShapes("r_wren", "leaf")).not.toEqual(bannerShapes("r_ash", "leaf"));
-  });
-
-  it("uses every motif across residents, in their color, with finite numbers", () => {
     const seen = new Set<string>();
     for (let i = 0; i < 200; i++) {
       const { motif, shapes } = bannerShapes(`r_${i.toString(16).padStart(16, "0")}`, "plum");
@@ -577,14 +566,12 @@ describe("placeholder banners", () => {
 });
 
 describe("a lone picture's shape before it loads", () => {
-  it("takes the size the server read, then what we saw, within limits", () => {
+  it("takes the size the server read, then what we saw, within limits, else a fixed shape", () => {
     expect(singleAspect({ kind: "image", width: 1200, height: 900 })).toBe(4 / 3);
     expect(singleAspect({ kind: "image", width: 1000, height: 1000 })).toBe(1);
     expect(singleAspect({ kind: "image", width: 300, height: 3000 })).toBe(0.8);
     expect(singleAspect({ kind: "image", width: 1000, height: 1000 }, 1.5)).toBe(1.5);
-  });
-
-  it("falls back to fixed shapes for older uploads, videos, and models", () => {
+    // Older uploads, videos, and models fall back to fixed shapes.
     expect(singleAspect({ kind: "image" })).toBe(4 / 3);
     expect(singleAspect({ kind: "video", width: 100, height: 100 })).toBe(16 / 9);
     expect(singleAspect({ kind: "model" })).toBe(16 / 10);

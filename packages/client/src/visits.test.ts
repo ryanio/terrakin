@@ -103,15 +103,13 @@ describe("plot words", () => {
 });
 
 describe("plot names on the map", () => {
-  it("show in full on a plot or beside it, fade out over a few tiles, and are gone farther off", () => {
+  it("show in full on a plot or beside it, fade out over a few tiles, and are gone farther off unless the map is drawn big", () => {
     const phone = 30;
     const fade = (tiles: number) => plotLabelFade(tiles, phone);
     expect([0, PLOT_LABEL.near].map(fade)).toEqual([1, 1]);
     expect(fade((PLOT_LABEL.near + PLOT_LABEL.far) / 2)).toBeCloseTo(0.5);
     expect([PLOT_LABEL.far, PLOT_LABEL.far + 5].map(fade)).toEqual([0, 0]);
-  });
-
-  it("all show on a map drawn big enough to fit them", () => {
+    // On a map drawn big enough to fit them, they all show.
     expect(plotLabelFade(PLOT_LABEL.far + 5, PLOT_LABEL.zoomed)).toBe(1);
   });
 });

@@ -8,7 +8,6 @@ import {
   planChanges,
   planLists,
   planWords,
-  statusWord,
   stayWords,
   tallyBar,
   tapPlan,
@@ -61,16 +60,14 @@ describe("tallyBar", () => {
 
 describe("closesIn", () => {
   const now = Date.UTC(2026, 9, 4, 15, 0);
-  it("says how long is left in days, hours, and minutes", () => {
+  it("says how long is left in days, hours, and minutes, to the nearest minute", () => {
     expect(closesIn("2026-10-06T00:00:00.000Z", now)).toBe("Closes in 1 day, 9 hours");
     expect(closesIn("2026-10-05T00:00:00.000Z", now)).toBe("Closes in 9 hours");
     expect(closesIn("2026-10-04T16:35:00.000Z", now)).toBe("Closes in 1 hour, 35 minutes");
     expect(closesIn("2026-10-04T15:02:00.000Z", now)).toBe("Closes in 2 minutes");
     expect(closesIn("2026-10-04T15:00:30.000Z", now)).toBe("Closing now");
     expect(closesIn("nonsense", now)).toBe("Closing now");
-  });
-
-  it("rounds to the nearest minute, so a time just short of a day says a day", () => {
+    // Rounded to the nearest minute, so a time just short of a day says a day.
     expect(closesIn("2026-10-05T14:59:55.000Z", now)).toBe("Closes in 1 day");
   });
 });
@@ -139,13 +136,6 @@ describe("the build editor", () => {
   });
 });
 
-describe("statusWord", () => {
-  it("names every status in plain words", () => {
-    expect(statusWord("no_quorum")).toBe("Not enough votes");
-    expect(statusWord("failed")).toBe("Didn't pass");
-  });
-});
-
 describe("closedQuorum", () => {
   it("says the quorum was met instead of counting votes against it", () => {
     expect(closedQuorum(tally(4, 1, 2))).toBe("Quorum met with 5 votes");
@@ -165,12 +155,9 @@ describe("townPaintKey", () => {
     nextClose: "2026-10-04T16:35:00.000Z",
   });
 
-  it("stays the same when a refresh brings nothing new", () => {
-    expect(townPaintKey(town(1), now)).toBe(townPaintKey(town(1), now + 20_000));
-  });
-
-  it("changes with a vote, the Commons, or a closing time's minute", () => {
+  it("stays the same when a refresh brings nothing new, and changes with a vote, the Commons, or a closing time's minute", () => {
     const key = townPaintKey(town(1), now);
+    expect(townPaintKey(town(1), now + 20_000)).toBe(key);
     expect(townPaintKey(town(2), now)).not.toBe(key);
     expect(townPaintKey(town(1), now, "map")).not.toBe(key);
     expect(townPaintKey(town(1), now + 60_000)).not.toBe(key);

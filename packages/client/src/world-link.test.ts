@@ -4,11 +4,6 @@ import { type LookWorld, placeOf, wayThere } from "./look-card";
 import { readWorldLink, worldLinkPath } from "./world-link";
 
 describe("reading a link into the world", () => {
-  it("has nothing to read without at or view", () => {
-    expect(readWorldLink("")).toBeUndefined();
-    expect(readWorldLink("?ref=x")).toBeUndefined();
-  });
-
   it("reads a resident, a plot, and 3D", () => {
     expect(readWorldLink("?at=r_0123456789abcdef")).toEqual({
       at: { kind: "resident", id: "r_0123456789abcdef" },
@@ -21,7 +16,9 @@ describe("reading a link into the world", () => {
     expect(readWorldLink("?view=3d")).toEqual({ view3d: true });
   });
 
-  it("marks an at it can't read, and ignores a view it doesn't know", () => {
+  it("has nothing to read without at or view, marks an at it can't read, and ignores a view it doesn't know", () => {
+    expect(readWorldLink("")).toBeUndefined();
+    expect(readWorldLink("?ref=x")).toBeUndefined();
     for (const bad of ["", "3,", "-1,2", "1.5,2", "<b>", "a b", "x".repeat(65)])
       expect(readWorldLink(`?at=${encodeURIComponent(bad)}`)).toEqual({ badAt: true });
     expect(readWorldLink("?view=4d")).toEqual({});

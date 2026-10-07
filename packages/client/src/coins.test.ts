@@ -66,13 +66,11 @@ describe("the purse in the top bar", () => {
     ...over,
   });
 
-  it("says today's coins are waiting only when they're due and there's a hearth", () => {
+  it("says today's coins are waiting only when they're due and there's a hearth, never to townsfolk", () => {
     expect(allowanceWaiting(purse({}))).toBe(true);
     expect(allowanceWaiting(purse({ allowanceToday: true }))).toBe(false);
     expect(allowanceWaiting(purse({ hasHearth: false }))).toBe(false);
-  });
-
-  it("never says so to townsfolk, who get a budget instead of the allowance", () => {
+    // Townsfolk get a budget instead of the allowance.
     expect(allowanceWaiting(purse({ allowanceEligible: false }))).toBe(false);
   });
 });

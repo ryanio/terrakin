@@ -18,14 +18,9 @@ describe("first steps in plain words", () => {
     for (const id of FIRST_VISIT_STEPS) expect(STEP_WORDS[id], id).toBeDefined();
   });
 
-  it("keeps each verb short enough that the card's links line up", () => {
+  it("keeps each verb short enough that the card's links line up, and each chip for the world's chip", () => {
     for (const [id, words] of Object.entries(STEP_WORDS)) {
       expect(words.verb.length, id).toBeLessThanOrEqual(VERB_MAX);
-    }
-  });
-
-  it("keeps each chip name short enough for the world's chip", () => {
-    for (const [id, words] of Object.entries(STEP_WORDS)) {
       expect(words.chip.length, id).toBeLessThanOrEqual(CHIP_MAX);
     }
   });

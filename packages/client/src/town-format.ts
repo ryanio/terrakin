@@ -291,7 +291,8 @@ export function planWords(lists: {
   return parts.length > 0 ? listOf(parts) : "Nothing";
 }
 
-const STATUS_WORDS = {
+/** What a proposal's status is called on its card. */
+export const STATUS_WORDS = {
   queued: "Waiting",
   open: "Open",
   passed: "Passed",
@@ -300,7 +301,3 @@ const STATUS_WORDS = {
   withdrawn: "Withdrawn",
   voided: "Voided",
 } as const;
-
-export function statusWord(status: keyof typeof STATUS_WORDS): string {
-  return STATUS_WORDS[status];
-}

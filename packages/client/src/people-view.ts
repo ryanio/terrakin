@@ -4,7 +4,7 @@
  * are residents' own words: textContent only.
  */
 
-import type { AuthorView, ProfileView } from "@terrakin/protocol";
+import type { AuthorView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
@@ -38,14 +38,6 @@ export function peopleEmpty(tab: PeopleTab, name: string, mine: boolean): [strin
   return mine
     ? ["No friends yet", "Friends are people you follow who follow you back."]
     : ["No friends yet", `Friends are people ${name} follows who follow back.`];
-}
-
-/** The count a tab shows, from the profile. */
-export function tabCount(
-  r: Pick<ProfileView, "followers" | "following" | "friends">,
-  tab: PeopleTab,
-) {
-  return tab === "followers" ? r.followers : tab === "following" ? r.following : r.friends;
 }
 
 export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
@@ -92,7 +84,7 @@ export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
         href: peoplePath(r.id, t),
         current: t === tab,
         content: [
-          h("span", { class: "people-tab-n", text: compactCount(tabCount(r, t)) }),
+          h("span", { class: "people-tab-n", text: compactCount(r[t]) }),
           h("span", { text: LABELS[t] }),
         ],
       })),

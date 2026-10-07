@@ -21,6 +21,17 @@ Mobile-first web client. It shows what the server says and never decides anythin
 - **Build from the design system.** Tokens are on `:root` in `packages/ui/src/tokens.css`, sizes come from its scales, and layout from the primitives (`stack`, `cluster`, `plain-list`) in the class list ([packages/ui/AGENTS.md](../ui/AGENTS.md)); shared pieces (`.column`, `.paper`, `.card`, `.pill`, `.btn-primary`, `.avatar`, ...) are in `packages/ui/src/base.css`, which `src/style.css` imports. The staff app (`packages/admin/`) uses the same two files.
 - **Use the shared components.** Root rule 11. Avatars, a resident as a link (`personLink`), badges, times (`timeAgo`), state cards, empty notes, checkbox rows, sheets, and profile and post paths come from `packages/ui/` ([packages/ui/AGENTS.md](../ui/AGENTS.md)), with their styles in `base.css`. Also `actProblem` (`src/api.ts`) for action results, `actFromButton` (`src/act.ts`) for a button that sends one action, says how it went, and refreshes the purse and the page (the shop, the market, and the bounties), and `colorChips`, `hairColorChips`, `hairChips`, and `shapeChips` (`src/join-form.ts`). Don't build one by hand or restyle it here; `src/shared-components.test.ts` fails if you do, and on a selector defined twice in `src/style.css`.
 
+## Writing tests
+
+Before adding a unit test here, answer four questions, and hold the test until you can:
+
+1. What behavior does it protect: something a person sees, a contract, or a rule above?
+2. What regression makes it fail?
+3. Why doesn't an existing test catch that already? Extend a table or a shared fixture instead of adding a near-copy.
+4. Does it need an export, flag, or hook that no production code uses? Then test the real caller instead.
+
+Test at the lowest level that catches the bug, as the root `AGENTS.md` says: a game rule in `packages/sim/`, a wire format in `packages/protocol/`, routing and auth in `packages/server/`, a journey in `e2e/`. Here that means the pure functions (words, layouts, the mirror, the walker) given real inputs. A test that copies a constant or a list, restates a lookup table, or checks a value against the function that made it protects nothing. The source checks in `shared-components.test.ts`, `scene3d.test.ts`, and `sound.test.ts` stay, because each is the cheapest guard of a rule above.
+
 ## Where things are
 
 - `index.html` all static DOM. `src/style.css` all app styles.

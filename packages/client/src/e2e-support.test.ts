@@ -26,11 +26,8 @@ const COPY = new RegExp(`^(?:async )?function (${SHARED.join("|")})\\(`);
 describe("e2e specs use e2e/support.ts", () => {
   const specs = readdirSync(E2E).filter((name) => name.endsWith(".spec.ts"));
 
-  it("finds the specs", () => {
-    expect(specs).toContain("smoke.spec.ts");
-  });
-
   it("no spec defines its own copy of a shared helper", () => {
+    expect(specs).toContain("smoke.spec.ts");
     const hits = specs.flatMap((name) =>
       readFileSync(join(E2E, name), "utf8")
         .split("\n")

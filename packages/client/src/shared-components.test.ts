@@ -23,6 +23,10 @@ function sources(): { path: string; text: string }[] {
     }
   };
   for (const dir of APP_DIRS) walk(join(ROOT, dir));
+  // A walk that finds nothing would pass every check below.
+  for (const known of ["packages/client/src/post-card.ts", "packages/admin/src/queue-view.ts"]) {
+    if (!out.some((f) => f.path === known)) throw new Error(`no ${known}: the walk is broken`);
+  }
   return out;
 }
 
@@ -134,11 +138,6 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
 
 describe("views use the shared components", () => {
   const files = sources();
-
-  it("finds the app sources", () => {
-    expect(files.some((f) => f.path === "packages/client/src/post-card.ts")).toBe(true);
-    expect(files.some((f) => f.path === "packages/admin/src/queue-view.ts")).toBe(true);
-  });
 
   for (const { pattern, use, home } of HAND_BUILT) {
     it(`nothing hand-builds what ${use} makes`, () => {

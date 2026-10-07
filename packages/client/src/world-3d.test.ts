@@ -33,15 +33,13 @@ const config: WorldConfig = {
 const at = (id: string, x: number, y: number, online = true) => ({ id, x, y, online });
 
 describe("which plots the 3D world loads", () => {
-  it("loads the plots within the view radius of you", () => {
+  it("loads the plots within the view radius of you, up to the edge of the world", () => {
     const plots = plotsAround({ x: 36, y: 36 }, VIEW_RADIUS, config);
     // Tiles 24..48 each way: plots 3..6.
     expect(plots).toHaveLength(16);
     expect(plots[0]).toEqual({ x: 3, y: 3 });
     expect(plots.at(-1)).toEqual({ x: 6, y: 6 });
-  });
-
-  it("stops at the edge of the world", () => {
+    // It stops at the edge of the world.
     expect(plotsAround({ x: 1, y: 2 }, VIEW_RADIUS, config)).toEqual([
       { x: 0, y: 0 },
       { x: 1, y: 0 },
@@ -211,14 +209,12 @@ describe("one plot of the world, read from the mirror", () => {
 });
 
 describe("picking a tile from a tap", () => {
-  it("follows a ray down to the ground", () => {
+  it("follows a ray down to the ground, and finds none looking up or level", () => {
     const hit = groundPoint([10, 10, 20], [0, -1, -1]);
     expect(hit).toEqual([10, 0, 10]);
     expect(tileAtPoint(10.4, 9.6)).toEqual({ x: 10, y: 10 });
     expect(tileAtPoint(10.6, 9.4)).toEqual({ x: 11, y: 9 });
-  });
-
-  it("finds no ground for a ray looking up or level", () => {
+    // A ray looking up or level finds no ground.
     expect(groundPoint([0, 5, 0], [0, 1, -1])).toBeUndefined();
     expect(groundPoint([0, 5, 0], [0, 0, -1])).toBeUndefined();
   });
@@ -313,13 +309,10 @@ describe("the 3D view's label", () => {
 describe("when the world offers 3D", () => {
   const phone = { webgl2: true, memoryGb: 4, cores: 6 };
 
-  it("offers it with WebGL 2 on a device that isn't low end", () => {
+  it("offers it with WebGL 2 on a device that isn't low end: little memory, few cores, or Save-Data", () => {
     expect(offer3d(phone)).toBe(true);
     expect(offer3d({ webgl2: true })).toBe(true);
     expect(offer3d({ ...phone, webgl2: false })).toBe(false);
-  });
-
-  it("calls a device low end on little memory, few cores, or Save-Data", () => {
     expect(lowEnd(phone)).toBe(false);
     expect(lowEnd({ ...phone, memoryGb: 2 })).toBe(true);
     expect(lowEnd({ ...phone, cores: 2 })).toBe(true);

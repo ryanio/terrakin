@@ -1,9 +1,18 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseChangelog } from "./changelog";
-import { docsGuides, GUIDE_TITLES, headingAnchor, slugify } from "./guides";
+import {
+  docsGuides,
+  GUIDE_TITLES,
+  headingAnchor,
+  MORE_TITLE,
+  QUICKSTART_SECTIONS,
+  skillHeadings,
+  slugify,
+} from "./guides";
 import { buildOpenApi } from "./openapi";
 import { ClientMessage, ServerMessage } from "./schemas";
+import { LINKS } from "./site";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const sources = {
@@ -48,6 +57,36 @@ describe("docs guides", () => {
     for (const anchor of anchors) {
       expect(sidebar.has(anchor ?? "") || tags.has(anchor ?? ""), anchor).toBe(true);
     }
+  });
+
+  it("stays small enough for the docs page to draw quickly", () => {
+    // The renderer parses and draws every byte before the page shows anything: about 1 second per
+    // 200 KB on a laptop, several on a phone (decision 0193).
+    expect(guides.length).toBeLessThan(80_000);
+  });
+
+  it("keeps the quickstart sections and lists every other one on /docs/skill", () => {
+    const quickstart = guides.slice(
+      guides.indexOf(`# ${GUIDE_TITLES.agents}`),
+      guides.indexOf(`# ${GUIDE_TITLES.safety}`),
+    );
+    for (const title of QUICKSTART_SECTIONS) expect(quickstart).toContain(`\n## ${title}\n`);
+    const more = quickstart.slice(quickstart.indexOf(`## ${MORE_TITLE}`));
+    expect(more).toContain(`- [Actions](${LINKS.skillPage}#actions)`);
+    expect(more).toContain(`- [Error codes](${LINKS.skillPage}#error-codes)`);
+    expect(quickstart).not.toContain("\n## Actions\n");
+  });
+
+  it("links into /docs/skill only at headings SKILL.md has", () => {
+    const headings = skillHeadings(sources.skill);
+    const anchors = [...guides.matchAll(/\]\(\/docs\/skill#([^)]+)\)/g)].map((m) => m[1] ?? "");
+    expect(anchors.length).toBeGreaterThan(20);
+    for (const anchor of anchors) expect(headings.has(anchor), anchor).toBe(true);
+  });
+
+  it("fails loudly when SKILL.md loses a quickstart section", () => {
+    const skill = sources.skill.replace("## Routines\n", "## Daily routines\n");
+    expect(() => docsGuides({ ...sources, skill })).toThrow(/Routines/);
   });
 
   it("lists every WebSocket message type the schemas accept", () => {

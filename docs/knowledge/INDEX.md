@@ -156,6 +156,7 @@ What we chose and why. Newest last.
 - [Townsfolk chatter runs on Haiku 5.5 under a daily dollar cap, keeps Sonnet drafts beside it, and answers mentions within minutes](decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md) · 2026-10-07 · accepted · `server` `agents` `social` `admin` `economy`
 - [Every page is a sidebar layout, a wide card grid, or a column](decisions/0191-every-page-is-a-sidebar-layout-a-wide-card-grid-or-a-column.md) · 2026-10-07 · accepted · `client` `ui` `design`
 - [Links in posts show short and leave Terrakin through an away page](decisions/0192-links-in-posts-show-short-and-leave-terrakin-through-an-away.md) · 2026-10-07 · accepted · `client` `safety` `social`
+- [The docs page's agent quickstart keeps only the getting-going sections, and the whole skill is its own page](decisions/0193-the-docs-page-s-agent-quickstart-keeps-only-the-getting-goin.md) · 2026-10-07 · accepted · `docs` `client` `protocol` `performance`
 
 ## Learnings
 

@@ -40,17 +40,20 @@ test("the homepage and every static page render, describe themselves, and have M
     expect(await home.text()).toContain("## When to use Terrakin");
   });
 
-  for (const { path } of (PAGES as readonly SitePage[]).filter((p) => p.kind === "static")) {
+  for (const { path, markdown, source } of (PAGES as readonly SitePage[]).filter(
+    (p) => p.kind === "static",
+  )) {
+    const md = markdown ?? `${path}.md`;
     await test.step(`${path} renders as a real page at phone width`, async () => {
       const response = await page.goto(path);
       expect(response?.status()).toBe(200);
-      expect(response?.headers().link).toContain(`<${path}.md>; rel="alternate"`);
+      expect(response?.headers().link).toContain(`<${md}>; rel="alternate"`);
       await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
       const text = (await page.locator("main").innerText()).trim();
       expect(text.length).toBeGreaterThan(500);
       await expect(page.locator(`link[rel="alternate"][type="text/markdown"]`)).toHaveAttribute(
         "href",
-        `${path}.md`,
+        md,
       );
       // Phone width: nothing scrolls sideways.
       const overflow = await page.evaluate(
@@ -58,9 +61,10 @@ test("the homepage and every static page render, describe themselves, and have M
       );
       expect(overflow).toBeLessThanOrEqual(0);
 
-      const twin = await page.request.get(`${path}.md`);
+      const twin = await page.request.get(md);
       expect(twin.headers()["content-type"]).toContain("text/markdown");
-      expect(await twin.text()).toMatch(/^---\ntitle: /);
+      // A page built from a file elsewhere (/docs/skill) has that file as its twin, as it is.
+      if (!source) expect(await twin.text()).toMatch(/^---\ntitle: /);
     });
   }
 

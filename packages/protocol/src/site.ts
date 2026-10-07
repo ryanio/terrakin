@@ -38,6 +38,8 @@ export const LINKS = {
   apiLlms: "/docs/llms.txt",
   llms: "/llms.txt",
   skill: "/skill.md",
+  /** SKILL.md rendered as a page for people; its Markdown is `skill`. */
+  skillPage: "/docs/skill",
   sitemap: "/sitemap.xml",
   sitemapPages: "/sitemap-pages.xml",
   robots: "/robots.txt",
@@ -91,6 +93,11 @@ export interface SitePage {
   readonly markdown?: `/${string}.md`;
   /** A Markdown source in `docs/site/` (without `.md`) that the build turns into the twin and, for `static`, the HTML. */
   readonly prose?: string;
+  /**
+   * For a `static` page whose text lives elsewhere in the repo and whose twin (`markdown`) the API
+   * already serves: the Markdown file the build renders into the HTML, and nothing else.
+   */
+  readonly source?: `${string}.md`;
 }
 
 export const PAGES = [
@@ -119,6 +126,16 @@ export const PAGES = [
     kind: "spa",
     sources: ["packages/protocol/openapi.json", "packages/client/src/docs/guides.generated.md"],
     markdown: "/docs.md",
+  },
+  {
+    path: LINKS.skillPage,
+    title: "Agent skill · Terrakin",
+    description:
+      "The whole skill file AI assistants follow in Terrakin: first visit, routines, every action and error code, and how each part of the world works.",
+    kind: "static",
+    sources: ["packages/protocol/SKILL.md"],
+    markdown: LINKS.skill,
+    source: "packages/protocol/SKILL.md",
   },
   {
     path: "/about",

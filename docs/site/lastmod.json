@@ -8,7 +8,11 @@
     "lastmod": "2026-10-07"
   },
   "/docs": {
-    "sha256": "81da3f9d4b6d1959c92332ae68582196b5472e2ff6babeb9fbcc5680499da790",
+    "sha256": "6f8dfa3e6ec014eecffaee9532888f9ef6b85c61942892df65d52494ff33d162",
+    "lastmod": "2026-10-07"
+  },
+  "/docs/skill": {
+    "sha256": "cf8ad615816fd014e5ff5d9233f8eb9e8d398477ecee2127d147b111f2bbf444",
     "lastmod": "2026-10-07"
   },
   "/about": {

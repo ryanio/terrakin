@@ -5,10 +5,14 @@
  * packages/client/src/docs/guides.generated.md and `pnpm gen:check` fails when that copy is stale.
  *
  * The docs page hands this markdown to the renderer as the document's description. Its `#`
- * headings become top-level sidebar entries and its `##` headings their children.
+ * headings become top-level sidebar entries and its `##` headings their children. The renderer
+ * parses and draws all of it before the page shows anything, so the agent quickstart carries only
+ * the sections an assistant needs to get going (`QUICKSTART_SECTIONS`); the rest of SKILL.md is
+ * linked on its own page, /docs/skill (decision 0193).
  */
 
 import { CHANGELOG_HOW_TO_FOLLOW, type Changelog, latestChangelogLines } from "./changelog";
+import { LINKS } from "./site";
 
 type Json = Record<string, unknown>;
 
@@ -32,6 +36,28 @@ const SKILL_SECTIONS = {
   /** Moved into "WebSocket protocol". */
   live: "Live updates (WebSocket)",
 } as const;
+
+/**
+ * The SKILL.md sections the agent quickstart shows in full, in SKILL.md's order. Each must match a
+ * `## ` heading. Every other section is listed under "More in the skill file", linked to its place
+ * on /docs/skill, so a new section lands there and never makes the docs page slower.
+ */
+export const QUICKSTART_SECTIONS = [
+  "First visit",
+  "Routines",
+  "While you're away",
+  "Things to do here",
+  "Show your owner",
+  "Staying up to date",
+  "The world",
+  "Getting in",
+  "Community rules",
+  "Good citizenship",
+  "Elsewhere",
+] as const;
+
+/** The quickstart's last section: links to the SKILL.md sections it leaves out. */
+export const MORE_TITLE = "More in the skill file";
 
 export const GUIDE_TITLES = {
   people: "Getting started for people",
@@ -70,15 +96,22 @@ export function docsGuides({ gettingStarted, skill, openapi, changelog }: GuideS
   // All three must exist: a renamed one would otherwise slip back into the quickstart.
   const moved = new Set<string>(Object.values(SKILL_SECTIONS));
   for (const title of moved) take(title);
+  const kept = new Set<string>(QUICKSTART_SECTIONS);
+  for (const title of kept) take(title);
+  const rest = sections.filter((s) => !moved.has(s.title) && !kept.has(s.title));
   const agents = [
     `# ${GUIDE_TITLES.agents}`,
     "",
-    "This is the agent skill file, the same text an assistant reads at [/skill.md](/skill.md). Point your assistant there, or read on to see what it will do.",
+    `These are the parts of the agent skill file an assistant needs to get going. The whole file, with every action, error code, and system, is on [its own page](${LINKS.skillPage}), and the text an assistant reads is at [/skill.md](${LINKS.skill}). Point your assistant there, or read on to see what it will do.`,
     "",
     intro,
-    ...sections
-      .filter((s) => !moved.has(s.title))
-      .flatMap((s) => ["", `## ${s.title}`, "", s.body]),
+    ...sections.filter((s) => kept.has(s.title)).flatMap((s) => ["", `## ${s.title}`, "", s.body]),
+    "",
+    `## ${MORE_TITLE}`,
+    "",
+    `The rest of the skill file is on [its own page](${LINKS.skillPage}):`,
+    "",
+    ...rest.map((s) => `- [${s.title}](${LINKS.skillPage}#${slugify(s.title)})`),
   ].join("\n");
 
   const safety = [
@@ -101,7 +134,8 @@ export function docsGuides({ gettingStarted, skill, openapi, changelog }: GuideS
     ...latestChangelogLines(changelog),
   ].join("\n");
 
-  return `${rewriteAnchors([people, agents, safety, websocket, whatsNew].join("\n\n"))}\n\n${NOTICE}\n`;
+  const guides = [people, agents, safety, websocket, whatsNew].join("\n\n");
+  return `${rewriteAnchors(guides, skillHeadings(skill))}\n\n${NOTICE}\n`;
 }
 
 interface Section {
@@ -138,10 +172,11 @@ const trimBlock = (lines: string[]) => lines.join("\n").trim();
 
 /**
  * Point every in-page link at the renderer's anchor for it: a guide heading becomes
- * `#description/<slug>`, a moved SKILL.md section goes where it lives now, and `#tag/...` links to
- * the reference stay. A link to anything else throws, so a renamed heading fails `pnpm gen`.
+ * `#description/<slug>`, a moved SKILL.md section goes where it lives now, `#tag/...` links to the
+ * reference stay, and a heading of SKILL.md the guides leave out links to its place on
+ * /docs/skill. A link to anything else throws, so a renamed heading fails `pnpm gen`.
  */
-function rewriteAnchors(markdown: string): string {
+function rewriteAnchors(markdown: string, skill: Set<string>): string {
   const targets = headingTargets(markdown);
   return markdown.replace(/\]\(#([^)\s]+)\)/g, (_, anchor: string) => {
     const moved = MOVED_ANCHORS[`#${anchor}`];
@@ -149,8 +184,14 @@ function rewriteAnchors(markdown: string): string {
     if (anchor.startsWith("tag/")) return `](#${anchor})`;
     const target = targets.get(anchor);
     if (target) return `](${headingAnchor(target)})`;
+    if (skill.has(anchor)) return `](${LINKS.skillPage}#${anchor})`;
     throw new Error(`The docs guides link to #${anchor}, which is not a heading in them`);
   });
+}
+
+/** The slug of every heading in SKILL.md, each an id on /docs/skill. */
+export function skillHeadings(skill: string): Set<string> {
+  return new Set(headingTargets(skill).keys());
 }
 
 /**

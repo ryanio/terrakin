@@ -5862,6 +5862,11 @@ dialog.look-editor {
   overflow-x: auto;
 }
 
+/* Code in a cell breaks only at the <wbr> after each `_` or `/` (markdown.ts), never mid-word. */
+.prose td code {
+  overflow-wrap: normal;
+}
+
 /* A devlog screenshot: a phone's screen, never wider than the column or taller than most of a screen. */
 .prose figure {
   margin: var(--space-md) 0;

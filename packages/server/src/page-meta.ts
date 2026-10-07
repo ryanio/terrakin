@@ -69,6 +69,8 @@ export type Page =
 export const OWN_DOCUMENTS: ReadonlySet<string> = new Set(
   PAGES.filter((p) => p.kind === "static" || p.path === LINKS.docs).map((p) => p.path),
 );
+/** The card slug for a page with its own file: its path without the first `/`, with `-` for any other. */
+export const cardSlug = (path: string) => path.slice(1).replaceAll("/", "-");
 const DEVLOG_PAGES: ReadonlySet<string> = new Set(DEVLOG_POSTS.map((p) => devlogPath(p.date)));
 
 const ID = "([A-Za-z0-9_-]{1,64})";
@@ -110,7 +112,7 @@ export function matchPage(pathname: string): Page {
     const m = pattern.exec(path);
     if (m) return make(m);
   }
-  if (OWN_DOCUMENTS.has(path)) return { name: "site", path, slug: path.slice(1) };
+  if (OWN_DOCUMENTS.has(path)) return { name: "site", path, slug: cardSlug(path) };
   // A devlog post is its own static page, with the devlog's card (decision 0105).
   if (DEVLOG_PAGES.has(path)) return { name: "site", path, slug: "devlog" };
   return { name: "not-found" };

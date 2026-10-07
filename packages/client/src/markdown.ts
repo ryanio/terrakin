@@ -27,7 +27,7 @@ const safeSrc = (src: string) =>
 const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/;
 
 /** Make a heading's text into an id, like GitHub does. */
-const slug = (text: string) =>
+export const slug = (text: string) =>
   text
     .toLowerCase()
     .replace(/<[^>]+>/g, "")
@@ -120,9 +120,16 @@ export function markdownToHtml(markdown: string): string {
         i++;
       }
       const [head = [], ...body] = rows;
+      // On a phone a cell's code breaks only after `_` or `/`, so `not_joined` never splits a letter
+      // at a time (style.css keeps code whole otherwise).
+      const cell = (c: string) =>
+        inline(c).replace(
+          /<code>([^<]*)<\/code>/g,
+          (_, code: string) => `<code>${code.replace(/([_/])/g, "$1<wbr>")}</code>`,
+        );
       html.push(
         `<div class="table-wrap"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${body
-          .map((row) => `<tr>${row.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`)
+          .map((row) => `<tr>${row.map((c) => `<td>${cell(c)}</td>`).join("")}</tr>`)
           .join("")}</tbody></table></div>`,
       );
       continue;

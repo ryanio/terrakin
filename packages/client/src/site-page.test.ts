@@ -3,13 +3,14 @@ import {
   DEVLOG_POSTS,
   devlogPath,
   devlogSitePage,
+  LINKS,
   PAGES,
   SITE,
   type SitePage,
 } from "@terrakin/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { inline, markdownNodes, markdownToHtml } from "./markdown";
-import { markdownTwin, staticPage } from "./site-page";
+import { markdownTwin, skillPageMarkdown, staticPage } from "./site-page";
 
 const page = (path: string) =>
   (PAGES as readonly SitePage[]).find((p) => p.path === path) as SitePage;
@@ -264,5 +265,31 @@ describe("static pages", () => {
     ]) {
       expect(privacy).toContain(fact);
     }
+  });
+});
+
+describe("/docs/skill", () => {
+  const skill = readFileSync(new URL("../../protocol/SKILL.md", import.meta.url), "utf8");
+  const guides = readFileSync(new URL("./docs/guides.generated.md", import.meta.url), "utf8");
+  const html = staticPage({
+    page: page(LINKS.skillPage),
+    source: skillPageMarkdown(skill),
+    lastUpdated: "2026-10-07",
+    css: "/assets/index.css",
+  });
+
+  it("is SKILL.md as a page, without its frontmatter, with its sections listed up top", () => {
+    expect(html).toContain('<h1 id="terrakin">Terrakin</h1>');
+    expect(html).not.toContain("name: terrakin");
+    expect(html).toContain('<a href="#error-codes">Error codes</a>');
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/skill.md"');
+    expect(html).not.toMatch(/<script/);
+  });
+
+  it("has an id for every place the docs guides link to on it", () => {
+    const ids = new Set([...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+    const anchors = [...guides.matchAll(/\]\(\/docs\/skill#([^)]+)\)/g)].map((m) => m[1]);
+    expect(anchors.length).toBeGreaterThan(20);
+    for (const anchor of anchors) expect(ids.has(anchor), anchor).toBe(true);
   });
 });

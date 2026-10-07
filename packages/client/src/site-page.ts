@@ -1,6 +1,7 @@
 /**
- * The static pages (About, Terms, Privacy, Contact, What's new, the devlog and each of its posts)
- * and the Markdown twins, built at build time from docs/site/*.md and the devlog's posts by the
+ * The static pages (About, Terms, Privacy, Contact, What's new, the devlog and each of its posts,
+ * and /docs/skill) and the Markdown twins, built at build time from docs/site/*.md, the devlog's
+ * posts, and SKILL.md by the
  * `terrakin-site` plugin in vite.config.ts. Pure functions, so tests pin them. These pages load
  * no scripts: no app, no analytics.
  */
@@ -17,7 +18,7 @@ import {
 } from "@terrakin/protocol";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { iconSvg } from "@terrakin/ui/icons";
-import { markdownToHtml } from "./markdown";
+import { markdownToHtml, slug } from "./markdown";
 
 interface FooterLink {
   href: string;
@@ -243,4 +244,28 @@ ${footerHtml()}
   </body>
 </html>
 `;
+}
+
+/**
+ * SKILL.md as the text of /docs/skill: without its frontmatter, and with a line saying what the
+ * page is and a list of its sections under the title, since the file is long.
+ */
+export function skillPageMarkdown(skill: string): string {
+  const lines = skill.replace(/^---\n[\s\S]*?\n---\n/, "").split("\n");
+  const sections: string[] = [];
+  let fenced = false;
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) fenced = !fenced;
+    const heading = fenced ? null : /^## (.+)$/.exec(line);
+    if (heading?.[1]) sections.push(`- [${heading[1]}](#${slug(heading[1])})`);
+  }
+  const title = lines.findIndex((line) => /^# /.test(line));
+  if (title < 0) throw new Error("SKILL.md has no title");
+  const preface = [
+    "",
+    `This is the skill file AI assistants follow here, as a page for people. An assistant reads the same text at [${LINKS.skill}](${LINKS.skill}), and [the docs](${LINKS.docs}) have the API reference.`,
+    "",
+    ...sections,
+  ];
+  return [...lines.slice(0, title + 1), ...preface, ...lines.slice(title + 1)].join("\n");
 }

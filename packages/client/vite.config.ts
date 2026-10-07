@@ -12,7 +12,7 @@ import {
 } from "@terrakin/protocol";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
-import { footerHtml, markdownTwin, staticPage } from "./src/site-page";
+import { footerHtml, markdownTwin, skillPageMarkdown, staticPage } from "./src/site-page";
 import { stripDescribe } from "./src/strip-describe";
 
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
@@ -118,20 +118,25 @@ function icons(): Plugin {
  * - the homepage's JSON-LD (WebSite, Organization, WebApplication, FAQPage) in index.html,
  * - a Markdown twin for every page with `prose` (`/index.md`, `/about.md`, `/pricing.md`, ...),
  *   with frontmatter for title, description, canonical, and last-updated,
- * - static HTML for the `static` pages (`/about.html`, served at `/about`), with no scripts,
+ * - static HTML for the `static` pages (`/about.html`, served at `/about`), with no scripts, and
+ *   for /docs/skill from SKILL.md (its twin is the API's /skill.md, so no twin is written),
  * - a static page and a twin for each devlog post (`/devlog/2026-10-06.html` and `.md`), from the
  *   posts `pnpm gen` built into the protocol (decision 0105), each dated by its day.
  *
  * Dates come from docs/site/lastmod.json, which `pnpm gen` keeps.
  */
 function sitePages(): Plugin {
-  const prose = (PAGES as readonly SitePage[]).filter((p) => p.prose);
+  const prose = (PAGES as readonly SitePage[]).filter((p) => p.prose || p.source);
   const lastmod = () =>
     JSON.parse(readFileSync(repo("docs/site/lastmod.json"), "utf8")) as Record<
       string,
       { lastmod: string }
     >;
-  const read = (page: SitePage) => readFileSync(repo(`docs/site/${page.prose}.md`), "utf8");
+  // The one page with a `source` is /docs/skill, from SKILL.md.
+  const read = (page: SitePage) =>
+    page.source
+      ? skillPageMarkdown(readFileSync(repo(page.source), "utf8"))
+      : readFileSync(repo(`docs/site/${page.prose}.md`), "utf8");
   const dated = (page: SitePage) => lastmod()[page.path]?.lastmod ?? "";
   const twinFile = (page: SitePage) => (page.markdown ?? page.path).slice(1);
   const htmlFile = (page: SitePage) => `${page.path.slice(1)}.html`;
@@ -156,7 +161,7 @@ function sitePages(): Plugin {
       dev.middlewares.use((req, res, next) => {
         const path = (req.url ?? "").split("?")[0];
         for (const page of prose) {
-          if (path === `/${twinFile(page)}`) {
+          if (!page.source && path === `/${twinFile(page)}`) {
             res.setHeader("content-type", "text/markdown; charset=utf-8");
             return res.end(markdownTwin(page, read(page), dated(page)));
           }
@@ -192,11 +197,13 @@ function sitePages(): Plugin {
         const source = read(page);
         const lastUpdated = dated(page);
         if (!lastUpdated) throw new Error(`No lastmod for ${page.path}; run pnpm gen`);
-        this.emitFile({
-          type: "asset",
-          fileName: twinFile(page),
-          source: markdownTwin(page, source, lastUpdated),
-        });
+        if (!page.source) {
+          this.emitFile({
+            type: "asset",
+            fileName: twinFile(page),
+            source: markdownTwin(page, source, lastUpdated),
+          });
+        }
         if (page.kind !== "static") continue;
         const html = staticPage({ page, source, lastUpdated, css: `/${css}` });
         this.emitFile({

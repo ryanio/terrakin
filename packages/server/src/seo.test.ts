@@ -18,6 +18,7 @@ import {
   windowLimiter,
 } from "./og";
 import {
+  cardSlug,
   type DocumentEdits,
   type Loaded,
   loadPage,
@@ -417,7 +418,7 @@ describe("card route", () => {
   });
 
   it("has a card for every page with its own file", () => {
-    for (const path of OWN_DOCUMENTS) expect(PAGE_CARDS, path).toHaveProperty(path.slice(1));
+    for (const path of OWN_DOCUMENTS) expect(PAGE_CARDS, path).toHaveProperty([cardSlug(path)]);
   });
 
   it("renders once, then serves from cache with an ETag; a matching version is immutable", async () => {

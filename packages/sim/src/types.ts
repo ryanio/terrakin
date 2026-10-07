@@ -8,6 +8,7 @@ import {
   type GoodKind,
   type ItemKind,
   type MadeKind,
+  type RecipeName,
   type StackKind,
   type SweetKind,
 } from "./catalog";
@@ -422,6 +423,11 @@ export interface WorldState {
    */
   market?: MarketState;
   /**
+   * Recipes residents learned (RFC 0024). Absent until `open_recipes`, and until then everyone
+   * knows every recipe, so worlds from before it hash and replay as they always have.
+   */
+  recipes?: RecipesState;
+  /**
    * Partner wear each resident may put on (RFC 0007), from the server's `set_entitlements`.
    * Sorted. Absent until the first, and a resident's key goes when their list empties.
    */
@@ -775,6 +781,22 @@ export interface ShopState {
    * until one, meaning the share the shop opened with (50).
    */
   treasuryShare?: number;
+}
+
+/**
+ * Who knows which recipes (RFC 0024), past the base and the holiday recipes everyone knows. Recipes
+ * belong to the resident, not to a kitchen or workbench, and aren't things: nobody holds, gives,
+ * sells, or lists one.
+ */
+export interface RecipesState {
+  /** Residents who lived here when `open_recipes` was logged: they know every recipe. Sorted. */
+  everything: ResidentId[];
+  /** Recipes each resident has learned, however they learned them. Sorted. Absent until their first. */
+  learned: Record<ResidentId, RecipeName[]>;
+  /** Free picks each resident has used, out of `RECIPES_RULES.starterPicks`. Absent until their first. */
+  picks: Record<ResidentId, number>;
+  /** When each resident was last taught by a townsfolk, as the world's day. Absent until their first. */
+  townsfolkTaught: Record<ResidentId, number>;
 }
 
 export interface ShopToday {
@@ -1182,8 +1204,10 @@ export type Command =
    * server cleaned and filtered before logging it.
    */
   | { type: "name_plot"; px: number; py: number; name: string | null }
-  // The town shop (RFC 0008, phase 2).
+  // The town shop (RFC 0008, phase 2). A `recipe:<name>` sku is a recipe card (RFC 0024).
   | { type: "shop_buy"; sku: string; count?: number }
+  /** Learn a recipe from the shop's Recipes shelf with one of your free picks (RFC 0024). */
+  | { type: "pick_recipe"; recipe: string }
   | { type: "sell_to_town"; item: string; count?: number }
   /** Turn routines on and off (RFC 0009): the whole list, `[]` for all off. */
   | { type: "set_routines"; routines: Routine[] }
@@ -1293,6 +1317,11 @@ export type Command =
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
   | { type: "open_market" }
+  /**
+   * From now on, recipes are learned (RFC 0024): everyone here now knows every recipe, and anyone
+   * who joins later starts with the base, the holiday recipes, and free picks.
+   */
+  | { type: "open_recipes" }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1422,6 +1451,7 @@ export const SERVER_COMMANDS = [
   "close_table",
   "keep_table_spots",
   "test_grant",
+  "open_recipes",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1540,6 +1570,20 @@ export type WorldEvent =
   | { type: "table_spots_kept" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
+  /** `open_recipes`: recipes are learned from now on (RFC 0024). Public. */
+  | { type: "recipes_opened" }
+  /**
+   * A resident learned a recipe (RFC 0024): with a free pick, a card bought at the shop (`price`),
+   * a lesson (`from`, the teacher), or a recipe page found on the ground. Private, like a purse.
+   */
+  | {
+      type: "recipe_learned";
+      residentId: ResidentId;
+      recipe: RecipeName;
+      how: "picked" | "bought" | "taught" | "found";
+      price?: number;
+      from?: ResidentId;
+    }
   /** Something went up for sale. Public: the market is. Made things carry their makers' labels. */
   | { type: "listed"; listing: Listing }
   /** A listing was taken back unsold. Public. */
@@ -1908,6 +1952,17 @@ export const REJECTION_CODES = [
   "no_water",
   /** You cast as many times as one day has. */
   "cast_limit",
+  // Recipes you learn (RFC 0024).
+  /** You don't know that recipe yet. The message names every way to learn it. */
+  "recipe_unknown",
+  /** You already know that recipe, so there's nothing to pick, buy, or learn. */
+  "already_known",
+  /** You've used every free pick. */
+  "no_picks_left",
+  /** You've taught a recipe today, or been taught one: one a day each way (teaching, coming later). */
+  "taught_today",
+  /** The two of you aren't within reach of each other to teach (teaching, coming later). */
+  "not_near",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

@@ -12,9 +12,11 @@ import {
   heldAsideOf,
   inventoryOf,
   isReady,
+  knownRecipes,
   lastDeclineDay,
   pantryNumbers,
   parseKey,
+  picksLeft,
   plotAtTile,
   type WorldState,
 } from "@terrakin/sim";
@@ -87,6 +89,8 @@ export function inventoryView(
       receivedToday: read.receivedToday,
       craftedToday: read.craftedToday,
       castToday: read.castToday,
+      recipes: knownRecipes(state, viewer),
+      recipePicks: picksLeft(state, viewer),
       garden: gardenOf(state, viewer),
       gifts: read.gifts.map((g) => {
         const from = author(g.from);

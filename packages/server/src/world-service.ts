@@ -210,6 +210,11 @@ export interface WorldServiceOptions {
    */
   bounties?: boolean;
   /**
+   * Recipes you learn (RFC 0024): once the shop is open, append `open_recipes` if it never has.
+   * No adapter turns it on yet: it stays off on terrakin.org until RFC 0024's last phase.
+   */
+  recipes?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -285,6 +290,7 @@ interface TownSwitch {
     | "tableSpots"
     | "market"
     | "bounties"
+    | "recipes"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
   due: (state: WorldState) => boolean;
@@ -360,6 +366,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_bounties" },
     label: "open bounties",
   },
+  {
+    option: "recipes",
+    due: (s) => !s.recipes && !!s.shop,
+    command: { type: "open_recipes" },
+    label: "open recipes",
+  },
 ];
 
 /**
@@ -401,6 +413,7 @@ export class WorldService {
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
+  private readonly recipes: boolean;
   private readonly presence: boolean;
   private readonly townEvents: readonly TownEvent[];
   /** Town events whose refusal was already reported this boot, so the sweep reports each once. */
@@ -487,6 +500,7 @@ export class WorldService {
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
+    this.recipes = options.recipes ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? [];
     // A day may have started (and proposals come due) while the server was down.

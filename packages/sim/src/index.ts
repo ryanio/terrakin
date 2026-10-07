@@ -34,6 +34,7 @@ export {
 } from "./build";
 export {
   CATALOG,
+  type CraftKind,
   type CropNumbers,
   FAMILIES,
   FAMILY_RECIPES,
@@ -49,13 +50,17 @@ export {
   type KindEntry,
   type KindLook,
   type KindRecipe,
+  kindHoliday,
   kindsIn,
   PANTRY_STAPLES,
   type PantryStaple,
   PRODUCE_KINDS,
   type ProduceKind,
   type ProduceLook,
+  RECIPE_NAMES,
+  type RecipeName,
   type Role,
+  recipeOf,
   SWEET_KINDS,
   SWEET_RECIPES,
   type SweetKind,
@@ -315,6 +320,29 @@ export {
 } from "./pets";
 export { freeRenamesLeft, PLOT_NAMES, plotNamesOf } from "./plot-names";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
+export {
+  BASE_RECIPES,
+  CARD_RECIPES,
+  CARD_SKUS,
+  type CardSku,
+  cardLastDay,
+  cardOf,
+  cardSeason,
+  cardSku,
+  HOLIDAY_RECIPES,
+  isCardSku,
+  isRecipeName,
+  knownByAll,
+  knownRecipes,
+  knows,
+  knowsEverything,
+  onShelf,
+  picksLeft,
+  RECIPES_RULES,
+  recipeCardPrice,
+  recipeUnknown,
+  shelfOn,
+} from "./recipes";
 export { REPLAY_VERSION, replay } from "./replay";
 export {
   isRoutineKind,

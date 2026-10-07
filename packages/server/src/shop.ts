@@ -1,17 +1,28 @@
 import {
   type AuthorView,
   type BuyOrderView,
+  type RecipeCardView,
   SHOP_ITEMS,
   SHOP_RULES,
   type ShopItemView,
   type ShopResponse,
 } from "@terrakin/protocol";
 import {
+  CARD_RECIPES,
+  CATALOG,
+  type CraftKind,
+  cardLastDay,
+  cardSeason,
+  cardSku,
   coinsOf,
   holidayOn,
   ITEM_INFO,
   isTownsfolk,
+  type KindRecipe,
+  knows,
   onSale,
+  onShelf,
+  recipeCardPrice,
   seasonLastDay,
   seasonOf,
   shopFor,
@@ -60,6 +71,48 @@ function itemsOn(day: number): ShopItemView[] {
   });
 }
 
+/** Every recipe card (RFC 0024), in catalog order, as the shelf shows it, from the sim's data. */
+const CARDS = CARD_RECIPES.map((recipe) => {
+  const kind = recipe as CraftKind;
+  // Every card is a recipe the catalog writes out, so its kind has one.
+  const { station, needs } = CATALOG[kind].recipe as KindRecipe;
+  const season = cardSeason(recipe);
+  const view: RecipeCardView = {
+    sku: cardSku(recipe),
+    name: `${ITEM_INFO[kind].name} recipe`,
+    price: recipeCardPrice(recipe),
+    section: "recipes",
+    recipe: {
+      station,
+      makes: kind,
+      needs: Object.entries(needs).map(([need, count]) => ({
+        kind: need as RecipeCardView["recipe"]["needs"][number]["kind"],
+        count,
+      })),
+    },
+    ...(season ? { season } : {}),
+  };
+  return { recipe, view };
+});
+
+/**
+ * The Recipes shelf on `day` (RFC 0024), once recipes are learned in the world: every card, and
+ * seasonal ones only in their season. With a viewer, each says whether they know it already.
+ */
+function cardsOn(state: WorldState, day: number, viewer: string | undefined): RecipeCardView[] {
+  return CARDS.flatMap(({ recipe, view }) => {
+    if (!onShelf(recipe, day)) return [];
+    const lastDay = cardLastDay(recipe, day);
+    return [
+      {
+        ...view,
+        ...(lastDay === undefined ? {} : { lastDay }),
+        ...(viewer ? { known: knows(state, viewer, recipe) } : {}),
+      },
+    ];
+  });
+}
+
 /** The shop on `GET /v1/town`: where it stands and today's buying, or null before it opens. */
 export function townShopView(
   state: WorldState,
@@ -91,6 +144,7 @@ export function shopView(
       ...(holiday ? { holiday: { id: holiday.holiday, lastDay: holiday.lastDay } } : {}),
       keeper,
       items: itemsOn(state.day),
+      ...(state.recipes ? { recipes: cardsOn(state, state.day, mine ? viewer : undefined) } : {}),
       buying: buyingToday(state, mine ? viewer : undefined),
       tiles: shopTiles(state.config),
     },

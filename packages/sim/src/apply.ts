@@ -121,6 +121,14 @@ import {
 import { checkClearPlotName, checkNamePlot } from "./plot-names";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
+import {
+  checkBuyCard,
+  checkOpenRecipes,
+  checkPickRecipe,
+  isCardSku,
+  type RecipesChecked,
+  recipeUnknown,
+} from "./recipes";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
   checkOpenShop,
@@ -625,6 +633,7 @@ function town(
     | EventsChecked
     | PetsChecked
     | GamesChecked
+    | RecipesChecked
     | Mutation
     | Rejection,
 ): Mutation | Prepared {
@@ -671,6 +680,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkSetShopShare(state, command));
       case "open_market":
         return town(checkOpenMarket(state));
+      case "open_recipes":
+        return town(checkOpenRecipes(state));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -1196,8 +1207,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkHarvest(state, actor, command));
     case "gather":
       return town(checkGather(state, actor, command));
-    case "craft":
-      return town(checkCraft(state, actor, command));
+    case "craft": {
+      // Knowing the recipe is checked after every other check and before anything is taken
+      // (RFC 0024): a craft that could happen but for the recipe says how to learn it.
+      const crafted = checkCraft(state, actor, command);
+      if (typeof crafted !== "function") return town(crafted);
+      return town(recipeUnknown(state, actor, command.recipe) ?? crafted);
+    }
     case "give":
       return town(checkGiveItem(state, actor, command));
     case "decline_gift":
@@ -1217,7 +1233,14 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkNamePlot(state, actor, command));
 
     case "shop_buy":
-      return town(checkShopBuy(state, actor, command));
+      // A recipe card once recipes are open (RFC 0024); before then the shop has none.
+      return town(
+        state.recipes && isCardSku(command.sku)
+          ? checkBuyCard(state, actor, command)
+          : checkShopBuy(state, actor, command),
+      );
+    case "pick_recipe":
+      return town(checkPickRecipe(state, actor, command));
     case "sell_to_town":
       return town(checkSellToTown(state, actor, command));
 

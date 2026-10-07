@@ -313,7 +313,7 @@ export function holidayOn(day: number): { holiday: Holiday; lastDay: number } | 
 }
 
 /** The first day of the next `season` after the season `day` is in. */
-function nextStart(season: Season, day: number): number {
+export function nextSeasonStart(season: Season, day: number): number {
   let { end } = seasonSpan(day);
   while (seasonOf(end) !== season) end = seasonSpan(end).end;
   return end;
@@ -334,7 +334,7 @@ function notOnSale(sku: ShopSku, day: number): Rejection | null {
       ? {
           code: "out_of_season",
           when: `in ${window.season}`,
-          back: `It's ${seasonOf(day)} now, and ${window.season} starts on ${dayName(nextStart(window.season, day))}`,
+          back: `It's ${seasonOf(day)} now, and ${window.season} starts on ${dayName(nextSeasonStart(window.season, day))}`,
           use: "in any season",
         }
       : {
@@ -455,15 +455,18 @@ export function shopNewDay(state: WorldState): Mutation | null {
   };
 }
 
-interface Open {
+export interface Open {
   shop: ShopState;
   econ: EconomyState;
   items: ItemsState;
   day: number;
 }
 
-/** The checks both shop commands share: the shop open, the resident joined, not townsfolk. */
-function opened(state: WorldState, actor: ResidentId): Open | Rejection {
+/**
+ * The checks every shop command shares: the shop open, the resident joined, not townsfolk. Recipe
+ * cards (`recipes.ts`) check with it too.
+ */
+export function opened(state: WorldState, actor: ResidentId): Open | Rejection {
   const { shop, economy: econ, items, day } = state;
   if (!shop || !econ || !items || day === undefined) {
     return refuse("shop_closed", "The town shop hasn't opened in this world yet.");

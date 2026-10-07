@@ -139,16 +139,20 @@ export function holdBackNames(events: WireEvent[], hidden: (id: string) => boole
 }
 
 /**
- * Purse moves, inventory changes, wear bought at the shop, and routines turned on or off: each
- * belongs to one resident alone.
+ * Purse moves, inventory changes, wear bought at the shop, routines turned on or off, and recipes
+ * learned (RFC 0024): each belongs to one resident alone.
  */
 export const isPrivate = (
   e: WireEvent,
-): e is Extract<WireEvent, { type: "coins" | "inventory" | "wear_bought" | "routines_set" }> =>
+): e is Extract<
+  WireEvent,
+  { type: "coins" | "inventory" | "wear_bought" | "routines_set" | "recipe_learned" }
+> =>
   e.type === "coins" ||
   e.type === "inventory" ||
   e.type === "wear_bought" ||
-  e.type === "routines_set";
+  e.type === "routines_set" ||
+  e.type === "recipe_learned";
 
 /**
  * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's

@@ -25,6 +25,7 @@ import {
   ItemKind,
   MadeKind,
   RecipeKind,
+  RecipeName,
   StackKind as StackKindSchema,
 } from "./schemas";
 import { AuthorView } from "./social";
@@ -250,6 +251,13 @@ export const InventoryView = z.object({
   craftedToday: z.number().int(),
   /** Times you cast a line today (RFC 0023). `rules.castsPerDay` is the most in a day. */
   castToday: z.number().int(),
+  /**
+   * The recipes you know (RFC 0024), sorted; `jam` is every fruit's jam. Every recipe until
+   * recipes are learned in this world.
+   */
+  recipes: z.array(RecipeName),
+  /** Free picks left for `pick_recipe`. 0 until recipes are learned, and for anyone who knows every recipe. */
+  recipePicks: z.number().int(),
   /** Crops on plots you can build on, soonest ready first. */
   garden: z.array(GardenView),
   /**

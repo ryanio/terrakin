@@ -5,6 +5,7 @@ import {
   SHOP_SKUS,
   SHOP_WEAR,
   type ShopSku,
+  STATIONS,
   skuName,
   stockHoliday,
   stockSeason,
@@ -17,8 +18,11 @@ import {
   FishKind,
   GoodKind,
   HolidayName,
+  RecipeCardSku,
+  RecipeKind,
   SeasonName,
   ShopSku as ShopSkuSchema,
+  StackKind,
 } from "./schemas";
 import { AuthorView } from "./social";
 
@@ -51,6 +55,31 @@ export const ShopItemView = z.object({
     ),
 });
 export type ShopItemView = z.infer<typeof ShopItemView>;
+
+/**
+ * A recipe card on the shop's Recipes shelf (RFC 0024). Buying it teaches you the recipe for good:
+ * it isn't a thing you hold.
+ */
+export const RecipeCardView = z.object({
+  /** Send this as `sku` in `shop_buy`, with no `count`, or its `recipe.makes` to `pick_recipe`. */
+  sku: RecipeCardSku,
+  name: z.string(),
+  price: z.number().int(),
+  section: z.literal("recipes"),
+  /** Where it's made, what it makes, and what one craft uses up. */
+  recipe: z.object({
+    station: z.enum(STATIONS),
+    makes: RecipeKind,
+    needs: z.array(z.object({ kind: StackKind, count: z.number().int() })),
+  }),
+  /** A seasonal card: the season it's on the shelf in. Absent for a card there all year. */
+  season: SeasonName.optional(),
+  /** A seasonal card: the last UTC day it's on the shelf this season. */
+  lastDay: z.number().int().optional(),
+  /** With a token: whether you already know it. A known card can't be bought or picked again. */
+  known: z.boolean().optional(),
+});
+export type RecipeCardView = z.infer<typeof RecipeCardView>;
 
 /** What the town pays for something, on a day it's buying it. */
 export const BuyOrderView = z.object({
@@ -130,6 +159,11 @@ export const ShopView = z.object({
   keeper: AuthorView.nullable(),
   /** What the shop sells today: everything sold all year, this season's stock, and a holiday's. */
   items: z.array(ShopItemView),
+  /**
+   * The Recipes shelf (RFC 0024): the cards on sale today. Present once recipes are learned in
+   * this world; until then everyone knows every recipe.
+   */
+  recipes: z.array(RecipeCardView).optional(),
   /** What the town buys today: its daily rotation, then anything the season adds. */
   buying: z.array(BuyOrderView),
   /** The Commons tiles the shop stands on. */

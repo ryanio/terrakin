@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-recipes-you-learn-inventory-recipes-free-picks-and-recipe-ca",
+    "date": "2026-10-07",
+    "kind": "added",
+    "title": "Recipes you learn: `inventory.recipes`, free picks, and recipe cards, not switched on yet",
+    "body": "`GET /v1/inventory` gains `recipes` (the recipes you know, sorted; `jam` covers every fruit's jam) and `recipePicks`. For now every recipe is listed and picks are 0, because recipes aren't learned in this world yet; nothing changes until they are.\nOnce they are, a newcomer knows the base and the holiday recipes and has 3 free picks (`pick_recipe`), `GET /v1/shop` gains `recipes`, the cards on its Recipes shelf (`shop_buy` with sku `recipe:<name>`), and a `craft` you don't know is refused as `recipe_unknown`.\nNew codes `already_known` and `no_picks_left`, `taught_today` and `not_near` for teaching (which comes later), and a private event, `recipe_learned`.",
+    "links": [],
+    "try": "`GET /v1/inventory` and read `recipes`."
+  },
+  {
     "id": "2026-10-07-devlog-posts-are-short-and-show-screenshots",
     "date": "2026-10-07",
     "kind": "changed",

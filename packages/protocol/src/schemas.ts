@@ -5,6 +5,8 @@ import {
   BUILD_PARTS,
   BUILD_SKIPS,
   CANDY_FROM,
+  CARD_SKUS,
+  type CardSku,
   COIN_REASONS,
   COMMONS_BLOCKS,
   CROPS,
@@ -44,10 +46,12 @@ import {
   PLOT_NAMES,
   PROPOSAL_KINDS,
   PROPOSAL_STATUSES,
+  RECIPE_NAMES,
   REJECTION_CODES,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   RESOURCE_KINDS,
+  type RecipeName as RecipeNameType,
   ROUTINE_KINDS,
   ROUTINES,
   SEASONS,
@@ -483,6 +487,20 @@ export const CraftAction = z.object({
   ...dry,
 });
 /**
+ * A recipe by the name you learn it under (RFC 0024): what it makes, like `lemonade`, or `jam`,
+ * which makes every fruit's jam. `inventory.recipes` lists the ones you know.
+ */
+export const RecipeName = z.enum(RECIPE_NAMES as unknown as [RecipeNameType, ...RecipeNameType[]]);
+/**
+ * Learn a recipe with one of your free picks (`inventory.recipePicks`): any card on the shop's
+ * Recipes shelf today, seasonal ones included. Only once recipes are learned in this world.
+ */
+export const PickRecipeAction = z.object({
+  type: z.literal("pick_recipe"),
+  recipe: RecipeName,
+  ...dry,
+});
+/**
  * Give something to another resident: a made thing by id, or by kind (`count` of a stack, or your
  * oldest `count` of a made kind). Only ever because your owner wants it.
  */
@@ -591,13 +609,19 @@ export const NamePlotAction = z.object({
 export const ShopSku = z.enum(SHOP_SKUS);
 export type ShopSku = z.infer<typeof ShopSku>;
 /**
+ * A recipe card on the shop's Recipes shelf (RFC 0024), like `recipe:lemonade`. Buying one teaches
+ * you the recipe for good; it isn't a thing you hold.
+ */
+export const RecipeCardSku = z.enum(CARD_SKUS as unknown as [CardSku, ...CardSku[]]);
+/**
  * Buy from the town shop. `count` for decor, seeds, sugar, and jars (default 1); wear is one of a
- * kind. 5% of what you spend goes to the town treasury and the rest is retired. Only ever because
- * your owner wants it.
+ * kind, and so is a recipe card (`recipe:<name>`, once recipes are learned in this world). 5% of
+ * what you spend goes to the town treasury and the rest is retired. Only ever because your owner
+ * wants it.
  */
 export const ShopBuyAction = z.object({
   type: z.literal("shop_buy"),
-  sku: ShopSku,
+  sku: z.union([ShopSku, RecipeCardSku]),
   count: z.number().int().min(1).max(SHOP.countMax).optional(),
   ...dry,
 });
@@ -1030,6 +1054,7 @@ export const Action = z.discriminatedUnion("type", [
   NamePlotAction,
   ShopBuyAction,
   SellToTownAction,
+  PickRecipeAction,
   ListItemAction,
   UnlistItemAction,
   BuyListingAction,
@@ -1515,6 +1540,23 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_share_set"), percent: z.number().int().min(0).max(100) }),
   /** The market opened (RFC 0008): `GET /v1/market`. */
   z.object({ type: z.literal("market_opened") }),
+  /**
+   * From now on, recipes are learned (RFC 0024): everyone living here now keeps every recipe, and
+   * newcomers start with the base, the holiday recipes, and free picks.
+   */
+  z.object({ type: z.literal("recipes_opened") }),
+  /**
+   * You learned a recipe (RFC 0024): `picked` with a free pick, `bought` as a card (with `price`),
+   * `taught` by a neighbor (with `from`), or `found` as a recipe page. Only you get these.
+   */
+  z.object({
+    type: z.literal("recipe_learned"),
+    residentId: z.string(),
+    recipe: RecipeName,
+    how: z.enum(["picked", "bought", "taught", "found"]),
+    price: z.number().int().optional(),
+    from: z.string().optional(),
+  }),
   /** Something went up for sale in the market. */
   z.object({
     type: z.literal("listed"),

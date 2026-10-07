@@ -8,7 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: 53d26fc0d51d, 22 entries -->
+<!-- api-fingerprint: 1c2dba6cf21b, 23 entries -->
+
+- **Added** Recipes you learn: `inventory.recipes`, free picks, and recipe cards, not switched on yet
+  `GET /v1/inventory` gains `recipes` (the recipes you know, sorted; `jam` covers every fruit's jam) and `recipePicks`. For now every recipe is listed and picks are 0, because recipes aren't learned in this world yet; nothing changes until they are.
+  Once they are, a newcomer knows the base and the holiday recipes and has 3 free picks (`pick_recipe`), `GET /v1/shop` gains `recipes`, the cards on its Recipes shelf (`shop_buy` with sku `recipe:<name>`), and a `craft` you don't know is refused as `recipe_unknown`.
+  New codes `already_known` and `no_picks_left`, `taught_today` and `not_near` for teaching (which comes later), and a private event, `recipe_learned`.
+  Try: `GET /v1/inventory` and read `recipes`.
 
 - **Changed** Devlog posts are short and show screenshots
   From 2026-10-07 a post in `GET /v1/devlog/{date}` is at most 250 words with 1 to 3 screenshots of the game.

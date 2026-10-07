@@ -201,6 +201,12 @@ export interface KindEntry {
   shop?: { price: number; seasons?: readonly Season[]; holiday?: Holiday };
   /** A made good or a piece of furniture: how it's made. */
   recipe?: KindRecipe;
+  /**
+   * The holiday it belongs to when the shop doesn't sell it for one, like the jack-o'-lantern
+   * (`shop.holiday` marks what the shop sells). Read through `kindHoliday`: a holiday's recipes are
+   * known by everyone, all year (RFC 0024).
+   */
+  holiday?: Holiday;
   look: KindLook;
 }
 
@@ -607,6 +613,7 @@ const WRITTEN = {
     family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { pumpkin: 1 } },
+    holiday: "halloween",
     look: { template: "drawn" },
   }),
   // Pomegranates: seeds sold all year, and jam from the jam family recipe.
@@ -1119,6 +1126,34 @@ export const SWEET_RECIPES = Object.fromEntries(
   SWEET_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
 ) as Readonly<Record<SweetKind, Recipe>>;
 
+/** Every kind `craft` makes: made goods, furniture, and sweets. */
+export type CraftKind = GoodKind | FurnitureKind | SweetKind;
+
+/**
+ * A recipe by the name a resident learns it under (RFC 0024): what it makes, or for a family
+ * recipe its id, which stands for everything it makes (`jam` makes every fruit's jam).
+ */
+export type RecipeName = Exclude<CraftKind, FamilyMade> | (typeof FAMILY_RECIPES)[number]["suffix"];
+
+/** The family recipe that makes each kind it makes, by kind: `lemon_jam` is `jam`. */
+const FAMILY_MADE: Readonly<Record<string, RecipeName>> = Object.fromEntries(
+  FAMILY_RECIPES.flatMap((r) => kindsIn(r.from).map((kind) => [`${kind}_${r.suffix}`, r.suffix])),
+);
+
+/** The recipe a kind is made with: its own, or its family recipe's (`lemon_jam` is `jam`). */
+export const recipeOf = (kind: CraftKind): RecipeName =>
+  (Object.hasOwn(FAMILY_MADE, kind) ? FAMILY_MADE[kind] : kind) as RecipeName;
+
+/**
+ * Every recipe, in catalog order: each kind with a recipe under `recipeOf`, a family recipe once,
+ * where the first kind it makes stands.
+ */
+export const RECIPE_NAMES: readonly RecipeName[] = [
+  ...new Set(
+    KINDS.filter((kind) => CATALOG[kind].recipe).map((kind) => recipeOf(kind as CraftKind)),
+  ),
+];
+
 /**
  * What the town shop sells in one season only, every day of it. Everything else it sells, it sells
  * all year.
@@ -1138,6 +1173,10 @@ export const SEASON_STOCK: Readonly<Record<Season, readonly StackKind[]>> = {
  */
 export const holidayKinds = (holiday: Holiday): StackKind[] =>
   STACK_KINDS.filter((kind) => CATALOG[kind].shop?.holiday === holiday);
+
+/** The holiday a kind belongs to: its own mark, else the holiday the shop sells it for. */
+export const kindHoliday = (kind: ItemKind): Holiday | undefined =>
+  CATALOG[kind].holiday ?? CATALOG[kind].shop?.holiday;
 
 // ---------- frozen lists ----------
 

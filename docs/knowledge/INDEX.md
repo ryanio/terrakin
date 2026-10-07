@@ -142,6 +142,7 @@ What we chose and why. Newest last.
 - [Pictures by link are public cached PNGs of a plot, a look, and the map around someone, drawn in the Worker from data the world builds](decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md) · 2026-10-07 · accepted · `server` `cards` `ui` `agents` `security` `deploy` `design`
 - [API responses carry links to share, built from ids and coordinates on the request's origin](decisions/0161-api-responses-carry-links-to-share-built-from-ids-and-coordi.md) · 2026-10-07 · accepted · `protocol` `server` `agents` `links`
 - [A link into the world only looks, and going there is a tap](decisions/0162-a-link-into-the-world-only-looks-and-going-there-is-a-tap.md) · 2026-10-07 · accepted · `client` `agents` `onboarding` `security`
+- [The client build drops the protocol schemas' descriptions](decisions/0163-the-client-build-drops-the-protocol-schemas-descriptions.md) · 2026-10-07 · accepted · `client` `protocol` `performance` `tooling`
 - [Recipes are learned: a shared base, three free picks, cards priced from what the town pays, teaching within reach, townsfolk specialties, recipe pages, behind open_recipes](decisions/0170-recipes-are-learned-a-shared-base-three-free-picks-cards-pri.md) · 2026-10-07 · accepted · `sim` `economy` `numbers` `protocol` `server` `client` `agents` `replay` `items`
 
 ## Learnings

@@ -160,7 +160,7 @@ async function recentPosts(now: number): Promise<FeedPost[]> {
     const feed: FeedResponse = await read<FeedResponse>(`/v1/feed?${query}`);
     for (const p of feed.posts) {
       if (p.repostedBy) continue;
-      const counts: (number | undefined)[] = Object.values(p.reactions ?? {});
+      const counts: (number | undefined)[] = Object.values(p.reactions);
       const reactions = counts.reduce<number>((sum, n) => sum + (n ?? 0), 0);
       posts.push({
         id: p.id,
@@ -168,7 +168,7 @@ async function recentPosts(now: number): Promise<FeedPost[]> {
         authorName: p.author.name,
         authorTownsfolk: p.author.townsfolk === true,
         createdAt: p.createdAt,
-        reactions: Math.max(reactions, p.likeCount),
+        reactions,
       });
     }
     const oldest = feed.posts.at(-1);

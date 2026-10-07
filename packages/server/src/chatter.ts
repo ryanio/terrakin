@@ -1,4 +1,6 @@
 import {
+  heartCount,
+  hearted,
   type PostView,
   REACTION_KEYS,
   REAL_ENOUGH,
@@ -302,7 +304,7 @@ export function candidatesFor(
     (p) =>
       p.author.id !== self &&
       p.replyTo === null &&
-      !p.liked &&
+      !hearted(p) &&
       ageOf(p, now) < CHATTER_LIMITS.candidateWindowMs &&
       !skip(p),
   );
@@ -318,7 +320,7 @@ export function candidatesFor(
     newcomer: !isTownsfolk(p.author.id) && isNewcomer(p.author.id),
     ageMs: ageOf(p, now),
     text: p.text.slice(0, CHATTER_LIMITS.maxChars),
-    likes: p.likeCount,
+    likes: heartCount(p),
     replies: p.replyCount,
   }));
 }
@@ -1254,7 +1256,7 @@ export class ChatterService {
           (p) => p.id,
         );
       case "like":
-        return done(this.social.setLike(me, answer.postId, true));
+        return done(this.social.setReaction(me, answer.postId, "heart", true));
       case "react":
         return done(this.social.setReaction(me, answer.postId, answer.reaction, true));
       case "praise":

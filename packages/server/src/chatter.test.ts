@@ -180,9 +180,12 @@ const view = (id: string, author: string, ageMs: number, extra: Partial<PostView
     media: [],
     replyTo: null,
     replyCount: 0,
-    likeCount: 0,
-    liked: false,
     createdAt: new Date(START - ageMs).toISOString(),
+    reactions: {},
+    myReactions: [],
+    repostCount: 0,
+    quoteCount: 0,
+    reposted: false,
     ...extra,
   }) as PostView;
 
@@ -300,7 +303,7 @@ describe("the planner", () => {
     const feed = [
       view("own", "t1", HOUR),
       view("folk", "t2", HOUR),
-      view("liked", "real1", HOUR, { liked: true }),
+      view("liked", "real1", HOUR, { reactions: { heart: 1 }, myReactions: ["heart"] }),
       view("old", "real1", 3 * 24 * HOUR),
       view("reply", "real1", HOUR, { replyTo: "x" }),
       view("skip", "real2", HOUR),
@@ -530,7 +533,7 @@ describe("the chatter service", () => {
     const hello = t.post(t.ryan, "Just moved in next to the Commons. Hello, neighbors!");
     const run = await t.chatter.run();
     expect(run.outcomes).toEqual(["invalid", "liked"]);
-    expect(t.social.post(hello.id)?.likeCount).toBe(1);
+    expect(t.social.post(hello.id)?.reactions.heart).toBe(1);
   });
 
   it("never replies in posts mode, and replies to the offered post in all mode", async () => {
@@ -822,10 +825,10 @@ describe("the chatter service", () => {
     if (!note) throw new Error("no note");
     expect(t.chatter.participation()).toEqual({ notes: 1, answered: 0, replies: 0, reactions: 0 });
     t.social.createPost(t.ryan, { text: "Tomato, please!", replyTo: note.id });
-    t.social.setLike(t.ryan, note.id, true);
+    t.social.setReaction(t.ryan, note.id, "heart", true);
     // Townsfolk answering each other doesn't count.
-    t.social.setLike(t.bram, note.id, true);
-    t.social.setLike(t.juniper, note.id, true);
+    t.social.setReaction(t.bram, note.id, "heart", true);
+    t.social.setReaction(t.juniper, note.id, "heart", true);
     expect(t.chatter.participation()).toEqual({ notes: 1, answered: 1, replies: 1, reactions: 1 });
   });
 

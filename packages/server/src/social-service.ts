@@ -1047,11 +1047,6 @@ export class SocialService {
 
   // ---------- reactions and reposts ----------
 
-  /** A like is a heart reaction. */
-  setLike(residentId: string, postId: string, liked: boolean): SocialResult<PostView> {
-    return this.setReaction(residentId, postId, "heart", liked);
-  }
-
   setReaction(
     residentId: string,
     postId: string,
@@ -2618,7 +2613,6 @@ export class SocialService {
       if (!author) return [];
       const id = String(row.id);
       const r = reactions.get(id) ?? { counts: {}, mine: [] };
-      const hearts = r.counts.heart ?? 0;
       const view: PostView = {
         id,
         trust: "untrusted" as const,
@@ -2627,8 +2621,6 @@ export class SocialService {
         media: media.get(id) ?? [],
         replyTo: row.reply_to ? String(row.reply_to) : null,
         replyCount: Number(row.reply_count),
-        likeCount: hearts,
-        liked: r.mine.includes("heart"),
         createdAt: new Date(Number(row.created_at)).toISOString(),
         mentions: mentions.get(id) ?? [],
         reactions: r.counts,

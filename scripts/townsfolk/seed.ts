@@ -590,7 +590,7 @@ async function stalePosts(creds: Creds): Promise<StalePost[]> {
         const slots = creds.residents[key]?.posts ?? {};
         ours.push([key, reply.id, Object.keys(slots).find((k) => slots[k] === reply.id)]);
       }
-      out.push({ persona: p, slot, id, ours, others, likes: thread.post.likeCount });
+      out.push({ persona: p, slot, id, ours, others, likes: thread.post.reactions.heart ?? 0 });
     }
   }
   return out;
@@ -795,8 +795,11 @@ async function main(): Promise<void> {
       const postId = intro(key);
       if (!postId) continue;
       const { post } = await call<PostResponse>("GET", `/v1/posts/${postId}`, { token: s.token });
-      if (!post.liked) {
-        await call("PUT", `/v1/posts/${postId}/like`, { token: s.token, bucket: "social" });
+      if (!post.myReactions.includes("heart")) {
+        await call("PUT", `/v1/posts/${postId}/reactions/heart`, {
+          token: s.token,
+          bucket: "social",
+        });
         say(p.name, `liked ${other.persona.name}'s introduction`);
         await sleep(PACE);
       }

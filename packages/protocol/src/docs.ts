@@ -95,7 +95,7 @@ const cell = (text: string) => text.replace(/\|/g, "\\|");
 /** The endpoint tables, grouped by tag. */
 function endpointTables(): string[] {
   const lines = [
-    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`liked\`). JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
+    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`myReactions\`). JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
   ];
   for (const tag of Object.keys(TAGS)) {
     // A route is listed once, under its first tag.

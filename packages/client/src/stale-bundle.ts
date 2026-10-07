@@ -1,7 +1,8 @@
 /**
- * The page reloads itself when the server sends something it can't read. While Terrakin is
- * pre-alpha the API can change in ways an open tab's code doesn't know (decision 0146), and a
- * fresh load picks up the code that matches. It reloads at most once every `RELOAD_GAP_MS`, so a
+ * The page reloads itself when the server sends something it can't read: a welcome, a snapshot, or
+ * any REST answer that doesn't match its schema. While Terrakin is pre-alpha the API can change in
+ * ways an open tab's code doesn't know (decision 0146), and a fresh load picks up the code that
+ * matches. It reloads at most once every `RELOAD_GAP_MS`, so a
  * server that keeps sending something wrong can't put the page in a loop.
  */
 

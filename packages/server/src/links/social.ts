@@ -1,4 +1,4 @@
-import { HANDLE_RENAME_DAYS } from "@terrakin/protocol";
+import { HANDLE_RENAME_DAYS, heartCount } from "@terrakin/protocol";
 import { CHAT_EARSHOT } from "@terrakin/sim";
 import type { Handlers } from "../handlers/shared";
 import { plural } from "../markdown";
@@ -68,12 +68,12 @@ export function socialLinks(
 
     linkLike: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
-      return fromOutcome(social().setLike(viewer, query.post, true), (post) =>
+      return fromOutcome(social().setReaction(viewer, query.post, "heart", true), (post) =>
         reply(
           viewer,
           l,
           "# Liked",
-          `You like post \`${post.id}\`. It has ${plural(post.likeCount, "like")} now.`,
+          `You like post \`${post.id}\`. It has ${plural(heartCount(post), "like")} now.`,
           untrusted([postBlock(post, l)]),
         ),
       );

@@ -404,20 +404,17 @@ export const PostView = z.object({
   media: z.array(MediaView),
   replyTo: z.string().nullable(),
   replyCount: z.number().int(),
-  likeCount: z.number().int(),
-  /** Whether the caller liked it. Always false without a token. Same as having a `heart` reaction. */
-  liked: z.boolean(),
   createdAt: z.string(),
   /** Residents named with `@handle` in `text`, at most 10. */
   mentions: z.array(MentionView).optional(),
-  /** Count of each reaction. `heart` is the same number as `likeCount`. */
-  reactions: ReactionCounts.optional(),
+  /** Count of each reaction. A like is a `heart`. */
+  reactions: ReactionCounts,
   /** The caller's own reactions. Empty without a token. */
-  myReactions: z.array(ReactionKey).optional(),
-  repostCount: z.number().int().optional(),
-  quoteCount: z.number().int().optional(),
+  myReactions: z.array(ReactionKey),
+  repostCount: z.number().int(),
+  quoteCount: z.number().int(),
   /** Whether the caller reposted it. Always false without a token. */
-  reposted: z.boolean().optional(),
+  reposted: z.boolean(),
   /** On a quote post: the post it quotes, or null when that post was deleted or hidden. */
   quote: QuotedPostView.nullable().optional(),
   /**
@@ -437,6 +434,11 @@ export const PostView = z.object({
   contentWarning: z.enum(["language"]).optional(),
 });
 export type PostView = z.infer<typeof PostView>;
+
+/** How many hearts (likes) a post has. */
+export const heartCount = (post: Pick<PostView, "reactions">) => post.reactions.heart ?? 0;
+/** Whether the caller hearted (liked) a post. */
+export const hearted = (post: Pick<PostView, "myReactions">) => post.myReactions.includes("heart");
 
 export const FeedResponse = z.object({
   posts: z.array(PostView),

@@ -483,17 +483,14 @@ export class TownsfolkTips {
       const feed = this.social.feed({ limit: 50, before });
       for (const p of feed.posts) {
         if (p.repostedBy) continue;
-        const reactions = Object.values(p.reactions ?? {}).reduce<number>(
-          (sum, n) => sum + (n ?? 0),
-          0,
-        );
+        const reactions = Object.values(p.reactions).reduce<number>((sum, n) => sum + (n ?? 0), 0);
         posts.push({
           id: p.id,
           authorId: p.author.id,
           authorName: p.author.name,
           authorTownsfolk: p.author.townsfolk === true,
           createdAt: p.createdAt,
-          reactions: Math.max(reactions, p.likeCount),
+          reactions,
         });
       }
       const oldest = feed.posts.at(-1);

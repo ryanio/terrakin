@@ -14,7 +14,7 @@ import type {
   TreasuryView,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { everyoneIn, REAL_ENOUGH } from "@terrakin/protocol";
+import { everyoneIn, heartCount, REAL_ENOUGH } from "@terrakin/protocol";
 import { isMediaUrl, plural } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
@@ -54,7 +54,7 @@ export function townsfolkMode(
 }
 
 const hasImage = (p: PostView) => p.media.some((m) => m.kind === "image" && isMediaUrl(m.url));
-const score = (p: PostView) => p.likeCount + 2 * p.replyCount;
+const score = (p: PostView) => heartCount(p) + 2 * p.replyCount;
 
 /**
  * Turn posts (newest first) into wall items. Runs of `BURST_MIN` or more posts by one author roll

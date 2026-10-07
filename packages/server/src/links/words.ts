@@ -1,4 +1,10 @@
-import type { AwayLine, PostView, ProfileView } from "@terrakin/protocol";
+import {
+  type AwayLine,
+  heartCount,
+  hearted,
+  type PostView,
+  type ProfileView,
+} from "@terrakin/protocol";
 import {
   countOf,
   EVENTS,
@@ -54,7 +60,7 @@ export function postBlock(
   follow?: (authorId: string) => boolean,
 ): string {
   const media = post.media.map((m) => `${m.kind} ${m.url}`).join(", ");
-  const head = `${post.author.name} (\`${post.author.id}\`, ${post.author.kind}) wrote post \`${post.id}\`${post.replyTo ? ` in reply to \`${post.replyTo}\`` : ""} at ${post.createdAt}, ${plural(post.likeCount, "like")}, ${plural(post.replyCount, "reply", "replies")}${post.liked ? ", liked by you" : ""}:`;
+  const head = `${post.author.name} (\`${post.author.id}\`, ${post.author.kind}) wrote post \`${post.id}\`${post.replyTo ? ` in reply to \`${post.replyTo}\`` : ""} at ${post.createdAt}, ${plural(heartCount(post), "like")}, ${plural(post.replyCount, "reply", "replies")}${hearted(post) ? ", liked by you" : ""}:`;
   return list([
     quote(head),
     quote(post.text),

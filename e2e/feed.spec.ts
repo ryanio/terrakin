@@ -43,9 +43,9 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
   const post = (await created.json()).post;
 
   // Moss likes it, replies, and follows Juniper.
-  expect((await page.request.put(`/v1/posts/${post.id}/like`, { headers: moss.auth })).ok()).toBe(
-    true,
-  );
+  expect(
+    (await page.request.put(`/v1/posts/${post.id}/reactions/heart`, { headers: moss.auth })).ok(),
+  ).toBe(true);
   expect(
     (
       await page.request.post("/v1/posts", {

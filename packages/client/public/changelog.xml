@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-the-like-route-and-likecount-and-liked-on-posts-a-like-is-a</id>
+    <title>Removed: The like route and `likeCount` and `liked` on posts: a like is a `heart` reaction</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
+    <category term="removed" label="Removed"/>
+    <summary type="text">`PUT` and `DELETE /v1/posts/&lt;id&gt;/like` are gone (404); use `PUT` and `DELETE /v1/posts/&lt;id&gt;/reactions/heart`. A post's likes are `reactions.heart` (absent at 0), and whether you liked it is `&quot;heart&quot;` in `myReactions`.
+`reactions`, `myReactions`, `repostCount`, `quoteCount`, and `reposted` are now always on a post. The link `/v1/act/&lt;key&gt;/like` still likes a post.
+Try: `PUT /v1/posts/p_.../reactions/heart`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-07-terrakin-is-pre-alpha-the-api-can-break-and-the-changelog-sa</id>
     <title>Changed: Terrakin is pre-alpha: the API can break, and the changelog says how the day it ships</title>
     <updated>2026-10-07T00:00:00Z</updated>

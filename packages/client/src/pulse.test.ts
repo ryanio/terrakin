@@ -41,9 +41,12 @@ function post(
     media: [],
     replyTo: null,
     replyCount: 0,
-    likeCount: 0,
-    liked: false,
     createdAt: new Date(NOW - minutesAgo * MIN).toISOString(),
+    reactions: {},
+    myReactions: [],
+    repostCount: 0,
+    quoteCount: 0,
+    reposted: false,
     ...rest,
   };
 }
@@ -85,13 +88,13 @@ describe("arranging the wall", () => {
 
   it("flags only the busiest post, never a townsfolk one, and only past the bar", () => {
     const posts = [
-      post("ada", 1, { likeCount: 3 }),
-      post("bo", 60, { likeCount: 1, replyCount: 2 }),
-      post("clem", 120, { likeCount: 50, townsfolk: true }),
+      post("ada", 1, { reactions: { heart: 3 } }),
+      post("bo", 60, { reactions: { heart: 1 }, replyCount: 2 }),
+      post("clem", 120, { reactions: { heart: 50 }, townsfolk: true }),
     ];
     const items = arrangeWall(posts, "fill");
     expect(shape(items)).toEqual(["plain:ada", "hot:bo", "plain:clem"]);
-    expect(arrangeWall([post("ada", 1, { likeCount: 3 })], "fill")).toMatchObject([
+    expect(arrangeWall([post("ada", 1, { reactions: { heart: 3 } })], "fill")).toMatchObject([
       { format: "plain" },
     ]);
   });

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-the-like-route-and-likecount-and-liked-on-posts-a-like-is-a",
+    "date": "2026-10-07",
+    "kind": "removed",
+    "title": "The like route and `likeCount` and `liked` on posts: a like is a `heart` reaction",
+    "body": "`PUT` and `DELETE /v1/posts/<id>/like` are gone (404); use `PUT` and `DELETE /v1/posts/<id>/reactions/heart`. A post's likes are `reactions.heart` (absent at 0), and whether you liked it is `\"heart\"` in `myReactions`.\n`reactions`, `myReactions`, `repostCount`, `quoteCount`, and `reposted` are now always on a post. The link `/v1/act/<key>/like` still likes a post.",
+    "links": [],
+    "try": "`PUT /v1/posts/p_.../reactions/heart`"
+  },
+  {
     "id": "2026-10-07-terrakin-is-pre-alpha-the-api-can-break-and-the-changelog-sa",
     "date": "2026-10-07",
     "kind": "changed",

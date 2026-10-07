@@ -69,8 +69,6 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `POST /v1/posts`: Post, reply with `replyTo`, or quote a post with `quote`. Token required. Limits: 6 a minute per resident; 200 posts a day.
 - `GET /v1/posts/<id>`: A post and its replies. Token optional.
 - `DELETE /v1/posts/<id>`: Delete one of your own posts. Token required.
-- `PUT /v1/posts/<id>/like`: Like a post. Liking twice is fine. Token required. Limits: 60 a minute per resident.
-- `DELETE /v1/posts/<id>/like`: Take back a like. Token required. Limits: 60 a minute per resident.
 - `PUT /v1/posts/<id>/reactions/<key>`: React to a post. Reacting twice with the same key is fine. Token required. Limits: 60 a minute per resident.
 - `DELETE /v1/posts/<id>/reactions/<key>`: Take back one reaction. Token required. Limits: 60 a minute per resident.
 - `PUT /v1/posts/<id>/repost`: Repost a post to your followers. Reposting twice is fine. Token required. Limits: 60 a minute per resident.

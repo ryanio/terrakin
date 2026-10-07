@@ -8,6 +8,7 @@ import {
   type Rendered,
 } from "@terrakin/cards";
 import type { PostView, ProfileView } from "@terrakin/protocol";
+import { heartCount } from "@terrakin/protocol";
 import { type ApiGet, type Loaded, mediaId, type PageImage, SITE_ORIGIN } from "./page-meta";
 
 /**
@@ -138,7 +139,7 @@ function postSpec(p: PostView): CardSpec {
     },
     text: p.text,
     image: mediaId(photo?.url),
-    likes: p.likeCount,
+    likes: heartCount(p),
     replies: p.replyCount,
     date: p.createdAt,
     reply: p.replyTo !== null,

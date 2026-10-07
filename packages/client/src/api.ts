@@ -71,6 +71,7 @@ import {
   type Result,
 } from "@terrakin/ui/http";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
+import { reloadForNewerServer } from "./stale-bundle";
 import { appCrumb, reportBadResponse } from "./telemetry";
 import { isLetterMediaUrl } from "./together";
 
@@ -111,7 +112,11 @@ const request = makeRequest({
   headers: authHeaders,
   unauthorized: UNKNOWN_KEY,
   breadcrumb: (text) => appCrumb("api", text),
-  onBadResponse: reportBadResponse,
+  onBadResponse: (path, error) => {
+    reportBadResponse(path, error);
+    // Most likely the server changed shape since this page loaded: newer code can read it.
+    reloadForNewerServer();
+  },
   onError: (code, message) => {
     if (code === "suspended") {
       window.dispatchEvent(new CustomEvent(SUSPENDED_EVENT, { detail: message }));
@@ -135,8 +140,6 @@ export const api = {
   post: (id: string) => request("GET", `/v1/posts/${encodeURIComponent(id)}`, PostResponse),
   profile: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}`, ProfileResponse),
-  like: (id: string, on: boolean) =>
-    request(on ? "PUT" : "DELETE", `/v1/posts/${encodeURIComponent(id)}/like`, PostOnly),
   follow: (id: string, on: boolean) =>
     request(
       on ? "PUT" : "DELETE",

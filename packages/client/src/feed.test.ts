@@ -212,9 +212,12 @@ const post = (id: string, createdAt: string): PostView => ({
   media: [],
   replyTo: null,
   replyCount: 0,
-  likeCount: 0,
-  liked: false,
   createdAt,
+  reactions: {},
+  myReactions: [],
+  repostCount: 0,
+  quoteCount: 0,
+  reposted: false,
 });
 
 describe("new posts", () => {

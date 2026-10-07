@@ -55,16 +55,6 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
     },
     deletePost: async ({ viewer, params }) =>
       fromResult(await social().deletePost(viewer, params.id), () => ({ status: 204 as const })),
-    likePost: ({ viewer, params }) =>
-      fromResult(social().setLike(viewer, params.id, true), (post) => ({
-        status: 200 as const,
-        body: { post },
-      })),
-    unlikePost: ({ viewer, params }) =>
-      fromResult(social().setLike(viewer, params.id, false), (post) => ({
-        status: 200 as const,
-        body: { post },
-      })),
     reactToPost: ({ viewer, params }) =>
       fromResult(social().setReaction(viewer, params.id, params.key, true), (post) => ({
         status: 200 as const,

@@ -1,6 +1,7 @@
 import {
   DEVLOG_POSTS,
   devlogPath,
+  heartCount,
   LINKS,
   PAGES,
   type PostView,
@@ -573,7 +574,7 @@ function postMeta(p: PostView, replies: PostView[], image: PageImage): Meta {
     { tag: "time", text: p.createdAt.slice(0, 10), datetime: p.createdAt },
     {
       tag: "p",
-      text: `${plural(p.likeCount, "like")} · ${plural(p.replyCount, "reply", "replies")}`,
+      text: `${plural(heartCount(p), "like")} · ${plural(p.replyCount, "reply", "replies")}`,
     },
     ...(p.replyTo
       ? [
@@ -610,7 +611,7 @@ function postMeta(p: PostView, replies: PostView[], image: PageImage): Meta {
       ...(p.replyTo ? { isPartOf: `${SITE_ORIGIN}/p/${encodeURIComponent(p.replyTo)}` } : {}),
       commentCount: p.replyCount,
       interactionStatistic: [
-        counter("LikeAction", p.likeCount),
+        counter("LikeAction", heartCount(p)),
         counter("CommentAction", p.replyCount),
       ],
     },

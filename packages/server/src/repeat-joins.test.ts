@@ -34,8 +34,8 @@ afterEach(async () => {
 
 const town = (command: Input["command"]): Input => ({ actor: TOWN_ACTOR, command });
 /** A record joined and left again, never used in the world. */
-const unused = (actor: string, name: string): Input[] => [
-  { actor, command: { type: "join", name, kind: "agent" } },
+const unused = (actor: string, name: string, kind: "human" | "agent" = "agent"): Input[] => [
+  { actor, command: { type: "join", name, kind } },
   { actor, command: { type: "leave" } },
 ];
 /** A record someone walked with. */
@@ -67,20 +67,30 @@ const LOG: Input[] = [
   ...unused("r_blaze2", "Blaze"),
   // A name nobody else has stays, used or not.
   ...unused("r_wren", "Wren"),
+  // A person and an AI with one name are never repeats: the unused person "hal" stays.
+  ...used("r_hal", "Hal"),
+  ...unused("r_hal_person", "hal", "human"),
 ];
 
-async function start(options: { retire?: boolean } = {}) {
+/**
+ * A server on `LOG`, or, given the `store` and `sql` of an earlier one, the same world and
+ * tables after a restart.
+ */
+async function start(
+  options: { retire?: boolean; store?: MemoryStore; sql?: ReturnType<typeof nodeSql> } = {},
+) {
   const now = () => DAY * 86_400_000 + 3_600_000;
-  const store = new MemoryStore();
-  for (const input of LOG) store.appendInput(input);
+  const restart = options.store !== undefined;
+  const store = options.store ?? new MemoryStore();
+  if (!restart) for (const input of LOG) store.appendInput(input);
   const service = new WorldService({
     store,
     config: CONFIG,
     now,
     retireRepeatJoins: options.retire ?? true,
   });
-  const sql = nodeSql();
-  cleanups.push(() => sql.close());
+  const sql = options.sql ?? nodeSql();
+  if (!options.sql) cleanups.push(() => sql.close());
   const media = new MemoryMediaStore();
   const social = new SocialService({
     sql,
@@ -90,11 +100,13 @@ async function start(options: { retire?: boolean } = {}) {
   });
   // Out of the world, before anything asks the server: one record follows someone, one posts,
   // one blocks someone, and Ada follows every record, as the welcome routine did.
-  expect(social.setFollow("r_pip_follows", "r_ada", true).ok).toBe(true);
-  expect(social.setBlock("r_pip_blocks", "r_wren", true).ok).toBe(true);
-  expect(social.createPost("r_pip_posted", { text: "Hello from the garden" }).ok).toBe(true);
-  for (const id of ["r_pip_unused", "r_blaze2", "r_blaze", "r_pip"]) {
-    expect(social.setFollow("r_ada", id, true).ok).toBe(true);
+  if (!restart) {
+    expect(social.setFollow("r_pip_follows", "r_ada", true).ok).toBe(true);
+    expect(social.setBlock("r_pip_blocks", "r_wren", true).ok).toBe(true);
+    expect(social.createPost("r_pip_posted", { text: "Hello from the garden" }).ok).toBe(true);
+    for (const id of ["r_pip_unused", "r_blaze2", "r_blaze", "r_pip"]) {
+      expect(social.setFollow("r_ada", id, true).ok).toBe(true);
+    }
   }
   const server = createApp({
     service,
@@ -135,6 +147,8 @@ describe("clearing the old repeat joins", () => {
       "r_pip_blocks",
       "r_blaze",
       "r_wren",
+      "r_hal",
+      "r_hal_person",
     ]) {
       expect(ids).toContain(kept);
     }
@@ -155,6 +169,29 @@ describe("clearing the old repeat joins", () => {
     again.socialUsers = () => new Set();
     again.tick();
     expect(retireInputs(store)).toHaveLength(1);
+  });
+
+  it("keeps a record whose token or link key made a call, a read included", async () => {
+    const before = await start({ retire: false });
+    const token = before.service.issueToken("r_pip_unused");
+    const key = before.service.mintLinkKey("r_blaze2");
+    const seq = before.service.state.seq;
+    expect((await before.call("GET", "/v1/checkin", undefined, token)).status).toBe(200);
+    expect((await before.call("GET", `/v1/act/${key}/checkin`)).status).toBe(200);
+    // Reading changed nothing in the world: only the calls were noted.
+    expect(before.service.state.seq).toBe(seq);
+
+    // The Worker turns the switch on later, on the same log and tables.
+    const after = await start({ store: before.store, sql: before.sql });
+    const world = await after.call("GET", "/v1/world");
+    // Both are kept. Blaze's second record is now the one in use, so the unused first goes.
+    expect(retireInputs(after.store)).toEqual([
+      town({ type: "retire_repeat_joins", ids: ["r_blaze"] }),
+    ]);
+    const ids = world.body.residents.map((r: { id: string }) => r.id);
+    expect(ids).toContain("r_pip_unused");
+    expect(ids).toContain("r_blaze2");
+    expect((await after.call("GET", "/v1/checkin", undefined, token)).status).toBe(200);
   });
 
   it("turns a retired record's token and link key off and drops it from profiles and lists", async () => {

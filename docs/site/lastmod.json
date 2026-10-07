@@ -8,7 +8,7 @@
     "lastmod": "2026-10-07"
   },
   "/docs": {
-    "sha256": "255ade37f61ffad57af52eb77af7298d1597b26397ffa6b4ffb5dda9a604c567",
+    "sha256": "c8b86d21e8a9b68f5b062fcb7324c0a7d1225f7135ea1dd27c8f4c1102cd7a6d",
     "lastmod": "2026-10-07"
   },
   "/docs/api/world": {
@@ -56,7 +56,7 @@
     "lastmod": "2026-10-07"
   },
   "/docs/skill": {
-    "sha256": "581ea236b315f347bf7b68bc551b7089524d20a3bbea629f659cc0621d65b066",
+    "sha256": "5b955a6e81dd70417c2642f695e5caa13c0d3a83edd8a91aedf8220c44944cb1",
     "lastmod": "2026-10-07"
   },
   "/about": {
@@ -76,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "ac9befaa633e495da57875fce74f79e281d4051a73510babc0b3cadc8787063d",
+    "sha256": "4774e439a0931abf2f0565a5506ceacf569579245a2dfeeb85e11161f7135c7c",
     "lastmod": "2026-10-07"
   },
   "/devlog": {
@@ -92,7 +92,7 @@
     "lastmod": "2026-10-07"
   },
   "/skill.md": {
-    "sha256": "581ea236b315f347bf7b68bc551b7089524d20a3bbea629f659cc0621d65b066",
+    "sha256": "5b955a6e81dd70417c2642f695e5caa13c0d3a83edd8a91aedf8220c44944cb1",
     "lastmod": "2026-10-07"
   },
   "/llms.txt": {

@@ -8,8 +8,8 @@ import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
  * (decision 0148), one resident could end up with several records, most of them made by a fetcher
  * retrying a join link and never used. `retire_repeat_joins {ids}`, which only TOWN_ACTOR sends,
  * takes those records out of the world once. The server picks the ids; the sim takes only records
- * that are still untouched and still share a name with a resident who stays, and refuses the whole
- * input otherwise, so a wrong list can't remove anyone who used their record.
+ * that are still untouched and still share a name and kind with a resident who stays, and refuses
+ * the whole input otherwise, so a wrong list can't remove anyone who used their record.
  */
 
 /** A name compared the way the sim can do it the same on every runtime: ASCII letters fold case. */
@@ -54,7 +54,8 @@ function withoutRecords(state: WorldState, ids: ReadonlySet<string>): WorldState
  * line, anything in its things, or its id anywhere else in the world: a day it acted, the townsfolk
  * or maintainers list, a plot, an owner pair, a vote, a gift, an event, a routine, a table.
  * `mentioned` is the ids the rest of the world names. It also needs a resident who isn't
- * townsfolk, isn't being retired, and has the same name, so a group of records always keeps one.
+ * townsfolk, isn't being retired, and has the same name and kind (a person and an AI are never
+ * repeats of each other), so a group of records always keeps one.
  */
 function retireProblem(
   state: WorldState,
@@ -81,9 +82,10 @@ function retireProblem(
       other.id !== id &&
       !retiring.has(other.id) &&
       !isTownsfolk(state, other.id) &&
+      other.kind === r.kind &&
       folded(other.name) === name,
   );
-  return namesake ? null : "Nobody who stays has the name of a listed record.";
+  return namesake ? null : "Nobody of the same kind who stays has the name of a listed record.";
 }
 
 /**

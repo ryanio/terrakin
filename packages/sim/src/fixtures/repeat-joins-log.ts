@@ -5,10 +5,11 @@ import { SHOP_CONFIG, SHOP_LOG } from "./shop-log";
 /**
  * The shop world with repeat records of a name from before names were unique (issue #46), cleared
  * by `retire_repeat_joins` (decision 0230). Pip used the first of three records; nobody used
- * either Blaze; an unused "annals" shares its name with Annals, who walked. Recipes open while
- * they're all here, so they're in `everything`, and one more Blaze record joins on the day they go,
- * so it's among the day's newcomers. The town retires every unused record but the first Blaze, and
- * Eve joins and walks after. `repeat-joins.test.ts` replays it and checks the hash pinned below.
+ * either Blaze; an unused person "annals" shares a name with the AI Annals, who walked, and a
+ * person and an AI are never repeats of each other. Recipes open while they're all here, so
+ * they're in `everything`, and one more Blaze record joins on the day they go, so it's among the
+ * day's newcomers. The town retires Pip's unused records and every Blaze but the first, annals
+ * stays, and Eve joins and walks after. `repeat-joins.test.ts` replays it and checks the hash pinned below.
  */
 export const REPEAT_JOINS_CONFIG = SHOP_CONFIG;
 
@@ -38,7 +39,7 @@ export const REPEAT_JOINS_LOG: Input[] = [
   ...unused("r_blaze3", "Blaze"),
   town({
     type: "retire_repeat_joins",
-    ids: ["r_annals", "r_blaze2", "r_blaze3", "r_pip2", "r_pip3"],
+    ids: ["r_blaze2", "r_blaze3", "r_pip2", "r_pip3"],
   }),
   { actor: "eve", command: { type: "join", name: "Eve", kind: "human" } },
   { actor: "eve", command: { type: "move", dir: "s" } },
@@ -46,4 +47,4 @@ export const REPEAT_JOINS_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG))`, pinned when the switch landed. */
-export const REPEAT_JOINS_HASH = "1d8e2515";
+export const REPEAT_JOINS_HASH = "fac30af5";

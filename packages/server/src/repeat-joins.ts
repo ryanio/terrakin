@@ -11,8 +11,10 @@ import type { SqlExec } from "./sql-store";
  * Everyone who used their record outside the world: everything the newcomer funnel counts as
  * social (posts, reactions, reposts, follows, gestures they chose to send, praise, letters,
  * notices), and a handle, a bio or picture, an upload, an owner link either way, an agent link, an
- * X account, a block, a report, a pat, an admire, or saying they're going to an event. A record
- * in here is never retired.
+ * X account, a block, a report, a pat, an admire, or saying they're going to an event. And any
+ * authenticated call with the record's token or link key, reads like a check-in included: every
+ * one writes the day to `last_calls` (`AwayLog.called`), and any row there, however old, keeps the
+ * record. A record in here is never retired.
  */
 export function socialUsers(sql: SqlExec): Set<string> {
   const used = socialActors(sql);
@@ -29,7 +31,8 @@ export function socialUsers(sql: SqlExec): Set<string> {
      UNION SELECT reporter FROM reports
      UNION SELECT patter FROM pet_pats
      UNION SELECT admirer FROM plot_admires
-     UNION SELECT resident_id FROM event_going`,
+     UNION SELECT resident_id FROM event_going
+     UNION SELECT resident FROM last_calls`,
   );
   for (const row of rows) used.add(String(row.id));
   return used;

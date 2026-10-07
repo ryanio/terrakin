@@ -18,7 +18,7 @@ import { type Command, type Input, TOWN_ACTOR, type WorldState } from "./types";
  */
 
 const RETIRE = REPEAT_JOINS_LOG.findIndex((i) => i.command.type === "retire_repeat_joins");
-const LISTED = ["r_annals", "r_blaze2", "r_blaze3", "r_pip2", "r_pip3"];
+const LISTED = ["r_blaze2", "r_blaze3", "r_pip2", "r_pip3"];
 
 /** The fixture's world just before the town retires the repeat records. */
 const before = (): WorldState => replay(REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG.slice(0, RETIRE));
@@ -47,7 +47,7 @@ describe("the repeat joins fixture", () => {
     expect(state.retiredRepeatJoins).toEqual(LISTED);
     for (const id of LISTED) expect(state.residents[id]).toBeUndefined();
     expect(Object.keys(state.residents)).toEqual(
-      expect.arrayContaining(["r_pip", "r_blaze", "r_annals2", "eve"]),
+      expect.arrayContaining(["r_pip", "r_blaze", "r_annals", "r_annals2", "eve"]),
     );
     expect(state.recipes?.everything).toEqual([
       "ada",
@@ -55,6 +55,7 @@ describe("the repeat joins fixture", () => {
       "clem",
       "cy",
       "dee",
+      "r_annals",
       "r_annals2",
       "r_blaze",
       "r_pip",
@@ -134,7 +135,7 @@ describe("retire_repeat_joins", () => {
     });
   }
 
-  it("keeps one record of every name", () => {
+  it("keeps one record of every name and kind", () => {
     const state = before();
     // Every Blaze at once would leave nobody called Blaze.
     refused(state, ["r_blaze", "r_blaze2", "r_blaze3"], "not_eligible");
@@ -142,6 +143,9 @@ describe("retire_repeat_joins", () => {
     act(state, "eve", { type: "join", name: "Eve", kind: "human" });
     act(state, "eve", { type: "leave" });
     refused(state, ["eve"], "not_eligible");
+    // A person and an AI with one name are never repeats: the unused person "annals" stays, though
+    // the AI Annals walked.
+    refused(state, ["r_annals"], "not_eligible");
     expect(retire(state, ["r_blaze2", "r_blaze3"]).ok).toBe(true);
     expect(state.residents.r_blaze?.name).toBe("Blaze");
   });

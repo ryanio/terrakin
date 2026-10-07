@@ -196,16 +196,17 @@ export interface SnapshotExtras {
 }
 
 /**
- * Who a resident count leaves out (decision 0148): untouched records that share a name with
- * another resident, almost always the same person joining again before names were unique (issue
- * #46). Where someone with the name has done something, every untouched record with it is left
- * out; where nobody has, all but the first to join. Townsfolk aren't residents here.
+ * Who a resident count leaves out (decision 0148): untouched records that share a name and a kind
+ * with another resident, almost always the same person joining again before names were unique
+ * (issue #46). A person and an AI with one name are never a group: they're likely an owner and
+ * their AI (decision 0230). Where someone in a group has done something, every untouched record
+ * in it is left out; where nobody has, all but the first to join. Townsfolk aren't residents here.
  */
 export function repeatJoins(state: WorldState, untouched: (r: Resident) => boolean): string[] {
   const byName = new Map<string, Resident[]>();
   for (const r of Object.values(state.residents)) {
     if (isTownsfolk(state, r.id)) continue;
-    const name = nameKey(r.name);
+    const name = `${r.kind}:${nameKey(r.name)}`;
     byName.set(name, [...(byName.get(name) ?? []), r]);
   }
   return [...byName.values()].flatMap((same) => {

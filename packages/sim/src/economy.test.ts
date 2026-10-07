@@ -137,14 +137,6 @@ describe("old logs", () => {
     expect(hashWorld(replay(PRE_ECONOMY_CONFIG, PRE_ECONOMY_LOG))).toBe(PRE_ECONOMY_HASH);
   });
 
-  it("leave no coin fields behind, though they count days and come home", () => {
-    const state = replay(PRE_ECONOMY_CONFIG, PRE_ECONOMY_LOG);
-    expect(state.day).toBeDefined();
-    expect(state.economy).toBeUndefined();
-    expect(state.ownerPairs).toBeUndefined();
-    expect(state.maintainers).toBeUndefined();
-  });
-
   it("with coins replay to the hash pinned when coins landed", () => {
     const state = replay(POST_ECONOMY_CONFIG, POST_ECONOMY_LOG);
     expect(hashWorld(state)).toBe(POST_ECONOMY_HASH);

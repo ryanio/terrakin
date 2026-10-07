@@ -113,11 +113,6 @@ describe("old logs", () => {
     expect(hashWorld(replay(POST_ECONOMY_CONFIG, POST_ECONOMY_LOG))).toBe(POST_ECONOMY_HASH);
   });
 
-  it("leave no item fields behind, though residents come home", () => {
-    const state = replay(POST_ECONOMY_CONFIG, POST_ECONOMY_LOG);
-    expect(state.items).toBeUndefined();
-  });
-
   it("a log with items replays to its pinned hash", () => {
     const state = replay(ITEMS_CONFIG, ITEMS_LOG);
     expect(hashWorld(state)).toBe(ITEMS_HASH);

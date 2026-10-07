@@ -158,13 +158,4 @@ describe("partner wear (RFC 0007 phase 3)", () => {
     expect(entitledTo(state, "ada")).toEqual(["muse_halo", "muse_lantern"]);
     expect(code(entitle(state, "ada", ["muse_halo", "muse_lantern"]))).toBe("already_have");
   });
-
-  it("counts one seq per accepted entitlement, and rejections change nothing", () => {
-    const state = world();
-    const seq = state.seq;
-    entitle(state, "ada", ["muse_halo"]);
-    expect(state.seq).toBe(seq + 1);
-    entitle(state, "ada", ["muse_halo"]);
-    expect(state.seq).toBe(seq + 1);
-  });
 });

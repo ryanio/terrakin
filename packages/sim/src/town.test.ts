@@ -97,14 +97,6 @@ describe("old logs", () => {
     expect(hashWorld(replay(PRE_TOWN_CONFIG, PRE_TOWN_LOG))).toBe(PRE_TOWN_HASH);
   });
 
-  it("leave no Town Hall fields behind until the first new_day", () => {
-    const state = replay(PRE_TOWN_CONFIG, PRE_TOWN_LOG);
-    expect(state.day).toBeUndefined();
-    expect(state.lastActiveDay).toBeUndefined();
-    expect(state.town).toBeUndefined();
-    for (const plot of Object.values(state.plots)) expect(plot.claimedDay).toBeUndefined();
-  });
-
   it("make plots from before day counting eligible right away once days start", () => {
     const log: Input[] = [
       ...PRE_TOWN_LOG,

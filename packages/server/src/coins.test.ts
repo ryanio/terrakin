@@ -295,7 +295,7 @@ describe("coins", () => {
     expect(seen).toEqual([{ type: "quiet" }, { type: "quiet" }]);
   });
 
-  it("append nothing when the server boots again over a world that has them", async () => {
+  it("append nothing when the server boots again over a world that has them, or items", async () => {
     const store = new MemoryStore();
     const now = () => Date.UTC(2026, 9, 5, 9);
     const boot = () =>
@@ -305,12 +305,14 @@ describe("coins", () => {
         now,
         days: true,
         economy: true,
+        items: true,
         maintainers: new Set(["r_0000000000000001"]),
       });
     const first = boot();
     first.syncOwnerPairs([["r_0000000000000002", "r_0000000000000003"]]);
     const logged = store.loadLog().length;
     expect(first.state.economy).toBeDefined();
+    expect(first.state.items).toBeDefined();
     const again = boot();
     again.syncOwnerPairs([["r_0000000000000002", "r_0000000000000003"]]);
     expect(store.loadLog().length).toBe(logged);

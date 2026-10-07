@@ -179,7 +179,7 @@ describe("standard API headers", () => {
 });
 
 describe("Idempotency-Key", () => {
-  it("replays the first response for the same key and request, without doing it twice", async () => {
+  it("replays the first response for the same key and request, without doing it twice, and refuses a malformed key", async () => {
     const { call, join } = await start();
     const wren = await join("Wren");
     const send = (text: string, key: string, token = wren.token) =>
@@ -206,6 +206,11 @@ describe("Idempotency-Key", () => {
     expect(theirs.status).toBe(201);
     expect(theirs.headers.get("idempotency-replayed")).toBeNull();
     expect((await call("GET", "/v1/feed")).body.posts).toHaveLength(2);
+
+    // A malformed key is refused.
+    const bad = await send("hi", "x".repeat(256));
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe("bad_request");
   });
 
   it("waits for a first request still in flight instead of running twice", async () => {
@@ -220,18 +225,6 @@ describe("Idempotency-Key", () => {
     const [a, b] = await Promise.all([send(), send()]);
     expect(a.body).toEqual(b.body);
     expect((await call("GET", "/v1/feed")).body.posts).toHaveLength(1);
-  });
-
-  it("refuses a malformed key", async () => {
-    const { call, join } = await start();
-    const wren = await join("Wren");
-    const bad = await call("POST", "/v1/posts", {
-      body: { text: "hi" },
-      token: wren.token,
-      headers: { "idempotency-key": "x".repeat(256) },
-    });
-    expect(bad.status).toBe(400);
-    expect(bad.body.error.code).toBe("bad_request");
   });
 
   it("forgets keys after 24 hours and stays within its bounds", () => {
@@ -450,7 +443,7 @@ describe("the changelog", () => {
     expect(res.body.entries.length).toBeGreaterThan(10);
   });
 
-  it("filters by since (inclusive) and kind", async () => {
+  it("filters by since (inclusive) and kind, and turns away a malformed since or an unknown kind", async () => {
     const { call } = await start();
     const since = await call("GET", `/v1/changelog?since=${latest}`);
     expect(since.body.entries.length).toBeGreaterThan(0);
@@ -468,10 +461,7 @@ describe("the changelog", () => {
     for (const e of deprecated.body.entries as Entry[]) {
       expect(e.removal).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
-  });
-
-  it("turns away a malformed since or an unknown kind", async () => {
-    const { call } = await start();
+    // A malformed since or an unknown kind is turned away.
     for (const query of ["since=yesterday", "since=2026-10-4", "kind=updated"]) {
       const res = await call("GET", `/v1/changelog?${query}`);
       expect(res.status).toBe(400);

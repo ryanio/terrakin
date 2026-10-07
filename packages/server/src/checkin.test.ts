@@ -746,7 +746,7 @@ describe("first-visit steps and things to try", () => {
     expect(pick()).toBe("town_hall");
   });
 
-  it("suggests pumpkins in autumn to a gardener with none, and stops once they have some", async () => {
+  it("suggests a season's crop to a gardener with none, pumpkins in autumn and cranberries in winter, and stops once they have some", async () => {
     const world = { days: true, economy: true, items: true, shop: true };
     const { join, ok, service, advance } = await start(world);
     const wren = join("Wren");
@@ -754,44 +754,31 @@ describe("first-visit steps and things to try", () => {
     await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
     await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
     const gardener = new Set(["plant", "gather", "harvest", "craft", "build", "fish"]);
-    const pick = (id: string) => pickTryNext(service.state, id, gardener, new Set())?.id ?? null;
+    const pick = (id: string) => pickTryNext(service.state, id, gardener, new Set());
     // The test clock starts on 2023-11-14, in autumn.
-    expect(pick(wren.id)).toBe("pumpkins");
-    expect(pick(ash.id)).toBe("pumpkins");
+    expect(pick(wren.id)?.id).toBe("pumpkins");
+    expect(pick(ash.id)?.id).toBe("pumpkins");
     await ok("POST", "/v1/actions", { type: "shop_buy", sku: "pumpkin_seed" }, ash.token);
     // Next comes a visit: Wren lives next door (RFC 0020).
-    expect(pick(ash.id)).toBe("visit");
+    expect(pick(ash.id)?.id).toBe("visit");
     // December 1 is winter: the shop has no pumpkin seeds to sell, and cranberries come first.
     advance(17 * DAY);
     service.tick();
-    expect(pick(wren.id)).toBe("cranberries");
-    expect(pick(ash.id)).toBe("cranberries");
-  });
-
-  it("suggests cranberries in winter to a gardener with none, and stops once they have some", async () => {
-    const world = { days: true, economy: true, items: true, shop: true };
-    const { join, ok, service, advance } = await start(world);
-    const wren = join("Wren");
-    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
-    const gardener = new Set(["plant", "gather", "harvest", "craft", "build", "fish"]);
-    const pick = () => pickTryNext(service.state, wren.id, gardener, new Set());
-    // The test clock starts on 2023-11-14, in autumn: December 1 is 17 days on.
-    expect(pick()?.id).toBe("pumpkins");
-    advance(17 * DAY);
-    service.tick();
-    const winter = pick();
+    const winter = pick(wren.id);
     expect(winter?.id).toBe("cranberries");
     expect(winter?.line).toContain('{"type": "shop_buy", "sku": "cranberry_seed", "count": 2}');
+    expect(pick(ash.id)?.id).toBe("cranberries");
     await ok("POST", "/v1/actions", { type: "shop_buy", sku: "cranberry_seed" }, wren.token);
-    expect(pick()?.id).not.toBe("cranberries");
+    expect(pick(wren.id)?.id).not.toBe("cranberries");
     // March 1 is spring: the shop sells no cranberry seeds, so a newcomer isn't told about them.
     advance((dayOfDate(2024, 3, 1) - (service.state.day ?? 0)) * DAY);
     service.tick();
     expect(service.state.day).toBe(dayOfDate(2024, 3, 1));
-    const ash = join("Ash");
-    await ok("POST", "/v1/actions", { type: "settle", px: 3, py: 1 }, ash.token);
-    expect(pickTryNext(service.state, ash.id, gardener, new Set())?.id).toBe("visit");
+    const cy = join("Cy");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 3 }, cy.token);
+    expect(pick(cy.id)?.id).toBe("visit");
   });
+
   it("reads a season's crop from the catalog: its seeds, the crop, and the goods made from it", () => {
     expect(PUMPKIN_KINDS).toEqual(
       new Set(["pumpkin_seed", "pumpkin", "pumpkin_pie", "pumpkin_soup"]),

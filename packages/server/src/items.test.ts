@@ -425,13 +425,6 @@ describe("items", () => {
     expect(line).toContain("1 thing came in as gifts today");
     expect(line).not.toContain("for jam");
   });
-
-  it("append nothing when the server boots again over a world that has them", async () => {
-    const t = await start();
-    const before = t.service.state.seq;
-    t.service.tick();
-    expect(t.service.state.seq).toBe(before);
-  });
 });
 
 describe("gifts that carry a thing", () => {

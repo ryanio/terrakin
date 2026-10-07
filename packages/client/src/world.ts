@@ -83,6 +83,7 @@ const hud = $("hud");
 const status = $("status");
 const toast = $("toast");
 const worldWait = $("world-wait");
+const opening3d = $("world-3d-wait");
 const chatPanel = $("chat");
 const chatLog = $<HTMLOListElement>("chat-log");
 const chatInput = $<HTMLInputElement>("chat-input");
@@ -830,6 +831,23 @@ modeButton.addEventListener("click", () => {
   else close3d();
 });
 
+/** The scene's code (three.js included). The browser fetches it once and reuses it after. */
+const scene3d = () => import("./scene3d/world");
+
+// A finger on the toggle or a pointer over it starts the fetch, a beat before the click lands.
+const warm3d = () => {
+  if (mode === "2d" && !world3d) scene3d().catch(() => {});
+};
+modeButton.addEventListener("pointerenter", warm3d);
+modeButton.addEventListener("focus", warm3d);
+
+/** While the scene loads, the map softens and says so, so a tap on "3D view" shows at once. */
+function showOpening(on: boolean) {
+  const shown = on && !loader?.isUp();
+  canvas.classList.toggle("opening-3d", shown);
+  opening3d.hidden = !shown;
+}
+
 /** Lift the loader once the world is on screen: now on the map, or when the 3D scene first draws. */
 function revealWhenDrawn() {
   if (!loader?.isUp()) return;
@@ -841,13 +859,21 @@ function revealWhenDrawn() {
 
 /** Show the world in 3D, fetching the scene code (three.js included) the first time. */
 function open3d() {
-  if (world3d || loading3d || !active || !me) return;
+  if (world3d || !active || !me) return;
+  if (loading3d) return showOpening(true);
   loading3d = true;
   modeButton.setAttribute("aria-busy", "true");
-  import("./scene3d/world")
+  showOpening(true);
+  scene3d()
+    // Building the scene holds the page for a moment, so let the softened map paint first.
+    .then(
+      (m) =>
+        new Promise<typeof m>((done) => requestAnimationFrame(() => setTimeout(() => done(m)))),
+    )
     .then((m) => {
       loading3d = false;
       modeButton.removeAttribute("aria-busy");
+      showOpening(false);
       if (mode !== "3d" || !active || !me) return loader?.finish();
       host3d.hidden = false;
       world3d = m.createWorld3d(host3d, { onTap: tapTile, onFail: fallBack });
@@ -858,12 +884,14 @@ function open3d() {
     .catch(() => {
       loading3d = false;
       modeButton.removeAttribute("aria-busy");
+      showOpening(false);
       fallBack("failed");
     });
 }
 
 /** Back to the 2D map, keeping the choice for next time. */
 function close3d() {
+  showOpening(false);
   world3d?.dispose();
   world3d = undefined;
   host3d.hidden = true;

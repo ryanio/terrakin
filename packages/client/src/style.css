@@ -62,6 +62,19 @@ html.overlay-open body {
   transform: scale(1.06);
 }
 
+/*
+ * A tap on "3D view": the map softens at once while the scene loads (world.ts). The words come a
+ * beat later, so a scene that loads at once doesn't flash them.
+ */
+#world.opening-3d {
+  filter: blur(3px) saturate(0.9);
+  transition: filter 0.2s ease;
+}
+
+.world-opening {
+  animation: fade-in 0.2s ease-out 0.15s both;
+}
+
 .veil {
   position: fixed;
   inset: 0;
@@ -3964,6 +3977,17 @@ dialog.model-viewer {
     var(--space-md)
   );
   width: auto;
+}
+
+/* The cube turns while the scene loads. */
+.world-mode[aria-busy="true"] .icon {
+  animation: cube-turn 0.9s ease-in-out infinite;
+}
+
+@keyframes cube-turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* The speaker (decision 0097): a round button on top of the actions. Its waves show the level. */

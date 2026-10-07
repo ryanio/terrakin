@@ -263,7 +263,7 @@ export function createApp(options: AppOptions): Server {
         if (rendered.size > 128) rendered.delete(rendered.keys().next().value ?? key);
       },
     },
-    allowRender: (ip) => allowRender(ipKey(ip)),
+    allowRender: (ip, take) => allowRender(ipKey(ip), take),
     picture: async (route) => api.pictureSpec(route),
     allowPicture: (ip) => allowPicture(ipKey(ip)),
     allowDraw: () => allowDraw("all"),

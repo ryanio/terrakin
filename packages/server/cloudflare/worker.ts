@@ -235,7 +235,7 @@ async function card(
         ctx.waitUntil(cache.put(cacheUrl(key), stored).catch(() => {}));
       },
     },
-    allowRender: (ip) => allowRender(ipKey(ip)),
+    allowRender: (ip, take) => allowRender(ipKey(ip), take),
     picture: async (route) =>
       (await env.WORLD.get(env.WORLD.idFromName("world")).picture(route)) ?? undefined,
     allowPicture: (ip) => allowPicture(ipKey(ip)),

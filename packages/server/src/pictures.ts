@@ -81,8 +81,12 @@ export interface PictureOptions {
   nowMs: number;
   /** Whether staff hold back a resident's words (a quarantine): a plot name they gave stays out. */
   held: (id: string) => boolean;
-  /** Whether a resident's uploads may show: not suspended, and their pictures never removed. */
-  artShown: (id: string) => boolean;
+  /**
+   * Whether `mediaId`, an upload of resident `id`, may show: they aren't suspended, staff never
+   * removed their pictures, and the upload is still theirs and not purged. A purge then changes the
+   * picture's data, so a cached PNG with the art in it is never served again.
+   */
+  artShown: (id: string, mediaId: string) => boolean;
 }
 
 /** The map around someone, in tiles: as wide as the photo is, about 2.4 to 1. */
@@ -143,7 +147,8 @@ function plotPicture(
 ): PlotPictureSpec | undefined {
   const plot = state.plots[plotKey(px, py)];
   if (!plot || plot.px !== px || plot.py !== py) return undefined;
-  const spec = plotSpecOf(state, plot, o.held, o.artShown(plot.ownerId));
+  const art = state.residents[plot.ownerId]?.homeArt;
+  const spec = plotSpecOf(state, plot, o.held, art !== undefined && o.artShown(plot.ownerId, art));
   const S = state.config.plotSize;
   const x0 = px * S;
   const y0 = py * S;

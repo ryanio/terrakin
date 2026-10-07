@@ -10,6 +10,7 @@ import { nodeSql } from "./node-sql";
 import {
   type CardDeps,
   type CardRequest,
+  MISSING_TTL,
   matchCardPath,
   PICTURE_TTL,
   pictureAtKey,
@@ -129,7 +130,7 @@ describe("picture data", () => {
     expect(pictureSpec(w.service.state, { kind: "plot", px: 99, py: 99 }, o)).toBeUndefined();
   });
 
-  it("never shows a home picture for a suspended owner or one whose pictures staff removed", async () => {
+  it("never shows a home picture for a suspended owner, a purged upload, or one whose pictures staff removed", async () => {
     const w = world();
     const ivy = await w.join("Ivy");
     expect((await w.act(ivy.token, { type: "settle", px: 0, py: 0 })).ok).toBe(true);
@@ -143,6 +144,19 @@ describe("picture data", () => {
     expect(w.social.safety.suspend("staff", ivy.residentId, 1, "test").ok).toBe(true);
     expect(plot()).not.toHaveProperty("homeArt");
     expect(w.social.safety.unsuspend("staff", ivy.residentId, "test").ok).toBe(true);
+    expect(plot()).toMatchObject({ homeArt: home });
+
+    // A purged upload leaves its id on her look, but the picture's data drops it, so its key
+    // changes and a PNG drawn with it is never served again.
+    const gone = await upload();
+    expect((await w.act(ivy.token, { type: "profile", homeArt: gone })).ok).toBe(true);
+    const before = plot();
+    expect(before).toMatchObject({ homeArt: gone });
+    expect(await w.social.purgeMedia(gone)).toBe(true);
+    expect(w.service.state.residents[ivy.residentId]?.homeArt).toBe(gone);
+    expect(plot()).not.toHaveProperty("homeArt");
+    expect(JSON.stringify(plot())).not.toBe(JSON.stringify(before));
+    expect((await w.act(ivy.token, { type: "profile", homeArt: home })).ok).toBe(true);
     expect(plot()).toMatchObject({ homeArt: home });
 
     // Staff take her avatar down: from then on no upload of hers shows, the home picture included.
@@ -404,6 +418,57 @@ describe("picture route", () => {
     const refused = await serveCard(req("/og/look/r_a.png"), own.d);
     expect(refused).toMatchObject({ status: 302, headers: { "cache-control": "no-store" } });
     expect(own.renders()).toBe(0);
+  });
+
+  it("spends a client's render allowance only on a draw, and the server's only for a client with room", async () => {
+    const perIp = windowLimiter(1, 60_000, () => 0);
+    const server = windowLimiter(2, 60_000, () => 0);
+    const t = deps({
+      allowRender: (ip, take) => perIp(ip, take),
+      allowDraw: () => server("all"),
+    });
+    expect((await serveCard(req("/og/look/r_a.png", { ip: "A" }), t.d)).status).toBe(200);
+    // A is over its own allowance: refused, and the server's draws are untouched.
+    t.show(look("c"));
+    expect((await serveCard(req("/og/look/r_c.png", { ip: "A" }), t.d)).status).toBe(302);
+    expect(server("all", false)).toBe(true);
+    t.show(look("b"));
+    expect((await serveCard(req("/og/look/r_b.png", { ip: "B" }), t.d)).status).toBe(200);
+    // The server is full: C is refused, and keeps its own allowance.
+    t.show(look("d"));
+    expect((await serveCard(req("/og/look/r_d.png", { ip: "C" }), t.d)).status).toBe(302);
+    expect(perIp("C", false)).toBe(true);
+    expect(t.renders()).toBe(2);
+  });
+
+  it("moves a stale pointer to the new picture once it reads the world again", async () => {
+    let drawing = false;
+    const t = deps({ allowDraw: () => drawing });
+    // The draw is refused, so the pointer names a picture that was never drawn.
+    expect((await serveCard(req("/og/look/r_known.png"), t.d)).status).toBe(302);
+    expect([t.asks(), t.renders()]).toEqual([1, 0]);
+    t.show(look("changed"));
+    drawing = true;
+    // One read and one draw, under the new key, and then the pointer leads straight to it.
+    const drawn = await serveCard(req("/og/look/r_known.png"), t.d);
+    expect(drawn.status).toBe(200);
+    const again = await serveCard(req("/og/look/r_known.png"), t.d);
+    expect(again.headers.etag).toBe(drawn.headers.etag);
+    expect([t.asks(), t.renders()]).toEqual([2, 1]);
+  });
+
+  it("remembers an unknown id for a minute, so made-up ids don't each wake the world", async () => {
+    const t = deps();
+    for (let i = 0; i < 3; i++) {
+      expect(await serveCard(req("/og/near/r_nope.png"), t.d)).toMatchObject({
+        status: 302,
+        headers: { location: "/og.png", "cache-control": "public, max-age=300" },
+      });
+    }
+    expect(t.asks()).toBe(1);
+    t.tick(MISSING_TTL + 1);
+    await serveCard(req("/og/near/r_nope.png"), t.d);
+    expect(t.asks()).toBe(2);
   });
 });
 

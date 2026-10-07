@@ -719,15 +719,19 @@ export class Api {
 
   /**
    * A picture by link's data (decision 0160), from world state alone: nothing is drawn here. A
-   * resident's uploads show only while they aren't suspended and staff never removed their pictures.
+   * resident's upload shows only while they aren't suspended, staff never removed their pictures,
+   * and the upload is still stored as theirs.
    */
   pictureSpec(route: PictureRoute): PictureSpec | undefined {
-    const safety = this.social?.safety;
+    const social = this.social;
     return pictureSpec(this.service.state, route, {
       nowMs: this.now(),
       held: this.service.noteHidden,
-      artShown: (id) =>
-        !safety || (safety.suspendedUntil(id) === undefined && !safety.picturesRemoved(id)),
+      artShown: (id, mediaId) =>
+        !social ||
+        (social.safety.suspendedUntil(id) === undefined &&
+          !social.safety.picturesRemoved(id) &&
+          social.mediaType(id, mediaId) !== undefined),
     });
   }
 

@@ -236,7 +236,7 @@ export interface CardDeps {
     put(key: string, bytes: Uint8Array, ttlSeconds?: number): Promise<void> | void;
   };
   /** Whether this client may cause another render right now (cache misses per IP per minute). */
-  allowRender(ip: string): boolean;
+  allowRender(ip: string, take?: boolean): boolean;
   /**
    * A picture by link's data, read from the world (decision 0160): undefined when there's no such
    * plot or resident. It throws when the world can't answer. Without it, those paths get the
@@ -245,7 +245,10 @@ export interface CardDeps {
   picture?(route: PictureRoute): Promise<PictureSpec | undefined>;
   /** Whether this client may ask for another picture by link right now (per IP per minute). */
   allowPicture?(ip: string): boolean;
-  /** Whether another picture by link may be drawn right now, counting every client. */
+  /**
+   * Whether another picture by link may be drawn right now, counting every client: per isolate on
+   * Cloudflare, per process on Node.
+   */
   allowDraw?(): boolean;
 }
 
@@ -325,6 +328,10 @@ export const PICTURE_DRAWS_PER_MINUTE = 60;
 /** Which picture a path shows right now: the version key, kept `PICTURE_TTL.ask` seconds. */
 export const pictureAtKey = (route: PictureRoute) => `at${cardPath(route)}`;
 
+/** What a pointer holds for a path with no such plot or resident, kept `MISSING_TTL` seconds. */
+const MISSING = "missing";
+export const MISSING_TTL = 60;
+
 /**
  * Answer a picture by link (decision 0160). The version key comes from a short-lived pointer in the
  * cache, else from the world's data for it, hashed like a card's, so a picture is drawn once per
@@ -349,16 +356,27 @@ async function servePicture(
       return "unavailable";
     }
   };
+  const point = (value: string, seconds: number) =>
+    deps.cache.put(at, new TextEncoder().encode(value), seconds);
+  /** The world's data for the path, or the answer to send when there is none. */
+  const read = async (): Promise<PictureSpec | CardResponse> => {
+    const got = await ask();
+    if (got === "unavailable") return redirect("no-store");
+    if (got !== "missing") return got;
+    // An unknown id is remembered briefly, so made-up ids don't each wake the world.
+    await point(MISSING, MISSING_TTL);
+    return redirect("public, max-age=300");
+  };
   const pointer = await deps.cache.get(at);
   let key = pointer ? new TextDecoder().decode(pointer) : undefined;
+  if (key === MISSING) return redirect("public, max-age=300");
   let spec: PictureSpec | undefined;
   if (!key || !/^[0-9a-f]{16}$/.test(key)) {
-    const read = await ask();
-    if (read === "missing") return redirect("public, max-age=300");
-    if (read === "unavailable") return redirect("no-store");
-    spec = read;
+    const got = await read();
+    if ("status" in got) return got;
+    spec = got;
     key = await cardKey(spec);
-    await deps.cache.put(at, new TextEncoder().encode(key), ttl.ask);
+    await point(key, ttl.ask);
   }
   const headers = (k: string) => ({
     "content-type": "image/png",
@@ -372,17 +390,26 @@ async function servePicture(
   const pngKey = `${route.kind}/${key}`;
   const hit = await deps.cache.get(pngKey);
   if (hit) return { status: 200, headers: headers(key), body: hit };
-  // The pointer outlived its PNG: read the world again for what to draw.
+  // The pointer outlived its PNG: read the world again for what to draw. When that changed, the
+  // pointer moves to the new picture, which may already be drawn.
   if (!spec) {
-    const read = await ask();
-    if (read === "missing") return redirect("public, max-age=300");
-    if (read === "unavailable") return redirect("no-store");
-    spec = read;
-    key = await cardKey(spec);
+    const got = await read();
+    if ("status" in got) return got;
+    spec = got;
+    const fresh = await cardKey(spec);
+    if (fresh !== key) {
+      key = fresh;
+      await point(key, ttl.ask);
+      const drawn = await deps.cache.get(`${route.kind}/${key}`);
+      if (drawn) return { status: 200, headers: headers(key), body: drawn };
+    }
   }
-  // Each draw costs CPU: one client can cause only a few a minute, and the server a few dozen.
-  if (!deps.allowRender(req.ip)) return redirect("no-store");
+  // Each draw costs CPU: one client can cause only a few a minute, and the server a few dozen. A
+  // client over its own allowance spends none of the server's, and a draw the server refuses
+  // spends none of the client's.
+  if (!deps.allowRender(req.ip, false)) return redirect("no-store");
   if (deps.allowDraw && !deps.allowDraw()) return redirect("no-store");
+  if (!deps.allowRender(req.ip)) return redirect("no-store");
   try {
     const card = await materializePicture(spec, deps.loadMedia);
     const { bytes } = await deps.render(card);
@@ -442,14 +469,16 @@ async function materialize(spec: CardSpec, loadMedia: CardDeps["loadMedia"]): Pr
  */
 export function windowLimiter(limit: number, windowMs: number, now = () => Date.now()) {
   const hits = new Map<string, { n: number; until: number }>();
-  return (key: string): boolean => {
+  /** Whether `key` has room. With `take` false it only looks, and counts nothing. */
+  return (key: string, take = true): boolean => {
     const t = now();
     if (hits.size > 5_000) for (const [k, v] of hits) if (v.until <= t) hits.delete(k);
     const h = hits.get(key);
     if (!h || h.until <= t) {
-      hits.set(key, { n: 1, until: t + windowMs });
+      if (take) hits.set(key, { n: 1, until: t + windowMs });
       return true;
     }
+    if (!take) return h.n < limit;
     h.n++;
     return h.n <= limit;
   };

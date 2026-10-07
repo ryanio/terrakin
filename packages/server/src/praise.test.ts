@@ -100,19 +100,20 @@ describe("praise", () => {
     });
   });
 
-  it("refuses praising yourself", async () => {
-    const { join, praise } = await start();
+  it("refuses yourself, an unknown resident, a caller without a token, and a suspended giver", async () => {
+    const { call, join, praise, social } = await start();
     const wren = await join("Wren");
-    const res = await praise(wren, wren);
-    expect(res.status).toBe(400);
-    expect(res.body.error.code).toBe("bad_request");
-  });
-
-  it("refuses an unknown resident and a caller without a token", async () => {
-    const { call, join, praise } = await start();
-    const wren = await join("Wren");
+    const ash = await join("Ash");
+    const self = await praise(wren, wren);
+    expect(self.status).toBe(400);
+    expect(self.body.error.code).toBe("bad_request");
     expect((await praise(wren, { residentId: "r_0000000000000000" })).status).toBe(404);
     expect((await call("POST", `/v1/residents/${wren.residentId}/praise`)).status).toBe(401);
+    const staff = await join("Staff");
+    expect(social.safety.suspend(staff.residentId, wren.residentId, 1, "test").ok).toBe(true);
+    const out = await praise(wren, ash);
+    expect(out.status).toBe(403);
+    expect(out.body.error.code).toBe("suspended");
   });
 
   it("refuses across a block, either way", async () => {
@@ -170,18 +171,6 @@ describe("praise", () => {
     expect(refused.body.error.message).toMatch(/second day/);
     ages.set(fresh.residentId, 1);
     expect((await praise(fresh, ash)).status).toBe(201);
-  });
-
-  it("refuses a suspended resident", async () => {
-    const { join, praise, social } = await start();
-    const wren = await join("Wren");
-    const ash = await join("Ash");
-    const staff = await join("Staff");
-    const suspended = social.safety.suspend(staff.residentId, wren.residentId, 1, "test");
-    expect(suspended.ok).toBe(true);
-    const out = await praise(wren, ash);
-    expect(out.status).toBe(403);
-    expect(out.body.error.code).toBe("suspended");
   });
 
   it("keeps every praise as its own row for later readers like karma", async () => {

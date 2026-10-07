@@ -27,20 +27,16 @@ describe("the partner art reader", () => {
     expect(got.ok).toBe(true);
   });
 
-  it.each([
-    "http://musegod.org/muse/art/480/464.jpg",
-    "https://musegod.org:8443/art.jpg",
-    "https://127.0.0.1/art.jpg",
-    "https://[::1]/art.jpg",
-    "https://169.254.169.254/latest",
-    "https://localhost./art.jpg",
-    "https://printer.local/art.jpg",
-    "data:image/jpeg;base64,/9j/",
-  ])("refuses %s before fetching", async (url) => {
-    const { read, asked } = reader(() => image(jpeg()));
-    expect(await read(url)).toMatchObject({ ok: false, bad: true });
-    expect(asked).toEqual([]);
-  });
+  // The address rules are fetchOutside's, which the card reader's table in chain.test.ts holds.
+  // These show art reads through them, and that art, unlike a card, is never inline.
+  it.each(["http://musegod.org/muse/art/480/464.jpg", "data:image/jpeg;base64,/9j/"])(
+    "refuses %s before fetching",
+    async (url) => {
+      const { read, asked } = reader(() => image(jpeg()));
+      expect(await read(url)).toMatchObject({ ok: false, bad: true });
+      expect(asked).toEqual([]);
+    },
+  );
 
   it("follows redirects only to addresses that pass the same rules", async () => {
     const { read, asked } = reader((url) =>

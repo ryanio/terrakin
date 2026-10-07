@@ -9,7 +9,7 @@ import {
 import { dayOfDate, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { checkinDigest, checkinSince, type DigestParts, fingerprint } from "./checkin";
+import { checkinDigest, checkinSince, type DigestParts } from "./checkin";
 import { CRANBERRY_KINDS, PUMPKIN_KINDS, pickTryNext, TRY_NEXT } from "./checkin-suggest";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
@@ -395,12 +395,6 @@ describe("GET /v1/checkin with seen", () => {
     ]) {
       expect(checkinDigest({ ...base, ...change })).not.toBe(digest);
     }
-  });
-
-  it("fingerprints text into 16 stable hex characters", () => {
-    expect(fingerprint("")).toBe(fingerprint(""));
-    expect(fingerprint("a")).toMatch(/^[0-9a-f]{16}$/);
-    expect(fingerprint("ab")).not.toBe(fingerprint("ba"));
   });
 });
 
@@ -1036,10 +1030,8 @@ describe("suggestions from the collection book (RFC 0021)", () => {
 
 describe("checkinSince", () => {
   const now = 1_700_000_000_000;
-  it("defaults to a day back", () => {
+  it("defaults to a day back, looks back at most two weeks, and never into the future", () => {
     expect(checkinSince(undefined, now)).toBe(now - CHECKIN_LIMITS.defaultLookbackHours * HOUR);
-  });
-  it("looks back at most two weeks, and never into the future", () => {
     expect(checkinSince(new Date(now - 30 * DAY).toISOString(), now)).toBe(
       now - CHECKIN_LIMITS.maxLookbackDays * DAY,
     );

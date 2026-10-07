@@ -137,6 +137,12 @@ describe("the market", () => {
     const early = await t.act(ada.token, sugar);
     expect(early).toMatchObject({ ok: false, error: { code: "not_eligible" } });
     expect(early.error.message).toContain("fourth day");
+    // A dry run meets the same check.
+    expect(await t.act(ada.token, { ...sugar, dry: true })).toMatchObject({
+      ok: false,
+      dry: true,
+      error: { code: "not_eligible" },
+    });
     const mine = (await t.call("GET", "/v1/market", undefined, ada.token)).body.you;
     expect(mine).toMatchObject({ canList: false, listings: 0 });
     t.days(3);
@@ -236,14 +242,6 @@ describe("the market", () => {
     const listing = (await t.call("GET", "/v1/market")).body.market.listings[0];
     expect(listing.goods[0]).toMatchObject({ label: "Sunny", maker: { id: ada.id } });
   });
-  it("refuses a dry run too before a resident's fourth day", async () => {
-    const t = await start();
-    const ada = await t.settler("Ada", 0, 0);
-    expect(
-      await t.act(ada.token, { type: "list_item", item: "jar", price: 3, dry: true }),
-    ).toMatchObject({ ok: false, dry: true, error: { code: "not_eligible" } });
-  });
-
   it("closes a suspended seller's stall: hidden, and not for sale", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);

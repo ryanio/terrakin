@@ -159,16 +159,6 @@ describe("putter", () => {
       .toMatchObject({ type: "ack", id: "p1", greeted: ada.id });
   });
 
-  it("doesn't wave across a block, either way", async () => {
-    const t = await start();
-    const wren = await t.join("Wren");
-    const ada = await t.join("Ada");
-    await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, ada.token);
-    const result = await t.putter(wren);
-    expect(result).toMatchObject({ ok: true, greeted: null });
-    expect((await t.gestures(ada)).gestures).toEqual([]);
-  });
-
   it("never walks up to someone blocked either way", async () => {
     const t = await start();
     const wren = await t.join("Wren");
@@ -187,14 +177,18 @@ describe("putter", () => {
     }
   });
 
-  it("waves at the next nearest when the nearest can't take one", async () => {
+  it("waves at nobody blocked either way, and at the next nearest when the nearest can't take one", async () => {
     const t = await start();
     const wren = await t.join("Wren");
     const ada = await t.join("Ada");
     const bo = await t.join("Bo");
     await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, ada.token);
-    await t.call("PUT", `/v1/residents/${wren.id}/block`, undefined, bo.token);
+    await t.call("PUT", `/v1/residents/${bo.id}/block`, undefined, wren.token);
+    expect(await t.putter(wren)).toMatchObject({ ok: true, greeted: null });
+    expect((await t.gestures(ada)).gestures).toEqual([]);
+    expect((await t.gestures(bo)).gestures).toEqual([]);
     const cal = await t.join("Cal");
+    t.advance(MINUTE);
     // Everyone's at spawn, so all three are equally near; only Cal can take a wave.
     expect((await t.putter(wren)).greeted).toBe(cal.id);
   });

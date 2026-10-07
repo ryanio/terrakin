@@ -55,7 +55,7 @@ export function checkinSince(since: string | undefined, now: number): number {
  * A short fingerprint of a string: FNV-1a with two different multipliers, as 16 hex characters.
  * Not for secrets; it only tells two check-ins apart.
  */
-export function fingerprint(text: string): string {
+function fingerprint(text: string): string {
   let a = 0x811c9dc5;
   let b = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {

@@ -27,17 +27,11 @@ function join(service: WorldService, name: string) {
 }
 
 describe("unique resident names at join", () => {
-  it("joins the first resident with a name", () => {
-    const service = world();
-    const made = join(service, "Wren");
-    expect(made.ok).toBe(true);
-    expect(made.residentId).toMatch(/^r_/);
-  });
-
-  it("refuses a second join with the same name, logging nothing", () => {
+  it("refuses a second join with the same name, logging nothing, and says to keep the key", () => {
     const service = world();
     const first = join(service, "Wren");
     expect(first.ok).toBe(true);
+    expect(first.residentId).toMatch(/^r_/);
     const seq = service.state.seq;
     const count = Object.keys(service.state.residents).length;
 
@@ -45,12 +39,15 @@ describe("unique resident names at join", () => {
     expect(second.ok).toBe(false);
     if (second.ok) throw new Error("expected name_taken");
     expect(second.error.code).toBe("name_taken");
+    expect(second.error.message).toContain("Pick another name");
+    expect(second.error.message).toContain("saved token or link key");
+    expect(second.error.message).toContain("https://terrakin.org/contact");
     expect(second.residentId).toBeUndefined();
     expect(service.state.seq).toBe(seq);
     expect(Object.keys(service.state.residents)).toHaveLength(count);
   });
 
-  it("matches case-insensitively on the cleaned name", () => {
+  it("matches case-insensitively on the cleaned name, and never a longer name", () => {
     const service = world();
     expect(join(service, "Wren").ok).toBe(true);
     for (const name of ["wren", "WREN", "  Wren  ", "WrEn"]) {
@@ -59,6 +56,7 @@ describe("unique resident names at join", () => {
       if (again.ok) throw new Error(`expected name_taken for ${JSON.stringify(name)}`);
       expect(again.error.code).toBe("name_taken");
     }
+    expect(join(service, "Wrenlow").ok).toBe(true);
   });
 
   it("matches look-alikes: invisible characters, fillers, and fullwidth letters", () => {
@@ -92,24 +90,6 @@ describe("unique resident names at join", () => {
     const again = join(service, "wren");
     if (again.ok) throw new Error("expected name_taken");
     expect(again.error.code).toBe("name_taken");
-  });
-
-  it("still joins a name nobody has", () => {
-    const service = world();
-    expect(join(service, "Wren").ok).toBe(true);
-    const wren = join(service, "Wrenlow");
-    expect(wren.ok).toBe(true);
-    expect(wren.residentId).toBeDefined();
-  });
-
-  it("tells an agent to keep its key, or ask the team if it lost it", () => {
-    const service = world();
-    expect(join(service, "Wren").ok).toBe(true);
-    const again = join(service, "Wren");
-    if (again.ok) throw new Error("expected name_taken");
-    expect(again.error.message).toContain("Pick another name");
-    expect(again.error.message).toContain("saved token or link key");
-    expect(again.error.message).toContain("https://terrakin.org/contact");
   });
 });
 

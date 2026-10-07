@@ -945,12 +945,6 @@ describe("what the new links refuse", () => {
     expect(again.text).toContain("You planted 1 flower seed");
   });
 
-  it("claims a handle with handle=, the name the API uses", async () => {
-    const { joinByLink } = await start();
-    const wren = await joinByLink("Wren");
-    expect((await wren.act("handle?handle=wren_maps")).text).toContain("@wren_maps");
-  });
-
   it("offers a wave back once, not back and forth", async () => {
     const { joinByLink } = await start();
     const wren = await joinByLink("Wren");

@@ -640,7 +640,7 @@ describe("WebSocket", () => {
     expect(await c.next("error")).toMatchObject({ id: "m1", error: { code: "internal" } });
   });
 
-  it("answers typos with did_you_mean and dry runs with a dry ack", async () => {
+  it("answers typos and values outside a field's choices as REST does, and dry runs with a dry ack", async () => {
     const store = new MemoryStore();
     const { base, service } = await start(store);
     const c = connect(base);
@@ -656,6 +656,18 @@ describe("WebSocket", () => {
         code: "bad_request",
         message: "Unknown action 'mvoe'. Did you mean 'move'?",
         did_you_mean: "move",
+      },
+    });
+    // A value outside a field's choices gets the same plain words as REST.
+    const plant = { type: "plant", x: 6, y: 6, seed: "pumpkin_seed" };
+    c.send({ type: "action", id: "p1", action: plant });
+    expect(await c.next("error")).toEqual({
+      type: "error",
+      id: "p1",
+      error: {
+        code: "bad_request",
+        message: `\`seed\` must be one of: ${CROPS.join(", ")}. Did you mean 'pumpkin'?`,
+        did_you_mean: "pumpkin",
       },
     });
 
@@ -682,37 +694,12 @@ describe("WebSocket", () => {
     expect((await c.next("event")).event).toMatchObject({ type: "moved", y: 5 });
   });
 
-  it("requires hello before actions", async () => {
+  it("requires hello before actions, and answers jam made from something that isn't a fruit as the world would", async () => {
     const { base } = await start();
     const c = connect(base);
     await c.open;
     c.send({ type: "action", action: { type: "claim" } });
     expect((await c.next("error")).error.code).toBe("bad_request");
-  });
-
-  it("answers a value outside a field's choices in plain words, as REST does", async () => {
-    const { base } = await start();
-    const c = connect(base);
-    await c.open;
-    c.send({ type: "hello", v: 1, name: "Ada", kind: "human" });
-    await c.next("welcome");
-    const plant = { type: "plant", x: 6, y: 6, seed: "pumpkin_seed" };
-    c.send({ type: "action", id: "p1", action: plant });
-    expect(await c.next("error")).toEqual({
-      type: "error",
-      id: "p1",
-      error: {
-        code: "bad_request",
-        message: `\`seed\` must be one of: ${CROPS.join(", ")}. Did you mean 'pumpkin'?`,
-        did_you_mean: "pumpkin",
-      },
-    });
-  });
-
-  it("answers jam made from something that isn't a fruit as the world would", async () => {
-    const { base } = await start();
-    const c = connect(base);
-    await c.open;
     const craft = { type: "craft", recipe: "tomato_jam", x: 4, y: 2 };
     // Like a typo, it waits for hello.
     c.send({ type: "action", id: "j0", action: craft });

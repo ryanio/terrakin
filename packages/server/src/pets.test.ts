@@ -147,7 +147,7 @@ describe("patting a pet", () => {
     expect(notes.notifications.map((n: Json) => n.count)).toEqual([1, 2]);
   });
 
-  it("refuses your own pet, no pet, no token, and across a block either way", async () => {
+  it("refuses your own pet, no pet, no token, across a block either way, and a suspended patter", async () => {
     const t = await start();
     const ivy = await t.settler("Ivy", 0);
     const tam = await t.settler("Tam", 2);
@@ -163,6 +163,11 @@ describe("patting a pet", () => {
     const ivysPet = await t.adopt(ivy.token, "Pip");
     expect(ivysPet.ok).toBe(true);
     expect((await t.pat(tam, ivy)).status).toBe(403);
+    const bo = t.join("Bo");
+    expect(t.social.safety.suspend("staff", bo.id, 1, "test").ok).toBe(true);
+    const suspended = await t.pat(bo, tam);
+    expect(suspended.status).toBe(403);
+    expect(suspended.body.error.code).toBe("suspended");
     expect((await t.call("GET", `/v1/residents/${tam.id}`)).body.resident.pet.pats).toBe(0);
   });
 
@@ -176,18 +181,6 @@ describe("patting a pet", () => {
     expect(again.status).toBe(429);
     expect(again.body.error.code).toBe("rate_limited");
     expect(Number(again.headers.get("retry-after"))).toBe(DAY_MS / 2 / 1000);
-  });
-
-  it("refuses a suspended patter", async () => {
-    const t = await start();
-    const ivy = t.join("Ivy");
-    const tam = await t.settler("Tam", 2);
-    await t.adopt(tam.token);
-    expect(t.social.safety.suspend("staff", ivy.id, 1, "test").ok).toBe(true);
-    const refused = await t.pat(ivy, tam);
-    expect(refused.status).toBe(403);
-    expect(refused.body.error.code).toBe("suspended");
-    expect((await t.call("GET", `/v1/residents/${tam.id}`)).body.resident.pet.pats).toBe(0);
   });
 
   it(`stops one patter at ${PAT_LIMITS.perPatterPerDay} pets a day`, async () => {

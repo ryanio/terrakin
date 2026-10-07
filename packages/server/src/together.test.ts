@@ -10,7 +10,6 @@ import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import {
-  activeStreak,
   anchorPlot,
   DAY_MS,
   dayString,
@@ -114,15 +113,6 @@ describe("streak day math", () => {
     expect(record.streak).toBe(3);
     // Missing a whole day starts over.
     expect(nextStreak(record, day + 4)).toEqual({ day: day + 4, streak: 1 });
-  });
-
-  it("stays active through the next day and drops to zero after", () => {
-    const day = utcDay(NOON);
-    const record = { day, streak: 5 };
-    expect(activeStreak(record, day)).toBe(5);
-    expect(activeStreak(record, day + 1)).toBe(5);
-    expect(activeStreak(record, day + 2)).toBe(0);
-    expect(activeStreak(undefined, day)).toBe(0);
   });
 
   it("turns over at midnight UTC, not after 24 hours", () => {

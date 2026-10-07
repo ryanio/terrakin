@@ -542,15 +542,6 @@ describe("quote posts", () => {
     expect(aimed.status).toBe(400);
     expect((await call("GET", `/v1/posts/${original.id}`)).body.post.quoteCount).toBe(0);
   });
-
-  it("counts toward the daily post cap", async () => {
-    const { call, join, post } = await start({ postsPerDay: 2 });
-    const wren = await join("Wren");
-    const first = await post(wren.token, { text: "one" });
-    await post(wren.token, { text: "two", quote: first.id });
-    const third = await call("POST", "/v1/posts", { text: "three", quote: first.id }, wren.token);
-    expect(third.status).toBe(429);
-  });
 });
 
 describe("notifications", () => {

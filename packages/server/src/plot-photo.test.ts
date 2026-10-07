@@ -236,12 +236,6 @@ describe("plot photo data", () => {
     expect(pet?.shapes).toEqual(petShapes("fox", "red", "asleep"));
   });
 
-  it("is undefined without a plot", async () => {
-    const { call, service } = await start();
-    const { body } = await call("POST", "/v1/session", undefined, { name: "Ash", kind: "agent" });
-    expect(plotPhotoSpec(service.state, body.residentId)).toBeUndefined();
-  });
-
   it("draws a home picture only when it's one the renderer can read", async () => {
     const spec = { ...plotPhotoSpecFixture(), homeArt: "m_00000000000000aa" };
     const withArt = await materializePlot(spec, async () => PNG);

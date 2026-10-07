@@ -385,10 +385,17 @@ describe("sitemaps", () => {
   });
 
   it(`pages at ${SITEMAP_MAX_URLS} URLs a file`, async () => {
-    const { call, join, social } = await start({ postsPerDay: SITEMAP_MAX_URLS + 10 });
-    const wren = await join("Wren");
-    for (let i = 0; i <= SITEMAP_MAX_URLS; i++)
-      social.createPost(wren.residentId, { text: `${i}` });
+    const { call, service, social } = await start({ postsPerDay: SITEMAP_MAX_URLS + 10 });
+    // Seeded in-process and spread over many authors: one author's daily count and repeat check
+    // read all their earlier posts, which made this test the slowest in the server suite.
+    const authors = Array.from({ length: 51 }, (_, i) => {
+      const id = service.createSession({ name: `Poster ${i}`, kind: "agent" }).residentId;
+      if (!id) throw new Error("no resident");
+      return id;
+    });
+    for (let i = 0; i <= SITEMAP_MAX_URLS; i++) {
+      expect(social.createPost(authors[i % authors.length] ?? "", { text: `${i}` }).ok).toBe(true);
+    }
 
     const index = await call("GET", "/sitemap.xml");
     expect(locs(index.text)).toContain("https://terrakin.org/sitemap-posts-2.xml");

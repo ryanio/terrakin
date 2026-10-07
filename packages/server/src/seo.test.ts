@@ -226,13 +226,14 @@ describe("page meta", () => {
     expect(one.match(/application\/ld\+json/g)).toHaveLength(1);
   });
 
-  it("keeps letters, invites, claims, and the away page out of search, with no canonical URL", async () => {
+  it("keeps letters, invites, claims, notifications, and the away page out of search, with no canonical URL", async () => {
     for (const path of [
       "/letters",
       "/letters/r_abc",
       "/i/k7Qx2",
       "/claim/abcd-efgh-jkmn-pqrs",
       "/away",
+      "/notifications",
     ]) {
       const page = matchPage(path);
       expect(page.name, path).toBe("private");
@@ -243,18 +244,10 @@ describe("page meta", () => {
       const html = applyEdits(INDEX_HTML, edits);
       expect(attr(html, META_SELECTORS.robots)).toBe("noindex");
       expect(html).not.toContain('rel="canonical"');
+      if (path === "/notifications") {
+        expect(html).toContain("<title>Notifications · Terrakin</title>");
+      }
     }
-  });
-
-  it("keeps notifications out of search too", async () => {
-    const page = matchPage("/notifications");
-    expect(page).toEqual({ name: "private", what: "notifications" });
-    const html = applyEdits(
-      INDEX_HTML,
-      await editsFor(await loadPage(page, async () => ({ status: 500, body: undefined }))),
-    );
-    expect(attr(html, META_SELECTORS.robots)).toBe("noindex");
-    expect(html).toContain("<title>Notifications · Terrakin</title>");
   });
 
   it("serves /u/handle as the profile it names, with /r/<id> as the canonical URL", async () => {

@@ -34,16 +34,14 @@ describe("templatePath", () => {
     expect(templatePath("/og/post/p_0123456789abcdef.png")).toBe("/og/post/{id}.png");
     expect(templatePath("/media/m_0123456789abcdef")).toBe("/media/{id}");
     expect(templatePath(`/v1/act/${LINK_KEY}/nowhere`)).toBe("/v1/act/{key}/nowhere");
-  });
-
-  it("keeps plain paths and asset names", () => {
+    // Plain paths and asset names stay as they are.
     expect(templatePath("/docs")).toBe("/docs");
     expect(templatePath("/assets/index-B1x2y3z4.js")).toBe("/assets/index-B1x2y3z4.js");
   });
 });
 
 describe("scrubText", () => {
-  it("removes tokens, link keys, codes, ids, handles, and query strings", () => {
+  it("removes tokens, link keys, codes, ids, handles, invite codes in paths, and query strings", () => {
     const text = `Bearer ${TOKEN} at /v1/act/${LINK_KEY}/say?text=hi for r_0123456789abcdef by /u/ada, code abcd-efgh-jkmn-pqrs, ${TOKEN}`;
     const out = scrubText(text);
     for (const secret of [
@@ -57,9 +55,6 @@ describe("scrubText", () => {
       expect(out).not.toContain(secret);
     }
     expect(out).toContain("/v1/act/{key}/say");
-  });
-
-  it("removes invite codes in paths", () => {
     expect(scrubText("GET /v1/invites/abcdefgh2345 failed")).toBe("GET /v1/invites/{code} failed");
     expect(scrubText("/v1/owner/invites/abcdefghjkmnpqrs")).toBe("/v1/owner/invites/{code}");
   });

@@ -2,3 +2,5 @@
 OPENSEA_API_KEY=op://Terrakin/OpenSea/credential
 
 TERRAKIN_STAFF_KEY=op://Terrakin/Terrakin staff key/credential
+
+XAI_API_KEY=op://Terrakin/xai/credential

@@ -5,6 +5,7 @@
 import { chmodSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { PortraitRecord } from "./avatar-plan.ts";
 
 /** One townsfolk resident's stored identity and what seed.ts made for it. */
 export interface Stored {
@@ -16,6 +17,11 @@ export interface Stored {
   avatarArt?: number;
   /** ART_VERSION of the postcards on each post we made with postcards, by slot. */
   postArt?: Record<string, number>;
+  /**
+   * The portrait avatars.ts set as its avatar (decision 0220). While it's here, the seed's
+   * `--refresh-art` leaves the avatar alone.
+   */
+  portrait?: PortraitRecord;
 }
 
 export interface Creds {

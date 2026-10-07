@@ -279,11 +279,13 @@ async function ensureProfile(p: Persona, s: Stored, images: Images): Promise<voi
     say(p.name, "wrote bio");
   }
   await ensureHandle(p, s, resident.handle, true);
-  const stale = s.avatarArt !== ART_VERSION;
+  // A portrait set by avatars.ts (decision 0220) stays through an art refresh.
+  const stale = s.avatarArt !== ART_VERSION && !s.portrait;
   if (!resident.avatar || (REFRESH && stale)) {
     const media = await upload(s, images.avatar);
     await call("PUT", "/v1/profile", { token: s.token, json: { avatar: media }, bucket: "social" });
     s.avatarArt = ART_VERSION;
+    delete s.portrait;
     say(p.name, resident.avatar ? "set the new avatar" : "set avatar");
   }
 }
@@ -627,7 +629,8 @@ async function printRefreshPlan(creds: Creds): Promise<void> {
       say(p.name, "isn't seeded yet; a normal run creates it with the new art");
       continue;
     }
-    if (s.avatarArt !== ART_VERSION) say(p.name, `would upload and set a new avatar`);
+    if (s.avatarArt !== ART_VERSION && !s.portrait)
+      say(p.name, `would upload and set a new avatar`);
     for (const st of stale.filter((x) => x.persona.key === p.key)) {
       // Townsfolk like the introductions of those they follow; the seed likes them again.
       const ours =
@@ -664,7 +667,7 @@ async function printRefreshPlan(creds: Creds): Promise<void> {
 function artIsCurrent(creds: Creds): boolean {
   return PERSONAS.every((p) => {
     const s = creds.residents[p.key];
-    if (!s || s.avatarArt !== ART_VERSION) return false;
+    if (!s || (s.avatarArt !== ART_VERSION && !s.portrait)) return false;
     return p.posts.every(
       (post, i) => !post.postcards?.length || s.postArt?.[`post:${i}`] === ART_VERSION,
     );

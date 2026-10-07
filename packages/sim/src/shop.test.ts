@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import { ITEMS_CONFIG, ITEMS_HASH, ITEMS_LOG } from "./fixtures/items-log";
-import {
-  POST_ECONOMY_CONFIG,
-  POST_ECONOMY_HASH,
-  POST_ECONOMY_LOG,
-} from "./fixtures/post-economy-log";
-import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_HASH, PRE_ECONOMY_LOG } from "./fixtures/pre-economy-log";
-import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
+import { ITEMS_CONFIG, ITEMS_LOG } from "./fixtures/items-log";
 import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
 import { hashWorld } from "./hash";
 import {
@@ -130,13 +123,6 @@ function dayBuying(kind: SellKind, from = DAY) {
 }
 
 describe("old logs", () => {
-  it("replay to the hashes they had before the shop", () => {
-    expect(hashWorld(replay(PRE_TOWN_CONFIG, PRE_TOWN_LOG))).toBe(PRE_TOWN_HASH);
-    expect(hashWorld(replay(PRE_ECONOMY_CONFIG, PRE_ECONOMY_LOG))).toBe(PRE_ECONOMY_HASH);
-    expect(hashWorld(replay(POST_ECONOMY_CONFIG, POST_ECONOMY_LOG))).toBe(POST_ECONOMY_HASH);
-    expect(hashWorld(replay(ITEMS_CONFIG, ITEMS_LOG))).toBe(ITEMS_HASH);
-  });
-
   it("replay the shop log to its pinned hash", () => {
     const state = replay(SHOP_CONFIG, SHOP_LOG);
     expect(hashWorld(state)).toBe(SHOP_HASH);

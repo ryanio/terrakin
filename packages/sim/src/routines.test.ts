@@ -61,8 +61,7 @@ function refused(state: WorldState, actor: string, command: Command, want: strin
 }
 
 describe("the routines fixture", () => {
-  it("replays to its pinned hash, with the older log under it unchanged", () => {
-    expect(hashWorld(replay(PRESENCE_CONFIG, PRESENCE_LOG))).toBe(PRESENCE_HASH);
+  it("replays to its pinned hash", () => {
     const state = replay(ROUTINES_CONFIG, ROUTINES_LOG);
     expect(hashWorld(state)).toBe(ROUTINES_HASH);
     expectSupplyHolds(state);

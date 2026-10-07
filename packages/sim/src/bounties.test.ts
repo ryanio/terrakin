@@ -3,7 +3,6 @@ import { apply } from "./apply";
 import { BOUNTIES, bountyHeld, findBounty } from "./bounties";
 import { ECONOMY } from "./economy";
 import { BOUNTIES_CONFIG, BOUNTIES_HASH, BOUNTIES_LOG } from "./fixtures/bounties-log";
-import { MARKET_CONFIG, MARKET_HASH, MARKET_LOG } from "./fixtures/market-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund } from "./test-support";
@@ -81,10 +80,6 @@ function bounties({ open = true } = {}) {
 const id = (bounty: string) => ({ bounty });
 
 describe("old logs", () => {
-  it("replay to the hash they had before bounties", () => {
-    expect(hashWorld(replay(MARKET_CONFIG, MARKET_LOG))).toBe(MARKET_HASH);
-  });
-
   it("replay a log with bounties and a grant to the pinned hash", () => {
     const state = replay(BOUNTIES_CONFIG, BOUNTIES_LOG);
     expectSupplyHolds(state);

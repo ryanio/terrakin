@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { ITEMS_CONFIG, ITEMS_HASH, ITEMS_LOG } from "./fixtures/items-log";
-import {
-  POST_ECONOMY_CONFIG,
-  POST_ECONOMY_HASH,
-  POST_ECONOMY_LOG,
-} from "./fixtures/post-economy-log";
-import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_HASH, PRE_ECONOMY_LOG } from "./fixtures/pre-economy-log";
-import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { hashWorld } from "./hash";
 import {
   CROP_INFO,
@@ -107,12 +100,6 @@ function garden() {
 const inventoryEvents = (events: WorldEvent[]) => events.filter((e) => e.type === "inventory");
 
 describe("old logs", () => {
-  it("replay to the hashes they had before items", () => {
-    expect(hashWorld(replay(PRE_TOWN_CONFIG, PRE_TOWN_LOG))).toBe(PRE_TOWN_HASH);
-    expect(hashWorld(replay(PRE_ECONOMY_CONFIG, PRE_ECONOMY_LOG))).toBe(PRE_ECONOMY_HASH);
-    expect(hashWorld(replay(POST_ECONOMY_CONFIG, POST_ECONOMY_LOG))).toBe(POST_ECONOMY_HASH);
-  });
-
   it("a log with items replays to its pinned hash", () => {
     const state = replay(ITEMS_CONFIG, ITEMS_LOG);
     expect(hashWorld(state)).toBe(ITEMS_HASH);

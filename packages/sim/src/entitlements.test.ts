@@ -6,8 +6,7 @@ import {
   ENTITLEMENTS_HASH,
   ENTITLEMENTS_LOG,
 } from "./fixtures/entitlements-log";
-import { LOOKS_CONFIG, LOOKS_HASH, LOOKS_LOG } from "./fixtures/looks-log";
-import { MARKET_CONFIG, MARKET_HASH, MARKET_LOG } from "./fixtures/market-log";
+import { LOOKS_CONFIG, LOOKS_LOG } from "./fixtures/looks-log";
 import { hashWorld } from "./hash";
 import { EXCLUSIVE_WEAR, isExclusiveWear, SHOP_WEAR, WEAR_INFO, WEAR_ITEMS } from "./looks";
 import { replay } from "./replay";
@@ -37,17 +36,14 @@ const wear = (state: WorldState, actor: string, items: string[]) =>
 const code = (r: ReturnType<typeof apply>) => (r.ok ? null : r.rejection.code);
 
 describe("partner wear (RFC 0007 phase 3)", () => {
-  it("replays its log to the pinned hash, and every older log hashes as before", () => {
+  it("replays its log to the pinned hash", () => {
     const state = replay(ENTITLEMENTS_CONFIG, ENTITLEMENTS_LOG);
     expect(hashWorld(state)).toBe(ENTITLEMENTS_HASH);
     expect(state.entitlements).toEqual({ ada: ["muse_halo"] });
     expect(state.residents.ada?.wear).toEqual(["muse_halo", "dress", "socks"]);
     expect(state.residents.ada?.wearStyle?.muse_halo).toEqual({ color: "plum" });
-    // Worlds that never logged one: no `entitlements` key, the same hash.
-    const looks = replay(LOOKS_CONFIG, LOOKS_LOG);
-    expect(hashWorld(looks)).toBe(LOOKS_HASH);
-    expect("entitlements" in looks).toBe(false);
-    expect(hashWorld(replay(MARKET_CONFIG, MARKET_LOG))).toBe(MARKET_HASH);
+    // A world that never logged one has no `entitlements` key.
+    expect("entitlements" in replay(LOOKS_CONFIG, LOOKS_LOG)).toBe(false);
   });
 
   it("puts partner wear at the end of the catalog, off the shop, each in a slot", () => {

@@ -7,7 +7,6 @@ import {
   POST_ECONOMY_LOG,
 } from "./fixtures/post-economy-log";
 import { PRE_ECONOMY_CONFIG, PRE_ECONOMY_HASH, PRE_ECONOMY_LOG } from "./fixtures/pre-economy-log";
-import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund } from "./test-support";
@@ -132,8 +131,7 @@ const coinEvents = (events: WorldEvent[]) =>
   events.filter((e) => e.type === "coins" || e.type === "treasury");
 
 describe("old logs", () => {
-  it("replay to the hashes they had before coins", () => {
-    expect(hashWorld(replay(PRE_TOWN_CONFIG, PRE_TOWN_LOG))).toBe(PRE_TOWN_HASH);
+  it("replay to the hash they had before coins", () => {
     expect(hashWorld(replay(PRE_ECONOMY_CONFIG, PRE_ECONOMY_LOG))).toBe(PRE_ECONOMY_HASH);
   });
 

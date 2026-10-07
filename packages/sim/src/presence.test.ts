@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { apply, asJoined, prepare, rejoined } from "./apply";
-import {
-  ENTITLEMENTS_CONFIG,
-  ENTITLEMENTS_HASH,
-  ENTITLEMENTS_LOG,
-} from "./fixtures/entitlements-log";
 import { PRESENCE_CONFIG, PRESENCE_HASH, PRESENCE_LOG } from "./fixtures/presence-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
@@ -35,8 +30,7 @@ function world(on = true): WorldState {
 }
 
 describe("the presence fixture", () => {
-  it("replays to its pinned hash, and the log before the switch hashes as before", () => {
-    expect(hashWorld(replay(ENTITLEMENTS_CONFIG, ENTITLEMENTS_LOG))).toBe(ENTITLEMENTS_HASH);
+  it("replays to its pinned hash", () => {
     const state = replay(PRESENCE_CONFIG, PRESENCE_LOG);
     expect(hashWorld(state)).toBe(PRESENCE_HASH);
     expectSupplyHolds(state);

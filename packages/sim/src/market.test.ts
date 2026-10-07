@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
-import { ITEMS_CONFIG, ITEMS_HASH, ITEMS_LOG } from "./fixtures/items-log";
 import { MARKET_CONFIG, MARKET_HASH, MARKET_LOG } from "./fixtures/market-log";
-import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
 import { hashWorld } from "./hash";
 import { type GoodKind, ITEMS, inventorySize } from "./items";
 import { listingsOf, MARKET, marketFee, stallOf, takenDownOf } from "./market";
@@ -137,11 +135,6 @@ describe("open_market", () => {
       ok: false,
       rejection: { code: "already_open" },
     });
-  });
-
-  it("leaves logs from before it replaying to their pinned hashes", () => {
-    expect(hashWorld(replay(SHOP_CONFIG, SHOP_LOG))).toBe(SHOP_HASH);
-    expect(hashWorld(replay(ITEMS_CONFIG, ITEMS_LOG))).toBe(ITEMS_HASH);
   });
 
   it("replays a log with trades to the hash pinned when the market landed", () => {

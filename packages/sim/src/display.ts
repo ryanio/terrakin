@@ -10,6 +10,7 @@ import {
   inventoryEvent,
   inventorySize,
   isFindKind,
+  reachProblem,
 } from "./items";
 import { parseKey, plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
@@ -26,7 +27,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { canBuildOn, chebyshev, inBounds, plotAtTile, walkHint } from "./world";
+import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
  * Showing (RFC 0005 step 3): pieces of art made from your own uploads, and made things on display
@@ -178,16 +179,7 @@ function closed(state: WorldState): Rejection | null {
 function reach(state: WorldState, actor: ResidentId, x: number, y: number): Rejection | null {
   const me = state.residents[actor];
   if (!me) return refuse("not_joined", "Join the world first.");
-  if (!Number.isInteger(x) || !Number.isInteger(y) || !inBounds(state.config, x, y)) {
-    return refuse("out_of_bounds", "That's outside the world.");
-  }
-  if (chebyshev(me, { x, y }) > state.config.reach) {
-    return refuse(
-      "out_of_reach",
-      `That's more than ${state.config.reach} tiles away.${walkHint(me, { x, y }, state.config.reach)}`,
-    );
-  }
-  return null;
+  return reachProblem(state, me, { x, y });
 }
 
 /**

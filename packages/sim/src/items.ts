@@ -52,7 +52,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { canBuildOn, chebyshev, inBounds, plotAtTile, walkHint } from "./world";
+import { canBuildOn, inBounds, outOfReach, plotAtTile } from "./world";
 
 /**
  * Growing, making, and giving (RFC 0005, step 2): the item catalog as data, inventories, planters,
@@ -336,13 +336,7 @@ export function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection |
   if (!isWhole(at.x) || !isWhole(at.y) || !inBounds(config, at.x, at.y)) {
     return refuse("out_of_bounds", "That's outside the world.");
   }
-  if (chebyshev(me, at) > config.reach) {
-    return refuse(
-      "out_of_reach",
-      `That's more than ${config.reach} tiles away.${walkHint(me, at, config.reach)}`,
-    );
-  }
-  return null;
+  return outOfReach(me, at, config.reach);
 }
 
 // ---------- server input ----------

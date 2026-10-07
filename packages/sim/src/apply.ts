@@ -149,6 +149,7 @@ import type {
   RejectionCode,
   Resident,
   Tile,
+  WorldConfig,
   WorldEvent,
   WorldState,
 } from "./types";
@@ -161,6 +162,7 @@ import {
   inBounds,
   isCommons,
   isSolid,
+  outOfReach,
   plotAtTile,
   plotCenter,
   plotInBounds,
@@ -168,7 +170,6 @@ import {
   plotsOwnedBy,
   spawnTile,
   starterHome,
-  walkHint,
 } from "./world";
 
 export const NAME_MAX_LENGTH = 24;
@@ -192,6 +193,10 @@ const reject = (code: RejectionCode, message: string): Prepared => ({
   ok: false,
   rejection: { code, message },
 });
+
+/** `out_of_reach` for building at `at`, worded for building, or null when it's within reach. */
+const outOfBuildReach = (config: WorldConfig, me: Tile, at: Tile) =>
+  outOfReach(me, at, config.reach, `You can only build within ${config.reach} tiles.`);
 
 /** A stable starting look derived from the id, so new residents don't all look alike. */
 function defaultLook(id: string): Pick<Resident, "color" | "shape"> {
@@ -882,12 +887,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "set_hearth": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
-      if (chebyshev(me, { x, y }) > config.reach) {
-        return reject(
-          "out_of_reach",
-          `You can only build within ${config.reach} tiles.${walkHint(me, { x, y }, config.reach)}`,
-        );
-      }
+      const far = outOfBuildReach(config, me, { x, y });
+      if (far) return { ok: false, rejection: far };
       if (!canBuildOn(plotAtTile(state, x, y), actor)) {
         return reject(
           "not_your_plot",
@@ -944,12 +945,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "lift": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
-      if (chebyshev(me, { x, y }) > config.reach) {
-        return reject(
-          "out_of_reach",
-          `You can only build within ${config.reach} tiles.${walkHint(me, { x, y }, config.reach)}`,
-        );
-      }
+      const far = outOfBuildReach(config, me, { x, y });
+      if (far) return { ok: false, rejection: far };
       if (!canBuildOn(plotAtTile(state, x, y), actor)) {
         return reject(
           "not_your_plot",

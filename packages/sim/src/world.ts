@@ -1,8 +1,10 @@
+import { refuse } from "./check";
 import { plotKey, tileKey } from "./keys";
 import type {
   BlockKind,
   Direction,
   Plot,
+  Rejection,
   ResidentId,
   Tile,
   WorldConfig,
@@ -346,6 +348,20 @@ export function walkLegs(me: Tile, target: Tile, reach: number): ["e" | "w" | "n
 export function walkHint(me: Tile, target: Tile, reach: number): string {
   const steps = walkLegs(me, target, reach).map(([dir, n]) => `move ${dir} ${times(n)}`);
   return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
+}
+
+/**
+ * Why `target` is out of `me`'s reach, or null when it's within `reach` tiles: `out_of_reach`,
+ * saying `say` and then the walk that brings it within reach.
+ */
+export function outOfReach(
+  me: Tile,
+  target: Tile,
+  reach: number,
+  say = `That's more than ${reach} tiles away.`,
+): Rejection | null {
+  if (chebyshev(me, target) <= reach) return null;
+  return refuse("out_of_reach", `${say}${walkHint(me, target, reach)}`);
 }
 
 /** Deep copy. WorldState is plain JSON data by design, so a JSON round trip is exact. */

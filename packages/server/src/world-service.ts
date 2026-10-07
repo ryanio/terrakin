@@ -1273,6 +1273,24 @@ export class WorldService {
       filtered(this.moderation, "name", cleanText(name), {}) ??
       filtered(this.moderation, "note", profile.note && cleanText(profile.note), {});
     if (refused) return refused;
+    // Names are unique: a join with a taken name is refused, so one resident keeps one
+    // record even after losing their token or link key and joining again (issue #46,
+    // decision 0130). Compared case-insensitively on the cleaned name; the sim keeps the
+    // casing the joiner chose. Server-side, like the filters above, so old logs replay
+    // unchanged: their joins were each fine when they were logged.
+    const wanted = cleanText(name);
+    const taken = Object.values(this.state.residents).some(
+      (r) => r.name.toLowerCase() === wanted.toLowerCase(),
+    );
+    if (taken) {
+      return {
+        ok: false,
+        error: {
+          code: "name_taken",
+          message: `A resident named "${wanted}" is already here. If that's you, come back with your saved token or link key instead of joining again. Otherwise pick another name.`,
+        },
+      };
+    }
     // A brand-new resident owns no uploads, so any media here is refused.
     const media = this.checkLookMedia(residentId, profile);
     if (media) return media;

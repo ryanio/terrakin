@@ -702,6 +702,20 @@ function walkToward(tile: Tile, near = 0, arrive?: () => void) {
   });
 }
 
+/**
+ * Walk toward a tile that may be farther than one planned walk reaches (`route` looks 24 tiles
+ * around you): walk one leg, then plan the next from where it ended, while each leg gets closer.
+ */
+function walkFar(tile: Tile, near: number, legs = 8, last = Number.POSITIVE_INFINITY) {
+  walkToward(tile, near, () => {
+    const at = self();
+    if (!at) return;
+    const left = Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y));
+    if (left <= near || legs <= 1 || left >= last) return;
+    walkFar(tile, near, legs - 1, left);
+  });
+}
+
 /** Blocks a tap opens a sheet for: what grows or is made there, or what's on display. */
 const STATIONS: readonly BlockKind[] = ["planter", "kitchen", "workbench", "pedestal", "frame"];
 
@@ -1458,7 +1472,7 @@ function goThere() {
   const way = wayThere(m, place, me);
   stopLooking();
   if (way.type === "home") return goHome();
-  if (way.type === "walk") return walkToward(way.to, 1);
+  if (way.type === "walk") return walkFar(way.to, 1);
   walker.stop();
   const id = tryAct({ type: "visit", px: way.px, py: way.py });
   if (id) walker.awaiting(id, performance.now());

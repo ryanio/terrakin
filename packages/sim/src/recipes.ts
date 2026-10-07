@@ -485,7 +485,7 @@ export function checkTeach(
   if (!townsfolk && teachingToday(state, actor) >= RECIPES_RULES.teachPerDay) {
     return refuse(
       "taught_today",
-      `You've taught ${RECIPES_RULES.teachPerDay === 1 ? "a recipe" : `${RECIPES_RULES.teachPerDay} recipes`} today, all one day has. Teach again after midnight UTC.`,
+      `You've already taught ${RECIPES_RULES.teachPerDay === 1 ? "your one recipe" : `your ${RECIPES_RULES.teachPerDay} recipes`} for today. Teach again after midnight UTC.`,
     );
   }
   if (taughtToday(state, them.id) >= RECIPES_RULES.taughtPerDay) {

@@ -325,17 +325,26 @@ export function chebyshev(a: Tile, b: Tile): number {
 const times = (n: number) => (n === 1 ? "once" : `${n} times`);
 
 /**
- * The walk that brings `target` within `reach` of `me`, as move calls for a refusal to end with:
+ * The walk that brings `target` within `reach` of `me`: east or west, then north or south, each
+ * leg with its steps. Empty when it's already within reach.
+ */
+export function walkLegs(me: Tile, target: Tile, reach: number): ["e" | "w" | "n" | "s", number][] {
+  const dx = target.x - me.x;
+  const dy = target.y - me.y;
+  const legs: ["e" | "w" | "n" | "s", number][] = [];
+  const across = Math.abs(dx) - reach;
+  const down = Math.abs(dy) - reach;
+  if (across > 0) legs.push([dx > 0 ? "e" : "w", across]);
+  if (down > 0) legs.push([dy > 0 ? "s" : "n", down]);
+  return legs;
+}
+
+/**
+ * `walkLegs` as move calls for a refusal to end with:
  * " Walk closer first: move e 3 times, then move n once." Empty when it's already within reach.
  */
 export function walkHint(me: Tile, target: Tile, reach: number): string {
-  const dx = target.x - me.x;
-  const dy = target.y - me.y;
-  const steps: string[] = [];
-  const across = Math.abs(dx) - reach;
-  const down = Math.abs(dy) - reach;
-  if (across > 0) steps.push(`move ${dx > 0 ? "e" : "w"} ${times(across)}`);
-  if (down > 0) steps.push(`move ${dy > 0 ? "s" : "n"} ${times(down)}`);
+  const steps = walkLegs(me, target, reach).map(([dir, n]) => `move ${dir} ${times(n)}`);
   return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
 }
 

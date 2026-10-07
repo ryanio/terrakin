@@ -4,8 +4,8 @@ import type { LinkRouteId } from "../links";
 import { fromResult, type Handlers } from "./shared";
 
 /**
- * The handlers for owners and their AIs (decision 0031). The owner link routes are in `links.ts`.
- * Their routes are in the protocol's `route-table/owners.ts`.
+ * The handlers for owners and their AIs (decision 0031). The owner link routes are in
+ * `links/keys.ts`. Their routes are in the protocol's `route-table/owners.ts`.
  */
 export function ownerHandlers(
   api: Api,

@@ -101,7 +101,7 @@ import { type ActResult, DAY_MS, utcDay, type WorldService } from "./world-servi
  * REST routes come from the table in `@terrakin/protocol` (routes.ts). For each request the
  * dispatcher matches the table, authenticates, rate limits, and parses params, query, and body
  * with the route's schemas, in that order, before the route's handler runs. Handlers live in
- * `handlers/`, one file per area of the table, and link routes' in `links.ts`, joined by
+ * `handlers/`, one file per area of the table, and link routes' in `links/`, joined by
  * `routeHandlers()` and keyed by route id. Their types make a missing or unknown route a compile
  * error.
  */
@@ -927,7 +927,7 @@ export class Api {
   /**
    * Every REST route's behavior, keyed by the route id from the table. Each area's handlers are in
    * the file of the same name in `handlers/`, except the links area's Markdown twins and sitemaps,
-   * which are in `handlers/site.ts`. Link routes, every id in `LinkRouteId`, are in `links.ts`.
+   * which are in `handlers/site.ts`. Link routes, every id in `LinkRouteId`, are in `links/`.
    */
   private routeHandlers(): Handlers {
     return {

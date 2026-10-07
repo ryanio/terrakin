@@ -444,5 +444,6 @@ export {
   townHallTile,
   townHallTiles,
   validateConfig,
+  walkLegs,
   withinEarshot,
 } from "./world";

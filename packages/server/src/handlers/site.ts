@@ -16,7 +16,7 @@ import { fail, type Handlers } from "./shared";
 
 /**
  * The handlers for Markdown twins of profiles and posts, and the sitemaps (decision 0023). The link
- * routes beside them in the table are in `links.ts`. Their routes are in the protocol's
+ * routes beside them in the table are in `links/`. Their routes are in the protocol's
  * `route-table/links.ts`.
  */
 export function siteHandlers(

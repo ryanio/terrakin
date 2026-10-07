@@ -8,7 +8,7 @@ import {
   SITE,
   type SitePage,
 } from "@terrakin/protocol";
-import { apiPageMarkdown, docsPageMarkdown } from "@terrakin/protocol/reference";
+import { apiPage, docsPage, pageMarkdown } from "@terrakin/protocol/reference";
 import { afterEach, describe, expect, it } from "vitest";
 import { inline, markdownNodes, markdownToHtml } from "./markdown";
 import { markdownTwin, skillPageMarkdown, staticPage } from "./site-page";
@@ -33,6 +33,17 @@ describe("markdownToHtml", () => {
         "<pre><code>POST /v1/session</code></pre>",
       ].join("\n"),
     );
+  });
+
+  it("makes headings links to themselves only when asked", () => {
+    expect(markdownToHtml("## `GET /v1/world`", { headingLinks: true })).toBe(
+      '<h2 id="get-v1world"><a class="heading-link" href="#get-v1world"><code>GET /v1/world</code></a></h2>',
+    );
+    expect(markdownToHtml("## See [it](/a)", { headingLinks: true })).toBe(
+      '<h2 id="see-ita">See <a href="/a">it</a></h2>',
+    );
+    expect(markdownToHtml("# Docs", { headingLinks: true })).toBe('<h1 id="docs">Docs</h1>');
+    expect(markdownToHtml("## Who")).toBe('<h2 id="who">Who</h2>');
   });
 
   it("keeps code inside a link's text", () => {
@@ -310,17 +321,42 @@ describe("/docs and the API reference", () => {
     (p) => p.built === "docs" || p.built === "api",
   );
   const html = new Map<string, string>(
-    built.map((p) => [
-      p.path,
-      staticPage({
-        page: p,
-        source: p.built === "docs" ? docsPageMarkdown(guides) : apiPageMarkdown(p.path, openapi),
-        lastUpdated: "2026-10-07",
-        css: "/assets/index.css",
-      }),
-    ]),
+    built.map((p) => {
+      const docs = p.built === "docs" ? docsPage(guides) : apiPage(p.path, openapi);
+      const source = pageMarkdown(docs);
+      return [
+        p.path,
+        staticPage({ page: p, source, lastUpdated: "2026-10-07", css: "/assets/index.css", docs }),
+      ];
+    }),
   );
   const idsOn = (page: string) => new Set([...page.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+
+  it("links each heading to itself, and groups the Docs card with the page you're on filled", () => {
+    const area = html.get("/docs/api/social") ?? "";
+    expect(area).toContain(
+      '<h2 id="post-v1posts"><a class="heading-link" href="#post-v1posts"><span class="kind-pill sun method">POST</span> <code class="route-path">/v1/posts</code></a></h2>',
+    );
+    expect(area).toContain(
+      '<li class="docs-toc-item"><a href="#get-v1feed"><span class="kind-pill moss method">GET</span> <code class="route-path">/v1/feed</code></a>',
+    );
+    expect((area.match(/<h1[ >]/g) ?? []).length).toBe(1);
+    expect(html.get("/docs")).toContain('aria-label="Start here"');
+    expect(html.get("/docs/api/models")).toContain('class="plain-list docs-toc-list is-letters"');
+    expect(area).toContain('<a class="docs-nav-link" href="/docs/api/social" aria-current="page">');
+    expect(area).toContain('<p class="docs-nav-label">API reference</p>');
+    expect(html.get("/docs")).toContain(
+      '<a class="docs-nav-link" href="/docs" aria-current="page">',
+    );
+    const about = staticPage({
+      page: page("/about"),
+      source: "# About\n\n## Who",
+      lastUpdated: "2026-10-07",
+      css: "/a.css",
+    });
+    expect(about).not.toContain("heading-link");
+    expect(about).not.toContain('aria-label="Docs"');
+  });
 
   it("renders each page with no script, and every link between them lands on an id", () => {
     expect(built.length).toBeGreaterThan(10);

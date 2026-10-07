@@ -5,6 +5,7 @@ import {
   apiAreaMarkdown,
   apiModelsMarkdown,
   apiPageMarkdown,
+  docsPage,
   docsPageMarkdown,
   headingId,
 } from "./reference";
@@ -74,7 +75,7 @@ describe("the API reference", () => {
     expect(session).toContain("- No token.");
     expect(session).toContain("- Limit: 3 a minute per IP");
     expect(session).toContain("| `name` | string, up to 24 characters, required |");
-    expect(session).toContain("**Answer** (201)");
+    expect(session).toContain("**Answer (201)**");
     expect(session).toContain("`name_taken` (400)");
   });
 
@@ -102,6 +103,10 @@ describe("/docs", () => {
     expect(h1s(docs)).toEqual(["# Terrakin docs"]);
     expect(docs).toContain("\n## Getting started for people\n");
     expect(docs).toContain("\n## API reference\n");
+  });
+
+  it("says a line about every guide in its contents", () => {
+    for (const entry of docsPage(guides).toc.entries) expect(entry.note, entry.label).toBeTruthy();
   });
 
   it("links to every area of the reference, and in-page only to its own headings", () => {

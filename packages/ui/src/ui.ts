@@ -235,8 +235,8 @@ export function progressBar(count: number, total: number, label: string): HTMLDi
 
 // ---------- kind pill ----------
 
-/** A kind pill's colors: moss (green) or sun (warm, with clay text). Each view picks one. */
-export type PillTone = "moss" | "sun";
+/** A kind pill's colors: moss (green), sun (warm, with clay text), or clay. Each view picks one. */
+export type PillTone = "moss" | "sun" | "clay";
 
 /**
  * A small rounded label saying what kind of thing a card or row is: a proposal's kind, who put up

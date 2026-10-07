@@ -67,8 +67,9 @@ test.describe("docs at phone size", () => {
       await page.getByRole("table").getByRole("link", { name: "Social", exact: true }).click();
       await expect(page).toHaveURL(/\/docs\/api\/social$/);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("Social");
+      // The page's contents, which list every route with its method.
       await page
-        .locator(".layout-main")
+        .getByRole("navigation", { name: /routes$/ })
         .getByRole("link", { name: "POST /v1/posts", exact: true })
         .click();
       const route = page.getByRole("heading", { name: "POST /v1/posts", exact: true });

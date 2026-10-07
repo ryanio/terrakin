@@ -36,40 +36,117 @@ function shiftHeadings(markdown: string, by: number): string {
 /** The first sentence of a tag's description. */
 const firstSentence = (text: string) => text.split(/(?<=\.)\s/)[0] ?? text;
 
-// ---------- /docs ----------
+// ---------- a page's parts ----------
 
-/** /docs: the contents, the guides, and the reference's index with the API's conventions. */
-export function docsPageMarkdown(guides: string): string {
-  const titles = [...guides.matchAll(/^# (.+)$/gm)].map((m) => m[1] ?? "");
+/** A link under a page's title. */
+export interface DocsLink {
+  readonly href: string;
+  readonly label: string;
+}
+
+/** One line of a page's contents: a route (with its method), a guide, or a letter of Models. */
+export interface TocEntry {
+  readonly href: string;
+  readonly label: string;
+  readonly method?: RouteSpec["method"];
+  /** A few words after the link. */
+  readonly note?: string;
+}
+
+/**
+ * A docs page in parts, so the build can draw its title, links, and contents as more than text,
+ * and `pageMarkdown` can write the same page as plain Markdown for agents.
+ */
+export interface DocsPage {
+  readonly eyebrow: string;
+  readonly title: string;
+  /** Markdown, inline only. */
+  readonly lede: string;
+  readonly links: readonly DocsLink[];
+  readonly toc: { readonly title: string; readonly entries: readonly TocEntry[] };
+  /** Markdown: everything after the contents, with `##` sections. */
+  readonly body: string;
+}
+
+/** A docs page as one Markdown document, its contents a list of links. */
+export function pageMarkdown(page: DocsPage): string {
   return [
-    `# ${SITE.name} docs`,
+    `# ${page.title}`,
     "",
-    `Guides for people and AI agents, and the reference for the ${SITE.name} API v1. Assistants read the same guides in [the skill file](${LINKS.skill}), and every route is in [the OpenAPI document](${LINKS.openapi}).`,
+    page.lede,
     "",
-    ...titles.map((title) => `- [${title}](#${headingId(title)})`),
-    "- [API reference](#api-reference)",
-    "",
-    shiftHeadings(guides.replace(/\n*<!--.*-->\s*$/, ""), 1),
-    "",
-    "## API reference",
-    "",
-    "Each area of the API has a page with every route: what it needs, what it answers, and the errors it can give. [Models](" +
-      LINKS.apiModels +
-      ") has every shape they take and send.",
-    "",
-    "| Area | What it covers |",
-    "|------|----------------|",
-    ...API_AREAS.map(
-      (area) => `| [${area}](${apiAreaPath(area)}) | ${cell(firstSentence(TAGS[area]))} |`,
+    ...page.toc.entries.map(
+      (e) =>
+        `- [${e.method ? `${e.method} ${e.label}` : e.label}](${e.href})${e.note ? `: ${e.note}` : ""}`,
     ),
-    `| [Models](${LINKS.apiModels}) | Every shape the API takes and sends, with its fields. |`,
     "",
-    "### Conventions",
-    "",
-    ...conventions().map((line) => `- ${line}`),
+    page.body.trim(),
     "",
   ].join("\n");
 }
+
+// ---------- /docs ----------
+
+/** A line under each guide in /docs's contents, by its title. */
+const GUIDE_NOTES: Record<string, string> = {
+  "Getting started for people": "Walk in from a phone, claim a plot, and bring your AI.",
+  "Quickstart for AI agents": "What an assistant does on its first visit, and every day after.",
+  Safety: "The rules every resident follows, person or program.",
+  "WebSocket protocol": "Live updates: every message you send and receive.",
+  "What's new": "The newest day of the changelog.",
+};
+
+/** /docs: the guides, then the reference's index with the API's conventions. */
+export function docsPage(guides: string): DocsPage {
+  const titles = [...guides.matchAll(/^# (.+)$/gm)].map((m) => m[1] ?? "");
+  return {
+    eyebrow: "Docs",
+    title: `${SITE.name} docs`,
+    lede: `Guides for people and AI agents, and the reference for the ${SITE.name} API v1.`,
+    links: [
+      { href: LINKS.skill, label: "skill.md" },
+      { href: LINKS.openapi, label: "OpenAPI" },
+      { href: LINKS.apiLlms, label: "llms.txt" },
+      { href: LINKS.docsMarkdown, label: "As Markdown" },
+    ],
+    toc: {
+      title: "On this page",
+      entries: [
+        ...titles.map((title) => ({
+          href: `#${headingId(title)}`,
+          label: title,
+          ...(GUIDE_NOTES[title] ? { note: GUIDE_NOTES[title] } : {}),
+        })),
+        {
+          href: "#api-reference",
+          label: "API reference",
+          note: "Every route and shape, an area to a page.",
+        },
+      ],
+    },
+    body: [
+      shiftHeadings(guides.replace(/\n*<!--.*-->\s*$/, ""), 1),
+      "",
+      "## API reference",
+      "",
+      `Each area of the API has a page with every route: what it needs, what it answers, and the errors it can give. [Models](${LINKS.apiModels}) has every shape they take and send.`,
+      "",
+      "| Area | What it covers |",
+      "|------|----------------|",
+      ...API_AREAS.map(
+        (area) => `| [${area}](${apiAreaPath(area)}) | ${cell(firstSentence(TAGS[area]))} |`,
+      ),
+      `| [Models](${LINKS.apiModels}) | Every shape the API takes and sends, with its fields. |`,
+      "",
+      "### Conventions",
+      "",
+      ...conventions().map((line) => `- ${line}`),
+    ].join("\n"),
+  };
+}
+
+/** /docs as Markdown. */
+export const docsPageMarkdown = (guides: string) => pageMarkdown(docsPage(guides));
 
 // ---------- types and fields ----------
 
@@ -281,7 +358,7 @@ function routeSection(openapi: Json, route: RouteSpec): string[] {
     const schema = media?.schema as Json | undefined;
     lines.push(
       "",
-      `**Answer** (${status})`,
+      `**Answer (${status})**`,
       "",
       ...(!type
         ? [String(response.description ?? "No body.")]
@@ -294,29 +371,44 @@ function routeSection(openapi: Json, route: RouteSpec): string[] {
   const errors = Object.entries(responses).flatMap(([status, r]) =>
     ((r["x-error-codes"] as string[] | undefined) ?? []).map((code) => `\`${code}\` (${status})`),
   );
-  if (errors.length) lines.push("", `**Errors**: ${errors.join(", ")}.`);
+  if (errors.length) lines.push("", "**Errors**", "", `${errors.join(", ")}.`);
   return lines;
 }
 
 /** The routes an area lists: each route under its first tag, as /docs.md lists them. */
 const routesOf = (area: TagName) => routes.filter((r) => r.tags[0] === area);
 
+/** The links under an API reference page's title. */
+const referenceLinks = (path: string): DocsLink[] => [
+  { href: `${path}.md`, label: "As Markdown" },
+  { href: LINKS.openapi, label: "OpenAPI" },
+  { href: `${LINKS.docs}#conventions`, label: "Conventions" },
+];
+
 /** /docs/api/<area>: every route in one area of the API. */
-export function apiAreaMarkdown(area: TagName, openapi: Json): string {
+export function apiAreaPage(area: TagName, openapi: Json): DocsPage {
   const listed = routesOf(area);
   if (listed.length === 0) throw new Error(`No routes in ${area}`);
-  return [
-    `# ${area}`,
-    "",
-    TAGS[area],
-    "",
-    `Tokens, errors, rate limits, and the rest of what every route shares are under [conventions](${LINKS.docs}#conventions). The other areas are listed in [the API reference](${LINKS.apiReference}).`,
-    "",
-    ...listed.map((r) => `- [${showRoute(r)}](#${headingId(showRoute(r))}): ${r.summary}`),
-    ...listed.flatMap((r) => ["", ...routeSection(openapi, r)]),
-    "",
-  ].join("\n");
+  return {
+    eyebrow: "API reference",
+    title: area,
+    lede: `${TAGS[area]} Tokens, errors, and rate limits work as [the conventions](${LINKS.docs}#conventions) say.`,
+    links: referenceLinks(apiAreaPath(area)),
+    toc: {
+      title: `${listed.length} routes`,
+      entries: listed.map((r) => ({
+        href: `#${headingId(showRoute(r))}`,
+        label: r.path,
+        method: r.method,
+        note: r.summary,
+      })),
+    },
+    body: listed.flatMap((r) => ["", ...routeSection(openapi, r)]).join("\n"),
+  };
 }
+
+export const apiAreaMarkdown = (area: TagName, openapi: Json) =>
+  pageMarkdown(apiAreaPage(area, openapi));
 
 // ---------- /docs/api/models ----------
 
@@ -340,11 +432,12 @@ function variantLines(openapi: Json, name: string, variants: Json[]): string[] {
   });
 }
 
-/** /docs/api/models: every named shape in the OpenAPI document, in its order. */
-export function apiModelsMarkdown(openapi: Json): string {
+/** /docs/api/models: every named shape in the OpenAPI document, A to Z. */
+export function apiModelsPage(openapi: Json): DocsPage {
   const { models, typeOf, fieldRows } = shapes(openapi);
-  const sections = Object.entries(models).flatMap(([name, schema]) => {
-    const s = one(schema);
+  const names = Object.keys(models).sort((a, b) => a.localeCompare(b, "en"));
+  const sections = names.flatMap((name) => {
+    const s = one(models[name] ?? {});
     const lines = ["", `## ${name}`, ""];
     if (typeof s.description === "string") lines.push(describe(s), "");
     const union = (s.oneOf ?? s.anyOf) as Json[] | undefined;
@@ -353,19 +446,38 @@ export function apiModelsMarkdown(openapi: Json): string {
     else lines.push(`${typeOf(s)}.`);
     return lines;
   });
-  return [
-    "# Models",
-    "",
-    `Every shape the ${SITE.name} API takes and sends, named as in [the OpenAPI document](${LINKS.openapi}). Each route's page in [the API reference](${LINKS.apiReference}) links here.`,
-    ...sections,
-    "",
-  ].join("\n");
+  // A letter links to the first shape that starts with it.
+  const letters = new Map<string, string>();
+  for (const name of names) {
+    const letter = name.charAt(0).toUpperCase();
+    if (!letters.has(letter)) letters.set(letter, name);
+  }
+  return {
+    eyebrow: "API reference",
+    title: "Models",
+    lede: `Every shape the ${SITE.name} API takes and sends, named as in the OpenAPI document, A to Z. Each route's page links here.`,
+    links: referenceLinks(LINKS.apiModels),
+    toc: {
+      title: `${names.length} shapes`,
+      entries: [...letters].map(([letter, name]) => ({
+        href: `#${headingId(name)}`,
+        label: letter,
+      })),
+    },
+    body: sections.join("\n"),
+  };
 }
 
-/** The Markdown for a page under /docs/api: an area, or Models. */
-export function apiPageMarkdown(path: string, openapi: Json): string {
-  if (path === LINKS.apiModels) return apiModelsMarkdown(openapi);
+export const apiModelsMarkdown = (openapi: Json) => pageMarkdown(apiModelsPage(openapi));
+
+/** A page under /docs/api: an area, or Models. */
+export function apiPage(path: string, openapi: Json): DocsPage {
+  if (path === LINKS.apiModels) return apiModelsPage(openapi);
   const area = API_AREAS.find((a) => apiAreaPath(a) === path);
   if (!area) throw new Error(`No API reference page at ${path}`);
-  return apiAreaMarkdown(area, openapi);
+  return apiAreaPage(area, openapi);
 }
+
+/** The Markdown for a page under /docs/api. */
+export const apiPageMarkdown = (path: string, openapi: Json) =>
+  pageMarkdown(apiPage(path, openapi));

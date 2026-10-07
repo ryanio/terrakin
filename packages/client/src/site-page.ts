@@ -18,9 +18,11 @@ import {
   type SitePage,
   TRUST_PAGES,
 } from "@terrakin/protocol";
+import type { DocsPage, TocEntry } from "@terrakin/protocol/reference";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { iconSvg } from "@terrakin/ui/icons";
-import { markdownToHtml, slug } from "./markdown";
+import { inline, markdownToHtml, slug } from "./markdown";
+import { promptLine } from "./prompts";
 
 interface FooterLink {
   href: string;
@@ -136,29 +138,56 @@ const SIDE_POSTS = 4;
  * The static pages' sidebar, in the home wall's card style: a way into the world, and the newest
  * devlog posts other than this page (none on /devlog, which lists them all).
  */
-/** On a docs page, the way around the docs: the guides, each area of the API, and the files. */
+const isDocs = (path: string) => path === LINKS.docs || path.startsWith(`${LINKS.docs}/`);
+
+/** The docs pages in the groups the Docs card shows them in, short names in a grid. */
+const DOCS_GROUPS: readonly { label: string; grid?: true; links: readonly FooterLink[] }[] = [
+  {
+    label: "Read",
+    links: [
+      { href: LINKS.docs, label: "Guides" },
+      { href: LINKS.skillPage, label: "Skill file" },
+    ],
+  },
+  {
+    label: "API reference",
+    grid: true,
+    links: [
+      ...API_AREAS.map((area) => ({ href: apiAreaPath(area), label: area })),
+      { href: LINKS.apiModels, label: "Models" },
+    ],
+  },
+  {
+    label: "Files",
+    links: [
+      { href: LINKS.openapi, label: "OpenAPI (JSON)" },
+      { href: LINKS.apiLlms, label: "llms.txt for agents" },
+    ],
+  },
+];
+
+/** On a docs page, the way around the docs, with the page you're on filled in. */
 function docsNavHtml(path: string): string {
-  const links = [
-    { href: LINKS.docs, label: "Guides" },
-    ...API_AREAS.map((area) => ({ href: apiAreaPath(area), label: area })),
-    { href: LINKS.apiModels, label: "Models" },
-    { href: LINKS.skillPage, label: "The whole skill file" },
-    { href: LINKS.openapi, label: "OpenAPI document" },
-  ];
-  const items = links
-    .map(
-      (l) =>
-        `<li><a href="${l.href}"${l.href === path ? ' aria-current="page"' : ""}>${l.label}</a></li>`,
-    )
-    .join("");
+  const groups = DOCS_GROUPS.map((group) => {
+    const items = group.links
+      .map(
+        (l) =>
+          `<li><a class="docs-nav-link" href="${l.href}"${l.href === path ? ' aria-current="page"' : ""}>${l.label}</a></li>`,
+      )
+      .join("");
+    return `<div class="stack tight">
+              <p class="docs-nav-label">${group.label}</p>
+              <ul class="plain-list docs-nav-list${group.grid ? " is-grid" : ""}">${items}</ul>
+            </div>`;
+  }).join("");
   return `<nav class="pulse paper card docs-nav" aria-label="Docs">
             <p class="eyebrow pulse-eyebrow">Docs</p>
-            <ul class="plain-list stack tight">${items}</ul>
+            ${groups}
           </nav>`;
 }
 
 function siteSideHtml(path: string): string {
-  const docs = path === LINKS.docs || path.startsWith(`${LINKS.docs}/`) ? docsNavHtml(path) : "";
+  const docs = isDocs(path) ? docsNavHtml(path) : "";
   const visit = `<article class="pulse paper card" aria-label="Step inside">
             <p class="eyebrow pulse-eyebrow">Step inside</p>
             <h2 class="pulse-title">${SITE.tagline}</h2>
@@ -196,15 +225,88 @@ function devlogEntries(html: string): string {
 }
 
 /** One static page: the site bar, the rendered Markdown in a paper card beside the sidebar, and the footer. */
+// ---------- the docs pages ----------
+
+/** A route's method as a tinted pill: reads in green, writes in yellow, deletes in clay. */
+const METHOD_TINT: Record<string, string> = {
+  GET: "moss",
+  POST: "sun",
+  PUT: "sun",
+  DELETE: "clay",
+};
+const methodPill = (method: string) =>
+  `<span class="kind-pill ${METHOD_TINT[method] ?? "sun"} method">${method}</span>`;
+const routeHtml = (method: string, path: string) =>
+  `${methodPill(method)} <code class="route-path">${path}</code>`;
+
+/** A route's heading (`POST /v1/posts`) drawn with its method pill and its path in code. */
+const decorateRoutes = (html: string) =>
+  html.replace(
+    /(<a class="heading-link" href="#[^"]+">)(GET|POST|PUT|DELETE) (\/[^<]+)<\/a>/g,
+    (_, open: string, method: string, path: string) => `${open}${routeHtml(method, path)}</a>`,
+  );
+
+function tocItem(entry: TocEntry): string {
+  const label = entry.method ? routeHtml(entry.method, attr(entry.label)) : attr(entry.label);
+  const note = entry.note ? `<span class="docs-toc-note">${inline(entry.note)}</span>` : "";
+  return `<li class="docs-toc-item"><a href="${attr(entry.href)}">${label}</a>${note}</li>`;
+}
+
+/** The two ways in on /docs: walking in as a person, or sending an assistant. */
+function docsStartHtml(): string {
+  return `<section class="card-grid docs-start" aria-label="Start here">
+            <div class="paper card stack tight">
+              <p class="eyebrow">For people</p>
+              <h2 class="docs-start-title">Walk in from your phone</h2>
+              <p>Pick a name and a look, claim a plot, and build a home. No account, wallet, or download.</p>
+              <p class="cluster"><a class="btn-primary" href="/world">Open the world</a><a class="pill-button" href="#getting-started-for-people">Getting started</a></p>
+            </div>
+            <div class="paper card stack tight">
+              <p class="eyebrow">For AI agents</p>
+              <h2 class="docs-start-title">Send your assistant one line</h2>
+              <pre class="docs-start-line"><code>${attr(promptLine("Wren", "loves gardens"))}</code></pre>
+              <p class="cluster"><a class="pill-button" href="#quickstart-for-ai-agents">Quickstart</a><a class="pill-button" href="${LINKS.skill}">skill.md</a></p>
+            </div>
+          </section>`;
+}
+
+/** A docs page's main column: its title and links, its contents, then its body in a card. */
+function docsArticle(page: SitePage, docs: DocsPage, footnote: string): string {
+  const links = docs.links
+    .map((l) => `<li><a class="pill-button small" href="${attr(l.href)}">${attr(l.label)}</a></li>`)
+    .join("");
+  const letters = docs.toc.entries.every((e) => e.label.length === 1);
+  const entries = docs.toc.entries.map(tocItem).join("");
+  const body = decorateRoutes(markdownToHtml(docs.body, { headingLinks: true }));
+  return `<header class="docs-hero stack tight">
+              <p class="eyebrow">${attr(docs.eyebrow)}</p>
+              <h1>${attr(docs.title)}</h1>
+              <p class="docs-lede">${inline(docs.lede)}</p>
+              <ul class="plain-list cluster">${links}</ul>
+            </header>
+            ${page.path === LINKS.docs ? docsStartHtml() : ""}
+            <nav class="paper card stack tight docs-toc" aria-label="${attr(docs.toc.title)}">
+              <p class="eyebrow pulse-eyebrow">${attr(docs.toc.title)}</p>
+              <ul class="plain-list docs-toc-list${letters ? " is-letters" : ""}">${entries}</ul>
+            </nav>
+            <div class="paper card prose docs-body">
+${body}
+              ${footnote}
+            </div>`;
+}
+
 export function staticPage(options: {
   page: SitePage;
   source: string;
   lastUpdated: string;
   /** The built stylesheet's path, like `/assets/index-abc123.css`. */
   css: string;
+  /** A docs page in parts: drawn with its title, links, and contents instead of `source`. */
+  docs?: DocsPage | undefined;
 }): string {
   const { page, source, lastUpdated, css } = options;
   const markdown = page.markdown ?? `${page.path}.md`;
+  const footnote = `<p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>`;
   const nav = [
     { href: "/", label: "Feed" },
     { href: "/world", label: "World" },
@@ -252,11 +354,15 @@ ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a
       </header>
       <main class="page-root">
         <div class="layout">
-          <article class="layout-main">
-            <div class="paper card prose">
-${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownToHtml(source)}
-              <p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>
-            </div>
+          <article class="layout-main${options.docs ? " stack cards" : ""}">
+            ${
+              options.docs
+                ? docsArticle(page, options.docs, footnote)
+                : `<div class="paper card prose">
+${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownToHtml(source, { headingLinks: isDocs(page.path) })}
+              ${footnote}
+            </div>`
+            }
           </article>
           <aside class="layout-side" aria-label="More from ${SITE.name}">
           ${siteSideHtml(page.path)}

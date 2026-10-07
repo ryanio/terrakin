@@ -1441,3 +1441,8 @@ a.menu-item {
   background: color-mix(in srgb, var(--sun) 22%, transparent);
   color: var(--clay-deep);
 }
+
+.kind-pill.clay {
+  background: color-mix(in srgb, var(--clay) 14%, transparent);
+  color: var(--clay-deep);
+}

@@ -61,7 +61,11 @@ export function inline(text: string): string {
   );
 }
 
-export function markdownToHtml(markdown: string): string {
+/**
+ * `headingLinks`: each heading under the title is also a link to itself, so a reader can tap one and copy the
+ * address (the docs pages). Off for everything else, since a devlog post is already one link.
+ */
+export function markdownToHtml(markdown: string, options: { headingLinks?: boolean } = {}): string {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const html: string[] = [];
   let i = 0;
@@ -95,7 +99,14 @@ export function markdownToHtml(markdown: string): string {
     if (heading) {
       const level = heading[1]?.length ?? 1;
       const text = heading[2] ?? "";
-      html.push(`<h${level} id="${slug(text)}">${inline(text)}</h${level}>`);
+      const id = slug(text);
+      const words = inline(text);
+      // Not the page's title, and not a heading that already holds a link, since links can't nest.
+      const body =
+        options.headingLinks && level > 1 && !words.includes("<a ")
+          ? `<a class="heading-link" href="#${id}">${words}</a>`
+          : words;
+      html.push(`<h${level} id="${id}">${body}</h${level}>`);
       i++;
       continue;
     }

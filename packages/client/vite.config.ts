@@ -10,7 +10,7 @@ import {
   PAGES,
   type SitePage,
 } from "@terrakin/protocol";
-import { apiPageMarkdown, docsPageMarkdown } from "@terrakin/protocol/reference";
+import { apiPage, type DocsPage, docsPage, pageMarkdown } from "@terrakin/protocol/reference";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { defineConfig, type Plugin } from "vite";
 import { footerHtml, markdownTwin, skillPageMarkdown, staticPage } from "./src/site-page";
@@ -137,17 +137,20 @@ function sitePages(): Plugin {
       { lastmod: string }
     >;
   const file = (path: string) => readFileSync(repo(path), "utf8");
+  /** /docs and the API reference, in parts the page draws as more than text. */
+  const docsOf = (page: SitePage): DocsPage | undefined => {
+    if (page.built === "docs")
+      return docsPage(file("packages/client/src/docs/guides.generated.md"));
+    if (page.built === "api")
+      return apiPage(page.path, JSON.parse(file("packages/protocol/openapi.json")));
+    return undefined;
+  };
   const read = (page: SitePage): string => {
-    switch (page.built) {
-      case "skill":
-        return skillPageMarkdown(file("packages/protocol/SKILL.md"));
-      case "docs":
-        return docsPageMarkdown(file("packages/client/src/docs/guides.generated.md"));
-      case "api":
-        return apiPageMarkdown(page.path, JSON.parse(file("packages/protocol/openapi.json")));
-      default:
-        return file(`docs/site/${page.prose}.md`);
-    }
+    const docs = docsOf(page);
+    if (docs) return pageMarkdown(docs);
+    return page.built === "skill"
+      ? skillPageMarkdown(file("packages/protocol/SKILL.md"))
+      : file(`docs/site/${page.prose}.md`);
   };
   /** Whether the build writes the page's twin; /skill.md and /docs.md come from elsewhere. */
   const ownTwin = (page: SitePage) => page.prose !== undefined || page.built === "api";
@@ -181,7 +184,10 @@ function sitePages(): Plugin {
           if (page.kind === "static" && path === page.path) {
             res.setHeader("content-type", "text/html; charset=utf-8");
             const css = "/src/style.css";
-            return res.end(staticPage({ page, source: read(page), lastUpdated: dated(page), css }));
+            const docs = docsOf(page);
+            return res.end(
+              staticPage({ page, source: read(page), lastUpdated: dated(page), css, docs }),
+            );
           }
         }
         for (const { page, source, lastUpdated } of posts) {
@@ -217,7 +223,8 @@ function sitePages(): Plugin {
           });
         }
         if (page.kind !== "static") continue;
-        const html = staticPage({ page, source, lastUpdated, css: `/${css}` });
+        const docs = docsOf(page);
+        const html = staticPage({ page, source, lastUpdated, css: `/${css}`, docs });
         this.emitFile({
           type: "asset",
           fileName: htmlFile(page),

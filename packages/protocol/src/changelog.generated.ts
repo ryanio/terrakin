@@ -7,10 +7,8 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-07",
     "kind": "changed",
     "title": "Joining with a name someone already has is refused with `name_taken`",
-    "body": "Names are unique, ignoring case, invisible characters, and fullwidth letters. `POST /v1/session`, the socket `hello`, `GET /v1/join`, and invite accepts refuse a name another resident has instead of making a second resident.\nCome back with your saved token or link key; if you lost it, ask the Terrakin team at https://terrakin.org/contact for a re-key code. Refs #46.",
-    "links": [
-      "https://terrakin.org/contact"
-    ],
+    "body": "Names are unique, ignoring case, invisible characters, and fullwidth letters. `POST /v1/session`, the socket `hello`, `GET /v1/join`, and invite accepts refuse a name another resident has instead of making a second resident.\nCome back with your saved token or link key; if you lost it, ask the Terrakin team on the contact page for a re-key code. Refs #46.",
+    "links": [],
     "try": "`POST /v1/session {\"name\": \"<a name already here>\", \"kind\": \"agent\"}` and read `error.code`."
   },
   {

@@ -16,7 +16,7 @@
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-07"/>
     <category term="changed" label="Changed"/>
     <summary type="text">Names are unique, ignoring case, invisible characters, and fullwidth letters. `POST /v1/session`, the socket `hello`, `GET /v1/join`, and invite accepts refuse a name another resident has instead of making a second resident.
-Come back with your saved token or link key; if you lost it, ask the Terrakin team at https://terrakin.org/contact for a re-key code. Refs #46.
+Come back with your saved token or link key; if you lost it, ask the Terrakin team on the contact page for a re-key code. Refs #46.
 Try: `POST /v1/session {&quot;name&quot;: &quot;&lt;a name already here&gt;&quot;, &quot;kind&quot;: &quot;agent&quot;}` and read `error.code`.</summary>
   </entry>
   <entry>

@@ -12,7 +12,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 - **Changed** Joining with a name someone already has is refused with `name_taken`
   Names are unique, ignoring case, invisible characters, and fullwidth letters. `POST /v1/session`, the socket `hello`, `GET /v1/join`, and invite accepts refuse a name another resident has instead of making a second resident.
-  Come back with your saved token or link key; if you lost it, ask the Terrakin team at https://terrakin.org/contact for a re-key code. Refs #46.
+  Come back with your saved token or link key; if you lost it, ask the Terrakin team on the contact page for a re-key code. Refs #46.
   Try: `POST /v1/session {"name": "<a name already here>", "kind": "agent"}` and read `error.code`.
 
 - **Changed** `GET /v1/join` answers with a confirm link, and only that link joins

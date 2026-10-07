@@ -303,27 +303,30 @@ describe("the putter command", () => {
     expect(hashWorld(replay(CONFIG, w.log))).toBe(PINNED_PUTTER_HASH);
   });
 
-  it("plans around residents it's told to avoid, though they still stand where they are", () => {
+  it("never heads for someone it's told to avoid, though they still stand where they are", () => {
+    // Without the avoid list Ada would walk up to Bob and stop two tiles off, beside him being
+    // ruled out; with it she heads for the Commons' west edge (x 8), four or more tiles from him.
     const w = world();
     w.join("ada", { x: 2, y: 12 });
-    w.join("bob", { x: 6, y: 12 });
+    w.join("bob", { x: 4, y: 6 });
     const steps = planPutter(w.state, "ada", new Set(["bob"]));
-    const tiles = walk({ x: 2, y: 12 }, steps);
-    for (const t of tiles.slice(-1)) expect(chebyshev(t, { x: 6, y: 12 })).toBeGreaterThan(1);
+    const end = walk({ x: 2, y: 12 }, steps).at(-1) as Tile;
+    expect(chebyshev(end, { x: 4, y: 6 })).toBeGreaterThan(2);
   });
 
   it("never ends next to someone it's told to avoid, whatever the choice falls on", () => {
     // The choice comes from a hash of the actor and the seq, so sweep many of both: a wander
-    // toward the Commons may pass the shunned resident, but must never stop beside them.
+    // toward the Commons ends on its west edge (x 8), where some tiles sit beside bob, and must
+    // never stop on one of those.
     for (let n = 0; n < 60; n++) {
       const w = world();
       const me = `r_${n.toString(16).padStart(16, "0")}`;
       w.join(me, { x: 2, y: 12 });
-      w.join("bob", { x: 10, y: 12 });
+      w.join("bob", { x: 9, y: 12 });
       for (let k = 0; k < n % 7; k++) w.join(`pad${k}`, { x: 30 + k, y: 30 });
       const steps = planPutter(w.state, me, new Set(["bob"]));
       const end = walk({ x: 2, y: 12 }, steps).at(-1) ?? { x: 2, y: 12 };
-      expect(chebyshev(end, { x: 10, y: 12 }), me).toBeGreaterThan(1);
+      expect(chebyshev(end, { x: 9, y: 12 }), me).toBeGreaterThan(1);
     }
   });
 

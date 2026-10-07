@@ -2,7 +2,8 @@
  * A small Markdown to HTML renderer for our own pages in docs/site (About, Terms, Privacy, Contact,
  * the devlog), run at build time, and `markdownNodes`, the same output as DOM for the devlog card
  * on the home wall. It covers what those pages use: headings, paragraphs, lists, fenced code,
- * inline code, links, bare URLs, bold, and italics. Everything is escaped first, so it's safe on
+ * inline code, links, bare URLs, bold, italics, and images on lines of their own (the devlog's
+ * screenshots). Everything is escaped first, so it's safe on
  * any input, but it is not for resident text: that is never rendered as Markdown.
  */
 import { h } from "@terrakin/ui/dom";
@@ -15,8 +16,15 @@ const escapeHtml = (text: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-/** Only http(s), site-relative, and in-page links become hrefs. */
-const safeHref = (href: string) => (/^(https?:\/\/|\/|#)/.test(href) ? href : "#");
+/** Only http(s), mailto, site-relative, and in-page links become hrefs. */
+const safeHref = (href: string) => (/^(https?:\/\/|mailto:|\/|#)/.test(href) ? href : "#");
+
+/** Only the devlog's own screenshots load (`DEVLOG_IMAGE_DIR`), never another host. */
+const safeSrc = (src: string) =>
+  /^\/devlog\/images\/[a-z0-9-]+\.(jpg|png|webp)$/.test(src) ? src : "";
+
+/** A line that is only an image, `![alt](src)`. */
+const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/;
 
 /** Make a heading's text into an id, like GitHub does. */
 const slug = (text: string) =>
@@ -68,6 +76,17 @@ export function markdownToHtml(markdown: string): string {
       html.push(`<pre><code>${escapeHtml(body.join("\n"))}</code></pre>`);
       continue;
     }
+    const image = IMAGE_LINE.exec(line.trim());
+    if (image) {
+      const src = safeSrc(image[2] ?? "");
+      if (src) {
+        html.push(
+          `<figure><img src="${escapeHtml(src)}" alt="${escapeHtml(image[1] ?? "")}" loading="lazy" decoding="async"></figure>`,
+        );
+      }
+      i++;
+      continue;
+    }
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       const level = heading[1]?.length ?? 1;
@@ -112,7 +131,8 @@ export function markdownToHtml(markdown: string): string {
     while (
       i < lines.length &&
       !/^\s*$/.test(lines[i] ?? "") &&
-      !/^(#{1,6}\s|`{3,}|~{3,}|\s*([-*]|\d+\.)\s|\||<!--)/.test(lines[i] ?? "")
+      !/^(#{1,6}\s|`{3,}|~{3,}|\s*([-*]|\d+\.)\s|\||<!--)/.test(lines[i] ?? "") &&
+      !IMAGE_LINE.test((lines[i] ?? "").trim())
     ) {
       paragraph.push(lines[i++] ?? "");
     }
@@ -121,31 +141,36 @@ export function markdownToHtml(markdown: string): string {
   return html.join("\n");
 }
 
-/** The tags `markdownToHtml` writes, and the one attribute each may keep in the DOM. */
-const NODE_TAGS: Readonly<Record<string, "href" | "class" | null>> = {
-  h1: null,
-  h2: null,
-  h3: null,
-  h4: null,
-  h5: null,
-  h6: null,
-  p: null,
-  ul: null,
-  ol: null,
-  li: null,
-  pre: null,
-  code: null,
-  strong: null,
-  em: null,
-  a: "href",
-  div: "class",
-  table: null,
-  thead: null,
-  tbody: null,
-  tr: null,
-  th: null,
-  td: null,
+/** The tags `markdownToHtml` writes, and the attributes each may keep in the DOM. */
+const NODE_TAGS: Readonly<Record<string, readonly string[]>> = {
+  h1: [],
+  h2: [],
+  h3: [],
+  h4: [],
+  h5: [],
+  h6: [],
+  p: [],
+  ul: [],
+  ol: [],
+  li: [],
+  pre: [],
+  code: [],
+  strong: [],
+  em: [],
+  a: ["href"],
+  div: ["class"],
+  table: [],
+  thead: [],
+  tbody: [],
+  tr: [],
+  th: [],
+  td: [],
+  figure: [],
+  img: ["src", "alt", "loading", "decoding"],
 };
+
+/** Tags with no closing tag, which hold nothing. */
+const VOID_TAGS: ReadonlySet<string> = new Set(["img"]);
 
 const ENTITIES: Readonly<Record<string, string>> = {
   "&amp;": "&",
@@ -161,8 +186,8 @@ const unescapeHtml = (text: string) =>
  * Markdown as DOM nodes, for a page that's already running (the devlog card). It reads
  * `markdownToHtml`'s output back, so both paths escape the same way, and builds each element with
  * `h()` and each run of text as a text node. Only the tags that renderer writes become elements,
- * with only `href` (through `safeHref` again) on links and `class` on table wrappers; anything else
- * is dropped. `shift` moves headings down, so a post's `##` sits under the card's own title.
+ * with only `href` (through `safeHref` again) on links, `class` on table wrappers, and `src`
+ * (through `safeSrc` again) and `alt` on images; anything else is dropped. `shift` moves headings down, so a post's `##` sits under the card's own title.
  */
 export function markdownNodes(markdown: string, shift = 0): Node[] {
   const top: Node[] = [];
@@ -188,14 +213,17 @@ export function markdownNodes(markdown: string, shift = 0): Node[] {
     const level = /^h([1-6])$/.exec(tag)?.[1];
     const name = level ? `h${Math.min(6, Number(level) + shift)}` : tag;
     const el = h(name as keyof HTMLElementTagNameMap);
-    const keep = NODE_TAGS[tag];
+    const keep = NODE_TAGS[tag] ?? [];
     for (const [, key = "", value = ""] of attrs.matchAll(/ ([a-z-]+)="([^"]*)"/g)) {
-      if (key !== keep) continue;
+      if (!keep.includes(key)) continue;
       const plain = unescapeHtml(value);
-      el.setAttribute(key, key === "href" ? safeHref(plain) : plain);
+      el.setAttribute(
+        key,
+        key === "href" ? safeHref(plain) : key === "src" ? safeSrc(plain) : plain,
+      );
     }
     add(el);
-    open.push({ tag, el });
+    if (!VOID_TAGS.has(tag)) open.push({ tag, el });
   }
   return top;
 }

@@ -108,6 +108,31 @@ describe("markdownNodes, the devlog card's Markdown", () => {
     expect(text(nodes)).toBe("Your placeA pet and a link.one");
   });
 
+  it("links an email address written as a mailto link", () => {
+    expect(inline("[ryan@terrakin.org](mailto:ryan@terrakin.org)")).toBe(
+      '<a href="mailto:ryan@terrakin.org">ryan@terrakin.org</a>',
+    );
+  });
+
+  it("draws a devlog screenshot as a figure, and drops an image from anywhere else", () => {
+    const nodes = render(
+      "![Pets napping by a hearth](/devlog/images/2026-10-07-pets.jpg)\n\n![x](https://evil.example/a.png)\n\nAfter.",
+    );
+    expect(shape(nodes)).toEqual([
+      "figure",
+      "img",
+      "img[src=/devlog/images/2026-10-07-pets.jpg]",
+      "img[alt=Pets napping by a hearth]",
+      "img[loading=lazy]",
+      "img[decoding=async]",
+      "p",
+      "#text",
+    ]);
+    expect(markdownToHtml("Before\n![a](/devlog/images/2026-10-07-a.jpg)")).toBe(
+      '<p>Before</p>\n<figure><img src="/devlog/images/2026-10-07-a.jpg" alt="a" loading="lazy" decoding="async"></figure>',
+    );
+  });
+
   it("can't be made to run script: markup stays text and script links go nowhere", () => {
     const hostile = [
       '<script>alert(1)</script> <img src=x onerror="alert(1)"> <a href="javascript:alert(1)">x</a>',

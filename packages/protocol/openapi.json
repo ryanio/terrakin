@@ -39567,7 +39567,7 @@
           },
           "body": {
             "type": "string",
-            "description": "The whole post after its title, in Markdown. Written by the Terrakin team; links into the repo point at GitHub."
+            "description": "The whole post after its title, in Markdown. Written by the Terrakin team; links into the repo point at GitHub, and screenshots are images on lines of their own with paths on terrakin.org (`/devlog/images/...`)."
           }
         },
         "required": [

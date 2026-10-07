@@ -14,7 +14,11 @@ import { absolute, LINKS, SITE, type SitePage } from "./site";
  *
  *   # Devlog 2026-10-06: Autumn in Terrakin    the title; a leading "Devlog <day>:" is dropped
  *   The first paragraph.                       the summary, and the lead on the home wall's card
+ *   ![What it shows](/devlog/images/2026-10-06-pets.jpg)   a screenshot, on a line of its own
  *   ## Headings, lists, more paragraphs        the rest, in Markdown
+ *
+ * Posts from `DEVLOG_SHORT_FROM` on are short (`DEVLOG_WORDS_MAX`) and show what changed in 1 to 3
+ * screenshots of the game, taken with `pnpm devlog:shot` into packages/client/public/devlog/images.
  */
 
 /** The longest summary, in characters. Longer first paragraphs are cut at a sentence or a word. */
@@ -38,7 +42,7 @@ export const DevlogPost = DevlogEntry.extend({
   body: z
     .string()
     .describe(
-      "The whole post after its title, in Markdown. Written by the Terrakin team; links into the repo point at GitHub.",
+      "The whole post after its title, in Markdown. Written by the Terrakin team; links into the repo point at GitHub, and screenshots are images on lines of their own with paths on terrakin.org (`/devlog/images/...`).",
     ),
 });
 export type DevlogPost = z.infer<typeof DevlogPost>;
@@ -59,6 +63,39 @@ export class DevlogError extends Error {
   override name = "DevlogError";
 }
 
+/** Posts from this day on are held to the word cap and carry screenshots. */
+export const DEVLOG_SHORT_FROM = "2026-10-07";
+
+/** The most words a short post has, headings included and screenshots' alt text not. */
+export const DEVLOG_WORDS_MAX = 250;
+
+/** How many screenshots a short post has. */
+export const DEVLOG_IMAGES_MIN = 1;
+export const DEVLOG_IMAGES_MAX = 3;
+
+/** Where screenshots are served from, out of packages/client/public. */
+export const DEVLOG_IMAGE_DIR = "/devlog/images";
+
+/** A screenshot's file name: the post's day, a short name, and its type. */
+const DEVLOG_IMAGE_FILE = /^(\d{4}-\d{2}-\d{2})-[a-z0-9]+(?:-[a-z0-9]+)*\.(jpg|png|webp)$/;
+
+/** A line that is only an image: `![alt](src)`. */
+const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/;
+
+/** A screenshot in a post: what it shows, and its path on the site. */
+export interface DevlogImage {
+  alt: string;
+  src: string;
+}
+
+/** The images in a post's body, in order. */
+export function devlogImages(body: string): DevlogImage[] {
+  return body.split("\n").flatMap((line) => {
+    const m = IMAGE_LINE.exec(line.trim());
+    return m ? [{ alt: m[1] ?? "", src: m[2] ?? "" }] : [];
+  });
+}
+
 /** A post's file name: its day, then `.md`. */
 const DEVLOG_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
 
@@ -73,7 +110,7 @@ export function devlogDay(date: string): string {
 }
 
 /** Where a block of Markdown starts that isn't a paragraph: a heading, fence, list, table, or comment. */
-const BLOCK_START = /^(#{1,6}\s|`{3,}|~{3,}|\s*([-*]|\d+\.)\s|\||<!--)/;
+const BLOCK_START = /^(#{1,6}\s|`{3,}|~{3,}|\s*([-*]|\d+\.)\s|\||<!--|!\[)/;
 
 /**
  * A post's body split into its first paragraph and the rest, both Markdown. The card on the home
@@ -110,6 +147,18 @@ function plainText(markdown: string): string {
     .replace(/(^|[^_\w])_([^_\s][^_]*)_(?!\w)/g, "$1$2")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** A post's words, counted as plain text, without its images. */
+export function devlogWords(body: string): number {
+  const text = plainText(
+    body
+      .split("\n")
+      .filter((line) => !IMAGE_LINE.test(line.trim()))
+      .join("\n")
+      .replace(/^#{1,6}\s+/gm, ""),
+  );
+  return text === "" ? 0 : text.split(" ").length;
 }
 
 /** Text cut to `max` characters: at the last sentence that fits, else at a word, with "…". */
@@ -172,6 +221,32 @@ function parseDevlogPost(file: string, text: string): DevlogPost {
   );
   const { lead } = devlogLead(body);
   if (lead === "") fail("a post needs a paragraph under its title.");
+  const loose = lines.findIndex((line) => line.includes("![") && !IMAGE_LINE.test(line.trim()));
+  if (loose >= 0)
+    fail(`line ${loose + 1} has an image inside other text. Give it a line of its own.`);
+  const images = devlogImages(body);
+  for (const { alt, src } of images) {
+    const name = src.startsWith(`${DEVLOG_IMAGE_DIR}/`)
+      ? src.slice(DEVLOG_IMAGE_DIR.length + 1)
+      : "";
+    if (DEVLOG_IMAGE_FILE.exec(name)?.[1] !== date) {
+      fail(`${src} isn't a screenshot of this post. Use ${DEVLOG_IMAGE_DIR}/${date}-<name>.jpg.`);
+    }
+    if (alt.trim() === "") fail(`${src} needs alt text that says what it shows.`);
+  }
+  if (date >= DEVLOG_SHORT_FROM) {
+    const words = devlogWords(body);
+    if (words > DEVLOG_WORDS_MAX) {
+      fail(
+        `${words} words. A post is ${DEVLOG_WORDS_MAX} at most: keep what a resident would notice.`,
+      );
+    }
+    if (images.length < DEVLOG_IMAGES_MIN || images.length > DEVLOG_IMAGES_MAX) {
+      fail(
+        `${images.length} screenshots. A post shows what changed in ${DEVLOG_IMAGES_MIN} to ${DEVLOG_IMAGES_MAX}, taken with pnpm devlog:shot.`,
+      );
+    }
+  }
   return {
     date,
     title: titleOf(heading, date),

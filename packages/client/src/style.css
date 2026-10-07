@@ -5779,6 +5779,21 @@ dialog.look-editor {
   overflow-x: auto;
 }
 
+/* A devlog screenshot: a phone's screen, never wider than the column or taller than most of a screen. */
+.prose figure {
+  margin: var(--space-md) 0;
+}
+
+.prose figure img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  height: auto;
+  margin-inline: auto;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+}
+
 .prose table {
   border-collapse: collapse;
   font-size: var(--text-base);

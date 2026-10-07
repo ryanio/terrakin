@@ -24,12 +24,14 @@
  * The devlog (decision 0105): the posts in docs/devlog become docs/site/devlog.md (the /devlog page
  * and its twin), packages/client/public/devlog.xml (Atom), and
  * packages/protocol/src/devlog.generated.ts (the data behind GET /v1/devlog, the check-in's
- * `devlog`, and each post's page in the client build).
+ * `devlog`, and each post's page in the client build). Every screenshot a post shows must be in
+ * packages/client/public/devlog/images and under DEVLOG_IMAGE_BYTES, and every file there must be
+ * shown by a post.
  *
  * Plain Node (type stripping), no dependencies beyond the workspace packages it renders.
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -239,6 +241,34 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
     render: () => json(discovery.ardJson(lastmods())),
   },
 ];
+
+/** The most a devlog screenshot weighs, so a post loads quickly on a phone. */
+const DEVLOG_IMAGE_BYTES = 400 * 1024;
+const DEVLOG_IMAGES = `packages/client/public${devlog.DEVLOG_IMAGE_DIR}`;
+try {
+  const shown = new Set(
+    devlogPosts().flatMap((p) => devlog.devlogImages(p.body).map((image) => image.src)),
+  );
+  for (const src of shown) {
+    const file = join(ROOT, `packages/client/public${src}`);
+    if (!existsSync(file)) {
+      errors.push(
+        `${src} is in a devlog post but not in ${DEVLOG_IMAGES}. Take it with pnpm devlog:shot.`,
+      );
+    } else if (statSync(file).size > DEVLOG_IMAGE_BYTES) {
+      const kb = Math.ceil(statSync(file).size / 1024);
+      errors.push(`${src} is ${kb} KB. Keep a screenshot under ${DEVLOG_IMAGE_BYTES / 1024} KB.`);
+    }
+  }
+  const files = existsSync(join(ROOT, DEVLOG_IMAGES)) ? readdirSync(join(ROOT, DEVLOG_IMAGES)) : [];
+  for (const name of files) {
+    if (name.startsWith(".") || shown.has(`${devlog.DEVLOG_IMAGE_DIR}/${name}`)) continue;
+    errors.push(`${DEVLOG_IMAGES}/${name} isn't in any devlog post. Show it in one or delete it.`);
+  }
+} catch (err) {
+  if (!(err instanceof devlog.DevlogError)) throw err;
+  errors.push(err.message);
+}
 
 const stale: string[] = [];
 for (const { file, render } of TARGETS) {

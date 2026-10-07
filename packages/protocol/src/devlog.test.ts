@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DevlogError, devlogAtom, devlogLead, devlogPage, parseDevlog } from "./devlog";
+import {
+  DEVLOG_WORDS_MAX,
+  DevlogError,
+  devlogAtom,
+  devlogImages,
+  devlogLead,
+  devlogPage,
+  devlogWords,
+  parseDevlog,
+} from "./devlog";
 
 const post = (name: string, text: string) => ({ file: `docs/devlog/${name}`, text });
 
@@ -63,6 +72,53 @@ describe("reading docs/devlog", () => {
     );
     expect(fails("2026-10-06.md", "# Title\n\n## Only a heading\n")).toMatch(/needs a paragraph/);
     expect(fails("2026-02-30.md", "# Title\n\nWords.")).toMatch(/named for its day/);
+  });
+});
+
+describe("short posts with screenshots", () => {
+  const shot = (name: string) => `![A plot with a pet](/devlog/images/2026-10-07-${name}.jpg)`;
+
+  it("reads a short post's screenshots, and leaves them out of the lead and the word count", () => {
+    const [p] = parseDevlog([
+      post(
+        "2026-10-07.md",
+        `# Pets\n\n${shot("pets")}\n\nYou can adopt a pet.\n\n${shot("pat")}\n`,
+      ),
+    ]);
+    expect(p?.summary).toBe("You can adopt a pet.");
+    expect(devlogImages(p?.body ?? "")).toEqual([
+      { alt: "A plot with a pet", src: "/devlog/images/2026-10-07-pets.jpg" },
+      { alt: "A plot with a pet", src: "/devlog/images/2026-10-07-pat.jpg" },
+    ]);
+    expect(devlogWords(p?.body ?? "")).toBe(5);
+  });
+
+  it("refuses a long post, one with no screenshot or too many, and a screenshot from elsewhere", () => {
+    const long = "word ".repeat(DEVLOG_WORDS_MAX + 1);
+    expect(fails("2026-10-07.md", `# Long\n\n${long}\n\n${shot("a")}`)).toMatch(
+      /251 words\. A post is 250 at most/,
+    );
+    expect(fails("2026-10-07.md", "# None\n\nWords.")).toMatch(/0 screenshots/);
+    expect(
+      fails("2026-10-07.md", `# Many\n\nWords.\n\n${["a", "b", "c", "d"].map(shot).join("\n\n")}`),
+    ).toMatch(/4 screenshots/);
+    expect(
+      fails("2026-10-07.md", "# Elsewhere\n\nWords.\n\n![x](https://example.com/x.jpg)"),
+    ).toMatch(/isn't a screenshot of this post/);
+    expect(
+      fails("2026-10-07.md", "# Other day\n\nWords.\n\n![x](/devlog/images/2026-10-06-a.jpg)"),
+    ).toMatch(/isn't a screenshot of this post/);
+    expect(
+      fails("2026-10-07.md", "# No alt\n\nWords.\n\n![](/devlog/images/2026-10-07-a.jpg)"),
+    ).toMatch(/needs alt text/);
+    expect(fails("2026-10-07.md", `# Inline\n\nWords ${shot("a")} here.`)).toMatch(
+      /line 3 has an image inside other text/,
+    );
+  });
+
+  it("holds posts from before the short ones to none of it", () => {
+    const long = "word ".repeat(DEVLOG_WORDS_MAX * 2);
+    expect(parseDevlog([post("2026-10-06.md", `# Old\n\n${long}`)])).toHaveLength(1);
   });
 });
 

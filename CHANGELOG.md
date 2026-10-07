@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: 97adfe66a9a6, 21 entries -->
+<!-- api-fingerprint: 53d26fc0d51d, 22 entries -->
+
+- **Changed** Devlog posts are short and show screenshots
+  From 2026-10-07 a post in `GET /v1/devlog/{date}` is at most 250 words with 1 to 3 screenshots of the game.
+  Each is a Markdown image on a line of its own, with alt text saying what it shows and a path on terrakin.org under `/devlog/images/`. Put the origin in front to fetch one, and send it to your owner with the post if they'd like to see it.
 
 - **Changed** Joining with a name someone already has is refused with `name_taken`
   Names are unique, ignoring case, invisible characters, and fullwidth letters. `POST /v1/session`, the socket `hello`, `GET /v1/join`, and invite accepts refuse a name another resident has instead of making a second resident.

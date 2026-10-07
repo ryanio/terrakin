@@ -51,6 +51,7 @@ import type {
   Good,
   ItemsState,
   Rejection,
+  RejectionCode,
   ResidentId,
   ShopState,
   ShopToday,
@@ -226,7 +227,28 @@ export function townBuys(day: number): SellKind[] {
   return [...goods, ...produce, ...SEASON_BUYS[seasonOf(day)]];
 }
 
-// ---------- seasons (RFC 0017) ----------
+// ---------- windows: seasons (RFC 0017) and holidays (RFC 0022) ----------
+
+/**
+ * A stretch of the year something is sold or bought in: a season, or a holiday. Seasonal and holiday
+ * stock sell only in theirs and are refused the rest of the year (`stockWindows`), and the season
+ * buys are bought in theirs on top of the rotation (`townBuys`).
+ */
+export type Window = { season: Season } | { holiday: Holiday };
+
+/**
+ * The first of `order` whose list in `lists` holds `x`, or undefined when none does. A kind listed
+ * in two would get the first alone; every kind is in one list at most (`seasons.test.ts` checks).
+ */
+export const windowOf = <W extends string, X>(
+  order: readonly W[],
+  lists: Readonly<Record<W, readonly X[]>>,
+  x: X,
+): W | undefined => order.find((w) => lists[w].includes(x));
+
+/** Whether `day` falls in `window`. */
+export const inWindow = (window: Window, day: number): boolean =>
+  "season" in window ? window.season === seasonOf(day) : window.holiday === holidayOf(day);
 
 /**
  * Shop stock sold in one season only, every day of it, and refused (`out_of_season`) the rest of
@@ -247,29 +269,6 @@ export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
   winter: ["cranberry", "cranberry_jam", "cranberry_punch", "char"],
 };
 
-/** The season `sku` is sold in, or undefined when the shop sells it all year. */
-export const stockSeason = (sku: ShopSku): Season | undefined =>
-  SEASONS.find((s) => SEASON_STOCK[s].includes(sku));
-
-/** The season the town buys `kind` in on top of the rotation, or undefined for the rotation's own. */
-export const buySeason = (kind: SellKind): Season | undefined =>
-  SEASONS.find((s) => SEASON_BUYS[s].includes(kind));
-
-/** Whether the shop sells `sku` on `day`: in its season, if it has one, and during its holiday. */
-export function onSale(sku: ShopSku, day: number): boolean {
-  const season = stockSeason(sku);
-  const holiday = stockHoliday(sku);
-  return (
-    (season === undefined || season === seasonOf(day)) &&
-    (holiday === undefined || holiday === holidayOf(day))
-  );
-}
-
-/** The last day of the season `day` is in: the last day its stock is sold. */
-export const seasonLastDay = (day: number) => seasonSpan(day).end - 1;
-
-// ---------- holidays (RFC 0022) ----------
-
 /**
  * Shop stock sold only while a holiday runs, every day of it, and refused (`out_of_holiday`) the
  * rest of the year: the catalog's kinds with that holiday (Halloween's candy and decor, Midwinter's
@@ -281,9 +280,31 @@ export const HOLIDAY_STOCK: Readonly<Record<Holiday, readonly ShopSku[]>> = {
   midwinter: holidayKinds("midwinter") as ShopSku[],
 };
 
+/** The season `sku` is sold in, or undefined when the shop sells it all year. */
+export const stockSeason = (sku: ShopSku): Season | undefined =>
+  windowOf(SEASONS, SEASON_STOCK, sku);
+
 /** The holiday `sku` is sold for, or undefined when no holiday holds it back. */
 export const stockHoliday = (sku: ShopSku): Holiday | undefined =>
-  HOLIDAYS.find((h) => HOLIDAY_STOCK[h].includes(sku));
+  windowOf(HOLIDAYS, HOLIDAY_STOCK, sku);
+
+/** The season the town buys `kind` in on top of the rotation, or undefined for the rotation's own. */
+export const buySeason = (kind: SellKind): Season | undefined =>
+  windowOf(SEASONS, SEASON_BUYS, kind);
+
+/** The windows `sku` is sold in, its season before its holiday, or none when it's sold all year. */
+function stockWindows(sku: ShopSku): Window[] {
+  const season = stockSeason(sku);
+  const holiday = stockHoliday(sku);
+  return [...(season ? [{ season }] : []), ...(holiday ? [{ holiday }] : [])];
+}
+
+/** Whether the shop sells `sku` on `day`: in its season, if it has one, and during its holiday. */
+export const onSale = (sku: ShopSku, day: number): boolean =>
+  stockWindows(sku).every((window) => inWindow(window, day));
+
+/** The last day of the season `day` is in: the last day its stock is sold. */
+export const seasonLastDay = (day: number) => seasonSpan(day).end - 1;
 
 /** The holiday on `day` with its first and last day, as the shop shows it, or undefined. */
 export function holidayOn(day: number): { holiday: Holiday; lastDay: number } | undefined {
@@ -298,30 +319,33 @@ function nextStart(season: Season, day: number): number {
   return end;
 }
 
-/** Why the shop won't sell holiday stock on `day`, in plain words, or null when it's on sale. */
-function outOfHoliday(sku: ShopSku, day: number): Rejection | null {
-  const holiday = stockHoliday(sku);
-  if (holiday === undefined || holiday === holidayOf(day)) return null;
+/**
+ * Why the shop won't sell `sku` on `day`, in plain words, or null when it's on sale: the first of
+ * its windows `day` is outside (`out_of_season` before `out_of_holiday`), with the day it's back.
+ */
+function notOnSale(sku: ShopSku, day: number): Rejection | null {
+  const window = stockWindows(sku).find((w) => !inWindow(w, day));
+  if (!window) return null;
   const what = isShopWear(sku)
     ? `the ${WEAR_INFO[sku].label.toLowerCase()}`
     : ITEM_INFO[sku].plural.toLowerCase();
-  const { name } = HOLIDAY_INFO[holiday];
+  const why: { code: RejectionCode; when: string; back: string; use: string } =
+    "season" in window
+      ? {
+          code: "out_of_season",
+          when: `in ${window.season}`,
+          back: `It's ${seasonOf(day)} now, and ${window.season} starts on ${dayName(nextStart(window.season, day))}`,
+          use: "in any season",
+        }
+      : {
+          code: "out_of_holiday",
+          when: `for ${HOLIDAY_INFO[window.holiday].name}, ${holidayDates(window.holiday)}`,
+          back: `It's back on ${dayName(nextHolidayStart(window.holiday, day))}`,
+          use: "and wear any day",
+        };
   return refuse(
-    "out_of_holiday",
-    `The shop sells ${what} only for ${name}, ${holidayDates(holiday)}. It's back on ${dayName(nextHolidayStart(holiday, day))} (UTC). What you already have is yours to use and wear any day. GET /v1/shop lists what's sold today.`,
-  );
-}
-
-/** Why the shop won't sell `sku` on `day`, in plain words, or null when it's on sale. */
-function outOfSeason(sku: ShopSku, day: number): Rejection | null {
-  const season = stockSeason(sku);
-  if (season === undefined || season === seasonOf(day)) return null;
-  const what = isShopWear(sku)
-    ? `the ${WEAR_INFO[sku].label.toLowerCase()}`
-    : ITEM_INFO[sku].plural.toLowerCase();
-  return refuse(
-    "out_of_season",
-    `The shop sells ${what} only in ${season}. It's ${seasonOf(day)} now, and ${season} starts on ${dayName(nextStart(season, day))} (UTC). What you already have is yours to use in any season. GET /v1/shop lists what's sold today.`,
+    why.code,
+    `The shop sells ${what} only ${why.when}. ${why.back} (UTC). What you already have is yours to use ${why.use}. GET /v1/shop lists what's sold today.`,
   );
 }
 
@@ -464,8 +488,8 @@ export function checkShopBuy(
   if (!isShopSku(sku)) {
     return refuse("unknown_item", "The shop doesn't sell that. See GET /v1/shop for what it has.");
   }
-  const season = outOfSeason(sku, day) ?? outOfHoliday(sku, day);
-  if (season) return season;
+  const closed = notOnSale(sku, day);
+  if (closed) return closed;
   const count = command.count ?? 1;
   if (!isWhole(count) || count < 1 || count > SHOP.countMax) {
     return refuse("invalid_amount", `Buy 1 to ${SHOP.countMax} at a time.`);

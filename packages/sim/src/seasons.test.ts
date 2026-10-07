@@ -2,17 +2,21 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { AUTUMN_CONFIG, AUTUMN_HASH, AUTUMN_LOG } from "./fixtures/autumn-log";
 import { hashWorld } from "./hash";
+import { HOLIDAYS } from "./holiday";
 import { CROP_INFO, RECIPES } from "./items";
 import { replay } from "./replay";
 import { dayOfDate, SEASONS } from "./season";
 import {
   BUY_ORDERS,
+  HOLIDAY_STOCK,
   ROTATION_CROPS,
   ROTATION_GOODS,
   SEASON_BUYS,
   SEASON_STOCK,
   SHOP_CATALOG,
+  stockSeason,
   townBuys,
+  windowOf,
 } from "./shop";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldConfig } from "./types";
@@ -142,11 +146,18 @@ describe("seasonal buying", () => {
     }
   });
 
-  it("names each thing in one season at most, since the shop labels and sells by the first", () => {
+  it("names each thing in one season or holiday at most, since the shop labels and sells by the first", () => {
     const stocked = SEASONS.flatMap((s) => SEASON_STOCK[s]);
     expect(new Set(stocked).size).toBe(stocked.length);
     const bought = SEASONS.flatMap((s) => SEASON_BUYS[s]);
     expect(new Set(bought).size).toBe(bought.length);
+    const held = HOLIDAYS.flatMap((h) => HOLIDAY_STOCK[h]);
+    expect(new Set(held).size).toBe(held.length);
+    // The first, in season order, if a kind were ever named in two.
+    const twice = { spring: [], summer: ["x"], autumn: ["x"], winter: [] };
+    expect(windowOf(SEASONS, twice, "x")).toBe("summer");
+    expect(windowOf(SEASONS, twice, "y")).toBeUndefined();
+    for (const sku of SEASON_STOCK.autumn) expect(stockSeason(sku)).toBe("autumn");
   });
 
   it("leaves the rotation every past day was bought from as it was", () => {

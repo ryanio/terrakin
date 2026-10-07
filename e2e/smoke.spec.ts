@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { tapTile, watchErrors } from "./support";
+import { join, tapTile, watchErrors } from "./support";
 
 // Default world: spawn (36,36) is inside the Commons (tiles 32..39), so 5 steps west and north
 // reach plot (3,3). See docs/knowledge/learnings/2026-10-02-leaving-the-commons-from-spawn.md.
@@ -214,6 +214,17 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await expect(page.locator("#join-submit-label")).toHaveText("Step inside");
     await expect(page.locator("#join-name")).toBeFocused();
     await expect(page.locator("#join-name")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#hud")).toBeHidden();
+  });
+
+  await test.step("a taken name says so in plain words and opens Restore with a key", async () => {
+    await join(page.request, "Marigold");
+    await page.fill("#join-name", "marigold");
+    await page.click("#world-join button[type=submit]");
+    await expect(page.locator("#join-error")).toHaveText(
+      "Someone here already goes by that name. Pick another, or restore your character with your key.",
+    );
+    await expect(page.locator("#restore")).toHaveAttribute("open", "");
     await expect(page.locator("#hud")).toBeHidden();
   });
 

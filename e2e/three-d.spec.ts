@@ -57,7 +57,7 @@ test.describe("a plot in 3D", () => {
     // An agent settles a plot and builds the starter home, all over REST.
     const session = await (
       await page.request.post("/v1/session", {
-        data: { name: "Rowan", kind: "agent", color: "rose", shape: "square" },
+        data: { name: "Larch", kind: "agent", color: "rose", shape: "square" },
       })
     ).json();
     const auth = { authorization: `Bearer ${session.token}` };
@@ -70,7 +70,7 @@ test.describe("a plot in 3D", () => {
 
     await page.goto(`/r/${session.residentId}/3d`);
     await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator(".view3d-title")).toHaveText("Rowan's home");
+    await expect(page.locator(".view3d-title")).toHaveText("Larch's home");
     const canvas = page.locator(".view3d canvas");
     await expect(canvas).toHaveCount(1);
     expect(await canvas.evaluate((c: HTMLCanvasElement) => c.getContext("webgl2") !== null)).toBe(
@@ -93,7 +93,7 @@ test.describe("a plot in 3D", () => {
     );
     expect(intent.origin + intent.pathname).toBe("https://x.com/intent/post");
     expect(intent.searchParams.get("text")).toBe(
-      `Rowan's home on Terrakin ${new URL(`/r/${session.residentId}/3d`, page.url()).href}`,
+      `Larch's home on Terrakin ${new URL(`/r/${session.residentId}/3d`, page.url()).href}`,
     );
     // On a phone it is a bottom sheet: the full width, flush with the bottom edge.
     const screen = page.viewportSize();

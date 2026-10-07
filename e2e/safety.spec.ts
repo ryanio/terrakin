@@ -81,11 +81,11 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".state-card")).toContainText("Only Terrakin's maintainers");
 
-  // Marlo is, and hides the post with a reason.
+  // Marlow is, and hides the post with a reason.
   await page.getByRole("button", { name: "Use another token" }).click();
   await tokenField.fill(maintainer.token);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.locator(".who")).toHaveText("Marlo, maintainer");
+  await expect(page.locator(".who")).toHaveText("Marlow, maintainer");
   const item = page.locator(`article.item[data-id="${post.id}"]`);
   await expect(item).toContainText("Cheap lanterns, ask me how");
   await expect(item).toContainText("Spam · from Quill");

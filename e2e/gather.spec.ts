@@ -35,8 +35,6 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     .sort((a, b) => b.n - a.n);
 
   await test.step("tap a fallen branch or a loose stone and find it in your things", async () => {
-    // Aspen, not Ash: resident names are unique at join (decision 0148), and the fishing
-    // spec already joins Ash on the shared test server.
     const ash = await join(page.request, "Aspen");
     let home: { px: number; py: number } | undefined;
     for (const p of plots.slice(0, 5)) {
@@ -89,8 +87,7 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
   await test.step("a pickup on someone else's plot says whose it is instead of walking there", async () => {
     // Ash settles a plot with pickups and gives it up again, standing in the middle of it; Bo
     // settles it. Ash now stands on Bo's plot, with Bo's pickups all around.
-    // (Rowan, not Ash again: resident names are unique at join, decision 0148.)
-    const ash = await join(page.request, "Rowan");
+    const ash = await join(page.request, "Heather");
     const bo = await join(page.request, "Bo");
     let plot: { px: number; py: number } | undefined;
     for (const p of plots.slice(0, 8)) {

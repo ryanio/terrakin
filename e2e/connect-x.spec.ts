@@ -36,7 +36,7 @@ const escapeHtml = (text: string) =>
 
 test("a resident connects their X account from their profile", async ({ page }) => {
   const errors = watchErrors(page, { dialogs: true, console: "none" });
-  const fern = await join(page.request, "Fern", { color: "sky" });
+  const fern = await join(page.request, "Briar", { color: "sky" });
   const { id: residentId, auth } = fern;
   await signIn(page, fern);
   await page.request.post("/v1/posts", { headers: auth, data: { text: "Planting beans today." } });
@@ -53,7 +53,9 @@ test("a resident connects their X account from their profile", async ({ page }) 
   await expect(phrase).toContainText("code tk-");
   const text = (await phrase.textContent()) ?? "";
   expect(text).toMatch(
-    new RegExp(`^Joining Terrakin as Fern · terrakin\\.org/r/${residentId} · code tk-[a-z2-9]{8}$`),
+    new RegExp(
+      `^Joining Terrakin as Briar · terrakin\\.org/r/${residentId} · code tk-[a-z2-9]{8}$`,
+    ),
   );
   const open = sheet.getByRole("link", { name: "Open X" });
   const intent = new URL((await open.getAttribute("href")) ?? "");

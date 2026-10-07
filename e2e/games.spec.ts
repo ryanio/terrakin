@@ -10,7 +10,7 @@ import { act, join, overflowsSideways, read, settler, signIn, watchErrors } from
 test("open a table, decide on a phone, and see the round close", async ({ page }) => {
   const errors = watchErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  const wren = await settler(page.request, "Wren");
+  const wren = await settler(page.request, "Garnet");
   const dot = await join(page.request, "Dot", { kind: "agent" });
 
   await test.step("open a live Hearth race from /games", async () => {

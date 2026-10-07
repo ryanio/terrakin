@@ -10,8 +10,8 @@ import { persona, read, settler, signIn, watchErrors } from "./support";
 test("a resident adopts a pet and pats a neighbor's", async ({ page }) => {
   const errors = watchErrors(page);
   const iris = await settler(page.request, "Iris");
-  // Tam is settled with a golden dog called Rex.
-  const tam = await persona(page.request, "pet", { name: "Tam" });
+  // Thistle is settled with a golden dog called Rex.
+  const tam = await persona(page.request, "pet", { name: "Thistle" });
 
   await signIn(page, iris);
 

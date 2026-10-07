@@ -9,7 +9,7 @@ import { act, settler, signIn, sweep, watchErrors } from "./support";
  */
 test("routines turn on from a phone, and the home wall says what they did", async ({ page }) => {
   const errors = watchErrors(page);
-  const wren = await settler(page.request, "Wren");
+  const wren = await settler(page.request, "Robin");
   // A step off the hearth, so walking home has somewhere to go.
   expect((await act(page.request, wren.token, { type: "move", dir: "s" })).ok).toBe(true);
 

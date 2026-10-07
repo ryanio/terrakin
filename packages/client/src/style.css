@@ -5895,6 +5895,50 @@ dialog.look-editor {
   vertical-align: top;
 }
 
+/*
+ * A list or a table cell that is only links (markdown.ts): a page's contents, the areas of the
+ * API. Underlines on every row are hard to read, so these links are plain until you point at one.
+ */
+.prose .link-list {
+  display: block;
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.prose .link-list li {
+  break-inside: avoid;
+}
+
+.prose .link-cell {
+  white-space: nowrap;
+}
+
+.prose .link-list a,
+.prose .link-cell a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--space-sm);
+  margin-left: calc(-1 * var(--space-sm));
+  border-radius: var(--r-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.prose .link-list a:hover,
+.prose .link-cell a:hover {
+  background: var(--paper-2);
+}
+
+/* A long one flows into columns where there's room. */
+@media (min-width: 640px) {
+  .prose .link-list:has(> li:nth-child(8)) {
+    columns: 2;
+    column-gap: var(--space-2xl);
+  }
+}
+
 /* A heading a link jumps to stops below the sticky site bar, as #feed does. */
 .prose :is(h1, h2, h3, h4) {
   scroll-margin-top: calc(76px + env(safe-area-inset-top));

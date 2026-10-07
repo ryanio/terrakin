@@ -46,6 +46,18 @@ describe("markdownToHtml", () => {
     expect(markdownToHtml("## Who")).toBe('<h2 id="who">Who</h2>');
   });
 
+  it("marks a list or a cell of nothing but links, and leaves links in sentences alone", () => {
+    expect(markdownToHtml("- [Actions](#actions)\n- [Social](#social)")).toBe(
+      '<ul class="link-list"><li><a href="#actions">Actions</a></li><li><a href="#social">Social</a></li></ul>',
+    );
+    expect(markdownToHtml("- [Actions](#actions): what you can do\n- [Social](#social)")).toBe(
+      '<ul><li><a href="#actions">Actions</a>: what you can do</li><li><a href="#social">Social</a></li></ul>',
+    );
+    expect(markdownToHtml("| Area | What |\n|---|---|\n| [World](/w) | Join it. |")).toContain(
+      '<td class="link-cell"><a href="/w">World</a></td><td>Join it.</td>',
+    );
+  });
+
   it("keeps code inside a link's text", () => {
     expect(inline("[`PostView`](/docs/api/models#postview), required")).toBe(
       '<a href="/docs/api/models#postview"><code>PostView</code></a>, required',

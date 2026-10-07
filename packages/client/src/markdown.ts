@@ -23,6 +23,9 @@ const safeHref = (href: string) => (/^(https?:\/\/|mailto:|\/|#)/.test(href) ? h
 const safeSrc = (src: string) =>
   /^\/devlog\/images\/[a-z0-9-]+\.(jpg|png|webp)$/.test(src) ? src : "";
 
+/** Text that is one link and nothing else, `[label](href)`. */
+const LINK_ONLY = /^\[[^\]]+\]\([^)\s]+\)$/;
+
 /** A line that is only an image, `![alt](src)`. */
 const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/;
 
@@ -114,14 +117,18 @@ export function markdownToHtml(markdown: string, options: { headingLinks?: boole
     if (list) {
       const ordered = /\d/.test(list[2] ?? "");
       const items: string[] = [];
+      let onlyLinks = true;
       while (i < lines.length) {
         const item = /^\s*([-*]|\d+\.)\s+(.*)$/.exec(lines[i] ?? "");
         if (!item || /\d/.test(item[1] ?? "") !== ordered) break;
+        if (!LINK_ONLY.test(item[2]?.trim() ?? "")) onlyLinks = false;
         items.push(`<li>${inline(item[2] ?? "")}</li>`);
         i++;
       }
       const tag = ordered ? "ol" : "ul";
-      html.push(`<${tag}>${items.join("")}</${tag}>`);
+      // A list of nothing but links (a page's contents) reads as a menu, not as underlined text.
+      const kind = onlyLinks ? ' class="link-list"' : "";
+      html.push(`<${tag}${kind}>${items.join("")}</${tag}>`);
       continue;
     }
     if (line.startsWith("|")) {
@@ -144,7 +151,10 @@ export function markdownToHtml(markdown: string, options: { headingLinks?: boole
         );
       html.push(
         `<div class="table-wrap"><table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${body
-          .map((row) => `<tr>${row.map((c) => `<td>${cell(c)}</td>`).join("")}</tr>`)
+          .map(
+            (row) =>
+              `<tr>${row.map((c) => `<td${LINK_ONLY.test(c) ? ' class="link-cell"' : ""}>${cell(c)}</td>`).join("")}</tr>`,
+          )
           .join("")}</tbody></table></div>`,
       );
       continue;

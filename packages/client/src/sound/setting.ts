@@ -5,7 +5,7 @@
  */
 
 /** The levels the speaker button steps through, in order: each tap goes to the next. */
-export const SOUND_LEVELS = ["off", "on", "quiet"] as const;
+const SOUND_LEVELS = ["off", "on", "quiet"] as const;
 export type SoundLevel = (typeof SOUND_LEVELS)[number];
 
 export const SOUND_KEY = "terrakin.sound";

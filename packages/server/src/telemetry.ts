@@ -173,11 +173,11 @@ function scrubValue(value: unknown, key: string, depth: number): unknown {
 }
 
 /** Scrub every string in an object, drop every secret-shaped key, and template every URL. */
-export function scrub<T extends object>(value: T): T {
+function scrub<T extends object>(value: T): T {
   return scrubValue(value, "", 0) as T;
 }
 
-export function scrubEvent(event: ErrorEvent): ErrorEvent {
+function scrubEvent(event: ErrorEvent): ErrorEvent {
   const out = scrub(event);
   delete out.user;
   // Cloudflare's timezone for the request comes from the client's IP.
@@ -197,7 +197,7 @@ export function scrubEvent(event: ErrorEvent): ErrorEvent {
   return out;
 }
 
-export function scrubSpan(s: StreamedSpanJSON): StreamedSpanJSON {
+function scrubSpan(s: StreamedSpanJSON): StreamedSpanJSON {
   const attributes = scrub(s.attributes);
   delete attributes["culture.timezone"];
   let name = templateSpanName(s.name);
@@ -210,7 +210,7 @@ export function scrubSpan(s: StreamedSpanJSON): StreamedSpanJSON {
   return { ...s, name, attributes };
 }
 
-export function scrubBreadcrumb(b: Breadcrumb): Breadcrumb | null {
+function scrubBreadcrumb(b: Breadcrumb): Breadcrumb | null {
   // Ours carry only templates and codes. Console crumbs can carry anything, so they go.
   if (b.category === "console") return null;
   const data = b.data ? scrub(b.data) : undefined;

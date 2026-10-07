@@ -18,7 +18,7 @@ import {
  * A page's Markdown twin: a site page's from the site config, or a devlog post's (decision 0105),
  * which the client build writes next to its page. Only posts that exist have one.
  */
-export function pageTwin(pathname: string): `/${string}.md` | undefined {
+function pageTwin(pathname: string): `/${string}.md` | undefined {
   const twin = markdownTwin(pathname);
   if (twin) return twin;
   const path = pathname.replace(/\/+$/, "");

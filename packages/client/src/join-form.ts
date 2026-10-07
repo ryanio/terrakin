@@ -23,7 +23,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { paintAvatar } from "@terrakin/ui/people";
 import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
 
-export interface JoinChoice {
+interface JoinChoice {
   name: string;
   color: ResidentColor;
   shape: ResidentShape;

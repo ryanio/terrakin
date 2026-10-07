@@ -297,7 +297,7 @@ export function startsIn(ms: number): string {
  * a pause, and a nudge to share what went well. From routines and codes only, never words: the
  * reasons are the server's own sentences.
  */
-export function awayTodo(away: readonly CheckinResponse["away"]["items"][number][]): string[] {
+function awayTodo(away: readonly CheckinResponse["away"]["items"][number][]): string[] {
   const lines: string[] = [];
   const seen = new Set<string>();
   for (const line of away) {

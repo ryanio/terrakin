@@ -383,7 +383,7 @@ export function planBuild(
 }
 
 /** Make the changes a plan found. The events are the ones single actions make, then one net `inventory`. */
-export function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): WorldEvent[] {
+function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): WorldEvent[] {
   const events: WorldEvent[] = [];
   for (const { x, y } of plan.removed) {
     delete state.blocks[tileKey(x, y)];

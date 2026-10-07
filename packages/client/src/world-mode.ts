@@ -18,7 +18,7 @@ export interface DeviceSignals {
 
 export type WorldMode = "2d" | "3d";
 
-export const WORLD_MODE_KEY = "terrakin.worldMode";
+const WORLD_MODE_KEY = "terrakin.worldMode";
 
 /** A phone that would struggle: under 4 GB of memory, under 4 cores, or asking to save data. */
 export function lowEnd(s: DeviceSignals): boolean {

@@ -79,7 +79,7 @@ export function copyPostState(from: PostView, to: PostView): void {
 }
 
 /** A snapshot of the state fields, to put back if the server says no. */
-export function postState(post: PostView): PostView {
+function postState(post: PostView): PostView {
   const copy = { ...post };
   if (post.reactions) copy.reactions = { ...post.reactions };
   if (post.myReactions) copy.myReactions = [...post.myReactions];

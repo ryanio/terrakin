@@ -106,7 +106,7 @@ const BLOCK_MATERIAL: Partial<Record<BlockKind, Material>> = {
 };
 
 /** A block's material. Most things are wood. */
-export function materialOf(block: BlockKind): Material {
+function materialOf(block: BlockKind): Material {
   return BLOCK_MATERIAL[block] ?? "wood";
 }
 

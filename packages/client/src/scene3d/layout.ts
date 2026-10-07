@@ -320,7 +320,7 @@ export function litHomes(
 }
 
 /** A path or floor on a tile (RFC 0016), and how far into the haze it is, like a block. */
-export interface LayoutGround {
+interface LayoutGround {
   x: number;
   y: number;
   ground: GroundKind;
@@ -361,7 +361,7 @@ export interface PlotLayout {
 }
 
 /** A pet in the plot view: where it is, which way it faces, and whether it's curled up asleep. */
-export interface LayoutPet {
+interface LayoutPet {
   kind: PetKind;
   coat: PetCoat;
   x: number;
@@ -372,7 +372,7 @@ export interface LayoutPet {
 }
 
 /** Night enough for a pet to curl up by its hearth: past dusk and before dawn. */
-export function isNight(time: WorldSnapshot["time"]): boolean {
+function isNight(time: WorldSnapshot["time"]): boolean {
   return time ? nightAmount(dayPhase(time.nowMs, time.dayLengthMs)) > 0.5 : false;
 }
 
@@ -381,7 +381,7 @@ export function isNight(time: WorldSnapshot["time"]): boolean {
  * south, or north that no figure stands on, curled up and snuggled toward the hearth at night or
  * while its owner is away, and sitting up facing the camera otherwise.
  */
-export function petSpot(
+function petSpot(
   hearth: { x: number; y: number },
   free: (x: number, y: number) => boolean,
   asleep: boolean,
@@ -825,7 +825,7 @@ export function fitModel(
 }
 
 /** What a resident's own model may cost to draw. Bigger ones get a friendly note instead. */
-export const MODEL_BUDGET = {
+const MODEL_BUDGET = {
   triangles: 150_000,
   /** Total texture pixels, about four 2048 x 2048 textures. */
   texturePixels: 4 * 2048 * 2048,

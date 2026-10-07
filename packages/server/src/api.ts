@@ -209,7 +209,7 @@ export interface StaffOptions {
  * exactly the origin the request came in on, and that must be an admin host (admin.terrakin.org,
  * or admin.localhost on any port). A page on admin.anything-else, or on the main site, is refused.
  */
-export function isAdminOrigin(browserOrigin: string, requestOrigin: string | undefined): boolean {
+function isAdminOrigin(browserOrigin: string, requestOrigin: string | undefined): boolean {
   try {
     const from = new URL(browserOrigin);
     const to = new URL(requestOrigin ?? "");

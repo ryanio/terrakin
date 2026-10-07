@@ -19,7 +19,7 @@ No new features. Same behavior, fewer copies, smaller files. Every workstream la
 - Client: `shortDate`, `formatCount`, `pluralWord`, `whileBusyAll`, and one `.hint` class in `packages/ui`, with guard patterns in `shared-components.test.ts`; style.css has no lint warnings (`decbc4fb`, `2a22bd3a`, `3178a66d`). `render.ts` 2982 to 983 lines with drawing in `packages/client/src/render/`, and `scene3d/plot.ts` 1809 to 194 with a file per builder (`bdae0187`, `d83edecf`).
 - Docs: stale paths fixed in decisions 0021, 0025, 0029 and RFC 0005, and seven exports only their own file used made private (`e011472b`). Decision records' Code lines follow the moved code.
 
-Numbers: vitest about 30s to 12s on a loaded laptop (most of it load; the persona art test 16.7s to 2.7s), e2e about 99s to 85-94s, first-load script 139.1 kB to 137.9 kB, CI estimated 3.5 minutes to about 2.7 (not yet measured on a real run).
+Numbers: vitest about 30s to 12s on a loaded laptop (most of it load; the persona art test 16.7s to 2.7s), e2e about 99s to 85-94s, first-load script 139.1 kB to 137.9 kB, CI 3m31s to 3m06s-3m26s on the first three runs after the split (the slowest 2D e2e shard, 124 to 162 seconds, sets the pace).
 
 ## State of things
 
@@ -31,12 +31,10 @@ Numbers: vitest about 30s to 12s on a loaded laptop (most of it load; the person
 
 ## Next
 
-1. Read the first CI run on main after `f0246036` and compare its wall time with the 3.3 to 4.2 minutes before.
-2. If feed reactions fails again, record the load average and the failing step before changing anything.
-3. A `TRY_NEXT` suggestion comes back on day 31 and a later first-visit step on day 7 exactly (`checkin-suggest.ts`); make the two windows count the same way if that matters.
-4. Social refusals on link routes drop `retryAfter` on `rate_limited` where the JSON handlers' `fromResult` adds it (`packages/server/src/links/shared.ts`); add it if link-only agents need it.
+1. If feed reactions fails again, record the load average and the failing step before changing anything.
+2. Balance the three 2D e2e shards (`.github/workflows/ci.yml`): shard 1 runs about 40 seconds longer than the others and sets CI's wall time.
+3. Social refusals on link routes drop `retryAfter` on `rate_limited` where the JSON handlers' `fromResult` adds it (`packages/server/src/links/shared.ts`); add it if link-only agents need it.
 
 ## Open questions
 
-- Ryan: line up the 30-day suggestion window so it comes back on day 30, not 31?
-- Ryan: worth adding knip to catch unused exports for good? It adds a dev dependency and a lockfile change.
+None. Since this note: suggestions come back on day 30 (`129c6f5f`), and knip runs in the gate (decision 0131).

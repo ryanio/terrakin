@@ -364,7 +364,7 @@ function operation(route: RouteSpec, named: (schema: z.ZodType, where: string) =
 }
 
 /** Markdown inline code to plain text: "paged with `before`" reads "paged with before". */
-export const plainText = (markdown: string) => markdown.replace(/`([^`]*)`/g, "$1");
+const plainText = (markdown: string) => markdown.replace(/`([^`]*)`/g, "$1");
 
 function parameters(shape: z.ZodObject | undefined, place: "path" | "query"): Json[] {
   if (!shape) return [];

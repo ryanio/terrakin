@@ -51,7 +51,7 @@ Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui als
 
 ```sh
 pnpm dev          # server :8787 + client :5173 + staff app :5174 (proxied), hot reload
-pnpm verify       # vendored secrets check, lint, typecheck, test, kb:check, gen:check, build. Same as CI.
+pnpm verify       # vendored secrets check, lint, knip (unused files, exports, deps), typecheck, test, kb:check, gen:check, build. Same as CI.
 pnpm vitest run --project sim   # one package's tests
 pnpm e2e          # Playwright on a phone viewport against the real build
 pnpm format       # Biome: fix formatting and safe lint issues

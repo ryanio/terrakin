@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts", "scripts/*/*.ts", "e2e/**/*.ts"],
+      "project": ["scripts/**/*.ts", "e2e/**/*.ts", "*.ts"]
+    },
+    "packages/*": {}
+  },
+  "ignore": [".agents/**"],
+  "ignoreBinaries": ["cloudflared"],
+  "ignoreDependencies": ["@fontsource/fraunces", "cloudflare"]
+}

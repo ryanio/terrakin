@@ -2726,9 +2726,10 @@ export function parseTownsfolk(value: string | undefined): Set<string> {
   return new Set((value ?? "").split(/[\s,]+/).filter((id) => /^r_[0-9a-f]{16}$/.test(id)));
 }
 
-/** Same format as the townsfolk grant. */
+/**
+ * Same format as the townsfolk grant.
+ * @alias
+ */
 export const parseMaintainers = parseTownsfolk;
 
 const mediaUrl = (id: string) => `/media/${id}`;
-
-export { readerMessage };

@@ -22,16 +22,16 @@ export { REAL_ENOUGH };
 type Resident = WorldSnapshot["residents"][number];
 
 /** Real residents online before the roster stops padding with townsfolk. */
-export const ROSTER_FILL = 6;
+const ROSTER_FILL = 6;
 /** Consecutive posts by one author, each within this of the next, roll up into one card. */
-export const BURST_GAP_MS = 2 * 60 * 60 * 1000;
-export const BURST_MIN = 3;
+const BURST_GAP_MS = 2 * 60 * 60 * 1000;
+const BURST_MIN = 3;
 /** Likes plus twice the replies a post needs to be flagged as the most talked about. */
-export const HOT_MIN = 4;
+const HOT_MIN = 4;
 /** Text-only posts up to this long show large, as a quote. */
-export const QUOTE_MAX = 140;
+const QUOTE_MAX = 140;
 
-export type Format = "plain" | "spotlight" | "quote" | "hot";
+type Format = "plain" | "spotlight" | "quote" | "hot";
 
 export type WallItem =
   | { kind: "post"; post: PostView; format: Format }
@@ -41,7 +41,7 @@ export type WallItem =
 /** "fold" once a page has enough real posts; "fill" while townsfolk are still needed. */
 export type TownsfolkMode = "fill" | "fold";
 
-export function isTownsfolk(author: AuthorView, known?: ReadonlySet<string>): boolean {
+function isTownsfolk(author: AuthorView, known?: ReadonlySet<string>): boolean {
   return author.townsfolk === true || (known?.has(author.id) ?? false);
 }
 

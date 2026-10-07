@@ -9,7 +9,7 @@ export const MAX_IMAGE_BYTES = 6_000_000;
 /** Largest picture, in pixels, embedded in a card. */
 export const MAX_IMAGE_PIXELS = 12_600_000;
 
-export type CardImageType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+type CardImageType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
 
 interface Probe {
   type: CardImageType;

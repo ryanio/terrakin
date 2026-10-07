@@ -180,9 +180,7 @@ export interface PlannedGift {
 }
 
 /** One newcomer, in the order they were welcomed: a gift to send, or a reason to skip. */
-export type WelcomeStep =
-  | { seq: number; gift: PlannedGift }
-  | { seq: number; skip: string; name: string };
+type WelcomeStep = { seq: number; gift: PlannedGift } | { seq: number; skip: string; name: string };
 
 export interface TipPlan {
   /**
@@ -206,7 +204,7 @@ export interface TipPlan {
 }
 
 /** What all townsfolk gave each resident today, from their ledgers. */
-export function givenToday(
+function givenToday(
   givers: readonly { ledger: LedgerEntry[] }[],
   today: number,
 ): Map<string, number> {

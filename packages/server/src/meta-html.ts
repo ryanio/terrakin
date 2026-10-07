@@ -6,10 +6,10 @@ import { type DocumentEdits, noscriptParts } from "./page-meta";
  * with `escapeAttr`, text with `escapeText`, and JSON-LD arrives already script-safe.
  */
 
-export const escapeText = (s: string) =>
+const escapeText = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-export const escapeAttr = (s: string) => escapeText(s).replace(/"/g, "&quot;");
+const escapeAttr = (s: string) => escapeText(s).replace(/"/g, "&quot;");
 
 /** `meta[name="description"]` and friends: the only selector shape the edits use. */
 const SELECTOR = /^(meta|link)\[(name|property|rel)="([^"]+)"\]$/;

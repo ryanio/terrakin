@@ -20,7 +20,7 @@ export function initBrandMarks(root: ParentNode = document) {
  * A partner's note under the "Bring your AI" line (RFC 0007), or null for none. One constant, so
  * the note comes down by setting it to null.
  */
-export const BRING_PARTNER_NOTE: {
+const BRING_PARTNER_NOTE: {
   before: string;
   link: { text: string; href: string };
   after: string;

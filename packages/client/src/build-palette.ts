@@ -85,7 +85,7 @@ export function heldLabel(kind: HeldKind, n: number): string {
 }
 
 /** Where to get one more of a held block, in plain words. */
-export function heldSource(kind: HeldKind): string {
+function heldSource(kind: HeldKind): string {
   if (isDecorKind(kind)) return "Buy one at the town shop.";
   return `Make one at a workbench from ${needsLine(kind)}.`;
 }

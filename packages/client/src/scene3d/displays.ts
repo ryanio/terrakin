@@ -39,7 +39,7 @@ const PICTURE = { width: 256, height: 192 } as const;
 const ART = 128;
 const CARD = { width: 160, height: 120 } as const;
 /** At most this many pieces' own pictures are held at once (about 4 MB). */
-export const MAX_PICTURES = 16;
+const MAX_PICTURES = 16;
 
 interface Entry {
   refs: number;

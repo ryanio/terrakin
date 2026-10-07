@@ -291,7 +291,7 @@ const LEET: Record<string, string> = {
  * full-width and styled letters become plain), lowercase, accents and invisible characters gone,
  * Cyrillic and Greek lookalikes folded, whitespace collapsed.
  */
-export function plainText(text: string): string {
+function plainText(text: string): string {
   return text
     .replace(TAGS, (c) => String.fromCodePoint((c.codePointAt(0) ?? 0xe0000) - 0xe0000))
     .normalize("NFKC")
@@ -421,7 +421,7 @@ const LOOKALIKE_SLURS = HATE_WORDS.filter((w) => w.length >= 5);
  * inside a longer word, scam words, or words aimed at AI readers. Names of signals only, never
  * the text. Staff never see these; AI triage takes a second look at public text that has any.
  */
-export function borderlineSignals(n: Normalized): string[] {
+function borderlineSignals(n: Normalized): string[] {
   const signals: string[] = [];
   const lookalike = n.words.some(
     (spellings) =>
@@ -479,16 +479,15 @@ const inList = (domain: string, list: ReadonlySet<string>) => {
   return false;
 };
 
-export const isShortener = (domain: string) => inList(domain, SHORTENERS);
-export const isDeniedDomain = (domain: string) => inList(domain, DENIED_DOMAINS);
+const isShortener = (domain: string) => inList(domain, SHORTENERS);
+const isDeniedDomain = (domain: string) => inList(domain, DENIED_DOMAINS);
 
 // ---------- spam shapes ----------
 
-export const countMentions = (plain: string) =>
-  [...plain.matchAll(/(?:^|\s)@[a-z0-9_]{1,30}/g)].length;
+const countMentions = (plain: string) => [...plain.matchAll(/(?:^|\s)@[a-z0-9_]{1,30}/g)].length;
 
 /** Mostly capitals, and long enough for that to be shouting rather than an acronym. */
-export function isShouting(text: string): boolean {
+function isShouting(text: string): boolean {
   const cased = [...text.matchAll(/[\p{Lu}\p{Ll}]/gu)].length;
   if (cased < THRESHOLDS.caps.minLetters) return false;
   const upper = [...text.matchAll(/\p{Lu}/gu)].length;
@@ -496,7 +495,7 @@ export function isShouting(text: string): boolean {
 }
 
 /** One character, or one word, repeated many times in a row. */
-export function hasLongRun(text: string, n: Normalized): boolean {
+function hasLongRun(text: string, n: Normalized): boolean {
   const sameChar = new RegExp(`(\\S)\\1{${THRESHOLDS.runs.sameChar - 1},}`, "u");
   if (sameChar.test(text)) return true;
   let run = 1;
@@ -519,7 +518,7 @@ function fingerprint(text: string): string {
 
 // ---------- the reviewer ----------
 
-export type Category = Exclude<FilterCategory, "cooldown">;
+type Category = Exclude<FilterCategory, "cooldown">;
 
 export type Verdict =
   | {

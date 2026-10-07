@@ -10,11 +10,11 @@ import { utcDay } from "./together";
  */
 
 /** The start files whose `?from=` reads count: SKILL.md (an API route) and llms.txt (a static file). */
-export const START_FILES = ["skill", "llms"] as const;
+const START_FILES = ["skill", "llms"] as const;
 export type StartFile = (typeof START_FILES)[number];
 
 /** Days of counts kept. `arrivals7d` reads the last `PARTNER_WEEK_DAYS`. */
-export const DISCOVERY_KEEP_DAYS = 30;
+const DISCOVERY_KEEP_DAYS = 30;
 
 /** The longest `from` worth looking up: partner ids are short. */
 const FROM_MAX_LENGTH = 64;

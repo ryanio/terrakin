@@ -18,7 +18,7 @@
 import { type Direction, directionOf, type Ground, STEP, stepFrom, type Tile } from "@terrakin/sim";
 
 /** How near the end of its last step your figure is when the next one goes, in tiles. */
-export const LEAD = 0.45;
+const LEAD = 0.45;
 /** Steps sent that the server hasn't answered yet, at most. */
 export const IN_FLIGHT = 2;
 /** A key pressed from standing waits this long for a second, so two pressed together go diagonally. */

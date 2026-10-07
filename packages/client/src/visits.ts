@@ -34,7 +34,7 @@ export function isMine(plot: Pick<PlotView, "owner" | "coOwners">, me: string | 
  * Whether a plot is worth a look: something built beyond a bare starter hut, and it changed this
  * week, or someone came by or admired it.
  */
-export function worthAVisit(plot: PlotView, now: number): boolean {
+function worthAVisit(plot: PlotView, now: number): boolean {
   if (plot.blocks <= VISIT_STRIP.starterBlocks) return false;
   const changed = plot.changedAt === null ? Number.NaN : Date.parse(plot.changedAt);
   const fresh = now - changed <= VISIT_STRIP.freshDays * DAY_MS;

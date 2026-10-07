@@ -49,7 +49,7 @@ type Authors = (id: string) => AuthorView | undefined;
 const iso = (ms: number) => new Date(ms).toISOString();
 
 /** When a playing table's round closes at the latest, in ms on the server's clock. */
-export const closesAt = (t: GameTable) =>
+const closesAt = (t: GameTable) =>
   (t.roundAt ?? t.openedAt) + GAME_TIMES.roundSeconds[t.pace] * 1000;
 
 /**

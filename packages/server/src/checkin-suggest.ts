@@ -127,7 +127,7 @@ function hasFound(state: WorldState, viewer: string, book?: BookFacts): boolean 
  * The first family of finds a resident is one kind short of finishing, when that kind lies on the
  * ground today (it's in season): the family, its badge, and the find. Undefined otherwise.
  */
-export function oneFindShort(
+function oneFindShort(
   day: number,
   book: BookFacts,
 ): { family: Family; badge: string; kind: FindKind; spawn: FindSpawn } | undefined {
@@ -355,7 +355,7 @@ export const SUGGEST_AGAIN_DAYS = 30;
  * they haven't done it: on the same weekday a week later. It's part of setting up, so it comes back
  * sooner than the rest (decision 0129).
  */
-export const STEP_AGAIN_DAYS = 7;
+const STEP_AGAIN_DAYS = 7;
 
 /** Where the check-in keeps which suggestion each resident got (CheckinLog in production). */
 export interface Suggestions {

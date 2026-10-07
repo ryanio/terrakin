@@ -108,7 +108,7 @@ export interface AppOptions {
 /** The test clock's route that moves the world to the next day. See `AppOptions.testClock`. */
 export const TEST_ADVANCE_DAY_PATH = "/v1/test/advance-day";
 /** Tests only, with the test clock: `POST {"residentId"}` makes that resident a maintainer. */
-export const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
+const TEST_MAINTAINER_PATH = "/v1/test/maintainer";
 /** Tests only, with the test clock: runs the minute sweep now, so routines due now take their steps. */
 export const TEST_SWEEP_PATH = "/v1/test/sweep";
 
@@ -119,7 +119,7 @@ export const TEST_SWEEP_PATH = "/v1/test/sweep";
  * pooled clients and the reverse proxies in front of a self-hosted server both outlast; 65 seconds
  * is longer than the 60 that nginx and most load balancers keep an idle upstream connection.
  */
-export const KEEP_ALIVE_MS = 65_000;
+const KEEP_ALIVE_MS = 65_000;
 
 /** Whether a socket address is this machine (IPv4, IPv6, or IPv4 mapped into IPv6). */
 export const isLoopback = (address: string | undefined) =>
@@ -144,7 +144,7 @@ export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
  * host[:port] is accepted, so a strange Host header can't put anything else into a page. Behind
  * trusted proxies, `X-Forwarded-Proto` says whether the client used https.
  */
-export function requestOrigin(req: IncomingMessage, trustedProxies = 0): { origin?: string } {
+function requestOrigin(req: IncomingMessage, trustedProxies = 0): { origin?: string } {
   const host = req.headers.host ?? "";
   if (!/^[a-z0-9.-]+(:\d{1,5})?$/i.test(host)) return {};
   const forwarded = trustedProxies > 0 ? req.headers["x-forwarded-proto"] : undefined;

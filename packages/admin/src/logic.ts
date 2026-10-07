@@ -24,7 +24,6 @@ import { formatCount, plural, pluralWord, relativeTime } from "@terrakin/ui/form
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
 import {
-  ACTION_LABELS,
   CATEGORY_LABELS,
   REPORT_CHOICES,
   reasonLabel,
@@ -124,7 +123,7 @@ export interface ItemAction {
 }
 
 /** The resident an item is about: the reported resident, or the author of what was reported. */
-export function personOf(item: ReportQueueItem): string | undefined {
+function personOf(item: ReportQueueItem): string | undefined {
   return item.kind === "resident" ? item.id : item.target.author?.id;
 }
 
@@ -401,7 +400,7 @@ export function triageSummary(verdict: TriageVerdictView): {
 }
 
 /** A staff sign-in's short name: the part of the email before the "@". */
-export const shortStaffName = (email: string) => email.split("@")[0] || email;
+const shortStaffName = (email: string) => email.split("@")[0] || email;
 
 /** The sign-in email behind a staff actor, for a tooltip. Undefined for everyone else. */
 export function actorEmail(entry: Pick<ModerationLogView, "actor">): string | undefined {
@@ -415,11 +414,6 @@ export function actorLabel(entry: Pick<ModerationLogView, "actor" | "actorView">
   const email = actorEmail(entry);
   if (email) return shortStaffName(email);
   return entry.actorView?.name ?? entry.actor;
-}
-
-/** "Hid a post · post p_1", with the end date for a suspension. */
-export function logHeadline(entry: ModerationLogView): string {
-  return `${ACTION_LABELS[entry.action]} · ${logTarget(entry)}`;
 }
 
 /** "Today", "Yesterday", or "Mon, Oct 5": the heading a day of log entries sits under. */

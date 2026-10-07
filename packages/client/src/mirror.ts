@@ -43,7 +43,7 @@ export interface ShownFindView {
 }
 
 /** A pet from the wire, with unset fields left out rather than undefined. */
-export function petFrom(view: PetView): Pet {
+function petFrom(view: PetView): Pet {
   const { adoptedDay, renamedDay, treat, ...rest } = view;
   return {
     ...rest,
@@ -54,7 +54,7 @@ export function petFrom(view: PetView): Pet {
 }
 
 /** A resident from the wire, with unset look fields left out rather than undefined. */
-export function residentFrom(view: ResidentView): Resident {
+function residentFrom(view: ResidentView): Resident {
   // `facing` and `routine` are for drawing; the mirror keeps them outside the resident.
   const {
     theme,

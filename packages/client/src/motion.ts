@@ -118,7 +118,7 @@ interface Said {
 }
 
 /** A number from 0 to 1 that stays the same for one resident, so a crowd doesn't move in step. */
-export function phaseOf(id: string): number {
+function phaseOf(id: string): number {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
   return (h >>> 0) / 4294967296;

@@ -37,7 +37,7 @@ function dayIn(ms: number, timeZone?: string): string {
 }
 
 /** "19:00" in `timeZone` (the viewer's, unless a test names one). */
-export function clockWords(ms: number, timeZone?: string): string {
+function clockWords(ms: number, timeZone?: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone,
     hour: "2-digit",

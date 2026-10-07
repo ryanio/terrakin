@@ -45,7 +45,6 @@ import {
   type PlotSort,
   PlotsResponse,
   PostResponse,
-  type PostView,
   ProfileResponse,
   type ProfileView,
   PurseResponse,
@@ -103,10 +102,8 @@ function authHeaders(): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
-export { friendlyMessage };
-
 /** What a page says when this browser's saved key no longer opens a character. */
-export const UNKNOWN_KEY =
+const UNKNOWN_KEY =
   "This browser's key doesn't open a character anymore. Open the World and choose Restore with a key, or join again.";
 
 const request = makeRequest({
@@ -432,4 +429,4 @@ export function rememberMyProfile(profile: ProfileView) {
   window.dispatchEvent(new Event(MY_PROFILE_EVENT));
 }
 
-export type { PostView, ProfileView };
+export type { ProfileView };

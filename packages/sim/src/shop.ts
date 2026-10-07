@@ -247,7 +247,7 @@ export const windowOf = <W extends string, X>(
 ): W | undefined => order.find((w) => lists[w].includes(x));
 
 /** Whether `day` falls in `window`. */
-export const inWindow = (window: Window, day: number): boolean =>
+const inWindow = (window: Window, day: number): boolean =>
   "season" in window ? window.season === seasonOf(day) : window.holiday === holidayOf(day);
 
 /**

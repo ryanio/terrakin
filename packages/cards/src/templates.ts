@@ -82,8 +82,6 @@ export interface PostCard {
   reply?: boolean | undefined;
 }
 
-export type { PlotCard };
-
 export type Card = SiteCard | PageCard | ProfileCard | PostCard | PlotCard;
 
 /** Pictures the renderer prepares once per process: the grained paper as a PNG data URI. */

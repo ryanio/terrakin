@@ -39,7 +39,7 @@ import { landscapeTexture } from "./items";
 import { BRAND, blockLook, hex } from "./palette";
 
 /** Which neighbors a fence post joins. */
-export interface Joins {
+interface Joins {
   n: boolean;
   e: boolean;
   s: boolean;
@@ -133,7 +133,7 @@ function lanternParts(stage: Stage, grain: Texture): Part[] {
 }
 
 /** Where the picture sits in a frame's easel: its size, the easel's lean, and its middle. */
-export const FRAME_PICTURE = { width: 0.7, height: 0.52, tilt: -0.14, y: 0.73, z: 0.14 } as const;
+const FRAME_PICTURE = { width: 0.7, height: 0.52, tilt: -0.14, y: 0.73, z: 0.14 } as const;
 
 /**
  * A plane where a frame's picture goes, `lift` in front of the frame's back board. What's on

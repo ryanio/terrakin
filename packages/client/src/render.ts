@@ -98,7 +98,7 @@ export interface RenderState {
 }
 
 /** A pet's box across, in tiles: about half a resident's height. */
-export const PET_TILES = 1;
+const PET_TILES = 1;
 /** Where a pet's feet are in its box, from the top, out of `PET_BOX`. */
 const PET_FEET = 42.5;
 

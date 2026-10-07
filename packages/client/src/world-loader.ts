@@ -9,7 +9,7 @@ import { h } from "@terrakin/ui/dom";
 import { initBrandMarks } from "./chrome";
 
 /** What has arrived so far: nothing, the world's code, a snapshot, the server's welcome. */
-export type LoadStage = "start" | "code" | "world" | "welcome";
+type LoadStage = "start" | "code" | "world" | "welcome";
 
 /**
  * How far the bar creeps during each stage while it waits for the next. It slows as it nears the

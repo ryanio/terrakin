@@ -37,7 +37,7 @@ import type { WorldService } from "./world-service";
  */
 
 export type TipsMode = "off" | "dry" | "on";
-export const TIPS_MODES: readonly TipsMode[] = ["off", "dry", "on"];
+const TIPS_MODES: readonly TipsMode[] = ["off", "dry", "on"];
 
 /** `TERRAKIN_TIPS`: `off` (the default), `dry`, or `on`. */
 export function tipsMode(env: { TERRAKIN_TIPS?: string | undefined }): TipsMode {

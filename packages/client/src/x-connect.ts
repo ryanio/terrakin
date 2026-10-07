@@ -19,7 +19,7 @@ import {
 import { api } from "./api";
 
 /** "@handle on X", linking to the account. `rel="me"` says the account and this profile are one. */
-export function xAccountLink(handle: string): HTMLElement | null {
+function xAccountLink(handle: string): HTMLElement | null {
   const href = xProfileUrl(handle);
   if (!href) return null;
   return h(
@@ -97,7 +97,7 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
 }
 
 /** The two-step sheet: post this line on X, then paste the post's link. */
-export function openConnectSheet(onConnected: (profile: ProfileView) => void) {
+function openConnectSheet(onConnected: (profile: ProfileView) => void) {
   const body = h("div", { class: "sheet-body" });
   const { dialog, close } = sheet(
     { id: "x-sheet-title", title: "Connect X", className: "x-sheet", closeOnBackdrop: true },

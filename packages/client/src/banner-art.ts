@@ -32,7 +32,7 @@ export interface BannerShape {
 }
 
 /** FNV-1a: the same string always gives the same 32-bit number. */
-export function hashSeed(text: string): number {
+function hashSeed(text: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);

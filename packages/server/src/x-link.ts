@@ -78,7 +78,7 @@ export type XPostRead =
 /** Reads a post from X. Injected into the social service so tests never touch the network. */
 export type XPostReader = (status: XStatus) => Promise<XPostRead>;
 
-export const X_OEMBED_ENDPOINT = "https://publish.twitter.com/oembed";
+const X_OEMBED_ENDPOINT = "https://publish.twitter.com/oembed";
 /** X moves the oEmbed endpoint between its own hosts with redirects. We follow those and no others. */
 const X_OEMBED_HOSTS = new Set(["publish.twitter.com", "publish.x.com"]);
 const TIMEOUT_MS = 5_000;

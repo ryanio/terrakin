@@ -74,7 +74,7 @@ export interface BlockLook {
 }
 
 /** How a block lights up after dark. Its model's shade or flame glows through `Stage.glow`. */
-export interface Glow {
+interface Glow {
   pool: number;
   at?: readonly [number, number];
   home?: true;

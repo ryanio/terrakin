@@ -57,7 +57,7 @@ const FALLBACK = "It couldn't run this time. It will try again tomorrow.";
 const PAUSED = `Your routines paused: this resident made no call for ${ROUTINE_LIMITS.pauseAfterDays} days. Your next call starts them again.`;
 
 /** The words for a refused or paused line, written from its routine and code alone. */
-export function awayReason(row: Pick<AwayRow, "routine" | "result" | "code">): string | undefined {
+function awayReason(row: Pick<AwayRow, "routine" | "result" | "code">): string | undefined {
   if (row.result === "paused") return PAUSED;
   if (row.result !== "refused") return undefined;
   return REASONS[`${row.routine} ${row.code}`] ?? FALLBACK;

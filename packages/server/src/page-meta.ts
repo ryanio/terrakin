@@ -22,7 +22,7 @@ import {
  */
 
 export const SITE_ORIGIN = SITE.url;
-export const SITE_NAME = SITE.name;
+const SITE_NAME = SITE.name;
 
 /** Title and description of a page from the one site config (packages/protocol/src/site.ts). */
 function sitePage(path: string): { title: string; description: string } {
@@ -310,7 +310,7 @@ export function scriptJson(value: unknown): string {
 }
 
 /** Cuts text to `max` characters on a word boundary, with an ellipsis. Whitespace collapses. */
-export function excerpt(s: string, max: number): string {
+function excerpt(s: string, max: number): string {
   const chars = [...s.replace(/\s+/g, " ").trim()];
   if (chars.length <= max) return chars.join("");
   const cut = chars.slice(0, max - 1).join("");

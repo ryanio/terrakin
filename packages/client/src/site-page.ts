@@ -18,13 +18,13 @@ interface FooterLink {
 }
 
 /** Where to follow Terrakin: pill buttons under the footer's tagline. */
-export const FOOTER_FOLLOW: readonly FooterLink[] = [
+const FOOTER_FOLLOW: readonly FooterLink[] = [
   { href: SITE.x.url, label: `@${SITE.x.handle} on X`, out: true },
   { href: SITE.github, label: "GitHub", out: true },
 ];
 
 /** The footer's link groups, in order. Terms and Privacy sit in the fine print under them. */
-export const FOOTER_GROUPS: readonly { title: string; links: readonly FooterLink[] }[] = [
+const FOOTER_GROUPS: readonly { title: string; links: readonly FooterLink[] }[] = [
   {
     title: "Terrakin",
     links: [

@@ -76,7 +76,7 @@ function biomeLine(biomes: Biome[]): string {
  * The plot a resident's photo shows: the one they own (the first, north to south, then west to
  * east), else the first plot shared with them. Undefined when they have neither.
  */
-export function photoPlot(state: WorldState, residentId: string) {
+function photoPlot(state: WorldState, residentId: string) {
   const order = (a: { px: number; py: number }, b: { px: number; py: number }) =>
     a.py - b.py || a.px - b.px;
   const plots = Object.values(state.plots).sort(order);

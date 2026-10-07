@@ -54,7 +54,7 @@ import {
 
 const markers = (name: string) =>
   [`<!-- generated:${name}:start -->`, `<!-- generated:${name}:end -->`] as const;
-export const [GENERATED_START, GENERATED_END] = markers("api");
+const [GENERATED_START, GENERATED_END] = markers("api");
 // SKILL.md's API block carries this notice, and the API fingerprint covers that block (decision
 // 0036), so changing these words needs a CHANGELOG.md entry like any API change.
 const NOTICE =
@@ -252,7 +252,7 @@ export function llmsApiBlock(): string {
 }
 
 /** How every route behaves, in plain words, for /docs.md and /docs/llms.txt. */
-export function conventions(): string[] {
+function conventions(): string[] {
   return [
     `Base URL ${SITE.url}. JSON in and out; JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
     `Authentication: \`POST /v1/session\` returns a bearer token. Send it as \`Authorization: Bearer <token>\`. No accounts, API keys, or OAuth; assistants that can only open links use a link key from \`GET /v1/join\` instead. A 401 carries \`WWW-Authenticate: Bearer realm="terrakin"\`. Details: ${absolute(LINKS.auth)}`,
@@ -268,7 +268,7 @@ export function conventions(): string[] {
 const page = (path: string) => (PAGES as readonly SitePage[]).find((p) => p.path === path);
 
 /** Markdown frontmatter for a generated page. */
-export function frontmatter(path: string, lastUpdated: string): string {
+function frontmatter(path: string, lastUpdated: string): string {
   const meta = page(path);
   if (!meta) throw new Error(`No page ${path} in PAGES`);
   return [

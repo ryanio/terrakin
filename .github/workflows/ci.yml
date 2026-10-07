@@ -26,15 +26,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
       - run: pnpm kb:check
       - run: pnpm gen:check
       - run: pnpm build
       - name: Audit dependencies
         run: pnpm audit --prod --audit-level high
 
-  # e2e runs in three jobs at once: the 2D specs in two shards, and the 3D specs alone with one
-  # worker, since software WebGL takes a runner's whole CPU (e2e/AGENTS.md).
+  # The unit and integration tests, beside verify's other checks rather than after them: they take
+  # longer than all the rest together.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  # e2e runs in five jobs at once: the 2D specs in three shards, and each 3D spec alone with one
+  # worker, since software WebGL takes a runner's whole CPU (e2e/AGENTS.md). `--no-deps` lets
+  # world-3d run without three-d before it, which only keeps the two apart on one machine.
   e2e:
     name: e2e (${{ matrix.name }})
     runs-on: ubuntu-latest
@@ -43,9 +58,11 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { name: 2D 1 of 2, only: 2d, args: --shard=1/2 }
-          - { name: 2D 2 of 2, only: 2d, args: --shard=2/2 }
-          - { name: 3D, only: 3d, args: --workers=1 }
+          - { name: 2D 1 of 3, only: 2d, args: --shard=1/3 }
+          - { name: 2D 2 of 3, only: 2d, args: --shard=2/3 }
+          - { name: 2D 3 of 3, only: 2d, args: --shard=3/3 }
+          - { name: 3D plot, only: 3d, args: --project=three-d --workers=1 }
+          - { name: 3D world, only: 3d, args: --project=world-3d --no-deps --workers=1 }
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -85,7 +102,7 @@ jobs:
   # that the live world answers.
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [verify, e2e, secrets]
+    needs: [verify, test, e2e, secrets]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production

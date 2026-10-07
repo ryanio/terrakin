@@ -4201,6 +4201,11 @@ a.action {
   box-shadow: inset 0 0 0 2px var(--clay);
 }
 
+/* The home sheet's status line takes no room until it has words. */
+.home-status:empty {
+  display: none;
+}
+
 /* The hearth shows its name: it's home, and where the pantry arrives. */
 .palette-row .palette-named {
   grid-auto-flow: column;

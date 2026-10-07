@@ -187,7 +187,7 @@ export function arrivalLine(
 ): string {
   if (accepted.shared) return `Welcome home. You share ${inviter}'s plot now.`;
   if (accepted.plot) return `Welcome! You live next to ${inviter} now.`;
-  return `Welcome! You and ${inviter} follow each other now. Walk out of the Commons to claim a plot.`;
+  return `Welcome! You and ${inviter} follow each other now. Tap Claim plot to pick a plot of your own.`;
 }
 
 /** A line the world shows once when you arrive from an invite (sessionStorage). */

@@ -68,9 +68,27 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
       ratio: 1,
     });
     await page.screenshot({ path: "test-results/claim-offer.png" });
+    // Hold the build on its way, so the sheet can be seen mid-build: neither choice can be
+    // tapped then, so "I'll build it myself" can't open a second sheet over the first.
+    let release = () => {};
+    const held = new Promise<void>((done) => {
+      release = done;
+    });
+    await page.route(
+      "**/v1/actions",
+      async (route) => {
+        await held;
+        await route.continue();
+      },
+      { times: 1 },
+    );
     await page.getByRole("button", { name: "Build me a starter home" }).click();
+    await expect(offer.getByRole("button", { name: "I'll build it myself" })).toBeDisabled();
+    await expect(offer.getByRole("button", { name: "Build me a starter home" })).toBeDisabled();
+    release();
     const name = page.getByRole("dialog", { name: "Name your new plot" });
     await expect(name).toBeVisible();
+    await expect(page.locator("dialog[open]")).toHaveCount(1);
     await expect(name.locator("#home-news")).toContainText("seeds of 5 kinds");
     await page.screenshot({ path: "test-results/claim-home.png" });
     const r = await me();

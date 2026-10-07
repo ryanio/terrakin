@@ -205,7 +205,8 @@ const walker = new Walker({
   },
   bumped: (dir, why) => {
     if (me) motion.bump(me, dir, performance.now());
-    showToast(why);
+    // Never over a fresher notice, like a refusal that just came in: the bump shows it anyway.
+    if (!toast.classList.contains("show")) showToast(why);
   },
 });
 /** The card on someone else's plot: Admire and Next plot (RFC 0020). */
@@ -339,12 +340,21 @@ function keyNotFound() {
   void resync();
 }
 
+/** Your plots as far as the mirror shows: how many you own, and whether one is shared with you. */
+function myPlots(): { owned: number; shared: boolean } {
+  let owned = 0;
+  let shared = false;
+  if (mirror && me) {
+    for (const owner of mirror.plots.values()) if (owner === me) owned++;
+    for (const list of mirror.coOwners.values()) if (list.includes(me)) shared = true;
+  }
+  return { owned, shared };
+}
+
 /** Whether you own a plot, or share one, as far as the mirror shows. */
 function hasPlot(): boolean {
-  if (!mirror || !me) return false;
-  for (const owner of mirror.plots.values()) if (owner === me) return true;
-  for (const shared of mirror.coOwners.values()) if (shared.includes(me)) return true;
-  return false;
+  const { owned, shared } = myPlots();
+  return owned > 0 || shared;
 }
 
 /** Nothing in flight and nothing to walk: a new connection, or leaving. */
@@ -1102,7 +1112,10 @@ claimButton.addEventListener("click", () => {
   // The claim lands after any steps still on their way, on the plot they end in.
   const r = here();
   const m = mirror;
-  if (!r || !m) return;
+  if (!r || !m) {
+    showToast("The world is still loading. Try again in a moment.");
+    return;
+  }
   if (m.ownerAt(r.x, r.y) === me) {
     showToast("This plot is already yours. Tap Build to start.");
     return;
@@ -1111,23 +1124,16 @@ claimButton.addEventListener("click", () => {
   // opens the picker of ones it would (decision 0143).
   const { px, py } = plotOf(m.config, r.x, r.y);
   const claimed = m.plots.has(`${px},${py}`);
-  if (ownedPlots() === 0 && settleProblem(m.config, px, py, { claimed, ownsAPlot: false })) {
+  if (myPlots().owned === 0 && settleProblem(m.config, px, py, { claimed, ownsAPlot: false })) {
     void import("./claim-sheet").then((c) => c.openClaimSheet());
     return;
   }
   tryAct({ type: "claim" });
 });
 
-/** How many plots you own, as far as the mirror shows. */
-function ownedPlots(): number {
-  let n = 0;
-  if (mirror && me) for (const owner of mirror.plots.values()) if (owner === me) n++;
-  return n;
-}
-
 /** Claim plot while you may claim one, else Your things in its place (one plot per resident). */
 function paintClaim() {
-  const full = !!mirror && !!me && ownedPlots() >= mirror.config.maxPlotsPerResident;
+  const full = !!mirror && !!me && myPlots().owned >= mirror.config.maxPlotsPerResident;
   claimButton.hidden = full;
   thingsLink.hidden = !full;
 }

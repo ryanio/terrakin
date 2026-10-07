@@ -2,7 +2,7 @@ import { SHOP_ITEMS } from "@terrakin/protocol";
 import { dayOfDate } from "@terrakin/sim";
 import { listOf } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
-import { buyLabel, holidayHint, SHELVES, sellable } from "./shop-view";
+import { buyLabel, holidayHint, SHELVES, sellable, shelvesOf, stockTag } from "./shop-view";
 
 const lantern = { sku: "lantern", price: 40, section: "decor" } as const;
 const hat = { sku: "top_hat", price: 80, section: "wear" } as const;
@@ -29,6 +29,59 @@ describe("the shop page", () => {
     expect(sellable({ ...order, left: 0 }, 5)).toBe(0);
     // Without a token there's no `left`, and nothing to sell.
     expect(sellable(order, 5)).toBe(0);
+  });
+
+  it("tags seasonal stock with its season and holiday stock with its holiday, and nothing else", () => {
+    expect(stockTag({ season: "autumn" })).toEqual({
+      text: "This autumn",
+      tone: "sun",
+      className: "shop-season",
+    });
+    expect(stockTag({ season: "winter" })?.text).toBe("This winter");
+    expect(stockTag({ holiday: "halloween" })).toEqual({
+      text: "Halloween",
+      tone: "moss",
+      className: "shop-holiday",
+    });
+    expect(stockTag({ holiday: "midwinter" })?.text).toBe("Midwinter");
+    // A holiday this client doesn't know yet is still tagged, by its id.
+    expect(stockTag({ holiday: "spring_fair" as "halloween" })?.text).toBe("spring_fair");
+    expect(stockTag({})).toBeNull();
+  });
+
+  it("puts a holiday's stock on its own shelf first, and off its section's shelf", () => {
+    const lastDay = dayOfDate(2026, 11, 1);
+    const items = [
+      { sku: "lantern", name: "Paper lantern", price: 40, section: "decor" },
+      { sku: "pumpkin_seed", name: "Pumpkin seed", price: 4, section: "garden", season: "autumn" },
+      { sku: "cat_ears", name: "Cat ears", price: 40, section: "wear", holiday: "halloween" },
+    ] as const;
+    const shelves = shelvesOf({ items: [...items], holiday: { id: "halloween", lastDay } });
+    expect(shelves.map((s) => s.key)).toEqual(["holiday", "decor", "wear", "garden", "pantry"]);
+    expect(shelves[0]).toMatchObject({
+      title: "For Halloween",
+      hint: holidayHint("halloween", lastDay),
+    });
+    const skus = (key: string) => shelves.find((s) => s.key === key)?.items.map((i) => i.sku);
+    expect(skus("holiday")).toEqual(["cat_ears"]);
+    expect(skus("wear")).toEqual([]);
+    // Seasonal stock stays on its section's shelf, tagged.
+    expect(skus("garden")).toEqual(["pumpkin_seed"]);
+    expect(skus("decor")).toEqual(["lantern"]);
+    // Midwinter names its shelf too, and without a holiday there is no holiday shelf.
+    expect(
+      shelvesOf({ items: [], holiday: { id: "midwinter", lastDay: dayOfDate(2026, 12, 31) } })[0]
+        ?.title,
+    ).toBe("For Midwinter");
+    expect(shelvesOf({ items: [...items] }).map((s) => s.key)).toEqual(
+      SHELVES.map((s) => s.section),
+    );
+  });
+
+  it("puts the Recipes shelf after a holiday's and before the sections, once there are cards", () => {
+    const card = { kind: "lemonade" } as never;
+    expect(shelvesOf({ items: [], recipes: [card] }).map((s) => s.key)[0]).toBe("recipes");
+    expect(shelvesOf({ items: [], recipes: [] }).some((s) => s.key === "recipes")).toBe(false);
   });
 
   it("says when a holiday's shelf goes, and what a kitchen makes for it any day", () => {

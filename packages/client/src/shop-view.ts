@@ -43,6 +43,40 @@ export const SHELVES: { section: Section; title: string; hint: string }[] = [
   },
 ];
 
+type Shop = NonNullable<ShopResponse["shop"]>;
+
+/**
+ * The shelves in the order they're shown, with what goes on each: a holiday's stock on a shelf of
+ * its own, first, while it runs (RFC 0022); the Recipes shelf once recipes are learned here (RFC
+ * 0024), whose cards the page lays out itself; then the four sections, without the holiday's
+ * stock. Pure.
+ */
+export function shelvesOf(
+  shop: Pick<Shop, "items" | "holiday" | "recipes">,
+): { key: string; title: string; hint: string; items: ShopItemView[] }[] {
+  return [
+    ...(shop.holiday
+      ? [
+          {
+            key: "holiday",
+            title: `For ${holidayName(shop.holiday.id)}`,
+            hint: holidayHint(shop.holiday.id, shop.holiday.lastDay),
+            items: shop.items.filter((i) => i.holiday),
+          },
+        ]
+      : []),
+    ...(shop.recipes && shop.recipes.length > 0
+      ? [{ key: "recipes", title: "Recipes", hint: "", items: [] }]
+      : []),
+    ...SHELVES.map(({ section, title, hint }) => ({
+      key: section,
+      title,
+      hint,
+      items: shop.items.filter((i) => i.section === section && !i.holiday),
+    })),
+  ];
+}
+
 /** What a Buy button says for `price`, from what you can afford: the price, short, or Buy. */
 function priceLabel(price: number, balance: number | null): { text: string; can: boolean } {
   if (balance === null) return { text: coins(price), can: false };
@@ -93,23 +127,31 @@ type Season = NonNullable<ShopItemView["season"]>;
 /** What the season's tag says. The buying hint quotes it, so both come from here. */
 const seasonWords = (season: Season) => `This ${season}`;
 
-/**
- * The small "This autumn" or "This winter" tag on seasonal stock and buying (RFC 0017). The server
- * lists them only in their season, so the tag never names another one.
- */
-function seasonTag(season: Season): HTMLElement {
-  return kindPill(seasonWords(season), "sun", "shop-season");
-}
-
 type Holiday = NonNullable<ShopItemView["holiday"]>;
 
+/** A holiday's name, or its id for a holiday this client doesn't know yet. */
+const holidayName = (holiday: Holiday) =>
+  Object.hasOwn(HOLIDAY_INFO, holiday) ? HOLIDAY_INFO[holiday].name : holiday;
+
 /**
- * The small "Halloween" tag on holiday stock (RFC 0022). The server lists it only while its
- * holiday runs. A holiday this client doesn't know yet is still tagged, by its id.
+ * The small tag on seasonal or holiday stock: "This autumn" or "This winter" (RFC 0017), or the
+ * holiday's name (RFC 0022). The server lists such stock only while it's sold, so the tag never
+ * names another season. Everything sold all year has none. Pure.
  */
-function holidayTag(holiday: Holiday): HTMLElement {
-  const name = Object.hasOwn(HOLIDAY_INFO, holiday) ? HOLIDAY_INFO[holiday].name : holiday;
-  return kindPill(name, "moss", "shop-holiday");
+export function stockTag(item: Pick<ShopItemView, "season" | "holiday">): {
+  text: string;
+  tone: "sun" | "moss";
+  className: "shop-season" | "shop-holiday";
+} | null {
+  if (item.season) return { text: seasonWords(item.season), tone: "sun", className: "shop-season" };
+  if (item.holiday)
+    return { text: holidayName(item.holiday), tone: "moss", className: "shop-holiday" };
+  return null;
+}
+
+function tagOf(item: Pick<ShopItemView, "season" | "holiday">): HTMLElement | null {
+  const tag = stockTag(item);
+  return tag && kindPill(tag.text, tag.tone, tag.className);
 }
 
 /** What each holiday's shelf adds: that what you buy stays yours, and what a kitchen makes. */
@@ -162,7 +204,7 @@ export function shopView(ctx: ViewContext): View {
       "li",
       { class: "paper shop-item", attrs: { "data-sku": item.sku } },
       itemArt(item.sku, { size: 56 }),
-      item.season ? seasonTag(item.season) : item.holiday ? holidayTag(item.holiday) : null,
+      tagOf(item),
       h("span", { class: "shop-item-name", text: item.name }),
       h("span", {
         class: "shop-item-meta",
@@ -203,7 +245,7 @@ export function shopView(ctx: ViewContext): View {
       "li",
       { class: "paper shop-item shop-card-recipe", attrs: { "data-sku": card.sku } },
       itemArt(card.recipe.makes, { size: 56 }),
-      card.season ? seasonTag(card.season) : null,
+      tagOf(card),
       h("span", { class: "shop-item-name", text: card.name }),
       h("span", { class: "shop-item-meta", text: `Uses ${needsListLine(card.recipe.needs)}` }),
       h("span", {
@@ -244,7 +286,7 @@ export function shopView(ctx: ViewContext): View {
       attrs: { "data-kind": order.kind },
       lead: itemArt(order.kind, { size: 32 }),
       name: order.name,
-      lines: [`${coins(order.price)} each, ${left}`, order.season ? seasonTag(order.season) : null],
+      lines: [`${coins(order.price)} each, ${left}`, tagOf(order)],
       trail: signedIn ? sell : null,
     });
   }
@@ -310,37 +352,20 @@ export function shopView(ctx: ViewContext): View {
       ),
     );
     main.replaceChildren(
-      // A holiday's stock on a shelf of its own, first, while it runs (RFC 0022).
-      ...(shop.holiday
-        ? [
-            shelf(
-              "holiday",
-              `For ${Object.hasOwn(HOLIDAY_INFO, shop.holiday.id) ? HOLIDAY_INFO[shop.holiday.id].name : shop.holiday.id}`,
-              holidayHint(shop.holiday.id, shop.holiday.lastDay),
-              shop.items.filter((i) => i.holiday).map((i) => shelfItem(i, data, inv)),
-            ),
-          ]
-        : []),
-      // The Recipes shelf (RFC 0024), once recipes are learned here. `/shop#recipes` lands on it.
-      ...(shop.recipes && shop.recipes.length > 0
-        ? [
-            shelf(
+      ...shelvesOf(shop).map(({ key, title, hint, items }) =>
+        key === "recipes"
+          ? shelf(
               "recipes",
-              "Recipes",
+              title,
               recipesHint(inv?.inventory?.recipePicks ?? 0),
-              shop.recipes.map((c) => cardItem(c, data, inv)),
+              (shop.recipes ?? []).map((c) => cardItem(c, data, inv)),
+            )
+          : shelf(
+              key,
+              title,
+              hint,
+              items.map((i) => shelfItem(i, data, inv)),
             ),
-          ]
-        : []),
-      ...SHELVES.map(({ section, title, hint }) =>
-        shelf(
-          section,
-          title,
-          hint,
-          shop.items
-            .filter((i) => i.section === section && !i.holiday)
-            .map((i) => shelfItem(i, data, inv)),
-        ),
       ),
     );
     // A link to the Recipes shelf lands on it once, not again after every buy.

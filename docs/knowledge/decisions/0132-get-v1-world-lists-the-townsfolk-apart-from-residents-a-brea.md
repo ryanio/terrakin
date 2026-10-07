@@ -26,5 +26,5 @@ Documenting "leave the `townsfolk` ids out when you count" left the easy reading
 ## Consequences
 
 - Anything that draws or looks up everyone on the map reads both lists. The protocol's `everyoneIn(snapshot)` does that for the client; `scripts/townsfolk/seed.ts` has its own copy, since it runs under plain `node`. The client's `Mirror` keeps everyone in `residents` and the townsfolk ids in `townsfolk`, and the landing page's count skips them.
-- The `additive only` rule in `packages/protocol/AGENTS.md` still holds for everything else. This is a one-off exception, recorded here and in `CHANGELOG.md`.
+- [Decision 0146](0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md) since made breaking changes the rule while Terrakin is pre-alpha.
 - Code: `worldSnapshot` in `packages/server/src/world-wire.ts`, `onlineCount` in `packages/server/src/world-service.ts`, `WorldSnapshot` and `everyoneIn` in `packages/protocol/src/schemas.ts`, and `pulse.ts`, `mirror.ts`, `world.ts`, `plot-thumb.ts`, and `scene3d/` in `packages/client/src/`.

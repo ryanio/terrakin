@@ -6,8 +6,9 @@
  */
 import type { WorldEvent } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { closeOverlay, errorLine, openOverlay, sheet, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import type { Result } from "@terrakin/ui/http";
+import { closeOverlay, openOverlay, overlayShowing, sheet, whileBusyAll } from "@terrakin/ui/ui";
+import { api } from "./api";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { pantryWords, worldProblem } from "./things";
 
@@ -30,7 +31,11 @@ const pantryIn = (events: readonly WorldEvent[]) =>
   );
 
 export function openHomeSheet(o: HomeSheetOptions) {
-  const error = errorLine("home-error");
+  /** "Saving…" while the home goes up, or why it couldn't. */
+  const status = h("p", {
+    class: "field-hint home-status",
+    attrs: { id: "home-status", role: "status" },
+  });
   const starter = h("button", {
     class: "btn-primary",
     attrs: { type: "button", id: "home-starter" },
@@ -48,7 +53,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
       className: "home-sheet",
       lede: "Next, a home. Its hearth is where Home brings you and where your pantry arrives: seeds the first time, then sugar and jars each day. A starter home is a small wooden hut with the hearth inside.",
     },
-    h("div", { class: "stack home-choices" }, error, starter, myself),
+    h("div", { class: "stack home-choices" }, status, starter, myself),
   );
 
   starter.addEventListener("click", () => void build());
@@ -59,28 +64,43 @@ export function openHomeSheet(o: HomeSheetOptions) {
   });
 
   async function build() {
-    error.textContent = "";
-    const result = await whileBusy(starter, async () => {
-      const built = await api.act({ type: "build_starter_home" });
-      if (!built.ok || !built.data.ok) return { built, events: [] as WorldEvent[] };
-      const events = [...built.data.events];
-      // The pantry comes once you stand on your hearth: step onto it if the build left you off it.
-      if (!pantryIn(events) && events.some((e) => e.type === "hearth_set")) {
-        const home = await api.act({ type: "home" });
-        if (home.ok && home.data.ok) events.push(...home.data.events);
-      }
-      return { built, events };
-    });
-    const { built, events } = result;
-    if (!built.ok || !built.data.ok) {
-      // The world's refusals are worded for agents: say them in HUD words, by their code.
-      const refused = built.ok && !built.data.ok ? built.data.error : undefined;
-      error.textContent = refused
-        ? worldProblem(refused.code, refused.message, { hasPlot: true })
-        : (actProblem(built) ?? "");
+    // Both choices are off while it builds, so neither can open a second sheet over the first.
+    const res = await whileBusyAll(
+      [starter, myself],
+      starter,
+      status,
+      async (): Promise<Result<WorldEvent[]>> => {
+        const built = await api.act({ type: "build_starter_home" });
+        if (!built.ok) return built;
+        if (!built.data.ok) {
+          // The world's refusals are worded for agents: say them in HUD words, by their code.
+          const { code, message } = built.data.error;
+          return {
+            ok: false,
+            status: 200,
+            code,
+            message: worldProblem(code, message, { hasPlot: true }),
+          };
+        }
+        const events = [...built.data.events];
+        // The pantry comes once you stand on your hearth: step onto it if the build left you off it.
+        if (!pantryIn(events) && events.some((e) => e.type === "hearth_set")) {
+          const home = await api.act({ type: "home" });
+          if (home.ok && home.data.ok) events.push(...home.data.events);
+        }
+        return { ok: true, data: events };
+      },
+    );
+    if (!res.ok) {
+      // Closed meanwhile: the status line went with it, so say it in the world.
+      if (!overlayShowing(s.dialog)) o.say(res.message);
       return;
     }
+    // Closed while it built (Escape, the back gesture): the home is up, and nothing else opens.
+    const showing = overlayShowing(s.dialog);
     closeOverlay(s.dialog);
+    if (!showing) return;
+    const events = res.data;
     const pantry = pantryIn(events);
     const got = pantryWords(pantry?.changes ?? []);
     const first = pantry?.reason === "starter";

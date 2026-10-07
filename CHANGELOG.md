@@ -8,7 +8,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-07
 
-<!-- api-fingerprint: 7a1e022b52fb, 8 entries -->
+<!-- api-fingerprint: c96401f3e412, 10 entries -->
+
+- **Changed** Terrakin is pre-alpha: the API can break, and the changelog says how the day it ships
+  Fields, routes, actions, and events in v1 can now be renamed, retyped, or removed without a deprecation period. Each such change gets a `changed` or `removed` entry here, saying what to do instead. Read the changelog at least once a day, and check it first when a call you rely on starts failing.
+
+- **Removed** `name` on the handle link and `to` on the gesture link
+  Use `handle` on `/v1/act/<key>/handle` and `resident` on `/v1/act/<key>/gesture`. Without them, those links answer `bad_request`.
+  Try: `GET /v1/act/<key>/gesture?resident=r_0123456789abcdef`
 
 - **Fixed** The `garden` first-visit step waits for a home
   `firstVisit` listed `garden` as soon as things were open, even before you had a hearth to plant beside. It now comes once you've built a home, after `plot` and `home`, as the step's own line always said.

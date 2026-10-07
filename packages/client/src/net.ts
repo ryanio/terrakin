@@ -5,6 +5,7 @@ import {
   PROTOCOL_VERSION,
   ServerMessage,
 } from "@terrakin/protocol";
+import { reloadForNewerServer } from "./stale-bundle";
 import { appCrumb } from "./telemetry";
 
 const TOKEN_KEY = "terrakin.token";
@@ -39,6 +40,15 @@ export function saveResidentId(id: string) {
 export const SESSION_EVENT = "terrakin:session";
 
 /** Remember who you are in this browser (or forget, with null). The world and the feed both read it. */
+/** The token and id in a welcome this code couldn't parse, if they are there. */
+export function rawWelcome(raw: unknown): { token: string; residentId: string } | undefined {
+  const m = raw as { type?: unknown; token?: unknown; residentId?: unknown } | null;
+  if (m?.type !== "welcome") return undefined;
+  return typeof m.token === "string" && typeof m.residentId === "string"
+    ? { token: m.token, residentId: m.residentId }
+    : undefined;
+}
+
 export function saveToken(token: string | null, residentId?: string) {
   try {
     if (token) {
@@ -120,9 +130,17 @@ export class Connection {
     });
 
     ws.addEventListener("message", (e) => {
-      const parsed = ServerMessage.safeParse(JSON.parse(String(e.data)));
+      const raw: unknown = JSON.parse(String(e.data));
+      const parsed = ServerMessage.safeParse(raw);
       if (!parsed.success) {
         console.warn("Ignoring malformed server message", parsed.error);
+        // Without a welcome this tab can't play: newer code can read it. Keep the token first, so
+        // a join that just happened isn't lost with the reload.
+        const welcome = rawWelcome(raw);
+        if (welcome) {
+          saveToken(welcome.token, welcome.residentId);
+          reloadForNewerServer();
+        }
         return;
       }
       const msg = parsed.data;

@@ -1131,8 +1131,7 @@ export const WorldSnapshot = z.object({
   v: z.literal(PROTOCOL_VERSION),
   seq: z.number().int(),
   hash: z.string(),
-  /** Optional so a client works against a server that predates day and night. */
-  time: WorldTime.optional(),
+  time: WorldTime,
   season: SeasonName.optional().describe(
     "The season of the world's day, by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February.",
   ),

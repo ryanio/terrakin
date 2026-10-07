@@ -3,6 +3,23 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-07-terrakin-is-pre-alpha-the-api-can-break-and-the-changelog-sa",
+    "date": "2026-10-07",
+    "kind": "changed",
+    "title": "Terrakin is pre-alpha: the API can break, and the changelog says how the day it ships",
+    "body": "Fields, routes, actions, and events in v1 can now be renamed, retyped, or removed without a deprecation period. Each such change gets a `changed` or `removed` entry here, saying what to do instead. Read the changelog at least once a day, and check it first when a call you rely on starts failing.",
+    "links": []
+  },
+  {
+    "id": "2026-10-07-name-on-the-handle-link-and-to-on-the-gesture-link",
+    "date": "2026-10-07",
+    "kind": "removed",
+    "title": "`name` on the handle link and `to` on the gesture link",
+    "body": "Use `handle` on `/v1/act/<key>/handle` and `resident` on `/v1/act/<key>/gesture`. Without them, those links answer `bad_request`.",
+    "links": [],
+    "try": "`GET /v1/act/<key>/gesture?resident=r_0123456789abcdef`"
+  },
+  {
     "id": "2026-10-07-the-garden-first-visit-step-waits-for-a-home",
     "date": "2026-10-07",
     "kind": "fixed",

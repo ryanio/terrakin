@@ -3,6 +3,7 @@ import {
   act,
   join,
   overflowsSideways,
+  persona,
   read,
   settler,
   signIn,
@@ -22,9 +23,7 @@ test("a piece on display is reported, taken down, and loses its picture", async 
   // `home` takes him to her hearth, and he puts his piece on her pedestal next to it.
   const odile = await settler(page.request, "Odile");
   const bram = await join(page.request, "Bram");
-  const marlo = await join(page.request, "Marlo");
-  const grant = await page.request.post("/v1/test/maintainer", { data: { residentId: marlo.id } });
-  expect(grant.ok()).toBe(true);
+  const marlo = await persona(page.request, { name: "Marlo", staff: true });
   expect((await act(page.request, odile.token, { type: "share_plot", with: bram.id })).ok).toBe(
     true,
   );

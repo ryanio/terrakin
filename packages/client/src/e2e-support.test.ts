@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 const E2E = join(import.meta.dirname, "../../../e2e");
 const SHARED = [
+  "persona",
   "join",
   "act",
   "read",

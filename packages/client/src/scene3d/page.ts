@@ -275,7 +275,7 @@ function noPlot(name: string, id: string, yours: boolean): HTMLElement {
           eyebrow: "Visit in 3D",
           level: "h1",
           title: "You haven't claimed a plot yet",
-          body: "Walk out of the Commons onto an empty plot and tap Claim plot. Once you build on it, you can visit it here in 3D.",
+          body: "In the world, tap Claim plot and pick an empty plot. Once you build on it, you can visit it here in 3D.",
           actions: [
             h(
               "a",

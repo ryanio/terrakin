@@ -291,7 +291,6 @@ export function skyCard() {
   return {
     el,
     update(snapshot: WorldSnapshot, onlineNow: number) {
-      if (!snapshot.time) return;
       anchor = {
         serverMs: snapshot.time.nowMs,
         at: performance.now(),

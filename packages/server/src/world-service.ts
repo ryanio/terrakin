@@ -967,6 +967,22 @@ export class WorldService {
   }
 
   /**
+   * Coins from the treasury and stacks of things for a resident (decision 0147). Only the Node
+   * server's test route calls it, which needs `TERRAKIN_TEST_CLOCK=1` and a loopback caller.
+   */
+  testGrant(to: string, coins: number | undefined, stacks: Record<string, number> | undefined) {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: {
+        type: "test_grant",
+        to,
+        ...(coins === undefined ? {} : { coins }),
+        ...(stacks === undefined ? {} : { stacks }),
+      },
+    });
+  }
+
+  /**
    * Staff take a listing down (decision 0056). Logged as a world input without who did it: that's
    * in the moderation log, which staff's sign-in emails never leave.
    */

@@ -131,6 +131,7 @@ import {
   type ShopChecked,
   shopNewDay,
 } from "./shop";
+import { checkTestGrant } from "./test-grant";
 import {
   checkKeepTableSpots,
   checkPropose,
@@ -706,6 +707,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkCloseRound(state, command));
       case "close_table":
         return town(checkCloseTable(state, command));
+      case "test_grant":
+        return town(checkTestGrant(state, command));
       case "new_day":
       case "set_townsfolk": {
         const checked = checkTown(state, actor, command);

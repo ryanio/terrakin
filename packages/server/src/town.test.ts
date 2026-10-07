@@ -4,7 +4,7 @@ import { hashWorld, replay, TOWN_ACTOR, votesCast, type WorldConfig } from "@ter
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
-import { createApp, TEST_ADVANCE_DAY_PATH, TEST_SWEEP_PATH } from "./app";
+import { createApp, TEST_ADVANCE_DAY_PATH, TEST_GRANT_PATH, TEST_SWEEP_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -641,6 +641,52 @@ describe("the test clock", () => {
     }
   });
 
+  it("grants coins and things only with the test clock on", async () => {
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      now: clock().now,
+      days: true,
+      economy: true,
+      items: true,
+    });
+    const advanceDay = () => service.state.day ?? null;
+    const post = (base: string, data: unknown) =>
+      fetch(base + TEST_GRANT_PATH, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    // Without the test clock the route isn't there, and nothing moves.
+    const off = await listenOnFreePort(createApp({ service, onResponse }), cleanups);
+    const joined = await fetch(`${off}/v1/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Ada", kind: "human" }),
+    });
+    const ada = (await joined.json()) as { residentId: string };
+    expect((await post(off, { residentId: ada.residentId, coins: 50 })).status).toBe(404);
+    expect(service.state.economy?.coins[ada.residentId]).toBeUndefined();
+    const on = await listenOnFreePort(
+      createApp({ service, onResponse, testClock: { advanceDay } }),
+      cleanups,
+    );
+    const granted = await post(on, {
+      residentId: ada.residentId,
+      coins: 50,
+      stacks: { wood: 2 },
+    });
+    expect(await granted.json()).toEqual({ ok: true });
+    expect(service.state.economy?.coins[ada.residentId]).toBe(50);
+    expect(service.state.items?.inventories[ada.residentId]?.stacks.wood).toBe(2);
+    // The sim's refusals come back as they are, and a malformed body never reaches it.
+    const refused = await post(on, { residentId: ada.residentId, stacks: { dragon: 1 } });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ ok: false, error: { code: "unknown_item" } });
+    const malformed = await post(on, { residentId: ada.residentId, stacks: ["wood"] });
+    expect(await malformed.json()).toMatchObject({ error: { code: "invalid_body" } });
+  });
+
   it("doesn't exist in the Worker, which serves the API through Api alone", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const api = new Api({ service, skill: "", openapi: "{}" });
@@ -656,6 +702,8 @@ describe("the test clock", () => {
     });
     expect(res?.status).toBe(404);
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/testClock|advance-day|test\/sweep|TEST_CLOCK/);
+    expect(worker).not.toMatch(
+      /testClock|advance-day|test\/sweep|test\/grant|testGrant|TEST_CLOCK/,
+    );
   });
 });

@@ -332,17 +332,11 @@ export const LINK_ROUTES = [
     summary: "Claim a handle, so people can @mention you and find you at /u/<handle>.",
     tags: ["Links", "Social"],
     params: LinkKeyParams,
-    query: z
-      .object({
-        handle: HandleInput.optional().describe(
-          "3 to 20 letters, digits, or underscores, starting with a letter. Case doesn't matter.",
-        ),
-        name: HandleInput.optional().describe("The same as `handle`, kept for links already out."),
-      })
-      .refine((q) => q.handle !== undefined || q.name !== undefined, {
-        message: "Say which handle: handle=<your handle>.",
-        path: ["handle"],
-      }),
+    query: z.object({
+      handle: HandleInput.describe(
+        "3 to 20 letters, digits, or underscores, starting with a letter. Case doesn't matter.",
+      ),
+    }),
     responses: { 200: text("text/markdown", "Your handle") },
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "reactions",
@@ -682,20 +676,12 @@ export const LINK_ROUTES = [
       "Wave (or hug, kiss, high five, or comfort) at a resident, like waving back at one who waved.",
     tags: ["Links", "Together"],
     params: LinkKeyParams,
-    query: z
-      .object({
-        resident: ResidentParams.shape.id.optional().describe("The resident's id."),
-        to: ResidentParams.shape.id
-          .optional()
-          .describe("The same as `resident`, kept for links already out."),
-        kind: GestureKind.exclude(["gift"])
-          .optional()
-          .describe("wave (default), or another gesture kind except gift, which needs the API."),
-      })
-      .refine((q) => q.resident !== undefined || q.to !== undefined, {
-        message: "Say who: resident=<their id>.",
-        path: ["resident"],
-      }),
+    query: z.object({
+      resident: ResidentParams.shape.id.describe("The resident's id."),
+      kind: GestureKind.exclude(["gift"])
+        .optional()
+        .describe("wave (default), or another gesture kind except gift, which needs the API."),
+    }),
     responses: { 200: text("text/markdown", "Sent") },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found", "rate_limited"],
     rateLimit: "reactions",

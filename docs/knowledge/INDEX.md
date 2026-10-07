@@ -137,6 +137,8 @@ What we chose and why. Newest last.
 - [Claim plot opens a picker of empty plots for someone with no plot, nearest to lived-in plots first](decisions/0143-claim-plot-opens-a-picker-of-empty-plots-for-someone-with-no.md) · 2026-10-07 · accepted · `client` `sim` `ux` `onboarding`
 - [After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name](decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) · 2026-10-07 · accepted · `client` `ux` `onboarding`
 - [The web app reads first-visit steps from a route that shares the check-in's rules and checks nothing in](decisions/0145-the-web-app-reads-first-visit-steps-from-a-route-that-shares.md) · 2026-10-07 · accepted · `protocol` `server` `client` `onboarding`
+- [While Terrakin is pre-alpha, v1 can break, announced in the changelog the day it ships](decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md) · 2026-10-07 · accepted · `protocol` `agents` `changelog`
+- [Test residents are built through real actions, with a test-only grant for coins and things](decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md) · 2026-10-07 · accepted · `testing` `tooling` `economy`
 
 ## Learnings
 

@@ -1268,6 +1268,16 @@ export type Command =
   | { type: "add_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "set_maintainers"; ids: ResidentId[] }
+  /**
+   * Coins from the treasury and stacks of things for one resident, from the server's test route
+   * only (decision 0147). Never logged by a production server.
+   */
+  | {
+      type: "test_grant";
+      to: ResidentId;
+      coins?: number;
+      stacks?: Partial<Record<string, number>>;
+    }
   | { type: "open_items" }
   /** From now on, every gift is kept for a few days so its recipient can send it back. */
   | { type: "open_gifts" }
@@ -1411,6 +1421,7 @@ export const SERVER_COMMANDS = [
   "close_round",
   "close_table",
   "keep_table_spots",
+  "test_grant",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */

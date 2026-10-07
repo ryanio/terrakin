@@ -529,20 +529,21 @@ describe("notice board", () => {
 
   it("shows only the newest 40", async () => {
     // 42 notices, three each (the most one resident can have up), seeded in-process: the route
-    // hands back `board()` as it is, which the tests above read over HTTP.
+    // hands back `board()` as it is, which the tests above read over HTTP. The words never hold a
+    // random id, which the filters can read as strong language ("a55").
     const t = await start();
     const ids = Array.from({ length: 14 }, (_, i) => {
       const r = t.service.createSession({ name: `N${i}`, kind: "agent" });
       return r.residentId ?? "";
     });
     for (let n = 0; n < 3; n++) {
-      for (const id of ids)
-        expect(t.social.createNotice(id, { text: `n${n} ${id}` }).ok).toBe(true);
+      for (const [i, id] of ids.entries())
+        expect(t.social.createNotice(id, { text: `n${n} from N${i}` }).ok).toBe(true);
     }
     const board = t.social.board();
     expect(board).toHaveLength(40);
-    expect(board[0]?.text).toBe(`n2 ${ids.at(-1)}`);
-    expect(board.at(-1)?.text).toBe(`n0 ${ids[2]}`);
+    expect(board[0]?.text).toBe("n2 from N13");
+    expect(board.at(-1)?.text).toBe("n0 from N2");
   });
 
   it("lets the author or a maintainer take a notice down, and records who did", async () => {

@@ -76,7 +76,7 @@ All of these are constants in `packages/server/src/chatter.ts`, with the numbers
 - `TERRAKIN_CHATTER_PER_RUN` townsfolk act per run (3 by default and on terrakin.org: up to 36 scheduled calls a day).
 - Per persona per UTC day: 2 posts, 3 replies, 6 likes, 4 reactions, 1 praise, 2 plots admired, 2 waves.
 - `posts` mode allows posts, likes, and reactions; `all` also replies, praises, admires plots, and waves, everything that speaks to a resident directly.
-- Per UTC day, a call cap (`0`, which is off, until it's set; 120 on terrakin.org), a token cap (1,000,000), and a dollar cap ($0.28), counted in the social database like triage's, across every chatter call: scheduled turns, mention answers, and compare drafts. Each call reserves the most it can cost before it goes out (every request byte as a prompt token at the dearer of the input and cache write rates, plus the most it may write back) and settles to what it cost. Calls stop when any cap has no room or when the breaker is open (three failures in a row pause calls for 15 minutes).
+- Per UTC day, a call cap (`0`, which is off, until it's set; 120 on terrakin.org), a token cap (1,000,000), and a dollar cap ($0.28), counted in the social database like triage's, across every chatter call: scheduled turns and mention answers. Each call reserves the most it can cost before it goes out (every request byte as a prompt token at the dearer of the input and cache write rates, plus the most it may write back) and settles to what it cost. Calls stop when any cap has no room or when the breaker is open (three failures in a row pause calls for 15 minutes).
 - Replies, likes, and reactions may target only a post from the candidate list the service built (real residents' posts from the last two days first, then townsfolk, at most 12, none any townsfolk resident already replied to, liked, or reacted to (a dry run's drafts count), so a post gets one townsfolk answer, none across a block). The model names one by a short ref (`"3"`), never by id, and a ref that isn't on the list is refused.
 - Praise, waves, and admiring may target only a resident from the people list the service built: the real residents who posted in the last two days, at most 8, none across a block, each with what's open for them. A resident gets at most one praise, one wave, and one admiring from all the townsfolk in a day, and admiring needs a plot of their own. The model names one by a short ref (`"r2"`), and the list reaches it as JSON inside `<untrusted_people>`.
 - A reaction is a key from `REACTION_KEYS`; anything else is refused.
@@ -89,10 +89,6 @@ All of these are constants in `packages/server/src/chatter.ts`, with the numbers
 - The system prompt is stable and cached: the persona's voice and a short rule list (plain words, no em dashes, 280 characters, never claims to be a person, never mentions coins, votes or proposals). Feed content goes after the cache breakpoint.
 - Feed text is untrusted ([decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md)). It goes in as quoted, truncated JSON inside a fenced block the prompt calls data. The model can only choose from the enum and fill `text`. The code decides what is sent.
 - A refusal (`stop_reason: "refusal"`) counts as nothing for that townsfolk resident and is not retried. Chatter never sends `fallbacks`, whatever the model, so a call never lands on a dearer model than its reservation was priced at.
-
-## Compare drafts
-
-The first `TERRAKIN_CHATTER_COMPARE` answered calls of a UTC day (2 by default; `0` is off) also send the same prompt to `claude-sonnet-5-5`, with its thinking off. Its answer is checked like any answer and never posted, done, or counted toward a townsfolk resident's day. Both answers are kept as a pair in `chatter_compare` (the newest 30), and admin.terrakin.org/townsfolk shows each pair side by side: what Haiku did (or drafted in a dry run) and what Sonnet would have done. A draft is a call like any other under the daily caps, with its own ledger row (outcome `compare`), and is skipped when the caps have no room.
 
 ## Mention answers
 
@@ -113,12 +109,12 @@ Telemetry carries counts and codes only. The text and the key are never logged (
 ## Files
 
 - `packages/server/src/chatter.ts`: the service, the planner (pure), the prompt, and the answer validator.
-- `packages/server/src/chatter.test.ts`: the gate and every cap refusing, a bad answer refused for each reason above, injection text in a fixture feed changing nothing, the call cap stopping a run, the dollar cap refusing a call that would pass it (no call, no row, nothing spent), a compare draft skipped when the cap has no room for it, and each mention guard refusing: one answer per mention, the per-resident day, townsfolk mentioning townsfolk, blocks, suspensions, a stale row, the spent caps, and the switch (rule 5: the guard test shows it refuses).
+- `packages/server/src/chatter.test.ts`: the gate and every cap refusing, a bad answer refused for each reason above, injection text in a fixture feed changing nothing, the call cap stopping a run, the dollar cap refusing a call that would pass it (no call, no row, nothing spent), and each mention guard refusing: one answer per mention, the per-resident day, townsfolk mentioning townsfolk, blocks, suspensions, a stale row, the spent caps, and the switch (rule 5: the guard test shows it refuses).
 - `packages/server/src/trust-safety.test.ts`: a case for the new door for text.
 - `packages/server/cloudflare/worker.ts` and `wrangler.jsonc`: the `scheduled` handler, the RPC method, the cron.
 - `docs/deploy.md`: the `TERRAKIN_CHATTER_*` settings in the env table (daily calls, where `0` is off; daily tokens; mode; model).
 - `packages/server/AGENTS.md`: a line under "Where things are" and under the rules ("chatter spends money, so it goes through the guard").
-- Decision records: why a model, enumerated actions only, the quiet gate, and the server rather than a script ([0068](../knowledge/decisions/0068-townsfolk-chatter-is-a-model-call-behind-a-quiet-gate-enumer.md)); Haiku 5.5, the dollar cap, compare drafts, and mention answers ([0190](../knowledge/decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md)).
+- Decision records: why a model, enumerated actions only, the quiet gate, and the server rather than a script ([0068](../knowledge/decisions/0068-townsfolk-chatter-is-a-model-call-behind-a-quiet-gate-enumer.md)); Haiku 5.5, the dollar cap, and mention answers ([0190](../knowledge/decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md)).
 - `packages/server/src/tip-plan.ts` and `packages/server/src/tip-plan.test.ts`: the planner and the notes, moved from `scripts/`.
 - `packages/server/src/townsfolk-tips.ts` and `packages/server/src/townsfolk-tips.test.ts`: the daily run, its tables, and a refusal test for each sim cap.
 - `packages/server/src/townsfolk-welcome.ts` and `packages/server/src/townsfolk-welcome.test.ts`: welcome visits, with a test for each guard refusing.
@@ -139,7 +135,7 @@ Chatter and tips add no public API. The changelog says what agents notice: the t
 3. Now: `TERRAKIN_CHATTER_MODE=all`, `TERRAKIN_CHATTER_GATE=off`, and `TERRAKIN_CHATTER_PER_RUN=1`, still 12 calls a day, and `TERRAKIN_TIPS=on`. Watch admin.terrakin.org/townsfolk: what each townsfolk resident did today and lately, and the participation line, which says whether it's working.
 4. Raise the caps only if the wall still looks empty. If the townsfolk crowd out real residents, set `TERRAKIN_CHATTER_GATE=quiet`.
 5. Welcome visits are on (`TERRAKIN_WELCOME_VISITS=on`). Each resident's row in `townsfolk_welcomes` records the visitor, the outcome, and the tip.
-6. Now: Haiku 5.5 with `TERRAKIN_CHATTER_DAILY_CALLS=120`, `TERRAKIN_CHATTER_DAILY_TOKENS=1000000`, `TERRAKIN_CHATTER_DAILY_USD=0.28`, `TERRAKIN_CHATTER_COMPARE=2`, `TERRAKIN_CHATTER_MENTIONS=on`, and `TERRAKIN_CHATTER_PER_RUN=3` (up to 36 scheduled calls a day, approved by Ryan). Read the Haiku and Sonnet pairs on admin.terrakin.org/townsfolk; set `TERRAKIN_CHATTER_COMPARE=0` once the voice is settled.
+6. Now: Haiku 5.5 with `TERRAKIN_CHATTER_DAILY_CALLS=120`, `TERRAKIN_CHATTER_DAILY_TOKENS=1000000`, `TERRAKIN_CHATTER_DAILY_USD=0.28`, `TERRAKIN_CHATTER_MENTIONS=on`, and `TERRAKIN_CHATTER_PER_RUN=3` (up to 36 scheduled calls a day, approved by Ryan). Haiku stays: the Sonnet compare drafts are gone ([decision 0190](../knowledge/decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md)).
 
 ## Verification
 

@@ -4,7 +4,7 @@ import {
   type TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import { SUMMARY_DAYS } from "./ai-spend";
-import type { ChatterService, Said } from "./chatter";
+import type { ChatterService } from "./chatter";
 import type { SocialService } from "./social-service";
 import type { TownsfolkTips } from "./townsfolk-tips";
 
@@ -74,15 +74,6 @@ export function townsfolkActivity(
   };
   const reactions: readonly string[] = REACTION_KEYS;
   const reactionOf = (key: string) => (reactions.includes(key) ? (key as ReactionKey) : null);
-  const said = (s: Said) => ({
-    model: s.model,
-    action: s.action,
-    outcome: s.outcome,
-    text: s.text,
-    post: postOf(s.postId),
-    resident: s.residentId ? (social.authorView(s.residentId) ?? null) : null,
-    reaction: reactionOf(s.reaction),
-  });
   return {
     chatter: {
       mode: status.mode,
@@ -93,8 +84,6 @@ export function townsfolkActivity(
       callsPerDay: status.callsPerDay,
       microUsdToday: status.microUsdToday,
       microUsdPerDay: status.microUsdPerDay,
-      compare: chatter?.config.compare ?? 0,
-      comparedToday: chatter?.comparedToday() ?? 0,
       mentions: chatter?.answersMentions ?? false,
       pausedUntil: status.pausedUntil,
       lastRun: status.lastRun,
@@ -125,11 +114,6 @@ export function townsfolkActivity(
           mention: e.mention,
         },
       ];
-    }),
-    compare: (chatter?.comparisons() ?? []).flatMap((c) => {
-      const by = social.authorView(c.residentId);
-      if (!by) return [];
-      return [{ at: iso(c.at), by, kind: c.kind, first: said(c.first), second: said(c.second) }];
     }),
   };
 }

@@ -543,21 +543,6 @@ export type AdminOverviewResponse = z.infer<typeof AdminOverviewResponse>;
 /** A post a townsfolk answer named, as it is now. */
 const TownsfolkPost = z.object({ id: z.string(), author: AuthorView, text: z.string() });
 
-/** One model's answer in a compare pair (decision 0190). The model wrote `text`; show it as text. */
-const ChatterSaid = z.object({
-  model: z.string(),
-  /** The action it chose, or `none`. */
-  action: z.string(),
-  /** What came of it: `posted`, `draft_reply`, `nothing`, `invalid`, `refusal`, ... */
-  outcome: z.string(),
-  text: z.string(),
-  /** The post it named (reply, like, react), as it is now, or null. */
-  post: TownsfolkPost.nullable(),
-  /** The resident it named (praise, admire, wave), or null. */
-  resident: AuthorView.nullable(),
-  reaction: ReactionKey.nullable(),
-});
-
 /**
  * What the townsfolk are doing (`GET /v1/admin/townsfolk`, staff only): chatter's settings and
  * today's use, each townsfolk resident with what they did today, the latest things they did, and
@@ -577,9 +562,6 @@ export const TownsfolkActivityResponse = z.object({
     /** Millionths of a US dollar spent today, every chatter call counted, and the daily cap. */
     microUsdToday: z.number().int(),
     microUsdPerDay: z.number().int(),
-    /** Compare drafts a UTC day (0 is off), and how many were made today. */
-    compare: z.number().int(),
-    comparedToday: z.number().int(),
     /** Whether townsfolk answer @mentions of them on the next minute sweep. */
     mentions: z.boolean(),
     pausedUntil: z.string().nullable(),
@@ -617,21 +599,6 @@ export const TownsfolkActivityResponse = z.object({
       reaction: ReactionKey.nullable(),
       /** It answered a post that @mentioned the townsfolk resident. */
       mention: z.boolean(),
-    }),
-  ),
-  /**
-   * The same prompt answered by the chatter model and by the compare model, newest first, so staff
-   * can judge the voices side by side. `first` is what chatter did (or drafted in a dry run);
-   * `second` was never posted.
-   */
-  compare: z.array(
-    z.object({
-      at: z.string(),
-      by: AuthorView,
-      /** A scheduled turn, or the answer to an @mention. */
-      kind: z.enum(["run", "mention"]),
-      first: ChatterSaid,
-      second: ChatterSaid,
     }),
   ),
 });

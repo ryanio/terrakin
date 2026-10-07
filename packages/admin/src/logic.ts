@@ -825,30 +825,6 @@ export function modelName(model: string): string {
   return `${name} ${m[2]}${m[3] ? `.${m[3]}` : ""}`;
 }
 
-type Said = TownsfolkActivityResponse["compare"][number]["first"];
-
-/** Outcomes that mean the answer never came to anything, in words. */
-const SAID_OUTCOMES: Record<string, string> = {
-  nothing: "chose to do nothing",
-  invalid: "answered outside the rules",
-  filtered: "wrote words the filters turned away",
-  refusal: "declined",
-  error: "didn't answer (the call failed)",
-};
-
-/**
- * What one model's side of a compare pair came to: what it did or would do, naming who it touched
- * ("replied to Ryan"), or why it came to nothing. Turned away, it names the action it chose.
- */
-export function saidLine(s: Pick<Said, "action" | "outcome" | "post" | "resident" | "reaction">) {
-  const action = (TOWNSFOLK_ACTIONS as readonly string[]).includes(s.action)
-    ? (s.action as TownsfolkAction)
-    : undefined;
-  const why = SAID_OUTCOMES[s.outcome];
-  if (why) return action && s.outcome !== "nothing" ? `${why} (chose ${action})` : why;
-  return action ? activityLine({ ...s, action }) : s.outcome;
-}
-
 /** How long ago, in words that read after "Last run" or "Last active": "42m ago", "Oct 5". */
 export function sinceWords(iso: string, nowMs: number): string {
   const r = relativeTime(iso, nowMs);

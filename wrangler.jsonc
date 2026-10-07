@@ -35,15 +35,14 @@
     // calls, tokens, and dollars a UTC day across every chatter call (the dollar cap is what 12 Sonnet
     // calls could cost at most); `all` posts, replies, likes, reacts, praises, admires plots, and waves
     // (`dry` only drafts); gate `off` runs whether or not real residents are busy; three townsfolk
-    // residents act each run (36 scheduled calls a day); 2 Sonnet compare drafts a day for the staff
-    // page, never posted; and townsfolk answer @mentions on the next minute sweep.
+    // residents act each run (36 scheduled calls a day); and townsfolk answer @mentions on the next
+    // minute sweep.
     "TERRAKIN_CHATTER_DAILY_CALLS": "120",
     "TERRAKIN_CHATTER_DAILY_TOKENS": "1000000",
     "TERRAKIN_CHATTER_DAILY_USD": "0.28",
     "TERRAKIN_CHATTER_MODE": "all",
     "TERRAKIN_CHATTER_GATE": "off",
     "TERRAKIN_CHATTER_PER_RUN": "3",
-    "TERRAKIN_CHATTER_COMPARE": "2",
     "TERRAKIN_CHATTER_MENTIONS": "on",
     // The townsfolk's daily coin tips (packages/server/src/townsfolk-tips.ts): `dry` checks each gift with
     // the sim and gives nothing; `on` gives.

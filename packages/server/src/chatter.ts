@@ -71,27 +71,19 @@ export interface ChatterConfig {
   /** Input plus output tokens per UTC day, estimated before each call and settled after. */
   tokensPerDay: number;
   /**
-   * Millionths of a US dollar per UTC day, every call counted (compare drafts and mention answers
-   * too). Each call reserves the most it can cost (`worstCostMicroUsd`) and settles to its cost.
+   * Millionths of a US dollar per UTC day, every call counted (mention answers too). Each call
+   * reserves the most it can cost (`worstCostMicroUsd`) and settles to its cost.
    */
   microUsdPerDay: number;
   mode: ChatterMode;
   gate: ChatterGate;
   /** Townsfolk residents who act in one run, at least 1. */
   perRun: number;
-  /**
-   * Calls a UTC day that also draft the same prompt on `COMPARE_MODEL`, never posted, so staff can
-   * set the two voices side by side. 0 is off.
-   */
-  compare: number;
   /** Whether a townsfolk resident answers an @mention of it on the next minute sweep. */
   mentions: boolean;
   /** Consecutive failures that open the breaker, and how long it stays open. */
   breaker: { failures: number; pauseMs: number };
 }
-
-/** The model compare drafts ask, beside the chatter model. */
-export const COMPARE_MODEL = MODELS.sonnet;
 
 export const DEFAULT_CHATTER: Omit<ChatterConfig, "apiKey"> = {
   model: MODELS.haiku,
@@ -102,7 +94,6 @@ export const DEFAULT_CHATTER: Omit<ChatterConfig, "apiKey"> = {
   mode: "dry",
   gate: "quiet",
   perRun: PER_RUN,
-  compare: 2,
   mentions: false,
   breaker: { failures: 3, pauseMs: 15 * 60_000 },
 };
@@ -130,7 +121,6 @@ export function chatterConfig(env: {
   TERRAKIN_CHATTER_MODE?: string | undefined;
   TERRAKIN_CHATTER_GATE?: string | undefined;
   TERRAKIN_CHATTER_PER_RUN?: string | undefined;
-  TERRAKIN_CHATTER_COMPARE?: string | undefined;
   TERRAKIN_CHATTER_MENTIONS?: string | undefined;
 }): ChatterConfig {
   const mode = env.TERRAKIN_CHATTER_MODE?.trim();
@@ -150,7 +140,6 @@ export function chatterConfig(env: {
       ? (gate as ChatterGate)
       : DEFAULT_CHATTER.gate,
     perRun: Math.max(1, whole(env.TERRAKIN_CHATTER_PER_RUN, DEFAULT_CHATTER.perRun)),
-    compare: whole(env.TERRAKIN_CHATTER_COMPARE, DEFAULT_CHATTER.compare),
     mentions: mentions === "on" ? true : mentions === "off" ? false : DEFAULT_CHATTER.mentions,
   };
 }
@@ -234,9 +223,7 @@ export type ChatterOutcome =
   | "invalid"
   /** The model declined (`stop_reason: "refusal"`). Counts as nothing; never retried. */
   | "refusal"
-  | "error"
-  /** A compare draft on `COMPARE_MODEL`, kept beside the chatter model's answer, never posted. */
-  | "compare";
+  | "error";
 
 /** Why a run did nothing. */
 type ChatterSkip = "off" | "paused" | "running" | "busy" | "rested" | "nobody";
@@ -673,8 +660,7 @@ export function checkAnswer(
 // ---------- the service ----------
 
 /** An answer with nothing in it: a refusal, or a call that failed. */
-const blankSaid = (model: string, outcome: ChatterOutcome): Said => ({
-  model,
+const blankSaid = (outcome: ChatterOutcome): Said => ({
   action: "none",
   outcome,
   text: "",
@@ -687,18 +673,17 @@ const blankSaid = (model: string, outcome: ChatterOutcome): Said => ({
  * What a checked answer said, as a draft: `draft_<action>` or `nothing` when it passed, else why it
  * was turned away with the action it chose and its words (cleaned, as a dry run's draft keeps them).
  */
-function saidOf(model: string, checked: CheckedAnswer, raw: unknown): Said {
+function saidOf(checked: CheckedAnswer, raw: unknown): Said {
   if (!checked.ok) {
     const words = (raw as { text?: unknown } | undefined)?.text;
     return {
-      ...blankSaid(model, checked.code === "filtered" ? "filtered" : "invalid"),
+      ...blankSaid(checked.code === "filtered" ? "filtered" : "invalid"),
       action: checked.code === "shape" ? "none" : (Answer.safeParse(raw).data?.action ?? "none"),
       text: typeof words === "string" ? cleanMultiline(words).slice(0, 1_000) : "",
     };
   }
-  if (checked.action === "nothing") return blankSaid(model, "nothing");
+  if (checked.action === "nothing") return blankSaid("nothing");
   return {
-    model,
     action: checked.action,
     outcome: `draft_${checked.action}`,
     text: "text" in checked ? checked.text : "",
@@ -762,9 +747,8 @@ export interface ChatterOptions {
   onQueued?: () => void;
 }
 
-/** What one model answered: the action it chose, what came of it, its words, and what it named. */
-export interface Said {
-  model: string;
+/** What the model answered: the action it chose, what came of it, its words, and what it named. */
+interface Said {
   /** The action it chose, or `none`. */
   action: string;
   outcome: ChatterOutcome;
@@ -772,19 +756,6 @@ export interface Said {
   postId: string;
   residentId: string;
   reaction: string;
-}
-
-/** One prompt answered by the chatter model and by `COMPARE_MODEL`, for staff to set side by side. */
-export interface ChatterComparison {
-  at: number;
-  /** The townsfolk resident. */
-  residentId: string;
-  /** A scheduled run's turn, or the answer to an @mention. */
-  kind: "run" | "mention";
-  /** The chatter model's answer (posted, or drafted in a dry run). */
-  first: Said;
-  /** The compare model's, never posted. */
-  second: Said;
 }
 
 /** What one sweep of mention answers came to. Counts and codes only. */
@@ -820,9 +791,6 @@ interface Reservation {
   tokens: number;
   microUsd: number;
 }
-
-/** How many compare pairs are kept, newest first. */
-const COMPARISONS_KEPT = 30;
 
 /** A real resident counts as a newcomer for this many days after joining. */
 const NEWCOMER_DAYS = 3;
@@ -875,6 +843,8 @@ export class ChatterService {
     this.onQueued = options.onQueued;
     this.ledger = new AiSpend(this.sql, this.now);
     this.filters = new Moderation({ now: this.now });
+    // Retired with the Sonnet compare drafts (decision 0190). Dropped so the words it kept go too.
+    this.sql.exec("DROP TABLE IF EXISTS chatter_compare");
     for (const statement of [
       `CREATE TABLE IF NOT EXISTS chatter_usage (
         day INTEGER PRIMARY KEY, calls INTEGER NOT NULL, tokens INTEGER NOT NULL
@@ -905,12 +875,6 @@ export class ChatterService {
       // The breaker (failures in a row, and when a pause ends), so a restart doesn't reset it.
       `CREATE TABLE IF NOT EXISTS chatter_state (
         key TEXT PRIMARY KEY, value INTEGER NOT NULL
-      )`,
-      // Compare pairs: one prompt answered by the chatter model and by COMPARE_MODEL, as JSON
-      // (codes, the model's words, and ids). The newest COMPARISONS_KEPT rows.
-      `CREATE TABLE IF NOT EXISTS chatter_compare (
-        n INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, day INTEGER NOT NULL,
-        resident_id TEXT NOT NULL, kind TEXT NOT NULL, first TEXT NOT NULL, second TEXT NOT NULL
       )`,
       // Mentions of townsfolk to answer, one row per post, ever. `done_at` is set before the call.
       `CREATE TABLE IF NOT EXISTS chatter_mentions (
@@ -1036,22 +1000,6 @@ export class ChatterService {
       targetId: String(r.target_id),
       reaction: String(r.reaction),
       mention: Number(r.mention) === 1,
-    }));
-  }
-
-  /** The newest compare pairs, for staff. */
-  comparisons(limit = COMPARISONS_KEPT): ChatterComparison[] {
-    return [
-      ...this.sql.exec(
-        "SELECT at, resident_id, kind, first, second FROM chatter_compare ORDER BY n DESC LIMIT ?",
-        limit,
-      ),
-    ].map((r) => ({
-      at: Number(r.at),
-      residentId: String(r.resident_id),
-      kind: r.kind === "mention" ? "mention" : "run",
-      first: JSON.parse(String(r.first)) as Said,
-      second: JSON.parse(String(r.second)) as Said,
     }));
   }
 
@@ -1321,8 +1269,8 @@ export class ChatterService {
   }
 
   /**
-   * One model call for one townsfolk resident on what the service offered it, and what came of it,
-   * then a compare draft when one is due. `capped` when a guard refused before fetching.
+   * One model call for one townsfolk resident on what the service offered it, and what came of it.
+   * `capped` when a guard refused before fetching.
    */
   private async call(persona: Persona, turn: Turn): Promise<ChatterOutcome | "capped"> {
     const { apiKey, model } = this.config;
@@ -1339,9 +1287,7 @@ export class ChatterService {
     if (!reserved) return "capped";
     const message = await this.ask(apiKey, request);
     if (!message) return this.failed(persona, model, NO_TOKENS);
-    const said = this.answer(persona, turn, message, reserved);
-    await this.compare(persona, turn, prompt, said);
-    return said.outcome;
+    return this.answer(persona, turn, message, reserved).outcome;
   }
 
   /**
@@ -1406,15 +1352,13 @@ export class ChatterService {
   }
 
   /**
-   * Read a reply: a refusal, or what `checkAnswer` makes of its JSON. `strikes` checks the words as
-   * the townsfolk resident, so a refusal counts toward its cool-down in chatter's own filters; a
-   * compare draft is checked as nobody.
+   * Read a reply: a refusal, or what `checkAnswer` makes of its JSON. The words are checked as the
+   * townsfolk resident, so a refusal counts toward its cool-down in chatter's own filters.
    */
   private read(
     message: Message,
     persona: Persona,
     turn: Turn,
-    strikes: boolean,
   ): { refusal: true } | { refusal: false; raw: unknown; checked: CheckedAnswer } {
     if (message.stop_reason === "refusal") return { refusal: true };
     const text = (message.content ?? [])
@@ -1433,11 +1377,7 @@ export class ChatterService {
       people: turn.people,
       recent: persona.facts.recent,
       review: (surface, words) => {
-        const verdict = this.filters.review(
-          surface,
-          words,
-          strikes ? { resident: persona.id } : {},
-        );
+        const verdict = this.filters.review(surface, words, { resident: persona.id });
         return verdict.ok && this.filters.contentWarning(words) === undefined;
       },
     });
@@ -1445,7 +1385,7 @@ export class ChatterService {
   }
 
   /**
-   * The primary model's reply, carried out: settle the reservation, check the answer, and post,
+   * The model's reply, carried out: settle the reservation, check the answer, and post,
    * reply, react, praise, admire, or wave through the services (in a dry run, keep a draft). Writes
    * the ledger row and answers with what was said and what came of it.
    */
@@ -1466,13 +1406,13 @@ export class ChatterService {
       return said;
     };
 
-    const read = this.read(message, persona, turn, true);
+    const read = this.read(message, persona, turn);
     if (read.refusal) {
       this.succeeded();
-      return record(blankSaid(answeredBy, "refusal"));
+      return record(blankSaid("refusal"));
     }
     const { raw, checked } = read;
-    const said = saidOf(answeredBy, checked, raw);
+    const said = saidOf(checked, raw);
     if (!checked.ok) {
       console.info(`Chatter: answer turned away (${checked.code})`);
       if (checked.code === "shape") {
@@ -1524,74 +1464,6 @@ export class ChatterService {
       );
     }
     return record({ ...said, outcome: DONE_OUTCOME[checked.action] });
-  }
-
-  /** Compare drafts made today (UTC), each counted once it was tried. */
-  comparedToday(): number {
-    const row = [
-      ...this.sql.exec("SELECT COUNT(*) AS c FROM chatter_compare WHERE day = ?", this.day()),
-    ][0];
-    return Number(row?.c ?? 0);
-  }
-
-  /**
-   * The same prompt on `COMPARE_MODEL`, as a draft that is never posted, for the first
-   * `config.compare` answered calls of a UTC day. It goes through the same daily caps as any call
-   * (skipped, spending nothing, when they have no room), writes a ledger row, and leaves the
-   * breaker alone.
-   */
-  private async compare(persona: Persona, turn: Turn, prompt: string, first: Said) {
-    const { apiKey, compare, model } = this.config;
-    if (!apiKey || compare <= 0 || first.outcome === "error") return;
-    if (model === COMPARE_MODEL || model.startsWith(`${COMPARE_MODEL}-`)) return;
-    if (this.comparedToday() >= compare) return;
-    const request = this.request(prompt, COMPARE_MODEL);
-    const reserved = this.reserve(COMPARE_MODEL, request);
-    if (!reserved) return;
-    const day = reserved.day;
-    // Counted before the call, so a second call racing this one can't make an extra pair.
-    this.sql.exec(
-      `INSERT INTO chatter_compare (at, day, resident_id, kind, first, second)
-        VALUES (?, ?, ?, ?, ?, ?)`,
-      this.now(),
-      day,
-      persona.id,
-      turn.kind,
-      JSON.stringify(first),
-      JSON.stringify(blankSaid(COMPARE_MODEL, "error")),
-    );
-    const n = Number([...this.sql.exec("SELECT MAX(n) AS n FROM chatter_compare")][0]?.n ?? 0);
-    const message = await this.ask(apiKey, request);
-    let second: Said;
-    if (!message) {
-      this.ledger.record({
-        purpose: "chatter",
-        trigger: persona.key,
-        model: COMPARE_MODEL,
-        tokens: NO_TOKENS,
-        outcome: "error",
-      });
-      second = blankSaid(COMPARE_MODEL, "error");
-    } else {
-      const tokens = tokensOf(message.usage);
-      const by = typeof message.model === "string" ? message.model : COMPARE_MODEL;
-      this.settle(reserved, by, tokens);
-      const read = this.read(message, persona, turn, false);
-      second = read.refusal ? blankSaid(by, "refusal") : saidOf(by, read.checked, read.raw);
-      this.ledger.record({
-        purpose: "chatter",
-        trigger: persona.key,
-        model: by,
-        tokens,
-        outcome: "compare",
-        action: second.action,
-      });
-    }
-    this.sql.exec("UPDATE chatter_compare SET second = ? WHERE n = ?", JSON.stringify(second), n);
-    this.sql.exec(
-      "DELETE FROM chatter_compare WHERE n <= (SELECT MAX(n) FROM chatter_compare) - ?",
-      COMPARISONS_KEPT,
-    );
   }
 
   // ---------- answering @mentions (decision 0190) ----------

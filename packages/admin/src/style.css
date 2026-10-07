@@ -806,43 +806,6 @@ body {
   font-size: var(--text-sm);
 }
 
-.townsfolk-pair-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-sm);
-}
-
-.townsfolk-pair-head .townsfolk-time {
-  margin-left: auto;
-}
-
-.townsfolk-pair {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: var(--space-sm);
-}
-
-.townsfolk-said {
-  padding: var(--space-sm);
-  border-radius: var(--r-md);
-  background: var(--paper-2);
-}
-
-.townsfolk-said-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2xs) var(--space-sm);
-  margin: 0;
-}
-
-.townsfolk-said-label {
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-}
-
 /* ---------- newcomers ---------- */
 
 .newcomers-how {

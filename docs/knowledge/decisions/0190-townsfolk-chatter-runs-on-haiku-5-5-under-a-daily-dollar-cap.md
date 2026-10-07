@@ -48,3 +48,4 @@ Mention answers (`TERRAKIN_CHATTER_MENTIONS`, `off` by default, `on` for terraki
 - Townsfolk can be pulled into a conversation by anyone who @mentions them, three times a day per resident. A spam wave of mentions from many residents ends at the day's calls and dollars.
 - The compare pairs answer whether Haiku's townsfolk sound right. If they do, `TERRAKIN_CHATTER_COMPARE=0` stops the drafts; if they don't, `TERRAKIN_CHATTER_MODEL` goes back to Sonnet with no code change, under the same $0.28.
 - Code: `packages/server/src/chatter.ts`, `packages/server/src/ai-spend.ts` (`worstCostMicroUsd`), `packages/server/src/townsfolk-status.ts`, `packages/admin/src/townsfolk-view.ts`.
+- 2026-10-07: Haiku stays. The Sonnet compare drafts are removed (`TERRAKIN_CHATTER_COMPARE`, the staff page's side by side, and the `chatter_compare` table, which the server now drops); the caps and mention answers above are unchanged.

@@ -1,4 +1,4 @@
-import { type PostView, TownsfolkActivityResponse } from "@terrakin/protocol";
+import type { PostView } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { AiSpend, worstCostMicroUsd } from "./ai-spend";
@@ -9,7 +9,6 @@ import {
   CHATTER_LIMITS,
   type ChatterConfig,
   ChatterService,
-  COMPARE_MODEL,
   candidatesFor,
   chatterConfig,
   chatterPrompt,
@@ -31,7 +30,6 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { townsfolkActivity } from "./townsfolk-status";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -135,7 +133,6 @@ function town(over: Partial<ChatterConfig> = {}, script: (Answer | number | "ref
     apiKey: "test-key-not-real",
     callsPerDay: 24,
     mode: "posts",
-    compare: 0,
     ...over,
   };
   const make = () =>
@@ -218,7 +215,7 @@ describe("chatter settings", () => {
     expect(off.callsPerDay).toBe(0);
     expect(off.mode).toBe("dry");
     expect(off.model).toBe("claude-haiku-5-5");
-    expect(off).toMatchObject({ microUsdPerDay: 280_000, compare: 2, mentions: false });
+    expect(off).toMatchObject({ microUsdPerDay: 280_000, mentions: false });
     const on = chatterConfig({
       ANTHROPIC_API_KEY: " k ",
       TERRAKIN_CHATTER_DAILY_CALLS: "12",
@@ -226,7 +223,6 @@ describe("chatter settings", () => {
       TERRAKIN_CHATTER_MODE: "all",
       TERRAKIN_CHATTER_MODEL: "claude-haiku-4-5",
       TERRAKIN_CHATTER_DAILY_USD: "0.05",
-      TERRAKIN_CHATTER_COMPARE: "0",
       TERRAKIN_CHATTER_MENTIONS: "on",
     });
     expect(on).toMatchObject({
@@ -236,7 +232,6 @@ describe("chatter settings", () => {
       microUsdPerDay: 50_000,
       mode: "all",
       model: "claude-haiku-4-5",
-      compare: 0,
       mentions: true,
     });
     // Anything unexpected falls back to the safe default.
@@ -245,7 +240,6 @@ describe("chatter settings", () => {
         TERRAKIN_CHATTER_MODE: "live",
         TERRAKIN_CHATTER_DAILY_CALLS: "-1",
         TERRAKIN_CHATTER_DAILY_USD: "lots",
-        TERRAKIN_CHATTER_COMPARE: "-2",
         TERRAKIN_CHATTER_MENTIONS: "yes",
       }),
     ).toMatchObject({
@@ -253,7 +247,6 @@ describe("chatter settings", () => {
       callsPerDay: 0,
       apiKey: undefined,
       microUsdPerDay: 280_000,
-      compare: 2,
       mentions: false,
     });
   });
@@ -928,7 +921,6 @@ describe("the staff overview", () => {
     });
     const api = fakeAnthropic([{ action: "post", text: "Soup's on. What should tomorrow's be?" }]);
     const chatter = new ChatterService({
-      // Compare drafts are on by default, but the day's one call leaves none for them.
       config: { ...DEFAULT_CHATTER, apiKey: "test-key-not-real", callsPerDay: 1, mode: "posts" },
       social,
       townsfolk,
@@ -1089,91 +1081,6 @@ describe("the dollar cap", () => {
       tokens: 9000,
       microUsd: 3 * (1_000 * 2 + 100 * 10 + 2_000 * 2.5),
     });
-  });
-});
-
-describe("compare drafts", () => {
-  const note = { action: "post", text: "Planted a row of lettuce by the gate this morning." };
-  const sonnetNote = {
-    action: "post",
-    text: "The lettuce came up overnight. Who else is growing greens?",
-  };
-
-  it("drafts the same prompt on Sonnet 5.5 beside Haiku's answer, posts only Haiku's, and keeps the pair", async () => {
-    const t = town({ compare: 1, perRun: 1 }, [note, sonnetNote, { action: "nothing" }]);
-    expect((await t.chatter.run()).outcomes).toEqual(["posted"]);
-    expect(t.api.calls).toHaveLength(2);
-    const [haiku, sonnet] = t.api.calls;
-    expect(sonnet?.body).toMatchObject({
-      model: COMPARE_MODEL,
-      thinking: { type: "between_tools" },
-      output_config: { effort: "low" },
-    });
-    // A draft that's never posted asks for no fallback, so its reservation is the most it costs.
-    expect(sonnet?.body).not.toHaveProperty("fallbacks");
-    expect(sonnet?.headers).not.toHaveProperty("anthropic-beta");
-    expect(sonnet?.body.messages).toEqual(haiku?.body.messages);
-    expect(t.social.feed({ limit: 10 }).posts.map((p) => p.text)).toEqual([note.text]);
-
-    const [pair] = t.chatter.comparisons();
-    expect(pair).toMatchObject({
-      kind: "run",
-      first: { model: "claude-haiku-5-5", action: "post", outcome: "posted", text: note.text },
-      second: {
-        model: COMPARE_MODEL,
-        action: "post",
-        outcome: "draft_post",
-        text: sonnetNote.text,
-      },
-    });
-    expect(t.ledger().map((r) => [r.model, r.outcome, r.action])).toEqual([
-      ["claude-haiku-5-5", "posted", "post"],
-      [COMPARE_MODEL, "compare", "post"],
-    ]);
-    // Both count against the day's calls and dollars.
-    expect(t.chatter.usage().calls).toBe(2);
-    expect(t.chatter.usage().microUsd).toBe(
-      1_000 * 0.1 + 60 * 0.5 + 800 * 0.01 + (1_000 * 2 + 60 * 10 + 800 * 0.2),
-    );
-
-    // One pair a day here, so the next run makes one call.
-    t.advance(4 * HOUR);
-    await t.chatter.run();
-    expect(t.api.calls).toHaveLength(3);
-    expect(t.chatter.comparedToday()).toBe(1);
-
-    // The staff page shows the pair, in the route's shape.
-    const page = TownsfolkActivityResponse.parse(townsfolkActivity(t.social, t.chatter, undefined));
-    expect(page.compare).toHaveLength(1);
-    expect(page.compare[0]).toMatchObject({
-      by: { name: expect.stringMatching(/Juniper|Bram/) },
-      first: { text: note.text, outcome: "posted" },
-      second: { text: sonnetNote.text, outcome: "draft_post", post: null },
-    });
-    expect(page.chatter).toMatchObject({ compare: 1, comparedToday: 1, mentions: false });
-  });
-
-  it("skips the draft, spending nothing, when the dollar cap has no room for it", async () => {
-    const probe = town({}, [{ action: "nothing" }]);
-    await probe.chatter.run();
-    const body = probe.api.calls[0]?.body ?? {};
-    const bytes = new TextEncoder().encode(JSON.stringify(body)).length;
-    // Room for Haiku's reservation but nowhere near Sonnet's.
-    const cap = worstCostMicroUsd("claude-haiku-5-5", bytes, 520) + 1_000;
-    const t = town({ compare: 2, perRun: 1, microUsdPerDay: cap }, [{ action: "nothing" }]);
-    expect((await t.chatter.run()).outcomes).toEqual(["nothing"]);
-    expect(t.api.calls.map((c) => c.body.model)).toEqual(["claude-haiku-5-5"]);
-    expect(t.chatter.comparisons()).toEqual([]);
-    expect(t.ledger()).toHaveLength(1);
-  });
-
-  it("is off at 0, and never compares Sonnet with itself", async () => {
-    for (const over of [{ compare: 0 }, { compare: 2, model: "claude-sonnet-5-5" }]) {
-      const t = town({ ...over, perRun: 1 }, [{ action: "nothing" }]);
-      await t.chatter.run();
-      expect(t.api.calls).toHaveLength(1);
-      expect(t.chatter.comparisons()).toEqual([]);
-    }
   });
 });
 

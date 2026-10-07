@@ -109,8 +109,6 @@ interface Env {
   TERRAKIN_CHATTER_MODE?: string;
   TERRAKIN_CHATTER_GATE?: string;
   TERRAKIN_CHATTER_PER_RUN?: string;
-  /** Sonnet compare drafts a UTC day, never posted. `0` is off; 2 by default. */
-  TERRAKIN_CHATTER_COMPARE?: string;
   /** `on` has townsfolk answer @mentions on the next minute sweep; `off` (the default) doesn't. */
   TERRAKIN_CHATTER_MENTIONS?: string;
   /** The townsfolk's daily coin tips: `off` (the default), `dry`, or `on`. */

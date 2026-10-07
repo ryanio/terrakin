@@ -27,7 +27,6 @@ import {
   recordLine,
   rekeyMessage,
   ruleLine,
-  saidLine,
   sameNameLine,
   screenFor,
   screensFor,
@@ -623,19 +622,11 @@ describe("the townsfolk page", () => {
     expect(activityLine({ ...entry, action: "wave", resident: ryan })).toBe("waved to Ryan");
   });
 
-  it("names models as people say them, and what each side of a compare pair came to", () => {
+  it("names models as people say them, and today's spend against the cap", () => {
     expect(modelName("claude-haiku-5-5")).toBe("Haiku 5.5");
     expect(modelName("claude-sonnet-5-5")).toBe("Sonnet 5.5");
     expect(modelName("claude-opus-5")).toBe("Opus 5");
     expect(modelName("something-else")).toBe("something-else");
-    const said = { ...entry, action: "reply", outcome: "posted" };
-    expect(saidLine({ ...said, post })).toBe("replied to Ryan");
-    expect(saidLine({ ...said, outcome: "draft_reply", post })).toBe("replied to Ryan");
-    expect(saidLine({ ...said, action: "none", outcome: "nothing" })).toBe("chose to do nothing");
-    expect(saidLine({ ...said, outcome: "invalid" })).toBe(
-      "answered outside the rules (chose reply)",
-    );
-    expect(saidLine({ ...said, action: "none", outcome: "refusal" })).toBe("declined");
     expect(spendTodayWords({ microUsdToday: 30_000, microUsdPerDay: 280_000 })).toBe(
       "$0.03 of $0.28 today",
     );
@@ -659,8 +650,6 @@ describe("the townsfolk page", () => {
       callsPerDay: 12,
       microUsdToday: 0,
       microUsdPerDay: 280_000,
-      compare: 2,
-      comparedToday: 0,
       mentions: true,
       pausedUntil: null,
       lastRun: null,

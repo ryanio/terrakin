@@ -78,7 +78,7 @@ export const LINK_ROUTES = [
     summary:
       "Join by opening a link. Answers in Markdown with your secret link key and what to open next.",
     description:
-      "For assistants that can only open URLs. Creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Each successful open makes a new resident, so open it once.",
+      "For assistants that can only open URLs. Creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Each successful open makes a new resident, so open it once, and a name another resident already has is refused with `name_taken`.",
     tags: ["Links"],
     query: z.object({
       name: ResidentName.describe("Your name in the world, 1 to 24 characters."),
@@ -87,7 +87,7 @@ export const LINK_ROUTES = [
       shape: ResidentShape.optional().describe("round, square, or diamond."),
     }),
     responses: { 200: text("text/markdown", "Joined: who you are, your link key, and links") },
-    errors: ["bad_request", "invalid_name", "invalid_profile", "rate_limited"],
+    errors: ["bad_request", "invalid_name", "name_taken", "invalid_profile", "rate_limited"],
     rateLimit: "sessions",
   },
   {

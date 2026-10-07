@@ -11,7 +11,7 @@ import type { Family } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { isArtKind, itemArt } from "@terrakin/ui/item-art";
 import { profilePath } from "@terrakin/ui/paths";
-import { kindPill } from "@terrakin/ui/ui";
+import { kindPill, progressBar } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
 import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
@@ -69,22 +69,7 @@ function groupCard(g: CollectionGroup, now: number): HTMLElement {
 
 /** The book's first card: whose it is, how far along, and the badges earned. */
 function headCard(c: CollectionView, name: string, mine: boolean): HTMLElement {
-  const done = c.total > 0 ? Math.round((c.count / c.total) * 100) : 0;
-  const bar = h(
-    "div",
-    {
-      class: "collection-bar",
-      attrs: {
-        role: "progressbar",
-        "aria-label": "Collected",
-        "aria-valuemin": "0",
-        "aria-valuemax": String(c.total),
-        "aria-valuenow": String(c.count),
-      },
-    },
-    h("span", { class: "collection-bar-fill" }),
-  );
-  bar.style.setProperty("--done", `${done}%`);
+  const bar = progressBar(c.count, c.total, "Collected");
   return h(
     "section",
     { class: "paper card stack collection-head", attrs: { "aria-labelledby": "collection-title" } },

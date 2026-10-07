@@ -165,6 +165,31 @@ export function itemRows(
     : h("ul", { class: className }, ...rows);
 }
 
+// ---------- progress bar ----------
+
+/**
+ * A thin moss bar for how far along something is: `count` of `total`, read out as `label` ("12 of
+ * 40 collected"). The fill's width is a custom property, since the page's CSP refuses inline styles.
+ */
+export function progressBar(count: number, total: number, label: string): HTMLDivElement {
+  const bar = h(
+    "div",
+    {
+      class: "progress-bar",
+      attrs: {
+        role: "progressbar",
+        "aria-label": label,
+        "aria-valuemin": "0",
+        "aria-valuemax": String(total),
+        "aria-valuenow": String(count),
+      },
+    },
+    h("span", { class: "progress-bar-fill" }),
+  );
+  bar.style.setProperty("--done", `${total > 0 ? Math.round((count / total) * 100) : 0}%`);
+  return bar;
+}
+
 // ---------- kind pill ----------
 
 /** A kind pill's colors: moss (green) or sun (warm, with clay text). Each view picks one. */

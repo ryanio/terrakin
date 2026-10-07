@@ -1308,6 +1308,23 @@ a.menu-item {
   box-shadow: var(--shadow-pill);
 }
 
+/* A progress bar (ui.ts progressBar). `--done` is set from the view: the share done. */
+.progress-bar {
+  height: 10px;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-pill);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  display: block;
+  width: var(--done, 0%);
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--moss-light);
+}
+
 /*
  * kindPill (ui.ts): what kind of thing a card or row is, in a tinted pill. Its words show as
  * written, not uppercased, so a hint that quotes a pill ("This autumn") reads the same as the pill.

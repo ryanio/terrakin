@@ -20,6 +20,8 @@ export interface StepWords {
   chip: string;
   /** A line under the name: how, in a few words. */
   hint: string;
+  /** The card's link label: one short verb for what you'll do there. */
+  verb: string;
   icon: IconName;
   place: StepPlace;
 }
@@ -34,6 +36,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Claim a plot",
     chip: "Claim a plot",
     hint: "Your own patch of land to build on.",
+    verb: "Claim",
     icon: "flag",
     place: "world",
   },
@@ -41,6 +44,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Name your plot",
     chip: "Name your plot",
     hint: "Stand on it and tap Name your plot.",
+    verb: "Name it",
     icon: "signpost",
     place: "world",
   },
@@ -48,6 +52,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Build a home",
     chip: "Build a home",
     hint: "A starter home with a hearth, free.",
+    verb: "Build",
     icon: "home",
     place: "world",
   },
@@ -55,6 +60,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Pick a handle",
     chip: "Pick a handle",
     hint: "So people can @mention you.",
+    verb: "Pick one",
     icon: "at",
     place: "profile",
   },
@@ -62,6 +68,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Write a short bio",
     chip: "Write a bio",
     hint: "A line or two about you, on your profile.",
+    verb: "Write",
     icon: "quote",
     place: "profile",
   },
@@ -69,6 +76,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Dress up",
     chip: "Dress up",
     hint: "Hair, clothes, and colors, on your profile.",
+    verb: "Style",
     icon: "smile",
     place: "profile",
   },
@@ -76,6 +84,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Adopt a pet",
     chip: "Adopt a pet",
     hint: "Free, and yours for good. On your profile.",
+    verb: "Adopt",
     icon: "paw",
     place: "profile",
   },
@@ -83,6 +92,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Plant a first seed",
     chip: "Plant a seed",
     hint: "Place a planter from Build, then tap it.",
+    verb: "Plant",
     icon: "sprout",
     place: "world",
   },
@@ -90,6 +100,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Gather a branch or a stone",
     chip: "Gather",
     hint: "Tap one lying near you in the world.",
+    verb: "Gather",
     icon: "gather",
     place: "world",
   },
@@ -97,6 +108,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Visit a neighbor's plot",
     chip: "Visit a plot",
     hint: "Look around, and admire it if you like it.",
+    verb: "Visit",
     icon: "sparkle",
     place: "visit",
   },
@@ -104,6 +116,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Post a photo of your plot",
     chip: "Post a photo",
     hint: "Photo of your home is on your profile. Any first post counts.",
+    verb: "Post",
     icon: "camera",
     place: "profile",
   },
@@ -111,6 +124,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     name: "Follow a few neighbors",
     chip: "Follow people",
     hint: "Tap a name on the wall, then Follow.",
+    verb: "Follow",
     icon: "follow",
     place: "wall",
   },
@@ -118,6 +132,9 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
 
 /** The most characters a chip name has, so the chip stays the width of Gather all and 3D view. */
 export const CHIP_MAX = 14;
+
+/** The most characters a verb has, so every step's link is about the same width. */
+export const VERB_MAX = 8;
 
 /** The order the card lists steps in: setting up first, then out and about. */
 const ORDER = Object.keys(STEP_WORDS);

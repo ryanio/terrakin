@@ -1,6 +1,14 @@
 import { FIRST_VISIT_STEPS, type FirstVisitResponse } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
-import { CHIP_MAX, doneLine, nextStep, STEP_WORDS, stepHref, stepRows } from "./first-steps";
+import {
+  CHIP_MAX,
+  doneLine,
+  nextStep,
+  STEP_WORDS,
+  stepHref,
+  stepRows,
+  VERB_MAX,
+} from "./first-steps";
 
 const steps = (done: string[] = []): FirstVisitResponse["steps"] =>
   FIRST_VISIT_STEPS.map((id) => ({ id, done: done.includes(id) }));
@@ -8,6 +16,12 @@ const steps = (done: string[] = []): FirstVisitResponse["steps"] =>
 describe("first steps in plain words", () => {
   it("has words for every first-visit step the server knows", () => {
     for (const id of FIRST_VISIT_STEPS) expect(STEP_WORDS[id], id).toBeDefined();
+  });
+
+  it("keeps each verb short enough that the card's links line up", () => {
+    for (const [id, words] of Object.entries(STEP_WORDS)) {
+      expect(words.verb.length, id).toBeLessThanOrEqual(VERB_MAX);
+    }
   });
 
   it("keeps each chip name short enough for the world's chip", () => {

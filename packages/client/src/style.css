@@ -8374,6 +8374,84 @@ html.view3d-open body {
   font-weight: var(--weight-semibold);
 }
 
+/* "9 of 12 done" over the bar, closer to it than to the steps. */
+.first-steps-progress {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+/* A step left with somewhere to go: the verb's link covers the row, which fills on hover. */
+.first-step.linked {
+  position: relative;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .first-step.linked:hover {
+    border-color: var(--clay);
+    background: var(--paper-2);
+  }
+}
+
+.first-step.linked:has(.first-step-go:focus-visible) {
+  outline: 2.5px solid var(--clay);
+  outline-offset: 2px;
+}
+
+.first-step-go {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--clay-deep);
+  text-decoration: none;
+}
+
+.first-step-go::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.first-step-go:focus-visible {
+  outline: none;
+}
+
+.first-step-arrow {
+  width: 16px;
+  height: 16px;
+}
+
+/* The done steps sit closer together than the ones left: a tick and a name, nothing to tap. */
+.done-steps .first-step {
+  min-height: 0;
+  font-size: var(--text-md);
+}
+
+/* Flush with the ticks below it, so the folded list reads as one column. */
+.first-steps-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0;
+  text-decoration: none;
+}
+
+.first-steps-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.first-steps-more[aria-expanded="true"] .first-steps-chevron {
+  transform: rotate(180deg);
+}
+
 /* The next-step chip has the near-actions slot only while Gather all, Pat, and Fish are hidden, and
    no wider than they are, so the column never reaches further over the map than before. */
 .world-near > :not([hidden]) ~ .world-next {
@@ -8807,23 +8885,6 @@ html.view3d-open body {
   margin: 0;
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
-}
-
-/* `--done` is set from the view: the share of the book collected. */
-.collection-bar {
-  height: 10px;
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-pill);
-  background: var(--paper-2);
-  overflow: hidden;
-}
-
-.collection-bar-fill {
-  display: block;
-  width: var(--done, 0%);
-  height: 100%;
-  border-radius: var(--r-pill);
-  background: var(--moss-light);
 }
 
 .collection-group-head {

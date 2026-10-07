@@ -203,7 +203,6 @@ const MAX_OUTPUT_TOKENS = 520;
 /** A call that takes longer is given up as a failure, so a hung request can't hold the run. */
 const CALL_TIMEOUT_MS = 30_000;
 const API_URL = "https://api.anthropic.com/v1/messages";
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 const CHATTER_ACTIONS = TOWNSFOLK_ACTIONS;
 export type ChatterAction = (typeof CHATTER_ACTIONS)[number];
@@ -1222,9 +1221,10 @@ export class ChatterService {
   /**
    * Posts to leave out of every townsfolk resident's list: any post a townsfolk resident replied
    * to, liked, or reacted to lately, so a post gets one townsfolk answer however many of them see
-   * it. In a dry run, drafts count as done.
+   * it. In a dry run, drafts count as done. With `mentions`, every post queued for a mention answer
+   * too, so a scheduled turn never answers a post its mention answer will (or did).
    */
-  private answered(): Set<string> {
+  private answered(mentions = true): Set<string> {
     const since = this.now() - CHATTER_LIMITS.candidateWindowMs;
     const out = new Set<string>();
     for (const id of this.townsfolk) {
@@ -1250,6 +1250,11 @@ export class ChatterService {
       since,
     )) {
       out.add(String(r.post_id));
+    }
+    if (mentions) {
+      for (const r of this.sql.exec("SELECT post_id FROM chatter_mentions")) {
+        out.add(String(r.post_id));
+      }
     }
     return out;
   }
@@ -1328,11 +1333,10 @@ export class ChatterService {
       turn.people,
       turn.kind === "mention",
     );
-    const fallbacks = capabilitiesOf(model).fallbacks;
-    const request = this.request(prompt, model, fallbacks);
+    const request = this.request(prompt, model);
     const reserved = this.reserve(model, request);
     if (!reserved) return "capped";
-    const message = await this.ask(apiKey, request, fallbacks);
+    const message = await this.ask(apiKey, request);
     if (!message) return this.failed(persona, model, NO_TOKENS);
     const said = this.answer(persona, turn, message, reserved);
     await this.compare(persona, turn, prompt, said);
@@ -1375,15 +1379,8 @@ export class ChatterService {
     );
   }
 
-  /**
-   * Send one request (`fallbacks` when it asks for them). Undefined when it failed, logged by
-   * status or error name only.
-   */
-  private async ask(
-    apiKey: string,
-    request: string,
-    fallbacks: boolean,
-  ): Promise<Message | undefined> {
+  /** Send one request. Undefined when it failed, logged by status or error name only. */
+  private async ask(apiKey: string, request: string): Promise<Message | undefined> {
     try {
       const res = await this.fetcher(API_URL, {
         method: "POST",
@@ -1391,7 +1388,6 @@ export class ChatterService {
           "content-type": "application/json",
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
-          ...(fallbacks ? { "anthropic-beta": FALLBACK_BETA } : {}),
         },
         body: request,
         signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
@@ -1488,6 +1484,12 @@ export class ChatterService {
     }
     this.succeeded();
     if (checked.action === "nothing") return record(said);
+    // A scheduled turn and a mention answer can run at once for the same townsfolk resident, so
+    // its slot for this action is checked again now, right before anything is done.
+    if (this.doneToday(persona.id)[checked.action] >= CHATTER_LIMITS.perDay[checked.action]) {
+      console.info("Chatter: answer turned away (closed)");
+      return record({ ...said, outcome: "invalid" });
+    }
     const entry = {
       action: checked.action,
       text: said.text,
@@ -1535,14 +1537,14 @@ export class ChatterService {
    * The same prompt on `COMPARE_MODEL`, as a draft that is never posted, for the first
    * `config.compare` answered calls of a UTC day. It goes through the same daily caps as any call
    * (skipped, spending nothing, when they have no room), writes a ledger row, and leaves the
-   * breaker alone. Never sends `fallbacks`, so its reservation is the most it can cost.
+   * breaker alone.
    */
   private async compare(persona: Persona, turn: Turn, prompt: string, first: Said) {
     const { apiKey, compare, model } = this.config;
     if (!apiKey || compare <= 0 || first.outcome === "error") return;
     if (model === COMPARE_MODEL || model.startsWith(`${COMPARE_MODEL}-`)) return;
     if (this.comparedToday() >= compare) return;
-    const request = this.request(prompt, COMPARE_MODEL, false);
+    const request = this.request(prompt, COMPARE_MODEL);
     const reserved = this.reserve(COMPARE_MODEL, request);
     if (!reserved) return;
     const day = reserved.day;
@@ -1558,7 +1560,7 @@ export class ChatterService {
       JSON.stringify(blankSaid(COMPARE_MODEL, "error")),
     );
     const n = Number([...this.sql.exec("SELECT MAX(n) AS n FROM chatter_compare")][0]?.n ?? 0);
-    const message = await this.ask(apiKey, request, false);
+    const message = await this.ask(apiKey, request);
     let second: Said;
     if (!message) {
       this.ledger.record({
@@ -1601,12 +1603,17 @@ export class ChatterService {
   /**
    * Queue an answer when a resident's post or reply @mentions townsfolk: the first townsfolk
    * resident it names answers, once per post, on the next minute sweep. Nothing for a mention from
-   * townsfolk, from a suspended resident, across a block either way, or past
-   * `MENTIONS.perResidentPerDay` from one resident a UTC day. Never throws: a failure is reported
-   * and the post stands.
+   * townsfolk, from a suspended resident, across a block either way, in a post the filters found
+   * borderline (triage may take a second look at it), or past `MENTIONS.perResidentPerDay` from one
+   * resident a UTC day. Never throws: a failure is reported and the post stands.
    */
-  noteMention(postId: string, authorId: string, mentioned: readonly string[]): void {
-    if (!this.answersMentions || this.townsfolk.has(authorId)) return;
+  noteMention(
+    postId: string,
+    authorId: string,
+    mentioned: readonly string[],
+    borderline = false,
+  ): void {
+    if (!this.answersMentions || borderline || this.townsfolk.has(authorId)) return;
     const to = mentioned.find((id) => this.townsfolk.has(id));
     if (to === undefined) return;
     try {
@@ -1741,7 +1748,8 @@ export class ChatterService {
     if (!persona) return drop("nobody");
     const post = this.social.post(postId, to);
     if (!post || post.author.id !== author) return drop("gone");
-    if (this.answered().has(postId)) return drop("answered");
+    // Its own row aside, has a townsfolk resident answered it already?
+    if (this.answered(false).has(postId)) return drop("answered");
     const open = persona.open.filter((a) => a === "reply" || a === "react");
     if (open.length === 0) return drop("closed");
     const candidate: Candidate = {
@@ -1850,9 +1858,10 @@ export class ChatterService {
    * The request body. Only the user message changes between calls. Thinking is off where the model
    * can turn it off (`disabled` on Haiku 5.5; `between_tools` on Sonnet 5.5, which is none at all
    * with no tools in the request), effort is `low`, and each field goes only to a model that takes
-   * it (`models.ts`). `fallbacks` asks for a declined request to rerun on Anthropic's pick.
+   * it (`models.ts`). Never `fallbacks`: a declined request rerun on another model could cost more
+   * than its reservation, and chatter treats a refusal as nothing anyway.
    */
-  private request(prompt: string, model: string, fallbacks: boolean): string {
+  private request(prompt: string, model: string): string {
     const caps = capabilitiesOf(model);
     return JSON.stringify({
       model,
@@ -1863,7 +1872,6 @@ export class ChatterService {
         ...(caps.effort ? { effort: "low" } : {}),
         format: { type: "json_schema", schema: ANSWER_SCHEMA },
       },
-      ...(fallbacks && caps.fallbacks ? { fallbacks: "default" } : {}),
       messages: [{ role: "user", content: prompt }],
     });
   }

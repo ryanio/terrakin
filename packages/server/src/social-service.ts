@@ -831,6 +831,7 @@ export class SocialService {
           id,
           authorId,
           mentions.map((m) => m.id),
+          verdict.borderline !== undefined,
         );
       } catch (err) {
         report(err, "social.mentioned");
@@ -841,11 +842,17 @@ export class SocialService {
 
   /**
    * Called with each new post or reply that @mentions residents, once it's stored: its id, its
-   * author, and who it mentions, in order. `Api` points it at townsfolk chatter (decision 0190).
-   * A failure is reported and the post stands.
+   * author, who it mentions in order, and whether the filters found it borderline (it passed, but
+   * nearly didn't). `Api` points it at townsfolk chatter (decision 0190). A failure is reported
+   * and the post stands.
    */
   onMentioned:
-    | ((postId: string, authorId: string, mentioned: readonly string[]) => void)
+    | ((
+        postId: string,
+        authorId: string,
+        mentioned: readonly string[],
+        borderline: boolean,
+      ) => void)
     | undefined;
 
   /**

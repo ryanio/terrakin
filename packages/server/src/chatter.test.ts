@@ -59,6 +59,8 @@ interface Answer {
   text?: string;
   target?: string;
   reaction?: string;
+  /** The model the response says answered, when it isn't the one asked. Not part of the answer. */
+  answeredBy?: string;
 }
 
 /**
@@ -89,9 +91,10 @@ function fakeAnthropic(script: (Answer | number | "refusal")[]) {
         usage,
       });
     }
-    const answer = { text: "", target: "", ...next };
+    const { answeredBy, ...rest } = next ?? { action: "nothing" };
+    const answer = { text: "", target: "", ...rest };
     return Response.json({
-      model: body.model,
+      model: answeredBy ?? body.model,
       stop_reason: "end_turn",
       content: [{ type: "text", text: JSON.stringify(answer) }],
       usage,
@@ -499,18 +502,19 @@ describe("the chatter service", () => {
     expect(haiku?.body.messages).toEqual([{ role: "user", content: promptOf(t, 0) }]);
   });
 
-  it("sends Sonnet 5.5, when the setting names it, thinking between tools and fallbacks", async () => {
+  it("sends Sonnet 5.5, when the setting names it, thinking between tools and never fallbacks", async () => {
     const t = town({ model: "claude-sonnet-5-5" }, [{ action: "nothing" }]);
     await t.chatter.run();
     const sent = t.api.calls[0];
-    expect(sent?.headers["anthropic-beta"]).toBe("server-side-fallback-2026-07-01");
+    // A fallback could answer on a dearer model than the reservation was priced at.
+    expect(sent?.headers).not.toHaveProperty("anthropic-beta");
     expect(sent?.body).toMatchObject({
       model: "claude-sonnet-5-5",
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
       thinking: { type: "between_tools" },
       output_config: { effort: "low", format: { type: "json_schema" } },
-      fallbacks: "default",
     });
+    expect(sent?.body).not.toHaveProperty("fallbacks");
     expect(sent?.body).not.toHaveProperty("tool_choice");
   });
 
@@ -1031,6 +1035,17 @@ describe("the dollar cap", () => {
     expect(t.api.calls).toHaveLength(2);
   });
 
+  it("settles to the cost of the model that answered, when it isn't the one asked", async () => {
+    const t = town({ perRun: 1 }, [{ action: "nothing", answeredBy: "claude-sonnet-5-5" }]);
+    await t.chatter.run();
+    // 1,000 input at $2, 60 output at $10, 800 cache reads at $0.20 per million: Sonnet's prices.
+    const sonnet = 1_000 * 2 + 60 * 10 + 800 * 0.2;
+    expect(t.chatter.usage().microUsd).toBe(sonnet);
+    expect(t.ledger().map((r) => [r.model, r.cost_micro_usd])).toEqual([
+      ["claude-sonnet-5-5", sonnet],
+    ]);
+  });
+
   it("counts what the day already spent when the cap first arrives", async () => {
     const sql = nodeSql();
     cleanups.push(() => sql.close());
@@ -1326,5 +1341,54 @@ describe("answering mentions", () => {
     posts.post(posts.ryan, "@juniper how are your tomatoes doing this week?");
     expect((await posts.sweep()).codes).toEqual(["invalid"]);
     expect(promptOf(posts, 0)).toContain("Open to them today: react, nothing.");
+  });
+
+  it("leaves a mentioned post out of scheduled turns, so it gets one townsfolk answer", async () => {
+    const t = mentioned({}, [{ action: "nothing" }]);
+    const text = "@juniper how are your tomatoes doing this week?";
+    t.post(t.ryan, text);
+    await t.chatter.run();
+    expect(t.api.calls.length).toBeGreaterThan(0);
+    for (let n = 0; n < t.api.calls.length; n++) expect(promptOf(t, n)).not.toContain("tomatoes");
+  });
+
+  it("skips a mention in a post the filters found borderline", () => {
+    const t = mentioned();
+    // Passes the filters, but has scam words: borderline, so triage may take a second look.
+    const post = t.post(t.ryan, "@juniper our telegram group talks crypto every night");
+    expect(t.chatter.mentionRow(post.id)).toBeUndefined();
+  });
+
+  it("makes exactly one call when a scheduled turn and a mention answer race for the last one", async () => {
+    for (const mentionFirst of [false, true]) {
+      const t = mentioned({ callsPerDay: 1, perRun: 1 }, [{ action: "nothing" }]);
+      const asked = t.post(t.ryan, "@juniper how are your tomatoes doing this week?");
+      const runs = mentionFirst
+        ? [t.chatter.answerMentions(), t.chatter.run()]
+        : [t.chatter.run(), t.chatter.answerMentions()];
+      await Promise.all(runs);
+      expect(t.api.calls).toHaveLength(1);
+      expect(t.ledger()).toHaveLength(1);
+      expect(t.chatter.usage().calls).toBe(1);
+      expect(t.chatter.mentionRow(asked.id)?.outcome).toBe(mentionFirst ? "nothing" : "capped");
+    }
+  });
+
+  it("checks the townsfolk resident's day again before it acts, so a call that raced it can't pass a cap", async () => {
+    const t = mentioned({}, [reply]);
+    const asked = t.post(t.ryan, "@juniper how are your tomatoes doing this week?");
+    const answering = t.chatter.answerMentions();
+    // While the call is out, another call uses up Juniper's replies for the day.
+    const day = Math.floor(START / (24 * HOUR));
+    t.sql.exec(
+      "INSERT INTO chatter_done (resident_id, day, action, n) VALUES (?, ?, 'reply', ?)",
+      t.juniper,
+      day,
+      CHATTER_LIMITS.perDay.reply,
+    );
+    expect((await answering).codes).toEqual(["invalid"]);
+    expect(t.api.calls).toHaveLength(1);
+    expect(t.social.replies(asked.id)).toHaveLength(0);
+    expect(t.chatter.doneToday(t.juniper).reply).toBe(CHATTER_LIMITS.perDay.reply);
   });
 });

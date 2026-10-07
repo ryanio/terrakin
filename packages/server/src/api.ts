@@ -1077,8 +1077,13 @@ export class Api {
   }
 
   /** A resident's post or reply @mentioned residents: queue a townsfolk answer (decision 0190). */
-  noteMention(postId: string, authorId: string, mentioned: readonly string[]): void {
-    this.chatter?.noteMention(postId, authorId, mentioned);
+  noteMention(
+    postId: string,
+    authorId: string,
+    mentioned: readonly string[],
+    borderline: boolean,
+  ): void {
+    this.chatter?.noteMention(postId, authorId, mentioned, borderline);
   }
 
   private mentionsRun: Promise<MentionRun> | undefined;

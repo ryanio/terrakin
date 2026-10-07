@@ -29,7 +29,8 @@ export function wireSocial(
       : service.removeOwnerPair(agentId, ownerId);
   layer.onPost = (post) => api.postListeners.announce(post);
   // Townsfolk answer an @mention on the next minute sweep (decision 0190).
-  layer.onMentioned = (postId, authorId, mentioned) => api.noteMention(postId, authorId, mentioned);
+  layer.onMentioned = (postId, authorId, mentioned, borderline) =>
+    api.noteMention(postId, authorId, mentioned, borderline);
   // Putter's wave (decision 0049) is an ordinary gesture, with a putter mark and its own limits.
   service.greet = (from, to) => {
     const sent = layer.together.sendGesture(from, to, { kind: "wave" }, { putter: true });

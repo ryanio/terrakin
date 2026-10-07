@@ -185,17 +185,82 @@ a {
   border-radius: var(--r-card);
 }
 
-/* Centered content column for web-style pages. `.wide` for two-column layouts. */
+/*
+ * The site has two page layouts. `.column` is one centered column, for a form or a single thing.
+ * `.layout` is the home wall's: a main column and a sidebar, for any page with something beside
+ * its main content (the feed, a profile, the static pages). `.wide` is for a hero or footer that
+ * spans a two-column page.
+ */
 .column {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--page-narrow);
   margin-inline: auto;
   padding-inline: max(var(--space-lg), env(safe-area-inset-left))
     max(var(--space-lg), env(safe-area-inset-right));
 }
 
 .column.wide {
-  max-width: 1120px;
+  max-width: var(--page-wide);
+}
+
+/* Keeps a place in a list for something that loads later, with no box of its own. */
+.slot {
+  display: contents;
+}
+
+/*
+ * Main column and sidebar: `.layout-main`, `.layout-side`, and optionally `.layout-head`, which
+ * sits above the main column. Below 1000px it is one column in page order. From
+ * 1000px the sidebar runs down the right beside the head and main, in no box of its own to scroll.
+ */
+.layout {
+  display: grid;
+  gap: var(--gap-page);
+  align-content: start;
+  width: 100%;
+  max-width: var(--page-wide);
+  margin-inline: auto;
+  padding-inline: max(var(--space-lg), env(safe-area-inset-left))
+    max(var(--space-lg), env(safe-area-inset-right));
+}
+
+.layout-head,
+.layout-main,
+.layout-side {
+  display: grid;
+  grid-auto-rows: max-content;
+  gap: var(--gap-page);
+  align-content: start;
+  min-width: 0;
+}
+
+.layout-side:empty {
+  display: none;
+}
+
+@media (min-width: 1000px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: auto 1fr;
+    column-gap: var(--space-3xl);
+    align-items: start;
+  }
+
+  .layout-head {
+    grid-area: 1 / 1;
+  }
+
+  .layout-main {
+    grid-area: 2 / 1;
+  }
+
+  .layout:not(:has(> .layout-head)) > .layout-main {
+    grid-row: 1 / span 2;
+  }
+
+  .layout-side {
+    grid-area: 1 / 2 / span 2;
+  }
 }
 
 /*

@@ -1,5 +1,12 @@
 import { readFileSync } from "node:fs";
-import { PAGES, SITE, type SitePage } from "@terrakin/protocol";
+import {
+  DEVLOG_POSTS,
+  devlogPath,
+  devlogSitePage,
+  PAGES,
+  SITE,
+  type SitePage,
+} from "@terrakin/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { inline, markdownNodes, markdownToHtml } from "./markdown";
 import { markdownTwin, staticPage } from "./site-page";
@@ -152,6 +159,28 @@ describe("markdownNodes, the devlog card's Markdown", () => {
     ]);
     expect(text(nodes)).toContain('<script>alert(1)</script> <img src=x onerror="alert(1)">');
     expect(text(nodes)).toContain("<b>code</b>");
+  });
+});
+
+describe("the static pages' sidebar", () => {
+  const html = (page: SitePage) =>
+    staticPage({ page, source: "# A page\n\nWords.", lastUpdated: "2026-10-07", css: "/a.css" });
+  const [newest, older] = DEVLOG_POSTS;
+
+  it("sits beside the page with a way in and the newest devlog posts, never the page itself", () => {
+    if (!newest || !older) throw new Error("expected two devlog posts");
+    const post = html(devlogSitePage(newest));
+    expect(post).toContain('<div class="layout">');
+    expect(post).toContain('<aside class="layout-side"');
+    expect(post).toContain('href="/world">Open the world</a>');
+    expect(post).toContain(`href="${devlogPath(older.date)}"`);
+    expect(post).not.toContain(`<a href="${devlogPath(newest.date)}">`);
+  });
+
+  it("leaves the devlog card off /devlog, which lists every post", () => {
+    const devlog = PAGES.find((p) => p.path === "/devlog") as SitePage;
+    expect(html(devlog)).not.toContain('aria-label="From the devlog"');
+    expect(html(page("/about"))).toContain('aria-label="From the devlog"');
   });
 });
 

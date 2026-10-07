@@ -434,11 +434,11 @@ export function feedView(ctx: ViewContext): View {
   // pulse in a sidebar on wide screens (woven into the posts on a phone).
   const el = h("div", { class: "home" });
   const feed = h("div", {
-    class: "stack cards page feed wall",
+    class: "cards page feed layout",
     attrs: { id: "feed", tabindex: -1 },
   });
-  const main = h("div", { class: "wall-main" });
-  const side = h("aside", { class: "wall-side", attrs: { "aria-label": "Around town" } });
+  const main = h("div", { class: "layout-main" });
+  const side = h("aside", { class: "layout-side", attrs: { "aria-label": "Around town" } });
   feed.append(main, side);
   // Residents already joined: the pitch and the get-started cards are for visitors.
   const hero = hasToken ? undefined : homeHero(feed);

@@ -94,6 +94,10 @@ function floatUp(from: HTMLElement, emoji: string) {
   setTimeout(() => el.remove(), 2000);
 }
 
+/** A profile's sidebar, top to bottom: a slot for each card, which may load late. */
+const SIDE = ["ais", "extras", "pet", "stall", "galleries"] as const;
+type SideSlot = (typeof SIDE)[number];
+
 /** Makes a disclosure's onToggle that keeps it the only send form open on the card. */
 type Only = (self: () => { close(): void } | undefined) => (shown: boolean) => void;
 
@@ -103,7 +107,7 @@ const DEFAULT_CANONICAL = "https://terrakin.org/";
 
 export function profileView(target: { id: string } | { handle: string }, ctx: ViewContext): View {
   ctx.setTitle("Profile · Terrakin");
-  const el = h("div", { class: "column stack cards page profile-page" });
+  const el = h("div", { class: "cards page profile-page layout" });
   let destroyed = false;
   const cleanups: (() => void)[] = [];
   let panel: OwnerPanel | undefined;
@@ -113,8 +117,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
 
   async function load(): Promise<void> {
     el.replaceChildren(
-      h("div", { class: "paper card profile skeleton-profile", attrs: { "aria-hidden": "true" } }),
-      ...skeletonCards(2),
+      h(
+        "div",
+        { class: "layout-main" },
+        h("div", {
+          class: "paper card profile skeleton-profile",
+          attrs: { "aria-hidden": "true" },
+        }),
+        ...skeletonCards(2),
+      ),
     );
     const [profile, early] =
       "id" in target
@@ -125,12 +136,24 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       if (profile.status === 404) {
         ctx.setTitle("Not found · Terrakin");
         el.replaceChildren(
-          notFoundCard(
-            "We couldn't find that resident",
-            "They may have moved out, or the link has a typo. There's plenty to see on the feed.",
+          h(
+            "div",
+            { class: "layout-main" },
+            notFoundCard(
+              "We couldn't find that resident",
+              "They may have moved out, or the link has a typo. There's plenty to see on the feed.",
+            ),
           ),
         );
-      } else el.replaceChildren(errorCard(profile.message, () => void load()));
+      } else {
+        el.replaceChildren(
+          h(
+            "div",
+            { class: "layout-main" },
+            errorCard(profile.message, () => void load()),
+          ),
+        );
+      }
       return;
     }
     const resident = profile.data.resident;
@@ -140,39 +163,45 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const posts = early ?? (await api.residentPosts(id));
     if (destroyed) return;
     ctx.setTitle(`${resident.name} on Terrakin`);
+    // The header over the posts, and everything else about them in the sidebar (on a phone,
+    // between the two), each card in its place however late it loads.
     const top = header(resident);
-    el.replaceChildren(top);
-    const theirAis = resident.agents?.length ? theirAisCard(resident.agents) : null;
-    if (theirAis) top.after(theirAis);
-    void extras(resident).then((cards) => {
-      if (!destroyed) (theirAis ?? top).after(...cards);
+    const side = h("aside", {
+      class: "layout-side",
+      attrs: { "aria-label": `More about ${resident.name}` },
     });
+    const main = h("div", { class: "layout-main" });
+    el.replaceChildren(h("div", { class: "layout-head" }, top), side, main);
+    const slots = SIDE.map(() => h("div", { class: "slot" }));
+    side.append(...slots);
+    const place = (where: SideSlot, ...cards: HTMLElement[]) => {
+      if (!destroyed) slots[SIDE.indexOf(where)]?.append(...cards);
+    };
+    const theirAis = resident.agents?.length ? theirAisCard(resident.agents) : null;
+    if (theirAis) place("ais", theirAis);
+    void extras(resident).then((cards) => place("extras", ...cards));
     // Your own profile, as a person: the My AIs panel, in place of the public list.
     if (resident.kind === "human" && savedToken()) {
       void myProfile().then((me) => {
         if (destroyed || me?.id !== resident.id) return;
         panel?.destroy();
         panel = ownerPanel(resident);
-        if (theirAis?.isConnected) theirAis.replaceWith(panel.el);
-        else top.after(panel.el);
+        theirAis?.remove();
+        place("ais", panel.el);
       });
     }
-    const postsTitle = h("h2", { class: "section-title", text: "Posts" });
-    el.append(postsTitle);
     // Their pet (RFC 0019), or on your own profile an invitation to adopt one.
     const pet = petCardFor(resident);
-    if (pet) postsTitle.before(pet);
-    void stallCard(resident).then((card) => {
-      if (card && !destroyed && postsTitle.isConnected) postsTitle.before(card);
-    });
-    void profileGalleries(resident, ctx.navigate).then((section) => {
-      if (section && !destroyed && postsTitle.isConnected) postsTitle.before(section);
-    });
+    if (pet) place("pet", pet);
+    void stallCard(resident).then((card) => card && place("stall", card));
+    void profileGalleries(resident, ctx.navigate).then(
+      (section) => section && place("galleries", section),
+    );
     const list = h("div", {
       class: "post-list",
       attrs: { role: "feed", "aria-label": `Posts by ${resident.name}` },
     });
-    el.append(list);
+    main.append(h("h2", { class: "section-title", text: "Posts" }), list);
     if (!posts.ok) {
       list.append(errorCard(posts.message, () => void load()));
       return;
@@ -236,8 +265,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       more.el.hidden = next === null;
     });
     more.el.hidden = next === null;
-    const foot = h("div", { class: "feed-foot" }, more.el);
-    el.append(foot);
+    list.after(h("div", { class: "feed-foot" }, more.el));
   }
 
   function theirAisCard(agents: ResidentBrief[]): HTMLElement {

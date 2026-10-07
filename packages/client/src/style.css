@@ -141,7 +141,7 @@ body.in-world .veil {
   justify-content: space-between;
   gap: var(--space-md);
   width: 100%;
-  max-width: 1120px;
+  max-width: var(--page-wide);
   margin: 0 auto;
   padding: var(--space-lg);
 }
@@ -221,7 +221,7 @@ body.in-world .veil {
 .stage {
   flex: 1 0 auto;
   width: 100%;
-  max-width: 1120px;
+  max-width: var(--page-wide);
   margin: 0 auto;
   padding: var(--space-2xs) var(--space-lg) var(--space-2xl);
   display: grid;
@@ -739,7 +739,7 @@ body.in-world .veil {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--space-sm);
-  max-width: 1120px;
+  max-width: var(--page-wide);
   margin: 0 auto;
   padding: var(--space-xs) max(var(--space-md), env(safe-area-inset-right)) var(--space-xs)
     max(var(--space-md), env(safe-area-inset-left));
@@ -6542,27 +6542,13 @@ html.view3d-open body {
 }
 
 /* ---------- the home wall: a main column of posts and a sidebar of the town's pulse ----------
- * Below 1000px there is one column and the pulse cards sit among the posts (`placePulse` in
- * feed-view.ts). From 1000px the sidebar holds them and stays in view while the posts scroll.
+ * The page is a `.layout` (packages/ui/src/base.css). Below 1000px the pulse cards sit among the
+ * posts (`placePulse` in feed-view.ts); from 1000px the sidebar holds them.
  */
 
-.wall {
-  width: 100%;
-  max-width: 1240px;
-  margin-inline: auto;
-  padding-inline: max(var(--space-lg), env(safe-area-inset-left))
-    max(var(--space-lg), env(safe-area-inset-right));
-}
-
-.wall-main {
-  display: grid;
+.feed > .layout-main,
+.feed > .layout-side {
   gap: var(--space-lg);
-  align-content: start;
-  min-width: 0;
-}
-
-.wall-side:empty {
-  display: none;
 }
 
 .wall-title {
@@ -6649,22 +6635,6 @@ html.view3d-open body {
   }
   100% {
     box-shadow: var(--shadow-paper);
-  }
-}
-
-@media (min-width: 1000px) {
-  .wall {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    column-gap: var(--space-3xl);
-    align-items: start;
-  }
-
-  /* The town's cards run down the page beside the posts, in no box of their own to scroll. */
-  .wall-side {
-    display: grid;
-    grid-auto-rows: max-content;
-    gap: var(--space-lg);
   }
 }
 

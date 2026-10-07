@@ -379,6 +379,19 @@ describe("one definition per rule", () => {
     expect(copies).toEqual([]);
   });
 
+  it("app stylesheets lay pages out with .column or .layout, never a width or sidebar of their own", () => {
+    // A page is a .column (one column) or a .layout (main and sidebar), both in base.css, so
+    // every page lines up with the site bar and the footer.
+    const own = ["packages/client/src/style.css", "packages/admin/src/style.css"].flatMap((path) =>
+      [
+        ...read(path).matchAll(
+          /max-width: (?:1240|1120)px|grid-template-columns: minmax\(0, 1fr\) \d+px/g,
+        ),
+      ].map((m) => `${path}: ${m[0]}`),
+    );
+    expect(own).toEqual([]);
+  });
+
   it("the scales the stylesheets use are all defined", () => {
     const defined = new Set(
       [...read("packages/ui/src/tokens.css").matchAll(/(--[\w-]+):/g)].map((m) => m[1]),

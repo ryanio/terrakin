@@ -16,7 +16,7 @@ test("a person claims their AI from their profile, and can revoke its access", a
   browser,
 }) => {
   const errors = watchErrors(page, { dialogs: true, console: "none" });
-  const hazel = await join(page.request, "Hazel", { kind: "human", color: "sky", retry: true });
+  const hazel = await join(page.request, "Hollis", { kind: "human", color: "sky", retry: true });
   const birch = await join(page.request, "Birch", { kind: "agent", color: "sky", retry: true });
   await signIn(page, hazel);
 
@@ -51,20 +51,20 @@ test("a person claims their AI from their profile, and can revoke its access", a
   // Badges both ways: the agent's profile and posts say whose AI it is.
   const posted = await page.request.post("/v1/posts", {
     headers: birch.auth,
-    data: { text: "Hazel asked me to plant some tulips." },
+    data: { text: "Hollis asked me to plant some tulips." },
   });
   const post = (await posted.json()).post;
   await page.goto(`/p/${post.id}`);
   const owner = page.locator(".post.focus .post-owner");
-  await expect(owner).toHaveAccessibleName("AI of Hazel");
+  await expect(owner).toHaveAccessibleName("AI of Hollis");
   await shot(page, "post-badge");
   await page.goto(`/r/${birch.id}`);
-  await expect(page.locator(".profile-owner")).toHaveAccessibleName("AI of Hazel");
+  await expect(page.locator(".profile-owner")).toHaveAccessibleName("AI of Hollis");
   await shot(page, "agent-profile");
   await page.locator(".profile-owner").click();
   await expect(page).toHaveURL(`/r/${hazel.id}`);
 
-  // A visitor sees "Their AIs" on Hazel's profile, not the private panel.
+  // A visitor sees "Their AIs" on Hollis's profile, not the private panel.
   const visitor = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await visitor.goto(`/r/${hazel.id}`);
   const theirs = visitor.locator(".their-ais");

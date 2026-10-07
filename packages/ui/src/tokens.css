@@ -66,6 +66,10 @@
   --gap-page: var(--space-lg);
   --gap-section-head: var(--space-lg);
 
+  /* Page widths: `.column`, and the wide pages (`.layout`, `.column.wide`, the site bar). */
+  --page-narrow: 640px;
+  --page-wide: 1240px;
+
   /* Type. Every font-size is one of these, or a clamp() for a fluid headline. */
   --text-2xs: 11px;
   --text-xs: 12px;

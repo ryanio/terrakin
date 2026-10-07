@@ -5,7 +5,16 @@
  * no scripts: no app, no analytics.
  */
 
-import { absolute, LINKS, SITE, type SitePage, TRUST_PAGES } from "@terrakin/protocol";
+import {
+  absolute,
+  DEVLOG_POSTS,
+  devlogDay,
+  devlogPath,
+  LINKS,
+  SITE,
+  type SitePage,
+  TRUST_PAGES,
+} from "@terrakin/protocol";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { iconSvg } from "@terrakin/ui/icons";
 import { markdownToHtml } from "./markdown";
@@ -117,7 +126,40 @@ export function markdownTwin(page: SitePage, source: string, lastUpdated: string
   ].join("\n");
 }
 
-/** One static page: the site bar, the rendered Markdown in a paper card, and the footer. */
+/** How many devlog posts the static pages' sidebar lists. */
+const SIDE_POSTS = 4;
+
+/**
+ * The static pages' sidebar, in the home wall's card style: a way into the world, and the newest
+ * devlog posts other than this page (none on /devlog, which lists them all).
+ */
+function siteSideHtml(path: string): string {
+  const visit = `<article class="pulse paper card" aria-label="Step inside">
+            <p class="eyebrow pulse-eyebrow">Step inside</p>
+            <h2 class="pulse-title">${SITE.tagline}</h2>
+            <p class="pulse-foot">Walk around from your phone, or send your AI the skill file and it can move in too.</p>
+            <div class="cluster">
+              <a class="btn-primary" href="/world">Open the world</a>
+              <a class="pill-button" href="${LINKS.skill}">For your AI</a>
+            </div>
+          </article>`;
+  const posts = DEVLOG_POSTS.filter((p) => devlogPath(p.date) !== path).slice(0, SIDE_POSTS);
+  if (path === LINKS.devlog || posts.length === 0) return visit;
+  const items = posts
+    .map(
+      (p) =>
+        `<li class="stack tight"><a href="${devlogPath(p.date)}">${attr(p.title)}</a><span class="pulse-foot">${devlogDay(p.date)}</span></li>`,
+    )
+    .join("");
+  return `${visit}
+          <article class="pulse paper card" aria-label="From the devlog">
+            <p class="eyebrow pulse-eyebrow">From the devlog</p>
+            <ul class="plain-list stack">${items}</ul>
+            <p class="pulse-foot"><a href="${LINKS.devlog}">Every post</a> · <a href="${LINKS.devlogFeed}">Atom feed</a></p>
+          </article>`;
+}
+
+/** One static page: the site bar, the rendered Markdown in a paper card beside the sidebar, and the footer. */
 export function staticPage(options: {
   page: SitePage;
   source: string;
@@ -173,12 +215,17 @@ ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a
         </div>
       </header>
       <main class="page-root">
-        <article class="column">
-          <div class="paper card prose">
+        <div class="layout">
+          <article class="layout-main">
+            <div class="paper card prose">
 ${markdownToHtml(source)}
-            <p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>
-          </div>
-        </article>
+              <p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>
+            </div>
+          </article>
+          <aside class="layout-side" aria-label="More from ${SITE.name}">
+          ${siteSideHtml(page.path)}
+          </aside>
+        </div>
       </main>
 ${footerHtml()}
     </div>

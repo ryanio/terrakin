@@ -52,11 +52,8 @@ const countTests = (source: string) =>
 const testsIn = (spec: string) => countTests(readFileSync(join(E2E, `${spec}.spec.ts`), "utf8"));
 
 describe("the e2e suite", () => {
-  it("finds the specs", () => {
-    expect(specs).toContain("smoke");
-  });
-
   it("runs every spec in exactly one place: a 2D shard, the 3D smoke, or nightly", () => {
+    expect(specs).toContain("smoke");
     expect(placed.map(([spec]) => spec).sort()).toEqual(specs);
   });
 

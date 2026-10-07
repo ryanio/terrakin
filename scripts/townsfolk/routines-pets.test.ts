@@ -51,14 +51,21 @@ describe("the townsfolk's routines and pets", () => {
 });
 
 describe("planRoutines", () => {
-  it("sends the whole list when none are on", () => {
-    expect(planRoutines(WANT, [])).toMatchObject({
+  it("sends the whole list unless the server has the same routines, in any order", () => {
+    const set = (routines: RoutineView[]) => ({
       kind: "set",
-      action: { type: "set_routines", routines: WANT },
+      action: { type: "set_routines", routines },
     });
-  });
-
-  it("sends nothing when the server has the same routines in its own order", () => {
+    // None on, an hour that differs, or another routine on: the whole list again.
+    expect(planRoutines(WANT, [])).toMatchObject(set(WANT));
+    const moved: RoutineView[] = [
+      { kind: "walk_home", hour: 9 },
+      { kind: "stroll", hour: 7 },
+      { kind: "greet", max: 2 },
+    ];
+    expect(planRoutines(WANT, moved)).toMatchObject(set(WANT));
+    expect(planRoutines(WANT.slice(0, 2), WANT)).toMatchObject(set(WANT.slice(0, 2)));
+    // The same routines in the server's own order: nothing to send.
     const current: RoutineView[] = [
       { kind: "greet", max: 2 },
       { kind: "walk_home", hour: 18 },
@@ -66,42 +73,20 @@ describe("planRoutines", () => {
     ];
     expect(planRoutines(WANT, current)).toEqual({ kind: "done", routines: current });
   });
-
-  it("sends the whole list again when an hour differs or another routine is on", () => {
-    const moved: RoutineView[] = [
-      { kind: "walk_home", hour: 9 },
-      { kind: "stroll", hour: 7 },
-      { kind: "greet", max: 2 },
-    ];
-    const set = { kind: "set", action: { type: "set_routines", routines: WANT } };
-    expect(planRoutines(WANT, moved)).toMatchObject(set);
-    expect(planRoutines(WANT.slice(0, 2), WANT)).toMatchObject({
-      kind: "set",
-      action: { type: "set_routines", routines: WANT.slice(0, 2) },
-    });
-  });
 });
 
 describe("planPet", () => {
-  it("adopts when there's no pet", () => {
+  it("adopts, renames, or leaves the pet be, and never adopts a second or changes one it can't", () => {
     expect(planPet(THISTLE, undefined)).toMatchObject({
       kind: "adopt",
       action: { type: "adopt_pet", kind: "hedgehog", coat: "brown", name: "Thistle" },
     });
-  });
-
-  it("sends nothing when they have it", () => {
     expect(planPet(THISTLE, { ...THISTLE })).toMatchObject({ kind: "done" });
-  });
-
-  it("renames the same kind and coat under another name", () => {
+    // The same kind and coat under another name: renamed.
     expect(planPet(THISTLE, { ...THISTLE, name: "Spike" })).toMatchObject({
       kind: "rename",
       action: { type: "rename_pet", name: "Thistle" },
     });
-  });
-
-  it("never adopts a second pet or changes one it can't", () => {
     // Another kind, another coat (a new coat costs coins townsfolk can't spend), or a name staff
     // are holding back: nothing is sent.
     for (const has of [

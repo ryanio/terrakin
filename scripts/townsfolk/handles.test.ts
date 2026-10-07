@@ -28,39 +28,27 @@ describe("townsfolk handles", () => {
 });
 
 describe("planHandle", () => {
-  it("does nothing when they already have it", () => {
-    expect(planHandle(ME, "juniper", "juniper", ME)).toEqual({ kind: "done", handle: "juniper" });
-  });
-
-  it("claims a free handle", () => {
-    expect(planHandle(ME, "juniper", undefined, null)).toEqual({
-      kind: "claim",
-      handle: "juniper",
-    });
-  });
-
-  it("names the handle they give up when they have another", () => {
-    expect(planHandle(ME, "juniper", "june", null)).toEqual({
-      kind: "claim",
-      handle: "juniper",
-      from: "june",
-    });
-  });
-
-  it("claims back their own old handle, which still resolves to them", () => {
-    expect(planHandle(ME, "juniper", "june", ME)).toEqual({
-      kind: "claim",
-      handle: "juniper",
-      from: "june",
-    });
-  });
-
-  it("leaves a handle someone else holds", () => {
-    expect(planHandle(ME, "juniper", undefined, SOMEONE)).toEqual({
-      kind: "taken",
-      handle: "juniper",
-      by: SOMEONE,
-    });
+  it("plans each case: has it, claims it free or back from themselves, and leaves someone else's", () => {
+    const cases: [string, Parameters<typeof planHandle>, ReturnType<typeof planHandle>][] = [
+      ["already has it", [ME, "juniper", "juniper", ME], { kind: "done", handle: "juniper" }],
+      ["free", [ME, "juniper", undefined, null], { kind: "claim", handle: "juniper" }],
+      [
+        "gives up another",
+        [ME, "juniper", "june", null],
+        { kind: "claim", handle: "juniper", from: "june" },
+      ],
+      [
+        "their own old handle, which still resolves to them",
+        [ME, "juniper", "june", ME],
+        { kind: "claim", handle: "juniper", from: "june" },
+      ],
+      [
+        "someone else holds it",
+        [ME, "juniper", undefined, SOMEONE],
+        { kind: "taken", handle: "juniper", by: SOMEONE },
+      ],
+    ];
+    for (const [name, args, step] of cases) expect(planHandle(...args), name).toEqual(step);
   });
 
   it("says what it would do on a dry run and what it does with --send", () => {

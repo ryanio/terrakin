@@ -77,8 +77,8 @@ export function pluralWord(n: number, one: string, many: string): string {
 }
 
 /** "Neighbor · 24 karma", or null at 0, so a newcomer's profile doesn't show an empty score. */
-export function karmaLine(karma: KarmaView | undefined): string | null {
-  if (!karma || karma.score <= 0) return null;
+export function karmaLine(karma: KarmaView): string | null {
+  if (karma.score <= 0) return null;
   const tier = karma.tier.charAt(0).toUpperCase() + karma.tier.slice(1);
   return `${tier} · ${compactCount(karma.score)} karma`;
 }

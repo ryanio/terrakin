@@ -12,12 +12,11 @@ describe("people pages", () => {
     expect(matchRoute("/r/r_abc/enemies").name).toBe("not-found");
   });
 
-  it("counts each tab from the profile, with friends missing as zero", () => {
+  it("counts each tab from the profile", () => {
     const r = { followers: 3, following: 5, friends: 2 };
     expect(tabCount(r, "followers")).toBe(3);
     expect(tabCount(r, "following")).toBe(5);
     expect(tabCount(r, "friends")).toBe(2);
-    expect(tabCount({ followers: 1, following: 1 }, "friends")).toBe(0);
   });
 
   it("talks to you on your own page and about them on theirs", () => {

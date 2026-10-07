@@ -213,6 +213,7 @@ const post = (id: string, createdAt: string): PostView => ({
   replyTo: null,
   replyCount: 0,
   createdAt,
+  mentions: [],
   reactions: {},
   myReactions: [],
   repostCount: 0,
@@ -253,7 +254,6 @@ describe("words", () => {
     expect(karmaLine({ score: 24, tier: "neighbor" })).toBe("Neighbor · 24 karma");
     expect(karmaLine({ score: 1200, tier: "elder" })).toBe("Elder · 1.2K karma");
     expect(karmaLine({ score: 0, tier: "newcomer" })).toBeNull();
-    expect(karmaLine(undefined)).toBeNull();
   });
 });
 

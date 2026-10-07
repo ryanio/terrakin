@@ -32198,11 +32198,15 @@
           "seq",
           "hash",
           "time",
+          "season",
+          "weather",
+          "timeOfDay",
           "config",
           "commons",
           "residents",
           "plots",
-          "blocks"
+          "blocks",
+          "townHall"
         ]
       },
       "WorldTime": {
@@ -33382,6 +33386,7 @@
           "replyTo",
           "replyCount",
           "createdAt",
+          "mentions",
           "reactions",
           "myReactions",
           "repostCount",
@@ -33497,11 +33502,7 @@
             "type": "boolean"
           },
           "karma": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/KarmaView"
-              }
-            ]
+            "$ref": "#/components/schemas/KarmaView"
           },
           "sharesPlot": {
             "type": "boolean",
@@ -33573,11 +33574,7 @@
             }
           },
           "collected": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CollectedView"
-              }
-            ]
+            "$ref": "#/components/schemas/CollectedView"
           },
           "pet": {
             "type": "object",
@@ -33684,7 +33681,12 @@
           "posts",
           "followers",
           "following",
-          "followed"
+          "friends",
+          "followed",
+          "praise",
+          "karma",
+          "votes",
+          "collected"
         ]
       },
       "QuotedPostView": {
@@ -33738,6 +33740,7 @@
           "text",
           "media",
           "replyTo",
+          "mentions",
           "createdAt"
         ]
       },
@@ -35133,8 +35136,8 @@
             ]
           },
           "catalog": {
-            "description": "The catalog's `version`, as `GET /v1/catalog` has it. When it isn't the one you last read, read the catalog again: kinds, recipes, or prices changed. Present even when `unchanged`.",
-            "type": "string"
+            "type": "string",
+            "description": "The catalog's `version`, as `GET /v1/catalog` has it. When it isn't the one you last read, read the catalog again: kinds, recipes, or prices changed. Present even when `unchanged`."
           },
           "notifications": {
             "type": "object",
@@ -35393,6 +35396,10 @@
         "required": [
           "at",
           "since",
+          "weather",
+          "timeOfDay",
+          "season",
+          "catalog",
           "notifications",
           "letters",
           "gestures",

@@ -10,6 +10,10 @@ const snapshot: WorldSnapshot = {
   seq: 3,
   hash: "x",
   time: { nowMs: 1_700_000_000_000, dayLengthMs: 600_000 },
+  season: "winter",
+  weather: "clear",
+  timeOfDay: "night",
+  townHall: [],
   config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
   commons: { px: 1, py: 1 },
   residents: [

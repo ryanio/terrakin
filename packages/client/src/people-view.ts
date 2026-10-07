@@ -45,7 +45,7 @@ export function tabCount(
   r: Pick<ProfileView, "followers" | "following" | "friends">,
   tab: PeopleTab,
 ) {
-  return tab === "followers" ? r.followers : tab === "following" ? r.following : (r.friends ?? 0);
+  return tab === "followers" ? r.followers : tab === "following" ? r.following : r.friends;
 }
 
 export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {

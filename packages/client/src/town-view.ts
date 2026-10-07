@@ -104,7 +104,7 @@ function commonsOf(world: WorldSnapshot): Commons {
     x0: world.commons.px * size,
     y0: world.commons.py * size,
     size,
-    hall: new Set((world.townHall ?? []).map((t) => key(t.x, t.y))),
+    hall: new Set(world.townHall.map((t) => key(t.x, t.y))),
     shop: new Set((world.shop ?? []).map((t) => key(t.x, t.y))),
     blocks: new Map(world.blocks.map((b) => [key(b.x, b.y), b.block])),
     ground: new Map((world.ground ?? []).map((g) => [key(g.x, g.y), g.ground])),

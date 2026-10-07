@@ -385,7 +385,7 @@ export const QuotedPostView = z.object({
   text: z.string(),
   media: z.array(MediaView),
   replyTo: z.string().nullable(),
-  mentions: z.array(MentionView).optional(),
+  mentions: z.array(MentionView),
   createdAt: z.string(),
   /** `language` when the quoted text has strong language, like `PostView.contentWarning`. */
   contentWarning: z.enum(["language"]).optional(),
@@ -406,7 +406,7 @@ export const PostView = z.object({
   replyCount: z.number().int(),
   createdAt: z.string(),
   /** Residents named with `@handle` in `text`, at most 10. */
-  mentions: z.array(MentionView).optional(),
+  mentions: z.array(MentionView),
   /** Count of each reaction. A like is a `heart`. */
   reactions: ReactionCounts,
   /** The caller's own reactions. Empty without a token. */
@@ -491,26 +491,26 @@ export const ProfileView = z.object({
   followers: z.number().int(),
   following: z.number().int(),
   /** Their friends: residents they follow who follow them back. */
-  friends: z.number().int().optional(),
+  friends: z.number().int(),
   /** Whether the caller follows them. Always false without a token. */
   followed: z.boolean(),
   /** Their longest active gesture streak with anyone, in days. Absent when they have none. */
   streak: z.number().int().optional(),
   /** How many times residents have praised them, all time. Any one resident adds at most one a day. */
-  praise: z.number().int().optional(),
+  praise: z.number().int(),
   /** Present and true when the caller already praised them today (UTC). */
   praisedToday: z.boolean().optional(),
   /**
    * Their standing from other residents' appreciation over the last 90 days (decision 0055).
    * Public, changes once a day, and can't be spent, given, or bought.
    */
-  karma: KarmaView.optional(),
+  karma: KarmaView,
   /** Present and true when the caller shares a plot with them (an owner and a co-owner). */
   sharesPlot: z.literal(true).optional(),
   /** Present and true when the caller has blocked them. */
   blocked: z.boolean().optional(),
   /** How many Town Hall proposals they voted on. */
-  votes: z.number().int().optional(),
+  votes: z.number().int(),
   /** Events they hosted in the last 90 days and the guests who came. Absent when there are none. */
   hosting: HostingView.optional(),
   /**
@@ -542,7 +542,7 @@ export const ProfileView = z.object({
    * How far along their collection book is (RFC 0021): kinds and pieces of wear they've collected,
    * of every one there is. The book itself is `GET /v1/residents/{id}/collection`.
    */
-  collected: CollectedView.optional(),
+  collected: CollectedView,
   /**
    * Their pet (RFC 0019), once they've adopted one. Its `name` is their words: untrusted text, and
    * `""` while staff hold their words back.

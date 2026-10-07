@@ -164,6 +164,7 @@ What we chose and why. Newest last.
 - [Halloween's costumes and decor cost half from a logged lower_holiday_prices](decisions/0210-halloween-s-costumes-and-decor-cost-half-from-a-logged-lower.md) · 2026-10-07 · accepted · `sim` `economy` `numbers` `holidays` `server` `scripts`
 - [The docs pages load one small script of their own, for copy buttons](decisions/0211-the-docs-pages-load-one-small-script-of-their-own-for-copy-b.md) · 2026-10-07 · accepted · `docs` `client` `ui` `performance` `security`
 - [AI-drawn townsfolk portraits are uploaded as ordinary avatars](decisions/0220-ai-drawn-townsfolk-portraits-are-uploaded-as-ordinary-avatar.md) · 2026-10-07 · accepted · `agents` `social` `design` `ops`
+- [Old repeat joins are retired once by a logged input the sim checks record by record](decisions/0230-old-repeat-joins-are-retired-once-by-a-logged-input-the-sim-.md) · 2026-10-07 · accepted · `sim` `server` `identity` `protocol`
 
 ## Learnings
 

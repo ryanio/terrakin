@@ -473,6 +473,11 @@ export interface WorldState {
    * town handed out. Absent until the day's first knock, and `new_day` drops it.
    */
   knocks?: KnocksState;
+  /**
+   * The records `retire_repeat_joins` took out of the world (decision 0230), sorted. Absent until
+   * that input, which comes once; `join` refuses these ids from then on.
+   */
+  retiredRepeatJoins?: ResidentId[];
 }
 
 /** The party games (RFC 0011). New games go on the end. */
@@ -1338,6 +1343,11 @@ export type Command =
    * who joins later starts with the base, the holiday recipes, and free picks.
    */
   | { type: "open_recipes" }
+  /**
+   * Take untouched repeat records of a name out of the world, once (issue #46, decision 0230). The
+   * server picks `ids`; the sim refuses the whole list if any record was used.
+   */
+  | { type: "retire_repeat_joins"; ids: ResidentId[] }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1469,6 +1479,7 @@ export const SERVER_COMMANDS = [
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
+  "retire_repeat_joins",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1641,6 +1652,8 @@ export type WorldEvent =
   | { type: "shop_share_set"; percent: number }
   /** `lower_holiday_prices`: holiday stock costs the catalog's lower prices from now on. Public. */
   | { type: "holiday_prices_lowered" }
+  /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
+  | { type: "repeat_joins_retired"; ids: ResidentId[] }
   /** Shop wear a resident bought. Private, like their purse. */
   | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
   /** The partner wear a resident may put on now. Public: it's a cosmetic their profile shows. */

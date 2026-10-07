@@ -119,6 +119,7 @@ function inputs(id: string, day: number): [string, Command][] {
     town({ type: "set_entitlements", residentId: id, items: [] }),
     town({ type: "leave_idle", ids: [id] }),
     town({ type: "leave_idle", ids: ["ada", id] }),
+    town({ type: "retire_repeat_joins", ids: [id] }),
     town({ type: "routine_step", resident: id, routine: "walk_home", step: { type: "home" } }),
     town({ type: "routine_step", resident: "ada", routine: id, step: { type: "home" } } as Command),
     ada({ type: "set_routines", routines: [{ kind: id, hour: 1 }] } as Command),

@@ -58,6 +58,7 @@ import {
   type ResidentKind,
   type RoutineStep,
   residentById,
+  retireProblems,
   SHOP,
   type StepRoutine,
   seatOf,
@@ -242,6 +243,13 @@ export interface WorldServiceOptions {
    * calendar. Default: none, so a test world's log holds only what the test sent.
    */
   townEvents?: readonly TownEvent[];
+  /**
+   * Clear the old repeat joins (issue #46, decision 0230): once `socialUsers` is wired, append
+   * `retire_repeat_joins` if the world never has, with the records `repeatJoinsToRetire` finds
+   * then. The Worker turns it on, so terrakin.org logs it once. The Node server leaves it off, so
+   * a self-hosted world, `pnpm dev`, and the e2e servers never run it unless set.
+   */
+  retireRepeatJoins?: boolean;
 }
 
 /** A game input the server meant to log was refused. Reported by its code, never an id. */
@@ -300,11 +308,15 @@ interface TownSwitch {
     | "bounties"
     | "recipes"
     | "holidayPrices"
+    | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
   due: (state: WorldState) => boolean;
-  /** Always a bare `{type}`, copied for each run. */
-  command: Command;
+  /**
+   * A bare `{type}`, copied for each run, or one the service works out when it's due (undefined:
+   * not yet).
+   */
+  command: Command | ((service: WorldService) => Command | undefined);
   /** For the error line when the sim refuses it: "Couldn't <label>: <why>". */
   label: string;
 }
@@ -315,6 +327,17 @@ const PRESENCE_SWITCH: TownSwitch = {
   due: (s) => !s.implicitPresence,
   command: { type: "implicit_presence" },
   label: "turn on implicit presence",
+};
+
+/** Comes without days too, once the social layer is wired (decision 0230). */
+const RETIRE_SWITCH: TownSwitch = {
+  option: "retireRepeatJoins",
+  due: (s) => !s.retiredRepeatJoins,
+  command: (service) => {
+    const ids = service.repeatJoinsToRetire();
+    return ids && { type: "retire_repeat_joins", ids };
+  },
+  label: "retire the repeat joins",
 };
 
 /** The switches `tick()` turns on once the world counts days, in this order. */
@@ -430,6 +453,7 @@ export class WorldService {
   private readonly bounties: boolean;
   private readonly recipes: boolean;
   private readonly holidayPrices: boolean;
+  private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
   private readonly townEvents: readonly TownEvent[];
   /** Town events whose refusal was already reported this boot, so the sweep reports each once. */
@@ -518,6 +542,7 @@ export class WorldService {
     this.bounties = options.bounties ?? false;
     this.recipes = options.recipes ?? false;
     this.holidayPrices = options.holidayPrices ?? false;
+    this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? [];
     // A day may have started (and proposals come due) while the server was down.
@@ -697,13 +722,16 @@ export class WorldService {
   /** Log `sw` from the town when its option is on and the world is due it. */
   private switchOn(sw: TownSwitch) {
     if (!this[sw.option] || !sw.due(this.state)) return;
-    const on = this.run({ actor: TOWN_ACTOR, command: { ...sw.command } });
+    const command = typeof sw.command === "function" ? sw.command(this) : { ...sw.command };
+    if (!command) return;
+    const on = this.run({ actor: TOWN_ACTOR, command });
     if (!on.ok) console.error(`Couldn't ${sw.label}: ${on.error.message}`);
   }
 
   private tickDays() {
     this.reconcileEntitlements();
     this.switchOn(PRESENCE_SWITCH);
+    this.switchOn(RETIRE_SWITCH);
     if (!this.days) return;
     const today = utcDay(this.now());
     if (this.state.day === undefined || today > this.state.day) {
@@ -1602,6 +1630,7 @@ export class WorldService {
         }
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
+      if (e.type === "repeat_joins_retired") this.forgetRetired(e.ids);
       if (e.type === "recipe_learned" && e.how === "taught" && e.from) {
         try {
           this.onRecipeTaught?.(e.residentId, e.from, e.recipe);
@@ -1867,6 +1896,57 @@ export class WorldService {
       noteHidden: (id) => this.noteHidden(id),
       repeatJoins: repeatJoins(this.state, (r) => this.untouched(r)),
     });
+  }
+
+  /**
+   * Everyone who used their record outside the world (posts, follows, a handle, links, and the
+   * rest in `socialUsers` in repeat-joins.ts). `Api` wires it; until then no repeat join is retired.
+   */
+  socialUsers: (() => ReadonlySet<string>) | undefined;
+
+  /**
+   * Hears each record `retire_repeat_joins` took out of the world, and again at every start, so
+   * the social layer forgets it (decision 0230). `Api` wires it.
+   */
+  onRetired: ((ids: readonly string[]) => void) | undefined;
+
+  /**
+   * The records `retire_repeat_joins` should take out now (issue #46, decision 0230): the
+   * snapshot's `repeatJoins` rule, untouched records of a shared name, where untouched also means
+   * nothing in `socialUsers`, less any the sim would refuse (`retireProblems`: coins, things, or
+   * their id anywhere else in the world, a plot included). Sorted. Undefined until `socialUsers`
+   * is wired, so the switch never runs on what the world alone can see.
+   */
+  repeatJoinsToRetire(): string[] | undefined {
+    const used = this.socialUsers?.();
+    if (!used) return undefined;
+    const listed = repeatJoins(this.state, (r) => this.untouched(r) && !used.has(r.id));
+    const refused = new Set(retireProblems(this.state, listed).map((p) => p.id));
+    return listed.filter((id) => !refused.has(id)).sort();
+  }
+
+  /**
+   * Everything outside the world a retired record held (decision 0230): what `onRetired` clears
+   * in the social layer, then its tokens and link key, and what this service keeps about it in
+   * memory. Running it again changes nothing, so `Api` runs it at start for every retired id.
+   */
+  forgetRetired(ids: readonly string[]) {
+    try {
+      this.onRetired?.(ids);
+    } catch (err) {
+      report(err, "world.retired");
+    }
+    for (const id of ids) {
+      if (this.credentials.credentialHashes(id).length > 0) {
+        this.credentials.revokeTokens(id);
+        this.credentials.revokeLinkKey(id);
+      }
+      this.facing.delete(id);
+      this.routineSteps.delete(id);
+      this.builds.delete(id);
+      this.lastSeen.delete(id);
+      this.sockets.delete(id);
+    }
   }
 
   /**

@@ -424,6 +424,16 @@ export class Mirror {
       case "recipes_opened":
         this.recipesOpen = true;
         break;
+      case "repeat_joins_retired": {
+        const gone = new Set(event.ids);
+        for (const id of gone) {
+          this.residents.delete(id);
+          this.facing.delete(id);
+          this.#out.delete(id);
+        }
+        this.repeatJoins = new Set([...this.repeatJoins].filter((id) => !gone.has(id)));
+        break;
+      }
       case "event_scheduled":
         this.events.set(event.event, {
           id: event.event,

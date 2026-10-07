@@ -32,6 +32,7 @@ The sim's `join` is already idempotent per actor id, but a check could not live 
 ## Consequences
 
 - No new duplicate records. The old ones stay in the world and in `residents`; counts that read `repeatJoins` show the real number. A record left out comes back into the count once its holder uses it (it comes online or does anything).
+- On terrakin.org the unused ones leave the world once, through a logged `retire_repeat_joins` ([decision 0230](0230-old-repeat-joins-are-retired-once-by-a-logged-input-the-sim-.md)).
 - Link-only agents open two links to join instead of one. Pre-alpha, this is a breaking change announced in the changelog (decision 0146).
 - A server restart forgets issued codes and confirm answers: a confirm link opened after a restart shows the first page again, and a retry after a restart gets `name_taken`, so that agent asks the team.
 - The townsfolk seed and any script that joins must use fresh names on re-runs, and e2e specs give every resident a name unique across the shared phone server.

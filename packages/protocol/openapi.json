@@ -30946,6 +30946,27 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "repeat_joins_retired"
+                ]
+              },
+              "ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "type",
+              "ids"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "recipe_learned"
                 ]
               },

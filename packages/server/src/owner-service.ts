@@ -94,8 +94,11 @@ const when = (ms: number) =>
 const STILL_CONNECTED =
   "Your AI is connected to Terrakin with its old key right now, so it hasn't lost it, and the re-key was cancelled.";
 
-/** Why a credential stopped working, for the `revoked` answer. */
-export type RetiredReason = "revoked" | "rekeyed";
+/**
+ * Why a credential stopped working, for the `revoked` answer: an owner's revoke, a re-key, or a
+ * repeat record of a name the town cleared (`repeat_join`, decision 0230).
+ */
+export type RetiredReason = "revoked" | "rekeyed" | "repeat_join";
 
 interface RekeyRow {
   ownerId: string;
@@ -534,11 +537,17 @@ export class OwnerService {
       ),
     ][0];
     if (!row) return undefined;
-    return {
-      residentId: String(row.resident_id),
-      reason: row.reason === "rekeyed" ? "rekeyed" : "revoked",
-      at: Number(row.at),
-    };
+    const reason =
+      row.reason === "rekeyed" || row.reason === "repeat_join" ? row.reason : "revoked";
+    return { residentId: String(row.resident_id), reason, at: Number(row.at) };
+  }
+
+  /**
+   * Remember the credentials of a repeat record the town retired (decision 0230), so a caller who
+   * sends one hears what happened. `WorldService` turns them off right after.
+   */
+  retireRepeatJoin(residentId: string) {
+    this.retire(residentId, "repeat_join");
   }
 
   private retire(residentId: string, reason: RetiredReason) {

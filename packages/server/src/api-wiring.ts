@@ -6,6 +6,7 @@ import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
+import { forgetRetired, socialUsers } from "./repeat-joins";
 import { Routines } from "./routines";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
@@ -135,5 +136,14 @@ export function wireSocial(
   layer.agentLinks.writeBlocked = (id) => api.writeBlock(id, false) !== undefined;
   service.entitlements = () => layer.agentLinks.allEntitled();
   service.reconcileEntitlements(true);
+  // Clearing the old repeat joins (decision 0230): the switch reads who used their record out
+  // here, and each retired record's credentials are kept as retired before they're turned off,
+  // so a caller who sends one hears why. At start, whatever a crash left is cleared again.
+  service.socialUsers = () => socialUsers(layer.sql);
+  service.onRetired = (ids) => {
+    for (const id of ids) api.owners?.retireRepeatJoin(id);
+    forgetRetired(layer.sql, ids);
+  };
+  service.forgetRetired(service.state.retiredRepeatJoins ?? []);
   return { routines, partnerResidents };
 }

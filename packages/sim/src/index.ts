@@ -352,6 +352,7 @@ export {
   teachingToday,
   townsfolkLessonDue,
 } from "./recipes";
+export { isRetired, retireProblems } from "./repeat-joins";
 export { REPLAY_VERSION, replay } from "./replay";
 export {
   isRoutineKind,

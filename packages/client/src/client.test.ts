@@ -56,6 +56,21 @@ describe("Mirror", () => {
     expect(m.blocks.get("1,1")).toBe("leaf");
   });
 
+  it("drops retired repeat records from the map and the count", () => {
+    const [ada] = snapshot.residents;
+    if (!ada) throw new Error("no resident");
+    const m = new Mirror({
+      ...snapshot,
+      residents: [ada, { ...ada, id: "b", online: false }],
+      repeatJoins: ["b"],
+    });
+    expect(m.apply({ seq: 4, event: { type: "repeat_joins_retired", ids: ["b"] } })).toBe(
+      "applied",
+    );
+    expect([...m.residents.keys()]).toEqual(["a"]);
+    expect([...m.repeatJoins]).toEqual([]);
+  });
+
   it("mirrors plot shares and clears a revoked co-owner's hearth", () => {
     const [ada] = snapshot.residents;
     if (!ada) throw new Error("fixture");

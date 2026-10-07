@@ -130,6 +130,7 @@ import {
   type RecipesChecked,
   recipeUnknown,
 } from "./recipes";
+import { checkRetireRepeatJoins, isRetired } from "./repeat-joins";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
   checkLowerHolidayPrices,
@@ -686,6 +687,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenMarket(state));
       case "open_recipes":
         return town(checkOpenRecipes(state));
+      case "retire_repeat_joins":
+        return town(checkRetireRepeatJoins(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -759,6 +762,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
   if (command.type === "join") {
     if (me?.online) return reject("already_joined", "You are already in the world.");
+    if (isRetired(state, actor)) {
+      return reject("not_eligible", "That record was retired as a repeat of another's name.");
+    }
     const resident = joining(state, actor, command);
     if ("ok" in resident) return resident;
     return () => {

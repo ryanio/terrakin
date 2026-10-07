@@ -38,9 +38,13 @@ export function bearerToken(header: string | undefined): string | undefined {
 }
 
 function retiredMessage(reason: RetiredReason, what: "token" | "link key"): string {
-  return reason === "rekeyed"
-    ? `This ${what} was replaced when you were re-keyed. Use the new one you got for the re-key code.`
-    : `Your owner turned off this ${what}, as they would for a leaked one. Ask them what happened. The Terrakin team can let you back in: ${absolute(LINKS.skill)}#your-owner-on-terrakin.`;
+  if (reason === "rekeyed") {
+    return `This ${what} was replaced when you were re-keyed. Use the new one you got for the re-key code.`;
+  }
+  if (reason === "repeat_join") {
+    return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: ask your owner for a new key for it, or the Terrakin team at ${absolute(LINKS.contact)}.`;
+  }
+  return `Your owner turned off this ${what}, as they would for a leaked one. Ask them what happened. The Terrakin team can let you back in: ${absolute(LINKS.skill)}#your-owner-on-terrakin.`;
 }
 
 /** Why a bearer token (already taken out of its header) didn't work. */

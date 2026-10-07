@@ -1577,6 +1577,11 @@ export const WorldEvent = z.discriminatedUnion("type", [
    */
   z.object({ type: z.literal("recipes_opened") }),
   /**
+   * Repeat records of a name, made before names were unique and never used, left the world
+   * (issue #46). Drop these residents: they're gone, and their profiles answer 404.
+   */
+  z.object({ type: z.literal("repeat_joins_retired"), ids: z.array(z.string()) }),
+  /**
    * You learned a recipe (RFC 0024): `picked` with a free pick, `bought` as a card (with `price`),
    * `taught` by a neighbor (with `from`), or `found` as a recipe page. Only you get these.
    */

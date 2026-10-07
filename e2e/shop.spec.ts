@@ -13,32 +13,14 @@ import {
 /**
  * The town shop (RFC 0008) on a phone: a resident grows herbs, waits for a day the town buys
  * them, sells them from /shop, and buys a lantern with what they have. A visitor sees the same
- * shop with a way to join. Then autumn's stock (RFC 0017): tagged and bought in autumn. Then
- * Halloween (RFC 0022): a newcomer buys a costume from the Halloween shelf on October 31, knocks
- * at the first resident's door from the card on her plot, and she hears about it. Then winter
- * (RFC 0017): autumn's stock is gone from the shelves on December 1, and a newcomer buys winter's,
- * tagged "This winter". Last, Midwinter (RFC 0022): candy canes from their own shelf on December 21.
- * Moves its server's clock on, by months if it has to, so the tests run in order.
+ * shop with a way to join. Then Halloween night (RFC 0022): a newcomer knocks at the first
+ * resident's door from the card on her plot, and she hears about it. Which stock each season and
+ * holiday sells is the server's and the sim's to test (`packages/server/src/shop.test.ts`,
+ * `halloween.test.ts`, `packages/sim/src/winter.test.ts`), and its tags and shelves the client's
+ * (`packages/client/src/shop.test.ts`). Moves its server's clock on, so the tests run in order.
  */
 
 const DAY_MS = 86_400_000;
-
-/** Days from world day `day` to the next day in autumn (September to November, UTC): 0 in it. */
-function daysToAutumn(day: number): number {
-  const date = new Date(day * DAY_MS);
-  const month = date.getUTCMonth();
-  if (month >= 8 && month <= 10) return 0;
-  const year = date.getUTCFullYear() + (month === 11 ? 1 : 0);
-  return Date.UTC(year, 8, 1) / DAY_MS - day;
-}
-
-/** Days from an autumn world day to December 1, when winter starts. */
-const daysToWinter = (day: number) =>
-  Date.UTC(new Date(day * DAY_MS).getUTCFullYear(), 11, 1) / DAY_MS - day;
-
-/** Days from a winter world day to December 21, the first day of Midwinter: 0 on it. */
-const daysToMidwinter = (day: number) =>
-  Date.UTC(new Date(day * DAY_MS).getUTCFullYear(), 11, 21) / DAY_MS - day;
 
 /** Days from world day `day` to the next October 31 (UTC), trick-or-treat night: 0 on it. */
 function daysToHalloweenNight(day: number): number {
@@ -47,8 +29,8 @@ function daysToHalloweenNight(day: number): number {
   return night >= day ? night - day : Date.UTC(year + 1, 9, 31) / DAY_MS - day;
 }
 
-// The clock only moves forward, so the season steps run in order, each a test of its own with its
-// own 30 seconds, all on Hazel, whom the first one settles.
+// The clock only moves forward, so the tests run in order, each with its own 30 seconds, on Hazel,
+// whom the first one settles.
 test.describe.configure({ mode: "serial" });
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -152,47 +134,14 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   settledHazel = hazel;
 });
 
-test("autumn's stock is tagged and sold in autumn", async ({ page }) => {
-  const errors = watchErrors(page);
-  const hazel = settled();
-  await signIn(page, hazel);
-  // One jump each way, so the test takes as long in December as it does in October.
-  const toAutumn = daysToAutumn(await shopDay(page));
-  if (toAutumn > 0) await advanceDay(page.request, toAutumn);
-  await page.goto("/shop");
-  const seeds = page.locator('.shop-item[data-sku="pumpkin_seed"]');
-  await expect(seeds.locator(".shop-season")).toHaveText("This autumn");
-  await expect(page.locator('.shop-order[data-kind="pumpkin"]')).toContainText("This autumn");
-  await seeds.getByRole("button", { name: /Buy for 4 coins/ }).click();
-  await expect(page.locator("#site-toast")).toContainText("You bought pumpkin seed");
-  await expect(seeds).toContainText("You have 1");
-  expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/shop-autumn.png", fullPage: true });
-  expect(errors).toEqual([]);
-});
-
-test("Halloween: a costume from its shelf, and a knock at a neighbor's door on October 31", async ({
-  page,
-}) => {
+test("Halloween: a knock at a neighbor's door on October 31", async ({ page }) => {
   const errors = watchErrors(page);
   const hazel = settled();
   const toNight = daysToHalloweenNight(await shopDay(page));
   if (toNight > 0) await advanceDay(page.request, toNight);
-  // A newcomer's welcome gift and first allowance buy cat ears from the Halloween shelf.
+  // A newcomer knocks at Hazel's door.
   const rowan = await settler(page.request, "Rowan");
   await signIn(page, rowan);
-  await page.goto("/shop");
-  await expect(page.locator("#shop-holiday-title")).toHaveText("For Halloween");
-  const ears = page.locator('.shop-item[data-sku="cat_ears"]');
-  await expect(ears.locator(".shop-holiday")).toHaveText("Halloween");
-  await ears.getByRole("button", { name: /Buy for 40 coins/ }).click();
-  await expect(page.locator("#site-toast")).toContainText("You bought cat ears");
-  await expect(ears.getByRole("button")).toHaveText("Yours");
-  expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/shop-halloween.png", fullPage: true });
-  expect((await act(page.request, rowan.token, { type: "profile", wear: ["cat_ears"] })).ok).toBe(
-    true,
-  );
 
   // To Hazel's door, then Trick or treat from the card on her plot.
   const world = await (await page.request.get("/v1/world")).json();
@@ -221,59 +170,5 @@ test("Halloween: a costume from its shelf, and a knock at a neighbor's door on O
     "Rowan came trick-or-treating at your door",
   );
   await page.screenshot({ path: "test-results/trick-or-treat-notice.png" });
-  expect(errors).toEqual([]);
-});
-
-test("winter: autumn's stock is gone, and winter's is tagged and sold from December 1", async ({
-  page,
-}) => {
-  const errors = watchErrors(page);
-  await advanceDay(page.request, daysToWinter(await shopDay(page)));
-  // A newcomer's welcome gift and first allowance buy cranberry seeds and a snowman.
-  const juniper = await settler(page.request, "Juniper");
-  await signIn(page, juniper);
-  await page.goto("/shop");
-  await expect(page.locator('.shop-item[data-sku="lantern"]')).toBeVisible();
-  await expect(page.locator('.shop-item[data-sku="pumpkin_seed"]')).toHaveCount(0);
-  await expect(page.locator('.shop-order[data-kind="pumpkin"]')).toHaveCount(0);
-  await expect(page.locator('.shop-order[data-kind="cranberry"]')).toContainText("This winter");
-  const seeds = page.locator('.shop-item[data-sku="cranberry_seed"]');
-  await expect(seeds.locator(".shop-season")).toHaveText("This winter");
-  await seeds.getByRole("button", { name: /Buy for 4 coins/ }).click();
-  await expect(page.locator("#site-toast")).toContainText("You bought cranberry seed");
-  await expect(seeds).toContainText("You have 1");
-  const snowman = page.locator('.shop-item[data-sku="snowman"]');
-  await expect(snowman.locator(".shop-season")).toHaveText("This winter");
-  await expect(snowman.getByRole("link", { name: "See it in 3D" })).toHaveAttribute(
-    "href",
-    "/gallery/3d?item=snowman",
-  );
-  await snowman.getByRole("button", { name: /Buy for 30 coins/ }).click();
-  await expect(page.locator("#site-toast")).toContainText("You bought snowman");
-  await expect(snowman).toContainText("You have 1");
-  expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/shop-winter.png", fullPage: true });
-  const things = (await read(page.request, juniper.token, "/v1/inventory")).inventory;
-  expect(things.stacks).toContainEqual({ kind: "cranberry_seed", count: 1 });
-  expect(things.stacks).toContainEqual({ kind: "snowman", count: 1 });
-  expect(errors).toEqual([]);
-});
-
-test("Midwinter: candy canes from their own shelf on December 21", async ({ page }) => {
-  const errors = watchErrors(page);
-  const hazel = settled();
-  await advanceDay(page.request, daysToMidwinter(await shopDay(page)));
-  await signIn(page, hazel);
-  // Home first, for today's allowance.
-  await act(page.request, hazel.token, { type: "home" });
-  await page.goto("/shop");
-  await expect(page.locator("#shop-holiday-title")).toHaveText("For Midwinter");
-  const canes = page.locator('.shop-item[data-sku="candy_cane"]');
-  await expect(canes.locator(".shop-holiday")).toHaveText("Midwinter");
-  await canes.getByRole("button", { name: /Buy for 2 coins/ }).click();
-  await expect(page.locator("#site-toast")).toContainText("You bought candy cane");
-  await expect(canes).toContainText("You have 1");
-  expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/shop-midwinter.png", fullPage: true });
   expect(errors).toEqual([]);
 });

@@ -429,9 +429,14 @@ describe("a sealed choice", () => {
     return { t, ada, bob, answers, reads };
   }
 
-  /** Everything but the world's hash, which takes in the whole world, salt and all. */
+  /**
+   * Everything but the world's hash, which takes in the whole world, salt and all, and the links to
+   * share, which name each test server's own port.
+   */
   const unhashed = (value: unknown) =>
-    JSON.parse(JSON.stringify(value, (key, v) => (key === "hash" ? undefined : v)));
+    JSON.parse(
+      JSON.stringify(value, (key, v) => (key === "hash" || key === "links" ? undefined : v)),
+    );
 
   it("reaches nobody else through any read until its round closes", async () => {
     const one = await world(1);
@@ -482,6 +487,7 @@ describe("the check-in", () => {
         pace: "slow",
         round: 1,
         closesAt: iso(t.now() + GAME_TIMES.roundSeconds.slow * 1000),
+        links: { page: expect.stringMatching(/^http:\/\/127\.0\.0\.1:\d+\/games\/g_1$/) },
       },
     ]);
     expect(first.todo).toContainEqual(
@@ -502,7 +508,15 @@ describe("the check-in", () => {
     expect(ended.games).toEqual({
       yourMove: [],
       canStart: [],
-      ended: [{ table: "g_1", game: "hearth_race", place: 1, seats: 2 }],
+      ended: [
+        {
+          table: "g_1",
+          game: "hearth_race",
+          place: 1,
+          seats: 2,
+          links: { page: expect.stringMatching(/\/games\/g_1$/) },
+        },
+      ],
     });
     expect(ended.todo).toContain(
       "Game g_1 (Hearth race) ended: you came 1st of 2. Tell your owner how it went.",

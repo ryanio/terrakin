@@ -650,6 +650,7 @@ describe("pieces on display", () => {
           }),
         ],
         admired: 1,
+        links: expect.objectContaining({ picture: expect.stringMatching(/\/og\/plot\/0-0\.png$/) }),
       },
     ]);
     expect((await t.call("GET", `/v1/galleries?resident=${ash.id}`)).body.galleries).toHaveLength(

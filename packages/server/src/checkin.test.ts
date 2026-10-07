@@ -303,8 +303,11 @@ describe("GET /v1/checkin with seen", () => {
       tryToday: null,
       digest: first.digest,
       unchanged: true,
+      // Links to share come every time too (decision 0161): you, and your plot.
+      links: first.links,
       everyHours: CHECKIN_SUGGESTED_HOURS,
     });
+    expect(first.links.home.picture).toMatch(/\/og\/plot\/\d+-\d+\.png$/);
     // A later `since` doesn't change the answer: the digest isn't about the window.
     expect((await seen(quiet.body.at, first.digest)).body.unchanged).toBe(true);
 
@@ -358,6 +361,7 @@ describe("GET /v1/checkin with seen", () => {
       "tryToday",
       "digest",
       "everyHours",
+      "links",
     ]);
   });
 

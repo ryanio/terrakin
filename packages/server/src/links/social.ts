@@ -1,4 +1,4 @@
-import { HANDLE_RENAME_DAYS, heartCount } from "@terrakin/protocol";
+import { HANDLE_RENAME_DAYS, heartCount, residentLinks } from "@terrakin/protocol";
 import { CHAT_EARSHOT } from "@terrakin/sim";
 import type { Handlers } from "../handlers/shared";
 import { plural } from "../markdown";
@@ -177,6 +177,7 @@ export function socialLinks(
         l,
         "# Your look",
         `Changed your ${names.join(", ")}. You're a ${r.color} ${r.shape} now; see yourself at ${origin}/r/${r.id}.`,
+        `Show your owner your new look, as a picture: ${residentLinks(origin, r.id).look}`,
       );
     },
 

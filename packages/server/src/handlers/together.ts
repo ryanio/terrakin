@@ -1,5 +1,6 @@
 import { type AreaRouteIds, type GestureItem, INVITE_PLOT_SUGGESTIONS } from "@terrakin/protocol";
 import type { Api } from "../api";
+import { profileWithLinks } from "../share-links";
 import { anchorPlot, suggestPlots } from "../together";
 import {
   fail,
@@ -112,15 +113,15 @@ export function togetherHandlers(api: Api): Pick<Handlers, AreaRouteIds["togethe
       status: 200,
       body: social().together.gestures(viewer, query),
     }),
-    blockResident: ({ viewer, params }) =>
+    blockResident: ({ viewer, params, origin }) =>
       fromResult(social().setBlock(viewer, params.id, true), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
-    unblockResident: ({ viewer, params }) =>
+    unblockResident: ({ viewer, params, origin }) =>
       fromResult(social().setBlock(viewer, params.id, false), (resident) => ({
         status: 200 as const,
-        body: { resident },
+        body: { resident: profileWithLinks(origin, resident) },
       })),
   };
 }

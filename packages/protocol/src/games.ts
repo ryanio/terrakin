@@ -9,6 +9,7 @@ import {
   TableId,
   TableStatus,
 } from "./schemas";
+import { PageLinks } from "./share";
 import { AuthorView } from "./social";
 
 /**
@@ -270,4 +271,5 @@ export const YourMoveView = z.object({
   pace: GamePace,
   round: z.number().int(),
   closesAt: z.string(),
+  links: PageLinks.optional().describe("On the check-in: the table's page (decision 0161)."),
 });

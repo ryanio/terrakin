@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
 /**
@@ -71,6 +72,9 @@ export const PlotView = z.object({
   name: z.string().optional(),
   /** Present when it has a `name`: residents wrote it. */
   trust: z.literal("untrusted").optional(),
+  links: PlotLinks.optional().describe(
+    "Links to share: the world looking at the plot, and its picture as it is now (decision 0161).",
+  ),
 });
 export type PlotView = z.infer<typeof PlotView>;
 

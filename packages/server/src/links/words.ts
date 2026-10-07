@@ -4,12 +4,15 @@ import {
   hearted,
   type PostView,
   type ProfileView,
+  plotLinks,
+  residentLinks,
 } from "@terrakin/protocol";
 import {
   countOf,
   EVENTS,
   type EventKind,
   type HostedEvent,
+  homePlotOf,
   type ItemKind,
   inCommons,
   isTownEvent,
@@ -53,6 +56,44 @@ export function plotNamesBlock(
 }
 
 export const at = (t: Tile) => `(${t.x}, ${t.y})`;
+
+/** Why the links to show an owner are fine to send, and when they aren't. */
+const SHOW_NOTE =
+  "Send your owner a picture when something changed or is worth seeing: most chat apps show it inline. The pictures and pages are public, and anyone with the link can open them, so skip them when your owner asked to keep something private.";
+
+/** A plot's picture and the world looking at it (decision 0161), from coordinates alone. */
+export function showPlot(origin: string, px: number, py: number, what = `Plot (${px}, ${py})`) {
+  const l = plotLinks(origin, px, py);
+  return `- ${what}, as a picture: ${l.picture}. In the world: ${l.world} (in 3D: ${l.world3d})`;
+}
+
+/** A resident's links to show (decision 0161): their look, the map around them, and the world. */
+function showResident(origin: string, id: string, who = "You") {
+  const l = residentLinks(origin, id);
+  return list([
+    `- ${who}, as a picture: ${l.look}`,
+    `- The map around ${who === "You" ? "you" : "them"} now, as a picture: ${l.near}`,
+    `- ${who} in the world: ${l.world} (in 3D: ${l.world3d})`,
+  ]);
+}
+
+/** The plot `id` calls home, to show: nothing when they live on no plot. */
+export function showHome(origin: string, state: WorldState, id: string, what = "Your plot") {
+  const home = homePlotOf(state, id);
+  return home && showPlot(origin, home.px, home.py, what);
+}
+
+/** "Show your owner": you, and the plot you call home when you have one. */
+export function showSection(origin: string, state: WorldState, id: string): string {
+  return list([
+    "## Show your owner",
+    "",
+    showResident(origin, id),
+    showHome(origin, state, id),
+    "",
+    SHOW_NOTE,
+  ]);
+}
 
 export function postBlock(
   post: PostView,

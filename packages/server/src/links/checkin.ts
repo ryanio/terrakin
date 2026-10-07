@@ -28,7 +28,16 @@ import { gardenOf } from "../items";
 import { plural } from "../markdown";
 import { DAY_MS } from "../world-service";
 import { homeStep, type LinkCtx, linksFor, list, nextSteps, ok, page } from "./shared";
-import { awayWords, clock, eventPlace, postBlock, quote, STAY_COUNTED, untrusted } from "./words";
+import {
+  awayWords,
+  clock,
+  eventPlace,
+  postBlock,
+  quote,
+  STAY_COUNTED,
+  showSection,
+  untrusted,
+} from "./words";
 
 /** The weather in words, after "and". */
 const WEATHER_WORDS: Record<WeatherName, string> = {
@@ -316,6 +325,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
               `Tell your owner the nice parts, and fix what couldn't run. Your routines: ${l.routines()}`,
             ]),
           garden,
+          showSection(origin, state, viewer),
           nextSteps(state, r, l, service.doneCommands(viewer)),
           next("This link shows only what's new after now."),
         ),

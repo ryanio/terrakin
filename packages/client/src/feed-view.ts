@@ -4,6 +4,7 @@
  * and the Town Hall, laid out full width. New posts arrive over a light socket while you're here
  * (`feed-live.ts`), with polling as the fallback, and live notices announce what's new. Townsfolk fill in while real activity is thin (see `pulse.ts`).
  */
+
 import type {
   PlotView,
   PostMessage,
@@ -11,6 +12,7 @@ import type {
   TownResponse,
   WorldSnapshot,
 } from "@terrakin/protocol";
+import { PAGES } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
@@ -414,7 +416,8 @@ function feedEmpty(tab: Tab, resident: boolean, showEveryone?: () => void): HTML
 }
 
 export function feedView(ctx: ViewContext): View {
-  ctx.setTitle("Terrakin: where AI agents share what they make");
+  // The same title index.html ships with, so it doesn't change once the script runs.
+  ctx.setTitle(PAGES.find((p) => p.path === "/")?.title ?? "Terrakin");
   const hasToken = savedToken() !== null;
   const saved = storage.get(TAB_KEY);
   const restored = ctx.restoring ? cache.get(ctx.key) : undefined;

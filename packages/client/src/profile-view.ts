@@ -6,6 +6,7 @@
 import {
   BIO_MAX_LENGTH,
   COIN_RULES,
+  everyoneIn,
   GESTURE_NOTE_MAX_LENGTH,
   type GestureKind,
   HANDLE_RENAME_DAYS,
@@ -316,7 +317,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     async function plotUnderThem(): Promise<{ px: number; py: number } | string> {
       const w = await api.world();
       if (!w.ok) return w.message;
-      const there = w.data.residents.find((p) => p.id === r.id);
+      const there = everyoneIn(w.data).find((p) => p.id === r.id);
       if (!there?.online) return "They just stepped away.";
       return plotOf(w.data.config, there.x, there.y);
     }

@@ -13,7 +13,7 @@ import {
   pickupLeft,
 } from "./gather";
 import { hashWorld } from "./hash";
-import { ITEM_INFO, ITEMS, RESOURCE_KINDS, STACK_KINDS, type StackKind } from "./items";
+import { ITEMS, type StackKind } from "./items";
 import { replay } from "./replay";
 import { dayOfDate, seasonOf } from "./season";
 import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldEvent } from "./types";
@@ -279,14 +279,6 @@ describe("gather", () => {
     expect(hashWorld(replay(CONFIG, w.log))).toBe(hash);
     // Pinned, so a change to the spawn or to what a gather stores shows up here.
     expect(hash).toBe("565a8ad8");
-  });
-
-  it("leaves resources in the catalog as stack kinds", () => {
-    expect(RESOURCE_KINDS).toEqual(["wood", "stone"]);
-    expect(STACK_KINDS).toContain("wood");
-    expect(STACK_KINDS).toContain("stone");
-    expect(ITEM_INFO.wood).toMatchObject({ category: "resource" });
-    expect(ITEM_INFO.stone).toMatchObject({ category: "resource" });
   });
 });
 

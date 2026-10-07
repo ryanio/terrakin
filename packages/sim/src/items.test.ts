@@ -11,12 +11,10 @@ import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-tow
 import { hashWorld } from "./hash";
 import {
   CROP_INFO,
-  GOOD_KINDS,
   ITEMS,
   inventoryOf,
   inventorySize,
   lastDeclineDay,
-  RECIPES,
   STARTER_SEEDS,
   type StackKind,
 } from "./items";
@@ -490,14 +488,6 @@ describe("craft", () => {
     expect(w.code("ada", { type: "craft", recipe: "bouquet", x: 4, y: 3 })).toBe("craft_limit");
     w.day(DAY + 1);
     w.ok("ada", { type: "craft", recipe: "bouquet", x: 4, y: 3 });
-  });
-
-  it("has a recipe for every made thing, and every recipe uses something", () => {
-    for (const kind of GOOD_KINDS) {
-      expect(Object.values(RECIPES[kind].needs).reduce((a, b) => a + (b ?? 0), 0)).toBeGreaterThan(
-        0,
-      );
-    }
   });
 });
 

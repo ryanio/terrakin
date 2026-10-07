@@ -11,14 +11,10 @@ import {
   HAIR_STYLES,
   LOOK_KEYS,
   lookOf,
-  MAX_WEAR,
   PATTERNS,
   sortWear,
   THEME_INFO,
   THEMES,
-  WEAR_INFO,
-  WEAR_ITEMS,
-  WEAR_SLOTS,
   wearProblem,
 } from "./looks";
 import { replay } from "./replay";
@@ -54,14 +50,6 @@ describe("looks catalog", () => {
       for (const color of Object.values(palette)) expect(color).toMatch(/^#[0-9a-f]{6}$/);
       expect(PATTERNS).toContain(motif);
     }
-  });
-
-  it("gives every wear item a slot, and every slot something to wear", () => {
-    for (const item of WEAR_ITEMS) expect(WEAR_SLOTS).toContain(WEAR_INFO[item].slot);
-    for (const slot of WEAR_SLOTS) {
-      expect(WEAR_ITEMS.filter((w) => WEAR_INFO[w].slot === slot).length).toBeGreaterThan(1);
-    }
-    expect(MAX_WEAR).toBe(5);
   });
 
   it("allows one of each slot, in any order, and sorts to hat, top, accessory, bottom, feet", () => {

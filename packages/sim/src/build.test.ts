@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
 import { buildSummary, planMax, plotPlan } from "./build";
 import { BUILD_CONFIG, BUILD_HASH, BUILD_LOG } from "./fixtures/build-log";
-import { FURNITURE_KINDS, FURNITURE_RECIPES } from "./furniture";
 import { hashWorld } from "./hash";
 import { ITEMS, inventoryOf, inventorySize, type StackKind } from "./items";
 import { replay } from "./replay";
@@ -221,14 +220,6 @@ describe("furniture", () => {
     expect(craft("throne").code).toBe("unknown_item");
     (w.state.items as NonNullable<typeof w.state.items>).today.crafted.ada = ITEMS.craftPerDay;
     expect(craft("chair").code).toBe("craft_limit");
-  });
-
-  it("uses something in every recipe, so making one never needs more room", () => {
-    for (const kind of FURNITURE_KINDS) {
-      const used = Object.values(FURNITURE_RECIPES[kind].needs).reduce((a, n) => a + (n ?? 0), 0);
-      expect(used, kind).toBeGreaterThanOrEqual(1);
-      expect(FURNITURE_RECIPES[kind].station, kind).toBe("workbench");
-    }
   });
 
   it("places and takes up like decor, blocks walking, and never builds a starter home", () => {

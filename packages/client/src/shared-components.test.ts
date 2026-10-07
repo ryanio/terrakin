@@ -46,6 +46,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     use: "badges or personLink (people.ts)",
   },
   { pattern: /class: [`"][^`"]*\btag-card\b/, use: "tagCard (people.ts)" },
+  { pattern: /class: [`"][^`"]*\bperson-link\b/, use: "personLink or personLabel (people.ts)" },
   { pattern: /h\(\s*"time"/, use: "timeAgo (when.ts)" },
   { pattern: /\{ ?\.\.\.\w+, avatar: null \}/, use: "residentPerson (people.ts)" },
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },
@@ -157,12 +158,13 @@ describe("views use the shared components", () => {
   it("the staff app never shows a resident's picture outside the tap-to-reveal", () => {
     const admin = files.filter((f) => f.path.startsWith("packages/admin/"));
     const calls = admin.flatMap((f) => [
-      ...f.text.matchAll(/(avatarEl|paintAvatar|personLink)\(/g),
+      ...f.text.matchAll(/(avatarEl|paintAvatar|personLink|personLabel)\(/g),
     ]);
+    // `picture: "drawn"` draws the figure from their look, still without anything they uploaded.
     const unblurred = admin.flatMap((f) =>
       [
         ...f.text.matchAll(
-          /(avatarEl|paintAvatar)\(|personLink\((?:(?!picture: false)[\s\S])*?\}\)/g,
+          /(avatarEl|paintAvatar)\(|person(Link|Label)\((?:(?!picture: (false|"drawn"))[\s\S])*?\}\)/g,
         ),
       ].map((m) => `${f.path}: ${m[0].slice(0, 60)}`),
     );

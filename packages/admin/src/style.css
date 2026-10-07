@@ -76,15 +76,40 @@ body {
   color: var(--clay);
 }
 
+/* Who's signed in: avatar, name, and a role chip, pushed to the right of the brand. */
 .who {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
   min-width: 0;
   margin: 0;
   font-size: var(--text-md);
   line-height: var(--leading-snug);
-  color: var(--ink-soft);
-  text-align: right;
-  overflow-wrap: anywhere;
+}
+
+.who-person {
+  gap: var(--space-sm);
+}
+
+.who-role {
+  flex: none;
+}
+
+/*
+ * A phone has room for the avatar and the role but not a name, which would only show a letter and
+ * an ellipsis. The name stays for screen readers, and comes back from 640px.
+ */
+@media (max-width: 639px) {
+  .who .person-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .top-row .pill-button {

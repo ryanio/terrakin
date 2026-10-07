@@ -2,19 +2,20 @@
 import "./jitless";
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/figtree";
-import type { AdminOverviewResponse } from "@terrakin/protocol";
+import type { AdminOverviewResponse, StaffRole } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { moreMenu, stateCard } from "@terrakin/ui/ui";
+import { personLabel } from "@terrakin/ui/people";
+import { kindPill, moreMenu, type PillTone, stateCard } from "@terrakin/ui/ui";
 import { agentsView } from "./agents-view";
 import { api, SIGNED_OUT_EVENT, savedToken, saveToken } from "./api";
 import { bountiesView } from "./bounties-view";
 import { keysView } from "./keys-view";
 import { logView } from "./log-view";
-import { pathFor, type Screen, screenFor, screensFor } from "./logic";
+import { actorEmail, actorLabel, pathFor, type Screen, screenFor, screensFor } from "./logic";
 import { newcomersView } from "./newcomers-view";
 import { queueView } from "./queue-view";
 import { townsfolkView } from "./townsfolk-view";
-import { actorName, button, type View } from "./view";
+import { button, type View } from "./view";
 import "./style.css";
 
 /**
@@ -52,6 +53,34 @@ function navLink(screen: Screen, label: string, current: Screen): HTMLAnchorElem
   return a;
 }
 
+const ROLES: Record<StaffRole, { name: string; tone: PillTone }> = {
+  maintainer: { name: "Maintainer", tone: "clay" },
+  moderator: { name: "Moderator", tone: "moss" },
+};
+
+/**
+ * Who's signed in: their resident's figure and name, or for an email sign-in with no resident, an
+ * initial and the part of the email before the "@" (the whole email on hover). Then their role.
+ */
+function signedIn(me: AdminOverviewResponse["me"]): HTMLElement {
+  const role = ROLES[me.role];
+  const email = actorEmail(me);
+  const person = me.resident ?? {
+    name: actorLabel({ actor: me.actor, actorView: null }),
+    color: "sand" as const,
+    shape: "round" as const,
+    avatar: null,
+  };
+  return h(
+    "p",
+    { class: "who", attrs: email ? { title: email } : {} },
+    h("span", { class: "visually-hidden", text: "Signed in as " }),
+    personLabel(person, { picture: "drawn", className: "who-person" }),
+    " ",
+    kindPill(role.name, role.tone, "who-role"),
+  );
+}
+
 function paintTop(screen: Screen | undefined) {
   const brand = h(
     "p",
@@ -87,18 +116,7 @@ function paintTop(screen: Screen | undefined) {
   const account = moreMenu({ id: "staff-account", items: [signOut], className: "top-more" });
   account.el.querySelector("button")?.setAttribute("aria-label", "Account");
   top.replaceChildren(
-    h(
-      "div",
-      { class: "column wide top-row" },
-      brand,
-      h(
-        "p",
-        { class: "who" },
-        actorName({ actor: me.actor, actorView: me.resident ?? null }),
-        `, ${me.role}`,
-      ),
-      account.el,
-    ),
+    h("div", { class: "column wide top-row" }, brand, signedIn(me), account.el),
     h(
       "nav",
       { class: "column wide nav", attrs: { "aria-label": "Staff" } },

@@ -85,7 +85,8 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await page.getByRole("button", { name: "Use another token" }).click();
   await tokenField.fill(maintainer.token);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.locator(".who")).toHaveText("Marlow, maintainer");
+  await expect(page.locator(".who .person-name")).toHaveText("Marlow");
+  await expect(page.locator(".who-role")).toHaveText("Maintainer");
   const item = page.locator(`article.item[data-id="${post.id}"]`);
   await expect(item).toContainText("Cheap lanterns, ask me how");
   await expect(item).toContainText("Spam · from Quill");
@@ -171,7 +172,7 @@ test("a maintainer helps an agent back in and makes a key for their own AI", asy
   await page.goto("/admin");
   await page.getByLabel("Token", { exact: true }).fill(maintainer.token);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.locator(".who")).toHaveText("Larkspur, maintainer");
+  await expect(page.locator(".who .person-name")).toHaveText("Larkspur");
 
   await test.step("a maintainer helps an agent that lost its key back in", async () => {
     const wisteria = await join(page.request, "Wisteria", { kind: "agent" });

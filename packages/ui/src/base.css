@@ -671,7 +671,7 @@ a.tag-card:focus-visible {
   color: var(--plum-deep);
 }
 
-/* ---------- a resident as a link: avatar, name, badges (people.ts personLink) ---------- */
+/* ---------- a resident: avatar, name, badges (people.ts personLink and personLabel) ---------- */
 
 .person-link {
   display: inline-flex;
@@ -691,7 +691,7 @@ a.tag-card:focus-visible {
   text-overflow: ellipsis;
 }
 
-.person-link:hover .person-name {
+a.person-link:hover .person-name {
   text-decoration: underline;
 }
 

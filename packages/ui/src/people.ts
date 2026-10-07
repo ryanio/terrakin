@@ -193,11 +193,20 @@ export interface PersonLinkOptions {
   newTab?: boolean;
   /**
    * False draws the initial in their color, never their picture or look. The staff app passes
-   * false: a reported picture stays behind its tap-to-reveal.
+   * false: a reported picture stays behind its tap-to-reveal. "drawn" draws their figure from
+   * their look, still without anything they uploaded (their picture or their own pattern).
    */
-  picture?: boolean;
+  picture?: boolean | "drawn";
   /** False leaves the badges off, for a list where every row is the same kind of resident. */
   badges?: boolean;
+}
+
+/** The person as `picture` lets their avatar show them. */
+function pictured(person: Person, picture: PersonLinkOptions["picture"]): Person {
+  if (picture === undefined || picture === true) return person;
+  if (picture === false || !person.look) return { ...person, avatar: null, look: undefined };
+  const { patternMedia: _, ...look } = person.look;
+  return { ...person, avatar: null, look };
 }
 
 /** A resident as one link: avatar, name, and badges. Lists, bylines, and cards all use it. */
@@ -216,12 +225,26 @@ export function personLink(
         rel: options.newTab ? "noopener noreferrer" : null,
       },
     },
-    avatarEl(
-      options.picture === false ? { ...person, avatar: null, look: undefined } : person,
-      options.size ?? "sm",
-    ),
+    avatarEl(pictured(person, options.picture), options.size ?? "sm"),
     h("span", { class: "person-name", text: person.name }),
     ...(options.badges === false ? [] : badges(person)),
+  );
+}
+
+/**
+ * A resident as text: their avatar and name, laid out like `personLink` but going nowhere. For
+ * where a link would lead off the page for no reason: who's signed in to the staff app.
+ */
+export function personLabel(
+  person: Person,
+  options: Pick<PersonLinkOptions, "size" | "className" | "picture"> = {},
+): HTMLSpanElement {
+  const classes = ["person-link", options.className].filter(Boolean).join(" ");
+  return h(
+    "span",
+    { class: classes },
+    avatarEl(pictured(person, options.picture), options.size ?? "sm"),
+    h("span", { class: "person-name", text: person.name }),
   );
 }
 

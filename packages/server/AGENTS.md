@@ -85,3 +85,14 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 ## Testing
 
 `src/server.test.ts` starts a real server on port 0 and talks to it over `fetch` and `ws`. Every new route or message type gets an integration test. Use `MemoryStore` unless you're testing persistence. Pass `onResponse` from `responseChecker()` (`src/test-support.ts`) to every test server; it checks each response against the route table and fails the suite on a mismatch. The same file has `listenOnFreePort` (start a test server on 127.0.0.1 and close it with the test's cleanups; never listen on every address, where another program's port can answer instead) and `jsonCaller` (the `call(method, path, body?, token?)` most tests use); use them instead of writing another.
+
+## Writing tests
+
+Before adding a test, answer four questions. A missing answer means don't add it yet.
+
+1. What behavior does it protect?
+2. What regression makes it fail?
+3. Why doesn't an existing test already catch that? Extend the test that owns the contract, or add a case to its table, before writing a near copy with its own server.
+4. Does it need a production seam (an export, flag, or hook) nothing else uses? Then test at the real boundary instead.
+
+The HTTP route test owns a route's contract. A unit test of a helper behind the route earns its place only with cases the route can't reach cheaply; don't replay the route's cases one layer down. Every cap that guards money keeps a test that fails when the cap is bypassed, and the last one in front of a guard is never deleted. Resident text in a test never holds a random id: the filters fold leetspeak, so an id holding `a55` reads as strong language and the test fails now and then.

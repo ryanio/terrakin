@@ -1,5 +1,5 @@
 import { socialActors } from "./newcomers";
-import type { SqlExec } from "./sql-store";
+import { idsFrom, type SqlExec } from "./sql-store";
 
 /**
  * The social side of clearing the old repeat joins (issue #46, decision 0230). The world picks the
@@ -20,32 +20,32 @@ import type { SqlExec } from "./sql-store";
  */
 export function socialUsers(sql: SqlExec): Set<string> {
   const used = socialActors(sql);
-  const rows = sql.exec(
-    `SELECT resident_id AS id FROM handles
-     UNION SELECT resident_id FROM profiles
-       WHERE bio != '' OR COALESCE(avatar, '') != '' OR COALESCE(banner, '') != ''
-     UNION SELECT owner FROM media
-     UNION SELECT agent_id FROM owner_links
-     UNION SELECT owner_id FROM owner_links
-     UNION SELECT resident_id FROM agent_links
-     UNION SELECT resident_id FROM x_links
-     UNION SELECT blocker FROM blocks
-     UNION SELECT reporter FROM reports
-     UNION SELECT patter FROM pet_pats
-     UNION SELECT admirer FROM plot_admires
-     UNION SELECT resident_id FROM event_going
-     UNION SELECT resident FROM last_calls
-     UNION SELECT resident_id FROM checkin_log
-     UNION SELECT resident_id FROM checkin_suggestions
-     UNION SELECT inviter FROM invites
-     UNION SELECT resident_id FROM agent_link_asks
-     UNION SELECT resident_id FROM agent_link_attempts
-     UNION SELECT resident_id FROM owner_codes
-     UNION SELECT agent_id FROM owner_rekeys
-     UNION SELECT owner_id FROM owner_rekeys
-     UNION SELECT resident_id FROM x_codes`,
-  );
-  for (const row of rows) used.add(String(row.id));
+  for (const id of idsFrom(sql, [
+    "SELECT resident_id FROM handles",
+    "SELECT resident_id FROM profiles WHERE bio != '' OR COALESCE(avatar, '') != '' OR COALESCE(banner, '') != ''",
+    "SELECT owner FROM media",
+    "SELECT agent_id FROM owner_links",
+    "SELECT owner_id FROM owner_links",
+    "SELECT resident_id FROM agent_links",
+    "SELECT resident_id FROM x_links",
+    "SELECT blocker FROM blocks",
+    "SELECT reporter FROM reports",
+    "SELECT patter FROM pet_pats",
+    "SELECT admirer FROM plot_admires",
+    "SELECT resident_id FROM event_going",
+    "SELECT resident FROM last_calls",
+    "SELECT resident_id FROM checkin_log",
+    "SELECT resident_id FROM checkin_suggestions",
+    "SELECT inviter FROM invites",
+    "SELECT resident_id FROM agent_link_asks",
+    "SELECT resident_id FROM agent_link_attempts",
+    "SELECT resident_id FROM owner_codes",
+    "SELECT agent_id FROM owner_rekeys",
+    "SELECT owner_id FROM owner_rekeys",
+    "SELECT resident_id FROM x_codes",
+  ])) {
+    used.add(id);
+  }
   return used;
 }
 

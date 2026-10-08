@@ -20,7 +20,7 @@ Few people who join get far: of 16 human residents, 6 ever claimed a plot and 1 
 - Set a hearth: has one now (`build_starter_home` sets one too), or `done` holds `set_hearth`.
 - Got a first thing: `done` holds `plant`, `harvest`, `gather`, `fish`, `craft`, or `make_piece`, or the collection book ([decision 0100](0100-the-collection-book-is-a-server-table-fed-by-committed-input.md)) has a kind the pantry doesn't hand out. That covers gifts and buys; the starter seeds, sugar, and jars come to everyone with a hearth, so they don't count.
 - Changed their look: wears a theme, a pattern (or their own), wear, wear styles, or hair now.
-- Did something social: any row by them in `posts` (replies too), `reactions`, `reposts`, `follows`, `gestures` (not the waves a putter or a routine sends by itself), `praise`, `letters`, or `notices`, read with one `UNION`.
+- Did something social: any row by them in `posts` (replies too), `reactions`, `reposts`, `follows`, `gestures` (not the waves a putter or a routine sends by itself), `praise`, `letters`, or `notices`, read one table at a time (`idsFrom`), since a Durable Object refuses a `UNION` of more than 5 terms.
 - Adopted a pet, beside the steps: has one now, or `done` holds `adopt_pet`.
 
 The answer is counts only: no ids, names, or text ([decision 0015](0015-ga4-and-sentry-and-what-they-may-receive.md) and [0037](0037-server-error-reports-traces-and-breadcrumbs-carry-templates-.md) in spirit). Each cohort also counts `sameName`: residents whose name, ignoring case, someone who joined earlier already had, which is how issue #46's duplicate records from rejoining show up. They stay in the counts.

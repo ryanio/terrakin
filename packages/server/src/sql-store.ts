@@ -11,6 +11,29 @@ export interface SqlExec {
 }
 
 /**
+ * What a Durable Object's SQLite refuses that stock SQLite takes, measured on workerd: a compound
+ * SELECT of more than 5 terms, more than 100 bound values, a statement over 100,000 bytes.
+ * `nodeSql` holds Node and every test to the same, so a query that would fail on terrakin.org
+ * fails in the tests first.
+ */
+export const SQL_LIMITS = { compoundTerms: 5, variables: 100, statementBytes: 100_000 } as const;
+
+/**
+ * The ids `selects` return together, each a `SELECT` of one column. They run one at a time, so a
+ * list longer than `SQL_LIMITS.compoundTerms` never becomes one compound SELECT.
+ */
+export function idsFrom(sql: SqlExec, selects: readonly string[]): Set<string> {
+  const ids = new Set<string>();
+  for (const select of selects) {
+    for (const row of sql.exec(select)) {
+      const id = Object.values(row)[0];
+      if (id !== null && id !== undefined) ids.add(String(id));
+    }
+  }
+  return ids;
+}
+
+/**
  * Run `fn` in one SQLite transaction: all of its writes land or none do. A Durable Object refuses
  * `BEGIN`, so the Worker passes `ctx.storage.transactionSync`.
  */

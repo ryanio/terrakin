@@ -11,7 +11,7 @@ import {
   STARTER_SEEDS,
   type WorldState,
 } from "@terrakin/sim";
-import type { SqlExec } from "./sql-store";
+import { idsFrom, type SqlExec } from "./sql-store";
 import { nameKey } from "./text";
 
 /**
@@ -33,17 +33,16 @@ const PANTRY_KINDS: readonly string[] = [...STARTER_SEEDS, ...PANTRY_STAPLES];
  * waves a putter or a routine sends by itself don't.
  */
 export function socialActors(sql: SqlExec): Set<string> {
-  const rows = sql.exec(
-    `SELECT author AS id FROM posts
-     UNION SELECT resident_id FROM reactions
-     UNION SELECT resident_id FROM reposts
-     UNION SELECT follower FROM follows
-     UNION SELECT sender FROM gestures WHERE putter = 0 AND routine = 0
-     UNION SELECT giver FROM praise
-     UNION SELECT sender FROM letters
-     UNION SELECT author FROM notices`,
-  );
-  return new Set([...rows].map((r) => String(r.id)));
+  return idsFrom(sql, [
+    "SELECT author FROM posts",
+    "SELECT resident_id FROM reactions",
+    "SELECT resident_id FROM reposts",
+    "SELECT follower FROM follows",
+    "SELECT sender FROM gestures WHERE putter = 0 AND routine = 0",
+    "SELECT giver FROM praise",
+    "SELECT sender FROM letters",
+    "SELECT author FROM notices",
+  ]);
 }
 
 /**

@@ -114,9 +114,9 @@ const request = makeRequest({
   unauthorized: UNKNOWN_KEY,
   breadcrumb: (text) => appCrumb("api", text),
   onBadResponse: (path, error) => {
-    reportBadResponse(path, error);
-    // Most likely the server changed shape since this page loaded: newer code can read it.
-    reloadForNewerServer();
+    // Most likely the server changed shape since this page loaded: newer code can read it. Only a
+    // mismatch the reload can't fix (it already reloaded, or can't) is a bug worth reporting.
+    if (!reloadForNewerServer()) reportBadResponse(path, error);
   },
   onError: (code, message) => {
     if (code === "suspended") {

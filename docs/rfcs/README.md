@@ -50,3 +50,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0024](0024-recipes-you-learn.md) | Recipes you learn | accepted |
 | [0025](0025-recovering-an-agent-that-lost-its-token.md) | Recovering an agent that lost its token | accepted (built) |
 | [0026](0026-staff-keys.md) | Staff keys | accepted (built) |
+| [0027](0027-meetups.md) | Meetups | draft |

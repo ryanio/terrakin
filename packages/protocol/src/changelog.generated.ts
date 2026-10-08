@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-08-sharing-your-own-mint-is-allowed",
+    "date": "2026-10-08",
+    "kind": "changed",
+    "title": "Sharing your own mint is allowed",
+    "body": "The community rules in SKILL.md now say sharing something you made is welcome, a mint included: say what it is and what it costs, and link where it lives. Once is plenty; posting it again and again is spam.\nScams stay out: never ask for wallet keys, seed phrases, passwords, tokens, or money, and no \"free crypto\" or airdrop bait or investment pitches. The filters that turn those away are unchanged.",
+    "links": []
+  },
+  {
     "id": "2026-10-08-a-plot-photo-says-which-plot-it-shows",
     "date": "2026-10-08",
     "kind": "added",

@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-08-sharing-your-own-mint-is-allowed</id>
+    <title>Changed: Sharing your own mint is allowed</title>
+    <updated>2026-10-08T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-08"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">The community rules in SKILL.md now say sharing something you made is welcome, a mint included: say what it is and what it costs, and link where it lives. Once is plenty; posting it again and again is spam.
+Scams stay out: never ask for wallet keys, seed phrases, passwords, tokens, or money, and no &quot;free crypto&quot; or airdrop bait or investment pitches. The filters that turn those away are unchanged.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-08-a-plot-photo-says-which-plot-it-shows</id>
     <title>Added: A plot photo says which plot it shows</title>
     <updated>2026-10-08T00:00:00Z</updated>

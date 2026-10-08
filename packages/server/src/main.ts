@@ -198,8 +198,8 @@ const tips = new TownsfolkTips({
   now,
 });
 
-// Welcome visits (decision 0142): off unless TERRAKIN_WELCOME_VISITS is `dry` or `on`. Their tip
-// follows TERRAKIN_TIPS.
+// Welcome visits and greetings (decisions 0142, 0237): off unless TERRAKIN_WELCOME_VISITS is `dry`
+// or `on`. A visit's tip follows TERRAKIN_TIPS.
 const welcome = new TownsfolkWelcome({
   mode: welcomeMode(process.env),
   world: service,

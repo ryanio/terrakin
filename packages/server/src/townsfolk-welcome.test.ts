@@ -1,4 +1,4 @@
-import { plotOf, purseOf, type WorldConfig } from "@terrakin/sim";
+import { chebyshev, plotOf, purseOf, spawnTile, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { MemoryMediaStore } from "./media";
@@ -8,7 +8,13 @@ import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { TIP_NOTES, TIPS } from "./tip-plan";
 import { type TipsMode, TownsfolkTips } from "./townsfolk-tips";
-import { TownsfolkWelcome, WELCOME, type WelcomeMode, welcomeMode } from "./townsfolk-welcome";
+import {
+  GREET,
+  TownsfolkWelcome,
+  WELCOME,
+  type WelcomeMode,
+  welcomeMode,
+} from "./townsfolk-welcome";
 import { DAY_MS, WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -26,9 +32,10 @@ afterEach(() => {
 });
 
 /**
- * A world with coins open and two townsfolk, Clem (living on the west side, plot 1) and Pip (on
- * the east, plot 8), with their handles, run through an `Api` so the welcome is wired as both
- * adapters wire it. Newcomers settle on the second day, so the treasury pays their welcome gift.
+ * A world with coins open and two townsfolk, Clem (living in the north-west, plot (1, 1)) and Pip
+ * (in the east, plot (8, 3), a little nearer the Commons), with their handles, run through an
+ * `Api` so the welcome is wired as both adapters wire it. Newcomers settle on the second day, so
+ * the treasury pays their welcome gift.
  */
 function town(mode: WelcomeMode = "on", tipsMode: TipsMode = "on") {
   let now = START;
@@ -79,15 +86,22 @@ function town(mode: WelcomeMode = "on", tipsMode: TipsMode = "on") {
     return done;
   };
   as(clem, { type: "settle", px: 1, py: 1 });
-  as(pip, { type: "settle", px: 8, py: 1 });
+  as(pip, { type: "settle", px: 8, py: 3 });
+  // Townsfolk have homes: a hearth one tile in from their plot's north-west corner.
+  as(clem, { type: "set_hearth", x: 5, y: 5 });
+  as(pip, { type: "set_hearth", x: 33, y: 13 });
   // Townsfolk budgets come with a new day, and the treasury's welcome gifts with coins.
   now += DAY_MS;
   world.tick();
   const tips = new TownsfolkTips({ mode: tipsMode, world, social, townsfolk, now: clock });
   const welcome = new TownsfolkWelcome({ mode, world, social, townsfolk, tips, now: clock });
   const api = new Api({ service: world, social, skill: "", openapi: "{}", tips, welcome });
+  /** A newcomer stepping into the world, in the town square, with their greeting queued. */
+  const newcomer = (name: string, kind: "human" | "agent" = "human") => join(world, name, kind);
+  /** A newcomer who settles at once. Visits are tested alone, so the join's greeting is left out. */
   const settle = (name: string, px: number, kind: "human" | "agent" = "human") => {
     const id = join(world, name, kind);
+    sql.exec("DELETE FROM townsfolk_greetings WHERE resident_id = ?", id);
     as(id, { type: "settle", px, py: 1 });
     return id;
   };
@@ -113,6 +127,7 @@ function town(mode: WelcomeMode = "on", tipsMode: TipsMode = "on") {
     clem,
     pip,
     as,
+    newcomer,
     settle,
     coins,
     fromTownsfolk,
@@ -147,7 +162,7 @@ describe("a welcome visit", () => {
     // Clem lives on plot 1, next door: Clem goes, not Pip, and stands on Ash's plot.
     expect(t.welcome.rowFor(ash)).toMatchObject({ done: true, by: t.clem, outcome: "waved" });
     expect(t.plotUnder(t.clem)).toEqual({ px: 2, py: 1 });
-    expect(t.plotUnder(t.pip)).toEqual({ px: 8, py: 1 });
+    expect(t.plotUnder(t.pip)).toEqual({ px: 8, py: 3 });
     // The visit is a logged input with the tile the server picked, as any visit is.
     const logged: unknown[] = [];
     t.store.eachInput(seq, (input) => {
@@ -382,5 +397,256 @@ describe("a welcome visit", () => {
     expect(dry.plotUnder(dry.clem)).toEqual({ px: 1, py: 1 });
     expect(dry.coins(bo)).toBe(before);
     expect(dry.waves(bo)).toEqual([]);
+  });
+});
+
+describe("a greeting in the town square", () => {
+  /** How far apart two residents stand, in tiles. */
+  const apart = (t: ReturnType<typeof town>, a: string, b: string) => {
+    const ra = t.world.state.residents[a];
+    const rb = t.world.state.residents[b];
+    if (!ra || !rb) throw new Error("no such resident");
+    return chebyshev(ra, rb);
+  };
+
+  it("comes a minute after a person first steps in: the townsfolk living nearest the Commons walks over and waves", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    const before = t.coins(ash);
+    // The alarm wakes for it a minute on, the soonest a waiting row may set it.
+    expect(t.api.nextWelcomeAt()).toBe(t.world.now() + WELCOME.wakeGapMs);
+    expect(t.welcome.greetingFor(ash)?.dueAt).toBe(t.world.now() + GREET.afterMs);
+    t.advance(GREET.afterMs - 1);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: [] });
+
+    t.advance(1);
+    const seq = t.world.state.seq;
+    t.api.sweep();
+    // Pip lives nearer the Commons than Clem: Pip goes, and stands next to Ash in the square.
+    expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, by: t.pip, outcome: "waved" });
+    expect(apart(t, t.pip, ash)).toBe(1);
+    expect(t.world.state.residents[t.pip]?.online).toBe(true);
+    // The walk is Pip's own logged moves, nothing the sim hasn't seen before.
+    const logged = new Set<string>();
+    t.store.eachInput(seq, (input) => {
+      if (input.actor === t.pip) logged.add(input.command.type);
+    });
+    expect([...logged]).toEqual(["move"]);
+    // Ash gets a wave with no note, and no coins.
+    expect(t.waves(ash)).toMatchObject([{ actor: { id: t.pip } }]);
+    expect(t.social.together.gestures(ash, {}).gestures).toMatchObject([
+      { kind: "wave", note: "" },
+    ]);
+    expect(t.coins(ash)).toBe(before);
+    expect(t.api.nextWelcomeAt()).toBeUndefined();
+  });
+
+  it("finds them where they stand in the Commons, and heads home first when that's nearer", () => {
+    const t = town();
+    // Pip wandered off to the west edge; home is nearer the square than there.
+    t.as(t.pip, { type: "visit", px: 1, py: 1 });
+    const ash = t.newcomer("Ash");
+    const spawn = spawnTile(CONFIG);
+    t.as(ash, { type: "move", dir: "se" });
+    t.as(ash, { type: "move", dir: "e" });
+    t.advance(GREET.afterMs);
+    const seq = t.world.state.seq;
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(apart(t, t.pip, ash)).toBe(1);
+    expect(t.world.state.residents[ash]).toMatchObject({ x: spawn.x + 2, y: spawn.y + 1 });
+    const first: string[] = [];
+    t.store.eachInput(seq, (input) => {
+      if (input.actor === t.pip) first.push(input.command.type);
+    });
+    expect(first[0]).toBe("home");
+  });
+
+  it("sends nobody when the newcomer already left the Commons, as an invite settles them at once", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    t.as(ash, { type: "settle", px: 2, py: 1 });
+    const seq = t.world.state.seq;
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["away"] });
+    expect(t.world.state.seq).toBe(seq);
+    expect(t.waves(ash)).toEqual([]);
+  });
+
+  it("plans the walk before it moves anyone: a townsfolk whose home is walled in isn't sent there, and the next one goes", () => {
+    const t = town();
+    // Pip is at home: wall the hearth in on every side.
+    expect(t.world.state.residents[t.pip]).toMatchObject({ x: 33, y: 13 });
+    for (const [dx, dy] of [
+      [-1, -1],
+      [0, -1],
+      [1, -1],
+      [-1, 0],
+      [1, 0],
+      [-1, 1],
+      [0, 1],
+      [1, 1],
+    ] as const) {
+      t.as(t.pip, { type: "place", x: 33 + dx, y: 13 + dy, block: "stone" });
+    }
+    // Then wanders off, so the walk would start by going home.
+    t.as(t.pip, { type: "visit", px: 1, py: 1 });
+    const ash = t.newcomer("Ash");
+    const seq = t.world.state.seq;
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(t.welcome.greetingFor(ash)).toMatchObject({ by: t.clem, outcome: "waved" });
+    const fromPip: string[] = [];
+    t.store.eachInput(seq, (input) => {
+      if (input.actor === t.pip) fromPip.push(input.command.type);
+    });
+    expect(fromPip).toEqual([]);
+    expect(apart(t, t.clem, ash)).toBe(1);
+  });
+
+  it("comes once per resident, ever: coming back, or claiming a plot, brings no second one", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    t.world.leave(ash);
+    expect(t.world.ensureOnline(ash).ok).toBe(true);
+    t.as(ash, { type: "settle", px: 2, py: 1 });
+    t.advance(WELCOME.afterMs);
+    // The claim brings its visit; the greeting stays done.
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: [], welcomed: 1 });
+    expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, by: t.pip });
+  });
+
+  it("leaves the welcome visit to someone else, so the door brings a second face", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    // Pip lives next door to this plot, but Pip greeted Ash a minute ago: Clem visits instead.
+    t.as(ash, { type: "settle", px: 7, py: 3 });
+    t.advance(WELCOME.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1, codes: [] });
+    expect(t.welcome.rowFor(ash)).toMatchObject({ by: t.clem, outcome: "waved" });
+    expect(t.waves(ash)).toHaveLength(2);
+  });
+
+  it("is for people: an agent stepping in, or townsfolk, are never queued", () => {
+    const t = town();
+    const bot = t.newcomer("Bot", "agent");
+    expect(t.welcome.greetingFor(bot)).toBeUndefined();
+    expect(t.welcome.greetingFor(t.pip)).toBeUndefined();
+    expect(t.api.nextWelcomeAt()).toBeUndefined();
+  });
+
+  it("skips a newcomer who is suspended", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    expect(t.social.safety.suspend("system", ash, 3, "Testing.").ok).toBe(true);
+    const seq = t.world.state.seq;
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["suspended"] });
+    expect(t.world.state.seq).toBe(seq);
+    expect(t.waves(ash)).toEqual([]);
+  });
+
+  it("skips a newcomer who already left", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    t.world.leave(ash);
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["gone"] });
+    expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, outcome: "gone" });
+  });
+
+  it("drops one that waited too long, as after the server was down", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    const seq = t.world.state.seq;
+    t.advance(GREET.staleMs + 1);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["stale"] });
+    expect(t.world.state.seq).toBe(seq);
+    expect(t.waves(ash)).toEqual([]);
+  });
+
+  it("sends the next nearest townsfolk past one who is suspended or blocked either way, and nobody past all", () => {
+    const blocked = town();
+    const ash = blocked.newcomer("Ash");
+    blocked.social.setBlock(blocked.pip, ash, true);
+    blocked.advance(GREET.afterMs);
+    expect(blocked.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(blocked.welcome.greetingFor(ash)).toMatchObject({ by: blocked.clem, outcome: "waved" });
+
+    const suspended = town();
+    const bo = suspended.newcomer("Bo");
+    expect(suspended.social.safety.suspend("system", suspended.pip, 3, "Testing.").ok).toBe(true);
+    suspended.advance(GREET.afterMs);
+    expect(suspended.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(suspended.welcome.greetingFor(bo)).toMatchObject({ by: suspended.clem });
+
+    const nobody = town();
+    const cy = nobody.newcomer("Cy");
+    nobody.social.setBlock(cy, nobody.pip, true);
+    nobody.social.setBlock(nobody.clem, cy, true);
+    const seq = nobody.world.state.seq;
+    nobody.advance(GREET.afterMs);
+    expect(nobody.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["nobody"] });
+    expect(nobody.world.state.seq).toBe(seq);
+    expect(nobody.waves(cy)).toEqual([]);
+  });
+
+  it("is marked done before it's tried, so a failure partway never brings a second one", () => {
+    const t = town();
+    const ash = t.newcomer("Ash");
+    t.advance(GREET.afterMs);
+    const together = t.social.together;
+    const send = together.sendGesture.bind(together);
+    together.sendGesture = () => {
+      throw new Error("gestures went away");
+    };
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["error"] });
+    together.sendGesture = send;
+    t.advance(60_000);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: [] });
+    expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, outcome: "error" });
+  });
+
+  it("greets at most a few newcomers a run, and the rest on the next", () => {
+    const t = town();
+    const ids = ["Ash", "Bo", "Cy", "Dee"].map((name) => t.newcomer(name));
+    t.advance(GREET.afterMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: GREET.perRun });
+    expect(t.api.nextWelcomeAt()).toBe(t.world.now() + WELCOME.wakeGapMs);
+    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    for (const id of ids) expect(t.waves(id)).toHaveLength(1);
+  });
+
+  it("does nothing while off, and moves and sends nothing while dry", () => {
+    const off = town("off");
+    const ash = off.newcomer("Ash");
+    expect(off.welcome.greetingFor(ash)).toBeUndefined();
+    off.advance(GREET.afterMs);
+    expect(off.api.runWelcomes()).toMatchObject({ skipped: "off" });
+    expect(off.api.nextWelcomeAt()).toBeUndefined();
+
+    const dry = town("dry");
+    const bo = dry.newcomer("Bo");
+    const seq = dry.world.state.seq;
+    const where = dry.plotUnder(dry.pip);
+    dry.advance(GREET.afterMs);
+    expect(dry.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(dry.welcome.greetingFor(bo)).toMatchObject({ by: dry.pip, outcome: "waved" });
+    expect(dry.world.state.seq).toBe(seq);
+    expect(dry.plotUnder(dry.pip)).toEqual(where);
+    expect(dry.waves(bo)).toEqual([]);
+
+    // Out far from home, the greeter is planned from its hearth, as the real walk would go.
+    const away = town("dry");
+    away.as(away.pip, { type: "visit", px: 1, py: 1 });
+    const cy = away.newcomer("Cy");
+    const at = away.world.state.seq;
+    away.advance(GREET.afterMs);
+    expect(away.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(away.welcome.greetingFor(cy)).toMatchObject({ by: away.pip, outcome: "waved" });
+    expect(away.world.state.seq).toBe(at);
   });
 });

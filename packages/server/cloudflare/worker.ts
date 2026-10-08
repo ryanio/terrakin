@@ -113,7 +113,7 @@ interface Env {
   TERRAKIN_CHATTER_MENTIONS?: string;
   /** The townsfolk's daily coin tips: `off` (the default), `dry`, or `on`. */
   TERRAKIN_TIPS?: string;
-  /** Welcome visits (decision 0142): `off` (the default), `dry`, or `on`. */
+  /** Welcome visits and greetings (decisions 0142, 0237): `off` (the default), `dry`, or `on`. */
   TERRAKIN_WELCOME_VISITS?: string;
   /** Townsfolk lessons (RFC 0024): `off` (the default), `dry`, or `on`. */
   TERRAKIN_TOWNSFOLK_LESSONS?: string;
@@ -468,7 +468,8 @@ class WorldObject extends DurableObject<Env> {
         },
       }),
       tips,
-      // A visit is due a few minutes after the claim: the alarm wakes the object for it.
+      // A greeting is due a minute after a first join, a visit a few after the first claim: the
+      // alarm wakes the object for each.
       welcome: new TownsfolkWelcome({
         mode: welcomeMode(env),
         world: service,
@@ -518,8 +519,8 @@ class WorldObject extends DurableObject<Env> {
    * for when the next one is due, and never sooner than AGENT_RECHECK_EVERY_MS from now. And
    * events (RFC 0010): every minute while one is live, so the object stays in memory, samples land
    * on time, and guests calling over REST stay online between calls; else when the next one starts.
-   * And welcome visits (decision 0142) and answers to @mentions of townsfolk (decision 0190), when
-   * the next one is due.
+   * And greetings and welcome visits (decisions 0237, 0142) and answers to @mentions of townsfolk
+   * (decision 0190), when the next one is due.
    */
   private nextRecheck(): number | undefined {
     const recheck = nextRecheckAt(Date.now(), this.api.nextAgentRecheckAt());

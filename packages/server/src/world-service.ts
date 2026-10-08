@@ -675,6 +675,12 @@ export class WorldService {
    * reported and never undoes or fails the action.
    */
   onCommitted: ((input: Input, events: readonly WorldEvent[]) => void) | undefined;
+  /**
+   * Hears each resident `createResident` makes, after their first `join` is logged: a brand new
+   * record, never someone coming back. Greetings (decision 0237) queue from it. A failure here is
+   * reported and the join stands.
+   */
+  onNewResident: ((residentId: string) => void) | undefined;
 
   /** Whether a resident is suspended, from the social layer. Their stall can't sell meanwhile. */
   suspended: (residentId: string) => boolean = () => false;
@@ -1183,6 +1189,11 @@ export class WorldService {
     // restart forgets.
     if (this.state.day === undefined) this.facts.joinedDay.set(residentId, utcDay(this.now()));
     this.touch(residentId);
+    try {
+      this.onNewResident?.(residentId);
+    } catch (err) {
+      report(err, "world.new_resident");
+    }
     return { ...result, residentId };
   }
 

@@ -1,12 +1,21 @@
 import {
   activeTables,
+  asJoined,
+  chebyshev,
+  commonsPlot,
   type Input,
   plotHeart,
+  plotOf,
   plotsOwnedBy,
   residentById,
+  route,
+  STEP,
   seatOf,
+  spawnTile,
+  type Tile,
   type WorldEvent,
   type WorldState,
+  worldGround,
 } from "@terrakin/sim";
 import type { SocialService } from "./social-service";
 import type { SqlExec } from "./sql-store";
@@ -27,11 +36,18 @@ import type { WorldService } from "./world-service";
  * the daily run's own plan and action path. No model, no text from anyone: a wave carries no note,
  * and the tip's note is the giver's fixed welcome line.
  *
- * Guards: one row per resident ever, marked done before anything is tried, so a crash partway
- * never brings a second visit; `WELCOME.perRun` a run; nothing for a suspended newcomer;
- * `TERRAKIN_WELCOME_VISITS` (`off` by default) turns it all off; and the tip is given only when
- * the daily run hasn't, which the daily run then sees in the giver's ledger. Logs carry counts and
- * codes only.
+ * A greeting (decision 0237) answers the join itself: about a minute after a person first steps
+ * into the world, the townsfolk resident whose home is nearest the Commons walks to them in the
+ * town square and waves. `noteJoined` (wired to `WorldService.onNewResident`, which only a brand
+ * new record reaches) queues it in `townsfolk_greetings`, and the same `run` carries it out. The
+ * walk is `home` and then logged `move` steps, as anyone walks; no tip, no note.
+ *
+ * Guards, for both: one row per resident ever, marked done before anything is tried, so a crash
+ * partway never brings a second one; a cap a run; nothing for a suspended newcomer; no townsfolk
+ * who is suspended, seated at a game table, or blocked either way; a stale cutoff; and
+ * `TERRAKIN_WELCOME_VISITS` (`off` by default) turns it all off. A greeting also skips a newcomer
+ * who already left. The tip is given only when the daily run hasn't, which the daily run then
+ * sees in the giver's ledger. Logs carry counts and codes only.
  */
 
 export type WelcomeMode = "off" | "dry" | "on";
@@ -56,6 +72,20 @@ export const WELCOME = {
   wakeGapMs: 60_000,
 } as const;
 
+/** Greetings in the town square (decision 0237), on a person's first join. */
+export const GREET = {
+  /** How long after the join the greeter is due: the page has loaded and the square is in view. */
+  afterMs: 20_000,
+  /** A greeting this late is dropped: the moment it was for has passed. */
+  staleMs: 5 * 60_000,
+  /** Greetings a run. */
+  perRun: 3,
+  /** Townsfolk tried for one newcomer, nearest the Commons first, when one can't go. */
+  tries: 3,
+  /** How far the walk to the newcomer looks, in tiles, after the greeter has gone home. */
+  radius: 24,
+} as const;
+
 /** What a run came to. Counts and codes only. */
 export interface WelcomeRun {
   skipped?: "off";
@@ -67,6 +97,13 @@ export interface WelcomeRun {
   dropped: number;
   /** Refusal and drop codes, in order. */
   codes: string[];
+  /** Newcomers greeted in the town square (in a dry run, who would be). */
+  greeted: number;
+  /**
+   * Greetings closed without a wave, and why: stale, gone, away, suspended, nobody, no_way, or a
+   * refusal.
+   */
+  greetCodes: string[];
 }
 
 export interface TownsfolkWelcomeOptions {
@@ -127,6 +164,37 @@ export class TownsfolkWelcome {
     this.sql.exec(
       "CREATE INDEX IF NOT EXISTS townsfolk_welcomes_due ON townsfolk_welcomes (done_at, due_at)",
     );
+    // Greetings (decision 0237): one row per resident, ever, the same way.
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS townsfolk_greetings (
+      resident_id TEXT PRIMARY KEY, joined_at INTEGER NOT NULL, due_at INTEGER NOT NULL,
+      done_at INTEGER, mode TEXT NOT NULL DEFAULT '', greeter TEXT NOT NULL DEFAULT '',
+      outcome TEXT NOT NULL DEFAULT ''
+    )`);
+    this.sql.exec(
+      "CREATE INDEX IF NOT EXISTS townsfolk_greetings_due ON townsfolk_greetings (done_at, due_at)",
+    );
+  }
+
+  /**
+   * Queue a greeting for a resident the world just made: their first join, never a return. Only
+   * people; agents and townsfolk are never greeted. Never throws.
+   */
+  noteJoined(residentId: string): void {
+    if (this.mode === "off") return;
+    try {
+      const r = residentById(this.world.state, residentId);
+      if (r?.kind !== "human" || this.townsfolk.has(residentId)) return;
+      const now = this.now();
+      this.sql.exec(
+        "INSERT OR IGNORE INTO townsfolk_greetings (resident_id, joined_at, due_at) VALUES (?, ?, ?)",
+        residentId,
+        now,
+        now + GREET.afterMs,
+      );
+      this.onQueued?.();
+    } catch (err) {
+      report(err, "welcome.greet_queue");
+    }
   }
 
   /**
@@ -162,17 +230,89 @@ export class TownsfolkWelcome {
    */
   nextAt(): number | undefined {
     if (this.mode === "off") return undefined;
-    const row = [
-      ...this.sql.exec("SELECT MIN(due_at) AS at FROM townsfolk_welcomes WHERE done_at IS NULL"),
-    ][0];
-    if (row?.at === null || row?.at === undefined) return undefined;
-    return Math.max(Number(row.at), this.now() + WELCOME.wakeGapMs);
+    const times = ["townsfolk_welcomes", "townsfolk_greetings"].flatMap((table) => {
+      const row = [
+        ...this.sql.exec(`SELECT MIN(due_at) AS at FROM ${table} WHERE done_at IS NULL`),
+      ][0];
+      return row?.at === null || row?.at === undefined ? [] : [Number(row.at)];
+    });
+    if (times.length === 0) return undefined;
+    return Math.max(Math.min(...times), this.now() + WELCOME.wakeGapMs);
   }
 
-  /** Carry out the visits that are due, at most `WELCOME.perRun`. */
+  /**
+   * Carry out the greetings that are due, at most `GREET.perRun`, then the visits, at most
+   * `WELCOME.perRun`.
+   */
   run(): WelcomeRun {
-    const result: WelcomeRun = { welcomed: 0, tipped: 0, dropped: 0, codes: [] };
+    const result: WelcomeRun = {
+      welcomed: 0,
+      tipped: 0,
+      dropped: 0,
+      codes: [],
+      greeted: 0,
+      greetCodes: [],
+    };
     if (this.mode === "off") return { ...result, skipped: "off" };
+    this.greetDue(result);
+    this.visitDue(result);
+    if (result.welcomed + result.dropped + result.greeted + result.greetCodes.length > 0) {
+      console.info(
+        `Townsfolk welcome (${this.mode}): greeted ${result.greeted}${result.greetCodes.length ? ` (${result.greetCodes.join(" ")})` : ""}, welcomed ${result.welcomed}, tipped ${result.tipped}, dropped ${result.dropped}${result.codes.length ? ` (${result.codes.join(" ")})` : ""}`,
+      );
+    }
+    return result;
+  }
+
+  private greetDue(result: WelcomeRun) {
+    const now = this.now();
+    const due = [
+      ...this.sql.exec(
+        `SELECT resident_id, joined_at FROM townsfolk_greetings
+          WHERE done_at IS NULL AND due_at <= ? ORDER BY due_at, resident_id LIMIT ?`,
+        now,
+        GREET.perRun,
+      ),
+    ];
+    const dry = this.mode === "dry";
+    for (const row of due) {
+      const id = String(row.resident_id);
+      // Marked done first: whatever happens next, this resident is never greeted twice.
+      this.finishGreeting(id, { outcome: "started" });
+      const drop = (code: string) => {
+        result.greetCodes.push(code);
+        this.finishGreeting(id, { outcome: code });
+      };
+      if (now - Number(row.joined_at) > GREET.staleMs) {
+        drop("stale");
+        continue;
+      }
+      if (!residentById(this.world.state, id)?.online) {
+        drop("gone");
+        continue;
+      }
+      if (this.social.safety.suspendedUntil(id) !== undefined) {
+        drop("suspended");
+        continue;
+      }
+      try {
+        const walked = this.walkOver(id, dry);
+        if (!walked.ok) {
+          drop(walked.code);
+          continue;
+        }
+        const waved = this.wave(walked.by, id, dry);
+        if (waved === "waved") result.greeted++;
+        else result.greetCodes.push(waved);
+        this.finishGreeting(id, { by: walked.by, outcome: waved });
+      } catch (err) {
+        report(err, "welcome.greet");
+        drop("error");
+      }
+    }
+  }
+
+  private visitDue(result: WelcomeRun) {
     const now = this.now();
     const due = [
       ...this.sql.exec(
@@ -182,7 +322,6 @@ export class TownsfolkWelcome {
         WELCOME.perRun,
       ),
     ];
-    if (due.length === 0) return result;
     const dry = this.mode === "dry";
     for (const row of due) {
       const id = String(row.resident_id);
@@ -218,13 +357,9 @@ export class TownsfolkWelcome {
         drop("error");
       }
     }
-    console.info(
-      `Townsfolk welcome (${this.mode}): welcomed ${result.welcomed}, tipped ${result.tipped}, dropped ${result.dropped}${result.codes.length ? ` (${result.codes.join(" ")})` : ""}`,
-    );
-    return result;
   }
 
-  /** Townsfolk who could visit this newcomer, nearest home to their plot first. */
+  /** Townsfolk who could go to this newcomer, nearest home to `heart` first. */
   private visitors(newcomer: string, heart: { x: number; y: number }): string[] {
     const state = this.world.state;
     const seated = new Set(
@@ -246,12 +381,19 @@ export class TownsfolkWelcome {
   /**
    * The nearest townsfolk resident who can visits the newcomer's plot, through `arrive` and `act`
    * as `/v1/actions` does; the world picks the tile and logs it. One already standing there counts.
+   * Whoever greeted them in the square goes last, so the door brings a second face and a wave the
+   * gesture cooldown doesn't refuse.
    */
   private visit(newcomer: string, dry: boolean): Visited {
     const state = this.world.state;
     const plot = plotsOwnedBy(state, newcomer)[0];
     if (!plot) return { ok: false, code: "no_plot" };
-    const candidates = this.visitors(newcomer, plotHeart(state, plot)).slice(0, WELCOME.tries);
+    const greeter = this.greetingFor(newcomer)?.by;
+    const near = this.visitors(newcomer, plotHeart(state, plot));
+    const candidates = [
+      ...near.filter((id) => id !== greeter),
+      ...near.filter((id) => id === greeter),
+    ].slice(0, WELCOME.tries);
     if (candidates.length === 0) return { ok: false, code: "nobody" };
     let code = "nobody";
     for (const by of candidates) {
@@ -264,6 +406,57 @@ export class TownsfolkWelcome {
       });
       if (done.ok || done.error.code === "already_there") return { ok: true, by };
       code = done.error.code;
+    }
+    return { ok: false, code };
+  }
+
+  /**
+   * The townsfolk resident whose home is nearest the Commons, of those who can, walks to stand next
+   * to the newcomer in the square: `home` first when their hearth is nearer the newcomer than where
+   * they stand, then `move` steps from `route`, each through `arrive` and `act` like any
+   * resident's, so every step is a logged input and replay needs nothing new. The walk is planned
+   * before anything is sent, so a townsfolk who can't get there isn't moved and the next is tried.
+   * A newcomer who already left the Commons (an invite settles them at once) gets no walk. Dry, the
+   * walk is only planned.
+   */
+  private walkOver(newcomer: string, dry: boolean): Visited {
+    const state = this.world.state;
+    const r = residentById(state, newcomer);
+    if (!r) return { ok: false, code: "gone" };
+    const here = plotOf(state.config, r.x, r.y);
+    const c = commonsPlot(state.config);
+    if (here.px !== c.px || here.py !== c.py) return { ok: false, code: "away" };
+    const target = { x: r.x, y: r.y };
+    const candidates = this.visitors(newcomer, spawnTile(state.config)).slice(0, GREET.tries);
+    if (candidates.length === 0) return { ok: false, code: "nobody" };
+    let code = "nobody";
+    for (const by of candidates) {
+      const view = asJoined(this.world.state, by);
+      const me = residentById(view, by);
+      if (!me) continue;
+      const hearth = me.hearth;
+      const goHome = hearth !== null && chebyshev(hearth, target) < chebyshev(me, target);
+      const from = goHome ? hearth : { x: me.x, y: me.y };
+      const steps = route(worldGround(view), from, target, 1, GREET.radius);
+      const end = steps.reduce(
+        (t, dir) => ({ x: t.x + STEP[dir][0], y: t.y + STEP[dir][1] }),
+        from,
+      );
+      if (chebyshev(end, target) > 1) {
+        code = "no_way";
+        continue;
+      }
+      if (dry) return { ok: true, by };
+      if (!this.world.arrive(by, "move").ok) continue;
+      if (goHome) {
+        const home = this.world.act(by, { type: "home" });
+        if (!home.ok) return { ok: false, code: home.error.code };
+      }
+      for (const dir of steps) {
+        const moved = this.world.act(by, { type: "move", dir });
+        if (!moved.ok) return { ok: false, code: moved.error.code };
+      }
+      return { ok: true, by };
     }
     return { ok: false, code };
   }
@@ -303,6 +496,37 @@ export class TownsfolkWelcome {
       row.tip ?? "",
       id,
     );
+  }
+
+  private finishGreeting(id: string, row: { by?: string; outcome: string }) {
+    this.sql.exec(
+      `UPDATE townsfolk_greetings SET done_at = ?, mode = ?, greeter = ?, outcome = ?
+        WHERE resident_id = ?`,
+      this.now(),
+      this.mode,
+      row.by ?? "",
+      row.outcome,
+      id,
+    );
+  }
+
+  /** One resident's greeting, for tests and staff: when it came due, who went, and what happened. */
+  greetingFor(
+    residentId: string,
+  ): { dueAt: number; done: boolean; by: string; outcome: string } | undefined {
+    const row = [
+      ...this.sql.exec(
+        "SELECT due_at, done_at, greeter, outcome FROM townsfolk_greetings WHERE resident_id = ?",
+        residentId,
+      ),
+    ][0];
+    if (!row) return undefined;
+    return {
+      dueAt: Number(row.due_at),
+      done: row.done_at !== null,
+      by: String(row.greeter),
+      outcome: String(row.outcome),
+    };
   }
 
   /** One resident's row, for tests and staff: when it came due, who went, and what happened. */

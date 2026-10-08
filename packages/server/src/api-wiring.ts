@@ -88,6 +88,8 @@ export function wireSocial(
       layer.collection.noteCommitted(service.state, input, events);
     }
   };
+  // Greetings (decision 0237): a person's first join queues one; that never throws.
+  service.onNewResident = (id) => api.welcome?.noteJoined(id);
   try {
     layer.collection.backfill(service.state);
   } catch (err) {

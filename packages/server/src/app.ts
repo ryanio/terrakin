@@ -95,7 +95,7 @@ export interface AppOptions {
   chatter?: ChatterService;
   /** The townsfolk's daily coin tips, asked every `TIPS_CHECK_MS`; they run once a day. Default: none. */
   tips?: TownsfolkTips;
-  /** Welcome visits (decision 0142), run by the minute sweep. Default: none. */
+  /** Welcome visits and greetings (decisions 0142, 0237), run by the minute sweep. Default: none. */
   welcome?: TownsfolkWelcome;
   /** Townsfolk lessons (RFC 0024), run by the minute sweep. Default: none. */
   lessons?: TownsfolkLessons;

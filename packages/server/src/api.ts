@@ -286,8 +286,9 @@ export interface ApiOptions {
    */
   tips?: TownsfolkTips;
   /**
-   * Welcome visits (decision 0142): queued as a person claims their first plot, carried out by the
-   * minute sweep. Built on `service` and `social`. Without it, nobody is visited.
+   * Welcome visits (decision 0142), queued as a person claims their first plot, and greetings in
+   * the town square (decision 0237), queued as a person first joins, carried out by the minute
+   * sweep. Built on `service` and `social`. Without it, nobody is visited or greeted.
    */
   welcome?: TownsfolkWelcome;
   /**
@@ -1074,8 +1075,8 @@ export class Api {
   }
 
   /**
-   * Welcome visits that are due (decision 0142). The minute sweep runs them after routines; this
-   * runs them alone, for tests.
+   * Greetings and welcome visits that are due (decisions 0237 and 0142). The minute sweep runs them
+   * after routines; this runs them alone, for tests.
    */
   runWelcomes(): WelcomeRun | { skipped: "off" } {
     const welcome = this.welcome;
@@ -1093,7 +1094,10 @@ export class Api {
     return task("lessons.run", () => lessons.run());
   }
 
-  /** When the next welcome visit is due (ms), or undefined, so the Worker's alarm wakes for it. */
+  /**
+   * When the next greeting or welcome visit is due (ms), or undefined, so the Worker's alarm wakes
+   * for it.
+   */
   nextWelcomeAt(): number | undefined {
     return this.welcome?.nextAt();
   }
@@ -1210,7 +1214,8 @@ export class Api {
     this.service.sweepIdle();
     // After the idle sweep, so whoever just went idle is away for their routines.
     runRoutines(this.routines);
-    // Welcome visits (decision 0142): a failure is reported and the rest of the sweep goes on.
+    // Greetings and welcome visits (decisions 0237 and 0142): a failure is reported and the rest
+    // of the sweep goes on.
     try {
       this.welcome?.run();
     } catch (err) {

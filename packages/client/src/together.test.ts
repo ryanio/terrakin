@@ -1,6 +1,7 @@
 import type { AuthorView, GestureKind, LetterView } from "@terrakin/protocol";
 import { badgeText } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
+import { isLetterMediaUrl } from "./letter-media";
 import { PROMPT_INTERESTS, PROMPT_NAMES, PROMPT_PATTERN, promptAt, promptLine } from "./prompts";
 import { matchRoute, routeTemplate } from "./router";
 import { templateIds } from "./telemetry";
@@ -10,7 +11,6 @@ import {
   foldWaves,
   gestureChoices,
   gestureLine,
-  isLetterMediaUrl,
   reusableInvite,
   sentLine,
   streakLine,

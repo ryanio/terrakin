@@ -77,7 +77,7 @@ import { openRoutines } from "./routines-view";
 import { canTeachLine, collectedLine, thingCount, thingName } from "./things";
 import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
-import { visitPlot } from "./visit-view";
+import { visitPlot } from "./visit-plot";
 import { xRow } from "./x-connect";
 
 /** A little emoji that floats up from a button and fades: the gesture leaving your hands. */

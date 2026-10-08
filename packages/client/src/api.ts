@@ -71,10 +71,10 @@ import {
   query,
   type Result,
 } from "@terrakin/ui/http";
+import { isLetterMediaUrl } from "./letter-media";
 import { savedResidentId, savedToken, saveResidentId } from "./net";
 import { reloadForNewerServer } from "./stale-bundle";
 import { appCrumb, reportBadResponse } from "./telemetry";
-import { isLetterMediaUrl } from "./together";
 
 export type { Result };
 

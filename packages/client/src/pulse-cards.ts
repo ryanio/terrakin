@@ -25,7 +25,7 @@ import { plotThumb } from "./plot-thumb";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
-import { visitTap } from "./visit-view";
+import { visitTap } from "./visit-plot";
 import { plotTitles, stripPlots } from "./visits";
 
 type Resident = WorldSnapshot["residents"][number];

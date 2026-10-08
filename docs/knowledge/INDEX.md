@@ -166,6 +166,7 @@ What we chose and why. Newest last.
 - [AI-drawn townsfolk portraits are uploaded as ordinary avatars](decisions/0220-ai-drawn-townsfolk-portraits-are-uploaded-as-ordinary-avatar.md) · 2026-10-07 · accepted · `agents` `social` `design` `ops`
 - [Old repeat joins are retired once by a logged input the sim checks record by record](decisions/0230-old-repeat-joins-are-retired-once-by-a-logged-input-the-sim-.md) · 2026-10-07 · accepted · `sim` `server` `identity` `protocol`
 - [The client build leaves out zod's JSON Schema code and draws avatar figures from a chunk loaded beside the first load](decisions/0231-the-client-build-leaves-out-zod-s-json-schema-code-and-draws.md) · 2026-10-08 · accepted · `client` `performance` `tooling`
+- [A plot photo keeps the plot it shows, and a posted one jumps there in one tap](decisions/0232-a-plot-photo-keeps-the-plot-it-shows-and-a-posted-one-jumps-.md) · 2026-10-08 · accepted · `server` `protocol` `client` `ui`
 
 ## Learnings
 

@@ -18,9 +18,10 @@ import { confirmTwice, emptyNote, errorLine, stateCard, toast } from "@terrakin/
 import { timeAgo } from "@terrakin/ui/when";
 import { api, letterImage, myProfile, UNREAD_EVENT, uploadMedia } from "./api";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
-import { savedToken } from "./net";
+import { savedResidentId, savedToken } from "./net";
 import { conversations } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { jumpThere } from "./visit-plot";
 
 const unreadChanged = () => window.dispatchEvent(new Event(UNREAD_EVENT));
 
@@ -275,7 +276,13 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
 
   function picture(m: MediaView): HTMLElement {
     const img = h("img", { class: "letter-img", attrs: { alt: "A picture in this letter" } });
-    const frame = h("span", { class: "letter-img-frame" }, img);
+    const frame = h(
+      "span",
+      { class: "letter-img-frame" },
+      img,
+      // A plot photo says where it was taken.
+      m.place ? jumpThere(m.place, savedResidentId(), ctx.navigate) : null,
+    );
     void letterImage(m.url).then((src) => {
       if (!src) {
         frame.classList.add("missing");

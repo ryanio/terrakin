@@ -539,7 +539,7 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
             { class: "plots-strip-item", attrs: { "data-plot": `${p.px},${p.py}` } },
             visitTap(
               p,
-              title,
+              `Visit ${title}`,
               o.me,
               o.navigate,
               "plots-strip-visit",

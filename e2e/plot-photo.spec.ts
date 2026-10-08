@@ -3,7 +3,8 @@ import { act, freePlots, join, signIn, watchErrors } from "./support";
 
 /**
  * Plot photos (issue #34) at 390x844: a resident takes a photo of their home from their profile,
- * sees the picture the server drew, and posts it.
+ * sees the picture the server drew, and posts it; then Jump there on the posted photo opens the
+ * world looking at the plot.
  */
 
 test("a resident takes a photo of their home and posts it", async ({ page }) => {
@@ -37,6 +38,21 @@ test("a resident takes a photo of their home and posts it", async ({ page }) => 
 
   const posts = await (await page.request.get(`/v1/residents/${rue.id}/posts`)).json();
   expect(posts.posts[0]).toMatchObject({ text: "Our little hut" });
-  expect(posts.posts[0].media[0]).toMatchObject({ kind: "image", type: "image/png" });
+  expect(posts.posts[0].media[0]).toMatchObject({
+    kind: "image",
+    type: "image/png",
+    place: { px, py },
+  });
+
+  await test.step("Jump there on the posted photo opens the world on the plot", async () => {
+    await page.goto(`/p/${posts.posts[0].id}`);
+    const jump = page.locator(".post.focus .media-place");
+    await expect(jump).toHaveText("Jump there");
+    await page.screenshot({ path: "test-results/plot-photo-post.png" });
+    // Her own plot isn't a visit: the world opens looking at it, with Go there to take her home.
+    await jump.click();
+    await expect(page).toHaveURL(/\/world$/);
+    await expect(page.locator("#look-card")).toBeVisible();
+  });
   expect(errors).toEqual([]);
 });

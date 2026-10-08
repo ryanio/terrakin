@@ -90,6 +90,15 @@ function photoPlot(state: WorldState, residentId: string) {
   );
 }
 
+/** The plot `residentId`'s photo shows: the first they own, else the first shared with them. */
+export function photoPlace(
+  state: WorldState,
+  residentId: string,
+): { px: number; py: number } | undefined {
+  const plot = photoPlot(state, residentId);
+  return plot ? { px: plot.px, py: plot.py } : undefined;
+}
+
 /**
  * The photo of `residentId`'s plot, from world state alone. Undefined when they have no plot. Its
  * name is the photo's title (decision 0121), unless `held` says staff hold back the words of

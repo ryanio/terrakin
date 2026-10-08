@@ -1609,6 +1609,27 @@ body.in-world .veil {
   background: linear-gradient(135deg, #f6ead4, #efdfc3);
 }
 
+/* "Jump there" on a picture taken in the world (visit-plot.ts), clear of a plot photo's caption. */
+.media-place {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 1;
+  padding: 0 var(--space-md);
+  gap: var(--space-xs);
+  text-decoration: none;
+}
+
+/* Side by side, a picture keeps room for itself: the pill shows only its world icon. */
+.media-grid:not(.single) .media-place {
+  width: 44px;
+  padding: 0;
+}
+
+.media-grid:not(.single) .media-place-text {
+  display: none;
+}
+
 .media-open {
   display: block;
   width: 100%;
@@ -5330,6 +5351,7 @@ a.btn-primary {
 }
 
 .letter-img-frame {
+  position: relative;
   display: block;
   aspect-ratio: 1;
   overflow: hidden;

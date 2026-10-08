@@ -314,6 +314,14 @@ export const MediaView = z.object({
    */
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
+  /**
+   * Where in the world the picture was taken: the plot a plot photo (`POST /v1/plots/photo`) shows.
+   * `terrakin.org/world?at=<px>,<py>` opens the world there, and a `visit` with these goes there.
+   * Absent for everything else, and for plot photos taken before places were recorded.
+   */
+  place: z
+    .object({ px: z.number().int().nonnegative(), py: z.number().int().nonnegative() })
+    .optional(),
 });
 export type MediaView = z.infer<typeof MediaView>;
 

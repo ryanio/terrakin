@@ -31,6 +31,19 @@ export function useModelViewer(load: () => Promise<ModelViewer>) {
   loadModelViewer = load;
 }
 
+/** Where a picture was taken in the world, as a media view says (a plot photo's plot). */
+export type MediaPlace = NonNullable<MediaView["place"]>;
+
+let placeTap: ((place: MediaPlace) => HTMLElement) | undefined;
+
+/**
+ * Say how a picture taken in the world takes you there. The app passes a "Jump there" that visits
+ * the plot, since visiting needs its API; without one, pictures show no way there.
+ */
+export function usePlaceTap(build: (place: MediaPlace) => HTMLElement) {
+  placeTap = build;
+}
+
 export function mediaGrid(media: readonly MediaView[], label: string): HTMLElement | null {
   // Only URLs shaped exactly like ours reach an img, video, or the model loader.
   const { layout, items } = mediaLayout(media.filter((m) => isMediaUrl(m.url)));
@@ -42,6 +55,7 @@ export function mediaGrid(media: readonly MediaView[], label: string): HTMLEleme
     if (item.kind === "image") cell.append(imageButton(item, images, label, layout === "single"));
     else if (item.kind === "video") cell.append(videoEl(item));
     else cell.append(modelTile(item));
+    if (item.place && placeTap) cell.append(placeTap(item.place));
     grid.append(cell);
   }
   const only = items[0];

@@ -104,7 +104,7 @@ import { OwnerService } from "./owner-service";
 import type { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
 import { type PictureRoute, type PictureSpec, pictureSpec } from "./pictures";
-import { type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
+import { type PlotPhotoRenderer, photoPlace, plotPhotoSpec } from "./plot-photo";
 import { type PlotViewer, shownPlotName } from "./plots";
 import { RateLimiters } from "./rate-limit";
 import { type Routines, type RoutinesRun, runRoutines } from "./routines";
@@ -812,7 +812,8 @@ export class Api {
     const key = ipKey(ip);
     if (!this.limiters.photosIp.take(key)) return fail("rate_limited", RATE_LIMITED.photosIp);
     const spec = plotPhotoSpec(this.service.state, viewer, this.service.noteHidden);
-    if (!spec) {
+    const place = photoPlace(this.service.state, viewer);
+    if (!spec || !place) {
       return fail(
         "bad_request",
         'You have no plot to photograph yet. Settle one first: {"type": "settle", "px": ..., "py": ...} with POST /v1/actions.',
@@ -847,7 +848,7 @@ export class Api {
       const day = utcDay(this.now());
       const overIpNow = this.ipUploadRefusal(key, png.length);
       if (overIpNow) return overIpNow;
-      const outcome = await social.upload(viewer, png);
+      const outcome = await social.upload(viewer, png, place);
       if (outcome.ok) this.countIpUpload(key, day, png.length);
       return fromResult(outcome, (media) => ({ status: 201 as const, body: { media } }));
     } finally {

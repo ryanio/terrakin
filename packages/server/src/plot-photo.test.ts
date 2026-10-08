@@ -267,14 +267,35 @@ describe("POST /v1/plots/photo", () => {
     const wren = await settled("Wren");
     const res = await photo(wren);
     expect(res.status).toBe(201);
-    expect(res.body.media).toMatchObject({ kind: "image", type: "image/png" });
+    // Wren settled plot (0, 0): the photo says where it was taken, so a post can link there.
+    expect(res.body.media).toMatchObject({
+      kind: "image",
+      type: "image/png",
+      place: { px: 0, py: 0 },
+    });
     expect(drawn.count).toBe(1);
     const post = await call("POST", "/v1/posts", wren.token, {
       text: "My home",
       media: [res.body.media.id],
     });
     expect(post.status).toBe(201);
-    expect(post.body.post.media[0].id).toBe(res.body.media.id);
+    expect(post.body.post.media[0]).toMatchObject({
+      id: res.body.media.id,
+      place: { px: 0, py: 0 },
+    });
+    const read = await call("GET", `/v1/posts/${post.body.post.id}`);
+    expect(read.body.post.media[0].place).toEqual({ px: 0, py: 0 });
+    // A photo sent in a letter keeps its place too.
+    const ash = await settled("Ash");
+    const second = await photo(wren);
+    const sent = await call("POST", "/v1/letters", wren.token, {
+      to: ash.residentId,
+      text: "Come see",
+      media: [second.body.media.id],
+    });
+    expect(sent.status).toBe(201);
+    const inbox = await call("GET", "/v1/letters", ash.token);
+    expect(inbox.body.letters[0].media[0].place).toEqual({ px: 0, py: 0 });
   });
 
   it("draws a real PNG with the default renderer", async () => {

@@ -24,7 +24,7 @@ import {
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { sizeFields } from "./image-size";
-import { type MediaStore, privateMediaKey } from "./media";
+import { type MediaStore, placeFields, privateMediaKey } from "./media";
 import { type Moderation, refusal } from "./moderation";
 import { NOT_SUSPENDED } from "./safety-service";
 import type { SocialResult } from "./social-service";
@@ -514,7 +514,7 @@ export class TogetherService {
     const ids = rows.map((r) => String(r.id));
     const media = new Map<string, MediaView[]>();
     for (const m of this.rows(
-      `SELECT lm.letter_id, m.id, m.type, m.bytes, m.width, m.height
+      `SELECT lm.letter_id, m.id, m.type, m.bytes, m.width, m.height, m.place_px, m.place_py
         FROM letter_media lm JOIN media m ON m.id = lm.media_id
         WHERE lm.letter_id IN (${ids.map(() => "?").join(", ")}) ORDER BY lm.letter_id, lm.ord`,
       ...ids,
@@ -529,6 +529,7 @@ export class TogetherService {
         url: letterMediaUrl(letterId, String(m.id)),
         bytes: Number(m.bytes),
         ...sizeFields(m),
+        ...placeFields(m),
       });
       media.set(letterId, list);
     }

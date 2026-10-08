@@ -67,7 +67,13 @@ import { type EventContext, EventsSocial } from "./events";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
-import { type MediaStore, privateMediaKey, sniffMediaType } from "./media";
+import {
+  type MediaPlace,
+  type MediaStore,
+  placeFields,
+  privateMediaKey,
+  sniffMediaType,
+} from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
 import { httpArtReader, PartnerArtService } from "./partner-art";
 import { PetPatService, petDetail, readPetDetail } from "./pets";
@@ -229,7 +235,7 @@ export interface SocialServiceOptions {
 
 type Row = Record<string, unknown>;
 
-/** A `media` row (id, type, bytes, width, height) as a file view. */
+/** A `media` row (id, type, bytes, width, height, place) as a file view. */
 function mediaRowView(m: Row): MediaView {
   const type = String(m.type) as MediaType;
   return {
@@ -239,8 +245,15 @@ function mediaRowView(m: Row): MediaView {
     url: mediaUrl(String(m.id)),
     bytes: Number(m.bytes),
     ...sizeFields(m),
+    ...placeFields(m),
   };
 }
+
+/** The `media` columns `mediaRowView` reads, after a table alias. */
+const MEDIA_COLUMNS = (t: string) =>
+  ["id", "type", "bytes", "width", "height", "place_px", "place_py"]
+    .map((c) => `${t}.${c}`)
+    .join(", ");
 type Binding = string | number;
 
 const randomId = (prefix: string) =>
@@ -521,9 +534,15 @@ export class SocialService {
     } catch {
       // Already there.
     }
-    // Added later: an image's size in pixels, read from its header at upload. Null for older
-    // uploads, videos, models, and images whose header we couldn't read.
-    for (const column of ["width INTEGER", "height INTEGER"]) {
+    // Added later: an image's size in pixels, read from its header at upload (null for older
+    // uploads, videos, models, and images whose header we couldn't read), and the plot a plot
+    // photo shows (null for every other upload).
+    for (const column of [
+      "width INTEGER",
+      "height INTEGER",
+      "place_px INTEGER",
+      "place_py INTEGER",
+    ]) {
       try {
         this.sql.exec(`ALTER TABLE media ADD COLUMN ${column}`);
       } catch {
@@ -2163,9 +2182,13 @@ export class SocialService {
    * Store an upload. Order matters for the cost guard: check every cap, then reserve the bytes
    * (the `uploads` and `media` rows), then write the file. There's no await between the checks and
    * the reservation, so concurrent uploads see each other's bytes and can't jointly overshoot a
-   * cap. A failed write releases its reservation.
+   * cap. A failed write releases its reservation. `place` is the plot a plot photo shows.
    */
-  async upload(ownerId: string, bytes: Uint8Array): Promise<SocialResult<MediaView>> {
+  async upload(
+    ownerId: string,
+    bytes: Uint8Array,
+    place?: MediaPlace,
+  ): Promise<SocialResult<MediaView>> {
     if (!this.resident(ownerId)) return fail("unauthorized", "Unknown resident.");
     const type = sniffMediaType(bytes);
     if (!type) {
@@ -2212,8 +2235,8 @@ export class SocialService {
       at,
     );
     this.sql.exec(
-      `INSERT INTO media (id, owner, type, bytes, created_at, width, height)
-        VALUES (?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0))`,
+      `INSERT INTO media (id, owner, type, bytes, created_at, width, height, place_px, place_py)
+        VALUES (?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), NULLIF(?, -1), NULLIF(?, -1))`,
       id,
       ownerId,
       type,
@@ -2221,6 +2244,8 @@ export class SocialService {
       at,
       size?.width ?? 0,
       size?.height ?? 0,
+      place?.px ?? -1,
+      place?.py ?? -1,
     );
     try {
       await this.media.put(id, bytes, type);
@@ -2232,7 +2257,15 @@ export class SocialService {
     }
     return {
       ok: true,
-      value: { id, kind, type, url: mediaUrl(id), bytes: bytes.length, ...size },
+      value: {
+        id,
+        kind,
+        type,
+        url: mediaUrl(id),
+        bytes: bytes.length,
+        ...size,
+        ...(place ? { place: { px: place.px, py: place.py } } : {}),
+      },
     };
   }
 
@@ -2508,21 +2541,13 @@ export class SocialService {
     const media = new Map<string, MediaView[]>();
     if (ids.length === 0) return media;
     for (const m of this.rows(
-      `SELECT pm.post_id, m.id, m.type, m.bytes, m.width, m.height
+      `SELECT pm.post_id, ${MEDIA_COLUMNS("m")}
         FROM post_media pm JOIN media m ON m.id = pm.media_id
         WHERE pm.post_id IN (${marks(ids.length)}) ORDER BY pm.post_id, pm.ord`,
       ...ids,
     )) {
-      const type = String(m.type) as MediaType;
       const list = media.get(String(m.post_id)) ?? [];
-      list.push({
-        id: String(m.id),
-        kind: MEDIA_TYPES[type].kind,
-        type,
-        url: mediaUrl(String(m.id)),
-        bytes: Number(m.bytes),
-        ...sizeFields(m),
-      });
+      list.push(mediaRowView(m));
       media.set(String(m.post_id), list);
     }
     return media;
@@ -2531,7 +2556,7 @@ export class SocialService {
   /** A resident's avatar and then their banner, the ones that are set. */
   private profileMedia(residentId: string): MediaView[] {
     return this.rows(
-      `SELECT m.id, m.type, m.bytes, m.width, m.height
+      `SELECT ${MEDIA_COLUMNS("m")}
         FROM profiles pr JOIN media m ON m.id IN (pr.avatar, pr.banner)
         WHERE pr.resident_id = ? ORDER BY m.id = pr.banner`,
       residentId,
@@ -2540,7 +2565,7 @@ export class SocialService {
 
   /** One upload as a file view, if it's still stored. For staff reading a report on a piece. */
   private uploadMedia(mediaId: string): MediaView[] {
-    return this.rows("SELECT id, type, bytes, width, height FROM media WHERE id = ?", mediaId).map(
+    return this.rows(`SELECT ${MEDIA_COLUMNS("m")} FROM media m WHERE m.id = ?`, mediaId).map(
       mediaRowView,
     );
   }

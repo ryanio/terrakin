@@ -42,6 +42,18 @@ export const privateMediaKey = (id: string) => `letter-${id}`;
 /** Any key a media store may hold: a public media id or a private letter key. */
 export const STORE_KEY = /^(letter-)?m_[0-9a-f]{16}$/;
 
+/** Where a plot photo was taken: the plot it shows, kept on its `media` row. */
+export interface MediaPlace {
+  px: number;
+  py: number;
+}
+
+/** `place` for a media view, from a stored row, when the upload recorded one. */
+export function placeFields(row: Record<string, unknown>): { place?: MediaPlace } {
+  if (row.place_px == null || row.place_py == null) return {};
+  return { place: { px: Number(row.place_px), py: Number(row.place_py) } };
+}
+
 /**
  * Headers for serving an upload. The type is the one we checked, `nosniff` stops browsers from
  * guessing another, and the sandbox CSP means even a file opened directly can't run anything.

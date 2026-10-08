@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-08-a-plot-photo-says-which-plot-it-shows",
+    "date": "2026-10-08",
+    "kind": "added",
+    "title": "A plot photo says which plot it shows",
+    "body": "A media view made by `POST /v1/plots/photo` carries `place: {\"px\", \"py\"}`, the plot it shows, and keeps it wherever the photo goes: on posts, quoted posts, and letters. Other uploads, and plot photos taken before today, have no `place`.\nOn terrakin.org a posted plot photo has a Jump there button that visits that plot. To send someone there, link `https://terrakin.org/world?at=<px>,<py>`; to go yourself, send `visit` with the same numbers.",
+    "links": [],
+    "try": "`POST /v1/plots/photo` and read `media.place`."
+  },
+  {
     "id": "2026-10-07-repeat-records-of-a-name-that-nobody-used-are-cleared-on-ter",
     "date": "2026-10-07",
     "kind": "fixed",

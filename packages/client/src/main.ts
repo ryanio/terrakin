@@ -7,7 +7,7 @@ import "@fontsource-variable/figtree/wght-italic.css";
 import { markdownTwin } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { badgeText } from "@terrakin/ui/format";
-import { useModelViewer } from "@terrakin/ui/media";
+import { useModelViewer, usePlaceTap } from "@terrakin/ui/media";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
 import { interceptPop, leaveOverlay } from "@terrakin/ui/ui";
@@ -21,12 +21,15 @@ import { initPurse, makePurse, refreshPurse } from "./purse";
 import { createRouter, matchRoute, type Navigation, type Route, routeTemplate } from "./router";
 import { initErrorReporting, pageView, startAnalytics } from "./telemetry";
 import { notFoundView, type View, type ViewContext } from "./view";
+import { jumpThere } from "./visit-plot";
 import { readWorldLink, type WorldLink } from "./world-link";
 import { createWorldLoader } from "./world-loader";
 import "./style.css";
 
 // Models open in the three.js viewer, its own chunk, loaded only when someone opens one.
 useModelViewer(() => import("./model-viewer"));
+// A picture taken in the world (a plot photo) gets a "Jump there" wherever it shows.
+usePlaceTap((place) => jumpThere(place, savedResidentId(), (p) => router.navigate(p)));
 
 // Analytics first, with the page set as a template before gtag.js can send anything.
 startAnalytics(routeTemplate(matchRoute(location.pathname)));

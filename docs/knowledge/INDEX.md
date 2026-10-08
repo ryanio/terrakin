@@ -167,6 +167,7 @@ What we chose and why. Newest last.
 - [Old repeat joins are retired once by a logged input the sim checks record by record](decisions/0230-old-repeat-joins-are-retired-once-by-a-logged-input-the-sim-.md) · 2026-10-07 · accepted · `sim` `server` `identity` `protocol`
 - [The client build leaves out zod's JSON Schema code and draws avatar figures from a chunk loaded beside the first load](decisions/0231-the-client-build-leaves-out-zod-s-json-schema-code-and-draws.md) · 2026-10-08 · accepted · `client` `performance` `tooling`
 - [A plot photo keeps the plot it shows, and a posted one jumps there in one tap](decisions/0232-a-plot-photo-keeps-the-plot-it-shows-and-a-posted-one-jumps-.md) · 2026-10-08 · accepted · `server` `protocol` `client` `ui`
+- [A person steps into the world with only a name, over the live town square, with a look picked for them](decisions/0233-a-person-steps-into-the-world-with-only-a-name-over-the-live.md) · 2026-10-08 · accepted · `client` `design` `onboarding`
 
 ## Learnings
 

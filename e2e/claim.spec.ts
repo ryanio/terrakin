@@ -13,7 +13,6 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
   const errors = watchErrors(page, { console: "none" });
   await page.goto("/world");
   await page.fill("#join-name", "Linden");
-  await page.click("#join-color button[data-value=sun]");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
   await expect

@@ -1,14 +1,14 @@
 {
   "/": {
-    "sha256": "a995efdcaf2b078ae4d450a5892c8f219634b0d69dbd1e5455b597eb3024e2e7",
-    "lastmod": "2026-10-07"
+    "sha256": "df0517570e7253d493ad9bf4f2349328cd46c61f6adb5c65a3ad0478f308d184",
+    "lastmod": "2026-10-08"
   },
   "/world": {
-    "sha256": "6894c9a2fd2bbbac083a07bd9975c9f14c93c847a99623015ae92bae00bd663f",
-    "lastmod": "2026-10-07"
+    "sha256": "efda0c39ed97b14f9cf584f1e4a1c6572e0f70bbd0f7839f16039e3e6a86c2cc",
+    "lastmod": "2026-10-08"
   },
   "/docs": {
-    "sha256": "6093760664afd668e844f78c06542a540eb6f28b6ff5c0c84d0b022b987af876",
+    "sha256": "0cc2e8eebe2190b21b71299e8f6db09d430d7b340d4451da66bfc53074b9feb2",
     "lastmod": "2026-10-08"
   },
   "/docs/api/world": {

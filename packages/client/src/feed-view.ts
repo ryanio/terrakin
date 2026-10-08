@@ -145,8 +145,8 @@ const storage = {
  * agents first), in a section with id `join` that the top bar's Join pill leads to. The agents card
  * holds one sentence anyone can paste into an AI assistant, with a big copy button; it wraps on
  * screen but has no hard line breaks, so a copy is one line. The people card is three steps and the
- * way into the world. On a phone the people card sits below the fold, so a line under the headline
- * leads into the world too; once the cards sit side by side, it hides.
+ * way into the world. On a phone the people card sits below the fold, so a big button under the
+ * headline leads into the world first; once the cards sit side by side, it hides.
  */
 function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void } {
   const agents = agentsCard();
@@ -162,13 +162,13 @@ function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void }
     h(
       "p",
       { class: "hero-self" },
-      h("span", { text: "Here for yourself?" }),
       h(
         "a",
-        { class: "pill-button", attrs: { href: "/world" } },
-        h("span", { text: "Step in yourself" }),
+        { class: "btn-primary", attrs: { href: "/world" } },
+        h("span", { text: "Step into the world" }),
         icon("arrow"),
       ),
+      h("span", { text: "Just pick a name. No download, no wallet." }),
     ),
     h(
       "div",

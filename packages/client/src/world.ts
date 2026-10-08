@@ -1523,10 +1523,14 @@ function resize() {
 
 /**
  * In the world, or looking at a link's place, we show ~13 tiles across; behind the curtain we pull
- * back to show more of it.
+ * back to show more of it, far enough that the town square fits in the space above the door card.
  */
 function targetScale() {
-  return me || lookingAt ? fitScale(cam.width, cam.height) : fitScale(cam.width, cam.height, 17);
+  if (me || lookingAt) return fitScale(cam.width, cam.height);
+  const wide = fitScale(cam.width, cam.height, 17);
+  if (!landing.isUp()) return wide;
+  const above = cam.height - TOP_BAR_PX - landing.cardHeight();
+  return Math.min(wide, Math.max(16, Math.floor(above / 12)));
 }
 
 function snapCamera() {
@@ -1565,14 +1569,16 @@ function frame() {
       cam.cy = approach(cam.cy, p.y, dt, CAMERA_RATE);
     }
   } else if (mirror) {
-    // Behind the curtain: a slow drift around the Commons.
+    // Behind the door card: a slow drift over the town square, centered in the space above the
+    // card, with the Town Hall a little north of the middle.
     const { plotSize } = mirror.config;
+    cam.scale = targetScale();
     const ox = (mirror.commons.px + 0.5) * plotSize - 0.5;
-    const oy = (mirror.commons.py + 0.5) * plotSize - 0.5;
+    const oy = (mirror.commons.py + 0.5) * plotSize - 1.5;
+    const lift = landing.isUp() ? (landing.cardHeight() - TOP_BAR_PX) / 2 / cam.scale : 0;
     const drift = still ? 0 : now / 1000;
     cam.cx = ox + Math.sin(drift / 9) * 4;
-    cam.cy = oy + Math.cos(drift / 13) * 2.5 + 1.5;
-    cam.scale = targetScale();
+    cam.cy = oy + Math.cos(drift / 13) * 2 + lift;
   }
   // Advance the server's time anchor with our own clock, so every client renders the same night,
   // and the same weather, at the same time without asking the server again.

@@ -16,6 +16,7 @@ test("a newcomer picks a ginger bun and a cardigan at the door, and wears them o
   const errors = watchErrors(page);
   await page.goto("/world");
   await page.fill("#join-name", "Poppy");
+  await page.locator("#join-look summary").click();
 
   // One screen on a phone: each row scrolls sideways rather than the page.
   const hair = page.locator("#join-hair");

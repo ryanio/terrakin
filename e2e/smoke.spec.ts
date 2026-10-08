@@ -17,8 +17,9 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
 
   // The world lives at /world; / is the feed.
   await page.goto("/world");
+  // A name is all the door asks for: the look is picked for her, and stays folded away.
   await page.fill("#join-name", "Ada");
-  await page.click("#join-color button[data-value=plum]");
+  await expect(page.locator("#join-look")).not.toHaveAttribute("open", "");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 
@@ -238,6 +239,7 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await page.fill("#restore-key", "not-a-real-key");
     await page.press("#restore-key", "Enter");
     await expect(page.locator("#restore-error")).toContainText("doesn't open any character");
+    await page.locator("#join-look summary").click();
     await page.fill("#join-note", "Loves lemons");
     await page.press("#join-note", "Enter");
     await expect(page.locator("#join-error")).toContainText("Pick a name first");

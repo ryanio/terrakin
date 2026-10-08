@@ -1,6 +1,7 @@
 /**
- * The landing curtain: welcome card, join form (a name, a character, and a note), "Bring your AI"
- * popover and the notes.
+ * The landing curtain: the door card over the live town square, asking only for a name, with
+ * "Pick your look" (a character picked at random, and a note) folded away, and the "Bring your AI"
+ * popover.
  * Self-contained, so a router can show it, skip it, or put it back. It never touches the world
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
@@ -8,7 +9,7 @@
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
-import { characterPicker, type JoinLook } from "./join-form";
+import { characterPicker, type JoinLook, randomCharacter } from "./join-form";
 
 export interface Landing {
   /** True while the curtain is showing (not lifted or hidden). */
@@ -25,6 +26,8 @@ export interface Landing {
   openRestore(): void;
   /** Update the live line, for example "12 residents, 3 online now". */
   setPopulation(total: number, online: number): void;
+  /** How tall the door card is, in CSS pixels, so the world behind it can center above it. */
+  cardHeight(): number;
 }
 
 export interface LandingOptions {
@@ -60,7 +63,8 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
   initBrandMarks(root);
   initBringAi(byId(root, "bring-ai"), byId(root, "bring-pop"));
 
-  const character = characterPicker("join");
+  const look = byId<HTMLDetailsElement>(root, "join-look");
+  const character = characterPicker("join", randomCharacter());
   byId(root, "join-character").replaceWith(character.el);
 
   // On a phone the error line scrolls into view, since the sticky Step inside button can sit over
@@ -77,6 +81,8 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
     note.removeAttribute("aria-invalid");
   };
   const markInvalid = (field: HTMLInputElement) => {
+    // The note is folded under "Pick your look": open it so the field can take focus.
+    if (look.contains(field)) look.open = true;
     field.setAttribute("aria-invalid", "true");
     field.focus();
   };
@@ -125,6 +131,12 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
     onJoin({ name: value, ...character.value(), ...(words ? { note: words } : {}) });
   });
 
+  // Kept by an observer rather than read each frame, so the world's loop never forces a layout.
+  let formHeight = 0;
+  new ResizeObserver(([entry]) => {
+    formHeight = entry?.borderBoxSize[0]?.blockSize ?? form.offsetHeight;
+  }).observe(form);
+
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   const landing: Landing = {
     isUp: () => !root.hidden && !root.classList.contains("lifted"),
@@ -159,6 +171,7 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
       liveText.textContent = populationLine(total, online);
       live.hidden = false;
     },
+    cardHeight: () => formHeight,
   };
   return landing;
 }

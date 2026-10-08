@@ -188,6 +188,21 @@ export const FIRST_CHARACTER: Character = {
 };
 
 /**
+ * A character picked for someone who steps straight into the world without opening the picker: any
+ * hair style and color, a free top, and a color, so newcomers don't all arrive looking the same.
+ */
+export function randomCharacter(random: () => number = Math.random): Character {
+  const pick = <T>(list: readonly T[], fallback: T): T =>
+    list[Math.floor(random() * list.length)] ?? fallback;
+  return {
+    color: pick(RESIDENT_COLORS, FIRST_CHARACTER.color),
+    hair: pick(HAIR_STYLES, FIRST_CHARACTER.hair),
+    hairColor: pick(HAIR_COLORS, FIRST_CHARACTER.hairColor),
+    top: pick(STARTER_TOPS, FIRST_CHARACTER.top),
+  };
+}
+
+/**
  * The join's look fields for a character. The form doesn't ask for a shape, so it sends the first
  * one, which the picture showed (decision 0140); the hair color goes only with a style.
  */
@@ -217,10 +232,10 @@ const pickRow = () => h("div", { class: "pick-row" });
 /**
  * The character picker: a picture of you and a line saying it in words, over rows for your hair
  * style, its color, a top, and your color, all repainted as you pick. Ids start with `id`
- * (`join-hair`, `join-hair-color`, `join-top`, `join-color`).
+ * (`join-hair`, `join-hair-color`, `join-top`, `join-color`). It starts from `start`.
  */
-export function characterPicker(id: string) {
-  const c: Character = { ...FIRST_CHARACTER };
+export function characterPicker(id: string, start: Character = FIRST_CHARACTER) {
+  const c: Character = { ...start };
   const figure = h("canvas", { attrs: { "aria-hidden": "true" } });
   const words = h("p", { class: "character-words", attrs: { "aria-live": "polite" } });
 

@@ -64,7 +64,7 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/");
     // A person's own way in is on the first screen of a phone too, above the agents card.
-    const self = page.getByRole("link", { name: "Step in yourself" });
+    const self = page.locator(".hero-self").getByRole("link", { name: "Step into the world" });
     await expect(self).toBeInViewport();
     await expect(self).toHaveAttribute("href", "/world");
     const pattern =

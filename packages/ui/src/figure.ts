@@ -8,11 +8,8 @@
 import { fourWayFacing } from "@terrakin/protocol";
 import {
   BLOCK_COLORS,
-  DEFAULT_HAIR_COLOR,
   type Direction,
   type GarmentPattern,
-  HAIR_COLOR_INFO,
-  HAIR_LABELS,
   type HairColor,
   type HairStyle,
   PATTERNS,
@@ -31,6 +28,7 @@ import type { Feeling } from "./feelings";
 import {
   BAT_WING,
   HALLOWEEN_HEX,
+  hairOf,
   hidesHair,
   lookImage,
   lookPalette,
@@ -69,13 +67,6 @@ export interface FigureLook {
 export type FullLook = FigureLook;
 
 const pagePatterns = new PatternCache();
-
-/** True when a look has anything to draw beyond the plain color token. */
-export function hasLook(look: Partial<FullLook> | undefined): boolean {
-  return Boolean(
-    look?.theme || look?.pattern || look?.wear?.length || look?.patternMedia || hairOf(look ?? {}),
-  );
-}
 
 /**
  * Paint a figure into a canvas element for the page (avatars, the profile, the look editor).
@@ -1361,20 +1352,6 @@ function drawBatWings(
 // Hair is drawn in two layers: what hangs behind the head and body (a bob's back, a ponytail, an
 // afro's puff) before the body, and what sits on the head (the crown, the fringe, braids) after the
 // face. A hat drawn after both hides the hair above its band, so longer styles show below it.
-
-/** A look's hair: its style and the color to draw it in, or undefined for none. Pure. */
-export function hairOf(
-  look: Pick<FigureLook, "hair" | "hairColor">,
-): { style: HairStyle; hex: string } | undefined {
-  const style = look.hair;
-  // A style this client doesn't know draws no hair, like none.
-  if (!style || !Object.hasOwn(HAIR_LABELS, style)) return undefined;
-  const color =
-    look.hairColor && Object.hasOwn(HAIR_COLOR_INFO, look.hairColor)
-      ? look.hairColor
-      : DEFAULT_HAIR_COLOR;
-  return { style, hex: HAIR_COLOR_INFO[color].hex };
-}
 
 /** The color of the bands that tie a ponytail, pigtails, or braids: the outfit's accent. */
 export const hairTieColor = (p: ThemePalette): string => (paleAccent(p) ? p.deep : p.accent);

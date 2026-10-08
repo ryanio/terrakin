@@ -165,6 +165,7 @@ What we chose and why. Newest last.
 - [The docs pages load one small script of their own, for copy buttons](decisions/0211-the-docs-pages-load-one-small-script-of-their-own-for-copy-b.md) · 2026-10-07 · accepted · `docs` `client` `ui` `performance` `security`
 - [AI-drawn townsfolk portraits are uploaded as ordinary avatars](decisions/0220-ai-drawn-townsfolk-portraits-are-uploaded-as-ordinary-avatar.md) · 2026-10-07 · accepted · `agents` `social` `design` `ops`
 - [Old repeat joins are retired once by a logged input the sim checks record by record](decisions/0230-old-repeat-joins-are-retired-once-by-a-logged-input-the-sim-.md) · 2026-10-07 · accepted · `sim` `server` `identity` `protocol`
+- [The client build leaves out zod's JSON Schema code and draws avatar figures from a chunk loaded beside the first load](decisions/0231-the-client-build-leaves-out-zod-s-json-schema-code-and-draws.md) · 2026-10-08 · accepted · `client` `performance` `tooling`
 
 ## Learnings
 

@@ -13,6 +13,7 @@ import {
 import { apiPage, type DocsPage, docsPage, pageMarkdown } from "@terrakin/protocol/reference";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { build, defineConfig, type Plugin } from "vite";
+import { JSON_SCHEMA_MODULES, processorsStub, TO_JSON_SCHEMA_STUB } from "./src/no-json-schema";
 import { footerHtml, markdownTwin, skillPageMarkdown, staticPage } from "./src/site-page";
 import { stripDescribe } from "./src/strip-describe";
 
@@ -293,10 +294,11 @@ function sitePages(): Plugin {
 
 /**
  * The most the app's first load may weigh, gzipped: the entry script with every chunk it imports
- * up front, and their stylesheets. The build fails past it (decision 0110). Lazy chunks (every
- * page but the feed, the world, 3D, sound) don't count; they load when someone opens them.
+ * up front, and their stylesheets. The build fails past it (decisions 0110 and 0231). Lazy chunks
+ * (every page but the feed, the world, 3D, sound, avatar figures) don't count; they load when
+ * someone opens them, or beside the first load.
  */
-export const FIRST_LOAD_BUDGET = { js: 140_000, css: 32_000 } as const;
+export const FIRST_LOAD_BUDGET = { js: 125_000, css: 32_000 } as const;
 
 function firstLoadBudget(): Plugin {
   return {
@@ -337,6 +339,36 @@ function firstLoadBudget(): Plugin {
 }
 
 /**
+ * Leave zod's JSON Schema code out of the build: the app only parses, and every classic schema
+ * type would otherwise carry it into the first load (decision 0231). zod's classic schemas get a
+ * stand-in for the two modules it lives in; `src/no-json-schema.ts` writes them.
+ */
+function noJsonSchema(): Plugin {
+  const PROCESSORS = "\0terrakin-zod-processors";
+  const TO_JSON_SCHEMA = "\0terrakin-zod-to-json-schema";
+  let classic: string | undefined;
+  return {
+    name: "terrakin-no-json-schema",
+    apply: "build",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!importer?.endsWith("/zod/v4/classic/schemas.js")) return null;
+      if (source === JSON_SCHEMA_MODULES.processors) {
+        classic = importer;
+        return PROCESSORS;
+      }
+      return source === JSON_SCHEMA_MODULES.toJsonSchema ? TO_JSON_SCHEMA : null;
+    },
+    load(id) {
+      if (id === TO_JSON_SCHEMA) return TO_JSON_SCHEMA_STUB;
+      if (id !== PROCESSORS || !classic) return null;
+      const real = fileURLToPath(new URL(JSON_SCHEMA_MODULES.processors, `file://${classic}`));
+      return processorsStub(readFileSync(classic, "utf8"), real);
+    },
+  };
+}
+
+/**
  * Drop the protocol schemas' descriptions from the build: the app never reads them, and they are
  * kilobytes of every first load (decision 0163). Only `packages/protocol/src`, never a test.
  */
@@ -355,6 +387,7 @@ function noSchemaDescriptions(): Plugin {
 export default defineConfig({
   plugins: [
     noSchemaDescriptions(),
+    noJsonSchema(),
     icons(),
     sitePages(),
     contentSecurityPolicy(),

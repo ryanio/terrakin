@@ -10,9 +10,8 @@ import {
   type ResidentBrief,
 } from "@terrakin/protocol";
 import { h, icon } from "./dom";
-import { hasLook, paintFigure } from "./figure";
 import { firstParagraphs, initial, isMediaUrl, isPartnerArt } from "./format";
-import { lookPalette, onLookImage } from "./looks";
+import { hasLook, lookPalette, onLookImage } from "./looks";
 import { mediaGrid } from "./media";
 import { appendRichText } from "./mentions";
 import { postPath, profilePath } from "./paths";
@@ -29,6 +28,28 @@ export type Person = Pick<AuthorView | ProfileView, "name" | "color" | "shape" |
 export type AvatarSize = "sm" | "md" | "lg" | "xl";
 
 const AVATAR_PX = { sm: 28, md: 40, lg: 64, xl: 120 } as const;
+
+type FigureModule = typeof import("./figure");
+
+/**
+ * The figure drawing is the biggest piece of the feed, so it loads beside the first load, not in
+ * it (decision 0231). The request starts as soon as this module runs, alongside the feed's own request, so the
+ * figures are usually ready before the first avatar is drawn. Until then an avatar shows its
+ * colored disc and paints its figure on arrival.
+ */
+let figureModule: FigureModule | undefined;
+const figureLoad = import("./figure").then(
+  (m) => {
+    figureModule = m;
+    return m;
+  },
+  () => undefined,
+);
+
+function withFigure(paint: (m: FigureModule) => void) {
+  if (figureModule) paint(figureModule);
+  else void figureLoad.then((m) => m && paint(m));
+}
 
 /**
  * A resident's avatar: their picture when they have one, else their figure in their look, else
@@ -73,12 +94,12 @@ export function paintAvatar(el: HTMLElement, person: Person, size: AvatarSize = 
     el.classList.add("has-figure");
     el.style.setProperty("--avatar", lookPalette(look.theme, look.color).light);
     const canvas = h("canvas");
-    const paint = () => paintFigure(canvas, look, AVATAR_PX[size] * 1.5, "bust");
-    paint();
+    const paint = (m: FigureModule) => m.paintFigure(canvas, look, AVATAR_PX[size] * 1.5, "bust");
+    withFigure(paint);
     // A custom pattern arrives after its image loads; repaint once it does.
     if (look.patternMedia) {
       const stop = onLookImage(() => {
-        paint();
+        withFigure(paint);
         stop();
       });
     }

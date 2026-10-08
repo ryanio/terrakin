@@ -6,8 +6,8 @@
  * figure's hair is merged into one mesh, colored per vertex, so it costs one draw call.
  */
 import type { WearItem } from "@terrakin/sim";
-import { type FigureLook, hairOf, hairTieColor } from "@terrakin/ui/figure";
-import { hidesHair, lookPalette } from "@terrakin/ui/looks";
+import { type FigureLook, hairTieColor } from "@terrakin/ui/figure";
+import { hairOf, hidesHair, lookPalette } from "@terrakin/ui/looks";
 import {
   BufferAttribute,
   type BufferGeometry,

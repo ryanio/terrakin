@@ -17,10 +17,10 @@ import {
   type FigureFace,
   type FigureLook,
   garmentLook,
-  hairOf,
 } from "@terrakin/ui/figure";
 import {
   HIDES_HAIR,
+  hairOf,
   lookPalette,
   type MakeCanvas,
   PatternCache,

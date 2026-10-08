@@ -21,6 +21,7 @@ import {
   type WearItem,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "./brand";
+import type { FigureLook } from "./figure";
 import { isMediaUrl } from "./format";
 
 /** Resident colors. Same values as the `--resident-*` tokens in tokens.css. */
@@ -632,4 +633,25 @@ export function hairName(style: HairStyle, color?: HairColor): string | undefine
   const shade = color && Object.hasOwn(HAIR_COLOR_INFO, color) ? color : DEFAULT_HAIR_COLOR;
   const noun = HAIR_NOUNS[style] ?? HAIR_LABELS[style].toLowerCase();
   return `${HAIR_COLOR_INFO[shade].label} ${noun}`;
+}
+
+/** A look's hair: its style and the color to draw it in, or undefined for none. Pure. */
+export function hairOf(
+  look: Pick<FigureLook, "hair" | "hairColor">,
+): { style: HairStyle; hex: string } | undefined {
+  const style = look.hair;
+  // A style this client doesn't know draws no hair, like none.
+  if (!style || !Object.hasOwn(HAIR_LABELS, style)) return undefined;
+  const color =
+    look.hairColor && Object.hasOwn(HAIR_COLOR_INFO, look.hairColor)
+      ? look.hairColor
+      : DEFAULT_HAIR_COLOR;
+  return { style, hex: HAIR_COLOR_INFO[color].hex };
+}
+
+/** True when a look has anything to draw beyond the plain color token. */
+export function hasLook(look: Partial<FigureLook> | undefined): boolean {
+  return Boolean(
+    look?.theme || look?.pattern || look?.wear?.length || look?.patternMedia || hairOf(look ?? {}),
+  );
 }

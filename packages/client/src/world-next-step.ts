@@ -2,8 +2,9 @@
  * The world's next-step chip: one small button naming your next first step (`first-steps.ts`), shown
  * while one is left and hidden once they're all done. It takes the slot in the `.world-near` column
  * where Gather all, Pat, and Fish show, only while none of them does (style.css hides it then), and
- * keeps to their width, so it never covers more of the map than they do.
- * A tap does it or opens it: Claim plot, the plot name sheet, a starter home, the build bar, or
+ * keeps to their width, so it never covers more of the map than they do. While the next step is a
+ * plot it stays away, since Claim plot is on screen beside it (decision 0234).
+ * A tap does it or opens it: the plot name sheet, a starter home, the build bar, or
  * the page where it's done. It asks the server while the world is on screen and every so often
  * after, since steps are done in many places.
  */
@@ -57,7 +58,7 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
     const r = await api.firstVisit();
     asking = false;
     step = r.ok ? nextStep(stepRows(r.data)) : undefined;
-    chip.hidden = !step;
+    chip.hidden = !step || step.id === "plot";
     if (!step) return;
     label.textContent = step.chip;
     chip.setAttribute("aria-label", `Next step: ${step.name}`);
@@ -75,9 +76,6 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
     const me = savedResidentId();
     if (!step || !me) return;
     switch (step.id) {
-      case "plot":
-        press("claim");
-        break;
       case "plot_name":
         void namePlot(me);
         return;

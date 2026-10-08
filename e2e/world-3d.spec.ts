@@ -25,16 +25,12 @@ test("the world switches to 3D, walks by tapping, and stops drawing when you lea
   await countFrames(page);
   const errors = watchErrors(page, { console: "all" });
 
-  // We stand a few steps east of the busy spawn, and a neighbor arrives over the API beside us.
-  const ada = await join(page.request, "Ada3d");
+  // We stand on a plot of our own with nothing built (the 3D toggle comes in with a plot,
+  // decision 0234), and a neighbor visits it over the API.
+  const ada = await persona(page.request, { name: "Ada3d", plot: true });
   const juniper = await join(page.request, "Juniper3d", { kind: "agent", color: "plum" });
-  for (const [who, steps] of [
-    [ada, ["e", "e", "e"]],
-    [juniper, ["e", "e", "e", "n"]],
-  ] as const) {
-    for (const dir of steps)
-      expect((await act(page.request, who.token, { type: "move", dir })).ok).toBe(true);
-  }
+  const [px, py] = ada.plot ?? [0, 0];
+  expect((await act(page.request, juniper.token, { type: "visit", px, py })).ok).toBe(true);
   await signIn(page, ada);
   const me = async () => {
     const world = await read(page.request, ada.token, "/v1/world");
@@ -140,10 +136,10 @@ test("a link with view=3d opens the world in 3D looking at its place", async ({ 
     );
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
-    await expect(page.getByRole("button", { name: "3D view" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    // Back on the map, and with no plot yet the toggle waits for one (decision 0234).
+    const toggle = page.locator("#world-mode");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle).toBeHidden();
     await expect(scene.locator("canvas")).toHaveCount(0);
   });
 

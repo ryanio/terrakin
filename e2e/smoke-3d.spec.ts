@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { act, join, persona, read, signIn, watchErrors } from "./support";
+import { persona, read, signIn, watchErrors } from "./support";
 
 /**
  * The 3D smoke every push runs (decision 0200): a `view=3d` link opens the world in 3D and the
@@ -26,10 +26,9 @@ test("a view=3d link opens the world in 3D, and a tap on the ground walks", asyn
   });
 
   await test.step("a resident turns 3D on and walks by tapping the ground", async () => {
-    // A few steps east of the busy spawn, so the ground to the west is open.
-    const sage = await join(page.request, "Sage3s");
-    for (const dir of ["e", "e", "e"])
-      expect((await act(page.request, sage.token, { type: "move", dir })).ok).toBe(true);
+    // On a plot of her own with nothing built, so the ground around her is open. The 3D toggle
+    // comes in with a plot (decision 0234).
+    const sage = await persona(page.request, { name: "Sage3s", plot: true });
     const me = async () =>
       (await read(page.request, sage.token, "/v1/world")).residents.find(
         (r: { id: string }) => r.id === sage.id,
@@ -73,7 +72,7 @@ test("when WebGL won't start, the 3D toggle puts you back on the map", async ({ 
   });
   // three.js logs the failed context before the world catches it, so only page errors count.
   const errors = watchErrors(page, { console: "none" });
-  const reed = await join(page.request, "Reed3s");
+  const reed = await persona(page.request, { name: "Reed3s", plot: true });
   await signIn(page, reed);
   await page.goto("/world");
   await expect(page.locator("#hud")).toBeVisible();

@@ -174,11 +174,12 @@
       </div>
 
       <div id="hud" class="hud" hidden>
+        <!-- Invite, the speaker, Home, and Build start hidden: world.ts shows them, with 3D view and Gather all, once you have a plot (decision 0234). -->
         <a id="hud-feed" class="pill pill-button small hud-feed" href="/" data-nav="feed">
           <svg class="icon" data-icon="back" aria-hidden="true"></svg>
           <span>Feed</span>
         </a>
-        <button type="button" id="hud-invite" class="pill pill-button small hud-invite">
+        <button type="button" id="hud-invite" class="pill pill-button small hud-invite" hidden>
           <svg class="icon" data-icon="userPlus" aria-hidden="true"></svg>
           <span>Invite</span>
         </button>
@@ -240,12 +241,12 @@
             <p id="palette-line" class="palette-line" aria-live="polite"></p>
           </fieldset>
           <!-- Sound (decision 0097): off until tapped, then on, quiet, and off again. The speaker shows which. -->
-          <button type="button" id="sound" class="pill-button hud-sound" aria-pressed="false" aria-label="Sound" data-level="off">
+          <button type="button" id="sound" class="pill-button hud-sound" aria-pressed="false" aria-label="Sound" data-level="off" hidden>
             <svg class="icon sound-icon sound-off" data-icon="soundOff" aria-hidden="true"></svg>
             <svg class="icon sound-icon sound-quiet" data-icon="soundQuiet" aria-hidden="true"></svg>
             <svg class="icon sound-icon sound-on" data-icon="soundOn" aria-hidden="true"></svg>
           </button>
-          <button type="button" id="home" class="action">
+          <button type="button" id="home" class="action" hidden>
             <svg class="icon" data-icon="home" aria-hidden="true"></svg>
             <span>Home</span>
           </button>
@@ -258,7 +259,7 @@
             <svg class="icon" data-icon="things" aria-hidden="true"></svg>
             <span>Your things</span>
           </a>
-          <button type="button" id="build" class="action" aria-pressed="false">
+          <button type="button" id="build" class="action" aria-pressed="false" hidden>
             <svg class="icon" data-icon="blocks" aria-hidden="true"></svg>
             <span>Build</span>
           </button>

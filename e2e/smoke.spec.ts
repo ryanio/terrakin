@@ -23,18 +23,14 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 
-  await test.step("with no plot yet, Build and Home say how to get one", async () => {
-    // Nothing to build on: a plain line, not build mode and not the server's hints for agents.
-    await page.click("#build");
-    const toast = page.locator("#toast");
-    await expect(toast).toContainText("You don't have a plot yet");
-    await expect(toast).not.toContainText("px");
-    await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator("#palette")).toBeHidden();
-    // Nowhere to go home to, said right away.
-    await page.click("#home");
-    await expect(toast).toContainText("You don't have a plot yet");
-    await expect(toast).not.toContainText("settle");
+  await test.step("with no plot yet, the world shows only walking, Claim plot, and Chat", async () => {
+    // Decision 0234: the rest of the controls wait for a plot.
+    await expect(page.locator(".dpad")).toBeVisible();
+    await expect(page.locator("#claim")).toBeVisible();
+    await expect(page.locator("#chat-toggle")).toBeVisible();
+    await expect(page.locator("#hud-feed")).toBeVisible();
+    for (const id of ["build", "home", "hud-invite", "sound", "world-mode", "world-gather"])
+      await expect(page.locator(`#${id}`)).toBeHidden();
   });
 
   // Other specs may join an Ada too, so find ours by the id the page saved.
@@ -73,7 +69,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     const west = free({ x: spawn.x - 2, y: row }, { x: spawn.x - 3, y: row });
     const east = free({ x: spawn.x + 2, y: row }, { x: spawn.x + 3, y: row });
     // Back beside spawn: straight down, along the row, and straight down again, since a tap
-    // down and to the left lands on the 3D view button or the ones above it (Pat, Gather all).
+    // down and to the left can land on the buttons stacked there (Pat, Fish).
     // Down stops two rows clear of the hall, so its "Town Hall" button is gone before the tap west.
     const down = free({ x: east.x, y: spawn.y - 1 }, { x: east.x, y: spawn.y + 1 });
     const along = free({ x: spawn.x - 1, y: down.y }, { x: spawn.x - 2, y: down.y });
@@ -131,9 +127,11 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-block="hearth"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#palette-line")).toContainText("your pantry arrives here");
-    // One plot each: Your things takes Claim plot's place.
+    // One plot each: Your things takes Claim plot's place, and Home and Invite come in with it.
     await expect(page.locator("#claim")).toBeHidden();
     await expect(page.locator("#hud-things")).toBeVisible();
+    await expect(page.locator("#home")).toBeVisible();
+    await expect(page.locator("#hud-invite")).toBeVisible();
     await page.click("#build");
     await expect(page.locator("#visit-card-owner")).toHaveText("Ada's Stone Garden");
     await page.click("#build");

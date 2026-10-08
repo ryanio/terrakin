@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, signIn, watchErrors } from "./support";
+import { persona, signIn, watchErrors } from "./support";
 
 /**
  * The world's sound at 390x844 (decision 0097): off by default, with no audio context and no sound
@@ -32,7 +32,8 @@ test("sound waits for the speaker, makes nothing before it, and is remembered", 
     if (/\/assets\/soundscape-/.test(r.url())) soundCode.push(r.url());
   });
 
-  const lark = await join(page.request, "Lark");
+  // The speaker comes in with a plot (decision 0234).
+  const lark = await persona(page.request, "settled", { name: "Lark" });
   await signIn(page, lark);
   await page.goto("/world");
   await expect(page.locator("#world-loader")).toBeHidden();

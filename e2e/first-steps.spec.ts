@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import { join, signIn, watchErrors } from "./support";
 
 /**
- * A new person's first steps on a phone: the world's chip names the next one, the home wall's
- * Getting started card lists them with a link each, a handle and a bio written on their profile
- * tick off there, and hiding the card keeps it away on this device.
+ * A new person's first steps on a phone: the world's chip leaves the first to Claim plot, the
+ * home wall's Getting started card lists them with a link each, a handle and a bio written on
+ * their profile tick off there, and hiding the card keeps it away on this device.
  */
 test("a newcomer's first steps tick off on the home wall as they're done", async ({ page }) => {
   const errors = watchErrors(page);
@@ -13,9 +13,13 @@ test("a newcomer's first steps tick off on the home wall as they're done", async
   const card = page.locator("#first-steps");
   const row = (id: string) => card.locator(`[data-step="${id}"]`);
 
-  await test.step("the world's chip names the first step", async () => {
+  await test.step("the world's chip leaves the first step to Claim plot beside it", async () => {
     await page.goto("/world");
-    await expect(page.locator("#world-next")).toHaveText("Claim a plot");
+    await expect(page.locator("#claim")).toBeVisible();
+    // Its words land with the server's answer, so by then it has decided to stay away.
+    const chip = page.locator("#world-next");
+    await expect(chip).toHaveText("Claim a plot");
+    await expect(chip).toBeHidden();
   });
 
   await test.step("the home wall lists every step left, with where it's done", async () => {

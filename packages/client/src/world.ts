@@ -128,6 +128,8 @@ const fishButton = $<HTMLButtonElement>("world-fish");
 const claimButton = $<HTMLButtonElement>("claim");
 /** Takes Claim plot's place once you own all the plots you may: your things are a tap away. */
 const thingsLink = $<HTMLAnchorElement>("hud-things");
+/** What the HUD holds back until you have a plot (decision 0234). 3D view and Gather all too. */
+const afterAPlot = ["build", "home", "hud-invite", "sound"].map((id) => $(id));
 const enterButton = $<HTMLButtonElement>("world-enter");
 const host3d = $("world-3d");
 /** The speaker button: sound is off until it's tapped, and its code loads then (decision 0097). */
@@ -279,7 +281,6 @@ let mode: WorldMode = "2d";
 let world3d: World3d | undefined;
 let loading3d = false;
 const signals = readSignals();
-modeButton.hidden = !offer3d(signals);
 
 // ---------- landing ----------
 
@@ -1248,6 +1249,19 @@ function paintClaim() {
   thingsLink.hidden = !full;
 }
 
+/**
+ * A calm HUD for a newcomer (decision 0234): until the mirror shows a plot of yours, the world
+ * shows the d-pad, Claim plot, Chat, and the way back to the feed, and holds back Build, Home,
+ * Invite, the speaker, 3D view, and Gather all. They come in with your first plot. A link that
+ * opened the 3D view keeps its toggle, so there's always a way back to the map.
+ */
+function paintSettled() {
+  const settled = hasPlot();
+  for (const el of afterAPlot) el.hidden = !settled;
+  modeButton.hidden = !offer3d(signals) || (!settled && mode !== "3d");
+  if (!settled && buildMode) setBuildMode(false);
+}
+
 $("hud-invite").addEventListener("click", () => {
   void import("./invite-share").then((m) => m.openInviteDialog());
 });
@@ -1646,6 +1660,7 @@ function frame() {
     paintGatherButton();
     paintFishButton();
     paintClaim();
+    paintSettled();
     paintEnterButton();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
@@ -1677,7 +1692,8 @@ function paintPetButton(now: number) {
 /**
  * Show "Gather all" while something lies within reach that you may pick up (decision 0125): the
  * sim's own list, from where your steps will have taken you, so a tap gathers what it says. A
- * recipe page you know stays where it lies, so it doesn't count.
+ * recipe page you know stays where it lies, so it doesn't count. Held back until you have a plot
+ * (decision 0234); a tap on a branch still picks it up.
  */
 function paintGatherButton() {
   const m = mirror;
@@ -1692,7 +1708,7 @@ function paintGatherButton() {
           (x, y) => m.mayGatherAt(x, y, you),
         ).filter((t) => !pageKnown(t.kind, t.x, t.y, m.day ?? 0, (r) => knownRecipes.has(r))).length
       : 0;
-  gatherButton.hidden = lying === 0 && !gathering;
+  gatherButton.hidden = (lying === 0 && !gathering) || !hasPlot();
 }
 
 gatherButton.addEventListener("click", () => {

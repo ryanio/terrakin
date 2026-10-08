@@ -278,6 +278,8 @@ export function inventoryLine(e: InventoryEvent): string | null {
     }
     case "gift_out":
       return "Your gift is on its way.";
+    case "merged":
+      return "Things from your other record arrived. The Terrakin team merged it into this one.";
     case "declined":
       return "You sent the gift back.";
     case "displayed":
@@ -413,6 +415,7 @@ export function learnedLine(
   const what = recipeWords(recipe).toLowerCase();
   if (how === "taught") return `${teacher || "A neighbor"} taught you ${what}.`;
   if (how === "found") return `You found a recipe page for ${what}. You know it now.`;
+  if (how === "merged") return `You know ${what} now, from your other record.`;
   return `You learned ${what}.`;
 }
 

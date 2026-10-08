@@ -34,6 +34,7 @@ import {
   type HostedEvent,
   homePlotOf,
   isTownEvent,
+  mergedInto,
 } from "@terrakin/sim";
 import { AiSpend } from "./ai-spend";
 import {
@@ -1425,7 +1426,11 @@ export class Api {
       if (found) this.owners?.called(found.residentId);
       return found;
     },
-    retired: (secret) => this.owners?.retired(secret),
+    retired: (secret) => {
+      const found = this.owners?.retired(secret);
+      const into = found?.reason === "merged" && mergedInto(this.service.state, found.residentId);
+      return found && { ...found, ...(into ? { into } : {}) };
+    },
   };
 
   /** @internal Used by LiveSession. */

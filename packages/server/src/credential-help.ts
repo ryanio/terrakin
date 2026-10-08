@@ -11,8 +11,11 @@ import type { RetiredReason } from "./owner-service";
 export interface CredentialLookups {
   /** Whether it is a working credential, and which kind. */
   peek(secret: string): { as: "token" | "linkKey" } | undefined;
-  /** Whether a revoke or a re-key turned it off. */
-  retired(secret: string): { reason: RetiredReason } | undefined;
+  /**
+   * Whether a revoke, a re-key, or a merge turned it off, and for a merge, the record that stayed
+   * when the world still knows it.
+   */
+  retired(secret: string): { reason: RetiredReason; into?: string } | undefined;
 }
 
 export interface CredentialFailure {
@@ -37,12 +40,18 @@ export function bearerToken(header: string | undefined): string | undefined {
   return value === "" ? undefined : value;
 }
 
-function retiredMessage(reason: RetiredReason, what: "token" | "link key"): string {
+function retiredMessage(
+  { reason, into }: { reason: RetiredReason; into?: string },
+  what: "token" | "link key",
+): string {
   if (reason === "rekeyed") {
     return `This ${what} was replaced when you were re-keyed. Use the new one you got for the re-key code.`;
   }
   if (reason === "repeat_join_person") {
     return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: write to the Terrakin team at ${absolute(LINKS.contact)} and they'll help you back in.`;
+  }
+  if (reason === "merged") {
+    return `This ${what} was for a second record of yours. The Terrakin team merged it into your other record${into ? `, ${into}` : ""}, and its coins and things went there. Use that record's token or link key. If you don't have one, an AI can ask its owner for a new key, and anyone can write to the Terrakin team at ${absolute(LINKS.contact)}.`;
   }
   if (reason === "repeat_join") {
     return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: ask your owner for a new key for it, or the Terrakin team at ${absolute(LINKS.contact)}.`;
@@ -77,7 +86,7 @@ export function tokenFailure(
     };
   }
   const retired = look.retired(token);
-  if (retired) return { code: "revoked", message: retiredMessage(retired.reason, "token") };
+  if (retired) return { code: "revoked", message: retiredMessage(retired, "token") };
   return {
     code: "unauthorized",
     message: `We don't know this token, and we have no record of turning it off: check that you sent the whole token you saved when you joined, exactly as it was. ${LOST}`,
@@ -98,6 +107,6 @@ export function linkKeyFailure(
     };
   }
   const retired = look.retired(key);
-  if (retired) return { code: "revoked", message: retiredMessage(retired.reason, "link key") };
+  if (retired) return { code: "revoked", message: retiredMessage(retired, "link key") };
   return { code: "unauthorized", message: `${unknown} ${LOST}` };
 }

@@ -248,6 +248,8 @@ export const MODERATION_ACTIONS = [
   "clear_plot_names",
   /** A maintainer made a one-time re-key code for an agent that lost its key (decision 0149). */
   "rekey_agent",
+  /** A maintainer merged a duplicate record into the record that stays (decision 0239). */
+  "merge_resident",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;
@@ -302,6 +304,31 @@ export const StaffRekeyResponse = z.object({
   unlinked: z.boolean(),
 });
 export type StaffRekeyResponse = z.infer<typeof StaffRekeyResponse>;
+
+/** Merge the record in the path, a duplicate, into `into`, the record that stays (decision 0239). */
+export const StaffMergeRequest = z.object({
+  /** The record that stays: a handle or a resident id. */
+  into: z.string().trim().min(1).max(64),
+  reason: Reason,
+  /** Check the merge and say what would move, without making it. */
+  dry: z.boolean().optional(),
+});
+export type StaffMergeRequest = z.infer<typeof StaffMergeRequest>;
+
+/**
+ * What a merge moves (or, on a dry run, would move) from the duplicate to the record that stays:
+ * its coins, how many things, and the plots it gives back to the world. `merged` is false on a dry
+ * run.
+ */
+export const StaffMergeResponse = z.object({
+  from: ResidentBrief,
+  into: ResidentBrief,
+  coins: z.number().int(),
+  things: z.number().int(),
+  plots: z.array(z.object({ px: z.number().int(), py: z.number().int() })),
+  merged: z.boolean(),
+});
+export type StaffMergeResponse = z.infer<typeof StaffMergeResponse>;
 
 // ---------- staff keys (RFC 0026) ----------
 

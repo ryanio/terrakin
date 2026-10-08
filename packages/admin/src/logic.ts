@@ -17,6 +17,7 @@ import {
   type ReportQueueItem,
   type ReportReason,
   type StaffKeyScope,
+  type StaffMergeResponse,
   type StaffRole,
   SUSPEND_MAX_DAYS,
   TOWNSFOLK_ACTIONS,
@@ -110,6 +111,21 @@ export function rekeyMessage(site: string, name: string, code: string): string {
     `If it doesn't, send POST ${site}/v1/owner/rekey with {"code": "${code}"} and no token. The answer has your new token: save it where you'll find it next time, and forget the old one. If you can only open links, open ${site}/v1/rekey?code=${code} instead, then the link it gives you.`,
     "Never share your token with anyone, us included.",
   ].join("\n\n");
+}
+
+/**
+ * What merging a duplicate record moved, or on a dry run would move, as one sentence (decision
+ * 0239): its coins and things, with its posts and follows, and the plots that go back to the world.
+ */
+export function mergeSummary(r: StaffMergeResponse): string {
+  const count = (n: number, one: string, many: string) =>
+    `${formatCount(n)} ${pluralWord(n, one, many)}`;
+  const moved = `${count(r.coins, "coin", "coins")} and ${count(r.things, "thing", "things")}`;
+  const where = r.plots.map((p) => `${p.px}, ${p.py}`).join(" and ");
+  const plots = `${pluralWord(r.plots.length, "plot", "plots")} ${where}`;
+  return r.merged
+    ? `Merged ${r.from.name} into ${r.into.name}: ${moved} moved, with its posts and follows${where ? `, and ${plots} went back to the world` : ""}.`
+    : `Merging ${r.from.name} into ${r.into.name} moves ${moved}, with its posts and follows${where ? `, and gives ${plots} back to the world` : ""}.`;
 }
 
 /**

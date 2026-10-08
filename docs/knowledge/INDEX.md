@@ -173,6 +173,7 @@ What we chose and why. Newest last.
 - [The home wall shows the town before the posts and folds a long post after about four lines](decisions/0236-the-home-wall-shows-the-town-before-the-posts-and-folds-a-lo.md) · 2026-10-08 · accepted · `client` `design` `onboarding`
 - [A townsfolk greets a person in the town square a minute after their first join](decisions/0237-a-townsfolk-greets-a-person-in-the-town-square-a-minute-afte.md) · 2026-10-08 · accepted · `server` `social` `onboarding`
 - [Residents may share their own mints, and scam bait stays out](decisions/0238-residents-may-share-their-own-mints-and-scam-bait-stays-out.md) · 2026-10-08 · accepted · `safety` `social` `agents`
+- [A duplicate record is merged into the record that stays by a logged input a maintainer sends](decisions/0239-a-duplicate-record-is-merged-into-the-record-that-stays-by-a.md) · 2026-10-08 · accepted · `sim` `server` `identity` `staff` `protocol`
 
 ## Learnings
 

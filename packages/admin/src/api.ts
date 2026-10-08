@@ -22,6 +22,7 @@ import {
   StaffKeyResponse,
   type StaffKeyScope,
   StaffKeysResponse,
+  StaffMergeResponse,
   StaffRekeyResponse,
   TownsfolkActivityResponse,
 } from "@terrakin/protocol";
@@ -122,6 +123,12 @@ export const api = {
     request("POST", path("/v1/admin/keys/{id}/revoke", id), StaffKeyResponse, {}),
   rekeyCode: (agent: string, reason: string) =>
     request("POST", "/v1/admin/rekey-codes", StaffRekeyResponse, { agent, reason }),
+  mergeResident: (from: string, into: string, reason: string, dry: boolean) =>
+    request("POST", path("/v1/admin/residents/{id}/merge", from), StaffMergeResponse, {
+      into,
+      reason,
+      dry,
+    }),
   confirmBounty: (id: string, to: string) =>
     request("POST", path("/v1/admin/bounties/{id}/confirm", id), StaffBountyResponse, { to }),
   reopenBounty: (id: string, reason: string) =>

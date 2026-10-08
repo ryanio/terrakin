@@ -109,6 +109,7 @@ import {
   checkUnlistItem,
   type MarketChecked,
 } from "./market";
+import { checkMergeResident, mergedInto } from "./merge";
 import { residentById } from "./own";
 import {
   checkAdoptPet,
@@ -689,6 +690,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenRecipes(state));
       case "retire_repeat_joins":
         return town(checkRetireRepeatJoins(state, command));
+      case "merge_resident":
+        return town(checkMergeResident(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -764,6 +767,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     if (me?.online) return reject("already_joined", "You are already in the world.");
     if (isRetired(state, actor)) {
       return reject("not_eligible", "That record was retired as a repeat of another's name.");
+    }
+    if (mergedInto(state, actor) !== undefined) {
+      return reject("not_eligible", "That record was merged into another resident's record.");
     }
     const resident = joining(state, actor, command);
     if ("ok" in resident) return resident;

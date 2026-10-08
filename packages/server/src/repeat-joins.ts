@@ -2,9 +2,10 @@ import { socialActors } from "./newcomers";
 import { idsFrom, type SqlExec } from "./sql-store";
 
 /**
- * The social side of clearing the old repeat joins (issue #46, decision 0230). The world picks the
- * records (`WorldService.repeatJoinsToRetire`) and the sim takes them out; these read and clear
- * the social tables, which the sim can't see.
+ * The social side of clearing the old repeat joins (issue #46): retiring unused ones (decision
+ * 0230) and merging used ones into the record that stays (decision 0239). The world picks the
+ * records to retire (`WorldService.repeatJoinsToRetire`), a maintainer names the ones to merge, and
+ * the sim takes them out; these read, move, and clear the social tables, which the sim can't see.
  */
 
 /**
@@ -72,5 +73,66 @@ export function forgetRetired(sql: SqlExec, ids: readonly string[]) {
     ] as const) {
       sql.exec(statement, ...Array.from({ length: binds }, () => id));
     }
+  }
+}
+
+/**
+ * Move what a merged record held socially to the record that stays (decision 0239): its posts, its
+ * reactions and reposts (never one on a post that's now the kept record's own), its follows either
+ * way (never a follow of itself), its blocks either way, so nobody who blocked the duplicate sees
+ * the kept record, and its agent link, X account, and handle when the kept record has none (the
+ * duplicate's goes otherwise; its handle is released). `forgetRetired` clears what's left. Uploads
+ * stay the duplicate's, so a letter's private picture never changes hands; the posts that show them
+ * keep them. Running it again changes nothing.
+ */
+export function moveMerged(sql: SqlExec, from: string, into: string, now: number) {
+  const own = "SELECT id FROM posts WHERE author = ?";
+  for (const [statement, ...binds] of [
+    ["UPDATE posts SET author = ? WHERE author = ?", into, from],
+    [`DELETE FROM reactions WHERE resident_id = ? AND post_id IN (${own})`, from, into],
+    ["UPDATE OR IGNORE reactions SET resident_id = ? WHERE resident_id = ?", into, from],
+    ["DELETE FROM reactions WHERE resident_id = ?", from],
+    [`DELETE FROM reposts WHERE resident_id = ? AND post_id IN (${own})`, from, into],
+    ["UPDATE OR IGNORE reposts SET resident_id = ? WHERE resident_id = ?", into, from],
+    ["DELETE FROM reposts WHERE resident_id = ?", from],
+    [
+      "INSERT OR IGNORE INTO follows (follower, followee) SELECT ?, followee FROM follows WHERE follower = ? AND followee != ?",
+      into,
+      from,
+      into,
+    ],
+    [
+      "INSERT OR IGNORE INTO follows (follower, followee) SELECT follower, ? FROM follows WHERE followee = ? AND follower != ?",
+      into,
+      from,
+      into,
+    ],
+    [
+      "INSERT OR IGNORE INTO blocks (blocker, blocked) SELECT ?, blocked FROM blocks WHERE blocker = ? AND blocked != ?",
+      into,
+      from,
+      into,
+    ],
+    [
+      "INSERT OR IGNORE INTO blocks (blocker, blocked) SELECT blocker, ? FROM blocks WHERE blocked = ? AND blocker != ?",
+      into,
+      from,
+      into,
+    ],
+    ["UPDATE OR IGNORE agent_links SET resident_id = ? WHERE resident_id = ?", into, from],
+    ["DELETE FROM agent_links WHERE resident_id = ?", from],
+    ["DELETE FROM agent_link_asks WHERE resident_id = ?", from],
+    ["UPDATE OR IGNORE x_links SET resident_id = ? WHERE resident_id = ?", into, from],
+    ["DELETE FROM x_links WHERE resident_id = ?", from],
+    [
+      `UPDATE handles SET resident_id = ? WHERE resident_id = ? AND released_at = 0
+        AND NOT EXISTS (SELECT 1 FROM handles WHERE resident_id = ? AND released_at = 0)`,
+      into,
+      from,
+      into,
+    ],
+    ["UPDATE handles SET released_at = ? WHERE resident_id = ? AND released_at = 0", now, from],
+  ] as const) {
+    sql.exec(statement, ...binds);
   }
 }

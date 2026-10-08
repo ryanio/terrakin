@@ -1582,6 +1582,11 @@ export const WorldEvent = z.discriminatedUnion("type", [
    */
   z.object({ type: z.literal("repeat_joins_retired"), ids: z.array(z.string()) }),
   /**
+   * The Terrakin team merged a duplicate record, `from`, into the record that stays, `into`. Drop
+   * `from`: it's gone, and its profile answers 404. Its coins and things went to `into`.
+   */
+  z.object({ type: z.literal("resident_merged"), from: z.string(), into: z.string() }),
+  /**
    * You learned a recipe (RFC 0024): `picked` with a free pick, `bought` as a card (with `price`),
    * `taught` by a neighbor (with `from`), or `found` as a recipe page. Only you get these.
    */
@@ -1589,7 +1594,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("recipe_learned"),
     residentId: z.string(),
     recipe: RecipeName,
-    how: z.enum(["picked", "bought", "taught", "found"]),
+    how: z.enum(["picked", "bought", "taught", "found", "merged"]),
     price: z.number().int().optional(),
     from: z.string().optional(),
   }),

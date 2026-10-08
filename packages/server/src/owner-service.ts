@@ -97,15 +97,17 @@ const STILL_CONNECTED =
 /**
  * Why a credential stopped working, for the `revoked` answer: an owner's revoke, a re-key, or a
  * repeat record of a name the town cleared (decision 0230), an AI's (`repeat_join`) or a
- * person's (`repeat_join_person`).
+ * person's (`repeat_join_person`), or a duplicate record a maintainer merged into the one that
+ * stays (`merged`, decision 0239).
  */
-export type RetiredReason = "revoked" | "rekeyed" | "repeat_join" | "repeat_join_person";
+export type RetiredReason = "revoked" | "rekeyed" | "repeat_join" | "repeat_join_person" | "merged";
 
 const RETIRED_REASONS: readonly RetiredReason[] = [
   "revoked",
   "rekeyed",
   "repeat_join",
   "repeat_join_person",
+  "merged",
 ];
 
 interface RekeyRow {
@@ -555,6 +557,14 @@ export class OwnerService {
    */
   retireRepeatJoin(residentId: string, person: boolean) {
     this.retire(residentId, person ? "repeat_join_person" : "repeat_join");
+  }
+
+  /**
+   * Remember the credentials of a duplicate record a maintainer merged into another (decision
+   * 0239), so a caller who sends one hears where its coins and things went.
+   */
+  retireMerged(residentId: string) {
+    this.retire(residentId, "merged");
   }
 
   private retire(residentId: string, reason: RetiredReason) {

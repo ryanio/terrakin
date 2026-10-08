@@ -478,6 +478,11 @@ export interface WorldState {
    * that input, which comes once; `join` refuses these ids from then on.
    */
   retiredRepeatJoins?: ResidentId[];
+  /**
+   * Records `merge_resident` took out of the world (decision 0239), each against the record that
+   * stayed. Absent until the first merge; `join` refuses these ids from then on.
+   */
+  mergedResidents?: Record<ResidentId, ResidentId>;
 }
 
 /** The party games (RFC 0011). New games go on the end. */
@@ -1013,6 +1018,8 @@ export const INVENTORY_REASONS = [
   "handed_out",
   /** A fish you caught (RFC 0023). */
   "caught",
+  /** From a duplicate record of yours that the Terrakin team merged into this one. */
+  "merged",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -1062,6 +1069,8 @@ export const COIN_REASONS = [
   "event_refund",
   /** A new coat for your pet (RFC 0019). Burned. */
   "groom",
+  /** From a duplicate record of yours that the Terrakin team merged into this one. */
+  "merged",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1348,6 +1357,11 @@ export type Command =
    * server picks `ids`; the sim refuses the whole list if any record was used.
    */
   | { type: "retire_repeat_joins"; ids: ResidentId[] }
+  /**
+   * A maintainer merges a duplicate record into the one that stays (decision 0239): `from` leaves
+   * the world, its coins and things go to `into`, and its plots are released.
+   */
+  | { type: "merge_resident"; from: ResidentId; into: ResidentId }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1480,6 +1494,7 @@ export const SERVER_COMMANDS = [
   "open_recipes",
   "lower_holiday_prices",
   "retire_repeat_joins",
+  "merge_resident",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1608,7 +1623,7 @@ export type WorldEvent =
       type: "recipe_learned";
       residentId: ResidentId;
       recipe: RecipeName;
-      how: "picked" | "bought" | "taught" | "found";
+      how: "picked" | "bought" | "taught" | "found" | "merged";
       price?: number;
       from?: ResidentId;
     }
@@ -1654,6 +1669,8 @@ export type WorldEvent =
   | { type: "holiday_prices_lowered" }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }
+  /** `merge_resident`: `from` left the world, merged into `into`. Public: drop `from`. */
+  | { type: "resident_merged"; from: ResidentId; into: ResidentId }
   /** Shop wear a resident bought. Private, like their purse. */
   | { type: "wear_bought"; residentId: ResidentId; wear: WearItem }
   /** The partner wear a resident may put on now. Public: it's a cosmetic their profile shows. */

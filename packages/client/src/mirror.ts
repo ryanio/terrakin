@@ -434,6 +434,12 @@ export class Mirror {
         this.repeatJoins = new Set([...this.repeatJoins].filter((id) => !gone.has(id)));
         break;
       }
+      case "resident_merged":
+        this.residents.delete(event.from);
+        this.facing.delete(event.from);
+        this.#out.delete(event.from);
+        this.repeatJoins = new Set([...this.repeatJoins].filter((id) => id !== event.from));
+        break;
       case "event_scheduled":
         this.events.set(event.event, {
           id: event.event,

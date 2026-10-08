@@ -10,8 +10,11 @@ import {
   findEvent,
   goodById,
   heldAsideOf,
+  inventorySize,
   listingById,
+  own,
   plotNamesOf,
+  plotsOwnedBy,
   REPLAY_VERSION,
 } from "@terrakin/sim";
 import { SUMMARY_DAYS } from "../ai-spend";
@@ -355,6 +358,35 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         status: 201,
         body: { agent, ...made.value.code, unlinked: made.value.unlinked },
       };
+    },
+    // A duplicate record merged into the one that stays (issue #46, decision 0239). What moves is
+    // read before the merge, which takes the duplicate out of the world.
+    mergeResident: ({ viewer, params, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const asked = body.into.replace(/^@/, "");
+      const intoId = /^r_[0-9a-f]+$/.test(asked) ? asked : social().residentIdByHandle(asked);
+      const from = social().ref(params.id);
+      const into = intoId ? social().ref(intoId) : undefined;
+      if (!from || !into) return fail("not_found", "Nobody has that handle or id.");
+      const { state } = service;
+      const moves = {
+        coins: own(state.economy?.coins, from.id) ?? 0,
+        things: inventorySize(own(state.items?.inventories, from.id)),
+        plots: plotsOwnedBy(state, from.id).map(({ px, py }) => ({ px, py })),
+      };
+      const dry = body.dry === true;
+      const done = service.mergeResident(from.id, into.id, dry);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      if (!dry) {
+        social().safety.recordNote(
+          viewer,
+          "merge_resident",
+          "resident",
+          from.id,
+          `Into ${into.id}: ${body.reason}`,
+        );
+      }
+      return { status: 200, body: { from, into, ...moves, merged: !dry } };
     },
     // Bounties (decision 0062): town coins move only on a maintainer's word.
     getStaffBounties: ({ viewer }) => {

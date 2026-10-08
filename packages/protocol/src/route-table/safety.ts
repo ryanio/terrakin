@@ -22,6 +22,8 @@ import {
   ReportResponse,
   StaffKeyResponse,
   StaffKeysResponse,
+  StaffMergeRequest,
+  StaffMergeResponse,
   StaffRekeyRequest,
   StaffRekeyResponse,
   SUSPEND_MAX_DAYS,
@@ -502,6 +504,31 @@ export const SAFETY_ROUTES = [
     query: WorldLogQuery,
     responses: { 200: json(WorldLogResponse) },
     errors: ["bad_request", "unauthorized", "forbidden", "internal"],
+  },
+  // Duplicate records (issue #46, decision 0239).
+  {
+    id: "mergeResident",
+    method: "POST",
+    path: "/v1/admin/residents/{id}/merge",
+    auth: "staff",
+    internal: true,
+    summary: "Maintainers: merge a duplicate record into the record that stays.",
+    description:
+      "The record in the path leaves the world for good: its coins and things go to `into`, the plots it owns go back to the world, its follows and posts move to `into`, and its token and link key stop working with a message that names the record that stays. Both must be the same kind, neither townsfolk, and the duplicate offline, with nothing it shares with others still running (an owner link, a shared plot, a listing, a bounty, an event, a game, an open proposal, something on display). `dry: true` checks it and says what would move. Logged in the world and in the moderation log with the reason.",
+    tags: ["Moderation"],
+    params: ResidentParams,
+    body: StaffMergeRequest,
+    responses: { 200: json(StaffMergeResponse) },
+    errors: [
+      "bad_request",
+      "unauthorized",
+      "forbidden",
+      "not_found",
+      "not_eligible",
+      "unknown_resident",
+      "inventory_full",
+      "plot_has_blocks",
+    ],
   },
   // The newcomer funnel (decision 0141).
   {

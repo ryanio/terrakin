@@ -19,6 +19,7 @@ import {
   keyMessage,
   keyScopes,
   mainSite,
+  mergeSummary,
   modelName,
   participationLine,
   pathFor,
@@ -551,6 +552,31 @@ describe("routes and links", () => {
     expect(message).toContain("https://terrakin.org/v1/rekey?code=abcd-efgh-jkmn-pqrs");
     // Paragraphs split by a blank line, and no line broken inside one.
     expect(message.split("\n\n").every((p) => p.length > 0 && !p.includes("\n"))).toBe(true);
+  });
+
+  it("says what a merge moves before it's made, and what it moved after", () => {
+    const brief = (id: string, name: string) => ({
+      id,
+      name,
+      kind: "agent" as const,
+      color: "rose" as const,
+      shape: "round" as const,
+      avatar: null,
+    });
+    const r = {
+      from: brief("r_2", "Maypole #532"),
+      into: brief("r_1", "Maypole"),
+      coins: 1,
+      things: 12,
+      plots: [{ px: 6, py: 6 }],
+      merged: false,
+    };
+    expect(mergeSummary(r)).toBe(
+      "Merging Maypole #532 into Maypole moves 1 coin and 12 things, with its posts and follows, and gives plot 6, 6 back to the world.",
+    );
+    expect(mergeSummary({ ...r, coins: 1200, things: 0, plots: [], merged: true })).toBe(
+      "Merged Maypole #532 into Maypole: 1,200 coins and 0 things moved, with its posts and follows.",
+    );
   });
 
   it("shows bounties to maintainers only, and offers confirm only on a town bounty marked done", () => {

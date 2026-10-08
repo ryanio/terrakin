@@ -25541,7 +25541,8 @@
           "grant",
           "event_deposit",
           "event_refund",
-          "groom"
+          "groom",
+          "merged"
         ]
       },
       "CompleteBountyAction": {
@@ -26657,7 +26658,8 @@
           "treat",
           "trick_or_treat",
           "handed_out",
-          "caught"
+          "caught",
+          "merged"
         ]
       },
       "ItemId": {
@@ -30967,6 +30969,28 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "resident_merged"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "into": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "from",
+              "into"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "recipe_learned"
                 ]
               },
@@ -30982,7 +31006,8 @@
                   "picked",
                   "bought",
                   "taught",
-                  "found"
+                  "found",
+                  "merged"
                 ]
               },
               "price": {
@@ -36271,6 +36296,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "merge_resident": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -36293,7 +36323,8 @@
               "remove_piece",
               "void_event",
               "clear_plot_names",
-              "rekey_agent"
+              "rekey_agent",
+              "merge_resident"
             ]
           },
           "suspendedNow": {

@@ -6,7 +6,7 @@ import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
-import { forgetRetired, socialUsers } from "./repeat-joins";
+import { forgetRetired, moveMerged, socialUsers } from "./repeat-joins";
 import { Routines } from "./routines";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
@@ -147,5 +147,17 @@ export function wireSocial(
     forgetRetired(layer.sql, ids);
   };
   service.forgetRetired(service.state.retiredRepeatJoins ?? []);
+  // Merging a duplicate record (decision 0239): its credentials kept as merged before they're
+  // turned off, what it held socially moved (`moveMerged`), and the rest cleared as for a retired
+  // record. A partner link that moved brings its wear on the entitlements' next check. At start,
+  // whatever a crash left is done again.
+  service.onMerged = (from, into) => {
+    api.owners?.retireMerged(from);
+    moveMerged(layer.sql, from, into, service.now());
+    forgetRetired(layer.sql, [from]);
+  };
+  for (const [from, into] of Object.entries(service.state.mergedResidents ?? {})) {
+    service.forgetMerged(from, into);
+  }
   return { routines, partnerResidents };
 }

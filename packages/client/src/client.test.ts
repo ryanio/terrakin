@@ -1,4 +1,4 @@
-import type { WorldSnapshot } from "@terrakin/protocol";
+import type { WorldEvent, WorldSnapshot } from "@terrakin/protocol";
 import { gatherableAt, isFindKind } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { type Camera, screenToTile, tileToScreen } from "./camera";
@@ -56,19 +56,23 @@ describe("Mirror", () => {
     expect(m.blocks.get("1,1")).toBe("leaf");
   });
 
-  it("drops retired repeat records from the map and the count", () => {
+  it("drops retired and merged repeat records from the map and the count", () => {
     const [ada] = snapshot.residents;
     if (!ada) throw new Error("no resident");
-    const m = new Mirror({
-      ...snapshot,
-      residents: [ada, { ...ada, id: "b", online: false }],
-      repeatJoins: ["b"],
-    });
-    expect(m.apply({ seq: 4, event: { type: "repeat_joins_retired", ids: ["b"] } })).toBe(
-      "applied",
-    );
-    expect([...m.residents.keys()]).toEqual(["a"]);
-    expect([...m.repeatJoins]).toEqual([]);
+    const gone: WorldEvent[] = [
+      { type: "repeat_joins_retired", ids: ["b"] },
+      { type: "resident_merged", from: "b", into: "a" },
+    ];
+    for (const event of gone) {
+      const m = new Mirror({
+        ...snapshot,
+        residents: [ada, { ...ada, id: "b", online: false }],
+        repeatJoins: ["b"],
+      });
+      expect(m.apply({ seq: 4, event })).toBe("applied");
+      expect([...m.residents.keys()], event.type).toEqual(["a"]);
+      expect([...m.repeatJoins]).toEqual([]);
+    }
   });
 
   it("mirrors plot shares and clears a revoked co-owner's hearth", () => {

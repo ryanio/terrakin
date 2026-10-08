@@ -294,6 +294,7 @@ export {
   stallOf,
   takenDownOf,
 } from "./market";
+export { mergedInto } from "./merge";
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export {

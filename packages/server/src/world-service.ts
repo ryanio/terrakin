@@ -880,6 +880,14 @@ export class WorldService {
     return next === undefined ? undefined : Math.max(next, now + 60_000);
   }
 
+  /**
+   * A maintainer merges the duplicate record `from` into `into`, the record that stays (decision
+   * 0239). `dry` checks it with the sim and changes nothing.
+   */
+  mergeResident(from: string, into: string, dry = false): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "merge_resident", from, into } }, dry);
+  }
+
   /** A maintainer calls off an event that hasn't ended. Logged as a world input naming them. */
   voidEvent(event: string, by: string, resident?: string): ActResult {
     return this.run({
@@ -1657,6 +1665,7 @@ export class WorldService {
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
       if (e.type === "repeat_joins_retired") this.forgetRetired(e.ids, people);
+      if (e.type === "resident_merged") this.forgetMerged(e.from, e.into);
       if (e.type === "recipe_learned" && e.how === "taught" && e.from) {
         try {
           this.onRecipeTaught?.(e.residentId, e.from, e.recipe);
@@ -1938,6 +1947,13 @@ export class WorldService {
   onRetired: ((ids: readonly string[], people: ReadonlySet<string>) => void) | undefined;
 
   /**
+   * Hears each record `merge_resident` took out of the world, and again at every start, so the
+   * social layer moves what it can to the record that stays and forgets the rest (decision 0239).
+   * `Api` wires it.
+   */
+  onMerged: ((from: string, into: string) => void) | undefined;
+
+  /**
    * The records `retire_repeat_joins` should take out now (issue #46, decision 0230): the
    * snapshot's `repeatJoins` rule, untouched records of a shared name, where untouched also means
    * nothing in `socialUsers`, less any the sim would refuse (`retireProblems`: coins, things, or
@@ -1969,17 +1985,34 @@ export class WorldService {
     } catch (err) {
       report(err, "world.retired");
     }
-    for (const id of ids) {
-      if (this.credentials.credentialHashes(id).length > 0) {
-        this.credentials.revokeTokens(id);
-        this.credentials.revokeLinkKey(id);
-      }
-      this.facing.delete(id);
-      this.routineSteps.delete(id);
-      this.builds.delete(id);
-      this.lastSeen.delete(id);
-      this.sockets.delete(id);
+    for (const id of ids) this.forgetGone(id);
+  }
+
+  /**
+   * Everything outside the world a merged record held (decision 0239): what `onMerged` moves or
+   * clears in the social layer, then its tokens and link key, and what this service keeps about it
+   * in memory. Running it again changes nothing, so `Api` runs it at start for every merged record.
+   */
+  forgetMerged(from: string, into: string) {
+    try {
+      this.onMerged?.(from, into);
+    } catch (err) {
+      report(err, "world.merged");
     }
+    this.forgetGone(from);
+  }
+
+  /** A record that left the world: its credentials off and its in-memory state dropped. */
+  private forgetGone(id: string) {
+    if (this.credentials.credentialHashes(id).length > 0) {
+      this.credentials.revokeTokens(id);
+      this.credentials.revokeLinkKey(id);
+    }
+    this.facing.delete(id);
+    this.routineSteps.delete(id);
+    this.builds.delete(id);
+    this.lastSeen.delete(id);
+    this.sockets.delete(id);
   }
 
   /**

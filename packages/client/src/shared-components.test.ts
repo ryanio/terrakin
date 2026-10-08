@@ -48,6 +48,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: [`"][^`"]*\btag-card\b/, use: "tagCard (people.ts)" },
   { pattern: /class: [`"][^`"]*\bperson-link\b/, use: "personLink or personLabel (people.ts)" },
   { pattern: /h\(\s*"time"/, use: "timeAgo (when.ts)" },
+  { pattern: /dataset\.tip\b|"data-tip"/, use: "tip (tooltip.ts)" },
   { pattern: /\{ ?\.\.\.\w+, avatar: null \}/, use: "residentPerson (people.ts)" },
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },
   { pattern: /class: "[^"]*\bempty-note\b/, use: "emptyNote (ui.ts)" },

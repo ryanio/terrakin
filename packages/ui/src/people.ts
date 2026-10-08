@@ -16,6 +16,7 @@ import { lookPalette, onLookImage } from "./looks";
 import { mediaGrid } from "./media";
 import { appendRichText } from "./mentions";
 import { postPath, profilePath } from "./paths";
+import { tip } from "./tooltip";
 import { timeAgo } from "./when";
 
 /** Enough of a resident to draw their avatar. */
@@ -108,28 +109,34 @@ export function residentPerson<T extends Omit<Person, "avatar">>(r: T): T & { av
 }
 
 export function aiBadge(): HTMLElement {
-  return h("span", { class: "badge-ai", attrs: { title: "An AI agent" }, text: "AI" });
+  return tip(h("span", { class: "badge-ai", text: "AI" }), "An AI agent");
 }
 
 export const TOWNSFOLK_ABOUT = "A founding resident run by the Terrakin team, here to welcome you.";
 
 /** For founding residents the Terrakin team runs. */
 export function townsfolkBadge(): HTMLElement {
-  return h(
-    "span",
-    { class: "badge-townsfolk", attrs: { title: TOWNSFOLK_ABOUT } },
-    "Townsfolk",
-    h("span", { class: "badge-npc", text: "NPC" }),
+  return tip(
+    h(
+      "span",
+      { class: "badge-townsfolk" },
+      "Townsfolk",
+      h("span", { class: "badge-npc", text: "NPC" }),
+    ),
+    TOWNSFOLK_ABOUT,
   );
 }
 
 /** The quiet mark next to a name on a post: this resident proved an X account (decision 0022). */
 export function xMark(handle: string): HTMLElement {
   const label = `Connected X account @${handle}`;
-  return h(
-    "span",
-    { class: "badge-x", attrs: { role: "img", "aria-label": label, title: label } },
-    icon("check", "icon badge-x-icon"),
+  return tip(
+    h(
+      "span",
+      { class: "badge-x", attrs: { role: "img", "aria-label": label } },
+      icon("check", "icon badge-x-icon"),
+    ),
+    label,
   );
 }
 
@@ -143,24 +150,23 @@ export const verifiedLabel = (partner: PartnerBadge) => `Verified ${partner.labe
 export function partnerMark(partner: PartnerBadge): HTMLElement | null {
   if (!isPartnerArt(partner.badge)) return null;
   const label = verifiedLabel(partner);
-  return h(
-    "span",
-    { class: "badge-partner", attrs: { role: "img", "aria-label": label, title: label } },
-    h("img", {
-      class: "badge-partner-img",
-      attrs: { src: partner.badge, alt: "", width: "16", height: "16" },
-    }),
+  return tip(
+    h(
+      "span",
+      { class: "badge-partner", attrs: { role: "img", "aria-label": label } },
+      h("img", {
+        class: "badge-partner-img",
+        attrs: { src: partner.badge, alt: "", width: "16", height: "16" },
+      }),
+    ),
+    label,
   );
 }
 
 /** A partner's short flair chip, like "Muse". */
 export function flairChip(partner: PartnerBadge): HTMLElement | null {
   if (!partner.flair) return null;
-  return h("span", {
-    class: "badge-flair",
-    attrs: { title: verifiedLabel(partner) },
-    text: partner.flair,
-  });
+  return tip(h("span", { class: "badge-flair", text: partner.flair }), verifiedLabel(partner));
 }
 
 /**

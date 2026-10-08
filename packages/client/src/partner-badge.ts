@@ -12,6 +12,7 @@ import {
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { partnerMark, verifiedLabel } from "@terrakin/ui/people";
+import { tip } from "@terrakin/ui/tooltip";
 import { openOverlay, sheet } from "@terrakin/ui/ui";
 
 /** The partner's own site for its character, only when it is an https address. */
@@ -54,14 +55,14 @@ export function verifiedRow(profile: ProfileView): HTMLElement | null {
   return h(
     "div",
     { class: "verified-row" },
-    h(
-      "span",
-      {
-        class: "verified-agent",
-        attrs: { title: "Their agent's card names this profile, checked about every hour." },
-      },
-      icon("check", "icon verified-agent-icon"),
-      h("span", { text: "Verified agent" }),
+    tip(
+      h(
+        "span",
+        { class: "verified-agent" },
+        icon("check", "icon verified-agent-icon"),
+        h("span", { text: "Verified agent" }),
+      ),
+      "Their agent's card names this profile, checked about every hour.",
     ),
   );
 }

@@ -610,7 +610,6 @@ a.tag-card:focus-visible {
   font-weight: var(--weight-bold);
   line-height: var(--leading-normal);
   color: var(--moss-deep);
-  cursor: help;
 }
 
 .badge-npc {
@@ -1304,6 +1303,65 @@ a.menu-item {
   color: var(--sun);
   font-weight: var(--weight-bold);
   text-decoration: none;
+}
+
+/*
+ * The tooltip (tooltip.ts): a few words in a small dark bubble over a label, with a point at the
+ * label. It fades and rises into place; `.below` sits under the label when there's no room above.
+ */
+.tooltip {
+  --tip-rise: 4px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  text-align: left;
+  text-wrap: pretty;
+  box-shadow: 0 10px 24px -10px rgba(40, 25, 10, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(var(--tip-rise));
+  transition:
+    opacity 0.14s ease,
+    transform 0.14s ease,
+    visibility 0s linear 0.14s;
+}
+
+.tooltip.below {
+  --tip-rise: -4px;
+}
+
+.tooltip.show {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+/* Its point: a small square turned on its corner, half tucked under the bubble. */
+.tooltip-arrow {
+  position: absolute;
+  top: 100%;
+  left: var(--tip-arrow, 50%);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.tooltip.below .tooltip-arrow {
+  top: 0;
 }
 
 /* Reduced motion, in both apps: nothing animates or slides. */

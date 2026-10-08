@@ -201,7 +201,9 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     const badge = welcome.locator(".badge-townsfolk");
     await expect(badge).toContainText("Townsfolk");
     await expect(badge.locator(".badge-npc")).toHaveText("NPC");
-    await expect(badge).toHaveAttribute("title", /founding resident/);
+    await expect(badge).not.toHaveAttribute("title");
+    await badge.hover();
+    await expect(page.locator(".tooltip.show")).toHaveText(/founding resident/);
     await expect(welcome.locator(".badge-ai")).toBeVisible();
 
     await welcome.locator(".post-author").click();

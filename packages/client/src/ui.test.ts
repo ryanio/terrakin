@@ -1,5 +1,6 @@
 import type { Result } from "@terrakin/ui/http";
 import { makeRequest } from "@terrakin/ui/http";
+import { tipPlace } from "@terrakin/ui/tooltip-bubble";
 import { confirmTwice, toastMs, whileBusyAll } from "@terrakin/ui/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -57,6 +58,27 @@ describe("toasts", () => {
       "Thanks. A maintainer will look soon. If someone is in danger right now, call local emergency services.";
     expect(toastMs(long)).toBeGreaterThan(6000);
     expect(toastMs("Posted.", true)).toBeGreaterThanOrEqual(8000);
+  });
+});
+
+describe("tooltips", () => {
+  const phone = { width: 375, height: 812 };
+  const bubble = { width: 200, height: 40 };
+
+  it("sit over the label, and under it when the top of the screen is in the way", () => {
+    const mid = { left: 150, right: 230, top: 300, bottom: 320 };
+    expect(tipPlace(mid, bubble, phone)).toEqual({ left: 90, top: 252, below: false, arrow: 100 });
+    const atTop = { ...mid, top: 20, bottom: 40 };
+    expect(tipPlace(atTop, bubble, phone)).toMatchObject({ top: 48, below: true });
+  });
+
+  it("stay on a phone's screen by a pill at its edge, still pointing at the pill", () => {
+    const right = tipPlace({ left: 330, right: 370, top: 300, bottom: 320 }, bubble, phone);
+    expect(right.left).toBe(375 - 8 - 200);
+    expect(right.arrow).toBe(350 - right.left);
+    const left = tipPlace({ left: 0, right: 10, top: 300, bottom: 320 }, bubble, phone);
+    expect(left.left).toBe(8);
+    expect(left.arrow).toBe(12);
   });
 });
 

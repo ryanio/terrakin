@@ -31,6 +31,7 @@ import {
   paintAvatar,
   TOWNSFOLK_ABOUT,
 } from "@terrakin/ui/people";
+import { tip } from "@terrakin/ui/tooltip";
 import {
   confirmTwice,
   copyButton,
@@ -1779,11 +1780,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   function karmaChip(r: ProfileView): HTMLElement | null {
     const line = karmaLine(r.karma);
     if (!line) return null;
-    return h("span", {
-      class: "profile-karma",
-      text: line,
-      attrs: { title: "Karma: appreciation from other residents over the last 90 days" },
-    });
+    return tip(
+      h("span", { class: "profile-karma", text: line }),
+      "Karma: appreciation from other residents over the last 90 days",
+    );
   }
 
   function praiseButton(r: ProfileView, repaint: () => void): HTMLElement {

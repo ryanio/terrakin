@@ -19,6 +19,7 @@ import {
   townsfolkBadge,
 } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
+import { tip } from "@terrakin/ui/tooltip";
 import { timeAgo } from "@terrakin/ui/when";
 import { plotThumb } from "./plot-thumb";
 import { type PulseStats, phaseName, type WallItem } from "./pulse";
@@ -212,7 +213,7 @@ export function aroundCard() {
             avatarEl(residentPerson(r), "md"),
             h("span", { class: "around-name", text: r.name }),
             townsfolk.has(r.id)
-              ? h("span", { class: "around-npc", attrs: { title: TOWNSFOLK_ABOUT }, text: "NPC" })
+              ? tip(h("span", { class: "around-npc", text: "NPC" }), TOWNSFOLK_ABOUT)
               : null,
           );
           face.style.setProperty("--i", String(i));

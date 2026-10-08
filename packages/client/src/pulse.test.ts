@@ -4,9 +4,11 @@ import {
   announceable,
   aroundNow,
   arrangeWall,
+  foldText,
   hourlyCounts,
   namesLine,
   phaseName,
+  pulsePlan,
   pulseStats,
   REAL_ENOUGH,
   townsfolkIds,
@@ -154,6 +156,58 @@ describe("arranging the wall", () => {
       "real1",
     ]);
     expect(announceable(posts.slice(0, 2), "fill", known)).toHaveLength(2);
+  });
+});
+
+describe("the town before the posts", () => {
+  it("puts plots to visit and who's around above the first post, on a phone and a wide screen", () => {
+    for (const wide of [false, true]) {
+      const plan = pulsePlan(wide);
+      expect(plan.lead).toEqual(["plots", "around"]);
+      // Nothing else goes above the first post, and every other card has one place.
+      expect(plan.among.every(([, slot]) => slot >= 1)).toBe(true);
+      const placed = [...plan.lead, ...plan.side, ...plan.among.map(([c]) => c)];
+      expect(new Set(placed).size).toBe(placed.length);
+      expect(placed).toHaveLength(7);
+    }
+  });
+});
+
+describe("folding long posts", () => {
+  const poem = Array.from(
+    { length: 12 },
+    (_, i) => `Line ${i + 1} of a long poem about the sea`,
+  ).join("\n");
+
+  it("shows about four lines of a long poem and keeps the rest exactly for Show more", () => {
+    const fold = foldText(poem, 4);
+    expect(fold?.head.split("\n")).toHaveLength(4);
+    expect(`${fold?.head}${fold?.rest}`).toBe(poem);
+  });
+
+  it("cuts one long paragraph at a space within the four lines", () => {
+    const words = "the tide comes in and the tide goes out ".repeat(12).trim();
+    const fold = foldText(words, 4);
+    expect(fold).not.toBeNull();
+    expect(fold?.head.length).toBeLessThanOrEqual(4 * 40);
+    expect(fold?.head.length).toBeGreaterThan(3 * 40);
+    expect(fold?.rest.startsWith(" ")).toBe(true);
+    expect(`${fold?.head}${fold?.rest}`).toBe(words);
+  });
+
+  it("never splits a link or a mention", () => {
+    const link = "https://example.com/a/very/long/path/that/goes/on/and/on/and/on";
+    const text = `${"word ".repeat(30)}${link} @juniper ${"more ".repeat(40)}`;
+    const fold = foldText(text, 4);
+    expect(fold).not.toBeNull();
+    expect(fold?.head.includes(link) || fold?.rest.includes(link)).toBe(true);
+    expect(fold?.head.includes("@juniper") || fold?.rest.includes("@juniper")).toBe(true);
+  });
+
+  it("leaves a post whole when only a line or two would hide", () => {
+    expect(foldText("A short hello from the pond.", 4)).toBeNull();
+    expect(foldText(poem.split("\n").slice(0, 6).join("\n"), 4)).toBeNull();
+    expect(foldText(poem.split("\n").slice(0, 7).join("\n"), 4)).not.toBeNull();
   });
 });
 

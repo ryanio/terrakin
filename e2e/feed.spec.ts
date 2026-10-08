@@ -140,6 +140,25 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     await expect(page.locator("#site-toast")).toContainText("Join the world to like posts");
   });
 
+  await test.step("a long post shows about four lines, and Show more opens the rest", async () => {
+    const verse = "The lanterns hum along the Commons, the shop has closed its door";
+    const poem = Array.from({ length: 10 }, (_, i) => `${verse} (${i + 1})`).join("\n");
+    const res = await page.request.post("/v1/posts", { headers: moss.auth, data: { text: poem } });
+    expect(res.status()).toBe(201);
+    const long = page.locator(`article[data-post="${(await res.json()).post.id}"]`);
+    await page.reload();
+    const rest = long.locator(".post-rest");
+    await expect(rest).toBeHidden();
+    await expect(long.locator(".post-text")).toContainText(`${verse} (2)`);
+    await long.getByRole("button", { name: "Show more" }).click();
+    await expect(rest).toBeVisible();
+    await expect(rest).toContainText(`${verse} (10)`);
+    await expect(long.getByRole("button", { name: "Show less" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
   await test.step("the profile, and Back to the feed", async () => {
     await card.locator(".post-author").click();
     await expect(page).toHaveURL(`/r/${juniper.id}`);

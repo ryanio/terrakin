@@ -17,17 +17,20 @@ import { appendRichText } from "@terrakin/ui/mentions";
 import { replay } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed, who } from "@terrakin/ui/people";
-import { moreMenu, openPopover, shareLink, toast } from "@terrakin/ui/ui";
+import { disclosure, moreMenu, openPopover, shareLink, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { openQuoteComposer } from "./composer";
 import { savedResidentId, savedToken } from "./net";
+import { foldText } from "./pulse";
 import { hasReaction, PostToggles, REACTIONS, reactionSummary } from "./reactions";
 import { openReportSheet } from "./report-sheet";
 
 export interface PostCardOptions {
   /** The main post on its own page: bigger text, the full date, no "show more". */
   focus?: boolean;
+  /** On the home wall: the text folds after about four lines, so one long post never fills a phone. */
+  brief?: boolean;
   /** Shown under its parent already, so leave out the "replying to" line. */
   inThread?: boolean;
   /** Called after a like, reaction, or repost settles, so other views can keep their copy in step. */
@@ -46,12 +49,10 @@ export interface PostCardOptions {
   onReply?(): void;
 }
 
-/** Long posts fold in the feed past this many characters or lines. */
-const FOLD_CHARS = 520;
+/** About how many lines of a long post show on a phone before Show more. */
 const FOLD_LINES = 9;
-/** Rows inside a rollup fold sooner. */
-const COMPACT_FOLD_CHARS = 220;
-const COMPACT_FOLD_LINES = 4;
+/** On the home wall, and in rows inside a rollup. */
+const BRIEF_FOLD_LINES = 4;
 
 export function postCard(post: PostView, options: PostCardOptions = {}): HTMLElement {
   const { author } = post;
@@ -84,35 +85,33 @@ export function postCard(post: PostView, options: PostCardOptions = {}): HTMLEle
     options.focus ? null : timeLink,
   );
 
-  const text = appendRichText(h("p", { class: "post-text" }), post.text, post.mentions);
-  const lines = post.text.split("\n").length;
   const compact = options.variant === "compact";
-  const foldChars = compact ? COMPACT_FOLD_CHARS : FOLD_CHARS;
-  const foldLines = compact ? COMPACT_FOLD_LINES : FOLD_LINES;
-  let more: HTMLElement | null = null;
-  if (!options.focus && (post.text.length > foldChars || lines > foldLines)) {
-    text.classList.add("folded");
-    more = h("button", {
-      class: "post-more",
-      attrs: { type: "button", "aria-expanded": "false" },
-      text: "Show more",
-      on: {
-        click: () => {
-          const open = text.classList.toggle("folded") === false;
-          more?.setAttribute("aria-expanded", String(open));
-          if (more) more.textContent = open ? "Show less" : "Show more";
-          // Folding a long post back up from far down it would leave you posts below where you
-          // were, so bring its top back into view, below the sticky top bar.
-          const card = text.closest("article");
-          if (!open && card) {
-            const bar = document.querySelector(".site-bar")?.getBoundingClientRect().bottom ?? 0;
-            const top = card.getBoundingClientRect().top;
-            if (top < bar) window.scrollBy(0, top - bar - 8);
-          }
-        },
-      },
+  const fold = options.focus
+    ? null
+    : foldText(post.text, options.brief || compact ? BRIEF_FOLD_LINES : FOLD_LINES);
+  const text = h("p", { class: "post-text" });
+  let more: HTMLButtonElement | null = null;
+  if (fold) {
+    // The head shows; the rest waits behind Show more, in the same paragraph so it reads on.
+    const rest = appendRichText(h("span", { class: "post-rest" }), fold.rest, post.mentions);
+    rest.hidden = true;
+    const dots = h("span", { class: "post-dots", attrs: { "aria-hidden": "true" }, text: "…" });
+    appendRichText(text, fold.head, post.mentions).append(dots, rest);
+    more = h("button", { class: "post-more", attrs: { type: "button" }, text: "Show more" });
+    const button = more;
+    disclosure(button, rest, undefined, (open) => {
+      dots.hidden = open;
+      button.textContent = open ? "Show less" : "Show more";
+      // Folding a long post back up from far down it would leave you posts below where you
+      // were, so bring its top back into view, below the sticky top bar.
+      const card = text.closest("article");
+      if (!open && card) {
+        const bar = document.querySelector(".site-bar")?.getBoundingClientRect().bottom ?? 0;
+        const top = card.getBoundingClientRect().top;
+        if (top < bar) window.scrollBy(0, top - bar - 8);
+      }
     });
-  }
+  } else appendRichText(text, post.text, post.mentions);
 
   const context =
     post.replyTo && !options.inThread

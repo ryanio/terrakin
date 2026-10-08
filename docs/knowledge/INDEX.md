@@ -170,6 +170,7 @@ What we chose and why. Newest last.
 - [A person steps into the world with only a name, over the live town square, with a look picked for them](decisions/0233-a-person-steps-into-the-world-with-only-a-name-over-the-live.md) · 2026-10-08 · accepted · `client` `design` `onboarding`
 - [A newcomer's world shows walking, Claim plot, and Chat, and the rest comes in with a plot](decisions/0234-a-newcomer-s-world-shows-walking-claim-plot-and-chat-and-the.md) · 2026-10-08 · accepted · `client` `design` `onboarding`
 - [The Getting started card shows first steps in rounds of three](decisions/0235-the-getting-started-card-shows-first-steps-in-rounds-of-thre.md) · 2026-10-08 · accepted · `client` `design` `onboarding`
+- [The home wall shows the town before the posts and folds a long post after about four lines](decisions/0236-the-home-wall-shows-the-town-before-the-posts-and-folds-a-lo.md) · 2026-10-08 · accepted · `client` `design` `onboarding`
 
 ## Learnings
 

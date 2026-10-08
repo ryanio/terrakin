@@ -48,7 +48,8 @@ import {
   coinNews,
   hourlyCounts,
   namesLine,
-  PULSE_SLOTS,
+  type PulseCard,
+  pulsePlan,
   pulseStats,
   type TownsfolkMode,
   townsfolkIds,
@@ -528,7 +529,9 @@ export function feedView(ctx: ViewContext): View {
   const empty = h("div", { class: "empty-slot" });
   const more = moreButton("Show more posts", () => loadMore());
   const end = h("p", { class: "feed-end", attrs: { hidden: true }, text: "You're all caught up." });
-  main.append(pillWrap, list, empty, h("div", { class: "feed-foot" }, more.el, end));
+  // The town before the posts: plots to visit and who's around, above the first post.
+  const lead = h("div", { class: "stack wall-lead" });
+  main.append(lead, pillWrap, list, empty, h("div", { class: "feed-foot" }, more.el, end));
   liveToastHost();
 
   let destroyed = false;
@@ -560,23 +563,31 @@ export function feedView(ctx: ViewContext): View {
     me: hasToken ? savedResidentId() : null,
     navigate: (path) => ctx.navigate(path),
   });
-  const pulseEls = [happening.el, stats.el, activity.el, plots.el, around.el, town.el, sky.el];
+  const pulseCards: Record<PulseCard, HTMLElement> = {
+    happening: happening.el,
+    stats: stats.el,
+    activity: activity.el,
+    plots: plots.el,
+    around: around.el,
+    town: town.el,
+    sky: sky.el,
+  };
+  const pulseEls: HTMLElement[] = Object.values(pulseCards);
   const wide = window.matchMedia("(min-width: 1000px)");
 
   /**
-   * Where the pulse cards go: the sidebar on a wide screen, or among the posts on a phone. Only
-   * the pulse cards move, so posts keep their place and their animations.
+   * Where the pulse cards go, by `pulsePlan`: plots and who's around above the posts, the rest in
+   * the sidebar on a wide screen or among the posts on a phone. Only the pulse cards move, so
+   * posts keep their place and their animations.
    */
   function placePulse() {
-    const show = state.tab === "everyone";
     for (const card of pulseEls) card.remove();
-    if (wide.matches) {
-      if (show) side.prepend(...pulseEls);
-    } else if (show) {
-      PULSE_SLOTS.forEach((slot, i) => {
-        const card = pulseEls[i];
-        if (card) list.insertBefore(card, list.children[slot] ?? null);
-      });
+    if (state.tab === "everyone") {
+      const plan = pulsePlan(wide.matches);
+      lead.append(...plan.lead.map((c) => pulseCards[c]));
+      side.prepend(...plan.side.map((c) => pulseCards[c]));
+      for (const [c, slot] of plan.among)
+        list.insertBefore(pulseCards[c], list.children[slot] ?? null);
     }
     placeRoll();
   }
@@ -590,12 +601,12 @@ export function feedView(ctx: ViewContext): View {
   wide.addEventListener("change", placePulse);
 
   /**
-   * Run `change` without moving what you're reading. On a phone the pulse cards sit among the
-   * posts, so one that shows up or grows above the screen would push the post you're on down.
-   * Measure the first post still on screen before and after, and scroll by the difference.
+   * Run `change` without moving what you're reading. Pulse cards sit above the posts, and among
+   * them on a phone, so one that shows up or grows above the screen would push the post you're on
+   * down. Measure the first post still on screen before and after, and scroll by the difference.
    */
   function keepPlace(change: () => void) {
-    if (wide.matches || atTop()) return change();
+    if (atTop()) return change();
     const cards = new Set<Element>(pulseEls);
     const anchor = Array.from(list.children).find(
       (c) => !cards.has(c) && c.getBoundingClientRect().bottom > 0,
@@ -797,6 +808,7 @@ export function feedView(ctx: ViewContext): View {
   const card = (post: PostView, variant?: "spotlight" | "quote" | "hot" | "compact"): HTMLElement =>
     postCard(post, {
       onChange: syncPost,
+      brief: true,
       ...(variant ? { variant } : {}),
       // A quote written from a card lands at the top, like a new post.
       onQuoted(quote) {

@@ -150,7 +150,84 @@ export function arrangeWall(
 }
 
 /** Where the pulse cards sit among the posts on a phone, in order. */
-export const PULSE_SLOTS = [1, 3, 6, 9, 12, 15] as const;
+const PULSE_SLOTS = [1, 3, 6, 9, 12, 15] as const;
+
+/** The home wall's town cards, in the order they come down the page. */
+const PULSE_CARDS = ["plots", "around", "happening", "stats", "activity", "town", "sky"] as const;
+export type PulseCard = (typeof PULSE_CARDS)[number];
+
+/** Cards that sit above the first post on every screen: pictures of real plots, and who's around. */
+const LEAD_CARDS: readonly PulseCard[] = ["plots", "around"];
+
+/**
+ * Where each town card goes. The town comes before the posts: `lead` sits above the first post
+ * in the main column on a phone and a wide screen alike, so a visitor sees what the world looks
+ * like before anyone's long writing. The rest run down the sidebar on a wide screen (`side`), or
+ * sit among the posts on a phone (`among`, each with the index it goes before).
+ */
+export function pulsePlan(wide: boolean): {
+  lead: PulseCard[];
+  side: PulseCard[];
+  among: [PulseCard, number][];
+} {
+  const lead = PULSE_CARDS.filter((c) => LEAD_CARDS.includes(c));
+  const rest = PULSE_CARDS.filter((c) => !LEAD_CARDS.includes(c));
+  if (wide) return { lead, side: rest, among: [] };
+  const among = rest.flatMap((c, i): [PulseCard, number][] => {
+    const slot = PULSE_SLOTS[i];
+    return slot === undefined ? [] : [[c, slot]];
+  });
+  return { lead, side: [], among };
+}
+
+/** A post's text, cut short: what shows, and what Show more opens. */
+export interface Fold {
+  head: string;
+  rest: string;
+}
+
+/** About how many characters fit on a line of post text on a phone. */
+const FOLD_LINE_CHARS = 40;
+/** A post folds only when it runs at least this many lines past the cut, so Show more never hides a line or two. */
+const FOLD_SLACK = 2;
+
+/**
+ * Where a long post's text is cut so about `lines` lines show on a phone, or null when it's short
+ * enough to show whole. Each line of the text counts as many screen lines as it wraps to at
+ * `FOLD_LINE_CHARS`. The cut falls at a space or a line break, never inside a word, so a mention or
+ * a link stays whole on one side; `head + rest` is the text exactly.
+ */
+export function foldText(text: string, lines: number): Fold | null {
+  const rowsOf = (line: string) => Math.max(1, Math.ceil(line.length / FOLD_LINE_CHARS));
+  const all = text.split("\n");
+  if (all.reduce((n, l) => n + rowsOf(l), 0) <= lines + FOLD_SLACK) return null;
+  let used = 0;
+  let offset = 0;
+  let cut = -1;
+  for (const line of all) {
+    const rows = rowsOf(line);
+    if (used + rows <= lines) {
+      used += rows;
+      offset += line.length + 1;
+      continue;
+    }
+    const room = (lines - used) * FOLD_LINE_CHARS;
+    // The last space that leaves the head within its lines, else the end of the line before.
+    const space = room > 0 ? line.lastIndexOf(" ", room) : -1;
+    if (space > 0) cut = offset + space;
+    else if (offset > 0) cut = offset - 1;
+    else {
+      // One long word opens the post: cut at the first space after it, if there is one.
+      const next = line.search(/\s/);
+      cut = next > 0 ? next : -1;
+    }
+    break;
+  }
+  if (cut <= 0) return null;
+  const head = text.slice(0, cut).trimEnd();
+  if (head.length === 0) return null;
+  return { head, rest: text.slice(head.length) };
+}
 
 /** The townsfolk ids a snapshot names, plus any learned from post authors. */
 export function townsfolkIds(

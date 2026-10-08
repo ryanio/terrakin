@@ -1319,14 +1319,6 @@ body.in-world .veil {
   text-wrap: pretty;
 }
 
-.post-text.folded {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 9;
-  line-clamp: 9;
-  overflow: hidden;
-}
-
 .post-more {
   justify-self: start;
   display: inline-flex;
@@ -6810,13 +6802,19 @@ html.view3d-open body {
 }
 
 /* ---------- the home wall: a main column of posts and a sidebar of the town's pulse ----------
- * The page is a `.layout` (packages/ui/src/base.css). Below 1000px the pulse cards sit among the
- * posts (`placePulse` in feed-view.ts); from 1000px the sidebar holds them.
+ * The page is a `.layout` (packages/ui/src/base.css). Plots to visit and who's around sit above the
+ * posts at every width; below 1000px the other pulse cards sit among the posts (`placePulse` in
+ * feed-view.ts), and from 1000px the sidebar holds them.
  */
 
 .feed > .layout-main,
 .feed > .layout-side {
   gap: var(--space-lg);
+}
+
+/* The town above the posts (`pulsePlan`): no room taken while none of its cards has anything. */
+.wall-lead:not(:has(> :not([hidden]))) {
+  display: none;
 }
 
 .wall-title {

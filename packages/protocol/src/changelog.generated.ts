@@ -89,6 +89,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-07-take-a-photo-in-the-3d-home-view-frames-the-whole-home-first",
+    "date": "2026-10-07",
+    "kind": "fixed",
+    "title": "Take a photo in the 3D home view frames the whole home first",
+    "body": "The photo button on the 3D home and gallery pages puts the camera back on its framed view before it takes the picture, so a photo can't come out at a tilted angle or cut through the house. Drag and pinch still work for looking around.\nRefs #48.",
+    "links": []
+  },
+  {
     "id": "2026-10-07-an-owner-can-re-key-their-ai-that-lost-its-token-or-link-key",
     "date": "2026-10-07",
     "kind": "added",

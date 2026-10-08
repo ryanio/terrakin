@@ -163,9 +163,36 @@ export function stepRows(r: FirstVisitResponse): StepRow[] {
 export const nextStep = (rows: readonly StepRow[]): StepRow | undefined =>
   rows.find((r) => !r.done);
 
-/** "3 of 11 done". */
-export function doneLine(rows: readonly StepRow[]): string {
-  return `${rows.filter((r) => r.done).length} of ${rows.length} done`;
+/** How many steps a round of the card holds. */
+export const ROUND = 3;
+
+export interface StepRound {
+  /** The steps left in this round, in the card's order: the first ones left, never more than `ROUND`. */
+  left: StepRow[];
+  /** How many of this round's steps are done. */
+  done: number;
+  /** How many steps this round holds: `ROUND`, or fewer in the last round. */
+  size: number;
+  /** "1 of 3 done", led by "Nice, three more." when the round before has just been finished. */
+  line: string;
+}
+
+const MORE = ["", "one", "two", "three"];
+
+/**
+ * The card's round of steps. Steps go in rounds of three: the bar counts what's done this round,
+ * the rows are the ones left in it, and once its third is done the next three come in. Which
+ * steps are done doesn't matter, only how many, so a step done out of order still counts.
+ */
+export function stepRound(rows: readonly StepRow[]): StepRound {
+  const doneAll = rows.filter((r) => r.done).length;
+  const start = doneAll - (doneAll % ROUND);
+  const size = Math.min(ROUND, rows.length - start);
+  const done = doneAll - start;
+  const left = rows.filter((r) => !r.done).slice(0, size - done);
+  const count = `${done} of ${size} done`;
+  const line = doneAll > 0 && done === 0 ? `Nice, ${MORE[size] ?? size} more. ${count}` : count;
+  return { left, done, size, line };
 }
 
 /**

@@ -2,10 +2,11 @@ import { FIRST_VISIT_STEPS, type FirstVisitResponse } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   CHIP_MAX,
-  doneLine,
   nextStep,
+  ROUND,
   STEP_WORDS,
   stepHref,
+  stepRound,
   stepRows,
   VERB_MAX,
 } from "./first-steps";
@@ -49,7 +50,7 @@ describe("first steps in plain words", () => {
       "follow",
     ]);
     expect(rows.filter((r) => r.done).map((r) => r.id)).toEqual(["plot", "gather"]);
-    expect(doneLine(rows)).toBe("2 of 11 done");
+    expect(stepRound(rows).line).toBe("2 of 3 done");
     expect(nextStep(rows)?.name).toBe("Name your plot");
   });
 
@@ -61,6 +62,44 @@ describe("first steps in plain words", () => {
     });
     expect(nextStep(all)).toBeUndefined();
     expect(stepRows({ steps: [], tries: [], tryToday: null })).toEqual([]);
+  });
+
+  it("shows the first steps left, three at most, in rounds of three, for every mix of done steps", () => {
+    const ids = stepRows({
+      steps: steps(),
+      tries: [{ id: "pet", done: false }],
+      tryToday: null,
+    }).map((r) => r.id);
+    for (let mask = 0; mask < 1 << ids.length; mask++) {
+      const doneIds = ids.filter((_, i) => mask & (1 << i));
+      const rows = stepRows({
+        steps: steps(doneIds),
+        tries: [{ id: "pet", done: doneIds.includes("pet") }],
+        tryToday: null,
+      });
+      const left = rows.filter((r) => !r.done);
+      const round = stepRound(rows);
+      const shown = round.left.map((r) => r.id);
+      expect(shown.length, doneIds.join()).toBeLessThanOrEqual(ROUND);
+      // The ones shown are the first ones left, in order: none skipped.
+      expect(shown, doneIds.join()).toEqual(left.slice(0, shown.length).map((r) => r.id));
+      expect(shown.length > 0, doneIds.join()).toBe(left.length > 0);
+      // The bar and the rows agree: what's done this round and what's left in it fill the round.
+      expect(round.done + shown.length, doneIds.join()).toBe(round.size);
+    }
+  });
+
+  it("brings the next three in once a round is done", () => {
+    const at = (done: string[]) =>
+      stepRound(stepRows({ steps: steps(done), tries: [], tryToday: null }));
+    expect(at([]).line).toBe("0 of 3 done");
+    expect(at(["handle"]).left.map((r) => r.id)).toEqual(["plot", "plot_name"]);
+    const next = at(["plot", "plot_name", "home"]);
+    expect(next.line).toBe("Nice, three more. 0 of 3 done");
+    expect(next.left.map((r) => r.id)).toEqual(["handle", "bio", "look"]);
+    const last = at(["plot", "plot_name", "home", "handle", "bio", "look"]);
+    expect(last.left.map((r) => r.id)).toEqual(["garden", "post", "follow"]);
+    expect(at([...FIRST_VISIT_STEPS].slice(0, 7)).line).toBe("1 of 3 done");
   });
 
   it("links each place to where it's done", () => {

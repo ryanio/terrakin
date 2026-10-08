@@ -1,7 +1,7 @@
 /**
- * "Getting started" on the home wall, for a signed-in person with first steps left: a bar for how
- * far along they are, each step left as a row that links to where it's done, and the done ones
- * folded away behind "Show 9 done". It goes away when every step is done, or for good on this
+ * "Getting started" on the home wall, for a signed-in person with first steps left. Steps come in
+ * rounds of three (`stepRound`): a bar for how much of this round is done, each step left in it as
+ * a row that links to where it's done, and the done ones folded away behind "Show 4 done". It goes away when every step is done, or for good on this
  * device once hidden. Loaded only for someone signed in, so the wall's first load leaves it out.
  */
 import { h, icon } from "@terrakin/ui/dom";
@@ -15,7 +15,7 @@ import {
   progressBar,
 } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { doneLine, nextStep, type StepRow, stepHref, stepRows } from "./first-steps";
+import { nextStep, type StepRow, stepHref, stepRound, stepRows } from "./first-steps";
 
 /** The resident this device hid the card for. */
 const HIDDEN_KEY = "terrakin.firstStepsHidden";
@@ -82,7 +82,7 @@ export async function firstStepsCard(me: string): Promise<HTMLElement | null> {
   if (!r.ok) return null;
   const rows = stepRows(r.data);
   if (!nextStep(rows)) return null;
-  const left = rows.filter((r) => !r.done);
+  const round = stepRound(rows);
   const done = rows.filter((r) => r.done);
   const card = h(
     "section",
@@ -102,11 +102,11 @@ export async function firstStepsCard(me: string): Promise<HTMLElement | null> {
     h(
       "div",
       { class: "first-steps-progress" },
-      h("p", { class: "hint", text: doneLine(rows) }),
-      progressBar(done.length, rows.length, "Steps done"),
+      h("p", { class: "hint", text: round.line }),
+      progressBar(round.done, round.size, "Steps done"),
     ),
     itemRows(
-      left.map((row) => stepRow(row, me)),
+      round.left.map((row) => stepRow(row, me)),
       { ordered: true, className: "first-steps" },
     ),
     done.length > 0 ? doneSteps(done) : null,
@@ -114,7 +114,7 @@ export async function firstStepsCard(me: string): Promise<HTMLElement | null> {
   return card;
 }
 
-/** The done steps, folded behind "Show 9 done" so the ones left lead the card. */
+/** The done steps, folded behind "Show 4 done" so the ones left lead the card. */
 function doneSteps(done: readonly StepRow[]): HTMLElement {
   const list = itemRows(done.map(doneRow), { className: "first-steps done-steps" });
   list.id = "first-steps-done";

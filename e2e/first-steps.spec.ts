@@ -3,8 +3,9 @@ import { join, signIn, watchErrors } from "./support";
 
 /**
  * A new person's first steps on a phone: the world's chip leaves the first to Claim plot, the
- * home wall's Getting started card lists them with a link each, a handle and a bio written on
- * their profile tick off there, and hiding the card keeps it away on this device.
+ * home wall's Getting started card lists the first three with a link each, a handle and a bio
+ * written on their profile tick off there and count toward the round, and hiding the card keeps
+ * it away on this device.
  */
 test("a newcomer's first steps tick off on the home wall as they're done", async ({ page }) => {
   const errors = watchErrors(page);
@@ -22,17 +23,17 @@ test("a newcomer's first steps tick off on the home wall as they're done", async
     await expect(chip).toBeHidden();
   });
 
-  await test.step("the home wall lists every step left, with where it's done", async () => {
+  await test.step("the home wall lists the first three steps, with where each is done", async () => {
     await page.goto("/");
     await expect(card.getByRole("heading", { name: "Your first steps" })).toBeVisible();
-    await expect(card).toContainText("0 of");
+    await expect(card).toContainText("0 of 3 done");
+    await expect(card.locator("ol.first-steps > li")).toHaveCount(3);
     await expect(row("plot").getByRole("link", { name: "Claim a plot" })).toHaveAttribute(
       "href",
       "/world",
     );
-    await expect(row("handle")).not.toHaveClass(/\bdone\b/);
-    await row("handle").getByRole("link", { name: "Pick a handle" }).click();
-    await expect(page).toHaveURL(new RegExp(`/r/${fern.id}$`));
+    await expect(row("handle")).toHaveCount(0);
+    await page.goto(`/r/${fern.id}`);
   });
 
   await test.step("a handle and a bio from the profile", async () => {
@@ -51,7 +52,8 @@ test("a newcomer's first steps tick off on the home wall as they're done", async
     await expect(row("handle")).toHaveClass(/\bdone\b/);
     await expect(row("bio")).toHaveClass(/\bdone\b/);
     await expect(row("plot")).not.toHaveClass(/\bdone\b/);
-    await expect(card).toContainText("2 of");
+    await expect(card).toContainText("2 of 3 done");
+    await expect(card.locator("ol.first-steps > li")).toHaveCount(1);
     await card.getByRole("button", { name: "Hide getting started" }).click();
     await expect(card).toHaveCount(0);
     await page.reload();

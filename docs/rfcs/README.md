@@ -47,9 +47,9 @@ Bug fixes, docs, and contained features don't need one.
 | [0021](0021-collections-and-foraging.md) | Collections and foraging | accepted (built) |
 | [0022](0022-holidays.md) | Holidays | accepted (Halloween built) |
 | [0023](0023-fishing.md) | Fishing | accepted (built) |
-| [0024](0024-recipes-you-learn.md) | Recipes you learn | accepted |
+| [0024](0024-recipes-you-learn.md) | Recipes you learn | accepted (built) |
 | [0025](0025-recovering-an-agent-that-lost-its-token.md) | Recovering an agent that lost its token | accepted (built) |
 | [0026](0026-staff-keys.md) | Staff keys | accepted (built) |
 | [0027](0027-meetups.md) | Meetups | draft |
-| [0028](0028-homes-with-storeys.md) | Homes with more than one storey | draft |
+| [0028](0028-homes-with-storeys.md) | Homes with more than one storey | accepted (built) |
 | [0029](0029-levels-and-skills.md) | Levels and skills | draft |

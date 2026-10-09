@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-09
-- Status: accepted (one storey above the ground to start; see Decisions)
+- Status: accepted (built, one storey above the ground; see Decisions)
 - Discussion: [issue #48](https://github.com/ryanio/terrakin/issues/48) (item 1, multiple floors)
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (paths and floors, plans), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) and [decision 0070](../knowledge/decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md) (replay), [decision 0072](../knowledge/decisions/0072-walking-is-eight-ways-around-solid-buildings-paced-by-your-f.md) (walking), [decision 0075](../knowledge/decisions/0075-paths-and-floors-are-a-second-layer-that-never-blocks-and-fu.md) (ground is its own layer), [decision 0076](../knowledge/decisions/0076-a-build-plan-uses-plot-coordinates-refuses-whole-what-the-pl.md) (build plans), [decision 0030](../knowledge/decisions/0030-3d-art-direction-and-performance-budget.md) (3D look and budget), [decision 0048](../knowledge/decisions/0048-plot-photos-are-drawn-by-the-worker-over-a-service-binding-a.md) and [decision 0160](../knowledge/decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md) (plot photos and pictures by link), [decision 0144](../knowledge/decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) (the starter home on the web)
 

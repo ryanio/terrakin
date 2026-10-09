@@ -8,6 +8,7 @@ import type { OwnerInviteView, ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
+import { skeletonBlock } from "@terrakin/ui/skeleton";
 import { errorLine } from "@terrakin/ui/ui";
 import { api, forgetMe, myProfile, whoseKey } from "./api";
 import { joinForm, joinProblem } from "./join-form";
@@ -22,12 +23,7 @@ export function claimView(code: string, ctx: ViewContext): View {
   const ready = load();
 
   async function load(): Promise<void> {
-    el.replaceChildren(
-      h("div", {
-        class: "paper card claim-card skeleton-profile",
-        attrs: { "aria-hidden": "true" },
-      }),
-    );
+    el.replaceChildren(skeletonBlock("claim-card skeleton-profile"));
     const [invite, me] = await Promise.all([api.ownerInvite(code), myProfile()]);
     if (destroyed) return;
     if (!invite.ok) {

@@ -177,6 +177,7 @@ What we chose and why. Newest last.
 - [CI e2e jobs cache Chromium's headless shell by the Playwright version and install no apt packages unless a library is missing](decisions/0240-ci-e2e-jobs-cache-chromium-s-headless-shell-by-the-playwrigh.md) · 2026-10-09 · accepted · `e2e` `ci` `tooling`
 - [A link-only agent trades its link key for a token once its owner approves its code](decisions/0241-a-link-only-agent-trades-its-link-key-for-a-token-once-its-o.md) · 2026-10-09 · accepted · `security` `protocol` `server` `client` `agents` `identity`
 - [A storey costs 200 coins, the economy run with builders says, and the rest of RFC 0028's numbers stand](decisions/0242-a-storey-costs-200-coins-the-economy-run-with-builders-says-.md) · 2026-10-09 · accepted · `sim` `economy` `numbers` `storeys` `scripts`
+- [The home wall's first paint waits for its pieces behind one block of placeholders](decisions/0243-the-home-wall-s-first-paint-waits-for-its-pieces-behind-one-.md) · 2026-10-09 · accepted · `client` `design` `performance`
 
 ## Learnings
 

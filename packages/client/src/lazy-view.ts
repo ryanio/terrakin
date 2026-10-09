@@ -3,7 +3,7 @@
  * needs (decision 0110).
  */
 import { h } from "@terrakin/ui/dom";
-import { skeletonCards } from "./post-card";
+import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { errorCard, type View } from "./view";
 
 /**
@@ -15,7 +15,7 @@ export function lazyView<M>(module: Promise<M>, make: (m: M) => View): View {
   const el: HTMLElement = h(
     "div",
     { class: "column stack cards page", attrs: { "aria-busy": "true" } },
-    ...skeletonCards(2),
+    ...skeletonPosts(2),
   );
   let page: View | undefined;
   let left = false;

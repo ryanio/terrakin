@@ -8,13 +8,13 @@
 import { PLOT_SORTS, type PlotSort, type PlotView, type WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
+import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { copyButton, kindPill, linkTabs, stateCard, wideLayout } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 
 import { savedResidentId, savedToken } from "./net";
 import { plotThumb } from "./plot-thumb";
-import { skeletonCards } from "./post-card";
 import { errorCard, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-plot";
 import { isMine, plotTitles, weekLine } from "./visits";
@@ -145,7 +145,7 @@ export function visitView(ctx: ViewContext): View {
   const me = savedToken() ? savedResidentId() : null;
   const go = (path: string) => ctx.navigate(path, { replace: true });
   // Every plot as a card, side by side as the width allows.
-  const body = h("div", { class: "card-grid visit-body" }, ...skeletonCards(2));
+  const body = h("div", { class: "card-grid visit-body" }, ...skeletonPosts(2));
   const { el, head, main } = wideLayout("visit-page");
   main.append(body);
   head.append(

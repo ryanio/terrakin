@@ -19,6 +19,7 @@ import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
+import { skeletonCard, skeletonPosts } from "@terrakin/ui/skeleton";
 import { copyButton, emptyNote, linkTabs, moreButton, pageLayout, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
@@ -39,7 +40,7 @@ import {
 } from "./feed-live";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
-import { postCard, skeletonCards } from "./post-card";
+import { postCard } from "./post-card";
 import { promptAt } from "./prompts";
 import {
   announceable,
@@ -82,6 +83,11 @@ const POLL_MS = 20_000;
 const PULSE_MS = 45_000;
 /** Plots to visit change slower still, and the server builds that list once a minute at most. */
 const PLOTS_MS = 5 * 60_000;
+/**
+ * How long the wall's first pieces (posts, the town's cards, the composer, the devlog and Getting
+ * started cards) wait for each other before going in together. Anything later goes in on its own.
+ */
+const FIRST_PAINT_MS = 1200;
 const TAB_KEY = "terrakin.feedTab";
 const SPARK_HOURS = 12;
 
@@ -477,23 +483,53 @@ export function feedView(ctx: ViewContext): View {
     composerSlot,
   );
   main.append(wallTop);
+
+  // ---------- the first paint ----------
+
+  /**
+   * The wall's first pieces come from several requests. Until they're all in, or FIRST_PAINT_MS
+   * has passed, the wall's own regions stay hidden behind one block of placeholders and each piece
+   * waits; then the placeholders go and the regions show with everything in them at once. Content
+   * that appears doesn't move what's on screen the way content arriving in place does, so the page
+   * doesn't jump once per request. A wall coming back from history is already painted.
+   */
+  let settled = restored !== undefined && restored.posts.length > 0;
+  const waiting: (() => void)[] = [];
+  /** Placeholders, and the regions they stand in for, until the first paint. */
+  const placeholders: HTMLElement[] = [];
+  const held: HTMLElement[] = [];
+  let firstPainted: () => void = () => {};
+  const firstPaint = new Promise<void>((resolve) => {
+    firstPainted = resolve;
+  });
+  /** Run `paint` now if the wall is up, or with the first paint. */
+  function whenPainted(paint: () => void) {
+    if (settled) keepPlace(paint);
+    else waiting.push(paint);
+  }
+  function settle() {
+    if (settled) return;
+    settled = true;
+    for (const p of placeholders.splice(0)) p.remove();
+    for (const region of held.splice(0)) region.hidden = false;
+    for (const paint of waiting.splice(0)) if (!destroyed) paint();
+    firstPainted();
+  }
+  /** A placeholder that leaves with the first paint. */
+  function holding(el: HTMLElement): HTMLElement {
+    if (!settled) placeholders.push(el);
+    return el;
+  }
+
   // The newest devlog post, cut short, for everyone until they've read or hidden it (decision 0105).
-  void newestDevlogCard().then((card) => {
-    if (card && !destroyed) wallTop.append(card);
+  const devlogIn = newestDevlogCard().then((card) => {
+    whenPainted(() => {
+      if (card) wallTop.append(card);
+    });
   });
   let writer: Composer | undefined;
-  void myProfile().then((me) => {
+  const meIn = myProfile().then(async (me) => {
     if (!me || destroyed) return;
-    // What your routines did while you were away (RFC 0009), under the composer, when anything did.
-    void awayCard().then((card) => {
-      if (card && !destroyed) composerSlot.after(card);
-    });
-    // Getting started, while first steps are left: loaded only for someone signed in.
-    void import("./first-steps-card")
-      .then((m) => m.firstStepsCard(me.id))
-      .then((card) => {
-        if (card && !destroyed) composerSlot.before(card);
-      });
     writer = composer({
       me,
       onPosted(post) {
@@ -502,7 +538,24 @@ export function feedView(ctx: ViewContext): View {
         empty.replaceChildren();
       },
     });
-    composerSlot.append(writer.el);
+    const el = writer.el;
+    whenPainted(() => composerSlot.append(el));
+    await Promise.all([
+      // What your routines did while you were away (RFC 0009), under the composer, when anything did.
+      awayCard().then((card) => {
+        whenPainted(() => {
+          if (card) composerSlot.after(card);
+        });
+      }),
+      // Getting started, while first steps are left: loaded only for someone signed in.
+      import("./first-steps-card")
+        .then((m) => m.firstStepsCard(me.id))
+        .then((card) => {
+          whenPainted(() => {
+            if (card) composerSlot.before(card);
+          });
+        }),
+    ]);
   });
 
   const newPill = h(
@@ -532,6 +585,30 @@ export function feedView(ctx: ViewContext): View {
   // The town before the posts: plots to visit and who's around, above the first post.
   const lead = h("div", { class: "stack wall-lead" });
   main.append(lead, pillWrap, list, empty, h("div", { class: "feed-foot" }, more.el, end));
+  if (!settled) {
+    // What the wall will hold: the composer, the town's cards above the posts, and the posts.
+    const everyone = state.tab === "everyone";
+    wallTop.after(
+      holding(
+        h(
+          "div",
+          { class: "stack wall-fill", attrs: { "aria-hidden": "true" } },
+          hasToken ? skeletonCard({ lines: 1, cls: "composer-skeleton" }) : null,
+          everyone ? skeletonCard({ lines: 3, cls: "pulse" }) : null,
+          ...skeletonPosts(3),
+        ),
+      ),
+    );
+    for (const region of [composerSlot, lead, list]) {
+      region.hidden = true;
+      held.push(region);
+    }
+    if (everyone && window.matchMedia("(min-width: 1000px)").matches)
+      side.prepend(
+        holding(skeletonCard({ lines: 3, cls: "pulse" })),
+        holding(skeletonCard({ cls: "pulse" })),
+      );
+  }
   liveToastHost();
 
   let destroyed = false;
@@ -671,10 +748,12 @@ export function feedView(ctx: ViewContext): View {
       pulse.plots = p.data.plots;
       pulse.plotsAt = Date.now();
     }
-    keepPlace(() => {
+    const paint = () => {
       paintPulse();
       if (!first) announceWorld(before.world, before.town);
-    });
+    };
+    if (first) whenPainted(paint);
+    else keepPlace(paint);
   }
 
   /** Toasts for who moved in, claimed a plot, or built a home, and for new votes. */
@@ -881,23 +960,29 @@ export function feedView(ctx: ViewContext): View {
     const gen = ++generation;
     loading = true;
     list.setAttribute("aria-busy", "true");
-    list.replaceChildren(...skeletonCards(6));
+    list.replaceChildren(...skeletonPosts(4));
     empty.replaceChildren();
     more.el.hidden = true;
     end.hidden = true;
     const r = await api.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation) return;
     loading = false;
-    list.setAttribute("aria-busy", "false");
-    if (!r.ok) {
-      list.replaceChildren(errorCard(r.message, () => void loadFirst()));
-      return;
-    }
-    state.posts = r.data.posts;
-    state.next = r.data.next;
-    state.mode = townsfolkMode(state.posts, known());
-    paintAll();
-    paintFoot();
+    const paint = () => {
+      if (gen !== generation) return;
+      list.setAttribute("aria-busy", "false");
+      if (!r.ok) {
+        list.replaceChildren(errorCard(r.message, () => void loadFirst()));
+        return;
+      }
+      state.posts = r.data.posts;
+      state.next = r.data.next;
+      state.mode = townsfolkMode(state.posts, known());
+      paintAll();
+      paintFoot();
+    };
+    // The first page goes in with the rest of the first paint; a tab switch's goes in at once.
+    if (settled) paint();
+    else waiting.push(paint);
   }
 
   async function loadMore(): Promise<string | undefined> {
@@ -1077,21 +1162,28 @@ export function feedView(ctx: ViewContext): View {
   observer.observe(more.el);
 
   paintTabs();
-  let ready: Promise<void>;
+  let postsIn: Promise<void>;
   if (restored && restored.posts.length > 0) {
     list.setAttribute("aria-busy", "false");
     paintAll();
     paintFoot();
-    ready = Promise.resolve();
+    postsIn = Promise.resolve();
     void poll();
-  } else ready = loadFirst();
-  void pollPulse(true);
+  } else postsIn = loadFirst();
+  const pulseIn = pollPulse(true);
+  const firstPaintTimer = settled ? undefined : setTimeout(settle, FIRST_PAINT_MS);
+  void Promise.allSettled([postsIn, pulseIn, devlogIn, meIn]).then(() => {
+    clearTimeout(firstPaintTimer);
+    settle();
+  });
+  const ready = Promise.all([firstPaint, postsIn]).then(() => {});
 
   return {
     el,
     ready,
     destroy() {
       destroyed = true;
+      clearTimeout(firstPaintTimer);
       hero?.destroy();
       writer?.destroy();
       sky.destroy();

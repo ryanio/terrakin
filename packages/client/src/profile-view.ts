@@ -31,6 +31,7 @@ import {
   paintAvatar,
   TOWNSFOLK_ABOUT,
 } from "@terrakin/ui/people";
+import { skeletonBlock, skeletonPosts } from "@terrakin/ui/skeleton";
 import { tip } from "@terrakin/ui/tooltip";
 import {
   confirmTwice,
@@ -70,7 +71,7 @@ import { type PeopleTab, peoplePath } from "./people-view";
 import { petCard } from "./pet-sheet";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { plotPhotoButton } from "./plot-photo";
-import { postCard, skeletonCards } from "./post-card";
+import { postCard } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { openRoutines } from "./routines-view";
@@ -122,10 +123,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   async function load(): Promise<void> {
     head.replaceChildren();
     side.replaceChildren();
-    main.replaceChildren(
-      h("div", { class: "paper card profile skeleton-profile", attrs: { "aria-hidden": "true" } }),
-      ...skeletonCards(2),
-    );
+    main.replaceChildren(skeletonBlock("profile skeleton-profile"), ...skeletonPosts(2));
     const [profile, early] =
       "id" in target
         ? await Promise.all([api.profile(target.id), api.residentPosts(target.id)])

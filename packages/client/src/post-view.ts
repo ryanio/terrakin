@@ -7,12 +7,13 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
+import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { pageLayout, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
 import { syncPost } from "./feed-view";
-import { postCard, skeletonCards } from "./post-card";
+import { postCard } from "./post-card";
 import { pulseShell } from "./pulse-cards";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 
@@ -105,7 +106,7 @@ export function postView(id: string, ctx: ViewContext): View {
 
   async function load(): Promise<void> {
     side.replaceChildren();
-    main.replaceChildren(...skeletonCards(1));
+    main.replaceChildren(...skeletonPosts(1));
     const r = await api.post(id);
     if (destroyed) return;
     if (!r.ok) {

@@ -240,6 +240,29 @@ export function watchErrors(
   return errors;
 }
 
+/**
+ * How much the page has jumped since it loaded: the sum of the browser's layout shifts, the
+ * number behind Cumulative Layout Shift. Content that moves on screen as something above it
+ * loads adds to it; content that appears in place of a placeholder doesn't.
+ */
+export async function layoutShift(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        let total = 0;
+        const observer = new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) total += (e as unknown as { value: number }).value;
+        });
+        observer.observe({ type: "layout-shift", buffered: true });
+        // The buffered entries arrive on the next task.
+        setTimeout(() => {
+          observer.disconnect();
+          resolve(total);
+        }, 0);
+      }),
+  );
+}
+
 /** Whether the page scrolls sideways: it never should on a phone. */
 export async function overflowsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

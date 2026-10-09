@@ -51,6 +51,10 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /dataset\.tip\b|"data-tip"/, use: "tip (tooltip.ts)" },
   { pattern: /\{ ?\.\.\.\w+, avatar: null \}/, use: "residentPerson (people.ts)" },
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },
+  {
+    pattern: /class: [`"][^`"]*\b(skeleton|sk)\b/,
+    use: "skeletonPosts, skeletonCard, skeletonBlock, or skLine (skeleton.ts)",
+  },
   { pattern: /class: "[^"]*\bempty-note\b/, use: "emptyNote (ui.ts)" },
   { pattern: /class: "check-row"/, use: "checkRow (ui.ts)" },
   { pattern: /class: "paper menu"/, use: "moreMenu (ui.ts)" },

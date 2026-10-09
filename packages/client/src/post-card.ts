@@ -497,22 +497,3 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   if (more) bar.append(more);
   return [chips, bar];
 }
-
-/** Grey placeholder cards while a page loads. */
-export function skeletonCards(n = 3): HTMLElement[] {
-  return Array.from({ length: n }, (_, i) =>
-    h(
-      "div",
-      { class: "post paper skeleton", attrs: { "aria-hidden": "true" } },
-      h(
-        "div",
-        { class: "post-head" },
-        h("span", { class: "sk sk-avatar" }),
-        h("span", { class: "sk sk-line", attrs: { style: "width: 38%" } }),
-      ),
-      h("span", { class: "sk sk-line" }),
-      h("span", { class: "sk sk-line", attrs: { style: `width: ${[82, 64, 74][i % 3]}%` } }),
-      i === 0 ? h("span", { class: "sk sk-media" }) : null,
-    ),
-  );
-}

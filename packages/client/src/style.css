@@ -1579,39 +1579,7 @@ body.in-world .veil {
   display: none;
 }
 
-/* ---------- skeletons ---------- */
-
-.skeleton {
-  gap: var(--space-md);
-  padding-bottom: var(--space-lg);
-}
-
-.sk {
-  display: block;
-  height: 14px;
-  border-radius: var(--r-sm);
-  background: linear-gradient(
-    90deg,
-    rgba(236, 220, 192, 0.55) 25%,
-    rgba(255, 250, 240, 0.95) 50%,
-    rgba(236, 220, 192, 0.55) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
-}
-
-.sk-avatar {
-  width: 40px;
-  height: 40px;
-  flex: none;
-  border-radius: 50%;
-}
-
-.sk-media {
-  height: auto;
-  aspect-ratio: 16 / 10;
-  border-radius: var(--r-note);
-}
+/* ---------- loading placeholders (skeleton.ts in packages/ui) in the app's own shapes ---------- */
 
 .skeleton .post-head {
   min-height: 44px;
@@ -1621,13 +1589,9 @@ body.in-world .veil {
   min-height: 260px;
 }
 
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
+/* The composer's height: an avatar and a box, and its row of buttons. */
+.composer-skeleton {
+  min-height: 150px;
 }
 
 /* ---------- composer ---------- */

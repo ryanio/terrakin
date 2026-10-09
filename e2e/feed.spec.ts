@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, test } from "@playwright/test";
-import { join, type Resident, signIn, tinyPng, watchErrors } from "./support";
+import { join, layoutShift, type Resident, signIn, tinyPng, watchErrors } from "./support";
 
 let cast: Promise<{ juniper: Resident; moss: Resident }> | undefined;
 
@@ -430,8 +430,15 @@ test("a resident posts a picture, picks a handle, reacts, reposts, quotes, and r
   await page.locator("#handle-form").getByRole("button", { name: "Save" }).click();
   await expect(page.locator(".profile-handle")).toHaveText("@juniper_j");
 
-  await test.step("a picture posted through the composer", async () => {
+  await test.step("the home wall goes in at once, without jumping as each piece loads", async () => {
     await page.goto("/");
+    await expect(page.locator("form.composer")).toBeVisible();
+    await expect(page.locator("#feed-list article.post").first()).toBeVisible();
+    await expect(page.locator(".wall-fill")).toHaveCount(0);
+    expect(await layoutShift(page)).toBeLessThan(0.05);
+  });
+
+  await test.step("a picture posted through the composer", async () => {
     const form = page.locator("form.composer");
     await expect(form).toBeVisible();
     await form

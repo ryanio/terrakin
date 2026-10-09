@@ -17,6 +17,7 @@ import {
   Group,
   IcosahedronGeometry,
   type InstancedMesh,
+  type Material,
   Matrix4,
   Mesh,
   type Object3D,
@@ -470,6 +471,42 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
       ),
     );
     expect([...ys].map((y) => Math.round(y * 1000) / 1000)).toEqual([0.012, storeyY(1) + 0.012]);
+  });
+
+  it("draws a pool of lamplight over the floor it lies on, upstairs or down", () => {
+    const stage = {
+      keep: <T>(thing: T) => thing,
+      glow: () => () => {},
+      animate: () => () => {},
+      reducedMotion: true,
+    } as unknown as Stage;
+    const lights: LayoutBlock[] = [0, 1].map((storey) => ({
+      x: storey,
+      y: 0,
+      block: "string_lights",
+      own: true,
+      fade: 0,
+      ...(storey ? { storey } : {}),
+    }));
+    const shared = { plank: new Texture(), stone: new Texture(), pool: new Texture() };
+    const pools = blockMeshes(stage, { x: 0, y: 0 }, lights, new Texture(), shared).find(
+      (o) => o.name === "glow pools",
+    ) as InstancedMesh | undefined;
+    const floors = groundTiles(
+      { x: 0, y: 0 },
+      [
+        { x: 0, y: 0, ground: "planks" },
+        { x: 1, y: 0, ground: "planks", storey: 1 },
+      ],
+      new Texture(),
+    );
+    if (!pools || !floors) throw new Error("no pools or no floors");
+    // Both lie a hair over the floor, so the pool has to win the depth test at any slant, or the
+    // planks under a string of lights hide its light: it pulls further toward the camera.
+    const pull = (m: Material) => (m.polygonOffset ? m.polygonOffsetFactor : 0);
+    expect(pull(pools.material as Material)).toBeLessThan(pull(floors.material as Material));
+    const units = (m: Material) => (m.polygonOffset ? m.polygonOffsetUnits : 0);
+    expect(units(pools.material as Material)).toBeLessThan(units(floors.material as Material));
   });
 
   it("frames the whole home, a loft's walls with as much room as a bungalow's", () => {

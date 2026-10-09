@@ -36,6 +36,7 @@ import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
 import { type LayoutBlock, STOREY_HEIGHT, stairsTurn, storeyY, tileHash } from "./layout";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
+import { LAID_DEPTH_OFFSET } from "./paths";
 
 // ---------- blocks ----------
 
@@ -433,6 +434,10 @@ function glowPools(
     transparent: true,
     depthWrite: false,
     blending: AdditiveBlending,
+    // Over any path or floor it lies on, a floor upstairs too, seen from any angle.
+    polygonOffset: true,
+    polygonOffsetFactor: LAID_DEPTH_OFFSET - 1,
+    polygonOffsetUnits: LAID_DEPTH_OFFSET - 1,
   });
   stage.glow({ kind: "pool", material, opacity: 0.5 });
   const mesh = new InstancedMesh(geo, material, blocks.length);

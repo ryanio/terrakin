@@ -69,6 +69,13 @@ const hazeOf = (t: Pick<Laid, "own" | "fade">) =>
   t.own === false ? 0.25 + (t.fade ?? 0) * 0.6 : 0;
 
 /**
+ * How far paths and floors are pulled toward the camera in the depth test (`polygonOffset`), so
+ * they never flicker through the ground or a slab under them. Anything that lies on a path or a
+ * floor, like a pool of lamplight, pulls further, or a path hides it when seen at a slant.
+ */
+export const LAID_DEPTH_OFFSET = -1;
+
+/**
  * Paths and floors as one mesh: a flat quad a hair above the ground on each tile, or above its
  * slab on a floor upstairs (RFC 0028), textured from the atlas, tinted toward the haze for a
  * neighbor's like their blocks. Null when there are none.
@@ -121,8 +128,8 @@ export function groundTiles(
       vertexColors: true,
       alphaTest: 0.5,
       polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      polygonOffsetFactor: LAID_DEPTH_OFFSET,
+      polygonOffsetUnits: LAID_DEPTH_OFFSET,
     }),
   );
   mesh.receiveShadow = true;

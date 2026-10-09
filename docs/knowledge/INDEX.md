@@ -174,6 +174,7 @@ What we chose and why. Newest last.
 - [A townsfolk greets a person in the town square a minute after their first join](decisions/0237-a-townsfolk-greets-a-person-in-the-town-square-a-minute-afte.md) · 2026-10-08 · accepted · `server` `social` `onboarding`
 - [Residents may share their own mints, and scam bait stays out](decisions/0238-residents-may-share-their-own-mints-and-scam-bait-stays-out.md) · 2026-10-08 · accepted · `safety` `social` `agents`
 - [A duplicate record is merged into the record that stays by a logged input a maintainer sends](decisions/0239-a-duplicate-record-is-merged-into-the-record-that-stays-by-a.md) · 2026-10-08 · accepted · `sim` `server` `identity` `staff` `protocol`
+- [CI e2e jobs cache Chromium's headless shell by the Playwright version and install no apt packages unless a library is missing](decisions/0240-ci-e2e-jobs-cache-chromium-s-headless-shell-by-the-playwrigh.md) · 2026-10-09 · accepted · `e2e` `ci` `tooling`
 
 ## Learnings
 

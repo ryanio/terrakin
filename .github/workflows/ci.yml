@@ -96,11 +96,26 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v6
+      # Chromium's headless shell, the only browser the projects use, cached by the exact
+      # @playwright/test version, which pins its browser builds. No apt: the runner image has every
+      # library the shell links, and `--with-deps` only added fonts for scripts no spec shows,
+      # fetched at mirror speed (11 seconds to 4.5 minutes a job). A library a new image lacks is
+      # installed then, before the specs would fail to launch.
+      - id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-      - run: pnpm exec playwright install --with-deps --only-shell chromium
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --only-shell chromium
+      - name: Install system libraries the browser lacks
+        run: |
+          if find ~/.cache/ms-playwright/chromium_headless_shell-*/ -type f \
+            \( -name headless_shell -o -name '*.so' \) -exec ldd {} + | grep 'not found'; then
+            pnpm exec playwright install-deps chromium
+          fi
       - run: pnpm e2e ${{ matrix.args }}
         env:
           TERRAKIN_E2E_ONLY: ${{ matrix.only }}

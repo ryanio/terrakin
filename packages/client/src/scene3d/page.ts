@@ -175,6 +175,9 @@ export function mount3d(
   async function takePhoto() {
     if (!stage) return;
     photoBtn.disabled = true;
+    // A photo always frames the whole home from the clean angle (issue #48): whatever the
+    // visitor dragged the camera to, the picture can't come out tilted or cut through the build.
+    stage.reframe();
     const blob = await stage.photo();
     photoBtn.disabled = false;
     if (gone) return;

@@ -1,20 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AgentLinkService } from "./agent-links";
 import { Moderation } from "./moderation";
 import { nodeSql } from "./node-sql";
+import { recordTelemetry } from "./test-support";
 
-const gauges: [string, number][] = [];
-vi.mock("./telemetry", async (original) => ({
-  ...(await original<typeof import("./telemetry")>()),
-  gauge: (name: string, value: number) => {
-    gauges.push([name, value]);
-  },
-}));
+const telemetry = recordTelemetry();
+const { gauges } = telemetry;
+beforeEach(telemetry.start);
+afterEach(telemetry.stop);
 
 const sql = nodeSql();
-afterEach(() => {
-  gauges.length = 0;
-});
 
 describe("recheck lag", () => {
   it("reports how far behind the oldest due link is, in seconds", async () => {
@@ -34,6 +29,6 @@ describe("recheck lag", () => {
       now - 90_000,
     );
     expect(await links.recheckDue()).toBe(1);
-    expect(gauges).toEqual([["agent_link.recheck_lag_seconds", 90]]);
+    expect(gauges).toEqual([{ name: "agent_link.recheck_lag_seconds", value: 90 }]);
   });
 });

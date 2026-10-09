@@ -1,5 +1,12 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import {
+  Client,
+  type ClientOptions,
+  createTransport,
+  getCurrentScope,
+  setCurrentClient,
+} from "@sentry/core";
 import { responseProblem } from "@terrakin/protocol";
 import type { ApiOptions } from "./api";
 
@@ -97,4 +104,59 @@ export function confirmLinkIn(page: string): string {
   if (!url) throw new Error(`No confirm link in:\n${page}`);
   const { pathname, search } = new URL(url);
   return pathname + search;
+}
+
+/**
+ * For tests: a Sentry client that records what `report` and `gauge` in `telemetry.ts` hand it and
+ * sends nothing. `start()` makes it the current client and empties the lists; `stop()` takes it
+ * away again. Run them before and after each test, so no other test file sees it. `reports` holds
+ * each reported error's message, `gauges` each gauge's name and value beside its attributes.
+ */
+export function recordTelemetry() {
+  const reports: string[] = [];
+  const gauges: Record<string, unknown>[] = [];
+  class Recorder extends Client<ClientOptions> {
+    // Public here: Client's own constructor is protected.
+    constructor(options: ClientOptions) {
+      super(options);
+    }
+    override captureException(err: unknown): string {
+      reports.push(err instanceof Error ? err.message : String(err));
+      return "";
+    }
+    eventFromException() {
+      return Promise.resolve({});
+    }
+    eventFromMessage() {
+      return Promise.resolve({});
+    }
+  }
+  const client = new Recorder({
+    integrations: [],
+    stackParser: () => [],
+    transport: (options) => createTransport(options, async () => ({})),
+    beforeSendMetric: (metric) => {
+      if (metric.type === "gauge") {
+        gauges.push({ name: metric.name, value: metric.value, ...metric.attributes });
+      }
+      // Recorded, so never buffered or sent.
+      return null;
+    },
+  });
+  const clear = () => {
+    reports.length = 0;
+    gauges.length = 0;
+  };
+  return {
+    reports,
+    gauges,
+    start() {
+      clear();
+      setCurrentClient(client);
+    },
+    stop() {
+      getCurrentScope().setClient(undefined);
+      clear();
+    },
+  };
 }

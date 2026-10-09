@@ -9,7 +9,7 @@ import {
   type WorldConfig,
   type WorldState,
 } from "@terrakin/sim";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { replayCheck } from "../../../scripts/replay-check";
 import { Api } from "./api";
 import { createApp } from "./app";
@@ -19,20 +19,12 @@ import { pageRows, SNAPSHOT_TAIL, type SnapshotHeader, splitUtf8 } from "./snaps
 import { SocialService } from "./social-service";
 import { type SqlExec, SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
-import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, recordTelemetry, responseChecker } from "./test-support";
 import { DAY_MS, WorldService } from "./world-service";
 
-const reports: string[] = [];
-const gauges: { name: string; value: number; from?: unknown }[] = [];
-vi.mock("./telemetry", async (original) => ({
-  ...(await original<typeof import("./telemetry")>()),
-  report: (err: unknown) => {
-    reports.push(err instanceof Error ? err.message : String(err));
-  },
-  gauge: (name: string, value: number, attributes: Record<string, unknown> = {}) => {
-    gauges.push({ name, value, ...("from" in attributes ? { from: attributes.from } : {}) });
-  },
-}));
+const telemetry = recordTelemetry();
+const { reports, gauges } = telemetry;
+beforeEach(telemetry.start);
 
 const CONFIG: WorldConfig = {
   width: 12,
@@ -48,8 +40,7 @@ const cleanups: (() => void | Promise<void>)[] = [];
 const { problems, onResponse } = responseChecker();
 afterEach(async () => {
   for (const fn of cleanups.splice(0).reverse()) await fn();
-  reports.length = 0;
-  gauges.length = 0;
+  telemetry.stop();
   expect(problems.splice(0)).toEqual([]);
 });
 

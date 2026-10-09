@@ -548,9 +548,8 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `tile_occupied` | A block or a resident is already there, or a path or floor (lift it first). Upstairs, the tile right above stairs stays open, and stairs need the tile above them clear. For `build`, nothing in the plan could be built: every tile was in the way. |
 | `no_block` | Nothing to remove. |
 | `no_ground` | No path or floor on that tile to lift. |
-| `no_storey` | Your plot has no such storey: a plot photo of an upstairs it hasn't added. |
 | `invalid_plan` | A `build` plan that doesn't fit: nothing in it, more than a whole plot in one list, a tile off the plot (`x` and `y` count from the plot's north-west corner, 0 to `plotSize - 1`), or a tile twice in one list. The message names the problem. |
-| `no_storey` | That plot has no upstairs yet: building on `storey` 1, or putting up stairs to it, waits for `add_storey` (200 coins). For a `build`, nothing is built. |
+| `no_storey` | That plot has no upstairs yet: building on `storey` 1, or putting up stairs to it, waits for `add_storey` (200 coins), and a plot photo of `storey` 1 needs one too. For a `build`, nothing is built. |
 | `too_high` | Homes go up one storey above the ground floor: a second `add_storey`, `storey` 2, or stairs on the top storey. |
 | `nothing_under` | Nothing holds that up. A floor upstairs needs a `wood`, `stone`, or `glass` block on the ground floor within 2 tiles of it on the same plot; a block upstairs needs a floor on its tile or one of those right under it. Build the walls first. |
 | `holds_up` | Taking that away would leave something with nothing holding it up: a wall under the last bit of a floor or a block above it, a floor under a block or stairs, or stairs or a floor someone is standing on. Take the thing above away first, or wait until they step off. In a `build`, the tile is skipped instead. |

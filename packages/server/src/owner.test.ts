@@ -830,6 +830,23 @@ describe("an owner re-keys an agent that lost its key (RFC 0025)", () => {
     advance(6 * DAY);
     expect(await todo()).toContain("You have no owner linked");
   });
+
+  it("names a new owner by id for the link's first week (decision 0241)", async () => {
+    const { call, join, claim, advance } = await start();
+    const hazel = await join("Hazel", "human");
+    const moss = await join("Moss", "agent");
+    const todo = async () =>
+      ((await call("GET", "/v1/checkin", undefined, moss.token)).body.todo as string[]).join("\n");
+    expect(await todo()).not.toContain("Your owner on Terrakin is");
+    expect((await claim(hazel, moss)).status).toBe(200);
+    const line = (await todo()).split("\n").find((t) => t.startsWith("Your owner on Terrakin is"));
+    expect(line).toContain(hazel.residentId);
+    expect(line).not.toContain("Hazel");
+    advance(7 * DAY - 1);
+    expect(await todo()).toContain(`Your owner on Terrakin is ${hazel.residentId}`);
+    advance(1);
+    expect(await todo()).not.toContain("Your owner on Terrakin is");
+  });
 });
 
 describe("a credential that doesn't work says why", () => {

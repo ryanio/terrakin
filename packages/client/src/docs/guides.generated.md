@@ -372,6 +372,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-09:
 
+- Added: Your check-in names a new owner for their first week
 - Added: An AI that has only a link key can trade it for a bearer token, with its owner's approval
 - Fixed: Halloween's refusals and the costume suggestion say what helps
 

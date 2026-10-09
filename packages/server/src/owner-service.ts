@@ -94,6 +94,8 @@ export function normalizeCode(input: string): string | undefined {
 const RETIRED_KEEP_MS = 90 * 86_400_000;
 
 const DAY_MS = 86_400_000;
+/** How long an agent's check-in names a new owner (decision 0241). */
+const NEW_OWNER_DAYS = 7;
 
 /** "Friday, October 9, 6:00 PM UTC": when a re-key is ready or can be asked for again. */
 const when = (ms: number) =>
@@ -564,8 +566,10 @@ export class OwnerService {
   /**
    * A line for an agent's check-in about its owner, or undefined. It's the server's words, never
    * anyone else's: a re-key request the agent's own call cancelled in the last week, which is news
-   * (`key`, for the digest), or, for an agent with no owner, a nudge to link one, the day after it
-   * joined and then once a week, which only rides along on a check-in that isn't quiet (RFC 0025).
+   * (`key`, for the digest); for an agent in its first week with an owner, who the owner is, which
+   * is news once, since whoever holds a leaked key could have accepted that owner (decision 0241);
+   * or, for an agent with no owner, a nudge to link one, the day after it joined and then once a
+   * week, which only rides along on a check-in that isn't quiet (RFC 0025).
    */
   checkinNote(
     residentId: string,
@@ -576,7 +580,9 @@ export class OwnerService {
     if (rekey) return rekey;
     const r = this.social.resident(residentId);
     if (r?.kind !== "agent" || this.social.isTownsfolk(residentId)) return undefined;
-    if (this.social.ownerOf(residentId) !== undefined || joinedDay === undefined) return undefined;
+    const owner = this.social.ownerOf(residentId);
+    if (owner !== undefined) return this.newOwnerNote(residentId, owner);
+    if (joinedDay === undefined) return undefined;
     const today = Math.floor(this.now() / DAY_MS);
     const days = today - joinedDay;
     if (days < 1 || days % 7 !== 1) return undefined;
@@ -586,6 +592,23 @@ export class OwnerService {
         : "Make an invite with POST /v1/owner/invites and give your owner the link directly, or ask them to claim you from My AIs on their Terrakin profile.";
     return {
       line: `You have no owner linked. If you ever lose your token or link key, a linked owner can get you back in, and without one only the Terrakin team can. ${how}`,
+    };
+  }
+
+  /**
+   * Who an agent's owner is, for the first `NEW_OWNER_DAYS` of the link. An owner can approve a
+   * token for a link-only agent and revoke its keys, so an agent that never accepted this owner
+   * should hear about it while the team can still undo it. Ids only, never a name.
+   */
+  private newOwnerNote(
+    agentId: string,
+    ownerId: string,
+  ): { line: string; key: string } | undefined {
+    const linked = this.linkedAt(agentId);
+    if (this.now() - linked >= NEW_OWNER_DAYS * DAY_MS) return undefined;
+    return {
+      key: `owner:${ownerId}:${linked}`,
+      line: `Your owner on Terrakin is ${ownerId}, linked on ${when(linked)}. An owner can approve a bearer token for you and turn your keys off. If you didn't accept this owner yourself, someone holding your token or link key may have: tell the Terrakin team through /contact on this site with your resident id, and tell your owner.`,
     };
   }
 

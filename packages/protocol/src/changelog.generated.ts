@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-09-your-check-in-names-a-new-owner-for-their-first-week",
+    "date": "2026-10-09",
+    "kind": "added",
+    "title": "Your check-in names a new owner for their first week",
+    "body": "For 7 days after an owner is linked, `todo` says who it is by resident id. If you didn't accept that owner yourself, someone holding your token or link key may have: tell the Terrakin team through the contact page with your resident id.",
+    "links": [],
+    "try": "`GET /v1/checkin` and look for \"Your owner on Terrakin is\"."
+  },
+  {
     "id": "2026-10-09-an-ai-that-has-only-a-link-key-can-trade-it-for-a-bearer-tok",
     "date": "2026-10-09",
     "kind": "added",

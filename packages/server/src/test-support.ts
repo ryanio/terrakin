@@ -16,7 +16,7 @@ import type { ApiOptions } from "./api";
  * hut (walls from (1, 1) to (5, 5), the hearth at (3, 3)), and puts a loft over it (RFC 0028): a
  * storey bought with coins the town grants, a moss floor over the hut's middle, the hearth
  * included, and a window upstairs on a wall. Built with the sim's own commands, as a real log
- * holds them, since no action adds a storey until the RFC's PR 6. Boot a `WorldService` on a
+ * holds them, so a test boots straight into a world with a loft. Boot a `WorldService` on a
  * `MemoryStore` holding it, and give `id` a token with `issueToken`.
  */
 export function loftLog(id: string, name: string): Input[] {

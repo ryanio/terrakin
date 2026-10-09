@@ -417,6 +417,7 @@ export {
   storeyField,
   storeyGround,
   upstairsGroundOf,
+  upstairsProblem,
 } from "./storeys";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export {

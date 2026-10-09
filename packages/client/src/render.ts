@@ -58,7 +58,7 @@ import {
   sprite,
 } from "./render/sprites";
 import { type CastMark, paintCast, paintPond } from "./render/water";
-import { type Cutaway, tileShows, underFloor } from "./storeys";
+import { type Cutaway, cutaway, tileShows, underFloor } from "./storeys";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
@@ -531,11 +531,7 @@ export function render(
 
   // ---- storeys (RFC 0028): from above, and cut away at your storey on the plot you're on ----
   const standing = me ? mirror.residents.get(me) : undefined;
-  const cut: Cutaway | undefined = standing && {
-    px: Math.floor(standing.x / S),
-    py: Math.floor(standing.y / S),
-    storey: cutStorey ?? standing.storey ?? 0,
-  };
+  const cut: Cutaway | undefined = cutaway(standing, S, cutStorey);
   // An empty storey picked to build on still dims the ground floor under it.
   const upstairs = mirror.hasUpstairs() || (cut?.storey ?? 0) > 0 ? mirror.layers() : undefined;
   if (upstairs) {

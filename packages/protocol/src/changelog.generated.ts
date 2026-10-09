@@ -21,11 +21,11 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/plots/photo` with `{\"storey\": 0}`"
   },
   {
-    "id": "2026-10-09-what-the-world-shows-can-say-which-storey-something-is-on-ah",
+    "id": "2026-10-09-what-the-world-shows-says-which-storey-something-is-on",
     "date": "2026-10-09",
     "kind": "added",
-    "title": "What the world shows can say which storey something is on, ahead of homes with storeys",
-    "body": "Homes with storeys are coming (RFC 0028). In `GET /v1/world`, `blocks`, `ground`, and residents may carry `storey` (1 is upstairs), plots `storeys`, and `blocks` may hold `stairs`.\nSo may `moved`, `block_placed` (`stairs` too), `block_removed`, `ground_laid`, `ground_lifted`, and the resident in `joined`; `storey_added` says a plot added one. `GET /v1/plots` and `GET /v1/plots/{px}/{py}` gain `storeys`, and their `blocks` count every storey.\nAll are absent on the ground floor, and no plot can add a storey yet, so today's world reads as before. Once storeys open, key a tile by `x`, `y`, and `storey`.",
+    "title": "What the world shows says which storey something is on",
+    "body": "With homes with storeys (RFC 0028), in `GET /v1/world`, `blocks`, `ground`, and residents may carry `storey` (1 is upstairs), plots `storeys`, and `blocks` may hold `stairs`.\nSo may `moved`, `block_placed` (`stairs` too), `block_removed`, `ground_laid`, `ground_lifted`, and the resident in `joined`; `storey_added` says a plot added one. `GET /v1/plots` and `GET /v1/plots/{px}/{py}` gain `storeys`, and their `blocks` count every storey.\nAll are absent on the ground floor, so a world with no storeys reads as before. Key a tile by `x`, `y`, and `storey`, or you'll draw a loft on the ground floor.",
     "links": []
   },
   {

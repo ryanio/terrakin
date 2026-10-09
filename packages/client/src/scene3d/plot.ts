@@ -25,7 +25,7 @@ import {
 import { blockMeshes, POOL_LIGHT } from "./blocks";
 import { cropPlants } from "./crops";
 import { createPictures, displayedThings } from "./displays";
-import { figure, setUmbrella, sizeSign } from "./figure";
+import { fadeFigure, figure, setUmbrella, sizeSign } from "./figure";
 import { border, ground } from "./ground";
 import { hearth } from "./hearth";
 import { loadHomeModel, loadSign } from "./home";
@@ -110,7 +110,17 @@ export function buildPlot(
 
   // The blocks, paths and floors (RFC 0016), and slabs upstairs, built again when the cut moves.
   let storeys: { group: Group; scope: Scope } | undefined;
+  // Figures, placed below; someone on a storey the cut leaves out is faded, their name still shown.
+  const figures: Group[] = [];
+  let shownTop = opts.storey ?? layout.top;
+  const fadeAbove = () => {
+    for (const [i, fig] of figures.entries()) {
+      fadeFigure(fig, (layout.figures[i]?.storey ?? 0) > shownTop);
+    }
+  };
   const showStoreys = (top: number) => {
+    shownTop = top;
+    fadeAbove();
     if (storeys) {
       root.remove(storeys.group);
       storeys.scope.release();
@@ -192,7 +202,6 @@ export function buildPlot(
     const timer = setInterval(tick, 2000);
     stage.keep({ dispose: () => clearInterval(timer) });
   }
-  const figures: Group[] = [];
   for (const f of layout.figures) {
     const fig = figure(stage, f, shadowMap);
     // Someone asleep at home already stands clear of the stonework.
@@ -210,6 +219,7 @@ export function buildPlot(
     root.add(fig);
     figures.push(fig);
   }
+  fadeAbove();
 
   // The owner's pet by the hearth (RFC 0019): breathing slowly while it sleeps.
   const pet = layout.pet;

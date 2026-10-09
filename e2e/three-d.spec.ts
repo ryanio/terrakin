@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import {
+  act,
   countFrames,
   framesWhileIdle,
   freePlots,
@@ -48,7 +50,7 @@ test.describe("a plot in 3D", () => {
   test.describe.configure({ mode: "serial" });
 
   /** The plot the day test settled, and how light its photo was. */
-  let day: { residentId: string; light: number } | undefined;
+  let day: { residentId: string; token: string; light: number } | undefined;
 
   test("a plot opens in 3D, takes a photo, and stops drawing when you leave", async ({ page }) => {
     await countFrames(page);
@@ -83,7 +85,7 @@ test.describe("a plot in 3D", () => {
     await expect(page.locator(".view3d-shot")).toBeVisible();
     const photo = await photoSample(page);
     expect(photo.colors).toBeGreaterThan(12);
-    day = { residentId: session.residentId, light: photo.light };
+    day = { residentId: session.residentId, token: session.token, light: photo.light };
     const sheet = page.getByRole("dialog", { name: "Your photo" });
     // It opens with focus on the sheet, so Save doesn't open looking picked.
     await expect(sheet.locator(".sheet-card")).toBeFocused();
@@ -153,33 +155,28 @@ test.describe("a plot in 3D", () => {
     page,
   }) => {
     if (!day) throw new Error("The day test settles the plot this one adds a loft to");
-    const { residentId } = day;
+    const { residentId, token } = day;
     const errors = watchErrors(page, { console: "all" });
-    // No action builds upstairs until the API opens storeys (RFC 0028, PR 6), so the snapshot the
-    // page reads gets a loft over the starter home: planks over every tile of it but a stairwell,
-    // and stairs under that.
-    await page.route(/\/v1\/world$/, async (route) => {
-      const res = await route.fetch();
-      const world = await res.json();
-      const S = world.config.plotSize;
-      const plot = world.plots.find((p: { ownerId: string }) => p.ownerId === residentId);
-      const hut = world.blocks.filter(
-        (b: { x: number; y: number }) =>
-          Math.floor(b.x / S) === plot.px && Math.floor(b.y / S) === plot.py,
-      );
-      const xs = hut.map((b: { x: number }) => b.x);
-      const ys = hut.map((b: { y: number }) => b.y);
-      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-      const well = { x: x0 + 1, y: y0 + 1 };
-      plot.storeys = 1;
-      world.blocks.push({ ...well, block: "stairs" });
-      world.ground = world.ground ?? [];
-      for (let y = y0; y <= y1; y++)
-        for (let x = x0; x <= x1; x++)
-          if (x !== well.x || y !== well.y)
-            world.ground.push({ x, y, storey: 1, ground: "planks" });
-      await route.fulfill({ response: res, body: JSON.stringify(world) });
+    // A loft over the starter home through the API, as an agent builds it: coins and wood from
+    // the test grant, a storey, then SKILL.md's "hut with a loft" plan on this plot.
+    const grant = await page.request.post("/v1/test/grant", {
+      data: { residentId, coins: 200, stacks: { wood: 13 } },
     });
+    expect(grant.ok()).toBe(true);
+    const world = await (await page.request.get("/v1/world")).json();
+    const plot = world.plots.find((p: { ownerId: string }) => p.ownerId === residentId);
+    const skill = readFileSync("packages/protocol/SKILL.md", "utf8");
+    const loft = skill
+      .slice(skill.indexOf("## Building up"))
+      .match(/```json\n(\{"type": "build"[\s\S]*?)\n```/)?.[1];
+    if (!loft) throw new Error("SKILL.md's Building up has no loft plan");
+    for (const action of [
+      { type: "add_storey", px: plot.px, py: plot.py },
+      { ...JSON.parse(loft), px: plot.px, py: plot.py, dry: false },
+    ]) {
+      const done = await act(page.request, token, action);
+      expect(done.ok, JSON.stringify(done)).toBe(true);
+    }
     await page.goto(`/r/${residentId}/3d`);
     await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
 

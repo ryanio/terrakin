@@ -251,6 +251,26 @@ export function turnHead(fig: Object3D, yaw: number) {
 }
 
 /**
+ * Fade a figure standing on a storey the view cuts away, or bring it back (RFC 0028): its body and
+ * what it wears see-through, its name tag as it was, as the map fades someone under a floor.
+ */
+export function fadeFigure(fig: Object3D, faded: boolean) {
+  const body = fig.userData.body as Object3D | undefined;
+  body?.traverse((o) => {
+    if (!(o instanceof Mesh)) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      // Its own opacity, kept the first time, so bringing it back restores a see-through cheek.
+      if (m.userData.opacity === undefined) m.userData.opacity = m.opacity;
+      const opacity = m.userData.opacity as number;
+      m.transparent = faded || opacity < 1;
+      m.opacity = faded ? opacity * CUT_FADE : opacity;
+      m.depthWrite = !faded;
+      m.needsUpdate = true;
+    }
+  });
+}
+
+/**
  * Put a figure's umbrella up over its head (in the rain) or roll it up at its side, and float the
  * name tag over whichever it is (decision 0073). True when it changed, so the caller draws a frame.
  */
@@ -270,6 +290,8 @@ export function setUmbrella(fig: Object3D, up: boolean): boolean {
 
 /** How strongly someone away shows: their peg fades toward the haze, their tag fainter. */
 const AWAY_FADE = 0.38;
+/** How much of a figure shows on a storey the view cuts away (RFC 0028). */
+const CUT_FADE = 0.3;
 const AWAY_SHOWS = 0.72;
 
 /**

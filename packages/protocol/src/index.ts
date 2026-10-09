@@ -26,5 +26,6 @@ export * from "./shop";
 export * from "./site";
 export * from "./snapshots";
 export * from "./social";
+export * from "./storeys";
 export * from "./suggest";
 export * from "./town";

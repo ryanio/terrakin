@@ -10,6 +10,7 @@ import {
   type PlotStorey,
   probeImage,
 } from "@terrakin/cards";
+import { storeyName } from "@terrakin/protocol";
 import {
   alphaHex,
   type Biome,
@@ -199,12 +200,6 @@ export function plotSpecOf(
     ...(pet ? { pet } : {}),
     ink: plotInk(season(state)),
   };
-}
-
-/** "Ground floor", "Upstairs": a storey in the words people see (RFC 0028). */
-function storeyName(storey: number): string {
-  if (storey === 0) return "Ground floor";
-  return STOREYS.max === 1 ? "Upstairs" : `Storey ${storey}`;
 }
 
 /** The storeys a picture from above draws: up to the highest with something on it. */

@@ -7,10 +7,10 @@
 import { everyoneIn, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
-import { chips, openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
+import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
 import { savedResidentId, savedToken } from "../net";
-import { storeyName } from "../storeys";
+import { storeyChips } from "../storey-chips";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
 import { createStage, type Stage } from "./art";
 import { parseGallery } from "./catalog";
@@ -268,15 +268,7 @@ export function mount3d(
  * of its own under the bar. The pressed one shows that storey and everything under it.
  */
 function storeyPicker(top: number, start: number, show: (top: number) => void): HTMLElement {
-  const storeys = Array.from({ length: top + 1 }, (_, n) => String(n));
-  const row = h("div", { class: "view3d-storeys", attrs: { "aria-label": "Storeys" } });
-  chips(
-    storeys,
-    String(start),
-    (n) => [h("span", { text: storeyName(Number(n)) })],
-    (n) => show(Number(n)),
-    row,
-  );
+  const row = storeyChips(h("div", { class: "view3d-storeys" }), top, start, show);
   return h("div", { class: "view3d-storeys-line" }, row);
 }
 

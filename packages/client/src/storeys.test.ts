@@ -2,7 +2,7 @@ import type { WorldSnapshot } from "@terrakin/protocol";
 import { route, stepFrom } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { Mirror } from "./mirror";
-import { type Cutaway, tapStorey, tileShows, underFloor } from "./storeys";
+import { type Cutaway, cutaway, pickedStorey, tapStorey, tileShows, underFloor } from "./storeys";
 
 /**
  * Plots of 4 tiles. Ada's plot (0, 0) has a loft: a floor upstairs at (1, 1) and (2, 1), and a
@@ -73,6 +73,27 @@ describe("which storey each tile shows", () => {
     // Someone on the floor itself, or out in the open.
     expect(underFloor(layers, 4, undefined, 1, 1, 1)).toBe(false);
     expect(underFloor(layers, 4, undefined, 0, 0, 0)).toBe(false);
+  });
+});
+
+describe("where the map and the 3D world cut, and the storey the build bar builds on", () => {
+  it("cuts the plot under you at the build bar's storey while building, else at yours", () => {
+    const ada = { x: 5, y: 2, storey: 1 };
+    expect(cutaway(ada, 4)).toEqual({ px: 1, py: 0, storey: 1 });
+    // Ground floor picked while she stands upstairs: both views cut there, not at her feet.
+    expect(cutaway(ada, 4, 0)).toEqual({ px: 1, py: 0, storey: 0 });
+    expect(cutaway({ x: 1, y: 1 }, 4, 1)).toEqual({ px: 0, py: 0, storey: 1 });
+    expect(cutaway(undefined, 4, 1)).toBeUndefined();
+  });
+
+  it("never builds on, or cuts at, a storey the plot doesn't have", () => {
+    // Upstairs picked, then onto a plot of hers with no storey: its ground floor.
+    expect(pickedStorey(1, 0, 0)).toBe(0);
+    expect(pickedStorey(1, 1, 0)).toBe(1);
+    expect(pickedStorey(0, 1, 1)).toBe(0);
+    // On a neighbor's loft she can't build on: the storey she stands on.
+    expect(pickedStorey(0, undefined, 1)).toBe(1);
+    expect(pickedStorey(1, undefined, 0)).toBe(0);
   });
 });
 

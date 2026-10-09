@@ -7,12 +7,6 @@
  * shows is drawn faded. Pure, so tests pin it.
  */
 
-/** What people call a storey (the RFC's first decision): "Ground floor" and "Upstairs". */
-export function storeyName(storey: number): string {
-  if (storey === 0) return "Ground floor";
-  return storey === 1 ? "Upstairs" : `Storey ${storey}`;
-}
-
 /** What stands and lies on each storey above the ground floor, as the mirror has it. */
 export interface StoreyLayers {
   /** The highest storey any plot may have. */
@@ -29,6 +23,31 @@ export interface Cutaway {
   py: number;
   storey: number;
 }
+
+/**
+ * Where the map and the world in 3D cut away: the plot under `viewer`, at `picked` (the build
+ * bar's storey while building) or else the storey they stand on. Nobody to view from cuts nothing.
+ */
+export function cutaway(
+  viewer: { x: number; y: number; storey?: number } | undefined,
+  plotSize: number,
+  picked?: number,
+): Cutaway | undefined {
+  if (!viewer) return undefined;
+  return {
+    px: Math.floor(viewer.x / plotSize),
+    py: Math.floor(viewer.y / plotSize),
+    storey: picked ?? viewer.storey ?? 0,
+  };
+}
+
+/**
+ * The storey the build bar builds on and cuts the map at: the one picked while the plot you can
+ * build on has it, else its top storey. Off any plot you may build on (`storeys` undefined) it's
+ * the storey you stand on (`mine`), so a neighbor's loft you visit is cut where you are.
+ */
+export const pickedStorey = (picked: number, storeys: number | undefined, mine: number): number =>
+  storeys === undefined ? mine : Math.min(Math.max(0, picked), storeys);
 
 /** How the map draws one tile. */
 export interface TileShows {

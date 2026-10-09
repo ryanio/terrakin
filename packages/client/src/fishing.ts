@@ -6,14 +6,7 @@
  * would refuse (decision 0052).
  */
 import type { WorldEvent } from "@terrakin/protocol";
-import {
-  blockNeeds,
-  CATALOG,
-  FISHING_ROD,
-  type ItemKind,
-  POND,
-  type StackKind,
-} from "@terrakin/sim";
+import { CATALOG, FISHING_ROD, type ItemKind, POND } from "@terrakin/sim";
 import { blockShort, type Holdings } from "./build-palette";
 import { thingCount } from "./things";
 

@@ -52,6 +52,7 @@ import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { lyingOn, type PetMotion, type PetScene } from "../pets";
+import { type Cutaway, cutaway } from "../storeys";
 import { nightAmount } from "../time";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
@@ -78,6 +79,7 @@ import {
 import { cropPlants } from "./crops";
 import { createPictures, displayedThings, foundThings } from "./displays";
 import {
+  fadeFigure,
   figure,
   ICON_TEXTURES,
   iconTexture,
@@ -169,11 +171,21 @@ export interface World3dFrame {
    * for pets asleep at night. Absent: full day.
    */
   dayPhase?: number;
+  /**
+   * The storey the plot you stand on is cut away at (RFC 0028): the build bar's pick while
+   * building, as on the map. Absent: the storey you stand on.
+   */
+  cutStorey?: number;
 }
 
 export interface World3d {
   /** Bring the scene up to date with the mirror. Called every frame by the world loop. */
   sync(frame: World3dFrame): void;
+  /**
+   * Where on the page, in CSS pixels, a pill beside a resident's figure goes: right of its middle
+   * as drawn now. Undefined when they aren't drawn or are behind the camera.
+   */
+  screenOf(id: string): { x: number; y: number } | undefined;
   /** Which way is away from the camera, snapped to a direction: what "up" on the d-pad means. */
   heading(): Quarter;
   dispose(): void;
@@ -200,6 +212,8 @@ interface Fig {
   away?: { x: number; y: number };
   /** Away and out on a routine (decision 0083): faded, walking its steps, and awake. */
   out?: true;
+  /** On a storey the cut leaves out (RFC 0028): faded, their name still shown, as on the map. */
+  cutOff?: boolean;
   /** What they're saying, in the scene so a hop or squash doesn't bend it; its canvas size. */
   bubble?: { text: string; sprite: Sprite; w: number; h: number };
 }
@@ -224,6 +238,10 @@ const MAX_DISTANCE = 24;
 const TURN = 10;
 /** How quickly a figure climbs to its storey's floor (RFC 0028), per second. */
 const CLIMB = 8;
+/** How high a figure's middle stands over its feet, where a pill beside it lines up. */
+const FIGURE_MIDDLE = 0.6;
+/** How far right of a figure's middle a pill beside it starts, in CSS pixels. */
+const BESIDE_PX = 28;
 /** Figures this close to a speaker turn their heads to them, as far as a neck goes. */
 const LISTEN_RADIUS = 5;
 const NECK = 0.8;
@@ -785,6 +803,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     motion: Motion,
     dt: number,
     speakerId: string | undefined,
+    cut: Cutaway | undefined,
   ): boolean {
     let moved = false;
     const now = performance.now();
@@ -808,6 +827,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const rise = still ? storeyY(r.storey) : approach(f.rise, storeyY(r.storey), dt, CLIMB);
       if (rise !== f.rise) moved = true;
       f.rise = rise;
+      // Above the storey the plot they're on is cut at: faded, like a figure under a floor.
+      const S = mirror.config.plotSize;
+      const cutOff =
+        cut !== undefined &&
+        Math.floor(r.x / S) === cut.px &&
+        Math.floor(r.y / S) === cut.py &&
+        (r.storey ?? 0) > cut.storey;
+      if (cutOff !== (f.cutOff ?? false)) {
+        fadeFigure(g, cutOff);
+        f.cutOff = cutOff;
+        moved = true;
+      }
       // Off the stonework when on or stepping onto a hearth's tile, on the ground floor.
       let x = m.x;
       let z = m.y;
@@ -1195,12 +1226,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         stands = hearthStands(mirror);
         standsWidth = mirror.config.width;
       }
-      // The plot you stand on is cut away at your storey (RFC 0028); a link's look cuts nothing.
-      const S = mirror.config.plotSize;
-      const cut =
-        self && !look
-          ? { px: Math.floor(self.x / S), py: Math.floor(self.y / S), storey: self.storey ?? 0 }
-          : undefined;
+      // The plot you stand on is cut away at your storey, or the one the build bar picked (RFC
+      // 0028), as on the map; a link's look cuts nothing.
+      const cut = look ? undefined : cutaway(self, mirror.config.plotSize, frame.cutStorey);
       const cutKey = cut ? `${cut.px},${cut.py},${cut.storey}` : "";
       const recut = cutKey !== cutSeen;
       cutSeen = cutKey;
@@ -1225,7 +1253,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const viewHeight = 2 * distance * Math.tan((camera.fov * Math.PI) / 360);
       bubblePx =
         (viewHeight / Math.max(1, host.clientHeight)) * (BUBBLE_SCREEN_PX / BUBBLE_FONT_PX);
-      let moved = moveFigures(mirror, motion, dt, feelings?.speaker(now));
+      let moved = moveFigures(mirror, motion, dt, feelings?.speaker(now), cut);
       if (movePets(mirror, tile, frame, dt, now)) moved = true;
       stackBubbles3d();
       // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
@@ -1255,6 +1283,21 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         moved = true;
       }
       if (moved || changed || walked || buildMode) stage.invalidate();
+    },
+    screenOf(id) {
+      const fig = figures.get(id);
+      if (!fig || !started) return undefined;
+      // Beside the figure's middle, where it's drawn this frame: climbing eases its height.
+      onScreen
+        .copy(fig.group.position)
+        .setY(fig.group.position.y + FIGURE_MIDDLE)
+        .project(camera);
+      if (onScreen.z > 1) return undefined;
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: rect.left + ((onScreen.x + 1) / 2) * rect.width + BESIDE_PX,
+        y: rect.top + ((1 - onScreen.y) / 2) * rect.height,
+      };
     },
     heading() {
       if (!started) return 0;

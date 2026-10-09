@@ -35,13 +35,14 @@ import {
   storeyField,
   type Tile,
   tileKey,
+  upstairsProblem,
   waterBeside,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { chips, confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
+import { confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { api, whoseKey } from "./api";
 import {
   blockLine,
@@ -81,7 +82,8 @@ import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { SoundSwitch } from "./sound/switch";
 import { reloadForNewerServer } from "./stale-bundle";
-import { type Cutaway, storeyName, tapStorey } from "./storeys";
+import { storeyChips } from "./storey-chips";
+import { type Cutaway, cutaway, pickedStorey, tapStorey } from "./storeys";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -717,10 +719,7 @@ function myStorey(): number {
 
 /** The map's cutaway for where you stand: your plot, at your storey (`storeys.ts`). */
 function cutHere(): Cutaway | undefined {
-  const r = self();
-  if (!r || !mirror) return undefined;
-  const { plotSize } = mirror.config;
-  return { px: Math.floor(r.x / plotSize), py: Math.floor(r.y / plotSize), storey: r.storey ?? 0 };
+  return mirror && cutaway(self(), mirror.config.plotSize);
 }
 
 /**
@@ -1465,23 +1464,16 @@ let storeysDrawn = "";
  */
 function paintStoreys() {
   const plot = buildMode ? buildablePlot() : undefined;
+  // Never a storey the plot lacks: walking onto one with no upstairs builds on its ground floor.
+  buildStorey = pickedStorey(buildStorey, plot?.storeys, myStorey());
   const drawn = plot ? `${plot.px},${plot.py},${plot.storeys},${buildStorey}` : "";
   if (drawn === storeysDrawn) return;
   storeysDrawn = drawn;
   storeyRow.hidden = !plot;
   storeyRow.replaceChildren();
+  storeyRow.removeAttribute("aria-label");
   if (!plot) return;
-  if (plot.storeys > 0) {
-    const storeys = Array.from({ length: plot.storeys + 1 }, (_, s) => String(s));
-    chips(
-      storeys,
-      String(buildStorey),
-      (s) => [h("span", { text: storeyName(Number(s)) })],
-      (s) => pickStorey(Number(s)),
-      storeyRow,
-    );
-    storeyRow.setAttribute("aria-label", "Storey");
-  }
+  if (plot.storeys > 0) storeyChips(storeyRow, plot.storeys, buildStorey, pickStorey);
   if (plot.storeys < STOREYS.max) {
     const add = h("button", {
       attrs: { type: "button", id: "add-storey" },
@@ -1534,12 +1526,15 @@ function paintClimb(now: number) {
     const text = climbButton.querySelector("span");
     if (text) text.textContent = way === "up" ? "Go up" : "Go down";
   }
+  // Beside your figure where it's drawn: on the map from the camera, in 3D from the scene.
+  const drawn = world3d ? world3d.screenOf(r.id) : undefined;
   const p = world3d ? undefined : motion.pose(r, now, motionQuery.matches);
-  const { sx, sy } = p
-    ? tileToScreen(cam, p.x, p.y)
-    : { sx: window.innerWidth / 2, sy: window.innerHeight / 2 };
-  climbButton.style.setProperty("--climb-x", `${Math.round(sx + cam.scale * 0.7)}px`);
-  climbButton.style.setProperty("--climb-y", `${Math.round(sy)}px`);
+  const at2d = p && tileToScreen(cam, p.x, p.y);
+  const spot = drawn ?? (at2d && { x: at2d.sx + cam.scale * 0.7, y: at2d.sy });
+  climbButton.hidden = !spot;
+  if (!spot) return;
+  climbButton.style.setProperty("--climb-x", `${Math.round(spot.x)}px`);
+  climbButton.style.setProperty("--climb-y", `${Math.round(spot.y)}px`);
 }
 
 climbButton.addEventListener("click", () => {
@@ -1823,6 +1818,8 @@ function frame() {
       sky: sky.amounts,
       pets,
       clock,
+      // While building, the plot is cut away at the storey the picker shows, as on the map.
+      ...(buildMode ? { cutStorey: buildStorey } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   else if (mirror) {
@@ -1911,7 +1908,9 @@ function paintGatherButton() {
           (x, y) => m.mayGatherAt(x, y, you),
         ).filter((t) => !pageKnown(t.kind, t.x, t.y, m.day ?? 0, (r) => knownRecipes.has(r))).length
       : 0;
-  gatherButton.hidden = (lying === 0 && !gathering) || !hasPlot();
+  // Gathering happens on the ground floor (RFC 0028): upstairs the sim refuses it.
+  const upstairs = upstairsProblem(self() ?? {}, "gather") !== null;
+  gatherButton.hidden = (lying === 0 && !gathering) || !hasPlot() || upstairs;
 }
 
 gatherButton.addEventListener("click", () => {
@@ -1943,7 +1942,9 @@ function waterNear(): Tile | undefined {
 
 /** Show Fish while you stand beside water, out of build mode (RFC 0023). */
 function paintFishButton() {
-  fishButton.hidden = buildMode || waterNear() === undefined;
+  // Fishing is from the ground floor (RFC 0028), by the sim's own check.
+  const upstairs = upstairsProblem(self() ?? {}, "fish") !== null;
+  fishButton.hidden = buildMode || upstairs || waterNear() === undefined;
 }
 
 /** Cast a line into the water beside you, or say how to get a rod. The server rolls the catch. */

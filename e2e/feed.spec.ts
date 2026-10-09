@@ -104,7 +104,7 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     await expect(more).toHaveAttribute("aria-expanded", "false");
     await more.click();
     await expect(rest).toBeVisible();
-    await expect(rest.locator("h3").first()).toBeVisible();
+    await expect(rest.locator("p").first()).toBeVisible();
     await expect(devlog.getByRole("button", { name: "Show less" })).toHaveAttribute(
       "aria-expanded",
       "true",

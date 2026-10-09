@@ -25,6 +25,7 @@ Going over means moving checks down a layer or cutting a test before adding one,
 - Every push runs one 3D smoke (`smoke-3d.spec.ts`). Other 3D checks run nightly (`three-d.spec.ts`, `world-3d.spec.ts`); add to those, not to the smoke.
 - Wait for what the page shows (`expect`, `expect.poll`, `toPass`), never a fixed time. `waitForTimeout` fails the budget test outside the one place it's allowed.
 - Every red e2e run on `main` or the nightly gets a line in [red-runs.md](red-runs.md) with its cause: a real bug, a flake, or a test out of date. A flake gets fixed in the test (or the check moved down) in the same push that records it.
+- A red nightly opens an issue labeled `nightly-red`, or comments on the one already open, and the next green nightly closes it (the `alert` job in `.github/workflows/nightly.yml`). An open `nightly-red` issue means a red-runs line and a fix are owed.
 
 ## Rules
 

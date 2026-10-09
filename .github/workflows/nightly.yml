@@ -2,8 +2,8 @@ name: Nightly
 
 # The e2e checks that don't run on every push (decision 0200): the deeper 3D specs, one at a time
 # with one worker, and the whole 2D suite, which catches a sim-only push that broke something a
-# spec sees (CI skips e2e on those). Deploys nothing. A red night gets a line in e2e/red-runs.md,
-# like any other red run.
+# spec sees (CI skips e2e on those). Deploys nothing. A red night opens or comments on the
+# `nightly-red` issue (the `alert` job) and gets a line in e2e/red-runs.md, like any other red run.
 on:
   schedule:
     - cron: "17 9 * * *"
@@ -49,3 +49,37 @@ jobs:
           name: playwright-traces-nightly-${{ strategy.job-index }}
           path: test-results/
           retention-days: 7
+
+  # A red night shows up in the issue list: one open issue labeled `nightly-red`, opened by the
+  # first red night and commented on by each red night after it, and closed by the next green one.
+  # Only nights on main count, so a run started by hand on a branch changes nothing.
+  alert:
+    needs: e2e
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open, comment on, or close the nightly-red issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.e2e.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          label=nightly-red
+          open=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+          if [ "$RESULT" = success ]; then
+            if [ -n "$open" ]; then gh issue close "$open" --comment "Green again: $RUN_URL"; fi
+            exit 0
+          fi
+          if [ "$RESULT" != failure ]; then exit 0; fi
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Red again: $RUN_URL"
+          else
+            gh label create "$label" --color B60205 --force \
+              --description "The nightly e2e run is red (nightly.yml)"
+            gh issue create --label "$label" --title "The nightly e2e run is red" --body \
+              "The nightly e2e run failed: $RUN_URL. Read it with \`gh run view $GITHUB_RUN_ID --log-failed\`, add a line to e2e/red-runs.md with its cause, and fix it. The next green night closes this issue; each red one until then comments here."
+          fi

@@ -325,6 +325,15 @@ describe("build", () => {
         ground: [{ x: 2, y: 3, ground: "sand" }],
       }),
     );
+    // A plan's events come in the order plans always made them: removals, lifts, blocks, ground.
+    expect(events).toEqual([
+      { type: "block_removed", x: 2, y: 2, by: "ada" },
+      { type: "block_removed", x: 1, y: 1, by: "ada" },
+      { type: "ground_lifted", x: 2, y: 3, by: "ada" },
+      { type: "block_placed", x: 4, y: 4, block: "table", by: "ada" },
+      { type: "block_placed", x: 1, y: 1, block: "glass", by: "ada" },
+      { type: "ground_laid", x: 2, y: 3, ground: "sand", by: "ada" },
+    ]);
     expect(w.state.blocks["2,2"]).toBeUndefined();
     expect(w.state.blocks["4,4"]).toBe("table");
     expect(w.state.blocks["1,1"]).toBe("glass");

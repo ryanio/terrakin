@@ -747,6 +747,33 @@ describe("build plans", () => {
 
   it("put a block on a tile only when nobody stands there on that storey", () => {
     const w = loft();
+    // Hearths, crops, and displays are the ground floor's: upstairs over them, blocks come and go.
+    w.give("ada", { herb_seed: 1, flower: 3 });
+    w.ok("ada", { type: "place", x: 4, y: 4, block: "planter" });
+    w.ok("ada", { type: "plant", x: 4, y: 4, seed: "herb" });
+    w.ok("ada", { type: "place", x: 2, y: 2, block: "workbench" });
+    w.ok("ada", { type: "craft", recipe: "bouquet", x: 2, y: 2 });
+    w.ok("ada", { type: "place", x: 4, y: 2, block: "pedestal" });
+    const bouquet = w.state.items?.inventories.ada?.goods[0]?.id as string;
+    w.ok("ada", { type: "display", item: bouquet, x: 4, y: 2 });
+    const over = [
+      { x: 3, y: 3, storey: 1 },
+      { x: 4, y: 4, storey: 1 },
+      { x: 4, y: 2, storey: 1 },
+    ];
+    const up = build(0, {
+      ground: [
+        { x: 4, y: 4, storey: 1, ground: "moss" },
+        { x: 4, y: 2, storey: 1, ground: "moss" },
+      ],
+      blocks: over.map((t) => ({ ...t, block: "glass" as const })),
+    });
+    expect(skipped(w, "ada", up)).toEqual([]);
+    w.ok("ada", up);
+    const down = build(0, { remove: over });
+    expect(skipped(w, "ada", down)).toEqual([]);
+    w.ok("ada", down);
+    expect(w.state.storeys?.["1"]?.blocks).toEqual({});
     for (const step of UP) w.ok("ada", step);
     w.ok("ada", { type: "move", dir: "n" });
     // Ada is upstairs at (2, 3): the tile below her is free, the floor she's on isn't.

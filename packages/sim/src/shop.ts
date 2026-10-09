@@ -580,6 +580,32 @@ export function checkShopBuy(
 }
 
 /**
+ * Why the town won't buy `kind` on `day`, in plain words: never (no buy order), not until its
+ * season comes round, or not today on the rotation, which changes at midnight UTC.
+ */
+function notBuying(kind: ItemKind, day: number, buying: readonly SellKind[]): Rejection {
+  const what = ITEM_INFO[kind].plural.toLowerCase();
+  const today = `Today it buys ${buying.map((k) => ITEM_INFO[k].plural.toLowerCase()).join(", ")}.`;
+  if (!Object.hasOwn(BUY_ORDERS, kind)) {
+    return refuse(
+      "not_buying",
+      `The town never buys ${what}. Give them to a neighbor, or list them in the market (list_item). ${today}`,
+    );
+  }
+  const season = buySeason(kind as SellKind);
+  if (season) {
+    return refuse(
+      "not_buying",
+      `The town buys ${what} only in ${season}, every day of it. It's ${seasonOf(day)} now, and ${season} starts on ${dayName(nextSeasonStart(season, day))} (UTC). ${today}`,
+    );
+  }
+  return refuse(
+    "not_buying",
+    `The town isn't buying ${what} today. ${today} It changes at midnight UTC.`,
+  );
+}
+
+/**
  * `sell_to_town {item, count?}`. `item` is produce (`lemon`), a made kind (`lemon_jam`, your
  * oldest `count` of them), or a made thing's id (`i_12`). The town buys only today's kinds, each up
  * to its daily count.
@@ -612,13 +638,7 @@ export function checkSellToTown(
     return refuse("unknown_item", "That isn't something you can hold. Check GET /v1/inventory.");
   }
   const buying = townBuys(day);
-  if (!(buying as readonly string[]).includes(kind)) {
-    const names = buying.map((k) => ITEM_INFO[k].plural.toLowerCase()).join(", ");
-    return refuse(
-      "not_buying",
-      `The town isn't buying ${ITEM_INFO[kind].plural.toLowerCase()} today. Today it buys ${names}. It changes at midnight UTC.`,
-    );
-  }
+  if (!(buying as readonly string[]).includes(kind)) return notBuying(kind, day, buying);
   const order = BUY_ORDERS[kind as SellKind];
   const sold = shop.today.sold[actor]?.[kind] ?? 0;
   if (sold + count > order.perDay) {

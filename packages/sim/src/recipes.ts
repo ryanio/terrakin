@@ -365,9 +365,14 @@ export function checkPickRecipe(
   }
   const used = own(recipes.picks, actor) ?? 0;
   if (used >= RECIPES_RULES.starterPicks) {
+    // A seasonal card out of its season can't be bought today either: say when it can.
+    const card = `shop_buy with sku ${cardSku(recipe)}, ${coins(recipeCardPrice(recipe))}`;
+    const buy = onShelf(recipe, day)
+      ? `Buy a card at the town shop instead (${card}).`
+      : `${shelfWhen(recipe, day)}Then you can buy it there (${card}).`;
     return refuse(
       "no_picks_left",
-      `You've used all ${RECIPES_RULES.starterPicks} free picks. Buy a card at the town shop instead (shop_buy with sku ${cardSku(recipe)}, ${coins(recipeCardPrice(recipe))}).`,
+      `You've used all ${RECIPES_RULES.starterPicks} free picks. ${buy}`,
     );
   }
   if (!onShelf(recipe, day)) {

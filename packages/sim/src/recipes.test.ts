@@ -401,6 +401,11 @@ describe("pick_recipe", () => {
     w.ok("cy", { type: "pick_recipe", recipe: "barrel" });
     expect(picksLeft(w.state, "cy")).toBe(0);
     expect(w.code("cy", { type: "pick_recipe", recipe: "well" })).toBe("no_picks_left");
+    // A card off the shelf can't be bought today either, so the refusal says when it's back.
+    const { code, message } = w.refused("cy", { type: "pick_recipe", recipe: "cranberry_punch" });
+    expect(code).toBe("no_picks_left");
+    expect(message).toContain("only in winter, which starts on December 1");
+    expect(message).not.toContain("instead");
     expect(w.state.recipes?.learned.cy).toEqual(["barrel", "lemonade", "pumpkin_pie"]);
     expect(w.state.recipes?.picks.cy).toBe(3);
     expect(knows(w.state, "cy", "barrel")).toBe(true);

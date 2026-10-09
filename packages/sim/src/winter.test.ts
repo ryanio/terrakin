@@ -237,7 +237,11 @@ describe("winter's buying", () => {
         ok(state, "ada", { type: "craft", recipe: "cranberry_jam", x: 4, y: 2 });
         ok(state, "ada", { type: "craft", recipe: "cranberry_punch", x: 4, y: 2 });
         for (const kind of SEASON_BUYS.winter) {
-          refused(state, "ada", { type: "sell_to_town", item: kind }, "not_buying");
+          const message = refused(state, "ada", { type: "sell_to_town", item: kind }, "not_buying");
+          // Not "it changes at midnight": the town won't take them again until December.
+          expect(message).toContain("only in winter");
+          expect(message).toContain("winter starts on December 1");
+          expect(message).not.toContain("midnight");
         }
       }
     }
@@ -291,6 +295,15 @@ describe("Midwinter", () => {
     stock(state, "ada", { herb: 1, sugar: 1 });
     ok(state, "ada", { type: "craft", recipe: "candy_cane", x: 4, y: 2 });
     expect(state.items?.inventories.ada?.stacks.candy_cane).toBe(5);
+    // The town buys no sweets, so the refusal says where they go instead of "try tomorrow".
+    const unsold = refused(
+      state,
+      "ada",
+      { type: "sell_to_town", item: "candy_cane" },
+      "not_buying",
+    );
+    expect(unsold).toContain("never buys candy canes");
+    expect(unsold).not.toContain("midnight");
     refused(
       state,
       "ada",

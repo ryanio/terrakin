@@ -2987,6 +2987,12 @@ dialog.model-viewer {
   font-variant-numeric: tabular-nums;
 }
 
+/* Room for a two-digit balance, so the pill keeps its width while it loads. */
+.site-purse .purse-amount {
+  min-width: 2ch;
+  text-align: center;
+}
+
 .site-purse[aria-current="page"] {
   background: var(--coin-light);
 }

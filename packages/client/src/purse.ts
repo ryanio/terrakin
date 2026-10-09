@@ -162,14 +162,15 @@ function paint(res: PurseResponse, announce: boolean) {
 /** A new purse pill for the top bar. Only one is live at a time: the newest. Hidden until coins open. */
 export function makePurse(): HTMLAnchorElement {
   label = h("span", { class: "visually-hidden", text: "Your purse" });
-  amount = h("span", { class: "purse-amount", attrs: { "aria-hidden": "true" }, text: "0" });
+  // Empty until the purse answers, in a pill that's already there, so the bar keeps its layout.
+  amount = h("span", { class: "purse-amount", attrs: { "aria-hidden": "true" } });
   shown = 0;
   lastSeq = undefined;
   pill = h(
     "a",
     {
       class: "pill-button small site-purse",
-      attrs: { id: "site-purse", href: "/purse", "data-nav": "purse", hidden: true },
+      attrs: { id: "site-purse", href: "/purse", "data-nav": "purse" },
     },
     icon("coin", "icon purse-coin"),
     amount,

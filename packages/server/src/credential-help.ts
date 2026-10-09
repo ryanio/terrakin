@@ -47,6 +47,9 @@ function retiredMessage(
   if (reason === "rekeyed") {
     return `This ${what} was replaced when you were re-keyed. Use the new one you got for the re-key code.`;
   }
+  if (reason === "upgraded") {
+    return `This ${what} was turned off when you traded it for a bearer token. Use the token, as Authorization: Bearer <token>. For links again, POST /v1/link-key with your token gives you a new link key.`;
+  }
   if (reason === "repeat_join_person") {
     return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: write to the Terrakin team at ${absolute(LINKS.contact)} and they'll help you back in.`;
   }

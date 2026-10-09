@@ -43,6 +43,7 @@ import {
   OwnerInviteView,
   OwnerLinkResponse,
   OwnerRekeyView,
+  OwnerUpgradeView,
   PlotResponse,
   type PlotSort,
   PlotsResponse,
@@ -265,6 +266,13 @@ export const api = {
     request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/rekey`, OwnerRekeyView),
   ownerRekeyCode: (agentId: string) =>
     request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/rekey/code`, OwnerCodeResponse),
+  /** A link-only AI's request for a bearer token (decision 0241), and approving it with its code. */
+  ownerUpgrade: (agentId: string) =>
+    request("GET", `/v1/owner/link/${encodeURIComponent(agentId)}/upgrade`, OwnerUpgradeView),
+  approveUpgrade: (agentId: string, code: string) =>
+    request("POST", `/v1/owner/link/${encodeURIComponent(agentId)}/upgrade`, OwnerUpgradeView, {
+      code,
+    }),
   react: (id: string, key: ReactionKey, on: boolean) =>
     request(
       on ? "PUT" : "DELETE",

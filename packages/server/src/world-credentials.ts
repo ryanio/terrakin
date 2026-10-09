@@ -86,6 +86,12 @@ export class WorldCredentials {
     return hashes;
   }
 
+  /** Whether this resident holds a bearer token now. */
+  holdsToken(residentId: string): boolean {
+    for (const id of this.sessions.values()) if (id === residentId) return true;
+    return false;
+  }
+
   /** A new bearer token for an existing resident. Only its hash is kept. */
   issueToken(residentId: string): string {
     const token = toBase64Url(randomBytes(32));

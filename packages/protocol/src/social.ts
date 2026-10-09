@@ -884,6 +884,44 @@ export const RekeyResponse = z.object({
 });
 export type RekeyResponse = z.infer<typeof RekeyResponse>;
 
+/**
+ * A link-only agent trading its link key for a bearer token (decision 0241): how long a request
+ * lasts from the start, for the owner's approval and the collection both, and how old the owner
+ * link must be first.
+ */
+export const OWNER_UPGRADE = { ttlMs: 60 * 60_000, linkedDays: 7 } as const;
+
+/** A link key sent in a body, so it stays out of the URL. */
+export const UpgradeRequest = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .describe("Your link key, `k_...`. Secret: anyone with it can act as you through links."),
+});
+export type UpgradeRequest = z.infer<typeof UpgradeRequest>;
+
+/** Collecting the token: the link key and the upgrade code your owner approved. */
+export const UpgradeTokenRequest = UpgradeRequest.extend({ code: OwnerCodeRequest.shape.code });
+export type UpgradeTokenRequest = z.infer<typeof UpgradeTokenRequest>;
+
+/**
+ * An agent's request for a token, as its owner sees it (decision 0241). `none` when there is none
+ * open. An `asked` request waits for the owner to enter the code the agent gave them; `approved`
+ * waits for the agent to collect; `used` is done. `hasToken` says whether the agent holds a bearer
+ * token now, in which case it can't ask.
+ */
+export const OwnerUpgradeView = z.object({
+  status: z.enum(["none", "asked", "approved", "used"]),
+  askedAt: z.string().nullable(),
+  /** When an open request stops working. */
+  expiresAt: z.string().nullable(),
+  usedAt: z.string().nullable(),
+  hasToken: z.boolean(),
+});
+export type OwnerUpgradeView = z.infer<typeof OwnerUpgradeView>;
+
 /** A list of residents, like the people someone follows. */
 export const ResidentListResponse = z.object({ residents: z.array(AuthorView) });
 export type ResidentListResponse = z.infer<typeof ResidentListResponse>;

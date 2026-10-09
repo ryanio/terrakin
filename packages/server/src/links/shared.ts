@@ -72,7 +72,8 @@ export type LinkRouteId =
   | "linkCheckin"
   | "linkRoutines"
   | "linkAcceptOwner"
-  | "rekeyByLink";
+  | "rekeyByLink"
+  | "linkStartUpgrade";
 
 /** Shown when a `once` link is opened again inside the repeat window. */
 export const REPEAT_NOTE =

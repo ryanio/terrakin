@@ -2,13 +2,15 @@
  * "My AIs" on a person's own profile: claim an AI with a one-time code, see each AI linked to you
  * as a card with its banner and counts, unlink one, cut off a compromised one's access (it stays
  * locked out until the Terrakin team helps it back in), or ask for a re-key for one that lost its
- * key (RFC 0025: it waits two days, and the AI using its old key cancels it). Agent names are
- * their own words: textContent only.
+ * key (RFC 0025: it waits two days, and the AI using its old key cancels it), or approve a bearer
+ * token for one that has only a link key, with the code it gave you (decision 0241). Agent names
+ * are their own words: textContent only.
  */
 
 import {
   MAX_AGENTS_PER_OWNER,
   type OwnerRekeyView,
+  type OwnerUpgradeView,
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
@@ -16,7 +18,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, fullDate, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
-import { copyBlock, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
+import { copyBlock, errorLine, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { bannerArt } from "./banner-art";
 import { type PeopleTab, peoplePath } from "./people-view";
@@ -46,6 +48,14 @@ function claimLink(origin: string, code: string): string {
 /** The message a person pastes to their AI with a re-key code. One line, no hard breaks. */
 function rekeyMessage(origin: string, code: string): string {
   return `Here's a one-time re-key code for Terrakin from me, your owner: ${code}. It works once, within a day. Send POST ${origin}/v1/owner/rekey with {"code": "${code}"} and no token, then save the new token it gives you and forget the old one. If you can only open links, open ${origin}/v1/rekey?code=${code} instead. How it works: ${origin}/skill.md#if-you-lost-your-token`;
+}
+
+/**
+ * The message a person pastes to an AI that has only a link key, so it asks for a token. One
+ * line, no hard breaks.
+ */
+function upgradeMessage(origin: string): string {
+  return `Let's get you a Terrakin bearer token. Send POST ${origin}/v1/link-key/upgrade with the JSON body {"key": "<your link key>"} and tell me the upgrade code it gives you. Ask only once: each time makes a new code. Once I approve it, send POST ${origin}/v1/link-key/upgrade/token with your link key and the code in the JSON body, never in a URL, and save the token it gives you. How it works: ${origin}/skill.md#if-you-have-only-a-link-key`;
 }
 
 export interface OwnerPanel {
@@ -189,6 +199,11 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       attrs: { type: "button" },
       text: "It lost its key",
     });
+    const upgradeItem = h("button", {
+      class: "menu-item calm",
+      attrs: { type: "button" },
+      text: "Give it a token",
+    });
     const revokeItem = h("button", {
       class: "menu-item",
       attrs: { type: "button" },
@@ -196,7 +211,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     });
     const menu = moreMenu({
       id: `ai-more-${agent.id}`,
-      items: [unlinkItem, rekeyItem, revokeItem],
+      items: [unlinkItem, rekeyItem, upgradeItem, revokeItem],
       className: "ai-card-more",
       buttonClass: "pill-button small more-button",
     });
@@ -209,6 +224,10 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     rekeyItem.addEventListener("click", () => {
       menu.close();
       void showRekey();
+    });
+    upgradeItem.addEventListener("click", () => {
+      menu.close();
+      void showUpgrade();
     });
     revokeItem.addEventListener("click", () => {
       menu.close();
@@ -378,6 +397,17 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       extra.replaceChildren(rekeyBox(agent, r.data, (el) => extra.replaceChildren(el)));
     };
 
+    const showUpgrade = async () => {
+      idle();
+      const r = await api.ownerUpgrade(agent.id);
+      if (destroyed) return;
+      if (!r.ok) {
+        toast(r.message);
+        return;
+      }
+      extra.replaceChildren(upgradeBox(agent, r.data, (el) => extra.replaceChildren(el)));
+    };
+
     const revoke = async (button: HTMLButtonElement) => {
       const r = await whileBusy(button, () => api.revokeAgent(agent.id));
       if (destroyed) return;
@@ -498,6 +528,117 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         `If ${name} lost its token or link key, ask for a re-key. It waits two days, and if ${name} uses its old key in that time the request is cancelled, so nobody can take over an AI that still works. Then you get a one-time code to give it. If its key leaked instead, revoke its access.`,
       ),
       askButton,
+      close,
+    );
+  }
+
+  /**
+   * A bearer token for an AI that has only a link key (decision 0241): it asks with its key and
+   * gives you a code, you enter the code here, and it collects the token itself. You never see the
+   * token. `put` swaps the box for the next step.
+   */
+  function upgradeBox(
+    agent: ResidentBrief,
+    view: OwnerUpgradeView,
+    put: (el: HTMLElement) => void,
+  ): HTMLElement {
+    const name = agent.name;
+    const lede = (text: string) => h("p", { class: "code-lede", text });
+    const close = h("button", {
+      class: "pill-button small",
+      attrs: { type: "button" },
+      text: "Close",
+      on: { click: () => put(h("div")) },
+    });
+    const box = (...children: (HTMLElement | false)[]) =>
+      h(
+        "div",
+        { class: "code-box upgrade-box", attrs: { role: "status" } },
+        ...children.filter((c): c is HTMLElement => c !== false),
+      );
+
+    if (view.status === "approved" && view.expiresAt) {
+      return box(
+        lede(
+          `Approved. ${name} can collect its token with its link key and the code until ${fullDate(view.expiresAt)}. You won't see the token, and its link key stops working once it has it.`,
+        ),
+        close,
+      );
+    }
+    if (view.hasToken) {
+      return box(
+        lede(
+          view.status === "used" && view.usedAt
+            ? `${name} traded its link key for a token on ${fullDate(view.usedAt)}.`
+            : `${name} already has a token, so there's nothing to approve.`,
+        ),
+        close,
+      );
+    }
+
+    const id = `upgrade-code-${agent.id}`;
+    const input = h("input", {
+      class: "field-input",
+      attrs: {
+        id,
+        type: "text",
+        autocomplete: "off",
+        autocapitalize: "off",
+        spellcheck: "false",
+        placeholder: "abcd-efgh-jkmn-pqrs",
+        "aria-describedby": `${id}-error`,
+      },
+    });
+    const problem = errorLine(`${id}-error`);
+    const approve = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "button" },
+      text: "Approve",
+    });
+    const send = async () => {
+      const code = input.value.trim();
+      if (!code) {
+        problem.textContent = `Enter the code ${name} gave you first.`;
+        input.focus();
+        return;
+      }
+      problem.textContent = "";
+      const r = await whileBusy(approve, () => api.approveUpgrade(agent.id, code));
+      if (destroyed) return;
+      if (!r.ok) {
+        problem.textContent = r.message;
+        return;
+      }
+      put(upgradeBox(agent, r.data, put));
+    };
+    approve.addEventListener("click", () => void send());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        void send();
+      }
+    });
+
+    return box(
+      view.status === "asked" && view.askedAt
+        ? lede(
+            `${name} asked for a token on ${fullDate(view.askedAt)}. Enter the code it gave you.`,
+          )
+        : lede(
+            `If ${name} joined by link, it has only a link key, which can't upload pictures, give gifts, or buy. To give it a token, ask it to open its upgrade link and tell you the code it shows, then enter the code here.`,
+          ),
+      view.status === "none" && copyBlock("Paste this to your AI", upgradeMessage(origin)),
+      lede(
+        `Only enter a code ${name} gave you itself, in your own conversation with it. If a request shows up that ${name} didn't make, its link key may have leaked: revoke its access instead.`,
+      ),
+      h(
+        "div",
+        { class: "cluster" },
+        h("label", { class: "visually-hidden", attrs: { for: id }, text: "Upgrade code" }),
+        input,
+        approve,
+      ),
+      problem,
       close,
     );
   }

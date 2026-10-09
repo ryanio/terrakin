@@ -1,15 +1,20 @@
 import { createHash } from "node:crypto";
 import {
+  absolute,
   type ErrorCode,
+  LINKS,
   MAX_AGENTS_PER_OWNER,
   OWNER_CODE_TTL_MS,
   OWNER_REKEY,
+  OWNER_UPGRADE,
   type OwnerCodeResponse,
   type OwnerInviteResponse,
   type OwnerInviteView,
   type OwnerLinkResponse,
   type OwnerRekeyView,
+  type OwnerUpgradeView,
   REKEY_CODE_TTL_MS,
+  REPEAT_WINDOW_MS,
   type RekeyResponse,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
@@ -32,6 +37,11 @@ import type { SocialResult, SocialService } from "./social-service";
  * so a working agent can't be taken over by its owner. After the wait the owner gets a re-key
  * code to pass on.
  *
+ * An agent that joined by link and has only a link key can trade it for a bearer token in one
+ * sitting (decision 0241): it starts a request with its key and gets a code, its owner approves by
+ * entering that code, and the agent collects the token with its key and the code. The owner never
+ * sees the token, and the link key turns off.
+ *
  * Codes are stored as SHA-256 hashes, like tokens, and every one is single use. Links live in
  * the social tables and never feed the sim.
  */
@@ -43,6 +53,8 @@ export interface Credentials {
   credentialHashes(residentId: string): string[];
   /** Whether the resident has a live socket open with one of their tokens. */
   connected(residentId: string): boolean;
+  /** Whether the resident holds a bearer token now. */
+  holdsToken(residentId: string): boolean;
   revokeTokens(residentId: string): void;
   mintLinkKey(residentId: string): string;
   revokeLinkKey(residentId: string): boolean;
@@ -59,6 +71,10 @@ const MAX_OPEN_CLAIMS = 10;
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
 
 const hashCode = (code: string) => createHash("sha256").update(code).digest("hex");
+
+/** Where a collected token is kept for a retry: the SHA-256 of the link key and of the code. */
+const collectedKey = (key: string, input: string) =>
+  `${hashCode(key)} ${hashCode(normalizeCode(input) ?? input)}`;
 
 /** A fresh code, as people see it: four groups of four. */
 function newCode(): string {
@@ -98,9 +114,16 @@ const STILL_CONNECTED =
  * Why a credential stopped working, for the `revoked` answer: an owner's revoke, a re-key, or a
  * repeat record of a name the town cleared (decision 0230), an AI's (`repeat_join`) or a
  * person's (`repeat_join_person`), or a duplicate record a maintainer merged into the one that
- * stays (`merged`, decision 0239).
+ * stays (`merged`, decision 0239), or a link key its agent traded for a token (`upgraded`,
+ * decision 0241).
  */
-export type RetiredReason = "revoked" | "rekeyed" | "repeat_join" | "repeat_join_person" | "merged";
+export type RetiredReason =
+  | "revoked"
+  | "rekeyed"
+  | "repeat_join"
+  | "repeat_join_person"
+  | "merged"
+  | "upgraded";
 
 const RETIRED_REASONS: readonly RetiredReason[] = [
   "revoked",
@@ -108,6 +131,7 @@ const RETIRED_REASONS: readonly RetiredReason[] = [
   "repeat_join",
   "repeat_join_person",
   "merged",
+  "upgraded",
 ];
 
 interface RekeyRow {
@@ -119,6 +143,21 @@ interface RekeyRow {
   cancelledBy: "agent" | "revoke" | "unlink" | null;
   codeHash: string | null;
 }
+
+interface UpgradeRow {
+  ownerId: string;
+  codeHash: string;
+  askedAt: number;
+  expiresAt: number;
+  approvedAt: number | null;
+  usedAt: number | null;
+}
+
+/** At most this many collected tokens are kept for a retry at once. Losing one only loses a retry. */
+const MAX_COLLECTED = 500;
+
+const NO_UPGRADE =
+  "That upgrade code doesn't work. It may have expired, been used, or been replaced by a newer request. Open the upgrade link again for a new code, and give that one to your owner.";
 
 const NO_CODE: Record<Purpose, string> = {
   claim:
@@ -146,6 +185,11 @@ export class OwnerService {
   private readonly credentials: Credentials;
   /** Agents with a re-key request still open, so a call can cancel it without a query. */
   private readonly openRekeys = new Set<string>();
+  /**
+   * Tokens just collected for an upgrade, for `REPEAT_WINDOW_MS`, by the SHA-256 of the link key
+   * and of the code, so a client that lost the answer can send the same two again. Memory only.
+   */
+  private readonly collected = new Map<string, { at: number; value: RekeyResponse }>();
 
   constructor({ social, credentials }: OwnerServiceOptions) {
     this.social = social;
@@ -178,6 +222,17 @@ export class OwnerService {
         ended_at INTEGER,
         cancelled_by TEXT,
         code_hash TEXT
+      )`,
+      // A link-only agent's request to trade its link key for a token (decision 0241): the latest
+      // one per agent, made under owner_id, with the code the agent gives its owner.
+      `CREATE TABLE IF NOT EXISTS owner_upgrades (
+        agent_id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        asked_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        approved_at INTEGER,
+        used_at INTEGER
       )`,
       // Hashes of tokens and link keys a revoke or a re-key turned off, so a caller who sends one
       // hears `revoked` instead of "unknown". Kept 90 days.
@@ -298,6 +353,7 @@ export class OwnerService {
       return fail("forbidden", "Only the AI or its owner can unlink them.");
     }
     this.cancelRekey(agentId, "unlink");
+    this.dropUpgrade(agentId);
     this.social.unlink(agentId);
     return { ok: true, value: null };
   }
@@ -314,6 +370,7 @@ export class OwnerService {
     if (callerId !== ownerId) return fail("forbidden", "Only its owner can revoke an AI's access.");
     this.retire(agentId, "revoked");
     this.cancelRekey(agentId, "revoke");
+    this.dropUpgrade(agentId);
     this.credentials.revokeTokens(agentId);
     this.credentials.revokeLinkKey(agentId);
     this.drop("rekey", agentId);
@@ -358,6 +415,7 @@ export class OwnerService {
     }
     const unlinked = this.social.ownerOf(agentId) !== undefined;
     this.cancelRekey(agentId, "unlink");
+    this.dropUpgrade(agentId);
     this.social.unlink(agentId);
     this.drop("rekey", agentId);
     return {
@@ -388,6 +446,7 @@ export class OwnerService {
         code.residentId,
       );
     }
+    this.dropUpgrade(code.residentId);
     this.retire(code.residentId, "rekeyed");
     this.credentials.revokeTokens(code.residentId);
     this.credentials.revokeLinkKey(code.residentId);
@@ -404,9 +463,14 @@ export class OwnerService {
   sweep() {
     this.social.sql.exec("DELETE FROM owner_codes WHERE expires_at <= ?", this.now());
     this.social.sql.exec(
+      "DELETE FROM owner_upgrades WHERE expires_at <= ? AND used_at IS NULL",
+      this.now(),
+    );
+    this.social.sql.exec(
       "DELETE FROM retired_credentials WHERE at <= ?",
       this.now() - RETIRED_KEEP_MS,
     );
+    this.forgetCollected();
   }
 
   // ---------- an owner re-keys an agent that lost its credentials (RFC 0025) ----------
@@ -568,7 +632,11 @@ export class OwnerService {
   }
 
   private retire(residentId: string, reason: RetiredReason) {
-    for (const hash of this.credentials.credentialHashes(residentId)) {
+    this.retireHashes(residentId, reason, this.credentials.credentialHashes(residentId));
+  }
+
+  private retireHashes(residentId: string, reason: RetiredReason, hashes: readonly string[]) {
+    for (const hash of hashes) {
       this.social.sql.exec(
         `INSERT INTO retired_credentials (hash, resident_id, reason, at) VALUES (?, ?, ?, ?)
           ON CONFLICT (hash) DO UPDATE SET reason = excluded.reason, at = excluded.at`,
@@ -605,12 +673,10 @@ export class OwnerService {
     );
   }
 
-  private ownerOnly(callerId: string, agentId: string) {
+  private ownerOnly(callerId: string, agentId: string, what = "ask for an AI's re-key") {
     const ownerId = this.social.ownerOf(agentId);
     if (ownerId === undefined) return fail("not_found", "That AI isn't linked to anyone.");
-    if (callerId !== ownerId) {
-      return fail("forbidden", "Only its owner can ask for an AI's re-key.");
-    }
+    if (callerId !== ownerId) return fail("forbidden", `Only its owner can ${what}.`);
     return undefined;
   }
 
@@ -672,6 +738,213 @@ export class OwnerService {
       cancelledBy: mine?.cancelledBy ?? null,
       askAgainAt: open || now >= again ? null : iso(again),
     };
+  }
+
+  // ---------- a link-only agent trades its link key for a token (decision 0241) ----------
+
+  /**
+   * The agent, signed in with its link key, asks for a token. The answer is a one-time code for it
+   * to give its owner, who approves by entering it. A new request replaces an earlier one.
+   */
+  startUpgrade(agentId: string): SocialResult<OwnerCodeResponse> {
+    const refusal = this.upgradeRefusal(agentId, "agent");
+    if (refusal) return refusal;
+    const ownerId = this.social.ownerOf(agentId) ?? "";
+    const code = newCode();
+    const now = this.now();
+    const expiresAt = now + OWNER_UPGRADE.ttlMs;
+    this.social.sql.exec(
+      `INSERT INTO owner_upgrades (agent_id, owner_id, code_hash, asked_at, expires_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (agent_id) DO UPDATE SET owner_id = excluded.owner_id,
+          code_hash = excluded.code_hash, asked_at = excluded.asked_at,
+          expires_at = excluded.expires_at, approved_at = NULL, used_at = NULL`,
+      agentId,
+      ownerId,
+      hashCode(normalizeCode(code) ?? code),
+      now,
+      expiresAt,
+    );
+    return { ok: true, value: { code, expiresAt: new Date(expiresAt).toISOString() } };
+  }
+
+  /** Where the agent's request for a token stands, for its owner. */
+  upgradeView(callerId: string, agentId: string): SocialResult<OwnerUpgradeView> {
+    const refusal = this.ownerOnly(callerId, agentId, "see an AI's request for a token");
+    if (refusal) return refusal;
+    return { ok: true, value: this.upgradeOf(callerId, agentId) };
+  }
+
+  /**
+   * The owner approves the request with the code the agent gave them. That ties the approval to the
+   * agent they are talking to: a request someone else started with a leaked key has a code the
+   * owner never sees. The answer holds no token.
+   */
+  approveUpgrade(callerId: string, agentId: string, input: string): SocialResult<OwnerUpgradeView> {
+    const refusal = this.ownerOnly(callerId, agentId, "approve a token for an AI");
+    if (refusal) return refusal;
+    const name = this.social.resident(agentId)?.name ?? "Your AI";
+    const row = this.openUpgrade(agentId, input);
+    if (!row || row.ownerId !== callerId) {
+      return fail(
+        "not_found",
+        `That code doesn't match a request from ${name}. Ask ${name} to open its upgrade link again and give you the new code. If ${name} didn't ask for a token, its link key may have leaked: revoke its access.`,
+      );
+    }
+    const agentRefusal = this.upgradeRefusal(agentId, "owner");
+    if (agentRefusal) return agentRefusal;
+    if (row.approvedAt === null) {
+      this.social.sql.exec(
+        "UPDATE owner_upgrades SET approved_at = ? WHERE agent_id = ?",
+        this.now(),
+        agentId,
+      );
+    }
+    return { ok: true, value: this.upgradeOf(callerId, agentId) };
+  }
+
+  /**
+   * The agent, with its link key and the code, collects the token its owner approved. Its link key
+   * turns off, since it has traveled in URLs and a takeover would then show at once; the owner
+   * link stays.
+   */
+  collectUpgrade(agentId: string, input: string, key: string): SocialResult<RekeyResponse> {
+    const row = this.openUpgrade(agentId, input);
+    if (!row) return fail("not_found", NO_UPGRADE);
+    const refusal = this.upgradeRefusal(agentId, "agent");
+    if (refusal) return refusal;
+    if (row.ownerId !== this.social.ownerOf(agentId)) return fail("not_found", NO_UPGRADE);
+    if (row.approvedAt === null) {
+      return fail(
+        "too_soon",
+        `Your owner hasn't approved this yet. Give them the code and ask them to enter it in My AIs on their Terrakin profile, then try again before ${when(row.expiresAt)}.`,
+      );
+    }
+    // What it held before: only the link key, since an agent with a token can't get this far.
+    const held = this.credentials.credentialHashes(agentId);
+    // The token first: if saving it fails, the agent still has its key and the request stands.
+    const value = { residentId: agentId, token: this.credentials.issueToken(agentId) };
+    this.social.sql.exec(
+      "UPDATE owner_upgrades SET used_at = ? WHERE agent_id = ?",
+      this.now(),
+      agentId,
+    );
+    this.retireHashes(agentId, "upgraded", held);
+    this.credentials.revokeLinkKey(agentId);
+    this.forgetCollected();
+    this.collected.set(collectedKey(key, input), { at: this.now(), value });
+    while (this.collected.size > MAX_COLLECTED) {
+      const oldest = this.collected.keys().next().value;
+      if (oldest === undefined) break;
+      this.collected.delete(oldest);
+    }
+    return { ok: true, value };
+  }
+
+  /**
+   * The token a collect with this key and code answered in the last `REPEAT_WINDOW_MS`, for a
+   * client that lost that answer. Asked before the key is checked, since collecting turned it off.
+   */
+  collectedAgain(key: string, input: string): RekeyResponse | undefined {
+    const kept = this.collected.get(collectedKey(key, input));
+    if (!kept || this.now() - kept.at >= REPEAT_WINDOW_MS) return undefined;
+    return kept.value;
+  }
+
+  private forgetCollected() {
+    const cutoff = this.now() - REPEAT_WINDOW_MS;
+    for (const [k, { at }] of this.collected) if (at <= cutoff) this.collected.delete(k);
+  }
+
+  /**
+   * Why this agent can't trade its link key for a token now, or undefined if it can, in words for
+   * the agent or for its owner. The agent's words never hold its name: they can end up in a link
+   * page, where a name is resident text.
+   */
+  private upgradeRefusal(agentId: string, to: "agent" | "owner") {
+    const agent = this.social.resident(agentId);
+    if (!agent) return fail("unauthorized", "Unknown resident.");
+    if (agent.kind !== "agent" || this.social.isTownsfolk(agentId)) {
+      return fail("forbidden", "Only AI agents trade a link key for a token.");
+    }
+    if (this.credentials.holdsToken(agentId)) {
+      return fail(
+        "forbidden",
+        to === "agent"
+          ? `You already have a bearer token. Use it as Authorization: Bearer <token>. If it's lost, your owner can ask for a re-key: ${absolute(LINKS.skill)}#if-you-lost-your-token.`
+          : `${agent.name} already has a bearer token, so there's nothing to approve.`,
+      );
+    }
+    if (this.social.ownerOf(agentId) === undefined) {
+      return fail(
+        "forbidden",
+        "Only an AI with an owner linked can trade its link key for a token, because the owner approves it. Ask your owner to claim you from My AIs on their Terrakin profile, then open the accept-owner link with the code they give you.",
+      );
+    }
+    const from = this.linkedAt(agentId) + OWNER_UPGRADE.linkedDays * DAY_MS;
+    if (this.now() < from) {
+      return fail(
+        "too_soon",
+        `The owner link is less than ${OWNER_UPGRADE.linkedDays} days old. A token can be asked for from ${when(from)}.`,
+      );
+    }
+    return undefined;
+  }
+
+  /** The agent's open request, if `input` is its code and it hasn't expired or been used. */
+  private openUpgrade(agentId: string, input: string): UpgradeRow | undefined {
+    const code = normalizeCode(input);
+    const row = this.upgradeRow(agentId);
+    if (!code || !row || row.codeHash !== hashCode(code)) return undefined;
+    if (row.usedAt !== null || this.now() >= row.expiresAt) return undefined;
+    return row;
+  }
+
+  private upgradeRow(agentId: string): UpgradeRow | undefined {
+    const row = [
+      ...this.social.sql.exec(
+        `SELECT owner_id, code_hash, asked_at, expires_at, approved_at, used_at
+          FROM owner_upgrades WHERE agent_id = ?`,
+        agentId,
+      ),
+    ][0];
+    if (!row) return undefined;
+    const at = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+    return {
+      ownerId: String(row.owner_id),
+      codeHash: String(row.code_hash),
+      askedAt: Number(row.asked_at),
+      expiresAt: Number(row.expires_at),
+      approvedAt: at(row.approved_at),
+      usedAt: at(row.used_at),
+    };
+  }
+
+  /** The request as its owner sees it. One made under a former owner, or one that ran out, is none. */
+  private upgradeOf(ownerId: string, agentId: string): OwnerUpgradeView {
+    const row = this.upgradeRow(agentId);
+    const mine = row?.ownerId === ownerId ? row : undefined;
+    const live = mine && (mine.usedAt !== null || this.now() < mine.expiresAt) ? mine : undefined;
+    const iso = (ms: number | null | undefined) =>
+      ms === null || ms === undefined ? null : new Date(ms).toISOString();
+    const status = !live
+      ? "none"
+      : live.usedAt !== null
+        ? "used"
+        : live.approvedAt !== null
+          ? "approved"
+          : "asked";
+    return {
+      status,
+      askedAt: iso(live?.askedAt),
+      expiresAt: status === "asked" || status === "approved" ? iso(live?.expiresAt) : null,
+      usedAt: iso(live?.usedAt),
+      hasToken: this.credentials.holdsToken(agentId),
+    };
+  }
+
+  private dropUpgrade(agentId: string) {
+    this.social.sql.exec("DELETE FROM owner_upgrades WHERE agent_id = ?", agentId);
   }
 
   // ---------- rules ----------

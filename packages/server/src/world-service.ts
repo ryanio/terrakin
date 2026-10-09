@@ -1318,6 +1318,11 @@ export class WorldService {
     return this.credentials.credentialHashes(residentId);
   }
 
+  /** Whether this resident holds a bearer token now. */
+  holdsToken(residentId: string): boolean {
+    return this.credentials.holdsToken(residentId);
+  }
+
   /**
    * Who a bearer token or link key belongs to, without counting it as a call: for working out why
    * a credential sent the wrong way didn't work.

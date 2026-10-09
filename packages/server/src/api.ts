@@ -53,6 +53,7 @@ import { bountyView } from "./bounties";
 import type { ChatterRun, ChatterService, MentionRun } from "./chatter";
 import {
   bearerToken,
+  type CredentialFailure,
   type CredentialLookups,
   linkKeyFailure,
   tokenFailure,
@@ -1409,6 +1410,16 @@ export class Api {
     const actor = staffOwner(keyed);
     if (!actor.startsWith("access:")) return actor;
     return this.staffOptions.staffResidents?.get(actor.slice("access:".length));
+  }
+
+  /**
+   * The resident a link key sent in a body belongs to, for the routes that keep the key out of the
+   * URL (decision 0241). A key that doesn't work says why, as it would in a link.
+   */
+  linkKeyHolder(key: string): { ok: true; id: string } | ({ ok: false } & CredentialFailure) {
+    const id = this.service.authenticateLinkKey(key);
+    if (id !== undefined) return { ok: true, id };
+    return { ok: false, ...linkKeyFailure(key, this.credentialLookups, BAD_LINK_KEY) };
   }
 
   authenticate(authorization: string | undefined): string | undefined {

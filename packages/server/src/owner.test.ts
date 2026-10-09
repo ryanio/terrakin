@@ -5,7 +5,9 @@ import {
   MAX_AGENTS_PER_OWNER,
   OWNER_CODE_TTL_MS,
   OWNER_REKEY,
+  OWNER_UPGRADE,
   REKEY_CODE_TTL_MS,
+  REPEAT_WINDOW_MS,
   type ServerMessage,
 } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
@@ -66,6 +68,7 @@ async function start() {
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
     onResponse,
+    now: () => now,
   });
   const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
@@ -913,6 +916,304 @@ describe("agents that can only open links", () => {
   });
 });
 
+describe("a link-only agent upgrades to a token (decision 0241)", () => {
+  const DAY = 86_400_000;
+  const keyIn = (text: string) => /Link key \(secret\): `(k_[^`]+)`/.exec(text)?.[1] ?? "";
+  const codeIn = (text: string) => /Upgrade code: `([^`]+)`/.exec(text)?.[1] ?? "";
+
+  /** Hazel owns Moss, who joined by link and has only a link key. */
+  async function linkOnly() {
+    const t = await start();
+    const open = async (path: string) => {
+      const res = await fetch(t.base + path);
+      return { status: res.status, text: await res.text() };
+    };
+    const byLink = async (name: string) => {
+      const joined = await open(confirmLinkIn((await open(`/v1/join?name=${name}`)).text));
+      const id = /Resident id: `(r_[0-9a-f]+)`/.exec(joined.text)?.[1] ?? "";
+      return { id, key: keyIn(joined.text) };
+    };
+    const hazel = await t.join("Hazel", "human");
+    const mira = await t.join("Mira", "human");
+    const moss = await byLink("Moss");
+    const claim = async (owner: Who) => {
+      const { body } = await t.call("POST", "/v1/owner/claims", undefined, owner.token);
+      return open(`/v1/act/${moss.key}/accept-owner?code=${body.code}`);
+    };
+    expect((await claim(hazel)).status).toBe(200);
+    const path = `/v1/owner/link/${moss.id}/upgrade`;
+    const view = (who: Who = hazel) => t.call("GET", path, undefined, who.token);
+    const approve = (code: string, who: Who = hazel) => t.call("POST", path, { code }, who.token);
+    const ask = async (key = moss.key) => codeIn((await open(`/v1/act/${key}/upgrade`)).text);
+    const collect = (code: string, key = moss.key) =>
+      t.call("POST", "/v1/link-key/upgrade/token", { key, code });
+    /**
+     * Link Moss to `owner` behind the owner routes' back, a week old: the link changing some way
+     * other than unlinking, which drops the request.
+     */
+    const relink = (owner: Who) => {
+      t.social.unlink(moss.id);
+      t.social.link(moss.id, owner.residentId);
+      t.sql.exec(
+        "UPDATE owner_links SET created_at = created_at - ? WHERE agent_id = ?",
+        OWNER_UPGRADE.linkedDays * DAY,
+        moss.id,
+      );
+    };
+    return { ...t, open, byLink, hazel, mira, moss, claim, view, approve, ask, collect, relink };
+  }
+
+  it("trades the link key for a token once its owner enters the code, and the link stays", async () => {
+    const { call, open, advance, profile, hazel, moss, view, approve, collect } = await linkOnly();
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+    expect((await view()).body).toMatchObject({ status: "none", hasToken: false });
+
+    const started = await open(`/v1/act/${moss.key}/upgrade`);
+    expect(started.status).toBe(200);
+    const code = codeIn(started.text);
+    expect(code).toMatch(/^[a-z2-9]{4}(-[a-z2-9]{4}){3}$/);
+    expect(started.text).toContain("POST http");
+    expect(started.text).toContain("/v1/link-key/upgrade/token");
+    const asked = (await view()).body;
+    expect(asked.status).toBe("asked");
+    expect(Date.parse(asked.expiresAt) - Date.parse(asked.askedAt)).toBe(OWNER_UPGRADE.ttlMs);
+
+    // There is no link that collects: a URL with the code would be unfurled, logged, and cached.
+    expect((await open(`/v1/act/${moss.key}/token?code=${code}`)).status).toBe(404);
+
+    // The link key and the code, before the owner said yes, get nothing.
+    const early = await collect(code);
+    expect(early.status).toBe(409);
+    expect(early.body.error.code).toBe("too_soon");
+
+    // The owner's yes holds no token.
+    const approved = await approve(code);
+    expect(approved.status).toBe(200);
+    expect(approved.body).toEqual({ ...asked, status: "approved" });
+
+    const got = await collect(code);
+    expect(got.status).toBe(200);
+    expect(got.body.residentId).toBe(moss.id);
+    expect((await call("GET", "/v1/me", undefined, got.body.token)).body.resident.id).toBe(moss.id);
+    const menu = await open(`/v1/act/${moss.key}/me`);
+    expect(menu.status).toBe(401);
+    expect(menu.text).toContain("Error code: `revoked`");
+    expect(menu.text).toContain("traded it for a bearer token");
+
+    expect((await profile(moss.id)).owner.id).toBe(hazel.residentId);
+    expect((await view()).body).toMatchObject({ status: "used", hasToken: true });
+
+    // Already upgraded: a fresh link key made with the token can't ask again, and the page
+    // doesn't put the agent's own name in unquoted.
+    const fresh = (await call("POST", "/v1/link-key", undefined, got.body.token)).body
+      .key as string;
+    expect((await open(`/v1/act/${fresh}/me`)).status).toBe(200);
+    const twice = await open(`/v1/act/${fresh}/upgrade`);
+    expect(twice.status).toBe(403);
+    expect(twice.text).toContain("You already have a bearer token");
+    expect(twice.text).not.toContain("Moss");
+  });
+
+  it("answers a retry of the same key and code with the same token for a moment, and nothing else", async () => {
+    const { call, advance, moss, approve, ask, collect } = await linkOnly();
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+    // Started by POST, with the key kept out of any URL.
+    const started = await call("POST", "/v1/link-key/upgrade", { key: moss.key });
+    expect(started.status).toBe(201);
+    const code = started.body.code as string;
+    expect((await approve(code)).status).toBe(200);
+    const got = await collect(code);
+    expect(got.status).toBe(200);
+
+    // The answer was lost: the same key and code get the same token, though the key is off.
+    const again = await collect(code.toUpperCase());
+    expect(again.status).toBe(200);
+    expect(again.body.token).toBe(got.body.token);
+    // A wrong code with the key gets nothing.
+    const wrong = await collect("abcd-efgh-jkmn-pqrs");
+    expect(wrong.status).toBe(401);
+    expect(JSON.stringify(wrong.body)).not.toContain(got.body.token);
+    expect(await ask()).toBe("");
+
+    advance(REPEAT_WINDOW_MS);
+    const late = await collect(code);
+    expect(late.status).toBe(401);
+    expect(late.body.error.code).toBe("revoked");
+  });
+
+  it("gives nothing to a stranger with only the link key, or to the owner alone", async () => {
+    const { call, advance, hazel, approve, ask, collect } = await linkOnly();
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+    const code = await ask();
+    expect((await approve(code)).status).toBe(200);
+
+    // A stranger who copied the key from a link, but never saw the code.
+    expect((await collect("abcd-efgh-jkmn-pqrs")).status).toBe(404);
+
+    // The owner has the code but not the agent's key: their own token or link key gets nothing.
+    const asToken = await collect(code, hazel.token);
+    expect(asToken.status).toBe(401);
+    expect(asToken.body.error.message).toContain("That's your API token, not a link key");
+    const ownKey = (await call("POST", "/v1/link-key", undefined, hazel.token)).body.key as string;
+    expect((await collect(code, ownKey)).status).toBe(404);
+
+    // None of that used it up: the agent still collects.
+    expect((await collect(code)).status).toBe(200);
+  });
+
+  it("makes a new code on every start, which turns off the last one and its approval", async () => {
+    const { advance, view, approve, ask, collect } = await linkOnly();
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+
+    // Anyone who opens the start link with a leaked key gets a new code, never the agent's.
+    const first = await ask();
+    const second = await ask();
+    expect(second).not.toBe(first);
+    expect((await approve(first)).status).toBe(404);
+    expect((await collect(first)).status).toBe(404);
+
+    // A new start after the owner's yes leaves nothing approved.
+    expect((await approve(second)).status).toBe(200);
+    const third = await ask();
+    expect((await view()).body.status).toBe("asked");
+    expect((await collect(third)).status).toBe(409);
+    expect((await collect(second)).status).toBe(404);
+  });
+
+  it("is for its owner only, and a request ends when it runs out or the link ends", async () => {
+    const { call, open, advance, hazel, mira, moss, view, approve, ask, collect, claim } =
+      await linkOnly();
+    const young = await open(`/v1/act/${moss.key}/upgrade`);
+    expect(young.status).toBe(409);
+    expect(young.text).toContain("Error code: `too_soon`");
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+
+    const first = await ask();
+    expect((await view(mira)).status).toBe(403);
+    expect((await approve(first, mira)).status).toBe(403);
+    expect((await approve(first)).status).toBe(200);
+
+    advance(OWNER_UPGRADE.ttlMs);
+    expect((await collect(first)).status).toBe(404);
+    expect((await approve(first)).status).toBe(404);
+    expect((await view()).body.status).toBe("none");
+
+    // Unlinking drops it, and a new owner starts over with a new link.
+    const second = await ask();
+    const unlinked = await call("DELETE", `/v1/owner/link/${moss.id}`, undefined, hazel.token);
+    expect(unlinked.status).toBe(204);
+    expect((await claim(mira)).status).toBe(200);
+    expect((await approve(second, mira)).status).toBe(404);
+    expect((await collect(second)).status).toBe(404);
+    expect((await open(`/v1/act/${moss.key}/upgrade`)).status).toBe(409);
+
+    // A revoke drops it too, and the key it turned off can't collect.
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+    const third = await ask();
+    expect((await approve(third, mira)).status).toBe(200);
+    await call("POST", `/v1/owner/link/${moss.id}/revoke`, undefined, mira.token);
+    expect((await collect(third)).status).toBe(401);
+    expect((await view(mira)).body.status).toBe("none");
+  });
+
+  it("holds to the owner it was asked under and to the agent's state at each step", async () => {
+    const { service, advance, hazel, mira, moss, approve, ask, collect, relink } = await linkOnly();
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+
+    // Asked under Hazel: Mira, now the owner, can't approve it.
+    const first = await ask();
+    relink(mira);
+    expect((await approve(first, mira)).status).toBe(404);
+
+    // Approved by Hazel: once Mira is the owner, it can't be collected.
+    relink(hazel);
+    const second = await ask();
+    expect((await approve(second)).status).toBe(200);
+    relink(mira);
+    expect((await collect(second)).status).toBe(404);
+
+    // The agent got a token after asking: there's nothing left to approve.
+    relink(hazel);
+    const third = await ask();
+    service.issueToken(moss.id);
+    const late = await approve(third);
+    expect(late.status).toBe(403);
+    expect(late.body.error.message).toContain("Moss already has a bearer token");
+  });
+
+  it("is dropped by the team's re-key, and by trading its code", async () => {
+    const { call, open, join, maintainers, moss, approve, ask, collect, relink, hazel } =
+      await linkOnly();
+    const ash = await join("Ash", "human");
+    maintainers.add(ash.residentId);
+    const teamCode = () =>
+      call("POST", `/v1/owner/rekey-codes/${moss.id}`, undefined, ash.token).then((r) => {
+        expect(r.status).toBe(201);
+        return r.body.code as string;
+      });
+    relink(hazel);
+
+    // Making the team's code drops an approved request, so relinking can't bring it back.
+    const first = await ask();
+    expect((await approve(first)).status).toBe(200);
+    const rekey = await teamCode();
+    relink(hazel);
+    expect((await collect(first)).status).toBe(404);
+
+    // Trading the code for a new link key drops a request made since, even approved.
+    const second = await ask();
+    expect((await approve(second)).status).toBe(200);
+    const traded = await open(`/v1/rekey?code=${rekey}&confirm=yes`);
+    expect(traded.status).toBe(200);
+    const fresh = keyIn(traded.text);
+    expect(fresh).toMatch(/^k_/);
+    expect((await collect(second, fresh)).status).toBe(404);
+  });
+
+  it("is only for an agent with an owner, no token, not townsfolk, and not suspended", async () => {
+    const { call, open, byLink, hazel, advance, townsfolk, social, moss, approve, ask, collect } =
+      await linkOnly();
+    const fern = await byLink("Fern");
+    const reed = await byLink("Reed");
+    const wren = await call("POST", "/v1/session", { name: "Wren", kind: "agent" });
+    const issued = await call("POST", "/v1/owner/claims", undefined, hazel.token);
+    await call("POST", "/v1/owner/accept", { code: issued.body.code }, wren.body.token);
+    advance(OWNER_UPGRADE.linkedDays * DAY);
+
+    const unowned = await open(`/v1/act/${fern.key}/upgrade`);
+    expect(unowned.status).toBe(403);
+    expect(unowned.text).toContain("Only an AI with an owner linked");
+
+    const wrenKey = (await call("POST", "/v1/link-key", undefined, wren.body.token)).body.key;
+    const hasToken = await call("POST", "/v1/link-key/upgrade", { key: wrenKey });
+    expect(hasToken.status).toBe(403);
+    expect(hasToken.body.error.message).toContain("You already have a bearer token");
+
+    const hazelKey = (await call("POST", "/v1/link-key", undefined, hazel.token)).body.key;
+    const person = await call("POST", "/v1/link-key/upgrade", { key: hazelKey });
+    expect(person.status).toBe(403);
+    expect(person.body.error.message).toContain("Only AI agents");
+
+    townsfolk.add(reed.id);
+    const townsfolkKey = await call("POST", "/v1/link-key/upgrade", { key: reed.key });
+    expect(townsfolkKey.status).toBe(403);
+    expect(townsfolkKey.body.error.message).toContain("Only AI agents");
+
+    expect((await call("POST", "/v1/link-key/upgrade", { key: "k_nope" })).status).toBe(401);
+
+    // A suspended agent can't start one by POST, or collect one approved before.
+    const code = await ask();
+    expect((await approve(code)).status).toBe(200);
+    expect(social.safety.suspend("staff", moss.id, 1, "test").ok).toBe(true);
+    const started = await call("POST", "/v1/link-key/upgrade", { key: moss.key });
+    expect(started.status).toBe(403);
+    expect(started.body.error.code).toBe("suspended");
+    const collected = await collect(code);
+    expect(collected.status).toBe(403);
+    expect(collected.body.error.code).toBe("suspended");
+  });
+});
+
 describe("rate limits", () => {
   it("limits how fast one resident makes codes", async () => {
     const { call, join } = await start();
@@ -933,10 +1234,12 @@ describe("rate limits", () => {
     }
     expect(statuses.slice(0, 20).every((s) => s === 404)).toBe(true);
     expect(statuses[20]).toBe(429);
-    // Shared with re-key attempts, which a guesser would try next.
+    // Shared with re-key attempts, which a guesser would try next, and with upgrade codes.
     expect((await call("POST", "/v1/owner/rekey", { code: "abcd-efgh-jkmn-pqrs" })).status).toBe(
       429,
     );
+    const upgrade = { key: "k_guess", code: "abcd-efgh-jkmn-pqrs" };
+    expect((await call("POST", "/v1/link-key/upgrade/token", upgrade)).status).toBe(429);
   });
 });
 

@@ -8051,6 +8051,13 @@ html.view3d-open body {
   font-weight: var(--weight-medium);
 }
 
+/* The upgrade code an owner enters, beside its Approve button while there's room. */
+.upgrade-box .field-input {
+  flex: 1 1 12rem;
+  width: auto;
+  min-width: 0;
+}
+
 .code-wait {
   display: inline-flex;
   align-items: center;

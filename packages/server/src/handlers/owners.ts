@@ -1,7 +1,7 @@
 import type { AreaRouteIds } from "@terrakin/protocol";
 import type { Api } from "../api";
 import type { LinkRouteId } from "../links";
-import { fromResult, type Handlers } from "./shared";
+import { fail, fromResult, type Handlers } from "./shared";
 
 /**
  * The handlers for owners and their AIs (decision 0031). The owner link routes are in
@@ -62,5 +62,39 @@ export function ownerHandlers(
       })),
     redeemRekey: ({ body }) =>
       fromResult(owners().rekey(body.code), (fresh) => ({ status: 200 as const, body: fresh })),
+    startUpgrade: ({ body }) => {
+      const agent = api.linkKeyHolder(body.key);
+      if (!agent.ok) return fail(agent.code, agent.message);
+      // No token on these routes, so the dispatcher's write check is made here.
+      const blocked = api.writeBlock(agent.id);
+      if (blocked) return blocked;
+      return fromResult(owners().startUpgrade(agent.id), (code) => ({
+        status: 201 as const,
+        body: code,
+      }));
+    },
+    getOwnerUpgrade: ({ viewer, params }) =>
+      fromResult(owners().upgradeView(viewer, params.id), (view) => ({
+        status: 200 as const,
+        body: view,
+      })),
+    approveOwnerUpgrade: ({ viewer, params, body }) =>
+      fromResult(owners().approveUpgrade(viewer, params.id, body.code), (view) => ({
+        status: 200 as const,
+        body: view,
+      })),
+    collectUpgrade: ({ body }) => {
+      // A retry after a lost answer, before the key is checked: collecting turned it off.
+      const again = owners().collectedAgain(body.key, body.code);
+      if (again) return { status: 200 as const, body: again };
+      const agent = api.linkKeyHolder(body.key);
+      if (!agent.ok) return fail(agent.code, agent.message);
+      const blocked = api.writeBlock(agent.id);
+      if (blocked) return blocked;
+      return fromResult(owners().collectUpgrade(agent.id, body.code, body.key), (fresh) => ({
+        status: 200 as const,
+        body: fresh,
+      }));
+    },
   };
 }

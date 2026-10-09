@@ -20,6 +20,22 @@ import {
 } from "./items";
 import { plotKey, tileKey } from "./keys";
 import {
+  blockKindProblem,
+  blockSupportProblem,
+  blocksOn,
+  floorProblem,
+  groundOn,
+  layerFor,
+  liftProblem,
+  removeProblem,
+  STOREYS,
+  type StoreyView,
+  stairwellProblem,
+  standingStorey,
+  storeyField,
+  storeyOf,
+} from "./storeys";
+import {
   BLOCK_KINDS,
   type BlockKind,
   type Command,
@@ -43,7 +59,13 @@ import { canBuildOn, plotInBounds } from "./world";
  * (`buildSummary`), so the answer an agent reads is the one the sim acted on. What depends on the
  * plan itself refuses the whole plan: the plot, its shape, the kinds, the materials, and the room
  * in your things. What depends on things that move while a plan is written is skipped and
- * reported: someone standing on a tile, a hearth, a tile that already has something.
+ * reported: someone standing on a tile, a hearth, a tile that already has something, and, with
+ * storeys (RFC 0028), what holds something up or has nothing holding it up.
+ *
+ * A plan's tiles may name a `storey`. They go in a fixed order, so what holds a storey up works
+ * in one call and older plans build as they did: removals and lifts from the top storey down,
+ * then the ground floor's blocks and ground, then each storey up's floors and then its blocks.
+ * Each tile is checked against the plan's running view of the world, with what came before it.
  */
 
 /** Why a tile in a plan was left alone. */
@@ -62,6 +84,10 @@ export const BUILD_SKIPS = [
   "growing",
   /** A pedestal or frame with something on display can't go. */
   "on_display",
+  /** Nothing would hold it up: no wall below a floor upstairs, no floor or wall under a block (RFC 0028). */
+  "unsupported",
+  /** Taking it away would leave something floating, or someone on stairs without them (RFC 0028). */
+  "holds_up",
 ] as const;
 export type BuildSkip = (typeof BUILD_SKIPS)[number];
 
@@ -73,18 +99,23 @@ export interface BuildSkipped {
   /** As the plan gave it: tiles from the plot's north-west corner. */
   x: number;
   y: number;
+  /** Above the ground floor only (RFC 0028). */
+  storey?: number;
   what: BuildPart;
   why: BuildSkip;
 }
+
+/** A world tile a plan changes, with `storey` only above the ground floor. */
+type StoreyTile = Tile & { storey?: number };
 
 /** Everything a plan will do, worked out against the world as it is. World tiles. */
 export interface BuildPlan {
   px: number;
   py: number;
-  removed: Tile[];
-  lifted: Tile[];
-  placed: (Tile & { block: BlockKind })[];
-  laid: (Tile & { ground: GroundKind })[];
+  removed: StoreyTile[];
+  lifted: StoreyTile[];
+  placed: (StoreyTile & { block: BlockKind })[];
+  laid: (StoreyTile & { ground: GroundKind })[];
   /** The net change to the builder's things, in catalog order: negative uses, positive gives back. */
   changes: { kind: StackKind; amount: number }[];
   skipped: BuildSkipped[];
@@ -105,8 +136,14 @@ export interface BuildSummary {
   skipped: BuildSkipped[];
 }
 
-/** The most entries in each of a plan's lists: a whole plot. */
-export const planMax = (config: WorldConfig) => config.plotSize * config.plotSize;
+/** The most entries in each of a plan's lists: a whole plot on every storey a plot may have. */
+export const planMax = (config: WorldConfig) =>
+  config.plotSize * config.plotSize * (1 + STOREYS.max);
+
+/** Storeys from the top down to the ground floor, the order a plan takes things away in. */
+const DOWN = Array.from({ length: STOREYS.max + 1 }, (_, i) => STOREYS.max - i);
+/** Storeys from the ground floor up, the order a plan builds in. */
+const UP = [...DOWN].reverse();
 
 /** Plots `actor` may build on, owned first, each north to south then west to east. */
 function buildablePlots(state: WorldState, actor: ResidentId): Plot[] {
@@ -126,6 +163,8 @@ const WHY_WORDS: Record<BuildSkip, string> = {
   empty: "nothing there to take away",
   growing: "something is growing there",
   on_display: "something is on display there",
+  unsupported: "nothing holds it up",
+  holds_up: "it holds something up",
 };
 
 /** A list from the plan: absent is empty, anything but a list is a problem. */
@@ -134,15 +173,37 @@ function listOf(value: unknown): unknown[] | null {
   return Array.isArray(value) ? value : null;
 }
 
-/** A tile in a plan: whole numbers on the plot, or why not. */
-function planTile(entry: unknown, size: number): Tile | string {
-  if (typeof entry !== "object" || entry === null) return "Each tile in a plan has an x and a y.";
+/** A tile in a plan, on a storey: absent or 0 is the ground floor. */
+type PlanSpot = Tile & { storey: number };
+
+/**
+ * A tile in a plan: whole numbers on the plot, on a storey the plot has, or why not. A storey that
+ * isn't one refuses the plan as `invalid_plan`; one past the top or not added yet as `too_high` or
+ * `no_storey`, as a single action is.
+ */
+function planTile(entry: unknown, size: number, plot: Plot | undefined): PlanSpot | Rejection {
+  if (typeof entry !== "object" || entry === null) {
+    return refuse("invalid_plan", "Each tile in a plan has an x and a y.");
+  }
   const { x, y } = entry as { x?: unknown; y?: unknown };
   if (!isWhole(x) || !isWhole(y) || x < 0 || y < 0 || x >= size || y >= size) {
-    return `(${String(x)}, ${String(y)}) isn't on the plot: x and y count tiles from its north-west corner, 0 to ${size - 1}.`;
+    return refuse(
+      "invalid_plan",
+      `(${String(x)}, ${String(y)}) isn't on the plot: x and y count tiles from its north-west corner, 0 to ${size - 1}.`,
+    );
   }
-  return { x, y };
+  const storey = storeyOf(plot, (entry as { storey?: unknown }).storey);
+  if (typeof storey === "number") return { x, y, storey };
+  if (storey.code === "out_of_bounds") return refuse("invalid_plan", storey.message);
+  return storey;
 }
+
+/** A tile's place in the plan's running view: the tile key, with the storey above the ground. */
+const spotKey = (storey: number, key: string) => (storey === 0 ? key : `${storey}:${key}`);
+
+/** How a tile reads in a refusal: "(3, 4)", or "(3, 4) on storey 1". */
+const spotWords = (t: { x: number; y: number; storey?: number }) =>
+  `(${t.x}, ${t.y})${t.storey ? ` on storey ${t.storey}` : ""}`;
 
 /** Where a refusal can send a builder for what they're short of. */
 function shortHint(kinds: readonly StackKind[]): string {
@@ -169,7 +230,8 @@ export function planBuild(
   if (!plotInBounds(config, px, py)) {
     return refuse("out_of_bounds", "That plot is outside the world.");
   }
-  if (!canBuildOn(state.plots[plotKey(px, py)], actor)) {
+  const plot = state.plots[plotKey(px, py)];
+  if (!canBuildOn(plot, actor)) {
     const mine = buildablePlots(state, actor);
     if (mine.length === 0) {
       return refuse(
@@ -209,7 +271,7 @@ export function planBuild(
       "A plan needs at least one tile in blocks, ground, remove, or lift.",
     );
   }
-  const tiles: Record<keyof typeof lists, Tile[]> = {
+  const tiles: Record<keyof typeof lists, PlanSpot[]> = {
     remove: [],
     lift: [],
     blocks: [],
@@ -218,16 +280,16 @@ export function planBuild(
   for (const name of ["remove", "lift", "blocks", "ground"] as const) {
     const seen = new Set<string>();
     for (const entry of all[name]) {
-      const t = planTile(entry, S);
-      if (typeof t === "string") return refuse("invalid_plan", t);
-      const key = tileKey(t.x, t.y);
-      if (seen.has(key)) return refuse("invalid_plan", `(${t.x}, ${t.y}) is in ${name} twice.`);
+      const t = planTile(entry, S, plot);
+      if ("code" in t) return t;
+      const key = spotKey(t.storey, tileKey(t.x, t.y));
+      if (seen.has(key)) return refuse("invalid_plan", `${spotWords(t)} is in ${name} twice.`);
       seen.add(key);
       tiles[name].push(t);
     }
   }
   const blockKinds: BlockKind[] = [];
-  for (const entry of all.blocks) {
+  for (const [i, entry] of all.blocks.entries()) {
     const block = (entry as { block?: unknown }).block;
     if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
       return refuse(
@@ -235,10 +297,9 @@ export function planBuild(
         `${String(block)} isn't a block. Blocks: ${BLOCK_KINDS.join(", ")}.`,
       );
     }
-    // Stairs need the storey checks `place` makes, which plans take on with storeys (RFC 0028).
-    if (block === "stairs") {
-      return refuse("invalid_plan", "Stairs aren't in plans yet. Put them up with place.");
-    }
+    // What a kind can never be on a storey refuses the plan: a planter upstairs, stairs on the top.
+    const never = blockKindProblem(plot, (tiles.blocks[i] as PlanSpot).storey, block as BlockKind);
+    if (never) return never;
     blockKinds.push(block as BlockKind);
   }
   const groundKinds: GroundKind[] = [];
@@ -253,19 +314,27 @@ export function planBuild(
     groundKinds.push(ground);
   }
 
-  // What happens to each tile, in order: removals, lifts, blocks, ground.
+  // What happens to each tile, in the plan's order, against its running view of the world.
   const x0 = px * S;
   const y0 = py * S;
   const hearths = new Set<string>();
   const standing = new Set<string>();
   for (const r of Object.values(state.residents)) {
     if (r.hearth) hearths.add(tileKey(r.hearth.x, r.hearth.y));
-    if (r.online) standing.add(tileKey(r.x, r.y));
+    if (r.online) standing.add(spotKey(standingStorey(r), tileKey(r.x, r.y)));
   }
   const blocksNow = new Map<string, BlockKind | undefined>();
   const groundNow = new Map<string, GroundKind | undefined>();
-  const blockAt = (key: string) => (blocksNow.has(key) ? blocksNow.get(key) : state.blocks[key]);
-  const groundAt = (key: string) => (groundNow.has(key) ? groundNow.get(key) : state.ground?.[key]);
+  const view: StoreyView = {
+    block: (storey, key) => {
+      const at = spotKey(storey, key);
+      return blocksNow.has(at) ? blocksNow.get(at) : blocksOn(state, storey)[key];
+    },
+    ground: (storey, key) => {
+      const at = spotKey(storey, key);
+      return groundNow.has(at) ? groundNow.get(at) : groundOn(state, storey)[key];
+    },
+  };
   const delta = new Map<StackKind, number>();
   const add = (kind: StackKind, n: number) => delta.set(kind, (delta.get(kind) ?? 0) + n);
   const plan: BuildPlan = {
@@ -278,66 +347,104 @@ export function planBuild(
     changes: [],
     skipped: [],
   };
-  const skip = (t: Tile, what: BuildPart, why: BuildSkip) =>
-    plan.skipped.push({ x: t.x, y: t.y, what, why });
+  const skip = (t: PlanSpot, what: BuildPart, why: BuildSkip) =>
+    plan.skipped.push({ x: t.x, y: t.y, ...storeyField(t.storey), what, why });
+  /** A plan's entries on one storey, with their index in the list. */
+  const on = (list: PlanSpot[], storey: number) =>
+    [...list.entries()].filter(([, t]) => t.storey === storey);
 
-  for (const t of tiles.remove) {
-    const x = x0 + t.x;
-    const y = y0 + t.y;
-    const key = tileKey(x, y);
-    const block = blockAt(key);
-    if (block === undefined) skip(t, "remove", "empty");
-    else if (state.items?.crops[key]) skip(t, "remove", "growing");
-    else if (displayAt(state, x, y)) skip(t, "remove", "on_display");
-    else {
-      plan.removed.push({ x, y });
-      blocksNow.set(key, undefined);
-      // Decor and furniture come back as themselves, a pond as its stone (RFC 0023).
-      for (const [kind, n] of blockNeeds(block)) add(kind, n);
+  const removeOn = (storey: number) => {
+    for (const [, t] of on(tiles.remove, storey)) {
+      const x = x0 + t.x;
+      const y = y0 + t.y;
+      const key = tileKey(x, y);
+      const block = view.block(storey, key);
+      // Crops and displays are on the ground floor, keyed by their tile alone.
+      if (block === undefined) skip(t, "remove", "empty");
+      else if (storey === 0 && state.items?.crops[key]) skip(t, "remove", "growing");
+      else if (storey === 0 && displayAt(state, x, y)) skip(t, "remove", "on_display");
+      else if (removeProblem(state, x, y, storey, view)) skip(t, "remove", "holds_up");
+      else {
+        plan.removed.push({ x, y, ...storeyField(storey) });
+        blocksNow.set(spotKey(storey, key), undefined);
+        // Decor and furniture come back as themselves, a pond as its stone (RFC 0023).
+        for (const [kind, n] of blockNeeds(block)) add(kind, n);
+      }
+    }
+  };
+  const liftOn = (storey: number) => {
+    for (const [, t] of on(tiles.lift, storey)) {
+      const x = x0 + t.x;
+      const y = y0 + t.y;
+      const key = tileKey(x, y);
+      const ground = view.ground(storey, key);
+      if (ground === undefined) skip(t, "lift", "empty");
+      else if (liftProblem(state, x, y, storey, view)) skip(t, "lift", "holds_up");
+      else {
+        plan.lifted.push({ x, y, ...storeyField(storey) });
+        groundNow.set(spotKey(storey, key), undefined);
+        for (const [kind, n] of groundNeeds(ground)) add(kind, n);
+      }
+    }
+  };
+  const placeOn = (storey: number) => {
+    for (const [i, t] of on(tiles.blocks, storey)) {
+      const block = blockKinds[i] as BlockKind;
+      const x = x0 + t.x;
+      const y = y0 + t.y;
+      const key = tileKey(x, y);
+      const there = view.block(storey, key);
+      // Hearths are on the ground floor; who stands where is on their own storey.
+      if (there === block) skip(t, "block", "same");
+      else if (there !== undefined) skip(t, "block", "occupied");
+      else if (storey === 0 && hearths.has(key)) skip(t, "block", "hearth");
+      else if (standing.has(spotKey(storey, key))) skip(t, "block", "standing");
+      else if (stairwellProblem(state, x, y, storey, view)) skip(t, "block", "occupied");
+      else {
+        const unheld = blockSupportProblem(state, x, y, storey, block, view);
+        if (unheld) {
+          // Stairs come up through the tile above them; anything else has nothing under it.
+          skip(t, "block", unheld.code === "tile_occupied" ? "occupied" : "unsupported");
+          continue;
+        }
+        plan.placed.push({ x, y, ...storeyField(storey), block });
+        blocksNow.set(spotKey(storey, key), block);
+        for (const [kind, n] of blockNeeds(block)) add(kind, -n);
+      }
+    }
+  };
+  const layOn = (storey: number) => {
+    for (const [i, t] of on(tiles.ground, storey)) {
+      const ground = groundKinds[i] as GroundKind;
+      const x = x0 + t.x;
+      const y = y0 + t.y;
+      const key = tileKey(x, y);
+      const there = view.ground(storey, key);
+      if (there === ground) skip(t, "ground", "same");
+      else if (there !== undefined) skip(t, "ground", "occupied");
+      else if (stairwellProblem(state, x, y, storey, view)) skip(t, "ground", "occupied");
+      else if (floorProblem(state, x, y, storey, view)) skip(t, "ground", "unsupported");
+      else {
+        plan.laid.push({ x, y, ...storeyField(storey), ground });
+        groundNow.set(spotKey(storey, key), ground);
+        for (const [kind, n] of groundNeeds(ground)) add(kind, -n);
+      }
+    }
+  };
+  for (const storey of DOWN) {
+    removeOn(storey);
+    liftOn(storey);
+  }
+  for (const storey of UP) {
+    // The ground floor as plans always went, blocks then ground; upstairs a floor comes first.
+    if (storey === 0) {
+      placeOn(storey);
+      layOn(storey);
+    } else {
+      layOn(storey);
+      placeOn(storey);
     }
   }
-  for (const t of tiles.lift) {
-    const x = x0 + t.x;
-    const y = y0 + t.y;
-    const key = tileKey(x, y);
-    const ground = groundAt(key);
-    if (ground === undefined) skip(t, "lift", "empty");
-    else {
-      plan.lifted.push({ x, y });
-      groundNow.set(key, undefined);
-      for (const [kind, n] of groundNeeds(ground)) add(kind, n);
-    }
-  }
-  tiles.blocks.forEach((t, i) => {
-    const block = blockKinds[i] as BlockKind;
-    const x = x0 + t.x;
-    const y = y0 + t.y;
-    const key = tileKey(x, y);
-    const there = blockAt(key);
-    if (there === block) skip(t, "block", "same");
-    else if (there !== undefined) skip(t, "block", "occupied");
-    else if (hearths.has(key)) skip(t, "block", "hearth");
-    else if (standing.has(key)) skip(t, "block", "standing");
-    else {
-      plan.placed.push({ x, y, block });
-      blocksNow.set(key, block);
-      for (const [kind, n] of blockNeeds(block)) add(kind, -n);
-    }
-  });
-  tiles.ground.forEach((t, i) => {
-    const ground = groundKinds[i] as GroundKind;
-    const x = x0 + t.x;
-    const y = y0 + t.y;
-    const key = tileKey(x, y);
-    const there = groundAt(key);
-    if (there === ground) skip(t, "ground", "same");
-    else if (there !== undefined) skip(t, "ground", "occupied");
-    else {
-      plan.laid.push({ x, y, ground });
-      groundNow.set(key, ground);
-      for (const [kind, n] of groundNeeds(ground)) add(kind, -n);
-    }
-  });
 
   const changed = plan.removed.length + plan.lifted.length + plan.placed.length + plan.laid.length;
   if (changed === 0) {
@@ -350,7 +457,7 @@ export function planBuild(
     const some = plan.skipped
       .filter((s) => s.why !== "same")
       .slice(0, 4)
-      .map((s) => `(${s.x}, ${s.y}): ${WHY_WORDS[s.why]}`);
+      .map((s) => `${spotWords(s)}: ${WHY_WORDS[s.why]}`);
     return refuse(
       "tile_occupied",
       `Nothing in the plan can be built right now. ${some.join("; ")}.`,
@@ -386,29 +493,49 @@ export function planBuild(
   return plan;
 }
 
-/** Make the changes a plan found. The events are the ones single actions make, then one net `inventory`. */
+/**
+ * Make the changes a plan found, in its order. The events are the ones single actions make, then
+ * one net `inventory`.
+ */
 function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): WorldEvent[] {
   const events: WorldEvent[] = [];
-  for (const { x, y } of plan.removed) {
-    delete state.blocks[tileKey(x, y)];
-    events.push({ type: "block_removed", x, y, by: actor });
-  }
-  if (plan.lifted.length > 0) {
-    const ground = state.ground as Record<string, GroundKind>;
-    for (const { x, y } of plan.lifted) {
-      delete ground[tileKey(x, y)];
-      events.push({ type: "ground_lifted", x, y, by: actor });
+  const level = (t: StoreyTile) => t.storey ?? 0;
+  const blocksFor = (storey: number) =>
+    storey === 0 ? state.blocks : layerFor(state, storey).blocks;
+  const groundFor = (storey: number) => {
+    if (storey > 0) return layerFor(state, storey).ground;
+    state.ground ??= {};
+    return state.ground;
+  };
+  const place = (storey: number) => {
+    for (const { x, y, block } of plan.placed.filter((t) => level(t) === storey)) {
+      blocksFor(storey)[tileKey(x, y)] = block;
+      events.push({ type: "block_placed", x, y, ...storeyField(storey), block, by: actor });
+    }
+  };
+  const lay = (storey: number) => {
+    for (const { x, y, ground } of plan.laid.filter((t) => level(t) === storey)) {
+      groundFor(storey)[tileKey(x, y)] = ground;
+      events.push({ type: "ground_laid", x, y, ...storeyField(storey), ground, by: actor });
+    }
+  };
+  for (const storey of DOWN) {
+    for (const { x, y } of plan.removed.filter((t) => level(t) === storey)) {
+      delete blocksFor(storey)[tileKey(x, y)];
+      events.push({ type: "block_removed", x, y, ...storeyField(storey), by: actor });
+    }
+    for (const { x, y } of plan.lifted.filter((t) => level(t) === storey)) {
+      delete groundFor(storey)[tileKey(x, y)];
+      events.push({ type: "ground_lifted", x, y, ...storeyField(storey), by: actor });
     }
   }
-  for (const { x, y, block } of plan.placed) {
-    state.blocks[tileKey(x, y)] = block;
-    events.push({ type: "block_placed", x, y, block, by: actor });
-  }
-  if (plan.laid.length > 0) {
-    state.ground ??= {};
-    for (const { x, y, ground } of plan.laid) {
-      state.ground[tileKey(x, y)] = ground;
-      events.push({ type: "ground_laid", x, y, ground, by: actor });
+  for (const storey of UP) {
+    if (storey === 0) {
+      place(storey);
+      lay(storey);
+    } else {
+      lay(storey);
+      place(storey);
     }
   }
   if (plan.changes.length > 0 && state.items) {
@@ -451,9 +578,10 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
 }
 
 /**
- * A plot's blocks and ground as a plan for `build` (tiles from its north-west corner), with its
- * hearths, which a build leaves alone. For `GET /v1/plots/{px}/{py}/plan`, so anyone can copy a
- * design they like onto their own plot. Undefined for a plot outside the world.
+ * A plot's blocks and ground on every storey as a plan for `build` (tiles from its north-west
+ * corner, the ground floor's first, `storey` on the rest), with its hearths, which a build leaves
+ * alone. For `GET /v1/plots/{px}/{py}/plan`, so anyone can copy a design they like, lofts and all,
+ * onto their own plot. Undefined for a plot outside the world.
  */
 export function plotPlan(
   state: WorldState,
@@ -465,8 +593,8 @@ export function plotPlan(
       py: number;
       size: number;
       ownerId?: ResidentId;
-      blocks: (Tile & { block: BlockKind })[];
-      ground: (Tile & { ground: GroundKind })[];
+      blocks: (StoreyTile & { block: BlockKind })[];
+      ground: (StoreyTile & { ground: GroundKind })[];
       hearths: Tile[];
     }
   | undefined {
@@ -475,15 +603,20 @@ export function plotPlan(
   const S = config.plotSize;
   const x0 = px * S;
   const y0 = py * S;
-  const blocks: (Tile & { block: BlockKind })[] = [];
-  const ground: (Tile & { ground: GroundKind })[] = [];
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const key = tileKey(x0 + x, y0 + y);
-      const block = state.blocks[key];
-      if (block !== undefined) blocks.push({ x, y, block });
-      const g = state.ground?.[key];
-      if (g !== undefined) ground.push({ x, y, ground: g });
+  const blocks: (StoreyTile & { block: BlockKind })[] = [];
+  const ground: (StoreyTile & { ground: GroundKind })[] = [];
+  for (const storey of UP) {
+    const blocksThere = blocksOn(state, storey);
+    const groundThere = groundOn(state, storey);
+    const at = storeyField(storey);
+    for (let y = 0; y < S; y++) {
+      for (let x = 0; x < S; x++) {
+        const key = tileKey(x0 + x, y0 + y);
+        const block = blocksThere[key];
+        if (block !== undefined) blocks.push({ x, y, ...at, block });
+        const g = groundThere[key];
+        if (g !== undefined) ground.push({ x, y, ...at, ground: g });
+      }
     }
   }
   const homes = new Set<string>();

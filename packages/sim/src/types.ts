@@ -304,17 +304,23 @@ export interface PlannedGround {
   ground: GroundKind;
 }
 
-/** One block a `build` places, at a tile counted from its plot's north-west corner. */
-export interface PlanBlock {
+/**
+ * A tile in a `build`, counted from its plot's north-west corner, on a storey (RFC 0028): absent
+ * or 0 is the ground floor.
+ */
+export interface PlanTile {
   x: number;
   y: number;
+  storey?: number;
+}
+
+/** One block a `build` places. */
+export interface PlanBlock extends PlanTile {
   block: BlockKind;
 }
 
-/** One path or floor a `build` lays, at a tile counted from its plot's north-west corner. */
-export interface PlanGround {
-  x: number;
-  y: number;
+/** One path or floor a `build` lays. */
+export interface PlanGround extends PlanTile {
   ground: GroundKind;
 }
 
@@ -1181,8 +1187,10 @@ export type Command =
   /** Add the next storey to plot (px, py), one you own or share, from anywhere (RFC 0028). */
   | { type: "add_storey"; px: number; py: number }
   /**
-   * A plan built on plot (px, py) in one input, from anywhere (RFC 0016): `remove` and `lift` go
-   * first, then `blocks`, then `ground`. Tiles count from the plot's north-west corner.
+   * A plan built on plot (px, py) in one input, from anywhere (RFC 0016). Tiles count from the
+   * plot's north-west corner, on a storey (RFC 0028). `remove` and `lift` go first, from the top
+   * storey down, then the ground floor's `blocks` and `ground`, then each storey up's `ground` and
+   * `blocks`.
    */
   | {
       type: "build";
@@ -1190,8 +1198,8 @@ export type Command =
       py: number;
       blocks?: PlanBlock[];
       ground?: PlanGround[];
-      remove?: Tile[];
-      lift?: Tile[];
+      remove?: PlanTile[];
+      lift?: PlanTile[];
     }
   | { type: "settle"; px: number; py: number }
   /**

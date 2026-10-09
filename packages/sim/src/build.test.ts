@@ -402,7 +402,10 @@ describe("build", () => {
     w.ok("cy", { type: "join", name: "Cy", kind: "human" });
     expect(code(plan({ ground: [{ x: 0, y: 0, ground: "dirt" }] }), "cy")).toBe("no_plot");
     expect(code(plan({}))).toBe("invalid_plan");
-    expect(code(plan({ lift: tooMany }))).toBe("invalid_plan");
+    expect(w.refused("ada", plan({ lift: tooMany }))).toEqual({
+      code: "invalid_plan",
+      message: `A plan lists at most ${planMax(CONFIG)} tiles in each of blocks, ground, remove, and lift.`,
+    });
     expect(code(plan({ ground: [{ x: 8, y: 0, ground: "dirt" }] }))).toBe("invalid_plan");
     expect(
       code(

@@ -79,9 +79,9 @@ const CHAT_MAX_LENGTH = 280;
 
 /**
  * Homes with storeys (RFC 0028) are in the sim before the API opens them, which is the RFC's PR 6.
- * Until then the API names nothing only storeys make: their refusals, their coin reason, and
- * stairs. No action carries a `storey`, `add_storey`, or `move` up or down, so nothing here can
- * reach them.
+ * Until then the API names nothing only storeys make: their refusals, their coin reason, stairs,
+ * and a build's `unsupported` and `holds_up` skips. No action carries a `storey`, `add_storey`,
+ * or `move` up or down, so nothing here can reach them.
  */
 const NOT_OPEN_YET: readonly string[] = [
   "no_storey",
@@ -92,6 +92,7 @@ const NOT_OPEN_YET: readonly string[] = [
   "no_stairs",
   "storey",
   "stairs",
+  "unsupported",
 ];
 
 /** One of the sim's lists, less what storeys add until the API opens them. */
@@ -2138,7 +2139,7 @@ export const BuildPlanSummary = z.object({
       /** Which list the tile came from. */
       what: z.enum(BUILD_PARTS),
       /** `same` it's already that; `occupied` something else is there; `standing` someone is; `hearth`; `empty` nothing to take away; `growing` a crop; `on_display` a display. */
-      why: z.enum(BUILD_SKIPS),
+      why: z.enum(openOnly(BUILD_SKIPS)),
     }),
   ),
 });

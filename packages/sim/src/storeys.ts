@@ -102,10 +102,6 @@ export function setStorey(r: Resident, storey: number) {
   else r.storey = storey;
 }
 
-/** Whether (x, y) on `storey` is a stairwell: the open tile right above a staircase. */
-const isStairwell = (state: WorldState, x: number, y: number, storey: number) =>
-  storey > 0 && blocksOn(state, storey - 1)[tileKey(x, y)] === "stairs";
-
 /**
  * The ground a walk on `storey` reads. The ground floor's is the world's (`worldGround`). Upstairs,
  * a tile with no floor is in the way (`no_floor`), except a stairwell, and so is any block but
@@ -172,13 +168,34 @@ const holds = (block: BlockKind | undefined) =>
   block !== undefined && HOLDING_BLOCKS.includes(block);
 
 /**
+ * What stands and lies on each storey, as a support check reads it: the world as it is
+ * (`worldView`), or a build plan's running view of it, with what the plan did so far.
+ */
+export interface StoreyView {
+  block(storey: number, key: string): BlockKind | undefined;
+  ground(storey: number, key: string): GroundKind | undefined;
+}
+
+/** The world's storeys as they are. */
+const worldView = (state: WorldState): StoreyView => ({
+  block: (storey, key) => blocksOn(state, storey)[key],
+  ground: (storey, key) => groundOn(state, storey)[key],
+});
+
+/**
  * Whether a floor at (x, y) on `storey` (1 and up) is held up: a wall or window on the storey
  * below, within `STOREYS.span` tiles, on the same plot. `without` is a tile on the storey below
  * about to lose its block.
  */
-function floorHeld(state: WorldState, x: number, y: number, storey: number, without?: string) {
+function floorHeld(
+  state: WorldState,
+  view: StoreyView,
+  x: number,
+  y: number,
+  storey: number,
+  without?: string,
+) {
   const { config } = state;
-  const below = blocksOn(state, storey - 1);
   const home = plotOf(config, x, y);
   const { span } = STOREYS;
   for (let ty = y - span; ty <= y + span; ty++) {
@@ -187,7 +204,7 @@ function floorHeld(state: WorldState, x: number, y: number, storey: number, with
       const p = plotOf(config, tx, ty);
       if (p.px !== home.px || p.py !== home.py) continue;
       const key = tileKey(tx, ty);
-      if (key !== without && holds(below[key])) return true;
+      if (key !== without && holds(view.block(storey - 1, key))) return true;
     }
   }
   return false;
@@ -199,30 +216,90 @@ export function floorProblem(
   x: number,
   y: number,
   storey: number,
+  view: StoreyView = worldView(state),
 ): Rejection | null {
-  if (storey === 0 || floorHeld(state, x, y, storey)) return null;
+  if (storey === 0 || floorHeld(state, view, x, y, storey)) return null;
   return refuse(
     "nothing_under",
     `Nothing holds that floor up. Build walls under it first, within ${STOREYS.span} tiles.`,
   );
 }
 
-/** Why nothing can go on (x, y) on `storey` because stairs come up there, or null. */
+/**
+ * Why nothing can go on (x, y) on `storey` because stairs come up there, or null. That tile, the
+ * stairwell, is the open one right above a staircase.
+ */
 export function stairwellProblem(
   state: WorldState,
   x: number,
   y: number,
   storey: number,
+  view: StoreyView = worldView(state),
 ): Rejection | null {
-  if (!isStairwell(state, x, y, storey)) return null;
+  if (storey === 0 || view.block(storey - 1, tileKey(x, y)) !== "stairs") return null;
   return refuse("tile_occupied", "Stairs come up here. Keep it clear.");
 }
 
 /**
- * Why `block` can't go on (x, y) on `storey` of `plot`, or null: it stays on the ground floor, or
- * nothing holds it up (a floor on its own tile, or a wall or window right under it). Stairs need
- * the storey above on the plot, open air right above them, and a floor of their own upstairs.
+ * Why `block` can never go on `storey` of `plot`, whatever is there, or null: it stays on the
+ * ground floor, or it's stairs with no storey above them on the plot.
  */
+export function blockKindProblem(
+  plot: Plot | undefined,
+  storey: number,
+  block: BlockKind,
+): Rejection | null {
+  if (block === "stairs") {
+    const above = storey + 1;
+    if (above > STOREYS.max) {
+      return refuse("too_high", `Stairs go up a storey, and this is the top one. ${TOO_HIGH}`);
+    }
+    if ((plot?.storeys ?? 0) < above) return refuse("no_storey", noStorey());
+    return null;
+  }
+  if (storey === 0) return null;
+  const only = GROUND_FLOOR_ONLY[block];
+  if (only) return refuse("ground_floor_only", `${only} stay on the ground floor.`);
+  return null;
+}
+
+/**
+ * Why `block` can't go on (x, y) on `storey` as things stand, or null: nothing holds it up (a
+ * floor on its own tile, or a wall or window right under it), or, for stairs, something is on the
+ * tile above them, which they come up through (`tile_occupied`). Stairs upstairs stand on a floor.
+ */
+export function blockSupportProblem(
+  state: WorldState,
+  x: number,
+  y: number,
+  storey: number,
+  block: BlockKind,
+  view: StoreyView = worldView(state),
+): Rejection | null {
+  const key = tileKey(x, y);
+  if (block === "stairs") {
+    const above = storey + 1;
+    if (view.block(above, key) !== undefined || view.ground(above, key) !== undefined) {
+      return refuse(
+        "tile_occupied",
+        "Stairs come up through the tile above them, and something is there. Clear it first.",
+      );
+    }
+    if (storey > 0 && view.ground(storey, key) === undefined) {
+      return refuse("nothing_under", "Stairs upstairs stand on a floor. Lay one there first.");
+    }
+    return null;
+  }
+  if (storey === 0) return null;
+  if (view.ground(storey, key) !== undefined) return null;
+  if (holds(view.block(storey - 1, key))) return null;
+  return refuse(
+    "nothing_under",
+    "Nothing holds that up. Lay a floor there first, or build a wall right under it.",
+  );
+}
+
+/** Why `block` can't go on (x, y) on `storey` of `plot`, or null: its kind, then what holds it up. */
 export function blockProblem(
   state: WorldState,
   plot: Plot | undefined,
@@ -231,33 +308,7 @@ export function blockProblem(
   storey: number,
   block: BlockKind,
 ): Rejection | null {
-  const key = tileKey(x, y);
-  if (block === "stairs") {
-    const above = storey + 1;
-    if (above > STOREYS.max) {
-      return refuse("too_high", `Stairs go up a storey, and this is the top one. ${TOO_HIGH}`);
-    }
-    if ((plot?.storeys ?? 0) < above) return refuse("no_storey", noStorey());
-    if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
-      return refuse(
-        "tile_occupied",
-        "Stairs come up through the tile above them, and something is there. Clear it first.",
-      );
-    }
-    if (storey > 0 && groundOn(state, storey)[key] === undefined) {
-      return refuse("nothing_under", "Stairs upstairs stand on a floor. Lay one there first.");
-    }
-    return null;
-  }
-  if (storey === 0) return null;
-  const only = GROUND_FLOOR_ONLY[block];
-  if (only) return refuse("ground_floor_only", `${only} stay on the ground floor.`);
-  if (groundOn(state, storey)[key] !== undefined) return null;
-  if (holds(blocksOn(state, storey - 1)[key])) return null;
-  return refuse(
-    "nothing_under",
-    "Nothing holds that up. Lay a floor there first, or build a wall right under it.",
-  );
+  return blockKindProblem(plot, storey, block) ?? blockSupportProblem(state, x, y, storey, block);
 }
 
 /**
@@ -270,28 +321,28 @@ export function removeProblem(
   x: number,
   y: number,
   storey: number,
+  view: StoreyView = worldView(state),
 ): Rejection | null {
   const key = tileKey(x, y);
   const above = storey + 1;
-  const block = blocksOn(state, storey)[key];
+  const block = view.block(storey, key);
   if (block === "stairs" && (someoneOn(state, x, y, storey) || someoneOn(state, x, y, above))) {
     return refuse("holds_up", "Someone is on those stairs. Wait until they step off.");
   }
   if (above > STOREYS.max || !holds(block)) return null;
-  if (blocksOn(state, above)[key] !== undefined && groundOn(state, above)[key] === undefined) {
+  if (view.block(above, key) !== undefined && view.ground(above, key) === undefined) {
     return refuse("holds_up", "That wall holds up the block above it. Take that away first.");
   }
   const { config } = state;
   const home = plotOf(config, x, y);
   const { span } = STOREYS;
-  const floors = groundOn(state, above);
   for (let ty = y - span; ty <= y + span; ty++) {
     for (let tx = x - span; tx <= x + span; tx++) {
       if (!inBounds(config, tx, ty)) continue;
       const p = plotOf(config, tx, ty);
       if (p.px !== home.px || p.py !== home.py) continue;
-      if (floors[tileKey(tx, ty)] === undefined) continue;
-      if (!floorHeld(state, tx, ty, above, key)) {
+      if (view.ground(above, tileKey(tx, ty)) === undefined) continue;
+      if (!floorHeld(state, view, tx, ty, above, key)) {
         return refuse(
           "holds_up",
           `That wall holds up the floor above at x ${tx}, y ${ty}. Lift the floor first.`,
@@ -312,14 +363,15 @@ export function liftProblem(
   x: number,
   y: number,
   storey: number,
+  view: StoreyView = worldView(state),
 ): Rejection | null {
   if (storey === 0) return null;
   const key = tileKey(x, y);
   if (someoneOn(state, x, y, storey)) {
     return refuse("holds_up", "Someone is standing on that floor. Wait until they step off.");
   }
-  const block = blocksOn(state, storey)[key];
-  if (block !== undefined && (block === "stairs" || !holds(blocksOn(state, storey - 1)[key]))) {
+  const block = view.block(storey, key);
+  if (block !== undefined && (block === "stairs" || !holds(view.block(storey - 1, key)))) {
     return refuse("holds_up", "That floor holds up the block on it. Take the block away first.");
   }
   return null;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { apply } from "./apply";
+import { apply, prepare } from "./apply";
+import { buildSummary, planMax, plotPlan } from "./build";
 import { PANTRY_STAPLES } from "./catalog";
 import { STOREYS_CONFIG, STOREYS_HASH, STOREYS_LOG } from "./fixtures/storeys-log";
 import { hashWorld } from "./hash";
@@ -12,6 +13,8 @@ import {
   type BlockKind,
   type Command,
   type Input,
+  type PlanBlock,
+  type PlanGround,
   type Rejection,
   TOWN_ACTOR,
   type WorldConfig,
@@ -367,18 +370,6 @@ describe("stairs", () => {
     ]);
   });
 
-  it("aren't in plans yet, which skip none of the checks place makes", () => {
-    const w = loft();
-    w.give("ada", { wood: STOREYS.stairsWood });
-    const plan: Command = {
-      type: "build",
-      px: 0,
-      py: 0,
-      blocks: [{ x: 4, y: 4, block: "stairs" }],
-    };
-    expect(w.refused("ada", plan).code).toBe("invalid_plan");
-  });
-
   it("keep the tile they come up through clear", () => {
     const w = loft();
     const lay = w.refused("ada", { type: "lay", x: 2, y: 4, storey: 1, ground: "moss" });
@@ -504,6 +495,272 @@ function perch(w: ReturnType<typeof loft>, id: string, x: number, y: number) {
   r.y = y;
   r.storey = 1;
 }
+
+type Build = Extract<Command, { type: "build" }>;
+type Plan = Omit<Build, "type" | "px" | "py">;
+const build = (px: number, plan: Plan): Build => ({ type: "build", px, py: 0, ...plan });
+
+/** What a plan skips, worked out without building it. */
+function skipped(w: ReturnType<typeof world>, actor: string, command: Build) {
+  const prepared = prepare(w.state, { actor, command });
+  if (!prepared.ok || !prepared.plan) throw new Error(`${JSON.stringify(command)} should go ahead`);
+  return buildSummary(prepared.plan).skipped;
+}
+
+/**
+ * The starter hut's walls (tiles 1 to 5 each way, a doorway at (3, 5)), stairs inside at (2, 4),
+ * a moss loft over all of it but the stairwell, and a glass railing along its south edge.
+ */
+function hutWithLoft(): Plan {
+  const blocks: PlanBlock[] = [];
+  const ground: PlanGround[] = [];
+  for (let y = 1; y <= 5; y++) {
+    for (let x = 1; x <= 5; x++) {
+      const edge = x === 1 || x === 5 || y === 1 || y === 5;
+      if (edge && !(x === 3 && y === 5)) blocks.push({ x, y, block: "wood" });
+      if (!(x === 2 && y === 4)) ground.push({ x, y, storey: 1, ground: "moss" });
+    }
+  }
+  blocks.push({ x: 2, y: 4, block: "stairs" });
+  for (const x of [1, 2, 4, 5]) blocks.push({ x, y: 5, storey: 1, block: "glass" });
+  return { blocks, ground };
+}
+
+/** A plan's entries in the order `plotPlan` reads them: by storey, then north to south, west to east. */
+const inOrder = <T extends { x: number; y: number; storey?: number }>(list: readonly T[]) =>
+  [...list].sort((a, b) => (a.storey ?? 0) - (b.storey ?? 0) || a.y - b.y || a.x - b.x);
+
+describe("build plans", () => {
+  it("build a hut with a loft in one call, the same on two plots, and read it back", () => {
+    const w = world();
+    const loftPlan = hutWithLoft();
+    for (const [id, px] of [
+      ["bob", 2],
+      ["cy", 1],
+    ] as const) {
+      w.ok(id, { type: "add_storey", px, py: 0 });
+      w.give(id, { wood: STOREYS.stairsWood });
+      const events = w.ok(id, build(px, loftPlan));
+      // The ground floor's blocks first, then the loft's floors, then its railing.
+      const order = events.map((e) => ("storey" in e ? `${e.type} ${e.storey}` : e.type));
+      expect([...new Set(order)]).toEqual([
+        "block_placed",
+        "ground_laid 1",
+        "block_placed 1",
+        "inventory",
+      ]);
+      const read = plotPlan(w.state, px, 0);
+      expect(read?.blocks).toEqual(inOrder(loftPlan.blocks ?? []));
+      expect(read?.ground).toEqual(inOrder(loftPlan.ground ?? []));
+    }
+    // Bob walks up his new stairs.
+    w.standAt("bob", 18, 4);
+    w.ok("bob", { type: "move", dir: "up" });
+    w.ok("bob", { type: "move", dir: "n" });
+    expect(w.state.residents.bob).toMatchObject({ x: 18, y: 3, storey: 1 });
+  });
+
+  it("refuse whole a storey the plot hasn't added, one past the top, one that isn't, and kinds that can't go there", () => {
+    const w = world();
+    const floor = (storey: unknown) =>
+      build(2, { ground: [{ x: 3, y: 3, storey, ground: "moss" } as PlanGround] });
+    const noStorey = w.refused("bob", floor(1));
+    expect(noStorey.code).toBe("no_storey");
+    expect(noStorey.message).toContain(`add_storey adds it for ${STOREYS.price} coins`);
+    expect(w.refused("bob", build(2, hutWithLoft())).code).toBe("no_storey");
+    expect(w.refused("bob", build(2, { remove: [{ x: 1, y: 1, storey: 1 }] })).code).toBe(
+      "no_storey",
+    );
+    w.ok("bob", { type: "add_storey", px: 2, py: 0 });
+    expect(w.refused("bob", floor(2)).code).toBe("too_high");
+    for (const odd of [-1, 0.5, "1", "__proto__", null]) {
+      expect(w.refused("bob", floor(odd)).code, String(odd)).toBe("invalid_plan");
+    }
+    // The same tile on two storeys is two tiles; twice on one storey is a mistake.
+    const twice = w.refused("bob", {
+      ...floor(1),
+      ground: [
+        { x: 3, y: 3, storey: 1, ground: "moss" },
+        { x: 3, y: 3, storey: 1, ground: "dirt" },
+      ],
+    });
+    expect(twice).toEqual({
+      code: "invalid_plan",
+      message: "(3, 3) on storey 1 is in ground twice.",
+    });
+    const upstairs = (block: BlockKind) => build(2, { blocks: [{ x: 3, y: 3, storey: 1, block }] });
+    expect(w.refused("bob", upstairs("planter")).code).toBe("ground_floor_only");
+    expect(w.refused("bob", upstairs("stairs")).code).toBe("too_high");
+    // Stairs up to a storey Cy's plot hasn't added.
+    w.give("cy", { wood: STOREYS.stairsWood });
+    const stairs = build(1, { blocks: [{ x: 3, y: 4, block: "stairs" }] });
+    expect(w.refused("cy", stairs).code).toBe("no_storey");
+  });
+
+  it("hold a whole plot on every storey in one list", () => {
+    const w = world();
+    w.ok("bob", { type: "add_storey", px: 2, py: 0 });
+    const ground: PlanGround[] = [];
+    for (const storey of [0, 1]) {
+      for (let y = 0; y < CONFIG.plotSize; y++) {
+        for (let x = 0; x < CONFIG.plotSize; x++) ground.push({ x, y, storey, ground: "moss" });
+      }
+    }
+    expect(ground).toHaveLength(planMax(CONFIG));
+    // No walls on Bob's plot, so nothing holds the upstairs floors: the ground floor's go down.
+    const skips = skipped(w, "bob", build(2, { ground }));
+    expect(skips).toHaveLength(CONFIG.plotSize ** 2);
+    expect(skips.every((s) => s.storey === 1 && s.why === "unsupported")).toBe(true);
+  });
+
+  it("skip a floor or a block upstairs that nothing would hold up", () => {
+    const w = world();
+    w.ok("bob", { type: "add_storey", px: 2, py: 0 });
+    w.ok("bob", { type: "place", x: 17, y: 3, block: "stone" });
+    const plan = build(2, {
+      ground: [
+        { x: 3, y: 3, storey: 1, ground: "moss" },
+        { x: 4, y: 3, storey: 1, ground: "moss" },
+      ],
+      blocks: [
+        // On the floor the plan lays, on the wall below, and on nothing.
+        { x: 3, y: 3, storey: 1, block: "glass" },
+        { x: 1, y: 3, storey: 1, block: "wood" },
+        { x: 5, y: 3, storey: 1, block: "glass" },
+      ],
+    });
+    expect(skipped(w, "bob", plan)).toEqual([
+      { x: 4, y: 3, storey: 1, what: "ground", why: "unsupported" },
+      { x: 5, y: 3, storey: 1, what: "block", why: "unsupported" },
+    ]);
+    w.ok("bob", plan);
+    expect(w.state.storeys?.["1"]).toEqual({
+      blocks: { "19,3": "glass", "17,3": "wood" },
+      ground: { "19,3": "moss" },
+    });
+  });
+
+  it("keep a wall that holds up a floor the plan keeps, and take it once the plan lifts that floor first", () => {
+    const w = world();
+    w.ok("bob", { type: "add_storey", px: 2, py: 0 });
+    w.ok("bob", { type: "place", x: 17, y: 3, block: "stone" });
+    w.ok("bob", { type: "lay", x: 18, y: 3, storey: 1, ground: "dirt" });
+    w.ok("bob", { type: "lay", x: 19, y: 3, storey: 1, ground: "dirt" });
+    const keeps = build(2, { remove: [{ x: 1, y: 3 }], lift: [{ x: 2, y: 3, storey: 1 }] });
+    expect(skipped(w, "bob", keeps)).toEqual([{ x: 1, y: 3, what: "remove", why: "holds_up" }]);
+    w.ok("bob", keeps);
+    expect(w.state.blocks["17,3"]).toBe("stone");
+    // Lifting the last floor goes first, from the top storey down, so the wall can go after it.
+    const both = build(2, { remove: [{ x: 1, y: 3 }], lift: [{ x: 3, y: 3, storey: 1 }] });
+    expect(w.ok("bob", both)).toEqual([
+      { type: "ground_lifted", x: 19, y: 3, storey: 1, by: "bob" },
+      { type: "block_removed", x: 17, y: 3, by: "bob" },
+    ]);
+  });
+
+  it("keep a wall that holds up a floor or a block upstairs the plan doesn't name", () => {
+    const w = world();
+    w.ok("bob", { type: "add_storey", px: 2, py: 0 });
+    w.ok("bob", { type: "place", x: 17, y: 3, block: "stone" });
+    w.ok("bob", { type: "place", x: 21, y: 3, block: "stone" });
+    w.ok("bob", { type: "lay", x: 19, y: 3, storey: 1, ground: "dirt" });
+    w.ok("bob", { type: "place", x: 21, y: 3, storey: 1, block: "glass" });
+    const walls = build(2, {
+      remove: [
+        { x: 1, y: 3 },
+        { x: 5, y: 3 },
+      ],
+    });
+    // The floor at (3, 3) upstairs has another wall within reach, so one of the two could go; the
+    // window at (5, 3) upstairs stands on its wall, so that one can't.
+    expect(skipped(w, "bob", walls)).toEqual([{ x: 5, y: 3, what: "remove", why: "holds_up" }]);
+    w.ok("bob", walls);
+    const last = w.refused("bob", build(2, { remove: [{ x: 5, y: 3 }] }));
+    expect(last).toEqual({
+      code: "tile_occupied",
+      message: "Nothing in the plan can be built right now. (5, 3): it holds something up.",
+    });
+    w.ok("bob", { type: "remove", x: 21, y: 3, storey: 1 });
+    // Now it's the last wall under the floor, which the plan doesn't name.
+    expect(
+      skipped(
+        w,
+        "bob",
+        build(2, { remove: [{ x: 5, y: 3 }], ground: [{ x: 0, y: 7, ground: "dirt" }] }),
+      ),
+    ).toEqual([{ x: 5, y: 3, what: "remove", why: "holds_up" }]);
+    expect(w.state.blocks["21,3"]).toBe("stone");
+  });
+
+  it("keep stairs someone stands on, at the foot or at the top, and a floor someone stands on", () => {
+    const w = loft();
+    const stairs = build(0, { remove: [{ x: 2, y: 4 }], ground: [{ x: 0, y: 7, ground: "dirt" }] });
+    const held = [{ x: 2, y: 4, what: "remove", why: "holds_up" }];
+    w.ok("ada", UP[0] as Command);
+    expect(skipped(w, "ada", stairs)).toEqual(held);
+    w.ok("ada", UP[1] as Command);
+    expect(skipped(w, "ada", stairs)).toEqual(held);
+    w.ok("ada", { type: "move", dir: "n" });
+    const floor = build(0, {
+      lift: [{ x: 2, y: 3, storey: 1 }],
+      ground: [{ x: 0, y: 7, ground: "dirt" }],
+    });
+    expect(skipped(w, "ada", floor)).toEqual([
+      { x: 2, y: 3, storey: 1, what: "lift", why: "holds_up" },
+    ]);
+    // Off the stairs, they come up and give their wood back.
+    const removed = w.ok("ada", stairs);
+    expect(removed[0]).toEqual({ type: "block_removed", x: 2, y: 4, by: "ada" });
+    expect(ofType(removed, "inventory")[0]?.changes).toEqual([
+      { kind: "wood", amount: STOREYS.stairsWood, count: STOREYS.stairsWood },
+    ]);
+  });
+
+  it("put stairs up under open air and keep their stairwell clear", () => {
+    const w = loft();
+    w.give("ada", { wood: STOREYS.stairsWood });
+    // A floor is over (4, 3), so stairs can't come up there until the plan lifts it.
+    const under = build(0, {
+      blocks: [{ x: 4, y: 3, block: "stairs" }],
+      ground: [{ x: 0, y: 7, ground: "dirt" }],
+    });
+    expect(skipped(w, "ada", under)).toEqual([{ x: 4, y: 3, what: "block", why: "occupied" }]);
+    const plan = build(0, {
+      lift: [{ x: 4, y: 3, storey: 1 }],
+      blocks: [
+        { x: 4, y: 3, block: "stairs" },
+        { x: 2, y: 4, storey: 1, block: "glass" },
+      ],
+      ground: [
+        { x: 4, y: 3, storey: 1, ground: "moss" },
+        { x: 2, y: 4, storey: 1, ground: "moss" },
+      ],
+    });
+    expect(skipped(w, "ada", plan)).toEqual([
+      { x: 4, y: 3, storey: 1, what: "ground", why: "occupied" },
+      { x: 2, y: 4, storey: 1, what: "ground", why: "occupied" },
+      { x: 2, y: 4, storey: 1, what: "block", why: "occupied" },
+    ]);
+    w.ok("ada", plan);
+    expect(w.state.blocks["4,3"]).toBe("stairs");
+  });
+
+  it("put a block on a tile only when nobody stands there on that storey", () => {
+    const w = loft();
+    for (const step of UP) w.ok("ada", step);
+    w.ok("ada", { type: "move", dir: "n" });
+    // Ada is upstairs at (2, 3): the tile below her is free, the floor she's on isn't.
+    const plan = build(0, {
+      blocks: [
+        { x: 2, y: 3, block: "leaf" },
+        { x: 2, y: 3, storey: 1, block: "glass" },
+      ],
+    });
+    expect(skipped(w, "ada", plan)).toEqual([
+      { x: 2, y: 3, storey: 1, what: "block", why: "standing" },
+    ]);
+  });
+});
 
 describe("jumps", () => {
   /** The last `moved` of `events` for `id`, which a jump lands with no `storey`. */

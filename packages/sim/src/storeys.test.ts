@@ -5,6 +5,7 @@ import { STOREYS_CONFIG, STOREYS_HASH, STOREYS_LOG } from "./fixtures/storeys-lo
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize, type StackKind } from "./items";
 import { replay } from "./replay";
+import { dayOfDate } from "./season";
 import { STOREYS } from "./storeys";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import {
@@ -16,6 +17,7 @@ import {
   type WorldConfig,
   type WorldEvent,
 } from "./types";
+import { visitTile } from "./visit";
 import { createWorld } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1, 1). Ada settles plot (0, 0) and builds the
@@ -283,6 +285,20 @@ describe("building upstairs", () => {
     w.ok("ada", { type: "lift", x: 2, y: 2, storey: 1 });
   });
 
+  it("merges a record into another only with nothing left on any storey of its plot", () => {
+    const w = world();
+    w.ok("bob", { type: "add_storey", px: 2, py: 0 });
+    w.ok("bob", { type: "leave" });
+    // A floor upstairs and nothing on the ground floor, put there directly as above.
+    const upstairs = w.state.storeys?.["1"];
+    if (!upstairs) throw new Error("no storey 1");
+    upstairs.ground["18,3"] = "moss";
+    const merge: Command = { type: "merge_resident", from: "bob", into: "cy" };
+    expect(w.refused(TOWN_ACTOR, merge).code).toBe("plot_has_blocks");
+    delete upstairs.ground["18,3"];
+    w.ok(TOWN_ACTOR, merge);
+  });
+
   it("lets a plot go only with nothing left on any storey", () => {
     const w = world();
     w.ok("bob", { type: "add_storey", px: 2, py: 0 });
@@ -349,6 +365,18 @@ describe("stairs", () => {
     expect(ofType(removed, "inventory")[0]?.changes).toEqual([
       { kind: "wood", amount: STOREYS.stairsWood, count: 2 * STOREYS.stairsWood },
     ]);
+  });
+
+  it("aren't in plans yet, which skip none of the checks place makes", () => {
+    const w = loft();
+    w.give("ada", { wood: STOREYS.stairsWood });
+    const plan: Command = {
+      type: "build",
+      px: 0,
+      py: 0,
+      blocks: [{ x: 4, y: 4, block: "stairs" }],
+    };
+    expect(w.refused("ada", plan).code).toBe("invalid_plan");
   });
 
   it("keep the tile they come up through clear", () => {
@@ -459,6 +487,92 @@ describe("walking upstairs", () => {
   });
 });
 
+/** Put `id` on the stairs in Ada's hut and send them up to her loft. */
+function climb(w: ReturnType<typeof loft>, id: string) {
+  w.standAt(id, 2, 4);
+  w.ok(id, { type: "move", dir: "up" });
+  expect(w.state.residents[id]?.storey).toBe(1);
+}
+
+/** Setup only: put `id` on `storey` without a step, and a floor under them there. */
+function perch(w: ReturnType<typeof loft>, id: string, x: number, y: number) {
+  const layer = w.state.storeys?.["1"];
+  const r = w.state.residents[id];
+  if (!layer || !r) throw new Error("no storey 1, or no such resident");
+  layer.ground[`${x},${y}`] = "moss";
+  r.x = x;
+  r.y = y;
+  r.storey = 1;
+}
+
+describe("jumps", () => {
+  /** The last `moved` of `events` for `id`, which a jump lands with no `storey`. */
+  const landed = (w: ReturnType<typeof loft>, events: WorldEvent[], id: string) => {
+    const moved = ofType(events, "moved").filter((e) => e.residentId === id);
+    expect(moved.at(-1)?.storey).toBeUndefined();
+    expect(w.state.residents[id]?.storey).toBeUndefined();
+  };
+
+  it("settle and visit land on the ground floor", () => {
+    const w = loft();
+    w.ok("dan", { type: "join", name: "dan", kind: "human" });
+    climb(w, "dan");
+    landed(w, w.ok("dan", { type: "settle", px: 0, py: 1 }), "dan");
+    // Upstairs right over the tile settle lands on is still a jump down, with its moved event.
+    w.ok("eve", { type: "join", name: "eve", kind: "human" });
+    perch(w, "eve", 19, 11);
+    const down = w.ok("eve", { type: "settle", px: 2, py: 1 });
+    expect(ofType(down, "moved")).toEqual([{ type: "moved", residentId: "eve", x: 19, y: 11 }]);
+    landed(w, down, "eve");
+    climb(w, "bob");
+    const tile = visitTile(w.state, "bob", 1, 0);
+    if (!tile) throw new Error("nowhere to land on Cy's plot");
+    landed(w, w.ok("bob", { type: "visit", px: 1, py: 0, ...tile }), "bob");
+  });
+
+  it("join_event, open_table, and sit land on the ground floor", () => {
+    const w = loft();
+    w.ok(TOWN_ACTOR, {
+      type: "schedule_town_event",
+      key: "loft-night",
+      kind: "gathering",
+      title: "Loft night",
+      startsAt: (20_000 * 24 + 18) * 3_600_000,
+      minutes: 60,
+    });
+    w.ok(TOWN_ACTOR, { type: "event_start", event: "e_1" });
+    climb(w, "ada");
+    landed(w, w.ok("ada", { type: "join_event", event: "e_1" }), "ada");
+    climb(w, "ada");
+    const salt = "0123456789abcdef0123456789abcdef";
+    const opened = w.ok("ada", {
+      type: "open_table",
+      game: "hearth_race",
+      pace: "slow",
+      salt,
+      at: 1,
+    });
+    landed(w, opened, "ada");
+    climb(w, "bob");
+    landed(w, w.ok("bob", { type: "sit", table: "g_1", at: 2 }), "bob");
+  });
+
+  it("walk_home, a routine's, lands on the ground floor", () => {
+    const w = loft();
+    w.ok("ada", { type: "set_routines", routines: [{ kind: "walk_home", hour: 18 }] });
+    climb(w, "ada");
+    w.ok("ada", { type: "leave" });
+    const step = { type: "home" } as const;
+    const walked = w.ok(TOWN_ACTOR, {
+      type: "routine_step",
+      resident: "ada",
+      routine: "walk_home",
+      step,
+    });
+    landed(w, walked, "ada");
+  });
+});
+
 describe("the ground floor", () => {
   it("is where the hearth is: no allowance or pantry over it upstairs, and home jumps down", () => {
     const w = loft();
@@ -487,6 +601,31 @@ describe("the ground floor", () => {
     });
     const cast: Command = { type: "fish", roll: 0, weather: "clear", timeOfDay: "day" };
     expect(w.refused("ada", cast).code).toBe("ground_floor_only");
+  });
+
+  it("is where doors are knocked on", () => {
+    const w = loft();
+    w.ok(TOWN_ACTOR, { type: "new_day", day: dayOfDate(2024, 10, 31) });
+    climb(w, "ada");
+    expect(w.refused("ada", { type: "trick_or_treat", px: 1, py: 0 })).toEqual({
+      code: "ground_floor_only",
+      message: "Go down to the ground floor to knock on a door.",
+    });
+  });
+
+  it("is where blocks go around people: someone upstairs is in nobody's way below", () => {
+    const w = loft();
+    w.ok("dan", { type: "join", name: "dan", kind: "human" });
+    w.ok("cy", { type: "add_storey", px: 1, py: 0 });
+    // Cy's hut will have walls at (9, 1) and (10, 1). Cy stands over one, Dan over the other.
+    perch(w, "cy", 9, 1);
+    perch(w, "dan", 10, 1);
+    const built = w.ok("cy", { type: "build_starter_home" });
+    const walls = ofType(built, "block_placed").map((e) => `${e.x},${e.y}`);
+    expect(walls).toEqual(expect.arrayContaining(["9,1", "10,1"]));
+    // Cy isn't walled in, so she doesn't step aside onto her new hearth.
+    expect(ofType(built, "moved")).toEqual([]);
+    expect(w.state.residents.cy).toMatchObject({ x: 9, y: 1, storey: 1 });
   });
 });
 

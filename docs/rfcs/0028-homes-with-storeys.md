@@ -226,7 +226,7 @@ New refusals:
 
 | Code | When | Message, roughly |
 |------|------|------------------|
-| `no_storey` | Building on, or putting stairs up to, a storey this plot hasn't added | "This plot has no upstairs yet. add_storey adds it for 80 coins." |
+| `no_storey` | Building on, or putting stairs up to, a storey this plot hasn't added | "This plot has no upstairs yet. add_storey adds it for 200 coins." |
 | `too_high` | Past `STOREYS.max`, or stairs on the top storey | "Homes go up one storey above the ground." |
 | `nothing_under` | A floor with no wall below within 2 tiles, or a block with no floor or wall under it | "Nothing holds that up. Build walls under it first, within 2 tiles." |
 | `holds_up` | Taking away what holds up a floor, a block, stairs, or someone | "That wall holds up the floor above. Lift the floor first." |
@@ -240,7 +240,7 @@ New refusals:
 | Number | Value | Why |
 |--------|-------|-----|
 | `max` | 1 storey above the ground floor | A loft first: half the camera, picker, and photo work of two, and usage shows whether a second is wanted. May go up later, never down, since logged inputs on a storey must stay valid. |
-| `price` | 80 coins for storey 1 (a starting point; PR 3's economy run sets it) | A regular earns about 15 a day (decision 0039), so about 5 days. 80 is above the 50 coin welcome gift, so nobody adds a storey on day one with free coins. A second storey, if the cap goes up, costs more. |
+| `price` | 200 coins for storey 1 ([decision 0242](../knowledge/decisions/0242-a-storey-costs-200-coins-the-economy-run-with-builders-says-.md), from PR 3's economy run) | At 80 the run's builders could pay on day 1 from the welcome gift, a tip, and a first sale; at 200 the median builder pays on day 9 and the earliest on day 5. A second storey, if the cap goes up, costs more. |
 | `span` | 2 tiles | Covers the whole starter hut and allows a 2-tile balcony, but no floating decks across a plot. |
 | `stairsWood` | 4 wood | About a day or two of branches on a wooded plot; given back on removal. |
 
@@ -268,7 +268,7 @@ Other plots draw from above: each tile shows the highest storey that has somethi
 
 #### The build bar on a phone
 
-On a plot with storeys, the build bar's header gets a storey picker of two chips ("Ground floor", "Upstairs"), 44 px tall, with `aria-pressed`. Picking one sets the storey taps build on and moves the map's cutaway there, without moving you. The last chip is "Add a storey, 80 coins" while the plot can have another, sending `add_storey` after a confirm, since it spends coins. The picker starts on your own storey. Standing on stairs or a stairwell shows a "Go up" or "Go down" pill beside your figure. Tap to walk stays within one storey; tapping a tile on another storey walks you to the stairs and shows the pill, so nothing climbs without a tap.
+On a plot with storeys, the build bar's header gets a storey picker of two chips ("Ground floor", "Upstairs"), 44 px tall, with `aria-pressed`. Picking one sets the storey taps build on and moves the map's cutaway there, without moving you. The last chip is "Add a storey, 200 coins" while the plot can have another, sending `add_storey` after a confirm, since it spends coins. The picker starts on your own storey. Standing on stairs or a stairwell shows a "Go up" or "Go down" pill beside your figure. Tap to walk stays within one storey; tapping a tile on another storey walks you to the stairs and shows the pill, so nothing climbs without a tap.
 
 #### The 3D home view
 
@@ -292,7 +292,7 @@ The same rule as the map: the plot you stand on is cut away at your storey, and 
 
 ## Economy impact
 
-- A new coin sink: `add_storey`, 80 coins a plot to start, split like a shop purchase. No new source.
+- A new coin sink: `add_storey`, 200 coins a plot ([decision 0242](../knowledge/decisions/0242-a-storey-costs-200-coins-the-economy-run-with-builders-says-.md)), split like a shop purchase. No new source.
 - A new wood sink: stairs (4 each, given back when taken up) and planked floors upstairs (1 a tile, given back when lifted).
 - Nothing duplicates: stairs and floors give back exactly what they took, as decor and ground do, and the price is never refunded. `expectSupplyHolds` runs after `add_storey` in its tests.
 - A co-owner can pay for a storey on a plot they share. If the owner later releases the plot, the coins stay burned; nothing comes back to anyone, so there's nothing to farm.
@@ -349,7 +349,7 @@ Tests: `storeys.test.ts` pins every number, so a change is deliberate.
 
 `storey` on plan entries, the plan order, the `unsupported` and `holds_up` skips, `no_storey` refusing whole, the larger list cap, and `plotPlan` reading every storey.
 
-Tests: a one-call hut with a loft builds the same on two plots, and `plotPlan` reads it back equal to the plan; a plan that removes a wall holding up a floor it keeps skips that removal as `holds_up`; a loft plan on a plot without a storey is refused whole; old-shape plans in the build and commons fixtures keep their hashes and event bytes.
+Tests: a one-call hut with a loft builds the same on two plots, and `plotPlan` reads it back equal to the plan; a plan that removes a wall holding up a floor it keeps skips that removal as `holds_up`; a plan that removes a wall holding up a floor upstairs it doesn't name skips that removal as `holds_up`; a plan that removes stairs someone stands on, at the foot or at the top, skips that removal as `holds_up`; a loft plan on a plot without a storey is refused whole; old-shape plans in the build and commons fixtures keep their hashes and event bytes.
 
 #### PR 5. Read side: the wire and the web drawing storeys
 

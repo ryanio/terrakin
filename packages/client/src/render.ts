@@ -44,6 +44,7 @@ import {
 } from "./render/decor";
 import { lightBulbs } from "./render/decor-winter";
 import { paintFurniture, paintGameTable } from "./render/furniture";
+import { type MapGlow, mapGlow } from "./render/glow";
 import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
 import { CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
@@ -310,8 +311,8 @@ export function render(
     }
     return skin;
   };
-  /** Lanterns on screen, which glow after dark. */
-  const lanterns: { sx: number; sy: number }[] = [];
+  /** Lanterns, lamps, flames, and cauldrons' brews on screen, which glow after dark. */
+  const lanterns: { sx: number; sy: number; tint: MapGlow["tint"] }[] = [];
   /** The bulbs of strings of lights on screen, which glow their own colors after dark. */
   const bulbs: { x: number; y: number; color: string }[] = [];
   // Ponds (RFC 0023) lie flat in the ground, each tile's bank only where no pond runs on, with
@@ -378,12 +379,9 @@ export function render(
       };
       paintFurniture(ctx, block, left, top, size, scale, inset, joins);
       if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
-      if (block === "lamp_post") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.25 });
-      if (block === "campfire") lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.62 });
-      // A jack-o'-lantern's face lights up after dark.
-      if (block === "jack_o_lantern") {
-        lanterns.push({ sx: left + size * 0.5, sy: top + size * 0.62 });
-      }
+      // Lamp posts, campfires, and a jack-o'-lantern's face light up after dark.
+      const lit = mapGlow(block);
+      if (lit) lanterns.push({ sx: left + size * lit.x, sy: top + size * lit.y, tint: lit.tint });
       continue;
     }
     if (isDecorKind(block)) {
@@ -401,7 +399,9 @@ export function render(
           : undefined;
       if (shown) paintShown(ctx, shown, left, top, size, "frame");
       if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
-      if (block === "lantern") lanterns.push({ sx: left + size * 0.64, sy: top + size * 0.42 });
+      // A paper lantern's shade and a cauldron's brew light up after dark.
+      const lit = mapGlow(block);
+      if (lit) lanterns.push({ sx: left + size * lit.x, sy: top + size * lit.y, tint: lit.tint });
       if (block === "string_lights") bulbs.push(...lightBulbs(left, top, size));
       continue;
     }
@@ -451,7 +451,7 @@ export function render(
     const left = Math.round(sx - half) + inset;
     const top = Math.round(sy - half) + inset;
     const size = Math.round(scale) - inset * 2;
-    const shade = { sx: left + size * 0.64, sy: top + size * 0.42 };
+    const shade = { sx: left + size * 0.64, sy: top + size * 0.42, tint: "warm" as const };
     // Lit, it glows in daylight too, and joins the paper lanterns that glow after dark.
     if (l.lit) {
       const g = ctx.createRadialGradient(shade.sx, shade.sy, 0, shade.sx, shade.sy, scale * 0.9);
@@ -807,7 +807,20 @@ export function render(
         ctx.fillRect(sx - reach, sy - reach, reach * 2, reach * 2);
       };
       const bright = midwinter ? 1.2 : 1;
-      for (const l of lanterns) glow(l.sx, l.sy, scale * 2 * bright, 0.62 * bright);
+      for (const l of lanterns) {
+        if (l.tint === "warm") {
+          glow(l.sx, l.sy, scale * 2 * bright, 0.62 * bright);
+          continue;
+        }
+        // A cauldron's brew (RFC 0022): a smaller green glow off the top of the pot.
+        const reach = scale * 1.3;
+        const g = ctx.createRadialGradient(l.sx, l.sy, 0, l.sx, l.sy, reach);
+        g.addColorStop(0, `rgba(200, 240, 168, ${(0.4 * strength).toFixed(3)})`);
+        g.addColorStop(0.3, `rgba(143, 209, 106, ${(0.24 * strength).toFixed(3)})`);
+        g.addColorStop(1, "rgba(143, 209, 106, 0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(l.sx - reach, l.sy - reach, reach * 2, reach * 2);
+      }
       const box = tilesBox(mirror.shop, cam);
       if (box) {
         for (const f of [0.255, 0.745])

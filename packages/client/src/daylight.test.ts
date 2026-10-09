@@ -1,4 +1,6 @@
+import { BLOCK_KINDS } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { mapGlow } from "./render/glow";
 import { flicker, glowsAfterDark, lampLevel, lightAt } from "./scene3d/daylight";
 import { litHomes } from "./scene3d/layout";
 import { OVERCAST, SKY } from "./scene3d/palette";
@@ -186,6 +188,16 @@ describe("what glows after dark", () => {
     expect(glowsAfterDark("string_lights")).toBe(true);
     for (const kind of ["snowman", "little_fir", "sled"] as const)
       expect(glowsAfterDark(kind, true), kind).toBe(false);
+  });
+
+  it("lights the same kinds on the map as in 3D, Halloween's cauldron among them", () => {
+    // A string of lights glows on the map as its bulbs, and a window only in 3D.
+    const asBulbs = new Set(["string_lights"]);
+    const off = BLOCK_KINDS.filter(
+      (kind) => glowsAfterDark(kind) !== (mapGlow(kind) !== null || asBulbs.has(kind)),
+    );
+    expect(off).toEqual([]);
+    expect(mapGlow("cauldron")?.tint).toBe("brew");
   });
 
   it("raises a lamp from its day strength to its night one, wavering a little", () => {

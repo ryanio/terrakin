@@ -8,8 +8,10 @@ import {
 } from "@terrakin/cards";
 import {
   alphaHex,
+  blocksOn,
   DAY_LENGTH_MS,
   dayPhase,
+  groundOn,
   isCommons,
   nightAmount,
   type PetCoat,
@@ -20,10 +22,13 @@ import {
   plotOf,
   type Resident,
   residentById,
+  STOREYS,
   skyAt,
+  standingStorey,
   THEME_INFO,
   THEME_TINT_ALPHA,
   type ThemePalette,
+  tileKey,
   timeOfDay,
   WEAR_INFO,
   type WorldState,
@@ -32,6 +37,7 @@ import {
 import { type EdgeLook, figureDrawing, hairName } from "@terrakin/ui/figure-svg";
 import {
   areaOf,
+  drawnFromAbove,
   materializePlot,
   type PlotPhotoSpec,
   petPicture,
@@ -59,11 +65,15 @@ export type PictureRoute =
   | { kind: "look"; id: string }
   | { kind: "near"; id: string };
 
-/** A resident's figure before it's drawn: where their feet are, in tiles, and their look. */
+/**
+ * A resident's figure before it's drawn: where their feet are, in tiles, their look, and whether
+ * a floor the picture draws over them hides them, so they're drawn faded (RFC 0028).
+ */
 interface SpecFigure {
   x: number;
   y: number;
   look: EdgeLook;
+  faded?: true;
 }
 
 type PlotPictureSpec = Omit<PlotPhotoSpec, "figures"> & { figures?: SpecFigure[] };
@@ -118,6 +128,20 @@ export function edgeLook(r: Resident): EdgeLook {
   };
 }
 
+/**
+ * Whether a picture from above draws a floor or a block over someone on `storey` at (x, y), as the
+ * map's `underFloor` has it for every plot but the one you stand on.
+ */
+function underFloor(state: WorldState, x: number, y: number, storey: number): boolean {
+  const key = tileKey(x, y);
+  for (let above = storey + 1; above <= STOREYS.max; above++) {
+    if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Online residents standing in the box from (x0, y0), `cols` by `rows`, nearest `here` first. */
 function figuresIn(
   state: WorldState,
@@ -135,7 +159,12 @@ function figuresIn(
         (a.id < b.id ? -1 : 1),
     )
     .slice(0, MAX_FIGURES)
-    .map((r) => ({ x: r.x - x0 + 0.5, y: r.y - y0 + FEET, look: edgeLook(r) }));
+    .map((r) => ({
+      x: r.x - x0 + 0.5,
+      y: r.y - y0 + FEET,
+      look: edgeLook(r),
+      ...(underFloor(state, r.x, r.y, standingStorey(r)) ? { faded: true as const } : {}),
+    }));
 }
 
 /** A plot as it looks now, with whoever stands on it. Undefined for a plot nobody has claimed. */
@@ -235,6 +264,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
     return isCommons(config, px, py);
   };
   const area = areaOf(state, x0, y0, cols, rows, paletteAt, commons);
+  const storeys = drawnFromAbove(area.storeys);
 
   // Each themed plot's tint, cut to the box.
   const S = config.plotSize;
@@ -302,6 +332,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
       ...(tints.length ? { tints } : {}),
       blocks: area.blocks,
       ...(area.crops.length ? { crops: area.crops } : {}),
+      ...(storeys.length ? { storeys } : {}),
       hearths,
       ...(pets.length ? { pets } : {}),
       figures,
@@ -330,7 +361,12 @@ export function pictureSpec(
 }
 
 const drawn = (figures: SpecFigure[] | undefined): PlacedFigure[] =>
-  (figures ?? []).map((f) => ({ x: f.x, y: f.y, drawing: figureDrawing(f.look) }));
+  (figures ?? []).map((f) => ({
+    x: f.x,
+    y: f.y,
+    drawing: figureDrawing(f.look),
+    ...(f.faded ? { faded: true } : {}),
+  }));
 
 /** A picture's card: its figures drawn, its pet's shapes, and the home picture loaded. */
 export async function materializePicture(

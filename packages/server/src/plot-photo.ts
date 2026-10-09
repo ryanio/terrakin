@@ -3,18 +3,23 @@ import {
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
+  type PlotFloor,
   type PlotGround,
   type PlotInk,
   type PlotPet,
+  type PlotStorey,
   probeImage,
 } from "@terrakin/cards";
 import {
   alphaHex,
   type Biome,
+  type BlockKind,
   blockFill,
+  blocksOn,
   CROP_HEX,
   FLOWER_TONES,
   GROUND_LOOK,
+  groundOn,
   groundTile,
   growth,
   HEARTH_COLOR,
@@ -28,6 +33,7 @@ import {
   POND_LOOK,
   petBed,
   petShapes,
+  STOREYS,
   seasonOf,
   THEME_INFO,
   THEME_TINT_ALPHA,
@@ -102,15 +108,16 @@ export function photoPlace(
 /**
  * The photo of `residentId`'s plot, from world state alone. Undefined when they have no plot. Its
  * name is the photo's title (decision 0121), unless `held` says staff hold back the words of
- * whoever named it.
+ * whoever named it. With `storey`, one the plot has, it's that storey's floor plan (RFC 0028).
  */
 export function plotPhotoSpec(
   state: WorldState,
   residentId: string,
   held: (id: string) => boolean = () => false,
+  storey?: number,
 ): PlotPhotoSpec | undefined {
   const plot = photoPlot(state, residentId);
-  return plot ? plotSpecOf(state, plot, held) : undefined;
+  return plot ? plotSpecOf(state, plot, held, true, storey) : undefined;
 }
 
 /** A world plot record, as `state.plots` keeps them. */
@@ -118,13 +125,17 @@ type WorldPlot = WorldState["plots"][string];
 
 /**
  * A plot's photo from world state alone: plot photos (`plotPhotoSpec`) and the picture of a plot by
- * link (decision 0160). The owner's home picture comes along unless `withArt` is false.
+ * link (decision 0160). The owner's home picture comes along unless `withArt` is false. It shows
+ * every storey from above (RFC 0028), or with `storey` that storey's floor plan: everything above
+ * it left out, and what's under it dimmed where it has no floor, as the map shows the storey you
+ * stand on.
  */
 export function plotSpecOf(
   state: WorldState,
   plot: WorldPlot,
   held: (id: string) => boolean = () => false,
   withArt = true,
+  storey?: number,
 ): PlotPhotoSpec {
   const title = shownPlotName(plot, held);
   const { config } = state;
@@ -162,16 +173,26 @@ export function plotSpecOf(
 
   const biomes = [...area.biomes.entries()].sort((a, b) => b[1] - a[1]).map(([b]) => b);
   const { blocks, crops } = area;
+  // Every block on the plot counts, on every storey, as the plot's view counts them.
+  const count = blocks.length + area.storeys.reduce((sum, s) => sum + s.blocks.length, 0);
+  const added = plot.storeys ?? 0;
+  const shown = storey === undefined ? drawnFromAbove(area.storeys) : area.storeys.slice(0, storey);
   return {
     kind: "plot",
     name: owner?.name ?? "",
     ...(title === undefined ? {} : { title }),
     place: `Plot ${plot.px}, ${plot.py}`,
-    facts: [biomeLine(biomes), `${blocks.length} ${blocks.length === 1 ? "block" : "blocks"}`],
+    facts: [
+      biomeLine(biomes),
+      `${count} ${count === 1 ? "block" : "blocks"}`,
+      ...(storey !== undefined ? [storeyName(storey)] : added > 0 ? [`${added + 1} storeys`] : []),
+    ],
     size: S,
     ground: area.ground,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),
     blocks,
+    ...(shown.length > 0 ? { storeys: shown } : {}),
+    ...(storey !== undefined && storey > 0 ? { floorPlan: true } : {}),
     ...(crops.length > 0 ? { crops } : {}),
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
     ...(withArt && owner?.homeArt ? { homeArt: owner.homeArt } : {}),
@@ -179,6 +200,22 @@ export function plotSpecOf(
     ink: plotInk(season(state)),
   };
 }
+
+/** "Ground floor", "Upstairs": a storey in the words people see (RFC 0028). */
+function storeyName(storey: number): string {
+  if (storey === 0) return "Ground floor";
+  return STOREYS.max === 1 ? "Upstairs" : `Storey ${storey}`;
+}
+
+/** The storeys a picture from above draws: up to the highest with something on it. */
+export function drawnFromAbove(storeys: PlotStorey[]): PlotStorey[] {
+  let top = storeys.length;
+  while (top > 0 && !hasAnything(storeys[top - 1])) top--;
+  return storeys.slice(0, top);
+}
+
+const hasAnything = (s: PlotStorey | undefined) =>
+  s !== undefined && (s.floors.length > 0 || s.blocks.length > 0);
 
 /** The world's season, as the map draws it: leaves in autumn, snow in winter. */
 const season = (state: WorldState) => (state.day === undefined ? undefined : seasonOf(state.day));
@@ -203,8 +240,9 @@ export function plotInk(s: ReturnType<typeof seasonOf> | undefined): PlotInk {
 /**
  * A rectangle of the world, `cols` by `rows` tiles from (x0, y0), as a photo draws it: its ground
  * dressed for the season, paths and floors, blocks in the theme `palette` gives for their tile
- * (glass and water keep their own), and crops as far along as the world's day. Coordinates come
- * back relative to (x0, y0). `commons` says which tiles are the Commons plaza.
+ * (glass and water keep their own), crops as far along as the world's day, and each storey above
+ * the ground floor up to `STOREYS.max` (RFC 0028), its floors and blocks, empty or not. Coordinates
+ * come back relative to (x0, y0). `commons` says which tiles are the Commons plaza.
  */
 export function areaOf(
   state: WorldState,
@@ -214,7 +252,13 @@ export function areaOf(
   rows: number,
   palette: (x: number, y: number) => ThemePalette | undefined,
   commons: (x: number, y: number) => boolean,
-): { ground: PlotGround[]; blocks: PlotBlock[]; crops: PlotCrop[]; biomes: Map<Biome, number> } {
+): {
+  ground: PlotGround[];
+  blocks: PlotBlock[];
+  crops: PlotCrop[];
+  storeys: PlotStorey[];
+  biomes: Map<Biome, number>;
+} {
   const { config } = state;
   const s = season(state);
   const ground: PlotGround[] = [];
@@ -260,22 +304,61 @@ export function areaOf(
           ...(onVine(planting.crop) ? { vine: true } : {}),
         });
       }
-      // Glass keeps its own color on a themed plot, as in the world, and so does water. A pond's
-      // lily pads float where the map floats them (RFC 0023).
-      const pond = block === "pond";
-      blocks.push({
-        x,
-        y,
-        glass: block === "glass",
-        fill: blockFill(block, block === "glass" || pond ? undefined : palette(wx, wy)),
-        ...(isDecorKind(block) ? { decor: block } : {}),
-        ...(isFurnitureKind(block) ? { furniture: block } : {}),
-        ...(pond ? { water: true } : {}),
-        ...(pond && tileHash(wx, wy) % 3 === 0 ? { lily: true } : {}),
-      });
+      blocks.push(plotBlock(block, x, y, wx, wy, palette));
     }
   }
-  return { ground, blocks, crops, biomes };
+  // Each storey above the ground floor, read over the area's own tiles like the ground floor.
+  const storeys: PlotStorey[] = [];
+  for (let storey = 1; storey <= STOREYS.max; storey++) {
+    const upBlocks = blocksOn(state, storey);
+    const upGround = groundOn(state, storey);
+    const floors: PlotFloor[] = [];
+    const standing: PlotBlock[] = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const key = tileKey(x0 + x, y0 + y);
+        const laid = upGround[key];
+        if (laid) {
+          const look = GROUND_LOOK[laid];
+          floors.push({
+            x,
+            y,
+            paving: { ...(look.fill ? { fill: look.fill } : {}), marks: look.marks },
+          });
+        }
+        const block = upBlocks[key];
+        if (block) standing.push(plotBlock(block, x, y, x0 + x, y0 + y, palette));
+      }
+    }
+    storeys.push({ floors, blocks: standing });
+  }
+  return { ground, blocks, crops, storeys, biomes };
+}
+
+/**
+ * A block as a photo draws it, at (x, y) in the area, from world tile (wx, wy). Glass keeps its
+ * own color on a themed plot, as in the world, and so does water. A pond's lily pads float where
+ * the map floats them (RFC 0023).
+ */
+function plotBlock(
+  block: BlockKind,
+  x: number,
+  y: number,
+  wx: number,
+  wy: number,
+  palette: (x: number, y: number) => ThemePalette | undefined,
+): PlotBlock {
+  const pond = block === "pond";
+  return {
+    x,
+    y,
+    glass: block === "glass",
+    fill: blockFill(block, block === "glass" || pond ? undefined : palette(wx, wy)),
+    ...(isDecorKind(block) ? { decor: block } : {}),
+    ...(isFurnitureKind(block) ? { furniture: block } : {}),
+    ...(pond ? { water: true } : {}),
+    ...(pond && tileHash(wx, wy) % 3 === 0 ? { lily: true } : {}),
+  };
 }
 
 /** A pet's box across, in tiles, as the map draws it, and how far it leans toward the hearth. */

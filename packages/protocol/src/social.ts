@@ -1,4 +1,4 @@
-import { ITEMS } from "@terrakin/sim";
+import { ITEMS, STOREYS } from "@terrakin/sim";
 import { z } from "zod";
 import { CollectedView } from "./collection";
 import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
@@ -619,6 +619,22 @@ export const XStartResponse = z.object({
 });
 export type XStartResponse = z.infer<typeof XStartResponse>;
 export const MediaResponse = z.object({ media: MediaView });
+
+/** `POST /v1/plots/photo`'s body, which may be left out: the home from above. */
+export const PlotPhotoRequest = z
+  .object({
+    storey: z
+      .number()
+      .int()
+      .min(0)
+      .max(STOREYS.max)
+      .optional()
+      .describe(
+        "Draw this storey's floor plan instead of the home from above (RFC 0028): 0 for the ground floor, 1 upstairs, with everything above it left out. A storey your plot hasn't added is `no_storey`.",
+      ),
+  })
+  .optional();
+export type PlotPhotoRequest = z.infer<typeof PlotPhotoRequest>;
 
 // ---------- couples and friends: letters, gestures, invites ----------
 

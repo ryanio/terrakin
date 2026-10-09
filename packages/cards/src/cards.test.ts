@@ -17,7 +17,7 @@ import {
   safeColor,
 } from "./plot";
 import { unmask } from "./render";
-import { sampleFigure, sampleNear, samplePlot, samples } from "./samples";
+import { sampleFigure, sampleLoft, sampleNear, samplePlot, samples } from "./samples";
 import { type Card, element, H, W } from "./templates";
 import { cardText, clip, count, drawable } from "./text";
 
@@ -173,6 +173,11 @@ describe("cards", () => {
     // A name with nothing the fonts can draw leaves the home as the title.
     const undrawable = await textNodes({ ...samplePlot("Juniper"), title: "🍋🍋🍋" });
     expect(undrawable.map((n) => n.text)).toContain("Juniper's home");
+    // A longer line of facts, like a home with a loft's "2 storeys", stays one line in the frame.
+    const loft = await textNodes(sampleLoft("Juniper"));
+    const facts = loft.find((n) => n.text.endsWith("2 storeys"));
+    expect(facts?.text.startsWith("Plot 3, 4")).toBe(true);
+    expect(bottom(facts)).toBeLessThanOrEqual(room);
   });
 
   it("formats counts and clips on word boundaries", () => {
@@ -292,6 +297,20 @@ describe("renderer", () => {
           { x: 99, y: 1, glass: false, fill: "#b8834f" },
         ],
         hearth: { x: -1, y: 3 },
+        storeys: [
+          {
+            floors: [
+              { x: 2, y: 2, paving: { fill: hostile, marks: [] } },
+              { x: Number.NaN, y: 2, paving: { fill: "#c08a55", marks: [] } },
+              { x: 99, y: 2, paving: { fill: "#c08a55", marks: [] } },
+            ],
+            blocks: [
+              { x: 2, y: 2, glass: false, fill: hostile },
+              { x: 2, y: Number.NaN, glass: false, fill: "#b8834f" },
+            ],
+          },
+        ],
+        floorPlan: true,
         ink: { roof: hostile, door: hostile, walls: hostile, tuft: hostile },
       },
       420,
@@ -323,6 +342,41 @@ describe("renderer", () => {
     expect(svg.match(/<ellipse/g)).toHaveLength(1);
     // A paved tile grows no tufts or flowers.
     expect(svg).not.toContain('stroke-width="0.045" stroke-linecap="round" fill="none"/>');
+  });
+
+  it("draws a floor upstairs over the ground floor's tiles, its shadow falling further than a block's (RFC 0028)", () => {
+    const base = samplePlot("Wren");
+    const wall = { x: 2, y: 2, glass: false, fill: "#b8834f" };
+    const loft = { fill: "#c08a56", marks: [] };
+    const svg = plotSvg(
+      {
+        ...base,
+        blocks: [wall],
+        storeys: [{ floors: [{ x: 2, y: 2, paving: loft }], blocks: [] }],
+      },
+      420,
+    );
+    const ground = svg.indexOf('fill="#b8834f"');
+    const floor = svg.indexOf('<rect x="2" y="2" width="1.02" height="1.02" fill="#c08a56"/>');
+    expect(ground).toBeGreaterThan(-1);
+    expect(floor).toBeGreaterThan(ground);
+    // The storey's shadow falls 0.22 of a tile per storey, under its floor and over the wall below.
+    const shadow = svg.indexOf('<rect x="2.22" y="2.22" width="1" height="1"');
+    expect(shadow).toBeGreaterThan(ground);
+    expect(shadow).toBeLessThan(floor);
+    // From above, nothing under it is dimmed.
+    expect(svg).not.toContain("rgba(43, 38, 32, 0.38)");
+  });
+
+  it("draws a storey's floor plan with what's under it dimmed where it has no floor (RFC 0028)", () => {
+    const dim = 'fill="rgba(43, 38, 32, 0.38)"';
+    const above = plotSvg(sampleLoft("Wren"), 420);
+    const plan = plotSvg(sampleLoft("Wren", 1), 420);
+    // The loft's 19 tiles of floor (the hut's 4 rows of 5, but the stairwell) stay bright, the
+    // other 45 of the plot's 64 tiles are dimmed, and the loft is drawn over them.
+    expect(plan.split(dim).length - 1).toBe(64 - 19);
+    expect(plan.lastIndexOf(dim)).toBeLessThan(plan.lastIndexOf('fill="#c08a55"'));
+    expect(above).not.toContain(dim);
   });
 
   it("draws furniture as itself, with low walls joining only other walls", () => {

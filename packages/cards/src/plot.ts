@@ -112,6 +112,23 @@ export interface PlotBlock {
   lily?: boolean | undefined;
 }
 
+/** A floor laid on a storey above the ground floor (RFC 0028): its tile and its look. */
+export interface PlotFloor {
+  /** Tiles from the area's top left corner. */
+  x: number;
+  y: number;
+  paving: PlotPaving;
+}
+
+/**
+ * A storey above the ground floor (RFC 0028): its floors and the blocks on it, drawn from above
+ * over the storeys under it, as the map draws them.
+ */
+export interface PlotStorey {
+  floors: PlotFloor[];
+  blocks: PlotBlock[];
+}
+
 /** Something growing in a planter, drawn over it as the map draws it. */
 export interface PlotCrop {
   /** Tiles from the plot's top left corner: the planter's tile. */
@@ -200,6 +217,10 @@ export interface PlotCard {
   pet?: PlotPet | undefined;
   /** Residents standing on the plot (pictures by link, decision 0160). */
   figures?: PlacedFigure[] | undefined;
+  /** Storeys above the ground floor, from storey 1 up (RFC 0028). */
+  storeys?: PlotStorey[] | undefined;
+  /** The top storey drawn is a floor plan: what's under it shows through dimmed where it has no floor. */
+  floorPlan?: boolean | undefined;
   ink: PlotInk;
 }
 
@@ -208,6 +229,8 @@ export interface PlacedFigure {
   x: number;
   y: number;
   drawing: Drawing;
+  /** Under a floor the picture draws over them: drawn faded, as the map draws them (RFC 0028). */
+  faded?: boolean | undefined;
 }
 
 /**
@@ -227,6 +250,16 @@ export interface PlotArea {
   hearths?: { x: number; y: number }[] | undefined;
   pets?: PlotPet[] | undefined;
   figures?: PlacedFigure[] | undefined;
+  /**
+   * Storeys above the ground floor, from storey 1 up (RFC 0028), each drawn over the ones under
+   * it with a shadow that falls further the higher it is, so height reads at a glance.
+   */
+  storeys?: PlotStorey[] | undefined;
+  /**
+   * The top storey in `storeys` is a floor plan, as the map shows the storey you stand on: what's
+   * under it shows through dimmed wherever it has no floor.
+   */
+  floorPlan?: boolean | undefined;
   ink: PlotInk;
 }
 
@@ -245,6 +278,8 @@ export function plotSvg(c: PlotCard, px: number): string {
     hearths: c.hearth ? [c.hearth] : [],
     pets: c.pet ? [c.pet] : [],
     figures: c.figures,
+    storeys: c.storeys,
+    floorPlan: c.floorPlan,
     ink: c.ink,
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
@@ -254,10 +289,22 @@ export function plotSvg(c: PlotCard, px: number): string {
 const MAX_SIDE = 64;
 const MAX_FIGURES = 24;
 const MAX_PETS = 24;
+/** Most storeys above the ground an area draws, and most floors and blocks on each. */
+const MAX_STOREYS = 4;
+const MAX_STOREY_TILES = MAX_SIDE * MAX_SIDE;
+
+/** A storey's shadow, as the map draws it: how far it falls per storey, in tiles, and its color. */
+const STOREY_SHADOW = 0.22;
+const STOREY_SHADE = "rgba(43, 30, 18, 0.24)";
+/** How dim what's under a floor plan shows where it has no floor, as on the map. */
+const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
+/** How faded a figure under a floor is drawn, as on the map. */
+const UNDER_FLOOR_OPACITY = 0.5;
 
 /**
  * An area's markup, in tile units from its top left: the ground and what lies on it, ponds, blocks,
- * decor and furniture, crops, hearths, pets, and figures, back to front. Our own markup only.
+ * decor and furniture, crops, hearths, the storeys above the ground floor, pets, and figures, back
+ * to front. Our own markup only.
  */
 export function areaParts(a: PlotArea): string[] {
   const cols = Math.max(1, Math.min(MAX_SIDE, Math.floor(a.cols)));
@@ -323,12 +370,55 @@ export function areaParts(a: PlotArea): string[] {
     );
   }
 
-  // Blocks: a ground shadow, the block, a bottom shade, and a top highlight, as in the world.
-  const fences = new Set(a.blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
+  parts.push(...blocksSvg(a.blocks, inX, inY));
+
+  // What's growing, over its planter.
+  for (const crop of a.crops ?? []) {
+    if (inX(crop.x) && inY(crop.y)) parts.push(...cropSvg(crop));
+  }
+
+  // Hearths: a little house with a door and a clay roof.
+  for (const h of (a.hearths ?? []).slice(0, 64)) {
+    if (!inX(h.x) || !inY(h.y)) continue;
+    const sx = h.x + 0.5;
+    const sy = h.y + 0.5;
+    const half = 0.5;
+    parts.push(
+      `<ellipse cx="${n(sx)}" cy="${n(sy + half * 0.62)}" rx="${n(half * 0.62)}" ry="${n(half * 0.16)}" fill="rgba(74, 52, 28, 0.2)"/>`,
+      `<rect x="${n(sx - half * 0.52)}" y="${n(sy - half * 0.2)}" width="${n(half * 1.04)}" height="${n(half * 0.78)}" fill="${safeColor(a.ink.walls)}"/>`,
+      `<rect x="${n(sx - half * 0.14)}" y="${n(sy + half * 0.12)}" width="${n(half * 0.28)}" height="${n(half * 0.46)}" rx="0.04" fill="${safeColor(a.ink.door)}"/>`,
+      `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(a.ink.roof)}"/>`,
+    );
+  }
+  parts.push(...storeysSvg(a, cols, rows, inX, inY));
+  for (const pet of (a.pets ?? []).slice(0, MAX_PETS)) parts.push(...petSvg(pet, cols, rows));
+  // Figures back to front, so someone further south stands in front.
+  const figures = (a.figures ?? [])
+    .slice(0, MAX_FIGURES)
+    .filter((f) => inX(f.x) && Number.isFinite(f.y) && f.y > 0 && f.y <= rows + 1)
+    .sort((p, q) => p.y - q.y);
+  figures.forEach((f, i) => {
+    parts.push(...figureSvg(f, `f${i}`));
+  });
+  return parts;
+}
+
+/**
+ * Blocks standing on one storey: a ground shadow, the block, a bottom shade, and a top highlight,
+ * as in the world, with decor and furniture as themselves. Fences and low walls join their
+ * neighbors on the same storey. Ponds are drawn flat with the ground, so they're left out here.
+ */
+function blocksSvg(
+  blocks: readonly PlotBlock[],
+  inX: (v: number) => boolean,
+  inY: (v: number) => boolean,
+): string[] {
+  const parts: string[] = [];
+  const fences = new Set(blocks.filter((b) => b.decor === "fence").map((b) => `${b.x},${b.y}`));
   const walls = new Set(
-    a.blocks.filter((b) => b.furniture === "stone_wall").map((b) => `${b.x},${b.y}`),
+    blocks.filter((b) => b.furniture === "stone_wall").map((b) => `${b.x},${b.y}`),
   );
-  for (const b of a.blocks) {
+  for (const b of blocks) {
     if (b.water || !inX(b.x) || !inY(b.y)) continue;
     if (b.furniture && (PLOT_FURNITURE as readonly string[]).includes(b.furniture)) {
       const at = (dx: number, dy: number) => walls.has(`${b.x + dx},${b.y + dy}`);
@@ -371,33 +461,51 @@ export function areaParts(a: PlotArea): string[] {
       );
     }
   }
+  return parts;
+}
 
-  // What's growing, over its planter.
-  for (const crop of a.crops ?? []) {
-    if (inX(crop.x) && inY(crop.y)) parts.push(...cropSvg(crop));
+/**
+ * The storeys above the ground floor (RFC 0028), as the map draws them: each over the ones under
+ * it, from the ground up, its floors and blocks casting a shadow that falls further the higher it
+ * is. A floor plan first dims every tile where its top storey has no floor, so what's below shows
+ * through.
+ */
+function storeysSvg(
+  a: PlotArea,
+  cols: number,
+  rows: number,
+  inX: (v: number) => boolean,
+  inY: (v: number) => boolean,
+): string[] {
+  const storeys = (a.storeys ?? []).slice(0, MAX_STOREYS).map((s) => ({
+    floors: (s.floors ?? []).slice(0, MAX_STOREY_TILES).filter((f) => inX(f.x) && inY(f.y)),
+    blocks: (s.blocks ?? []).slice(0, MAX_STOREY_TILES),
+  }));
+  const parts: string[] = [];
+  const top = storeys.at(-1);
+  if (a.floorPlan && top) {
+    const floored = new Set(top.floors.map((f) => `${f.x},${f.y}`));
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (floored.has(`${x},${y}`)) continue;
+        parts.push(`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${UNDER_DIM}"/>`);
+      }
+    }
   }
-
-  // Hearths: a little house with a door and a clay roof.
-  for (const h of (a.hearths ?? []).slice(0, 64)) {
-    if (!inX(h.x) || !inY(h.y)) continue;
-    const sx = h.x + 0.5;
-    const sy = h.y + 0.5;
-    const half = 0.5;
-    parts.push(
-      `<ellipse cx="${n(sx)}" cy="${n(sy + half * 0.62)}" rx="${n(half * 0.62)}" ry="${n(half * 0.16)}" fill="rgba(74, 52, 28, 0.2)"/>`,
-      `<rect x="${n(sx - half * 0.52)}" y="${n(sy - half * 0.2)}" width="${n(half * 1.04)}" height="${n(half * 0.78)}" fill="${safeColor(a.ink.walls)}"/>`,
-      `<rect x="${n(sx - half * 0.14)}" y="${n(sy + half * 0.12)}" width="${n(half * 0.28)}" height="${n(half * 0.46)}" rx="0.04" fill="${safeColor(a.ink.door)}"/>`,
-      `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(a.ink.roof)}"/>`,
-    );
-  }
-  for (const pet of (a.pets ?? []).slice(0, MAX_PETS)) parts.push(...petSvg(pet, cols, rows));
-  // Figures back to front, so someone further south stands in front.
-  const figures = (a.figures ?? [])
-    .slice(0, MAX_FIGURES)
-    .filter((f) => inX(f.x) && Number.isFinite(f.y) && f.y > 0 && f.y <= rows + 1)
-    .sort((p, q) => p.y - q.y);
-  figures.forEach((f, i) => {
-    parts.push(...figureSvg(f, `f${i}`));
+  storeys.forEach((s, i) => {
+    const drop = STOREY_SHADOW * (i + 1);
+    const tiles = new Set<string>();
+    for (const t of [...s.floors, ...s.blocks.filter((b) => !b.water)]) {
+      if (inX(t.x) && inY(t.y)) tiles.add(`${t.x},${t.y}`);
+    }
+    for (const key of tiles) {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      parts.push(
+        `<rect x="${n(x + drop)}" y="${n(y + drop)}" width="1" height="1" fill="${STOREY_SHADE}"/>`,
+      );
+    }
+    for (const f of s.floors) parts.push(...pavingSvg(f.paving, f.x, f.y));
+    parts.push(...blocksSvg(s.blocks, inX, inY));
   });
   return parts;
 }
@@ -410,9 +518,11 @@ function figureSvg(f: PlacedFigure, id: string): string[] {
   if (!drawingBox(f.drawing)) return [];
   const body = drawingSvg(f.drawing, id);
   if (!body) return [];
+  // Never hidden: someone under a floor is drawn faded (RFC 0028).
+  const faded = f.faded ? ` opacity="${UNDER_FLOOR_OPACITY}"` : "";
   return [
     `<ellipse cx="${n(f.x)}" cy="${n(f.y)}" rx="0.27" ry="0.085" fill="rgba(60, 40, 20, 0.22)"/>`,
-    `<g transform="translate(${n(f.x)} ${n(f.y)}) scale(0.01)">${body}</g>`,
+    `<g transform="translate(${n(f.x)} ${n(f.y)}) scale(0.01)"${faded}>${body}</g>`,
   ];
 }
 

@@ -179,6 +179,7 @@ What we chose and why. Newest last.
 - [A storey costs 200 coins, the economy run with builders says, and the rest of RFC 0028's numbers stand](decisions/0242-a-storey-costs-200-coins-the-economy-run-with-builders-says-.md) · 2026-10-09 · accepted · `sim` `economy` `numbers` `storeys` `scripts`
 - [The home wall's first paint waits for its pieces behind one block of placeholders](decisions/0243-the-home-wall-s-first-paint-waits-for-its-pieces-behind-one-.md) · 2026-10-09 · accepted · `client` `design` `performance`
 - [add_storey answers with its price, and the API leaves how high a home goes to the sim](decisions/0244-add-storey-answers-with-its-price-and-the-api-leaves-how-hig.md) · 2026-10-09 · accepted · `protocol` `server` `storeys` `economy`
+- [A plot photo's floor plan follows the map's cutaway, and no_storey opens with it](decisions/0245-a-plot-photo-s-floor-plan-follows-the-map-s-cutaway-and-no-s.md) · 2026-10-09 · accepted · `storeys` `photos` `protocol`
 
 ## Learnings
 

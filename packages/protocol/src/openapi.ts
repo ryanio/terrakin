@@ -400,5 +400,8 @@ function requestBody(
       },
     };
   }
-  return { required: true, content: { "application/json": { schema: named(body, where) } } };
+  return {
+    required: !body.safeParse(undefined).success,
+    content: { "application/json": { schema: named(body, where) } },
+  };
 }

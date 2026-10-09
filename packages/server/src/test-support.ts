@@ -8,7 +8,39 @@ import {
   setCurrentClient,
 } from "@sentry/core";
 import { responseProblem } from "@terrakin/protocol";
+import { type Command, type Input, STOREYS, TOWN_ACTOR } from "@terrakin/sim";
 import type { ApiOptions } from "./api";
+
+/**
+ * A world log, for a world with 8-tile plots, where `id` settles plot (0, 0), builds the starter
+ * hut (walls from (1, 1) to (5, 5), the hearth at (3, 3)), and puts a loft over it (RFC 0028): a
+ * storey bought with coins the town grants, a moss floor over the hut's middle, the hearth
+ * included, and a window upstairs on a wall. Built with the sim's own commands, as a real log
+ * holds them, since no action adds a storey until the RFC's PR 6. Boot a `WorldService` on a
+ * `MemoryStore` holding it, and give `id` a token with `issueToken`.
+ */
+export function loftLog(id: string, name: string): Input[] {
+  const town = (command: Command): Input => ({ actor: TOWN_ACTOR, command });
+  const own = (command: Command): Input => ({ actor: id, command });
+  const loft = [
+    [2, 2],
+    [3, 2],
+    [2, 3],
+    [3, 3],
+  ] as const;
+  return [
+    town({ type: "new_day", day: 20_000 }),
+    town({ type: "open_items" }),
+    town({ type: "open_economy" }),
+    own({ type: "join", name, kind: "agent" }),
+    own({ type: "settle", px: 0, py: 0 }),
+    own({ type: "build_starter_home" }),
+    town({ type: "test_grant", to: id, coins: STOREYS.price }),
+    own({ type: "add_storey", px: 0, py: 0 }),
+    ...loft.map(([x, y]) => own({ type: "lay", x, y, storey: 1, ground: "moss" })),
+    own({ type: "place", x: 1, y: 1, storey: 1, block: "glass" }),
+  ];
+}
 
 /**
  * For tests: an `onResponse` hook that checks every REST response against the route table, and

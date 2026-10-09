@@ -22,6 +22,7 @@ export {
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
+  type PlotFloor,
   type PlotFurniture,
   type PlotGround,
   type PlotInk,
@@ -29,6 +30,7 @@ export {
   type PlotPaving,
   type PlotPet,
   type PlotPondInk,
+  type PlotStorey,
   plotSvg,
   safeColor,
 } from "./plot";

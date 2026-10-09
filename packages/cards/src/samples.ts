@@ -5,7 +5,15 @@
 
 import type { Drawing } from "./drawing";
 import type { NearCard } from "./pictures";
-import type { PlotBlock, PlotCard, PlotCrop, PlotGround, PlotPet } from "./plot";
+import type {
+  PlotBlock,
+  PlotCard,
+  PlotCrop,
+  PlotFloor,
+  PlotGround,
+  PlotPet,
+  PlotStorey,
+} from "./plot";
 import type { Card } from "./templates";
 
 /**
@@ -256,6 +264,38 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
   };
 }
 
+/**
+ * The sample plot with a loft over its hut (RFC 0028): a plank floor over the hut but for the
+ * stairwell, stairs up from the ground floor, and a glass railing along the loft's south edge.
+ * `storey` draws that storey's floor plan instead of the home from above.
+ */
+export function sampleLoft(name: string, storey?: 0 | 1): PlotCard {
+  const base = samplePlot(name);
+  const planks = base.ground[2 * base.size + 2]?.paving ?? { marks: [] };
+  const stairwell = { x: 4, y: 2 };
+  const floors: PlotFloor[] = [];
+  for (let y = 1; y <= 4; y++) {
+    for (let x = 1; x <= 5; x++) {
+      if (x !== stairwell.x || y !== stairwell.y) floors.push({ x, y, paving: planks });
+    }
+  }
+  const railing: PlotBlock[] = [1, 2, 4, 5].map((x) => ({ x, y: 5, glass: true, fill: "#bfe0ea" }));
+  const blocks = [...base.blocks, { ...stairwell, glass: false, fill: "#c99a66" }];
+  const loft: PlotStorey = { floors, blocks: railing };
+  const facts = ["Meadow and forest", `${blocks.length + railing.length} blocks`];
+  return {
+    ...base,
+    blocks,
+    ...(storey === 0
+      ? { facts: [...facts, "Ground floor"] }
+      : {
+          facts: [...facts, storey === 1 ? "Upstairs" : "2 storeys"],
+          storeys: [loft],
+          ...(storey === 1 ? { floorPlan: true } : {}),
+        }),
+  };
+}
+
 /** Picture slots a sample can fill (tests pass generated PNGs). */
 export interface SampleImages {
   avatar?: string;
@@ -355,6 +395,9 @@ export function samples(images: SampleImages = {}): [string, Card][] {
     ],
     ["plot", samplePlot("Juniper")],
     ["plot-named", { ...samplePlot("Juniper"), title: "Juniper's Lemon Grove" }],
+    ["plot-loft", sampleLoft("Juniper")],
+    ["plot-loft-ground", sampleLoft("Juniper", 0)],
+    ["plot-loft-upstairs", sampleLoft("Juniper", 1)],
     [
       "plot-hostile-name",
       samplePlot(

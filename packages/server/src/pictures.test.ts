@@ -1,6 +1,6 @@
 import { drawingSvg } from "@terrakin/cards";
 import { cards } from "@terrakin/cards/node";
-import type { WorldConfig } from "@terrakin/sim";
+import type { Input, WorldConfig } from "@terrakin/sim";
 import { figureDrawing } from "@terrakin/ui/figure-svg";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { Api, type ApiRequest } from "./api";
@@ -27,7 +27,7 @@ import {
 } from "./pictures";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { listenOnFreePort, responseChecker } from "./test-support";
+import { listenOnFreePort, loftLog, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -455,6 +455,44 @@ describe("picture route", () => {
     const again = await serveCard(req("/og/look/r_known.png"), t.d);
     expect(again.headers.etag).toBe(drawn.headers.etag);
     expect([t.asks(), t.renders()]).toEqual([2, 1]);
+  });
+
+  it("draws a plot's every storey from above, and a new block upstairs is a new picture (RFC 0028)", async () => {
+    const boot = (log: Input[]) => {
+      const store = new MemoryStore();
+      for (const input of log) store.appendInput(input);
+      return new WorldService({ store, config: CONFIG });
+    };
+    const o = { nowMs: 0, held: () => false, artShown: () => true };
+    const keyOf = async (service: WorldService) => {
+      const t = deps({ picture: async (route) => pictureSpec(service.state, route, o) });
+      const res = await serveCard(req("/og/plot/0-0.png"), t.d);
+      expect(res.status).toBe(200);
+      return res.headers.etag;
+    };
+    const log = loftLog("r_ada", "Ada");
+    const loft = boot(log);
+    const spec = pictureSpec(loft.state, { kind: "plot", px: 0, py: 0 }, o);
+    expect(spec).toMatchObject({
+      storeys: [{ blocks: [{ x: 1, y: 1, glass: true }] }],
+      facts: expect.arrayContaining(["2 storeys"]),
+    });
+    // The same world is the same picture, and a window more upstairs is a new one.
+    const key = await keyOf(loft);
+    expect(await keyOf(boot(log))).toBe(key);
+    const higher = boot([
+      ...log,
+      { actor: "r_ada", command: { type: "place", x: 5, y: 1, storey: 1, block: "glass" } },
+    ]);
+    expect(higher.state.storeys?.["1"]?.blocks["5,1"]).toBe("glass");
+    expect(await keyOf(higher)).not.toBe(key);
+    // Back in the world, Ada stands on her hearth under the loft's floor: drawn, but faded, as the
+    // map draws her.
+    expect(loft.ensureOnline("r_ada").ok).toBe(true);
+    const home = pictureSpec(loft.state, { kind: "plot", px: 0, py: 0 }, o);
+    expect(home?.kind === "plot" && home.figures).toEqual([
+      expect.objectContaining({ x: 3.5, faded: true }),
+    ]);
   });
 
   it("remembers an unknown id for a minute, so made-up ids don't each wake the world", async () => {

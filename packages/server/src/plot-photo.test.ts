@@ -8,6 +8,7 @@ import {
   dayOfDate,
   GROUND_LOOK,
   groundTile,
+  type Input,
   petShapes,
   THEME_INFO,
   THEME_TINT_ALPHA,
@@ -21,7 +22,7 @@ import { nodeSql } from "./node-sql";
 import { materializePlot, type PlotPhotoRenderer, plotPhotoSpec } from "./plot-photo";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { listenOnFreePort, responseChecker } from "./test-support";
+import { listenOnFreePort, loftLog, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -52,11 +53,15 @@ interface Options {
   ipUploadBytesPerDay?: number;
   /** Default: a counting fake that returns PNG. */
   photos?: PlotPhotoRenderer | "real" | "none";
+  /** Inputs the world has logged before it starts. */
+  log?: Input[];
 }
 
 async function start(options: Options = {}) {
+  const store = new MemoryStore();
+  for (const input of options.log ?? []) store.appendInput(input);
   const service = new WorldService({
-    store: new MemoryStore(),
+    store,
     config: CONFIG,
     ...(options.garden ? { days: true, items: true } : {}),
   });
@@ -68,9 +73,10 @@ async function start(options: Options = {}) {
     limits: options.limits ?? {},
     resident: (id) => service.state.residents[id],
   });
-  const drawn = { count: 0 };
-  const fake: PlotPhotoRenderer = async () => {
+  const drawn = { count: 0, specs: [] as Parameters<PlotPhotoRenderer>[0][] };
+  const fake: PlotPhotoRenderer = async (spec) => {
     drawn.count++;
+    drawn.specs.push(spec);
     return PNG;
   };
   const photos =
@@ -120,7 +126,8 @@ async function start(options: Options = {}) {
     ).toBe(true);
     return who;
   }
-  const photo = (who: { token: string }) => call("POST", "/v1/plots/photo", who.token);
+  const photo = (who: { token: string }, body?: unknown) =>
+    call("POST", "/v1/plots/photo", who.token, body);
   return { call, settled, photo, social, service, media, drawn };
 }
 
@@ -142,6 +149,45 @@ describe("plot photo data", () => {
     expect(wall?.fill).toBe(blockFill("wood", THEME_INFO.lemon.palette));
     expect(spec.facts[1]).toBe(`${spec.blocks.length} blocks`);
     expect(spec.blocks.some((b) => b.decor !== undefined)).toBe(false);
+    // One storey: nothing about storeys in its data or its words.
+    expect(spec.facts).toHaveLength(2);
+    expect(spec).not.toHaveProperty("storeys");
+  });
+
+  it("draws every storey from above, or one storey's floor plan with what's above it left out (RFC 0028)", async () => {
+    const { service } = await start({ log: loftLog("r_ada", "Ada") });
+    expect(service.state.plots["0,0"]?.storeys).toBe(1);
+    const moss = {
+      ...(GROUND_LOOK.moss.fill ? { fill: GROUND_LOOK.moss.fill } : {}),
+      marks: GROUND_LOOK.moss.marks,
+    };
+    const loft = {
+      floors: [
+        { x: 2, y: 2, paving: moss },
+        { x: 3, y: 2, paving: moss },
+        { x: 2, y: 3, paving: moss },
+        { x: 3, y: 3, paving: moss },
+      ],
+      blocks: [{ x: 1, y: 1, glass: true, fill: blockFill("glass") }],
+    };
+    const above = plotPhotoSpec(service.state, "r_ada");
+    if (!above) throw new Error("no spec");
+    expect(above.storeys).toEqual([loft]);
+    expect(above).not.toHaveProperty("floorPlan");
+    // The window upstairs counts with the hut's blocks, and the line says how tall the home is.
+    expect(above.facts.slice(1)).toEqual([`${above.blocks.length + 1} blocks`, "2 storeys"]);
+
+    // The ground floor's plan leaves the loft out, and shows the hearth under it.
+    const ground = plotPhotoSpec(service.state, "r_ada", undefined, 0);
+    expect(ground).not.toHaveProperty("storeys");
+    expect(ground).not.toHaveProperty("floorPlan");
+    expect(ground?.blocks).toEqual(above.blocks);
+    expect(ground?.hearth).toEqual({ x: 3, y: 3 });
+    expect(ground?.facts.at(-1)).toBe("Ground floor");
+    // Upstairs is the loft over the ground floor, dimmed where the loft has no floor.
+    const upstairs = plotPhotoSpec(service.state, "r_ada", undefined, 1);
+    expect(upstairs).toMatchObject({ storeys: [loft], floorPlan: true });
+    expect(upstairs?.facts.at(-1)).toBe("Upstairs");
   });
 
   it("dresses the ground for the world's season, as the map does", async () => {
@@ -315,6 +361,34 @@ describe("POST /v1/plots/photo", () => {
     expect(res.status).toBe(400);
     expect(res.body.error.message).toMatch(/settle/);
     expect(drawn.count).toBe(0);
+  });
+
+  it("takes one storey's floor plan, and refuses a storey the plot hasn't added before drawing (RFC 0028)", async () => {
+    const { service, call, photo, drawn } = await start({ log: loftLog("r_ada", "Ada") });
+    const ada = { token: service.issueToken("r_ada") };
+    expect((await photo(ada, { storey: 1 })).status).toBe(201);
+    expect(drawn.specs[0]).toMatchObject({ floorPlan: true, storeys: [expect.anything()] });
+    expect((await photo(ada, { storey: 0 })).status).toBe(201);
+    expect(drawn.specs[1]).not.toHaveProperty("storeys");
+    // No body: the whole home from above.
+    expect((await photo(ada)).status).toBe(201);
+    expect(drawn.specs[2]?.storeys).toHaveLength(1);
+    expect(drawn.specs[2]).not.toHaveProperty("floorPlan");
+
+    // Wren's plot has no upstairs, so there's no plan of one to draw.
+    const { body } = await call("POST", "/v1/session", undefined, { name: "Wren", kind: "agent" });
+    const wren = body as { token: string };
+    const settle = { type: "settle", px: 2, py: 0 };
+    expect((await call("POST", "/v1/actions", wren.token, settle)).body.ok).toBe(true);
+    const refused = await photo(wren, { storey: 1 });
+    expect(refused.status).toBe(400);
+    expect(refused.body.error.code).toBe("no_storey");
+    // Past the highest storey any plot may have is no storey at all.
+    const beyond = await photo(wren, { storey: 2 });
+    expect(beyond.status).toBe(400);
+    expect(beyond.body.error.code).toBe("bad_request");
+    expect(drawn.count).toBe(3);
+    expect((await photo(wren, { storey: 0 })).status).toBe(201);
   });
 
   it("answers unavailable when the server has no renderer", async () => {

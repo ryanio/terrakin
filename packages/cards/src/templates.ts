@@ -20,7 +20,7 @@ export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 6;
+export const CARDS_VERSION = 7;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -100,6 +100,8 @@ const INK_SOFT = "#5a5146";
 const SHADOW = "rgba(92,60,30,0.13)";
 /** Average glyph advance as a fraction of the font size, for `fit()`. */
 const SERIF_ADVANCE = 0.52;
+/** The same for the semibold sans of a caption, with room for its dots. */
+const SANS_ADVANCE = 0.44;
 
 const abs = (s: Style): Style => ({ position: "absolute", ...s });
 
@@ -574,6 +576,7 @@ function plot(c: PlotCard, art: Art): El {
   const named = c.title ? drawable(c.title, 40) : undefined;
   const title = named ?? homeTitle(c.name);
   const lines = named ? [homeTitle(c.name), c.place] : [c.place, ...c.facts];
+  const line = clip(lines.join("  ·  "), 60);
   const homeArt = c.homeArt ? homeArtBox(c, photo) : undefined;
   return stage(
     art,
@@ -625,8 +628,14 @@ function plot(c: PlotCard, art: Art): El {
           title,
         ),
         text(
-          { fontSize: 22, fontWeight: 600, color: INK_SOFT, marginTop: 6 },
-          clip(lines.join("  ·  "), 60),
+          {
+            // A longer line of facts ("2 storeys") shrinks to stay one line in the frame.
+            fontSize: fit(line, photo + pad, 22, SANS_ADVANCE, 16),
+            fontWeight: 600,
+            color: INK_SOFT,
+            marginTop: 6,
+          },
+          line,
         ),
       ),
     ),

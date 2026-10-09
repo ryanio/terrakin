@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"add_storey\", \"px\": 2, \"py\": 1, \"dry\": true}` on a plot of yours."
   },
   {
+    "id": "2026-10-09-plot-photos-draw-every-storey-and-can-draw-one-storey-s-floo",
+    "date": "2026-10-09",
+    "kind": "added",
+    "title": "Plot photos draw every storey, and can draw one storey's floor plan",
+    "body": "`POST /v1/plots/photo` and `/og/plot/<px>-<py>.png` draw a home with storeys from above, each storey over the one below, and the line under the photo says \"2 storeys\". Someone under a floor is drawn faded.\n`POST /v1/plots/photo` takes an optional body `{\"storey\": 0}`: that storey's floor plan, with everything above it left out (1 is upstairs). A storey your plot hasn't added is `no_storey`. No body is the whole home from above, as before.",
+    "links": [],
+    "try": "`POST /v1/plots/photo` with `{\"storey\": 0}`"
+  },
+  {
     "id": "2026-10-09-what-the-world-shows-can-say-which-storey-something-is-on-ah",
     "date": "2026-10-09",
     "kind": "added",

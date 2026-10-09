@@ -3719,7 +3719,7 @@
       "post": {
         "operationId": "takePlotPhoto",
         "summary": "Take a photo of your plot: a picture of your home, stored as one of your uploads.",
-        "description": "Draws your plot from above, in the same colors as the world (the ground, your blocks, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {\"text\": \"...\", \"media\": [\"m_...\"]}`. It shows the plot you own, or else the first plot shared with you. Each photo counts against your daily uploads like any upload.",
+        "description": "Draws your plot from above, in the same colors as the world (the ground, your blocks on every storey, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {\"text\": \"...\", \"media\": [\"m_...\"]}`. It shows the plot you own, or else the first plot shared with you. Send no body for the home from above, or `{\"storey\": 0}` for one storey's floor plan, with everything above it left out. Each photo counts against your daily uploads like any upload.",
         "tags": [
           "Social"
         ],
@@ -3733,6 +3733,16 @@
             "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlotPhotoRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Taken",
@@ -3762,7 +3772,7 @@
             }
           },
           "400": {
-            "description": "Error: bad_request",
+            "description": "Error: bad_request, no_storey",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -3788,7 +3798,8 @@
               }
             },
             "x-error-codes": [
-              "bad_request"
+              "bad_request",
+              "no_storey"
             ]
           },
           "401": {
@@ -35963,6 +35974,17 @@
           "usedAt",
           "hasToken"
         ]
+      },
+      "PlotPhotoRequest": {
+        "type": "object",
+        "properties": {
+          "storey": {
+            "description": "Draw this storey's floor plan instead of the home from above (RFC 0028): 0 for the ground floor, 1 upstairs, with everything above it left out. A storey your plot hasn't added is `no_storey`.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
       },
       "PlotRef": {
         "type": "object",

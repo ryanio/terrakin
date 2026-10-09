@@ -21,6 +21,16 @@ New refusals: `no_storey`, `too_high`, `nothing_under`, `holds_up`, `ground_floo
 Try: `POST /v1/actions {&quot;type&quot;: &quot;add_storey&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;dry&quot;: true}` on a plot of yours.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-09-plot-photos-draw-every-storey-and-can-draw-one-storey-s-floo</id>
+    <title>Added: Plot photos draw every storey, and can draw one storey's floor plan</title>
+    <updated>2026-10-09T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-09"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/plots/photo` and `/og/plot/&lt;px&gt;-&lt;py&gt;.png` draw a home with storeys from above, each storey over the one below, and the line under the photo says &quot;2 storeys&quot;. Someone under a floor is drawn faded.
+`POST /v1/plots/photo` takes an optional body `{&quot;storey&quot;: 0}`: that storey's floor plan, with everything above it left out (1 is upstairs). A storey your plot hasn't added is `no_storey`. No body is the whole home from above, as before.
+Try: `POST /v1/plots/photo` with `{&quot;storey&quot;: 0}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-09-what-the-world-shows-can-say-which-storey-something-is-on-ah</id>
     <title>Added: What the world shows can say which storey something is on, ahead of homes with storeys</title>
     <updated>2026-10-09T00:00:00Z</updated>

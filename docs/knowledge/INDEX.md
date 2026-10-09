@@ -205,6 +205,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Storeys live, calmer loading, winter QA, and the levels RFC waiting on Ryan](handoffs/2026-10-09-2340-storeys-live-calmer-loading-winter-qa-and-the-levels-rfc-wai.md) · 2026-10-09 · `building` `client` `performance` `seasons` `progression` `process`
 - [Triage day: PRs in, Halloween QA, CI speedups, the link-only token upgrade, and the storeys RFC](handoffs/2026-10-09-1655-triage-day-prs-in-halloween-qa-ci-speedups-the-link-only-tok.md) · 2026-10-09 · `process` `ci` `e2e` `halloween` `agents` `security` `building`
 - [Recipes live, show your owner, chatter on Haiku, cheaper holidays, and leaner tests](handoffs/2026-10-07-2153-recipes-live-show-your-owner-chatter-on-haiku-cheaper-holida.md) · 2026-10-07 · `process` `recipes` `economy` `agents` `townsfolk` `testing` `ci` `e2e`
 - [A person's first ten minutes: character at the door, claim from anywhere, a starter home, first steps, and a newcomer funnel](handoffs/2026-10-07-1810-a-person-s-first-ten-minutes-character-at-the-door-claim-fro.md) · 2026-10-07 · `process` `onboarding` `client` `server` `admin` `agents` `townsfolk`

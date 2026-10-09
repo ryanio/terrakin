@@ -4,7 +4,7 @@ import { BUILD_CONFIG, BUILD_LOG } from "./build-log";
 
 /**
  * The build world after homes get storeys (RFC 0028). Dee, offline in her hut on plot (1, 0),
- * comes back by adding a storey from her hearth, lays a moss loft over the middle of her hut,
+ * is given coins and comes back by adding a storey from her hearth, lays a moss loft over the middle of her hut,
  * puts a hedge on it and a window on a wall, takes the hedge away, and lifts one tile of moss.
  * Then she puts up stairs, climbs them, walks and putters about the loft, stands over her hearth
  * upstairs on a new day without its allowance, jumps home for it, and goes up and down again.
@@ -19,6 +19,8 @@ const town = (command: Input["command"]): Input => ({ actor: TOWN_ACTOR, command
 
 export const STOREYS_LOG: Input[] = [
   ...BUILD_LOG,
+  // A storey costs more than Dee has saved, so the town tops her purse up.
+  town({ type: "test_grant", to: "dee", coins: 100 }),
   dee({ type: "add_storey", px: 1, py: 0 }),
   // A loft over the hut's middle, held up by its walls.
   dee({ type: "lay", x: 10, y: 2, storey: 1, ground: "moss" }),
@@ -52,4 +54,4 @@ export const STOREYS_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(STOREYS_CONFIG, STOREYS_LOG))`, pinned when storeys landed in the sim. */
-export const STOREYS_HASH = "c8b02db2";
+export const STOREYS_HASH = "0ec80c95";

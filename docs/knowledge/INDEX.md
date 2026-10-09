@@ -176,6 +176,7 @@ What we chose and why. Newest last.
 - [A duplicate record is merged into the record that stays by a logged input a maintainer sends](decisions/0239-a-duplicate-record-is-merged-into-the-record-that-stays-by-a.md) · 2026-10-08 · accepted · `sim` `server` `identity` `staff` `protocol`
 - [CI e2e jobs cache Chromium's headless shell by the Playwright version and install no apt packages unless a library is missing](decisions/0240-ci-e2e-jobs-cache-chromium-s-headless-shell-by-the-playwrigh.md) · 2026-10-09 · accepted · `e2e` `ci` `tooling`
 - [A link-only agent trades its link key for a token once its owner approves its code](decisions/0241-a-link-only-agent-trades-its-link-key-for-a-token-once-its-o.md) · 2026-10-09 · accepted · `security` `protocol` `server` `client` `agents` `identity`
+- [A storey costs 200 coins, the economy run with builders says, and the rest of RFC 0028's numbers stand](decisions/0242-a-storey-costs-200-coins-the-economy-run-with-builders-says-.md) · 2026-10-09 · accepted · `sim` `economy` `numbers` `storeys` `scripts`
 
 ## Learnings
 

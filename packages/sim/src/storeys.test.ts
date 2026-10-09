@@ -92,6 +92,12 @@ function world({ economy = true, reach = CONFIG.reach } = {}) {
 const ofType = <T extends WorldEvent["type"]>(events: WorldEvent[], type: T) =>
   events.filter((e): e is Extract<WorldEvent, { type: T }> => e.type === type);
 
+describe("STOREYS", () => {
+  it("are the numbers decision 0242 settled with the economy run", () => {
+    expect(STOREYS).toEqual({ max: 1, price: 200, span: 2, stairsWood: 4 });
+  });
+});
+
 describe("add_storey", () => {
   it("opens the next storey for its price, from anywhere, and every coin is still counted", () => {
     const w = world();
@@ -103,7 +109,7 @@ describe("add_storey", () => {
     expect(ofType(events, "coins")).toEqual([
       expect.objectContaining({ residentId: "ada", amount: -STOREYS.price, reason: "storey" }),
     ]);
-    expect(w.state.economy?.coins.ada).toBe(before - STOREYS.price);
+    expect(w.state.economy?.coins.ada ?? 0).toBe(before - STOREYS.price);
     expect(w.state.plots["0,0"]?.storeys).toBe(1);
     // An empty storey: nothing is built until a floor goes down.
     expect(w.state.storeys).toEqual({ "1": { blocks: {}, ground: {} } });

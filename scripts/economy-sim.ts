@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-storeys] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -22,21 +22,26 @@
  *   --holiday-prices  `lower` (the default) logs `lower_holiday_prices` when the shop opens, as
  *                terrakin.org does; `before` leaves it out, so holiday stock costs decision 0107's
  *                prices (decision 0210)
+ *   --no-storeys nobody builds up (RFC 0028), so the month plays as it did before storeys (the
+ *                decision 0242 baseline)
  *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
  *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
  *                picking what they like might, and leaves the goods to cards and lessons
  *   --set        try a different number without editing it: a key of ECONOMY (`allowance=8`), a
  *                shop price (`price.lantern=50`), what the town pays (`buy.lemon_jam=5`), its daily
  *                count (`perDay.lemon_jam=3`), a key of SHOP (`goodsPerDay=2`), or the pantry once
- *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`), or a key of
- *                RECIPES_RULES (`recipes.rotationTimes=4`, `recipes.pageOneIn=30`)
+ *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`), a key of
+ *                RECIPES_RULES (`recipes.rotationTimes=4`, `recipes.pageOneIn=30`), or a key of
+ *                STOREYS (`storeys.price=120`, `storeys.stairsWood=6`)
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
  * packages/sim/src/economy.ts, ITEMS in packages/sim/src/items.ts, the catalog and buy orders in
- * packages/sim/src/shop.ts, RECIPES_RULES in packages/sim/src/recipes.ts), so the script and the
+ * packages/sim/src/shop.ts, RECIPES_RULES in packages/sim/src/recipes.ts, STOREYS in
+ * packages/sim/src/storeys.ts), so the script and the
  * rules can't drift. Karma is scored by the server's own `scoreKarma` with `KARMA` from the
  * protocol, and the townsfolk teach the server's own specialties (`SPECIALTIES`). Change a number
- * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, 0186, and 0210).
+ * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, 0186, 0210, and
+ * 0242).
  */
 import { registerHooks } from "node:module";
 import { parseArgs } from "node:util";
@@ -113,6 +118,7 @@ const {
   SHOP,
   SHOP_CATALOG,
   SHOP_SHARE_BEFORE,
+  STOREYS,
   shelfOn,
   TIMES_OF_DAY,
   TOWN_ACTOR,
@@ -147,6 +153,7 @@ const { values: args } = parseArgs({
     "no-recipes": { type: "boolean", default: false },
     "no-holidays": { type: "boolean", default: false },
     "holiday-prices": { type: "string", default: "lower" },
+    "no-storeys": { type: "boolean", default: false },
     picks: { type: "string", default: "sell" },
     set: { type: "string", multiple: true, default: [] },
   },
@@ -169,6 +176,8 @@ for (const pair of args.set ?? []) {
   else if (key === "shopStapleMax") (ITEMS as unknown as Mutable).shopStapleMax = n;
   else if (tail && head === "recipes" && tail in RECIPES_RULES) {
     (RECIPES_RULES as unknown as Mutable)[tail] = n;
+  } else if (tail && head === "storeys" && tail in STOREYS) {
+    (STOREYS as unknown as Mutable)[tail] = n;
   } else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
     (ITEMS.shopPantry as Record<string, number>)[tail] = n;
   } else if (tail && (head === "price" || head === "buy" || head === "perDay")) {
@@ -186,6 +195,8 @@ const FISHING_ON = SHOP_OPEN && !args["no-fishing"];
 const RECIPES_ON = SHOP_OPEN && !args["no-recipes"];
 /** Residents buy a holiday's costumes and decor while it runs (RFC 0022). */
 const HOLIDAYS_ON = SHOP_OPEN && !args["no-holidays"];
+/** Some regulars save for a storey and gather wood for stairs and a loft (RFC 0028). */
+const STOREYS_ON = SHOP_OPEN && !args["no-storeys"];
 if (args["holiday-prices"] !== "lower" && args["holiday-prices"] !== "before") {
   throw new Error("--holiday-prices is lower or before");
 }
@@ -238,6 +249,8 @@ const lore = draws(mulberry32(SEED ^ 0x7ec1));
 // Who keeps a holiday and what they'd buy for it: `--no-holidays` draws none of them, and nothing
 // is drawn outside a holiday, so a month without one plays as it did before.
 const festive = draws(mulberry32(SEED ^ 0xb00));
+// Who builds up a storey (RFC 0028): `--no-storeys` draws none of it.
+const building = draws(mulberry32(SEED ^ 0x5707));
 
 // ---------- the rules ----------
 
@@ -351,6 +364,8 @@ interface Habits {
   wants: ShopSku[];
   /** Casts a line this many times on a day at home, once they have a rod and a pond (RFC 0023). 0 never fishes. */
   casts: number;
+  /** Saves for a storey, gathers wood, and puts up stairs and a planked loft (RFC 0028). */
+  builds: boolean;
 }
 
 /**
@@ -384,12 +399,22 @@ const pondTile = (hearth: { x: number; y: number }) => ({ x: hearth.x, y: hearth
 /** Residents who fish, so their gardens leave the pond's tile free. */
 const anglers = new Set<string>();
 
+/**
+ * Where a builder puts their stairs: outside the starter hut's east wall, beside its middle, so
+ * they come up next to the loft (RFC 0028).
+ */
+const stairsTile = (hearth: { x: number; y: number }) => ({ x: hearth.x + 3, y: hearth.y + 1 });
+
+/** Residents who build up, so their gardens leave the stairs' tile free. */
+const builders = new Set<string>();
+
 /** The free tiles on a resident's plot within reach of their hearth, nearest first. */
 function gardenTiles(state: WorldState, id: string): { x: number; y: number }[] {
   const me = state.residents[id];
   const hearth = me?.hearth;
   if (!me || !hearth) return [];
   const pond = anglers.has(id) ? pondTile(hearth) : undefined;
+  const stairs = builders.has(id) ? stairsTile(hearth) : undefined;
   const { plotSize, reach } = state.config;
   const px = Math.floor(hearth.x / plotSize);
   const py = Math.floor(hearth.y / plotSize);
@@ -401,6 +426,7 @@ function gardenTiles(state: WorldState, id: string): { x: number; y: number }[] 
       if (Math.floor(x / plotSize) !== px || Math.floor(y / plotSize) !== py) continue;
       if ((dx === 0 && dy === 0) || state.blocks[tileKey(x, y)] !== undefined) continue;
       if (pond && pond.x === x && pond.y === y) continue;
+      if (stairs && stairs.x === x && stairs.y === y) continue;
       tiles.push({ x, y, d: Math.abs(dx) + Math.abs(dy) });
     }
   }
@@ -416,12 +442,26 @@ const goodsOf = (state: WorldState, id: string, kind: GoodKind) =>
  * Counts for the report, kept per day. `cards` is the part of `spent` that bought recipe cards, and
  * `holiday` the part that bought a holiday's stock.
  */
-const tally = { sold: 0, spent: 0, fish: 0, casts: 0, cards: 0, holiday: 0, holidayBurned: 0 };
+const tally = {
+  sold: 0,
+  spent: 0,
+  fish: 0,
+  casts: 0,
+  cards: 0,
+  holiday: 0,
+  holidayBurned: 0,
+  storeys: 0,
+  storeyBurned: 0,
+};
 
 /** Coins each resident has spent at the shop, for what they had to spend in their first week. */
 const spentBy = new Map<string, number>();
-/** What each settled resident had to spend by the end of their seventh day: purse plus shop spending. */
+/**
+ * What each settled resident had to spend by the end of their seventh day: purse plus shop
+ * spending, and a storey's price if they added one. And what they spent at the shop alone.
+ */
 const firstWeek = new Map<string, number>();
+const firstWeekShop = new Map<string, number>();
 
 /** Count a purchase the sim took: what it cost, read from the purse, so any price list counts. */
 function spend(id: string, coins: number) {
@@ -548,8 +588,9 @@ function goShopping(rules: Rules, id: string, habits: Habits) {
   while (habits.wants[0] && !onSale(habits.wants[0], state.day ?? 0)) habits.wants.shift();
   const next = habits.wants[0];
   if (!SHOP_OPEN || !next || !taste.chance(habits.shops)) return;
-  // Everyone keeps a little back.
-  if (coinsOf(state, id) < SHOP_CATALOG[next].price + 10) return;
+  // Everyone keeps a little back, and a builder saving for a storey keeps that back too.
+  const saving = habits.builds && !storeyAdded.has(id) ? STOREYS.price : 0;
+  if (coinsOf(state, id) < SHOP_CATALOG[next].price + 10 + saving) return;
   if (!buy(rules, id, next)) return;
   habits.wants.shift();
   if (isDecorKind(next)) {
@@ -864,6 +905,7 @@ function goFishing(rules: Rules, id: string, habits: Habits) {
   if (!dug && holds(state, id, "stone") >= POND.stone) {
     rules.send(id, { type: "place", ...pond, block: "pond" });
   }
+  if (holdsRod(inv()) && !firstRod.has(id)) firstRod.set(id, today(state));
   if (!holdsRod(inv()) || !waterBeside(me, (x, y) => isWater(state, x, y))) return;
   for (let i = castsToday(state, id); i < Math.min(habits.casts, FISHING.castsPerDay); i++) {
     if (inventorySize(inv()) > ITEMS.inventoryMax - 50) break;
@@ -881,6 +923,102 @@ function goFishing(rules: Rules, id: string, habits: Habits) {
     sell(rules, id, kind, count);
     tally.fish += coinsOf(state, id) - before;
   }
+}
+
+// ---------- storeys (RFC 0028) ----------
+
+/** The month's day each builder first held the price of a storey, added it, and finished it. */
+const storeyAfforded = new Map<string, number>();
+const storeyAdded = new Map<string, number>();
+const stairsUp = new Map<string, number>();
+const loftDone = new Map<string, number>();
+/** The month's day each angler first held a rod, to compare with and without builders. */
+const firstRod = new Map<string, number>();
+/**
+ * Wood builders gathered for building up, and the days they were home gathering it, and how much
+ * each has put into stairs and floors.
+ */
+const woodFor = { gathered: 0, daysHome: 0 };
+const woodUsed = new Map<string, number>();
+
+/** The starter hut's 25 tiles, which a builder planks over upstairs. */
+const loftTiles = (hearth: { x: number; y: number }) => {
+  const tiles: { x: number; y: number }[] = [];
+  for (let y = hearth.y - 2; y <= hearth.y + 2; y++) {
+    for (let x = hearth.x - 2; x <= hearth.x + 2; x++) tiles.push({ x, y });
+  }
+  return tiles;
+};
+/** Wood a builder needs in all: stairs, and a plank floor over the hut. */
+const loftWood = () => STOREYS.stairsWood + 25;
+
+/**
+ * Whether a plot suits a builder: woods within reach of where its hearth will be, so branches turn
+ * up there, as they would for someone who walks a little way to gather them.
+ */
+function buildersPlot(state: WorldState, px: number, py: number): boolean {
+  const { plotSize, reach } = state.config;
+  const hx = px * plotSize + Math.floor((plotSize - 1) / 2);
+  const hy = py * plotSize + Math.floor((plotSize - 1) / 2);
+  let forest = 0;
+  for (let y = hy - reach; y <= hy + reach; y++) {
+    for (let x = hx - reach; x <= hx + reach; x++) {
+      if (biomeAt(state.config, x, y) === "forest") forest++;
+    }
+  }
+  return forest >= 8;
+}
+
+/**
+ * A builder's day at home: pick up branches within reach while short of the wood the stairs and a
+ * plank loft take, add the storey once they hold its price with 10 coins to spare (they skip other
+ * wishes that would eat into it, `goShopping`), then put up the stairs and plank the loft as the
+ * wood allows, from their hearth.
+ */
+function goBuild(rules: Rules, id: string, habits: Habits) {
+  const { state } = rules;
+  const me = state.residents[id];
+  const hearth = me?.hearth;
+  if (!me || !hearth || !habits.builds) return;
+  const day = today(state);
+  const used = () => woodUsed.get(id) ?? 0;
+  const { reach, plotSize } = state.config;
+  if (used() + holds(state, id, "wood") < loftWood()) woodFor.daysHome++;
+  for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+    for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
+      if (used() + holds(state, id, "wood") >= loftWood()) break;
+      if (pickupLeft(state, x, y) !== "wood") continue;
+      const before = holds(state, id, "wood");
+      if (rules.send(id, { type: "gather", x, y })) {
+        woodFor.gathered += holds(state, id, "wood") - before;
+      }
+    }
+  }
+  if (!storeyAdded.has(id)) {
+    const purse = coinsOf(state, id);
+    if (purse >= STOREYS.price && !storeyAfforded.has(id)) storeyAfforded.set(id, day);
+    if (purse < STOREYS.price + 10) return;
+    const px = Math.floor(hearth.x / plotSize);
+    const py = Math.floor(hearth.y / plotSize);
+    const burned = state.economy?.burned ?? 0;
+    if (!rules.send(id, { type: "add_storey", px, py })) return;
+    storeyAdded.set(id, day);
+    tally.storeys += purse - coinsOf(state, id);
+    tally.storeyBurned += (state.economy?.burned ?? 0) - burned;
+  }
+  const spend = (n: number) => woodUsed.set(id, used() + n);
+  if (used() < STOREYS.stairsWood) {
+    if (holds(state, id, "wood") < STOREYS.stairsWood) return;
+    if (!rules.send(id, { type: "place", ...stairsTile(hearth), block: "stairs" })) return;
+    spend(STOREYS.stairsWood);
+    stairsUp.set(id, day);
+  }
+  for (const tile of loftTiles(hearth)) {
+    if (used() >= loftWood() || holds(state, id, "wood") < 1) break;
+    const laid = { type: "lay", ...tile, storey: 1, ground: "planks" } as const;
+    if (rules.send(id, laid)) spend(1);
+  }
+  if (used() >= loftWood() && !loftDone.has(id)) loftDone.set(id, day);
 }
 
 // ---------- the population ----------
@@ -912,6 +1050,12 @@ const GARDENS: Record<Kind, number> = { regular: 0.7, visitor: 0.45, drifter: 0.
 
 /** Who fishes (RFC 0023), as many as garden or more: casting costs nothing but a little time. */
 const ANGLERS: Record<Kind, number> = { regular: 0.7, visitor: 0.5, drifter: 0.3, oneday: 0 };
+
+/**
+ * Who builds up (RFC 0028): half the regulars, a guess. A storey is a long goal, and only someone
+ * who comes home most days saves for one.
+ */
+const BUILDERS: Record<Kind, number> = { regular: 0.5, visitor: 0, drifter: 0, oneday: 0 };
 
 const TOWNSFOLK = ["t_bram", "t_clem", "t_dot", "t_fern", "t_hale", "t_ivy", "t_juno", "t_moss"];
 /** Share of each townsfolk budget their scripts actually hand out on a typical day. */
@@ -983,6 +1127,8 @@ function population(): Person[] {
         wants: [...(taste.pick(WISHES) ?? [])],
         // Drawn from their own stream, so `--no-fishing` leaves everyone else's month as it was.
         casts: FISHING_ON && angling.chance(ANGLERS[kind]) ? angling.between(4, 10) : 0,
+        // From their own stream too, so `--no-storeys` leaves everyone else's month as it was.
+        builds: STOREYS_ON && BUILDERS[kind] > 0 && building.chance(BUILDERS[kind]),
       },
     });
   }
@@ -1003,6 +1149,9 @@ interface Row {
   /** Coins spent on a holiday's costumes and decor (part of `spent`), and the part burned. */
   holiday: number;
   holidayBurned: number;
+  /** Coins storeys took (RFC 0028), and the part burned. */
+  storeys: number;
+  storeyBurned: number;
   burned: number;
   day: number;
   arrived: number;
@@ -1050,6 +1199,7 @@ function play(rules: Rules) {
     if (RECIPES_ON) learnAtHome(rules, p.id, p.habits, planters);
     if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
     if (p.habits.casts > 0) goFishing(rules, p.id, p.habits);
+    if (p.habits.builds) goBuild(rules, p.id, p.habits);
     // A holiday's things sell only while it runs, so they come before the rest of the wish list.
     if (HOLIDAYS_ON) keepHoliday(rules, p);
     goShopping(rules, p.id, p.habits);
@@ -1068,6 +1218,8 @@ function play(rules: Rules) {
     tally.cards = 0;
     tally.holiday = 0;
     tally.holidayBurned = 0;
+    tally.storeys = 0;
+    tally.storeyBurned = 0;
     // The economy opens partway through day 0, so day 0 has no new_day of its own.
     if (day > 0) rules.newDay(day);
     // Yesterday's appreciation, paid early today.
@@ -1087,11 +1239,17 @@ function play(rules: Rules) {
         arrived.push(p.id);
         active.push(p.id);
         if (p.settles) {
-          // An angler settles where branches and stones lie near their hearth.
+          // An angler settles where branches and stones lie near their hearth, and a builder
+          // where branches do.
           if (p.habits.casts > 0) anglers.add(p.id);
+          if (p.habits.builds) builders.add(p.id);
           rules.settle(
             p.id,
-            p.habits.casts > 0 ? (px, py) => anglersPlot(rules.state, px, py) : undefined,
+            p.habits.casts > 0
+              ? (px, py) => anglersPlot(rules.state, px, py)
+              : p.habits.builds
+                ? (px, py) => buildersPlot(rules.state, px, py)
+                : undefined,
           );
           if (rules.balance(p.id) < N.welcomeGift) shortWelcomes++;
           settled.add(p.id);
@@ -1170,6 +1328,8 @@ function play(rules: Rules) {
       cards: tally.cards,
       holiday: tally.holiday,
       holidayBurned: tally.holidayBurned,
+      storeys: tally.storeys,
+      storeyBurned: tally.storeyBurned,
       burned: rules.burned() - burnedBefore,
       day,
       arrived: arrived.length,
@@ -1194,7 +1354,9 @@ function play(rules: Rules) {
     // spent at the shop.
     for (const p of people) {
       if (p.arrives + 6 === day && settled.has(p.id)) {
-        firstWeek.set(p.id, rules.balance(p.id) + (spentBy.get(p.id) ?? 0));
+        const storey = storeyAdded.has(p.id) ? STOREYS.price : 0;
+        firstWeek.set(p.id, rules.balance(p.id) + (spentBy.get(p.id) ?? 0) + storey);
+        firstWeekShop.set(p.id, spentBy.get(p.id) ?? 0);
       }
     }
   }
@@ -1274,6 +1436,84 @@ function holidayLines(people: Person[], rows: Row[]) {
   console.log(`Holiday stock in the month: ${spent} coins spent, ${burned} burned.`);
 }
 
+/**
+ * The five checks RFC 0028 asks of storeys: supply per active resident at each week, how soon a
+ * builder can afford a storey and adds it, the newcomers' first week at the shop, how long the wood
+ * for stairs and a planked loft takes against the anglers' rods, and what storeys burn against the
+ * mint. The first, third, and fourth print with `--no-storeys` too, to compare.
+ */
+function storeyLines(people: Person[], rows: Row[]) {
+  console.log("");
+  console.log(
+    `Storeys (RFC 0028): ${STOREYS_ON ? `price ${STOREYS.price}, stairs ${STOREYS.stairsWood} wood, a loft of 25 planks` : "off"}.`,
+  );
+  const weeks = [7, 14, 21, DAYS - 1].map((d) => rows[d]).filter((r): r is Row => r !== undefined);
+  console.log(
+    `  Per active resident: ${weeks.map((r) => `day ${r.day} ${r.perActive}`).join(", ")}; ${(((weeks.at(-1)?.perActive ?? 0) - (weeks[0]?.perActive ?? 0)) / Math.max(1, (weeks.at(-1)?.day ?? 0) - (weeks[0]?.day ?? 0))).toFixed(1)} a day from day 7.`,
+  );
+  const fell = rows.filter((r, i) => i > 0 && r.supply < (rows[i - 1]?.supply ?? 0)).length;
+  const shop = (kind: Kind, builds?: boolean) =>
+    people
+      .filter((p) => p.kind === kind && firstWeekShop.has(p.id))
+      .filter((p) => builds === undefined || p.habits.builds === builds)
+      .map((p) => firstWeekShop.get(p.id) ?? 0)
+      .sort((a, b) => a - b);
+  const line = (l: number[]) =>
+    `${percentile(l, 0.5)} (${percentile(l, 0.25)}, ${percentile(l, 0.9)})`;
+  console.log(
+    `  Newcomers' first 7 days at the shop alone, median (p25, p90): ${(
+      Object.keys(KINDS) as Kind[]
+    )
+      .map((k) => `${k} ${line(shop(k))}`)
+      .join(", ")}.`,
+  );
+  if (STOREYS_ON) {
+    console.log(
+      `  Of the regulars: builders ${line(shop("regular", true))}, the rest ${line(shop("regular", false))}.`,
+    );
+  }
+  const anglersEarly = people.filter(
+    (p) => p.habits.casts > 0 && p.settles && p.arrives <= DAYS - 8,
+  );
+  const rodDays = anglersEarly
+    .flatMap((p) => {
+      const d = firstRod.get(p.id);
+      return d === undefined ? [] : [d - p.arrives];
+    })
+    .sort((a, b) => a - b);
+  console.log(
+    `  Anglers with a week or more left (n=${anglersEarly.length}): a rod in median ${percentile(rodDays, 0.5)} days, p90 ${percentile(rodDays, 0.9)}, ${rodDays.length} of ${anglersEarly.length}.`,
+  );
+  console.log(`  Supply fell on ${fell} of ${rows.length - 1} days.`);
+  if (!STOREYS_ON) return;
+  const mine = people.filter((p) => p.habits.builds && p.settles && p.arrives <= DAYS - 8);
+  const after = (seen: Map<string, number>) => {
+    const list = mine
+      .flatMap((p) => {
+        const d = seen.get(p.id);
+        return d === undefined ? [] : [d - p.arrives];
+      })
+      .sort((a, b) => a - b);
+    return `median ${percentile(list, 0.5)} days after arriving, p25 ${percentile(list, 0.25)}, p90 ${percentile(list, 0.9)}, earliest ${list[0] ?? "-"}, ${list.length} of ${mine.length}`;
+  };
+  console.log(
+    `  Builders: ${people.filter((p) => p.habits.builds).length} regulars, ${mine.length} settled with a week or more left.`,
+  );
+  console.log(`  Held the price of a storey: ${after(storeyAfforded)}.`);
+  console.log(`  Added it: ${after(storeyAdded)}.`);
+  console.log(`  Stairs up (${STOREYS.stairsWood} wood): ${after(stairsUp)}.`);
+  console.log(
+    `  Stairs and a planked loft (${loftWood()} wood): ${after(loftDone)}; ${woodFor.gathered} wood gathered for it in ${woodFor.daysHome} builder-days at home, ${(woodFor.gathered / Math.max(1, woodFor.daysHome)).toFixed(2)} a day.`,
+  );
+  const week = rows.slice(-7);
+  const sum = (f: (r: Row) => number, list: Row[]) => list.reduce((s, r) => s + f(r), 0);
+  const mint = sum((r) => r.mint, week) / week.length;
+  const burned = sum((r) => r.storeyBurned, week) / week.length;
+  console.log(
+    `  Storeys took ${sum((r) => r.storeys, rows)} coins in the month (${sum((r) => r.storeyBurned, rows)} burned); in the last 7 days ${Math.round(burned)} burned a day against ${Math.round(mint)} minted a day (${Math.round((100 * burned) / Math.max(1, mint))}%).`,
+  );
+}
+
 const pad = (v: string | number, n: number) => String(v).padStart(n);
 const percentile = (sorted: number[], q: number) =>
   sorted.length ? (sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0) : 0;
@@ -1338,7 +1578,7 @@ function report(rules: Rules) {
     );
     if (SHOP_OPEN) {
       console.log(
-        `Last 7 days at the shop: residents sold ${avg((r) => r.sold)} a day to the town (minted) and spent ${avg((r) => r.spent)} a day (${avg((r) => r.burned)} burned, the rest to the treasury).`,
+        `Last 7 days at the shop: residents sold ${avg((r) => r.sold)} a day to the town (minted) and spent ${avg((r) => r.spent)} a day (${avg((r) => r.burned - r.storeyBurned)} burned, the rest to the treasury).`,
       );
       const gardeners = people.filter((p) => p.habits.gardens && p.settles && p.arrives <= 6);
       const g = gardeners.map((p) => rules.balance(p.id)).sort((a, b) => a - b);
@@ -1359,6 +1599,7 @@ function report(rules: Rules) {
     }
     if (SHOP_OPEN) newcomerLines(people, rows);
     if (SHOP_OPEN) holidayLines(people, rows);
+    if (SHOP_OPEN) storeyLines(people, rows);
     if (APPRECIATION) {
       console.log(
         `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(

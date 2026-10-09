@@ -32,12 +32,18 @@ import { canBuildOn, inBounds, isCommons, plotInBounds, plotOf } from "./world";
  * open. A resident's `storey` is absent on the ground floor.
  */
 
-/** Every number about storeys in one place. RFC 0028 has the reasoning. */
+/**
+ * Every number about storeys in one place, tuned with `scripts/economy-sim.ts` (decision 0242).
+ * `storeys.test.ts` pins them, so a change is deliberate.
+ */
 export const STOREYS = {
   /** Storeys a plot may add above its ground floor. May go up later, never down. */
   max: 1,
-  /** Coins `add_storey` takes, split like a shop purchase: the treasury's share, the rest burned. */
-  price: 80,
+  /**
+   * Coins `add_storey` takes, split like a shop purchase: the treasury's share, the rest burned.
+   * A regular who saves for it holds it about 9 days after arriving, and never in their first 5.
+   */
+  price: 200,
   /** How far (in tiles, Chebyshev) a wall below holds up a floor above it, on the same plot. */
   span: 2,
   /** Wood a staircase takes, given back to whoever takes it up. */

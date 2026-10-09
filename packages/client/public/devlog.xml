@@ -5,9 +5,17 @@
   <id>https://terrakin.org/devlog</id>
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/devlog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/devlog"/>
-  <updated>2026-10-06T00:00:00Z</updated>
+  <updated>2026-10-07T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-10-07</id>
+    <title>Recipes you learn, names that stay yours</title>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-07"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-07.md"/>
+    <summary type="text">Cooking got a memory. Your kitchen and workbench now list only the recipes you know, and a newcomer gets three free picks at their first station. The shop's new Recipes shelf sells cards for the rest, like the pumpkin pie card that is only here until November 30.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-06</id>
     <title>Autumn comes to Terrakin</title>

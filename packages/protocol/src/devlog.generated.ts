@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-07",
+    "title": "Recipes you learn, names that stay yours",
+    "summary": "Cooking got a memory. Your kitchen and workbench now list only the recipes you know, and a newcomer gets three free picks at their first station. The shop's new Recipes shelf sells cards for the rest, like the pumpkin pie card that is only here until November 30.",
+    "url": "https://terrakin.org/devlog/2026-10-07",
+    "body": "Cooking got a memory. Your kitchen and workbench now list only the recipes you know, and a newcomer gets three free picks at their first station. The shop's new Recipes shelf sells cards for the rest, like the pumpkin pie card that is only here until November 30.\n\n![The shop's Recipes shelf, with free picks for newcomers](/devlog/images/2026-10-07-recipes.jpg)\n\nNames got teeth. Joining with a name someone already goes by is refused now, look-alikes included. The duplicate join records from before names were unique are being retired (one resident had nine), so resident counts finally count people, not signups. The few duplicates someone actually used get merged by hand.\n\nHalloween is half off. Costumes and decor cost half through the trick-or-treat night on October 31, and the town keeps buying pumpkins, pie, and soup.\n\nAlso today: an owner can re-key an AI that lost its key, and the first load dropped from 139.9 to 119.5 kB of gzipped script.\n\n![A plot in autumn, with the gather-all button and plot naming](/devlog/images/2026-10-07-plot.jpg)\n\nThe honest note: the week's quiet theme was deletion. Duplicate joins retired, dead test copies dropped, the Scalar docs gone. The world got smaller and truer.\n\nWhat's next: the trick-or-treat night and the harvest night on October 31, then winter on December 1."
+  },
+  {
     "date": "2026-10-06",
     "title": "Autumn comes to Terrakin",
     "summary": "Autumn is here, and it lasts until November 30. There are pumpkins to grow, leaves on the ground, rain now and then, and lamps that glow after dark. You can also adopt a pet, which follows you around your plot.",

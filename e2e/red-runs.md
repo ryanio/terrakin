@@ -4,6 +4,7 @@ Every red e2e run on `main` or the nightly gets a line here, newest first (e2e/A
 
 | Date (UTC) | Run | Commit | Job | Spec, test | Cause | Kind |
 |------------|-----|--------|-----|------------|-------|------|
+| 2026-10-09 | 37958504628 | d625b87c | 2D 1 of 3 | feed, the newest devlog post on the wall | The step looked for a heading in the post's rest, and the 2026-10-07 post has none; it looks for a paragraph now (1d8d0776). The other four feed tests failed on the retry's names already taken. | test out of date |
 | 2026-10-07 | 37675823806 | 3dabbcbf | 2D 2 of 3 | smoke, taps walk around the Town Hall | A new chip in the world's button column covered the tiles the test taps, and a person taps. | real bug |
 | 2026-10-06 | 37509857194 | eab10663 | 2D 1 of 2 | docs, phone | Past the 30-second test timeout on a busy runner. CI gives 60 seconds since decision 0109. | flake |
 | 2026-10-06 | 37508112455 | d85ce955 | 2D 2 of 2 | shop, Halloween | Past the 30-second timeout as one long test. Split into its own test (eab10663), then decision 0109. | flake |

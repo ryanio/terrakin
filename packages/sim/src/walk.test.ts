@@ -144,7 +144,11 @@ describe("move", () => {
       code: "blocked",
       message: "A block's corner is in the way. Step around it.",
     });
-    expect(w.refusal("ada", { type: "move", dir: "up" as Direction })?.code).toBe("out_of_bounds");
+    expect(w.refusal("ada", { type: "move", dir: "upward" as Direction })?.code).toBe(
+      "out_of_bounds",
+    );
+    // Up and down are a staircase's (RFC 0028), and there's none here.
+    expect(w.refusal("ada", { type: "move", dir: "up" })?.code).toBe("no_stairs");
     expect(w.here("ada")).toEqual({ x: 12, y: 12 });
   });
 });

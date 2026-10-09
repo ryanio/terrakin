@@ -37,6 +37,7 @@ import {
 } from "./furniture";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
+import { STOREYS } from "./storeys";
 import type {
   Command,
   GiftRecord,
@@ -838,7 +839,8 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
   const day = state.day;
   const me = state.residents[id];
   if (!items || day === undefined || !me?.hearth) return [];
-  if (me.x !== me.hearth.x || me.y !== me.hearth.y) return [];
+  // On the hearth means on the ground floor too (RFC 0028).
+  if (me.x !== me.hearth.x || me.y !== me.hearth.y || me.storey !== undefined) return [];
   const adds = pantryAdds(state, id);
   if (adds.length === 0) return [];
   const first = items.pantry[id] === undefined;
@@ -866,18 +868,20 @@ export const POND = { block: "pond", stone: 2 } as const;
 /**
  * What placing a block takes from your things, and what taking it up gives back to whoever does:
  * one of itself for decor and furniture, which you hold before you place them, `POND.stone` stone
- * for a pond, and nothing for a free block. In a fixed order, like a recipe's needs.
+ * for a pond, `STOREYS.stairsWood` wood for stairs (RFC 0028), and nothing for a free block. In a
+ * fixed order, like a recipe's needs.
  */
 export function blockNeeds(block: string | undefined): [StackKind, number][] {
   if (isHeldBlock(block)) return [[block, 1]];
   if (block === POND.block) return [["stone", POND.stone]];
+  if (block === "stairs") return [["wood", STOREYS.stairsWood]];
   return [];
 }
 
 /**
- * Whether `actor` can place a block that costs something (decor, furniture, or a pond): items
- * open and what it takes in their things. A free block is always fine here. Read in `place`'s
- * check.
+ * Whether `actor` can place a block that costs something (decor, furniture, a pond, or stairs):
+ * items open and what it takes in their things. A free block is always fine here. Read in
+ * `place`'s check.
  */
 export function blockPlaceProblem(
   state: WorldState,
@@ -899,9 +903,11 @@ export function blockPlaceProblem(
   const short = needs.filter(([kind, n]) => held(inv, kind) < n);
   if (short.length === 0) return null;
   const missing = short.map(([kind, n]) => countOf(kind, n - held(inv, kind)));
+  const takes = needs.map(([kind, n]) => countOf(kind, n)).join(" and ");
+  const what = block === POND.block ? "A tile of pond takes" : "Stairs take";
   return refuse(
     "not_enough_items",
-    `A tile of pond takes ${countOf("stone", POND.stone)}, and you need ${missing.join(" and ")} more. ${GATHER_HINT}`,
+    `${what} ${takes}, and you need ${missing.join(" and ")} more. ${GATHER_HINT}`,
   );
 }
 

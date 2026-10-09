@@ -16,6 +16,7 @@ import {
 import { tileKey } from "./keys";
 import { howToMake, knows, learn, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
+import { upstairsProblem } from "./storeys";
 import type {
   Command,
   ItemsState,
@@ -426,6 +427,9 @@ export function checkGather(
   const day = state.day as number;
   const me = state.residents[actor];
   if (!me) return refuse("not_joined", "Join the world first.");
+  // What lies about lies on the ground (RFC 0028).
+  const upstairs = upstairsProblem(me, "gather");
+  if (upstairs) return upstairs;
   const { x, y } = command;
   if (x === undefined && y === undefined) return checkGatherAll(state, actor, me, items, day);
   if (x === undefined || y === undefined) {

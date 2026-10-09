@@ -338,8 +338,10 @@ export function starterHutGardenTiles(config: WorldConfig, hearth: Tile): Tile[]
   return offsets.map(([dx, dy]) => ({ x: hearth.x + dx, y: hearth.y + dy }));
 }
 
+/** Whether a block on the ground floor stops walkers there. Stairs are walked onto (RFC 0028). */
 export function isSolid(state: WorldState, x: number, y: number): boolean {
-  return state.blocks[tileKey(x, y)] !== undefined;
+  const block = state.blocks[tileKey(x, y)];
+  return block !== undefined && block !== "stairs";
 }
 
 export function chebyshev(a: Tile, b: Tile): number {

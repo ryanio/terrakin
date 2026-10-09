@@ -2,6 +2,7 @@ import { coinCount as coins, isWhole, refuse } from "./check";
 import { isTownsfolk, movePurse, sameHousehold } from "./economy";
 import { plotKey, tileKey } from "./keys";
 import { own, residentById } from "./own";
+import { setStorey, standingStorey } from "./storeys";
 import { townEligibility } from "./town";
 import type {
   Command,
@@ -461,11 +462,11 @@ export function checkCancelEvent(
   return () => callOff(state, e, refund);
 }
 
-/** Tiles nobody may land on: hearths, and where another online resident stands. */
+/** Tiles nobody may land on: hearths, and where another online resident stands on the ground. */
 function takenTiles(state: WorldState, actor: ResidentId): Set<string> {
   const taken = new Set<string>();
   for (const r of Object.values(state.residents)) {
-    if (r.online && r.id !== actor) taken.add(tileKey(r.x, r.y));
+    if (r.online && r.id !== actor && standingStorey(r) === 0) taken.add(tileKey(r.x, r.y));
     if (r.hearth) taken.add(tileKey(r.hearth.x, r.hearth.y));
   }
   return taken;
@@ -546,9 +547,11 @@ export function checkJoinEvent(
     to = { x, y };
   }
   if (!to) return refuse("nowhere_to_go", `There's no free spot at ${e.id} right now.`);
+  // A jump, so it lands on the ground floor (RFC 0028).
   return () => {
     me.x = to.x;
     me.y = to.y;
+    setStorey(me, 0);
     return [{ type: "moved", residentId: actor, x: to.x, y: to.y }];
   };
 }

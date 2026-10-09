@@ -163,6 +163,8 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   sled: { color: hex(BLOCK_COLORS.sled), height: 0.3, opacity: 1, form: "decor" },
   // Water to fish in (RFC 0023), in the sim's pond look.
   pond: { color: hex(BLOCK_COLORS.pond), height: 0.14, opacity: 1, form: "water" },
+  // Stairs up a storey (RFC 0028), a low block of plank treads until the 3D views draw storeys.
+  stairs: { color: hex(BLOCK_COLORS.stairs), height: 0.5, opacity: 1, form: "voxel" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

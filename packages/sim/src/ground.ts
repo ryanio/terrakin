@@ -14,7 +14,14 @@ import {
   type StackKind,
 } from "./items";
 import { tileKey } from "./keys";
-import { floorProblem, groundOn, layerFor, liftProblem, storeyField } from "./storeys";
+import {
+  floorProblem,
+  groundOn,
+  layerFor,
+  liftProblem,
+  stairwellProblem,
+  storeyField,
+} from "./storeys";
 import type { Command, ItemsState, ResidentId, WorldEvent, WorldState } from "./types";
 
 /**
@@ -130,6 +137,8 @@ export function checkLay(
         : `That tile already has ${what}. Lift it first with lift.`,
     );
   }
+  const stairwell = stairwellProblem(state, x, y, storey);
+  if (stairwell) return stairwell;
   const unheld = floorProblem(state, x, y, storey);
   if (unheld) return unheld;
   const needs = groundNeeds(ground);

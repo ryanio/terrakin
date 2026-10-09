@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { RECIPE_NAMES, type RecipeName } from "./catalog";
+import { treasuryShareOf } from "./economy";
 import { LESSONS_CONFIG, LESSONS_HASH, LESSONS_LOG } from "./fixtures/lessons-log";
 import { RECIPES_CONFIG, RECIPES_HASH, RECIPES_LOG } from "./fixtures/recipes-log";
 import { SHOP_CONFIG, SHOP_LOG } from "./fixtures/shop-log";
@@ -28,7 +29,7 @@ import {
 } from "./recipes";
 import { replay } from "./replay";
 import { dayOfDate, seasonOf, seasonSpan } from "./season";
-import { BUY_ORDERS, buySeason, type SellKind, townBuys, treasuryShareOf } from "./shop";
+import { BUY_ORDERS, buySeason, type SellKind, townBuys } from "./shop";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldConfig, type WorldEvent } from "./types";
 import { createWorld } from "./world";

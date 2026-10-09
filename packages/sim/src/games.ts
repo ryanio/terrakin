@@ -2,6 +2,7 @@ import { isWhole, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
+import { setStorey } from "./storeys";
 import { townEligibility } from "./town";
 import type {
   Command,
@@ -579,6 +580,7 @@ export function checkOpenTable(
     if (to) {
       me.x = to.x;
       me.y = to.y;
+      setStorey(me, 0);
       events.push({ type: "moved", residentId: actor, x: to.x, y: to.y });
     }
     return events;
@@ -621,6 +623,7 @@ export function checkSit(
     if (to) {
       me.x = to.x;
       me.y = to.y;
+      setStorey(me, 0);
       events.push({ type: "moved", residentId: actor, x: to.x, y: to.y });
     }
     return events;

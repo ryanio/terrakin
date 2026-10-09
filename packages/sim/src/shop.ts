@@ -18,7 +18,7 @@ import {
   type SweetKind,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
-import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
+import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
 import {
   dayName,
   HOLIDAY_INFO,
@@ -425,13 +425,6 @@ export function priceOf(state: WorldState, sku: ShopSku): number {
     ? before
     : SHOP_CATALOG[sku].price;
 }
-
-/** The share the shop opened with, before any `set_shop_share` (decision 0052). */
-export const SHOP_SHARE_BEFORE = 50;
-
-/** The treasury's share of shop spending in this world right now, in percent. */
-export const treasuryShareOf = (state: WorldState) =>
-  state.shop?.treasuryShare ?? SHOP_SHARE_BEFORE;
 
 // ---------- changing ----------
 

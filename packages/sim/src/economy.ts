@@ -196,6 +196,17 @@ export interface At {
   day: number;
 }
 
+/** The share the shop opened with, before any `set_shop_share` (decision 0052). */
+export const SHOP_SHARE_BEFORE = 50;
+
+/**
+ * The treasury's share of shop spending in this world right now, in percent: `shop.treasuryShare`
+ * once the server logged `set_shop_share`, else `SHOP_SHARE_BEFORE`. A storey's price splits the
+ * same way (RFC 0028).
+ */
+export const treasuryShareOf = (state: WorldState) =>
+  state.shop?.treasuryShare ?? SHOP_SHARE_BEFORE;
+
 /** Move coins in (positive) or out of a resident's purse, with a ledger line and a private event. */
 export function movePurse(
   econ: EconomyState,
@@ -681,7 +692,9 @@ export function payAllowance(state: WorldState, id: ResidentId, seq: number): Wo
   const day = state.day;
   const me = state.residents[id];
   if (!econ || day === undefined || !me?.hearth) return [];
-  if (me.x !== me.hearth.x || me.y !== me.hearth.y || !allowanceDue(state, id)) return [];
+  // On the hearth means on the ground floor too, never standing over it upstairs (RFC 0028).
+  if (me.x !== me.hearth.x || me.y !== me.hearth.y || me.storey !== undefined) return [];
+  if (!allowanceDue(state, id)) return [];
   const last = econ.allowance[id];
   const streak = last?.day === day - 1 ? last.streak + 1 : 1;
   econ.allowance[id] = { day, streak };

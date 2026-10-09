@@ -72,6 +72,8 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   sled: "#c4473a",
   // Water to fish in (RFC 0023): a pond's blue, under its stone rim.
   pond: "#4f9ac4",
+  // Stairs up to the storey above (RFC 0028): plank treads a shade lighter than a wood wall.
+  stairs: "#c99a66",
 };
 
 /**

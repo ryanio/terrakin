@@ -79,8 +79,9 @@ const CHAT_MAX_LENGTH = 280;
 
 /**
  * Homes with storeys (RFC 0028) are in the sim before the API opens them, which is the RFC's PR 6.
- * Until then the API names nothing only storeys make: their refusals and their coin reason. No
- * action carries a `storey` or `add_storey`, so nothing here can reach them.
+ * Until then the API names nothing only storeys make: their refusals, their coin reason, and
+ * stairs. No action carries a `storey`, `add_storey`, or `move` up or down, so nothing here can
+ * reach them.
  */
 const NOT_OPEN_YET: readonly string[] = [
   "no_storey",
@@ -88,7 +89,9 @@ const NOT_OPEN_YET: readonly string[] = [
   "nothing_under",
   "holds_up",
   "ground_floor_only",
+  "no_stairs",
   "storey",
+  "stairs",
 ];
 
 /** One of the sim's lists, less what storeys add until the API opens them. */
@@ -259,7 +262,7 @@ export const PlaceAction = z.object({
   type: z.literal("place"),
   x: coord,
   y: coord,
-  block: z.enum(BLOCK_KINDS),
+  block: z.enum(openOnly(BLOCK_KINDS)),
   ...dry,
 });
 export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord, ...dry });
@@ -300,7 +303,7 @@ export const BuildAction = z.object({
   px: coord,
   py: coord,
   blocks: z
-    .array(z.object({ x: planCoord, y: planCoord, block: z.enum(BLOCK_KINDS) }))
+    .array(z.object({ x: planCoord, y: planCoord, block: z.enum(openOnly(BLOCK_KINDS)) }))
     .max(PLAN_MAX)
     .optional(),
   ground: z
@@ -1245,7 +1248,7 @@ export const WorldSnapshot = z.object({
     }),
   ),
   blocks: z.array(
-    z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(BLOCK_KINDS) }),
+    z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(openOnly(BLOCK_KINDS)) }),
   ),
   /**
    * Paths and floors (RFC 0016), one per tile, under whatever block stands there. Nobody walks
@@ -1461,7 +1464,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("block_placed"),
     x: z.number().int(),
     y: z.number().int(),
-    block: z.enum(BLOCK_KINDS),
+    block: z.enum(openOnly(BLOCK_KINDS)),
     by: z.string(),
   }),
   z.object({
@@ -2155,7 +2158,7 @@ export const PlotPlanResponse = z.object({
     /** Who owns it. Absent for an unclaimed plot and the Commons. */
     ownerId: z.string().optional(),
     blocks: z.array(
-      z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(BLOCK_KINDS) }),
+      z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(openOnly(BLOCK_KINDS)) }),
     ),
     ground: z.array(z.object({ x: z.number().int(), y: z.number().int(), ground: GroundKind })),
     hearths: z.array(z.object({ x: z.number().int(), y: z.number().int() })),

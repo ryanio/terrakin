@@ -1,8 +1,9 @@
 import { fnv1a } from "./hash";
 import { tileKey } from "./keys";
+import { standingStorey, storeyGround } from "./storeys";
 import type { Direction, Resident, ResidentId, Tile, WorldState } from "./types";
-import { type WalkNode, walkPath, walkTree, worldGround } from "./walk";
-import { canBuildOn, chebyshev, commonsPlot, isSolid, plotAtTile, plotOf } from "./world";
+import { type Ground, type WalkNode, walkPath, walkTree } from "./walk";
+import { canBuildOn, chebyshev, commonsPlot, plotAtTile, plotOf } from "./world";
 
 export { isDirection } from "./walk";
 
@@ -78,12 +79,17 @@ export function planPutter(
   /** A number in [0, n) for one named choice. */
   const pick = (n: number, salt: string) => Number.parseInt(fnv1a(`${seed}:${salt}`), 16) % n;
 
-  const others = Object.values(state.residents).filter((r) => r.online && r.id !== actor);
+  // A putter keeps to the storey you stand on, and the people on it (RFC 0028).
+  const storey = standingStorey(me);
+  const others = Object.values(state.residents).filter(
+    (r) => r.online && r.id !== actor && standingStorey(r) === storey,
+  );
   const occupied = new Set(others.map((r) => tileKey(r.x, r.y)));
   // Nobody in `avoid` is a destination, and no walk ends next to one of them either: a wander
   // toward the Commons may pass by, but never stops beside someone who shut the actor out.
   const shunned = others.filter((r) => avoid.has(r.id));
-  const nodes = walkTree(worldGround(state), me, PUTTER.window);
+  const ground = storeyGround(state, storey);
+  const nodes = walkTree(ground, me, PUTTER.window);
   const free = (n: WalkNode) =>
     !occupied.has(tileKey(n.x, n.y)) && !shunned.some((r) => chebyshev(n, r) <= 1);
 
@@ -132,7 +138,7 @@ export function planPutter(
   }
 
   // 2. A neighbor's plot, or the edge of the plot you're building on.
-  const plots = plotGoals(state, me, pick);
+  const plots = plotGoals(state, me, ground, pick);
   const start = plots.length > 0 ? pick(plots.length, "plot") : 0;
   for (let k = 0; k < plots.length; k++) {
     const goal = plots[(start + k) % plots.length] as PlotGoal;
@@ -173,6 +179,7 @@ interface PlotGoal {
 function plotGoals(
   state: WorldState,
   me: Resident,
+  ground: Ground,
   pick: (n: number, salt: string) => number,
 ): PlotGoal[] {
   const { config } = state;
@@ -192,7 +199,8 @@ function plotGoals(
     for (let y = r.y0; y <= r.y1; y++) {
       for (let x = r.x0; x <= r.x1; x++) {
         const onEdge = x === r.x0 || x === r.x1 || y === r.y0 || y === r.y1;
-        if (onEdge && !isSolid(state, x, y) && !(x === me.x && y === me.y)) edge.push({ x, y });
+        const open = !ground.obstacle(x, y);
+        if (onEdge && open && !(x === me.x && y === me.y)) edge.push({ x, y });
       }
     }
     if (edge.length > 0) {

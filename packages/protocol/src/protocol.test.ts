@@ -261,12 +261,19 @@ describe("Action", () => {
       const parsed = Action.safeParse(action);
       expect(parsed.success && "storey" in parsed.data, type).toBe(false);
     }
+    for (const dir of ["up", "down"]) {
+      expect(Action.safeParse({ type: "move", dir }).success, dir).toBe(false);
+    }
+    expect(Action.safeParse({ type: "place", x: 1, y: 2, block: "stairs" }).success).toBe(false);
+    const stairsPlan = { type: "build", px: 0, py: 0, blocks: [{ x: 1, y: 1, block: "stairs" }] };
+    expect(Action.safeParse(stairsPlan).success).toBe(false);
     for (const code of [
       "no_storey",
       "too_high",
       "nothing_under",
       "holds_up",
       "ground_floor_only",
+      "no_stairs",
     ]) {
       expect(ERROR_CODES, code).not.toContain(code);
     }

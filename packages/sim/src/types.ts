@@ -37,6 +37,9 @@ export type ResidentKind = "human" | "agent";
 /** The way a step goes: along the grid, or one of the four diagonals. */
 export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
+/** Up or down a staircase (RFC 0028). */
+export type Climb = "up" | "down";
+
 /**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
  * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
@@ -44,9 +47,10 @@ export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
  * it back. `pedestal` (free) and `frame` hold a made thing on display (RFC 0005 step 3). `hay_bale`
  * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The next eleven are furniture made
  * at a workbench (RFC 0016), held and placed like decor, then three of Halloween's decor (RFC 0022),
- * the next four winter's decor (RFC 0017), and `pond` a tile of water to fish beside (RFC 0023),
- * paid for in stone. New kinds go on the end, and a held one (decor or furniture) is an entry in the
- * catalog too.
+ * the next four winter's decor (RFC 0017), `pond` a tile of water to fish beside (RFC 0023),
+ * paid for in stone, and `stairs` up to the storey above (RFC 0028), paid for in wood, the one
+ * block anyone walks onto. New kinds go on the end, and a held one (decor or furniture) is an entry
+ * in the catalog too.
  */
 export const BLOCK_KINDS = [
   "wood",
@@ -82,6 +86,7 @@ export const BLOCK_KINDS = [
   "little_fir",
   "sled",
   "pond",
+  "stairs",
 ] as const;
 
 /**
@@ -209,6 +214,8 @@ export interface Resident extends Look {
   hearth: Tile | null;
   /** Their pet (RFC 0019). Absent until they adopt one, so older logs hash as they did. */
   pet?: Pet;
+  /** The storey they stand on (RFC 0028). Absent on the ground floor. */
+  storey?: number;
 }
 
 export interface Plot {
@@ -1153,7 +1160,8 @@ export type Command =
   | ({ type: "join"; name: string; kind: ResidentKind } & ProfileFields)
   | ({ type: "profile" } & ProfileFields)
   | { type: "leave" }
-  | { type: "move"; dir: Direction }
+  /** A step, or `up` and `down` a staircase (RFC 0028). */
+  | { type: "move"; dir: Direction | Climb }
   /**
    * A short walk, up to `PUTTER.steps` moves. Residents send `putter` with no steps; the server
    * fills them in from `planPutter` before logging, so replay never runs the planner.
@@ -1534,7 +1542,15 @@ export type WorldEvent =
       /** The whole look after the change: a field that's absent here is unset. */
     } & Look)
   /** `routine` marks a step an offline resident's routine took (RFC 0009). */
-  | { type: "moved"; residentId: ResidentId; x: number; y: number; routine?: StepRoutine }
+  /** `storey` is there only above the ground floor (RFC 0028). */
+  | {
+      type: "moved";
+      residentId: ResidentId;
+      x: number;
+      y: number;
+      storey?: number;
+      routine?: StepRoutine;
+    }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
@@ -2060,8 +2076,13 @@ export const REJECTION_CODES = [
   "nothing_under",
   /** Taking that away would leave something above it with nothing holding it up. */
   "holds_up",
-  /** That block stays on the ground floor, since what it does is keyed by its tile alone. */
+  /**
+   * That stays on the ground floor, since what it does is keyed by its tile alone, or happens only
+   * there: fishing, gathering, and knocking on a door.
+   */
   "ground_floor_only",
+  /** `move up` off a staircase, or `move down` anywhere but the top of one. */
+  "no_stairs",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

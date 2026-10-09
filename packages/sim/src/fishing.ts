@@ -25,6 +25,7 @@ import {
 } from "./items";
 import { tileKey } from "./keys";
 import { type Season, seasonOf } from "./season";
+import { upstairsProblem } from "./storeys";
 import { isTimeOfDay, type TimeOfDay } from "./time-of-day";
 import type {
   Command,
@@ -192,6 +193,9 @@ export function checkFish(
   const items = state.items as ItemsState;
   const me = state.residents[actor];
   if (!me) return refuse("not_joined", "Join the world first.");
+  // Ponds are on the ground floor (RFC 0028).
+  const upstairs = upstairsProblem(me, "fish");
+  if (upstairs) return upstairs;
   const { roll, weather, timeOfDay } = command;
   if (
     !isWhole(roll) ||

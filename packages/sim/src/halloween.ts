@@ -25,6 +25,7 @@ import { addStack, closed, held, ITEMS, inventory, inventoryEvent, inventorySize
 import { plotKey, tileKey } from "./keys";
 import { residentById } from "./own";
 import { dateOfDay } from "./season";
+import { upstairsProblem } from "./storeys";
 import type {
   CandyFrom,
   Command,
@@ -158,6 +159,9 @@ export function checkTrickOrTreat(
   if (isTownsfolk(state, actor)) {
     return refuse("not_eligible", "Townsfolk hand candy out; they don't go trick-or-treating.");
   }
+  // Doors are on the ground floor (RFC 0028).
+  const upstairs = upstairsProblem(me, "knock on a door");
+  if (upstairs) return upstairs;
   if (!me.hearth) {
     return refuse(
       "no_hearth",

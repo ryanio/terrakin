@@ -235,6 +235,10 @@ export function planBuild(
         `${String(block)} isn't a block. Blocks: ${BLOCK_KINDS.join(", ")}.`,
       );
     }
+    // Stairs need the storey checks `place` makes, which plans take on with storeys (RFC 0028).
+    if (block === "stairs") {
+      return refuse("invalid_plan", "Stairs aren't in plans yet. Put them up with place.");
+    }
     blockKinds.push(block as BlockKind);
   }
   const groundKinds: GroundKind[] = [];

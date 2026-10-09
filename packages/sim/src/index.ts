@@ -89,8 +89,10 @@ export {
   type Purse,
   pairSkipsCaps,
   purseOf,
+  SHOP_SHARE_BEFORE,
   sameHousehold,
   treasuryOf,
+  treasuryShareOf,
 } from "./economy";
 export * from "./entitlements";
 export {
@@ -393,7 +395,6 @@ export {
   type SellKind,
   SHOP,
   SHOP_CATALOG,
-  SHOP_SHARE_BEFORE,
   SHOP_SKUS,
   type ShopEntry,
   type ShopSection,
@@ -405,7 +406,6 @@ export {
   stockHoliday,
   stockSeason,
   townBuys,
-  treasuryShareOf,
 } from "./shop";
 export { blocksOn, groundOn, STOREYS, solidAt } from "./storeys";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";

@@ -9,7 +9,7 @@ import {
   recipeOf,
 } from "./catalog";
 import { coinCount as coins, oneTimeSwitch, refuse } from "./check";
-import { allowanceDue, isTownsfolk, movePurse, moveTreasury } from "./economy";
+import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
 import { dayName } from "./holiday";
 import { own, residentById } from "./own";
 import { type Season, seasonOf } from "./season";
@@ -20,7 +20,6 @@ import {
   opened,
   type SellKind,
   seasonLastDay,
-  treasuryShareOf,
 } from "./shop";
 import type {
   Command,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { PANTRY_STAPLES } from "./catalog";
 import { STOREYS_CONFIG, STOREYS_HASH, STOREYS_LOG } from "./fixtures/storeys-log";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize, type StackKind } from "./items";
@@ -9,6 +10,7 @@ import { expectSupplyHolds, fund, stock } from "./test-support";
 import {
   type BlockKind,
   type Command,
+  type Input,
   type Rejection,
   TOWN_ACTOR,
   type WorldConfig,
@@ -29,8 +31,8 @@ const CONFIG: WorldConfig = {
 };
 
 /** A world where every refusal is checked to leave the state byte-identical. */
-function world({ economy = true } = {}) {
-  const state = createWorld(CONFIG);
+function world({ economy = true, reach = CONFIG.reach } = {}) {
+  const state = createWorld({ ...CONFIG, reach });
   const send = (actor: string, command: Command) => {
     const before = hashWorld(state);
     const result = apply(state, { actor, command });
@@ -294,8 +296,209 @@ describe("building upstairs", () => {
   });
 });
 
+/**
+ * Ada's hut with a storey: stairs at (2, 4) inside it, coming up at (2, 4) upstairs, and a floor
+ * upstairs at (2, 3), (3, 3), and (4, 3), over her hearth. She stands on her hearth.
+ */
+function loft(options: { reach?: number } = {}) {
+  const w = world(options);
+  w.ok("ada", { type: "add_storey", px: 0, py: 0 });
+  w.give("ada", { wood: STOREYS.stairsWood });
+  w.ok("ada", { type: "place", x: 2, y: 4, block: "stairs" });
+  for (const x of [2, 3, 4]) w.ok("ada", { type: "lay", x, y: 3, storey: 1, ground: "moss" });
+  return w;
+}
+
+/** Ada's walk from her hearth up the stairs. */
+const UP: Command[] = [
+  { type: "move", dir: "sw" },
+  { type: "move", dir: "up" },
+];
+
+describe("stairs", () => {
+  it("go up for wood, under a storey the plot has, with open air above them", () => {
+    const w = world();
+    const stairs: Command = { type: "place", x: 2, y: 4, block: "stairs" };
+    expect(w.refused("ada", stairs).code).toBe("no_storey");
+    w.ok("ada", { type: "add_storey", px: 0, py: 0 });
+    const short = w.refused("ada", stairs);
+    expect(short.code).toBe("not_enough_items");
+    expect(short.message).toMatch(/^Stairs take 4 wood, and you need 4 wood more\./);
+    w.give("ada", { wood: STOREYS.stairsWood });
+    const placed = w.ok("ada", stairs);
+    expect(ofType(placed, "inventory")[0]?.changes).toEqual([
+      { kind: "wood", amount: -STOREYS.stairsWood, count: 0 },
+    ]);
+    // Not over a floor upstairs: that's where they come up.
+    w.give("ada", { wood: STOREYS.stairsWood });
+    w.ok("ada", { type: "lay", x: 2, y: 2, storey: 1, ground: "moss" });
+    expect(w.refused("ada", { type: "place", x: 2, y: 2, block: "stairs" }).code).toBe(
+      "tile_occupied",
+    );
+    // Not on the top storey, with nowhere above to go.
+    const top = w.refused("ada", { type: "place", x: 2, y: 2, storey: 1, block: "stairs" });
+    expect(top.code).toBe("too_high");
+    // Taken up, they give their wood back.
+    const removed = w.ok("ada", { type: "remove", x: 2, y: 4 });
+    expect(ofType(removed, "inventory")[0]?.changes).toEqual([
+      { kind: "wood", amount: STOREYS.stairsWood, count: 2 * STOREYS.stairsWood },
+    ]);
+  });
+
+  it("keep the tile they come up through clear", () => {
+    const w = loft();
+    const lay = w.refused("ada", { type: "lay", x: 2, y: 4, storey: 1, ground: "moss" });
+    expect(lay).toEqual({ code: "tile_occupied", message: "Stairs come up here. Keep it clear." });
+    // Nor a block.
+    expect(w.refused("ada", { type: "place", x: 2, y: 4, storey: 1, block: "glass" }).code).toBe(
+      "tile_occupied",
+    );
+  });
+
+  it("are the one block you walk onto, and move up and down takes you between storeys", () => {
+    const w = loft();
+    expect(w.refused("ada", { type: "move", dir: "up" }).code).toBe("no_stairs");
+    expect(w.refused("ada", { type: "move", dir: "down" }).code).toBe("no_stairs");
+    expect(w.ok("ada", UP[0] as Command)).toEqual([
+      { type: "moved", residentId: "ada", x: 2, y: 4 },
+    ]);
+    expect(w.ok("ada", UP[1] as Command)).toEqual([
+      { type: "moved", residentId: "ada", x: 2, y: 4, storey: 1 },
+    ]);
+    expect(w.state.residents.ada?.storey).toBe(1);
+    // At the top there's nothing more to climb.
+    expect(w.refused("ada", { type: "move", dir: "up" }).code).toBe("no_stairs");
+    expect(w.ok("ada", { type: "move", dir: "down" })).toEqual([
+      { type: "moved", residentId: "ada", x: 2, y: 4 },
+    ]);
+    expect(w.state.residents.ada?.storey).toBeUndefined();
+    expect(w.refused("ada", { type: "move", dir: "down" }).code).toBe("no_stairs");
+  });
+
+  it("can't be taken from under someone, at the foot or at the top", () => {
+    const w = loft();
+    w.ok("ada", UP[0] as Command);
+    expect(w.refused("ada", { type: "remove", x: 2, y: 4 }).code).toBe("holds_up");
+    w.ok("ada", UP[1] as Command);
+    expect(w.refused("ada", { type: "remove", x: 2, y: 4 }).code).toBe("holds_up");
+    w.ok("ada", { type: "move", dir: "n" });
+    w.ok("ada", { type: "remove", x: 2, y: 4 });
+  });
+});
+
+describe("walking upstairs", () => {
+  it("keeps to the floor: never off its edge or past a corner of it", () => {
+    const w = loft();
+    for (const step of UP) w.ok("ada", step);
+    expect(w.ok("ada", { type: "move", dir: "n" })).toEqual([
+      { type: "moved", residentId: "ada", x: 2, y: 3, storey: 1 },
+    ]);
+    w.ok("ada", { type: "move", dir: "e" });
+    expect(w.refused("ada", { type: "move", dir: "s" })).toEqual({
+      code: "blocked",
+      message: "There's no floor there.",
+    });
+    // From (3, 3) down to the stairwell at (2, 4) cuts past (3, 4), which has no floor.
+    expect(w.refused("ada", { type: "move", dir: "sw" })).toEqual({
+      code: "blocked",
+      message: "The floor's corner is in the way. Step around it.",
+    });
+    // A putter's steps keep to it too, and say which storey they're on.
+    const putter = w.ok("ada", { type: "putter", steps: ["e", "w"] });
+    expect(putter.map((e) => e.type === "moved" && e.storey)).toEqual([1, 1]);
+    expect(w.refused("ada", { type: "putter", steps: ["e", "n"] }).code).toBe("blocked");
+    // A block upstairs is in the way, as one is below.
+    w.ok("ada", { type: "place", x: 4, y: 3, storey: 1, block: "wood" });
+    expect(w.refused("ada", { type: "move", dir: "e" }).message).toBe("A block is in the way.");
+  });
+
+  it("puts a block on a tile only when nobody stands there on that storey", () => {
+    const w = loft();
+    for (const step of UP) w.ok("ada", step);
+    w.ok("ada", { type: "move", dir: "n" });
+    // Ada is upstairs at (2, 3): the tile below her is free, the floor she's on isn't.
+    w.ok("ada", { type: "place", x: 2, y: 3, block: "leaf" });
+    expect(w.refused("ada", { type: "place", x: 2, y: 3, storey: 1, block: "lantern" }).code).toBe(
+      "tile_occupied",
+    );
+    expect(w.refused("ada", { type: "lift", x: 2, y: 3, storey: 1 }).code).toBe("holds_up");
+  });
+
+  it("counts a storey as a tile of reach", () => {
+    // With a reach of 0, Ada builds only where she stands, on her own storey.
+    const w = world({ reach: 0 });
+    w.ok("ada", { type: "add_storey", px: 0, py: 0 });
+    const far = w.refused("ada", { type: "lay", x: 3, y: 3, storey: 1, ground: "moss" });
+    expect(far.code).toBe("out_of_reach");
+    expect(far.message).toMatch(/a storey counts as one\. Go up the stairs first\.$/);
+  });
+
+  it("brings someone who left upstairs back there, or home if their floor went", () => {
+    const w = loft();
+    for (const step of UP) w.ok("ada", step);
+    w.ok("ada", { type: "move", dir: "n" });
+    w.ok("ada", { type: "leave" });
+    const back = w.ok("ada", { type: "join", name: "ada", kind: "human" });
+    expect(back[0]).toMatchObject({ type: "joined", resident: { x: 2, y: 3, storey: 1 } });
+    w.ok("ada", { type: "leave" });
+    // While she's away, a co-owner lifts the floor she stood on.
+    w.ok("ada", { type: "join", name: "ada", kind: "human" });
+    w.ok("ada", { type: "share_plot", with: "bob" });
+    w.ok("ada", { type: "leave" });
+    w.standAt("bob", 2, 6);
+    w.ok("bob", { type: "lift", x: 2, y: 3, storey: 1 });
+    const home = w.ok("ada", { type: "join", name: "ada", kind: "human" });
+    expect(home[0]).toMatchObject({ type: "joined", resident: { x: 3, y: 3 } });
+    expect(w.state.residents.ada?.storey).toBeUndefined();
+  });
+});
+
+describe("the ground floor", () => {
+  it("is where the hearth is: no allowance or pantry over it upstairs, and home jumps down", () => {
+    const w = loft();
+    for (const step of UP) w.ok("ada", step);
+    w.ok(TOWN_ACTOR, { type: "new_day", day: 20_001 });
+    // Today's pantry has something to bring.
+    const inv = w.state.items?.inventories.ada;
+    for (const kind of PANTRY_STAPLES) if (inv) delete inv.stacks[kind];
+    w.ok("ada", { type: "move", dir: "n" });
+    const over = w.ok("ada", { type: "move", dir: "e" });
+    expect(w.state.residents.ada).toMatchObject({ x: 3, y: 3, storey: 1 });
+    expect(over).toEqual([{ type: "moved", residentId: "ada", x: 3, y: 3, storey: 1 }]);
+    const home = w.ok("ada", { type: "home" });
+    expect(home[0]).toEqual({ type: "moved", residentId: "ada", x: 3, y: 3 });
+    expect(w.state.residents.ada?.storey).toBeUndefined();
+    expect(ofType(home, "coins").map((e) => e.reason)).toContain("allowance");
+    expect(ofType(home, "inventory").map((e) => e.reason)).toContain("pantry");
+  });
+
+  it("is where gathering and fishing happen", () => {
+    const w = loft();
+    for (const step of UP) w.ok("ada", step);
+    expect(w.refused("ada", { type: "gather" })).toEqual({
+      code: "ground_floor_only",
+      message: "Go down to the ground floor to gather.",
+    });
+    const cast: Command = { type: "fish", roll: 0, weather: "clear", timeOfDay: "day" };
+    expect(w.refused("ada", cast).code).toBe("ground_floor_only");
+  });
+});
+
 describe("the storeys log", () => {
   it("replays to its pinned hash", () => {
     expect(hashWorld(replay(STOREYS_CONFIG, STOREYS_LOG))).toBe(STOREYS_HASH);
+  });
+
+  it("pays Dee's allowance at her hearth on the ground floor, never over it upstairs", () => {
+    // The log ends: the new day, a step over her hearth upstairs, home, then up and down again.
+    const homeAt = STOREYS_LOG.findIndex((i) => i.actor === "dee" && i.command.type === "home");
+    const state = replay(STOREYS_CONFIG, STOREYS_LOG.slice(0, homeAt));
+    expect(state.residents.dee).toMatchObject({ x: 11, y: 3, storey: 1 });
+    const today = (state.economy?.ledgers.dee ?? []).filter((l) => l.day === 20_021);
+    expect(today).toEqual([]);
+    const home = apply(state, STOREYS_LOG[homeAt] as Input);
+    expect(home.ok && home.events.some((e) => e.type === "coins" && e.reason === "allowance")).toBe(
+      true,
+    );
   });
 });

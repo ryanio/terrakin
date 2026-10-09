@@ -46,8 +46,8 @@ export function directionOf(dx: number, dy: number): Direction | undefined {
   return `${ns}${ew}` as Direction;
 }
 
-/** What stops a walker on a tile. */
-export type Obstacle = "block" | "town_hall" | "shop";
+/** What stops a walker on a tile. `no_floor` is a tile upstairs with nothing to stand on (RFC 0028). */
+export type Obstacle = "block" | "town_hall" | "shop" | "no_floor";
 
 /** What a walk needs to know: the world's size, and what stands where. */
 export interface Ground {
@@ -97,12 +97,14 @@ const IN_THE_WAY: Record<Obstacle, string> = {
   block: "A block is in the way.",
   town_hall: "The Town Hall is in the way.",
   shop: "The shop is in the way.",
+  no_floor: "There's no floor there.",
 };
 
 const CORNER: Record<Obstacle, string> = {
   block: "A block's corner is in the way. Step around it.",
   town_hall: "The Town Hall's corner is in the way. Step around it.",
   shop: "The shop's corner is in the way. Step around it.",
+  no_floor: "The floor's corner is in the way. Step around it.",
 };
 
 /** Where a step lands, or why it can't be taken (and what's in the way). */

@@ -3,6 +3,7 @@ import { canonicalJson, fnv1a } from "./hash";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
 import { PUTTER_MAX_STEPS } from "./putter";
+import { setStorey, standingStorey, storeyField, storeyGround } from "./storeys";
 import type {
   Command,
   Direction,
@@ -18,8 +19,8 @@ import type {
   WorldState,
 } from "./types";
 import { ROUTINE_KINDS, STEP_ROUTINES } from "./types";
-import { type Ground, walkPath, walkSteps, walkTree, worldGround } from "./walk";
-import { canBuildOn, isSolid, plotAtTile, plotOf } from "./world";
+import { type Ground, walkPath, walkSteps, walkTree } from "./walk";
+import { canBuildOn, plotAtTile, plotOf } from "./world";
 
 /**
  * Offline routines (RFC 0009). A resident turns a few on from a fixed menu with `set_routines`,
@@ -204,13 +205,15 @@ export function checkRoutineStep(
     if (today?.walk_home) return refuse("ran_today", "walk_home already ran today.");
     const hearth = me.hearth;
     if (!hearth) return refuse("no_hearth", "There's no hearth to walk home to.");
-    if (me.x === hearth.x && me.y === hearth.y) {
+    if (me.x === hearth.x && me.y === hearth.y && standingStorey(me) === 0) {
       // Never accepted to collect anything: a routine pays no allowance and no pantry.
       return refuse("already_home", "They're already home.");
     }
+    // A jump, so it lands on the ground floor (RFC 0028).
     return () => {
       me.x = hearth.x;
       me.y = hearth.y;
+      setStorey(me, 0);
       ran({ day, walk_home: true, ...(today?.stroll ? { stroll: today.stroll } : {}) });
       return [{ type: "moved", residentId: resident, x: hearth.x, y: hearth.y, routine }];
     };
@@ -231,7 +234,9 @@ export function checkRoutineStep(
   if (steps.length > PUTTER_MAX_STEPS) {
     return refuse("out_of_reach", `A walk takes at most ${PUTTER_MAX_STEPS} steps at a time.`);
   }
-  const path = walkSteps(worldGround(state), me, steps);
+  // A stroll keeps to the storey its resident stands on.
+  const storey = standingStorey(me);
+  const path = walkSteps(storeyGround(state, storey), me, steps);
   if (!path.ok) return refuse(path.code, path.message);
   if (path.path.some((t) => !canBuildOn(plotAtTile(state, t.x, t.y), resident))) {
     return refuse("not_your_plot", "A stroll keeps to plots its resident can build on.");
@@ -245,16 +250,18 @@ export function checkRoutineStep(
     return path.path.map(({ x, y }) => {
       me.x = x;
       me.y = y;
-      return { type: "moved", residentId: resident, x, y, routine };
+      return { type: "moved", residentId: resident, x, y, ...storeyField(storey), routine };
     });
   };
 }
 
 // ---------- the stroll planner (the server's, never replay's) ----------
 
-/** The ground a stroll walks on: the plot `plot`, with everything off it in the way. */
-function plotGround(state: WorldState, plot: Plot): Ground {
-  const ground = worldGround(state);
+/**
+ * The ground a stroll walks on: the plot `plot` on `storey`, with everything off it in the way.
+ */
+function plotGround(state: WorldState, plot: Plot, storey: number): Ground {
+  const ground = storeyGround(state, storey);
   return {
     config: state.config,
     obstacle: (x, y) => {
@@ -264,12 +271,16 @@ function plotGround(state: WorldState, plot: Plot): Ground {
   };
 }
 
-/** The plot a resident stands on, when they can build on it and aren't inside a block. */
+/**
+ * The plot a resident stands on, when they can build on it and stand where they are: not inside a
+ * block, and upstairs on a floor.
+ */
 function strollPlot(state: WorldState, residentId: ResidentId): Plot | undefined {
   const me = residentById(state, residentId);
   if (!me) return undefined;
   const plot = plotAtTile(state, me.x, me.y);
-  return plot && canBuildOn(plot, residentId) && !isSolid(state, me.x, me.y) ? plot : undefined;
+  const open = !storeyGround(state, standingStorey(me)).obstacle(me.x, me.y);
+  return plot && canBuildOn(plot, residentId) && open ? plot : undefined;
 }
 
 /**
@@ -284,12 +295,13 @@ export function planStroll(state: WorldState, residentId: ResidentId): Direction
   const me = residentById(state, residentId);
   const plot = strollPlot(state, residentId);
   if (!me || !plot) return [];
+  const storey = standingStorey(me);
   const standing = new Set(
     Object.values(state.residents)
-      .filter((r) => r.online && r.id !== residentId)
+      .filter((r) => r.online && r.id !== residentId && standingStorey(r) === storey)
       .map((r) => tileKey(r.x, r.y)),
   );
-  const nodes = walkTree(plotGround(state, plot), me, ROUTINES.strollOut);
+  const nodes = walkTree(plotGround(state, plot, storey), me, ROUTINES.strollOut);
   const ends = nodes.flatMap((n, i) =>
     i > 0 && n.steps <= ROUTINES.strollOut && !standing.has(tileKey(n.x, n.y)) ? [i] : [],
   );
@@ -309,7 +321,7 @@ export function strollBack(state: WorldState, residentId: ResidentId, to: Tile):
   const me = residentById(state, residentId);
   const plot = strollPlot(state, residentId);
   if (!me || !plot) return [];
-  const nodes = walkTree(plotGround(state, plot), me, ROUTINES.strollTiles);
+  const nodes = walkTree(plotGround(state, plot, standingStorey(me)), me, ROUTINES.strollTiles);
   const end = nodes.findIndex((n) => n.x === to.x && n.y === to.y);
   if (end <= 0) return [];
   return walkPath(nodes, end).map((i) => nodes[i]?.dir as Direction);

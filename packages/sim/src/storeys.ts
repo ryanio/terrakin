@@ -1,19 +1,21 @@
 import { coinCount, isWhole, refuse } from "./check";
-import { allowanceDue, movePurse, moveTreasury } from "./economy";
+import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./economy";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { own } from "./own";
-import { treasuryShareOf } from "./shop";
 import type {
   BlockKind,
+  Climb,
   Command,
   Plot,
   Rejection,
+  Resident,
   ResidentId,
   StoreyLayer,
   WorldEvent,
   WorldState,
 } from "./types";
+import { type Ground, worldGround } from "./walk";
 import { canBuildOn, inBounds, isCommons, plotInBounds, plotOf } from "./world";
 
 /**
@@ -24,8 +26,10 @@ import { canBuildOn, inBounds, isCommons, plotInBounds, plotOf } from "./world";
  *
  * Readers that mean "the ground floor" keep reading `state.blocks`. Readers that mean "any storey"
  * go through `blocksOn` and `groundOn`, so nothing else reaches into `state.storeys` by hand. A
- * storey from an input is checked as a whole number in range (`storeyProblem`) before it becomes a
- * key.
+ * storey from an input is checked as a whole number in range (`storeyOf`) before it becomes a key.
+ *
+ * Stairs stand on the storey you climb from, and the tile right above them, the stairwell, stays
+ * open. A resident's `storey` is absent on the ground floor.
  */
 
 /** Every number about storeys in one place. RFC 0028 has the reasoning. */
@@ -77,10 +81,52 @@ export function groundOn(state: WorldState, storey: number): Readonly<Record<str
   return layerOf(state, storey)?.ground ?? NO_GROUND;
 }
 
-/** Whether a block stands on a tile of a storey. */
+/** Whether a block stands in the way on a tile of a storey. Stairs are the one block you walk onto. */
 export function solidAt(state: WorldState, x: number, y: number, storey: number): boolean {
-  return blocksOn(state, storey)[tileKey(x, y)] !== undefined;
+  const block = blocksOn(state, storey)[tileKey(x, y)];
+  return block !== undefined && block !== "stairs";
 }
+
+/** The storey a resident stands on. */
+export const standingStorey = (r: Pick<Resident, "storey">): number => r.storey ?? 0;
+
+/** Put a resident on a storey: `storey` is absent on the ground floor. */
+export function setStorey(r: Resident, storey: number) {
+  if (storey === 0) delete r.storey;
+  else r.storey = storey;
+}
+
+/** Whether (x, y) on `storey` is a stairwell: the open tile right above a staircase. */
+const isStairwell = (state: WorldState, x: number, y: number, storey: number) =>
+  storey > 0 && blocksOn(state, storey - 1)[tileKey(x, y)] === "stairs";
+
+/**
+ * The ground a walk on `storey` reads. The ground floor's is the world's (`worldGround`). Upstairs,
+ * a tile with no floor is in the way (`no_floor`), except a stairwell, and so is any block but
+ * stairs, so nobody walks off a floor's edge or past a corner of one.
+ */
+export function storeyGround(state: WorldState, storey: number): Ground {
+  if (storey === 0) return worldGround(state);
+  const blocks = blocksOn(state, storey);
+  const floors = groundOn(state, storey);
+  const below = blocksOn(state, storey - 1);
+  return {
+    config: state.config,
+    obstacle: (x, y) => {
+      const key = tileKey(x, y);
+      const block = blocks[key];
+      if (block !== undefined && block !== "stairs") return "block";
+      if (floors[key] === undefined && below[key] !== "stairs") return "no_floor";
+      return undefined;
+    },
+  };
+}
+
+/** Online residents standing on (x, y) on `storey`. */
+const someoneOn = (state: WorldState, x: number, y: number, storey: number) =>
+  Object.values(state.residents).some(
+    (r) => r.online && r.x === x && r.y === y && standingStorey(r) === storey,
+  );
 
 /** The layer a commit writes to on a storey above the ground. Its plot added it, so it's there. */
 export function layerFor(state: WorldState, storey: number): StoreyLayer {
@@ -155,21 +201,51 @@ export function floorProblem(
   );
 }
 
+/** Why nothing can go on (x, y) on `storey` because stairs come up there, or null. */
+export function stairwellProblem(
+  state: WorldState,
+  x: number,
+  y: number,
+  storey: number,
+): Rejection | null {
+  if (!isStairwell(state, x, y, storey)) return null;
+  return refuse("tile_occupied", "Stairs come up here. Keep it clear.");
+}
+
 /**
- * Why `block` can't go on (x, y) on `storey`, or null: it stays on the ground floor, or nothing
- * holds it up (a floor on its own tile, or a wall or window right under it).
+ * Why `block` can't go on (x, y) on `storey` of `plot`, or null: it stays on the ground floor, or
+ * nothing holds it up (a floor on its own tile, or a wall or window right under it). Stairs need
+ * the storey above on the plot, open air right above them, and a floor of their own upstairs.
  */
 export function blockProblem(
   state: WorldState,
+  plot: Plot | undefined,
   x: number,
   y: number,
   storey: number,
   block: BlockKind,
 ): Rejection | null {
+  const key = tileKey(x, y);
+  if (block === "stairs") {
+    const above = storey + 1;
+    if (above > STOREYS.max) {
+      return refuse("too_high", `Stairs go up a storey, and this is the top one. ${TOO_HIGH}`);
+    }
+    if ((plot?.storeys ?? 0) < above) return refuse("no_storey", noStorey());
+    if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
+      return refuse(
+        "tile_occupied",
+        "Stairs come up through the tile above them, and something is there. Clear it first.",
+      );
+    }
+    if (storey > 0 && groundOn(state, storey)[key] === undefined) {
+      return refuse("nothing_under", "Stairs upstairs stand on a floor. Lay one there first.");
+    }
+    return null;
+  }
   if (storey === 0) return null;
   const only = GROUND_FLOOR_ONLY[block];
   if (only) return refuse("ground_floor_only", `${only} stay on the ground floor.`);
-  const key = tileKey(x, y);
   if (groundOn(state, storey)[key] !== undefined) return null;
   if (holds(blocksOn(state, storey - 1)[key])) return null;
   return refuse(
@@ -179,9 +255,9 @@ export function blockProblem(
 }
 
 /**
- * Why the block at (x, y) on `storey` can't be taken away, or null: it's a wall that is all that
- * holds up a block right above it with no floor of its own, or the last wall within reach of a
- * floor above.
+ * Why the block at (x, y) on `storey` can't be taken away, or null: stairs someone is on, at the
+ * foot or at the top, or a wall that is all that holds up a block right above it with no floor of
+ * its own, or the last wall within reach of a floor above.
  */
 export function removeProblem(
   state: WorldState,
@@ -191,7 +267,11 @@ export function removeProblem(
 ): Rejection | null {
   const key = tileKey(x, y);
   const above = storey + 1;
-  if (above > STOREYS.max || !holds(blocksOn(state, storey)[key])) return null;
+  const block = blocksOn(state, storey)[key];
+  if (block === "stairs" && (someoneOn(state, x, y, storey) || someoneOn(state, x, y, above))) {
+    return refuse("holds_up", "Someone is on those stairs. Wait until they step off.");
+  }
+  if (above > STOREYS.max || !holds(block)) return null;
   if (blocksOn(state, above)[key] !== undefined && groundOn(state, above)[key] === undefined) {
     return refuse("holds_up", "That wall holds up the block above it. Take that away first.");
   }
@@ -217,8 +297,9 @@ export function removeProblem(
 }
 
 /**
- * Why the floor at (x, y) on `storey` can't be lifted, or null: a block stands on it with no wall
- * right under it. Floors on the ground floor hold nothing up.
+ * Why the floor at (x, y) on `storey` can't be lifted, or null: someone stands on it, stairs stand
+ * on it, or a block stands on it with no wall right under it. Floors on the ground floor hold
+ * nothing up.
  */
 export function liftProblem(
   state: WorldState,
@@ -228,7 +309,11 @@ export function liftProblem(
 ): Rejection | null {
   if (storey === 0) return null;
   const key = tileKey(x, y);
-  if (blocksOn(state, storey)[key] !== undefined && !holds(blocksOn(state, storey - 1)[key])) {
+  if (someoneOn(state, x, y, storey)) {
+    return refuse("holds_up", "Someone is standing on that floor. Wait until they step off.");
+  }
+  const block = blocksOn(state, storey)[key];
+  if (block !== undefined && (block === "stairs" || !holds(blocksOn(state, storey - 1)[key]))) {
     return refuse("holds_up", "That floor holds up the block on it. Take the block away first.");
   }
   return null;
@@ -252,6 +337,33 @@ export function plotHasAnything(state: WorldState, px: number, py: number): bool
 }
 
 type Mutation = () => WorldEvent[];
+
+/**
+ * `move up` from stairs to the stairwell one storey up, and `move down` from a stairwell onto the
+ * stairs below. One step each, paced like any move. Anything else is `no_stairs`.
+ */
+export function checkClimb(state: WorldState, me: Resident, dir: Climb): Mutation | Rejection {
+  const from = standingStorey(me);
+  const key = tileKey(me.x, me.y);
+  const to = dir === "up" ? from + 1 : from - 1;
+  const stairs = to >= 0 && blocksOn(state, Math.min(from, to))[key] === "stairs";
+  if (!stairs) {
+    return refuse(
+      "no_stairs",
+      dir === "up" ? "Stand on stairs to go up." : "Stand at the top of the stairs to go down.",
+    );
+  }
+  return () => {
+    setStorey(me, to);
+    return [{ type: "moved", residentId: me.id, x: me.x, y: me.y, ...storeyField(to) }];
+  };
+}
+
+/** Why `me` can't do `what` from where they stand: it happens on the ground floor. */
+export function upstairsProblem(me: Pick<Resident, "storey">, what: string): Rejection | null {
+  if (standingStorey(me) === 0) return null;
+  return refuse("ground_floor_only", `Go down to the ground floor to ${what}.`);
+}
 
 /**
  * `add_storey {px, py}`: from anywhere, on a plot you own or share, never the Commons, with coins

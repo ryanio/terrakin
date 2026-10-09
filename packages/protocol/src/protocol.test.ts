@@ -278,6 +278,59 @@ describe("Action", () => {
       expect(ERROR_CODES, code).not.toContain(code);
     }
   });
+
+  it("reads storeys in what the world shows, stairs and all (RFC 0028)", () => {
+    const snapshot = WorldSnapshot.parse({
+      v: 1,
+      seq: 0,
+      hash: "x",
+      time: { nowMs: 0, dayLengthMs: 600_000 },
+      season: "winter",
+      weather: "clear",
+      timeOfDay: "night",
+      townHall: [],
+      config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
+      commons: { px: 1, py: 1 },
+      residents: [
+        {
+          id: "a",
+          name: "Ada",
+          kind: "human",
+          color: "sun",
+          shape: "round",
+          note: "",
+          x: 1,
+          y: 2,
+          storey: 1,
+          online: true,
+          hearth: null,
+        },
+      ],
+      plots: [{ px: 0, py: 0, ownerId: "a", storeys: 1 }],
+      blocks: [
+        { x: 1, y: 1, block: "stairs" },
+        { x: 2, y: 1, storey: 1, block: "glass" },
+      ],
+      ground: [{ x: 1, y: 2, storey: 1, ground: "planks" }],
+    });
+    expect(snapshot.residents[0]?.storey).toBe(1);
+    expect(snapshot.plots[0]?.storeys).toBe(1);
+    expect(snapshot.blocks[1]).toEqual({ x: 2, y: 1, storey: 1, block: "glass" });
+    expect(snapshot.ground?.[0]).toEqual({ x: 1, y: 2, storey: 1, ground: "planks" });
+    for (const event of [
+      { type: "block_placed", x: 2, y: 1, storey: 1, block: "stairs", by: "a" },
+      { type: "block_removed", x: 2, y: 1, storey: 1, by: "a" },
+      { type: "ground_laid", x: 1, y: 2, storey: 1, ground: "moss", by: "a" },
+      { type: "ground_lifted", x: 1, y: 2, storey: 1, by: "a" },
+      { type: "moved", residentId: "a", x: 1, y: 2, storey: 1 },
+      { type: "storey_added", px: 0, py: 0, storey: 1, by: "a" },
+    ]) {
+      expect(WorldEvent.parse(event), event.type).toEqual(event);
+    }
+    // The ground floor has no storey: 0 is never sent.
+    const ground = { type: "block_placed", x: 2, y: 1, storey: 0, block: "wood", by: "a" };
+    expect(WorldEvent.safeParse(ground).success).toBe(false);
+  });
 });
 
 describe("settle, starter home, and sharing actions", () => {

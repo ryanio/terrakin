@@ -138,8 +138,16 @@ describe("plot layout", () => {
   });
 
   it("keeps the plot's blocks, fades neighbors by distance, and drops what's past the margin", () => {
-    const layout = plotLayout(world(), "capri", 4);
+    // A loft over the hut (RFC 0028) isn't drawn yet: the plot view shows the ground floor.
+    const w = world();
+    const loft: WorldSnapshot = {
+      ...w,
+      blocks: [...w.blocks, { x: 11, y: 11, storey: 1, block: "glass" }],
+      ground: [{ x: 10, y: 11, storey: 1, ground: "planks" }],
+    };
+    const layout = plotLayout(loft, "capri", 4);
     if (!layout) throw new Error("no layout");
+    expect(layout.ground).toEqual([]);
     expect(layout.center).toEqual({ x: 11.5, y: 11.5 });
     expect(layout.hearth).toEqual({ x: 11, y: 11 });
     const own = layout.blocks.filter((b) => b.own).map((b) => [b.x, b.y, b.block]);

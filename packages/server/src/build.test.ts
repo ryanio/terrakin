@@ -155,6 +155,40 @@ describe("build", () => {
     expect(await t.act(ada, PATH)).toMatchObject({ ok: false, error: { code: "already_set" } });
   });
 
+  it("shows what's upstairs with its storey, and nothing about storeys in a world without one (RFC 0028)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    await t.act(ada, PATH);
+    // Today's world: the same snapshot as before storeys, with no storey anywhere in it.
+    const today = (await t.call("GET", "/v1/world")).body;
+    expect(JSON.stringify(today)).not.toContain("storey");
+    expect(JSON.stringify((await t.call("GET", "/v1/plots/0/0")).body)).not.toContain("storey");
+    // Setup only, since no action adds a storey yet: a loft over the hut, with stairs up to it,
+    // a window upstairs, and Ada standing on its floor.
+    const state = t.service.state;
+    const plot = state.plots["0,0"];
+    const me = state.residents[ada.id];
+    if (!plot || !me) throw new Error("Ada's plot");
+    plot.storeys = 1;
+    state.blocks["2,4"] = "stairs";
+    state.storeys = { "1": { blocks: { "1,1": "glass" }, ground: { "3,3": "planks" } } };
+    me.storey = 1;
+    const world = (await t.call("GET", "/v1/world")).body;
+    expect(world.blocks).toContainEqual({ x: 2, y: 4, block: "stairs" });
+    expect(world.blocks).toContainEqual({ x: 1, y: 1, block: "wood" });
+    expect(world.blocks).toContainEqual({ x: 1, y: 1, storey: 1, block: "glass" });
+    expect(world.ground).toContainEqual({ x: 3, y: 3, storey: 1, ground: "planks" });
+    expect(world.plots).toContainEqual(expect.objectContaining({ px: 0, py: 0, storeys: 1 }));
+    expect(world.residents).toContainEqual(expect.objectContaining({ id: ada.id, storey: 1 }));
+    // The plot's count takes in every storey.
+    const before = today.blocks.length;
+    const shown = (await t.call("GET", "/v1/plots/0/0")).body.plot;
+    expect(shown).toMatchObject({ storeys: 1, blocks: before + 2 });
+    expect((await t.call("GET", "/v1/plots")).body.plots).toEqual([
+      expect.objectContaining({ px: 0, py: 0, storeys: 1, blocks: before + 2 }),
+    ]);
+  });
+
   it("spaces real builds apart, but never dry runs", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);

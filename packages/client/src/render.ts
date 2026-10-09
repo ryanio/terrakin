@@ -1,5 +1,6 @@
 import { fourWayFacing } from "@terrakin/protocol";
 import {
+  type BlockKind,
   blockFill,
   FLOWER_TONES,
   groundTile,
@@ -57,6 +58,7 @@ import {
   sprite,
 } from "./render/sprites";
 import { type CastMark, paintCast, paintPond } from "./render/water";
+import { type Cutaway, tileShows, underFloor } from "./storeys";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
@@ -100,6 +102,16 @@ export interface RenderState {
   /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
   hover?: readonly { x: number; y: number }[] | undefined;
 }
+
+/** How dim what's below an open tile upstairs shows, where you stand upstairs (RFC 0028). */
+const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
+/** A storey's shadow: how far it falls per storey, in tiles, and its color. */
+const STOREY_SHADOW = 0.22;
+const STOREY_SHADE = "rgba(43, 30, 18, 0.24)";
+/** The faint line where a floor above you ends. */
+const OVERHEAD_EDGE = "rgba(43, 38, 32, 0.45)";
+/** How faded a figure under a floor is drawn. */
+const UNDER_FLOOR_ALPHA = 0.5;
 
 /** A pet's box across, in tiles: about half a resident's height. */
 const PET_TILES = 1;
@@ -351,23 +363,31 @@ export function render(
     const { sx, sy } = tileToScreen(cam, c.x, c.y);
     paintCast(ctx, c, sx, sy, scale, now, still);
   }
-  const isFence = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "fence";
-  const isWall = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "stone_wall";
-  for (const [key, block] of mirror.blocks) {
-    const [x, y] = key.split(",").map(Number) as [number, number];
-    if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+  /**
+   * Paint one block of a storey's `blocks` at its tile: fences and low walls join their neighbors
+   * on the same storey.
+   */
+  const paintAt = (
+    blocks: ReadonlyMap<string, BlockKind>,
+    key: string,
+    block: BlockKind,
+    x: number,
+    y: number,
+  ) => {
+    const isFence = (tx: number, ty: number) => blocks.get(tileKey(tx, ty)) === "fence";
+    const isWall = (tx: number, ty: number) => blocks.get(tileKey(tx, ty)) === "stone_wall";
     const { sx, sy } = tileToScreen(cam, x, y);
     const left = Math.round(sx - half) + inset;
     const top = Math.round(sy - half) + inset;
     const size = Math.round(scale) - inset * 2;
     // Drawn flat with the ground, above.
-    if (block === "pond") continue;
+    if (block === "pond") return;
     // A pedestal is a little plinth; whatever's on display stands on it (RFC 0005 step 3).
     if (block === "pedestal") {
       paintPedestal(ctx, left, top, size, scale);
       const shown = mirror.displays.get(key)?.good ?? mirror.shownFinds.get(key);
       if (shown) paintShown(ctx, shown, left, top, size, "pedestal");
-      continue;
+      return;
     }
     // Furniture from the workbench (RFC 0016): its own picture, standing on the tile.
     if (isFurnitureKind(block)) {
@@ -382,7 +402,7 @@ export function render(
       // Lamp posts, campfires, and a jack-o'-lantern's face light up after dark.
       const lit = mapGlow(block);
       if (lit) lanterns.push({ sx: left + size * lit.x, sy: top + size * lit.y, tint: lit.tint });
-      continue;
+      return;
     }
     if (isDecorKind(block)) {
       const joins = {
@@ -403,7 +423,7 @@ export function render(
       const lit = mapGlow(block);
       if (lit) lanterns.push({ sx: left + size * lit.x, sy: top + size * lit.y, tint: lit.tint });
       if (block === "string_lights") bulbs.push(...lightBulbs(left, top, size));
-      continue;
+      return;
     }
     const skin = block === "glass" ? null : skinOf(mirror.ownerAt(x, y));
     if (!skin) paintBlock(ctx, block, left, top, size, scale);
@@ -434,6 +454,11 @@ export function render(
       );
     }
     if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
+  };
+  for (const [key, block] of mirror.blocks) {
+    const [x, y] = key.split(",").map(Number) as [number, number];
+    if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+    paintAt(mirror.blocks, key, block, x, y);
   }
 
   drawTownHall(ctx, mirror, cam);
@@ -496,6 +521,95 @@ export function render(
     ctx.lineTo(sx + half * 0.72, sy - half * 0.12);
     ctx.closePath();
     ctx.fill();
+  }
+
+  // ---- storeys (RFC 0028): from above, and cut away at your storey on the plot you're on ----
+  const upstairs = mirror.hasUpstairs() ? mirror.layers() : undefined;
+  const standing = me ? mirror.residents.get(me) : undefined;
+  const cut: Cutaway | undefined = standing && {
+    px: Math.floor(standing.x / S),
+    py: Math.floor(standing.y / S),
+    storey: standing.storey ?? 0,
+  };
+  if (upstairs) {
+    const shows = (x: number, y: number) => tileShows(upstairs, S, cut, x, y);
+    const box = (x: number, y: number) => {
+      const { sx, sy } = tileToScreen(cam, x, y);
+      const left = Math.round(sx - half);
+      const top = Math.round(sy - half);
+      return { left, top, w: Math.round(sx + half) - left, h: Math.round(sy + half) - top };
+    };
+    const inView = (x: number, y: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    // Upstairs where you stand, what's below an open tile shows through, dimmed.
+    if (cut && cut.storey > 0) {
+      ctx.fillStyle = UNDER_DIM;
+      for (let y = Math.max(y0, cut.py * S); y <= Math.min(y1, cut.py * S + S - 1); y++) {
+        for (let x = Math.max(x0, cut.px * S); x <= Math.min(x1, cut.px * S + S - 1); x++) {
+          if (!shows(x, y).dim) continue;
+          const b = box(x, y);
+          ctx.fillRect(b.left, b.top, b.w, b.h);
+        }
+      }
+    }
+    for (let storey = 1; storey <= upstairs.top; storey++) {
+      const layer = mirror.storey(storey);
+      const drawn = (key: string) => {
+        const [x, y] = key.split(",").map(Number) as [number, number];
+        return inView(x, y) && shows(x, y).top >= storey ? ([x, y] as const) : undefined;
+      };
+      // A storey's shadow falls longer than a block's, so height reads at a glance.
+      const drop = Math.round(scale * STOREY_SHADOW * storey);
+      ctx.fillStyle = STOREY_SHADE;
+      for (const key of new Set([...layer.paving.keys(), ...layer.blocks.keys()])) {
+        const at = drawn(key);
+        if (!at) continue;
+        const b = box(at[0], at[1]);
+        ctx.fillRect(b.left + drop, b.top + drop, b.w, b.h);
+      }
+      for (const [key, laid] of layer.paving) {
+        const at = drawn(key);
+        if (!at) continue;
+        const b = box(at[0], at[1]);
+        ctx.drawImage(groundSprite(laid, b.w, b.h, dpr), b.left, b.top, b.w, b.h);
+      }
+      for (const [key, block] of layer.blocks) {
+        const at = drawn(key);
+        if (at) paintAt(layer.blocks, key, block, at[0], at[1]);
+      }
+    }
+    // A floor above you, cut away: a faint line where it ends, so you know it's overhead.
+    if (cut) {
+      ctx.strokeStyle = OVERHEAD_EDGE;
+      ctx.lineWidth = Math.max(1, scale / 20);
+      ctx.setLineDash([scale * 0.16, scale * 0.12]);
+      const edge = new Path2D();
+      const overhead = (x: number, y: number) =>
+        Math.floor(x / S) === cut.px && Math.floor(y / S) === cut.py && shows(x, y).overhead;
+      for (let y = Math.max(y0, cut.py * S); y <= Math.min(y1, cut.py * S + S - 1); y++) {
+        for (let x = Math.max(x0, cut.px * S); x <= Math.min(x1, cut.px * S + S - 1); x++) {
+          if (!overhead(x, y)) continue;
+          const b = box(x, y);
+          if (!overhead(x, y - 1)) {
+            edge.moveTo(b.left, b.top);
+            edge.lineTo(b.left + b.w, b.top);
+          }
+          if (!overhead(x + 1, y)) {
+            edge.moveTo(b.left + b.w, b.top);
+            edge.lineTo(b.left + b.w, b.top + b.h);
+          }
+          if (!overhead(x, y + 1)) {
+            edge.moveTo(b.left, b.top + b.h);
+            edge.lineTo(b.left + b.w, b.top + b.h);
+          }
+          if (!overhead(x - 1, y)) {
+            edge.moveTo(b.left, b.top);
+            edge.lineTo(b.left, b.top + b.h);
+          }
+        }
+      }
+      ctx.stroke(edge);
+      ctx.setLineDash([]);
+    }
   }
 
   // ---- home pictures: a resident's own art of their home, standing over their hearth ----
@@ -709,7 +823,12 @@ export function render(
     const fig = figureSprite(r, scale, dpr, facing, face, away);
     const ground = feet - (p.lift + m.lift) * scale;
     // Leaning, swaying, and squashing from the feet.
+    // Never hidden: someone under a floor is drawn faded, with their name (RFC 0028).
+    const covered =
+      upstairs !== undefined &&
+      underFloor(upstairs, S, cut, Math.round(m.x), Math.round(m.y), r.storey ?? 0);
     ctx.save();
+    if (covered) ctx.globalAlpha = UNDER_FLOOR_ALPHA;
     ctx.translate(sx, ground);
     ctx.rotate(p.tilt * 0.5 + m.sway + m.lean * side);
     ctx.scale(m.squash, 1 / m.squash);

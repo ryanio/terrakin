@@ -17,6 +17,7 @@ import {
   HEARTH_DOOR,
   isDecorKind,
   PAPER,
+  STOREYS,
   THEME_INFO,
   THEME_TINT_ALPHA,
 } from "@terrakin/sim";
@@ -32,13 +33,17 @@ export type PlotMark =
   | { x: number; y: number; kind: "display" }
   | { x: number; y: number; kind: "hearth" };
 
+/** The storey a snapshot entry is on: absent is the ground floor. */
+const storeyOf = (t: { storey?: number | undefined }) => t.storey ?? 0;
+
 /** A sprout's green while a crop is still growing. */
 const GROWING = "#7fae55";
 
 /**
  * What to paint for plot (px, py), back to front: the ground in its season, then paths and floors,
- * blocks, crops, displays, and hearths. `tint` is the owner's theme over the ground, under the
- * paths. Pure, so tests pin it.
+ * blocks, crops, displays, and hearths, then each storey above the ground floor's floors and blocks
+ * (RFC 0028), so a home is drawn from above, as the map draws someone else's. `tint` is the owner's
+ * theme over the ground, under the paths. Pure, so tests pin it.
  */
 export function plotMarks(
   world: WorldSnapshot,
@@ -64,22 +69,25 @@ export function plotMarks(
       });
     }
   }
-  for (const g of world.ground ?? []) {
-    if (!here(g)) continue;
-    marks.push({ x: g.x - x0, y: g.y - y0, kind: "path", ground: g.ground });
-  }
-  for (const b of world.blocks) {
-    if (!here(b)) continue;
-    const glass = b.block === "glass";
-    marks.push({
-      x: b.x - x0,
-      y: b.y - y0,
-      kind: "block",
-      fill: blockFill(b.block, glass ? undefined : palette),
-      glass,
-      decor: isDecorKind(b.block),
-    });
-  }
+  const build = (storey: number) => {
+    for (const g of world.ground ?? []) {
+      if (storeyOf(g) !== storey || !here(g)) continue;
+      marks.push({ x: g.x - x0, y: g.y - y0, kind: "path", ground: g.ground });
+    }
+    for (const b of world.blocks) {
+      if (storeyOf(b) !== storey || !here(b)) continue;
+      const glass = b.block === "glass";
+      marks.push({
+        x: b.x - x0,
+        y: b.y - y0,
+        kind: "block",
+        fill: blockFill(b.block, glass ? undefined : palette),
+        glass,
+        decor: isDecorKind(b.block),
+      });
+    }
+  };
+  build(0);
   for (const c of world.crops ?? []) {
     if (!here(c)) continue;
     const ripe = world.day !== undefined && world.day >= c.readyDay;
@@ -99,6 +107,7 @@ export function plotMarks(
       marks.push({ x: r.hearth.x - x0, y: r.hearth.y - y0, kind: "hearth" });
     }
   }
+  for (let storey = 1; storey <= STOREYS.max; storey++) build(storey);
   return {
     size,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),

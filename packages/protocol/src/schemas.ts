@@ -78,10 +78,12 @@ export const PROTOCOL_VERSION = 1;
 const CHAT_MAX_LENGTH = 280;
 
 /**
- * Homes with storeys (RFC 0028) are in the sim before the API opens them, which is the RFC's PR 6.
- * Until then the API names nothing only storeys make: their refusals, their coin reason, stairs,
- * and a build's `unsupported` and `holds_up` skips. No action carries a `storey`, `add_storey`,
- * or `move` up or down, so nothing here can reach them.
+ * Homes with storeys (RFC 0028) are in the sim before the API opens them for building, which is
+ * the RFC's PR 6. Until then no action carries a `storey`, `add_storey`, `move` up or down, or
+ * stairs, and the API's lists leave out what only storeys make: their refusals, their coin reason,
+ * stairs, and a build's `unsupported` and `holds_up` skips. What the world shows (the snapshot and
+ * its events) already reads storeys, with every block kind, so nothing misreads a world that has
+ * one; with none, it reads exactly as before.
  */
 const NOT_OPEN_YET: readonly string[] = [
   "no_storey",
@@ -130,6 +132,21 @@ export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
 const coord = z.number().int().min(0).max(100_000);
+
+/**
+ * The storey a tile or a resident is on (RFC 0028), in what the world shows: absent on the ground
+ * floor, 1 upstairs.
+ */
+const onStorey = {
+  storey: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028)."),
+};
+/** Every block kind, stairs included, for what the world shows. */
+const ShownBlock = z.enum(BLOCK_KINDS);
 const requestId = z.string().min(1).max(64).optional();
 
 export const ResidentKind = z.enum(["human", "agent"]);
@@ -1156,6 +1173,7 @@ export const ResidentView = z.object({
   note: z.string(),
   x: z.number().int(),
   y: z.number().int(),
+  ...onStorey,
   online: z.boolean(),
   hearth: z.object({ x: z.number().int(), y: z.number().int() }).nullable(),
   /**
@@ -1246,17 +1264,21 @@ export const WorldSnapshot = z.object({
       name: z.string().optional(),
       /** Present when it has a `name`: residents wrote it. */
       trust: z.literal("untrusted").optional(),
+      /** Storeys it added above its ground floor (RFC 0028). Absent when it has none. */
+      storeys: z.number().int().min(1).optional(),
     }),
   ),
+  /** Blocks, one per tile on each storey: the ground floor's, then each storey's above it. */
   blocks: z.array(
-    z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(openOnly(BLOCK_KINDS)) }),
+    z.object({ x: z.number().int(), y: z.number().int(), ...onStorey, block: ShownBlock }),
   ),
   /**
-   * Paths and floors (RFC 0016), one per tile, under whatever block stands there. Nobody walks
-   * differently for them. Absent when no tile has one.
+   * Paths and floors (RFC 0016), one per tile on each storey, under whatever block stands there.
+   * Nobody walks differently for them on the ground floor; upstairs, a floor is what you walk on.
+   * Absent when no tile has one.
    */
   ground: z
-    .array(z.object({ x: z.number().int(), y: z.number().int(), ground: GroundKind }))
+    .array(z.object({ x: z.number().int(), y: z.number().int(), ...onStorey, ground: GroundKind }))
     .optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
@@ -1440,6 +1462,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     x: z.number().int(),
     y: z.number().int(),
+    ...onStorey,
     /** A step a routine took while they're away (RFC 0009): `walk_home` or `stroll`. */
     routine: StepRoutine.optional(),
   }),
@@ -1465,13 +1488,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("block_placed"),
     x: z.number().int(),
     y: z.number().int(),
-    block: z.enum(openOnly(BLOCK_KINDS)),
+    ...onStorey,
+    block: ShownBlock,
     by: z.string(),
   }),
   z.object({
     type: z.literal("block_removed"),
     x: z.number().int(),
     y: z.number().int(),
+    ...onStorey,
     by: z.string(),
   }),
   /** A path or floor went down on a tile (RFC 0016). */
@@ -1479,6 +1504,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("ground_laid"),
     x: z.number().int(),
     y: z.number().int(),
+    ...onStorey,
     ground: GroundKind,
     by: z.string(),
   }),
@@ -1487,6 +1513,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("ground_lifted"),
     x: z.number().int(),
     y: z.number().int(),
+    ...onStorey,
+    by: z.string(),
+  }),
+  /** A plot added a storey above its ground floor (RFC 0028): `storey` is its new top storey. */
+  z.object({
+    type: z.literal("storey_added"),
+    px: z.number().int(),
+    py: z.number().int(),
+    storey: z.number().int().min(1),
     by: z.string(),
   }),
   z.object({

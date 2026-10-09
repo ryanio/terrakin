@@ -432,8 +432,9 @@ export function plotLayout(
   const homes = litHomes(everyone, plotSize);
   if (hearth) homes.add(plotKey(plot.px, plot.py));
   const blocks: LayoutBlock[] = [];
+  // The ground floor only, until the plot view draws storeys (RFC 0028).
   for (const b of snapshot.blocks) {
-    if (!inBounds(outer, b.x, b.y)) continue;
+    if (b.storey || !inBounds(outer, b.x, b.y)) continue;
     const d = distanceOutside(bounds, b.x, b.y);
     const home = homes.has(plotKey(Math.floor(b.x / plotSize), Math.floor(b.y / plotSize)));
     blocks.push({
@@ -448,7 +449,7 @@ export function plotLayout(
   blocks.sort((a, b) => a.y - b.y || a.x - b.x);
   const ground: LayoutGround[] = [];
   for (const g of snapshot.ground ?? []) {
-    if (!inBounds(outer, g.x, g.y)) continue;
+    if (g.storey || !inBounds(outer, g.x, g.y)) continue;
     const d = distanceOutside(bounds, g.x, g.y);
     ground.push({ x: g.x, y: g.y, ground: g.ground, own: d === 0, fade: d / (margin + 1) });
   }

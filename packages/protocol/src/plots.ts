@@ -58,8 +58,10 @@ export const PlotView = z.object({
    * at its door with `trick_or_treat` tonight (this UTC day).
    */
   knockedToday: z.boolean().optional(),
-  /** Blocks on it, decor and stations included. */
+  /** Blocks on it, on every storey, decor and stations included. */
   blocks: z.number().int(),
+  /** Storeys it added above its ground floor (RFC 0028). Absent when it has none. */
+  storeys: z.number().int().min(1).optional(),
   /** Things on display on its pedestals and frames. */
   displays: z.number().int(),
   /** Opened as a gallery with `set_gallery`. Absent otherwise. */

@@ -7,6 +7,7 @@ import {
 } from "@terrakin/protocol";
 import {
   activeTables,
+  blocksOn,
   commonsPlot,
   DAY_LENGTH_MS,
   type Direction,
@@ -14,6 +15,7 @@ import {
   eventOpen,
   findsOnDisplay,
   findsOpen,
+  groundOn,
   holidayField,
   isTownEvent,
   isTownsfolk,
@@ -27,9 +29,11 @@ import {
   type RecipeName,
   type Resident,
   residentById,
+  STOREYS,
   type StepRoutine,
   shopTiles,
   skyAt,
+  storeyField,
   timeOfDayAt,
   townHallTiles,
   type WorldEvent,
@@ -58,9 +62,7 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "owner_pair_removed" ||
       e.type === "maintainers_set" ||
       e.type === "implicit_presence_on" ||
-      e.type === "event_ticked" ||
-      // Homes with storeys (RFC 0028) aren't on the API yet, and no action reaches this.
-      e.type === "storey_added"
+      e.type === "event_ticked"
     ) {
       continue;
     }
@@ -245,6 +247,21 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     const r = residentById(state, id);
     return r ? [view(r)] : [];
   });
+  // Every storey's blocks and floors, the ground floor's first, `storey` on the rest (RFC 0028).
+  // With no storeys these are the ground floor's alone, as they always were.
+  const storeys = Array.from({ length: STOREYS.max + 1 }, (_, storey) => storey);
+  const blocks = storeys.flatMap((storey) =>
+    Object.entries(blocksOn(state, storey)).map(([key, block]) => {
+      const [x, y] = parseKey(key);
+      return { x, y, ...storeyField(storey), block };
+    }),
+  );
+  const ground = storeys.flatMap((storey) =>
+    Object.entries(groundOn(state, storey)).map(([key, kind]) => {
+      const [x, y] = parseKey(key);
+      return { x, y, ...storeyField(storey), ground: kind };
+    }),
+  );
   return {
     v: PROTOCOL_VERSION,
     seq: state.seq,
@@ -278,20 +295,11 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         ...(p.gallery ? { gallery: true as const } : {}),
         // Its residents' words (decision 0121).
         ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
+        ...(p.storeys ? { storeys: p.storeys } : {}),
       };
     }),
-    blocks: Object.entries(state.blocks).map(([key, block]) => {
-      const [x, y] = parseKey(key);
-      return { x, y, block };
-    }),
-    ...(state.ground && Object.keys(state.ground).length > 0
-      ? {
-          ground: Object.entries(state.ground).map(([key, ground]) => {
-            const [x, y] = parseKey(key);
-            return { x, y, ground };
-          }),
-        }
-      : {}),
+    blocks,
+    ...(ground.length > 0 ? { ground } : {}),
     ...(state.day === undefined ? {} : { day: state.day }),
     townHall: townHallTiles(state.config),
     ...(state.shop ? { shop: shopTiles(state.config) } : {}),

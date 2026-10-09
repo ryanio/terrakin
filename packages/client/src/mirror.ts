@@ -23,6 +23,7 @@ import {
   pickupOn,
   plotKey,
   type Resident,
+  STOREYS,
   type StepRoutine,
   shopTiles,
   tileKey,
@@ -30,6 +31,7 @@ import {
 } from "@terrakin/sim";
 import type { EventMark } from "./event-format";
 import { type Dozer, dozers } from "./scene3d/layout";
+import type { StoreyLayers } from "./storeys";
 
 type EventMessage = { seq: number; event: WorldEvent };
 
@@ -58,6 +60,7 @@ function petFrom(view: PetView): Pet {
 function residentFrom(view: ResidentView): Resident {
   // `facing` and `routine` are for drawing; the mirror keeps them outside the resident.
   const {
+    storey,
     theme,
     pattern,
     wear,
@@ -83,8 +86,22 @@ function residentFrom(view: ResidentView): Resident {
     hair,
     hairColor,
   };
-  return { ...rest, ...lookOf(look), ...(pet ? { pet: petFrom(pet) } : {}) };
+  return {
+    ...rest,
+    ...lookOf(look),
+    ...(pet ? { pet: petFrom(pet) } : {}),
+    // Upstairs (RFC 0028); absent on the ground floor.
+    ...(storey ? { storey } : {}),
+  };
 }
+
+/** One storey above the ground floor (RFC 0028): its blocks and its floors, by tileKey. */
+export interface StoreyLayer {
+  blocks: Map<string, BlockKind>;
+  paving: Map<string, GroundKind>;
+}
+
+const NO_STOREY: Readonly<StoreyLayer> = { blocks: new Map(), paving: new Map() };
 
 /** How long an away resident is out after a routine's step reaches us, before they sleep again. */
 export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * 60_000;
@@ -114,6 +131,13 @@ export class Mirror {
   blocks = new Map<string, BlockKind>(); // tileKey -> block
   /** Paths and floors under the blocks (RFC 0016), by tileKey. Nobody walks differently for them. */
   paving = new Map<string, GroundKind>();
+  /**
+   * Each storey above the ground floor (RFC 0028), by its number. `blocks` and `paving` are the
+   * ground floor's, which is what everything but the map's storeys reads.
+   */
+  upstairs = new Map<number, StoreyLayer>();
+  /** How many storeys each plot added above its ground floor, by plotKey. */
+  storeys = new Map<string, number>();
   /** The tiles the Town Hall stands on. Tapping one opens /town. */
   townHall: { x: number; y: number }[];
   /** The tiles the town shop stands on, once it's open (RFC 0008). Tapping one opens /shop. */
@@ -178,9 +202,12 @@ export class Mirror {
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
       if (p.name !== undefined) this.plotNames.set(plotKey(p.px, p.py), p.name);
+      if (p.storeys) this.storeys.set(plotKey(p.px, p.py), p.storeys);
     }
-    for (const b of snapshot.blocks) this.blocks.set(tileKey(b.x, b.y), b.block);
-    for (const g of snapshot.ground ?? []) this.paving.set(tileKey(g.x, g.y), g.ground);
+    for (const b of snapshot.blocks) this.blocksAt(b.storey).set(tileKey(b.x, b.y), b.block);
+    for (const g of snapshot.ground ?? []) {
+      this.pavingAt(g.storey).set(tileKey(g.x, g.y), g.ground);
+    }
     this.townHall = snapshot.townHall.map((t) => ({ ...t }));
     this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
     this.solidBuildings = snapshot.solidBuildings === true;
@@ -216,6 +243,52 @@ export class Mirror {
         ...(e.town ? { town: true as const } : {}),
       });
     }
+  }
+
+  /** A storey's layer, made when it first has something. */
+  #layer(storey: number): StoreyLayer {
+    let layer = this.upstairs.get(storey);
+    if (!layer) {
+      layer = { blocks: new Map(), paving: new Map() };
+      this.upstairs.set(storey, layer);
+    }
+    return layer;
+  }
+
+  /** The blocks on a storey (absent or 0: the ground floor's), to change. */
+  blocksAt(storey: number | undefined): Map<string, BlockKind> {
+    return storey ? this.#layer(storey).blocks : this.blocks;
+  }
+
+  /** The paths and floors on a storey (absent or 0: the ground floor's), to change. */
+  pavingAt(storey: number | undefined): Map<string, GroundKind> {
+    return storey ? this.#layer(storey).paving : this.paving;
+  }
+
+  /** A storey above the ground floor as it is, to read: empty until something is on it. */
+  storey(storey: number): Readonly<StoreyLayer> {
+    return this.upstairs.get(storey) ?? NO_STOREY;
+  }
+
+  /** Whether anything stands or lies on any storey above the ground floor. */
+  hasUpstairs(): boolean {
+    for (const layer of this.upstairs.values()) {
+      if (layer.blocks.size > 0 || layer.paving.size > 0) return true;
+    }
+    return false;
+  }
+
+  /** The storeys above the ground floor, as the map's cutaway reads them (`storeys.ts`). */
+  layers(): StoreyLayers {
+    return {
+      top: STOREYS.max,
+      has: (storey, x, y) => {
+        const layer = this.upstairs.get(storey);
+        const key = tileKey(x, y);
+        return layer !== undefined && (layer.blocks.has(key) || layer.paving.has(key));
+      },
+      floor: (storey, x, y) => this.upstairs.get(storey)?.paving.has(tileKey(x, y)) === true,
+    };
   }
 
   isTownHall(x: number, y: number): boolean {
@@ -273,6 +346,9 @@ export class Mirror {
         const dir = facingFrom(event.x - r.x, event.y - r.y);
         if (dir) this.facing.set(r.id, dir);
         Object.assign(r, { x: event.x, y: event.y });
+        // Up or down a storey (RFC 0028): absent on the ground floor.
+        if (event.storey) r.storey = event.storey;
+        else delete r.storey;
         if (event.routine) this.#out.set(r.id, { routine: event.routine, at: this.#clock() });
         break;
       }
@@ -286,10 +362,14 @@ export class Mirror {
         this.plots.delete(key);
         this.coOwners.delete(key);
         this.galleries.delete(key);
-        // A plot's name goes with it (decision 0121).
+        // A plot's name goes with it (decision 0121), and so do its storeys (RFC 0028).
         this.plotNames.delete(key);
+        this.storeys.delete(key);
         break;
       }
+      case "storey_added":
+        this.storeys.set(plotKey(event.px, event.py), event.storey);
+        break;
       case "plot_named": {
         const key = plotKey(event.px, event.py);
         if (event.name === null) this.plotNames.delete(key);
@@ -310,17 +390,18 @@ export class Mirror {
         if (r) r.hearth = { x: event.x, y: event.y };
         break;
       }
+      // On the storey each names (RFC 0028): absent is the ground floor.
       case "block_placed":
-        this.blocks.set(tileKey(event.x, event.y), event.block);
+        this.blocksAt(event.storey).set(tileKey(event.x, event.y), event.block);
         break;
       case "block_removed":
-        this.blocks.delete(tileKey(event.x, event.y));
+        this.blocksAt(event.storey).delete(tileKey(event.x, event.y));
         break;
       case "ground_laid":
-        this.paving.set(tileKey(event.x, event.y), event.ground);
+        this.pavingAt(event.storey).set(tileKey(event.x, event.y), event.ground);
         break;
       case "ground_lifted":
-        this.paving.delete(tileKey(event.x, event.y));
+        this.pavingAt(event.storey).delete(tileKey(event.x, event.y));
         break;
       case "plot_shared": {
         const key = plotKey(event.px, event.py);

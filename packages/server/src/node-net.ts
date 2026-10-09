@@ -67,5 +67,8 @@ export function publicHost(lookup: Lookup = dnsLookup) {
 export function cardFetch(lookup: Lookup = dnsLookup): typeof fetch {
   const dispatcher = new Agent({ connect: { lookup: publicLookup(lookup) as never } });
   return ((input: string | URL | Request, init?: RequestInit) =>
-    undiciFetch(input as never, { ...(init as object), dispatcher } as never)) as typeof fetch;
+    undiciFetch(
+      input as never,
+      { ...(init as object), dispatcher } as never,
+    )) as unknown as typeof fetch;
 }

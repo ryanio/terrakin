@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-09
-- Status: draft
+- Status: accepted (one storey above the ground to start; see Decisions)
 - Discussion: [issue #48](https://github.com/ryanio/terrakin/issues/48) (item 1, multiple floors)
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (paths and floors, plans), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) and [decision 0070](../knowledge/decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md) (replay), [decision 0072](../knowledge/decisions/0072-walking-is-eight-ways-around-solid-buildings-paced-by-your-f.md) (walking), [decision 0075](../knowledge/decisions/0075-paths-and-floors-are-a-second-layer-that-never-blocks-and-fu.md) (ground is its own layer), [decision 0076](../knowledge/decisions/0076-a-build-plan-uses-plot-coordinates-refuses-whole-what-the-pl.md) (build plans), [decision 0030](../knowledge/decisions/0030-3d-art-direction-and-performance-budget.md) (3D look and budget), [decision 0048](../knowledge/decisions/0048-plot-photos-are-drawn-by-the-worker-over-a-service-binding-a.md) and [decision 0160](../knowledge/decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md) (plot photos and pictures by link), [decision 0144](../knowledge/decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) (the starter home on the web)
 
@@ -25,7 +25,7 @@ Issue #48 asks for multiple floors so residents can "build up, not just out". A 
 
 ## Words
 
-The code already uses "floor" for a ground kind (`planks` is "Plank floor", and RFC 0016 calls ground "paths and floors"). "Level" is taken by the roadmap's progression levels, "z" is what the 3D code calls the map's y axis (`toZ(y)` in `scene3d/blocks.ts`), and "story" reads as a post. So the API and the code say **storey**: `storey: 0` is the ground floor, `storey: 1` is upstairs, `storey: 2` the one above it. Copy for people says "Ground floor", "Upstairs", and "Top floor" (see Open questions).
+The code already uses "floor" for a ground kind (`planks` is "Plank floor", and RFC 0016 calls ground "paths and floors"). "Level" is taken by the roadmap's progression levels, "z" is what the 3D code calls the map's y axis (`toZ(y)` in `scene3d/blocks.ts`), and "story" reads as a post. So the API and the code say **storey**: `storey: 0` is the ground floor, `storey: 1` is upstairs. Copy for people says "Ground floor" and "Upstairs" (see Decisions).
 
 ## Design
 
@@ -226,8 +226,8 @@ New refusals:
 
 | Code | When | Message, roughly |
 |------|------|------------------|
-| `no_storey` | Building on, or putting stairs up to, a storey this plot hasn't added | "This plot has no storey 2 yet. add_storey adds it for 160 coins." |
-| `too_high` | Past `STOREYS.max`, or stairs on the top storey | "Homes go up two storeys above the ground." |
+| `no_storey` | Building on, or putting stairs up to, a storey this plot hasn't added | "This plot has no upstairs yet. add_storey adds it for 80 coins." |
+| `too_high` | Past `STOREYS.max`, or stairs on the top storey | "Homes go up one storey above the ground." |
 | `nothing_under` | A floor with no wall below within 2 tiles, or a block with no floor or wall under it | "Nothing holds that up. Build walls under it first, within 2 tiles." |
 | `holds_up` | Taking away what holds up a floor, a block, stairs, or someone | "That wall holds up the floor above. Lift the floor first." |
 | `no_stairs` | `move up` off stairs, or `move down` off a stairwell | "Stand on stairs to go up." |
@@ -239,8 +239,8 @@ New refusals:
 
 | Number | Value | Why |
 |--------|-------|-----|
-| `max` | 2 storeys above the ground floor | Three tall is half a plot's width in 3D, still frames on a phone, and fits a three-way picker. May go up later, never down, since logged inputs on a storey must stay valid. |
-| `price` | 80 coins for storey 1, 160 for storey 2 | A regular earns about 15 a day (decision 0039), so about 5 days, then 11 more. 80 is above the 50 coin welcome gift, so nobody adds a storey on day one with free coins. |
+| `max` | 1 storey above the ground floor | A loft first: half the camera, picker, and photo work of two, and usage shows whether a second is wanted. May go up later, never down, since logged inputs on a storey must stay valid. |
+| `price` | 80 coins for storey 1 (a starting point; PR 3's economy run sets it) | A regular earns about 15 a day (decision 0039), so about 5 days. 80 is above the 50 coin welcome gift, so nobody adds a storey on day one with free coins. A second storey, if the cap goes up, costs more. |
 | `span` | 2 tiles | Covers the whole starter hut and allows a 2-tile balcony, but no floating decks across a plot. |
 | `stairsWood` | 4 wood | About a day or two of branches on a wooded plot; given back on removal. |
 
@@ -251,7 +251,7 @@ Floors upstairs cost what the ground kind costs (RFC 0016's table): planking the
 `scripts/economy-sim.ts` gains builders: some regulars who save for `add_storey` and gather wood for stairs and a planked floor, from their own PRNG stream, and `--no-storeys` to play the month as it was. The run should show:
 
 1. Supply per active resident still grows in a straight line in decision 0039's band, with storeys burning coins.
-2. Days for a regular to afford storey 1, and storey 2. The target is storey 1 inside two weeks and storey 2 inside the month, and never in a newcomer's first days.
+2. Days for a regular to afford storey 1. The target is inside two weeks, and never in a newcomer's first days.
 3. Newcomers' first-week spending (the line the run already prints) doesn't drop, so saving for a storey doesn't crowd out seeds and a first costume.
 4. Days of gathering for a builder to plank a starter hut's loft and make stairs, against the anglers' rod and pond, so wood for building up doesn't starve fishing and furniture.
 5. Coins burned by storeys a day against the day's mint, so the sink is felt but supply never shrinks over the month.
@@ -268,7 +268,7 @@ Other plots draw from above: each tile shows the highest storey that has somethi
 
 #### The build bar on a phone
 
-On a plot with storeys, the build bar's header gets a storey picker of at most three chips ("Ground floor", "Upstairs", "Top floor"), 44 px tall, with `aria-pressed`. Picking one sets the storey taps build on and moves the map's cutaway there, without moving you. The last chip is "Add a storey, 80 coins" while the plot can have another, sending `add_storey` after a confirm, since it spends coins. The picker starts on your own storey. Standing on stairs or a stairwell shows a "Go up" or "Go down" pill beside your figure. Tap to walk stays within one storey; tapping a tile on another storey walks you to the stairs and shows the pill, so nothing climbs without a tap.
+On a plot with storeys, the build bar's header gets a storey picker of two chips ("Ground floor", "Upstairs"), 44 px tall, with `aria-pressed`. Picking one sets the storey taps build on and moves the map's cutaway there, without moving you. The last chip is "Add a storey, 80 coins" while the plot can have another, sending `add_storey` after a confirm, since it spends coins. The picker starts on your own storey. Standing on stairs or a stairwell shows a "Go up" or "Go down" pill beside your figure. Tap to walk stays within one storey; tapping a tile on another storey walks you to the stairs and shows the pill, so nothing climbs without a tap.
 
 #### The 3D home view
 
@@ -292,7 +292,7 @@ The same rule as the map: the plot you stand on is cut away at your storey, and 
 
 ## Economy impact
 
-- A new coin sink: `add_storey`, 80 and 160 coins a plot, split like a shop purchase. No new source.
+- A new coin sink: `add_storey`, 80 coins a plot to start, split like a shop purchase. No new source.
 - A new wood sink: stairs (4 each, given back when taken up) and planked floors upstairs (1 a tile, given back when lifted).
 - Nothing duplicates: stairs and floors give back exactly what they took, as decor and ground do, and the price is never refunded. `expectSupplyHolds` runs after `add_storey` in its tests.
 - A co-owner can pay for a storey on a plot they share. If the owner later releases the plot, the coins stay burned; nothing comes back to anyone, so there's nothing to farm.
@@ -411,12 +411,12 @@ Hide a gable roof when you come inside. Homes have no roofs today, so this is a 
 
 The photo frame could show each storey's plan next to the others. The card keeps what matters in its middle 800 pixels so the feed's 4:3 crop keeps it (`plot` in `packages/cards/src/templates.ts`), and three small plans read worse than one plot from above. The `storey` field covers the need.
 
-## Open questions
+## Decisions
 
-1. The word. `storey` in the API and code, and "Ground floor", "Upstairs", "Top floor" for people, or something else? "Floor" is the natural word but already names a ground kind.
-2. The price. 80 and 160 coins are a starting point for the economy run. Should a storey cost coins at all, or only materials?
-3. How tall. Two storeys above the ground, or start with one and raise the cap later (it can go up but never down)?
-4. Privacy upstairs. Anyone can walk anywhere on a plot today. Should upstairs be open to visitors, or only to the plot's household and people they invite?
-5. What upstairs can hold. Is the ground-floor-only list right? A roof garden of planters is a natural ask, but crops are keyed by tile alone, so it would need crops keyed by storey (a bigger change, with its own replay story).
-6. The Commons. Should the Town Hall be able to add a storey in the Commons later (a lookout, a stage), or stay on the ground?
-7. Pictures by link. Is from above enough for `/og/plot`, or should it take a storey too, at the cost of more cached variants?
+1. The word: `storey` in the API and code; "Ground floor" and "Upstairs" for people. "Floor" names a ground kind and "story" reads as a post.
+2. The price: coins and materials. A storey is something to save for that everyone can see, and coins need sinks. The economy run (PR 3) sets the number, with a newcomer able to afford storey 1 within about two weeks of ordinary play.
+3. How tall: one storey above the ground to start (`STOREYS.max` is 1). The cap can go up later, never down.
+4. Privacy upstairs: open to visitors, like the ground floor. Visiting is how the town meets, and blocks and closed doors (`closedDoor`) already keep out who they keep out; an invite list would be new state for little gain.
+5. What upstairs holds: the ground-floor-only list stands. Roof gardens need crops keyed by storey, which is a replay change with an RFC of its own.
+6. The Commons: ground only for now. A Town Hall storey (a lookout, a stage) is its own decision later.
+7. Pictures by link: `/og/plot` stays from above. Plot photos take an optional `storey` (PR 8).

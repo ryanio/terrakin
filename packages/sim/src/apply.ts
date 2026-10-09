@@ -145,6 +145,16 @@ import {
   shopNewDay,
   stockHoliday,
 } from "./shop";
+import {
+  blockProblem,
+  blocksOn,
+  checkAddStorey,
+  layerFor,
+  plotHasAnything,
+  removeProblem,
+  storeyField,
+  storeyOf,
+} from "./storeys";
 import { checkTestGrant } from "./test-grant";
 import {
   checkKeepTableSpots,
@@ -890,6 +900,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           }
         }
       }
+      // Upstairs too (RFC 0028). The storeys themselves go with the plot's record.
+      if (plotHasAnything(state, px, py)) {
+        return reject(
+          "plot_has_blocks",
+          "Remove every block and lift every floor upstairs on the plot first.",
+        );
+      }
       // Every hearth on the plot goes with it: a hearth must sit on a plot its resident can build
       // on, and this one is about to be nobody's. Co-owners lose their share exactly as if the
       // owner had sent unshare_plot for each of them, so the events read the same.
@@ -987,61 +1004,76 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
       const far = outOfBuildReach(config, me, { x, y });
       if (far) return { ok: false, rejection: far };
-      if (!canBuildOn(plotAtTile(state, x, y), actor)) {
+      const plot = plotAtTile(state, x, y);
+      if (!canBuildOn(plot, actor)) {
         return reject(
           "not_your_plot",
           `You can only build on your own plot.${buildHint(state, me)}`,
         );
       }
+      // The storey the tile is on (RFC 0028): absent is the ground floor.
+      const storey = storeyOf(plot, command.storey);
+      if (typeof storey !== "number") return { ok: false, rejection: storey };
       // Paths and floors (RFC 0016) keep the same where-rules, and their own checks.
-      if (command.type === "lay") return town(checkLay(state, actor, command));
-      if (command.type === "lift") return town(checkLift(state, actor, command));
+      if (command.type === "lay") return town(checkLay(state, actor, command, storey));
+      if (command.type === "lift") return town(checkLift(state, actor, command, storey));
       const key = tileKey(x, y);
+      const blocks = storey === 0 ? state.blocks : layerFor(state, storey).blocks;
+      // Hearths, crops, and displays are on the ground floor, keyed by their tile alone.
+      const groundFloor = storey === 0;
       if (command.type === "remove") {
-        if (state.blocks[key] === undefined) return reject("no_block", "Nothing to remove there.");
-        if (cropAt(state, x, y)) {
+        const taken = blocks[key];
+        if (taken === undefined) return reject("no_block", "Nothing to remove there.");
+        if (groundFloor && cropAt(state, x, y)) {
           return reject("tile_occupied", "Something is growing in that planter. Harvest it first.");
         }
-        const shown = displayRemoveProblem(state, x, y);
+        const shown = groundFloor ? displayRemoveProblem(state, x, y) : null;
         if (shown) return { ok: false, rejection: shown };
-        const taken = state.blocks[key];
+        const holding = removeProblem(state, x, y, storey);
+        if (holding) return { ok: false, rejection: holding };
         const full = blockRemoveProblem(state, actor, taken);
         if (full) return { ok: false, rejection: full };
         return () => {
-          delete state.blocks[key];
+          delete blocks[key];
           return [
-            { type: "block_removed", x, y, by: actor },
+            { type: "block_removed", x, y, ...storeyField(storey), by: actor },
             ...moveBlockCost(state, actor, taken, 1),
           ];
         };
       }
-      if (state.blocks[key] !== undefined)
-        return reject("tile_occupied", "A block is already there.");
-      if (me.hearth?.x === x && me.hearth.y === y) {
+      if (blocks[key] !== undefined) return reject("tile_occupied", "A block is already there.");
+      if (groundFloor && me.hearth?.x === x && me.hearth.y === y) {
         return reject("tile_occupied", "That's your hearth. Keep it clear.");
       }
       // A shared plot can hold more than one hearth, and nobody builds on anyone's.
-      if (hearthTiles(state).has(key)) {
+      if (groundFloor && hearthTiles(state).has(key)) {
         return reject("tile_occupied", "That's someone's hearth. Keep it clear.");
       }
       const standingThere = Object.values(state.residents).some(
         (r) => r.online && r.x === x && r.y === y,
       );
-      if (standingThere) return reject("tile_occupied", "Someone is standing there.");
+      if (groundFloor && standingThere) {
+        return reject("tile_occupied", "Someone is standing there.");
+      }
       const { block } = command;
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");
       }
+      const unheld = blockProblem(state, x, y, storey, block);
+      if (unheld) return { ok: false, rejection: unheld };
       const cost = blockPlaceProblem(state, actor, block);
       if (cost) return { ok: false, rejection: cost };
       return () => {
-        state.blocks[key] = block;
+        blocks[key] = block;
         return [
-          { type: "block_placed", x, y, block, by: actor },
+          { type: "block_placed", x, y, ...storeyField(storey), block, by: actor },
           ...moveBlockCost(state, actor, block, -1),
         ];
       };
     }
+
+    case "add_storey":
+      return town(checkAddStorey(state, actor, command));
 
     case "settle": {
       const { px, py } = command;

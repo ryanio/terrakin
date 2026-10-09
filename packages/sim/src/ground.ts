@@ -14,6 +14,7 @@ import {
   type StackKind,
 } from "./items";
 import { tileKey } from "./keys";
+import { floorProblem, groundOn, layerFor, liftProblem, storeyField } from "./storeys";
 import type { Command, ItemsState, ResidentId, WorldEvent, WorldState } from "./types";
 
 /**
@@ -104,18 +105,22 @@ function sourceHint(kinds: readonly StackKind[]): string {
 const needsWords = (needs: [StackKind, number][]) =>
   needs.map(([kind, n]) => countOf(kind, n)).join(" and ");
 
-/** `lay {x, y, ground}`, once `apply.ts` has checked the tile is in reach and buildable. */
+/**
+ * `lay {x, y, storey?, ground}`, once `apply.ts` has checked the tile is in reach and buildable,
+ * and that its plot has `storey` (RFC 0028). A floor upstairs needs a wall below to hold it up.
+ */
 export function checkLay(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "lay" }>,
+  storey: number,
 ): ItemsChecked {
   const { x, y, ground } = command;
   if (!isGroundKind(ground)) {
     return refuse("unknown_item", `Lay one of: ${GROUND_KINDS.join(", ")}.`);
   }
   const key = tileKey(x, y);
-  const there = state.ground?.[key];
+  const there = groundOn(state, storey)[key];
   if (there !== undefined) {
     const what = GROUND_INFO[there].name.toLowerCase();
     return refuse(
@@ -125,6 +130,8 @@ export function checkLay(
         : `That tile already has ${what}. Lift it first with lift.`,
     );
   }
+  const unheld = floorProblem(state, x, y, storey);
+  if (unheld) return unheld;
   const needs = groundNeeds(ground);
   let items: ItemsState | undefined;
   if (needs.length > 0) {
@@ -141,9 +148,15 @@ export function checkLay(
     }
   }
   return () => {
-    state.ground ??= {};
-    state.ground[key] = ground;
-    const events: WorldEvent[] = [{ type: "ground_laid", x, y, ground, by: actor }];
+    if (storey === 0) {
+      state.ground ??= {};
+      state.ground[key] = ground;
+    } else {
+      layerFor(state, storey).ground[key] = ground;
+    }
+    const events: WorldEvent[] = [
+      { type: "ground_laid", x, y, ...storeyField(storey), ground, by: actor },
+    ];
     if (items) {
       const mine = inventory(items, actor);
       const changes = needs.map(([kind, n]) => addStack(mine, kind, -n));
@@ -153,18 +166,24 @@ export function checkLay(
   };
 }
 
-/** `lift {x, y}`, once `apply.ts` has checked the tile is in reach and buildable. */
+/**
+ * `lift {x, y, storey?}`, once `apply.ts` has checked the tile is in reach and buildable, and
+ * that its plot has `storey`. A floor upstairs that holds something up stays.
+ */
 export function checkLift(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "lift" }>,
+  storey: number,
 ): ItemsChecked {
   const { x, y } = command;
   const key = tileKey(x, y);
-  const there = state.ground?.[key];
+  const there = groundOn(state, storey)[key];
   if (there === undefined) {
     return refuse("no_ground", "There's no path or floor there to lift.");
   }
+  const holding = liftProblem(state, x, y, storey);
+  if (holding) return holding;
   const needs = groundNeeds(there);
   let items: ItemsState | undefined;
   if (needs.length > 0) {
@@ -179,10 +198,15 @@ export function checkLift(
       );
     }
   }
-  const ground = state.ground as Record<string, GroundKind>;
+  const ground = (storey === 0 ? state.ground : layerFor(state, storey).ground) as Record<
+    string,
+    GroundKind
+  >;
   return () => {
     delete ground[key];
-    const events: WorldEvent[] = [{ type: "ground_lifted", x, y, by: actor }];
+    const events: WorldEvent[] = [
+      { type: "ground_lifted", x, y, ...storeyField(storey), by: actor },
+    ];
     if (items) {
       const mine = inventory(items, actor);
       const changes = needs.map(([kind, n]) => addStack(mine, kind, n));

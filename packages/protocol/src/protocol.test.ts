@@ -253,6 +253,24 @@ describe("Action", () => {
     expect(Action.safeParse({ type: "chat", text: "x".repeat(281) }).success).toBe(false);
     expect(Action.safeParse({ type: "chat", text: "   " }).success).toBe(false);
   });
+
+  it("carries nothing about storeys until the API opens them (RFC 0028)", () => {
+    expect(Action.safeParse({ type: "add_storey", px: 0, py: 0 }).success).toBe(false);
+    for (const type of ["place", "remove", "lay", "lift"]) {
+      const action = { type, x: 1, y: 2, storey: 1, block: "wood", ground: "dirt" };
+      const parsed = Action.safeParse(action);
+      expect(parsed.success && "storey" in parsed.data, type).toBe(false);
+    }
+    for (const code of [
+      "no_storey",
+      "too_high",
+      "nothing_under",
+      "holds_up",
+      "ground_floor_only",
+    ]) {
+      expect(ERROR_CODES, code).not.toContain(code);
+    }
+  });
 });
 
 describe("settle, starter home, and sharing actions", () => {

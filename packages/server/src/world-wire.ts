@@ -58,7 +58,9 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "owner_pair_removed" ||
       e.type === "maintainers_set" ||
       e.type === "implicit_presence_on" ||
-      e.type === "event_ticked"
+      e.type === "event_ticked" ||
+      // Homes with storeys (RFC 0028) aren't on the API yet, and no action reaches this.
+      e.type === "storey_added"
     ) {
       continue;
     }

@@ -77,6 +77,24 @@ export const PROTOCOL_VERSION = 1;
 
 const CHAT_MAX_LENGTH = 280;
 
+/**
+ * Homes with storeys (RFC 0028) are in the sim before the API opens them, which is the RFC's PR 6.
+ * Until then the API names nothing only storeys make: their refusals and their coin reason. No
+ * action carries a `storey` or `add_storey`, so nothing here can reach them.
+ */
+const NOT_OPEN_YET: readonly string[] = [
+  "no_storey",
+  "too_high",
+  "nothing_under",
+  "holds_up",
+  "ground_floor_only",
+  "storey",
+];
+
+/** One of the sim's lists, less what storeys add until the API opens them. */
+const openOnly = <T extends string>(list: readonly T[]) =>
+  list.filter((k) => !NOT_OPEN_YET.includes(k)) as unknown as readonly [T, ...T[]];
+
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
 const PROTOCOL_ERROR_CODES = [
   "bad_request",
@@ -103,7 +121,7 @@ const PROTOCOL_ERROR_CODES = [
   "too_soon",
 ] as const;
 
-export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
+export const ERROR_CODES = [...openOnly(REJECTION_CODES), ...PROTOCOL_ERROR_CODES] as const;
 export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
@@ -385,7 +403,7 @@ export const WithdrawAction = z.object({
 
 // ---------- Coins (RFC 0008) ----------
 
-export const CoinReason = z.enum(COIN_REASONS);
+export const CoinReason = z.enum(openOnly(COIN_REASONS));
 export type CoinReason = z.infer<typeof CoinReason>;
 /**
  * Give some of your coins to another resident, with an optional note (untrusted text, shown to

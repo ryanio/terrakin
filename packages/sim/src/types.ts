@@ -247,6 +247,14 @@ export interface Plot {
    * (`PLOT_NAMES.freeRenames`, decision 0121). Absent until the first.
    */
   freeRenamesUsed?: number;
+  /** How many storeys above the ground floor this plot added (`add_storey`). Absent at 0. */
+  storeys?: number;
+}
+
+/** One storey above the ground floor (RFC 0028): its blocks and its floors. */
+export interface StoreyLayer {
+  blocks: Record<string, BlockKind>;
+  ground: Record<string, GroundKind>;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -377,6 +385,12 @@ export interface WorldState {
    * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
    */
   ground?: Record<string, GroundKind>;
+  /**
+   * Storeys above the ground floor (RFC 0028), keyed by the storey's number ("1"). Each holds its
+   * own blocks and floors keyed by tileKey(x, y), like `blocks` and `ground` do for the ground
+   * floor. Absent until the first `add_storey`, which makes the storey's layer.
+   */
+  storeys?: Record<string, StoreyLayer>;
   /**
    * Today, in UTC days since 1970-01-01, from the server's last `new_day`. Absent until the first
    * one, like every Town Hall field below, so a world that never saw a day hashes as it always has.
@@ -1071,6 +1085,8 @@ export const COIN_REASONS = [
   "groom",
   /** From a duplicate record of yours that the Terrakin team merged into this one. */
   "merged",
+  /** A storey added to a plot (RFC 0028). A small share goes to the treasury and the rest is burned. */
+  "storey",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1147,12 +1163,15 @@ export type Command =
   | { type: "release" }
   | { type: "set_hearth"; x: number; y: number }
   | { type: "home" }
-  | { type: "place"; x: number; y: number; block: BlockKind }
-  | { type: "remove"; x: number; y: number }
+  /** `storey` is the storey the tile is on (RFC 0028): absent or 0 is the ground floor. */
+  | { type: "place"; x: number; y: number; storey?: number; block: BlockKind }
+  | { type: "remove"; x: number; y: number; storey?: number }
   /** Lay a path or floor on a tile, within reach (RFC 0016). */
-  | { type: "lay"; x: number; y: number; ground: GroundKind }
+  | { type: "lay"; x: number; y: number; storey?: number; ground: GroundKind }
   /** Lift the path or floor off a tile, within reach. What it took comes back. */
-  | { type: "lift"; x: number; y: number }
+  | { type: "lift"; x: number; y: number; storey?: number }
+  /** Add the next storey to plot (px, py), one you own or share, from anywhere (RFC 0028). */
+  | { type: "add_storey"; px: number; py: number }
   /**
    * A plan built on plot (px, py) in one input, from anywhere (RFC 0016): `remove` and `lift` go
    * first, then `blocks`, then `ground`. Tiles count from the plot's north-west corner.
@@ -1519,12 +1538,29 @@ export type WorldEvent =
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
-  | { type: "block_placed"; x: number; y: number; block: BlockKind; by: ResidentId }
-  | { type: "block_removed"; x: number; y: number; by: ResidentId }
+  /** `storey` is there only above the ground floor (RFC 0028), on these four. */
+  | {
+      type: "block_placed";
+      x: number;
+      y: number;
+      storey?: number;
+      block: BlockKind;
+      by: ResidentId;
+    }
+  | { type: "block_removed"; x: number; y: number; storey?: number; by: ResidentId }
   /** A path or floor went down on a tile (RFC 0016). Public. */
-  | { type: "ground_laid"; x: number; y: number; ground: GroundKind; by: ResidentId }
+  | {
+      type: "ground_laid";
+      x: number;
+      y: number;
+      storey?: number;
+      ground: GroundKind;
+      by: ResidentId;
+    }
   /** The path or floor on a tile was lifted. Public. */
-  | { type: "ground_lifted"; x: number; y: number; by: ResidentId }
+  | { type: "ground_lifted"; x: number; y: number; storey?: number; by: ResidentId }
+  /** A plot added a storey (RFC 0028). Public. Its price is in the payer's `coins` event. */
+  | { type: "storey_added"; px: number; py: number; storey: number; by: ResidentId }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
   | { type: "hearth_cleared"; residentId: ResidentId }
@@ -2015,6 +2051,17 @@ export const REJECTION_CODES = [
   "taught_today",
   /** The two of you aren't within reach of each other to teach. */
   "not_near",
+  // Homes with storeys (RFC 0028).
+  /** That plot hasn't added the storey: building on it, or stairs up to it. */
+  "no_storey",
+  /** Past the storeys a home can have, or stairs on the top storey. */
+  "too_high",
+  /** Nothing holds that up: a floor with no wall below within reach of it, or a block with no floor or wall under it. */
+  "nothing_under",
+  /** Taking that away would leave something above it with nothing holding it up. */
+  "holds_up",
+  /** That block stays on the ground floor, since what it does is keyed by its tile alone. */
+  "ground_floor_only",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

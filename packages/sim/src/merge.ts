@@ -4,9 +4,10 @@ import { refuse } from "./check";
 import { isMaintainer, isTownsfolk, movePurse } from "./economy";
 import { activeTables } from "./games";
 import { addStack, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
-import { plotKey, tileKey } from "./keys";
+import { plotKey } from "./keys";
 import { own, residentById } from "./own";
 import { knownRecipes } from "./recipes";
+import { plotHasAnything } from "./storeys";
 import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { plotsOwnedBy } from "./world";
 
@@ -53,7 +54,6 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
   if (state.ownerPairs?.some((pair) => pair.includes(from))) {
     return refuse("not_eligible", "The record to merge is in an owner link. Unlink it first.");
   }
-  const { plotSize } = state.config;
   for (const plot of Object.values(state.plots)) {
     if (plot.coOwners?.includes(from)) {
       return refuse("not_eligible", "The record to merge shares someone else's plot.");
@@ -62,16 +62,12 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
     if ((plot.coOwners?.length ?? 0) > 0) {
       return refuse("not_eligible", "The record to merge shares its plot with someone.");
     }
-    for (let y = plot.py * plotSize; y < (plot.py + 1) * plotSize; y++) {
-      for (let x = plot.px * plotSize; x < (plot.px + 1) * plotSize; x++) {
-        const tile = tileKey(x, y);
-        if (state.blocks[tile] !== undefined || state.ground?.[tile] !== undefined) {
-          return refuse(
-            "plot_has_blocks",
-            "The record to merge has blocks or paths on its plot. Its plot is released only empty.",
-          );
-        }
-      }
+    // Every storey (RFC 0028), the ground floor's blocks and paths included.
+    if (plotHasAnything(state, plot.px, plot.py)) {
+      return refuse(
+        "plot_has_blocks",
+        "The record to merge has blocks or paths on its plot. Its plot is released only empty.",
+      );
     }
   }
   if (Object.values(state.market?.listings ?? {}).some((l) => l.seller === from)) {

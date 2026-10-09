@@ -407,6 +407,7 @@ export {
   townBuys,
   treasuryShareOf,
 } from "./shop";
+export { blocksOn, groundOn, STOREYS, solidAt } from "./storeys";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export {
   DAY_LENGTH_MS,

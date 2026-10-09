@@ -409,12 +409,14 @@ export {
 } from "./shop";
 export {
   blocksOn,
+  climbsAt,
   groundOn,
   STOREYS,
   solidAt,
   standingStorey,
   storeyField,
   storeyGround,
+  upstairsGroundOf,
 } from "./storeys";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export {
@@ -468,6 +470,7 @@ export {
   weatherSpells,
 } from "./weather";
 export {
+  blocksWalkers,
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,

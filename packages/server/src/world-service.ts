@@ -60,6 +60,7 @@ import {
   residentById,
   retireProblems,
   SHOP,
+  STOREYS,
   type StepRoutine,
   seatOf,
   seatsHeld,
@@ -122,6 +123,8 @@ export type ActResult =
       greeted?: string | null;
       /** `build`: what the plan did, or would do. A `commons_build` proposal: what it would build. */
       plan?: BuildPlanSummary;
+      /** `add_storey`: the coins it took, or would take. */
+      price?: number;
       dry?: true;
     }
   | {
@@ -262,6 +265,10 @@ function gameRefused(code: string, command: string) {
  */
 const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
   prepared.plan ? { plan: buildSummary(prepared.plan) } : {};
+
+/** An `add_storey`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
+const priceOf = (command: Command): { price?: number } =>
+  command.type === "add_storey" ? { price: STOREYS.price } : {};
 
 /**
  * A join refused for a taken name (decision 0148). For agents and their owners; the web says it
@@ -1614,7 +1621,13 @@ export class WorldService {
   private check(input: Input): ActResult {
     const prepared = prepare(asJoined(this.state, input.actor), input);
     if (!prepared.ok) return { ok: false, error: prepared.rejection };
-    return { ok: true, seq: this.state.seq, events: [], ...planOf(prepared) };
+    return {
+      ok: true,
+      seq: this.state.seq,
+      events: [],
+      ...planOf(prepared),
+      ...priceOf(input.command),
+    };
   }
 
   private runTraced(input: Input): ActResult {
@@ -1715,7 +1728,13 @@ export class WorldService {
         report(err, "world.walked", { command: command.type });
       }
     }
-    return { ok: true, seq, events: eventsFor(wire, input.actor), ...planOf(prepared) };
+    return {
+      ok: true,
+      seq,
+      events: eventsFor(wire, input.actor),
+      ...planOf(prepared),
+      ...priceOf(command),
+    };
   }
 
   // ---------- presence ----------

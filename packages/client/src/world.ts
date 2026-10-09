@@ -13,7 +13,10 @@ import {
 } from "@terrakin/protocol";
 import {
   type BlockKind,
+  type Climb,
   canBuildOn,
+  chebyshev,
+  climbsAt,
   type Direction,
   directionOf,
   type GroundKind,
@@ -21,23 +24,28 @@ import {
   isGroundKind,
   isHeldBlock,
   pageKnown,
+  parseKey,
   pickupsInReach,
   plotOf,
   type Resident,
   route,
   STEP,
+  STOREYS,
   settleProblem,
+  storeyField,
   type Tile,
   tileKey,
   waterBeside,
 } from "@terrakin/sim";
+import { h } from "@terrakin/ui/dom";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
+import { chips, confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { api, whoseKey } from "./api";
 import {
   blockLine,
+  blockShort,
   canLay,
   groundLine,
   HELD_KINDS,
@@ -50,12 +58,13 @@ import {
   type PaletteTab,
   paintGroundRow,
   paintHeldRow,
+  stairsLine,
   tabOf,
   withChanges,
 } from "./build-palette";
-import { type Camera, fitScale, screenToTile } from "./camera";
+import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import { Feelings, gestureReaction } from "./feelings";
-import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { openHomeSheet } from "./home-sheet";
 import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
@@ -65,12 +74,14 @@ import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
+import { coins } from "./purse";
 import { blockColor, CAST_MS, type CastMark, HEARTH_COLOR, render } from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { SoundSwitch } from "./sound/switch";
 import { reloadForNewerServer } from "./stale-bundle";
+import { type Cutaway, storeyName, tapStorey } from "./storeys";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -105,6 +116,10 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
   furniture: $("palette-furniture"),
 };
 const paletteLine = $("palette-line");
+/** Which storey taps build on, or Add a storey, on a plot you can build on (RFC 0028). */
+const storeyRow = $("palette-storeys");
+/** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
+const climbButton = $<HTMLButtonElement>("world-climb");
 // The build bar's tabs, over the rows they show.
 const paletteTabs = linkTabs(
   PALETTE_TABS.map((tab) => ({
@@ -177,6 +192,13 @@ const SCENE_WAIT_MS = 8000;
 let sceneWait = 0;
 let buildMode = false;
 /**
+ * The storey the build bar's taps build on, and the map is cut away at while building (RFC 0028).
+ * It starts on yours and follows you up and down the stairs.
+ */
+let buildStorey = 0;
+/** The storey the server last had you on, so the picker follows you when it changes. */
+let stoodOn = 0;
+/**
  * The build bar's pick (RFC 0016): a block or the hearth marker on the Blocks tab, a path or floor
  * on the Paths tab, or decor or furniture you hold on the Furniture tab.
  */
@@ -203,7 +225,8 @@ let waves: FoldedWaves | undefined;
  */
 const walker = new Walker({
   at: () => self(),
-  ground: () => mirror?.ground(),
+  // Your steps keep to the storey you stand on (RFC 0028).
+  ground: () => mirror?.ground(myStorey()),
   behind: () => (me ? motion.behind(me) : 0),
   steer,
   send: (dir) => {
@@ -687,6 +710,43 @@ function self() {
   return me ? mirror?.residents.get(me) : undefined;
 }
 
+/** The storey the server has you on (RFC 0028): 0 is the ground floor. */
+function myStorey(): number {
+  return self()?.storey ?? 0;
+}
+
+/** The map's cutaway for where you stand: your plot, at your storey (`storeys.ts`). */
+function cutHere(): Cutaway | undefined {
+  const r = self();
+  if (!r || !mirror) return undefined;
+  const { plotSize } = mirror.config;
+  return { px: Math.floor(r.x / plotSize), py: Math.floor(r.y / plotSize), storey: r.storey ?? 0 };
+}
+
+/**
+ * The stairs nearest you for a tap that means another storey: going down, the top of stairs on
+ * your plot; going up, stairs on your storey on the plot you tapped. A walk keeps to one storey,
+ * so you walk there and Go up or Go down shows (RFC 0028).
+ */
+function stairsFor(way: Climb, tile: Tile): Tile | undefined {
+  const r = self();
+  const m = mirror;
+  if (!r || !m) return undefined;
+  const storey = r.storey ?? 0;
+  const S = m.config.plotSize;
+  const plot = way === "down" ? r : tile;
+  const samePlot = (x: number, y: number) =>
+    Math.floor(x / S) === Math.floor(plot.x / S) && Math.floor(y / S) === Math.floor(plot.y / S);
+  let best: Tile | undefined;
+  for (const [key, block] of m.blocksOn(way === "down" ? storey - 1 : storey)) {
+    if (block !== "stairs") continue;
+    const [x, y] = parseKey(key);
+    if (!samePlot(x, y)) continue;
+    if (!best || chebyshev(r, { x, y }) < chebyshev(r, best)) best = { x, y };
+  }
+  return best;
+}
+
 /** Where you'll be once the steps you've taken land: what you can reach from next. */
 function here(): Tile | undefined {
   return walker.ahead ?? self();
@@ -698,7 +758,7 @@ function here(): Tile | undefined {
  */
 function walkToward(tile: Tile, near = 0, arrive?: () => void) {
   walker.walkTo({
-    plan: (from) => (mirror ? route(mirror.ground(), from, tile, near) : []),
+    plan: (from) => (mirror ? route(mirror.ground(myStorey()), from, tile, near) : []),
     ...(arrive ? { arrive } : {}),
   });
 }
@@ -869,18 +929,25 @@ function tapTile(tile: { x: number; y: number }) {
   const at = here();
   if (!mirror || !r || !at) return;
   if (buildMode) {
-    const key = `${tile.x},${tile.y}`;
-    const hasBlock = mirror.blocks.has(key);
-    if (pick === "hearth") tryAct({ type: "set_hearth", ...tile });
-    else if (isGroundKind(pick)) {
+    // On the storey the picker shows (RFC 0028): `storey` goes only with one above the ground.
+    const storey = buildStorey;
+    const on = { ...tile, ...storeyField(storey) };
+    const key = tileKey(tile.x, tile.y);
+    const hasBlock = mirror.blocksOn(storey).has(key);
+    if (pick === "hearth") {
+      if (storey > 0) showToast("Your hearth goes on the ground floor. Pick Ground floor first.");
+      else tryAct({ type: "set_hearth", ...tile });
+    } else if (isGroundKind(pick)) {
       // Paths and floors: a tap lifts what's there, or lays the pick if you can pay for it.
-      if (mirror.paving.has(key)) tryAct({ type: "lift", ...tile });
-      else if (canLay(pick, holdings)) tryAct({ type: "lay", ...tile, ground: pick });
+      if (mirror.pavingOn(storey).has(key)) tryAct({ type: "lift", ...on });
+      else if (canLay(pick, holdings)) tryAct({ type: "lay", ...on, ground: pick });
       else showToast(groundLine(pick, holdings));
-    } else if (hasBlock) tryAct({ type: "remove", ...tile });
+    } else if (hasBlock) tryAct({ type: "remove", ...on });
     else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
-    else if (pick === "pond" && !canDig(holdings)) showToast(pondLine(holdings));
-    else tryAct({ type: "place", ...tile, block: pick });
+    else if (blockShort(pick, holdings).length > 0) {
+      // A pond's stone or stairs' wood, by the sim's own count.
+      showToast(pick === "stairs" ? stairsLine(holdings) : pondLine(holdings));
+    } else tryAct({ type: "place", ...on, block: pick });
     return;
   }
   const target = tapTarget(tile);
@@ -991,7 +1058,21 @@ function tapTile(tile: { x: number; y: number }) {
       out?.routine === "stroll" ? "out on a stroll" : out ? "just walked home" : "asleep at home";
     showToast(`${name} is away, ${doing}.`, "player");
   }
-  walkToward(tile);
+  // A walk keeps to the storey you stand on (RFC 0028). A tile that shows another storey walks you
+  // to the stairs instead, where Go up or Go down shows, so nothing climbs without a tap.
+  const cut = cutHere();
+  const m = mirror;
+  const want = tapStorey(
+    m.layers(),
+    m.config.plotSize,
+    cut,
+    tile.x,
+    tile.y,
+    (s, x, y) => m.blocksOn(s - 1).get(tileKey(x, y)) === "stairs",
+  );
+  const mine = cut?.storey ?? 0;
+  const stairs = want === mine ? undefined : stairsFor(want < mine ? "down" : "up", tile);
+  walkToward(stairs ?? tile);
 }
 
 // ---------- 2D or 3D ----------
@@ -1283,10 +1364,13 @@ function setBuildMode(on: boolean) {
   // You build where you stand: the camera comes back to you.
   if (on) stopLooking();
   buildMode = on;
+  // The picker starts on the storey you stand on.
+  buildStorey = myStorey();
   buildButton.setAttribute("aria-pressed", String(on));
   palette.hidden = !on;
   hud.classList.toggle("building", on);
   if (on && !chatPanel.hidden) toggleChat(false);
+  paintStoreys();
   paintPalette();
   if (on) hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
@@ -1348,10 +1432,125 @@ function paintPalette() {
       ? heldLine(pick, heldOf(holdings, pick))
       : pick === "pond"
         ? pondLine(holdings)
-        : blockLine(pick);
+        : pick === "stairs"
+          ? stairsLine(holdings)
+          : blockLine(pick);
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
+
+// ---------- Storeys (RFC 0028) ----------
+
+/** The plot you stand on, if the sim's rule lets you build on it: where the picker builds. */
+function buildablePlot(): { px: number; py: number; storeys: number } | undefined {
+  const r = self();
+  const m = mirror;
+  if (!r || !m || !me) return undefined;
+  const ownerId = m.ownerAt(r.x, r.y);
+  const plot = ownerId
+    ? { px: 0, py: 0, ownerId, coOwners: [...m.coOwnersAt(r.x, r.y)] }
+    : undefined;
+  if (!canBuildOn(plot, me)) return undefined;
+  const { px, py } = plotOf(m.config, r.x, r.y);
+  return { px, py, storeys: m.storeysAt(r.x, r.y) };
+}
+
+/** What the picker last drew, so it's drawn again only when something it shows changed. */
+let storeysDrawn = "";
+
+/**
+ * The build bar's storey picker, on a plot you can build on: a chip for each storey it has
+ * ("Ground floor", "Upstairs"), the one taps build on pressed, and "Add a storey" while it can
+ * have another, which spends coins, so it asks a second tap first.
+ */
+function paintStoreys() {
+  const plot = buildMode ? buildablePlot() : undefined;
+  const drawn = plot ? `${plot.px},${plot.py},${plot.storeys},${buildStorey}` : "";
+  if (drawn === storeysDrawn) return;
+  storeysDrawn = drawn;
+  storeyRow.hidden = !plot;
+  storeyRow.replaceChildren();
+  if (!plot) return;
+  if (plot.storeys > 0) {
+    const storeys = Array.from({ length: plot.storeys + 1 }, (_, s) => String(s));
+    chips(
+      storeys,
+      String(buildStorey),
+      (s) => [h("span", { text: storeyName(Number(s)) })],
+      (s) => pickStorey(Number(s)),
+      storeyRow,
+    );
+    storeyRow.setAttribute("aria-label", "Storey");
+  }
+  if (plot.storeys < STOREYS.max) {
+    const add = h("button", {
+      attrs: { type: "button", id: "add-storey" },
+      text: `Add a storey, ${coins(STOREYS.price)}`,
+    });
+    const { px, py } = plot;
+    confirmTwice(add, `Tap again to spend ${coins(STOREYS.price)}`, () =>
+      tryAct({ type: "add_storey", px, py }),
+    );
+    storeyRow.append(add);
+  }
+  if (buildMode)
+    hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
+}
+
+/** Build on another storey, and cut the map away there, without moving you. */
+function pickStorey(storey: number) {
+  buildStorey = storey;
+  paintStoreys();
+}
+
+/** The picker follows you up and down the stairs, and onto plots with more or fewer storeys. */
+function followStorey() {
+  const storey = myStorey();
+  if (storey !== stoodOn) {
+    stoodOn = storey;
+    buildStorey = storey;
+  }
+  // A storey added since (yours or a co-owner's): the picker starts on it.
+  paintStoreys();
+}
+
+/**
+ * Go up or Go down beside your figure while you stand on stairs or at the top of them, from the
+ * sim's own `climbsAt` on the mirror. On the map it sits by your figure; in 3D, by the middle of
+ * the screen, where the camera keeps you.
+ */
+function paintClimb(now: number) {
+  const r = self();
+  const m = mirror;
+  const at = here();
+  const way =
+    r && m && at
+      ? climbsAt((s, key) => m.blocksOn(s).get(key), at.x, at.y, r.storey ?? 0)[0]
+      : undefined;
+  climbButton.hidden = !way;
+  if (!way || !r) return;
+  if (climbButton.dataset.dir !== way) {
+    climbButton.dataset.dir = way;
+    const text = climbButton.querySelector("span");
+    if (text) text.textContent = way === "up" ? "Go up" : "Go down";
+  }
+  const p = world3d ? undefined : motion.pose(r, now, motionQuery.matches);
+  const { sx, sy } = p
+    ? tileToScreen(cam, p.x, p.y)
+    : { sx: window.innerWidth / 2, sy: window.innerHeight / 2 };
+  climbButton.style.setProperty("--climb-x", `${Math.round(sx + cam.scale * 0.7)}px`);
+  climbButton.style.setProperty("--climb-y", `${Math.round(sy)}px`);
+}
+
+climbButton.addEventListener("click", () => {
+  const way = climbButton.dataset.dir;
+  if (way !== "up" && way !== "down") return;
+  // Like Home: no more steps until the climb is answered.
+  stopLooking();
+  walker.stop();
+  const id = tryAct({ type: "move", dir: way });
+  if (id) walker.awaiting(id, performance.now());
+});
 
 /** Ask what you hold. Quietly nothing when items aren't open or the request fails. */
 async function loadHoldings() {
@@ -1648,9 +1847,12 @@ function frame() {
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom(), look.bottom()),
       casts,
       hover,
+      // While building, the map is cut away at the storey the picker shows (RFC 0028).
+      ...(buildMode ? { cutStorey: buildStorey } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   }
+  paintClimb(now);
   if (casts.length > 0 && now - (casts[0]?.at ?? now) > CAST_MS) {
     casts = casts.filter((c) => now - c.at <= CAST_MS);
   }
@@ -1662,6 +1864,7 @@ function frame() {
     paintClaim();
     paintSettled();
     paintEnterButton();
+    followStorey();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
@@ -1878,6 +2081,7 @@ export function stopWorld() {
   petButton.hidden = true;
   petNear = undefined;
   gatherButton.hidden = true;
+  climbButton.hidden = true;
   gathering?.done();
   fishButton.hidden = true;
   enterButton.hidden = true;

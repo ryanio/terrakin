@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { act, freePlots, join, read, signIn, tapTile, watchErrors } from "./support";
+import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } from "./support";
 
 /**
  * Building with what you gather (RFC 0016) on a phone: a resident settles a plot where branches lie
  * today, picks up three and makes a table at a workbench over the API, the way an agent would.
  * Then, in the world's build bar, they lay a dirt path from the Paths tab and place the table
- * from the Furniture tab, and the world shows both.
+ * from the Furniture tab, and the world shows both. Then a neighbor with a hut builds up (RFC
+ * 0028): a storey added from the build bar after a second tap, stairs, a loft floor laid with
+ * Upstairs picked, and Go up beside her on the stairs, with the picker following her up.
  */
 
 interface Tile {
@@ -129,6 +131,66 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     // Her last table: the bar says none are left, and where to make one.
     await expect(page.locator("#palette-line")).toContainText("Table: none yet.");
     await page.screenshot({ path: "test-results/build-bar.png" });
+  });
+
+  // Building up (RFC 0028): a neighbor with a hut, coins, and wood.
+  const bramble = await persona(page.request, "stocked", { name: "Bramble" });
+  const where = async (): Promise<(Tile & { storey?: number }) | undefined> =>
+    (await (await page.request.get("/v1/world")).json()).residents.find(
+      (r: { id: string }) => r.id === bramble.id,
+    );
+
+  await test.step("add a storey for coins after a second tap, and put up stairs inside the hut", async () => {
+    // She stands on her hearth, in the middle of the hut.
+    const start = await where();
+    if (!start) throw new Error("Bramble isn't in the world");
+    await signIn(page, bramble);
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await page.click("#build");
+    const add = page.locator("#add-storey");
+    await expect(add).toHaveText("Add a storey, 200 coins");
+    await add.click();
+    await expect(add).toHaveText("Tap again to spend 200 coins");
+    await add.click();
+    const ground = page.getByRole("button", { name: "Ground floor" });
+    const upstairs = page.getByRole("button", { name: "Upstairs" });
+    await expect(ground).toHaveAttribute("aria-pressed", "true");
+    await expect(upstairs).toHaveAttribute("aria-pressed", "false");
+    const box = await upstairs.boundingBox();
+    expect(box && box.height >= 44).toBe(true);
+    // Stairs on the tile north of her hearth, from the Blocks tab.
+    await page.click('[data-block="stairs"]');
+    await expect(page.locator("#palette-line")).toContainText("Stairs: 4 wood");
+    await tapTile(page, 0, -1);
+    await expect
+      .poll(async () => (await (await page.request.get("/v1/world")).json()).blocks)
+      .toContainEqual({ x: start.x, y: start.y - 1, block: "stairs" });
+  });
+
+  await test.step("pick Upstairs and lay a loft floor, then go up the stairs and see the picker follow", async () => {
+    const start = await where();
+    if (!start) throw new Error("Bramble isn't in the world");
+    await page.getByRole("button", { name: "Upstairs" }).click();
+    await page.getByRole("tab", { name: "Paths" }).click();
+    await page.click('[data-ground="planks"]');
+    await tapTile(page, 0, -2);
+    await expect
+      .poll(async () => (await (await page.request.get("/v1/world")).json()).ground ?? [])
+      .toContainEqual({ x: start.x, y: start.y - 2, storey: 1, ground: "planks" });
+    // Out of the build bar, a tap on the stairs walks her onto them, and Go up shows beside her.
+    await page.click("#build");
+    await tapTile(page, 0, -1);
+    const climb = page.locator("#world-climb");
+    await expect(climb).toHaveText("Go up");
+    await climb.click();
+    await expect.poll(async () => (await where())?.storey).toBe(1);
+    await expect(climb).toHaveText("Go down");
+    await page.click("#build");
+    await expect(page.getByRole("button", { name: "Upstairs" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   expect(errors).toEqual([]);

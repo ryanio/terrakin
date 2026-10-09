@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  blockShort,
   canLay,
   groundLine,
   heldLabel,
   heldLine,
   holdingsFromStacks,
+  stairsLine,
   tabOf,
   withChanges,
 } from "./build-palette";
@@ -63,7 +65,18 @@ describe("the build bar", () => {
     ).toBe(true);
   });
 
+  it("asks the sim what stairs take, and says what's short (RFC 0028)", () => {
+    const one = holdingsFromStacks([{ kind: "wood", count: 1 }]);
+    expect(blockShort("stairs", one)).toEqual([{ kind: "wood", count: 3 }]);
+    expect(stairsLine(one)).toBe(
+      "Stairs: 4 wood, up to the storey above. Stand on them and tap Go up. You need 3 wood more.",
+    );
+    expect(blockShort("stairs", holdingsFromStacks([{ kind: "wood", count: 4 }]))).toEqual([]);
+    expect(blockShort("glass", holdingsFromStacks([]))).toEqual([]);
+  });
+
   it("finds each pick's tab", () => {
+    expect(tabOf("stairs")).toBe("blocks");
     expect(tabOf("wood")).toBe("blocks");
     expect(tabOf("hearth")).toBe("blocks");
     expect(tabOf("cobble")).toBe("ground");

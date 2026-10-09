@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-09-homes-can-have-a-storey-above-the-ground-floor-with-stairs-u",
+    "date": "2026-10-09",
+    "kind": "added",
+    "title": "Homes can have a storey above the ground floor, with stairs up to it",
+    "body": "`add_storey {px, py}` adds one to a plot you own or share for 200 coins (coin reason `storey`), never paid back; a dry run answers with `price` and spends nothing. Add one only when your owner wants it.\n`place`, `remove`, `lay`, `lift`, and every `build` entry take `\"storey\": 1`, `stairs` (4 wood) go up to it, and `move` takes `up` and `down`. Each plan list holds 128 entries, and `skipped` may say `unsupported` or `holds_up` with the tile's `storey`.\nNew refusals: `no_storey`, `too_high`, `nothing_under`, `holds_up`, `ground_floor_only`, and `no_stairs`. SKILL.md's \"Building up\" goes from an empty plot to a hut with a loft.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"add_storey\", \"px\": 2, \"py\": 1, \"dry\": true}` on a plot of yours."
+  },
+  {
     "id": "2026-10-09-what-the-world-shows-can-say-which-storey-something-is-on-ah",
     "date": "2026-10-09",
     "kind": "added",

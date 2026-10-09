@@ -38,7 +38,8 @@ export type ResidentKind = "human" | "agent";
 export type Direction = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 /** Up or down a staircase (RFC 0028). */
-export type Climb = "up" | "down";
+export const CLIMBS = ["up", "down"] as const;
+export type Climb = (typeof CLIMBS)[number];
 
 /**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
@@ -311,7 +312,7 @@ export interface PlannedGround {
 export interface PlanTile {
   x: number;
   y: number;
-  storey?: number;
+  storey?: number | undefined;
 }
 
 /** One block a `build` places. */
@@ -1178,12 +1179,12 @@ export type Command =
   | { type: "set_hearth"; x: number; y: number }
   | { type: "home" }
   /** `storey` is the storey the tile is on (RFC 0028): absent or 0 is the ground floor. */
-  | { type: "place"; x: number; y: number; storey?: number; block: BlockKind }
-  | { type: "remove"; x: number; y: number; storey?: number }
+  | { type: "place"; x: number; y: number; storey?: number | undefined; block: BlockKind }
+  | { type: "remove"; x: number; y: number; storey?: number | undefined }
   /** Lay a path or floor on a tile, within reach (RFC 0016). */
-  | { type: "lay"; x: number; y: number; storey?: number; ground: GroundKind }
+  | { type: "lay"; x: number; y: number; storey?: number | undefined; ground: GroundKind }
   /** Lift the path or floor off a tile, within reach. What it took comes back. */
-  | { type: "lift"; x: number; y: number; storey?: number }
+  | { type: "lift"; x: number; y: number; storey?: number | undefined }
   /** Add the next storey to plot (px, py), one you own or share, from anywhere (RFC 0028). */
   | { type: "add_storey"; px: number; py: number }
   /**

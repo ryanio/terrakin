@@ -527,8 +527,9 @@ function hutWithLoft(): Plan {
 }
 
 /** A plan's entries in the order `plotPlan` reads them: by storey, then north to south, west to east. */
-const inOrder = <T extends { x: number; y: number; storey?: number }>(list: readonly T[]) =>
-  [...list].sort((a, b) => (a.storey ?? 0) - (b.storey ?? 0) || a.y - b.y || a.x - b.x);
+const inOrder = <T extends { x: number; y: number; storey?: number | undefined }>(
+  list: readonly T[],
+) => [...list].sort((a, b) => (a.storey ?? 0) - (b.storey ?? 0) || a.y - b.y || a.x - b.x);
 
 describe("build plans", () => {
   it("build a hut with a loft in one call, the same on two plots, and read it back", () => {

@@ -7,6 +7,7 @@ import {
   CANDY_FROM,
   CARD_SKUS,
   type CardSku,
+  CLIMBS,
   COIN_REASONS,
   COMMONS_BLOCKS,
   CROPS,
@@ -46,6 +47,7 @@ import {
   PLOT_NAMES,
   PROPOSAL_KINDS,
   PROPOSAL_STATUSES,
+  planMax,
   RECIPE_NAMES,
   RECIPE_PAGE,
   REJECTION_CODES,
@@ -77,30 +79,6 @@ export const PROTOCOL_VERSION = 1;
 
 const CHAT_MAX_LENGTH = 280;
 
-/**
- * Homes with storeys (RFC 0028) are in the sim before the API opens them for building, which is
- * the RFC's PR 6. Until then no action carries a `storey`, `add_storey`, `move` up or down, or
- * stairs, and the API's lists leave out what only storeys make: their refusals, their coin reason,
- * stairs, and a build's `unsupported` and `holds_up` skips. What the world shows (the snapshot and
- * its events) already reads storeys, with every block kind, so nothing misreads a world that has
- * one; with none, it reads exactly as before.
- */
-const NOT_OPEN_YET: readonly string[] = [
-  "no_storey",
-  "too_high",
-  "nothing_under",
-  "holds_up",
-  "ground_floor_only",
-  "no_stairs",
-  "storey",
-  "stairs",
-  "unsupported",
-];
-
-/** One of the sim's lists, less what storeys add until the API opens them. */
-const openOnly = <T extends string>(list: readonly T[]) =>
-  list.filter((k) => !NOT_OPEN_YET.includes(k)) as unknown as readonly [T, ...T[]];
-
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
 const PROTOCOL_ERROR_CODES = [
   "bad_request",
@@ -127,7 +105,7 @@ const PROTOCOL_ERROR_CODES = [
   "too_soon",
 ] as const;
 
-export const ERROR_CODES = [...openOnly(REJECTION_CODES), ...PROTOCOL_ERROR_CODES] as const;
+export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
 export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
@@ -145,8 +123,21 @@ const onStorey = {
     .optional()
     .describe("The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028)."),
 };
-/** Every block kind, stairs included, for what the world shows. */
-const ShownBlock = z.enum(BLOCK_KINDS);
+/**
+ * The storey an action or a plan names (RFC 0028): 0 or absent for the ground floor, 1 upstairs.
+ * How high a home goes is the sim's rule (`too_high`), so this only keeps it a small whole number.
+ */
+const toStorey = {
+  storey: z
+    .number()
+    .int()
+    .min(0)
+    .max(9)
+    .optional()
+    .describe("The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028)."),
+};
+/** Every block kind, stairs included. */
+const BlockKind = z.enum(BLOCK_KINDS);
 const requestId = z.string().min(1).max(64).optional();
 
 export const ResidentKind = z.enum(["human", "agent"]);
@@ -262,9 +253,13 @@ const dry = {
 /** The way a step goes: `n`, `s`, `e`, `w`, or a diagonal (`ne`, `nw`, `se`, `sw`). */
 export const Direction = z.enum(DIRECTIONS);
 
+/**
+ * One step `n` to `sw`, or `up` and `down` a staircase (RFC 0028): `up` while you stand on stairs,
+ * `down` while you stand at the top of them.
+ */
 export const MoveAction = z.object({
   type: z.literal("move"),
-  dir: Direction,
+  dir: z.enum([...DIRECTIONS, ...CLIMBS]),
   ...dry,
 });
 /**
@@ -280,10 +275,17 @@ export const PlaceAction = z.object({
   type: z.literal("place"),
   x: coord,
   y: coord,
-  block: z.enum(openOnly(BLOCK_KINDS)),
+  ...toStorey,
+  block: BlockKind,
   ...dry,
 });
-export const RemoveAction = z.object({ type: z.literal("remove"), x: coord, y: coord, ...dry });
+export const RemoveAction = z.object({
+  type: z.literal("remove"),
+  x: coord,
+  y: coord,
+  ...toStorey,
+  ...dry,
+});
 
 /** A path or floor (RFC 0016): one per tile, under any block, and never in anyone's way. */
 export const GroundKind = z.enum(GROUND_KINDS);
@@ -296,11 +298,28 @@ export const LayAction = z.object({
   type: z.literal("lay"),
   x: coord,
   y: coord,
+  ...toStorey,
   ground: GroundKind,
   ...dry,
 });
 /** Lift the path or floor off a tile, within reach. What it took comes back to you. */
-export const LiftAction = z.object({ type: z.literal("lift"), x: coord, y: coord, ...dry });
+export const LiftAction = z.object({
+  type: z.literal("lift"),
+  x: coord,
+  y: coord,
+  ...toStorey,
+  ...dry,
+});
+/**
+ * Add the next storey to plot (`px`, `py`), one you own or share, from anywhere (RFC 0028). It
+ * costs coins, split like a shop purchase, and is never paid back. A dry run prices it.
+ */
+export const AddStoreyAction = z.object({
+  type: z.literal("add_storey"),
+  px: coord,
+  py: coord,
+  ...dry,
+});
 
 /** A plot's tiles counted from its north-west corner: 0 to `config.plotSize - 1` each way. */
 const planCoord = z
@@ -308,24 +327,25 @@ const planCoord = z
   .int()
   .min(0)
   .max(DEFAULT_CONFIG.plotSize - 1);
-const planTile = z.object({ x: planCoord, y: planCoord });
-/** The most entries in each of a plan's lists: a whole plot. */
-const PLAN_MAX = DEFAULT_CONFIG.plotSize * DEFAULT_CONFIG.plotSize;
+const planTile = z.object({ x: planCoord, y: planCoord, ...toStorey });
+/** The most entries in each of a plan's lists: a whole plot on every storey a plot may have. */
+const PLAN_MAX = planMax(DEFAULT_CONFIG);
 /**
  * Build a plan on plot (`px`, `py`), one you own or share, in one action from anywhere (RFC 0016).
- * Tiles count from the plot's north-west corner, so a plan builds the same thing on any plot.
- * `remove` and `lift` go first, then `blocks`, then `ground`.
+ * Tiles count from the plot's north-west corner, so a plan builds the same thing on any plot, and
+ * each may name a `storey` (RFC 0028). `remove` and `lift` go first, from the top storey down,
+ * then the ground floor's `blocks` and `ground`, then each storey up's `ground` and `blocks`.
  */
 export const BuildAction = z.object({
   type: z.literal("build"),
   px: coord,
   py: coord,
   blocks: z
-    .array(z.object({ x: planCoord, y: planCoord, block: z.enum(openOnly(BLOCK_KINDS)) }))
+    .array(z.object({ x: planCoord, y: planCoord, ...toStorey, block: BlockKind }))
     .max(PLAN_MAX)
     .optional(),
   ground: z
-    .array(z.object({ x: planCoord, y: planCoord, ground: GroundKind }))
+    .array(z.object({ x: planCoord, y: planCoord, ...toStorey, ground: GroundKind }))
     .max(PLAN_MAX)
     .optional(),
   remove: z.array(planTile).max(PLAN_MAX).optional(),
@@ -424,7 +444,7 @@ export const WithdrawAction = z.object({
 
 // ---------- Coins (RFC 0008) ----------
 
-export const CoinReason = z.enum(openOnly(COIN_REASONS));
+export const CoinReason = z.enum(COIN_REASONS);
 export type CoinReason = z.infer<typeof CoinReason>;
 /**
  * Give some of your coins to another resident, with an optional note (untrusted text, shown to
@@ -1086,6 +1106,7 @@ export const Action = z.discriminatedUnion("type", [
   RemoveAction,
   LayAction,
   LiftAction,
+  AddStoreyAction,
   BuildAction,
   SetHearthAction,
   HomeAction,
@@ -1270,7 +1291,7 @@ export const WorldSnapshot = z.object({
   ),
   /** Blocks, one per tile on each storey: the ground floor's, then each storey's above it. */
   blocks: z.array(
-    z.object({ x: z.number().int(), y: z.number().int(), ...onStorey, block: ShownBlock }),
+    z.object({ x: z.number().int(), y: z.number().int(), ...onStorey, block: BlockKind }),
   ),
   /**
    * Paths and floors (RFC 0016), one per tile on each storey, under whatever block stands there.
@@ -1489,7 +1510,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     ...onStorey,
-    block: ShownBlock,
+    block: BlockKind,
     by: z.string(),
   }),
   z.object({
@@ -2171,10 +2192,11 @@ export const BuildPlanSummary = z.object({
     z.object({
       x: z.number().int(),
       y: z.number().int(),
+      ...onStorey,
       /** Which list the tile came from. */
       what: z.enum(BUILD_PARTS),
-      /** `same` it's already that; `occupied` something else is there; `standing` someone is; `hearth`; `empty` nothing to take away; `growing` a crop; `on_display` a display. */
-      why: z.enum(openOnly(BUILD_SKIPS)),
+      /** `same` it's already that; `occupied` something else is there; `standing` someone is; `hearth`; `empty` nothing to take away; `growing` a crop; `on_display` a display; `unsupported` nothing would hold it up; `holds_up` taking it away would leave something above it with nothing holding it up (RFC 0028). */
+      why: z.enum(BUILD_SKIPS),
     }),
   ),
 });
@@ -2182,8 +2204,8 @@ export type BuildPlanSummary = z.infer<typeof BuildPlanSummary>;
 
 /**
  * A plot's layout as a plan for `build` (RFC 0016): its blocks and ground at tiles counted from its
- * north-west corner, so they can go straight into a `build` on any plot. `hearths` are tiles a
- * build leaves alone.
+ * north-west corner, on every storey (`storey` above the ground floor, RFC 0028), so they can go
+ * straight into a `build` on any plot. `hearths` are tiles a build leaves alone.
  */
 export const PlotPlanResponse = z.object({
   plan: z.object({
@@ -2194,9 +2216,11 @@ export const PlotPlanResponse = z.object({
     /** Who owns it. Absent for an unclaimed plot and the Commons. */
     ownerId: z.string().optional(),
     blocks: z.array(
-      z.object({ x: z.number().int(), y: z.number().int(), block: z.enum(openOnly(BLOCK_KINDS)) }),
+      z.object({ x: z.number().int(), y: z.number().int(), ...onStorey, block: BlockKind }),
     ),
-    ground: z.array(z.object({ x: z.number().int(), y: z.number().int(), ground: GroundKind })),
+    ground: z.array(
+      z.object({ x: z.number().int(), y: z.number().int(), ...onStorey, ground: GroundKind }),
+    ),
     hearths: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
   }),
 });
@@ -2225,6 +2249,11 @@ export const ActionResponse = z.discriminatedUnion("ok", [
     plan: BuildPlanSummary.optional().describe(
       "`build`: what the plan did, or on a dry run would do, and the tiles it left alone. A `commons_build` proposal: what it would build in the Commons if it passed now.",
     ),
+    price: z
+      .number()
+      .int()
+      .optional()
+      .describe("`add_storey`: the coins it took, or on a dry run would take (RFC 0028)."),
   }),
   z.object({
     ok: z.literal(false),
@@ -2301,6 +2330,8 @@ export const ServerMessage = z.union([
     dry: z.literal(true).optional(),
     /** `build`: what the plan did, or would do. A `commons_build` proposal: what it would build. */
     plan: BuildPlanSummary.optional(),
+    /** `add_storey`: the coins it took, or would take (RFC 0028). */
+    price: z.number().int().optional(),
   }),
   z.object({
     type: z.literal("error"),

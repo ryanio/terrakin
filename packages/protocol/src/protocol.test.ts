@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import {
   apply,
   BUY_ORDERS,
+  buildSummary,
   CHAT_EARSHOT,
   type Command,
   canonicalJson,
@@ -21,6 +22,7 @@ import {
   HAIR_COLORS,
   HAIR_STYLES,
   HOLIDAY_STOCK,
+  hashWorld,
   holidayDates,
   ITEM_INFO,
   ITEM_KINDS,
@@ -31,12 +33,15 @@ import {
   PETS,
   POND,
   PUTTER,
+  planMax,
+  prepare,
   RECIPES,
   SEASON_BUYS,
   SEASON_STOCK,
   SEASONS,
   SHOP_CATALOG,
   type ShopSku,
+  STOREYS,
   type StackKind,
   spawnTile,
   THEMES,
@@ -69,9 +74,11 @@ import { TakedownRequest } from "./safety";
 import {
   ACTION_TYPES,
   Action,
+  BuildPlanSummary,
   ClientMessage,
   CreateSessionRequest,
   ERROR_CODES,
+  PlotPlanResponse,
   WorldEvent,
   WorldSnapshot,
 } from "./schemas";
@@ -254,29 +261,80 @@ describe("Action", () => {
     expect(Action.safeParse({ type: "chat", text: "   " }).success).toBe(false);
   });
 
-  it("carries nothing about storeys until the API opens them (RFC 0028)", () => {
-    expect(Action.safeParse({ type: "add_storey", px: 0, py: 0 }).success).toBe(false);
+  it("carries a storey on every action and plan entry that names a tile (RFC 0028)", () => {
+    expect(Action.parse({ type: "add_storey", px: 0, py: 0, dry: true })).toEqual({
+      type: "add_storey",
+      px: 0,
+      py: 0,
+      dry: true,
+    });
     for (const type of ["place", "remove", "lay", "lift"]) {
-      const action = { type, x: 1, y: 2, storey: 1, block: "wood", ground: "dirt" };
-      const parsed = Action.safeParse(action);
-      expect(parsed.success && "storey" in parsed.data, type).toBe(false);
+      const action = { type, x: 1, y: 2, storey: 1, block: "stairs", ground: "planks" };
+      expect(Action.parse(action), type).toMatchObject({ type, storey: 1 });
     }
-    for (const dir of ["up", "down"]) {
-      expect(Action.safeParse({ type: "move", dir }).success, dir).toBe(false);
+    for (const dir of ["up", "down"])
+      expect(Action.parse({ type: "move", dir })).toEqual({ type: "move", dir });
+    // A plan's entries keep their storey in every list, so a copied loft lands upstairs.
+    const loft = {
+      type: "build",
+      px: 0,
+      py: 0,
+      blocks: [
+        { x: 3, y: 2, block: "stairs" },
+        { x: 1, y: 5, storey: 1, block: "glass" },
+      ],
+      ground: [{ x: 1, y: 1, storey: 1, ground: "planks" }],
+      remove: [{ x: 2, y: 2, storey: 1 }],
+      lift: [{ x: 2, y: 3, storey: 1 }],
+    };
+    expect(Action.parse(loft)).toEqual(loft);
+    // Each list holds a whole plot on every storey, as the sim's plans do, and no more.
+    const S = DEFAULT_CONFIG.plotSize;
+    const plot = (storey: number) =>
+      Array.from({ length: S * S }, (_, i) => ({ x: i % S, y: Math.floor(i / S), storey }));
+    const whole = Array.from({ length: 1 + STOREYS.max }, (_, s) => plot(s)).flat();
+    expect(whole).toHaveLength(planMax(DEFAULT_CONFIG));
+    expect(Action.safeParse({ type: "build", px: 0, py: 0, lift: whole }).success).toBe(true);
+    const over = [...whole, { x: 0, y: 0 }];
+    expect(Action.safeParse({ type: "build", px: 0, py: 0, lift: over }).success).toBe(false);
+    // A storey is a whole number from 0; how high a home goes is the sim's to say.
+    for (const storey of [-1, 1.5, "1"]) {
+      const place = { type: "place", x: 1, y: 2, storey, block: "wood" };
+      expect(Action.safeParse(place).success, String(storey)).toBe(false);
     }
-    expect(Action.safeParse({ type: "place", x: 1, y: 2, block: "stairs" }).success).toBe(false);
-    const stairsPlan = { type: "build", px: 0, py: 0, blocks: [{ x: 1, y: 1, block: "stairs" }] };
-    expect(Action.safeParse(stairsPlan).success).toBe(false);
-    for (const code of [
-      "no_storey",
-      "too_high",
-      "nothing_under",
-      "holds_up",
-      "ground_floor_only",
-      "no_stairs",
-    ]) {
-      expect(ERROR_CODES, code).not.toContain(code);
+    for (const code of ["no_storey", "too_high", "nothing_under", "holds_up", "no_stairs"]) {
+      expect(ERROR_CODES, code).toContain(code);
     }
+  });
+
+  it("reads storeys back in a build's answer and a plot's plan (RFC 0028)", () => {
+    const skipped = { x: 1, y: 1, storey: 1, what: "remove", why: "holds_up" };
+    const summary = {
+      px: 0,
+      py: 0,
+      placed: 0,
+      removed: 0,
+      laid: 0,
+      lifted: 0,
+      uses: [],
+      returns: [],
+      skipped: [skipped, { x: 2, y: 2, what: "ground", why: "unsupported" }],
+    };
+    expect(BuildPlanSummary.parse(summary)).toEqual(summary);
+    const plan = {
+      plan: {
+        px: 0,
+        py: 0,
+        size: 8,
+        blocks: [
+          { x: 3, y: 2, block: "stairs" },
+          { x: 1, y: 5, storey: 1, block: "glass" },
+        ],
+        ground: [{ x: 1, y: 1, storey: 1, ground: "planks" }],
+        hearths: [],
+      },
+    };
+    expect(PlotPlanResponse.parse(plan)).toEqual(plan);
   });
 
   it("reads storeys in what the world shows, stairs and all (RFC 0028)", () => {
@@ -923,7 +981,10 @@ describe("SKILL.md building", () => {
   });
 
   it("has plans that build whole on a starter-home plot with a first planter", () => {
-    const section = skill.slice(skill.indexOf("## Build: paths, furniture, and plans"));
+    const section = skill.slice(
+      skill.indexOf("## Build: paths, furniture, and plans"),
+      skill.indexOf("## Building up"),
+    );
     const plans = [...section.matchAll(/```json\n(\{"type": "build"[\s\S]*?)\n```/g)].map(
       ([, json]) => JSON.parse(json as string) as Extract<Command, { type: "build" }>,
     );
@@ -957,6 +1018,78 @@ describe("SKILL.md building", () => {
       const laid = built.ok ? built.events.filter((e) => e.type === "ground_laid").length : 0;
       expect(placed + laid).toBe((plan.blocks?.length ?? 0) + (plan.ground?.length ?? 0));
     }
+  });
+});
+
+describe("SKILL.md building up (RFC 0028)", () => {
+  const section = skill.slice(skill.indexOf("## Building up"), skill.indexOf("## Pets"));
+
+  it("quotes the sim's numbers for storeys", () => {
+    expect(STOREYS.max).toBe(1);
+    expect(section).toContain("A plot can have one storey above its ground floor");
+    expect(section).toContain(`"price": ${STOREYS.price}`);
+    expect(section).toContain(`A storey costs ${STOREYS.price} coins`);
+    expect(section).toContain(`within ${STOREYS.span} tiles of it`);
+    expect(section).toContain(`takes ${STOREYS.stairsWood} wood`);
+    expect(skill).toContain(`for ${STOREYS.price} coins from your purse`);
+  });
+
+  it("goes from an empty plot to a hut with a loft and stairs, up and down, as written", () => {
+    const world = createWorld(DEFAULT_CONFIG);
+    const act = (command: Command, actor = "muse") => {
+      const result = apply(world, { actor, command });
+      expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
+      return result.ok ? result.events : [];
+    };
+    act({ type: "new_day", day: 20_000 }, TOWN_ACTOR);
+    act({ type: "open_economy" }, TOWN_ACTOR);
+    act({ type: "open_items" }, TOWN_ACTOR);
+    act({ type: "join", name: "Wren", kind: "agent" });
+    act({ type: "settle", px: 2, py: 1 });
+    act({ type: "build_starter_home" });
+    expect(section).toContain("you stand on the hearth at (19, 11)");
+    expect(world.residents.muse).toMatchObject({ x: 19, y: 11 });
+    const [json] = [...section.matchAll(/```json\n(\{"type": "build"[\s\S]*?)\n```/g)].map(
+      ([, text]) => text as string,
+    );
+    if (!json) throw new Error("Building up has no plan");
+    // Through the protocol, so a plan whose storeys the schema dropped would build downstairs.
+    const parsed = Action.parse(JSON.parse(json));
+    if (parsed.type !== "build") throw new Error("the plan isn't a build");
+    const { dry, ...plan } = parsed;
+    expect(dry).toBe(true);
+    const woodWords = section.match(/A hut with a loft \((\d+) wood/)?.[1];
+    act(
+      { type: "test_grant", to: "muse", coins: STOREYS.price, stacks: { wood: Number(woodWords) } },
+      TOWN_ACTOR,
+    );
+    // A dry run of add_storey changes nothing; then it's added.
+    const before = hashWorld(world);
+    expect(
+      prepare(world, { actor: "muse", command: { type: "add_storey", px: 2, py: 1 } }).ok,
+    ).toBe(true);
+    expect(hashWorld(world)).toBe(before);
+    act({ type: "add_storey", px: 2, py: 1 });
+    const priced = prepare(world, { actor: "muse", command: plan as Command });
+    if (!priced.ok || !priced.plan) throw new Error("the loft's plan was refused");
+    expect(buildSummary(priced.plan)).toMatchObject({
+      placed: plan.blocks?.length,
+      laid: plan.ground?.length,
+      uses: [{ kind: "wood", count: Number(woodWords) }],
+      skipped: [],
+    });
+    const built = priced.commit().events;
+    expect(built.filter((e) => e.type === "block_placed" && e.storey === 1)).toHaveLength(4);
+    expect(built.filter((e) => e.type === "ground_laid" && e.storey === 1)).toHaveLength(9);
+    // Up the stairs, along the loft, and back down, as step 5 says.
+    act({ type: "move", dir: "n" });
+    act({ type: "move", dir: "up" });
+    expect(world.residents.muse).toMatchObject({ x: 19, y: 10, storey: 1 });
+    act({ type: "move", dir: "n" });
+    act({ type: "move", dir: "s" });
+    act({ type: "move", dir: "down" });
+    expect(world.residents.muse).toMatchObject({ x: 19, y: 10 });
+    expect(world.residents.muse?.storey).toBeUndefined();
   });
 });
 

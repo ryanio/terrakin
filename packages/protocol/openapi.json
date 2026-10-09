@@ -711,7 +711,7 @@
       "get": {
         "operationId": "getPlotPlan",
         "summary": "A plot's blocks and paths as a plan for build, to copy a design onto your own plot.",
-        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
+        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every storey is there, with `storey` on the entries above the ground floor, so a copy needs as many storeys on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
         "tags": [
           "World"
         ],
@@ -25625,6 +25625,9 @@
             "$ref": "#/components/schemas/LiftAction"
           },
           {
+            "$ref": "#/components/schemas/AddStoreyAction"
+          },
+          {
             "$ref": "#/components/schemas/BuildAction"
           },
           {
@@ -25834,6 +25837,12 @@
                     "$ref": "#/components/schemas/BuildPlanSummary"
                   }
                 ]
+              },
+              "price": {
+                "description": "`add_storey`: the coins it took, or on a dry run would take (RFC 0028).",
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -25867,6 +25876,36 @@
               "error"
             ]
           }
+        ]
+      },
+      "AddStoreyAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "add_storey"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py"
         ]
       },
       "AdmireAction": {
@@ -25995,7 +26034,7 @@
             "maximum": 100000
           },
           "blocks": {
-            "maxItems": 64,
+            "maxItems": 128,
             "type": "array",
             "items": {
               "type": "object",
@@ -26009,6 +26048,12 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 7
+                },
+                "storey": {
+                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
                 },
                 "block": {
                   "type": "string",
@@ -26045,7 +26090,8 @@
                     "string_lights",
                     "little_fir",
                     "sled",
-                    "pond"
+                    "pond",
+                    "stairs"
                   ]
                 }
               },
@@ -26057,7 +26103,7 @@
             }
           },
           "ground": {
-            "maxItems": 64,
+            "maxItems": 128,
             "type": "array",
             "items": {
               "type": "object",
@@ -26071,6 +26117,12 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 7
+                },
+                "storey": {
+                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
                 },
                 "ground": {
                   "$ref": "#/components/schemas/GroundKind"
@@ -26084,7 +26136,7 @@
             }
           },
           "remove": {
-            "maxItems": 64,
+            "maxItems": 128,
             "type": "array",
             "items": {
               "type": "object",
@@ -26098,6 +26150,12 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 7
+                },
+                "storey": {
+                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
                 }
               },
               "required": [
@@ -26107,7 +26165,7 @@
             }
           },
           "lift": {
-            "maxItems": 64,
+            "maxItems": 128,
             "type": "array",
             "items": {
               "type": "object",
@@ -26121,6 +26179,12 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 7
+                },
+                "storey": {
+                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
                 }
               },
               "required": [
@@ -26228,6 +26292,12 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
+                "storey": {
+                  "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
                 "what": {
                   "type": "string",
                   "enum": [
@@ -26246,7 +26316,9 @@
                     "hearth",
                     "empty",
                     "growing",
-                    "on_display"
+                    "on_display",
+                    "unsupported",
+                    "holds_up"
                   ]
                 }
               },
@@ -26741,7 +26813,8 @@
           "event_deposit",
           "event_refund",
           "groom",
-          "merged"
+          "merged",
+          "storey"
         ]
       },
       "CompleteBountyAction": {
@@ -27211,6 +27284,12 @@
           "no_picks_left",
           "taught_today",
           "not_near",
+          "no_storey",
+          "too_high",
+          "nothing_under",
+          "holds_up",
+          "ground_floor_only",
+          "no_stairs",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -28013,6 +28092,12 @@
             "minimum": 0,
             "maximum": 100000
           },
+          "storey": {
+            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
           "ground": {
             "$ref": "#/components/schemas/GroundKind"
           },
@@ -28046,6 +28131,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100000
+          },
+          "storey": {
+            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -28319,7 +28410,19 @@
             ]
           },
           "dir": {
-            "$ref": "#/components/schemas/Direction"
+            "type": "string",
+            "enum": [
+              "n",
+              "e",
+              "s",
+              "w",
+              "ne",
+              "se",
+              "sw",
+              "nw",
+              "up",
+              "down"
+            ]
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -28578,6 +28681,12 @@
             "minimum": 0,
             "maximum": 100000
           },
+          "storey": {
+            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
           "block": {
             "type": "string",
             "enum": [
@@ -28613,7 +28722,8 @@
               "string_lights",
               "little_fir",
               "sled",
-              "pond"
+              "pond",
+              "stairs"
             ]
           },
           "dry": {
@@ -28783,6 +28893,12 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "storey": {
+                      "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
                     "block": {
                       "type": "string",
                       "enum": [
@@ -28818,7 +28934,8 @@
                         "string_lights",
                         "little_fir",
                         "sled",
-                        "pond"
+                        "pond",
+                        "stairs"
                       ]
                     }
                   },
@@ -28842,6 +28959,12 @@
                     "y": {
                       "type": "integer",
                       "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "storey": {
+                      "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                      "type": "integer",
+                      "minimum": 1,
                       "maximum": 9007199254740991
                     },
                     "ground": {
@@ -29352,6 +29475,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100000
+          },
+          "storey": {
+            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -29872,6 +30001,11 @@
                     "$ref": "#/components/schemas/BuildPlanSummary"
                   }
                 ]
+              },
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [

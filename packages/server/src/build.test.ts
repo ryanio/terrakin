@@ -1,5 +1,5 @@
 import { BUILD_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import type { WorldConfig } from "@terrakin/sim";
+import { STOREYS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -39,6 +39,7 @@ async function start() {
     config: CONFIG,
     now: () => now,
     days: true,
+    economy: true,
     items: true,
   });
   const sql = nodeSql();
@@ -163,16 +164,18 @@ describe("build", () => {
     const today = (await t.call("GET", "/v1/world")).body;
     expect(JSON.stringify(today)).not.toContain("storey");
     expect(JSON.stringify((await t.call("GET", "/v1/plots/0/0")).body)).not.toContain("storey");
-    // Setup only, since no action adds a storey yet: a loft over the hut, with stairs up to it,
-    // a window upstairs, and Ada standing on its floor.
-    const state = t.service.state;
-    const plot = state.plots["0,0"];
-    const me = state.residents[ada.id];
-    if (!plot || !me) throw new Error("Ada's plot");
-    plot.storeys = 1;
-    state.blocks["2,4"] = "stairs";
-    state.storeys = { "1": { blocks: { "1,1": "glass" }, ground: { "3,3": "planks" } } };
-    me.storey = 1;
+    // A loft over the hut, through the actions an agent sends: a storey, stairs inside, a floor
+    // upstairs, a window up there on the wall, and Ada walking onto the stairs and up them.
+    t.service.testGrant(ada.id, STOREYS.price, { wood: STOREYS.stairsWood + 1 });
+    const ok = async (action: Record<string, unknown>) =>
+      expect(await t.act(ada, action), JSON.stringify(action)).toMatchObject({ ok: true });
+    await ok({ type: "add_storey", px: 0, py: 0 });
+    await ok({ type: "place", x: 2, y: 4, block: "stairs" });
+    await ok({ type: "lay", x: 3, y: 3, storey: 1, ground: "planks" });
+    await ok({ type: "place", x: 1, y: 1, storey: 1, block: "glass" });
+    await ok({ type: "move", dir: "sw" });
+    const up = await t.act(ada, { type: "move", dir: "up" });
+    expect(up.events).toEqual([{ type: "moved", residentId: ada.id, x: 2, y: 4, storey: 1 }]);
     const world = (await t.call("GET", "/v1/world")).body;
     expect(world.blocks).toContainEqual({ x: 2, y: 4, block: "stairs" });
     expect(world.blocks).toContainEqual({ x: 1, y: 1, block: "wood" });
@@ -187,6 +190,40 @@ describe("build", () => {
     expect((await t.call("GET", "/v1/plots")).body.plots).toEqual([
       expect.objectContaining({ px: 0, py: 0, storeys: 1, blocks: before + 2 }),
     ]);
+    // Read back as a plan, the loft keeps its storey, so a copy of it lands upstairs.
+    const plan = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
+    expect(plan.blocks).toContainEqual({ x: 1, y: 1, storey: 1, block: "glass" });
+    expect(plan.ground).toContainEqual({ x: 3, y: 3, storey: 1, ground: "planks" });
+  });
+
+  it("prices a storey with a dry run that spends nothing, then adds it for that (RFC 0028)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    t.service.testGrant(ada.id, STOREYS.price, undefined);
+    const purse = async () => (await t.call("GET", "/v1/purse", undefined, ada.token)).body.purse;
+    const before = await purse();
+    const seq = t.service.state.seq;
+    const dry = await t.act(ada, { type: "add_storey", px: 0, py: 0, dry: true });
+    expect(dry).toEqual({ ok: true, dry: true, seq, events: [], price: STOREYS.price });
+    expect(await purse()).toEqual(before);
+    expect(t.service.state.seq).toBe(seq);
+    expect((await t.call("GET", "/v1/plots/0/0")).body.plot.storeys).toBeUndefined();
+    const added = await t.act(ada, { type: "add_storey", px: 0, py: 0 });
+    expect(added).toMatchObject({ ok: true, price: STOREYS.price });
+    expect(added.events).toContainEqual({
+      type: "storey_added",
+      px: 0,
+      py: 0,
+      storey: 1,
+      by: ada.id,
+    });
+    expect((await purse()).balance).toBe(before.balance - STOREYS.price);
+    // One storey above the ground is as high as a home goes, and a dry run says so too.
+    expect(await t.act(ada, { type: "add_storey", px: 0, py: 0, dry: true })).toMatchObject({
+      ok: false,
+      dry: true,
+      error: { code: "too_high" },
+    });
   });
 
   it("spaces real builds apart, but never dry runs", async () => {

@@ -101,6 +101,11 @@ export interface RenderState {
   casts?: readonly CastMark[];
   /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
   hover?: readonly { x: number; y: number }[] | undefined;
+  /**
+   * The storey the plot you stand on is cut away at (RFC 0028): the build bar's pick while
+   * building. Absent: the storey you stand on.
+   */
+  cutStorey?: number;
 }
 
 /** How dim what's below an open tile upstairs shows, where you stand upstairs (RFC 0028). */
@@ -141,6 +146,7 @@ export function render(
     labelTop = 0,
     casts,
     hover,
+    cutStorey,
   }: RenderState,
 ) {
   const { width, height, scale } = cam;
@@ -524,13 +530,14 @@ export function render(
   }
 
   // ---- storeys (RFC 0028): from above, and cut away at your storey on the plot you're on ----
-  const upstairs = mirror.hasUpstairs() ? mirror.layers() : undefined;
   const standing = me ? mirror.residents.get(me) : undefined;
   const cut: Cutaway | undefined = standing && {
     px: Math.floor(standing.x / S),
     py: Math.floor(standing.y / S),
-    storey: standing.storey ?? 0,
+    storey: cutStorey ?? standing.storey ?? 0,
   };
+  // An empty storey picked to build on still dims the ground floor under it.
+  const upstairs = mirror.hasUpstairs() || (cut?.storey ?? 0) > 0 ? mirror.layers() : undefined;
   if (upstairs) {
     const shows = (x: number, y: number) => tileShows(upstairs, S, cut, x, y);
     const box = (x: number, y: number) => {

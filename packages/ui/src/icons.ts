@@ -8,6 +8,7 @@
  */
 import {
   Amphora,
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUp,
@@ -29,6 +30,7 @@ import {
   ChevronUp,
   Coins,
   Copy,
+  DoorStairwell,
   Ellipsis,
   FishingRod,
   Flag,
@@ -98,6 +100,7 @@ export const ICONS = {
   arrow: ArrowRight,
   external: ArrowUpRight,
   up: ArrowUp,
+  down: ArrowDown,
   chevronLeft: ChevronLeft,
   chevronRight: ChevronRight,
   chevronUp: ChevronUp,
@@ -135,6 +138,7 @@ export const ICONS = {
   pedestal: Amphora,
   gather: HandGrab,
   pond: Waves,
+  stairs: DoorStairwell,
   fishing: FishingRod,
   soundOff: VolumeX,
   soundQuiet: Volume1,

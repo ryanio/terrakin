@@ -340,9 +340,12 @@ export function starterHutGardenTiles(config: WorldConfig, hearth: Tile): Tile[]
 
 /** Whether a block on the ground floor stops walkers there. Stairs are walked onto (RFC 0028). */
 export function isSolid(state: WorldState, x: number, y: number): boolean {
-  const block = state.blocks[tileKey(x, y)];
-  return block !== undefined && block !== "stairs";
+  return blocksWalkers(state.blocks[tileKey(x, y)]);
 }
+
+/** Whether a block stops a walker on its tile. Stairs are the one block anyone walks onto (RFC 0028). */
+export const blocksWalkers = (block: BlockKind | undefined): boolean =>
+  block !== undefined && block !== "stairs";
 
 export function chebyshev(a: Tile, b: Tile): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));

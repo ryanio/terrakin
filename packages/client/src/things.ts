@@ -392,6 +392,10 @@ export function newsLine(
       return knockLine(event, me);
     case "fished":
       return event.by === me ? catchLine(event.caught) : null;
+    case "storey_added":
+      return event.by === me
+        ? "Your home has an upstairs now. Lay a floor up there where walls below hold it up, then put up stairs."
+        : null;
     case "recipe_learned":
       if (event.residentId === me) {
         return learnedLine(event.recipe, event.how, event.from && nameOf(event.from));

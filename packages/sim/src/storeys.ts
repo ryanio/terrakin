@@ -12,11 +12,12 @@ import type {
   Resident,
   ResidentId,
   StoreyLayer,
+  WorldConfig,
   WorldEvent,
   WorldState,
 } from "./types";
 import { type Ground, worldGround } from "./walk";
-import { canBuildOn, inBounds, isCommons, plotInBounds, plotOf } from "./world";
+import { blocksWalkers, canBuildOn, inBounds, isCommons, plotInBounds, plotOf } from "./world";
 
 /**
  * Homes with storeys (RFC 0028). The ground floor is storey 0 and stays where it always was, in
@@ -89,8 +90,7 @@ export function groundOn(state: WorldState, storey: number): Readonly<Record<str
 
 /** Whether a block stands in the way on a tile of a storey. Stairs are the one block you walk onto. */
 export function solidAt(state: WorldState, x: number, y: number, storey: number): boolean {
-  const block = blocksOn(state, storey)[tileKey(x, y)];
-  return block !== undefined && block !== "stairs";
+  return blocksWalkers(blocksOn(state, storey)[tileKey(x, y)]);
 }
 
 /** The storey a resident stands on. */
@@ -112,13 +112,32 @@ export function storeyGround(state: WorldState, storey: number): Ground {
   const blocks = blocksOn(state, storey);
   const floors = groundOn(state, storey);
   const below = blocksOn(state, storey - 1);
-  return {
+  return upstairsGroundOf({
     config: state.config,
+    block: (key) => blocks[key],
+    floor: (key) => floors[key] !== undefined,
+    below: (key) => below[key],
+  });
+}
+
+/**
+ * The ground of a storey above the ground floor from plain facts, keyed by tileKey: what stands
+ * on each tile, whether it has a floor, and what stands right under it. The client builds the same
+ * one from its mirror as the sim builds from the world (`storeyGround`).
+ */
+export function upstairsGroundOf(facts: {
+  config: WorldConfig;
+  block: (key: string) => BlockKind | undefined;
+  floor: (key: string) => boolean;
+  below: (key: string) => BlockKind | undefined;
+}): Ground {
+  const { config, block, floor, below } = facts;
+  return {
+    config,
     obstacle: (x, y) => {
       const key = tileKey(x, y);
-      const block = blocks[key];
-      if (block !== undefined && block !== "stairs") return "block";
-      if (floors[key] === undefined && below[key] !== "stairs") return "no_floor";
+      if (blocksWalkers(block(key))) return "block";
+      if (!floor(key) && below(key) !== "stairs") return "no_floor";
       return undefined;
     },
   };
@@ -402,10 +421,9 @@ type Mutation = () => WorldEvent[];
  */
 export function checkClimb(state: WorldState, me: Resident, dir: Climb): Mutation | Rejection {
   const from = standingStorey(me);
-  const key = tileKey(me.x, me.y);
   const to = dir === "up" ? from + 1 : from - 1;
-  const stairs = to >= 0 && blocksOn(state, Math.min(from, to))[key] === "stairs";
-  if (!stairs) {
+  const block = (storey: number, key: string) => blocksOn(state, storey)[key];
+  if (!climbsAt(block, me.x, me.y, from).includes(dir)) {
     return refuse(
       "no_stairs",
       dir === "up" ? "Stand on stairs to go up." : "Stand at the top of the stairs to go down.",
@@ -415,6 +433,24 @@ export function checkClimb(state: WorldState, me: Resident, dir: Climb): Mutatio
     setStorey(me, to);
     return [{ type: "moved", residentId: me.id, x: me.x, y: me.y, ...storeyField(to) }];
   };
+}
+
+/**
+ * The ways someone on (x, y) on `storey` can climb, from what stands on each storey: `up` from
+ * stairs, `down` from the top of stairs on the storey below. The client reads it from its mirror to
+ * offer Go up and Go down.
+ */
+export function climbsAt(
+  block: (storey: number, key: string) => BlockKind | undefined,
+  x: number,
+  y: number,
+  storey: number,
+): Climb[] {
+  const key = tileKey(x, y);
+  const ways: Climb[] = [];
+  if (block(storey, key) === "stairs") ways.push("up");
+  if (storey > 0 && block(storey - 1, key) === "stairs") ways.push("down");
+  return ways;
 }
 
 /** Why `me` can't do `what` from where they stand: it happens on the ground floor. */

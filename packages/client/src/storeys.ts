@@ -7,6 +7,12 @@
  * shows is drawn faded. Pure, so tests pin it.
  */
 
+/** What people call a storey (the RFC's first decision): "Ground floor" and "Upstairs". */
+export function storeyName(storey: number): string {
+  if (storey === 0) return "Ground floor";
+  return storey === 1 ? "Upstairs" : `Storey ${storey}`;
+}
+
 /** What stands and lies on each storey above the ground floor, as the mirror has it. */
 export interface StoreyLayers {
   /** The highest storey any plot may have. */
@@ -78,4 +84,24 @@ export function underFloor(
   storey: number,
 ): boolean {
   return tileShows(layers, plotSize, cut, x, y).top > storey;
+}
+
+/**
+ * The storey a tap on (x, y) means for a viewer cut away at `cut`: the storey the map draws there,
+ * so what you tap is what you see. Upstairs on the cut plot, an open tile shows the storey below
+ * through it and means that one, except the top of the stairs (`stairsUnder`), which is the cut's.
+ * A walk keeps to one storey, so a tap that means another walks to the stairs instead.
+ */
+export function tapStorey(
+  layers: StoreyLayers,
+  plotSize: number,
+  cut: Cutaway | undefined,
+  x: number,
+  y: number,
+  stairsUnder: (storey: number, x: number, y: number) => boolean,
+): number {
+  const onCut =
+    cut !== undefined && Math.floor(x / plotSize) === cut.px && Math.floor(y / plotSize) === cut.py;
+  if (onCut && cut.storey > 0 && stairsUnder(cut.storey, x, y)) return cut.storey;
+  return tileShows(layers, plotSize, cut, x, y).top;
 }

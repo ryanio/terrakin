@@ -1,7 +1,8 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
+import { route, stepFrom } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { Mirror } from "./mirror";
-import { type Cutaway, tileShows, underFloor } from "./storeys";
+import { type Cutaway, tapStorey, tileShows, underFloor } from "./storeys";
 
 /**
  * Plots of 4 tiles. Ada's plot (0, 0) has a loft: a floor upstairs at (1, 1) and (2, 1), and a
@@ -72,5 +73,46 @@ describe("which storey each tile shows", () => {
     // Someone on the floor itself, or out in the open.
     expect(underFloor(layers, 4, undefined, 1, 1, 1)).toBe(false);
     expect(underFloor(layers, 4, undefined, 0, 0, 0)).toBe(false);
+  });
+});
+
+describe("what a tap means, and where a walk goes, on a storey", () => {
+  /** Ada's plot again, with stairs on the ground floor at (2, 2) coming up through an open tile. */
+  const stairs = new Mirror({
+    ...world,
+    blocks: [...world.blocks, { x: 2, y: 2, block: "stairs" }],
+  });
+  const under = (s: number, x: number, y: number) =>
+    stairs.blocksOn(s - 1).get(`${x},${y}`) === "stairs";
+  const tap = (cut: Cutaway | undefined, x: number, y: number) =>
+    tapStorey(stairs.layers(), 4, cut, x, y, under);
+
+  it("means the storey the map draws there, and the top of the stairs is upstairs", () => {
+    const up: Cutaway = { px: 0, py: 0, storey: 1 };
+    // Upstairs: the loft's floor is yours, an open tile is the ground floor showing through.
+    expect(tap(up, 1, 1)).toBe(1);
+    expect(tap(up, 0, 0)).toBe(0);
+    expect(tap(up, 2, 2)).toBe(1);
+    // On the ground floor your own plot is all ground floor; next door's loft is upstairs.
+    const below: Cutaway = { px: 0, py: 0, storey: 0 };
+    expect(tap(below, 1, 1)).toBe(0);
+    expect(tap(below, 5, 1)).toBe(1);
+  });
+
+  it("walks each storey on its own ground, by the sim's rule", () => {
+    // Stairs are the one block you walk onto.
+    expect(stepFrom(stairs.ground(0), { x: 2, y: 1 }, "s")).toMatchObject({ ok: true });
+    expect(stepFrom(stairs.ground(0), { x: 1, y: 1 }, "s")).toMatchObject({ code: "blocked" });
+    // Upstairs: along the floor and onto the top of the stairs, but never off an edge.
+    expect(stepFrom(stairs.ground(1), { x: 1, y: 1 }, "e")).toMatchObject({ ok: true });
+    expect(stepFrom(stairs.ground(1), { x: 2, y: 1 }, "s")).toMatchObject({ ok: true });
+    expect(stepFrom(stairs.ground(1), { x: 2, y: 1 }, "e")).toEqual({
+      ok: false,
+      code: "blocked",
+      message: "There's no floor there.",
+      obstacle: "no_floor",
+    });
+    // A route upstairs keeps to the floor: none reaches the ground floor's open tiles.
+    expect(route(stairs.ground(1), { x: 1, y: 1 }, { x: 0, y: 0 })).toEqual([]);
   });
 });

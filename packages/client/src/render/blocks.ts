@@ -94,6 +94,17 @@ export function paintBlock(
   ctx.roundRect(left + radius * 0.5, top + inset, size - radius, Math.max(2, lip * 0.55), 2);
   ctx.fill();
   if (WORKSHOP_BLOCKS.has(block)) paintWorkshop(ctx, block, left, top, size, scale);
+  // Stairs (RFC 0028): treads across the tile, each with a shadow under its nose, so a staircase
+  // reads as one from above and not as a wall.
+  if (block === "stairs") {
+    const tread = size / 4;
+    for (let i = 1; i < 4; i++) {
+      ctx.fillStyle = "rgba(70, 40, 18, 0.3)";
+      ctx.fillRect(left + inset, top + tread * i - 1, size - inset * 2, Math.max(1, scale / 18));
+      ctx.fillStyle = "rgba(255, 250, 235, 0.3)";
+      ctx.fillRect(left + inset, top + tread * i + 1, size - inset * 2, Math.max(1, scale / 30));
+    }
+  }
   if (block === "glass") {
     ctx.strokeStyle = "rgba(255,255,255,0.75)";
     ctx.lineWidth = Math.max(1, scale / 22);

@@ -201,6 +201,12 @@
           <span>3D view</span>
         </button>
         <!-- What you can do where you stand, above the 3D toggle: go into the Town Hall or the shop beside you, cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
+        <!-- Up or down the stairs you stand on (RFC 0028), beside your figure on the map. -->
+        <button type="button" id="world-climb" class="pill-button world-climb" data-dir="up" hidden>
+          <svg class="icon climb-up" data-icon="up" aria-hidden="true"></svg>
+          <svg class="icon climb-down" data-icon="down" aria-hidden="true"></svg>
+          <span>Go up</span>
+        </button>
         <div class="stack tight start world-near">
           <button type="button" id="world-enter" class="pill-button" data-place="/town" hidden>
             <svg class="icon enter-town" data-icon="town" aria-hidden="true"></svg>
@@ -222,7 +228,8 @@
         </div>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
-            <!-- The tabs (linkTabs) go first, from world.ts. -->
+            <!-- The tabs (linkTabs) go first, from world.ts, then which storey taps build on, or Add a storey (RFC 0028). -->
+            <div id="palette-storeys" class="pick-row palette-storeys" hidden></div>
             <div id="palette-blocks" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-blocks">
               <!-- The hearth first, with its name showing: it's home, where the pantry arrives. -->
               <button type="button" data-block="hearth" class="palette-named" aria-label="Hearth, your home tile"><span class="chip"><svg class="icon" data-icon="home" aria-hidden="true"></svg></span><span class="palette-name" aria-hidden="true">Hearth</span></button>
@@ -235,6 +242,7 @@
               <button type="button" data-block="workbench" aria-label="Workbench (make bouquets, wreaths, and furniture)"><span class="chip"><svg class="icon" data-icon="workbench" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="pedestal" aria-label="Pedestal (show something you made)"><span class="chip"><svg class="icon" data-icon="pedestal" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="pond" aria-label="Pond (2 stone a tile, to fish beside)"><span class="chip"><svg class="icon" data-icon="pond" aria-hidden="true"></svg></span></button>
+              <button type="button" data-block="stairs" aria-label="Stairs (4 wood, up to the storey above)"><span class="chip"><svg class="icon" data-icon="stairs" aria-hidden="true"></svg></span></button>
             </div>
             <div id="palette-ground" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-ground" hidden></div>
             <div id="palette-furniture" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-furniture" hidden></div>

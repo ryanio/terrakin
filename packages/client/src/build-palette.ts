@@ -15,6 +15,7 @@
 import {
   BLOCK_COLORS,
   type BlockKind,
+  blockNeeds,
   DECOR_KINDS,
   type DecorKind,
   FURNITURE_KINDS,
@@ -110,6 +111,31 @@ export function groundLine(kind: GroundKind, holdings: Holdings): string {
   if (short.length === 0) return `${name}: ${cost} a tile. You have enough.`;
   const missing = short.map((s) => thingCount(s.kind, s.count)).join(" and ");
   return `${name}: ${cost} a tile. You need ${missing} more.`;
+}
+
+/**
+ * What one more of a block still needs from what you hold, by the sim's own `blockNeeds` (a pond's
+ * stone, stairs' wood): empty when you can place it.
+ */
+export function blockShort(
+  kind: BlockKind,
+  holdings: Holdings,
+): { kind: StackKind; count: number }[] {
+  return blockNeeds(kind).flatMap(([need, n]) => {
+    const missing = n - heldOf(holdings, need);
+    return missing > 0 ? [{ kind: need, count: missing }] : [];
+  });
+}
+
+/** The line under the tabs for stairs (RFC 0028): what they take, and what you're short of. */
+export function stairsLine(holdings: Holdings): string {
+  const cost = blockNeeds("stairs")
+    .map(([kind, n]) => thingCount(kind, n))
+    .join(" and ");
+  const lead = `Stairs: ${cost}, up to the storey above. Stand on them and tap Go up.`;
+  const short = blockShort("stairs", holdings);
+  if (short.length === 0) return `${lead} You have enough.`;
+  return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
 }
 
 /** The line under the tabs for a free block or the hearth. */

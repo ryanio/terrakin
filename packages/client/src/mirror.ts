@@ -9,6 +9,7 @@ import {
 } from "@terrakin/protocol";
 import {
   type BlockKind,
+  blocksWalkers,
   type Crop,
   type Direction,
   type FindKind,
@@ -27,6 +28,7 @@ import {
   type StepRoutine,
   shopTiles,
   tileKey,
+  upstairsGroundOf,
   type WorldConfig,
 } from "@terrakin/sim";
 import type { EventMark } from "./event-format";
@@ -144,7 +146,8 @@ export class Mirror {
   shop: { x: number; y: number }[];
   /** Whether the Town Hall and the shop stop walkers (`solid_buildings`). */
   solidBuildings: boolean;
-  private walkable: Ground | undefined;
+  /** The ground each storey's walkers step on, built once each (`ground`). */
+  private walkable = new Map<number, Ground>();
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -270,6 +273,22 @@ export class Mirror {
     return this.upstairs.get(storey) ?? NO_STOREY;
   }
 
+  /** The blocks on any storey, to read: the ground floor's for 0. */
+  blocksOn(storey: number): ReadonlyMap<string, BlockKind> {
+    return storey === 0 ? this.blocks : this.storey(storey).blocks;
+  }
+
+  /** The paths and floors on any storey, to read: the ground floor's for 0. */
+  pavingOn(storey: number): ReadonlyMap<string, GroundKind> {
+    return storey === 0 ? this.paving : this.storey(storey).paving;
+  }
+
+  /** How many storeys the plot under (x, y) added above its ground floor. */
+  storeysAt(x: number, y: number): number {
+    const { plotSize } = this.config;
+    return this.storeys.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize))) ?? 0;
+  }
+
   /** Whether anything stands or lies on any storey above the ground floor. */
   hasUpstairs(): boolean {
     for (const layer of this.upstairs.values()) {
@@ -299,15 +318,30 @@ export class Mirror {
     return this.shop.some((t) => t.x === x && t.y === y);
   }
 
-  /** The ground as the sim's walking rule sees it, so a step is checked here as it is there. */
-  ground(): Ground {
-    this.walkable ??= groundOf({
-      config: this.config,
-      hasBlock: (x, y) => this.blocks.has(tileKey(x, y)),
-      solidBuildings: this.solidBuildings,
-      shopOpen: this.shop.length > 0,
-    });
-    return this.walkable;
+  /**
+   * The ground a walker on `storey` steps on, as the sim's walking rule sees it, so a step is
+   * checked here as it is there: the sim's `groundOf` on the ground floor, where stairs are the one
+   * block you walk onto, and its `upstairsGroundOf` above, where a tile with no floor is in the way.
+   */
+  ground(storey = 0): Ground {
+    let ground = this.walkable.get(storey);
+    if (ground) return ground;
+    ground =
+      storey === 0
+        ? groundOf({
+            config: this.config,
+            hasBlock: (x, y) => blocksWalkers(this.blocks.get(tileKey(x, y))),
+            solidBuildings: this.solidBuildings,
+            shopOpen: this.shop.length > 0,
+          })
+        : upstairsGroundOf({
+            config: this.config,
+            block: (key) => this.storey(storey).blocks.get(key),
+            floor: (key) => this.storey(storey).paving.has(key),
+            below: (key) => this.blocksOn(storey - 1).get(key),
+          });
+    this.walkable.set(storey, ground);
+    return ground;
   }
 
   /**
@@ -423,11 +457,11 @@ export class Mirror {
       // The event names no tiles; where the shop stands is fixed by the world's size.
       case "shop_opened":
         this.shop = shopTiles(this.config);
-        this.walkable = undefined;
+        this.walkable.clear();
         break;
       case "buildings_solid":
         this.solidBuildings = true;
-        this.walkable = undefined;
+        this.walkable.clear();
         break;
       case "day_started":
         this.day = event.day;

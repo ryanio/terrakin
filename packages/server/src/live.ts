@@ -418,6 +418,7 @@ export class LiveSession {
       seq: result.seq,
       ...(result.greeted === undefined ? {} : { greeted: result.greeted }),
       ...(result.plan === undefined ? {} : { plan: result.plan }),
+      ...(result.price === undefined ? {} : { price: result.price }),
       ...(result.dry ? { dry: true } : {}),
     });
   }

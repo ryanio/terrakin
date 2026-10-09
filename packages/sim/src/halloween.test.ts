@@ -191,17 +191,30 @@ describe("Halloween's stock", () => {
     const message = refused(state, "ada", { type: "shop_buy", sku: "witch_hat" }, "out_of_holiday");
     expect(message).toContain("the witch hat only for Halloween");
     expect(message).toContain("back on October 24");
+    expect(message).toContain("What you already have is yours to wear any day.");
+    // Candy and decor are used, never worn.
+    for (const sku of ["candy", "cauldron"] as const) {
+      expect(refused(state, "ada", { type: "shop_buy", sku }, "out_of_holiday")).toContain(
+        "What you already have is yours to use any day.",
+      );
+    }
   });
 
   it("keeps a costume for good: bought once, worn after Halloween, refused unbought", () => {
     const state = town(NIGHT);
     fund(state, "ada", 500);
     for (const costume of COSTUMES) {
-      refused(state, "bob", { type: "profile", wear: [costume] }, "not_owned");
+      expect(refused(state, "bob", { type: "profile", wear: [costume] }, "not_owned")).toContain(
+        "Buy it there with shop_buy first.",
+      );
       ok(state, "ada", { type: "shop_buy", sku: costume });
       refused(state, "ada", { type: "shop_buy", sku: costume }, "already_have");
     }
     ok(state, TOWN_ACTOR, { type: "new_day", day: dayOfDate(2026, 12, 5) });
+    // Unbought after Halloween, the refusal says when the shop sells it, not to buy it now.
+    const later = refused(state, "bob", { type: "profile", wear: ["cat_ears"] }, "not_owned");
+    expect(later).toContain("only for Halloween, October 24 to November 1 (UTC). Buy it then");
+    expect(later).not.toContain("first");
     ok(state, "ada", { type: "profile", wear: ["witch_hat", "ghost_sheet", "bat_wings"] });
     expect(state.residents.ada?.wear).toEqual(["witch_hat", "ghost_sheet", "bat_wings"]);
     ok(state, "ada", { type: "profile", wear: ["pumpkin_head"] });
@@ -536,7 +549,9 @@ describe("trick-or-treating", () => {
     ok(door, "dee", { type: "leave" });
     goTo(door, "bob", "dee");
     door.knocks = { by: {}, town: { [plotKey(2, 2)]: TRICK_OR_TREAT.townPerDoor } };
-    refused(door, "bob", knock("dee"), "no_candy");
+    expect(refused(door, "bob", knock("dee"), "no_candy")).toContain(
+      "all it can at this door tonight. Try another neighbor's door.",
+    );
     // A neighbor home with candy still answers the door.
     const home = town();
     goTo(home, "bob", "dee");
@@ -556,7 +571,11 @@ describe("trick-or-treating", () => {
         ]),
       ),
     };
-    refused(night, "bob", knock("dee"), "no_candy");
+    // The town's candy is gone for the whole night, not just at this door, so another door with
+    // nobody home won't help, and the refusal says so.
+    const gone = refused(night, "bob", knock("dee"), "no_candy");
+    expect(gone).toContain("all 250 of its candies tonight");
+    expect(gone).not.toContain("Try another neighbor's door");
   });
 
   it("refuses your own door, a shared one, and your household's", () => {

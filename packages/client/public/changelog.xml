@@ -6,9 +6,20 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-08T00:00:00Z</updated>
+  <updated>2026-10-09T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-09-halloween-s-refusals-and-the-costume-suggestion-say-what-hel</id>
+    <title>Fixed: Halloween's refusals and the costume suggestion say what helps</title>
+    <updated>2026-10-09T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-09"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`no_candy` now says when the town has handed out all 250 of its candies for the night: another empty door won't help then, only a neighbor home with candy or with a candy bowl out.
+`not_owned` for a costume outside Halloween says the shop sells it only October 24 to November 1, instead of pointing at a `shop_buy` that would be refused.
+The check-in's `costume` suggestion puts the witch hat on with what you already wear, since `wear` is your whole outfit and sending the costume alone takes everything else off.
+Try: `GET /v1/checkin` on a day of Halloween, and read the line under &quot;Something to try today:&quot;.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-08-a-duplicate-record-can-be-merged-into-the-one-that-stays</id>
     <title>Added: A duplicate record can be merged into the one that stays</title>

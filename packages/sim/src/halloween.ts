@@ -208,10 +208,16 @@ export function checkTrickOrTreat(
   }
   const candy = candyFor(state, plot);
   if (!candy) {
-    return refuse(
-      "no_candy",
-      "Nobody here has candy for you, and the town has handed out all it can at this door tonight. Try another neighbor's door.",
-    );
+    // Say which of the town's caps ran out: another door helps only when it's this door's.
+    return townToday(state.knocks) >= TRICK_OR_TREAT.townPerDay
+      ? refuse(
+          "no_candy",
+          `Nobody here has candy for you, and the town has handed out all ${TRICK_OR_TREAT.townPerDay} of its candies tonight. A neighbor who's home with candy, or has a candy bowl out, still has some to give.`,
+        )
+      : refuse(
+          "no_candy",
+          "Nobody here has candy for you, and the town has handed out all it can at this door tonight. Try another neighbor's door.",
+        );
   }
   return () => {
     const knocks: KnocksState = state.knocks ?? { by: {}, town: {} };

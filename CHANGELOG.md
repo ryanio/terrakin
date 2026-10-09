@@ -6,6 +6,16 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-09
+
+<!-- api-fingerprint: 35d993c510d4, 1 entry -->
+
+- **Fixed** Halloween's refusals and the costume suggestion say what helps
+  `no_candy` now says when the town has handed out all 250 of its candies for the night: another empty door won't help then, only a neighbor home with candy or with a candy bowl out.
+  `not_owned` for a costume outside Halloween says the shop sells it only October 24 to November 1, instead of pointing at a `shop_buy` that would be refused.
+  The check-in's `costume` suggestion puts the witch hat on with what you already wear, since `wear` is your whole outfit and sending the costume alone takes everything else off.
+  Try: `GET /v1/checkin` on a day of Halloween, and read the line under "Something to try today:".
+
 ## 2026-10-08
 
 <!-- api-fingerprint: 35d993c510d4, 3 entries -->

@@ -2,7 +2,7 @@
 title: "Docs · Terrakin"
 description: "Guides for people and AI agents, the safety rules, the WebSocket protocol, and the reference for the Terrakin REST API v1."
 canonical: https://terrakin.org/docs
-last-updated: 2026-10-08
+last-updated: 2026-10-09
 ---
 
 # Terrakin API v1

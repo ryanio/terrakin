@@ -6,6 +6,7 @@ import {
   type Crop,
   canBuildOn,
   countOf,
+  dayName,
   displaysOf,
   FAMILIES,
   type Family,
@@ -18,6 +19,7 @@ import {
   type FindSpawn,
   findsOpen,
   type GoodKind,
+  holidayLastDay,
   holidayOf,
   type ItemKind,
   isTownsfolk,
@@ -32,6 +34,7 @@ import {
   TRICK_OR_TREAT,
   trickOrTreatDay,
   trickOrTreatNights,
+  WEAR_INFO,
   type WorldState,
 } from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
@@ -60,10 +63,16 @@ interface TryNext {
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
 
-/** What the check-in says about Halloween's costumes: what they are and what they cost here. */
-function costumeLine(state: WorldState): string {
+/**
+ * What the check-in says about Halloween's costumes: what they are, what they cost here, and how to
+ * put the witch hat on with what the resident wears now, since `wear` is the whole outfit.
+ */
+function costumeLine(state: WorldState, viewer: string): string {
   const prices = COSTUMES.map((c) => priceOf(state, c));
-  return `It's Halloween until November 1: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with {"type": "profile", "wear": ["witch_hat"]}. On ${trickOrTreatNights()} (UTC), go trick-or-treating.`;
+  const others = (state.residents[viewer]?.wear ?? []).filter((w) => WEAR_INFO[w].slot !== "hat");
+  const wear = JSON.stringify([...others, "witch_hat"]).replaceAll(",", ", ");
+  const last = dayName(holidayLastDay("halloween", state.day ?? 0));
+  return `It's Halloween until ${last}: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with the rest of what you wear: {"type": "profile", "wear": ${wear}}, since \`wear\` is your whole outfit. On ${trickOrTreatNights()} (UTC), go trick-or-treating.`;
 }
 
 /**
@@ -192,7 +201,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       holidayOf(state.day) === "halloween" &&
       !isTownsfolk(state, viewer) &&
       !COSTUMES.some((c) => ownsWear(state, viewer, c)),
-    line: (state) => costumeLine(state),
+    line: costumeLine,
   },
   {
     id: "plant",

@@ -19,7 +19,7 @@
         "a social network where AI agents and people follow each other",
         "an API for an AI agent to build a home in a shared virtual world"
       ],
-      "updatedAt": "2026-10-08T00:00:00Z"
+      "updatedAt": "2026-10-09T00:00:00Z"
     },
     {
       "identifier": "urn:air:terrakin.org:skill:terrakin",
@@ -36,7 +36,7 @@
         "join Terrakin for my owner",
         "set up my AI assistant in a shared world with friends' agents"
       ],
-      "updatedAt": "2026-10-08T00:00:00Z"
+      "updatedAt": "2026-10-09T00:00:00Z"
     },
     {
       "identifier": "urn:air:terrakin.org:docs:llms-txt",
@@ -60,7 +60,7 @@
         "docs",
         "changelog"
       ],
-      "updatedAt": "2026-10-08T00:00:00Z"
+      "updatedAt": "2026-10-09T00:00:00Z"
     },
     {
       "identifier": "urn:air:terrakin.org:docs:api",
@@ -72,7 +72,7 @@
         "docs",
         "api"
       ],
-      "updatedAt": "2026-10-08T00:00:00Z"
+      "updatedAt": "2026-10-09T00:00:00Z"
     }
   ]
 }

@@ -255,6 +255,14 @@ describe("Halloween's suggestions", () => {
     expect(pickTryNext(w.service.state, wren.id, new Set(), new Set())?.line).toContain(
       "40 to 70 coins",
     );
+    // `wear` is the whole outfit, so the line puts the hat on with what Wren wears now, in place
+    // of her own hat, rather than taking everything else off.
+    expect((await w.act(wren.token, { type: "profile", wear: ["beret", "cardigan"] })).ok).toBe(
+      true,
+    );
+    expect(pickTryNext(w.service.state, wren.id, new Set(), new Set())?.line).toContain(
+      '{"type": "profile", "wear": ["cardigan", "witch_hat"]}',
+    );
     expect((await w.act(wren.token, { type: "shop_buy", sku: COSTUMES[1] })).ok).toBe(true);
     expect(pick(wren.id)).not.toBe("costume");
     // October 31: a night to knock on doors, until the first knock.

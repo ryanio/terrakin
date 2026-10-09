@@ -66,6 +66,7 @@ import { checkGather, checkOpenFinds, checkOwnPlotPickups } from "./gather";
 import { checkLay, checkLift } from "./ground";
 import { checkTrickOrTreat, halloweenNewDay } from "./halloween";
 import { canonicalJson, fnv1a } from "./hash";
+import { HOLIDAY_INFO, holidayDates, inHoliday } from "./holiday";
 import {
   blockNeeds,
   blockPlaceProblem,
@@ -142,6 +143,7 @@ import {
   ownsWear,
   type ShopChecked,
   shopNewDay,
+  stockHoliday,
 } from "./shop";
 import { checkTestGrant } from "./test-grant";
 import {
@@ -313,6 +315,14 @@ function unownedWear(state: WorldState, actor: string, fields: ProfileFields): P
   const wear: readonly unknown[] = Array.isArray(fields.wear) ? fields.wear : [];
   const missing = wear.find((w) => isShopWear(w) && !ownsWear(state, actor, w));
   if (missing !== undefined) {
+    // A costume the shop isn't selling today: say when it is, since shop_buy would refuse it now.
+    const holiday = isShopWear(missing) ? stockHoliday(missing) : undefined;
+    if (holiday && (state.day === undefined || !inHoliday(holiday, state.day))) {
+      return reject(
+        "not_owned",
+        `That's from the town shop, which sells it only for ${HOLIDAY_INFO[holiday].name}, ${holidayDates(holiday)} (UTC). Buy it then with shop_buy, and it's yours to wear any day.`,
+      );
+    }
     return reject("not_owned", "That's from the town shop. Buy it there with shop_buy first.");
   }
   // A style on partner wear needs the entitlement too (clearing one never does).

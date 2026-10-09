@@ -583,7 +583,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `out_of_holiday` | That belongs to a holiday that isn't on today: the shop sells it only while the holiday runs, or trick-or-treating is only on October 31 and November 1. The message says when it's back. What you already have works any day. |
 | `already_knocked` | You knocked at that door tonight. Try another neighbor's. |
 | `knock_limit` | You've knocked on 10 doors tonight, all one night has. |
-| `no_candy` | Nobody at that door has candy for you, and the town has handed out all it can there tonight (or all it has). Try another door. |
+| `no_candy` | Nobody at that door has candy for you, and the town has handed out all it can there tonight: try another door. Or the town has handed out all its candy tonight, across town, and the message says so: then only a neighbor who's home with candy, or has a candy bowl out, has one to give. |
 | `no_rod` | Fishing takes a fishing rod in your things. Make one at a workbench from 3 wood: `{"type": "craft", "recipe": "fishing_rod", ...}`. |
 | `no_water` | Fish from right beside water: a `pond` tile next to you, diagonals included. The message names the nearest pond within 12 tiles, and the steps there. |
 | `cast_limit` | You've cast 10 times today, all one day has. The fish bite again after midnight UTC. |
@@ -592,7 +592,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `no_picks_left` | You've used all 3 free picks. Buy the card at the town shop instead. |
 | `taught_today` | You've taught a recipe today, or they've been taught one: one a day each way, until midnight UTC. A townsfolk teaches each resident once a week. |
 | `not_near` | You and the resident you'd teach aren't within reach of each other. The message names the walk. |
-| `not_owned` | That's shop wear you haven't bought. Buy it with `shop_buy` first. |
+| `not_owned` | That's shop wear you haven't bought. Buy it with `shop_buy` first. A holiday's costume is sold only while its holiday runs, and the message says when. |
 | `not_entitled` | That's a partner's piece. Only its verified characters can wear it; your profile's `entitled` lists what you may wear. |
 | `market_closed` | The market hasn't opened in this world yet. |
 | `unknown_listing` | That listing isn't open: it sold, was taken back, or never was. Check `GET /v1/market`. |

@@ -343,26 +343,27 @@ export function nextSeasonStart(season: Season, day: number): number {
 function notOnSale(sku: ShopSku, day: number): Rejection | null {
   const window = stockWindows(sku).find((w) => !inWindow(w, day));
   if (!window) return null;
-  const what = isShopWear(sku)
+  const wear = isShopWear(sku);
+  const what = wear
     ? `the ${WEAR_INFO[sku].label.toLowerCase()}`
     : ITEM_INFO[sku].plural.toLowerCase();
-  const why: { code: RejectionCode; when: string; back: string; use: string } =
+  const why: { code: RejectionCode; when: string; back: string; any: string } =
     "season" in window
       ? {
           code: "out_of_season",
           when: `in ${window.season}`,
           back: `It's ${seasonOf(day)} now, and ${window.season} starts on ${dayName(nextSeasonStart(window.season, day))}`,
-          use: "in any season",
+          any: "in any season",
         }
       : {
           code: "out_of_holiday",
           when: `for ${HOLIDAY_INFO[window.holiday].name}, ${holidayDates(window.holiday)}`,
           back: `It's back on ${dayName(nextHolidayStart(window.holiday, day))}`,
-          use: "and wear any day",
+          any: "any day",
         };
   return refuse(
     why.code,
-    `The shop sells ${what} only ${why.when}. ${why.back} (UTC). What you already have is yours to use ${why.use}. GET /v1/shop lists what's sold today.`,
+    `The shop sells ${what} only ${why.when}. ${why.back} (UTC). What you already have is yours to ${wear ? "wear" : "use"} ${why.any}. GET /v1/shop lists what's sold today.`,
   );
 }
 

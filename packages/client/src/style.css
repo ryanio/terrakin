@@ -6700,6 +6700,43 @@ html.view3d-open body {
   flex: none;
 }
 
+/* The storey picker (RFC 0028): under the bar, however tall a plot's name makes it. */
+.view3d-bar > .view3d-storeys-line {
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  left: 0;
+  pointer-events: none;
+}
+
+.view3d-storeys {
+  display: flex;
+  width: max-content;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 250, 240, 0.85);
+  border: 1px solid var(--paper-edge);
+  box-shadow: var(--shadow-pill);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.view3d-storeys button {
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
+.view3d-storeys button[aria-pressed="true"] {
+  background: var(--clay);
+  color: var(--paper);
+}
+
 .view3d-foot {
   position: absolute;
   left: 50%;

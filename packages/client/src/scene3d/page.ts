@@ -1,19 +1,21 @@
 /**
  * The page around a 3D scene: a full-screen stage with a back button, a title, and "Take a photo".
- * `/r/:id/3d` visits a resident's plot from the live world snapshot; `/gallery/3d` is the gallery
- * room (and `?item=` one item up close). Lazy: the main bundle reaches this only through import().
+ * `/r/:id/3d` visits a resident's plot from the live world snapshot, with a storey picker under
+ * the bar when the home has a loft (RFC 0028); `/gallery/3d` is the gallery room (and `?item=` one
+ * item up close). Lazy: the main bundle reaches this only through import().
  */
 import { everyoneIn, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
-import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
+import { chips, openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
 import { savedResidentId, savedToken } from "../net";
+import { storeyName } from "../storeys";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
 import { createStage, type Stage } from "./art";
 import { parseGallery } from "./catalog";
 import { buildGallery } from "./gallery";
-import { homeExtras, homePlot, plotLayout, rawResident } from "./layout";
+import { homeExtras, homePlot, plotLayout, rawResident, startStorey } from "./layout";
 import { buildPlot } from "./plot";
 
 const PHOTO_FILE = "terrakin-photo.png";
@@ -67,11 +69,12 @@ export function mount3d(
     h("span", { text: "Take a photo" }),
   );
   const help = h("p", { class: "view3d-help", text: "Drag to turn. Pinch or scroll to zoom." });
+  const bar = h("header", { class: "view3d-bar" }, back, title, photoBtn);
   const section = h(
     "section",
     { class: "view3d", attrs: { "aria-label": "3D view" } },
     host,
-    h("header", { class: "view3d-bar" }, back, title, photoBtn),
+    bar,
     h("div", { class: "view3d-foot" }, status, note, help),
   );
   el.replaceChildren(section);
@@ -151,7 +154,11 @@ export function mount3d(
           ...homeExtras(rawResident(raw, route.id)),
         };
         stage = createStage(host, { autoRotate: true });
-        buildPlot(stage, layout, extras, { onNote: showNote });
+        // Cut away at your storey while you stand on the plot, as the map is; else the whole home.
+        const viewer = everyoneIn(snapshot).find((r) => r.id === savedResidentId());
+        const storey = startStorey(layout, viewer);
+        const scene = buildPlot(stage, layout, extras, { onNote: showNote, storey });
+        if (layout.top > 0) bar.append(storeyPicker(layout.top, storey, scene.showStoreys));
       }
       if (gone) return;
       status.textContent = "";
@@ -254,6 +261,23 @@ export function mount3d(
     stage = undefined;
     for (const u of urls) URL.revokeObjectURL(u);
   };
+}
+
+/**
+ * The storey picker (RFC 0028): a chip for each storey, "Ground floor" and "Upstairs", on a line
+ * of its own under the bar. The pressed one shows that storey and everything under it.
+ */
+function storeyPicker(top: number, start: number, show: (top: number) => void): HTMLElement {
+  const storeys = Array.from({ length: top + 1 }, (_, n) => String(n));
+  const row = h("div", { class: "view3d-storeys", attrs: { "aria-label": "Storeys" } });
+  chips(
+    storeys,
+    String(start),
+    (n) => [h("span", { text: storeyName(Number(n)) })],
+    (n) => show(Number(n)),
+    row,
+  );
+  return h("div", { class: "view3d-storeys-line" }, row);
 }
 
 /** Wait (briefly) for the two faces the canvases draw with. A slow font never holds the scene up. */

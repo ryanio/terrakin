@@ -123,9 +123,12 @@ export interface PlotChunk {
   py: number;
   bounds: Bounds;
   owner: string | undefined;
-  blocks: { x: number; y: number; block: BlockKind }[];
-  /** Paths and floors (RFC 0016), under whatever stands on them. */
-  ground: { x: number; y: number; ground: GroundKind }[];
+  /** Blocks on every storey shown (RFC 0028), `storey` on those above the ground floor. */
+  blocks: { x: number; y: number; block: BlockKind; storey?: number }[];
+  /** Paths and floors (RFC 0016), under whatever stands on them, and floors upstairs. */
+  ground: { x: number; y: number; ground: GroundKind; storey?: number }[];
+  /** The highest storey with anything on it, shown or cut away. */
+  highest: number;
   hearths: Tile[];
   /** What's on display on its pedestals and frames, and what grows in its planters. */
   displays: LayoutDisplay[];
@@ -149,6 +152,14 @@ export interface ChunkSource {
   blocks: ReadonlyMap<string, BlockKind>;
   /** Paths and floors by tile key. Absent reads as none. */
   paving?: ReadonlyMap<string, GroundKind>;
+  /**
+   * Each storey above the ground floor (RFC 0028), by its number: its blocks and floors by tile
+   * key (`Mirror.upstairs`). Absent reads as none.
+   */
+  upstairs?: ReadonlyMap<
+    number,
+    { blocks: ReadonlyMap<string, BlockKind>; paving: ReadonlyMap<string, GroundKind> }
+  >;
   plots: ReadonlyMap<string, string>;
   displays?: ReadonlyMap<string, { good: ShownGood }>;
   /** Finds on display (RFC 0021), by tile key. */
@@ -197,7 +208,9 @@ function tileThings(
 
 /**
  * Read one plot from the mirror. `hearths` holds every resident's hearth tile key, `season`
- * dresses the ground (today's look without one), and `lit` says someone's home there.
+ * dresses the ground (today's look without one), `lit` says someone's home there, and `cut` is
+ * the storey it's cut away at (RFC 0028): on the plot you stand on, yours, so nothing above you
+ * is drawn; on every other plot, absent, so it shows whole.
  */
 export function readChunk(
   source: ChunkSource,
@@ -206,6 +219,7 @@ export function readChunk(
   hearths: ReadonlySet<string>,
   season?: Season,
   lit = false,
+  cut?: number,
 ): PlotChunk {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const owner = source.plots.get(`${px},${py}`);
@@ -249,6 +263,10 @@ export function readChunk(
         });
     }
   }
+  const up = upstairsOf(source, bounds, lit, cut);
+  blocks.push(...up.blocks);
+  ground.push(...up.ground);
+  parts.push(...up.parts);
   return {
     px,
     py,
@@ -256,6 +274,7 @@ export function readChunk(
     owner,
     blocks,
     ground,
+    highest: up.highest,
     hearths: homes,
     displays,
     crops,
@@ -268,6 +287,55 @@ export function readChunk(
   };
 }
 
+/**
+ * What stands and lies upstairs on a plot (RFC 0028), storey by storey from the bottom, up to
+ * `cut` (the plot you stand on, cut away at your storey) or every storey (any other plot), with
+ * the words for it in a chunk's signature. `highest` is the top storey with anything on it, cut
+ * away or not, and a cut that hides something says so in the words, since its walls get caps.
+ */
+function upstairsOf(
+  source: ChunkSource,
+  bounds: Bounds,
+  lit: boolean,
+  cut: number | undefined,
+): {
+  blocks: { x: number; y: number; block: BlockKind; storey: number }[];
+  ground: { x: number; y: number; ground: GroundKind; storey: number }[];
+  highest: number;
+  parts: string[];
+} {
+  const blocks: { x: number; y: number; block: BlockKind; storey: number }[] = [];
+  const ground: { x: number; y: number; ground: GroundKind; storey: number }[] = [];
+  const parts: string[] = [];
+  let highest = 0;
+  const storeys = [...(source.upstairs?.keys() ?? [])].sort((a, b) => a - b);
+  for (const storey of storeys) {
+    const layer = source.upstairs?.get(storey);
+    if (!layer || (layer.blocks.size === 0 && layer.paving.size === 0)) continue;
+    const shown = cut === undefined || storey <= cut;
+    for (let y = bounds.y0; y <= bounds.y1; y++) {
+      for (let x = bounds.x0; x <= bounds.x1; x++) {
+        const key = tileKey(x, y);
+        const block = layer.blocks.get(key);
+        const laid = layer.paving.get(key);
+        if (!block && !laid) continue;
+        highest = Math.max(highest, storey);
+        if (!shown) continue;
+        if (block) {
+          blocks.push({ x, y, block, storey });
+          parts.push(`${key}@${storey}:${block}${lit && block === "glass" ? ":lit" : ""}`);
+        }
+        if (laid) {
+          ground.push({ x, y, ground: laid, storey });
+          parts.push(`${key}@${storey}:on:${laid}`);
+        }
+      }
+    }
+  }
+  if (cut !== undefined && highest > cut) parts.push(`cut:${cut}`);
+  return { blocks, ground, highest, parts };
+}
+
 /** Just the signature of a plot, cheap enough to check on every change to the mirror. */
 export function chunkSignature(
   source: ChunkSource,
@@ -276,12 +344,14 @@ export function chunkSignature(
   hearths: ReadonlySet<string>,
   season?: Season,
   lit = false,
+  cut?: number,
 ): string {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const parts: string[] = [source.plots.get(`${px},${py}`) ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++)
     for (let x = bounds.x0; x <= bounds.x1; x++)
       parts.push(...tileThings(source, x, y, hearths, lit).parts);
+  parts.push(...upstairsOf(source, bounds, lit, cut).parts);
   return parts.join("|");
 }
 

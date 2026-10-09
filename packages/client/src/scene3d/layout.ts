@@ -33,6 +33,7 @@ import { growth } from "@terrakin/ui/item-art";
 import { hidesHair } from "@terrakin/ui/looks";
 import { dayPhase, nightAmount } from "../time";
 import { skyNow } from "../weather";
+import { blockLook } from "./palette";
 
 /** Inclusive tile range. */
 export interface Bounds {
@@ -93,6 +94,8 @@ export interface LayoutBlock {
   fade: number;
   /** A window in a home someone's in, lit from inside after dark (decision 0098). */
   lit?: true | undefined;
+  /** The storey it stands on (RFC 0028): absent on the ground floor. */
+  storey?: number | undefined;
 }
 
 export interface LayoutFigure {
@@ -110,6 +113,8 @@ export interface LayoutFigure {
   feeling?: Feeling | undefined;
   /** Away from the world and asleep at home: drawn faded, never as here (decision 0086). */
   away?: true | undefined;
+  /** The storey they stand on (RFC 0028): absent on the ground floor. */
+  storey?: number | undefined;
 }
 
 /** One worn thing on a 3D figure: its color, and its pattern when it has one. */
@@ -210,6 +215,86 @@ export function hearthStand(free: (dx: number, dy: number) => boolean): {
  */
 export function hearthPull(x: number, y: number, hx: number, hy: number): number {
   return Math.max(0, 1 - Math.max(Math.abs(x - hx), Math.abs(y - hy)));
+}
+
+// ---------- homes with storeys (RFC 0028) ----------
+
+/** How tall a storey is: one wall, so a floor upstairs lies on the walls under it. */
+export const STOREY_HEIGHT = blockLook("wood").height;
+
+/** How high a storey's floor is in the scene: 0 for the ground floor. */
+export function storeyY(storey: number | undefined): number {
+  return (storey ?? 0) * STOREY_HEIGHT;
+}
+
+/**
+ * What a view draws with the plot it shows cut away at storey `top`: nothing above it on the plot
+ * (`own`), and every neighbor whole. The map's rule: you see the storey you're on, and the rest of
+ * the world from above.
+ */
+export function cutAway<T extends { own?: boolean; storey?: number | undefined }>(
+  list: readonly T[],
+  top: number,
+): T[] {
+  return list.filter((t) => t.own === false || (t.storey ?? 0) <= top);
+}
+
+/** The blocks a storey's walls are made of, which a floor above lies on. */
+const WALLS: readonly BlockKind[] = ["wood", "stone", "glass"];
+
+/**
+ * The walls a cut leaves open at the top, so their tops are darkened and the cut reads as a cut:
+ * the plot's walls on storey `top`, while something on a storey above it (up to `highest`) is cut
+ * away. None when nothing is.
+ */
+export function cutWalls<
+  T extends { block: BlockKind; own?: boolean; storey?: number | undefined },
+>(blocks: readonly T[], top: number, highest: number): T[] {
+  if (highest <= top) return [];
+  return blocks.filter(
+    (b) => b.own !== false && (b.storey ?? 0) === top && WALLS.includes(b.block),
+  );
+}
+
+/**
+ * The sphere the 3D home view frames, for a plot `size` tiles across whose highest storey is
+ * `top`: its middle lifted half a storey for each storey up, and its radius grown as much, so a
+ * photo of a home with a loft keeps the loft's walls in it with room to spare. A home of one
+ * storey frames as it always has.
+ */
+export function homeFrame(size: number, top: number): { y: number; radius: number } {
+  const rise = storeyY(top) / 2;
+  return { y: 0.6 + rise, radius: size * 0.56 + rise };
+}
+
+/**
+ * The storey the 3D home view starts on: cut away at the storey you stand on while you're on the
+ * plot, as the map is, else the whole home (its highest storey).
+ */
+export function startStorey(
+  layout: Pick<PlotLayout, "bounds" | "top">,
+  viewer: { x: number; y: number; online: boolean; storey?: number | undefined } | undefined,
+): number {
+  if (!viewer?.online || !inBounds(layout.bounds, viewer.x, viewer.y)) return layout.top;
+  return Math.min(viewer.storey ?? 0, layout.top);
+}
+
+/**
+ * Which way stairs turn, in radians about the vertical as figures turn (0 puts their foot to the
+ * south, the camera's usual side), so they climb from an open tile beside them: south first, then
+ * east, west, and north. `open(dx, dy)` says whether that tile on their storey is free to stand
+ * on. Boxed in, they face south. Only a look: the sim keeps no facing for stairs (RFC 0028).
+ */
+export function stairsTurn(open: (dx: number, dy: number) => boolean): number {
+  for (const [dx, dy] of [
+    [0, 1],
+    [1, 0],
+    [-1, 0],
+    [0, -1],
+  ] as const) {
+    if (open(dx, dy)) return Math.atan2(dx, dy);
+  }
+  return 0;
 }
 
 // ---------- residents away, asleep at home (decision 0086) ----------
@@ -326,6 +411,8 @@ interface LayoutGround {
   ground: GroundKind;
   own: boolean;
   fade: number;
+  /** The storey it's laid on (RFC 0028): absent on the ground floor. Upstairs it's a floor. */
+  storey?: number | undefined;
 }
 
 export interface PlotLayout {
@@ -339,8 +426,10 @@ export interface PlotLayout {
   /** Neighbor tiles shown around the plot. */
   margin: number;
   blocks: LayoutBlock[];
-  /** Paths and floors on the plot and in the margin. */
+  /** Paths and floors on the plot and in the margin, upstairs floors too. */
   ground: LayoutGround[];
+  /** The highest storey with anything on it on the plot shown (RFC 0028): 0 for one storey. */
+  top: number;
   hearth: { x: number; y: number } | null;
   figures: LayoutFigure[];
   /** What's on display on the plot's pedestals and frames. */
@@ -432,11 +521,13 @@ export function plotLayout(
   const homes = litHomes(everyone, plotSize);
   if (hearth) homes.add(plotKey(plot.px, plot.py));
   const blocks: LayoutBlock[] = [];
-  // The ground floor only, until the plot view draws storeys (RFC 0028).
+  // Every storey (RFC 0028): the view lifts each by its height and cuts away what's above the pick.
+  let top = 0;
   for (const b of snapshot.blocks) {
-    if (b.storey || !inBounds(outer, b.x, b.y)) continue;
+    if (!inBounds(outer, b.x, b.y)) continue;
     const d = distanceOutside(bounds, b.x, b.y);
     const home = homes.has(plotKey(Math.floor(b.x / plotSize), Math.floor(b.y / plotSize)));
+    if (d === 0 && b.storey) top = Math.max(top, b.storey);
     blocks.push({
       x: b.x,
       y: b.y,
@@ -444,14 +535,23 @@ export function plotLayout(
       own: d === 0,
       fade: d / (margin + 1),
       ...(home && b.block === "glass" ? { lit: true as const } : {}),
+      ...(b.storey ? { storey: b.storey } : {}),
     });
   }
-  blocks.sort((a, b) => a.y - b.y || a.x - b.x);
+  blocks.sort((a, b) => (a.storey ?? 0) - (b.storey ?? 0) || a.y - b.y || a.x - b.x);
   const ground: LayoutGround[] = [];
   for (const g of snapshot.ground ?? []) {
-    if (g.storey || !inBounds(outer, g.x, g.y)) continue;
+    if (!inBounds(outer, g.x, g.y)) continue;
     const d = distanceOutside(bounds, g.x, g.y);
-    ground.push({ x: g.x, y: g.y, ground: g.ground, own: d === 0, fade: d / (margin + 1) });
+    if (d === 0 && g.storey) top = Math.max(top, g.storey);
+    ground.push({
+      x: g.x,
+      y: g.y,
+      ground: g.ground,
+      own: d === 0,
+      fade: d / (margin + 1),
+      ...(g.storey ? { storey: g.storey } : {}),
+    });
   }
 
   const shown = new Map<string, { good: ShownGood }>([
@@ -462,7 +562,8 @@ export function plotLayout(
   const displays: LayoutDisplay[] = [];
   const crops: LayoutCrop[] = [];
   for (const b of blocks) {
-    if (!b.own) continue;
+    // Planters, pedestals, and frames stay on the ground floor (RFC 0028).
+    if (!b.own || b.storey) continue;
     const key = tileKey(b.x, b.y);
     const d = displayOn(b.block, b.x, b.y, shown.get(key));
     if (d) displays.push(d);
@@ -470,7 +571,8 @@ export function plotLayout(
     if (c) crops.push(c);
   }
 
-  const solid = new Set(blocks.map((b) => `${b.x},${b.y}`));
+  // Hearths, sleepers, the owner's spot, and the pet are all on the ground floor.
+  const solid = new Set(blocks.flatMap((b) => (b.storey ? [] : [`${b.x},${b.y}`])));
   const hearths = new Set(
     everyone.flatMap((r) => (r.hearth ? [tileKey(r.hearth.x, r.hearth.y)] : [])),
   );
@@ -495,6 +597,8 @@ export function plotLayout(
     const dozing = asleep.get(r.id);
     if (!isOwner && !dozing && !(r.online && onPlot)) continue;
     const spot = dozing ?? (onPlot ? { x: r.x, y: r.y } : homeSpot(bounds, hearth, solid));
+    // Someone standing upstairs stands on their storey; a spot found for them is on the ground.
+    const storey = !dozing && onPlot ? r.storey : undefined;
     figures.push({
       id: r.id,
       name: r.name,
@@ -516,13 +620,16 @@ export function plotLayout(
         hairColor: r.hairColor,
       },
       ...(dozing ? { feeling: "sleepy" as const, away: true as const } : {}),
+      ...(storey ? { storey } : {}),
     });
   }
   const { season, weather } = skyNow(snapshot.time.nowMs, snapshot.day);
 
   // The owner's pet, beside the hearth and clear of everyone drawn there, sleepers too: they lie
   // between tiles, so each takes the tile they're nearest.
-  const taken = new Set(figures.map((f) => `${Math.round(f.x)},${Math.round(f.y)}`));
+  const taken = new Set(
+    figures.flatMap((f) => (f.storey ? [] : [`${Math.round(f.x)},${Math.round(f.y)}`])),
+  );
   const night = isNight(snapshot.time);
   const pet =
     owner.pet && hearth
@@ -543,6 +650,7 @@ export function plotLayout(
     margin,
     blocks,
     ground,
+    top,
     hearth,
     figures,
     displays,

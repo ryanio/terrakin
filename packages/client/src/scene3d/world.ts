@@ -6,8 +6,9 @@
  * Plots load as chunks within `VIEW_RADIUS` of you (fog hides the edge), at most two built per
  * frame, and each is freed when you walk away. Blocks, plot borders, grass, hearths, and figures
  * come from the builders the plot view uses (`blocks.ts`, `ground.ts`, `scenery.ts`, `hearth.ts`,
- * `figure.ts`), and the Town Hall and the shop from `buildings.ts`. Loaded only through `import()`
- * (decision 0013).
+ * `figure.ts`), and the Town Hall and the shop from `buildings.ts`. Homes with storeys (RFC 0028)
+ * show every plot whole but the one you stand on, cut away at your storey, and figures stand on
+ * their storeys. Loaded only through `import()` (decision 0013).
  */
 
 import {
@@ -92,15 +93,17 @@ import { border, groundGrid } from "./ground";
 import { HEARTH_LIGHT, hearth } from "./hearth";
 import {
   cornerLight,
+  cutWalls,
   FIGURE_SCALE,
   hearthPull,
   hearthStand,
   type LayoutFigure,
   litHomes,
   signSize,
+  storeyY,
 } from "./layout";
 import { hex, SKY } from "./palette";
-import { groundAtlas, groundTiles } from "./paths";
+import { floorSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
 import { pickups, scenery } from "./scenery";
 import { createWeather } from "./weather";
@@ -186,6 +189,8 @@ interface Fig {
   group: Group;
   scope: Scope;
   signature: string;
+  /** How high their storey's floor is drawn (RFC 0028), eased as they go up or down. */
+  rise: number;
   turn: number;
   /** The head's turn from the body, toward whoever is speaking. */
   look: number;
@@ -217,6 +222,8 @@ const MIN_DISTANCE = 3;
 const MAX_DISTANCE = 24;
 /** How quickly figures turn, per second. */
 const TURN = 10;
+/** How quickly a figure climbs to its storey's floor (RFC 0028), per second. */
+const CLIMB = 8;
 /** Figures this close to a speaker turn their heads to them, as far as a neck goes. */
 const LISTEN_RADIUS = 5;
 const NECK = 0.8;
@@ -328,6 +335,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   /** Who was out on a routine at the last frame, so the cast changes when one goes back to sleep. */
   let outSeen = "";
   let lastTile: Tile | undefined;
+  /** Where the last frame cut the world away (RFC 0028), so a new cut builds its plots again. */
+  let cutSeen = "";
   let pending = false;
   /** A pass over changed plots stopped at the per-frame cap: the next frame finishes it. */
   let recheck = false;
@@ -369,8 +378,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     disposeTree(c.group, shared);
   }
 
-  function buildChunk(mirror: Mirror, px: number, py: number): Chunk {
-    const data = readChunk(mirror, px, py, hearths, season, homes.has(plotKey(px, py)));
+  function buildChunk(mirror: Mirror, px: number, py: number, cut: number | undefined): Chunk {
+    const data = readChunk(mirror, px, py, hearths, season, homes.has(plotKey(px, py)), cut);
     const scope = scoped(stage);
     const group = new Group();
     group.name = `plot ${px},${py}`;
@@ -386,6 +395,14 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
       if (paved) group.add(paved);
     }
+    // Floors upstairs on slabs (RFC 0028), and caps on the walls a cut leaves open.
+    const slabs = floorSlabs(
+      origin,
+      data.ground.filter((g) => g.storey),
+      cutWalls(blocks, cut ?? data.highest, data.highest),
+      grain,
+    );
+    if (slabs) group.add(slabs);
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
     // Branches and stones are shapes; finds (RFC 0021) stand as their pictures.
@@ -409,8 +426,19 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     return { group, scope, signature: data.signature };
   }
 
-  function updateChunks(mirror: Mirror, tile: Tile, changed: boolean) {
+  /**
+   * The plots in view, built or built again when what they draw changed. `cut` is the plot you
+   * stand on and your storey there (RFC 0028): that plot is cut away at it, the rest whole.
+   */
+  function updateChunks(
+    mirror: Mirror,
+    tile: Tile,
+    changed: boolean,
+    cut: { px: number; py: number; storey: number } | undefined,
+  ) {
     const { config } = mirror;
+    const cutAt = (px: number, py: number) =>
+      cut && cut.px === px && cut.py === py ? cut.storey : undefined;
     const keep = new Set(
       plotsAround(tile, VIEW_RADIUS + KEEP_SLACK, config).map((p) => plotKey(p.x, p.y)),
     );
@@ -428,14 +456,15 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const have = chunks.get(key);
       if (have && !changed) continue;
       const lit = homes.has(key);
-      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit))
+      const at = cutAt(p.x, p.y);
+      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit, at))
         continue;
       if (built >= BUILDS_PER_FRAME) {
         pending = true;
         break;
       }
       dropChunk(key);
-      chunks.set(key, buildChunk(mirror, p.x, p.y));
+      chunks.set(key, buildChunk(mirror, p.x, p.y, at));
       built++;
     }
   }
@@ -704,11 +733,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       ]);
       const have = figures.get(r.id);
       if (have?.signature === signature) continue;
+      // Asleep at home is on the ground floor; anyone else on their own storey (RFC 0028).
+      const rise = away ? 0 : (have?.rise ?? storeyY(r.storey));
       const at = away
         ? new Vector3(away.x, 0, away.y)
         : have
           ? have.group.position.clone()
-          : new Vector3(r.x, 0, r.y);
+          : new Vector3(r.x, rise, r.y);
       // Asleep at home, they face out of the door, toward the camera's usual side.
       const turn = away ? 0 : (have?.turn ?? faceAngle(mirror.facing.get(r.id)));
       dropFigure(r.id);
@@ -733,6 +764,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         group,
         scope,
         signature,
+        rise,
         turn,
         look: 0,
         doze: undefined,
@@ -772,10 +804,14 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const turn = still || Math.abs(gap) < 1e-3 ? want : f.turn + gap * (1 - Math.exp(-TURN * dt));
       const g = f.group;
       const p = g.position;
-      // Off the stonework when on or stepping onto a hearth's tile.
+      // Up or down a storey (RFC 0028), eased like a step.
+      const rise = still ? storeyY(r.storey) : approach(f.rise, storeyY(r.storey), dt, CLIMB);
+      if (rise !== f.rise) moved = true;
+      f.rise = rise;
+      // Off the stonework when on or stepping onto a hearth's tile, on the ground floor.
       let x = m.x;
       let z = m.y;
-      if (stands.size > 0) {
+      if (stands.size > 0 && !r.storey) {
         for (let ty = Math.floor(m.y); ty <= Math.ceil(m.y); ty++)
           for (let tx = Math.floor(m.x); tx <= Math.ceil(m.x); tx++) {
             const stand = stands.get(ty * standsWidth + tx);
@@ -785,8 +821,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
             z += stand.y * pull;
           }
       }
-      if (x !== p.x || z !== p.z || m.lift !== p.y || turn !== f.turn) moved = true;
-      p.set(x, m.lift, z);
+      if (x !== p.x || z !== p.z || m.lift + rise !== p.y || turn !== f.turn) moved = true;
+      p.set(x, m.lift + rise, z);
       f.turn = turn;
       // Turn first, then sway side to side in the figure's own frame.
       g.rotation.set(0, turn, m.sway);
@@ -965,8 +1001,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const lookSpot = new Vector3();
   const lastFocus = new Vector3(Number.NaN, 0, 0);
 
-  function follow(at: Vector3) {
-    focus.set(at.x, 0.6, at.z);
+  /** Keep the camera on `at`, standing `rise` up on its storey's floor. */
+  function follow(at: Vector3, rise = 0) {
+    focus.set(at.x, 0.6 + rise, at.z);
     if (!started) {
       started = true;
       controls.target.copy(focus);
@@ -1005,7 +1042,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       );
       reach.computeLineDistances();
     }
-    reach.position.set(self.x, 0.04, self.y);
+    reach.position.set(self.x, storeyY(self.storey) + 0.04, self.y);
   }
 
   // ---------- taps ----------
@@ -1158,9 +1195,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         stands = hearthStands(mirror);
         standsWidth = mirror.config.width;
       }
-      if (changed || walked || pending) {
-        const check = changed || recheck;
-        updateChunks(mirror, tile, check);
+      // The plot you stand on is cut away at your storey (RFC 0028); a link's look cuts nothing.
+      const S = mirror.config.plotSize;
+      const cut =
+        self && !look
+          ? { px: Math.floor(self.x / S), py: Math.floor(self.y / S), storey: self.storey ?? 0 }
+          : undefined;
+      const cutKey = cut ? `${cut.px},${cut.py},${cut.storey}` : "";
+      const recut = cutKey !== cutSeen;
+      cutSeen = cutKey;
+      if (changed || walked || pending || recut) {
+        const check = changed || recheck || recut;
+        updateChunks(mirror, tile, check, cut);
         recheck = pending && check;
       }
       if (changed || walked || outChanged) {
@@ -1187,7 +1233,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
       const followed = look?.id ?? (look ? undefined : me);
       const fig = followed === undefined ? undefined : figures.get(followed);
-      if (fig) follow(fig.group.position);
+      if (fig) follow(fig.group.position, fig.rise);
       else if (look) follow(lookSpot.set(look.x, 0, look.y));
       // Signs keep a readable size as the camera pulls back. Only a zoom changes it.
       const sign = signSize(camera.position.distanceTo(controls.target), camera.fov);

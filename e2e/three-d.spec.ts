@@ -148,6 +148,71 @@ test.describe("a plot in 3D", () => {
     expect(night.light).toBeLessThan(day.light * 0.8);
     expect(errors).toEqual([]);
   });
+
+  test("a home with a loft: the storey picker on a phone, the ground floor, and a photo of it", async ({
+    page,
+  }) => {
+    if (!day) throw new Error("The day test settles the plot this one adds a loft to");
+    const { residentId } = day;
+    const errors = watchErrors(page, { console: "all" });
+    // No action builds upstairs until the API opens storeys (RFC 0028, PR 6), so the snapshot the
+    // page reads gets a loft over the starter home: planks over every tile of it but a stairwell,
+    // and stairs under that.
+    await page.route(/\/v1\/world$/, async (route) => {
+      const res = await route.fetch();
+      const world = await res.json();
+      const S = world.config.plotSize;
+      const plot = world.plots.find((p: { ownerId: string }) => p.ownerId === residentId);
+      const hut = world.blocks.filter(
+        (b: { x: number; y: number }) =>
+          Math.floor(b.x / S) === plot.px && Math.floor(b.y / S) === plot.py,
+      );
+      const xs = hut.map((b: { x: number }) => b.x);
+      const ys = hut.map((b: { y: number }) => b.y);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      const well = { x: x0 + 1, y: y0 + 1 };
+      plot.storeys = 1;
+      world.blocks.push({ ...well, block: "stairs" });
+      world.ground = world.ground ?? [];
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++)
+          if (x !== well.x || y !== well.y)
+            world.ground.push({ x, y, storey: 1, ground: "planks" });
+      await route.fulfill({ response: res, body: JSON.stringify(world) });
+    });
+    await page.goto(`/r/${residentId}/3d`);
+    await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
+
+    // A visitor off the plot starts on the whole home, the picker on its own line under the bar.
+    const picker = page.getByRole("group", { name: "Storeys" });
+    const ground = picker.getByRole("button", { name: "Ground floor" });
+    const upstairs = picker.getByRole("button", { name: "Upstairs" });
+    await expect(upstairs).toHaveAttribute("aria-pressed", "true");
+    await expect(ground).toHaveAttribute("aria-pressed", "false");
+    const bar = await page.locator(".view3d-back").boundingBox();
+    const chips = await picker.boundingBox();
+    expect(bar && chips && chips.y >= bar.y + bar.height).toBe(true);
+    expect(chips && chips.x + chips.width).toBeLessThanOrEqual(page.viewportSize()?.width ?? 0);
+    expect((await ground.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+    await page.getByRole("button", { name: "Take a photo" }).click();
+    await expect(page.locator(".view3d-shot")).toBeVisible();
+    const whole = await photoSample(page);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".view3d-shot")).toHaveCount(0);
+
+    // The ground floor: the loft cut away, and a photo of what's shown.
+    await ground.click();
+    await expect(ground).toHaveAttribute("aria-pressed", "true");
+    await expect(upstairs).toHaveAttribute("aria-pressed", "false");
+    await page.screenshot({ path: "test-results/three-d-loft-ground.png" });
+    await page.getByRole("button", { name: "Take a photo" }).click();
+    await expect(page.locator(".view3d-shot")).toBeVisible();
+    const cut = await photoSample(page);
+    expect(cut.colors).toBeGreaterThan(12);
+    expect(cut.light).not.toBe(whole.light);
+    expect(errors).toEqual([]);
+  });
 });
 
 test("the 3D gallery and one item up close render, and your own plot before you have one points to the world", async ({

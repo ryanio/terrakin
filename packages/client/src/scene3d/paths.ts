@@ -1,15 +1,21 @@
-import { GROUND_KINDS, type GroundKind } from "@terrakin/sim";
+import { type BlockKind, GROUND_KINDS, type GroundKind } from "@terrakin/sim";
 import { paintGround } from "@terrakin/ui/ground-art";
 import {
   BufferAttribute,
   BufferGeometry,
   type CanvasTexture,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   MeshLambertMaterial,
+  Quaternion,
   type Texture,
+  Vector3,
 } from "three";
-import { canvasTexture, lin } from "./art";
-import { SKY } from "./palette";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { bakeShade, canvasTexture, lin, paper } from "./art";
+import { storeyY } from "./layout";
+import { blockLook, mix, SKY, shade } from "./palette";
 
 // ---------- paths and floors (RFC 0016) ----------
 
@@ -47,13 +53,29 @@ function atlasCell(kind: GroundKind): [number, number, number, number] {
   return [u0, v1 - cell, u0 + cell, v1];
 }
 
+/** A path or floor on a tile, as both 3D views have it. */
+interface Laid {
+  x: number;
+  y: number;
+  ground: GroundKind;
+  own?: boolean;
+  fade?: number;
+  /** The storey it's laid on (RFC 0028): absent on the ground floor. */
+  storey?: number | undefined;
+}
+
+/** How much a neighbor's ground and floors melt into the haze, as their blocks do. */
+const hazeOf = (t: Pick<Laid, "own" | "fade">) =>
+  t.own === false ? 0.25 + (t.fade ?? 0) * 0.6 : 0;
+
 /**
- * Paths and floors as one mesh: a flat quad a hair above the ground on each tile, textured from
- * the atlas, tinted toward the haze for a neighbor's like their blocks. Null when there are none.
+ * Paths and floors as one mesh: a flat quad a hair above the ground on each tile, or above its
+ * slab on a floor upstairs (RFC 0028), textured from the atlas, tinted toward the haze for a
+ * neighbor's like their blocks. Null when there are none.
  */
 export function groundTiles(
   origin: { x: number; y: number },
-  tiles: readonly { x: number; y: number; ground: GroundKind; own?: boolean; fade?: number }[],
+  tiles: readonly Laid[],
   atlas: Texture,
 ): Mesh | null {
   if (tiles.length === 0) return null;
@@ -75,9 +97,10 @@ export function groundTiles(
       [x - 0.5, z + 0.5, u0, v0],
       [x + 0.5, z + 0.5, u1, v0],
     ] as const;
-    const haze = t.own === false ? 0.25 + (t.fade ?? 0) * 0.6 : 0;
+    const haze = hazeOf(t);
+    const y = storeyY(t.storey) + 0.012;
     corners.forEach(([px, pz, u, v], k) => {
-      positions.set([px, 0.012, pz], (i * 6 + k) * 3);
+      positions.set([px, y, pz], (i * 6 + k) * 3);
       normals.set([0, 1, 0], (i * 6 + k) * 3);
       uvs.set([u, v], (i * 6 + k) * 2);
       colors.set(
@@ -104,5 +127,51 @@ export function groundTiles(
   );
   mesh.receiveShadow = true;
   mesh.name = "ground";
+  return mesh;
+}
+
+/** How thick a floor upstairs is: a slab whose top is its storey's floor, over the walls below. */
+const SLAB = 0.12;
+/** How thick the dark cap on a cut wall's top is, as a share of a slab. */
+const CAP = 0.3;
+
+/**
+ * Floors upstairs (RFC 0028) as one instanced mesh: a thin timber slab under each, with its
+ * ground kind's look on top from `groundTiles`. A cut's open walls (`cutWalls` in
+ * `layout.ts`) get a dark cap on their tops from the same mesh, so the cut reads as a cut without
+ * another draw. Null when there's neither.
+ */
+export function floorSlabs(
+  origin: { x: number; y: number },
+  floors: readonly Laid[],
+  caps: readonly { x: number; y: number; block: BlockKind; storey?: number | undefined }[],
+  grain: Texture,
+): InstancedMesh | null {
+  const count = floors.length + caps.length;
+  if (count === 0) return null;
+  const geo = bakeShade(new RoundedBoxGeometry(1, SLAB, 1, 1, 0.025), 0.7, 1);
+  geo.translate(0, -SLAB / 2, 0);
+  const mesh = new InstancedMesh(geo, paper(0xffffff, grain), count);
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const one = new Vector3(1, 1, 1);
+  // Whatever lies on top, a floor's edge is its timber.
+  const timber = shade(blockLook("wood").color, -0.08);
+  floors.forEach((t, i) => {
+    const at = new Vector3(t.x - origin.x, storeyY(t.storey), t.y - origin.y);
+    mesh.setMatrixAt(i, m.compose(at, q, one));
+    mesh.setColorAt(i, lin(mix(timber, SKY.fog, hazeOf(t))));
+  });
+  const capSize = new Vector3(0.97, CAP, 0.97);
+  caps.forEach((b, i) => {
+    const look = blockLook(b.block);
+    const top = storeyY(b.storey) + look.height + SLAB * CAP * 0.5;
+    const at = new Vector3(b.x - origin.x, top, b.y - origin.y);
+    mesh.setMatrixAt(floors.length + i, m.compose(at, q, capSize));
+    mesh.setColorAt(floors.length + i, lin(shade(look.color, -0.35)));
+  });
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.name = "floors upstairs";
   return mesh;
 }

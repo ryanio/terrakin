@@ -34,7 +34,7 @@ import {
 import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
-import { type LayoutBlock, tileHash } from "./layout";
+import { type LayoutBlock, STOREY_HEIGHT, stairsTurn, storeyY, tileHash } from "./layout";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 
 // ---------- blocks ----------
@@ -42,8 +42,9 @@ import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 /**
  * Blocks as instanced meshes, one draw per kind (and per part of a decor model), placed relative
  * to `origin` (the tile that sits at the scene's middle), with their pools of light after dark.
- * Shared by the plot and the world, which passes one plank, stone, and pool texture for all its
- * plots.
+ * A block upstairs (RFC 0028) is one more instance of its kind, lifted by its storey's height, so
+ * a loft adds no draws for kinds the ground floor already has. Shared by the plot and the world,
+ * which passes one plank, stone, and pool texture for all its plots.
  */
 export function blockMeshes(
   stage: Stage,
@@ -59,6 +60,13 @@ export function blockMeshes(
   const m = new Matrix4();
   const q = new Quaternion();
   const one = new Vector3(1, 1, 1);
+  /** Where a block stands: its tile, on its storey's floor. */
+  const spot = (b: LayoutBlock) => new Vector3(toX(b.x), storeyY(b.storey), toZ(b.y));
+  /** Each tile with a block, by storey, for what joins or turns toward its neighbors. */
+  const taken = new Map<string, LayoutBlock>();
+  for (const b of blocks) taken.set(`${b.x},${b.y},${b.storey ?? 0}`, b);
+  const near = (b: LayoutBlock, dx: number, dy: number) =>
+    taken.get(`${b.x + dx},${b.y + dy},${b.storey ?? 0}`);
 
   const colorFor = (base: number, b: LayoutBlock) => {
     // A little variety per block, and neighbors melt into the haze.
@@ -77,10 +85,30 @@ export function blockMeshes(
     geo.translate(0, look.height / 2, 0);
     const mesh = new InstancedMesh(geo, paper(0xffffff, tex), list.length);
     list.forEach((b, i) => {
-      m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
+      m.compose(spot(b), q, one);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, lin(colorFor(look.color, b)));
     });
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    out.push(mesh);
+  }
+
+  // Stairs (RFC 0028): plank treads up to the storey above, one draw for every flight.
+  const flights = blocks.filter((b) => b.block === "stairs");
+  if (flights.length > 0) {
+    const tex = shared?.plank ?? stage.keep(plankTexture());
+    const mesh = new InstancedMesh(stairsGeometry(), paper(0xffffff, tex), flights.length);
+    flights.forEach((b, i) => {
+      // Their foot on an open tile beside them, on their own storey.
+      q.setFromAxisAngle(
+        UP,
+        stairsTurn((dx, dy) => !near(b, dx, dy)),
+      );
+      mesh.setMatrixAt(i, m.compose(spot(b), q, one));
+      mesh.setColorAt(i, lin(colorFor(blockLook("stairs").color, b)));
+    });
+    q.identity();
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     out.push(mesh);
@@ -108,7 +136,7 @@ export function blockMeshes(
     }
     const mesh = new InstancedMesh(geo, paper(0xffffff, grain), list.length);
     list.forEach((b, i) => {
-      m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
+      m.compose(spot(b), q, one);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, lin(colorFor(look.color, b)));
     });
@@ -140,11 +168,12 @@ export function blockMeshes(
     const paneGeo = new RoundedBoxGeometry(0.8, h - 0.3, 0.42, 1, 0.04);
     paneGeo.translate(0, 0.22 + (h - 0.3) / 2, 0);
     // Panes turn to run along the wall they sit in: across x unless walls run north to south.
+    const solid = (b: LayoutBlock, dx: number, dy: number) => isWall(near(b, dx, dy));
     const place = (b: LayoutBlock) => {
-      const ns = solidAt(blocks, b.x, b.y - 1) || solidAt(blocks, b.x, b.y + 1);
-      const ew = solidAt(blocks, b.x - 1, b.y) || solidAt(blocks, b.x + 1, b.y);
+      const ns = solid(b, 0, -1) || solid(b, 0, 1);
+      const ew = solid(b, -1, 0) || solid(b, 1, 0);
       q.setFromAxisAngle(UP, ns && !ew ? Math.PI / 2 : 0);
-      return m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
+      return m.compose(spot(b), q, one);
     };
     glass.forEach((b, i) => {
       frame.setMatrixAt(i, place(b));
@@ -204,7 +233,7 @@ export function blockMeshes(
     const mesh = new InstancedMesh(geo, mat, leaves.length);
     leaves.forEach((b, i) => {
       q.setFromAxisAngle(new Vector3(0, 1, 0), (tileHash(b.x, b.y) % 628) / 100);
-      m.compose(new Vector3(toX(b.x), 0, toZ(b.y)), q, one);
+      m.compose(spot(b), q, one);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, lin(colorFor(blockLook("leaf").color, b)));
     });
@@ -214,47 +243,32 @@ export function blockMeshes(
   }
 
   // Decor from the town shop: real little models, fence rails reaching the fences beside them.
-  const fences = new Set(blocks.filter((b) => b.block === "fence").map((b) => `${b.x},${b.y}`));
-  const fenceAt = (x: number, y: number) => fences.has(`${x},${y}`);
+  // Rails and low walls join only what's beside them on their own storey.
+  const joins = (b: LayoutBlock) => {
+    const same = (dx: number, dy: number) => near(b, dx, dy)?.block === b.block;
+    return { n: same(0, -1), e: same(1, 0), s: same(0, 1), w: same(-1, 0) };
+  };
+  const placeOf = (b: LayoutBlock) => ({
+    x: toX(b.x),
+    y: storeyY(b.storey),
+    z: toZ(b.y),
+    tint: mix(0xffffff, fogColor, b.own ? 0 : 0.25 + b.fade * 0.6),
+  });
   for (const kind of DECOR_KINDS) {
     const list = blocks.filter((b) => b.block === kind);
     const places = list.map((b) => ({
-      x: toX(b.x),
-      z: toZ(b.y),
-      tint: mix(0xffffff, fogColor, b.own ? 0 : 0.25 + b.fade * 0.6),
-      ...(kind === "fence"
-        ? {
-            joins: {
-              n: fenceAt(b.x, b.y - 1),
-              e: fenceAt(b.x + 1, b.y),
-              s: fenceAt(b.x, b.y + 1),
-              w: fenceAt(b.x - 1, b.y),
-            },
-          }
-        : {}),
+      ...placeOf(b),
+      ...(kind === "fence" ? { joins: joins(b) } : {}),
     }));
     out.push(...decorInstances(stage, kind, grain, places));
   }
 
   // Furniture from the workbench (RFC 0016), low stone walls running on to the walls beside them.
-  const walls = new Set(blocks.filter((b) => b.block === "stone_wall").map((b) => `${b.x},${b.y}`));
-  const wallAt = (x: number, y: number) => walls.has(`${x},${y}`);
   for (const kind of FURNITURE_KINDS) {
     const list = blocks.filter((b) => b.block === kind);
     const places = list.map((b) => ({
-      x: toX(b.x),
-      z: toZ(b.y),
-      tint: mix(0xffffff, fogColor, b.own ? 0 : 0.25 + b.fade * 0.6),
-      ...(kind === "stone_wall"
-        ? {
-            joins: {
-              n: wallAt(b.x, b.y - 1),
-              e: wallAt(b.x + 1, b.y),
-              s: wallAt(b.x, b.y + 1),
-              w: wallAt(b.x - 1, b.y),
-            },
-          }
-        : {}),
+      ...placeOf(b),
+      ...(kind === "stone_wall" ? { joins: joins(b) } : {}),
     }));
     out.push(...furnitureInstances(stage, kind, grain, places));
   }
@@ -429,7 +443,7 @@ function glowPools(
     const size = glow?.pool ?? 1;
     const [ax, az] = glow?.at ?? [0, 0];
     m.compose(
-      new Vector3(b.x - origin.x + ax, 0.02, b.y - origin.y + az),
+      new Vector3(b.x - origin.x + ax, storeyY(b.storey) + 0.02, b.y - origin.y + az),
       q,
       new Vector3(size, 1, size),
     );
@@ -442,9 +456,42 @@ function glowPools(
   return mesh;
 }
 
-function solidAt(blocks: readonly LayoutBlock[], x: number, y: number): boolean {
-  return blocks.some(
-    (b) =>
-      b.x === x && b.y === y && b.block !== "leaf" && b.block !== "pond" && !isHeldBlock(b.block),
+/** Whether a block makes a wall a window's pane runs along. */
+function isWall(b: LayoutBlock | undefined): boolean {
+  return (
+    b !== undefined &&
+    b.block !== "leaf" &&
+    b.block !== "pond" &&
+    b.block !== "stairs" &&
+    !isHeldBlock(b.block)
   );
+}
+
+/** How many treads a flight of stairs has. */
+const TREADS = 4;
+
+/**
+ * A flight of stairs on one tile (RFC 0028): plank treads between two side stringers, climbing a
+ * whole storey from the foot at the south (+z) to the top at the north, where the stairwell opens
+ * in the floor above. One merged shape, shaded like a block.
+ */
+function stairsGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+  const rise = STOREY_HEIGHT / TREADS;
+  const run = 0.9 / TREADS;
+  for (let i = 0; i < TREADS; i++) {
+    // Each tread a solid step down to the ground, so the flight reads as one block from the side.
+    const height = rise * (i + 1);
+    const g = new RoundedBoxGeometry(0.8, height, run + 0.02, 1, 0.025);
+    g.translate(0, height / 2, 0.45 - run * (i + 0.5));
+    parts.push(g);
+  }
+  for (const x of [-0.43, 0.43]) {
+    const g = new RoundedBoxGeometry(0.08, STOREY_HEIGHT, 0.9, 1, 0.025);
+    g.translate(x, STOREY_HEIGHT / 2, 0);
+    parts.push(g);
+  }
+  const merged = bakeShade(mergeGeometries(parts.map(unindexed)), 0.62, 1);
+  for (const g of parts) g.dispose();
+  return merged;
 }

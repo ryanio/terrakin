@@ -206,6 +206,51 @@ describe("one plot of the world, read from the mirror", () => {
       chunkSignature(shed, 1, 1, none, undefined, false),
     );
   });
+
+  it("shows a loft whole from off the plot, and cut away at your storey on it (RFC 0028)", () => {
+    const none = new Set<string>();
+    // A hut on plot (1, 1) with a planked loft and a window upstairs, as the mirror keeps them.
+    const loft = {
+      ...source([
+        ["8,8", "wood"],
+        ["9,8", "stairs"],
+      ]),
+      upstairs: new Map([
+        [
+          1,
+          {
+            blocks: new Map<string, BlockKind>([["8,9", "glass"]]),
+            paving: new Map<string, GroundKind>([
+              ["8,8", "planks"],
+              ["8,9", "planks"],
+            ]),
+          },
+        ],
+      ]),
+    };
+    const at = (c: { blocks: { x: number; y: number; storey?: number }[] }) =>
+      c.blocks.map((b) => `${b.x},${b.y},${b.storey ?? 0}`);
+    const whole = readChunk(loft, 1, 1, none);
+    expect(at(whole)).toEqual(["8,8,0", "9,8,0", "8,9,1"]);
+    expect(whole.ground.map((g) => g.storey)).toEqual([1, 1]);
+    expect(whole.highest).toBe(1);
+    // Upstairs where you stand: the same as from above.
+    expect(readChunk(loft, 1, 1, none, undefined, false, 1).signature).toBe(whole.signature);
+    // On the ground floor of it: nothing above you, but the loft is still counted as there.
+    const cut = readChunk(loft, 1, 1, none, undefined, false, 0);
+    expect(at(cut)).toEqual(["8,8,0", "9,8,0"]);
+    expect(cut.ground).toEqual([]);
+    expect(cut.highest).toBe(1);
+    // A plot is built again when the cut moves onto it or off it, and only one with a storey.
+    expect(cut.signature).not.toBe(whole.signature);
+    expect(chunkSignature(loft, 1, 1, none, undefined, false, 0)).toBe(cut.signature);
+    const flat = source([["8,8", "wood"]]);
+    expect(chunkSignature(flat, 1, 1, none, undefined, false, 0)).toBe(
+      chunkSignature(flat, 1, 1, none),
+    );
+    // A loft on the plot next door is nothing to this one.
+    expect(readChunk(loft, 2, 1, none).highest).toBe(0);
+  });
 });
 
 describe("picking a tile from a tap", () => {

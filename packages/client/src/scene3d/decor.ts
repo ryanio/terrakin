@@ -49,6 +49,8 @@ interface Joins {
 /** Where one decor block stands: its middle on the ground, and a tint that fades neighbors. */
 export interface DecorPlace {
   x: number;
+  /** How high it stands: its storey's floor (RFC 0028), absent on the ground. */
+  y?: number;
   z: number;
   /** Multiplies the model's colors: white on the plot, toward the haze for a neighbor's. */
   tint: number;
@@ -694,12 +696,13 @@ export function placeParts(parts: readonly Part[], places: readonly DecorPlace[]
   const q = new Quaternion();
   const one = new Vector3(1, 1, 1);
   for (const part of parts) {
-    const spots: { x: number; z: number; turn: number; tint: number }[] = [];
+    const spots: { x: number; y: number; z: number; turn: number; tint: number }[] = [];
     for (const p of places) {
-      if (!part.rail) spots.push({ x: p.x, z: p.z, turn: 0, tint: p.tint });
+      const at = { x: p.x, y: p.y ?? 0, z: p.z, tint: p.tint };
+      if (!part.rail) spots.push({ ...at, turn: 0 });
       else
         for (const side of ["n", "e", "s", "w"] as const)
-          if (p.joins?.[side]) spots.push({ x: p.x, z: p.z, turn: RAIL_TURN[side], tint: p.tint });
+          if (p.joins?.[side]) spots.push({ ...at, turn: RAIL_TURN[side] });
     }
     if (spots.length === 0) {
       part.geometry.dispose();
@@ -709,7 +712,7 @@ export function placeParts(parts: readonly Part[], places: readonly DecorPlace[]
     const mesh = new InstancedMesh(part.geometry, part.material, spots.length);
     spots.forEach((s, i) => {
       q.setFromAxisAngle(UP, s.turn);
-      m.compose(new Vector3(s.x, 0, s.z), q, one);
+      m.compose(new Vector3(s.x, s.y, s.z), q, one);
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, lin(s.tint));
     });

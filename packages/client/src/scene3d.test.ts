@@ -16,17 +16,24 @@ import {
   Color,
   Group,
   IcosahedronGeometry,
+  type InstancedMesh,
+  Matrix4,
   Mesh,
+  type Object3D,
   SphereGeometry,
+  Texture,
 } from "three";
 import { describe, expect, it, vi } from "vitest";
 import { blockColor, RESIDENT_COLOR_HEX } from "./render";
-import { addAll, frameDistance } from "./scene3d/art";
+import { addAll, frameDistance, type Stage } from "./scene3d/art";
+import { blockMeshes } from "./scene3d/blocks";
 import { parseGallery } from "./scene3d/catalog";
 import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
 import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
+  cutAway,
+  cutWalls,
   DOZE_GAP,
   distanceOutside,
   dozerAt,
@@ -38,7 +45,9 @@ import {
   hearthPull,
   hearthStand,
   homeExtras,
+  homeFrame,
   homePlot,
+  type LayoutBlock,
   mediaRef,
   modelFootprint,
   overBudget,
@@ -46,12 +55,17 @@ import {
   plotLayout,
   rawResident,
   SIGN_SIZE,
+  STOREY_HEIGHT,
   signSize,
+  stairsTurn,
+  startStorey,
+  storeyY,
   tagHeight,
   underFootprint,
   wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
+import { floorSlabs, groundTiles } from "./scene3d/paths";
 import { onHead } from "./scene3d/wear";
 
 type ResidentView = WorldSnapshot["residents"][number];
@@ -138,16 +152,8 @@ describe("plot layout", () => {
   });
 
   it("keeps the plot's blocks, fades neighbors by distance, and drops what's past the margin", () => {
-    // A loft over the hut (RFC 0028) isn't drawn yet: the plot view shows the ground floor.
-    const w = world();
-    const loft: WorldSnapshot = {
-      ...w,
-      blocks: [...w.blocks, { x: 11, y: 11, storey: 1, block: "glass" }],
-      ground: [{ x: 10, y: 11, storey: 1, ground: "planks" }],
-    };
-    const layout = plotLayout(loft, "capri", 4);
+    const layout = plotLayout(world(), "capri", 4);
     if (!layout) throw new Error("no layout");
-    expect(layout.ground).toEqual([]);
     expect(layout.center).toEqual({ x: 11.5, y: 11.5 });
     expect(layout.hearth).toEqual({ x: 11, y: 11 });
     const own = layout.blocks.filter((b) => b.own).map((b) => [b.x, b.y, b.block]);
@@ -312,6 +318,178 @@ describe("plot layout", () => {
     expect(plotLayout(w, "capri")).toMatchObject({ season: "autumn", weather: "cloudy" });
     // Without a world day, the season is the clock's: January 1970 is winter.
     expect(plotLayout(world(), "capri")?.season).toBe("winter");
+  });
+});
+
+describe("homes with storeys in 3D (RFC 0028)", () => {
+  /**
+   * Capri's hut on plot (1, 1) with a loft: stairs inside, planks over two walls and a window
+   * upstairs, a chair up there, and a path below. Wren stands at the top of the stairs. Bram has a
+   * wall upstairs next door.
+   */
+  function loft(): WorldSnapshot {
+    const w = world();
+    return {
+      ...w,
+      residents: w.residents.map((r) =>
+        r.id === "visitor" ? { ...r, x: 10, y: 11, storey: 1 } : r,
+      ),
+      blocks: [
+        ...w.blocks,
+        { x: 10, y: 11, block: "stairs" },
+        { x: 10, y: 12, storey: 1, block: "glass" },
+        { x: 11, y: 10, storey: 1, block: "chair" },
+        { x: 16, y: 11, storey: 1, block: "wood" },
+      ],
+      ground: [
+        { x: 10, y: 10, storey: 1, ground: "planks" },
+        { x: 11, y: 10, storey: 1, ground: "planks" },
+        { x: 10, y: 12, storey: 1, ground: "planks" },
+        { x: 12, y: 12, ground: "cobble" },
+      ],
+    };
+  }
+  const at = (
+    list: readonly { x: number; y: number; storey?: number | undefined; own?: boolean }[],
+  ) => list.map((t) => `${t.x},${t.y},${t.storey ?? 0}${t.own === false ? " next door" : ""}`);
+
+  it("lays out every storey, and who stands upstairs, and counts only the plot's own storeys", () => {
+    const layout = plotLayout(loft(), "capri");
+    if (!layout) throw new Error("no layout");
+    expect(layout.top).toBe(1);
+    expect(at(layout.blocks.filter((b) => b.storey))).toEqual([
+      "11,10,1",
+      "16,11,1 next door",
+      "10,12,1",
+    ]);
+    expect(at(layout.ground)).toEqual(["10,10,1", "11,10,1", "10,12,1", "12,12,0"]);
+    expect(layout.figures.find((f) => f.id === "visitor")?.storey).toBe(1);
+    // The owner, out and drawn beside the hearth, is on the ground floor.
+    expect(layout.figures.find((f) => f.id === "capri")?.storey).toBeUndefined();
+    // A wall upstairs next door doesn't make this home taller.
+    const w = world();
+    const flat = plotLayout(
+      { ...w, blocks: [...w.blocks, { x: 16, y: 11, storey: 1, block: "wood" }] },
+      "capri",
+    );
+    expect(flat?.top).toBe(0);
+  });
+
+  it("cuts away the plot's storeys above the one picked, never a neighbor's, and caps the cut walls", () => {
+    const layout = plotLayout(loft(), "capri");
+    if (!layout) throw new Error("no layout");
+    const ground = cutAway(layout.blocks, 0);
+    expect(at(ground.filter((b) => b.storey))).toEqual(["16,11,1 next door"]);
+    expect(at(cutAway(layout.ground, 0))).toEqual(["12,12,0"]);
+    expect(cutAway(layout.blocks, 1)).toEqual(layout.blocks);
+    // The ground floor's walls, the window among them, get a dark top; the stairs and the
+    // neighbor's walls don't, and nothing does with the whole home shown.
+    expect(at(cutWalls(ground, 0, layout.top))).toEqual(["10,10,0", "12,10,0", "11,12,0"]);
+    expect(cutWalls(layout.blocks, 1, layout.top)).toEqual([]);
+  });
+
+  it("starts the home view on your storey while you stand on the plot, else on the whole home", () => {
+    const layout = plotLayout(loft(), "capri");
+    if (!layout) throw new Error("no layout");
+    const on = { x: 10, y: 11, online: true };
+    expect(startStorey(layout, undefined)).toBe(1);
+    expect(startStorey(layout, on)).toBe(0);
+    expect(startStorey(layout, { ...on, storey: 1 })).toBe(1);
+    expect(startStorey(layout, { ...on, x: 30 })).toBe(1);
+    expect(startStorey(layout, { ...on, online: false })).toBe(1);
+    expect(startStorey({ ...layout, top: 0 }, { ...on, storey: 1 })).toBe(0);
+  });
+
+  it("lifts each block upstairs by a storey, as more of the draws its kind already has", () => {
+    const stage = {
+      keep: <T>(thing: T) => thing,
+      glow: () => () => {},
+      animate: () => () => {},
+      reducedMotion: true,
+    } as unknown as Stage;
+    const shared = { plank: new Texture(), stone: new Texture(), pool: new Texture() };
+    const down: LayoutBlock[] = (
+      ["wood", "stone", "glass", "leaf", "chair", "fence", "stairs"] as const
+    ).map((block, i) => ({ x: i * 2, y: 0, block, own: true, fade: 0 }));
+    const up = down.filter((b) => b.block !== "stairs").map((b) => ({ ...b, storey: 1 }));
+    const before = blockMeshes(stage, { x: 0, y: 0 }, down, new Texture(), shared);
+    const after = blockMeshes(stage, { x: 0, y: 0 }, [...down, ...up], new Texture(), shared);
+    // The same draws, kind by kind, each with its instances upstairs a storey higher.
+    expect(after.length).toBe(before.length);
+    const heights = (o: Object3D) => {
+      const mesh = o as InstancedMesh;
+      const m = new Matrix4();
+      return Array.from({ length: mesh.count }, (_, i) => {
+        mesh.getMatrixAt(i, m);
+        return Math.round((m.elements[13] ?? 0) * 1000) / 1000;
+      });
+    };
+    let doubled = 0;
+    after.forEach((mesh, i) => {
+      const was = heights(before[i] as Object3D);
+      const now = heights(mesh);
+      expect(now.filter((y) => y === 0)).toEqual(was);
+      expect(now.filter((y) => y !== 0)).toEqual(now.slice(was.length).map(() => STOREY_HEIGHT));
+      if (now.length === was.length * 2) doubled++;
+    });
+    // Every draw but the stairs' (which never stand on the top storey) has its loft's share.
+    expect(doubled).toBe(after.length - 1);
+  });
+
+  it("lays floors upstairs on one slab mesh, caps cut walls from it, and lifts their look onto it", () => {
+    const floors = [
+      { x: 0, y: 0, ground: "planks" as const, storey: 1 },
+      { x: 1, y: 0, ground: "moss" as const, storey: 1 },
+    ];
+    const slabs = floorSlabs(
+      { x: 0, y: 0 },
+      floors,
+      [{ x: 0, y: 1, block: "wood" }],
+      new Texture(),
+    );
+    if (!slabs) throw new Error("no slabs");
+    const m = new Matrix4();
+    const tops = Array.from({ length: slabs.count }, (_, i) => {
+      slabs.getMatrixAt(i, m);
+      return m.elements[13] ?? 0;
+    });
+    // Each slab's top is its storey's floor; the cap sits on the wall's top, a storey up.
+    expect(tops.slice(0, 2)).toEqual([storeyY(1), storeyY(1)]);
+    expect(tops[2]).toBeCloseTo(STOREY_HEIGHT, 1);
+    // A home of one storey draws no slabs at all.
+    expect(floorSlabs({ x: 0, y: 0 }, [], [], new Texture())).toBeNull();
+    // One mesh for the path below and the floors above, each a hair over what it lies on.
+    const tiles = groundTiles(
+      { x: 0, y: 0 },
+      [{ x: 2, y: 2, ground: "cobble" }, ...floors],
+      new Texture(),
+    );
+    const ys = new Set(
+      Array.from(tiles?.geometry.getAttribute("position").array ?? []).filter(
+        (_, i) => i % 3 === 1,
+      ),
+    );
+    expect([...ys].map((y) => Math.round(y * 1000) / 1000)).toEqual([0.012, storeyY(1) + 0.012]);
+  });
+
+  it("frames the whole home, a loft's walls with as much room as a bungalow's", () => {
+    // Room to spare around the middle of the plot's edge at a height, for a plot 8 tiles across.
+    const room = (f: { y: number; radius: number }, height: number) =>
+      f.radius - Math.hypot(4, height - f.y);
+    const wallTop = (storey: number) => storeyY(storey) + STOREY_HEIGHT;
+    const bungalow = homeFrame(8, 0);
+    const tall = homeFrame(8, 1);
+    expect(room(tall, wallTop(1))).toBeGreaterThanOrEqual(room(bungalow, wallTop(0)));
+    expect(room(tall, 0)).toBeGreaterThan(room(bungalow, wallTop(0)));
+    // Framed as a bungalow, the loft's walls would all but touch the edge of the picture.
+    expect(room(bungalow, wallTop(1))).toBeLessThan(room(bungalow, wallTop(0)) / 2);
+  });
+
+  it("turns stairs to climb from an open tile beside them, the camera's side first", () => {
+    expect(stairsTurn(() => true)).toBe(0);
+    expect(stairsTurn((dx, dy) => !(dx === 0 && dy === 1))).toBeCloseTo(Math.PI / 2);
+    expect(stairsTurn((dx, dy) => dx === 0 && dy === -1)).toBeCloseTo(Math.PI);
+    expect(stairsTurn(() => false)).toBe(0);
   });
 });
 

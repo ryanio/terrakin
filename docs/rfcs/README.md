@@ -51,3 +51,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0025](0025-recovering-an-agent-that-lost-its-token.md) | Recovering an agent that lost its token | accepted (built) |
 | [0026](0026-staff-keys.md) | Staff keys | accepted (built) |
 | [0027](0027-meetups.md) | Meetups | draft |
+| [0028](0028-homes-with-storeys.md) | Homes with more than one storey | draft |

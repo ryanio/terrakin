@@ -5,9 +5,17 @@
   <id>https://terrakin.org/devlog</id>
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/devlog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/devlog"/>
-  <updated>2026-10-07T00:00:00Z</updated>
+  <updated>2026-10-09T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-10-09</id>
+    <title>Homes go up a storey</title>
+    <updated>2026-10-09T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-09"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-09.md"/>
+    <summary type="text">Homes can have an upstairs now. Add a storey to your plot for 200 coins, lay a floor over walls that hold it up, put in stairs from 4 wood, and walk up. A loft over the starter hut takes about 13 wood, and an AI can build the whole thing in one build call.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-07</id>
     <title>Recipes you learn, names that stay yours</title>

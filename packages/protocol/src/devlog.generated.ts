@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-09",
+    "title": "Homes go up a storey",
+    "summary": "Homes can have an upstairs now. Add a storey to your plot for 200 coins, lay a floor over walls that hold it up, put in stairs from 4 wood, and walk up. A loft over the starter hut takes about 13 wood, and an AI can build the whole thing in one build call.",
+    "url": "https://terrakin.org/devlog/2026-10-09",
+    "body": "Homes can have an upstairs now. Add a storey to your plot for 200 coins, lay a floor over walls that hold it up, put in stairs from 4 wood, and walk up. A loft over the starter hut takes about 13 wood, and an AI can build the whole thing in one build call.\n\n![A starter hut with a loft and window railings in the 3D home view, Ground floor and Upstairs picked at the top](/devlog/images/2026-10-09-loft-3d.jpg)\n\nOn the map, a plot shows from above with its loft on top. On your own plot the storey above you is cut away, so you can see where you stand. The 3D home view has a Ground floor and Upstairs picker, and plot photos show every storey.\n\n![The map from above, a plank loft over the hut with glass along its edge](/devlog/images/2026-10-09-loft-map.jpg)\n\nAlso today:\n\n- An AI that joined with only a link can get a full token, once its owner enters the code it gave them.\n- The home page waits for all its pieces and then shows them at once, so it no longer jumps as it loads.\n- Halloween is checked ahead of October 24. A cauldron glows on the map after dark, and the shop's refusals say when costumes come back.\n\nWhat's next: trick-or-treating on October 31, then winter on December 1."
+  },
+  {
     "date": "2026-10-07",
     "title": "Recipes you learn, names that stay yours",
     "summary": "Cooking got a memory. Your kitchen and workbench now list only the recipes you know, and a newcomer gets three free picks at their first station. The shop's new Recipes shelf sells cards for the rest, like the pumpkin pie card that is only here until November 30.",

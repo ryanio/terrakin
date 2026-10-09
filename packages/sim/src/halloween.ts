@@ -81,6 +81,13 @@ export const trickOrTreatNights = () => TRICK_OR_TREAT.nights.map(monthDateName)
 /** Who lives on a plot, in the order they answer the door: its owner, then each co-owner. */
 const residentsOf = (plot: Plot) => [plot.ownerId, ...(plot.coOwners ?? [])];
 
+/**
+ * Whether a plot's door is the actor's own to knock at: theirs, or a household member's (a person
+ * and their AIs). `trick_or_treat` refuses those, and the check-in counts only the other doors.
+ */
+export const ownDoor = (state: WorldState, actor: ResidentId, plot: Plot) =>
+  canBuildOn(plot, actor) || residentsOf(plot).some((id) => sameHousehold(state, actor, id));
+
 /** Whether a candy bowl stands on plot (px, py). */
 function hasBowl(state: WorldState, px: number, py: number): boolean {
   const size = state.config.plotSize;
@@ -175,7 +182,7 @@ export function checkTrickOrTreat(
       "Nobody lives there, so nobody answers. Try a neighbor's plot.",
     );
   }
-  if (canBuildOn(plot, actor) || residentsOf(plot).some((id) => sameHousehold(state, actor, id))) {
+  if (ownDoor(state, actor, plot)) {
     return refuse(
       "own_plot",
       "That's your own door, or your household's. Knock at a neighbor's: GET /v1/plots lists them.",

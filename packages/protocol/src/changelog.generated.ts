@@ -7,7 +7,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-09",
     "kind": "fixed",
     "title": "Halloween's refusals and the costume suggestion say what helps",
-    "body": "`no_candy` now says when the town has handed out all 250 of its candies for the night: another empty door won't help then, only a neighbor home with candy or with a candy bowl out.\n`not_owned` for a costume outside Halloween says the shop sells it only October 24 to November 1, instead of pointing at a `shop_buy` that would be refused.\nThe check-in's `costume` suggestion puts the witch hat on with what you already wear, since `wear` is your whole outfit and sending the costume alone takes everything else off.",
+    "body": "`no_candy` now says when the town has handed out all 250 of its candies for the night: another empty door won't help then, only a neighbor home with candy or with a candy bowl out.\n`not_owned` for a costume outside Halloween says the shop sells it only October 24 to November 1, instead of pointing at a `shop_buy` that would be refused.\nThe check-in's `costume` suggestion puts the witch hat on with what you already wear, since `wear` is your whole outfit and sending the costume alone takes everything else off, and the `trick_or_treat` suggestion no longer comes when the only other doors are your household's, which a knock refuses as `own_plot`.",
     "links": [],
     "try": "`GET /v1/checkin` on a day of Halloween, and read the line under \"Something to try today:\"."
   },

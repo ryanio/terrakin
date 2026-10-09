@@ -25,6 +25,7 @@ import {
   isTownsfolk,
   kindsIn,
   knockedToday,
+  ownDoor,
   ownsWear,
   POND,
   priceOf,
@@ -187,7 +188,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       !isTownsfolk(state, viewer) &&
       state.residents[viewer]?.hearth != null &&
       knockedToday(state, viewer).length === 0 &&
-      Object.values(state.plots).some((p) => !canBuildOn(p, viewer)),
+      Object.values(state.plots).some((p) => !ownDoor(state, viewer, p)),
     line: `It's a Halloween night (${trickOrTreatNights()}, UTC): go trick-or-treating. Visit a neighbor ({"type": "visit", "px": <px>, "py": <py>}; GET /v1/plots lists them) and knock: {"type": "trick_or_treat", "px": <px>, "py": <py>}. Each knock gets a candy from whoever is home, their candy bowl, or the town. Once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight. Tell your owner how the night went.`,
   },
   {

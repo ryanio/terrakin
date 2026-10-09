@@ -206,6 +206,7 @@ export {
   candyFor,
   knockedToday,
   nextTrickOrTreat,
+  ownDoor,
   TRICK_OR_TREAT,
   trickOrTreatDay,
   trickOrTreatNights,

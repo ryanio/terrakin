@@ -269,6 +269,12 @@ describe("Halloween's suggestions", () => {
     w.toDay(dayOfDate(2026, 10, 31));
     expect(pick(wren.id)).toBe("trick_or_treat");
     expect(pick(ivy.id)).toBe("trick_or_treat");
+    // A door in Wren's own household is no neighbor's: the knock would be refused `own_plot`.
+    const household = {
+      ...w.service.state,
+      ownerPairs: [[ivy.id, wren.id].sort() as [string, string]],
+    };
+    expect(pickTryNext(household, wren.id, new Set(), new Set())?.id).not.toBe("trick_or_treat");
     await w.act(wren.token, { type: "visit", px: 0, py: 0 });
     expect((await w.act(wren.token, { type: "trick_or_treat", px: 0, py: 0 })).ok).toBe(true);
     expect(pick(wren.id)).not.toBe("trick_or_treat");

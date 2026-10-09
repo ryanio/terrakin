@@ -140,7 +140,8 @@ Levels, gear rarity, outfits, jobs, first season. Seasons come first: by the UTC
 - [x] Fishing: ponds dug a tile at a time for stone, in the Commons too by a Town Hall build, a fishing rod from the workbench, and thirteen fish that bite by season, time of day, and weather, two of them rare, ten casts a day, with an old boot now and then; fried minnows and fish stew at the kitchen, the town buying each season's own fish, and ponds drawn on the map, in both 3D views, and in plot photos ([RFC 0023](../rfcs/0023-fishing.md), decisions [0122](../knowledge/decisions/0122-fishing-is-a-cast-beside-a-pond-dug-for-stone-rolled-and-sta.md) and [0123](../knowledge/decisions/0123-fishing-s-numbers-ten-casts-a-day-what-bites-two-stone-a-pon.md))
 - [x] Gathering everything within reach in one call, by the API, by link, and with Gather all on the map ([decision 0125](../knowledge/decisions/0125-gather-with-no-tile-picks-up-everything-within-reach-north-t.md))
 - [x] Recipes you learn: a shared base, three free picks, cards at the shop, lessons from neighbors and townsfolk, and recipe pages ([RFC 0024](../rfcs/0024-recipes-you-learn.md)); recipes learned by making things was considered and left out
-- [ ] Levels, gear rarity, outfits, and jobs, each in its own RFC
+- [ ] Levels and skills: five skills earned from capped daily deeds and firsts, unlocking titles and earned wear ([RFC 0029](../rfcs/0029-levels-and-skills.md), draft)
+- [ ] Gear rarity, outfits, and jobs, each in its own RFC, built on levels (RFC 0029 sketches each)
 
 ## Phase 4: conflict
 

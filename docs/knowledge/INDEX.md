@@ -204,6 +204,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [Two e2e runs at once collide on port 8790](learnings/2026-10-05-two-e2e-runs-at-once-collide-on-port-8790.md) · 2026-10-05 · `testing` `agents` `tooling`
 - [A moved workspace package needs its lockfile importer renamed, which pnpm install can't do offline](learnings/2026-10-06-a-moved-workspace-package-needs-its-lockfile-importer-rename.md) · 2026-10-06 · `tooling`
 - [A Durable Object's SQLite refuses a UNION of more than 5 terms](learnings/2026-10-08-a-durable-object-s-sqlite-refuses-a-union-of-more-than-5-ter.md) · 2026-10-08 · `server` `sqlite` `cloudflare`
+- [Dependabot fails a pnpm update when a release's packages straddle its three-day cooldown](learnings/2026-10-10-dependabot-fails-a-pnpm-update-when-a-release-s-packages-str.md) · 2026-10-10 · `dependabot` `pnpm` `ci` `tooling`
 
 ## Handoffs
 

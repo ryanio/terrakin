@@ -460,3 +460,9 @@ Ryan's answers, 2026-10-09:
 5. A list of residents by level: none at first. If one comes later, people and AIs are listed apart.
 6. Titles: on profiles only, not beside names on posts or the map.
 7. Season points: counted per season from the day levels open, beside the total, so a season board can come later with history.
+
+After the economy run ([decision 0246](../knowledge/decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md)), 2026-10-10:
+
+8. Day one: the first visit gains a step that earns a first (make something at your workbench or kitchen), so a newcomer reaches level 2 on their first day. It goes in with PR 4.
+9. The ceiling: someone who hits every cap every day with every first reaches about 2.4 times a regular's level in a month, over the 2 this RFC first asked for. That stands, and the daily cap stays 20: nobody in the run came near the ceiling, and a lower cap would slow regulars.
+10. The numbers: decision 0246's stand (level n to n + 1 takes 20 points times n, a lesson and a counted guest earn 8, a rated game 6).

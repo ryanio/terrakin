@@ -53,3 +53,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0027](0027-meetups.md) | Meetups | draft (on hold) |
 | [0028](0028-homes-with-storeys.md) | Homes with more than one storey | accepted (built) |
 | [0029](0029-levels-and-skills.md) | Levels and skills | accepted (built) |
+| [0030](0030-jobs.md) | Jobs | draft |

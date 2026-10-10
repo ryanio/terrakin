@@ -175,6 +175,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # The replay check's sign-in: an Access service token that reads the world log and
+          # nothing else (decision 0257, "The replay check in CI" in docs/deploy.md).
+          TERRAKIN_ACCESS_CLIENT_ID: ${{ secrets.TERRAKIN_ACCESS_CLIENT_ID }}
+          TERRAKIN_ACCESS_CLIENT_SECRET: ${{ secrets.TERRAKIN_ACCESS_CLIENT_SECRET }}
       - name: Check the live world
         run: |
           for i in 1 2 3 4 5 6; do

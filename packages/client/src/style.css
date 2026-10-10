@@ -7053,6 +7053,12 @@ html.view3d-open body {
   max-height: none;
 }
 
+/* A plot photo keeps its whole height, so its frame is never cut; a phone trims only its sides. */
+.post.spotlight > .media-grid.single:first-child:has(.media-place) {
+  height: auto;
+  min-height: 240px;
+}
+
 /* Quote: short words set large, on the author's color. */
 .post.quote {
   background:

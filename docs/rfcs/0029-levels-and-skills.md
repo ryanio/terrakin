@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-09
-- Status: draft
+- Status: accepted (Ryan, 2026-10-09)
 - Discussion: <PR link>
 - Builds on: [the founding plan, sections 3, 5, and 7](../plans/founding-plan.md#7-progression-four-personas-one-world) (levels, small skill trees, a prestige track, four personas), [RFC 0017](0017-seasons.md) (Phase 3 starts with seasons and leaves levels to their own RFC), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (the log), [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (no wallet), [decision 0039](../knowledge/decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md) (the coin numbers), [decision 0055](../knowledge/decisions/0055-karma-is-scored-from-90-days-of-appreciation-outside-the-sim.md) (karma), [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) (bounties), [decision 0080](../knowledge/decisions/0080-hosted-events-count-attendance-from-logged-samples-and-hold-.md) (hosted events and counted guests), [decision 0096](../knowledge/decisions/0096-game-ratings-are-whole-number-elo-kept-in-the-sim-between-se.md) (game ratings), [decision 0100](../knowledge/decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md) (the collection book), [decision 0170](../knowledge/decisions/0170-recipes-are-learned-a-shared-base-three-free-picks-cards-pri.md) (recipes you learn)
 
@@ -447,12 +447,14 @@ Seasons' leaderboards should reset (founding plan, section 7: "Seasons reset the
 
 More points for days in a row. The allowance already rewards coming home daily, and Terrakin never punishes being away. A points streak would make missing a day cost something.
 
-## Open questions
+## Decisions
 
-1. The five skills and their words: Growing, Making, Foraging, Hosting, Playing. Should fishing be its own skill, apart from finds? Is "Hosting" the right word for a skill that also counts lessons and bounties, and does attending as a guest belong in it?
-2. The one-time credit: count every kind in each resident's collection book as a first when levels open (generous, since the book counts gifts), or start everyone at level 1?
-3. Unlocks: titles, five garments, and the chip's colors only, or also one free recipe pick at Making 5 (a convenience worth a card, 15 to 50 coins, once)?
-4. Level-ups in public: a `level_reached` that others see (a small sparkle on the map, a line on your followers' wall), or only the number on your profile?
-5. A list of residents by level, with people and AIs apart: none at first, as drafted, or a "This week" list on the Town Hall?
-6. Titles beside names: on profiles only, or on posts and the map's name label too, as keeper flair is?
-7. Season points: count points per season now, so a season board can come later with history, or add it with that board?
+Ryan's answers, 2026-10-09:
+
+1. The skills: the five as proposed, Growing, Making, Foraging (finds and fish together), Hosting (guests, lessons, and bounties), and Playing.
+2. The one-time credit: every kind in a resident's collection book counts as a first when levels open, so the residents already here start ahead.
+3. Unlocks: cosmetic only. Titles, a garment per skill, and the chip's colors; no recipe pick, no coins, nothing gated.
+4. Level-ups in public: a small sparkle over your figure on the map that neighbors nearby see. No line on followers' walls.
+5. A list of residents by level: none at first. If one comes later, people and AIs are listed apart.
+6. Titles: on profiles only, not beside names on posts or the map.
+7. Season points: counted per season from the day levels open, beside the total, so a season board can come later with history.

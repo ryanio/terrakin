@@ -75,6 +75,8 @@ async function start(
     levels?: boolean;
     testClock?: boolean;
     at?: number;
+    /** Runs on the social layer before the world is wired to it, to make a boot's read fail. */
+    beforeWire?: (social: SocialService) => void;
   } = {},
 ) {
   let now = options.at ?? Date.UTC(2026, 9, 6, 9);
@@ -100,6 +102,7 @@ async function start(
     credits: (since) => service.credits(since),
     event: (id) => eventWords(service.state, id),
   });
+  options.beforeWire?.(social);
   const server = createApp({
     service,
     social,
@@ -451,6 +454,61 @@ describe("opening levels", () => {
     // It's a one-time switch.
     expect(t.open()).toMatchObject({ ok: false, error: { code: "already_open" } });
     expect(t.logged("open_levels")).toHaveLength(1);
+  });
+
+  it("waits, with a report, while the book's read throws, and opens once it reads", () => {
+    let now = Date.UTC(2026, 9, 6, 9);
+    const store = new MemoryStore();
+    const world = new WorldService({
+      store,
+      config: CONFIG,
+      now: () => now,
+      days: true,
+      items: true,
+      levels: true,
+    });
+    let away = true;
+    world.levelFirsts = () => {
+      if (away) throw new Error("the book is away");
+      return [];
+    };
+    now += DAY_MS;
+    world.tick();
+    // The switch was due and asked: nothing is logged, and the failure is said once.
+    expect(world.state.items).toBeDefined();
+    expect(store.log.map((i) => i.command.type)).not.toContain("open_levels");
+    expect(world.state.progress).toBeUndefined();
+    expect(telemetry.reports).toEqual(["the book is away"]);
+    away = false;
+    world.tick();
+    expect(store.log.filter((i) => i.command.type === "open_levels")).toHaveLength(1);
+  });
+
+  it("never opens from a book whose backfill failed: the switch waits for a boot that fills it", async () => {
+    const before = await start();
+    const ada = await before.settler("Ada", 0, 0);
+    before.service.testGrant(ada.id, undefined, { pumpkin: 1 });
+    // This boot has the option, but its backfill throws partway: the book may be missing rows.
+    const t = await start({
+      store: before.store,
+      sql: before.sql,
+      levels: true,
+      at: before.now(),
+      beforeWire: (social) => {
+        social.collection.backfill = () => {
+          throw new Error("the book is half filled");
+        };
+      },
+    });
+    t.later(DAY_MS);
+    expect(t.logged("open_levels")).toEqual([]);
+    expect(t.service.state.progress).toBeUndefined();
+    expect(telemetry.reports).toEqual(["the book is half filled"]);
+    // The next boot's backfill returns, and its first tick opens levels with the whole credit.
+    const next = await start({ store: t.store, sql: t.sql, levels: true, at: t.now() });
+    expect(next.logged("open_levels").map((i) => i.command)).toEqual([
+      { type: "open_levels", firsts: [{ resident: ada.id, kinds: ["pumpkin"] }] },
+    ]);
   });
 
   it("opens on the server's own tick once the option is on and the book is wired", async () => {
@@ -964,7 +1022,29 @@ describe("Hosting points for an event", () => {
     expect(again.service.state.events?.list[0]?.credited).toBe(true);
   });
 
-  it("leaves out a counted guest the sim would refuse now, so the rest of the list still counts", async () => {
+  it.each([
+    {
+      who: "who joined the host's household since",
+      change: (t: T, ada: { id: string }, bob: { id: string }) =>
+        t.service.addOwnerPair(bob.id, ada.id),
+      record: undefined,
+      guests: 0,
+    },
+    {
+      who: "who became townsfolk since",
+      change: (t: T, _ada: { id: string }, bob: { id: string }) =>
+        t.service.syncTownsfolk(new Set([bob.id])),
+      record: undefined,
+      guests: 0,
+    },
+    {
+      // Cy left early: the sim's samples dropped her, whatever a record says.
+      who: "the event's own samples never saw stay",
+      change: () => {},
+      record: (bob: { id: string }, cy: { id: string }) => [bob.id, cy.id],
+      guests: 1,
+    },
+  ])("leaves out a counted guest $who, so the rest of the list still counts", async (c) => {
     const t = await start();
     const { ada, bob, cy } = await hosts(t);
     expect(t.open()).toMatchObject({ ok: true });
@@ -972,17 +1052,57 @@ describe("Hosting points for an event", () => {
     const read = t.service.countedGuests;
     t.service.countedGuests = () => undefined;
     const id = await hold(t, ada, bob, cy);
-    t.service.countedGuests = read;
     expect(t.social.events.countedGuests(id)).toEqual([bob.id]);
     expect(t.logged("credit_event")).toEqual([]);
-    // Meanwhile Bob became Ada's AI: one household, which the sim never credits.
-    t.service.addOwnerPair(bob.id, ada.id);
-    t.service.creditEndedEvents();
-    // A list with him in it would be refused whole. Without him it's taken, and the event is done.
+    // Meanwhile something changed that the sim never credits.
+    c.change(t, ada, bob);
+    const record = c.record;
+    t.service.countedGuests = record ? () => record(bob, cy) : read;
+    t.later(MINUTE);
+    // A list with that guest in it would be refused whole, and reported. Without them it's taken,
+    // and the event is done.
     expect(t.logged("credit_event").map((i) => i.command)).toEqual([
-      { type: "credit_event", event: id, guests: [] },
+      { type: "credit_event", event: id, guests: c.guests ? [bob.id] : [] },
     ]);
     expect(t.service.state.events?.list[0]?.credited).toBe(true);
-    expect(t.service.state.progress?.points).toEqual({});
+    expect(Object.keys(t.service.state.progress?.points ?? {}).sort()).toEqual(
+      c.guests ? [ada.id, bob.id].sort() : [],
+    );
+    expect(telemetry.reports).toEqual([]);
+  });
+
+  it("keeps an event whose credit threw, the day levels opened too, and credits it on a later sweep", async () => {
+    const t = await start();
+    const { ada, bob, cy } = await hosts(t);
+    expect(t.open()).toMatchObject({ ok: true });
+    // The hosting record can't be read as the event ends, on the very day levels opened.
+    const read = t.service.countedGuests;
+    t.service.countedGuests = () => {
+      throw new Error("the social database is away");
+    };
+    // Nothing escapes the input that ended the event: it's committed, and the sweep carries on.
+    const id = await hold(t, ada, bob, cy);
+    expect(t.service.state.events?.list[0]).toMatchObject({ id, status: "ended" });
+    expect(t.service.state.events?.list[0]?.credited).toBeUndefined();
+    expect(t.logged("credit_event")).toEqual([]);
+    expect(new Set(telemetry.reports)).toEqual(new Set(["the social database is away"]));
+    // The record reads again: the next minute sweep credits the event, with no restart.
+    t.service.countedGuests = read;
+    telemetry.reports.length = 0;
+    t.later(MINUTE);
+    expect(t.logged("credit_event").map((i) => i.command)).toEqual([
+      { type: "credit_event", event: id, guests: [bob.id] },
+    ]);
+    expect(t.service.state.events?.list[0]?.credited).toBe(true);
+    // Once credited it isn't asked about again.
+    let reads = 0;
+    t.service.countedGuests = (event) => {
+      reads += 1;
+      return read?.(event);
+    };
+    t.later(MINUTE);
+    expect(reads).toBe(0);
+    expect(t.logged("credit_event")).toHaveLength(1);
+    expect(telemetry.reports).toEqual([]);
   });
 });

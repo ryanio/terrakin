@@ -919,6 +919,8 @@ export class WorldService {
         this.eventInput({ type: "event_tick", event: e.id, slot });
       }
     }
+    // Hosting points an ended event is still owed (RFC 0029) are tried again here.
+    this.retryCredits();
   }
 
   /**
@@ -1155,7 +1157,11 @@ export class WorldService {
 
   /** Events that ended in the input being committed, to credit once it has gone out. */
   private readonly endedNow: string[] = [];
-  /** Events that ended with levels open before the hosting record could say who counted. */
+  /**
+   * Events that ended with levels open and aren't credited yet: the hosting record had nothing to
+   * say, or reading it or logging the credit threw. In memory only; the minute sweep tries each
+   * again (`retryCredits`).
+   */
   private readonly creditLater = new Set<string>();
 
   /**
@@ -1163,12 +1169,16 @@ export class WorldService {
    * hosting record counted, once per event, and only once levels are open. The sim takes a guest
    * only if its own samples saw them attend, they're outside the host's household, and they aren't
    * townsfolk, so anyone who no longer passes is left out here: the list can be narrowed, never
-   * widened. An event the social layer has no record of waits for `creditEndedEvents`.
+   * widened. An event the social layer has no record of waits in `creditLater`. May throw (the
+   * record's read, the log's write): callers go through `creditOrWait`.
    */
   private creditEvent(id: string) {
     if (!this.state.progress) return;
     const e = findEvent(this.state, id);
-    if (e?.status !== "ended" || e.credited) return;
+    if (e?.status !== "ended" || e.credited) {
+      this.creditLater.delete(id);
+      return;
+    }
     const counted = this.countedGuests?.(id);
     if (!counted) {
       this.creditLater.add(id);
@@ -1196,17 +1206,36 @@ export class WorldService {
   }
 
   /**
-   * Credit every ended event the world still holds that never was: one that ended while this
-   * process had no hosting record to read (a boot's own catch-up), and one that ended on a later
-   * day than levels opened (a crash between its end and its credit). `Api` calls it once the
-   * hosting record is wired. An event that ended on the day levels opened is otherwise credited
-   * only as it ends, since by its day alone it could have ended before the switch.
+   * `creditEvent` for callers that must go on whatever happens: a throw is reported and the event
+   * waits in `creditLater`, so one failed read never loses an event's Hosting points, stops the
+   * events after it, or escapes the input that ended it, which is already committed.
+   */
+  private creditOrWait(id: string) {
+    try {
+      this.creditEvent(id);
+    } catch (err) {
+      report(err, "world.levels", { command: "credit_event" });
+      this.creditLater.add(id);
+    }
+  }
+
+  /** The minute sweep's part: try again each event whose credit is still waiting. */
+  private retryCredits() {
+    for (const id of [...this.creditLater]) this.creditOrWait(id);
+  }
+
+  /**
+   * At a boot, once `Api` has wired the hosting record: credit every ended event the world still
+   * holds that never was and that ended on a later day than levels opened (a restart came between
+   * its end and its credit), and whatever this process already has waiting. An event that ended on
+   * the day levels opened is credited only by the process that saw it end, as it ends or from the
+   * minute sweep, since by its day alone it could have ended before the switch.
    */
   creditEndedEvents() {
     const opened = this.state.progress?.opened;
     if (opened === undefined) return;
     for (const e of [...(this.state.events?.list ?? [])]) {
-      if (this.creditLater.has(e.id) || (e.closedDay ?? 0) > opened) this.creditEvent(e.id);
+      if (this.creditLater.has(e.id) || (e.closedDay ?? 0) > opened) this.creditOrWait(e.id);
     }
   }
 
@@ -1859,7 +1888,7 @@ export class WorldService {
     }
     // An event that ended in this input is credited now that the input has gone out, so the
     // credit's own events follow it in order (RFC 0029).
-    for (const ended of this.endedNow.splice(0)) this.creditEvent(ended);
+    for (const ended of this.endedNow.splice(0)) this.creditOrWait(ended);
     return {
       ok: true,
       seq,

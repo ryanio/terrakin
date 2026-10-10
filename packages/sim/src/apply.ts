@@ -297,9 +297,9 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
     if (!PATTERNS.includes(pattern)) return reject("invalid_profile", "Unknown pattern.");
     out.pattern = pattern;
   }
-  // An earned garment (RFC 0029) is kept in `wear` with the rest. `Look.wear` is typed by
-  // `WEAR_ITEMS`, which the garments join once the web draws them; until then the protocol's wear
-  // enum keeps them out of every action, so no reader outside the sim meets one.
+  // An earned garment (RFC 0029) is kept in `wear` with the rest: `WEAR_ITEMS` holds the five of
+  // them, so `wearProblem` takes one like any wear. Whether this resident has reached it is
+  // `unearnedWear`'s to say, with the levels in the world, after the look is checked.
   const wear = pick("wear");
   if (wear !== null && wear !== undefined) {
     if (!Array.isArray(wear)) return reject("invalid_profile", "Wear is a list.");

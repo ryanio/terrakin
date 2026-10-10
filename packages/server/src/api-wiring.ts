@@ -91,8 +91,10 @@ export function wireSocial(
   };
   // Greetings (decision 0237): a person's first join queues one; that never throws.
   service.onNewResident = (id) => api.welcome?.noteJoined(id);
+  let bookFilled = false;
   try {
     layer.collection.backfill(service.state);
+    bookFilled = true;
   } catch (err) {
     report(err, "world.collection_backfill");
   }
@@ -132,7 +134,9 @@ export function wireSocial(
   // above; each ended event's Hosting points go to the guests the hosting record counted; a
   // level-up tells its resident; and profiles show levels, which live in the world. An event that
   // ended before the record could be read (the boot's catch-up, a crash) is credited now.
-  service.levelFirsts = () => layer.collection.firstsCredit(service.state);
+  // `open_levels` is for good, so a book whose backfill threw gives no credit: the switch waits
+  // for a boot that fills it.
+  if (bookFilled) service.levelFirsts = () => layer.collection.firstsCredit(service.state);
   service.countedGuests = (event) => layer.events.countedGuests(event);
   service.onLevelsReached = (id, levels) => layer.levelsReached(id, levels);
   layer.levels = (id) => levelView(service.state, id);

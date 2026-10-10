@@ -272,9 +272,19 @@ export async function layoutShift(page: Page): Promise<number> {
   );
 }
 
-/** Whether the page scrolls sideways: it never should on a phone. */
-export async function overflowsSideways(page: Page): Promise<boolean> {
-  return page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+/**
+ * Whether the page scrolls sideways: it never should on a phone. With `within`, whether that
+ * element does instead (a sheet's card, which the page's own width says nothing about), or
+ * reaches past either edge of the screen.
+ */
+export async function overflowsSideways(page: Page, within?: string): Promise<boolean> {
+  return page.evaluate((selector) => {
+    if (!selector) return document.documentElement.scrollWidth > window.innerWidth;
+    const el = document.querySelector(selector);
+    if (!el) throw new Error(`Nothing on the page matches ${selector}`);
+    const box = el.getBoundingClientRect();
+    return el.scrollWidth > el.clientWidth || box.left < 0 || box.right > window.innerWidth;
+  }, within);
 }
 
 /**

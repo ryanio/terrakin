@@ -4,6 +4,7 @@ import {
   freePlots,
   openLevels,
   openRecipes,
+  overflowsSideways,
   persona,
   read,
   settleFree,
@@ -238,6 +239,7 @@ test("a resident from before recipes opened keeps her full kitchen, and levels o
   await expect(kitchen.locator(".workshop-learn")).toBeHidden();
   await expect(page.locator(".picks-sheet")).toHaveCount(0);
 
+  const neighbor = hazel;
   await test.step("levels open: a newcomer's first two makes reach level 2, and her profile shows it", async () => {
     await openLevels(page.request);
     const linden = await persona(page.request, "stocked", { name: "Linden" });
@@ -278,7 +280,22 @@ test("a resident from before recipes opened keeps her full kitchen, and levels o
     await expect(making).toContainText("4 of 20 today");
     await expect(making.getByRole("progressbar")).toBeVisible();
     await expect(skills.locator('[data-skill="growing"]')).toContainText("Growing 1");
+    expect(await overflowsSideways(page, ".level-sheet .sheet-card")).toBe(false);
     await page.screenshot({ path: "test-results/levels-sheet.png" });
+
+    // A neighbor opens the same chip: her levels, and nothing of her points or her day.
+    await signIn(page, neighbor);
+    await page.goto(`/r/${linden.id}`);
+    await expect(chip).toHaveText("Level 2");
+    await chip.click();
+    await expect(skills.getByRole("heading", { name: "Linden's skills" })).toBeVisible();
+    await expect(making).toContainText("Making 2");
+    await expect(making.getByRole("progressbar")).toBeVisible();
+    await expect(skills.locator(".level-total")).toHaveText("Level 2");
+    await expect(skills).not.toContainText("points");
+    await expect(skills).not.toContainText("today");
+    await expect(skills.locator(".level-titles, .level-wear")).toHaveCount(0);
+    expect(await overflowsSideways(page, ".level-sheet .sheet-card")).toBe(false);
   });
   expect(errors).toEqual([]);
 });

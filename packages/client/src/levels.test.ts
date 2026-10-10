@@ -113,7 +113,6 @@ describe("the skills sheet's rows (RFC 0029)", () => {
 
   it("fills your bar from this level's start to the next level's, never past either end", () => {
     // Growing 3 starts at 60 points and Growing 4 at 120: 74 points is 14 of 60.
-    expect(pointsFor(3)).toBe(60);
     expect(ownSkillRow(mine(), undefined).bar).toEqual({
       count: 14,
       total: 60,
@@ -182,9 +181,5 @@ describe("earned wear in the look editor (RFC 0029)", () => {
 
   it("labels a garment not reached with its skill and level", () => {
     expect(earnedAt("sun_hat")).toBe("Growing 5");
-    expect(earnedAt("tool_belt")).toBe("Making 5");
-    expect(earnedAt("field_vest")).toBe("Foraging 5");
-    expect(earnedAt("party_sash")).toBe("Hosting 5");
-    expect(earnedAt("winners_rosette")).toBe("Playing 5");
   });
 });

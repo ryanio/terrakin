@@ -33,6 +33,7 @@ import {
   type Resident,
   rejoined,
   routinesOf,
+  standingStorey,
   type WorldState,
   walkLegs,
 } from "@terrakin/sim";
@@ -357,6 +358,27 @@ export function worldLinks(
 
     linkMove: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
+      const { dir } = query;
+      if (dir === "up" || dir === "down") {
+        // One storey, whatever `steps` says, through the same `move` as the API (RFC 0028).
+        const result = act(
+          viewer,
+          { type: "move", dir },
+          `Stairs are climbed from their own tile: up while you stand on them, down from the top of them. They're the one block you can walk onto: ${l.moveAny}`,
+        );
+        if (!result.ok) return result.page;
+        const r = resident(viewer);
+        if ("error" in r) return r;
+        const upstairs = standingStorey(r) > 0;
+        return answer(
+          r,
+          l,
+          `# Went ${dir}`,
+          `You went ${dir} the stairs at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}. You're ${upstairs ? "upstairs" : "on the ground floor"} now.`,
+          upstairs &&
+            "Upstairs, a tile with no floor is in the way. Come back to this tile to go down.",
+        );
+      }
       const steps = query.steps ?? 1;
       service.arrive(viewer, "move");
       // Each step after the first is one more action.
@@ -364,7 +386,7 @@ export function worldLinks(
       let moved = 0;
       let stop: { code: ErrorCode; message: string } | undefined;
       for (let i = 0; i < steps; i++) {
-        const result = step({ type: "move", dir: query.dir });
+        const result = step({ type: "move", dir });
         if (!result.ok) {
           stop = result.error;
           break;
@@ -376,14 +398,14 @@ export function worldLinks(
       if (moved === 0 && stop) {
         return turnedDown({ ok: false, error: stop }, `Look around: ${l.world}`);
       }
-      const way = DIRECTIONS[query.dir];
+      const way = DIRECTIONS[dir];
       return answer(
         r,
         l,
         "# Walked",
         `You walked ${moved} of ${steps} ${steps === 1 ? "step" : "steps"} ${way}. You're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
         stop && `Stopped early: ${stop.message} (code \`${stop.code}\`)`,
-        `Keep going: ${l.move(query.dir, steps)}`,
+        `Keep going: ${l.move(dir, steps)}`,
       );
     },
 

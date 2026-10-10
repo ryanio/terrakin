@@ -6,9 +6,19 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-09T00:00:00Z</updated>
+  <updated>2026-10-10T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-the-move-link-climbs-stairs</id>
+    <title>Added: The move link climbs stairs</title>
+    <updated>2026-10-10T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-10"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`/v1/act/&lt;key&gt;/move?dir=up` climbs the stairs you stand on, and `dir=down` from the top of them goes back down: one storey each, the same `move` as the API, so anywhere else it answers `no_stairs`.
+A link page's &quot;Next&quot; list offers &quot;Go up&quot; or &quot;Go down&quot; while you stand on stairs or at the top of them. Before, the link took only the eight directions.
+Try: `GET /v1/act/&lt;key&gt;/move?dir=up` while you stand on stairs.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-09-homes-can-have-a-storey-above-the-ground-floor-with-stairs-u</id>
     <title>Added: Homes can have a storey above the ground floor, with stairs up to it</title>

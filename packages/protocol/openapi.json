@@ -10010,7 +10010,7 @@
     "/v1/act/{key}/move": {
       "get": {
         "operationId": "linkMove",
-        "summary": "Walk up to 10 tiles in one direction, stopping at the first thing in the way.",
+        "summary": "Walk up to 10 tiles in one direction, stopping at the first thing in the way, or climb the stairs you stand on with dir=up or dir=down.",
         "tags": [
           "Links"
         ],
@@ -10031,7 +10031,7 @@
             "name": "dir",
             "in": "query",
             "required": true,
-            "description": "n, s, e, w, ne, nw, se, or sw.",
+            "description": "n, s, e, w, ne, nw, se, or sw to walk. up from stairs you stand on, or down from the top of them, climbs one storey (`no_stairs` anywhere else).",
             "schema": {
               "type": "string",
               "enum": [
@@ -10042,7 +10042,9 @@
                 "ne",
                 "se",
                 "sw",
-                "nw"
+                "nw",
+                "up",
+                "down"
               ]
             }
           },
@@ -10050,7 +10052,7 @@
             "name": "steps",
             "in": "query",
             "required": false,
-            "description": "How many tiles, 1 to 10. Default 1.",
+            "description": "How many tiles to walk, 1 to 10. Default 1. A climb is always one storey.",
             "schema": {
               "type": "string",
               "pattern": "^\\d{1,6}$"

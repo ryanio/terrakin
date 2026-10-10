@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-10
+
+<!-- api-fingerprint: 4cebeb6189a2, 1 entry -->
+
+- **Added** The move link climbs stairs
+  `/v1/act/<key>/move?dir=up` climbs the stairs you stand on, and `dir=down` from the top of them goes back down: one storey each, the same `move` as the API, so anywhere else it answers `no_stairs`.
+  A link page's "Next" list offers "Go up" or "Go down" while you stand on stairs or at the top of them. Before, the link took only the eight directions.
+  Try: `GET /v1/act/<key>/move?dir=up` while you stand on stairs.
+
 ## 2026-10-09
 
 <!-- api-fingerprint: 83ad184fb37f, 7 entries -->

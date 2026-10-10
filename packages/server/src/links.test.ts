@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CHECKIN_SUGGESTED_HOURS, JOIN_CODE_MS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
-import { HAIR_STYLES, type WorldConfig } from "@terrakin/sim";
+import { HAIR_STYLES, STOREYS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
@@ -459,13 +459,62 @@ describe("action links", () => {
     const partial = await wren.act("move?dir=w&steps=5");
     expect(partial.text).toContain("You walked 3 of 5 steps west. You're at (0, 23)");
     expect(partial.text).toContain("code `out_of_bounds`");
-    expect(codeOf((await wren.act("move?dir=up")).text)).toBe("bad_request");
+    expect(codeOf((await wren.act("move?dir=over")).text)).toBe("bad_request");
     expect(codeOf((await wren.act("move?dir=n&steps=11")).text)).toBe("bad_request");
 
     expect((await wren.act("home")).text).toContain("You're at your hearth, (3, 3)");
     // Diagonals walk too, and say which way.
     const diagonal = await wren.act("move?dir=ne");
     expect(diagonal.text).toContain("You walked 1 of 1 step northeast. You're at (4, 2)");
+  });
+
+  it("climbs stairs by link, through the world's own move, and offers the way up and down (RFC 0028)", async () => {
+    const { joinByLink, service, base } = await start({
+      world: { days: true, economy: true, items: true },
+    });
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    const link = (dir: string) => `${base}/v1/act/${wren.key}/move?dir=${dir}\n`;
+    // No stairs under her: the world's refusal as a page that says how stairs work, and no link
+    // to climb in the Next list.
+    const none = await wren.act("move?dir=up");
+    expect([none.status, codeOf(none.text)]).toEqual([200, "no_stairs"]);
+    expect(none.text).toContain("Stand on stairs to go up.");
+    expect(none.text).toContain("up while you stand on them, down from the top of them");
+    expect((await wren.act("me")).text).not.toMatch(/move\?dir=(up|down)/);
+    // A storey and stairs inside her hut, south-west of the hearth, which a link can't build.
+    service.testGrant(wren.id, STOREYS.price, { wood: STOREYS.stairsWood });
+    for (const action of [
+      { type: "add_storey", px: 0, py: 0 },
+      { type: "place", x: 2, y: 4, block: "stairs" },
+    ] as const) {
+      expect(service.act(wren.id, action), action.type).toMatchObject({ ok: true });
+    }
+    // On the stairs, the Next list offers the way up, and only that.
+    const onStairs = (await wren.act("move?dir=sw")).text;
+    expect(onStairs).toContain(`- Go up the stairs you're standing on: ${link("up")}`);
+    expect(onStairs).not.toContain("move?dir=down");
+    // Up is one storey whatever `steps` says, and from the top the list offers the way down.
+    const up = (await wren.act("move?dir=up&steps=3")).text;
+    expect(up).toContain("# Went up");
+    expect(up).toContain(
+      "You went up the stairs at (2, 4), on your plot (0, 0). You're upstairs now.",
+    );
+    expect(service.state.residents[wren.id]).toMatchObject({ x: 2, y: 4, storey: 1 });
+    expect(up).toContain(`- Go down the stairs you're at the top of: ${link("down")}`);
+    expect(up).not.toContain("move?dir=up");
+    // The sim's checks apply: there's no going up from the top.
+    expect(codeOf((await wren.act("move?dir=up")).text)).toBe("no_stairs");
+    const down = (await wren.act("move?dir=down")).text;
+    expect(down).toContain(
+      "You went down the stairs at (2, 4), on your plot (0, 0). You're on the ground floor now.",
+    );
+    expect(service.state.residents[wren.id]?.storey).toBeUndefined();
+    expect(down).toContain(link("up"));
+    const floor = await wren.act("move?dir=down");
+    expect([floor.status, codeOf(floor.text)]).toEqual([200, "no_stairs"]);
+    expect(floor.text).toContain("Stand at the top of the stairs to go down.");
   });
 
   it("charges one action per step of a walk", async () => {

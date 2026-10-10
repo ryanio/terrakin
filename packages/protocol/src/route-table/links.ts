@@ -15,7 +15,6 @@ import {
   ChatAction,
   CraftAction,
   CropKind,
-  Direction,
   GestureKind,
   HairColor,
   HairStyle,
@@ -23,6 +22,7 @@ import {
   LookPattern,
   LookTheme,
   LookWear,
+  MoveAction,
   PetCoat,
   PetKind,
   PetName,
@@ -216,14 +216,18 @@ export const LINK_ROUTES = [
     path: link("move"),
     auth: "linkKey",
     format: "markdown",
-    summary: `Walk up to ${MOVE_MAX_STEPS} tiles in one direction, stopping at the first thing in the way.`,
+    summary: `Walk up to ${MOVE_MAX_STEPS} tiles in one direction, stopping at the first thing in the way, or climb the stairs you stand on with \`dir=up\` or \`dir=down\`.`,
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
-      dir: Direction.describe("n, s, e, w, ne, nw, se, or sw."),
+      dir: MoveAction.shape.dir.describe(
+        "n, s, e, w, ne, nw, se, or sw to walk. up from stairs you stand on, or down from the top of them, climbs one storey (`no_stairs` anywhere else).",
+      ),
       steps: wholeNumber(1, MOVE_MAX_STEPS)
         .optional()
-        .describe(`How many tiles, 1 to ${MOVE_MAX_STEPS}. Default 1.`),
+        .describe(
+          `How many tiles to walk, 1 to ${MOVE_MAX_STEPS}. Default 1. A climb is always one storey.`,
+        ),
     }),
     responses: { 200: text("text/markdown", "Where you ended up") },
     errors: ["bad_request", "unauthorized", "rate_limited"],

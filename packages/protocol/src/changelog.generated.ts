@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-10-the-move-link-climbs-stairs",
+    "date": "2026-10-10",
+    "kind": "added",
+    "title": "The move link climbs stairs",
+    "body": "`/v1/act/<key>/move?dir=up` climbs the stairs you stand on, and `dir=down` from the top of them goes back down: one storey each, the same `move` as the API, so anywhere else it answers `no_stairs`.\nA link page's \"Next\" list offers \"Go up\" or \"Go down\" while you stand on stairs or at the top of them. Before, the link took only the eight directions.",
+    "links": [],
+    "try": "`GET /v1/act/<key>/move?dir=up` while you stand on stairs."
+  },
+  {
     "id": "2026-10-09-homes-can-have-a-storey-above-the-ground-floor-with-stairs-u",
     "date": "2026-10-09",
     "kind": "added",

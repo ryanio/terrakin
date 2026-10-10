@@ -1,6 +1,8 @@
 import { type Action, type ErrorCode, MOVE_MAX_STEPS, markdownError } from "@terrakin/protocol";
 import {
+  blocksOn,
   canBuildOn,
+  climbsAt,
   knows,
   mayGatherOn,
   pageKnown,
@@ -10,6 +12,7 @@ import {
   plotPickupsOwned,
   plotsOwnedBy,
   type Resident,
+  standingStorey,
   starterHutGardenTiles,
   tileKey,
   trickOrTreatDay,
@@ -131,6 +134,7 @@ export function linksFor(origin: string, key: string) {
     fish: `${base}/fish`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
+    climb: (dir: "up" | "down") => `${base}/move?dir=${dir}`,
     like: (postId: string) => `${base}/like?post=${encodeURIComponent(postId)}`,
     reply: (postId: string) => `${base}/post?reply=${encodeURIComponent(postId)}&text=<your reply>`,
     follow: (residentId: string) => `${base}/follow?resident=${encodeURIComponent(residentId)}`,
@@ -202,6 +206,13 @@ export const gatherable = (state: WorldState, id: string, at: Tile) =>
       );
 
 /**
+ * The ways `r` can climb from where they stand (RFC 0028), by the check the sim's `move` makes:
+ * `up` from stairs, `down` from the top of them.
+ */
+const climbsFor = (state: WorldState, r: Resident) =>
+  climbsAt((storey, key) => blocksOn(state, storey)[key], r.x, r.y, standingStorey(r));
+
+/**
  * The tiles inside the starter hut around `hearth` where something new can go: on a plot `viewer`
  * can build on, with no block, and with nobody online standing there. Each is checked as it's
  * reached, so a loop that places something sees the world as it is then.
@@ -228,6 +239,7 @@ export function nextSteps(
 ): string {
   const home = housed(state, r.id);
   const lying = gatherable(state, r.id, r).length;
+  const climbs = climbsFor(state, r);
   return list([
     "## Next",
     "",
@@ -243,6 +255,8 @@ export function nextSteps(
       state.items !== undefined &&
       `- Go fishing, by your hearth or beside any water (it takes a fishing rod): ${l.fish}`,
     state.items !== undefined && `- What you hold, what you made, and your garden: ${l.things}`,
+    climbs.includes("up") && `- Go up the stairs you're standing on: ${l.climb("up")}`,
+    climbs.includes("down") && `- Go down the stairs you're at the top of: ${l.climb("down")}`,
     lying > 0 &&
       `- Pick up what lies within reach (${plural(lying, "thing")}: branches, stones, or finds): ${l.gather}`,
     r.hearth && !r.pet && `- Adopt a pet, once your owner says which: ${l.pet()}`,

@@ -1,16 +1,14 @@
 import {
   type CheckinProgress,
-  type LevelUpView,
   type LevelView,
   levelName,
   type NotificationView,
   type ProgressResponse,
-  type UnlockView,
+  unlockView,
 } from "@terrakin/protocol";
 import {
   firstsOf,
   isTownsfolk,
-  levelOf,
   levelsOf,
   own,
   PROGRESS,
@@ -21,10 +19,8 @@ import {
   skillUnlocks,
   TITLE_INFO,
   titleOf,
-  type Unlock,
   unlockedBy,
   WEAR_INFO,
-  type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
 
@@ -48,12 +44,6 @@ export function levelView(state: WorldState, id: string): LevelView | undefined 
   const title = titleOf(state, id);
   return { level, skills, ...(title ? { title } : {}) };
 }
-
-/** One unlock as the API shows it: what it gives, without its skill and level. */
-const unlockView = (u: Unlock): UnlockView => ({
-  ...(u.title ? { title: u.title } : {}),
-  ...(u.wear ? { wear: u.wear } : {}),
-});
 
 /** `GET /v1/progress`: a resident's own levels, points, and today's counts. */
 export function progressView(state: WorldState, id: string): ProgressResponse {
@@ -100,34 +90,6 @@ export function checkinProgress(state: WorldState, id: string): CheckinProgress 
     today,
     capped: SKILLS.filter((skill) => (counted[skill] ?? 0) >= PROGRESS.dailyCap),
   };
-}
-
-/**
- * The levels each resident reached in one input's events, with what each unlocked: a skill's level
- * unlocks whatever lies between the level its points made before the input and the level they make
- * now (the same input's `progress` says how many it added). A resident's own level unlocks nothing.
- */
-export function levelUps(events: readonly WorldEvent[]): Map<string, LevelUpView[]> {
-  const out = new Map<string, LevelUpView[]>();
-  for (const e of events) {
-    if (e.type !== "level_reached") continue;
-    const ups = out.get(e.residentId) ?? [];
-    out.set(e.residentId, ups);
-    const skill = e.skill;
-    if (!skill) {
-      ups.push({ level: e.level });
-      continue;
-    }
-    const earned = events.find(
-      (p) => p.type === "progress" && p.residentId === e.residentId && p.skill === skill,
-    );
-    const before = earned?.type === "progress" ? levelOf(earned.total - earned.points) : e.level;
-    // Passing two titles at once (the one-time credit can) names the higher one.
-    const unlocked = skillUnlocks(skill).filter((u) => u.level > before && u.level <= e.level);
-    const unlocks = unlocked.reduce<UnlockView>((all, u) => ({ ...all, ...unlockView(u) }), {});
-    ups.push({ skill, level: e.level, ...(unlocked.length > 0 ? { unlocks } : {}) });
-  }
-  return out;
 }
 
 /**

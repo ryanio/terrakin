@@ -9244,3 +9244,131 @@ html.view3d-open body {
   width: 16px;
   height: 16px;
 }
+
+/*
+ * Levels and skills (RFC 0029). The level chip on a profile is a button among the fact chips; its
+ * metal at level 10, 25, and 50 is drawing only.
+ */
+.profile-facts > .profile-level {
+  position: relative;
+  gap: var(--space-xs);
+  color: var(--clay-deep);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* A chip is 30px tall: the tap reaches 7px past it above and below, 44px in all. */
+.profile-facts > .profile-level::after {
+  content: "";
+  position: absolute;
+  inset: -7px 0;
+}
+
+.profile-facts > .profile-level .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.profile-facts > .profile-level[data-tone="copper"] {
+  border-color: #b87333;
+  background: #f6e3d3;
+  color: #7a4a1f;
+}
+
+.profile-facts > .profile-level[data-tone="silver"] {
+  border-color: #9aa3ad;
+  background: #eef1f4;
+  color: #4d5761;
+}
+
+.profile-facts > .profile-level[data-tone="gold"] {
+  border-color: #c9a227;
+  background: #fbf0c4;
+  color: #6b5200;
+}
+
+/* The skills sheet: a row a skill, its bar under its name. */
+.level-total {
+  margin: var(--space-md) 0 var(--space-xs);
+  font-weight: var(--weight-bold);
+}
+
+.level-sheet .level-row {
+  align-items: start;
+  padding: var(--space-sm) 0;
+}
+
+/* A row's lines hold a bar, so they're blocks, never clamped. */
+.level-sheet .item-row-line {
+  display: block;
+}
+
+.level-sheet .level-row .progress-bar {
+  margin: var(--space-xs) 0;
+}
+
+/* The garment a skill brings, faint until that skill reaches it. */
+.level-row:not(.reached) > .item-art {
+  opacity: 0.45;
+}
+
+.level-garment {
+  gap: var(--space-xs);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.level-titles .pick-row button {
+  text-transform: none;
+}
+
+.level-dress {
+  justify-self: start;
+}
+
+.level-extras {
+  margin-top: var(--space-lg);
+}
+
+/*
+ * Points you just earned, over your figure for a moment. world.ts sets where each frame; it rises
+ * and fades, and under reduced motion (base.css stops every animation) it shows, then goes.
+ */
+.world-gain {
+  position: absolute;
+  left: var(--gain-x, 50%);
+  top: var(--gain-y, 50%);
+  margin: 0;
+  padding: var(--space-2xs) var(--space-md);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-pill);
+  background: var(--paper);
+  box-shadow: 0 4px 14px rgba(74, 52, 28, 0.18);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--moss-deep);
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.world-gain.rise {
+  animation: gain-rise 1.8s ease-out both;
+}
+
+@keyframes gain-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -80%);
+  }
+
+  12%,
+  75% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(-50%, -190%);
+  }
+}

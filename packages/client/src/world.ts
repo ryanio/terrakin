@@ -64,7 +64,7 @@ import {
   withChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
-import { Feelings, gestureReaction } from "./feelings";
+import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { openHomeSheet } from "./home-sheet";
 import { joinProblem } from "./join-form";
@@ -91,6 +91,7 @@ import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from
 import { visitCard } from "./visit-card";
 import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
+import { worldLevels } from "./world-levels";
 import type { LookTarget, WorldLink } from "./world-link";
 import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
@@ -292,6 +293,12 @@ const look = lookCard({
 });
 /** The chip naming your next first step, in the near-actions slot while it is free. */
 mountNextStep({ navigate: (path) => navigate?.(path) });
+/** Levels (RFC 0029): your points over your figure, a sparkle on anyone's level-up, your toast. */
+const levels = worldLevels({
+  el: $("world-gain"),
+  toast: (line) => showToast(line),
+  sparkle: (id, now) => feelings.show(id, levelReaction(), now),
+});
 /** How quickly the map's camera catches up with your figure, per second. */
 const CAMERA_RATE = 10;
 let lastFrame = 0;
@@ -541,6 +548,7 @@ function onMessage(msg: ServerMessage) {
         const { x, y, caught } = msg.event;
         casts = [...casts, { x, y, caught, at: performance.now() }];
       }
+      if (applied === "applied") levels.heard(msg.seq, msg.event, me, performance.now());
       // Your own news, in plain words. Notes and labels stay out of it; a lesson names its teacher
       // or learner (RFC 0024), shown as text.
       const line = me ? newsLine(msg.event, me, (id) => mirror?.residents.get(id)?.name) : null;
@@ -1537,6 +1545,19 @@ function paintClimb(now: number) {
   climbButton.style.setProperty("--climb-y", `${Math.round(spot.y)}px`);
 }
 
+/**
+ * Over your figure on the page, clear of its name tag and the sign a feeling floats there, where
+ * the points you earned show.
+ */
+function headSpot(now: number): { x: number; y: number } | undefined {
+  const r = self();
+  if (!r) return undefined;
+  if (world3d) return world3d.screenOf(r.id, true);
+  const p = motion.pose(r, now, motionQuery.matches);
+  const at = tileToScreen(cam, p.x, p.y);
+  return { x: at.sx, y: at.sy - cam.scale * 2.3 };
+}
+
 climbButton.addEventListener("click", () => {
   const way = climbButton.dataset.dir;
   if (way !== "up" && way !== "down") return;
@@ -1850,6 +1871,7 @@ function frame() {
     });
   }
   paintClimb(now);
+  levels.paint(headSpot(now), now);
   if (casts.length > 0 && now - (casts[0]?.at ?? now) > CAST_MS) {
     casts = casts.filter((c) => now - c.at <= CAST_MS);
   }
@@ -2083,6 +2105,7 @@ export function stopWorld() {
   petNear = undefined;
   gatherButton.hidden = true;
   climbButton.hidden = true;
+  levels.reset();
   gathering?.done();
   fishButton.hidden = true;
   enterButton.hidden = true;

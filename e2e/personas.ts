@@ -253,6 +253,18 @@ export async function openRecipesOver(http: Http): Promise<void> {
   );
 }
 
+/**
+ * Switch levels on in this world now (RFC 0029): everyone already here gets a first for each kind
+ * in their collection book, and from then on deeds earn points. Once per world: a second call is
+ * refused. Test servers only (`POST /v1/test/open-levels`).
+ */
+export async function openLevelsOver(http: Http): Promise<void> {
+  await expectOk(
+    "open levels (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-levels"),
+  );
+}
+
 /** A preset with a spec's own fields on top: `stage("stocked", { name: "Ivy", coins: 50 })`. */
 export function stage(preset: PresetName, spec: PersonaSpec): PersonaSpec {
   const base: Omit<PersonaSpec, "name"> = PRESETS[preset];

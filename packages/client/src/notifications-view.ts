@@ -15,7 +15,7 @@ import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
 import { levelsLine } from "./levels";
-import { savedToken } from "./net";
+import { savedResidentId, savedToken } from "./net";
 import { aThing, petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
 import { recipeWords, thingCount, thingName } from "./things";
@@ -159,7 +159,13 @@ function systemWords(n: NotificationView): SystemWords | null {
     };
   }
   if (n.levels && n.levels.length > 0) {
-    return { icon: ICONS.level_reached, ...levelsLine(n.levels), links: [] };
+    // Your own profile has the chip that opens your skills.
+    const me = savedResidentId();
+    return {
+      icon: ICONS.level_reached,
+      ...levelsLine(n.levels),
+      links: me ? [{ href: profilePath(me), label: "See your skills" }] : [],
+    };
   }
   return null;
 }

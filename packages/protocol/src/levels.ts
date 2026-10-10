@@ -1,4 +1,4 @@
-import { SKILLS, type Skill, skillName } from "@terrakin/sim";
+import { levelOf, SKILLS, type Skill, skillName, skillUnlocks, type Unlock } from "@terrakin/sim";
 import { z } from "zod";
 import { EarnedWear, SkillName, TitleName } from "./schemas";
 
@@ -120,3 +120,55 @@ export type CheckinProgress = z.infer<typeof CheckinProgress>;
 /** A level in people's words: "Growing 5" for a skill's, "Level 8" for a resident's own. */
 export const levelName = (up: { skill?: Skill | undefined; level: number }): string =>
   `${up.skill ? skillName(up.skill) : "Level"} ${up.level}`;
+
+/** One unlock as the API shows it: what it gives, without its skill and level. */
+export const unlockView = (u: Unlock): UnlockView => ({
+  ...(u.title ? { title: u.title } : {}),
+  ...(u.wear ? { wear: u.wear } : {}),
+});
+
+/** The two events `levelUps` reads, as the sim makes them and the socket sends them. */
+interface Gained {
+  type: "progress";
+  residentId: string;
+  skill: Skill;
+  points: number;
+  total: number;
+}
+interface Reached {
+  type: "level_reached";
+  residentId: string;
+  skill?: Skill | undefined;
+  level: number;
+}
+const isGained = (e: { type: string }): e is Gained => e.type === "progress";
+const isReached = (e: { type: string }): e is Reached => e.type === "level_reached";
+
+/**
+ * The levels each resident reached in one input's events, with what each unlocked: a skill's level
+ * unlocks whatever lies between the level its points made before the input and the level they make
+ * now (the same input's `progress` says how many it added). A resident's own level unlocks nothing.
+ * The server builds a level notice from it, and the web the words of its toast.
+ */
+export function levelUps(events: readonly { type: string }[]): Map<string, LevelUpView[]> {
+  const out = new Map<string, LevelUpView[]>();
+  for (const e of events) {
+    if (!isReached(e)) continue;
+    const ups = out.get(e.residentId) ?? [];
+    out.set(e.residentId, ups);
+    const skill = e.skill;
+    if (!skill) {
+      ups.push({ level: e.level });
+      continue;
+    }
+    const earned = events
+      .filter(isGained)
+      .find((p) => p.residentId === e.residentId && p.skill === skill);
+    const before = earned ? levelOf(earned.total - earned.points) : e.level;
+    // Passing two titles at once (the one-time credit can) names the higher one.
+    const unlocked = skillUnlocks(skill).filter((u) => u.level > before && u.level <= e.level);
+    const unlocks: UnlockView = Object.assign({}, ...unlocked.map(unlockView));
+    ups.push({ skill, level: e.level, ...(unlocked.length > 0 ? { unlocks } : {}) });
+  }
+  return out;
+}

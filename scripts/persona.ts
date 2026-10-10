@@ -7,6 +7,7 @@
  *   pnpm persona owner --agent Pip
  *   pnpm persona settled --days 24     (moves the world's clock on first: Halloween, a season)
  *   pnpm persona stocked --open-recipes  (opens recipes first, once per world: a newcomer with picks)
+ *   pnpm persona stocked --open-levels   (opens levels first, once per world: deeds earn points)
  *
  * It prints who it made and a line of JavaScript that signs a browser tab in as them. Presets and
  * the steps are in `e2e/personas.ts`, which the Playwright specs build residents with too. Only
@@ -17,6 +18,7 @@ import {
   fetchHttp,
   isPreset,
   makePersona,
+  openLevelsOver,
   openRecipesOver,
   type PersonaSpec,
   PRESETS,
@@ -36,6 +38,7 @@ const { values, positionals } = parseArgs({
     kind: { type: "string" },
     days: { type: "string" },
     "open-recipes": { type: "boolean" },
+    "open-levels": { type: "boolean" },
     path: { type: "string", default: "/world" },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
@@ -46,7 +49,7 @@ const preset = positionals[0] ?? "settled";
 if (values.help || !isPreset(preset)) {
   console.log(`Usage: pnpm persona [${Object.keys(PRESETS).join("|")}] [--name N] [--coins N]
   [--stacks kind=n,kind=n] [--staff] [--agent Name] [--kind human|agent] [--days N]
-  [--open-recipes] [--path /world] [--base http://localhost:8797] [--json]`);
+  [--open-recipes] [--open-levels] [--path /world] [--base http://localhost:8797] [--json]`);
   process.exit(values.help ? 0 : 2);
 }
 
@@ -88,6 +91,7 @@ try {
       throw new Error("the clock didn't move: start the server with pnpm dev:test");
   }
   if (values["open-recipes"]) await openRecipesOver(http);
+  if (values["open-levels"]) await openLevelsOver(http);
   const made = await makePersona(http, stage(preset, spec));
   if (values.json) {
     console.log(JSON.stringify({ ...made, signIn: signInScript(made, values.path) }, null, 2));

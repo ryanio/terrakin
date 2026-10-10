@@ -43,6 +43,12 @@ export function gestureReaction(kind: GestureKind): Reaction {
   }
 }
 
+/**
+ * How a figure marks a level it reached (RFC 0029): a hop and the sparkle sign. Under reduced
+ * motion `pose` keeps the face and the sign and drops the hop.
+ */
+export const levelReaction = (): Reaction => ({ feeling: "laugh", cue: "hop" });
+
 /** Who shows what right now, and who just spoke. */
 export class Feelings {
   readonly #shown = new Map<string, Shown>();

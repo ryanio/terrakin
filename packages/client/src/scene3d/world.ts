@@ -184,9 +184,10 @@ export interface World3d {
   sync(frame: World3dFrame): void;
   /**
    * Where on the page, in CSS pixels, a pill beside a resident's figure goes: right of its middle
-   * as drawn now. Undefined when they aren't drawn or are behind the camera.
+   * as drawn now. With `over`, where a line over the figure goes instead: above its name tag and
+   * the sign a feeling floats there. Undefined when they aren't drawn or are behind the camera.
    */
-  screenOf(id: string): { x: number; y: number } | undefined;
+  screenOf(id: string, over?: boolean): { x: number; y: number } | undefined;
   /** Which way is away from the camera, snapped to a direction: what "up" on the d-pad means. */
   heading(): Quarter;
   dispose(): void;
@@ -243,6 +244,8 @@ const CLIMB = 8;
 const FIGURE_MIDDLE = 0.6;
 /** How far right of a figure's middle a pill beside it starts, in CSS pixels. */
 const BESIDE_PX = 28;
+/** How high over a figure's feet a line over it sits, clear of its name tag and its sign. */
+const FIGURE_OVER = 2.3;
 /** Figures this close to a speaker turn their heads to them, as far as a neck goes. */
 const LISTEN_RADIUS = 5;
 const NECK = 0.8;
@@ -1287,18 +1290,19 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       }
       if (moved || changed || walked || buildMode) stage.invalidate();
     },
-    screenOf(id) {
+    screenOf(id, over = false) {
       const fig = figures.get(id);
       if (!fig || !started) return undefined;
-      // Beside the figure's middle, where it's drawn this frame: climbing eases its height.
+      // Beside the figure's middle, or over it, where it's drawn this frame: climbing eases its
+      // height.
       onScreen
         .copy(fig.group.position)
-        .setY(fig.group.position.y + FIGURE_MIDDLE)
+        .setY(fig.group.position.y + (over ? FIGURE_OVER : FIGURE_MIDDLE))
         .project(camera);
       if (onScreen.z > 1) return undefined;
       const rect = canvas.getBoundingClientRect();
       return {
-        x: rect.left + ((onScreen.x + 1) / 2) * rect.width + BESIDE_PX,
+        x: rect.left + ((onScreen.x + 1) / 2) * rect.width + (over ? 0 : BESIDE_PX),
         y: rect.top + ((1 - onScreen.y) / 2) * rect.height,
       };
     },

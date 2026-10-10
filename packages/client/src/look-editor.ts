@@ -54,6 +54,7 @@ import {
 } from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
 import { colorChips, hairChips, hairColorChips } from "./join-form";
+import { earnedAt, earnedState } from "./levels";
 import { coins } from "./purse";
 
 export interface LookOwner {
@@ -70,11 +71,13 @@ export interface LookOwner {
 }
 
 /**
- * The wear one slot offers: everything, except partner wear (RFC 0007) and earned wear (RFC 0029)
- * the resident may not put on and isn't wearing, and a holiday's costumes (RFC 0022) they don't own
- * while the shop isn't selling them. Neither partner nor earned wear can be bought, so neither is
- * shown locked at a price. `entitled` is the partner and earned wear they may put on, `owned` the
- * shop wear they own, and `onSale` what the shop sells today, both from the shop's answer.
+ * The wear one slot offers: everything, except partner wear (RFC 0007) the resident may not put on
+ * and isn't wearing, earned wear (RFC 0029) until levels are open here, and a holiday's costumes
+ * (RFC 0022) they don't own while the shop isn't selling them. Partner wear can't be bought, so it's
+ * never shown locked at a price; earned wear not reached yet is listed with its skill and level
+ * (`earnedState` in `levels.ts`). `entitled` is the partner wear they may put on, `owned` the shop
+ * wear they own, and `onSale` what the shop sells today, both from the shop's answer, and `earned`
+ * the earned wear they've reached, from `GET /v1/progress`, undefined while levels aren't open.
  */
 export function wearChoices(
   slot: WearSlot,
@@ -82,11 +85,13 @@ export function wearChoices(
   wearing: readonly WearItem[],
   owned: ReadonlySet<string> = new Set(),
   onSale: ReadonlySet<string> = new Set(),
+  earned?: readonly string[] | undefined,
 ): WearItem[] {
   return WEAR_ITEMS.filter(
     (w) =>
       WEAR_INFO[w].slot === slot &&
-      ((!isExclusiveWear(w) && !isEarnedWear(w)) || entitled.includes(w) || wearing.includes(w)) &&
+      (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)) &&
+      earnedState(w, wearing, earned) !== "hidden" &&
       (!isCostume(w) || owned.has(w) || wearing.includes(w) || onSale.has(w)),
   );
 }
@@ -252,6 +257,9 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     owned: new Set((owner.look?.wear ?? []).filter(isShopWear)),
     prices: new Map(),
   };
+
+  // Earned wear they've reached (RFC 0029): undefined until the server says levels are open here.
+  let earned: readonly string[] | undefined;
 
   // ---- preview ----
   const preview = h("canvas", { class: "look-preview-figure", attrs: { "aria-hidden": "true" } });
@@ -440,7 +448,10 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     );
   });
 
-  /** One slot's chips: none, then each piece, with shop wear you don't own locked at its price. */
+  /**
+   * One slot's chips: none, then each piece, with shop wear you don't own locked at its price and
+   * earned wear you haven't reached at its skill and level.
+   */
   function fillWearRow(slot: WearSlot) {
     const row = chipRows.get(slot);
     if (!row) return;
@@ -460,10 +471,32 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       owner.look?.wear ?? [],
       wardrobe.owned,
       sold,
+      earned,
     );
     for (const item of choices) {
       const art = itemArt(item, { size: 28, className: "look-chip-art" });
       const name = h("span", { text: WEAR_INFO[item].label });
+      if (isEarnedWear(item) && earnedState(item, owner.look?.wear ?? [], earned) === "locked") {
+        // Nothing to tap: it can't be bought, only reached.
+        const at = earnedAt(item);
+        const locked = h(
+          "span",
+          {
+            class: "look-chip locked",
+            attrs: {
+              "data-wear": item,
+              role: "img",
+              "aria-label": `${WEAR_INFO[item].label}, comes with ${at}`,
+            },
+          },
+          art,
+          name,
+          h("span", { class: "look-chip-price" }, icon("level"), h("span", { text: at })),
+        );
+        wearButtons.set(item, locked);
+        row.append(locked);
+        continue;
+      }
       if (isShopWear(item) && !wardrobe.owned.has(item)) {
         const price = wardrobe.prices.get(item);
         const cost = price === undefined ? "sold" : coins(price);
@@ -526,6 +559,15 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     const owned = new Set<WearItem>([...wardrobe.owned, ...(result.data.you?.wardrobe ?? [])]);
     const prices = new Map((result.data.shop?.items ?? []).map((i) => [i.sku as string, i.price]));
     wardrobe = { owned, prices };
+    for (const slot of WEAR_SLOTS) fillWearRow(slot);
+    paint();
+  });
+
+  // Your levels say which earned wear is yours (RFC 0029). Until they answer, and in a world
+  // where levels aren't open, earned wear isn't listed.
+  void api.progress().then((result) => {
+    if (!result.ok || !result.data.open) return;
+    earned = result.data.wear;
     for (const slot of WEAR_SLOTS) fillWearRow(slot);
     paint();
   });
@@ -803,7 +845,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     }
     for (const t of outfitThumbs) paintThumb(t, palette.main, palette);
     for (const [key, b] of wearButtons) {
-      // A locked chip is a link to the shop, never pressed.
+      // A locked chip is a link to the shop or a label, never pressed.
       if (!(b instanceof HTMLButtonElement)) continue;
       const on = key.startsWith("none-")
         ? !draft.wear.some((w) => WEAR_INFO[w].slot === key.slice(5))

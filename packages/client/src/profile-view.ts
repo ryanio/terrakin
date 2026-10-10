@@ -62,6 +62,7 @@ import { ratingWords } from "./game-format";
 import { openInviteDialog } from "./invite-share";
 import { colorChips, joinForm, joinProblem, shapeChips, tokenPreview } from "./join-form";
 import { lettersPath } from "./letters-view";
+import { chipTone, chipWords } from "./levels";
 import { openLookEditor } from "./look-editor";
 import { stallCard } from "./market-view";
 import { savedResidentId, savedToken, saveToken } from "./net";
@@ -452,6 +453,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
 
     // The small facts about them, as one row of chips.
     const facts = [
+      levelChip(r),
       r.streak ? h("span", { class: "profile-streak", text: `${r.streak} day streak` }) : null,
       karmaChip(r),
       r.votes
@@ -768,6 +770,59 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     }
 
     return { el, editable };
+  }
+
+  /**
+   * Their level and the title they show (RFC 0029), as a chip that opens the skills sheet. Absent
+   * until levels are open in this world, and on townsfolk, who never earn. The metal at level 10,
+   * 25, and 50 is drawing only.
+   */
+  function levelChip(r: ProfileView): HTMLElement | null {
+    if (!r.level) return null;
+    let level = r.level;
+    const words = h("span", { text: chipWords(level) });
+    const tone = chipTone(level.level);
+    const chip = h(
+      "button",
+      {
+        class: "profile-level",
+        attrs: {
+          type: "button",
+          "aria-haspopup": "dialog",
+          "aria-label": `${chipWords(level)}. See skills`,
+          ...(tone ? { "data-tone": tone } : {}),
+        },
+      },
+      icon("level"),
+      words,
+    );
+    chip.addEventListener("click", async () => {
+      const { openLevelSheet } = await import("./level-sheet");
+      if (destroyed) return;
+      openLevelSheet({
+        name: r.name,
+        level,
+        mine: savedToken() !== null && savedResidentId() === r.id,
+        onTitle: (title) => {
+          const { title: _was, ...rest } = level;
+          level = title ? { ...rest, title } : rest;
+          r.level = level;
+          words.textContent = chipWords(level);
+          chip.setAttribute("aria-label", `${chipWords(level)}. See skills`);
+          forgetMe();
+        },
+        dressUp: () =>
+          openLookEditor(
+            { color: r.color, shape: r.shape, look: r.look, entitled: r.entitled },
+            (look) => {
+              r.look = look;
+              forgetMe();
+              void load();
+            },
+          ),
+      });
+    });
+    return chip;
   }
 
   /**

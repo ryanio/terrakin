@@ -15,6 +15,7 @@ import {
   GAME_TIMES,
   KARMA,
   LINKS,
+  levelUps,
   PUTTER_LIMITS,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
@@ -76,7 +77,6 @@ import {
   withinEarshot,
 } from "@terrakin/sim";
 import { closeDue, startBy, townsfolkMove } from "./games";
-import { levelUps } from "./levels";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import {
@@ -1168,7 +1168,7 @@ export class WorldService {
   private creditEvent(id: string) {
     if (!this.state.progress) return;
     const e = findEvent(this.state, id);
-    if (!e || e.status !== "ended" || e.credited) return;
+    if (e?.status !== "ended" || e.credited) return;
     const counted = this.countedGuests?.(id);
     if (!counted) {
       this.creditLater.add(id);

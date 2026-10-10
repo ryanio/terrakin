@@ -50,6 +50,7 @@ import {
   PostResponse,
   ProfileResponse,
   type ProfileView,
+  ProgressResponse,
   PurseResponse,
   type ReactionKey,
   ReportResponse,
@@ -285,6 +286,8 @@ export const api = {
     request("GET", `/v1/residents/by-handle/${encodeURIComponent(handle)}`, ProfileResponse),
   followers: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}/followers`, ResidentListResponse),
+  /** Your own levels, points, and today's counts (RFC 0029): private, like your purse. */
+  progress: () => request("GET", "/v1/progress", ProgressResponse),
   /** A resident's collection book (RFC 0021): public, like their profile. */
   collection: (id: string) =>
     request("GET", `/v1/residents/${encodeURIComponent(id)}/collection`, CollectionResponse),

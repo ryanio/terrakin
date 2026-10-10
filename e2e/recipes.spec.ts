@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   act,
   freePlots,
+  openLevels,
   openRecipes,
   persona,
   read,
@@ -18,8 +19,10 @@ import {
  * Recipes shelf, where she takes a free pick, buys a card, and is turned down for one she can no
  * longer afford, in the server's words. Then Ivy, standing by Wren on the Commons, taps her and
  * teaches her lemonade: both hear it, and Wren finds it at her own kitchen and sees on Ivy's
- * profile what else Ivy can teach her. Opening recipes changes the world for everyone, so this
- * spec borrows the bounties spec's server (`SWITCH_SPECS` in `ports.ts`).
+ * profile what else Ivy can teach her. Last, levels open (RFC 0029) and Linden joins: her first chair
+ * shows its points over her figure, her first fishing rod takes her to Making 2 and level 2 with a
+ * toast, and the chip on her profile opens her skills. Opening recipes and levels changes the world
+ * for everyone, so this spec borrows the bounties spec's server (`SWITCH_SPECS` in `ports.ts`).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -29,15 +32,15 @@ type Who = Awaited<ReturnType<typeof persona>>;
 let hazel: Who | undefined;
 let juniper: Who | undefined;
 
-/** Put a kitchen up and to the right of where `who` stands (their hearth), over the API. */
-async function kitchenBy(page: Page, who: Who) {
+/** Put a kitchen (or a workbench) up and to the right of where `who` stands, over the API. */
+async function kitchenBy(page: Page, who: Who, block: "kitchen" | "workbench" = "kitchen") {
   const world = await (await page.request.get("/v1/world")).json();
   const { x, y } = world.residents.find((r: { id: string }) => r.id === who.id);
   const placed = await act(page.request, who.token, {
     type: "place",
     x: x + 1,
     y: y - 1,
-    block: "kitchen",
+    block,
   });
   expect(placed.ok).toBe(true);
 }
@@ -139,23 +142,6 @@ test("she buys a card once her picks are used, and a card she can't afford says 
   expect(errors).toEqual([]);
 });
 
-test("a resident from before recipes opened still sees her full kitchen", async ({ page }) => {
-  if (!hazel) throw new Error("The first test makes Hazel");
-  const errors = watchErrors(page);
-  expect((await read(page.request, hazel.token, "/v1/inventory")).inventory.recipePicks).toBe(0);
-  await kitchenBy(page, hazel);
-  await signIn(page, hazel);
-  await page.goto("/world");
-  await expect(page.locator("#hud")).toBeVisible();
-  await tapTile(page, 1, -1);
-  const kitchen = page.locator(".workshop-sheet");
-  await expect(kitchen.locator(".workshop-row", { hasText: "Tomato sauce" })).toHaveCount(1);
-  await expect(kitchen.locator(".workshop-row", { hasText: "Lemonade" })).toHaveCount(1);
-  await expect(kitchen.locator(".workshop-learn")).toBeHidden();
-  await expect(page.locator(".picks-sheet")).toHaveCount(0);
-  expect(errors).toEqual([]);
-});
-
 test("a neighbor standing by teaches a newcomer, who hears it and finds it at her kitchen", async ({
   page,
   browser,
@@ -233,4 +219,66 @@ test("a neighbor standing by teaches a newcomer, who hears it and finds it at he
   expect(errors).toEqual([]);
   expect(wrenErrors).toEqual([]);
   await wrenSide.close();
+});
+
+test("a resident from before recipes opened keeps her full kitchen, and levels open for a newcomer", async ({
+  page,
+}) => {
+  if (!hazel) throw new Error("The first test makes Hazel");
+  const errors = watchErrors(page);
+  expect((await read(page.request, hazel.token, "/v1/inventory")).inventory.recipePicks).toBe(0);
+  await kitchenBy(page, hazel);
+  await signIn(page, hazel);
+  await page.goto("/world");
+  await expect(page.locator("#hud")).toBeVisible();
+  await tapTile(page, 1, -1);
+  const kitchen = page.locator(".workshop-sheet");
+  await expect(kitchen.locator(".workshop-row", { hasText: "Tomato sauce" })).toHaveCount(1);
+  await expect(kitchen.locator(".workshop-row", { hasText: "Lemonade" })).toHaveCount(1);
+  await expect(kitchen.locator(".workshop-learn")).toBeHidden();
+  await expect(page.locator(".picks-sheet")).toHaveCount(0);
+
+  await test.step("levels open: a newcomer's first two makes reach level 2, and her profile shows it", async () => {
+    await openLevels(page.request);
+    const linden = await persona(page.request, "stocked", { name: "Linden" });
+    // Her free picks, over the API, so the workbench opens on its own sheet.
+    for (const recipe of ["well", "barrel", "signpost"]) {
+      expect((await act(page.request, linden.token, { type: "pick_recipe", recipe })).ok).toBe(
+        true,
+      );
+    }
+    await kitchenBy(page, linden, "workbench");
+    await signIn(page, linden);
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await tapTile(page, 1, -1);
+    const bench = page.locator(".workshop-sheet");
+    // A first chair: 2 points for making it and 10 for a first, over her figure for a moment.
+    await bench.locator(".workshop-row", { hasText: "Chair" }).getByRole("button").click();
+    await expect(page.locator("#world-gain")).toHaveText("+12 Making");
+    // A first fishing rod makes 24 points: Making 2, and level 2. Her figure sparkles.
+    await expect(bench).toBeHidden();
+    await tapTile(page, 1, -1);
+    await bench.locator(".workshop-row", { hasText: "Fishing rod" }).getByRole("button").click();
+    await expect(page.locator("#toast")).toContainText("You reached Making 2 and level 2.");
+    await expect(page.locator("#world")).toHaveAttribute("data-feeling", "laugh");
+    await page.screenshot({ path: "test-results/levels-toast.png" });
+
+    // The chip on her profile opens her skills, with what only she sees.
+    await page.goto(`/r/${linden.id}`);
+    const chip = page.locator(".profile-level");
+    await expect(chip).toHaveText("Level 2");
+    await chip.click();
+    const skills = page.locator(".level-sheet");
+    await expect(skills.getByRole("heading", { name: "Your skills" })).toBeVisible();
+    await expect(skills.locator(".level-total")).toHaveText("Level 2. 36 points to level 3.");
+    const making = skills.locator('[data-skill="making"]');
+    await expect(making).toContainText("Making 2");
+    await expect(making).toContainText("36 points to Making 3");
+    await expect(making).toContainText("4 of 20 today");
+    await expect(making.getByRole("progressbar")).toBeVisible();
+    await expect(skills.locator('[data-skill="growing"]')).toContainText("Growing 1");
+    await page.screenshot({ path: "test-results/levels-sheet.png" });
+  });
+  expect(errors).toEqual([]);
 });

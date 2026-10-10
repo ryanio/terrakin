@@ -5,6 +5,7 @@ import {
   type Http,
   isPreset,
   makePersona,
+  openLevelsOver,
   openRecipesOver,
   type Persona,
   type PersonaSpec,
@@ -155,6 +156,14 @@ export async function persona(
  */
 export async function openRecipes(request: APIRequestContext) {
   await openRecipesOver(httpOf(request));
+}
+
+/**
+ * Switch levels on now (RFC 0029): residents already here get their one-time credit, and deeds earn
+ * points from then on. Once per server, so only for a spec with a server of its own.
+ */
+export async function openLevels(request: APIRequestContext) {
+  await openLevelsOver(httpOf(request));
 }
 
 /** Join, settle a free plot, and build the starter home, which puts you on your hearth. */

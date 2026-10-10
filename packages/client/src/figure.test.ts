@@ -33,6 +33,7 @@ import {
   HOLD_MS,
   idPhase,
   LISTEN_MS,
+  levelReaction,
   pose,
   restingPose,
 } from "./feelings";
@@ -414,5 +415,16 @@ describe("feelings", () => {
     }
     // A wave still shows the hand, without the swing.
     expect(new Set([0, 250, 500].map((t) => still(wave, t).wave))).toEqual(new Set([1]));
+  });
+
+  it("marks a level reached with a hop and the sparkle, which stays put under reduced motion", () => {
+    const up = new Feelings().show("a", levelReaction(), 0);
+    expect(FEELING_ICON[up.feeling]).toBe("spark");
+    expect(pose(up, 240, 0.3, false, restingPose()).lift).toBeGreaterThan(0.2);
+    for (let t = 0; t < HOLD_MS; t += 97) {
+      const p = pose(up, t, 0.3, true, restingPose());
+      expect(FEELING_ICON[p.feeling]).toBe("spark");
+      expect(p).toMatchObject({ lift: 0, rise: 0, fade: 1 });
+    }
   });
 });

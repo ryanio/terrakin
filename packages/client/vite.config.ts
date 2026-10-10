@@ -402,6 +402,28 @@ export default defineConfig({
   build: {
     // three.js lives in its own chunk (model-viewer), loaded only when someone opens a 3D model.
     chunkSizeWarningLimit: 700,
+    rolldownOptions: {
+      output: {
+        // What the entry imports up front ships as three files, cut by package (decision 0259):
+        // the libraries, the sim and the protocol, and the app, which joins the entry itself.
+        // Left alone, the bundler gives each set of modules the first load shares with different
+        // lazy pages a chunk of its own, two dozen of them, each compressed alone. `$initial`
+        // marks what the entry imports statically, so a lazy page's own code stays in its chunk.
+        // Scripts only: a stylesheet in `vendor` would become a second stylesheet.
+        codeSplitting: {
+          groups: [
+            { name: "vendor", tags: ["$initial"], test: /\/node_modules\/.*\.m?js$/, priority: 3 },
+            {
+              name: "rules",
+              tags: ["$initial"],
+              test: /\/packages\/(sim|protocol)\//,
+              priority: 2,
+            },
+            { name: "app", tags: ["$initial"], priority: 1 },
+          ],
+        },
+      },
+    },
   },
   server: {
     // `pnpm dev:test` moves it, so a test world runs beside a plain `pnpm dev`.

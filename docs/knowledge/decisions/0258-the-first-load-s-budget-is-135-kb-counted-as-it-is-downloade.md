@@ -43,6 +43,7 @@ Considered: `zod/mini`, which would drop most of zod's 141 kB. It means rewritin
 | `@terrakin/sim` free of side effects | 125.8 kB | 583 kB | 25 |
 | A resident's report in `reports.ts`, apart from the staff's views | 121.8 kB | 567 kB | 24 |
 | The API's areas in `route-table/tags.ts`, apart from the route table's limits | 120.9 kB | 563 kB | 24 |
+| Three files cut by package ([decision 0259](0259-the-first-load-is-three-files-cut-by-package-the-libraries-t.md)) | 114.7 kB | 564 kB | 3 |
 
 Splitting the calls took 10 kB of minified code out of the first load: 8 kB of the protocol (the schemas of your things, the market, bounties, and galleries) and 2 kB of calls. The gzipped number still went up by 0.9 kB. The bundler gives every group of modules that the first load shares with a different set of lazy pages a chunk of its own, the split made seven more such groups, and each chunk is compressed alone and names what it imports and exports.
 

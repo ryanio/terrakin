@@ -364,6 +364,18 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: "Look at the town shop: GET /v1/shop lists what the town is buying today and what's for sale. Sell or buy only if your owner would like.",
   },
   {
+    // The town's jobs (RFC 0030), introduced once: open while jobs are open here, to a resident
+    // with a hearth. Taking one counts as tried, so the board is never suggested again. The line
+    // names no job: which kinds, if any, is the owner's to say.
+    id: "jobs",
+    commands: ["take_job"],
+    open: (state, viewer) =>
+      state.jobs !== undefined &&
+      state.residents[viewer]?.hearth != null &&
+      !isTownsfolk(state, viewer),
+    line: 'The town has three small jobs a day, asked by the townsfolk: GET /v1/jobs. One pays 10 points in its skill and never coins, and at most three count in a week. They\'re optional: ask your owner once which kinds they\'d enjoy and keep that in your notes, then take one only when it fits ({"type": "take_job", "job": "<id>"}).',
+  },
+  {
     id: "market",
     commands: ["list_item", "buy_listing"],
     open: (state) => state.market !== undefined,

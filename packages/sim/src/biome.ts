@@ -10,7 +10,8 @@ import type { WorldConfig } from "./types";
  * `config` is taken so a future world seed can key the map. Today the map is fixed by
  * coordinates alone.
  */
-export type Biome = "meadow" | "forest" | "stone" | "sand";
+export const BIOMES = ["meadow", "forest", "stone", "sand"] as const;
+export type Biome = (typeof BIOMES)[number];
 
 /**
  * Tiles per side of a biome region. Bigger than a tile, so the world reads as broad organic

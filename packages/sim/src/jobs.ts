@@ -38,24 +38,29 @@ import {
   lessonCounts,
   pickupCounts,
   showTitle,
+  TITLE_INFO,
   townBountyCounts,
 } from "./levels";
-import { isJobWear, JOB_WEAR_INFO } from "./looks";
+import { isJobWear, JOB_WEAR, type JobWear, WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
 import { knownByAll } from "./recipes";
 import { type Season, seasonOf, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
-import type {
-  Command,
-  GameTable,
-  Good,
-  JobsState,
-  JobTitle,
-  Rejection,
-  ResidentId,
-  Skill,
-  WorldEvent,
-  WorldState,
+import {
+  type Command,
+  type GameTable,
+  type Good,
+  type HeldJob,
+  isJobTitle,
+  JOB_TITLES,
+  type JobsState,
+  type JobTitle,
+  type Rejection,
+  type ResidentId,
+  type ShownTitle,
+  type Skill,
+  type WorldEvent,
+  type WorldState,
 } from "./types";
 
 /**
@@ -495,6 +500,17 @@ export function soloJob(job: Job): boolean {
 export const jobsDone = (state: WorldState, id: ResidentId): number =>
   own(state.jobs?.total, id) ?? 0;
 
+/** The job a resident holds, with the day they took it and its count so far. Theirs alone. */
+export const heldJob = (state: WorldState, id: ResidentId): HeldJob | undefined =>
+  own(state.jobs?.held, id);
+
+/** How many jobs a resident has finished this UTC week. Theirs alone. */
+export function jobsThisWeek(state: WorldState, id: ResidentId): number {
+  const week = state.jobs?.week;
+  if (!week || state.day === undefined || week.start !== weekStart(state.day)) return 0;
+  return own(week.done, id) ?? 0;
+}
+
 // ---------- taking and letting go ----------
 
 /**
@@ -508,6 +524,32 @@ export function checkTakeJob(
   actor: ResidentId,
   command: Extract<Command, { type: "take_job" }>,
 ): Mutation | Rejection {
+  const jobs = state.jobs;
+  const day = state.day;
+  const problem = takeJobProblem(state, actor);
+  if (problem || !jobs || day === undefined) {
+    return problem ?? refuse("unknown_job", "The town has no jobs in this world yet.");
+  }
+  const board = jobsOn(state);
+  const job = board.find((j) => j.id === command.job);
+  if (!job) {
+    return refuse(
+      "unknown_job",
+      `That isn't one of today's jobs. Today's are ${board.map((j) => j.id).join(", ")}.`,
+    );
+  }
+  const seq = state.seq + 1;
+  return () => {
+    jobs.held = { ...(jobs.held ?? {}), [actor]: { job: job.id, day, seq } };
+    return [{ type: "job_taken", residentId: actor, job: job.id }];
+  };
+}
+
+/**
+ * Why `actor` couldn't take any of today's jobs now, or null when they could: every check
+ * `take_job` makes before it looks at the job it names. A view reads it to say so before the tap.
+ */
+export function takeJobProblem(state: WorldState, actor: ResidentId): Rejection | null {
   const jobs = state.jobs;
   const day = state.day;
   if (!jobs || day === undefined) {
@@ -532,27 +574,13 @@ export function checkTakeJob(
       "You finished a job today, and a day has one. The next one can be taken after midnight UTC.",
     );
   }
-  const monday = weekStart(day);
-  const week = jobs.week?.start === monday ? (own(jobs.week.done, actor) ?? 0) : 0;
-  if (week >= JOBS.perWeek) {
+  if (jobsThisWeek(state, actor) >= JOBS.perWeek) {
     return refuse(
       "job_limit",
-      `You've finished ${JOBS.perWeek} jobs this week, all a week has. The next one can be taken on Monday, ${dayName(monday + 7)} (UTC).`,
+      `You've finished ${JOBS.perWeek} jobs this week, all a week has. The next one can be taken on Monday, ${dayName(weekStart(day) + 7)} (UTC).`,
     );
   }
-  const board = jobsOn(state);
-  const job = board.find((j) => j.id === command.job);
-  if (!job) {
-    return refuse(
-      "unknown_job",
-      `That isn't one of today's jobs. Today's are ${board.map((j) => j.id).join(", ")}.`,
-    );
-  }
-  const seq = state.seq + 1;
-  return () => {
-    jobs.held = { ...(jobs.held ?? {}), [actor]: { job: job.id, day, seq } };
-    return [{ type: "job_taken", residentId: actor, job: job.id }];
-  };
+  return null;
 }
 
 /** Take `id`'s held job out of the world's list, and the list with it when it was the last. */
@@ -915,6 +943,24 @@ export function checkSetJobEdition(
 
 // ---------- what the count unlocks ----------
 
+/** One thing the count of jobs finished unlocks, with the count it takes. */
+export interface JobUnlock {
+  jobs: number;
+  title?: JobTitle;
+  wear?: JobWear;
+}
+
+/** Everything the count of jobs finished unlocks, in the order it comes. */
+export const jobUnlocks = (): JobUnlock[] =>
+  [
+    ...JOB_TITLES.map((title) => ({ jobs: JOBS[JOB_TITLE_INFO[title].at], title })),
+    ...JOB_WEAR.map((wear) => ({ jobs: JOBS.wearAt, wear })),
+  ].sort((a, b) => a.jobs - b.jobs);
+
+/** A title's words: one a skill's level unlocked, or one from jobs finished. */
+export const titleLabel = (title: ShownTitle): string =>
+  isJobTitle(title) ? JOB_TITLE_INFO[title].label : TITLE_INFO[title].label;
+
 /**
  * What a `profile`'s `title` does when it's a title from jobs finished: a rejection short of its
  * count (`not_earned`, which is every job title before `open_jobs`), else what `showTitle` does.
@@ -951,7 +997,7 @@ export function unearnedJobWear(
   if (item === undefined || mine >= JOBS.wearAt) return null;
   return refuse(
     "not_earned",
-    `The ${JOB_WEAR_INFO[item].label.toLowerCase()} comes with ${JOBS.wearAt} jobs finished, and you've finished ${mine}.`,
+    `The ${WEAR_INFO[item].label.toLowerCase()} comes with ${JOBS.wearAt} jobs finished, and you've finished ${mine}.`,
   );
 }
 

@@ -5,6 +5,7 @@
  */
 
 import {
+  jobDoneLine,
   LINKS,
   type NotificationsResponse,
   type NotificationView,
@@ -19,7 +20,7 @@ import { emptyNote, moreButton } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { notificationsApi } from "./api/notifications";
 import { setUnread } from "./bell";
-import { levelsLine } from "./levels";
+import { canNowLine, levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
 import { pageData } from "./page-data";
 import { petCalled } from "./pets";
@@ -45,6 +46,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   trick_or_treat: "candy",
   recipe_taught: "kitchen",
   level_reached: "level",
+  job_done: "town",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -80,6 +82,7 @@ export function notificationLine(
     trick_or_treat: "came trick-or-treating at your door",
     recipe_taught: `taught you ${n.recipe ? recipeWords(n.recipe).toLowerCase() : "a recipe"}`,
     level_reached: "says you reached a level",
+    job_done: "says you finished a job",
   };
   return { who, what: what[n.type] };
 }
@@ -171,6 +174,15 @@ function systemWords(n: NotificationView): SystemWords | null {
       icon: ICONS.level_reached,
       ...levelsLine(n.levels),
       links: me ? [{ href: profilePath(me), label: "See your skills" }] : [],
+    };
+  }
+  if (n.job) {
+    // A finished job (RFC 0030), in the server's fixed words, and what the count unlocked.
+    return {
+      icon: ICONS.job_done,
+      line: jobDoneLine(n.job),
+      next: n.job.unlocks ? canNowLine([n.job.unlocks]) : null,
+      links: [],
     };
   }
   return null;

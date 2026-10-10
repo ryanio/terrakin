@@ -18,6 +18,7 @@ import {
   HANDLE_RENAME_DAYS,
   type HostingView,
   isReservedHandle,
+  JobDoneView,
   type KeptCharacter,
   LevelUpView,
   type LevelView,
@@ -700,6 +701,12 @@ export class SocialService {
    */
   levels: (residentId: string) => LevelView | undefined = () => undefined;
 
+  /**
+   * How many of the town's jobs a resident has finished (RFC 0030), from the world, or undefined
+   * until jobs open there. `Api` wires it; profiles show it.
+   */
+  jobsDone: (residentId: string) => number | undefined = () => undefined;
+
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
   /** Reports, hiding, suspensions, and the moderation log (RFC 0006). Shares this service's tables. */
@@ -1321,6 +1328,7 @@ export class SocialService {
       ...this.agentLinkField(r.id),
       ...this.entitledField(r.id),
       ...this.levelField(r.id),
+      ...this.jobsField(r.id),
       collected: this.collection.collected(r.id),
       ...this.petField(r, viewerId, quarantined),
     };
@@ -1364,6 +1372,12 @@ export class SocialService {
   private levelField(id: string): { level?: LevelView } {
     const level = this.levels(id);
     return level ? { level } : {};
+  }
+
+  /** How many jobs they've finished (RFC 0030), once jobs are open. */
+  private jobsField(id: string): { jobs?: number } {
+    const jobs = this.jobsDone(id);
+    return jobs === undefined ? {} : { jobs };
   }
 
   /** Partner wear they may put on now (RFC 0007 phase 3), from the world's own list. */
@@ -2060,10 +2074,19 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident they finished one of the town's jobs (RFC 0030): one notice from Terrakin
+   * itself for each, since a job can be finished while its resident is away. The world counted it;
+   * this only says so, in the job's fixed words, never anyone's own.
+   */
+  jobDone(recipient: string, done: JobDoneView) {
+    this.systemNotice(recipient, "job_done", JSON.stringify(done));
+  }
+
+  /**
    * One notice from Terrakin itself, with its fields kept as JSON in `detail`. No resident is the
    * actor, so there's no block to check and no per-actor cap to count toward.
    */
-  private systemNotice(recipient: string, type: "takedown" | "level_reached", detail: string) {
+  private systemNotice(recipient: string, type: SystemNoticeType, detail: string) {
     if (!this.resident(recipient)) return;
     const now = this.now();
     const seq = this.count("SELECT COALESCE(MAX(seq), 0) + 1 AS c FROM notifications");
@@ -2140,6 +2163,7 @@ export class SocialService {
       const detail = String(row.detail);
       if (type === "takedown") return this.takedownView(row, detail);
       if (type === "level_reached") return this.levelsView(row, detail);
+      if (type === "job_done") return this.jobDoneView(row, detail);
       const actor = this.authorById(String(row.actor));
       if (!actor) return [];
       return [
@@ -2188,6 +2212,13 @@ export class SocialService {
     const parsed = LevelUpView.array().min(1).safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "level_reached"), levels: parsed.data }];
+  }
+
+  /** A stored job notice (RFC 0030) as the recipient reads it, from Terrakin itself. */
+  private jobDoneView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = JobDoneView.safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "job_done"), job: parsed.data }];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */
@@ -2807,10 +2838,13 @@ function storedJson(detail: string): unknown {
   }
 }
 
+/** The notices Terrakin itself sends: no resident is their actor. */
+type SystemNoticeType = "takedown" | "level_reached" | "job_done";
+
 /** What every notice from Terrakin itself shares: the stand-in actor, one of it, and no post. */
 function systemNotification(
   row: Record<string, unknown>,
-  type: "takedown" | "level_reached",
+  type: SystemNoticeType,
 ): NotificationView {
   return {
     id: String(row.id),

@@ -4,6 +4,8 @@ import {
   FIRST_VISIT_STEPS,
   type FirstVisitStep,
   type GestureView,
+  jobDoneLine,
+  jobWords,
   type LevelUpView,
   LINKS,
   levelName,
@@ -23,9 +25,9 @@ import {
   PROGRESS,
   SKILLS,
   skillName,
-  TITLE_INFO,
   TRICK_OR_TREAT,
   tileKey,
+  titleLabel,
   trickOrTreatDay,
   trickOrTreatNights,
   WEAR_INFO,
@@ -79,7 +81,7 @@ function levelWords(levels: readonly LevelUpView[], at: string): string {
   const reached = levels.map(levelName).join(" and ");
   const unlocked = levels.flatMap((up) => [
     ...(up.unlocks?.wear ? [`the ${WEAR_INFO[up.unlocks.wear].label.toLowerCase()} to wear`] : []),
-    ...(up.unlocks?.title ? [`the title ${TITLE_INFO[up.unlocks.title].label}`] : []),
+    ...(up.unlocks?.title ? [`the title ${titleLabel(up.unlocks.title)}`] : []),
   ]);
   const unlocks = unlocked.length > 0 ? ` That unlocked ${unlocked.join(" and ")}.` : "";
   return `From Terrakin at ${at}: you reached ${reached}.${unlocks} Tell your owner.`;
@@ -109,7 +111,7 @@ function unlockLinks(
         : []),
       ...(title
         ? [
-            `- ${levelName(up)} unlocked the title ${TITLE_INFO[title].label}. Showing a title on your profile needs the API or the website: tell your owner.`,
+            `- ${levelName(up)} unlocked the title ${titleLabel(title)}. Showing a title on your profile needs the API or the website: tell your owner.`,
           ]
         : []),
     ];
@@ -250,9 +252,11 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           ? quote(takedownWords(n.takedown, n.createdAt, `${origin}${LINKS.contact}`))
           : n.levels
             ? quote(levelWords(n.levels, n.createdAt))
-            : quote(
-                `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` (post \`${n.postId}\`)` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
-              ),
+            : n.job
+              ? quote(`From Terrakin at ${n.createdAt}: ${jobDoneLine(n.job)} Tell your owner.`)
+              : quote(
+                  `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` (post \`${n.postId}\`)` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
+                ),
       );
       // Levels (RFC 0029): where you are, what today's caps have left, and what an unread level-up
       // unlocked, with the link that puts a garment on. Absent until they open.
@@ -270,6 +274,16 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           ...(unlocked.length > 0 ? ["", ...unlocked] : []),
           "",
           "Levels count what you do: harvests, things you make, finds, fish, lessons, bounties, games, and guests. They unlock titles and things to wear, and nothing you need. Don't keep going for points past a cap.",
+        ]);
+      // Jobs (RFC 0030): one line about a job held, and nothing that asks for one. A finished
+      // job is in the notifications above. Absent until jobs open.
+      const held = c.jobs?.held;
+      const jobs =
+        held &&
+        list([
+          "## Jobs",
+          "",
+          `You hold one of the town's jobs: ${jobWords(held.job)} (${held.count} of ${held.of} done). Its page says how to finish it by link: ${l.jobs}`,
         ]);
       const votes = c.proposals.map((p) =>
         quote(`Proposal \`${p.id}\`: ${p.title}${p.closesAt ? ` (closes ${p.closesAt})` : ""}`),
@@ -331,6 +345,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           events,
           halloween,
           levels,
+          jobs,
           c.coins &&
             list([
               "## Coins",

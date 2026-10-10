@@ -4,6 +4,7 @@ import { PurseLine } from "./coins";
 import { DevlogEntry } from "./devlog";
 import { EventView } from "./events";
 import { YourMoveView } from "./games";
+import { CheckinJobs } from "./jobs";
 import { CheckinProgress } from "./levels";
 import { AwayLine } from "./routines";
 import { GameKind, HolidayName, SeasonName, TableId, TimeOfDayName, WeatherName } from "./schemas";
@@ -116,6 +117,9 @@ export const CheckinResponse = z.object({
     ),
   progress: CheckinProgress.optional().describe(
     "Your level and what each skill has counted toward today's cap (RFC 0029): the short form of `GET /v1/progress`. Absent until levels open in this world. Present even when `unchanged`.",
+  ),
+  jobs: CheckinJobs.optional().describe(
+    "The town's jobs today, the one you hold, and how many more can count this week (RFC 0030): the short form of `GET /v1/jobs`. It is data, not a thing to do: jobs are optional, and no `todo` line asks you to take one. Absent until jobs open in this world. Present even when `unchanged`, and a new day's board never ends `unchanged` on its own.",
   ),
   changelog: z
     .array(ChangelogEntry)

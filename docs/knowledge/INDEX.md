@@ -193,6 +193,7 @@ What we chose and why. Newest last.
 - [CI's deploy signs in for the replay check with an Access service token that reads the world log and nothing else](decisions/0257-ci-s-deploy-signs-in-for-the-replay-check-with-an-access-ser.md) · 2026-10-10 · accepted · `ci` `deploy` `security` `staff`
 - [The first load's budget is 135 kB, counted as it is downloaded, and it never buys a smaller number with worse code](decisions/0258-the-first-load-s-budget-is-135-kb-counted-as-it-is-downloade.md) · 2026-10-10 · accepted · `client` `performance` `tooling`
 - [The first load is three files cut by package: the libraries, the rules and the contract, and the app](decisions/0259-the-first-load-is-three-files-cut-by-package-the-libraries-t.md) · 2026-10-10 · accepted · `client` `performance` `tooling`
+- [Jobs reach the API behind an option no adapter sets, with five events on the wire, the satchel in the wear list, and a merged record handing in what its duplicate made](decisions/0260-jobs-reach-the-api-behind-an-option-no-adapter-sets-with-fiv.md) · 2026-10-10 · accepted · `server` `protocol` `sim` `jobs` `checkin`
 
 ## Learnings
 

@@ -89,6 +89,8 @@ export const WEAR_ITEMS = [
   "field_vest",
   "party_sash",
   "winners_rosette",
+  // Wear earned from jobs finished (RFC 0030).
+  "town_satchel",
   // Partner wear stays last (RFC 0007).
   "muse_halo",
   "muse_lantern",
@@ -156,20 +158,14 @@ export const isEarnedWear = (w: unknown): w is EarnedWear =>
 /**
  * Wear earned from jobs finished (RFC 0030): the town satchel, at `JOBS.wearAt` jobs. Never sold,
  * given, or bought, and it never comes off, since the count never goes down. `join` and `profile`
- * take it in a `wear` list once the count is reached (`not_earned` before). It's a list of its own,
- * not part of `WEAR_ITEMS`, until the web draws it: nothing that lists, draws, or collects wear
- * meets it before then, it takes no style, and the protocol's wear enum is `WEAR_ITEMS`, so no
- * action can put it on. The free `satchel` every resident can wear is another thing.
+ * take it in a `wear` list once the count is reached (`not_earned` before), and it takes a pattern
+ * and a color like any wear. Anything that offers wear to everyone leaves it out, as it does a
+ * skill's earned wear. The free `satchel` every resident can wear is another thing.
  */
-export const JOB_WEAR = ["town_satchel"] as const;
+export const JOB_WEAR = ["town_satchel"] as const satisfies readonly WearItem[];
 export type JobWear = (typeof JOB_WEAR)[number];
 export const isJobWear = (w: unknown): w is JobWear =>
   typeof w === "string" && (JOB_WEAR as readonly string[]).includes(w);
-
-/** Each job garment's slot and name. A garment's slot may not change once someone wears it. */
-export const JOB_WEAR_INFO: Record<JobWear, { slot: WearSlot; label: string }> = {
-  town_satchel: { slot: "accessory", label: "Town satchel" },
-};
 
 /** One item per slot, so at most this many at once. */
 export const MAX_WEAR = WEAR_SLOTS.length;
@@ -437,15 +433,12 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   field_vest: { slot: "top", label: "Field vest" },
   party_sash: { slot: "accessory", label: "Party sash" },
   winners_rosette: { slot: "accessory", label: "Winner's rosette" },
+  town_satchel: { slot: "accessory", label: "Town satchel" },
 };
 
-/** A thing to wear's slot and name, a job garment's too, or undefined for anything that isn't wear. */
+/** A thing to wear's slot and name, or undefined for anything that isn't wear. */
 const wearInfo = (item: string): { slot: WearSlot; label: string } | undefined =>
-  (WEAR_ITEMS as readonly string[]).includes(item)
-    ? WEAR_INFO[item as WearItem]
-    : isJobWear(item)
-      ? JOB_WEAR_INFO[item]
-      : undefined;
+  (WEAR_ITEMS as readonly string[]).includes(item) ? WEAR_INFO[item as WearItem] : undefined;
 
 /** Wear that covers the bottom half too, so nothing goes in the bottom slot with it. */
 export const FULL_LENGTH: readonly WearItem[] = ["dress", "ghost_sheet"];

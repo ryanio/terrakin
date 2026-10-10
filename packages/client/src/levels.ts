@@ -18,8 +18,7 @@ import {
   type Skill,
   skillName,
   skillUnlocks,
-  TITLE_INFO,
-  type Title,
+  titleLabel,
   UNLOCKS,
   WEAR_INFO,
   type WearItem,
@@ -36,10 +35,14 @@ const listed = (words: readonly string[]): string =>
  * What a level-up unlocked, as a sentence, or null when it unlocked nothing: "You can wear the sun
  * hat now.", "You can show the title Gardener now.", or both.
  */
-export function unlockLine(levels: readonly LevelUpView[]): string | null {
-  const can = levels.flatMap((up) => [
-    ...(up.unlocks?.wear ? [`wear the ${WEAR_INFO[up.unlocks.wear].label.toLowerCase()}`] : []),
-    ...(up.unlocks?.title ? [`show the title ${TITLE_INFO[up.unlocks.title].label}`] : []),
+export const unlockLine = (levels: readonly LevelUpView[]): string | null =>
+  canNowLine(levels.flatMap((up) => (up.unlocks ? [up.unlocks] : [])));
+
+/** What some unlocks let you do, as a sentence, or null for none. A finished job's notice uses it too. */
+export function canNowLine(unlocks: readonly UnlockView[]): string | null {
+  const can = unlocks.flatMap((u) => [
+    ...(u.wear ? [`wear the ${WEAR_INFO[u.wear].label.toLowerCase()}`] : []),
+    ...(u.title ? [`show the title ${titleLabel(u.title)}`] : []),
   ]);
   return can.length > 0 ? `You can ${listed(can)} now.` : null;
 }
@@ -74,7 +77,7 @@ export const gainLine = (gain: { skill: Skill; points: number }): string =>
 
 /** The profile chip's words: "Level 8", with the title they show after it. */
 export const chipWords = (view: Pick<LevelView, "level" | "title">): string =>
-  view.title ? `Level ${view.level} · ${TITLE_INFO[view.title].label}` : `Level ${view.level}`;
+  view.title ? `Level ${view.level} · ${titleLabel(view.title)}` : `Level ${view.level}`;
 
 /** The chip's metal at level 10, 25, and 50. Drawing only: it comes with nothing. */
 export type ChipTone = "copper" | "silver" | "gold";
@@ -92,7 +95,7 @@ interface Bar {
 const unlockWords = (u: UnlockView): string =>
   listed([
     ...(u.wear ? [`the ${WEAR_INFO[u.wear].label.toLowerCase()}`] : []),
-    ...(u.title ? [`the title ${TITLE_INFO[u.title].label}`] : []),
+    ...(u.title ? [`the title ${titleLabel(u.title)}`] : []),
   ]);
 
 /** A row of the skills sheet: a skill's name and level, its bar, and the lines under it. */
@@ -187,9 +190,3 @@ export function earnedState(
   if (wearing.includes(item) || earned?.includes(item)) return "open";
   return earned ? "locked" : "hidden";
 }
-
-/** A title in people's words, with where it comes from: "Gardener", "Growing 3". */
-export const titleWords = (title: Title): { label: string; from: string } => ({
-  label: TITLE_INFO[title].label,
-  from: levelName({ skill: TITLE_INFO[title].skill, level: TITLE_INFO[title].level }),
-});

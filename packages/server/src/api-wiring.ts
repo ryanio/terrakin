@@ -4,6 +4,7 @@ import type { Api } from "./api";
 import { countGuests } from "./events";
 import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
+import { giverIds, jobDoneView, jobsDoneField } from "./jobs";
 import { levelView } from "./levels";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
@@ -145,6 +146,14 @@ export function wireSocial(
   } catch (err) {
     report(err, "world.levels");
   }
+  // Jobs (RFC 0030): a finished job tells its resident, here or away, and profiles show the
+  // count, which lives in the world.
+  const givers = giverIds(service.state, (handle) => layer.residentIdByHandle(handle));
+  service.onJobDone = (id, done) => {
+    const view = jobDoneView(done, givers);
+    if (view) layer.jobDone(id, view);
+  };
+  layer.jobsDone = (id) => jobsDoneField(service.state, id);
   // Party-game ladders (RFC 0011) live in the world; profiles show them.
   layer.gameRatings = (id) => gameRatings(service.state, id);
   service.syncOwnerPairs(layer.ownerPairs());

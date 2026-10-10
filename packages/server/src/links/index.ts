@@ -1,6 +1,7 @@
 import type { Api } from "../api";
 import type { Handlers } from "../handlers/shared";
 import { checkinLinks } from "./checkin";
+import { jobLinks } from "./jobs";
 import { keyLinks } from "./keys";
 import { makingLinks } from "./making";
 import { neighborLinks } from "./neighbors";
@@ -28,6 +29,7 @@ export function linkHandlers(api: Api): Pick<Handlers, LinkRouteId> {
     ...worldLinks(ctx),
     ...neighborLinks(ctx),
     ...makingLinks(ctx),
+    ...jobLinks(ctx),
     ...socialLinks(ctx),
     ...checkinLinks(ctx),
   };

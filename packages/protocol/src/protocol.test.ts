@@ -32,6 +32,9 @@ import {
   JOB_EDITIONS,
   JOB_TITLES,
   JOB_WEAR,
+  JOBS,
+  type Job,
+  jobUnlocks,
   PATTERNS,
   PET_COATS,
   PET_KINDS,
@@ -63,8 +66,17 @@ import {
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { CATALOG_VIEW } from "./catalog";
-import { catalogBlock, furnitureBlock, levelsBlock, replaceGenerated, skillApiBlock } from "./docs";
+import {
+  catalogBlock,
+  furnitureBlock,
+  jobsBlock,
+  levelsBlock,
+  replaceGenerated,
+  skillApiBlock,
+} from "./docs";
 import { GAME_TIMES, ordinal } from "./games";
+import { JobDoneView, jobDoneLine } from "./job-done";
+import { JOB_GIVER_NAMES, JOB_WORDS, JobView, jobCount, jobView, jobWords } from "./jobs";
 import { LevelView, levelName } from "./levels";
 import { buildOpenApi } from "./openapi";
 import {
@@ -88,6 +100,7 @@ import {
   ClientMessage,
   CreateSessionRequest,
   ERROR_CODES,
+  JobId,
   PlotPlanResponse,
   WorldEvent,
   WorldSnapshot,
@@ -401,89 +414,174 @@ describe("Action", () => {
   });
 });
 
-describe("jobs, before the API opens them (RFC 0030)", () => {
+describe("jobs (RFC 0030)", () => {
   const id = "r_0123456789abcdef";
+  const everyJob = Object.values(JOB_EDITIONS).flat();
 
-  it("reach nothing here: no action, field, event, error code, route, or published word", () => {
-    // No action takes a job, lets one go, or hands one in, and the switches are the server's alone.
-    const actions = [
+  it("take the three actions, and keep the server's two switches off the API", () => {
+    for (const action of [
       { type: "take_job", job: "bram_chair" },
       { type: "drop_job" },
       { type: "hand_in" },
-      { type: "hand_in", item: "i_1" },
-      { type: "open_jobs" },
-      { type: "set_job_edition", edition: 2 },
-    ];
-    for (const action of actions) {
+      { type: "hand_in", item: "i_1", dry: true },
+    ]) {
+      expect(Action.parse(action), action.type).toEqual(action);
+    }
+    // A job is named by its id and a thing by its own: nothing else parses.
+    expect(Action.safeParse({ type: "take_job" }).success).toBe(false);
+    expect(Action.safeParse({ type: "take_job", job: "Bram's chair" }).success).toBe(false);
+    expect(Action.safeParse({ type: "hand_in", item: "herb_tea" }).success).toBe(false);
+    for (const action of [{ type: "open_jobs" }, { type: "set_job_edition", edition: 2 }]) {
       expect(Action.safeParse(action).success, action.type).toBe(false);
       expect(ACTION_TYPES).not.toContain(action.type);
     }
-    // A profile takes no title from jobs finished, and no wear list their garment, on a join either.
+  });
+
+  it("send the four job events and the switch's, and keep a merge's count and the edition on the server", () => {
+    const events = [
+      { type: "jobs_opened" },
+      { type: "job_taken", residentId: id, job: "sable_night_fish" },
+      { type: "job_progress", residentId: id, job: "juniper_herbs", count: 2, of: 3 },
+      {
+        type: "job_done",
+        residentId: id,
+        job: "sable_night_fish",
+        skill: "foraging",
+        points: 10,
+        week: 2,
+        total: 13,
+      },
+      { type: "job_dropped", residentId: id, job: "sable_night_fish", lapsed: true },
+      { type: "inventory", residentId: id, reason: "handed_in", lost: ["i_1"] },
+      { type: "title_changed", residentId: id, title: "helping_hand" },
+    ];
+    for (const event of events) expect(WorldEvent.parse(event), event.type).toEqual(event);
+    for (const event of [
+      { type: "job_total", residentId: id, total: 14 },
+      { type: "job_edition_set", edition: 2 },
+    ]) {
+      expect(WorldEvent.safeParse(event).success, event.type).toBe(false);
+    }
+  });
+
+  it("let a profile show a job's title and wear the satchel, a newcomer's wear list too", () => {
     for (const title of JOB_TITLES) {
-      expect(Action.safeParse({ type: "profile", title }).success, title).toBe(false);
-      expect(
-        WorldEvent.safeParse({ type: "title_changed", residentId: id, title }).success,
-        title,
-      ).toBe(false);
+      expect(Action.safeParse({ type: "profile", title }).success, title).toBe(true);
     }
     for (const wear of JOB_WEAR) {
-      expect(Action.safeParse({ type: "profile", wear: [wear] }).success, wear).toBe(false);
-      expect(
-        Action.safeParse({ type: "profile", wearStyle: { [wear]: { color: "sun" } } }).success,
-        wear,
-      ).toBe(false);
+      const style = { [wear]: { color: "sun" } };
+      expect(Action.safeParse({ type: "profile", wear: [wear], wearStyle: style }).success).toBe(
+        true,
+      );
       expect(
         CreateSessionRequest.safeParse({ name: "Ada", kind: "human", wear: [wear] }).success,
-        wear,
-      ).toBe(false);
+      ).toBe(true);
     }
-    // Their refusals aren't error codes the API can answer with.
-    const refusals = ["job_held", "job_limit", "unknown_job", "no_job", "nothing_to_hand_in"];
-    for (const code of refusals) expect(ERROR_CODES, code).not.toContain(code);
-    // No event schema knows a job event, nor an inventory that changed for a job.
-    const fields = {
-      residentId: id,
-      job: "sable_night_fish",
-      skill: "foraging",
-      points: 10,
+  });
+
+  it("have words for every job in every edition, with the job's own count, and nothing more", () => {
+    expect(Object.keys(JOB_WORDS).sort()).toEqual([...new Set(everyJob.map((j) => j.id))].sort());
+    const wrong: string[] = [];
+    for (const job of everyJob) {
+      const words = jobWords(job.id);
+      const count = jobCount(job);
+      // "Harvest 3 herbs" for a job that counts three: a line and its job can't drift apart.
+      if (count > 1 && !words.includes(` ${count} `)) wrong.push(`${job.id}: no ${count}`);
+      if (count === 1 && /\d/.test(words.replace(/\b3 guests\b/, "")))
+        wrong.push(`${job.id}: a number`);
+      if (!JobId.safeParse(job.id).success) wrong.push(`${job.id}: not an id`);
+      // The view is the sim's job, field for field: a deed the schema doesn't know fails here.
+      const view = jobView(job, id);
+      if (JSON.stringify(JobView.parse(view)) !== JSON.stringify(view))
+        wrong.push(`${job.id}: view`);
+      if (JSON.stringify(view.deed) !== JSON.stringify(job.deed)) wrong.push(`${job.id}: deed`);
+      if (view.from.name !== JOB_GIVER_NAMES[job.giver]) wrong.push(`${job.id}: giver`);
+    }
+    expect(wrong).toEqual([]);
+    // In a world without that townsfolk the job is the town's: a name, and no resident.
+    expect(jobView(everyJob[0] as Job, undefined).from).toEqual({
+      handle: "juniper",
+      name: "Juniper",
+    });
+  });
+
+  it("keep SKILL.md's Jobs tables equal to the sim's table and numbers", () => {
+    const block = jobsBlock();
+    const newest = JOB_EDITIONS[Math.max(...Object.keys(JOB_EDITIONS).map(Number))] ?? [];
+    // One row a job, in the table's order, with who asks, its skill, and its words.
+    const rows = block.split("\n").filter((line) => /^\| `[a-z_]+` \| [A-Z]/.test(line));
+    expect(rows).toEqual(
+      newest.map((job) =>
+        expect.stringContaining(
+          `| \`${job.id}\` | ${JOB_GIVER_NAMES[job.giver]} | \`${job.skill}\` | ${jobWords(job.id)} |`,
+        ),
+      ),
+    );
+    expect(block).toContain(`has ${JOBS.board} of these each UTC day`);
+    expect(block).toContain(`hold ${JOBS.held} at a time`);
+    expect(block).toContain(`at most ${JOBS.perDay} a UTC day, and ${JOBS.perWeek} count`);
+    expect(block).toContain(`adds ${JOBS.points} points to its skill`);
+    expect(block).toContain(`lapses after ${JOBS.keepDays} days`);
+    for (const u of jobUnlocks()) {
+      expect(block).toContain(`| ${u.jobs} | `);
+      expect(block).toContain(`\`${u.title ?? u.wear}\``);
+    }
+    // The prose around them says what the RFC asks an agent be told, and what's in the answers.
+    const section = skill.slice(skill.indexOf("\n## Jobs\n"), skill.indexOf("\n## Fishing\n"));
+    expect(section).toContain(block);
+    for (const words of [
+      "Jobs are optional",
+      "Ask your owner once which kinds they'd enjoy",
+      "A job your owner wouldn't care about is one to skip",
+      "Real jobs are only in `GET /v1/jobs` and your check-in's `jobs`",
+      "is someone's text",
+      "A bring job gives up a thing your owner's garden made",
+      "No `todo` line tells you to take a job",
+      `adds ${JOBS.points} points to its skill`,
+    ]) {
+      expect(section, words).toContain(words);
+    }
+    // The Daily list is left as it is on purpose: no line there sends an agent to the board.
+    const daily = skill.slice(
+      skill.indexOf("\n## Routines\n"),
+      skill.indexOf("\n## While you're away\n"),
+    );
+    expect(daily).not.toMatch(/job/i);
+  });
+
+  it("carry a finished job on its notification, in fixed words", () => {
+    const notice = {
+      id: "n_1",
+      type: "job_done",
+      trust: "untrusted",
+      actor: TERRAKIN_ACTOR,
       count: 1,
-      of: 3,
-      week: 1,
-      total: 1,
-      edition: 2,
+      postId: null,
+      excerpt: "",
+      system: true,
+      job: {
+        job: "otis_teach",
+        title: "Teach a neighbor a recipe",
+        from: { handle: "otis", name: "Otis", id },
+        skill: "hosting",
+        points: 10,
+        total: 10,
+        unlocks: { title: "helping_hand" },
+      },
+      read: false,
+      createdAt: "2026-10-10T12:00:00.000Z",
     };
-    const events = [
-      "jobs_opened",
-      "job_taken",
-      "job_progress",
-      "job_done",
-      "job_dropped",
-      "job_total",
-      "job_edition_set",
-    ];
-    for (const type of events) {
-      expect(WorldEvent.safeParse({ type, ...fields }).success, type).toBe(false);
-    }
-    const lost = { type: "inventory", residentId: id, lost: ["i_1"] };
-    expect(WorldEvent.safeParse({ ...lost, reason: "gift_out" }).success).toBe(true);
-    expect(WorldEvent.safeParse({ ...lost, reason: "handed_in" }).success).toBe(false);
-    // The world's snapshot has no place for them, and no route serves them.
-    expect(Object.keys(WorldSnapshot.shape).filter((key) => /job/i.test(key))).toEqual([]);
-    expect(ROUTES.filter((r) => /job/i.test(`${r.id} ${r.path}`)).map((r) => r.path)).toEqual([]);
-    // The published API and the skill file say nothing of them: no call, code, event, or job id.
-    const published = `${JSON.stringify(buildOpenApi())}\n${skill}`;
-    const words = [
-      ...actions.map((action) => action.type),
-      ...refusals,
-      ...events,
-      "handed_in",
-      "/v1/jobs",
-      '"jobs"',
-      ...JOB_TITLES,
-      ...JOB_WEAR,
-      ...Object.values(JOB_EDITIONS).flatMap((jobs) => jobs.map((job) => job.id)),
-    ];
-    for (const word of words) expect(published, word).not.toContain(word);
+    const parsed = NotificationView.parse(notice);
+    expect(parsed).toEqual(notice);
+    expect(parsed.job && jobDoneLine(parsed.job)).toBe(
+      "You finished Otis's job, teach a neighbor a recipe: 10 Hosting points.",
+    );
+    // With no such townsfolk here it's the town's, and a giver the table doesn't know is refused.
+    const towns = { ...notice.job, from: { handle: "otis", name: "Otis" } };
+    expect(jobDoneLine(JobDoneView.parse(towns))).toMatch(/^You finished the town's job, /);
+    expect(
+      JobDoneView.safeParse({ ...notice.job, from: { handle: "ada", name: "Ada" } }).success,
+    ).toBe(false);
   });
 });
 
@@ -1130,6 +1228,7 @@ describe("generated API reference", () => {
     expect(replaceGenerated(skill, catalogBlock(), "SKILL.md", "catalog")).toBe(skill);
     expect(replaceGenerated(skill, furnitureBlock(), "SKILL.md", "furniture")).toBe(skill);
     expect(replaceGenerated(skill, levelsBlock(), "SKILL.md", "levels")).toBe(skill);
+    expect(replaceGenerated(skill, jobsBlock(), "SKILL.md", "jobs")).toBe(skill);
   });
 });
 

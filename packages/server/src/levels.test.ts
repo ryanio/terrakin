@@ -8,6 +8,7 @@ import {
   FIND_KINDS,
   FISH_KINDS,
   firstSkill,
+  JOB_WEAR,
   levelOf,
   PROGRESS,
   UNLOCKS,
@@ -845,10 +846,13 @@ describe("a level-up", () => {
     expect(book.count).toBe(before.count + 1);
     expect(wear?.kinds.find((k) => k.kind === "boots")?.firstDay).toBeDefined();
     // So "Full wardrobe" is still every piece the shop and the free rack have, and no more: no
-    // earned garment is a row in the book, and the book is as long as it was before they existed.
+    // earned garment is a row in the book, nor the town satchel that jobs bring (RFC 0030), and
+    // the book is as long as it was before they existed.
     const rows = wear?.kinds.map((k) => k.kind) ?? [];
-    for (const item of EARNED_WEAR) expect(rows, item).not.toContain(item);
-    expect(wear?.total).toBe(WEAR_ITEMS.length - EARNED_WEAR.length - EXCLUSIVE_WEAR.length);
+    for (const item of [...EARNED_WEAR, ...JOB_WEAR]) expect(rows, item).not.toContain(item);
+    expect(wear?.total).toBe(
+      WEAR_ITEMS.length - EARNED_WEAR.length - JOB_WEAR.length - EXCLUSIVE_WEAR.length,
+    );
   });
 });
 

@@ -17,6 +17,7 @@ import {
   createApp,
   TEST_ADVANCE_DAY_PATH,
   TEST_GRANT_PATH,
+  TEST_OPEN_JOBS_PATH,
   TEST_OPEN_LEVELS_PATH,
   TEST_OPEN_RECIPES_PATH,
   TEST_SWEEP_PATH,
@@ -784,6 +785,7 @@ describe("the test clock", () => {
       TEST_ADVANCE_DAY_PATH,
       TEST_OPEN_RECIPES_PATH,
       TEST_OPEN_LEVELS_PATH,
+      TEST_OPEN_JOBS_PATH,
       TEST_GRANT_PATH,
       TEST_SWEEP_PATH,
     ]) {
@@ -801,9 +803,10 @@ describe("the test clock", () => {
     }
     expect(service.state.recipes).toBeUndefined();
     expect(service.state.progress).toBeUndefined();
+    expect(service.state.jobs).toBeUndefined();
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     expect(worker).not.toMatch(
-      /testClock|advance-day|test\/sweep|test\/grant|testGrant|open-recipes|testOpenRecipes|open-levels|testOpenLevels|TEST_CLOCK/,
+      /testClock|advance-day|test\/sweep|test\/grant|testGrant|open-recipes|testOpenRecipes|open-levels|testOpenLevels|open-jobs|testOpenJobs|TEST_CLOCK/,
     );
   });
 });

@@ -1466,7 +1466,7 @@ export type Command =
    * Finish the bring job you hold with a thing of its kind that you made yourself: your oldest, or
    * the one `item` names by id. The thing leaves the world.
    */
-  | { type: "hand_in"; item?: string }
+  | { type: "hand_in"; item?: string | undefined }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }

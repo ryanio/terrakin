@@ -8,7 +8,7 @@ export {
   prepare,
   rejoined,
 } from "./apply";
-export { BIOME_REGION, type Biome, biomeAt } from "./biome";
+export { BIOME_REGION, BIOMES, type Biome, biomeAt } from "./biome";
 export {
   BOUNTIES,
   BOUNTY_MOVES,
@@ -301,6 +301,7 @@ export {
   type Station,
 } from "./items";
 export {
+  heldJob,
   JOB_EDITIONS,
   JOB_GIVERS,
   JOB_TITLE_INFO,
@@ -308,10 +309,15 @@ export {
   type Job,
   type JobDeed,
   type JobGiver,
+  type JobUnlock,
   jobById,
   jobsDone,
   jobsOn,
+  jobsThisWeek,
+  jobUnlocks,
   soloJob,
+  takeJobProblem,
+  titleLabel,
 } from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
 export {

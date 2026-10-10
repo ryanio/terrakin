@@ -11,9 +11,10 @@ import {
   EARNED_WEAR,
   EARNED_WEAR_SKILL,
   PROGRESS,
+  type ShownTitle,
   SKILLS,
   type Skill,
-  type Title,
+  titleLabel,
   UNLOCKS,
   WEAR_INFO,
 } from "@terrakin/sim";
@@ -32,7 +33,7 @@ import {
 } from "@terrakin/ui/ui";
 import { progressApi } from "./api/progress";
 import { actProblem, worldApi } from "./api/world";
-import { ownSkillRow, publicSkillRow, type SkillRow, titleWords } from "./levels";
+import { ownSkillRow, publicSkillRow, type SkillRow } from "./levels";
 
 export interface LevelSheetOptions {
   /** Whose skills these are. Their name is their own words: shown as text. */
@@ -42,7 +43,7 @@ export interface LevelSheetOptions {
   /** Your own profile: the sheet also shows your points, today's counts, and your titles. */
   mine: boolean;
   /** You picked a title, or none: the profile repaints its chip. */
-  onTitle?: (title: Title | undefined) => void;
+  onTitle?: (title: ShownTitle | undefined) => void;
   /** Open the look editor, for earned wear that's yours to put on. */
   dressUp?: () => void;
 }
@@ -77,13 +78,16 @@ function skillRow(row: SkillRow, level: number, waiting = false): HTMLLIElement 
   });
 }
 
-/** The titles you may show, as chips, with None first. A tap asks the server. */
+/**
+ * The titles you may show, as chips, with None first: the ones your skills' levels unlocked, and
+ * the one you show now, which may be a title from jobs finished (RFC 0030). A tap asks the server.
+ */
 function titlePicker(
   progress: ProgressResponse,
-  onTitle: (title: Title | undefined) => void,
+  onTitle: (title: ShownTitle | undefined) => void,
 ): HTMLElement {
   const heading = h("h3", { class: "section-title", text: "Title on your profile" });
-  if (progress.titles.length === 0) {
+  if (progress.titles.length === 0 && !progress.title) {
     return h(
       "section",
       { class: "stack tight level-titles" },
@@ -94,7 +98,7 @@ function titlePicker(
       }),
     );
   }
-  type Choice = Title | "none";
+  type Choice = ShownTitle | "none";
   const problem = errorLine("level-title-error");
   let shown: Choice = progress.title ?? "none";
   const press = (value: Choice) => {
@@ -103,12 +107,10 @@ function titlePicker(
     }
   };
   const picker = chips<Choice>(
-    ["none", ...progress.titles],
+    ["none", ...new Set([...progress.titles, ...(progress.title ? [progress.title] : [])])],
     shown,
     (value) =>
-      value === "none"
-        ? [h("span", { text: "None" })]
-        : [h("span", { text: titleWords(value).label })],
+      value === "none" ? [h("span", { text: "None" })] : [h("span", { text: titleLabel(value) })],
     async (value) => {
       if (value === shown) return;
       problem.textContent = "";

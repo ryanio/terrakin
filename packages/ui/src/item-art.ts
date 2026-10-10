@@ -1520,6 +1520,23 @@ function winnersRosette(): ArtShape[] {
   ];
 }
 
+/** The town satchel (RFC 0030): slate canvas on a leather strap, with a gold star on its flap. */
+function townSatchel(): ArtShape[] {
+  return [
+    shadow(14, 44),
+    path("M14 22C14 10 20 5 24 5s10 5 10 17", "none", { stroke: LEATHER, "stroke-width": 2.6 }),
+    rect(9, 20, 30, 22, 4, E.townSatchel, out()),
+    path(
+      "M9 24a4 4 0 0 1 4-4h22a4 4 0 0 1 4 4v8c0 2-2 4-4 4H13c-2 0-4-2-4-4z",
+      E.townSatchelFlap,
+      out(),
+    ),
+    line("M12 23.5h24", "#ffffff", 1, { opacity: 0.3 }),
+    line("M12.5 38.5h23", "#ffffff", 0.9, { opacity: 0.25, "stroke-dasharray": "2 2" }),
+    sparkle(24, 31, 4.5),
+  ];
+}
+
 // ---------- bottoms, dresses, and feet ----------
 
 function dress(): ArtShape[] {
@@ -2247,6 +2264,7 @@ const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
   field_vest: fieldVest,
   party_sash: partySash,
   winners_rosette: winnersRosette,
+  town_satchel: townSatchel,
 };
 
 /** An item's picture from its look in the catalog, or its own drawing. */

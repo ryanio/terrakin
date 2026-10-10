@@ -174,6 +174,7 @@ export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   field_vest: () => EARNED_HEX.vest,
   party_sash: () => EARNED_HEX.sash,
   winners_rosette: () => EARNED_HEX.rosette,
+  town_satchel: () => EARNED_HEX.townSatchel,
 };
 
 /** A worn garment's main color: its own, else its usual one in the outfit's palette. Pure. */
@@ -545,7 +546,10 @@ export function drawFigure(
     ctx.fill();
   }
 
-  if (wear.has("satchel")) drawSatchel(ctx, u, hand, garb("satchel"));
+  if (wear.has("satchel")) drawSatchel(ctx, u, hand, garb("satchel"), LEATHER);
+  if (wear.has("town_satchel")) {
+    drawSatchel(ctx, u, hand, garb("town_satchel"), EARNED_HEX.townSatchel, true);
+  }
   // What hangs from a tool belt, and a rosette pinned to the chest. Under a ghost sheet, neither.
   if (wear.has("tool_belt") && !ghost) drawBeltTools(ctx, u, hand, garb("tool_belt"));
   if (wear.has("winners_rosette") && !back && !ghost) {
@@ -2778,10 +2782,20 @@ function satchelBagPath(ctx: CanvasRenderingContext2D, u: number, bag: number) {
   ctx.roundRect(bag * u, -0.22 * u, 0.17 * u, 0.13 * u, 0.03 * u);
 }
 
-/** A leather satchel on a strap across the body, on the carrying side. */
-function drawSatchel(ctx: CanvasRenderingContext2D, u: number, hand: number, g: Garb) {
-  const leather = g.color(LEATHER);
-  ctx.strokeStyle = leather;
+/**
+ * A satchel on a strap across the body, on the carrying side: leather, or the town's (RFC 0030)
+ * in slate canvas on a leather strap, with a gold clasp on its flap.
+ */
+function drawSatchel(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  hand: number,
+  g: Garb,
+  cloth: string,
+  town = false,
+) {
+  const leather = g.color(cloth);
+  ctx.strokeStyle = town ? LEATHER : leather;
   ctx.lineWidth = 0.04 * u;
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -2791,7 +2805,12 @@ function drawSatchel(ctx: CanvasRenderingContext2D, u: number, hand: number, g: 
   const bag = hand > 0 ? 0.13 : -0.3;
   paintCloth(ctx, u, () => satchelBagPath(ctx, u, bag), leather, g.fill());
   ctx.fillStyle = mix(leather, "#000000", 0.25);
-  ctx.fillRect(bag * u, -0.22 * u, 0.17 * u, 0.04 * u);
+  ctx.fillRect(bag * u, -0.22 * u, 0.17 * u, town ? 0.06 * u : 0.04 * u);
+  if (!town) return;
+  ctx.fillStyle = EARNED_HEX.townSatchelClasp;
+  ctx.beginPath();
+  ctx.arc((bag + 0.085) * u, -0.155 * u, 0.022 * u, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /** Where the lenses sit: both eyes from the front, the one eye in profile. */

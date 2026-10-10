@@ -304,6 +304,23 @@ function piece(item: WearItem, mat: Material): Mesh[] {
       strap.scale.set(1, 1, 0.75);
       return [at(new RoundedBoxGeometry(0.06, 0.12, 0.14, 2, 0.02), mat, 0.28, 0.18), strap];
     }
+    case "town_satchel": {
+      // The satchel's shape in the town's canvas, on a leather strap, with a gold clasp.
+      const strap = at(new TorusGeometry(0.27, 0.012, 6, 32), solid("#9c6a3e"), 0, 0.32);
+      strap.rotation.z = 0.6;
+      strap.scale.set(1, 1, 0.75);
+      return [
+        at(new RoundedBoxGeometry(0.06, 0.12, 0.14, 2, 0.02), mat, 0.28, 0.18),
+        at(
+          new RoundedBoxGeometry(0.064, 0.05, 0.144, 2, 0.015),
+          solid(EARNED_HEX.townSatchelFlap),
+          0.28,
+          0.215,
+        ),
+        at(new SphereGeometry(0.016, 8, 6), solid(EARNED_HEX.townSatchelClasp), 0.313, 0.2),
+        strap,
+      ];
+    }
     case "basket": {
       const handle = at(new TorusGeometry(0.06, 0.01, 6, 16, Math.PI), mat, 0.31, 0.27);
       return [at(new CylinderGeometry(0.08, 0.06, 0.08, 14), mat, 0.31, 0.22), handle];

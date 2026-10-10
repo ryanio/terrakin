@@ -10,6 +10,8 @@ import * as events from "./events";
 import * as galleries from "./galleries";
 import * as games from "./games";
 import * as items from "./items";
+import * as jobDone from "./job-done";
+import * as jobs from "./jobs";
 import * as levels from "./levels";
 import * as market from "./market";
 import * as partners from "./partners";
@@ -148,6 +150,8 @@ function namedSchemas() {
     ...catalog,
     ...collection,
     ...levels,
+    ...jobs,
+    ...jobDone,
     ...devlog,
     ...share,
   })) {
@@ -196,7 +200,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, or devlog.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, or devlog.ts`,
       );
     return ref(name);
   };

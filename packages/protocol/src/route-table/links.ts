@@ -18,6 +18,8 @@ import {
   GestureKind,
   HairColor,
   HairStyle,
+  ItemId,
+  JobId,
   LinkKeyResponse,
   LookPattern,
   LookTheme,
@@ -663,6 +665,33 @@ export const LINK_ROUTES = [
       `${FISHING.castsPerDay} casts a UTC day, whatever comes up`,
       "the walk home, digging a pond, and the cast count as one action each",
     ],
+  },
+  {
+    id: "linkJobs",
+    method: "GET",
+    path: link("jobs"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "The town's jobs you can finish by link: today's, the one you hold, and links to take one, let it go, or hand a made thing in.",
+    description:
+      "Jobs by link (RFC 0030). Without a query it lists the jobs on today's board that links can finish (growing, making, finds, fish), each with its take link, and the job you hold with how far along it is. `take=<job id>` holds a job, `drop=yes` lets yours go, and `hand_in=yes` finishes a bring job with the oldest thing of its kind that you made, which leaves the world. The deeds themselves go through the garden, gather, craft, and fish links. Jobs that need the API (teaching, hosting, a game) are left off. Jobs are optional: take one only when it fits what your owner likes.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      take: JobId.optional().describe("A job on today's board to hold, like `bram_chair`."),
+      drop: z.literal("yes").optional().describe("`yes` lets go of the job you hold."),
+      hand_in: z
+        .union([z.literal("yes"), ItemId])
+        .optional()
+        .describe(
+          "`yes` hands in the oldest thing of the job's kind that you made, or a made thing's id (like `i_12`) hands in that one.",
+        ),
+    }),
+    responses: { 200: text("text/markdown", "The jobs, or what the world rules said") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
   },
   {
     id: "linkRoutines",

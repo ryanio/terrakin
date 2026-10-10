@@ -35,6 +35,7 @@ import { todaysLines } from "./coins";
 import { checkinEvents, eventView } from "./events";
 import { gamesCheckin } from "./games";
 import { gardenOf } from "./items";
+import { checkinJobs } from "./jobs";
 import { checkinProgress } from "./levels";
 import { awayLine } from "./routines";
 import type { SocialService } from "./social-service";
@@ -423,7 +424,10 @@ export function checkinView(
   // Levels (RFC 0029): the short form of `GET /v1/progress`. Absent until levels open, so a
   // check-in in a world without them is what it always was.
   const levels = checkinProgress(state, viewer);
-  const progress = levels ? { progress: levels } : {};
+  // Jobs (RFC 0030): the board, the job held, and what's left this week, as data. Absent until
+  // jobs open. It's outside the digest, so a new day's board never ends `unchanged`.
+  const jobs = checkinJobs(state, viewer);
+  const progress = { ...(levels ? { progress: levels } : {}), ...(jobs ? { jobs } : {}) };
 
   if (quiet && tryToday === null) {
     return {

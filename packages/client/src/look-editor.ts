@@ -14,6 +14,7 @@ import {
   isCostume,
   isEarnedWear,
   isExclusiveWear,
+  isJobWear,
   isShopWear,
   PATTERN_LABELS,
   PATTERNS,
@@ -80,7 +81,8 @@ export interface LookOwner {
  * never shown locked at a price; earned wear not reached yet is listed with its skill and level
  * (`earnedState` in `levels.ts`). `entitled` is the partner wear they may put on, `owned` the shop
  * wear they own, and `onSale` what the shop sells today, both from the shop's answer, and `earned`
- * the earned wear they've reached, from `GET /v1/progress`, undefined while levels aren't open.
+ * the earned wear they've reached, from `GET /v1/progress`, undefined while levels aren't open. The
+ * town satchel, which comes with jobs finished (RFC 0030), is listed only while it's on.
  */
 export function wearChoices(
   slot: WearSlot,
@@ -95,6 +97,7 @@ export function wearChoices(
       WEAR_INFO[w].slot === slot &&
       (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)) &&
       earnedState(w, wearing, earned) !== "hidden" &&
+      (!isJobWear(w) || wearing.includes(w)) &&
       (!isCostume(w) || owned.has(w) || wearing.includes(w) || onSale.has(w)),
   );
 }

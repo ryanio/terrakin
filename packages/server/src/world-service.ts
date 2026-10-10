@@ -65,6 +65,7 @@ import {
   residentById,
   retireProblems,
   SHOP,
+  type Skill,
   type StepRoutine,
   sameHousehold,
   seatOf,
@@ -242,6 +243,12 @@ export interface WorldServiceOptions {
    */
   levels?: boolean;
   /**
+   * Jobs (RFC 0030): once levels are open, append `open_jobs` if it never has. No adapter turns
+   * it on yet, so no world opens jobs on its own: a test world opens them through
+   * `POST /v1/test/open-jobs`.
+   */
+  jobs?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -325,6 +332,7 @@ interface TownSwitch {
     | "recipes"
     | "holidayPrices"
     | "levels"
+    | "jobs"
     | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
@@ -453,6 +461,13 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     },
     label: "open levels",
   },
+  // Jobs (RFC 0030) pay points, so they open once levels have.
+  {
+    option: "jobs",
+    due: (s) => !s.jobs && !!s.progress,
+    command: { type: "open_jobs" },
+    label: "open jobs",
+  },
 ];
 
 /**
@@ -497,6 +512,7 @@ export class WorldService {
   private readonly recipes: boolean;
   private readonly holidayPrices: boolean;
   private readonly levels: boolean;
+  private readonly jobs: boolean;
   private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
   private readonly townEvents: readonly TownEvent[];
@@ -587,6 +603,7 @@ export class WorldService {
     this.recipes = options.recipes ?? false;
     this.holidayPrices = options.holidayPrices ?? false;
     this.levels = options.levels ?? false;
+    this.jobs = options.jobs ?? false;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? [];
@@ -764,6 +781,18 @@ export class WorldService {
    * be told. A failure here is reported and the points stand.
    */
   onLevelsReached: ((residentId: string, levels: LevelUpView[]) => void) | undefined;
+
+  /**
+   * Hears each job a resident finished (RFC 0030), so they can be told: a job can be finished
+   * while its resident is away, by an event's credit or a game's last round. A failure here is
+   * reported and the job stands.
+   */
+  onJobDone:
+    | ((
+        residentId: string,
+        done: { job: string; skill: Skill; points: number; total: number },
+      ) => void)
+    | undefined;
 
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
@@ -1149,6 +1178,14 @@ export class WorldService {
   testOpenLevels() {
     const firsts = this.levelFirsts?.() ?? [];
     return this.run({ actor: TOWN_ACTOR, command: { type: "open_levels", firsts } });
+  }
+
+  /**
+   * Jobs (RFC 0030), switched on now rather than at the next tick, so a test can take one. Only
+   * the Node server's test route calls it, like `testGrant`. The sim refuses it before levels.
+   */
+  testOpenJobs() {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_jobs" } });
   }
 
   // ---------- levels (RFC 0029) ----------
@@ -1848,6 +1885,16 @@ export class WorldService {
           // The candy moved; the owner's notice misses this knock.
           report(err, "world.trick_or_treated", { command: input.command.type });
         }
+      }
+    }
+    // Jobs finished (RFC 0030): each resident is told, here or away.
+    for (const e of events) {
+      if (e.type !== "job_done") continue;
+      try {
+        this.onJobDone?.(e.residentId, e);
+      } catch (err) {
+        // The job stands; the notice misses it.
+        report(err, "world.job_done", { command: input.command.type });
       }
     }
     // Levels reached (RFC 0029): each resident is told once for the input, with what it unlocked.

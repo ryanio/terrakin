@@ -19,7 +19,6 @@ import {
   floorField,
   groundOn,
   holidayField,
-  isJobTitle,
   isTownEvent,
   isTownsfolk,
   type PickupKind,
@@ -50,7 +49,9 @@ import { nameKey } from "./text";
 
 /**
  * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
- * server, and so does `event_credited`, the guest list the server sent the sim (RFC 0029). A gift
+ * server, and so do `event_credited`, the guest list the server sent the sim (RFC 0029), and two
+ * of jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
+ * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored. A gift
  * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
  * side: their purses reset to the budget each day, so the public treasury lines would give the
  * amount away.
@@ -66,21 +67,9 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "implicit_presence_on" ||
       e.type === "event_ticked" ||
       e.type === "event_credited" ||
-      // Jobs (RFC 0030) are in the sim and not on the API yet: no job event goes out.
-      e.type === "jobs_opened" ||
-      e.type === "job_taken" ||
-      e.type === "job_progress" ||
-      e.type === "job_done" ||
-      e.type === "job_dropped" ||
       e.type === "job_total" ||
       e.type === "job_edition_set"
     ) {
-      continue;
-    }
-    if (e.type === "title_changed") {
-      // A title from jobs finished is theirs too, so it stays in until the API opens jobs.
-      const { title } = e;
-      if (!isJobTitle(title)) out.push({ ...e, title });
       continue;
     }
     if (e.type === "inventory") {
@@ -162,22 +151,29 @@ export function holdBackNames(events: WireEvent[], hidden: (id: string) => boole
   });
 }
 
+/** The events that belong to one resident alone, by type. */
+const PRIVATE_EVENTS = [
+  "coins",
+  "inventory",
+  "wear_bought",
+  "routines_set",
+  "recipe_learned",
+  "progress",
+  "job_taken",
+  "job_progress",
+  "job_done",
+  "job_dropped",
+] as const satisfies readonly WireEvent["type"][];
+
 /**
  * Purse moves, inventory changes, wear bought at the shop, routines turned on or off, recipes
- * learned (RFC 0024), and points earned (RFC 0029): each belongs to one resident alone.
+ * learned (RFC 0024), points earned (RFC 0029), and a job taken, moved, finished, or let go (RFC
+ * 0030): each belongs to one resident alone.
  */
 export const isPrivate = (
   e: WireEvent,
-): e is Extract<
-  WireEvent,
-  { type: "coins" | "inventory" | "wear_bought" | "routines_set" | "recipe_learned" | "progress" }
-> =>
-  e.type === "coins" ||
-  e.type === "inventory" ||
-  e.type === "wear_bought" ||
-  e.type === "routines_set" ||
-  e.type === "recipe_learned" ||
-  e.type === "progress";
+): e is Extract<WireEvent, { type: (typeof PRIVATE_EVENTS)[number] }> =>
+  (PRIVATE_EVENTS as readonly string[]).includes(e.type);
 
 /**
  * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
@@ -366,6 +362,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),
+    ...(state.jobs ? { jobsOpen: true as const } : {}),
     ...(state.events?.list.some(eventOpen)
       ? {
           events: state.events.list.filter(eventOpen).map((e) => ({

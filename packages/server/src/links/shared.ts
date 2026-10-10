@@ -69,6 +69,7 @@ export type LinkRouteId =
   | "linkNamePlot"
   | "linkCraft"
   | "linkFish"
+  | "linkJobs"
   | "linkGesture"
   | "linkRead"
   | "linkFeed"
@@ -132,6 +133,10 @@ export function linksFor(origin: string, key: string) {
     namePlot: `${base}/name-plot?name=<your plot's name>`,
     craft: (recipe?: string) => `${base}/craft${recipe ? `?recipe=${recipe}` : ""}`,
     fish: `${base}/fish`,
+    jobs: `${base}/jobs`,
+    takeJob: (job: string) => `${base}/jobs?take=${encodeURIComponent(job)}`,
+    dropJob: `${base}/jobs?drop=yes`,
+    handIn: `${base}/jobs?hand_in=yes`,
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
     climb: (dir: "up" | "down") => `${base}/move?dir=${dir}`,
@@ -257,6 +262,9 @@ export function nextSteps(
       state.items !== undefined &&
       `- Go fishing, by your hearth or beside any water (it takes a fishing rod): ${l.fish}`,
     state.items !== undefined && `- What you hold, what you made, and your garden: ${l.things}`,
+    state.jobs !== undefined &&
+      r.hearth &&
+      `- The town's jobs today, if your owner would like one done: ${l.jobs}`,
     climbs.includes("up") && `- Go up the stairs you're standing on: ${l.climb("up")}`,
     climbs.includes("down") && `- Go down the stairs you're at the top of: ${l.climb("down")}`,
     lying > 0 &&

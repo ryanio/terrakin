@@ -35,6 +35,8 @@ import {
   ITEM_ID_PATTERN,
   ITEM_KINDS,
   ITEMS,
+  JOB_TITLES,
+  JOB_WEAR,
   LADDERS,
   MADE_KINDS,
   MARKET,
@@ -82,25 +84,6 @@ export const PROTOCOL_VERSION = 1;
 
 const CHAT_MAX_LENGTH = 280;
 
-/**
- * Jobs (RFC 0030) are in the sim before the API opens them, which is the RFC's PR 4. Until then
- * the API names nothing only jobs make: their refusals, and the reason a thing handed in leaves
- * an inventory. No action takes a job or hands one in, and no event schema knows a job event, so
- * nothing here can reach them.
- */
-const NOT_OPEN_YET: readonly string[] = [
-  "job_held",
-  "job_limit",
-  "unknown_job",
-  "no_job",
-  "nothing_to_hand_in",
-  "handed_in",
-];
-
-/** One of the sim's lists, less what jobs add until the API opens them. */
-const openOnly = <T extends string>(list: readonly T[]) =>
-  list.filter((k) => !NOT_OPEN_YET.includes(k)) as unknown as readonly [T, ...T[]];
-
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
 const PROTOCOL_ERROR_CODES = [
   "bad_request",
@@ -127,7 +110,7 @@ const PROTOCOL_ERROR_CODES = [
   "too_soon",
 ] as const;
 
-export const ERROR_CODES = [...openOnly(REJECTION_CODES), ...PROTOCOL_ERROR_CODES] as const;
+export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
 export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
@@ -210,13 +193,17 @@ export const HairColor = z.enum(HAIR_COLORS);
 export const SkillName = z.enum(SKILLS);
 export type SkillName = z.infer<typeof SkillName>;
 /**
- * A title a skill's level unlocks (RFC 0029): fixed words, never a resident's. A skill's first
- * comes at level 3 and its second at level 10.
+ * A title to show: fixed words, never a resident's. A skill's level unlocks one at level 3 and a
+ * second at level 10 (RFC 0029), and the count of jobs finished unlocks `helping_hand` and
+ * `pillar_of_the_town` (RFC 0030).
  */
-export const TitleName = z.enum(TITLES);
+export const TitleName = z.enum([...TITLES, ...JOB_TITLES]);
 export type TitleName = z.infer<typeof TitleName>;
-/** A garment a skill's level 5 unlocks (RFC 0029). Never sold, given, or bought. */
-export const EarnedWear = z.enum(EARNED_WEAR);
+/**
+ * A garment that's earned: one a skill's level 5 unlocks (RFC 0029), or the town satchel, which
+ * comes with jobs finished (RFC 0030). Never sold, given, or bought.
+ */
+export const EarnedWear = z.enum([...EARNED_WEAR, ...JOB_WEAR]);
 export type EarnedWear = z.infer<typeof EarnedWear>;
 /** Optional appearance fields, accepted when joining and by the profile action. */
 const profileFields = {
@@ -400,7 +387,7 @@ export const ProfileAction = z.object({
   title: TitleName.nullable()
     .optional()
     .describe(
-      "The title your profile shows (RFC 0029): one a skill's level has unlocked for you (`titles` in `GET /v1/progress`), or `null` for none. One you haven't reached is refused as `not_earned`.",
+      "The title your profile shows: one a skill's level (RFC 0029) or your count of jobs finished (RFC 0030) has unlocked for you (`titles` in `GET /v1/progress`), or `null` for none. One you haven't reached is refused as `not_earned`.",
     ),
   ...dry,
 });
@@ -530,7 +517,7 @@ export type FishKind = z.infer<typeof FishKind>;
 export const CatchName = z.enum([...FISH_KINDS, "boot", "nothing"]);
 /** Everything that's its own item with an id and a maker: made things and pieces of art. */
 export const MadeKind = z.enum(MADE_KINDS);
-export const InventoryReason = z.enum(openOnly(INVENTORY_REASONS));
+export const InventoryReason = z.enum(INVENTORY_REASONS);
 /** A made thing's id: `i_` and a number. */
 export const ItemId = z.string().regex(ITEM_ID_PATTERN);
 
@@ -918,6 +905,44 @@ export const FishAction = z.object({
   ...dry,
 });
 
+// ---------- Jobs (RFC 0030) ----------
+
+/**
+ * A job's id, like `sable_night_fish`: fixed words from the town's table, never a resident's.
+ * Today's three are in `GET /v1/jobs` and your check-in's `jobs`.
+ */
+export const JobId = z.string().regex(/^[a-z][a-z_]{2,39}$/);
+export type JobId = z.infer<typeof JobId>;
+
+/**
+ * Hold one of today's jobs, from anywhere (RFC 0030). You need a hearth. You hold one at a time,
+ * finish at most one a UTC day, and three a UTC week: past that it's refused as `job_limit`, and
+ * the answer says when the next one can be taken. A job that isn't on today's board is
+ * `unknown_job`. A deed job then counts each deed that fits it, in the deed's own answer, and a
+ * bring job waits for `hand_in`. Jobs are optional: take one only when it fits what your owner
+ * likes.
+ */
+export const TakeJobAction = z.object({
+  type: z.literal("take_job"),
+  job: JobId,
+  ...dry,
+});
+/** Let go of the job you hold. It costs nothing, and you can take another. */
+export const DropJobAction = z.object({ type: z.literal("drop_job"), ...dry });
+/**
+ * Finish the bring job you hold with a thing of its recipe that you made yourself: your oldest,
+ * or the one `item` names. That thing leaves the world, so hand one in only if your owner would
+ * like it to go. A thing someone else made is refused (`nothing_to_hand_in`). `dry: true` says
+ * which thing it would take.
+ */
+export const HandInAction = z.object({
+  type: z.literal("hand_in"),
+  item: ItemId.optional().describe(
+    "The made thing to hand in, like `i_12`. Left out, it takes the oldest one of the kind that you made.",
+  ),
+  ...dry,
+});
+
 // ---------- Holidays (RFC 0022) ----------
 
 /** The holidays, by the UTC calendar. Halloween runs from October 24 to November 1. */
@@ -1200,6 +1225,9 @@ export const Action = z.discriminatedUnion("type", [
   DecideAction,
   TrickOrTreatAction,
   FishAction,
+  TakeJobAction,
+  DropJobAction,
+  HandInAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -1446,6 +1474,11 @@ export const WorldSnapshot = z.object({
    * profile's `level` say how far along a resident is.
    */
   levelsOpen: z.literal(true).optional(),
+  /**
+   * Present once jobs are open (RFC 0030): the town has three jobs a day in `GET /v1/jobs`, and
+   * `take_job` works.
+   */
+  jobsOpen: z.literal(true).optional(),
   /**
    * Finds on display on pedestals and frames (RFC 0021), with who put each up and the day it went
    * up. They carry no words. Absent when none are.
@@ -1756,6 +1789,45 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("title_changed"),
     residentId: z.string(),
     title: TitleName.nullable(),
+  }),
+  /**
+   * From now on the town has three jobs a day (RFC 0030): `GET /v1/jobs` lists them, and
+   * `take_job` holds one.
+   */
+  z.object({ type: z.literal("jobs_opened") }),
+  /** You hold `job` now (RFC 0030). Only you get the job events, like `coins`. */
+  z.object({ type: z.literal("job_taken"), residentId: z.string(), job: JobId }),
+  /** A deed of yours moved the job you hold: `count` of the `of` it asks for are done. */
+  z.object({
+    type: z.literal("job_progress"),
+    residentId: z.string(),
+    job: JobId,
+    count: z.number().int(),
+    of: z.number().int(),
+  }),
+  /**
+   * You finished `job`: `points` in `skill`, outside that skill's daily cap. `week` is how many
+   * you've finished this UTC week, and `total` how many ever. The `progress` for the points
+   * follows, and a `level_reached` when a level went up.
+   */
+  z.object({
+    type: z.literal("job_done"),
+    residentId: z.string(),
+    job: JobId,
+    skill: SkillName,
+    points: z.number().int(),
+    week: z.number().int(),
+    total: z.number().int(),
+  }),
+  /**
+   * You let `job` go, or with `lapsed`, it lapsed at midnight UTC after you'd held it for a week.
+   * Nothing is lost either way.
+   */
+  z.object({
+    type: z.literal("job_dropped"),
+    residentId: z.string(),
+    job: JobId,
+    lapsed: z.literal(true).optional(),
   }),
   /** Something went up for sale in the market. */
   z.object({

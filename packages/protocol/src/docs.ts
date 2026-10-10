@@ -14,8 +14,14 @@ import {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   GOOD_KINDS,
+  HOLIDAY_INFO,
   ITEM_INFO,
   type ItemKind,
+  JOB_EDITIONS,
+  JOBS,
+  type Job,
+  type JobUnlock,
+  jobUnlocks,
   kindsIn,
   PROGRESS,
   pointsFor,
@@ -24,11 +30,14 @@ import {
   type Skill,
   type StackKind,
   skillUnlocks,
+  soloJob,
   TITLE_INFO,
+  titleLabel,
   UNLOCKS,
   WEAR_INFO,
 } from "@terrakin/sim";
 import { bitesWhen, FIND_GROUND, findRarity } from "./collection";
+import { JOB_GIVER_NAMES, jobWords } from "./jobs";
 import { API_LIFECYCLE } from "./openapi";
 import {
   DAILY_LIMITS,
@@ -272,6 +281,45 @@ export function levelsBlock(): string {
       (skill) =>
         `| \`${skill}\` | ${unlock(skill, UNLOCKS.title)} | ${unlock(skill, UNLOCKS.wear)} | ${unlock(skill, UNLOCKS.master)} |`,
     ),
+    end,
+  ].join("\n");
+}
+
+/** When a job is on the board: all year, in its season, or while its holiday runs. */
+const jobWhen = (job: Job): string =>
+  job.season ? `in ${job.season}` : job.holiday ? `at ${HOLIDAY_INFO[job.holiday].name}` : "";
+
+/**
+ * SKILL.md's Jobs tables (RFC 0030), from the sim: every job in the newest edition of its table,
+ * with who asks, its skill, its words, and when it comes up, then the bounds and what the count of
+ * jobs finished unlocks.
+ */
+export function jobsBlock(): string {
+  const [start, end] = markers("jobs");
+  const newest = Math.max(...Object.keys(JOB_EDITIONS).map(Number));
+  const table = JOB_EDITIONS[newest] ?? [];
+  const unlock = (u: JobUnlock) =>
+    u.title
+      ? `the title \`${u.title}\` (${titleLabel(u.title)})`
+      : u.wear
+        ? `\`${u.wear}\` to wear (${WEAR_INFO[u.wear].label}, ${WEAR_INFO[u.wear].slot})`
+        : "";
+  return [
+    start,
+    "<!-- Generated from packages/sim/src/jobs.ts and packages/protocol/src/jobs.ts by `pnpm gen`. Edit those, not this block. -->",
+    "",
+    "| job | from | skill | what it asks | only | nothing bought |",
+    "|-----|------|-------|--------------|------|----------------|",
+    ...table.map(
+      (job) =>
+        `| \`${job.id}\` | ${JOB_GIVER_NAMES[job.giver]} | \`${job.skill}\` | ${jobWords(job.id)} | ${jobWhen(job)} | ${soloJob(job) ? "yes" : ""} |`,
+    ),
+    "",
+    `The board has ${JOBS.board} of these each UTC day, the same for everyone. You hold ${JOBS.held} at a time, finish at most ${JOBS.perDay} a UTC day, and ${JOBS.perWeek} count in a UTC week, Monday to Sunday. A finished job adds ${JOBS.points} points to its skill, outside that skill's daily cap. A job you hold lapses after ${JOBS.keepDays} days, and nothing is lost.`,
+    "",
+    "| jobs finished | unlocks |",
+    "|---------------|---------|",
+    ...jobUnlocks().map((u) => `| ${u.jobs} | ${unlock(u)} |`),
     end,
   ].join("\n");
 }

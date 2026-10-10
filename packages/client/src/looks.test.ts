@@ -425,6 +425,11 @@ describe("partner wear in the look editor (RFC 0007)", () => {
     expect(wearChoices("hat", [], [], new Set(), new Set(), [])).toContain("sun_hat");
     expect(wearChoices("hat", [], [], new Set(), new Set(), ["sun_hat"])).toContain("sun_hat");
     expect(wearChoices("accessory", [], ["tool_belt"])).toContain("tool_belt");
+    // The town satchel (RFC 0030) comes with jobs finished: offered to nobody, shown while it's on.
+    expect(wearChoices("accessory", [], [], new Set(), new Set(), [])).not.toContain(
+      "town_satchel",
+    );
+    expect(wearChoices("accessory", [], ["town_satchel"])).toContain("town_satchel");
   });
 });
 

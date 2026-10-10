@@ -24,6 +24,7 @@ import {
   type ItemKind,
   isEarnedWear,
   isExclusiveWear,
+  isJobWear,
   isShopSku,
   isShownFind,
   isTownsfolk,
@@ -64,11 +65,11 @@ const keyOf = (shelf: Shelf, kind: string) => `${shelf}:${kind}`;
 
 /**
  * Every piece of wear the book counts, by slot: everything but partner wear, which few can wear,
- * and earned wear (RFC 0029), which takes a skill's level 5. Leaving both out keeps "Full
- * wardrobe" something the shop alone finishes.
+ * earned wear (RFC 0029), which takes a skill's level 5, and the town satchel (RFC 0030), which
+ * takes 25 jobs. Leaving them out keeps "Full wardrobe" something the shop alone finishes.
  */
 export const COLLECTIBLE_WEAR = sortWear(
-  WEAR_ITEMS.filter((w) => !isExclusiveWear(w) && !isEarnedWear(w)),
+  WEAR_ITEMS.filter((w) => !isExclusiveWear(w) && !isEarnedWear(w) && !isJobWear(w)),
 );
 
 /** The seasons a kind turns up in: a find's on the ground, or the shop's for seasonal stock. */

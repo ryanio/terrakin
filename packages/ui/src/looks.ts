@@ -105,9 +105,9 @@ export const WINTER_HEX = {
 } as const;
 
 /**
- * Earned wear's colors (RFC 0029), one garment a skill, as the 2D figure, the item pictures, and
- * the 3D figures draw them. A garment with a color of its own (`wearStyle`) uses that instead of
- * its main color here.
+ * Earned wear's colors, as the 2D figure, the item pictures, and the 3D figures draw them: one
+ * garment a skill (RFC 0029), and the town satchel that comes with jobs finished (RFC 0030). A
+ * garment with a color of its own (`wearStyle`) uses that instead of its main color here.
  */
 export const EARNED_HEX = {
   /** Growing's sun hat: pale woven straw, a moss ribbon, and a leaf tucked in it. */
@@ -132,6 +132,10 @@ export const EARNED_HEX = {
   rosette: "#4f8fd0",
   rosetteDeep: "#3568a8",
   rosetteMiddle: "#f2c94c",
+  /** The town satchel: slate canvas under a darker flap, with a gold star for its clasp. */
+  townSatchel: "#4f6f8f",
+  townSatchelFlap: "#3d5873",
+  townSatchelClasp: "#f2c94c",
 } as const;
 
 /**

@@ -132,6 +132,7 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
         catalog: docs.catalogBlock(),
         furniture: docs.furnitureBlock(),
         levels: docs.levelsBlock(),
+        jobs: docs.jobsBlock(),
       }),
   },
   {

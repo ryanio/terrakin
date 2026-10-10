@@ -23,7 +23,7 @@ import {
 } from "./jobs";
 import { tileKey } from "./keys";
 import { jobEarns, PROGRESS, pointsOf, titleOf } from "./levels";
-import { JOB_WEAR, JOB_WEAR_INFO, WEAR_ITEMS } from "./looks";
+import { JOB_WEAR, WEAR_INFO, WEAR_ITEMS, type WearItem } from "./looks";
 import { replay } from "./replay";
 import { dateOfDay, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
@@ -377,11 +377,8 @@ function playTo(w: World, who: string, total: number) {
   }
 }
 
-/**
- * A `profile` that puts on `wear`. The job garment isn't in the wear type until the API opens
- * jobs, so a list that holds it is cast.
- */
-const wearing = (...wear: string[]) => ({ type: "profile", wear }) as unknown as Command;
+/** A `profile` that puts on `wear`. */
+const wearing = (...wear: WearItem[]): Command => ({ type: "profile", wear });
 
 /**
  * Run `test` with `table` as the second edition. No second edition has shipped, so it's put there
@@ -446,10 +443,12 @@ describe("the numbers", () => {
       pillar_of_the_town: { label: "Pillar of the town", at: "masterAt" },
     });
     // A garment's slot decides which wear lists a logged profile may hold, so it's pinned.
-    expect(JOB_WEAR_INFO).toEqual({ town_satchel: { slot: "accessory", label: "Town satchel" } });
-    // Until the API opens jobs they're lists of their own, which no title or wear enum holds.
+    expect(JOB_WEAR).toEqual(["town_satchel"]);
+    expect(WEAR_INFO.town_satchel).toEqual({ slot: "accessory", label: "Town satchel" });
+    // The garment is wear like any other, before partner wear, which stays last. The titles are
+    // a list of their own beside the skills', since a title there has a skill and a level.
+    expect(WEAR_ITEMS.indexOf("town_satchel")).toBe(WEAR_ITEMS.indexOf("muse_halo") - 1);
     for (const title of JOB_TITLES) expect(TITLES as readonly string[]).not.toContain(title);
-    for (const wear of JOB_WEAR) expect(WEAR_ITEMS as readonly string[]).not.toContain(wear);
   });
 
   it("pin the first edition's table, which a live world's logged take_job reads", () => {

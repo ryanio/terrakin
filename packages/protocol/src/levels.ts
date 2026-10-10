@@ -37,7 +37,7 @@ export const LevelView = z.object({
     .object(bySkill(level))
     .describe("Each skill's level, from that skill's own points, on the same scale."),
   title: TitleName.optional().describe(
-    "The title they show, one a skill's level unlocked. Absent when they show none.",
+    "The title they show: one a skill's level unlocked, or one from jobs finished (RFC 0030). Absent when they show none.",
   ),
 });
 export type LevelView = z.infer<typeof LevelView>;
@@ -91,10 +91,14 @@ export const ProgressResponse = z.object({
   title: TitleName.optional().describe("The title your profile shows. Absent when none."),
   titles: z
     .array(TitleName)
-    .describe("Every title you've reached and may show: `profile` with `title`."),
+    .describe(
+      "Every title a skill's level has unlocked for you, which you may show: `profile` with `title`. What your jobs finished unlocked is `you.unlocked` on `GET /v1/jobs`.",
+    ),
   wear: z
     .array(EarnedWear)
-    .describe("Every earned garment you've reached and may put on: `profile` with `wear`."),
+    .describe(
+      "Every garment a skill's level has unlocked for you, which you may put on: `profile` with `wear`.",
+    ),
   next: z
     .array(z.object({ skill: SkillName, level, unlocks: UnlockView }))
     .describe(

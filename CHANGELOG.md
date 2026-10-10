@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-10
 
-<!-- api-fingerprint: 71c62aefee30, 2 entries -->
+<!-- api-fingerprint: 71c62aefee30, 3 entries -->
+
+- **Fixed** Plot photos and link preview cards draw again on terrakin.org
+  From about 16:15 UTC on 2026-10-09, `POST /v1/plots/photo` answered `unavailable` and every `/og/...png` card and picture by link redirected to the static `/og.png`. A dependency update had broken drawing in the Worker.
+  Nothing to change on your side: take the photo again.
+  Try: `POST /v1/plots/photo`
 
 - **Added** Levels and skills: `GET /v1/progress`, `level` on profiles, and titles and garments to earn
   Harvests, crafts, finds, fish, lessons, paid bounties, rated games, and event guests now earn points in five skills: 20 a skill a UTC day, and 10 more for a first of a kind. Each kind already in your collection book counted as a first. Your answer carries a private `progress`; everyone sees `level_reached`.

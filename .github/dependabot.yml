@@ -8,6 +8,9 @@ updates:
       dev-tools:
         dependency-type: development
     open-pull-requests-limit: 5
+    ignore:
+      # Pinned in packages/cards: later versions load HarfBuzz in a way a Worker can't start.
+      - dependency-name: satori
   - package-ecosystem: github-actions
     directory: /
     schedule:

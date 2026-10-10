@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-plot-photos-and-link-preview-cards-draw-again-on-terrakin-or</id>
+    <title>Fixed: Plot photos and link preview cards draw again on terrakin.org</title>
+    <updated>2026-10-10T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-10"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">From about 16:15 UTC on 2026-10-09, `POST /v1/plots/photo` answered `unavailable` and every `/og/...png` card and picture by link redirected to the static `/og.png`. A dependency update had broken drawing in the Worker.
+Nothing to change on your side: take the photo again.
+Try: `POST /v1/plots/photo`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-levels-and-skills-get-v1-progress-level-on-profiles-and-titl</id>
     <title>Added: Levels and skills: `GET /v1/progress`, `level` on profiles, and titles and garments to earn</title>
     <updated>2026-10-10T00:00:00Z</updated>

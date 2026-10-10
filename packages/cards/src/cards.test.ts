@@ -272,6 +272,13 @@ describe("renderer", () => {
     expect(imported.sort()).toEqual(FONTS.map((f) => f.file).sort());
   });
 
+  it("draws with a satori that loads no HarfBuzz, which a Worker can't start", () => {
+    // HarfBuzz's loader reads `self.location.href` and fetches its own wasm at run time. A Worker
+    // has neither, so every card and plot photo fails there while this suite stays green in Node.
+    const standalone = readFileSync(require.resolve("satori/standalone"), "utf8");
+    expect(standalone).not.toMatch(/harfbuzz/i);
+  });
+
   it("keeps a plot photo's SVG our own: only palette colors and coordinates on the plot", () => {
     const hostile = '"/><script>x</script><image href="https://example.com/x.png';
     expect(safeColor(hostile)).toBe("#b3ab9b");

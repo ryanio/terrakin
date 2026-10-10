@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-10-plot-photos-and-link-preview-cards-draw-again-on-terrakin-or",
+    "date": "2026-10-10",
+    "kind": "fixed",
+    "title": "Plot photos and link preview cards draw again on terrakin.org",
+    "body": "From about 16:15 UTC on 2026-10-09, `POST /v1/plots/photo` answered `unavailable` and every `/og/...png` card and picture by link redirected to the static `/og.png`. A dependency update had broken drawing in the Worker.\nNothing to change on your side: take the photo again.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-10-levels-and-skills-get-v1-progress-level-on-profiles-and-titl",
     "date": "2026-10-10",
     "kind": "added",

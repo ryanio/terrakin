@@ -1332,12 +1332,19 @@ const HEX = "0123456789abcdef";
 /**
  * One Hearth race at a slow table: the first seat opens it and starts it, everyone picks 1 to 3 a
  * round from `rng`, and the server closes each round until someone's home. The sim decides who's
- * rated. True when the game was played.
+ * rated. Without `rng` nobody ever chooses, and the game ends once every seat is away. The number
+ * of seats the sim rated when it was played, or null when it wasn't.
  */
-function playGame(rules: Rules, seats: readonly string[], rng: ReturnType<typeof draws>): boolean {
+function playGame(
+  rules: Rules,
+  seats: readonly string[],
+  rng?: ReturnType<typeof draws>,
+): number | null {
   const { state } = rules;
   const [first = "", ...rest] = seats;
-  const salt = Array.from({ length: 32 }, () => HEX[rng.between(0, 15)]).join("");
+  const salt = rng
+    ? Array.from({ length: 32 }, () => HEX[rng.between(0, 15)]).join("")
+    : HEX.repeat(2);
   const at = () => {
     gameClock += 1_000;
     return gameClock;
@@ -1345,27 +1352,28 @@ function playGame(rules: Rules, seats: readonly string[], rng: ReturnType<typeof
   if (
     !rules.send(first, { type: "open_table", game: "hearth_race", pace: "slow", salt, at: at() })
   ) {
-    return false;
+    return null;
   }
   const table = Object.keys(state.games?.tables ?? {})
     .sort((a, b) => Number(a.slice(2)) - Number(b.slice(2)))
     .at(-1);
-  if (!table) return false;
+  if (!table) return null;
   for (const seat of rest) rules.send(seat, { type: "sit", table, at: at() });
   if (!rules.send(first, { type: "start_game", table, at: at() })) {
     rules.send(first, { type: "stand", table });
-    return false;
+    return null;
   }
+  const rated = activeTable(state, table)?.seats.filter((seat) => seat.rated).length ?? 0;
   for (let rounds = 0; rounds < 40; rounds++) {
     const t = activeTable(state, table);
     if (t?.status !== "playing") break;
-    for (const seat of t.seats) {
-      const move = rng.between(1, 3);
+    for (const seat of rng ? t.seats : []) {
+      const move = rng?.between(1, 3) ?? 1;
       rules.send(seat.resident, { type: "decide", table, round: t.round, move });
     }
     rules.send(TOWN_ACTOR, { type: "close_round", table, round: t.round, at: at() });
   }
-  return true;
+  return rated;
 }
 
 /** Neighbors of `id` among `around`: residents whose hearths are within two plots, not their household. */
@@ -1448,7 +1456,7 @@ function playingDay(rules: Rules, active: readonly string[], byId: Map<string, P
     }
     while (pool.length >= 2) {
       const seats = pool.length === 3 ? pool.splice(0, 3) : pool.splice(0, 2);
-      if (playGame(rules, seats, climbing)) gatherings.games++;
+      if (playGame(rules, seats, climbing) !== null) gatherings.games++;
     }
   }
 }
@@ -1487,7 +1495,8 @@ function noteLevels(state: WorldState, people: readonly Person[], settled: Set<s
  * small world of its own, played beside the month so it changes nothing there. In it a newcomer
  * does the first visit and then a chair, a rod, and a fish; a household of a person and two AIs
  * teach, pay, host, and play each other; and a ring of ten fresh accounts teach each other, pay
- * each other two bounties a day, and go to two of their own events a day.
+ * each other two bounties a day, go to two of their own events a day, and sit down to two rated
+ * tables a day each where nobody ever chooses.
  */
 function lab() {
   const rules = simRules(40);
@@ -1570,6 +1579,7 @@ function lab() {
 
   // The month for the household and the ring.
   const ringDays: number[] = [];
+  const idle = { games: 0, rated: 0 };
   let refusedCredits = 0;
   const ringLevel = { title: -1, wear: -1 };
   const age = () => today(state);
@@ -1624,6 +1634,14 @@ function lab() {
         age,
       );
     }
+    // And each sits down with the next one round at a table where neither ever chooses: ten
+    // games a day, two seats each, which the sim rates once they've been here three days.
+    ring.forEach((a, i) => {
+      const rated = playGame(rules, [a, ring[(i + shift) % 10] ?? ""]);
+      if (rated === null) return;
+      idle.games++;
+      idle.rated += rated;
+    });
     for (const id of ring) {
       ringDays.push(state.progress?.today?.[id]?.hosting ?? 0);
       const hosting = levelsOf(state, id).skills.hosting;
@@ -1644,6 +1662,8 @@ function lab() {
       max: Math.max(0, ...ringDays),
       hosting: ring.map((id) => each(id, "hosting")).sort((a, b) => a - b),
       level: Math.min(...ring.map((id) => levelsOf(state, id).skills.hosting)),
+      playing: ring.reduce((sum, id) => sum + each(id, "playing"), 0),
+      idle,
       ...ringLevel,
     },
   };
@@ -2271,7 +2291,7 @@ function levelLines(rules: Rules, people: Person[], rows: Row[]) {
 
   // 5. A household, and a ring.
   console.log(
-    `  5. A person and two AIs teaching, paying, hosting, and playing each other for ${DAYS} days earned ${tested.household.hosting} Hosting and ${tested.household.playing} Playing points (${tested.household.hosting + tested.household.playing === 0 ? "holds" : "fails"}: nothing), and the sim refused ${tested.household.refusedCredits} event credits that named them as guests. A ring of ten fresh accounts earned ${tested.ring.mean.toFixed(1)} Hosting points an account a day, ${tested.ring.max} at most (${tested.ring.max <= PROGRESS.dailyCap ? "holds" : "fails"}: the cap is ${PROGRESS.dailyCap}); by month end each had ${tested.ring.hosting[0]} to ${tested.ring.hosting.at(-1)} points, Hosting ${tested.ring.level}, with the title from day ${tested.ring.title} and the garment from day ${tested.ring.wear < 0 ? "none" : tested.ring.wear}.`,
+    `  5. A person and two AIs teaching, paying, hosting, and playing each other for ${DAYS} days earned ${tested.household.hosting} Hosting and ${tested.household.playing} Playing points (${tested.household.hosting + tested.household.playing === 0 ? "holds" : "fails"}: nothing), and the sim refused ${tested.household.refusedCredits} event credits that named them as guests. A ring of ten fresh accounts earned ${tested.ring.mean.toFixed(1)} Hosting points an account a day, ${tested.ring.max} at most (${tested.ring.max <= PROGRESS.dailyCap ? "holds" : "fails"}: the cap is ${PROGRESS.dailyCap}); by month end each had ${tested.ring.hosting[0]} to ${tested.ring.hosting.at(-1)} points, Hosting ${tested.ring.level}, with the title from day ${tested.ring.title} and the garment from day ${tested.ring.wear < 0 ? "none" : tested.ring.wear}. The ring also sat down to ${tested.ring.idle.games} games where nobody ever chose (${tested.ring.idle.rated} seats rated) and earned ${tested.ring.playing} Playing points (${tested.ring.playing === 0 ? "holds" : "fails"}: nothing).`,
   );
 
   // 6. Supply against the same month without levels.

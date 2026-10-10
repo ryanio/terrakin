@@ -58,6 +58,8 @@ const DAY = 20_000;
 /** The Monday after, when levels open here and everyone settled on `DAY` may vote. */
 const OPEN = DAY + 3;
 const SALT = "0123456789abcdef0123456789abcdef";
+/** `state.progress` in a world that opened levels on `OPEN` and where nobody has earned since. */
+const NOTHING_YET = { opened: OPEN, points: {}, firsts: {} };
 
 /**
  * A world where every input checks the supply identity afterwards (points are not coins), and
@@ -218,25 +220,36 @@ function bounty(
   return w.ok(poster, { type: "confirm_bounty", bounty: id, to: claimant });
 }
 
-/** A Hearth race the first seat wins in four rounds. The last round's events. */
-function race(w: World, seats: string[]) {
+/**
+ * A Hearth race played to its end: each round every seat makes the choice `choose` gives it, or
+ * none for `null`, and the round closes. The seats rated at the start, and the last round's events.
+ */
+function game(w: World, seats: string[], choose: (seat: string, round: number) => number | null) {
   const [first = "", ...rest] = seats;
   const opened = w
     .ok(first, { type: "open_table", game: "hearth_race", pace: "slow", salt: SALT, at: w.tick() })
     .find((e) => e.type === "table_opened");
   const table = opened?.type === "table_opened" ? opened.table : "";
   for (const seat of rest) w.ok(seat, { type: "sit", table, at: w.tick() });
-  w.ok(first, { type: "start_game", table, at: w.tick() });
+  const started = w
+    .ok(first, { type: "start_game", table, at: w.tick() })
+    .find((e) => e.type === "game_started");
+  const rated = started?.type === "game_started" ? started.rated : [];
   let events: WorldEvent[] = [];
-  for (let round = 1; round <= 4; round++) {
+  for (let round = 1; round <= 30 && !events.some((e) => e.type === "game_over"); round++) {
     for (const seat of seats) {
-      w.ok(seat, { type: "decide", table, round, move: seat === first ? 3 : 2 });
+      const move = choose(seat, round);
+      if (move !== null) w.ok(seat, { type: "decide", table, round, move });
     }
     events = w.town({ type: "close_round", table, round, at: w.tick() });
   }
   expect(events.some((e) => e.type === "game_over")).toBe(true);
-  return events;
+  return { rated, events };
 }
+
+/** A Hearth race the first seat wins in four rounds. The last round's events. */
+const race = (w: World, seats: string[]) =>
+  game(w, seats, (seat) => (seat === seats[0] ? 3 : 2)).events;
 
 describe("the curve", () => {
   it("matches its pinned table: level n to n + 1 takes 20 times n", () => {
@@ -297,25 +310,14 @@ describe("the numbers", () => {
         skill,
       ).toHaveLength(1);
     }
-    expect(TITLES.map((title) => TITLE_INFO[title].label)).toEqual([
-      "Gardener",
-      "Maker",
-      "Forager",
-      "Host",
-      "Player",
-      "Master gardener",
-      "Master maker",
-      "Master forager",
-      "Grand host",
-      "Champion",
+    // A garment's slot decides which wear lists a logged profile may hold, so it's pinned.
+    expect(EARNED_WEAR.map((wear) => [wear, EARNED_WEAR_INFO[wear].slot])).toEqual([
+      ["sun_hat", "hat"],
+      ["tool_belt", "accessory"],
+      ["field_vest", "top"],
+      ["party_sash", "accessory"],
+      ["winners_rosette", "accessory"],
     ]);
-    expect(EARNED_WEAR_INFO).toEqual({
-      sun_hat: { slot: "hat", label: "Sun hat" },
-      tool_belt: { slot: "accessory", label: "Tool belt" },
-      field_vest: { slot: "top", label: "Field vest" },
-      party_sash: { slot: "accessory", label: "Party sash" },
-      winners_rosette: { slot: "accessory", label: "Winner's rosette" },
-    });
     // Until the web draws them they're a list of their own, which no wear enum is built from.
     for (const wear of EARNED_WEAR) expect(WEAR_ITEMS as readonly string[]).not.toContain(wear);
   });
@@ -341,7 +343,7 @@ describe("open_levels", () => {
     w.town({ type: "open_items" });
     expect(w.code("ada", { type: "open_levels", firsts: [] })).toBe("server_only");
     expect(w.town({ type: "open_levels", firsts: [] })).toEqual([{ type: "levels_opened" }]);
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual({ opened: DAY, points: {}, firsts: {} });
     expect(w.code(TOWN_ACTOR, { type: "open_levels", firsts: [] })).toBe("already_open");
   });
 
@@ -493,6 +495,40 @@ describe("a deed earns its points once, in its skill", () => {
     expect(w.points("bob")).toEqual({ playing: 6 });
   });
 
+  it("a rated game nobody plays earns nothing: both seats sit, start, and never choose", () => {
+    const w = levels();
+    const { rated, events } = game(w, ["ada", "bob"], () => null);
+    // Both seats were rated, and the defaults left them level on the board, both in first place.
+    expect(rated).toEqual(["ada", "bob"]);
+    const over = events.find((e) => e.type === "game_over");
+    expect(over?.type === "game_over" && over.places).toEqual({ ada: 1, bob: 1 });
+    expect(progress(events)).toEqual([]);
+    expect(w.state.progress).toEqual(NOTHING_YET);
+  });
+
+  it("a seat that never chose earns nothing from a game the other seat played", () => {
+    const w = levels();
+    const { rated, events } = game(w, ["ada", "bob"], (seat) => (seat === "ada" ? 3 : null));
+    expect(rated).toEqual(["ada", "bob"]);
+    expect(progress(events)).toMatchObject([
+      { residentId: "ada", skill: "playing", points: PROGRESS.game + PROGRESS.win },
+    ]);
+    expect(w.points("bob")).toEqual({});
+  });
+
+  it("nobody wins a game that ends because every seat walked away", () => {
+    const w = levels();
+    // Both choose in the first round and never again, so the game ends with both away.
+    const { events } = game(w, ["ada", "bob"], (seat, round) =>
+      round === 1 ? (seat === "ada" ? 3 : 2) : null,
+    );
+    const over = events.find((e) => e.type === "game_over");
+    expect(over?.type === "game_over" && over.places.ada).toBe(1);
+    // They played, so the game counts for both, and first place earns nothing more.
+    expect(w.points("ada")).toEqual({ playing: PROGRESS.game });
+    expect(w.points("bob")).toEqual({ playing: PROGRESS.game });
+  });
+
   it("a seat that wasn't rated earns nothing, however it finished", () => {
     const w = levels();
     // Eve moved in today, so she can't vote yet and her seat isn't rated.
@@ -592,7 +628,7 @@ describe("what never earns", () => {
     expect(progress(bounty(w, "bob", "ada"))).toEqual([]);
     // Seats from one household are unrated, and with them out Cy has nobody to be rated against.
     expect(progress(race(w, ["ada", "bob", "cy"]))).toEqual([]);
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual(NOTHING_YET);
   });
 
   it("two AIs of one person are one household too", () => {
@@ -616,7 +652,7 @@ describe("what never earns", () => {
     expect(progress(w.ok("cy", { type: "harvest", ...(tile ?? { x: 0, y: 0 }) }))).toEqual([]);
     w.standAt("bob", 4, 20);
     expect(progress(w.ok("cy", { type: "teach", recipe: "lemonade", to: "bob" }))).toEqual([]);
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual(NOTHING_YET);
   });
 
   it("a routine's step and a refused input add nothing", () => {
@@ -630,7 +666,7 @@ describe("what never earns", () => {
     const before = canonicalJson(w.state.progress);
     w.town({ type: "routine_step", resident: "ada", routine: "walk_home", step: { type: "home" } });
     expect(canonicalJson(w.state.progress)).toBe(before);
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual(NOTHING_YET);
   });
 
   it("coins, gifts, and things bought add nothing", () => {
@@ -641,7 +677,7 @@ describe("what never earns", () => {
     w.ok("ada", { type: "give_coins", to: "bob", amount: 5 });
     w.ok("ada", { type: "give", item: "lemon", to: "bob" });
     w.ok("ada", { type: "shop_buy", sku: "lantern" });
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual(NOTHING_YET);
   });
 });
 
@@ -665,7 +701,7 @@ describe("a bounty", () => {
   it("under 5 coins adds nothing", () => {
     const w = levels();
     expect(progress(bounty(w, "dee", "ada", PROGRESS.bountyMinReward - 1))).toEqual([]);
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual(NOTHING_YET);
   });
 
   it("from a poster who couldn't vote adds nothing", () => {
@@ -674,7 +710,7 @@ describe("a bounty", () => {
     // Past her first day, when nobody posts, and two days short of holding her plot long enough.
     w.toDay();
     expect(progress(bounty(w, "eve", "ada"))).toEqual([]);
-    expect(w.state.progress).toEqual({ points: {}, firsts: {} });
+    expect(w.state.progress).toEqual(NOTHING_YET);
     // Once she could vote, the same deal counts.
     w.toDay(OPEN + 3);
     expect(progress(bounty(w, "eve", "ada"))).toHaveLength(1);
@@ -697,6 +733,23 @@ describe("a bounty", () => {
       start: weekStart(OPEN + 7),
       bounties: { ada: ["dee"] },
     });
+  });
+
+  it("paid while Hosting is at its cap adds nothing and doesn't use up the pair's week: the next one counts", () => {
+    const w = levels();
+    // A lesson's 8 and two bounties' 12 fill Ada's Hosting for the day.
+    w.standAt("bob", 4, 4);
+    w.ok("ada", { type: "teach", recipe: "lemonade", to: "bob" });
+    bounty(w, "bob", "ada");
+    bounty(w, "cy", "ada");
+    expect(w.points("ada")).toEqual({ hosting: PROGRESS.dailyCap });
+    expect(progress(bounty(w, "dee", "ada"))).toEqual([]);
+    expect(w.state.progress?.week?.bounties).toEqual({ ada: ["bob", "cy"] });
+    // The next day, in the same week, Dee's bounty counts: her pair with Ada hasn't counted yet.
+    w.toDay();
+    expect(progress(bounty(w, "dee", "ada"))).toMatchObject([{ points: PROGRESS.bounty }]);
+    expect(w.state.progress?.week?.bounties).toEqual({ ada: ["bob", "cy", "dee"] });
+    expect(progress(bounty(w, "dee", "ada"))).toEqual([]);
   });
 
   it("from the town counts every time, whatever it pays", () => {
@@ -782,6 +835,7 @@ describe("the one-time credit", () => {
       },
     ]);
     expect(w.state.progress).toEqual({
+      opened: OPEN,
       points: { ada: { growing: 10, making: 10, foraging: 20 }, bob: { growing: 10 } },
       firsts: { ada: ["acorn", "chair", "lemon", "minnow"], bob: ["herb"] },
     });
@@ -983,6 +1037,19 @@ describe("credit_event", () => {
     expect(w.code(TOWN_ACTOR, credit(event, []))).toBe("not_due");
     const closed = levels({ open: false });
     expect(closed.code(TOWN_ACTOR, credit(party(closed, "ada", ["bob"]), ["bob"]))).toBe("not_due");
+  });
+
+  it("refuses an event that ended before the day levels opened", () => {
+    const w = levels({ open: false });
+    const before = party(w, "ada", ["bob"]);
+    w.toDay();
+    w.town({ type: "open_levels", firsts: [] });
+    expect(w.state.progress?.opened).toBe(OPEN + 1);
+    expect(w.code(TOWN_ACTOR, credit(before, ["bob"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(before, []))).toBe("not_eligible");
+    // One that ends on the day they opened counts.
+    const after = party(w, "cy", ["bob"]);
+    expect(progress(w.town(credit(after, ["bob"])))).toHaveLength(2);
   });
 
   it("counts a host for one event a day and a guest once a day, and both again the next day", () => {
@@ -1203,6 +1270,7 @@ describe("merge_resident", () => {
       { type: "level_reached", residentId: INTO, level: 3 },
     ]);
     expect(state.progress).toEqual({
+      opened: state.day,
       points: { [INTO]: { growing: 60, making: 10 } },
       firsts: { [INTO]: ["chair", "flower", "herb", "lemon", "strawberry", "tomato"] },
       seasons: { "19967": { [INTO]: { growing: 6, making: 2 } } },

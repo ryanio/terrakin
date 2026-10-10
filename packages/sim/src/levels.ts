@@ -242,7 +242,7 @@ function addPoints(
  */
 function earning(state: WorldState, id: ResidentId, deeds: readonly Deed[]): Mutation | null {
   const progress = state.progress;
-  if (!progress || state.day === undefined) return null;
+  if (!progress) return null;
   if (!residentById(state, id) || isTownsfolk(state, id)) return null;
   const had = own(progress.firsts, id) ?? [];
   const today = own(progress.today, id);
@@ -265,7 +265,8 @@ function earning(state: WorldState, id: ResidentId, deeds: readonly Deed[]): Mut
     if (points > 0) gains.push({ skill, points, counted, firsts });
   }
   if (gains.length === 0) return null;
-  const season = String(seasonSpan(state.day).start);
+  // Levels open only once items are, and items only once the world counts days.
+  const season = String(seasonSpan(state.day as number).start);
   return () => addPoints(progress, id, gains, season);
 }
 
@@ -327,7 +328,7 @@ export function bountyEarns(
   if (sameHousehold(state, poster, claimant)) return null;
   if (!townEligibility(state, poster).eligible) return null;
   if (reward < PROGRESS.bountyMinReward) return null;
-  const monday = weekStart(state.day ?? 0);
+  const monday = weekStart(state.day as number);
   const week = progress.week?.start === monday ? progress.week : undefined;
   if (own(week?.bounties, claimant)?.includes(poster)) return null;
   const counts = earning(state, claimant, [{ skill: "hosting", points: PROGRESS.bounty }]);
@@ -349,20 +350,28 @@ export const townBountyEarns = (state: WorldState, claimant: ResidentId) =>
   earning(state, claimant, [{ skill: "hosting", points: PROGRESS.bounty }]);
 
 /**
- * Playing: a game that just ended with `places`. Each seat rated at `start_game` (decision 0096)
- * earns for finishing it, and more for finishing first, ties included. Other seats earn nothing.
+ * Playing: a game that just ended with `places`, after `rounds` (each seat's choice a round, `null`
+ * where it made none) and with `away` the seats away at the end. A seat rated at `start_game`
+ * (decision 0096) earns for finishing a game it played: one where it decided at least one round.
+ * Finishing first earns more, ties included, unless the game ended because every seat was away,
+ * which nobody won. A seat that sat down and never chose earns nothing, wherever the default left
+ * it on the board.
  */
 export function gameEarns(
   state: WorldState,
   table: GameTable,
+  rounds: readonly Readonly<Record<ResidentId, number | null>>[],
   places: Readonly<Record<ResidentId, number>>,
+  away: readonly ResidentId[],
 ): Mutation | null {
+  const played = (id: ResidentId) => rounds.some((moves) => typeof own(moves, id) === "number");
+  const won = away.length < table.seats.length;
   const earnings = table.seats
-    .filter((seat) => seat.rated)
+    .filter((seat) => seat.rated && played(seat.resident))
     .map((seat) =>
       earning(state, seat.resident, [
         { skill: "playing", points: PROGRESS.game },
-        ...(own(places, seat.resident) === 1
+        ...(won && own(places, seat.resident) === 1
           ? [{ skill: "playing" as const, points: PROGRESS.win }]
           : []),
       ]),
@@ -389,8 +398,9 @@ export function checkTitle(
   if (title !== null) {
     if (!isOneOf(TITLES, title)) return refuse("invalid_profile", "Unknown title.");
     const { label, skill, level } = TITLE_INFO[title as Title];
+    // Before levels open every skill is at level 1, so this refuses every title then too.
     const mine = levelsOf(state, id).skills[skill];
-    if (!progress || mine < level) {
+    if (mine < level) {
       return refuse(
         "not_earned",
         `${label} comes with ${skillName(skill)} ${level}, and you're at ${skillName(skill)} ${mine}.`,
@@ -417,11 +427,12 @@ export function unearnedWear(
   id: ResidentId,
   wear: readonly unknown[],
 ): Rejection | null {
+  // Before levels open every skill is at level 1, so every earned garment is refused then too.
   const levels = levelsOf(state, id).skills;
   for (const item of wear) {
     if (!isEarnedWear(item)) continue;
     const skill = EARNED_WEAR_SKILL[item];
-    if (state.progress && levels[skill] >= UNLOCKS.wear) continue;
+    if (levels[skill] >= UNLOCKS.wear) continue;
     return refuse(
       "not_earned",
       `That's earned at ${skillName(skill)} ${UNLOCKS.wear}, and you're at ${skillName(skill)} ${levels[skill]}.`,
@@ -485,12 +496,13 @@ export function checkOpenLevels(
   const open = oneTimeSwitch({
     on: state.progress,
     already: "Levels are already open.",
+    // Items open only once the world counts days, so with items there's a day.
     notYet: () =>
-      state.items && state.day !== undefined
+      state.items
         ? creditProblem(state, firsts)
         : refuse("not_due", "Levels open once growing, making, and gathering are open."),
     turnOn: () => {
-      state.progress = { points: {}, firsts: {} };
+      state.progress = { opened: state.day as number, points: {}, firsts: {} };
     },
     event: { type: "levels_opened" },
   });
@@ -518,7 +530,7 @@ export function checkOpenLevels(
  * the list; the sim takes it only if every guest attended by its own samples (`event_end` kept
  * them in `attended`, which never holds the host), none is in the host's household or townsfolk,
  * and none is named twice. So a wrong list can leave a guest out and never add one. An event is
- * credited once.
+ * credited once, and only one that ended on or after the day levels opened (`progress.opened`).
  *
  * The host earns `PROGRESS.guest` a guest, for one event a UTC day, and each guest
  * `PROGRESS.attend`, once a UTC day, both under Hosting's daily cap. Who was counted today is in
@@ -534,6 +546,12 @@ export function checkCreditEvent(
   const e = findEvent(state, command.event);
   if (!e) return refuse("unknown_event", "No event has that id.");
   if (e.status !== "ended") return refuse("not_due", `${e.id} hasn't ended.`);
+  if ((e.closedDay ?? 0) < progress.opened) {
+    return refuse(
+      "not_eligible",
+      `${e.id} ended before levels opened, so it earns nobody anything.`,
+    );
+  }
   if (e.credited) return refuse("already_set", `${e.id}'s guests were already counted.`);
   const { guests } = command;
   if (!Array.isArray(guests) || !guests.every((id) => typeof id === "string")) {

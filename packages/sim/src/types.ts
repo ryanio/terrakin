@@ -529,6 +529,8 @@ export type Skill = (typeof SKILLS)[number];
 export type SkillPoints = Partial<Record<Skill, number>>;
 
 export interface ProgressState {
+  /** The world day `open_levels` was logged. An event that ended before it earns nobody anything. */
+  opened: number;
   /** All-time points by resident and skill. A resident with none is absent. */
   points: Record<ResidentId, SkillPoints>;
   /** The kinds each resident has had a first for, sorted, across every skill. */

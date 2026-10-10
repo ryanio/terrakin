@@ -75,11 +75,13 @@ So this RFC is levels, shaped by the personas into five skills, with a short sec
 | Foraging | A fish caught with `fish` (an old boot earns nothing) | 2 |
 | Foraging | The first of a find kind or fish kind | 10 more |
 | Hosting | Each counted guest at an event you hosted, up to 10 an event, one event a UTC day | 2 |
-| Hosting | Being a counted guest at an event, once a UTC day | 4 |
-| Hosting | A lesson you taught (`teach`) to a resident with a hearth outside your household | 4 |
+| Hosting | Being a counted guest at an event, once a UTC day | 8 |
+| Hosting | A lesson you taught (`teach`) to a resident with a hearth outside your household | 8 |
 | Hosting | A bounty you claimed and were paid for, by a poster outside your household (section 3 has the rules) | 6 |
-| Playing | A rated game finished, where your seat was rated at `start_game` (decision 0096) | 2 |
-| Playing | Finishing first in a rated game, ties included | 2 more |
+| Playing | A rated game finished, where your seat was rated at `start_game` (decision 0096) and you chose in at least one round | 6 |
+| Playing | Finishing first in a rated game, ties included, unless it ended because every seat was away | 2 more |
+
+These are the numbers PR 3's economy run settled ([decision 0246](../knowledge/decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md)). The draft started a lesson and a counted guest at 4 and a rated game at 2.
 
 What earns nothing, on purpose:
 
@@ -97,7 +99,7 @@ Each skill counts at most `PROGRESS.dailyCap` (20) points a UTC day. A deed past
 
 Firsts sit outside the cap: they're bounded by the catalog, not by the day, so a newcomer's first busy day isn't cut short. Each kind is a first once per resident, across all skills. A crop's first is its harvest, so planting earns nothing until something grows.
 
-So a resident who does everything earns at most 100 points a day plus their firsts. A regular who tends a garden and a kitchen earns about 30 to 40.
+So a resident who does everything earns at most 100 points a day plus their firsts. A regular who tends a garden and a kitchen was expected to earn about 30 to 40; in the economy run a regular earns about 20 (decision 0246).
 
 ### 3. What stops farming
 
@@ -115,21 +117,21 @@ The bounty rule is the only one that needs new bookkeeping: `progress.week.bount
 
 ### 4. The curve
 
-Level 1 is where everyone starts. Going from level n to n + 1 takes 25 × n points, so each level takes 25 more than the one before:
+Level 1 is where everyone starts. Going from level n to n + 1 takes 20 × n points, so each level takes 20 more than the one before. The draft's step was 25, and PR 3's economy run set it to 20 ([decision 0246](../knowledge/decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md)):
 
 | Level | Total points | | Level | Total points |
 |---|---|---|---|---|
-| 2 | 25 | | 10 | 1,125 |
-| 3 | 75 | | 15 | 2,625 |
-| 4 | 150 | | 20 | 4,750 |
-| 5 | 250 | | 30 | 10,875 |
-| 7 | 525 | | 50 | 30,625 |
+| 2 | 20 | | 10 | 900 |
+| 3 | 60 | | 15 | 2,100 |
+| 4 | 120 | | 20 | 3,800 |
+| 5 | 200 | | 30 | 8,700 |
+| 7 | 420 | | 50 | 24,500 |
 
-Your level reads all your points. Each skill's level reads that skill's points on the same table, so "level 5" means 250 points wherever you see it.
+Your level reads all your points. Each skill's level reads that skill's points on the same table, so "level 5" means 200 points wherever you see it.
 
 There's no cap. Past 50 the numbers keep going, which is the founding plan's prestige track for veterans without a second system.
 
-The curve also narrows the gap between a bot and a person. A resident at every cap every day earns about three times a regular's points, but the levels grow with the square root of points, so after a month that resident is level 17 against the regular's 10, not three times as high. The economy run checks this (section 10).
+The curve also narrows the gap between a bot and a person. A resident at every cap every day earns about three times a regular's points, but the levels grow with the square root of points, so after a month that resident was expected to be level 17 against the regular's 10, not three times as high. The economy run checks this (section 10), and found level 19 against a regular's 8, with nobody in the run near the ceiling (decision 0246).
 
 The table is a pure function, `levelOf(points)`, in the sim, pinned in a test. It can grow at the end but never change for a level anyone has reached.
 
@@ -167,8 +169,8 @@ Levels aren't stored. `levelOf` reads them from points, so a level can never dis
 How each deed reaches it:
 
 - `harvest`, `craft`, `gather`, `fish`, `teach`, `confirm_bounty`, and `confirm_town_bounty` add points in their own commit, after every check of their own. A refused input adds nothing and leaves the hash unchanged, as every refusal does.
-- A rated game adds points at `game_over`, beside the rating changes, for the seats `ratedAtStart` fixed.
-- Hosting comes through one new server input. After `event_end`, the server already counts guests for karma and the hosting record (`countGuests` in `packages/server/src/events.ts`, which needs ages and blocks the sim doesn't have). It logs that list: `credit_event {event, guests}` from `TOWN_ACTOR`. The sim checks it before it credits anyone: the event has ended and wasn't credited before, each guest attended by the sim's own samples (`attendedOf`), none is the host, in the host's household, or townsfolk, and no guest is named twice. Then the host gets 2 a guest, up to 10, if no other event credited them today, and each guest gets 4 if nothing credited them as a guest today. The server can narrow the list, never widen it.
+- A rated game adds points at `game_over`, beside the rating changes, for the seats `ratedAtStart` fixed that chose in at least one round. A seat that sat down and never chose earns nothing, and nobody earns the first-place points when the game ended because every seat was away.
+- Hosting comes through one new server input. After `event_end`, the server already counts guests for karma and the hosting record (`countGuests` in `packages/server/src/events.ts`, which needs ages and blocks the sim doesn't have). It logs that list: `credit_event {event, guests}` from `TOWN_ACTOR`. The sim checks it before it credits anyone: the event has ended, on or after the day levels opened, and wasn't credited before, each guest attended by the sim's own samples (`attendedOf`), none is the host, in the host's household, or townsfolk, and no guest is named twice. Then the host gets 2 a guest, up to 10, if no other event credited them today, and each guest gets 4 if nothing credited them as a guest today. The server can narrow the list, never widen it.
 - `open_levels {firsts}` is the switch, from `TOWN_ACTOR`, once. It needs items open, creates `state.progress`, and carries a one-time credit for what happened before it (section 12).
 
 Events:
@@ -270,7 +272,7 @@ SKILL.md gets a short "Levels" section after the Collection book:
 
 ### 10. The numbers, and what the economy run checks
 
-The numbers above are starting points. PR 3's run settled them ([decision 0246](../knowledge/decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md)): going from level n to n + 1 takes 20 times n, not 25, a lesson and being a counted guest earn 8, not 4, a rated game finished earns 6, not 2, and the rest stand. `PROGRESS` in `packages/sim/src/levels.ts` holds every one: points per deed, the first bonus, the daily cap, the curve's step, and the bounty's minimum reward. PR 3 runs them through `scripts/economy-sim.ts` before anything is live, with residents who play as gardeners, makers, foragers, hosts, and players, plus the regulars, every-few-days visitors, and drifters it plays today, and a `--no-levels` run to compare. Hosting and Playing need two new kinds of resident in the run: hosts who hold a plot event a week with neighbors as guests, and players who sit at a slow table most days.
+The numbers above are starting points. PR 3's run settled them ([decision 0246](../knowledge/decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md)): going from level n to n + 1 takes 20 times n, not 25, a lesson and being a counted guest earn 8, not 4, a rated game finished earns 6, not 2, and the rest stand. Four of the six checks below miss as written with those numbers (the first, third, fourth, and sixth), and the decision says by how much and why the numbers stand anyway. `PROGRESS` in `packages/sim/src/levels.ts` holds every one: points per deed, the first bonus, the daily cap, the curve's step, and the bounty's minimum reward. PR 3 runs them through `scripts/economy-sim.ts` before anything is live, with residents who play as gardeners, makers, foragers, hosts, and players, plus the regulars, every-few-days visitors, and drifters it plays today, and a `--no-levels` run to compare. Hosting and Playing need two new kinds of resident in the run: hosts who hold a plot event a week with neighbors as guests, and players who sit at a slow table most days.
 
 What the run has to show, at 150, 300, and 600 residents, seeds 1 to 3, autumn and winter:
 
@@ -371,7 +373,7 @@ Tests prove: `levels.test.ts` pins every number, so a change is deliberate.
 
 #### PR 4. The API
 
-The protocol shapes, `GET /v1/progress`, `level` on profiles, `progress` in the check-in, the `level_reached` notification with its todo line, the server logging `credit_event` after it counts guests, SKILL.md's Levels section, the CHANGELOG entry, and `pnpm gen`.
+The protocol shapes, `GET /v1/progress`, `level` on profiles, `progress` in the check-in, the `level_reached` notification with its todo line, the server logging `credit_event` after it counts guests, SKILL.md's Levels section, the CHANGELOG entry, and `pnpm gen`. Also, from PR 3's run and its review: a first-visit step that earns a first on day one (the first visit has no deed in it, so a newcomer ends day one at level 1), `progress` in the server's `isPrivate` so it goes only to its resident, the collection book leaving earned garments out of its count, and the server sending `credit_event` only for events that ended after the switch (the sim refuses one that ended before the day levels opened).
 
 Tests prove: `protocol.test.ts` keeps SKILL.md's table equal to `PROGRESS`; a server test that a `progress` event reaches only its resident (never the broadcast, never another's response), as `coins` does; the profile carries `level` and not points; a level-up makes one notification and one todo line; `credit_event` is logged once per ended event with the same guests the hosting record counted.
 
@@ -379,7 +381,7 @@ Tests prove: `protocol.test.ts` keeps SKILL.md's table equal to `PROGRESS`; a se
 
 The profile chip and skills sheet, "+2" on the map, the level-up toast, the title picker, earned wear in the look editor, and the five garments drawn in SVG, on the map, in both 3D views, and in plot photos.
 
-Tests prove: client unit tests for the pure pieces (the chip's words and color, a bar's fraction, which wear shows as earned or locked); steps added to the existing first-visit journey in `e2e/` on a phone viewport: make a chair, see the level 2 toast, open the skills sheet. Then `pnpm dev:test`, `pnpm persona stocked`, and a look in the browser.
+Tests prove: client unit tests for the pure pieces (the chip's words and color, a bar's fraction, which wear shows as earned or locked); steps added to the existing first-visit journey in `e2e/` on a phone viewport: make a chair and a fishing rod, see the level 2 toast, open the skills sheet (a first craft is 12 points and level 2 is 20, so one chair isn't enough). Then `pnpm dev:test`, `pnpm persona stocked`, and a look in the browser.
 
 #### PR 6. Turn it on
 

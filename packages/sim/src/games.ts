@@ -787,7 +787,9 @@ export function checkCloseRound(
   if (late) return late;
   const result = outcome(state, t);
   const { at } = command;
-  const points = result.end ? gameEarns(state, t, result.end.places) : null;
+  const points = result.end
+    ? gameEarns(state, t, [...t.rounds, result.moves], result.end.places, result.away)
+    : null;
   return () => {
     t.rounds.push({ ...result.moves });
     t.board = { ...result.board };

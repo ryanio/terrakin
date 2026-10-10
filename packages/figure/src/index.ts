@@ -1,4 +1,5 @@
 export { type BodyCaps, type BodyReport, checkBody } from "./check.js";
+export { FEELINGS, type Feeling, isFeeling } from "./feelings.js";
 export { glbJson, MAX_GLB_JSON_BYTES } from "./glb.js";
 export {
   BONES,

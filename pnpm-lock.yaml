@@ -178,6 +178,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@terrakin/figure':
+        specifier: workspace:*
+        version: link:../figure
       '@terrakin/protocol':
         specifier: workspace:*
         version: link:../protocol

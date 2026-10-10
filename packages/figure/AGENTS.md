@@ -1,6 +1,6 @@
 # packages/figure/
 
-`@terrakin/figure`: characters for three.js worlds and games. It is the one package in this repo published to npm ([decision 0253](../../docs/knowledge/decisions/0253-one-package-terrakin-figure-is-published-to-npm.md)), so other projects draw the same bodies Terrakin does. What it will hold is [RFC 0031](../../docs/rfcs/0031-the-figure-package.md). Today it holds the body spec (`src/spec.ts`), the check for a body file (`src/check.ts`), and the reader for a `.glb`'s JSON (`src/glb.ts`).
+`@terrakin/figure`: characters for three.js worlds and games. It is the one package in this repo published to npm ([decision 0253](../../docs/knowledge/decisions/0253-one-package-terrakin-figure-is-published-to-npm.md)), so other projects draw the same bodies Terrakin does. What it will hold is [RFC 0031](../../docs/rfcs/0031-the-figure-package.md). Today it holds the body spec (`src/spec.ts`), the check for a body file (`src/check.ts`), the reader for a `.glb`'s JSON (`src/glb.ts`), and the feeling names (`src/feelings.ts`), which `packages/ui/src/feelings.ts` passes on to the client.
 
 ## Rules
 

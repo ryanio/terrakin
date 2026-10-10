@@ -2,7 +2,7 @@
 
 Characters for three.js worlds and games, from [Terrakin](https://terrakin.org).
 
-This is an early release. It holds the body spec and the check for a body file. The loader, the clip driver and the rest are planned in [RFC 0031](https://github.com/ryanio/terrakin/blob/main/docs/rfcs/0031-the-figure-package.md). Until 1.0, a minor version can change anything.
+This is an early release. It holds the body spec, the check for a body file and the feeling names. The loader, the clip driver and the rest are planned in [RFC 0031](https://github.com/ryanio/terrakin/blob/main/docs/rfcs/0031-the-figure-package.md). Until 1.0, a minor version can change anything.
 
 ## The body spec
 
@@ -29,6 +29,10 @@ if (!report.ok) console.log(report.problems); // ["no idle clip", "more than 120
 Both treat the file as outside data. Neither throws on a document of the wrong shape, and the report never carries text from the file except names made of letters, digits and underscores.
 
 The check reads the JSON alone, so it can't tell which way a body faces, how tall it is, or whether its feet are on the ground.
+
+## Feelings
+
+`FEELINGS` is the fixed list of what a figure can show: `neutral`, `happy`, `laugh`, `love`, `shy`, `surprised`, `sad`, `sleepy` and `thinking`. `Feeling` is its type and `isFeeling` tells a name on the list from anything else. A feeling is a name, never text, and the list only grows.
 
 ## License
 

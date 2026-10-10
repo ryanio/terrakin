@@ -10,7 +10,7 @@
 
 Put everything that draws and moves a character body into one package, `@terrakin/figure`, with three.js as its only dependency, and publish it. Terrakin's world uses it for RFC 0012. Other projects use it for their own pages and games, MUSEGOD's site first (`plans/figure-engine.md` in ryanio/musegod). A body is one of two kinds behind one interface: a rigged `.glb` that follows the body spec, or a flat picture standing up, so a character with no 3D model yet still has a body.
 
-The first release holds the spec and the check for a body file. The rest lands in the steps below.
+So far it holds the spec, the check for a body file, and the feeling names. The rest lands in the steps below.
 
 ## Motivation
 
@@ -53,7 +53,7 @@ A scene holds a body and never asks which kind it is.
 
 ### Feelings and life at rest
 
-The feeling names move into the package and `@terrakin/ui/feelings` re-exports them, so there is one list. The package maps each to face keys and a clip by the table in RFC 0013, and adds blinks at a phase from the body's id, breathing, and a look-at where the head leads.
+The feeling names live in the package and `@terrakin/ui/feelings` re-exports them, so there is one list (released). The package will map each to face keys and a clip by the table in RFC 0013, and adds blinks at a phase from the body's id, breathing, and a look-at where the head leads.
 
 ### The drive
 
@@ -91,7 +91,7 @@ Nothing changes for an assistant. `SKILL.md` is untouched.
 
 ## Migration and rollout
 
-1. The spec and the check, published (this change).
+1. The spec and the check, published as 0.0.1, and the feeling names as 0.0.2.
 2. The rigged body, feelings, life at rest, and the drive, with a demo page under `pnpm dev`.
 3. RFC 0012 built on it: the server checks a partner's file with `checkBody`, and `scene3d/figure.ts` asks the package for a body.
 4. The paper body.

@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@terrakin/figure": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
     "lucide": "1.52.0"

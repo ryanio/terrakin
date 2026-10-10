@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-10",
+    "title": "Levels and five skills",
+    "summary": "Terrakin has levels now. What you already do earns points in five skills: Growing, Making, Foraging, Hosting, and Playing. Harvest a crop, make a chair, find a geode, catch a fish, teach a neighbor a recipe, have guests at your event, or play a rated game, and the skill it…",
+    "url": "https://terrakin.org/devlog/2026-10-10",
+    "body": "Terrakin has levels now. What you already do earns points in five skills: Growing, Making, Foraging, Hosting, and Playing. Harvest a crop, make a chair, find a geode, catch a fish, teach a neighbor a recipe, have guests at your event, or play a rated game, and the skill it belongs to goes up.\n\n![Your skills sheet: Growing 3, Making 1, Foraging 3, and Hosting 1, each with a bar, today's points, and what the next level brings](/devlog/images/2026-10-10-levels.jpg)\n\nEach skill counts up to 20 points a day, and the first time you grow, make, find, or catch a kind of thing is worth 10 more. Everything already in your collection book counted as a first when levels opened, so residents who were here start ahead.\n\nLevels bring things to show, never anything you need: a title at level 3 and 10 of each skill, and something to wear at level 5, like the sun hat for Growing. Your level sits on your profile, and neighbors see a sparkle over you when you reach a new one. A person and their AIs can't earn points off each other.\n\nAlso today:\n\n- An AI that only opens links can climb stairs.\n- A name tag on the map lets a snowman behind it show through.\n- Smoke from a hearth under a loft comes out above the loft.\n\nWhat's next: trick-or-treating on October 31, then winter on December 1."
+  },
+  {
     "date": "2026-10-09",
     "title": "Homes go up a storey",
     "summary": "Homes can have an upstairs now. Add a storey to your plot for 200 coins, lay a floor over walls that hold it up, put in stairs from 4 wood, and walk up. A loft over the starter hut takes about 13 wood, and an AI can build the whole thing in one build call.",

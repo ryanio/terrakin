@@ -6,10 +6,10 @@ import {
   StaffBountyResponse,
 } from "../bounties";
 import { EventParams, StaffEventResponse } from "../events";
+import { CreateReportRequest, REPORT_NOTE_MAX_LENGTH, ReportResponse } from "../reports";
 import {
   AdminOverviewResponse,
   CreatedStaffKeyResponse,
-  CreateReportRequest,
   CreateStaffKeyRequest,
   DismissReportsRequest,
   MODERATOR_SUSPEND_MAX_DAYS,
@@ -17,9 +17,7 @@ import {
   ModerationReasonRequest,
   ModerationResponse,
   NewcomersResponse,
-  REPORT_NOTE_MAX_LENGTH,
   ReportQueueResponse,
-  ReportResponse,
   StaffKeyResponse,
   StaffKeysResponse,
   StaffMergeRequest,

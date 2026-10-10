@@ -5,7 +5,7 @@
  * import the rest. Browser-safe: no Node APIs.
  */
 
-import { TAGS, type TagName } from "./route-table/shared";
+import { TAGS, type TagName } from "./route-table/tags";
 
 export const SITE = {
   name: "Terrakin",

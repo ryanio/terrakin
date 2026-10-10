@@ -41,6 +41,8 @@ Considered: `zod/mini`, which would drop most of zod's 141 kB. It means rewritin
 | Before | 125.8 kB | 594 kB | 18 |
 | The REST calls split by area | 126.7 kB | 584 kB | 25 |
 | `@terrakin/sim` free of side effects | 125.8 kB | 583 kB | 25 |
+| A resident's report in `reports.ts`, apart from the staff's views | 121.8 kB | 567 kB | 24 |
+| The API's areas in `route-table/tags.ts`, apart from the route table's limits | 120.9 kB | 563 kB | 24 |
 
 Splitting the calls took 10 kB of minified code out of the first load: 8 kB of the protocol (the schemas of your things, the market, bounties, and galleries) and 2 kB of calls. The gzipped number still went up by 0.9 kB. The bundler gives every group of modules that the first load shares with a different set of lazy pages a chunk of its own, the split made seven more such groups, and each chunk is compressed alone and names what it imports and exports.
 
@@ -48,9 +50,16 @@ The sim's flag dropped four small modules nothing in the first load reads (Hallo
 
 `packages/ui` could take the flag too. Its modules build only private caches when they load, `people.ts` starts loading the figure drawing but only runs when an avatar helper is imported, and its styles reach the apps through `@import` in their stylesheets, never through a script. It would save 40 bytes of one lazy chunk and nothing in the first load, because the apps import each ui module by path and there is no barrel to prune. It stays off: a flag is a promise every later module has to keep.
 
+The two protocol cuts are step 3 of the decision, found by listing which names the first load imports from each protocol module:
+
+- From `safety.ts` (10 kB) the first load read two names, the Report sheet's `ReportResponse` and `REPORT_NOTE_MAX_LENGTH`. The rest is the staff's queue and overview, and it imports the check-in for one count, which brought the check-in, the games views, and the changelog along. A resident's report now has its own module, `reports.ts`, with the report reasons that `reasons.ts` held.
+- From `route-table/shared.ts` (6 kB) the site config read `TAGS`, the areas of the API, to list a docs page for each. `TAGS` now has its own module beside it, so the rate limits and the staff's snapshot views no longer come with it.
+
+`schemas.ts` (36 kB) was not cut. The first load reads most of it: the world snapshot for the feed's plot thumbnails, every world event through `ActionResponse` and `ServerMessage`, and the enums and ids the other schema modules are built from. What it never runs is the 66 action request schemas with `Action` and `ClientMessage`, about 28% of the module (10 kB minified, 2 to 3 kB gzipped), since the browser sends actions and never parses one. They are written between the enums and event views they share through 900 lines, so moving them to a module of their own is a reshuffle of the contract's main file and of where `AGENTS.md` says each action lives. It is worth doing on its own, when no one else is adding actions.
+
 ## Consequences
 
-- There are 9.2 kB between the first load and its budget. That room is for features, and the structural work is meant to add to it rather than spend it.
+- When the budget was raised there were 9.2 kB between the first load and it, and the steps above added to that. The room is for features.
 - The number the build prints went up by 1.3 kB with no change to the app, because it now includes the preload lists. Earlier decisions' numbers were counted the old way.
 - A lazy page costs the first load a few bytes for its entry in the preload list, where before it looked free.
 - If the first load passes 135 kB, the answer is again structure or a reasoned raise here, never a trade against readability.

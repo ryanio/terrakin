@@ -19,6 +19,7 @@ export * from "./market";
 export { buildOpenApi } from "./openapi";
 export * from "./partners";
 export * from "./plots";
+export * from "./reports";
 export * from "./routes";
 export * from "./routines";
 export * from "./safety";

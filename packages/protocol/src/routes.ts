@@ -30,7 +30,6 @@ export type {
   RateLimitName,
   ResponseSpec,
   RouteSpec,
-  TagName,
   TextReply,
 } from "./route-table/shared";
 export {
@@ -56,8 +55,9 @@ export {
   routeErrors,
   SITEMAP_MAX_AGE,
   SITEMAP_MAX_URLS,
-  TAGS,
 } from "./route-table/shared";
+export type { TagName } from "./route-table/tags";
+export { TAGS } from "./route-table/tags";
 
 /**
  * The REST half of API v1, declared once. The server's dispatcher, the OpenAPI document, the API

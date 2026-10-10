@@ -1,38 +1,15 @@
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
-import { REPORT_REASONS, ReportReason } from "./reasons";
+import { REPORT_REASONS, ReportKind, ReportReason } from "./reports";
 import { AuthorView, MediaView, ReactionKey, ResidentBrief } from "./social";
 
 /**
- * Trust and safety (RFC 0006): reports from residents, the staff review queue and tools on
- * admin.terrakin.org, AI triage verdicts, and the public transparency numbers. Report notes, the
- * text shown in the queue, and triage rationales are untrusted, like every other piece of resident
- * text.
+ * Trust and safety (RFC 0006), the staff's side: the review queue and tools on admin.terrakin.org,
+ * AI triage verdicts, and the public transparency numbers. A report as the resident who makes it
+ * sees it is in `reports.ts`. Report notes, the text shown in the queue, and triage rationales are
+ * untrusted, like every other piece of resident text.
  */
 
-/** What can be reported. */
-export const REPORT_KINDS = [
-  "post",
-  "resident",
-  "letter",
-  "notice",
-  "proposal",
-  "listing",
-  "bounty",
-  /** A made thing on display on a pedestal or a frame, by its id (`i_7`). */
-  "display",
-  /** A piece of art, by its id (`i_7`), wherever it is: its picture and its title. */
-  "piece",
-  /** A hosted event, by its id (`e_7`): its title and text (RFC 0010). */
-  "event",
-] as const;
-export const ReportKind = z.enum(REPORT_KINDS);
-export type ReportKind = z.infer<typeof ReportKind>;
-
-/** Why: the community rule it broke. */
-export { REPORT_REASONS, ReportReason } from "./reasons";
-
-export const REPORT_NOTE_MAX_LENGTH = 500;
 /** Why staff acted, kept in the moderation log. */
 export const MODERATION_REASON_MAX_LENGTH = 300;
 /** The longest suspension in one go, in days. */
@@ -45,35 +22,6 @@ export const MODERATOR_SUSPEND_MAX_DAYS = 7;
  * at least this many days old. It stays hidden until staff look.
  */
 export const AUTO_HIDE = { reports: 3, reporterAgeDays: 3 } as const;
-
-export const CreateReportRequest = z.object({
-  kind: ReportKind,
-  /**
-   * The id of what you're reporting: `p_...`, `r_...`, `l_...` (a letter to or from you, or a
-   * listing in the market), `n_...`, `t_...`, `b_...`, or `i_...` (a thing on display, or a piece).
-   */
-  id: z.string().min(1).max(64),
-  reason: ReportReason,
-  /** Anything that helps staff understand. Only staff (and the AI that helps them) see it. */
-  note: z.string().max(REPORT_NOTE_MAX_LENGTH).optional(),
-});
-export type CreateReportRequest = z.infer<typeof CreateReportRequest>;
-
-export const ReportStatus = z.enum(["open", "actioned", "dismissed"]);
-
-/** Your report, as you see it. */
-export const ReportView = z.object({
-  id: z.string(),
-  kind: ReportKind,
-  /** The id of what you reported. */
-  target: z.string(),
-  reason: ReportReason,
-  status: ReportStatus,
-  createdAt: z.string(),
-});
-export type ReportView = z.infer<typeof ReportView>;
-
-export const ReportResponse = z.object({ report: ReportView });
 
 /** Who can work the review queue: maintainers can do everything, moderators the queue only. */
 export const STAFF_ROLES = ["maintainer", "moderator"] as const;

@@ -14,6 +14,7 @@ import * as levels from "./levels";
 import * as market from "./market";
 import * as partners from "./partners";
 import * as plots from "./plots";
+import * as reports from "./reports";
 import {
   acceptsIdempotencyKey,
   type BinaryBody,
@@ -129,6 +130,7 @@ function namedSchemas() {
     ...social,
     ...town,
     ...changelog,
+    ...reports,
     ...safety,
     ...checkin,
     ...coins,
@@ -194,7 +196,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, or devlog.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, or devlog.ts`,
       );
     return ref(name);
   };

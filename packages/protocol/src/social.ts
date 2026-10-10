@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CollectedView } from "./collection";
 import { LevelUpView, LevelView } from "./levels";
 import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
-import { ReportReason } from "./reasons";
+import { ReportReason } from "./reports";
 import {
   CreateSessionResponse,
   CropKind,

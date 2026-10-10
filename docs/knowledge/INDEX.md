@@ -187,6 +187,7 @@ What we chose and why. Newest last.
 - [A smoke check asks the live Worker for drawn pictures after each deploy and a red one opens an issue](decisions/0250-a-smoke-check-asks-the-live-worker-for-drawn-pictures-after-.md) · 2026-10-10 · accepted · `ci` `deploy` `cards` `tooling`
 - [A page loads behind placeholders in its own layout and shows whole once its first content is in](decisions/0251-a-page-loads-behind-placeholders-in-its-own-layout-and-shows.md) · 2026-10-10 · accepted · `client` `design` `performance`
 - [A home's levels are floors in the API and an upstairs in what players read, and storey is retired](decisions/0252-a-home-s-levels-are-floors-in-the-api-and-an-upstairs-in-wha.md) · 2026-10-10 · accepted · `sim` `protocol` `server` `client` `floors` `replay`
+- [One package, @terrakin/figure, is published to npm](decisions/0253-one-package-terrakin-figure-is-published-to-npm.md) · 2026-10-10 · accepted · `tooling` `client` `3d` `partners`
 
 ## Learnings
 

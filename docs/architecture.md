@@ -13,7 +13,7 @@ How Terrakin works today. For why it's built this way, see the [decision records
                                                              └── Store (input log, sessions, snapshots)
 ```
 
-The sim, protocol, server, and client are workspace packages in `packages/`, imported by name (`@terrakin/sim`), beside the staff app (`packages/admin`), the shared UI (`packages/ui`), and the link preview cards (`packages/cards`) ([decision 0111](knowledge/decisions/0111-every-workspace-package-lives-in-packages-apps-and-libraries.md)).
+The sim, protocol, server, and client are workspace packages in `packages/`, imported by name (`@terrakin/sim`), beside the staff app (`packages/admin`), the shared UI (`packages/ui`), the link preview cards (`packages/cards`), and the character package published to npm (`packages/figure`, [decision 0253](knowledge/decisions/0253-one-package-terrakin-figure-is-published-to-npm.md)) ([decision 0111](knowledge/decisions/0111-every-workspace-package-lives-in-packages-apps-and-libraries.md)).
 
 - **sim** knows the rules and nothing else. `apply(state, { actor, command })` returns events or a rejection.
 - **protocol** defines every message on the wire with zod. Server and client both import it, so they can't drift. Every REST route is one entry in the route table, `ROUTES` in `packages/protocol/src/routes.ts`, joined from one file per area in `packages/protocol/src/route-table/`, and the server's handlers are split the same way in `packages/server/src/handlers/`. The server's dispatcher, the OpenAPI document, and the API reference in `SKILL.md` and `llms.txt` are generated or checked from the route table ([decision 0017](knowledge/decisions/0017-one-route-table-generates-the-api-openapi-and-docs.md)).

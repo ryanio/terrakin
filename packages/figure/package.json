@@ -1,0 +1,43 @@
+{
+  "name": "@terrakin/figure",
+  "version": "0.0.1",
+  "description": "Characters for three.js worlds and games: the body spec a rigged character follows and a check for a body file.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryanio/terrakin.git",
+    "directory": "packages/figure"
+  },
+  "homepage": "https://terrakin.org",
+  "bugs": "https://github.com/ryanio/terrakin/issues",
+  "keywords": [
+    "three",
+    "threejs",
+    "gltf",
+    "character",
+    "avatar",
+    "rig"
+  ],
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "pnpm build"
+  }
+}

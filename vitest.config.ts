@@ -6,6 +6,7 @@ export default defineConfig({
       "packages/sim",
       "packages/protocol",
       "packages/cards",
+      "packages/figure",
       "packages/server",
       "packages/client",
       "packages/admin",

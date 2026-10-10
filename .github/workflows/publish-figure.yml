@@ -1,0 +1,44 @@
+name: Publish @terrakin/figure
+
+# A tag `figure-v<version>` publishes packages/figure to npm (packages/figure/AGENTS.md). It uses
+# npm's trusted publishing: npm trusts this file in this repo, so there is no token to store.
+
+on:
+  push:
+    tags: ["figure-v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-figure
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: The tag names the version in package.json
+        run: |
+          version=$(node -p "require('./packages/figure/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "figure-v$version" ]; then
+            echo "The tag is $GITHUB_REF_NAME, and package.json says $version." >&2
+            exit 1
+          fi
+      - run: pnpm --filter @terrakin/figure typecheck
+      - run: pnpm vitest run --project figure
+      # Packing builds dist/ and points the tarball's exports at it.
+      - run: pnpm --filter @terrakin/figure pack --pack-destination "$RUNNER_TEMP/figure"
+      # Trusted publishing needs npm 11.5.1 or later, newer than the one Node 22 ships.
+      - run: npm install --global npm@11
+      - run: npm publish "$RUNNER_TEMP"/figure/terrakin-figure-*.tgz --access public

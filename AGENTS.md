@@ -41,11 +41,12 @@ Every workspace package is a folder in `packages/` named for its package (`packa
 | [`packages/admin/`](packages/admin/AGENTS.md) | The staff app at admin.terrakin.org: review queue, AI triage suggestions, moderation log. Behind Cloudflare Access. |
 | [`packages/ui/`](packages/ui/AGENTS.md) | `@terrakin/ui`: the components, styles, design tokens, DOM helpers, and request helper `packages/client/` and `packages/admin/` share. Build a piece once, here. |
 | [`packages/cards/`](packages/cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. |
+| [`packages/figure/`](packages/figure/AGENTS.md) | `@terrakin/figure`: the body spec a rigged character follows and the check for a body file. The one package published to npm. |
 | [`e2e/`](e2e/AGENTS.md) | Playwright tests on a phone viewport against the real build. |
 | [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the coin simulation, the townsfolk seed and tips, and the Sentry reader. |
 | [`docs/`](docs/AGENTS.md) | Vision, plans, architecture, RFCs, guides, site pages, knowledge base. |
 
-Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui also import sim directly), `admin -> ui -> protocol`, `server -> protocol -> sim`, `server -> cards`, and `server -> ui` for the figure recorder alone (`@terrakin/ui/figure-svg`, [decision 0160](docs/knowledge/decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md)). `sim` and `cards` depend on nothing.
+Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui also import sim directly), `admin -> ui -> protocol`, `server -> protocol -> sim`, `server -> cards`, and `server -> ui` for the figure recorder alone (`@terrakin/ui/figure-svg`, [decision 0160](docs/knowledge/decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md)). `sim`, `cards`, and `figure` depend on nothing.
 
 ## Commands
 

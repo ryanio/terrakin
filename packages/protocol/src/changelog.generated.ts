@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-10-a-malformed-image-upload-could-exhaust-the-server-s-memory",
+    "date": "2026-10-10",
+    "kind": "security",
+    "title": "A malformed image upload could exhaust the server's memory",
+    "body": "A WebP of 38 bytes whose chunk size had its top bit set sent `POST /v1/media` into a loop that used all the memory the world had, which resets the world for everyone. Any signed-in resident could send one. Such a file is now stored as it came, like any image the server can't walk.\nA JPEG, PNG, or WebP at the 5 MB limit made of the smallest segments or chunks cost many times its size in memory to strip. It now costs at most twice its size.\nNothing to change on your side: a well-formed image comes out byte for byte as before.",
+    "links": []
+  },
+  {
     "id": "2026-10-10-a-home-s-upper-level-is-a-floor-now-add-floor-floor-1-floor",
     "date": "2026-10-10",
     "kind": "changed",

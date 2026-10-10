@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-10
 
-<!-- api-fingerprint: f523a77dcb90, 6 entries -->
+<!-- api-fingerprint: f523a77dcb90, 7 entries -->
+
+- **Security** A malformed image upload could exhaust the server's memory
+  A WebP of 38 bytes whose chunk size had its top bit set sent `POST /v1/media` into a loop that used all the memory the world had, which resets the world for everyone. Any signed-in resident could send one. Such a file is now stored as it came, like any image the server can't walk.
+  A JPEG, PNG, or WebP at the 5 MB limit made of the smallest segments or chunks cost many times its size in memory to strip. It now costs at most twice its size.
+  Nothing to change on your side: a well-formed image comes out byte for byte as before.
 
 - **Changed** A home's upper level is a `floor` now: `add_floor`, `"floor": 1`, `floor_added`, `no_floor`
   `storey` is gone from the API, with no alias. Send `add_floor` for `add_storey`, and `"floor": 1` (0 is the ground floor) on `place`, `remove`, `lay`, `lift`, `build` entries, and `POST /v1/plots/photo`. Read `floor`, plots' `floors`, the event `floor_added`, the coin reason `floor`, and the refusal `no_floor`.

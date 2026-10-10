@@ -1,4 +1,7 @@
+import { getHeapSpaceStatistics, setFlagsFromString } from "node:v8";
+import { runInNewContext } from "node:vm";
 import { crc32 } from "node:zlib";
+import { MEDIA_TYPES } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   asText,
@@ -20,7 +23,7 @@ import {
   webmWithTags,
 } from "./media-fixtures";
 import { MAX_GLB_JSON_BYTES, scrubImage } from "./strip-glb";
-import { stripMetadata } from "./strip-metadata";
+import { readOrientation, stripMetadata } from "./strip-metadata";
 import { MAX_MP4_BOXES } from "./strip-mp4";
 import { MAX_WEBM_ELEMENTS } from "./strip-webm";
 
@@ -590,5 +593,149 @@ describe("GLB metadata", () => {
     expect(webp[20]).toBe(0);
     const ktx = cat("\xabKTX 20\xbb", "location 37.7749");
     expect(scrubImage(ktx)).toBe(false);
+  });
+});
+
+describe("image metadata", () => {
+  type Image = "image/jpeg" | "image/png" | "image/webp";
+
+  const webp = (...chunks: [string, Part][]) => {
+    const body = cat(
+      "WEBP",
+      ...chunks.map(([fourcc, data]) => {
+        const bytes = cat(data);
+        return cat(fourcc, [bytes.length, 0, 0, 0], bytes, bytes.length % 2 ? [0] : []);
+      }),
+    );
+    return cat("RIFF", [body.length, 0, 0, 0], body);
+  };
+  const photo = () =>
+    webp(
+      ["VP8X", [0x0c, 0, 0, 0, 9, 0, 0, 9, 0, 0]],
+      ["VP8 ", [1, 2, 3, 4, 5]],
+      ["EXIF", "GPS 37.7749"],
+      ["XMP ", "<x>home</x>"],
+    );
+
+  setFlagsFromString("--expose-gc");
+  const collect: () => void = runInNewContext("gc");
+
+  /** What the heap holds outside the space for new objects, where short-lived garbage dies. */
+  const held = () =>
+    getHeapSpaceStatistics()
+      .filter((space) => !space.space_name.startsWith("new_"))
+      .reduce((sum, space) => sum + space.space_used_size, 0);
+
+  /**
+   * How much the heap came to hold while `run` ran. Objects that live through the walk are moved
+   * out of the new space and counted; those dropped at once never are. Earlier tests' garbage is
+   * collected first, so a collection during the run can't hide the growth.
+   */
+  function heapGrowth(run: () => void) {
+    collect();
+    const before = held();
+    run();
+    return held() - before;
+  }
+
+  // A chunk size is unsigned. Read as signed, this one sent the walk back 889 million bytes, and
+  // the walk forward again kept a chunk every 8 bytes until the server had no memory left.
+  it("leaves a WebP alone when a chunk's size has its top bit set, at once", () => {
+    const hex = "524946460000da0057454250565038580b0000cb100000009f0f00b70b000000000000000000";
+    const file = Uint8Array.from(hex.match(/../g) ?? [], (byte) => Number.parseInt(byte, 16));
+    const started = performance.now();
+    expect(stripMetadata(file, "image/webp")).toBe(file);
+    // The same in the first chunk of a real file, and the largest size there is.
+    for (const top of [0x80, 0xcb, 0xff]) {
+      const cut = photo();
+      cut[19] = top;
+      expect(stripMetadata(cut, "image/webp")).toBe(cut);
+      cut.fill(0xff, 16, 20);
+      expect(stripMetadata(cut, "image/webp")).toBe(cut);
+    }
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it("has room for a JPEG that comes out longer than it went in", () => {
+    // The smallest EXIF segment an orientation can be read from is shorter than the one written.
+    const tiff = [0x49, 0x49, 0x12, 0x01, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0];
+    const file = cat([0xff, 0xd8, 0xff, 0xe1, 0, 22], "Exif\0\0", tiff, [0xff, 0xda, 0, 2]);
+    const out = stripMetadata(file, "image/jpeg");
+    expect(out.length).toBe(file.length + 12);
+    expect(readOrientation(out.subarray(12))).toBe(6);
+    expect(Array.from(out.subarray(-4))).toEqual([0xff, 0xda, 0, 2]);
+  });
+
+  it("survives truncated and corrupted images without throwing", () => {
+    const files: [Uint8Array, Image][] = [
+      [photo(), "image/webp"],
+      [jpegWithExif(), "image/jpeg"],
+      [
+        png(
+          ["IHDR", new Uint8Array(13)],
+          ["tEXt", "Author\0Ryan at home"],
+          ["eXIf", "MM\0*GPS 37.7749"],
+          ["IDAT", "pixels"],
+          ["IEND", ""],
+        ),
+        "image/png",
+      ],
+    ];
+    const started = performance.now();
+    for (const [file, type] of files) {
+      // An image the stripper can't walk comes back as it was, which counts as a refusal here.
+      fuzz(file, (bytes) => {
+        const out = stripMetadata(bytes, type);
+        if (out === bytes) return undefined;
+        if (type === "image/webp") {
+          expect(out.length).toBeLessThanOrEqual(bytes.length);
+          expect(new DataView(out.buffer).getUint32(4, true)).toBe(out.length - 8);
+        }
+        return out;
+      });
+    }
+    expect(performance.now() - started).toBeLessThan(5_000);
+  });
+
+  // The world object has 128 MB. A stripper that holds an object for each segment or chunk spends
+  // 50 to 190 MB of heap on a file of the smallest ones, so the heap is measured as well as the
+  // clock.
+  it("walks a cap-sized image of tiny chunks in one quick pass that holds nothing for each", () => {
+    const size = MEDIA_TYPES["image/webp"].maxBytes;
+    const filled = (head: Part, item: Part, tail: Part) => {
+      const [first, each, last] = [cat(head), cat(item), cat(tail)];
+      const file = new Uint8Array(size);
+      file.set(first);
+      let at = first.length;
+      for (; at + each.length + last.length <= size; at += each.length) file.set(each, at);
+      file.set(last, at);
+      return file.subarray(0, at + last.length);
+    };
+    const empty = [0, 0, 0, 0];
+    const files: [Uint8Array, Image, number][] = [
+      // Empty chunks to keep, then empty chunks to keep and to drop by turns.
+      [filled(cat("RIFF", empty, "WEBP"), cat("ALPH", empty), []), "image/webp", 1],
+      [
+        filled(cat("RIFF", empty, "WEBP"), cat("ALPH", empty, "EXIF", empty), []),
+        "image/webp",
+        0.5,
+      ],
+      // Segments of no data, up to the start of the scan.
+      [filled([0xff, 0xd8], [0xff, 0xe0, 0, 2], [0xff, 0xda, 0, 2]), "image/jpeg", 1],
+      // Chunks of no data, up to the end chunk.
+      [filled(png(), cat(empty, "juNk", empty), cat(empty, "IEND", empty)), "image/png", 1],
+    ];
+    for (const [file, type, share] of files) {
+      let out = file;
+      const started = performance.now();
+      const grew = heapGrowth(() => {
+        out = stripMetadata(file, type);
+      });
+      expect(performance.now() - started).toBeLessThan(2_000);
+      expect(grew).toBeLessThan(4_000_000);
+      // Compared here, since `toBe` on two files of this size goes on to compare every byte.
+      expect(out === file).toBe(false);
+      expect(out.length / file.length).toBeCloseTo(share, 3);
+    }
   });
 });

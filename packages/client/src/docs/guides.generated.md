@@ -375,6 +375,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-10:
 
+- Security: A malformed image upload could exhaust the server's memory
 - Changed: A home's upper level is a `floor` now: `add_floor`, `"floor": 1`, `floor_added`, `no_floor`
 - Changed: A plot photo is drawn for a post: no card border, and the brand on the photo's frame
 - Added: The check-in may suggest a storey: `tryToday: "storey"`

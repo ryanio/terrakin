@@ -35,15 +35,40 @@ export function stripMetadata(bytes: Uint8Array, type: MediaType): Uint8Array | 
   return bytes;
 }
 
-const concat = (parts: Uint8Array[]) => {
-  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-  let at = 0;
-  for (const p of parts) {
-    out.set(p, at);
-    at += p.length;
+/**
+ * What a stripper keeps, copied into one buffer as it walks the file. It holds nothing for each
+ * segment or chunk, so a file of a million tiny ones costs twice its own size in memory and no more.
+ */
+class Kept {
+  /** Open so a stripper can change a byte it has copied. */
+  readonly out: Uint8Array;
+  private at = 0;
+
+  /** `room` is how many bytes longer than the file the result may be. */
+  constructor(
+    private readonly file: Uint8Array,
+    room = 0,
+  ) {
+    this.out = new Uint8Array(file.length + room);
   }
-  return out;
-};
+
+  /** Keep the file's bytes from `start` up to `end`, and say where in the result they went. */
+  copy(start: number, end: number): number {
+    const to = this.at;
+    this.out.set(this.file.subarray(start, end), to);
+    this.at += end - start;
+    return to;
+  }
+
+  add(bytes: Uint8Array) {
+    this.out.set(bytes, this.at);
+    this.at += bytes.length;
+  }
+
+  bytes(): Uint8Array {
+    return this.out.slice(0, this.at);
+  }
+}
 
 const ascii = (b: Uint8Array, start: number, end: number) =>
   String.fromCharCode(...b.subarray(start, end));
@@ -55,7 +80,8 @@ const JPEG_DROP = new Set([0xe1, 0xed, 0xfe]);
 
 function stripJpeg(b: Uint8Array): Uint8Array {
   if (b[0] !== 0xff || b[1] !== 0xd8) return b;
-  const parts: Uint8Array[] = [b.subarray(0, 2)];
+  const kept = new Kept(b, ORIENTATION_BYTES);
+  kept.copy(0, 2);
   let orientation: number | undefined;
   let i = 2;
   while (i + 4 <= b.length) {
@@ -63,10 +89,10 @@ function stripJpeg(b: Uint8Array): Uint8Array {
     const marker = b[i + 1] ?? 0;
     // Start of scan: the compressed image follows. Copy the rest as is.
     if (marker === 0xda) {
-      if (orientation !== undefined) parts.push(exifWithOrientation(orientation));
-      parts.push(b.subarray(i));
       // The orientation segment belongs right after SOI/APP0, but readers accept it before SOS too.
-      return concat(parts);
+      if (orientation !== undefined) kept.add(exifWithOrientation(orientation));
+      kept.copy(i, b.length);
+      return kept.bytes();
     }
     const length = ((b[i + 2] ?? 0) << 8) | (b[i + 3] ?? 0);
     const end = i + 2 + length;
@@ -74,7 +100,7 @@ function stripJpeg(b: Uint8Array): Uint8Array {
     if (marker === 0xe1 && ascii(b, i + 4, i + 10) === "Exif\0\0") {
       orientation = readOrientation(b.subarray(i + 10, end)) ?? orientation;
     }
-    if (!JPEG_DROP.has(marker)) parts.push(b.subarray(i, end));
+    if (!JPEG_DROP.has(marker)) kept.copy(i, end);
     i = end;
   }
   return b;
@@ -116,13 +142,17 @@ function exifWithOrientation(orientation: number): Uint8Array {
   return new Uint8Array([0xff, 0xe1, length >> 8, length & 0xff, ...body]);
 }
 
+/** The orientation written back can be longer than the EXIF segment it was read from. */
+const ORIENTATION_BYTES = exifWithOrientation(1).length;
+
 // ---------- PNG ----------
 
 /** Chunks to drop: EXIF, text of every kind, and the last-modified time. */
 const PNG_DROP = new Set(["eXIf", "tEXt", "zTXt", "iTXt", "tIME"]);
 
 function stripPng(b: Uint8Array): Uint8Array {
-  const parts: Uint8Array[] = [b.subarray(0, 8)];
+  const kept = new Kept(b);
+  kept.copy(0, Math.min(8, b.length));
   let i = 8;
   while (i + 12 <= b.length) {
     const length =
@@ -133,9 +163,9 @@ function stripPng(b: Uint8Array): Uint8Array {
     const type = ascii(b, i + 4, i + 8);
     const end = i + 12 + length;
     if (end > b.length) return b;
-    if (!PNG_DROP.has(type)) parts.push(b.subarray(i, end));
+    if (!PNG_DROP.has(type)) kept.copy(i, end);
     i = end;
-    if (type === "IEND") return concat(parts);
+    if (type === "IEND") return kept.bytes();
   }
   return b;
 }
@@ -144,40 +174,30 @@ function stripPng(b: Uint8Array): Uint8Array {
 
 function stripWebp(b: Uint8Array): Uint8Array {
   if (ascii(b, 0, 4) !== "RIFF" || ascii(b, 8, 12) !== "WEBP") return b;
-  const chunks: Uint8Array[] = [];
+  const kept = new Kept(b);
+  kept.copy(0, 12);
   let i = 12;
   while (i + 8 <= b.length) {
     const fourcc = ascii(b, i, i + 4);
+    // Added, never ORed: `|` is signed, so a top byte of 0x80 or more would make the size negative
+    // and send `i` backward.
     const size =
-      (b[i + 4] ?? 0) |
-      ((b[i + 5] ?? 0) << 8) |
-      ((b[i + 6] ?? 0) << 16) |
-      ((b[i + 7] ?? 0) * 0x1000000);
-    const end = i + 8 + size + (size % 2);
+      (b[i + 4] ?? 0) +
+      (b[i + 5] ?? 0) * 0x100 +
+      (b[i + 6] ?? 0) * 0x10000 +
+      (b[i + 7] ?? 0) * 0x1000000;
     if (i + 8 + size > b.length) return b;
+    // An odd chunk has a padding byte, which the last chunk of a file may lack.
+    const end = Math.min(i + 8 + size + (size % 2), b.length);
     if (fourcc !== "EXIF" && fourcc !== "XMP ") {
-      const chunk = b.slice(i, Math.min(end, b.length));
+      const flags = kept.copy(i, end) + 8;
       // VP8X flags announce which optional chunks exist. Clear the EXIF and XMP bits.
-      if (fourcc === "VP8X") chunk[8] = (chunk[8] ?? 0) & ~0x0c;
-      chunks.push(chunk);
+      if (fourcc === "VP8X" && size > 0) kept.out[flags] = (kept.out[flags] ?? 0) & ~0x0c;
     }
     i = end;
   }
-  const body = concat(chunks);
-  const size = body.length + 4;
-  const header = new Uint8Array([
-    0x52,
-    0x49,
-    0x46,
-    0x46,
-    size & 0xff,
-    (size >> 8) & 0xff,
-    (size >> 16) & 0xff,
-    (size >>> 24) & 0xff,
-    0x57,
-    0x45,
-    0x42,
-    0x50,
-  ]);
-  return concat([header, body]);
+  const out = kept.bytes();
+  const size = out.length - 8;
+  out.set([size & 0xff, (size >> 8) & 0xff, (size >> 16) & 0xff, (size >>> 24) & 0xff], 4);
+  return out;
 }

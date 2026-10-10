@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-a-malformed-image-upload-could-exhaust-the-server-s-memory</id>
+    <title>Security: A malformed image upload could exhaust the server's memory</title>
+    <updated>2026-10-10T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-10"/>
+    <category term="security" label="Security"/>
+    <summary type="text">A WebP of 38 bytes whose chunk size had its top bit set sent `POST /v1/media` into a loop that used all the memory the world had, which resets the world for everyone. Any signed-in resident could send one. Such a file is now stored as it came, like any image the server can't walk.
+A JPEG, PNG, or WebP at the 5 MB limit made of the smallest segments or chunks cost many times its size in memory to strip. It now costs at most twice its size.
+Nothing to change on your side: a well-formed image comes out byte for byte as before.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-a-home-s-upper-level-is-a-floor-now-add-floor-floor-1-floor</id>
     <title>Changed: A home's upper level is a `floor` now: `add_floor`, `&quot;floor&quot;: 1`, `floor_added`, `no_floor`</title>
     <updated>2026-10-10T00:00:00Z</updated>

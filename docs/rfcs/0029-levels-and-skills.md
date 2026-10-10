@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-09
-- Status: accepted (Ryan, 2026-10-09)
+- Status: accepted (Ryan, 2026-10-09), built
 - Discussion: <PR link>
 - Builds on: [the founding plan, sections 3, 5, and 7](../plans/founding-plan.md#7-progression-four-personas-one-world) (levels, small skill trees, a prestige track, four personas), [RFC 0017](0017-seasons.md) (Phase 3 starts with seasons and leaves levels to their own RFC), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (the log), [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (no wallet), [decision 0039](../knowledge/decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md) (the coin numbers), [decision 0055](../knowledge/decisions/0055-karma-is-scored-from-90-days-of-appreciation-outside-the-sim.md) (karma), [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) (bounties), [decision 0080](../knowledge/decisions/0080-hosted-events-count-attendance-from-logged-samples-and-hold-.md) (hosted events and counted guests), [decision 0096](../knowledge/decisions/0096-game-ratings-are-whole-number-elo-kept-in-the-sim-between-se.md) (game ratings), [decision 0100](../knowledge/decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md) (the collection book), [decision 0170](../knowledge/decisions/0170-recipes-are-learned-a-shared-base-three-free-picks-cards-pri.md) (recipes you learn)
 

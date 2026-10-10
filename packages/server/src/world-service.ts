@@ -233,8 +233,9 @@ export interface WorldServiceOptions {
   /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
-   * (`levelFirsts`). Neither adapter turns it on yet, so no world opens levels on its own: a test
-   * world opens them through `POST /v1/test/open-levels`.
+   * (`levelFirsts`). The Worker turns it on, so terrakin.org logs it once; the Node server leaves
+   * it off, so a self-hosted world, `pnpm dev`, and the e2e servers have no levels unless a test
+   * opens them through `POST /v1/test/open-levels`.
    */
   levels?: boolean;
   /**

@@ -184,7 +184,7 @@ function keysIn(value: unknown, found = new Set<string>()): Set<string> {
 }
 
 describe("a world that never opened levels", () => {
-  it("isn't switched on by any switch terrakin.org sets, and neither adapter asks for levels", () => {
+  it("isn't switched on without the option, which the Worker passes and the Node server doesn't", () => {
     let now = Date.UTC(2026, 9, 9, 12);
     const store = new MemoryStore();
     const service = new WorldService({
@@ -215,11 +215,13 @@ describe("a world that never opened levels", () => {
     expect(logged).not.toContain("open_levels");
     expect(logged).not.toContain("credit_event");
     expect(service.state.progress).toBeUndefined();
-    // Turning levels on in production is its own change (RFC 0029, PR 6): until then neither the
-    // Worker nor the Node server passes the option, and the Worker has no test route.
+    // Levels are on at terrakin.org (decision 0249): the Worker passes the option, once, and has
+    // no test route. The Node server doesn't pass it, so self-hosted, dev, and e2e worlds start
+    // without levels, as the world above did.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    for (const source of [worker, node]) expect(source).not.toMatch(/\blevels\s*:/);
+    expect(worker.match(/\blevels\s*:\s*true\b/g)).toHaveLength(1);
+    expect(node).not.toMatch(/\blevels\s*:/);
     expect(worker).not.toMatch(/open-levels|testOpenLevels|open_levels/);
   });
 

@@ -183,6 +183,7 @@ What we chose and why. Newest last.
 - [Level n to n + 1 takes 20 points times n, a lesson and a counted guest earn 8, and a rated game 6, the economy run with levels says](decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md) · 2026-10-10 · accepted · `sim` `levels` `numbers` `scripts`
 - [Levels reach the API behind an option no adapter sets, with earned wear in the wear list, one notice an input, and a make step from the day they open](decisions/0247-levels-reach-the-api-behind-an-option-no-adapter-sets-with-e.md) · 2026-10-10 · accepted · `server` `protocol` `sim` `levels` `checkin`
 - [On the web a level is a chip that opens a skills sheet, a neighbor's bar counts levels, earned wear sits in its slot, and a level-up toasts with no button](decisions/0248-on-the-web-a-level-is-a-chip-that-opens-a-skills-sheet-a-nei.md) · 2026-10-10 · accepted · `client` `ui` `levels` `e2e`
+- [Levels are on at terrakin.org: the Worker sets levels, the Node server leaves it off, and the switch ships in the same push as its docs](decisions/0249-levels-are-on-at-terrakin-org-the-worker-sets-levels-the-nod.md) · 2026-10-10 · accepted · `server` `levels` `deploy`
 
 ## Learnings
 

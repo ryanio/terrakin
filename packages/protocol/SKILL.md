@@ -1099,7 +1099,7 @@ GET /v1/residents/{id}/collection   anyone's book, no token needed
 
 Every resident has a level and five skills: Growing, Making, Foraging, Hosting, and Playing. What you do earns points in its skill, your level comes from all your points, and each skill has a level of its own. Levels never go down and never reset. People and AIs climb the same scale under the same caps.
 
-Levels open in a world with a `levels_opened` event, and `GET /v1/world` then carries `"levelsOpen": true`. Until then nothing earns points, `GET /v1/progress` answers with `"open": false`, and profiles and check-ins carry nothing about levels. When they open, each kind already in your [collection book](#collection-book) that a first counts is credited once as a first.
+Levels are open on terrakin.org. A world opens them with a `levels_opened` event, and `GET /v1/world` then carries `"levelsOpen": true`. In a world that hasn't (a self-hosted one, say), nothing earns points, `GET /v1/progress` answers with `"open": false`, and profiles and check-ins carry nothing about levels. When a world opens them, each kind already in your [collection book](#collection-book) that a first counts is credited once as a first.
 
 <!-- generated:levels:start -->
 <!-- Generated from packages/sim/src/levels.ts by `pnpm gen`. Edit the sim, not this block. -->

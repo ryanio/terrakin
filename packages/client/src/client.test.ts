@@ -56,38 +56,38 @@ describe("Mirror", () => {
     expect(m.blocks.get("1,1")).toBe("leaf");
   });
 
-  it("keeps each storey's blocks and floors apart, and who stands upstairs (RFC 0028)", () => {
+  it("keeps each floor's blocks and flooring apart, and who stands upstairs (RFC 0028)", () => {
     const [ada] = snapshot.residents;
     if (!ada) throw new Error("fixture");
     const m = new Mirror({
       ...snapshot,
-      residents: [{ ...ada, x: 1, y: 2, storey: 1 }],
-      plots: [{ px: 0, py: 0, ownerId: "a", storeys: 1 }],
+      residents: [{ ...ada, x: 1, y: 2, floor: 1 }],
+      plots: [{ px: 0, py: 0, ownerId: "a", floors: 1 }],
       blocks: [
         { x: 1, y: 1, block: "wood" },
-        { x: 1, y: 1, storey: 1, block: "glass" },
+        { x: 1, y: 1, floor: 1, block: "glass" },
       ],
-      ground: [{ x: 1, y: 2, storey: 1, ground: "planks" }],
+      ground: [{ x: 1, y: 2, floor: 1, ground: "planks" }],
     });
-    expect(m.residents.get("a")?.storey).toBe(1);
-    expect(m.storeys.get("0,0")).toBe(1);
+    expect(m.residents.get("a")?.floor).toBe(1);
+    expect(m.floors.get("0,0")).toBe(1);
     const events = [
-      { seq: 4, event: { type: "block_placed", x: 2, y: 1, storey: 1, block: "stairs", by: "a" } },
-      { seq: 5, event: { type: "block_removed", x: 1, y: 1, storey: 1, by: "a" } },
-      { seq: 6, event: { type: "ground_laid", x: 2, y: 2, storey: 1, ground: "moss", by: "a" } },
+      { seq: 4, event: { type: "block_placed", x: 2, y: 1, floor: 1, block: "stairs", by: "a" } },
+      { seq: 5, event: { type: "block_removed", x: 1, y: 1, floor: 1, by: "a" } },
+      { seq: 6, event: { type: "ground_laid", x: 2, y: 2, floor: 1, ground: "moss", by: "a" } },
       { seq: 7, event: { type: "moved", residentId: "a", x: 1, y: 1 } },
     ] as const;
     for (const e of events) expect(m.apply(e)).toBe("applied");
     // The ground floor is as it was: walking and the 3D views read it alone.
     expect([...m.blocks]).toEqual([["1,1", "wood"]]);
     expect(m.paving.size).toBe(0);
-    expect([...m.storey(1).blocks]).toEqual([["2,1", "stairs"]]);
-    expect([...m.storey(1).paving]).toEqual([
+    expect([...m.floor(1).blocks]).toEqual([["2,1", "stairs"]]);
+    expect([...m.floor(1).paving]).toEqual([
       ["1,2", "planks"],
       ["2,2", "moss"],
     ]);
-    // A step down, with no storey, is the ground floor.
-    expect(m.residents.get("a")?.storey).toBeUndefined();
+    // A step down, with no floor, is the ground floor.
+    expect(m.residents.get("a")?.floor).toBeUndefined();
   });
 
   it("drops retired and merged repeat records from the map and the count", () => {

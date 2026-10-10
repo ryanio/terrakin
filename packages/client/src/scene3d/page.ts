@@ -1,6 +1,6 @@
 /**
  * The page around a 3D scene: a full-screen stage with a back button, a title, and "Take a photo".
- * `/r/:id/3d` visits a resident's plot from the live world snapshot, with a storey picker under
+ * `/r/:id/3d` visits a resident's plot from the live world snapshot, with a floor picker under
  * the bar when the home has a loft (RFC 0028); `/gallery/3d` is the gallery room (and `?item=` one
  * item up close). Lazy: the main bundle reaches this only through import().
  */
@@ -9,13 +9,13 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
 import { queueAttachment } from "../composer";
+import { floorChips } from "../floor-chips";
 import { savedResidentId, savedToken } from "../net";
-import { storeyChips } from "../storey-chips";
 import { errorCard, notFoundCard, type ViewContext } from "../view";
 import { createStage, type Stage } from "./art";
 import { parseGallery } from "./catalog";
 import { buildGallery } from "./gallery";
-import { homeExtras, homePlot, plotLayout, rawResident, startStorey } from "./layout";
+import { homeExtras, homePlot, plotLayout, rawResident, startFloor } from "./layout";
 import { buildPlot } from "./plot";
 
 const PHOTO_FILE = "terrakin-photo.png";
@@ -154,11 +154,11 @@ export function mount3d(
           ...homeExtras(rawResident(raw, route.id)),
         };
         stage = createStage(host, { autoRotate: true });
-        // Cut away at your storey while you stand on the plot, as the map is; else the whole home.
+        // Cut away at your floor while you stand on the plot, as the map is; else the whole home.
         const viewer = everyoneIn(snapshot).find((r) => r.id === savedResidentId());
-        const storey = startStorey(layout, viewer);
-        const scene = buildPlot(stage, layout, extras, { onNote: showNote, storey });
-        if (layout.top > 0) bar.append(storeyPicker(layout.top, storey, scene.showStoreys));
+        const floor = startFloor(layout, viewer);
+        const scene = buildPlot(stage, layout, extras, { onNote: showNote, floor });
+        if (layout.top > 0) bar.append(floorPicker(layout.top, floor, scene.showFloors));
       }
       if (gone) return;
       status.textContent = "";
@@ -264,12 +264,12 @@ export function mount3d(
 }
 
 /**
- * The storey picker (RFC 0028): a chip for each storey, "Ground floor" and "Upstairs", on a line
- * of its own under the bar. The pressed one shows that storey and everything under it.
+ * The floor picker (RFC 0028): a chip for each floor, "Ground floor" and "Upstairs", on a line
+ * of its own under the bar. The pressed one shows that floor and everything under it.
  */
-function storeyPicker(top: number, start: number, show: (top: number) => void): HTMLElement {
-  const row = storeyChips(h("div", { class: "view3d-storeys" }), top, start, show);
-  return h("div", { class: "view3d-storeys-line" }, row);
+function floorPicker(top: number, start: number, show: (top: number) => void): HTMLElement {
+  const row = floorChips(h("div", { class: "view3d-floors" }), top, start, show);
+  return h("div", { class: "view3d-floors-line" }, row);
 }
 
 /** Wait (briefly) for the two faces the canvases draw with. A slow font never holds the scene up. */

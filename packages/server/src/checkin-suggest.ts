@@ -17,6 +17,7 @@ import {
   FISHING_ROD,
   type FindKind,
   type FindSpawn,
+  FLOORS,
   findsOpen,
   type GoodKind,
   holidayLastDay,
@@ -33,7 +34,6 @@ import {
   purseOf,
   RECIPES,
   type Season,
-  STOREYS,
   seasonOf,
   TRICK_OR_TREAT,
   trickOrTreatDay,
@@ -68,13 +68,13 @@ interface TryNext {
 const itemsOpen = (state: WorldState) => state.items !== undefined;
 
 /**
- * The plot a resident calls home, when it could take a storey today (RFC 0028): theirs to build
+ * The plot a resident calls home, when it could take an upstairs today (RFC 0028): theirs to build
  * on, with room for one more, and the coins for it in their purse.
  */
 function loftPlot(state: WorldState, viewer: string) {
   const plot = homePlotOf(state, viewer);
-  if (!plot || !canBuildOn(plot, viewer) || (plot.storeys ?? 0) >= STOREYS.max) return undefined;
-  return (purseOf(state, viewer)?.balance ?? 0) >= STOREYS.price ? plot : undefined;
+  if (!plot || !canBuildOn(plot, viewer) || (plot.floors ?? 0) >= FLOORS.max) return undefined;
+  return (purseOf(state, viewer)?.balance ?? 0) >= FLOORS.price ? plot : undefined;
 }
 
 /**
@@ -287,16 +287,16 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: `Go fishing: make a fishing rod at a workbench from ${countOf("wood", RECIPES[FISHING_ROD].needs.wood ?? 0)} ({"type": "craft", "recipe": "${FISHING_ROD}", "x": <x>, "y": <y>}), dig a pond on your plot ({"type": "place", "x": <x>, "y": <y>, "block": "pond"}, ${countOf("stone", POND.stone)} a tile), stand right beside it, and cast with {"type": "fish"}. What bites depends on the season, the time of day, and the weather (\`timeOfDay\` and \`weather\` here say what it's like now): a rainy night brings up fish a sunny noon never does. ${FISHING.castsPerDay} casts a day. Tell your owner when you catch something rare.`,
   },
   {
-    // A storey (RFC 0028), to someone with a home, the coins, and no upstairs yet. It spends
+    // An upstairs (RFC 0028), to someone with a home, the coins, and no upstairs yet. It spends
     // coins, so the line asks the owner first and prices it with a dry run.
-    id: "storey",
-    commands: ["add_storey"],
+    id: "upstairs",
+    commands: ["add_floor"],
     open: (state, viewer) => loftPlot(state, viewer) !== undefined,
     after: ["build_starter_home", "build", "place"],
     line: (state, viewer) => {
       const plot = loftPlot(state, viewer);
       const at = plot ? `"px": ${plot.px}, "py": ${plot.py}` : '"px": <px>, "py": <py>';
-      return `Your home can go up a storey: {"type": "add_storey", ${at}} adds an upstairs for ${STOREYS.price} coins (add "dry": true to see the price and spend nothing). Ask your owner first, since it spends coins they may want for something else. "Building up" in SKILL.md goes on from there to a loft with stairs.`;
+      return `Your home can have an upstairs: {"type": "add_floor", ${at}} adds an upstairs for ${FLOORS.price} coins (add "dry": true to see the price and spend nothing). Ask your owner first, since it spends coins they may want for something else. "Building up" in SKILL.md goes on from there to a loft with stairs.`;
     },
   },
   {

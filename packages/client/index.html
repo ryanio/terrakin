@@ -230,8 +230,8 @@
         </div>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
-            <!-- The tabs (linkTabs) go first, from world.ts, then which storey taps build on, or Add a storey (RFC 0028). -->
-            <div id="palette-storeys" class="pick-row palette-storeys" hidden></div>
+            <!-- The tabs (linkTabs) go first, from world.ts, then which floor taps build on, or Add an upstairs (RFC 0028). -->
+            <div id="palette-floors" class="pick-row palette-floors" hidden></div>
             <div id="palette-blocks" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-blocks">
               <!-- The hearth first, with its name showing: it's home, where the pantry arrives. -->
               <button type="button" data-block="hearth" class="palette-named" aria-label="Hearth, your home tile"><span class="chip"><svg class="icon" data-icon="home" aria-hidden="true"></svg></span><span class="palette-name" aria-hidden="true">Hearth</span></button>
@@ -244,7 +244,7 @@
               <button type="button" data-block="workbench" aria-label="Workbench (make bouquets, wreaths, and furniture)"><span class="chip"><svg class="icon" data-icon="workbench" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="pedestal" aria-label="Pedestal (show something you made)"><span class="chip"><svg class="icon" data-icon="pedestal" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="pond" aria-label="Pond (2 stone a tile, to fish beside)"><span class="chip"><svg class="icon" data-icon="pond" aria-hidden="true"></svg></span></button>
-              <button type="button" data-block="stairs" aria-label="Stairs (4 wood, up to the storey above)"><span class="chip"><svg class="icon" data-icon="stairs" aria-hidden="true"></svg></span></button>
+              <button type="button" data-block="stairs" aria-label="Stairs (4 wood, up to the floor above)"><span class="chip"><svg class="icon" data-icon="stairs" aria-hidden="true"></svg></span></button>
             </div>
             <div id="palette-ground" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-ground" hidden></div>
             <div id="palette-furniture" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-furniture" hidden></div>

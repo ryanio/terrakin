@@ -69,7 +69,7 @@ describe("the build bar", () => {
     const one = holdingsFromStacks([{ kind: "wood", count: 1 }]);
     expect(blockShort("stairs", one)).toEqual([{ kind: "wood", count: 3 }]);
     expect(stairsLine(one)).toBe(
-      "Stairs: 4 wood, up to the storey above. Stand on them and tap Go up. You need 3 wood more.",
+      "Stairs: 4 wood, up to the floor above. Stand on them and tap Go up. You need 3 wood more.",
     );
     expect(blockShort("stairs", holdingsFromStacks([{ kind: "wood", count: 4 }]))).toEqual([]);
     expect(blockShort("glass", holdingsFromStacks([]))).toEqual([]);

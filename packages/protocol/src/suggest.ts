@@ -115,6 +115,35 @@ function literalOf(schema: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * Fields the API once took under another name: the name it takes now (`to`), and the value that
+ * means what leaving the field out means (`same`). The names are too far apart for the typo
+ * match, and dropping one would act for real somewhere else: a `lay` sent with the old name for
+ * `floor` and 1 would lay on the ground floor. With 0 it always meant the ground floor, so that
+ * is passed over like any other field the schema doesn't know.
+ */
+const RENAMED_FIELDS: Readonly<Record<string, { to: string; same: unknown }>> = {
+  storey: { to: "floor", same: 0 },
+};
+
+/**
+ * What a field the schema doesn't know was renamed to, when `fields` has that name and the
+ * value sent means something.
+ */
+function renamedTo(key: string, value: unknown, fields: readonly string[]): string | undefined {
+  const renamed = Object.hasOwn(RENAMED_FIELDS, key) ? RENAMED_FIELDS[key] : undefined;
+  if (!renamed || value === renamed.same || !fields.includes(renamed.to)) return undefined;
+  return renamed.to;
+}
+
+/** The object each entry of a list field is, like one tile of a `build` plan. */
+function entryOf(field: unknown): z.ZodObject | undefined {
+  const list = field instanceof z.ZodType ? bare(field) : undefined;
+  if (!(list instanceof z.ZodArray)) return undefined;
+  const entry = bare(list.element as z.ZodType);
+  return entry instanceof z.ZodObject ? entry : undefined;
+}
+
 function fieldSuggestion(
   schema: z.ZodObject,
   raw: Record<string, unknown>,
@@ -122,18 +151,43 @@ function fieldSuggestion(
 ): Suggestion | undefined {
   const fields = Object.keys(schema.shape);
   const missing = fields.filter((f) => !(f in raw));
+  const where = what ? ` for ${what}` : "";
   for (const key of Object.keys(raw)) {
     if (fields.includes(key)) continue;
     // `dry_run`, `dryRun`, and the like are too far from `dry` for the typo match, but dropping
     // them would do the action for real.
     const dryLike = isNameLike(key) && key.toLowerCase().replace(/[-_]/g, "").startsWith("dry");
-    const meant = dryLike && missing.includes("dry") ? "dry" : nearestName(key, missing);
+    const meant =
+      dryLike && missing.includes("dry")
+        ? "dry"
+        : (renamedTo(key, raw[key], missing) ?? nearestName(key, missing));
     if (!meant) continue;
-    const where = what ? ` for ${what}` : "";
     return {
       message: `Unknown field '${key}'${where}. Did you mean '${meant}'?`,
       didYouMean: meant,
     };
+  }
+  // A renamed field on a list's entries, like a plan's tiles, would be dropped the same way.
+  for (const name of fields) {
+    const entry = entryOf(schema.shape[name]);
+    const list = raw[name];
+    if (!entry || !Array.isArray(list)) continue;
+    const known = Object.keys(entry.shape);
+    for (const [i, item] of list.entries()) {
+      if (!isRecord(item)) continue;
+      for (const key of Object.keys(item)) {
+        const meant = renamedTo(
+          key,
+          item[key],
+          known.filter((f) => !(f in item)),
+        );
+        if (!meant) continue;
+        return {
+          message: `Unknown field '${key}' in ${name}[${i}]${where}. Did you mean '${meant}'?`,
+          didYouMean: meant,
+        };
+      }
+    }
   }
   return undefined;
 }

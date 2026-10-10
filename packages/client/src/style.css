@@ -6337,7 +6337,7 @@ dialog.look-editor {
 }
 
 /*
- * A map of the Commons: one cell per tile, its path or floor under its block, drawn with the same
+ * A map of the Commons: one cell per tile, its path or flooring under its block, drawn with the same
  * pictures as the build bar. What a plan adds is ringed in clay; what it takes away is faded and
  * ringed in red.
  */
@@ -6384,7 +6384,7 @@ dialog.look-editor {
   cursor: not-allowed;
 }
 
-/* The tile's path or floor fills it; a block stands on top, in its color or its own picture. */
+/* The tile's path or flooring fills it; a block stands on top, in its color or its own picture. */
 .commons-map .tile .ground-art,
 .commons-map .tile-block {
   position: absolute;
@@ -6731,15 +6731,15 @@ html.view3d-open body {
   flex: none;
 }
 
-/* The storey picker (RFC 0028): under the bar, however tall a plot's name makes it. */
-.view3d-bar > .view3d-storeys-line {
+/* The floor picker (RFC 0028): under the bar, however tall a plot's name makes it. */
+.view3d-bar > .view3d-floors-line {
   position: absolute;
   top: calc(100% + var(--space-sm));
   left: 0;
   pointer-events: none;
 }
 
-.view3d-storeys {
+.view3d-floors {
   display: flex;
   width: max-content;
   gap: 2px;
@@ -6753,7 +6753,7 @@ html.view3d-open body {
   pointer-events: auto;
 }
 
-.view3d-storeys button {
+.view3d-floors button {
   min-height: 44px;
   padding: 0 var(--space-lg);
   border: 0;
@@ -6763,7 +6763,7 @@ html.view3d-open body {
   font-weight: var(--weight-semibold);
 }
 
-.view3d-storeys button[aria-pressed="true"] {
+.view3d-floors button[aria-pressed="true"] {
   background: var(--clay);
   color: var(--paper);
 }
@@ -9121,8 +9121,8 @@ html.view3d-open body {
   display: none;
 }
 
-/* The build bar's storey picker (RFC 0028): its words as written, not capitalized like colors. */
-.palette-storeys button {
+/* The build bar's floor picker (RFC 0028): its words as written, not capitalized like colors. */
+.palette-floors button {
   text-transform: none;
 }
 

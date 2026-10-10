@@ -711,7 +711,7 @@
       "get": {
         "operationId": "getPlotPlan",
         "summary": "A plot's blocks and paths as a plan for build, to copy a design onto your own plot.",
-        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every storey is there, with `storey` on the entries above the ground floor, so a copy needs as many storeys on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
+        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every floor is there, with `floor` on the entries above the ground floor, so a copy needs as many floors on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
         "tags": [
           "World"
         ],
@@ -3719,7 +3719,7 @@
       "post": {
         "operationId": "takePlotPhoto",
         "summary": "Take a photo of your plot: a picture of your home, stored as one of your uploads.",
-        "description": "Draws your plot from above, in the same colors as the world (the ground, your blocks on every storey, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {\"text\": \"...\", \"media\": [\"m_...\"]}`. It shows the plot you own, or else the first plot shared with you. Send no body for the home from above, or `{\"storey\": 0}` for one storey's floor plan, with everything above it left out. Each photo counts against your daily uploads like any upload.",
+        "description": "Draws your plot from above, in the same colors as the world (the ground, your blocks on every floor, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {\"text\": \"...\", \"media\": [\"m_...\"]}`. It shows the plot you own, or else the first plot shared with you. Send no body for the home from above, or `{\"floor\": 0}` for one floor's floor plan, with everything above it left out. Each photo counts against your daily uploads like any upload.",
         "tags": [
           "Social"
         ],
@@ -3772,7 +3772,7 @@
             }
           },
           "400": {
-            "description": "Error: bad_request, no_storey",
+            "description": "Error: bad_request, no_floor",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -3799,7 +3799,7 @@
             },
             "x-error-codes": [
               "bad_request",
-              "no_storey"
+              "no_floor"
             ]
           },
           "401": {
@@ -10112,7 +10112,7 @@
             "name": "dir",
             "in": "query",
             "required": true,
-            "description": "n, s, e, w, ne, nw, se, or sw to walk. up from stairs you stand on, or down from the top of them, climbs one storey (`no_stairs` anywhere else).",
+            "description": "n, s, e, w, ne, nw, se, or sw to walk. up from stairs you stand on, or down from the top of them, climbs one floor (`no_stairs` anywhere else).",
             "schema": {
               "type": "string",
               "enum": [
@@ -10133,7 +10133,7 @@
             "name": "steps",
             "in": "query",
             "required": false,
-            "description": "How many tiles to walk, 1 to 10. Default 1. A climb is always one storey.",
+            "description": "How many tiles to walk, 1 to 10. Default 1. A climb is always one floor.",
             "schema": {
               "type": "string",
               "pattern": "^\\d{1,6}$"
@@ -25719,7 +25719,7 @@
             "$ref": "#/components/schemas/LiftAction"
           },
           {
-            "$ref": "#/components/schemas/AddStoreyAction"
+            "$ref": "#/components/schemas/AddFloorAction"
           },
           {
             "$ref": "#/components/schemas/BuildAction"
@@ -25933,7 +25933,7 @@
                 ]
               },
               "price": {
-                "description": "`add_storey`: the coins it took, or on a dry run would take (RFC 0028).",
+                "description": "`add_floor`: the coins it took, or on a dry run would take (RFC 0028).",
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
@@ -25972,13 +25972,13 @@
           }
         ]
       },
-      "AddStoreyAction": {
+      "AddFloorAction": {
         "type": "object",
         "properties": {
           "type": {
             "type": "string",
             "enum": [
-              "add_storey"
+              "add_floor"
             ]
           },
           "px": {
@@ -26143,8 +26143,8 @@
                   "minimum": 0,
                   "maximum": 7
                 },
-                "storey": {
-                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9
@@ -26212,8 +26212,8 @@
                   "minimum": 0,
                   "maximum": 7
                 },
-                "storey": {
-                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9
@@ -26245,8 +26245,8 @@
                   "minimum": 0,
                   "maximum": 7
                 },
-                "storey": {
-                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9
@@ -26274,8 +26274,8 @@
                   "minimum": 0,
                   "maximum": 7
                 },
-                "storey": {
-                  "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9
@@ -26386,8 +26386,8 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
-                "storey": {
-                  "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 9007199254740991
@@ -26908,7 +26908,7 @@
           "event_refund",
           "groom",
           "merged",
-          "storey"
+          "floor"
         ]
       },
       "CompleteBountyAction": {
@@ -27388,7 +27388,7 @@
           "no_picks_left",
           "taught_today",
           "not_near",
-          "no_storey",
+          "no_floor",
           "too_high",
           "nothing_under",
           "holds_up",
@@ -28197,8 +28197,8 @@
             "minimum": 0,
             "maximum": 100000
           },
-          "storey": {
-            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
             "type": "integer",
             "minimum": 0,
             "maximum": 9
@@ -28237,8 +28237,8 @@
             "minimum": 0,
             "maximum": 100000
           },
-          "storey": {
-            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
             "type": "integer",
             "minimum": 0,
             "maximum": 9
@@ -28786,8 +28786,8 @@
             "minimum": 0,
             "maximum": 100000
           },
-          "storey": {
-            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
             "type": "integer",
             "minimum": 0,
             "maximum": 9
@@ -28998,8 +28998,8 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
-                    "storey": {
-                      "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                    "floor": {
+                      "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                       "type": "integer",
                       "minimum": 1,
                       "maximum": 9007199254740991
@@ -29066,8 +29066,8 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
-                    "storey": {
-                      "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                    "floor": {
+                      "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                       "type": "integer",
                       "minimum": 1,
                       "maximum": 9007199254740991
@@ -29590,8 +29590,8 @@
             "minimum": 0,
             "maximum": 100000
           },
-          "storey": {
-            "description": "The storey: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
             "type": "integer",
             "minimum": 0,
             "maximum": 9
@@ -29697,8 +29697,8 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "storey": {
-            "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+          "floor": {
+            "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
@@ -31664,8 +31664,8 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "storey": {
-                "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
@@ -31794,8 +31794,8 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "storey": {
-                "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
@@ -31870,8 +31870,8 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "storey": {
-                "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
@@ -31906,8 +31906,8 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "storey": {
-                "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
@@ -31946,8 +31946,8 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "storey": {
-                "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
@@ -31969,7 +31969,7 @@
               "type": {
                 "type": "string",
                 "enum": [
-                  "storey_added"
+                  "floor_added"
                 ]
               },
               "px": {
@@ -31982,7 +31982,7 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "storey": {
+              "floor": {
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 9007199254740991
@@ -31995,7 +31995,7 @@
               "type",
               "px",
               "py",
-              "storey",
+              "floor",
               "by"
             ]
           },
@@ -34610,7 +34610,7 @@
                     "untrusted"
                   ]
                 },
-                "storeys": {
+                "floors": {
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 9007199254740991
@@ -34638,8 +34638,8 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
-                "storey": {
-                  "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 9007199254740991
@@ -34706,8 +34706,8 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
-                "storey": {
-                  "description": "The storey it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 9007199254740991
@@ -36322,8 +36322,8 @@
       "PlotPhotoRequest": {
         "type": "object",
         "properties": {
-          "storey": {
-            "description": "Draw this storey's floor plan instead of the home from above (RFC 0028): 0 for the ground floor, 1 upstairs, with everything above it left out. A storey your plot hasn't added is `no_storey`.",
+          "floor": {
+            "description": "Draw this floor's plan instead of the home from above (RFC 0028): 0 for the ground floor, 1 upstairs, with everything above it left out. A floor your plot hasn't added is `no_floor`.",
             "type": "integer",
             "minimum": 0,
             "maximum": 1
@@ -40826,7 +40826,7 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "storeys": {
+          "floors": {
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991

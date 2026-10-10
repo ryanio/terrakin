@@ -19,6 +19,8 @@ import {
   climbsAt,
   type Direction,
   directionOf,
+  FLOORS,
+  floorField,
   type GroundKind,
   ITEM_INFO,
   isGroundKind,
@@ -30,9 +32,7 @@ import {
   type Resident,
   route,
   STEP,
-  STOREYS,
   settleProblem,
-  storeyField,
   type Tile,
   tileKey,
   upstairsProblem,
@@ -66,6 +66,8 @@ import {
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { floorChips } from "./floor-chips";
+import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
 import { openHomeSheet } from "./home-sheet";
 import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
@@ -82,8 +84,6 @@ import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { SoundSwitch } from "./sound/switch";
 import { reloadForNewerServer } from "./stale-bundle";
-import { storeyChips } from "./storey-chips";
-import { type Cutaway, cutaway, pickedStorey, tapStorey } from "./storeys";
 import { track } from "./telemetry";
 import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
 import { dayPhase } from "./time";
@@ -119,8 +119,8 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
   furniture: $("palette-furniture"),
 };
 const paletteLine = $("palette-line");
-/** Which storey taps build on, or Add a storey, on a plot you can build on (RFC 0028). */
-const storeyRow = $("palette-storeys");
+/** Which floor taps build on, or Add an upstairs, on a plot you can build on (RFC 0028). */
+const floorRow = $("palette-floors");
 /** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
 const climbButton = $<HTMLButtonElement>("world-climb");
 // The build bar's tabs, over the rows they show.
@@ -195,14 +195,14 @@ const SCENE_WAIT_MS = 8000;
 let sceneWait = 0;
 let buildMode = false;
 /**
- * The storey the build bar's taps build on, and the map is cut away at while building (RFC 0028).
+ * The floor the build bar's taps build on, and the map is cut away at while building (RFC 0028).
  * It starts on yours and follows you up and down the stairs.
  */
-let buildStorey = 0;
-/** The storey the server last had you on, so the picker follows you when it changes. */
+let buildFloor = 0;
+/** The floor the server last had you on, so the picker follows you when it changes. */
 let stoodOn = 0;
 /**
- * The build bar's pick (RFC 0016): a block or the hearth marker on the Blocks tab, a path or floor
+ * The build bar's pick (RFC 0016): a block or the hearth marker on the Blocks tab, a path or flooring
  * on the Paths tab, or decor or furniture you hold on the Furniture tab.
  */
 let pick: BlockKind | GroundKind | "hearth" = "wood";
@@ -228,15 +228,15 @@ let waves: FoldedWaves | undefined;
  */
 const walker = new Walker({
   at: () => self(),
-  // Your steps keep to the storey you stand on (RFC 0028).
-  ground: () => mirror?.ground(myStorey()),
+  // Your steps keep to the floor you stand on (RFC 0028).
+  ground: () => mirror?.ground(myFloor()),
   behind: () => (me ? motion.behind(me) : 0),
   steer,
   send: (dir) => {
     // A step of your own: the camera is yours again.
     stopLooking();
     const id = act({ type: "move", dir });
-    // A footstep for each step your figure takes, on the path or floor it steps onto.
+    // A footstep for each step your figure takes, on the path or flooring it steps onto.
     const from = walker.ahead;
     if (id && from)
       sound.step(mirror?.paving.get(`${from.x + STEP[dir][0]},${from.y + STEP[dir][1]}`));
@@ -720,32 +720,32 @@ function self() {
   return me ? mirror?.residents.get(me) : undefined;
 }
 
-/** The storey the server has you on (RFC 0028): 0 is the ground floor. */
-function myStorey(): number {
-  return self()?.storey ?? 0;
+/** The floor the server has you on (RFC 0028): 0 is the ground floor. */
+function myFloor(): number {
+  return self()?.floor ?? 0;
 }
 
-/** The map's cutaway for where you stand: your plot, at your storey (`storeys.ts`). */
+/** The map's cutaway for where you stand: your plot, at your floor (`floors.ts`). */
 function cutHere(): Cutaway | undefined {
   return mirror && cutaway(self(), mirror.config.plotSize);
 }
 
 /**
- * The stairs nearest you for a tap that means another storey: going down, the top of stairs on
- * your plot; going up, stairs on your storey on the plot you tapped. A walk keeps to one storey,
+ * The stairs nearest you for a tap that means another floor: going down, the top of stairs on
+ * your plot; going up, stairs on your floor on the plot you tapped. A walk keeps to one floor,
  * so you walk there and Go up or Go down shows (RFC 0028).
  */
 function stairsFor(way: Climb, tile: Tile): Tile | undefined {
   const r = self();
   const m = mirror;
   if (!r || !m) return undefined;
-  const storey = r.storey ?? 0;
+  const floor = r.floor ?? 0;
   const S = m.config.plotSize;
   const plot = way === "down" ? r : tile;
   const samePlot = (x: number, y: number) =>
     Math.floor(x / S) === Math.floor(plot.x / S) && Math.floor(y / S) === Math.floor(plot.y / S);
   let best: Tile | undefined;
-  for (const [key, block] of m.blocksOn(way === "down" ? storey - 1 : storey)) {
+  for (const [key, block] of m.blocksOn(way === "down" ? floor - 1 : floor)) {
     if (block !== "stairs") continue;
     const [x, y] = parseKey(key);
     if (!samePlot(x, y)) continue;
@@ -765,7 +765,7 @@ function here(): Tile | undefined {
  */
 function walkToward(tile: Tile, near = 0, arrive?: () => void) {
   walker.walkTo({
-    plan: (from) => (mirror ? route(mirror.ground(myStorey()), from, tile, near) : []),
+    plan: (from) => (mirror ? route(mirror.ground(myFloor()), from, tile, near) : []),
     ...(arrive ? { arrive } : {}),
   });
 }
@@ -936,17 +936,17 @@ function tapTile(tile: { x: number; y: number }) {
   const at = here();
   if (!mirror || !r || !at) return;
   if (buildMode) {
-    // On the storey the picker shows (RFC 0028): `storey` goes only with one above the ground.
-    const storey = buildStorey;
-    const on = { ...tile, ...storeyField(storey) };
+    // On the floor the picker shows (RFC 0028): `floor` goes only with one above the ground.
+    const floor = buildFloor;
+    const on = { ...tile, ...floorField(floor) };
     const key = tileKey(tile.x, tile.y);
-    const hasBlock = mirror.blocksOn(storey).has(key);
+    const hasBlock = mirror.blocksOn(floor).has(key);
     if (pick === "hearth") {
-      if (storey > 0) showToast("Your hearth goes on the ground floor. Pick Ground floor first.");
+      if (floor > 0) showToast("Your hearth goes on the ground floor. Pick Ground floor first.");
       else tryAct({ type: "set_hearth", ...tile });
     } else if (isGroundKind(pick)) {
-      // Paths and floors: a tap lifts what's there, or lays the pick if you can pay for it.
-      if (mirror.pavingOn(storey).has(key)) tryAct({ type: "lift", ...on });
+      // Paths and flooring: a tap lifts what's there, or lays the pick if you can pay for it.
+      if (mirror.pavingOn(floor).has(key)) tryAct({ type: "lift", ...on });
       else if (canLay(pick, holdings)) tryAct({ type: "lay", ...on, ground: pick });
       else showToast(groundLine(pick, holdings));
     } else if (hasBlock) tryAct({ type: "remove", ...on });
@@ -1065,11 +1065,11 @@ function tapTile(tile: { x: number; y: number }) {
       out?.routine === "stroll" ? "out on a stroll" : out ? "just walked home" : "asleep at home";
     showToast(`${name} is away, ${doing}.`, "player");
   }
-  // A walk keeps to the storey you stand on (RFC 0028). A tile that shows another storey walks you
+  // A walk keeps to the floor you stand on (RFC 0028). A tile that shows another floor walks you
   // to the stairs instead, where Go up or Go down shows, so nothing climbs without a tap.
   const cut = cutHere();
   const m = mirror;
-  const want = tapStorey(
+  const want = tapFloor(
     m.layers(),
     m.config.plotSize,
     cut,
@@ -1077,7 +1077,7 @@ function tapTile(tile: { x: number; y: number }) {
     tile.y,
     (s, x, y) => m.blocksOn(s - 1).get(tileKey(x, y)) === "stairs",
   );
-  const mine = cut?.storey ?? 0;
+  const mine = cut?.floor ?? 0;
   const stairs = want === mine ? undefined : stairsFor(want < mine ? "down" : "up", tile);
   walkToward(stairs ?? tile);
 }
@@ -1371,13 +1371,13 @@ function setBuildMode(on: boolean) {
   // You build where you stand: the camera comes back to you.
   if (on) stopLooking();
   buildMode = on;
-  // The picker starts on the storey you stand on.
-  buildStorey = myStorey();
+  // The picker starts on the floor you stand on.
+  buildFloor = myFloor();
   buildButton.setAttribute("aria-pressed", String(on));
   palette.hidden = !on;
   hud.classList.toggle("building", on);
   if (on && !chatPanel.hidden) toggleChat(false);
-  paintStoreys();
+  paintFloors();
   paintPalette();
   if (on) hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
@@ -1446,10 +1446,10 @@ function paintPalette() {
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
 
-// ---------- Storeys (RFC 0028) ----------
+// ---------- Floors (RFC 0028) ----------
 
 /** The plot you stand on, if the sim's rule lets you build on it: where the picker builds. */
-function buildablePlot(): { px: number; py: number; storeys: number } | undefined {
+function buildablePlot(): { px: number; py: number; floors: number } | undefined {
   const r = self();
   const m = mirror;
   if (!r || !m || !me) return undefined;
@@ -1459,59 +1459,59 @@ function buildablePlot(): { px: number; py: number; storeys: number } | undefine
     : undefined;
   if (!canBuildOn(plot, me)) return undefined;
   const { px, py } = plotOf(m.config, r.x, r.y);
-  return { px, py, storeys: m.storeysAt(r.x, r.y) };
+  return { px, py, floors: m.floorsAt(r.x, r.y) };
 }
 
 /** What the picker last drew, so it's drawn again only when something it shows changed. */
-let storeysDrawn = "";
+let floorsDrawn = "";
 
 /**
- * The build bar's storey picker, on a plot you can build on: a chip for each storey it has
- * ("Ground floor", "Upstairs"), the one taps build on pressed, and "Add a storey" while it can
+ * The build bar's floor picker, on a plot you can build on: a chip for each floor it has
+ * ("Ground floor", "Upstairs"), the one taps build on pressed, and "Add an upstairs" while it can
  * have another, which spends coins, so it asks a second tap first.
  */
-function paintStoreys() {
+function paintFloors() {
   const plot = buildMode ? buildablePlot() : undefined;
-  // Never a storey the plot lacks: walking onto one with no upstairs builds on its ground floor.
-  buildStorey = pickedStorey(buildStorey, plot?.storeys, myStorey());
-  const drawn = plot ? `${plot.px},${plot.py},${plot.storeys},${buildStorey}` : "";
-  if (drawn === storeysDrawn) return;
-  storeysDrawn = drawn;
-  storeyRow.hidden = !plot;
-  storeyRow.replaceChildren();
-  storeyRow.removeAttribute("aria-label");
+  // Never a floor the plot lacks: walking onto one with no upstairs builds on its ground floor.
+  buildFloor = pickedFloor(buildFloor, plot?.floors, myFloor());
+  const drawn = plot ? `${plot.px},${plot.py},${plot.floors},${buildFloor}` : "";
+  if (drawn === floorsDrawn) return;
+  floorsDrawn = drawn;
+  floorRow.hidden = !plot;
+  floorRow.replaceChildren();
+  floorRow.removeAttribute("aria-label");
   if (!plot) return;
-  if (plot.storeys > 0) storeyChips(storeyRow, plot.storeys, buildStorey, pickStorey);
-  if (plot.storeys < STOREYS.max) {
+  if (plot.floors > 0) floorChips(floorRow, plot.floors, buildFloor, pickFloor);
+  if (plot.floors < FLOORS.max) {
     const add = h("button", {
-      attrs: { type: "button", id: "add-storey" },
-      text: `Add a storey, ${coins(STOREYS.price)}`,
+      attrs: { type: "button", id: "add-floor" },
+      text: `Add an upstairs, ${coins(FLOORS.price)}`,
     });
     const { px, py } = plot;
-    confirmTwice(add, `Tap again to spend ${coins(STOREYS.price)}`, () =>
-      tryAct({ type: "add_storey", px, py }),
+    confirmTwice(add, `Tap again to spend ${coins(FLOORS.price)}`, () =>
+      tryAct({ type: "add_floor", px, py }),
     );
-    storeyRow.append(add);
+    floorRow.append(add);
   }
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
 
-/** Build on another storey, and cut the map away there, without moving you. */
-function pickStorey(storey: number) {
-  buildStorey = storey;
-  paintStoreys();
+/** Build on another floor, and cut the map away there, without moving you. */
+function pickFloor(floor: number) {
+  buildFloor = floor;
+  paintFloors();
 }
 
-/** The picker follows you up and down the stairs, and onto plots with more or fewer storeys. */
-function followStorey() {
-  const storey = myStorey();
-  if (storey !== stoodOn) {
-    stoodOn = storey;
-    buildStorey = storey;
+/** The picker follows you up and down the stairs, and onto plots with more or fewer floors. */
+function followFloor() {
+  const floor = myFloor();
+  if (floor !== stoodOn) {
+    stoodOn = floor;
+    buildFloor = floor;
   }
-  // A storey added since (yours or a co-owner's): the picker starts on it.
-  paintStoreys();
+  // A floor added since (yours or a co-owner's): the picker starts on it.
+  paintFloors();
 }
 
 /**
@@ -1525,7 +1525,7 @@ function paintClimb(now: number) {
   const at = here();
   const way =
     r && m && at
-      ? climbsAt((s, key) => m.blocksOn(s).get(key), at.x, at.y, r.storey ?? 0)[0]
+      ? climbsAt((s, key) => m.blocksOn(s).get(key), at.x, at.y, r.floor ?? 0)[0]
       : undefined;
   climbButton.hidden = !way;
   if (!way || !r) return;
@@ -1839,8 +1839,8 @@ function frame() {
       sky: sky.amounts,
       pets,
       clock,
-      // While building, the plot is cut away at the storey the picker shows, as on the map.
-      ...(buildMode ? { cutStorey: buildStorey } : {}),
+      // While building, the plot is cut away at the floor the picker shows, as on the map.
+      ...(buildMode ? { cutFloor: buildFloor } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   else if (mirror) {
@@ -1865,8 +1865,8 @@ function frame() {
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom(), look.bottom()),
       casts,
       hover,
-      // While building, the map is cut away at the storey the picker shows (RFC 0028).
-      ...(buildMode ? { cutStorey: buildStorey } : {}),
+      // While building, the map is cut away at the floor the picker shows (RFC 0028).
+      ...(buildMode ? { cutFloor: buildFloor } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   }
@@ -1883,7 +1883,7 @@ function frame() {
     paintClaim();
     paintSettled();
     paintEnterButton();
-    followStorey();
+    followFloor();
   }
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";

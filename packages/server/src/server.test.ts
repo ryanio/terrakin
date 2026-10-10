@@ -314,7 +314,23 @@ describe("did you mean", () => {
       expect(typo.status).toBe(400);
       expect(typo.body.error.did_you_mean).toBe("dry");
     }
+    // The names a home's levels had before `floor`: the action is unknown, and the field, dropped,
+    // would build on the ground floor. Both are refused with the name to send.
+    const added = await api(
+      base,
+      "POST",
+      "/v1/actions",
+      { type: "add_storey", px: 0, py: 0 },
+      token,
+    );
+    expect([added.status, added.body.error.did_you_mean]).toEqual([400, "add_floor"]);
+    const upstairs = { type: "place", x: 6, y: 7, storey: 1, block: "wood" };
+    const placed = await api(base, "POST", "/v1/actions", upstairs, token);
+    expect([placed.status, placed.body.error.did_you_mean]).toEqual([400, "floor"]);
     expect(service.state.seq).toBe(seq);
+    // With 0 the old field meant the ground floor, as leaving it out does, so it's passed over.
+    const ground = await api(base, "POST", "/v1/actions", { ...upstairs, storey: 0 }, token);
+    expect(ground.status).toBe(200);
     // Other bodies get the same help when they fail to parse.
     const session = await api(base, "POST", "/v1/session", { nmae: "Ada", kind: "agent" });
     expect(session.status).toBe(400);

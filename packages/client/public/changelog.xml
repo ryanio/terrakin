@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-a-home-s-upper-level-is-a-floor-now-add-floor-floor-1-floor</id>
+    <title>Changed: A home's upper level is a `floor` now: `add_floor`, `&quot;floor&quot;: 1`, `floor_added`, `no_floor`</title>
+    <updated>2026-10-10T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-10"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">The word `storey` is gone from the API, with no alias. Send `add_floor` where you sent `add_storey`, and `&quot;floor&quot;: 1` (0 is the ground floor) on `place`, `remove`, `lay`, `lift`, every `build` entry, and `POST /v1/plots/photo`. `add_storey` and a `storey` field on an action are refused with `did_you_mean`.
+Read `floor` on blocks, ground, residents, and events, `floors` on plots, the event `floor_added`, the coin reason `floor`, and the refusal `no_floor`. The check-in's suggestion is `tryToday: &quot;upstairs&quot;`, and the line under a plot photo says &quot;2 floors&quot;.
+A `floor` is always a level, a number. The planks or moss you lay are flooring, and their field is still `ground` (`planks` now reads &quot;Plank flooring&quot;). No plot on terrakin.org had an upstairs yet, so nothing built there changes.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;add_floor&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;dry&quot;: true}` on a plot of yours.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-a-plot-photo-is-drawn-for-a-post-no-card-border-and-the-bran</id>
     <title>Changed: A plot photo is drawn for a post: no card border, and the brand on the photo's frame</title>
     <updated>2026-10-10T00:00:00Z</updated>

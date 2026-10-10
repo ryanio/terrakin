@@ -8,6 +8,7 @@ import {
 import {
   blocksOn,
   canBuildOn,
+  FLOORS,
   type Input,
   knockedToday,
   own,
@@ -17,7 +18,6 @@ import {
   plotInBounds,
   plotKey,
   residentById,
-  STOREYS,
   tileKey,
   trickOrTreatDay,
   type WorldEvent,
@@ -500,7 +500,7 @@ const ORDER: Record<PlotSort, (a: PlotView, b: PlotView) => number> = {
 
 /**
  * Plots someone lives on, as the plot routes show them: whose it is, when it last changed, this
- * week's visitors and admirers, and what's on it on every storey, from the world and `facts`. Every plot, or only
+ * week's visitors and admirers, and what's on it on every floor, from the world and `facts`. Every plot, or only
  * `only`, which looks at that plot's own tiles rather than every block in the world. Unsorted, and
  * without the viewer's parts. Nothing here is private: the world snapshot already shows plots,
  * blocks, and displays, and the counts never say who.
@@ -516,15 +516,15 @@ function plotViews(
   const shown = state.items?.displays ?? {};
   const blocks = new Map<string, number>();
   const displays = new Map<string, number>();
-  // The ground floor and every storey above it (RFC 0028).
-  const storeys = Array.from({ length: STOREYS.max + 1 }, (_, storey) => blocksOn(state, storey));
+  // The ground floor and every floor above it (RFC 0028).
+  const floors = Array.from({ length: FLOORS.max + 1 }, (_, floor) => blocksOn(state, floor));
   if (only) {
     let placed = 0;
     let onDisplay = 0;
     for (let y = only.py * size; y < (only.py + 1) * size; y++) {
       for (let x = only.px * size; x < (only.px + 1) * size; x++) {
         const tile = tileKey(x, y);
-        for (const layer of storeys) if (own(layer, tile) !== undefined) placed++;
+        for (const layer of floors) if (own(layer, tile) !== undefined) placed++;
         if (own(shown, tile) !== undefined) onDisplay++;
       }
     }
@@ -536,7 +536,7 @@ function plotViews(
       const at = plotKey(Math.floor(x / size), Math.floor(y / size));
       counts.set(at, (counts.get(at) ?? 0) + 1);
     };
-    for (const layer of storeys) for (const tile of Object.keys(layer)) add(blocks, tile);
+    for (const layer of floors) for (const tile of Object.keys(layer)) add(blocks, tile);
     for (const tile of Object.keys(shown)) add(displays, tile);
   }
   const one = only ? own(state.plots, plotKey(only.px, only.py)) : undefined;
@@ -566,7 +566,7 @@ function plotViews(
       visitors: facts.visitors.get(week) ?? 0,
       admirers: facts.admirers.get(week) ?? 0,
       blocks: blocks.get(key) ?? 0,
-      ...(plot.storeys ? { storeys: plot.storeys } : {}),
+      ...(plot.floors ? { floors: plot.floors } : {}),
       displays: displays.get(key) ?? 0,
       ...(plot.gallery ? { gallery: true as const } : {}),
     });

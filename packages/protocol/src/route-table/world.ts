@@ -81,7 +81,7 @@ export const WORLD_ROUTES = [
     summary:
       "A plot's blocks and paths as a plan for `build`, to copy a design onto your own plot.",
     description:
-      "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every storey is there, with `storey` on the entries above the ground floor, so a copy needs as many storeys on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
+      "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every floor is there, with `floor` on the entries above the ground floor, so a copy needs as many floors on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
     tags: ["World"],
     params: PlotParams,
     responses: { 200: json(PlotPlanResponse) },

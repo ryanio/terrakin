@@ -12,7 +12,7 @@ import {
   plotPickupsOwned,
   plotsOwnedBy,
   type Resident,
-  standingStorey,
+  standingFloor,
   starterHutGardenTiles,
   tileKey,
   trickOrTreatDay,
@@ -212,7 +212,7 @@ export const gatherable = (state: WorldState, id: string, at: Tile) =>
  * `up` from stairs, `down` from the top of them.
  */
 const climbsFor = (state: WorldState, r: Resident) =>
-  climbsAt((storey, key) => blocksOn(state, storey)[key], r.x, r.y, standingStorey(r));
+  climbsAt((floor, key) => blocksOn(state, floor)[key], r.x, r.y, standingFloor(r));
 
 /**
  * The tiles inside the starter hut around `hearth` where something new can go: on a plot `viewer`

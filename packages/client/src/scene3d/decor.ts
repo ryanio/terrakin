@@ -49,7 +49,7 @@ interface Joins {
 /** Where one decor block stands: its middle on the ground, and a tint that fades neighbors. */
 export interface DecorPlace {
   x: number;
-  /** How high it stands: its storey's floor (RFC 0028), absent on the ground. */
+  /** How high it stands: its floor's height (RFC 0028), absent on the ground. */
   y?: number;
   z: number;
   /** Multiplies the model's colors: white on the plot, toward the haze for a neighbor's. */

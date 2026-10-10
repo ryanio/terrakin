@@ -64,12 +64,12 @@ describe("a plot's drawing", () => {
     ]);
   });
 
-  it("draws a home from above: a floor upstairs over the hearth and the crops under it", () => {
+  it("draws a home from above: flooring upstairs over the hearth and the crops under it", () => {
     const loft: WorldSnapshot = {
       ...world,
-      plots: [{ px: 1, py: 0, ownerId: "ivy", storeys: 1 }],
-      blocks: [...world.blocks, { x: 4, y: 1, storey: 1, block: "glass" }],
-      ground: [...(world.ground ?? []), { x: 5, y: 1, storey: 1, ground: "planks" }],
+      plots: [{ px: 1, py: 0, ownerId: "ivy", floors: 1 }],
+      blocks: [...world.blocks, { x: 4, y: 1, floor: 1, block: "glass" }],
+      ground: [...(world.ground ?? []), { x: 5, y: 1, floor: 1, ground: "planks" }],
     };
     const drawn = plotMarks(loft, 1, 0).marks.filter((m) => m.kind !== "ground");
     expect(drawn.slice(-3)).toEqual([

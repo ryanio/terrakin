@@ -52,6 +52,20 @@ import {
 } from "./events";
 import { checkFish } from "./fishing";
 import {
+  blockProblem,
+  checkAddFloor,
+  checkClimb,
+  floorField,
+  floorGround,
+  floorOf,
+  layerFor,
+  plotHasAnything,
+  removeProblem,
+  setFloor,
+  stairwellProblem,
+  standingFloor,
+} from "./floors";
+import {
   checkCloseRound,
   checkCloseTable,
   checkDecide,
@@ -152,20 +166,6 @@ import {
   shopNewDay,
   stockHoliday,
 } from "./shop";
-import {
-  blockProblem,
-  checkAddStorey,
-  checkClimb,
-  layerFor,
-  plotHasAnything,
-  removeProblem,
-  setStorey,
-  stairwellProblem,
-  standingStorey,
-  storeyField,
-  storeyGround,
-  storeyOf,
-} from "./storeys";
 import { checkTestGrant } from "./test-grant";
 import {
   checkKeepTableSpots,
@@ -235,15 +235,15 @@ const outOfBuildReach = (config: WorldConfig, me: Tile, at: Tile) =>
   outOfReach(me, at, config.reach, `You can only build within ${config.reach} tiles.`);
 
 /**
- * `out_of_reach` for building on `storey` from the storey `me` stands on, or null: a storey counts
+ * `out_of_reach` for building on `floor` from the floor `me` stands on, or null: a floor counts
  * as a tile (RFC 0028).
  */
-function outOfStoreyReach(config: WorldConfig, me: Resident, storey: number): Prepared | null {
-  const from = standingStorey(me);
-  if (Math.abs(storey - from) <= config.reach) return null;
+function outOfFloorReach(config: WorldConfig, me: Resident, floor: number): Prepared | null {
+  const from = standingFloor(me);
+  if (Math.abs(floor - from) <= config.reach) return null;
   return reject(
     "out_of_reach",
-    `You can only build within ${config.reach} tiles, and a storey counts as one. Go ${storey > from ? "up" : "down"} the stairs first.`,
+    `You can only build within ${config.reach} tiles, and a floor counts as one. Go ${floor > from ? "up" : "down"} the stairs first.`,
   );
 }
 
@@ -505,19 +505,19 @@ function workingPlot(state: WorldState, me: Resident, shared: boolean): Plot | u
 
 /**
  * Ground-floor tiles where an online resident other than `except` is standing, as tile keys.
- * Someone upstairs stands on a floor, never in the way of a block or a landing below.
+ * Someone upstairs stands on flooring, never in the way of a block or a landing below.
  */
 function standingTiles(state: WorldState, except: string): Set<string> {
   const tiles = new Set<string>();
   for (const r of Object.values(state.residents)) {
-    if (r.online && r.id !== except && standingStorey(r) === 0) tiles.add(tileKey(r.x, r.y));
+    if (r.online && r.id !== except && standingFloor(r) === 0) tiles.add(tileKey(r.x, r.y));
   }
   return tiles;
 }
 
 /** Whether a resident stands on their hearth: its tile, on the ground floor. */
 const onHearth = (me: Resident): boolean =>
-  me.hearth !== null && sameTile(me, me.hearth) && standingStorey(me) === 0;
+  me.hearth !== null && sameTile(me, me.hearth) && standingFloor(me) === 0;
 
 /** Every resident's hearth (except `except`'s), as tile keys. Nobody builds on a hearth. */
 function hearthTiles(state: WorldState, except?: string): Set<string> {
@@ -628,14 +628,14 @@ function joining(
     return reject("invalid_name", `Names must be 1 to ${NAME_MAX_LENGTH} characters.`);
   }
   // Returning residents keep their spot, upstairs too (RFC 0028). If someone built on it, or
-  // took the floor away, while they were away, they go to their hearth, or to the Commons if they
+  // took the flooring away, while they were away, they go to their hearth, or to the Commons if they
   // have none.
-  const storey = me ? standingStorey(me) : 0;
+  const floor = me ? standingFloor(me) : 0;
   const keepSpot =
     me !== undefined &&
-    (storey === 0
+    (floor === 0
       ? !isSolid(state, me.x, me.y)
-      : storeyGround(state, storey).obstacle(me.x, me.y) === undefined);
+      : floorGround(state, floor).obstacle(me.x, me.y) === undefined);
   const spawn = me?.hearth ?? spawnTile(state.config);
   const unowned = unownedWear(state, actor, command);
   if (unowned) return unowned;
@@ -652,7 +652,7 @@ function joining(
     hearth: me?.hearth ?? null,
     // A pet stays theirs while they're away (RFC 0019).
     ...(me?.pet ? { pet: me.pet } : {}),
-    ...(keepSpot ? storeyField(storey) : {}),
+    ...(keepSpot ? floorField(floor) : {}),
   };
 }
 
@@ -894,15 +894,15 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkClimb(state, me, command.dir));
       }
       if (!isDirection(command.dir)) return reject("out_of_bounds", STEPS_GO);
-      // A step keeps to the storey you stand on.
-      const storey = standingStorey(me);
-      const step = stepFrom(storeyGround(state, storey), me, command.dir);
+      // A step keeps to the floor you stand on.
+      const floor = standingFloor(me);
+      const step = stepFrom(floorGround(state, floor), me, command.dir);
       if (!step.ok) return reject(step.code, step.message);
       const { x, y } = step.to;
       return () => {
         me.x = x;
         me.y = y;
-        return [{ type: "moved", residentId: actor, x, y, ...storeyField(storey) }];
+        return [{ type: "moved", residentId: actor, x, y, ...floorField(floor) }];
       };
     }
 
@@ -914,16 +914,16 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (steps.length > PUTTER_MAX_STEPS) {
         return reject("out_of_reach", `A putter walks at most ${PUTTER_MAX_STEPS} tiles.`);
       }
-      // Each step is checked like a move, from where the last one left off, on your storey.
-      const storey = standingStorey(me);
-      const walked = walkSteps(storeyGround(state, storey), me, steps);
+      // Each step is checked like a move, from where the last one left off, on your floor.
+      const floor = standingFloor(me);
+      const walked = walkSteps(floorGround(state, floor), me, steps);
       if (!walked.ok) return reject(walked.code, walked.message);
       const { path } = walked;
       return () =>
         path.map(({ x, y }) => {
           me.x = x;
           me.y = y;
-          return { type: "moved", residentId: actor, x, y, ...storeyField(storey) };
+          return { type: "moved", residentId: actor, x, y, ...floorField(floor) };
         });
     }
 
@@ -955,7 +955,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return reject("not_your_plot", "You can only release a plot you own.");
       }
       // Releasing never demolishes: clear the blocks first. That keeps release a single,
-      // honest change instead of a silent teardown (see decision 0018). Paths and floors too
+      // honest change instead of a silent teardown (see decision 0018). Paths and flooring too
       // (RFC 0016), so nobody inherits a stranger's.
       const { plotSize } = config;
       for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
@@ -966,16 +966,16 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           if (state.ground?.[tileKey(x, y)] !== undefined) {
             return reject(
               "plot_has_blocks",
-              "Lift every path and floor on the plot first. One build with a lift list clears them all.",
+              "Lift all the paths and flooring on the plot first. One build with a lift list clears them all.",
             );
           }
         }
       }
-      // Upstairs too (RFC 0028). The storeys themselves go with the plot's record.
+      // Upstairs too (RFC 0028). The floors themselves go with the plot's record.
       if (plotHasAnything(state, px, py)) {
         return reject(
           "plot_has_blocks",
-          "Remove every block and lift every floor upstairs on the plot first.",
+          "Remove every block and lift all the flooring upstairs on the plot first.",
         );
       }
       // Every hearth on the plot goes with it: a hearth must sit on a plot its resident can build
@@ -1067,7 +1067,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return () => {
         me.x = hearth.x;
         me.y = hearth.y;
-        setStorey(me, 0);
+        setFloor(me, 0);
         return [{ type: "moved", residentId: actor, x: hearth.x, y: hearth.y }];
       };
     }
@@ -1087,18 +1087,18 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           `You can only build on your own plot.${buildHint(state, me)}`,
         );
       }
-      // The storey the tile is on (RFC 0028): absent is the ground floor.
-      const storey = storeyOf(plot, command.storey);
-      if (typeof storey !== "number") return { ok: false, rejection: storey };
-      const climb = outOfStoreyReach(config, me, storey);
+      // The floor the tile is on (RFC 0028): absent is the ground floor.
+      const floor = floorOf(plot, command.floor);
+      if (typeof floor !== "number") return { ok: false, rejection: floor };
+      const climb = outOfFloorReach(config, me, floor);
       if (climb) return climb;
-      // Paths and floors (RFC 0016) keep the same where-rules, and their own checks.
-      if (command.type === "lay") return town(checkLay(state, actor, command, storey));
-      if (command.type === "lift") return town(checkLift(state, actor, command, storey));
+      // Paths and flooring (RFC 0016) keep the same where-rules, and their own checks.
+      if (command.type === "lay") return town(checkLay(state, actor, command, floor));
+      if (command.type === "lift") return town(checkLift(state, actor, command, floor));
       const key = tileKey(x, y);
-      const blocks = storey === 0 ? state.blocks : layerFor(state, storey).blocks;
+      const blocks = floor === 0 ? state.blocks : layerFor(state, floor).blocks;
       // Hearths, crops, and displays are on the ground floor, keyed by their tile alone.
-      const groundFloor = storey === 0;
+      const groundFloor = floor === 0;
       if (command.type === "remove") {
         const taken = blocks[key];
         if (taken === undefined) return reject("no_block", "Nothing to remove there.");
@@ -1107,20 +1107,20 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         }
         const shown = groundFloor ? displayRemoveProblem(state, x, y) : null;
         if (shown) return { ok: false, rejection: shown };
-        const holding = removeProblem(state, x, y, storey);
+        const holding = removeProblem(state, x, y, floor);
         if (holding) return { ok: false, rejection: holding };
         const full = blockRemoveProblem(state, actor, taken);
         if (full) return { ok: false, rejection: full };
         return () => {
           delete blocks[key];
           return [
-            { type: "block_removed", x, y, ...storeyField(storey), by: actor },
+            { type: "block_removed", x, y, ...floorField(floor), by: actor },
             ...moveBlockCost(state, actor, taken, 1),
           ];
         };
       }
       if (blocks[key] !== undefined) return reject("tile_occupied", "A block is already there.");
-      const stairwell = stairwellProblem(state, x, y, storey);
+      const stairwell = stairwellProblem(state, x, y, floor);
       if (stairwell) return { ok: false, rejection: stairwell };
       if (groundFloor && me.hearth?.x === x && me.hearth.y === y) {
         return reject("tile_occupied", "That's your hearth. Keep it clear.");
@@ -1130,28 +1130,28 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return reject("tile_occupied", "That's someone's hearth. Keep it clear.");
       }
       const standingThere = Object.values(state.residents).some(
-        (r) => r.online && r.x === x && r.y === y && standingStorey(r) === storey,
+        (r) => r.online && r.x === x && r.y === y && standingFloor(r) === floor,
       );
       if (standingThere) return reject("tile_occupied", "Someone is standing there.");
       const { block } = command;
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");
       }
-      const unheld = blockProblem(state, plot, x, y, storey, block);
+      const unheld = blockProblem(state, plot, x, y, floor, block);
       if (unheld) return { ok: false, rejection: unheld };
       const cost = blockPlaceProblem(state, actor, block);
       if (cost) return { ok: false, rejection: cost };
       return () => {
         blocks[key] = block;
         return [
-          { type: "block_placed", x, y, ...storeyField(storey), block, by: actor },
+          { type: "block_placed", x, y, ...floorField(floor), block, by: actor },
           ...moveBlockCost(state, actor, block, -1),
         ];
       };
     }
 
-    case "add_storey":
-      return town(checkAddStorey(state, actor, command));
+    case "add_floor":
+      return town(checkAddFloor(state, actor, command));
 
     case "settle": {
       const { px, py } = command;
@@ -1181,10 +1181,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         state.plots[key] = { px, py, ownerId: actor, ...stampDay(state) };
         const events: WorldEvent[] = [{ type: "plot_claimed", px, py, ownerId: actor }];
         // A jump, so it lands on the ground floor (RFC 0028).
-        if (!sameTile(me, to) || standingStorey(me) !== 0) {
+        if (!sameTile(me, to) || standingFloor(me) !== 0) {
           me.x = to.x;
           me.y = to.y;
-          setStorey(me, 0);
+          setFloor(me, 0);
           events.push({ type: "moved", residentId: actor, x: to.x, y: to.y });
         }
         return events;
@@ -1229,7 +1229,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // The builder steps onto the hearth tile rather than get walled in. If that tile holds a
       // block, the wall where they stand stays open instead. Upstairs, a wall below is no matter.
       let moveTo: Tile | null = null;
-      if (standingStorey(me) === 0 && blocks.some((b) => sameTile(b, me))) {
+      if (standingFloor(me) === 0 && blocks.some((b) => sameTile(b, me))) {
         if (hearthFree) moveTo = home.hearth;
         else blocks = blocks.filter((b) => !sameTile(b, me));
       }

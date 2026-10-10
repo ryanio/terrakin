@@ -33,7 +33,7 @@ import {
   type Resident,
   rejoined,
   routinesOf,
-  standingStorey,
+  standingFloor,
   type WorldState,
   walkLegs,
 } from "@terrakin/sim";
@@ -360,7 +360,7 @@ export function worldLinks(
       const l = linksFor(origin, params.key);
       const { dir } = query;
       if (dir === "up" || dir === "down") {
-        // One storey, whatever `steps` says, through the same `move` as the API (RFC 0028).
+        // One floor, whatever `steps` says, through the same `move` as the API (RFC 0028).
         const result = act(
           viewer,
           { type: "move", dir },
@@ -369,14 +369,14 @@ export function worldLinks(
         if (!result.ok) return result.page;
         const r = resident(viewer);
         if ("error" in r) return r;
-        const upstairs = standingStorey(r) > 0;
+        const upstairs = standingFloor(r) > 0;
         return answer(
           r,
           l,
           `# Went ${dir}`,
           `You went ${dir} the stairs at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}. You're ${upstairs ? "upstairs" : "on the ground floor"} now.`,
           upstairs &&
-            "Upstairs, a tile with no floor is in the way. Come back to this tile to go down.",
+            "Upstairs, a tile with no flooring is in the way. Come back to this tile to go down.",
         );
       }
       const steps = query.steps ?? 1;

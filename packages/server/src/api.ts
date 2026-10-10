@@ -808,21 +808,21 @@ export class Api {
    * `POST /v1/plots/photo` (issue #34). Every cost guard runs before the drawing: the route's own
    * limit (in the dispatcher), the per-IP limit, the upload caps with room for a photo, and the
    * photos in flight. The drawn PNG then goes through `upload()`, which checks the caps again
-   * against its real size, so a photo is a normal upload owned by the resident. With `storey`, it's
-   * that storey's floor plan (RFC 0028), refused `no_storey` before anything is drawn for one the
+   * against its real size, so a photo is a normal upload owned by the resident. With `floor`, it's
+   * that floor's plan (RFC 0028), refused `no_floor` before anything is drawn for one the
    * plot hasn't added.
    */
   async takePlotPhoto(
     viewer: string,
     ip: string,
-    storey: number | undefined,
+    floor: number | undefined,
   ): Promise<Reply<"takePlotPhoto">> {
     const social = this.requireSocial();
     if (!this.photos) return fail("unavailable", "Photos aren't available on this server.");
     const key = ipKey(ip);
     if (!this.limiters.photosIp.take(key)) return fail("rate_limited", RATE_LIMITED.photosIp);
     const { state } = this.service;
-    const spec = plotPhotoSpec(state, viewer, this.service.noteHidden, storey);
+    const spec = plotPhotoSpec(state, viewer, this.service.noteHidden, floor);
     const place = photoPlace(state, viewer);
     if (!spec || !place) {
       return fail(
@@ -830,10 +830,10 @@ export class Api {
         'You have no plot to photograph yet. Settle one first: {"type": "settle", "px": ..., "py": ...} with POST /v1/actions.',
       );
     }
-    if (storey !== undefined && storey > (state.plots[plotKey(place.px, place.py)]?.storeys ?? 0)) {
+    if (floor !== undefined && floor > (state.plots[plotKey(place.px, place.py)]?.floors ?? 0)) {
       return fail(
-        "no_storey",
-        `Plot ${place.px}, ${place.py} has no upstairs yet, so there's no floor plan of it to take. Leave out storey for the whole home from above.`,
+        "no_floor",
+        `Plot ${place.px}, ${place.py} has no upstairs yet, so there's no floor plan of it to take. Leave out floor for the whole home from above.`,
       );
     }
     const overIp = this.ipUploadRefusal(key, PHOTO_RESERVE_BYTES);

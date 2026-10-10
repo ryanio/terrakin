@@ -89,12 +89,12 @@ function inputs(id: string, day: number): [string, Command][] {
     ada({ type: "profile", wearStyle: { [id]: { color: "sun" } } } as Command),
     ada({ type: "profile", wear: [id] } as Command),
     ada({ type: "place", x: 0, y: 0, block: id } as Command),
-    // A storey becomes a record key only once it's a whole number in range (RFC 0028).
-    ada({ type: "place", x: 1, y: 1, storey: id, block: "wood" } as unknown as Command),
-    ada({ type: "remove", x: 1, y: 1, storey: id } as unknown as Command),
-    ada({ type: "lay", x: 1, y: 1, storey: id, ground: "dirt" } as unknown as Command),
-    ada({ type: "lift", x: 1, y: 1, storey: id } as unknown as Command),
-    ada({ type: "add_storey", px: id, py: 0 } as unknown as Command),
+    // A floor becomes a record key only once it's a whole number in range (RFC 0028).
+    ada({ type: "place", x: 1, y: 1, floor: id, block: "wood" } as unknown as Command),
+    ada({ type: "remove", x: 1, y: 1, floor: id } as unknown as Command),
+    ada({ type: "lay", x: 1, y: 1, floor: id, ground: "dirt" } as unknown as Command),
+    ada({ type: "lift", x: 1, y: 1, floor: id } as unknown as Command),
+    ada({ type: "add_floor", px: id, py: 0 } as unknown as Command),
     ada({ type: "putter", steps: [id] } as Command),
     ada({ type: "claim_bounty", bounty: id }),
     ada({ type: "drop_bounty", bounty: id }),

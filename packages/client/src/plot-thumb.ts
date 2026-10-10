@@ -11,13 +11,13 @@ import {
   alphaHex,
   blockFill,
   CROP_HEX,
+  FLOORS,
   type GroundKind,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
   isDecorKind,
   PAPER,
-  STOREYS,
   THEME_INFO,
   THEME_TINT_ALPHA,
 } from "@terrakin/sim";
@@ -33,15 +33,15 @@ export type PlotMark =
   | { x: number; y: number; kind: "display" }
   | { x: number; y: number; kind: "hearth" };
 
-/** The storey a snapshot entry is on: absent is the ground floor. */
-const storeyOf = (t: { storey?: number | undefined }) => t.storey ?? 0;
+/** The floor a snapshot entry is on: absent is the ground floor. */
+const floorOf = (t: { floor?: number | undefined }) => t.floor ?? 0;
 
 /** A sprout's green while a crop is still growing. */
 const GROWING = "#7fae55";
 
 /**
- * What to paint for plot (px, py), back to front: the ground in its season, then paths and floors,
- * blocks, crops, displays, and hearths, then each storey above the ground floor's floors and blocks
+ * What to paint for plot (px, py), back to front: the ground in its season, then paths and flooring,
+ * blocks, crops, displays, and hearths, then the flooring and blocks of each floor above the ground floor
  * (RFC 0028), so a home is drawn from above, as the map draws someone else's. `tint` is the owner's
  * theme over the ground, under the paths. Pure, so tests pin it.
  */
@@ -69,13 +69,13 @@ export function plotMarks(
       });
     }
   }
-  const build = (storey: number) => {
+  const build = (floor: number) => {
     for (const g of world.ground ?? []) {
-      if (storeyOf(g) !== storey || !here(g)) continue;
+      if (floorOf(g) !== floor || !here(g)) continue;
       marks.push({ x: g.x - x0, y: g.y - y0, kind: "path", ground: g.ground });
     }
     for (const b of world.blocks) {
-      if (storeyOf(b) !== storey || !here(b)) continue;
+      if (floorOf(b) !== floor || !here(b)) continue;
       const glass = b.block === "glass";
       marks.push({
         x: b.x - x0,
@@ -107,7 +107,7 @@ export function plotMarks(
       marks.push({ x: r.hearth.x - x0, y: r.hearth.y - y0, kind: "hearth" });
     }
   }
-  for (let storey = 1; storey <= STOREYS.max; storey++) build(storey);
+  for (let floor = 1; floor <= FLOORS.max; floor++) build(floor);
   return {
     size,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),

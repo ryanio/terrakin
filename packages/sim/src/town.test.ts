@@ -392,13 +392,13 @@ describe("propose", () => {
     expect(files({ ground: [path(3, 3)] })).toMatch("isn't in the Commons");
     expect(files({ ground: [path(hall.x, hall.y)] })).toMatch("Town Hall");
     expect(files({ lift: [hall] })).toMatch("Town Hall");
-    expect(files({ ground: [path(10, 10, "lava" as never)] })).toMatch("needs a path or floor");
+    expect(files({ ground: [path(10, 10, "lava" as never)] })).toMatch("needs a path or flooring");
     expect(files({ blocks: [{ x: 10, y: 10, block: "workbench" as never }] })).toMatch(
       "needs a block the town builds with",
     );
     expect(files({ blocks: [{ x: 10, y: 11, block: "bench" }] })).toMatch("Someone is standing");
     expect(files({ ground: [path(12, 12, "brick")] })).toMatch("already has cobblestones");
-    expect(files({ lift: [{ x: 10, y: 10 }] })).toMatch("no path or floor to lift");
+    expect(files({ lift: [{ x: 10, y: 10 }] })).toMatch("no path or flooring to lift");
     expect(files({ ground: [path(9, 9), path(9, 9, "sand")] })).toMatch("in ground twice");
     const advisory = prepare(w.state, {
       actor: "ada",

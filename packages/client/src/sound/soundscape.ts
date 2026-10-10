@@ -265,7 +265,7 @@ export class Soundscape {
     this.drip(now, until, level.rain);
   }
 
-  /** Your step lands on `ground` (a path or floor), or on grass, or snow in winter. */
+  /** Your step lands on `ground` (a path or flooring), or on grass, or snow in winter. */
   step(ground: GroundKind | undefined): void {
     const at = this.ctx.currentTime + 0.01;
     if (!this.stepLimit.take(at)) return;

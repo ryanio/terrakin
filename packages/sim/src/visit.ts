@@ -1,8 +1,8 @@
 import { isWhole, refuse } from "./check";
+import { setFloor, standingFloor } from "./floors";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { residentById } from "./own";
-import { setStorey, standingStorey } from "./storeys";
 import type {
   Command,
   Plot,
@@ -216,7 +216,7 @@ export function checkVisit(
     if (r.hearth && r.hearth.x === x && r.hearth.y === y) {
       return refuse("tile_occupied", "That's someone's hearth. Keep it clear.");
     }
-    if (r.online && r.id !== me.id && r.x === x && r.y === y && standingStorey(r) === 0) {
+    if (r.online && r.id !== me.id && r.x === x && r.y === y && standingFloor(r) === 0) {
       return refuse("tile_occupied", "Someone is standing there.");
     }
   }
@@ -224,7 +224,7 @@ export function checkVisit(
   return () => {
     me.x = x;
     me.y = y;
-    setStorey(me, 0);
+    setFloor(me, 0);
     return [{ type: "moved", residentId: me.id, x, y }];
   };
 }

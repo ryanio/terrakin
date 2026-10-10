@@ -156,20 +156,20 @@ describe("plot photo data", () => {
     expect(wall?.fill).toBe(blockFill("wood", THEME_INFO.lemon.palette));
     expect(spec.facts[1]).toBe(`${spec.blocks.length} blocks`);
     expect(spec.blocks.some((b) => b.decor !== undefined)).toBe(false);
-    // One storey: nothing about storeys in its data or its words.
+    // One floor: nothing about floors in its data or its words.
     expect(spec.facts).toHaveLength(2);
-    expect(spec).not.toHaveProperty("storeys");
+    expect(spec).not.toHaveProperty("floors");
   });
 
-  it("draws every storey from above, or one storey's floor plan with what's above it left out (RFC 0028)", async () => {
+  it("draws every floor from above, or one floor's plan with what's above it left out (RFC 0028)", async () => {
     const { service } = await start({ log: loftLog("r_ada", "Ada") });
-    expect(service.state.plots["0,0"]?.storeys).toBe(1);
+    expect(service.state.plots["0,0"]?.floors).toBe(1);
     const moss = {
       ...(GROUND_LOOK.moss.fill ? { fill: GROUND_LOOK.moss.fill } : {}),
       marks: GROUND_LOOK.moss.marks,
     };
     const loft = {
-      floors: [
+      flooring: [
         { x: 2, y: 2, paving: moss },
         { x: 3, y: 2, paving: moss },
         { x: 2, y: 3, paving: moss },
@@ -179,21 +179,21 @@ describe("plot photo data", () => {
     };
     const above = plotPhotoSpec(service.state, "r_ada");
     if (!above) throw new Error("no spec");
-    expect(above.storeys).toEqual([loft]);
+    expect(above.floors).toEqual([loft]);
     expect(above).not.toHaveProperty("floorPlan");
     // The window upstairs counts with the hut's blocks, and the line says how tall the home is.
-    expect(above.facts.slice(1)).toEqual([`${above.blocks.length + 1} blocks`, "2 storeys"]);
+    expect(above.facts.slice(1)).toEqual([`${above.blocks.length + 1} blocks`, "2 floors"]);
 
     // The ground floor's plan leaves the loft out, and shows the hearth under it.
     const ground = plotPhotoSpec(service.state, "r_ada", undefined, 0);
-    expect(ground).not.toHaveProperty("storeys");
+    expect(ground).not.toHaveProperty("floors");
     expect(ground).not.toHaveProperty("floorPlan");
     expect(ground?.blocks).toEqual(above.blocks);
     expect(ground?.hearth).toEqual({ x: 3, y: 3 });
     expect(ground?.facts.at(-1)).toBe("Ground floor");
-    // Upstairs is the loft over the ground floor, dimmed where the loft has no floor.
+    // Upstairs is the loft over the ground floor, dimmed where the loft has no flooring.
     const upstairs = plotPhotoSpec(service.state, "r_ada", undefined, 1);
-    expect(upstairs).toMatchObject({ storeys: [loft], floorPlan: true });
+    expect(upstairs).toMatchObject({ floors: [loft], floorPlan: true });
     expect(upstairs?.facts.at(-1)).toBe("Upstairs");
   });
 
@@ -227,7 +227,7 @@ describe("plot photo data", () => {
     });
   });
 
-  it("names furniture and lays paths and floors in the world's own look", async () => {
+  it("names furniture and lays paths and flooring in the world's own look", async () => {
     const { settled, service } = await start();
     const wren = await settled("Wren");
     // Set straight into the world for this read-model test: making, laying, and building are
@@ -370,16 +370,16 @@ describe("POST /v1/plots/photo", () => {
     expect(drawn.count).toBe(0);
   });
 
-  it("takes one storey's floor plan, and refuses a storey the plot hasn't added before drawing (RFC 0028)", async () => {
+  it("takes one floor's plan, and refuses a floor the plot hasn't added before drawing (RFC 0028)", async () => {
     const { service, call, photo, drawn } = await start({ log: loftLog("r_ada", "Ada") });
     const ada = { token: service.issueToken("r_ada") };
-    expect((await photo(ada, { storey: 1 })).status).toBe(201);
-    expect(drawn.specs[0]).toMatchObject({ floorPlan: true, storeys: [expect.anything()] });
-    expect((await photo(ada, { storey: 0 })).status).toBe(201);
-    expect(drawn.specs[1]).not.toHaveProperty("storeys");
+    expect((await photo(ada, { floor: 1 })).status).toBe(201);
+    expect(drawn.specs[0]).toMatchObject({ floorPlan: true, floors: [expect.anything()] });
+    expect((await photo(ada, { floor: 0 })).status).toBe(201);
+    expect(drawn.specs[1]).not.toHaveProperty("floors");
     // No body: the whole home from above.
     expect((await photo(ada)).status).toBe(201);
-    expect(drawn.specs[2]?.storeys).toHaveLength(1);
+    expect(drawn.specs[2]?.floors).toHaveLength(1);
     expect(drawn.specs[2]).not.toHaveProperty("floorPlan");
 
     // Wren's plot has no upstairs, so there's no plan of one to draw.
@@ -387,15 +387,15 @@ describe("POST /v1/plots/photo", () => {
     const wren = body as { token: string };
     const settle = { type: "settle", px: 2, py: 0 };
     expect((await call("POST", "/v1/actions", wren.token, settle)).body.ok).toBe(true);
-    const refused = await photo(wren, { storey: 1 });
+    const refused = await photo(wren, { floor: 1 });
     expect(refused.status).toBe(400);
-    expect(refused.body.error.code).toBe("no_storey");
-    // Past the highest storey any plot may have is no storey at all.
-    const beyond = await photo(wren, { storey: 2 });
+    expect(refused.body.error.code).toBe("no_floor");
+    // Past the highest floor any plot may have is no floor at all.
+    const beyond = await photo(wren, { floor: 2 });
     expect(beyond.status).toBe(400);
     expect(beyond.body.error.code).toBe("bad_request");
     expect(drawn.count).toBe(3);
-    expect((await photo(wren, { storey: 0 })).status).toBe(201);
+    expect((await photo(wren, { floor: 0 })).status).toBe(201);
   });
 
   it("answers unavailable when the server has no renderer", async () => {

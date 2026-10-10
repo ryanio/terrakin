@@ -13,6 +13,7 @@ import {
   type Crop,
   type Direction,
   type FindKind,
+  FLOORS,
   type Ground,
   type GroundKind,
   groundOf,
@@ -24,7 +25,6 @@ import {
   pickupOn,
   plotKey,
   type Resident,
-  STOREYS,
   type StepRoutine,
   shopTiles,
   tileKey,
@@ -32,8 +32,8 @@ import {
   type WorldConfig,
 } from "@terrakin/sim";
 import type { EventMark } from "./event-format";
+import type { FloorLayers } from "./floors";
 import { type Dozer, dozers } from "./scene3d/layout";
-import type { StoreyLayers } from "./storeys";
 
 type EventMessage = { seq: number; event: WorldEvent };
 
@@ -62,7 +62,7 @@ function petFrom(view: PetView): Pet {
 function residentFrom(view: ResidentView): Resident {
   // `facing` and `routine` are for drawing; the mirror keeps them outside the resident.
   const {
-    storey,
+    floor,
     theme,
     pattern,
     wear,
@@ -93,17 +93,17 @@ function residentFrom(view: ResidentView): Resident {
     ...lookOf(look),
     ...(pet ? { pet: petFrom(pet) } : {}),
     // Upstairs (RFC 0028); absent on the ground floor.
-    ...(storey ? { storey } : {}),
+    ...(floor ? { floor } : {}),
   };
 }
 
-/** One storey above the ground floor (RFC 0028): its blocks and its floors, by tileKey. */
-export interface StoreyLayer {
+/** One floor above the ground floor (RFC 0028): its blocks and its flooring, by tileKey. */
+export interface FloorLayer {
   blocks: Map<string, BlockKind>;
   paving: Map<string, GroundKind>;
 }
 
-const NO_STOREY: Readonly<StoreyLayer> = { blocks: new Map(), paving: new Map() };
+const NO_FLOOR: Readonly<FloorLayer> = { blocks: new Map(), paving: new Map() };
 
 /** How long an away resident is out after a routine's step reaches us, before they sleep again. */
 export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * 60_000;
@@ -131,22 +131,22 @@ export class Mirror {
   plots = new Map<string, string>(); // plotKey -> ownerId
   coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
-  /** Paths and floors under the blocks (RFC 0016), by tileKey. Nobody walks differently for them. */
+  /** Paths and flooring under the blocks (RFC 0016), by tileKey. Nobody walks differently for them. */
   paving = new Map<string, GroundKind>();
   /**
-   * Each storey above the ground floor (RFC 0028), by its number. `blocks` and `paving` are the
-   * ground floor's, which is what everything but the map's storeys reads.
+   * Each floor above the ground floor (RFC 0028), by its number. `blocks` and `paving` are the
+   * ground floor's, which is what everything but the map's floors reads.
    */
-  upstairs = new Map<number, StoreyLayer>();
-  /** How many storeys each plot added above its ground floor, by plotKey. */
-  storeys = new Map<string, number>();
+  upstairs = new Map<number, FloorLayer>();
+  /** How many floors each plot added above its ground floor, by plotKey. */
+  floors = new Map<string, number>();
   /** The tiles the Town Hall stands on. Tapping one opens /town. */
   townHall: { x: number; y: number }[];
   /** The tiles the town shop stands on, once it's open (RFC 0008). Tapping one opens /shop. */
   shop: { x: number; y: number }[];
   /** Whether the Town Hall and the shop stop walkers (`solid_buildings`). */
   solidBuildings: boolean;
-  /** The ground each storey's walkers step on, built once each (`ground`). */
+  /** The ground each floor's walkers step on, built once each (`ground`). */
   private walkable = new Map<number, Ground>();
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
@@ -205,11 +205,11 @@ export class Mirror {
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
       if (p.name !== undefined) this.plotNames.set(plotKey(p.px, p.py), p.name);
-      if (p.storeys) this.storeys.set(plotKey(p.px, p.py), p.storeys);
+      if (p.floors) this.floors.set(plotKey(p.px, p.py), p.floors);
     }
-    for (const b of snapshot.blocks) this.blocksAt(b.storey).set(tileKey(b.x, b.y), b.block);
+    for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
     for (const g of snapshot.ground ?? []) {
-      this.pavingAt(g.storey).set(tileKey(g.x, g.y), g.ground);
+      this.pavingAt(g.floor).set(tileKey(g.x, g.y), g.ground);
     }
     this.townHall = snapshot.townHall.map((t) => ({ ...t }));
     this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
@@ -248,48 +248,48 @@ export class Mirror {
     }
   }
 
-  /** A storey's layer, made when it first has something. */
-  #layer(storey: number): StoreyLayer {
-    let layer = this.upstairs.get(storey);
+  /** A floor's layer, made when it first has something. */
+  #layer(floor: number): FloorLayer {
+    let layer = this.upstairs.get(floor);
     if (!layer) {
       layer = { blocks: new Map(), paving: new Map() };
-      this.upstairs.set(storey, layer);
+      this.upstairs.set(floor, layer);
     }
     return layer;
   }
 
-  /** The blocks on a storey (absent or 0: the ground floor's), to change. */
-  blocksAt(storey: number | undefined): Map<string, BlockKind> {
-    return storey ? this.#layer(storey).blocks : this.blocks;
+  /** The blocks on a floor (absent or 0: the ground floor's), to change. */
+  blocksAt(floor: number | undefined): Map<string, BlockKind> {
+    return floor ? this.#layer(floor).blocks : this.blocks;
   }
 
-  /** The paths and floors on a storey (absent or 0: the ground floor's), to change. */
-  pavingAt(storey: number | undefined): Map<string, GroundKind> {
-    return storey ? this.#layer(storey).paving : this.paving;
+  /** The paths and flooring on a floor (absent or 0: the ground floor's), to change. */
+  pavingAt(floor: number | undefined): Map<string, GroundKind> {
+    return floor ? this.#layer(floor).paving : this.paving;
   }
 
-  /** A storey above the ground floor as it is, to read: empty until something is on it. */
-  storey(storey: number): Readonly<StoreyLayer> {
-    return this.upstairs.get(storey) ?? NO_STOREY;
+  /** A floor above the ground floor as it is, to read: empty until something is on it. */
+  floor(floor: number): Readonly<FloorLayer> {
+    return this.upstairs.get(floor) ?? NO_FLOOR;
   }
 
-  /** The blocks on any storey, to read: the ground floor's for 0. */
-  blocksOn(storey: number): ReadonlyMap<string, BlockKind> {
-    return storey === 0 ? this.blocks : this.storey(storey).blocks;
+  /** The blocks on any floor, to read: the ground floor's for 0. */
+  blocksOn(floor: number): ReadonlyMap<string, BlockKind> {
+    return floor === 0 ? this.blocks : this.floor(floor).blocks;
   }
 
-  /** The paths and floors on any storey, to read: the ground floor's for 0. */
-  pavingOn(storey: number): ReadonlyMap<string, GroundKind> {
-    return storey === 0 ? this.paving : this.storey(storey).paving;
+  /** The paths and flooring on any floor, to read: the ground floor's for 0. */
+  pavingOn(floor: number): ReadonlyMap<string, GroundKind> {
+    return floor === 0 ? this.paving : this.floor(floor).paving;
   }
 
-  /** How many storeys the plot under (x, y) added above its ground floor. */
-  storeysAt(x: number, y: number): number {
+  /** How many floors the plot under (x, y) added above its ground floor. */
+  floorsAt(x: number, y: number): number {
     const { plotSize } = this.config;
-    return this.storeys.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize))) ?? 0;
+    return this.floors.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize))) ?? 0;
   }
 
-  /** Whether anything stands or lies on any storey above the ground floor. */
+  /** Whether anything stands or lies on any floor above the ground floor. */
   hasUpstairs(): boolean {
     for (const layer of this.upstairs.values()) {
       if (layer.blocks.size > 0 || layer.paving.size > 0) return true;
@@ -297,16 +297,16 @@ export class Mirror {
     return false;
   }
 
-  /** The storeys above the ground floor, as the map's cutaway reads them (`storeys.ts`). */
-  layers(): StoreyLayers {
+  /** The floors above the ground floor, as the map's cutaway reads them (`floors.ts`). */
+  layers(): FloorLayers {
     return {
-      top: STOREYS.max,
-      has: (storey, x, y) => {
-        const layer = this.upstairs.get(storey);
+      top: FLOORS.max,
+      has: (floor, x, y) => {
+        const layer = this.upstairs.get(floor);
         const key = tileKey(x, y);
         return layer !== undefined && (layer.blocks.has(key) || layer.paving.has(key));
       },
-      floor: (storey, x, y) => this.upstairs.get(storey)?.paving.has(tileKey(x, y)) === true,
+      flooring: (floor, x, y) => this.upstairs.get(floor)?.paving.has(tileKey(x, y)) === true,
     };
   }
 
@@ -319,15 +319,15 @@ export class Mirror {
   }
 
   /**
-   * The ground a walker on `storey` steps on, as the sim's walking rule sees it, so a step is
+   * The ground a walker on `floor` steps on, as the sim's walking rule sees it, so a step is
    * checked here as it is there: the sim's `groundOf` on the ground floor, where stairs are the one
-   * block you walk onto, and its `upstairsGroundOf` above, where a tile with no floor is in the way.
+   * block you walk onto, and its `upstairsGroundOf` above, where a tile with no flooring is in the way.
    */
-  ground(storey = 0): Ground {
-    let ground = this.walkable.get(storey);
+  ground(floor = 0): Ground {
+    let ground = this.walkable.get(floor);
     if (ground) return ground;
     ground =
-      storey === 0
+      floor === 0
         ? groundOf({
             config: this.config,
             hasBlock: (x, y) => blocksWalkers(this.blocks.get(tileKey(x, y))),
@@ -336,11 +336,11 @@ export class Mirror {
           })
         : upstairsGroundOf({
             config: this.config,
-            block: (key) => this.storey(storey).blocks.get(key),
-            floor: (key) => this.storey(storey).paving.has(key),
-            below: (key) => this.blocksOn(storey - 1).get(key),
+            block: (key) => this.floor(floor).blocks.get(key),
+            flooring: (key) => this.floor(floor).paving.has(key),
+            below: (key) => this.blocksOn(floor - 1).get(key),
           });
-    this.walkable.set(storey, ground);
+    this.walkable.set(floor, ground);
     return ground;
   }
 
@@ -380,9 +380,9 @@ export class Mirror {
         const dir = facingFrom(event.x - r.x, event.y - r.y);
         if (dir) this.facing.set(r.id, dir);
         Object.assign(r, { x: event.x, y: event.y });
-        // Up or down a storey (RFC 0028): absent on the ground floor.
-        if (event.storey) r.storey = event.storey;
-        else delete r.storey;
+        // Up or down a floor (RFC 0028): absent on the ground floor.
+        if (event.floor) r.floor = event.floor;
+        else delete r.floor;
         if (event.routine) this.#out.set(r.id, { routine: event.routine, at: this.#clock() });
         break;
       }
@@ -396,13 +396,13 @@ export class Mirror {
         this.plots.delete(key);
         this.coOwners.delete(key);
         this.galleries.delete(key);
-        // A plot's name goes with it (decision 0121), and so do its storeys (RFC 0028).
+        // A plot's name goes with it (decision 0121), and so do its floors (RFC 0028).
         this.plotNames.delete(key);
-        this.storeys.delete(key);
+        this.floors.delete(key);
         break;
       }
-      case "storey_added":
-        this.storeys.set(plotKey(event.px, event.py), event.storey);
+      case "floor_added":
+        this.floors.set(plotKey(event.px, event.py), event.floor);
         break;
       case "plot_named": {
         const key = plotKey(event.px, event.py);
@@ -424,18 +424,18 @@ export class Mirror {
         if (r) r.hearth = { x: event.x, y: event.y };
         break;
       }
-      // On the storey each names (RFC 0028): absent is the ground floor.
+      // On the floor each names (RFC 0028): absent is the ground floor.
       case "block_placed":
-        this.blocksAt(event.storey).set(tileKey(event.x, event.y), event.block);
+        this.blocksAt(event.floor).set(tileKey(event.x, event.y), event.block);
         break;
       case "block_removed":
-        this.blocksAt(event.storey).delete(tileKey(event.x, event.y));
+        this.blocksAt(event.floor).delete(tileKey(event.x, event.y));
         break;
       case "ground_laid":
-        this.pavingAt(event.storey).set(tileKey(event.x, event.y), event.ground);
+        this.pavingAt(event.floor).set(tileKey(event.x, event.y), event.ground);
         break;
       case "ground_lifted":
-        this.pavingAt(event.storey).delete(tileKey(event.x, event.y));
+        this.pavingAt(event.floor).delete(tileKey(event.x, event.y));
         break;
       case "plot_shared": {
         const key = plotKey(event.px, event.py);

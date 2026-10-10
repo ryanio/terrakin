@@ -10,9 +10,9 @@ import type {
   PlotCard,
   PlotCrop,
   PlotFloor,
+  PlotFlooring,
   PlotGround,
   PlotPet,
-  PlotStorey,
 } from "./plot";
 import type { Card } from "./templates";
 
@@ -177,7 +177,7 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     { x: 6, y: 1, crop: "strawberry", done: 1, fill: "#d9434f" },
     { x: 6, y: 3, crop: "herb", done: 0.4, fill: "#4f8a3a" },
   ];
-  // A cobble path out of the door, a plank floor inside, and fallen leaves by the well.
+  // A cobble path out of the door, plank flooring inside, and fallen leaves by the well.
   const cobble = {
     fill: "#857e73",
     marks: [
@@ -265,33 +265,33 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
 }
 
 /**
- * The sample plot with a loft over its hut (RFC 0028): a plank floor over the hut but for the
+ * The sample plot with a loft over its hut (RFC 0028): plank flooring over the hut but for the
  * stairwell, stairs up from the ground floor, and a glass railing along the loft's south edge.
- * `storey` draws that storey's floor plan instead of the home from above.
+ * `floor` draws that floor's plan instead of the home from above.
  */
-export function sampleLoft(name: string, storey?: 0 | 1): PlotCard {
+export function sampleLoft(name: string, floor?: 0 | 1): PlotCard {
   const base = samplePlot(name);
   const planks = base.ground[2 * base.size + 2]?.paving ?? { marks: [] };
   const stairwell = { x: 4, y: 2 };
-  const floors: PlotFloor[] = [];
+  const flooring: PlotFlooring[] = [];
   for (let y = 1; y <= 4; y++) {
     for (let x = 1; x <= 5; x++) {
-      if (x !== stairwell.x || y !== stairwell.y) floors.push({ x, y, paving: planks });
+      if (x !== stairwell.x || y !== stairwell.y) flooring.push({ x, y, paving: planks });
     }
   }
   const railing: PlotBlock[] = [1, 2, 4, 5].map((x) => ({ x, y: 5, glass: true, fill: "#bfe0ea" }));
   const blocks = [...base.blocks, { ...stairwell, glass: false, fill: "#c99a66" }];
-  const loft: PlotStorey = { floors, blocks: railing };
+  const loft: PlotFloor = { flooring, blocks: railing };
   const facts = ["Meadow and forest", `${blocks.length + railing.length} blocks`];
   return {
     ...base,
     blocks,
-    ...(storey === 0
+    ...(floor === 0
       ? { facts: [...facts, "Ground floor"] }
       : {
-          facts: [...facts, storey === 1 ? "Upstairs" : "2 storeys"],
-          storeys: [loft],
-          ...(storey === 1 ? { floorPlan: true } : {}),
+          facts: [...facts, floor === 1 ? "Upstairs" : "2 floors"],
+          floors: [loft],
+          ...(floor === 1 ? { floorPlan: true } : {}),
         }),
   };
 }

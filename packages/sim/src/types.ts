@@ -50,7 +50,7 @@ export type Climb = (typeof CLIMBS)[number];
  * and `scarecrow` are decor the shop sells in autumn (RFC 0017). The next eleven are furniture made
  * at a workbench (RFC 0016), held and placed like decor, then three of Halloween's decor (RFC 0022),
  * the next four winter's decor (RFC 0017), `pond` a tile of water to fish beside (RFC 0023),
- * paid for in stone, and `stairs` up to the storey above (RFC 0028), paid for in wood, the one
+ * paid for in stone, and `stairs` up to the floor above (RFC 0028), paid for in wood, the one
  * block anyone walks onto. New kinds go on the end, and a held one (decor or furniture) is an entry
  * in the catalog too.
  */
@@ -217,8 +217,8 @@ export interface Resident extends Look {
   hearth: Tile | null;
   /** Their pet (RFC 0019). Absent until they adopt one, so older logs hash as they did. */
   pet?: Pet;
-  /** The storey they stand on (RFC 0028). Absent on the ground floor. */
-  storey?: number;
+  /** The floor they stand on (RFC 0028). Absent on the ground floor. */
+  floor?: number;
 }
 
 export interface Plot {
@@ -257,12 +257,12 @@ export interface Plot {
    * (`PLOT_NAMES.freeRenames`, decision 0121). Absent until the first.
    */
   freeRenamesUsed?: number;
-  /** How many storeys above the ground floor this plot added (`add_storey`). Absent at 0. */
-  storeys?: number;
+  /** How many floors above the ground floor this plot added (`add_floor`). Absent at 0. */
+  floors?: number;
 }
 
-/** One storey above the ground floor (RFC 0028): its blocks and its floors. */
-export interface StoreyLayer {
+/** One floor above the ground floor (RFC 0028): its blocks and its flooring. */
+export interface FloorLayer {
   blocks: Record<string, BlockKind>;
   ground: Record<string, GroundKind>;
 }
@@ -300,7 +300,7 @@ export interface PlannedBlock {
   block: CommonsBlock;
 }
 
-/** One path or floor a `commons_build` proposal lays in the Commons, at a world tile. */
+/** One path or flooring a `commons_build` proposal lays in the Commons, at a world tile. */
 export interface PlannedGround {
   x: number;
   y: number;
@@ -308,13 +308,13 @@ export interface PlannedGround {
 }
 
 /**
- * A tile in a `build`, counted from its plot's north-west corner, on a storey (RFC 0028): absent
+ * A tile in a `build`, counted from its plot's north-west corner, on a floor (RFC 0028): absent
  * or 0 is the ground floor.
  */
 export interface PlanTile {
   x: number;
   y: number;
-  storey?: number | undefined;
+  floor?: number | undefined;
 }
 
 /** One block a `build` places. */
@@ -322,7 +322,7 @@ export interface PlanBlock extends PlanTile {
   block: BlockKind;
 }
 
-/** One path or floor a `build` lays. */
+/** One path or flooring a `build` lays. */
 export interface PlanGround extends PlanTile {
   ground: GroundKind;
 }
@@ -340,9 +340,9 @@ export interface Proposal {
   blocks?: PlannedBlock[];
   /** `commons_build` only: Commons blocks to take away. */
   remove?: Tile[];
-  /** `commons_build` only: paths and floors to lay. Absent on proposals that lay none. */
+  /** `commons_build` only: paths and flooring to lay. Absent on proposals that lay none. */
   ground?: PlannedGround[];
-  /** `commons_build` only: Commons paths and floors to lift. Absent on proposals that lift none. */
+  /** `commons_build` only: Commons paths and flooring to lift. Absent on proposals that lift none. */
   lift?: Tile[];
   /** `grant` and `bounty` only: the coins it pays from the treasury if it passes. */
   amount?: number;
@@ -397,16 +397,16 @@ export interface WorldState {
    */
   tableSpotsKept?: true;
   /**
-   * Paths and floors (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
+   * Paths and flooring (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
    * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
    */
   ground?: Record<string, GroundKind>;
   /**
-   * Storeys above the ground floor (RFC 0028), keyed by the storey's number ("1"). Each holds its
-   * own blocks and floors keyed by tileKey(x, y), like `blocks` and `ground` do for the ground
-   * floor. Absent until the first `add_storey`, which makes the storey's layer.
+   * Floors above the ground floor (RFC 0028), keyed by the floor's number ("1"). Each holds its
+   * own blocks and flooring keyed by tileKey(x, y), like `blocks` and `ground` do for the ground
+   * floor. Absent until the first `add_floor`, which makes the floor's layer.
    */
-  storeys?: Record<string, StoreyLayer>;
+  floors?: Record<string, FloorLayer>;
   /**
    * Today, in UTC days since 1970-01-01, from the server's last `new_day`. Absent until the first
    * one, like every Town Hall field below, so a world that never saw a day hashes as it always has.
@@ -1101,9 +1101,9 @@ export const INVENTORY_REASONS = [
   "off_display",
   /** Held aside for you while your things were full, and back now that they have room. */
   "held",
-  /** What a path or floor took, laid with `lay` (RFC 0016). */
+  /** What a path or flooring took, laid with `lay` (RFC 0016). */
   "laid",
-  /** What a lifted path or floor gave back. */
+  /** What a lifted path or flooring gave back. */
   "lifted",
   /** A plan built with `build`: what it used and gave back, net. */
   "built",
@@ -1168,8 +1168,8 @@ export const COIN_REASONS = [
   "groom",
   /** From a duplicate record of yours that the Terrakin team merged into this one. */
   "merged",
-  /** A storey added to a plot (RFC 0028). A small share goes to the treasury and the rest is burned. */
-  "storey",
+  /** A floor added to a plot (RFC 0028). A small share goes to the treasury and the rest is burned. */
+  "floor",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1248,19 +1248,19 @@ export type Command =
   | { type: "release" }
   | { type: "set_hearth"; x: number; y: number }
   | { type: "home" }
-  /** `storey` is the storey the tile is on (RFC 0028): absent or 0 is the ground floor. */
-  | { type: "place"; x: number; y: number; storey?: number | undefined; block: BlockKind }
-  | { type: "remove"; x: number; y: number; storey?: number | undefined }
-  /** Lay a path or floor on a tile, within reach (RFC 0016). */
-  | { type: "lay"; x: number; y: number; storey?: number | undefined; ground: GroundKind }
-  /** Lift the path or floor off a tile, within reach. What it took comes back. */
-  | { type: "lift"; x: number; y: number; storey?: number | undefined }
-  /** Add the next storey to plot (px, py), one you own or share, from anywhere (RFC 0028). */
-  | { type: "add_storey"; px: number; py: number }
+  /** `floor` is the floor the tile is on (RFC 0028): absent or 0 is the ground floor. */
+  | { type: "place"; x: number; y: number; floor?: number | undefined; block: BlockKind }
+  | { type: "remove"; x: number; y: number; floor?: number | undefined }
+  /** Lay a path or flooring on a tile, within reach (RFC 0016). */
+  | { type: "lay"; x: number; y: number; floor?: number | undefined; ground: GroundKind }
+  /** Lift the path or flooring off a tile, within reach. What it took comes back. */
+  | { type: "lift"; x: number; y: number; floor?: number | undefined }
+  /** Add the next floor to plot (px, py), one you own or share, from anywhere (RFC 0028). */
+  | { type: "add_floor"; px: number; py: number }
   /**
    * A plan built on plot (px, py) in one input, from anywhere (RFC 0016). Tiles count from the
-   * plot's north-west corner, on a storey (RFC 0028). `remove` and `lift` go first, from the top
-   * storey down, then the ground floor's `blocks` and `ground`, then each storey up's `ground` and
+   * plot's north-west corner, on a floor (RFC 0028). `remove` and `lift` go first, from the top
+   * floor down, then the ground floor's `blocks` and `ground`, then each floor up's `ground` and
    * `blocks`.
    */
   | {
@@ -1642,41 +1642,41 @@ export type WorldEvent =
       /** The whole look after the change: a field that's absent here is unset. */
     } & Look)
   /** `routine` marks a step an offline resident's routine took (RFC 0009). */
-  /** `storey` is there only above the ground floor (RFC 0028). */
+  /** `floor` is there only above the ground floor (RFC 0028). */
   | {
       type: "moved";
       residentId: ResidentId;
       x: number;
       y: number;
-      storey?: number;
+      floor?: number;
       routine?: StepRoutine;
     }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
   | { type: "hearth_set"; residentId: ResidentId; x: number; y: number }
-  /** `storey` is there only above the ground floor (RFC 0028), on these four. */
+  /** `floor` is there only above the ground floor (RFC 0028), on these four. */
   | {
       type: "block_placed";
       x: number;
       y: number;
-      storey?: number;
+      floor?: number;
       block: BlockKind;
       by: ResidentId;
     }
-  | { type: "block_removed"; x: number; y: number; storey?: number; by: ResidentId }
-  /** A path or floor went down on a tile (RFC 0016). Public. */
+  | { type: "block_removed"; x: number; y: number; floor?: number; by: ResidentId }
+  /** A path or flooring went down on a tile (RFC 0016). Public. */
   | {
       type: "ground_laid";
       x: number;
       y: number;
-      storey?: number;
+      floor?: number;
       ground: GroundKind;
       by: ResidentId;
     }
-  /** The path or floor on a tile was lifted. Public. */
-  | { type: "ground_lifted"; x: number; y: number; storey?: number; by: ResidentId }
-  /** A plot added a storey (RFC 0028). Public. Its price is in the payer's `coins` event. */
-  | { type: "storey_added"; px: number; py: number; storey: number; by: ResidentId }
+  /** The path or flooring on a tile was lifted. Public. */
+  | { type: "ground_lifted"; x: number; y: number; floor?: number; by: ResidentId }
+  /** A plot added a floor (RFC 0028). Public. Its price is in the payer's `coins` event. */
+  | { type: "floor_added"; px: number; py: number; floor: number; by: ResidentId }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
   | { type: "hearth_cleared"; residentId: ResidentId }
@@ -1716,9 +1716,9 @@ export type WorldEvent =
       removed: Tile[];
       /** Tiles where part of the plan didn't happen: a tile once for each part. */
       skipped: Tile[];
-      /** Paths and floors laid. Present only when there are some, so older builds' events are as they were. */
+      /** Paths and flooring laid. Present only when there are some, so older builds' events are as they were. */
       laid?: PlannedGround[];
-      /** Paths and floors lifted. Present only when there are some. */
+      /** Paths and flooring lifted. Present only when there are some. */
       lifted?: Tile[];
     }
   | { type: "economy_opened"; treasury: number }
@@ -2108,7 +2108,7 @@ export const REJECTION_CODES = [
   "already_set",
   /** The shop sells that only in another season (RFC 0017). */
   "out_of_season",
-  /** No path or floor on that tile to lift (RFC 0016). */
+  /** No path or flooring on that tile to lift (RFC 0016). */
   "no_ground",
   /** A `build` plan that doesn't fit: empty, too long, a tile off the plot, or one listed twice. */
   "invalid_plan",
@@ -2195,12 +2195,12 @@ export const REJECTION_CODES = [
   "taught_today",
   /** The two of you aren't within reach of each other to teach. */
   "not_near",
-  // Homes with storeys (RFC 0028).
-  /** That plot hasn't added the storey: building on it, or stairs up to it. */
-  "no_storey",
-  /** Past the storeys a home can have, or stairs on the top storey. */
+  // Homes with an upstairs (RFC 0028).
+  /** That plot hasn't added the floor: building on it, or stairs up to it. */
+  "no_floor",
+  /** Past the floors a home can have, or stairs on the top floor. */
   "too_high",
-  /** Nothing holds that up: a floor with no wall below within reach of it, or a block with no floor or wall under it. */
+  /** Nothing holds that up: flooring with no wall below within reach of it, or a block with no flooring or wall under it. */
   "nothing_under",
   /** Taking that away would leave something above it with nothing holding it up. */
   "holds_up",

@@ -127,7 +127,7 @@ export const CatalogRecipe = z.object({
   makes: z.number().int().optional(),
 });
 
-/** A path or floor (RFC 0016): what one tile of it takes from your things. Empty `needs` is free. */
+/** A path or flooring (RFC 0016): what one tile of it takes from your things. Empty `needs` is free. */
 export const CatalogGround = z.object({
   /** Send this as `ground` in `lay` and `build`. */
   kind: GroundKind,

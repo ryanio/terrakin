@@ -1,8 +1,8 @@
 import { coinCount as coins, isWhole, refuse } from "./check";
 import { isTownsfolk, movePurse, sameHousehold } from "./economy";
+import { setFloor, standingFloor } from "./floors";
 import { plotKey, tileKey } from "./keys";
 import { own, residentById } from "./own";
-import { setStorey, standingStorey } from "./storeys";
 import { townEligibility } from "./town";
 import type {
   Command,
@@ -466,7 +466,7 @@ export function checkCancelEvent(
 function takenTiles(state: WorldState, actor: ResidentId): Set<string> {
   const taken = new Set<string>();
   for (const r of Object.values(state.residents)) {
-    if (r.online && r.id !== actor && standingStorey(r) === 0) taken.add(tileKey(r.x, r.y));
+    if (r.online && r.id !== actor && standingFloor(r) === 0) taken.add(tileKey(r.x, r.y));
     if (r.hearth) taken.add(tileKey(r.hearth.x, r.hearth.y));
   }
   return taken;
@@ -551,7 +551,7 @@ export function checkJoinEvent(
   return () => {
     me.x = to.x;
     me.y = to.y;
-    setStorey(me, 0);
+    setFloor(me, 0);
     return [{ type: "moved", residentId: actor, x: to.x, y: to.y }];
   };
 }

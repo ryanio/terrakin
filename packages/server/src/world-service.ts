@@ -37,6 +37,7 @@ import {
   eventEndsAt,
   everyGood,
   type FirstsCredit,
+  FLOORS,
   findEvent,
   findsOpen,
   GAME_RULES,
@@ -63,7 +64,6 @@ import {
   residentById,
   retireProblems,
   SHOP,
-  STOREYS,
   type StepRoutine,
   sameHousehold,
   seatOf,
@@ -127,7 +127,7 @@ export type ActResult =
       greeted?: string | null;
       /** `build`: what the plan did, or would do. A `commons_build` proposal: what it would build. */
       plan?: BuildPlanSummary;
-      /** `add_storey`: the coins it took, or would take. */
+      /** `add_floor`: the coins it took, or would take. */
       price?: number;
       dry?: true;
     }
@@ -278,9 +278,9 @@ function gameRefused(code: string, command: string) {
 const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
   prepared.plan ? { plan: buildSummary(prepared.plan) } : {};
 
-/** An `add_storey`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
+/** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
 const priceOf = (command: Command): { price?: number } =>
-  command.type === "add_storey" ? { price: STOREYS.price } : {};
+  command.type === "add_floor" ? { price: FLOORS.price } : {};
 
 /**
  * A join refused for a taken name (decision 0148). For agents and their owners; the web says it

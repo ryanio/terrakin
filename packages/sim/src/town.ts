@@ -315,7 +315,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
     const shop = onShop(g);
     if (shop) return shop;
     if (!isGroundKind(g.ground)) {
-      return `(${g.x}, ${g.y}) needs a path or floor: ${GROUND_KINDS.join(", ")}.`;
+      return `(${g.x}, ${g.y}) needs a path or flooring: ${GROUND_KINDS.join(", ")}.`;
     }
     const there = state.ground?.[tileKey(g.x, g.y)];
     if (there !== undefined && !lifting.has(tileKey(g.x, g.y))) {
@@ -329,7 +329,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
   }
   for (const t of lift) {
     if (state.ground?.[tileKey(t.x, t.y)] === undefined) {
-      return `(${t.x}, ${t.y}) has no path or floor to lift.`;
+      return `(${t.x}, ${t.y}) has no path or flooring to lift.`;
     }
   }
   return null;

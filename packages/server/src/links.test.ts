@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CHECKIN_SUGGESTED_HOURS, JOIN_CODE_MS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
-import { HAIR_STYLES, STOREYS, type WorldConfig } from "@terrakin/sim";
+import { FLOORS, HAIR_STYLES, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
@@ -483,10 +483,10 @@ describe("action links", () => {
     expect(none.text).toContain("Stand on stairs to go up.");
     expect(none.text).toContain("up while you stand on them, down from the top of them");
     expect((await wren.act("me")).text).not.toMatch(/move\?dir=(up|down)/);
-    // A storey and stairs inside her hut, south-west of the hearth, which a link can't build.
-    service.testGrant(wren.id, STOREYS.price, { wood: STOREYS.stairsWood });
+    // A floor and stairs inside her hut, south-west of the hearth, which a link can't build.
+    service.testGrant(wren.id, FLOORS.price, { wood: FLOORS.stairsWood });
     for (const action of [
-      { type: "add_storey", px: 0, py: 0 },
+      { type: "add_floor", px: 0, py: 0 },
       { type: "place", x: 2, y: 4, block: "stairs" },
     ] as const) {
       expect(service.act(wren.id, action), action.type).toMatchObject({ ok: true });
@@ -495,13 +495,13 @@ describe("action links", () => {
     const onStairs = (await wren.act("move?dir=sw")).text;
     expect(onStairs).toContain(`- Go up the stairs you're standing on: ${link("up")}`);
     expect(onStairs).not.toContain("move?dir=down");
-    // Up is one storey whatever `steps` says, and from the top the list offers the way down.
+    // Up is one floor whatever `steps` says, and from the top the list offers the way down.
     const up = (await wren.act("move?dir=up&steps=3")).text;
     expect(up).toContain("# Went up");
     expect(up).toContain(
       "You went up the stairs at (2, 4), on your plot (0, 0). You're upstairs now.",
     );
-    expect(service.state.residents[wren.id]).toMatchObject({ x: 2, y: 4, storey: 1 });
+    expect(service.state.residents[wren.id]).toMatchObject({ x: 2, y: 4, floor: 1 });
     expect(up).toContain(`- Go down the stairs you're at the top of: ${link("down")}`);
     expect(up).not.toContain("move?dir=up");
     // The sim's checks apply: there's no going up from the top.
@@ -510,11 +510,11 @@ describe("action links", () => {
     expect(down).toContain(
       "You went down the stairs at (2, 4), on your plot (0, 0). You're on the ground floor now.",
     );
-    expect(service.state.residents[wren.id]?.storey).toBeUndefined();
+    expect(service.state.residents[wren.id]?.floor).toBeUndefined();
     expect(down).toContain(link("up"));
-    const floor = await wren.act("move?dir=down");
-    expect([floor.status, codeOf(floor.text)]).toEqual([200, "no_stairs"]);
-    expect(floor.text).toContain("Stand at the top of the stairs to go down.");
+    const again = await wren.act("move?dir=down");
+    expect([again.status, codeOf(again.text)]).toEqual([200, "no_stairs"]);
+    expect(again.text).toContain("Stand at the top of the stairs to go down.");
   });
 
   it("charges one action per step of a walk", async () => {

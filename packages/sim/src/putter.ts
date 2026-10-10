@@ -1,6 +1,6 @@
+import { floorGround, standingFloor } from "./floors";
 import { fnv1a } from "./hash";
 import { tileKey } from "./keys";
-import { standingStorey, storeyGround } from "./storeys";
 import type { Direction, Resident, ResidentId, Tile, WorldState } from "./types";
 import { type Ground, type WalkNode, walkPath, walkTree } from "./walk";
 import { canBuildOn, chebyshev, commonsPlot, plotAtTile, plotOf } from "./world";
@@ -79,16 +79,16 @@ export function planPutter(
   /** A number in [0, n) for one named choice. */
   const pick = (n: number, salt: string) => Number.parseInt(fnv1a(`${seed}:${salt}`), 16) % n;
 
-  // A putter keeps to the storey you stand on, and the people on it (RFC 0028).
-  const storey = standingStorey(me);
+  // A putter keeps to the floor you stand on, and the people on it (RFC 0028).
+  const floor = standingFloor(me);
   const others = Object.values(state.residents).filter(
-    (r) => r.online && r.id !== actor && standingStorey(r) === storey,
+    (r) => r.online && r.id !== actor && standingFloor(r) === floor,
   );
   const occupied = new Set(others.map((r) => tileKey(r.x, r.y)));
   // Nobody in `avoid` is a destination, and no walk ends next to one of them either: a wander
   // toward the Commons may pass by, but never stops beside someone who shut the actor out.
   const shunned = others.filter((r) => avoid.has(r.id));
-  const ground = storeyGround(state, storey);
+  const ground = floorGround(state, floor);
   const nodes = walkTree(ground, me, PUTTER.window);
   const free = (n: WalkNode) =>
     !occupied.has(tileKey(n.x, n.y)) && !shunned.some((r) => chebyshev(n, r) <= 1);

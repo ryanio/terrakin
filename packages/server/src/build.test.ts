@@ -1,5 +1,5 @@
 import { BUILD_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import { STOREYS, type WorldConfig } from "@terrakin/sim";
+import { FLOORS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -156,70 +156,70 @@ describe("build", () => {
     expect(await t.act(ada, PATH)).toMatchObject({ ok: false, error: { code: "already_set" } });
   });
 
-  it("shows what's upstairs with its storey, and nothing about storeys in a world without one (RFC 0028)", async () => {
+  it("shows what's upstairs with its floor, and nothing about floors in a world without one (RFC 0028)", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);
     await t.act(ada, PATH);
-    // Today's world: the same snapshot as before storeys, with no storey anywhere in it.
+    // Today's world: the same snapshot as before homes had an upstairs, with no floor anywhere in it.
     const today = (await t.call("GET", "/v1/world")).body;
-    expect(JSON.stringify(today)).not.toContain("storey");
-    expect(JSON.stringify((await t.call("GET", "/v1/plots/0/0")).body)).not.toContain("storey");
-    // A loft over the hut, through the actions an agent sends: a storey, stairs inside, a floor
+    expect(JSON.stringify(today)).not.toMatch(/"floors?"/);
+    expect(JSON.stringify((await t.call("GET", "/v1/plots/0/0")).body)).not.toMatch(/"floors?"/);
+    // A loft over the hut, through the actions an agent sends: a floor, stairs inside, flooring
     // upstairs, a window up there on the wall, and Ada walking onto the stairs and up them.
-    t.service.testGrant(ada.id, STOREYS.price, { wood: STOREYS.stairsWood + 1 });
+    t.service.testGrant(ada.id, FLOORS.price, { wood: FLOORS.stairsWood + 1 });
     const ok = async (action: Record<string, unknown>) =>
       expect(await t.act(ada, action), JSON.stringify(action)).toMatchObject({ ok: true });
-    await ok({ type: "add_storey", px: 0, py: 0 });
+    await ok({ type: "add_floor", px: 0, py: 0 });
     await ok({ type: "place", x: 2, y: 4, block: "stairs" });
-    await ok({ type: "lay", x: 3, y: 3, storey: 1, ground: "planks" });
-    await ok({ type: "place", x: 1, y: 1, storey: 1, block: "glass" });
+    await ok({ type: "lay", x: 3, y: 3, floor: 1, ground: "planks" });
+    await ok({ type: "place", x: 1, y: 1, floor: 1, block: "glass" });
     await ok({ type: "move", dir: "sw" });
     const up = await t.act(ada, { type: "move", dir: "up" });
-    expect(up.events).toEqual([{ type: "moved", residentId: ada.id, x: 2, y: 4, storey: 1 }]);
+    expect(up.events).toEqual([{ type: "moved", residentId: ada.id, x: 2, y: 4, floor: 1 }]);
     const world = (await t.call("GET", "/v1/world")).body;
     expect(world.blocks).toContainEqual({ x: 2, y: 4, block: "stairs" });
     expect(world.blocks).toContainEqual({ x: 1, y: 1, block: "wood" });
-    expect(world.blocks).toContainEqual({ x: 1, y: 1, storey: 1, block: "glass" });
-    expect(world.ground).toContainEqual({ x: 3, y: 3, storey: 1, ground: "planks" });
-    expect(world.plots).toContainEqual(expect.objectContaining({ px: 0, py: 0, storeys: 1 }));
-    expect(world.residents).toContainEqual(expect.objectContaining({ id: ada.id, storey: 1 }));
-    // The plot's count takes in every storey.
+    expect(world.blocks).toContainEqual({ x: 1, y: 1, floor: 1, block: "glass" });
+    expect(world.ground).toContainEqual({ x: 3, y: 3, floor: 1, ground: "planks" });
+    expect(world.plots).toContainEqual(expect.objectContaining({ px: 0, py: 0, floors: 1 }));
+    expect(world.residents).toContainEqual(expect.objectContaining({ id: ada.id, floor: 1 }));
+    // The plot's count takes in every floor.
     const before = today.blocks.length;
     const shown = (await t.call("GET", "/v1/plots/0/0")).body.plot;
-    expect(shown).toMatchObject({ storeys: 1, blocks: before + 2 });
+    expect(shown).toMatchObject({ floors: 1, blocks: before + 2 });
     expect((await t.call("GET", "/v1/plots")).body.plots).toEqual([
-      expect.objectContaining({ px: 0, py: 0, storeys: 1, blocks: before + 2 }),
+      expect.objectContaining({ px: 0, py: 0, floors: 1, blocks: before + 2 }),
     ]);
-    // Read back as a plan, the loft keeps its storey, so a copy of it lands upstairs.
+    // Read back as a plan, the loft keeps its floor, so a copy of it lands upstairs.
     const plan = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
-    expect(plan.blocks).toContainEqual({ x: 1, y: 1, storey: 1, block: "glass" });
-    expect(plan.ground).toContainEqual({ x: 3, y: 3, storey: 1, ground: "planks" });
+    expect(plan.blocks).toContainEqual({ x: 1, y: 1, floor: 1, block: "glass" });
+    expect(plan.ground).toContainEqual({ x: 3, y: 3, floor: 1, ground: "planks" });
   });
 
-  it("prices a storey with a dry run that spends nothing, then adds it for that (RFC 0028)", async () => {
+  it("prices a floor with a dry run that spends nothing, then adds it for that (RFC 0028)", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);
-    t.service.testGrant(ada.id, STOREYS.price, undefined);
+    t.service.testGrant(ada.id, FLOORS.price, undefined);
     const purse = async () => (await t.call("GET", "/v1/purse", undefined, ada.token)).body.purse;
     const before = await purse();
     const seq = t.service.state.seq;
-    const dry = await t.act(ada, { type: "add_storey", px: 0, py: 0, dry: true });
-    expect(dry).toEqual({ ok: true, dry: true, seq, events: [], price: STOREYS.price });
+    const dry = await t.act(ada, { type: "add_floor", px: 0, py: 0, dry: true });
+    expect(dry).toEqual({ ok: true, dry: true, seq, events: [], price: FLOORS.price });
     expect(await purse()).toEqual(before);
     expect(t.service.state.seq).toBe(seq);
-    expect((await t.call("GET", "/v1/plots/0/0")).body.plot.storeys).toBeUndefined();
-    const added = await t.act(ada, { type: "add_storey", px: 0, py: 0 });
-    expect(added).toMatchObject({ ok: true, price: STOREYS.price });
+    expect((await t.call("GET", "/v1/plots/0/0")).body.plot.floors).toBeUndefined();
+    const added = await t.act(ada, { type: "add_floor", px: 0, py: 0 });
+    expect(added).toMatchObject({ ok: true, price: FLOORS.price });
     expect(added.events).toContainEqual({
-      type: "storey_added",
+      type: "floor_added",
       px: 0,
       py: 0,
-      storey: 1,
+      floor: 1,
       by: ada.id,
     });
-    expect((await purse()).balance).toBe(before.balance - STOREYS.price);
-    // One storey above the ground is as high as a home goes, and a dry run says so too.
-    expect(await t.act(ada, { type: "add_storey", px: 0, py: 0, dry: true })).toMatchObject({
+    expect((await purse()).balance).toBe(before.balance - FLOORS.price);
+    // One floor above the ground is as high as a home goes, and a dry run says so too.
+    expect(await t.act(ada, { type: "add_floor", px: 0, py: 0, dry: true })).toMatchObject({
       ok: false,
       dry: true,
       error: { code: "too_high" },

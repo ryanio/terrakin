@@ -15,7 +15,7 @@ import { type Drawing, drawingBox, drawingSvg } from "./drawing";
 export { safeColor };
 
 /**
- * One shape of a path or floor, in tile units from the tile's top left, as the sim's palette gives
+ * One shape of a path or flooring, in tile units from the tile's top left, as the sim's palette gives
  * it (`GROUND_LOOK`). Colors are checked by `safeColor`; numbers are kept to the tile.
  */
 export type PlotMark =
@@ -40,7 +40,7 @@ export type PlotMark =
       stroke: string;
     };
 
-/** A path or floor on a tile (RFC 0016): its color, if it covers the tile, and its shapes. */
+/** A path or flooring on a tile (RFC 0016): its color, if it covers the tile, and its shapes. */
 export interface PlotPaving {
   fill?: string | undefined;
   marks: readonly PlotMark[];
@@ -55,7 +55,7 @@ export interface PlotGround {
   flower?: { fx: number; fy: number; fill: string } | undefined;
   /** An autumn leaf: where it lies in the tile, its turn in radians from east, and its color. */
   leaf?: { fx: number; fy: number; turn: number; fill: string } | undefined;
-  /** A path or floor laid on the tile. Nothing grows through it. */
+  /** A path or flooring laid on the tile. Nothing grows through it. */
   paving?: PlotPaving | undefined;
 }
 
@@ -112,8 +112,8 @@ export interface PlotBlock {
   lily?: boolean | undefined;
 }
 
-/** A floor laid on a storey above the ground floor (RFC 0028): its tile and its look. */
-export interface PlotFloor {
+/** Flooring laid on a floor above the ground floor (RFC 0028): its tile and its look. */
+export interface PlotFlooring {
   /** Tiles from the area's top left corner. */
   x: number;
   y: number;
@@ -121,11 +121,11 @@ export interface PlotFloor {
 }
 
 /**
- * A storey above the ground floor (RFC 0028): its floors and the blocks on it, drawn from above
- * over the storeys under it, as the map draws them.
+ * A floor above the ground floor (RFC 0028): its flooring and the blocks on it, drawn from above
+ * over the floors under it, as the map draws them.
  */
-export interface PlotStorey {
-  floors: PlotFloor[];
+export interface PlotFloor {
+  flooring: PlotFlooring[];
   blocks: PlotBlock[];
 }
 
@@ -217,9 +217,9 @@ export interface PlotCard {
   pet?: PlotPet | undefined;
   /** Residents standing on the plot (pictures by link, decision 0160). */
   figures?: PlacedFigure[] | undefined;
-  /** Storeys above the ground floor, from storey 1 up (RFC 0028). */
-  storeys?: PlotStorey[] | undefined;
-  /** The top storey drawn is a floor plan: what's under it shows through dimmed where it has no floor. */
+  /** Floors above the ground floor, from floor 1 up (RFC 0028). */
+  floors?: PlotFloor[] | undefined;
+  /** The top floor drawn is a floor plan: what's under it shows through dimmed where it has no flooring. */
   floorPlan?: boolean | undefined;
   /**
    * A photo taken to post on Terrakin, where the post's card frames it and may crop its sides: no
@@ -234,7 +234,7 @@ export interface PlacedFigure {
   x: number;
   y: number;
   drawing: Drawing;
-  /** Under a floor the picture draws over them: drawn faded, as the map draws them (RFC 0028). */
+  /** Under flooring the picture draws over them: drawn faded, as the map draws them (RFC 0028). */
   faded?: boolean | undefined;
 }
 
@@ -256,13 +256,13 @@ export interface PlotArea {
   pets?: PlotPet[] | undefined;
   figures?: PlacedFigure[] | undefined;
   /**
-   * Storeys above the ground floor, from storey 1 up (RFC 0028), each drawn over the ones under
+   * Floors above the ground floor, from floor 1 up (RFC 0028), each drawn over the ones under
    * it with a shadow that falls further the higher it is, so height reads at a glance.
    */
-  storeys?: PlotStorey[] | undefined;
+  floors?: PlotFloor[] | undefined;
   /**
-   * The top storey in `storeys` is a floor plan, as the map shows the storey you stand on: what's
-   * under it shows through dimmed wherever it has no floor.
+   * The top floor in `floors` is a floor plan, as the map shows the floor you stand on: what's
+   * under it shows through dimmed wherever it has no flooring.
    */
   floorPlan?: boolean | undefined;
   ink: PlotInk;
@@ -283,7 +283,7 @@ export function plotSvg(c: PlotCard, px: number): string {
     hearths: c.hearth ? [c.hearth] : [],
     pets: c.pet ? [c.pet] : [],
     figures: c.figures,
-    storeys: c.storeys,
+    floors: c.floors,
     floorPlan: c.floorPlan,
     ink: c.ink,
   });
@@ -294,21 +294,21 @@ export function plotSvg(c: PlotCard, px: number): string {
 const MAX_SIDE = 64;
 const MAX_FIGURES = 24;
 const MAX_PETS = 24;
-/** Most storeys above the ground an area draws, and most floors and blocks on each. */
-const MAX_STOREYS = 4;
-const MAX_STOREY_TILES = MAX_SIDE * MAX_SIDE;
+/** Most floors above the ground an area draws, and most flooring and blocks on each. */
+const MAX_FLOORS = 4;
+const MAX_FLOOR_TILES = MAX_SIDE * MAX_SIDE;
 
-/** A storey's shadow, as the map draws it: how far it falls per storey, in tiles, and its color. */
-const STOREY_SHADOW = 0.22;
-const STOREY_SHADE = "rgba(43, 30, 18, 0.24)";
-/** How dim what's under a floor plan shows where it has no floor, as on the map. */
+/** A floor's shadow, as the map draws it: how far it falls per floor, in tiles, and its color. */
+const FLOOR_SHADOW = 0.22;
+const FLOOR_SHADE = "rgba(43, 30, 18, 0.24)";
+/** How dim what's under a floor plan shows where it has no flooring, as on the map. */
 const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
-/** How faded a figure under a floor is drawn, as on the map. */
-const UNDER_FLOOR_OPACITY = 0.5;
+/** How faded a figure under flooring is drawn, as on the map. */
+const UNDER_FLOORING_OPACITY = 0.5;
 
 /**
  * An area's markup, in tile units from its top left: the ground and what lies on it, ponds, blocks,
- * decor and furniture, crops, hearths, the storeys above the ground floor, pets, and figures, back
+ * decor and furniture, crops, hearths, the floors above the ground floor, pets, and figures, back
  * to front. Our own markup only.
  */
 export function areaParts(a: PlotArea): string[] {
@@ -395,7 +395,7 @@ export function areaParts(a: PlotArea): string[] {
       `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(a.ink.roof)}"/>`,
     );
   }
-  parts.push(...storeysSvg(a, cols, rows, inX, inY));
+  parts.push(...floorsSvg(a, cols, rows, inX, inY));
   for (const pet of (a.pets ?? []).slice(0, MAX_PETS)) parts.push(...petSvg(pet, cols, rows));
   // Figures back to front, so someone further south stands in front.
   const figures = (a.figures ?? [])
@@ -409,9 +409,9 @@ export function areaParts(a: PlotArea): string[] {
 }
 
 /**
- * Blocks standing on one storey: a ground shadow, the block, a bottom shade, and a top highlight,
+ * Blocks standing on one floor: a ground shadow, the block, a bottom shade, and a top highlight,
  * as in the world, with decor and furniture as themselves. Fences and low walls join their
- * neighbors on the same storey. Ponds are drawn flat with the ground, so they're left out here.
+ * neighbors on the same floor. Ponds are drawn flat with the ground, so they're left out here.
  */
 function blocksSvg(
   blocks: readonly PlotBlock[],
@@ -470,26 +470,26 @@ function blocksSvg(
 }
 
 /**
- * The storeys above the ground floor (RFC 0028), as the map draws them: each over the ones under
- * it, from the ground up, its floors and blocks casting a shadow that falls further the higher it
- * is. A floor plan first dims every tile where its top storey has no floor, so what's below shows
+ * The floors above the ground floor (RFC 0028), as the map draws them: each over the ones under
+ * it, from the ground up, its flooring and blocks casting a shadow that falls further the higher it
+ * is. A floor plan first dims every tile where its top floor has no flooring, so what's below shows
  * through.
  */
-function storeysSvg(
+function floorsSvg(
   a: PlotArea,
   cols: number,
   rows: number,
   inX: (v: number) => boolean,
   inY: (v: number) => boolean,
 ): string[] {
-  const storeys = (a.storeys ?? []).slice(0, MAX_STOREYS).map((s) => ({
-    floors: (s.floors ?? []).slice(0, MAX_STOREY_TILES).filter((f) => inX(f.x) && inY(f.y)),
-    blocks: (s.blocks ?? []).slice(0, MAX_STOREY_TILES),
+  const floors = (a.floors ?? []).slice(0, MAX_FLOORS).map((s) => ({
+    flooring: (s.flooring ?? []).slice(0, MAX_FLOOR_TILES).filter((f) => inX(f.x) && inY(f.y)),
+    blocks: (s.blocks ?? []).slice(0, MAX_FLOOR_TILES),
   }));
   const parts: string[] = [];
-  const top = storeys.at(-1);
+  const top = floors.at(-1);
   if (a.floorPlan && top) {
-    const floored = new Set(top.floors.map((f) => `${f.x},${f.y}`));
+    const floored = new Set(top.flooring.map((f) => `${f.x},${f.y}`));
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         if (floored.has(`${x},${y}`)) continue;
@@ -497,19 +497,19 @@ function storeysSvg(
       }
     }
   }
-  storeys.forEach((s, i) => {
-    const drop = STOREY_SHADOW * (i + 1);
+  floors.forEach((s, i) => {
+    const drop = FLOOR_SHADOW * (i + 1);
     const tiles = new Set<string>();
-    for (const t of [...s.floors, ...s.blocks.filter((b) => !b.water)]) {
+    for (const t of [...s.flooring, ...s.blocks.filter((b) => !b.water)]) {
       if (inX(t.x) && inY(t.y)) tiles.add(`${t.x},${t.y}`);
     }
     for (const key of tiles) {
       const [x, y] = key.split(",").map(Number) as [number, number];
       parts.push(
-        `<rect x="${n(x + drop)}" y="${n(y + drop)}" width="1" height="1" fill="${STOREY_SHADE}"/>`,
+        `<rect x="${n(x + drop)}" y="${n(y + drop)}" width="1" height="1" fill="${FLOOR_SHADE}"/>`,
       );
     }
-    for (const f of s.floors) parts.push(...pavingSvg(f.paving, f.x, f.y));
+    for (const f of s.flooring) parts.push(...pavingSvg(f.paving, f.x, f.y));
     parts.push(...blocksSvg(s.blocks, inX, inY));
   });
   return parts;
@@ -523,8 +523,8 @@ function figureSvg(f: PlacedFigure, id: string): string[] {
   if (!drawingBox(f.drawing)) return [];
   const body = drawingSvg(f.drawing, id);
   if (!body) return [];
-  // Never hidden: someone under a floor is drawn faded (RFC 0028).
-  const faded = f.faded ? ` opacity="${UNDER_FLOOR_OPACITY}"` : "";
+  // Never hidden: someone under flooring is drawn faded (RFC 0028).
+  const faded = f.faded ? ` opacity="${UNDER_FLOORING_OPACITY}"` : "";
   return [
     `<ellipse cx="${n(f.x)}" cy="${n(f.y)}" rx="0.27" ry="0.085" fill="rgba(60, 40, 20, 0.22)"/>`,
     `<g transform="translate(${n(f.x)} ${n(f.y)}) scale(0.01)"${faded}>${body}</g>`,
@@ -1054,7 +1054,7 @@ function cropSvg(c: PlotCrop): string[] {
 const unit = (v: number, max = 1.5) =>
   Number.isFinite(v) ? n(Math.max(-0.5, Math.min(max, v))) : 0;
 
-/** A path or floor's shapes on tile (x, y), from the sim's look: numbers and checked colors only. */
+/** A path or flooring's shapes on tile (x, y), from the sim's look: numbers and checked colors only. */
 function pavingSvg(p: PlotPaving, x: number, y: number): string[] {
   const out: string[] = [];
   if (p.fill) {

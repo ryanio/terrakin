@@ -11,6 +11,7 @@
  */
 import { type FishKind, type ItemKind, RECIPES } from "./catalog";
 import { isWhole, refuse } from "./check";
+import { upstairsProblem } from "./floors";
 import {
   addStack,
   closed,
@@ -26,7 +27,6 @@ import {
 import { tileKey } from "./keys";
 import { catchEarns, earned } from "./levels";
 import { type Season, seasonOf } from "./season";
-import { upstairsProblem } from "./storeys";
 import { isTimeOfDay, type TimeOfDay } from "./time-of-day";
 import type {
   Command,

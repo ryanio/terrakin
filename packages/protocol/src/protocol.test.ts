@@ -11,6 +11,7 @@ import {
   DEFAULT_CONFIG,
   EARNED_WEAR,
   FISHING,
+  FLOORS,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   fnv1a,
@@ -45,7 +46,6 @@ import {
   SHOP_CATALOG,
   type ShopSku,
   SKILLS,
-  STOREYS,
   type StackKind,
   spawnTile,
   THEMES,
@@ -268,54 +268,54 @@ describe("Action", () => {
     expect(Action.safeParse({ type: "chat", text: "   " }).success).toBe(false);
   });
 
-  it("carries a storey on every action and plan entry that names a tile (RFC 0028)", () => {
-    expect(Action.parse({ type: "add_storey", px: 0, py: 0, dry: true })).toEqual({
-      type: "add_storey",
+  it("carries a floor on every action and plan entry that names a tile (RFC 0028)", () => {
+    expect(Action.parse({ type: "add_floor", px: 0, py: 0, dry: true })).toEqual({
+      type: "add_floor",
       px: 0,
       py: 0,
       dry: true,
     });
     for (const type of ["place", "remove", "lay", "lift"]) {
-      const action = { type, x: 1, y: 2, storey: 1, block: "stairs", ground: "planks" };
-      expect(Action.parse(action), type).toMatchObject({ type, storey: 1 });
+      const action = { type, x: 1, y: 2, floor: 1, block: "stairs", ground: "planks" };
+      expect(Action.parse(action), type).toMatchObject({ type, floor: 1 });
     }
     for (const dir of ["up", "down"])
       expect(Action.parse({ type: "move", dir })).toEqual({ type: "move", dir });
-    // A plan's entries keep their storey in every list, so a copied loft lands upstairs.
+    // A plan's entries keep their floor in every list, so a copied loft lands upstairs.
     const loft = {
       type: "build",
       px: 0,
       py: 0,
       blocks: [
         { x: 3, y: 2, block: "stairs" },
-        { x: 1, y: 5, storey: 1, block: "glass" },
+        { x: 1, y: 5, floor: 1, block: "glass" },
       ],
-      ground: [{ x: 1, y: 1, storey: 1, ground: "planks" }],
-      remove: [{ x: 2, y: 2, storey: 1 }],
-      lift: [{ x: 2, y: 3, storey: 1 }],
+      ground: [{ x: 1, y: 1, floor: 1, ground: "planks" }],
+      remove: [{ x: 2, y: 2, floor: 1 }],
+      lift: [{ x: 2, y: 3, floor: 1 }],
     };
     expect(Action.parse(loft)).toEqual(loft);
-    // Each list holds a whole plot on every storey, as the sim's plans do, and no more.
+    // Each list holds a whole plot on every floor, as the sim's plans do, and no more.
     const S = DEFAULT_CONFIG.plotSize;
-    const plot = (storey: number) =>
-      Array.from({ length: S * S }, (_, i) => ({ x: i % S, y: Math.floor(i / S), storey }));
-    const whole = Array.from({ length: 1 + STOREYS.max }, (_, s) => plot(s)).flat();
+    const plot = (floor: number) =>
+      Array.from({ length: S * S }, (_, i) => ({ x: i % S, y: Math.floor(i / S), floor }));
+    const whole = Array.from({ length: 1 + FLOORS.max }, (_, s) => plot(s)).flat();
     expect(whole).toHaveLength(planMax(DEFAULT_CONFIG));
     expect(Action.safeParse({ type: "build", px: 0, py: 0, lift: whole }).success).toBe(true);
     const over = [...whole, { x: 0, y: 0 }];
     expect(Action.safeParse({ type: "build", px: 0, py: 0, lift: over }).success).toBe(false);
-    // A storey is a whole number from 0; how high a home goes is the sim's to say.
-    for (const storey of [-1, 1.5, "1"]) {
-      const place = { type: "place", x: 1, y: 2, storey, block: "wood" };
-      expect(Action.safeParse(place).success, String(storey)).toBe(false);
+    // A floor is a whole number from 0; how high a home goes is the sim's to say.
+    for (const floor of [-1, 1.5, "1"]) {
+      const place = { type: "place", x: 1, y: 2, floor, block: "wood" };
+      expect(Action.safeParse(place).success, String(floor)).toBe(false);
     }
-    for (const code of ["no_storey", "too_high", "nothing_under", "holds_up", "no_stairs"]) {
+    for (const code of ["no_floor", "too_high", "nothing_under", "holds_up", "no_stairs"]) {
       expect(ERROR_CODES, code).toContain(code);
     }
   });
 
-  it("reads storeys back in a build's answer and a plot's plan (RFC 0028)", () => {
-    const skipped = { x: 1, y: 1, storey: 1, what: "remove", why: "holds_up" };
+  it("reads floors back in a build's answer and a plot's plan (RFC 0028)", () => {
+    const skipped = { x: 1, y: 1, floor: 1, what: "remove", why: "holds_up" };
     const summary = {
       px: 0,
       py: 0,
@@ -335,16 +335,16 @@ describe("Action", () => {
         size: 8,
         blocks: [
           { x: 3, y: 2, block: "stairs" },
-          { x: 1, y: 5, storey: 1, block: "glass" },
+          { x: 1, y: 5, floor: 1, block: "glass" },
         ],
-        ground: [{ x: 1, y: 1, storey: 1, ground: "planks" }],
+        ground: [{ x: 1, y: 1, floor: 1, ground: "planks" }],
         hearths: [],
       },
     };
     expect(PlotPlanResponse.parse(plan)).toEqual(plan);
   });
 
-  it("reads storeys in what the world shows, stairs and all (RFC 0028)", () => {
+  it("reads floors in what the world shows, stairs and all (RFC 0028)", () => {
     const snapshot = WorldSnapshot.parse({
       v: 1,
       seq: 0,
@@ -366,34 +366,34 @@ describe("Action", () => {
           note: "",
           x: 1,
           y: 2,
-          storey: 1,
+          floor: 1,
           online: true,
           hearth: null,
         },
       ],
-      plots: [{ px: 0, py: 0, ownerId: "a", storeys: 1 }],
+      plots: [{ px: 0, py: 0, ownerId: "a", floors: 1 }],
       blocks: [
         { x: 1, y: 1, block: "stairs" },
-        { x: 2, y: 1, storey: 1, block: "glass" },
+        { x: 2, y: 1, floor: 1, block: "glass" },
       ],
-      ground: [{ x: 1, y: 2, storey: 1, ground: "planks" }],
+      ground: [{ x: 1, y: 2, floor: 1, ground: "planks" }],
     });
-    expect(snapshot.residents[0]?.storey).toBe(1);
-    expect(snapshot.plots[0]?.storeys).toBe(1);
-    expect(snapshot.blocks[1]).toEqual({ x: 2, y: 1, storey: 1, block: "glass" });
-    expect(snapshot.ground?.[0]).toEqual({ x: 1, y: 2, storey: 1, ground: "planks" });
+    expect(snapshot.residents[0]?.floor).toBe(1);
+    expect(snapshot.plots[0]?.floors).toBe(1);
+    expect(snapshot.blocks[1]).toEqual({ x: 2, y: 1, floor: 1, block: "glass" });
+    expect(snapshot.ground?.[0]).toEqual({ x: 1, y: 2, floor: 1, ground: "planks" });
     for (const event of [
-      { type: "block_placed", x: 2, y: 1, storey: 1, block: "stairs", by: "a" },
-      { type: "block_removed", x: 2, y: 1, storey: 1, by: "a" },
-      { type: "ground_laid", x: 1, y: 2, storey: 1, ground: "moss", by: "a" },
-      { type: "ground_lifted", x: 1, y: 2, storey: 1, by: "a" },
-      { type: "moved", residentId: "a", x: 1, y: 2, storey: 1 },
-      { type: "storey_added", px: 0, py: 0, storey: 1, by: "a" },
+      { type: "block_placed", x: 2, y: 1, floor: 1, block: "stairs", by: "a" },
+      { type: "block_removed", x: 2, y: 1, floor: 1, by: "a" },
+      { type: "ground_laid", x: 1, y: 2, floor: 1, ground: "moss", by: "a" },
+      { type: "ground_lifted", x: 1, y: 2, floor: 1, by: "a" },
+      { type: "moved", residentId: "a", x: 1, y: 2, floor: 1 },
+      { type: "floor_added", px: 0, py: 0, floor: 1, by: "a" },
     ]) {
       expect(WorldEvent.parse(event), event.type).toEqual(event);
     }
-    // The ground floor has no storey: 0 is never sent.
-    const ground = { type: "block_placed", x: 2, y: 1, storey: 0, block: "wood", by: "a" };
+    // The ground floor has no floor: 0 is never sent.
+    const ground = { type: "block_placed", x: 2, y: 1, floor: 0, block: "wood", by: "a" };
     expect(WorldEvent.safeParse(ground).success).toBe(false);
   });
 });
@@ -1130,7 +1130,7 @@ describe("SKILL.md starter home", () => {
 });
 
 describe("SKILL.md building", () => {
-  it("names what each path and floor takes, as the sim has it", () => {
+  it("names what each path and flooring takes, as the sim has it", () => {
     for (const kind of GROUND_KINDS) {
       expect(skill).toContain(
         `| \`${kind}\` | ${GROUND_INFO[kind].name} | ${groundCostWords(kind)} |`,
@@ -1191,14 +1191,14 @@ describe("SKILL.md building", () => {
 describe("SKILL.md building up (RFC 0028)", () => {
   const section = skill.slice(skill.indexOf("## Building up"), skill.indexOf("## Pets"));
 
-  it("quotes the sim's numbers for storeys", () => {
-    expect(STOREYS.max).toBe(1);
-    expect(section).toContain("A plot can have one storey above its ground floor");
-    expect(section).toContain(`"price": ${STOREYS.price}`);
-    expect(section).toContain(`A storey costs ${STOREYS.price} coins`);
-    expect(section).toContain(`within ${STOREYS.span} tiles of it`);
-    expect(section).toContain(`takes ${STOREYS.stairsWood} wood`);
-    expect(skill).toContain(`for ${STOREYS.price} coins from your purse`);
+  it("quotes the sim's numbers for floors", () => {
+    expect(FLOORS.max).toBe(1);
+    expect(section).toContain("A plot can have one floor above its ground floor");
+    expect(section).toContain(`"price": ${FLOORS.price}`);
+    expect(section).toContain(`An upstairs costs ${FLOORS.price} coins`);
+    expect(section).toContain(`within ${FLOORS.span} tiles of it`);
+    expect(section).toContain(`takes ${FLOORS.stairsWood} wood`);
+    expect(skill).toContain(`for ${FLOORS.price} coins from your purse`);
   });
 
   it("goes from an empty plot to a hut with a loft and stairs, up and down, as written", () => {
@@ -1220,23 +1220,23 @@ describe("SKILL.md building up (RFC 0028)", () => {
       ([, text]) => text as string,
     );
     if (!json) throw new Error("Building up has no plan");
-    // Through the protocol, so a plan whose storeys the schema dropped would build downstairs.
+    // Through the protocol, so a plan whose floors the schema dropped would build downstairs.
     const parsed = Action.parse(JSON.parse(json));
     if (parsed.type !== "build") throw new Error("the plan isn't a build");
     const { dry, ...plan } = parsed;
     expect(dry).toBe(true);
     const woodWords = section.match(/A hut with a loft \((\d+) wood/)?.[1];
     act(
-      { type: "test_grant", to: "muse", coins: STOREYS.price, stacks: { wood: Number(woodWords) } },
+      { type: "test_grant", to: "muse", coins: FLOORS.price, stacks: { wood: Number(woodWords) } },
       TOWN_ACTOR,
     );
-    // A dry run of add_storey changes nothing; then it's added.
+    // A dry run of add_floor changes nothing; then it's added.
     const before = hashWorld(world);
-    expect(
-      prepare(world, { actor: "muse", command: { type: "add_storey", px: 2, py: 1 } }).ok,
-    ).toBe(true);
+    expect(prepare(world, { actor: "muse", command: { type: "add_floor", px: 2, py: 1 } }).ok).toBe(
+      true,
+    );
     expect(hashWorld(world)).toBe(before);
-    act({ type: "add_storey", px: 2, py: 1 });
+    act({ type: "add_floor", px: 2, py: 1 });
     const priced = prepare(world, { actor: "muse", command: plan as Command });
     if (!priced.ok || !priced.plan) throw new Error("the loft's plan was refused");
     expect(buildSummary(priced.plan)).toMatchObject({
@@ -1246,17 +1246,17 @@ describe("SKILL.md building up (RFC 0028)", () => {
       skipped: [],
     });
     const built = priced.commit().events;
-    expect(built.filter((e) => e.type === "block_placed" && e.storey === 1)).toHaveLength(4);
-    expect(built.filter((e) => e.type === "ground_laid" && e.storey === 1)).toHaveLength(9);
+    expect(built.filter((e) => e.type === "block_placed" && e.floor === 1)).toHaveLength(4);
+    expect(built.filter((e) => e.type === "ground_laid" && e.floor === 1)).toHaveLength(9);
     // Up the stairs, along the loft, and back down, as step 5 says.
     act({ type: "move", dir: "n" });
     act({ type: "move", dir: "up" });
-    expect(world.residents.muse).toMatchObject({ x: 19, y: 10, storey: 1 });
+    expect(world.residents.muse).toMatchObject({ x: 19, y: 10, floor: 1 });
     act({ type: "move", dir: "n" });
     act({ type: "move", dir: "s" });
     act({ type: "move", dir: "down" });
     expect(world.residents.muse).toMatchObject({ x: 19, y: 10 });
-    expect(world.residents.muse?.storey).toBeUndefined();
+    expect(world.residents.muse?.floor).toBeUndefined();
   });
 });
 

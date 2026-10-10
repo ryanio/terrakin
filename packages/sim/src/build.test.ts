@@ -75,7 +75,7 @@ function world({ items = true } = {}) {
 const ofType = <T extends WorldEvent["type"]>(events: WorldEvent[], type: T) =>
   events.filter((e): e is Extract<WorldEvent, { type: T }> => e.type === type);
 
-describe("paths and floors", () => {
+describe("paths and flooring", () => {
   it("go under blocks, hearths, and people, and never change where anyone can walk", () => {
     const w = world();
     // Ada stands on her hearth at (3, 3): ground goes under her, her hearth, and a hut wall.

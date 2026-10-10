@@ -78,6 +78,24 @@ describe("suggestFor", () => {
     expect(
       suggestFor(CreateSessionRequest, { name: "Wren", kind: "agent", dryRun: 1 }),
     ).toBeUndefined();
+    // A level of a home was `storey` until `floor` took its place: too far for the typo match, and
+    // dropped it would build on the ground floor. A plan's entries are caught the same way. With
+    // 0 it meant the ground floor, as leaving it out does, so that one is let through.
+    const planks = { x: 1, y: 2, ground: "planks" };
+    expect(suggestFor(Action, { type: "lay", ...planks, storey: 1 })).toEqual({
+      message: "Unknown field 'storey' for lay. Did you mean 'floor'?",
+      didYouMean: "floor",
+    });
+    const plan = { type: "build", px: 0, py: 0 };
+    expect(suggestFor(Action, { ...plan, ground: [planks, { ...planks, storey: 1 }] })).toEqual({
+      message: "Unknown field 'storey' in ground[1] for build. Did you mean 'floor'?",
+      didYouMean: "floor",
+    });
+    expect(suggestFor(Action, { type: "lay", ...planks, floor: 1, storey: 1 })).toBeUndefined();
+    expect(suggestFor(Action, { ...plan, ground: [{ ...planks, floor: 1 }] })).toBeUndefined();
+    expect(suggestFor(Action, { type: "move", dir: "n", storey: 1 })).toBeUndefined();
+    expect(suggestFor(Action, { type: "lay", ...planks, storey: 0 })).toBeUndefined();
+    expect(suggestFor(Action, { ...plan, ground: [{ ...planks, storey: 0 }] })).toBeUndefined();
     // `dir` is already there, so `dirr` is junk, not a typo for it.
     expect(suggestFor(Action, { type: "move", dir: "n", dirr: "s" })).toBeUndefined();
     expect(suggestFor(Action, { type: "move", dir: "n", requestId: "a1" })).toBeUndefined();
@@ -159,6 +177,8 @@ describe("plainProblem", () => {
     expect(words(Action, { type: "treat_pet", owner: "r_1", item: "herb_tea" }).didYouMean).toBe(
       "herb",
     );
+    // The action that adds an upstairs was `add_storey`, which shares a word with its new name.
+    expect(words(Action, { type: "add_storey", px: 2, py: 1 }).didYouMean).toBe("add_floor");
     // Several jams share the word: they're named, and none is picked for you.
     const jam = words(Action, { type: "craft", recipe: "jam", x: 1, y: 1 });
     expect(jam.didYouMean).toBeUndefined();

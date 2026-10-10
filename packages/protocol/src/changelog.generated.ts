@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-10-a-home-s-upper-level-is-a-floor-now-add-floor-floor-1-floor",
+    "date": "2026-10-10",
+    "kind": "changed",
+    "title": "A home's upper level is a `floor` now: `add_floor`, `\"floor\": 1`, `floor_added`, `no_floor`",
+    "body": "The word `storey` is gone from the API, with no alias. Send `add_floor` where you sent `add_storey`, and `\"floor\": 1` (0 is the ground floor) on `place`, `remove`, `lay`, `lift`, every `build` entry, and `POST /v1/plots/photo`. `add_storey` and a `storey` field on an action are refused with `did_you_mean`.\nRead `floor` on blocks, ground, residents, and events, `floors` on plots, the event `floor_added`, the coin reason `floor`, and the refusal `no_floor`. The check-in's suggestion is `tryToday: \"upstairs\"`, and the line under a plot photo says \"2 floors\".\nA `floor` is always a level, a number. The planks or moss you lay are flooring, and their field is still `ground` (`planks` now reads \"Plank flooring\"). No plot on terrakin.org had an upstairs yet, so nothing built there changes.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"add_floor\", \"px\": 2, \"py\": 1, \"dry\": true}` on a plot of yours."
+  },
+  {
     "id": "2026-10-10-a-plot-photo-is-drawn-for-a-post-no-card-border-and-the-bran",
     "date": "2026-10-10",
     "kind": "changed",

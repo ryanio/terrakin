@@ -207,7 +207,7 @@ describe("one plot of the world, read from the mirror", () => {
     );
   });
 
-  it("shows a loft whole from off the plot, and cut away at your storey on it (RFC 0028)", () => {
+  it("shows a loft whole from off the plot, and cut away at your floor on it (RFC 0028)", () => {
     const none = new Set<string>();
     // A hut on plot (1, 1) with a planked loft and a window upstairs, as the mirror keeps them.
     const loft = {
@@ -228,11 +228,11 @@ describe("one plot of the world, read from the mirror", () => {
         ],
       ]),
     };
-    const at = (c: { blocks: { x: number; y: number; storey?: number }[] }) =>
-      c.blocks.map((b) => `${b.x},${b.y},${b.storey ?? 0}`);
+    const at = (c: { blocks: { x: number; y: number; floor?: number }[] }) =>
+      c.blocks.map((b) => `${b.x},${b.y},${b.floor ?? 0}`);
     const whole = readChunk(loft, 1, 1, none);
     expect(at(whole)).toEqual(["8,8,0", "9,8,0", "8,9,1"]);
-    expect(whole.ground.map((g) => g.storey)).toEqual([1, 1]);
+    expect(whole.ground.map((g) => g.floor)).toEqual([1, 1]);
     expect(whole.highest).toBe(1);
     // Upstairs where you stand: the same as from above.
     expect(readChunk(loft, 1, 1, none, undefined, false, 1).signature).toBe(whole.signature);
@@ -241,7 +241,7 @@ describe("one plot of the world, read from the mirror", () => {
     expect(at(cut)).toEqual(["8,8,0", "9,8,0"]);
     expect(cut.ground).toEqual([]);
     expect(cut.highest).toBe(1);
-    // A plot is built again when the cut moves onto it or off it, and only one with a storey.
+    // A plot is built again when the cut moves onto it or off it, and only one with a floor.
     expect(cut.signature).not.toBe(whole.signature);
     expect(chunkSignature(loft, 1, 1, none, undefined, false, 0)).toBe(cut.signature);
     const flat = source([["8,8", "wood"]]);

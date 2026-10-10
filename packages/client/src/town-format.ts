@@ -150,7 +150,7 @@ export function boardWords(
   return `Notices stay up for up to ${stayWords(limits.maxHours)}.`;
 }
 
-/** What a Commons build can put on a tile: a block, decor, furniture, or a path or floor. */
+/** What a Commons build can put on a tile: a block, decor, furniture, or a path or flooring. */
 export type CommonsPick = CommonsBlock | GroundKind;
 
 /**

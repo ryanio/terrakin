@@ -4,13 +4,13 @@ import {
   type PlotCard,
   type PlotCrop,
   type PlotFloor,
+  type PlotFlooring,
   type PlotGround,
   type PlotInk,
   type PlotPet,
-  type PlotStorey,
   probeImage,
 } from "@terrakin/cards";
-import { storeyName } from "@terrakin/protocol";
+import { floorName } from "@terrakin/protocol";
 import {
   alphaHex,
   type Biome,
@@ -18,6 +18,7 @@ import {
   blockFill,
   blocksOn,
   CROP_HEX,
+  FLOORS,
   FLOWER_TONES,
   GROUND_LOOK,
   groundOn,
@@ -34,7 +35,6 @@ import {
   POND_LOOK,
   petBed,
   petShapes,
-  STOREYS,
   seasonOf,
   THEME_INFO,
   THEME_TINT_ALPHA,
@@ -109,17 +109,17 @@ export function photoPlace(
 /**
  * The photo of `residentId`'s plot, from world state alone. Undefined when they have no plot. Its
  * name is the photo's title (decision 0121), unless `held` says staff hold back the words of
- * whoever named it. With `storey`, one the plot has, it's that storey's floor plan (RFC 0028). It's
+ * whoever named it. With `floor`, one the plot has, it's that floor's plan (RFC 0028). It's
  * drawn to post (`posted`), where a post's card frames it.
  */
 export function plotPhotoSpec(
   state: WorldState,
   residentId: string,
   held: (id: string) => boolean = () => false,
-  storey?: number,
+  floor?: number,
 ): PlotPhotoSpec | undefined {
   const plot = photoPlot(state, residentId);
-  return plot ? { ...plotSpecOf(state, plot, held, true, storey), posted: true } : undefined;
+  return plot ? { ...plotSpecOf(state, plot, held, true, floor), posted: true } : undefined;
 }
 
 /** A world plot record, as `state.plots` keeps them. */
@@ -128,8 +128,8 @@ type WorldPlot = WorldState["plots"][string];
 /**
  * A plot's photo from world state alone: plot photos (`plotPhotoSpec`) and the picture of a plot by
  * link (decision 0160). The owner's home picture comes along unless `withArt` is false. It shows
- * every storey from above (RFC 0028), or with `storey` that storey's floor plan: everything above
- * it left out, and what's under it dimmed where it has no floor, as the map shows the storey you
+ * every floor from above (RFC 0028), or with `floor` that floor's plan: everything above
+ * it left out, and what's under it dimmed where it has no flooring, as the map shows the floor you
  * stand on.
  */
 export function plotSpecOf(
@@ -137,7 +137,7 @@ export function plotSpecOf(
   plot: WorldPlot,
   held: (id: string) => boolean = () => false,
   withArt = true,
-  storey?: number,
+  floor?: number,
 ): PlotPhotoSpec {
   const title = shownPlotName(plot, held);
   const { config } = state;
@@ -175,10 +175,10 @@ export function plotSpecOf(
 
   const biomes = [...area.biomes.entries()].sort((a, b) => b[1] - a[1]).map(([b]) => b);
   const { blocks, crops } = area;
-  // Every block on the plot counts, on every storey, as the plot's view counts them.
-  const count = blocks.length + area.storeys.reduce((sum, s) => sum + s.blocks.length, 0);
-  const added = plot.storeys ?? 0;
-  const shown = storey === undefined ? drawnFromAbove(area.storeys) : area.storeys.slice(0, storey);
+  // Every block on the plot counts, on every floor, as the plot's view counts them.
+  const count = blocks.length + area.floors.reduce((sum, s) => sum + s.blocks.length, 0);
+  const added = plot.floors ?? 0;
+  const shown = floor === undefined ? drawnFromAbove(area.floors) : area.floors.slice(0, floor);
   return {
     kind: "plot",
     name: owner?.name ?? "",
@@ -187,14 +187,14 @@ export function plotSpecOf(
     facts: [
       biomeLine(biomes),
       `${count} ${count === 1 ? "block" : "blocks"}`,
-      ...(storey !== undefined ? [storeyName(storey)] : added > 0 ? [`${added + 1} storeys`] : []),
+      ...(floor !== undefined ? [floorName(floor)] : added > 0 ? [`${added + 1} floors`] : []),
     ],
     size: S,
     ground: area.ground,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),
     blocks,
-    ...(shown.length > 0 ? { storeys: shown } : {}),
-    ...(storey !== undefined && storey > 0 ? { floorPlan: true } : {}),
+    ...(shown.length > 0 ? { floors: shown } : {}),
+    ...(floor !== undefined && floor > 0 ? { floorPlan: true } : {}),
     ...(crops.length > 0 ? { crops } : {}),
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
     ...(withArt && owner?.homeArt ? { homeArt: owner.homeArt } : {}),
@@ -203,15 +203,15 @@ export function plotSpecOf(
   };
 }
 
-/** The storeys a picture from above draws: up to the highest with something on it. */
-export function drawnFromAbove(storeys: PlotStorey[]): PlotStorey[] {
-  let top = storeys.length;
-  while (top > 0 && !hasAnything(storeys[top - 1])) top--;
-  return storeys.slice(0, top);
+/** The floors a picture from above draws: up to the highest with something on it. */
+export function drawnFromAbove(floors: PlotFloor[]): PlotFloor[] {
+  let top = floors.length;
+  while (top > 0 && !hasAnything(floors[top - 1])) top--;
+  return floors.slice(0, top);
 }
 
-const hasAnything = (s: PlotStorey | undefined) =>
-  s !== undefined && (s.floors.length > 0 || s.blocks.length > 0);
+const hasAnything = (s: PlotFloor | undefined) =>
+  s !== undefined && (s.flooring.length > 0 || s.blocks.length > 0);
 
 /** The world's season, as the map draws it: leaves in autumn, snow in winter. */
 const season = (state: WorldState) => (state.day === undefined ? undefined : seasonOf(state.day));
@@ -235,9 +235,9 @@ export function plotInk(s: ReturnType<typeof seasonOf> | undefined): PlotInk {
 
 /**
  * A rectangle of the world, `cols` by `rows` tiles from (x0, y0), as a photo draws it: its ground
- * dressed for the season, paths and floors, blocks in the theme `palette` gives for their tile
- * (glass and water keep their own), crops as far along as the world's day, and each storey above
- * the ground floor up to `STOREYS.max` (RFC 0028), its floors and blocks, empty or not. Coordinates
+ * dressed for the season, paths and flooring, blocks in the theme `palette` gives for their tile
+ * (glass and water keep their own), crops as far along as the world's day, and each floor above
+ * the ground floor up to `FLOORS.max` (RFC 0028), its flooring and blocks, empty or not. Coordinates
  * come back relative to (x0, y0). `commons` says which tiles are the Commons plaza.
  */
 export function areaOf(
@@ -252,7 +252,7 @@ export function areaOf(
   ground: PlotGround[];
   blocks: PlotBlock[];
   crops: PlotCrop[];
-  storeys: PlotStorey[];
+  floors: PlotFloor[];
   biomes: Map<Biome, number>;
 } {
   const { config } = state;
@@ -269,7 +269,7 @@ export function areaOf(
       biomes.set(tile.biome, (biomes.get(tile.biome) ?? 0) + 1);
       const sc = tile.scenery;
       const key = tileKey(wx, wy);
-      // A path or floor (RFC 0016), in the same look the map draws.
+      // A path or flooring (RFC 0016), in the same look the map draws.
       const laid = state.ground?.[key];
       const look = laid ? GROUND_LOOK[laid] : undefined;
       ground.push({
@@ -303,12 +303,12 @@ export function areaOf(
       blocks.push(plotBlock(block, x, y, wx, wy, palette));
     }
   }
-  // Each storey above the ground floor, read over the area's own tiles like the ground floor.
-  const storeys: PlotStorey[] = [];
-  for (let storey = 1; storey <= STOREYS.max; storey++) {
-    const upBlocks = blocksOn(state, storey);
-    const upGround = groundOn(state, storey);
-    const floors: PlotFloor[] = [];
+  // Each floor above the ground floor, read over the area's own tiles like the ground floor.
+  const floors: PlotFloor[] = [];
+  for (let floor = 1; floor <= FLOORS.max; floor++) {
+    const upBlocks = blocksOn(state, floor);
+    const upGround = groundOn(state, floor);
+    const flooring: PlotFlooring[] = [];
     const standing: PlotBlock[] = [];
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
@@ -316,7 +316,7 @@ export function areaOf(
         const laid = upGround[key];
         if (laid) {
           const look = GROUND_LOOK[laid];
-          floors.push({
+          flooring.push({
             x,
             y,
             paving: { ...(look.fill ? { fill: look.fill } : {}), marks: look.marks },
@@ -326,9 +326,9 @@ export function areaOf(
         if (block) standing.push(plotBlock(block, x, y, x0 + x, y0 + y, palette));
       }
     }
-    storeys.push({ floors, blocks: standing });
+    floors.push({ flooring, blocks: standing });
   }
-  return { ground, blocks, crops, storeys, biomes };
+  return { ground, blocks, crops, floors, biomes };
 }
 
 /**

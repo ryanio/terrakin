@@ -6,7 +6,7 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * today, picks up three and makes a table at a workbench over the API, the way an agent would.
  * Then, in the world's build bar, they lay a dirt path from the Paths tab and place the table
  * from the Furniture tab, and the world shows both. Then a neighbor with a hut builds up (RFC
- * 0028): a storey added from the build bar after a second tap, stairs, a loft floor laid with
+ * 0028): an upstairs added from the build bar after a second tap, stairs, a loft's flooring laid with
  * Upstairs picked, and Go up beside her on the stairs, with the picker following her up.
  */
 
@@ -135,12 +135,12 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
 
   // Building up (RFC 0028): a neighbor with a hut, coins, and wood.
   const bramble = await persona(page.request, "stocked", { name: "Bramble" });
-  const where = async (): Promise<(Tile & { storey?: number }) | undefined> =>
+  const where = async (): Promise<(Tile & { floor?: number }) | undefined> =>
     (await (await page.request.get("/v1/world")).json()).residents.find(
       (r: { id: string }) => r.id === bramble.id,
     );
 
-  await test.step("add a storey for coins after a second tap, and put up stairs inside the hut", async () => {
+  await test.step("add an upstairs for coins after a second tap, and put up stairs inside the hut", async () => {
     // She stands on her hearth, in the middle of the hut.
     const start = await where();
     if (!start) throw new Error("Bramble isn't in the world");
@@ -148,8 +148,8 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
     await page.click("#build");
-    const add = page.locator("#add-storey");
-    await expect(add).toHaveText("Add a storey, 200 coins");
+    const add = page.locator("#add-floor");
+    await expect(add).toHaveText("Add an upstairs, 200 coins");
     await add.click();
     await expect(add).toHaveText("Tap again to spend 200 coins");
     await add.click();
@@ -168,7 +168,7 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
       .toContainEqual({ x: start.x, y: start.y - 1, block: "stairs" });
   });
 
-  await test.step("pick Upstairs and lay a loft floor, then go up the stairs and see the picker follow", async () => {
+  await test.step("pick Upstairs and lay a loft's flooring, then go up the stairs and see the picker follow", async () => {
     const start = await where();
     if (!start) throw new Error("Bramble isn't in the world");
     await page.getByRole("button", { name: "Upstairs" }).click();
@@ -177,14 +177,14 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     await tapTile(page, 0, -2);
     await expect
       .poll(async () => (await (await page.request.get("/v1/world")).json()).ground ?? [])
-      .toContainEqual({ x: start.x, y: start.y - 2, storey: 1, ground: "planks" });
+      .toContainEqual({ x: start.x, y: start.y - 2, floor: 1, ground: "planks" });
     // Out of the build bar, a tap on the stairs walks her onto them, and Go up shows beside her.
     await page.click("#build");
     await tapTile(page, 0, -1);
     const climb = page.locator("#world-climb");
     await expect(climb).toHaveText("Go up");
     await climb.click();
-    await expect.poll(async () => (await where())?.storey).toBe(1);
+    await expect.poll(async () => (await where())?.floor).toBe(1);
     await expect(climb).toHaveText("Go down");
     await page.click("#build");
     await expect(page.getByRole("button", { name: "Upstairs" })).toHaveAttribute(

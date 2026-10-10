@@ -173,9 +173,9 @@ describe("cards", () => {
     // A name with nothing the fonts can draw leaves the home as the title.
     const undrawable = await textNodes({ ...samplePlot("Juniper"), title: "🍋🍋🍋" });
     expect(undrawable.map((n) => n.text)).toContain("Juniper's home");
-    // A longer line of facts, like a home with a loft's "2 storeys", stays one line in the frame.
+    // A longer line of facts, like a home with a loft's "2 floors", stays one line in the frame.
     const loft = await textNodes(sampleLoft("Juniper"));
-    const facts = loft.find((n) => n.text.endsWith("2 storeys"));
+    const facts = loft.find((n) => n.text.endsWith("2 floors"));
     expect(facts?.text.startsWith("Plot 3, 4")).toBe(true);
     expect(bottom(facts)).toBeLessThanOrEqual(room);
   });
@@ -320,9 +320,9 @@ describe("renderer", () => {
           { x: 99, y: 1, glass: false, fill: "#b8834f" },
         ],
         hearth: { x: -1, y: 3 },
-        storeys: [
+        floors: [
           {
-            floors: [
+            flooring: [
               { x: 2, y: 2, paving: { fill: hostile, marks: [] } },
               { x: Number.NaN, y: 2, paving: { fill: "#c08a55", marks: [] } },
               { x: 99, y: 2, paving: { fill: "#c08a55", marks: [] } },
@@ -346,7 +346,7 @@ describe("renderer", () => {
     expect(svg.match(/<svg/g)).toHaveLength(1);
   });
 
-  it("draws paths and floors from their marks, and keeps them on the tile and in the palette", () => {
+  it("draws paths and flooring from their marks, and keeps them on the tile and in the palette", () => {
     const hostile = '"/><script>x</script>';
     const base = samplePlot("Wren");
     const paved = (paving: PlotGround["paving"]) =>
@@ -367,7 +367,7 @@ describe("renderer", () => {
     expect(svg).not.toContain('stroke-width="0.045" stroke-linecap="round" fill="none"/>');
   });
 
-  it("draws a floor upstairs over the ground floor's tiles, its shadow falling further than a block's (RFC 0028)", () => {
+  it("draws flooring upstairs over the ground floor's tiles, its shadow falling further than a block's (RFC 0028)", () => {
     const base = samplePlot("Wren");
     const wall = { x: 2, y: 2, glass: false, fill: "#b8834f" };
     const loft = { fill: "#c08a56", marks: [] };
@@ -375,27 +375,27 @@ describe("renderer", () => {
       {
         ...base,
         blocks: [wall],
-        storeys: [{ floors: [{ x: 2, y: 2, paving: loft }], blocks: [] }],
+        floors: [{ flooring: [{ x: 2, y: 2, paving: loft }], blocks: [] }],
       },
       420,
     );
     const ground = svg.indexOf('fill="#b8834f"');
-    const floor = svg.indexOf('<rect x="2" y="2" width="1.02" height="1.02" fill="#c08a56"/>');
+    const flooring = svg.indexOf('<rect x="2" y="2" width="1.02" height="1.02" fill="#c08a56"/>');
     expect(ground).toBeGreaterThan(-1);
-    expect(floor).toBeGreaterThan(ground);
-    // The storey's shadow falls 0.22 of a tile per storey, under its floor and over the wall below.
+    expect(flooring).toBeGreaterThan(ground);
+    // The floor's shadow falls 0.22 of a tile per floor, under its flooring and over the wall below.
     const shadow = svg.indexOf('<rect x="2.22" y="2.22" width="1" height="1"');
     expect(shadow).toBeGreaterThan(ground);
-    expect(shadow).toBeLessThan(floor);
+    expect(shadow).toBeLessThan(flooring);
     // From above, nothing under it is dimmed.
     expect(svg).not.toContain("rgba(43, 38, 32, 0.38)");
   });
 
-  it("draws a storey's floor plan with what's under it dimmed where it has no floor (RFC 0028)", () => {
+  it("draws a floor's plan with what's under it dimmed where it has no flooring (RFC 0028)", () => {
     const dim = 'fill="rgba(43, 38, 32, 0.38)"';
     const above = plotSvg(sampleLoft("Wren"), 420);
     const plan = plotSvg(sampleLoft("Wren", 1), 420);
-    // The loft's 19 tiles of floor (the hut's 4 rows of 5, but the stairwell) stay bright, the
+    // The loft's 19 tiles of flooring (the hut's 4 rows of 5, but the stairwell) stay bright, the
     // other 45 of the plot's 64 tiles are dimmed, and the loft is drawn over them.
     expect(plan.split(dim).length - 1).toBe(64 - 19);
     expect(plan.lastIndexOf(dim)).toBeLessThan(plan.lastIndexOf('fill="#c08a55"'));

@@ -133,6 +133,18 @@ export {
   waterBeside,
 } from "./fishing";
 export {
+  blocksOn,
+  climbsAt,
+  FLOORS,
+  floorField,
+  floorGround,
+  groundOn,
+  solidAt,
+  standingFloor,
+  upstairsGroundOf,
+  upstairsProblem,
+} from "./floors";
+export {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   type FurnitureKind,
@@ -424,18 +436,6 @@ export {
   stockSeason,
   townBuys,
 } from "./shop";
-export {
-  blocksOn,
-  climbsAt,
-  groundOn,
-  STOREYS,
-  solidAt,
-  standingStorey,
-  storeyField,
-  storeyGround,
-  upstairsGroundOf,
-  upstairsProblem,
-} from "./storeys";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export {
   DAY_LENGTH_MS,

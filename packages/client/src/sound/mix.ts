@@ -80,7 +80,7 @@ const GROUND_SURFACE: Partial<Record<GroundKind, Surface>> = {
   rug: "rug",
 };
 
-/** The surface of a tile: its path or floor, or grass, which is snow in winter. */
+/** The surface of a tile: its path or flooring, or grass, which is snow in winter. */
 export function surfaceOf(ground: GroundKind | undefined, season?: Season): Surface {
   if (ground) return GROUND_SURFACE[ground] ?? "soft";
   return season === "winter" ? "snow" : "grass";

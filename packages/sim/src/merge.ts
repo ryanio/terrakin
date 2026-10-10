@@ -2,13 +2,13 @@ import { isRunning } from "./bounties";
 import type { StackKind } from "./catalog";
 import { refuse } from "./check";
 import { isMaintainer, isTownsfolk, movePurse } from "./economy";
+import { plotHasAnything } from "./floors";
 import { activeTables } from "./games";
 import { addStack, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
 import { plotKey } from "./keys";
 import { mergeProgress } from "./levels";
 import { own, residentById } from "./own";
 import { knownRecipes } from "./recipes";
-import { plotHasAnything } from "./storeys";
 import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { plotsOwnedBy } from "./world";
 
@@ -63,7 +63,7 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
     if ((plot.coOwners?.length ?? 0) > 0) {
       return refuse("not_eligible", "The record to merge shares its plot with someone.");
     }
-    // Every storey (RFC 0028), the ground floor's blocks and paths included.
+    // Every floor (RFC 0028), the ground floor's blocks and paths included.
     if (plotHasAnything(state, plot.px, plot.py)) {
       return refuse(
         "plot_has_blocks",

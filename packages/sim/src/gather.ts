@@ -1,6 +1,7 @@
 import { type Biome, biomeAt } from "./biome";
 import type { RecipeName } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
+import { upstairsProblem } from "./floors";
 import {
   addStack,
   closed,
@@ -17,7 +18,6 @@ import { tileKey } from "./keys";
 import { earned, gatherEarns } from "./levels";
 import { howToMake, knows, learn, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
-import { upstairsProblem } from "./storeys";
 import type {
   Command,
   ItemsState,

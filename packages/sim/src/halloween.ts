@@ -13,6 +13,7 @@
  */
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
+import { upstairsProblem } from "./floors";
 import {
   dayName,
   HOLIDAY_INFO,
@@ -25,7 +26,6 @@ import { addStack, closed, held, ITEMS, inventory, inventoryEvent, inventorySize
 import { plotKey, tileKey } from "./keys";
 import { residentById } from "./own";
 import { dateOfDay } from "./season";
-import { upstairsProblem } from "./storeys";
 import type {
   CandyFrom,
   Command,

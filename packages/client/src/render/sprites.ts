@@ -124,7 +124,7 @@ export function figureSprite(
   };
 }
 
-/** One tile of a path or floor, `w` by `h` CSS pixels, drawn once from the sim's look. */
+/** One tile of a path or flooring, `w` by `h` CSS pixels, drawn once from the sim's look. */
 export function groundSprite(
   kind: GroundKind,
   w: number,

@@ -123,11 +123,11 @@ export interface PlotChunk {
   py: number;
   bounds: Bounds;
   owner: string | undefined;
-  /** Blocks on every storey shown (RFC 0028), `storey` on those above the ground floor. */
-  blocks: { x: number; y: number; block: BlockKind; storey?: number }[];
-  /** Paths and floors (RFC 0016), under whatever stands on them, and floors upstairs. */
-  ground: { x: number; y: number; ground: GroundKind; storey?: number }[];
-  /** The highest storey with anything on it, shown or cut away. */
+  /** Blocks on every floor shown (RFC 0028), `floor` on those above the ground floor. */
+  blocks: { x: number; y: number; block: BlockKind; floor?: number }[];
+  /** Paths and flooring (RFC 0016), under whatever stands on them, and flooring upstairs. */
+  ground: { x: number; y: number; ground: GroundKind; floor?: number }[];
+  /** The highest floor with anything on it, shown or cut away. */
   highest: number;
   hearths: Tile[];
   /** What's on display on its pedestals and frames, and what grows in its planters. */
@@ -150,10 +150,10 @@ export interface ChunkSource {
   config: WorldConfig;
   commons: { px: number; py: number };
   blocks: ReadonlyMap<string, BlockKind>;
-  /** Paths and floors by tile key. Absent reads as none. */
+  /** Paths and flooring by tile key. Absent reads as none. */
   paving?: ReadonlyMap<string, GroundKind>;
   /**
-   * Each storey above the ground floor (RFC 0028), by its number: its blocks and floors by tile
+   * Each floor above the ground floor (RFC 0028), by its number: its blocks and flooring by tile
    * key (`Mirror.upstairs`). Absent reads as none.
    */
   upstairs?: ReadonlyMap<
@@ -209,7 +209,7 @@ function tileThings(
 /**
  * Read one plot from the mirror. `hearths` holds every resident's hearth tile key, `season`
  * dresses the ground (today's look without one), `lit` says someone's home there, and `cut` is
- * the storey it's cut away at (RFC 0028): on the plot you stand on, yours, so nothing above you
+ * the floor it's cut away at (RFC 0028): on the plot you stand on, yours, so nothing above you
  * is drawn; on every other plot, absent, so it shows whole.
  */
 export function readChunk(
@@ -288,9 +288,9 @@ export function readChunk(
 }
 
 /**
- * What stands and lies upstairs on a plot (RFC 0028), storey by storey from the bottom, up to
- * `cut` (the plot you stand on, cut away at your storey) or every storey (any other plot), with
- * the words for it in a chunk's signature. `highest` is the top storey with anything on it, cut
+ * What stands and lies upstairs on a plot (RFC 0028), floor by floor from the bottom, up to
+ * `cut` (the plot you stand on, cut away at your floor) or every floor (any other plot), with
+ * the words for it in a chunk's signature. `highest` is the top floor with anything on it, cut
  * away or not, and a cut that hides something says so in the words, since its walls get caps.
  */
 function upstairsOf(
@@ -299,35 +299,35 @@ function upstairsOf(
   lit: boolean,
   cut: number | undefined,
 ): {
-  blocks: { x: number; y: number; block: BlockKind; storey: number }[];
-  ground: { x: number; y: number; ground: GroundKind; storey: number }[];
+  blocks: { x: number; y: number; block: BlockKind; floor: number }[];
+  ground: { x: number; y: number; ground: GroundKind; floor: number }[];
   highest: number;
   parts: string[];
 } {
-  const blocks: { x: number; y: number; block: BlockKind; storey: number }[] = [];
-  const ground: { x: number; y: number; ground: GroundKind; storey: number }[] = [];
+  const blocks: { x: number; y: number; block: BlockKind; floor: number }[] = [];
+  const ground: { x: number; y: number; ground: GroundKind; floor: number }[] = [];
   const parts: string[] = [];
   let highest = 0;
-  const storeys = [...(source.upstairs?.keys() ?? [])].sort((a, b) => a - b);
-  for (const storey of storeys) {
-    const layer = source.upstairs?.get(storey);
+  const floors = [...(source.upstairs?.keys() ?? [])].sort((a, b) => a - b);
+  for (const floor of floors) {
+    const layer = source.upstairs?.get(floor);
     if (!layer || (layer.blocks.size === 0 && layer.paving.size === 0)) continue;
-    const shown = cut === undefined || storey <= cut;
+    const shown = cut === undefined || floor <= cut;
     for (let y = bounds.y0; y <= bounds.y1; y++) {
       for (let x = bounds.x0; x <= bounds.x1; x++) {
         const key = tileKey(x, y);
         const block = layer.blocks.get(key);
         const laid = layer.paving.get(key);
         if (!block && !laid) continue;
-        highest = Math.max(highest, storey);
+        highest = Math.max(highest, floor);
         if (!shown) continue;
         if (block) {
-          blocks.push({ x, y, block, storey });
-          parts.push(`${key}@${storey}:${block}${lit && block === "glass" ? ":lit" : ""}`);
+          blocks.push({ x, y, block, floor });
+          parts.push(`${key}@${floor}:${block}${lit && block === "glass" ? ":lit" : ""}`);
         }
         if (laid) {
-          ground.push({ x, y, ground: laid, storey });
-          parts.push(`${key}@${storey}:on:${laid}`);
+          ground.push({ x, y, ground: laid, floor });
+          parts.push(`${key}@${floor}:on:${laid}`);
         }
       }
     }

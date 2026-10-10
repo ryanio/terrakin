@@ -1,5 +1,5 @@
 /**
- * The world's palette: ground tones per biome, blocks, the hearth, paths and floors, and crops,
+ * The world's palette: ground tones per biome, blocks, the hearth, paths and flooring, and crops,
  * plus the per-tile scenery (tufts, flowers, and autumn's fallen leaves) the ground grows, and how
  * each season dresses it. Presentation only, like the looks catalog: no rule reads any of it. It
  * lives here so the client's world renderer (`packages/client/src/render.ts`) and the plot photos
@@ -72,7 +72,7 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   sled: "#c4473a",
   // Water to fish in (RFC 0023): a pond's blue, under its stone rim.
   pond: "#4f9ac4",
-  // Stairs up to the storey above (RFC 0028): plank treads a shade lighter than a wood wall.
+  // Stairs up to the floor above (RFC 0028): plank treads a shade lighter than a wood wall.
   stairs: "#c99a66",
 };
 
@@ -95,7 +95,7 @@ export const POND_LOOK = {
 } as const;
 
 /**
- * One shape of a path or floor's picture, in tile units: (0, 0) is the tile's top left and (1, 1)
+ * One shape of a path or flooring's picture, in tile units: (0, 0) is the tile's top left and (1, 1)
  * its bottom right. Colors are `#rrggbb` or `rgba(r, g, b, a)`. `turn` is in degrees.
  */
 export type GroundMark =
@@ -164,7 +164,7 @@ const seam = (
 ): GroundMark => ({ shape: "line", x1, y1, x2, y2, width, stroke });
 
 /**
- * What each path and floor looks like (RFC 0016), as data. The map
+ * What each kind of path and flooring looks like (RFC 0016), as data. The map
  * (`packages/client/src/render.ts`), the build palette's swatches, the 3D views' ground, and the
  * plot photos (`packages/cards/`) all draw from it, so a cobble path is the same cobble path
  * everywhere. Every tile of a kind looks the same, so neighbors join into one path.

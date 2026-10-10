@@ -49,8 +49,8 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
       return "Deposit for your Commons event";
     case "event_refund":
       return "Your Commons deposit back";
-    case "storey":
-      return "A storey for your home";
+    case "floor":
+      return "An upstairs for your home";
     case "merged":
       return "From your other record, merged into this one";
     default:

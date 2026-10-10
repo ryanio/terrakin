@@ -34,7 +34,7 @@ import {
 import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
-import { type LayoutBlock, STOREY_HEIGHT, stairsTurn, storeyY, tileHash } from "./layout";
+import { FLOOR_HEIGHT, floorY, type LayoutBlock, stairsTurn, tileHash } from "./layout";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 import { LAID_DEPTH_OFFSET } from "./paths";
 
@@ -43,7 +43,7 @@ import { LAID_DEPTH_OFFSET } from "./paths";
 /**
  * Blocks as instanced meshes, one draw per kind (and per part of a decor model), placed relative
  * to `origin` (the tile that sits at the scene's middle), with their pools of light after dark.
- * A block upstairs (RFC 0028) is one more instance of its kind, lifted by its storey's height, so
+ * A block upstairs (RFC 0028) is one more instance of its kind, lifted by its floor's height, so
  * a loft adds no draws for kinds the ground floor already has. Shared by the plot and the world,
  * which passes one plank, stone, and pool texture for all its plots.
  */
@@ -61,13 +61,13 @@ export function blockMeshes(
   const m = new Matrix4();
   const q = new Quaternion();
   const one = new Vector3(1, 1, 1);
-  /** Where a block stands: its tile, on its storey's floor. */
-  const spot = (b: LayoutBlock) => new Vector3(toX(b.x), storeyY(b.storey), toZ(b.y));
-  /** Each tile with a block, by storey, for what joins or turns toward its neighbors. */
+  /** Where a block stands: its tile, at its floor's height. */
+  const spot = (b: LayoutBlock) => new Vector3(toX(b.x), floorY(b.floor), toZ(b.y));
+  /** Each tile with a block, by floor, for what joins or turns toward its neighbors. */
   const taken = new Map<string, LayoutBlock>();
-  for (const b of blocks) taken.set(`${b.x},${b.y},${b.storey ?? 0}`, b);
+  for (const b of blocks) taken.set(`${b.x},${b.y},${b.floor ?? 0}`, b);
   const near = (b: LayoutBlock, dx: number, dy: number) =>
-    taken.get(`${b.x + dx},${b.y + dy},${b.storey ?? 0}`);
+    taken.get(`${b.x + dx},${b.y + dy},${b.floor ?? 0}`);
 
   const colorFor = (base: number, b: LayoutBlock) => {
     // A little variety per block, and neighbors melt into the haze.
@@ -95,13 +95,13 @@ export function blockMeshes(
     out.push(mesh);
   }
 
-  // Stairs (RFC 0028): plank treads up to the storey above, one draw for every flight.
+  // Stairs (RFC 0028): plank treads up to the floor above, one draw for every flight.
   const flights = blocks.filter((b) => b.block === "stairs");
   if (flights.length > 0) {
     const tex = shared?.plank ?? stage.keep(plankTexture());
     const mesh = new InstancedMesh(stairsGeometry(), paper(0xffffff, tex), flights.length);
     flights.forEach((b, i) => {
-      // Their foot on an open tile beside them, on their own storey.
+      // Their foot on an open tile beside them, on their own floor.
       q.setFromAxisAngle(
         UP,
         stairsTurn((dx, dy) => !near(b, dx, dy)),
@@ -244,14 +244,14 @@ export function blockMeshes(
   }
 
   // Decor from the town shop: real little models, fence rails reaching the fences beside them.
-  // Rails and low walls join only what's beside them on their own storey.
+  // Rails and low walls join only what's beside them on their own floor.
   const joins = (b: LayoutBlock) => {
     const same = (dx: number, dy: number) => near(b, dx, dy)?.block === b.block;
     return { n: same(0, -1), e: same(1, 0), s: same(0, 1), w: same(-1, 0) };
   };
   const placeOf = (b: LayoutBlock) => ({
     x: toX(b.x),
-    y: storeyY(b.storey),
+    y: floorY(b.floor),
     z: toZ(b.y),
     tint: mix(0xffffff, fogColor, b.own ? 0 : 0.25 + b.fade * 0.6),
   });
@@ -434,7 +434,7 @@ function glowPools(
     transparent: true,
     depthWrite: false,
     blending: AdditiveBlending,
-    // Over any path or floor it lies on, a floor upstairs too, seen from any angle.
+    // Over any path or flooring it lies on, flooring upstairs too, seen from any angle.
     polygonOffset: true,
     polygonOffsetFactor: LAID_DEPTH_OFFSET - 1,
     polygonOffsetUnits: LAID_DEPTH_OFFSET - 1,
@@ -448,7 +448,7 @@ function glowPools(
     const size = glow?.pool ?? 1;
     const [ax, az] = glow?.at ?? [0, 0];
     m.compose(
-      new Vector3(b.x - origin.x + ax, storeyY(b.storey) + 0.02, b.y - origin.y + az),
+      new Vector3(b.x - origin.x + ax, floorY(b.floor) + 0.02, b.y - origin.y + az),
       q,
       new Vector3(size, 1, size),
     );
@@ -477,12 +477,12 @@ const TREADS = 4;
 
 /**
  * A flight of stairs on one tile (RFC 0028): plank treads between two side stringers, climbing a
- * whole storey from the foot at the south (+z) to the top at the north, where the stairwell opens
- * in the floor above. One merged shape, shaded like a block.
+ * whole floor from the foot at the south (+z) to the top at the north, where the stairwell opens
+ * in the flooring above. One merged shape, shaded like a block.
  */
 function stairsGeometry(): BufferGeometry {
   const parts: BufferGeometry[] = [];
-  const rise = STOREY_HEIGHT / TREADS;
+  const rise = FLOOR_HEIGHT / TREADS;
   const run = 0.9 / TREADS;
   for (let i = 0; i < TREADS; i++) {
     // Each tread a solid step down to the ground, so the flight reads as one block from the side.
@@ -492,8 +492,8 @@ function stairsGeometry(): BufferGeometry {
     parts.push(g);
   }
   for (const x of [-0.43, 0.43]) {
-    const g = new RoundedBoxGeometry(0.08, STOREY_HEIGHT, 0.9, 1, 0.025);
-    g.translate(x, STOREY_HEIGHT / 2, 0);
+    const g = new RoundedBoxGeometry(0.08, FLOOR_HEIGHT, 0.9, 1, 0.025);
+    g.translate(x, FLOOR_HEIGHT / 2, 0);
     parts.push(g);
   }
   const merged = bakeShade(mergeGeometries(parts.map(unindexed)), 0.62, 1);

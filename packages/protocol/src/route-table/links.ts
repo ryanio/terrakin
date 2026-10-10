@@ -221,12 +221,12 @@ export const LINK_ROUTES = [
     params: LinkKeyParams,
     query: z.object({
       dir: MoveAction.shape.dir.describe(
-        "n, s, e, w, ne, nw, se, or sw to walk. up from stairs you stand on, or down from the top of them, climbs one storey (`no_stairs` anywhere else).",
+        "n, s, e, w, ne, nw, se, or sw to walk. up from stairs you stand on, or down from the top of them, climbs one floor (`no_stairs` anywhere else).",
       ),
       steps: wholeNumber(1, MOVE_MAX_STEPS)
         .optional()
         .describe(
-          `How many tiles to walk, 1 to ${MOVE_MAX_STEPS}. Default 1. A climb is always one storey.`,
+          `How many tiles to walk, 1 to ${MOVE_MAX_STEPS}. Default 1. A climb is always one floor.`,
         ),
     }),
     responses: { 200: text("text/markdown", "Where you ended up") },

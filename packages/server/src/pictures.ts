@@ -11,6 +11,7 @@ import {
   blocksOn,
   DAY_LENGTH_MS,
   dayPhase,
+  FLOORS,
   groundOn,
   isCommons,
   nightAmount,
@@ -22,9 +23,8 @@ import {
   plotOf,
   type Resident,
   residentById,
-  STOREYS,
   skyAt,
-  standingStorey,
+  standingFloor,
   THEME_INFO,
   THEME_TINT_ALPHA,
   type ThemePalette,
@@ -67,7 +67,7 @@ export type PictureRoute =
 
 /**
  * A resident's figure before it's drawn: where their feet are, in tiles, their look, and whether
- * a floor the picture draws over them hides them, so they're drawn faded (RFC 0028).
+ * flooring the picture draws over them hides them, so they're drawn faded (RFC 0028).
  */
 interface SpecFigure {
   x: number;
@@ -129,12 +129,12 @@ export function edgeLook(r: Resident): EdgeLook {
 }
 
 /**
- * Whether a picture from above draws a floor or a block over someone on `storey` at (x, y), as the
- * map's `underFloor` has it for every plot but the one you stand on.
+ * Whether a picture from above draws flooring or a block over someone on `floor` at (x, y), as the
+ * map's `underFlooring` has it for every plot but the one you stand on.
  */
-function underFloor(state: WorldState, x: number, y: number, storey: number): boolean {
+function underFlooring(state: WorldState, x: number, y: number, floor: number): boolean {
   const key = tileKey(x, y);
-  for (let above = storey + 1; above <= STOREYS.max; above++) {
+  for (let above = floor + 1; above <= FLOORS.max; above++) {
     if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
       return true;
     }
@@ -163,7 +163,7 @@ function figuresIn(
       x: r.x - x0 + 0.5,
       y: r.y - y0 + FEET,
       look: edgeLook(r),
-      ...(underFloor(state, r.x, r.y, standingStorey(r)) ? { faded: true as const } : {}),
+      ...(underFlooring(state, r.x, r.y, standingFloor(r)) ? { faded: true as const } : {}),
     }));
 }
 
@@ -264,7 +264,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
     return isCommons(config, px, py);
   };
   const area = areaOf(state, x0, y0, cols, rows, paletteAt, commons);
-  const storeys = drawnFromAbove(area.storeys);
+  const floors = drawnFromAbove(area.floors);
 
   // Each themed plot's tint, cut to the box.
   const S = config.plotSize;
@@ -332,7 +332,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
       ...(tints.length ? { tints } : {}),
       blocks: area.blocks,
       ...(area.crops.length ? { crops: area.crops } : {}),
-      ...(storeys.length ? { storeys } : {}),
+      ...(floors.length ? { floors } : {}),
       hearths,
       ...(pets.length ? { pets } : {}),
       figures,

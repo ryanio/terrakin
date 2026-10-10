@@ -68,9 +68,9 @@ export const ProposalView = z.object({
   blocks: z.array(PlannedBlock),
   /** `commons_build`: Commons blocks it takes away if it passes. */
   remove: z.array(tile),
-  /** `commons_build`: paths and floors it lays if it passes. */
+  /** `commons_build`: paths and flooring it lays if it passes. */
   ground: z.array(PlannedGround),
-  /** `commons_build`: Commons paths and floors it lifts if it passes. */
+  /** `commons_build`: Commons paths and flooring it lifts if it passes. */
   lift: z.array(tile),
   /** `grant` and `bounty`: the coins it pays from the treasury if it passes. */
   amount: z.number().int().optional(),

@@ -390,7 +390,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         status: 200 as const,
         body: { resident: profileWithLinks(origin, resident) },
       })),
-    takePlotPhoto: ({ viewer, ip, body }) => api.takePlotPhoto(viewer, ip, body?.storey),
+    takePlotPhoto: ({ viewer, ip, body }) => api.takePlotPhoto(viewer, ip, body?.floor),
     uploadMedia: async ({ viewer, body, ip }) => {
       const key = ipKey(ip);
       const day = utcDay(api.now());

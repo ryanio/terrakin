@@ -6,9 +6,9 @@
  * Plots load as chunks within `VIEW_RADIUS` of you (fog hides the edge), at most two built per
  * frame, and each is freed when you walk away. Blocks, plot borders, grass, hearths, and figures
  * come from the builders the plot view uses (`blocks.ts`, `ground.ts`, `scenery.ts`, `hearth.ts`,
- * `figure.ts`), and the Town Hall and the shop from `buildings.ts`. Homes with storeys (RFC 0028)
- * show every plot whole but the one you stand on, cut away at your storey, and figures stand on
- * their storeys. Loaded only through `import()` (decision 0013).
+ * `figure.ts`), and the Town Hall and the shop from `buildings.ts`. Homes with an upstairs (RFC 0028)
+ * show every plot whole but the one you stand on, cut away at your floor, and figures stand on
+ * their floors. Loaded only through `import()` (decision 0013).
  */
 
 import {
@@ -48,11 +48,11 @@ import {
   Vector3,
 } from "three";
 import type { Feelings, Shown } from "../feelings";
+import { type Cutaway, cutaway } from "../floors";
 import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { lyingOn, type PetMotion, type PetScene } from "../pets";
-import { type Cutaway, cutaway } from "../storeys";
 import { nightAmount } from "../time";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
@@ -97,16 +97,16 @@ import {
   cornerLight,
   cutWalls,
   FIGURE_SCALE,
+  floorY,
   hearthPull,
   hearthStand,
   type LayoutFigure,
   litHomes,
   signSize,
   smokeStart,
-  storeyY,
 } from "./layout";
 import { hex, SKY } from "./palette";
-import { floorSlabs, groundAtlas, groundTiles } from "./paths";
+import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
 import { pickups, scenery } from "./scenery";
 import { createWeather } from "./weather";
@@ -173,10 +173,10 @@ export interface World3dFrame {
    */
   dayPhase?: number;
   /**
-   * The storey the plot you stand on is cut away at (RFC 0028): the build bar's pick while
-   * building, as on the map. Absent: the storey you stand on.
+   * The floor the plot you stand on is cut away at (RFC 0028): the build bar's pick while
+   * building, as on the map. Absent: the floor you stand on.
    */
-  cutStorey?: number;
+  cutFloor?: number;
 }
 
 export interface World3d {
@@ -203,7 +203,7 @@ interface Fig {
   group: Group;
   scope: Scope;
   signature: string;
-  /** How high their storey's floor is drawn (RFC 0028), eased as they go up or down. */
+  /** How high their floor is drawn (RFC 0028), eased as they go up or down. */
   rise: number;
   turn: number;
   /** The head's turn from the body, toward whoever is speaking. */
@@ -214,7 +214,7 @@ interface Fig {
   away?: { x: number; y: number };
   /** Away and out on a routine (decision 0083): faded, walking its steps, and awake. */
   out?: true;
-  /** On a storey the cut leaves out (RFC 0028): faded, their name still shown, as on the map. */
+  /** On a floor the cut leaves out (RFC 0028): faded, their name still shown, as on the map. */
   cutOff?: boolean;
   /** What they're saying, in the scene so a hop or squash doesn't bend it; its canvas size. */
   bubble?: { text: string; sprite: Sprite; w: number; h: number };
@@ -238,7 +238,7 @@ const MIN_DISTANCE = 3;
 const MAX_DISTANCE = 24;
 /** How quickly figures turn, per second. */
 const TURN = 10;
-/** How quickly a figure climbs to its storey's floor (RFC 0028), per second. */
+/** How quickly a figure climbs to its floor's height (RFC 0028), per second. */
 const CLIMB = 8;
 /** How high a figure's middle stands over its feet, where a pill beside it lines up. */
 const FIGURE_MIDDLE = 0.6;
@@ -303,7 +303,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     surfaces.pool,
     hearthLook.glow,
   ]);
-  /** Every path and floor in one texture (RFC 0016), drawn the first time a plot has any. */
+  /** Every kind of path and flooring in one texture (RFC 0016), drawn the first time a plot has any. */
   let atlas: Texture | undefined;
   const groundAtlasOnce = () => {
     if (!atlas) {
@@ -417,10 +417,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
       if (paved) group.add(paved);
     }
-    // Floors upstairs on slabs (RFC 0028), and caps on the walls a cut leaves open.
-    const slabs = floorSlabs(
+    // Flooring upstairs on slabs (RFC 0028), and caps on the walls a cut leaves open.
+    const slabs = flooringSlabs(
       origin,
-      data.ground.filter((g) => g.storey),
+      data.ground.filter((g) => g.floor),
       cutWalls(blocks, cut ?? data.highest, data.highest),
       grain,
     );
@@ -452,17 +452,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
 
   /**
    * The plots in view, built or built again when what they draw changed. `cut` is the plot you
-   * stand on and your storey there (RFC 0028): that plot is cut away at it, the rest whole.
+   * stand on and your floor there (RFC 0028): that plot is cut away at it, the rest whole.
    */
   function updateChunks(
     mirror: Mirror,
     tile: Tile,
     changed: boolean,
-    cut: { px: number; py: number; storey: number } | undefined,
+    cut: { px: number; py: number; floor: number } | undefined,
   ) {
     const { config } = mirror;
     const cutAt = (px: number, py: number) =>
-      cut && cut.px === px && cut.py === py ? cut.storey : undefined;
+      cut && cut.px === px && cut.py === py ? cut.floor : undefined;
     const keep = new Set(
       plotsAround(tile, VIEW_RADIUS + KEEP_SLACK, config).map((p) => plotKey(p.x, p.y)),
     );
@@ -757,8 +757,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       ]);
       const have = figures.get(r.id);
       if (have?.signature === signature) continue;
-      // Asleep at home is on the ground floor; anyone else on their own storey (RFC 0028).
-      const rise = away ? 0 : (have?.rise ?? storeyY(r.storey));
+      // Asleep at home is on the ground floor; anyone else on their own floor (RFC 0028).
+      const rise = away ? 0 : (have?.rise ?? floorY(r.floor));
       const at = away
         ? new Vector3(away.x, 0, away.y)
         : have
@@ -829,17 +829,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const turn = still || Math.abs(gap) < 1e-3 ? want : f.turn + gap * (1 - Math.exp(-TURN * dt));
       const g = f.group;
       const p = g.position;
-      // Up or down a storey (RFC 0028), eased like a step.
-      const rise = still ? storeyY(r.storey) : approach(f.rise, storeyY(r.storey), dt, CLIMB);
+      // Up or down a floor (RFC 0028), eased like a step.
+      const rise = still ? floorY(r.floor) : approach(f.rise, floorY(r.floor), dt, CLIMB);
       if (rise !== f.rise) moved = true;
       f.rise = rise;
-      // Above the storey the plot they're on is cut at: faded, like a figure under a floor.
+      // Above the floor the plot they're on is cut at: faded, like a figure under flooring.
       const S = mirror.config.plotSize;
       const cutOff =
         cut !== undefined &&
         Math.floor(r.x / S) === cut.px &&
         Math.floor(r.y / S) === cut.py &&
-        (r.storey ?? 0) > cut.storey;
+        (r.floor ?? 0) > cut.floor;
       if (cutOff !== (f.cutOff ?? false)) {
         fadeFigure(g, cutOff);
         f.cutOff = cutOff;
@@ -848,7 +848,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // Off the stonework when on or stepping onto a hearth's tile, on the ground floor.
       let x = m.x;
       let z = m.y;
-      if (stands.size > 0 && !r.storey) {
+      if (stands.size > 0 && !r.floor) {
         for (let ty = Math.floor(m.y); ty <= Math.ceil(m.y); ty++)
           for (let tx = Math.floor(m.x); tx <= Math.ceil(m.x); tx++) {
             const stand = stands.get(ty * standsWidth + tx);
@@ -1038,7 +1038,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const lookSpot = new Vector3();
   const lastFocus = new Vector3(Number.NaN, 0, 0);
 
-  /** Keep the camera on `at`, standing `rise` up on its storey's floor. */
+  /** Keep the camera on `at`, standing `rise` up on its floor. */
   function follow(at: Vector3, rise = 0) {
     focus.set(at.x, 0.6 + rise, at.z);
     if (!started) {
@@ -1079,7 +1079,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       );
       reach.computeLineDistances();
     }
-    reach.position.set(self.x, storeyY(self.storey) + 0.04, self.y);
+    reach.position.set(self.x, floorY(self.floor) + 0.04, self.y);
   }
 
   // ---------- taps ----------
@@ -1232,10 +1232,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         stands = hearthStands(mirror);
         standsWidth = mirror.config.width;
       }
-      // The plot you stand on is cut away at your storey, or the one the build bar picked (RFC
+      // The plot you stand on is cut away at your floor, or the one the build bar picked (RFC
       // 0028), as on the map; a link's look cuts nothing.
-      const cut = look ? undefined : cutaway(self, mirror.config.plotSize, frame.cutStorey);
-      const cutKey = cut ? `${cut.px},${cut.py},${cut.storey}` : "";
+      const cut = look ? undefined : cutaway(self, mirror.config.plotSize, frame.cutFloor);
+      const cutKey = cut ? `${cut.px},${cut.py},${cut.floor}` : "";
       const recut = cutKey !== cutSeen;
       cutSeen = cutKey;
       if (changed || walked || pending || recut) {

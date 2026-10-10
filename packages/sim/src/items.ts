@@ -29,6 +29,7 @@ import {
 } from "./catalog";
 import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
+import { FLOORS } from "./floors";
 import {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
@@ -38,7 +39,6 @@ import {
 import { tileKey } from "./keys";
 import { craftEarns, earned, harvestEarns } from "./levels";
 import { own, residentById } from "./own";
-import { STOREYS } from "./storeys";
 import type {
   Command,
   GiftRecord,
@@ -844,7 +844,7 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
   const me = state.residents[id];
   if (!items || day === undefined || !me?.hearth) return [];
   // On the hearth means on the ground floor too (RFC 0028).
-  if (me.x !== me.hearth.x || me.y !== me.hearth.y || me.storey !== undefined) return [];
+  if (me.x !== me.hearth.x || me.y !== me.hearth.y || me.floor !== undefined) return [];
   const adds = pantryAdds(state, id);
   if (adds.length === 0) return [];
   const first = items.pantry[id] === undefined;
@@ -872,13 +872,13 @@ export const POND = { block: "pond", stone: 2 } as const;
 /**
  * What placing a block takes from your things, and what taking it up gives back to whoever does:
  * one of itself for decor and furniture, which you hold before you place them, `POND.stone` stone
- * for a pond, `STOREYS.stairsWood` wood for stairs (RFC 0028), and nothing for a free block. In a
+ * for a pond, `FLOORS.stairsWood` wood for stairs (RFC 0028), and nothing for a free block. In a
  * fixed order, like a recipe's needs.
  */
 export function blockNeeds(block: string | undefined): [StackKind, number][] {
   if (isHeldBlock(block)) return [[block, 1]];
   if (block === POND.block) return [["stone", POND.stone]];
-  if (block === "stairs") return [["wood", STOREYS.stairsWood]];
+  if (block === "stairs") return [["wood", FLOORS.stairsWood]];
   return [];
 }
 

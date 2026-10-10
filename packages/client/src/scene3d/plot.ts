@@ -3,7 +3,7 @@
  * with planks and stones, glass as framed panes, leaf as swaying clumps), the hearth a little
  * stone fireplace with a glow and chimney smoke, residents soft peg figures in their color and
  * shape, and the neighbors' ground melts into the haze. A resident's own home model or picture,
- * when they have one, stands on the plot too. A home with a loft (RFC 0028) shows its storeys up to
+ * when they have one, stands on the plot too. A home with a loft (RFC 0028) shows its floors up to
  * the one picked, the rest cut away, and its neighbors whole.
  */
 
@@ -32,6 +32,7 @@ import { loadHomeModel, loadSign } from "./home";
 import {
   cutAway,
   cutWalls,
+  floorY,
   groundDecor,
   type HomeExtras,
   hearthPull,
@@ -41,11 +42,10 @@ import {
   type PlotLayout,
   signSize,
   smokeStart,
-  storeyY,
   tileHash,
   underFootprint,
 } from "./layout";
-import { floorSlabs, groundAtlas, groundTiles } from "./paths";
+import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometry, petMaterial } from "./pets";
 import { scenery } from "./scenery";
 import { createWeather } from "./weather";
@@ -53,16 +53,16 @@ import { createWeather } from "./weather";
 export interface PlotSceneOptions {
   /** A note for the page when the owner's own model or picture couldn't be shown. */
   onNote?(text: string): void;
-  /** The highest storey to show on the plot at first (RFC 0028). Absent: the whole home. */
-  storey?: number;
+  /** The highest floor to show on the plot at first (RFC 0028). Absent: the whole home. */
+  floor?: number;
 }
 
 export interface PlotScene {
   /**
-   * Show the plot's storeys up to `top` and cut away the rest (RFC 0028), its neighbors whole.
-   * Only the blocks, floors, and slabs are built again; the draws per kind stay as they were.
+   * Show the plot's floors up to `top` and cut away the rest (RFC 0028), its neighbors whole.
+   * Only the blocks, flooring, and slabs are built again; the draws per kind stay as they were.
    */
-  showStoreys(top: number): void;
+  showFloors(top: number): void;
 }
 
 /** Build the plot into the stage. Everything added is freed by `stage.dispose()`. */
@@ -75,13 +75,13 @@ export function buildPlot(
   const root = new Group();
   stage.scene.add(root);
   const grain = stage.keep(grainTexture());
-  // One plank, stone, and pool texture for every storey shown, kept as the cut moves.
+  // One plank, stone, and pool texture for every floor shown, kept as the cut moves.
   const surfaces = {
     plank: stage.keep(plankTexture()),
     stone: stage.keep(stoneTexture()),
     pool: stage.keep(spotTexture(POOL_LIGHT)),
   };
-  // Kept as the cut moves: freed with the stage, never with the storeys shown.
+  // Kept as the cut moves: freed with the stage, never with the floors shown.
   const spare = new Set<Texture>([grain, surfaces.plank, surfaces.stone, surfaces.pool]);
   let atlas: Texture | undefined;
   const atlasOnce = () => {
@@ -95,15 +95,15 @@ export function buildPlot(
   const toX = (x: number) => x - origin.x;
   const toZ = (y: number) => y - origin.y;
 
-  // Their own model stands in for the blocks under it on every storey, and the floors upstairs.
+  // Their own model stands in for the blocks under it on every floor, and the flooring upstairs.
   const footprint = extras.homeModel ? modelFootprint(layout) : undefined;
   const under = (t: { x: number; y: number; own: boolean }) =>
     footprint !== undefined && t.own && underFootprint(footprint, t.x, t.y);
   const blocks = layout.blocks.filter((b) => !under(b));
-  const laid = layout.ground.filter((g) => !(g.storey && under(g)));
+  const laid = layout.ground.filter((g) => !(g.floor && under(g)));
   // What stands and lies on the ground floor, for the ground's shade, the grass, and the hearth.
-  const downstairs = laid.filter((g) => !g.storey);
-  const solid = new Set(blocks.flatMap((b) => (b.storey ? [] : [`${b.x},${b.y}`])));
+  const downstairs = laid.filter((g) => !g.floor);
+  const solid = new Set(blocks.flatMap((b) => (b.floor ? [] : [`${b.x},${b.y}`])));
   if (layout.hearth) solid.add(`${layout.hearth.x},${layout.hearth.y}`);
 
   root.add(ground(layout, solid));
@@ -115,46 +115,46 @@ export function buildPlot(
     fire.position.set(toX(layout.hearth.x), 0, toZ(layout.hearth.y));
     root.add(fire);
   }
-  // The blocks, paths and floors (RFC 0016), and slabs upstairs, built again when the cut moves.
-  let storeys: { group: Group; scope: Scope } | undefined;
-  // Figures, placed below; someone on a storey the cut leaves out is faded, their name still shown.
+  // The blocks, paths and flooring (RFC 0016), and slabs upstairs, built again when the cut moves.
+  let floors: { group: Group; scope: Scope } | undefined;
+  // Figures, placed below; someone on a floor the cut leaves out is faded, their name still shown.
   const figures: Group[] = [];
-  let shownTop = opts.storey ?? layout.top;
+  let shownTop = opts.floor ?? layout.top;
   const fadeAbove = () => {
     for (const [i, fig] of figures.entries()) {
-      fadeFigure(fig, (layout.figures[i]?.storey ?? 0) > shownTop);
+      fadeFigure(fig, (layout.figures[i]?.floor ?? 0) > shownTop);
     }
   };
-  const showStoreys = (top: number) => {
+  const showFloors = (top: number) => {
     shownTop = top;
     fadeAbove();
-    if (storeys) {
-      root.remove(storeys.group);
-      storeys.scope.release();
-      disposeTree(storeys.group, spare);
+    if (floors) {
+      root.remove(floors.group);
+      floors.scope.release();
+      disposeTree(floors.group, spare);
     }
     const scope = scoped(stage);
     const group = new Group();
     const shown = cutAway(blocks, top);
-    const floors = cutAway(laid, top);
+    const flooring = cutAway(laid, top);
     addAll(group, blockMeshes(scope, origin, shown, grain, surfaces));
-    if (floors.length > 0) {
-      const paved = groundTiles(origin, floors, atlasOnce());
+    if (flooring.length > 0) {
+      const paved = groundTiles(origin, flooring, atlasOnce());
       if (paved) group.add(paved);
     }
-    const slabs = floorSlabs(
+    const slabs = flooringSlabs(
       origin,
-      floors.filter((g) => g.storey),
+      flooring.filter((g) => g.floor),
       cutWalls(shown, top, layout.top),
       grain,
     );
     if (slabs) group.add(slabs);
     root.add(group);
-    storeys = { group, scope };
-    if (fire && layout.hearth) liftSmoke(fire, smokeStart(layout.hearth, shown, floors));
+    floors = { group, scope };
+    if (fire && layout.hearth) liftSmoke(fire, smokeStart(layout.hearth, shown, flooring));
     stage.invalidate();
   };
-  showStoreys(opts.storey ?? layout.top);
+  showFloors(opts.floor ?? layout.top);
   // No grass tufts poking through the ground floor's paths.
   const covered = new Set([...solid, ...downstairs.map((g) => `${g.x},${g.y}`)]);
   const { tufts, flowers, leaves } = groundDecor(
@@ -208,11 +208,11 @@ export function buildPlot(
   for (const f of layout.figures) {
     const fig = figure(stage, f, shadowMap);
     // Someone asleep at home already stands clear of the stonework.
-    // Someone upstairs stands on their storey, over the hearth or not.
-    const pull = home && stand && !f.away && !f.storey ? hearthPull(f.x, f.y, home.x, home.y) : 0;
+    // Someone upstairs stands on their floor, over the hearth or not.
+    const pull = home && stand && !f.away && !f.floor ? hearthPull(f.x, f.y, home.x, home.y) : 0;
     fig.position.set(
       toX(f.x) + (stand?.x ?? 0) * pull,
-      storeyY(f.storey),
+      floorY(f.floor),
       toZ(f.y) + (stand?.y ?? 0) * pull,
     );
     // Face the camera's usual side (south-east), with a little turn each.
@@ -267,7 +267,7 @@ export function buildPlot(
     });
   }
 
-  // The whole home, its top storey too, whichever storey is shown: a photo frames it all.
+  // The whole home, its top floor too, whichever floor is shown: a photo frames it all.
   const framed = homeFrame(layout.size, layout.top);
   stage.light(new Vector3(0, 0, 0), layout.size / 2 + layout.margin);
   stage.frame(new Vector3(0, framed.y, 0), framed.radius, new Vector3(0.55, 0.78, 1));
@@ -279,5 +279,5 @@ export function buildPlot(
   };
   fitSigns();
   controls.addEventListener("change", fitSigns);
-  return { showStoreys };
+  return { showFloors };
 }

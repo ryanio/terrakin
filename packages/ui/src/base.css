@@ -42,7 +42,7 @@ a {
   overflow: visible;
 }
 
-/* A path or floor's swatch (ground-art.ts): one tile, squared off; its holder rounds the corners. */
+/* A path or flooring's swatch (ground-art.ts): one tile, squared off; its holder rounds the corners. */
 .ground-art {
   flex: none;
   display: block;

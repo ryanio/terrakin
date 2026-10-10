@@ -40,7 +40,9 @@ import {
   dozerAt,
   dozers,
   FIGURE_SCALE,
+  FLOOR_HEIGHT,
   fitModel,
+  floorY,
   groundDecor,
   HAT_BAND,
   hearthPull,
@@ -57,18 +59,16 @@ import {
   rawResident,
   SIGN_SIZE,
   SMOKE_START,
-  STOREY_HEIGHT,
   signSize,
   smokeStart,
   stairsTurn,
-  startStorey,
-  storeyY,
+  startFloor,
   tagHeight,
   underFootprint,
   wornPieces,
 } from "./scene3d/layout";
 import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
-import { floorSlabs, groundTiles } from "./scene3d/paths";
+import { flooringSlabs, groundTiles } from "./scene3d/paths";
 import { onHead } from "./scene3d/wear";
 
 type ResidentView = WorldSnapshot["residents"][number];
@@ -324,7 +324,7 @@ describe("plot layout", () => {
   });
 });
 
-describe("homes with storeys in 3D (RFC 0028)", () => {
+describe("homes with an upstairs in 3D (RFC 0028)", () => {
   /**
    * Capri's hut on plot (1, 1) with a loft: stairs inside, planks over two walls and a window
    * upstairs, a chair up there, and a path below. Wren stands at the top of the stairs. Bram has a
@@ -335,54 +335,54 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
     return {
       ...w,
       residents: w.residents.map((r) =>
-        r.id === "visitor" ? { ...r, x: 10, y: 11, storey: 1 } : r,
+        r.id === "visitor" ? { ...r, x: 10, y: 11, floor: 1 } : r,
       ),
       blocks: [
         ...w.blocks,
         { x: 10, y: 11, block: "stairs" },
-        { x: 10, y: 12, storey: 1, block: "glass" },
-        { x: 11, y: 10, storey: 1, block: "chair" },
-        { x: 16, y: 11, storey: 1, block: "wood" },
+        { x: 10, y: 12, floor: 1, block: "glass" },
+        { x: 11, y: 10, floor: 1, block: "chair" },
+        { x: 16, y: 11, floor: 1, block: "wood" },
       ],
       ground: [
-        { x: 10, y: 10, storey: 1, ground: "planks" },
-        { x: 11, y: 10, storey: 1, ground: "planks" },
-        { x: 10, y: 12, storey: 1, ground: "planks" },
+        { x: 10, y: 10, floor: 1, ground: "planks" },
+        { x: 11, y: 10, floor: 1, ground: "planks" },
+        { x: 10, y: 12, floor: 1, ground: "planks" },
         { x: 12, y: 12, ground: "cobble" },
       ],
     };
   }
   const at = (
-    list: readonly { x: number; y: number; storey?: number | undefined; own?: boolean }[],
-  ) => list.map((t) => `${t.x},${t.y},${t.storey ?? 0}${t.own === false ? " next door" : ""}`);
+    list: readonly { x: number; y: number; floor?: number | undefined; own?: boolean }[],
+  ) => list.map((t) => `${t.x},${t.y},${t.floor ?? 0}${t.own === false ? " next door" : ""}`);
 
-  it("lays out every storey, and who stands upstairs, and counts only the plot's own storeys", () => {
+  it("lays out every floor, and who stands upstairs, and counts only the plot's own floors", () => {
     const layout = plotLayout(loft(), "capri");
     if (!layout) throw new Error("no layout");
     expect(layout.top).toBe(1);
-    expect(at(layout.blocks.filter((b) => b.storey))).toEqual([
+    expect(at(layout.blocks.filter((b) => b.floor))).toEqual([
       "11,10,1",
       "16,11,1 next door",
       "10,12,1",
     ]);
     expect(at(layout.ground)).toEqual(["10,10,1", "11,10,1", "10,12,1", "12,12,0"]);
-    expect(layout.figures.find((f) => f.id === "visitor")?.storey).toBe(1);
+    expect(layout.figures.find((f) => f.id === "visitor")?.floor).toBe(1);
     // The owner, out and drawn beside the hearth, is on the ground floor.
-    expect(layout.figures.find((f) => f.id === "capri")?.storey).toBeUndefined();
+    expect(layout.figures.find((f) => f.id === "capri")?.floor).toBeUndefined();
     // A wall upstairs next door doesn't make this home taller.
     const w = world();
     const flat = plotLayout(
-      { ...w, blocks: [...w.blocks, { x: 16, y: 11, storey: 1, block: "wood" }] },
+      { ...w, blocks: [...w.blocks, { x: 16, y: 11, floor: 1, block: "wood" }] },
       "capri",
     );
     expect(flat?.top).toBe(0);
   });
 
-  it("cuts away the plot's storeys above the one picked, never a neighbor's, and caps the cut walls", () => {
+  it("cuts away the plot's floors above the one picked, never a neighbor's, and caps the cut walls", () => {
     const layout = plotLayout(loft(), "capri");
     if (!layout) throw new Error("no layout");
     const ground = cutAway(layout.blocks, 0);
-    expect(at(ground.filter((b) => b.storey))).toEqual(["16,11,1 next door"]);
+    expect(at(ground.filter((b) => b.floor))).toEqual(["16,11,1 next door"]);
     expect(at(cutAway(layout.ground, 0))).toEqual(["12,12,0"]);
     expect(cutAway(layout.blocks, 1)).toEqual(layout.blocks);
     // The ground floor's walls, the window among them, get a dark top; the stairs and the
@@ -391,19 +391,19 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
     expect(cutWalls(layout.blocks, 1, layout.top)).toEqual([]);
   });
 
-  it("starts the home view on your storey while you stand on the plot, else on the whole home", () => {
+  it("starts the home view on your floor while you stand on the plot, else on the whole home", () => {
     const layout = plotLayout(loft(), "capri");
     if (!layout) throw new Error("no layout");
     const on = { x: 10, y: 11, online: true };
-    expect(startStorey(layout, undefined)).toBe(1);
-    expect(startStorey(layout, on)).toBe(0);
-    expect(startStorey(layout, { ...on, storey: 1 })).toBe(1);
-    expect(startStorey(layout, { ...on, x: 30 })).toBe(1);
-    expect(startStorey(layout, { ...on, online: false })).toBe(1);
-    expect(startStorey({ ...layout, top: 0 }, { ...on, storey: 1 })).toBe(0);
+    expect(startFloor(layout, undefined)).toBe(1);
+    expect(startFloor(layout, on)).toBe(0);
+    expect(startFloor(layout, { ...on, floor: 1 })).toBe(1);
+    expect(startFloor(layout, { ...on, x: 30 })).toBe(1);
+    expect(startFloor(layout, { ...on, online: false })).toBe(1);
+    expect(startFloor({ ...layout, top: 0 }, { ...on, floor: 1 })).toBe(0);
   });
 
-  it("lifts each block upstairs by a storey, as more of the draws its kind already has", () => {
+  it("lifts each block upstairs by a floor, as more of the draws its kind already has", () => {
     const stage = {
       keep: <T>(thing: T) => thing,
       glow: () => () => {},
@@ -414,10 +414,10 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
     const down: LayoutBlock[] = (
       ["wood", "stone", "glass", "leaf", "chair", "fence", "stairs"] as const
     ).map((block, i) => ({ x: i * 2, y: 0, block, own: true, fade: 0 }));
-    const up = down.filter((b) => b.block !== "stairs").map((b) => ({ ...b, storey: 1 }));
+    const up = down.filter((b) => b.block !== "stairs").map((b) => ({ ...b, floor: 1 }));
     const before = blockMeshes(stage, { x: 0, y: 0 }, down, new Texture(), shared);
     const after = blockMeshes(stage, { x: 0, y: 0 }, [...down, ...up], new Texture(), shared);
-    // The same draws, kind by kind, each with its instances upstairs a storey higher.
+    // The same draws, kind by kind, each with its instances upstairs a floor higher.
     expect(after.length).toBe(before.length);
     const heights = (o: Object3D) => {
       const mesh = o as InstancedMesh;
@@ -432,21 +432,21 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
       const was = heights(before[i] as Object3D);
       const now = heights(mesh);
       expect(now.filter((y) => y === 0)).toEqual(was);
-      expect(now.filter((y) => y !== 0)).toEqual(now.slice(was.length).map(() => STOREY_HEIGHT));
+      expect(now.filter((y) => y !== 0)).toEqual(now.slice(was.length).map(() => FLOOR_HEIGHT));
       if (now.length === was.length * 2) doubled++;
     });
-    // Every draw but the stairs' (which never stand on the top storey) has its loft's share.
+    // Every draw but the stairs' (which never stand on the top floor) has its loft's share.
     expect(doubled).toBe(after.length - 1);
   });
 
-  it("lays floors upstairs on one slab mesh, caps cut walls from it, and lifts their look onto it", () => {
-    const floors = [
-      { x: 0, y: 0, ground: "planks" as const, storey: 1 },
-      { x: 1, y: 0, ground: "moss" as const, storey: 1 },
+  it("lays flooring upstairs on one slab mesh, caps cut walls from it, and lifts their look onto it", () => {
+    const flooring = [
+      { x: 0, y: 0, ground: "planks" as const, floor: 1 },
+      { x: 1, y: 0, ground: "moss" as const, floor: 1 },
     ];
-    const slabs = floorSlabs(
+    const slabs = flooringSlabs(
       { x: 0, y: 0 },
-      floors,
+      flooring,
       [{ x: 0, y: 1, block: "wood" }],
       new Texture(),
     );
@@ -456,15 +456,15 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
       slabs.getMatrixAt(i, m);
       return m.elements[13] ?? 0;
     });
-    // Each slab's top is its storey's floor; the cap sits on the wall's top, a storey up.
-    expect(tops.slice(0, 2)).toEqual([storeyY(1), storeyY(1)]);
-    expect(tops[2]).toBeCloseTo(STOREY_HEIGHT, 1);
-    // A home of one storey draws no slabs at all.
-    expect(floorSlabs({ x: 0, y: 0 }, [], [], new Texture())).toBeNull();
-    // One mesh for the path below and the floors above, each a hair over what it lies on.
+    // Each slab's top is at its floor's height; the cap sits on the wall's top, a floor up.
+    expect(tops.slice(0, 2)).toEqual([floorY(1), floorY(1)]);
+    expect(tops[2]).toBeCloseTo(FLOOR_HEIGHT, 1);
+    // A home of one floor draws no slabs at all.
+    expect(flooringSlabs({ x: 0, y: 0 }, [], [], new Texture())).toBeNull();
+    // One mesh for the path below and the flooring above, each a hair over what it lies on.
     const tiles = groundTiles(
       { x: 0, y: 0 },
-      [{ x: 2, y: 2, ground: "cobble" }, ...floors],
+      [{ x: 2, y: 2, ground: "cobble" }, ...flooring],
       new Texture(),
     );
     const ys = new Set(
@@ -472,79 +472,79 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
         (_, i) => i % 3 === 1,
       ),
     );
-    expect([...ys].map((y) => Math.round(y * 1000) / 1000)).toEqual([0.012, storeyY(1) + 0.012]);
+    expect([...ys].map((y) => Math.round(y * 1000) / 1000)).toEqual([0.012, floorY(1) + 0.012]);
   });
 
-  it("draws a pool of lamplight over the floor it lies on, upstairs or down", () => {
+  it("draws a pool of lamplight over the flooring it lies on, upstairs or down", () => {
     const stage = {
       keep: <T>(thing: T) => thing,
       glow: () => () => {},
       animate: () => () => {},
       reducedMotion: true,
     } as unknown as Stage;
-    const lights: LayoutBlock[] = [0, 1].map((storey) => ({
-      x: storey,
+    const lights: LayoutBlock[] = [0, 1].map((floor) => ({
+      x: floor,
       y: 0,
       block: "string_lights",
       own: true,
       fade: 0,
-      ...(storey ? { storey } : {}),
+      ...(floor ? { floor } : {}),
     }));
     const shared = { plank: new Texture(), stone: new Texture(), pool: new Texture() };
     const pools = blockMeshes(stage, { x: 0, y: 0 }, lights, new Texture(), shared).find(
       (o) => o.name === "glow pools",
     ) as InstancedMesh | undefined;
-    const floors = groundTiles(
+    const flooring = groundTiles(
       { x: 0, y: 0 },
       [
         { x: 0, y: 0, ground: "planks" },
-        { x: 1, y: 0, ground: "planks", storey: 1 },
+        { x: 1, y: 0, ground: "planks", floor: 1 },
       ],
       new Texture(),
     );
-    if (!pools || !floors) throw new Error("no pools or no floors");
-    // Both lie a hair over the floor, so the pool has to win the depth test at any slant, or the
+    if (!pools || !flooring) throw new Error("no pools or no flooring");
+    // Both lie a hair over the flooring, so the pool has to win the depth test at any slant, or the
     // planks under a string of lights hide its light: it pulls further toward the camera.
     const pull = (m: Material) => (m.polygonOffset ? m.polygonOffsetFactor : 0);
-    expect(pull(pools.material as Material)).toBeLessThan(pull(floors.material as Material));
+    expect(pull(pools.material as Material)).toBeLessThan(pull(flooring.material as Material));
     const units = (m: Material) => (m.polygonOffset ? m.polygonOffsetUnits : 0);
-    expect(units(pools.material as Material)).toBeLessThan(units(floors.material as Material));
+    expect(units(pools.material as Material)).toBeLessThan(units(flooring.material as Material));
   });
 
-  it("starts a hearth's smoke over what the view draws above it, never under a floor", () => {
+  it("starts a hearth's smoke over what the view draws above it, never under flooring", () => {
     const fire = { x: 11, y: 11 };
-    const floor = { x: 11, y: 11, storey: 1 };
-    const wall = { ...floor, block: "wood" as const };
-    // In the open, beside a loft, and on a path of its own floor: just over the chimney's cap.
+    const flooring = { x: 11, y: 11, floor: 1 };
+    const wall = { ...flooring, block: "wood" as const };
+    // In the open, beside a loft, and on a path of its own flooring: just over the chimney's cap.
     expect(smokeStart(fire, [], [])).toBe(SMOKE_START);
     expect(
       smokeStart(
         fire,
         [{ ...wall, x: 12 }],
         [
-          { ...floor, y: 10 },
+          { ...flooring, y: 10 },
           { x: 11, y: 11 },
         ],
       ),
     ).toBe(SMOKE_START);
-    // Under a floor it starts over the loft's walls, and a wall on the tile changes nothing.
-    const lofted = smokeStart(fire, [], [floor]);
-    expect(lofted).toBeGreaterThan(storeyY(1) + STOREY_HEIGHT);
-    expect(smokeStart(fire, [wall], [floor])).toBe(lofted);
+    // Under flooring it starts over the loft's walls, and a wall on the tile changes nothing.
+    const lofted = smokeStart(fire, [], [flooring]);
+    expect(lofted).toBeGreaterThan(floorY(1) + FLOOR_HEIGHT);
+    expect(smokeStart(fire, [wall], [flooring])).toBe(lofted);
     expect(smokeStart(fire, [wall], [])).toBe(lofted);
     // A lamp post up there stands taller than a wall, and the smoke clears it too.
-    const lamp = smokeStart(fire, [{ ...wall, block: "lamp_post" }], [floor]);
-    expect(lamp).toBeGreaterThan(storeyY(1) + blockLook("lamp_post").height);
+    const lamp = smokeStart(fire, [{ ...wall, block: "lamp_post" }], [flooring]);
+    expect(lamp).toBeGreaterThan(floorY(1) + blockLook("lamp_post").height);
     expect(lamp).toBeGreaterThan(lofted);
     // With the loft cut away, the chimney smokes as it does in the open.
-    expect(smokeStart(fire, cutAway([wall], 0), cutAway([floor], 0))).toBe(SMOKE_START);
+    expect(smokeStart(fire, cutAway([wall], 0), cutAway([flooring], 0))).toBe(SMOKE_START);
   });
 
   it("frames the whole home, a loft's walls with as much room as a bungalow's", () => {
     // Room to spare around the middle of the plot's edge at a height, for a plot 8 tiles across.
     const room = (f: { y: number; radius: number }, height: number) =>
       f.radius - Math.hypot(4, height - f.y);
-    const wallTop = (storey: number) => storeyY(storey) + STOREY_HEIGHT;
+    const wallTop = (floor: number) => floorY(floor) + FLOOR_HEIGHT;
     const bungalow = homeFrame(8, 0);
     const tall = homeFrame(8, 1);
     expect(room(tall, wallTop(1))).toBeGreaterThanOrEqual(room(bungalow, wallTop(0)));

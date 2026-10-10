@@ -13,8 +13,10 @@ import {
   type Direction,
   displaysOf,
   eventOpen,
+  FLOORS,
   findsOnDisplay,
   findsOpen,
+  floorField,
   groundOn,
   holidayField,
   isTownEvent,
@@ -29,11 +31,9 @@ import {
   type RecipeName,
   type Resident,
   residentById,
-  STOREYS,
   type StepRoutine,
   shopTiles,
   skyAt,
-  storeyField,
   timeOfDayAt,
   townHallTiles,
   type WorldEvent,
@@ -250,19 +250,19 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     const r = residentById(state, id);
     return r ? [view(r)] : [];
   });
-  // Every storey's blocks and floors, the ground floor's first, `storey` on the rest (RFC 0028).
-  // With no storeys these are the ground floor's alone, as they always were.
-  const storeys = Array.from({ length: STOREYS.max + 1 }, (_, storey) => storey);
-  const blocks = storeys.flatMap((storey) =>
-    Object.entries(blocksOn(state, storey)).map(([key, block]) => {
+  // Every floor's blocks and flooring, the ground floor's first, `floor` on the rest (RFC 0028).
+  // With no floors these are the ground floor's alone, as they always were.
+  const floors = Array.from({ length: FLOORS.max + 1 }, (_, floor) => floor);
+  const blocks = floors.flatMap((floor) =>
+    Object.entries(blocksOn(state, floor)).map(([key, block]) => {
       const [x, y] = parseKey(key);
-      return { x, y, ...storeyField(storey), block };
+      return { x, y, ...floorField(floor), block };
     }),
   );
-  const ground = storeys.flatMap((storey) =>
-    Object.entries(groundOn(state, storey)).map(([key, kind]) => {
+  const ground = floors.flatMap((floor) =>
+    Object.entries(groundOn(state, floor)).map(([key, kind]) => {
       const [x, y] = parseKey(key);
-      return { x, y, ...storeyField(storey), ground: kind };
+      return { x, y, ...floorField(floor), ground: kind };
     }),
   );
   return {
@@ -298,7 +298,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         ...(p.gallery ? { gallery: true as const } : {}),
         // Its residents' words (decision 0121).
         ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
-        ...(p.storeys ? { storeys: p.storeys } : {}),
+        ...(p.floors ? { floors: p.floors } : {}),
       };
     }),
     blocks,

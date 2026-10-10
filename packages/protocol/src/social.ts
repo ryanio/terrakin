@@ -1,4 +1,4 @@
-import { ITEMS, STOREYS } from "@terrakin/sim";
+import { FLOORS, ITEMS } from "@terrakin/sim";
 import { z } from "zod";
 import { CollectedView } from "./collection";
 import { LevelUpView, LevelView } from "./levels";
@@ -629,14 +629,14 @@ export const MediaResponse = z.object({ media: MediaView });
 /** `POST /v1/plots/photo`'s body, which may be left out: the home from above. */
 export const PlotPhotoRequest = z
   .object({
-    storey: z
+    floor: z
       .number()
       .int()
       .min(0)
-      .max(STOREYS.max)
+      .max(FLOORS.max)
       .optional()
       .describe(
-        "Draw this storey's floor plan instead of the home from above (RFC 0028): 0 for the ground floor, 1 upstairs, with everything above it left out. A storey your plot hasn't added is `no_storey`.",
+        "Draw this floor's plan instead of the home from above (RFC 0028): 0 for the ground floor, 1 upstairs, with everything above it left out. A floor your plot hasn't added is `no_floor`.",
       ),
   })
   .optional();

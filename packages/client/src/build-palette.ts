@@ -1,6 +1,6 @@
 /**
  * The world's build bar (RFC 0016): three tabs. Blocks are the free blocks and the hearth, always
- * there. Paths lists every path and floor with what a tile takes. Furniture lists the workbench's
+ * there. Paths lists every kind of path and flooring with what a tile takes. Furniture lists the workbench's
  * furniture, then the shop's decor, with how many you hold. A line under the tabs names the pick
  * and what it costs or how many you have.
  *
@@ -102,7 +102,7 @@ export function canLay(kind: GroundKind, holdings: Holdings): boolean {
   return groundShort(kind, (k: StackKind) => heldOf(holdings, k)).length === 0;
 }
 
-/** The line under the tabs for a path or floor: what a tile takes, and what you're short of. */
+/** The line under the tabs for a path or flooring: what a tile takes, and what you're short of. */
 export function groundLine(kind: GroundKind, holdings: Holdings): string {
   const { name } = GROUND_INFO[kind];
   const cost = groundCostWords(kind);
@@ -132,7 +132,7 @@ export function stairsLine(holdings: Holdings): string {
   const cost = blockNeeds("stairs")
     .map(([kind, n]) => thingCount(kind, n))
     .join(" and ");
-  const lead = `Stairs: ${cost}, up to the storey above. Stand on them and tap Go up.`;
+  const lead = `Stairs: ${cost}, up to the floor above. Stand on them and tap Go up.`;
   const short = blockShort("stairs", holdings);
   if (short.length === 0) return `${lead} You have enough.`;
   return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;

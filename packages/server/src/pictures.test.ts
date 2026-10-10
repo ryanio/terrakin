@@ -459,7 +459,7 @@ describe("picture route", () => {
     expect([t.asks(), t.renders()]).toEqual([2, 1]);
   });
 
-  it("draws a plot's every storey from above, and a new block upstairs is a new picture (RFC 0028)", async () => {
+  it("draws a plot's every floor from above, and a new block upstairs is a new picture (RFC 0028)", async () => {
     const boot = (log: Input[]) => {
       const store = new MemoryStore();
       for (const input of log) store.appendInput(input);
@@ -476,19 +476,19 @@ describe("picture route", () => {
     const loft = boot(log);
     const spec = pictureSpec(loft.state, { kind: "plot", px: 0, py: 0 }, o);
     expect(spec).toMatchObject({
-      storeys: [{ blocks: [{ x: 1, y: 1, glass: true }] }],
-      facts: expect.arrayContaining(["2 storeys"]),
+      floors: [{ blocks: [{ x: 1, y: 1, glass: true }] }],
+      facts: expect.arrayContaining(["2 floors"]),
     });
     // The same world is the same picture, and a window more upstairs is a new one.
     const key = await keyOf(loft);
     expect(await keyOf(boot(log))).toBe(key);
     const higher = boot([
       ...log,
-      { actor: "r_ada", command: { type: "place", x: 5, y: 1, storey: 1, block: "glass" } },
+      { actor: "r_ada", command: { type: "place", x: 5, y: 1, floor: 1, block: "glass" } },
     ]);
-    expect(higher.state.storeys?.["1"]?.blocks["5,1"]).toBe("glass");
+    expect(higher.state.floors?.["1"]?.blocks["5,1"]).toBe("glass");
     expect(await keyOf(higher)).not.toBe(key);
-    // Back in the world, Ada stands on her hearth under the loft's floor: drawn, but faded, as the
+    // Back in the world, Ada stands on her hearth under the loft's flooring: drawn, but faded, as the
     // map draws her.
     expect(loft.ensureOnline("r_ada").ok).toBe(true);
     const home = pictureSpec(loft.state, { kind: "plot", px: 0, py: 0 }, o);

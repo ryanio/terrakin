@@ -201,7 +201,7 @@ export const SHOP_SHARE_BEFORE = 50;
 
 /**
  * The treasury's share of shop spending in this world right now, in percent: `shop.treasuryShare`
- * once the server logged `set_shop_share`, else `SHOP_SHARE_BEFORE`. A storey's price splits the
+ * once the server logged `set_shop_share`, else `SHOP_SHARE_BEFORE`. A floor's price splits the
  * same way (RFC 0028).
  */
 export const treasuryShareOf = (state: WorldState) =>
@@ -693,7 +693,7 @@ export function payAllowance(state: WorldState, id: ResidentId, seq: number): Wo
   const me = state.residents[id];
   if (!econ || day === undefined || !me?.hearth) return [];
   // On the hearth means on the ground floor too, never standing over it upstairs (RFC 0028).
-  if (me.x !== me.hearth.x || me.y !== me.hearth.y || me.storey !== undefined) return [];
+  if (me.x !== me.hearth.x || me.y !== me.hearth.y || me.floor !== undefined) return [];
   if (!allowanceDue(state, id)) return [];
   const last = econ.allowance[id];
   const streak = last?.day === day - 1 ? last.streak + 1 : 1;

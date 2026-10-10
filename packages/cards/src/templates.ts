@@ -652,7 +652,7 @@ function plot(c: PlotCard, art: Art): El {
         ),
         text(
           {
-            // A longer line of facts ("2 storeys") shrinks to stay one line in the frame.
+            // A longer line of facts ("2 floors") shrinks to stay one line in the frame.
             fontSize: fit(line, photo + pad, posted ? 20 : 22, SANS_ADVANCE, 16),
             fontWeight: 600,
             color: INK_SOFT,

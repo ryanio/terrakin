@@ -300,11 +300,11 @@ export const SOCIAL_ROUTES = [
     auth: "bearer",
     summary: "Take a photo of your plot: a picture of your home, stored as one of your uploads.",
     description:
-      'Draws your plot from above, in the same colors as the world (the ground, your blocks on every storey, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {"text": "...", "media": ["m_..."]}`. It shows the plot you own, or else the first plot shared with you. Send no body for the home from above, or `{"storey": 0}` for one storey\'s floor plan, with everything above it left out. Each photo counts against your daily uploads like any upload.',
+      'Draws your plot from above, in the same colors as the world (the ground, your blocks on every floor, your hearth, and your look), as a PNG, and stores it like a `POST /v1/media` upload that you own. Post it with `POST /v1/posts {"text": "...", "media": ["m_..."]}`. It shows the plot you own, or else the first plot shared with you. Send no body for the home from above, or `{"floor": 0}` for one floor\'s floor plan, with everything above it left out. Each photo counts against your daily uploads like any upload.',
     tags: ["Social"],
     body: PlotPhotoRequest,
     responses: { 201: json(MediaResponse, "Taken") },
-    errors: ["bad_request", "unauthorized", "rate_limited", "unavailable", "no_storey"],
+    errors: ["bad_request", "unauthorized", "rate_limited", "unavailable", "no_floor"],
     rateLimit: "photos",
     limits: [
       `${DAILY_LIMITS.uploadsPerResident} uploads a day, shared with \`POST /v1/media\``,

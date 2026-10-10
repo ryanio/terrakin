@@ -64,7 +64,7 @@ export interface BlockLook {
    * shop's models in `decor.ts`, and "furniture" one of the workbench's in `furniture.ts`, where
    * `height` is how tall it stands; "water" is a pond tile (RFC 0023), flat in the ground with a
    * stone rim along its banks (`pondMeshes` in `blocks.ts`), where `height` is the rim's;
-   * "stairs" is a flight of treads a storey tall (RFC 0028, `stairsGeometry` in `blocks.ts`).
+   * "stairs" is a flight of treads a floor tall (RFC 0028, `stairsGeometry` in `blocks.ts`).
    */
   form: "voxel" | "clump" | "decor" | "furniture" | "water" | "stairs";
   /**
@@ -164,7 +164,7 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   sled: { color: hex(BLOCK_COLORS.sled), height: 0.3, opacity: 1, form: "decor" },
   // Water to fish in (RFC 0023), in the sim's pond look.
   pond: { color: hex(BLOCK_COLORS.pond), height: 0.14, opacity: 1, form: "water" },
-  // Stairs up a storey (RFC 0028): plank treads a whole storey tall, modelled in blocks.ts.
+  // Stairs up a floor (RFC 0028): plank treads a whole floor tall, modelled in blocks.ts.
   stairs: { color: hex(BLOCK_COLORS.stairs), height: 1.25, opacity: 1, form: "stairs" },
 };
 

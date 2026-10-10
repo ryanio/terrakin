@@ -1,5 +1,5 @@
 /**
- * Paths and floors (RFC 0016) drawn from the sim's `GROUND_LOOK`: shapes in tile units that the
+ * Paths and flooring (RFC 0016) drawn from the sim's `GROUND_LOOK`: shapes in tile units that the
  * world map, the build palette, the 3D views' ground texture, and the plot photos all draw, so a
  * cobble path looks the same everywhere. `paintGround` draws a tile on a canvas; `groundArt` builds
  * a swatch as an SVG with `createElementNS`, never markup from a string.
@@ -122,7 +122,7 @@ function svgMark(m: GroundMark): SVGElement {
 }
 
 /**
- * A swatch of a path or floor: one tile of it, as an inline SVG (its holder rounds the corners).
+ * A swatch of a path or flooring: one tile of it, as an inline SVG (its holder rounds the corners).
  * Decorative unless `title` is given, which goes in as text.
  */
 export function groundArt(

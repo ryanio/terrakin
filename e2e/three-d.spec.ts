@@ -151,14 +151,14 @@ test.describe("a plot in 3D", () => {
     expect(errors).toEqual([]);
   });
 
-  test("a home with a loft: the storey picker on a phone, the ground floor, and a photo of it", async ({
+  test("a home with a loft: the floor picker on a phone, the ground floor, and a photo of it", async ({
     page,
   }) => {
     if (!day) throw new Error("The day test settles the plot this one adds a loft to");
     const { residentId, token } = day;
     const errors = watchErrors(page, { console: "all" });
     // A loft over the starter home through the API, as an agent builds it: coins and wood from
-    // the test grant, a storey, then SKILL.md's "hut with a loft" plan on this plot.
+    // the test grant, an upstairs, then SKILL.md's "hut with a loft" plan on this plot.
     const grant = await page.request.post("/v1/test/grant", {
       data: { residentId, coins: 200, stacks: { wood: 13 } },
     });
@@ -171,7 +171,7 @@ test.describe("a plot in 3D", () => {
       .match(/```json\n(\{"type": "build"[\s\S]*?)\n```/)?.[1];
     if (!loft) throw new Error("SKILL.md's Building up has no loft plan");
     for (const action of [
-      { type: "add_storey", px: plot.px, py: plot.py },
+      { type: "add_floor", px: plot.px, py: plot.py },
       { ...JSON.parse(loft), px: plot.px, py: plot.py, dry: false },
     ]) {
       const done = await act(page.request, token, action);
@@ -181,7 +181,7 @@ test.describe("a plot in 3D", () => {
     await expect(page.locator(".view3d[data-ready]")).toBeVisible({ timeout: 20_000 });
 
     // A visitor off the plot starts on the whole home, the picker on its own line under the bar.
-    const picker = page.getByRole("group", { name: "Storeys" });
+    const picker = page.getByRole("group", { name: "Floors" });
     const ground = picker.getByRole("button", { name: "Ground floor" });
     const upstairs = picker.getByRole("button", { name: "Upstairs" });
     await expect(upstairs).toHaveAttribute("aria-pressed", "true");

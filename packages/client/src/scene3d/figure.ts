@@ -251,8 +251,8 @@ export function turnHead(fig: Object3D, yaw: number) {
 }
 
 /**
- * Fade a figure standing on a storey the view cuts away, or bring it back (RFC 0028): its body and
- * what it wears see-through, its name tag as it was, as the map fades someone under a floor.
+ * Fade a figure standing on a floor the view cuts away, or bring it back (RFC 0028): its body and
+ * what it wears see-through, its name tag as it was, as the map fades someone under flooring.
  */
 export function fadeFigure(fig: Object3D, faded: boolean) {
   const body = fig.userData.body as Object3D | undefined;
@@ -290,7 +290,7 @@ export function setUmbrella(fig: Object3D, up: boolean): boolean {
 
 /** How strongly someone away shows: their peg fades toward the haze, their tag fainter. */
 const AWAY_FADE = 0.38;
-/** How much of a figure shows on a storey the view cuts away (RFC 0028). */
+/** How much of a figure shows on a floor the view cuts away (RFC 0028). */
 const CUT_FADE = 0.3;
 const AWAY_SHOWS = 0.72;
 

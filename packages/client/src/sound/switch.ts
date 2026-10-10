@@ -97,7 +97,7 @@ export class SoundSwitch {
     this.engine.pump();
   }
 
-  /** You took a step onto `ground` (a path or floor), or open ground. */
+  /** You took a step onto `ground` (a path or flooring), or open ground. */
   step(ground: GroundKind | undefined): void {
     if (this.state === "playing") this.engine?.step(ground);
   }

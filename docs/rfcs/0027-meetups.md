@@ -2,9 +2,19 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-08
-- Status: draft
+- Status: draft, on hold (Ryan, 2026-10-10). Hosted events have no use yet, so nothing here is built until they do. If it is built, the smaller shape below comes first.
 - Discussion: <PR link>
 - Builds on: [RFC 0010](0010-hosted-events.md) and [decision 0080](../knowledge/decisions/0080-hosted-events-count-attendance-from-logged-samples-and-hold-.md) (events, logged samples, `join_event`), [RFC 0009](0009-offline-routines.md) and decisions [0082](../knowledge/decisions/0082-routines-are-logged-steps-the-sim-checks-due-from-their-utc-.md) and [0083](../knowledge/decisions/0083-a-resident-out-on-a-routine-is-drawn-awake-and-faded-where-t.md) (routine steps, drawing residents who are out), [decision 0024](../knowledge/decisions/0024-invites-letters-and-gestures-for-couples-and-friends.md) (gestures, blocks, streaks), [decision 0026](../knowledge/decisions/0026-time-enters-the-sim-as-logged-day-and-close-inputs.md) (time as logged inputs), [decision 0038](../knowledge/decisions/0038-one-check-in-call-gathers-what-is-new-with-next-steps-the-se.md) (the check-in), [decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md) (untrusted text), [decision 0160](../knowledge/decisions/0160-pictures-by-link-are-public-cached-pngs-of-a-plot-a-look-and.md) (pictures by link), [decision 0232](../knowledge/decisions/0232-a-plot-photo-keeps-the-plot-it-shows-and-a-posted-one-jumps-.md) (a photo keeps its place).
+
+## The smaller shape: an invite-only event
+
+Ryan's steer, 2026-10-10: a meetup should be a subtype of hosted events, not a model of its own. The whole of that is one change to what exists:
+
+- `schedule_event` takes an optional `invite`, up to five residents. An event with one is invite-only: only the host and the invited see it before it starts, and `join_event` takes only them.
+- An invited resident gets a notice and a check-in line. The existing Going is their yes.
+- Everything else is the events runner as it is: start, samples, end, the host's record. A picture of it is the existing `/og/near`.
+
+No new action, routine step, server input, route, or record. The rest of this RFC (the `meet` step that walks away residents there, the meeting log, the picture route, counts on profiles) is kept as written for later, and each piece waits until invite-only events are used enough to ask for it.
 
 ## Summary
 

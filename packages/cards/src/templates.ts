@@ -105,8 +105,10 @@ const SANS_ADVANCE = 0.44;
 
 const abs = (s: Style): Style => ({ position: "absolute", ...s });
 
-/** Paper, grain and the soft frame every card sits on. */
-function stage(art: Art, ...content: (El | null | false | undefined)[]): El {
+type Content = (El | null | false | undefined)[];
+
+/** Paper and grain, edge to edge. */
+function sheet(art: Art, ...content: Content): El {
   const full = abs({ left: 0, top: 0 });
   return div(
     {
@@ -118,6 +120,14 @@ function stage(art: Art, ...content: (El | null | false | undefined)[]): El {
       color: C.ink,
     },
     art.paper ? img(art.paper, W, H, full) : svg(PAPER_SVG, W, H, full),
+    ...content,
+  );
+}
+
+/** Paper, grain and the soft frame every card sits on. */
+function stage(art: Art, ...content: Content): El {
+  return sheet(
+    art,
     div(
       abs({
         left: 24,
@@ -155,6 +165,15 @@ function signature(): El {
     abs({ left: 72, bottom: 58, alignItems: "center", gap: 14 }),
     mark(44, {}, false),
     text({ fontFamily: SERIF, fontWeight: 600, fontSize: 34, letterSpacing: -0.4 }, "terrakin"),
+  );
+}
+
+/** The same, small, at the foot of a photo's frame: it stays whole however the picture is cropped. */
+function frameSignature(): El {
+  return div(
+    abs({ left: 0, right: 0, bottom: 12, justifyContent: "center", alignItems: "center", gap: 7 }),
+    mark(22, {}, false),
+    text({ fontFamily: SERIF, fontWeight: 600, fontSize: 18, letterSpacing: -0.2 }, "terrakin"),
   );
 }
 
@@ -564,13 +583,17 @@ function homeTitle(name: string): string {
 /**
  * A plot photo (issue #34): the plot from above in an instant-photo frame in the middle of the
  * card, with the owner's name on the frame. Everything that matters sits in the middle 800 pixels,
- * so the feed's 4:3 crop keeps it.
+ * so the feed's 4:3 crop keeps it. One taken to post (`posted`) has no card border and no brand in
+ * the corner, which a post's card would double and a phone would cut: the brand sits on the frame.
  */
 function plot(c: PlotCard, art: Art): El {
-  const photo = 420;
-  const pad = 22;
+  // A posted photo (`posted`) is smaller, so the paper shows all round it, and its frame is
+  // deeper, for the brand under the caption.
+  const posted = c.posted === true;
+  const photo = posted ? 380 : 420;
+  const pad = posted ? 20 : 22;
   const frameW = photo + pad * 2;
-  const caption = 112;
+  const caption = posted ? 134 : 112;
   const frameH = pad + photo + caption;
   // A named plot (decision 0121) wears its name as the title, and whose home it is goes below.
   const named = c.title ? drawable(c.title, 40) : undefined;
@@ -578,7 +601,7 @@ function plot(c: PlotCard, art: Art): El {
   const lines = named ? [homeTitle(c.name), c.place] : [c.place, ...c.facts];
   const line = clip(lines.join("  ·  "), 60);
   const homeArt = c.homeArt ? homeArtBox(c, photo) : undefined;
-  return stage(
+  return (posted ? sheet : stage)(
     art,
     div(
       abs({
@@ -621,25 +644,26 @@ function plot(c: PlotCard, art: Art): El {
             fontFamily: SERIF,
             fontWeight: 600,
             // A plot's own name runs to 40 characters, so it may shrink further to stay one line.
-            fontSize: fit(title, photo, 40, SERIF_ADVANCE, named ? 18 : 26),
+            fontSize: fit(title, photo, posted ? 36 : 40, SERIF_ADVANCE, named ? 18 : 26),
             lineHeight: 1.1,
-            marginTop: 16,
+            marginTop: posted ? 14 : 16,
           },
           title,
         ),
         text(
           {
             // A longer line of facts ("2 storeys") shrinks to stay one line in the frame.
-            fontSize: fit(line, photo + pad, 22, SANS_ADVANCE, 16),
+            fontSize: fit(line, photo + pad, posted ? 20 : 22, SANS_ADVANCE, 16),
             fontWeight: 600,
             color: INK_SOFT,
             marginTop: 6,
           },
           line,
         ),
+        posted ? frameSignature() : null,
       ),
     ),
-    signature(),
+    posted ? null : signature(),
   );
 }
 

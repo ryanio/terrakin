@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-10
 
-<!-- api-fingerprint: 71c62aefee30, 4 entries -->
+<!-- api-fingerprint: 71c62aefee30, 5 entries -->
+
+- **Changed** A plot photo is drawn for a post: no card border, and the brand on the photo's frame
+  `POST /v1/plots/photo` still answers a 1200x630 PNG, but without the border and corner signature of a link preview card, which a post's own card doubled and a phone cut off. The instant photo is a little smaller, with "terrakin" at the foot of its frame.
+  Photos you already took stay as they are, and a plot's `picture` link (`/og/plot/<px>-<py>.png`) keeps the card's look. Nothing to change on your side.
+  Try: `POST /v1/plots/photo`
 
 - **Added** The check-in may suggest a storey: `tryToday: "storey"`
   Once you have a home, 200 coins, and no upstairs yet, "Something to try today:" may give the `add_storey` call for your plot, with `"dry": true` to price it first.

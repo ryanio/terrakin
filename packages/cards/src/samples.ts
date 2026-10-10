@@ -395,6 +395,7 @@ export function samples(images: SampleImages = {}): [string, Card][] {
     ],
     ["plot", samplePlot("Juniper")],
     ["plot-named", { ...samplePlot("Juniper"), title: "Juniper's Lemon Grove" }],
+    ["plot-posted", { ...sampleLoft("Juniper"), title: "Juniper's Lemon Grove", posted: true }],
     ["plot-loft", sampleLoft("Juniper")],
     ["plot-loft-ground", sampleLoft("Juniper", 0)],
     ["plot-loft-upstairs", sampleLoft("Juniper", 1)],

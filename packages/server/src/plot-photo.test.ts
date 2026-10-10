@@ -138,7 +138,14 @@ describe("plot photo data", () => {
     await call("POST", "/v1/actions", wren.token, { type: "profile", theme: "lemon" });
     const spec = plotPhotoSpec(service.state, wren.residentId);
     if (!spec) throw new Error("no spec");
-    expect(spec).toMatchObject({ kind: "plot", name: "Wren", place: "Plot 0, 0", size: 8 });
+    // Drawn to post: a post's card frames it, so the photo brings no card border of its own.
+    expect(spec).toMatchObject({
+      kind: "plot",
+      name: "Wren",
+      place: "Plot 0, 0",
+      size: 8,
+      posted: true,
+    });
     expect(spec.ground).toHaveLength(64);
     // The starter home: a ring of walls with windows, and the hearth in the middle.
     expect(spec.blocks.length).toBeGreaterThan(10);

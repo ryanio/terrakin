@@ -109,7 +109,8 @@ export function photoPlace(
 /**
  * The photo of `residentId`'s plot, from world state alone. Undefined when they have no plot. Its
  * name is the photo's title (decision 0121), unless `held` says staff hold back the words of
- * whoever named it. With `storey`, one the plot has, it's that storey's floor plan (RFC 0028).
+ * whoever named it. With `storey`, one the plot has, it's that storey's floor plan (RFC 0028). It's
+ * drawn to post (`posted`), where a post's card frames it.
  */
 export function plotPhotoSpec(
   state: WorldState,
@@ -118,7 +119,7 @@ export function plotPhotoSpec(
   storey?: number,
 ): PlotPhotoSpec | undefined {
   const plot = photoPlot(state, residentId);
-  return plot ? plotSpecOf(state, plot, held, true, storey) : undefined;
+  return plot ? { ...plotSpecOf(state, plot, held, true, storey), posted: true } : undefined;
 }
 
 /** A world plot record, as `state.plots` keeps them. */

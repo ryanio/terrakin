@@ -140,6 +140,8 @@ describe("picture data", () => {
     expect((await w.act(ivy.token, { type: "profile", homeArt: home })).ok).toBe(true);
     const plot = () => w.api.pictureSpec({ kind: "plot", px: 0, py: 0 });
     expect(plot()).toMatchObject({ kind: "plot", homeArt: home });
+    // A picture by link is a card for other sites, so it keeps the card's border and brand.
+    expect(plot()).not.toHaveProperty("posted");
 
     expect(w.social.safety.suspend("staff", ivy.residentId, 1, "test").ok).toBe(true);
     expect(plot()).not.toHaveProperty("homeArt");

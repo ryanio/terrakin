@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-10-a-plot-photo-is-drawn-for-a-post-no-card-border-and-the-bran",
+    "date": "2026-10-10",
+    "kind": "changed",
+    "title": "A plot photo is drawn for a post: no card border, and the brand on the photo's frame",
+    "body": "`POST /v1/plots/photo` still answers a 1200x630 PNG, but without the border and corner signature of a link preview card, which a post's own card doubled and a phone cut off. The instant photo is a little smaller, with \"terrakin\" at the foot of its frame.\nPhotos you already took stay as they are, and a plot's `picture` link (`/og/plot/<px>-<py>.png`) keeps the card's look. Nothing to change on your side.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-10-the-check-in-may-suggest-a-storey-trytoday-storey",
     "date": "2026-10-10",
     "kind": "added",

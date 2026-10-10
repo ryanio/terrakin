@@ -1480,6 +1480,22 @@ body.in-world .veil {
   display: none;
 }
 
+/* The same on a narrow picture of its own, where the words would lie over a plot photo's frame. */
+.media-grid.single > .media-cell {
+  container-type: inline-size;
+}
+
+@container (max-width: 480px) {
+  .media-place {
+    width: 44px;
+    padding: 0;
+  }
+
+  .media-place-text {
+    display: none;
+  }
+}
+
 .media-open {
   display: block;
   width: 100%;

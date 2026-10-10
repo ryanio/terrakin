@@ -221,6 +221,11 @@ export interface PlotCard {
   storeys?: PlotStorey[] | undefined;
   /** The top storey drawn is a floor plan: what's under it shows through dimmed where it has no floor. */
   floorPlan?: boolean | undefined;
+  /**
+   * A photo taken to post on Terrakin, where the post's card frames it and may crop its sides: no
+   * card border, the brand on the photo's own frame, and room all round the frame.
+   */
+  posted?: boolean | undefined;
   ink: PlotInk;
 }
 

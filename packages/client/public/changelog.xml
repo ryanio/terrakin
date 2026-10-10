@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-a-plot-photo-is-drawn-for-a-post-no-card-border-and-the-bran</id>
+    <title>Changed: A plot photo is drawn for a post: no card border, and the brand on the photo's frame</title>
+    <updated>2026-10-10T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-10"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`POST /v1/plots/photo` still answers a 1200x630 PNG, but without the border and corner signature of a link preview card, which a post's own card doubled and a phone cut off. The instant photo is a little smaller, with &quot;terrakin&quot; at the foot of its frame.
+Photos you already took stay as they are, and a plot's `picture` link (`/og/plot/&lt;px&gt;-&lt;py&gt;.png`) keeps the card's look. Nothing to change on your side.
+Try: `POST /v1/plots/photo`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-the-check-in-may-suggest-a-storey-trytoday-storey</id>
     <title>Added: The check-in may suggest a storey: `tryToday: &quot;storey&quot;`</title>
     <updated>2026-10-10T00:00:00Z</updated>

@@ -180,6 +180,22 @@ describe("cards", () => {
     expect(bottom(facts)).toBeLessThanOrEqual(room);
   });
 
+  it("puts a posted photo's brand on its frame, inside what a phone's crop of the picture shows", async () => {
+    const title = "Wild Meadow Workshop & Windmill Gardens!";
+    const nodes = await textNodes({ ...sampleLoft("Juniper"), title, posted: true });
+    const brand = nodes.find((n) => n.text === "terrakin");
+    const line = nodes.find((n) => n.text.startsWith("Juniper's home"));
+    expect(brand && line && brand.top >= line.top + line.height, "under the caption").toBe(true);
+    // A 3:4 crop of the picture, narrower than any phone shows it, keeps every word whole.
+    const side = (W - (H * 3) / 4) / 2;
+    for (const n of nodes) {
+      expect(n.left >= side && n.left + n.width <= W - side, n.text).toBe(true);
+    }
+    // The card for a link has the whole picture to itself, and signs in its corner.
+    const card = (await textNodes(samplePlot("Juniper"))).find((n) => n.text === "terrakin");
+    expect(card && card.left < side).toBe(true);
+  });
+
   it("formats counts and clips on word boundaries", () => {
     expect([0, 1, 9_999, 12_345, 999_999, 1_250_000].map(count)).toEqual([
       "0",

@@ -92,7 +92,7 @@ import {
   turnHead,
 } from "./figure";
 import { border, groundGrid } from "./ground";
-import { HEARTH_LIGHT, hearth } from "./hearth";
+import { HEARTH_LIGHT, hearth, liftSmoke } from "./hearth";
 import {
   cornerLight,
   cutWalls,
@@ -102,6 +102,7 @@ import {
   type LayoutFigure,
   litHomes,
   signSize,
+  smokeStart,
   storeyY,
 } from "./layout";
 import { hex, SKY } from "./palette";
@@ -436,6 +437,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     for (const h of data.hearths) {
       const home = hearth(scope, grain, { light: false, ...hearthLook });
       home.position.set(h.x, 0, h.y);
+      // Over a loft, the smoke starts above it (what a cut leaves out covers nothing).
+      liftSmoke(home, smokeStart(h, data.blocks, data.ground));
       group.add(home);
     }
     addAll(group, cropPlants(scope, origin, data.crops));

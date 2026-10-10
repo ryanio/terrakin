@@ -227,6 +227,33 @@ export function storeyY(storey: number | undefined): number {
   return (storey ?? 0) * STOREY_HEIGHT;
 }
 
+/** How high over the ground a hearth's smoke starts in the open: just over its chimney's cap. */
+export const SMOKE_START = 1.5;
+/** How far over the top of what covers a hearth its smoke starts. */
+const SMOKE_CLEAR = 0.25;
+
+/**
+ * How high a hearth's smoke starts, from the `blocks` and `floors` a view draws. In the open, just
+ * over the chimney's cap. With a floor or a block upstairs on its tile, as if the chimney ran up
+ * through the home: over the top of the highest storey that covers it, and over a block there that
+ * stands taller than a wall, so smoke never rises through a floor. What a cut leaves out isn't in
+ * the lists, so with the loft cut away the smoke starts at the chimney again.
+ */
+export function smokeStart(
+  hearth: Tile,
+  blocks: readonly { x: number; y: number; block: BlockKind; storey?: number | undefined }[],
+  floors: readonly { x: number; y: number; storey?: number | undefined }[],
+): number {
+  let start = SMOKE_START;
+  const over = (t: { x: number; y: number; storey?: number | undefined }, height: number) => {
+    if (!t.storey || t.x !== hearth.x || t.y !== hearth.y) return;
+    start = Math.max(start, storeyY(t.storey) + Math.max(STOREY_HEIGHT, height) + SMOKE_CLEAR);
+  };
+  for (const f of floors) over(f, 0);
+  for (const b of blocks) over(b, blockLook(b.block).height);
+  return start;
+}
+
 /**
  * What a view draws with the plot it shows cut away at storey `top`: nothing above it on the plot
  * (`own`), and every neighbor whole. The map's rule: you see the storey you're on, and the rest of

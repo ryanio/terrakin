@@ -12,6 +12,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { bakeShade, paper, type Stage, spotTexture, stoneTexture } from "./art";
+import { SMOKE_START } from "./layout";
 import { BRAND } from "./palette";
 
 // ---------- the hearth ----------
@@ -104,23 +105,29 @@ export function hearth(
       flatShading: true,
     });
     const mesh = new Mesh(i === 0 ? puffGeo : puffGeo.clone(), mat);
-    mesh.position.set(0, 1.5, -0.14);
     group.add(mesh);
     puffs.push({ mesh, mat, offset: i / count });
   }
+  let start = SMOKE_START;
+  let shown = 1.3;
   const placePuffs = (time: number) => {
+    shown = time;
     for (const p of puffs) {
       const t = (time * 0.18 + p.offset) % 1;
       p.mesh.position.set(
         Math.sin(t * 5 + p.offset * 9) * 0.12 + t * 0.35,
-        1.5 + t * 1.6,
+        start + t * 1.6,
         -0.14 - t * 0.2,
       );
       p.mesh.scale.setScalar(0.6 + t * 1.6);
       p.mat.opacity = Math.sin(Math.PI * Math.min(1, t * 1.15)) * 0.7;
     }
   };
-  placePuffs(1.3);
+  placePuffs(shown);
+  group.userData.liftSmoke = (to: number) => {
+    start = to;
+    placePuffs(shown);
+  };
   stage.animate(({ time }) => {
     placePuffs(time);
     const f = 1 + Math.sin(time * 11) * 0.08 + Math.sin(time * 17.3) * 0.06;
@@ -128,4 +135,12 @@ export function hearth(
     core.scale.set(1, 1.5 * (2 - f), 0.6);
   });
   return group;
+}
+
+/**
+ * Start a hearth's smoke `start` high (`smokeStart` in `layout.ts`), so it rises over a loft above
+ * the fire and never through its floor. The same puffs, moved.
+ */
+export function liftSmoke(home: Group, start: number): void {
+  (home.userData.liftSmoke as ((to: number) => void) | undefined)?.(start);
 }

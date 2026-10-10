@@ -56,8 +56,10 @@ import {
   plotLayout,
   rawResident,
   SIGN_SIZE,
+  SMOKE_START,
   STOREY_HEIGHT,
   signSize,
+  smokeStart,
   stairsTurn,
   startStorey,
   storeyY,
@@ -507,6 +509,35 @@ describe("homes with storeys in 3D (RFC 0028)", () => {
     expect(pull(pools.material as Material)).toBeLessThan(pull(floors.material as Material));
     const units = (m: Material) => (m.polygonOffset ? m.polygonOffsetUnits : 0);
     expect(units(pools.material as Material)).toBeLessThan(units(floors.material as Material));
+  });
+
+  it("starts a hearth's smoke over what the view draws above it, never under a floor", () => {
+    const fire = { x: 11, y: 11 };
+    const floor = { x: 11, y: 11, storey: 1 };
+    const wall = { ...floor, block: "wood" as const };
+    // In the open, beside a loft, and on a path of its own floor: just over the chimney's cap.
+    expect(smokeStart(fire, [], [])).toBe(SMOKE_START);
+    expect(
+      smokeStart(
+        fire,
+        [{ ...wall, x: 12 }],
+        [
+          { ...floor, y: 10 },
+          { x: 11, y: 11 },
+        ],
+      ),
+    ).toBe(SMOKE_START);
+    // Under a floor it starts over the loft's walls, and a wall on the tile changes nothing.
+    const lofted = smokeStart(fire, [], [floor]);
+    expect(lofted).toBeGreaterThan(storeyY(1) + STOREY_HEIGHT);
+    expect(smokeStart(fire, [wall], [floor])).toBe(lofted);
+    expect(smokeStart(fire, [wall], [])).toBe(lofted);
+    // A lamp post up there stands taller than a wall, and the smoke clears it too.
+    const lamp = smokeStart(fire, [{ ...wall, block: "lamp_post" }], [floor]);
+    expect(lamp).toBeGreaterThan(storeyY(1) + blockLook("lamp_post").height);
+    expect(lamp).toBeGreaterThan(lofted);
+    // With the loft cut away, the chimney smokes as it does in the open.
+    expect(smokeStart(fire, cutAway([wall], 0), cutAway([floor], 0))).toBe(SMOKE_START);
   });
 
   it("frames the whole home, a loft's walls with as much room as a bungalow's", () => {

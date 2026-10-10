@@ -27,7 +27,7 @@ import { cropPlants } from "./crops";
 import { createPictures, displayedThings } from "./displays";
 import { fadeFigure, figure, setUmbrella, sizeSign } from "./figure";
 import { border, ground } from "./ground";
-import { hearth } from "./hearth";
+import { hearth, liftSmoke } from "./hearth";
 import { loadHomeModel, loadSign } from "./home";
 import {
   cutAway,
@@ -40,6 +40,7 @@ import {
   modelFootprint,
   type PlotLayout,
   signSize,
+  smokeStart,
   storeyY,
   tileHash,
   underFootprint,
@@ -108,6 +109,12 @@ export function buildPlot(
   root.add(ground(layout, solid));
   root.add(border(layout.bounds, origin, grain));
 
+  // The hearth, whose smoke starts over whatever the cut leaves above it.
+  const fire = layout.hearth && hearth(stage, grain);
+  if (fire && layout.hearth) {
+    fire.position.set(toX(layout.hearth.x), 0, toZ(layout.hearth.y));
+    root.add(fire);
+  }
   // The blocks, paths and floors (RFC 0016), and slabs upstairs, built again when the cut moves.
   let storeys: { group: Group; scope: Scope } | undefined;
   // Figures, placed below; someone on a storey the cut leaves out is faded, their name still shown.
@@ -144,6 +151,7 @@ export function buildPlot(
     if (slabs) group.add(slabs);
     root.add(group);
     storeys = { group, scope };
+    if (fire && layout.hearth) liftSmoke(fire, smokeStart(layout.hearth, shown, floors));
     stage.invalidate();
   };
   showStoreys(opts.storey ?? layout.top);
@@ -160,11 +168,6 @@ export function buildPlot(
     layout.season,
   );
   root.add(scenery(stage, origin, tufts, flowers, leaves, layout.season));
-  if (layout.hearth) {
-    const h = hearth(stage, grain);
-    h.position.set(toX(layout.hearth.x), 0, toZ(layout.hearth.y));
-    root.add(h);
-  }
   // Whatever stands under their own model gives way to it, like the blocks.
   const shown = <T extends { x: number; y: number }>(list: readonly T[]) =>
     footprint ? list.filter((t) => !underFootprint(footprint, t.x, t.y)) : list;

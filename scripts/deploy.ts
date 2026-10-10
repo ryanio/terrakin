@@ -14,9 +14,14 @@
  * World object's weekly replay from the first input still catches a rule that replays old inputs
  * differently. `TERRAKIN_SKIP_REPLAY_CHECK=1` skips it on purpose.
  *
+ * In GitHub Actions it leaves two outputs for the smoke job that follows (`deploy-smoke.ts`,
+ * decision 0250): `deployed`, whether this run uploaded, and `script`, the script the page it
+ * built loads.
+ *
  *   node scripts/deploy.ts [wrangler deploy args]
  */
 import { execFileSync } from "node:child_process";
+import { appendFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export type DeployCheck = { go: true } | { go: false; skip: boolean; why: string };
@@ -71,6 +76,39 @@ function newerThan(head: string, main: string): string[] | null {
     .filter(Boolean);
 }
 
+/**
+ * The lines for `$GITHUB_OUTPUT`: whether this run uploaded, and after an upload the script the
+ * built page loads. CI's `smoke` job runs only on `deployed=true` and checks the live homepage
+ * against `script`.
+ */
+export function workflowOutputs(deployed: boolean, script: string | undefined): string {
+  return deployed ? `deployed=true\nscript=${script ?? ""}\n` : "deployed=false\n";
+}
+
+/**
+ * Leave the outputs for the workflow. The upload has already happened or been skipped, so nothing
+ * here can fail the run: the smoke script is loaded only now, and a failure is said and passed over.
+ */
+async function tellWorkflow(deployed: boolean) {
+  const file = process.env.GITHUB_OUTPUT;
+  if (!file) return;
+  let script: string | undefined;
+  try {
+    const { moduleScript } = await import("./deploy-smoke.ts");
+    const page = new URL("../packages/client/dist/index.html", import.meta.url);
+    script = moduleScript(readFileSync(page, "utf8"));
+  } catch {
+    // No built page to read: the smoke job checks the homepage without a script to match.
+  }
+  try {
+    appendFileSync(file, workflowOutputs(deployed, deployed ? script : undefined));
+  } catch (err) {
+    console.error(
+      `Couldn't write the workflow's outputs: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   git("fetch", "--quiet", "origin", "main");
   const head = git("rev-parse", "HEAD");
@@ -84,6 +122,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   });
   if (!check.go) {
     console.error(`${check.skip ? "Not deploying" : "Refusing to deploy"}: ${check.why}`);
+    if (check.skip) await tellWorkflow(false);
     process.exit(check.skip ? 0 : 1);
   }
   if (process.env.TERRAKIN_SKIP_REPLAY_CHECK === "1") {
@@ -104,4 +143,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     }
   }
   execFileSync("wrangler", ["deploy", ...process.argv.slice(2)], { stdio: "inherit" });
+  await tellWorkflow(true);
 }

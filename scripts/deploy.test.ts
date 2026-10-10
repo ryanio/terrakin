@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { checkDeploy } from "./deploy";
+import { checkDeploy, workflowOutputs } from "./deploy";
 
 const head = "a".repeat(40);
 const main = "b".repeat(40);
@@ -57,5 +58,23 @@ describe("checkDeploy", () => {
       go: false,
       skip: false,
     });
+  });
+});
+
+describe("workflowOutputs", () => {
+  it("says whether the run uploaded, and after an upload the built page's script", () => {
+    expect(workflowOutputs(true, "/assets/index-abc.js")).toBe(
+      "deployed=true\nscript=/assets/index-abc.js\n",
+    );
+    expect(workflowOutputs(true, undefined)).toBe("deployed=true\nscript=\n");
+    expect(workflowOutputs(false, "/assets/index-abc.js")).toBe("deployed=false\n");
+  });
+
+  it("writes the names CI's deploy job hands to the smoke job", () => {
+    const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+    for (const [, name] of workflowOutputs(true, undefined).matchAll(/^(\w+)=/gm)) {
+      expect(ci).toContain(`${name}: \${{ steps.deploy.outputs.${name} }}`);
+      expect(ci).toContain(`needs.deploy.outputs.${name}`);
+    }
   });
 });

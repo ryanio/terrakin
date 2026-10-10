@@ -11,7 +11,7 @@ Depends on nothing in the repo. The server turns API data into a `Card` (`packag
 - **Keep a render cheap**, about 100 ms in Node. No blurred `boxShadow` (each is a Gaussian blur), no SVG filters per card. The paper grain is rasterized once per process (`render.ts`).
 - **Bump `CARDS_VERSION`** in `templates.ts` when a card's look changes, so cached cards are drawn again.
 - **Fonts are the static WOFF files from @fontsource** (satori can't read WOFF2). `fonts.ts` lists them for Node and `worker.ts` imports the same files for wrangler; a test keeps the two in step.
-- **satori stays pinned at 0.32.0.** Later versions load HarfBuzz from a separate wasm at run time, which Workers refuse. A test fails on a satori that imports it, and `.github/dependabot.yml` ignores satori, so move the pin by hand and only after a card draws under `pnpm cf:dev`.
+- **satori stays pinned at 0.32.0.** Later versions load HarfBuzz from a separate wasm at run time, which Workers refuse. A test fails on a satori that imports it, and `.github/dependabot.yml` ignores satori, so move the pin by hand and only after a card draws under `pnpm cf:dev`. After each deploy, CI's `smoke` job asks the live Worker for three pictures and fails on the redirect to `/og.png` a Worker that can't draw sends (`scripts/deploy-smoke.ts`, [decision 0250](../../docs/knowledge/decisions/0250-a-smoke-check-asks-the-live-worker-for-drawn-pictures-after-.md)).
 
 ## Layout
 

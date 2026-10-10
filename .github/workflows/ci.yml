@@ -142,7 +142,8 @@ jobs:
   # `pnpm cf:deploy` as from a laptop (it skips if main has moved past this commit), then a check
   # that the live world answers. e2e counts as passed only when it passed, or when `changes` said
   # this run doesn't need it; a skipped job would otherwise skip the deploy with it, and `!cancelled()`
-  # keeps a run a newer push cancelled from deploying.
+  # keeps a run a newer push cancelled from deploying. Its outputs are for `smoke`: whether this
+  # run uploaded (scripts/deploy.ts skips a commit main has moved past), and the built page's script.
   deploy:
     if: >-
       !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' &&
@@ -157,6 +158,9 @@ jobs:
     concurrency:
       group: deploy-production
       cancel-in-progress: false
+    outputs:
+      deployed: ${{ steps.deploy.outputs.deployed }}
+      script: ${{ steps.deploy.outputs.script }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -165,7 +169,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm cf:deploy
+      - id: deploy
+        run: pnpm cf:deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -177,3 +182,57 @@ jobs:
           done
           echo "terrakin.org/v1/health didn't answer ok after the deploy" >&2
           exit 1
+
+  # Ask the Worker that was just deployed for what the suite can't see from Node (decision 0250):
+  # pictures it has to draw, the world's switches, the start files, and the build's script
+  # (scripts/deploy-smoke.ts). Read-only GETs with no secrets. It comes after `deploy` and nothing
+  # waits on it, so it never holds this run's deploy back, and nothing is rolled back when it
+  # fails. `!cancelled()` is there because a job with no status check is skipped whenever a job
+  # anywhere before it was, and `e2e` is skipped on a sim, scripts, or docs push that still deploys.
+  smoke:
+    needs: deploy
+    if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/deploy-smoke.ts --wait 120 --deployed --script "$SCRIPT"
+        env:
+          SCRIPT: ${{ needs.deploy.outputs.script }}
+
+  # A red smoke check shows up in the issue list, as a red nightly does (nightly.yml): one open
+  # issue labeled `deploy-smoke-red`, opened by the first red check, commented on by each red one
+  # after it, and closed by the next green one. A check that didn't run changes nothing, and one
+  # that ran out of time counts as red.
+  smoke-alert:
+    needs: smoke
+    if: ${{ !cancelled() && needs.smoke.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open, comment on, or close the deploy-smoke-red issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.smoke.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          label=deploy-smoke-red
+          open=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+          if [ "$RESULT" = success ]; then
+            if [ -n "$open" ]; then gh issue close "$open" --comment "Green again: $RUN_URL"; fi
+            exit 0
+          fi
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Red again at ${GITHUB_SHA:0:8}: $RUN_URL"
+          else
+            gh label create "$label" --color B60205 --force \
+              --description "The smoke check after a deploy is red (ci.yml)"
+            gh issue create --label "$label" --title "The smoke check after a deploy is red" --body \
+              "The smoke check of terrakin.org failed after ${GITHUB_SHA:0:8} was deployed: $RUN_URL. That commit is live, and nothing was rolled back. Read it with \`gh run view $GITHUB_RUN_ID --log-failed\`, run it again with \`node scripts/deploy-smoke.ts\`, and see \"The smoke check after a deploy\" in docs/deploy.md for what each check means. The next green check closes this issue, and so does running the failed job again once it passes; each red one until then comments here."
+          fi

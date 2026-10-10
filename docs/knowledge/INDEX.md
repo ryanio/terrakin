@@ -184,6 +184,7 @@ What we chose and why. Newest last.
 - [Levels reach the API behind an option no adapter sets, with earned wear in the wear list, one notice an input, and a make step from the day they open](decisions/0247-levels-reach-the-api-behind-an-option-no-adapter-sets-with-e.md) · 2026-10-10 · accepted · `server` `protocol` `sim` `levels` `checkin`
 - [On the web a level is a chip that opens a skills sheet, a neighbor's bar counts levels, earned wear sits in its slot, and a level-up toasts with no button](decisions/0248-on-the-web-a-level-is-a-chip-that-opens-a-skills-sheet-a-nei.md) · 2026-10-10 · accepted · `client` `ui` `levels` `e2e`
 - [Levels are on at terrakin.org: the Worker sets levels, the Node server leaves it off, and the switch ships in the same push as its docs](decisions/0249-levels-are-on-at-terrakin-org-the-worker-sets-levels-the-nod.md) · 2026-10-10 · accepted · `server` `levels` `deploy`
+- [A smoke check asks the live Worker for drawn pictures after each deploy and a red one opens an issue](decisions/0250-a-smoke-check-asks-the-live-worker-for-drawn-pictures-after-.md) · 2026-10-10 · accepted · `ci` `deploy` `cards` `tooling`
 
 ## Learnings
 
@@ -205,6 +206,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [A moved workspace package needs its lockfile importer renamed, which pnpm install can't do offline](learnings/2026-10-06-a-moved-workspace-package-needs-its-lockfile-importer-rename.md) · 2026-10-06 · `tooling`
 - [A Durable Object's SQLite refuses a UNION of more than 5 terms](learnings/2026-10-08-a-durable-object-s-sqlite-refuses-a-union-of-more-than-5-ter.md) · 2026-10-08 · `server` `sqlite` `cloudflare`
 - [Dependabot fails a pnpm update when a release's packages straddle its three-day cooldown](learnings/2026-10-10-dependabot-fails-a-pnpm-update-when-a-release-s-packages-str.md) · 2026-10-10 · `dependabot` `pnpm` `ci` `tooling`
+- [The World object runs the build before for minutes after a deploy](learnings/2026-10-10-the-world-object-runs-the-build-before-for-minutes-after-a-d.md) · 2026-10-10 · `deploy` `cloudflare` `server`
 
 ## Handoffs
 

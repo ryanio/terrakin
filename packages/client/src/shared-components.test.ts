@@ -56,6 +56,16 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     use: "skeletonPage, skeletonPosts, skeletonCard, or skLine (skeleton.ts)",
   },
   { pattern: /class: "[^"]*\bempty-note\b/, use: "emptyNote (ui.ts)" },
+  {
+    pattern: /ready: Promise\.resolve\(\), destroy\(\) \{\}/,
+    use: "staticView (packages/client/src/view.ts)",
+    home: "packages/client/src/view.ts",
+  },
+  {
+    pattern: /"Check back soon\."/,
+    use: "notOpenCard (packages/client/src/view.ts)",
+    home: "packages/client/src/view.ts",
+  },
   { pattern: /class: "check-row"/, use: "checkRow (ui.ts)" },
   { pattern: /class: "paper menu"/, use: "moreMenu (ui.ts)" },
   { pattern: /copyText\(/, use: "copyButton or copyBlock (ui.ts)" },

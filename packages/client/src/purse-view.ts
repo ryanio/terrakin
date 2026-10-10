@@ -7,11 +7,13 @@ import { h, icon } from "@terrakin/ui/dom";
 import { formatCount, plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { itemRow, itemRows, pageLayout, stateCard, toast, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { itemRow, itemRows, pageLayout } from "@terrakin/ui/ui";
+import { actFromButton } from "./act";
+import { api } from "./api";
 import { savedToken } from "./net";
-import { balanceLine, coins, refreshPurse } from "./purse";
-import { errorCard, type View, type ViewContext } from "./view";
+import { pageData } from "./page-data";
+import { balanceLine, coins } from "./purse";
+import { failInto, joinCard, notOpenCard, staticView, type View, type ViewContext } from "./view";
 
 /** What a purse line was, in plain words. Pure, so tests pin it. */
 export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
@@ -81,7 +83,7 @@ function lineItem(line: PurseLine): HTMLLIElement {
 
 /**
  * "Come home": sends `home` from a page, as if you'd tapped Home in the world. It pays today's
- * allowance and pantry. `done` runs once the server takes it; a refusal shows as a toast.
+ * allowance and pantry. A toast says it worked or why it didn't, and `done` runs once it worked.
  */
 export function comeHomeButton(text: string, done: () => void): HTMLButtonElement {
   const home = h("button", {
@@ -89,14 +91,14 @@ export function comeHomeButton(text: string, done: () => void): HTMLButtonElemen
     attrs: { type: "button" },
     text,
   });
-  home.addEventListener("click", async () => {
-    const r = await whileBusy(home, () => api.act({ type: "home" }));
-    if (!home.isConnected) return;
-    const problem = actProblem(r);
-    if (problem) return toast(problem);
-    refreshPurse(true);
-    done();
-  });
+  home.addEventListener(
+    "click",
+    () =>
+      void actFromButton(home, { type: "home" }, "You're home.", {
+        gone: () => !home.isConnected,
+        after: done,
+      }),
+  );
   return home;
 }
 
@@ -112,35 +114,28 @@ export function purseView(ctx: ViewContext): View {
   // What came in and went out in the main column; your balance and how coins come in beside it.
   const { el, head, main, side } = pageLayout("purse-page", "Your balance");
   head.append(h("h1", { class: "page-title", text: "Your purse" }));
-  let destroyed = false;
 
   if (!savedToken()) {
     main.append(
-      stateCard({
+      joinCard({
         title: "Join to earn coins",
         body: "Residents earn coins by coming home each day, and give them to friends. Coins are earned by playing, never bought.",
-        actions: [
-          h(
-            "a",
-            { class: "btn-primary", attrs: { href: "/#join" } },
-            h("span", { text: "Join" }),
-            icon("arrow"),
-          ),
-        ],
+        door: "start",
       }),
     );
-    return { el, ready: Promise.resolve(), destroy() {} };
+    return staticView(el);
   }
 
   function paint(data: PurseResponse) {
     const { purse, rules } = data;
     if (!purse) {
-      main.replaceChildren(stateCard({ title: "Coins aren't open yet", body: "Check back soon." }));
+      main.replaceChildren(notOpenCard("Coins aren't open yet"));
       return;
     }
-    const home = comeHomeButton(`Come home for ${coins(rules.allowance)}`, () => {
-      if (!destroyed) void load();
-    });
+    const home = comeHomeButton(
+      `Come home for ${coins(rules.allowance)}`,
+      () => void loader.refresh(),
+    );
     // Townsfolk get a daily budget instead of the allowance: no streak, nothing to come home for.
     const eligible = purse.allowanceEligible !== false;
     const due = eligible && !purse.allowanceToday;
@@ -234,21 +229,6 @@ export function purseView(ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    const r = await api.purse();
-    if (destroyed) return;
-    if (!r.ok) {
-      main.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
-    paint(r.data);
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({ ask: () => api.purse(), paint, fail: failInto(main) });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

@@ -8,17 +8,10 @@ import type { ItemKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import {
-  confirmTwice,
-  itemRow,
-  itemRows,
-  pageLayout,
-  stateCard,
-  toast,
-  whileBusy,
-} from "@terrakin/ui/ui";
+import { confirmTwice, itemRow, itemRows, pageLayout, toast, whileBusy } from "@terrakin/ui/ui";
 import { actProblem, api, uploadMedia } from "./api";
 import { savedToken } from "./net";
+import { pageData } from "./page-data";
 import { comeHomeButton } from "./purse-view";
 import {
   admiredLine,
@@ -30,7 +23,7 @@ import {
   thingCount,
   thingName,
 } from "./things";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, joinCard, notOpenCard, staticView, type View, type ViewContext } from "./view";
 
 function goodItem(g: GoodView): HTMLLIElement {
   return itemRow({
@@ -250,36 +243,23 @@ export function inventoryView(ctx: ViewContext): View {
   // What you hold in the main column; your garden, gifts, and making art beside it.
   const { el, head, main, side } = pageLayout("things-page", "Your garden, gifts, and art");
   head.append(h("h1", { class: "page-title", text: "Your things" }));
-  let destroyed = false;
 
   if (!savedToken()) {
     main.append(
-      stateCard({
+      joinCard({
         title: "Join to grow and make things",
         body: "Residents grow lemons and herbs on their plots, make jam and bouquets, and give them to friends.",
-        actions: [
-          h(
-            "a",
-            { class: "btn-primary", attrs: { href: "/#join" } },
-            h("span", { text: "Join" }),
-            icon("arrow"),
-          ),
-        ],
+        door: "start",
       }),
     );
-    return { el, ready: Promise.resolve(), destroy() {} };
+    return staticView(el);
   }
 
   function paint(data: InventoryResponse) {
     const { inventory: inv, rules } = data;
     if (!inv) {
       side.replaceChildren();
-      main.replaceChildren(
-        stateCard({
-          title: "Growing, making, and gathering aren't open yet",
-          body: "Check back soon.",
-        }),
-      );
+      main.replaceChildren(notOpenCard("Growing, making, and gathering aren't open yet"));
       return;
     }
     const held = (kind: string) => stackCount(inv.stacks, kind);
@@ -323,11 +303,7 @@ export function inventoryView(ctx: ViewContext): View {
                 ? `Come home today for ${thingCount("sugar", rules.pantrySugar)} and ${thingCount("jar", rules.pantryJars)}.`
                 : "Build a home on your plot to get a pantry each day.",
         }),
-        pantryDue
-          ? comeHomeButton("Come home for the pantry", () => {
-              if (!destroyed) void load();
-            })
-          : null,
+        pantryDue ? comeHomeButton("Come home for the pantry", () => void loader.refresh()) : null,
       ),
       ...(inv.gifts.length > 0
         ? [
@@ -340,11 +316,7 @@ export function inventoryView(ctx: ViewContext): View {
                 text: "Gifts you got",
               }),
               itemRows(
-                inv.gifts.map((g) =>
-                  giftItem(g, inv.day, goodsById, () => {
-                    if (!destroyed) void load();
-                  }),
-                ),
+                inv.gifts.map((g) => giftItem(g, inv.day, goodsById, () => void loader.refresh())),
                 { className: "things-gifts" },
               ),
               h("p", {
@@ -374,9 +346,7 @@ export function inventoryView(ctx: ViewContext): View {
             ),
           ]
         : []),
-      pieceCard(rules.labelMax, () => {
-        if (!destroyed) void load();
-      }),
+      pieceCard(rules.labelMax, () => void loader.refresh()),
     );
     main.replaceChildren(
       h(
@@ -426,21 +396,6 @@ export function inventoryView(ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    const r = await api.inventory();
-    if (destroyed) return;
-    if (!r.ok) {
-      main.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
-    paint(r.data);
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({ ask: () => api.inventory(), paint, fail: failInto(main) });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

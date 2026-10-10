@@ -14,9 +14,10 @@ import { itemRow, itemRows, stateCard, toast, whileBusy, wideLayout } from "@ter
 import { actProblem, api } from "./api";
 import { displayReport, shownName } from "./display-sheet";
 import { savedResidentId, savedToken } from "./net";
+import { pageData } from "./page-data";
 import { reportMenu } from "./report-sheet";
 import { admiredLine } from "./things";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, type View, type ViewContext } from "./view";
 import { placeTabs, visitButton } from "./visit-view";
 import { isMine } from "./visits";
 
@@ -132,35 +133,23 @@ export function galleriesView(ctx: ViewContext): View {
       text: "Residents open their plots as galleries and put what they made on pedestals and in frames. Admire what you like, once a day.",
     }),
   );
-  let destroyed = false;
 
-  async function load(): Promise<void> {
-    const r = await api.galleries();
-    if (destroyed) return;
-    if (!r.ok) {
-      body.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
-    const { galleries } = r.data;
-    body.replaceChildren(
-      ...(galleries.length > 0
-        ? galleryCards(galleries, ctx.navigate)
-        : [
-            stateCard({
-              title: "No galleries yet",
-              body: "Put something you made on a pedestal on your plot, then tap it and open your plot as a gallery.",
-            }),
-          ]),
-    );
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    ask: () => api.galleries(),
+    fail: failInto(body),
+    paint: ({ galleries }) =>
+      body.replaceChildren(
+        ...(galleries.length > 0
+          ? galleryCards(galleries, ctx.navigate)
+          : [
+              stateCard({
+                title: "No galleries yet",
+                body: "Put something you made on a pedestal on your plot, then tap it and open your plot as a gallery.",
+              }),
+            ]),
+      ),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }
 
 /**

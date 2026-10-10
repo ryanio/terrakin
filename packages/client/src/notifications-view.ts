@@ -4,23 +4,29 @@
  * are residents' words: textContent only.
  */
 
-import { LINKS, type NotificationView, type TakedownView } from "@terrakin/protocol";
+import {
+  LINKS,
+  type NotificationsResponse,
+  type NotificationView,
+  type TakedownView,
+} from "@terrakin/protocol";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { RULE_WORDS } from "@terrakin/ui/safety";
-import { emptyNote, moreButton, stateCard } from "@terrakin/ui/ui";
+import { emptyNote, moreButton } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
 import { levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
+import { pageData } from "./page-data";
 import { petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
 import { aThing, recipeWords, thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, joinCard, staticView, type View, type ViewContext } from "./view";
 
 const ICONS: Record<NotificationView["type"], IconName> = {
   mention: "at",
@@ -275,24 +281,16 @@ export function notificationsView(ctx: ViewContext): View {
     { class: "column stack cards page notifications-page" },
     h("h1", { class: "page-title", text: "Notifications" }),
   );
-  let destroyed = false;
 
   if (!savedToken()) {
     el.append(
-      stateCard({
+      joinCard({
         title: "Join to get notifications",
         body: "When someone mentions you, replies, reacts, reposts, quotes, or follows you, it shows up here.",
-        actions: [
-          h(
-            "a",
-            { class: "btn-primary", attrs: { href: "/world" } },
-            h("span", { text: "Step into the world" }),
-            icon("arrow"),
-          ),
-        ],
+        door: "world",
       }),
     );
-    return { el, ready: Promise.resolve(), destroy() {} };
+    return staticView(el);
   }
 
   const list = h("ol", {
@@ -302,7 +300,7 @@ export function notificationsView(ctx: ViewContext): View {
   const more = moreButton("Show more", async () => {
     if (!next) return;
     const r = await api.notifications({ before: next });
-    if (destroyed) return;
+    if (loader.gone()) return;
     if (!r.ok) return r.message;
     list.append(...r.data.notifications.map(notificationItem));
     next = r.data.next;
@@ -314,15 +312,9 @@ export function notificationsView(ctx: ViewContext): View {
   // error puts the list back on the page before anything is marked read.
   const body = h("div", {});
 
-  async function load(): Promise<void> {
-    const r = await api.notifications();
-    if (destroyed) return;
-    if (!r.ok) {
-      body.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
-    const { notifications, unread } = r.data;
-    next = r.data.next;
+  function paint(data: NotificationsResponse) {
+    const { notifications, unread } = data;
+    next = data.next;
     if (notifications.length === 0) {
       body.replaceChildren(
         emptyNote(
@@ -346,11 +338,6 @@ export function notificationsView(ctx: ViewContext): View {
   }
 
   el.append(body);
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({ ask: () => api.notifications(), paint, fail: failInto(body) });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

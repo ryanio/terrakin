@@ -7,35 +7,17 @@ import type { InviteDetails } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { skeletonCard } from "@terrakin/ui/skeleton";
 import { checkRow, stateCard, toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
+import { pageData } from "./page-data";
 import { ARRIVAL_KEY, arrivalLine } from "./together";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, type View, type ViewContext } from "./view";
 
 export function inviteView(code: string, ctx: ViewContext): View {
   ctx.setTitle("You're invited · Terrakin");
   const el = h("div", { class: "column stack cards page invite-page" });
-  let destroyed = false;
-
-  const ready = load();
-
-  async function load(): Promise<void> {
-    el.replaceChildren(skeletonCard({ lines: 4 }));
-    const r = await api.invite(code);
-    if (destroyed) return;
-    if (!r.ok) {
-      el.replaceChildren(
-        r.status === 404 ? expiredCard() : errorCard(r.message, () => void load()),
-      );
-      return;
-    }
-    const invite = r.data.invite;
-    el.replaceChildren(welcome(invite));
-    el.append(savedToken() ? alreadyHere(invite) : onboarding(invite));
-  }
 
   /** Used up or out of date. Nobody needs an invite to move in, so offer the way in anyway. */
   function expiredCard(): HTMLElement {
@@ -121,7 +103,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
         });
         if (!r.ok) {
           // Someone else used it while this form was open: say so, and offer the way in anyway.
-          if (r.status === 404 && !destroyed) {
+          if (r.status === 404 && !loader.gone()) {
             el.replaceChildren(expiredCard());
             return null;
           }
@@ -161,7 +143,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
     follow.addEventListener("click", async () => {
       follow.disabled = true;
       const r = await api.follow(invite.inviter.id, true);
-      if (destroyed) return;
+      if (loader.gone()) return;
       if (r.ok) ctx.navigate(profilePath(invite.inviter.id));
       else {
         follow.disabled = false;
@@ -194,11 +176,11 @@ export function inviteView(code: string, ctx: ViewContext): View {
     return card;
   }
 
-  return {
-    el,
-    ready,
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    ask: () => api.invite(code),
+    paint: ({ invite }) =>
+      el.replaceChildren(welcome(invite), savedToken() ? alreadyHere(invite) : onboarding(invite)),
+    fail: failInto(el, expiredCard),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

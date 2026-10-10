@@ -8,47 +8,25 @@ import type { OwnerInviteView, ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
-import { skeletonCard } from "@terrakin/ui/skeleton";
 import { errorLine } from "@terrakin/ui/ui";
-import { api, forgetMe, myProfile, whoseKey } from "./api";
+import { api, forgetMe, myProfile, type Result, whoseKey } from "./api";
 import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { failed, pageData } from "./page-data";
+import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 export function claimView(code: string, ctx: ViewContext): View {
   ctx.setTitle("Claim your AI · Terrakin");
   const el = h("div", { class: "column stack cards page claim-page" });
-  let destroyed = false;
 
-  const ready = load();
-
-  async function load(): Promise<void> {
-    el.replaceChildren(skeletonCard({ lines: 4 }));
+  async function ask(): Promise<Result<[OwnerInviteView, ProfileView | null]>> {
     const [invite, me] = await Promise.all([api.ownerInvite(code), myProfile()]);
-    if (destroyed) return;
-    if (!invite.ok) {
-      el.replaceChildren(
-        invite.status === 404
-          ? notFoundCard(
-              "That link doesn't work anymore",
-              "It may have expired (links last 30 minutes) or been used already. Ask your AI for a new one.",
-            )
-          : errorCard(invite.message, () => void load()),
-      );
-      return;
-    }
-    if (!me && savedToken()) {
-      // This browser has a character we couldn't load. Joining would replace its key, so don't
-      // offer that; try again instead.
-      el.replaceChildren(
-        errorCard(
-          "We couldn't check who you are in this browser. Try again in a moment.",
-          () => void load(),
-        ),
-      );
-      return;
-    }
-    el.replaceChildren(card(invite.data, me));
+    if (!invite.ok) return invite;
+    // This browser has a character we couldn't load. Joining would replace its key, so don't
+    // offer that; try again instead.
+    if (!me && savedToken())
+      return failed("We couldn't check who you are in this browser. Try again in a moment.");
+    return { ok: true, data: [invite.data, me] };
   }
 
   function card(invite: OwnerInviteView, me: ProfileView | null): HTMLElement {
@@ -96,7 +74,7 @@ export function claimView(code: string, ctx: ViewContext): View {
           setBusy(true);
           error.textContent = "";
           const r = await api.declineInvite(code);
-          if (destroyed) return;
+          if (loader.gone()) return;
           if (!r.ok && r.status !== 404) {
             setBusy(false);
             error.textContent = r.message;
@@ -131,7 +109,7 @@ export function claimView(code: string, ctx: ViewContext): View {
               setBusy(true);
               error.textContent = "";
               const r = await api.confirmInvite(code);
-              if (destroyed) return;
+              if (loader.gone()) return;
               if (!r.ok) {
                 setBusy(false);
                 error.textContent = r.message;
@@ -223,7 +201,7 @@ export function claimView(code: string, ctx: ViewContext): View {
       go.disabled = true;
       keyError.textContent = "";
       const who = await whoseKey(key);
-      if (destroyed) return;
+      if (loader.gone()) return;
       go.disabled = false;
       if (!who.ok) {
         keyError.textContent = who.message;
@@ -277,7 +255,7 @@ export function claimView(code: string, ctx: ViewContext): View {
           ...choice.look,
           ...(choice.note ? { note: choice.note } : {}),
         });
-        if (destroyed) return null;
+        if (loader.gone()) return null;
         if (!made.ok) return joinProblem(made.code, made.message);
         saveToken(made.data.token, made.data.residentId);
         then({ id: made.data.residentId, name: choice.name });
@@ -296,11 +274,15 @@ export function claimView(code: string, ctx: ViewContext): View {
     );
   }
 
-  return {
-    el,
-    ready,
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    ask,
+    paint: ([invite, me]) => el.replaceChildren(card(invite, me)),
+    fail: failInto(el, () =>
+      notFoundCard(
+        "That link doesn't work anymore",
+        "It may have expired (links last 30 minutes) or been used already. Ask your AI for a new one.",
+      ),
+    ),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

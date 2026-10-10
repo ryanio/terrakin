@@ -6,6 +6,7 @@
  */
 import {
   LETTER_MAX_LENGTH,
+  type LettersResponse,
   type LetterView,
   MAX_MEDIA_PER_LETTER,
   type MediaView,
@@ -15,13 +16,22 @@ import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges } from "@terrakin/ui/people";
 import { skeletonCard } from "@terrakin/ui/skeleton";
-import { confirmTwice, emptyNote, errorLine, stateCard, toast } from "@terrakin/ui/ui";
+import { confirmTwice, emptyNote, errorLine, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api, letterImage, myProfile, UNREAD_EVENT, uploadMedia } from "./api";
+import { api, letterImage, myProfile, type Result, UNREAD_EVENT, uploadMedia } from "./api";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 import { savedResidentId, savedToken } from "./net";
+import { both, failed, pageData } from "./page-data";
 import { conversations } from "./together";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import {
+  errorCard,
+  failInto,
+  joinCard,
+  notFoundCard,
+  staticView,
+  type View,
+  type ViewContext,
+} from "./view";
 import { jumpThere } from "./visit-plot";
 
 const unreadChanged = () => window.dispatchEvent(new Event(UNREAD_EVENT));
@@ -31,43 +41,37 @@ const lettersPath = (id?: string) => (id ? `/letters/${encodeURIComponent(id)}` 
 export { lettersPath };
 
 function joinFirst(): HTMLElement {
-  return stateCard({
+  return joinCard({
     eyebrow: "Letters",
     level: "h1",
     title: "Letters are for residents",
     body: "Letters are private notes between two people here. Make a character first, and you can write to anyone you like.",
-    actions: [
-      h(
-        "a",
-        { class: "btn-primary small", attrs: { href: "/world" } },
-        h("span", { text: "Step into the world" }),
-      ),
-    ],
+    door: "world",
   });
+}
+
+/** Who's reading, beside what the page asked for: letters need both. */
+async function withMe<T>(ask: Promise<Result<T>>): Promise<Result<[ProfileView, T]>> {
+  const [me, r] = await Promise.all([myProfile(), ask]);
+  if (!r.ok) return r;
+  return me ? { ok: true, data: [me, r.data] } : failed("We couldn't tell who you are.");
 }
 
 export function lettersView(ctx: ViewContext): View {
   ctx.setTitle("Letters · Terrakin");
   const el = h("div", { class: "column stack cards page letters-page" });
-  let destroyed = false;
+  if (!savedToken()) {
+    el.append(joinFirst());
+    return staticView(el);
+  }
+  const title = h("h1", { class: "page-title", text: "Letters" });
+  el.append(title);
 
-  const ready = load();
-
-  async function load(): Promise<void> {
-    if (!savedToken()) {
-      el.replaceChildren(joinFirst());
-      return;
-    }
-    el.replaceChildren(h("h1", { class: "page-title", text: "Letters" }));
-    const [me, r] = await Promise.all([myProfile(), api.letters({ limit: 50 })]);
-    if (destroyed) return;
-    if (!me || !r.ok) {
-      el.append(errorCard(r.ok ? "We couldn't tell who you are." : r.message, () => void load()));
-      return;
-    }
-    const list = conversations(r.data.letters, me.id);
+  function paint([me, { letters }]: [ProfileView, LettersResponse]) {
+    const list = conversations(letters, me.id);
     if (list.length === 0) {
-      el.append(
+      el.replaceChildren(
+        title,
         emptyNote(
           "No letters yet",
           "Open someone's profile and tap Write a letter. Only the two of you can read it.",
@@ -115,61 +119,37 @@ export function lettersView(ctx: ViewContext): View {
         ),
       );
     }
-    el.append(ul);
+    el.replaceChildren(title, ul);
   }
 
-  return {
-    el,
-    ready,
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    ask: () => withMe(api.letters({ limit: 50 })),
+    paint,
+    fail: (problem, retry) => el.replaceChildren(title, errorCard(problem.message, retry)),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }
 
 export function letterThreadView(otherId: string, ctx: ViewContext): View {
   ctx.setTitle("Letters · Terrakin");
   const el = h("div", { class: "column stack cards page letters-page" });
-  let destroyed = false;
+  if (!savedToken()) {
+    el.append(joinFirst());
+    return staticView(el);
+  }
+  el.append(skeletonCard({ lines: 4 }));
   const blobs: string[] = [];
   let stopComposer: (() => void) | undefined;
 
-  const ready = load();
-
-  async function load(): Promise<void> {
-    if (!savedToken()) {
-      el.replaceChildren(joinFirst());
-      return;
-    }
-    el.replaceChildren(skeletonCard({ lines: 4 }));
-    const [me, other, r] = await Promise.all([
-      myProfile(),
-      api.profile(otherId),
-      api.letters({ with: otherId, limit: 50 }),
-    ]);
-    if (destroyed) return;
-    if (!other.ok) {
-      el.replaceChildren(
-        other.status === 404
-          ? notFoundCard("We couldn't find that resident", "They may have moved out.")
-          : errorCard(other.message, () => void load()),
-      );
-      return;
-    }
-    if (!me || !r.ok) {
-      el.replaceChildren(
-        errorCard(r.ok ? "We couldn't tell who you are." : r.message, () => void load()),
-      );
-      return;
-    }
-    const them = other.data.resident;
+  function paint([me, [other, r]]: [ProfileView, [{ resident: ProfileView }, LettersResponse]]) {
+    const them = other.resident;
     ctx.setTitle(`Letters with ${them.name} · Terrakin`);
     const thread = h("ol", {
       class: "stack plain-list thread",
       attrs: { "aria-label": `Letters with ${them.name}`, "aria-live": "polite" },
     });
     // Oldest first, like a stack of letters read top to bottom.
-    const letters = [...r.data.letters].reverse();
+    const letters = [...r.letters].reverse();
     for (const letter of letters) thread.append(bubble(letter, me.id));
     const empty = h("p", {
       class: "thread-empty",
@@ -216,10 +196,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
     // Open every unread letter they sent, so it counts as read, then let the top bar know (even
     // if you've left, since they were read).
     const unread = letters.filter((l) => l.to.id === me.id && l.readAt === null);
-    if (unread.length) {
-      await Promise.all(unread.map((l) => api.letter(l.id)));
-      unreadChanged();
-    }
+    if (unread.length) void Promise.all(unread.map((l) => api.letter(l.id))).then(unreadChanged);
   }
 
   function header(them: ProfileView): HTMLElement {
@@ -255,7 +232,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
     confirmTwice(remove, "Tap again to remove", async () => {
       remove.disabled = true;
       const r = await api.deleteLetter(letter.id);
-      if (destroyed) return;
+      if (loader.gone()) return;
       if (r.ok) {
         li.remove();
         toast("Removed from your letters. They keep their copy.");
@@ -290,7 +267,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
         frame.classList.add("missing");
         return;
       }
-      if (destroyed) {
+      if (loader.gone()) {
         URL.revokeObjectURL(src);
         return;
       }
@@ -300,11 +277,18 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
     return frame;
   }
 
+  const loader = pageData({
+    ask: () => withMe(both(api.profile(otherId), api.letters({ with: otherId, limit: 50 }))),
+    paint,
+    fail: failInto(el, () =>
+      notFoundCard("We couldn't find that resident", "They may have moved out."),
+    ),
+  });
   return {
     el,
-    ready,
+    ready: loader.ready,
     destroy() {
-      destroyed = true;
+      loader.leave();
       stopComposer?.();
       for (const url of blobs) URL.revokeObjectURL(url);
     },

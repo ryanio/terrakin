@@ -15,15 +15,15 @@ import {
   itemRows,
   kindPill,
   pageLayout,
-  stateCard,
   toast,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
+import { pageData } from "./page-data";
 import { balanceLine, coins } from "./purse";
 import { openReportSheet } from "./report-sheet";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 type Move = BountyView["moves"][number];
 
@@ -96,12 +96,11 @@ export function bountiesView(ctx: ViewContext): View {
     sideLast: true,
   });
   head.append(h("h1", { class: "page-title", text: "Bounties" }));
-  let destroyed = false;
   const signedIn = savedToken() !== null;
   const me = signedIn ? savedResidentId() : null;
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
-    actFromButton(button, action, done, { gone: () => destroyed, after: load });
+    actFromButton(button, action, done, { gone: loader.gone, after: loader.refresh });
 
   function moves(b: BountyView): HTMLElement | null {
     if (b.moves.length === 0) return null;
@@ -272,9 +271,7 @@ export function bountiesView(ctx: ViewContext): View {
   function paint(data: BountiesResponse) {
     const { bounties, you } = data;
     if (!bounties) {
-      main.replaceChildren(
-        stateCard({ title: "Bounties aren't open yet", body: "Check back soon." }),
-      );
+      main.replaceChildren(notOpenCard("Bounties aren't open yet"));
       side.replaceChildren();
       return;
     }
@@ -354,21 +351,6 @@ export function bountiesView(ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    const res = await api.bounties();
-    if (destroyed) return;
-    if (!res.ok) {
-      main.replaceChildren(errorCard(res.message, () => void load()));
-      return;
-    }
-    paint(res.data);
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({ ask: () => api.bounties(), paint, fail: failInto(main) });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

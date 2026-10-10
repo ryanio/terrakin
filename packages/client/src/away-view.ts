@@ -7,7 +7,7 @@
 import { h } from "@terrakin/ui/dom";
 import { followable } from "@terrakin/ui/links";
 import { stateCard } from "@terrakin/ui/ui";
-import { notFoundCard, type View, type ViewContext } from "./view";
+import { notFoundCard, staticView, type View, type ViewContext } from "./view";
 
 /** The address to leave for, from the page's query, or null when it isn't one we'd send you to. */
 export function awayTarget(search: string): URL | null {
@@ -26,7 +26,7 @@ export function awayView(ctx: ViewContext): View {
         "It isn't a web address we can send you to. The feed is a good place to start again.",
       ),
     );
-    return { el, ready: Promise.resolve(), destroy() {} };
+    return staticView(el);
   }
   const host = url.hostname.replace(/^www\./, "");
   const back = h("button", {
@@ -57,5 +57,5 @@ export function awayView(ctx: ViewContext): View {
     }),
   );
   el.append(card);
-  return { el, ready: Promise.resolve(), destroy() {} };
+  return staticView(el);
 }

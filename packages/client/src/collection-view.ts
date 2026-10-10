@@ -6,7 +6,13 @@
  * profile, and it never says how many of anything they hold. Their name is their own words: text
  * only.
  */
-import type { CollectionGroup, CollectionKind, CollectionView } from "@terrakin/protocol";
+import type {
+  CollectionGroup,
+  CollectionKind,
+  CollectionResponse,
+  CollectionView,
+  ProfileView,
+} from "@terrakin/protocol";
 import type { Family } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { isArtKind, itemArt } from "@terrakin/ui/item-art";
@@ -14,8 +20,9 @@ import { profilePath } from "@terrakin/ui/paths";
 import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
+import { both, pageData } from "./page-data";
 import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 /** One kind in a family's grid: its picture and name once collected, else its outline and "?". */
 function kindTile(k: CollectionKind, now: number): HTMLElement {
@@ -117,27 +124,13 @@ function headCard(c: CollectionView, name: string, mine: boolean): HTMLElement {
 
 export function collectionView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Collection · Terrakin");
-  let destroyed = false;
   // The families in the main column; whose book it is, how far along, and the badges beside them.
   const { el, head, main, side } = pageLayout("collection-page", "The book so far");
 
-  async function load(): Promise<void> {
-    const [profile, book] = await Promise.all([api.profile(id), api.collection(id)]);
-    if (destroyed) return;
-    if (!profile.ok || !book.ok) {
-      const failed = !profile.ok ? profile : book.ok ? undefined : book;
-      if (failed?.status === 404) {
-        main.replaceChildren(notFoundCard("We couldn't find that resident"));
-        return;
-      }
-      main.replaceChildren(
-        errorCard(failed?.message ?? "Something went wrong.", () => void load()),
-      );
-      return;
-    }
-    const r = profile.data.resident;
+  function paint([profile, book]: [{ resident: ProfileView }, CollectionResponse]) {
+    const r = profile.resident;
     const mine = savedResidentId() === r.id;
-    const c = book.data.collection;
+    const c = book.collection;
     const now = Date.now();
     ctx.setTitle(`${mine ? "Your" : `${r.name}'s`} collection · Terrakin`);
     head.replaceChildren(
@@ -162,12 +155,10 @@ export function collectionView(id: string, ctx: ViewContext): View {
     );
   }
 
-  const ready = load();
-  return {
-    el,
-    ready,
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    ask: () => both(api.profile(id), api.collection(id)),
+    paint,
+    fail: failInto(main, () => notFoundCard("We couldn't find that resident")),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

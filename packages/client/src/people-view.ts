@@ -4,7 +4,7 @@
  * are residents' own words: textContent only.
  */
 
-import type { AuthorView } from "@terrakin/protocol";
+import type { AuthorView, ProfileView, ResidentListResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
@@ -12,7 +12,8 @@ import { personLink } from "@terrakin/ui/people";
 import { emptyNote, linkTabs } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { savedResidentId } from "./net";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { both, pageData } from "./page-data";
+import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 export const PEOPLE_TABS = ["followers", "following", "friends"] as const;
 export type PeopleTab = (typeof PEOPLE_TABS)[number];
@@ -42,7 +43,6 @@ export function peopleEmpty(tab: PeopleTab, name: string, mine: boolean): [strin
 
 export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
   ctx.setTitle(`${LABELS[tab]} · Terrakin`);
-  let destroyed = false;
   const el = h("div", { class: "column stack cards page people-page" });
   const list = h("ul", { class: "people-list", attrs: { id: "people-list" } });
 
@@ -55,26 +55,8 @@ export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    const [profile, people] = await Promise.all([
-      api.profile(id),
-      tab === "followers"
-        ? api.followers(id)
-        : tab === "friends"
-          ? api.friends(id)
-          : api.following(id),
-    ]);
-    if (destroyed) return;
-    if (!profile.ok || !people.ok) {
-      const failed = !profile.ok ? profile : people.ok ? undefined : people;
-      if (failed?.status === 404) {
-        el.replaceChildren(notFoundCard("We couldn't find that resident"));
-        return;
-      }
-      el.replaceChildren(errorCard(failed?.message ?? "Something went wrong.", () => void load()));
-      return;
-    }
-    const r = profile.data.resident;
+  function paint([profile, people]: [{ resident: ProfileView }, ResidentListResponse]) {
+    const r = profile.resident;
     const mine = savedResidentId() === r.id;
     ctx.setTitle(`${r.name}'s ${LABELS[tab].toLowerCase()} · Terrakin`);
 
@@ -96,7 +78,7 @@ export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
       },
     );
 
-    const residents = people.data.residents;
+    const residents = people.residents;
     list.replaceChildren(...residents.map(row));
     const [title, body] = peopleEmpty(tab, r.name, mine);
     el.replaceChildren(
@@ -112,12 +94,10 @@ export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
     );
   }
 
-  const ready = load();
-  return {
-    el,
-    ready,
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    ask: () => both(api.profile(id), api[tab](id)),
+    paint,
+    fail: failInto(el, () => notFoundCard("We couldn't find that resident")),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

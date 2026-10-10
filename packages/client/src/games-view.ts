@@ -10,6 +10,7 @@ import {
   GAME_TIMES,
   type GameKind,
   type GamePace,
+  type GameResponse,
   type GamesResponse,
   type Ladder,
   type LadderResponse,
@@ -48,7 +49,8 @@ import {
   timeLeftWords,
   winnerWords,
 } from "./game-format";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { pageData } from "./page-data";
+import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 /** How often a table refreshes: every 2 seconds at a live table, every 15 at a slow one. */
 const LIVE_MS = 2_000;
@@ -80,7 +82,6 @@ export function gamesView(ctx: ViewContext): View {
     sideLast: true,
   });
   head.append(h("h1", { class: "page-title", text: "Games" }));
-  let destroyed = false;
   let ladder: Ladder = LADDERS[0];
   /** The four ladders, read once when the page opens. */
   let ladders: Partial<Record<Ladder, LadderResponse>> = {};
@@ -104,7 +105,7 @@ export function gamesView(ctx: ViewContext): View {
                 e.currentTarget as HTMLButtonElement,
                 { type: "sit", table: t.id },
                 "You sat down.",
-                { gone: () => destroyed, after: () => ctx.navigate(`/games/${t.id}`) },
+                { gone: loader.gone, after: () => ctx.navigate(`/games/${t.id}`) },
               ),
           },
         })
@@ -173,7 +174,7 @@ export function gamesView(ctx: ViewContext): View {
   /** Read every ladder, and show the first that has anyone on it. */
   async function loadLadders() {
     const answers = await Promise.all(LADDERS.map((l) => api.ladder(l)));
-    if (destroyed) return;
+    if (loader.gone()) return;
     ladders = {};
     answers.forEach((r, i) => {
       const l = LADDERS[i];
@@ -253,16 +254,7 @@ export function gamesView(ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    // The ladders change only when a game ends: read them with the first load, not every refresh.
-    const first = Object.keys(ladders).length === 0;
-    const [r] = await Promise.all([api.games(), first ? loadLadders() : undefined]);
-    if (destroyed) return;
-    if (!r.ok) {
-      main.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
-    const data = r.data;
+  function paint(data: GamesResponse) {
     side.replaceChildren(intro(data), laddersCard(data));
     main.replaceChildren(
       ...list(
@@ -276,13 +268,22 @@ export function gamesView(ctx: ViewContext): View {
     paintLadder();
   }
 
-  const ready = load();
-  const stop = everyVisible(CALM_MS, () => void load());
+  const loader = pageData({
+    // The ladders change only when a game ends: read them with the first load, not every refresh.
+    ask: async () => {
+      const first = Object.keys(ladders).length === 0;
+      const [games] = await Promise.all([api.games(), first ? loadLadders() : undefined]);
+      return games;
+    },
+    paint,
+    fail: failInto(main),
+  });
+  const stop = everyVisible(CALM_MS, () => void loader.refresh());
   return {
     el,
-    ready,
+    ready: loader.ready,
     destroy() {
-      destroyed = true;
+      loader.leave();
       stop();
     },
   };
@@ -365,7 +366,6 @@ export function tableView(id: string, ctx: ViewContext): View {
   ctx.setTitle("Game · Terrakin");
   // Your move and the last round in the main column; the seats beside them.
   const { el, head, main, side } = pageLayout("game-page", "Seats", { sideLast: true });
-  let destroyed = false;
   let table: TableView | undefined;
   let busy = false;
   /** How far the server's clock is ahead of this device's, from the last answer. */
@@ -376,7 +376,10 @@ export function tableView(id: string, ctx: ViewContext): View {
   /** Send one action from a button, then show the table as the server has it now. */
   const act = async (button: HTMLButtonElement, action: Action, done: string) => {
     busy = true;
-    const ok = await actFromButton(button, action, done, { gone: () => destroyed, after: load });
+    const ok = await actFromButton(button, action, done, {
+      gone: loader.gone,
+      after: loader.refresh,
+    });
     busy = false;
     return ok;
   };
@@ -566,7 +569,7 @@ export function tableView(id: string, ctx: ViewContext): View {
     openOverlay(s.dialog, () => {
       decideSheet = undefined;
       // Loads while it was up left the page as it was; show the newest now.
-      if (table && !destroyed) paint(table);
+      if (table && !loader.gone()) paint(table);
     });
   }
 
@@ -621,31 +624,27 @@ export function tableView(id: string, ctx: ViewContext): View {
     tickClock();
   }
 
-  async function load(): Promise<void> {
-    const r = await api.game(id);
-    if (destroyed) return;
-    if (!r.ok) {
-      if (r.status === 404) {
-        main.replaceChildren(
-          notFoundCard(
-            "That table is gone",
-            "It closed before it started, or it finished long enough ago that the town forgot it. GET /games has the tables now.",
-          ),
-        );
-        return;
-      }
-      main.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
+  function show(data: GameResponse) {
     const was = table;
-    table = r.data.table;
-    skew = Date.parse(r.data.now) - Date.now();
+    table = data.table;
+    skew = Date.parse(data.now) - Date.now();
     // A new round closes the sheet for the old one.
     if (decideSheet && was && was.round !== table.round) closeOverlay(decideSheet);
     if (!decideSheet) paint(table);
   }
 
-  const ready = load();
+  const loader = pageData({
+    ask: () => api.game(id),
+    paint: show,
+    fail: failInto(main, () => {
+      // Nothing left to count down or ask about.
+      table = undefined;
+      return notFoundCard(
+        "That table is gone",
+        "It closed before it started, or it finished long enough ago that the town forgot it. The games page has the tables now.",
+      );
+    }),
+  });
   let lastPoll = 0;
   const stopClock = everyVisible(1_000, () => {
     tickClock();
@@ -654,13 +653,13 @@ export function tableView(id: string, ctx: ViewContext): View {
     const every = t.pace === "live" ? LIVE_MS : CALM_MS;
     if (Date.now() - lastPoll < every) return;
     lastPoll = Date.now();
-    void load();
+    void loader.refresh();
   });
   return {
     el,
-    ready,
+    ready: loader.ready,
     destroy() {
-      destroyed = true;
+      loader.leave();
       stopClock();
       if (decideSheet) closeOverlay(decideSheet);
     },

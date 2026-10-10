@@ -14,8 +14,9 @@ import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 
 import { savedResidentId, savedToken } from "./net";
+import { pageData, withOptional } from "./page-data";
 import { plotThumb } from "./plot-thumb";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-plot";
 import { isMine, plotTitles, weekLine } from "./visits";
 import { worldLinkPath } from "./world-link";
@@ -164,34 +165,22 @@ export function visitView(ctx: ViewContext): View {
       { label: "Order", className: "visit-sorts", go },
     ),
   );
-  let destroyed = false;
 
-  async function load(): Promise<void> {
-    const [p, w] = await Promise.all([api.plots(sort), api.world()]);
-    if (destroyed) return;
-    if (!p.ok) {
-      body.replaceChildren(errorCard(p.message, () => void load()));
-      return;
-    }
-    const world = w.ok ? w.data : undefined;
-    const { plots } = p.data;
-    body.replaceChildren(
-      ...(plots.length > 0
-        ? plots.map((plot) => plotCard(plot, world, me, ctx.navigate))
-        : [
-            stateCard({
-              title: "Nobody lives here yet",
-              body: "Once residents settle plots and build, their homes show up here to visit.",
-            }),
-          ]),
-    );
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  const loader = pageData({
+    // The world draws each plot's picture; the cards show without it.
+    ask: () => withOptional(api.plots(sort), api.world()),
+    fail: failInto(body),
+    paint: ([{ plots }, world]) =>
+      body.replaceChildren(
+        ...(plots.length > 0
+          ? plots.map((plot) => plotCard(plot, world ?? undefined, me, ctx.navigate))
+          : [
+              stateCard({
+                title: "Nobody lives here yet",
+                body: "Once residents settle plots and build, their homes show up here to visit.",
+              }),
+            ]),
+      ),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

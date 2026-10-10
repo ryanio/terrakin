@@ -2,7 +2,7 @@
  * `/p/:id` one post, its replies (oldest first), and a reply box for residents, with who wrote it
  * and more of their posts beside them.
  */
-import type { AuthorView, PostView } from "@terrakin/protocol";
+import type { AuthorView, PostResponse, PostView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -13,9 +13,10 @@ import { timeAgo } from "@terrakin/ui/when";
 import { api, myProfile } from "./api";
 import { type Composer, composer } from "./composer";
 import { syncPost } from "./feed-view";
+import { pageData } from "./page-data";
 import { postCard } from "./post-card";
 import { pulseShell } from "./pulse-cards";
-import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
+import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 /** How many more of the author's posts the sidebar lists. */
 const MORE_POSTS = 3;
@@ -25,8 +26,8 @@ export function postView(id: string, ctx: ViewContext): View {
   const { el, head, main, side } = pageLayout("post-page", "About who wrote it", {
     sideLast: true,
   });
-  let destroyed = false;
   let writer: Composer | undefined;
+  main.append(...skeletonPosts(1));
 
   const back = h(
     "button",
@@ -45,7 +46,6 @@ export function postView(id: string, ctx: ViewContext): View {
   );
 
   head.append(back);
-  const ready = load();
 
   /** Who wrote it, and a few more of their posts, in the home wall's card style. */
   async function aboutAuthor(author: AuthorView, shown: string): Promise<void> {
@@ -53,7 +53,7 @@ export function postView(id: string, ctx: ViewContext): View {
       api.profile(author.id),
       api.residentPosts(author.id),
     ]);
-    if (destroyed) return;
+    if (loader.gone()) return;
     const r = profile.ok ? profile.data.resident : undefined;
     const card = pulseShell(
       "post-about",
@@ -104,24 +104,7 @@ export function postView(id: string, ctx: ViewContext): View {
     side.replaceChildren(...[card, more].filter((c): c is HTMLElement => c !== null));
   }
 
-  async function load(): Promise<void> {
-    side.replaceChildren();
-    main.replaceChildren(...skeletonPosts(1));
-    const r = await api.post(id);
-    if (destroyed) return;
-    if (!r.ok) {
-      if (r.status === 404) {
-        ctx.setTitle("Not found · Terrakin");
-        main.replaceChildren(
-          notFoundCard(
-            "We couldn't find that post",
-            "It may have been deleted by the person who wrote it, or the link has a typo.",
-          ),
-        );
-      } else main.replaceChildren(errorCard(r.message, () => void load()));
-      return;
-    }
-    const { post, replies } = r.data;
+  function paint({ post, replies }: PostResponse) {
     ctx.setTitle(`Post by ${post.author.name} on Terrakin`);
     // The reply box is right here, so Reply takes you to it instead of reloading this page.
     const card = postCard(post, {
@@ -129,7 +112,7 @@ export function postView(id: string, ctx: ViewContext): View {
       onChange: syncPost,
       onReply: () =>
         void myProfile().then((me) => {
-          if (destroyed) return;
+          if (loader.gone()) return;
           if (me) writer?.focus();
           else toast("Join the world to reply.", { href: "/world", label: "Join" });
         }),
@@ -154,7 +137,7 @@ export function postView(id: string, ctx: ViewContext): View {
     void aboutAuthor(post.author, post.id);
 
     void myProfile().then((me) => {
-      if (destroyed || !me) return;
+      if (loader.gone() || !me) return;
       writer?.destroy();
       writer = composer({
         me,
@@ -174,11 +157,22 @@ export function postView(id: string, ctx: ViewContext): View {
     });
   }
 
+  const loader = pageData({
+    ask: () => api.post(id),
+    paint,
+    fail: failInto(main, () => {
+      ctx.setTitle("Not found · Terrakin");
+      return notFoundCard(
+        "We couldn't find that post",
+        "It may have been deleted by the person who wrote it, or the link has a typo.",
+      );
+    }),
+  });
   return {
     el,
-    ready,
+    ready: loader.ready,
     destroy() {
-      destroyed = true;
+      loader.leave();
       writer?.destroy();
     },
   };

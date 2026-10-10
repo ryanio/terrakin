@@ -18,16 +18,16 @@ import {
   itemRows,
   moreButton,
   pageLayout,
-  stateCard,
   toast,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
+import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
 import { reportMenu } from "./report-sheet";
 import { lotWords, thingName } from "./things";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 /** A price to start the form at: what the town pays, else the shop's price, else 3 a thing. */
 export function suggestedPrice(kind: ItemKind, count: number): number {
@@ -140,12 +140,11 @@ export function marketView(ctx: ViewContext): View {
     sideLast: true,
   });
   head.append(h("h1", { class: "page-title", text: "The market" }));
-  let destroyed = false;
   const signedIn = savedToken() !== null;
   const me = signedIn ? savedResidentId() : null;
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
-    actFromButton(button, action, done, { gone: () => destroyed, after: load });
+    actFromButton(button, action, done, { gone: loader.gone, after: loader.refresh });
 
   function sellForm(data: MarketResponse, inv: InventoryResponse | null): HTMLElement {
     const you = data.you;
@@ -260,9 +259,7 @@ export function marketView(ctx: ViewContext): View {
   function paint(data: MarketResponse, inv: InventoryResponse | null) {
     const { market, you } = data;
     if (!market) {
-      main.replaceChildren(
-        stateCard({ title: "The market isn't open yet", body: "Check back soon." }),
-      );
+      main.replaceChildren(notOpenCard("The market isn't open yet"));
       side.replaceChildren();
       return;
     }
@@ -285,7 +282,7 @@ export function marketView(ctx: ViewContext): View {
     const more = moreButton("Show more listings", async () => {
       if (!next) return;
       const r = await api.market({ before: next });
-      if (destroyed) return;
+      if (loader.gone()) return;
       if (!r.ok) return r.message;
       list.append(...(r.data.market?.listings ?? []).map(row));
       next = r.data.market?.next ?? null;
@@ -368,26 +365,13 @@ export function marketView(ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    const [market, inv] = await Promise.all([
-      api.market(),
-      signedIn ? api.inventory() : Promise.resolve(null),
-    ]);
-    if (destroyed) return;
-    if (!market.ok) {
-      main.replaceChildren(errorCard(market.message, () => void load()));
-      return;
-    }
-    paint(market.data, inv?.ok ? inv.data : null);
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  // Your things say what you can sell and what you already hold; the page shows without them.
+  const loader = pageData({
+    ask: () => withOptional(api.market(), signedIn ? api.inventory() : null),
+    paint: ([market, inv]) => paint(market, inv),
+    fail: failInto(main),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }
 
 /**

@@ -17,13 +17,14 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, kindPill, pageLayout, stateCard } from "@terrakin/ui/ui";
+import { itemRow, itemRows, kindPill, pageLayout } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedToken } from "./net";
+import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
 import { aNamed, learnedLine, needsListLine, stackCount } from "./things";
-import { errorCard, type View, type ViewContext } from "./view";
+import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 type Section = ShopItemView["section"];
 
@@ -180,12 +181,11 @@ export function shopView(ctx: ViewContext): View {
   // The shelves in the main column; your purse and what the town buys today beside them.
   const { el, head, main, side } = pageLayout("shop-page", "Your purse and what the town buys");
   head.append(h("h1", { class: "page-title", text: "The town shop" }));
-  let destroyed = false;
   let landed = false;
   const signedIn = savedToken() !== null;
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
-    actFromButton(button, action, done, { gone: () => destroyed, after: load });
+    actFromButton(button, action, done, { gone: loader.gone, after: loader.refresh });
 
   function shelfItem(item: ShopItemView, data: ShopResponse, inv: InventoryResponse | null) {
     const balance = data.you?.balance ?? null;
@@ -294,9 +294,7 @@ export function shopView(ctx: ViewContext): View {
   function paint(data: ShopResponse, inv: InventoryResponse | null) {
     const { shop, you } = data;
     if (!shop) {
-      main.replaceChildren(
-        stateCard({ title: "The shop isn't open yet", body: "Check back soon." }),
-      );
+      main.replaceChildren(notOpenCard("The shop isn't open yet"));
       side.replaceChildren();
       return;
     }
@@ -397,24 +395,11 @@ export function shopView(ctx: ViewContext): View {
     );
   }
 
-  async function load(): Promise<void> {
-    const [shop, inv] = await Promise.all([
-      api.shop(),
-      signedIn ? api.inventory() : Promise.resolve(null),
-    ]);
-    if (destroyed) return;
-    if (!shop.ok) {
-      main.replaceChildren(errorCard(shop.message, () => void load()));
-      return;
-    }
-    paint(shop.data, inv?.ok ? inv.data : null);
-  }
-
-  return {
-    el,
-    ready: load(),
-    destroy() {
-      destroyed = true;
-    },
-  };
+  // Your things say what you can sell and what you already hold; the page shows without them.
+  const loader = pageData({
+    ask: () => withOptional(api.shop(), signedIn ? api.inventory() : null),
+    paint: ([shop, inv]) => paint(shop, inv),
+    fail: failInto(main),
+  });
+  return { el, ready: loader.ready, destroy: loader.leave };
 }

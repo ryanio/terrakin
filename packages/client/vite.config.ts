@@ -294,46 +294,52 @@ function sitePages(): Plugin {
 
 /**
  * The most the app's first load may weigh, gzipped: the entry script with every chunk it imports
- * up front, and their stylesheets. The build fails past it (decisions 0110 and 0231). Lazy chunks
+ * up front, and their stylesheets. The build fails past it (decisions 0110 and 0258). Lazy chunks
  * (every page but the feed, the world, 3D, sound, avatar figures) don't count; they load when
- * someone opens them, or beside the first load.
+ * someone opens them, or beside the first load. The budget never buys a smaller number with worse
+ * code: load the new code lazily, cut a module along a line that makes sense on its own, or raise
+ * it in a decision record. `node scripts/first-load.ts` prints what the first load holds.
  */
-export const FIRST_LOAD_BUDGET = { js: 125_000, css: 32_000 } as const;
+export const FIRST_LOAD_BUDGET = { js: 135_000, css: 32_000 } as const;
 
 function firstLoadBudget(): Plugin {
   return {
     name: "terrakin-first-load-budget",
     apply: "build",
-    generateBundle(_options, bundle) {
-      const entry = Object.values(bundle).find(
-        (c) => c.type === "chunk" && c.isEntry && c.facadeModuleId?.endsWith("/index.html"),
-      );
-      if (entry?.type !== "chunk") return;
-      const chunks = new Set<string>();
-      const styles = new Set<string>();
-      const visit = (fileName: string) => {
-        const chunk = bundle[fileName];
-        if (chunk?.type !== "chunk" || chunks.has(fileName)) return;
-        chunks.add(fileName);
-        for (const css of chunk.viteMetadata?.importedCss ?? []) styles.add(css);
-        for (const next of chunk.imports) visit(next);
-      };
-      visit(entry.fileName);
-      const gzipped = (files: Set<string>) =>
-        [...files].reduce((sum, fileName) => {
-          const out = bundle[fileName];
-          const text = out?.type === "chunk" ? out.code : out?.source;
-          return sum + (text === undefined ? 0 : gzipSync(text).length);
-        }, 0);
-      const js = gzipped(chunks);
-      const css = gzipped(styles);
-      const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} kB`;
-      this.info(`first load: ${kb(js)} of script and ${kb(css)} of styles, gzipped`);
-      if (js > FIRST_LOAD_BUDGET.js || css > FIRST_LOAD_BUDGET.css) {
-        this.error(
-          `The first load is ${kb(js)} of script and ${kb(css)} of styles gzipped, over the budget of ${kb(FIRST_LOAD_BUDGET.js)} and ${kb(FIRST_LOAD_BUDGET.css)}. Load the new code lazily with import(), or raise the budget in a decision record.`,
+    generateBundle: {
+      // After Vite's own hooks, which write each import()'s preload list into the scripts.
+      order: "post",
+      handler(_options, bundle) {
+        const entry = Object.values(bundle).find(
+          (c) => c.type === "chunk" && c.isEntry && c.facadeModuleId?.endsWith("/index.html"),
         );
-      }
+        if (entry?.type !== "chunk") return;
+        const chunks = new Set<string>();
+        const styles = new Set<string>();
+        const visit = (fileName: string) => {
+          const chunk = bundle[fileName];
+          if (chunk?.type !== "chunk" || chunks.has(fileName)) return;
+          chunks.add(fileName);
+          for (const css of chunk.viteMetadata?.importedCss ?? []) styles.add(css);
+          for (const next of chunk.imports) visit(next);
+        };
+        visit(entry.fileName);
+        const gzipped = (files: Set<string>) =>
+          [...files].reduce((sum, fileName) => {
+            const out = bundle[fileName];
+            const text = out?.type === "chunk" ? out.code : out?.source;
+            return sum + (text === undefined ? 0 : gzipSync(text).length);
+          }, 0);
+        const js = gzipped(chunks);
+        const css = gzipped(styles);
+        const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} kB`;
+        this.info(`first load: ${kb(js)} of script and ${kb(css)} of styles, gzipped`);
+        if (js > FIRST_LOAD_BUDGET.js || css > FIRST_LOAD_BUDGET.css) {
+          this.error(
+            `The first load is ${kb(js)} of script and ${kb(css)} of styles gzipped, over the budget of ${kb(FIRST_LOAD_BUDGET.js)} and ${kb(FIRST_LOAD_BUDGET.css)}. Load the new code lazily with import(), or see what the first load holds with node scripts/first-load.ts (decision 0258).`,
+          );
+        }
+      },
     },
   };
 }

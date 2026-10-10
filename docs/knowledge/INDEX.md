@@ -191,6 +191,7 @@ What we chose and why. Newest last.
 - [A page asks for its data through one loader, and a refresh that fails leaves the page as it is](decisions/0254-a-page-asks-for-its-data-through-one-loader-and-a-refresh-th.md) · 2026-10-10 · accepted · `client` `design`
 - [A job pays 10 points and three count a week, the economy run with jobs says](decisions/0255-a-job-pays-10-points-and-three-count-a-week-the-economy-run-.md) · 2026-10-10 · accepted · `sim` `jobs` `numbers` `scripts`
 - [CI's deploy signs in for the replay check with an Access service token that reads the world log and nothing else](decisions/0257-ci-s-deploy-signs-in-for-the-replay-check-with-an-access-ser.md) · 2026-10-10 · accepted · `ci` `deploy` `security` `staff`
+- [The first load's budget is 135 kB, counted as it is downloaded, and it never buys a smaller number with worse code](decisions/0258-the-first-load-s-budget-is-135-kb-counted-as-it-is-downloade.md) · 2026-10-10 · accepted · `client` `performance` `tooling`
 
 ## Learnings
 

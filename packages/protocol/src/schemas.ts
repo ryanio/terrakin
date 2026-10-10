@@ -13,6 +13,7 @@ import {
   CROPS,
   DEFAULT_CONFIG,
   DIRECTIONS,
+  EARNED_WEAR,
   ECONOMY,
   EVENT_KINDS,
   EVENTS,
@@ -60,6 +61,7 @@ import {
   SEASONS,
   SHOP,
   SHOP_SKUS,
+  SKILLS,
   STACK_KINDS,
   STEP_ROUTINES,
   SWEET_KINDS,
@@ -67,6 +69,7 @@ import {
   TABLE_STATUSES,
   THEMES,
   TIMES_OF_DAY,
+  TITLES,
   TOWN_LIMITS,
   VOTE_CHOICES,
   WEAR_ITEMS,
@@ -78,17 +81,6 @@ import { z } from "zod";
 export const PROTOCOL_VERSION = 1;
 
 const CHAT_MAX_LENGTH = 280;
-
-/**
- * Levels (RFC 0029) are in the sim before the API opens them, which is the RFC's PR 4. Until then
- * the API names nothing only levels make: their one refusal. No action carries a title or earned
- * wear, and no event schema knows a level event, so nothing here can reach them.
- */
-const NOT_OPEN_YET: readonly string[] = ["not_earned"];
-
-/** One of the sim's lists, less what levels add until the API opens them. */
-const openOnly = <T extends string>(list: readonly T[]) =>
-  list.filter((k) => !NOT_OPEN_YET.includes(k)) as unknown as readonly [T, ...T[]];
 
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
 const PROTOCOL_ERROR_CODES = [
@@ -116,7 +108,7 @@ const PROTOCOL_ERROR_CODES = [
   "too_soon",
 ] as const;
 
-export const ERROR_CODES = [...openOnly(REJECTION_CODES), ...PROTOCOL_ERROR_CODES] as const;
+export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
 export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
@@ -195,6 +187,18 @@ export const LookMediaId = z.string().regex(MEDIA_ID_PATTERN);
 export const HairStyle = z.enum(HAIR_STYLES);
 /** A hair color: a natural one, or pink, blue, green, or purple. */
 export const HairColor = z.enum(HAIR_COLORS);
+/** One of the five skills a resident levels (RFC 0029). */
+export const SkillName = z.enum(SKILLS);
+export type SkillName = z.infer<typeof SkillName>;
+/**
+ * A title a skill's level unlocks (RFC 0029): fixed words, never a resident's. A skill's first
+ * comes at level 3 and its second at level 10.
+ */
+export const TitleName = z.enum(TITLES);
+export type TitleName = z.infer<typeof TitleName>;
+/** A garment a skill's level 5 unlocks (RFC 0029). Never sold, given, or bought. */
+export const EarnedWear = z.enum(EARNED_WEAR);
+export type EarnedWear = z.infer<typeof EarnedWear>;
 /** Optional appearance fields, accepted when joining and by the profile action. */
 const profileFields = {
   color: ResidentColor.optional(),
@@ -374,6 +378,11 @@ export const ProfileAction = z.object({
   type: z.literal("profile"),
   ...profileFields,
   ...profileLookFields,
+  title: TitleName.nullable()
+    .optional()
+    .describe(
+      "The title your profile shows (RFC 0029): one a skill's level has unlocked for you (`titles` in `GET /v1/progress`), or `null` for none. One you haven't reached is refused as `not_earned`.",
+    ),
   ...dry,
 });
 /** Claim a first plot from anywhere and land on it in one step. Plot coordinates, not tiles. */
@@ -1414,6 +1423,11 @@ export const WorldSnapshot = z.object({
    */
   recipesOpen: z.literal(true).optional(),
   /**
+   * Present once levels are open (RFC 0029): deeds earn points, and `GET /v1/progress` and a
+   * profile's `level` say how far along a resident is.
+   */
+  levelsOpen: z.literal(true).optional(),
+  /**
    * Finds on display on pedestals and frames (RFC 0021), with who put each up and the day it went
    * up. They carry no words. Absent when none are.
    */
@@ -1686,6 +1700,43 @@ export const WorldEvent = z.discriminatedUnion("type", [
     how: z.enum(["picked", "bought", "taught", "found", "merged"]),
     price: z.number().int().optional(),
     from: z.string().optional(),
+  }),
+  /**
+   * From now on, deeds earn points toward levels (RFC 0029): a harvest, a craft, a find, a fish, a
+   * lesson, a paid bounty, a rated game, and guests at an event. Residents who were here already
+   * start with a first for each kind in their collection book.
+   */
+  z.object({ type: z.literal("levels_opened") }),
+  /**
+   * You earned points in a skill (RFC 0029). Only you get these, like `coins`. `points` is what
+   * this added, `firsts` the kinds it was your first of (10 points each, outside the daily cap),
+   * `total` the skill's points now, and `today` what it has counted toward today's cap of 20.
+   * Sent only when points were added: a deed past the cap earns none.
+   */
+  z.object({
+    type: z.literal("progress"),
+    residentId: z.string(),
+    skill: SkillName,
+    points: z.number().int(),
+    firsts: z.array(z.string()).optional(),
+    total: z.number().int(),
+    today: z.number().int(),
+  }),
+  /**
+   * A resident reached a level (RFC 0029): a skill's when `skill` is there, else their own. It
+   * names the level they're at now, however many they passed. Public.
+   */
+  z.object({
+    type: z.literal("level_reached"),
+    residentId: z.string(),
+    skill: SkillName.optional(),
+    level: z.number().int(),
+  }),
+  /** The title a resident's profile shows changed (RFC 0029). `null` is none. Public. */
+  z.object({
+    type: z.literal("title_changed"),
+    residentId: z.string(),
+    title: TitleName.nullable(),
   }),
   /** Something went up for sale in the market. */
   z.object({

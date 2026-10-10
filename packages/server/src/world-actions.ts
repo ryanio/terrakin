@@ -186,7 +186,9 @@ export function performAction(
     if (refused) return refused;
     const media = checkLookMedia(ctx.mediaType, residentId, profile);
     if (media) return media;
-    const command: Command = { type, ...cleanProfile(profile) };
+    // A title (RFC 0029) is one of the sim's fixed ids, or null for none: nothing to clean.
+    const title = profile.title === undefined ? {} : { title: profile.title };
+    const command: Command = { type, ...cleanProfile(profile), ...title };
     const result = ctx.run({ actor: residentId, command }, dry);
     if (result.ok && !dry) ctx.pinLookMedia(residentId);
     return result;

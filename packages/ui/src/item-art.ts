@@ -29,7 +29,14 @@ import {
 } from "@terrakin/sim";
 
 import { BRAND_HEX, WOOD_DARK } from "./brand";
-import { batPath, HALLOWEEN_HEX, mediaUrlOf, RESIDENT_COLOR_HEX, WINTER_HEX } from "./looks";
+import {
+  batPath,
+  EARNED_HEX,
+  HALLOWEEN_HEX,
+  mediaUrlOf,
+  RESIDENT_COLOR_HEX,
+  WINTER_HEX,
+} from "./looks";
 
 /**
  * Anything `itemArt` can draw: an item kind, a piece of wear, or a recipe page lying on the ground
@@ -1427,6 +1434,94 @@ function museLantern(): ArtShape[] {
   ];
 }
 
+// ---------- earned wear (RFC 0029) ----------
+
+const E = EARNED_HEX;
+
+/** Growing's sun hat: a wide, soft brim under a round crown, with a moss ribbon and a leaf. */
+function sunHat(): ArtShape[] {
+  const weave = out({ stroke: E.sunHatWeave });
+  return [
+    shadow(18, 42),
+    path(
+      "M3 31c2-6 10-9 21-9s19 3 21 9c-3 6-9 5.4-14 3.8-4-1.2-10-1.2-14 0C12 36.4 6 37 3 31z",
+      E.sunHat,
+      weave,
+    ),
+    path("M13.5 28c0-9 4.5-14.5 10.5-14.5S34.5 19 34.5 28c-6 2-15 2-21 0z", E.sunHat, weave),
+    path(
+      "M13.6 24.2c6 1.8 14.8 1.8 20.8 0l.2 3.8c-6 2-15 2-21 0z",
+      E.sunHatBand,
+      out({ "stroke-width": 1 }),
+    ),
+    leaf(30, 24, 8, -40, E.sunHatLeaf),
+    line("M17.5 18.5c4 1 9 1 13 0", E.sunHatWeave, 0.9, { opacity: 0.8 }),
+  ];
+}
+
+/** Making's tool belt: a leather band with a brass buckle, a hammer in its loop, and a pouch. */
+function toolBelt(): ArtShape[] {
+  return [
+    shadow(18, 43),
+    line("M11 13v25", WOOD_DARK, 4),
+    line("M11 13v25", E.hammerHandle, 2.6),
+    rect(5, 8, 12, 6, 1.5, E.hammerHead, out()),
+    rect(3, 16, 42, 8, 2.5, E.belt, out()),
+    line("M6 20h36", "#ffffff", 0.9, { opacity: 0.3, "stroke-dasharray": "2 2" }),
+    rect(20, 14.5, 8, 11, 1.6, E.buckle, out({ "stroke-width": 1 })),
+    rect(22.5, 17, 3, 6, 0.8, E.belt),
+    path("M30 22h12v13c0 3-2 5-6 5s-6-2-6-5z", E.beltPouch, out()),
+    path("M30 22h12v6c-4 2-8 2-12 0z", E.belt, out({ "stroke-width": 1 })),
+    circle(36, 28.5, 1.3, E.buckle),
+  ];
+}
+
+/** Foraging's field vest: sleeveless olive canvas, open at the neck, with two patch pockets. */
+function fieldVest(): ArtShape[] {
+  return [
+    shadow(15, 44),
+    path("M15 8l5 3 4 9 4-9 5-3 6 5-2 9 .5 19h-27L11 22l-2-9z", E.vest, out()),
+    path("M20 11l4 9 4-9", "none", out({ "stroke-width": 1.2 })),
+    line("M24 20v21", E.vestTrim, 1.2),
+    rect(12.5, 27, 8, 8.5, 1.4, E.vestPocket, out({ "stroke-width": 1 })),
+    rect(27.5, 27, 8, 8.5, 1.4, E.vestPocket, out({ "stroke-width": 1 })),
+    rect(12.5, 27, 8, 2.8, 1, E.vestTrim),
+    rect(27.5, 27, 8, 2.8, 1, E.vestTrim),
+    circle(26.2, 24, 1, E.buckle),
+    line("M12 16c-1 2-1.3 4-1 6M36 16c1 2 1.3 4 1 6", E.vestTrim, 1, { opacity: 0.7 }),
+  ];
+}
+
+/** Hosting's party sash: rose satin edged in gold, a gold star on it, and its tails tied below. */
+function partySash(): ArtShape[] {
+  return [
+    shadow(16, 44),
+    path("M35 34l8 8-6 .5-1.5 4-5.5-9z", E.sash, out({ "stroke-width": 1.1 })),
+    path("M5 12l8-7 31 29-8 8z", E.sash, out()),
+    line("M7.5 10.5l30.5 29M11 7l31 28.5", E.sashEdge, 1.5),
+    sparkle(24, 23, 5),
+  ];
+}
+
+/** Playing's rosette: two ribbon tails under a pleated blue round with a gold middle. */
+function winnersRosette(): ArtShape[] {
+  const r = (n: number) => Math.round(n * 10) / 10;
+  const pleats = Array.from({ length: 10 }, (_, i) => {
+    const a = (i / 10) * Math.PI * 2;
+    return circle(r(24 + Math.cos(a) * 11), r(18 + Math.sin(a) * 11), 4, E.rosette, out());
+  });
+  return [
+    shadow(12, 44),
+    path("M19 24l-6 19 6-3 3 5 4-19z", E.rosetteDeep, out()),
+    path("M29 24l6 19-6-3-3 5-4-19z", E.rosetteDeep, out()),
+    ...pleats,
+    circle(24, 18, 11, E.rosette),
+    circle(24, 18, 8, "none", { stroke: E.rosetteDeep, "stroke-width": 1.2 }),
+    circle(24, 18, 5.5, E.rosetteMiddle, out({ "stroke-width": 1 })),
+    shine(20, 13, 3, 1.2),
+  ];
+}
+
 // ---------- bottoms, dresses, and feet ----------
 
 function dress(): ArtShape[] {
@@ -2149,6 +2244,11 @@ const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
   pumpkin_head: pumpkinHead,
   ghost_sheet: ghostSheet,
   bat_wings: batWings,
+  sun_hat: sunHat,
+  tool_belt: toolBelt,
+  field_vest: fieldVest,
+  party_sash: partySash,
+  winners_rosette: winnersRosette,
 };
 
 /** An item's picture from its look in the catalog, or its own drawing. */

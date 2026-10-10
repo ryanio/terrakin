@@ -14,6 +14,7 @@ import {
   ArrowUp,
   ArrowUpRight,
   AtSign,
+  Award,
   Backpack,
   Bell,
   Blocks,
@@ -143,6 +144,7 @@ export const ICONS = {
   soundOff: VolumeX,
   soundQuiet: Volume1,
   soundOn: Volume2,
+  level: Award,
 } as const satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;

@@ -104,8 +104,8 @@ export interface AppOptions {
    * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, or
    * `?minutes=N` minutes on (1 to 1,440), for an event's start, and `POST /v1/test/sweep` by
    * running the minute sweep now (idle residents, routines, snapshots), and `POST /v1/test/grant`
-   * (`TEST_GRANT_PATH`) and `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`) from this
-   * machine. It's deliberately outside
+   * (`TEST_GRANT_PATH`), `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`), and
+   * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`) from this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
    */
@@ -131,6 +131,12 @@ export const TEST_GRANT_PATH = "/v1/test/grant";
  * can make residents before and after it. Answers the sim's refusal when recipes are already open.
  */
 export const TEST_OPEN_RECIPES_PATH = "/v1/test/open-recipes";
+/**
+ * Tests only, with the test clock, from this machine: logs `open_levels` now (RFC 0029) with the
+ * one-time credit from the collection book, so a spec or a `pnpm dev:test` world has levels.
+ * Answers the sim's refusal when levels are already open.
+ */
+export const TEST_OPEN_LEVELS_PATH = "/v1/test/open-levels";
 
 /**
  * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
@@ -354,7 +360,15 @@ export function createApp(options: AppOptions): Server {
         body: JSON.stringify(result.ok ? { ok: true } : { ok: false, error: result.error }),
       });
     }
-    if (options.testClock && req.method === "POST" && url.pathname === TEST_OPEN_RECIPES_PATH) {
+    // The switches a test turns on now: recipes (RFC 0024) and levels (RFC 0029). Only from this
+    // machine, like the grant above.
+    const openNow =
+      url.pathname === TEST_OPEN_RECIPES_PATH
+        ? () => options.service.testOpenRecipes()
+        : url.pathname === TEST_OPEN_LEVELS_PATH
+          ? () => options.service.testOpenLevels()
+          : undefined;
+    if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {
         return send(res, {
@@ -363,7 +377,7 @@ export function createApp(options: AppOptions): Server {
           body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
         });
       }
-      const result = options.service.testOpenRecipes();
+      const result = openNow();
       return send(res, {
         status: result.ok ? 200 : 400,
         headers: json,

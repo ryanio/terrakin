@@ -12,6 +12,7 @@ import type { Suggestion } from "./checkin-suggest";
 import type { todaysLines } from "./coins";
 import type { checkinEvents } from "./events";
 import { gameName, type gamesCheckin, timeLeft } from "./games";
+import { levelTodo } from "./levels";
 import { plural } from "./markdown";
 import { ROUTINE_WORDS } from "./routines";
 import type { SocialService } from "./social-service";
@@ -215,6 +216,8 @@ const TODO: readonly TodoEntry[] = [
         ]
       : [];
   },
+  // Levels (RFC 0029): each unread level-up that unlocked something, from ids and fixed words.
+  (f) => levelTodo(f.notifications),
   ({ lettersUnread, letters }) =>
     lettersUnread > 0
       ? [

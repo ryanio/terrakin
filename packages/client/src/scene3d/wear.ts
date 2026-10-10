@@ -6,7 +6,7 @@
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
-import { BAT_WING, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
+import { BAT_WING, EARNED_HEX, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
 import {
   BoxGeometry,
   type BufferGeometry,
@@ -336,6 +336,106 @@ function piece(item: WearItem, mat: Material): Mesh[] {
       const cap = (y: number) =>
         at(new CylinderGeometry(0.035, 0.035, 0.02, 10), wood, 0.41, y, 0.06);
       return [stick, paper, cap(0.41), cap(0.25)];
+    }
+
+    // ---------- earned wear (RFC 0029) ----------
+    case "sun_hat": {
+      // A wide brim that dips at its edge, a round crown, a moss ribbon, and a leaf in it.
+      const crown = at(
+        new SphereGeometry(0.135, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+        mat,
+        0,
+        0.8,
+      );
+      crown.scale.set(1, 1.05, 1);
+      const leaf = at(
+        new SphereGeometry(0.04, 8, 6),
+        solid(EARNED_HEX.sunHatLeaf),
+        0.1,
+        0.845,
+        0.1,
+      );
+      leaf.scale.set(1.2, 0.35, 0.6);
+      leaf.rotation.set(0, -0.8, 0.5);
+      return [
+        at(new CylinderGeometry(0.22, 0.34, 0.03, 24), mat, 0, 0.795),
+        crown,
+        at(new CylinderGeometry(0.137, 0.139, 0.035, 18), solid(EARNED_HEX.sunHatBand), 0, 0.825),
+        leaf,
+      ];
+    }
+    case "tool_belt": {
+      // A band at the waist, a brass buckle in front, a pouch on one hip, a hammer on the other.
+      const handle = at(
+        new CylinderGeometry(0.012, 0.012, 0.2, 6),
+        solid(EARNED_HEX.hammerHandle),
+        -0.275,
+        0.17,
+        0.02,
+      );
+      return [
+        band(mat, 0.2, 0.26, 0.262, 0.268),
+        at(new BoxGeometry(0.07, 0.07, 0.015), solid(EARNED_HEX.buckle), 0, 0.23, 0.265),
+        at(new RoundedBoxGeometry(0.07, 0.11, 0.12, 2, 0.02), mat, 0.275, 0.17, 0.02),
+        handle,
+        at(new BoxGeometry(0.05, 0.045, 0.1), solid(EARNED_HEX.hammerHead), -0.275, 0.28, 0.02),
+      ];
+    }
+    case "field_vest": {
+      // Shorter than a cardigan, with two patch pockets on the front.
+      const pocket = (x: number) => {
+        const m = at(
+          new BoxGeometry(0.085, 0.07, 0.012),
+          solid(EARNED_HEX.vestPocket),
+          x,
+          0.27,
+          0.237,
+        );
+        m.rotation.y = Math.atan2(x, 0.237);
+        return m;
+      };
+      return [band(mat, 0.2, 0.5, 0.212, 0.262), pocket(-0.105), pocket(0.105)];
+    }
+    case "party_sash": {
+      // A band from one shoulder round to the other hip, with a gold star over the heart.
+      if (mat instanceof MeshLambertMaterial) mat.side = DoubleSide;
+      const sash = at(new CylinderGeometry(0.262, 0.262, 0.075, 28, 1, true), mat, 0, 0.31);
+      sash.rotation.z = 0.62;
+      sash.scale.set(1.08, 1, 0.84);
+      const star = at(new OctahedronGeometry(0.038), solid(EARNED_HEX.sashEdge), 0.03, 0.34, 0.235);
+      star.scale.set(1, 1, 0.3);
+      return [sash, star];
+    }
+    case "winners_rosette": {
+      // Pinned to the chest, facing out: a pleated round, a gold middle, and two tails under it.
+      const turn = Math.atan2(0.1, 0.213);
+      const deep = solid(EARNED_HEX.rosetteDeep);
+      const on = (m: Mesh, x: number, y: number, out: number): Mesh => {
+        m.position.set(x + Math.sin(turn) * out, y, 0.213 + Math.cos(turn) * out);
+        m.rotation.y = turn;
+        return m;
+      };
+      const tail = (lean: number) => {
+        const m = on(new Mesh(new BoxGeometry(0.035, 0.1, 0.006), deep), 0.1 + lean, 0.31, 0.012);
+        m.rotation.z = lean * 4;
+        return m;
+      };
+      return [
+        tail(-0.022),
+        tail(0.022),
+        on(
+          new Mesh(new CylinderGeometry(0.06, 0.06, 0.012, 12).rotateX(Math.PI / 2), mat),
+          0.1,
+          0.39,
+          0.02,
+        ),
+        on(
+          new Mesh(new CircleGeometry(0.03, 12), solid(EARNED_HEX.rosetteMiddle)),
+          0.1,
+          0.39,
+          0.03,
+        ),
+      ];
     }
   }
 }

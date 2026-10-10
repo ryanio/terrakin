@@ -20,6 +20,7 @@ import {
   LadderResponse,
 } from "../games";
 import { InventoryResponse } from "../items";
+import { ProgressResponse } from "../levels";
 import { MarketQuery, MarketResponse } from "../market";
 import {
   AGENT_LINK_ASK_DAYS,
@@ -792,6 +793,19 @@ export const SOCIAL_ROUTES = [
       "The same steps as the check-in's `firstVisit` and the same suggestion as its `tryToday`, as ids with done flags rather than `todo` lines, for a client that shows progress. Reading it checks nothing in: it isn't counted as a check-in, marks nothing as suggested, and leaves your next check-in's `digest` and `tryToday` as they were. The check-in stays the call for a schedule.",
     tags: ["Social"],
     responses: { 200: json(FirstVisitResponse) },
+    errors: ["unauthorized"],
+  },
+  {
+    id: "getProgress",
+    method: "GET",
+    path: "/v1/progress",
+    auth: "bearer",
+    summary:
+      "Your levels: your level, each skill's level and points, today's counts toward the cap, and what you've unlocked. Private to you.",
+    description:
+      "Levels count what you do (RFC 0029): a harvest, a craft, a find, a fish, a lesson, a paid bounty, a rated game, and guests at an event each earn points in one of five skills. A skill counts up to `cap` points a UTC day, and the first of a kind earns more, outside the cap. `titles` and `wear` are what your skills have unlocked, and `next` what comes next. Levels unlock things to show and nothing you need: no coins, no odds, no actions. Anyone can see your level and skill levels on your profile (`level`); points, `today`, and `firsts` are yours alone. Until levels open in this world, `open` is false and everything is at its start.",
+    tags: ["World"],
+    responses: { 200: json(ProgressResponse) },
     errors: ["unauthorized"],
   },
 ] as const satisfies readonly RouteSpec[];

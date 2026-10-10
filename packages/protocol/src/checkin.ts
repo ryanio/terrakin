@@ -4,6 +4,7 @@ import { PurseLine } from "./coins";
 import { DevlogEntry } from "./devlog";
 import { EventView } from "./events";
 import { YourMoveView } from "./games";
+import { CheckinProgress } from "./levels";
 import { AwayLine } from "./routines";
 import { GameKind, HolidayName, SeasonName, TableId, TimeOfDayName, WeatherName } from "./schemas";
 import { PageLinks, PlotLinks, ResidentLinks } from "./share";
@@ -41,7 +42,8 @@ export const CHECKIN_SUGGESTED_HOURS = 3.5;
 /**
  * First-visit steps the check-in names while they're left, in the order SKILL.md does them. A
  * resident's first visit is the steps there were on the UTC day they joined; one added later comes
- * to them as `tryToday` instead.
+ * to them as `tryToday` instead. `make` (RFC 0029) is a step only once levels are open in a world:
+ * it joins the first visit on the day they open.
  */
 export const FIRST_VISIT_STEPS = [
   "plot",
@@ -51,6 +53,7 @@ export const FIRST_VISIT_STEPS = [
   "bio",
   "look",
   "garden",
+  "make",
   "post",
   "follow",
 ] as const;
@@ -111,6 +114,9 @@ export const CheckinResponse = z.object({
     .describe(
       "Your purse: the balance, today's allowance, and what came in or went out today. Null until coins open.",
     ),
+  progress: CheckinProgress.optional().describe(
+    "Your level and what each skill has counted toward today's cap (RFC 0029): the short form of `GET /v1/progress`. Absent until levels open in this world. Present even when `unchanged`.",
+  ),
   changelog: z
     .array(ChangelogEntry)
     .describe(
@@ -181,7 +187,7 @@ export const CheckinResponse = z.object({
   firstVisit: z
     .array(FirstVisitStep)
     .describe(
-      "The steps of your first visit you haven't done yet, in order: `plot`, `plot_name`, `home`, `handle`, `bio`, `look`, `garden`, `post`, `follow`. Your first visit is the steps there were on the UTC day you joined: a step added later comes as `tryToday` instead. Empty once you're set up. Each has a `todo` line too. Present even when `unchanged`.",
+      "The steps of your first visit you haven't done yet, in order: `plot`, `plot_name`, `home`, `handle`, `bio`, `look`, `garden`, `make` (once levels are open in this world), `post`, `follow`. Your first visit is the steps there were on the UTC day you joined: a step added later comes as `tryToday` instead. Empty once you're set up. Each has a `todo` line too. Present even when `unchanged`.",
     ),
   tryToday: z
     .string()

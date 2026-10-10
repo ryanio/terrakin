@@ -17,8 +17,16 @@ import {
   ITEM_INFO,
   type ItemKind,
   kindsIn,
+  PROGRESS,
+  pointsFor,
   RECIPES,
+  SKILLS,
+  type Skill,
   type StackKind,
+  skillUnlocks,
+  TITLE_INFO,
+  UNLOCKS,
+  WEAR_INFO,
 } from "@terrakin/sim";
 import { bitesWhen, FIND_GROUND, findRarity } from "./collection";
 import { API_LIFECYCLE } from "./openapi";
@@ -214,6 +222,55 @@ export function furnitureBlock(): string {
     ...FURNITURE_KINDS.map(
       (kind) =>
         `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${needsWords(FURNITURE_RECIPES[kind].needs, " and ")} |`,
+    ),
+    end,
+  ].join("\n");
+}
+
+/**
+ * SKILL.md's Levels tables (RFC 0029), from the sim's `PROGRESS` and what its levels unlock: what
+ * each deed earns, the cap and the first, the curve, and each skill's titles and garment.
+ */
+export function levelsBlock(): string {
+  const [start, end] = markers("levels");
+  const deeds: [Skill, string, string][] = [
+    ["growing", "a `harvest` of a ripe crop", `${PROGRESS.harvest}`],
+    ["making", "a `craft`, however many it makes", `${PROGRESS.craft}`],
+    ["foraging", "a find or a recipe page picked up with `gather`", `${PROGRESS.find}`],
+    ["foraging", "a fish caught with `fish` (an old boot earns nothing)", `${PROGRESS.fish}`],
+    ["hosting", "a lesson you taught with `teach`", `${PROGRESS.lesson}`],
+    ["hosting", "a bounty you claimed and were paid for", `${PROGRESS.bounty}`],
+    [
+      "hosting",
+      "each counted guest at an event you hosted, one event a UTC day",
+      `${PROGRESS.guest}`,
+    ],
+    ["hosting", "being a counted guest at an event, once a UTC day", `${PROGRESS.attend}`],
+    ["playing", "a rated game finished, where you chose in at least one round", `${PROGRESS.game}`],
+    ["playing", "finishing first in it, ties included", `${PROGRESS.win} more`],
+  ];
+  const unlock = (skill: Skill, level: number) => {
+    const u = skillUnlocks(skill).find((x) => x.level === level);
+    if (u?.title) return `\`${u.title}\` (${TITLE_INFO[u.title].label})`;
+    if (u?.wear) return `\`${u.wear}\` (${WEAR_INFO[u.wear].label}, ${WEAR_INFO[u.wear].slot})`;
+    return "";
+  };
+  const at = (level: number) => `level ${level} at ${pointsFor(level)} points`;
+  return [
+    start,
+    "<!-- Generated from packages/sim/src/levels.ts by `pnpm gen`. Edit the sim, not this block. -->",
+    "",
+    "| skill | what earns | points |",
+    "|-------|------------|--------|",
+    ...deeds.map(([skill, what, points]) => `| \`${skill}\` | ${what} | ${points} |`),
+    "",
+    `Each skill counts at most ${PROGRESS.dailyCap} points a UTC day. The first harvest, craft, find, or catch of a kind earns ${PROGRESS.first} more, outside the cap. Going from level n to n + 1 takes ${PROGRESS.step} points times n: ${[2, 3, 5, 10].map(at).join(", ")}.`,
+    "",
+    `| skill | title at level ${UNLOCKS.title} | to wear at level ${UNLOCKS.wear} | title at level ${UNLOCKS.master} |`,
+    "|-------|------------------|--------------------|-------------------|",
+    ...SKILLS.map(
+      (skill) =>
+        `| \`${skill}\` | ${unlock(skill, UNLOCKS.title)} | ${unlock(skill, UNLOCKS.wear)} | ${unlock(skill, UNLOCKS.master)} |`,
     ),
     end,
   ].join("\n");

@@ -11,8 +11,12 @@ import {
   VERB_MAX,
 } from "./first-steps";
 
-const steps = (done: string[] = []): FirstVisitResponse["steps"] =>
-  FIRST_VISIT_STEPS.map((id) => ({ id, done: done.includes(id) }));
+/** The server's steps: `make` is one only in a world where levels are open (RFC 0029). */
+const steps = (done: string[] = [], levels = false): FirstVisitResponse["steps"] =>
+  FIRST_VISIT_STEPS.filter((id) => levels || id !== "make").map((id) => ({
+    id,
+    done: done.includes(id),
+  }));
 
 describe("first steps in plain words", () => {
   it("has words for every first-visit step the server knows", () => {
@@ -52,6 +56,13 @@ describe("first steps in plain words", () => {
     expect(rows.filter((r) => r.done).map((r) => r.id)).toEqual(["plot", "gather"]);
     expect(stepRound(rows).line).toBe("2 of 3 done");
     expect(nextStep(rows)?.name).toBe("Name your plot");
+    // Where levels are open, making a first thing comes after gathering what it takes.
+    const withLevels = stepRows({
+      steps: steps([], true),
+      tries: [{ id: "gather", done: false }],
+      tryToday: null,
+    });
+    expect(withLevels.map((r) => r.id).slice(-4)).toEqual(["gather", "make", "post", "follow"]);
   });
 
   it("has no next step once everything is done, and nothing for townsfolk", () => {
@@ -99,7 +110,9 @@ describe("first steps in plain words", () => {
     expect(next.left.map((r) => r.id)).toEqual(["handle", "bio", "look"]);
     const last = at(["plot", "plot_name", "home", "handle", "bio", "look"]);
     expect(last.left.map((r) => r.id)).toEqual(["garden", "post", "follow"]);
-    expect(at([...FIRST_VISIT_STEPS].slice(0, 7)).line).toBe("1 of 3 done");
+    expect(at(["plot", "plot_name", "home", "handle", "bio", "look", "garden"]).line).toBe(
+      "1 of 3 done",
+    );
   });
 
   it("links each place to where it's done", () => {

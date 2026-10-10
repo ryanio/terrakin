@@ -15,15 +15,20 @@ import {
   type FamilyInfo,
   FIND_SPAWNS,
   type FindSpawn,
+  type FirstsCredit,
   familyPath,
+  firstSkill,
   type Holiday,
   type Input,
   ITEM_INFO,
   type ItemKind,
+  isEarnedWear,
   isExclusiveWear,
   isShopSku,
   isShownFind,
+  isTownsfolk,
   kindsIn,
+  residentById,
   type Season,
   sortWear,
   stockHoliday,
@@ -57,8 +62,14 @@ export interface CollectionOptions {
 type Shelf = "thing" | "wear";
 const keyOf = (shelf: Shelf, kind: string) => `${shelf}:${kind}`;
 
-/** Every piece of wear the book counts, by slot: everything but partner wear, which few can wear. */
-export const COLLECTIBLE_WEAR = sortWear(WEAR_ITEMS.filter((w) => !isExclusiveWear(w)));
+/**
+ * Every piece of wear the book counts, by slot: everything but partner wear, which few can wear,
+ * and earned wear (RFC 0029), which takes a skill's level 5. Leaving both out keeps "Full
+ * wardrobe" something the shop alone finishes.
+ */
+export const COLLECTIBLE_WEAR = sortWear(
+  WEAR_ITEMS.filter((w) => !isExclusiveWear(w) && !isEarnedWear(w)),
+);
 
 /** The seasons a kind turns up in: a find's on the ground, or the shop's for seasonal stock. */
 function seasonsOf(kind: ItemKind): readonly Season[] | undefined {
@@ -293,5 +304,26 @@ export class CollectionBook {
   /** Whether a resident has ever had a kind of thing. */
   has(resident: string, kind: ItemKind): boolean {
     return this.firsts(resident).has(keyOf("thing", kind));
+  }
+
+  /**
+   * The one-time credit `open_levels` carries (RFC 0029, section 12): for each resident in the
+   * world who isn't townsfolk, the kinds in their book that a first counts (crops, made kinds,
+   * finds, and fish, by the sim's `firstSkill`), sorted, residents in id order. The book doesn't
+   * say how a kind came, so a gift counts too: generous, once. Residents with none are left out,
+   * as the sim asks.
+   */
+  firstsCredit(state: WorldState): FirstsCredit[] {
+    const byResident = new Map<string, string[]>();
+    for (const row of this.o.sql.exec(
+      "SELECT resident, kind FROM collection WHERE shelf = 'thing' ORDER BY resident, kind",
+    )) {
+      const resident = String(row.resident);
+      const kind = String(row.kind);
+      if (firstSkill(kind) === undefined) continue;
+      if (!residentById(state, resident) || isTownsfolk(state, resident)) continue;
+      byResident.set(resident, [...(byResident.get(resident) ?? []), kind]);
+    }
+    return [...byResident].map(([resident, kinds]) => ({ resident, kinds }));
   }
 }

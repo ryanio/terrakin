@@ -19,6 +19,8 @@ import {
   type HostingView,
   isReservedHandle,
   type KeptCharacter,
+  LevelUpView,
+  type LevelView,
   type LookView,
   MAX_MENTIONS_PER_POST,
   MEDIA_TYPES,
@@ -694,6 +696,12 @@ export class SocialService {
   /** A resident's party-game ladders (RFC 0011), from the world. `Api` wires it; profiles show it. */
   gameRatings: (residentId: string) => GameRatingView[] = () => [];
 
+  /**
+   * A resident's level, skill levels, and title (RFC 0029), from the world, or undefined until
+   * levels open there. `Api` wires it; profiles show it. Never points.
+   */
+  levels: (residentId: string) => LevelView | undefined = () => undefined;
+
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
   /** Reports, hiding, suspensions, and the moderation log (RFC 0006). Shares this service's tables. */
@@ -1314,6 +1322,7 @@ export class SocialService {
       ...this.partnerField(r.id),
       ...this.agentLinkField(r.id),
       ...this.entitledField(r.id),
+      ...this.levelField(r.id),
       collected: this.collection.collected(r.id),
       ...this.petField(r, viewerId, quarantined),
     };
@@ -1351,6 +1360,12 @@ export class SocialService {
   private gamesField(id: string): { games?: GameRatingView[] } {
     const games = this.gameRatings(id);
     return games.length > 0 ? { games } : {};
+  }
+
+  /** Their level, skill levels, and title (RFC 0029), once levels are open. Never points. */
+  private levelField(id: string): { level?: LevelView } {
+    const level = this.levels(id);
+    return level ? { level } : {};
   }
 
   /** Partner wear they may put on now (RFC 0007 phase 3), from the world's own list. */
@@ -2030,16 +2045,38 @@ export class SocialService {
    * who acted or who reported it. `excerpt` is the start of a hidden post: the owner's own words.
    */
   takedownNotice(recipient: string, notice: TakedownView, excerptOf = "") {
+    this.systemNotice(
+      recipient,
+      "takedown",
+      JSON.stringify({ ...notice, ...(excerptOf ? { excerpt: excerpt(excerptOf) } : {}) }),
+    );
+  }
+
+  /**
+   * Tell a resident which levels they just reached (RFC 0029), and what each unlocked: one notice
+   * from Terrakin itself for the levels one input brought, a skill's and their own together. The
+   * world counted the points; this only says so, from ids and levels, never anyone's words.
+   */
+  levelsReached(recipient: string, levels: readonly LevelUpView[]) {
+    if (levels.length > 0) this.systemNotice(recipient, "level_reached", JSON.stringify(levels));
+  }
+
+  /**
+   * One notice from Terrakin itself, with its fields kept as JSON in `detail`. No resident is the
+   * actor, so there's no block to check and no per-actor cap to count toward.
+   */
+  private systemNotice(recipient: string, type: "takedown" | "level_reached", detail: string) {
     if (!this.resident(recipient)) return;
     const now = this.now();
     const seq = this.count("SELECT COALESCE(MAX(seq), 0) + 1 AS c FROM notifications");
     this.sql.exec(
       `INSERT INTO notifications (id, recipient, type, actor, post_id, detail, group_key, count, seq, created_at)
-        VALUES (?, ?, 'takedown', ?, '', ?, '', 1, ?, ?)`,
+        VALUES (?, ?, ?, ?, '', ?, '', 1, ?, ?)`,
       randomId("n"),
       recipient,
+      type,
       TERRAKIN_ACTOR.id,
-      JSON.stringify({ ...notice, ...(excerptOf ? { excerpt: excerpt(excerptOf) } : {}) }),
+      detail,
       seq,
       now,
     );
@@ -2104,6 +2141,7 @@ export class SocialService {
       const type = String(row.type) as NotificationType;
       const detail = String(row.detail);
       if (type === "takedown") return this.takedownView(row, detail);
+      if (type === "level_reached") return this.levelsView(row, detail);
       const actor = this.authorById(String(row.actor));
       if (!actor) return [];
       return [
@@ -2134,30 +2172,24 @@ export class SocialService {
 
   /** A stored takedown notice as the recipient reads it, from Terrakin rather than a resident. */
   private takedownView(row: Record<string, unknown>, detail: string): NotificationView[] {
-    let stored: unknown;
-    try {
-      stored = JSON.parse(detail);
-    } catch {
-      return [];
-    }
+    const stored = storedJson(detail);
     const parsed = TakedownView.safeParse(stored);
     if (!parsed.success) return [];
     const quote = (stored as { excerpt?: unknown }).excerpt;
     return [
       {
-        id: String(row.id),
-        type: "takedown",
-        trust: "untrusted",
-        actor: TERRAKIN_ACTOR,
-        count: 1,
-        postId: null,
+        ...systemNotification(row, "takedown"),
         excerpt: typeof quote === "string" ? quote : "",
-        system: true,
         takedown: parsed.data,
-        read: Number(row.read) > 0,
-        createdAt: new Date(Number(row.created_at)).toISOString(),
       },
     ];
+  }
+
+  /** A stored level notice (RFC 0029) as the recipient reads it, from Terrakin itself. */
+  private levelsView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = LevelUpView.array().min(1).safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "level_reached"), levels: parsed.data }];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */
@@ -2766,6 +2798,34 @@ const isGestureKind = (kind: string): kind is GestureKind =>
 function plotDetail(detail: string): { plot: { px: number; py: number } } | Record<string, never> {
   const m = /^(\d{1,5}),(\d{1,5})$/.exec(detail);
   return m ? { plot: { px: Number(m[1]), py: Number(m[2]) } } : {};
+}
+
+/** A system notice's stored fields, or undefined when the row doesn't hold JSON. */
+function storedJson(detail: string): unknown {
+  try {
+    return JSON.parse(detail);
+  } catch {
+    return undefined;
+  }
+}
+
+/** What every notice from Terrakin itself shares: the stand-in actor, one of it, and no post. */
+function systemNotification(
+  row: Record<string, unknown>,
+  type: "takedown" | "level_reached",
+): NotificationView {
+  return {
+    id: String(row.id),
+    type,
+    trust: "untrusted",
+    actor: TERRAKIN_ACTOR,
+    count: 1,
+    postId: null,
+    excerpt: "",
+    system: true,
+    read: Number(row.read) > 0,
+    createdAt: new Date(Number(row.created_at)).toISOString(),
+  };
 }
 
 /** The start of a post for a notification: one line, cut at a word near EXCERPT_CHARS. */

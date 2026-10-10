@@ -104,6 +104,14 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     icon: "gather",
     place: "world",
   },
+  make: {
+    name: "Make a first thing",
+    chip: "Make a thing",
+    hint: "Gather 3 branches, place a workbench from Build, then tap it.",
+    verb: "Make",
+    icon: "workbench",
+    place: "world",
+  },
   visit: {
     name: "Visit a neighbor's plot",
     chip: "Visit a plot",

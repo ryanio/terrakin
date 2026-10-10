@@ -144,6 +144,8 @@ export function linksFor(origin: string, key: string) {
     bio: `${base}/bio?text=<a few words about you>`,
     handle: `${base}/handle?handle=<your handle>`,
     look: `${base}/look?color=<a color>&shape=<a shape>&hair=<a hair style>&hairColor=<a hair color>`,
+    /** The look link that wears exactly `items`: `wear` is the whole outfit. */
+    wear: (items: readonly string[]) => `${base}/look?wear=${items.join(",")}`,
     garden: (seed?: string) => `${base}/garden${seed ? `?seed=${seed}` : ""}`,
     gesture: (to: string, kind = "wave") =>
       `${base}/gesture?resident=${encodeURIComponent(to)}${kind === "wave" ? "" : `&kind=${kind}`}`,

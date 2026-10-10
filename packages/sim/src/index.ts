@@ -297,9 +297,13 @@ export {
   PROGRESS,
   pointsFor,
   pointsOf,
+  skillName,
+  skillUnlocks,
   TITLE_INFO,
   titleOf,
   UNLOCKS,
+  type Unlock,
+  unlockedBy,
 } from "./levels";
 export * from "./looks";
 export {

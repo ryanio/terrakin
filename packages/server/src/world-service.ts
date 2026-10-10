@@ -3,6 +3,7 @@ import type {
   BuildPlanSummary,
   ChatChannel,
   ErrorCode,
+  LevelUpView,
   ServerMessage,
   WorldEvent as WireEvent,
   WorldSnapshot,
@@ -34,6 +35,7 @@ import {
   entitledTo,
   eventEndsAt,
   everyGood,
+  type FirstsCredit,
   findEvent,
   findsOpen,
   GAME_RULES,
@@ -62,6 +64,7 @@ import {
   SHOP,
   STOREYS,
   type StepRoutine,
+  sameHousehold,
   seatOf,
   seatsHeld,
   starterOf,
@@ -73,6 +76,7 @@ import {
   withinEarshot,
 } from "@terrakin/sim";
 import { closeDue, startBy, townsfolkMove } from "./games";
+import { levelUps } from "./levels";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import {
@@ -227,6 +231,13 @@ export interface WorldServiceOptions {
    */
   holidayPrices?: boolean;
   /**
+   * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
+   * `open_levels` if it never has, with the one-time credit of firsts from the collection book
+   * (`levelFirsts`). Neither adapter turns it on yet, so no world opens levels on its own: a test
+   * world opens them through `POST /v1/test/open-levels`.
+   */
+  levels?: boolean;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -315,6 +326,7 @@ interface TownSwitch {
     | "bounties"
     | "recipes"
     | "holidayPrices"
+    | "levels"
     | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
@@ -426,6 +438,23 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "lower_holiday_prices" },
     label: "lower the holiday prices",
   },
+  // Levels (RFC 0029) open with a one-time credit read from the collection book, a social table.
+  // Until `Api` wires `levelFirsts` there's no book to read, so the switch waits, and a read that
+  // throws is reported and leaves it for a later tick: levels never open without their credit.
+  {
+    option: "levels",
+    due: (s) => !s.progress && !!s.items,
+    command: (service) => {
+      try {
+        const firsts = service.levelFirsts?.();
+        return firsts && { type: "open_levels", firsts };
+      } catch (err) {
+        report(err, "world.levels");
+        return undefined;
+      }
+    },
+    label: "open levels",
+  },
 ];
 
 /**
@@ -469,6 +498,7 @@ export class WorldService {
   private readonly bounties: boolean;
   private readonly recipes: boolean;
   private readonly holidayPrices: boolean;
+  private readonly levels: boolean;
   private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
   private readonly townEvents: readonly TownEvent[];
@@ -558,6 +588,7 @@ export class WorldService {
     this.bounties = options.bounties ?? false;
     this.recipes = options.recipes ?? false;
     this.holidayPrices = options.holidayPrices ?? false;
+    this.levels = options.levels ?? false;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? [];
@@ -716,6 +747,25 @@ export class WorldService {
    * karma. The world keeps who attended; the social layer decides who counts.
    */
   onEventEnded: ((event: HostedEvent, day: number) => void) | undefined;
+
+  /**
+   * The one-time credit `open_levels` carries (RFC 0029): for each resident, the kinds in their
+   * collection book that a first counts. The book is a social table (decision 0100), so `Api`
+   * wires this; until it does, `tick` doesn't open levels.
+   */
+  levelFirsts: (() => FirstsCredit[]) | undefined;
+
+  /**
+   * The guests the hosting record counted for an ended event, from the social layer, or undefined
+   * while it has no record of the event. `credit_event` sends the sim that list (RFC 0029).
+   */
+  countedGuests: ((event: string) => readonly string[] | undefined) | undefined;
+
+  /**
+   * Hears each resident's level-ups from one input (RFC 0029), with what each unlocked, so they can
+   * be told. A failure here is reported and the points stand.
+   */
+  onLevelsReached: ((residentId: string, levels: LevelUpView[]) => void) | undefined;
 
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
@@ -1089,6 +1139,75 @@ export class WorldService {
    */
   testOpenRecipes() {
     return this.run({ actor: TOWN_ACTOR, command: { type: "open_recipes" } });
+  }
+
+  /**
+   * Levels (RFC 0029), switched on now rather than at the next tick, with the same one-time credit
+   * the switch carries, so a test can make residents before and after it. Only the Node server's
+   * test route calls it, like `testGrant`.
+   */
+  testOpenLevels() {
+    const firsts = this.levelFirsts?.() ?? [];
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_levels", firsts } });
+  }
+
+  // ---------- levels (RFC 0029) ----------
+
+  /** Events that ended in the input being committed, to credit once it has gone out. */
+  private readonly endedNow: string[] = [];
+  /** Events that ended with levels open before the hosting record could say who counted. */
+  private readonly creditLater = new Set<string>();
+
+  /**
+   * Hosting points for an event that ended (RFC 0029): log `credit_event` with the guests the
+   * hosting record counted, once per event, and only once levels are open. The sim takes a guest
+   * only if its own samples saw them attend, they're outside the host's household, and they aren't
+   * townsfolk, so anyone who no longer passes is left out here: the list can be narrowed, never
+   * widened. An event the social layer has no record of waits for `creditEndedEvents`.
+   */
+  private creditEvent(id: string) {
+    if (!this.state.progress) return;
+    const e = findEvent(this.state, id);
+    if (!e || e.status !== "ended" || e.credited) return;
+    const counted = this.countedGuests?.(id);
+    if (!counted) {
+      this.creditLater.add(id);
+      return;
+    }
+    this.creditLater.delete(id);
+    const attended = e.attended ?? [];
+    const guests = [...new Set(counted)]
+      .filter(
+        (guest) =>
+          attended.includes(guest) &&
+          !isTownsfolk(this.state, guest) &&
+          !sameHousehold(this.state, e.host, guest),
+      )
+      .sort();
+    const done = this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "credit_event", event: id, guests },
+    });
+    if (!done.ok) {
+      report(new Error(`credit_event refused: ${done.error.code}`), "world.levels", {
+        command: "credit_event",
+      });
+    }
+  }
+
+  /**
+   * Credit every ended event the world still holds that never was: one that ended while this
+   * process had no hosting record to read (a boot's own catch-up), and one that ended on a later
+   * day than levels opened (a crash between its end and its credit). `Api` calls it once the
+   * hosting record is wired. An event that ended on the day levels opened is otherwise credited
+   * only as it ends, since by its day alone it could have ended before the switch.
+   */
+  creditEndedEvents() {
+    const opened = this.state.progress?.opened;
+    if (opened === undefined) return;
+    for (const e of [...(this.state.events?.list ?? [])]) {
+      if (this.creditLater.has(e.id) || (e.closedDay ?? 0) > opened) this.creditEvent(e.id);
+    }
   }
 
   /**
@@ -1680,6 +1799,7 @@ export class WorldService {
           // The world already moved on; the hosting record misses this one.
           report(err, "world.event_ended", { command: input.command.type });
         }
+        this.endedNow.push(e.event);
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
       if (e.type === "repeat_joins_retired") this.forgetRetired(e.ids, people);
@@ -1701,6 +1821,15 @@ export class WorldService {
           // The candy moved; the owner's notice misses this knock.
           report(err, "world.trick_or_treated", { command: input.command.type });
         }
+      }
+    }
+    // Levels reached (RFC 0029): each resident is told once for the input, with what it unlocked.
+    for (const [residentId, levels] of levelUps(events)) {
+      try {
+        this.onLevelsReached?.(residentId, levels);
+      } catch (err) {
+        // The points stand; the notice misses these levels.
+        report(err, "world.levels_reached", { command: input.command.type });
       }
     }
     const wire = holdBackNames(toWire(events, this.state.townsfolk), this.noteHidden);
@@ -1728,6 +1857,9 @@ export class WorldService {
         report(err, "world.walked", { command: command.type });
       }
     }
+    // An event that ended in this input is credited now that the input has gone out, so the
+    // credit's own events follow it in order (RFC 0029).
+    for (const ended of this.endedNow.splice(0)) this.creditEvent(ended);
     return {
       ok: true,
       seq,

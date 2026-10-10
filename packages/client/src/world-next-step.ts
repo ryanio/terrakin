@@ -92,6 +92,9 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
       case "gather":
         if (!press("world-gather")) toast(step.hint);
         break;
+      case "make":
+        toast(step.hint);
+        break;
       default:
         o.navigate(stepHref(step.place, me));
         return;

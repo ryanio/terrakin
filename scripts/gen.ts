@@ -131,6 +131,7 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
         api: docs.skillApiBlock(),
         catalog: docs.catalogBlock(),
         furniture: docs.furnitureBlock(),
+        levels: docs.levelsBlock(),
       }),
   },
   {

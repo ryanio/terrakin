@@ -105,6 +105,36 @@ export const WINTER_HEX = {
 } as const;
 
 /**
+ * Earned wear's colors (RFC 0029), one garment a skill, as the 2D figure, the item pictures, and
+ * the 3D figures draw them. A garment with a color of its own (`wearStyle`) uses that instead of
+ * its main color here.
+ */
+export const EARNED_HEX = {
+  /** Growing's sun hat: pale woven straw, a moss ribbon, and a leaf tucked in it. */
+  sunHat: "#f4e3b0",
+  sunHatWeave: "#d9bd7a",
+  sunHatBand: "#5e7f45",
+  sunHatLeaf: "#8fb36a",
+  /** Making's tool belt: tanned leather, a darker pouch, a brass buckle, and a hammer. */
+  belt: "#a8733f",
+  beltPouch: "#84562c",
+  buckle: "#e8b84a",
+  hammerHead: "#8d939a",
+  hammerHandle: "#d9b47a",
+  /** Foraging's field vest: waxed olive canvas with paler pockets. */
+  vest: "#7d8a4f",
+  vestPocket: "#9aa66a",
+  vestTrim: "#586337",
+  /** Hosting's party sash: rose satin edged in gold, with a gold star. */
+  sash: "#e06a8c",
+  sashEdge: "#f2c94c",
+  /** Playing's rosette: a blue ribbon pleated round a gold middle, with two tails. */
+  rosette: "#4f8fd0",
+  rosetteDeep: "#3568a8",
+  rosetteMiddle: "#f2c94c",
+} as const;
+
+/**
  * A bat with its wings spread, as a polygon in units of half its wingspan around its middle: x
  * from -1 to 1, y down. Bunting, bat wings, and the item pictures all draw this one bat.
  */

@@ -6,10 +6,12 @@ import type { SocialService } from "./social-service";
  * The UTC day each first-visit step joined the first visit, for the steps added after it began
  * (decision 0129). A resident who joined before a step's day had a first visit without it, so it
  * never stands in their `firstVisit`: the check-in suggests it instead. Steps not listed here
- * were there from the start.
+ * were there from the start. `make` joins on the day levels open in a world (RFC 0029), which the
+ * world itself records, and isn't a step at all before then.
  */
-const STEPS_ADDED: Partial<Record<FirstVisitStep, number>> = {
-  plot_name: dayOfDate(2026, 10, 6),
+const STEPS_ADDED: Partial<Record<FirstVisitStep, (state: WorldState) => number | undefined>> = {
+  plot_name: () => dayOfDate(2026, 10, 6),
+  make: (state) => state.progress?.opened,
 };
 
 /**
@@ -107,6 +109,17 @@ function stepStates(
       done.has("plant"),
       'plant a seed beside your hearth: place a planter, then {"type": "plant", "x": <x>, "y": <y>, "seed": "flower"}.',
     ],
+    // Levels (RFC 0029): a first deed on day one. Not a step until levels open in this world.
+    ...(state.progress
+      ? [
+          [
+            "make",
+            state.items !== undefined && Boolean(me.hearth),
+            done.has("craft"),
+            'make a first thing, which earns your first points (GET /v1/progress): pick up 3 fallen branches ({"type": "gather"} takes everything within reach; `pickups` in GET /v1/world shows where `wood` lies), place a workbench by your hearth ({"type": "place", "x": <x>, "y": <y>, "block": "workbench"}), then {"type": "craft", "recipe": "chair", "x": <x>, "y": <y>}. A second first, like a fishing rod from 3 more wood, takes you to level 2.',
+          ] satisfies [FirstVisitStep, boolean, boolean, string],
+        ]
+      : []),
     [
       "post",
       true,
@@ -124,7 +137,7 @@ function stepStates(
     step,
     done: finished,
     open: ready && !finished,
-    later: joinedDay !== undefined && (STEPS_ADDED[step] ?? -Infinity) > joinedDay,
+    later: joinedDay !== undefined && (STEPS_ADDED[step]?.(state) ?? -Infinity) > joinedDay,
     line,
   }));
 }

@@ -12,6 +12,7 @@ import {
   type HairColor,
   type HairStyle,
   isCostume,
+  isEarnedWear,
   isExclusiveWear,
   isShopWear,
   PATTERN_LABELS,
@@ -69,10 +70,11 @@ export interface LookOwner {
 }
 
 /**
- * The wear one slot offers: everything, except partner wear (RFC 0007) the resident may not put on
- * and isn't wearing, and a holiday's costumes (RFC 0022) they don't own while the shop isn't
- * selling them. Partner wear can't be bought, so it is never shown locked. `owned` is the shop wear
- * they own, and `onSale` what the shop sells today, both from the shop's answer.
+ * The wear one slot offers: everything, except partner wear (RFC 0007) and earned wear (RFC 0029)
+ * the resident may not put on and isn't wearing, and a holiday's costumes (RFC 0022) they don't own
+ * while the shop isn't selling them. Neither partner nor earned wear can be bought, so neither is
+ * shown locked at a price. `entitled` is the partner and earned wear they may put on, `owned` the
+ * shop wear they own, and `onSale` what the shop sells today, both from the shop's answer.
  */
 export function wearChoices(
   slot: WearSlot,
@@ -84,7 +86,7 @@ export function wearChoices(
   return WEAR_ITEMS.filter(
     (w) =>
       WEAR_INFO[w].slot === slot &&
-      (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)) &&
+      ((!isExclusiveWear(w) && !isEarnedWear(w)) || entitled.includes(w) || wearing.includes(w)) &&
       (!isCostume(w) || owned.has(w) || wearing.includes(w) || onSale.has(w)),
   );
 }

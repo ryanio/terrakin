@@ -1,6 +1,7 @@
 import { ITEMS, STOREYS } from "@terrakin/sim";
 import { z } from "zod";
 import { CollectedView } from "./collection";
+import { LevelUpView, LevelView } from "./levels";
 import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
 import { ReportReason } from "./reasons";
 import {
@@ -567,6 +568,11 @@ export const ProfileView = z.object({
    */
   entitled: z.array(PartnerWear).optional(),
   /**
+   * Their level, each skill's level, and the title they show (RFC 0029). Public, and never their
+   * points. Absent until levels open in this world, and for townsfolk, who never earn.
+   */
+  level: LevelView.optional(),
+  /**
    * How far along their collection book is (RFC 0021): kinds and pieces of wear they've collected,
    * of every one there is. The book itself is `GET /v1/residents/{id}/collection`.
    */
@@ -967,6 +973,11 @@ export const NOTIFICATION_TYPES = [
   "trick_or_treat",
   /** A neighbor or a townsfolk taught you a recipe (RFC 0024). `recipe` says which. */
   "recipe_taught",
+  /**
+   * From Terrakin itself, not a resident: you reached a level (RFC 0029). `levels` says which, and
+   * what each unlocked. Levels reached in one moment share a notification.
+   */
+  "level_reached",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1035,8 +1046,8 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, trick-or-treaters, a lesson, or a takedown (a hidden post's id is in `takedown.id`, and
-   * `excerpt` is its start).
+   * admired plot, trick-or-treaters, a lesson, a level, or a takedown (a hidden post's id is in
+   * `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),
   excerpt: z.string(),
@@ -1060,6 +1071,11 @@ export const NotificationView = z.object({
   treat: CropKind.optional(),
   /** For a `recipe_taught`: the recipe you learned. */
   recipe: RecipeName.optional(),
+  /**
+   * For a `level_reached`: each level you reached in that moment, a skill's or your own, with what
+   * it unlocked. From Terrakin itself (`system: true`), written from ids, never anyone's words.
+   */
+  levels: z.array(LevelUpView).optional(),
   /**
    * For `plot_admired` and `trick_or_treat`: the plot, in plot coordinates. Admires of one plot
    * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,

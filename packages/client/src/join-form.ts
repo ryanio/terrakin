@@ -14,6 +14,7 @@ import {
   HAIR_STYLES,
   type HairColor,
   type HairStyle,
+  isEarnedWear,
   isExclusiveWear,
   isShopWear,
   NAME_MAX_LENGTH,
@@ -163,9 +164,9 @@ export function hairChips(
   };
 }
 
-/** Tops anyone can wear from their first step: free ones, no shop or partner wear. */
+/** Tops anyone can wear from their first step: free ones, no shop, partner, or earned wear. */
 export const STARTER_TOPS: readonly WearItem[] = WEAR_ITEMS.filter(
-  (w) => WEAR_INFO[w].slot === "top" && !isShopWear(w) && !isExclusiveWear(w),
+  (w) => WEAR_INFO[w].slot === "top" && !isShopWear(w) && !isExclusiveWear(w) && !isEarnedWear(w),
 );
 
 /** A new character as the join form holds it. */

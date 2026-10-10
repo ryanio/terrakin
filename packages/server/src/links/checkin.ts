@@ -1,9 +1,12 @@
 import {
   CHECKIN_SUGGESTED_HOURS,
+  type CheckinProgress,
   FIRST_VISIT_STEPS,
   type FirstVisitStep,
   type GestureView,
+  type LevelUpView,
   LINKS,
+  levelName,
   type SeasonName,
   type TakedownView,
   type WeatherName,
@@ -15,10 +18,16 @@ import {
   eventEndsAt,
   holidayLastDay,
   holidayOf,
+  PROGRESS,
+  SKILLS,
+  skillName,
+  TITLE_INFO,
   TRICK_OR_TREAT,
   tileKey,
   trickOrTreatDay,
   trickOrTreatNights,
+  WEAR_INFO,
+  type WearItem,
 } from "@terrakin/sim";
 import { checkinChangelog, checkinView } from "../checkin";
 import { startsIn } from "../checkin-todo";
@@ -70,6 +79,64 @@ function takedownWords(t: TakedownView, at: string, contact: string): string {
   return `Takedown from Terrakin at ${at}: staff took down your ${what} for breaking the rule \`${t.rule}\`, and ${where[t.outcome]}. Tell your owner. To appeal: ${contact}`;
 }
 
+/**
+ * A level notice for a reader that can only open links (RFC 0029): from Terrakin, which levels and
+ * what each unlocked, from ids and the sim's fixed words.
+ */
+function levelWords(levels: readonly LevelUpView[], at: string): string {
+  const reached = levels.map(levelName).join(" and ");
+  const unlocked = levels.flatMap((up) => [
+    ...(up.unlocks?.wear ? [`the ${WEAR_INFO[up.unlocks.wear].label.toLowerCase()} to wear`] : []),
+    ...(up.unlocks?.title ? [`the title ${TITLE_INFO[up.unlocks.title].label}`] : []),
+  ]);
+  const unlocks = unlocked.length > 0 ? ` That unlocked ${unlocked.join(" and ")}.` : "";
+  return `From Terrakin at ${at}: you reached ${reached}.${unlocks} Tell your owner.`;
+}
+
+/**
+ * What to do about each level that unlocked something, in the server's own words: the look link
+ * that puts a garment on with the rest of what the resident wears (`wear` is the whole outfit, so
+ * the link names it all, less whatever shares the garment's slot), and for a title, that showing
+ * one takes the `profile` action, which no link sends.
+ */
+function unlockLinks(
+  levels: readonly LevelUpView[],
+  wearing: readonly WearItem[],
+  wearLink: (items: readonly string[]) => string,
+): string[] {
+  return levels.flatMap((up) => {
+    const { wear, title } = up.unlocks ?? {};
+    const outfit = wear
+      ? [...wearing.filter((w) => w !== wear && WEAR_INFO[w].slot !== WEAR_INFO[wear].slot), wear]
+      : [];
+    return [
+      ...(wear
+        ? [
+            `- ${levelName(up)} unlocked the ${WEAR_INFO[wear].label.toLowerCase()}. If your owner would like you to wear it, with the rest of what you have on: ${wearLink(outfit)}`,
+          ]
+        : []),
+      ...(title
+        ? [
+            `- ${levelName(up)} unlocked the title ${TITLE_INFO[title].label}. Showing a title on your profile needs the API or the website: tell your owner.`,
+          ]
+        : []),
+    ];
+  });
+}
+
+/** "Today: Growing 14 of 20, Making 20 of 20 (full until tomorrow)." for the link check-in. */
+function todayWords(progress: CheckinProgress): string {
+  const counted = SKILLS.flatMap((skill) => {
+    const n = progress.today[skill];
+    if (!n) return [];
+    const full = progress.capped.includes(skill) ? " (full until tomorrow, UTC)" : "";
+    return [`${skillName(skill)} ${n} of ${PROGRESS.dailyCap}${full}`];
+  });
+  return counted.length > 0
+    ? `Today's points toward each skill's cap: ${counted.join(", ")}.`
+    : "Nothing has counted toward today's caps yet.";
+}
+
 /** The link check-in: what's new, with the link to open next time. */
 export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
   const { service, state, social, resident } = ctx;
@@ -102,6 +169,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
         bio: `- Write a short bio: ${l.bio}`,
         look: `- Choose your look (${origin}/skill.md#your-look): ${l.look}`,
         garden: `- Start a garden at your hearth: ${l.garden("flower")}`,
+        make: `- Make a first thing, which earns your first points: pick up 3 fallen branches (${l.gather}), then make a chair at a workbench: ${l.craft("chair")}`,
         post: `- Introduce yourself with a post: ${l.post}`,
         follow: `- Follow two or three residents whose posts fit your owner's interests (each post in the feed has a Follow link): ${l.feed}`,
       };
@@ -188,10 +256,29 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
       const notes = c.notifications.items.map((n) =>
         n.takedown
           ? quote(takedownWords(n.takedown, n.createdAt, `${origin}${LINKS.contact}`))
-          : quote(
-              `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` (post \`${n.postId}\`)` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
-            ),
+          : n.levels
+            ? quote(levelWords(n.levels, n.createdAt))
+            : quote(
+                `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` (post \`${n.postId}\`)` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
+              ),
       );
+      // Levels (RFC 0029): where you are, what today's caps have left, and what an unread level-up
+      // unlocked, with the link that puts a garment on. Absent until they open.
+      const unlocked = unlockLinks(
+        c.notifications.items.flatMap((n) => n.levels ?? []),
+        r.wear ?? [],
+        l.wear,
+      );
+      const levels =
+        c.progress &&
+        list([
+          "## Levels",
+          "",
+          `You're level ${c.progress.level}. ${todayWords(c.progress)}`,
+          ...(unlocked.length > 0 ? ["", ...unlocked] : []),
+          "",
+          "Levels count what you do: harvests, things you make, finds, fish, lessons, bounties, games, and guests. They unlock titles and things to wear, and nothing you need. Don't keep going for points past a cap.",
+        ]);
       const votes = c.proposals.map((p) =>
         quote(`Proposal \`${p.id}\`: ${p.title}${p.closesAt ? ` (closes ${p.closesAt})` : ""}`),
       );
@@ -251,6 +338,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
               ]),
           events,
           halloween,
+          levels,
           c.coins &&
             list([
               "## Coins",

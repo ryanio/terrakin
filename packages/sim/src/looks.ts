@@ -83,6 +83,12 @@ export const WEAR_ITEMS = [
   "pumpkin_head",
   "ghost_sheet",
   "bat_wings",
+  // Earned wear (RFC 0029), one garment a skill.
+  "sun_hat",
+  "tool_belt",
+  "field_vest",
+  "party_sash",
+  "winners_rosette",
   // Partner wear stays last (RFC 0007).
   "muse_halo",
   "muse_lantern",
@@ -131,10 +137,10 @@ export const isExclusiveWear = (w: unknown): w is ExclusiveWear =>
 
 /**
  * Wear earned from a skill's level (RFC 0029), one garment a skill. Never sold, given, or bought,
- * and it never comes off, since points never go down. The sim takes it in a `wear` list once its
- * level is reached (`not_earned` otherwise). It is a list of its own, not part of `WEAR_ITEMS`,
- * until the web draws the garments: nothing that lists, draws, or collects wear meets one before
- * then, and the protocol's wear enum is `WEAR_ITEMS`, so no action can put one on.
+ * and it never comes off, since points never go down. `join` and `profile` take one in a `wear`
+ * list once its skill's level is reached (`not_earned` otherwise), and it takes a pattern and a
+ * color like any wear. Anything that offers wear to everyone leaves these out: the collection
+ * book, and the choices a newcomer or the look editor shows.
  */
 export const EARNED_WEAR = [
   "sun_hat",
@@ -142,7 +148,7 @@ export const EARNED_WEAR = [
   "field_vest",
   "party_sash",
   "winners_rosette",
-] as const;
+] as const satisfies readonly WearItem[];
 export type EarnedWear = (typeof EARNED_WEAR)[number];
 export const isEarnedWear = (w: unknown): w is EarnedWear =>
   typeof w === "string" && (EARNED_WEAR as readonly string[]).includes(w);
@@ -408,10 +414,6 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   pumpkin_head: { slot: "hat", label: "Pumpkin head" },
   ghost_sheet: { slot: "top", label: "Ghost sheet" },
   bat_wings: { slot: "accessory", label: "Bat wings" },
-};
-
-/** Each earned garment's slot and name (RFC 0029). */
-export const EARNED_WEAR_INFO: Record<EarnedWear, { slot: WearSlot; label: string }> = {
   sun_hat: { slot: "hat", label: "Sun hat" },
   tool_belt: { slot: "accessory", label: "Tool belt" },
   field_vest: { slot: "top", label: "Field vest" },
@@ -419,13 +421,9 @@ export const EARNED_WEAR_INFO: Record<EarnedWear, { slot: WearSlot; label: strin
   winners_rosette: { slot: "accessory", label: "Winner's rosette" },
 };
 
-/** A thing to wear's slot and name, shop, partner, and earned wear alike, or undefined. */
+/** A thing to wear's slot and name, or undefined for anything that isn't wear. */
 const wearInfo = (item: string): { slot: WearSlot; label: string } | undefined =>
-  (WEAR_ITEMS as readonly string[]).includes(item)
-    ? WEAR_INFO[item as WearItem]
-    : isEarnedWear(item)
-      ? EARNED_WEAR_INFO[item]
-      : undefined;
+  (WEAR_ITEMS as readonly string[]).includes(item) ? WEAR_INFO[item as WearItem] : undefined;
 
 /** Wear that covers the bottom half too, so nothing goes in the bottom slot with it. */
 export const FULL_LENGTH: readonly WearItem[] = ["dress", "ghost_sheet"];
@@ -489,13 +487,13 @@ export const LOOK_MEDIA_KEYS = [
 ] as const satisfies readonly (keyof Look)[];
 export type LookMediaKey = (typeof LOOK_MEDIA_KEYS)[number];
 
-/** Put wear in slot order, an earned garment by its own slot. Callers validate first. */
+/** Put wear in slot order. Callers validate first. */
 export function sortWear(items: readonly WearItem[]): WearItem[] {
   const rank = (w: WearItem) => WEAR_SLOTS.indexOf(wearInfo(w)?.slot as WearSlot);
   return [...items].sort((a, b) => rank(a) - rank(b));
 }
 
-/** Why a wear list isn't allowed, or null when it is. Earned wear counts as wear here. */
+/** Why a wear list isn't allowed, or null when it is. */
 export function wearProblem(items: readonly string[]): string | null {
   if (items.length > MAX_WEAR) return `Wear at most ${MAX_WEAR} things, one of each kind.`;
   const slots = new Set<WearSlot>();

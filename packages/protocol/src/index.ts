@@ -13,6 +13,7 @@ export * from "./facing";
 export * from "./galleries";
 export * from "./games";
 export * from "./items";
+export * from "./levels";
 export * from "./market";
 export { buildOpenApi } from "./openapi";
 export * from "./partners";

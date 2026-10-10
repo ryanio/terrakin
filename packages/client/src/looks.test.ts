@@ -417,6 +417,11 @@ describe("partner wear in the look editor (RFC 0007)", () => {
     expect(wearChoices("hat", [], [], new Set(), new Set(["witch_hat"]))).toContain("witch_hat");
     expect(wearChoices("hat", [], [], new Set(["witch_hat"]))).toContain("witch_hat");
     expect(wearChoices("hat", [], ["witch_hat"])).toContain("witch_hat");
+    // Earned wear (RFC 0029) shows once its skill's level is reached, or while it's on.
+    expect(wearChoices("hat", [], [])).not.toContain("sun_hat");
+    expect(wearChoices("top", [], [])).not.toContain("field_vest");
+    expect(wearChoices("hat", ["sun_hat"], [])).toContain("sun_hat");
+    expect(wearChoices("accessory", [], ["tool_belt"])).toContain("tool_belt");
   });
 });
 

@@ -4,6 +4,7 @@ import type { Api } from "./api";
 import { countGuests } from "./events";
 import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
+import { levelView } from "./levels";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
 import { forgetRetired, moveMerged, socialUsers } from "./repeat-joins";
@@ -126,6 +127,19 @@ export function wireSocial(
     } catch (err) {
       report(err, "world.event_ended");
     }
+  }
+  // Levels (RFC 0029): the switch's one-time credit is read from the collection book, filled in
+  // above; each ended event's Hosting points go to the guests the hosting record counted; a
+  // level-up tells its resident; and profiles show levels, which live in the world. An event that
+  // ended before the record could be read (the boot's catch-up, a crash) is credited now.
+  service.levelFirsts = () => layer.collection.firstsCredit(service.state);
+  service.countedGuests = (event) => layer.events.countedGuests(event);
+  service.onLevelsReached = (id, levels) => layer.levelsReached(id, levels);
+  layer.levels = (id) => levelView(service.state, id);
+  try {
+    service.creditEndedEvents();
+  } catch (err) {
+    report(err, "world.levels");
   }
   // Party-game ladders (RFC 0011) live in the world; profiles show them.
   layer.gameRatings = (id) => gameRatings(service.state, id);

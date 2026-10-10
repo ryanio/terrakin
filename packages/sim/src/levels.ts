@@ -2,7 +2,7 @@ import { CROPS, FIND_KINDS, FISH_KINDS, FURNITURE_KINDS, GOOD_KINDS, SWEET_KINDS
 import { oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
 import { findEvent } from "./events";
-import { type EarnedWear, isEarnedWear } from "./looks";
+import { EARNED_WEAR, type EarnedWear, isEarnedWear } from "./looks";
 import { own, residentById } from "./own";
 import { seasonSpan, weekStart } from "./season";
 import { townEligibility } from "./town";
@@ -97,7 +97,26 @@ export const EARNED_WEAR_SKILL: Record<EarnedWear, Skill> = {
 };
 
 /** A skill's name in people's words: "Growing". */
-const skillName = (skill: Skill) => `${skill[0]?.toUpperCase()}${skill.slice(1)}`;
+export const skillName = (skill: Skill) => `${skill[0]?.toUpperCase()}${skill.slice(1)}`;
+
+/** One thing a skill's level unlocks: a title to show, or a garment to wear. */
+export interface Unlock {
+  skill: Skill;
+  level: number;
+  title?: Title;
+  wear?: EarnedWear;
+}
+
+/** Everything a skill unlocks, lowest level first: its title, its garment, its second title. */
+export function skillUnlocks(skill: Skill): Unlock[] {
+  const titles = TITLES.filter((title) => TITLE_INFO[title].skill === skill).map(
+    (title): Unlock => ({ skill, level: TITLE_INFO[title].level, title }),
+  );
+  const wear = EARNED_WEAR.filter((item) => EARNED_WEAR_SKILL[item] === skill).map(
+    (item): Unlock => ({ skill, level: UNLOCKS.wear, wear: item }),
+  );
+  return [...titles, ...wear].sort((a, b) => a.level - b.level);
+}
 
 type Mutation = () => WorldEvent[];
 
@@ -139,6 +158,12 @@ export const firstsOf = (state: WorldState, id: ResidentId): readonly string[] =
 /** The title a resident shows, if any. Public. */
 export const titleOf = (state: WorldState, id: ResidentId): Title | undefined =>
   own(state.progress?.titles, id);
+
+/** What a resident's skill levels have unlocked so far, in skill order: what `profile` would take. */
+export function unlockedBy(state: WorldState, id: ResidentId): Unlock[] {
+  const { skills } = levelsOf(state, id);
+  return SKILLS.flatMap((skill) => skillUnlocks(skill).filter((u) => u.level <= skills[skill]));
+}
 
 // ---------- what counts ----------
 

@@ -796,6 +796,8 @@ describe("GET /v1/first-visit", () => {
   };
   const doneSteps = (body: Json) =>
     body.steps.filter((s: Json) => s.done).map((s: Json) => s.id as string);
+  /** The steps of a world that hasn't opened levels: `make` joins when they open (`levels.test.ts`). */
+  const STEPS = FIRST_VISIT_STEPS.filter((s) => s !== "make");
 
   it("lists every first-visit step, each flipping to done as it's done", async () => {
     const { call, join, ok } = await start();
@@ -803,7 +805,7 @@ describe("GET /v1/first-visit", () => {
     const wren = join("Wren");
     const ash = join("Ash");
     const fresh = (await firstVisit(call, wren.token)).body;
-    expect(fresh.steps.map((s: Json) => s.id)).toEqual([...FIRST_VISIT_STEPS]);
+    expect(fresh.steps.map((s: Json) => s.id)).toEqual(STEPS);
     expect(doneSteps(fresh)).toEqual([]);
     expect(fresh.tryToday).toBeNull();
 
@@ -815,7 +817,7 @@ describe("GET /v1/first-visit", () => {
     await settleIn(ok, wren.token, ash.id);
     // No items in this world, so the garden waits on nothing it can have; every other step is done.
     const set = (await firstVisit(call, wren.token)).body;
-    expect(doneSteps(set)).toEqual(FIRST_VISIT_STEPS.filter((s) => s !== "garden"));
+    expect(doneSteps(set)).toEqual(STEPS.filter((s) => s !== "garden"));
   });
 
   it("checks nothing in: the next check-in still gets today's suggestion", async () => {
@@ -829,7 +831,7 @@ describe("GET /v1/first-visit", () => {
     await ok("POST", "/v1/actions", { type: "plant", x: 6, y: 6, seed: "flower" }, wren.token);
 
     const read = (await firstVisit(call, wren.token)).body;
-    expect(doneSteps(read)).toEqual([...FIRST_VISIT_STEPS]);
+    expect(doneSteps(read)).toEqual(STEPS);
     expect(read.tryToday).toBe("gather");
     expect(read.tries).toEqual(
       expect.arrayContaining([

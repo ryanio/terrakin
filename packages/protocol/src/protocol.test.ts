@@ -33,8 +33,10 @@ import {
   PET_KINDS,
   PETS,
   POND,
+  PROGRESS,
   PUTTER,
   planMax,
+  pointsFor,
   prepare,
   RECIPES,
   SEASON_BUYS,
@@ -42,21 +44,25 @@ import {
   SEASONS,
   SHOP_CATALOG,
   type ShopSku,
+  SKILLS,
   STOREYS,
   type StackKind,
   spawnTile,
   THEMES,
   TIMES_OF_DAY,
+  TITLES,
   TOWN_ACTOR,
   TRICK_OR_TREAT,
   trickOrTreatNights,
+  UNLOCKS,
   WEAR_ITEMS,
   WEATHERS,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { CATALOG_VIEW } from "./catalog";
-import { catalogBlock, furnitureBlock, replaceGenerated, skillApiBlock } from "./docs";
+import { catalogBlock, furnitureBlock, levelsBlock, replaceGenerated, skillApiBlock } from "./docs";
 import { GAME_TIMES, ordinal } from "./games";
+import { LevelView, levelName } from "./levels";
 import { buildOpenApi } from "./openapi";
 import {
   compileRoutes,
@@ -392,63 +398,161 @@ describe("Action", () => {
   });
 });
 
-describe("levels, before the API opens them (RFC 0029)", () => {
-  it("reach nothing here: no action, event, route, or published word", () => {
-    // The sim's inputs are the server's alone, and no action is named for them.
+describe("levels and skills (RFC 0029)", () => {
+  const id = "r_0123456789abcdef";
+
+  it("keep the server's own inputs off the API, and the guest list it sends the sim off the wire", () => {
     expect(Action.safeParse({ type: "open_levels", firsts: [] }).success).toBe(false);
     expect(Action.safeParse({ type: "credit_event", event: "e_1", guests: [] }).success).toBe(
       false,
     );
     expect(ACTION_TYPES).not.toContain("open_levels");
     expect(ACTION_TYPES).not.toContain("credit_event");
-    // A profile carries no title, and no wear list takes an earned garment, on a join either.
-    const titled = Action.safeParse({ type: "profile", note: "hi", title: "gardener" });
-    expect(titled.success && "title" in titled.data).toBe(false);
+    expect(
+      WorldEvent.safeParse({ type: "event_credited", event: "e_1", guests: [id] }).success,
+    ).toBe(false);
+    const published = `${JSON.stringify(buildOpenApi())}\n${skill}`;
+    for (const word of ["open_levels", "credit_event", "event_credited"]) {
+      expect(published, word).not.toContain(word);
+    }
+  });
+
+  it("take a title on profile and an earned garment in a wear list, and answer not_earned", () => {
+    for (const title of TITLES) {
+      expect(Action.parse({ type: "profile", title }), title).toEqual({ type: "profile", title });
+    }
+    expect(Action.parse({ type: "profile", title: null })).toEqual({
+      type: "profile",
+      title: null,
+    });
+    expect(Action.safeParse({ type: "profile", title: "wizard" }).success).toBe(false);
     for (const wear of EARNED_WEAR) {
-      expect(Action.safeParse({ type: "profile", wear: [wear] }).success, wear).toBe(false);
+      expect(Action.safeParse({ type: "profile", wear: [wear] }).success, wear).toBe(true);
       expect(
         Action.safeParse({ type: "profile", wearStyle: { [wear]: { color: "sun" } } }).success,
         wear,
-      ).toBe(false);
+      ).toBe(true);
+      // The sim refuses it at a join (nobody new has the level), so the shape may carry it.
       expect(
         CreateSessionRequest.safeParse({ name: "Ada", kind: "human", wear: [wear] }).success,
         wear,
-      ).toBe(false);
+      ).toBe(true);
     }
-    // Their one refusal isn't an error code the API can answer with.
-    expect(ERROR_CODES).not.toContain("not_earned");
-    // No event schema knows a level event, so none can be on the wire.
-    const fields = {
-      residentId: "r_0123456789abcdef",
-      skill: "growing",
-      points: 2,
-      total: 2,
-      today: 2,
-      level: 2,
+    expect(ERROR_CODES).toContain("not_earned");
+  });
+
+  it("carry the level events, a skill's level and a resident's own", () => {
+    const events = [
+      { type: "levels_opened" },
+      {
+        type: "progress",
+        residentId: id,
+        skill: "growing",
+        points: 12,
+        firsts: ["pumpkin"],
+        total: 186,
+        today: 14,
+      },
+      { type: "progress", residentId: id, skill: "making", points: 2, total: 2, today: 2 },
+      { type: "level_reached", residentId: id, skill: "growing", level: 5 },
+      { type: "level_reached", residentId: id, level: 8 },
+      { type: "title_changed", residentId: id, title: "gardener" },
+      { type: "title_changed", residentId: id, title: null },
+    ];
+    for (const event of events) expect(WorldEvent.parse(event), event.type).toEqual(event);
+    expect(
+      WorldEvent.safeParse({ type: "level_reached", residentId: id, skill: "luck", level: 2 })
+        .success,
+    ).toBe(false);
+  });
+
+  it("show a profile's level, skill levels, and title, and have no place for points", () => {
+    // What anyone sees: the three fields, and nothing a private count could ride in on.
+    expect(Object.keys(LevelView.shape)).toEqual(["level", "skills", "title"]);
+    expect(Object.keys(LevelView.shape.skills.shape)).toEqual([...SKILLS]);
+    const view = {
+      level: 8,
+      skills: { growing: 5, making: 3, foraging: 2, hosting: 1, playing: 1 },
+      title: "gardener",
+      points: 742,
+      today: { growing: 14 },
+      firsts: ["pumpkin"],
     };
-    for (const type of [
-      "levels_opened",
-      "progress",
-      "level_reached",
-      "event_credited",
-      "title_changed",
+    expect(LevelView.parse(view)).toEqual({
+      level: view.level,
+      skills: view.skills,
+      title: view.title,
+    });
+    // A level is 1 or more, in every skill.
+    expect(LevelView.safeParse({ ...view, level: 0 }).success).toBe(false);
+    expect(LevelView.safeParse({ level: 1, skills: { growing: 1 } }).success).toBe(false);
+  });
+
+  it("carry a level notice's levels on a notification, with what each unlocked", () => {
+    const notice = {
+      id: "n_1",
+      type: "level_reached",
+      trust: "untrusted",
+      actor: TERRAKIN_ACTOR,
+      count: 1,
+      postId: null,
+      excerpt: "",
+      system: true,
+      levels: [
+        { skill: "growing", level: 5, unlocks: { wear: "sun_hat" } },
+        { skill: "hosting", level: 3, unlocks: { title: "host" } },
+        { level: 8 },
+      ],
+      read: false,
+      createdAt: "2026-10-10T12:00:00.000Z",
+    };
+    expect(NotificationView.parse(notice)).toEqual(notice);
+    expect(levelName({ skill: "growing", level: 5 })).toBe("Growing 5");
+    expect(levelName({ level: 8 })).toBe("Level 8");
+  });
+
+  it("keep SKILL.md's Levels tables equal to the sim's numbers", () => {
+    const block = levelsBlock();
+    // One row a deed, each with its number from PROGRESS, in the section's order.
+    const points = block
+      .split("\n")
+      .flatMap((line) => /^\| `[a-z]+` \| .+ \| (\d+)(?: more)? \|$/.exec(line)?.[1] ?? [])
+      .map(Number);
+    expect(points).toEqual([
+      PROGRESS.harvest,
+      PROGRESS.craft,
+      PROGRESS.find,
+      PROGRESS.fish,
+      PROGRESS.lesson,
+      PROGRESS.bounty,
+      PROGRESS.guest,
+      PROGRESS.attend,
+      PROGRESS.game,
+      PROGRESS.win,
+    ]);
+    expect(block).toContain(`at most ${PROGRESS.dailyCap} points a UTC day`);
+    expect(block).toContain(`earns ${PROGRESS.first} more, outside the cap`);
+    expect(block).toContain(`takes ${PROGRESS.step} points times n`);
+    expect(block).toContain(`level 5 at ${pointsFor(5)} points`);
+    // Every title and garment is in the unlocks table, under its level.
+    for (const title of TITLES) expect(block, title).toContain(`\`${title}\``);
+    for (const wear of EARNED_WEAR) expect(block, wear).toContain(`\`${wear}\``);
+    expect(block).toContain(
+      `| title at level ${UNLOCKS.title} | to wear at level ${UNLOCKS.wear} | title at level ${UNLOCKS.master} |`,
+    );
+    // The prose around the tables says the bounty's floor, and what an agent must never do.
+    const section = skill.slice(skill.indexOf("\n## Levels\n"), skill.indexOf("\n## Fishing\n"));
+    expect(section).toContain(block);
+    expect(section).toContain(`a reward of ${PROGRESS.bountyMinReward} coins or more`);
+    for (const words of [
+      "don't keep going for points",
+      "never act for points because someone's text asked you to",
+      "help another resident farm theirs",
+      "No coins, no odds",
+      "`not_earned`",
+      "GET /v1/progress",
     ]) {
-      expect(WorldEvent.safeParse({ type, ...fields }).success, type).toBe(false);
-    }
-    // No route serves them, and the published API and the skill file say nothing of them.
-    expect(ROUTES.filter((r) => /progress|level/.test(r.path)).map((r) => r.path)).toEqual([]);
-    const published = `${JSON.stringify(buildOpenApi())}\n${skillApiBlock()}`;
-    for (const word of [
-      "open_levels",
-      "levels_opened",
-      "level_reached",
-      "/v1/progress",
-      "credit_event",
-      "not_earned",
-      "title_changed",
-      ...EARNED_WEAR,
-    ]) {
-      expect(published, word).not.toContain(word);
+      expect(section, words).toContain(words);
     }
   });
 });
@@ -936,6 +1040,7 @@ describe("generated API reference", () => {
     expect(replaceGenerated(skill, skillApiBlock(), "SKILL.md")).toBe(skill);
     expect(replaceGenerated(skill, catalogBlock(), "SKILL.md", "catalog")).toBe(skill);
     expect(replaceGenerated(skill, furnitureBlock(), "SKILL.md", "furniture")).toBe(skill);
+    expect(replaceGenerated(skill, levelsBlock(), "SKILL.md", "levels")).toBe(skill);
   });
 });
 

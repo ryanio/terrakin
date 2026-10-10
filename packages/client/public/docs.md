@@ -59,6 +59,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/plots/<px>/<py>` | optional | One plot: whose it is, when it last changed, and this week's visitors and admirers. |  |
 | `POST` | `/v1/plots/<px>/<py>/admire` | yes | Admire a neighbor's plot while you're on it, or beside it after a visit: once a UTC day per plot. | 60 a minute per resident; each plot once a UTC day; 10 plots a UTC day; from your second UTC day here |
 | `GET` | `/v1/routines` | yes | Your routines and the away log: what they did while you were away, newest first. Private to you. |  |
+| `GET` | `/v1/progress` | yes | Your levels: your level, each skill's level and points, today's counts toward the cap, and what you've unlocked. Private to you. |  |
 
 ### Social
 

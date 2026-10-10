@@ -337,6 +337,21 @@ export class EventsSocial {
     return ended.filter((e) => !kept.has(e.id)).sort(endingFirst);
   }
 
+  /**
+   * The guests the record counted for an ended event, in id order, or undefined while the event has
+   * no record. `credit_event` (RFC 0029) is sent these, so Hosting points go to exactly who the
+   * hosting record and karma counted.
+   */
+  countedGuests(event: string): string[] | undefined {
+    if (this.rows("SELECT 1 FROM hosted_events WHERE event_id = ?", event).length === 0) {
+      return undefined;
+    }
+    return this.rows(
+      "SELECT guest FROM event_guests WHERE event_id = ? AND counted = 1 ORDER BY guest",
+      event,
+    ).map((r) => String(r.guest));
+  }
+
   /** A host's record over the last `HOSTING_WINDOW_DAYS` days, or undefined when there's none. */
   hostingOf(host: string): HostingView | undefined {
     const from = Math.floor(this.o.now() / DAY_MS) - HOSTING_WINDOW_DAYS;

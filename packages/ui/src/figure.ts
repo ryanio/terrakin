@@ -27,6 +27,7 @@ import { BRAND_HEX, WOOD_DARK } from "./brand";
 import type { Feeling } from "./feelings";
 import {
   BAT_WING,
+  EARNED_HEX,
   HALLOWEEN_HEX,
   hairOf,
   hidesHair,
@@ -171,6 +172,11 @@ export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   pumpkin_head: () => HALLOWEEN_HEX.pumpkin,
   ghost_sheet: () => HALLOWEEN_HEX.sheet,
   bat_wings: () => HALLOWEEN_HEX.bat,
+  sun_hat: () => EARNED_HEX.sunHat,
+  tool_belt: () => EARNED_HEX.belt,
+  field_vest: () => EARNED_HEX.vest,
+  party_sash: () => EARNED_HEX.sash,
+  winners_rosette: () => EARNED_HEX.rosette,
 };
 
 /** A worn garment's main color: its own, else its usual one in the outfit's palette. Pure. */
@@ -502,6 +508,9 @@ export function drawFigure(
     ctx.clip();
     drawBottom(ctx, u, wear, p, garb, side);
     drawTop(ctx, u, wear, p, back, side, garb, look.shape, pattern);
+    // Worn over the top and round the body: a sash across the chest, or a belt at the waist.
+    if (wear.has("party_sash")) drawPartySash(ctx, u, back, side, garb("party_sash"));
+    if (wear.has("tool_belt")) drawToolBelt(ctx, u, back, side, garb("tool_belt"));
     // Soft shade at the hem so the body feels round.
     ctx.fillStyle = "rgba(70, 40, 18, 0.14)";
     ctx.fillRect(-0.5 * u, -0.12 * u, u, 0.12 * u);
@@ -540,6 +549,11 @@ export function drawFigure(
   }
 
   if (wear.has("satchel")) drawSatchel(ctx, u, hand, garb("satchel"));
+  // What hangs from a tool belt, and a rosette pinned to the chest. Under a ghost sheet, neither.
+  if (wear.has("tool_belt") && !ghost) drawBeltTools(ctx, u, hand, garb("tool_belt"));
+  if (wear.has("winners_rosette") && !back && !ghost) {
+    drawRosette(ctx, u, side, garb("winners_rosette"));
+  }
   if (wings && back) drawBatWings(ctx, u, side, back, garb("bat_wings"));
 
   // Head and face: a ghost's head is the sheet's, so only its face goes on, and a pumpkin head has
@@ -875,6 +889,7 @@ function drawHat(
   else if (wear.has("muse_halo")) drawMuseHalo(ctx, u, p, garb("muse_halo"));
   else if (wear.has("witch_hat")) drawWitchHat(ctx, u, side, back, garb("witch_hat"));
   else if (wear.has("cat_ears")) drawCatEars(ctx, u, side, back, garb("cat_ears"));
+  else if (wear.has("sun_hat")) drawSunHat(ctx, u, side, garb("sun_hat"));
 }
 
 const HAT_TOP = HEAD_Y - HEAD_R;
@@ -1020,6 +1035,270 @@ function drawMuseHalo(ctx: CanvasRenderingContext2D, u: number, p: ThemePalette,
   }
   ctx.fill();
   ctx.stroke();
+}
+
+// ---------- earned wear (RFC 0029) ----------
+
+const E = EARNED_HEX;
+
+/** Where the sun hat's brim sits, a little lower than a straw hat's. */
+const SUN_BRIM_Y = HAT_TOP + 0.105;
+
+/** The sun hat's wide, soft brim: flat across the top, dipping at both sides. */
+function sunBrimPath(ctx: CanvasRenderingContext2D, u: number) {
+  const y = SUN_BRIM_Y * u;
+  ctx.beginPath();
+  ctx.moveTo(-0.4 * u, y);
+  ctx.quadraticCurveTo(-0.36 * u, y - 0.09 * u, 0, y - 0.085 * u);
+  ctx.quadraticCurveTo(0.36 * u, y - 0.09 * u, 0.4 * u, y);
+  ctx.quadraticCurveTo(0.31 * u, y + 0.1 * u, 0.13 * u, y + 0.062 * u);
+  ctx.quadraticCurveTo(0, y + 0.045 * u, -0.13 * u, y + 0.062 * u);
+  ctx.quadraticCurveTo(-0.31 * u, y + 0.1 * u, -0.4 * u, y);
+  ctx.closePath();
+}
+
+/** The sun hat's round crown, over the brim. */
+function sunCrownPath(ctx: CanvasRenderingContext2D, u: number) {
+  const base = (SUN_BRIM_Y - 0.025) * u;
+  ctx.beginPath();
+  ctx.moveTo(-0.165 * u, base);
+  ctx.quadraticCurveTo(-0.17 * u, base - 0.16 * u, 0, base - 0.165 * u);
+  ctx.quadraticCurveTo(0.17 * u, base - 0.16 * u, 0.165 * u, base);
+  ctx.closePath();
+}
+
+/**
+ * Growing's sun hat: a wide, soft brim and a round crown in pale straw, with a moss ribbon and a
+ * leaf tucked into it on the side they face (the right, from the front or behind).
+ */
+function drawSunHat(ctx: CanvasRenderingContext2D, u: number, side: number, g: Garb) {
+  const straw = g.color(E.sunHat);
+  const base = (SUN_BRIM_Y - 0.025) * u;
+  ctx.strokeStyle = g.trim(E.sunHatWeave);
+  ctx.lineWidth = Math.max(0.8, 0.015 * u);
+  for (const shape of [sunBrimPath, sunCrownPath]) {
+    paintCloth(ctx, u, () => shape(ctx, u), straw, g.fill());
+    shape(ctx, u);
+    ctx.stroke();
+  }
+  // The ribbon round the crown, and a leaf in it.
+  ctx.fillStyle = E.sunHatBand;
+  ctx.fillRect(-0.165 * u, base - 0.05 * u, 0.33 * u, 0.045 * u);
+  const leafX = (side || 1) * 0.11 * u;
+  ctx.fillStyle = E.sunHatLeaf;
+  ctx.beginPath();
+  ctx.ellipse(leafX, base - 0.07 * u, 0.055 * u, 0.026 * u, -0.6 * (side || 1), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** The field vest's two front panels, or from behind its whole back. It stops above the hem. */
+function vestPath(ctx: CanvasRenderingContext2D, u: number, t: number, back: boolean) {
+  ctx.beginPath();
+  if (back) {
+    ctx.rect(-0.4 * u, -0.6 * u, 0.8 * u, 0.47 * u);
+  } else {
+    ctx.rect(t - 0.4 * u, -0.6 * u, 0.31 * u, 0.47 * u);
+    ctx.rect(t + 0.09 * u, -0.6 * u, 0.31 * u, 0.47 * u);
+  }
+}
+
+/** The vest's two patch pockets, one on each front panel. */
+function vestPocketsPath(ctx: CanvasRenderingContext2D, u: number, t: number) {
+  ctx.beginPath();
+  ctx.roundRect(t - 0.235 * u, -0.3 * u, 0.11 * u, 0.1 * u, 0.02 * u);
+  ctx.roundRect(t + 0.125 * u, -0.3 * u, 0.11 * u, 0.1 * u, 0.02 * u);
+}
+
+/**
+ * Foraging's field vest, inside the body clip: open at the front in olive canvas, with two paler
+ * patch pockets and their flaps. From behind, a plain back with a seam across the shoulders.
+ */
+function drawFieldVest(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  t: number,
+  back: boolean,
+  g: Garb,
+) {
+  const canvas = g.color(E.vest);
+  const trim = g.trim(E.vestTrim);
+  paintCloth(ctx, u, () => vestPath(ctx, u, t, back), canvas, g.fill());
+  ctx.strokeStyle = trim;
+  ctx.lineWidth = Math.max(0.8, 0.018 * u);
+  ctx.beginPath();
+  if (back) {
+    ctx.moveTo(-0.4 * u, -0.4 * u);
+    ctx.lineTo(0.4 * u, -0.4 * u);
+    ctx.stroke();
+    return;
+  }
+  // The hem of each panel, and the edges that meet down the front.
+  ctx.moveTo(t - 0.4 * u, -0.13 * u);
+  ctx.lineTo(t - 0.09 * u, -0.13 * u);
+  ctx.lineTo(t - 0.09 * u, -0.6 * u);
+  ctx.moveTo(t + 0.4 * u, -0.13 * u);
+  ctx.lineTo(t + 0.09 * u, -0.13 * u);
+  ctx.lineTo(t + 0.09 * u, -0.6 * u);
+  ctx.stroke();
+  ctx.fillStyle = g.own ? mix(g.own, PAPER, 0.35) : E.vestPocket;
+  vestPocketsPath(ctx, u, t);
+  ctx.fill();
+  ctx.fillStyle = trim;
+  ctx.fillRect(t - 0.235 * u, -0.3 * u, 0.11 * u, 0.028 * u);
+  ctx.fillRect(t + 0.125 * u, -0.3 * u, 0.11 * u, 0.028 * u);
+}
+
+/**
+ * The sash's band across the body, from one shoulder down to the other hip. `m` mirrors it: from
+ * behind it runs the other way.
+ */
+function sashPath(ctx: CanvasRenderingContext2D, u: number, t: number, m: number) {
+  ctx.beginPath();
+  ctx.moveTo(t + m * -0.36 * u, -0.5 * u);
+  ctx.lineTo(t + m * -0.2 * u, -0.58 * u);
+  ctx.lineTo(t + m * 0.38 * u, -0.1 * u);
+  ctx.lineTo(t + m * 0.24 * u, 0);
+  ctx.closePath();
+}
+
+/**
+ * Hosting's party sash, inside the body clip: rose satin from shoulder to hip with a gold edge on
+ * each side, and from the front a gold star over the heart.
+ */
+function drawPartySash(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  back: boolean,
+  side: number,
+  g: Garb,
+) {
+  const t = side * 0.06 * u;
+  const m = back ? -1 : 1;
+  paintCloth(ctx, u, () => sashPath(ctx, u, t, m), g.color(E.sash), g.fill());
+  ctx.strokeStyle = g.own ? mix(g.own, PAPER, 0.55) : E.sashEdge;
+  ctx.lineWidth = Math.max(0.8, 0.022 * u);
+  ctx.beginPath();
+  ctx.moveTo(t + m * -0.36 * u, -0.5 * u);
+  ctx.lineTo(t + m * 0.24 * u, 0);
+  ctx.moveTo(t + m * -0.2 * u, -0.58 * u);
+  ctx.lineTo(t + m * 0.38 * u, -0.1 * u);
+  ctx.stroke();
+  if (back) return;
+  ctx.fillStyle = E.sashEdge;
+  ctx.beginPath();
+  sparklePath(ctx, t + 0.02 * u, -0.3 * u, 0.045 * u);
+  ctx.fill();
+}
+
+/** The tool belt's band round the waist. */
+function beltPath(ctx: CanvasRenderingContext2D, u: number) {
+  ctx.beginPath();
+  ctx.rect(-0.5 * u, -0.25 * u, u, 0.07 * u);
+}
+
+/** Making's tool belt, inside the body clip: a leather band, and from the front a brass buckle. */
+function drawToolBelt(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  back: boolean,
+  side: number,
+  g: Garb,
+) {
+  const leather = g.color(E.belt);
+  paintCloth(ctx, u, () => beltPath(ctx, u), leather, g.fill());
+  ctx.fillStyle = mix(leather, INK, 0.3);
+  ctx.fillRect(-0.5 * u, -0.19 * u, u, 0.012 * u);
+  if (back) return;
+  ctx.fillStyle = E.buckle;
+  ctx.beginPath();
+  ctx.roundRect(side * 0.1 * u - 0.04 * u, -0.26 * u, 0.08 * u, 0.09 * u, 0.015 * u);
+  ctx.fill();
+  ctx.fillStyle = leather;
+  ctx.fillRect(side * 0.1 * u - 0.018 * u, -0.235 * u, 0.036 * u, 0.04 * u);
+}
+
+/** The pouch that hangs from the belt on the carrying side. */
+function pouchPath(ctx: CanvasRenderingContext2D, u: number, x: number) {
+  ctx.beginPath();
+  ctx.roundRect(x - 0.065 * u, -0.225 * u, 0.13 * u, 0.14 * u, [
+    0.01 * u,
+    0.01 * u,
+    0.04 * u,
+    0.04 * u,
+  ]);
+}
+
+/**
+ * What hangs from the tool belt, over the body: a pouch with a flap on the carrying side, and a
+ * hammer through a loop on the other hip, its head up.
+ */
+function drawBeltTools(ctx: CanvasRenderingContext2D, u: number, hand: number, g: Garb) {
+  const pouch = g.own ? mix(g.own, INK, 0.22) : E.beltPouch;
+  const x = 0.17 * hand * u;
+  paintCloth(ctx, u, () => pouchPath(ctx, u, x), pouch, g.fill());
+  ctx.fillStyle = mix(pouch, INK, 0.25);
+  ctx.fillRect(x - 0.065 * u, -0.225 * u, 0.13 * u, 0.04 * u);
+  ctx.fillStyle = E.buckle;
+  ctx.beginPath();
+  ctx.arc(x, -0.165 * u, 0.014 * u, 0, Math.PI * 2);
+  ctx.fill();
+  // The hammer on the other hip.
+  const hx = -0.19 * hand * u;
+  ctx.strokeStyle = E.hammerHandle;
+  ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(1, 0.03 * u);
+  ctx.beginPath();
+  ctx.moveTo(hx, -0.3 * u);
+  ctx.lineTo(hx, -0.1 * u);
+  ctx.stroke();
+  ctx.fillStyle = E.hammerHead;
+  ctx.beginPath();
+  ctx.roundRect(hx - 0.055 * u, -0.345 * u, 0.11 * u, 0.055 * u, 0.012 * u);
+  ctx.fill();
+}
+
+/** The rosette's pleated round, as a ring of eight scallops round (x, y). */
+function rosettePath(ctx: CanvasRenderingContext2D, u: number, x: number, y: number) {
+  const r = 0.07 * u;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.moveTo(x + Math.cos(a) * r + 0.028 * u, y + Math.sin(a) * r);
+    ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, 0.028 * u, 0, Math.PI * 2);
+  }
+  ctx.moveTo(x + r, y);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+}
+
+/**
+ * Playing's rosette, pinned to the chest: two ribbon tails under a pleated blue round with a gold
+ * middle. In profile it sits on the side they face. From behind it's out of sight.
+ */
+function drawRosette(ctx: CanvasRenderingContext2D, u: number, side: number, g: Garb) {
+  const x = (side ? 0.13 * side : 0.11) * u;
+  const y = -0.39 * u;
+  const ribbon = g.color(E.rosette);
+  const deep = g.trim(E.rosetteDeep);
+  ctx.fillStyle = deep;
+  ctx.beginPath();
+  for (const lean of [-1, 1]) {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + lean * 0.075 * u, y + 0.17 * u);
+    ctx.lineTo(x + lean * 0.035 * u, y + 0.145 * u);
+    ctx.lineTo(x + lean * 0.005 * u, y + 0.17 * u);
+    ctx.closePath();
+  }
+  ctx.fill();
+  paintCloth(ctx, u, () => rosettePath(ctx, u, x, y), ribbon, g.fill());
+  ctx.strokeStyle = deep;
+  ctx.lineWidth = Math.max(0.6, 0.012 * u);
+  ctx.beginPath();
+  ctx.arc(x, y, 0.055 * u, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = E.rosetteMiddle;
+  ctx.beginPath();
+  ctx.arc(x, y, 0.034 * u, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 // ---------- Halloween's costumes (RFC 0022) ----------
@@ -1367,6 +1646,7 @@ const HAT_COVER: Partial<Record<WearItem, { line: number; half: number }>> = {
   beanie: { line: -0.7, half: 0.235 },
   top_hat: { line: -0.82, half: 0.27 },
   witch_hat: { line: -0.78, half: 0.34 },
+  sun_hat: { line: -0.77, half: 0.4 },
 };
 
 /** The hat worn that covers the crown, if any. */
@@ -2091,6 +2371,7 @@ function drawTop(
   if (wear.has("overalls")) drawOveralls(ctx, u, t, back, p, garb("overalls"));
   if (wear.has("scarf")) drawScarf(ctx, u, t, back, p, garb("scarf"));
   if (wear.has("raincoat")) drawRaincoat(ctx, u, shape, back, side, garb("raincoat"));
+  if (wear.has("field_vest")) drawFieldVest(ctx, u, t, back, garb("field_vest"));
 }
 
 function apronPath(ctx: CanvasRenderingContext2D, u: number, t: number) {

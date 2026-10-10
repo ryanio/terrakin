@@ -33,6 +33,7 @@ import { todaysLines } from "./coins";
 import { checkinEvents, eventView } from "./events";
 import { gamesCheckin } from "./games";
 import { gardenOf } from "./items";
+import { checkinProgress } from "./levels";
 import { awayLine } from "./routines";
 import type { SocialService } from "./social-service";
 import { townView } from "./town";
@@ -420,6 +421,10 @@ export function checkinView(
       : null;
   if (suggestion) options.suggestions?.suggest(viewer, suggestion.id, today);
   const tryToday = suggestion?.id ?? null;
+  // Levels (RFC 0029): the short form of `GET /v1/progress`. Absent until levels open, so a
+  // check-in in a world without them is what it always was.
+  const levels = checkinProgress(state, viewer);
+  const progress = levels ? { progress: levels } : {};
 
   if (quiet && tryToday === null) {
     return {
@@ -433,6 +438,7 @@ export function checkinView(
       proposals: [],
       notices: [],
       coins,
+      ...progress,
       changelog: [],
       away: { items: [], refused: 0 },
       events: { soon: [], live: [] },
@@ -486,6 +492,7 @@ export function checkinView(
     proposals,
     notices,
     coins,
+    ...progress,
     changelog,
     ...(devlog ? { devlog } : {}),
     away: { items: away, refused: awayRefused },

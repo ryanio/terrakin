@@ -14,6 +14,7 @@ import { emptyNote, moreButton, stateCard } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import { setUnread } from "./bell";
+import { levelsLine } from "./levels";
 import { savedToken } from "./net";
 import { aThing, petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
@@ -37,6 +38,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   plot_admired: "sparkle",
   trick_or_treat: "candy",
   recipe_taught: "kitchen",
+  level_reached: "level",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -71,6 +73,7 @@ export function notificationLine(
     plot_admired: "admired your plot",
     trick_or_treat: "came trick-or-treating at your door",
     recipe_taught: `taught you ${n.recipe ? recipeWords(n.recipe).toLowerCase() : "a recipe"}`,
+    level_reached: "says you reached a level",
   };
   return { who, what: what[n.type] };
 }
@@ -137,13 +140,36 @@ function takedownPlace(t: TakedownView): { href: string; label: string } | null 
   return null;
 }
 
+/** What a notice from Terrakin itself says, and the links under it. */
+interface SystemWords {
+  icon: IconName;
+  line: string;
+  next: string | null;
+  links: { href: string; label: string }[];
+}
+
+/** The words for a notice from Terrakin itself, or null for a kind this client doesn't know. */
+function systemWords(n: NotificationView): SystemWords | null {
+  if (n.takedown) {
+    const place = takedownPlace(n.takedown);
+    return {
+      icon: ICONS.takedown,
+      ...takedownLine(n.takedown),
+      links: [...(place ? [place] : []), { href: LINKS.contact, label: "How to appeal" }],
+    };
+  }
+  if (n.levels && n.levels.length > 0) {
+    return { icon: ICONS.level_reached, ...levelsLine(n.levels), links: [] };
+  }
+  return null;
+}
+
 /**
  * A notice from Terrakin itself: no resident, no avatar, no profile to open. The excerpt (a hidden
  * post's start) is the resident's own words: text only.
  */
-function systemItem(n: NotificationView, t: TakedownView): HTMLElement {
-  const { line, next } = takedownLine(t);
-  const place = takedownPlace(t);
+function systemItem(n: NotificationView, words: SystemWords): HTMLElement {
+  const { line, next } = words;
   return h(
     "li",
     {},
@@ -153,11 +179,7 @@ function systemItem(n: NotificationView, t: TakedownView): HTMLElement {
         class: `notif notif-system paper${n.read ? "" : " unread"}`,
         attrs: { "data-type": n.type },
       },
-      h(
-        "span",
-        { class: "notif-icon system", attrs: { "aria-hidden": "true" } },
-        icon(ICONS.takedown),
-      ),
+      h("span", { class: "notif-icon system", attrs: { "aria-hidden": "true" } }, icon(words.icon)),
       h(
         "span",
         { class: "notif-body" },
@@ -174,23 +196,20 @@ function systemItem(n: NotificationView, t: TakedownView): HTMLElement {
           n.read ? null : h("span", { class: "visually-hidden", text: " (new)" }),
         ),
         n.excerpt ? h("span", { class: "notif-excerpt", text: n.excerpt }) : null,
-        h("span", { class: "notif-next", text: next }),
-        h(
-          "span",
-          { class: "cluster notif-links" },
-          place
-            ? h(
-                "a",
-                { class: "text-link", attrs: { href: place.href } },
-                h("span", { text: place.label }),
-              )
-            : null,
-          h(
-            "a",
-            { class: "text-link", attrs: { href: LINKS.contact } },
-            h("span", { text: "How to appeal" }),
-          ),
-        ),
+        next ? h("span", { class: "notif-next", text: next }) : null,
+        words.links.length > 0
+          ? h(
+              "span",
+              { class: "cluster notif-links" },
+              ...words.links.map((link) =>
+                h(
+                  "a",
+                  { class: "text-link", attrs: { href: link.href } },
+                  h("span", { text: link.label }),
+                ),
+              ),
+            )
+          : null,
       ),
     ),
   );
@@ -198,7 +217,8 @@ function systemItem(n: NotificationView, t: TakedownView): HTMLElement {
 
 /** One notification as a list item. */
 export function notificationItem(n: NotificationView): HTMLElement {
-  if (n.system && n.takedown) return systemItem(n, n.takedown);
+  const fromTerrakin = n.system ? systemWords(n) : null;
+  if (fromTerrakin) return systemItem(n, fromTerrakin);
   // Letters and gestures are private: they open your letters with that resident.
   const href = n.postId
     ? postPath(n.postId)

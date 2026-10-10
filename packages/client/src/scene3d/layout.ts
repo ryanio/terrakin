@@ -154,6 +154,7 @@ export const HAT_BAND: Partial<Record<WearItem, number>> = {
   beanie: 0.015,
   top_hat: 0.13,
   witch_hat: 0.13,
+  sun_hat: 0.13,
 };
 
 /** Hair styles that stand up past the head: a puff, spikes, a bun on top. */

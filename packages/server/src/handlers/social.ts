@@ -7,6 +7,7 @@ import { purseView } from "../coins";
 import { galleriesView } from "../galleries";
 import { gamesView, ladderView, tableView } from "../games";
 import { inventoryView } from "../items";
+import { progressView } from "../levels";
 import { marketView } from "../market";
 import { findPartner, partnerViews } from "../partners";
 import { checkinWithLinks, plotWithLinks, postWithLinks, profileWithLinks } from "../share-links";
@@ -257,6 +258,8 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         suggestions: social().checkins,
       }),
     }),
+    // Your own levels and points (RFC 0029): the token's resident, never one a request names.
+    getProgress: ({ viewer }) => ({ status: 200, body: progressView(service.state, viewer) }),
     getRoutines: ({ viewer, query }) => {
       const before = query.before === undefined ? undefined : Number(query.before.slice(2));
       // Without the social layer there's no away log, and nothing runs them.

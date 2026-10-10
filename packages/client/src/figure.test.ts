@@ -142,8 +142,8 @@ describe("drawn garments", () => {
   const bare = draw(base);
 
   it("draws every piece of wear, from every side it shows on", () => {
-    // From behind, an apron and glasses are hidden by the figure itself.
-    const front: readonly WearItem[] = ["apron", "glasses"];
+    // From behind, an apron, glasses, and a rosette on the chest are hidden by the figure itself.
+    const front: readonly WearItem[] = ["apron", "glasses", "winners_rosette"];
     for (const item of WEAR_ITEMS) {
       for (const facing of ["s", "n", "e"] as const) {
         if (facing === "n" && front.includes(item)) continue;

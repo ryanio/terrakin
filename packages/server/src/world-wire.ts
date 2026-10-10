@@ -49,9 +49,10 @@ import { nameKey } from "./text";
 
 /**
  * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
- * server. A gift also shows as a public `gift` event, without the amount or note, unless
- * townsfolk are on either side: their purses reset to the budget each day, so the public
- * treasury lines would give the amount away.
+ * server, and so does `event_credited`, the guest list the server sent the sim (RFC 0029). A gift
+ * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
+ * side: their purses reset to the budget each day, so the public treasury lines would give the
+ * amount away.
  */
 export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEvent[] {
   const out: WireEvent[] = [];
@@ -63,12 +64,7 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "maintainers_set" ||
       e.type === "implicit_presence_on" ||
       e.type === "event_ticked" ||
-      // Levels (RFC 0029) are in the sim and not on the API yet: no level event goes out.
-      e.type === "levels_opened" ||
-      e.type === "progress" ||
-      e.type === "level_reached" ||
-      e.type === "event_credited" ||
-      e.type === "title_changed"
+      e.type === "event_credited"
     ) {
       continue;
     }
@@ -152,20 +148,21 @@ export function holdBackNames(events: WireEvent[], hidden: (id: string) => boole
 }
 
 /**
- * Purse moves, inventory changes, wear bought at the shop, routines turned on or off, and recipes
- * learned (RFC 0024): each belongs to one resident alone.
+ * Purse moves, inventory changes, wear bought at the shop, routines turned on or off, recipes
+ * learned (RFC 0024), and points earned (RFC 0029): each belongs to one resident alone.
  */
 export const isPrivate = (
   e: WireEvent,
 ): e is Extract<
   WireEvent,
-  { type: "coins" | "inventory" | "wear_bought" | "routines_set" | "recipe_learned" }
+  { type: "coins" | "inventory" | "wear_bought" | "routines_set" | "recipe_learned" | "progress" }
 > =>
   e.type === "coins" ||
   e.type === "inventory" ||
   e.type === "wear_bought" ||
   e.type === "routines_set" ||
-  e.type === "recipe_learned";
+  e.type === "recipe_learned" ||
+  e.type === "progress";
 
 /**
  * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
@@ -353,6 +350,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
+    ...(state.progress ? { levelsOpen: true as const } : {}),
     ...(state.events?.list.some(eventOpen)
       ? {
           events: state.events.list.filter(eventOpen).map((e) => ({

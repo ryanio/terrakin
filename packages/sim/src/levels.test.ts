@@ -16,11 +16,13 @@ import {
   PROGRESS,
   pointsFor,
   pointsOf,
+  skillUnlocks,
   TITLE_INFO,
   titleOf,
   UNLOCKS,
+  unlockedBy,
 } from "./levels";
-import { EARNED_WEAR, EARNED_WEAR_INFO, WEAR_ITEMS } from "./looks";
+import { EARNED_WEAR, isShopWear, WEAR_INFO, WEAR_ITEMS } from "./looks";
 import { replay } from "./replay";
 import { dayOfDate, weekStart } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
@@ -311,15 +313,18 @@ describe("the numbers", () => {
       ).toHaveLength(1);
     }
     // A garment's slot decides which wear lists a logged profile may hold, so it's pinned.
-    expect(EARNED_WEAR.map((wear) => [wear, EARNED_WEAR_INFO[wear].slot])).toEqual([
+    expect(EARNED_WEAR.map((wear) => [wear, WEAR_INFO[wear].slot])).toEqual([
       ["sun_hat", "hat"],
       ["tool_belt", "accessory"],
       ["field_vest", "top"],
       ["party_sash", "accessory"],
       ["winners_rosette", "accessory"],
     ]);
-    // Until the web draws them they're a list of their own, which no wear enum is built from.
-    for (const wear of EARNED_WEAR) expect(WEAR_ITEMS as readonly string[]).not.toContain(wear);
+    // They're wear like the rest, and the shop never sells one.
+    for (const wear of EARNED_WEAR) {
+      expect(WEAR_ITEMS as readonly string[]).toContain(wear);
+      expect(isShopWear(wear), wear).toBe(false);
+    }
   });
 
   it("give each kind's first to one skill, and none to what a deed never makes", () => {
@@ -1192,10 +1197,9 @@ describe("earned wear", () => {
     expect(w.code("ada", wear("tool_belt", "party_sash"))).toBe("invalid_profile");
     w.ok("ada", wear("winners_rosette", "field_vest", "sun_hat"));
     expect(w.state.residents.ada?.wear).toEqual(["sun_hat", "field_vest", "winners_rosette"]);
-    // It takes no style of its own until the web draws it.
-    expect(
-      w.code("ada", { type: "profile", wearStyle: { sun_hat: { color: "sun" } } } as Command),
-    ).toBe("invalid_profile");
+    // It takes a color and a pattern of its own, like any wear.
+    w.ok("ada", { type: "profile", wearStyle: { sun_hat: { color: "sun" } } });
+    expect(w.state.residents.ada?.wearStyle).toEqual({ sun_hat: { color: "sun" } });
   });
 
   it("is checked when a resident joins, too", () => {
@@ -1214,6 +1218,40 @@ describe("earned wear", () => {
   it("is nobody's before levels open", () => {
     const w = levels({ open: false });
     expect(w.code("ada", wear("sun_hat"))).toBe("not_earned");
+  });
+});
+
+describe("what a resident has unlocked", () => {
+  it("lists exactly the titles and garments profile takes, lowest level first in each skill", () => {
+    const w = levels();
+    setPoints(w.state, "ada", "growing", pointsFor(UNLOCKS.wear));
+    setPoints(w.state, "ada", "making", pointsFor(UNLOCKS.title) - 1);
+    setPoints(w.state, "ada", "playing", pointsFor(UNLOCKS.master));
+    expect(unlockedBy(w.state, "ada")).toEqual([
+      { skill: "growing", level: 3, title: "gardener" },
+      { skill: "growing", level: 5, wear: "sun_hat" },
+      { skill: "playing", level: 3, title: "player" },
+      { skill: "playing", level: 5, wear: "winners_rosette" },
+      { skill: "playing", level: 10, title: "champion" },
+    ]);
+    // The list and the check agree for every title and garment, so a list read from here never
+    // offers what `profile` would refuse, or hides what it would take.
+    const listed = unlockedBy(w.state, "ada");
+    for (const title of TITLES) {
+      const taken = w.code("ada", { type: "profile", title }) === null;
+      expect(taken, title).toBe(listed.some((u) => u.title === title));
+    }
+    for (const item of EARNED_WEAR) {
+      const taken = w.code("ada", { type: "profile", wear: [item] }) === null;
+      expect(taken, item).toBe(listed.some((u) => u.wear === item));
+    }
+    // Nobody has unlocked anything before levels open.
+    expect(unlockedBy(levels({ open: false }).state, "ada")).toEqual([]);
+    expect(skillUnlocks("hosting").map((u) => u.title ?? u.wear)).toEqual([
+      "host",
+      "party_sash",
+      "grand_host",
+    ]);
   });
 });
 

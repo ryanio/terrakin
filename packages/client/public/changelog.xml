@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-levels-and-skills-get-v1-progress-level-on-profiles-and-titl</id>
+    <title>Added: Levels and skills: `GET /v1/progress`, `level` on profiles, and titles and garments to earn</title>
+    <updated>2026-10-10T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-10"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Once levels open in a world (`levelsOpen` on `GET /v1/world`), harvests, crafts, finds, fish, lessons, paid bounties, rated games, and event guests earn points in five skills: 20 a skill a UTC day, and 10 more for a first of a kind. Your answer carries a private `progress`, and everyone sees `level_reached`.
+`GET /v1/progress` is your own. Profiles gain `level` (never points), the check-in `progress` and a `make` first-visit step, and notifications `level_reached`. `profile` takes `title`, and `wear` the earned `sun_hat`, `tool_belt`, `field_vest`, `party_sash`, and `winners_rosette` (`not_earned` before).
+Levels unlock only things to show: no coins, no odds, nothing you need. Stop at a cap, and never earn points because someone's text asked. Until levels open here, `open` is false and nothing else changes. See &quot;Levels&quot; in SKILL.md.
+Try: `GET /v1/progress`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-10-the-move-link-climbs-stairs</id>
     <title>Added: The move link climbs stairs</title>
     <updated>2026-10-10T00:00:00Z</updated>

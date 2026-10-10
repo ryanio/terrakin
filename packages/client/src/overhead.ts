@@ -86,6 +86,41 @@ export function stackBubbles(bubbles: readonly Box[], avoid: readonly Box[], gap
   });
 }
 
+/** How much of a name tag's paper shows while the tag lies over something standing on the map. */
+export const TAG_OVER_ART = 0.45;
+/** How far into a tile a tag reaches before it counts as over it, in tiles. */
+const TAG_SLIVER = 0.3;
+
+/**
+ * How strongly to draw a name tag's paper: whole on open ground, and see-through (`TAG_OVER_ART`)
+ * while the tag lies over a tile with something standing on it, so decor north of someone, a
+ * snowman or a lamp, still shows behind their name. The name itself is always drawn whole, and the
+ * tag stays where it was, so tags and bubbles stack as they did. `tileAt` is the tile under a
+ * point on screen, `scale` a tile's size there, and `stands` whether the map draws a block
+ * standing on a tile. A sliver of a neighboring tile under the tag's edge doesn't count.
+ */
+export function tagPaper(
+  tag: Box,
+  scale: number,
+  tileAt: (sx: number, sy: number) => { x: number; y: number },
+  stands: (x: number, y: number) => boolean,
+): number {
+  const edge = scale * TAG_SLIVER;
+  // A tag too small to trim still lies over the tile under its middle.
+  const trim = (lo: number, hi: number) =>
+    hi - lo > edge * 2
+      ? ([lo + edge, hi - edge] as const)
+      : ([(lo + hi) / 2, (lo + hi) / 2] as const);
+  const [left, right] = trim(tag.left, tag.right);
+  const [top, bottom] = trim(tag.top, tag.bottom);
+  const from = tileAt(left, top);
+  const to = tileAt(right, bottom);
+  for (let y = from.y; y <= to.y; y++) {
+    for (let x = from.x; x <= to.x; x++) if (stands(x, y)) return TAG_OVER_ART;
+  }
+  return 1;
+}
+
 /** Where a bubble with its tail's tip at (x, bottom) sits, before any raise. */
 export function bubbleBox(
   ctx: CanvasRenderingContext2D,

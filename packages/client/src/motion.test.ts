@@ -1,5 +1,6 @@
 import { facingFrom, facingToward } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
+import { screenToTile } from "./camera";
 import {
   awayPose,
   BUMP_MS,
@@ -12,7 +13,7 @@ import {
   WALK_SPEED,
   wrapWords,
 } from "./motion";
-import { stackBubbles } from "./overhead";
+import { stackBubbles, TAG_OVER_ART, tagPaper } from "./overhead";
 
 const at = (x: number, y: number) => ({ id: "a", x, y });
 
@@ -314,6 +315,34 @@ describe("speech bubbles", () => {
     expect(100 - second + 20).toBeLessThanOrEqual(60 - 3);
     // Bubbles apart don't move.
     expect(stackBubbles([box(0, 100), box(200, 100)], [])).toEqual([0, 0]);
+  });
+
+  it("lets decor show through a name tag that lies over it, and only then", () => {
+    // A phone's map, 30 px a tile, looking at someone on (10, 10) with a tag where the map puts
+    // it: its foot just over their sprite, 19 px tall.
+    const cam = { cx: 10, cy: 10, scale: 30, width: 390, height: 844 };
+    const tileAt = (sx: number, sy: number) => screenToTile(cam, sx, sy);
+    const foot = 422 + 30 * 0.38 - 30 * 1.06 - 1;
+    const tag = (w: number, raise = 0) => ({
+      left: 195 - w / 2,
+      right: 195 + w / 2,
+      top: foot - 19 - raise,
+      bottom: foot - raise,
+    });
+    const paper = (box: ReturnType<typeof tag>, ...blocks: [number, number][]) =>
+      tagPaper(box, cam.scale, tileAt, (x, y) => blocks.some(([bx, by]) => bx === x && by === y));
+    // Open ground behind them: the tag as it always was.
+    expect(paper(tag(45))).toBe(1);
+    // A snowman on the tile north of them shows through.
+    expect(paper(tag(45), [10, 9])).toBe(TAG_OVER_ART);
+    expect(TAG_OVER_ART).toBeLessThan(1);
+    // Not what they stand on, what's two tiles north, or a wall a short name only brushes.
+    expect(paper(tag(45), [10, 10], [10, 8], [9, 9], [11, 9])).toBe(1);
+    // A long name does lie over the tiles beside it.
+    expect(paper(tag(100), [9, 9])).toBe(TAG_OVER_ART);
+    // Nudged up clear of a neighbor's tag, it's over the tile two north instead.
+    expect(paper(tag(45, 22), [10, 9])).toBe(1);
+    expect(paper(tag(45, 22), [10, 8])).toBe(TAG_OVER_ART);
   });
 
   it("forget residents who are gone", () => {

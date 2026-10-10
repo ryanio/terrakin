@@ -25,12 +25,20 @@ import {
 import { FEELING_ICON, type FeelingIcon, type FigureFace, signPx } from "@terrakin/ui/figure";
 import { type ArtKind, growth } from "@terrakin/ui/item-art";
 import { lookImage, withAlpha } from "@terrakin/ui/looks";
-import { type Camera, tileToScreen } from "./camera";
+import { type Camera, screenToTile, tileToScreen } from "./camera";
 import { eventLanterns } from "./event-format";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import type { Mirror } from "./mirror";
 import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
-import { type Box, bubbleBox, drawBubble, drawDust, drawPoof, stackBubbles } from "./overhead";
+import {
+  type Box,
+  bubbleBox,
+  drawBubble,
+  drawDust,
+  drawPoof,
+  stackBubbles,
+  tagPaper,
+} from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { type BlockSkin, paintBlock, paintCrop } from "./render/blocks";
 import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
@@ -752,6 +760,8 @@ export function render(
     rise?: number;
     /** Away, asleep at home or out on a routine: the tag and sign are drawn fainter, beside. */
     away?: boolean;
+    /** How much of the tag's paper shows (`tagPaper`): less over something standing behind it. */
+    paper?: number;
   }[] = [];
   const hall = tilesBox(mirror.townHall, cam);
   if (hall)
@@ -1002,6 +1012,18 @@ export function render(
     top: top + (tagH - small) / 2,
     bottom: top + (tagH + small) / 2,
   });
+  const tileAt = (sx: number, sy: number) => screenToTile(cam, sx, sy);
+  // What stands on a tile as the map draws it: a block on the highest storey shown there, with
+  // nothing on a floor laid over it. A pond lies flat in the ground.
+  const standsAt = (x: number, y: number) => {
+    const key = tileKey(x, y);
+    for (let s = upstairs ? tileShows(upstairs, S, cut, x, y).top : 0; s >= 0; s--) {
+      const block = mirror.blocksOn(s).get(key);
+      if (block) return block !== "pond";
+      if (s > 0 && mirror.pavingOn(s).has(key)) return false;
+    }
+    return false;
+  };
   labels.sort((a, b) => b.y - a.y || a.x - b.x);
   const placed: Box[] = [];
   const taken: Box[] = [];
@@ -1040,6 +1062,8 @@ export function render(
     taken.push(tag, ...(over ? [over] : []));
     widths.push(w);
     l.top = top;
+    // A resident's tag over decor behind them lets it show through.
+    if (l.who) l.paper = tagPaper(tag, scale, tileAt, standsAt);
   }
 
   // ---- what people are saying, as text, in bubbles over their tags and signs ----
@@ -1076,7 +1100,8 @@ export function render(
   for (const [i, l] of labels.entries()) {
     const top = l.top ?? l.y - tagH;
     const w = widths[i] ?? 0;
-    ctx.globalAlpha = l.away ? AWAY_TAG_ALPHA : 1;
+    const alpha = l.away ? AWAY_TAG_ALPHA : 1;
+    ctx.globalAlpha = alpha * (l.paper ?? 1);
     ctx.fillStyle = "rgba(74, 52, 28, 0.16)";
     ctx.beginPath();
     ctx.roundRect(l.x - w / 2, top + 1.5, w, tagH, tagH / 2);
@@ -1088,6 +1113,17 @@ export function render(
     ctx.roundRect(l.x - w / 2, top, w, tagH, tagH / 2);
     ctx.fill();
     ctx.stroke();
+    // The name is drawn whole, with a rim of paper where the tag is see-through, so it reads over
+    // whatever is behind it, after dark too.
+    ctx.globalAlpha = alpha;
+    if ((l.paper ?? 1) < 1) {
+      const join = ctx.lineJoin;
+      ctx.strokeStyle = PAPER;
+      ctx.lineWidth = 3;
+      ctx.lineJoin = "round";
+      ctx.strokeText(l.text, l.x, top + tagH / 2 + 0.5);
+      ctx.lineJoin = join;
+    }
     ctx.fillStyle = l.mine ? CLAY_DEEP : INK;
     ctx.fillText(l.text, l.x, top + tagH / 2 + 0.5);
   }

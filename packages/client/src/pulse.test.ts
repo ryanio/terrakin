@@ -14,6 +14,7 @@ import {
   townsfolkIds,
   townsfolkMode,
   type WallItem,
+  weatherReport,
   worldNews,
 } from "./pulse";
 
@@ -316,6 +317,23 @@ describe("world news", () => {
 });
 
 describe("words", () => {
+  it("says the season, the weather, and the next different weather with how long until it comes", () => {
+    // October 4, 2026 goes fog, clear, clear, cloudy from 13:00, rain from 18:00, clear from 21:00,
+    // and the 5th opens cloudy.
+    const at = (clock: string) => weatherReport(Date.parse(`2026-10-04T${clock}:00Z`));
+    expect(at("18:00")).toMatchObject({
+      season: "autumn",
+      weather: "rain",
+      now: "It's autumn, and it's raining.",
+      next: "Clear skies in about 3 hours.",
+    });
+    expect(at("19:55").next).toBe("Clear skies in about an hour.");
+    expect(at("20:40").next).toBe("Clear skies within the hour.");
+    // A second clear spell isn't a change, and tomorrow's first spell is next after the last.
+    expect(at("06:30")).toMatchObject({ weather: "clear", next: "Clouds in about 7 hours." });
+    expect(at("22:00").next).toBe("Clouds in about 2 hours.");
+  });
+
   it("names the time of day", () => {
     expect([0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.97].map(phaseName)).toEqual([
       "Dawn",

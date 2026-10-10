@@ -9,6 +9,7 @@ import {
   levelName,
   type SeasonName,
   type TakedownView,
+  WEATHER_WORDS,
   type WeatherName,
 } from "@terrakin/protocol";
 import {
@@ -47,15 +48,6 @@ import {
   showSection,
   untrusted,
 } from "./words";
-
-/** The weather in words, after "and". */
-const WEATHER_WORDS: Record<WeatherName, string> = {
-  clear: "the sky is clear",
-  cloudy: "it's cloudy",
-  rain: "it's raining",
-  fog: "it's foggy",
-  snow: "it's snowing",
-};
 
 /** "It's autumn in Terrakin, and it's raining.": the check-in's `season` and `weather` in a line. */
 const skyLine = (c: { season?: SeasonName | undefined; weather?: WeatherName | undefined }) =>

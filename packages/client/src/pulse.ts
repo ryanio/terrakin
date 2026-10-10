@@ -14,7 +14,8 @@ import type {
   TreasuryView,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { everyoneIn, heartCount, REAL_ENOUGH } from "@terrakin/protocol";
+import { everyoneIn, heartCount, REAL_ENOUGH, WEATHER_WORDS } from "@terrakin/protocol";
+import { clockHour, type Season, skyAt, type Weather, weatherSpells } from "@terrakin/sim";
 import { isMediaUrl, plural } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
@@ -367,6 +368,52 @@ export function coinNews(before: TreasuryView | null, after: TreasuryView | null
     }
   }
   return news.sort((a, b) => a.seq - b.seq).map(({ seq: _, ...n }) => n as CoinNews);
+}
+
+/** The weather on its way, before when. */
+const WEATHER_NEXT: Record<Weather, string> = {
+  clear: "Clear skies",
+  cloudy: "Clouds",
+  rain: "Rain",
+  fog: "Fog",
+  snow: "Snow",
+};
+
+const HOUR_MS = 3_600_000;
+
+export interface WeatherReport {
+  season: Season;
+  weather: Weather;
+  /** "It's autumn, and it's raining." */
+  now: string;
+  /** "Clear skies in about 2 hours.", or null while nothing else is coming today or tomorrow. */
+  next: string | null;
+}
+
+/**
+ * The sky in words at a moment on the server's clock: the season and the weather (the sim's
+ * `skyAt`, as the server reads it), and the next different weather with how long until it comes,
+ * from the same spells (`weatherSpells`). Weather keeps real hours, not the world's short days.
+ */
+export function weatherReport(serverMs: number, worldDay?: number): WeatherReport {
+  const { season, weather } = skyAt(serverMs, worldDay);
+  const { day, hour } = clockHour(serverMs);
+  // Today's spells still to come, then tomorrow's, in hours from today's midnight.
+  const ahead = [
+    ...weatherSpells(day).filter((s) => s.start > hour),
+    ...weatherSpells(day + 1).map((s) => ({ ...s, start: s.start + 24 })),
+  ];
+  const change = ahead.find((s) => s.weather !== weather);
+  const wait = change ? (day * 24 + change.start) * HOUR_MS - serverMs : 0;
+  const hours = Math.round(wait / HOUR_MS);
+  const when =
+    hours < 1 ? "within the hour" : hours === 1 ? "in about an hour" : `in about ${hours} hours`;
+  return {
+    season,
+    weather,
+    now: `It's ${season}, and ${WEATHER_WORDS[weather]}.`,
+    next: change ? `${WEATHER_NEXT[change.weather]} ${when}.` : null,
+  };
 }
 
 /** A name for the time of day in the world, from `dayPhase` (0 dawn, 0.25 noon, 0.5 dusk). */

@@ -22,7 +22,7 @@ import { everyVisible } from "@terrakin/ui/poll";
 import { tip } from "@terrakin/ui/tooltip";
 import { timeAgo } from "@terrakin/ui/when";
 import { plotThumb } from "./plot-thumb";
-import { type PulseStats, phaseName, type WallItem } from "./pulse";
+import { type PulseStats, phaseName, type WallItem, weatherReport } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
 import { visitTap } from "./visit-plot";
@@ -240,14 +240,20 @@ const rgb = (c: number[]) => `rgb(${c.map(Math.round).join(" ")})`;
 export function skyCard() {
   const orb = h("span", { class: "sky-orb", attrs: { "aria-hidden": "true" } });
   const name = h("h2", { class: "pulse-title sky-name" });
+  const report = h("p", { class: "sky-report" });
   const line = h("p", { class: "sky-line" });
-  // The sun and moon arc across their own strip, so they never cross the words.
+  // The sun and moon arc across their own strip, so they never cross the words. The weather is
+  // drawn there too: the card's `data-weather` shows the layers it brings (style.css).
   const scene = h(
     "div",
     { class: "sky-scene", attrs: { "aria-hidden": "true" } },
     h("span", { class: "sky-stars" }),
     orb,
+    h("span", { class: "sky-clouds" }),
     h("span", { class: "sky-hill" }),
+    h("span", { class: "sky-rain" }),
+    h("span", { class: "sky-snow" }),
+    h("span", { class: "sky-fog" }),
   );
   const el = pulseShell(
     "pulse-sky",
@@ -255,6 +261,7 @@ export function skyCard() {
     scene,
     h("p", { class: "eyebrow pulse-eyebrow sky-eyebrow", text: "In the world" }),
     name,
+    report,
     line,
     h(
       "a",
@@ -262,11 +269,12 @@ export function skyCard() {
       h("span", { text: "Step outside" }),
     ),
   );
-  let anchor: { serverMs: number; at: number; dayMs: number } | undefined;
+  let anchor: { serverMs: number; at: number; dayMs: number; day: number | undefined } | undefined;
   let online = 0;
   const paint = () => {
     if (!anchor) return;
-    const phase = dayPhase(anchor.serverMs + (performance.now() - anchor.at), anchor.dayMs);
+    const now = anchor.serverMs + (performance.now() - anchor.at);
+    const phase = dayPhase(now, anchor.dayMs);
     const night = nightAmount(phase);
     const edge = Math.min(Math.abs(phase), Math.abs(1 - phase), Math.abs(phase - 0.5));
     const glow = Math.max(0, 1 - edge / 0.09);
@@ -280,6 +288,9 @@ export function skyCard() {
     orb.style.bottom = `${18 + Math.sin(Math.PI * x) * 50}%`;
     el.classList.toggle("is-night", night > 0.55);
     name.textContent = `${phaseName(phase)} in Terrakin`;
+    const sky = weatherReport(now, anchor.day);
+    el.dataset.weather = sky.weather;
+    report.textContent = sky.next ? `${sky.now} ${sky.next}` : sky.now;
     const minutes = Math.round(anchor.dayMs / 60_000);
     const length = minutes < 120 ? `${minutes} minutes` : `${Math.round(minutes / 30) / 2} hours`;
     line.textContent = `A whole day here takes ${length}. ${
@@ -296,6 +307,7 @@ export function skyCard() {
         serverMs: snapshot.time.nowMs,
         at: performance.now(),
         dayMs: snapshot.time.dayLengthMs,
+        day: snapshot.day,
       };
       online = onlineNow;
       el.hidden = false;

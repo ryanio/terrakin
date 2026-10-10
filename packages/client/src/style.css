@@ -7410,14 +7410,46 @@ html.view3d-open body {
 
 /* The sky over the world, from the server's clock. */
 .pulse-sky {
+  /* How far the weather greys the sky, 0 to 1, and the grey it turns, darker by night. */
+  --sky-wash: 0;
+  --sky-grey: color-mix(in oklab, #a3adb8, #2b3046 calc(var(--night, 0) * 100%));
   position: relative;
   align-content: start;
   border-color: rgba(255, 255, 255, 0.4);
-  background: linear-gradient(180deg, var(--sky-top, #8ec9ea), var(--sky-low, #fdf3dc));
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--sky-top, #8ec9ea), var(--sky-grey) calc(var(--sky-wash) * 100%)),
+    color-mix(in oklab, var(--sky-low, #fdf3dc), var(--sky-grey) calc(var(--sky-wash) * 55%))
+  );
+}
+
+.pulse-sky[data-weather="cloudy"] {
+  --sky-wash: 0.45;
+}
+
+.pulse-sky[data-weather="rain"] {
+  --sky-wash: 0.7;
+}
+
+.pulse-sky[data-weather="snow"] {
+  --sky-wash: 0.5;
+}
+
+.pulse-sky[data-weather="fog"] {
+  --sky-wash: 0.35;
 }
 
 .sky-eyebrow {
   color: var(--clay-deep);
+}
+
+/* The season and the weather, and what's on its way. */
+.sky-report {
+  max-width: 34ch;
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
 }
 
 .sky-line {
@@ -7467,10 +7499,13 @@ html.view3d-open body {
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #fff6c8, var(--sun) 60%, #e08a2b);
   box-shadow: 0 0 22px 6px rgba(242, 184, 75, 0.45);
+  /* Dimmer behind cloud. */
+  opacity: calc(1 - var(--sky-wash) * 0.55);
   transform: translate(-50%, 50%);
   transition:
     left 2s linear,
-    bottom 2s linear;
+    bottom 2s linear,
+    opacity 2s ease;
   pointer-events: none;
 }
 
@@ -7482,7 +7517,8 @@ html.view3d-open body {
 .sky-stars {
   position: absolute;
   inset: 0;
-  opacity: var(--night, 0);
+  /* Out at night, and hidden by cloud. */
+  opacity: calc(var(--night, 0) * (1 - var(--sky-wash)));
   background-image:
     radial-gradient(1.5px 1.5px at 12% 22%, #fff, transparent),
     radial-gradient(1px 1px at 28% 48%, #fff, transparent),
@@ -7500,6 +7536,104 @@ html.view3d-open body {
   to {
     filter: brightness(1.6);
   }
+}
+
+/*
+ * The weather over the strip (decision 0073), each layer a tiled pattern that drifts or falls and
+ * shows under the card's `data-weather`. Still under reduced motion, like everything else.
+ */
+.sky-clouds,
+.sky-rain,
+.sky-snow,
+.sky-fog {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 2s ease;
+  pointer-events: none;
+}
+
+.sky-clouds {
+  --tile: 280px;
+  /* White by day, slate by night, and greyer the heavier the weather. */
+  --cloud: color-mix(in oklab, #fff, #2b3046 calc(var(--night, 0) * 60% + var(--sky-wash) * 25%));
+  background-image:
+    radial-gradient(ellipse 30px 13px at 44px 30px, var(--cloud) 96%, transparent),
+    radial-gradient(ellipse 20px 11px at 66px 35px, var(--cloud) 96%, transparent),
+    radial-gradient(ellipse 18px 9px at 24px 36px, var(--cloud) 96%, transparent),
+    radial-gradient(ellipse 34px 12px at 184px 16px, var(--cloud) 96%, transparent),
+    radial-gradient(ellipse 22px 10px at 210px 21px, var(--cloud) 96%, transparent),
+    radial-gradient(ellipse 18px 9px at 160px 22px, var(--cloud) 96%, transparent);
+  background-size: var(--tile) 100%;
+  animation: sky-drift 70s linear infinite;
+}
+
+.sky-fog {
+  --tile: 320px;
+  background-image:
+    radial-gradient(ellipse 90px 12px at 70px 60px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(ellipse 110px 11px at 236px 76px, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(ellipse 80px 9px at 150px 42px, rgba(255, 255, 255, 0.45), transparent);
+  background-size: var(--tile) 100%;
+  animation: sky-drift 90s linear infinite;
+}
+
+@keyframes sky-drift {
+  to {
+    background-position-x: var(--tile);
+  }
+}
+
+/* Drops, leaning with the wind. Wider than the strip so the lean leaves no bare corner. */
+.sky-rain {
+  inset: 0 -16px;
+  background-image:
+    radial-gradient(ellipse 1px 5px at 5px 7px, rgba(255, 255, 255, 0.8) 90%, transparent),
+    radial-gradient(ellipse 1px 5px at 15px 20px, rgba(255, 255, 255, 0.6) 90%, transparent);
+  background-size: 20px 26px;
+  transform: skewX(-10deg);
+  animation: sky-rain 0.7s linear infinite;
+}
+
+@keyframes sky-rain {
+  to {
+    background-position-y: 26px;
+  }
+}
+
+.sky-snow {
+  background-image:
+    radial-gradient(circle 1.5px at 8px 10px, #fff 90%, transparent),
+    radial-gradient(circle 1px at 26px 30px, rgba(255, 255, 255, 0.85) 90%, transparent),
+    radial-gradient(circle 1.5px at 38px 18px, rgba(255, 255, 255, 0.9) 90%, transparent);
+  background-size: 46px 44px;
+  animation: sky-snow 10s linear infinite;
+}
+
+/* One tile across and two down, so the loop has no jump. */
+@keyframes sky-snow {
+  to {
+    background-position: 46px 88px;
+  }
+}
+
+.pulse-sky[data-weather="cloudy"] .sky-clouds,
+.pulse-sky[data-weather="rain"] .sky-clouds,
+.pulse-sky[data-weather="snow"] .sky-clouds {
+  opacity: 0.9;
+}
+
+.pulse-sky[data-weather="fog"] .sky-clouds {
+  opacity: 0.35;
+}
+
+.pulse-sky[data-weather="rain"] .sky-rain {
+  opacity: 0.75;
+}
+
+.pulse-sky[data-weather="snow"] .sky-snow,
+.pulse-sky[data-weather="fog"] .sky-fog {
+  opacity: 1;
 }
 
 .pulse-town {

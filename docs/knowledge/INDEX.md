@@ -189,6 +189,7 @@ What we chose and why. Newest last.
 - [A home's levels are floors in the API and an upstairs in what players read, and storey is retired](decisions/0252-a-home-s-levels-are-floors-in-the-api-and-an-upstairs-in-wha.md) · 2026-10-10 · accepted · `sim` `protocol` `server` `client` `floors` `replay`
 - [One package, @terrakin/figure, is published to npm](decisions/0253-one-package-terrakin-figure-is-published-to-npm.md) · 2026-10-10 · accepted · `tooling` `client` `3d` `partners`
 - [A page asks for its data through one loader, and a refresh that fails leaves the page as it is](decisions/0254-a-page-asks-for-its-data-through-one-loader-and-a-refresh-th.md) · 2026-10-10 · accepted · `client` `design`
+- [A job pays 10 points and three count a week, the economy run with jobs says](decisions/0255-a-job-pays-10-points-and-three-count-a-week-the-economy-run-.md) · 2026-10-10 · accepted · `sim` `jobs` `numbers` `scripts`
 - [CI's deploy signs in for the replay check with an Access service token that reads the world log and nothing else](decisions/0257-ci-s-deploy-signs-in-for-the-replay-check-with-an-access-ser.md) · 2026-10-10 · accepted · `ci` `deploy` `security` `staff`
 
 ## Learnings

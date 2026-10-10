@@ -303,11 +303,13 @@ export {
 export {
   JOB_EDITIONS,
   JOB_GIVERS,
+  JOB_TITLE_INFO,
   JOBS,
   type Job,
   type JobDeed,
   type JobGiver,
   jobById,
+  jobsDone,
   jobsOn,
   soloJob,
 } from "./jobs";

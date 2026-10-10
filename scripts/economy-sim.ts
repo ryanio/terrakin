@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--no-jobs] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -27,6 +27,8 @@
  *   --no-levels  nobody earns points (RFC 0029): no `open_levels`, and none of what residents do
  *                for a level (finds, furniture, events, bounties, rated games, casting to the
  *                cap), so the month plays as it did before levels (the decision 0246 baseline)
+ *   --no-jobs    nobody takes a job (RFC 0030): no `open_jobs`, and none of what residents do for
+ *                one, so the month plays as it did before jobs (the decision 0255 baseline)
  *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
  *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
  *                picking what they like might, and leaves the goods to cards and lessons
@@ -36,16 +38,17 @@
  *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`), a key of
  *                RECIPES_RULES (`recipes.rotationTimes=4`, `recipes.pageOneIn=30`), or a key of
  *                FLOORS (`floors.price=120`, `floors.stairsWood=6`), or a key of PROGRESS
- *                (`progress.dailyCap=30`, `progress.step=20`)
+ *                (`progress.dailyCap=30`, `progress.step=20`), or a key of JOBS (`jobs.points=20`,
+ *                `jobs.perWeek=5`)
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
  * packages/sim/src/economy.ts, ITEMS in packages/sim/src/items.ts, the catalog and buy orders in
  * packages/sim/src/shop.ts, RECIPES_RULES in packages/sim/src/recipes.ts, FLOORS in
- * packages/sim/src/floors.ts, PROGRESS in packages/sim/src/levels.ts), so the script and the
- * rules can't drift. Karma is scored by the server's own `scoreKarma` with `KARMA` from the
+ * packages/sim/src/floors.ts, PROGRESS in packages/sim/src/levels.ts, JOBS and the jobs table in
+ * packages/sim/src/jobs.ts), so the script and the rules can't drift. Karma is scored by the server's own `scoreKarma` with `KARMA` from the
  * protocol, and the townsfolk teach the server's own specialties (`SPECIALTIES`). Change a number
  * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, 0186, 0210, 0242,
- * and 0246).
+ * 0246, and 0255).
  */
 import { execFileSync } from "node:child_process";
 import { registerHooks } from "node:module";
@@ -71,11 +74,15 @@ import type {
   DailyAward,
   GoodKind,
   Holiday,
+  Job,
+  JobDeed,
   RecipeName,
   SellKind,
   ShopSku,
   Skill,
   StackKind,
+  Station,
+  WorldEvent,
   WorldState,
 } from "../packages/sim/src/index.ts";
 
@@ -86,6 +93,7 @@ const {
   bountyHeld,
   BUY_ORDERS,
   CARD_RECIPES,
+  CATALOG,
   cardSeason,
   cardSku,
   chebyshev,
@@ -118,7 +126,14 @@ const {
   isShopWear,
   isReady,
   isWater,
+  JOB_EDITIONS,
+  JOB_TITLE_INFO,
+  JOBS,
+  jobById,
+  jobsDone,
+  jobsOn,
   joinTile,
+  knownByAll,
   knows,
   levelOf,
   levelsOf,
@@ -147,7 +162,9 @@ const {
   FLOORS,
   SWEET_KINDS,
   sameHousehold,
+  seasonOf,
   shelfOn,
+  soloJob,
   TIMES_OF_DAY,
   TOWN_ACTOR,
   dateOfDay,
@@ -161,6 +178,7 @@ const {
   visitTile,
   waterBeside,
   weatherAt,
+  weekStart,
   worldGround,
 } = await import("../packages/sim/src/index.ts");
 const { SPECIALTIES } = await import("../packages/server/src/lesson-plan.ts");
@@ -184,6 +202,9 @@ const { values: args } = parseArgs({
     "holiday-prices": { type: "string", default: "lower" },
     "no-floors": { type: "boolean", default: false },
     "no-levels": { type: "boolean", default: false },
+    "no-jobs": { type: "boolean", default: false },
+    // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
+    dump: { type: "boolean", default: false },
     picks: { type: "string", default: "sell" },
     set: { type: "string", multiple: true, default: [] },
   },
@@ -210,6 +231,8 @@ for (const pair of args.set ?? []) {
     (FLOORS as unknown as Mutable)[tail] = n;
   } else if (tail && head === "progress" && tail in PROGRESS) {
     (PROGRESS as unknown as Mutable)[tail] = n;
+  } else if (tail && head === "jobs" && tail in JOBS) {
+    (JOBS as unknown as Mutable)[tail] = n;
   } else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
     (ITEMS.shopPantry as Record<string, number>)[tail] = n;
   } else if (tail && (head === "price" || head === "buy" || head === "perDay")) {
@@ -231,6 +254,8 @@ const HOLIDAYS_ON = SHOP_OPEN && !args["no-holidays"];
 const FLOORS_ON = SHOP_OPEN && !args["no-floors"];
 /** Deeds earn points, and some residents play for them (RFC 0029). */
 const LEVELS_ON = SHOP_OPEN && !args["no-levels"];
+/** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
+const JOBS_ON = LEVELS_ON && !args["no-jobs"];
 if (args["holiday-prices"] !== "lower" && args["holiday-prices"] !== "before") {
   throw new Error("--holiday-prices is lower or before");
 }
@@ -287,6 +312,8 @@ const festive = draws(mulberry32(SEED ^ 0xb00));
 const building = draws(mulberry32(SEED ^ 0x5707));
 // Who plays for levels and how (RFC 0029): `--no-levels` draws none of it.
 const climbing = draws(mulberry32(SEED ^ 0x1e7e1));
+// Who takes jobs and what they do for one (RFC 0030): `--no-jobs` draws none of it.
+const working = draws(mulberry32(SEED ^ 0x10b5));
 
 // ---------- the rules ----------
 
@@ -320,7 +347,7 @@ interface Rules {
 }
 
 /** The real rules: every step is an input to the sim, exactly as the server would log it. */
-function simRules(residents = RESIDENTS): Rules {
+function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
   // A square of 8-tile plots with room for every resident, less the Commons.
   const side = Math.ceil(Math.sqrt(residents + 1)) + 1;
   const state = createWorld({
@@ -334,10 +361,15 @@ function simRules(residents = RESIDENTS): Rules {
   for (let py = 0; py < side; py++) {
     for (let px = 0; px < side; px++) if (!isCommons(state.config, px, py)) free.push([px, py]);
   }
-  const send = (actor: string, command: Command) => apply(state, { actor, command }).ok;
+  const send = (actor: string, command: Command) => {
+    const result = apply(state, { actor, command });
+    if (result.ok && JOBS_ON) hearJobs(heard, state, result.events);
+    return result.ok;
+  };
   const must = (actor: string, command: Command) => {
     const result = apply(state, { actor, command });
     if (!result.ok) throw new Error(`${actor} ${command.type}: ${result.rejection.message}`);
+    if (JOBS_ON) hearJobs(heard, state, result.events);
   };
   return {
     open() {
@@ -369,6 +401,7 @@ function simRules(residents = RESIDENTS): Rules {
         must(TOWN_ACTOR, { type: "open_bounties" });
         must(TOWN_ACTOR, { type: "open_levels", firsts: [] });
       }
+      if (JOBS_ON) must(TOWN_ACTOR, { type: "open_jobs" });
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -422,6 +455,11 @@ interface Habits {
   plays: number;
   /** Keeps casting past their habit until the day's casts or Foraging's cap run out. */
   climbs: boolean;
+  /**
+   * Takes the town's jobs (RFC 0030): `skills` when the board has one in a skill they play, `any`
+   * for any job they could do.
+   */
+  jobs: "none" | "skills" | "any";
   /**
    * The one skill they play in earnest, as a keen person or an AI on a schedule would, leaving the
    * other ways to play for levels alone (RFC 0029's gardeners, makers, foragers, hosts, and
@@ -1409,7 +1447,10 @@ function hostingDay(rules: Rules, active: readonly string[], byId: Map<string, P
     const keen = neighbors.filter((n) => byId.get(n)?.habits.focus === "hosting");
     if (age(id) % 7 === 3) {
       // Someone hosting in earnest goes to every neighbor's event; the rest come now and then.
-      const guests = neighbors.filter((n) => keen.includes(n) || climbing.chance(COMES));
+      // And so does a neighbor who holds Otis's guest job (RFC 0030), after the same draw.
+      const guests = neighbors.filter(
+        (n) => keen.includes(n) || climbing.chance(COMES) || holding(state, n, "guest"),
+      );
       const counted = holdEvent(rules, id, guests, 18, age);
       if (counted) {
         gatherings.events++;
@@ -1419,7 +1460,9 @@ function hostingDay(rules: Rules, active: readonly string[], byId: Map<string, P
     }
     if (age(id) % 7 === 5) {
       // And takes any bounty going.
-      const claimant = keen[0] ?? climbing.pick(neighbors);
+      const anyone = keen[0] ?? climbing.pick(neighbors);
+      // A neighbor who holds Otis's bounty job (RFC 0030) is the one who asks for it.
+      const claimant = neighbors.find((n) => holding(state, n, "bounty")) ?? anyone;
       const reward = climbing.between(5, 10);
       if (claimant && payBounty(rules, id, claimant, reward)) gatherings.bounties++;
     }
@@ -1669,6 +1712,379 @@ function lab() {
   };
 }
 
+// ---------- jobs (RFC 0030) ----------
+
+/**
+ * Who takes jobs, by how often they come back. Guesses, not measurements: about half the regulars
+ * take a job when the board has one in a skill they already play, fewer of those who come by
+ * less, and a few take any job they could do, in a skill they play or not. Everyone playing one
+ * skill in earnest takes that skill's jobs. The sim's bounds cap them whatever they are.
+ */
+const JOB_TAKERS: Record<Kind, number> = { regular: 0.5, visitor: 0.3, drifter: 0.15, oneday: 0 };
+const JOB_ANY: Record<Kind, number> = { regular: 0.1, visitor: 0.05, drifter: 0, oneday: 0 };
+/** Days a resident keeps a job they haven't finished before swapping it for one on today's board. */
+const JOB_PATIENCE = 2;
+
+/** What happened to jobs in one world, heard from the events of every input the sim took. */
+interface JobCounts {
+  taken: Map<string, number>;
+  done: Map<string, number>;
+  dropped: Map<string, number>;
+  lapsed: Map<string, number>;
+  /** Jobs each resident finished on each world day, and in each UTC week, by `id:day`. */
+  byDay: Map<string, number>;
+  byWeek: Map<string, number>;
+  /** The world days each resident finished a job on. */
+  days: Map<string, number[]>;
+}
+const jobCounts = (): JobCounts => ({
+  taken: new Map(),
+  done: new Map(),
+  dropped: new Map(),
+  lapsed: new Map(),
+  byDay: new Map(),
+  byWeek: new Map(),
+  days: new Map(),
+});
+/** The month's own counts. `jobsLab` keeps its own. */
+const monthJobs = jobCounts();
+const bump = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
+
+function hearJobs(counts: JobCounts, state: WorldState, events: readonly WorldEvent[]) {
+  const day = state.day ?? 0;
+  for (const e of events) {
+    if (e.type === "job_taken") bump(counts.taken, e.job);
+    else if (e.type === "job_dropped") bump(e.lapsed ? counts.lapsed : counts.dropped, e.job);
+    else if (e.type === "job_done") {
+      bump(counts.done, e.job);
+      bump(counts.byDay, `${e.residentId}:${day}`);
+      bump(counts.byWeek, `${e.residentId}:${weekStart(day)}`);
+      counts.days.set(e.residentId, [...(counts.days.get(e.residentId) ?? []), day]);
+    }
+  }
+}
+
+/** The skills a resident's habits have them play. */
+const PLAYS: Record<Skill, (h: Habits) => boolean> = {
+  growing: (h) => h.gardens,
+  making: (h) => h.makes || h.gardens,
+  foraging: (h) => h.casts > 0 || h.forages,
+  hosting: (h) => h.hosts,
+  playing: (h) => h.plays > 0,
+};
+
+/** Everyone's habits by id, filled as the month's residents are drawn. */
+const habitsOf = new Map<string, Habits>();
+const byHabit = (id: string) => habitsOf.get(id);
+
+/** The job a resident holds, if any. */
+function heldJob(state: WorldState, id: string): Job | undefined {
+  const held = state.jobs?.held?.[id];
+  return held ? jobById(held.job) : undefined;
+}
+const holding = (state: WorldState, id: string, deed: JobDeed["type"]) =>
+  heldJob(state, id)?.deed?.type === deed;
+
+/** Whether the sim would let a resident take a job now: none finished today, under three this week. */
+function mayTake(state: WorldState, id: string): boolean {
+  const jobs = state.jobs;
+  if (!jobs || jobs.doneToday?.includes(id)) return false;
+  const week = jobs.week;
+  const done = week && week.start === weekStart(state.day ?? 0) ? (week.done[id] ?? 0) : 0;
+  return done < JOBS.perWeek;
+}
+
+/** What a recipe's things are made of and where, for the first kind of it a resident could make now. */
+function makeable(state: WorldState, id: string, recipe: RecipeName) {
+  const kinds = (Object.keys(CATALOG) as (keyof typeof CATALOG)[]).filter((kind) => {
+    const entry = CATALOG[kind] as { recipe?: unknown };
+    return entry.recipe !== undefined && recipeOf(kind as GoodKind) === recipe;
+  });
+  const needsOf = (kind: string) =>
+    (CATALOG[kind as keyof typeof CATALOG] as { recipe: { station: Station; needs: object } })
+      .recipe;
+  const short = (kind: string) =>
+    (Object.entries(needsOf(kind).needs) as [StackKind, number][]).filter(
+      ([k, n]) => holds(state, id, k) < n,
+    );
+  const kind = kinds.find((k) => short(k).length === 0) ?? kinds[0];
+  return kind === undefined ? undefined : { kind, ...needsOf(kind), short: short(kind) };
+}
+
+/** Whether any tile within reach of a hearth is `wanted`. */
+function nearHearth(state: WorldState, id: string, wanted: (x: number, y: number) => boolean) {
+  const hearth = state.residents[id]?.hearth;
+  if (!hearth) return false;
+  const { reach } = state.config;
+  for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+    for (let x = hearth.x - reach; x <= hearth.x + reach; x++) if (wanted(x, y)) return true;
+  }
+  return false;
+}
+
+/** Residents with a hearth within two plots of `id`'s, outside their household, around or not. */
+function nearbyHomes(state: WorldState, id: string): string[] {
+  return neighborsOf(
+    state,
+    id,
+    Object.values(state.residents)
+      .filter((r) => r.hearth)
+      .map((r) => r.id),
+  );
+}
+
+/**
+ * Whether a resident has what a recipe's thing is made of: everything in hand, or the wood and
+ * stone it lacks lying within reach today.
+ */
+function hasTheMakings(state: WorldState, id: string, recipe: RecipeName): boolean {
+  const made = makeable(state, id, recipe);
+  if (!made) return false;
+  const lying = new Map<string, number>();
+  nearHearth(state, id, (x, y) => {
+    const kind = pickupLeft(state, x, y);
+    if (kind === "wood" || kind === "stone") lying.set(kind, (lying.get(kind) ?? 0) + 1);
+    return false;
+  });
+  return made.short.every(
+    ([kind, n]) =>
+      (kind === "wood" || kind === "stone") && holds(state, id, kind) + (lying.get(kind) ?? 0) >= n,
+  );
+}
+
+/** How many of a resident's planters hold one of `crops`, at any age. */
+function planted(
+  state: WorldState,
+  id: string,
+  crops: readonly Crop[],
+  planters: Map<string, Set<string>>,
+): number {
+  return [...(planters.get(id) ?? [])].filter((key) => {
+    const crop = state.items?.crops[key]?.crop;
+    return crop !== undefined && crops.includes(crop);
+  }).length;
+}
+
+/** Whether a find a job would count lies within reach of a resident's hearth today. */
+function findLies(state: WorldState, id: string, d: Extract<JobDeed, { type: "find" }>): boolean {
+  return nearHearth(state, id, (x, y) => {
+    const kind = pickupLeft(state, x, y);
+    if (!isFindKind(kind) && kind !== RECIPE_PAGE) return false;
+    if (d.biome !== undefined && biomeAt(state.config, x, y) !== d.biome) return false;
+    return d.kinds === undefined || (d.kinds as readonly string[]).includes(kind);
+  });
+}
+
+/**
+ * Whether a resident could do a job from where they live, with what they have and know. A harvest
+ * takes a garden, and a named crop enough of it in their planters already (someone who takes any
+ * job buys its seed when they can afford it). Something made takes its recipe and its makings. A find takes one
+ * lying within reach today, a fish a rod, a lesson a neighbor who lacks something they know, a
+ * guest's or a bounty's job a neighbor who hosts, a host's job the habit and neighbors to come,
+ * and a game the habit, or the will to take any job.
+ */
+function ableTo(
+  state: WorldState,
+  p: Person,
+  job: Job,
+  planters: Map<string, Set<string>>,
+): boolean {
+  const h = p.habits;
+  const { id } = p;
+  const day = state.day ?? 0;
+  const mine = state.items?.inventories[id];
+  if (job.bring !== undefined) {
+    const { bring } = job;
+    const kept = mine?.goods.some((g) => g.maker === id && recipeOf(g.kind as GoodKind) === bring);
+    return knows(state, id, bring) && (kept === true || hasTheMakings(state, id, bring));
+  }
+  const d = job.deed;
+  switch (d.type) {
+    case "harvest": {
+      if (!h.gardens) return false;
+      if (d.crops === undefined || planted(state, id, d.crops, planters) >= d.count) return true;
+      return (
+        h.jobs === "any" &&
+        SHOP_OPEN &&
+        d.crops.some((c) => {
+          const seed = CROP_INFO[c].seed;
+          return onSale(seed, day) && coinsOf(state, id) >= SHOP_CATALOG[seed].price * d.count + 10;
+        })
+      );
+    }
+    case "craft":
+      return knows(state, id, d.recipe) && hasTheMakings(state, id, d.recipe);
+    case "find":
+      return findLies(state, id, d);
+    case "fish":
+      return h.casts > 0 && holdsRod(mine);
+    case "teach":
+      return nearbyHomes(state, id).some((n) => teachable(state, id, n).length > 0);
+    case "guest":
+    case "bounty":
+      return nearbyHomes(state, id).some((n) => byHabit(n)?.hosts === true);
+    case "host":
+      return h.hosts && nearbyHomes(state, id).length >= d.guests;
+    case "game":
+      return h.plays > 0 || h.jobs === "any";
+  }
+}
+
+/** Whether a resident would take a job: any they could do, or only ones in a skill they play. */
+const wouldTake = (p: Person, job: Job) =>
+  p.habits.jobs === "any" ||
+  (p.habits.focus ? job.skill === p.habits.focus : PLAYS[job.skill](p.habits));
+
+/**
+ * A job taker's first thing at home: take the first of today's jobs they'd take and could do. One
+ * they've held `JOB_PATIENCE` days without finishing is let go when today has another for them,
+ * unless it's a harvest, which waits for what's growing.
+ */
+function takeJob(rules: Rules, p: Person, planters: Map<string, Set<string>>) {
+  const { state } = rules;
+  if (p.habits.jobs === "none" || !state.jobs || !mayTake(state, p.id)) return;
+  const held = state.jobs.held?.[p.id];
+  if (held) {
+    const stale = (state.day ?? 0) - held.day >= JOB_PATIENCE;
+    if (!stale || jobById(held.job)?.deed?.type === "harvest") return;
+  }
+  const next = jobsOn(state).find(
+    (job) => job.id !== held?.job && wouldTake(p, job) && ableTo(state, p, job, planters),
+  );
+  if (!next) return;
+  if (held) rules.send(p.id, { type: "drop_job" });
+  rules.send(p.id, { type: "take_job", job: next.id });
+}
+
+/** A resident's own kitchen or workbench within reach of their hearth, placed now if they have none. */
+function stationFor(rules: Rules, id: string, block: Station) {
+  const { state } = rules;
+  const hearth = state.residents[id]?.hearth;
+  if (!hearth) return undefined;
+  for (const [key, b] of Object.entries(state.blocks)) {
+    const [x = 0, y = 0] = key.split(",").map(Number);
+    const near = Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y)) <= state.config.reach;
+    if (b === block && near) return { x, y };
+  }
+  const tile = gardenTiles(state, id)[0];
+  return tile && rules.send(id, { type: "place", ...tile, block }) ? tile : undefined;
+}
+
+/** Make one of a recipe's things for a job, picking up the wood and stone it takes near home. */
+function makeForJob(rules: Rules, id: string, recipe: RecipeName): boolean {
+  const { state } = rules;
+  const hearth = state.residents[id]?.hearth;
+  if (!hearth) return false;
+  let made = makeable(state, id, recipe);
+  if (made?.short.some(([k]) => k === "wood" || k === "stone")) {
+    const { reach } = state.config;
+    for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+      for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
+        const lying = pickupLeft(state, x, y);
+        if (made.short.some(([k]) => k === lying)) rules.send(id, { type: "gather", x, y });
+      }
+    }
+    made = makeable(state, id, recipe);
+  }
+  if (!made || made.short.length > 0) return false;
+  const at = stationFor(rules, id, made.station);
+  return at !== undefined && rules.send(id, { type: "craft", recipe: made.kind, ...at } as Command);
+}
+
+/**
+ * What a job taker does for the job they hold. First thing at home (`early`), before the garden's
+ * crops and jars go into what the town buys: make its thing, and hand it in when that's what it
+ * asks. Then, after their day's own habits, which may have moved it already: the same again with
+ * what the day brought in; the crop it asks for planted, its seed bought, by someone who takes any
+ * job; the finds within reach picked up; or more casts for the fish. Jobs with a neighbor are the
+ * day's later rounds (`jobsDay`).
+ */
+function workJob(rules: Rules, p: Person, planters: Map<string, Set<string>>, early = false) {
+  const { state } = rules;
+  const { id } = p;
+  const job = heldJob(state, id);
+  const hearth = state.residents[id]?.hearth;
+  const day = state.day ?? 0;
+  if (!job || !hearth) return;
+  if (job.bring !== undefined) {
+    // One they made earlier and kept will do. Otherwise one more.
+    if (!rules.send(id, { type: "hand_in" }) && makeForJob(rules, id, job.bring)) {
+      rules.send(id, { type: "hand_in" });
+    }
+    return;
+  }
+  const d = job.deed;
+  if (d.type === "craft") makeForJob(rules, id, d.recipe);
+  if (early) return;
+  if (d.type === "find") goForage(rules, id);
+  if (d.type === "harvest" && d.crops && planted(state, id, d.crops, planters) < d.count) {
+    const [crop] = d.crops;
+    if (!crop) return;
+    const seed = CROP_INFO[crop].seed;
+    if (!SHOP_OPEN || !onSale(seed, day)) return;
+    if (coinsOf(state, id) < SHOP_CATALOG[seed].price * d.count + 10) return;
+    if (!buy(rules, id, seed, d.count)) return;
+    const mine = planters.get(id) ?? new Set<string>();
+    planters.set(id, mine);
+    for (let i = 0; i < d.count; i++) {
+      const tile = gardenTiles(state, id)[0];
+      if (!tile || !rules.send(id, { type: "place", ...tile, block: "planter" })) break;
+      mine.add(tileKey(tile.x, tile.y));
+      rules.send(id, { type: "plant", ...tile, seed: crop });
+    }
+  }
+  if (d.type === "fish") {
+    for (let i = castsToday(state, id); i < FISHING.castsPerDay && heldJob(state, id); i++) {
+      if (inventorySize(state.items?.inventories[id]) > ITEMS.inventoryMax - 50) break;
+      const roll = working.between(0, FISHING.outOf - 1);
+      const weather = weatherAt(day, working.between(0, 23));
+      const timeOfDay = working.pick(TIMES_OF_DAY) ?? "day";
+      if (rules.send(id, { type: "fish", roll, weather, timeOfDay })) tally.casts++;
+    }
+  }
+}
+
+/**
+ * The day's jobs with a neighbor, once everyone around has been home and the day's events, bounties,
+ * and games are done. Whoever holds Otis's lesson job teaches a neighbor who lacks something they
+ * know. Whoever holds his host job holds an event today, and neighbors who hold his guest job come,
+ * with the rest coming now and then. And whoever holds one of Pip's jobs and hasn't a habit of
+ * playing sits down with another like them, or with a player who's around.
+ */
+function jobsDay(rules: Rules, active: readonly string[], byId: Map<string, Person>) {
+  const { state } = rules;
+  const day = today(state);
+  const age = (id: string) => day - (byId.get(id)?.arrives ?? day);
+  const housed = active.filter((id) => state.residents[id]?.hearth);
+  for (const id of housed) {
+    if (!holding(state, id, "teach") || teachingToday(state, id) > 0) continue;
+    const learner = neighborsOf(state, id, housed).find(
+      (n) => taughtToday(state, n) === 0 && teachable(state, id, n).length > 0,
+    );
+    const recipe = learner && teachable(state, id, learner)[0];
+    if (learner && recipe && meet(rules, id, learner)) {
+      rules.send(id, { type: "teach", recipe, to: learner });
+    }
+    rules.home(id);
+  }
+  for (const id of housed) {
+    if (!holding(state, id, "host") || age(id) < GUEST_MIN_AGE_DAYS) continue;
+    const guests = neighborsOf(state, id, housed).filter(
+      (n) => working.chance(COMES) || holding(state, n, "guest"),
+    );
+    holdEvent(rules, id, guests, 20, age);
+  }
+  const sitters = housed.filter(
+    (id) => holding(state, id, "game") && (byId.get(id)?.habits.plays ?? 0) === 0,
+  );
+  const players = housed.filter((id) => (byId.get(id)?.habits.plays ?? 0) > 0);
+  while (sitters.length > 0) {
+    const seat = sitters.shift() as string;
+    const other = sitters.shift() ?? working.pick(players.filter((id) => id !== seat));
+    if (other) playGame(rules, [seat, other], working);
+  }
+}
+
 // ---------- the population ----------
 
 /**
@@ -1783,11 +2199,20 @@ function population(): Person[] {
         hosts: LEVELS_ON && climbing.chance(HOSTS[kind]),
         plays: LEVELS_ON && climbing.chance(PLAYERS[kind]) ? climbing.between(1, 4) : 0,
         climbs: LEVELS_ON && climbing.chance(CLIMBERS[kind]),
+        jobs: "none",
       },
     });
     const p = people.at(-1);
     if (p && LEVELS_ON && kind === "regular" && climbing.chance(FOCUSED)) {
       focusOn(p.habits, climbing.pick(SKILLS) ?? "growing");
+    }
+    // From their own stream, two draws a resident, so `--no-jobs` leaves everyone else's month as
+    // it was. Someone playing one skill in earnest takes its jobs.
+    if (p && JOBS_ON) {
+      const any = working.chance(JOB_ANY[kind]);
+      const some = working.chance(JOB_TAKERS[kind]);
+      p.habits.jobs = p.habits.focus ? "skills" : any ? "any" : some ? "skills" : "none";
+      habitsOf.set(p.id, p.habits);
     }
   }
   return people;
@@ -1854,12 +2279,17 @@ function play(rules: Rules) {
   const settled = new Set<string>();
   const planters = new Map<string, Set<string>>();
   const atHome = (p: Person) => {
+    if (JOBS_ON) {
+      takeJob(rules, p, planters);
+      workJob(rules, p, planters, true);
+    }
     if (RECIPES_ON) learnAtHome(rules, p.id, p.habits, planters);
     if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
     if (p.habits.casts > 0) goFishing(rules, p.id, p.habits);
     if (p.habits.builds) goBuild(rules, p.id, p.habits);
     if (p.habits.forages) goForage(rules, p.id);
     if (p.habits.makes) goMake(rules, p.id, p.habits);
+    if (JOBS_ON) workJob(rules, p, planters);
     // A holiday's things sell only while it runs, so they come before the rest of the wish list.
     if (HOLIDAYS_ON) keepHoliday(rules, p);
     goShopping(rules, p.id, p.habits);
@@ -1930,6 +2360,7 @@ function play(rules: Rules) {
       hostingDay(rules, active, byId);
       playingDay(rules, active, byId);
     }
+    if (JOBS_ON) jobsDay(rules, active, byId);
 
     // Residents tip each other now and then. Not on their first day: the rules refuse that.
     const veterans = active.filter((id) => !arrived.includes(id));
@@ -2318,12 +2749,444 @@ function levelLines(rules: Rules, people: Person[], rows: Row[]) {
   }
 }
 
+/**
+ * What RFC 0030's first and fifth checks need that a month of ordinary residents doesn't show, in
+ * a small world of its own. Two accounts with a kitchen, a workbench, a rod, and a pond, handed
+ * whatever a job's thing is made of: one plays every day and takes a job whenever the sim lets it,
+ * the other plays the last three days of each UTC week. A household of a person and two AIs hold
+ * the day's job with neighbors and teach, pay, host, and play each other, and pass a jar one of
+ * them made around for Clem's job. And a ring of ten fresh accounts hold the same jobs and do all
+ * of that among themselves, with real choices at the game table.
+ */
+function jobsLab() {
+  const counts = jobCounts();
+  const rules = simRules(40, counts);
+  const { state } = rules;
+  rules.open();
+  const daily = "j_daily";
+  const three = "j_three";
+  const pat = "j_pat";
+  const ais = ["j_ai1", "j_ai2"];
+  const trio = [pat, ...ais];
+  const ring = Array.from({ length: 10 }, (_, i) => `j_ring${i}`);
+  const everyone = [daily, three, ...trio, ...ring];
+  for (const id of everyone) rules.join(id);
+  rules.setOwnerPairs(ais.map((ai) => [ai, pat].sort() as [string, string]));
+  for (const id of [daily, three]) anglers.add(id);
+  for (const id of everyone) rules.settle(id);
+  for (const id of everyone) rules.home(id);
+  const grant = (to: string, stacks: Partial<Record<string, number>>) =>
+    rules.send(TOWN_ACTOR, { type: "test_grant", to, stacks });
+  for (const id of [daily, three]) {
+    const hearth = state.residents[id]?.hearth ?? { x: 0, y: 0 };
+    grant(id, { wood: ROD_WOOD, stone: POND.stone });
+    const bench = stationFor(rules, id, "workbench");
+    if (bench) rules.send(id, { type: "craft", recipe: FISHING_ROD, ...bench });
+    rules.send(id, { type: "place", ...pondTile(hearth), block: "pond" });
+  }
+  // Free picks, three cards each off today's shelf, so the household and the ring have lessons.
+  for (const id of [...trio, ...ring]) {
+    while (picksLeft(state, id) > 0) {
+      const recipe = working.pick(shelfOn(state.day ?? 0).filter((r) => !knows(state, id, r)));
+      if (!recipe || !rules.send(id, { type: "pick_recipe", recipe })) break;
+    }
+  }
+  const done = (id: string) => counts.days.get(id)?.length ?? 0;
+
+  /**
+   * Take one of today's jobs and finish it today: a fish job, cast at the hour it asks for, or
+   * something to make, from what it takes handed over, with its card bought if it has one.
+   */
+  const finishOne = (id: string): boolean => {
+    for (const job of jobsOn(state)) {
+      const recipe = job.bring ?? (job.deed?.type === "craft" ? job.deed.recipe : undefined);
+      if (recipe === undefined && job.deed?.type !== "fish") continue;
+      if (recipe !== undefined && !knows(state, id, recipe)) {
+        rules.send(TOWN_ACTOR, { type: "test_grant", to: id, coins: recipeCardPrice(recipe) });
+        if (!rules.send(id, { type: "shop_buy", sku: cardSku(recipe) })) continue;
+      }
+      if (!rules.send(id, { type: "take_job", job: job.id })) return false;
+      if (job.deed?.type === "fish") {
+        const timeOfDay = job.deed.timeOfDay ?? "day";
+        for (let i = 0; i < job.deed.count; i++) {
+          // A roll past the boot's share and inside the minnow's: a fish at any hour, in any season.
+          rules.send(id, { type: "fish", roll: 600, weather: "clear", timeOfDay });
+        }
+      } else if (recipe !== undefined) {
+        const made = makeable(state, id, recipe);
+        if (made) grant(id, Object.fromEntries(made.short.map(([k, n]) => [k, n])));
+        makeForJob(rules, id, recipe);
+        if (job.bring !== undefined) rules.send(id, { type: "hand_in" });
+      }
+      return heldJob(state, id) === undefined;
+    }
+    return false;
+  };
+  /** The last three days of each UTC week that fall in the month. */
+  const threeDays = new Set<number>();
+  for (let d = DAYS - 1; d >= 0; d--) {
+    const week = weekStart(DAY0 + d);
+    const inWeek = [...threeDays].filter((day) => weekStart(DAY0 + day) === week).length;
+    if (inWeek < 3) threeDays.add(d);
+  }
+  /** The month's day each of the two finished their tenth job, which is a title. */
+  const titleDay = new Map<string, number>();
+  let turnedAway = 0;
+
+  /** Hold today's job with neighbors: let go of an older one that's off the board, and take it. */
+  const holdNeighbors = (id: string) => {
+    const today = jobsOn(state).find((job) => job.skill === "hosting" || job.skill === "playing");
+    const held = state.jobs?.held?.[id];
+    if (!today || held?.job === today.id || !mayTake(state, id)) return;
+    if (held) rules.send(id, { type: "drop_job" });
+    rules.send(id, { type: "take_job", job: today.id });
+  };
+  const jar = { tried: false, aiRefused: false, makerDone: false };
+  const age = () => today(state);
+  for (let day = 0; day < DAYS; day++) {
+    if (day > 0) rules.newDay(day);
+    for (const id of everyone) rules.home(id);
+    countedFor.clear();
+
+    // The two accounts on their own.
+    if (!finishOne(daily)) turnedAway++;
+    if (threeDays.has(day)) finishOne(three);
+    for (const id of [daily, three]) {
+      if (!titleDay.has(id) && jobsDone(state, id) >= JOBS.titleAt) titleDay.set(id, day);
+    }
+
+    // The household. Once, on a day Clem asks for something everyone can make, a jar goes round:
+    // Pat makes it and gives it to her AI, who holds the same job and can't hand it in, and then
+    // Pat, with it back, can.
+    const clem = jobsOn(state).find((job) => job.bring !== undefined && knownByAll(job.bring));
+    const [ai = ""] = ais;
+    if (clem?.bring && !jar.tried && mayTake(state, pat) && mayTake(state, ai)) {
+      jar.tried = true;
+      for (const id of [pat, ai]) {
+        if (state.jobs?.held?.[id]) rules.send(id, { type: "drop_job" });
+        rules.send(id, { type: "take_job", job: clem.id });
+      }
+      const made = makeable(state, pat, clem.bring);
+      if (made) grant(pat, Object.fromEntries(made.short.map(([k, n]) => [k, n])));
+      makeForJob(rules, pat, clem.bring);
+      const item = state.items?.inventories[pat]?.goods.at(-1)?.id ?? "";
+      rules.send(pat, { type: "give", item, to: ai });
+      jar.aiRefused = !rules.send(ai, { type: "hand_in" }) && done(ai) === 0;
+      rules.send(ai, { type: "give", item, to: pat });
+      jar.makerDone = rules.send(pat, { type: "hand_in" });
+    }
+    for (const id of trio) holdNeighbors(id);
+    for (const a of trio) {
+      for (const b of trio) {
+        const recipe = a === b ? undefined : teachable(state, a, b)[0];
+        if (recipe && meet(rules, a, b)) rules.send(a, { type: "teach", recipe, to: b });
+        rules.home(a);
+      }
+    }
+    trio.forEach((poster, i) => {
+      payBounty(rules, poster, trio[(i + 1) % 3] ?? "", PROGRESS.bountyMinReward);
+    });
+    playGame(rules, trio, working);
+    if (day % 7 === 3) holdEvent(rules, pat, ais, 10, age, (_counted, attended) => attended);
+
+    // The ring: the same job each, and everything it could ask for done among themselves.
+    for (const id of ring) holdNeighbors(id);
+    const shift = 1 + (day % 9);
+    const other = 1 + ((day + 4) % 9);
+    ring.forEach((a, i) => {
+      const b = ring[(i + shift) % 10] ?? "";
+      const recipe = teachable(state, a, b)[0];
+      if (recipe && meet(rules, a, b)) rules.send(a, { type: "teach", recipe, to: b });
+      rules.home(a);
+    });
+    ring.forEach((poster, i) => {
+      payBounty(rules, poster, ring[(i + shift) % 10] ?? "", PROGRESS.bountyMinReward);
+      payBounty(rules, poster, ring[(i + other) % 10] ?? "", PROGRESS.bountyMinReward);
+    });
+    for (const [n, hour] of [
+      [day % 10, 12],
+      [(day + 5) % 10, 15],
+    ] as const) {
+      const host = ring[n] ?? "";
+      holdEvent(
+        rules,
+        host,
+        ring.filter((id) => id !== host),
+        hour,
+        age,
+      );
+    }
+    ring.forEach((a, i) => {
+      playGame(rules, [a, ring[(i + shift) % 10] ?? ""], working);
+      playGame(rules, [a, ring[(i + other) % 10] ?? ""], working);
+    });
+  }
+  const weeks = (id: string) =>
+    [...counts.byWeek.entries()].filter(([key]) => key.startsWith(`${id}:`)).map(([, n]) => n);
+  const ringWeeks = ring.flatMap(weeks);
+  return {
+    daily: done(daily),
+    three: done(three),
+    turnedAway,
+    titleDay: [daily, three].map((id) => titleDay.get(id) ?? "none"),
+    household: { jobs: trio.reduce((sum, id) => sum + done(id), 0) - (jar.makerDone ? 1 : 0), jar },
+    ring: {
+      most: Math.max(0, ...ringWeeks),
+      jobs: ring.map(done).sort((a, b) => a - b),
+      mostDay: Math.max(0, ...[...counts.byDay.values()]),
+    },
+  };
+}
+
+/** The UTC weeks that lie wholly inside the month, by their Monday. */
+function fullWeeks(): number[] {
+  const weeks = new Map<number, number>();
+  for (let d = 0; d < DAYS; d++) {
+    const week = weekStart(DAY0 + d);
+    weeks.set(week, (weeks.get(week) ?? 0) + 1);
+  }
+  return [...weeks.entries()].filter(([, days]) => days === 7).map(([week]) => week);
+}
+
+/** The regulars who play a skill in earnest and arrived with two weeks or more left. */
+const keenOn = (people: Person[], skill: Skill) =>
+  people.filter(
+    (p) => p.settles && p.kind === "regular" && p.arrives <= DAYS - 15 && p.habits.focus === skill,
+  );
+
+/** Their median points a day in that skill, over their days here. */
+function keenPace(state: WorldState, people: Person[], skill: Skill): number {
+  const pace = keenOn(people, skill)
+    .map((p) => (pointsOf(state, p.id)[skill] ?? 0) / Math.max(1, DAYS - p.arrives))
+    .sort((a, b) => a - b);
+  return percentile(pace, 0.5);
+}
+
+/** What a month with jobs is compared against: the same month's numbers, as `--dump` prints them. */
+interface Comparison {
+  perActive: number;
+  supply: number;
+  /** Coins a day the town paid residents for goods over the last 7 days. */
+  sold: number;
+  /** Coins the town paid for goods, and coins residents spent at the shop, over the month. */
+  soldInAll: number;
+  spentInAll: number;
+  levels: Record<string, number>;
+  points: Record<string, number>;
+  pace: Record<Skill, number>;
+}
+
+function comparison(rules: Rules, people: Person[], rows: Row[]): Comparison {
+  const { state } = rules;
+  const week = rows.slice(-7);
+  return {
+    perActive: rows.at(-1)?.perActive ?? 0,
+    supply: rows.at(-1)?.supply ?? 0,
+    sold: Math.round(week.reduce((s, r) => s + r.sold, 0) / Math.max(1, week.length)),
+    soldInAll: rows.reduce((s, r) => s + r.sold, 0),
+    spentInAll: rows.reduce((s, r) => s + r.spent, 0),
+    levels: Object.fromEntries(
+      people.filter((p) => p.settles).map((p) => [p.id, levelsOf(state, p.id).level]),
+    ),
+    points: Object.fromEntries(
+      people.filter((p) => p.settles).map((p) => [p.id, totalPoints(state, p.id)]),
+    ),
+    pace: Object.fromEntries(
+      SKILLS.map((skill) => [skill, keenPace(state, people, skill)]),
+    ) as Record<Skill, number>,
+  };
+}
+
+/**
+ * The eight checks RFC 0030 asks of jobs (section 14), from the month just played, a small world
+ * of its own for the bounds, the household, and the ring (`jobsLab`), and the same month played
+ * again with `--no-jobs` to compare levels, paces, and supply.
+ */
+function jobLines(rules: Rules, people: Person[], rows: Row[]) {
+  const { state } = rules;
+  const settled = people.filter((p) => p.settles);
+  const takers = settled.filter((p) => p.habits.jobs !== "none");
+  const share = (n: number, of: number) =>
+    `${n} of ${of} (${Math.round((100 * n) / Math.max(1, of))}%)`;
+  const sum = (map: Map<string, number>) => [...map.values()].reduce((s, n) => s + n, 0);
+  const holds = (ok: boolean) => (ok ? "holds" : "misses");
+  console.log("");
+  console.log(
+    `Jobs (RFC 0030): ${Object.entries(JOBS)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(
+        " ",
+      )}. Of ${settled.length} settled residents, ${takers.filter((p) => p.habits.jobs === "skills").length} take jobs in the skills they play (${takers.filter((p) => p.habits.focus).length} of them play one skill in earnest) and ${takers.filter((p) => p.habits.jobs === "any").length} take any job they could do. In the month: ${sum(monthJobs.taken)} taken, ${sum(monthJobs.done)} finished, ${sum(monthJobs.dropped)} let go, ${sum(monthJobs.lapsed)} lapsed.`,
+  );
+  const before = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [fileURLToPath(import.meta.url), ...process.argv.slice(2), "--no-jobs", "--dump"],
+      { encoding: "utf8", maxBuffer: 1 << 26 },
+    ),
+  ) as Comparison;
+  const tested = jobsLab();
+
+  // 1. The bounds.
+  const mostDay = Math.max(0, ...monthJobs.byDay.values());
+  const mostWeek = Math.max(0, ...monthJobs.byWeek.values());
+  console.log(
+    `  1. The bounds. In the month nobody finished more than ${mostDay} in a day (${holds(mostDay <= JOBS.perDay)}: at most ${JOBS.perDay}) or ${mostWeek} in a UTC week (${holds(mostWeek <= JOBS.perWeek)}: at most ${JOBS.perWeek}). On their own, an account that played all ${DAYS} days finished ${tested.daily} jobs for ${tested.daily * JOBS.points} points, turned away on ${tested.turnedAway} days, and one that played three days of each week finished ${tested.three} for ${tested.three * JOBS.points} (${holds(tested.daily === tested.three)}: the same). Their tenth job, and the title ${JOB_TITLE_INFO.helping_hand.label}, came on day ${tested.titleDay.join(" and day ")}.`,
+  );
+
+  // 2. A regular who takes jobs in the skills they play.
+  const weeks = fullWeeks();
+  const plain = settled.filter(
+    (p) =>
+      p.kind === "regular" &&
+      p.habits.jobs === "skills" &&
+      !p.habits.focus &&
+      p.arrives <= DAYS - 15,
+  );
+  const perWeek = plain
+    .flatMap((p) =>
+      weeks
+        .filter((week) => week > DAY0 + p.arrives)
+        .map((week) => monthJobs.byWeek.get(`${p.id}:${week}`) ?? 0),
+    )
+    .sort((a, b) => a - b);
+  const mean = perWeek.reduce((s, n) => s + n, 0) / Math.max(1, perWeek.length);
+  const twoOrMore = perWeek.filter((n) => n >= 2).length;
+  const ahead = plain
+    .map((p) => {
+      const level = levelsOf(state, p.id).level;
+      const was = before.levels[p.id] ?? 1;
+      return { gain: level - was, level, was };
+    })
+    .sort((a, b) => a.gain - b.gain);
+  const gained = ahead.map((a) => a.gain);
+  const over = gained.filter((n) => n > 1).length;
+  const most = ahead.at(-1) ?? { gain: 0, level: 1, was: 1 };
+  console.log(
+    `  2. Regulars who take jobs in the skills they play and arrived with 2 weeks or more left (n=${plain.length}), over the whole weeks after they came (${perWeek.length} in all): ${mean.toFixed(1)} jobs a week on average, median ${percentile(perWeek, 0.5)}, two or three in ${share(twoOrMore, perWeek.length)} of their weeks (${holds(percentile(perWeek, 0.5) >= 2)}: two or three a week). Levels above the same resident with --no-jobs at month end: median ${percentile(gained, 0.5)}, p90 ${percentile(gained, 0.9)}, most ${most.gain} (level ${most.level} against ${most.was}); more than one level above: ${share(over, gained.length)} (${holds(over === 0)}: at most one).`,
+  );
+
+  // 3. Every cap every day, with every job, against the median regular.
+  const early = settled.filter((p) => p.kind === "regular" && p.arrives <= 2);
+  const median = (list: number[]) =>
+    percentile(
+      [...list].sort((a, b) => a - b),
+      0.5,
+    );
+  const now = median(early.map((p) => levelsOf(state, p.id).level));
+  const was = median(early.map((p) => before.levels[p.id] ?? 1));
+  const kinds =
+    CROPS.length +
+    GOOD_KINDS.length +
+    FURNITURE_KINDS.length +
+    SWEET_KINDS.length +
+    FIND_KINDS.length +
+    FISH_KINDS.length;
+  const ceiling = DAYS * SKILLS.length * PROGRESS.dailyCap + kinds * PROGRESS.first;
+  const withJobs = ceiling + tested.daily * JOBS.points;
+  const ratio = (points: number, level: number) => levelOf(points) / Math.max(1, level);
+  const pointsNow = median(early.map((p) => totalPoints(state, p.id)));
+  const pointsWas = median(early.map((p) => before.points[p.id] ?? 0));
+  console.log(
+    `  3. Month end. Every cap every day with every first is ${ceiling} points, level ${levelOf(ceiling)}; with every job (${tested.daily}) it's ${withJobs}, level ${levelOf(withJobs)}. The median regular who arrived in the first 3 days (n=${early.length}) is at level ${now} with jobs and ${was} without. So the top is ${ratio(withJobs, now).toFixed(2)} times the median regular in levels with jobs and ${ratio(ceiling, was).toFixed(2)} without (${holds(ratio(withJobs, now) <= ratio(ceiling, was))}: no further above). In points: ${withJobs} against a median of ${pointsNow} with jobs, ${(withJobs / Math.max(1, pointsNow)).toFixed(2)} times, and ${ceiling} against ${pointsWas} without, ${(ceiling / Math.max(1, pointsWas)).toFixed(2)} times.`,
+  );
+
+  // 4. Each skill in earnest, with its jobs.
+  const at = (rate: number) => (rate > 0 ? Math.round(pointsFor(5) / rate) : 999);
+  const days = SKILLS.map((skill) => {
+    const keen = keenOn(people, skill);
+    return {
+      skill,
+      now: at(keenPace(state, people, skill)),
+      was: at(before.pace[skill] ?? 0),
+      jobs: keen.reduce((n, p) => n + (monthJobs.days.get(p.id)?.length ?? 0), 0),
+      keen: keen.length,
+    };
+  }).filter((d) => d.keen > 0);
+  const span = (list: number[]) => Math.max(...list) / Math.max(1, Math.min(...list));
+  const inRange = days.filter((d) => d.now >= 10 && d.now <= 20).length;
+  console.log(
+    `  4. Days to level 5 in a skill (${pointsFor(5)} points) at the median pace of the regulars who play it in earnest and arrived with 2 weeks or more left, with its jobs and without: ${days
+      .map(
+        (d) =>
+          `${d.skill} ${d.now} (${d.was} without; ${d.jobs} jobs finished by ${d.keen} residents)`,
+      )
+      .join(
+        ", ",
+      )}. Inside 10 to 20 days: ${inRange} of ${days.length} (${holds(inRange === days.length)}). The slowest is ${span(days.map((d) => d.now)).toFixed(2)} times the fastest (${holds(span(days.map((d) => d.now)) <= 2)}: under twice), against ${span(days.map((d) => d.was)).toFixed(2)} without.`,
+  );
+
+  // 5. A household, and a ring.
+  const { jar } = tested.household;
+  console.log(
+    `  5. A person and two AIs holding the day's job with neighbors, and teaching, paying, hosting, and playing each other for ${DAYS} days, finished ${tested.household.jobs} jobs that way (${holds(tested.household.jobs === 0)}: none). A jar the person made and gave to her AI, both holding Clem's job: the AI's hand-in was ${jar.aiRefused ? "refused" : "taken"} and the maker's, with the jar back, ${jar.makerDone ? "taken" : "refused"} (${holds(jar.tried && jar.aiRefused && jar.makerDone)}: only its maker's). A ring of ten fresh accounts doing all of it among themselves finished ${tested.ring.jobs[0]} to ${tested.ring.jobs.at(-1)} jobs each in the month, at most ${tested.ring.most} in a UTC week, which is ${tested.ring.most * JOBS.points} job points (${holds(tested.ring.most * JOBS.points <= JOBS.perWeek * JOBS.points)}: at most ${JOBS.perWeek * JOBS.points}).`,
+  );
+
+  // 6. Supply against the same month without jobs.
+  const last = rows.at(-1);
+  const week = rows.slice(-7);
+  const soldNow = Math.round(week.reduce((s, r) => s + r.sold, 0) / week.length);
+  const moved = (a: number, b: number) => ((a - b) / Math.max(1, b)) * 100;
+  if (last) {
+    const per = moved(last.perActive, before.perActive);
+    console.log(
+      `  6. Per active resident at month end: ${last.perActive} with jobs, ${before.perActive} without (${per.toFixed(1)}%; ${holds(Math.abs(per) < 2)}: under 2%). Supply ${last.supply} against ${before.supply} (${moved(last.supply, before.supply).toFixed(1)}%). Sold to the town in the last 7 days: ${soldNow} a day against ${before.sold} (${holds(soldNow <= before.sold)}: no higher). Over the month the town paid ${rows.reduce((s, r) => s + r.sold, 0)} for goods against ${before.soldInAll}, and residents spent ${rows.reduce((s, r) => s + r.spent, 0)} at the shop against ${before.spentInAll}.`,
+    );
+  }
+
+  // 7. The board over the month.
+  const table = JOB_EDITIONS[state.jobs?.edition ?? 1] ?? [];
+  const boards = Array.from({ length: DAYS }, (_, d) => jobsOn({ ...state, day: DAY0 + d }));
+  const noSolo = boards.filter((board) => !board.some(soloJob)).length;
+  const up = new Set(boards.flat().map((job) => job.id));
+  const seasons = new Set(boards.map((_, d) => seasonOf(DAY0 + d)));
+  const holidays = new Set(boards.map((_, d) => holidayOf(DAY0 + d)));
+  const due = table.filter(
+    (job) =>
+      (job.season === undefined || seasons.has(job.season)) &&
+      (job.holiday === undefined || holidays.has(job.holiday)),
+  );
+  const never = due.filter((job) => !up.has(job.id)).map((job) => job.id);
+  let thin = 0;
+  for (let d = 0; d + 7 <= DAYS; d++) {
+    for (const skill of SKILLS) {
+      const seen = boards.slice(d, d + 7).filter((b) => b.some((job) => job.skill === skill));
+      if (seen.length < 3) thin++;
+    }
+  }
+  console.log(
+    `  7. The board. Days with no job a settled resident can do alone with no recipe to learn and no rod: ${noSolo} of ${DAYS} (${holds(noSolo === 0)}: none). Of the ${due.length} jobs in season this month, ${due.length - never.length} came up (${holds(never.length === 0)}: all${never.length > 0 ? `; never up: ${never.join(", ")}` : ""}). Seven-day stretches where a skill was on the board fewer than three days: ${thin} (${holds(thin === 0)}: none).`,
+  );
+
+  // 8. How often each job is finished.
+  console.log(
+    "  8. Each job: days on the board, times taken, finished, let go, and lapsed, then each giver's share of takes that were finished.",
+  );
+  const onBoard = (id: string) => boards.filter((board) => board.some((job) => job.id === id));
+  for (const job of table.filter((j) => up.has(j.id))) {
+    console.log(
+      `     ${job.id.padEnd(20)} ${pad(onBoard(job.id).length, 2)} days  taken ${pad(monthJobs.taken.get(job.id) ?? 0, 4)}  finished ${pad(monthJobs.done.get(job.id) ?? 0, 4)}  let go ${pad(monthJobs.dropped.get(job.id) ?? 0, 4)}  lapsed ${pad(monthJobs.lapsed.get(job.id) ?? 0, 3)}`,
+    );
+  }
+  const givers = [...new Set(table.map((job) => job.giver))].map((giver) => {
+    const mine = table.filter((job) => job.giver === giver);
+    const taken = mine.reduce((n, job) => n + (monthJobs.taken.get(job.id) ?? 0), 0);
+    const done = mine.reduce((n, job) => n + (monthJobs.done.get(job.id) ?? 0), 0);
+    return `${giver} ${done} of ${taken} (${Math.round((100 * done) / Math.max(1, taken))}%)`;
+  });
+  console.log(`     Finished of taken, by giver: ${givers.join(", ")}.`);
+}
+
 const pad = (v: string | number, n: number) => String(v).padStart(n);
 const percentile = (sorted: number[], q: number) =>
   sorted.length ? (sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0) : 0;
 
 function report(rules: Rules) {
   const { rows, people, shortWelcomes, facts, paired } = play(rules);
+  if (args.dump) {
+    console.log(JSON.stringify(comparison(rules, people, rows)));
+    return;
+  }
   console.log(
     `Economy simulation: seed ${SEED}, ${DAYS} days, ${RESIDENTS} residents + 8 townsfolk`,
   );
@@ -2405,6 +3268,7 @@ function report(rules: Rules) {
     if (SHOP_OPEN) holidayLines(people, rows);
     if (SHOP_OPEN) floorLines(people, rows);
     if (LEVELS_ON) levelLines(rules, people, rows);
+    if (JOBS_ON) jobLines(rules, people, rows);
     if (APPRECIATION) {
       console.log(
         `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(

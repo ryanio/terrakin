@@ -99,6 +99,7 @@ import {
   pantryDue,
   payPantry,
 } from "./items";
+import { checkDropJob, checkHandIn, checkOpenJobs, checkTakeJob, jobsNewDay } from "./jobs";
 import { plotKey, tileKey } from "./keys";
 import {
   checkCreditEvent,
@@ -760,6 +761,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenLevels(state, command));
       case "credit_event":
         return town(checkCreditEvent(state, command));
+      case "open_jobs":
+        return town(checkOpenJobs(state));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -813,7 +816,18 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const games = command.type === "new_day" ? gamesNewDay(state) : null;
         const knocks = command.type === "new_day" ? halloweenNewDay(state) : null;
         const levels = command.type === "new_day" ? levelsNewDay(state) : null;
-        if (!coins && !items && !shop && !bounties && !events && !games && !knocks && !levels) {
+        const jobs = command.type === "new_day" ? jobsNewDay(state, command.day) : null;
+        if (
+          !coins &&
+          !items &&
+          !shop &&
+          !bounties &&
+          !events &&
+          !games &&
+          !knocks &&
+          !levels &&
+          !jobs
+        ) {
           return checked;
         }
         return () => [
@@ -826,6 +840,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(games ? games() : []),
           ...(knocks ? knocks() : []),
           ...(levels ? levels() : []),
+          ...(jobs ? jobs() : []),
         ];
       }
       default:
@@ -1436,5 +1451,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "fish":
       return town(checkFish(state, actor, command));
+
+    case "take_job":
+      return town(checkTakeJob(state, actor, command));
+    case "drop_job":
+      return town(checkDropJob(state, actor));
+    case "hand_in":
+      return town(checkHandIn(state, actor, command));
   }
 }

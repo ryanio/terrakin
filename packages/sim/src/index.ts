@@ -300,6 +300,17 @@ export {
   type StackKind,
   type Station,
 } from "./items";
+export {
+  JOB_EDITIONS,
+  JOB_GIVERS,
+  JOBS,
+  type Job,
+  type JobDeed,
+  type JobGiver,
+  jobById,
+  jobsOn,
+  soloJob,
+} from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
 export {
   EARNED_WEAR_SKILL,

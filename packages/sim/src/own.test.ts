@@ -134,6 +134,9 @@ function inputs(id: string, day: number): [string, Command][] {
     town({ type: "credit_event", event: id, guests: [] }),
     town({ type: "credit_event", event: "e_1", guests: [id] }),
     ada({ type: "profile", title: id } as Command),
+    // A job is named by its id in the table, and a thing to hand in by its own (RFC 0030).
+    ada({ type: "take_job", job: id }),
+    ada({ type: "hand_in", item: id }),
     town({ type: "routine_step", resident: id, routine: "walk_home", step: { type: "home" } }),
     town({ type: "routine_step", resident: "ada", routine: id, step: { type: "home" } } as Command),
     ada({ type: "set_routines", routines: [{ kind: id, hour: 1 }] } as Command),

@@ -260,15 +260,33 @@ function addPoints(
 }
 
 /**
- * What `deeds` add to a resident's points now, as a commit, or null when they add nothing: before
- * levels open, for townsfolk (who never earn), and when every point is past today's cap and no
- * deed is a first. A skill's deeds count up to what's left of its cap; a first counts once per
- * kind and resident, whatever the cap says.
+ * Each deed's rule is in two halves. Its `...Counts` says whether the deed counts and what it's
+ * worth before the daily cap, or null when it doesn't count. `underCap` says what of that fits
+ * under today's cap. A deed's points read both (`...Earns`). A job (RFC 0030) reads the first half
+ * alone, so a job and the points agree on what a deed is, and a deed past the cap still moves a
+ * job.
  */
-function earning(state: WorldState, id: ResidentId, deeds: readonly Deed[]): Mutation | null {
+
+/**
+ * Whether anything `id` does counts: levels are open, and they're a resident who isn't townsfolk,
+ * who never earn.
+ */
+const counts = (state: WorldState, id: ResidentId): boolean =>
+  state.progress !== undefined && residentById(state, id) !== undefined && !isTownsfolk(state, id);
+
+/**
+ * What `deeds` add to a resident's points now, as a commit, or null when they add nothing: for a
+ * deed that didn't count (`null`), and when every point is past today's cap and no deed is a
+ * first. A skill's deeds count up to what's left of its cap; a first counts once per kind and
+ * resident, whatever the cap says.
+ */
+function underCap(
+  state: WorldState,
+  id: ResidentId,
+  deeds: readonly Deed[] | null,
+): Mutation | null {
   const progress = state.progress;
-  if (!progress) return null;
-  if (!residentById(state, id) || isTownsfolk(state, id)) return null;
+  if (!progress || !deeds) return null;
   const had = own(progress.firsts, id) ?? [];
   const today = own(progress.today, id);
   const seen: string[] = [];
@@ -298,49 +316,91 @@ function earning(state: WorldState, id: ResidentId, deeds: readonly Deed[]): Mut
 /** The events a deed's points make in its commit, or none when it earned nothing. */
 export const earned = (points: Mutation | null): WorldEvent[] => (points ? points() : []);
 
+/** Growing: a harvest of `crop` counts for anyone whose deeds do. */
+export const harvestCounts = (state: WorldState, id: ResidentId, crop: string): Deed[] | null =>
+  counts(state, id) ? [{ skill: "growing", points: PROGRESS.harvest, first: crop }] : null;
+
 /** Growing: a harvest of `crop`. */
 export const harvestEarns = (state: WorldState, id: ResidentId, crop: string) =>
-  earning(state, id, [{ skill: "growing", points: PROGRESS.harvest, first: crop }]);
+  underCap(state, id, harvestCounts(state, id, crop));
 
-/** Making: a craft of `recipe`, a good, a piece of furniture, or a sweet. */
+/** Making: a craft of `recipe` counts, a good, a piece of furniture, or a sweet, however many it makes. */
+export const craftCounts = (state: WorldState, id: ResidentId, recipe: string): Deed[] | null =>
+  counts(state, id) ? [{ skill: "making", points: PROGRESS.craft, first: recipe }] : null;
+
+/** Making: a craft of `recipe`. */
 export const craftEarns = (state: WorldState, id: ResidentId, recipe: string) =>
-  earning(state, id, [{ skill: "making", points: PROGRESS.craft, first: recipe }]);
+  underCap(state, id, craftCounts(state, id, recipe));
 
 /**
- * Foraging: what one `gather` picked up. A find counts, and a recipe page counts with no first (a
- * page isn't a kind you hold); wood and stone lie everywhere and earn nothing.
+ * Foraging: a pickup of `kind` counts when it's a find, or a recipe page, which has no first (a
+ * page isn't a kind you hold). Wood and stone lie everywhere and count for nothing.
  */
-export function gatherEarns(state: WorldState, id: ResidentId, kinds: readonly string[]) {
-  const deeds: Deed[] = [];
-  for (const kind of kinds) {
-    if (isOneOf(FIND_KINDS, kind)) {
-      deeds.push({ skill: "foraging", points: PROGRESS.find, first: kind });
-    } else if (kind === "recipe_page") deeds.push({ skill: "foraging", points: PROGRESS.find });
+export function pickupCounts(state: WorldState, id: ResidentId, kind: string): Deed[] | null {
+  if (!counts(state, id)) return null;
+  if (isOneOf(FIND_KINDS, kind)) {
+    return [{ skill: "foraging", points: PROGRESS.find, first: kind }];
   }
-  return earning(state, id, deeds);
+  return kind === "recipe_page" ? [{ skill: "foraging", points: PROGRESS.find }] : null;
 }
 
-/** Foraging: a cast that caught `caught`. A boot, or nothing, earns nothing. */
-export const catchEarns = (state: WorldState, id: ResidentId, caught: string) =>
-  isOneOf(FISH_KINDS, caught)
-    ? earning(state, id, [{ skill: "foraging", points: PROGRESS.fish, first: caught }])
+/** Foraging: what one `gather` picked up, for each pickup that counts. */
+export const gatherEarns = (state: WorldState, id: ResidentId, kinds: readonly string[]) =>
+  underCap(
+    state,
+    id,
+    kinds.flatMap((kind) => pickupCounts(state, id, kind) ?? []),
+  );
+
+/** Foraging: a cast counts when it caught a fish. A boot, or nothing, doesn't. */
+export const catchCounts = (state: WorldState, id: ResidentId, caught: string): Deed[] | null =>
+  counts(state, id) && isOneOf(FISH_KINDS, caught)
+    ? [{ skill: "foraging", points: PROGRESS.fish, first: caught }]
     : null;
 
+/** Foraging: a cast that caught `caught`. */
+export const catchEarns = (state: WorldState, id: ResidentId, caught: string) =>
+  underCap(state, id, catchCounts(state, id, caught));
+
 /**
- * Hosting: a lesson `teacher` gave `learner`. It counts when the learner has a hearth and isn't in
- * the teacher's household. The learner earns nothing for learning.
+ * Hosting: a lesson `teacher` gave `learner` counts when the learner has a hearth and isn't in the
+ * teacher's household. The learner earns nothing for learning.
  */
-export function lessonEarns(state: WorldState, teacher: ResidentId, learner: ResidentId) {
+function lessonCounts(state: WorldState, teacher: ResidentId, learner: ResidentId): Deed[] | null {
   const them = residentById(state, learner);
   if (!them?.hearth || sameHousehold(state, teacher, learner)) return null;
-  return earning(state, teacher, [{ skill: "hosting", points: PROGRESS.lesson }]);
+  return counts(state, teacher) ? [{ skill: "hosting", points: PROGRESS.lesson }] : null;
+}
+
+/** Hosting: a lesson `teacher` gave `learner`. */
+export const lessonEarns = (state: WorldState, teacher: ResidentId, learner: ResidentId) =>
+  underCap(state, teacher, lessonCounts(state, teacher, learner));
+
+/**
+ * Hosting: a resident's bounty its poster just paid `claimant` for counts when the poster is
+ * outside the claimant's household and could vote in the Town Hall, the reward is at least
+ * `PROGRESS.bountyMinReward`, and no bounty from that poster counted for that claimant this UTC
+ * week.
+ */
+function bountyCounts(
+  state: WorldState,
+  poster: ResidentId,
+  claimant: ResidentId,
+  reward: number,
+): Deed[] | null {
+  const progress = state.progress;
+  if (!progress || !counts(state, claimant)) return null;
+  if (sameHousehold(state, poster, claimant)) return null;
+  if (!townEligibility(state, poster).eligible) return null;
+  if (reward < PROGRESS.bountyMinReward) return null;
+  const week = progress.week?.start === weekStart(state.day as number) ? progress.week : undefined;
+  if (own(week?.bounties, claimant)?.includes(poster)) return null;
+  return [{ skill: "hosting", points: PROGRESS.bounty }];
 }
 
 /**
- * Hosting: a resident's bounty its poster just paid `claimant` for. It counts when the poster is
- * outside the claimant's household and could vote in the Town Hall, the reward is at least
- * `PROGRESS.bountyMinReward`, and no bounty from that poster counted for that claimant this UTC
- * week. The week's pairs are kept in `progress.week`, written only when points were added.
+ * Hosting: a resident's bounty its poster just paid `claimant` for. The week's pairs are kept in
+ * `progress.week`, written only when points were added.
  */
 export function bountyEarns(
   state: WorldState,
@@ -349,17 +409,11 @@ export function bountyEarns(
   reward: number,
 ): Mutation | null {
   const progress = state.progress;
-  if (!progress) return null;
-  if (sameHousehold(state, poster, claimant)) return null;
-  if (!townEligibility(state, poster).eligible) return null;
-  if (reward < PROGRESS.bountyMinReward) return null;
+  const fits = underCap(state, claimant, bountyCounts(state, poster, claimant, reward));
+  if (!progress || !fits) return null;
   const monday = weekStart(state.day as number);
-  const week = progress.week?.start === monday ? progress.week : undefined;
-  if (own(week?.bounties, claimant)?.includes(poster)) return null;
-  const counts = earning(state, claimant, [{ skill: "hosting", points: PROGRESS.bounty }]);
-  if (!counts) return null;
   return () => {
-    const events = counts();
+    const events = fits();
     if (progress.week?.start !== monday) progress.week = { start: monday, bounties: {} };
     const paid = own(progress.week.bounties, claimant) ?? [];
     progress.week.bounties[claimant] = [...paid, poster].sort();
@@ -368,20 +422,49 @@ export function bountyEarns(
 }
 
 /**
- * Hosting: a town bounty or a released grant a maintainer just paid `claimant` for. It counts
- * every time, since a maintainer confirmed it from outside the deal.
+ * Hosting: a town bounty or a released grant a maintainer just paid `claimant` for counts every
+ * time, since a maintainer confirmed it from outside the deal.
  */
+const townBountyCounts = (state: WorldState, claimant: ResidentId): Deed[] | null =>
+  counts(state, claimant) ? [{ skill: "hosting", points: PROGRESS.bounty }] : null;
+
+/** Hosting: a town bounty or a released grant a maintainer just paid `claimant` for. */
 export const townBountyEarns = (state: WorldState, claimant: ResidentId) =>
-  earning(state, claimant, [{ skill: "hosting", points: PROGRESS.bounty }]);
+  underCap(state, claimant, townBountyCounts(state, claimant));
 
 /**
- * Playing: a game that just ended with `places`, after `rounds` (each seat's choice a round, `null`
- * where it made none) and with `away` the seats away at the end. A seat rated at `start_game`
- * (decision 0096) earns for finishing a game it played: one where it decided at least one round.
- * Finishing first earns more, ties included, unless the game ended because every seat was away,
- * which nobody won. A seat that sat down and never chose earns nothing, wherever the default left
- * it on the board.
+ * Playing: the seats a game that just ended counts for, after `rounds` (each seat's choice a
+ * round, `null` where it made none), with `places` and `away`, the seats away at the end. A seat
+ * rated at `start_game` (decision 0096) counts for finishing a game it played: one where it
+ * decided at least one round. Finishing first is worth more, ties included, unless the game ended
+ * because every seat was away, which nobody won. A seat that sat down and never chose counts for
+ * nothing, wherever the default left it on the board.
  */
+function gameCounts(
+  state: WorldState,
+  table: GameTable,
+  rounds: readonly Readonly<Record<ResidentId, number | null>>[],
+  places: Readonly<Record<ResidentId, number>>,
+  away: readonly ResidentId[],
+): { resident: ResidentId; first: boolean; deeds: Deed[] }[] {
+  const played = (id: ResidentId) => rounds.some((moves) => typeof own(moves, id) === "number");
+  const won = away.length < table.seats.length;
+  return table.seats
+    .filter((seat) => seat.rated && played(seat.resident) && counts(state, seat.resident))
+    .map((seat) => {
+      const first = won && own(places, seat.resident) === 1;
+      return {
+        resident: seat.resident,
+        first,
+        deeds: [
+          { skill: "playing", points: PROGRESS.game },
+          ...(first ? [{ skill: "playing" as const, points: PROGRESS.win }] : []),
+        ],
+      };
+    });
+}
+
+/** Playing: a game that just ended, for each seat it counts for. */
 export function gameEarns(
   state: WorldState,
   table: GameTable,
@@ -389,20 +472,48 @@ export function gameEarns(
   places: Readonly<Record<ResidentId, number>>,
   away: readonly ResidentId[],
 ): Mutation | null {
-  const played = (id: ResidentId) => rounds.some((moves) => typeof own(moves, id) === "number");
-  const won = away.length < table.seats.length;
-  const earnings = table.seats
-    .filter((seat) => seat.rated && played(seat.resident))
-    .map((seat) =>
-      earning(state, seat.resident, [
-        { skill: "playing", points: PROGRESS.game },
-        ...(won && own(places, seat.resident) === 1
-          ? [{ skill: "playing" as const, points: PROGRESS.win }]
-          : []),
-      ]),
-    )
+  const earnings = gameCounts(state, table, rounds, places, away)
+    .map((seat) => underCap(state, seat.resident, seat.deeds))
     .filter((e) => e !== null);
   return earnings.length > 0 ? () => earnings.flatMap((e) => e()) : null;
+}
+
+/**
+ * Hosting: who an ended event's guest list counts for, once the list itself was checked. The host
+ * counts for one event a UTC day, at `PROGRESS.guest` a guest, and each guest once a UTC day, at
+ * `PROGRESS.attend` (`progress.hostedToday` and `guestToday` say who already did).
+ */
+function eventCounts(
+  state: WorldState,
+  progress: ProgressState,
+  host: ResidentId,
+  guests: readonly ResidentId[],
+): { host: Deed[] | null; guests: { id: ResidentId; deeds: Deed[] }[] } {
+  return {
+    host:
+      guests.length > 0 && !progress.hostedToday?.includes(host) && counts(state, host)
+        ? [{ skill: "hosting", points: guests.length * PROGRESS.guest }]
+        : null,
+    guests: guests
+      .filter((id) => !progress.guestToday?.includes(id) && counts(state, id))
+      .map((id) => ({ id, deeds: [{ skill: "hosting", points: PROGRESS.attend }] })),
+  };
+}
+
+/**
+ * A finished job (RFC 0030): `points` in `skill`, outside the daily cap the way a first is, and
+ * counted in the season. Null for anyone whose deeds never count.
+ */
+export function jobEarns(
+  state: WorldState,
+  id: ResidentId,
+  skill: Skill,
+  points: number,
+): Mutation | null {
+  const progress = state.progress;
+  if (!progress || !counts(state, id)) return null;
+  const season = String(seasonSpan(state.day as number).start);
+  return () => addPoints(progress, id, [{ skill, points, counted: 0, firsts: [] }], season);
 }
 
 // ---------- titles and earned wear ----------
@@ -597,13 +708,10 @@ export function checkCreditEvent(
       return refuse("not_eligible", "Townsfolk are never counted guests.");
     }
   }
-  const host =
-    guests.length > 0 && !progress.hostedToday?.includes(e.host)
-      ? earning(state, e.host, [{ skill: "hosting", points: guests.length * PROGRESS.guest }])
-      : null;
-  const came = guests.flatMap((id) => {
-    if (progress.guestToday?.includes(id)) return [];
-    const points = earning(state, id, [{ skill: "hosting", points: PROGRESS.attend }]);
+  const counted = eventCounts(state, progress, e.host, guests);
+  const host = underCap(state, e.host, counted.host);
+  const came = counted.guests.flatMap(({ id, deeds }) => {
+    const points = underCap(state, id, deeds);
     return points ? [{ id, points }] : [];
   });
   return () => {

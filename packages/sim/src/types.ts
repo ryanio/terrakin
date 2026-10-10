@@ -519,6 +519,38 @@ export interface WorldState {
    * stored: `levelOf` reads them from the points.
    */
   progress?: ProgressState;
+  /**
+   * Jobs (RFC 0030): who holds which job, and who finished one today and this week. Absent until
+   * `open_jobs`, so worlds from before it hash as they always have. The board is never stored:
+   * `jobsOn` reads it from the day.
+   */
+  jobs?: JobsState;
+}
+
+/** A job a resident holds (RFC 0030). */
+export interface HeldJob {
+  /** The job's id in the table. */
+  job: string;
+  /** The world day it was taken. It lapses `JOBS.keepDays` days on. */
+  day: number;
+  /** How many of its deeds are done. Absent until the first. */
+  count?: number;
+}
+
+export interface JobsState {
+  /** The world day `open_jobs` was logged. */
+  opened: number;
+  /** Which table the board reads (`JOB_EDITIONS`). */
+  edition: number;
+  /** The job each resident holds. Absent until the first, and a resident holding none is absent. */
+  held?: Record<ResidentId, HeldJob>;
+  /** Residents who finished a job today, sorted. Absent until the day's first; `new_day` drops it. */
+  doneToday?: ResidentId[];
+  /**
+   * This UTC week's finished jobs by resident. `start` is the week's Monday. Absent until the
+   * first, and it starts again with the first job finished in a later week, as `games.week` does.
+   */
+  week?: { start: number; done: Record<ResidentId, number> };
 }
 
 /** The five skills (RFC 0029). New skills go on the end. */
@@ -1117,6 +1149,8 @@ export const INVENTORY_REASONS = [
   "caught",
   /** From a duplicate record of yours that the Terrakin team merged into this one. */
   "merged",
+  /** A thing you made, handed in for a job (RFC 0030). It left the world. */
+  "handed_in",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -1398,6 +1432,15 @@ export type Command =
    * before logging, so replay reads neither a clock nor the weather.
    */
   | { type: "fish"; roll: number; weather: Weather; timeOfDay: TimeOfDay }
+  /** Hold one of today's jobs (RFC 0030). One at a time, from anywhere, with a hearth. */
+  | { type: "take_job"; job: string }
+  /** Let go of the job you hold. It costs nothing. */
+  | { type: "drop_job" }
+  /**
+   * Finish the bring job you hold with a thing of its kind that you made yourself: your oldest, or
+   * the one `item` names by id. The thing leaves the world.
+   */
+  | { type: "hand_in"; item?: string }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1481,6 +1524,8 @@ export type Command =
    * attendance, so the server can leave a guest out and never add one.
    */
   | { type: "credit_event"; event: string; guests: ResidentId[] }
+  /** From now on, the town has three jobs a day and residents may take them (RFC 0030). */
+  | { type: "open_jobs" }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1622,6 +1667,7 @@ export const SERVER_COMMANDS = [
   "merge_resident",
   "open_levels",
   "credit_event",
+  "open_jobs",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1994,6 +2040,26 @@ export type WorldEvent =
   | { type: "event_credited"; event: string; guests: ResidentId[] }
   /** A resident shows `title` beside their name now, or none (`null`). Public. */
   | { type: "title_changed"; residentId: ResidentId; title: Title | null }
+  /** Jobs are open (RFC 0030): the town has a board each day from now on. Public. */
+  | { type: "jobs_opened" }
+  /** A resident holds `job` now. Private, like every job event: it belongs to `residentId` alone. */
+  | { type: "job_taken"; residentId: ResidentId; job: string }
+  /** A deed moved the job a resident holds: `count` of the `of` it asks for are done. Private. */
+  | { type: "job_progress"; residentId: ResidentId; job: string; count: number; of: number }
+  /**
+   * A resident finished `job`: `points` in `skill`, outside the daily cap, and `week` jobs
+   * finished this UTC week. The `progress` for the points follows. Private.
+   */
+  | {
+      type: "job_done";
+      residentId: ResidentId;
+      job: string;
+      skill: Skill;
+      points: number;
+      week: number;
+    }
+  /** A resident let `job` go, or it lapsed at `new_day` after `JOBS.keepDays` days. Private. */
+  | { type: "job_dropped"; residentId: ResidentId; job: string; lapsed?: true }
   /**
    * `by` cast a line into the water at (x, y) and caught `caught`: a fish, an old boot they threw
    * back, or nothing (RFC 0023). Public, like a gather.
@@ -2213,6 +2279,17 @@ export const REJECTION_CODES = [
   "no_stairs",
   /** A title or a garment from a skill level you haven't reached (RFC 0029). */
   "not_earned",
+  // Jobs (RFC 0030).
+  /** You're already holding a job: finish it or let it go first. */
+  "job_held",
+  /** You finished a job today, or three this week. */
+  "job_limit",
+  /** No job by that id is on today's board. */
+  "unknown_job",
+  /** You aren't holding a job, or the one you hold isn't one to hand in. */
+  "no_job",
+  /** You hold nothing of the kind the job asks for that you made yourself. */
+  "nothing_to_hand_in",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

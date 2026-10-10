@@ -36,6 +36,7 @@ import {
   type FurnitureKind,
   isFurnitureKind,
 } from "./furniture";
+import { craftJob, harvestJob } from "./jobs";
 import { tileKey } from "./keys";
 import { craftEarns, earned, harvestEarns } from "./levels";
 import { own, residentById } from "./own";
@@ -485,6 +486,7 @@ export function checkHarvest(
   }
   const { crop } = planting;
   const points = harvestEarns(state, actor, crop);
+  const job = harvestJob(state, actor, crop);
   return () => {
     delete items.crops[key];
     const mine = inventory(items, actor);
@@ -494,6 +496,7 @@ export function checkHarvest(
       { type: "harvested", x, y, crop, by: actor },
       inventoryEvent(actor, "harvest", changes),
       ...earned(points),
+      ...earned(job),
     ];
   };
 }
@@ -581,6 +584,7 @@ export function checkCraft(
     );
   }
   const points = craftEarns(state, actor, recipe);
+  const job = craftJob(state, actor, recipe);
   if (furniture || sweet) {
     return () => {
       items.today.crafted[actor] = crafted + 1;
@@ -589,7 +593,7 @@ export function checkCraft(
         addStack(mine, kind, -n),
       );
       changes.push(addStack(mine, recipe, makes));
-      return [inventoryEvent(actor, "craft", changes), ...earned(points)];
+      return [inventoryEvent(actor, "craft", changes), ...earned(points), ...earned(job)];
     };
   }
   const id = `i_${items.nextId}`;
@@ -608,7 +612,11 @@ export function checkCraft(
       addStack(mine, kind, -n),
     );
     mine.goods.push(good);
-    return [inventoryEvent(actor, "craft", changes, { gained: [good] }), ...earned(points)];
+    return [
+      inventoryEvent(actor, "craft", changes, { gained: [good] }),
+      ...earned(points),
+      ...earned(job),
+    ];
   };
 }
 

@@ -82,6 +82,25 @@ export const PROTOCOL_VERSION = 1;
 
 const CHAT_MAX_LENGTH = 280;
 
+/**
+ * Jobs (RFC 0030) are in the sim before the API opens them, which is the RFC's PR 4. Until then
+ * the API names nothing only jobs make: their refusals, and the reason a thing handed in leaves
+ * an inventory. No action takes a job or hands one in, and no event schema knows a job event, so
+ * nothing here can reach them.
+ */
+const NOT_OPEN_YET: readonly string[] = [
+  "job_held",
+  "job_limit",
+  "unknown_job",
+  "no_job",
+  "nothing_to_hand_in",
+  "handed_in",
+];
+
+/** One of the sim's lists, less what jobs add until the API opens them. */
+const openOnly = <T extends string>(list: readonly T[]) =>
+  list.filter((k) => !NOT_OPEN_YET.includes(k)) as unknown as readonly [T, ...T[]];
+
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
 const PROTOCOL_ERROR_CODES = [
   "bad_request",
@@ -108,7 +127,7 @@ const PROTOCOL_ERROR_CODES = [
   "too_soon",
 ] as const;
 
-export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
+export const ERROR_CODES = [...openOnly(REJECTION_CODES), ...PROTOCOL_ERROR_CODES] as const;
 export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 
@@ -511,7 +530,7 @@ export type FishKind = z.infer<typeof FishKind>;
 export const CatchName = z.enum([...FISH_KINDS, "boot", "nothing"]);
 /** Everything that's its own item with an id and a maker: made things and pieces of art. */
 export const MadeKind = z.enum(MADE_KINDS);
-export const InventoryReason = z.enum(INVENTORY_REASONS);
+export const InventoryReason = z.enum(openOnly(INVENTORY_REASONS));
 /** A made thing's id: `i_` and a number. */
 export const ItemId = z.string().regex(ITEM_ID_PATTERN);
 

@@ -1,0 +1,709 @@
+import { type Biome, biomeAt } from "./biome";
+import { type CraftKind, type Crop, type FindKind, type RecipeName, recipeOf } from "./catalog";
+import { oneTimeSwitch, refuse } from "./check";
+import { isTownsfolk } from "./economy";
+import { findsOpen } from "./gather";
+import { dayName, type Holiday, holidayOf } from "./holiday";
+import { ITEM_ID_PATTERN, ITEM_INFO, inventory, inventoryEvent, isGoodKind } from "./items";
+import { catchCounts, craftCounts, earned, harvestCounts, jobEarns, pickupCounts } from "./levels";
+import { own, residentById } from "./own";
+import { knownByAll } from "./recipes";
+import { type Season, seasonOf, weekStart } from "./season";
+import type { TimeOfDay } from "./time-of-day";
+import type {
+  Command,
+  Good,
+  JobsState,
+  Rejection,
+  ResidentId,
+  Skill,
+  WorldEvent,
+  WorldState,
+} from "./types";
+
+/**
+ * Jobs (RFC 0030). A job is a small thing the town asks for through one of the townsfolk: a deed
+ * the sim already knows, done one to three times, or one made thing handed in. Each UTC day the
+ * town has three, the same for everyone, read from the day and a frozen table (`jobsOn`), never
+ * stored. A resident takes one, does it, and it adds `JOBS.points` to its skill, outside that
+ * skill's daily cap. They hold one at a time, finish at most one a day, and three a UTC week.
+ *
+ * Jobs are not coins: nothing here mints, burns, or moves one. A thing handed in leaves the world.
+ * Nothing runs until the server logs `open_jobs`, which creates `state.jobs`, so every older log
+ * replays as it was made.
+ */
+
+/**
+ * The numbers. Once jobs are open in a live world, changing one changes how logged inputs replay,
+ * so it needs a logged switch.
+ */
+export const JOBS = {
+  /** Jobs on the board each UTC day: one for home, one for a walk, one with neighbors. */
+  board: 3,
+  /** Jobs a resident holds at once. */
+  held: 1,
+  /** Jobs a resident finishes in a UTC day. */
+  perDay: 1,
+  /** Jobs a resident finishes in a UTC week, Monday to Sunday. */
+  perWeek: 3,
+  /** Days a held job lasts. It lapses at the `new_day` that many days after it was taken. */
+  keepDays: 7,
+  /** Points a finished job adds to its skill, outside the skill's daily cap. */
+  points: 10,
+} as const;
+
+/** The townsfolk who give jobs, by handle. Fixed words: a giver holds nothing and decides nothing. */
+export const JOB_GIVERS = [
+  "juniper",
+  "clem",
+  "bram",
+  "ansel",
+  "marlo",
+  "sable",
+  "otis",
+  "pip",
+] as const;
+export type JobGiver = (typeof JOB_GIVERS)[number];
+
+/** The deed a job counts, `count` times, with the condition it must meet when it has one. */
+export type JobDeed =
+  /** A harvest, of any crop or one of `crops`. */
+  | { type: "harvest"; count: number; crops?: readonly Crop[] }
+  /** A craft of `recipe`. */
+  | { type: "craft"; count: number; recipe: RecipeName }
+  /** A find picked up (a recipe page counts as one), in `biome` or one of `kinds` when given. */
+  | { type: "find"; count: number; biome?: Biome; kinds?: readonly FindKind[] }
+  /** A fish caught, at `timeOfDay` when given. */
+  | { type: "fish"; count: number; timeOfDay?: TimeOfDay }
+  /** A lesson taught that counts for Hosting. */
+  | { type: "teach"; count: number }
+  /** Being a counted guest at an event. */
+  | { type: "guest"; count: number }
+  /** Hosting an event that at least `guests` guests are counted at. */
+  | { type: "host"; count: number; guests: number }
+  /** Being paid for a bounty that counts for Hosting. */
+  | { type: "bounty"; count: number }
+  /** A rated game finished, in first place when `first` is set. */
+  | { type: "game"; count: number; first?: true };
+
+interface JobBase {
+  /** Never changes once shipped, and neither does what the job asks. */
+  id: string;
+  giver: JobGiver;
+  /** Where the job's points go. */
+  skill: Skill;
+  /** On the board only in this season, or only while this holiday runs. */
+  season?: Season;
+  holiday?: Holiday;
+}
+
+/**
+ * One job: a deed job counts a deed, and a bring job asks for one made thing of the `bring`
+ * recipe, made by whoever hands it in.
+ */
+export type Job = JobBase &
+  ({ deed: JobDeed; bring?: undefined } | { bring: RecipeName; deed?: undefined });
+
+/**
+ * The table, by edition. An edition is frozen once a live world reads it: a logged `take_job` is
+ * checked against its day's board, so the board for a past day must never change. A changed table
+ * is the next edition. A job's id and what it asks stay the same in every edition that has it, so
+ * a job held under one edition still finishes under the next. It's written out as plain data, so a
+ * bundle that never reads the board leaves it out.
+ */
+export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
+  1: [
+    // Juniper, for the garden.
+    {
+      id: "juniper_crops",
+      giver: "juniper",
+      skill: "growing",
+      deed: { type: "harvest", count: 3 },
+    },
+    {
+      id: "juniper_herbs",
+      giver: "juniper",
+      skill: "growing",
+      deed: { type: "harvest", count: 3, crops: ["herb"] },
+    },
+    {
+      id: "juniper_flowers",
+      giver: "juniper",
+      skill: "growing",
+      deed: { type: "harvest", count: 3, crops: ["flower"] },
+    },
+    {
+      id: "juniper_pumpkins",
+      giver: "juniper",
+      skill: "growing",
+      deed: { type: "harvest", count: 2, crops: ["pumpkin"] },
+      season: "autumn",
+    },
+    {
+      id: "juniper_cranberries",
+      giver: "juniper",
+      skill: "growing",
+      deed: { type: "harvest", count: 3, crops: ["cranberry"] },
+      season: "winter",
+    },
+    // Clem, for the kitchen.
+    { id: "clem_herb_tea", giver: "clem", skill: "making", bring: "herb_tea" },
+    { id: "clem_jam", giver: "clem", skill: "making", bring: "jam" },
+    {
+      id: "clem_pumpkin_pie",
+      giver: "clem",
+      skill: "making",
+      bring: "pumpkin_pie",
+      season: "autumn",
+    },
+    {
+      id: "clem_cranberry_punch",
+      giver: "clem",
+      skill: "making",
+      bring: "cranberry_punch",
+      season: "winter",
+    },
+    {
+      id: "clem_candy",
+      giver: "clem",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "candy" },
+      holiday: "halloween",
+    },
+    {
+      id: "clem_candy_canes",
+      giver: "clem",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "candy_cane" },
+      holiday: "midwinter",
+    },
+    // Bram, for the workbench.
+    {
+      id: "bram_chair",
+      giver: "bram",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "chair" },
+    },
+    {
+      id: "bram_table",
+      giver: "bram",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "table" },
+    },
+    {
+      id: "bram_stone_wall",
+      giver: "bram",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "stone_wall" },
+    },
+    {
+      id: "bram_barrel",
+      giver: "bram",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "barrel" },
+    },
+    {
+      id: "bram_jack_o_lantern",
+      giver: "bram",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "jack_o_lantern" },
+      holiday: "halloween",
+    },
+    // Ansel, for flowers.
+    { id: "ansel_bouquet", giver: "ansel", skill: "making", bring: "bouquet" },
+    {
+      id: "ansel_flower_box",
+      giver: "ansel",
+      skill: "making",
+      deed: { type: "craft", count: 1, recipe: "flower_box" },
+    },
+    // Marlo, for finds.
+    { id: "marlo_find", giver: "marlo", skill: "foraging", deed: { type: "find", count: 1 } },
+    {
+      id: "marlo_sand_find",
+      giver: "marlo",
+      skill: "foraging",
+      deed: { type: "find", count: 1, biome: "sand" },
+    },
+    {
+      id: "marlo_forest_find",
+      giver: "marlo",
+      skill: "foraging",
+      deed: { type: "find", count: 1, biome: "forest" },
+    },
+    {
+      id: "marlo_autumn_find",
+      giver: "marlo",
+      skill: "foraging",
+      deed: { type: "find", count: 1, kinds: ["chestnut", "maple_leaf"] },
+      season: "autumn",
+    },
+    // Sable, for fish.
+    {
+      id: "sable_dusk_fish",
+      giver: "sable",
+      skill: "foraging",
+      deed: { type: "fish", count: 1, timeOfDay: "dusk" },
+    },
+    {
+      id: "sable_night_fish",
+      giver: "sable",
+      skill: "foraging",
+      deed: { type: "fish", count: 1, timeOfDay: "night" },
+    },
+    { id: "sable_three_fish", giver: "sable", skill: "foraging", deed: { type: "fish", count: 3 } },
+    // Otis, for hosting.
+    { id: "otis_teach", giver: "otis", skill: "hosting", deed: { type: "teach", count: 1 } },
+    { id: "otis_guest", giver: "otis", skill: "hosting", deed: { type: "guest", count: 1 } },
+    {
+      id: "otis_host",
+      giver: "otis",
+      skill: "hosting",
+      deed: { type: "host", count: 1, guests: 3 },
+    },
+    { id: "otis_bounty", giver: "otis", skill: "hosting", deed: { type: "bounty", count: 1 } },
+    // Pip, for the game tables.
+    { id: "pip_game", giver: "pip", skill: "playing", deed: { type: "game", count: 1 } },
+    { id: "pip_two_games", giver: "pip", skill: "playing", deed: { type: "game", count: 2 } },
+    {
+      id: "pip_win",
+      giver: "pip",
+      skill: "playing",
+      deed: { type: "game", count: 1, first: true },
+    },
+  ],
+};
+
+/** The edition `open_jobs` starts a world on. */
+const FIRST_EDITION = 1;
+
+type Mutation = () => WorldEvent[];
+
+// ---------- the board ----------
+
+/**
+ * A job's lane. The board has three slots, each with two lanes that take turns by the day: home
+ * is Growing one day and Making the next, a walk is a fish one day and a find the next, and
+ * neighbors is Hosting one day and Playing the next. On even days the first lane of each is up,
+ * so every day has a harvest or a find, which a resident can do alone with nothing learned.
+ */
+type Lane = "growing" | "making" | "fish" | "finds" | "hosting" | "playing";
+const SLOTS: readonly (readonly [Lane, Lane])[] = [
+  ["growing", "making"],
+  ["fish", "finds"],
+  ["hosting", "playing"],
+];
+
+function laneOf(job: Job): Lane {
+  if (job.skill !== "foraging") return job.skill;
+  return job.deed?.type === "fish" ? "fish" : "finds";
+}
+
+/**
+ * Whether the part of the game a job needs is open in this world: finds for a find, lessons for a
+ * lesson, and bounties for a bounty. Nothing else a job asks for has a switch that can be off
+ * once jobs are open.
+ */
+function partOpen(state: WorldState, job: Job): boolean {
+  switch (job.deed?.type) {
+    case "find":
+      return findsOpen(state);
+    case "teach":
+      return state.recipes !== undefined;
+    case "bounty":
+      return state.bounties !== undefined;
+    default:
+      return true;
+  }
+}
+
+/**
+ * The job a lane gives on its `turn`th turn, from its jobs that are up today, in table order, one
+ * after the other. While a holiday runs, a lane with jobs for it gives one of those every other
+ * turn, so a short holiday's jobs always come up.
+ */
+function laneJob(up: readonly Job[], turn: number): Job | undefined {
+  const regular = up.filter((job) => job.holiday === undefined);
+  const festive = up.filter((job) => job.holiday !== undefined);
+  if (festive.length === 0) return regular[turn % regular.length];
+  const half = Math.floor(turn / 2);
+  if (turn % 2 === 0 || regular.length === 0) return festive[half % festive.length];
+  return regular[half % regular.length];
+}
+
+/**
+ * Today's board: three jobs, each in a different skill, the same for everyone (RFC 0030, section
+ * 2). A pure function of the world's day, the season and holiday it falls in, which parts of the
+ * game are open, and the edition's table. Empty before `open_jobs`. A lane with nothing up today
+ * leaves its slot to the other lane, which then takes a turn every day, and a slot with neither
+ * is left out.
+ */
+export function jobsOn(state: WorldState): Job[] {
+  const jobs = state.jobs;
+  const day = state.day;
+  if (!jobs || day === undefined) return [];
+  const season = seasonOf(day);
+  const holiday = holidayOf(day);
+  const up = (JOB_EDITIONS[jobs.edition] ?? []).filter(
+    (job) =>
+      partOpen(state, job) &&
+      (job.season === undefined || job.season === season) &&
+      (job.holiday === undefined || job.holiday === holiday),
+  );
+  const board: Job[] = [];
+  for (const lanes of SLOTS) {
+    const [first, second] = lanes
+      .map((lane) => up.filter((job) => laneOf(job) === lane))
+      .filter((list) => list.length > 0);
+    const job =
+      first && second
+        ? laneJob(day % 2 === 0 ? first : second, Math.floor(day / 2))
+        : first && laneJob(first, day);
+    if (job) board.push(job);
+  }
+  return board;
+}
+
+/** The job with this id in any edition, so a job held across a change of edition is still known. */
+export function jobById(id: unknown): Job | undefined {
+  for (const table of Object.values(JOB_EDITIONS)) {
+    const job = table.find((j) => j.id === id);
+    if (job) return job;
+  }
+  return undefined;
+}
+
+/**
+ * Whether a resident with a hearth can do `job` alone, with no recipe to learn and no fishing rod:
+ * a harvest, a find, or a craft or a made thing of a recipe everyone knows. Every day's board has
+ * at least one in a world with finds out.
+ */
+export function soloJob(job: Job): boolean {
+  if (job.bring !== undefined) return knownByAll(job.bring);
+  switch (job.deed.type) {
+    case "harvest":
+    case "find":
+      return true;
+    case "craft":
+      return knownByAll(job.deed.recipe);
+    default:
+      return false;
+  }
+}
+
+// ---------- taking and letting go ----------
+
+/**
+ * `take_job {job}`: hold one of today's jobs, from anywhere. It takes a hearth, and it's refused
+ * for townsfolk (`not_eligible`), while you hold one (`job_held`), once you've finished one today
+ * or `JOBS.perWeek` this UTC week (`job_limit`), and for a job that isn't on today's board
+ * (`unknown_job`), which is every job before `open_jobs`.
+ */
+export function checkTakeJob(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "take_job" }>,
+): Mutation | Rejection {
+  const jobs = state.jobs;
+  const day = state.day;
+  if (!jobs || day === undefined) {
+    return refuse("unknown_job", "The town has no jobs in this world yet.");
+  }
+  if (isTownsfolk(state, actor)) {
+    return refuse("not_eligible", "Townsfolk give the town's jobs and never take one.");
+  }
+  if (!residentById(state, actor)?.hearth) {
+    return refuse("no_hearth", "Jobs start once you have a hearth. Settle on a plot first.");
+  }
+  const held = own(jobs.held, actor);
+  if (held) {
+    return refuse(
+      "job_held",
+      `You're holding a job (${held.job}). Finish it, or let it go first with {"type": "drop_job"}.`,
+    );
+  }
+  if (jobs.doneToday?.includes(actor)) {
+    return refuse(
+      "job_limit",
+      "You finished a job today, and a day has one. The next one can be taken after midnight UTC.",
+    );
+  }
+  const monday = weekStart(day);
+  const week = jobs.week?.start === monday ? (own(jobs.week.done, actor) ?? 0) : 0;
+  if (week >= JOBS.perWeek) {
+    return refuse(
+      "job_limit",
+      `You've finished ${JOBS.perWeek} jobs this week, all a week has. The next one can be taken on Monday, ${dayName(monday + 7)} (UTC).`,
+    );
+  }
+  const board = jobsOn(state);
+  const job = board.find((j) => j.id === command.job);
+  if (!job) {
+    return refuse(
+      "unknown_job",
+      `That isn't one of today's jobs. Today's are ${board.map((j) => j.id).join(", ")}.`,
+    );
+  }
+  return () => {
+    jobs.held = { ...(jobs.held ?? {}), [actor]: { job: job.id, day } };
+    return [{ type: "job_taken", residentId: actor, job: job.id }];
+  };
+}
+
+/** Take `id`'s held job out of the world's list, and the list with it when it was the last. */
+function letGo(jobs: JobsState, id: ResidentId) {
+  if (!jobs.held) return;
+  delete jobs.held[id];
+  if (Object.keys(jobs.held).length === 0) delete jobs.held;
+}
+
+/** `drop_job`: let go of the job you hold. It costs nothing, and you can take another. */
+export function checkDropJob(state: WorldState, actor: ResidentId): Mutation | Rejection {
+  const jobs = state.jobs;
+  const held = own(jobs?.held, actor);
+  if (!jobs || !held) return refuse("no_job", "You aren't holding a job.");
+  return () => {
+    letGo(jobs, actor);
+    return [{ type: "job_dropped", residentId: actor, job: held.job }];
+  };
+}
+
+// ---------- doing ----------
+
+/**
+ * What finishing `job` does, as a commit: the job leaves the resident's hands, they're on today's
+ * list, this UTC week's count goes up by one, and the job's points land outside the daily cap. The
+ * week's count starts again with the first job finished in a later week.
+ */
+function finishing(state: WorldState, jobs: JobsState, id: ResidentId, job: Job): Mutation {
+  const monday = weekStart(state.day as number);
+  const points = jobEarns(state, id, job.skill, JOBS.points);
+  return () => {
+    letGo(jobs, id);
+    jobs.doneToday = [...(jobs.doneToday ?? []), id].sort();
+    if (jobs.week?.start !== monday) jobs.week = { start: monday, done: {} };
+    const week = (own(jobs.week.done, id) ?? 0) + 1;
+    jobs.week.done[id] = week;
+    return [
+      {
+        type: "job_done",
+        residentId: id,
+        job: job.id,
+        skill: job.skill,
+        points: JOBS.points,
+        week,
+      },
+      ...earned(points),
+    ];
+  };
+}
+
+/** A deed a resident just did, as a job sees it. */
+type Done =
+  | { type: "harvest"; crop: string }
+  | { type: "craft"; recipe: RecipeName }
+  | { type: "find"; kind: string; biome: Biome }
+  | { type: "fish"; timeOfDay: TimeOfDay };
+
+/**
+ * Whether a deed is the one a job counts. Nothing reports a lesson, a guest, a bounty, or a game
+ * yet, so a job that counts one can be taken and doesn't move.
+ */
+function fits(wanted: JobDeed, done: Done): boolean {
+  switch (wanted.type) {
+    case "harvest":
+      return (
+        done.type === "harvest" &&
+        (wanted.crops === undefined || (wanted.crops as readonly string[]).includes(done.crop))
+      );
+    case "craft":
+      return done.type === "craft" && done.recipe === wanted.recipe;
+    case "find":
+      return (
+        done.type === "find" &&
+        (wanted.biome === undefined || done.biome === wanted.biome) &&
+        (wanted.kinds === undefined || (wanted.kinds as readonly string[]).includes(done.kind))
+      );
+    case "fish":
+      return (
+        done.type === "fish" &&
+        (wanted.timeOfDay === undefined || done.timeOfDay === wanted.timeOfDay)
+      );
+    default:
+      return false;
+  }
+}
+
+/**
+ * What deeds a resident just did add to the job they hold, as a commit for the deed's own commit
+ * to run, or null: with no job held, a bring job, or no deed that fits. A deed moves only a job
+ * taken before it, since the count starts when the job is taken. When the count is reached the job
+ * is done, in that same commit.
+ */
+function moving(state: WorldState, id: ResidentId, done: readonly Done[]): Mutation | null {
+  const jobs = state.jobs;
+  const held = own(jobs?.held, id);
+  if (!jobs || !held) return null;
+  const job = jobById(held.job);
+  const wanted = job?.deed;
+  if (!job || !wanted) return null;
+  const fitting = done.filter((d) => fits(wanted, d)).length;
+  if (fitting === 0) return null;
+  const count = Math.min(wanted.count, (held.count ?? 0) + fitting);
+  if (count >= wanted.count) return finishing(state, jobs, id, job);
+  return () => {
+    held.count = count;
+    return [{ type: "job_progress", residentId: id, job: job.id, count, of: wanted.count }];
+  };
+}
+
+/**
+ * Each hook reads the rule its deed's points read, before the cap (`...Counts` in `levels.ts`), so
+ * a deed that would never earn never moves a job, and one past the daily cap still does.
+ */
+
+/** A harvest of `crop`, for the job its resident holds. */
+export const harvestJob = (state: WorldState, id: ResidentId, crop: string) =>
+  harvestCounts(state, id, crop) ? moving(state, id, [{ type: "harvest", crop }]) : null;
+
+/** A craft of `kind`, a good, a piece of furniture, or a sweet. */
+export const craftJob = (state: WorldState, id: ResidentId, kind: string) =>
+  craftCounts(state, id, kind)
+    ? moving(state, id, [{ type: "craft", recipe: recipeOf(kind as CraftKind) }])
+    : null;
+
+/** What one `gather` picked up: each find or recipe page, with the biome it lay in. */
+export const gatherJob = (
+  state: WorldState,
+  id: ResidentId,
+  pickups: readonly { kind: string; x: number; y: number }[],
+) =>
+  moving(
+    state,
+    id,
+    pickups
+      .filter((p) => pickupCounts(state, id, p.kind))
+      .map((p) => ({ type: "find", kind: p.kind, biome: biomeAt(state.config, p.x, p.y) })),
+  );
+
+/** A cast that caught `caught`, at the time of day the server logged with it. */
+export const catchJob = (
+  state: WorldState,
+  id: ResidentId,
+  caught: string,
+  timeOfDay: TimeOfDay,
+) => (catchCounts(state, id, caught) ? moving(state, id, [{ type: "fish", timeOfDay }]) : null);
+
+// ---------- handing in ----------
+
+/** A made thing's place in the order things were made: ids come from one counter. */
+const madeOrder = (good: Good) => Number(good.id.slice(2));
+
+/**
+ * `hand_in {item?}`: finish the bring job you hold with a thing of its recipe that you made
+ * yourself, your oldest or the one `item` names. Refused when you hold no bring job (`no_job`),
+ * and when you hold nothing of the kind that you made, or `item` isn't one (`nothing_to_hand_in`):
+ * a thing someone else made, given or bought, never finishes a job. The thing leaves the world.
+ */
+export function checkHandIn(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "hand_in" }>,
+): Mutation | Rejection {
+  const jobs = state.jobs;
+  const items = state.items;
+  const held = own(jobs?.held, actor);
+  if (!jobs || !items || !held) return refuse("no_job", "You aren't holding a job.");
+  const job = jobById(held.job);
+  const recipe = job?.bring;
+  if (!job || recipe === undefined) {
+    return refuse(
+      "no_job",
+      `The job you hold (${held.job}) has nothing to hand in: it's done when you've done what it asks.`,
+    );
+  }
+  const ofKind = (own(items.inventories, actor)?.goods ?? []).filter(
+    (good) => isGoodKind(good.kind) && recipeOf(good.kind) === recipe,
+  );
+  const wanted = Object.hasOwn(ITEM_INFO, recipe)
+    ? ITEM_INFO[recipe as CraftKind].name.toLowerCase()
+    : recipe;
+  const { item } = command;
+  let good: Good | undefined;
+  if (item !== undefined) {
+    good =
+      typeof item === "string" && ITEM_ID_PATTERN.test(item)
+        ? ofKind.find((g) => g.id === item)
+        : undefined;
+    if (!good) {
+      return refuse(
+        "nothing_to_hand_in",
+        `You don't hold ${wanted} with that id. Leave out item to hand in the oldest one you made.`,
+      );
+    }
+    if (good.maker !== actor) {
+      return refuse(
+        "nothing_to_hand_in",
+        "Someone else made that one. A job takes only a thing you made yourself.",
+      );
+    }
+  } else {
+    good = ofKind.filter((g) => g.maker === actor).sort((a, b) => madeOrder(a) - madeOrder(b))[0];
+    if (!good) {
+      return refuse(
+        "nothing_to_hand_in",
+        ofKind.length > 0
+          ? `Someone else made the ${wanted} you hold. A job takes only a thing you made yourself.`
+          : `You hold no ${wanted} that you made. Make one with craft, then hand it in.`,
+      );
+    }
+  }
+  const { id } = good;
+  const done = finishing(state, jobs, actor, job);
+  return () => {
+    const mine = inventory(items, actor);
+    mine.goods = mine.goods.filter((g) => g.id !== id);
+    return [inventoryEvent(actor, "handed_in", [], { lost: [id] }), ...done()];
+  };
+}
+
+// ---------- server inputs ----------
+
+/**
+ * `open_jobs`, which only TOWN_ACTOR sends, once: from now on the town has a board and residents
+ * may take jobs. It needs levels open, since a job pays points.
+ */
+export function checkOpenJobs(state: WorldState): Mutation | Rejection {
+  return oneTimeSwitch({
+    on: state.jobs,
+    already: "Jobs are already open.",
+    // Levels open only once the world counts days, so with levels there's a day.
+    notYet: () => (state.progress ? null : refuse("not_due", "Jobs open once levels are open.")),
+    turnOn: () => {
+      state.jobs = { opened: state.day as number, edition: FIRST_EDITION };
+    },
+    event: { type: "jobs_opened" },
+  });
+}
+
+/**
+ * At `new_day`: today's list of who finished a job starts again, and a held job lapses once
+ * `JOBS.keepDays` days have passed since it was taken, with a `job_dropped` for its resident, in
+ * id order. Nothing is lost with it. The week's count stays: it starts again with the first job
+ * finished in a later week.
+ */
+export function jobsNewDay(state: WorldState, day: number): Mutation | null {
+  const jobs = state.jobs;
+  if (!jobs) return null;
+  const lapsed = Object.entries(jobs.held ?? {})
+    .filter(([, held]) => day - held.day >= JOBS.keepDays)
+    .sort(([a], [b]) => (a < b ? -1 : 1));
+  if (!jobs.doneToday && lapsed.length === 0) return null;
+  return () => {
+    delete jobs.doneToday;
+    return lapsed.map(([id, held]): WorldEvent => {
+      letGo(jobs, id);
+      return { type: "job_dropped", residentId: id, job: held.job, lapsed: true };
+    });
+  };
+}

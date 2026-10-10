@@ -64,7 +64,13 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "maintainers_set" ||
       e.type === "implicit_presence_on" ||
       e.type === "event_ticked" ||
-      e.type === "event_credited"
+      e.type === "event_credited" ||
+      // Jobs (RFC 0030) are in the sim and not on the API yet: no job event goes out.
+      e.type === "jobs_opened" ||
+      e.type === "job_taken" ||
+      e.type === "job_progress" ||
+      e.type === "job_done" ||
+      e.type === "job_dropped"
     ) {
       continue;
     }

@@ -29,6 +29,7 @@ import {
   ITEM_INFO,
   ITEM_KINDS,
   isFishKind,
+  JOB_EDITIONS,
   PATTERNS,
   PET_COATS,
   PET_KINDS,
@@ -395,6 +396,60 @@ describe("Action", () => {
     // The ground floor has no floor: 0 is never sent.
     const ground = { type: "block_placed", x: 2, y: 1, floor: 0, block: "wood", by: "a" };
     expect(WorldEvent.safeParse(ground).success).toBe(false);
+  });
+});
+
+describe("jobs, before the API opens them (RFC 0030)", () => {
+  const id = "r_0123456789abcdef";
+
+  it("reach nothing here: no action, field, event, error code, route, or published word", () => {
+    // No action takes a job, lets one go, or hands one in, and the switch is the server's alone.
+    const actions = [
+      { type: "take_job", job: "bram_chair" },
+      { type: "drop_job" },
+      { type: "hand_in" },
+      { type: "hand_in", item: "i_1" },
+      { type: "open_jobs" },
+    ];
+    for (const action of actions) {
+      expect(Action.safeParse(action).success, action.type).toBe(false);
+      expect(ACTION_TYPES).not.toContain(action.type);
+    }
+    // Their refusals aren't error codes the API can answer with.
+    const refusals = ["job_held", "job_limit", "unknown_job", "no_job", "nothing_to_hand_in"];
+    for (const code of refusals) expect(ERROR_CODES, code).not.toContain(code);
+    // No event schema knows a job event, nor an inventory that changed for a job.
+    const fields = {
+      residentId: id,
+      job: "sable_night_fish",
+      skill: "foraging",
+      points: 10,
+      count: 1,
+      of: 3,
+      week: 1,
+    };
+    const events = ["jobs_opened", "job_taken", "job_progress", "job_done", "job_dropped"];
+    for (const type of events) {
+      expect(WorldEvent.safeParse({ type, ...fields }).success, type).toBe(false);
+    }
+    const lost = { type: "inventory", residentId: id, lost: ["i_1"] };
+    expect(WorldEvent.safeParse({ ...lost, reason: "gift_out" }).success).toBe(true);
+    expect(WorldEvent.safeParse({ ...lost, reason: "handed_in" }).success).toBe(false);
+    // The world's snapshot has no place for them, and no route serves them.
+    expect(Object.keys(WorldSnapshot.shape).filter((key) => /job/i.test(key))).toEqual([]);
+    expect(ROUTES.filter((r) => /job/i.test(`${r.id} ${r.path}`)).map((r) => r.path)).toEqual([]);
+    // The published API and the skill file say nothing of them: no call, code, event, or job id.
+    const published = `${JSON.stringify(buildOpenApi())}\n${skill}`;
+    const words = [
+      ...actions.map((action) => action.type),
+      ...refusals,
+      ...events,
+      "handed_in",
+      "/v1/jobs",
+      '"jobs"',
+      ...Object.values(JOB_EDITIONS).flatMap((jobs) => jobs.map((job) => job.id)),
+    ];
+    for (const word of words) expect(published, word).not.toContain(word);
   });
 });
 

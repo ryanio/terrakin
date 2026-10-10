@@ -14,6 +14,7 @@ import {
   type ResourceKind,
   reachProblem,
 } from "./items";
+import { gatherJob } from "./jobs";
 import { tileKey } from "./keys";
 import { earned, gatherEarns } from "./levels";
 import { howToMake, knows, learn, pageOn } from "./recipes";
@@ -388,6 +389,7 @@ function checkGatherAll(
     actor,
     take.map((t) => t.kind),
   );
+  const job = gatherJob(state, actor, take);
   return () => {
     if (!items.gathered) items.gathered = {};
     const gathered = items.gathered;
@@ -410,7 +412,7 @@ function checkGatherAll(
       learn(recipes, actor, recipe);
       events.push({ type: "recipe_learned", residentId: actor, recipe, how: "found" });
     }
-    events.push(...earned(points));
+    events.push(...earned(points), ...earned(job));
     return events;
   };
 }
@@ -468,6 +470,7 @@ export function checkGather(
   }
   const key = tileKey(x, y);
   const points = gatherEarns(state, actor, [kind]);
+  const job = gatherJob(state, actor, [{ kind, x, y }]);
   if (kind === RECIPE_PAGE) {
     // A page teaches its recipe and takes no room (RFC 0024). One you know stays for someone else.
     const recipe = pageOn(x, y, day) as RecipeName;
@@ -486,6 +489,7 @@ export function checkGather(
         { type: "gathered", x, y, kind, by: actor },
         { type: "recipe_learned", residentId: actor, recipe, how: "found" },
         ...earned(points),
+        ...earned(job),
       ];
     };
   }
@@ -503,6 +507,7 @@ export function checkGather(
       { type: "gathered", x, y, kind, by: actor },
       inventoryEvent(actor, "gather", [change]),
       ...earned(points),
+      ...earned(job),
     ];
     return events;
   };

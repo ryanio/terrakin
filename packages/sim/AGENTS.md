@@ -14,6 +14,8 @@ The rules engine. If a rule decides what's allowed in the world, it lives here a
 - **Ids from inputs are own keys.** Look a record up by an id from a command with `own(record, id)` or `residentById(state, id)` (`src/own.ts`), never `record[id]` or `id in record`: `__proto__`, `constructor`, or `toString` would find what every object inherits, and since inputs are logged, the damage would replay on every restart. Write under such an id only after it was found, or after `isOwnableKey`. `own.test.ts` throws those ids at every input that takes one.
 - **New state is absent until used.** A new field stays off old records until an input sets it, and bookkeeping without an event starts only after a new input (like the first `new_day`), so old logs keep their hash. `src/fixtures/pre-town-log.ts` pins one such hash.
 
+One more rule, which no test enforces: the package is **free of side effects**. `package.json` says `"sideEffects": false`, so the web client's bundle leaves out the sim modules it doesn't use ([decision 0258](../../docs/knowledge/decisions/0258-the-first-load-s-budget-is-135-kb-counted-as-it-is-downloade.md)). A module may build its own tables when it loads (`CATALOG`, `SHOP_CATALOG`), but must never do something at import time that another module relies on without importing a name from it: no registering into, filling, or freezing a table another module owns, and no `import "./x"` for effect.
+
 ## Where things are
 
 - `src/types.ts` world, command, event, and rejection types. Start here.

@@ -40,8 +40,13 @@ Considered: `zod/mini`, which would drop most of zod's 141 kB. It means rewritin
 |------|---------|----------|--------|
 | Before | 125.8 kB | 594 kB | 18 |
 | The REST calls split by area | 126.7 kB | 584 kB | 25 |
+| `@terrakin/sim` free of side effects | 125.8 kB | 583 kB | 25 |
 
 Splitting the calls took 10 kB of minified code out of the first load: 8 kB of the protocol (the schemas of your things, the market, bounties, and galleries) and 2 kB of calls. The gzipped number still went up by 0.9 kB. The bundler gives every group of modules that the first load shares with a different set of lazy pages a chunk of its own, the split made seven more such groups, and each chunk is compressed alone and names what it imports and exports.
+
+The sim's flag dropped four small modules nothing in the first load reads (Halloween, fishing, `putter`, the test grant). The sim's big modules stay because the first load does read them: the catalog (20 kB), which the protocol's item schemas are built from, the palette (9 kB), where the feed's plot thumbnails get each crop's color, and the looks (9 kB), which the schemas and the avatars both read. Nothing in the sim relied on a module running for its effect: its one top-level statement that isn't a declaration fills a table private to `gather.ts`.
+
+`packages/ui` could take the flag too. Its modules build only private caches when they load, `people.ts` starts loading the figure drawing but only runs when an avatar helper is imported, and its styles reach the apps through `@import` in their stylesheets, never through a script. It would save 40 bytes of one lazy chunk and nothing in the first load, because the apps import each ui module by path and there is no barrel to prune. It stays off: a flag is a promise every later module has to keep.
 
 ## Consequences
 

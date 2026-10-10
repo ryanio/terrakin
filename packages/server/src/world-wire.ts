@@ -66,7 +66,9 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       // Levels (RFC 0029) are in the sim and not on the API yet: no level event goes out.
       e.type === "levels_opened" ||
       e.type === "progress" ||
-      e.type === "level_reached"
+      e.type === "level_reached" ||
+      e.type === "event_credited" ||
+      e.type === "title_changed"
     ) {
       continue;
     }

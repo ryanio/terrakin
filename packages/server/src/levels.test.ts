@@ -38,6 +38,7 @@ describe("levels, before the API opens them", () => {
     // The newest switch before it is on, so the table ran.
     expect(logged).toContain("open_recipes");
     expect(logged).not.toContain("open_levels");
+    expect(logged).not.toContain("credit_event");
     expect(service.state.progress).toBeUndefined();
   });
 
@@ -55,6 +56,8 @@ describe("levels, before the API opens them", () => {
       },
       { type: "level_reached", residentId: "r_ada", skill: "growing", level: 2 },
       { type: "level_reached", residentId: "r_ada", level: 2 },
+      { type: "event_credited", event: "e_1", guests: ["r_bob"] },
+      { type: "title_changed", residentId: "r_ada", title: "gardener" },
       { type: "left", residentId: "r_ada" },
     ];
     expect(toWire(events)).toEqual([{ type: "left", residentId: "r_ada" }]);

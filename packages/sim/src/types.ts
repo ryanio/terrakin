@@ -16,6 +16,7 @@ import type { Catch } from "./fishing";
 import type { PickupKind } from "./gather";
 import type { GroundKind } from "./ground";
 import type {
+  EarnedWear,
   ExclusiveWear,
   HairColor,
   HairStyle,
@@ -165,7 +166,8 @@ export interface ProfileFields {
   /** Look fields (RFC 0005). `null` (or `[]` for wear) clears one; absent leaves it alone. */
   theme?: Theme | null;
   pattern?: Pattern | null;
-  wear?: WearItem[];
+  /** Wear, an earned garment included once its skill's level is reached (RFC 0029). */
+  wear?: (WearItem | EarnedWear)[];
   patternMedia?: string | null;
   homeArt?: string | null;
   homeModel?: string | null;
@@ -547,7 +549,34 @@ export interface ProgressState {
    * first counted bounty of a later week, as `games.week` does.
    */
   week?: { start: number; bounties: Record<ResidentId, ResidentId[]> };
+  /**
+   * Hosts `credit_event` gave points for an event today, and guests it gave points for coming to
+   * one, each sorted: a host counts for one event a UTC day and a guest for one. Absent until the
+   * day's first, and `new_day` drops them.
+   */
+  hostedToday?: ResidentId[];
+  guestToday?: ResidentId[];
+  /** The title each resident shows. Absent until the first, and a resident showing none is absent. */
+  titles?: Record<ResidentId, Title>;
 }
+
+/**
+ * Titles a skill's level unlocks (RFC 0029): fixed ids with fixed words, never resident text. Each
+ * skill has one at level 3 and a second at level 10. New titles go on the end.
+ */
+export const TITLES = [
+  "gardener",
+  "maker",
+  "forager",
+  "host",
+  "player",
+  "master_gardener",
+  "master_maker",
+  "master_forager",
+  "grand_host",
+  "champion",
+] as const;
+export type Title = (typeof TITLES)[number];
 
 /** The party games (RFC 0011). New games go on the end. */
 export const GAME_KINDS = ["hearth_race", "lowest_lantern"] as const;
@@ -728,6 +757,8 @@ export interface HostedEvent {
   closedDay?: number;
   /** The maintainer who called it off (`void_event`), as the log names them. */
   voidedBy?: string;
+  /** Its guests were counted for Hosting points (`credit_event`, RFC 0029). Absent until then. */
+  credited?: true;
 }
 
 export interface EventsState {
@@ -1201,7 +1232,8 @@ export interface EconomyToday {
 
 export type Command =
   | ({ type: "join"; name: string; kind: ResidentKind } & ProfileFields)
-  | ({ type: "profile" } & ProfileFields)
+  /** `title` is the title to show (RFC 0029): one the resident has reached, or `null` for none. */
+  | ({ type: "profile"; title?: Title | null } & ProfileFields)
   | { type: "leave" }
   /** A step, or `up` and `down` a staircase (RFC 0028). */
   | { type: "move"; dir: Direction | Climb }
@@ -1441,6 +1473,12 @@ export type Command =
    * which the sim can't see; the sim checks every entry and refuses the whole list otherwise.
    */
   | { type: "open_levels"; firsts: FirstsCredit[] }
+  /**
+   * Give Hosting points for an event that ended (RFC 0029). `guests` is who the server counted as
+   * guests, which takes ages and blocks the sim can't see. The sim checks the list against its own
+   * attendance, so the server can leave a guest out and never add one.
+   */
+  | { type: "credit_event"; event: string; guests: ResidentId[] }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1581,6 +1619,7 @@ export const SERVER_COMMANDS = [
   "retire_repeat_joins",
   "merge_resident",
   "open_levels",
+  "credit_event",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1947,6 +1986,13 @@ export type WorldEvent =
    */
   | { type: "level_reached"; residentId: ResidentId; skill?: Skill; level: number }
   /**
+   * An ended event's guests were counted for Hosting points: `guests` is the list the server
+   * sent. Each `progress` it led to follows. The server keeps it.
+   */
+  | { type: "event_credited"; event: string; guests: ResidentId[] }
+  /** A resident shows `title` beside their name now, or none (`null`). Public. */
+  | { type: "title_changed"; residentId: ResidentId; title: Title | null }
+  /**
    * `by` cast a line into the water at (x, y) and caught `caught`: a fish, an old boot they threw
    * back, or nothing (RFC 0023). Public, like a gather.
    */
@@ -2163,6 +2209,8 @@ export const REJECTION_CODES = [
   "ground_floor_only",
   /** `move up` off a staircase, or `move down` anywhere but the top of one. */
   "no_stairs",
+  /** A title or a garment from a skill level you haven't reached (RFC 0029). */
+  "not_earned",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

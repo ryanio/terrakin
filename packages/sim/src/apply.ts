@@ -86,7 +86,13 @@ import {
   payPantry,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
-import { checkOpenLevels, levelsNewDay } from "./levels";
+import {
+  checkCreditEvent,
+  checkOpenLevels,
+  checkTitle,
+  levelsNewDay,
+  unearnedWear,
+} from "./levels";
 import {
   HAIR_COLORS,
   HAIR_STYLES,
@@ -291,6 +297,9 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
     if (!PATTERNS.includes(pattern)) return reject("invalid_profile", "Unknown pattern.");
     out.pattern = pattern;
   }
+  // An earned garment (RFC 0029) is kept in `wear` with the rest. `Look.wear` is typed by
+  // `WEAR_ITEMS`, which the garments join once the web draws them; until then the protocol's wear
+  // enum keeps them out of every action, so no reader outside the sim meets one.
   const wear = pick("wear");
   if (wear !== null && wear !== undefined) {
     if (!Array.isArray(wear)) return reject("invalid_profile", "Wear is a list.");
@@ -337,7 +346,8 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
 
 /**
  * Wear in `fields` that `actor` may not put on, as a rejection, or null: shop wear they haven't
- * bought, or a partner's piece (worn or styled) they have no entitlement to (RFC 0007).
+ * bought, a partner's piece (worn or styled) they have no entitlement to (RFC 0007), or a garment
+ * from a skill level they haven't reached (RFC 0029).
  */
 function unownedWear(state: WorldState, actor: string, fields: ProfileFields): Prepared | null {
   const wear: readonly unknown[] = Array.isArray(fields.wear) ? fields.wear : [];
@@ -366,6 +376,8 @@ function unownedWear(state: WorldState, actor: string, fields: ProfileFields): P
       "That's a partner's piece: only its verified characters can wear it.",
     );
   }
+  const unearned = unearnedWear(state, actor, wear);
+  if (unearned) return { ok: false, rejection: unearned };
   return null;
 }
 
@@ -746,6 +758,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkMergeResident(state, command));
       case "open_levels":
         return town(checkOpenLevels(state, command));
+      case "credit_event":
+        return town(checkCreditEvent(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -849,14 +863,28 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (unowned) return unowned;
       const look = mergeProfile(me, command);
       if ("ok" in look) return look;
+      // The title to show (RFC 0029) is checked here and kept with levels, not on the resident.
+      const title = checkTitle(state, actor, command.title);
+      if (title && typeof title !== "function") return { ok: false, rejection: title };
+      const same = sameProfile(look, me);
       // A no-op would still cost a permanent log line and a broadcast.
-      if (sameProfile(look, me)) return reject("invalid_profile", "Nothing to change.");
+      if (same && !title) return reject("invalid_profile", "Nothing to change.");
       return () => {
-        setProfile(me, look);
-        const { color, shape, note } = look;
-        return [
-          { type: "profile_changed", residentId: actor, color, shape, note, ...lookOf(look) },
-        ];
+        const events: WorldEvent[] = [];
+        if (!same) {
+          setProfile(me, look);
+          const { color, shape, note } = look;
+          events.push({
+            type: "profile_changed",
+            residentId: actor,
+            color,
+            shape,
+            note,
+            ...lookOf(look),
+          });
+        }
+        if (title) events.push(...title());
+        return events;
       };
     }
 

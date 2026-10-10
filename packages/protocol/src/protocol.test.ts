@@ -9,6 +9,7 @@ import {
   countOf,
   createWorld,
   DEFAULT_CONFIG,
+  EARNED_WEAR,
   FISHING,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
@@ -393,9 +394,29 @@ describe("Action", () => {
 
 describe("levels, before the API opens them (RFC 0029)", () => {
   it("reach nothing here: no action, event, route, or published word", () => {
-    // The sim's switch is the server's alone, and no action is named for it.
+    // The sim's inputs are the server's alone, and no action is named for them.
     expect(Action.safeParse({ type: "open_levels", firsts: [] }).success).toBe(false);
+    expect(Action.safeParse({ type: "credit_event", event: "e_1", guests: [] }).success).toBe(
+      false,
+    );
     expect(ACTION_TYPES).not.toContain("open_levels");
+    expect(ACTION_TYPES).not.toContain("credit_event");
+    // A profile carries no title, and no wear list takes an earned garment, on a join either.
+    const titled = Action.safeParse({ type: "profile", note: "hi", title: "gardener" });
+    expect(titled.success && "title" in titled.data).toBe(false);
+    for (const wear of EARNED_WEAR) {
+      expect(Action.safeParse({ type: "profile", wear: [wear] }).success, wear).toBe(false);
+      expect(
+        Action.safeParse({ type: "profile", wearStyle: { [wear]: { color: "sun" } } }).success,
+        wear,
+      ).toBe(false);
+      expect(
+        CreateSessionRequest.safeParse({ name: "Ada", kind: "human", wear: [wear] }).success,
+        wear,
+      ).toBe(false);
+    }
+    // Their one refusal isn't an error code the API can answer with.
+    expect(ERROR_CODES).not.toContain("not_earned");
     // No event schema knows a level event, so none can be on the wire.
     const fields = {
       residentId: "r_0123456789abcdef",
@@ -405,13 +426,28 @@ describe("levels, before the API opens them (RFC 0029)", () => {
       today: 2,
       level: 2,
     };
-    for (const type of ["levels_opened", "progress", "level_reached"]) {
+    for (const type of [
+      "levels_opened",
+      "progress",
+      "level_reached",
+      "event_credited",
+      "title_changed",
+    ]) {
       expect(WorldEvent.safeParse({ type, ...fields }).success, type).toBe(false);
     }
     // No route serves them, and the published API and the skill file say nothing of them.
     expect(ROUTES.filter((r) => /progress|level/.test(r.path)).map((r) => r.path)).toEqual([]);
     const published = `${JSON.stringify(buildOpenApi())}\n${skillApiBlock()}`;
-    for (const word of ["open_levels", "levels_opened", "level_reached", "/v1/progress"]) {
+    for (const word of [
+      "open_levels",
+      "levels_opened",
+      "level_reached",
+      "/v1/progress",
+      "credit_event",
+      "not_earned",
+      "title_changed",
+      ...EARNED_WEAR,
+    ]) {
       expect(published, word).not.toContain(word);
     }
   });

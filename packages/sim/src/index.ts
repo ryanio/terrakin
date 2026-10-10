@@ -288,7 +288,19 @@ export {
   type Station,
 } from "./items";
 export { parseKey, plotKey, tileKey } from "./keys";
-export { firstSkill, firstsOf, levelOf, levelsOf, PROGRESS, pointsFor, pointsOf } from "./levels";
+export {
+  EARNED_WEAR_SKILL,
+  firstSkill,
+  firstsOf,
+  levelOf,
+  levelsOf,
+  PROGRESS,
+  pointsFor,
+  pointsOf,
+  TITLE_INFO,
+  titleOf,
+  UNLOCKS,
+} from "./levels";
 export * from "./looks";
 export {
   listingById,

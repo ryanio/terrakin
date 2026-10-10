@@ -2,10 +2,25 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import type { Crop } from "./catalog";
 import { LEVELS_CONFIG, LEVELS_HASH, LEVELS_LOG } from "./fixtures/levels-log";
+import { MERGE_CONFIG, MERGE_LOG } from "./fixtures/merge-log";
+import { REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG } from "./fixtures/repeat-joins-log";
 import { pickupLeft, RECIPE_PAGE } from "./gather";
 import { canonicalJson, hashWorld } from "./hash";
 import { isFindKind } from "./items";
-import { firstSkill, firstsOf, levelOf, levelsOf, PROGRESS, pointsFor, pointsOf } from "./levels";
+import {
+  EARNED_WEAR_SKILL,
+  firstSkill,
+  firstsOf,
+  levelOf,
+  levelsOf,
+  PROGRESS,
+  pointsFor,
+  pointsOf,
+  TITLE_INFO,
+  titleOf,
+  UNLOCKS,
+} from "./levels";
+import { EARNED_WEAR, EARNED_WEAR_INFO, WEAR_ITEMS } from "./looks";
 import { replay } from "./replay";
 import { dayOfDate, weekStart } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
@@ -13,9 +28,12 @@ import {
   type Command,
   type FirstsCredit,
   SKILLS,
+  type Skill,
+  TITLES,
   TOWN_ACTOR,
   type WorldConfig,
   type WorldEvent,
+  type WorldState,
 } from "./types";
 import { createWorld } from "./world";
 
@@ -258,10 +276,48 @@ describe("the numbers", () => {
       lesson: 4,
       bounty: 6,
       bountyMinReward: 5,
+      guest: 2,
+      attend: 4,
       game: 2,
       win: 2,
     });
     expect(SKILLS).toEqual(["growing", "making", "foraging", "hosting", "playing"]);
+    expect(UNLOCKS).toEqual({ title: 3, wear: 5, master: 10 });
+  });
+
+  it("give every skill a title at level 3, a garment at 5, and a second title at 10", () => {
+    for (const skill of SKILLS) {
+      const titles = TITLES.filter((title) => TITLE_INFO[title].skill === skill);
+      expect(
+        titles.map((title) => TITLE_INFO[title].level),
+        skill,
+      ).toEqual([3, 10]);
+      expect(
+        EARNED_WEAR.filter((wear) => EARNED_WEAR_SKILL[wear] === skill),
+        skill,
+      ).toHaveLength(1);
+    }
+    expect(TITLES.map((title) => TITLE_INFO[title].label)).toEqual([
+      "Gardener",
+      "Maker",
+      "Forager",
+      "Host",
+      "Player",
+      "Master gardener",
+      "Master maker",
+      "Master forager",
+      "Grand host",
+      "Champion",
+    ]);
+    expect(EARNED_WEAR_INFO).toEqual({
+      sun_hat: { slot: "hat", label: "Sun hat" },
+      tool_belt: { slot: "accessory", label: "Tool belt" },
+      field_vest: { slot: "top", label: "Field vest" },
+      party_sash: { slot: "accessory", label: "Party sash" },
+      winners_rosette: { slot: "accessory", label: "Winner's rosette" },
+    });
+    // Until the web draws them they're a list of their own, which no wear enum is built from.
+    for (const wear of EARNED_WEAR) expect(WEAR_ITEMS as readonly string[]).not.toContain(wear);
   });
 
   it("give each kind's first to one skill, and none to what a deed never makes", () => {
@@ -811,15 +867,382 @@ describe("season points", () => {
   });
 });
 
+const HOUR = 3_600_000;
+
+/**
+ * An event on `host`'s plot today that `guests` attend: scheduled for `hour` o'clock, started,
+ * sampled twice with the guests standing on the plot, and ended. Its id.
+ */
+function party(w: World, host: string, guests: string[], hour = 12) {
+  const [px, py] = PLOTS[host] ?? [0, 0];
+  const scheduled = w
+    .ok(host, {
+      type: "schedule_event",
+      kind: "gathering",
+      title: "Tea",
+      px,
+      py,
+      startsAt: w.day() * 24 * HOUR + hour * HOUR,
+      minutes: 30,
+    })
+    .find((e) => e.type === "event_scheduled");
+  const event = scheduled?.type === "event_scheduled" ? scheduled.event : "";
+  w.town({ type: "event_start", event });
+  // East of the hut, outside its wall, one tile each.
+  guests.forEach((guest, i) => {
+    w.standAt(guest, px * 8 + 6, py * 8 + 1 + i);
+  });
+  w.town({ type: "event_tick", event, slot: 1 });
+  w.town({ type: "event_tick", event, slot: 2 });
+  w.town({ type: "event_end", event });
+  return event;
+}
+
+const credit = (event: string, guests: unknown): Command =>
+  ({ type: "credit_event", event, guests }) as Command;
+
+describe("credit_event", () => {
+  it("gives the host 2 a counted guest and each guest 4, once", () => {
+    const w = levels();
+    const event = party(w, "ada", ["bob", "cy"]);
+    expect(w.state.events?.list[0]?.attended).toEqual(["bob", "cy"]);
+    expect(w.town(credit(event, ["cy", "bob"]))).toEqual([
+      { type: "event_credited", event, guests: ["cy", "bob"] },
+      { type: "progress", residentId: "ada", skill: "hosting", points: 4, total: 4, today: 4 },
+      { type: "progress", residentId: "cy", skill: "hosting", points: 4, total: 4, today: 4 },
+      { type: "progress", residentId: "bob", skill: "hosting", points: 4, total: 4, today: 4 },
+    ]);
+    expect(w.state.progress?.hostedToday).toEqual(["ada"]);
+    expect(w.state.progress?.guestToday).toEqual(["bob", "cy"]);
+    expect(w.state.events?.list[0]?.credited).toBe(true);
+    expect(w.code(TOWN_ACTOR, credit(event, ["bob", "cy"]))).toBe("already_set");
+    expect(w.code(TOWN_ACTOR, credit(event, []))).toBe("already_set");
+    expect(w.points("ada")).toEqual({ hosting: 4 });
+  });
+
+  it("takes a shorter list than the sim saw attend, and never a longer one", () => {
+    const w = levels();
+    const event = party(w, "ada", ["bob", "cy"]);
+    // Dee never came, and the host is no guest of her own event.
+    expect(w.code(TOWN_ACTOR, credit(event, ["bob", "dee"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(event, ["ada"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(event, ["nobody"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(event, ["__proto__"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(event, ["cy", "cy"]))).toBe("invalid_event");
+    expect(w.code(TOWN_ACTOR, credit(event, "bob"))).toBe("invalid_event");
+    expect(w.code(TOWN_ACTOR, credit(event, [7]))).toBe("invalid_event");
+    expect(w.code(TOWN_ACTOR, credit("e_9", ["bob"]))).toBe("unknown_event");
+    expect(w.code(TOWN_ACTOR, credit("__proto__", ["bob"]))).toBe("unknown_event");
+    expect(w.code("ada", credit(event, ["bob"]))).toBe("server_only");
+    // The server left Cy out, so only Bob counts.
+    const events = w.town(credit(event, ["bob"]));
+    expect(progress(events).map((e) => (e.type === "progress" ? e.residentId : ""))).toEqual([
+      "ada",
+      "bob",
+    ]);
+    expect(w.points("ada")).toEqual({ hosting: PROGRESS.guest });
+    expect(w.points("cy")).toEqual({});
+  });
+
+  it("refuses a guest in the host's household, though the sim saw them attend", () => {
+    const w = levels();
+    const event = party(w, "ada", ["bob", "cy"]);
+    w.town({ type: "add_owner_pair", pair: ["ada", "bob"] });
+    expect(w.state.events?.list[0]?.attended).toContain("bob");
+    expect(w.code(TOWN_ACTOR, credit(event, ["bob", "cy"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(event, ["cy"]))).toBeNull();
+  });
+
+  it("refuses townsfolk as guests, even ones who attended before they were townsfolk", () => {
+    const w = levels();
+    const event = party(w, "ada", ["bob", "cy"]);
+    w.town({ type: "set_townsfolk", ids: ["cy"] });
+    expect(w.state.events?.list[0]?.attended).toContain("cy");
+    expect(w.code(TOWN_ACTOR, credit(event, ["bob", "cy"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, credit(event, ["bob"]))).toBeNull();
+  });
+
+  it("waits for the event to end, and for levels to open", () => {
+    const w = levels();
+    const scheduled = w
+      .ok("ada", {
+        type: "schedule_event",
+        kind: "gathering",
+        title: "Tea",
+        px: 0,
+        py: 0,
+        startsAt: w.day() * 24 * HOUR + 12 * HOUR,
+        minutes: 30,
+      })
+      .find((e) => e.type === "event_scheduled");
+    const event = scheduled?.type === "event_scheduled" ? scheduled.event : "";
+    expect(w.code(TOWN_ACTOR, credit(event, []))).toBe("not_due");
+    w.town({ type: "event_start", event });
+    expect(w.code(TOWN_ACTOR, credit(event, []))).toBe("not_due");
+    const closed = levels({ open: false });
+    expect(closed.code(TOWN_ACTOR, credit(party(closed, "ada", ["bob"]), ["bob"]))).toBe("not_due");
+  });
+
+  it("counts a host for one event a day and a guest once a day, and both again the next day", () => {
+    const w = levels();
+    const first = party(w, "ada", ["bob"], 12);
+    const second = party(w, "ada", ["bob", "dee"], 14);
+    w.town(credit(first, ["bob"]));
+    // Ada hosted already today and Bob was a guest already, so only Dee earns here.
+    const events = w.town(credit(second, ["bob", "dee"]));
+    expect(progress(events)).toMatchObject([{ residentId: "dee", points: PROGRESS.attend }]);
+    expect(w.points("ada")).toEqual({ hosting: PROGRESS.guest });
+    expect(w.points("bob")).toEqual({ hosting: PROGRESS.attend });
+    // Another host the same day is counted for both of her guests, Bob too.
+    const third = party(w, "cy", ["bob", "dee"], 16);
+    expect(progress(w.town(credit(third, ["bob", "dee"])))).toMatchObject([
+      { residentId: "cy", points: 2 * PROGRESS.guest },
+    ]);
+    expect(w.state.progress?.hostedToday).toEqual(["ada", "cy"]);
+    expect(w.state.progress?.guestToday).toEqual(["bob", "dee"]);
+    w.toDay();
+    expect(w.state.progress?.hostedToday).toBeUndefined();
+    expect(w.state.progress?.guestToday).toBeUndefined();
+    const fourth = party(w, "ada", ["bob"], 12);
+    w.town(credit(fourth, ["bob"]));
+    expect(w.points("ada")).toEqual({ hosting: 2 * PROGRESS.guest });
+    expect(w.points("bob")).toEqual({ hosting: 2 * PROGRESS.attend });
+  });
+
+  it("gives a town event's guests their points, and nobody a host's", () => {
+    const w = levels();
+    const scheduled = w
+      .town({
+        type: "schedule_town_event",
+        key: "harvest-night",
+        kind: "gathering",
+        title: "Harvest night",
+        startsAt: w.day() * 24 * HOUR + 18 * HOUR,
+        minutes: 60,
+      })
+      .find((e) => e.type === "event_scheduled");
+    const event = scheduled?.type === "event_scheduled" ? scheduled.event : "";
+    w.town({ type: "event_start", event });
+    w.standAt("bob", 12, 12);
+    for (const slot of [1, 2, 3, 4]) w.town({ type: "event_tick", event, slot });
+    w.town({ type: "event_end", event });
+    expect(progress(w.town(credit(event, ["bob"])))).toMatchObject([
+      { residentId: "bob", skill: "hosting", points: PROGRESS.attend },
+    ]);
+    expect(w.state.progress?.hostedToday).toBeUndefined();
+  });
+});
+
+/** Set a skill's points straight in the world, for a level a few deeds can't land on exactly. */
+function setPoints(state: WorldState, id: string, skill: Skill, points: number) {
+  const progress = state.progress;
+  if (!progress) throw new Error("open levels first");
+  progress.points[id] = { ...progress.points[id], [skill]: points };
+}
+
+/** What an input's events say about a profile and its title, leaving the day's allowance out. */
+const shown = (events: WorldEvent[]) =>
+  events.filter((e) => e.type === "profile_changed" || e.type === "title_changed");
+
+describe("a title", () => {
+  it("is refused one point short of its level, and shown from the level on", () => {
+    const w = levels();
+    setPoints(w.state, "ada", "growing", pointsFor(UNLOCKS.title) - 1);
+    expect(w.code("ada", { type: "profile", title: "gardener" })).toBe("not_earned");
+    setPoints(w.state, "ada", "growing", pointsFor(UNLOCKS.title));
+    // Nothing about the profile changed, so there's no `profile_changed`.
+    expect(shown(w.ok("ada", { type: "profile", title: "gardener" }))).toEqual([
+      { type: "title_changed", residentId: "ada", title: "gardener" },
+    ]);
+    expect(titleOf(w.state, "ada")).toBe("gardener");
+    expect(w.state.progress?.titles).toEqual({ ada: "gardener" });
+    // Titles are kept with levels, never on the resident, so a `joined` never carries one.
+    expect(w.state.residents.ada).not.toHaveProperty("title");
+  });
+
+  it("is one you reached, in the skill it belongs to", () => {
+    const w = levels();
+    setPoints(w.state, "ada", "growing", pointsFor(UNLOCKS.master) - 1);
+    expect(w.code("ada", { type: "profile", title: "maker" })).toBe("not_earned");
+    expect(w.code("ada", { type: "profile", title: "master_gardener" })).toBe("not_earned");
+    expect(w.code("ada", { type: "profile", title: "wizard" } as unknown as Command)).toBe(
+      "invalid_profile",
+    );
+    expect(w.code("ada", { type: "profile", title: "__proto__" } as unknown as Command)).toBe(
+      "invalid_profile",
+    );
+    // Someone else's points are theirs.
+    expect(w.code("bob", { type: "profile", title: "gardener" })).toBe("not_earned");
+    setPoints(w.state, "ada", "growing", pointsFor(UNLOCKS.master));
+    w.ok("ada", { type: "profile", title: "master_gardener" });
+    // You show one at a time, from any you've reached.
+    w.ok("ada", { type: "profile", title: "gardener" });
+    expect(w.state.progress?.titles).toEqual({ ada: "gardener" });
+  });
+
+  it("changes with the rest of a profile in one input, and null shows none", () => {
+    const w = levels();
+    setPoints(w.state, "ada", "hosting", pointsFor(UNLOCKS.title));
+    const events = w.ok("ada", { type: "profile", title: "host", note: "Come by for tea." });
+    expect(shown(events).map((e) => e.type)).toEqual(["profile_changed", "title_changed"]);
+    // The same title again is nothing to change.
+    expect(w.code("ada", { type: "profile", title: "host" })).toBe("invalid_profile");
+    expect(shown(w.ok("ada", { type: "profile", title: null }))).toEqual([
+      { type: "title_changed", residentId: "ada", title: null },
+    ]);
+    expect(w.state.progress?.titles).toBeUndefined();
+    expect(w.code("ada", { type: "profile", title: null })).toBe("invalid_profile");
+  });
+
+  it("is nobody's before levels open", () => {
+    const w = levels({ open: false });
+    expect(w.code("ada", { type: "profile", title: "gardener" })).toBe("not_earned");
+    expect(w.code("ada", { type: "profile", title: null })).toBe("invalid_profile");
+  });
+});
+
+describe("earned wear", () => {
+  const wear = (...items: string[]): Command => ({ type: "profile", wear: items }) as Command;
+
+  it("is refused one point short of its skill's level 5, and worn from the level on", () => {
+    const w = levels();
+    setPoints(w.state, "ada", "making", pointsFor(UNLOCKS.wear) - 1);
+    expect(w.code("ada", wear("tool_belt"))).toBe("not_earned");
+    setPoints(w.state, "ada", "making", pointsFor(UNLOCKS.wear));
+    w.ok("ada", wear("tool_belt", "straw_hat"));
+    expect(w.state.residents.ada?.wear).toEqual(["straw_hat", "tool_belt"]);
+    // Another skill's garment is still to earn, and someone else's points are theirs.
+    expect(w.code("ada", wear("sun_hat"))).toBe("not_earned");
+    expect(w.code("bob", wear("tool_belt"))).toBe("not_earned");
+  });
+
+  it("takes a slot like any wear: one hat, one accessory", () => {
+    const w = levels();
+    for (const skill of SKILLS) setPoints(w.state, "ada", skill, pointsFor(UNLOCKS.wear));
+    expect(w.code("ada", wear("sun_hat", "straw_hat"))).toBe("invalid_profile");
+    expect(w.code("ada", wear("tool_belt", "party_sash"))).toBe("invalid_profile");
+    w.ok("ada", wear("winners_rosette", "field_vest", "sun_hat"));
+    expect(w.state.residents.ada?.wear).toEqual(["sun_hat", "field_vest", "winners_rosette"]);
+    // It takes no style of its own until the web draws it.
+    expect(
+      w.code("ada", { type: "profile", wearStyle: { sun_hat: { color: "sun" } } } as Command),
+    ).toBe("invalid_profile");
+  });
+
+  it("is checked when a resident joins, too", () => {
+    const w = levels();
+    setPoints(w.state, "ada", "growing", pointsFor(UNLOCKS.wear));
+    w.ok("ada", { type: "leave" });
+    w.ok("bob", { type: "leave" });
+    const join = (name: string, ...items: string[]): Command =>
+      ({ type: "join", name, kind: "human", wear: items }) as Command;
+    expect(w.code("bob", join("bob", "sun_hat"))).toBe("not_earned");
+    expect(w.code("ada", join("ada", "tool_belt"))).toBe("not_earned");
+    w.ok("ada", join("ada", "sun_hat"));
+    expect(w.state.residents.ada?.wear).toEqual(["sun_hat"]);
+  });
+
+  it("is nobody's before levels open", () => {
+    const w = levels({ open: false });
+    expect(w.code("ada", wear("sun_hat"))).toBe("not_earned");
+  });
+});
+
+describe("merge_resident", () => {
+  const MERGE = MERGE_LOG.findIndex((i) => i.command.type === "merge_resident");
+  const FROM = "r_blaze4";
+  const INTO = "r_blaze";
+  const send = (state: WorldState, command: Command) => {
+    const result = apply(state, { actor: TOWN_ACTOR, command });
+    expectSupplyHolds(state);
+    return result.ok ? result.events : [];
+  };
+
+  it("adds the duplicate's points skill by skill and joins their firsts", () => {
+    const state = replay(MERGE_CONFIG, MERGE_LOG.slice(0, MERGE));
+    send(state, {
+      type: "open_levels",
+      firsts: [
+        { resident: FROM, kinds: ["lemon", "chair"] },
+        { resident: INTO, kinds: ["lemon", "herb"] },
+      ],
+    });
+    const progress = state.progress;
+    if (!progress) throw new Error("levels didn't open");
+    // What only counts toward a day or a week, the season's points, and the title it showed.
+    progress.seasons = { "19967": { [FROM]: { growing: 4 }, [INTO]: { growing: 2, making: 2 } } };
+    progress.today = { [FROM]: { growing: 4 } };
+    progress.hostedToday = [FROM];
+    progress.guestToday = [FROM, "ada"];
+    progress.week = { start: 20_024, bounties: { [FROM]: ["ada"], ada: [FROM] } };
+    progress.titles = { [FROM]: "gardener" };
+    const events = send(state, { type: "merge_resident", from: FROM, into: INTO });
+    expect(events.filter((e) => e.type === "progress" || e.type === "level_reached")).toEqual([
+      { type: "progress", residentId: INTO, skill: "growing", points: 10, total: 30, today: 0 },
+      {
+        type: "progress",
+        residentId: INTO,
+        skill: "making",
+        points: 10,
+        firsts: ["chair"],
+        total: 10,
+        today: 0,
+      },
+      { type: "level_reached", residentId: INTO, skill: "growing", level: 2 },
+      { type: "level_reached", residentId: INTO, level: 2 },
+    ]);
+    expect(state.progress).toEqual({
+      points: { [INTO]: { growing: 30, making: 10 } },
+      firsts: { [INTO]: ["chair", "herb", "lemon"] },
+      seasons: { "19967": { [INTO]: { growing: 6, making: 2 } } },
+      guestToday: ["ada"],
+      // History that names the duplicate stays as it was.
+      week: { start: 20_024, bounties: { ada: [FROM] } },
+    });
+  });
+
+  it("moves nothing in a world without levels", () => {
+    const state = replay(MERGE_CONFIG, MERGE_LOG.slice(0, MERGE));
+    const events = send(state, { type: "merge_resident", from: FROM, into: INTO });
+    expect(events.some((e) => e.type === "resident_merged")).toBe(true);
+    expect(state.progress).toBeUndefined();
+  });
+});
+
+describe("retire_repeat_joins", () => {
+  it("treats a record with points as used, and refuses the list", () => {
+    const RETIRE = REPEAT_JOINS_LOG.findIndex((i) => i.command.type === "retire_repeat_joins");
+    const listed = REPEAT_JOINS_LOG[RETIRE]?.command as Command;
+    const world = () => replay(REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG.slice(0, RETIRE));
+    const open = (state: WorldState, firsts: FirstsCredit[]) =>
+      apply(state, { actor: TOWN_ACTOR, command: { type: "open_levels", firsts } });
+    const credited = world();
+    expect(open(credited, [{ resident: "r_pip2", kinds: ["lemon"] }]).ok).toBe(true);
+    const before = hashWorld(credited);
+    expect(apply(credited, { actor: TOWN_ACTOR, command: listed })).toMatchObject({
+      rejection: { code: "not_eligible" },
+    });
+    expect(hashWorld(credited)).toBe(before);
+    // With levels open and nothing credited to them, the same list goes.
+    const untouched = world();
+    expect(open(untouched, [{ resident: "r_pip", kinds: ["lemon"] }]).ok).toBe(true);
+    expect(apply(untouched, { actor: TOWN_ACTOR, command: listed }).ok).toBe(true);
+  });
+});
+
 describe("the levels fixture", () => {
-  it("replays a credit, deeds, a bounty week, a rated game, and two seasons to the pinned hash", () => {
+  it("replays a credit, deeds, a bounty week, a game, an event, a title, a merge, and two seasons to the pinned hash", () => {
     const state = replay(LEVELS_CONFIG, LEVELS_LOG);
     expectSupplyHolds(state);
     expect(state.progress?.points).toEqual({
-      eve: { growing: 26, making: 34, foraging: 26, playing: 4 },
-      ada: { growing: 10, making: 10 },
-      dee: { hosting: 10, playing: 2 },
+      eve: { growing: 26, making: 34, foraging: 26, hosting: 2, playing: 4 },
+      ada: { growing: 10, making: 250 },
+      dee: { hosting: 14, playing: 2 },
+      // Fran's acorn, since her record was merged into his.
+      gus: { foraging: 14 },
     });
+    expect(state.progress?.titles).toEqual({ ada: "maker" });
+    expect(state.residents.ada?.wear).toEqual(["tool_belt"]);
     expect(levelsOf(state, "eve")).toEqual({
       level: 3,
       skills: { growing: 2, making: 2, foraging: 2, hosting: 1, playing: 1 },

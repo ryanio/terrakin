@@ -131,6 +131,9 @@ function inputs(id: string, day: number): [string, Command][] {
     // The one-time credit names residents and kinds (RFC 0029).
     town({ type: "open_levels", firsts: [{ resident: id, kinds: ["lemon"] }] }),
     town({ type: "open_levels", firsts: [{ resident: "ada", kinds: [id] }] }),
+    town({ type: "credit_event", event: id, guests: [] }),
+    town({ type: "credit_event", event: "e_1", guests: [id] }),
+    ada({ type: "profile", title: id } as Command),
     town({ type: "routine_step", resident: id, routine: "walk_home", step: { type: "home" } }),
     town({ type: "routine_step", resident: "ada", routine: id, step: { type: "home" } } as Command),
     ada({ type: "set_routines", routines: [{ kind: id, hour: 1 }] } as Command),

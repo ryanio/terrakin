@@ -1,6 +1,8 @@
 import { CROPS, FIND_KINDS, FISH_KINDS, FURNITURE_KINDS, GOOD_KINDS, SWEET_KINDS } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
+import { findEvent } from "./events";
+import { type EarnedWear, isEarnedWear } from "./looks";
 import { own, residentById } from "./own";
 import { seasonSpan, weekStart } from "./season";
 import { townEligibility } from "./town";
@@ -12,17 +14,19 @@ import type {
   ResidentId,
   Skill,
   SkillPoints,
+  Title,
   WorldEvent,
   WorldState,
 } from "./types";
-import { SKILLS } from "./types";
+import { SKILLS, TITLES } from "./types";
 
 /**
  * Levels and skills (RFC 0029). A deed earns points in its skill, counted by the deed's own input:
- * a harvest, a craft, a find or a fish, a lesson, a paid bounty, a rated game. Each skill counts up
- * to `PROGRESS.dailyCap` points a UTC day, and the first time a resident harvests, makes, finds, or
- * catches a kind earns `PROGRESS.first` more, outside the cap. A level is read from points
- * (`levelOf`) and never stored, so it can't disagree with them.
+ * a harvest, a craft, a find or a fish, a lesson, a paid bounty, a rated game, and guests at an
+ * event. Each skill counts up to `PROGRESS.dailyCap` points a UTC day, and the first time a
+ * resident harvests, makes, finds, or catches a kind earns `PROGRESS.first` more, outside the cap.
+ * A level is read from points (`levelOf`) and never stored, so it can't disagree with them. A
+ * skill's level unlocks a title and a garment, which show and do nothing else.
  *
  * Points are not coins: nothing here mints, burns, or moves one. Nothing runs until the server
  * logs `open_levels`, which creates `state.progress`, so every older log replays as it was made.
@@ -53,11 +57,47 @@ export const PROGRESS = {
   bounty: 6,
   /** A resident's bounty counts only for a reward of at least this many coins. */
   bountyMinReward: 5,
+  /**
+   * Hosting: each counted guest at an event you hosted, one event a UTC day. The daily cap ends it
+   * at ten guests.
+   */
+  guest: 2,
+  /** Hosting: being a counted guest at an event, once a UTC day. */
+  attend: 4,
   /** Playing: a rated game finished. */
   game: 2,
   /** Playing: finishing first in it, ties included, on top of `game`. */
   win: 2,
 } as const;
+
+/** The skill levels that unlock a skill's title, its garment, and its second title. */
+export const UNLOCKS = { title: 3, wear: 5, master: 10 } as const;
+
+/** Each title's words, and the skill level that unlocks it. Words are fixed, never resident text. */
+export const TITLE_INFO: Record<Title, { label: string; skill: Skill; level: number }> = {
+  gardener: { label: "Gardener", skill: "growing", level: UNLOCKS.title },
+  maker: { label: "Maker", skill: "making", level: UNLOCKS.title },
+  forager: { label: "Forager", skill: "foraging", level: UNLOCKS.title },
+  host: { label: "Host", skill: "hosting", level: UNLOCKS.title },
+  player: { label: "Player", skill: "playing", level: UNLOCKS.title },
+  master_gardener: { label: "Master gardener", skill: "growing", level: UNLOCKS.master },
+  master_maker: { label: "Master maker", skill: "making", level: UNLOCKS.master },
+  master_forager: { label: "Master forager", skill: "foraging", level: UNLOCKS.master },
+  grand_host: { label: "Grand host", skill: "hosting", level: UNLOCKS.master },
+  champion: { label: "Champion", skill: "playing", level: UNLOCKS.master },
+};
+
+/** The skill each earned garment comes from, at `UNLOCKS.wear`. */
+export const EARNED_WEAR_SKILL: Record<EarnedWear, Skill> = {
+  sun_hat: "growing",
+  tool_belt: "making",
+  field_vest: "foraging",
+  party_sash: "hosting",
+  winners_rosette: "playing",
+};
+
+/** A skill's name in people's words: "Growing". */
+const skillName = (skill: Skill) => `${skill[0]?.toUpperCase()}${skill.slice(1)}`;
 
 type Mutation = () => WorldEvent[];
 
@@ -96,6 +136,10 @@ export function levelsOf(
 export const firstsOf = (state: WorldState, id: ResidentId): readonly string[] =>
   own(state.progress?.firsts, id) ?? [];
 
+/** The title a resident shows, if any. Public. */
+export const titleOf = (state: WorldState, id: ResidentId): Title | undefined =>
+  own(state.progress?.titles, id);
+
 // ---------- what counts ----------
 
 const isOneOf = (list: readonly string[], kind: unknown): kind is string =>
@@ -123,9 +167,13 @@ interface Deed {
   first?: string;
 }
 
-/** What one skill gains from an input: points under the cap, and the kinds that were firsts. */
+/**
+ * What one skill gains from an input: the points to add, how many of them count toward today's
+ * cap, and the kinds that became firsts.
+ */
 interface Gain {
   skill: Skill;
+  points: number;
   counted: number;
   firsts: string[];
 }
@@ -133,7 +181,7 @@ interface Gain {
 /**
  * Add `gains` to a resident's points and say so: a private `progress` for each skill, then a
  * public `level_reached` for each skill level, and for the resident's own level, that went up.
- * `season` is the season the points count in, absent for the one-time credit.
+ * `season` is the season the points count in, absent for the one-time credit and a merge.
  */
 function addPoints(
   progress: ProgressState,
@@ -144,8 +192,7 @@ function addPoints(
   const points = { ...(own(progress.points, id) ?? {}) };
   const before = { ...points };
   const events: WorldEvent[] = [];
-  for (const { skill, counted, firsts } of gains) {
-    const added = counted + firsts.length * PROGRESS.first;
+  for (const { skill, points: added, counted, firsts } of gains) {
     points[skill] = (points[skill] ?? 0) + added;
     let today = own(progress.today, id)?.[skill] ?? 0;
     if (counted > 0) {
@@ -181,8 +228,9 @@ function addPoints(
     }
   }
   const level = levelOf(totalOf(points));
-  if (level > levelOf(totalOf(before)))
+  if (level > levelOf(totalOf(before))) {
     events.push({ type: "level_reached", residentId: id, level });
+  }
   return events;
 }
 
@@ -213,7 +261,8 @@ function earning(state: WorldState, id: ResidentId, deeds: readonly Deed[]): Mut
       seen.push(first);
       firsts.push(first);
     }
-    if (counted > 0 || firsts.length > 0) gains.push({ skill, counted, firsts });
+    const points = counted + firsts.length * PROGRESS.first;
+    if (points > 0) gains.push({ skill, points, counted, firsts });
   }
   if (gains.length === 0) return null;
   const season = String(seasonSpan(state.day).start);
@@ -322,6 +371,65 @@ export function gameEarns(
   return earnings.length > 0 ? () => earnings.flatMap((e) => e()) : null;
 }
 
+// ---------- titles and earned wear ----------
+
+/**
+ * What a `profile`'s `title` does: nothing when it's absent or already so, a rejection for a title
+ * that doesn't exist (`invalid_profile`) or whose skill level the resident hasn't reached
+ * (`not_earned`), else a commit that shows it (`null` shows none) with a public `title_changed`.
+ */
+export function checkTitle(
+  state: WorldState,
+  id: ResidentId,
+  title: unknown,
+): Mutation | Rejection | undefined {
+  if (title === undefined) return undefined;
+  const progress = state.progress;
+  const now = titleOf(state, id) ?? null;
+  if (title !== null) {
+    if (!isOneOf(TITLES, title)) return refuse("invalid_profile", "Unknown title.");
+    const { label, skill, level } = TITLE_INFO[title as Title];
+    const mine = levelsOf(state, id).skills[skill];
+    if (!progress || mine < level) {
+      return refuse(
+        "not_earned",
+        `${label} comes with ${skillName(skill)} ${level}, and you're at ${skillName(skill)} ${mine}.`,
+      );
+    }
+  }
+  if (title === now || !progress) return undefined;
+  return () => {
+    const titles = { ...(progress.titles ?? {}) };
+    if (title === null) delete titles[id];
+    else titles[id] = title as Title;
+    if (Object.keys(titles).length > 0) progress.titles = titles;
+    else delete progress.titles;
+    return [{ type: "title_changed", residentId: id, title: title as Title | null }];
+  };
+}
+
+/**
+ * The first earned garment in `wear` whose skill level the resident hasn't reached, as a
+ * `not_earned` rejection, or null. `join` and `profile` call it for everything in a wear list.
+ */
+export function unearnedWear(
+  state: WorldState,
+  id: ResidentId,
+  wear: readonly unknown[],
+): Rejection | null {
+  const levels = levelsOf(state, id).skills;
+  for (const item of wear) {
+    if (!isEarnedWear(item)) continue;
+    const skill = EARNED_WEAR_SKILL[item];
+    if (state.progress && levels[skill] >= UNLOCKS.wear) continue;
+    return refuse(
+      "not_earned",
+      `That's earned at ${skillName(skill)} ${UNLOCKS.wear}, and you're at ${skillName(skill)} ${levels[skill]}.`,
+    );
+  }
+  return null;
+}
+
 // ---------- server inputs ----------
 
 /**
@@ -394,7 +502,9 @@ export function checkOpenLevels(
       const gains: Gain[] = [];
       for (const skill of SKILLS) {
         const mine = kinds.filter((kind) => firstSkill(kind) === skill).sort();
-        if (mine.length > 0) gains.push({ skill, counted: 0, firsts: mine });
+        if (mine.length > 0) {
+          gains.push({ skill, points: mine.length * PROGRESS.first, counted: 0, firsts: mine });
+        }
       }
       events.push(...addPoints(progress, resident, gains));
     }
@@ -402,12 +512,136 @@ export function checkOpenLevels(
   };
 }
 
-/** At `new_day`: today's counts toward each skill's cap start again. Null when there are none. */
+/**
+ * `credit_event {event, guests}`, which only TOWN_ACTOR sends: Hosting points for an event that
+ * ended. The server counts guests (ages, blocks, and two hosts a day are its to know) and sends
+ * the list; the sim takes it only if every guest attended by its own samples (`event_end` kept
+ * them in `attended`, which never holds the host), none is in the host's household or townsfolk,
+ * and none is named twice. So a wrong list can leave a guest out and never add one. An event is
+ * credited once.
+ *
+ * The host earns `PROGRESS.guest` a guest, for one event a UTC day, and each guest
+ * `PROGRESS.attend`, once a UTC day, both under Hosting's daily cap. Who was counted today is in
+ * `progress.hostedToday` and `guestToday`, written only when points were added. A town event has
+ * no host to earn.
+ */
+export function checkCreditEvent(
+  state: WorldState,
+  command: Extract<Command, { type: "credit_event" }>,
+): Mutation | Rejection {
+  const progress = state.progress;
+  if (!progress) return refuse("not_due", "Levels aren't open in this world yet.");
+  const e = findEvent(state, command.event);
+  if (!e) return refuse("unknown_event", "No event has that id.");
+  if (e.status !== "ended") return refuse("not_due", `${e.id} hasn't ended.`);
+  if (e.credited) return refuse("already_set", `${e.id}'s guests were already counted.`);
+  const { guests } = command;
+  if (!Array.isArray(guests) || !guests.every((id) => typeof id === "string")) {
+    return refuse("invalid_event", "List the guests by id.");
+  }
+  if (new Set(guests).size !== guests.length) {
+    return refuse("invalid_event", "List each guest once.");
+  }
+  const attended = e.attended ?? [];
+  for (const id of guests) {
+    if (!attended.includes(id)) {
+      return refuse("not_eligible", "A listed guest didn't attend by the event's own samples.");
+    }
+    if (sameHousehold(state, e.host, id)) {
+      return refuse("not_eligible", "A listed guest is in the host's household.");
+    }
+    if (isTownsfolk(state, id)) {
+      return refuse("not_eligible", "Townsfolk are never counted guests.");
+    }
+  }
+  const host =
+    guests.length > 0 && !progress.hostedToday?.includes(e.host)
+      ? earning(state, e.host, [{ skill: "hosting", points: guests.length * PROGRESS.guest }])
+      : null;
+  const came = guests.flatMap((id) => {
+    if (progress.guestToday?.includes(id)) return [];
+    const points = earning(state, id, [{ skill: "hosting", points: PROGRESS.attend }]);
+    return points ? [{ id, points }] : [];
+  });
+  return () => {
+    e.credited = true;
+    const events: WorldEvent[] = [{ type: "event_credited", event: e.id, guests: [...guests] }];
+    if (host) {
+      events.push(...host());
+      progress.hostedToday = [...(progress.hostedToday ?? []), e.host].sort();
+    }
+    for (const { id, points } of came) {
+      events.push(...points());
+      progress.guestToday = [...(progress.guestToday ?? []), id].sort();
+    }
+    return events;
+  };
+}
+
+/** At `new_day`: today's counts toward each skill's cap, and who an event counted, start again. */
 export function levelsNewDay(state: WorldState): Mutation | null {
   const progress = state.progress;
-  if (!progress?.today) return null;
+  if (!progress?.today && !progress?.hostedToday && !progress?.guestToday) return null;
   return () => {
     delete progress.today;
+    delete progress.hostedToday;
+    delete progress.guestToday;
     return [];
   };
+}
+
+/** `list` without `id`, or undefined when that leaves it empty. */
+const without = (list: readonly ResidentId[] | undefined, id: ResidentId) => {
+  const rest = (list ?? []).filter((other) => other !== id);
+  return rest.length > 0 ? rest : undefined;
+};
+
+/**
+ * What `merge_resident` does to levels: `from`'s points join `into`'s skill by skill, with a
+ * private `progress` for each and a `level_reached` where a level went up, their firsts are joined,
+ * and `from`'s points in each season move too. What only counts toward a day or a week (today's
+ * counts, who an event counted, the bounty week's entry) and the title `from` showed are dropped.
+ */
+export function mergeProgress(state: WorldState, from: ResidentId, into: ResidentId): WorldEvent[] {
+  const progress = state.progress;
+  if (!progress) return [];
+  const theirs = own(progress.points, from) ?? {};
+  const had = own(progress.firsts, into) ?? [];
+  const news = (own(progress.firsts, from) ?? []).filter((kind) => !had.includes(kind));
+  const gains: Gain[] = [];
+  for (const skill of SKILLS) {
+    const points = theirs[skill] ?? 0;
+    const firsts = news.filter((kind) => firstSkill(kind) === skill);
+    if (points > 0 || firsts.length > 0) gains.push({ skill, points, counted: 0, firsts });
+  }
+  delete progress.points[from];
+  delete progress.firsts[from];
+  const events = gains.length > 0 ? addPoints(progress, into, gains) : [];
+  for (const board of Object.values(progress.seasons ?? {})) {
+    const moved = own(board, from);
+    if (!moved) continue;
+    delete board[from];
+    const mine = { ...(own(board, into) ?? {}) };
+    for (const skill of SKILLS) {
+      if (moved[skill]) mine[skill] = (mine[skill] ?? 0) + moved[skill];
+    }
+    board[into] = mine;
+  }
+  if (progress.today && Object.hasOwn(progress.today, from)) {
+    delete progress.today[from];
+    if (Object.keys(progress.today).length === 0) delete progress.today;
+  }
+  for (const key of ["hostedToday", "guestToday"] as const) {
+    const rest = without(progress[key], from);
+    if (rest) progress[key] = rest;
+    else delete progress[key];
+  }
+  if (progress.week && Object.hasOwn(progress.week.bounties, from)) {
+    delete progress.week.bounties[from];
+  }
+  if (progress.titles && Object.hasOwn(progress.titles, from)) {
+    delete progress.titles[from];
+    if (Object.keys(progress.titles).length === 0) delete progress.titles;
+  }
+  return events;
 }

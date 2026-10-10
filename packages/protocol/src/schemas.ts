@@ -79,6 +79,17 @@ export const PROTOCOL_VERSION = 1;
 
 const CHAT_MAX_LENGTH = 280;
 
+/**
+ * Levels (RFC 0029) are in the sim before the API opens them, which is the RFC's PR 4. Until then
+ * the API names nothing only levels make: their one refusal. No action carries a title or earned
+ * wear, and no event schema knows a level event, so nothing here can reach them.
+ */
+const NOT_OPEN_YET: readonly string[] = ["not_earned"];
+
+/** One of the sim's lists, less what levels add until the API opens them. */
+const openOnly = <T extends string>(list: readonly T[]) =>
+  list.filter((k) => !NOT_OPEN_YET.includes(k)) as unknown as readonly [T, ...T[]];
+
 /** Errors the protocol layer adds on top of the sim's rejection codes. */
 const PROTOCOL_ERROR_CODES = [
   "bad_request",
@@ -105,7 +116,7 @@ const PROTOCOL_ERROR_CODES = [
   "too_soon",
 ] as const;
 
-export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
+export const ERROR_CODES = [...openOnly(REJECTION_CODES), ...PROTOCOL_ERROR_CODES] as const;
 export const ErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 

@@ -8,21 +8,30 @@ import { LESSONS_CONFIG, LESSONS_LOG } from "./lessons-log";
  * digs a pond and casts twice (a boot, then a minnow), and picks up a chestnut. Dee visits and
  * teaches her the barrel. Eve pays Dee for a bounty, which counts; Bob pays Ada, his own person,
  * which doesn't; and Eve pays Dee a second time that week, which doesn't either. Eve and Dee play
- * a rated Hearth race. Two days on Eve harvests what the credit already counted as firsts, and in
- * December she harvests again, in a second season. `levels.test.ts` replays it to the hash pinned
- * below, so once levels are live a change to a deed's points, the cap, a first, the bounty week,
- * or the credit that would replay the real log differently fails loudly.
+ * a rated Hearth race.
+ *
+ * Two days on Eve harvests what the credit already counted as firsts. Fran visits and picks up an
+ * acorn. Eve hosts a gathering on her plot that Dee and Fran attend, and the server credits it
+ * with Dee alone as a counted guest. Ada, whose credit reached Making 5, shows the Maker title and
+ * puts on the tool belt. Fran's record is merged into Gus's, and her points go with it. In
+ * December Eve harvests again, in a second season.
+ *
+ * `levels.test.ts` replays it to the hash pinned below, so once levels are live a change to a
+ * deed's points, the cap, a first, the bounty week, an event's credit, a title, earned wear, a
+ * merge, or the one-time credit that would replay the real log differently fails loudly.
  */
 export const LEVELS_CONFIG = LESSONS_CONFIG;
 
 /** October 28, 2024, a Monday: the day the lessons log ends on. */
 const DAY = 20_024;
+const HOUR = 3_600_000;
 const SALT = "0123456789abcdef0123456789abcdef";
 const town = (command: Input["command"]): Input => ({ actor: TOWN_ACTOR, command });
 const ada = (command: Input["command"]): Input => ({ actor: "ada", command });
 const bob = (command: Input["command"]): Input => ({ actor: "bob", command });
 const dee = (command: Input["command"]): Input => ({ actor: "dee", command });
 const eve = (command: Input["command"]): Input => ({ actor: "eve", command });
+const fran = (command: Input["command"]): Input => ({ actor: "fran", command });
 const cast = (roll: number): Input =>
   eve({ type: "fish", roll, weather: "clear", timeOfDay: "day" });
 /** A bounty posted, claimed, done, and paid. */
@@ -44,6 +53,35 @@ const round = (n: number): Input[] => [
   town({ type: "close_round", table: "g_1", round: n, at: 10_000 + n * 1_000 }),
 ];
 
+/** What Ada's collection book held that she made: every good, and nine pieces of furniture. */
+const ADA_MADE = [
+  "lemon_jam",
+  "strawberry_jam",
+  "lemonade",
+  "tomato_sauce",
+  "herb_tea",
+  "bouquet",
+  "herb_sachet",
+  "flower_wreath",
+  "pumpkin_pie",
+  "pumpkin_soup",
+  "pomegranate_jam",
+  "cranberry_jam",
+  "cranberry_punch",
+  "fishing_rod",
+  "fried_minnows",
+  "fish_stew",
+  "table",
+  "chair",
+  "bookshelf",
+  "barrel",
+  "signpost",
+  "lamp_post",
+  "well",
+  "stone_wall",
+  "campfire",
+];
+
 export const LEVELS_LOG: Input[] = [
   ...LESSONS_LOG,
   town({ type: "open_bounties" }),
@@ -51,7 +89,7 @@ export const LEVELS_LOG: Input[] = [
     type: "open_levels",
     firsts: [
       { resident: "eve", kinds: ["herb", "flower", "lemonade"] },
-      { resident: "ada", kinds: ["lemon", "lemon_jam"] },
+      { resident: "ada", kinds: ["lemon", ...ADA_MADE] },
     ],
   }),
   // Eve stands on her hearth at (3, 11), with planters, a kitchen, and a workbench in her hut.
@@ -79,10 +117,34 @@ export const LEVELS_LOG: Input[] = [
   eve({ type: "harvest", x: 2, y: 10 }),
   eve({ type: "harvest", x: 2, y: 11 }),
   eve({ type: "plant", x: 2, y: 10, seed: "herb" }),
+  // An acorn lies at (6, 12) today, on Eve's plot.
+  fran({ type: "visit", px: 0, py: 1, x: 6, y: 12 }),
+  fran({ type: "gather", x: 6, y: 12 }),
+  eve({
+    type: "schedule_event",
+    kind: "gathering",
+    title: "Tea by the pond",
+    px: 0,
+    py: 1,
+    startsAt: (DAY + 2) * 24 * HOUR + 18 * HOUR,
+    minutes: 30,
+  }),
+  town({ type: "event_start", event: "e_1" }),
+  // Dee goes home from the game table first, then comes over.
+  dee({ type: "home" }),
+  dee({ type: "join_event", event: "e_1", x: 6, y: 11 }),
+  town({ type: "event_tick", event: "e_1", slot: 1 }),
+  town({ type: "event_tick", event: "e_1", slot: 2 }),
+  town({ type: "event_end", event: "e_1" }),
+  // Fran has no hearth, so the server's guest rule leaves her out.
+  town({ type: "credit_event", event: "e_1", guests: ["dee"] }),
+  ada({ type: "profile", title: "maker", wear: ["tool_belt"] }),
+  fran({ type: "leave" }),
+  town({ type: "merge_resident", from: "fran", into: "gus" }),
   // December 2: winter, so these points count in a second season.
   town({ type: "new_day", day: DAY + 35 }),
   eve({ type: "harvest", x: 2, y: 10 }),
 ];
 
 /** `hashWorld(replay(LEVELS_CONFIG, LEVELS_LOG))`, pinned when levels landed in the sim. */
-export const LEVELS_HASH = "3cc7e39a";
+export const LEVELS_HASH = "b7993ad3";

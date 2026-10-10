@@ -5,6 +5,7 @@ import { isMaintainer, isTownsfolk, movePurse } from "./economy";
 import { activeTables } from "./games";
 import { addStack, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
 import { plotKey } from "./keys";
+import { mergeProgress } from "./levels";
 import { own, residentById } from "./own";
 import { knownRecipes } from "./recipes";
 import { plotHasAnything } from "./storeys";
@@ -208,6 +209,8 @@ export function checkMergeResident(
         }
       }
     }
+    // Levels (RFC 0029): points and firsts are the resident's own, so they move.
+    events.push(...mergeProgress(state, from, into));
     for (const ladder of Object.values(state.games?.ratings ?? {})) dropKey(ladder, from);
     dropKey(state.games?.today.rated, from);
     dropKey(state.knocks?.by, from);

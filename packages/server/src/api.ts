@@ -40,6 +40,7 @@ import {
   plotKey,
   utcDay,
 } from "@terrakin/sim";
+import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE } from "./access";
 import { AiSpend } from "./ai-spend";
 import {
   API_HEADERS,
@@ -108,6 +109,7 @@ import {
 import type { ListerFacts } from "./market";
 import { COOL_DOWN_MESSAGE, type Moderation } from "./moderation";
 import { OwnerService } from "./owner-service";
+import { isAdminHost } from "./pages";
 import type { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
 import { type PictureRoute, type PictureSpec, pictureSpec } from "./pictures";
@@ -204,6 +206,11 @@ export interface ApiRequest {
    * the Worker sets it, after checking the JWT; never copy it from a request header.
    */
   staffEmail?: string | undefined;
+  /**
+   * A service token's sign-in the adapter has already verified, by the same rule: `DEPLOY_SERVICE`
+   * for the deploy's replay check (decision 0257), which opens the world-log export alone.
+   */
+  staffService?: string | undefined;
   /** The `Origin` header, which browsers send on cross-site and most same-site requests. */
   browserOrigin?: string | undefined;
   /** The `Sec-Fetch-Site` header browsers send: `same-origin`, `same-site`, `cross-site`, or `none`. */
@@ -240,7 +247,16 @@ function isAdminOrigin(browserOrigin: string, requestOrigin: string | undefined)
   try {
     const from = new URL(browserOrigin);
     const to = new URL(requestOrigin ?? "");
-    return from.origin === to.origin && to.hostname.toLowerCase().startsWith("admin.");
+    return from.origin === to.origin && isAdminHost(to.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a request came in on an admin host, going by the origin its adapter gave it. */
+function onAdminHost(requestOrigin: string | undefined): boolean {
+  try {
+    return isAdminHost(new URL(requestOrigin ?? "").hostname);
   } catch {
     return false;
   }
@@ -1337,6 +1353,19 @@ export class Api {
         "bad_request",
         "Send staff actions as JSON, with Content-Type: application/json.",
       );
+    }
+    // The deploy's replay check (decision 0257): a service token the Worker verified at the admin
+    // host, the only place Access signs anyone in. It reads the world log and is refused everywhere
+    // else, whatever else the request carries and whatever a route's own checks would say.
+    if (
+      this.staffOptions.access &&
+      !req.staffEmail &&
+      req.staffService === DEPLOY_SERVICE &&
+      onAdminHost(req.origin)
+    ) {
+      return route.id === "getWorldLog"
+        ? { actor: DEPLOY_ACTOR }
+        : fail("forbidden", DEPLOY_READS_LOG_ONLY);
     }
     // A staff key (RFC 0026): its maker, within the key's scope and their role now. It works on
     // any host, Access or not, since an AI can't sign in through Access.

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { checkDeploy, workflowOutputs } from "./deploy";
+import { checkDeploy, replayBeforeDeploy, workflowOutputs } from "./deploy";
 
 const head = "a".repeat(40);
 const main = "b".repeat(40);
@@ -63,16 +63,82 @@ describe("checkDeploy", () => {
 
 describe("workflowOutputs", () => {
   it("says whether the run uploaded, and after an upload the built page's script", () => {
-    expect(workflowOutputs(true, "/assets/index-abc.js")).toBe(
-      "deployed=true\nscript=/assets/index-abc.js\n",
+    expect(workflowOutputs(true, "/assets/index-abc.js", "passed")).toBe(
+      "deployed=true\nscript=/assets/index-abc.js\nreplay=passed\n",
     );
-    expect(workflowOutputs(true, undefined)).toBe("deployed=true\nscript=\n");
-    expect(workflowOutputs(false, "/assets/index-abc.js")).toBe("deployed=false\n");
+    expect(workflowOutputs(true, undefined, "off")).toBe("deployed=true\nscript=\nreplay=off\n");
+    expect(workflowOutputs(false, "/assets/index-abc.js", "skipped")).toBe("deployed=false\n");
+  });
+
+  it("writes the names CI's deploy job hands to the smoke job, the replay check's among them", () => {
+    expect(workflowOutputs(true, undefined, "skipped")).toContain("replay=skipped\n");
+  });
+});
+
+describe("replayBeforeDeploy", () => {
+  const said: string[] = [];
+  const run = (
+    check: () => Promise<{ status: "passed" | "failed" | "skipped"; lines: string[] }>,
+    over: { skip?: boolean; hasServiceToken?: boolean } = {},
+  ) => {
+    said.length = 0;
+    return replayBeforeDeploy({
+      skip: false,
+      hasServiceToken: true,
+      check,
+      describeError: () => "TypeError (details left out)",
+      say: (line) => said.push(line),
+      ...over,
+    });
+  };
+  const answers = (status: "passed" | "failed" | "skipped") => async () => ({
+    status,
+    lines: ["a line"],
+  });
+  const throws = async () => {
+    throw new TypeError("my secret words");
+  };
+
+  it("passes a check that ran, and refuses the deploy on one that failed", async () => {
+    expect(await run(answers("passed"))).toBe("passed");
+    expect(said).toEqual(["Replay check: a line"]);
+    expect(await run(answers("failed"))).toBe("refused");
+    expect(await run(answers("failed"), { hasServiceToken: false })).toBe("refused");
+  });
+
+  it("calls a check that couldn't run skipped when CI had a token to run it with, and off without one", async () => {
+    expect(await run(answers("skipped"))).toBe("skipped");
+    expect(await run(throws)).toBe("skipped");
+    expect(said).toEqual(["Replay check couldn't run: TypeError (details left out)"]);
+    expect(await run(answers("skipped"), { hasServiceToken: false })).toBe("off");
+    expect(await run(throws, { hasServiceToken: false })).toBe("off");
+  });
+
+  it("doesn't run the check when it's skipped on purpose, and that is never an alert", async () => {
+    let ran = false;
+    const check = async () => {
+      ran = true;
+      return { status: "failed" as const, lines: [] };
+    };
+    expect(await run(check, { skip: true })).toBe("off");
+    expect(ran).toBe(false);
+    expect(said).toEqual(["Replay check: skipped (TERRAKIN_SKIP_REPLAY_CHECK=1)."]);
+  });
+
+  it("hands its answer to the workflow's outputs", () => {
+    const source = readFileSync(new URL("./deploy.ts", import.meta.url), "utf8");
+    expect(source).toContain("await tellWorkflow(true, replayed);");
+    expect(source).toContain("workflowOutputs(deployed, deployed ? script : undefined, replay)");
+  });
+
+  it("turns the smoke job red when the replay check was skipped", () => {
+    const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+    expect(ci).toMatch(/if: \$\{\{ always\(\) && needs\.deploy\.outputs\.replay == 'skipped' \}\}/);
   });
 
   it("writes the names CI's deploy job hands to the smoke job", () => {
     const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
-    for (const [, name] of workflowOutputs(true, undefined).matchAll(/^(\w+)=/gm)) {
+    for (const [, name] of workflowOutputs(true, undefined, "off").matchAll(/^(\w+)=/gm)) {
       expect(ci).toContain(`${name}: \${{ steps.deploy.outputs.${name} }}`);
       expect(ci).toContain(`needs.deploy.outputs.${name}`);
     }

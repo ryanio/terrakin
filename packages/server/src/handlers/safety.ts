@@ -18,6 +18,7 @@ import {
   REPLAY_VERSION,
   utcDay,
 } from "@terrakin/sim";
+import { DEPLOY_ACTOR } from "../access";
 import { SUMMARY_DAYS } from "../ai-spend";
 import type { Api } from "../api";
 import { staffBountiesView } from "../bounties";
@@ -487,7 +488,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         : fail("bad_request", SNAPSHOT_REFUSED[taken.refused]);
     },
     getWorldLog: ({ viewer, query, origin }) => {
-      if (api.staffRole(viewer) !== "maintainer") {
+      if (viewer !== DEPLOY_ACTOR && api.staffRole(viewer) !== "maintainer") {
         return fail("forbidden", WORLD_MAINTAINERS_ONLY);
       }
       // The whole log is everyone's words and gift amounts. On terrakin.org it needs an Access

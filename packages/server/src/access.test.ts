@@ -1,8 +1,10 @@
+import { ROUTES } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   AccessVerifier,
   accessConfig,
   accessToken,
+  DEPLOY_READS_LOG_ONLY,
   parseEmails,
   parseStaffResidents,
 } from "./access";
@@ -12,6 +14,7 @@ import {
   adminAssetPath,
   adminGate,
   isMissingAdminFile,
+  WORLD_LOG_PATH,
 } from "./admin-host";
 import { ADMIN_PAGE_HEADERS } from "./pages";
 
@@ -64,6 +67,10 @@ function certs(keys: () => object[]) {
 }
 
 const NOW = 1_800_000_000_000;
+/** A service token's client id, and its sign-in as Access signs one: no email, the id as its name. */
+const CLIENT = "0123456789abcdef0123456789abcdef.access";
+const service = (extra: Record<string, unknown> = {}) =>
+  good({ email: undefined, sub: "", type: "app", common_name: CLIENT, ...extra });
 const good = (extra: Record<string, unknown> = {}) => ({
   aud: [AUD],
   iss: `https://${TEAM}`,
@@ -105,6 +112,36 @@ describe("Cloudflare Access sign-ins", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("takes the deploy check's service token by its client id, and no other service token", async () => {
+    const a = await keyPair("kid-a");
+    const stranger = await keyPair("kid-a");
+    const { fetcher } = certs(() => [a.jwk]);
+    const config = { team: TEAM, aud: AUD, deployClient: CLIENT };
+    const verifier = new AccessVerifier(config, fetcher, () => NOW);
+    expect(await verifier.verify(await a.sign(service()))).toEqual({ service: "deploy" });
+    // A person stays a person, whatever name their sign-in carries.
+    expect(await verifier.verify(await a.sign(good({ common_name: CLIENT })))).toEqual({
+      email: "ryan@example.com",
+    });
+    for (const [what, token] of [
+      ["another service token", await a.sign(service({ common_name: "other.access" }))],
+      ["no name", await a.sign(service({ common_name: undefined }))],
+      ["somebody's, as a client certificate's is", await a.sign(service({ sub: "u_1" }))],
+      ["no subject", await a.sign(service({ sub: undefined }))],
+      ["a session token", await a.sign(service({ type: "org" }))],
+      ["a malformed email", await a.sign(service({ email: "nope" }))],
+      ["another app's", await a.sign(service({ aud: ["someone-else"] }))],
+      ["expired", await a.sign(service({ exp: NOW / 1000 - 3600 }))],
+      ["signed by another key", await stranger.sign(service())],
+    ] as const) {
+      expect(await verifier.verify(token), what).toBeUndefined();
+    }
+    // With no client id set, no service token is anyone.
+    const plain = new AccessVerifier({ team: TEAM, aud: AUD }, fetcher, () => NOW);
+    expect(await plain.verify(await a.sign(service()))).toBeUndefined();
+    expect(await plain.verify(await a.sign(service({ common_name: "" })))).toBeUndefined();
+  });
+
   it("picks up a rotated key, but doesn't refetch for every unknown key id", async () => {
     const a = await keyPair("kid-a");
     const b = await keyPair("kid-b");
@@ -134,6 +171,15 @@ describe("Cloudflare Access sign-ins", () => {
       aud: "aud",
     });
     expect(accessConfig("team.cloudflareaccess.com", "")).toBeUndefined();
+    expect(accessConfig("team.cloudflareaccess.com", "aud", ` ${CLIENT} `)).toEqual({
+      team: "team.cloudflareaccess.com",
+      aud: "aud",
+      deployClient: CLIENT,
+    });
+    expect(accessConfig("team.cloudflareaccess.com", "aud", " ")).toEqual({
+      team: "team.cloudflareaccess.com",
+      aud: "aud",
+    });
     expect([...parseEmails(" A@b.com,c@d.org  nope ")]).toEqual(["a@b.com", "c@d.org"]);
   });
 });
@@ -227,6 +273,46 @@ describe("the admin host's gate", () => {
     expect(await adminGate(header, api, options)).toEqual({ email: "ryan@example.com" });
     const cookie = get(page, { cookie: `CF_Authorization=${token}` });
     expect(await adminGate(cookie, page, options)).toEqual({ email: "ryan@example.com" });
+  });
+
+  it("lets the deploy check's token through for a GET of the world log, and nothing else", async () => {
+    const a = await keyPair("kid-a");
+    const { fetcher } = certs(() => [a.jwk]);
+    const config = { team: TEAM, aud: AUD, deployClient: CLIENT };
+    const options = {
+      verifier: new AccessVerifier(config, fetcher, () => NOW),
+      requireAccess: true,
+    };
+    const headers = { "cf-access-jwt-assertion": await a.sign(service()) };
+    expect(ROUTES.find((r) => r.id === "getWorldLog")).toMatchObject({
+      method: "GET",
+      path: WORLD_LOG_PATH,
+    });
+    const log = new URL(`https://admin.terrakin.org${WORLD_LOG_PATH}?after=5`);
+    expect(await adminGate(new Request(log, { headers }), log, options)).toEqual({
+      email: undefined,
+      service: "deploy",
+    });
+    for (const [method, path] of [
+      ["POST", WORLD_LOG_PATH],
+      ["GET", `${WORLD_LOG_PATH}/`],
+      ["GET", "/v1/admin/snapshots"],
+      ["GET", "/v1/admin/reports"],
+      ["GET", "/v1/world"],
+      ["GET", "/"],
+      ["GET", "/_admin/index.html"],
+      ["GET", "/media/m_1"],
+    ] as const) {
+      const url = new URL(`https://admin.terrakin.org${path}`);
+      const gate = await adminGate(new Request(url, { method, headers }), url, options);
+      if (!("refuse" in gate)) throw new Error(`let through: ${method} ${path}`);
+      expect(gate.refuse.status, `${method} ${path}`).toBe(403);
+      if (path.startsWith("/v1/")) {
+        expect(await gate.refuse.json()).toEqual({
+          error: { code: "forbidden", message: DEPLOY_READS_LOG_ONLY },
+        });
+      }
+    }
   });
 
   it("never runs the real admin host without Access; other hosts fall back to tokens", async () => {

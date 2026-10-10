@@ -161,6 +161,7 @@ jobs:
     outputs:
       deployed: ${{ steps.deploy.outputs.deployed }}
       script: ${{ steps.deploy.outputs.script }}
+      replay: ${{ steps.deploy.outputs.replay }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -202,6 +203,14 @@ jobs:
       - run: node scripts/deploy-smoke.ts --wait 120 --deployed --script "$SCRIPT"
         env:
           SCRIPT: ${{ needs.deploy.outputs.script }}
+      # The deploy had a service token for the replay check and the check still couldn't run
+      # (decision 0257): the token expired, its Access policy changed, or the live world didn't
+      # answer. The deploy went out unchecked, so this job goes red and `smoke-alert` says so.
+      - name: The replay check ran before the deploy
+        if: ${{ always() && needs.deploy.outputs.replay == 'skipped' }}
+        run: |
+          echo "::error::The replay check couldn't run before this deploy. Read the deploy job's 'Replay check' lines, and see 'The replay check in CI' in docs/deploy.md."
+          exit 1
 
   # A red smoke check shows up in the issue list, as a red nightly does (nightly.yml): one open
   # issue labeled `deploy-smoke-red`, opened by the first red check, commented on by each red one
@@ -234,5 +243,5 @@ jobs:
             gh label create "$label" --color B60205 --force \
               --description "The smoke check after a deploy is red (ci.yml)"
             gh issue create --label "$label" --title "The smoke check after a deploy is red" --body \
-              "The smoke check of terrakin.org failed after ${GITHUB_SHA:0:8} was deployed: $RUN_URL. That commit is live, and nothing was rolled back. Read it with \`gh run view $GITHUB_RUN_ID --log-failed\`, run it again with \`node scripts/deploy-smoke.ts\`, and see \"The smoke check after a deploy\" in docs/deploy.md for what each check means. The next green check closes this issue, and so does running the failed job again once it passes; each red one until then comments here."
+              "The smoke check of terrakin.org failed after ${GITHUB_SHA:0:8} was deployed: $RUN_URL. That commit is live, and nothing was rolled back. Read it with \`gh run view $GITHUB_RUN_ID --log-failed\`, run it again with \`node scripts/deploy-smoke.ts\`, and see \"The smoke check after a deploy\" in docs/deploy.md for what each check means. If the red step is \"The replay check ran before the deploy\", the site is fine and the deploy went out unchecked: see \"The replay check in CI\" there. The next green check closes this issue, and so does running the failed job again once it passes; each red one until then comments here."
           fi

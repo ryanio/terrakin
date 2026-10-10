@@ -42,6 +42,7 @@ import {
   negotiate,
   pageHeaders,
   STAFF_EMAIL_HEADER,
+  STAFF_SERVICE_HEADER,
   toWorld,
   twinHeaders,
 } from "../src/pages";
@@ -89,6 +90,8 @@ interface Env {
   /** Cloudflare Access in front of admin.terrakin.org: the team domain and the app's audience tag. */
   TERRAKIN_ACCESS_TEAM?: string;
   TERRAKIN_ACCESS_AUD?: string;
+  /** The client id of the service token the deploy's replay check signs in with (decision 0257). */
+  TERRAKIN_ACCESS_DEPLOY_CLIENT?: string;
   /** Access emails with each staff role, comma separated. */
   TERRAKIN_MAINTAINER_EMAILS?: string;
   TERRAKIN_MODERATOR_EMAILS?: string;
@@ -126,9 +129,13 @@ interface Env {
 /** The Access verifier, with its key cache, lives as long as the isolate. */
 let verifier: { key: string; verifier: AccessVerifier } | undefined;
 function accessVerifier(env: Env): AccessVerifier | undefined {
-  const config = accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD);
+  const config = accessConfig(
+    env.TERRAKIN_ACCESS_TEAM,
+    env.TERRAKIN_ACCESS_AUD,
+    env.TERRAKIN_ACCESS_DEPLOY_CLIENT,
+  );
   if (!config) return undefined;
-  const key = `${config.team} ${config.aud}`;
+  const key = `${config.team} ${config.aud} ${config.deployClient ?? ""}`;
   if (verifier?.key !== key) verifier = { key, verifier: new AccessVerifier(config) };
   return verifier.verifier;
 }
@@ -145,7 +152,7 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
   });
   if ("refuse" in gate) return gate.refuse;
   if (isApiPath(url.pathname)) {
-    return env.WORLD.get(env.WORLD.idFromName("world")).fetch(toWorld(request, url, gate.email));
+    return env.WORLD.get(env.WORLD.idFromName("world")).fetch(toWorld(request, url, gate));
   }
   const reading = request.method === "GET" || request.method === "HEAD";
   const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
@@ -655,6 +662,7 @@ class WorldObject extends DurableObject<Env> {
       idempotencyKey: request.headers.get("idempotency-key") ?? undefined,
       // Only the Worker in front sets this, from an Access JWT it verified (see toWorld).
       staffEmail: request.headers.get(STAFF_EMAIL_HEADER) ?? undefined,
+      staffService: request.headers.get(STAFF_SERVICE_HEADER) ?? undefined,
       browserOrigin: request.headers.get("origin") ?? undefined,
       fetchSite: request.headers.get("sec-fetch-site") ?? undefined,
       contentType: request.headers.get("content-type") ?? undefined,

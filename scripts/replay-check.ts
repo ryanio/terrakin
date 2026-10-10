@@ -10,9 +10,11 @@
  * verified snapshot's `hash` on the way. Nothing is written to disk and no input is printed: the
  * log holds residents' words and gift notes.
  *
- * It signs in through Cloudflare Access with `TERRAKIN_ACCESS_TOKEN`, else `cloudflared access
- * token` (after `cloudflared access login https://admin.terrakin.org`). Where Access isn't set up,
- * like a local server, `TERRAKIN_STAFF_TOKEN` is a maintainer's bearer token.
+ * It signs in through Cloudflare Access with `TERRAKIN_ACCESS_TOKEN`, else an Access service token
+ * (`TERRAKIN_ACCESS_CLIENT_ID` and `TERRAKIN_ACCESS_CLIENT_SECRET`, which CI's deploy has, decision
+ * 0257), else `cloudflared access token` (after `cloudflared access login
+ * https://admin.terrakin.org`). Where Access isn't set up, like a local server,
+ * `TERRAKIN_STAFF_TOKEN` is a maintainer's bearer token.
  *
  * Exit codes: 0 the replay matched, 1 it didn't, 2 it couldn't run (no sign-in, or no export).
  * `pnpm cf:deploy` runs it and refuses to deploy on 1.
@@ -142,14 +144,29 @@ export async function replayCheck(read: ReadPage, config?: WorldConfig): Promise
   return { status: "passed", lines };
 }
 
+/** The live world's admin host: the default `--base`, and the only place a service token is sent. */
+export const LIVE_ADMIN = "https://admin.terrakin.org";
+
 /** Whether `base` is this machine, where a plain http server and a resident token are fine. */
 const isLocal = (base: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(base);
 
 /**
+ * Whether an Access service token is set (`TERRAKIN_ACCESS_CLIENT_ID` and
+ * `TERRAKIN_ACCESS_CLIENT_SECRET`), as it is in CI's deploy. Then a check that couldn't run is
+ * worth saying out loud (`replayOutcome` in deploy.ts).
+ */
+export function serviceToken(): { id: string; secret: string } | undefined {
+  const id = process.env.TERRAKIN_ACCESS_CLIENT_ID?.trim();
+  const secret = process.env.TERRAKIN_ACCESS_CLIENT_SECRET?.trim();
+  return id && secret ? { id, secret } : undefined;
+}
+
+/**
  * The headers that sign a request in, or undefined when there's no sign-in to use. An Access
- * sign-in comes first. A maintainer's bearer token (`TERRAKIN_STAFF_TOKEN`) is only for a server on
- * this machine, where Access isn't set up, so a token left set from testing never goes to the
- * live world.
+ * sign-in comes first: a person's token, then a service token. A maintainer's bearer token
+ * (`TERRAKIN_STAFF_TOKEN`) is only for a server on this machine, where Access isn't set up, so a
+ * token left set from testing never goes to the live world. A service token opens one host, so it
+ * is sent only there.
  */
 export function signIn(base: string): Record<string, string> | undefined {
   const access = process.env.TERRAKIN_ACCESS_TOKEN?.trim();
@@ -157,6 +174,10 @@ export function signIn(base: string): Record<string, string> | undefined {
   if (isLocal(base)) {
     const staff = process.env.TERRAKIN_STAFF_TOKEN?.trim();
     return staff ? { authorization: `Bearer ${staff}` } : undefined;
+  }
+  const service = base === LIVE_ADMIN ? serviceToken() : undefined;
+  if (service) {
+    return { "cf-access-client-id": service.id, "cf-access-client-secret": service.secret };
   }
   try {
     const token = execFileSync("cloudflared", ["access", "token", `-app=${base}`], {
@@ -183,7 +204,7 @@ export async function checkLive(base: string): Promise<CheckResult> {
     return {
       status: "skipped",
       lines: [
-        "No staff sign-in, so the live log wasn't replayed. Set TERRAKIN_ACCESS_TOKEN, or run `cloudflared access login https://admin.terrakin.org` first. The World object replays its log from the first input every seventh day either way.",
+        "No staff sign-in, so the live log wasn't replayed. Set TERRAKIN_ACCESS_TOKEN, or TERRAKIN_ACCESS_CLIENT_ID and TERRAKIN_ACCESS_CLIENT_SECRET, or run `cloudflared access login https://admin.terrakin.org` first. The World object replays its log from the first input every seventh day either way.",
       ],
     };
   }
@@ -225,7 +246,7 @@ export async function checkLive(base: string): Promise<CheckResult> {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({
-    options: { base: { type: "string", default: "https://admin.terrakin.org" } },
+    options: { base: { type: "string", default: LIVE_ADMIN } },
   });
   try {
     const result = await checkLive(values.base.replace(/\/$/, ""));

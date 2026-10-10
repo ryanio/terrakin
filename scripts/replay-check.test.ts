@@ -13,6 +13,7 @@ import {
   type LogPage,
   type ReadPage,
   replayCheck,
+  serviceToken,
   signIn,
 } from "./replay-check";
 
@@ -137,6 +138,8 @@ describe("checkLive", () => {
   });
   // A real sign-in on this machine must never reach the test servers below.
   delete process.env.TERRAKIN_ACCESS_TOKEN;
+  delete process.env.TERRAKIN_ACCESS_CLIENT_ID;
+  delete process.env.TERRAKIN_ACCESS_CLIENT_SECRET;
 
   it("uses a staff token only on this machine, and an Access sign-in first", () => {
     delete process.env.TERRAKIN_ACCESS_TOKEN;
@@ -146,6 +149,26 @@ describe("checkLive", () => {
     expect(signIn("https://admin.terrakin.org")).toBeUndefined();
     process.env.TERRAKIN_ACCESS_TOKEN = "eyAccess";
     expect(signIn("http://127.0.0.1:8787")).toEqual({ "cf-access-token": "eyAccess" });
+  });
+
+  it("signs in with an Access service token when both parts are set, at the live admin host alone", () => {
+    delete process.env.TERRAKIN_ACCESS_TOKEN;
+    process.env.PATH = "";
+    process.env.TERRAKIN_ACCESS_CLIENT_ID = "abc.access";
+    expect(serviceToken()).toBeUndefined();
+    expect(signIn("https://admin.terrakin.org")).toBeUndefined();
+    process.env.TERRAKIN_ACCESS_CLIENT_SECRET = " shh ";
+    expect(serviceToken()).toEqual({ id: "abc.access", secret: "shh" });
+    expect(signIn("https://admin.terrakin.org")).toEqual({
+      "cf-access-client-id": "abc.access",
+      "cf-access-client-secret": "shh",
+    });
+    expect(signIn("http://127.0.0.1:8787")).toBeUndefined();
+    expect(signIn("https://admin.example.com")).toBeUndefined();
+    expect(signIn("https://admin.terrakin.org.example.com")).toBeUndefined();
+    // A person's sign-in still comes first.
+    process.env.TERRAKIN_ACCESS_TOKEN = "eyAccess";
+    expect(signIn("https://admin.terrakin.org")).toEqual({ "cf-access-token": "eyAccess" });
   });
 
   it("never sends a sign-in over plain http to another machine", async () => {

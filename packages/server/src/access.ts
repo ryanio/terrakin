@@ -4,18 +4,28 @@
  * `Cf-Access-Jwt-Assertion` header and the `CF_Authorization` cookie. This checks that JWT against
  * the team's public keys: RS256 signature, audience, issuer, and expiry. Runs on Web Crypto, so the
  * Worker and Node use the same code, and tests sign tokens with a key pair they make.
+ *
+ * A person's sign-in carries their email. A service token's carries none: its `common_name` is the
+ * token's client id, and the one in `TERRAKIN_ACCESS_DEPLOY_CLIENT` is the deploy's replay check
+ * (decision 0257), which reads the world log and nothing else.
  */
+
+/** The deploy's replay check, as a sign-in. */
+export const DEPLOY_SERVICE = "deploy";
+/** Its staff actor. `staffFor` gives it out for the world-log export alone, and it has no role. */
+export const DEPLOY_ACTOR = `service:${DEPLOY_SERVICE}`;
+export const DEPLOY_READS_LOG_ONLY = "The deploy check's sign-in only reads the world log.";
 
 export interface AccessConfig {
   /** The team domain, like `ryan-coral.cloudflareaccess.com`. */
   team: string;
   /** The Access application's audience tag. */
   aud: string;
+  /** The client id of the service token the deploy's replay check signs in with. */
+  deployClient?: string;
 }
 
-export interface AccessIdentity {
-  email: string;
-}
+export type AccessIdentity = { email: string } | { service: typeof DEPLOY_SERVICE };
 
 interface Jwk {
   kid?: string;
@@ -60,14 +70,22 @@ export function accessToken(header: string | null | undefined, cookie: string | 
   return match?.[1];
 }
 
-/** Read `TERRAKIN_ACCESS_TEAM` and `TERRAKIN_ACCESS_AUD`. Both or nothing. */
-export function accessConfig(team: string | undefined, aud: string | undefined) {
+/**
+ * Read `TERRAKIN_ACCESS_TEAM` and `TERRAKIN_ACCESS_AUD`, both or nothing, and with them
+ * `TERRAKIN_ACCESS_DEPLOY_CLIENT` when it's set.
+ */
+export function accessConfig(
+  team: string | undefined,
+  aud: string | undefined,
+  deployClient?: string,
+): AccessConfig | undefined {
   const t = team
     ?.trim()
     .replace(/^https?:\/\//, "")
     .replace(/\/+$/, "");
   const a = aud?.trim();
-  return t && a ? { team: t, aud: a } : undefined;
+  const d = deployClient?.trim();
+  return t && a ? { team: t, aud: a, ...(d ? { deployClient: d } : {}) } : undefined;
 }
 
 export class AccessVerifier {
@@ -112,8 +130,17 @@ export class AccessVerifier {
     if (claims.iss !== `https://${this.config.team}`) return undefined;
     if (typeof claims.exp !== "number" || claims.exp + SKEW_S < nowS) return undefined;
     if (typeof claims.nbf === "number" && claims.nbf - SKEW_S > nowS) return undefined;
-    if (typeof claims.email !== "string" || !claims.email.includes("@")) return undefined;
-    return { email: claims.email.toLowerCase() };
+    if (typeof claims.email === "string" && claims.email.includes("@")) {
+      return { email: claims.email.toLowerCase() };
+    }
+    // A service token's sign-in, as Access signs one: an app token for nobody, named by client id.
+    // A client certificate's sign-in has a name and no email too, so the name alone isn't enough.
+    const { deployClient } = this.config;
+    const forService = claims.type === "app" && claims.sub === "" && claims.email === undefined;
+    if (deployClient && forService && claims.common_name === deployClient) {
+      return { service: DEPLOY_SERVICE };
+    }
+    return undefined;
   }
 
   /** A verifying key by id: from the cache, or from a fresh fetch when it's stale or unknown. */

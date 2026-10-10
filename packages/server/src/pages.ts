@@ -92,6 +92,8 @@ export const ADMIN_ASSET_PREFIX = "/_admin/";
  * Worker drops it from every incoming request and sets it only from a JWT it verified.
  */
 export const STAFF_EMAIL_HEADER = "x-terrakin-staff-email";
+/** The same for a service token's sign-in: the Worker sets it to `DEPLOY_SERVICE` and nothing else. */
+export const STAFF_SERVICE_HEADER = "x-terrakin-staff-service";
 
 /** The admin app is served on any host whose first label is `admin` (admin.terrakin.org, admin.localhost). */
 export const isAdminHost = (hostname: string) => hostname.toLowerCase().startsWith("admin.");
@@ -130,12 +132,18 @@ export const ADMIN_PAGE_HEADERS: Record<string, string> = {
 };
 
 /**
- * A copy of a request for the world object. The staff header is always dropped and set only from
- * an Access JWT the Worker verified, so nobody can claim to be staff by sending it themselves.
+ * A copy of a request for the world object. The staff headers are always dropped and set only from
+ * an Access JWT the Worker verified, so nobody can claim to be staff by sending them themselves.
  */
-export function toWorld(request: Request, url: URL, staffEmail?: string): Request {
+export function toWorld(
+  request: Request,
+  url: URL,
+  staff: { email?: string | undefined; service?: string | undefined } = {},
+): Request {
   const copy = new Request(url, request);
   copy.headers.delete(STAFF_EMAIL_HEADER);
-  if (staffEmail) copy.headers.set(STAFF_EMAIL_HEADER, staffEmail);
+  copy.headers.delete(STAFF_SERVICE_HEADER);
+  if (staff.email) copy.headers.set(STAFF_EMAIL_HEADER, staff.email);
+  if (staff.service) copy.headers.set(STAFF_SERVICE_HEADER, staff.service);
   return copy;
 }

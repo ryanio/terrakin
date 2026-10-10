@@ -1,14 +1,16 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ROUTES } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEPLOY_READS_LOG_ONLY } from "./access";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { ADMIN_PAGE_HEADERS, STAFF_EMAIL_HEADER, toWorld } from "./pages";
+import { ADMIN_PAGE_HEADERS, STAFF_EMAIL_HEADER, STAFF_SERVICE_HEADER, toWorld } from "./pages";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { listenOnFreePort, responseChecker } from "./test-support";
@@ -316,6 +318,44 @@ describe("with Cloudflare Access set up", () => {
     expect(log[0]).toMatchObject({ actor: "access:ryan@example.com", actorView: null });
   });
 
+  it("lets the deploy check's sign-in read the world log, and refuses it every other staff route", async () => {
+    const t = direct(true);
+    const deploy = { staffService: "deploy", origin: "https://admin.terrakin.org" };
+    const readLog = (extra: Partial<ApiRequest>) =>
+      t.call("GET", "/v1/admin/world-log", undefined, extra);
+    const log = await readLog(deploy);
+    expect(log.status).toBe(200);
+    expect(log.body.rows).toEqual(expect.any(Array));
+    const others = ROUTES.filter((r) => r.auth === "staff" && r.id !== "getWorldLog");
+    expect(others.length).toBeGreaterThan(20);
+    for (const route of others) {
+      const path = route.path.replace(/\{\w+\}/g, "x");
+      const body = route.method === "GET" ? undefined : {};
+      const refused = await t.call(route.method, path, body, deploy);
+      expect(refused, route.id).toEqual({
+        status: 403,
+        body: { error: { code: "forbidden", message: DEPLOY_READS_LOG_ONLY } },
+      });
+    }
+    // Access signs in at the admin host alone: on terrakin.org, or with no host said, the name
+    // counts for nothing, so a header that slipped past the Worker there opens nothing.
+    for (const where of [
+      { origin: "https://terrakin.org" },
+      { origin: "https://terrakin.org.admin.example" },
+      {},
+    ]) {
+      const call = await readLog({ staffService: "deploy", ...where });
+      expect(call.status, where.origin ?? "no origin").toBe(401);
+    }
+    // Any other service name is nobody, and so is this one beside an email that isn't staff.
+    expect((await readLog({ ...deploy, staffService: "other" })).status).toBe(401);
+    expect((await readLog({ ...deploy, staffEmail: "nobody@example.com" })).status).toBe(403);
+    // Without Access no Worker verified anything, so the name counts for nothing.
+    expect((await direct(false).call("GET", "/v1/admin/world-log", undefined, deploy)).status).toBe(
+      401,
+    );
+  });
+
   it("keeps a staff email out of the moderation log's console line", async () => {
     const lines: string[] = [];
     for (const level of ["log", "info", "warn", "error", "debug"] as const) {
@@ -400,10 +440,34 @@ describe("the admin host on the Node server", () => {
 describe("the Worker's hand-off to the world object", () => {
   it("drops a staff header anyone sent, and sets it only from a verified sign-in", () => {
     const url = new URL("https://admin.terrakin.org/v1/admin/reports");
-    const forged = new Request(url, { headers: { [STAFF_EMAIL_HEADER]: "ryan@example.com" } });
-    expect(toWorld(forged, url).headers.get(STAFF_EMAIL_HEADER)).toBeNull();
-    expect(toWorld(forged, url, "mod@example.com").headers.get(STAFF_EMAIL_HEADER)).toBe(
-      "mod@example.com",
-    );
+    const forged = new Request(url, {
+      headers: { [STAFF_EMAIL_HEADER]: "ryan@example.com", [STAFF_SERVICE_HEADER]: "deploy" },
+    });
+    const bare = toWorld(forged, url).headers;
+    expect(bare.get(STAFF_EMAIL_HEADER)).toBeNull();
+    expect(bare.get(STAFF_SERVICE_HEADER)).toBeNull();
+    const person = toWorld(forged, url, { email: "mod@example.com" }).headers;
+    expect(person.get(STAFF_EMAIL_HEADER)).toBe("mod@example.com");
+    expect(person.get(STAFF_SERVICE_HEADER)).toBeNull();
+    const check = toWorld(forged, url, { email: undefined, service: "deploy" }).headers;
+    expect(check.get(STAFF_EMAIL_HEADER)).toBeNull();
+    expect(check.get(STAFF_SERVICE_HEADER)).toBe("deploy");
+  });
+
+  it("sends every request to the world object through that hand-off, and names staff only from the gate", () => {
+    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
+    // Every fetch of the World object: a request `toWorld` copied, or one the Worker built itself.
+    const sent = [
+      ...worker.matchAll(/(?:world\(\)|idFromName\("world"\)\))\s*\.fetch\(\s*(\w+)/g),
+    ].map((m) => m[1]);
+    expect(sent.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(sent)).toEqual(new Set(["toWorld", "new"]));
+    // Only the admin host's gate hands `toWorld` a staff identity.
+    const copies = worker.match(/toWorld\((?:[^()]|\([^()]*\))*\)/g) ?? [];
+    expect(copies.sort()).toEqual([
+      "toWorld(request, url)",
+      "toWorld(request, url, gate)",
+      "toWorld(target, new URL(twin, url))",
+    ]);
   });
 });

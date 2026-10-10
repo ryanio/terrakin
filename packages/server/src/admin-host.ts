@@ -4,16 +4,23 @@
  * files are built into the client's dist under `ADMIN_ASSET_PREFIX` (see
  * packages/admin/vite.config.ts).
  */
-import { type AccessVerifier, accessToken } from "./access";
+import {
+  type AccessVerifier,
+  accessToken,
+  DEPLOY_READS_LOG_ONLY,
+  type DEPLOY_SERVICE,
+} from "./access";
 import { isApiPath } from "./api";
 import { ADMIN_ASSET_PREFIX, ADMIN_PAGE_HEADERS } from "./pages";
 
 export const ACCESS_SIGN_IN = "Sign in to admin.terrakin.org through Cloudflare Access.";
+/** The one path the deploy check's service token opens: `getWorldLog` in the route table. */
+export const WORLD_LOG_PATH = "/v1/admin/world-log";
 export const ACCESS_NOT_SET_UP =
   "The staff site isn't set up yet. It needs Cloudflare Access (TERRAKIN_ACCESS_TEAM and TERRAKIN_ACCESS_AUD).";
 
 /** A refusal on the admin host: JSON for the API, plain text for pages, strict headers on both. */
-function adminRefusal(url: URL, status: 401 | 503, code: string, message: string) {
+function adminRefusal(url: URL, status: 401 | 403 | 503, code: string, message: string) {
   const api = isApiPath(url.pathname);
   return new Response(api ? JSON.stringify({ error: { code, message } }) : message, {
     status,
@@ -25,7 +32,9 @@ function adminRefusal(url: URL, status: 401 | 503, code: string, message: string
   });
 }
 
-export type AdminGate = { email: string | undefined } | { refuse: Response };
+export type AdminGate =
+  | { email: string | undefined; service?: typeof DEPLOY_SERVICE }
+  | { refuse: Response };
 
 /**
  * Who is calling the admin host. With Access set up, only a request carrying a valid Access JWT
@@ -35,6 +44,9 @@ export type AdminGate = { email: string | undefined } | { refuse: Response };
  * and staff routes fall back to a maintainer's or moderator's token. `requireAccess` (the real
  * admin.terrakin.org) refuses to serve the admin host that way, but until Access is configured the
  * staff routes on terrakin.org's own API still take those tokens.
+ *
+ * The deploy check's service token (decision 0257) gets through for a GET of the world log and is
+ * refused for every page, file, and other route; `Api.staffFor` holds it to that route as well.
  */
 export async function adminGate(
   request: Request,
@@ -52,7 +64,11 @@ export async function adminGate(
     accessToken(request.headers.get("cf-access-jwt-assertion"), request.headers.get("cookie")),
   );
   if (!identity) return { refuse: adminRefusal(url, 401, "unauthorized", ACCESS_SIGN_IN) };
-  return { email: identity.email };
+  if ("email" in identity) return { email: identity.email };
+  if (request.method !== "GET" || url.pathname !== WORLD_LOG_PATH) {
+    return { refuse: adminRefusal(url, 403, "forbidden", DEPLOY_READS_LOG_ONLY) };
+  }
+  return { email: undefined, service: identity.service };
 }
 
 /**

@@ -27,6 +27,9 @@
     // Neither is a secret: the tag is in every Access token. Staff emails are Worker secrets.
     "TERRAKIN_ACCESS_TEAM": "ryan-coral.cloudflareaccess.com",
     "TERRAKIN_ACCESS_AUD": "8f44a95659485659be59919db4aaf310d48e84171460f66794f90605c24795bc",
+    // The client id of the Access service token CI's deploy signs in with for the replay check
+    // (decision 0257). An id, not a secret: the token's secret is a GitHub Actions secret.
+    "TERRAKIN_ACCESS_DEPLOY_CLIENT": "86a83c6d79486524e97a296439776633.access",
     // Town Hall maintainers by resident id (void proposals, answer petitions; townsfolk never tip
     // them). Public ids, not secrets. Staff on admin.terrakin.org are by Access email instead.
     "TERRAKIN_MAINTAINERS": "r_abf2279860f9ce4f",

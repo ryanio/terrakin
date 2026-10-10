@@ -1,7 +1,6 @@
-import { createHash } from "node:crypto";
 import type { RouteSpec, StaffKeyScope, StaffKeyView } from "@terrakin/protocol";
 import { DAY_MS } from "@terrakin/sim";
-import { randomBytes, toBase64Url, toHex } from "./bytes";
+import { randomBytes, sha256HexSync, toBase64Url, toHex } from "./bytes";
 import type { SqlExec } from "./sql-store";
 
 /**
@@ -39,8 +38,6 @@ const REKEY_ROUTES = new Set(["createStaffRekeyCode"]);
 
 /** Last-used times are written at most this often per key. */
 const TOUCH_EVERY_MS = 60_000;
-
-const hash = (secret: string) => createHash("sha256").update(secret).digest("hex");
 
 /** Who acted, without the key: the staff member a keyed actor stands for. */
 export function staffOwner(actor: string): string {
@@ -102,7 +99,7 @@ export class StaffKeys {
       `INSERT INTO staff_keys (id, key_hash, owner, name, scope, created_at, expires_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       id,
-      hash(secret),
+      sha256HexSync(secret),
       owner,
       name,
       scope,
@@ -120,7 +117,9 @@ export class StaffKeys {
    */
   find(secret: string): KeyRow | undefined {
     if (!secret.startsWith(STAFF_KEY_PREFIX)) return undefined;
-    const raw = [...this.sql.exec("SELECT id FROM staff_keys WHERE key_hash = ?", hash(secret))][0];
+    const raw = [
+      ...this.sql.exec("SELECT id FROM staff_keys WHERE key_hash = ?", sha256HexSync(secret)),
+    ][0];
     const row = raw ? this.row(String(raw.id)) : undefined;
     const now = this.now();
     if (!row || row.revokedAt !== null || row.expiresAt <= now) return undefined;

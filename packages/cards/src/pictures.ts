@@ -6,7 +6,7 @@
  */
 import { safeColor } from "./color";
 import { type Drawing, drawingBox, drawingSvg } from "./drawing";
-import { areaParts, type PlotArea, type PlotPet, petSvg } from "./plot";
+import { areaParts, PET_BOX, type PlotArea, type PlotPet, petSvg } from "./plot";
 
 export const WEATHERS = ["clear", "cloudy", "rain", "fog", "snow"] as const;
 export type PictureWeather = (typeof WEATHERS)[number];
@@ -145,9 +145,6 @@ export function nearSvg(c: NearCard, width: number, height: number): string {
   const weather = (WEATHERS as readonly string[]).includes(c.weather) ? c.weather : "clear";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${cols} ${rows}" preserveAspectRatio="xMidYMid slice" shape-rendering="geometricPrecision">${ground.join("")}${ring}${standing.join("")}${weatherSvg(weather, cols, rows).join("")}${lightSvg(c.night, c.area, cols, rows).join("")}</svg>`;
 }
-
-/** The side of a pet picture's box in the sim's own units. */
-const PET_BOX = 48;
 
 /**
  * A resident in their look as SVG markup, `width` by `height` pixels: a patch of ground, a soft

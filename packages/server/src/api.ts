@@ -54,7 +54,7 @@ import {
 } from "./api-response";
 import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
-import { randomBytes, toHex } from "./bytes";
+import { randomBytes, sha256Hex, toHex } from "./bytes";
 import type { ChatterRun, ChatterService, MentionRun } from "./chatter";
 import {
   bearerToken,
@@ -88,7 +88,7 @@ import { socialHandlers } from "./handlers/social";
 import { togetherHandlers } from "./handlers/together";
 import { townHallHandlers } from "./handlers/town-hall";
 import { worldHandlers } from "./handlers/world";
-import { IdempotencyStore, sha256Hex } from "./idempotency";
+import { IdempotencyStore } from "./idempotency";
 import {
   BAD_LINK_KEY,
   DEFAULT_ORIGIN,

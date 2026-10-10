@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { KARMA } from "@terrakin/protocol";
 import {
   apply,
@@ -13,6 +12,7 @@ import {
   type WorldConfig,
   type WorldState,
 } from "@terrakin/sim";
+import { sha256HexSync } from "./bytes";
 import type { Store } from "./store";
 import { report } from "./telemetry";
 
@@ -189,8 +189,6 @@ export const reportable = (err: unknown): Error =>
         `Log or snapshot storage failed: ${err instanceof Error ? err.name : typeof err}`,
       );
 
-const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
-
 /**
  * Cut `text` into pieces of at most `maxBytes` UTF-8 bytes each, never between the two halves of
  * a surrogate pair, so every piece is valid text on its own. Returns the pieces and the total.
@@ -250,7 +248,7 @@ export function encodeSnapshot(
       format: SNAPSHOT_FORMAT,
       replayVersion: REPLAY_VERSION,
       hash,
-      sha256: sha256(body),
+      sha256: sha256HexSync(body),
       parts: parts.length,
       bytes,
       verified: 0,
@@ -266,7 +264,7 @@ export function encodeSnapshot(
  */
 function openSnapshot(store: SnapshotStore, header: SnapshotHeader, config: WorldConfig) {
   const body = store.body(header.seq);
-  if (sha256(body) !== header.sha256) throw new SnapshotError("sha256");
+  if (sha256HexSync(body) !== header.sha256) throw new SnapshotError("sha256");
   let parsed: SnapshotBody;
   try {
     parsed = JSON.parse(body) as SnapshotBody;
@@ -454,7 +452,7 @@ interface Job {
 }
 
 /** A world's SHA-256, independent of key order. */
-const worldDigest = (world: WorldState) => sha256(canonicalJson(world));
+const worldDigest = (world: WorldState) => sha256HexSync(canonicalJson(world));
 
 /** The facts a verification compares: join days, done kinds, and credits from `creditsFrom`. */
 function comparable(section: ServerSection, creditsFrom: number): string {

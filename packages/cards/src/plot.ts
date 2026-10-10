@@ -597,7 +597,7 @@ function leafPath(cx: number, cy: number, turn: number): string | undefined {
 }
 
 /** The side of a pet picture's box, in its own units, as the sim draws it. */
-const PET_BOX = 48;
+export const PET_BOX = 48;
 const PET_TAGS = new Set(["path", "circle", "ellipse"]);
 const NUMERIC = new Set(["cx", "cy", "r", "rx", "ry", "stroke-width", "opacity"]);
 const WORDS: Record<string, ReadonlySet<string>> = {

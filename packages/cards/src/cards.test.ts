@@ -211,61 +211,96 @@ describe("cards", () => {
 });
 
 describe("pictures", () => {
+  /** Bytes from text (one byte a character) and numbers, end to end. */
+  const bytes = (...parts: (string | number[])[]) =>
+    Uint8Array.from(
+      parts.flatMap((p) => (typeof p === "string" ? [...p].map((c) => c.charCodeAt(0)) : p)),
+    );
+  const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const png = (w: number, h: number) =>
+    bytes(PNG, [0, 0, 0, 13], "IHDR", [0, 0, w >> 8, w & 0xff, 0, 0, h >> 8, h & 0xff]);
+  const riff = (chunk: string, data: number[]) =>
+    bytes("RIFF", [0, 0, 0, 0], "WEBP", chunk, [data.length, 0, 0, 0], data);
+  // 100 by 50 as each kind of WebP stores it.
+  const lossless = riff("VP8L", [0x2f, 99, 0x40, 0x0c, 0]);
+  const lossy = riff("VP8 ", [0, 0, 0, 0x9d, 0x01, 0x2a, 100, 0, 50, 0]);
+  const extended = riff("VP8X", [0, 0, 0, 0, 99, 0, 0, 49, 0, 0]);
+  const webp = { type: "image/webp", width: 100, height: 50 };
+  // A JPEG's pieces: an APP0 segment, a frame header of 400 by 300, an EXIF block, and the scan.
+  const SOI = [0xff, 0xd8];
+  const APP0 = [0xff, 0xe0, 0, 4, 0, 0];
+  const FRAME = [0xff, 0xc0, 0, 11, 8, 1, 0x2c, 1, 0x90, 1, 1, 0x11, 0];
+  const exif = (tiff: number[]) => [0xff, 0xe1, 0, 8 + tiff.length, ...bytes("Exif\0\0"), ...tiff];
+  const SCAN = [0xff, 0xda, 0, 2, 0x11, 0xff, 0xd9];
+  const jpeg = { type: "image/jpeg", width: 400, height: 300 };
+
   it("reads sizes from PNG, JPEG, GIF and WebP headers", () => {
-    const png = new Uint8Array(32);
-    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
-    png.set([0, 0, 2, 0, 0, 0, 1, 0], 16);
-    expect(probeImage(png)).toEqual({ type: "image/png", width: 512, height: 256 });
-
-    // SOI, an APP0 segment, then SOF0 with height 300 and width 400.
-    const jpeg = new Uint8Array([
-      0xff,
-      0xd8,
-      0xff,
-      0xe0,
-      0,
-      4,
-      0,
-      0,
-      0xff,
-      0xc0,
-      0,
-      17,
-      8,
-      1,
-      0x2c,
-      1,
-      0x90,
-      3,
-      ...Array(20).fill(0),
-    ]);
-    expect(probeImage(jpeg)).toEqual({ type: "image/jpeg", width: 400, height: 300 });
-
-    const gif = new Uint8Array(32);
-    gif.set(new TextEncoder().encode("GIF89a"));
-    gif.set([10, 0, 20, 0], 6);
-    expect(probeImage(gif)).toEqual({ type: "image/gif", width: 10, height: 20 });
-
-    const webp = new Uint8Array(32);
-    webp.set(new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8X"));
-    webp.set([99, 0, 0, 49, 0, 0], 24);
-    expect(probeImage(webp)).toEqual({ type: "image/webp", width: 100, height: 50 });
+    expect(probeImage(png(512, 256))).toEqual({ type: "image/png", width: 512, height: 256 });
+    expect(probeImage(bytes(SOI, APP0, FRAME, SCAN))).toEqual(jpeg);
+    expect(probeImage(bytes("GIF89a", [10, 0, 20, 0]))).toEqual({
+      type: "image/gif",
+      width: 10,
+      height: 20,
+    });
+    expect(probeImage(lossless)).toEqual(webp);
+    expect(probeImage(lossy)).toEqual(webp);
+    expect(probeImage(extended)).toEqual(webp);
 
     expect(probeImage(new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'/>"))).toBe(
       undefined,
     );
   });
 
+  it("reads a header as short as its format allows, and nothing shorter", () => {
+    const shortest: [Uint8Array, number][] = [
+      [png(512, 256), 24],
+      [bytes("GIF87a", [10, 0, 20, 0]), 10],
+      [lossless, 25],
+      [lossy, 30],
+      [extended, 30],
+    ];
+    for (const [file, length] of shortest) {
+      expect(file.length).toBe(length);
+      expect(probeImage(file)).toBeDefined();
+      expect(probeImage(file.slice(0, length - 1))).toBeUndefined();
+    }
+  });
+
+  it("refuses a header whose signature or first chunk doesn't check out", () => {
+    // A PNG needs its signature and IHDR as the first chunk, not one of the two.
+    expect(probeImage(bytes(PNG, [0, 0, 0, 4], "CgBI", [0, 0, 2, 0, 0, 0, 1, 0]))).toBeUndefined();
+    expect(probeImage(bytes(Array(12).fill(0), "IHDR", [0, 0, 2, 0, 0, 0, 1, 0]))).toBeUndefined();
+    expect(probeImage(bytes("GIF12a", [10, 0, 20, 0]))).toBeUndefined();
+    // Lossless WebP starts its data with 0x2f, and lossy with the key frame's start code.
+    expect(probeImage(riff("VP8L", [0, 99, 0x40, 0x0c, 0]))).toBeUndefined();
+    expect(probeImage(riff("VP8 ", [0, 0, 0, 0, 0, 0, 100, 0, 50, 0]))).toBeUndefined();
+  });
+
+  it("walks a JPEG to its scan, and reads nothing from one whose segments break first", () => {
+    expect(probeImage(bytes(SOI, FRAME, [0, 0, 0, 0], SCAN))).toBeUndefined();
+    // A length that runs past the file, a length too short to be one, and a frame with no size.
+    expect(probeImage(bytes(SOI, FRAME, [0xff, 0xdb, 0, 67, 0, 0], SCAN))).toBeUndefined();
+    expect(probeImage(bytes(SOI, FRAME, [0xff, 0xdb, 0, 1], SCAN))).toBeUndefined();
+    expect(probeImage(bytes(SOI, [0xff, 0xc0, 0, 4, 8, 1], SCAN))).toBeUndefined();
+    // Fill bytes before a marker, and a file that ends between segments, are both fine.
+    expect(probeImage(bytes(SOI, [0xff, 0xff], APP0, [0xff], FRAME, SCAN))).toEqual(jpeg);
+    expect(probeImage(bytes(SOI, APP0, FRAME))).toEqual(jpeg);
+  });
+
+  it("hands over each EXIF block before the scan, and leaves the size as the file stores it", () => {
+    const seen: number[][] = [];
+    const file = bytes(SOI, exif([1, 2, 3]), FRAME, exif([4, 5]), SCAN, exif([6]));
+    expect(probeImage(file, (tiff) => seen.push([...tiff]))).toEqual(jpeg);
+    expect(seen).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ]);
+  });
+
   it("refuses pictures too big to decode safely", () => {
     const side = Math.ceil(Math.sqrt(MAX_IMAGE_PIXELS)) + 1;
-    const png = new Uint8Array(32);
-    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    new DataView(png.buffer).setUint32(16, side);
-    new DataView(png.buffer).setUint32(20, side);
-    expect(imageDataUri(png)).toBeUndefined();
-    new DataView(png.buffer).setUint32(16, 100);
-    new DataView(png.buffer).setUint32(20, 100);
-    expect(imageDataUri(png)).toMatch(/^data:image\/png;base64,/);
+    expect(imageDataUri(png(side, side))).toBeUndefined();
+    expect(imageDataUri(png(100, 100))).toMatch(/^data:image\/png;base64,/);
   });
 });
 

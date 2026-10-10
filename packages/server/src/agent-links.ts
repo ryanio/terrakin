@@ -11,7 +11,7 @@ import {
 } from "@terrakin/protocol";
 import { DAY_MS } from "@terrakin/sim";
 import { type CardReader, cardNames, httpCardReader, residentEndpoint } from "./agent-card";
-import { toHex } from "./bytes";
+import { sha256Hex } from "./bytes";
 import {
   CHAINS,
   type ChainCall,
@@ -224,11 +224,8 @@ const OFF = "Agent links are off on this server.";
 const UNREADABLE_PARTNER = "The partner's contract answered in a shape Terrakin can't read.";
 
 /** SHA-256 of who holds a partner's character, so a sale shows without keeping the address. */
-async function holderHash(partnerId: string, holder: string): Promise<string> {
-  const bytes = new TextEncoder().encode(`${partnerId}:${holder.toLowerCase()}`);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  return toHex(digest);
-}
+const holderHash = (partnerId: string, holder: string): Promise<string> =>
+  sha256Hex(`${partnerId}:${holder.toLowerCase()}`);
 
 /** A short fingerprint of a card's raw name, to tell when it changed. Not for security. */
 function nameHash(text: string): string {

@@ -9,7 +9,7 @@ import {
 } from "@terrakin/cards";
 import type { PostView, ProfileView } from "@terrakin/protocol";
 import { heartCount } from "@terrakin/protocol";
-import { toHex } from "./bytes";
+import { sha256Hex } from "./bytes";
 import { type ApiGet, type Loaded, mediaId, type PageImage, SITE_ORIGIN } from "./page-meta";
 import { materializePicture, type PictureRoute, type PictureSpec } from "./pictures";
 
@@ -174,9 +174,8 @@ function postSpec(p: PostView): CardSpec {
 
 /** A short hash of what a card shows and the template version. Changes when the card would. */
 async function cardKey(spec: CardSpec | PictureSpec): Promise<string> {
-  const data = new TextEncoder().encode(`${CARDS_VERSION}:${JSON.stringify(spec)}`);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
-  return toHex(digest.slice(0, 8));
+  // The first 8 bytes of the hash, as 16 hex characters.
+  return (await sha256Hex(`${CARDS_VERSION}:${JSON.stringify(spec)}`)).slice(0, 16);
 }
 
 /** A card's path under /og/. */

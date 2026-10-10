@@ -17,7 +17,7 @@ import type {
   RouteViewer,
   WorldEvent as WorldEventView,
 } from "@terrakin/protocol";
-import { sha256Hex } from "../idempotency";
+import { sha256Hex } from "../bytes";
 import type { SocialResult } from "../social-service";
 import { staffOwner } from "../staff-keys";
 

@@ -73,6 +73,11 @@ describe("imageSize", () => {
       width: 4032,
       height: 3024,
     });
+    // With more than one EXIF block, the last rotation is the one a viewer applies.
+    expect(imageSize(jpeg(4032, 3024, orientation(1), orientation(6)), "image/jpeg")).toEqual({
+      width: 3024,
+      height: 4032,
+    });
   });
 
   it("finds the EXIF rotation after the frame header too, where the stripper puts it", () => {
@@ -101,6 +106,9 @@ describe("imageSize", () => {
     expect(imageSize(cat([0xff, 0xd8], [0xff, 0xda, 0, 2]), "image/jpeg")).toBeUndefined();
     expect(imageSize(riff("ALPH", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), "image/webp")).toBeUndefined();
     expect(imageSize(png(10, 10), "video/mp4")).toBeUndefined();
+    // A header of one image type under another's name is not read as either.
+    expect(imageSize(png(10, 10), "image/gif")).toBeUndefined();
+    expect(imageSize(gif(10, 10), "image/png")).toBeUndefined();
     expect(imageSize(new Uint8Array(0), "image/gif")).toBeUndefined();
   });
 

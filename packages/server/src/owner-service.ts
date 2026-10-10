@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   absolute,
   type ErrorCode,
@@ -19,6 +18,7 @@ import {
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { DAY_MS } from "@terrakin/sim";
+import { sha256HexSync } from "./bytes";
 import type { SocialResult, SocialService } from "./social-service";
 
 /**
@@ -71,11 +71,9 @@ const MAX_OPEN_CLAIMS = 10;
 
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
 
-const hashCode = (code: string) => createHash("sha256").update(code).digest("hex");
-
 /** Where a collected token is kept for a retry: the SHA-256 of the link key and of the code. */
 const collectedKey = (key: string, input: string) =>
-  `${hashCode(key)} ${hashCode(normalizeCode(input) ?? input)}`;
+  `${sha256HexSync(key)} ${sha256HexSync(normalizeCode(input) ?? input)}`;
 
 /** A fresh code, as people see it: four groups of four. */
 function newCode(): string {
@@ -549,7 +547,7 @@ export class OwnerService {
     const issued = this.issue("rekey", agentId, `owner:${callerId}`, REKEY_CODE_TTL_MS);
     this.social.sql.exec(
       "UPDATE owner_rekeys SET code_hash = ? WHERE agent_id = ?",
-      hashCode(normalizeCode(issued.code) ?? issued.code),
+      sha256HexSync(normalizeCode(issued.code) ?? issued.code),
       agentId,
     );
     return { ok: true, value: issued };
@@ -630,7 +628,7 @@ export class OwnerService {
     const row = [
       ...this.social.sql.exec(
         "SELECT resident_id, reason, at FROM retired_credentials WHERE hash = ?",
-        hashCode(secret),
+        sha256HexSync(secret),
       ),
     ][0];
     if (!row) return undefined;
@@ -784,7 +782,7 @@ export class OwnerService {
           expires_at = excluded.expires_at, approved_at = NULL, used_at = NULL`,
       agentId,
       ownerId,
-      hashCode(normalizeCode(code) ?? code),
+      sha256HexSync(normalizeCode(code) ?? code),
       now,
       expiresAt,
     );
@@ -918,7 +916,7 @@ export class OwnerService {
   private openUpgrade(agentId: string, input: string): UpgradeRow | undefined {
     const code = normalizeCode(input);
     const row = this.upgradeRow(agentId);
-    if (!code || !row || row.codeHash !== hashCode(code)) return undefined;
+    if (!code || !row || row.codeHash !== sha256HexSync(code)) return undefined;
     if (row.usedAt !== null || this.now() >= row.expiresAt) return undefined;
     return row;
   }
@@ -1028,7 +1026,7 @@ export class OwnerService {
     const expiresAt = this.now() + ttl;
     this.social.sql.exec(
       "INSERT INTO owner_codes (code_hash, purpose, resident_id, issuer, expires_at) VALUES (?, ?, ?, ?, ?)",
-      hashCode(normalizeCode(code) ?? code),
+      sha256HexSync(normalizeCode(code) ?? code),
       purpose,
       residentId,
       issuer,
@@ -1041,7 +1039,7 @@ export class OwnerService {
   private find(purpose: Purpose, input: string): CodeRow | undefined {
     const code = normalizeCode(input);
     if (!code) return undefined;
-    const hash = hashCode(code);
+    const hash = sha256HexSync(code);
     const row = [
       ...this.social.sql.exec(
         "SELECT resident_id, issuer, expires_at FROM owner_codes WHERE code_hash = ? AND purpose = ? AND expires_at > ?",

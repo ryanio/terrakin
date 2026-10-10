@@ -1,15 +1,12 @@
-import { createHash } from "node:crypto";
-import { randomBytes, toBase64Url } from "./bytes";
+import { randomBytes, sha256HexSync, toBase64Url } from "./bytes";
 import type { Store } from "./store";
 
 /**
  * Bearer tokens and link keys (decision 0020), and the randomness behind them and resident ids.
- * Only SHA-256 hashes are kept, in the store and in memory; a token or key is shown once.
+ * Only SHA-256 hashes are kept (`sha256HexSync`, as `OwnerService.retired` hashes them too), in
+ * the store and in memory; a token or key is shown once.
  * `WorldService` holds one and answers for it, telling `onCall` about each resident it resolves.
  */
-
-/** How a token or link key is kept: its SHA-256, in hex. `OwnerService.retired` hashes the same way. */
-const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export class WorldCredentials {
   private readonly store: Store;
@@ -32,7 +29,7 @@ export class WorldCredentials {
    */
   mintLinkKey(residentId: string): string {
     const key = `k_${toBase64Url(randomBytes(32))}`;
-    const keyHash = hashToken(key);
+    const keyHash = sha256HexSync(key);
     // Save first: a key that isn't saved must not work, or it would stop working on restart.
     this.store.saveLinkKey({ residentId, keyHash });
     this.rememberLinkKey(residentId, keyHash);
@@ -50,7 +47,7 @@ export class WorldCredentials {
   /** The resident a link key belongs to, or undefined if it's unknown or turned off. */
   linkKeyResident(key: string): string | undefined {
     if (!key.startsWith("k_")) return undefined;
-    return this.linkKeys.get(hashToken(key));
+    return this.linkKeys.get(sha256HexSync(key));
   }
 
   private rememberLinkKey(residentId: string, keyHash: string | null) {
@@ -85,7 +82,7 @@ export class WorldCredentials {
   /** A new bearer token for an existing resident. Only its hash is kept. */
   issueToken(residentId: string): string {
     const token = toBase64Url(randomBytes(32));
-    const tokenHash = hashToken(token);
+    const tokenHash = sha256HexSync(token);
     this.store.appendSession({ tokenHash, residentId });
     this.sessions.set(tokenHash, residentId);
     return token;
@@ -127,6 +124,6 @@ export class WorldCredentials {
 
   /** The resident a bearer token belongs to, or undefined if unknown. */
   tokenResident(token: string): string | undefined {
-    return this.sessions.get(hashToken(token));
+    return this.sessions.get(sha256HexSync(token));
   }
 }

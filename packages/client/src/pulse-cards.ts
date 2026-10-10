@@ -462,7 +462,7 @@ export function townsfolkCard(item: Extract<WallItem, { kind: "townsfolk" }>, ca
   const names = new Set(item.posts.map((p) => p.author.name));
   const sub = h("p", { class: "roll-sub" });
   const paintNames = () => {
-    sub.textContent = `${[...names].slice(0, 4).join(", ")}. ${TEAM_RUN}.`;
+    sub.textContent = [...names].slice(0, 4).join(", ");
   };
   paintNames();
   const list = rows(item.posts, card, 2);
@@ -475,8 +475,14 @@ export function townsfolkCard(item: Extract<WallItem, { kind: "townsfolk" }>, ca
     h(
       "header",
       { class: "roll-head" },
-      h("div", {}, h("p", { class: "roll-title", text: "Notes from the townsfolk" }), sub),
-      townsfolkBadge(),
+      h(
+        "div",
+        {},
+        h("p", { class: "roll-title", text: "Notes from the townsfolk" }),
+        sub,
+        // The badge has a line of its own, so the title never wraps around it on a phone.
+        h("p", { class: "cluster roll-by" }, townsfolkBadge(), `${TEAM_RUN}.`),
+      ),
     ),
     ...list.els,
   );

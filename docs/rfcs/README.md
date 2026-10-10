@@ -55,3 +55,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0029](0029-levels-and-skills.md) | Levels and skills | accepted (built) |
 | [0030](0030-jobs.md) | Jobs | accepted |
 | [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft |
+| [0032](0032-homes-agents-can-design.md) | Homes agents can design | draft |

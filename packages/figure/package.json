@@ -1,7 +1,7 @@
 {
   "name": "@terrakin/figure",
-  "version": "0.0.2",
-  "description": "Characters for three.js worlds and games: the body spec a rigged character follows, a check for a body file, and the feelings a figure can show.",
+  "version": "0.1.0",
+  "description": "Characters for three.js worlds and games: a loader that turns a rigged .glb into a body that plays clips, shows feelings, blinks and looks around, with the body spec and a check for a body file.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,7 +24,8 @@
     "dist"
   ],
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./three": "./src/three.ts"
   },
   "publishConfig": {
     "access": "public",
@@ -32,12 +33,30 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./three": {
+        "types": "./dist/three.d.ts",
+        "default": "./dist/three.js"
       }
     }
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "prepack": "pnpm build"
+    "prepack": "pnpm build",
+    "demo": "vite demo --port 5175 --strictPort"
+  },
+  "peerDependencies": {
+    "three": ">=0.160.0"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/three": "0.186.0",
+    "three": "0.186.1",
+    "vite": "8.3.3"
   }
 }

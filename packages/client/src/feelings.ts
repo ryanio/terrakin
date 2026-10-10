@@ -127,11 +127,7 @@ const WAVE_MS = 1800;
 const DRIFT_MS = 1700;
 
 /** A figure's own offset for blinking, 0 to 1, from its id, so a crowd doesn't blink together. */
-export function idPhase(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return (h >>> 0) / 4294967296;
-}
+export { idPhase } from "@terrakin/figure";
 
 /** One up-and-down arc of `height`, `k` from 0 to 1 through it. */
 const arc = (k: number, height: number) => (k > 0 && k < 1 ? 4 * height * k * (1 - k) : 0);

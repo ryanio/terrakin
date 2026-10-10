@@ -21,6 +21,11 @@ export function glbJson(bytes: Uint8Array, maxJsonBytes: number = MAX_GLB_JSON_B
   if (view.getUint32(16, true) !== JSON_CHUNK) throw new Error("not a .glb: no JSON chunk first");
   if (length > maxJsonBytes) throw new Error("a .glb with too much JSON");
   if (20 + length > bytes.byteLength) throw new Error("not a .glb: its JSON runs past its end");
-  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(20, 20 + length));
-  return JSON.parse(text);
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(20, 20 + length));
+    return JSON.parse(text);
+  } catch {
+    // A parser's own message can quote the file, so it is never passed on.
+    throw new Error("not a .glb: its JSON doesn't parse");
+  }
 }

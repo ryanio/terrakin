@@ -37,6 +37,8 @@ export interface BodyReport {
   textures: number;
   /** The joints in its largest skin. */
   joints: number;
+  /** How fast its walk covers ground, in meters a second at the file's size, when it says. */
+  walkSpeed?: number;
 }
 
 type Json = Record<string, unknown>;
@@ -156,6 +158,7 @@ export function checkBody(document: unknown, caps: BodyCaps = {}): BodyReport {
     if (cap !== undefined && found[key] > cap) problems.push(`more than ${cap} ${key}`);
   }
 
+  const walkSpeed = record(record(gltf.asset)?.extras)?.walk_speed_m_s;
   return {
     ok: problems.length === 0,
     problems,
@@ -165,5 +168,8 @@ export function checkBody(document: unknown, caps: BodyCaps = {}): BodyReport {
     sockets,
     expressions,
     ...found,
+    ...(typeof walkSpeed === "number" && Number.isFinite(walkSpeed) && walkSpeed > 0
+      ? { walkSpeed }
+      : {}),
   };
 }

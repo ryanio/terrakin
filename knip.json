@@ -5,7 +5,10 @@
       "entry": ["scripts/*.ts", "scripts/*/*.ts", "e2e/**/*.ts"],
       "project": ["scripts/**/*.ts", "e2e/**/*.ts", "*.ts"]
     },
-    "packages/*": {}
+    "packages/*": {},
+    "packages/figure": {
+      "entry": ["demo/main.ts"]
+    }
   },
   "ignore": [".agents/**"],
   "ignoreBinaries": ["cloudflared"],

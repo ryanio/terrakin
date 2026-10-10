@@ -1,0 +1,116 @@
+:root {
+  color-scheme: light;
+  --paper: #fffaf0;
+  --ink: #3a2a20;
+  --soft: #7a6654;
+  --line: #e6d9c2;
+  --lit: #f3e6cc;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font:
+    15px / 1.45 system-ui,
+    sans-serif;
+}
+.stage {
+  height: 52vh;
+  min-height: 280px;
+  background: linear-gradient(#dfeaf2, #f6efe0);
+  touch-action: none;
+}
+.stage canvas {
+  display: block;
+}
+.panel {
+  padding: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+h2 {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--soft);
+  margin: 20px 0 8px;
+}
+.hint,
+.status {
+  margin: 0 0 12px;
+  color: var(--soft);
+}
+.status {
+  color: var(--ink);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 0 0 8px;
+}
+button,
+.file {
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  min-height: 40px;
+  cursor: pointer;
+}
+button[aria-pressed="true"] {
+  background: var(--lit);
+  border-color: #cdb78f;
+}
+.file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.file:focus-within,
+button:focus-visible {
+  outline: 2px solid #b98b3e;
+  outline-offset: 2px;
+}
+.report {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: var(--soft);
+}
+.report .problem {
+  color: #a23b1e;
+}
+.slider {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.slider input {
+  flex: 1 1 180px;
+}
+@media (min-width: 900px) {
+  body {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    height: 100vh;
+  }
+  .stage {
+    height: 100vh;
+  }
+  .panel {
+    overflow: auto;
+  }
+}

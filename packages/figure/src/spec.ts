@@ -5,6 +5,10 @@
  * on the y axis, and faces +z with y up. Its height comes from whoever supplies it, not from the
  * file. Everything a loader looks for is found by the names below; any other name in the file is
  * ignored.
+ *
+ * A body may say how fast its `walk` clip covers ground, as `walk_speed_m_s` in `asset.extras`:
+ * meters a second at the file's size, with the clip played in place. A loader uses it to keep
+ * planted feet planted.
  */
 
 /** The bones a body must have: the two every clip and every look-at turns. */

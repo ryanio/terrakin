@@ -822,13 +822,25 @@ a.person-link:hover .person-name {
 
 /*
  * ---------- loading placeholders (skeleton.ts) ----------
- * Grey shapes where content will be. They breathe slowly together, after a short wait so a quick
- * load never flickers, and hold still under reduced motion (the rule at the end of this file).
+ * Grey shapes where content will be. A placeholder, or a page of them (`.skeleton-page`), fades
+ * in after a short wait, so a quick load never flashes one. The shapes breathe faintly together
+ * and hold still under reduced motion (the rule at the end of this file).
  */
 
 .skeleton {
+  display: grid;
   gap: var(--space-md);
   padding-bottom: var(--space-lg);
+  animation: fade-in 0.3s ease 0.15s both;
+}
+
+.skeleton-page {
+  animation: fade-in 0.3s ease 0.15s both;
+}
+
+/* The page fades in as one, so its pieces don't fade again inside it. */
+.skeleton-page .skeleton {
+  animation: none;
 }
 
 .sk {
@@ -837,14 +849,21 @@ a.person-link:hover .person-name {
   height: 14px;
   border-radius: var(--r-sm);
   background: var(--paper-edge);
-  opacity: 0.55;
-  animation: sk-breathe 2.4s ease-in-out 0.4s infinite;
+  opacity: 0.6;
+  animation: sk-breathe 3.6s ease-in-out 0.6s infinite;
 }
 
 .sk-heading {
   width: 30%;
   /* An eyebrow's height. */
   height: 10px;
+}
+
+/* With its margins, a page title's height, so what's under it stays put when the title lands. */
+.sk-title {
+  width: min(52%, 280px);
+  height: var(--text-3xl);
+  margin-block: var(--space-xs);
 }
 
 .sk-avatar {
@@ -860,13 +879,99 @@ a.person-link:hover .person-name {
   border-radius: var(--r-note);
 }
 
+/* A square picture beside a card's lines: a plot from above, a piece on display. */
+.sk-thumb {
+  width: 96px;
+  height: 96px;
+  flex: none;
+  border-radius: var(--r-note);
+}
+
+/* A picture beside a name and a line: a post's byline, a row of a list. */
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  /* A tap target's height, which the rows these stand in for keep. */
+  min-height: 44px;
+}
+
+.sk-row-lines {
+  display: grid;
+  flex: 1;
+  gap: var(--space-sm);
+}
+
+/* A profile header: the banner edge to edge at 3:1, and the picture half over its foot. */
+.sk-profile {
+  --sk-face: 112px;
+  gap: 0;
+  padding: 0 0 var(--space-xl);
+  overflow: hidden;
+}
+
+.sk-banner {
+  height: auto;
+  aspect-ratio: 3 / 1;
+  border-radius: 0;
+}
+
+.sk-profile-body {
+  display: grid;
+  gap: var(--space-md);
+  padding-inline: var(--space-xl);
+}
+
+/* A disc of paper under the picture, so the banner doesn't show through it. */
+.sk-profile-face {
+  width: var(--sk-face);
+  height: var(--sk-face);
+  margin-top: calc(var(--sk-face) / -2);
+  padding: var(--space-2xs);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.sk-profile-face > .sk-avatar {
+  width: 100%;
+  height: 100%;
+}
+
+/* A row of buttons, chips, or counts. */
+.sk-pills {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.sk-button {
+  width: 112px;
+  height: 44px;
+  border-radius: var(--r-pill);
+}
+
+.sk-chip {
+  width: 96px;
+  height: 28px;
+  border-radius: var(--r-pill);
+}
+
+.sk-counts {
+  gap: var(--space-xl);
+  margin-top: var(--space-sm);
+}
+
+.sk-count {
+  width: 44px;
+  height: 36px;
+}
+
 @keyframes sk-breathe {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.6;
   }
   50% {
-    opacity: 0.85;
+    opacity: 0.78;
   }
 }
 

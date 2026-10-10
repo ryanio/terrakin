@@ -185,6 +185,7 @@ What we chose and why. Newest last.
 - [On the web a level is a chip that opens a skills sheet, a neighbor's bar counts levels, earned wear sits in its slot, and a level-up toasts with no button](decisions/0248-on-the-web-a-level-is-a-chip-that-opens-a-skills-sheet-a-nei.md) · 2026-10-10 · accepted · `client` `ui` `levels` `e2e`
 - [Levels are on at terrakin.org: the Worker sets levels, the Node server leaves it off, and the switch ships in the same push as its docs](decisions/0249-levels-are-on-at-terrakin-org-the-worker-sets-levels-the-nod.md) · 2026-10-10 · accepted · `server` `levels` `deploy`
 - [A smoke check asks the live Worker for drawn pictures after each deploy and a red one opens an issue](decisions/0250-a-smoke-check-asks-the-live-worker-for-drawn-pictures-after-.md) · 2026-10-10 · accepted · `ci` `deploy` `cards` `tooling`
+- [A page loads behind placeholders in its own layout and shows whole once its first content is in](decisions/0251-a-page-loads-behind-placeholders-in-its-own-layout-and-shows.md) · 2026-10-10 · accepted · `client` `design` `performance`
 
 ## Learnings
 

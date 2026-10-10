@@ -9,6 +9,7 @@ import type { GalleryPieceView, GalleryView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
+import { skeletonTiles } from "@terrakin/ui/skeleton";
 import { itemRow, itemRows, stateCard, toast, whileBusy, wideLayout } from "@terrakin/ui/ui";
 import { actProblem, api } from "./api";
 import { displayReport, shownName } from "./display-sheet";
@@ -120,7 +121,7 @@ export function galleryCards(
 export function galleriesView(ctx: ViewContext): View {
   ctx.setTitle("Galleries · Terrakin");
   // Every gallery as a card, side by side as the width allows.
-  const body = h("div", { class: "card-grid galleries-body" });
+  const body = h("div", { class: "card-grid galleries-body" }, ...skeletonTiles());
   const { el, head, main } = wideLayout("galleries-page");
   main.append(body);
   head.append(

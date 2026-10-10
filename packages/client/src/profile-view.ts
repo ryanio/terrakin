@@ -31,7 +31,7 @@ import {
   paintAvatar,
   TOWNSFOLK_ABOUT,
 } from "@terrakin/ui/people";
-import { skeletonBlock, skeletonPosts } from "@terrakin/ui/skeleton";
+import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { tip } from "@terrakin/ui/tooltip";
 import {
   confirmTwice,
@@ -124,7 +124,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   async function load(): Promise<void> {
     head.replaceChildren();
     side.replaceChildren();
-    main.replaceChildren(skeletonBlock("profile skeleton-profile"), ...skeletonPosts(2));
+    main.replaceChildren(...skeletonPosts(2));
     const [profile, early] =
       "id" in target
         ? await Promise.all([api.profile(target.id), api.residentPosts(target.id)])
@@ -181,7 +181,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       class: "post-list",
       attrs: { role: "feed", "aria-label": `Posts by ${resident.name}` },
     });
-    main.append(h("h2", { class: "section-title", text: "Posts" }), list);
+    main.replaceChildren(h("h2", { class: "section-title", text: "Posts" }), list);
     if (!posts.ok) {
       list.append(errorCard(posts.message, () => void load()));
       return;

@@ -5,6 +5,7 @@
  */
 import { ROUTINE_RULES, type RoutineChoice, type RoutinesResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
+import { skLine } from "@terrakin/ui/skeleton";
 import { checkRow, errorLine, moreButton, openOverlay, sheet } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { api } from "./api";
@@ -148,7 +149,7 @@ function routinesForm(data: RoutinesResponse, saved: () => Promise<void>): HTMLF
  * `returnTo` gets focus back when it closes.
  */
 export async function openRoutines(returnTo?: HTMLElement): Promise<void> {
-  const body = h("div", { class: "stack routines-body" });
+  const body = h("div", { class: "stack routines-body" }, skLine(), skLine(72), skLine(56));
   const { dialog } = sheet(
     {
       id: "routines-title",

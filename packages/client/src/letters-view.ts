@@ -14,6 +14,7 @@ import {
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges } from "@terrakin/ui/people";
+import { skeletonCard } from "@terrakin/ui/skeleton";
 import { confirmTwice, emptyNote, errorLine, stateCard, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api, letterImage, myProfile, UNREAD_EVENT, uploadMedia } from "./api";
@@ -140,6 +141,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
       el.replaceChildren(joinFirst());
       return;
     }
+    el.replaceChildren(skeletonCard({ lines: 4 }));
     const [me, other, r] = await Promise.all([
       myProfile(),
       api.profile(otherId),

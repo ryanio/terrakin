@@ -60,6 +60,8 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
   await expect(button).toHaveText("Praise");
   const stat = page.locator(".stats .stat").filter({ hasText: "praise" });
   await expect(stat.locator(".stat-n")).toHaveText("0");
+  // The loading placeholders are gone once the profile is in.
+  await expect(page.locator(".skeleton")).toHaveCount(0);
 
   await button.click();
   await expect(button).toHaveText("Praised today");

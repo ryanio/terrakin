@@ -337,9 +337,11 @@ export function notificationsView(ctx: ViewContext): View {
     more.el.hidden = next === null;
     body.replaceChildren(list, foot);
     const newest = notifications[0];
+    // Not awaited: the list is in, so the page shows without waiting on this.
     if (unread > 0 && newest) {
-      const marked = await api.markRead(newest.id);
-      if (marked.ok) setUnread(marked.data.unread);
+      void api.markRead(newest.id).then((marked) => {
+        if (marked.ok) setUnread(marked.data.unread);
+      });
     } else setUnread(unread);
   }
 

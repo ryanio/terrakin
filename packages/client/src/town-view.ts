@@ -27,7 +27,7 @@ import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
-import { skeletonPosts } from "@terrakin/ui/skeleton";
+import { skeletonCard } from "@terrakin/ui/skeleton";
 import {
   chips,
   closeOverlay,
@@ -161,7 +161,7 @@ export function townView(ctx: ViewContext): View {
   async function load(): Promise<void> {
     head.replaceChildren();
     side.replaceChildren();
-    main.replaceChildren(...skeletonPosts(2));
+    main.replaceChildren(skeletonCard({ lines: 3 }), skeletonCard());
     const [t, w, past] = await Promise.all([api.town(), api.world(), api.archive()]);
     if (destroyed) return;
     if (!t.ok) {

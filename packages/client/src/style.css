@@ -1579,17 +1579,7 @@ body.in-world .veil {
   display: none;
 }
 
-/* ---------- loading placeholders (skeleton.ts in packages/ui) in the app's own shapes ---------- */
-
-.skeleton .post-head {
-  min-height: 44px;
-}
-
-.skeleton-profile {
-  min-height: 260px;
-}
-
-/* The composer's height: an avatar and a box, and its row of buttons. */
+/* The composer's placeholder (skeleton.ts in packages/ui): an avatar and a box, and its row of buttons. */
 .composer-skeleton {
   min-height: 150px;
 }

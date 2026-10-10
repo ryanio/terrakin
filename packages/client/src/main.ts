@@ -10,6 +10,7 @@ import { badgeText } from "@terrakin/ui/format";
 import { useModelViewer, usePlaceTap } from "@terrakin/ui/media";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
+import type { PageShape } from "@terrakin/ui/skeleton";
 import { interceptPop, leaveOverlay } from "@terrakin/ui/ui";
 import { api, MY_PROFILE_EVENT, myProfile, SUSPENDED_EVENT, UNREAD_EVENT } from "./api";
 import { initBell, makeBell, refreshBell } from "./bell";
@@ -317,6 +318,25 @@ function takeWorldLink(): WorldLink | undefined {
   return link;
 }
 
+/** What each page looks like while it loads, in its own layout (`skeletonPage` in packages/ui). */
+const SHAPES = {
+  profile: { layout: "side", head: "profile", main: "posts" },
+  post: { layout: "side-last", head: "none", main: "posts" },
+  /** A titled list down one column: notifications, letters, followers. */
+  list: { layout: "column", main: "rows" },
+  /** One card in a column: an invite, a claim, a letter thread. */
+  single: { layout: "column", head: "none", main: "card" },
+  /** A list with your balance or your garden beside it: the purse, your things. */
+  ledger: { layout: "side", main: "rows" },
+  shelves: { layout: "side", main: "cards" },
+  /** Cards with a form or the rules after them on a phone: the market, bounties, games. */
+  board: { layout: "side-last", main: "cards" },
+  town: { layout: "side-last", head: "card", main: "cards" },
+  book: { layout: "side", head: "none", main: "cards" },
+  /** Cards with pictures across the whole width: plots to visit, galleries. */
+  grid: { layout: "wide", main: "grid" },
+} satisfies Record<string, PageShape>;
+
 /**
  * The page for a route. The feed is the home page, so its code comes with the first load; every
  * other page loads its own when it's opened (decision 0110).
@@ -326,52 +346,75 @@ function pageFor(route: Route, ctx: ViewContext): View {
     case "feed":
       return feedView(ctx);
     case "profile":
-      return lazyView(import("./profile-view"), (m) => m.profileView({ id: route.id }, ctx));
+      return lazyView(
+        import("./profile-view"),
+        (m) => m.profileView({ id: route.id }, ctx),
+        SHAPES.profile,
+      );
     case "handle":
-      return lazyView(import("./profile-view"), (m) =>
-        m.profileView({ handle: route.handle }, ctx),
+      return lazyView(
+        import("./profile-view"),
+        (m) => m.profileView({ handle: route.handle }, ctx),
+        SHAPES.profile,
       );
     case "notifications":
-      return lazyView(import("./notifications-view"), (m) => m.notificationsView(ctx));
+      return lazyView(import("./notifications-view"), (m) => m.notificationsView(ctx), SHAPES.list);
     case "purse":
-      return lazyView(import("./purse-view"), (m) => m.purseView(ctx));
+      return lazyView(import("./purse-view"), (m) => m.purseView(ctx), SHAPES.ledger);
     case "inventory":
-      return lazyView(import("./inventory-view"), (m) => m.inventoryView(ctx));
+      return lazyView(import("./inventory-view"), (m) => m.inventoryView(ctx), SHAPES.ledger);
     case "post":
-      return lazyView(import("./post-view"), (m) => m.postView(route.id, ctx));
+      // Its reply box measures itself to fit a draft as it's built, so it's on screen from the start.
+      return lazyView(import("./post-view"), (m) => m.postView(route.id, ctx), SHAPES.post, true);
     case "letters":
-      return lazyView(import("./letters-view"), (m) => m.lettersView(ctx));
+      return lazyView(import("./letters-view"), (m) => m.lettersView(ctx), SHAPES.list);
     case "letters-with":
-      return lazyView(import("./letters-view"), (m) => m.letterThreadView(route.id, ctx));
+      // It scrolls to the newest letter as it loads, so it's on screen from the start.
+      return lazyView(
+        import("./letters-view"),
+        (m) => m.letterThreadView(route.id, ctx),
+        SHAPES.single,
+        true,
+      );
     case "invite":
-      return lazyView(import("./invite-view"), (m) => m.inviteView(route.code, ctx));
+      return lazyView(import("./invite-view"), (m) => m.inviteView(route.code, ctx), SHAPES.single);
     case "town":
-      return lazyView(import("./town-view"), (m) => m.townView(ctx));
+      return lazyView(import("./town-view"), (m) => m.townView(ctx), SHAPES.town);
     case "shop":
-      return lazyView(import("./shop-view"), (m) => m.shopView(ctx));
+      return lazyView(import("./shop-view"), (m) => m.shopView(ctx), SHAPES.shelves);
     case "market":
-      return lazyView(import("./market-view"), (m) => m.marketView(ctx));
+      return lazyView(import("./market-view"), (m) => m.marketView(ctx), SHAPES.board);
     case "bounties":
-      return lazyView(import("./bounties-view"), (m) => m.bountiesView(ctx));
+      return lazyView(import("./bounties-view"), (m) => m.bountiesView(ctx), SHAPES.board);
     case "galleries":
-      return lazyView(import("./galleries-view"), (m) => m.galleriesView(ctx));
+      // Its tabs open its sibling page, so its head is on screen from the start, as Visit's is.
+      return lazyView(import("./galleries-view"), (m) => m.galleriesView(ctx), SHAPES.grid, true);
     case "visit":
-      return lazyView(import("./visit-view"), (m) => m.visitView(ctx));
+      return lazyView(import("./visit-view"), (m) => m.visitView(ctx), SHAPES.grid, true);
     case "games":
-      return lazyView(import("./games-view"), (m) => m.gamesView(ctx));
+      return lazyView(import("./games-view"), (m) => m.gamesView(ctx), SHAPES.board);
     case "game":
-      return lazyView(import("./games-view"), (m) => m.tableView(route.id, ctx));
+      return lazyView(import("./games-view"), (m) => m.tableView(route.id, ctx), SHAPES.board);
     case "people":
-      return lazyView(import("./people-view"), (m) => m.peopleView(route.id, route.tab, ctx));
+      return lazyView(
+        import("./people-view"),
+        (m) => m.peopleView(route.id, route.tab, ctx),
+        SHAPES.list,
+      );
     case "collection":
-      return lazyView(import("./collection-view"), (m) => m.collectionView(route.id, ctx));
+      return lazyView(
+        import("./collection-view"),
+        (m) => m.collectionView(route.id, ctx),
+        SHAPES.book,
+      );
     case "plot3d":
     case "gallery3d":
-      return lazyView(import("./view-3d"), (m) => m.view3d(route, ctx));
+      // The 3D page says it's loading in its own words.
+      return lazyView(import("./view-3d"), (m) => m.view3d(route, ctx), SHAPES.single, true);
     case "claim":
-      return lazyView(import("./claim-view"), (m) => m.claimView(route.code, ctx));
+      return lazyView(import("./claim-view"), (m) => m.claimView(route.code, ctx), SHAPES.single);
     case "away":
-      return lazyView(import("./away-view"), (m) => m.awayView(ctx));
+      return lazyView(import("./away-view"), (m) => m.awayView(ctx), SHAPES.single);
     default:
       return notFoundView(ctx);
   }

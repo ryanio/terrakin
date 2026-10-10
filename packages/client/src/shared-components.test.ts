@@ -53,7 +53,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },
   {
     pattern: /class: [`"][^`"]*\b(skeleton|sk)\b/,
-    use: "skeletonPosts, skeletonCard, skeletonBlock, or skLine (skeleton.ts)",
+    use: "skeletonPage, skeletonPosts, skeletonCard, or skLine (skeleton.ts)",
   },
   { pattern: /class: "[^"]*\bempty-note\b/, use: "emptyNote (ui.ts)" },
   { pattern: /class: "check-row"/, use: "checkRow (ui.ts)" },

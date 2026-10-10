@@ -7,7 +7,7 @@ import type { InviteDetails } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
-import { skeletonBlock } from "@terrakin/ui/skeleton";
+import { skeletonCard } from "@terrakin/ui/skeleton";
 import { checkRow, stateCard, toast } from "@terrakin/ui/ui";
 import { api, myProfile } from "./api";
 import { joinForm, joinProblem } from "./join-form";
@@ -23,7 +23,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
   const ready = load();
 
   async function load(): Promise<void> {
-    el.replaceChildren(skeletonBlock("profile skeleton-profile"));
+    el.replaceChildren(skeletonCard({ lines: 4 }));
     const r = await api.invite(code);
     if (destroyed) return;
     if (!r.ok) {

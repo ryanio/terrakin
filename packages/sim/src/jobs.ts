@@ -1,11 +1,31 @@
 import { type Biome, biomeAt } from "./biome";
-import { type CraftKind, type Crop, type FindKind, type RecipeName, recipeOf } from "./catalog";
+import {
+  CROP_INFO,
+  type CraftKind,
+  type Crop,
+  type FindKind,
+  FURNITURE_RECIPES,
+  PANTRY_STAPLES,
+  RECIPES,
+  type RecipeName,
+  recipeOf,
+  STARTER_SEEDS,
+  SWEET_RECIPES,
+} from "./catalog";
 import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk } from "./economy";
 import { findEvent } from "./events";
 import { findsOpen } from "./gather";
 import { dayName, type Holiday, holidayOf } from "./holiday";
-import { ITEM_ID_PATTERN, ITEM_INFO, inventory, inventoryEvent, isGoodKind } from "./items";
+import {
+  ITEM_ID_PATTERN,
+  ITEM_INFO,
+  inventory,
+  inventoryEvent,
+  isCrop,
+  isGoodKind,
+  isResourceKind,
+} from "./items";
 import {
   bountyCounts,
   catchCounts,
@@ -77,10 +97,13 @@ export const JOBS = {
   masterAt: 75,
 } as const;
 
-/** Each job title's words, and the count of jobs finished that unlocks it. Fixed, never resident text. */
-export const JOB_TITLE_INFO: Record<JobTitle, { label: string; jobs: number }> = {
-  helping_hand: { label: "Helping hand", jobs: JOBS.titleAt },
-  pillar_of_the_town: { label: "Pillar of the town", jobs: JOBS.masterAt },
+/**
+ * Each job title's words, and which of the `JOBS` numbers is the count of jobs finished that
+ * unlocks it. Fixed, never resident text.
+ */
+export const JOB_TITLE_INFO: Record<JobTitle, { label: string; at: "titleAt" | "masterAt" }> = {
+  helping_hand: { label: "Helping hand", at: "titleAt" },
+  pillar_of_the_town: { label: "Pillar of the town", at: "masterAt" },
 };
 
 /** The townsfolk who give jobs, by handle. Fixed words: a giver holds nothing and decides nothing. */
@@ -139,8 +162,10 @@ export type Job = JobBase &
  * The table, by edition. An edition is frozen once a live world reads it: a logged `take_job` is
  * checked against its day's board, so the board for a past day must never change. A changed table
  * is the next edition. A job's id and what it asks stay the same in every edition that has it, so
- * a job held under one edition still finishes under the next. It's written out as plain data, so a
- * bundle that never reads the board leaves it out.
+ * a job held under one edition still finishes under the next.
+ *
+ * The first edition has no job for a `guest` deed or a `bounty` deed: both wait on a neighbor's
+ * calendar, and the economy run's residents seldom finished them (decision 0255).
  */
 export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
   1: [
@@ -285,14 +310,12 @@ export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
     { id: "sable_three_fish", giver: "sable", skill: "foraging", deed: { type: "fish", count: 3 } },
     // Otis, for hosting.
     { id: "otis_teach", giver: "otis", skill: "hosting", deed: { type: "teach", count: 1 } },
-    { id: "otis_guest", giver: "otis", skill: "hosting", deed: { type: "guest", count: 1 } },
     {
       id: "otis_host",
       giver: "otis",
       skill: "hosting",
       deed: { type: "host", count: 1, guests: 3 },
     },
-    { id: "otis_bounty", giver: "otis", skill: "hosting", deed: { type: "bounty", count: 1 } },
     // Pip, for the game tables.
     { id: "pip_game", giver: "pip", skill: "playing", deed: { type: "game", count: 1 } },
     { id: "pip_two_games", giver: "pip", skill: "playing", deed: { type: "game", count: 2 } },
@@ -316,7 +339,7 @@ type Mutation = () => WorldEvent[];
  * A job's lane. The board has three slots, each with two lanes that take turns by the day: home
  * is Growing one day and Making the next, a walk is a fish one day and a find the next, and
  * neighbors is Hosting one day and Playing the next. On even days the first lane of each is up,
- * so every day has a harvest or a find, which a resident can do alone with nothing learned.
+ * so every day has a harvest or a find.
  */
 type Lane = "growing" | "making" | "fish" | "finds" | "hosting" | "playing";
 const SLOTS: readonly (readonly [Lane, Lane])[] = [
@@ -324,6 +347,8 @@ const SLOTS: readonly (readonly [Lane, Lane])[] = [
   ["fish", "finds"],
   ["hosting", "playing"],
 ];
+/** The slot for a walk, in `SLOTS`. */
+const WALK = 1;
 
 function laneOf(job: Job): Lane {
   if (job.skill !== "foraging") return job.skill;
@@ -362,37 +387,58 @@ function laneJob(up: readonly Job[], turn: number): Job | undefined {
   return regular[half % regular.length];
 }
 
-/**
- * Today's board: three jobs, each in a different skill, the same for everyone (RFC 0030, section
- * 2). A pure function of the world's day, the season and holiday it falls in, which parts of the
- * game are open, and the edition's table. Empty before `open_jobs`. A lane with nothing up today
- * leaves its slot to the other lane, which then takes a turn every day, and a slot with neither
- * is left out.
- */
-export function jobsOn(state: WorldState): Job[] {
-  const jobs = state.jobs;
-  const day = state.day;
-  if (!jobs || day === undefined) return [];
+/** The jobs of `table` that are up on `day`: their part of the game open, in season, in their holiday. */
+function upOn(state: WorldState, table: readonly Job[], day: number): Job[] {
   const season = seasonOf(day);
   const holiday = holidayOf(day);
-  const up = (JOB_EDITIONS[jobs.edition] ?? []).filter(
+  return table.filter(
     (job) =>
       partOpen(state, job) &&
       (job.season === undefined || job.season === season) &&
       (job.holiday === undefined || job.holiday === holiday),
   );
-  const board: Job[] = [];
-  for (const lanes of SLOTS) {
-    const [first, second] = lanes
-      .map((lane) => up.filter((job) => laneOf(job) === lane))
-      .filter((list) => list.length > 0);
-    const job =
-      first && second
-        ? laneJob(day % 2 === 0 ? first : second, Math.floor(day / 2))
-        : first && laneJob(first, day);
-    if (job) board.push(job);
+}
+
+const inLane = (up: readonly Job[], lane: Lane) => up.filter((job) => laneOf(job) === lane);
+
+/**
+ * What the lanes' turns give each slot on `day`: an even day has each slot's first lane and an
+ * odd day its second. A lane with nothing up that day leaves its slot to the other lane, which
+ * then takes a turn every day, and a slot with neither has no job.
+ */
+function turns(state: WorldState, table: readonly Job[], day: number): (Job | undefined)[] {
+  const up = upOn(state, table, day);
+  return SLOTS.map((lanes) => {
+    const [first, second] = lanes.map((lane) => inLane(up, lane)).filter((l) => l.length > 0);
+    return first && second
+      ? laneJob(day % 2 === 0 ? first : second, Math.floor(day / 2))
+      : first && laneJob(first, day);
+  });
+}
+
+/**
+ * Today's board: three jobs, each in a different skill, the same for everyone (RFC 0030, section
+ * 2). A pure function of the world's day, the season and holiday it and the days either side fall
+ * in, which parts of the game are open, and the edition's table. Empty before `open_jobs`.
+ *
+ * It's what the lanes' turns give (`turns`), with one change. Every day has one job that needs
+ * nothing bought (`soloJob`), and the turns leave some days without: the even days when Growing's
+ * turn falls on a crop whose seed only the shop sells, beside a fish and a job for a host. On a
+ * day like that the walk is a find in place of the fish: the first find up that day that the
+ * turns give neither the day before nor the day after, so no job comes two days running.
+ */
+export function jobsOn(state: WorldState): Job[] {
+  const jobs = state.jobs;
+  const day = state.day;
+  if (!jobs || day === undefined) return [];
+  const table = JOB_EDITIONS[jobs.edition] ?? [];
+  const board = turns(state, table, day);
+  if (!board.some((job) => job && soloJob(job))) {
+    const near = [day - 1, day + 1].map((d) => turns(state, table, d)[WALK]);
+    const find = inLane(upOn(state, table, day), "finds").find((job) => !near.includes(job));
+    if (find) board[WALK] = find;
   }
-  return board;
+  return board.filter((job) => job !== undefined);
 }
 
 /** The job with this id in any edition, so a job held across a change of edition is still known. */
@@ -405,18 +451,41 @@ export function jobById(id: unknown): Job | undefined {
 }
 
 /**
- * Whether a resident with a hearth can do `job` alone, with no recipe to learn and no fishing rod:
- * a harvest, a find, or a craft or a made thing of a recipe everyone knows. Every day's board has
- * at least one in a world with finds out.
+ * Whether a resident has `kind` without buying it: a crop the first pantry's seeds grow, sugar or
+ * a jar, which the pantry tops up each day, or wood or stone, which lie on the land.
+ */
+const comesFree = (kind: string): boolean =>
+  (isCrop(kind) && (STARTER_SEEDS as readonly string[]).includes(CROP_INFO[kind].seed)) ||
+  (PANTRY_STAPLES as readonly string[]).includes(kind) ||
+  isResourceKind(kind);
+
+/**
+ * Whether everyone can make a thing of `recipe` with nothing bought: everyone knows it, and one of
+ * the things it makes takes only what comes free. Jam is, from a lemon. Candy isn't, since it takes
+ * a pumpkin.
+ */
+const madeFree = (recipe: RecipeName): boolean =>
+  knownByAll(recipe) &&
+  Object.entries({ ...RECIPES, ...FURNITURE_RECIPES, ...SWEET_RECIPES }).some(
+    ([kind, { needs }]) =>
+      recipeOf(kind as CraftKind) === recipe && Object.keys(needs).every(comesFree),
+  );
+
+/**
+ * Whether `job` needs nothing bought: a resident with a hearth can do it alone with what a first
+ * pantry and the land give, no recipe to learn, and no fishing rod. That's a find, a harvest of
+ * any crop or of one a starter seed grows, and a craft or a made thing everyone can make from what
+ * comes free. Every day's board has at least one in a world with finds out (`jobsOn`).
  */
 export function soloJob(job: Job): boolean {
-  if (job.bring !== undefined) return knownByAll(job.bring);
+  if (job.bring !== undefined) return madeFree(job.bring);
   switch (job.deed.type) {
-    case "harvest":
     case "find":
       return true;
+    case "harvest":
+      return job.deed.crops === undefined || job.deed.crops.some(comesFree);
     case "craft":
-      return knownByAll(job.deed.recipe);
+      return madeFree(job.deed.recipe);
     default:
       return false;
   }
@@ -852,7 +921,8 @@ export function checkJobTitle(
   id: ResidentId,
   title: JobTitle,
 ): Mutation | Rejection | undefined {
-  const { label, jobs } = JOB_TITLE_INFO[title];
+  const { label, at } = JOB_TITLE_INFO[title];
+  const jobs = JOBS[at];
   const mine = jobsDone(state, id);
   if (mine < jobs) {
     return refuse(

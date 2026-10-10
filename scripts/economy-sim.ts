@@ -1447,7 +1447,7 @@ function hostingDay(rules: Rules, active: readonly string[], byId: Map<string, P
     const keen = neighbors.filter((n) => byId.get(n)?.habits.focus === "hosting");
     if (age(id) % 7 === 3) {
       // Someone hosting in earnest goes to every neighbor's event; the rest come now and then.
-      // And so does a neighbor who holds Otis's guest job (RFC 0030), after the same draw.
+      // And so does a neighbor who holds a guest's job (RFC 0030), after the same draw.
       const guests = neighbors.filter(
         (n) => keen.includes(n) || climbing.chance(COMES) || holding(state, n, "guest"),
       );
@@ -1461,7 +1461,7 @@ function hostingDay(rules: Rules, active: readonly string[], byId: Map<string, P
     if (age(id) % 7 === 5) {
       // And takes any bounty going.
       const anyone = keen[0] ?? climbing.pick(neighbors);
-      // A neighbor who holds Otis's bounty job (RFC 0030) is the one who asks for it.
+      // A neighbor who holds a bounty job (RFC 0030) is the one who asks for it.
       const claimant = neighbors.find((n) => holding(state, n, "bounty")) ?? anyone;
       const reward = climbing.between(5, 10);
       if (claimant && payBounty(rules, id, claimant, reward)) gatherings.bounties++;
@@ -2047,7 +2047,7 @@ function workJob(rules: Rules, p: Person, planters: Map<string, Set<string>>, ea
 /**
  * The day's jobs with a neighbor, once everyone around has been home and the day's events, bounties,
  * and games are done. Whoever holds Otis's lesson job teaches a neighbor who lacks something they
- * know. Whoever holds his host job holds an event today, and neighbors who hold his guest job come,
+ * know. Whoever holds his host job holds an event today, and neighbors who hold a guest's job come,
  * with the rest coming now and then. And whoever holds one of Pip's jobs and hasn't a habit of
  * playing sits down with another like them, or with a player who's around.
  */
@@ -2793,14 +2793,18 @@ function jobsLab() {
   }
   const done = (id: string) => counts.days.get(id)?.length ?? 0;
 
+  /** The recipe of what a job asks to be made, if it asks for that. */
+  const toMake = (job: Job) =>
+    job.bring ?? (job.deed?.type === "craft" ? job.deed.recipe : undefined);
+  /** Whether the two on their own can do a job in a day: a fish job, or something to make. */
+  const inADay = (job: Job) => toMake(job) !== undefined || job.deed?.type === "fish";
   /**
    * Take one of today's jobs and finish it today: a fish job, cast at the hour it asks for, or
    * something to make, from what it takes handed over, with its card bought if it has one.
    */
   const finishOne = (id: string): boolean => {
-    for (const job of jobsOn(state)) {
-      const recipe = job.bring ?? (job.deed?.type === "craft" ? job.deed.recipe : undefined);
-      if (recipe === undefined && job.deed?.type !== "fish") continue;
+    for (const job of jobsOn(state).filter(inADay)) {
+      const recipe = toMake(job);
       if (recipe !== undefined && !knows(state, id, recipe)) {
         rules.send(TOWN_ACTOR, { type: "test_grant", to: id, coins: recipeCardPrice(recipe) });
         if (!rules.send(id, { type: "shop_buy", sku: cardSku(recipe) })) continue;
@@ -2822,12 +2826,15 @@ function jobsLab() {
     }
     return false;
   };
-  /** The last three days of each UTC week that fall in the month. */
+  /**
+   * The last three days of each UTC week that fall in the month and have a job the two can do in a
+   * day. A day whose jobs are a crop from the shop's seed, a find, and a host's has none.
+   */
   const threeDays = new Set<number>();
   for (let d = DAYS - 1; d >= 0; d--) {
     const week = weekStart(DAY0 + d);
     const inWeek = [...threeDays].filter((day) => weekStart(DAY0 + day) === week).length;
-    if (inWeek < 3) threeDays.add(d);
+    if (inWeek < 3 && jobsOn({ ...state, day: DAY0 + d }).some(inADay)) threeDays.add(d);
   }
   /** The month's day each of the two finished their tenth job, which is a title. */
   const titleDay = new Map<string, number>();
@@ -3155,7 +3162,7 @@ function jobLines(rules: Rules, people: Person[], rows: Row[]) {
     }
   }
   console.log(
-    `  7. The board. Days with no job a settled resident can do alone with no recipe to learn and no rod: ${noSolo} of ${DAYS} (${holds(noSolo === 0)}: none). Of the ${due.length} jobs in season this month, ${due.length - never.length} came up (${holds(never.length === 0)}: all${never.length > 0 ? `; never up: ${never.join(", ")}` : ""}). Seven-day stretches where a skill was on the board fewer than three days: ${thin} (${holds(thin === 0)}: none).`,
+    `  7. The board. Days with no job that needs nothing bought (no seed from the shop, no recipe to learn, no rod): ${noSolo} of ${DAYS} (${holds(noSolo === 0)}: none). Of the ${due.length} jobs in season this month, ${due.length - never.length} came up (${holds(never.length === 0)}: all${never.length > 0 ? `; never up: ${never.join(", ")}` : ""}). Seven-day stretches where a skill was on the board fewer than three days: ${thin} (${holds(thin === 0)}: none).`,
   );
 
   // 8. How often each job is finished.

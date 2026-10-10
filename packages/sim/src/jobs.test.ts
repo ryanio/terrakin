@@ -19,9 +19,10 @@ import {
   jobsDone,
   jobsOn,
   soloJob,
+  townBountyJob,
 } from "./jobs";
 import { tileKey } from "./keys";
-import { PROGRESS, pointsOf, titleOf } from "./levels";
+import { jobEarns, PROGRESS, pointsOf, titleOf } from "./levels";
 import { JOB_WEAR, JOB_WEAR_INFO, WEAR_ITEMS } from "./looks";
 import { replay } from "./replay";
 import { dateOfDay, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
@@ -267,6 +268,38 @@ function bounty(w: World, poster: string, claimant: string) {
 }
 
 /**
+ * A town bounty voted in, claimed by `claimant`, and marked done, waiting on a maintainer. Its id.
+ * The vote takes days, so it comes before a job is taken.
+ */
+function townBounty(w: World, claimant: string) {
+  w.ok("ada", {
+    type: "propose",
+    kind: "bounty",
+    title: "A bridge across the stream",
+    text: "",
+    amount: 2,
+  });
+  const proposal = w.state.town?.proposals.at(-1);
+  for (const name of ["bob", "cy", "dee"]) {
+    w.ok(name, { type: "vote", proposal: proposal?.id ?? "", choice: "yes" });
+  }
+  w.toDay(proposal?.closesDay);
+  w.town({ type: "close_proposal", proposal: proposal?.id ?? "" });
+  const id = w.state.bounties?.list.at(-1)?.id ?? "";
+  w.ok(claimant, { type: "claim_bounty", bounty: id });
+  w.ok(claimant, { type: "complete_bounty", bounty: id });
+  return id;
+}
+
+/** A maintainer pays the town bounty `id` to `to`. */
+const payTownBounty = (id: string, to: string): Command => ({
+  type: "confirm_town_bounty",
+  bounty: id,
+  to,
+  by: "staff_0123456789ab",
+});
+
+/**
  * A Hearth race played to its end: each round every seat makes the choice `choose` gives it, or
  * none for `null`, and the round closes. The last round's events.
  */
@@ -350,11 +383,46 @@ function playTo(w: World, who: string, total: number) {
  */
 const wearing = (...wear: string[]) => ({ type: "profile", wear }) as unknown as Command;
 
+/**
+ * Run `test` with `table` as the second edition. No second edition has shipped, so it's put there
+ * for the test and taken away after.
+ */
+function withEdition(table: readonly Job[], test: () => void) {
+  const editions = JOB_EDITIONS as Record<number, readonly Job[]>;
+  editions[2] = table;
+  try {
+    test();
+  } finally {
+    delete editions[2];
+  }
+}
+const edition = (n: unknown) => ({ type: "set_job_edition", edition: n }) as Command;
+
+/**
+ * A job for a counted guest and one for a paid bounty. The sim counts both deeds for a job, and no
+ * edition of the table asks for either, so the tests that prove them add the two to the board.
+ */
+const OTIS: readonly Job[] = [
+  { id: "otis_guest", giver: "otis", skill: "hosting", deed: { type: "guest", count: 1 } },
+  { id: "otis_bounty", giver: "otis", skill: "hosting", deed: { type: "bounty", count: 1 } },
+];
+
+/** Run `test` in a world whose board reads the first edition with Otis's two jobs added. */
+function withOtis(test: (w: World) => void, { open = true } = {}) {
+  withEdition([...TABLE, ...OTIS], () => {
+    const w = jobs({ open });
+    if (open) w.town(edition(2));
+    test(w);
+  });
+}
+
 /** The world's jobs open, on `day`, to ask it for that day's board. */
 const opened = jobs().state;
 const boardOn = (day: number) => jobsOn({ ...opened, day });
-/** Two years from the day jobs open here. */
-const DAYS = Array.from({ length: 731 }, (_, i) => OPEN + i);
+/** Four years from the day jobs open here, so a leap day is in them. */
+const DAYS = Array.from({ length: 1461 }, (_, i) => OPEN + i);
+/** How many of those days have a pumpkin or a cranberry job for home. */
+const SEASONAL_DAYS = 91;
 
 describe("the numbers", () => {
   it("are pinned, so a change is deliberate and comes with a run of scripts/economy-sim.ts", () => {
@@ -374,8 +442,8 @@ describe("the numbers", () => {
   it("give two titles and a garment to the count of jobs finished, in fixed words", () => {
     expect(JOB_TITLES).toEqual(["helping_hand", "pillar_of_the_town"]);
     expect(JOB_TITLE_INFO).toEqual({
-      helping_hand: { label: "Helping hand", jobs: 10 },
-      pillar_of_the_town: { label: "Pillar of the town", jobs: 75 },
+      helping_hand: { label: "Helping hand", at: "titleAt" },
+      pillar_of_the_town: { label: "Pillar of the town", at: "masterAt" },
     });
     // A garment's slot decides which wear lists a logged profile may hold, so it's pinned.
     expect(JOB_WEAR_INFO).toEqual({ town_satchel: { slot: "accessory", label: "Town satchel" } });
@@ -412,15 +480,13 @@ describe("the numbers", () => {
       "sable_night_fish",
       "sable_three_fish",
       "otis_teach",
-      "otis_guest",
       "otis_host",
-      "otis_bounty",
       "pip_game",
       "pip_two_games",
       "pip_win",
     ]);
     // Every word of it: what each job asks, its skill, and when it's up.
-    expect(fnv1a(canonicalJson(TABLE))).toBe("598485db");
+    expect(fnv1a(canonicalJson(TABLE))).toBe("15637afd");
   });
 
   it("keep a job's id to one meaning in every edition that has it", () => {
@@ -487,7 +553,7 @@ describe("the board", () => {
     expect(board(w)).not.toEqual(today);
   });
 
-  it("has one job for home, one for a walk, and one with neighbors, each day of two years", () => {
+  it("has one job for home, one for a walk, and one with neighbors, each day of four years", () => {
     const wrong: string[] = [];
     for (const day of DAYS) {
       const [home, walk, neighbors, ...more] = boardOn(day);
@@ -512,30 +578,51 @@ describe("the board", () => {
     expect(repeats).toEqual([]);
   });
 
-  it("always has a job a resident can do alone, with no recipe to learn and no rod", () => {
+  it("has one job that needs nothing bought, every day of four years", () => {
     const without = DAYS.filter((day) => !boardOn(day).some(soloJob));
     expect(without).toEqual([]);
-    // What that means: a harvest, a find, or something everyone knows how to make.
+    // What that means: a find, a harvest a starter seed grows, or a thing everyone knows how to
+    // make from what a first pantry and the land give. No recipe to learn, no rod, and no seed
+    // from the shop: pumpkins and cranberries, and the candy and the lantern a pumpkin makes,
+    // aren't on the list.
     expect(TABLE.filter(soloJob).map((j) => j.id)).toEqual([
       "juniper_crops",
       "juniper_herbs",
       "juniper_flowers",
-      "juniper_pumpkins",
-      "juniper_cranberries",
       "clem_herb_tea",
       "clem_jam",
-      "clem_candy",
       "clem_candy_canes",
       "bram_chair",
       "bram_table",
       "bram_stone_wall",
-      "bram_jack_o_lantern",
       "ansel_bouquet",
       "marlo_find",
       "marlo_sand_find",
       "marlo_forest_find",
       "marlo_autumn_find",
     ]);
+  });
+
+  it("gives a find for the walk on a day whose jobs would all take something bought, learned, or a rod", () => {
+    // Those are the even days when Growing's turn falls on a crop whose seed only the shop sells.
+    const seasonal = DAYS.filter((day) =>
+      ["juniper_pumpkins", "juniper_cranberries"].includes(boardOn(day)[0]?.id ?? ""),
+    );
+    expect(seasonal).toHaveLength(SEASONAL_DAYS);
+    for (const day of seasonal) {
+      const [, walk, neighbors] = boardOn(day);
+      expect(day % 2, String(day)).toBe(0);
+      expect(walk?.deed?.type, String(day)).toBe("find");
+      expect(neighbors?.skill, String(day)).toBe("hosting");
+    }
+    // Every other even day's walk is a fish, as the lanes' turns have it.
+    const evens = DAYS.filter((day) => day % 2 === 0 && !seasonal.includes(day));
+    expect(evens.filter((day) => boardOn(day)[1]?.deed?.type !== "fish")).toEqual([]);
+    // In a world with no finds out there's no find to give, and the board is as the turns have it.
+    const { findsOpen: _findsOpen, ...items } = opened.items ?? {};
+    const bare = { ...opened, day: seasonal[0] ?? 0, items } as WorldState;
+    expect(jobsOn(bare).map((j) => j.deed?.type)).toEqual(["harvest", "fish", "host"]);
+    expect(jobsOn(bare).some(soloJob)).toBe(false);
   });
 
   it("has every skill at least three days in every seven", () => {
@@ -562,7 +649,7 @@ describe("the board", () => {
       }
     }
     expect(wrong).toEqual([]);
-    // Each whole season in the two years: every job with no holiday that's up in it came up.
+    // Each whole season in the four years: every job with no holiday that's up in it came up.
     const missing: string[] = [];
     for (const [start, ids] of seen) {
       const { season, end } = seasonSpan(start);
@@ -992,6 +1079,15 @@ describe("a deed job", () => {
     expect(gather(inland)).toEqual([]);
     const shore = lying("marlo_sand_find", (kind, x, y) => isFindKind(kind) && sand(x, y));
     expect(gather(shore)).toMatchObject([{ type: "job_done", job: "marlo_sand_find" }]);
+    // His autumn job wants a chestnut or a maple leaf, and no other find will do.
+    w.toDay();
+    const fallen = (kind: string) => kind === "chestnut" || kind === "maple_leaf";
+    const other = lying("marlo_autumn_find", (kind) => isFindKind(kind) && !fallen(kind));
+    expect(gather(other)).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "marlo_autumn_find", day: w.day() });
+    expect(gather(lying("marlo_autumn_find", fallen))).toMatchObject([
+      { type: "job_done", job: "marlo_autumn_find", skill: "foraging" },
+    ]);
   });
 });
 
@@ -1104,6 +1200,40 @@ describe("hand_in", () => {
   });
 });
 
+describe("a name every object answers to", () => {
+  it("is refused wherever a job, a thing, an edition, or a title is named, with a bring job held", () => {
+    const w = jobs();
+    hold(w, "ada", "clem_herb_tea");
+    make(w, "ada", "herb_tea");
+    const before = hashWorld(w.state);
+    const names = [
+      "__proto__",
+      "constructor",
+      "toString",
+      "hasOwnProperty",
+      "",
+      0,
+      2,
+      -1,
+      1.5,
+      null,
+    ];
+    for (const name of names) {
+      const said = JSON.stringify(name);
+      const sent = (command: object) => command as Command;
+      // Bob holds nothing, so only the name stands between him and a job.
+      expect(w.code("bob", sent({ type: "take_job", job: name })), said).toBe("unknown_job");
+      expect(w.code("ada", sent({ type: "hand_in", item: name })), said).toBe("nothing_to_hand_in");
+      expect(w.code(TOWN_ACTOR, edition(name)), said).toBe("server_only");
+      // `null` asks for no title, which is what Ada shows already.
+      expect(w.code("ada", sent({ type: "profile", title: name })), said).toBe("invalid_profile");
+    }
+    expect(hashWorld(w.state)).toBe(before);
+    // The job is still hers, and the tea she made still finishes it.
+    expect(done(w.ok("ada", { type: "hand_in" }))).toMatchObject({ job: "clem_herb_tea" });
+  });
+});
+
 describe("a held job", () => {
   it("lasts seven days and lapses on the eighth, with nothing lost", () => {
     const w = jobs();
@@ -1162,59 +1292,44 @@ describe("a job with a neighbor", () => {
     expect(held(w, "cy")).toEqual({ job: "otis_teach", day: w.day() });
   });
 
-  it("is done by a bounty that counts, once a poster a week", () => {
-    const w = jobs();
-    // Bob's bounty counts for Ada's points this week before she takes the job.
-    until(w, "otis_bounty");
-    bounty(w, "bob", "ada");
-    w.ok("ada", { type: "take_job", job: "otis_bounty" });
-    // So his second this week doesn't count, for points or for the job. Dee's does.
-    expect(jobEvents(bounty(w, "bob", "ada"))).toEqual([]);
-    expect(held(w, "ada")).toEqual({ job: "otis_bounty", day: w.day() });
-    expect(done(bounty(w, "dee", "ada"))).toMatchObject({ residentId: "ada", job: "otis_bounty" });
-  });
+  it("is done by a bounty that counts, once a poster a week", () =>
+    withOtis((w) => {
+      // Bob's bounty counts for Ada's points this week before she takes the job.
+      until(w, "otis_bounty");
+      bounty(w, "bob", "ada");
+      w.ok("ada", { type: "take_job", job: "otis_bounty" });
+      // So his second this week doesn't count, for points or for the job. Dee's does.
+      expect(jobEvents(bounty(w, "bob", "ada"))).toEqual([]);
+      expect(held(w, "ada")).toEqual({ job: "otis_bounty", day: w.day() });
+      expect(done(bounty(w, "dee", "ada"))).toMatchObject({
+        residentId: "ada",
+        job: "otis_bounty",
+      });
+    }));
 
-  it("is done by the town's bounty too, which a maintainer confirmed", () => {
-    const w = jobs();
-    w.ok("ada", {
-      type: "propose",
-      kind: "bounty",
-      title: "A bridge across the stream",
-      text: "",
-      amount: 2,
-    });
-    const proposal = w.state.town?.proposals.at(-1);
-    for (const name of ["bob", "cy", "dee"]) {
-      w.ok(name, { type: "vote", proposal: proposal?.id ?? "", choice: "yes" });
-    }
-    w.toDay(proposal?.closesDay);
-    w.town({ type: "close_proposal", proposal: proposal?.id ?? "" });
-    const id = w.state.bounties?.list.at(-1)?.id ?? "";
-    w.ok("bob", { type: "claim_bounty", bounty: id });
-    w.ok("bob", { type: "complete_bounty", bounty: id });
-    hold(w, "bob", "otis_bounty");
-    const paid = w.town({
-      type: "confirm_town_bounty",
-      bounty: id,
-      to: "bob",
-      by: "staff_0123456789ab",
-    });
-    expect(done(paid)).toMatchObject({ residentId: "bob", job: "otis_bounty" });
-  });
+  it("is done by the town's bounty too, which a maintainer confirmed", () =>
+    withOtis((w) => {
+      const id = townBounty(w, "bob");
+      hold(w, "bob", "otis_bounty");
+      expect(done(w.town(payTownBounty(id, "bob")))).toMatchObject({
+        residentId: "bob",
+        job: "otis_bounty",
+      });
+    }));
 
-  it("is done for a guest the server counted, and not for one it left out", () => {
-    const w = jobs();
-    hold(w, "bob", "otis_guest");
-    w.ok("cy", { type: "take_job", job: "otis_guest" });
-    // The host holds it too, and hosting isn't coming.
-    w.ok("ada", { type: "take_job", job: "otis_guest" });
-    const event = party(w, "ada", ["bob", "cy"]);
-    // Both attended by the sim's samples. The server's list has Bob alone.
-    const events = w.town(credit(event, ["bob"]));
-    expect(jobEvents(events)).toMatchObject([{ type: "job_done", residentId: "bob" }]);
-    expect(held(w, "cy")).toEqual({ job: "otis_guest", day: w.day() });
-    expect(held(w, "ada")).toEqual({ job: "otis_guest", day: w.day() });
-  });
+  it("is done for a guest the server counted, and not for one it left out", () =>
+    withOtis((w) => {
+      hold(w, "bob", "otis_guest");
+      w.ok("cy", { type: "take_job", job: "otis_guest" });
+      // The host holds it too, and hosting isn't coming.
+      w.ok("ada", { type: "take_job", job: "otis_guest" });
+      const event = party(w, "ada", ["bob", "cy"]);
+      // Both attended by the sim's samples. The server's list has Bob alone.
+      const events = w.town(credit(event, ["bob"]));
+      expect(jobEvents(events)).toMatchObject([{ type: "job_done", residentId: "bob" }]);
+      expect(held(w, "cy")).toEqual({ job: "otis_guest", day: w.day() });
+      expect(held(w, "ada")).toEqual({ job: "otis_guest", day: w.day() });
+    }));
 
   it("is done for a host three guests were counted at, and not for two", () => {
     const w = jobs();
@@ -1235,44 +1350,63 @@ describe("a job with a neighbor", () => {
     ).toEqual([JOBS.points]);
   });
 
-  it("isn't done by an event that ended before the job was taken, however late its credit comes", () => {
-    const w = jobs();
-    until(w, "otis_guest");
-    w.ok("ada", { type: "take_job", job: "otis_guest" });
-    w.ok("dee", { type: "take_job", job: "otis_guest" });
-    // The event ends, and its credit waits on the server. Meanwhile two guests take Otis's job.
-    const event = party(w, "dee", ["ada", "bob", "cy"]);
-    w.ok("bob", { type: "take_job", job: "otis_guest" });
-    w.ok("cy", { type: "take_job", job: "otis_guest" });
-    // Ada held hers through the event. Bob's and Cy's came after it, and stay as they were.
-    const events = w.town(credit(event, ["ada", "bob", "cy"]));
-    expect(jobEvents(events)).toMatchObject([{ type: "job_done", residentId: "ada" }]);
-    expect(held(w, "bob")).toEqual({ job: "otis_guest", day: w.day() });
-    expect(held(w, "cy")).toEqual({ job: "otis_guest", day: w.day() });
-    // The same for a host: three counted guests at an event that ended before the take.
-    hold(w, "dee", "otis_host");
-    w.ok("bob", { type: "drop_job" });
-    const before = party(w, "bob", ["ada", "cy", "dee"]);
-    hold(w, "bob", "otis_host");
-    // Cy has held her guest job since before this one, so it's hers. Bob's host job isn't.
-    expect(jobEvents(w.town(credit(before, ["ada", "cy", "dee"])))).toMatchObject([
-      { type: "job_done", residentId: "cy", job: "otis_guest" },
-    ]);
-    expect(held(w, "bob")).toEqual({ job: "otis_host", day: w.day() });
-  });
+  it("isn't done by an event that ended before the job was taken, however late its credit comes", () =>
+    withOtis((w) => {
+      until(w, "otis_guest");
+      w.ok("ada", { type: "take_job", job: "otis_guest" });
+      w.ok("dee", { type: "take_job", job: "otis_guest" });
+      // The event ends, and its credit waits on the server. Meanwhile two guests take Otis's job.
+      const event = party(w, "dee", ["ada", "bob", "cy"]);
+      w.ok("bob", { type: "take_job", job: "otis_guest" });
+      w.ok("cy", { type: "take_job", job: "otis_guest" });
+      // Ada held hers through the event. Bob's and Cy's came after it, and stay as they were.
+      const events = w.town(credit(event, ["ada", "bob", "cy"]));
+      expect(jobEvents(events)).toMatchObject([{ type: "job_done", residentId: "ada" }]);
+      expect(held(w, "bob")).toEqual({ job: "otis_guest", day: w.day() });
+      expect(held(w, "cy")).toEqual({ job: "otis_guest", day: w.day() });
+      // The same for a host: three counted guests at an event that ended before the take.
+      hold(w, "dee", "otis_host");
+      w.ok("bob", { type: "drop_job" });
+      const before = party(w, "bob", ["ada", "cy", "dee"]);
+      hold(w, "bob", "otis_host");
+      // Cy has held her guest job since before this one, so it's hers. Bob's host job isn't.
+      expect(jobEvents(w.town(credit(before, ["ada", "cy", "dee"])))).toMatchObject([
+        { type: "job_done", residentId: "cy", job: "otis_guest" },
+      ]);
+      expect(held(w, "bob")).toEqual({ job: "otis_host", day: w.day() });
+    }));
 
-  it("isn't done by an event that ended before jobs opened", () => {
-    const w = jobs({ open: false });
-    const event = party(w, "ada", ["bob", "cy", "dee"]);
-    w.town({ type: "open_jobs" });
-    until(w, "otis_guest");
-    w.ok("bob", { type: "take_job", job: "otis_guest" });
-    const events = w.town(credit(event, ["bob", "cy", "dee"]));
-    // The credit's points are levels' own. No job hears of it.
-    expect(events.some((e) => e.type === "progress")).toBe(true);
-    expect(jobEvents(events)).toEqual([]);
-    expect(held(w, "bob")).toEqual({ job: "otis_guest", day: w.day() });
-  });
+  it("isn't done by an event that ended before jobs opened", () =>
+    withOtis(
+      (w) => {
+        const event = party(w, "ada", ["bob", "cy", "dee"]);
+        w.town({ type: "open_jobs" });
+        w.town(edition(2));
+        until(w, "otis_guest");
+        w.ok("bob", { type: "take_job", job: "otis_guest" });
+        const events = w.town(credit(event, ["bob", "cy", "dee"]));
+        // The credit's points are levels' own. No job hears of it.
+        expect(events.some((e) => e.type === "progress")).toBe(true);
+        expect(jobEvents(events)).toEqual([]);
+        expect(held(w, "bob")).toEqual({ job: "otis_guest", day: w.day() });
+      },
+      { open: false },
+    ));
+
+  it("is done by a bounty whose work came before the take, since the deed it counts is being paid", () =>
+    withOtis((w) => {
+      until(w, "otis_bounty");
+      fund(w.state, "dee", PROGRESS.bountyMinReward);
+      const posted = w
+        .ok("dee", { type: "post_bounty", title: "Sweep", reward: PROGRESS.bountyMinReward })
+        .find((e) => e.type === "bounty_posted");
+      const id = posted?.type === "bounty_posted" ? posted.bounty.id : "";
+      w.ok("ada", { type: "claim_bounty", bounty: id });
+      w.ok("ada", { type: "complete_bounty", bounty: id });
+      w.ok("ada", { type: "take_job", job: "otis_bounty" });
+      const paid = w.ok("dee", { type: "confirm_bounty", bounty: id, to: "ada" });
+      expect(done(paid)).toMatchObject({ residentId: "ada", job: "otis_bounty" });
+    }));
 
   it("is done by a rated game for each seat that chose in it, and Pip's win job only by first place", () => {
     const w = jobs();
@@ -1309,44 +1443,87 @@ describe("a job with a neighbor", () => {
 });
 
 describe("what never moves a job", () => {
-  it("anything inside a household: a lesson, a bounty, a game, or an event among themselves", () => {
-    const w = jobs();
-    w.town({ type: "add_owner_pair", pair: ["ada", "cy"] });
-    const untouched = (who: string, id: string) =>
-      expect(held(w, who), id).toEqual({ job: id, day: w.day() });
+  it("anything inside a household: a lesson, a bounty, a game, or an event among themselves", () =>
+    withOtis((w) => {
+      w.town({ type: "add_owner_pair", pair: ["ada", "cy"] });
+      const untouched = (who: string, id: string) =>
+        expect(held(w, who), id).toEqual({ job: id, day: w.day() });
 
-    hold(w, "ada", "otis_teach");
-    w.standAt("cy", 4, 4);
-    expect(jobEvents(w.ok("ada", { type: "teach", recipe: "lemonade", to: "cy" }))).toEqual([]);
-    untouched("ada", "otis_teach");
+      hold(w, "ada", "otis_teach");
+      w.standAt("cy", 4, 4);
+      expect(jobEvents(w.ok("ada", { type: "teach", recipe: "lemonade", to: "cy" }))).toEqual([]);
+      untouched("ada", "otis_teach");
 
-    hold(w, "ada", "otis_bounty");
-    expect(jobEvents(bounty(w, "cy", "ada"))).toEqual([]);
-    untouched("ada", "otis_bounty");
+      hold(w, "ada", "otis_bounty");
+      expect(jobEvents(bounty(w, "cy", "ada"))).toEqual([]);
+      untouched("ada", "otis_bounty");
 
-    // Seats from one household are unrated, and with them out Dee has nobody to be rated against.
-    hold(w, "ada", "pip_game");
-    w.ok("dee", { type: "take_job", job: "pip_game" });
-    expect(jobEvents(race(w, ["ada", "cy", "dee"]))).toEqual([]);
-    untouched("ada", "pip_game");
-    untouched("dee", "pip_game");
-    w.ok("dee", { type: "drop_job" });
+      // Seats from one household are unrated, and with them out Dee has nobody to be rated against.
+      hold(w, "ada", "pip_game");
+      w.ok("dee", { type: "take_job", job: "pip_game" });
+      expect(jobEvents(race(w, ["ada", "cy", "dee"]))).toEqual([]);
+      untouched("ada", "pip_game");
+      untouched("dee", "pip_game");
+      w.ok("dee", { type: "drop_job" });
 
-    // Cy came to Ada's event, and the sim won't have her on the guest list.
-    hold(w, "cy", "otis_guest");
-    const event = party(w, "ada", ["cy"]);
-    expect(w.code(TOWN_ACTOR, credit(event, ["cy"]))).toBe("not_eligible");
-    expect(jobEvents(w.town(credit(event, [])))).toEqual([]);
-    untouched("cy", "otis_guest");
+      // Cy came to Ada's event, and the sim won't have her on the guest list.
+      hold(w, "cy", "otis_guest");
+      const event = party(w, "ada", ["cy"]);
+      expect(w.code(TOWN_ACTOR, credit(event, ["cy"]))).toBe("not_eligible");
+      expect(jobEvents(w.town(credit(event, [])))).toEqual([]);
+      untouched("cy", "otis_guest");
 
-    // Three at Ada's event, one of them her own: the list can hold two, which is one short.
-    hold(w, "ada", "otis_host");
-    const three = party(w, "ada", ["bob", "cy", "dee"]);
-    expect(w.code(TOWN_ACTOR, credit(three, ["bob", "cy", "dee"]))).toBe("not_eligible");
-    expect(jobEvents(w.town(credit(three, ["bob", "dee"])))).toEqual([]);
-    untouched("ada", "otis_host");
-    expect(w.state.jobs?.total).toBeUndefined();
-  });
+      // Three at Ada's event, one of them her own: the list can hold two, which is one short.
+      hold(w, "ada", "otis_host");
+      const three = party(w, "ada", ["bob", "cy", "dee"]);
+      expect(w.code(TOWN_ACTOR, credit(three, ["bob", "cy", "dee"]))).toBe("not_eligible");
+      expect(jobEvents(w.town(credit(three, ["bob", "dee"])))).toEqual([]);
+      untouched("ada", "otis_host");
+      expect(w.state.jobs?.total).toBeUndefined();
+    }));
+
+  it("a deed by someone made townsfolk since they took the job", () =>
+    withOtis((w) => {
+      /** What `deed` does to a job while `who` is on the townsfolk list. */
+      const asTownsfolk = (who: string, deed: () => WorldEvent[]) => {
+        w.town({ type: "set_townsfolk", ids: [who] });
+        const events = jobEvents(deed());
+        w.town({ type: "set_townsfolk", ids: [] });
+        return events;
+      };
+      const id = townBounty(w, "dee");
+      // A harvest: the townsfolk's doesn't count, and the same resident's next one does.
+      hold(w, "ada", "juniper_herbs");
+      const [first, second] = ripe(w, "ada", "herb", 2);
+      expect(asTownsfolk("ada", () => harvest(w, "ada", first ?? { x: 0, y: 0 }))).toEqual([]);
+      expect(held(w, "ada")).toEqual({ job: "juniper_herbs", day: w.day() });
+      expect(jobEvents(harvest(w, "ada", second ?? { x: 0, y: 0 }))).toMatchObject([
+        { type: "job_progress", count: 1 },
+      ]);
+      // A craft.
+      hold(w, "bob", "bram_chair");
+      expect(asTownsfolk("bob", () => make(w, "bob", "chair"))).toEqual([]);
+      expect(held(w, "bob")).toEqual({ job: "bram_chair", day: w.day() });
+      expect(done(make(w, "bob", "chair"))).toMatchObject({ residentId: "bob" });
+      // A fish.
+      hold(w, "cy", "sable_dusk_fish");
+      expect(asTownsfolk("cy", () => cast(w, "cy", "dusk"))).toEqual([]);
+      expect(held(w, "cy")).toEqual({ job: "sable_dusk_fish", day: w.day() });
+      expect(done(cast(w, "cy", "dusk"))).toMatchObject({ residentId: "cy" });
+      // The town's bounty. A maintainer can't pay one to townsfolk, so no input gets as far as
+      // the job. The job's own rule says the same, and so does the rule for a finished job's
+      // points, whatever finished it.
+      hold(w, "dee", "otis_bounty");
+      w.town({ type: "set_townsfolk", ids: ["dee"] });
+      expect(w.code(TOWN_ACTOR, payTownBounty(id, "dee"))).toBe("not_eligible");
+      expect(townBountyJob(w.state, "dee")).toBeNull();
+      expect(jobEarns(w.state, "dee", "hosting", JOBS.points)).toBeNull();
+      w.town({ type: "set_townsfolk", ids: [] });
+      expect(townBountyJob(w.state, "dee")).not.toBeNull();
+      expect(jobEarns(w.state, "dee", "hosting", JOBS.points)).not.toBeNull();
+      expect(done(w.town(payTownBounty(id, "dee")))).toMatchObject({ residentId: "dee" });
+      expect(w.state.jobs?.total).toEqual({ bob: 1, cy: 1, dee: 1 });
+    }));
 
   it("townsfolk on the other side: nobody teaches them, plays them for a rating, or counts them as guests", () => {
     const w = jobs();
@@ -1469,19 +1646,13 @@ describe("what the count unlocks", () => {
 describe("set_job_edition", () => {
   /**
    * Run `test` with a second edition in the table: the first one's jobs with Juniper's herbs and
-   * Bram's chair taken out and each lane's order turned round. No second edition has shipped, so
-   * it's put there for the test and taken away after.
+   * Bram's chair taken out and each lane's order turned round.
    */
-  function withSecondEdition(test: () => void) {
-    const editions = JOB_EDITIONS as Record<number, readonly Job[]>;
-    editions[2] = TABLE.filter((j) => j.id !== "juniper_herbs" && j.id !== "bram_chair").reverse();
-    try {
-      test();
-    } finally {
-      delete editions[2];
-    }
-  }
-  const edition = (n: unknown) => ({ type: "set_job_edition", edition: n }) as Command;
+  const withSecondEdition = (test: () => void) =>
+    withEdition(
+      TABLE.filter((j) => j.id !== "juniper_herbs" && j.id !== "bram_chair").reverse(),
+      test,
+    );
 
   it("only comes from the server, for jobs that are open and an edition that exists", () => {
     const closed = jobs({ open: false });
@@ -1695,12 +1866,12 @@ describe("the jobs fixture", () => {
       total: { eve: 10, gus: 1, dee: 2 },
     });
     expect(state.progress?.titles).toEqual({ ada: "maker", eve: "helping_hand" });
-    // Ten jobs at 10 points on top of her deeds: seven for Sable and one each for Marlo, Juniper,
-    // and Clem.
+    // Ten jobs at 10 points on top of her deeds: five for Sable, three for Marlo, and one each
+    // for Juniper and Clem.
     expect(state.progress?.points.eve).toEqual({
       growing: 42,
       making: 44,
-      foraging: 148,
+      foraging: 158,
       hosting: 2,
       playing: 16,
     });

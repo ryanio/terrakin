@@ -6,9 +6,10 @@ import { LEVELS_CONFIG, LEVELS_LOG } from "./levels-log";
  * The levels world after jobs open (RFC 0030), on Monday, December 2, 2024. Eve takes Pip's game
  * job and lets it go, takes Marlo's find job, and plants her three planters. On Tuesday the board
  * has moved on, and the seashell she picks up on her own sand still finishes the job she holds.
- * Dee takes Juniper's flowers and never picks one. On Thursday Eve catches three fish for Sable,
- * with a boot between them that doesn't count, and on Saturday her three harvests finish Juniper's
- * job: three in one UTC week.
+ * Dee takes Juniper's flowers and never picks one. On Thursday the job for home is cranberries,
+ * whose seed only the shop sells, so the walk is a find in place of the fish: Eve takes it, walks
+ * out of her door to a seashell on the Commons, and goes home. On Saturday her three harvests
+ * finish Juniper's job: three in one UTC week.
  *
  * The next Monday starts a new week. Eve takes Sable's night job, and a minnow at noon doesn't
  * move it where one at night does. On Tuesday Dee's job lapses, seven days after she took it. On
@@ -19,8 +20,10 @@ import { LEVELS_CONFIG, LEVELS_LOG } from "./levels-log";
  * for Marlo, and then his record is merged into Gus's, and his one job with it. Dee takes Pip's
  * game job and loses a rated Hearth race to Eve, which finishes it. On Sunday Dee visits, takes
  * Otis's job, and teaches Eve the bookshelf, and Eve catches a night fish: her third that week.
- * Four more fish jobs over the next eight days, with Bob's job lapsing on the way, bring her to
- * ten jobs finished, and she shows the title Helping hand.
+ * The week after has three fish for Sable, with a boot between them that doesn't count, a fish at
+ * dusk, and a forest find taken on Saturday, another day whose walk is a find, and finished by
+ * Sunday's pinecone, with Bob's job lapsing on the way. Three more fish on Monday bring her to ten
+ * jobs finished, and she shows the title Helping hand.
  *
  * `jobs.test.ts` replays it to the hash pinned below, so once jobs are live a change to the board,
  * a bound, a job's count, its points, a lapse, what a hand-in takes, what a lesson or a game
@@ -61,13 +64,12 @@ export const JOBS_LOG: Input[] = [
   town({ type: "new_day", day: DAY + 1 }),
   eve({ type: "gather", x: 6, y: 11 }),
   dee({ type: "take_job", job: "juniper_flowers" }),
-  // Thursday: juniper_cranberries, sable_three_fish, otis_bounty.
+  // Thursday: juniper_cranberries, marlo_find, otis_host.
   town({ type: "new_day", day: DAY + 3 }),
-  eve({ type: "take_job", job: "sable_three_fish" }),
-  cast(600),
-  cast(0),
-  cast(600),
-  cast(600),
+  eve({ type: "take_job", job: "marlo_find" }),
+  ...["s", "s", "s", "e", "e", "e"].map((dir) => eve({ type: "move", dir } as Input["command"])),
+  eve({ type: "gather", x: 9, y: 12 }),
+  eve({ type: "home" }),
   // Saturday: juniper_crops, sable_dusk_fish, otis_teach.
   town({ type: "new_day", day: DAY + 5 }),
   eve({ type: "take_job", job: "juniper_crops" }),
@@ -108,20 +110,24 @@ export const JOBS_LOG: Input[] = [
   dee({ type: "teach", recipe: "bookshelf", to: "eve" }),
   eve({ type: "take_job", job: "sable_night_fish" }),
   cast(600, "night"),
-  // Tuesday, in a new week: juniper_herbs, sable_three_fish, otis_guest.
+  // Tuesday, in a new week: juniper_herbs, sable_three_fish, otis_host.
   town({ type: "new_day", day: DAY + 15 }),
   eve({ type: "take_job", job: "sable_three_fish" }),
   cast(600),
+  cast(0),
   cast(600),
   cast(600),
-  // Thursday: juniper_flowers, sable_dusk_fish, otis_host.
+  // Thursday: juniper_flowers, sable_dusk_fish, otis_teach.
   town({ type: "new_day", day: DAY + 17 }),
   eve({ type: "take_job", job: "sable_dusk_fish" }),
   cast(600, "dusk"),
-  // Saturday, the first day of Midwinter: Bob's job lapses, and Eve's ninth is another night fish.
+  // Saturday, the first day of Midwinter: juniper_cranberries, marlo_forest_find, otis_host.
+  // Bob's job lapses.
   town({ type: "new_day", day: DAY + 19 }),
-  eve({ type: "take_job", job: "sable_night_fish" }),
-  cast(600, "night"),
+  eve({ type: "take_job", job: "marlo_forest_find" }),
+  // Sunday: the pinecone lying where she stands, in the forest her hut is in, is her ninth.
+  town({ type: "new_day", day: DAY + 20 }),
+  eve({ type: "gather", x: 3, y: 11 }),
   // Monday: three fish make ten jobs, and ten jobs are a title.
   town({ type: "new_day", day: DAY + 21 }),
   eve({ type: "take_job", job: "sable_three_fish" }),
@@ -132,4 +138,4 @@ export const JOBS_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(JOBS_CONFIG, JOBS_LOG))`, pinned when jobs landed in the sim. */
-export const JOBS_HASH = "5e228d0b";
+export const JOBS_HASH = "03bf4bcb";

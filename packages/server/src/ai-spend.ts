@@ -15,6 +15,15 @@ import type { SqlExec } from "./sql-store";
  * telemetry).
  */
 
+/**
+ * A whole number from an environment setting, for a cap or a count. Unset, blank, negative, or not
+ * a whole number gives `fallback`: a blank line in a deploy config means "not set", never 0.
+ */
+export const whole = (value: string | undefined, fallback: number) => {
+  const n = Number(value);
+  return value !== undefined && value.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : fallback;
+};
+
 type SpendPurpose = "triage" | "chatter";
 
 /** Token counts as the Messages API reports them in `usage`. Input excludes cache reads and writes. */

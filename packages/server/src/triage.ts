@@ -1,7 +1,7 @@
 import { Severity, TriageAction, TriageCategory } from "@terrakin/protocol";
 import { DAY_MS } from "@terrakin/sim";
 import { z } from "zod";
-import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf } from "./ai-spend";
+import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf, whole } from "./ai-spend";
 import { capabilitiesOf, MODELS } from "./models";
 import type { SqlExec } from "./sql-store";
 
@@ -55,11 +55,6 @@ export const DEFAULT_TRIAGE: Omit<TriageConfig, "apiKey"> = {
   perAuthorFilterPerDay: 3,
   filterShare: 0.5,
   breaker: { failures: 3, pauseMs: 15 * 60_000 },
-};
-
-const whole = (value: string | undefined, fallback: number) => {
-  const n = Number(value);
-  return Number.isInteger(n) && n >= 0 ? n : fallback;
 };
 
 /** Triage settings from the environment (`ANTHROPIC_API_KEY`, `TERRAKIN_TRIAGE_*`). */

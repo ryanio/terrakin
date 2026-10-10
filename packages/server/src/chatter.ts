@@ -15,6 +15,7 @@ import {
   NO_TOKENS,
   type TokenCounts,
   tokensOf,
+  whole,
   worstCostMicroUsd,
 } from "./ai-spend";
 import { capabilitiesOf, MODELS } from "./models";
@@ -97,11 +98,6 @@ export const DEFAULT_CHATTER: Omit<ChatterConfig, "apiKey"> = {
   perRun: PER_RUN,
   mentions: false,
   breaker: { failures: 3, pauseMs: 15 * 60_000 },
-};
-
-const whole = (value: string | undefined, fallback: number) => {
-  const n = Number(value);
-  return value !== undefined && value.trim() !== "" && Number.isInteger(n) && n >= 0 ? n : fallback;
 };
 
 /** Dollars (`0.28`) as millionths of a dollar. */

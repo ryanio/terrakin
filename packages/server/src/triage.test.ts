@@ -118,6 +118,19 @@ describe("the triage client's money guard", () => {
     expect(triageConfig({ ANTHROPIC_API_KEY: "  " }).apiKey).toBeUndefined();
   });
 
+  it("reads a blank daily cap as unset, so it keeps the default and never becomes 0", () => {
+    const unset = triageConfig({});
+    const blank = triageConfig({
+      TERRAKIN_TRIAGE_DAILY_CALLS: "",
+      TERRAKIN_TRIAGE_DAILY_TOKENS: " ",
+    });
+    expect(unset.callsPerDay).toBeGreaterThan(0);
+    expect(blank.callsPerDay).toBe(unset.callsPerDay);
+    expect(blank.tokensPerDay).toBe(unset.tokensPerDay);
+    expect(triageConfig({ TERRAKIN_TRIAGE_DAILY_CALLS: "0" }).callsPerDay).toBe(0);
+    expect(triageConfig({ TERRAKIN_TRIAGE_DAILY_CALLS: "7" }).callsPerDay).toBe(7);
+  });
+
   it("asks the configured model with the key, thinking off, a forced tool, and the text fenced as data", async () => {
     const api = fakeAnthropic([SPAM]);
     const client = new TriageClient(config({ maxChars: 40 }), nodeSql(), api.fetcher);

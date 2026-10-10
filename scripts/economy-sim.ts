@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-storeys] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-storeys] [--no-levels] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -24,6 +24,9 @@
  *                prices (decision 0210)
  *   --no-storeys nobody builds up (RFC 0028), so the month plays as it did before storeys (the
  *                decision 0242 baseline)
+ *   --no-levels  nobody earns points (RFC 0029): no `open_levels`, and none of what residents do
+ *                for a level (finds, furniture, events, bounties, rated games, casting to the
+ *                cap), so the month plays as it did before levels (the decision 0246 baseline)
  *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
  *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
  *                picking what they like might, and leaves the goods to cards and lessons
@@ -32,18 +35,21 @@
  *                count (`perDay.lemon_jam=3`), a key of SHOP (`goodsPerDay=2`), or the pantry once
  *                the shop is open (`shopPantry.jar=2`, `shopStapleMax=8`), a key of
  *                RECIPES_RULES (`recipes.rotationTimes=4`, `recipes.pageOneIn=30`), or a key of
- *                STOREYS (`storeys.price=120`, `storeys.stairsWood=6`)
+ *                STOREYS (`storeys.price=120`, `storeys.stairsWood=6`), or a key of PROGRESS
+ *                (`progress.dailyCap=30`, `progress.step=20`)
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
  * packages/sim/src/economy.ts, ITEMS in packages/sim/src/items.ts, the catalog and buy orders in
  * packages/sim/src/shop.ts, RECIPES_RULES in packages/sim/src/recipes.ts, STOREYS in
- * packages/sim/src/storeys.ts), so the script and the
+ * packages/sim/src/storeys.ts, PROGRESS in packages/sim/src/levels.ts), so the script and the
  * rules can't drift. Karma is scored by the server's own `scoreKarma` with `KARMA` from the
  * protocol, and the townsfolk teach the server's own specialties (`SPECIALTIES`). Change a number
- * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, 0186, 0210, and
- * 0242).
+ * there, rerun this, and record why in a decision (decisions 0039, 0052, 0055, 0186, 0210, 0242,
+ * and 0246).
  */
+import { execFileSync } from "node:child_process";
 import { registerHooks } from "node:module";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 // The sim imports its own files without extensions, which Node does not resolve. Same hook as gen.ts.
@@ -68,13 +74,16 @@ import type {
   RecipeName,
   SellKind,
   ShopSku,
+  Skill,
   StackKind,
   WorldState,
 } from "../packages/sim/src/index.ts";
 
 const {
+  activeTable,
   apply,
   biomeAt,
+  bountyHeld,
   BUY_ORDERS,
   CARD_RECIPES,
   cardSeason,
@@ -82,13 +91,20 @@ const {
   chebyshev,
   CROP_INFO,
   CROPS,
+  FIND_KINDS,
   castsToday,
   coinsOf,
   createWorld,
   ECONOMY,
+  eventHeld,
   FISH_KINDS,
   FISHING,
   FISHING_ROD,
+  FURNITURE_KINDS,
+  FURNITURE_RECIPES,
+  findEvent,
+  firstsOf,
+  GOOD_KINDS,
   HOLIDAY_STOCK,
   holdsRod,
   holidayOf,
@@ -97,34 +113,47 @@ const {
   inventorySize,
   isCommons,
   isDecorKind,
+  isFindKind,
   isGoodKind,
   isShopWear,
   isReady,
   isWater,
+  joinTile,
   knows,
+  levelOf,
+  levelsOf,
   onSale,
   onShelf,
   pageOn,
   pickupLeft,
   picksLeft,
+  plotAtTile,
   plotOf,
   POND,
+  PROGRESS,
+  pointsFor,
+  pointsOf,
   priceOf,
   RECIPE_PAGE,
   RECIPES,
   RECIPES_RULES,
   recipeCardPrice,
+  recipeOf,
   route,
   SHOP,
   SHOP_CATALOG,
   SHOP_SHARE_BEFORE,
+  SKILLS,
   STOREYS,
+  SWEET_KINDS,
+  sameHousehold,
   shelfOn,
   TIMES_OF_DAY,
   TOWN_ACTOR,
   dateOfDay,
   dayOfDate,
   taughtToday,
+  teachable,
   teachingToday,
   tileKey,
   townBuys,
@@ -154,6 +183,7 @@ const { values: args } = parseArgs({
     "no-holidays": { type: "boolean", default: false },
     "holiday-prices": { type: "string", default: "lower" },
     "no-storeys": { type: "boolean", default: false },
+    "no-levels": { type: "boolean", default: false },
     picks: { type: "string", default: "sell" },
     set: { type: "string", multiple: true, default: [] },
   },
@@ -178,6 +208,8 @@ for (const pair of args.set ?? []) {
     (RECIPES_RULES as unknown as Mutable)[tail] = n;
   } else if (tail && head === "storeys" && tail in STOREYS) {
     (STOREYS as unknown as Mutable)[tail] = n;
+  } else if (tail && head === "progress" && tail in PROGRESS) {
+    (PROGRESS as unknown as Mutable)[tail] = n;
   } else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
     (ITEMS.shopPantry as Record<string, number>)[tail] = n;
   } else if (tail && (head === "price" || head === "buy" || head === "perDay")) {
@@ -197,6 +229,8 @@ const RECIPES_ON = SHOP_OPEN && !args["no-recipes"];
 const HOLIDAYS_ON = SHOP_OPEN && !args["no-holidays"];
 /** Some regulars save for a storey and gather wood for stairs and a loft (RFC 0028). */
 const STOREYS_ON = SHOP_OPEN && !args["no-storeys"];
+/** Deeds earn points, and some residents play for them (RFC 0029). */
+const LEVELS_ON = SHOP_OPEN && !args["no-levels"];
 if (args["holiday-prices"] !== "lower" && args["holiday-prices"] !== "before") {
   throw new Error("--holiday-prices is lower or before");
 }
@@ -251,6 +285,8 @@ const lore = draws(mulberry32(SEED ^ 0x7ec1));
 const festive = draws(mulberry32(SEED ^ 0xb00));
 // Who builds up a storey (RFC 0028): `--no-storeys` draws none of it.
 const building = draws(mulberry32(SEED ^ 0x5707));
+// Who plays for levels and how (RFC 0029): `--no-levels` draws none of it.
+const climbing = draws(mulberry32(SEED ^ 0x1e7e1));
 
 // ---------- the rules ----------
 
@@ -284,9 +320,9 @@ interface Rules {
 }
 
 /** The real rules: every step is an input to the sim, exactly as the server would log it. */
-function simRules(): Rules {
+function simRules(residents = RESIDENTS): Rules {
   // A square of 8-tile plots with room for every resident, less the Commons.
-  const side = Math.ceil(Math.sqrt(RESIDENTS + 1)) + 1;
+  const side = Math.ceil(Math.sqrt(residents + 1)) + 1;
   const state = createWorld({
     width: side * 8,
     height: side * 8,
@@ -322,6 +358,16 @@ function simRules(): Rules {
         // gathers a find, so they change nothing else.
         must(TOWN_ACTOR, { type: "open_finds" });
         must(TOWN_ACTOR, { type: "open_recipes" });
+      }
+      if (LEVELS_ON) {
+        // As on terrakin.org: a plot's pickups are its owners', bounties are open, and finds are
+        // out. Everyone here gathers within reach of their own hearth, which is their own plot, so
+        // the first changes nothing for anglers and builders. A new world has no collection book
+        // to credit.
+        if (!RECIPES_ON) must(TOWN_ACTOR, { type: "open_finds" });
+        must(TOWN_ACTOR, { type: "own_plot_pickups" });
+        must(TOWN_ACTOR, { type: "open_bounties" });
+        must(TOWN_ACTOR, { type: "open_levels", firsts: [] });
       }
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
@@ -366,6 +412,22 @@ interface Habits {
   casts: number;
   /** Saves for a storey, gathers wood, and puts up stairs and a planked loft (RFC 0028). */
   builds: boolean;
+  /** Picks up the finds lying within reach of their hearth (RFC 0029). */
+  forages: boolean;
+  /** Picks up wood and stone within reach and makes furniture at a workbench. */
+  makes: boolean;
+  /** Holds an event on their plot once a week and posts a small bounty once a week. */
+  hosts: boolean;
+  /** Rated games they sit down to on a day they're around. 0 never plays. */
+  plays: number;
+  /** Keeps casting past their habit until the day's casts or Foraging's cap run out. */
+  climbs: boolean;
+  /**
+   * The one skill they play in earnest, as a keen person or an AI on a schedule would, leaving the
+   * other ways to play for levels alone (RFC 0029's gardeners, makers, foragers, hosts, and
+   * players).
+   */
+  focus?: Skill;
 }
 
 /**
@@ -520,6 +582,17 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
     const seed = CROP_INFO[crop].seed;
     if (coinsOf(state, id) >= SHOP_CATALOG[seed].price * 2 + 20) buy(rules, id, seed, 2);
   }
+  // Someone growing in earnest (RFC 0029) fills their planters sooner: two seeds of the quickest
+  // crop the shop sells today, whenever the purse allows.
+  if (habits.focus === "growing" && SHOP_OPEN && mine.size < habits.planters) {
+    const quick = CROPS.filter((c) => onSale(CROP_INFO[c].seed, day)).sort(
+      (a, b) => CROP_INFO[a].days - CROP_INFO[b].days,
+    )[0];
+    if (quick) {
+      const seed = CROP_INFO[quick].seed;
+      if (coinsOf(state, id) >= SHOP_CATALOG[seed].price * 2 + 20) buy(rules, id, seed, 2);
+    }
+  }
   // Plant every empty planter, and new ones while there are seeds and room.
   const plant = (x: number, y: number) => {
     const crop = [...CROPS].sort(
@@ -559,6 +632,23 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
       // Keep a few for the kitchen and the workbench; sell the rest.
       const spare = Math.min(perDay, holds(state, id, kind) - 4);
       if (spare > 0) sell(rules, id, kind, spare);
+    }
+  }
+  // Someone making in earnest (RFC 0029) cooks what's left: any good they know, from what they
+  // hold, while Making has room today. A kind they haven't made comes first.
+  if (habits.focus === "making") {
+    const needs = (kind: GoodKind) => Object.entries(RECIPES[kind].needs) as [StackKind, number][];
+    const can = (kind: GoodKind) =>
+      knows(state, id, recipeOf(kind)) && needs(kind).every(([k, n]) => holds(state, id, k) >= n);
+    while (
+      roomToday(state, id, "making") > 0 &&
+      inventorySize(state.items?.inventories[id]) < ITEMS.inventoryMax - 50
+    ) {
+      const made = firstsOf(state, id);
+      const ready = GOOD_KINDS.filter(can);
+      const next = ready.find((kind) => !made.includes(kind)) ?? ready[0];
+      const at = next && station(RECIPES[next].station);
+      if (!next || !at || !rules.send(id, { type: "craft", recipe: next, ...at })) break;
     }
   }
 }
@@ -915,6 +1005,18 @@ function goFishing(rules: Rules, id: string, habits: Habits) {
     const timeOfDay = angling.pick(TIMES_OF_DAY) ?? "day";
     if (rules.send(id, { type: "fish", roll, weather, timeOfDay })) tally.casts++;
   }
+  // Someone playing for levels (RFC 0029) casts on while Foraging has room today, from their own
+  // stream, so the casts above are the ones a month without levels makes.
+  if (habits.climbs) {
+    for (let i = castsToday(state, id); i < FISHING.castsPerDay; i++) {
+      if (inventorySize(inv()) > ITEMS.inventoryMax - 50 || roomToday(state, id, "foraging") <= 0)
+        break;
+      const roll = climbing.between(0, FISHING.outOf - 1);
+      const weather = weatherAt(day, climbing.between(0, 23));
+      const timeOfDay = climbing.pick(TIMES_OF_DAY) ?? "day";
+      if (rules.send(id, { type: "fish", roll, weather, timeOfDay })) tally.casts++;
+    }
+  }
   for (const kind of townBuys(day)) {
     if (!(FISH_KINDS as readonly string[]).includes(kind)) continue;
     const count = Math.min(BUY_ORDERS[kind].perDay, holds(state, id, kind as StackKind));
@@ -1019,6 +1121,532 @@ function goBuild(rules: Rules, id: string, habits: Habits) {
     if (rules.send(id, laid)) spend(1);
   }
   if (used() >= loftWood() && !loftDone.has(id)) loftDone.set(id, day);
+}
+
+// ---------- levels (RFC 0029) ----------
+
+/**
+ * Who plays for levels beyond a garden and a rod, by how often they come back. Guesses, not
+ * measurements: about half the regulars pick up finds and keep casting, fewer make furniture or
+ * sit down to games, and a few host. The sim's caps bound them whatever they are.
+ */
+const FORAGERS: Record<Kind, number> = { regular: 0.5, visitor: 0.3, drifter: 0.2, oneday: 0 };
+const MAKERS: Record<Kind, number> = { regular: 0.4, visitor: 0.2, drifter: 0.1, oneday: 0 };
+const HOSTS: Record<Kind, number> = { regular: 0.2, visitor: 0.1, drifter: 0, oneday: 0 };
+const PLAYERS: Record<Kind, number> = { regular: 0.3, visitor: 0.2, drifter: 0.1, oneday: 0 };
+const CLIMBERS: Record<Kind, number> = { regular: 0.5, visitor: 0.25, drifter: 0.1, oneday: 0 };
+/** Regulars who play one skill in earnest: a quarter of them, spread over the five skills. */
+const FOCUSED = 0.25;
+/** Chance a neighbor who's around today comes to a host's event. */
+const COMES = 0.35;
+
+/**
+ * Turn a regular into someone who plays one skill in earnest and none of the others for levels: a
+ * full garden; a garden cooked into goods and furniture from what lies near; ten casts a day and
+ * every find near home; an event a week, every neighbor's event, a lesson a day, and any bounty
+ * going; or three slow tables a day, which is as many seats as one resident holds.
+ */
+function focusOn(habits: Habits, skill: Skill) {
+  Object.assign(habits, { forages: false, makes: false, hosts: false, plays: 0, climbs: false });
+  habits.focus = skill;
+  if (skill === "growing" || skill === "making") habits.gardens = true;
+  if (skill === "growing") habits.planters = 22;
+  if (skill === "making") habits.makes = true;
+  if (skill === "foraging") {
+    habits.casts = FISHING_ON ? FISHING.castsPerDay : 0;
+    habits.forages = true;
+    habits.climbs = true;
+  }
+  if (skill === "hosting") habits.hosts = true;
+  if (skill === "playing") habits.plays = 3;
+}
+/** The server's guest rule (`countGuests`): this old with a hearth, counted for this many hosts a day. */
+const GUEST_MIN_AGE_DAYS = 3;
+const GUEST_HOSTS_PER_DAY = 2;
+const HOUR_MS = 3_600_000;
+
+/** Points a skill can still count today for a resident. */
+const roomToday = (state: WorldState, id: string, skill: Skill) =>
+  PROGRESS.dailyCap - (state.progress?.today?.[id]?.[skill] ?? 0);
+
+const totalPoints = (state: WorldState, id: string) =>
+  SKILLS.reduce((sum, skill) => sum + (pointsOf(state, id)[skill] ?? 0), 0);
+
+/** A forager's day at home: every find lying within reach of their hearth. */
+function goForage(rules: Rules, id: string) {
+  const { state } = rules;
+  const hearth = state.residents[id]?.hearth;
+  if (!hearth) return;
+  const { reach } = state.config;
+  for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+    for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
+      if (isFindKind(pickupLeft(state, x, y))) rules.send(id, { type: "gather", x, y });
+    }
+  }
+}
+
+/** Furniture made of nothing but wood and stone, which a maker can pick up near home. */
+const MAKER_RECIPES = FURNITURE_KINDS.filter((kind) =>
+  Object.keys(FURNITURE_RECIPES[kind].needs).every((k) => k === "wood" || k === "stone"),
+);
+const woodIn = (kind: (typeof MAKER_RECIPES)[number]) => FURNITURE_RECIPES[kind].needs.wood ?? 0;
+const stoneIn = (kind: (typeof MAKER_RECIPES)[number]) => FURNITURE_RECIPES[kind].needs.stone ?? 0;
+
+/** A resident's own workbench within reach of their hearth, placed now if they have none. */
+function workbench(rules: Rules, id: string): { x: number; y: number } | undefined {
+  const { state } = rules;
+  const hearth = state.residents[id]?.hearth;
+  if (!hearth) return undefined;
+  for (const [key, b] of Object.entries(state.blocks)) {
+    const [x = 0, y = 0] = key.split(",").map(Number);
+    const near = Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y)) <= state.config.reach;
+    if (b === "workbench" && near) return { x, y };
+  }
+  const tile = gardenTiles(state, id)[0];
+  return tile && rules.send(id, { type: "place", ...tile, block: "workbench" }) ? tile : undefined;
+}
+
+/**
+ * A maker's day at home: pick up the branches and stones within reach, then make furniture from
+ * them at a workbench while Making has room today. A kind they haven't made comes first (it's a
+ * first), then whatever takes the least. Wood a builder still needs for a loft, and what an angler
+ * still needs for a rod and a pond, is left alone.
+ */
+function goMake(rules: Rules, id: string, habits: Habits) {
+  const { state } = rules;
+  const me = state.residents[id];
+  const hearth = me?.hearth;
+  if (!me || !hearth) return;
+  const inv = () => state.items?.inventories[id];
+  if (inventorySize(inv()) > ITEMS.inventoryMax - 50) return;
+  const { reach } = state.config;
+  for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+    for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
+      const kind = pickupLeft(state, x, y);
+      if (kind === "wood" || kind === "stone") rules.send(id, { type: "gather", x, y });
+    }
+  }
+  const loft = habits.builds ? Math.max(0, loftWood() - (woodUsed.get(id) ?? 0)) : 0;
+  const rod = habits.casts > 0 && !holdsRod(inv()) ? ROD_WOOD : 0;
+  const pond = pondTile(hearth);
+  const dig = habits.casts > 0 && !isWater(state, pond.x, pond.y) ? POND.stone : 0;
+  const wood = () => holds(state, id, "wood") - loft - rod;
+  const stone = () => holds(state, id, "stone") - dig;
+  const fits = (kind: (typeof MAKER_RECIPES)[number]) =>
+    knows(state, id, kind) && woodIn(kind) <= wood() && stoneIn(kind) <= stone();
+  let bench: { x: number; y: number } | undefined;
+  while (roomToday(state, id, "making") > 0) {
+    const can = MAKER_RECIPES.filter(fits);
+    if (can.length === 0) break;
+    const made = firstsOf(state, id);
+    const cost = (kind: (typeof MAKER_RECIPES)[number]) => woodIn(kind) + stoneIn(kind);
+    const next =
+      can.find((kind) => !made.includes(kind)) ?? [...can].sort((a, b) => cost(a) - cost(b))[0];
+    bench ??= workbench(rules, id);
+    if (!next || !bench || !rules.send(id, { type: "craft", recipe: next, ...bench })) break;
+  }
+}
+
+/** Who each guest was counted for today, for the server's two-hosts-a-day rule. */
+const countedFor = new Map<string, Set<string>>();
+
+/**
+ * One event on a host's plot today: scheduled, started, the guests walk over, two samples, the
+ * end, and the credit, with the guests the server would count (`countGuests`: three days old with
+ * a hearth, outside the host's household, counted for at most two other hosts today). Then the
+ * guests go home. `age` is how many days ago a resident arrived. Returns the counted guests, or
+ * null when the sim wouldn't book it. `credit` overrides the list sent, to try a wrong one.
+ */
+function holdEvent(
+  rules: Rules,
+  host: string,
+  guests: readonly string[],
+  hour: number,
+  age: (id: string) => number,
+  credit?: (counted: string[], attended: string[]) => string[],
+): string[] | null {
+  const { state } = rules;
+  const hearth = state.residents[host]?.hearth;
+  if (!hearth) return null;
+  const { px, py } = plotOf(state.config, hearth.x, hearth.y);
+  const startsAt = (state.day ?? 0) * 24 * HOUR_MS + hour * HOUR_MS;
+  const booked = rules.send(host, {
+    type: "schedule_event",
+    kind: "gathering",
+    title: "Tea",
+    px,
+    py,
+    startsAt,
+    minutes: 30,
+  });
+  const event = state.events?.list.at(-1);
+  if (!booked || !event || event.host !== host) return null;
+  rules.send(TOWN_ACTOR, { type: "event_start", event: event.id });
+  for (const guest of guests) {
+    const tile = joinTile(state, guest, event);
+    rules.send(guest, { type: "join_event", event: event.id, ...(tile ?? {}) });
+  }
+  rules.send(TOWN_ACTOR, { type: "event_tick", event: event.id, slot: 1 });
+  rules.send(TOWN_ACTOR, { type: "event_tick", event: event.id, slot: 2 });
+  rules.send(TOWN_ACTOR, { type: "event_end", event: event.id });
+  const attended = findEvent(state, event.id)?.attended ?? [];
+  const counted = attended.filter((id) => {
+    const others = [...(countedFor.get(id) ?? [])].filter((h) => h !== host).length;
+    return (
+      age(id) >= GUEST_MIN_AGE_DAYS &&
+      state.residents[id]?.hearth != null &&
+      !sameHousehold(state, host, id) &&
+      others < GUEST_HOSTS_PER_DAY
+    );
+  });
+  const listed = credit ? credit(counted, attended) : counted;
+  if (rules.send(TOWN_ACTOR, { type: "credit_event", event: event.id, guests: listed })) {
+    for (const id of listed) countedFor.set(id, (countedFor.get(id) ?? new Set()).add(host));
+  }
+  for (const guest of guests) rules.home(guest);
+  return counted;
+}
+
+/** A bounty posted, claimed, done, and paid in one go. True when the poster paid. */
+function payBounty(rules: Rules, poster: string, claimant: string, reward: number): boolean {
+  const { state } = rules;
+  if (coinsOf(state, poster) < reward + 10) return false;
+  if (!rules.send(poster, { type: "post_bounty", title: "A hand in the garden", reward })) {
+    return false;
+  }
+  const bounty = state.bounties?.list.at(-1)?.id ?? "";
+  if (
+    rules.send(claimant, { type: "claim_bounty", bounty }) &&
+    rules.send(claimant, { type: "complete_bounty", bounty })
+  ) {
+    return rules.send(poster, { type: "confirm_bounty", bounty, to: claimant });
+  }
+  rules.send(poster, { type: "cancel_bounty", bounty });
+  return false;
+}
+
+/** The server's clock for game inputs: a second on each time it's read. */
+let gameClock = 1_000;
+const HEX = "0123456789abcdef";
+
+/**
+ * One Hearth race at a slow table: the first seat opens it and starts it, everyone picks 1 to 3 a
+ * round from `rng`, and the server closes each round until someone's home. The sim decides who's
+ * rated. True when the game was played.
+ */
+function playGame(rules: Rules, seats: readonly string[], rng: ReturnType<typeof draws>): boolean {
+  const { state } = rules;
+  const [first = "", ...rest] = seats;
+  const salt = Array.from({ length: 32 }, () => HEX[rng.between(0, 15)]).join("");
+  const at = () => {
+    gameClock += 1_000;
+    return gameClock;
+  };
+  if (
+    !rules.send(first, { type: "open_table", game: "hearth_race", pace: "slow", salt, at: at() })
+  ) {
+    return false;
+  }
+  const table = Object.keys(state.games?.tables ?? {})
+    .sort((a, b) => Number(a.slice(2)) - Number(b.slice(2)))
+    .at(-1);
+  if (!table) return false;
+  for (const seat of rest) rules.send(seat, { type: "sit", table, at: at() });
+  if (!rules.send(first, { type: "start_game", table, at: at() })) {
+    rules.send(first, { type: "stand", table });
+    return false;
+  }
+  for (let rounds = 0; rounds < 40; rounds++) {
+    const t = activeTable(state, table);
+    if (t?.status !== "playing") break;
+    for (const seat of t.seats) {
+      const move = rng.between(1, 3);
+      rules.send(seat.resident, { type: "decide", table, round: t.round, move });
+    }
+    rules.send(TOWN_ACTOR, { type: "close_round", table, round: t.round, at: at() });
+  }
+  return true;
+}
+
+/** Neighbors of `id` among `around`: residents whose hearths are within two plots, not their household. */
+function neighborsOf(state: WorldState, id: string, around: readonly string[]): string[] {
+  const home = state.residents[id]?.hearth;
+  if (!home) return [];
+  return around.filter((other) => {
+    const h = state.residents[other]?.hearth;
+    return (
+      other !== id && h && chebyshev(h, home) <= NEIGHBORLY && !sameHousehold(state, id, other)
+    );
+  });
+}
+
+/** What hosting and playing came to over the month, for the report. */
+const gatherings = { events: 0, guests: 0, counted: 0, bounties: 0, games: 0, lessons: 0 };
+
+/**
+ * The day's events and bounties, once everyone around has been home. A host who's been here three
+ * days holds an event on their plot once a week, and the neighbors who are around come now and
+ * then (`COMES`). Two days later in their week they post a small bounty that a neighbor does.
+ */
+function hostingDay(rules: Rules, active: readonly string[], byId: Map<string, Person>) {
+  const { state } = rules;
+  const day = today(state);
+  const age = (id: string) => day - (byId.get(id)?.arrives ?? day);
+  const housed = active.filter((id) => state.residents[id]?.hearth);
+  countedFor.clear();
+  for (const id of housed) {
+    const p = byId.get(id);
+    if (!p?.habits.hosts || age(id) < GUEST_MIN_AGE_DAYS) continue;
+    const neighbors = neighborsOf(state, id, housed);
+    const keen = neighbors.filter((n) => byId.get(n)?.habits.focus === "hosting");
+    if (age(id) % 7 === 3) {
+      // Someone hosting in earnest goes to every neighbor's event; the rest come now and then.
+      const guests = neighbors.filter((n) => keen.includes(n) || climbing.chance(COMES));
+      const counted = holdEvent(rules, id, guests, 18, age);
+      if (counted) {
+        gatherings.events++;
+        gatherings.guests += guests.length;
+        gatherings.counted += counted.length;
+      }
+    }
+    if (age(id) % 7 === 5) {
+      // And takes any bounty going.
+      const claimant = keen[0] ?? climbing.pick(neighbors);
+      const reward = climbing.between(5, 10);
+      if (claimant && payBounty(rules, id, claimant, reward)) gatherings.bounties++;
+    }
+  }
+  // Someone hosting in earnest also teaches a neighbor a day, when one who's around and hasn't
+  // been taught today lacks something they know.
+  for (const id of housed) {
+    if (byId.get(id)?.habits.focus !== "hosting" || teachingToday(state, id) > 0) continue;
+    const learner = neighborsOf(state, id, housed).find(
+      (n) => taughtToday(state, n) === 0 && teachable(state, id, n).length > 0,
+    );
+    const recipe = learner && teachable(state, id, learner)[0];
+    if (learner && recipe && meet(rules, id, learner)) {
+      if (rules.send(id, { type: "teach", recipe, to: learner })) gatherings.lessons++;
+    }
+    rules.home(id);
+  }
+}
+
+/**
+ * The day's games: the players who are around sit down in twos (a third joins the last table when
+ * they're odd), shuffled again for each game, as many games each as they play in a day.
+ */
+function playingDay(rules: Rules, active: readonly string[], byId: Map<string, Person>) {
+  const { state } = rules;
+  const players = active.filter(
+    (id) => state.residents[id]?.hearth && (byId.get(id)?.habits.plays ?? 0) > 0,
+  );
+  for (let game = 1; game <= 4; game++) {
+    const pool = players.filter((id) => (byId.get(id)?.habits.plays ?? 0) >= game);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = climbing.between(0, i);
+      [pool[i], pool[j]] = [pool[j] as string, pool[i] as string];
+    }
+    while (pool.length >= 2) {
+      const seats = pool.length === 3 ? pool.splice(0, 3) : pool.splice(0, 2);
+      if (playGame(rules, seats, climbing)) gatherings.games++;
+    }
+  }
+}
+
+/** The month's day each resident reached level 5, a skill at level 3, and each skill at level 5. */
+const reachedFive = new Map<string, number>();
+const reachedTitle = new Map<string, number>();
+const skillFive = new Map<Skill, Map<string, number>>(SKILLS.map((skill) => [skill, new Map()]));
+/** Each settled resident's points when their first day ended. */
+const firstDay = new Map<string, number>();
+/** Days a resident earned in a skill, and days they filled its cap, over everyone. */
+const earnedDays = new Map<Skill, number>(SKILLS.map((skill) => [skill, 0]));
+const cappedDays = new Map<Skill, number>(SKILLS.map((skill) => [skill, 0]));
+
+/** Note where everyone's levels stand as a day ends. */
+function noteLevels(state: WorldState, people: readonly Person[], settled: Set<string>) {
+  const day = today(state);
+  for (const p of people) {
+    if (!settled.has(p.id)) continue;
+    if (p.arrives === day) firstDay.set(p.id, totalPoints(state, p.id));
+    const { level, skills } = levelsOf(state, p.id);
+    if (level >= 5 && !reachedFive.has(p.id)) reachedFive.set(p.id, day);
+    for (const skill of SKILLS) {
+      if (skills[skill] >= 3 && !reachedTitle.has(p.id)) reachedTitle.set(p.id, day);
+      const seen = skillFive.get(skill);
+      if (skills[skill] >= 5 && seen && !seen.has(p.id)) seen.set(p.id, day);
+      const counted = state.progress?.today?.[p.id]?.[skill] ?? 0;
+      if (counted > 0) earnedDays.set(skill, (earnedDays.get(skill) ?? 0) + 1);
+      if (counted >= PROGRESS.dailyCap) cappedDays.set(skill, (cappedDays.get(skill) ?? 0) + 1);
+    }
+  }
+}
+
+/**
+ * What RFC 0029's first and fifth checks need that a month of ordinary residents doesn't show: a
+ * small world of its own, played beside the month so it changes nothing there. In it a newcomer
+ * does the first visit and then a chair, a rod, and a fish; a household of a person and two AIs
+ * teach, pay, host, and play each other; and a ring of ten fresh accounts teach each other, pay
+ * each other two bounties a day, and go to two of their own events a day.
+ */
+function lab() {
+  const rules = simRules(40);
+  const { state } = rules;
+  rules.open();
+  const guide = "l_guide";
+  const pat = "l_pat";
+  const ais = ["l_ai1", "l_ai2"];
+  const trio = [pat, ...ais];
+  const ring = Array.from({ length: 10 }, (_, i) => `l_ring${i}`);
+  const everyone = [guide, ...trio, ...ring];
+  for (const id of everyone) rules.join(id);
+  rules.setOwnerPairs(ais.map((ai) => [ai, pat].sort() as [string, string]));
+  anglers.add(guide);
+  rules.settle(guide, (px, py) => anglersPlot(state, px, py));
+  for (const id of [...trio, ...ring]) rules.settle(id);
+  for (const id of everyone) rules.home(id);
+  // Free picks, three cards each off today's shelf, so there's something to teach.
+  for (const id of everyone) {
+    while (picksLeft(state, id) > 0) {
+      const recipe = climbing.pick(shelfOn(state.day ?? 0).filter((r) => !knows(state, id, r)));
+      if (!recipe || !rules.send(id, { type: "pick_recipe", recipe })) break;
+    }
+  }
+
+  // The newcomer's first day. The first visit's steps in the world: a plot, a home, a seed in the
+  // ground. None is a deed.
+  const plot = gardenTiles(state, guide)[0];
+  if (plot && rules.send(guide, { type: "place", ...plot, block: "planter" })) {
+    const seed = CROPS.find((c) => holds(state, guide, CROP_INFO[c].seed) > 0);
+    if (seed) rules.send(guide, { type: "plant", ...plot, seed });
+  }
+  const afterVisit = totalPoints(state, guide);
+  // Then a walk for what a chair, a rod, and a pond take, picked up where it lies nearest home.
+  const needs = { wood: woodIn("chair") + ROD_WOOD, stone: POND.stone };
+  let steps = 0;
+  const hearth = state.residents[guide]?.hearth ?? { x: 0, y: 0 };
+  const lying: { x: number; y: number; kind: "wood" | "stone"; far: number }[] = [];
+  for (let y = 0; y < state.config.height; y++) {
+    for (let x = 0; x < state.config.width; x++) {
+      const kind = pickupLeft(state, x, y);
+      if (kind !== "wood" && kind !== "stone") continue;
+      const owner = plotAtTile(state, x, y)?.ownerId;
+      if (owner !== undefined && owner !== guide) continue;
+      lying.push({ x, y, kind, far: chebyshev({ x, y }, hearth) });
+    }
+  }
+  lying.sort((a, b) => a.far - b.far || a.y - b.y || a.x - b.x);
+  for (const at of lying) {
+    if (holds(state, guide, at.kind) >= needs[at.kind]) continue;
+    const me = state.residents[guide];
+    if (!me) break;
+    for (const dir of route(worldGround(state), me, at, state.config.reach, 48)) {
+      if (!rules.send(guide, { type: "move", dir })) break;
+      steps++;
+    }
+    rules.send(guide, { type: "gather", x: at.x, y: at.y });
+  }
+  rules.send(guide, { type: "home" });
+  const bench = workbench(rules, guide);
+  if (bench) {
+    rules.send(guide, { type: "craft", recipe: "chair", ...bench });
+    rules.send(guide, { type: "craft", recipe: FISHING_ROD, ...bench });
+  }
+  rules.send(guide, { type: "place", ...pondTile(hearth), block: "pond" });
+  let fish = 0;
+  for (let i = 0; i < FISHING.castsPerDay; i++) {
+    const roll = climbing.between(0, FISHING.outOf - 1);
+    const before = pointsOf(state, guide).foraging ?? 0;
+    rules.send(guide, { type: "fish", roll, weather: "clear", timeOfDay: "day" });
+    if ((pointsOf(state, guide).foraging ?? 0) > before) fish++;
+  }
+  const newcomer = {
+    afterVisit,
+    steps,
+    fish,
+    points: totalPoints(state, guide),
+    level: levelsOf(state, guide).level,
+  };
+
+  // The month for the household and the ring.
+  const ringDays: number[] = [];
+  let refusedCredits = 0;
+  const ringLevel = { title: -1, wear: -1 };
+  const age = () => today(state);
+  for (let day = 0; day < DAYS; day++) {
+    if (day > 0) rules.newDay(day);
+    for (const id of everyone) rules.home(id);
+    countedFor.clear();
+    // The household: a lesson each way where there's one to give, a bounty round the three, a
+    // game together, and once a week an event with the other two as guests, credited as if the
+    // server had counted them, which the sim refuses.
+    for (const a of trio) {
+      for (const b of trio) {
+        const recipe = a === b ? undefined : teachable(state, a, b)[0];
+        if (recipe && meet(rules, a, b)) rules.send(a, { type: "teach", recipe, to: b });
+        rules.home(a);
+      }
+    }
+    trio.forEach((poster, i) => {
+      payBounty(rules, poster, trio[(i + 1) % 3] ?? "", PROGRESS.bountyMinReward);
+    });
+    playGame(rules, trio, climbing);
+    if (day % 7 === 3) {
+      const before = state.seq;
+      holdEvent(rules, pat, ais, 10, age, (_counted, attended) => attended);
+      const event = state.events?.list.at(-1);
+      if (event && !event.credited && state.seq > before) refusedCredits++;
+    }
+    // The ring: each teaches the next one round a lesson when there's one to give, posts two
+    // bounties to two others, and all of them go to the two events two of them hold.
+    const shift = 1 + (day % 9);
+    const other = 1 + ((day + 4) % 9);
+    ring.forEach((a, i) => {
+      const b = ring[(i + shift) % 10] ?? "";
+      const recipe = teachable(state, a, b)[0];
+      if (recipe && meet(rules, a, b)) rules.send(a, { type: "teach", recipe, to: b });
+      rules.home(a);
+    });
+    ring.forEach((poster, i) => {
+      payBounty(rules, poster, ring[(i + shift) % 10] ?? "", PROGRESS.bountyMinReward);
+      payBounty(rules, poster, ring[(i + other) % 10] ?? "", PROGRESS.bountyMinReward);
+    });
+    for (const [n, hour] of [
+      [day % 10, 12],
+      [(day + 5) % 10, 15],
+    ] as const) {
+      const host = ring[n] ?? "";
+      holdEvent(
+        rules,
+        host,
+        ring.filter((id) => id !== host),
+        hour,
+        age,
+      );
+    }
+    for (const id of ring) {
+      ringDays.push(state.progress?.today?.[id]?.hosting ?? 0);
+      const hosting = levelsOf(state, id).skills.hosting;
+      if (hosting >= 3 && ringLevel.title < 0) ringLevel.title = day;
+      if (hosting >= 5 && ringLevel.wear < 0) ringLevel.wear = day;
+    }
+  }
+  const each = (id: string, skill: Skill) => pointsOf(state, id)[skill] ?? 0;
+  return {
+    newcomer,
+    household: {
+      hosting: trio.reduce((sum, id) => sum + each(id, "hosting"), 0),
+      playing: trio.reduce((sum, id) => sum + each(id, "playing"), 0),
+      refusedCredits,
+    },
+    ring: {
+      mean: ringDays.reduce((sum, n) => sum + n, 0) / Math.max(1, ringDays.length),
+      max: Math.max(0, ...ringDays),
+      hosting: ring.map((id) => each(id, "hosting")).sort((a, b) => a - b),
+      level: Math.min(...ring.map((id) => levelsOf(state, id).skills.hosting)),
+      ...ringLevel,
+    },
+  };
 }
 
 // ---------- the population ----------
@@ -1129,8 +1757,18 @@ function population(): Person[] {
         casts: FISHING_ON && angling.chance(ANGLERS[kind]) ? angling.between(4, 10) : 0,
         // From their own stream too, so `--no-storeys` leaves everyone else's month as it was.
         builds: STOREYS_ON && BUILDERS[kind] > 0 && building.chance(BUILDERS[kind]),
+        // And these from theirs, so `--no-levels` does.
+        forages: LEVELS_ON && climbing.chance(FORAGERS[kind]),
+        makes: LEVELS_ON && climbing.chance(MAKERS[kind]),
+        hosts: LEVELS_ON && climbing.chance(HOSTS[kind]),
+        plays: LEVELS_ON && climbing.chance(PLAYERS[kind]) ? climbing.between(1, 4) : 0,
+        climbs: LEVELS_ON && climbing.chance(CLIMBERS[kind]),
       },
     });
+    const p = people.at(-1);
+    if (p && LEVELS_ON && kind === "regular" && climbing.chance(FOCUSED)) {
+      focusOn(p.habits, climbing.pick(SKILLS) ?? "growing");
+    }
   }
   return people;
 }
@@ -1200,6 +1838,8 @@ function play(rules: Rules) {
     if (p.habits.gardens) tendGarden(rules, p.id, p.habits, planters);
     if (p.habits.casts > 0) goFishing(rules, p.id, p.habits);
     if (p.habits.builds) goBuild(rules, p.id, p.habits);
+    if (p.habits.forages) goForage(rules, p.id);
+    if (p.habits.makes) goMake(rules, p.id, p.habits);
     // A holiday's things sell only while it runs, so they come before the rest of the wish list.
     if (HOLIDAYS_ON) keepHoliday(rules, p);
     goShopping(rules, p.id, p.habits);
@@ -1266,6 +1906,10 @@ function play(rules: Rules) {
     }
 
     if (RECIPES_ON) teachingDay(rules, active, byId, planters);
+    if (LEVELS_ON) {
+      hostingDay(rules, active, byId);
+      playingDay(rules, active, byId);
+    }
 
     // Residents tip each other now and then. Not on their first day: the rules refuse that.
     const veterans = active.filter((id) => !arrived.includes(id));
@@ -1342,14 +1986,17 @@ function play(rules: Rules) {
       townPaid: townBefore + townMint - townCoins(rules),
     });
 
-    // The ledger must balance every day: everything minted is in a purse or the treasury.
+    // The ledger must balance every day: everything minted is in a purse or the treasury, or held
+    // in a bounty or a booking that hasn't finished (none without levels).
     let inPurses = held;
     for (const id of TOWNSFOLK) inPurses += rules.balance(id);
-    if (inPurses + rules.treasury() !== supply) {
+    const waiting = bountyHeld(rules.state) + eventHeld(rules.state);
+    if (inPurses + rules.treasury() + waiting !== supply) {
       throw new Error(
-        `Day ${day}: purses + treasury = ${inPurses + rules.treasury()}, supply ${supply}`,
+        `Day ${day}: purses + treasury = ${inPurses + rules.treasury() + waiting}, supply ${supply}`,
       );
     }
+    if (LEVELS_ON) noteLevels(rules.state, people, settled);
     // What each newcomer had to spend by the end of their seventh day: their purse and what they
     // spent at the shop.
     for (const p of people) {
@@ -1514,6 +2161,143 @@ function storeyLines(people: Person[], rows: Row[]) {
   );
 }
 
+/**
+ * The six checks RFC 0029 asks of levels (section 10), from the month just played, a small world
+ * of its own for the newcomer, the household, and the ring (`lab`), and the same month played
+ * again with `--no-levels` to compare supply.
+ */
+function levelLines(rules: Rules, people: Person[], rows: Row[]) {
+  const { state } = rules;
+  console.log("");
+  console.log(
+    `Levels (RFC 0029): ${Object.entries(PROGRESS)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(
+        " ",
+      )}. Level 2 at ${pointsFor(2)} points, 3 at ${pointsFor(3)}, 5 at ${pointsFor(5)}, 10 at ${pointsFor(10)}.`,
+  );
+  const settled = people.filter((p) => p.settles);
+  const share = (n: number, of: number) =>
+    `${n} of ${of} (${Math.round((100 * n) / Math.max(1, of))}%)`;
+  /** Days after arriving that each of `list` was first seen, sorted; unseen ones last, as 99. */
+  const after = (list: Person[], seen: Map<string, number>) =>
+    list
+      .map((p) => {
+        const d = seen.get(p.id);
+        return d === undefined ? 99 : d - p.arrives;
+      })
+      .sort((a, b) => a - b);
+  const days = (n: number) => (n >= 99 ? "not in the month" : `${n} days`);
+  const within = (list: number[], n: number) => list.filter((d) => d <= n).length;
+  const tested = lab();
+
+  // 1. The first day.
+  const first = settled.map((p) => firstDay.get(p.id) ?? 0).sort((a, b) => a - b);
+  console.log(
+    `  1. First day. Settled newcomers in the month ended their first day with a median of ${percentile(first, 0.5)} points (p90 ${percentile(first, 0.9)}); level 2 that day: ${share(first.filter((n) => n >= pointsFor(2)).length, first.length)}.`,
+  );
+  console.log(
+    `     On their own: the first visit's steps earned ${tested.newcomer.afterVisit} points. Then ${tested.newcomer.steps} steps for the wood and stone, a chair, a rod, a pond, and ${FISHING.castsPerDay} casts (${tested.newcomer.fish} fish): ${tested.newcomer.points} points, level ${tested.newcomer.level}. ${tested.newcomer.level >= 2 ? "Holds for a newcomer who makes and fishes" : "Fails"}; the first visit alone has no deed in it.`,
+  );
+
+  // 2. A regular's first two weeks.
+  const regulars = settled.filter((p) => p.kind === "regular" && p.arrives <= DAYS - 15);
+  const five = after(regulars, reachedFive);
+  const title = after(regulars, reachedTitle);
+  console.log(
+    `  2. Regulars with two weeks or more left (n=${regulars.length}): level 5 after a median of ${days(percentile(five, 0.5))} (p25 ${percentile(five, 0.25)}, p90 ${days(percentile(five, 0.9))}), within 7 days ${share(within(five, 7), five.length)}, within 14 ${share(within(five, 14), five.length)}; a skill at level 3 after a median of ${days(percentile(title, 0.5))} (p90 ${days(percentile(title, 0.9))}), within 14 days ${share(within(title, 14), title.length)}.`,
+  );
+
+  // 3. A resident at every cap against a regular.
+  const early = settled.filter((p) => p.kind === "regular" && p.arrives <= 2);
+  const levels = early.map((p) => levelsOf(state, p.id).level).sort((a, b) => a - b);
+  const points = early.map((p) => totalPoints(state, p.id)).sort((a, b) => a - b);
+  const kinds =
+    CROPS.length +
+    GOOD_KINDS.length +
+    FURNITURE_KINDS.length +
+    SWEET_KINDS.length +
+    FIND_KINDS.length +
+    FISH_KINDS.length;
+  const ceiling = DAYS * SKILLS.length * PROGRESS.dailyCap + kinds * PROGRESS.first;
+  const top = Math.max(1, ...settled.map((p) => levelsOf(state, p.id).level));
+  const median = percentile(levels, 0.5);
+  // The regular the RFC has in mind tends a garden and more: here, a garden and a rod.
+  const busy = early
+    .filter((p) => p.habits.gardens && p.habits.casts > 0)
+    .map((p) => levelsOf(state, p.id).level)
+    .sort((a, b) => a - b);
+  const busyMedian = percentile(busy, 0.5);
+  const times = (level: number) =>
+    `${(levelOf(ceiling) / Math.max(1, level)).toFixed(2)} times (${levelOf(ceiling) <= 2 * level ? "holds" : "fails"}: at most 2)`;
+  console.log(
+    `  3. Month end. Regulars who arrived in the first 3 days (n=${early.length}): level median ${median} (p25 ${percentile(levels, 0.25)}, p90 ${percentile(levels, 0.9)}), points median ${percentile(points, 0.5)}; those with a garden and a rod (n=${busy.length}): level median ${busyMedian}. Every cap every day with every first (${kinds} kinds) is ${ceiling} points, level ${levelOf(ceiling)}: ${times(median)} the median regular, ${times(busyMedian)} one with a garden and a rod. The highest level anyone reached: ${top}.`,
+  );
+
+  // 4. Each skill on its own.
+  const plays: Record<Skill, (p: Person) => boolean> = {
+    growing: (p) => p.habits.gardens,
+    making: (p) => p.habits.makes || p.habits.gardens,
+    foraging: (p) => p.habits.casts > 0 || p.habits.forages,
+    hosting: (p) => p.habits.hosts,
+    playing: (p) => p.habits.plays > 0,
+  };
+  console.log(
+    `  4. Days to level 5 in a skill (${pointsFor(5)} points). Regulars who play that one skill in earnest and arrived with 2 weeks or more left: how many reached it and when, and the days it takes at the points a day they earned over their days here. Then the same pace for every regular who plays the skill at all.`,
+  );
+  /** Points a day in `skill` over each resident's days here, sorted. */
+  const paces = (list: Person[], skill: Skill) =>
+    list
+      .map((p) => (pointsOf(state, p.id)[skill] ?? 0) / Math.max(1, DAYS - p.arrives))
+      .sort((a, b) => a - b);
+  const at = (rate: number) => (rate > 0 ? `${Math.round(pointsFor(5) / rate)} days` : "never");
+  for (const skill of SKILLS) {
+    const lasting = settled.filter((p) => p.kind === "regular" && p.arrives <= DAYS - 15);
+    const keen = lasting.filter((p) => p.habits.focus === skill);
+    const seen = after(keen, skillFive.get(skill) ?? new Map());
+    const pace = paces(keen, skill);
+    const casual = paces(
+      lasting.filter((p) => p.habits.focus === undefined && plays[skill](p)),
+      skill,
+    );
+    const earnedOn = earnedDays.get(skill) ?? 0;
+    console.log(
+      `     ${skill.padEnd(9)} in earnest n=${pad(keen.length, 2)}: reached it ${share(within(seen, 98), seen.length)}, soonest ${days(seen[0] ?? 99)}; ${percentile(pace, 0.5).toFixed(1)} a day at the median (${at(percentile(pace, 0.5))}), ${(pace.at(-1) ?? 0).toFixed(1)} at best (${at(pace.at(-1) ?? 0)}). The rest who play it, n=${pad(casual.length, 2)}: ${percentile(casual, 0.5).toFixed(1)} a day (${at(percentile(casual, 0.5))}). At the cap on ${Math.round((100 * (cappedDays.get(skill) ?? 0)) / Math.max(1, earnedOn))}% of the ${earnedOn} days anyone earned in it.`,
+    );
+  }
+  console.log(
+    `     In the month: ${gatherings.events} events with ${gatherings.guests} guests (${gatherings.counted} counted), ${gatherings.bounties} bounties paid, ${gatherings.lessons} lessons from those hosting in earnest, ${gatherings.games} games played.`,
+  );
+
+  // 5. A household, and a ring.
+  console.log(
+    `  5. A person and two AIs teaching, paying, hosting, and playing each other for ${DAYS} days earned ${tested.household.hosting} Hosting and ${tested.household.playing} Playing points (${tested.household.hosting + tested.household.playing === 0 ? "holds" : "fails"}: nothing), and the sim refused ${tested.household.refusedCredits} event credits that named them as guests. A ring of ten fresh accounts earned ${tested.ring.mean.toFixed(1)} Hosting points an account a day, ${tested.ring.max} at most (${tested.ring.max <= PROGRESS.dailyCap ? "holds" : "fails"}: the cap is ${PROGRESS.dailyCap}); by month end each had ${tested.ring.hosting[0]} to ${tested.ring.hosting.at(-1)} points, Hosting ${tested.ring.level}, with the title from day ${tested.ring.title} and the garment from day ${tested.ring.wear < 0 ? "none" : tested.ring.wear}.`,
+  );
+
+  // 6. Supply against the same month without levels.
+  const last = rows.at(-1);
+  const without = execFileSync(
+    process.execPath,
+    [fileURLToPath(import.meta.url), ...process.argv.slice(2), "--no-levels"],
+    { encoding: "utf8", maxBuffer: 1 << 26 },
+  );
+  const found = /Month end: supply (\d+), treasury \d+, (\d+) coins per active resident/.exec(
+    without,
+  );
+  const sold = /residents sold (\d+) a day to the town/.exec(without);
+  if (last && found) {
+    const before = Number(found[2]);
+    const supply = Number(found[1]);
+    const moved = (now: number, was: number) =>
+      `${(((now - was) / Math.max(1, was)) * 100).toFixed(1)}%`;
+    const week = rows.slice(-7);
+    const soldNow = Math.round(week.reduce((s, r) => s + r.sold, 0) / week.length);
+    console.log(
+      `  6. Per active resident at month end: ${last.perActive} with levels, ${before} without (${moved(last.perActive, before)}; ${Math.abs(last.perActive - before) * 50 < before ? "holds" : "fails"}: under 2%). Supply ${last.supply} against ${supply} (${moved(last.supply, supply)}). Sold to the town in the last 7 days: ${soldNow} a day against ${sold ? sold[1] : "?"}.`,
+    );
+  }
+}
+
 const pad = (v: string | number, n: number) => String(v).padStart(n);
 const percentile = (sorted: number[], q: number) =>
   sorted.length ? (sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0) : 0;
@@ -1600,6 +2384,7 @@ function report(rules: Rules) {
     if (SHOP_OPEN) newcomerLines(people, rows);
     if (SHOP_OPEN) holidayLines(people, rows);
     if (SHOP_OPEN) storeyLines(people, rows);
+    if (LEVELS_ON) levelLines(rules, people, rows);
     if (APPRECIATION) {
       console.log(
         `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(

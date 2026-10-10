@@ -33,8 +33,8 @@ import { SKILLS, TITLES } from "./types";
  */
 
 /**
- * The numbers. Once levels are open in a live world, changing one changes how logged inputs
- * replay, so it needs a logged switch.
+ * The numbers, tuned with `scripts/economy-sim.ts` (decision 0246). Once levels are open in a live
+ * world, changing one changes how logged inputs replay, so it needs a logged switch.
  */
 export const PROGRESS = {
   /** Points a skill counts in one UTC day. A deed past it still happens and adds none. */
@@ -42,7 +42,7 @@ export const PROGRESS = {
   /** The first harvest, craft, find, or catch of a kind, on top of the deed and outside the cap. */
   first: 10,
   /** Going from level n to n + 1 takes this many points times n. */
-  step: 25,
+  step: 20,
   /** Growing: a harvest. */
   harvest: 2,
   /** Making: a craft, however many it makes. */
@@ -52,7 +52,7 @@ export const PROGRESS = {
   /** Foraging: a fish caught. An old boot earns nothing. */
   fish: 2,
   /** Hosting: a lesson taught to a resident with a hearth, outside the teacher's household. */
-  lesson: 4,
+  lesson: 8,
   /** Hosting: a bounty you were paid for. */
   bounty: 6,
   /** A resident's bounty counts only for a reward of at least this many coins. */
@@ -63,9 +63,9 @@ export const PROGRESS = {
    */
   guest: 2,
   /** Hosting: being a counted guest at an event, once a UTC day. */
-  attend: 4,
+  attend: 8,
   /** Playing: a rated game finished. */
-  game: 2,
+  game: 6,
   /** Playing: finishing first in it, ties included, on top of `game`. */
   win: 2,
 } as const;

@@ -180,6 +180,7 @@ What we chose and why. Newest last.
 - [The home wall's first paint waits for its pieces behind one block of placeholders](decisions/0243-the-home-wall-s-first-paint-waits-for-its-pieces-behind-one-.md) · 2026-10-09 · accepted · `client` `design` `performance`
 - [add_storey answers with its price, and the API leaves how high a home goes to the sim](decisions/0244-add-storey-answers-with-its-price-and-the-api-leaves-how-hig.md) · 2026-10-09 · accepted · `protocol` `server` `storeys` `economy`
 - [A plot photo's floor plan follows the map's cutaway, and no_storey opens with it](decisions/0245-a-plot-photo-s-floor-plan-follows-the-map-s-cutaway-and-no-s.md) · 2026-10-09 · accepted · `storeys` `photos` `protocol`
+- [Level n to n + 1 takes 20 points times n, a lesson and a counted guest earn 8, and a rated game 6, the economy run with levels says](decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md) · 2026-10-10 · accepted · `sim` `levels` `numbers` `scripts`
 
 ## Learnings
 

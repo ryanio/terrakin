@@ -147,4 +147,4 @@ export const LEVELS_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(LEVELS_CONFIG, LEVELS_LOG))`, pinned when levels landed in the sim. */
-export const LEVELS_HASH = "b7993ad3";
+export const LEVELS_HASH = "e8714049";

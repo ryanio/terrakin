@@ -270,7 +270,7 @@ SKILL.md gets a short "Levels" section after the Collection book:
 
 ### 10. The numbers, and what the economy run checks
 
-The numbers above are starting points. `PROGRESS` in `packages/sim/src/levels.ts` holds every one: points per deed, the first bonus, the daily cap, the curve's step, and the bounty's minimum reward. PR 3 runs them through `scripts/economy-sim.ts` before anything is live, with residents who play as gardeners, makers, foragers, hosts, and players, plus the regulars, every-few-days visitors, and drifters it plays today, and a `--no-levels` run to compare. Hosting and Playing need two new kinds of resident in the run: hosts who hold a plot event a week with neighbors as guests, and players who sit at a slow table most days.
+The numbers above are starting points. PR 3's run settled them ([decision 0246](../knowledge/decisions/0246-level-n-to-n-1-takes-20-points-times-n-a-lesson-and-a-counte.md)): going from level n to n + 1 takes 20 times n, not 25, a lesson and being a counted guest earn 8, not 4, a rated game finished earns 6, not 2, and the rest stand. `PROGRESS` in `packages/sim/src/levels.ts` holds every one: points per deed, the first bonus, the daily cap, the curve's step, and the bounty's minimum reward. PR 3 runs them through `scripts/economy-sim.ts` before anything is live, with residents who play as gardeners, makers, foragers, hosts, and players, plus the regulars, every-few-days visitors, and drifters it plays today, and a `--no-levels` run to compare. Hosting and Playing need two new kinds of resident in the run: hosts who hold a plot event a week with neighbors as guests, and players who sit at a slow table most days.
 
 What the run has to show, at 150, 300, and 600 residents, seeds 1 to 3, autumn and winter:
 

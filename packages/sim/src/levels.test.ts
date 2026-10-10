@@ -239,19 +239,19 @@ function race(w: World, seats: string[]) {
 }
 
 describe("the curve", () => {
-  it("matches its pinned table: level n to n + 1 takes 25 times n", () => {
+  it("matches its pinned table: level n to n + 1 takes 20 times n", () => {
     const table: [number, number][] = [
       [1, 0],
-      [2, 25],
-      [3, 75],
-      [4, 150],
-      [5, 250],
-      [7, 525],
-      [10, 1_125],
-      [15, 2_625],
-      [20, 4_750],
-      [30, 10_875],
-      [50, 30_625],
+      [2, 20],
+      [3, 60],
+      [4, 120],
+      [5, 200],
+      [7, 420],
+      [10, 900],
+      [15, 2_100],
+      [20, 3_800],
+      [30, 8_700],
+      [50, 24_500],
     ];
     for (const [level, total] of table) {
       expect(pointsFor(level), `level ${level}`).toBe(total);
@@ -268,17 +268,17 @@ describe("the numbers", () => {
     expect(PROGRESS).toEqual({
       dailyCap: 20,
       first: 10,
-      step: 25,
+      step: 20,
       harvest: 2,
       craft: 2,
       find: 4,
       fish: 2,
-      lesson: 4,
+      lesson: 8,
       bounty: 6,
       bountyMinReward: 5,
       guest: 2,
-      attend: 4,
-      game: 2,
+      attend: 8,
+      game: 6,
       win: 2,
     });
     expect(SKILLS).toEqual(["growing", "making", "foraging", "hosting", "playing"]);
@@ -467,8 +467,8 @@ describe("a deed earns its points once, in its skill", () => {
         residentId: "ada",
         skill: "hosting",
         points: PROGRESS.lesson,
-        total: 4,
-        today: 4,
+        total: 8,
+        today: 8,
       },
     ]);
     expect(w.points("bob")).toEqual({});
@@ -489,8 +489,8 @@ describe("a deed earns its points once, in its skill", () => {
       { residentId: "ada", skill: "playing", points: PROGRESS.game + PROGRESS.win },
       { residentId: "bob", skill: "playing", points: PROGRESS.game },
     ]);
-    expect(w.points("ada")).toEqual({ playing: 4 });
-    expect(w.points("bob")).toEqual({ playing: 2 });
+    expect(w.points("ada")).toEqual({ playing: 8 });
+    expect(w.points("bob")).toEqual({ playing: 6 });
   });
 
   it("a seat that wasn't rated earns nothing, however it finished", () => {
@@ -510,9 +510,10 @@ describe("a deed earns its points once, in its skill", () => {
     const tiles = plant(w, "ada", "herb", 8);
     w.toDay(OPEN + 2);
     const events = tiles.map((tile) => w.ok("ada", { type: "harvest", ...tile }));
-    // 12, then 2 each: the eighth harvest makes 26, past level 2's 25.
-    expect(events.slice(0, 7).flatMap(reached)).toEqual([]);
-    expect(reached(events[7] ?? [])).toEqual([
+    // 12, then 2 each: the fifth harvest makes 20, which is level 2.
+    expect(events.slice(0, 4).flatMap(reached)).toEqual([]);
+    expect(events.slice(5).flatMap(reached)).toEqual([]);
+    expect(reached(events[4] ?? [])).toEqual([
       { type: "level_reached", residentId: "ada", skill: "growing", level: 2 },
       { type: "level_reached", residentId: "ada", level: 2 },
     ]);
@@ -545,17 +546,17 @@ describe("the daily cap", () => {
     // Another skill has its own cap.
     w.standAt("bob", 4, 4);
     w.ok("ada", { type: "teach", recipe: "lemonade", to: "bob" });
-    expect(w.points("ada")).toEqual({ growing: 40, hosting: 4 });
+    expect(w.points("ada")).toEqual({ growing: 40, hosting: 8 });
     w.toDay();
     expect(w.state.progress?.today).toBeUndefined();
     w.ok("ada", { type: "harvest", ...(herbs[11] ?? { x: 0, y: 0 }) });
-    expect(w.points("ada")).toEqual({ growing: 42, hosting: 4 });
+    expect(w.points("ada")).toEqual({ growing: 42, hosting: 8 });
     expect(w.state.progress?.today).toEqual({ ada: { growing: 2 } });
   });
 
   it("counts a deed only up to what's left of the cap", () => {
     const w = levels();
-    // Three counted bounties are 18 points, so a lesson's 4 has room for 2.
+    // Three counted bounties are 18 points, so a lesson's 8 has room for 2.
     for (const poster of ["bob", "cy", "dee"]) bounty(w, poster, "ada");
     w.standAt("bob", 4, 4);
     const events = w.ok("ada", { type: "teach", recipe: "lemonade", to: "bob" });
@@ -768,6 +769,7 @@ describe("the one-time credit", () => {
         total: 20,
         today: 0,
       },
+      { type: "level_reached", residentId: "ada", skill: "foraging", level: 2 },
       { type: "level_reached", residentId: "ada", level: 2 },
       {
         type: "progress",
@@ -836,7 +838,7 @@ describe("the one-time credit", () => {
       type: "open_levels",
       firsts: [{ resident: "ada", kinds: [...crops, "cranberry"] }],
     });
-    // 80 points: past level 2's 25 and level 3's 75 at once.
+    // 80 points: past level 2's 20 and level 3's 60 at once.
     expect(reached(events)).toEqual([
       { type: "level_reached", residentId: "ada", skill: "growing", level: 3 },
       { type: "level_reached", residentId: "ada", level: 3 },
@@ -859,11 +861,11 @@ describe("season points", () => {
     w.toDay(dayOfDate(2024, 12, 3));
     w.ok("ada", { type: "harvest", ...(herbs[1] ?? { x: 0, y: 0 }) });
     expect(w.state.progress?.seasons).toEqual({
-      [autumn]: { ada: { growing: 12, hosting: 4 } },
+      [autumn]: { ada: { growing: 12, hosting: 8 } },
       [winter]: { ada: { growing: 2 } },
     });
     // The total has the credit too; the seasons never do.
-    expect(w.points("ada")).toEqual({ growing: 24, hosting: 4 });
+    expect(w.points("ada")).toEqual({ growing: 24, hosting: 8 });
   });
 });
 
@@ -902,15 +904,15 @@ const credit = (event: string, guests: unknown): Command =>
   ({ type: "credit_event", event, guests }) as Command;
 
 describe("credit_event", () => {
-  it("gives the host 2 a counted guest and each guest 4, once", () => {
+  it("gives the host 2 a counted guest and each guest 8, once", () => {
     const w = levels();
     const event = party(w, "ada", ["bob", "cy"]);
     expect(w.state.events?.list[0]?.attended).toEqual(["bob", "cy"]);
     expect(w.town(credit(event, ["cy", "bob"]))).toEqual([
       { type: "event_credited", event, guests: ["cy", "bob"] },
       { type: "progress", residentId: "ada", skill: "hosting", points: 4, total: 4, today: 4 },
-      { type: "progress", residentId: "cy", skill: "hosting", points: 4, total: 4, today: 4 },
-      { type: "progress", residentId: "bob", skill: "hosting", points: 4, total: 4, today: 4 },
+      { type: "progress", residentId: "cy", skill: "hosting", points: 8, total: 8, today: 8 },
+      { type: "progress", residentId: "bob", skill: "hosting", points: 8, total: 8, today: 8 },
     ]);
     expect(w.state.progress?.hostedToday).toEqual(["ada"]);
     expect(w.state.progress?.guestToday).toEqual(["bob", "cy"]);
@@ -1163,7 +1165,7 @@ describe("merge_resident", () => {
     send(state, {
       type: "open_levels",
       firsts: [
-        { resident: FROM, kinds: ["lemon", "chair"] },
+        { resident: FROM, kinds: ["lemon", "strawberry", "tomato", "flower", "chair"] },
         { resident: INTO, kinds: ["lemon", "herb"] },
       ],
     });
@@ -1178,7 +1180,16 @@ describe("merge_resident", () => {
     progress.titles = { [FROM]: "gardener" };
     const events = send(state, { type: "merge_resident", from: FROM, into: INTO });
     expect(events.filter((e) => e.type === "progress" || e.type === "level_reached")).toEqual([
-      { type: "progress", residentId: INTO, skill: "growing", points: 10, total: 30, today: 0 },
+      {
+        type: "progress",
+        residentId: INTO,
+        skill: "growing",
+        points: 40,
+        // The lemon was a first for both, so it isn't one again.
+        firsts: ["flower", "strawberry", "tomato"],
+        total: 60,
+        today: 0,
+      },
       {
         type: "progress",
         residentId: INTO,
@@ -1188,12 +1199,12 @@ describe("merge_resident", () => {
         total: 10,
         today: 0,
       },
-      { type: "level_reached", residentId: INTO, skill: "growing", level: 2 },
-      { type: "level_reached", residentId: INTO, level: 2 },
+      { type: "level_reached", residentId: INTO, skill: "growing", level: 3 },
+      { type: "level_reached", residentId: INTO, level: 3 },
     ]);
     expect(state.progress).toEqual({
-      points: { [INTO]: { growing: 30, making: 10 } },
-      firsts: { [INTO]: ["chair", "herb", "lemon"] },
+      points: { [INTO]: { growing: 60, making: 10 } },
+      firsts: { [INTO]: ["chair", "flower", "herb", "lemon", "strawberry", "tomato"] },
       seasons: { "19967": { [INTO]: { growing: 6, making: 2 } } },
       guestToday: ["ada"],
       // History that names the duplicate stays as it was.
@@ -1235,9 +1246,9 @@ describe("the levels fixture", () => {
     const state = replay(LEVELS_CONFIG, LEVELS_LOG);
     expectSupplyHolds(state);
     expect(state.progress?.points).toEqual({
-      eve: { growing: 26, making: 34, foraging: 26, hosting: 2, playing: 4 },
+      eve: { growing: 26, making: 34, foraging: 26, hosting: 2, playing: 8 },
       ada: { growing: 10, making: 250 },
-      dee: { hosting: 14, playing: 2 },
+      dee: { hosting: 22, playing: 6 },
       // Fran's acorn, since her record was merged into his.
       gus: { foraging: 14 },
     });

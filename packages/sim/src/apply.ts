@@ -99,7 +99,17 @@ import {
   pantryDue,
   payPantry,
 } from "./items";
-import { checkDropJob, checkHandIn, checkOpenJobs, checkTakeJob, jobsNewDay } from "./jobs";
+import {
+  checkDropJob,
+  checkHandIn,
+  checkJobTitle,
+  checkOpenJobs,
+  checkSetJobEdition,
+  checkTakeJob,
+  creditJob,
+  jobsNewDay,
+  unearnedJobWear,
+} from "./jobs";
 import { plotKey, tileKey } from "./keys";
 import {
   checkCreditEvent,
@@ -190,7 +200,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { BLOCK_KINDS, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
+import { BLOCK_KINDS, isJobTitle, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
 import { checkVisit } from "./visit";
 import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps } from "./walk";
 import {
@@ -348,7 +358,7 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
 /**
  * Wear in `fields` that `actor` may not put on, as a rejection, or null: shop wear they haven't
  * bought, a partner's piece (worn or styled) they have no entitlement to (RFC 0007), or a garment
- * from a skill level they haven't reached (RFC 0029).
+ * from a skill level (RFC 0029) or a count of jobs finished (RFC 0030) they haven't reached.
  */
 function unownedWear(state: WorldState, actor: string, fields: ProfileFields): Prepared | null {
   const wear: readonly unknown[] = Array.isArray(fields.wear) ? fields.wear : [];
@@ -377,7 +387,7 @@ function unownedWear(state: WorldState, actor: string, fields: ProfileFields): P
       "That's a partner's piece: only its verified characters can wear it.",
     );
   }
-  const unearned = unearnedWear(state, actor, wear);
+  const unearned = unearnedWear(state, actor, wear) ?? unearnedJobWear(state, actor, wear);
   if (unearned) return { ok: false, rejection: unearned };
   return null;
 }
@@ -759,10 +769,17 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkMergeResident(state, command));
       case "open_levels":
         return town(checkOpenLevels(state, command));
-      case "credit_event":
-        return town(checkCreditEvent(state, command));
+      case "credit_event": {
+        const credit = checkCreditEvent(state, command);
+        if (typeof credit !== "function") return town(credit);
+        // The guests it counted may hold a job that asks for it, and so may the host (RFC 0030).
+        const jobs = creditJob(state, command);
+        return jobs ? () => [...credit(), ...jobs()] : credit;
+      }
       case "open_jobs":
         return town(checkOpenJobs(state));
+      case "set_job_edition":
+        return town(checkSetJobEdition(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -878,8 +895,11 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (unowned) return unowned;
       const look = mergeProfile(me, command);
       if ("ok" in look) return look;
-      // The title to show (RFC 0029) is checked here and kept with levels, not on the resident.
-      const title = checkTitle(state, actor, command.title);
+      // The title to show (RFC 0029, RFC 0030) is checked here and kept with levels, not on the
+      // resident: a skill's by its level, and one from jobs by the count of jobs finished.
+      const title = isJobTitle(command.title)
+        ? checkJobTitle(state, actor, command.title)
+        : checkTitle(state, actor, command.title);
       if (title && typeof title !== "function") return { ok: false, rejection: title };
       const same = sameProfile(look, me);
       // A no-op would still cost a permanent log line and a broadcast.

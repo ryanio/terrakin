@@ -8,6 +8,7 @@ import {
 } from "@terrakin/protocol";
 import {
   firstsOf,
+  isJobTitle,
   isTownsfolk,
   levelsOf,
   own,
@@ -35,13 +36,22 @@ const sum = (points: Partial<Record<Skill, number>>) =>
   SKILLS.reduce((total, skill) => total + (points[skill] ?? 0), 0);
 
 /**
+ * The title a resident shows, when a skill's level unlocked it. A title from jobs finished (RFC
+ * 0030) is in the sim and not on the API yet, so it reads as no title here.
+ */
+function skillTitle(state: WorldState, id: string) {
+  const title = titleOf(state, id);
+  return isJobTitle(title) ? undefined : title;
+}
+
+/**
  * A resident's levels as anyone may see them, or undefined until levels open and for townsfolk,
  * who never earn. No points, no counts, no firsts.
  */
 export function levelView(state: WorldState, id: string): LevelView | undefined {
   if (!state.progress || isTownsfolk(state, id)) return undefined;
   const { level, skills } = levelsOf(state, id);
-  const title = titleOf(state, id);
+  const title = skillTitle(state, id);
   return { level, skills, ...(title ? { title } : {}) };
 }
 
@@ -51,7 +61,7 @@ export function progressView(state: WorldState, id: string): ProgressResponse {
   const { level, skills } = levelsOf(state, id);
   const today = own(state.progress?.today, id) ?? {};
   const unlocked = unlockedBy(state, id);
-  const title = titleOf(state, id);
+  const title = skillTitle(state, id);
   return {
     open: state.progress !== undefined,
     level,

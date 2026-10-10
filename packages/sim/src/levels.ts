@@ -12,6 +12,7 @@ import type {
   ProgressState,
   Rejection,
   ResidentId,
+  ShownTitle,
   Skill,
   SkillPoints,
   Title,
@@ -155,8 +156,8 @@ export function levelsOf(
 export const firstsOf = (state: WorldState, id: ResidentId): readonly string[] =>
   own(state.progress?.firsts, id) ?? [];
 
-/** The title a resident shows, if any. Public. */
-export const titleOf = (state: WorldState, id: ResidentId): Title | undefined =>
+/** The title a resident shows, if any: a skill's, or one from jobs finished. Public. */
+export const titleOf = (state: WorldState, id: ResidentId): ShownTitle | undefined =>
   own(state.progress?.titles, id);
 
 /** What a resident's skill levels have unlocked so far, in skill order: what `profile` would take. */
@@ -366,7 +367,11 @@ export const catchEarns = (state: WorldState, id: ResidentId, caught: string) =>
  * Hosting: a lesson `teacher` gave `learner` counts when the learner has a hearth and isn't in the
  * teacher's household. The learner earns nothing for learning.
  */
-function lessonCounts(state: WorldState, teacher: ResidentId, learner: ResidentId): Deed[] | null {
+export function lessonCounts(
+  state: WorldState,
+  teacher: ResidentId,
+  learner: ResidentId,
+): Deed[] | null {
   const them = residentById(state, learner);
   if (!them?.hearth || sameHousehold(state, teacher, learner)) return null;
   return counts(state, teacher) ? [{ skill: "hosting", points: PROGRESS.lesson }] : null;
@@ -382,7 +387,7 @@ export const lessonEarns = (state: WorldState, teacher: ResidentId, learner: Res
  * `PROGRESS.bountyMinReward`, and no bounty from that poster counted for that claimant this UTC
  * week.
  */
-function bountyCounts(
+export function bountyCounts(
   state: WorldState,
   poster: ResidentId,
   claimant: ResidentId,
@@ -425,7 +430,7 @@ export function bountyEarns(
  * Hosting: a town bounty or a released grant a maintainer just paid `claimant` for counts every
  * time, since a maintainer confirmed it from outside the deal.
  */
-const townBountyCounts = (state: WorldState, claimant: ResidentId): Deed[] | null =>
+export const townBountyCounts = (state: WorldState, claimant: ResidentId): Deed[] | null =>
   counts(state, claimant) ? [{ skill: "hosting", points: PROGRESS.bounty }] : null;
 
 /** Hosting: a town bounty or a released grant a maintainer just paid `claimant` for. */
@@ -440,7 +445,7 @@ export const townBountyEarns = (state: WorldState, claimant: ResidentId) =>
  * because every seat was away, which nobody won. A seat that sat down and never chose counts for
  * nothing, wherever the default left it on the board.
  */
-function gameCounts(
+export function gameCounts(
   state: WorldState,
   table: GameTable,
   rounds: readonly Readonly<Record<ResidentId, number | null>>[],
@@ -479,23 +484,22 @@ export function gameEarns(
 }
 
 /**
- * Hosting: who an ended event's guest list counts for, once the list itself was checked. The host
- * counts for one event a UTC day, at `PROGRESS.guest` a guest, and each guest once a UTC day, at
- * `PROGRESS.attend` (`progress.hostedToday` and `guestToday` say who already did).
+ * Hosting: who an ended event's guest list counts for, once the list itself was checked: the host,
+ * at `PROGRESS.guest` a guest, when the list holds anyone, and each guest, at `PROGRESS.attend`. A
+ * town event has no host to count.
  */
-function eventCounts(
+export function eventCounts(
   state: WorldState,
-  progress: ProgressState,
   host: ResidentId,
   guests: readonly ResidentId[],
 ): { host: Deed[] | null; guests: { id: ResidentId; deeds: Deed[] }[] } {
   return {
     host:
-      guests.length > 0 && !progress.hostedToday?.includes(host) && counts(state, host)
+      guests.length > 0 && counts(state, host)
         ? [{ skill: "hosting", points: guests.length * PROGRESS.guest }]
         : null,
     guests: guests
-      .filter((id) => !progress.guestToday?.includes(id) && counts(state, id))
+      .filter((id) => counts(state, id))
       .map((id) => ({ id, deeds: [{ skill: "hosting", points: PROGRESS.attend }] })),
   };
 }
@@ -519,9 +523,32 @@ export function jobEarns(
 // ---------- titles and earned wear ----------
 
 /**
- * What a `profile`'s `title` does: nothing when it's absent or already so, a rejection for a title
- * that doesn't exist (`invalid_profile`) or whose skill level the resident hasn't reached
- * (`not_earned`), else a commit that shows it (`null` shows none) with a public `title_changed`.
+ * Show a title the resident may show, or none (`null`): nothing when it's already so, else a
+ * commit with a public `title_changed`. A resident shows one title at a time, whichever kind it
+ * is, so a new one takes the old one's place. The caller has checked they've reached it.
+ */
+export function showTitle(
+  state: WorldState,
+  id: ResidentId,
+  title: ShownTitle | null,
+): Mutation | undefined {
+  const progress = state.progress;
+  if (!progress || title === (titleOf(state, id) ?? null)) return undefined;
+  return () => {
+    const titles = { ...(progress.titles ?? {}) };
+    if (title === null) delete titles[id];
+    else titles[id] = title;
+    if (Object.keys(titles).length > 0) progress.titles = titles;
+    else delete progress.titles;
+    return [{ type: "title_changed", residentId: id, title }];
+  };
+}
+
+/**
+ * What a `profile`'s `title` does when it's a skill's title or `null`: nothing when it's absent or
+ * already so, a rejection for a title that doesn't exist (`invalid_profile`) or whose skill level
+ * the resident hasn't reached (`not_earned`), else a commit that shows it (`null` shows none). A
+ * title from jobs finished is `checkJobTitle`'s.
  */
 export function checkTitle(
   state: WorldState,
@@ -529,8 +556,6 @@ export function checkTitle(
   title: unknown,
 ): Mutation | Rejection | undefined {
   if (title === undefined) return undefined;
-  const progress = state.progress;
-  const now = titleOf(state, id) ?? null;
   if (title !== null) {
     if (!isOneOf(TITLES, title)) return refuse("invalid_profile", "Unknown title.");
     const { label, skill, level } = TITLE_INFO[title as Title];
@@ -543,15 +568,7 @@ export function checkTitle(
       );
     }
   }
-  if (title === now || !progress) return undefined;
-  return () => {
-    const titles = { ...(progress.titles ?? {}) };
-    if (title === null) delete titles[id];
-    else titles[id] = title as Title;
-    if (Object.keys(titles).length > 0) progress.titles = titles;
-    else delete progress.titles;
-    return [{ type: "title_changed", residentId: id, title: title as Title | null }];
-  };
+  return showTitle(state, id, title as Title | null);
 }
 
 /**
@@ -708,9 +725,13 @@ export function checkCreditEvent(
       return refuse("not_eligible", "Townsfolk are never counted guests.");
     }
   }
-  const counted = eventCounts(state, progress, e.host, guests);
-  const host = underCap(state, e.host, counted.host);
+  // What fits: under Hosting's daily cap, a host for one event a UTC day and a guest for one.
+  const counted = eventCounts(state, e.host, guests);
+  const host = progress.hostedToday?.includes(e.host)
+    ? null
+    : underCap(state, e.host, counted.host);
   const came = counted.guests.flatMap(({ id, deeds }) => {
+    if (progress.guestToday?.includes(id)) return [];
     const points = underCap(state, id, deeds);
     return points ? [{ id, points }] : [];
   });

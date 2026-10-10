@@ -42,6 +42,7 @@ describe("jobs, before the API opens them", () => {
     // The newest switch before jobs is on, so the table ran.
     expect(logged).toContain("open_levels");
     expect(logged).not.toContain("open_jobs");
+    expect(logged).not.toContain("set_job_edition");
     expect(service.state.jobs).toBeUndefined();
   });
 
@@ -54,7 +55,9 @@ describe("jobs, before the API opens them", () => {
     ];
     expect(sources.length).toBeGreaterThan(50);
     const naming = sources.filter((file) =>
-      /open_jobs|take_job|drop_job|hand_in|jobsOn|\bjobs\s*[:?]/.test(readFileSync(file, "utf8")),
+      /open_jobs|set_job_edition|take_job|drop_job|hand_in|jobsOn|\bjobs\s*[:?]/.test(
+        readFileSync(file, "utf8"),
+      ),
     );
     expect(naming.map((file) => file.pathname.split("/").pop())).toEqual([]);
   });
@@ -71,10 +74,21 @@ describe("jobs, before the API opens them", () => {
         skill: "foraging",
         points: 10,
         week: 2,
+        total: 13,
       },
       { type: "job_dropped", residentId: "r_ada", job: "sable_night_fish", lapsed: true },
+      { type: "job_total", residentId: "r_ada", total: 14 },
+      { type: "job_edition_set", edition: 2 },
+      // A title from jobs finished stays in. A skill's goes out as it always did.
+      { type: "title_changed", residentId: "r_ada", title: "helping_hand" },
+      { type: "title_changed", residentId: "r_ada", title: "gardener" },
+      { type: "title_changed", residentId: "r_ada", title: null },
       { type: "left", residentId: "r_ada" },
     ];
-    expect(toWire(events)).toEqual([{ type: "left", residentId: "r_ada" }]);
+    expect(toWire(events)).toEqual([
+      { type: "title_changed", residentId: "r_ada", title: "gardener" },
+      { type: "title_changed", residentId: "r_ada", title: null },
+      { type: "left", residentId: "r_ada" },
+    ]);
   });
 });

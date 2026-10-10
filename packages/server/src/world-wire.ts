@@ -19,6 +19,7 @@ import {
   floorField,
   groundOn,
   holidayField,
+  isJobTitle,
   isTownEvent,
   isTownsfolk,
   type PickupKind,
@@ -70,8 +71,16 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "job_taken" ||
       e.type === "job_progress" ||
       e.type === "job_done" ||
-      e.type === "job_dropped"
+      e.type === "job_dropped" ||
+      e.type === "job_total" ||
+      e.type === "job_edition_set"
     ) {
+      continue;
+    }
+    if (e.type === "title_changed") {
+      // A title from jobs finished is theirs too, so it stays in until the API opens jobs.
+      const { title } = e;
+      if (!isJobTitle(title)) out.push({ ...e, title });
       continue;
     }
     if (e.type === "inventory") {

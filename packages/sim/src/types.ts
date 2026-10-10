@@ -533,6 +533,8 @@ export interface HeldJob {
   job: string;
   /** The world day it was taken. It lapses `JOBS.keepDays` days on. */
   day: number;
+  /** The `seq` of the input that took it, so an event that ended before then never counts for it. */
+  seq: number;
   /** How many of its deeds are done. Absent until the first. */
   count?: number;
 }
@@ -551,6 +553,8 @@ export interface JobsState {
    * first, and it starts again with the first job finished in a later week, as `games.week` does.
    */
   week?: { start: number; done: Record<ResidentId, number> };
+  /** Jobs each resident has ever finished. Absent until the first, and a resident with none is absent. */
+  total?: Record<ResidentId, number>;
 }
 
 /** The five skills (RFC 0029). New skills go on the end. */
@@ -591,7 +595,7 @@ export interface ProgressState {
   hostedToday?: ResidentId[];
   guestToday?: ResidentId[];
   /** The title each resident shows. Absent until the first, and a resident showing none is absent. */
-  titles?: Record<ResidentId, Title>;
+  titles?: Record<ResidentId, ShownTitle>;
 }
 
 /**
@@ -611,6 +615,19 @@ export const TITLES = [
   "champion",
 ] as const;
 export type Title = (typeof TITLES)[number];
+
+/**
+ * Titles from jobs finished (RFC 0030): fixed ids with fixed words, like a skill's. A list of its
+ * own beside `TITLES` until the API opens jobs: the protocol's title enum is `TITLES`, so no
+ * action can show one before then. New titles go on the end.
+ */
+export const JOB_TITLES = ["helping_hand", "pillar_of_the_town"] as const;
+export type JobTitle = (typeof JOB_TITLES)[number];
+export const isJobTitle = (title: unknown): title is JobTitle =>
+  typeof title === "string" && (JOB_TITLES as readonly string[]).includes(title);
+
+/** A title a resident can show: one a skill's level unlocked, or one from jobs finished. */
+export type ShownTitle = Title | JobTitle;
 
 /** The party games (RFC 0011). New games go on the end. */
 export const GAME_KINDS = ["hearth_race", "lowest_lantern"] as const;
@@ -789,6 +806,12 @@ export interface HostedEvent {
   attended?: ResidentId[];
   /** The day it ended or was cancelled. */
   closedDay?: number;
+  /**
+   * The `seq` of the `event_end` that ended it, once jobs are open (RFC 0030): its credit comes in
+   * a later input, and a job counts the event only when it was taken before the event ended.
+   * Absent for an event that ended before `open_jobs`.
+   */
+  endedSeq?: number;
   /** The maintainer who called it off (`void_event`), as the log names them. */
   voidedBy?: string;
   /** Its guests were counted for Hosting points (`credit_event`, RFC 0029). Absent until then. */
@@ -1268,8 +1291,11 @@ export interface EconomyToday {
 
 export type Command =
   | ({ type: "join"; name: string; kind: ResidentKind } & ProfileFields)
-  /** `title` is the title to show (RFC 0029): one the resident has reached, or `null` for none. */
-  | ({ type: "profile"; title?: Title | null } & ProfileFields)
+  /**
+   * `title` is the title to show (RFC 0029, RFC 0030): one the resident has reached, or `null` for
+   * none.
+   */
+  | ({ type: "profile"; title?: ShownTitle | null } & ProfileFields)
   | { type: "leave" }
   /** A step, or `up` and `down` a staircase (RFC 0028). */
   | { type: "move"; dir: Direction | Climb }
@@ -1526,6 +1552,8 @@ export type Command =
   | { type: "credit_event"; event: string; guests: ResidentId[] }
   /** From now on, the town has three jobs a day and residents may take them (RFC 0030). */
   | { type: "open_jobs" }
+  /** From now on, the board reads this edition of the jobs table (`JOB_EDITIONS`). */
+  | { type: "set_job_edition"; edition: number }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1668,6 +1696,7 @@ export const SERVER_COMMANDS = [
   "open_levels",
   "credit_event",
   "open_jobs",
+  "set_job_edition",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -2039,7 +2068,7 @@ export type WorldEvent =
    */
   | { type: "event_credited"; event: string; guests: ResidentId[] }
   /** A resident shows `title` beside their name now, or none (`null`). Public. */
-  | { type: "title_changed"; residentId: ResidentId; title: Title | null }
+  | { type: "title_changed"; residentId: ResidentId; title: ShownTitle | null }
   /** Jobs are open (RFC 0030): the town has a board each day from now on. Public. */
   | { type: "jobs_opened" }
   /** A resident holds `job` now. Private, like every job event: it belongs to `residentId` alone. */
@@ -2047,8 +2076,8 @@ export type WorldEvent =
   /** A deed moved the job a resident holds: `count` of the `of` it asks for are done. Private. */
   | { type: "job_progress"; residentId: ResidentId; job: string; count: number; of: number }
   /**
-   * A resident finished `job`: `points` in `skill`, outside the daily cap, and `week` jobs
-   * finished this UTC week. The `progress` for the points follows. Private.
+   * A resident finished `job`: `points` in `skill`, outside the daily cap, with `week` jobs
+   * finished this UTC week and `total` ever. The `progress` for the points follows. Private.
    */
   | {
       type: "job_done";
@@ -2057,7 +2086,15 @@ export type WorldEvent =
       skill: Skill;
       points: number;
       week: number;
+      total: number;
     }
+  /**
+   * A resident's count of jobs finished changed without a job being done: a duplicate record of
+   * theirs was merged into this one, and its count came with it.
+   */
+  | { type: "job_total"; residentId: ResidentId; total: number }
+  /** The board reads this edition of the jobs table from now on. Public. */
+  | { type: "job_edition_set"; edition: number }
   /** A resident let `job` go, or it lapsed at `new_day` after `JOBS.keepDays` days. Private. */
   | { type: "job_dropped"; residentId: ResidentId; job: string; lapsed?: true }
   /**

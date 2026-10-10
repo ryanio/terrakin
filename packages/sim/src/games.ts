@@ -1,6 +1,7 @@
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
 import { setFloor } from "./floors";
+import { gameJob } from "./jobs";
 import { tileKey } from "./keys";
 import { earned, gameEarns } from "./levels";
 import { own, residentById } from "./own";
@@ -790,6 +791,9 @@ export function checkCloseRound(
   const points = result.end
     ? gameEarns(state, t, [...t.rounds, result.moves], result.end.places, result.away)
     : null;
+  const job = result.end
+    ? gameJob(state, t, [...t.rounds, result.moves], result.end.places, result.away)
+    : null;
   return () => {
     t.rounds.push({ ...result.moves });
     t.board = { ...result.board };
@@ -844,6 +848,7 @@ export function checkCloseRound(
         ...(added && games.tally ? { tally: { ...games.tally } } : {}),
       },
       ...earned(points),
+      ...earned(job),
     ];
   };
 }

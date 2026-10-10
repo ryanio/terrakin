@@ -3,20 +3,35 @@ import { apply } from "./apply";
 import { biomeAt } from "./biome";
 import { CATALOG, type Crop, GOOD_KINDS, type ItemKind, recipeOf } from "./catalog";
 import { JOBS_CONFIG, JOBS_HASH, JOBS_LOG } from "./fixtures/jobs-log";
+import { MERGE_CONFIG, MERGE_LOG } from "./fixtures/merge-log";
+import { REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG } from "./fixtures/repeat-joins-log";
 import { pickupLeft } from "./gather";
 import { canonicalJson, fnv1a, hashWorld } from "./hash";
 import { HOLIDAYS, holidayOf, holidaySpan } from "./holiday";
 import { isFindKind, type StackKind } from "./items";
-import { JOB_EDITIONS, JOB_GIVERS, JOBS, type Job, jobById, jobsOn, soloJob } from "./jobs";
+import {
+  JOB_EDITIONS,
+  JOB_GIVERS,
+  JOB_TITLE_INFO,
+  JOBS,
+  type Job,
+  jobById,
+  jobsDone,
+  jobsOn,
+  soloJob,
+} from "./jobs";
 import { tileKey } from "./keys";
-import { PROGRESS, pointsOf } from "./levels";
+import { PROGRESS, pointsOf, titleOf } from "./levels";
+import { JOB_WEAR, JOB_WEAR_INFO, WEAR_ITEMS } from "./looks";
 import { replay } from "./replay";
 import { dateOfDay, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
-import { expectSupplyHolds, stock } from "./test-support";
+import { expectSupplyHolds, fund, stock } from "./test-support";
 import type { TimeOfDay } from "./time-of-day";
 import {
   type Command,
+  JOB_TITLES,
   SKILLS,
+  TITLES,
   TOWN_ACTOR,
   type WorldConfig,
   type WorldEvent,
@@ -41,9 +56,11 @@ const PLOTS: Record<string, readonly [number, number]> = {
 };
 /** October 4, 2024, a Friday in autumn. */
 const DAY = 20_000;
-/** The Monday after, when levels and jobs open here. */
+/** The Monday after, when levels and jobs open here, and everyone settled on `DAY` may vote. */
 const OPEN = DAY + 3;
 const TABLE = JOB_EDITIONS[1] ?? [];
+const HOUR = 3_600_000;
+const SALT = "0123456789abcdef0123456789abcdef";
 
 /**
  * A world where every input checks the supply identity afterwards (a job never mints, burns, or
@@ -52,6 +69,7 @@ const TABLE = JOB_EDITIONS[1] ?? [];
 function world() {
   const state = createWorld(CONFIG);
   let today = DAY;
+  let clock = 1_000;
   const send = (actor: string, command: Command) => {
     const before = hashWorld(state);
     const result = apply(state, { actor, command });
@@ -81,7 +99,12 @@ function world() {
     r.x = x;
     r.y = y;
   };
-  return { state, send, ok, code, town, toDay, standAt, day: () => today };
+  /** The server's clock for game inputs, a second later each time it's read. */
+  const tick = () => {
+    clock += 1_000;
+    return clock;
+  };
+  return { state, send, ok, code, town, toDay, standAt, tick, day: () => today };
 }
 type World = ReturnType<typeof world>;
 
@@ -91,10 +114,11 @@ const at = (who: string, dx: number, dy: number) => {
 };
 
 /**
- * Coins, items, the shop, bounties, finds, and recipes open, with Ada, Bob, Cy, and Dee settled
- * before recipes opened, so each knows every recipe, each with a kitchen and a workbench in their
- * hut, a pond beside their hearth, and a fishing rod. Levels open on `OPEN`, a Monday, after all
- * of that, so nobody has a point, and jobs open right after unless `open` is false.
+ * Coins, items, the shop, bounties, finds, and recipes open, with Ada and Bob settled before
+ * recipes opened, so they know every recipe, and Cy and Dee after, so they know the ones everyone
+ * does. Each has a kitchen and a workbench in their hut, a pond beside their hearth, and a fishing
+ * rod. Levels open on `OPEN`, a Monday, after all of that, so nobody has a point, and jobs open
+ * right after unless `open` is false.
  */
 function jobs({ open = true } = {}): World {
   const w = world();
@@ -115,8 +139,9 @@ function jobs({ open = true } = {}): World {
     w.ok(name, { type: "craft", recipe: "fishing_rod", ...at(name, 4, 3) });
     w.ok(name, { type: "place", ...at(name, 3, 2), block: "pond" });
   };
-  for (const name of ["ada", "bob", "cy", "dee"]) settle(name);
+  for (const name of ["ada", "bob"]) settle(name);
   w.town({ type: "open_recipes" });
+  for (const name of ["cy", "dee"]) settle(name);
   w.toDay(OPEN);
   w.town({ type: "open_levels", firsts: [] });
   if (open) w.town({ type: "open_jobs" });
@@ -125,7 +150,13 @@ function jobs({ open = true } = {}): World {
 
 const jobEvents = (events: WorldEvent[]) => events.filter((e) => e.type.startsWith("job_"));
 const done = (events: WorldEvent[]) => events.find((e) => e.type === "job_done");
-const held = (w: World, who: string) => w.state.jobs?.held?.[who];
+/** The job a resident holds, without the `seq` it was taken at. */
+const held = (w: World, who: string) => {
+  const job = w.state.jobs?.held?.[who];
+  if (!job) return undefined;
+  const { seq: _seq, ...rest } = job;
+  return rest;
+};
 const board = (w: World) => jobsOn(w.state).map((job) => job.id);
 const job = (id: string): Job => {
   const found = jobById(id);
@@ -216,6 +247,109 @@ function takeAndFinish(w: World, who: string) {
   return event;
 }
 
+/** Let go of whatever `who` holds, move on to the next day `id` is up, and take it. */
+function hold(w: World, who: string, id: string) {
+  if (held(w, who)) w.ok(who, { type: "drop_job" });
+  until(w, id);
+  w.ok(who, { type: "take_job", job: id });
+}
+
+/** A resident's bounty posted by `poster` and done by `claimant`, then confirmed. Its last events. */
+function bounty(w: World, poster: string, claimant: string) {
+  fund(w.state, poster, PROGRESS.bountyMinReward);
+  const posted = w
+    .ok(poster, { type: "post_bounty", title: "Water my lemons", reward: PROGRESS.bountyMinReward })
+    .find((e) => e.type === "bounty_posted");
+  const id = posted?.type === "bounty_posted" ? posted.bounty.id : "";
+  w.ok(claimant, { type: "claim_bounty", bounty: id });
+  w.ok(claimant, { type: "complete_bounty", bounty: id });
+  return w.ok(poster, { type: "confirm_bounty", bounty: id, to: claimant });
+}
+
+/**
+ * A Hearth race played to its end: each round every seat makes the choice `choose` gives it, or
+ * none for `null`, and the round closes. The last round's events.
+ */
+function game(w: World, seats: string[], choose: (seat: string) => number | null) {
+  const [first = "", ...rest] = seats;
+  const opened = w
+    .ok(first, { type: "open_table", game: "hearth_race", pace: "slow", salt: SALT, at: w.tick() })
+    .find((e) => e.type === "table_opened");
+  const table = opened?.type === "table_opened" ? opened.table : "";
+  for (const seat of rest) w.ok(seat, { type: "sit", table, at: w.tick() });
+  w.ok(first, { type: "start_game", table, at: w.tick() });
+  let events: WorldEvent[] = [];
+  for (let round = 1; round <= 30 && !events.some((e) => e.type === "game_over"); round++) {
+    for (const seat of seats) {
+      const move = choose(seat);
+      if (move !== null) w.ok(seat, { type: "decide", table, round, move });
+    }
+    events = w.town({ type: "close_round", table, round, at: w.tick() });
+  }
+  expect(events.some((e) => e.type === "game_over")).toBe(true);
+  return events;
+}
+
+/** A Hearth race the first seat wins. The last round's events. */
+const race = (w: World, seats: string[]) => game(w, seats, (seat) => (seat === seats[0] ? 3 : 2));
+
+/**
+ * An event on `host`'s plot today that `guests` attend: scheduled for `hour` o'clock, started,
+ * sampled twice with the guests standing on the plot, and ended. Its id.
+ */
+function party(w: World, host: string, guests: string[], hour = 12) {
+  const [px, py] = PLOTS[host] ?? [0, 0];
+  const scheduled = w
+    .ok(host, {
+      type: "schedule_event",
+      kind: "gathering",
+      title: "Tea",
+      px,
+      py,
+      startsAt: w.day() * 24 * HOUR + hour * HOUR,
+      minutes: 30,
+    })
+    .find((e) => e.type === "event_scheduled");
+  const event = scheduled?.type === "event_scheduled" ? scheduled.event : "";
+  w.town({ type: "event_start", event });
+  // East of the hut, outside its wall, one tile each.
+  guests.forEach((guest, i) => {
+    w.standAt(guest, px * 8 + 6, py * 8 + 1 + i);
+  });
+  w.town({ type: "event_tick", event, slot: 1 });
+  w.town({ type: "event_tick", event, slot: 2 });
+  w.town({ type: "event_end", event });
+  return event;
+}
+
+const credit = (event: string, guests: string[]): Command => ({
+  type: "credit_event",
+  event,
+  guests,
+});
+
+/**
+ * Play on, a job on every day one can be taken, until `who` has finished `total` jobs. Their
+ * stacks are emptied after each, since months of harvests would fill them.
+ */
+function playTo(w: World, who: string, total: number) {
+  for (let days = 0; jobsDone(w.state, who) < total; days++) {
+    // Three a week: a count that stops going up fails here, where it would otherwise never end.
+    if (days > total * 7) throw new Error(`${who} is stuck at ${jobsDone(w.state, who)} jobs`);
+    if (days > 0) w.toDay();
+    if (w.code(who, { type: "take_job", job: doable(w) }) !== null) continue;
+    expect(done(finish(w, who, doable(w)))).toBeDefined();
+    const things = w.state.items?.inventories[who];
+    if (things) things.stacks = {};
+  }
+}
+
+/**
+ * A `profile` that puts on `wear`. The job garment isn't in the wear type until the API opens
+ * jobs, so a list that holds it is cast.
+ */
+const wearing = (...wear: string[]) => ({ type: "profile", wear }) as unknown as Command;
+
 /** The world's jobs open, on `day`, to ask it for that day's board. */
 const opened = jobs().state;
 const boardOn = (day: number) => jobsOn({ ...opened, day });
@@ -231,7 +365,23 @@ describe("the numbers", () => {
       perWeek: 3,
       keepDays: 7,
       points: 10,
+      titleAt: 10,
+      wearAt: 25,
+      masterAt: 75,
     });
+  });
+
+  it("give two titles and a garment to the count of jobs finished, in fixed words", () => {
+    expect(JOB_TITLES).toEqual(["helping_hand", "pillar_of_the_town"]);
+    expect(JOB_TITLE_INFO).toEqual({
+      helping_hand: { label: "Helping hand", jobs: 10 },
+      pillar_of_the_town: { label: "Pillar of the town", jobs: 75 },
+    });
+    // A garment's slot decides which wear lists a logged profile may hold, so it's pinned.
+    expect(JOB_WEAR_INFO).toEqual({ town_satchel: { slot: "accessory", label: "Town satchel" } });
+    // Until the API opens jobs they're lists of their own, which no title or wear enum holds.
+    for (const title of JOB_TITLES) expect(TITLES as readonly string[]).not.toContain(title);
+    for (const wear of JOB_WEAR) expect(WEAR_ITEMS as readonly string[]).not.toContain(wear);
   });
 
   it("pin the first edition's table, which a live world's logged take_job reads", () => {
@@ -271,6 +421,21 @@ describe("the numbers", () => {
     ]);
     // Every word of it: what each job asks, its skill, and when it's up.
     expect(fnv1a(canonicalJson(TABLE))).toBe("598485db");
+  });
+
+  it("keep a job's id to one meaning in every edition that has it", () => {
+    // A held job is looked up by id alone, so an edition may drop a job and never redefine one.
+    const seen = new Map<string, string>();
+    const changed: string[] = [];
+    for (const [edition, table] of Object.entries(JOB_EDITIONS)) {
+      for (const j of table) {
+        const asked = canonicalJson(j);
+        if (seen.has(j.id) && seen.get(j.id) !== asked)
+          changed.push(`${j.id} in edition ${edition}`);
+        seen.set(j.id, asked);
+      }
+    }
+    expect(changed).toEqual([]);
   });
 
   it("give every job one giver, one skill, and one thing to do, from a made thing or a deed", () => {
@@ -510,10 +675,11 @@ describe("take_job", () => {
     expect(w.ok("ada", { type: "take_job", job: first })).toEqual([
       { type: "job_taken", residentId: "ada", job: first },
     ]);
+    // With the day it was taken and the input that took it.
     expect(w.state.jobs).toEqual({
       opened: OPEN,
       edition: 1,
-      held: { ada: { job: first, day: OPEN } },
+      held: { ada: { job: first, day: OPEN, seq: w.state.seq } },
     });
   });
 
@@ -589,10 +755,13 @@ describe("take_job", () => {
       if (day === OPEN + 5) expect(takeAndFinish(w, "bob")).toMatchObject({ week: 1 });
       w.toDay();
     }
-    // Monday: a new week.
+    // Monday: a new week, and the count for good goes on.
     expect(w.day()).toBe(OPEN + 7);
-    expect(takeAndFinish(w, "ada")).toMatchObject({ week: 1 });
+    expect(takeAndFinish(w, "ada")).toMatchObject({ week: 1, total: 4 });
     expect(w.state.jobs?.week).toEqual({ start: OPEN + 7, done: { ada: 1 } });
+    expect(w.state.jobs?.total).toEqual({ ada: 4, bob: 1 });
+    expect(jobsDone(w.state, "ada")).toBe(4);
+    expect(jobsDone(w.state, "cy")).toBe(0);
   });
 
   it("counts a job in the week it's finished in, so one held over Sunday is Monday's first", () => {
@@ -641,6 +810,7 @@ describe("a deed job", () => {
         skill: "growing",
         points: JOBS.points,
         week: 1,
+        total: 1,
       },
     ]);
     expect(held(w, "ada")).toBeUndefined();
@@ -666,6 +836,7 @@ describe("a deed job", () => {
         skill: "growing",
         points: 10,
         week: 1,
+        total: 1,
       },
       {
         type: "progress",
@@ -844,6 +1015,7 @@ describe("hand_in", () => {
         skill: "making",
         points: 10,
         week: 1,
+        total: 1,
       },
       {
         type: "progress",
@@ -908,6 +1080,20 @@ describe("hand_in", () => {
     expect(w.state.items?.inventories.ada?.goods.map((g) => g.id)).toContain(jam);
   });
 
+  it("is refused for someone made townsfolk while they held the job", () => {
+    const w = jobs();
+    until(w, "clem_herb_tea");
+    w.ok("bob", { type: "take_job", job: "clem_herb_tea" });
+    make(w, "bob", "herb_tea");
+    w.town({ type: "set_townsfolk", ids: ["bob"] });
+    expect(w.code("bob", { type: "hand_in" })).toBe("not_eligible");
+    expect(held(w, "bob")).toEqual({ job: "clem_herb_tea", day: w.day() });
+    expect(w.state.jobs?.total).toBeUndefined();
+    // Off the list again, the jar he made is his to hand in.
+    w.town({ type: "set_townsfolk", ids: [] });
+    expect(done(w.ok("bob", { type: "hand_in" }))).toMatchObject({ residentId: "bob", total: 1 });
+  });
+
   it("is refused for a deed job, which is done by doing it", () => {
     const w = jobs();
     until(w, "bram_chair");
@@ -933,11 +1119,13 @@ describe("a held job", () => {
     expect(jobEvents(w.toDay(OPEN + JOBS.keepDays))).toEqual([
       { type: "job_dropped", residentId: "ada", job: first, lapsed: true },
     ]);
-    expect(w.state.jobs?.held).toEqual({ bob: { job: bobs, day: OPEN + 6 } });
+    expect(Object.keys(w.state.jobs?.held ?? {})).toEqual(["bob"]);
+    expect(held(w, "bob")).toEqual({ job: bobs, day: OPEN + 6 });
     // Nothing is lost: no points, no count against the week, and the next take is free.
     expect(pointsOf(w.state, "ada")).toEqual({});
     expect(w.state.jobs?.week).toBeUndefined();
-    expect(takeAndFinish(w, "ada")).toMatchObject({ week: 1 });
+    expect(w.state.jobs?.total).toBeUndefined();
+    expect(takeAndFinish(w, "ada")).toMatchObject({ week: 1, total: 1 });
   });
 
   it("lapses when the world skips past its eighth day, everyone's in id order", () => {
@@ -953,27 +1141,570 @@ describe("a held job", () => {
   });
 });
 
+describe("a job with a neighbor", () => {
+  it("is done by a lesson that counts: a neighbor with a hearth, outside the teacher's household", () => {
+    const w = jobs();
+    hold(w, "ada", "otis_teach");
+    // Eve has no hearth, so her lesson is a lesson and no more.
+    w.ok("eve", { type: "join", name: "eve", kind: "human" });
+    w.standAt("eve", 4, 4);
+    expect(jobEvents(w.ok("ada", { type: "teach", recipe: "lemonade", to: "eve" }))).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "otis_teach", day: w.day() });
+    // The next day, Cy: a neighbor with a home of her own.
+    w.toDay();
+    w.standAt("cy", 4, 4);
+    const events = w.ok("ada", { type: "teach", recipe: "lemonade", to: "cy" });
+    expect(done(events)).toMatchObject({ residentId: "ada", job: "otis_teach", skill: "hosting" });
+    // The learner holds the same job, and learning isn't teaching.
+    hold(w, "cy", "otis_teach");
+    w.standAt("cy", 4, 4);
+    w.ok("ada", { type: "teach", recipe: "tomato_sauce", to: "cy" });
+    expect(held(w, "cy")).toEqual({ job: "otis_teach", day: w.day() });
+  });
+
+  it("is done by a bounty that counts, once a poster a week", () => {
+    const w = jobs();
+    // Bob's bounty counts for Ada's points this week before she takes the job.
+    until(w, "otis_bounty");
+    bounty(w, "bob", "ada");
+    w.ok("ada", { type: "take_job", job: "otis_bounty" });
+    // So his second this week doesn't count, for points or for the job. Dee's does.
+    expect(jobEvents(bounty(w, "bob", "ada"))).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "otis_bounty", day: w.day() });
+    expect(done(bounty(w, "dee", "ada"))).toMatchObject({ residentId: "ada", job: "otis_bounty" });
+  });
+
+  it("is done by the town's bounty too, which a maintainer confirmed", () => {
+    const w = jobs();
+    w.ok("ada", {
+      type: "propose",
+      kind: "bounty",
+      title: "A bridge across the stream",
+      text: "",
+      amount: 2,
+    });
+    const proposal = w.state.town?.proposals.at(-1);
+    for (const name of ["bob", "cy", "dee"]) {
+      w.ok(name, { type: "vote", proposal: proposal?.id ?? "", choice: "yes" });
+    }
+    w.toDay(proposal?.closesDay);
+    w.town({ type: "close_proposal", proposal: proposal?.id ?? "" });
+    const id = w.state.bounties?.list.at(-1)?.id ?? "";
+    w.ok("bob", { type: "claim_bounty", bounty: id });
+    w.ok("bob", { type: "complete_bounty", bounty: id });
+    hold(w, "bob", "otis_bounty");
+    const paid = w.town({
+      type: "confirm_town_bounty",
+      bounty: id,
+      to: "bob",
+      by: "staff_0123456789ab",
+    });
+    expect(done(paid)).toMatchObject({ residentId: "bob", job: "otis_bounty" });
+  });
+
+  it("is done for a guest the server counted, and not for one it left out", () => {
+    const w = jobs();
+    hold(w, "bob", "otis_guest");
+    w.ok("cy", { type: "take_job", job: "otis_guest" });
+    // The host holds it too, and hosting isn't coming.
+    w.ok("ada", { type: "take_job", job: "otis_guest" });
+    const event = party(w, "ada", ["bob", "cy"]);
+    // Both attended by the sim's samples. The server's list has Bob alone.
+    const events = w.town(credit(event, ["bob"]));
+    expect(jobEvents(events)).toMatchObject([{ type: "job_done", residentId: "bob" }]);
+    expect(held(w, "cy")).toEqual({ job: "otis_guest", day: w.day() });
+    expect(held(w, "ada")).toEqual({ job: "otis_guest", day: w.day() });
+  });
+
+  it("is done for a host three guests were counted at, and not for two", () => {
+    const w = jobs();
+    hold(w, "ada", "otis_host");
+    const small = party(w, "ada", ["bob", "cy", "dee"], 10);
+    // Three came, and the server counted two of them.
+    expect(jobEvents(w.town(credit(small, ["bob", "cy"])))).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "otis_host", day: w.day() });
+    // A second event that day, with all three. A host's points are for one event a day, which is
+    // a cap like the daily one: the job is done all the same, and its 10 are all Ada gets here.
+    const full = party(w, "ada", ["bob", "cy", "dee"], 12);
+    const events = w.town(credit(full, ["bob", "cy", "dee"]));
+    expect(jobEvents(events)).toMatchObject([
+      { type: "job_done", residentId: "ada", job: "otis_host", skill: "hosting" },
+    ]);
+    expect(
+      events.flatMap((e) => (e.type === "progress" && e.residentId === "ada" ? [e.points] : [])),
+    ).toEqual([JOBS.points]);
+  });
+
+  it("isn't done by an event that ended before the job was taken, however late its credit comes", () => {
+    const w = jobs();
+    until(w, "otis_guest");
+    w.ok("ada", { type: "take_job", job: "otis_guest" });
+    w.ok("dee", { type: "take_job", job: "otis_guest" });
+    // The event ends, and its credit waits on the server. Meanwhile two guests take Otis's job.
+    const event = party(w, "dee", ["ada", "bob", "cy"]);
+    w.ok("bob", { type: "take_job", job: "otis_guest" });
+    w.ok("cy", { type: "take_job", job: "otis_guest" });
+    // Ada held hers through the event. Bob's and Cy's came after it, and stay as they were.
+    const events = w.town(credit(event, ["ada", "bob", "cy"]));
+    expect(jobEvents(events)).toMatchObject([{ type: "job_done", residentId: "ada" }]);
+    expect(held(w, "bob")).toEqual({ job: "otis_guest", day: w.day() });
+    expect(held(w, "cy")).toEqual({ job: "otis_guest", day: w.day() });
+    // The same for a host: three counted guests at an event that ended before the take.
+    hold(w, "dee", "otis_host");
+    w.ok("bob", { type: "drop_job" });
+    const before = party(w, "bob", ["ada", "cy", "dee"]);
+    hold(w, "bob", "otis_host");
+    // Cy has held her guest job since before this one, so it's hers. Bob's host job isn't.
+    expect(jobEvents(w.town(credit(before, ["ada", "cy", "dee"])))).toMatchObject([
+      { type: "job_done", residentId: "cy", job: "otis_guest" },
+    ]);
+    expect(held(w, "bob")).toEqual({ job: "otis_host", day: w.day() });
+  });
+
+  it("isn't done by an event that ended before jobs opened", () => {
+    const w = jobs({ open: false });
+    const event = party(w, "ada", ["bob", "cy", "dee"]);
+    w.town({ type: "open_jobs" });
+    until(w, "otis_guest");
+    w.ok("bob", { type: "take_job", job: "otis_guest" });
+    const events = w.town(credit(event, ["bob", "cy", "dee"]));
+    // The credit's points are levels' own. No job hears of it.
+    expect(events.some((e) => e.type === "progress")).toBe(true);
+    expect(jobEvents(events)).toEqual([]);
+    expect(held(w, "bob")).toEqual({ job: "otis_guest", day: w.day() });
+  });
+
+  it("is done by a rated game for each seat that chose in it, and Pip's win job only by first place", () => {
+    const w = jobs();
+    hold(w, "ada", "pip_game");
+    w.ok("bob", { type: "take_job", job: "pip_game" });
+    w.ok("cy", { type: "take_job", job: "pip_game" });
+    // Ada wins, Bob plays, and Cy sits down and never chooses.
+    const events = game(w, ["ada", "bob", "cy"], (seat) =>
+      seat === "ada" ? 3 : seat === "bob" ? 2 : null,
+    );
+    expect(jobEvents(events).map((e) => "residentId" in e && e.residentId)).toEqual(["ada", "bob"]);
+    expect(held(w, "cy")).toEqual({ job: "pip_game", day: w.day() });
+    w.ok("cy", { type: "drop_job" });
+    // The win job: the loser's game isn't one.
+    hold(w, "ada", "pip_win");
+    w.ok("bob", { type: "take_job", job: "pip_win" });
+    expect(jobEvents(race(w, ["bob", "ada"]))).toMatchObject([
+      { residentId: "bob", job: "pip_win" },
+    ]);
+    expect(held(w, "ada")).toEqual({ job: "pip_win", day: w.day() });
+    expect(jobEvents(race(w, ["ada", "bob"]))).toMatchObject([
+      { residentId: "ada", job: "pip_win" },
+    ]);
+  });
+
+  it("counts two games for the two-game job", () => {
+    const w = jobs();
+    hold(w, "ada", "pip_two_games");
+    expect(jobEvents(race(w, ["bob", "ada"]))).toEqual([
+      { type: "job_progress", residentId: "ada", job: "pip_two_games", count: 1, of: 2 },
+    ]);
+    expect(done(race(w, ["bob", "ada"]))).toMatchObject({ job: "pip_two_games", skill: "playing" });
+  });
+});
+
+describe("what never moves a job", () => {
+  it("anything inside a household: a lesson, a bounty, a game, or an event among themselves", () => {
+    const w = jobs();
+    w.town({ type: "add_owner_pair", pair: ["ada", "cy"] });
+    const untouched = (who: string, id: string) =>
+      expect(held(w, who), id).toEqual({ job: id, day: w.day() });
+
+    hold(w, "ada", "otis_teach");
+    w.standAt("cy", 4, 4);
+    expect(jobEvents(w.ok("ada", { type: "teach", recipe: "lemonade", to: "cy" }))).toEqual([]);
+    untouched("ada", "otis_teach");
+
+    hold(w, "ada", "otis_bounty");
+    expect(jobEvents(bounty(w, "cy", "ada"))).toEqual([]);
+    untouched("ada", "otis_bounty");
+
+    // Seats from one household are unrated, and with them out Dee has nobody to be rated against.
+    hold(w, "ada", "pip_game");
+    w.ok("dee", { type: "take_job", job: "pip_game" });
+    expect(jobEvents(race(w, ["ada", "cy", "dee"]))).toEqual([]);
+    untouched("ada", "pip_game");
+    untouched("dee", "pip_game");
+    w.ok("dee", { type: "drop_job" });
+
+    // Cy came to Ada's event, and the sim won't have her on the guest list.
+    hold(w, "cy", "otis_guest");
+    const event = party(w, "ada", ["cy"]);
+    expect(w.code(TOWN_ACTOR, credit(event, ["cy"]))).toBe("not_eligible");
+    expect(jobEvents(w.town(credit(event, [])))).toEqual([]);
+    untouched("cy", "otis_guest");
+
+    // Three at Ada's event, one of them her own: the list can hold two, which is one short.
+    hold(w, "ada", "otis_host");
+    const three = party(w, "ada", ["bob", "cy", "dee"]);
+    expect(w.code(TOWN_ACTOR, credit(three, ["bob", "cy", "dee"]))).toBe("not_eligible");
+    expect(jobEvents(w.town(credit(three, ["bob", "dee"])))).toEqual([]);
+    untouched("ada", "otis_host");
+    expect(w.state.jobs?.total).toBeUndefined();
+  });
+
+  it("townsfolk on the other side: nobody teaches them, plays them for a rating, or counts them as guests", () => {
+    const w = jobs();
+    w.town({ type: "set_townsfolk", ids: ["dee"] });
+    // Townsfolk know every recipe, so there's nothing to teach one.
+    hold(w, "ada", "otis_teach");
+    w.standAt("dee", 4, 4);
+    expect(w.code("ada", { type: "teach", recipe: "lemonade", to: "dee" })).toBe("already_known");
+    // A lesson from one is a lesson for its learner, and learning moves nothing.
+    hold(w, "cy", "otis_teach");
+    w.standAt("cy", 5, 4);
+    expect(jobEvents(w.ok("dee", { type: "teach", recipe: "lemonade", to: "cy" }))).toEqual([]);
+    // A table with townsfolk and one resident rates nobody.
+    hold(w, "ada", "pip_game");
+    expect(jobEvents(race(w, ["ada", "dee"]))).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "pip_game", day: w.day() });
+    // A townsfolk never posts a bounty, and is never a counted guest.
+    fund(w.state, "dee", 5);
+    expect(w.code("dee", { type: "post_bounty", title: "Fetch", reward: 5 })).toBe("not_eligible");
+    hold(w, "ada", "otis_host");
+    const event = party(w, "ada", ["bob", "cy", "dee"]);
+    expect(w.code(TOWN_ACTOR, credit(event, ["bob", "cy", "dee"]))).toBe("not_eligible");
+    expect(jobEvents(w.town(credit(event, ["bob", "cy"])))).toEqual([]);
+    expect(w.state.jobs?.total).toBeUndefined();
+  });
+
+  it("a routine's step, which is the server's and no deed", () => {
+    const w = jobs();
+    until(w, "juniper_herbs");
+    w.ok("ada", { type: "take_job", job: "juniper_herbs" });
+    const [tile] = ripe(w, "ada", "herb", 1);
+    harvest(w, "ada", tile ?? { x: 0, y: 0 });
+    w.ok("ada", { type: "set_routines", routines: [{ kind: "walk_home", hour: 1 }] });
+    w.ok("ada", { type: "move", dir: "s" });
+    w.ok("ada", { type: "leave" });
+    const before = canonicalJson(w.state.jobs);
+    const events = w.town({
+      type: "routine_step",
+      resident: "ada",
+      routine: "walk_home",
+      step: { type: "home" },
+    });
+    expect(jobEvents(events)).toEqual([]);
+    expect(canonicalJson(w.state.jobs)).toBe(before);
+    expect(held(w, "ada")).toEqual({ job: "juniper_herbs", day: w.day(), count: 1 });
+  });
+});
+
+describe("what the count unlocks", () => {
+  it("nothing before it's reached, in a world with jobs or without", () => {
+    for (const w of [jobs(), jobs({ open: false })]) {
+      for (const title of JOB_TITLES) {
+        expect(w.code("ada", { type: "profile", title }), title).toBe("not_earned");
+      }
+      expect(w.code("ada", wearing("town_satchel"))).toBe("not_earned");
+      // A newcomer can't arrive wearing it either.
+      const arriving = { type: "join", name: "eve", kind: "human", wear: ["town_satchel"] };
+      expect(w.code("eve", arriving as unknown as Command)).toBe("not_earned");
+    }
+  });
+
+  it("a title at 10 jobs finished, a satchel at 25, and a second title at 75, each refused one short", () => {
+    const w = jobs();
+    const title = (id: string | null) => ({ type: "profile", title: id }) as Command;
+    const satchel = wearing("town_satchel");
+
+    playTo(w, "ada", JOBS.titleAt - 1);
+    expect(w.code("ada", title("helping_hand"))).toBe("not_earned");
+    playTo(w, "ada", JOBS.titleAt);
+    expect(w.ok("ada", title("helping_hand"))).toEqual([
+      { type: "title_changed", residentId: "ada", title: "helping_hand" },
+    ]);
+    expect(titleOf(w.state, "ada")).toBe("helping_hand");
+    expect(w.code("ada", title("pillar_of_the_town"))).toBe("not_earned");
+    expect(w.code("ada", satchel)).toBe("not_earned");
+    // Bob, who did none of it, has none of it.
+    expect(w.code("bob", title("helping_hand"))).toBe("not_earned");
+
+    playTo(w, "ada", JOBS.wearAt - 1);
+    expect(w.code("ada", satchel)).toBe("not_earned");
+    playTo(w, "ada", JOBS.wearAt);
+    expect(w.ok("ada", satchel)).toMatchObject([
+      { type: "profile_changed", residentId: "ada", wear: ["town_satchel"] },
+    ]);
+    // It takes the accessory slot, and sorts by it.
+    expect(w.code("ada", wearing("town_satchel", "basket"))).toBe("invalid_profile");
+    w.ok("ada", wearing("town_satchel", "boots", "beret"));
+    expect(w.state.residents.ada?.wear).toEqual(["beret", "town_satchel", "boots"]);
+    expect(w.code("bob", satchel)).toBe("not_earned");
+
+    playTo(w, "ada", JOBS.masterAt - 1);
+    expect(w.code("ada", title("pillar_of_the_town"))).toBe("not_earned");
+    playTo(w, "ada", JOBS.masterAt);
+    expect(w.ok("ada", title("pillar_of_the_town"))).toEqual([
+      { type: "title_changed", residentId: "ada", title: "pillar_of_the_town" },
+    ]);
+    // Three a week: the 75th comes no sooner than the 25th week.
+    expect(w.day() - OPEN).toBeGreaterThanOrEqual(24 * 7);
+    expect(jobsDone(w.state, "ada")).toBe(JOBS.masterAt);
+  });
+
+  it("shows one title at a time, a skill's or a job's", () => {
+    const w = jobs();
+    playTo(w, "ada", JOBS.titleAt);
+    // Ten jobs for home got Ada to Growing 3 on the way, which is a title of its own.
+    const title = (id: string | null) => w.ok("ada", { type: "profile", title: id } as Command);
+    title("helping_hand");
+    expect(w.state.progress?.titles).toEqual({ ada: "helping_hand" });
+    expect(w.code("ada", { type: "profile", title: "helping_hand" })).toBe("invalid_profile");
+    expect(title("gardener")).toEqual([
+      { type: "title_changed", residentId: "ada", title: "gardener" },
+    ]);
+    expect(w.state.progress?.titles).toEqual({ ada: "gardener" });
+    title("helping_hand");
+    expect(title(null)).toEqual([{ type: "title_changed", residentId: "ada", title: null }]);
+    expect(w.state.progress?.titles).toBeUndefined();
+  });
+});
+
+describe("set_job_edition", () => {
+  /**
+   * Run `test` with a second edition in the table: the first one's jobs with Juniper's herbs and
+   * Bram's chair taken out and each lane's order turned round. No second edition has shipped, so
+   * it's put there for the test and taken away after.
+   */
+  function withSecondEdition(test: () => void) {
+    const editions = JOB_EDITIONS as Record<number, readonly Job[]>;
+    editions[2] = TABLE.filter((j) => j.id !== "juniper_herbs" && j.id !== "bram_chair").reverse();
+    try {
+      test();
+    } finally {
+      delete editions[2];
+    }
+  }
+  const edition = (n: unknown) => ({ type: "set_job_edition", edition: n }) as Command;
+
+  it("only comes from the server, for jobs that are open and an edition that exists", () => {
+    const closed = jobs({ open: false });
+    expect(closed.code(TOWN_ACTOR, edition(1))).toBe("not_due");
+    const w = jobs();
+    expect(w.code("ada", edition(1))).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, edition(1))).toBe("already_set");
+    for (const n of [2, 0, -1, 1.5, "1", "__proto__", "constructor", null, undefined]) {
+      expect(w.code(TOWN_ACTOR, edition(n)), String(n)).toBe("server_only");
+    }
+    expect(w.state.jobs).toEqual({ opened: OPEN, edition: 1 });
+  });
+
+  it("changes the board from then on, and no day before it", () => {
+    withSecondEdition(() => {
+      const w = jobs();
+      const first = board(w);
+      const [home = ""] = first;
+      w.ok("ada", { type: "take_job", job: home });
+      const before = hashWorld(w.state);
+      expect(w.town(edition(2))).toEqual([{ type: "job_edition_set", edition: 2 }]);
+      expect(w.state.jobs?.edition).toBe(2);
+      // The same day reads the other table now.
+      const second = board(w);
+      expect(second).not.toEqual(first);
+      expect(second).toHaveLength(JOBS.board);
+      const gone = first.find((id) => !second.includes(id)) ?? "";
+      const come = second.find((id) => !first.includes(id)) ?? "";
+      expect(w.code("bob", { type: "take_job", job: gone })).toBe("unknown_job");
+      w.ok("bob", { type: "take_job", job: come });
+      // And back, which is a logged switch like any other.
+      w.town(edition(1));
+      expect(board(w)).toEqual(first);
+      expect(hashWorld(w.state)).not.toBe(before);
+    });
+  });
+
+  it("replays a take_job logged under the first edition to the same hash after a switch in the same log", () => {
+    // The log: a job taken and finished under edition 1, the switch, and a job under edition 2.
+    const record = () => {
+      const w = jobs();
+      const log: { actor: string; command: Command }[] = [];
+      const send = (actor: string, command: Command) => {
+        w.ok(actor, command);
+        log.push({ actor, command });
+      };
+      const start = w.state.seq;
+      until(w, "juniper_herbs");
+      const state = JSON.stringify(w.state);
+      send("ada", { type: "take_job", job: "juniper_herbs" });
+      send("ada", { type: "drop_job" });
+      send("bob", { type: "take_job", job: board(w)[1] ?? "" });
+      const beforeSwitch = hashWorld(w.state);
+      return { w, log, send, start, state, beforeSwitch };
+    };
+    const replayed = (state: string, log: { actor: string; command: Command }[]) => {
+      const world = JSON.parse(state) as WorldState;
+      for (const input of log)
+        expect(apply(world, input), input.command.type).toMatchObject({ ok: true });
+      return hashWorld(world);
+    };
+    // With only the first edition in the code, the log's first part hashes one way.
+    const alone = record();
+    expect(replayed(alone.state, alone.log)).toBe(alone.beforeSwitch);
+    withSecondEdition(() => {
+      // With a second edition in the code and the switch later in the log, it hashes the same way.
+      const { w, log, send, state, beforeSwitch } = record();
+      expect(beforeSwitch).toBe(alone.beforeSwitch);
+      send(TOWN_ACTOR, edition(2));
+      // Juniper's herbs are today's job under the first edition and no job at all under the second.
+      expect(w.code("ada", { type: "take_job", job: "juniper_herbs" })).toBe("unknown_job");
+      send("ada", { type: "take_job", job: board(w)[0] ?? "" });
+      const whole = hashWorld(w.state);
+      expect(replayed(state, log)).toBe(whole);
+      expect(replayed(state, log.slice(0, 3))).toBe(alone.beforeSwitch);
+    });
+  });
+
+  it("leaves a job held across the switch held, and it still finishes", () => {
+    withSecondEdition(() => {
+      const w = jobs();
+      until(w, "juniper_herbs");
+      w.ok("ada", { type: "take_job", job: "juniper_herbs" });
+      const [first, ...rest] = ripe(w, "ada", "herb", 3);
+      harvest(w, "ada", first ?? { x: 0, y: 0 });
+      w.town(edition(2));
+      // The second edition has no such job, and Ada's is still hers, count and all.
+      expect(JOB_EDITIONS[2]?.some((j) => j.id === "juniper_herbs")).toBe(false);
+      expect(held(w, "ada")).toEqual({ job: "juniper_herbs", day: w.day(), count: 1 });
+      const events = rest.flatMap((tile) => harvest(w, "ada", tile));
+      expect(done(events)).toMatchObject({ job: "juniper_herbs", skill: "growing", total: 1 });
+    });
+  });
+});
+
+describe("merge_resident", () => {
+  const MERGE = MERGE_LOG.findIndex((i) => i.command.type === "merge_resident");
+  const FROM = "r_blaze4";
+  const INTO = "r_blaze";
+  const send = (state: WorldState, command: Command) => {
+    const result = apply(state, { actor: TOWN_ACTOR, command });
+    expectSupplyHolds(state);
+    return result.ok ? result.events : [];
+  };
+  const merging = () => {
+    const state = replay(MERGE_CONFIG, MERGE_LOG.slice(0, MERGE));
+    send(state, { type: "open_levels", firsts: [] });
+    send(state, { type: "open_jobs" });
+    const jobs = state.jobs;
+    if (!jobs) throw new Error("jobs didn't open");
+    return { state, jobs };
+  };
+
+  it("adds the duplicate's count of jobs finished, and drops what it held, its day, and its week", () => {
+    const { state, jobs } = merging();
+    const day = state.day ?? 0;
+    jobs.held = {
+      [FROM]: { job: "juniper_herbs", day, seq: 1, count: 2 },
+      ada: { job: "pip_game", day, seq: 2 },
+    };
+    jobs.doneToday = [FROM, "ada"].sort();
+    jobs.week = { start: weekStart(day), done: { [FROM]: 3, [INTO]: 1 } };
+    jobs.total = { [FROM]: 7, [INTO]: 4, ada: 2 };
+    const events = send(state, { type: "merge_resident", from: FROM, into: INTO });
+    expect(events.filter((e) => e.type.startsWith("job_"))).toEqual([
+      { type: "job_total", residentId: INTO, total: 11 },
+    ]);
+    expect(state.jobs).toEqual({
+      opened: day,
+      edition: 1,
+      held: { ada: { job: "pip_game", day, seq: 2 } },
+      doneToday: ["ada"],
+      // The record that stays keeps its own week: the duplicate's three don't count against it.
+      week: { start: weekStart(day), done: { [INTO]: 1 } },
+      total: { [INTO]: 11, ada: 2 },
+    });
+    expect(JSON.stringify(state.jobs)).not.toContain(FROM);
+  });
+
+  it("gives the record that stays its first count, and leaves a world's jobs bare when nothing was held", () => {
+    const { state, jobs } = merging();
+    const day = state.day ?? 0;
+    jobs.held = { [FROM]: { job: "juniper_herbs", day, seq: 1 } };
+    jobs.doneToday = [FROM];
+    jobs.total = { [FROM]: 10 };
+    expect(send(state, { type: "merge_resident", from: FROM, into: INTO })).toContainEqual({
+      type: "job_total",
+      residentId: INTO,
+      total: 10,
+    });
+    expect(state.jobs).toEqual({ opened: day, edition: 1, total: { [INTO]: 10 } });
+    // Ten jobs is a title, and it's the kept record's now.
+    const blaze = (command: Command) => apply(state, { actor: INTO, command });
+    expect(blaze({ type: "join", name: "Blaze", kind: "agent" }).ok).toBe(true);
+    expect(blaze({ type: "profile", title: "helping_hand" })).toMatchObject({
+      events: [{ type: "title_changed", residentId: INTO, title: "helping_hand" }],
+    });
+  });
+
+  it("moves nothing in a world without jobs, or for a duplicate that never finished one", () => {
+    const bare = replay(MERGE_CONFIG, MERGE_LOG.slice(0, MERGE));
+    expect(
+      send(bare, { type: "merge_resident", from: FROM, into: INTO }).some(
+        (e) => e.type === "resident_merged",
+      ),
+    ).toBe(true);
+    expect(bare.jobs).toBeUndefined();
+    const { state } = merging();
+    const events = send(state, { type: "merge_resident", from: FROM, into: INTO });
+    expect(events.filter((e) => e.type.startsWith("job_"))).toEqual([]);
+    expect(state.jobs).toEqual({ opened: state.day, edition: 1 });
+  });
+});
+
+describe("retire_repeat_joins", () => {
+  it("treats a record with a count of jobs finished as used, and refuses the list", () => {
+    const RETIRE = REPEAT_JOINS_LOG.findIndex((i) => i.command.type === "retire_repeat_joins");
+    const listed = REPEAT_JOINS_LOG[RETIRE]?.command as Command;
+    const world = () => {
+      const state = replay(REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG.slice(0, RETIRE));
+      expect(
+        apply(state, { actor: TOWN_ACTOR, command: { type: "open_levels", firsts: [] } }).ok,
+      ).toBe(true);
+      expect(apply(state, { actor: TOWN_ACTOR, command: { type: "open_jobs" } }).ok).toBe(true);
+      return state;
+    };
+    const counted = world();
+    if (counted.jobs) counted.jobs.total = { r_pip2: 1 };
+    const before = hashWorld(counted);
+    expect(apply(counted, { actor: TOWN_ACTOR, command: listed })).toMatchObject({
+      rejection: { code: "not_eligible" },
+    });
+    expect(hashWorld(counted)).toBe(before);
+    // With jobs open and nothing to their name, the same list goes.
+    expect(apply(world(), { actor: TOWN_ACTOR, command: listed }).ok).toBe(true);
+  });
+});
+
 describe("the jobs fixture", () => {
-  it("replays a week of jobs taken, dropped, done, handed in, and lapsed to the pinned hash", () => {
+  it("replays three weeks of jobs, a merge, a game, a lesson, and a title to the pinned hash", () => {
     const state = replay(JOBS_CONFIG, JOBS_LOG);
     expectSupplyHolds(state);
     expect(state.jobs).toEqual({
       opened: 20_059,
       edition: 1,
-      // Bob still holds Clem's job, with only Ada's jar to his name.
-      held: { bob: { job: "clem_herb_tea", day: 20_071 } },
+      // Nobody holds one: Dee's and Bob's lapsed, and Hal's record is gone.
       doneToday: ["eve"],
-      // The second week: Sable's night fish and Clem's tea. The first week's three are gone.
-      week: { start: 20_066, done: { eve: 2 } },
+      // The fourth week has Eve's tenth job in it. The weeks before are gone.
+      week: { start: 20_080, done: { eve: 1 } },
+      // Dee's game and her lesson, and Hal's four-leaf clover, which is Gus's now.
+      total: { eve: 10, gus: 1, dee: 2 },
     });
-    // Five jobs at 10 points on top of her deeds: two for Sable and one for Marlo, Juniper, and Clem.
+    expect(state.progress?.titles).toEqual({ ada: "maker", eve: "helping_hand" });
+    // Ten jobs at 10 points on top of her deeds: seven for Sable and one each for Marlo, Juniper,
+    // and Clem.
     expect(state.progress?.points.eve).toEqual({
       growing: 42,
       making: 44,
-      foraging: 80,
+      foraging: 148,
       hosting: 2,
-      playing: 8,
+      playing: 16,
     });
+    expect(state.residents.hal).toBeUndefined();
     expect(hashWorld(state)).toBe(JOBS_HASH);
   });
 });

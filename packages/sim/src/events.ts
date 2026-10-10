@@ -709,6 +709,9 @@ export function checkEventEnd(
     const settled = settleDeposit(state, e, refund, state.seq + 1);
     e.status = "ended";
     e.closedDay = state.day ?? 0;
+    // Once jobs are open (RFC 0030), which input ended it: `credit_event` comes later, and a job
+    // taken in between is no job the event counts for.
+    if (state.jobs) e.endedSeq = state.seq + 1;
     e.attended = attended;
     delete e.seen;
     return [

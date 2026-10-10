@@ -1,19 +1,36 @@
 import { type Biome, biomeAt } from "./biome";
 import { type CraftKind, type Crop, type FindKind, type RecipeName, recipeOf } from "./catalog";
-import { oneTimeSwitch, refuse } from "./check";
+import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk } from "./economy";
+import { findEvent } from "./events";
 import { findsOpen } from "./gather";
 import { dayName, type Holiday, holidayOf } from "./holiday";
 import { ITEM_ID_PATTERN, ITEM_INFO, inventory, inventoryEvent, isGoodKind } from "./items";
-import { catchCounts, craftCounts, earned, harvestCounts, jobEarns, pickupCounts } from "./levels";
+import {
+  bountyCounts,
+  catchCounts,
+  craftCounts,
+  earned,
+  eventCounts,
+  gameCounts,
+  harvestCounts,
+  jobEarns,
+  lessonCounts,
+  pickupCounts,
+  showTitle,
+  townBountyCounts,
+} from "./levels";
+import { isJobWear, JOB_WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
 import { knownByAll } from "./recipes";
 import { type Season, seasonOf, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
 import type {
   Command,
+  GameTable,
   Good,
   JobsState,
+  JobTitle,
   Rejection,
   ResidentId,
   Skill,
@@ -26,7 +43,9 @@ import type {
  * the sim already knows, done one to three times, or one made thing handed in. Each UTC day the
  * town has three, the same for everyone, read from the day and a frozen table (`jobsOn`), never
  * stored. A resident takes one, does it, and it adds `JOBS.points` to its skill, outside that
- * skill's daily cap. They hold one at a time, finish at most one a day, and three a UTC week.
+ * skill's daily cap. They hold one at a time, finish at most one a day, and three a UTC week. The
+ * count of jobs a resident has finished unlocks two titles and a garment, which show and do
+ * nothing else.
  *
  * Jobs are not coins: nothing here mints, burns, or moves one. A thing handed in leaves the world.
  * Nothing runs until the server logs `open_jobs`, which creates `state.jobs`, so every older log
@@ -35,7 +54,9 @@ import type {
 
 /**
  * The numbers. Once jobs are open in a live world, changing one changes how logged inputs replay,
- * so it needs a logged switch.
+ * so it needs a logged switch. `board`, `held`, and `perDay` say what the rules' own shape is and
+ * no rule reads them: the board has three slots, `jobs.held` holds one job a resident, and
+ * `jobs.doneToday` lists a resident once. Changing one of those takes changing that shape.
  */
 export const JOBS = {
   /** Jobs on the board each UTC day: one for home, one for a walk, one with neighbors. */
@@ -50,7 +71,17 @@ export const JOBS = {
   keepDays: 7,
   /** Points a finished job adds to its skill, outside the skill's daily cap. */
   points: 10,
+  /** Jobs finished that unlock the first title, the garment, and the second title. */
+  titleAt: 10,
+  wearAt: 25,
+  masterAt: 75,
 } as const;
+
+/** Each job title's words, and the count of jobs finished that unlocks it. Fixed, never resident text. */
+export const JOB_TITLE_INFO: Record<JobTitle, { label: string; jobs: number }> = {
+  helping_hand: { label: "Helping hand", jobs: JOBS.titleAt },
+  pillar_of_the_town: { label: "Pillar of the town", jobs: JOBS.masterAt },
+};
 
 /** The townsfolk who give jobs, by handle. Fixed words: a giver holds nothing and decides nothing. */
 export const JOB_GIVERS = [
@@ -391,6 +422,10 @@ export function soloJob(job: Job): boolean {
   }
 }
 
+/** How many jobs a resident has ever finished. Public. */
+export const jobsDone = (state: WorldState, id: ResidentId): number =>
+  own(state.jobs?.total, id) ?? 0;
+
 // ---------- taking and letting go ----------
 
 /**
@@ -444,8 +479,9 @@ export function checkTakeJob(
       `That isn't one of today's jobs. Today's are ${board.map((j) => j.id).join(", ")}.`,
     );
   }
+  const seq = state.seq + 1;
   return () => {
-    jobs.held = { ...(jobs.held ?? {}), [actor]: { job: job.id, day } };
+    jobs.held = { ...(jobs.held ?? {}), [actor]: { job: job.id, day, seq } };
     return [{ type: "job_taken", residentId: actor, job: job.id }];
   };
 }
@@ -472,8 +508,9 @@ export function checkDropJob(state: WorldState, actor: ResidentId): Mutation | R
 
 /**
  * What finishing `job` does, as a commit: the job leaves the resident's hands, they're on today's
- * list, this UTC week's count goes up by one, and the job's points land outside the daily cap. The
- * week's count starts again with the first job finished in a later week.
+ * list, this UTC week's count and their count for good each go up by one, and the job's points
+ * land outside the daily cap. The week's count starts again with the first job finished in a later
+ * week.
  */
 function finishing(state: WorldState, jobs: JobsState, id: ResidentId, job: Job): Mutation {
   const monday = weekStart(state.day as number);
@@ -484,6 +521,8 @@ function finishing(state: WorldState, jobs: JobsState, id: ResidentId, job: Job)
     if (jobs.week?.start !== monday) jobs.week = { start: monday, done: {} };
     const week = (own(jobs.week.done, id) ?? 0) + 1;
     jobs.week.done[id] = week;
+    const total = (own(jobs.total, id) ?? 0) + 1;
+    jobs.total = { ...(jobs.total ?? {}), [id]: total };
     return [
       {
         type: "job_done",
@@ -492,6 +531,7 @@ function finishing(state: WorldState, jobs: JobsState, id: ResidentId, job: Job)
         skill: job.skill,
         points: JOBS.points,
         week,
+        total,
       },
       ...earned(points),
     ];
@@ -503,12 +543,14 @@ type Done =
   | { type: "harvest"; crop: string }
   | { type: "craft"; recipe: RecipeName }
   | { type: "find"; kind: string; biome: Biome }
-  | { type: "fish"; timeOfDay: TimeOfDay };
+  | { type: "fish"; timeOfDay: TimeOfDay }
+  | { type: "teach" }
+  | { type: "guest" }
+  | { type: "host"; guests: number }
+  | { type: "bounty" }
+  | { type: "game"; first: boolean };
 
-/**
- * Whether a deed is the one a job counts. Nothing reports a lesson, a guest, a bounty, or a game
- * yet, so a job that counts one can be taken and doesn't move.
- */
+/** Whether a deed is the one a job counts. */
 function fits(wanted: JobDeed, done: Done): boolean {
   switch (wanted.type) {
     case "harvest":
@@ -529,21 +571,34 @@ function fits(wanted: JobDeed, done: Done): boolean {
         done.type === "fish" &&
         (wanted.timeOfDay === undefined || done.timeOfDay === wanted.timeOfDay)
       );
-    default:
-      return false;
+    case "teach":
+    case "guest":
+    case "bounty":
+      return done.type === wanted.type;
+    case "host":
+      return done.type === "host" && done.guests >= wanted.guests;
+    case "game":
+      return done.type === "game" && (wanted.first !== true || done.first);
   }
 }
 
 /**
  * What deeds a resident just did add to the job they hold, as a commit for the deed's own commit
  * to run, or null: with no job held, a bring job, or no deed that fits. A deed moves only a job
- * taken before it, since the count starts when the job is taken. When the count is reached the job
- * is done, in that same commit.
+ * taken before it, since the count starts when the job is taken. A deed that's reported in a later
+ * input than it was done in says when it was done (`doneAt`, a `seq`), and a job taken since then
+ * doesn't move. When the count is reached the job is done, in that same commit.
  */
-function moving(state: WorldState, id: ResidentId, done: readonly Done[]): Mutation | null {
+function moving(
+  state: WorldState,
+  id: ResidentId,
+  done: readonly Done[],
+  doneAt?: number,
+): Mutation | null {
   const jobs = state.jobs;
   const held = own(jobs?.held, id);
   if (!jobs || !held) return null;
+  if (doneAt !== undefined && held.seq >= doneAt) return null;
   const job = jobById(held.job);
   const wanted = job?.deed;
   if (!job || !wanted) return null;
@@ -594,6 +649,75 @@ export const catchJob = (
   timeOfDay: TimeOfDay,
 ) => (catchCounts(state, id, caught) ? moving(state, id, [{ type: "fish", timeOfDay }]) : null);
 
+/**
+ * The deeds with a second resident read their points' rule too, and that rule is what keeps a
+ * household or a ring from feeding itself: the other side is outside your household, has a hearth,
+ * could vote, was counted by the event's own samples, or sat in a seat rated at the start. Townsfolk
+ * are never the other side of any of them.
+ */
+
+/** A lesson `teacher` gave `learner`, for the job the teacher holds. */
+export const lessonJob = (state: WorldState, teacher: ResidentId, learner: ResidentId) =>
+  lessonCounts(state, teacher, learner) ? moving(state, teacher, [{ type: "teach" }]) : null;
+
+/** A resident's bounty its poster just paid `claimant` for. */
+export const bountyJob = (
+  state: WorldState,
+  poster: ResidentId,
+  claimant: ResidentId,
+  reward: number,
+) =>
+  bountyCounts(state, poster, claimant, reward)
+    ? moving(state, claimant, [{ type: "bounty" }])
+    : null;
+
+/** A town bounty or a released grant a maintainer just paid `claimant` for. */
+export const townBountyJob = (state: WorldState, claimant: ResidentId) =>
+  townBountyCounts(state, claimant) ? moving(state, claimant, [{ type: "bounty" }]) : null;
+
+/** Every commit in `moves`, as one, or null when there's none. */
+const together = (moves: readonly (Mutation | null)[]): Mutation | null => {
+  const real = moves.filter((move) => move !== null);
+  return real.length > 0 ? () => real.flatMap((move) => move()) : null;
+};
+
+/** A game that just ended, for each seat it counts for: a rated seat that chose in it. */
+export const gameJob = (
+  state: WorldState,
+  table: GameTable,
+  rounds: readonly Readonly<Record<ResidentId, number | null>>[],
+  places: Readonly<Record<ResidentId, number>>,
+  away: readonly ResidentId[],
+) =>
+  together(
+    gameCounts(state, table, rounds, places, away).map((seat) =>
+      moving(state, seat.resident, [{ type: "game", first: seat.first }]),
+    ),
+  );
+
+/**
+ * A `credit_event` the sim just took: each guest it counts, and the host with how many guests the
+ * list holds. `apply.ts` runs it after the credit's own commit, and only for a list `credit_event`
+ * accepted, so a guest the event's samples didn't see, one in the host's household, and townsfolk
+ * never reach it. The credit comes after the event, sometimes long after, so the deed is dated by
+ * the input that ended the event (`endedSeq`): a job taken after that doesn't move, and neither
+ * does any job for an event that ended before jobs opened.
+ */
+export function creditJob(
+  state: WorldState,
+  command: Extract<Command, { type: "credit_event" }>,
+): Mutation | null {
+  const e = findEvent(state, command.event);
+  const ended = e?.endedSeq;
+  if (!e || ended === undefined) return null;
+  const { guests } = command;
+  const counted = eventCounts(state, e.host, guests);
+  return together([
+    counted.host ? moving(state, e.host, [{ type: "host", guests: guests.length }], ended) : null,
+    ...counted.guests.map(({ id }) => moving(state, id, [{ type: "guest" }], ended)),
+  ]);
+}
+
 // ---------- handing in ----------
 
 /** A made thing's place in the order things were made: ids come from one counter. */
@@ -602,8 +726,9 @@ const madeOrder = (good: Good) => Number(good.id.slice(2));
 /**
  * `hand_in {item?}`: finish the bring job you hold with a thing of its recipe that you made
  * yourself, your oldest or the one `item` names. Refused when you hold no bring job (`no_job`),
- * and when you hold nothing of the kind that you made, or `item` isn't one (`nothing_to_hand_in`):
- * a thing someone else made, given or bought, never finishes a job. The thing leaves the world.
+ * for someone made townsfolk since they took it (`not_eligible`), and when you hold nothing of the
+ * kind that you made, or `item` isn't one (`nothing_to_hand_in`): a thing someone else made, given
+ * or bought, never finishes a job. The thing leaves the world.
  */
 export function checkHandIn(
   state: WorldState,
@@ -614,6 +739,10 @@ export function checkHandIn(
   const items = state.items;
   const held = own(jobs?.held, actor);
   if (!jobs || !items || !held) return refuse("no_job", "You aren't holding a job.");
+  // Someone made townsfolk while they held a job: townsfolk never finish one.
+  if (isTownsfolk(state, actor)) {
+    return refuse("not_eligible", "Townsfolk give the town's jobs and never finish one.");
+  }
   const job = jobById(held.job);
   const recipe = job?.bring;
   if (!job || recipe === undefined) {
@@ -684,6 +813,93 @@ export function checkOpenJobs(state: WorldState): Mutation | Rejection {
     },
     event: { type: "jobs_opened" },
   });
+}
+
+/**
+ * `set_job_edition {edition}`, which only TOWN_ACTOR sends: the board reads that edition of the
+ * table from now on. Days before it were read under the edition they had, so a `take_job` logged
+ * then replays against the board it saw. A job held across the switch stays held and still
+ * finishes, since `jobById` knows every edition's jobs.
+ */
+export function checkSetJobEdition(
+  state: WorldState,
+  command: Extract<Command, { type: "set_job_edition" }>,
+): Mutation | Rejection {
+  const jobs = state.jobs;
+  if (!jobs) return refuse("not_due", "Jobs aren't open in this world yet.");
+  const { edition } = command;
+  if (!isWhole(edition) || !Object.hasOwn(JOB_EDITIONS, edition)) {
+    return refuse("server_only", "The server names an edition of the jobs table that exists.");
+  }
+  if (edition === jobs.edition) {
+    return refuse("already_set", `The board already reads edition ${edition}.`);
+  }
+  return () => {
+    jobs.edition = edition;
+    return [{ type: "job_edition_set", edition }];
+  };
+}
+
+// ---------- what the count unlocks ----------
+
+/**
+ * What a `profile`'s `title` does when it's a title from jobs finished: a rejection short of its
+ * count (`not_earned`, which is every job title before `open_jobs`), else what `showTitle` does.
+ * The title is kept where a skill's is, so a resident shows one or the other.
+ */
+export function checkJobTitle(
+  state: WorldState,
+  id: ResidentId,
+  title: JobTitle,
+): Mutation | Rejection | undefined {
+  const { label, jobs } = JOB_TITLE_INFO[title];
+  const mine = jobsDone(state, id);
+  if (mine < jobs) {
+    return refuse(
+      "not_earned",
+      `${label} comes with ${jobs} jobs finished, and you've finished ${mine}.`,
+    );
+  }
+  return showTitle(state, id, title);
+}
+
+/**
+ * The first job garment in `wear` that the resident hasn't finished enough jobs for, as a
+ * `not_earned` rejection, or null. `join` and `profile` call it beside the skills' earned wear.
+ */
+export function unearnedJobWear(
+  state: WorldState,
+  id: ResidentId,
+  wear: readonly unknown[],
+): Rejection | null {
+  const mine = jobsDone(state, id);
+  const item = wear.find(isJobWear);
+  if (item === undefined || mine >= JOBS.wearAt) return null;
+  return refuse(
+    "not_earned",
+    `The ${JOB_WEAR_INFO[item].label.toLowerCase()} comes with ${JOBS.wearAt} jobs finished, and you've finished ${mine}.`,
+  );
+}
+
+/**
+ * What `merge_resident` does to jobs: `from`'s count of jobs finished joins `into`'s, with a
+ * `job_total` for `into`, and what only counts toward now is dropped: the job `from` held, their
+ * place on today's list, and their count this week.
+ */
+export function mergeJobs(state: WorldState, from: ResidentId, into: ResidentId): WorldEvent[] {
+  const jobs = state.jobs;
+  if (!jobs) return [];
+  letGo(jobs, from);
+  const today = (jobs.doneToday ?? []).filter((id) => id !== from);
+  if (today.length > 0) jobs.doneToday = today;
+  else delete jobs.doneToday;
+  if (jobs.week && Object.hasOwn(jobs.week.done, from)) delete jobs.week.done[from];
+  const theirs = own(jobs.total, from);
+  if (!jobs.total || theirs === undefined) return [];
+  delete jobs.total[from];
+  const total = (own(jobs.total, into) ?? 0) + theirs;
+  jobs.total[into] = total;
+  return [{ type: "job_total", residentId: into, total }];
 }
 
 /**

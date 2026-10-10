@@ -30,6 +30,8 @@ import {
   ITEM_KINDS,
   isFishKind,
   JOB_EDITIONS,
+  JOB_TITLES,
+  JOB_WEAR,
   PATTERNS,
   PET_COATS,
   PET_KINDS,
@@ -403,17 +405,37 @@ describe("jobs, before the API opens them (RFC 0030)", () => {
   const id = "r_0123456789abcdef";
 
   it("reach nothing here: no action, field, event, error code, route, or published word", () => {
-    // No action takes a job, lets one go, or hands one in, and the switch is the server's alone.
+    // No action takes a job, lets one go, or hands one in, and the switches are the server's alone.
     const actions = [
       { type: "take_job", job: "bram_chair" },
       { type: "drop_job" },
       { type: "hand_in" },
       { type: "hand_in", item: "i_1" },
       { type: "open_jobs" },
+      { type: "set_job_edition", edition: 2 },
     ];
     for (const action of actions) {
       expect(Action.safeParse(action).success, action.type).toBe(false);
       expect(ACTION_TYPES).not.toContain(action.type);
+    }
+    // A profile takes no title from jobs finished, and no wear list their garment, on a join either.
+    for (const title of JOB_TITLES) {
+      expect(Action.safeParse({ type: "profile", title }).success, title).toBe(false);
+      expect(
+        WorldEvent.safeParse({ type: "title_changed", residentId: id, title }).success,
+        title,
+      ).toBe(false);
+    }
+    for (const wear of JOB_WEAR) {
+      expect(Action.safeParse({ type: "profile", wear: [wear] }).success, wear).toBe(false);
+      expect(
+        Action.safeParse({ type: "profile", wearStyle: { [wear]: { color: "sun" } } }).success,
+        wear,
+      ).toBe(false);
+      expect(
+        CreateSessionRequest.safeParse({ name: "Ada", kind: "human", wear: [wear] }).success,
+        wear,
+      ).toBe(false);
     }
     // Their refusals aren't error codes the API can answer with.
     const refusals = ["job_held", "job_limit", "unknown_job", "no_job", "nothing_to_hand_in"];
@@ -427,8 +449,18 @@ describe("jobs, before the API opens them (RFC 0030)", () => {
       count: 1,
       of: 3,
       week: 1,
+      total: 1,
+      edition: 2,
     };
-    const events = ["jobs_opened", "job_taken", "job_progress", "job_done", "job_dropped"];
+    const events = [
+      "jobs_opened",
+      "job_taken",
+      "job_progress",
+      "job_done",
+      "job_dropped",
+      "job_total",
+      "job_edition_set",
+    ];
     for (const type of events) {
       expect(WorldEvent.safeParse({ type, ...fields }).success, type).toBe(false);
     }
@@ -447,6 +479,8 @@ describe("jobs, before the API opens them (RFC 0030)", () => {
       "handed_in",
       "/v1/jobs",
       '"jobs"',
+      ...JOB_TITLES,
+      ...JOB_WEAR,
       ...Object.values(JOB_EDITIONS).flatMap((jobs) => jobs.map((job) => job.id)),
     ];
     for (const word of words) expect(published, word).not.toContain(word);

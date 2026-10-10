@@ -7,6 +7,7 @@ import {
   ownerPaired,
   pairSkipsCaps,
 } from "./economy";
+import { bountyJob, townBountyJob } from "./jobs";
 import { bountyEarns, earned, townBountyEarns } from "./levels";
 import { residentById } from "./own";
 import type {
@@ -214,6 +215,7 @@ export function checkConfirmTownBounty(
   const at = { seq: state.seq + 1, day };
   const grant = b.grant === true && b.proposal !== undefined ? b.proposal : null;
   const points = townBountyEarns(state, to);
+  const job = townBountyJob(state, to);
   return () => {
     const paid = movePurse(econ, to, b.reward, grant ? "grant" : "bounty", at);
     b.by = by;
@@ -225,6 +227,7 @@ export function checkConfirmTownBounty(
         ? [{ type: "grant_paid", proposal: grant, to, amount: b.reward } as WorldEvent]
         : []),
       ...earned(points),
+      ...earned(job),
     ];
   };
 }
@@ -601,6 +604,7 @@ export function checkConfirmBounty(
   }
   const at = { seq: state.seq + 1, day };
   const points = bountyEarns(state, actor, to, b.reward);
+  const job = bountyJob(state, actor, to, b.reward);
   return () => {
     if (!paired) econ.today.received[to] = received + b.reward;
     const paid = movePurse(econ, to, b.reward, "bounty", at, { with: actor });
@@ -609,6 +613,7 @@ export function checkConfirmBounty(
       paid,
       { type: "bounty_paid", bounty: b.id, claimant: to, reward: b.reward },
       ...earned(points),
+      ...earned(job),
     ];
   };
 }

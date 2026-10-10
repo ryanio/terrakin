@@ -798,6 +798,9 @@ const madeOrder = (good: Good) => Number(good.id.slice(2));
  * for someone made townsfolk since they took it (`not_eligible`), and when you hold nothing of the
  * kind that you made, or `item` isn't one (`nothing_to_hand_in`): a thing someone else made, given
  * or bought, never finishes a job. The thing leaves the world.
+ *
+ * A thing a duplicate record made counts as made by the record it was merged into: a merge is one
+ * person's two records becoming one, and a made thing keeps the id that made it.
  */
 export function checkHandIn(
   state: WorldState,
@@ -827,6 +830,7 @@ export function checkHandIn(
     ? ITEM_INFO[recipe as CraftKind].name.toLowerCase()
     : recipe;
   const { item } = command;
+  const mine = (g: Good) => g.maker === actor || own(state.mergedResidents, g.maker) === actor;
   let good: Good | undefined;
   if (item !== undefined) {
     good =
@@ -839,14 +843,14 @@ export function checkHandIn(
         `You don't hold ${wanted} with that id. Leave out item to hand in the oldest one you made.`,
       );
     }
-    if (good.maker !== actor) {
+    if (!mine(good)) {
       return refuse(
         "nothing_to_hand_in",
         "Someone else made that one. A job takes only a thing you made yourself.",
       );
     }
   } else {
-    good = ofKind.filter((g) => g.maker === actor).sort((a, b) => madeOrder(a) - madeOrder(b))[0];
+    good = ofKind.filter(mine).sort((a, b) => madeOrder(a) - madeOrder(b))[0];
     if (!good) {
       return refuse(
         "nothing_to_hand_in",

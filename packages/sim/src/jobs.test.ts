@@ -1176,6 +1176,34 @@ describe("hand_in", () => {
     expect(w.state.items?.inventories.ada?.goods.map((g) => g.id)).toContain(jam);
   });
 
+  it("takes a thing a duplicate record made once it's merged into yours, and from nobody else", () => {
+    const w = jobs();
+    until(w, "clem_herb_tea");
+    // Eve is Cy's second record: she makes two cups in Ada's kitchen and gives one to Bob.
+    w.ok("eve", { type: "join", name: "eve", kind: "human" });
+    w.standAt("eve", 4, 3);
+    const cups = [0, 1].map(() => {
+      const made = make(w, "eve", "herb_tea").find((e) => e.type === "inventory");
+      return made?.type === "inventory" ? (made.gained?.[0]?.id ?? "") : "";
+    });
+    const [kept = "", given = ""] = cups;
+    w.standAt("bob", 4, 4);
+    w.ok("eve", { type: "give", item: given, to: "bob" });
+    for (const who of ["bob", "cy"]) w.ok(who, { type: "take_job", job: "clem_herb_tea" });
+    w.ok("eve", { type: "leave" });
+    w.town({ type: "merge_resident", from: "eve", into: "cy" });
+    // The cup is Cy's to hold now, and still says who made it.
+    const tea = w.state.items?.inventories.cy?.goods.filter((g) => g.kind === "herb_tea");
+    expect(tea?.map((g) => [g.id, g.maker])).toEqual([[kept, "eve"]]);
+    // Bob holds a cup the same record made, and it isn't his.
+    expect(w.code("bob", { type: "hand_in" })).toBe("nothing_to_hand_in");
+    expect(w.code("bob", { type: "hand_in", item: given })).toBe("nothing_to_hand_in");
+    expect(done(w.ok("cy", { type: "hand_in", item: kept }))).toMatchObject({
+      residentId: "cy",
+      job: "clem_herb_tea",
+    });
+  });
+
   it("is refused for someone made townsfolk while they held the job", () => {
     const w = jobs();
     until(w, "clem_herb_tea");

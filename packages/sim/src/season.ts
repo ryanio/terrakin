@@ -70,3 +70,9 @@ export function seasonSpan(day: number): { season: Season; start: number; end: n
   const end = first === 12 ? dayOfDate(startYear + 1, 3, 1) : dayOfDate(startYear, first + 3, 1);
   return { season, start, end };
 }
+
+/**
+ * The first day of the UTC week, Monday to Sunday, that world day `day` falls in. Day 0 was a
+ * Thursday.
+ */
+export const weekStart = (day: number) => day - ((day + 3) % 7);

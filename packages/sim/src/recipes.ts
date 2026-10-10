@@ -11,6 +11,7 @@ import {
 import { coinCount as coins, oneTimeSwitch, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
 import { dayName } from "./holiday";
+import { earned, lessonEarns } from "./levels";
 import { own, residentById } from "./own";
 import { type Season, seasonOf } from "./season";
 import {
@@ -505,6 +506,7 @@ export function checkTeach(
     );
   }
   const learner = them.id;
+  const points = lessonEarns(state, actor, learner);
   return () => {
     learn(recipes, learner, recipe);
     items.today.taught ??= {};
@@ -515,7 +517,10 @@ export function checkTeach(
       items.today.teaching ??= {};
       items.today.teaching[actor] = teachingToday(state, actor) + 1;
     }
-    return [{ type: "recipe_learned", residentId: learner, recipe, how: "taught", from: actor }];
+    return [
+      { type: "recipe_learned", residentId: learner, recipe, how: "taught", from: actor },
+      ...earned(points),
+    ];
   };
 }
 

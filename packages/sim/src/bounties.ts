@@ -7,6 +7,7 @@ import {
   ownerPaired,
   pairSkipsCaps,
 } from "./economy";
+import { bountyEarns, earned, townBountyEarns } from "./levels";
 import { residentById } from "./own";
 import type {
   BountiesState,
@@ -212,6 +213,7 @@ export function checkConfirmTownBounty(
   if (isTownsfolk(state, to)) return refuse("not_eligible", "Townsfolk aren't paid bounties.");
   const at = { seq: state.seq + 1, day };
   const grant = b.grant === true && b.proposal !== undefined ? b.proposal : null;
+  const points = townBountyEarns(state, to);
   return () => {
     const paid = movePurse(econ, to, b.reward, grant ? "grant" : "bounty", at);
     b.by = by;
@@ -222,6 +224,7 @@ export function checkConfirmTownBounty(
       ...(grant
         ? [{ type: "grant_paid", proposal: grant, to, amount: b.reward } as WorldEvent]
         : []),
+      ...earned(points),
     ];
   };
 }
@@ -597,11 +600,16 @@ export function checkConfirmBounty(
     );
   }
   const at = { seq: state.seq + 1, day };
+  const points = bountyEarns(state, actor, to, b.reward);
   return () => {
     if (!paired) econ.today.received[to] = received + b.reward;
     const paid = movePurse(econ, to, b.reward, "bounty", at, { with: actor });
     finish(bounties, b, "paid", day);
-    return [paid, { type: "bounty_paid", bounty: b.id, claimant: to, reward: b.reward }];
+    return [
+      paid,
+      { type: "bounty_paid", bounty: b.id, claimant: to, reward: b.reward },
+      ...earned(points),
+    ];
   };
 }
 

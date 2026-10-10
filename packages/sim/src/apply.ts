@@ -86,6 +86,7 @@ import {
   payPantry,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
+import { checkOpenLevels, levelsNewDay } from "./levels";
 import {
   HAIR_COLORS,
   HAIR_STYLES,
@@ -743,6 +744,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkRetireRepeatJoins(state, command));
       case "merge_resident":
         return town(checkMergeResident(state, command));
+      case "open_levels":
+        return town(checkOpenLevels(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -795,7 +798,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const events = command.type === "new_day" ? eventsNewDay(state, command.day) : null;
         const games = command.type === "new_day" ? gamesNewDay(state) : null;
         const knocks = command.type === "new_day" ? halloweenNewDay(state) : null;
-        if (!coins && !items && !shop && !bounties && !events && !games && !knocks) {
+        const levels = command.type === "new_day" ? levelsNewDay(state) : null;
+        if (!coins && !items && !shop && !bounties && !events && !games && !knocks && !levels) {
           return checked;
         }
         return () => [
@@ -807,6 +811,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(events ? events() : []),
           ...(games ? games() : []),
           ...(knocks ? knocks() : []),
+          ...(levels ? levels() : []),
         ];
       }
       default:

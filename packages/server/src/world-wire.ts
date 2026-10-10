@@ -62,7 +62,11 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "owner_pair_removed" ||
       e.type === "maintainers_set" ||
       e.type === "implicit_presence_on" ||
-      e.type === "event_ticked"
+      e.type === "event_ticked" ||
+      // Levels (RFC 0029) are in the sim and not on the API yet: no level event goes out.
+      e.type === "levels_opened" ||
+      e.type === "progress" ||
+      e.type === "level_reached"
     ) {
       continue;
     }

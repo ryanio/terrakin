@@ -128,6 +128,9 @@ function inputs(id: string, day: number): [string, Command][] {
     town({ type: "retire_repeat_joins", ids: [id] }),
     town({ type: "merge_resident", from: id, into: "ada" }),
     town({ type: "merge_resident", from: "ada", into: id }),
+    // The one-time credit names residents and kinds (RFC 0029).
+    town({ type: "open_levels", firsts: [{ resident: id, kinds: ["lemon"] }] }),
+    town({ type: "open_levels", firsts: [{ resident: "ada", kinds: [id] }] }),
     town({ type: "routine_step", resident: id, routine: "walk_home", step: { type: "home" } }),
     town({ type: "routine_step", resident: "ada", routine: id, step: { type: "home" } } as Command),
     ada({ type: "set_routines", routines: [{ kind: id, hour: 1 }] } as Command),

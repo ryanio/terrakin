@@ -511,6 +511,42 @@ export interface WorldState {
    * stayed. Absent until the first merge; `join` refuses these ids from then on.
    */
   mergedResidents?: Record<ResidentId, ResidentId>;
+  /**
+   * Levels (RFC 0029): each resident's points by skill, and the kinds they've had a first for.
+   * Absent until `open_levels`, so worlds from before it hash as they always have. Levels aren't
+   * stored: `levelOf` reads them from the points.
+   */
+  progress?: ProgressState;
+}
+
+/** The five skills (RFC 0029). New skills go on the end. */
+export const SKILLS = ["growing", "making", "foraging", "hosting", "playing"] as const;
+export type Skill = (typeof SKILLS)[number];
+
+/** Points by skill. A skill at 0 is absent. */
+export type SkillPoints = Partial<Record<Skill, number>>;
+
+export interface ProgressState {
+  /** All-time points by resident and skill. A resident with none is absent. */
+  points: Record<ResidentId, SkillPoints>;
+  /** The kinds each resident has had a first for, sorted, across every skill. */
+  firsts: Record<ResidentId, string[]>;
+  /**
+   * Points earned in each season since levels opened, keyed by the season's first world day
+   * (`seasonSpan(day).start`), then by resident and skill. Firsts count; the one-time credit at
+   * `open_levels` doesn't. Absent until the first points after the switch, and a season is absent
+   * until someone earns in it. Nothing reads it yet: it's kept so a season board can come later
+   * with its history.
+   */
+  seasons?: Record<string, Record<ResidentId, SkillPoints>>;
+  /** Today's points toward each skill's daily cap. Absent until the day's first, and `new_day` drops it. */
+  today?: Record<ResidentId, SkillPoints>;
+  /**
+   * This UTC week's bounties that counted, each claimant against the posters who paid them,
+   * sorted. `start` is the week's Monday. Absent until the first, and it starts again with the
+   * first counted bounty of a later week, as `games.week` does.
+   */
+  week?: { start: number; bounties: Record<ResidentId, ResidentId[]> };
 }
 
 /** The party games (RFC 0011). New games go on the end. */
@@ -1398,6 +1434,13 @@ export type Command =
    * the world, its coins and things go to `into`, and its plots are released.
    */
   | { type: "merge_resident"; from: ResidentId; into: ResidentId }
+  /**
+   * From now on, deeds earn points toward levels (RFC 0029). `firsts` is the one-time credit for
+   * what happened before: for each resident who has any, the kinds in their collection book that a
+   * first would count (crops, made kinds, finds, and fish). The server builds it from the book,
+   * which the sim can't see; the sim checks every entry and refuses the whole list otherwise.
+   */
+  | { type: "open_levels"; firsts: FirstsCredit[] }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1473,6 +1516,12 @@ export interface RatingChange {
 }
 
 /** One resident's award in `daily_awards`. */
+/** One resident's part of `open_levels`'s one-time credit: the kinds that count as firsts. */
+export interface FirstsCredit {
+  resident: ResidentId;
+  kinds: string[];
+}
+
 export interface DailyAward {
   to: ResidentId;
   amount: number;
@@ -1531,6 +1580,7 @@ export const SERVER_COMMANDS = [
   "lower_holiday_prices",
   "retire_repeat_joins",
   "merge_resident",
+  "open_levels",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1875,6 +1925,27 @@ export type WorldEvent =
       /** The people-against-AIs tally after it, when this game added to it. */
       tally?: { people: number; agents: number };
     }
+  /** Levels are open (RFC 0029): from now on deeds earn points. Public. */
+  | { type: "levels_opened" }
+  /**
+   * A resident earned `points` in `skill`. Private: it belongs to `residentId` alone, like `coins`.
+   * `firsts` are the kinds that were a first, when any were. `total` is the skill's points after,
+   * and `today` what the skill has counted toward today's cap. Emitted only when points were added.
+   */
+  | {
+      type: "progress";
+      residentId: ResidentId;
+      skill: Skill;
+      points: number;
+      firsts?: string[];
+      total: number;
+      today: number;
+    }
+  /**
+   * A resident reached `level`: in `skill`, or their own level when `skill` is absent. One event
+   * for the level they're at now, however many they passed on the way. Public.
+   */
+  | { type: "level_reached"; residentId: ResidentId; skill?: Skill; level: number }
   /**
    * `by` cast a line into the water at (x, y) and caught `caught`: a fish, an old boot they threw
    * back, or nothing (RFC 0023). Public, like a gather.

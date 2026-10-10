@@ -1,7 +1,9 @@
 import { isWhole, refuse } from "./check";
 import { isTownsfolk, sameHousehold } from "./economy";
 import { tileKey } from "./keys";
+import { earned, gameEarns } from "./levels";
 import { own, residentById } from "./own";
+import { weekStart } from "./season";
 import { setStorey } from "./storeys";
 import { townEligibility } from "./town";
 import type {
@@ -243,9 +245,6 @@ export function oneHousehold(state: WorldState, a: string, b: string): boolean {
 
 const pairKey = (a: string, b: string) => (a < b ? `${a}+${b}` : `${b}+${a}`);
 const sortedPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
-
-/** The first day of the UTC week, Monday to Sunday, that world day `day` falls in. Day 0 was a Thursday. */
-const weekStart = (day: number) => day - ((day + 3) % 7);
 
 /**
  * Which seats a game starting now is rated for, and which pairs of them count. A seat is rated
@@ -788,6 +787,7 @@ export function checkCloseRound(
   if (late) return late;
   const result = outcome(state, t);
   const { at } = command;
+  const points = result.end ? gameEarns(state, t, result.end.places) : null;
   return () => {
     t.rounds.push({ ...result.moves });
     t.board = { ...result.board };
@@ -841,6 +841,7 @@ export function checkCloseRound(
         ratings: end.changes.map((c) => ({ ...c })),
         ...(added && games.tally ? { tally: { ...games.tally } } : {}),
       },
+      ...earned(points),
     ];
   };
 }

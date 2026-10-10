@@ -24,6 +24,7 @@ import {
   POND,
 } from "./items";
 import { tileKey } from "./keys";
+import { catchEarns, earned } from "./levels";
 import { type Season, seasonOf } from "./season";
 import { upstairsProblem } from "./storeys";
 import { isTimeOfDay, type TimeOfDay } from "./time-of-day";
@@ -241,6 +242,7 @@ export function checkFish(
     );
   }
   const caught = catchOf(roll, seasonOf(state.day as number), timeOfDay, weather);
+  const points = catchEarns(state, actor, caught);
   return () => {
     items.today.casts ??= {};
     items.today.casts[actor] = cast + 1;
@@ -249,6 +251,7 @@ export function checkFish(
       const change = addStack(inventory(items, actor), caught, 1);
       events.push(inventoryEvent(actor, "caught", [change]));
     }
+    events.push(...earned(points));
     return events;
   };
 }

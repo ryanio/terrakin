@@ -391,6 +391,32 @@ describe("Action", () => {
   });
 });
 
+describe("levels, before the API opens them (RFC 0029)", () => {
+  it("reach nothing here: no action, event, route, or published word", () => {
+    // The sim's switch is the server's alone, and no action is named for it.
+    expect(Action.safeParse({ type: "open_levels", firsts: [] }).success).toBe(false);
+    expect(ACTION_TYPES).not.toContain("open_levels");
+    // No event schema knows a level event, so none can be on the wire.
+    const fields = {
+      residentId: "r_0123456789abcdef",
+      skill: "growing",
+      points: 2,
+      total: 2,
+      today: 2,
+      level: 2,
+    };
+    for (const type of ["levels_opened", "progress", "level_reached"]) {
+      expect(WorldEvent.safeParse({ type, ...fields }).success, type).toBe(false);
+    }
+    // No route serves them, and the published API and the skill file say nothing of them.
+    expect(ROUTES.filter((r) => /progress|level/.test(r.path)).map((r) => r.path)).toEqual([]);
+    const published = `${JSON.stringify(buildOpenApi())}\n${skillApiBlock()}`;
+    for (const word of ["open_levels", "levels_opened", "level_reached", "/v1/progress"]) {
+      expect(published, word).not.toContain(word);
+    }
+  });
+});
+
 describe("settle, starter home, and sharing actions", () => {
   it("accepts the new actions", () => {
     expect(Action.parse({ type: "settle", px: 3, py: 2 })).toEqual({

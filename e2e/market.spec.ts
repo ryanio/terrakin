@@ -57,7 +57,7 @@ test("list a jar that a neighbor buys from the stall; a reported listing taken d
     // Paying is a second tap.
     await expect(buy).toHaveText("Tap again to pay 4 coins");
     await buy.click();
-    await expect(page.locator("#site-toast")).toContainText("You bought jar");
+    await expect(page.locator("#site-toast")).toContainText("You bought a jar");
     await expect(stall).toHaveCount(0);
     // The buy is a line in Nils's purse (buying at home may also collect today's allowance).
     const ledger = (await read(page.request, nils.token, "/v1/purse")).purse.ledger;

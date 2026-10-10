@@ -58,6 +58,23 @@ function aMadeThing(kind: ItemKind): string {
   return byTheContainer ? name.toLowerCase() : aThing(kind);
 }
 
+/**
+ * A thing by the name a shelf shows it under, in a sentence: "a paper lantern", "an apron", "a
+ * string of lights". A name that is already more than one ("glasses", "lemon seeds", "bat wings")
+ * takes no article; what tells is the word before any "of".
+ */
+export function aNamed(name: string): string {
+  const low = name.toLowerCase();
+  const head = low.split(" of ")[0] ?? low;
+  if (/[^s]s$/.test(head)) return low;
+  return `${/^([aeiou]|herb\b)/.test(low) ? "an" : "a"} ${low}`;
+}
+
+/** What a market lot was, once bought: "a jar", "lemon jam", "3 lemons". */
+export function lotWords(kind: ItemKind, count: number): string {
+  return count > 1 ? thingCount(kind, count) : aMadeThing(kind);
+}
+
 /** A family's name as a heading, from the most general: "Food › Fruit". */
 export const familyLabel = (family: Family) =>
   familyPath(family)

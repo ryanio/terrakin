@@ -11,6 +11,7 @@ import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
 import {
   admiredLine,
+  aNamed,
   aThing,
   byFamily,
   catchLine,
@@ -19,6 +20,7 @@ import {
   dayLabel,
   growthLine,
   inventoryLine,
+  lotWords,
   missingLine,
   NO_PLOT_LINE,
   needsLine,
@@ -486,5 +488,32 @@ describe("collection words", () => {
     // Late on December 31 in UTC is still this year; the day itself never shifts a timezone.
     expect(dayLabel(oct6, Date.UTC(2026, 11, 31, 23, 30))).toBe("Oct 6");
     expect(dayLabel(oct6, Date.UTC(2027, 0, 1, 0, 30))).toBe("Oct 6, 2026");
+  });
+});
+
+describe("what was bought, in a sentence", () => {
+  it("gives a shelf's name its article, and none to a name that's already more than one", () => {
+    const cases: [string, string][] = [
+      ["Paper lantern", "a paper lantern"],
+      ["Apron", "an apron"],
+      ["Umbrella", "an umbrella"],
+      ["Herb sachet", "an herb sachet"],
+      ["Dress", "a dress"],
+      ["String of lights", "a string of lights"],
+      ["Bag of sugar", "a bag of sugar"],
+      ["Lemonade recipe", "a lemonade recipe"],
+      ["Glasses", "glasses"],
+      ["Lemon seeds", "lemon seeds"],
+      ["Bat wings", "bat wings"],
+      ["Jars of herb tea", "jars of herb tea"],
+    ];
+    for (const [name, words] of cases) expect(aNamed(name), name).toBe(words);
+  });
+
+  it("says a market lot as one thing, a made good, or how many", () => {
+    expect(lotWords("jar", 1)).toBe("a jar");
+    expect(lotWords("lemon_jam", 1)).toBe("lemon jam");
+    expect(lotWords("fishing_rod", 1)).toBe("a fishing rod");
+    expect(lotWords("lemon", 3)).toBe("3 lemons");
   });
 });

@@ -26,7 +26,7 @@ import { api } from "./api";
 import { savedResidentId, savedToken } from "./net";
 import { balanceLine, coins } from "./purse";
 import { reportMenu } from "./report-sheet";
-import { thingName } from "./things";
+import { lotWords, thingName } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 /** A price to start the form at: what the town pays, else the shop's price, else 3 a thing. */
@@ -275,7 +275,7 @@ export function marketView(ctx: ViewContext): View {
           : void act(
               button,
               { type: "buy_listing", listing: l.id },
-              `You bought ${l.name.toLowerCase()}.`,
+              `You bought ${lotWords(l.kind, l.count)}.`,
             ),
       );
     };
@@ -419,7 +419,7 @@ export async function stallCard(seller: { id: string; name: string }): Promise<H
         : void act(
             button,
             { type: "buy_listing", listing: l.id },
-            `You bought ${l.name.toLowerCase()}.`,
+            `You bought ${lotWords(l.kind, l.count)}.`,
           ),
     );
   });

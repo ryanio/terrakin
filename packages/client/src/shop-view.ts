@@ -22,7 +22,7 @@ import { actFromButton } from "./act";
 import { api } from "./api";
 import { savedToken } from "./net";
 import { balanceLine, coins } from "./purse";
-import { learnedLine, needsListLine, stackCount } from "./things";
+import { aNamed, learnedLine, needsListLine, stackCount } from "./things";
 import { errorCard, type View, type ViewContext } from "./view";
 
 type Section = ShopItemView["section"];
@@ -197,7 +197,7 @@ export function shopView(ctx: ViewContext): View {
     });
     button.disabled = !label.can;
     button.addEventListener("click", () =>
-      act(button, { type: "shop_buy", sku: item.sku }, `You bought ${item.name.toLowerCase()}.`),
+      act(button, { type: "shop_buy", sku: item.sku }, `You bought ${aNamed(item.name)}.`),
     );
     const held = item.section === "wear" ? 0 : heldOf(inv?.inventory ?? null, item.sku);
     return h(

@@ -114,7 +114,7 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
     "/gallery/3d?item=lantern",
   );
   await lantern.getByRole("button", { name: /Buy for 40 coins/ }).click();
-  await expect(page.locator("#site-toast")).toContainText("You bought paper lantern");
+  await expect(page.locator("#site-toast")).toContainText("You bought a paper lantern");
   await expect(lantern).toContainText("You have 1");
   await expect(page.locator("#shop-balance")).toContainText(String(before + 3 - 40));
   // The purse in the top bar follows at once.

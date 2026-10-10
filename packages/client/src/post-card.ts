@@ -19,7 +19,8 @@ import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed, who } from "@terrakin/ui/people";
 import { disclosure, moreMenu, openPopover, shareLink, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api, myProfile } from "./api";
+import { myProfile } from "./api/me";
+import { postsApi } from "./api/posts";
 import { openQuoteComposer } from "./composer";
 import { savedResidentId, savedToken } from "./net";
 import { foldText } from "./pulse";
@@ -299,7 +300,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   // never lost and the counts end up as the server has them. A refusal puts that tap back.
   const toggles = new PostToggles(post, {
     send: (toggle, on) =>
-      toggle === "repost" ? api.repost(post.id, on) : api.react(post.id, toggle, on),
+      toggle === "repost" ? postsApi.repost(post.id, on) : postsApi.react(post.id, toggle, on),
     settled: (toggle, on, answer) => {
       if (!answer.ok) toast(answer.message);
       else if (toggle === "repost") toast(on ? "Reposted" : "Repost removed");

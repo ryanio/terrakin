@@ -104,11 +104,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /class: "[^"]*\b(form-error|error|composer-error)\b/, use: "errorLine (ui.ts)" },
   {
     pattern: /\.data\.error\.message/,
-    use: "actProblem (packages/client/src/api.ts)",
-    home: "packages/client/src/api.ts",
+    use: "actProblem (packages/client/src/api/world.ts)",
+    home: "packages/client/src/api/world.ts",
   },
   {
-    pattern: /toast\(problem \?\? \w+\)|whileBusy\(\w+, \(\) => api\.act\(action\)\)/,
+    pattern: /toast\(problem \?\? \w+\)|whileBusy\(\w+, \(\) => worldApi\.act\(action\)\)/,
     use: "actFromButton (packages/client/src/act.ts)",
     home: "packages/client/src/act.ts",
   },

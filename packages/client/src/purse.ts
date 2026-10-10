@@ -9,7 +9,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, formatCount, pluralWord } from "@terrakin/ui/format";
 import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
 import { visiblePoll } from "@terrakin/ui/poll";
-import { api } from "./api";
+import { purseApi } from "./api/purse";
 import { liveToast, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
 
@@ -183,7 +183,7 @@ export function makePurse(): HTMLAnchorElement {
 const poll = visiblePoll(
   async () => {
     const target = pill;
-    const r = await api.purse();
+    const r = await purseApi.purse();
     if (r.ok && target === pill) paint(r.data, true);
   },
   { everyMs: 60_000, minGapMs: 15_000, ready: () => Boolean(pill && savedToken()) },

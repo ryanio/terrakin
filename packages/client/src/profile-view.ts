@@ -45,15 +45,13 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import {
-  actProblem,
-  api,
-  forgetMe,
-  myProfile,
-  rememberMyProfile,
-  uploadMedia,
-  whoseKey,
-} from "./api";
+import { gesturesApi } from "./api/gestures";
+import { inventoryApi } from "./api/inventory";
+import { forgetMe, myProfile, rememberMyProfile, whoseKey } from "./api/me";
+import { uploadMedia } from "./api/media";
+import { postsApi } from "./api/posts";
+import { residentsApi } from "./api/residents";
+import { actProblem, worldApi } from "./api/world";
 import { bannerArt, designArt } from "./banner-art";
 import { hostingWords } from "./event-format";
 import { syncPost } from "./feed-view";
@@ -127,8 +125,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     main.replaceChildren(...skeletonPosts(2));
     const [profile, early] =
       "id" in target
-        ? await Promise.all([api.profile(target.id), api.residentPosts(target.id)])
-        : [await api.byHandle(target.handle), undefined];
+        ? await Promise.all([residentsApi.profile(target.id), postsApi.residentPosts(target.id)])
+        : [await residentsApi.byHandle(target.handle), undefined];
     if (destroyed) return;
     if (!profile.ok) {
       if (profile.status === 404) {
@@ -146,7 +144,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     id = resident.id;
     const link = canonical();
     if (link) link.href = new URL(profilePath(id), location.origin).href;
-    const posts = early ?? (await api.residentPosts(id));
+    const posts = early ?? (await postsApi.residentPosts(id));
     if (destroyed) return;
     ctx.setTitle(`${resident.name} on Terrakin`);
     const top = header(resident);
@@ -197,7 +195,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       mine: savedToken() !== null && savedResidentId() === r.id,
       signedIn: savedToken() !== null,
       refresh: async () => {
-        const again = await api.profile(r.id);
+        const again = await residentsApi.profile(r.id);
         if (destroyed || !again.ok || !card?.isConnected) return;
         const next = petCardFor(again.data.resident);
         if (next) card.replaceWith(next);
@@ -237,7 +235,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     }
     const more = moreButton("Show more posts", async () => {
       if (!next) return;
-      const r = await api.residentPosts(id, next);
+      const r = await postsApi.residentPosts(id, next);
       if (destroyed) return;
       if (!r.ok) return r.message;
       add(r.data.posts);
@@ -323,7 +321,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
      * resident's position, so this reads the world snapshot.
      */
     async function plotUnderThem(): Promise<{ px: number; py: number } | string> {
-      const w = await api.world();
+      const w = await worldApi.world();
       if (!w.ok) return w.message;
       const there = everyoneIn(w.data).find((p) => p.id === r.id);
       if (!there?.online) return "They just stepped away.";
@@ -614,7 +612,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       };
 
       async function save(avatar: string | null, busy: HTMLButtonElement) {
-        const res = await whileBusy(busy, () => api.updateProfile({ avatar }));
+        const res = await whileBusy(busy, () => residentsApi.updateProfile({ avatar }));
         if (destroyed) return;
         if (!res.ok) {
           toast(res.message);
@@ -699,7 +697,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     paint();
 
     async function save(banner: string | null, busy: HTMLButtonElement) {
-      const res = await whileBusy(busy, () => api.updateProfile({ banner }));
+      const res = await whileBusy(busy, () => residentsApi.updateProfile({ banner }));
       if (destroyed) return;
       if (!res.ok) {
         toast(res.message);
@@ -848,7 +846,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
   /** The Home section, which reloads itself from the profile after its plot is named. */
   function homeSectionFor(r: ProfileView): HTMLElement | null {
     const section = homeSection(r, async () => {
-      const again = await api.profile(r.id);
+      const again = await residentsApi.profile(r.id);
       if (destroyed || !again.ok || !section?.isConnected) return;
       const next = homeSectionFor(again.data.resident);
       if (next) section.replaceWith(next);
@@ -966,7 +964,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           "A handle is 3 to 20 letters, numbers, or underscores, and starts with a letter.";
         return;
       }
-      const res = await whileBusy(save, () => api.updateProfile({ handle: parsed.data }));
+      const res = await whileBusy(save, () => residentsApi.updateProfile({ handle: parsed.data }));
       if (destroyed) return;
       if (!res.ok) {
         error.textContent = res.message;
@@ -1025,7 +1023,9 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     });
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const res = await whileBusy(save, () => api.updateProfile({ bio: input.value.trim() }));
+      const res = await whileBusy(save, () =>
+        residentsApi.updateProfile({ bio: input.value.trim() }),
+      );
       if (destroyed) return;
       if (!res.ok) {
         error.textContent = res.message;
@@ -1085,7 +1085,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     );
 
     const send = async (kind: GestureKind, from: HTMLElement, note?: string) => {
-      const res = await api.gesture(r.id, { kind, ...(note ? { note } : {}) });
+      const res = await gesturesApi.gesture(r.id, { kind, ...(note ? { note } : {}) });
       if (destroyed) return false;
       if (!res.ok) {
         toast(res.message);
@@ -1122,7 +1122,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     };
     for (const g of gestureChoices([], 0, me.id, r.sharesPlot)) row.append(button(g));
     // Close-only gestures (a kiss) join the row in their place once the history says you're close.
-    void api.gestures(r.id).then((res) => {
+    void gesturesApi.gestures(r.id).then((res) => {
       if (destroyed || !res.ok) return;
       paintStreak(res.data.streaks[0]?.streak ?? 0);
       const streak = res.data.streaks[0]?.streak ?? 0;
@@ -1280,7 +1280,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       }
       const text = note.value.trim();
       const res = await whileBusy(give, () =>
-        api.act({ type: "give_coins", to: r.id, amount: n, ...(text ? { note: text } : {}) }),
+        worldApi.act({ type: "give_coins", to: r.id, amount: n, ...(text ? { note: text } : {}) }),
       );
       if (destroyed) return;
       const problem = actProblem(res);
@@ -1372,7 +1372,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       pick.replaceChildren();
       stacked.clear();
       status.textContent = "Looking in your things…";
-      const res = await api.inventory();
+      const res = await inventoryApi.inventory();
       if (destroyed) return;
       if (!res.ok) {
         status.textContent = res.message;
@@ -1410,7 +1410,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       const text = note.value.trim();
       // A gift gesture carries the thing, so they hear about it live and can send it back.
       const res = await whileBusy(give, () =>
-        api.gesture(r.id, { kind: "gift", item, ...many, ...(text ? { note: text } : {}) }),
+        gesturesApi.gesture(r.id, { kind: "gift", item, ...many, ...(text ? { note: text } : {}) }),
       );
       if (destroyed) return;
       if (!res.ok) return toast(res.message);
@@ -1448,7 +1448,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       h("span", { text: "Send a secret kiss" }),
     );
     kissItem.addEventListener("click", async () => {
-      const res = await whileBusy(kissItem, () => api.gesture(r.id, { kind: "kiss" }));
+      const res = await whileBusy(kissItem, () => gesturesApi.gesture(r.id, { kind: "kiss" }));
       if (destroyed) return;
       menu.close();
       toast(res.ok ? sentLine("kiss", r.name, res.data) : res.message);
@@ -1464,7 +1464,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       () => !r.blocked,
     );
     const block = async () => {
-      const res = await whileBusy(blockItem, () => api.block(r.id, !r.blocked));
+      const res = await whileBusy(blockItem, () => residentsApi.block(r.id, !r.blocked));
       if (destroyed) return;
       if (!res.ok) {
         toast(res.message);
@@ -1504,7 +1504,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         submitLabel: `Join and follow ${r.name}`,
         busyLabel: "Joining…",
         async onSubmit(choice) {
-          const made = await api.createSession({
+          const made = await worldApi.createSession({
             name: choice.name,
             kind: "human",
             ...choice.look,
@@ -1512,7 +1512,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           });
           if (!made.ok) return joinProblem(made.code, made.message);
           saveToken(made.data.token, made.data.residentId);
-          const followed = await api.follow(r.id, true);
+          const followed = await residentsApi.follow(r.id, true);
           if (destroyed) return null;
           toast(followed.ok ? `You're in, and you follow ${r.name}.` : "You're in.", {
             href: "/world",
@@ -1779,7 +1779,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         error.textContent = "Nothing to change yet. Pick a new color, shape, or note.";
         return;
       }
-      const res = await whileBusy(save, () => api.setLook(changes));
+      const res = await whileBusy(save, () => worldApi.setLook(changes));
       if (destroyed) return;
       const problem = actProblem(res);
       if (problem) {
@@ -1811,7 +1811,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       r.followed = !before.followed;
       r.followers = Math.max(0, before.followers + (r.followed ? 1 : -1));
       paint();
-      const res = await api.follow(r.id, r.followed);
+      const res = await residentsApi.follow(r.id, r.followed);
       busy = false;
       if (destroyed) return;
       if (res.ok) {
@@ -1866,7 +1866,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         toast(`You praised ${r.name} today. You can again tomorrow.`);
         return;
       }
-      const res = await whileBusy(b, () => api.praise(r.id));
+      const res = await whileBusy(b, () => residentsApi.praise(r.id));
       if (destroyed) return;
       if (!res.ok) {
         toast(res.message);

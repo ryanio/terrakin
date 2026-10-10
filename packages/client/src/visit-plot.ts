@@ -5,7 +5,7 @@
 import type { PlotView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { toast, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { actProblem, worldApi } from "./api/world";
 import { worldLinkPath } from "./world-link";
 
 type PlotAt = { px: number; py: number };
@@ -26,7 +26,7 @@ export async function visitPlot(
   const problem = await whileBusy(button, async () => {
     const at = typeof plot === "function" ? await plot() : plot;
     if (typeof at === "string") return at;
-    const r = await api.act({ type: "visit", px: at.px, py: at.py });
+    const r = await worldApi.act({ type: "visit", px: at.px, py: at.py });
     const code = r.ok && !r.data.ok ? r.data.error.code : undefined;
     if (code === "own_plot") ours = at;
     return code === "already_there" || code === "own_plot" ? null : actProblem(r);

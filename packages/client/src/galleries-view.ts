@@ -11,7 +11,8 @@ import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { skeletonTiles } from "@terrakin/ui/skeleton";
 import { itemRow, itemRows, stateCard, toast, whileBusy, wideLayout } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { galleriesApi } from "./api/galleries";
+import { actProblem, worldApi } from "./api/world";
 import { displayReport, shownName } from "./display-sheet";
 import { savedResidentId, savedToken } from "./net";
 import { pageData } from "./page-data";
@@ -41,7 +42,9 @@ function pieceRow(piece: GalleryPieceView, me: string | null): HTMLLIElement {
       )
     : null;
   admire?.addEventListener("click", async () => {
-    const r = await whileBusy(admire, () => api.act({ type: "admire", x: piece.x, y: piece.y }));
+    const r = await whileBusy(admire, () =>
+      worldApi.act({ type: "admire", x: piece.x, y: piece.y }),
+    );
     const problem = actProblem(r);
     if (problem) return toast(problem);
     const event = r.ok && r.data.ok ? r.data.events.find((e) => e.type === "admired") : undefined;
@@ -135,7 +138,7 @@ export function galleriesView(ctx: ViewContext): View {
   );
 
   const loader = pageData({
-    ask: () => api.galleries(),
+    ask: () => galleriesApi.galleries(),
     fail: failInto(body),
     paint: ({ galleries }) =>
       body.replaceChildren(
@@ -160,7 +163,7 @@ export async function profileGalleries(
   resident: { id: string },
   navigate?: (path: string) => void,
 ): Promise<HTMLElement | null> {
-  const r = await api.galleries(resident.id);
+  const r = await galleriesApi.galleries(resident.id);
   if (!r.ok || r.data.galleries.length === 0) return null;
   return h(
     "section",

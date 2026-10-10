@@ -10,7 +10,7 @@ import { compactCount } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { emptyNote, linkTabs } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { residentsApi } from "./api/residents";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
@@ -95,7 +95,7 @@ export function peopleView(id: string, tab: PeopleTab, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => both(api.profile(id), api[tab](id)),
+    ask: () => both(residentsApi.profile(id), residentsApi[tab](id)),
     paint,
     fail: failInto(el, () => notFoundCard("We couldn't find that resident")),
   });

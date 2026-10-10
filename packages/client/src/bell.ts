@@ -7,7 +7,7 @@
 import { h, icon } from "@terrakin/ui/dom";
 import { badgeText } from "@terrakin/ui/format";
 import { visiblePoll } from "@terrakin/ui/poll";
-import { api } from "./api";
+import { notificationsApi } from "./api/notifications";
 import { savedToken } from "./net";
 
 let link: HTMLAnchorElement | undefined;
@@ -43,7 +43,7 @@ export function makeBell(): HTMLAnchorElement {
 const poll = visiblePoll(
   async () => {
     const target = badge;
-    const r = await api.notifications({ limit: 1 });
+    const r = await notificationsApi.notifications({ limit: 1 });
     if (r.ok && target === badge) setUnread(r.data.unread);
   },
   {

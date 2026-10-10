@@ -8,7 +8,10 @@ import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { checkRow, stateCard, toast } from "@terrakin/ui/ui";
-import { api, myProfile } from "./api";
+import { invitesApi } from "./api/invites";
+import { myProfile } from "./api/me";
+import { residentsApi } from "./api/residents";
+import { worldApi } from "./api/world";
 import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { pageData } from "./page-data";
@@ -92,7 +95,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
       async onSubmit(choice) {
         // Accepting takes a color and shape only; the hair and top follow as a profile change.
         const { color, shape, ...dress } = choice.look;
-        const r = await api.acceptInvite(code, {
+        const r = await invitesApi.acceptInvite(code, {
           name: choice.name,
           kind: "human",
           color,
@@ -111,7 +114,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
         }
         saveToken(r.data.token, r.data.residentId);
         // If the world turns the look down, she's in all the same, in her color.
-        if (Object.keys(dress).length > 0) await api.act({ type: "profile", ...dress });
+        if (Object.keys(dress).length > 0) await worldApi.act({ type: "profile", ...dress });
         try {
           sessionStorage.setItem(ARRIVAL_KEY, arrivalLine(invite.inviter.name, r.data));
         } catch {
@@ -142,7 +145,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
     );
     follow.addEventListener("click", async () => {
       follow.disabled = true;
-      const r = await api.follow(invite.inviter.id, true);
+      const r = await residentsApi.follow(invite.inviter.id, true);
       if (loader.gone()) return;
       if (r.ok) ctx.navigate(profilePath(invite.inviter.id));
       else {
@@ -177,7 +180,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => api.invite(code),
+    ask: () => invitesApi.invite(code),
     paint: ({ invite }) =>
       el.replaceChildren(welcome(invite), savedToken() ? alreadyHere(invite) : onboarding(invite)),
     fail: failInto(el, expiredCard),

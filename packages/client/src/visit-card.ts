@@ -12,7 +12,7 @@ import type { PlotView } from "@terrakin/protocol";
 import { canBuildOn, plotKey, plotOf, trickOrTreatDay } from "@terrakin/sim";
 import { profilePath } from "@terrakin/ui/paths";
 import { whileBusy } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { plotsApi } from "./api/plots";
 import type { Mirror } from "./mirror";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { nextPlot, plotName, weekLine } from "./visits";
@@ -139,7 +139,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     paintKnock();
     el.hidden = false;
     const mine = generation;
-    void api.plot(px, py).then((r) => {
+    void plotsApi.plot(px, py).then((r) => {
       if (mine === generation && r.ok) paint(r.data.plot);
     });
   }
@@ -162,7 +162,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     if (!here) return;
     const mine = generation;
     const name = owner.textContent ?? "this plot";
-    const r = await whileBusy(admire, () => api.admirePlot(here.px, here.py));
+    const r = await whileBusy(admire, () => plotsApi.admirePlot(here.px, here.py));
     if (!r.ok) return o.toast(r.message);
     if (mine === generation) paint(r.data.plot);
     o.toast(`You admired ${name}. They'll be glad.`);
@@ -171,7 +171,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   /** The plots to tour, in the Visit page's order, fetched again once a minute. */
   async function tourPlots(): Promise<PlotView[] | string> {
     if (tour && performance.now() - tour.at < LIST_MS) return tour.plots;
-    const r = await api.plots();
+    const r = await plotsApi.plots();
     if (!r.ok) return r.message;
     tour = { plots: r.data.plots, at: performance.now() };
     return tour.plots;

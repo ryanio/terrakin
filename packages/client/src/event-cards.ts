@@ -20,7 +20,8 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { eventsApi } from "./api/events";
+import { actProblem, worldApi } from "./api/world";
 import {
   defaultStart,
   fromLocalInput,
@@ -52,7 +53,7 @@ export interface EventRowOptions {
 
 /** Go to an event that's on: one `join_event`, then the world. */
 async function goTo(e: EventView, button: HTMLButtonElement, o: EventRowOptions) {
-  const r = await whileBusy(button, () => api.act({ type: "join_event", event: e.id }));
+  const r = await whileBusy(button, () => worldApi.act({ type: "join_event", event: e.id }));
   const problem = actProblem(r);
   if (problem) return toast(problem);
   o.navigate("/world");
@@ -95,7 +96,7 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
       h("span", { text: label }),
     );
     going.addEventListener("click", async () => {
-      const r = await whileBusy(going, () => api.going(e.id, !e.youreGoing));
+      const r = await whileBusy(going, () => eventsApi.going(e.id, !e.youreGoing));
       if (!r.ok) return toast(r.message);
       o.changed();
     });
@@ -108,7 +109,7 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
     const label = "Call it off";
     const off = h("button", { class: "text-button", attrs: { type: "button" }, text: label });
     confirmTwice(off, "Tap again to call it off", async () => {
-      const r = await whileBusy(off, () => api.act({ type: "cancel_event", event: e.id }));
+      const r = await whileBusy(off, () => worldApi.act({ type: "cancel_event", event: e.id }));
       off.textContent = label;
       const problem = actProblem(r);
       if (problem) return toast(problem);
@@ -198,7 +199,7 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
     );
   };
   async function refresh() {
-    const r = await api.events();
+    const r = await eventsApi.events();
     if (!r.ok) return;
     last = { events: r.data, now: Date.parse(r.data.now) };
     paint();
@@ -356,7 +357,7 @@ export function openScheduleSheet(o: ScheduleOptions) {
     const at = places.find((p) => p.key === place) ?? places[0];
     if (!at) return;
     const r = await whileBusy(submit, () =>
-      api.act({
+      worldApi.act({
         type: "schedule_event",
         kind,
         title,

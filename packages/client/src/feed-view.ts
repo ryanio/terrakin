@@ -22,7 +22,11 @@ import { everyVisible } from "@terrakin/ui/poll";
 import { skeletonCard, skeletonPosts } from "@terrakin/ui/skeleton";
 import { copyButton, emptyNote, linkTabs, moreButton, pageLayout, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
-import { api, myProfile } from "./api";
+import { myProfile } from "./api/me";
+import { plotsApi } from "./api/plots";
+import { postsApi } from "./api/posts";
+import { townApi } from "./api/town";
+import { worldApi } from "./api/world";
 import { awayCard } from "./away-card";
 import { type Composer, composer } from "./composer";
 import { newestDevlogCard } from "./devlog-card";
@@ -732,9 +736,9 @@ export function feedView(ctx: ViewContext): View {
     pulseBusy = true;
     const plotsDue = pulse.plotsAt === undefined || Date.now() - pulse.plotsAt >= PLOTS_MS;
     const [w, t, p] = await Promise.all([
-      api.world(),
-      api.town(),
-      plotsDue ? api.plots() : undefined,
+      worldApi.world(),
+      townApi.town(),
+      plotsDue ? plotsApi.plots() : undefined,
     ]);
     pulseBusy = false;
     if (destroyed) return;
@@ -964,7 +968,7 @@ export function feedView(ctx: ViewContext): View {
     empty.replaceChildren();
     more.el.hidden = true;
     end.hidden = true;
-    const r = await api.feed({ following: state.tab === "following" });
+    const r = await postsApi.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation) return;
     loading = false;
     const paint = () => {
@@ -989,7 +993,7 @@ export function feedView(ctx: ViewContext): View {
     if (loading || !state.next) return;
     const gen = generation;
     loading = true;
-    const r = await api.feed({ following: state.tab === "following", before: state.next });
+    const r = await postsApi.feed({ following: state.tab === "following", before: state.next });
     loading = false;
     if (destroyed || gen !== generation) return;
     if (!r.ok) return r.message;
@@ -1052,7 +1056,7 @@ export function feedView(ctx: ViewContext): View {
     if (destroyed || loading || document.visibilityState !== "visible") return;
     lastPoll = Date.now();
     const gen = generation;
-    const r = await api.feed({ following: state.tab === "following" });
+    const r = await postsApi.feed({ following: state.tab === "following" });
     if (destroyed || gen !== generation || !r.ok) return;
     refreshTimes(feed);
     fresh = newPosts(state.posts, r.data.posts);

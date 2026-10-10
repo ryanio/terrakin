@@ -9,7 +9,9 @@ import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, itemRow, itemRows, pageLayout, toast, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api, uploadMedia } from "./api";
+import { inventoryApi } from "./api/inventory";
+import { uploadMedia } from "./api/media";
+import { actProblem, worldApi } from "./api/world";
 import { savedToken } from "./net";
 import { pageData } from "./page-data";
 import { comeHomeButton } from "./purse-view";
@@ -94,7 +96,7 @@ function giftItem(
   });
   confirmTwice(back, "Send it back?", () =>
     whileBusy(back, async () => {
-      const res = await api.act({ type: "decline_gift", gift: g.id });
+      const res = await worldApi.act({ type: "decline_gift", gift: g.id });
       const problem = actProblem(res);
       if (problem) return toast(problem);
       toast(`Sent back to ${g.from?.name ?? "its giver"}`);
@@ -212,7 +214,7 @@ function pieceCard(labelMax: number, made: () => void): HTMLElement {
     if (!media || !text || make.disabled) return;
     const chosen = media;
     const res = await whileBusy(make, () =>
-      api.act({ type: "make_piece", media: chosen.id, title: text }),
+      worldApi.act({ type: "make_piece", media: chosen.id, title: text }),
     );
     const problem = actProblem(res);
     if (problem) {
@@ -396,6 +398,6 @@ export function inventoryView(ctx: ViewContext): View {
     );
   }
 
-  const loader = pageData({ ask: () => api.inventory(), paint, fail: failInto(main) });
+  const loader = pageData({ ask: () => inventoryApi.inventory(), paint, fail: failInto(main) });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

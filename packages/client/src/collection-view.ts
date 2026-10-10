@@ -18,7 +18,8 @@ import { h, icon } from "@terrakin/ui/dom";
 import { isArtKind, itemArt } from "@terrakin/ui/item-art";
 import { profilePath } from "@terrakin/ui/paths";
 import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { collectionApi } from "./api/collection";
+import { residentsApi } from "./api/residents";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
 import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
@@ -156,7 +157,7 @@ export function collectionView(id: string, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => both(api.profile(id), api.collection(id)),
+    ask: () => both(residentsApi.profile(id), collectionApi.collection(id)),
     paint,
     fail: failInto(main, () => notFoundCard("We couldn't find that resident")),
   });

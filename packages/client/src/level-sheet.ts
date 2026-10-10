@@ -30,7 +30,8 @@ import {
   progressBar,
   sheet,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { progressApi } from "./api/progress";
+import { actProblem, worldApi } from "./api/world";
 import { ownSkillRow, publicSkillRow, type SkillRow, titleWords } from "./levels";
 
 export interface LevelSheetOptions {
@@ -111,7 +112,7 @@ function titlePicker(
     async (value) => {
       if (value === shown) return;
       problem.textContent = "";
-      const r = await api.act({ type: "profile", title: value === "none" ? null : value });
+      const r = await worldApi.act({ type: "profile", title: value === "none" ? null : value });
       const why = actProblem(r);
       if (why) {
         // The server said no: the chip that was picked stays picked.
@@ -193,7 +194,7 @@ export function openLevelSheet(o: LevelSheetOptions): void {
   if (!o.mine) return;
 
   list.setAttribute("aria-busy", "true");
-  void api.progress().then((result) => {
+  void progressApi.progress().then((result) => {
     if (!s.dialog.isConnected) return;
     list.removeAttribute("aria-busy");
     if (!result.ok) {

@@ -19,7 +19,8 @@ import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { itemRow, itemRows, kindPill, pageLayout } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { api } from "./api";
+import { inventoryApi } from "./api/inventory";
+import { shopApi } from "./api/shop";
 import { savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
@@ -397,7 +398,7 @@ export function shopView(ctx: ViewContext): View {
 
   // Your things say what you can sell and what you already hold; the page shows without them.
   const loader = pageData({
-    ask: () => withOptional(api.shop(), signedIn ? api.inventory() : null),
+    ask: () => withOptional(shopApi.shop(), signedIn ? inventoryApi.inventory() : null),
     paint: ([shop, inv]) => paint(shop, inv),
     fail: failInto(main),
   });

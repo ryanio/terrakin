@@ -43,7 +43,9 @@ import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
-import { api, whoseKey } from "./api";
+import { inventoryApi } from "./api/inventory";
+import { whoseKey } from "./api/me";
+import { residentsApi } from "./api/residents";
 import {
   blockLine,
   blockShort,
@@ -174,7 +176,7 @@ const GATHER_WAIT_MS = 5000;
 /** The pets you've patted today, from here or anywhere else: the server takes one pat a day. */
 const patsToday = new PatsToday(
   async (owner) => {
-    const r = await api.profile(owner);
+    const r = await residentsApi.profile(owner);
     return r.ok && r.data.resident.pet?.pattedToday === true;
   },
   () => paintPetButton(performance.now()),
@@ -1570,7 +1572,7 @@ climbButton.addEventListener("click", () => {
 
 /** Ask what you hold. Quietly nothing when items aren't open or the request fails. */
 async function loadHoldings() {
-  const r = await api.inventory();
+  const r = await inventoryApi.inventory();
   if (!active || !r.ok) return;
   holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
   rods = rodsIn(r.data.inventory?.goods ?? []);

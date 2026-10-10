@@ -52,7 +52,10 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api, uploadMedia } from "./api";
+import { uploadMedia } from "./api/media";
+import { progressApi } from "./api/progress";
+import { shopApi } from "./api/shop";
+import { actProblem, worldApi } from "./api/world";
 import { colorChips, hairChips, hairColorChips } from "./join-form";
 import { earnedAt, earnedState } from "./levels";
 import { coins } from "./purse";
@@ -554,7 +557,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   }
 
   // The shop says what you own and what the rest costs. Until then shop wear shows locked.
-  void api.shop().then((result) => {
+  void shopApi.shop().then((result) => {
     if (!result.ok) return;
     const owned = new Set<WearItem>([...wardrobe.owned, ...(result.data.you?.wardrobe ?? [])]);
     const prices = new Map((result.data.shop?.items ?? []).map((i) => [i.sku as string, i.price]));
@@ -565,7 +568,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
 
   // Your levels say which earned wear is yours (RFC 0029). Until they answer, and in a world
   // where levels aren't open, earned wear isn't listed.
-  void api.progress().then((result) => {
+  void progressApi.progress().then((result) => {
     if (!result.ok || !result.data.open) return;
     earned = result.data.wear;
     for (const slot of WEAR_SLOTS) fillWearRow(slot);
@@ -909,7 +912,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     error.textContent = "";
     const result = await whileBusy(
       save,
-      () => api.act({ type: "profile", ...changes }),
+      () => worldApi.act({ type: "profile", ...changes }),
       "Saving…",
       saveLabel,
     );

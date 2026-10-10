@@ -8,7 +8,7 @@ import { type DevlogPost, devlogLead } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { shortDate } from "@terrakin/ui/format";
 import { announce, cardBar, closeButton, disclosure } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { devlogApi } from "./api/devlog";
 import { markdownNodes } from "./markdown";
 
 /** The day of the newest post this device is done with. */
@@ -110,9 +110,9 @@ function devlogCard(post: DevlogPost, done: (date: string) => void): HTMLElement
 
 /** The newest post's card, unless this device is done with it. Null when there's none to show. */
 export async function newestDevlogCard(): Promise<HTMLElement | null> {
-  const list = await api.devlog();
+  const list = await devlogApi.devlog();
   const newest = list.ok ? list.data.posts[0] : undefined;
   if (!newest || !showDevlog(newest.date, seenDay())) return null;
-  const one = await api.devlogPost(newest.date);
+  const one = await devlogApi.devlogPost(newest.date);
   return one.ok ? devlogCard(one.data.post, markSeen) : null;
 }

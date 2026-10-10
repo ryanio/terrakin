@@ -36,7 +36,8 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { actProblem, api } from "./api";
+import { gamesApi } from "./api/games";
+import { actProblem, worldApi } from "./api/world";
 import {
   GAME_ABOUT,
   gameName,
@@ -173,7 +174,7 @@ export function gamesView(ctx: ViewContext): View {
 
   /** Read every ladder, and show the first that has anyone on it. */
   async function loadLadders() {
-    const answers = await Promise.all(LADDERS.map((l) => api.ladder(l)));
+    const answers = await Promise.all(LADDERS.map((l) => gamesApi.ladder(l)));
     if (loader.gone()) return;
     ladders = {};
     answers.forEach((r, i) => {
@@ -272,7 +273,7 @@ export function gamesView(ctx: ViewContext): View {
     // The ladders change only when a game ends: read them with the first load, not every refresh.
     ask: async () => {
       const first = Object.keys(ladders).length === 0;
-      const [games] = await Promise.all([api.games(), first ? loadLadders() : undefined]);
+      const [games] = await Promise.all([gamesApi.games(), first ? loadLadders() : undefined]);
       return games;
     },
     paint,
@@ -344,7 +345,7 @@ function openTableSheet(navigate: (path: string) => void) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     error.textContent = "";
-    const r = await whileBusy(submit, () => api.act({ type: "open_table", game, pace }));
+    const r = await whileBusy(submit, () => worldApi.act({ type: "open_table", game, pace }));
     const problem = actProblem(r);
     if (problem) {
       error.textContent = problem;
@@ -634,7 +635,7 @@ export function tableView(id: string, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => api.game(id),
+    ask: () => gamesApi.game(id),
     paint: show,
     fail: failInto(main, () => {
       // Nothing left to count down or ask about.

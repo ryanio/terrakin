@@ -20,7 +20,8 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { residentsApi } from "./api/residents";
+import { actProblem, worldApi } from "./api/world";
 import { canTeachLine, recipeWords } from "./things";
 
 /** The station a recipe is made at, for its row. */
@@ -42,7 +43,7 @@ export const lessonsOf = (p: Pick<ProfileView, "canTeach" | "canLearn">): Lesson
 
 /** Read what a neighbor could teach you and learn from you. Undefined when the read fails. */
 export async function lessonsWith(id: string): Promise<Lessons | undefined> {
-  const r = await api.profile(id);
+  const r = await residentsApi.profile(id);
   return r.ok ? lessonsOf(r.data.resident) : undefined;
 }
 
@@ -80,7 +81,9 @@ export async function openTeachSheet(o: TeachSheetOptions): Promise<boolean> {
     });
     button.addEventListener("click", async () => {
       problem.textContent = "";
-      const r = await whileBusy(button, () => api.act({ type: "teach", recipe, to: o.who.id }));
+      const r = await whileBusy(button, () =>
+        worldApi.act({ type: "teach", recipe, to: o.who.id }),
+      );
       const why = actProblem(r);
       if (why) {
         problem.textContent = why;

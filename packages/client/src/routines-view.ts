@@ -8,7 +8,7 @@ import { h } from "@terrakin/ui/dom";
 import { skLine } from "@terrakin/ui/skeleton";
 import { checkRow, errorLine, moreButton, openOverlay, sheet } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { api } from "./api";
+import { routinesApi } from "./api/routines";
 import { awayList, awayRow } from "./away-card";
 
 /** A UTC hour as the time it is where you are, like "7:00 PM", on the day of `on`. */
@@ -161,7 +161,7 @@ export async function openRoutines(returnTo?: HTMLElement): Promise<void> {
   );
   openOverlay(dialog, undefined, returnTo);
   const load = async () => {
-    const r = await api.routines();
+    const r = await routinesApi.routines();
     if (!dialog.isConnected) return;
     if (!r.ok) {
       const problem = errorLine("routines-error");
@@ -184,7 +184,7 @@ export async function openRoutines(returnTo?: HTMLElement): Promise<void> {
       let next = data.away.next;
       const more = moreButton("Show older", async () => {
         if (!next) return undefined;
-        const page = await api.routines(next);
+        const page = await routinesApi.routines(next);
         if (!page.ok) return page.message;
         list.append(...page.data.away.items.map(awayRow));
         next = page.data.away.next;

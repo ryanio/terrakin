@@ -20,7 +20,8 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { shopApi } from "./api/shop";
+import { actProblem, worldApi } from "./api/world";
 import { needsListLine, recipeWords } from "./things";
 
 /** The cards you can still pick, grouped by station, `first`'s group first. Pure, so tests pin it. */
@@ -51,7 +52,7 @@ export interface RecipePicksOptions {
 
 /** Open the picks sheet in place of `over`. False when there's nothing to pick from. */
 export async function openRecipePicks(o: RecipePicksOptions): Promise<boolean> {
-  const shop = await api.shop();
+  const shop = await shopApi.shop();
   const groups = shop.ok ? pickGroups(shop.data.shop?.recipes ?? [], o.station) : [];
   if (groups.length === 0 || !overlayShowing(o.over)) return false;
   let left = o.picks;
@@ -73,7 +74,7 @@ export async function openRecipePicks(o: RecipePicksOptions): Promise<boolean> {
     button.addEventListener("click", async () => {
       if (!recipe || left === 0) return;
       problem.textContent = "";
-      const r = await whileBusy(button, () => api.act({ type: "pick_recipe", recipe }));
+      const r = await whileBusy(button, () => worldApi.act({ type: "pick_recipe", recipe }));
       const why = actProblem(r);
       if (why) {
         problem.textContent = why;

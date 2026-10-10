@@ -15,7 +15,8 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { plotsApi } from "./api/plots";
+import { postsApi } from "./api/posts";
 
 /** The button on your own profile that takes a photo of your home. */
 export function plotPhotoButton(): HTMLButtonElement {
@@ -27,7 +28,7 @@ export function plotPhotoButton(): HTMLButtonElement {
     label,
   );
   b.addEventListener("click", async () => {
-    const res = await whileBusy(b, () => api.plotPhoto(), "Taking it…", label);
+    const res = await whileBusy(b, () => plotsApi.plotPhoto(), "Taking it…", label);
     if (!res.ok) {
       // The server's words for "no plot" are written for agents, with the action to send.
       toast(
@@ -90,7 +91,7 @@ function openPhotoSheet(mediaId: string, url: string) {
       error.textContent = "Write a few words to go with it.";
       return;
     }
-    const res = await whileBusy(send, () => api.createPost({ text: words, media: [mediaId] }));
+    const res = await whileBusy(send, () => postsApi.createPost({ text: words, media: [mediaId] }));
     if (!res.ok) {
       // Closed while it sent: the error line is gone with it.
       if (overlayShowing(dialog)) error.textContent = res.message;

@@ -19,7 +19,8 @@ import { compactCount, fullDate, isMediaUrl, plural, pluralWord } from "@terraki
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, errorLine, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { ownersApi } from "./api/owners";
+import { residentsApi } from "./api/residents";
 import { bannerArt } from "./banner-art";
 import { type PeopleTab, peoplePath } from "./people-view";
 
@@ -328,7 +329,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       chips.replaceChildren(...bits);
       chips.hidden = bits.length === 0;
     };
-    void api.profile(agent.id).then((r) => {
+    void residentsApi.profile(agent.id).then((r) => {
       if (!destroyed && r.ok) fill(r.data.resident);
     });
 
@@ -369,7 +370,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     };
 
     const unlink = async (button: HTMLButtonElement) => {
-      const r = await whileBusy(button, () => api.unlink(agent.id));
+      const r = await whileBusy(button, () => ownersApi.unlink(agent.id));
       if (destroyed) return;
       if (!r.ok) {
         toast(r.message);
@@ -383,7 +384,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
 
     const showRekey = async () => {
       idle();
-      const r = await api.ownerRekey(agent.id);
+      const r = await ownersApi.ownerRekey(agent.id);
       if (destroyed) return;
       if (!r.ok) {
         toast(r.message);
@@ -394,7 +395,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
 
     const showUpgrade = async () => {
       idle();
-      const r = await api.ownerUpgrade(agent.id);
+      const r = await ownersApi.ownerUpgrade(agent.id);
       if (destroyed) return;
       if (!r.ok) {
         toast(r.message);
@@ -404,7 +405,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     };
 
     const revoke = async (button: HTMLButtonElement) => {
-      const r = await whileBusy(button, () => api.revokeAgent(agent.id));
+      const r = await whileBusy(button, () => ownersApi.revokeAgent(agent.id));
       if (destroyed) return;
       idle();
       if (!r.ok) {
@@ -456,7 +457,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         text: "Get the code",
       });
       get.addEventListener("click", async () => {
-        const r = await whileBusy(get, () => api.ownerRekeyCode(agent.id));
+        const r = await whileBusy(get, () => ownersApi.ownerRekeyCode(agent.id));
         if (destroyed) return;
         if (!r.ok) {
           toast(r.message);
@@ -509,7 +510,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       text: "Ask for a re-key",
     });
     askButton.addEventListener("click", async () => {
-      const r = await whileBusy(askButton, () => api.askOwnerRekey(agent.id));
+      const r = await whileBusy(askButton, () => ownersApi.askOwnerRekey(agent.id));
       if (destroyed) return;
       if (!r.ok) {
         toast(r.message);
@@ -598,7 +599,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         return;
       }
       problem.textContent = "";
-      const r = await whileBusy(approve, () => api.approveUpgrade(agent.id, code));
+      const r = await whileBusy(approve, () => ownersApi.approveUpgrade(agent.id, code));
       if (destroyed) return;
       if (!r.ok) {
         problem.textContent = r.message;
@@ -658,7 +659,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
   }
 
   async function startClaim() {
-    const r = await whileBusy(claimButton, () => api.claimCode());
+    const r = await whileBusy(claimButton, () => ownersApi.claimCode());
     if (destroyed) return;
     if (!r.ok) {
       toast(r.message);
@@ -699,7 +700,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         return;
       }
       if (document.visibilityState !== "visible") return;
-      const r = await api.profile(me.id);
+      const r = await residentsApi.profile(me.id);
       if (destroyed || !r.ok) return;
       const now = r.data.resident.agents ?? [];
       const added = now.find((a) => !known.has(a.id));

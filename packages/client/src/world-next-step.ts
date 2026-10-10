@@ -12,7 +12,8 @@ import { h } from "@terrakin/ui/dom";
 import { everyVisible } from "@terrakin/ui/poll";
 import { toast } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { api } from "./api";
+import { firstVisitApi } from "./api/first-visit";
+import { residentsApi } from "./api/residents";
 import { nextStep, type StepRow, stepHref, stepRows } from "./first-steps";
 import { savedResidentId, savedToken } from "./net";
 import { openPlotNameSheet } from "./plot-name-sheet";
@@ -55,7 +56,7 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
     const me = savedResidentId();
     if (asking || hud?.hidden || !me || !savedToken()) return;
     asking = true;
-    const r = await api.firstVisit();
+    const r = await firstVisitApi.firstVisit();
     asking = false;
     step = r.ok ? nextStep(stepRows(r.data)) : undefined;
     chip.hidden = !step || step.id === "plot";
@@ -66,7 +67,7 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
   const soon = () => setTimeout(() => void refresh(), AFTER_TAP_MS);
 
   async function namePlot(me: string) {
-    const r = await api.profile(me);
+    const r = await residentsApi.profile(me);
     const home = r.ok ? r.data.resident.home : undefined;
     if (home) openPlotNameSheet(home, { after: refresh });
     else press("claim");

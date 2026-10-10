@@ -16,7 +16,7 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { xLinkApi } from "./api/x-link";
 
 /** "@handle on X", linking to the account. `rel="me"` says the account and this profile are one. */
 function xAccountLink(handle: string): HTMLElement | null {
@@ -80,7 +80,7 @@ export function xRow(profile: ProfileView): { el: HTMLElement; paint(mine: boole
     });
     // Disconnecting deletes the link, so it takes a second tap.
     const disarm = confirmTwice(b, "Tap again to disconnect", async () => {
-      const res = await whileBusy(b, () => api.xUnlink());
+      const res = await whileBusy(b, () => xLinkApi.xUnlink());
       if (!res.ok) {
         toast(res.message);
         return;
@@ -114,7 +114,7 @@ function openConnectSheet(onConnected: (profile: ProfileView) => void) {
   void load();
 
   async function load() {
-    const start = await api.xStart();
+    const start = await xLinkApi.xStart();
     if (closed) return;
     if (!start.ok) {
       body.replaceChildren(
@@ -193,7 +193,7 @@ function openConnectSheet(onConnected: (profile: ProfileView) => void) {
         return;
       }
       error.textContent = "";
-      const res = await whileBusy(verify, () => api.xVerify(url), "Checking…");
+      const res = await whileBusy(verify, () => xLinkApi.xVerify(url), "Checking…");
       if (closed) return;
       if (!res.ok) {
         error.textContent = res.message;

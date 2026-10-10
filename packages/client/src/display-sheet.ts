@@ -9,7 +9,7 @@ import { type BlockKind, CATALOG, isFindKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { closeOverlay, errorLine, itemRow, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { inventoryApi } from "./api/inventory";
 import type { DisplayView, ShownFindView } from "./mirror";
 import { openReportSheet, type ReportTarget } from "./report-sheet";
 import { admiredLine, thingCount, thingName } from "./things";
@@ -225,7 +225,7 @@ export function openDisplaySheet(o: DisplaySheetOptions) {
   const list = itemRows([], { className: "display-list" });
   body.append(hint, list);
   openOverlay(s.dialog);
-  void api.inventory().then((r) => {
+  void inventoryApi.inventory().then((r) => {
     if (!r.ok) {
       hint.textContent = r.message;
       return;

@@ -14,7 +14,7 @@ import {
   itemRows,
   progressBar,
 } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { firstVisitApi } from "./api/first-visit";
 import { nextStep, type StepRow, stepHref, stepRound, stepRows } from "./first-steps";
 
 /** The resident this device hid the card for. */
@@ -78,7 +78,7 @@ function stepRow(row: StepRow, me: string): HTMLLIElement {
 /** The card for `me`, or null when every step is done, the card was hidden, or the read failed. */
 export async function firstStepsCard(me: string): Promise<HTMLElement | null> {
   if (hiddenFor(me)) return null;
-  const r = await api.firstVisit();
+  const r = await firstVisitApi.firstVisit();
   if (!r.ok) return null;
   const rows = stepRows(r.data);
   if (!nextStep(rows)) return null;

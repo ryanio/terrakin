@@ -5,7 +5,7 @@
  */
 import type { Action } from "@terrakin/protocol";
 import { toast, whileBusy } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { actProblem, worldApi } from "./api/world";
 import { refreshPurse } from "./purse";
 
 export interface ActOptions {
@@ -24,7 +24,7 @@ export async function actFromButton(
   done: string,
   { gone, after, say = toast }: ActOptions = {},
 ): Promise<boolean> {
-  const r = await whileBusy(button, () => api.act(action));
+  const r = await whileBusy(button, () => worldApi.act(action));
   if (gone?.()) return false;
   const problem = actProblem(r);
   say(problem ?? done);

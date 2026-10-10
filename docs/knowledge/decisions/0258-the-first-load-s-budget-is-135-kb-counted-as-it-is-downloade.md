@@ -32,6 +32,17 @@ Considered: holding the budget at 125 kB until the structural work landed. Every
 
 Considered: `zod/mini`, which would drop most of zod's 141 kB. It means rewriting about 2,100 schema calls in a style that reads worse (decision 0231 measured the count), so it stays ruled out.
 
+## What each step gave back
+
+`node scripts/first-load.ts` after each step. Minified is what is left after tree shaking, summed over the first load's modules.
+
+| Step | Gzipped | Minified | Chunks |
+|------|---------|----------|--------|
+| Before | 125.8 kB | 594 kB | 18 |
+| The REST calls split by area | 126.7 kB | 584 kB | 25 |
+
+Splitting the calls took 10 kB of minified code out of the first load: 8 kB of the protocol (the schemas of your things, the market, bounties, and galleries) and 2 kB of calls. The gzipped number still went up by 0.9 kB. The bundler gives every group of modules that the first load shares with a different set of lazy pages a chunk of its own, the split made seven more such groups, and each chunk is compressed alone and names what it imports and exports.
+
 ## Consequences
 
 - There are 9.2 kB between the first load and its budget. That room is for features, and the structural work is meant to add to it rather than spend it.

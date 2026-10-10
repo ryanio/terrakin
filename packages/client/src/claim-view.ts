@@ -9,7 +9,10 @@ import { h, icon } from "@terrakin/ui/dom";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { errorLine } from "@terrakin/ui/ui";
-import { api, forgetMe, myProfile, type Result, whoseKey } from "./api";
+import { forgetMe, myProfile, whoseKey } from "./api/me";
+import { ownersApi } from "./api/owners";
+import type { Result } from "./api/request";
+import { worldApi } from "./api/world";
 import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { failed, pageData } from "./page-data";
@@ -20,7 +23,7 @@ export function claimView(code: string, ctx: ViewContext): View {
   const el = h("div", { class: "column stack cards page claim-page" });
 
   async function ask(): Promise<Result<[OwnerInviteView, ProfileView | null]>> {
-    const [invite, me] = await Promise.all([api.ownerInvite(code), myProfile()]);
+    const [invite, me] = await Promise.all([ownersApi.ownerInvite(code), myProfile()]);
     if (!invite.ok) return invite;
     // This browser has a character we couldn't load. Joining would replace its key, so don't
     // offer that; try again instead.
@@ -73,7 +76,7 @@ export function claimView(code: string, ctx: ViewContext): View {
         click: async () => {
           setBusy(true);
           error.textContent = "";
-          const r = await api.declineInvite(code);
+          const r = await ownersApi.declineInvite(code);
           if (loader.gone()) return;
           if (!r.ok && r.status !== 404) {
             setBusy(false);
@@ -108,7 +111,7 @@ export function claimView(code: string, ctx: ViewContext): View {
             click: async () => {
               setBusy(true);
               error.textContent = "";
-              const r = await api.confirmInvite(code);
+              const r = await ownersApi.confirmInvite(code);
               if (loader.gone()) return;
               if (!r.ok) {
                 setBusy(false);
@@ -249,7 +252,7 @@ export function claimView(code: string, ctx: ViewContext): View {
       submitLabel: "Join Terrakin",
       busyLabel: "Joining…",
       async onSubmit(choice) {
-        const made = await api.createSession({
+        const made = await worldApi.createSession({
           name: choice.name,
           kind: "human",
           ...choice.look,

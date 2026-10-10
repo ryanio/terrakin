@@ -10,7 +10,9 @@ import { personLink } from "@terrakin/ui/people";
 import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { pageLayout, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api, myProfile } from "./api";
+import { myProfile } from "./api/me";
+import { postsApi } from "./api/posts";
+import { residentsApi } from "./api/residents";
 import { type Composer, composer } from "./composer";
 import { syncPost } from "./feed-view";
 import { pageData } from "./page-data";
@@ -50,8 +52,8 @@ export function postView(id: string, ctx: ViewContext): View {
   /** Who wrote it, and a few more of their posts, in the home wall's card style. */
   async function aboutAuthor(author: AuthorView, shown: string): Promise<void> {
     const [profile, posts] = await Promise.all([
-      api.profile(author.id),
-      api.residentPosts(author.id),
+      residentsApi.profile(author.id),
+      postsApi.residentPosts(author.id),
     ]);
     if (loader.gone()) return;
     const r = profile.ok ? profile.data.resident : undefined;
@@ -158,7 +160,7 @@ export function postView(id: string, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => api.post(id),
+    ask: () => postsApi.post(id),
     paint,
     fail: failInto(main, () => {
       ctx.setTitle("Not found · Terrakin");

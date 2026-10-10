@@ -16,7 +16,7 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { reportsApi } from "./api/reports";
 import { savedToken } from "./net";
 
 const CRISIS_LINE =
@@ -105,7 +105,12 @@ export function openReportSheet(target: ReportTarget) {
     status.textContent = "Sending…";
     const text = note.value.trim();
     const res = await whileBusy(send, () =>
-      api.report({ kind: target.kind, id: target.id, reason, ...(text ? { note: text } : {}) }),
+      reportsApi.report({
+        kind: target.kind,
+        id: target.id,
+        reason,
+        ...(text ? { note: text } : {}),
+      }),
     );
     // Closed while it sent: say it in a toast, since the sheet is gone.
     const showing = overlayShowing(dialog);

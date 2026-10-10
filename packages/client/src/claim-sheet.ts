@@ -17,7 +17,7 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { actProblem, worldApi } from "./api/world";
 import { pickNeighbors, pickWhere, plotPicks } from "./plot-picks";
 import { plotArea } from "./plot-thumb";
 import { worldProblem } from "./things";
@@ -51,7 +51,7 @@ export function openClaimSheet() {
   void fill();
 
   async function fill() {
-    const r = await api.world();
+    const r = await worldApi.world();
     if (!overlayShowing(s.dialog)) return;
     if (!r.ok) {
       body.replaceChildren();
@@ -100,7 +100,9 @@ export function openClaimSheet() {
   /** Settle on the plot. Taken meanwhile, its button says so and the rest stay to pick from. */
   async function settle(button: HTMLButtonElement, pick: { px: number; py: number }) {
     error.textContent = "";
-    const r = await whileBusy(button, () => api.act({ type: "settle", px: pick.px, py: pick.py }));
+    const r = await whileBusy(button, () =>
+      worldApi.act({ type: "settle", px: pick.px, py: pick.py }),
+    );
     if (r.ok && r.data.ok) {
       // The world hears `plot_claimed` and asks about a home next.
       closeOverlay(s.dialog);

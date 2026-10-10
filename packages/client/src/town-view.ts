@@ -45,7 +45,10 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { actProblem, api } from "./api";
+import { eventsApi } from "./api/events";
+import { residentsApi } from "./api/residents";
+import { townApi } from "./api/town";
+import { actProblem, worldApi } from "./api/world";
 import {
   HELD_KINDS,
   PALETTE_TAB_WORDS,
@@ -146,7 +149,7 @@ export function townView(ctx: ViewContext): View {
   const archiveList = h("div", { class: "stack archive-list" });
   const more = moreButton("Show more results", async () => {
     if (!archiveNext) return;
-    const r = await api.archive(archiveNext);
+    const r = await townApi.archive(archiveNext);
     if (destroyed) return;
     if (!r.ok) return r.message;
     addArchive(r.data.proposals, r.data.next);
@@ -162,7 +165,7 @@ export function townView(ctx: ViewContext): View {
     head.replaceChildren();
     side.replaceChildren();
     main.replaceChildren(skeletonCard({ lines: 3 }), skeletonCard());
-    const [t, w, past] = await Promise.all([api.town(), api.world(), api.archive()]);
+    const [t, w, past] = await Promise.all([townApi.town(), worldApi.world(), townApi.archive()]);
     if (destroyed) return;
     if (!t.ok) {
       main.replaceChildren(errorCard(t.message, () => void load()));
@@ -203,7 +206,7 @@ export function townView(ctx: ViewContext): View {
   }
 
   async function refresh() {
-    const [t, w] = await Promise.all([api.town(), api.world()]);
+    const [t, w] = await Promise.all([townApi.town(), worldApi.world()]);
     if (destroyed || !t.ok) return;
     town = t.data;
     if (w.ok) {
@@ -264,7 +267,9 @@ export function townView(ctx: ViewContext): View {
 
   /** The Schedule sheet, with where you can host read fresh, or why you can't yet. */
   async function openHost(button: HTMLButtonElement) {
-    const [r, w] = await whileBusy(button, () => Promise.all([api.events(), api.world()]));
+    const [r, w] = await whileBusy(button, () =>
+      Promise.all([eventsApi.events(), worldApi.world()]),
+    );
     if (destroyed) return;
     if (!r.ok) return toast(r.message);
     // The sheet places a Commons booking from the world's own answer, never a guess.
@@ -529,7 +534,7 @@ export function townView(ctx: ViewContext): View {
   async function send(action: Action, done: string) {
     if (busy) return;
     busy = true;
-    const r = await api.act(action);
+    const r = await worldApi.act(action);
     busy = false;
     if (destroyed) return;
     const problem = actProblem(r);
@@ -542,7 +547,7 @@ export function townView(ctx: ViewContext): View {
 
   async function openSheet() {
     if (!town) return;
-    const w = await api.world();
+    const w = await worldApi.world();
     if (destroyed) return;
     if (w.ok) commons = commonsOf(w.data);
     const c = commons;
@@ -792,7 +797,7 @@ export function townView(ctx: ViewContext): View {
       let to: string | undefined;
       if (kind === "grant") {
         const handle = grantHandle(toInput.value);
-        const found = handle ? await api.byHandle(handle) : null;
+        const found = handle ? await residentsApi.byHandle(handle) : null;
         if (!found?.ok) {
           error.textContent = "Nobody has that handle. Check it on their profile.";
           toInput.focus();
@@ -801,7 +806,7 @@ export function townView(ctx: ViewContext): View {
         to = found.data.resident.id;
       }
       const r = await whileBusy(submit, () =>
-        api.act({
+        worldApi.act({
           type: "propose",
           kind,
           title,
@@ -1001,7 +1006,7 @@ export function townView(ctx: ViewContext): View {
       e.preventDefault();
       const text = input.value.trim();
       if (!text) return;
-      const r = await whileBusy(pin, () => api.pinNotice(text, Number(stay.value())));
+      const r = await whileBusy(pin, () => townApi.pinNotice(text, Number(stay.value())));
       if (destroyed) return;
       if (!r.ok) return toast(r.message);
       input.value = "";
@@ -1020,7 +1025,7 @@ export function townView(ctx: ViewContext): View {
         text: "Take down",
       });
       confirmTwice(button, "Tap again to take down", async () => {
-        const r = await whileBusy(button, () => api.removeNotice(n.id));
+        const r = await whileBusy(button, () => townApi.removeNotice(n.id));
         if (destroyed) return;
         if (!r.ok) {
           button.textContent = "Take down";

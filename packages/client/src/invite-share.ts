@@ -5,7 +5,7 @@
 import { InviteView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { checkRow, copyButton, openOverlay, sheet } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { invitesApi } from "./api/invites";
 import { savedResidentId } from "./net";
 import { inviteLink, reusableInvite } from "./together";
 
@@ -54,11 +54,11 @@ async function getInvite(
   if (
     !fresh &&
     reusableInvite(saved, share, Date.now(), handedOut) &&
-    (await api.invite(saved.code)).ok
+    (await invitesApi.invite(saved.code)).ok
   ) {
     return { invite: saved };
   }
-  const made = await api.createInvite(share);
+  const made = await invitesApi.createInvite(share);
   if (!made.ok) return { error: made.message, code: made.code };
   save(made.data.invite);
   return { invite: made.data.invite };

@@ -17,7 +17,9 @@ import { h, icon } from "@terrakin/ui/dom";
 import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/mentions";
 import { avatarEl, quoteEmbed } from "@terrakin/ui/people";
 import { closeOverlay, errorLine, openOverlay } from "@terrakin/ui/ui";
-import { api, uploadMedia } from "./api";
+import { uploadMedia } from "./api/media";
+import { postsApi } from "./api/posts";
+import { residentsApi } from "./api/residents";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 
 const ACCEPT =
@@ -187,7 +189,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
   let options: (AuthorView & { handle: string })[] = [];
   let active = 0;
   const loadPeople = () => {
-    loadingPeople ??= api.following(me.id).then((r) => {
+    loadingPeople ??= residentsApi.following(me.id).then((r) => {
       people = r.ok ? r.data.residents : [];
     });
     return loadingPeople;
@@ -378,7 +380,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     submit.setAttribute("aria-busy", "true");
     update();
     const media = attachments.flatMap((a) => (a.media ? [a.media.id] : []));
-    const r = await api.createPost({
+    const r = await postsApi.createPost({
       text,
       ...(media.length ? { media } : {}),
       ...(replyTo ? { replyTo } : {}),

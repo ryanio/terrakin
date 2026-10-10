@@ -8,7 +8,7 @@ import type { WorldEvent } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import type { Result } from "@terrakin/ui/http";
 import { closeOverlay, openOverlay, overlayShowing, sheet, whileBusyAll } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { worldApi } from "./api/world";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { pantryWords, worldProblem } from "./things";
 
@@ -70,7 +70,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
       starter,
       status,
       async (): Promise<Result<WorldEvent[]>> => {
-        const built = await api.act({ type: "build_starter_home" });
+        const built = await worldApi.act({ type: "build_starter_home" });
         if (!built.ok) return built;
         if (!built.data.ok) {
           // The world's refusals are worded for agents: say them in HUD words, by their code.
@@ -85,7 +85,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
         const events = [...built.data.events];
         // The pantry comes once you stand on your hearth: step onto it if the build left you off it.
         if (!pantryIn(events) && events.some((e) => e.type === "hearth_set")) {
-          const home = await api.act({ type: "home" });
+          const home = await worldApi.act({ type: "home" });
           if (home.ok && home.data.ok) events.push(...home.data.events);
         }
         return { ok: true, data: events };

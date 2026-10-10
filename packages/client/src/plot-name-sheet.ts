@@ -17,7 +17,7 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { actProblem, api } from "./api";
+import { actProblem, worldApi } from "./api/world";
 
 export interface PlotNameOptions {
   /** After the name changed: reload what the page shows. */
@@ -98,7 +98,7 @@ export function openPlotNameSheet(
   async function send(button: HTMLButtonElement, name: string | null, done: string) {
     error.textContent = "";
     const r = await whileBusy(button, () =>
-      api.act({ type: "name_plot", px: plot.px, py: plot.py, name }),
+      worldApi.act({ type: "name_plot", px: plot.px, py: plot.py, name }),
     );
     const problem = actProblem(r);
     if (problem) {

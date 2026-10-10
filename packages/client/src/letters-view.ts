@@ -18,7 +18,11 @@ import { avatarEl, badges } from "@terrakin/ui/people";
 import { skeletonCard } from "@terrakin/ui/skeleton";
 import { confirmTwice, emptyNote, errorLine, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api, letterImage, myProfile, type Result, UNREAD_EVENT, uploadMedia } from "./api";
+import { lettersApi, UNREAD_EVENT } from "./api/letters";
+import { myProfile } from "./api/me";
+import { letterImage, uploadMedia } from "./api/media";
+import type { Result } from "./api/request";
+import { residentsApi } from "./api/residents";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 import { savedResidentId, savedToken } from "./net";
 import { both, failed, pageData } from "./page-data";
@@ -123,7 +127,7 @@ export function lettersView(ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => withMe(api.letters({ limit: 50 })),
+    ask: () => withMe(lettersApi.letters({ limit: 50 })),
     paint,
     fail: (problem, retry) => el.replaceChildren(title, errorCard(problem.message, retry)),
   });
@@ -196,7 +200,8 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
     // Open every unread letter they sent, so it counts as read, then let the top bar know (even
     // if you've left, since they were read).
     const unread = letters.filter((l) => l.to.id === me.id && l.readAt === null);
-    if (unread.length) void Promise.all(unread.map((l) => api.letter(l.id))).then(unreadChanged);
+    if (unread.length)
+      void Promise.all(unread.map((l) => lettersApi.letter(l.id))).then(unreadChanged);
   }
 
   function header(them: ProfileView): HTMLElement {
@@ -231,7 +236,7 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
     });
     confirmTwice(remove, "Tap again to remove", async () => {
       remove.disabled = true;
-      const r = await api.deleteLetter(letter.id);
+      const r = await lettersApi.deleteLetter(letter.id);
       if (loader.gone()) return;
       if (r.ok) {
         li.remove();
@@ -278,7 +283,8 @@ export function letterThreadView(otherId: string, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => withMe(both(api.profile(otherId), api.letters({ with: otherId, limit: 50 }))),
+    ask: () =>
+      withMe(both(residentsApi.profile(otherId), lettersApi.letters({ with: otherId, limit: 50 }))),
     paint,
     fail: failInto(el, () =>
       notFoundCard("We couldn't find that resident", "They may have moved out."),
@@ -443,7 +449,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     sending = true;
     update();
     const media = picked.flatMap((p) => (p.media ? [p.media.id] : []));
-    const r = await api.sendLetter({ to: to.id, text, ...(media.length ? { media } : {}) });
+    const r = await lettersApi.sendLetter({ to: to.id, text, ...(media.length ? { media } : {}) });
     sending = false;
     if (!r.ok) {
       error.textContent = r.message;

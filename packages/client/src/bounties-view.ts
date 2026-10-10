@@ -18,7 +18,7 @@ import {
   toast,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { api } from "./api";
+import { bountiesApi } from "./api/bounties";
 import { savedResidentId, savedToken } from "./net";
 import { pageData } from "./page-data";
 import { balanceLine, coins } from "./purse";
@@ -351,6 +351,6 @@ export function bountiesView(ctx: ViewContext): View {
     );
   }
 
-  const loader = pageData({ ask: () => api.bounties(), paint, fail: failInto(main) });
+  const loader = pageData({ ask: () => bountiesApi.bounties(), paint, fail: failInto(main) });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

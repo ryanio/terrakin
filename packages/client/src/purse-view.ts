@@ -9,7 +9,7 @@ import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { itemRow, itemRows, pageLayout } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { api } from "./api";
+import { purseApi } from "./api/purse";
 import { savedToken } from "./net";
 import { pageData } from "./page-data";
 import { balanceLine, coins } from "./purse";
@@ -229,6 +229,6 @@ export function purseView(ctx: ViewContext): View {
     );
   }
 
-  const loader = pageData({ ask: () => api.purse(), paint, fail: failInto(main) });
+  const loader = pageData({ ask: () => purseApi.purse(), paint, fail: failInto(main) });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

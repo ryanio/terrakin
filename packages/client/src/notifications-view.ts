@@ -17,7 +17,7 @@ import { avatarEl } from "@terrakin/ui/people";
 import { RULE_WORDS } from "@terrakin/ui/safety";
 import { emptyNote, moreButton } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api } from "./api";
+import { notificationsApi } from "./api/notifications";
 import { setUnread } from "./bell";
 import { levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
@@ -299,7 +299,7 @@ export function notificationsView(ctx: ViewContext): View {
   });
   const more = moreButton("Show more", async () => {
     if (!next) return;
-    const r = await api.notifications({ before: next });
+    const r = await notificationsApi.notifications({ before: next });
     if (loader.gone()) return;
     if (!r.ok) return r.message;
     list.append(...r.data.notifications.map(notificationItem));
@@ -331,13 +331,17 @@ export function notificationsView(ctx: ViewContext): View {
     const newest = notifications[0];
     // Not awaited: the list is in, so the page shows without waiting on this.
     if (unread > 0 && newest) {
-      void api.markRead(newest.id).then((marked) => {
+      void notificationsApi.markRead(newest.id).then((marked) => {
         if (marked.ok) setUnread(marked.data.unread);
       });
     } else setUnread(unread);
   }
 
   el.append(body);
-  const loader = pageData({ ask: () => api.notifications(), paint, fail: failInto(body) });
+  const loader = pageData({
+    ask: () => notificationsApi.notifications(),
+    paint,
+    fail: failInto(body),
+  });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

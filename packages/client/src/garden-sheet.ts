@@ -28,7 +28,7 @@ import {
   overlayShowing,
   sheet,
 } from "@terrakin/ui/ui";
-import { api } from "./api";
+import { inventoryApi } from "./api/inventory";
 import {
   cropOfSeed,
   growthLine,
@@ -333,7 +333,7 @@ export function openTileSheet(o: TileSheetOptions) {
    * or Not now, brings this sheet back, read afresh.
    */
   async function load(askPicks: boolean) {
-    const r = await api.inventory();
+    const r = await inventoryApi.inventory();
     if (!r.ok) {
       hint.textContent = r.message;
       return;

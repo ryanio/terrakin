@@ -21,7 +21,8 @@ import {
   toast,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { api } from "./api";
+import { inventoryApi } from "./api/inventory";
+import { marketApi } from "./api/market";
 import { savedResidentId, savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
@@ -281,7 +282,7 @@ export function marketView(ctx: ViewContext): View {
     let next = market.next;
     const more = moreButton("Show more listings", async () => {
       if (!next) return;
-      const r = await api.market({ before: next });
+      const r = await marketApi.market({ before: next });
       if (loader.gone()) return;
       if (!r.ok) return r.message;
       list.append(...(r.data.market?.listings ?? []).map(row));
@@ -367,7 +368,7 @@ export function marketView(ctx: ViewContext): View {
 
   // Your things say what you can sell and what you already hold; the page shows without them.
   const loader = pageData({
-    ask: () => withOptional(api.market(), signedIn ? api.inventory() : null),
+    ask: () => withOptional(marketApi.market(), signedIn ? inventoryApi.inventory() : null),
     paint: ([market, inv]) => paint(market, inv),
     fail: failInto(main),
   });
@@ -379,7 +380,7 @@ export function marketView(ctx: ViewContext): View {
  * own), and a link to the whole market. Null when they're selling nothing or the market is closed.
  */
 export async function stallCard(seller: { id: string; name: string }): Promise<HTMLElement | null> {
-  const res = await api.market({ seller: seller.id });
+  const res = await marketApi.market({ seller: seller.id });
   if (!res.ok || !res.data.market || res.data.market.listings.length === 0) return null;
   const me = savedToken() ? savedResidentId() : null;
   const balance = res.data.you?.balance ?? null;

@@ -11,7 +11,8 @@ import { personLink } from "@terrakin/ui/people";
 import { skeletonTiles } from "@terrakin/ui/skeleton";
 import { copyButton, kindPill, linkTabs, stateCard, wideLayout } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { api } from "./api";
+import { plotsApi } from "./api/plots";
+import { worldApi } from "./api/world";
 
 import { savedResidentId, savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
@@ -168,7 +169,7 @@ export function visitView(ctx: ViewContext): View {
 
   const loader = pageData({
     // The world draws each plot's picture; the cards show without it.
-    ask: () => withOptional(api.plots(sort), api.world()),
+    ask: () => withOptional(plotsApi.plots(sort), worldApi.world()),
     fail: failInto(body),
     paint: ([{ plots }, world]) =>
       body.replaceChildren(

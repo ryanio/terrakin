@@ -23,7 +23,9 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
-import { actProblem, api } from "./api";
+import { inventoryApi } from "./api/inventory";
+import { residentsApi } from "./api/residents";
+import { actProblem, worldApi } from "./api/world";
 import { coatWord, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
 import { aThing } from "./things";
 
@@ -145,7 +147,7 @@ function openAdoptSheet(o: AdoptOptions = {}) {
     }
     problem.textContent = "";
     const r = await whileBusy(submit, () =>
-      api.act({ type: "adopt_pet", kind, coat, name: called }),
+      worldApi.act({ type: "adopt_pet", kind, coat, name: called }),
     );
     const why = actProblem(r);
     if (why) {
@@ -260,7 +262,7 @@ export async function patPet(
   pet: Pick<Pet, "kind" | "name">,
   say: Say = toast,
 ): Promise<ProfileView | undefined> {
-  const r = await whileBusy(button, () => api.patPet(owner));
+  const r = await whileBusy(button, () => residentsApi.patPet(owner));
   if (!r.ok) {
     say(r.message);
     return undefined;
@@ -289,7 +291,7 @@ async function openTreatSheet(
     list,
   );
   openOverlay(s.dialog);
-  const inv = await api.inventory();
+  const inv = await inventoryApi.inventory();
   if (!inv.ok || !inv.data.inventory) {
     hint.textContent = inv.ok ? "Growing hasn't opened in this world yet." : inv.message;
     return;

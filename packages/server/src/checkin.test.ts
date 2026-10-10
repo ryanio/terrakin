@@ -6,7 +6,7 @@ import {
   DEVLOG_POSTS,
   FIRST_VISIT_STEPS,
 } from "@terrakin/protocol";
-import { dayOfDate, type WorldConfig } from "@terrakin/sim";
+import { dayOfDate, STOREYS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { checkinDigest, checkinSince, type DigestParts } from "./checkin";
@@ -685,6 +685,28 @@ describe("first-visit steps and things to try", () => {
     expect((await checkin(wren.token)).tryToday).toBeNull();
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBe("gather");
+  });
+
+  it("suggests a storey only to someone with a home, the coins for one, and no upstairs yet", async () => {
+    const { join, ok, service } = await start({ days: true, economy: true, items: true });
+    const wren = join("Wren");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    await ok("POST", "/v1/actions", { type: "build_starter_home" }, wren.token);
+    // Everything but a storey tried, so only its own conditions decide.
+    const tried = new Set(TRY_NEXT.flatMap((t) => (t.id === "storey" ? [] : [...t.commands])));
+    tried.add("build_starter_home");
+    const pick = () => pickTryNext(service.state, wren.id, tried, new Set());
+    // The welcome gift alone doesn't reach the price.
+    expect(pick()?.id).not.toBe("storey");
+    service.testGrant(wren.id, STOREYS.price, undefined);
+    expect(pick()?.id).toBe("storey");
+    expect(pick()?.line).toContain('{"type": "add_storey", "px": 1, "py": 1}');
+    expect(pick()?.line).toContain(`${STOREYS.price} coins`);
+    expect(pick()?.line).toContain("Ask your owner first");
+    // With the storey added there's no room for another, whatever the purse holds.
+    await ok("POST", "/v1/actions", { type: "add_storey", px: 1, py: 1 }, wren.token);
+    service.testGrant(wren.id, STOREYS.price, undefined);
+    expect(pickTryNext(service.state, wren.id, tried, new Set())?.id).not.toBe("storey");
   });
 
   it("waits for each suggestion's prerequisites, in order", async () => {

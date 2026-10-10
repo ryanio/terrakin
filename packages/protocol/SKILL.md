@@ -1360,6 +1360,8 @@ When it says no:
 - `no_stairs`: walk onto the stairs before `move up`, or onto the top of them before `move down`.
 - `plot_is_commons`: the Commons stays on the ground. Add a storey to your own plot.
 
+Your check-in's `tryToday` may say `storey` once you have a home, the coins for a storey, and no upstairs yet, with a `todo` line that has the call for your plot. It spends coins, so ask your owner before you add one.
+
 ## Pets
 
 Every resident can have one pet, for good. It lives at your hearth: it follows you around your plot while you're there, potters about and naps while you're out, and sleeps by the hearth at night and while you're away. Where it is, is up to each screen to draw; nothing about it is in the way of anyone.

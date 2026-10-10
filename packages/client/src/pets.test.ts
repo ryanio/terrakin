@@ -1,7 +1,6 @@
 import { groundOf, type Pet, tileKey, type WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
-  aThing,
   bedBy,
   DOZE_OFF_MS,
   followSpot,
@@ -262,7 +261,5 @@ describe("words", () => {
     expect(petCalled({ kind: "fox", name: "" }, "their")).toBe("their fox");
     expect(petLine({ kind: "fox", coat: "arctic" })).toBe("an arctic fox");
     expect(petLine({ kind: "cat", coat: "ginger" })).toBe("a ginger cat");
-    expect(aThing("strawberry")).toBe("a strawberry");
-    expect(aThing("herb")).toBe("a bunch of herbs");
   });
 });

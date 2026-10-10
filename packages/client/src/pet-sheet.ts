@@ -24,7 +24,8 @@ import {
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { actProblem, api } from "./api";
-import { aThing, coatWord, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
+import { coatWord, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
+import { aThing } from "./things";
 
 /** A pet on a profile, with its count of pats. */
 type ProfilePet = NonNullable<ProfileView["pet"]>;

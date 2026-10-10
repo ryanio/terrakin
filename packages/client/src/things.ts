@@ -37,6 +37,27 @@ import { coins } from "./purse";
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
 
+/**
+ * One of a thing after its article: "a strawberry", "a bunch of herbs", "an herb sachet". "Herb"
+ * takes "an", said the way "color" is spelled here.
+ */
+export function aThing(kind: ItemKind): string {
+  const name = thingName(kind).toLowerCase();
+  return `${/^([aeiou]|herb\b)/.test(name) ? "an" : "a"} ${name}`;
+}
+
+/**
+ * One made thing in a sentence. What comes by the jar, the plate, or the bowl takes no article:
+ * "lemon jam", "herb tea", "fried minnows". The catalog's plural says which those are, since it
+ * names the container ("Jars of herb tea"). Anything else is counted: "a fishing rod", "an herb
+ * sachet", "a pumpkin pie".
+ */
+function aMadeThing(kind: ItemKind): string {
+  const { name, plural } = ITEM_INFO[kind];
+  const byTheContainer = plural.toLowerCase().endsWith(` of ${name.toLowerCase()}`);
+  return byTheContainer ? name.toLowerCase() : aThing(kind);
+}
+
 /** A family's name as a heading, from the most general: "Food › Fruit". */
 export const familyLabel = (family: Family) =>
   familyPath(family)
@@ -252,8 +273,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
     }
     case "craft": {
       const made = e.gained?.[0];
-      if (made?.kind === "piece") return "You made a piece of art.";
-      if (made) return `You made ${thingName(made.kind).toLowerCase()}.`;
+      if (made) return `You made ${aMadeThing(made.kind)}.`;
       // Furniture and sweets stack: they arrive as a change, not a made thing.
       const piece = gained.find((c) => isFurnitureKind(c.kind));
       if (piece) {
@@ -270,10 +290,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return null;
     case "gift_in": {
       const goods = e.gained ?? [];
-      const what =
-        goods.length > 0
-          ? goods.map((g) => thingName(g.kind).toLowerCase()).join(", ")
-          : list(gained);
+      const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
       return `A gift arrived: ${what}.`;
     }
     case "gift_out":
@@ -288,10 +305,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return "Taken down. It's back in your things.";
     case "returned": {
       const goods = e.gained ?? [];
-      const what =
-        goods.length > 0
-          ? goods.map((g) => thingName(g.kind).toLowerCase()).join(", ")
-          : list(gained);
+      const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
       return `A gift came back to you: ${what}.`;
     }
     case "bought":

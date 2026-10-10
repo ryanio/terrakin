@@ -1,8 +1,17 @@
-import { apply, type Command, createWorld, dayOfDate, TOWN_ACTOR } from "@terrakin/sim";
+import {
+  apply,
+  type Command,
+  createWorld,
+  dayOfDate,
+  GOOD_KINDS,
+  type GoodKind,
+  TOWN_ACTOR,
+} from "@terrakin/sim";
 import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
 import {
   admiredLine,
+  aThing,
   byFamily,
   catchLine,
   coinsLine,
@@ -130,6 +139,14 @@ describe("things", () => {
     ).toBe("You made 1 table. Place it from Build, on the Furniture tab.");
     const gift = { ...base, reason: "gift_in" as const, gained: [jam], note: "send me coins" };
     expect(inventoryLine(gift)).toBe("A gift arrived: lemon jam.");
+    // A gift of something counted takes its article, and two things read as a list.
+    const rod = { id: "i_3", kind: "fishing_rod" as const, maker: "r_2", madeDay: 1 };
+    expect(inventoryLine({ ...base, reason: "gift_in", gained: [rod] })).toBe(
+      "A gift arrived: a fishing rod.",
+    );
+    expect(inventoryLine({ ...base, reason: "returned", gained: [rod, jam] })).toBe(
+      "A gift came back to you: a fishing rod and lemon jam.",
+    );
     expect(inventoryLine({ ...base, reason: "pantry" })).toBeNull();
     // Staff took a listing or a display down: the owner hears it, without the label that may have
     // caused it.
@@ -390,6 +407,48 @@ describe("things", () => {
     expect(toastMs("Hi", "player")).toBe(4000);
     expect(toastMs("x".repeat(80))).toBe(5800);
     expect(toastMs("x".repeat(400))).toBe(7000);
+  });
+});
+
+describe("a made thing in a sentence", () => {
+  // Every good the catalog has. A new one fails this until someone says how it reads.
+  const MADE: Record<GoodKind, string> = {
+    lemon_jam: "lemon jam",
+    strawberry_jam: "strawberry jam",
+    pomegranate_jam: "pomegranate jam",
+    cranberry_jam: "cranberry jam",
+    lemonade: "lemonade",
+    herb_tea: "herb tea",
+    cranberry_punch: "hot cranberry punch",
+    tomato_sauce: "tomato sauce",
+    pumpkin_soup: "pumpkin soup",
+    fried_minnows: "fried minnows",
+    fish_stew: "fish stew",
+    pumpkin_pie: "a pumpkin pie",
+    bouquet: "a bouquet",
+    herb_sachet: "an herb sachet",
+    flower_wreath: "a flower wreath",
+    fishing_rod: "a fishing rod",
+  };
+  const made = (kind: GoodKind | "piece") =>
+    inventoryLine({
+      type: "inventory",
+      residentId: "r_1",
+      reason: "craft",
+      gained: [{ id: "i_1", kind, maker: "r_1", madeDay: 1 }],
+    });
+
+  it("gives a counted good its article and leaves one that comes by the jar, plate, or bowl bare", () => {
+    expect(Object.keys(MADE).sort()).toEqual([...GOOD_KINDS].sort());
+    for (const kind of GOOD_KINDS) expect(made(kind), kind).toBe(`You made ${MADE[kind]}.`);
+    expect(made("piece")).toBe("You made a piece of art.");
+  });
+
+  it("picks the article by how the name is said", () => {
+    expect(aThing("strawberry")).toBe("a strawberry");
+    expect(aThing("herb")).toBe("a bunch of herbs");
+    expect(aThing("acorn")).toBe("an acorn");
+    expect(aThing("herb_sachet")).toBe("an herb sachet");
   });
 });
 

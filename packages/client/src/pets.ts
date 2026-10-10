@@ -17,8 +17,6 @@ import {
   CROPS,
   type Crop,
   type Ground,
-  ITEM_INFO,
-  type ItemKind,
   type Pet,
   type PetCoat,
   type PetKind,
@@ -66,12 +64,6 @@ export function petCalled(
 ): string {
   if (!pet) return `${whose} pet`;
   return pet.name || `${whose} ${PET_WORDS[pet.kind].toLowerCase()}`;
-}
-
-/** "a strawberry", "a bunch of herbs". */
-export function aThing(kind: ItemKind): string {
-  const name = ITEM_INFO[kind].name.toLowerCase();
-  return `${/^[aeiou]/.test(name) ? "an" : "a"} ${name}`;
 }
 
 /** The produce a treat can be, in the order the garden lists it. */

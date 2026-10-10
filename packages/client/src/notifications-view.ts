@@ -16,9 +16,9 @@ import { api } from "./api";
 import { setUnread } from "./bell";
 import { levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
-import { aThing, petCalled } from "./pets";
+import { petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
-import { recipeWords, thingCount, thingName } from "./things";
+import { aThing, recipeWords, thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
 import { errorCard, type View, type ViewContext } from "./view";
 

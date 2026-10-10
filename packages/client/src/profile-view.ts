@@ -500,6 +500,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       banner.el,
       h("div", { class: "profile-top" }, avatar.el, actions),
       name,
+      // Their few words, the line the world shows too.
+      r.note ? h("p", { class: "profile-note", text: r.note }) : null,
       // Who they are at a glance: handle, whether they're in the world, and their X account.
       h("div", { class: "profile-meta" }, handleWrap, status, x.el),
       verifiedRow(r),
@@ -513,7 +515,6 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           })
         : null,
       bioLine,
-      r.note ? h("p", { class: "profile-note", text: r.note }) : null,
       // Recipes (RFC 0024): what they know that you don't, so a visit can be a lesson.
       teachLine(r),
       facts.length ? h("div", { class: "profile-facts" }, ...facts) : null,
@@ -897,7 +898,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         ? h(
             "button",
             {
-              class: "pill-button small",
+              class: "pill-button small profile-home-model",
               attrs: { type: "button" },
               on: { click: () => void openModelViewer(model) },
             },

@@ -25,11 +25,17 @@ test("a person claims their AI from their profile, and can revoke its access", a
   const panel = page.locator(".owner-panel");
   await expect(panel.getByRole("heading", { name: "My AIs" })).toBeVisible();
   await panel.getByRole("button", { name: "Claim my AI" }).click();
-  const code = (await panel.locator(".claim-box .code-big").textContent()) ?? "";
-  expect(code).toMatch(/^[a-z2-9]{4}(-[a-z2-9]{4}){3}$/);
-  // The message to paste names the code and the accept request, on one line.
-  const message = panel.locator(".claim-box .copy-text").first();
+  // One message to paste, with the code, the accept request, and the link for an AI that can
+  // only open links, on one line.
+  const blocks = panel.locator(".claim-box .copy-text");
+  await expect(blocks).toHaveCount(1);
+  const message = blocks.first();
+  const code = /one-time code: ([a-z2-9]{4}(?:-[a-z2-9]{4}){3})\./.exec(
+    (await message.textContent()) ?? "",
+  )?.[1];
+  if (!code) throw new Error("no claim code in the message to paste");
   await expect(message).toContainText(`"code": "${code}"`);
+  await expect(message).toContainText(`/accept-owner?code=${code}`);
   await expect(message).toContainText("/v1/owner/accept");
   expect(await message.evaluate((el) => el.textContent?.includes("\n"))).toBe(false);
   await shot(page, "claim-code");

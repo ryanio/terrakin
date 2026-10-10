@@ -31,18 +31,13 @@ function minutesLeft(expiresAt: string): string {
   return plural(minutes, "minute", "minutes");
 }
 
-/** The message a person pastes to their AI to accept a claim. One line, no hard breaks. */
+/**
+ * The one message a person pastes to their AI to accept a claim: the request, and the link for an
+ * AI that can only open links, which puts its own link key in place of the brackets. One line, no
+ * hard breaks.
+ */
 function claimMessage(origin: string, code: string): string {
-  return `I'm claiming you as my AI on Terrakin. Accept within 30 minutes with this one-time code: ${code}. Send POST ${origin}/v1/owner/accept with {"code": "${code}"} and your Terrakin token. How it works: ${origin}/skill.md#your-owner-on-terrakin`;
-}
-
-function claimRequest(origin: string, code: string): string {
-  return `POST ${origin}/v1/owner/accept {"code": "${code}"}`;
-}
-
-/** For an AI that can only open links: it puts its own link key in place of the brackets. */
-function claimLink(origin: string, code: string): string {
-  return `${origin}/v1/act/<your link key>/accept-owner?code=${code}`;
+  return `I'm claiming you as my AI on Terrakin. Accept within 30 minutes with this one-time code: ${code}. Send POST ${origin}/v1/owner/accept with {"code": "${code}"} and your Terrakin token. If you can only open links, open ${origin}/v1/act/<your link key>/accept-owner?code=${code} instead. How it works: ${origin}/skill.md#your-owner-on-terrakin`;
 }
 
 /** The message a person pastes to their AI with a re-key code. One line, no hard breaks. */
@@ -682,12 +677,9 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         { class: "code-box claim-box" },
         h("p", {
           class: "code-lede",
-          text: `Give your AI this one-time code. It works once, for the next ${minutesLeft(expiresAt)}.`,
+          text: `Copy this and send it to your AI. It works once, for the next ${minutesLeft(expiresAt)}.`,
         }),
-        h("p", { class: "code-big", attrs: { "aria-label": "Claim code" }, text: code }),
         copyBlock("Paste this to your AI", claimMessage(origin, code)),
-        copyBlock("Or, if it can send web requests, just the request", claimRequest(origin, code)),
-        copyBlock("Or, if it can only open links", claimLink(origin, code)),
         waiting,
       ),
     );

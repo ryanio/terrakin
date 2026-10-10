@@ -398,6 +398,28 @@ describe("POST /v1/plots/photo", () => {
     expect((await photo(wren, { floor: 0 })).status).toBe(201);
   });
 
+  it("refuses the name `floor` had before, whatever it carries, before drawing", async () => {
+    // `floor` was `storey` once. Dropped, it would draw the whole home and keep it as an upload,
+    // and 0 asked for the ground floor's plan, so no value of it is passed over on this body.
+    const { service, photo, drawn } = await start({ log: loftLog("r_ada", "Ada") });
+    const ada = { token: service.issueToken("r_ada") };
+    for (const storey of [0, 1]) {
+      const old = await photo(ada, { storey });
+      expect([old.status, old.body.error]).toEqual([
+        400,
+        {
+          code: "bad_request",
+          message: "Unknown field 'storey'. Did you mean 'floor'?",
+          did_you_mean: "floor",
+        },
+      ]);
+    }
+    expect(drawn.count).toBe(0);
+    // With the name it has now, the same body is the ground floor's plan.
+    expect((await photo(ada, { floor: 0 })).status).toBe(201);
+    expect(drawn.count).toBe(1);
+  });
+
   it("answers unavailable when the server has no renderer", async () => {
     const { settled, photo } = await start({ photos: "none" });
     const wren = await settled("Wren");

@@ -23,6 +23,7 @@ import {
   type RouteId,
   type RouteMatch,
   type RouteSpec,
+  renamedField,
   type StaffRole,
   suggestFor,
   type TownsfolkActivityResponse,
@@ -592,6 +593,10 @@ export class Api {
       body = { length: size, read: () => req.readBytes(size) } satisfies Upload;
     } else if (route.body) {
       const raw = await req.readJson();
+      // A field the API renamed is refused on any other body, whatever it carries: it would parse
+      // without it, and a plot photo would draw the whole home and keep it as an upload.
+      const renamed = route.body === Action ? undefined : renamedField(route.body, raw);
+      if (renamed) return error("bad_request", renamed.message, undefined, renamed.didYouMean);
       const parsed = route.body.safeParse(raw);
       // A typo in an action type or field name gets the real name back (`did_you_mean`). Actions
       // refuse a near-miss field even when the rest parses: a dropped `dyr` would act for real.

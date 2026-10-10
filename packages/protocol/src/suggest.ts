@@ -136,6 +136,24 @@ function renamedTo(key: string, value: unknown, fields: readonly string[]): stri
   return renamed.to;
 }
 
+/**
+ * A field in `raw` that the API renamed, whatever it carries, when `schema` is an object that
+ * takes the new name and `raw` doesn't send it. For a body where no value of the old field means
+ * what leaving it out means: a plot photo's old name for `floor` with 0 asked for the ground
+ * floor's plan, and without it the whole home is drawn.
+ */
+export function renamedField(schema: z.ZodType, raw: unknown): Suggestion | undefined {
+  const body = bare(schema);
+  if (!(body instanceof z.ZodObject) || !isRecord(raw)) return undefined;
+  const fields = Object.keys(body.shape);
+  for (const key of Object.keys(raw)) {
+    const to = Object.hasOwn(RENAMED_FIELDS, key) ? RENAMED_FIELDS[key]?.to : undefined;
+    if (to === undefined || !fields.includes(to) || to in raw) continue;
+    return { message: `Unknown field '${key}'. Did you mean '${to}'?`, didYouMean: to };
+  }
+  return undefined;
+}
+
 /** The object each entry of a list field is, like one tile of a `build` plan. */
 function entryOf(field: unknown): z.ZodObject | undefined {
   const list = field instanceof z.ZodType ? bare(field) : undefined;

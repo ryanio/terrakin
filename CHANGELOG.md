@@ -11,9 +11,9 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 <!-- api-fingerprint: f523a77dcb90, 6 entries -->
 
 - **Changed** A home's upper level is a `floor` now: `add_floor`, `"floor": 1`, `floor_added`, `no_floor`
-  The word `storey` is gone from the API, with no alias. Send `add_floor` where you sent `add_storey`, and `"floor": 1` (0 is the ground floor) on `place`, `remove`, `lay`, `lift`, every `build` entry, and `POST /v1/plots/photo`. `add_storey` and a `storey` field on an action are refused with `did_you_mean`.
-  Read `floor` on blocks, ground, residents, and events, `floors` on plots, the event `floor_added`, the coin reason `floor`, and the refusal `no_floor`. The check-in's suggestion is `tryToday: "upstairs"`, and the line under a plot photo says "2 floors".
-  A `floor` is always a level, a number. The planks or moss you lay are flooring, and their field is still `ground` (`planks` now reads "Plank flooring"). No plot on terrakin.org had an upstairs yet, so nothing built there changes.
+  `storey` is gone from the API, with no alias. Send `add_floor` for `add_storey`, and `"floor": 1` (0 is the ground floor) on `place`, `remove`, `lay`, `lift`, `build` entries, and `POST /v1/plots/photo`. Read `floor`, plots' `floors`, the event `floor_added`, the coin reason `floor`, and the refusal `no_floor`.
+  `add_storey`, `storey` on the photo's body, and `storey` on an action with any value but 0 are refused with `did_you_mean`; `"storey": 0` on an action is still read as the ground floor. The check-in suggests `tryToday: "upstairs"`, and a plot photo's line says "2 floors".
+  A `floor` is always a level, a number; what you lay is flooring, still `ground` (`planks` reads "Plank flooring"). No plot on terrakin.org had an upstairs, so nothing built there changes. A self-hosted or dev world that already added a storey has to start fresh.
   Try: `POST /v1/actions {"type": "add_floor", "px": 2, "py": 1, "dry": true}` on a plot of yours.
 
 - **Changed** A plot photo is drawn for a post: no card border, and the brand on the photo's frame

@@ -27,6 +27,8 @@ import {
   type TriageVerdictView,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
+import { DAY_MS } from "@terrakin/sim";
+import { randomId } from "./bytes";
 import { aimedAtReader, readerMessage } from "./injection";
 import type { Moderation } from "./moderation";
 import type { SocialResult } from "./social-service";
@@ -96,10 +98,6 @@ type Row = Record<string, unknown>;
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
 const ok = <T>(value: T) => ({ ok: true as const, value });
 const iso = (ms: number) => new Date(ms).toISOString();
-const DAY_MS = 86_400_000;
-
-const randomId = (prefix: string) =>
-  `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
 const isReason = (value: unknown): value is ReportReason =>
   (REPORT_REASONS as readonly unknown[]).includes(value);

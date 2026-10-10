@@ -10,12 +10,12 @@ import {
   bountyMoves,
   bountyRunning,
   coinsOf,
+  DAY_MS,
   findBounty,
   postBountyProblem,
   type WorldState,
 } from "@terrakin/sim";
 import { unknownAuthor } from "./town";
-import { DAY_MS } from "./world-service";
 
 /**
  * Bounties (RFC 0008 phase 5, decision 0062) as the API shows them. The sim holds every bounty and

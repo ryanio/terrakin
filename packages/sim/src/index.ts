@@ -65,6 +65,7 @@ export {
   SWEET_RECIPES,
   type SweetKind,
 } from "./catalog";
+export { DAY_MS, HOUR_MS, MINUTE_MS, utcDay } from "./clock";
 export {
   DISPLAY_BLOCKS,
   displayAt,
@@ -404,6 +405,7 @@ export {
   seasonOf,
   seasonSpan,
   type WorldDate,
+  weekStart,
 } from "./season";
 export {
   BUY_ORDERS,

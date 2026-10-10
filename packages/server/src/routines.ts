@@ -11,6 +11,7 @@ import {
   clockHour,
   isRoutineKind,
   isTownsfolk,
+  MINUTE_MS,
   planStroll,
   residentById,
   routineOf,
@@ -25,8 +26,6 @@ import type { AwayLog, AwayRow } from "./away-log";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
 import type { WorldService } from "./world-service";
-
-const MINUTE_MS = 60_000;
 
 /** What one run of the runner did. Counts only. */
 export interface RoutinesRun {

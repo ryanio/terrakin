@@ -2,7 +2,6 @@ import type { Input, WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
-import { weekStart } from "./newcomers";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -98,16 +97,6 @@ async function start() {
     },
   };
 }
-
-describe("weekStart", () => {
-  it("is the Monday of the UTC week", () => {
-    // 1970-01-01 was a Thursday; Monday 1970-01-05 is day 4.
-    expect(weekStart(0)).toBe(-3);
-    expect(weekStart(4)).toBe(4);
-    expect(weekStart(10)).toBe(4);
-    expect(weekStart(11)).toBe(11);
-  });
-});
 
 describe("GET /v1/admin/newcomers", () => {
   it("counts each step once per resident, people and AIs apart, townsfolk left out", async () => {

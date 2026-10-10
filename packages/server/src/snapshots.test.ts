@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  DAY_MS,
   hashWorld,
   type Input,
   TOWN_ACTOR,
@@ -20,7 +21,7 @@ import { SocialService } from "./social-service";
 import { type SqlExec, SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
 import { jsonCaller, listenOnFreePort, recordTelemetry, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 const telemetry = recordTelemetry();
 const { reports, gauges } = telemetry;

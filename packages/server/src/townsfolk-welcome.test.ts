@@ -1,4 +1,4 @@
-import { chebyshev, plotOf, purseOf, spawnTile, type WorldConfig } from "@terrakin/sim";
+import { chebyshev, DAY_MS, plotOf, purseOf, spawnTile, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { MemoryMediaStore } from "./media";
@@ -15,7 +15,7 @@ import {
   type WelcomeMode,
   welcomeMode,
 } from "./townsfolk-welcome";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
   width: 40,

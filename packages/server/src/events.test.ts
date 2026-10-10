@@ -1,5 +1,12 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
-import { apply, createWorld, TOWN_ACTOR, type WorldConfig, type WorldState } from "@terrakin/sim";
+import {
+  apply,
+  createWorld,
+  DAY_MS,
+  TOWN_ACTOR,
+  type WorldConfig,
+  type WorldState,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { countGuests, EventsSocial, eventWords } from "./events";
@@ -10,7 +17,7 @@ import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { TOWN_EVENTS, type TownEvent } from "./town-events";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Hosted events (RFC 0010) end to end over HTTP: the runner on the server's clock, attendance for

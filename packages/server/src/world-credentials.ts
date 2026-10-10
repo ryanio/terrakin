@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { randomBytes, toBase64Url } from "./bytes";
 import type { Store } from "./store";
 
 /**
@@ -9,17 +10,6 @@ import type { Store } from "./store";
 
 /** How a token or link key is kept: its SHA-256, in hex. `OwnerService.retired` hashes the same way. */
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-
-/** Web Crypto randomness, so this file runs the same on Node and Cloudflare Workers. */
-export const randomBytes = (n: number) => crypto.getRandomValues(new Uint8Array(n));
-
-export const toHex = (bytes: Uint8Array) =>
-  Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-const toBase64Url = (bytes: Uint8Array) =>
-  btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
 
 export class WorldCredentials {
   private readonly store: Store;

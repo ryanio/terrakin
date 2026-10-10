@@ -8,7 +8,7 @@
  * lies under each (decision 0098), never a light of its own.
  */
 import type { DecorKind } from "@terrakin/sim";
-import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
+import { STRAW as STRAW_BRAND, WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import { BAT_POINTS, HALLOWEEN_HEX, WINTER_HEX } from "@terrakin/ui/looks";
 import {
   type BufferGeometry,
@@ -71,7 +71,7 @@ export interface Part {
 const WOOD_DARK = hex(WOOD_BRAND);
 const WOOD = hex("#9a6b43");
 const GOLD = hex("#d8b45a");
-const STRAW = hex("#e8c878");
+const STRAW = hex(STRAW_BRAND);
 
 /** A rounded box, moved and turned into place, shade baked in. */
 export function box(

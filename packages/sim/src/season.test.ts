@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateOfDay, dayOfDate, seasonOf, seasonSpan } from "./season";
+import { dateOfDay, dayOfDate, seasonOf, seasonSpan, weekStart } from "./season";
 
 describe("world dates", () => {
   it("names the UTC date of a world day", () => {
@@ -15,6 +15,15 @@ describe("world dates", () => {
       const { year, month, date } = dateOfDay(day);
       expect(dayOfDate(year, month, date)).toBe(day);
     }
+  });
+});
+
+describe("weeks", () => {
+  it("start on the Monday of the UTC week", () => {
+    // 1970-01-01 was a Thursday; Monday 1970-01-05 is day 4.
+    expect([0, 4, 10, 11].map(weekStart)).toEqual([-3, 4, 4, 11]);
+    // Before 1970 too: Sunday 1969-12-28 belongs to the week of Monday the 22nd.
+    expect([-3, -4, -10].map(weekStart)).toEqual([-3, -10, -10]);
   });
 });
 

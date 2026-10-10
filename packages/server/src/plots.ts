@@ -8,6 +8,7 @@ import {
 import {
   blocksOn,
   canBuildOn,
+  DAY_MS,
   FLOORS,
   type Input,
   knockedToday,
@@ -20,12 +21,12 @@ import {
   residentById,
   tileKey,
   trickOrTreatDay,
+  utcDay,
   type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
-import { DAY_MS, utcDay } from "./together";
 
 /**
  * Plots worth visiting (RFC 0020): who visited and who admired each plot, and when each last

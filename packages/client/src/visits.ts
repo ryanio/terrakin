@@ -4,10 +4,8 @@
  * (decision 0121). Tested in `visits.test.ts`.
  */
 import type { PlotView } from "@terrakin/protocol";
-import { canBuildOn, plotKey } from "@terrakin/sim";
+import { canBuildOn, DAY_MS, plotKey } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
-
-const DAY_MS = 24 * 60 * 60_000;
 
 /**
  * When the home wall shows "Plots to visit". Like the townsfolk card (decision 0034), it counts

@@ -1,3 +1,4 @@
+import { DAY_MS } from "@terrakin/sim";
 import { byPrefix } from "./models";
 import type { SqlExec } from "./sql-store";
 
@@ -158,7 +159,6 @@ export interface SpendSummary {
   chatter: { calls: number; notes: number; drafts: number; refused: number; microUsd: number };
 }
 
-const DAY_MS = 86_400_000;
 export const SUMMARY_DAYS = 30;
 
 /** Chatter outcomes that put a note on the wall. */

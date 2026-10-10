@@ -1,4 +1,5 @@
 import {
+  DAY_MS,
   isCommons,
   type Plot,
   plotInBounds,
@@ -12,11 +13,6 @@ import {
  * Pure helpers for the couples and friends layer (decision 0024): streak day math, invite codes,
  * and which plots an invite suggests. No clocks or storage here, so tests pin them exactly.
  */
-
-export const DAY_MS = 24 * 60 * 60_000;
-
-/** Days since the epoch in UTC. Streaks count these, so everyone's day turns over at once. */
-export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
 /** A UTC day as YYYY-MM-DD. */
 export const dayString = (day: number) => new Date(day * DAY_MS).toISOString().slice(0, 10);

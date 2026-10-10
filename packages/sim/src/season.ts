@@ -73,6 +73,6 @@ export function seasonSpan(day: number): { season: Season; start: number; end: n
 
 /**
  * The first day of the UTC week, Monday to Sunday, that world day `day` falls in. Day 0 was a
- * Thursday.
+ * Thursday. Holds for days before 1970 too.
  */
-export const weekStart = (day: number) => day - ((day + 3) % 7);
+export const weekStart = (day: number) => day - ((((day + 3) % 7) + 7) % 7);

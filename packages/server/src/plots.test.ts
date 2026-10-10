@@ -1,5 +1,12 @@
 import { type ErrorCode, PLOT_ADMIRE } from "@terrakin/protocol";
-import { apply, type Command, createWorld, visitTile, type WorldConfig } from "@terrakin/sim";
+import {
+  apply,
+  type Command,
+  createWorld,
+  DAY_MS,
+  visitTile,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -8,7 +15,7 @@ import { PLOT_LIST_MS, PlotVisits } from "./plots";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /** Plots worth visiting (RFC 0020): admiring a plot, and the plot lists. */
 

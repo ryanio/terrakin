@@ -32,13 +32,13 @@ import {
   type Season,
   sortWear,
   stockHoliday,
+  utcDay,
   WEAR_INFO,
   WEAR_ITEMS,
   type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
-import { utcDay } from "./together";
 
 /**
  * The collection book (RFC 0021, decision 0100): for every resident, every kind of thing they have

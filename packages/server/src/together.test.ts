@@ -1,5 +1,5 @@
 import type { ServerMessage } from "@terrakin/protocol";
-import { createWorld, type WorldConfig } from "@terrakin/sim";
+import { createWorld, DAY_MS, utcDay, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -11,14 +11,12 @@ import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import {
   anchorPlot,
-  DAY_MS,
   dayString,
   INVITE_CODE,
   newInviteCode,
   nextStreak,
   pairKey,
   suggestPlots,
-  utcDay,
 } from "./together";
 import { WorldService } from "./world-service";
 

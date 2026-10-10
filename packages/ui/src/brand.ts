@@ -19,3 +19,8 @@ export const BRAND_HEX = {
 
 /** Dark wood for handles, posts, and lantern caps, wherever an item or garment is drawn. */
 export const WOOD_DARK = "#6e4a2c";
+
+/** Straw, its shade, and wicker, for hats, baskets, and bales wherever they are drawn. */
+export const STRAW = "#e8c878";
+export const STRAW_DEEP = "#c49a4c";
+export const WICKER = "#c9925a";

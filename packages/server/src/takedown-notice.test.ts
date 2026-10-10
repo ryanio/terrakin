@@ -1,5 +1,5 @@
 import { TERRAKIN_ACTOR } from "@terrakin/protocol";
-import { ITEMS, inventorySize, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, ITEMS, inventorySize, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -13,7 +13,7 @@ import {
   listenOnFreePort,
   responseChecker,
 } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Takedown notices (decisions 0064, 0065): when staff take down something a resident owns, that

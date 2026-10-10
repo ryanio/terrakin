@@ -1,5 +1,5 @@
 import { BLOCK_COLORS, type DecorKind } from "@terrakin/sim";
-import { BRAND_HEX } from "@terrakin/ui/brand";
+import { BRAND_HEX, STRAW } from "@terrakin/ui/brand";
 import { type ArtKind, itemArtImage, type ThingLook } from "@terrakin/ui/item-art";
 import { lookImage } from "@terrakin/ui/looks";
 import { paintBatBunting, paintCandyBowl, paintCauldron } from "./decor-halloween";
@@ -517,7 +517,7 @@ function paintScarecrow(
   ctx.arc(cx, top + size * 0.27, size * 0.12, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "#e8c878";
+  ctx.fillStyle = STRAW;
   ctx.beginPath();
   ctx.roundRect(cx - size * 0.21, top + size * 0.15, size * 0.42, size * 0.06, size * 0.03);
   ctx.roundRect(cx - size * 0.1, top + size * 0.05, size * 0.2, size * 0.12, size * 0.03);

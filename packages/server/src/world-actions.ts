@@ -36,10 +36,10 @@ import {
   type WorldState,
   waterBeside,
 } from "@terrakin/sim";
+import { randomBytes, toHex } from "./bytes";
 import { startFree } from "./games";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
 import { cleanMultiline, cleanText } from "./text";
-import { randomBytes, toHex } from "./world-credentials";
 import type { ActResult } from "./world-service";
 
 /**

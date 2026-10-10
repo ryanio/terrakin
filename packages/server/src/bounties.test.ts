@@ -1,5 +1,5 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
-import { apply, createWorld, type WorldConfig } from "@terrakin/sim";
+import { apply, createWorld, DAY_MS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
@@ -10,7 +10,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Bounties and grants (RFC 0008, phase 5, decision 0062) end to end over HTTP: words filtered at

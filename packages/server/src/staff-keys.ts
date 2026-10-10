@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { RouteSpec, StaffKeyScope, StaffKeyView } from "@terrakin/protocol";
+import { DAY_MS } from "@terrakin/sim";
+import { randomBytes, toBase64Url, toHex } from "./bytes";
 import type { SqlExec } from "./sql-store";
 
 /**
@@ -37,7 +39,6 @@ const REKEY_ROUTES = new Set(["createStaffRekeyCode"]);
 
 /** Last-used times are written at most this often per key. */
 const TOUCH_EVERY_MS = 60_000;
-const DAY_MS = 86_400_000;
 
 const hash = (secret: string) => createHash("sha256").update(secret).digest("hex");
 
@@ -94,13 +95,8 @@ export class StaffKeys {
 
   /** A new key for `owner`. Returns the row and the key, shown once. */
   mint(owner: string, name: string, scope: StaffKeyScope, days: number) {
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    const secret = `${STAFF_KEY_PREFIX}${btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "")}`;
-    const idBytes = crypto.getRandomValues(new Uint8Array(6));
-    const id = `sk_${Array.from(idBytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+    const secret = `${STAFF_KEY_PREFIX}${toBase64Url(randomBytes(32))}`;
+    const id = `sk_${toHex(randomBytes(6))}`;
     const at = this.now();
     this.sql.exec(
       `INSERT INTO staff_keys (id, key_hash, owner, name, scope, created_at, expires_at)

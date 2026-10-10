@@ -7,6 +7,7 @@ import {
   type ReactionKey,
   TOWNSFOLK_ACTIONS,
 } from "@terrakin/protocol";
+import { DAY_MS, HOUR_MS } from "@terrakin/sim";
 import { z } from "zod";
 import {
   AiSpend,
@@ -143,9 +144,6 @@ export function chatterConfig(env: {
     mentions: mentions === "on" ? true : mentions === "off" ? false : DEFAULT_CHATTER.mentions,
   };
 }
-
-const HOUR_MS = 3_600_000;
-const DAY_MS = 86_400_000;
 
 /** How often a run starts: the Worker's cron (`wrangler.jsonc`) and the Node timer. */
 export const CHATTER_EVERY_MS = 2 * HOUR_MS;

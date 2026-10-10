@@ -1,4 +1,4 @@
-import { CARD_RECIPES, knows, type WorldConfig } from "@terrakin/sim";
+import { CARD_RECIPES, DAY_MS, knows, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { SPECIALTIES } from "./lesson-plan";
@@ -8,7 +8,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { LESSONS, type LessonsMode, lessonsMode, TownsfolkLessons } from "./townsfolk-lessons";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Townsfolk lessons (RFC 0024): each guard refuses before anything is sent, and what does go is

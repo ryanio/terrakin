@@ -1,5 +1,6 @@
 import { POND_LOOK } from "@terrakin/sim";
 import { type ArtKind, itemArtImage } from "@terrakin/ui/item-art";
+import { WOOD_DARK } from "./palette";
 
 /** A cast someone made into the water at (x, y), and what it brought up, from `fished`. */
 export interface CastMark {
@@ -151,7 +152,7 @@ export function paintCast(
       ctx.drawImage(picture, x - size / 2, y - size / 2, size, size);
     } else if (c.caught === "boot") {
       // An old boot, dripping.
-      ctx.fillStyle = "#6e4a2c";
+      ctx.fillStyle = WOOD_DARK;
       ctx.beginPath();
       ctx.roundRect(x - size * 0.18, y - size * 0.3, size * 0.22, size * 0.42, size * 0.05);
       ctx.roundRect(x - size * 0.18, y + size * 0.02, size * 0.42, size * 0.16, size * 0.07);

@@ -52,6 +52,8 @@ import {
 } from "@terrakin/protocol";
 import {
   type Crop,
+  DAY_MS,
+  HOUR_MS,
   isExclusiveWear,
   isOwnableKey,
   isRecipeName,
@@ -62,6 +64,7 @@ import {
 } from "@terrakin/sim";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
+import { randomId } from "./bytes";
 import { CheckinLog } from "./checkin-log";
 import { CollectionBook } from "./collection";
 import { DiscoveryLog } from "./discovery-log";
@@ -155,8 +158,6 @@ const DEFAULT_SOCIAL_LIMITS: SocialLimits = {
   notificationsPerActorPerDay: DAILY_LIMITS.notificationsPerActorPerResident,
 };
 
-const HOUR_MS = 60 * 60_000;
-const DAY_MS = 24 * HOUR_MS;
 /** The longest a notice stays up. Rows from before authors chose have no `expires_at`. */
 const NOTICE_MAX_MS = BOARD_LIMITS.maxHours * HOUR_MS;
 /**
@@ -257,9 +258,6 @@ const MEDIA_COLUMNS = (t: string) =>
     .map((c) => `${t}.${c}`)
     .join(", ");
 type Binding = string | number;
-
-const randomId = (prefix: string) =>
-  `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
 const fail = (code: ErrorCode, message: string) => ({ ok: false as const, code, message });
 

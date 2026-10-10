@@ -23,6 +23,8 @@ import {
   type StreakView,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
+import { DAY_MS, utcDay } from "@terrakin/sim";
+import { randomId } from "./bytes";
 import { sizeFields } from "./image-size";
 import { type MediaStore, placeFields, privateMediaKey } from "./media";
 import { type Moderation, refusal } from "./moderation";
@@ -32,13 +34,11 @@ import type { SqlExec } from "./sql-store";
 import { cleanMultiline, cleanText } from "./text";
 import {
   activeStreak,
-  DAY_MS,
   dayString,
   newInviteCode,
   nextStreak,
   pairKey,
   type StreakRecord,
-  utcDay,
 } from "./together";
 
 /**
@@ -74,9 +74,6 @@ const gestureItem = (row: Row): GestureItem => ({
   count: Number(row.item_count),
   ...(row.gift ? { gift: String(row.gift) } : {}),
 });
-
-const randomId = (prefix: string) =>
-  `${prefix}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
 /** Gestures older than this are forgotten. Streaks keep their own small record. */
 const GESTURE_RETENTION_MS = 30 * DAY_MS;

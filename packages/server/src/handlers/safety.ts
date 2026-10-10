@@ -16,6 +16,7 @@ import {
   plotNamesOf,
   plotsOwnedBy,
   REPLAY_VERSION,
+  utcDay,
 } from "@terrakin/sim";
 import { SUMMARY_DAYS } from "../ai-spend";
 import type { Api } from "../api";
@@ -28,7 +29,6 @@ import { reportable, type SnapshotHeader } from "../snapshots";
 import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
 import { cleanText } from "../text";
-import { utcDay } from "../world-service";
 import {
   DAILY_CAP_RETRY_SECONDS,
   fail,

@@ -10,9 +10,11 @@ import {
   type Resident,
   STARTER_SEEDS,
   type WorldState,
+  weekStart,
 } from "@terrakin/sim";
 import { idsFrom, type SqlExec } from "./sql-store";
 import { nameKey } from "./text";
+import { dayString } from "./together";
 
 /**
  * The newcomer funnel behind `GET /v1/admin/newcomers` (decision 0141): for each UTC week of
@@ -69,11 +71,6 @@ interface NewcomerSources {
   today: number;
 }
 
-/** The Monday that starts the UTC week holding `day` (1970-01-01 was a Thursday). */
-export const weekStart = (day: number) => day - ((((day + 3) % 7) + 7) % 7);
-
-const isoDay = (day: number) => new Date(day * 86_400_000).toISOString().slice(0, 10);
-
 const noCounts = (): NewcomerCounts => ({
   joined: 0,
   claimed: 0,
@@ -124,7 +121,9 @@ export function newcomerFunnel(s: NewcomerSources): NewcomersResponse {
     for (const id of plot.coOwners ?? []) plotHolders.add(id);
   }
   const thisWeek = weekStart(s.today);
-  const weeks = Array.from({ length: NEWCOMER_WEEKS }, (_, i) => cohort(isoDay(thisWeek - 7 * i)));
+  const weeks = Array.from({ length: NEWCOMER_WEEKS }, (_, i) =>
+    cohort(dayString(thisWeek - 7 * i)),
+  );
   const allTime = cohort(null);
   let undated = 0;
   // Residents the join days miss (none should) come last, as if they joined most recently.
@@ -150,5 +149,5 @@ export function newcomerFunnel(s: NewcomerSources): NewcomersResponse {
       if (repeat) c.sameName++;
     }
   }
-  return { today: isoDay(s.today), weeks, allTime, undated };
+  return { today: dayString(s.today), weeks, allTime, undated };
 }

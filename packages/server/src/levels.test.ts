@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import {
   CROPS,
+  DAY_MS,
   EARNED_WEAR,
   EXCLUSIVE_WEAR,
   FIND_KINDS,
@@ -28,7 +29,7 @@ import {
   recordTelemetry,
   responseChecker,
 } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 import { eventsFor, publicEvents, toWire } from "./world-wire";
 
 /**

@@ -3,8 +3,10 @@
  * their id, so it's the same on every visit and every device, in their color and two companions.
  * `bannerShapes` is pure (and tested); `bannerArt` turns its list into an SVG.
  */
+
 import type { ProfileDesign } from "@terrakin/protocol";
 import type { ResidentColor } from "@terrakin/sim";
+import { SVG_NS } from "@terrakin/ui/dom";
 
 export const BANNER_W = 600;
 export const BANNER_H = 200;
@@ -335,8 +337,6 @@ export function designShapes(design: ProfileDesign): BannerShape[] {
   }
   return shapes;
 }
-
-const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** The banner as an SVG that covers its box. Decorative, so hidden from screen readers. */
 export function bannerArt(id: string, color: ResidentColor): SVGSVGElement {

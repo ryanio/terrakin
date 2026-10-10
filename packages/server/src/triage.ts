@@ -1,4 +1,5 @@
 import { Severity, TriageAction, TriageCategory } from "@terrakin/protocol";
+import { DAY_MS } from "@terrakin/sim";
 import { z } from "zod";
 import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf } from "./ai-spend";
 import { capabilitiesOf, MODELS } from "./models";
@@ -108,7 +109,6 @@ export type TriageResult =
 /** What caused a call: a resident's report, or a filter's borderline signal with no report. */
 export type TriageSource = "report" | "filter";
 
-const DAY_MS = 86_400_000;
 const MAX_OUTPUT_TOKENS = 800;
 const API_URL = "https://api.anthropic.com/v1/messages";
 

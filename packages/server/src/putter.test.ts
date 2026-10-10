@@ -1,5 +1,5 @@
 import { PUTTER_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import { TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, TOWN_ACTOR, utcDay, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -15,7 +15,7 @@ import {
   listenOnFreePort,
   responseChecker,
 } from "./test-support";
-import { DAY_MS, utcDay, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 // 6x6 plots of 8 tiles. The Commons is plot (3,3); everyone joins at (24,24).
 const CONFIG: WorldConfig = {

@@ -29,6 +29,7 @@ import {
   type TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import {
+  DAY_MS,
   eventOpen,
   findBounty,
   findEvent,
@@ -37,6 +38,7 @@ import {
   isTownEvent,
   mergedInto,
   plotKey,
+  utcDay,
 } from "@terrakin/sim";
 import { AiSpend } from "./ai-spend";
 import {
@@ -52,6 +54,7 @@ import {
 } from "./api-response";
 import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
+import { randomBytes, toHex } from "./bytes";
 import type { ChatterRun, ChatterService, MentionRun } from "./chatter";
 import {
   bearerToken,
@@ -120,8 +123,7 @@ import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
-import { randomBytes, toHex } from "./world-credentials";
-import { DAY_MS, utcDay, type WorldService } from "./world-service";
+import type { WorldService } from "./world-service";
 
 /**
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol

@@ -5,6 +5,7 @@
  * solid; in a world from before that, a building turns see-through while you stand in it. After
  * dark the shop's windows light up, as on the map (`buildingGlows`, decision 0098).
  */
+import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import {
   AdditiveBlending,
   type BufferGeometry,
@@ -50,7 +51,7 @@ export function footprintOf(tiles: readonly { x: number; y: number }[]): Footpri
 const STONE = hex("#c9c2b5");
 const COLUMN = hex("#e8dfcc");
 const GLASS = hex("#cfe6ee");
-const WOOD_DARK = hex("#6e4a2c");
+const WOOD_DARK = hex(WOOD_BRAND);
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number, r = 0.04) {
   const g = new RoundedBoxGeometry(w, h, d, 1, Math.min(r, w / 2, h / 2, d / 2));

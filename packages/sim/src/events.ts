@@ -1,4 +1,5 @@
 import { coinCount as coins, isWhole, refuse } from "./check";
+import { DAY_MS, MINUTE_MS } from "./clock";
 import { isTownsfolk, movePurse, sameHousehold } from "./economy";
 import { setFloor, standingFloor } from "./floors";
 import { plotKey, tileKey } from "./keys";
@@ -81,8 +82,6 @@ export const EVENTS = {
   keepDays: 30,
 } as const;
 
-const MINUTE_MS = 60_000;
-const DAY_MS = 86_400_000;
 /** A town event's key from the server's config. */
 const KEY_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 

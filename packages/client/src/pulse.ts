@@ -15,7 +15,7 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import { everyoneIn, heartCount, REAL_ENOUGH, WEATHER_WORDS } from "@terrakin/protocol";
-import { clockHour, type Season, skyAt, type Weather, weatherSpells } from "@terrakin/sim";
+import { clockHour, HOUR_MS, type Season, skyAt, type Weather, weatherSpells } from "@terrakin/sim";
 import { isMediaUrl, plural } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
@@ -378,8 +378,6 @@ const WEATHER_NEXT: Record<Weather, string> = {
   fog: "Fog",
   snow: "Snow",
 };
-
-const HOUR_MS = 3_600_000;
 
 export interface WeatherReport {
   season: Season;

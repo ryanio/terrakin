@@ -29,6 +29,7 @@ import {
   type Crop,
   chebyshev,
   DAY_LENGTH_MS,
+  DAY_MS,
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
@@ -71,11 +72,13 @@ import {
   starterOf,
   TOWN_ACTOR,
   treasuryShareOf,
+  utcDay,
   type WorldConfig,
   type WorldEvent,
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
+import { randomId } from "./bytes";
 import { closeDue, startBy, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
@@ -106,7 +109,7 @@ import {
   type OwnedMediaType,
   performAction,
 } from "./world-actions";
-import { randomBytes, toHex, WorldCredentials } from "./world-credentials";
+import { WorldCredentials } from "./world-credentials";
 import {
   eventsFor,
   holdBackNames,
@@ -290,12 +293,6 @@ const NAME_TAKEN = `Another resident already goes by that name. Pick another nam
 
 /** How many residents within earshot a putter tries to wave at before it gives up. */
 const PUTTER_GREET_TRIES = 5;
-
-/** One UTC day. The Town Hall's clock ticks once per day, at midnight UTC. */
-export const DAY_MS = 86_400_000;
-
-/** UTC days since 1970-01-01. */
-export const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
 export type { WorldCredit } from "./snapshots";
 
@@ -1333,7 +1330,7 @@ export class WorldService {
   createResident(
     request: { name: string; kind: ResidentKind } & LooseProfile,
   ): ActResult & { residentId?: string } {
-    const residentId = `r_${toHex(randomBytes(8))}`;
+    const residentId = randomId("r");
     const { name, kind, ...profile } = request;
     const refused =
       filtered(this.moderation, "name", cleanText(name), {}) ??

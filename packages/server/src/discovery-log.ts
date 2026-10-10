@@ -1,6 +1,6 @@
 import { PARTNER_WEEK_DAYS } from "@terrakin/protocol";
+import { utcDay } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
-import { utcDay } from "./together";
 
 /**
  * The discovery log: how many reads of a start file came with a partner's `?from=` (the plan in

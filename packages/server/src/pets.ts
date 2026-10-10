@@ -1,9 +1,9 @@
 import { type ErrorCode, PAT_LIMITS, PetKind } from "@terrakin/protocol";
 import type { Crop, Pet } from "@terrakin/sim";
+import { DAY_MS, utcDay } from "@terrakin/sim";
 import { z } from "zod";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
-import { DAY_MS, utcDay } from "./together";
 
 /**
  * Pats (RFC 0019): a resident pats another's pet, at most once a UTC day per pet. Social data like

@@ -1,4 +1,5 @@
 import { IDEMPOTENCY_WINDOW_SECONDS } from "@terrakin/protocol";
+import { toHex } from "./bytes";
 
 /** What a replay needs: the first response's status, content type, and body. */
 export interface StoredResponse {
@@ -108,5 +109,5 @@ export class IdempotencyStore {
 /** SHA-256 of `text` as hex. Web Crypto, so it runs on Node and Workers alike. */
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(new Uint8Array(digest));
 }

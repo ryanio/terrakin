@@ -1,5 +1,6 @@
 import { ROUTINE_LIMITS, type ServerMessage } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
+import { DAY_MS } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { MemoryMediaStore } from "./media";
@@ -7,7 +8,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 // 6x6 plots of 8 tiles. The Commons is plot (3,3); everyone joins at (24,24).
 const CONFIG: WorldConfig = {

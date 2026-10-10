@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { ECONOMY, purseOf, treasuryOf, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, ECONOMY, purseOf, treasuryOf, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { createApp } from "./app";
@@ -11,7 +11,7 @@ import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { TIP_NOTES, TIPS } from "./tip-plan";
 import { TIPS_CRON, type TipsMode, TownsfolkTips, tipsMode } from "./townsfolk-tips";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
   width: 40,

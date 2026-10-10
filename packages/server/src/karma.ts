@@ -1,7 +1,6 @@
 import { KARMA, type KarmaView, karmaTier, tierAtLeast } from "@terrakin/protocol";
-import { type DailyAward, ECONOMY, type Resident, TOWN_ACTOR } from "@terrakin/sim";
+import { DAY_MS, type DailyAward, ECONOMY, type Resident, TOWN_ACTOR, utcDay } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
-import { DAY_MS, utcDay } from "./together";
 import type { WorldCredit } from "./world-service";
 
 /**

@@ -15,6 +15,7 @@ import {
 import {
   allowanceDue,
   countOf,
+  DAY_MS,
   dayName,
   eventEndsAt,
   holidayLastDay,
@@ -36,7 +37,6 @@ import { checkinEvents } from "../events";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
 import { plural } from "../markdown";
-import { DAY_MS } from "../world-service";
 import { homeStep, type LinkCtx, linksFor, list, nextSteps, ok, page } from "./shared";
 import {
   awayWords,
@@ -280,7 +280,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
       // A wave back only for a gesture someone chose to send (not a putter's or a routine's), and
       // only when you haven't chosen to send them one this week, so two link residents never wave
       // at each other forever. Your own putter's and routines' waves went out on their own.
-      const weekAgo = social().now() - 7 * 24 * 60 * 60_000;
+      const weekAgo = social().now() - 7 * DAY_MS;
       const chosen = (g: GestureView) => !g.putter && !g.routine;
       const waveBack = [...new Set(c.gestures.filter(chosen).map((g) => g.from.id))].filter(
         (id) =>

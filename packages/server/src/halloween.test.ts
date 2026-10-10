@@ -1,4 +1,11 @@
-import { COSTUMES, dayOfDate, HOLIDAY_STOCK, type WorldConfig } from "@terrakin/sim";
+import {
+  COSTUMES,
+  DAY_MS,
+  dayOfDate,
+  HOLIDAY_STOCK,
+  utcDay,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { pickTryNext } from "./checkin-suggest";
@@ -7,7 +14,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, utcDay, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Halloween (RFC 0022) over HTTP: the shop and the world say it's on, a knock at a neighbor's

@@ -1,5 +1,5 @@
 import { type CollectionView, WEAR_GROUP } from "@terrakin/protocol";
-import { ITEM_KINDS, replay, STARTER_SEEDS, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, ITEM_KINDS, replay, STARTER_SEEDS, utcDay, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { FINDS_CONFIG, FINDS_LOG } from "../../sim/src/fixtures/finds-log";
 import { createApp } from "./app";
@@ -9,7 +9,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, utcDay, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * The collection book (RFC 0021): what each resident has ever held and worn, filled in as the

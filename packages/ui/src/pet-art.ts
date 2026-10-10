@@ -4,6 +4,7 @@
  * `petArt` builds an inline SVG with `createElementNS`, never markup from a string; `drawPet`
  * paints the same shapes on a canvas, for the map's sprites and the 3D views' textures.
  */
+
 import {
   PET_BOX,
   type PetCoat,
@@ -13,8 +14,7 @@ import {
   type PetShape,
   petShapes,
 } from "@terrakin/sim";
-
-const SVG_NS = "http://www.w3.org/2000/svg";
+import { SVG_NS } from "./dom";
 
 export interface PetArtOptions {
   pose?: PetPosture;

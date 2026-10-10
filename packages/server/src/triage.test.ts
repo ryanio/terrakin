@@ -1,4 +1,4 @@
-import { findProposal, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, findProposal, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -15,7 +15,7 @@ import {
   type TriageConfig,
   triageConfig,
 } from "./triage";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
   width: 24,

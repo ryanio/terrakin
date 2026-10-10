@@ -1,5 +1,12 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
-import { displayAt, heldAsideOf, ITEMS, inventorySize, type WorldConfig } from "@terrakin/sim";
+import {
+  DAY_MS,
+  displayAt,
+  heldAsideOf,
+  ITEMS,
+  inventorySize,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -7,7 +14,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Reports on a thing on display and on a piece of art, and the staff routes that take one down

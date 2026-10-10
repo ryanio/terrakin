@@ -18,6 +18,7 @@ import {
   type RekeyResponse,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
+import { DAY_MS } from "@terrakin/sim";
 import type { SocialResult, SocialService } from "./social-service";
 
 /**
@@ -91,9 +92,8 @@ export function normalizeCode(input: string): string | undefined {
 }
 
 /** How long a revoked or replaced credential's hash is kept, to answer `revoked` for it. */
-const RETIRED_KEEP_MS = 90 * 86_400_000;
+const RETIRED_KEEP_MS = 90 * DAY_MS;
 
-const DAY_MS = 86_400_000;
 /** How long an agent's check-in names a new owner (decision 0241). */
 const NEW_OWNER_DAYS = 7;
 

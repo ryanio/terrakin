@@ -1,5 +1,5 @@
 import { type AreaRouteIds, CATALOG_VIEW, ROUTINE_RULES } from "@terrakin/protocol";
-import { canBuildOn, LADDERS, routinesOf, tableById } from "@terrakin/sim";
+import { canBuildOn, LADDERS, routinesOf, tableById, utcDay } from "@terrakin/sim";
 import type { Api } from "../api";
 import { bountiesView } from "../bounties";
 import { checkinView, firstVisitView } from "../checkin";
@@ -13,7 +13,6 @@ import { findPartner, partnerViews } from "../partners";
 import { checkinWithLinks, plotWithLinks, postWithLinks, profileWithLinks } from "../share-links";
 import { SHOP_KEEPER_HANDLE, shopView } from "../shop";
 import { teachFields } from "../townsfolk-lessons";
-import { utcDay } from "../world-service";
 import {
   fail,
   fromResult,

@@ -10,6 +10,7 @@
  * box on a soft ground shadow. Colors come from the catalog, the brand tokens, and the sim's
  * palette, so a lantern here is the lantern in the world.
  */
+
 import {
   BLOCK_COLORS,
   CATALOG,
@@ -27,8 +28,8 @@ import {
   WEAR_ITEMS,
   type WearItem,
 } from "@terrakin/sim";
-
-import { BRAND_HEX, WOOD_DARK } from "./brand";
+import { BRAND_HEX, STRAW, STRAW_DEEP, WICKER, WOOD_DARK } from "./brand";
+import { SVG_NS } from "./dom";
 import {
   batPath,
   EARNED_HEX,
@@ -85,9 +86,6 @@ const KRAFT = "#e6cfa3";
 const GLASS = "#dcefee";
 const LID = "#c9a25a";
 const WOOD = "#9a6b43";
-const STRAW = "#e8c878";
-const STRAW_DEEP = "#c49a4c";
-const WICKER = "#c9925a";
 const LEATHER = "#9c6a3e";
 const DENIM = "#5f86b5";
 const SLICKER = "#f4c534";
@@ -2306,8 +2304,6 @@ export interface ItemArtOptions {
   /** Extra classes beside `item-art`. */
   className?: string;
 }
-
-const SVG_NS = "http://www.w3.org/2000/svg";
 
 function build(shape: ArtShape): SVGElement {
   const el = document.createElementNS(SVG_NS, shape.tag);

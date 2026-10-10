@@ -8,6 +8,7 @@ import {
 import {
   canBuildOn,
   coinsOf,
+  DAY_MS,
   eventArea,
   eventEndsAt,
   eventMoves,
@@ -31,8 +32,6 @@ import { unknownAuthor } from "./town";
  * record. The sim schedules events, samples attendance, and settles the deposit; this keeps what
  * only the social side knows (going, blocks, resident ages) and what karma reads.
  */
-
-const DAY_MS = 86_400_000;
 
 /** Days the hosting record and karma look back. */
 const HOSTING_WINDOW_DAYS = 90;

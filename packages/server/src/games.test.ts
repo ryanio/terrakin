@@ -1,5 +1,6 @@
 import { GAME_TIMES, type ServerMessage, type WorldEvent } from "@terrakin/protocol";
 import {
+  DAY_MS,
   fnv1a,
   residentById,
   SALT_PATTERN,
@@ -14,7 +15,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Party games (RFC 0011) over HTTP: the server stamps tables with its own salt and clock, closes

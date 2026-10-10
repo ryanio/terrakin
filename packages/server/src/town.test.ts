@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs";
 import type { ServerMessage } from "@terrakin/protocol";
-import { hashWorld, replay, TOWN_ACTOR, votesCast, type WorldConfig } from "@terrakin/sim";
+import {
+  DAY_MS,
+  HOUR_MS,
+  hashWorld,
+  replay,
+  TOWN_ACTOR,
+  utcDay,
+  votesCast,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
@@ -17,7 +26,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, utcDay, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8..15; the Town Hall stands on
 // (11..13, 8..9).
@@ -29,7 +38,6 @@ const CONFIG: WorldConfig = {
   reach: 3,
 };
 const START = Date.UTC(2026, 9, 4, 15); // 3pm UTC on 4 October 2026
-const HOUR_MS = 3_600_000;
 const MAINTAINER = "r_00000000000000aa";
 
 const cleanups: (() => void | Promise<void>)[] = [];

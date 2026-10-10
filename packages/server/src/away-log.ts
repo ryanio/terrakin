@@ -1,8 +1,6 @@
 import { type AwayResult, ROUTINE_LIMITS } from "@terrakin/protocol";
+import { utcDay } from "@terrakin/sim";
 import type { SqlExec } from "./sql-store";
-
-const DAY_MS = 86_400_000;
-const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
 
 /** One stored line of the away log. Codes and ids only, never anyone's words. */
 export interface AwayRow {

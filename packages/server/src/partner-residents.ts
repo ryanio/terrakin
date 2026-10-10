@@ -8,10 +8,10 @@ import {
   type PartnerResidentWeek,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
+import { DAY_MS, utcDay } from "@terrakin/sim";
 import { claimedSubject, type PartnerConfig } from "./partners";
 import type { WorldCredit } from "./snapshots";
 import type { SqlExec } from "./sql-store";
-import { DAY_MS, utcDay } from "./together";
 
 /**
  * A partner's residents (docs/plans/partner-residents.md): `GET /v1/partners/{id}/residents`.

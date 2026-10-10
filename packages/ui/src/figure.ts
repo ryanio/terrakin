@@ -23,7 +23,7 @@ import {
   type WearItem,
   type WearSlot,
 } from "@terrakin/sim";
-import { BRAND_HEX, WOOD_DARK } from "./brand";
+import { BRAND_HEX, STRAW, STRAW_DEEP, WICKER, WOOD_DARK } from "./brand";
 import type { Feeling } from "./feelings";
 import {
   BAT_WING,
@@ -117,9 +117,6 @@ export const FIGURE_BOX = { left: -0.5, right: 0.5, top: -1.06, bottom: 0.12 };
 const INK = BRAND_HEX.ink;
 const PAPER = BRAND_HEX.paper;
 const RIM = "#ffffff";
-const STRAW = "#e8c878";
-const STRAW_DEEP = "#c49a4c";
-const WICKER = "#c9925a";
 const LEATHER = "#9c6a3e";
 const SLICKER = "#f4c534";
 const SLICKER_DEEP = "#d9a21c";

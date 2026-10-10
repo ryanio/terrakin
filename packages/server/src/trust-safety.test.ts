@@ -1,5 +1,5 @@
 import { DAILY_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import { findProposal, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, findProposal, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { createApp, isLoopback } from "./app";
@@ -12,7 +12,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { abi, confirmLinkIn, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /** Test words are ROT13 here too, so the file doesn't spell slurs out. */
 const r = (s: string) =>

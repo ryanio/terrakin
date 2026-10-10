@@ -1,5 +1,5 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
-import { marketFee, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, marketFee, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -7,7 +7,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * The market (RFC 0008, phase 4) end to end over HTTP: it opens after the shop, listing waits for

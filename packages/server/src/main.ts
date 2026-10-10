@@ -1,5 +1,12 @@
 import { resolve } from "node:path";
-import { entitledTo, findProposal, plotNamesOf, residentById, votesCast } from "@terrakin/sim";
+import {
+  DAY_MS,
+  entitledTo,
+  findProposal,
+  plotNamesOf,
+  residentById,
+  votesCast,
+} from "@terrakin/sim";
 import { httpCardReader } from "./agent-card";
 import { type AgentLinkOptions, parseDailyReads } from "./agent-links";
 import { createApp } from "./app";
@@ -21,7 +28,7 @@ import { lessonsMode, TownsfolkLessons } from "./townsfolk-lessons";
 import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "./townsfolk-welcome";
 import { TriageClient, triageConfig } from "./triage";
-import { DAY_LENGTH_MS, DAY_MS, WorldService } from "./world-service";
+import { DAY_LENGTH_MS, WorldService } from "./world-service";
 import { oembedReader } from "./x-link";
 
 // Resolve relative paths from where the user ran the command. `pnpm --filter` runs this file

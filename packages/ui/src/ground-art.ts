@@ -4,7 +4,9 @@
  * cobble path looks the same everywhere. `paintGround` draws a tile on a canvas; `groundArt` builds
  * a swatch as an SVG with `createElementNS`, never markup from a string.
  */
+
 import { GROUND_INFO, GROUND_LOOK, type GroundKind, type GroundMark } from "@terrakin/sim";
+import { SVG_NS } from "./dom";
 
 /**
  * One tile of ground at (`left`, `top`), `w` by `h` pixels. A kind with no fill (stepping stones)
@@ -75,7 +77,6 @@ function paintMark(
   }
 }
 
-const SVG_NS = "http://www.w3.org/2000/svg";
 /** Where a swatch's grass shows through: under stepping stones. */
 const GRASS = "#a5c682";
 

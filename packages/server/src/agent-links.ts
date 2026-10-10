@@ -9,7 +9,9 @@ import {
   type PartnerBadge,
   parseAgentRef,
 } from "@terrakin/protocol";
+import { DAY_MS } from "@terrakin/sim";
 import { type CardReader, cardNames, httpCardReader, residentEndpoint } from "./agent-card";
+import { toHex } from "./bytes";
 import {
   CHAINS,
   type ChainCall,
@@ -134,7 +136,7 @@ export const BAD_CARD_LIMIT = 24;
 /** How often the Worker's alarm and the Node timer run `recheckDue`, at the soonest. */
 export const AGENT_RECHECK_EVERY_MS = 5 * 60_000;
 /** How long an ask whose card didn't name the resident is kept and tried again. */
-export const ASK_KEEP_MS = AGENT_LINK_ASK_DAYS * 86_400_000;
+export const ASK_KEEP_MS = AGENT_LINK_ASK_DAYS * DAY_MS;
 /**
  * Kept asks are tried again only while the day's link pool is less than this share spent, so a
  * backlog of asks never takes the reads residents' own link attempts need.
@@ -151,7 +153,6 @@ const LINK_READS = 6;
 const RECHECK_READS = 5;
 const CHAIN_CACHE_MS = 60_000;
 const NAME_MAX_CHARS = 64;
-const DAY_MS = 86_400_000;
 
 export type Pool = "link" | "recheck";
 
@@ -226,7 +227,7 @@ const UNREADABLE_PARTNER = "The partner's contract answered in a shape Terrakin 
 async function holderHash(partnerId: string, holder: string): Promise<string> {
   const bytes = new TextEncoder().encode(`${partnerId}:${holder.toLowerCase()}`);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  return Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(digest);
 }
 
 /** A short fingerprint of a card's raw name, to tell when it changed. Not for security. */

@@ -8,6 +8,7 @@
  * is shorter than 3), and each spell's weather is drawn from its season's chances. Snow falls only
  * in winter.
  */
+import { HOUR_MS } from "./clock";
 import { type Season, seasonOf } from "./season";
 
 export const WEATHERS = ["clear", "cloudy", "rain", "fog", "snow"] as const;
@@ -23,8 +24,6 @@ export const WEATHER_CHANCES: Readonly<Record<Season, Readonly<Record<Weather, n
 
 /** How long a spell of weather lasts, in hours. The day's last spell may run up to `max + min - 1`. */
 export const SPELL_HOURS = { min: 3, max: 6 } as const;
-
-const HOUR_MS = 3_600_000;
 
 export interface WeatherSpell {
   /** The UTC hour it starts, and the hour it gives way to the next (24 for midnight). */

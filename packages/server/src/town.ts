@@ -9,6 +9,7 @@ import {
   type TownResponse,
 } from "@terrakin/protocol";
 import {
+  DAY_MS,
   findProposal,
   type Proposal,
   quorum,
@@ -22,7 +23,6 @@ import { treasuryView } from "./coins";
 import { boardEvents } from "./events";
 import { townShopView } from "./shop";
 import type { SocialService } from "./social-service";
-import { DAY_MS } from "./world-service";
 
 /**
  * The Town Hall's read side (RFC 0004): views built from the world (proposals, votes, who may take

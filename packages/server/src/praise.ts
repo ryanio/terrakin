@@ -1,7 +1,7 @@
 import { type ErrorCode, PRAISE_LIMITS } from "@terrakin/protocol";
+import { DAY_MS, utcDay } from "@terrakin/sim";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
-import { DAY_MS, utcDay } from "./together";
 
 /**
  * Praise (issue #36): a small public thank-you from one resident to another, at most once a UTC

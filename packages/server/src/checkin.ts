@@ -11,6 +11,8 @@ import {
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
+  DAY_MS,
+  HOUR_MS,
   heldAsideOf,
   holidayField,
   inventoryOf,
@@ -37,9 +39,6 @@ import { checkinProgress } from "./levels";
 import { awayLine } from "./routines";
 import type { SocialService } from "./social-service";
 import { townView } from "./town";
-
-const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
 
 /**
  * Where a check-in looks back to: the `since` the caller sent, or a day ago, and never further back

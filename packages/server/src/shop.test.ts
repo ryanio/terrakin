@@ -1,6 +1,7 @@
 import type { ServerMessage, WorldEvent } from "@terrakin/protocol";
 import {
   BUY_ORDERS,
+  DAY_MS,
   dayOfDate,
   type Input,
   ITEMS,
@@ -9,6 +10,7 @@ import {
   SHOP,
   TOWN_ACTOR,
   townBuys,
+  utcDay,
   type WorldConfig,
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -18,7 +20,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, utcDay, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * The town shop (RFC 0008, phase 2) end to end over HTTP: it opens on its own once coins and items

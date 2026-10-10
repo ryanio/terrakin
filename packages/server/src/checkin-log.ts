@@ -1,10 +1,7 @@
 import type { CheckinStats } from "@terrakin/protocol";
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 import { SUGGEST_AGAIN_DAYS } from "./checkin-suggest";
 import type { SqlExec } from "./sql-store";
-
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
 
 /** How long check-in times are kept. */
 export const CHECKIN_KEEP_DAYS = 7;

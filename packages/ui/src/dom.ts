@@ -37,16 +37,17 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-const SVG = "http://www.w3.org/2000/svg";
+/** The namespace every SVG element is made in. */
+export const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** A Lucide icon (see icons.ts), sized and stroked by the `.icon` class. */
 export function icon(name: IconName, className = "icon"): SVGSVGElement {
-  const svg = document.createElementNS(SVG, "svg");
+  const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("class", className);
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
   for (const [tag, attrs] of ICONS[name]) {
-    const part = document.createElementNS(SVG, tag);
+    const part = document.createElementNS(SVG_NS, tag);
     for (const [k, v] of Object.entries(attrs)) part.setAttribute(k, String(v));
     svg.append(part);
   }

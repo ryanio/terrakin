@@ -1,5 +1,6 @@
 import { ROUTES } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
+import { DAY_MS } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { MemoryMediaStore } from "./media";
@@ -8,7 +9,7 @@ import { SocialService } from "./social-service";
 import { keyAllows } from "./staff-keys";
 import { MemoryStore } from "./store";
 import { responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Staff keys (RFC 0026), set up the way terrakin.org runs: staff sign in through Cloudflare Access,

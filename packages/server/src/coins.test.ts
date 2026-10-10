@@ -1,5 +1,5 @@
 import type { ServerMessage } from "@terrakin/protocol";
-import { ECONOMY, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, ECONOMY, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -7,7 +7,7 @@ import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { DAY_MS, WorldService } from "./world-service";
+import { WorldService } from "./world-service";
 
 /**
  * Coins (RFC 0008) end to end over HTTP: the purse stays private, gifts respect blocks and the

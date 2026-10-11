@@ -204,7 +204,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      - run: node scripts/deploy-smoke.ts --wait 120 --deployed --script "$SCRIPT"
+      # The wait outlasts the World object's restart on the new build (about five minutes), so
+      # a switch added in this deploy is there by the last ask. Only a check that fails waits.
+      - run: node scripts/deploy-smoke.ts --wait 420 --deployed --script "$SCRIPT"
         env:
           SCRIPT: ${{ needs.deploy.outputs.script }}
       # The deploy had a service token for the replay check and the check still couldn't run

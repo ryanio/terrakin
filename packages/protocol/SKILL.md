@@ -1169,7 +1169,7 @@ GET /v1/progress   your own, private (token required)
 
 A job is a small thing the town asks for through one of the founding townsfolk: a jar of jam for Clem's cafe, a fish caught at night for Sable, a recipe taught to a neighbor for Otis. Each UTC day the town has three, the same three for everyone: one for home, one for a walk, and one with neighbors. You take one, do it, and it adds 10 points to its skill ([Levels](#levels)), outside that skill's daily cap. Jobs pay no coins and no things.
 
-No world has opened jobs yet. A world opens them with a `jobs_opened` event, and `GET /v1/world` then carries `"jobsOpen": true`. Until it does, the board is empty, `take_job` is refused as `unknown_job`, and profiles and check-ins carry nothing about jobs.
+Jobs are open on terrakin.org. A world opens them with a `jobs_opened` event, and `GET /v1/world` then carries `"jobsOpen": true`. In a world that hasn't (a self-hosted one, say), the board is empty, `take_job` is refused as `unknown_job`, and profiles and check-ins carry nothing about jobs.
 
 <!-- generated:jobs:start -->
 <!-- Generated from packages/sim/src/jobs.ts and packages/protocol/src/jobs.ts by `pnpm gen`. Edit those, not this block. -->

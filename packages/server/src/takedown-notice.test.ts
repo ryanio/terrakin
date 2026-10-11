@@ -99,7 +99,9 @@ async function start() {
     return { ...r, x, y };
   }
   function staff() {
-    const r = join("Marlo");
+    // A name no townsfolk has: a check-in quotes the newest devlog post, which may name one, and
+    // the tests below look for this name nowhere on the page.
+    const r = join("Quill");
     maintainers.add(r.id);
     return r;
   }
@@ -162,7 +164,7 @@ describe("takedown notices", () => {
     const ada = await t.settler("Ada", 0, 0);
     const bob = await t.settler("Bob", 2, 0);
     const cy = t.join("Cy");
-    const marlo = t.staff();
+    const quill = t.staff();
     t.days(3);
     await t.act(ada.token, { type: "list_item", item: "jar", price: 3 });
     // Two say hate, one says spam: the notice cites hate.
@@ -175,11 +177,11 @@ describe("takedown notices", () => {
       "POST",
       "/v1/admin/listings/l_1/remove",
       { reason: STAFF_REASON },
-      marlo.token,
+      quill.token,
     );
     expect(done.status).toBe(200);
     expect(done.body.logged).toMatchObject({ action: "remove_listing", rule: "hate" });
-    const notice = await t.onlyOwnerTold(ada, marlo, [bob, cy, dee]);
+    const notice = await t.onlyOwnerTold(ada, quill, [bob, cy, dee]);
     expect(notice.takedown).toEqual({
       what: "listing",
       rule: "hate",
@@ -190,7 +192,7 @@ describe("takedown notices", () => {
     });
     expect(notice.read).toBe(false);
     // The staff log keeps the rule with the action.
-    const log = (await t.call("GET", "/v1/admin/log", undefined, marlo.token)).body.entries;
+    const log = (await t.call("GET", "/v1/admin/log", undefined, quill.token)).body.entries;
     expect(log[0]).toMatchObject({ action: "remove_listing", rule: "hate", reason: STAFF_REASON });
 
     // The check-in brings it up, by kind and id only, with where to appeal.
@@ -213,7 +215,7 @@ describe("takedown notices", () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);
     const bob = await t.settler("Bob", 2, 0);
-    const marlo = t.staff();
+    const quill = t.staff();
     t.days(3);
     await t.act(ada.token, { type: "list_item", item: "jar", price: 3 });
     await t.report(bob, "listing", "l_1", "hate");
@@ -224,10 +226,10 @@ describe("takedown notices", () => {
       "POST",
       "/v1/admin/listings/l_1/remove",
       { reason: STAFF_REASON, rule: "spam" },
-      marlo.token,
+      quill.token,
     );
     expect(done.status).toBe(200);
-    const notice = await t.onlyOwnerTold(ada, marlo, [bob]);
+    const notice = await t.onlyOwnerTold(ada, quill, [bob]);
     expect(notice.takedown).toMatchObject({ what: "listing", rule: "spam", outcome: "held" });
   });
 
@@ -235,7 +237,7 @@ describe("takedown notices", () => {
     const t = await start();
     const ash = await t.settler("Ash", 0, 0);
     const wren = await t.settler("Wren", 2, 0);
-    const marlo = t.staff();
+    const quill = t.staff();
     const art = await t.upload(ash.token);
     await t.act(ash.token, { type: "make_piece", media: art.id, title: "Morning" });
     const [piece] = (await t.call("GET", "/v1/inventory", undefined, ash.token)).body.inventory
@@ -246,8 +248,8 @@ describe("takedown notices", () => {
     await t.report(wren, "display", piece.id, "harassment");
 
     const path = `/v1/admin/displays/${piece.id}/remove`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
-    const notice = await t.onlyOwnerTold(ash, marlo, [wren]);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
+    const notice = await t.onlyOwnerTold(ash, quill, [wren]);
     expect(notice.takedown).toEqual({
       what: "display",
       rule: "harassment",
@@ -264,7 +266,7 @@ describe("takedown notices", () => {
     if (!inv) throw new Error("no things");
     inv.stacks.herb = (inv.stacks.herb ?? 0) + ITEMS.inventoryMax - inventorySize(inv);
     const again = { reason: STAFF_REASON, rule: "sexual" };
-    expect((await t.call("POST", path, again, marlo.token)).status).toBe(200);
+    expect((await t.call("POST", path, again, quill.token)).status).toBe(200);
     const [newest] = await t.notices(ash);
     expect(newest?.takedown).toMatchObject({ what: "display", rule: "sexual", outcome: "held" });
   });
@@ -273,7 +275,7 @@ describe("takedown notices", () => {
     const t = await start();
     const ash = await t.settler("Ash", 0, 0);
     const wren = await t.settler("Wren", 2, 0);
-    const marlo = t.staff();
+    const quill = t.staff();
     const art = await t.upload(ash.token);
     await t.act(ash.token, { type: "make_piece", media: art.id, title: "Morning" });
     await t.act(ash.token, { type: "make_piece", media: art.id, title: "Evening" });
@@ -285,8 +287,8 @@ describe("takedown notices", () => {
     await t.report(wren, "display", piece.id, "sexual");
 
     const path = `/v1/admin/pieces/${piece.id}/remove`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
-    const notice = await t.onlyOwnerTold(ash, marlo, [wren]);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
+    const notice = await t.onlyOwnerTold(ash, quill, [wren]);
     expect(notice.takedown).toEqual({
       what: "piece",
       rule: "sexual",
@@ -300,13 +302,13 @@ describe("takedown notices", () => {
     const t = await start();
     const bo = t.join("Bo");
     const ada = t.join("Ada");
-    const marlo = t.staff();
+    const quill = t.staff();
     const p = (await t.call("POST", "/v1/posts", { text: "Buy my stuff now" }, bo.token)).body.post;
     await t.report(ada, "post", p.id, "spam");
     const path = `/v1/admin/posts/${p.id}/hide`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
-    const notice = await t.onlyOwnerTold(bo, marlo, [ada]);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
+    const notice = await t.onlyOwnerTold(bo, quill, [ada]);
     expect(notice.takedown).toEqual({ what: "post", rule: "spam", outcome: "removed", id: p.id });
     // Its start, so the author knows which: their own words, marked untrusted like any excerpt.
     expect(notice).toMatchObject({ excerpt: "Buy my stuff now", trust: "untrusted" });
@@ -322,11 +324,11 @@ describe("takedown notices", () => {
     const t = await start();
     const bo = t.join("Bo");
     const ada = t.join("Ada");
-    const marlo = t.staff();
+    const quill = t.staff();
     const first = (await t.call("POST", "/v1/posts", { text: "A hard day" }, bo.token)).body.post;
     await t.report(ada, "post", first.id, "self_harm");
     const hide = (id: string, body: object) =>
-      t.call("POST", `/v1/admin/posts/${id}/hide`, { reason: STAFF_REASON, ...body }, marlo.token);
+      t.call("POST", `/v1/admin/posts/${id}/hide`, { reason: STAFF_REASON, ...body }, quill.token);
     expect((await hide(first.id, {})).status).toBe(200);
     const second = (await t.call("POST", "/v1/posts", { text: "Another" }, bo.token)).body.post;
     expect((await hide(second.id, { rule: "self_harm" })).status).toBe(200);
@@ -341,14 +343,14 @@ describe("takedown notices", () => {
     const key = /k_[A-Za-z0-9_-]{43}/.exec(joined.text)?.[0];
     const id = /`(r_[0-9a-f]{16})`/.exec(joined.text)?.[1];
     if (!key || !id) throw new Error(`No key in:\n${joined.text}`);
-    const marlo = t.staff();
+    const quill = t.staff();
     const ada = t.join("Ada");
     const made = t.social.createPost(id, { text: "Buy my stuff now" });
     if (!made.ok) throw new Error("no post");
     const post = made.value;
     await t.report(ada, "post", post.id, "spam");
     const path = `/v1/admin/posts/${post.id}/hide`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
     const page = (await t.call("GET", `/v1/act/${key}/checkin`)).text;
     expect(page).toContain(`Takedown from Terrakin at`);
     expect(page).toContain(
@@ -356,7 +358,7 @@ describe("takedown notices", () => {
     );
     expect(page).toContain("/contact");
     expect(page).not.toContain(STAFF_REASON);
-    expect(page).not.toContain("Marlo");
+    expect(page).not.toContain("Quill");
     expect(page).not.toContain("Buy my stuff now");
   });
 
@@ -364,13 +366,13 @@ describe("takedown notices", () => {
     const t = await start();
     const bo = t.join("Bo");
     const ada = t.join("Ada");
-    const marlo = t.staff();
+    const quill = t.staff();
     const avatar = await t.upload(bo.token);
     await t.call("PUT", "/v1/profile", { avatar: avatar.id }, bo.token);
     await t.report(ada, "resident", bo.id, "impersonation");
     const path = `/v1/admin/residents/${bo.id}/remove-pictures`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
-    const notice = await t.onlyOwnerTold(bo, marlo, [ada]);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
+    const notice = await t.onlyOwnerTold(bo, quill, [ada]);
     expect(notice.takedown).toEqual({
       what: "pictures",
       rule: "impersonation",
@@ -383,10 +385,10 @@ describe("takedown notices", () => {
   it("cite our community rules in general when nobody named one", async () => {
     const t = await start();
     const bo = t.join("Bo");
-    const marlo = t.staff();
+    const quill = t.staff();
     const p = (await t.call("POST", "/v1/posts", { text: "Hello" }, bo.token)).body.post;
     const path = `/v1/admin/posts/${p.id}/hide`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
     const [notice] = await t.notices(bo);
     expect(notice?.takedown).toMatchObject({ what: "post", rule: "other" });
   });
@@ -395,7 +397,7 @@ describe("takedown notices", () => {
     const t = await start();
     const ash = await t.settler("Ash", 0, 0);
     const wren = await t.settler("Wren", 2, 0);
-    const marlo = t.staff();
+    const quill = t.staff();
     const art = await t.upload(ash.token);
     await t.act(ash.token, { type: "make_piece", media: art.id, title: "Morning" });
     await t.act(ash.token, { type: "make_piece", media: art.id, title: "Evening" });
@@ -405,7 +407,7 @@ describe("takedown notices", () => {
     await t.report(wren, "piece", kept.id, "sexual");
 
     const path = `/v1/admin/pieces/${kept.id}/remove`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
     // The maker hears it once, about the reported piece.
     const makerNotices = await t.notices(ash);
     expect(makerNotices).toHaveLength(1);
@@ -432,7 +434,7 @@ describe("takedown notices", () => {
     const t = await start();
     const ash = await t.settler("Ash", 0, 0);
     const ada = t.join("Ada");
-    const marlo = t.staff();
+    const quill = t.staff();
     const art = await t.upload(ash.token);
     const p = (
       await t.call("POST", "/v1/posts", { text: "Look at this", media: [art.id] }, ash.token)
@@ -443,7 +445,7 @@ describe("takedown notices", () => {
     expect(piece.media).toBe(art.id);
     await t.report(ada, "post", p.id, "spam");
     const path = `/v1/admin/posts/${p.id}/hide`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
     // The piece keeps its title but no longer points at the deleted file.
     const [after] = (await t.call("GET", "/v1/inventory", undefined, ash.token)).body.inventory
       .goods;
@@ -455,7 +457,7 @@ describe("takedown notices", () => {
     const t = await start();
     const bo = t.join("Bo");
     const ada = t.join("Ada");
-    const marlo = t.staff();
+    const quill = t.staff();
     const avatar = await t.upload(bo.token);
     await t.call("PUT", "/v1/profile", { avatar: avatar.id }, bo.token);
     await t.act(bo.token, { type: "make_piece", media: avatar.id, title: "Me" });
@@ -464,7 +466,7 @@ describe("takedown notices", () => {
     expect(piece.media).toBe(avatar.id);
     await t.report(ada, "resident", bo.id, "impersonation");
     const path = `/v1/admin/residents/${bo.id}/remove-pictures`;
-    expect((await t.call("POST", path, { reason: STAFF_REASON }, marlo.token)).status).toBe(200);
+    expect((await t.call("POST", path, { reason: STAFF_REASON }, quill.token)).status).toBe(200);
     const [after] = (await t.call("GET", "/v1/inventory", undefined, bo.token)).body.inventory
       .goods;
     expect(after).toMatchObject({ id: piece.id, label: "Me" });

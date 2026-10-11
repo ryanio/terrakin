@@ -248,8 +248,9 @@ export interface WorldServiceOptions {
    */
   levels?: boolean;
   /**
-   * Jobs (RFC 0030): once levels are open, append `open_jobs` if it never has. No adapter turns
-   * it on yet, so no world opens jobs on its own: a test world opens them through
+   * Jobs (RFC 0030): once levels are open, append `open_jobs` if it never has. The Worker turns
+   * it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted world,
+   * `pnpm dev`, and the e2e servers have no jobs unless a test opens them through
    * `POST /v1/test/open-jobs`.
    */
   jobs?: boolean;

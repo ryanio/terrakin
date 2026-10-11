@@ -116,6 +116,7 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   recipes: "recipesOpen",
   holidayPrices: null,
   levels: "levelsOpen",
+  jobs: "jobsOpen",
   retireRepeatJoins: null,
   market: null,
   bounties: null,

@@ -269,7 +269,7 @@ describe("a world that never opened jobs", () => {
     return { service, refused, logged: store.log.map((input) => input.command.type) };
   }
 
-  it("isn't switched on without the option, which no adapter passes yet", () => {
+  it("is switched on only with the option, which the Worker passes once and the Node server never", () => {
     const off = threeDays(false);
     // The newest switch before jobs is on, so the table ran.
     expect(off.logged).toContain("open_levels");
@@ -286,11 +286,13 @@ describe("a world that never opened jobs", () => {
     const early = threeDays(true, false);
     expect(early.logged).not.toContain("open_jobs");
     expect(early.refused).toEqual([]);
-    // Turning jobs on is the RFC's last step. Until then neither adapter passes the option, and
-    // the Worker has no test route.
+    // Jobs are on at terrakin.org (decision 0262): the Worker passes the option, once, and has no
+    // test route. The Node server doesn't pass it, so self-hosted, dev, and e2e worlds start
+    // without jobs, as the first world above did.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    for (const adapter of [worker, node]) expect(adapter).not.toMatch(/\bjobs\s*:/);
+    expect(worker.match(/\bjobs\s*:\s*true\b/g)).toHaveLength(1);
+    expect(node).not.toMatch(/\bjobs\s*:/);
     expect(worker).not.toMatch(/open-jobs|testOpenJobs|open_jobs/);
   });
 

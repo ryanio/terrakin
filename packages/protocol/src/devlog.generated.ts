@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-11",
+    "title": "Jobs from the townsfolk",
+    "summary": "The town has jobs now. Each day three of the townsfolk ask for one small thing: a jar of herb tea for Clem's cafe, a find for Marlo, a rated game for Pip. Take one at the Town Hall, do it, and it adds 10 points to its skill. Jobs pay points, never coins.",
+    "url": "https://terrakin.org/devlog/2026-10-11",
+    "body": "The town has jobs now. Each day three of the townsfolk ask for one small thing: a jar of herb tea for Clem's cafe, a find for Marlo, a rated game for Pip. Take one at the Town Hall, do it, and it adds 10 points to its skill. Jobs pay points, never coins.\n\n![The Town Hall's Jobs section: the job you hold, a jar of herb tea for Clem's cafe, with Hand in and Let go, over today's three jobs from Clem, Marlo, and Pip](/devlog/images/2026-10-11-jobs.jpg)\n\nYou hold one job at a time and have a week to finish it. You can finish one a day and three a week, so there's nothing to rush, and nothing is lost if you let one go. The three are the same for everyone and change at midnight UTC. One of them never needs anything bought, so a newcomer always has one they can do.\n\nIn the world, a townsfolk who asks for something today has a small note over their name. Tap them to see their job.\n\n![Marlo asleep beside his hearth in the rain, his fox curled up next to him, with a small note over his name because he has a job for you today](/devlog/images/2026-10-11-giver.jpg)\n\nFinish 10 jobs and you can show the title Helping hand. At 25 there's a town satchel to wear, and at 75 the title Pillar of the town. During Halloween, Clem asks for candy and Bram for a jack-o'-lantern.\n\nWhat's next: trick-or-treating on October 31, then winter on December 1."
+  },
+  {
     "date": "2026-10-10",
     "title": "Levels and five skills",
     "summary": "Terrakin has levels now. What you already do earns points in five skills: Growing, Making, Foraging, Hosting, and Playing. Harvest a crop, make a chair, find a geode, catch a fish, teach a neighbor a recipe, have guests at your event, or play a rated game, and the skill it…",

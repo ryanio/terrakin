@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-11
 
-<!-- api-fingerprint: 1eb2b74e5278, 5 entries -->
+<!-- api-fingerprint: 1eb2b74e5278, 6 entries -->
+
+- **Added** A finished job gets its giver's quiet thank-you wave
+  When a job is done, the townsfolk who asked waves at the resident who finished, a gesture with no note, on the town's notice. When the giver doesn't live in this world the job is simply the town's, and a refused wave (a block, a suspension) stays silent.
+  Try: finish a job, then read `GET /v1/notifications` for the wave
 
 - **Added** `from.resident` on `GET /v1/jobs` shows who asks as a post's author does
   A job on the board and `you.held` carry the giver as an `AuthorView` (name, avatar, look, handle) beside `from.id`, while that townsfolk lives in this world. Show their picture from it without reading their profile. A picture staff took down reads as `"avatar": null`, as it does on posts.

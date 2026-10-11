@@ -26,6 +26,7 @@ import { eventWords } from "./events";
 import {
   checkinJobs,
   giverIds,
+  giverThanksWave,
   jobDoneView,
   jobsDoneField,
   jobsView,
@@ -1110,5 +1111,69 @@ describe("by link", () => {
     expect(unlocked).toContain(
       `That's 25 jobs finished, so you can wear the town satchel (with the rest of what you have on: ${t.base}/v1/act/${key}/look?wear=beret,town_satchel): ask if they'd like you to.`,
     );
+  });
+});
+
+describe("a giver's thank-you wave", () => {
+  it("waves when a job is finished, from the townsfolk who asked", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    // Ansel gives the bouquet job: a townsfolk resident holds her handle here.
+    const made = t.service.createSession({ name: "Ansel", kind: "agent" });
+    if (!made.ok || !made.residentId) throw new Error("no ansel");
+    const anselId = made.residentId;
+    t.service.syncTownsfolk(new Set([anselId]));
+    const givers = giverIds(t.service.state, (handle) =>
+      handle === "ansel" ? anselId : undefined,
+    );
+    expect(givers("ansel")).toBe(anselId);
+    // The hook as Api wires it: the notice from the town, then the giver's wave.
+    const live: { to: string; message: ServerMessage }[] = [];
+    t.service.onJobDone = (id, done) => {
+      const view = jobDoneView(done, givers);
+      if (view) t.social.jobDone(id, view);
+      giverThanksWave(
+        t.social.together,
+        (to, message) => live.push({ to, message }),
+        view?.from.id,
+        id,
+      );
+    };
+    expect(t.open()).toMatchObject({ ok: true });
+    t.until("ansel_bouquet");
+    expect(await t.act(ada.token, { type: "take_job", job: "ansel_bouquet" })).toMatchObject({
+      ok: true,
+    });
+    const make = await t.bench(ada);
+    expect(await make("bouquet")).toMatchObject({ ok: true });
+    expect(await t.act(ada.token, { type: "hand_in" })).toMatchObject({ ok: true });
+    // Ansel's wave is on Ada's gestures, from Ansel, with no note.
+    const waves = t.social.together
+      .gestures(ada.id, {})
+      .gestures.filter((g) => g.from.id === anselId);
+    expect(waves).toMatchObject([{ kind: "wave", note: "" }]);
+    // And the live socket heard it, as the town's notice already told her.
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({
+      to: ada.id,
+      message: { type: "gesture", kind: "wave", from: { id: anselId } },
+    });
+  });
+
+  it("stays silent when the giver doesn't live here or the wave is refused", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const bob = await t.settler("Bob", 2, 0);
+    const live: ServerMessage[] = [];
+    const notify = (_to: string, message: ServerMessage) => live.push(message);
+    // The job is simply the town's: no giver, no wave, no word on the socket.
+    giverThanksWave(t.social.together, notify, undefined, ada.id);
+    expect(live).toEqual([]);
+    expect(t.social.together.gestures(ada.id, {}).gestures).toEqual([]);
+    // A block stops it too, quietly: the finish already told the resident.
+    expect(t.social.setBlock(ada.id, bob.id, true).ok).toBe(true);
+    giverThanksWave(t.social.together, notify, bob.id, ada.id);
+    expect(live).toEqual([]);
+    expect(t.social.together.gestures(ada.id, {}).gestures).toEqual([]);
   });
 });

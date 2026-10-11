@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-from-resident-on-get-v1-jobs-shows-who-asks-as-a-post-s-aut</id>
+    <title>Added: `from.resident` on `GET /v1/jobs` shows who asks as a post's author does</title>
+    <updated>2026-10-11T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-11"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A job on the board and `you.held` carry the giver as an `AuthorView` (name, avatar, look, handle) beside `from.id`, while that townsfolk lives in this world. Show their picture from it without reading their profile. A picture staff took down reads as `&quot;avatar&quot;: null`, as it does on posts.
+Try: `GET /v1/jobs`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-build-on-get-v1-health-which-deploy-the-world-is-running</id>
     <title>Added: `build` on `GET /v1/health`: which deploy the world is running</title>
     <updated>2026-10-11T00:00:00Z</updated>

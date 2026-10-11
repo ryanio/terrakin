@@ -1,5 +1,5 @@
 import { type HeldJobView, type JobsResponse, type JobView, jobView } from "@terrakin/protocol";
-import { JOB_EDITIONS, JOBS } from "@terrakin/sim";
+import { type Good, handInPick, JOB_EDITIONS, JOBS, type WorldState } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   askedLine,
@@ -20,6 +20,7 @@ import {
   jobWearAt,
   keptLine,
   newestOnly,
+  openedOr,
   progressLine,
   sheetShows,
   shownProblem,
@@ -141,13 +142,34 @@ describe("a refused tap", () => {
     ]);
   });
 
-  it("keeps the server's words where they say when, or what's missing", () => {
+  it("keeps the server's words where they say when", () => {
     const monday =
       "You've finished 3 jobs this week, all a week has. The next one can be taken on Monday.";
     expect(jobProblem("job_limit", monday)).toBe(monday);
-    const made =
-      "Someone else made the chair you hold. A job takes only a thing you made yourself.";
-    expect(jobProblem("nothing_to_hand_in", made)).toBe(made);
+  });
+
+  it("names the thing a refused hand-in is missing, and whether someone else made the one held", () => {
+    // The sim's own refusals, for Ada holding Clem's herb tea job: with none, and with a jar Bo made.
+    const refusal = (goods: Good[]) => {
+      const state = {
+        day: 100,
+        jobs: { edition: 1, held: { ada: { job: "clem_herb_tea", day: 100, seq: 1 } } },
+        items: { inventories: { ada: { goods } } },
+      } as unknown as WorldState;
+      const r = handInPick(state, "ada");
+      if (!("code" in r)) throw new Error("handed in");
+      return jobProblem(r.code, r.message, "herb_tea");
+    };
+    const bos: Good = { id: "i_1", kind: "herb_tea", maker: "bo", madeDay: 99 };
+    expect([refusal([]), refusal([bos])]).toEqual([
+      "You hold no herb tea that you made yet.",
+      "The herb tea you hold was made by someone else. A job takes only what you made yourself.",
+    ]);
+    // Any fruit's jam is "jam". Without the job, the server's words stay.
+    expect(jobProblem("nothing_to_hand_in", "You hold no jam that you made.", "jam")).toBe(
+      "You hold no jam that you made yet.",
+    );
+    expect(jobProblem("nothing_to_hand_in", "Make one with craft.")).toBe("Make one with craft.");
   });
 
   it("is said once: the error line clears when the board's own line says the same", () => {
@@ -191,6 +213,34 @@ describe("the job sheet", () => {
     expect(sheetShows({ jobs: [], you: null }, "r_bram", "That job isn't on today's board.")).toBe(
       true,
     );
+  });
+});
+
+describe("a tap on a giver", () => {
+  /** What the tap did: opened the sheet, or did what it did before jobs. */
+  async function tapped(load: Promise<string>, opens: boolean) {
+    const did: string[] = [];
+    await openedOr(
+      load,
+      (sheet) => {
+        did.push(`opened ${sheet}`);
+        return opens;
+      },
+      () => did.push("what it did before jobs"),
+    );
+    return did;
+  }
+
+  it("opens the job sheet once its code is in, and else does what it did before jobs", async () => {
+    expect(await tapped(Promise.resolve("job sheet"), true)).toEqual(["opened job sheet"]);
+    // Nothing to show on it.
+    expect(await tapped(Promise.resolve("job sheet"), false)).toEqual([
+      "opened job sheet",
+      "what it did before jobs",
+    ]);
+    // Its code didn't load: a deploy took the chunk away, or the link dropped.
+    const lost = Promise.reject(new Error("Failed to fetch dynamically imported module"));
+    expect(await tapped(lost, true)).toEqual(["what it did before jobs"]);
   });
 });
 

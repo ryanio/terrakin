@@ -3,6 +3,7 @@ import { z } from "zod";
 import { JobGiverView } from "./job-done";
 import { UnlockView } from "./levels";
 import { CropKind, FindKind, JobId, RecipeName, SkillName, TimeOfDayName } from "./schemas";
+import { AuthorView } from "./social";
 
 /**
  * Jobs (RFC 0030) on the API. The board is public: three jobs a UTC day, the same for everyone,
@@ -111,10 +112,21 @@ export const JobDeedView = z.discriminatedUnion("type", [
 ]);
 export type JobDeedView = z.infer<typeof JobDeedView>;
 
+/**
+ * Who asks for a job on the board or the job you hold: the giver's fixed words, and while that
+ * townsfolk lives in this world, the townsfolk as a post's author shows them.
+ */
+export const JobFromView = JobGiverView.extend({
+  resident: AuthorView.optional().describe(
+    "The townsfolk as a post's author shows them: their avatar, look, and handle. Present with `id`.",
+  ),
+});
+export type JobFromView = z.infer<typeof JobFromView>;
+
 /** One job on the board. Every word in it is the team's: never a resident's text. */
 export const JobView = z.object({
   id: JobId.describe("What `take_job` takes."),
-  from: JobGiverView,
+  from: JobFromView,
   skill: SkillName.describe("The skill its points go to."),
   shape: z
     .enum(["deed", "bring"])
@@ -147,7 +159,7 @@ export type JobView = z.infer<typeof JobView>;
  */
 export const HeldJobView = z.object({
   job: JobId,
-  from: JobGiverView,
+  from: JobFromView,
   skill: SkillName,
   title: z.string(),
   shape: z.enum(["deed", "bring"]),
@@ -273,11 +285,17 @@ export const jobGiverView = (giver: JobGiver, id: string | undefined): JobGiverV
   ...(id === undefined ? {} : { id }),
 });
 
-/** A job from the sim's table as the API shows it. */
-export function jobView(job: Job, giverId: string | undefined): JobView {
+/**
+ * A job from the sim's table as the API shows it. `resident` is the giver as an author, which the
+ * server's social layer has; it goes on `from` only beside `giverId`.
+ */
+export function jobView(job: Job, giverId: string | undefined, resident?: AuthorView): JobView {
   return {
     id: job.id,
-    from: jobGiverView(job.giver, giverId),
+    from: {
+      ...jobGiverView(job.giver, giverId),
+      ...(giverId !== undefined && resident ? { resident } : {}),
+    },
     skill: job.skill,
     shape: job.bring === undefined ? "deed" : "bring",
     title: jobWords(job.id),

@@ -1,4 +1,5 @@
 import {
+  type AuthorView,
   type CheckinJobs,
   type EarnedWear,
   type HeldJobView,
@@ -49,6 +50,21 @@ export type GiverIds = (giver: JobGiver) => string | undefined;
 const noGivers: GiverIds = () => undefined;
 
 /**
+ * A giver as a post's author shows them (`SocialService.authorView`), so a board row draws the
+ * townsfolk's own picture and look as the rest of the site does. Without one, `from` carries only
+ * the giver's words and id.
+ */
+export type GiverAuthor = (id: string) => AuthorView | undefined;
+
+const noAuthors: GiverAuthor = () => undefined;
+
+/** A job from the table as the board shows it, with its giver's id and author view. */
+function boardJob(job: Job, giverId: GiverIds, author: GiverAuthor) {
+  const id = giverId(job.giver);
+  return jobView(job, id, id === undefined ? undefined : author(id));
+}
+
+/**
  * Each giver's resident id in this world: whoever holds the giver's handle, and only while they're
  * townsfolk, so a resident who somehow held the handle couldn't pose as a giver. The shop names
  * its keeper the same way.
@@ -61,11 +77,16 @@ export const giverIds =
   };
 
 /** The job `id` holds as the API shows it, or null. A job this build doesn't know reads as none. */
-function heldView(state: WorldState, id: string, giverId: GiverIds): HeldJobView | null {
+function heldView(
+  state: WorldState,
+  id: string,
+  giverId: GiverIds,
+  author: GiverAuthor = noAuthors,
+): HeldJobView | null {
   const held = heldJob(state, id);
   const job = held && jobById(held.job);
   if (!held || !job) return null;
-  const { id: _id, points: _points, ...asked } = jobView(job, giverId(job.giver));
+  const { id: _id, points: _points, ...asked } = boardJob(job, giverId, author);
   return {
     job: job.id,
     ...asked,
@@ -75,11 +96,15 @@ function heldView(state: WorldState, id: string, giverId: GiverIds): HeldJobView
   };
 }
 
-/** `GET /v1/jobs`: today's board, and for a resident, where they stand. */
+/**
+ * `GET /v1/jobs`: today's board, and for a resident, where they stand. A giver who lives here
+ * carries their author view (`author`), so a reader draws them without asking for a profile.
+ */
 export function jobsView(
   state: WorldState,
   viewer: string | undefined,
   giverId: GiverIds = noGivers,
+  author: GiverAuthor = noAuthors,
 ): JobsResponse {
   const rules = { ...JOB_RULES, unlocks: jobUnlocks().map(jobUnlockView) };
   const mine = viewer !== undefined && state.residents[viewer] ? viewer : undefined;
@@ -88,12 +113,12 @@ export function jobsView(
   return {
     open: state.jobs !== undefined,
     day: state.day ?? null,
-    jobs: jobsOn(state).map((job) => jobView(job, giverId(job.giver))),
+    jobs: jobsOn(state).map((job) => boardJob(job, giverId, author)),
     you:
       mine === undefined
         ? null
         : {
-            held: heldView(state, mine, giverId),
+            held: heldView(state, mine, giverId, author),
             doneToday: state.jobs?.doneToday?.includes(mine) ?? false,
             week: { done: jobsThisWeek(state, mine), max: JOBS.perWeek },
             total,

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-11-from-resident-on-get-v1-jobs-shows-who-asks-as-a-post-s-aut",
+    "date": "2026-10-11",
+    "kind": "added",
+    "title": "`from.resident` on `GET /v1/jobs` shows who asks as a post's author does",
+    "body": "A job on the board and `you.held` carry the giver as an `AuthorView` (name, avatar, look, handle) beside `from.id`, while that townsfolk lives in this world. Show their picture from it without reading their profile. A picture staff took down reads as `\"avatar\": null`, as it does on posts.",
+    "links": [],
+    "try": "`GET /v1/jobs`"
+  },
+  {
     "id": "2026-10-11-build-on-get-v1-health-which-deploy-the-world-is-running",
     "date": "2026-10-11",
     "kind": "added",

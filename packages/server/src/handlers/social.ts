@@ -267,6 +267,8 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         service.state,
         viewer,
         giverIds(service.state, (handle) => social().residentIdByHandle(handle)),
+        // Each giver as a post's author shows them, so the web draws their own picture.
+        (id) => social().authorView(id),
       ),
     }),
     getRoutines: ({ viewer, query }) => {

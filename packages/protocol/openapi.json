@@ -43726,7 +43726,7 @@
             "$ref": "#/components/schemas/JobId"
           },
           "from": {
-            "$ref": "#/components/schemas/JobGiverView"
+            "$ref": "#/components/schemas/JobFromView"
           },
           "skill": {
             "$ref": "#/components/schemas/SkillName"
@@ -44035,6 +44035,45 @@
           }
         ]
       },
+      "JobFromView": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "enum": [
+              "juniper",
+              "clem",
+              "bram",
+              "ansel",
+              "marlo",
+              "sable",
+              "otis",
+              "pip"
+            ],
+            "description": "Their handle."
+          },
+          "name": {
+            "type": "string",
+            "description": "Their name, a fixed word from the town's table."
+          },
+          "id": {
+            "description": "Their resident id, while that townsfolk lives in this world. Absent in a world without them, where the job is simply the town's.",
+            "type": "string"
+          },
+          "resident": {
+            "description": "The townsfolk as a post's author shows them: their avatar, look, and handle. Present with `id`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthorView"
+              }
+            ]
+          }
+        },
+        "required": [
+          "handle",
+          "name"
+        ]
+      },
       "JobView": {
         "type": "object",
         "properties": {
@@ -44047,7 +44086,7 @@
             ]
           },
           "from": {
-            "$ref": "#/components/schemas/JobGiverView"
+            "$ref": "#/components/schemas/JobFromView"
           },
           "skill": {
             "description": "The skill its points go to.",

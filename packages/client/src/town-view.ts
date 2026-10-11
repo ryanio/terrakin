@@ -10,7 +10,6 @@
 import {
   type Action,
   BOARD_LIMITS,
-  everyoneIn,
   type NoticeView,
   type ProposalView,
   type TownResponse,
@@ -27,7 +26,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { listOf, plural } from "@terrakin/ui/format";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
-import { personLink, residentInLook } from "@terrakin/ui/people";
+import { personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { skeletonCard } from "@terrakin/ui/skeleton";
 import {
@@ -158,21 +157,12 @@ export function townView(ctx: ViewContext): View {
     addArchive(r.data.proposals, r.data.next);
   });
   let archiveNext: string | null = null;
-  /** The world this page last read: a job's giver is drawn from it, looked up when a row is. */
-  let world: WorldSnapshot | undefined;
   // The town's jobs (RFC 0030). Asked for only once the world says they're open.
-  const jobs = jobsSection({
-    person: (id) => {
-      const giver = world && everyoneIn(world).find((r) => r.id === id);
-      return giver && residentInLook(giver);
-    },
-    gone: () => destroyed,
-  });
+  const jobs = jobsSection({ gone: () => destroyed });
   /** Keep what the world said, and say whether jobs are open in it. */
   function readWorld(w: WorldSnapshot): boolean {
     commons = commonsOf(w);
     clock = { ms: w.time.nowMs, at: Date.now() };
-    world = w;
     return w.jobsOpen === true;
   }
 

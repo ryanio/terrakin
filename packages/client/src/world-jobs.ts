@@ -11,8 +11,15 @@
 import type { JobsResponse, WorldEvent } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { jobsApi } from "./api/jobs";
-import type { GiverPerson } from "./job-parts";
-import { chipLabel, doneLine, droppedLine, type JobAsked, newestOnly, progressLine } from "./jobs";
+import {
+  chipLabel,
+  doneLine,
+  droppedLine,
+  type JobAsked,
+  newestOnly,
+  openedOr,
+  progressLine,
+} from "./jobs";
 
 /** What a tap on someone does when it isn't their job's sheet that opens. */
 interface GiverTap {
@@ -47,8 +54,6 @@ const NOBODY: ReadonlySet<string> = new Set();
 export function worldJobs(o: {
   /** Say a line as one of the world's own notices. */
   toast: (line: string) => void;
-  /** How to draw a giver, from the mirror. */
-  person: GiverPerson;
 }): WorldJobs {
   const label = h("span");
   const chip = h(
@@ -92,25 +97,22 @@ export function worldJobs(o: {
   );
 
   function sheet(giver: { id: string; name: string } | undefined, tap: GiverTap) {
-    void Promise.all([import("./job-sheet"), tap.lessons?.().catch(() => undefined)])
-      .then(([m, lessons]) => {
-        const opened =
-          board !== undefined &&
-          m.openJobSheet({
-            board,
-            ...(giver ? { giver } : {}),
-            ...(lessons ? { lessons } : {}),
-            person: o.person,
-            reread: read,
-            follow: (heard) => {
-              following.add(heard);
-              return () => following.delete(heard);
-            },
-          });
-        if (!opened) tap.otherwise();
-      })
-      // The sheet's code didn't load: the tap does what it did before there were jobs.
-      .catch(tap.otherwise);
+    void openedOr(
+      Promise.all([import("./job-sheet"), tap.lessons?.().catch(() => undefined)]),
+      ([m, lessons]) =>
+        board !== undefined &&
+        m.openJobSheet({
+          board,
+          ...(giver ? { giver } : {}),
+          ...(lessons ? { lessons } : {}),
+          reread: read,
+          follow: (heard) => {
+            following.add(heard);
+            return () => following.delete(heard);
+          },
+        }),
+      tap.otherwise,
+    );
   }
   chip.addEventListener("click", () =>
     sheet(undefined, {

@@ -16,6 +16,7 @@ import {
   isJobWear,
   type JobWear,
   jobUnlocks,
+  type RecipeName,
   type ShownTitle,
   skillName,
   titleLabel,
@@ -74,13 +75,21 @@ export function jobRowAction(job: Pick<JobView, "id">, you: JobStanding | null):
 export const cantTakeLine = (you: JobStanding | null): string | null =>
   !you || you.held ? null : (you.why ?? null);
 
+/** A bring job's thing in running words: "herb tea", "pumpkin pie", "jam" for any fruit's. */
+const broughtThing = (recipe: RecipeName): string =>
+  Object.hasOwn(ITEM_INFO, recipe)
+    ? ITEM_INFO[recipe as keyof typeof ITEM_INFO].name.toLowerCase()
+    : recipe;
+
 /**
  * A refused `take_job`, `hand_in`, or `drop_job` in the page's words. The server writes its
- * messages for agents, so the codes whose message names an action to send or a job by its id get
- * a line of our own, and the rest keep the server's text: when the next job can be taken, or what
- * a hand-in is missing, by the thing's name.
+ * messages for agents, so the codes whose message names an action to send, a field, or a job by
+ * its id get a line of our own, and the rest keep the server's text, like when the next job can be
+ * taken. A refused hand-in names the thing the job you hold asks for (`bring`, its recipe), and
+ * says so when the one you hold was made by someone else: the server's message for that case is
+ * the one that starts "Someone else made".
  */
-export function jobProblem(code: string, message: string): string {
+export function jobProblem(code: string, message: string, bring?: RecipeName): string {
   switch (code) {
     case "job_held":
       return "You already hold a job. Finish it, or let it go, before you take another.";
@@ -88,6 +97,13 @@ export function jobProblem(code: string, message: string): string {
       return "That job isn't on today's board anymore. The board changes at midnight UTC.";
     case "no_job":
       return "You aren't holding that job anymore.";
+    case "nothing_to_hand_in": {
+      if (bring === undefined) return message;
+      const thing = broughtThing(bring);
+      return message.startsWith("Someone else made")
+        ? `The ${thing} you hold was made by someone else. A job takes only what you made yourself.`
+        : `You hold no ${thing} that you made yet.`;
+    }
     default:
       return message;
   }
@@ -138,6 +154,23 @@ export function newestOnly<T>(
     landing = asking;
     return asking;
   };
+}
+
+/**
+ * Open what a tap opens once its code has loaded. When `open` says there's nothing to show, or the
+ * code didn't load (a chunk gone after a deploy, a dropped link), `otherwise` does what the tap
+ * did before there were jobs, so a tap is never lost.
+ */
+export function openedOr<T>(
+  load: Promise<T>,
+  open: (loaded: T) => boolean,
+  otherwise: () => void,
+): Promise<void> {
+  return load
+    .then((loaded) => {
+      if (!open(loaded)) otherwise();
+    })
+    .catch(otherwise);
 }
 
 /** What the job you hold can do: a bring job is handed in, and any job can be let go. */

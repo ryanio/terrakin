@@ -6,10 +6,10 @@
  * turns every job button off while one is out, says a refusal in the page's words, and reads the
  * board again either way.
  */
-import type { Action, HeldJobView, JobGiverView, JobView } from "@terrakin/protocol";
+import type { Action, HeldJobView, JobFromView, JobView } from "@terrakin/protocol";
 import { skillName } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { avatarEl, avatarPlaceholder, type Person } from "@terrakin/ui/people";
+import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
 import { confirmTwice, itemRow, kindPill, progressBar, whileBusyAll } from "@terrakin/ui/ui";
 import { actProblem, worldApi } from "./api/world";
 import {
@@ -29,13 +29,12 @@ import { failed } from "./page-data";
 export const present = (parts: readonly (Node | null)[]): Node[] =>
   parts.filter((part): part is Node => part !== null);
 
-/** How to draw a giver who lives in this world, by resident id. Undefined: the town's own mark. */
-export type GiverPerson = (id: string) => Person | undefined;
-
-/** Who asks: the giver's avatar while that townsfolk lives here, else the town's mark. */
-function giverMark(from: JobGiverView, person: GiverPerson): HTMLElement {
-  const who = from.id === undefined ? undefined : person(from.id);
-  if (who) return avatarEl(who, "sm");
+/**
+ * Who asks: the giver's avatar while that townsfolk lives here, from the server's author view of
+ * them, so it's the picture the rest of the site shows for them, else the town's mark.
+ */
+function giverMark(from: JobFromView): HTMLElement {
+  if (from.resident) return avatarEl(from.resident, "sm");
   const mark = avatarPlaceholder("sm", "job-town");
   mark.append(icon("town"));
   return mark;
@@ -52,7 +51,8 @@ const askedBy = (job: Pick<JobView, "from" | "skill">): HTMLElement =>
 
 /** How a job button sends its action. */
 export interface JobActs {
-  send(pressed: HTMLButtonElement, action: Action): void;
+  /** `held` is the job a `hand_in` is for, so a refusal can name the thing it asks for. */
+  send(pressed: HTMLButtonElement, action: Action, held?: Pick<HeldJobView, "bring">): void;
 }
 
 /**
@@ -69,7 +69,7 @@ export function jobActs(o: {
   reread: () => Promise<void>;
 }): JobActs {
   return {
-    send(pressed, action) {
+    send(pressed, action, held) {
       void (async () => {
         const buttons = [...o.within.querySelectorAll<HTMLButtonElement>("button")];
         delete o.problem.dataset.unanswered;
@@ -77,7 +77,9 @@ export function jobActs(o: {
         const r = await whileBusyAll(buttons, pressed, o.problem, async () => {
           const answer = await worldApi.act(action);
           unanswered = !answer.ok;
-          const why = actProblem(answer, jobProblem);
+          const why = actProblem(answer, (code, message) =>
+            jobProblem(code, message, held?.bring?.recipe),
+          );
           return why === null ? answer : failed(why);
         });
         // `whileBusyAll` leaves "Saving…" up when it worked, for the repaint that follows.
@@ -119,12 +121,7 @@ export function repaintKeepingFocus(within: HTMLElement, paint: () => void) {
  * One job on the board: the giver, the job's words, who it's for and its skill, and Take when the
  * server says one can be taken. The row for the job you hold says so in place of a button.
  */
-export function jobRow(
-  job: JobView,
-  you: JobStanding | null,
-  person: GiverPerson,
-  acts: JobActs,
-): HTMLLIElement {
+export function jobRow(job: JobView, you: JobStanding | null, acts: JobActs): HTMLLIElement {
   const action = jobRowAction(job, you);
   const take =
     action === "take"
@@ -139,7 +136,7 @@ export function jobRow(
     plain: true,
     className: "job-row",
     attrs: { "data-job": job.id },
-    lead: giverMark(job.from, person),
+    lead: giverMark(job.from),
     name: job.title,
     lines: [askedBy(job)],
     trail: take ?? (action === "held" ? kindPill("Yours", "sun", "job-yours") : null),
@@ -154,7 +151,6 @@ export function jobRow(
 export function heldJob(
   held: HeldJobView,
   day: number | null,
-  person: GiverPerson,
   acts: JobActs,
   titled = false,
 ): HTMLElement {
@@ -167,7 +163,9 @@ export function heldJob(
         attrs: { type: "button" },
         text: "Hand in",
       });
-      confirmTwice(button, "Hand it in for good?", () => acts.send(button, { type: "hand_in" }));
+      confirmTwice(button, "Hand it in for good?", () =>
+        acts.send(button, { type: "hand_in" }, held),
+      );
       return button;
     }
     const button = h("button", {
@@ -185,7 +183,7 @@ export function heldJob(
     h(
       "div",
       { class: "cluster job-held-head" },
-      giverMark(held.from, person),
+      giverMark(held.from),
       h(
         "div",
         { class: "job-held-words" },

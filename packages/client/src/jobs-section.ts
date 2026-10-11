@@ -10,7 +10,6 @@ import { h } from "@terrakin/ui/dom";
 import { errorLine, itemRows } from "@terrakin/ui/ui";
 import { jobsApi } from "./api/jobs";
 import {
-  type GiverPerson,
   heldJob,
   jobActs,
   jobRow,
@@ -28,8 +27,6 @@ export interface JobsSection {
 }
 
 export function jobsSection(o: {
-  /** How to draw a giver who lives here, from the world the page already read. */
-  person: GiverPerson;
   /** The page went away: an answer that lands after is dropped. */
   gone: () => boolean;
 }): JobsSection {
@@ -81,9 +78,9 @@ export function jobsSection(o: {
     card.replaceChildren(
       ...present([
         h("p", { class: "town-lede", text: boardLede(rules, you !== null) }),
-        you?.held ? heldJob(you.held, data.day, o.person, acts) : null,
+        you?.held ? heldJob(you.held, data.day, acts) : null,
         itemRows(
-          jobs.map((job) => jobRow(job, you, o.person, acts)),
+          jobs.map((job) => jobRow(job, you, acts)),
           { className: "job-rows" },
         ),
         you ? h("p", { class: "hint job-week", text: weekLine(you.week) }) : null,

@@ -790,7 +790,30 @@ describe("a finished job", () => {
       lapsesDay: (t.service.state.day ?? 0) + JOBS.keepDays,
     });
     t.service.syncTownsfolk(new Set([florist.id]));
-    expect((await heldNow()).from).toEqual({ handle: "ansel", name: "Ansel", id: florist.id });
+    // With the giver as a post's author shows them, so the web draws their own picture, and the
+    // board's rows carry the same.
+    const giver = t.social.authorView(florist.id);
+    expect(giver).toMatchObject({ id: florist.id, name: "Ansel", avatar: null });
+    expect((await heldNow()).from).toEqual({
+      handle: "ansel",
+      name: "Ansel",
+      id: florist.id,
+      resident: giver,
+    });
+    const onBoard = async () =>
+      (await t.call("GET", "/v1/jobs")).body.jobs.find((job: Json) => job.id === "ansel_bouquet")
+        .from.resident;
+    // Their picture shows once they have one, and goes when staff take their pictures down.
+    const picture = new Uint8Array(64);
+    picture.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
+    const uploaded = await t.call("POST", "/v1/media", picture, florist.token);
+    const avatar = uploaded.body.media.id as string;
+    expect((await t.call("PUT", "/v1/profile", { avatar }, florist.token)).status).toBe(200);
+    expect((await onBoard()).avatar).toBe(`/media/${avatar}`);
+    expect((await heldNow()).from.resident.avatar).toBe(`/media/${avatar}`);
+    expect((await t.social.safety.removePictures("staff", florist.id, "test")).ok).toBe(true);
+    expect((await onBoard()).avatar).toBeNull();
+    expect((await heldNow()).from.resident.avatar).toBeNull();
     expect((await t.act(ada.token, { type: "hand_in" })).error.code).toBe("nothing_to_hand_in");
     const made = await make("bouquet");
     const first = made.events.find((e: Json) => e.type === "inventory").gained[0].id;

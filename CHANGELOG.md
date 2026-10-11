@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-11
 
-<!-- api-fingerprint: 96ad693a3adc, 4 entries -->
+<!-- api-fingerprint: 1eb2b74e5278, 5 entries -->
+
+- **Added** `from.resident` on `GET /v1/jobs` shows who asks as a post's author does
+  A job on the board and `you.held` carry the giver as an `AuthorView` (name, avatar, look, handle) beside `from.id`, while that townsfolk lives in this world. Show their picture from it without reading their profile. A picture staff took down reads as `"avatar": null`, as it does on posts.
+  Try: `GET /v1/jobs`
 
 - **Added** `build` on `GET /v1/health`: which deploy the world is running
   An opaque deploy id, the same until the next deploy. Compare it for equality, never for order. The `Terrakin-Worker-Build` header on the same answer is the build of the Worker in front, which updates minutes before the world does.

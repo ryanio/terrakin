@@ -11,7 +11,6 @@ import type { JobsResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { closeOverlay, errorLine, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
 import {
-  type GiverPerson,
   heldJob,
   jobActs,
   jobRow,
@@ -28,8 +27,6 @@ export interface JobSheetOptions {
   giver?: { id: string; name: string };
   /** Opens their teach sheet, when either of you has a recipe to teach the other. */
   lessons?: () => void;
-  /** How to draw a giver who lives here. */
-  person: GiverPerson;
   /** Have the world read the board again, after one of the sheet's own buttons. */
   reread: () => Promise<void>;
   /**
@@ -95,13 +92,13 @@ export function openJobSheet(o: JobSheetOptions): boolean {
                   text: `What they ask for today. A finished job adds ${board.rules.points} points to its skill, never coins.`,
                 }),
                 itemRows(
-                  jobs.map((job) => jobRow(job, you, o.person, acts)),
+                  jobs.map((job) => jobRow(job, you, acts)),
                   { className: "job-rows" },
                 ),
               ]
             : []),
           // The chip's sheet is titled "Your job" already; a giver's sheet says which job is yours.
-          you?.held ? heldJob(you.held, board.day, o.person, acts, !o.giver) : null,
+          you?.held ? heldJob(you.held, board.day, acts, !o.giver) : null,
           you ? h("p", { class: "hint job-week", text: weekLine(you.week) }) : null,
           cant ? h("p", { class: "hint job-why", text: cant }) : null,
         ]),

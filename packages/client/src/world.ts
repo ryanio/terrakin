@@ -41,7 +41,6 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
-import { residentInLook } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
@@ -307,13 +306,7 @@ const levels = worldLevels({
  * The town's jobs (RFC 0030): a chip while you hold one, a toast as it moves, and a note over each
  * townsfolk who asks for something today. It does nothing in a world where jobs aren't open.
  */
-const jobs = worldJobs({
-  toast: (line) => showToast(line),
-  person: (id) => {
-    const r = mirror?.residents.get(id);
-    return r && residentInLook(r);
-  },
-});
+const jobs = worldJobs({ toast: (line) => showToast(line) });
 /** How quickly the map's camera catches up with your figure, per second. */
 const CAMERA_RATE = 10;
 let lastFrame = 0;

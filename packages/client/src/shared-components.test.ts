@@ -50,7 +50,6 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /h\(\s*"time"/, use: "timeAgo (when.ts)" },
   { pattern: /dataset\.tip\b|"data-tip"/, use: "tip (tooltip.ts)" },
   { pattern: /\{ ?\.\.\.\w+, avatar: null \}/, use: "residentPerson (people.ts)" },
-  { pattern: /residentPerson\((\w+)\), look: \1\b/, use: "residentInLook (people.ts)" },
   { pattern: /class: "[^"]*\bstate-card\b/, use: "stateCard (ui.ts)" },
   {
     pattern: /class: [`"][^`"]*\b(skeleton|sk)\b/,

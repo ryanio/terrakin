@@ -357,8 +357,9 @@ function mergeLook(base: Look, fields: ProfileFields): Look | Prepared {
 
 /**
  * Wear in `fields` that `actor` may not put on, as a rejection, or null: shop wear they haven't
- * bought, a partner's piece (worn or styled) they have no entitlement to (RFC 0007), or a garment
- * from a skill level (RFC 0029) or a count of jobs finished (RFC 0030) they haven't reached.
+ * bought, a partner's piece (worn or styled) they have no entitlement to (RFC 0007), a garment from
+ * a skill level they haven't reached (RFC 0029), or the garment from jobs finished short of its
+ * count (RFC 0030), worn or named in `wearStyle` at all.
  */
 function unownedWear(state: WorldState, actor: string, fields: ProfileFields): Prepared | null {
   const wear: readonly unknown[] = Array.isArray(fields.wear) ? fields.wear : [];
@@ -387,7 +388,12 @@ function unownedWear(state: WorldState, actor: string, fields: ProfileFields): P
       "That's a partner's piece: only its verified characters can wear it.",
     );
   }
-  const unearned = unearnedWear(state, actor, wear) ?? unearnedJobWear(state, actor, wear);
+  // The job garment takes no style either before its count, not even `null`: no input names it
+  // until it's earned, so a world's log holds nothing of jobs before a resident finishes them.
+  const named =
+    fields.wearStyle && typeof fields.wearStyle === "object" ? Object.keys(fields.wearStyle) : [];
+  const unearned =
+    unearnedWear(state, actor, wear) ?? unearnedJobWear(state, actor, [...wear, ...named]);
   if (unearned) return { ok: false, rejection: unearned };
   return null;
 }

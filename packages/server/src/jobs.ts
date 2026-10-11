@@ -1,5 +1,6 @@
 import {
   type CheckinJobs,
+  type EarnedWear,
   type HeldJobView,
   JOB_RULES,
   type JobDoneView,
@@ -11,6 +12,7 @@ import {
   jobView,
   jobWords,
   type NotificationView,
+  type TitleName,
   unlockedAt,
 } from "@terrakin/protocol";
 import {
@@ -149,18 +151,28 @@ export function jobDoneView(
   };
 }
 
-/** What a finished job's count unlocked, as what the resident can do now, or nothing. */
-function unlockWords(done: JobDoneView): string {
+/** How a reader shows a title or puts a garment on, said in brackets after each: a call or a link. */
+export interface UnlockHow {
+  title: (title: TitleName) => string;
+  wear: (wear: EarnedWear) => string;
+}
+
+/** How, for a reader with the API: the `profile` action. */
+const BY_ACTION: UnlockHow = {
+  title: (title) => `{"type": "profile", "title": "${title}"}`,
+  wear: (wear) =>
+    `{"type": "profile", "wear": [..., "${wear}"]}, with the rest of what you wear, since \`wear\` is your whole outfit`,
+};
+
+/**
+ * What a finished job's count unlocked, as what the resident can do now and `how`, or nothing. The
+ * JSON check-in's line and the link check-in's notice both end with it.
+ */
+export function jobUnlockWords(done: JobDoneView, how: UnlockHow = BY_ACTION): string {
   const { title, wear } = done.unlocks ?? {};
   const can = [
-    ...(title
-      ? [`show the title ${titleLabel(title)} ({"type": "profile", "title": "${title}"})`]
-      : []),
-    ...(wear
-      ? [
-          `wear the ${WEAR_INFO[wear].label.toLowerCase()} ({"type": "profile", "wear": [..., "${wear}"]}, with the rest of what you wear, since \`wear\` is your whole outfit)`,
-        ]
-      : []),
+    ...(title ? [`show the title ${titleLabel(title)} (${how.title(title)})`] : []),
+    ...(wear ? [`wear the ${WEAR_INFO[wear].label.toLowerCase()} (${how.wear(wear)})`] : []),
   ];
   return can.length > 0
     ? ` That's ${done.total} jobs finished, so you can ${can.join(" and ")}: ask if they'd like you to.`
@@ -174,7 +186,7 @@ function unlockWords(done: JobDoneView): string {
 export function jobTodo(notifications: readonly NotificationView[]): string[] {
   return notifications.flatMap((n) =>
     n.type === "job_done" && n.job
-      ? [`${jobDoneLine(n.job)} Tell your owner.${unlockWords(n.job)}`]
+      ? [`${jobDoneLine(n.job)} Tell your owner.${jobUnlockWords(n.job)}`]
       : [],
   );
 }

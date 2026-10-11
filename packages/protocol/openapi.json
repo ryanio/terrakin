@@ -231,7 +231,7 @@
             }
           },
           "400": {
-            "description": "Error: bad_request, invalid_name, name_taken, invalid_profile",
+            "description": "Error: bad_request, invalid_name, name_taken, invalid_profile, not_owned, not_entitled, not_earned",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -257,7 +257,10 @@
               "bad_request",
               "invalid_name",
               "name_taken",
-              "invalid_profile"
+              "invalid_profile",
+              "not_owned",
+              "not_entitled",
+              "not_earned"
             ]
           },
           "429": {
@@ -26241,6 +26244,14 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "handedIn": {
+                "description": "`hand_in`: the made thing it took, or on a dry run would take (RFC 0030).",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HandedIn"
+                  }
+                ]
               }
             },
             "required": [
@@ -28255,6 +28266,21 @@
           "type"
         ]
       },
+      "HandedIn": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ItemId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GoodKind"
+          }
+        },
+        "required": [
+          "item",
+          "kind"
+        ]
+      },
       "HarvestAction": {
         "type": "object",
         "properties": {
@@ -29641,7 +29667,7 @@
             ]
           },
           "title": {
-            "description": "The title your profile shows: one a skill's level (RFC 0029) or your count of jobs finished (RFC 0030) has unlocked for you (`titles` in `GET /v1/progress`), or `null` for none. One you haven't reached is refused as `not_earned`.",
+            "description": "The title your profile shows: one a skill's level has unlocked for you (`titles` in `GET /v1/progress`, RFC 0029), or one your count of jobs finished has (`you.unlocked` in `GET /v1/jobs`, RFC 0030), or `null` for none. One you haven't reached is refused as `not_earned`.",
             "nullable": true,
             "allOf": [
               {
@@ -30479,6 +30505,13 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "handedIn": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/HandedIn"
+                  }
+                ]
               }
             },
             "required": [

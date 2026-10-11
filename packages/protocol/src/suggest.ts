@@ -1,7 +1,7 @@
 import { MEDIA_ID_PATTERN } from "@terrakin/sim";
 import { z } from "zod";
 import { EventId } from "./events";
-import { BountyId, GiftId, ItemId, ListingId } from "./schemas";
+import { BountyId, GiftId, ItemId, JobId, ListingId } from "./schemas";
 
 /**
  * "Did you mean" for request bodies: when an action type or a field name is a typo away from a
@@ -253,6 +253,7 @@ const ID_FORMS: readonly (readonly [RegExp | undefined, string])[] = [
   [patternOf(ListingId), "a listing's id, like `l_4`"],
   [patternOf(BountyId), "a bounty's id, like `b_2`"],
   [patternOf(EventId), "an event's id, like `e_1`"],
+  [patternOf(JobId), "a job's id from `GET /v1/jobs`, like `bram_chair`"],
   [MEDIA_ID_PATTERN, "an upload's id, `m_` and 16 hex digits"],
 ];
 
@@ -452,7 +453,8 @@ function issueWords(
   const field = pathName(issue.path);
   const name = field ? `\`${field}\`` : "The input";
   const found = fieldAt(schema, raw, issue.path);
-  const choices = found === undefined || "values" in found ? found : choicesOf(found);
+  // A schema is told from choices by what it is, never by a key: a literal has `values` too.
+  const choices = found instanceof z.ZodType ? choicesOf(found) : found;
   const sent = sentAt(raw, issue.path);
   if (sent === "missing") {
     return {

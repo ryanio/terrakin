@@ -301,6 +301,7 @@ export {
   type Station,
 } from "./items";
 export {
+  handInPick,
   heldJob,
   JOB_EDITIONS,
   JOB_GIVERS,

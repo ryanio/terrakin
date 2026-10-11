@@ -822,23 +822,50 @@ const madeOrder = (good: Good) => Number(good.id.slice(2));
 
 /**
  * `hand_in {item?}`: finish the bring job you hold with a thing of its recipe that you made
- * yourself, your oldest or the one `item` names. Refused when you hold no bring job (`no_job`),
- * for someone made townsfolk since they took it (`not_eligible`), and when you hold nothing of the
- * kind that you made, or `item` isn't one (`nothing_to_hand_in`): a thing someone else made, given
- * or bought, never finishes a job. The thing leaves the world.
- *
- * A thing a duplicate record made counts as made by the record it was merged into: a merge is one
- * person's two records becoming one, and a made thing keeps the id that made it.
+ * yourself, your oldest or the one `item` names. The thing leaves the world. `handInPick` makes
+ * every check.
  */
 export function checkHandIn(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "hand_in" }>,
 ): Mutation | Rejection {
+  const pick = handInPick(state, actor, command.item);
+  if ("code" in pick) return pick;
+  const { jobs, items } = state;
+  if (!jobs || !items) return noJob();
+  const { id } = pick.good;
+  const done = finishing(state, jobs, actor, pick.job);
+  return () => {
+    const mine = inventory(items, actor);
+    mine.goods = mine.goods.filter((g) => g.id !== id);
+    return [inventoryEvent(actor, "handed_in", [], { lost: [id] }), ...done()];
+  };
+}
+
+const noJob = () => refuse("no_job", "You aren't holding a job.");
+
+/**
+ * The job a `hand_in` would finish and the made thing it would take, or why it's refused: with no
+ * bring job held (`no_job`), for someone made townsfolk since they took it (`not_eligible`), and
+ * when they hold nothing of the kind that they made, or `item` isn't one (`nothing_to_hand_in`). A
+ * thing someone else made, given or bought, never finishes a job.
+ *
+ * A thing a duplicate record made counts as made by the record it was merged into: a merge is one
+ * person's two records becoming one, and a made thing keeps the id that made it.
+ *
+ * The server answers a `hand_in`, dry or real, with the thing from here, so what it names is what
+ * the commit takes.
+ */
+export function handInPick(
+  state: WorldState,
+  actor: ResidentId,
+  item?: unknown,
+): { job: Job; good: Good } | Rejection {
   const jobs = state.jobs;
   const items = state.items;
   const held = own(jobs?.held, actor);
-  if (!jobs || !items || !held) return refuse("no_job", "You aren't holding a job.");
+  if (!jobs || !items || !held) return noJob();
   // Someone made townsfolk while they held a job: townsfolk never finish one.
   if (isTownsfolk(state, actor)) {
     return refuse("not_eligible", "Townsfolk give the town's jobs and never finish one.");
@@ -857,7 +884,6 @@ export function checkHandIn(
   const wanted = Object.hasOwn(ITEM_INFO, recipe)
     ? ITEM_INFO[recipe as CraftKind].name.toLowerCase()
     : recipe;
-  const { item } = command;
   const mine = (g: Good) => g.maker === actor || own(state.mergedResidents, g.maker) === actor;
   let good: Good | undefined;
   if (item !== undefined) {
@@ -888,13 +914,7 @@ export function checkHandIn(
       );
     }
   }
-  const { id } = good;
-  const done = finishing(state, jobs, actor, job);
-  return () => {
-    const mine = inventory(items, actor);
-    mine.goods = mine.goods.filter((g) => g.id !== id);
-    return [inventoryEvent(actor, "handed_in", [], { lost: [id] }), ...done()];
-  };
+  return { job, good };
 }
 
 // ---------- server inputs ----------
@@ -985,7 +1005,8 @@ export function checkJobTitle(
 
 /**
  * The first job garment in `wear` that the resident hasn't finished enough jobs for, as a
- * `not_earned` rejection, or null. `join` and `profile` call it beside the skills' earned wear.
+ * `not_earned` rejection, or null. `join` and `profile` call it beside the skills' earned wear,
+ * with the garments the input wears and the ones its `wearStyle` names.
  */
 export function unearnedJobWear(
   state: WorldState,

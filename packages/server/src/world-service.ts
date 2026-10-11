@@ -3,6 +3,7 @@ import type {
   BuildPlanSummary,
   ChatChannel,
   ErrorCode,
+  HandedIn,
   LevelUpView,
   ServerMessage,
   WorldEvent as WireEvent,
@@ -45,9 +46,11 @@ import {
   GAMES,
   type GameTable,
   type HostedEvent,
+  handInPick,
   hasDecided,
   hashWorld,
   type Input,
+  isGoodKind,
   isTownsfolk,
   LOOK_MEDIA_KEYS,
   lastSlot,
@@ -133,6 +136,8 @@ export type ActResult =
       plan?: BuildPlanSummary;
       /** `add_floor`: the coins it took, or would take. */
       price?: number;
+      /** `hand_in`: the made thing it took, or would take. */
+      handedIn?: HandedIn;
       dry?: true;
     }
   | {
@@ -291,6 +296,17 @@ const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
 const priceOf = (command: Command): { price?: number } =>
   command.type === "add_floor" ? { price: FLOORS.price } : {};
+
+/**
+ * A `hand_in`'s answer: the made thing the sim picks in `state`, which is the one its commit takes
+ * (RFC 0030). Read before the commit, since the thing leaves the world with it.
+ */
+function handedInOf(state: WorldState, input: Input): { handedIn?: HandedIn } {
+  if (input.command.type !== "hand_in") return {};
+  const pick = handInPick(state, input.actor, input.command.item);
+  if ("code" in pick || !isGoodKind(pick.good.kind)) return {};
+  return { handedIn: { item: pick.good.id, kind: pick.good.kind } };
+}
 
 /**
  * A join refused for a taken name (decision 0148). For agents and their owners; the web says it
@@ -1802,7 +1818,8 @@ export class WorldService {
    * against a view of the world (`asJoined`) that leaves this one untouched.
    */
   private check(input: Input): ActResult {
-    const prepared = prepare(asJoined(this.state, input.actor), input);
+    const view = asJoined(this.state, input.actor);
+    const prepared = prepare(view, input);
     if (!prepared.ok) return { ok: false, error: prepared.rejection };
     return {
       ok: true,
@@ -1810,6 +1827,7 @@ export class WorldService {
       events: [],
       ...planOf(prepared),
       ...priceOf(input.command),
+      ...handedInOf(view, input),
     };
   }
 
@@ -1834,6 +1852,7 @@ export class WorldService {
         : [],
     );
     let at = was && { x: was.x, y: was.y };
+    const handedIn = handedInOf(this.state, input);
     const { seq, events } = prepared.commit();
     let walked = false;
     for (const e of events) {
@@ -1940,6 +1959,7 @@ export class WorldService {
       events: eventsFor(wire, input.actor),
       ...planOf(prepared),
       ...priceOf(command),
+      ...handedIn,
     };
   }
 

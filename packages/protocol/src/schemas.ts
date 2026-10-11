@@ -387,7 +387,7 @@ export const ProfileAction = z.object({
   title: TitleName.nullable()
     .optional()
     .describe(
-      "The title your profile shows: one a skill's level (RFC 0029) or your count of jobs finished (RFC 0030) has unlocked for you (`titles` in `GET /v1/progress`), or `null` for none. One you haven't reached is refused as `not_earned`.",
+      "The title your profile shows: one a skill's level has unlocked for you (`titles` in `GET /v1/progress`, RFC 0029), or one your count of jobs finished has (`you.unlocked` in `GET /v1/jobs`, RFC 0030), or `null` for none. One you haven't reached is refused as `not_earned`.",
     ),
   ...dry,
 });
@@ -932,8 +932,8 @@ export const DropJobAction = z.object({ type: z.literal("drop_job"), ...dry });
 /**
  * Finish the bring job you hold with a thing of its recipe that you made yourself: your oldest,
  * or the one `item` names. That thing leaves the world, so hand one in only if your owner would
- * like it to go. A thing someone else made is refused (`nothing_to_hand_in`). `dry: true` says
- * which thing it would take.
+ * like it to go. A thing someone else made is refused (`nothing_to_hand_in`). The answer names
+ * the thing as `handedIn`, and with `dry: true` the one it would take.
  */
 export const HandInAction = z.object({
   type: z.literal("hand_in"),
@@ -942,6 +942,9 @@ export const HandInAction = z.object({
   ),
   ...dry,
 });
+/** The made thing a `hand_in` took, or on a dry run would take: its id and its kind. */
+export const HandedIn = z.object({ item: ItemId, kind: GoodKind });
+export type HandedIn = z.infer<typeof HandedIn>;
 
 // ---------- Holidays (RFC 0022) ----------
 
@@ -2407,6 +2410,9 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .int()
       .optional()
       .describe("`add_floor`: the coins it took, or on a dry run would take (RFC 0028)."),
+    handedIn: HandedIn.optional().describe(
+      "`hand_in`: the made thing it took, or on a dry run would take (RFC 0030).",
+    ),
   }),
   z.object({
     ok: z.literal(false),
@@ -2485,6 +2491,8 @@ export const ServerMessage = z.union([
     plan: BuildPlanSummary.optional(),
     /** `add_floor`: the coins it took, or would take (RFC 0028). */
     price: z.number().int().optional(),
+    /** `hand_in`: the made thing it took, or would take (RFC 0030). */
+    handedIn: HandedIn.optional(),
   }),
   z.object({
     type: z.literal("error"),

@@ -9,6 +9,7 @@ import {
 } from "@terrakin/protocol";
 import {
   DAY_MS,
+  hashWorld,
   JOB_EDITIONS,
   JOBS,
   jobsOn,
@@ -17,8 +18,10 @@ import {
   type WorldEvent,
 } from "@terrakin/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WebSocket } from "ws";
 import { JOBS_CONFIG, JOBS_LOG } from "../../sim/src/fixtures/jobs-log";
 import { createApp, TEST_OPEN_JOBS_PATH } from "./app";
+import { pickTryNext, TRY_NEXT } from "./checkin-suggest";
 import { eventWords } from "./events";
 import {
   checkinJobs,
@@ -403,17 +406,56 @@ describe("a world that never opened jobs", () => {
       jobs: [],
       you: { held: null, total: 0, canTake: false, unlocked: [] },
     });
-    // Nothing takes one, and a job's title and the satchel are nobody's yet.
+    // Nothing takes one, and a job's title and the satchel are nobody's yet: not to show, to wear,
+    // to style, or to clear a style from. Each is refused, dry or not, with nothing logged and the
+    // world as it was, so the log never holds an input the build before jobs would refuse.
+    const logged = t.store.log.length;
+    const hash = hashWorld(t.service.state);
+    const untouched = (what: string) => {
+      expect(t.store.log.length, what).toBe(logged);
+      expect(hashWorld(t.service.state), what).toBe(hash);
+    };
     for (const [action, code] of [
       [{ type: "take_job", job: "bram_chair" }, "unknown_job"],
       [{ type: "drop_job" }, "no_job"],
       [{ type: "hand_in" }, "no_job"],
       [{ type: "profile", title: "helping_hand" }, "not_earned"],
       [{ type: "profile", wear: ["town_satchel"] }, "not_earned"],
+      [{ type: "profile", wearStyle: { town_satchel: { pattern: "stripes" } } }, "not_earned"],
+      [{ type: "profile", wearStyle: { town_satchel: null } }, "not_earned"],
     ] as const) {
-      expect((await t.act(ada.token, action)).error.code, action.type).toBe(code);
+      for (const dry of [true, false]) {
+        const what = `${JSON.stringify(action)}${dry ? " dry" : ""}`;
+        const answer = await t.act(ada.token, dry ? { ...action, dry } : action);
+        expect(answer.error?.code, what).toBe(code);
+        untouched(what);
+      }
     }
-    expect((await t.call("GET", `/v1/act/${link}/jobs`)).text).toContain("unknown_job");
+    // By link too: the job page and each thing it does, a switch that isn't `yes`, and the look
+    // link, which is the one link that sets what a resident wears.
+    for (const [path, status, words] of [
+      ["jobs", 200, "Error code: `unknown_job`"],
+      ["jobs?take=bram_chair", 200, "Error code: `unknown_job`"],
+      ["jobs?drop=yes", 200, "Error code: `unknown_job`"],
+      ["jobs?hand_in=yes", 200, "Error code: `unknown_job`"],
+      ["jobs?drop=no", 400, "`drop` must be one of: yes."],
+      ["jobs?drop=true", 400, "Error code: `bad_request`"],
+      ["look?wear=town_satchel", 200, "Error code: `not_earned`"],
+    ] as const) {
+      const page = await t.call("GET", `/v1/act/${link}/${path}`);
+      expect([page.status, page.text], path).toEqual([status, expect.stringContaining(words)]);
+      untouched(path);
+    }
+    // Nobody arrives wearing it. A join takes no `wearStyle` at all, so one sent with it is
+    // dropped before the world sees it: the join that's logged names no garment.
+    const wearing = { name: "Cy", kind: "agent", wear: ["town_satchel"] };
+    expect((await t.call("POST", "/v1/session", wearing)).body.error.code).toBe("not_earned");
+    untouched("a join wearing it");
+    const styled = { name: "Dee", kind: "agent", wearStyle: { town_satchel: { pattern: "dots" } } };
+    expect((await t.call("POST", "/v1/session", styled)).status).toBe(201);
+    expect(t.store.log.slice(logged).map((input) => input.command)).toEqual([
+      { type: "join", name: "Dee", kind: "agent" },
+    ]);
   });
 });
 
@@ -530,6 +572,13 @@ describe("the board", () => {
       code: "no_hearth",
       message: cy.why,
     });
+    // Nor is it suggested to townsfolk, who give the jobs: Ada, hearth and all, once she's one.
+    const others = new Set(TRY_NEXT.map((s) => s.id).filter((id) => id !== "jobs"));
+    const suggested = () => pickTryNext(t.service.state, ada.id, new Set(), others)?.id ?? null;
+    expect(suggested()).toBe("jobs");
+    t.service.syncTownsfolk(new Set([ada.id]));
+    expect(t.service.state.residents[ada.id]?.hearth).toMatchObject({ x: 3, y: 3 });
+    expect(suggested()).toBeNull();
   });
 
   it("names a giver's resident only while that townsfolk lives here, and shows what a count unlocked", () => {
@@ -715,13 +764,40 @@ describe("a finished job", () => {
     await t.act(ada.token, { type: "take_job", job: "ansel_bouquet" });
     expect((await t.act(ada.token, { type: "hand_in" })).error.code).toBe("nothing_to_hand_in");
     const made = await make("bouquet");
-    const bouquet = made.events.find((e: Json) => e.type === "inventory").gained[0].id;
-    // Making it isn't handing it in, and a dry run only says it would go.
+    const first = made.events.find((e: Json) => e.type === "inventory").gained[0].id;
+    const bouquet = (await make("bouquet")).events.find((e: Json) => e.type === "inventory")
+      .gained[0].id;
+    // Making it isn't handing it in, and a dry run says which one would go and takes nothing: the
+    // oldest she made, or the one she names.
     expect(jobEvents(made.events)).toEqual([]);
     const dry = await t.act(ada.token, { type: "hand_in", dry: true });
-    expect(dry).toMatchObject({ ok: true, dry: true });
+    expect(dry).toMatchObject({ ok: true, dry: true, handedIn: { item: first, kind: "bouquet" } });
+    expect(await t.act(ada.token, { type: "hand_in", item: bouquet, dry: true })).toMatchObject({
+      handedIn: { item: bouquet, kind: "bouquet" },
+    });
+    // The socket's ack names it too.
+    const ws = new WebSocket(`${t.base.replace("http", "ws")}/v1/live`);
+    cleanups.push(() => ws.close());
+    const ack = new Promise<ServerMessage>((resolve) => {
+      ws.on("message", (data) => {
+        const m = JSON.parse(data.toString()) as ServerMessage;
+        if (m.type === "welcome") {
+          const action = { type: "hand_in", dry: true };
+          ws.send(JSON.stringify({ type: "action", id: "h1", action }));
+        }
+        if (m.type === "ack" || m.type === "error") resolve(m);
+      });
+    });
+    ws.once("open", () => ws.send(JSON.stringify({ type: "hello", v: 1, token: ada.token })));
+    expect(await ack).toMatchObject({
+      type: "ack",
+      id: "h1",
+      dry: true,
+      handedIn: { item: first, kind: "bouquet" },
+    });
     expect(t.logged("hand_in")).toEqual([]);
     const handed = await t.act(ada.token, { type: "hand_in", item: bouquet });
+    expect(handed.handedIn).toEqual({ item: bouquet, kind: "bouquet" });
     expect(types(handed.events).slice(0, 2)).toEqual(["inventory", "job_done"]);
     expect(handed.events[0]).toEqual({
       type: "inventory",
@@ -731,6 +807,9 @@ describe("a finished job", () => {
     });
     const things = (await t.call("GET", "/v1/inventory", undefined, ada.token)).body;
     expect(JSON.stringify(things)).not.toContain(`"${bouquet}"`);
+    expect(JSON.stringify(things)).toContain(`"${first}"`);
+    // No other action's answer carries it.
+    expect(await t.act(ada.token, { type: "home", dry: true })).not.toHaveProperty("handedIn");
   });
 
   it("tells a host who was away when the event's credit finished their job, once", async () => {
@@ -915,8 +994,11 @@ describe("by link", () => {
       }
       t.later(DAY_MS);
     }
-    // Once jobs are open, every page's Next list has the way in.
+    // Once jobs are open, every page's Next list has the way in, for a resident with a hearth.
     expect((await t.call("GET", `/v1/act/${key}/me`)).text).toContain(`/v1/act/${key}/jobs`);
+    const cy = t.service.createSession({ name: "Cy", kind: "agent" });
+    const cyKey = (await t.call("POST", "/v1/link-key", {}, cy.token)).body.key;
+    expect((await t.call("GET", `/v1/act/${cyKey}/me`)).text).not.toMatch(/\/jobs\b/);
 
     t.until("ansel_bouquet");
     const make = await t.bench(ada);
@@ -933,6 +1015,11 @@ describe("by link", () => {
     );
 
     expect(await page("?drop=yes")).toContain("You let the job go.");
+    expect(t.service.state.jobs?.held).toBeUndefined();
+    // The take link opened again within two minutes is a repeat, like every link that acts: it
+    // takes nothing, and the page says first that it's the earlier answer.
+    const again = await page("?take=ansel_bouquet");
+    expect(again).toMatch(/^You opened this same link a moment ago, so nothing new happened\./);
     expect(t.service.state.jobs?.held).toBeUndefined();
     t.later(3 * MINUTE);
     await page("?take=ansel_bouquet");
@@ -952,5 +1039,24 @@ describe("by link", () => {
       "You finished the town's job, a bouquet for Ansel: 10 Making points. Tell your owner.",
     );
     expect(after).not.toContain("You hold one of the town's jobs");
+
+    // A count that unlocked something says so here as the JSON check-in does, from the same
+    // notice, with what a link can do about it: put the satchel on with the rest of the outfit
+    // (less the basket, which shares its slot), and nothing for a title.
+    await t.act(ada.token, { type: "profile", wear: ["beret", "basket"] });
+    const done = { job: "clem_jam", skill: "making", points: 10 } as const;
+    for (const total of [10, 25]) {
+      const view = jobDoneView({ ...done, total });
+      if (!view) throw new Error("no view");
+      t.social.jobDone(ada.id, view);
+    }
+    t.later(3 * MINUTE);
+    const unlocked = (await t.call("GET", `/v1/act/${key}/checkin`)).text;
+    expect(unlocked).toContain(
+      "10 Making points. Tell your owner. That's 10 jobs finished, so you can show the title Helping hand (showing a title on your profile needs the API or the website): ask if they'd like you to.",
+    );
+    expect(unlocked).toContain(
+      `That's 25 jobs finished, so you can wear the town satchel (with the rest of what you have on: ${t.base}/v1/act/${key}/look?wear=beret,town_satchel): ask if they'd like you to.`,
+    );
   });
 });

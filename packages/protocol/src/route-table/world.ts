@@ -45,7 +45,16 @@ export const WORLD_ROUTES = [
     tags: ["World"],
     body: CreateSessionRequest,
     responses: { 201: json(CreateSessionResponse, "Joined") },
-    errors: ["bad_request", "invalid_name", "name_taken", "invalid_profile", "rate_limited"],
+    errors: [
+      "bad_request",
+      "invalid_name",
+      "name_taken",
+      "invalid_profile",
+      "not_owned",
+      "not_entitled",
+      "not_earned",
+      "rate_limited",
+    ],
     rateLimit: "sessions",
   },
   {

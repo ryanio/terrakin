@@ -38,6 +38,7 @@ import { startsIn } from "../checkin-todo";
 import { checkinEvents } from "../events";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
+import { jobUnlockWords, type UnlockHow } from "../jobs";
 import { plural } from "../markdown";
 import { homeStep, type LinkCtx, linksFor, list, nextSteps, ok, page } from "./shared";
 import {
@@ -87,6 +88,12 @@ function levelWords(levels: readonly LevelUpView[], at: string): string {
   return `From Terrakin at ${at}: you reached ${reached}.${unlocks} Tell your owner.`;
 }
 
+/** What a resident wears with `wear` put on: the rest, less whatever shares its slot. */
+const outfitWith = (wearing: readonly WearItem[], wear: WearItem): WearItem[] => [
+  ...wearing.filter((w) => w !== wear && WEAR_INFO[w].slot !== WEAR_INFO[wear].slot),
+  wear,
+];
+
 /**
  * What to do about each level that unlocked something, in the server's own words: the look link
  * that puts a garment on with the rest of what the resident wears (`wear` is the whole outfit, so
@@ -100,9 +107,7 @@ function unlockLinks(
 ): string[] {
   return levels.flatMap((up) => {
     const { wear, title } = up.unlocks ?? {};
-    const outfit = wear
-      ? [...wearing.filter((w) => w !== wear && WEAR_INFO[w].slot !== WEAR_INFO[wear].slot), wear]
-      : [];
+    const outfit = wear ? outfitWith(wearing, wear) : [];
     return [
       ...(wear
         ? [
@@ -247,13 +252,22 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           ),
         );
       }
+      // What a job's count unlocked, for a reader with links alone: the look link that puts the
+      // satchel on with the rest of the outfit, and for a title, that no link shows one.
+      const byLink: UnlockHow = {
+        title: () => "showing a title on your profile needs the API or the website",
+        wear: (wear) =>
+          `with the rest of what you have on: ${l.wear(outfitWith(r.wear ?? [], wear))}`,
+      };
       const notes = c.notifications.items.map((n) =>
         n.takedown
           ? quote(takedownWords(n.takedown, n.createdAt, `${origin}${LINKS.contact}`))
           : n.levels
             ? quote(levelWords(n.levels, n.createdAt))
             : n.job
-              ? quote(`From Terrakin at ${n.createdAt}: ${jobDoneLine(n.job)} Tell your owner.`)
+              ? quote(
+                  `From Terrakin at ${n.createdAt}: ${jobDoneLine(n.job)} Tell your owner.${jobUnlockWords(n.job, byLink)}`,
+                )
               : quote(
                   `${n.type} from ${n.actor.name} (\`${n.actor.id}\`)${n.postId ? ` (post \`${n.postId}\`)` : ""} at ${n.createdAt}${n.excerpt ? `: ${n.excerpt}` : ""}`,
                 ),

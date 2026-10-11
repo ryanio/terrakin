@@ -541,6 +541,59 @@ describe("takedown notices", () => {
   });
 });
 
+describe("a finished job's notice", () => {
+  const saved = (globalThis as { document?: unknown }).document;
+  afterEach(() => {
+    (globalThis as { document?: unknown }).document = saved;
+  });
+
+  it("comes from Terrakin in the job's fixed words, with what the count unlocked, and links nowhere", () => {
+    const { doc } = fakeDocument();
+    (globalThis as { document?: unknown }).document = doc;
+    type Node = { tag: string; textContent: string; children: Node[] };
+    const all = (node: Node): Node[] => [node, ...node.children.flatMap(all)];
+    const shown = (job: NonNullable<NotificationView["job"]>) => {
+      const n: NotificationView = {
+        id: "n_1",
+        type: "job_done",
+        trust: "untrusted",
+        actor: TERRAKIN_ACTOR,
+        count: 1,
+        postId: null,
+        excerpt: "",
+        system: true,
+        job,
+        read: false,
+        createdAt: "2026-10-10T12:00:00.000Z",
+      };
+      const nodes = all(notificationItem(n) as unknown as Node);
+      return {
+        texts: nodes.map((x) => x.textContent),
+        links: nodes.filter((x) => x.tag === "a").length,
+      };
+    };
+    const job = {
+      job: "clem_jam",
+      title: "A jar of jam for the cafe",
+      from: { handle: "clem", name: "Clem", id: "r_clem" },
+      skill: "making",
+      points: 10,
+    } as const;
+    const plain = shown({ ...job, total: 3 });
+    expect(plain.texts).toContain("Terrakin");
+    expect(plain.texts).toContain(
+      "You finished Clem's job, a jar of jam for the cafe: 10 Making points.",
+    );
+    expect(plain.texts.join(" ")).not.toContain("You can");
+    // Neither the giver nor the job is a link: the notice names them in words.
+    expect(plain.links).toBe(0);
+    const tenth = shown({ ...job, total: 10, unlocks: { title: "helping_hand" } });
+    expect(tenth.texts).toContain("You can show the title Helping hand now.");
+    const satchel = shown({ ...job, total: 25, unlocks: { wear: "town_satchel" } });
+    expect(satchel.texts).toContain("You can wear the town satchel now.");
+  });
+});
+
 describe("placeholder banners", () => {
   it("draws the same banner for a resident every time, every motif across residents, in their color", () => {
     expect(bannerShapes("r_wren", "leaf")).toEqual(bannerShapes("r_wren", "leaf"));

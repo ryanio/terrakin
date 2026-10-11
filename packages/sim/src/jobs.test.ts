@@ -1609,6 +1609,19 @@ describe("what the count unlocks", () => {
       // A newcomer can't arrive wearing it either.
       const arriving = { type: "join", name: "eve", kind: "human", wear: ["town_satchel"] };
       expect(w.code("eve", arriving as unknown as Command)).toBe("not_earned");
+      // Nor does it take a style, or a style cleared, worn or not: nothing names it before then.
+      for (const style of [{ pattern: "stripes" }, { color: "sun" }, null] as const) {
+        const wearStyle = { town_satchel: style };
+        expect(w.code("ada", { type: "profile", wearStyle }), JSON.stringify(style)).toBe(
+          "not_earned",
+        );
+        expect(w.code("eve", { type: "join", name: "eve", kind: "human", wearStyle })).toBe(
+          "not_earned",
+        );
+      }
+      // Clearing every style names no garment, so it's as it always was.
+      w.ok("ada", { type: "profile", wearStyle: { beret: { color: "sun" } } });
+      w.ok("ada", { type: "profile", wearStyle: null });
     }
   });
 
@@ -1629,9 +1642,18 @@ describe("what the count unlocks", () => {
     // Bob, who did none of it, has none of it.
     expect(w.code("bob", title("helping_hand"))).toBe("not_earned");
 
+    const styled: Command = {
+      type: "profile",
+      wearStyle: { town_satchel: { pattern: "stripes" } },
+    };
     playTo(w, "ada", JOBS.wearAt - 1);
     expect(w.code("ada", satchel)).toBe("not_earned");
+    expect(w.code("ada", styled)).toBe("not_earned");
     playTo(w, "ada", JOBS.wearAt);
+    w.ok("ada", styled);
+    expect(w.state.residents.ada?.wearStyle).toEqual({ town_satchel: { pattern: "stripes" } });
+    w.ok("ada", { type: "profile", wearStyle: { town_satchel: null } });
+    expect(w.code("bob", styled)).toBe("not_earned");
     expect(w.ok("ada", satchel)).toMatchObject([
       { type: "profile_changed", residentId: "ada", wear: ["town_satchel"] },
     ]);

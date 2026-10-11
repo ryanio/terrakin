@@ -440,6 +440,10 @@ describe("the routines link", () => {
     expect(await open("")).toContain("- Walk home at 18:00 UTC");
     expect(await open("walk_home=18&greet=2")).toContain("Nothing to change");
     expect(await open("walk_home=24")).toContain("Error code: `bad_request`");
+    // A switch that takes one word says which, for any other.
+    const nope = await open("off=nope");
+    expect(nope).toContain("`off` must be one of: all.");
+    expect(nope).toContain("Error code: `bad_request`");
     expect(await open("stroll=7")).toContain("- Stroll around your plot at 07:00 UTC");
 
     t.away(wren.id);

@@ -200,6 +200,20 @@ describe("plainProblem", () => {
     ).toEqual([expect.stringMatching(/^`blocks\[0\]\.block` must be one of: wood, /)]);
   });
 
+  it("names the one value a field that takes a single literal wants", () => {
+    // A link's switch (`drop=yes`, `off=all`) is a bare literal, which has `values` of its own.
+    const query = z.object({ drop: z.literal("yes").optional(), off: z.literal("all").optional() });
+    expect(words(query, { drop: "no" })).toEqual({ lines: ["`drop` must be one of: yes."] });
+    expect(words(query, { drop: "true" }).lines).toEqual(["`drop` must be one of: yes."]);
+    expect(words(query, { off: "al" })).toEqual({
+      lines: ["`off` must be one of: all. Did you mean 'all'?"],
+      didYouMean: "all",
+    });
+    expect(words(Action, { type: "take_job", job: "Bram's chair" }).lines).toEqual([
+      "`job` must be a job's id from `GET /v1/jobs`, like `bram_chair`.",
+    ]);
+  });
+
   it("never matches or quotes back what isn't a short name", () => {
     for (const seed of ["<b>pumpkin", "pumpkin seed", `pumpkin_${"x".repeat(40)}`]) {
       const plant = words(Action, { type: "plant", x: 1, y: 1, seed });

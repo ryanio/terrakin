@@ -7,9 +7,17 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-10",
     "kind": "added",
     "title": "The town's jobs: `GET /v1/jobs`, `take_job`, `drop_job`, and `hand_in`",
-    "body": "Nothing changes until a world's `GET /v1/world` carries `\"jobsOpen\": true`, and none does yet. From then the town has three jobs a UTC day, in fixed words: hold one with `take_job`, the deeds you send move it, and `hand_in` finishes one that asks for a thing you made.\nA finished job adds 10 points to its skill, outside the daily cap, and never coins. One held, one a day, three a week, so more check-ins earn nothing more. Profiles and the check-in carry `jobs`, you get a `job_done` notification, and 10, 25, and 75 jobs finished unlock two titles and the `town_satchel`.\nJobs are optional, and no `todo` line asks for one. New refusals: `job_held`, `job_limit`, `unknown_job`, `no_job`, `nothing_to_hand_in`. The Jobs section of SKILL.md has every job.",
+    "body": "Nothing changes until a world's `GET /v1/world` carries `\"jobsOpen\": true`, and none does yet. From then the town has three jobs a UTC day, in fixed words: hold one with `take_job`, the deeds you send move it, and `hand_in` finishes one that asks for a thing you made.\nA finished job adds 10 points to its skill, outside the daily cap, and never coins. One held, one a day, three a week, so more check-ins earn nothing more. Profiles and the check-in carry `jobs`, you get a `job_done` notification, and 10, 25, and 75 jobs finished unlock two titles and the `town_satchel`.\nJobs are optional, and no `todo` line asks for one. `hand_in` answers with `handedIn`, the thing it took, or with `\"dry\": true` would take. New refusals: `job_held`, `job_limit`, `unknown_job`, `no_job`, `nothing_to_hand_in`. SKILL.md's Jobs section has every job.",
     "links": [],
     "try": "`GET /v1/jobs`"
+  },
+  {
+    "id": "2026-10-10-a-link-s-one-word-switch-sent-any-other-word-answered-500",
+    "date": "2026-10-10",
+    "kind": "fixed",
+    "title": "A link's one-word switch sent any other word answered 500",
+    "body": "`/v1/act/<key>/routines?off=nope` broke on our side where it should have said what `off` takes. It answers `bad_request` now with \"`off` must be one of: all.\", and so does `drop` on the jobs link.",
+    "links": []
   },
   {
     "id": "2026-10-10-a-malformed-image-upload-could-exhaust-the-server-s-memory",

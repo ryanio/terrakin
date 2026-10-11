@@ -7,6 +7,7 @@
  * loads the build's script.
  *
  *   node scripts/deploy-smoke.ts [--base https://terrakin.org] [--wait 120] [--deployed]
+ *                                [--version <id>] [--version-wait 600]
  *                                [--script /assets/index-abc.js] [--seed text]
  *
  * Read-only: about ten GETs, no token, no resident, nothing written. `--wait` is how many seconds
@@ -15,12 +16,19 @@
  * address may cause only a few a minute (packages/server/AGENTS.md). `--seed` picks which plot and
  * residents are drawn (CI uses the commit, so each deploy asks for different ones).
  *
- * The Worker serves no commit or version, so two flags stand in for one. `--script` names the
- * script the build's homepage loads, and the live homepage must load it. `--deployed` says this
- * checkout is what was just deployed: the pass line then says whether the live skill file is its
- * `packages/protocol/SKILL.md`. That file comes from the World object, which Cloudflare restarts
- * on a new build seconds to minutes after a deploy, so the line says when it differs and the
- * check still passes.
+ * `--version` is the deploy id wrangler uploaded (CI's deploy job hands it over). Cloudflare
+ * restarts the World object on a new build seconds to minutes after the Worker, so the check first
+ * asks `GET /v1/health` until the world's `build` and the Worker's `terrakin-worker-build` header
+ * both name it, for up to `--version-wait` seconds, and only then asks for what the world answers:
+ * the world, the skill file (which must then be this checkout's `SKILL.md`), and the pictures.
+ * When the world never gets there, it says so and those aren't asked. Without `--version` nothing
+ * waits for a build, and `--deployed` only notes whether the live skill file is this checkout's.
+ * `--script` names the script the build's homepage loads, and the live homepage must load it.
+ *
+ * A picture's `Cache-Status` says whether the Worker drew it for this request. When none of the
+ * three was drawn, up to `EXTRA_PICTURES` more maps around other residents are asked for, one at a
+ * time, until one is. A run with no fresh draw passes with a line saying it couldn't prove one:
+ * nothing may force a draw past the caps, and a quiet town can leave every picture unchanged.
  *
  * Exit codes: 0 every check passed, 1 one didn't, 2 it couldn't start.
  */
@@ -31,10 +39,15 @@ import { parseArgs } from "node:util";
 /** What one GET gave back, redirects not followed. */
 export interface Got {
   status: number;
-  /** The `content-type`, `location`, and `cache-control` headers, or "" without one. */
+  /**
+   * The `content-type`, `location`, `cache-control`, `terrakin-worker-build`, and `cache-status`
+   * headers, or "" without one.
+   */
   type: string;
   location: string;
   cacheControl: string;
+  workerBuild: string;
+  cacheStatus: string;
   body: Uint8Array;
 }
 
@@ -54,11 +67,34 @@ export interface Step {
   tries?: number;
   /** What is never asked when this fails, for the failure line. */
   gates?: string;
+  /**
+   * How long this step is asked again, from the start of the run (or from when the step that
+   * brought it passed), instead of the run's wait. The steps it brings get the run's wait afresh
+   * once it passes.
+   */
+  waitMs?: number;
+  /** Asked only when this says so at its turn; skipped quietly otherwise. */
+  when?(): boolean;
   check(got: Got): Outcome;
 }
 
 /** A picture is asked for at most this many times in one run. */
 export const PICTURE_TRIES = 3;
+/**
+ * More maps around someone, asked once each, while no picture has been drawn by this run. With
+ * three pictures at `PICTURE_TRIES` each, a run causes at most 12 draws, the most one address may
+ * cause in a minute (`RENDERS_PER_MINUTE` in packages/server/src/og.ts).
+ */
+export const EXTRA_PICTURES = 3;
+/** How long `--version` waits for the World object to run the deployed build, by default. */
+export const VERSION_WAIT_SECONDS = 600;
+
+/** How this run's pictures came back: drawn for it, found drawn, or with no word on which. */
+export interface Draws {
+  drawn: number;
+  cached: number;
+  unsaid: number;
+}
 
 const text = (got: Got) => new TextDecoder().decode(got.body);
 
@@ -96,6 +132,33 @@ export function checkHealth(got: Got): Outcome {
     problems.push("it has no `seq`");
   }
   return { problems, note: `seq ${String(seq)}` };
+}
+
+/**
+ * Health, from the deployed build: the world's `build` and the Worker's `terrakin-worker-build`
+ * both name `version`. Until Cloudflare restarts the World object on the new build, the world
+ * names the build before, or none if that build is older than `build`.
+ */
+export function checkBuild(got: Got, version: string): Outcome {
+  const health = checkHealth(got);
+  if (health.problems.length) return health;
+  const world = jsonObject(got)?.build;
+  const problems: string[] = [];
+  if (world !== version) {
+    problems.push(
+      typeof world === "string" && world
+        ? `the World object runs build ${world}, not the deployed ${version}: Cloudflare hasn't restarted it on the new build yet`
+        : `the World object names no build, so it runs one from before health named builds, not the deployed ${version}`,
+    );
+  }
+  if (got.workerBuild !== version) {
+    problems.push(
+      got.workerBuild
+        ? `the Worker that answered is build ${got.workerBuild}, not the deployed ${version}`
+        : `the Worker that answered sends no terrakin-worker-build, so it isn't the deployed ${version}`,
+    );
+  }
+  return { problems, note: `${health.note ?? ""}, the Worker and the world on ${version}` };
 }
 
 /**
@@ -177,9 +240,15 @@ const isTile = (n: unknown): n is number =>
 
 /**
  * The pictures to ask for, from the world's own snapshot: a plot someone owns, a resident's
- * look, and the map around a resident. Three requests, each a draw at most.
+ * look, and the map around a resident, each a draw at most. Then up to `EXTRA_PICTURES` maps
+ * around other residents, asked once each and only while `draws` has no picture drawn: the map
+ * moves with the light and whoever is online, so one of them is likely not drawn yet.
  */
-export function pictureSteps(world: Record<string, unknown>, seed: string): Step[] {
+export function pictureSteps(
+  world: Record<string, unknown>,
+  seed: string,
+  draws: Draws = { drawn: 0, cached: 0, unsaid: 0 },
+): Step[] {
   const plots = records(world.plots)
     .filter((p) => typeof p.ownerId === "string" && isTile(p.px) && isTile(p.py))
     .map((p) => `${String(p.px)}-${String(p.py)}`)
@@ -195,16 +264,38 @@ export function pictureSteps(world: Record<string, unknown>, seed: string): Step
     name,
     path,
     tries: PICTURE_TRIES,
-    check: checkPicture,
+    check: (answer) => checkPicture(answer, draws),
   });
+  const others = people.filter((id) => id !== near);
+  const extras: Step[] = [];
+  for (let i = 0; i < EXTRA_PICTURES && others.length; i++) {
+    const id = pick(others, `${seed}:extra:${i}`);
+    if (id === undefined) break;
+    others.splice(others.indexOf(id), 1);
+    extras.push({
+      ...step("another near", `/og/near/${id}.png`),
+      tries: 1,
+      when: () => draws.drawn === 0,
+    });
+  }
   return [
     ...(plot ? [step("plot picture", `/og/plot/${plot}.png`)] : []),
     ...(look ? [step("look picture", `/og/look/${look}.png`)] : []),
     ...(near ? [step("near picture", `/og/near/${near}.png`)] : []),
+    ...extras,
   ];
 }
 
-export function checkWorld(got: Got, switches: readonly Switch[], seed: string): Outcome {
+export function checkWorld(
+  got: Got,
+  switches: readonly Switch[],
+  seed: string,
+  o: {
+    draws?: Draws;
+    /** The World object reported the deployed build, so a missing switch is no restart away. */
+    onBuild?: boolean;
+  } = {},
+): Outcome {
   const problems = answered(got, "application/json");
   if (problems.length) return { problems };
   const world = jsonObject(got);
@@ -215,12 +306,14 @@ export function checkWorld(got: Got, switches: readonly Switch[], seed: string):
     const value = world[field];
     if (value === undefined || value === null || value === false) {
       problems.push(
-        `it has no \`${field}\`, which the Worker's \`${option}\` switch turns on (one new in this deploy shows once the World object has restarted, minutes later: run the check again)`,
+        o.onBuild
+          ? `it has no \`${field}\`, which the Worker's \`${option}\` switch turns on, though the World object runs the deployed build`
+          : `it has no \`${field}\`, which the Worker's \`${option}\` switch turns on (one new in this deploy shows once the World object has restarted, minutes later: run the check again)`,
       );
     }
   }
-  const pictures = pictureSteps(world, seed);
-  if (pictures.length < 3) {
+  const pictures = pictureSteps(world, seed, o.draws);
+  if (pictures.filter((p) => !p.when).length < 3) {
     problems.push("it has no owned plot or no resident, so no picture can be asked for");
   }
   return {
@@ -233,11 +326,35 @@ export function checkWorld(got: Got, switches: readonly Switch[], seed: string):
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /**
+ * Whether the Worker drew a picture for this request, from its `Cache-Status` (RFC 9211): the
+ * `terrakin` entry says `fwd` when it drew and `hit` when it found the PNG drawn. A cache along
+ * the way that replayed the answer adds a `hit` of its own after it, and that counts as cached.
+ */
+export function pictureDraw(cacheStatus: string): keyof Draws {
+  const entries = cacheStatus
+    .split(",")
+    .map((entry) => entry.split(";").map((part) => part.trim().split("=")[0]?.toLowerCase() ?? ""));
+  const at = entries.findIndex(([name]) => name === "terrakin");
+  const ours = entries[at];
+  if (!ours) return "unsaid";
+  if (ours.includes("hit") || entries.slice(at + 1).some((entry) => entry.includes("hit"))) {
+    return "cached";
+  }
+  return ours.includes("fwd") ? "drawn" : "unsaid";
+}
+
+const DRAW_WORDS: Record<keyof Draws, string> = {
+  drawn: "drawn now",
+  cached: "from the cache",
+  unsaid: "the Worker didn't say whether it drew it",
+};
+
+/**
  * A picture the Worker drew: a PNG, never a redirect. When a draw fails, the route sends the
  * client to the static `/og.png` (`packages/server/src/og.ts`), which is what a Worker that can't
- * draw does for every picture.
+ * draw does for every picture. A PNG that passes is counted in `draws` by how it came back.
  */
-export function checkPicture(got: Got): Outcome {
+export function checkPicture(got: Got, draws?: Draws): Outcome {
   if (got.status >= 300 && got.status < 400) {
     const why = got.cacheControl.includes("no-store")
       ? "the draw failed, a cap refused it, or the world didn't answer"
@@ -250,7 +367,34 @@ export function checkPicture(got: Got): Outcome {
   if (!PNG_MAGIC.every((byte, i) => got.body[i] === byte)) {
     problems.push("its body doesn't start with a PNG's bytes");
   }
-  return { problems, note: `PNG, ${got.body.length} bytes` };
+  const how = pictureDraw(got.cacheStatus);
+  if (draws && problems.length === 0) draws[how]++;
+  return { problems, note: `PNG, ${got.body.length} bytes, ${DRAW_WORDS[how]}` };
+}
+
+/**
+ * The line on what this run's pictures prove about drawing, or undefined when none came back.
+ * Without a fresh draw it says the run couldn't prove one; that is a note and never a failure.
+ */
+export function drawLine(draws: Draws): { proved: boolean; line: string } | undefined {
+  const total = draws.drawn + draws.cached + draws.unsaid;
+  if (total === 0) return undefined;
+  if (draws.drawn > 0) {
+    return {
+      proved: true,
+      line: `The Worker drew ${draws.drawn} of the ${total} pictures for this run, so it can draw.`,
+    };
+  }
+  const why =
+    draws.unsaid === 0
+      ? "every one came from the cache"
+      : draws.cached === 0
+        ? "the Worker said for none whether it drew it"
+        : `${draws.cached} came from the cache and the Worker didn't say for ${draws.unsaid}`;
+  return {
+    proved: false,
+    line: `Couldn't prove the Worker can draw: of the ${total} pictures, ${why}. Nothing forces a draw past the caps, so this is a note, not a failure.`,
+  };
 }
 
 /**
@@ -260,17 +404,26 @@ export function checkPicture(got: Got): Outcome {
  */
 export function checkFile(
   got: Got,
-  o: { type: string; has: string; build?: { text: string; from: string } },
+  o: {
+    type: string;
+    has: string;
+    /** With `onBuild`, the World object runs the deployed build, so another text fails. */
+    build?: { text: string; from: string; onBuild?: boolean };
+  },
 ): Outcome {
   const problems = answered(got, o.type);
   if (problems.length) return { problems };
   const body = text(got);
   if (!body.includes(o.has)) problems.push(`it doesn't contain "${o.has}"`);
-  const build = !o.build
-    ? ""
-    : body === o.build.text
-      ? `, this checkout's ${o.build.from}`
-      : `, not this checkout's ${o.build.from}: the World object still runs an earlier build`;
+  let build = "";
+  if (o.build && body === o.build.text) build = `, this checkout's ${o.build.from}`;
+  else if (o.build?.onBuild) {
+    problems.push(
+      `it isn't this checkout's ${o.build.from}, though the World object runs the deployed build`,
+    );
+  } else if (o.build) {
+    build = `, not this checkout's ${o.build.from}: the World object still runs an earlier build`;
+  }
   return { problems, note: `${got.body.length} bytes${build}` };
 }
 
@@ -317,7 +470,10 @@ export function checkHome(got: Got, script: string | undefined): Outcome {
   };
 }
 
-/** Every step that needs no other answer first. The world's and the homepage's bring the rest. */
+/**
+ * Every step that needs no other answer first. The world's and the homepage's bring the rest, and
+ * with `version` the health step brings the world and the skill file once it reports that build.
+ */
 export function firstSteps(o: {
   switches: readonly Switch[];
   seed: string;
@@ -325,21 +481,43 @@ export function firstSteps(o: {
   script?: string;
   /** This checkout's `packages/protocol/SKILL.md`, when it is what was deployed. */
   skill?: string;
+  /** The deploy id just uploaded, and how long to wait for the World object to run it. */
+  version?: { id: string; waitMs: number };
+  /** Where the pictures' answers are counted. */
+  draws?: Draws;
 }): Step[] {
-  const build = o.skill === undefined ? {} : { build: { text: o.skill, from: "SKILL.md" } };
+  const onBuild = o.version !== undefined;
+  const build =
+    o.skill === undefined ? {} : { build: { text: o.skill, from: "SKILL.md", onBuild } };
+  const world: Step = {
+    name: "world",
+    path: "/v1/world",
+    gates: "the plot, look, and near pictures",
+    check: (got) =>
+      checkWorld(got, o.switches, o.seed, { onBuild, ...(o.draws ? { draws: o.draws } : {}) }),
+  };
+  const skill: Step = {
+    name: "skill file",
+    path: "/skill.md",
+    check: (got) => checkFile(got, { type: "text/markdown", has: "name: terrakin", ...build }),
+  };
+  const version = o.version;
+  const health: Step[] = version
+    ? [
+        {
+          name: "build",
+          path: "/v1/health",
+          waitMs: version.waitMs,
+          gates: `the world, the skill file, and the pictures, after ${version.waitMs / 1000} seconds of waiting for the World object to run the deployed build`,
+          check: (got) => {
+            const outcome = checkBuild(got, version.id);
+            return outcome.problems.length ? outcome : { ...outcome, next: [world, skill] };
+          },
+        },
+      ]
+    : [{ name: "health", path: "/v1/health", check: checkHealth }, world, skill];
   return [
-    { name: "health", path: "/v1/health", check: checkHealth },
-    {
-      name: "world",
-      path: "/v1/world",
-      gates: "the plot, look, and near pictures",
-      check: (got) => checkWorld(got, o.switches, o.seed),
-    },
-    {
-      name: "skill file",
-      path: "/skill.md",
-      check: (got) => checkFile(got, { type: "text/markdown", has: "name: terrakin", ...build }),
-    },
+    ...health,
     {
       name: "llms.txt",
       path: "/llms.txt",
@@ -383,14 +561,22 @@ export async function run(
   io: Io,
   o: { waitMs: number; everyMs: number },
 ): Promise<{ passed: number; failed: Failure[] }> {
-  const deadline = io.now() + o.waitMs;
+  const start = io.now();
   const failed: Failure[] = [];
   let passed = 0;
-  let todo = first.map((step) => ({ step, tried: 0 }));
+  /** A step with its own wait counts from `from`; any other keeps the deadline it was given. */
+  const due = (step: Step, from: number, deadline: number) =>
+    step.waitMs === undefined ? deadline : from + step.waitMs;
+  let todo = first.map((step) => ({
+    step,
+    tried: 0,
+    deadline: due(step, start, start + o.waitMs),
+  }));
   while (todo.length) {
     const again: typeof todo = [];
     for (let item = todo.shift(); item; item = todo.shift()) {
       const { step } = item;
+      if (item.tried === 0 && step.when && !step.when()) continue;
       item.tried++;
       let outcome: Outcome;
       try {
@@ -402,8 +588,20 @@ export async function run(
       if (outcome.problems.length === 0) {
         passed++;
         io.say(`ok     ${line}${outcome.note ? `  (${outcome.note})` : ""}`);
-        todo.push(...(outcome.next ?? []).map((next) => ({ step: next, tried: 0 })));
-      } else if (item.tried < (step.tries ?? Number.POSITIVE_INFINITY) && io.now() < deadline) {
+        // What a waiting step brings gets the run's wait from now; anything else keeps its own.
+        const now = io.now();
+        const after = step.waitMs === undefined ? item.deadline : now + o.waitMs;
+        todo.push(
+          ...(outcome.next ?? []).map((next) => ({
+            step: next,
+            tried: 0,
+            deadline: due(next, now, after),
+          })),
+        );
+      } else if (
+        item.tried < (step.tries ?? Number.POSITIVE_INFINITY) &&
+        io.now() < item.deadline
+      ) {
         io.say(`again  ${line}: ${outcome.problems.join("; ")}`);
         again.push(item);
       } else {
@@ -434,6 +632,8 @@ export async function ask(base: string, path: string): Promise<Got> {
     type: res.headers.get("content-type") ?? "",
     location: res.headers.get("location") ?? "",
     cacheControl: res.headers.get("cache-control") ?? "",
+    workerBuild: res.headers.get("terrakin-worker-build") ?? "",
+    cacheStatus: res.headers.get("cache-status") ?? "",
     body: new Uint8Array(await res.arrayBuffer()),
   };
 }
@@ -445,22 +645,42 @@ function setup() {
       base: { type: "string", default: "https://terrakin.org" },
       wait: { type: "string", default: "0" },
       deployed: { type: "boolean", default: false },
+      version: { type: "string" },
+      "version-wait": { type: "string", default: String(VERSION_WAIT_SECONDS) },
       script: { type: "string" },
       seed: { type: "string" },
     },
   });
   const waitSeconds = Number(values.wait);
+  const versionWaitSeconds = Number(values["version-wait"]);
   if (!/^https?:\/\//.test(values.base)) throw new Error("--base takes an http or https URL");
   if (!Number.isFinite(waitSeconds) || waitSeconds < 0) throw new Error("--wait takes seconds");
+  if (!Number.isFinite(versionWaitSeconds) || versionWaitSeconds < 0) {
+    throw new Error("--version-wait takes seconds");
+  }
+  // CI passes the deploy job's output, which is empty when the deploy couldn't read the id.
+  if (values.version !== undefined && !/^[A-Za-z0-9-]{1,64}$/.test(values.version)) {
+    throw new Error(
+      values.version
+        ? "--version takes a deploy id: letters, digits, and dashes"
+        : "--version is empty: the deploy didn't say which version it uploaded (its 'Deployed' line)",
+    );
+  }
   const repoFile = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
   const seed = values.seed || process.env.GITHUB_SHA || String(Date.now());
+  const draws: Draws = { drawn: 0, cached: 0, unsaid: 0 };
+  const deployed = values.deployed || values.version !== undefined;
   const steps = firstSteps({
     switches: shownSwitches(workerSwitches(repoFile("packages/server/cloudflare/worker.ts"))),
     seed,
+    draws,
     ...(values.script ? { script: values.script } : {}),
-    ...(values.deployed ? { skill: repoFile("packages/protocol/SKILL.md") } : {}),
+    ...(deployed ? { skill: repoFile("packages/protocol/SKILL.md") } : {}),
+    ...(values.version === undefined
+      ? {}
+      : { version: { id: values.version, waitMs: versionWaitSeconds * 1000 } }),
   });
-  return { base: values.base, waitMs: waitSeconds * 1000, seed, steps };
+  return { base: values.base, waitMs: waitSeconds * 1000, seed, steps, draws };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -470,7 +690,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } catch (err) {
     console.error(`Couldn't start: ${err instanceof Error ? err.message : String(err)}`);
     console.error(
-      "Usage: node scripts/deploy-smoke.ts [--base https://terrakin.org] [--wait 120] [--deployed] [--script /assets/index-abc.js] [--seed text]",
+      "Usage: node scripts/deploy-smoke.ts [--base https://terrakin.org] [--wait 120] [--deployed] [--version <id>] [--version-wait 600] [--script /assets/index-abc.js] [--seed text]",
     );
     process.exit(2);
   }
@@ -486,6 +706,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     },
     { waitMs: job.waitMs, everyMs: 30_000 },
   );
+  const drew = drawLine(job.draws);
+  if (drew) console.log(drew.line);
+  // A run that couldn't prove a draw passes; in GitHub Actions it leaves a warning on the run.
+  if (drew && !drew.proved && process.env.GITHUB_ACTIONS === "true") {
+    console.log(`::warning::${drew.line}`);
+  }
   if (failed.length) {
     console.error(
       `${failed.length} of ${passed + failed.length} checks failed: ${failed.map((f) => f.name).join(", ")}. docs/deploy.md says what each one means.`,

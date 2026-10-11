@@ -15,14 +15,18 @@
  * first input still catches a rule that replays old inputs differently.
  * `TERRAKIN_SKIP_REPLAY_CHECK=1` skips it on purpose.
  *
- * In GitHub Actions it leaves three outputs for the smoke job that follows (`deploy-smoke.ts`,
- * decision 0250): `deployed`, whether this run uploaded, `script`, the script the page it built
- * loads, and `replay`, how the replay check went, which turns the smoke job red on `skipped`.
+ * It prints the version id wrangler uploaded, read from wrangler's output file
+ * (`WRANGLER_OUTPUT_FILE_PATH`). In GitHub Actions it leaves four outputs for the smoke job that
+ * follows (`deploy-smoke.ts`, decision 0250): `deployed`, whether this run uploaded, `script`, the
+ * script the page it built loads, `replay`, how the replay check went, which turns the smoke job
+ * red on `skipped`, and `version`, that id, which the smoke job waits for the World object to run.
  *
  *   node scripts/deploy.ts [wrangler deploy args]
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type DeployCheck = { go: true } | { go: false; skip: boolean; why: string };
@@ -115,17 +119,41 @@ export async function replayBeforeDeploy(o: {
 }
 
 /**
+ * The version id a `wrangler deploy` uploaded, from the lines it appended to its output file (one
+ * JSON object a line, the upload's with `"type": "deploy"`), or undefined when there is none. Only
+ * an id made of letters, digits, and dashes counts, since it goes into the workflow's outputs.
+ */
+export function deployedVersion(output: string): string | undefined {
+  let version: string | undefined;
+  for (const line of output.split("\n")) {
+    try {
+      const entry: unknown = JSON.parse(line);
+      if (entry === null || typeof entry !== "object") continue;
+      const { type, version_id: id } = entry as Record<string, unknown>;
+      if (type === "deploy" && typeof id === "string" && /^[A-Za-z0-9-]{1,64}$/.test(id)) {
+        version = id;
+      }
+    } catch {
+      // Not a JSON line.
+    }
+  }
+  return version;
+}
+
+/**
  * The lines for `$GITHUB_OUTPUT`: whether this run uploaded, and after an upload the script the
- * built page loads and how the replay check went. CI's `smoke` job runs only on `deployed=true`,
- * checks the live homepage against `script`, and goes red on `replay=skipped`.
+ * built page loads, how the replay check went, and the version id it uploaded. CI's `smoke` job
+ * runs only on `deployed=true`, checks the live homepage against `script`, waits for the world to
+ * run `version`, and goes red on `replay=skipped`.
  */
 export function workflowOutputs(
   deployed: boolean,
   script: string | undefined,
   replay: ReplayOutcome,
+  version?: string,
 ): string {
   return deployed
-    ? `deployed=true\nscript=${script ?? ""}\nreplay=${replay}\n`
+    ? `deployed=true\nscript=${script ?? ""}\nreplay=${replay}\nversion=${version ?? ""}\n`
     : "deployed=false\n";
 }
 
@@ -133,7 +161,7 @@ export function workflowOutputs(
  * Leave the outputs for the workflow. The upload has already happened or been skipped, so nothing
  * here can fail the run: the smoke script is loaded only now, and a failure is said and passed over.
  */
-async function tellWorkflow(deployed: boolean, replay: ReplayOutcome) {
+async function tellWorkflow(deployed: boolean, replay: ReplayOutcome, version?: string) {
   const file = process.env.GITHUB_OUTPUT;
   if (!file) return;
   let script: string | undefined;
@@ -145,7 +173,7 @@ async function tellWorkflow(deployed: boolean, replay: ReplayOutcome) {
     // No built page to read: the smoke job checks the homepage without a script to match.
   }
   try {
-    appendFileSync(file, workflowOutputs(deployed, deployed ? script : undefined, replay));
+    appendFileSync(file, workflowOutputs(deployed, deployed ? script : undefined, replay, version));
   } catch (err) {
     console.error(
       `Couldn't write the workflow's outputs: ${err instanceof Error ? err.message : String(err)}`,
@@ -183,6 +211,27 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     );
     process.exit(1);
   }
-  execFileSync("wrangler", ["deploy", ...process.argv.slice(2)], { stdio: "inherit" });
-  await tellWorkflow(true, replayed);
+  // wrangler appends what it uploaded to this file, the version id among it.
+  const outputFile = join(
+    process.env.RUNNER_TEMP || tmpdir(),
+    `wrangler-deploy-${process.pid}.jsonl`,
+  );
+  rmSync(outputFile, { force: true });
+  execFileSync("wrangler", ["deploy", ...process.argv.slice(2)], {
+    stdio: "inherit",
+    env: { ...process.env, WRANGLER_OUTPUT_FILE_PATH: outputFile },
+  });
+  let version: string | undefined;
+  try {
+    version = deployedVersion(readFileSync(outputFile, "utf8"));
+    rmSync(outputFile, { force: true });
+  } catch {
+    // No output file: wrangler wrote none, and the smoke job says it has no version to wait for.
+  }
+  console.log(
+    version
+      ? `Deployed version ${version}.`
+      : "Deployed, but wrangler's output file named no version id.",
+  );
+  await tellWorkflow(true, replayed, version);
 }

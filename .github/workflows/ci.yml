@@ -162,6 +162,7 @@ jobs:
       deployed: ${{ steps.deploy.outputs.deployed }}
       script: ${{ steps.deploy.outputs.script }}
       replay: ${{ steps.deploy.outputs.replay }}
+      version: ${{ steps.deploy.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -198,17 +199,20 @@ jobs:
     needs: deploy
     if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.deploy.outputs.deployed == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 16
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      # The wait outlasts the World object's restart on the new build (about five minutes), so
-      # a switch added in this deploy is there by the last ask. Only a check that fails waits.
-      - run: node scripts/deploy-smoke.ts --wait 420 --deployed --script "$SCRIPT"
+      # It asks /v1/health until the World object runs the version just uploaded, for up to 10
+      # minutes (its restart on a new build took about five on 2026-10-10 and 10-11), and only
+      # then asks for what the world answers. Anything that fails after that is asked again for 2
+      # minutes, for a deploy still spreading. An empty version fails here: the deploy didn't say.
+      - run: node scripts/deploy-smoke.ts --version "$VERSION" --version-wait 600 --wait 120 --script "$SCRIPT"
         env:
           SCRIPT: ${{ needs.deploy.outputs.script }}
+          VERSION: ${{ needs.deploy.outputs.version }}
       # The deploy had a service token for the replay check and the check still couldn't run
       # (decision 0257): the token expired, its Access policy changed, or the live world didn't
       # answer. The deploy went out unchecked, so this job goes red and `smoke-alert` says so.

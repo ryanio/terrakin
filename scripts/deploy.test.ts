@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { checkDeploy, replayBeforeDeploy, workflowOutputs } from "./deploy";
+import { checkDeploy, deployedVersion, replayBeforeDeploy, workflowOutputs } from "./deploy";
 
 const head = "a".repeat(40);
 const main = "b".repeat(40);
@@ -63,15 +63,43 @@ describe("checkDeploy", () => {
 
 describe("workflowOutputs", () => {
   it("says whether the run uploaded, and after an upload the built page's script", () => {
-    expect(workflowOutputs(true, "/assets/index-abc.js", "passed")).toBe(
-      "deployed=true\nscript=/assets/index-abc.js\nreplay=passed\n",
+    expect(workflowOutputs(true, "/assets/index-abc.js", "passed", "v-1")).toBe(
+      "deployed=true\nscript=/assets/index-abc.js\nreplay=passed\nversion=v-1\n",
     );
-    expect(workflowOutputs(true, undefined, "off")).toBe("deployed=true\nscript=\nreplay=off\n");
-    expect(workflowOutputs(false, "/assets/index-abc.js", "skipped")).toBe("deployed=false\n");
+    expect(workflowOutputs(true, undefined, "off")).toBe(
+      "deployed=true\nscript=\nreplay=off\nversion=\n",
+    );
+    expect(workflowOutputs(false, "/assets/index-abc.js", "skipped", "v-1")).toBe(
+      "deployed=false\n",
+    );
   });
 
   it("writes the names CI's deploy job hands to the smoke job, the replay check's among them", () => {
     expect(workflowOutputs(true, undefined, "skipped")).toContain("replay=skipped\n");
+  });
+});
+
+describe("deployedVersion", () => {
+  const id = "0b4e1c2d-5a6f-4e7d-9c8b-1a2b3c4d5e6f";
+
+  it("reads the id from the upload's line of wrangler's output file", () => {
+    const output = [
+      JSON.stringify({ version: 1, type: "wrangler-session", wrangler_version: "4.148.0" }),
+      "",
+      JSON.stringify({ type: "deploy", version: 1, worker_name: "terrakin", version_id: id }),
+      "",
+    ].join("\n");
+    expect(deployedVersion(output)).toBe(id);
+  });
+
+  it("finds none without an upload's line, and takes no id that could break an output line", () => {
+    expect(deployedVersion("")).toBeUndefined();
+    expect(deployedVersion("not json\n{}")).toBeUndefined();
+    expect(deployedVersion(JSON.stringify({ type: "version-upload", version_id: id }))).toBe(
+      undefined,
+    );
+    const forged = JSON.stringify({ type: "deploy", version_id: `${id}\nreplay=passed` });
+    expect(deployedVersion(forged)).toBeUndefined();
   });
 });
 
@@ -127,8 +155,12 @@ describe("replayBeforeDeploy", () => {
 
   it("hands its answer to the workflow's outputs", () => {
     const source = readFileSync(new URL("./deploy.ts", import.meta.url), "utf8");
-    expect(source).toContain("await tellWorkflow(true, replayed);");
-    expect(source).toContain("workflowOutputs(deployed, deployed ? script : undefined, replay)");
+    expect(source).toContain("await tellWorkflow(true, replayed, version);");
+    expect(source).toContain(
+      "workflowOutputs(deployed, deployed ? script : undefined, replay, version)",
+    );
+    // The version id comes from the file wrangler writes for the upload it just made.
+    expect(source).toContain("WRANGLER_OUTPUT_FILE_PATH: outputFile");
   });
 
   it("turns the smoke job red when the replay check was skipped", () => {

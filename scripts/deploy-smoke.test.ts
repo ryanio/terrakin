@@ -2,16 +2,24 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
+import { RENDERS_PER_MINUTE } from "../packages/server/src/og";
 import {
   ask,
+  checkBuild,
   checkFile,
   checkHealth,
   checkHome,
   checkPicture,
   checkWorld,
+  type Draws,
+  drawLine,
+  EXTRA_PICTURES,
+  firstSteps,
   type Got,
   type Io,
   PICTURE_TRIES,
+  pictureDraw,
+  pictureSteps,
   run,
   SNAPSHOT_FIELDS,
   type Step,
@@ -24,6 +32,8 @@ const got = (o: Partial<Got> & { text?: string } = {}): Got => ({
   type: "",
   location: "",
   cacheControl: "",
+  workerBuild: "",
+  cacheStatus: "",
   body: new TextEncoder().encode(o.text ?? ""),
   ...o,
 });
@@ -76,6 +86,40 @@ describe("checkHealth", () => {
   });
 });
 
+describe("checkBuild", () => {
+  const deployed = "0b4e1c2d-5a6f-4e7d-9c8b-1a2b3c4d5e6f";
+  const health = (build: string | undefined, worker: string) => ({
+    ...json({ ok: true, seq: 12, ...(build === undefined ? {} : { build }) }),
+    workerBuild: worker,
+  });
+
+  it("passes only when the world and the Worker both run the deployed build", () => {
+    expect(checkBuild(health(deployed, deployed), deployed)).toEqual({
+      problems: [],
+      note: `seq 12, the Worker and the world on ${deployed}`,
+    });
+  });
+
+  it("says which build the world still runs, or that it names none", () => {
+    expect(checkBuild(health("old-build", deployed), deployed).problems).toEqual([
+      `the World object runs build old-build, not the deployed ${deployed}: Cloudflare hasn't restarted it on the new build yet`,
+    ]);
+    expect(checkBuild(health(undefined, deployed), deployed).problems[0]).toContain(
+      "names no build",
+    );
+  });
+
+  it("fails a Worker that isn't the deployed one, and a health that fails as health", () => {
+    expect(checkBuild(health(deployed, "old-build"), deployed).problems).toEqual([
+      `the Worker that answered is build old-build, not the deployed ${deployed}`,
+    ]);
+    expect(checkBuild(health(deployed, ""), deployed).problems).toHaveLength(1);
+    expect(checkBuild({ ...health(deployed, deployed), status: 500 }, deployed).problems).toEqual(
+      expect.arrayContaining([expect.stringContaining("500")]),
+    );
+  });
+});
+
 describe("checkWorld", () => {
   const switches = [{ option: "levels", field: "levelsOpen" }];
   const world = {
@@ -98,10 +142,14 @@ describe("checkWorld", () => {
     expect(paths[0]).toBe("/og/plot/3-4.png");
     expect(paths[1]).toMatch(/^\/og\/look\/r_(aa|bb)\.png$/);
     expect(paths[2]).toMatch(/^\/og\/near\/r_(aa|bb)\.png$/);
+    // Then one more map, around the other resident, asked once and only while nothing was drawn.
+    expect(paths.slice(3)).toEqual([expect.stringMatching(/^\/og\/near\/r_(aa|bb)\.png$/)]);
+    expect(paths[3]).not.toBe(paths[2]);
     expect((outcome.next ?? []).map((step) => step.tries)).toEqual([
       PICTURE_TRIES,
       PICTURE_TRIES,
       PICTURE_TRIES,
+      1,
     ]);
   });
 
@@ -110,6 +158,10 @@ describe("checkWorld", () => {
     const { problems } = checkWorld(json(without), switches, "seed");
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain("it has no `levelsOpen`, which the Worker's `levels` switch");
+    expect(problems[0]).toContain("run the check again");
+    // On the deployed build no restart is coming, so it says so instead.
+    const [onBuild] = checkWorld(json(without), switches, "seed", { onBuild: true }).problems;
+    expect(onBuild).toContain("though the World object runs the deployed build");
   });
 
   it("fails a body that isn't a world, and a world with nobody to draw", () => {
@@ -125,6 +177,20 @@ describe("checkPicture", () => {
     expect(checkPicture(got({ type: "image/png", body: PNG })).problems).toEqual([]);
   });
 
+  it("counts a PNG by whether the Worker drew it for this request", () => {
+    const draws: Draws = { drawn: 0, cached: 0, unsaid: 0 };
+    const png = (cacheStatus: string) => got({ type: "image/png", body: PNG, cacheStatus });
+    expect(checkPicture(png("terrakin; fwd=miss"), draws).note).toContain("drawn now");
+    expect(checkPicture(png("terrakin; hit"), draws).note).toContain("from the cache");
+    expect(checkPicture(png(""), draws).note).toContain("didn't say");
+    // A failed answer counts for nothing.
+    checkPicture(
+      got({ status: 302, location: "/og.png", cacheStatus: "terrakin; fwd=miss" }),
+      draws,
+    );
+    expect(draws).toEqual({ drawn: 1, cached: 1, unsaid: 1 });
+  });
+
   it("fails the redirect to the static card a Worker that can't draw sends", () => {
     const { problems } = checkPicture(
       got({ status: 302, location: "/og.png", cacheControl: "no-store" }),
@@ -136,6 +202,35 @@ describe("checkPicture", () => {
   it("fails a 200 that isn't a PNG, by its type or by its bytes", () => {
     expect(checkPicture(got({ type: "text/html", body: PNG })).problems).toHaveLength(1);
     expect(checkPicture(got({ type: "image/png", text: "<html>" })).problems).toHaveLength(1);
+  });
+});
+
+describe("pictureDraw", () => {
+  it("reads the Worker's entry in Cache-Status, and a later cache's replay as cached", () => {
+    expect(pictureDraw("terrakin; fwd=miss")).toBe("drawn");
+    expect(pictureDraw("Terrakin; fwd=miss, SomeProxy; fwd=uri-miss")).toBe("drawn");
+    expect(pictureDraw("terrakin; hit")).toBe("cached");
+    expect(pictureDraw("terrakin; fwd=miss, SomeProxy; hit")).toBe("cached");
+    expect(pictureDraw("")).toBe("unsaid");
+    expect(pictureDraw("SomeProxy; fwd=miss")).toBe("unsaid");
+    expect(pictureDraw("terrakin")).toBe("unsaid");
+  });
+});
+
+describe("drawLine", () => {
+  it("says a draw was proved, or plainly that it couldn't be, and nothing with no pictures", () => {
+    expect(drawLine({ drawn: 1, cached: 2, unsaid: 0 })).toEqual({
+      proved: true,
+      line: "The Worker drew 1 of the 3 pictures for this run, so it can draw.",
+    });
+    const none = drawLine({ drawn: 0, cached: 3, unsaid: 0 });
+    expect(none?.proved).toBe(false);
+    expect(none?.line).toMatch(
+      /^Couldn't prove the Worker can draw: .*every one came from the cache/,
+    );
+    expect(drawLine({ drawn: 0, cached: 2, unsaid: 1 })?.line).toContain("didn't say for 1");
+    expect(drawLine({ drawn: 0, cached: 0, unsaid: 2 })?.line).toContain("said for none");
+    expect(drawLine({ drawn: 0, cached: 0, unsaid: 0 })).toBeUndefined();
   });
 });
 
@@ -183,6 +278,16 @@ describe("checkFile", () => {
     expect(earlier.note).toContain("not this checkout's SKILL.md");
     expect(earlier.note).not.toContain("before");
   });
+
+  it("on the deployed build, fails a skill file that isn't this checkout's", () => {
+    const build = { text: "name: terrakin, this build", from: "SKILL.md", onBuild: true };
+    const live = (text: string) =>
+      checkFile(got({ type: "text/markdown", text }), { ...file, build });
+    expect(live(build.text).problems).toEqual([]);
+    expect(live("name: terrakin, the build before").problems).toEqual([
+      "it isn't this checkout's SKILL.md, though the World object runs the deployed build",
+    ]);
+  });
 });
 
 describe("checkHome", () => {
@@ -217,6 +322,7 @@ describe("run", () => {
   function io(answers: Record<string, (Got | Error)[]>) {
     let now = 0;
     const asked: string[] = [];
+    const said: string[] = [];
     const io: Io = {
       ask: async (path) => {
         asked.push(path);
@@ -228,9 +334,11 @@ describe("run", () => {
         now += ms;
       },
       now: () => now,
-      say: () => {},
+      say: (line) => {
+        said.push(line);
+      },
     };
-    return { io, asked };
+    return { io, asked, said };
   }
   const ok = got({ status: 200 });
   const bad = got({ status: 500 });
@@ -283,5 +391,145 @@ describe("run", () => {
     });
     expect(asked).toEqual(["/w", "/h", "/w", "/h", "/w/next"]);
     expect(result).toMatchObject({ passed: 2, failed: [{ name: "/h" }] });
+  });
+
+  it("lets a step wait longer than the run, and gives what it brings the run's wait afresh", async () => {
+    const { io: fake, asked } = io({
+      "/h": [bad, bad, bad, bad, bad, bad, ok],
+      "/w": [bad, ok],
+    });
+    const waiting = step("/h", {
+      waitMs: 300_000,
+      check: (answer) => ({
+        problems: answer.status === 200 ? [] : ["not 200"],
+        next: [step("/w")],
+      }),
+    });
+    const result = await run([waiting], fake, { waitMs: 30_000, everyMs: 30_000 });
+    expect(result).toEqual({ passed: 2, failed: [] });
+    expect(asked).toEqual(["/h", "/h", "/h", "/h", "/h", "/h", "/h", "/w", "/w"]);
+  });
+
+  it("skips a step whose `when` says no at its turn, and counts it nowhere", async () => {
+    let wanted = false;
+    const { io: fake, asked } = io({ "/a": [ok], "/b": [ok] });
+    const result = await run([step("/a"), step("/b", { when: () => wanted })], fake, {
+      waitMs: 0,
+      everyMs: 30_000,
+    });
+    expect(asked).toEqual(["/a"]);
+    expect(result).toEqual({ passed: 1, failed: [] });
+    wanted = true;
+    expect(
+      (
+        await run([step("/b", { when: () => wanted })], io({ "/b": [ok] }).io, {
+          waitMs: 0,
+          everyMs: 30_000,
+        })
+      ).passed,
+    ).toBe(1);
+  });
+});
+
+describe("a run with the deployed version", () => {
+  const id = "0b4e1c2d-5a6f-4e7d-9c8b-1a2b3c4d5e6f";
+  const skill = "---\nname: terrakin\n";
+  const world = {
+    residents: [{ id: "r_aa" }, { id: "r_bb" }, { id: "r_cc" }, { id: "r_dd" }, { id: "r_ee" }],
+    plots: [{ px: 3, py: 4, ownerId: "r_aa" }],
+  };
+  /** A live site whose World object restarts on `id` after `restartMs`, and pictures by `picture`. */
+  function site(restartMs: number, picture: (path: string) => Got) {
+    let now = 0;
+    const asked: string[] = [];
+    const said: string[] = [];
+    const io: Io = {
+      ask: async (path) => {
+        asked.push(path);
+        if (path === "/v1/health") {
+          const build = now >= restartMs ? id : "the-build-before";
+          return { ...json({ ok: true, seq: 1, build }), workerBuild: id };
+        }
+        if (path === "/v1/world") return json(world);
+        if (path === "/skill.md") return got({ type: "text/markdown", text: skill });
+        if (path.startsWith("/og/")) return picture(path);
+        return got({ status: 404 });
+      },
+      sleep: async (ms) => {
+        now += ms;
+      },
+      now: () => now,
+      say: (line) => {
+        said.push(line);
+      },
+    };
+    return { io, asked, said };
+  }
+  const png = (cacheStatus: string) => () => got({ type: "image/png", body: PNG, cacheStatus });
+  const steps = (draws: Draws, waitMs = 600_000) =>
+    firstSteps({ switches: [], seed: "seed", skill, version: { id, waitMs }, draws }).filter(
+      (s) => s.path === "/v1/health",
+    );
+  const fresh = (): Draws => ({ drawn: 0, cached: 0, unsaid: 0 });
+  const options = { waitMs: 120_000, everyMs: 30_000 };
+
+  it("asks nothing the world answers until the world runs the deployed build", async () => {
+    const t = site(300_000, png("terrakin; fwd=miss"));
+    const draws = fresh();
+    const result = await run(steps(draws), t.io, options);
+    expect(result.failed).toEqual([]);
+    const firstWorld = t.asked.indexOf("/v1/world");
+    // Health every 30 seconds until the restart at 5 minutes, then the world and the rest.
+    expect(t.asked.slice(0, firstWorld)).toEqual(Array(11).fill("/v1/health"));
+    expect(t.asked).toContain("/skill.md");
+    expect(t.asked.filter((p) => p.startsWith("/og/"))).toHaveLength(3);
+    expect(draws.drawn).toBe(3);
+  });
+
+  it("says plainly when the world never gets there, and asks for none of what waits on it", async () => {
+    const t = site(Number.POSITIVE_INFINITY, png("terrakin; fwd=miss"));
+    const result = await run(steps(fresh(), 90_000), t.io, options);
+    expect(new Set(t.asked)).toEqual(new Set(["/v1/health"]));
+    expect(result.failed).toEqual([
+      {
+        name: "build",
+        path: "/v1/health",
+        problems: [expect.stringContaining("runs build the-build-before, not the deployed")],
+      },
+    ]);
+    expect(t.said).toContain(
+      "       Not asked, since this failed: the world, the skill file, and the pictures, after 90 seconds of waiting for the World object to run the deployed build.",
+    );
+  });
+
+  it("asks for more maps only while nothing was drawn, and never past one address's draws", async () => {
+    const cached = site(0, png("terrakin; hit"));
+    const none = fresh();
+    expect((await run(steps(none), cached.io, options)).failed).toEqual([]);
+    const pictures = (t: { asked: string[] }) => t.asked.filter((p) => p.startsWith("/og/"));
+    expect(pictures(cached)).toHaveLength(3 + EXTRA_PICTURES);
+    expect(none).toEqual({ drawn: 0, cached: 3 + EXTRA_PICTURES, unsaid: 0 });
+    expect(drawLine(none)?.proved).toBe(false);
+
+    // The first extra map drawn ends the extra asks.
+    let asks = 0;
+    const once = site(0, () => png(++asks === 4 ? "terrakin; fwd=miss" : "terrakin; hit")());
+    await run(steps(fresh()), once.io, options);
+    expect(pictures(once)).toHaveLength(4);
+
+    // Every draw refused: each picture is asked its tries and no more, under the per-address cap.
+    const refused = site(0, () =>
+      got({ status: 302, location: "/og.png", cacheControl: "no-store" }),
+    );
+    const result = await run(steps(fresh()), refused.io, options);
+    expect(result.failed.length).toBe(3 + EXTRA_PICTURES);
+    expect(pictures(refused).length).toBeLessThanOrEqual(RENDERS_PER_MINUTE);
+  });
+
+  it("picks the extra maps among other residents than the near picture's", () => {
+    const paths = pictureSteps(world, "seed").map((p) => p.path);
+    const near = paths.filter((p) => p.startsWith("/og/near/"));
+    expect(near).toHaveLength(1 + EXTRA_PICTURES);
+    expect(new Set(near).size).toBe(near.length);
   });
 });

@@ -43721,6 +43721,12 @@
           "job": {
             "$ref": "#/components/schemas/JobId"
           },
+          "from": {
+            "$ref": "#/components/schemas/JobGiverView"
+          },
+          "skill": {
+            "$ref": "#/components/schemas/SkillName"
+          },
           "title": {
             "type": "string"
           },
@@ -43729,6 +43735,37 @@
             "enum": [
               "deed",
               "bring"
+            ]
+          },
+          "deed": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JobDeedView"
+              }
+            ]
+          },
+          "bring": {
+            "description": "A bring job takes one thing you made yourself, and that thing leaves the world. One you were given or bought never counts.",
+            "type": "object",
+            "properties": {
+              "recipe": {
+                "description": "The recipe of the made thing it asks for. `jam` is any fruit's jam.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RecipeName"
+                  }
+                ]
+              },
+              "count": {
+                "type": "number",
+                "enum": [
+                  1
+                ]
+              }
+            },
+            "required": [
+              "recipe",
+              "count"
             ]
           },
           "count": {
@@ -43751,6 +43788,8 @@
         },
         "required": [
           "job",
+          "from",
+          "skill",
           "title",
           "shape",
           "count",

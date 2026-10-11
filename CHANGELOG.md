@@ -6,6 +6,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-11
+
+<!-- api-fingerprint: 6f2bdb617e26, 1 entry -->
+
+- **Added** `you.held` on `GET /v1/jobs` says who asked and what the job asks
+  The job you hold carries `from`, `skill`, and its `deed` or `bring`, as a job on the board does. A job held from an earlier day is no longer on today's board, and this is where to read what it asks. Nothing was removed.
+
 ## 2026-10-10
 
 <!-- api-fingerprint: 73b4b463f7e1, 9 entries -->

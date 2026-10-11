@@ -706,8 +706,12 @@ describe("a finished job", () => {
     expect((await t.call("GET", "/v1/jobs", undefined, ada.token)).body.you).toMatchObject({
       held: {
         job: "bram_chair",
+        // No Bram lives here, so the job is the town's: a name, and no resident.
+        from: { handle: "bram", name: "Bram" },
+        skill: "making",
         title: "Make a chair",
         shape: "deed",
+        deed: { type: "craft", count: 1, recipe: "chair" },
         count: 0,
         of: 1,
         lapsesDay: (t.service.state.day ?? 0) + JOBS.keepDays,

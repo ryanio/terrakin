@@ -61,14 +61,14 @@ export const giverIds =
   };
 
 /** The job `id` holds as the API shows it, or null. A job this build doesn't know reads as none. */
-function heldView(state: WorldState, id: string): HeldJobView | null {
+function heldView(state: WorldState, id: string, giverId: GiverIds): HeldJobView | null {
   const held = heldJob(state, id);
   const job = held && jobById(held.job);
   if (!held || !job) return null;
+  const { id: _id, points: _points, ...asked } = jobView(job, giverId(job.giver));
   return {
     job: job.id,
-    title: jobWords(job.id),
-    shape: job.bring === undefined ? "deed" : "bring",
+    ...asked,
     count: held.count ?? 0,
     of: jobCount(job),
     lapsesDay: held.day + JOBS.keepDays,
@@ -93,7 +93,7 @@ export function jobsView(
       mine === undefined
         ? null
         : {
-            held: heldView(state, mine),
+            held: heldView(state, mine, giverId),
             doneToday: state.jobs?.doneToday?.includes(mine) ?? false,
             week: { done: jobsThisWeek(state, mine), max: JOBS.perWeek },
             total,
@@ -120,7 +120,7 @@ export function jobsDoneField(state: WorldState, id: string): number | undefined
  */
 export function checkinJobs(state: WorldState, id: string): CheckinJobs | undefined {
   if (!state.jobs || isTownsfolk(state, id)) return undefined;
-  const held = heldView(state, id);
+  const held = heldView(state, id, noGivers);
   return {
     board: jobsOn(state).map((job) => job.id),
     ...(held ? { held: { job: held.job, count: held.count, of: held.of } } : {}),

@@ -141,11 +141,18 @@ export const JobView = z.object({
 });
 export type JobView = z.infer<typeof JobView>;
 
-/** The job you hold. */
+/**
+ * The job you hold: who asked and what it asks, as on the board, since a job held from an earlier
+ * day is no longer on today's, and how far along it is.
+ */
 export const HeldJobView = z.object({
   job: JobId,
+  from: JobGiverView,
+  skill: SkillName,
   title: z.string(),
   shape: z.enum(["deed", "bring"]),
+  deed: JobDeedView.optional(),
+  bring: JobView.shape.bring,
   count: z.number().int().describe("How many of `of` are done. A bring job is 0 until `hand_in`."),
   of: count,
   lapsesDay: z

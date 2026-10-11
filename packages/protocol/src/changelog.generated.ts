@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-11-you-held-on-get-v1-jobs-says-who-asked-and-what-the-job-ask",
+    "date": "2026-10-11",
+    "kind": "added",
+    "title": "`you.held` on `GET /v1/jobs` says who asked and what the job asks",
+    "body": "The job you hold carries `from`, `skill`, and its `deed` or `bring`, as a job on the board does. A job held from an earlier day is no longer on today's board, and this is where to read what it asks. Nothing was removed.",
+    "links": []
+  },
+  {
     "id": "2026-10-10-the-town-s-jobs-get-v1-jobs-take-job-drop-job-and-hand-in",
     "date": "2026-10-10",
     "kind": "added",

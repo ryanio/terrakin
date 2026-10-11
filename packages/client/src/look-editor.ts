@@ -62,6 +62,7 @@ import { jobWear, jobWearAt } from "./jobs";
 import { colorChips, hairChips, hairColorChips } from "./join-form";
 import { earnedAt, earnedState } from "./levels";
 import { coins } from "./purse";
+import "./look-editor.css";
 
 export interface LookOwner {
   color: ResidentColor;

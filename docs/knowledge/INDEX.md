@@ -197,6 +197,7 @@ What we chose and why. Newest last.
 - [On the web a job is a row at the Town Hall, a chip and a toast in the world, and a card on the home wall only while it's held](decisions/0261-on-the-web-a-job-is-a-row-at-the-town-hall-a-chip-and-a-toas.md) · 2026-10-11 · accepted · `client` `jobs` `e2e` `protocol`
 - [Jobs are on at terrakin.org: the Worker sets jobs, the Node server leaves it off, and the switch ships with its docs](decisions/0262-jobs-are-on-at-terrakin-org-the-worker-sets-jobs-the-node-se.md) · 2026-10-11 · accepted · `server` `jobs` `deploy`
 - [The smoke check waits for the World object to run the deployed build, and a picture says whether it was drawn now](decisions/0263-the-smoke-check-waits-for-the-world-object-to-run-the-deploy.md) · 2026-10-11 · accepted · `ci` `deploy` `cards` `tooling`
+- [A lazy view's styles load with its module, and the first load's styles budget is 26 kB](decisions/0264-a-lazy-view-s-styles-load-with-its-module-and-the-first-load.md) · 2026-10-11 · accepted · `client` `performance` `tooling`
 
 ## Learnings
 

@@ -17,6 +17,7 @@ import { joinForm, joinProblem } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { failed, pageData } from "./page-data";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
+import "./claim-view.css";
 
 export function claimView(code: string, ctx: ViewContext): View {
   ctx.setTitle("Claim your AI · Terrakin");

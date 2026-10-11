@@ -24,6 +24,7 @@ import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
 import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
+import "./collection-view.css";
 
 /** One kind in a family's grid: its picture and name once collected, else its outline and "?". */
 function kindTile(k: CollectionKind, now: number): HTMLElement {

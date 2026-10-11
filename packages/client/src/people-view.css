@@ -1,0 +1,63 @@
+/*
+ * Followers, following, and friends (people-view.ts): a three-way switch with counts, then the
+ * people. Loaded with the page.
+ */
+
+.people-page {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+/* The link tabs (ui.ts) with a count over each label. */
+.people-tabs {
+  border-radius: var(--r-card);
+}
+
+.people-tab {
+  min-height: 56px;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--r-note);
+  font-size: var(--text-md);
+}
+
+.people-tab-n {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.people-list {
+  list-style: none;
+  display: grid;
+  margin: 0;
+  padding: var(--space-2xs) var(--space-lg);
+  border-radius: var(--r-card);
+  background: var(--paper-fill);
+  border: 1px solid var(--paper-edge);
+}
+
+.people-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-md);
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+}
+
+.people-row + .people-row {
+  border-top: 1px dashed var(--paper-edge);
+}
+
+.people-person {
+  min-width: 0;
+  font-weight: var(--weight-bold);
+}
+
+.people-handle {
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}

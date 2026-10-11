@@ -296,11 +296,12 @@ function sitePages(): Plugin {
  * The most the app's first load may weigh, gzipped: the entry script with every chunk it imports
  * up front, and their stylesheets. The build fails past it (decisions 0110 and 0258). Lazy chunks
  * (every page but the feed, the world, 3D, sound, avatar figures) don't count; they load when
- * someone opens them, or beside the first load. The budget never buys a smaller number with worse
- * code: load the new code lazily, cut a module along a line that makes sense on its own, or raise
- * it in a decision record. `node scripts/first-load.ts` prints what the first load holds.
+ * someone opens them, or beside the first load. A lazy view's own stylesheet, imported by its
+ * module, loads with it (decision 0264). The budget never buys a smaller number with worse code:
+ * load the new code lazily, cut a module along a line that makes sense on its own, or raise it in a
+ * decision record. `node scripts/first-load.ts` prints what the first load holds.
  */
-export const FIRST_LOAD_BUDGET = { js: 135_000, css: 32_000 } as const;
+export const FIRST_LOAD_BUDGET = { js: 135_000, css: 26_000 } as const;
 
 function firstLoadBudget(): Plugin {
   return {

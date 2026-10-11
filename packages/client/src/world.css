@@ -1,0 +1,600 @@
+/*
+ * The world's HUD (world.ts and index.html's #hud): the d-pad, the actions, the speaker, the build
+ * bar's frame, the visit and look cards, chat, and the world's notices. Loaded with world.ts, which
+ * shows the HUD once it has run. What shows before it (the map's canvas, the landing, the loader)
+ * is in style.css.
+ */
+
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  animation: hud-in 0.5s ease-out 0.15s both;
+}
+
+@keyframes hud-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* The page can zoom, but not from the world's controls: a quick double tap on the d-pad or a pinch
+   on a button would zoom the whole HUD away. The canvas has its own touch-action: none; the
+   d-pad, the action buttons, and the two top pills have none too, and the palette and the chat
+   only scroll. */
+.hud > * {
+  pointer-events: auto;
+}
+
+/* Centered while a returning resident waits for a server that isn't answering. */
+.world-wait {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: var(--space-lg) var(--space-xl);
+  border-radius: var(--r-card);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.status {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.status:empty {
+  display: none;
+}
+
+.dpad {
+  position: absolute;
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template: repeat(3, var(--tap)) / repeat(3, var(--tap));
+  gap: var(--space-2xs);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  touch-action: none;
+}
+
+.dpad button {
+  display: grid;
+  place-items: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-card);
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+  color: var(--clay-deep);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
+}
+
+.dpad button > svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+}
+
+.dpad button:active,
+.dpad button[data-held] {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(92, 60, 30, 0.18);
+  background: var(--pressed);
+}
+
+.dpad [data-dir="n"] {
+  grid-area: 1 / 2;
+}
+.dpad [data-dir="w"] {
+  grid-area: 2 / 1;
+}
+.dpad [data-dir="w"] > svg {
+  transform: rotate(-90deg);
+}
+.dpad [data-dir="e"] {
+  grid-area: 2 / 3;
+}
+.dpad [data-dir="e"] > svg {
+  transform: rotate(90deg);
+}
+.dpad [data-dir="s"] {
+  grid-area: 3 / 2;
+}
+.dpad [data-dir="s"] > svg {
+  transform: rotate(180deg);
+}
+
+.dpad-hub {
+  grid-area: 2 / 2;
+  place-self: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  box-shadow: var(--shadow-pill);
+  position: relative;
+  rotate: var(--north, 0deg);
+  transition: rotate 0.25s ease;
+}
+
+/* In 3D the d-pad walks the way the camera looks, so the hub carries a needle pointing north. */
+.dpad[data-compass] .dpad-hub::before {
+  content: "";
+  position: absolute;
+  inset: 1px calc(50% - 3px) 50%;
+  background: var(--clay);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.actions {
+  position: absolute;
+  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--space-lg);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-pill);
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+  white-space: nowrap;
+  touch-action: none;
+  transition:
+    transform 0.1s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.action .icon {
+  color: var(--clay);
+}
+
+/* Your things, in Claim plot's place once you have a plot: a link that looks like its neighbors. */
+a.action {
+  text-decoration: none;
+}
+
+.action:active {
+  transform: translateY(1px) scale(var(--press));
+}
+
+.action[aria-pressed="true"] {
+  border-color: var(--clay-deep);
+  background: linear-gradient(180deg, #c15e38, var(--clay));
+  color: var(--paper);
+  box-shadow:
+    0 0 0 4px rgba(242, 184, 75, 0.35),
+    0 6px 14px -6px rgba(143, 61, 32, 0.6);
+}
+
+.action[aria-pressed="true"] .icon {
+  color: var(--paper);
+}
+
+/* The 2D or 3D toggle: an action button on its own, just above the d-pad, in reach of the thumb. */
+.world-mode {
+  position: absolute;
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(
+    14px +
+    env(safe-area-inset-bottom) +
+    var(--tap) *
+    3 +
+    var(--space-2xs) *
+    2 +
+    var(--space-md)
+  );
+  width: auto;
+}
+
+/* The cube turns while the scene loads. */
+.world-mode[aria-busy="true"] .icon {
+  animation: cube-turn 0.9s ease-in-out infinite;
+}
+
+@keyframes cube-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The speaker (decision 0097): a round button on top of the actions. Its waves show the level. */
+.hud-sound {
+  align-self: flex-end;
+  width: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+  color: var(--clay);
+  touch-action: none;
+}
+
+.sound-icon {
+  width: 24px;
+  height: 24px;
+  transition: opacity 0.2s ease;
+}
+
+.hud-sound:not([data-level="off"]) .sound-off,
+.hud-sound:not([data-level="quiet"]) .sound-quiet,
+.hud-sound:not([data-level="on"]) .sound-on {
+  display: none;
+}
+
+/* On, and waiting for the tap browsers want before a page plays sound. */
+.hud-sound[data-state="waiting"] .sound-icon {
+  opacity: 0.55;
+}
+
+/*
+ * The build bar (RFC 0016): tabs, one row of choices for the tab, and a line about the pick. It
+ * sits under the top bar, so the tiles in reach around you (the middle of the screen) and the
+ * d-pad and actions at the bottom all stay in view while you build.
+ */
+.palette {
+  position: fixed;
+  margin: 0;
+  min-width: 0;
+  top: calc(64px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  width: min(calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)), 26rem);
+  gap: var(--space-2xs);
+  padding: var(--space-xs);
+  border-radius: var(--r-card);
+}
+
+/* The home sheet's status line takes no room until it has words. */
+.home-status:empty {
+  display: none;
+}
+
+/*
+ * On a plot someone lives on (RFC 0020): its name and whose it is (decision 0121), and this week's
+ * visitors and admirers, with Admire (or Name your plot on your own) and Next plot. Under the top
+ * pills, clear of the d-pad and the actions; it steps aside while chat is open or the build bar is
+ * up, which take the same place.
+ */
+.visit-card {
+  position: absolute;
+  top: calc(60px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(380px, calc(100% - 24px));
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--r-card);
+  touch-action: none;
+}
+
+.chat:not([hidden]) ~ .visit-card,
+.hud.building .visit-card {
+  display: none;
+}
+
+.visit-card-owner {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-card-whose {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--clay-deep);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-card-week {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-card-week:empty::before {
+  content: "\00a0";
+}
+
+.visit-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.visit-card-actions .pill-button .icon {
+  color: var(--clay);
+}
+
+/* Looking at a place a link named (decision 0162): the visit card's look, with a way in across it. */
+.look-join {
+  grid-column: 1 / -1;
+}
+
+/*
+ * Someone with no character looking around a link's place: the way back to the feed, the card,
+ * and notices, with the world's controls put away. "note" is a notice over the landing alone.
+ */
+.hud[data-peek="look"] > :not(.hud-feed, .look-card, .toast),
+.hud[data-peek="note"] > :not(.toast) {
+  display: none;
+}
+
+.hud[data-peek="note"] {
+  z-index: 11;
+}
+
+/* Back to the feed, top left. Chat opens below it so it never covers the way out. */
+.hud-feed {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  padding: 0 var(--space-lg) 0 var(--space-md);
+  text-decoration: none;
+  touch-action: none;
+}
+
+.chat {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  right: calc(12px + env(safe-area-inset-right));
+  max-width: 480px;
+  max-height: 42vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md);
+  border-radius: var(--r-card);
+  touch-action: pan-y;
+}
+
+.chat-log {
+  list-style: none;
+  margin: 0 0 var(--space-md);
+  padding: 2px var(--space-2xs);
+  overflow-y: auto;
+  touch-action: pan-y;
+  overflow-wrap: anywhere;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+}
+
+.chat-log li {
+  padding: var(--space-2xs) 0;
+}
+
+.chat-log li + li {
+  border-top: 1px dashed rgba(236, 220, 192, 0.9);
+}
+
+.chat-log b {
+  color: var(--clay-deep);
+  font-weight: var(--weight-bold);
+}
+
+.chat-empty {
+  margin: 0 var(--space-2xs) var(--space-md);
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.chat-log:not(:empty) + .chat-empty {
+  display: none;
+}
+
+#chat-form {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+#chat-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  border: 1.5px solid var(--paper-edge);
+  border-radius: var(--r-pill);
+  background: var(--field);
+  font-size: var(--text-input);
+  color: var(--ink);
+}
+
+#chat-form input:focus {
+  outline: none;
+  border-color: var(--clay);
+  box-shadow: 0 0 0 3px rgba(242, 184, 75, 0.3);
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  top: calc(56px + env(safe-area-inset-top));
+  transform: translate(-50%, -6px);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--r-lg);
+  background: var(--paper-fill);
+  border: 1px solid var(--paper-edge);
+  box-shadow: var(--shadow-pill);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--ink);
+  text-align: center;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+  overflow-wrap: anywhere;
+}
+
+.chat:not([hidden]) ~ .toast {
+  top: calc(42vh + 76px + env(safe-area-inset-top));
+}
+
+/* Under the card on someone's plot, so a toast never covers Admire or Next plot. */
+.visit-card:not([hidden]) ~ .toast {
+  top: calc(192px + env(safe-area-inset-top));
+}
+
+/*
+ * A named plot's card has a line more, whose plot it is (decision 0121): the toast goes lower.
+ * `:where` keeps this as specific as the rule above, so building still moves the toast.
+ */
+.visit-card:not([hidden]):where(:has(.visit-card-whose:not([hidden]))) ~ .toast {
+  top: calc(218px + env(safe-area-inset-top));
+}
+
+/* While building, notices show under the build bar instead of over its tabs. */
+.hud.building .toast {
+  top: calc(var(--palette-bottom, 220px) + 8px);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Text another resident wrote. Visibly not from the game itself: a quote, in italics, with a rule. */
+.toast.player {
+  padding-left: var(--space-4xl);
+  border-radius: var(--r-note);
+  border: 1.5px solid rgba(143, 179, 106, 0.45);
+  background: var(--grain), linear-gradient(180deg, #fbfdf5, #f1f5e6);
+  font-style: italic;
+  font-weight: var(--weight-medium);
+  text-align: left;
+  color: var(--ink-soft);
+}
+
+.toast.player::before {
+  content: "\201C";
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: var(--text-5xl);
+  line-height: var(--leading-none);
+  color: var(--moss);
+}
+
+/* The invite pill, top right. */
+.hud-invite {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  padding: 0 var(--space-lg) 0 var(--space-md);
+  touch-action: none;
+}
+
+/*
+ * What you can do where you stand ("Fish", "Pat Biscuit", "Gather all"): stacked above the 3D toggle, clear
+ * of the actions. The column takes no taps itself, so the map under it stays tappable.
+ */
+.world-near {
+  position: absolute;
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(
+    14px +
+    env(safe-area-inset-bottom) +
+    var(--tap) *
+    4 +
+    var(--space-2xs) *
+    2 +
+    var(--space-md) *
+    2
+  );
+  pointer-events: none;
+}
+
+.world-near > .pill-button {
+  max-width: calc(100vw - 180px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 14px rgba(74, 52, 28, 0.18);
+  pointer-events: auto;
+}
+
+/* Into the Town Hall or the shop beside you: the button shows the one icon for where it goes. */
+#world-enter[data-place="/town"] .enter-shop,
+#world-enter[data-place="/shop"] .enter-town {
+  display: none;
+}
+
+/*
+ * Go up or Go down (RFC 0028), beside your figure while you stand on stairs or at the top of them.
+ * world.ts sets where, each frame, from where your figure is drawn.
+ */
+.world-climb {
+  position: absolute;
+  left: var(--climb-x, 50%);
+  top: var(--climb-y, 50%);
+  min-height: 44px;
+  transform: translateY(-50%);
+  box-shadow: 0 4px 14px rgba(74, 52, 28, 0.18);
+}
+
+.world-climb[data-dir="up"] .climb-down,
+.world-climb[data-dir="down"] .climb-up {
+  display: none;
+}

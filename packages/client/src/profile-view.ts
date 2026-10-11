@@ -79,6 +79,7 @@ import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } f
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-plot";
 import { xRow } from "./x-connect";
+import "./profile-view.css";
 
 /** A little emoji that floats up from a button and fades: the gesture leaving your hands. */
 function floatUp(from: HTMLElement, emoji: string) {
@@ -668,7 +669,8 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     const paint = () => {
       const url = r.banner;
       const has = isMediaUrl(url);
-      // On narrow phones a set banner's buttons shrink to icons (style.css), so the name is a label.
+      // On narrow phones a set banner's buttons shrink to icons (profile-view.css), so the name is
+      // a label.
       el.classList.toggle("has-image", has);
       if (remove) remove.hidden = !has;
       const label = change?.querySelector(".banner-tool-label");

@@ -31,7 +31,7 @@ describe("the curated borders and profile designs (decision 0058)", () => {
   it("has a ring in base.css for every border, and styles for every design", () => {
     const base = read("packages/ui/src/base.css");
     for (const border of PARTNER_BORDERS) expect(base).toContain(`.avatar.ring-${border} {`);
-    const app = read("packages/client/src/style.css");
+    const app = read("packages/client/src/profile-view.css");
     for (const design of PROFILE_DESIGNS) {
       expect(app).toContain(`.profile[data-design="${design}"] {`);
     }

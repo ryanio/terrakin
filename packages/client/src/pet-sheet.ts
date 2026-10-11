@@ -28,6 +28,7 @@ import { residentsApi } from "./api/residents";
 import { actProblem, worldApi } from "./api/world";
 import { coatWord, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
 import { aThing } from "./things";
+import "./pet-sheet.css";
 
 /** A pet on a profile, with its count of pats. */
 type ProfilePet = NonNullable<ProfileView["pet"]>;

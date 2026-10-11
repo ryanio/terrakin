@@ -14,6 +14,7 @@ import { residentsApi } from "./api/residents";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
+import "./people-view.css";
 
 export const PEOPLE_TABS = ["followers", "following", "friends"] as const;
 export type PeopleTab = (typeof PEOPLE_TABS)[number];

@@ -86,6 +86,7 @@ import {
   townPaintKey,
 } from "./town-format";
 import { errorCard, type View, type ViewContext } from "./view";
+import "./town-view.css";
 
 /** How often the page asks for fresh tallies while it's on screen. */
 const REFRESH_MS = 15_000;

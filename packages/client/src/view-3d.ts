@@ -5,6 +5,7 @@
 import { h } from "@terrakin/ui/dom";
 import type { Route3d } from "./scene3d/page";
 import { errorCard, type View, type ViewContext } from "./view";
+import "./view-3d.css";
 
 export function view3d(route: Route3d, ctx: ViewContext): View {
   ctx.setTitle(route.name === "gallery3d" ? "Gallery in 3D · Terrakin" : "Visit in 3D · Terrakin");

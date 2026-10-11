@@ -1,0 +1,202 @@
+/*
+ * The 3D views (view-3d.ts and scene3d/): a plot in 3D and the gallery, loaded with the page. Full
+ * screen over the site chrome. The scene draws its own paper sky; the bar and the foot float on top
+ * in the same paper pills as the rest of the site.
+ */
+
+html.view3d-open,
+html.view3d-open body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.view3d-root {
+  min-height: 60vh;
+}
+
+.view3d-loading {
+  margin: var(--space-4xl) auto;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.view3d {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: linear-gradient(180deg, #f6ecd8 0%, #efe0c2 70%);
+}
+
+.view3d-stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.view3d-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.view3d-bar {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  right: calc(12px + env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  pointer-events: none;
+}
+
+.view3d-bar > * {
+  pointer-events: auto;
+}
+
+.view3d-back {
+  width: 44px;
+  padding: 0;
+  flex: none;
+}
+
+.view3d-title {
+  min-width: 0;
+  margin: 0 auto 0 0;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--r-pill);
+  background: rgba(255, 250, 240, 0.85);
+  border: 1px solid var(--paper-edge);
+  box-shadow: var(--shadow-pill);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A plot's own name (decision 0121) runs to 40 characters: on a phone it takes two lines. */
+.view3d-title.named {
+  white-space: normal;
+  line-height: var(--leading-tight);
+  border-radius: var(--r-card);
+}
+
+.view3d-title.named .view3d-title-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.view3d-photo {
+  flex: none;
+}
+
+/* The floor picker (RFC 0028): under the bar, however tall a plot's name makes it. */
+.view3d-bar > .view3d-floors-line {
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  left: 0;
+  pointer-events: none;
+}
+
+.view3d-floors {
+  display: flex;
+  width: max-content;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 250, 240, 0.85);
+  border: 1px solid var(--paper-edge);
+  box-shadow: var(--shadow-pill);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.view3d-floors button {
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
+.view3d-floors button[aria-pressed="true"] {
+  background: var(--clay);
+  color: var(--paper);
+}
+
+.view3d-foot {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(100% - 32px, 420px);
+  display: grid;
+  gap: var(--space-xs);
+  justify-items: center;
+  pointer-events: none;
+  text-align: center;
+}
+
+.view3d-status,
+.view3d-note,
+.view3d-help {
+  margin: 0;
+  padding: var(--space-xs) var(--space-lg);
+  border-radius: var(--r-pill);
+  background: rgba(255, 250, 240, 0.82);
+  border: 1px solid var(--paper-edge);
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.view3d-status:empty,
+.view3d-note:empty {
+  display: none;
+}
+
+.view3d-note {
+  border-radius: var(--r-note);
+  color: var(--ink);
+}
+
+.view3d[data-ready] .view3d-help {
+  animation: view3d-fade 0.6s ease 5s forwards;
+}
+
+@keyframes view3d-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The photo in its sheet, whole and short enough that the buttons under it stay on screen. */
+.view3d-shot {
+  display: block;
+  justify-self: center;
+  max-width: 100%;
+  max-height: 56dvh;
+  border-radius: var(--r-md);
+  border: 1px solid var(--paper-edge);
+}
+
+.view3d-photo-actions {
+  justify-content: flex-end;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view3d[data-ready] .view3d-help {
+    animation: none;
+  }
+}

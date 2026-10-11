@@ -99,6 +99,7 @@ import type { LookTarget, WorldLink } from "./world-link";
 import type { WorldLoader } from "./world-loader";
 import { offer3d, readSignals, savedMode, saveMode, startMode, type WorldMode } from "./world-mode";
 import { mountNextStep } from "./world-next-step";
+import "./world.css";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 

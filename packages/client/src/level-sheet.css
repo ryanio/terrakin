@@ -1,0 +1,43 @@
+/* The skills sheet (level-sheet.ts): a row a skill, its bar under its name. Loaded with it. */
+
+.level-total {
+  margin: var(--space-md) 0 var(--space-xs);
+  font-weight: var(--weight-bold);
+}
+
+.level-sheet .level-row {
+  align-items: start;
+  padding: var(--space-sm) 0;
+}
+
+/* A row's lines hold a bar, so they're blocks, never clamped. */
+.level-sheet .item-row-line {
+  display: block;
+}
+
+.level-sheet .level-row .progress-bar {
+  margin: var(--space-xs) 0;
+}
+
+/* The garment a skill brings, faint until that skill reaches it. */
+.level-row:not(.reached) > .item-art {
+  opacity: 0.45;
+}
+
+.level-garment {
+  gap: var(--space-xs);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.level-titles .pick-row button {
+  text-transform: none;
+}
+
+.level-dress {
+  justify-self: start;
+}
+
+.level-extras {
+  margin-top: var(--space-lg);
+}

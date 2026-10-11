@@ -1,0 +1,72 @@
+/* The claim page (claim-view.ts), where an owner claims their AI. Loaded with the page. */
+
+.claim-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-xl) var(--space-2xl);
+  text-align: center;
+}
+
+.claim-agent .person-name {
+  font-size: var(--text-xl);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.claim-title {
+  overflow-wrap: anywhere;
+}
+
+.claim-lede {
+  max-width: 38ch;
+}
+
+.claim-body {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.claim-as {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.claim-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-md);
+}
+
+.claim-buttons a {
+  text-decoration: none;
+}
+
+.claim-form {
+  display: grid;
+  gap: var(--space-sm);
+  width: 100%;
+  margin: var(--space-2xs) 0 var(--space-xs);
+  padding-top: var(--space-lg);
+  border-top: 1.5px dashed var(--paper-edge);
+  text-align: left;
+}
+
+.claim-join-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.claim-help {
+  margin: 0 0 var(--space-2xs);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+}

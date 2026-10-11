@@ -272,6 +272,27 @@ function topLevel(text: string): string {
 /** Each selector of a list on its own: ".a, .b" is ".a" and ".b". */
 const selectors = (lists: string[]) => lists.flatMap((l) => l.split(",").map((x) => x.trim()));
 
+/**
+ * The client's stylesheets: `style.css`, which the first load brings, and the sheets a lazy view
+ * imports beside its module (`world.css` with `world.ts`), which load with it. They are one cascade.
+ */
+function clientSheets(): string[] {
+  const dir = join(ROOT, "packages/client/src");
+  const sheets = readdirSync(dir, { recursive: true, encoding: "utf8" })
+    .filter((name) => name.endsWith(".css"))
+    .map((name) => `packages/client/src/${name}`)
+    .sort();
+  if (!sheets.includes("packages/client/src/style.css"))
+    throw new Error("no style.css: the walk is broken");
+  return sheets;
+}
+
+const CLIENT_SHEETS = clientSheets();
+/** The app stylesheets, which add to base.css and never redefine it. */
+const APP_SHEETS = [...CLIENT_SHEETS, "packages/admin/src/style.css"];
+/** Every stylesheet with rules of its own. */
+const SHEETS = ["packages/ui/src/base.css", ...APP_SHEETS];
+
 describe("one definition per rule", () => {
   const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
   const base = new Set(selectors(cssRules(read("packages/ui/src/base.css")).top));
@@ -282,17 +303,36 @@ describe("one definition per rule", () => {
     expect(cssRules(css)).toEqual({ top: [".a, .b", "@keyframes k"], nested: [".c"] });
   });
 
-  for (const path of [
-    "packages/ui/src/base.css",
-    "packages/client/src/style.css",
-    "packages/admin/src/style.css",
-  ]) {
-    it(`${path} defines each selector once`, () => {
+  for (const [name, paths] of [
+    ["packages/ui/src/base.css", ["packages/ui/src/base.css"]],
+    ["the client's stylesheets", CLIENT_SHEETS],
+    ["packages/admin/src/style.css", ["packages/admin/src/style.css"]],
+  ] as const) {
+    it(`${name} define each selector once`, () => {
       const seen = new Set<string>();
-      const twice = cssRules(read(path)).top.filter((r) => seen.has(r) || !seen.add(r));
+      const twice = paths.flatMap((path) =>
+        cssRules(read(path))
+          .top.filter((r) => seen.has(r) || !seen.add(r))
+          .map((r) => `${path}: ${r}`),
+      );
       expect(twice).toEqual([]);
     });
   }
+
+  it("each view's stylesheet is imported by the module it is named for, and only there", () => {
+    // A sheet nothing imports styles nothing, and one imported from another module can ride into
+    // the first load with it. style.css is the first load's own, imported by main.ts.
+    const lazy = CLIENT_SHEETS.filter((path) => !path.endsWith("/style.css"));
+    expect(lazy.length).toBeGreaterThan(5);
+    const files = sources();
+    const importers = (sheet: string) =>
+      files
+        .filter((f) => f.text.includes(`import "./${sheet.split("/").pop()}";`))
+        .map((f) => f.path);
+    expect(lazy.map((path) => [path, importers(path)])).toEqual(
+      lazy.map((path) => [path, [path.replace(/\.css$/, ".ts")]]),
+    );
+  });
 
   it("stylesheets name a token instead of spelling out its color", () => {
     const tokens = new Map(
@@ -300,11 +340,7 @@ describe("one definition per rule", () => {
         (m) => [m[2]?.toLowerCase(), m[1]],
       ),
     );
-    const spelled = [
-      "packages/ui/src/base.css",
-      "packages/client/src/style.css",
-      "packages/admin/src/style.css",
-    ].flatMap((path) =>
+    const spelled = SHEETS.flatMap((path) =>
       [...read(path).matchAll(/#[0-9a-f]{6}\b/gi)].flatMap((m) => {
         const token = tokens.get(m[0].toLowerCase());
         return token ? [`${path}: ${m[0]} is var(${token})`] : [];
@@ -317,11 +353,7 @@ describe("one definition per rule", () => {
   it("no one-sided accent strokes: a callout or card marks itself with color and a soft fill", () => {
     // A bar down one side (or under a banner) of 2px or more. Thin dividers between rows and the
     // dashed thread line beside replies are structure, not accents, and stay under 2px or dashed.
-    const bars = [
-      "packages/ui/src/base.css",
-      "packages/client/src/style.css",
-      "packages/admin/src/style.css",
-    ].flatMap((path) =>
+    const bars = SHEETS.flatMap((path) =>
       [
         ...read(path).matchAll(
           /border-(?:left|right|top|bottom|inline-start|inline-end|block-start|block-end)\s*:\s*([2-9]|\d{2,})px\s+solid[^;]*;/g,
@@ -337,11 +369,7 @@ describe("one definition per rule", () => {
     // fluid headline; both say what they measure, so they're left alone.
     const scaled =
       /^\s*(gap|row-gap|column-gap|padding[\w-]*|margin[\w-]*|font-size|border[\w-]*radius)\s*:\s*(.+?);/;
-    const off = [
-      "packages/ui/src/base.css",
-      "packages/client/src/style.css",
-      "packages/admin/src/style.css",
-    ].flatMap((path) =>
+    const off = SHEETS.flatMap((path) =>
       read(path)
         .split("\n")
         .flatMap((line, i) => {
@@ -358,11 +386,7 @@ describe("one definition per rule", () => {
 
   it("line heights and weights come from their scales", () => {
     // A unitless line height or a numeric weight is a token. A px line height is a tap target.
-    const off = [
-      "packages/ui/src/base.css",
-      "packages/client/src/style.css",
-      "packages/admin/src/style.css",
-    ].flatMap((path) =>
+    const off = SHEETS.flatMap((path) =>
       read(path)
         .split("\n")
         .flatMap((line, i) =>
@@ -391,25 +415,24 @@ describe("one definition per rule", () => {
     ]);
     const cluster = "display: flex; flex-wrap: wrap; gap: var(--space-sm)";
     // The lookbehind leaves each rule's closing brace for the next match, so no rule is skipped.
-    const copies = ["packages/client/src/style.css", "packages/admin/src/style.css"].flatMap(
-      (path) =>
-        [
-          ...topLevel(read(path).replace(/\/\*[\s\S]*?\*\//g, "")).matchAll(
-            /(?<=^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
-          ),
-        ].flatMap(([, selector, body]) => {
-          const decls = (body ?? "")
-            .split(";")
-            .map((d) => d.trim().replace(/\s+/g, " "))
-            .filter(Boolean);
-          const list = ["margin: 0", "padding: 0", "list-style: none"];
-          const restates =
-            decls.length > 0 &&
-            ((decls.includes("display: grid") && decls.every((d) => primitive.has(d))) ||
-              [...decls].sort().join("; ") === cluster ||
-              (decls.length === 3 && list.every((d) => decls.includes(d))));
-          return restates ? [`${path}: ${selector?.trim()} { ${decls.join("; ")} }`] : [];
-        }),
+    const copies = APP_SHEETS.flatMap((path) =>
+      [
+        ...topLevel(read(path).replace(/\/\*[\s\S]*?\*\//g, "")).matchAll(
+          /(?<=^|\})\s*([^{}@]+?)\s*\{([^{}]*)\}/g,
+        ),
+      ].flatMap(([, selector, body]) => {
+        const decls = (body ?? "")
+          .split(";")
+          .map((d) => d.trim().replace(/\s+/g, " "))
+          .filter(Boolean);
+        const list = ["margin: 0", "padding: 0", "list-style: none"];
+        const restates =
+          decls.length > 0 &&
+          ((decls.includes("display: grid") && decls.every((d) => primitive.has(d))) ||
+            [...decls].sort().join("; ") === cluster ||
+            (decls.length === 3 && list.every((d) => decls.includes(d))));
+        return restates ? [`${path}: ${selector?.trim()} { ${decls.join("; ")} }`] : [];
+      }),
     );
     expect(copies).toEqual([]);
   });
@@ -417,7 +440,7 @@ describe("one definition per rule", () => {
   it("app stylesheets lay pages out with .column or .layout, never a width or sidebar of their own", () => {
     // A page is a .column (one column) or a .layout (main and sidebar), both in base.css, so
     // every page lines up with the site bar and the footer.
-    const own = ["packages/client/src/style.css", "packages/admin/src/style.css"].flatMap((path) =>
+    const own = APP_SHEETS.flatMap((path) =>
       [
         ...read(path).matchAll(
           /max-width: (?:1240|1120)px|grid-template-columns: minmax\(0, 1fr\) \d+px/g,
@@ -431,11 +454,7 @@ describe("one definition per rule", () => {
     const defined = new Set(
       [...read("packages/ui/src/tokens.css").matchAll(/(--[\w-]+):/g)].map((m) => m[1]),
     );
-    const used = [
-      "packages/ui/src/base.css",
-      "packages/client/src/style.css",
-      "packages/admin/src/style.css",
-    ].flatMap((path) =>
+    const used = SHEETS.flatMap((path) =>
       [...read(path).matchAll(/var\((--(?:space|text|r|gap|leading|weight)-[\w-]+)\)/g)].map(
         (m) => m[1],
       ),
@@ -444,7 +463,7 @@ describe("one definition per rule", () => {
     expect([...new Set(used)].filter((t) => !defined.has(t))).toEqual([]);
   });
 
-  for (const path of ["packages/client/src/style.css", "packages/admin/src/style.css"]) {
+  for (const path of APP_SHEETS) {
     it(`${path} leaves the shared components' rules to base.css, at every screen size`, () => {
       const { top, nested } = cssRules(read(path));
       expect(selectors([...top, ...nested]).filter((r) => base.has(r))).toEqual([]);

@@ -1,0 +1,175 @@
+/*
+ * The Town Hall (town-view.ts): voting, a proposal's answer, the map of the Commons, and pinning a
+ * note. Loaded with the page. What the home wall shows of the town too (proposals, tallies, events,
+ * notes) is in style.css.
+ */
+
+.vote-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+
+.vote-button {
+  min-height: 48px;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-pill);
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.vote-button:active {
+  transform: translateY(1px) scale(var(--press));
+}
+
+.vote-button.on.v-yes {
+  background: var(--moss-deep);
+  border-color: var(--moss-deep);
+  color: var(--paper);
+}
+
+.vote-button.on.v-no {
+  background: var(--clay);
+  border-color: var(--clay);
+  color: var(--paper);
+}
+
+.vote-button.on.v-abstain {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+  color: var(--paper);
+}
+
+.proposal-answer {
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid rgba(242, 184, 75, 0.45);
+  border-radius: var(--r-md);
+  background: rgba(242, 184, 75, 0.12);
+}
+
+.proposal-answer p:last-child {
+  margin: var(--space-xs) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * A map of the Commons: one cell per tile, its path or flooring under its block, drawn with the same
+ * pictures as the build bar. What a plan adds is ringed in clay; what it takes away is faded and
+ * ringed in red.
+ */
+.commons-map {
+  --n: 8;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: 2px;
+  padding: var(--space-xs);
+  border-radius: var(--r-md);
+  background: #e8d39f;
+  border: 1px dashed rgba(201, 150, 62, 0.75);
+}
+
+.commons-map.small {
+  max-width: 208px;
+}
+
+.commons-map .tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  overflow: hidden;
+  background: #f2e1b3;
+}
+
+.commons-map.editor .tile {
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.commons-map .tile.hall {
+  background: repeating-linear-gradient(135deg, #e7c9a8 0 4px, rgba(217, 101, 58, 0.35) 4px 8px);
+  cursor: not-allowed;
+}
+
+.commons-map .tile.shop {
+  background: repeating-linear-gradient(135deg, #f3e3c0 0 4px, rgba(201, 150, 62, 0.45) 4px 8px);
+  cursor: not-allowed;
+}
+
+/* The tile's path or flooring fills it; a block stands on top, in its color or its own picture. */
+.commons-map .tile .ground-art,
+.commons-map .tile-block {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.commons-map .tile .item-art {
+  position: relative;
+  width: 82%;
+  height: 82%;
+}
+
+/* A plan's rings go over the tile's pictures, so a path, a block, and a bench all show theirs. */
+.commons-map .tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.commons-map .tile.planned {
+  box-shadow: 0 0 0 2px var(--clay);
+}
+
+.commons-map .tile.planned::after {
+  box-shadow: inset 0 0 0 2px var(--paper);
+}
+
+.commons-map .tile.removing::after,
+.commons-map .tile.lifting::after {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.commons-map .tile.removing :is(.tile-block, .item-art),
+.commons-map .tile.lifting .ground-art {
+  opacity: 0.4;
+}
+
+/* The build bar's tabs and rows, in the Propose sheet instead of over the world. */
+.commons-palette {
+  min-width: 0;
+}
+
+.notice-compose {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.notice-hours {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.notice-hours > button {
+  font-size: var(--text-md);
+}
+
+.notice-input {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+}

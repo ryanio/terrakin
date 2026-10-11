@@ -37,6 +37,7 @@ import {
   type ViewContext,
 } from "./view";
 import { jumpThere } from "./visit-plot";
+import "./letters-view.css";
 
 const unreadChanged = () => window.dispatchEvent(new Event(UNREAD_EVENT));
 

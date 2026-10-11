@@ -34,6 +34,7 @@ import { h } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
 import { needsLine, thingCount } from "./things";
+import "./build-palette.css";
 
 export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
 export type PaletteTab = (typeof PALETTE_TABS)[number];

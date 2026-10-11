@@ -52,6 +52,7 @@ import {
 } from "./game-format";
 import { pageData } from "./page-data";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
+import "./games-view.css";
 
 /** How often a table refreshes: every 2 seconds at a live table, every 15 at a slow one. */
 const LIVE_MS = 2_000;

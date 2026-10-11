@@ -41,6 +41,7 @@ import { progressApi } from "./api/progress";
 import { actProblem, worldApi } from "./api/world";
 import { jobsRow, jobTitles, jobWear } from "./jobs";
 import { ownSkillRow, publicSkillRow, type SkillRow } from "./levels";
+import "./level-sheet.css";
 
 export interface LevelSheetOptions {
   /** Whose skills these are. Their name is their own words: shown as text. */

@@ -157,8 +157,10 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     const upstairs = page.getByRole("button", { name: "Upstairs" });
     await expect(ground).toHaveAttribute("aria-pressed", "true");
     await expect(upstairs).toHaveAttribute("aria-pressed", "false");
-    const box = await upstairs.boundingBox();
-    expect(box && box.height >= 44).toBe(true);
+    // The picker grows to its full height a frame after it appears, so ask until it has.
+    await expect
+      .poll(async () => (await upstairs.boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(44);
     // Stairs on the tile north of her hearth, from the Blocks tab.
     await page.click('[data-block="stairs"]');
     await expect(page.locator("#palette-line")).toContainText("Stairs: 4 wood");

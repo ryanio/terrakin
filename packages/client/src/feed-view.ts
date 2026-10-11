@@ -531,6 +531,11 @@ export function feedView(ctx: ViewContext): View {
       if (card) wallTop.append(card);
     });
   });
+  // The first world snapshot the wall reads, which says whether the town's jobs are open here.
+  let gotWorld: (world: WorldSnapshot | undefined) => void = () => {};
+  const worldIn = new Promise<WorldSnapshot | undefined>((resolve) => {
+    gotWorld = resolve;
+  });
   let writer: Composer | undefined;
   const meIn = myProfile().then(async (me) => {
     if (!me || destroyed) return;
@@ -551,6 +556,17 @@ export function feedView(ctx: ViewContext): View {
           if (card) composerSlot.after(card);
         });
       }),
+      // The job you hold (RFC 0030), under the composer. Its code and its read load only in a
+      // world with jobs open, so everywhere else the wall asks for nothing more.
+      worldIn
+        .then((world) =>
+          world?.jobsOpen ? import("./job-card").then((m) => m.heldJobCard()) : null,
+        )
+        .then((card) => {
+          whenPainted(() => {
+            if (card) composerSlot.after(card);
+          });
+        }),
       // Getting started, while first steps are left: loaded only for someone signed in.
       import("./first-steps-card")
         .then((m) => m.firstStepsCard(me.id))
@@ -741,6 +757,7 @@ export function feedView(ctx: ViewContext): View {
       plotsDue ? plotsApi.plots() : undefined,
     ]);
     pulseBusy = false;
+    if (first) gotWorld(w.ok ? w.data : undefined);
     if (destroyed) return;
     const before = { world: pulse.world, town: pulse.town };
     if (w.ok) {

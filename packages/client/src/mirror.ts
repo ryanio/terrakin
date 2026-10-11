@@ -170,6 +170,8 @@ export class Mirror {
    * recipe pages. What anyone knows isn't here; `inventory.recipes` and profiles say that.
    */
   recipesOpen = false;
+  /** Whether the town's jobs are open (`jobs_opened`, RFC 0030). The board itself is `GET /v1/jobs`. */
+  jobsOpen = false;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -232,6 +234,7 @@ export class Mirror {
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.findsOpen = snapshot.findsOpen === true;
     this.recipesOpen = snapshot.recipesOpen === true;
+    this.jobsOpen = snapshot.jobsOpen === true;
     this.day = snapshot.day;
     for (const t of snapshot.tables ?? []) {
       this.tables.set(t.id, { x: t.x, y: t.y, playing: t.status === "playing" });
@@ -538,6 +541,9 @@ export class Mirror {
         break;
       case "recipes_opened":
         this.recipesOpen = true;
+        break;
+      case "jobs_opened":
+        this.jobsOpen = true;
         break;
       case "repeat_joins_retired": {
         const gone = new Set(event.ids);

@@ -1,8 +1,9 @@
 /**
  * `/town` the Town Hall: open proposals with live tallies and vote buttons, the Propose sheet (an
  * advisory, a build drawn on a map of the Commons with the build bar's blocks, paths, and furniture,
- * a grant, or a town bounty), the town's calendar of events with the Schedule sheet, the notice
- * board, a way to the bounties, and past results. Titles, texts, notices, and names are other
+ * a grant, or a town bounty), the town's jobs once they're open here (`jobs-section.ts`), the
+ * town's calendar of events with the Schedule sheet, the notice board, a way to the bounties, and
+ * past results. Titles, texts, notices, and names are other
  * residents' words: textContent only. The server decides who may vote and what passes; this page
  * shows its answers and its reasons.
  */
@@ -25,7 +26,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { listOf, plural } from "@terrakin/ui/format";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
-import { personLink } from "@terrakin/ui/people";
+import { type Person, personLink, residentPerson } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { skeletonCard } from "@terrakin/ui/skeleton";
 import {
@@ -60,6 +61,7 @@ import {
   tabOf,
 } from "./build-palette";
 import { eventRow, openScheduleSheet } from "./event-cards";
+import { jobsSection } from "./jobs-section";
 import { savedResidentId, savedToken } from "./net";
 import { coins } from "./purse";
 import {
@@ -155,6 +157,23 @@ export function townView(ctx: ViewContext): View {
     addArchive(r.data.proposals, r.data.next);
   });
   let archiveNext: string | null = null;
+  /** Who's on the map, to draw a job's giver from the world this page already read. */
+  let residents = new Map<string, Person>();
+  // The town's jobs (RFC 0030). Asked for only once the world says they're open.
+  const jobs = jobsSection({ person: (id) => residents.get(id), gone: () => destroyed });
+  /** Keep what the world said, and say whether jobs are open in it. */
+  function readWorld(w: WorldSnapshot): boolean {
+    commons = commonsOf(w);
+    clock = { ms: w.time.nowMs, at: Date.now() };
+    // The townsfolk are listed apart from the residents, and they're the ones who ask.
+    residents = new Map(
+      [...w.residents, ...(w.townsfolkResidents ?? [])].map((r) => [
+        r.id,
+        { ...residentPerson(r), look: r },
+      ]),
+    );
+    return w.jobsOpen === true;
+  }
 
   const ready = load();
   const stopRefresh = everyVisible(REFRESH_MS, () => {
@@ -172,16 +191,18 @@ export function townView(ctx: ViewContext): View {
       return;
     }
     town = t.data;
-    if (w.ok) {
-      commons = commonsOf(w.data);
-      clock = { ms: w.data.time.nowMs, at: Date.now() };
-    }
+    // The board comes in with the page, so the section never pushes the page down later. In a
+    // world without jobs the section isn't on the page at all.
+    const jobsOpen = w.ok && readWorld(w.data);
+    if (jobsOpen) await jobs.refresh();
+    if (destroyed) return;
     head.replaceChildren(hero);
     main.replaceChildren(
       h("h2", { class: "section-title", text: "Open proposals" }),
       openList,
       queuedTitle,
       queuedList,
+      ...(jobsOpen ? jobs.els : []),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
       h("div", { class: "feed-foot" }, more.el),
@@ -209,10 +230,7 @@ export function townView(ctx: ViewContext): View {
     const [t, w] = await Promise.all([townApi.town(), worldApi.world()]);
     if (destroyed || !t.ok) return;
     town = t.data;
-    if (w.ok) {
-      commons = commonsOf(w.data);
-      clock = { ms: w.data.time.nowMs, at: Date.now() };
-    }
+    if (w.ok && readWorld(w.data)) void jobs.refresh();
     // Only what changed gets drawn again, so a vote you're about to tap stays put.
     paint();
     paintEvents();

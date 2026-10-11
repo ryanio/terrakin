@@ -366,9 +366,17 @@ export const blinks = (feeling: Feeling | undefined): boolean =>
 
 /**
  * The small sign that floats over a figure showing some feelings, or, for `moon`, someone away and
- * out on a routine (RFC 0009).
+ * out on a routine (RFC 0009), or, for `note`, a townsfolk who asks for a job today (RFC 0030).
  */
-export type FeelingIcon = "heart" | "z" | "dots" | "spark" | "moon";
+export type FeelingIcon = "heart" | "z" | "dots" | "spark" | "moon" | "note";
+
+/**
+ * Whether a job's note shows over a townsfolk who asks for something today, given the sign their
+ * figure would show otherwise. It takes the place of no sign, a doze's z, and the moon of someone
+ * out on a routine, since the job is asked either way, and gives way to a sign of the moment.
+ */
+export const noteShows = (sign: FeelingIcon | undefined): boolean =>
+  sign === undefined || sign === "z" || sign === "moon";
 
 export const FEELING_ICON: Partial<Record<Feeling, FeelingIcon>> = {
   love: "heart",
@@ -791,8 +799,8 @@ export function signPx(scale: number): number {
 
 /**
  * The sign that floats over a figure, centered on (0, 0) of the current transform and filling a
- * square `size` pixels across: a heart, a "z", three thinking dots, a sparkle, or a crescent moon
- * on a soft paper disc, so it reads on grass, sand, stone, or at night. Drawn the same on the map
+ * square `size` pixels across: a heart, a "z", three thinking dots, a sparkle, a crescent moon, or
+ * a written note on a soft paper disc, so it reads on grass, sand, stone, or at night. Drawn the same on the map
  * and, as a texture, over the 3D figure.
  */
 export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon, size: number) {
@@ -864,6 +872,30 @@ export function drawFeelingIcon(ctx: CanvasRenderingContext2D, icon: FeelingIcon
       ctx.arc(r * 0.48, -r * 0.34, r * 0.84, 0, Math.PI * 2);
       ctx.fillStyle = PAPER;
       ctx.fill();
+      return;
+    }
+    case "note": {
+      // A slip of gold paper with a clay edge and three written lines, the last one short.
+      const w = s * 0.62;
+      const tall = s * 0.8;
+      ctx.roundRect(-w / 2, -tall / 2, w, tall, s * 0.08);
+      ctx.fillStyle = GOLD;
+      ctx.fill();
+      ctx.strokeStyle = BRAND_HEX.clay;
+      ctx.lineWidth = s * 0.06;
+      ctx.stroke();
+      ctx.beginPath();
+      for (const [y, part] of [
+        [-0.2, 1],
+        [0, 1],
+        [0.2, 0.55],
+      ] as const) {
+        ctx.moveTo(-w * 0.3, y * s);
+        ctx.lineTo(-w * 0.3 + w * 0.6 * part, y * s);
+      }
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = s * 0.07;
+      ctx.stroke();
       return;
     }
   }

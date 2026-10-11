@@ -3,7 +3,10 @@ import {
   act,
   advanceDay,
   advanceMinutes,
+  jobDay,
   join,
+  layoutShift,
+  openJobs,
   overflowsSideways,
   type Resident,
   read,
@@ -16,7 +19,9 @@ import {
  * The Town Hall, end to end on a phone: three residents who have held their plots for three days
  * propose a fountain, a cobble path, and a bench for the Commons, vote it through, and see it
  * built. Then Fern hosts an event at her plot from the Town Hall's calendar, and Birch goes from
- * the home wall's On now card once it's on. The e2e server runs with TERRAKIN_TEST_CLOCK=1, so
+ * the home wall's On now card once it's on. Last, the town's jobs open (RFC 0030): Fern takes the
+ * chair job from the Town Hall's Jobs section and finishes it at her workbench in the world. The
+ * e2e server runs with TERRAKIN_TEST_CLOCK=1, so
  * `POST /v1/test/advance-day` moves its clock a day on, or some minutes. Each part is a test of its
  * own, run in order on what the first one built, so none of them needs the whole budget.
  */
@@ -248,6 +253,90 @@ test.describe("the Town Hall", () => {
     await expect(notice.getByRole("button", { name: "Take down" })).toBeVisible();
     expect(await overflowsSideways(page)).toBe(false);
     await notice.screenshot({ path: "test-results/town-notice.png" });
+    expect(errors).toEqual([]);
+  });
+
+  test("the town's jobs open, and Fern takes the chair job at the Town Hall and finishes it at her workbench", async ({
+    page,
+  }) => {
+    const { fern } = built();
+    const errors = watchErrors(page, { console: "none" });
+    await signIn(page, fern);
+    // Until jobs open here, the Town Hall has no Jobs section at all.
+    await page.goto("/town");
+    await expect(page.locator(".town-you")).toBeVisible();
+    await expect(page.locator("#jobs, .jobs-card")).toHaveCount(0);
+
+    // Jobs open, and levels with them, and the clock moves on to a day whose board has the
+    // chair job: which three jobs a day has depends on the date.
+    await openJobs(page.request);
+    await jobDay(page.request, "bram_chair");
+    // Home, a workbench in her hut, and wood for a chair, over the API: the journey is the job.
+    await act(page.request, fern.token, { type: "home" });
+    const me = (await (await page.request.get("/v1/world")).json()).residents.find(
+      (r: { id: string }) => r.id === fern.id,
+    );
+    expect(
+      await act(page.request, fern.token, {
+        type: "place",
+        x: me.x + 1,
+        y: me.y - 1,
+        block: "workbench",
+      }),
+    ).toMatchObject({ ok: true });
+    const granted = await page.request.post("/v1/test/grant", {
+      data: { residentId: fern.id, stacks: { wood: 2 } },
+    });
+    expect(granted.ok()).toBe(true);
+
+    // A link to the section lands on it. No Bram lives in this world, so the job is the town's.
+    await page.goto("/town#jobs");
+    const jobs = page.locator(".jobs-card");
+    await expect(page.locator("#jobs")).toBeInViewport();
+    const chair = jobs.locator('.job-row[data-job="bram_chair"]');
+    await expect(chair).toContainText("Make a chair");
+    await expect(chair).toContainText("For the town");
+    await expect(jobs.locator(".job-week")).toHaveText("3 of 3 left this week.");
+    await expect(jobs.locator(".job-take")).toHaveCount(3);
+    await chair.locator(".job-take").click();
+    // She holds it: its bar over the rows, the row marked hers, and nothing else to take.
+    const held = jobs.locator('.job-held[data-job="bram_chair"]');
+    await expect(held).toContainText("0 of 1 done.");
+    await expect(held.getByRole("progressbar")).toBeVisible();
+    await expect(held.getByRole("button", { name: "Let go" })).toBeVisible();
+    await expect(chair.locator(".job-yours")).toHaveText("Yours");
+    await expect(jobs.locator(".job-take")).toHaveCount(0);
+    expect(await overflowsSideways(page)).toBe(false);
+    await page.screenshot({ path: "test-results/town-jobs.png" });
+
+    // While she holds it the home wall shows it in one card, in with the wall's first paint, so
+    // nothing jumps as it lands.
+    await page.goto("/");
+    await expect(page.locator("#job-card")).toContainText("Make a chair");
+    await expect(page.locator("#feed-list")).toBeVisible();
+    await expect(page.locator(".wall-fill")).toHaveCount(0);
+    expect(await layoutShift(page)).toBeLessThan(0.05);
+
+    // In the world a chip says she holds it, and making the chair finishes it: one toast, with the
+    // chair, the job, its points, and what's left of the week.
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await expect(page.locator("#world-job")).toHaveText("Job: 0 of 1");
+    await tapTile(page, 1, -1);
+    const bench = page.locator(".workshop-sheet");
+    await bench.locator(".workshop-row", { hasText: "Chair" }).getByRole("button").click();
+    await expect(page.locator("#toast")).toContainText(
+      "Job done for the town: 10 Making points. 2 left this week.",
+    );
+    await expect(page.locator("#world-job")).toBeHidden();
+    await page.screenshot({ path: "test-results/town-job-done.png" });
+
+    // Back at the Town Hall the week counts it, and the server says why there's no more today.
+    await page.goto("/town#jobs");
+    await expect(jobs.locator(".job-week")).toHaveText("2 of 3 left this week.");
+    await expect(jobs.locator(".job-held")).toHaveCount(0);
+    await expect(jobs.locator(".job-take")).toHaveCount(0);
+    await expect(jobs.locator(".job-why")).toContainText("finished a job today");
     expect(errors).toEqual([]);
   });
 });

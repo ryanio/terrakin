@@ -801,6 +801,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       openLevelSheet({
         name: r.name,
         level,
+        jobs: r.jobs,
         mine: savedToken() !== null && savedResidentId() === r.id,
         onTitle: (title) => {
           const { title: _was, ...rest } = level;

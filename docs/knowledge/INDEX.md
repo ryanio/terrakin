@@ -194,6 +194,7 @@ What we chose and why. Newest last.
 - [The first load's budget is 135 kB, counted as it is downloaded, and it never buys a smaller number with worse code](decisions/0258-the-first-load-s-budget-is-135-kb-counted-as-it-is-downloade.md) · 2026-10-10 · accepted · `client` `performance` `tooling`
 - [The first load is three files cut by package: the libraries, the rules and the contract, and the app](decisions/0259-the-first-load-is-three-files-cut-by-package-the-libraries-t.md) · 2026-10-10 · accepted · `client` `performance` `tooling`
 - [Jobs reach the API behind an option no adapter sets, with five events on the wire, the satchel in the wear list, and a merged record handing in what its duplicate made](decisions/0260-jobs-reach-the-api-behind-an-option-no-adapter-sets-with-fiv.md) · 2026-10-10 · accepted · `server` `protocol` `sim` `jobs` `checkin`
+- [On the web a job is a row at the Town Hall, a chip and a toast in the world, and a card on the home wall only while it's held](decisions/0261-on-the-web-a-job-is-a-row-at-the-town-hall-a-chip-and-a-toas.md) · 2026-10-11 · accepted · `client` `jobs` `e2e` `protocol`
 
 ## Learnings
 

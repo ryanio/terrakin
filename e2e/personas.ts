@@ -265,6 +265,39 @@ export async function openLevelsOver(http: Http): Promise<void> {
   );
 }
 
+/**
+ * Switch the town's jobs on in this world now (RFC 0030), opening levels first when they aren't,
+ * since jobs need them. Once per world: a second call is refused. Test servers only
+ * (`POST /v1/test/open-jobs`).
+ */
+export async function openJobsOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { levelsOpen?: boolean };
+  if (!world.levelsOpen) await openLevelsOver(http);
+  await expectOk(
+    "open jobs (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-jobs"),
+  );
+}
+
+/** The most days `jobDayOver` moves the clock: every job in the first edition comes up sooner. */
+const JOB_DAY_MOST = 60;
+
+/**
+ * Move the world's clock on, a day at a time, until `job` is on the board, and say how many days
+ * that took (0 when it's up today). The board is a function of the day, so a spec or a person who
+ * wants one job in particular has to be on a day that has it. It moves the clock for everyone:
+ * only for a spec with a server of its own.
+ */
+export async function jobDayOver(http: Http, job: string): Promise<number> {
+  for (let days = 0; days <= JOB_DAY_MOST; days++) {
+    const board = (await http.call("GET", "/v1/jobs")).body as { jobs?: { id: string }[] };
+    if (board.jobs?.some((j) => j.id === job)) return days;
+    const moved = await http.call("POST", "/v1/test/advance-day");
+    if (moved.status !== 200) throw new Error("the clock didn't move: is this a test server?");
+  }
+  throw new Error(`${job} didn't come up in ${JOB_DAY_MOST} days: are jobs open here?`);
+}
+
 /** A preset with a spec's own fields on top: `stage("stocked", { name: "Ivy", coins: 50 })`. */
 export function stage(preset: PresetName, spec: PersonaSpec): PersonaSpec {
   const base: Omit<PersonaSpec, "name"> = PRESETS[preset];

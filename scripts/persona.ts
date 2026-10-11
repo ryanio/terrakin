@@ -8,6 +8,8 @@
  *   pnpm persona settled --days 24     (moves the world's clock on first: Halloween, a season)
  *   pnpm persona stocked --open-recipes  (opens recipes first, once per world: a newcomer with picks)
  *   pnpm persona stocked --open-levels   (opens levels first, once per world: deeds earn points)
+ *   pnpm persona stocked --open-jobs     (opens the town's jobs first, and levels with them)
+ *   pnpm persona stocked --job bram_chair  (moves the clock on to a day with that job)
  *
  * It prints who it made and a line of JavaScript that signs a browser tab in as them. Presets and
  * the steps are in `e2e/personas.ts`, which the Playwright specs build residents with too. Only
@@ -17,7 +19,9 @@ import { parseArgs } from "node:util";
 import {
   fetchHttp,
   isPreset,
+  jobDayOver,
   makePersona,
+  openJobsOver,
   openLevelsOver,
   openRecipesOver,
   type PersonaSpec,
@@ -39,6 +43,8 @@ const { values, positionals } = parseArgs({
     days: { type: "string" },
     "open-recipes": { type: "boolean" },
     "open-levels": { type: "boolean" },
+    "open-jobs": { type: "boolean" },
+    job: { type: "string" },
     path: { type: "string", default: "/world" },
     json: { type: "boolean" },
     help: { type: "boolean", short: "h" },
@@ -49,7 +55,7 @@ const preset = positionals[0] ?? "settled";
 if (values.help || !isPreset(preset)) {
   console.log(`Usage: pnpm persona [${Object.keys(PRESETS).join("|")}] [--name N] [--coins N]
   [--stacks kind=n,kind=n] [--staff] [--agent Name] [--kind human|agent] [--days N]
-  [--open-recipes] [--open-levels] [--path /world] [--base http://localhost:8797] [--json]`);
+  [--open-recipes] [--open-levels] [--open-jobs] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
   process.exit(values.help ? 0 : 2);
 }
 
@@ -92,6 +98,12 @@ try {
   }
   if (values["open-recipes"]) await openRecipesOver(http);
   if (values["open-levels"]) await openLevelsOver(http);
+  if (values["open-jobs"]) await openJobsOver(http);
+  if (values.job) {
+    const days = await jobDayOver(http, values.job);
+    if (!values.json)
+      console.log(`${values.job} is on the board${days ? `, ${days} days on` : " today"}.`);
+  }
   const made = await makePersona(http, stage(preset, spec));
   if (values.json) {
     console.log(JSON.stringify({ ...made, signIn: signInScript(made, values.path) }, null, 2));

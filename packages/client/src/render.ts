@@ -22,7 +22,13 @@ import {
   tileKey,
   tuftStroke,
 } from "@terrakin/sim";
-import { FEELING_ICON, type FeelingIcon, type FigureFace, signPx } from "@terrakin/ui/figure";
+import {
+  FEELING_ICON,
+  type FeelingIcon,
+  type FigureFace,
+  noteShows,
+  signPx,
+} from "@terrakin/ui/figure";
 import { type ArtKind, growth } from "@terrakin/ui/item-art";
 import { lookImage, withAlpha } from "@terrakin/ui/looks";
 import { type Camera, screenToTile, tileToScreen } from "./camera";
@@ -109,6 +115,8 @@ export interface RenderState {
   casts?: readonly CastMark[];
   /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
   hover?: readonly { x: number; y: number }[] | undefined;
+  /** The townsfolk who ask for a job today (RFC 0030): a note over each, awake or asleep. */
+  notes?: ReadonlySet<string> | undefined;
   /**
    * The floor the plot you stand on is cut away at (RFC 0028): the build bar's pick while
    * building. Absent: the floor you stand on.
@@ -154,6 +162,7 @@ export function render(
     labelTop = 0,
     casts,
     hover,
+    notes,
     cutFloor,
   }: RenderState,
 ) {
@@ -760,6 +769,8 @@ export function render(
     rise?: number;
     /** Away, asleep at home or out on a routine: the tag and sign are drawn fainter, beside. */
     away?: boolean;
+    /** The sign is a job's note: over the tag at full strength, even for someone away. */
+    note?: boolean;
     /** How much of the tag's paper shows (`tagPaper`): less over something standing behind it. */
     paper?: number;
   }[] = [];
@@ -847,6 +858,10 @@ export function render(
     ctx.scale(m.squash, 1 / m.squash);
     ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
     ctx.restore();
+    // A townsfolk who asks for something today wears a note, unless a feeling of the moment
+    // has a sign of its own to show. Asleep or out, the note stays: the job is still asked.
+    const felt = out ? "moon" : FEELING_ICON[p.feeling];
+    const note = (notes?.has(r.id) ?? false) && noteShows(felt);
     labels.push({
       text: r.kind === "agent" ? `${r.name} ⚙` : r.name,
       x: sx,
@@ -854,10 +869,11 @@ export function render(
       mine,
       who: r.id,
       // Out on a routine, a small moon beside the name says they're away, not here.
-      icon: out ? "moon" : FEELING_ICON[p.feeling],
-      fade: out ? 1 : p.fade,
-      rise: out ? 0 : p.rise,
+      icon: note ? "note" : felt,
+      fade: out || note ? 1 : p.fade,
+      rise: out || note ? 0 : p.rise,
       away,
+      note,
     });
   }
 
@@ -1047,7 +1063,7 @@ export function render(
     const signAt = (top: number): Box | undefined =>
       !l.icon
         ? undefined
-        : l.away
+        : l.away && !l.note
           ? besideTag(l, w, top)
           : { left: l.x - sign / 2, right: l.x + sign / 2, top: top - sign - 1, bottom: top };
     let top = l.y - tagH;
@@ -1073,9 +1089,10 @@ export function render(
   const bubbles: { x: number; tip: number; lines: string[]; alpha: number; box: Box }[] = [];
   for (const [i, l] of labels.entries()) {
     if (l.top === undefined) continue;
-    if (l.icon && l.away) avoid.push(besideTag(l, widths[i] ?? 0, l.top));
+    const beside = l.away && !l.note;
+    if (l.icon && beside) avoid.push(besideTag(l, widths[i] ?? 0, l.top));
     // A bubble goes over the sign, so both show.
-    const over = l.icon && !l.away ? sign + 1 + (l.rise ?? 0) * scale : 0;
+    const over = l.icon && !beside ? sign + 1 + (l.rise ?? 0) * scale : 0;
     if (over)
       avoid.push({ left: l.x - sign / 2, right: l.x + sign / 2, top: l.top - over, bottom: l.top });
     const said = l.who && motion.bubble(l.who, now);
@@ -1133,7 +1150,7 @@ export function render(
   // Drawn after every tag and the night, so a neighbor's tag never covers a sign.
   for (const [i, l] of labels.entries()) {
     if (!l.icon || l.top === undefined) continue;
-    if (l.away) {
+    if (l.away && !l.note) {
       // Beside the name, drifting a little, faint like the tag.
       const at = besideTag(l, widths[i] ?? 0, l.top);
       ctx.globalAlpha = (l.fade ?? 1) * AWAY_TAG_ALPHA;

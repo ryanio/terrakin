@@ -17,6 +17,7 @@ import {
   type FigureFace,
   type FigureLook,
   garmentLook,
+  noteShows,
 } from "@terrakin/ui/figure";
 import {
   HIDES_HAIR,
@@ -312,7 +313,8 @@ describe("faces", () => {
 
   it("gives some feelings a floating sign, and draws each sign", () => {
     expect(Object.keys(FEELING_ICON).every(isFeeling)).toBe(true);
-    for (const icon of new Set(Object.values(FEELING_ICON))) {
+    // And the two that say something else: away on a routine, and a job asked for today.
+    for (const icon of new Set([...Object.values(FEELING_ICON), "moon", "note"] as const)) {
       const { ctx, calls } = recorder();
       drawFeelingIcon(ctx, icon, 40);
       expect(
@@ -321,6 +323,15 @@ describe("faces", () => {
       ).toBe(true);
     }
     expect(isFeeling("angry")).toBe(false);
+  });
+
+  it("shows a job's note over a giver who shows nothing, dozes, or is out, and never over a sign of the moment", () => {
+    expect([undefined, "z", "moon"].map((sign) => noteShows(sign as never))).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    expect((["heart", "spark", "dots"] as const).map(noteShows)).toEqual([false, false, false]);
   });
 
   it("keys sprites by feeling, blink, wave, and umbrella, and reuses one for a blink on shut eyes", () => {

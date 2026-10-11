@@ -88,6 +88,7 @@ import {
   overheadTop,
   setUmbrella,
   showFeeling,
+  showNote,
   sizeSign,
   turnHead,
 } from "./figure";
@@ -157,6 +158,8 @@ export interface World3dFrame {
   buildMode: boolean;
   /** What each figure feels and who just spoke (RFC 0013). */
   feelings?: Feelings;
+  /** The townsfolk who ask for a job today (RFC 0030): a note over each, as on the map. */
+  notes?: ReadonlySet<string> | undefined;
   /** How residents move, and what they say: the same the map draws. */
   motion: Motion;
   /** The world's season, for the ground. Absent: today's look. */
@@ -1196,6 +1199,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         look,
         buildMode,
         feelings,
+        notes,
         motion,
         season: seasonNow,
         sky,
@@ -1263,8 +1267,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (movePets(mirror, tile, frame, dt, now)) moved = true;
       stackBubbles3d();
       // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
-      for (const [id, f] of figures)
+      for (const [id, f] of figures) {
+        if (showNote(f.group, notes?.has(id) ?? false)) moved = true;
         if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
+      }
       const followed = look?.id ?? (look ? undefined : me);
       const fig = followed === undefined ? undefined : figures.get(followed);
       if (fig) follow(fig.group.position, fig.rise);

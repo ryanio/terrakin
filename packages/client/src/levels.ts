@@ -14,6 +14,7 @@ import {
   EARNED_WEAR_SKILL,
   type EarnedWear,
   isEarnedWear,
+  isJobWear,
   pointsFor,
   type Skill,
   skillName,
@@ -175,18 +176,22 @@ export const earnedAt = (item: EarnedWear): string =>
   levelName({ skill: EARNED_WEAR_SKILL[item], level: UNLOCKS.wear });
 
 /**
- * How the look editor shows a garment: "open" can be put on (everything that isn't earned wear,
- * and earned wear they're wearing or have reached), "locked" shows its skill and level instead of a
- * button, and "hidden" isn't listed. `earned` is `GET /v1/progress`'s `wear`,
- * or undefined while levels aren't open here (or the answer hasn't come), when only what's already
- * worn shows.
+ * How the look editor shows a garment: "open" can be put on (everything that isn't earned, and
+ * what's earned that they're wearing or have reached), "locked" shows what it comes with instead
+ * of a button, and "hidden" isn't listed. `earned` is `GET /v1/progress`'s `wear`, for the
+ * garments a skill's level brings, and `fromJobs` the garments their count of jobs finished has
+ * unlocked (`you.unlocked` on `GET /v1/jobs`, RFC 0030). Each is undefined while its part of the
+ * world isn't open here (or its answer hasn't come), when only what's already worn shows.
  */
 export function earnedState(
   item: WearItem,
   wearing: readonly WearItem[],
   earned: readonly string[] | undefined,
+  fromJobs?: readonly string[] | undefined,
 ): "open" | "locked" | "hidden" {
-  if (!isEarnedWear(item)) return "open";
-  if (wearing.includes(item) || earned?.includes(item)) return "open";
-  return earned ? "locked" : "hidden";
+  const fromJob = isJobWear(item);
+  if (!isEarnedWear(item) && !fromJob) return "open";
+  const reached = fromJob ? fromJobs : earned;
+  if (wearing.includes(item) || reached?.includes(item)) return "open";
+  return reached ? "locked" : "hidden";
 }

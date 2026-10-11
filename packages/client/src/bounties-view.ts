@@ -19,8 +19,9 @@ import {
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { bountiesApi } from "./api/bounties";
+import { jobsApi } from "./api/jobs";
 import { savedResidentId, savedToken } from "./net";
-import { pageData } from "./page-data";
+import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
@@ -249,7 +250,7 @@ export function bountiesView(ctx: ViewContext): View {
       const t = title.value.trim();
       const n = Number(reward.value);
       if (!t) {
-        toast("Say what the job is.");
+        toast(jobsOpen ? "Say what the work is." : "Say what the job is.");
         title.focus();
         return;
       }
@@ -268,8 +269,15 @@ export function bountiesView(ctx: ViewContext): View {
     return form;
   }
 
-  function paint(data: BountiesResponse) {
+  /**
+   * Whether the town's jobs are open here (RFC 0030). Once they are, "job" means one of those, so
+   * this page says "bounty" for its own and points to them.
+   */
+  let jobsOpen = false;
+
+  function paint([data, jobs]: [BountiesResponse, { open: boolean } | null]) {
     const { bounties, you } = data;
+    jobsOpen = jobs?.open === true;
     if (!bounties) {
       main.replaceChildren(notOpenCard("Bounties aren't open yet"));
       side.replaceChildren();
@@ -282,13 +290,13 @@ export function bountiesView(ctx: ViewContext): View {
         h("h2", {
           class: "section-title",
           attrs: { id: "bounties-open-title" },
-          text: "Open jobs",
+          text: jobsOpen ? "Open bounties" : "Open jobs",
         }),
         ...(bounties.running.length > 0
           ? bounties.running.map(card)
           : [
               emptyNote(
-                "No jobs right now",
+                jobsOpen ? "No bounties right now" : "No jobs right now",
                 "Post one, or propose one for the town at the Town Hall.",
               ),
             ]),
@@ -303,8 +311,19 @@ export function bountiesView(ctx: ViewContext): View {
         },
         h("p", {
           class: "hint",
-          text: "Jobs neighbors and the town will pay coins for. Take one on, do it, mark it done, and get paid.",
+          text: jobsOpen
+            ? "Work neighbors and the town will pay coins for. Take one on, do it, mark it done, and get paid."
+            : "Jobs neighbors and the town will pay coins for. Take one on, do it, mark it done, and get paid.",
         }),
+        jobsOpen
+          ? h(
+              "p",
+              { class: "hint bounties-jobs" },
+              "The town's own jobs pay points, never coins: see ",
+              h("a", { attrs: { href: "/town#jobs" }, text: "Jobs at the Town Hall" }),
+              ".",
+            )
+          : null,
         you
           ? balanceLine(you.balance, "bounties-balance")
           : h(
@@ -351,6 +370,10 @@ export function bountiesView(ctx: ViewContext): View {
     );
   }
 
-  const loader = pageData({ ask: () => bountiesApi.bounties(), paint, fail: failInto(main) });
+  const loader = pageData({
+    ask: () => withOptional(bountiesApi.bounties(), jobsApi.jobs()),
+    paint,
+    fail: failInto(main),
+  });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

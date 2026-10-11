@@ -4,7 +4,9 @@ import {
   freePlotsOver,
   type Http,
   isPreset,
+  jobDayOver,
   makePersona,
+  openJobsOver,
   openLevelsOver,
   openRecipesOver,
   type Persona,
@@ -164,6 +166,22 @@ export async function openRecipes(request: APIRequestContext) {
  */
 export async function openLevels(request: APIRequestContext) {
   await openLevelsOver(httpOf(request));
+}
+
+/**
+ * Switch the town's jobs on now (RFC 0030), with levels first when they aren't open. Once per
+ * server, so only for a spec with a server of its own.
+ */
+export async function openJobs(request: APIRequestContext) {
+  await openJobsOver(httpOf(request));
+}
+
+/**
+ * Move the clock on until `job` is on the day's board, since which three jobs a day has depends
+ * on the date. It moves the clock for everyone, so only for a spec with a server of its own.
+ */
+export async function jobDay(request: APIRequestContext, job: string) {
+  return jobDayOver(httpOf(request), job);
 }
 
 /** Join, settle a free plot, and build the starter home, which puts you on your hearth. */

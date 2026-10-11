@@ -9510,6 +9510,58 @@ html.view3d-open body {
   margin-top: var(--space-lg);
 }
 
+/* ---------- the town's jobs (RFC 0030): the Town Hall's section, the job sheet, the home wall's card ---------- */
+
+/* A link to the section stops below the sticky site bar, as #feed does. */
+#jobs {
+  scroll-margin-top: calc(76px + env(safe-area-inset-top));
+}
+
+/* The town's own mark where a giver's avatar would be, in a world that townsfolk doesn't live in. */
+.avatar.job-town {
+  --avatar: var(--paper-2);
+  color: var(--moss-deep);
+}
+
+.avatar.job-town > .icon {
+  width: var(--text-lg);
+  height: var(--text-lg);
+}
+
+/* Who a job is for and its skill, on one line under its words. */
+.job-asked {
+  gap: var(--space-xs);
+}
+
+/* A row's line holds a pill, so it's a block, never clamped. */
+.job-row .item-row-line {
+  display: block;
+}
+
+/* The job you hold: a soft panel over the day's rows. */
+.job-held {
+  padding: var(--space-md);
+  border-radius: var(--r-note);
+  background: var(--pressed);
+}
+
+.job-held-head {
+  flex-wrap: nowrap;
+}
+
+.job-held-words {
+  min-width: 0;
+}
+
+.job-held-title {
+  margin: 0;
+  font-weight: var(--weight-bold);
+}
+
+.job-sheet-body {
+  margin-bottom: var(--space-md);
+}
+
 /*
  * Points you just earned, over your figure for a moment. world.ts sets where each frame; it rises
  * and fades, and under reduced motion (base.css stops every animation) it shows, then goes.

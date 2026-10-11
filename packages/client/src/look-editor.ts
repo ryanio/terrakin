@@ -7,12 +7,12 @@
 import type { LookView, MediaView } from "@terrakin/protocol";
 import {
   DEFAULT_HAIR_COLOR,
+  type EarnedWear,
   FULL_LENGTH,
   type GarmentPattern,
   type HairColor,
   type HairStyle,
   isCostume,
-  isEarnedWear,
   isExclusiveWear,
   isJobWear,
   isShopWear,
@@ -53,10 +53,12 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { jobsApi } from "./api/jobs";
 import { uploadMedia } from "./api/media";
 import { progressApi } from "./api/progress";
 import { shopApi } from "./api/shop";
 import { actProblem, worldApi } from "./api/world";
+import { jobWear, jobWearAt } from "./jobs";
 import { colorChips, hairChips, hairColorChips } from "./join-form";
 import { earnedAt, earnedState } from "./levels";
 import { coins } from "./purse";
@@ -82,7 +84,8 @@ export interface LookOwner {
  * (`earnedState` in `levels.ts`). `entitled` is the partner wear they may put on, `owned` the shop
  * wear they own, and `onSale` what the shop sells today, both from the shop's answer, and `earned`
  * the earned wear they've reached, from `GET /v1/progress`, undefined while levels aren't open. The
- * town satchel, which comes with jobs finished (RFC 0030), is listed only while it's on.
+ * town satchel, which comes with jobs finished (RFC 0030), is listed the same way from `fromJobs`,
+ * what their count has unlocked: undefined while jobs aren't open, when it shows only while it's on.
  */
 export function wearChoices(
   slot: WearSlot,
@@ -91,13 +94,13 @@ export function wearChoices(
   owned: ReadonlySet<string> = new Set(),
   onSale: ReadonlySet<string> = new Set(),
   earned?: readonly string[] | undefined,
+  fromJobs?: readonly string[] | undefined,
 ): WearItem[] {
   return WEAR_ITEMS.filter(
     (w) =>
       WEAR_INFO[w].slot === slot &&
       (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)) &&
-      earnedState(w, wearing, earned) !== "hidden" &&
-      (!isJobWear(w) || wearing.includes(w)) &&
+      earnedState(w, wearing, earned, fromJobs) !== "hidden" &&
       (!isCostume(w) || owned.has(w) || wearing.includes(w) || onSale.has(w)),
   );
 }
@@ -266,6 +269,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
 
   // Earned wear they've reached (RFC 0029): undefined until the server says levels are open here.
   let earned: readonly string[] | undefined;
+  let fromJobs: readonly string[] | undefined;
 
   // ---- preview ----
   const preview = h("canvas", { class: "look-preview-figure", attrs: { "aria-hidden": "true" } });
@@ -478,13 +482,15 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       wardrobe.owned,
       sold,
       earned,
+      fromJobs,
     );
     for (const item of choices) {
       const art = itemArt(item, { size: 28, className: "look-chip-art" });
       const name = h("span", { text: WEAR_INFO[item].label });
-      if (isEarnedWear(item) && earnedState(item, owner.look?.wear ?? [], earned) === "locked") {
-        // Nothing to tap: it can't be bought, only reached.
-        const at = earnedAt(item);
+      if (earnedState(item, owner.look?.wear ?? [], earned, fromJobs) === "locked") {
+        // Nothing to tap: it can't be bought, only reached, by a skill's level or by jobs finished.
+        const byJobs = isJobWear(item);
+        const at = byJobs ? jobWearAt(item) : earnedAt(item as EarnedWear);
         const locked = h(
           "span",
           {
@@ -492,12 +498,17 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
             attrs: {
               "data-wear": item,
               role: "img",
-              "aria-label": `${WEAR_INFO[item].label}, comes with ${at}`,
+              "aria-label": `${WEAR_INFO[item].label}, comes with ${at}${byJobs ? " finished" : ""}`,
             },
           },
           art,
           name,
-          h("span", { class: "look-chip-price" }, icon("level"), h("span", { text: at })),
+          h(
+            "span",
+            { class: "look-chip-price" },
+            icon(byJobs ? "town" : "level"),
+            h("span", { text: at }),
+          ),
         );
         wearButtons.set(item, locked);
         row.append(locked);
@@ -574,6 +585,15 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   void progressApi.progress().then((result) => {
     if (!result.ok || !result.data.open) return;
     earned = result.data.wear;
+    for (const slot of WEAR_SLOTS) fillWearRow(slot);
+    paint();
+  });
+
+  // Your count of jobs finished says whether the town satchel is yours (RFC 0030). Until it
+  // answers, and in a world where jobs aren't open, the satchel isn't listed.
+  void jobsApi.jobs().then((result) => {
+    if (!result.ok || !result.data.open || !result.data.you) return;
+    fromJobs = jobWear(result.data.you.unlocked);
     for (const slot of WEAR_SLOTS) fillWearRow(slot);
     paint();
   });

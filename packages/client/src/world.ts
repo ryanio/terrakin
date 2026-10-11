@@ -41,6 +41,7 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
+import { residentPerson } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
@@ -93,6 +94,7 @@ import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from
 import { visitCard } from "./visit-card";
 import { Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
+import { worldJobs } from "./world-jobs";
 import { worldLevels } from "./world-levels";
 import type { LookTarget, WorldLink } from "./world-link";
 import type { WorldLoader } from "./world-loader";
@@ -301,6 +303,17 @@ const levels = worldLevels({
   toast: (line) => showToast(line),
   sparkle: (id, now) => feelings.show(id, levelReaction(), now),
 });
+/**
+ * The town's jobs (RFC 0030): a chip while you hold one, a toast as it moves, and a note over each
+ * townsfolk who asks for something today. It does nothing in a world where jobs aren't open.
+ */
+const jobs = worldJobs({
+  toast: (line) => showToast(line),
+  person: (id) => {
+    const r = mirror?.residents.get(id);
+    return r && { ...residentPerson(r), look: r };
+  },
+});
 /** How quickly the map's camera catches up with your figure, per second. */
 const CAMERA_RATE = 10;
 let lastFrame = 0;
@@ -462,6 +475,7 @@ async function resync() {
     if (!wasIn && me) return;
     if (parsed.success) {
       mirror = new Mirror(parsed.data);
+      jobs.entered(mirror.jobsOpen);
       // Steps taken against the old copy may have missed what changed: start over from this one.
       walker.reset();
       dayAnchor = anchor(parsed.data.time);
@@ -485,6 +499,7 @@ function onMessage(msg: ServerMessage) {
     case "welcome":
       me = msg.residentId;
       mirror = new Mirror(msg.world);
+      jobs.entered(mirror.jobsOpen);
       dayAnchor = anchor(msg.world.time);
       stopWalking();
       if (joiningFresh) track("join");
@@ -551,11 +566,14 @@ function onMessage(msg: ServerMessage) {
         casts = [...casts, { x, y, caught, at: performance.now() }];
       }
       if (applied === "applied") levels.heard(msg.seq, msg.event, me, performance.now());
+      // After the coins and things a deed brought, so a job it moved joins their line.
+      const heardJob = applied === "applied" ? msg.event : undefined;
       // Your own news, in plain words. Notes and labels stay out of it; a lesson names its teacher
       // or learner (RFC 0024), shown as text.
       const line = me ? newsLine(msg.event, me, (id) => mirror?.residents.get(id)?.name) : null;
       const named = msg.event.type === "recipe_learned" && msg.event.from !== undefined;
       if (line) showToast(line, named ? "player" : "system");
+      if (heardJob) jobs.heard(heardJob, me);
       if (msg.event.type === "recipe_learned" && msg.event.residentId === me) {
         knownRecipes = new Set([...knownRecipes, msg.event.recipe]);
       }
@@ -1034,6 +1052,8 @@ function tapTile(tile: { x: number; y: number }) {
     lookAt(other);
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     const who = () => showToast(other.note ? `${name}: ${other.note}` : name, "player");
+    // A townsfolk who asks for something today opens their job (RFC 0030).
+    if (jobs.tapped({ id: other.id, name: other.name })) return;
     // Once recipes are learned (RFC 0024), their sheet says what they could teach you and lists
     // what you could teach them. With nothing to say either way, the toast as before.
     if (!mirror.recipesOpen || !me) return who();
@@ -1061,6 +1081,8 @@ function tapTile(tile: { x: number; y: number }) {
     : mirror.outOnRoutine(me).find((o) => o.r.x === tile.x && o.r.y === tile.y);
   const asleep = other || out ? undefined : dozerAt(mirror.asleep(me), tile.x, tile.y)?.r;
   const away = out?.r ?? asleep;
+  // A townsfolk asleep at home still asks: their job opens, and nobody walks anywhere.
+  if (away && jobs.tapped({ id: away.id, name: away.name })) return;
   if (away) {
     const name = away.kind === "agent" ? `${away.name} ⚙` : away.name;
     const doing =
@@ -1841,6 +1863,7 @@ function frame() {
       sky: sky.amounts,
       pets,
       clock,
+      notes: jobs.givers(),
       // While building, the plot is cut away at the floor the picker shows, as on the map.
       ...(buildMode ? { cutFloor: buildFloor } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
@@ -1867,6 +1890,7 @@ function frame() {
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom(), look.bottom()),
       casts,
       hover,
+      notes: jobs.givers(),
       // While building, the map is cut away at the floor the picker shows (RFC 0028).
       ...(buildMode ? { cutFloor: buildFloor } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
@@ -2108,6 +2132,7 @@ export function stopWorld() {
   gatherButton.hidden = true;
   climbButton.hidden = true;
   levels.reset();
+  jobs.reset();
   gathering?.done();
   fishButton.hidden = true;
   enterButton.hidden = true;

@@ -1,5 +1,11 @@
 import type { Feeling } from "@terrakin/ui/feelings";
-import { drawFeelingIcon, FEELING_ICON, type FeelingIcon, garmentColor } from "@terrakin/ui/figure";
+import {
+  drawFeelingIcon,
+  FEELING_ICON,
+  type FeelingIcon,
+  garmentColor,
+  noteShows,
+} from "@terrakin/ui/figure";
 import { lookPalette } from "@terrakin/ui/looks";
 import {
   type BufferGeometry,
@@ -149,6 +155,10 @@ interface Rig extends FaceParts {
   shows: number;
   phase: number;
   shown: Shown | undefined;
+  /** A townsfolk who asks for a job today (RFC 0030): a note shows while no feeling has a sign. */
+  note: boolean;
+  /** Whether the sign showing now is that note: it holds still at full strength. */
+  noted: boolean;
   /** The feeling the face parts are set for. */
   drawn: Feeling;
   pose: Pose;
@@ -186,7 +196,10 @@ function setFace(rig: Rig, feeling: Feeling) {
   const blush = feeling === "love" || feeling === "shy";
   for (const c of rig.cheeks) c.scale.set(blush ? 1.5 : 1, blush ? 0.9 : 0.6, 1);
   rig.cheekMat.opacity = blush ? 0.95 : 0.7;
-  const icon = FEELING_ICON[feeling];
+  // A job's note gives way to a sign of the moment, but not to a doze's z.
+  const felt = FEELING_ICON[feeling];
+  rig.noted = rig.note && noteShows(felt);
+  const icon = rig.noted ? "note" : felt;
   rig.icon.visible = icon !== undefined;
   if (icon) {
     const map = iconTexture(icon);
@@ -208,8 +221,8 @@ function movePose(rig: Rig, p: Pose) {
     const lean = p.wave === 1 ? 0.35 : 0.75;
     rig.hand.position.set(0.2 + Math.sin(lean) * 0.2, 0.42 + Math.cos(lean) * 0.2, 0.02);
   }
-  rig.icon.position.y = rig.tagTop + SIGN_GAP + rig.iconSize / 2 + p.rise;
-  rig.iconMat.opacity = p.fade * rig.shows;
+  rig.icon.position.y = rig.tagTop + SIGN_GAP + rig.iconSize / 2 + (rig.noted ? 0 : p.rise);
+  rig.iconMat.opacity = rig.noted ? 1 : p.fade * rig.shows;
 }
 
 /**
@@ -222,6 +235,19 @@ export function showFeeling(fig: Object3D, shown: Shown | undefined, now: number
   if (!rig || rig.shown === shown) return false;
   rig.shown = shown;
   movePose(rig, pose(shown, now, rig.phase, true, rig.pose));
+  return true;
+}
+
+/**
+ * Put a job's note over a figure built by `figure()`, or take it away (RFC 0030): the note the map
+ * draws over a townsfolk who asks for something today. True when it changed.
+ */
+export function showNote(fig: Object3D, on: boolean): boolean {
+  const rig = rigs.get(fig);
+  if (!rig || rig.note === on) return false;
+  rig.note = on;
+  setFace(rig, rig.drawn);
+  movePose(rig, rig.pose);
   return true;
 }
 
@@ -413,6 +439,8 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     shows: f.away ? AWAY_SHOWS : 1,
     phase: idPhase(f.id),
     shown: undefined,
+    note: false,
+    noted: false,
     drawn: "neutral",
     pose: restingPose(),
   };

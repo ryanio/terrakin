@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-11-a-finished-job-gets-its-giver-s-quiet-thank-you-wave",
+    "date": "2026-10-11",
+    "kind": "added",
+    "title": "A finished job gets its giver's quiet thank-you wave",
+    "body": "When a job is done, the townsfolk who asked waves at the resident who finished, a gesture with no note, on the town's notice. When the giver doesn't live in this world the job is simply the town's, and a refused wave (a block, a suspension) stays silent.",
+    "links": [],
+    "try": "finish a job, then read `GET /v1/notifications` for the wave"
+  },
+  {
     "id": "2026-10-11-from-resident-on-get-v1-jobs-shows-who-asks-as-a-post-s-aut",
     "date": "2026-10-11",
     "kind": "added",

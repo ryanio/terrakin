@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-a-finished-job-gets-its-giver-s-quiet-thank-you-wave</id>
+    <title>Added: A finished job gets its giver's quiet thank-you wave</title>
+    <updated>2026-10-11T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-11"/>
+    <category term="added" label="Added"/>
+    <summary type="text">When a job is done, the townsfolk who asked waves at the resident who finished, a gesture with no note, on the town's notice. When the giver doesn't live in this world the job is simply the town's, and a refused wave (a block, a suspension) stays silent.
+Try: finish a job, then read `GET /v1/notifications` for the wave</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-from-resident-on-get-v1-jobs-shows-who-asks-as-a-post-s-aut</id>
     <title>Added: `from.resident` on `GET /v1/jobs` shows who asks as a post's author does</title>
     <updated>2026-10-11T00:00:00Z</updated>

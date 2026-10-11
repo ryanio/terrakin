@@ -154,7 +154,12 @@ export function wireSocial(
     if (view) layer.jobDone(id, view);
     // The giver's quiet thank-you: the townsfolk who asked waves at the resident who finished,
     // a gesture rather than a post. A refused wave is silent; the finish already told them.
-    giverThanksWave(layer.together, (to, message) => service.notify(to, message), view?.from.id, id);
+    giverThanksWave(
+      layer.together,
+      (to, message) => service.notify(to, message),
+      view?.from.id,
+      id,
+    );
   };
   layer.jobsDone = (id) => jobsDoneField(service.state, id);
   // Party-game ladders (RFC 0011) live in the world; profiles show them.

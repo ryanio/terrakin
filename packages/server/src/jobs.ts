@@ -193,7 +193,8 @@ export function giverThanksWave(
 ): void {
   if (giver === undefined || giver === to) return;
   const sent = together.sendGesture(giver, to, { kind: "wave" });
-  if (sent.ok && !sent.value.secret) notify(to, together.liveGesture(sent.value.gesture, sent.value.streak));
+  if (sent.ok && !sent.value.secret)
+    notify(to, together.liveGesture(sent.value.gesture, sent.value.streak));
 }
 
 /** How a reader shows a title or puts a garment on, said in brackets after each: a call or a link. */

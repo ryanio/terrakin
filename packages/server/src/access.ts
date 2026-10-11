@@ -12,8 +12,10 @@
 
 /** The deploy's replay check, as a sign-in. */
 export const DEPLOY_SERVICE = "deploy";
+/** How a service sign-in's staff actor starts. A service is never a resident. */
+export const SERVICE_ACTOR = "service:";
 /** Its staff actor. `staffFor` gives it out for the world-log export alone, and it has no role. */
-export const DEPLOY_ACTOR = `service:${DEPLOY_SERVICE}`;
+export const DEPLOY_ACTOR = `${SERVICE_ACTOR}${DEPLOY_SERVICE}`;
 export const DEPLOY_READS_LOG_ONLY = "The deploy check's sign-in only reads the world log.";
 
 export interface AccessConfig {

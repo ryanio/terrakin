@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { ROUTES } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEPLOY_READS_LOG_ONLY } from "./access";
+import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY } from "./access";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -86,7 +86,7 @@ function direct(access: boolean) {
     return { id: r.residentId ?? "", token: r.token ?? "" };
   }
   const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
-  return { call, join, bearer, maintainers, moderators, social };
+  return { api, call, join, bearer, maintainers, moderators, social };
 }
 
 describe("staff roles", () => {
@@ -350,6 +350,10 @@ describe("with Cloudflare Access set up", () => {
     // Any other service name is nobody, and so is this one beside an email that isn't staff.
     expect((await readLog({ ...deploy, staffService: "other" })).status).toBe(401);
     expect((await readLog({ ...deploy, staffEmail: "nobody@example.com" })).status).toBe(403);
+    // It is no resident, so no household check ever takes it for one (decision 0062).
+    expect(t.api.staffResident(DEPLOY_ACTOR)).toBeUndefined();
+    const bo = await t.join("Bo");
+    expect(t.api.staffResident(bo.id)).toBe(bo.id);
     // Without Access no Worker verified anything, so the name counts for nothing.
     expect((await direct(false).call("GET", "/v1/admin/world-log", undefined, deploy)).status).toBe(
       401,

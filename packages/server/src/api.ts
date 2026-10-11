@@ -40,7 +40,7 @@ import {
   plotKey,
   utcDay,
 } from "@terrakin/sim";
-import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE } from "./access";
+import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE, SERVICE_ACTOR } from "./access";
 import { AiSpend } from "./ai-spend";
 import {
   API_HEADERS,
@@ -1454,10 +1454,11 @@ export class Api {
   /**
    * The resident a staff member also is, for the sim's household checks (decision 0062): their own
    * id when they signed in with a resident token, else the one `TERRAKIN_STAFF_RESIDENTS` maps
-   * their Access email to, else none.
+   * their Access email to, else none. A service sign-in, like the deploy check's, is no resident.
    */
   staffResident(keyed: string): string | undefined {
     const actor = staffOwner(keyed);
+    if (actor.startsWith(SERVICE_ACTOR)) return undefined;
     if (!actor.startsWith("access:")) return actor;
     return this.staffOptions.staffResidents?.get(actor.slice("access:".length));
   }

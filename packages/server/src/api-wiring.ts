@@ -4,7 +4,7 @@ import type { Api } from "./api";
 import { countGuests } from "./events";
 import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
-import { giverIds, jobDoneView, jobsDoneField } from "./jobs";
+import { giverIds, giverThanksWave, jobDoneView, jobsDoneField } from "./jobs";
 import { levelView } from "./levels";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
@@ -152,6 +152,9 @@ export function wireSocial(
   service.onJobDone = (id, done) => {
     const view = jobDoneView(done, givers);
     if (view) layer.jobDone(id, view);
+    // The giver's quiet thank-you: the townsfolk who asked waves at the resident who finished,
+    // a gesture rather than a post. A refused wave is silent; the finish already told them.
+    giverThanksWave(layer.together, (to, message) => service.notify(to, message), view?.from.id, id);
   };
   layer.jobsDone = (id) => jobsDoneField(service.state, id);
   // Party-game ladders (RFC 0011) live in the world; profiles show them.

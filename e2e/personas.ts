@@ -267,11 +267,15 @@ export async function openLevelsOver(http: Http): Promise<void> {
 
 /**
  * Switch the town's jobs on in this world now (RFC 0030), opening levels first when they aren't,
- * since jobs need them. Once per world: a second call is refused. Test servers only
- * (`POST /v1/test/open-jobs`).
+ * since jobs need them. The switch is once per world, so in a world where they're already open
+ * this does nothing. Test servers only (`POST /v1/test/open-jobs`).
  */
 export async function openJobsOver(http: Http): Promise<void> {
-  const world = (await http.call("GET", "/v1/world")).body as { levelsOpen?: boolean };
+  const world = (await http.call("GET", "/v1/world")).body as {
+    levelsOpen?: boolean;
+    jobsOpen?: boolean;
+  };
+  if (world.jobsOpen) return;
   if (!world.levelsOpen) await openLevelsOver(http);
   await expectOk(
     "open jobs (is the server running with TERRAKIN_TEST_CLOCK=1?)",

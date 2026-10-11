@@ -11,13 +11,15 @@ import { type Result, request } from "./request";
 
 /**
  * Why an action didn't happen: the request failed, or the world answered no (a 200 can still be a
- * refusal). Null when it worked.
+ * refusal). Null when it worked. `words` puts a refusal in a view's own words by its code, for the
+ * few whose message is written for agents; without it the message is the server's.
  */
 export function actProblem(
-  r: Result<{ ok: true } | { ok: false; error: { message: string } }>,
+  r: Result<{ ok: true } | { ok: false; error: { code: string; message: string } }>,
+  words: (code: string, message: string) => string = (_code, message) => message,
 ): string | null {
   if (!r.ok) return r.message;
-  return r.data.ok ? null : r.data.error.message;
+  return r.data.ok ? null : words(r.data.error.code, r.data.error.message);
 }
 
 export const worldApi = {

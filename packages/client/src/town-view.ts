@@ -10,6 +10,7 @@
 import {
   type Action,
   BOARD_LIMITS,
+  everyoneIn,
   type NoticeView,
   type ProposalView,
   type TownResponse,
@@ -26,7 +27,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { listOf, plural } from "@terrakin/ui/format";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
-import { type Person, personLink, residentPerson } from "@terrakin/ui/people";
+import { personLink, residentInLook } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { skeletonCard } from "@terrakin/ui/skeleton";
 import {
@@ -157,21 +158,21 @@ export function townView(ctx: ViewContext): View {
     addArchive(r.data.proposals, r.data.next);
   });
   let archiveNext: string | null = null;
-  /** Who's on the map, to draw a job's giver from the world this page already read. */
-  let residents = new Map<string, Person>();
+  /** The world this page last read: a job's giver is drawn from it, looked up when a row is. */
+  let world: WorldSnapshot | undefined;
   // The town's jobs (RFC 0030). Asked for only once the world says they're open.
-  const jobs = jobsSection({ person: (id) => residents.get(id), gone: () => destroyed });
+  const jobs = jobsSection({
+    person: (id) => {
+      const giver = world && everyoneIn(world).find((r) => r.id === id);
+      return giver && residentInLook(giver);
+    },
+    gone: () => destroyed,
+  });
   /** Keep what the world said, and say whether jobs are open in it. */
   function readWorld(w: WorldSnapshot): boolean {
     commons = commonsOf(w);
     clock = { ms: w.time.nowMs, at: Date.now() };
-    // The townsfolk are listed apart from the residents, and they're the ones who ask.
-    residents = new Map(
-      [...w.residents, ...(w.townsfolkResidents ?? [])].map((r) => [
-        r.id,
-        { ...residentPerson(r), look: r },
-      ]),
-    );
+    world = w;
     return w.jobsOpen === true;
   }
 
@@ -743,7 +744,7 @@ export function townView(ctx: ViewContext): View {
       amountInput,
       h("p", {
         class: "sheet-note",
-        text: `Up to 1,000. The treasury holds ${coins(treasury ?? 0)}. A town bounty pays whoever does the job, once a maintainer checks it.`,
+        text: `Up to 1,000. The treasury holds ${coins(treasury ?? 0)}. A town bounty pays whoever does the work, once a maintainer checks it.`,
       }),
     );
     moneyPart.hidden = true;
@@ -751,7 +752,7 @@ export function townView(ctx: ViewContext): View {
       advisory: "An idea",
       commons_build: "A build",
       grant: "A grant",
-      bounty: "A job",
+      bounty: "A bounty",
     };
     const offered: Kind[] = [
       "advisory",
@@ -899,11 +900,11 @@ export function townView(ctx: ViewContext): View {
     );
   }
 
-  /** The way to the bounties: jobs the town and residents pay coins for. */
+  /** The way to the bounties: work the town and residents pay coins for. */
   function bountiesCard(): HTMLElement {
     return wayCard({
       title: "Bounties",
-      text: "Jobs the town and your neighbors pay coins for. A passed job proposal goes up there, paid from the treasury.",
+      text: "Work the town and your neighbors pay coins for. A passed bounty proposal goes up there, paid from the treasury.",
       href: "/bounties",
       link: "See the bounties",
       className: "town-bounties",

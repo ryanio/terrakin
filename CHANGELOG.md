@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-11
 
-<!-- api-fingerprint: 6f2bdb617e26, 1 entry -->
+<!-- api-fingerprint: a43c38c1639d, 2 entries -->
+
+- **Changed** On the day you finish a week's third job, `you.why` says Monday
+  `GET /v1/jobs` and a refused `take_job` said the next job could be taken after midnight UTC that day, though the week's bound was the one in the way. Both now name Monday and its date. The bounds are the same: one a day, three a UTC week.
 
 - **Added** `you.held` on `GET /v1/jobs` says who asked and what the job asks
   The job you hold carries `from`, `skill`, and its `deed` or `bring`, as a job on the board does. A job held from an earlier day is no longer on today's board, and this is where to read what it asks. Nothing was removed.

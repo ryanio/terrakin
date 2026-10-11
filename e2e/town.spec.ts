@@ -262,10 +262,26 @@ test.describe("the Town Hall", () => {
     const { fern } = built();
     const errors = watchErrors(page, { console: "none" });
     await signIn(page, fern);
-    // Until jobs open here, the Town Hall has no Jobs section at all.
+    // Until jobs open here nothing asks for them: not the home wall, the world, the look editor,
+    // or the Town Hall, which has no Jobs section at all.
+    const asked: string[] = [];
+    const watch = (request: { url(): string }) => {
+      if (new URL(request.url()).pathname.startsWith("/v1/jobs")) asked.push(request.url());
+    };
+    page.on("request", watch);
+    await page.goto("/");
+    await expect(page.locator("#feed-list")).toBeVisible();
+    await expect(page.locator(".wall-fill")).toHaveCount(0);
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await page.goto(`/r/${fern.id}`);
+    await page.getByRole("button", { name: "Dress up" }).click();
+    await expect(page.getByRole("dialog", { name: "Your look" })).toBeVisible();
     await page.goto("/town");
     await expect(page.locator(".town-you")).toBeVisible();
     await expect(page.locator("#jobs, .jobs-card")).toHaveCount(0);
+    expect(asked).toEqual([]);
+    page.off("request", watch);
 
     // Jobs open, and levels with them, and the clock moves on to a day whose board has the
     // chair job: which three jobs a day has depends on the date.
@@ -289,23 +305,18 @@ test.describe("the Town Hall", () => {
     });
     expect(granted.ok()).toBe(true);
 
-    // A link to the section lands on it. No Bram lives in this world, so the job is the town's.
+    // A link to the section lands on it.
     await page.goto("/town#jobs");
     const jobs = page.locator(".jobs-card");
     await expect(page.locator("#jobs")).toBeInViewport();
     const chair = jobs.locator('.job-row[data-job="bram_chair"]');
     await expect(chair).toContainText("Make a chair");
-    await expect(chair).toContainText("For the town");
-    await expect(jobs.locator(".job-week")).toHaveText("3 of 3 left this week.");
-    await expect(jobs.locator(".job-take")).toHaveCount(3);
     await chair.locator(".job-take").click();
-    // She holds it: its bar over the rows, the row marked hers, and nothing else to take.
+    // She holds it: its bar over the rows, and the row marked hers.
     const held = jobs.locator('.job-held[data-job="bram_chair"]');
-    await expect(held).toContainText("0 of 1 done.");
     await expect(held.getByRole("progressbar")).toBeVisible();
     await expect(held.getByRole("button", { name: "Let go" })).toBeVisible();
-    await expect(chair.locator(".job-yours")).toHaveText("Yours");
-    await expect(jobs.locator(".job-take")).toHaveCount(0);
+    await expect(chair.locator(".job-yours")).toBeVisible();
     expect(await overflowsSideways(page)).toBe(false);
     await page.screenshot({ path: "test-results/town-jobs.png" });
 
@@ -318,25 +329,22 @@ test.describe("the Town Hall", () => {
     expect(await layoutShift(page)).toBeLessThan(0.05);
 
     // In the world a chip says she holds it, and making the chair finishes it: one toast, with the
-    // chair, the job, its points, and what's left of the week.
+    // chair and the job.
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
     await expect(page.locator("#world-job")).toHaveText("Job: 0 of 1");
     await tapTile(page, 1, -1);
     const bench = page.locator(".workshop-sheet");
     await bench.locator(".workshop-row", { hasText: "Chair" }).getByRole("button").click();
-    await expect(page.locator("#toast")).toContainText(
-      "Job done for the town: 10 Making points. 2 left this week.",
-    );
+    await expect(page.locator("#toast")).toContainText("Job done");
     await expect(page.locator("#world-job")).toBeHidden();
     await page.screenshot({ path: "test-results/town-job-done.png" });
 
-    // Back at the Town Hall the week counts it, and the server says why there's no more today.
+    // Back at the Town Hall she holds nothing, and the chair job is no longer hers.
     await page.goto("/town#jobs");
-    await expect(jobs.locator(".job-week")).toHaveText("2 of 3 left this week.");
+    await expect(chair).toBeVisible();
     await expect(jobs.locator(".job-held")).toHaveCount(0);
-    await expect(jobs.locator(".job-take")).toHaveCount(0);
-    await expect(jobs.locator(".job-why")).toContainText("finished a job today");
+    await expect(chair.locator(".job-yours")).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 });

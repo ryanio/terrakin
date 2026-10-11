@@ -1,26 +1,42 @@
 /**
  * The job sheet in the world (RFC 0030). The chip that shows while you hold a job opens it on that
  * job: its bar, Hand in for a bring job, and Let go. A tap on a townsfolk who asks for something
- * today opens it on their job, with Take when the server says one can be taken. Both read the same
- * board (`GET /v1/jobs`) and draw from `job-parts.ts`; after each action the sheet reads it again.
+ * today opens it on their job, with Take when the server says one can be taken, and a row to their
+ * lessons when either of you has a recipe to teach the other. It draws from `job-parts.ts`, and
+ * the board it shows is the world's: it hears every read the world makes (after your own job
+ * events, and after its own buttons), so a job finished or let go elsewhere shows here at once.
  * Loaded on its own, when the chip or a giver is tapped.
  */
 import type { JobsResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { closeOverlay, errorLine, itemRows, openOverlay, sheet } from "@terrakin/ui/ui";
-import { jobsApi } from "./api/jobs";
-import { type GiverPerson, heldJob, jobRow, present } from "./job-parts";
-import { cantTakeLine, weekLine } from "./jobs";
+import {
+  type GiverPerson,
+  heldJob,
+  jobActs,
+  jobRow,
+  present,
+  problemAfterRead,
+  repaintKeepingFocus,
+} from "./job-parts";
+import { cantTakeLine, sheetShows, weekLine } from "./jobs";
 
 export interface JobSheetOptions {
   /** The board as the world last read it. */
   board: JobsResponse;
   /** A townsfolk tapped in the world: the sheet shows what they ask for today. Their name is text. */
   giver?: { id: string; name: string };
+  /** Opens their teach sheet, when either of you has a recipe to teach the other. */
+  lessons?: () => void;
   /** How to draw a giver who lives here. */
   person: GiverPerson;
-  /** The board was read again after an action: the world keeps it. */
-  read: (board: JobsResponse) => void;
+  /** Have the world read the board again, after one of the sheet's own buttons. */
+  reread: () => Promise<void>;
+  /**
+   * Hear each board the world keeps while the sheet is open (undefined once jobs aren't shown at
+   * all). The function it returns stops it.
+   */
+  follow: (heard: (board: JobsResponse | undefined) => void) => () => void;
 }
 
 /**
@@ -28,15 +44,10 @@ export interface JobSheetOptions {
  * giver, or a giver with nothing on today's board.
  */
 export function openJobSheet(o: JobSheetOptions): boolean {
-  const theirs = (board: JobsResponse) =>
-    o.giver ? board.jobs.filter((job) => job.from.id === o.giver?.id) : [];
-  /** A giver's sheet is about what they ask today, and the chip's about the job you hold. */
-  const nothing = (board: JobsResponse) =>
-    o.giver ? theirs(board).length === 0 : !board.you?.held;
-  if (nothing(o.board)) return false;
+  if (!sheetShows(o.board, o.giver?.id)) return false;
 
   const problem = errorLine("job-sheet-error");
-  const body = h("div", { class: "stack job-sheet-body" });
+  const body = h("div", { class: "stack job-sheet-body", attrs: { tabindex: -1 } });
   // A plain link: the router closes the sheet as it goes.
   const all = h(
     "a",
@@ -44,6 +55,15 @@ export function openJobSheet(o: JobSheetOptions): boolean {
     icon("town"),
     h("span", { text: "Today's jobs at the Town Hall" }),
   );
+  const lessons = o.lessons
+    ? h(
+        "button",
+        { class: "pill-button small job-lessons", attrs: { type: "button" } },
+        icon("kitchen"),
+        // A resident's name: text.
+        h("span", { text: `Recipes with ${o.giver?.name ?? "them"}` }),
+      )
+    : null;
   const s = sheet(
     {
       id: "job-sheet-title",
@@ -54,56 +74,54 @@ export function openJobSheet(o: JobSheetOptions): boolean {
     },
     body,
     problem,
-    h("div", { class: "cluster" }, all),
+    h("div", { class: "cluster job-sheet-foot" }, lessons, all),
   );
+  // The teach sheet takes this one's place.
+  lessons?.addEventListener("click", () => o.lessons?.());
 
-  const acts = {
-    changed: () => void reread(),
-    problem: (text: string) => {
-      problem.textContent = text;
-    },
-  };
+  const acts = jobActs({ within: body, problem, reread: o.reread });
 
   function paint(board: JobsResponse) {
     const { you } = board;
-    const jobs = theirs(board);
+    const jobs = o.giver ? board.jobs.filter((job) => job.from.id === o.giver?.id) : [];
     const cant = cantTakeLine(you);
-    body.replaceChildren(
-      ...present([
-        ...(jobs.length > 0
-          ? [
-              h("p", {
-                class: "sheet-lede",
-                text: `What they ask for today. A finished job adds ${board.rules.points} points to its skill, never coins.`,
-              }),
-              itemRows(
-                jobs.map((job) => jobRow(job, you, o.person, acts)),
-                { className: "job-rows" },
-              ),
-            ]
-          : []),
-        // The chip's sheet is titled "Your job" already; a giver's sheet says which job is yours.
-        you?.held ? heldJob(you.held, board.day, o.person, acts, !o.giver) : null,
-        you ? h("p", { class: "hint job-week", text: weekLine(you.week) }) : null,
-        cant ? h("p", { class: "hint job-why", text: cant }) : null,
-      ]),
+    repaintKeepingFocus(body, () =>
+      body.replaceChildren(
+        ...present([
+          ...(jobs.length > 0
+            ? [
+                h("p", {
+                  class: "sheet-lede",
+                  text: `What they ask for today. A finished job adds ${board.rules.points} points to its skill, never coins.`,
+                }),
+                itemRows(
+                  jobs.map((job) => jobRow(job, you, o.person, acts)),
+                  { className: "job-rows" },
+                ),
+              ]
+            : []),
+          // The chip's sheet is titled "Your job" already; a giver's sheet says which job is yours.
+          you?.held ? heldJob(you.held, board.day, o.person, acts, !o.giver) : null,
+          you ? h("p", { class: "hint job-week", text: weekLine(you.week) }) : null,
+          cant ? h("p", { class: "hint job-why", text: cant }) : null,
+        ]),
+      ),
     );
   }
 
-  async function reread() {
-    const r = await jobsApi.jobs();
-    if (!r.ok) {
-      problem.textContent = r.message;
-      return;
+  /** The world kept a board: draw it, or close once there's nothing left to show or to say. */
+  function heard(board: JobsResponse | undefined) {
+    if (board) problemAfterRead(problem, board.you);
+    const empty = { jobs: [], you: null };
+    if (!sheetShows(board ?? empty, o.giver?.id, problem.textContent ?? "")) {
+      return closeOverlay(s.dialog);
     }
-    o.read(r.data);
-    if (!s.dialog.isConnected) return;
-    // Let go of, handed in, or finished, with nothing else to show: the sheet is done.
-    if (nothing(r.data)) return closeOverlay(s.dialog);
-    paint(r.data);
+    // A refusal stays on screen over whatever is left, even when that's nothing.
+    if (board) paint(board);
+    else body.replaceChildren();
   }
 
   paint(o.board);
-  openOverlay(s.dialog);
+  openOverlay(s.dialog, o.follow(heard));
   return true;
 }

@@ -813,7 +813,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         },
         dressUp: () =>
           openLookEditor(
-            { color: r.color, shape: r.shape, look: r.look, entitled: r.entitled },
+            { color: r.color, shape: r.shape, look: r.look, entitled: r.entitled, jobs: r.jobs },
             (look) => {
               r.look = look;
               forgetMe();
@@ -1759,7 +1759,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
               // along with a changed note.
               click: () =>
                 openLookEditor(
-                  { color, shape, look: r.look, pending: cardChanges(), entitled: r.entitled },
+                  {
+                    color,
+                    shape,
+                    look: r.look,
+                    pending: cardChanges(),
+                    entitled: r.entitled,
+                    jobs: r.jobs,
+                  },
                   (look) => {
                     r.look = look;
                     forgetMe();

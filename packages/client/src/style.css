@@ -8885,8 +8885,10 @@ html.view3d-open body {
 }
 
 /* The next-step chip has the near-actions slot only while Gather all, Pat, and Fish are hidden, and
-   no wider than they are, so the column never reaches further over the map than before. */
-.world-near > :not([hidden]) ~ .world-next {
+   no wider than they are, so the column never reaches further over the map than before. Those show
+   for a moment where you stand. The job chip shows for as long as a job is held, up to a week, so
+   it doesn't take the slot: the two stack. */
+.world-near > :not([hidden], .world-job) ~ .world-next {
   display: none;
 }
 

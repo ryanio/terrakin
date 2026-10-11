@@ -568,16 +568,18 @@ export function takeJobProblem(state: WorldState, actor: ResidentId): Rejection 
       `You're holding a job (${held.job}). Finish it, or let it go first with {"type": "drop_job"}.`,
     );
   }
-  if (jobs.doneToday?.includes(actor)) {
-    return refuse(
-      "job_limit",
-      "You finished a job today, and a day has one. The next one can be taken after midnight UTC.",
-    );
-  }
+  // The week before the day: on the day a third job is finished both hold, and the one that says
+  // when the next can really be taken is the week's.
   if (jobsThisWeek(state, actor) >= JOBS.perWeek) {
     return refuse(
       "job_limit",
       `You've finished ${JOBS.perWeek} jobs this week, all a week has. The next one can be taken on Monday, ${dayName(weekStart(day) + 7)} (UTC).`,
+    );
+  }
+  if (jobs.doneToday?.includes(actor)) {
+    return refuse(
+      "job_limit",
+      "You finished a job today, and a day has one. The next one can be taken after midnight UTC.",
     );
   }
   return null;

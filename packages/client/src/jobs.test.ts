@@ -1,26 +1,28 @@
-import { type HeldJobView, type JobView, jobView } from "@terrakin/protocol";
+import { type HeldJobView, type JobsResponse, type JobView, jobView } from "@terrakin/protocol";
 import { JOB_EDITIONS, JOBS } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   askedLine,
+  boardLede,
   cantTakeLine,
   chipLabel,
-  deedNoun,
   doneLine,
   droppedLine,
-  forWhom,
   heldBar,
-  heldLine,
+  heldJobLine,
   heldMoves,
   type JobStanding,
+  jobProblem,
   jobRowAction,
   jobsRow,
   jobTitles,
   jobWear,
   jobWearAt,
   keptLine,
+  newestOnly,
   progressLine,
-  weekLeft,
+  sheetShows,
+  shownProblem,
   weekLine,
 } from "./jobs";
 import { earnedState } from "./levels";
@@ -50,22 +52,43 @@ const standing = (over: Partial<JobStanding> = {}): JobStanding => ({
 
 describe("who a job is for", () => {
   it("is its giver while that townsfolk lives here, and the town when they don't", () => {
-    expect(forWhom(job("bram_chair", "r_bram").from)).toBe("Bram");
-    expect(forWhom(job("bram_chair").from)).toBe("the town");
     expect(askedLine(job("juniper_herbs", "r_j").from)).toBe("For Juniper");
     expect(askedLine(job("juniper_herbs").from)).toBe("For the town");
   });
 });
 
 describe("the week", () => {
-  it("says how many are left of the three that count, and when more do once none are", () => {
+  it("says how many are left of the ones that count, and leaves when the next can be taken to the server", () => {
     expect(weekLine({ done: 1, max: 3 })).toBe("2 of 3 left this week.");
     expect(weekLine({ done: 0, max: 3 })).toBe("3 of 3 left this week.");
-    expect(weekLine({ done: 3, max: 3 })).toBe(
-      "0 of 3 left this week. Jobs count again from Monday.",
-    );
+    expect(weekLine({ done: 3, max: 3 })).toBe("0 of 3 left this week.");
     // A count past the bound never reads as a negative number.
-    expect(weekLeft({ done: 4, max: 3 })).toBe(0);
+    expect(weekLine({ done: 4, max: 3 })).toBe("0 of 3 left this week.");
+  });
+});
+
+describe("the words over the board", () => {
+  // Numbers no rule has, so the words can only have come from what the server sent.
+  const rules: JobsResponse["rules"] = {
+    board: 4,
+    held: 1,
+    perDay: 1,
+    perWeek: 3,
+    points: 12,
+    keepDays: 7,
+    unlocks: [],
+  };
+
+  it("take how many a day and what one pays from the server's rules", () => {
+    expect(boardLede(rules, true)).toBe(
+      "Small things the town asks for, 4 a day. A finished job adds 12 points to its skill, never coins. Take one only if you'd enjoy it.",
+    );
+  });
+
+  it("tell someone with no button to take one with how to get one", () => {
+    const lede = boardLede(rules, false);
+    expect(lede).toContain("Step into the world to take one.");
+    expect(lede).not.toContain("only if you'd enjoy it");
   });
 });
 
@@ -99,6 +122,128 @@ describe("a board row's button", () => {
   });
 });
 
+describe("a refused tap", () => {
+  // The sim's own messages for these codes, which it writes for agents.
+  const forAgents = {
+    job_held: `You're holding a job (bram_chair). Finish it, or let it go first with {"type": "drop_job"}.`,
+    unknown_job: "That isn't one of today's jobs. Today's are bram_chair, marlo_find, otis_host.",
+    no_job:
+      "The job you hold (juniper_herbs) has nothing to hand in: it's done when you've done what it asks.",
+  };
+
+  it("never shows a job's id or an action to send", () => {
+    const shown = Object.entries(forAgents).map(([code, message]) => jobProblem(code, message));
+    expect(shown.filter((line) => /[{}"_`]/.test(line))).toEqual([]);
+    expect(shown).toEqual([
+      "You already hold a job. Finish it, or let it go, before you take another.",
+      "That job isn't on today's board anymore. The board changes at midnight UTC.",
+      "You aren't holding that job anymore.",
+    ]);
+  });
+
+  it("keeps the server's words where they say when, or what's missing", () => {
+    const monday =
+      "You've finished 3 jobs this week, all a week has. The next one can be taken on Monday.";
+    expect(jobProblem("job_limit", monday)).toBe(monday);
+    const made =
+      "Someone else made the chair you hold. A job takes only a thing you made yourself.";
+    expect(jobProblem("nothing_to_hand_in", made)).toBe(made);
+  });
+
+  it("is said once: the error line clears when the board's own line says the same", () => {
+    const why = "You finished a job today, and a day has one.";
+    expect(shownProblem(why, standing({ canTake: false, why }))).toBe("");
+    // Another reason, or a board that says nothing, leaves it on screen.
+    expect(shownProblem(why, standing({ canTake: false, why: "You need a hearth." }))).toBe(why);
+    expect(shownProblem(why, standing())).toBe(why);
+    expect(shownProblem(why, null)).toBe(why);
+    // The held job hides the board's line, so the refusal is the only place the reason shows.
+    const holding = standing({ held: held("bram_chair", 0), canTake: false, why });
+    expect(shownProblem(why, holding)).toBe(why);
+    expect(shownProblem("", standing())).toBe("");
+  });
+});
+
+describe("the job sheet", () => {
+  const board = (you: JobStanding | null) => ({
+    jobs: [job("bram_chair", "r_bram"), job("juniper_herbs", "r_juniper"), job("marlo_find")],
+    you,
+  });
+
+  it("opened from the chip shows only while you hold a job", () => {
+    expect(sheetShows(board(standing({ held: held("bram_chair", 0) })), undefined)).toBe(true);
+    expect(sheetShows(board(standing()), undefined)).toBe(false);
+    expect(sheetShows(board(null), undefined)).toBe(false);
+  });
+
+  it("opened on a giver shows while they ask for something today, whoever holds what", () => {
+    expect(sheetShows(board(standing()), "r_bram")).toBe(true);
+    expect(sheetShows(board(null), "r_juniper")).toBe(true);
+    // Someone who asks for nothing today, and a board that moved on at midnight.
+    expect(sheetShows(board(standing()), "r_clem")).toBe(false);
+    expect(sheetShows({ jobs: [], you: standing() }, "r_bram")).toBe(false);
+  });
+
+  it("stays open over nothing while a refusal is on screen", () => {
+    expect(sheetShows(board(standing()), undefined, "You aren't holding that job anymore.")).toBe(
+      true,
+    );
+    expect(sheetShows({ jobs: [], you: null }, "r_bram", "That job isn't on today's board.")).toBe(
+      true,
+    );
+  });
+});
+
+describe("reads of the board that overlap", () => {
+  /** Asks answered by hand, in any order. */
+  function asks() {
+    const answers: ((answer: string) => void)[] = [];
+    const landed: string[] = [];
+    const read = newestOnly(
+      () => new Promise<string>((resolve) => answers.push(resolve)),
+      (answer) => landed.push(answer),
+    );
+    return { read, answers, landed };
+  }
+
+  it("land only the newest ask's answer, so a refresh sent before a Take never draws over it", async () => {
+    const { read, answers, landed } = asks();
+    const refresh = read();
+    const afterTake = read();
+    answers[1]?.("after the take");
+    await afterTake;
+    answers[0]?.("before the take");
+    await refresh;
+    expect(landed).toEqual(["after the take"]);
+  });
+
+  it("resolve an older read only once the newest answer has landed", async () => {
+    const { read, answers, landed } = asks();
+    let olderDone = false;
+    const older = read().then(() => {
+      olderDone = true;
+    });
+    const newer = read();
+    answers[0]?.("old");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(olderDone).toBe(false);
+    answers[1]?.("new");
+    await Promise.all([older, newer]);
+    expect(landed).toEqual(["new"]);
+  });
+
+  it("land every answer when asks don't overlap", async () => {
+    const { read, answers, landed } = asks();
+    const first = read();
+    answers[0]?.("one");
+    await first;
+    const second = read();
+    answers[1]?.("two");
+    await second;
+    expect(landed).toEqual(["one", "two"]);
+  });
+});
+
 describe("the job you hold", () => {
   it("can be let go, and handed in only when it asks for a made thing", () => {
     expect(heldMoves(held("juniper_herbs", 1))).toEqual(["drop"]);
@@ -107,14 +252,14 @@ describe("the job you hold", () => {
 
   it("shows how far along a deed job is, and that a bring job waits for its hand-in", () => {
     expect(heldBar(held("juniper_herbs", 1))).toEqual({ count: 1, total: 3, label: "1 of 3 done" });
-    expect(heldLine(held("juniper_herbs", 1))).toBe("1 of 3 done.");
+    expect(heldJobLine(held("juniper_herbs", 1))).toBe("1 of 3 done.");
     expect(chipLabel(held("juniper_herbs", 1))).toBe("Job: 1 of 3");
     expect(heldBar(held("clem_jam", 0))).toEqual({
       count: 0,
       total: 1,
       label: "Not handed in yet",
     });
-    expect(heldLine(held("clem_jam", 0))).toBe(
+    expect(heldJobLine(held("clem_jam", 0))).toBe(
       "Make it yourself, then hand it in. It goes to the town.",
     );
     expect(chipLabel(held("clem_jam", 0))).toBe("Job: 0 of 1");
@@ -150,46 +295,36 @@ describe("a deed that moves your job", () => {
   });
 
   it("has a word for what every deed job in the table counts", () => {
-    const nouns = (JOB_EDITIONS[1] ?? []).flatMap((j) => {
+    const lines = (JOB_EDITIONS[1] ?? []).flatMap((j) => {
       const view = jobView(j, undefined);
-      return view.deed ? [[j.id, deedNoun(view.deed)]] : [];
+      return view.deed ? [[j.id, progressLine({ count: 1, of: 2 }, view)]] : [];
     });
-    expect(nouns.filter(([, noun]) => !noun || noun === "made")).toEqual([]);
-    expect(Object.fromEntries(nouns)).toMatchObject({
-      juniper_pumpkins: "harvests of pumpkins",
-      bram_chair: "chairs",
-      marlo_find: "finds",
-      otis_teach: "lessons",
-      otis_host: "events",
-      pip_win: "wins",
+    // "made" and "done" are what a deed with no word of its own would read.
+    expect(lines.filter(([, line]) => / (made|done) for /.test(line ?? ""))).toEqual([]);
+    expect(Object.fromEntries(lines)).toMatchObject({
+      juniper_pumpkins: "1 of 2 harvests of pumpkins for the town.",
+      bram_chair: "1 of 2 chairs for the town.",
+      marlo_find: "1 of 2 finds for the town.",
+      otis_teach: "1 of 2 lessons for the town.",
+      otis_host: "1 of 2 events for the town.",
+      pip_win: "1 of 2 wins for the town.",
     });
   });
 });
 
 describe("a finished job", () => {
-  const done = { skill: "growing", points: 10, week: 1, total: 4 } as const;
+  // The event as the socket sends it: the week's count and the count for good ride along.
+  const done = { skill: "growing", points: 10, week: 3, total: JOBS.titleAt } as const;
 
-  it("says the points, who it was for, and how many are left this week", () => {
-    expect(doneLine(done, job("juniper_herbs", "r_j").from, 3)).toBe(
-      "Job done for Juniper: 10 Growing points. 2 left this week.",
+  it("says the points and who it was for, in one sentence short enough to join a deed's toast", () => {
+    expect(doneLine(done, job("juniper_herbs", "r_j").from)).toBe(
+      "Job done for Juniper: 10 Growing points.",
     );
-    expect(doneLine({ ...done, skill: "making" }, job("bram_chair").from, 3)).toBe(
-      "Job done for the town: 10 Making points. 2 left this week.",
-    );
-    expect(doneLine({ ...done, week: 3 }, job("juniper_herbs", "r_j").from, 3)).toBe(
-      "Job done for Juniper: 10 Growing points. That's every job that counts this week.",
+    expect(doneLine({ ...done, skill: "making" }, job("bram_chair").from)).toBe(
+      "Job done for the town: 10 Making points.",
     );
     // Before the board has been read, only what the event itself says.
-    expect(doneLine(done, undefined, undefined)).toBe("Job done: 10 Growing points.");
-  });
-
-  it("adds what the count unlocked, at the count and never one short", () => {
-    const at = (total: number) => doneLine({ ...done, total }, undefined, undefined);
-    expect(at(JOBS.titleAt - 1)).toBe("Job done: 10 Growing points.");
-    expect(at(JOBS.titleAt)).toBe(
-      "Job done: 10 Growing points. You can show the title Helping hand now.",
-    );
-    expect(at(JOBS.wearAt)).toBe("Job done: 10 Growing points. You can wear the town satchel now.");
+    expect(doneLine(done, undefined)).toBe("Job done: 10 Growing points.");
   });
 
   it("says a job lapsed without making it a loss", () => {
@@ -200,25 +335,31 @@ describe("a finished job", () => {
 
 describe("the skills sheet's jobs row", () => {
   it("counts jobs finished toward the next thing the count brings", () => {
+    const { titleAt, wearAt, masterAt } = JOBS;
     expect(jobsRow(0)).toMatchObject({
       name: "Jobs: 0 finished",
-      bar: { count: 0, total: 10 },
-      lines: ["10 jobs finished bring the title Helping hand."],
+      bar: { count: 0, total: titleAt },
+      lines: [`${titleAt} jobs finished bring the title Helping hand.`],
       wear: { item: "town_satchel", reached: false },
     });
-    expect(jobsRow(12)).toMatchObject({
-      name: "Jobs: 12 finished",
-      bar: { count: 2, total: 15, label: "2 of 15 jobs to the town satchel" },
-      lines: ["25 jobs finished bring the town satchel."],
+    expect(jobsRow(titleAt + 2)).toMatchObject({
+      name: `Jobs: ${titleAt + 2} finished`,
+      bar: {
+        count: 2,
+        total: wearAt - titleAt,
+        label: `2 of ${wearAt - titleAt} jobs to the town satchel`,
+      },
+      lines: [`${wearAt} jobs finished bring the town satchel.`],
       wear: { reached: false },
     });
-    expect(jobsRow(25)).toMatchObject({
-      bar: { count: 0, total: 50 },
-      lines: ["75 jobs finished bring the title Pillar of the town."],
+    expect(jobsRow(wearAt - 1)).toMatchObject({ wear: { reached: false } });
+    expect(jobsRow(wearAt)).toMatchObject({
+      bar: { count: 0, total: masterAt - wearAt },
+      lines: [`${masterAt} jobs finished bring the title Pillar of the town.`],
       wear: { reached: true },
     });
-    expect(jobsRow(80)).toMatchObject({
-      name: "Jobs: 80 finished",
+    expect(jobsRow(masterAt + 5)).toMatchObject({
+      name: `Jobs: ${masterAt + 5} finished`,
       bar: { count: 1, total: 1 },
       lines: ["Nothing left to unlock."],
     });
@@ -227,15 +368,15 @@ describe("the skills sheet's jobs row", () => {
 
 describe("what the count unlocked", () => {
   const unlocked: JobStanding["unlocked"] = [
-    { jobs: 10, title: "helping_hand" },
-    { jobs: 25, wear: "town_satchel" },
+    { jobs: JOBS.titleAt, title: "helping_hand" },
+    { jobs: JOBS.wearAt, wear: "town_satchel" },
   ];
 
   it("gives the title picker its titles and the look editor its garment", () => {
     expect(jobTitles(unlocked)).toEqual(["helping_hand"]);
     expect(jobWear(unlocked)).toEqual(["town_satchel"]);
     expect(jobTitles([])).toEqual([]);
-    expect(jobWearAt("town_satchel")).toBe("25 jobs");
+    expect(jobWearAt("town_satchel")).toBe(`${JOBS.wearAt} jobs`);
   });
 
   it("lists the satchel in the look editor only once jobs are open, locked until it's reached", () => {

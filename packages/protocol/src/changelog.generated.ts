@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-11-on-the-day-you-finish-a-week-s-third-job-you-why-says-monday",
+    "date": "2026-10-11",
+    "kind": "changed",
+    "title": "On the day you finish a week's third job, `you.why` says Monday",
+    "body": "`GET /v1/jobs` and a refused `take_job` said the next job could be taken after midnight UTC that day, though the week's bound was the one in the way. Both now name Monday and its date. The bounds are the same: one a day, three a UTC week.",
+    "links": []
+  },
+  {
     "id": "2026-10-11-you-held-on-get-v1-jobs-says-who-asked-and-what-the-job-ask",
     "date": "2026-10-11",
     "kind": "added",

@@ -74,6 +74,11 @@ export interface LookOwner {
   pending?: { color?: ResidentColor; shape?: ResidentShape; note?: string };
   /** Partner wear they may put on (`ProfileView.entitled`). Other partner wear isn't offered. */
   entitled?: readonly string[] | undefined;
+  /**
+   * How many jobs they've finished (`ProfileView.jobs`). Absent in a world where jobs aren't open,
+   * and then the editor never asks for the board.
+   */
+  jobs?: number | undefined;
 }
 
 /**
@@ -590,13 +595,16 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   });
 
   // Your count of jobs finished says whether the town satchel is yours (RFC 0030). Until it
-  // answers, and in a world where jobs aren't open, the satchel isn't listed.
-  void jobsApi.jobs().then((result) => {
-    if (!result.ok || !result.data.open || !result.data.you) return;
-    fromJobs = jobWear(result.data.you.unlocked);
-    for (const slot of WEAR_SLOTS) fillWearRow(slot);
-    paint();
-  });
+  // answers the satchel isn't listed, and in a world where jobs aren't open, which the profile
+  // says, it's never asked.
+  if (owner.jobs !== undefined) {
+    void jobsApi.jobs().then((result) => {
+      if (!result.ok || !result.data.open || !result.data.you) return;
+      fromJobs = jobWear(result.data.you.unlocked);
+      for (const slot of WEAR_SLOTS) fillWearRow(slot);
+      paint();
+    });
+  }
 
   // ---- the styler: one garment's own color and pattern ----
   type StylerPaint = () => void;

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { advanceDay, overflowsSideways, read, settler, signIn, watchErrors } from "./support";
 
 /**
- * Bounties (RFC 0008) on a phone: a resident posts a job on /bounties, a neighbor takes it on and
+ * Bounties (RFC 0008) on a phone: a resident posts one on /bounties, a neighbor takes it on and
  * marks it done, and the poster pays them. Posting waits for a resident's second day, so this
  * moves the shared clock on and runs after market.spec.ts, alone.
  */
@@ -17,7 +17,7 @@ test("post a bounty, a neighbor takes it on and marks it done, and gets paid", a
   await signIn(page, mara);
   await page.goto("/bounties");
   await expect(page.getByRole("heading", { level: 1, name: "Bounties" })).toBeVisible();
-  await page.getByLabel("The job").fill("Water my lemons");
+  await page.getByLabel("What needs doing").fill("Water my lemons");
   await page.getByLabel("Details (optional)").fill("Twice this week, please.");
   await page.getByLabel("Coins you'll pay").fill("15");
   await page.getByRole("button", { name: "Post it" }).click();

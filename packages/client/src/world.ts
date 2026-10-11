@@ -41,7 +41,7 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
-import { residentPerson } from "@terrakin/ui/people";
+import { residentInLook } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
@@ -311,7 +311,7 @@ const jobs = worldJobs({
   toast: (line) => showToast(line),
   person: (id) => {
     const r = mirror?.residents.get(id);
-    return r && { ...residentPerson(r), look: r };
+    return r && residentInLook(r);
   },
 });
 /** How quickly the map's camera catches up with your figure, per second. */
@@ -1052,25 +1052,44 @@ function tapTile(tile: { x: number; y: number }) {
     lookAt(other);
     const name = other.kind === "agent" ? `${other.name} ⚙` : other.name;
     const who = () => showToast(other.note ? `${name}: ${other.note}` : name, "player");
-    // A townsfolk who asks for something today opens their job (RFC 0030).
-    if (jobs.tapped({ id: other.id, name: other.name })) return;
     // Once recipes are learned (RFC 0024), their sheet says what they could teach you and lists
     // what you could teach them. With nothing to say either way, the toast as before.
-    if (!mirror.recipesOpen || !me) return who();
-    const near = inReach(at, other);
-    const { reach } = mirror.config;
-    void import("./teach-sheet")
-      .then((t) =>
-        t.openTeachSheet({
-          who: { id: other.id, name: other.name, kind: other.kind, note: other.note },
-          near,
-          reach,
-        }),
-      )
-      .then((opened) => {
-        if (!opened) who();
-      })
-      .catch(who);
+    const teaching = mirror.recipesOpen && me !== undefined;
+    const teach = {
+      who: { id: other.id, name: other.name, kind: other.kind, note: other.note },
+      near: inReach(at, other),
+      reach: mirror.config.reach,
+    };
+    const lessonsOrName = () => {
+      if (!teaching) return who();
+      void import("./teach-sheet")
+        .then((t) => t.openTeachSheet(teach))
+        .then((opened) => {
+          if (!opened) who();
+        })
+        .catch(who);
+    };
+    // A townsfolk who asks for something today opens their job (RFC 0030), with a row to their
+    // lessons when there are any, so what they teach is still a tap away on a day they're on the
+    // board (decision 0261).
+    const asks = jobs.tapped(
+      { id: other.id, name: other.name },
+      {
+        otherwise: lessonsOrName,
+        ...(teaching
+          ? {
+              lessons: async () => {
+                const t = await import("./teach-sheet");
+                const lessons = await t.lessonsWith(other.id);
+                return lessons && t.anyLessons(lessons)
+                  ? () => void t.openTeachSheet({ ...teach, lessons })
+                  : undefined;
+              },
+            }
+          : {}),
+      },
+    );
+    if (!asks) lessonsOrName();
     return;
   }
   // Someone away is not here: asleep at home, or out on a routine (decision 0083). Say so, and
@@ -1081,29 +1100,32 @@ function tapTile(tile: { x: number; y: number }) {
     : mirror.outOnRoutine(me).find((o) => o.r.x === tile.x && o.r.y === tile.y);
   const asleep = other || out ? undefined : dozerAt(mirror.asleep(me), tile.x, tile.y)?.r;
   const away = out?.r ?? asleep;
-  // A townsfolk asleep at home still asks: their job opens, and nobody walks anywhere.
-  if (away && jobs.tapped({ id: away.id, name: away.name })) return;
-  if (away) {
-    const name = away.kind === "agent" ? `${away.name} ⚙` : away.name;
-    const doing =
-      out?.routine === "stroll" ? "out on a stroll" : out ? "just walked home" : "asleep at home";
-    showToast(`${name} is away, ${doing}.`, "player");
-  }
-  // A walk keeps to the floor you stand on (RFC 0028). A tile that shows another floor walks you
-  // to the stairs instead, where Go up or Go down shows, so nothing climbs without a tap.
-  const cut = cutHere();
   const m = mirror;
-  const want = tapFloor(
-    m.layers(),
-    m.config.plotSize,
-    cut,
-    tile.x,
-    tile.y,
-    (s, x, y) => m.blocksOn(s - 1).get(tileKey(x, y)) === "stairs",
-  );
-  const mine = cut?.floor ?? 0;
-  const stairs = want === mine ? undefined : stairsFor(want < mine ? "down" : "up", tile);
-  walkToward(stairs ?? tile);
+  const walkOn = () => {
+    if (away) {
+      const name = away.kind === "agent" ? `${away.name} ⚙` : away.name;
+      const doing =
+        out?.routine === "stroll" ? "out on a stroll" : out ? "just walked home" : "asleep at home";
+      showToast(`${name} is away, ${doing}.`, "player");
+    }
+    // A walk keeps to the floor you stand on (RFC 0028). A tile that shows another floor walks you
+    // to the stairs instead, where Go up or Go down shows, so nothing climbs without a tap.
+    const cut = cutHere();
+    const want = tapFloor(
+      m.layers(),
+      m.config.plotSize,
+      cut,
+      tile.x,
+      tile.y,
+      (s, x, y) => m.blocksOn(s - 1).get(tileKey(x, y)) === "stairs",
+    );
+    const mine = cut?.floor ?? 0;
+    const stairs = want === mine ? undefined : stairsFor(want < mine ? "down" : "up", tile);
+    walkToward(stairs ?? tile);
+  };
+  // A townsfolk asleep at home still asks: their job opens, and nobody walks anywhere.
+  if (away && jobs.tapped({ id: away.id, name: away.name }, { otherwise: walkOn })) return;
+  walkOn();
 }
 
 // ---------- 2D or 3D ----------

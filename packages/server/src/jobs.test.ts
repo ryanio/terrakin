@@ -766,6 +766,29 @@ describe("a finished job", () => {
     t.until("ansel_bouquet");
     const make = await t.bench(ada);
     await t.act(ada.token, { type: "take_job", job: "ansel_bouquet" });
+    // The job she holds says who asked and what it asks, as a job on the board does: a bring job
+    // names its recipe and no deed, and its giver's resident once that townsfolk lives here.
+    const florist = await t.settler("Ansel", 2, 0);
+    const named = await t.call("PUT", "/v1/profile", { handle: "ansel" }, florist.token);
+    expect(named.status).toBe(200);
+    const heldNow = async () =>
+      (await t.call("GET", "/v1/jobs", undefined, ada.token)).body.you.held;
+    const asked = (await t.call("GET", "/v1/jobs")).body.jobs.find(
+      (job: Json) => job.id === "ansel_bouquet",
+    );
+    expect(await heldNow()).toEqual({
+      job: "ansel_bouquet",
+      from: { handle: "ansel", name: "Ansel" },
+      skill: "making",
+      title: asked.title,
+      shape: "bring",
+      bring: { recipe: "bouquet", count: 1 },
+      count: 0,
+      of: 1,
+      lapsesDay: (t.service.state.day ?? 0) + JOBS.keepDays,
+    });
+    t.service.syncTownsfolk(new Set([florist.id]));
+    expect((await heldNow()).from).toEqual({ handle: "ansel", name: "Ansel", id: florist.id });
     expect((await t.act(ada.token, { type: "hand_in" })).error.code).toBe("nothing_to_hand_in");
     const made = await make("bouquet");
     const first = made.events.find((e: Json) => e.type === "inventory").gained[0].id;

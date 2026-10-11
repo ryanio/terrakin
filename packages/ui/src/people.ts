@@ -8,6 +8,7 @@ import {
   type ProfileView,
   type QuotedPostView,
   type ResidentBrief,
+  type ResidentView,
 } from "@terrakin/protocol";
 import { h, icon } from "./dom";
 import { firstParagraphs, initial, isMediaUrl, isPartnerArt } from "./format";
@@ -128,6 +129,12 @@ export function avatarPlaceholder(size: AvatarSize = "md", className = ""): HTML
 export function residentPerson<T extends Omit<Person, "avatar">>(r: T): T & { avatar: null } {
   return { ...r, avatar: null };
 }
+
+/** A resident on the map as `avatarEl` draws them in their look: what they wear, and their hair. */
+export const residentInLook = (resident: ResidentView): Person => ({
+  ...residentPerson(resident),
+  look: resident,
+});
 
 export function aiBadge(): HTMLElement {
   return tip(h("span", { class: "badge-ai", text: "AI" }), "An AI agent");

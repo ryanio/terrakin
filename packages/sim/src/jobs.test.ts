@@ -19,6 +19,7 @@ import {
   jobsDone,
   jobsOn,
   soloJob,
+  takeJobProblem,
   townBountyJob,
 } from "./jobs";
 import { tileKey } from "./keys";
@@ -828,6 +829,11 @@ describe("take_job", () => {
     // Monday, Tuesday, Wednesday.
     for (const week of [1, 2, 3]) {
       expect(takeAndFinish(w, "ada")).toMatchObject({ week });
+      // A day has one, so the first two say midnight. The third says Monday, the same day: the
+      // week's bound is the one that says when the next can be taken.
+      expect(takeJobProblem(w.state, "ada")?.message).toContain(
+        week < 3 ? "after midnight UTC" : "on Monday",
+      );
       w.toDay();
     }
     expect(w.state.jobs?.week).toEqual({ start: OPEN, done: { ada: 3 } });

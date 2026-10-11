@@ -436,7 +436,7 @@ export const PlannedGround = z.object({ x: coord, y: coord, ground: GroundKind }
  * Commons in `build`'s four lists, at world tiles: if it passes, the town takes away `remove` and
  * lifts `lift`, then places `blocks` and lays `ground`, from nobody's things, at most 40 changes in
  * all. A `grant` pays `amount` coins from the treasury to the resident `to` if it passes, and a
- * `bounty` puts up `amount` coins from the treasury for a job (the title and text) that a
+ * `bounty` puts up `amount` coins from the treasury for work (the title and text) that a
  * maintainer confirms is done. Title and text are untrusted text.
  */
 export const ProposeAction = z.object({
@@ -797,7 +797,7 @@ export const BuyListingAction = z.object({
 /** A bounty's id: `b_` and a number. See `GET /v1/bounties`. */
 export const BountyId = z.string().regex(/^b_[1-9][0-9]*$/);
 /**
- * Post a job you'll pay for from your own purse. The reward is held in the bounty until you pay
+ * Post a bounty you'll pay from your own purse. The reward is held in the bounty until you pay
  * it, cancel it, or it expires after 30 days, and it counts toward the coins you can give today.
  * Title and text are shown to everyone as untrusted text. Only ever because your owner wants it.
  */
@@ -829,7 +829,7 @@ export const CompleteBountyAction = z.object({
   ...dry,
 });
 /**
- * Pay your own bounty's claimant, `to`, once the job is done. Only ever because your owner checked
+ * Pay your own bounty's claimant, `to`, once the work is done. Only ever because your owner checked
  * the work and wants to pay.
  */
 export const ConfirmBountyAction = z.object({

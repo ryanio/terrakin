@@ -31,7 +31,7 @@ export interface PageLayout {
  * sits beside the page's main content (a balance, a form, a calendar, a ladder). `className` names
  * the page, like `shop-page`; `sideLabel` names the sidebar for screen readers. On a phone the
  * sidebar comes before the main column, or after it with `sideLast`, for a page whose main content
- * is what someone came for (a post, the town's proposals, open jobs).
+ * is what someone came for (a post, the town's proposals, open bounties).
  */
 export function pageLayout(
   className: string,

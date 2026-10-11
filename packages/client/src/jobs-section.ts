@@ -2,14 +2,23 @@
  * The Town Hall's Jobs section (RFC 0030), at `/town#jobs`: the job you hold, today's three jobs
  * with a Take button each when the server says one can be taken, how many are left this week, and
  * the way to the bounties, which pay coins where jobs pay points. Someone not signed in sees the
- * board and no buttons. Nothing shows until the server says jobs are open in this world.
+ * board, no buttons, and how to get one. Nothing shows until the server says jobs are open in this
+ * world.
  */
 import type { JobsResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { errorLine, itemRows } from "@terrakin/ui/ui";
 import { jobsApi } from "./api/jobs";
-import { type GiverPerson, heldJob, jobRow, present } from "./job-parts";
-import { cantTakeLine, weekLine } from "./jobs";
+import {
+  type GiverPerson,
+  heldJob,
+  jobActs,
+  jobRow,
+  present,
+  problemAfterRead,
+  repaintKeepingFocus,
+} from "./job-parts";
+import { boardLede, cantTakeLine, newestOnly, weekLine } from "./jobs";
 
 export interface JobsSection {
   /** The section's heading and its card, for the page's main column once jobs are open. */
@@ -31,27 +40,47 @@ export function jobsSection(o: {
   });
   const card = h("section", {
     class: "stack paper card jobs-card",
-    attrs: { "aria-labelledby": "jobs", hidden: true },
+    // Focusable, so focus has somewhere to go when the button it was on is drawn away.
+    attrs: { "aria-labelledby": "jobs", hidden: true, tabindex: -1 },
   });
   const problem = errorLine("jobs-error");
   let painted = "";
   let landed = false;
 
+  /**
+   * Read the board and draw it. A read that fails leaves what's drawn, as a page's refresh does,
+   * and only a world that says jobs are closed hides the section. A refresh on the page's timer
+   * that went out before a Take never lands after the Take's own read.
+   */
+  const refresh = newestOnly(
+    () => jobsApi.jobs(),
+    (r) => {
+      if (o.gone() || !r.ok) return;
+      title.hidden = !r.data.open;
+      card.hidden = !r.data.open;
+      if (!r.data.open) return;
+      problemAfterRead(problem, r.data.you);
+      // Only a change is drawn again, so a button you're about to tap stays put.
+      const next = JSON.stringify(r.data);
+      if (next !== painted) {
+        painted = next;
+        repaintKeepingFocus(card, () => paint(r.data));
+      }
+      // A link to the section lands on it once.
+      if (!landed && location.hash === "#jobs") {
+        landed = true;
+        requestAnimationFrame(() => title.scrollIntoView({ block: "start" }));
+      }
+    },
+  );
+  const acts = jobActs({ within: card, problem, reread: refresh });
+
   function paint(data: JobsResponse) {
     const { jobs, you, rules } = data;
-    const acts = {
-      changed: () => void refresh(),
-      problem: (text: string) => {
-        problem.textContent = text;
-      },
-    };
     const cant = cantTakeLine(you);
     card.replaceChildren(
       ...present([
-        h("p", {
-          class: "town-lede",
-          text: `Small things the town asks for, three a day. A finished job adds ${rules.points} points to its skill, never coins. Take one only if you'd enjoy it.`,
-        }),
+        h("p", { class: "town-lede", text: boardLede(rules, you !== null) }),
         you?.held ? heldJob(you.held, data.day, o.person, acts) : null,
         itemRows(
           jobs.map((job) => jobRow(job, you, o.person, acts)),
@@ -69,27 +98,6 @@ export function jobsSection(o: {
         ),
       ]),
     );
-  }
-
-  async function refresh(): Promise<void> {
-    const r = await jobsApi.jobs();
-    if (o.gone()) return;
-    // A world without jobs, or a read that failed, shows nothing at all.
-    const open = r.ok && r.data.open;
-    title.hidden = !open;
-    card.hidden = !open;
-    if (!open) return;
-    // Only a change is drawn again, so a button you're about to tap stays put.
-    const next = JSON.stringify(r.data);
-    if (next !== painted) {
-      painted = next;
-      paint(r.data);
-    }
-    // A link to the section lands on it once.
-    if (!landed && location.hash === "#jobs") {
-      landed = true;
-      requestAnimationFrame(() => title.scrollIntoView({ block: "start" }));
-    }
   }
 
   return { els: [title, card], refresh };

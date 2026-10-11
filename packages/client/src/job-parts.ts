@@ -1,24 +1,29 @@
 /**
  * The pieces of the town's jobs (RFC 0030) that more than one place draws: a board row with its
  * Take button, and the job you hold with its bar, Hand in, and Let go. The Town Hall's Jobs section
- * and the job sheet in the world both build from these. Every word is the server's or `jobs.ts`'s;
- * the buttons send `take_job`, `hand_in`, and `drop_job`, and a refusal shows in the server's words.
+ * and the job sheet in the world both build from these. Every word is the server's or `jobs.ts`'s.
+ * The buttons send `take_job`, `hand_in`, and `drop_job` through one sender (`jobActs`), which
+ * turns every job button off while one is out, says a refusal in the page's words, and reads the
+ * board again either way.
  */
-import type { HeldJobView, JobGiverView, JobView } from "@terrakin/protocol";
+import type { Action, HeldJobView, JobGiverView, JobView } from "@terrakin/protocol";
 import { skillName } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { avatarEl, avatarPlaceholder, type Person } from "@terrakin/ui/people";
-import { confirmTwice, itemRow, kindPill, progressBar, whileBusy } from "@terrakin/ui/ui";
+import { confirmTwice, itemRow, kindPill, progressBar, whileBusyAll } from "@terrakin/ui/ui";
 import { actProblem, worldApi } from "./api/world";
 import {
   askedLine,
   heldBar,
-  heldLine,
+  heldJobLine,
   heldMoves,
   type JobStanding,
+  jobProblem,
   jobRowAction,
   keptLine,
+  shownProblem,
 } from "./jobs";
+import { failed } from "./page-data";
 
 /** The parts that are there: a card lists some of its lines only some of the time. */
 export const present = (parts: readonly (Node | null)[]): Node[] =>
@@ -45,11 +50,69 @@ const askedBy = (job: Pick<JobView, "from" | "skill">): HTMLElement =>
     kindPill(skillName(job.skill), "moss", "job-skill"),
   );
 
+/** How a job button sends its action. */
 export interface JobActs {
-  /** Something changed on the server: read the board again. */
-  changed: () => void;
-  /** The server said no, in its words. Empty clears it. */
-  problem: (text: string) => void;
+  send(pressed: HTMLButtonElement, action: Action): void;
+}
+
+/**
+ * The one sender for every job button in `within`. While an action is out every button there is
+ * off, so a second Take can't go out beside the first. A refusal, or a request that didn't get
+ * through, shows in `problem` and the buttons come back. Either way `reread` reads the board
+ * again: it draws what changed and leaves the rest, and what it draws replaces the buttons.
+ * `reread` resolves once that read's answer is drawn, or wasn't. Whoever draws a read calls
+ * `problemAfterRead` first.
+ */
+export function jobActs(o: {
+  within: HTMLElement;
+  problem: HTMLElement;
+  reread: () => Promise<void>;
+}): JobActs {
+  return {
+    send(pressed, action) {
+      void (async () => {
+        const buttons = [...o.within.querySelectorAll<HTMLButtonElement>("button")];
+        delete o.problem.dataset.unanswered;
+        let unanswered = false;
+        const r = await whileBusyAll(buttons, pressed, o.problem, async () => {
+          const answer = await worldApi.act(action);
+          unanswered = !answer.ok;
+          const why = actProblem(answer, jobProblem);
+          return why === null ? answer : failed(why);
+        });
+        // `whileBusyAll` leaves "Saving…" up when it worked, for the repaint that follows.
+        if (r.ok) o.problem.textContent = "";
+        await o.reread();
+        // A read that didn't come back draws nothing, so the buttons still on screen work again.
+        for (const b of buttons) if (b.isConnected) b.disabled = false;
+        // The line stays through this action's own read, and goes with the next one that lands.
+        if (unanswered) o.problem.dataset.unanswered = "true";
+      })();
+    },
+  };
+}
+
+/**
+ * What the error line says once a read of the board has landed. A request that never got an answer
+ * ("Can't reach Terrakin") is over, since this one did. A refusal stays until the next tap, unless
+ * the board's own line now says the same sentence.
+ */
+export function problemAfterRead(problem: HTMLElement, you: JobStanding | null) {
+  const over = problem.dataset.unanswered !== undefined;
+  delete problem.dataset.unanswered;
+  problem.textContent = over ? "" : shownProblem(problem.textContent ?? "", you);
+}
+
+/**
+ * Draw `within` again without dropping keyboard focus to the page: a button that was focused is
+ * gone once its row is redrawn (Take becomes "Yours"), so focus moves to `within` itself, which
+ * the caller makes focusable. Never to a button drawn in its place: a second press of Enter after
+ * Take would land on Let go.
+ */
+export function repaintKeepingFocus(within: HTMLElement, paint: () => void) {
+  const had = within.contains(document.activeElement);
+  paint();
+  if (had && !within.contains(document.activeElement)) within.focus({ preventScroll: true });
 }
 
 /**
@@ -71,13 +134,7 @@ export function jobRow(
           text: "Take",
         })
       : null;
-  take?.addEventListener("click", async () => {
-    acts.problem("");
-    const r = await whileBusy(take, () => worldApi.act({ type: "take_job", job: job.id }));
-    const why = actProblem(r);
-    if (why) acts.problem(why);
-    acts.changed();
-  });
+  take?.addEventListener("click", () => acts.send(take, { type: "take_job", job: job.id }));
   return itemRow({
     plain: true,
     className: "job-row",
@@ -103,13 +160,6 @@ export function heldJob(
 ): HTMLElement {
   const bar = heldBar(held);
   const kept = keptLine(held, day);
-  const send = async (button: HTMLButtonElement, type: "hand_in" | "drop_job") => {
-    acts.problem("");
-    const r = await whileBusy(button, () => worldApi.act({ type }));
-    const why = actProblem(r);
-    if (why) acts.problem(why);
-    acts.changed();
-  };
   const buttons = heldMoves(held).map((move) => {
     if (move === "hand_in") {
       const button = h("button", {
@@ -117,7 +167,7 @@ export function heldJob(
         attrs: { type: "button" },
         text: "Hand in",
       });
-      confirmTwice(button, "Hand it in for good?", () => send(button, "hand_in"));
+      confirmTwice(button, "Hand it in for good?", () => acts.send(button, { type: "hand_in" }));
       return button;
     }
     const button = h("button", {
@@ -125,7 +175,7 @@ export function heldJob(
       attrs: { type: "button" },
       text: "Let go",
     });
-    button.addEventListener("click", () => void send(button, "drop_job"));
+    button.addEventListener("click", () => acts.send(button, { type: "drop_job" }));
     return button;
   });
   return h(
@@ -144,7 +194,7 @@ export function heldJob(
       ),
     ),
     progressBar(bar.count, bar.total, bar.label),
-    h("p", { class: "hint job-held-line", text: heldLine(held) }),
+    h("p", { class: "hint job-held-line", text: heldJobLine(held) }),
     kept ? h("p", { class: "hint", text: kept }) : null,
     h("div", { class: "cluster job-held-moves" }, ...buttons),
   );

@@ -42,6 +42,7 @@ import {
   refreshDelay,
   wantsRefresh,
 } from "./feed-live";
+import type { HeldJobCard } from "./job-card";
 import { clearLiveToasts, liveToast, liveToastHost, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
 import { postCard } from "./post-card";
@@ -531,11 +532,8 @@ export function feedView(ctx: ViewContext): View {
       if (card) wallTop.append(card);
     });
   });
-  // The first world snapshot the wall reads, which says whether the town's jobs are open here.
-  let gotWorld: (world: WorldSnapshot | undefined) => void = () => {};
-  const worldIn = new Promise<WorldSnapshot | undefined>((resolve) => {
-    gotWorld = resolve;
-  });
+  /** The card for the job you hold (RFC 0030), once it's on the wall or waiting to join it. */
+  let jobCard: HeldJobCard | undefined;
   let writer: Composer | undefined;
   const meIn = myProfile().then(async (me) => {
     if (!me || destroyed) return;
@@ -556,17 +554,22 @@ export function feedView(ctx: ViewContext): View {
           if (card) composerSlot.after(card);
         });
       }),
-      // The job you hold (RFC 0030), under the composer. Its code and its read load only in a
-      // world with jobs open, so everywhere else the wall asks for nothing more.
-      worldIn
-        .then((world) =>
-          world?.jobsOpen ? import("./job-card").then((m) => m.heldJobCard()) : null,
-        )
-        .then((card) => {
-          whenPainted(() => {
-            if (card) composerSlot.after(card);
-          });
-        }),
+      // The job you hold (RFC 0030), under the composer. Your profile says whether jobs are open
+      // here, so the card's code and its read start now, beside the wall's other first requests,
+      // and in a world without jobs the wall asks for nothing more. On a slow link the card can
+      // still come after the first paint. Then it stays out of what's on screen and joins the
+      // wall once its place is scrolled away, where it moves nothing being read.
+      me.jobs === undefined
+        ? null
+        : import("./job-card")
+            .then((m) => m.heldJobCard())
+            .then((card) => {
+              if (!card || destroyed) return;
+              jobCard = card;
+              const add = () => composerSlot.after(card.el);
+              if (settled) whenUnseen(composerSlot, add);
+              else waiting.push(add);
+            }),
       // Getting started, while first steps are left: loaded only for someone signed in.
       import("./first-steps-card")
         .then((m) => m.firstStepsCard(me.id))
@@ -745,9 +748,50 @@ export function feedView(ctx: ViewContext): View {
     if (pulse.plots) plots.update(pulse.plots, world);
   }
 
+  /** Changes above the posts, each held until its place is scrolled out of sight. */
+  const unseen: { place: Element; change: () => void }[] = [];
+  /**
+   * Make the changes whose place is above the screen now. Everything under such a place moves by
+   * the same amount, so the posts' own top says how far, and the page scrolls by that much: what's
+   * on screen stays where it is.
+   */
+  const onScrolledAway = () => {
+    for (const held of [...unseen]) {
+      if (held.place.getBoundingClientRect().bottom >= 0) continue;
+      unseen.splice(unseen.indexOf(held), 1);
+      const before = list.getBoundingClientRect().top;
+      held.change();
+      const shift = list.getBoundingClientRect().top - before;
+      if (shift !== 0) window.scrollBy(0, shift);
+    }
+    if (unseen.length === 0) window.removeEventListener("scroll", onScrolledAway);
+  };
+  /**
+   * Run `change`, which adds or removes something at `place` above the posts, where it can't move
+   * what's being read: now when `place` is scrolled out of sight, else the first time it is.
+   */
+  function whenUnseen(place: Element, change: () => void) {
+    if (unseen.push({ place, change }) === 1) {
+      window.addEventListener("scroll", onScrolledAway, { passive: true });
+    }
+    onScrolledAway();
+  }
+
+  /**
+   * The job card follows the job: it's read again with each pulse, and once the job is finished,
+   * let go, or lapsed it says so in its place and leaves the wall when that place is out of sight.
+   */
+  async function followJob() {
+    const card = jobCard;
+    if (!card || (await card.refresh()) || destroyed) return;
+    jobCard = undefined;
+    whenUnseen(card.el, () => card.el.remove());
+  }
+
   let pulseBusy = false;
   async function pollPulse(first = false) {
     if (destroyed || pulseBusy || (!first && document.visibilityState !== "visible")) return;
+    if (!first) void followJob();
     // One at a time, so an older snapshot never lands after a newer one and repeats its news.
     pulseBusy = true;
     const plotsDue = pulse.plotsAt === undefined || Date.now() - pulse.plotsAt >= PLOTS_MS;
@@ -757,7 +801,6 @@ export function feedView(ctx: ViewContext): View {
       plotsDue ? plotsApi.plots() : undefined,
     ]);
     pulseBusy = false;
-    if (first) gotWorld(w.ok ? w.data : undefined);
     if (destroyed) return;
     const before = { world: pulse.world, town: pulse.town };
     if (w.ok) {
@@ -1214,6 +1257,7 @@ export function feedView(ctx: ViewContext): View {
       clearTimeout(pendingPoll);
       stopPoll();
       stopPulse();
+      window.removeEventListener("scroll", onScrolledAway);
       document.removeEventListener("visibilitychange", onVisible);
       observer.disconnect();
     },

@@ -41,6 +41,10 @@ export const lessonsOf = (p: Pick<ProfileView, "canTeach" | "canLearn">): Lesson
   canLearn: [...(p.canLearn ?? [])],
 });
 
+/** Whether either of you has a recipe to teach the other. */
+export const anyLessons = (lessons: Lessons): boolean =>
+  lessons.canTeach.length > 0 || lessons.canLearn.length > 0;
+
 /** Read what a neighbor could teach you and learn from you. Undefined when the read fails. */
 export async function lessonsWith(id: string): Promise<Lessons | undefined> {
   const r = await residentsApi.profile(id);
@@ -64,7 +68,7 @@ export interface TeachSheetOptions {
  */
 export async function openTeachSheet(o: TeachSheetOptions): Promise<boolean> {
   const lessons = o.lessons ?? (await lessonsWith(o.who.id));
-  if (!lessons || (lessons.canTeach.length === 0 && lessons.canLearn.length === 0)) return false;
+  if (!lessons || !anyLessons(lessons)) return false;
   const name = o.who.kind === "agent" ? `${o.who.name} ⚙` : o.who.name;
   const problem = errorLine("teach-error");
 

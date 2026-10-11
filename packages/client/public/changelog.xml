@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-on-the-day-you-finish-a-week-s-third-job-you-why-says-monday</id>
+    <title>Changed: On the day you finish a week's third job, `you.why` says Monday</title>
+    <updated>2026-10-11T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-11"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`GET /v1/jobs` and a refused `take_job` said the next job could be taken after midnight UTC that day, though the week's bound was the one in the way. Both now name Monday and its date. The bounds are the same: one a day, three a UTC week.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-you-held-on-get-v1-jobs-says-who-asked-and-what-the-job-ask</id>
     <title>Added: `you.held` on `GET /v1/jobs` says who asked and what the job asks</title>
     <updated>2026-10-11T00:00:00Z</updated>

@@ -4,13 +4,12 @@
  * picks which button a row shows from that answer. A job's words are the server's fixed ones, and
  * the giver's name is the town's own, never a resident's text. Pure and tested.
  */
-import {
-  type HeldJobView,
-  type JobDeedView,
-  type JobGiverView,
-  type JobsResponse,
-  type JobView,
-  unlockedAt,
+import type {
+  HeldJobView,
+  JobDeedView,
+  JobGiverView,
+  JobsResponse,
+  JobView,
 } from "@terrakin/protocol";
 import {
   ITEM_INFO,
@@ -23,7 +22,6 @@ import {
   WEAR_INFO,
 } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
-import { canNowLine } from "./levels";
 
 /** Where you stand, as `GET /v1/jobs` answers with a token. */
 export type JobStanding = NonNullable<JobsResponse["you"]>;
@@ -35,21 +33,27 @@ export type JobAsked = Pick<JobView, "from" | "skill" | "title" | "shape" | "dee
  * Who a job is for, after "for": the giver's name while that townsfolk lives in this world, else
  * the town, as the server's own lines have it.
  */
-export const forWhom = (from: JobGiverView): string =>
-  from.id === undefined ? "the town" : from.name;
+const forWhom = (from: JobGiverView): string => (from.id === undefined ? "the town" : from.name);
 
 /** A board row's line under the job's words: "For Bram". */
 export const askedLine = (from: JobGiverView): string => `For ${forWhom(from)}`;
 
-/** How many more jobs can count this week. */
-export const weekLeft = (week: JobStanding["week"]): number => Math.max(0, week.max - week.done);
+/**
+ * The line under the board: "2 of 3 left this week." When none are left, the server's `why` says
+ * when the next can be taken, so this never says it again.
+ */
+export const weekLine = (week: JobStanding["week"]): string =>
+  `${Math.max(0, week.max - week.done)} of ${week.max} left this week.`;
 
-/** The line under the board: "2 of 3 left this week", and when more count once none are. */
-export function weekLine(week: JobStanding["week"]): string {
-  const left = weekLeft(week);
-  const line = `${left} of ${week.max} left this week`;
-  return left > 0 ? `${line}.` : `${line}. Jobs count again from Monday.`;
-}
+/**
+ * The words over the board: how many the town asks for a day and what one pays, from the server's
+ * own numbers, and then whether to take one. Someone not signed in has no button to take one with,
+ * so they're told how to get one.
+ */
+export const boardLede = (rules: JobsResponse["rules"], signedIn: boolean): string =>
+  `Small things the town asks for, ${rules.board} a day. A finished job adds ${rules.points} points to its skill, never coins. ${
+    signedIn ? "Take one only if you'd enjoy it." : "Step into the world to take one."
+  }`;
 
 /**
  * What a board row offers: Take when the server says one can be taken, a mark on the job you
@@ -64,11 +68,77 @@ export function jobRowAction(job: Pick<JobView, "id">, you: JobStanding | null):
 }
 
 /**
- * Why no row has a Take button, in the server's words, or null when one does or the reason is
- * already on screen (the job you hold sits above the list).
+ * Why no row has a Take button, in the server's words (`why` comes only when none can be taken),
+ * or null when the reason is already on screen: the job you hold sits above the list.
  */
 export const cantTakeLine = (you: JobStanding | null): string | null =>
-  !you || you.canTake || you.held ? null : (you.why ?? null);
+  !you || you.held ? null : (you.why ?? null);
+
+/**
+ * A refused `take_job`, `hand_in`, or `drop_job` in the page's words. The server writes its
+ * messages for agents, so the codes whose message names an action to send or a job by its id get
+ * a line of our own, and the rest keep the server's text: when the next job can be taken, or what
+ * a hand-in is missing, by the thing's name.
+ */
+export function jobProblem(code: string, message: string): string {
+  switch (code) {
+    case "job_held":
+      return "You already hold a job. Finish it, or let it go, before you take another.";
+    case "unknown_job":
+      return "That job isn't on today's board anymore. The board changes at midnight UTC.";
+    case "no_job":
+      return "You aren't holding that job anymore.";
+    default:
+      return message;
+  }
+}
+
+/**
+ * What the error line under the board says after the board was read again: nothing once the
+ * board's own line (`cantTakeLine`) says the same sentence, so a reason never shows twice.
+ */
+export const shownProblem = (problem: string, you: JobStanding | null): string =>
+  problem !== "" && problem === cantTakeLine(you) ? "" : problem;
+
+/**
+ * Whether the job sheet has anything to show: a giver's sheet is about what they ask for today,
+ * and the chip's about the job you hold. With nothing left it closes, unless a refusal is on
+ * screen, which stays until it's read.
+ */
+export function sheetShows(
+  board: Pick<JobsResponse, "jobs" | "you">,
+  giver: string | undefined,
+  problem = "",
+): boolean {
+  if (problem !== "") return true;
+  return giver === undefined
+    ? Boolean(board.you?.held)
+    : board.jobs.some((job) => job.from.id === giver);
+}
+
+/**
+ * Reads of one thing that may overlap, kept in order. Each call asks again, and only the newest
+ * ask's answer is handed to `land`: an answer to an older ask is dropped, so a refresh sent before
+ * a Take never lands after it and draws the board as it was. Every call resolves once the newest
+ * answer has landed, so whoever waits on a read waits for what is on screen.
+ */
+export function newestOnly<T>(
+  ask: () => Promise<T>,
+  land: (answer: T) => void,
+): () => Promise<void> {
+  let newest = 0;
+  let landing: Promise<void> = Promise.resolve();
+  return () => {
+    const mine = ++newest;
+    const asking = (async () => {
+      const answer = await ask();
+      if (mine !== newest) return landing;
+      land(answer);
+    })();
+    landing = asking;
+    return asking;
+  };
+}
 
 /** What the job you hold can do: a bring job is handed in, and any job can be let go. */
 export const heldMoves = (held: Pick<HeldJobView, "shape">): ("hand_in" | "drop")[] =>
@@ -80,18 +150,17 @@ export function heldBar(held: Pick<HeldJobView, "count" | "of" | "shape">): {
   total: number;
   label: string;
 } {
-  const count = Math.min(held.count, held.of);
   return {
-    count,
+    count: held.count,
     total: held.of,
-    label: held.shape === "bring" ? "Not handed in yet" : `${count} of ${held.of} done`,
+    label: held.shape === "bring" ? "Not handed in yet" : `${held.count} of ${held.of} done`,
   };
 }
 
 /** The line under a held job's bar: where it stands, and what finishes it. */
-export function heldLine(held: Pick<HeldJobView, "count" | "of" | "shape">): string {
+export function heldJobLine(held: Pick<HeldJobView, "count" | "of" | "shape">): string {
   if (held.shape === "bring") return "Make it yourself, then hand it in. It goes to the town.";
-  return `${Math.min(held.count, held.of)} of ${held.of} done.`;
+  return `${held.count} of ${held.of} done.`;
 }
 
 /** How long a held job is kept, from the world's day: "5 days left to finish it." */
@@ -106,7 +175,7 @@ export function keptLine(held: Pick<HeldJobView, "lapsesDay">, day: number | nul
 
 /** The world's chip while you hold a job: "Job: 1 of 3". */
 export const chipLabel = (held: Pick<HeldJobView, "count" | "of">): string =>
-  `Job: ${Math.min(held.count, held.of)} of ${held.of}`;
+  `Job: ${held.count} of ${held.of}`;
 
 /** One kind's plural in running words: "herbs", "jars of lemon jam". */
 const kinds = (kind: string): string | undefined =>
@@ -115,7 +184,7 @@ const kinds = (kind: string): string | undefined =>
     : undefined;
 
 /** What a deed job counts, as the words after "2 of 3": "harvests of herbs", "fish", "games". */
-export function deedNoun(deed: JobDeedView): string {
+function deedNoun(deed: JobDeedView): string {
   switch (deed.type) {
     case "harvest": {
       // A harvest counts once however much it brings up, so the word is the harvest, with the
@@ -152,25 +221,16 @@ export function progressLine(
 }
 
 /**
- * A job you just finished: "Job done for Juniper: 10 Growing points. 2 left this week.", then what
- * the count unlocked, when it reached something. `perWeek` is the server's bound when it's known.
+ * A job you just finished: "Job done for Juniper: 10 Growing points." It joins the toast of the
+ * deed that finished it, so it stays one short sentence: the week's count is at the Town Hall, and
+ * what the count unlocked is in the `job_done` notice.
  */
 export function doneLine(
-  done: { skill: JobView["skill"]; points: number; week: number; total: number },
+  done: { skill: JobView["skill"]; points: number },
   from: JobGiverView | undefined,
-  perWeek: number | undefined,
 ): string {
   const whom = from ? ` for ${forWhom(from)}` : "";
-  const left = perWeek === undefined ? undefined : Math.max(0, perWeek - done.week);
-  const week =
-    left === undefined
-      ? ""
-      : left > 0
-        ? ` ${left} left this week.`
-        : " That's every job that counts this week.";
-  const unlocked = unlockedAt(done.total);
-  const now = unlocked ? canNowLine([unlocked]) : null;
-  return `Job done${whom}: ${done.points} ${skillName(done.skill)} points.${week}${now ? ` ${now}` : ""}`;
+  return `Job done${whom}: ${done.points} ${skillName(done.skill)} points.`;
 }
 
 /** A job that lapsed after its seven days, or one you let go. */

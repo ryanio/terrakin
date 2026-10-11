@@ -534,9 +534,38 @@ export function feedView(ctx: ViewContext): View {
   });
   /** The card for the job you hold (RFC 0030), once it's on the wall or waiting to join it. */
   let jobCard: HeldJobCard | undefined;
+  /** A card for a job no longer held, waiting to leave once its place is out of sight. */
+  let jobCardLeaving: HTMLElement | undefined;
+  /** Whether a read for a job card is out, so pulses never start a second. */
+  let jobCardAsked = false;
+  /**
+   * Whether the wall looks for a job you hold: you're signed in, and jobs are open here, by your
+   * profile on the way in or by the town's world since (a tab opened before they opened).
+   */
+  let jobsFollowed = false;
+  /**
+   * Read the job you hold and put its card under the composer, when you hold one. With the first
+   * paint it goes in with everything else; after that, as when a job is taken while the wall is
+   * open, it joins only once its place is scrolled out of sight, where it moves nothing being read.
+   */
+  async function addJobCard(): Promise<void> {
+    if (jobCard || jobCardAsked || jobCardLeaving?.isConnected) return;
+    jobCardAsked = true;
+    try {
+      const card = await import("./job-card").then((m) => m.heldJobCard());
+      if (!card || destroyed) return;
+      jobCard = card;
+      const add = () => composerSlot.after(card.el);
+      if (settled) whenUnseen(composerSlot, add);
+      else waiting.push(add);
+    } finally {
+      jobCardAsked = false;
+    }
+  }
   let writer: Composer | undefined;
   const meIn = myProfile().then(async (me) => {
     if (!me || destroyed) return;
+    jobsFollowed = me.jobs !== undefined;
     writer = composer({
       me,
       onPosted(post) {
@@ -559,17 +588,7 @@ export function feedView(ctx: ViewContext): View {
       // and in a world without jobs the wall asks for nothing more. On a slow link the card can
       // still come after the first paint. Then it stays out of what's on screen and joins the
       // wall once its place is scrolled away, where it moves nothing being read.
-      me.jobs === undefined
-        ? null
-        : import("./job-card")
-            .then((m) => m.heldJobCard())
-            .then((card) => {
-              if (!card || destroyed) return;
-              jobCard = card;
-              const add = () => composerSlot.after(card.el);
-              if (settled) whenUnseen(composerSlot, add);
-              else waiting.push(add);
-            }),
+      me.jobs === undefined ? null : addJobCard(),
       // Getting started, while first steps are left: loaded only for someone signed in.
       import("./first-steps-card")
         .then((m) => m.firstStepsCard(me.id))
@@ -780,11 +799,18 @@ export function feedView(ctx: ViewContext): View {
   /**
    * The job card follows the job: it's read again with each pulse, and once the job is finished,
    * let go, or lapsed it says so in its place and leaves the wall when that place is out of sight.
+   * While there's no card, each pulse looks for a job taken since (in the world, another tab, or by
+   * your AI), and its card joins as a late one does.
    */
   async function followJob() {
     const card = jobCard;
-    if (!card || (await card.refresh()) || destroyed) return;
+    if (!card) {
+      if (jobsFollowed) await addJobCard().catch(() => undefined);
+      return;
+    }
+    if ((await card.refresh()) || destroyed) return;
     jobCard = undefined;
+    jobCardLeaving = card.el;
     whenUnseen(card.el, () => card.el.remove());
   }
 
@@ -806,6 +832,8 @@ export function feedView(ctx: ViewContext): View {
     if (w.ok) {
       pulse.world = w.data;
       pulse.worldAt = Date.now();
+      // Jobs opened after your profile was read: the next pulse looks for a job you hold.
+      if (writer && w.data.jobsOpen) jobsFollowed = true;
     }
     if (t.ok) pulse.town = t.data;
     if (p?.ok) {

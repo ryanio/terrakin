@@ -272,6 +272,11 @@ test.describe("the Town Hall", () => {
     await page.goto("/");
     await expect(page.locator("#feed-list")).toBeVisible();
     await expect(page.locator(".wall-fill")).toHaveCount(0);
+    // A second tab keeps the home wall open from before jobs open, to follow them once they do.
+    const wall = await page.context().newPage();
+    wall.on("request", watch);
+    await wall.goto("/");
+    await expect(wall.locator("#feed-list")).toBeVisible();
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
     await page.goto(`/r/${fern.id}`);
@@ -282,6 +287,7 @@ test.describe("the Town Hall", () => {
     await expect(page.locator("#jobs, .jobs-card")).toHaveCount(0);
     expect(asked).toEqual([]);
     page.off("request", watch);
+    wall.off("request", watch);
 
     // Jobs open, and levels with them, and the clock moves on to a day whose board has the
     // chair job: which three jobs a day has depends on the date.
@@ -319,6 +325,30 @@ test.describe("the Town Hall", () => {
     await expect(chair.locator(".job-yours")).toBeVisible();
     expect(await overflowsSideways(page)).toBe(false);
     await page.screenshot({ path: "test-results/town-jobs.png" });
+
+    // The wall in the other tab, open since before jobs opened, takes her job's card in as the
+    // town's pulses come, but only where it can't move what's being read: with the composer
+    // scrolled out of sight, what's on screen stays where it was.
+    await wall.setViewportSize({ width: 390, height: 500 });
+    // Safari on a phone has no scroll anchoring, so nothing but the wall keeps the page still.
+    await wall.addStyleTag({ content: "* { overflow-anchor: none !important; }" });
+    await wall.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const foot = wall.locator(".feed-foot");
+    const topOf = () => foot.evaluate((el) => el.getBoundingClientRect().top);
+    const before = await topOf();
+    await expect
+      .poll(
+        async () => {
+          await wall.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+          return wall.locator("#job-card").count();
+        },
+        { intervals: [500] },
+      )
+      .toBe(1);
+    expect(Math.abs((await topOf()) - before)).toBeLessThan(1);
+    await wall.evaluate(() => window.scrollTo(0, 0));
+    await expect(wall.locator("#job-card")).toContainText("Make a chair");
+    await wall.close();
 
     // While she holds it the home wall shows it in one card, in with the wall's first paint, so
     // nothing jumps as it lands.

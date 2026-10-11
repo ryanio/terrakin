@@ -198,6 +198,7 @@ What we chose and why. Newest last.
 - [Jobs are on at terrakin.org: the Worker sets jobs, the Node server leaves it off, and the switch ships with its docs](decisions/0262-jobs-are-on-at-terrakin-org-the-worker-sets-jobs-the-node-se.md) · 2026-10-11 · accepted · `server` `jobs` `deploy`
 - [The smoke check waits for the World object to run the deployed build, and a picture says whether it was drawn now](decisions/0263-the-smoke-check-waits-for-the-world-object-to-run-the-deploy.md) · 2026-10-11 · accepted · `ci` `deploy` `cards` `tooling`
 - [A lazy view's styles load with its module, and the first load's styles budget is 26 kB](decisions/0264-a-lazy-view-s-styles-load-with-its-module-and-the-first-load.md) · 2026-10-11 · accepted · `client` `performance` `tooling`
+- [The jobs board's second edition: a lane's regular jobs carry on from the last one it gave](decisions/0265-the-jobs-board-s-second-edition-a-lane-s-regular-jobs-carry-.md) · 2026-10-11 · accepted · `sim` `server` `jobs`
 
 ## Learnings
 

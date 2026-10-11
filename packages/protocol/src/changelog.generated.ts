@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-11-the-town-s-jobs-come-round-evenly-through-holidays-and-seaso",
+    "date": "2026-10-11",
+    "kind": "changed",
+    "title": "The town's jobs come round evenly through holidays and season changes",
+    "body": "From the first midnight UTC after this change, terrakin.org's board reads the second edition of the jobs table: the same jobs, and each giver's come up in turn without starting over when Halloween, Midwinter, or a new season begins.\nA Making job is back within 23 days, where Clem's, Bram's, and Ansel's could wait 35, and a fish job within 9. A job you hold stays yours and still finishes.",
+    "links": [],
+    "try": "`GET /v1/jobs`"
+  },
+  {
     "id": "2026-10-11-a-finished-job-gets-its-giver-s-quiet-thank-you-wave",
     "date": "2026-10-11",
     "kind": "added",

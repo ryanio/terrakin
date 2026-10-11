@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-the-town-s-jobs-come-round-evenly-through-holidays-and-seaso</id>
+    <title>Changed: The town's jobs come round evenly through holidays and season changes</title>
+    <updated>2026-10-11T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-11"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">From the first midnight UTC after this change, terrakin.org's board reads the second edition of the jobs table: the same jobs, and each giver's come up in turn without starting over when Halloween, Midwinter, or a new season begins.
+A Making job is back within 23 days, where Clem's, Bram's, and Ansel's could wait 35, and a fish job within 9. A job you hold stays yours and still finishes.
+Try: `GET /v1/jobs`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-a-finished-job-gets-its-giver-s-quiet-thank-you-wave</id>
     <title>Added: A finished job gets its giver's quiet thank-you wave</title>
     <updated>2026-10-11T00:00:00Z</updated>

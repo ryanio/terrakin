@@ -255,6 +255,15 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
+   * The edition of the jobs table this server's world reads (RFC 0030, decision 0265). Once jobs
+   * are open on an older edition, `set_job_edition` is logged right after a `new_day`, never in
+   * the middle of a day, since it changes the board from then on and people may be looking at
+   * today's. It only moves forward. The Worker passes 2, so terrakin.org switches once; the Node
+   * server leaves it out, so a self-hosted world, `pnpm dev`, and the e2e servers stay on the
+   * edition `open_jobs` starts on unless set.
+   */
+  jobEdition?: number;
+  /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
    */
@@ -530,6 +539,7 @@ export class WorldService {
   private readonly holidayPrices: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
+  private readonly jobEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
   private readonly townEvents: readonly TownEvent[];
@@ -621,6 +631,7 @@ export class WorldService {
     this.holidayPrices = options.holidayPrices ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
+    this.jobEdition = options.jobEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? [];
@@ -835,6 +846,18 @@ export class WorldService {
     this.runGames();
   }
 
+  /**
+   * Move the jobs board to the `jobEdition` option's edition, when jobs are open on an older one.
+   * Called only right after a `new_day`, so a day's board never changes once it's up.
+   */
+  private moveJobEdition() {
+    const edition = this.jobEdition;
+    const jobs = this.state.jobs;
+    if (edition === undefined || !jobs || jobs.edition >= edition) return;
+    const set = this.run({ actor: TOWN_ACTOR, command: { type: "set_job_edition", edition } });
+    if (!set.ok) console.error(`Couldn't set the jobs edition: ${set.error.message}`);
+  }
+
   /** Log `sw` from the town when its option is on and the world is due it. */
   private switchOn(sw: TownSwitch) {
     if (!this[sw.option] || !sw.due(this.state)) return;
@@ -852,8 +875,11 @@ export class WorldService {
     const today = utcDay(this.now());
     if (this.state.day === undefined || today > this.state.day) {
       const started = this.run({ actor: TOWN_ACTOR, command: { type: "new_day", day: today } });
-      // A new day is the snapshot's natural boundary: the next boot replays at most a day.
-      if (started.ok) this.takeSnapshot();
+      if (started.ok) {
+        this.moveJobEdition();
+        // A new day is the snapshot's natural boundary: the next boot replays at most a day.
+        this.takeSnapshot();
+      }
     }
     const day = this.state.day;
     if (day === undefined) return;

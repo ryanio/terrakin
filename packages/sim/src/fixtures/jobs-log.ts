@@ -28,7 +28,8 @@ import { LEVELS_CONFIG, LEVELS_LOG } from "./levels-log";
  * `jobs.test.ts` replays it to the hash pinned below, so once jobs are live a change to the board,
  * a bound, a job's count, its points, a lapse, what a hand-in takes, what a lesson or a game
  * counts, the count of jobs finished, its title, or a merge that would replay the real log
- * differently fails loudly. It has no `set_job_edition`: no second edition exists to switch to.
+ * differently fails loudly. It has no `set_job_edition`; `job-edition-log.ts` goes on from it with
+ * the switch to the second edition.
  */
 export const JOBS_CONFIG = LEVELS_CONFIG;
 

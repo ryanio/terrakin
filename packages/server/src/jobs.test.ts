@@ -95,6 +95,7 @@ async function start(
     sql?: ReturnType<typeof nodeSql>;
     levels?: boolean;
     jobs?: boolean;
+    jobEdition?: number;
     testClock?: boolean;
     at?: number;
   } = {},
@@ -111,6 +112,7 @@ async function start(
     presence: true,
     levels: options.levels ?? false,
     jobs: options.jobs ?? false,
+    ...(options.jobEdition === undefined ? {} : { jobEdition: options.jobEdition }),
   });
   const sql = options.sql ?? nodeSql();
   const social = new SocialService({
@@ -283,6 +285,8 @@ describe("a world that never opened jobs", () => {
     expect(on.logged.indexOf("open_jobs")).toBe(on.logged.indexOf("open_levels") + 1);
     expect(on.service.state.jobs).toMatchObject({ edition: 1 });
     expect(on.refused).toEqual([]);
+    // Without `jobEdition` the board stays on the edition jobs opened on.
+    expect(on.logged).not.toContain("set_job_edition");
     // In a world without levels the switch waits, and asks the sim for nothing.
     const early = threeDays(true, false);
     expect(early.logged).not.toContain("open_jobs");
@@ -520,6 +524,46 @@ describe("opening jobs", () => {
     expect(t.logged("open_jobs")).toHaveLength(1);
     t.later(DAY_MS);
     expect(t.logged("open_jobs")).toHaveLength(1);
+  });
+});
+
+describe("the jobs edition", () => {
+  it("moves on right after a new day, once, and only with the option, which the Worker sets and the Node server never", async () => {
+    // Jobs open mid-morning on the first edition, and a restart with the option comes at noon.
+    const before = await start();
+    expect(before.open()).toMatchObject({ ok: true });
+    const t = await start({
+      store: before.store,
+      sql: before.sql,
+      jobEdition: 2,
+      at: before.now() + 3 * 3_600_000,
+    });
+    // Not in the middle of a day, which would change a board people are looking at.
+    expect(t.service.state.jobs?.edition).toBe(1);
+    expect(t.logged("set_job_edition")).toEqual([]);
+    const today = t.board();
+    t.later(3_600_000);
+    expect(t.board()).toEqual(today);
+    // The next new day logs it, straight after the new_day and before anything else.
+    t.later(DAY_MS);
+    const types = t.store.log.map((input) => input.command.type);
+    expect(types.slice(-2)).toEqual(["new_day", "set_job_edition"]);
+    expect(t.logged("set_job_edition").map((i) => i.command)).toEqual([
+      { type: "set_job_edition", edition: 2 },
+    ]);
+    expect(t.service.state.jobs?.edition).toBe(2);
+    // Once, and never back to an older edition.
+    t.later(DAY_MS);
+    const older = await start({ store: t.store, sql: t.sql, jobEdition: 1, at: t.now() });
+    older.later(DAY_MS);
+    expect(older.logged("set_job_edition")).toHaveLength(1);
+    expect(older.service.state.jobs?.edition).toBe(2);
+    // terrakin.org reads edition 2 (decision 0265): the Worker passes it once. The Node server
+    // passes nothing, so self-hosted, dev, and e2e worlds stay on the edition jobs open on.
+    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
+    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+    expect(worker.match(/\bjobEdition\s*:\s*2\b/g)).toHaveLength(1);
+    expect(node).not.toMatch(/\bjobEdition\b/);
   });
 });
 

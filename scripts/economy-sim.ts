@@ -29,6 +29,10 @@
  *                cap), so the month plays as it did before levels (the decision 0246 baseline)
  *   --no-jobs    nobody takes a job (RFC 0030): no `open_jobs`, and none of what residents do for
  *                one, so the month plays as it did before jobs (the decision 0255 baseline)
+ *   --job-edition  the edition of the jobs table the board reads (default: the newest, which
+ *                terrakin.org reads), logged with `set_job_edition` right after `open_jobs`, so the
+ *                whole month reads it. `--job-edition 1` plays the first edition (the decision
+ *                0255 run)
  *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
  *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
  *                picking what they like might, and leaves the goods to cards and lessons
@@ -76,6 +80,7 @@ import type {
   Holiday,
   Job,
   JobDeed,
+  JobWait,
   RecipeName,
   SellKind,
   ShopSku,
@@ -99,6 +104,7 @@ const {
   chebyshev,
   CROP_INFO,
   CROPS,
+  dayName,
   FIND_KINDS,
   castsToday,
   coinsOf,
@@ -132,6 +138,7 @@ const {
   jobById,
   jobsDone,
   jobsOn,
+  jobWaits,
   joinTile,
   knownByAll,
   knows,
@@ -203,6 +210,7 @@ const { values: args } = parseArgs({
     "no-floors": { type: "boolean", default: false },
     "no-levels": { type: "boolean", default: false },
     "no-jobs": { type: "boolean", default: false },
+    "job-edition": { type: "string" },
     // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
     dump: { type: "boolean", default: false },
     picks: { type: "string", default: "sell" },
@@ -256,6 +264,11 @@ const FLOORS_ON = SHOP_OPEN && !args["no-floors"];
 const LEVELS_ON = SHOP_OPEN && !args["no-levels"];
 /** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
 const JOBS_ON = LEVELS_ON && !args["no-jobs"];
+/** The edition of the jobs table the board reads, from the month's first day (decision 0265). */
+const JOB_EDITION = Number(
+  args["job-edition"] ?? Math.max(...Object.keys(JOB_EDITIONS).map(Number)),
+);
+if (!(JOB_EDITION in JOB_EDITIONS)) throw new Error(`--job-edition: no edition ${JOB_EDITION}`);
 if (args["holiday-prices"] !== "lower" && args["holiday-prices"] !== "before") {
   throw new Error("--holiday-prices is lower or before");
 }
@@ -401,7 +414,11 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
         must(TOWN_ACTOR, { type: "open_bounties" });
         must(TOWN_ACTOR, { type: "open_levels", firsts: [] });
       }
-      if (JOBS_ON) must(TOWN_ACTOR, { type: "open_jobs" });
+      if (JOBS_ON) {
+        must(TOWN_ACTOR, { type: "open_jobs" });
+        // Before anyone has seen the first board, so the whole month reads the edition.
+        if (JOB_EDITION !== 1) must(TOWN_ACTOR, { type: "set_job_edition", edition: JOB_EDITION });
+      }
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -3164,6 +3181,36 @@ function jobLines(rules: Rules, people: Person[], rows: Row[]) {
   console.log(
     `  7. The board. Days with no job that needs nothing bought (no seed from the shop, no recipe to learn, no rod): ${noSolo} of ${DAYS} (${holds(noSolo === 0)}: none). Of the ${due.length} jobs in season this month, ${due.length - never.length} came up (${holds(never.length === 0)}: all${never.length > 0 ? `; never up: ${never.join(", ")}` : ""}). Seven-day stretches where a skill was on the board fewer than three days: ${thin} (${holds(thin === 0)}: none).`,
   );
+
+  // 7, continued: each regular job's longest wait for the board, from every day of a year. A job
+  // its lane skipped once waits two rounds of the lane less a day (`laneRound`), so a wait that
+  // long fails the run.
+  const year = Array.from({ length: 365 }, (_, d) => DAY0 + d);
+  const waitsIn = (edition: number) =>
+    state.jobs ? jobWaits({ ...state, jobs: { ...state.jobs, edition } }, year) : [];
+  const editions = [...new Set([1, state.jobs?.edition ?? 1])];
+  const waits = new Map(editions.map((edition) => [edition, waitsIn(edition)]));
+  const tooLong = (list: JobWait[]) => list.filter(({ wait, round }) => wait >= 2 * round - 1);
+  const mine = waits.get(state.jobs?.edition ?? 1) ?? [];
+  const waitsOver = tooLong(mine);
+  if (waitsOver.length > 0) process.exitCode = 1;
+  console.log(
+    `     Each regular job's longest wait for the board from any day of the year from ${dayName(DAY0)}, in edition ${state.jobs?.edition ?? 1}, against two rounds of its lane less a day, which a job its lane skipped once waits: ${waitsOver.length} that long (${waitsOver.length === 0 ? "holds" : "fails"}: none${waitsOver.length > 0 ? `; ${waitsOver.map(({ job, wait, round }) => `${job.id} ${wait} days, its round ${round}`).join(", ")}` : ""}). The longest by giver, in days${editions.length > 1 ? `, edition ${editions.join(" then ")}` : ""}:`,
+  );
+  const waitGivers = [...new Set(mine.map(({ job }) => job.giver))];
+  for (const giver of waitGivers) {
+    const longest = editions.map((edition) => {
+      const theirs = (waits.get(edition) ?? []).filter(({ job }) => job.giver === giver);
+      const top = theirs.reduce<JobWait | undefined>(
+        (a, b) => (a && a.wait >= b.wait ? a : b),
+        undefined,
+      );
+      return top
+        ? `${pad(top.wait, 2)} (${top.job.id} from ${dayName(top.from)}, round ${top.round})`
+        : "-";
+    });
+    console.log(`     ${giver.padEnd(8)} ${longest.join("  ->  ")}`);
+  }
 
   // 8. How often each job is finished.
   console.log(

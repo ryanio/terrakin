@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { biomeAt } from "./biome";
 import { CATALOG, type Crop, GOOD_KINDS, type ItemKind, recipeOf } from "./catalog";
+import { JOB_EDITION_CONFIG, JOB_EDITION_HASH, JOB_EDITION_LOG } from "./fixtures/job-edition-log";
 import { JOBS_CONFIG, JOBS_HASH, JOBS_LOG } from "./fixtures/jobs-log";
 import { MERGE_CONFIG, MERGE_LOG } from "./fixtures/merge-log";
 import { REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG } from "./fixtures/repeat-joins-log";
@@ -15,9 +16,11 @@ import {
   JOB_TITLE_INFO,
   JOBS,
   type Job,
+  type JobWait,
   jobById,
   jobsDone,
   jobsOn,
+  jobWaits,
   soloJob,
   takeJobProblem,
   townBountyJob,
@@ -381,17 +384,19 @@ function playTo(w: World, who: string, total: number) {
 /** A `profile` that puts on `wear`. */
 const wearing = (...wear: WearItem[]): Command => ({ type: "profile", wear });
 
-/**
- * Run `test` with `table` as the second edition. No second edition has shipped, so it's put there
- * for the test and taken away after.
- */
+/** The newest edition that has shipped. */
+const NEWEST = Math.max(...Object.keys(JOB_EDITIONS).map(Number));
+/** An edition no world can read, which a test fills for itself. */
+const MADE_UP = NEWEST + 1;
+
+/** Run `test` with `table` as the edition after the newest, put there for it and taken away after. */
 function withEdition(table: readonly Job[], test: () => void) {
   const editions = JOB_EDITIONS as Record<number, readonly Job[]>;
-  editions[2] = table;
+  editions[MADE_UP] = table;
   try {
     test();
   } finally {
-    delete editions[2];
+    delete editions[MADE_UP];
   }
 }
 const edition = (n: unknown) => ({ type: "set_job_edition", edition: n }) as Command;
@@ -409,18 +414,34 @@ const OTIS: readonly Job[] = [
 function withOtis(test: (w: World) => void, { open = true } = {}) {
   withEdition([...TABLE, ...OTIS], () => {
     const w = jobs({ open });
-    if (open) w.town(edition(2));
+    if (open) w.town(edition(MADE_UP));
     test(w);
   });
 }
 
-/** The world's jobs open, on `day`, to ask it for that day's board. */
+/** The world's jobs open, to ask it for a day's board. */
 const opened = jobs().state;
-const boardOn = (day: number) => jobsOn({ ...opened, day });
+/** The editions that have shipped. */
+const EDITIONS = Object.keys(JOB_EDITIONS).map(Number);
+/** The same world reading `edition`'s table, as it would after a `set_job_edition`. */
+const openedIn = (edition: number) =>
+  ({ ...opened, jobs: { ...opened.jobs, edition } }) as WorldState;
+/**
+ * The board on a day of `edition`, each worked out once: from the second edition a board counts
+ * from the day jobs opened, and these tests ask for every day of four years many times over.
+ */
+const boardsSeen = new Map<number, Map<number, Job[]>>();
+const boardIn = (edition: number) => (day: number) => {
+  const seen = boardsSeen.get(edition) ?? new Map<number, Job[]>();
+  boardsSeen.set(edition, seen);
+  const board = seen.get(day) ?? jobsOn({ ...openedIn(edition), day });
+  seen.set(day, board);
+  return board;
+};
 /** Four years from the day jobs open here, so a leap day is in them. */
 const DAYS = Array.from({ length: 1461 }, (_, i) => OPEN + i);
-/** How many of those days have a pumpkin or a cranberry job for home. */
-const SEASONAL_DAYS = 91;
+/** How many of those days have a pumpkin or a cranberry job for home, in each edition. */
+const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94 };
 
 describe("the numbers", () => {
   it("are pinned, so a change is deliberate and comes with a run of scripts/economy-sim.ts", () => {
@@ -552,6 +573,10 @@ describe("the board", () => {
     w.toDay();
     expect(board(w)).not.toEqual(today);
   });
+});
+
+describe.each(EDITIONS)("the board in edition %i", (shipped) => {
+  const boardOn = boardIn(shipped);
 
   it("has one job for home, one for a walk, and one with neighbors, each day of four years", () => {
     const wrong: string[] = [];
@@ -608,7 +633,7 @@ describe("the board", () => {
     const seasonal = DAYS.filter((day) =>
       ["juniper_pumpkins", "juniper_cranberries"].includes(boardOn(day)[0]?.id ?? ""),
     );
-    expect(seasonal).toHaveLength(SEASONAL_DAYS);
+    expect(seasonal).toHaveLength(SEASONAL_DAYS[shipped] ?? 0);
     for (const day of seasonal) {
       const [, walk, neighbors] = boardOn(day);
       expect(day % 2, String(day)).toBe(0);
@@ -620,7 +645,7 @@ describe("the board", () => {
     expect(evens.filter((day) => boardOn(day)[1]?.deed?.type !== "fish")).toEqual([]);
     // In a world with no finds out there's no find to give, and the board is as the turns have it.
     const { findsOpen: _findsOpen, ...items } = opened.items ?? {};
-    const bare = { ...opened, day: seasonal[0] ?? 0, items } as WorldState;
+    const bare = { ...openedIn(shipped), day: seasonal[0] ?? 0, items } as WorldState;
     expect(jobsOn(bare).map((j) => j.deed?.type)).toEqual(["harvest", "fish", "host"]);
     expect(jobsOn(bare).some(soloJob)).toBe(false);
   });
@@ -710,6 +735,7 @@ describe("the board", () => {
     w.town({ type: "open_items" });
     w.town({ type: "open_levels", firsts: [] });
     w.town({ type: "open_jobs" });
+    if (shipped !== 1) w.town(edition(shipped));
     let before: string[] = [];
     for (let day = DAY; day < DAY + 60; day++) {
       const today = jobsOn({ ...w.state, day });
@@ -722,6 +748,107 @@ describe("the board", () => {
       expect(ids.filter((id) => before.includes(id))).toEqual([]);
       before = ids;
     }
+  });
+});
+
+describe("a regular job's wait for the board", () => {
+  /** Each regular job's longest wait from any day of four years, in `shipped`. */
+  const waitsIn = (shipped: number) => jobWaits(openedIn(shipped), DAYS);
+  /** Those that are two rounds or more. */
+  const tooLong = (waits: readonly JobWait[]) =>
+    waits
+      .filter(({ wait, round }) => wait >= 2 * round - 1)
+      .map(({ job, wait, round }) => `${job.id} ${wait} of ${round}`);
+
+  it("is under two rounds of its lane from every day of four years, from the second edition", () => {
+    // A round is the days a lane takes to give each of its regular jobs once, and a job the lane
+    // skipped once waits two rounds less a day.
+    const waits = waitsIn(2);
+    expect(tooLong(waits)).toEqual([]);
+    for (const shipped of EDITIONS.filter((n) => n > 2))
+      expect(tooLong(waitsIn(shipped))).toEqual([]);
+    expect(Object.fromEntries(waits.map(({ job, wait }) => [job.id, wait]))).toEqual({
+      juniper_crops: 9,
+      juniper_herbs: 9,
+      juniper_flowers: 9,
+      juniper_pumpkins: 7,
+      juniper_cranberries: 7,
+      clem_herb_tea: 23,
+      clem_jam: 23,
+      clem_pumpkin_pie: 23,
+      clem_cranberry_punch: 23,
+      bram_chair: 23,
+      bram_table: 23,
+      bram_stone_wall: 23,
+      bram_barrel: 23,
+      ansel_bouquet: 23,
+      ansel_flower_box: 23,
+      marlo_find: 6,
+      marlo_sand_find: 6,
+      marlo_forest_find: 6,
+      marlo_autumn_find: 6,
+      sable_dusk_fish: 9,
+      sable_night_fish: 9,
+      sable_three_fish: 9,
+      otis_teach: 3,
+      otis_host: 3,
+      pip_game: 5,
+      pip_two_games: 5,
+      pip_win: 5,
+    });
+  });
+
+  it("ran to two rounds in the first edition, beside a holiday, a season's edge, or a find for the walk", () => {
+    // Why the second edition carries on: the first one's lanes went back or skipped ahead there.
+    expect(tooLong(waitsIn(1))).toEqual([
+      "clem_herb_tea 35 of 18",
+      "clem_jam 35 of 18",
+      "clem_pumpkin_pie 35 of 18",
+      "clem_cranberry_punch 35 of 18",
+      "bram_chair 35 of 18",
+      "bram_table 35 of 18",
+      "bram_stone_wall 35 of 18",
+      "bram_barrel 35 of 18",
+      "ansel_bouquet 35 of 18",
+      "ansel_flower_box 35 of 18",
+      "sable_dusk_fish 11 of 6",
+      "sable_night_fish 11 of 6",
+      "sable_three_fish 11 of 6",
+    ]);
+  });
+});
+
+describe("a walk that becomes a find, from the second edition", () => {
+  it("takes the finds lane's next find, and only with two or more up, so no find comes two days running", () => {
+    // A made-up edition with one find: the finds lane gives it every other day, so a day between
+    // two of those keeps its fish.
+    const one = TABLE.filter((j) => j.deed?.type !== "find" || j.id === "marlo_find");
+    withEdition(one, () => {
+      const state = openedIn(MADE_UP);
+      const repeats: string[] = [];
+      let before: string[] = [];
+      let fishKept = 0;
+      for (const day of DAYS) {
+        const today = jobsOn({ ...state, day });
+        const ids = today.map((j) => j.id);
+        for (const id of ids) if (before.includes(id)) repeats.push(`${day}: ${id}`);
+        if (!today.some(soloJob)) fishKept++;
+        before = ids;
+      }
+      expect(repeats).toEqual([]);
+      expect(fishKept).toBe(SEASONAL_DAYS[2]);
+    });
+  });
+});
+
+describe("an edition's boards", () => {
+  it("stay as they were for every day of four years, since a live world's logged take_job reads them", () => {
+    const boards = (shipped: number) =>
+      fnv1a(canonicalJson(DAYS.map((day) => boardIn(shipped)(day).map((j) => j.id))));
+    expect(Object.fromEntries(EDITIONS.map((n) => [n, boards(n)]))).toEqual({
+      1: "e66967b1",
+      2: "0501f031",
+    });
   });
 });
 
@@ -1246,7 +1373,7 @@ describe("a name every object answers to", () => {
       "hasOwnProperty",
       "",
       0,
-      2,
+      MADE_UP,
       -1,
       1.5,
       null,
@@ -1414,7 +1541,7 @@ describe("a job with a neighbor", () => {
       (w) => {
         const event = party(w, "ada", ["bob", "cy", "dee"]);
         w.town({ type: "open_jobs" });
-        w.town(edition(2));
+        w.town(edition(MADE_UP));
         until(w, "otis_guest");
         w.ok("bob", { type: "take_job", job: "otis_guest" });
         const events = w.town(credit(event, ["bob", "cy", "dee"]));
@@ -1700,7 +1827,7 @@ describe("what the count unlocks", () => {
 
 describe("set_job_edition", () => {
   /**
-   * Run `test` with a second edition in the table: the first one's jobs with Juniper's herbs and
+   * Run `test` with a made-up edition in the table: the first one's jobs with Juniper's herbs and
    * Bram's chair taken out and each lane's order turned round.
    */
   const withSecondEdition = (test: () => void) =>
@@ -1715,7 +1842,7 @@ describe("set_job_edition", () => {
     const w = jobs();
     expect(w.code("ada", edition(1))).toBe("server_only");
     expect(w.code(TOWN_ACTOR, edition(1))).toBe("already_set");
-    for (const n of [2, 0, -1, 1.5, "1", "__proto__", "constructor", null, undefined]) {
+    for (const n of [MADE_UP, 0, -1, 1.5, "1", "__proto__", "constructor", null, undefined]) {
       expect(w.code(TOWN_ACTOR, edition(n)), String(n)).toBe("server_only");
     }
     expect(w.state.jobs).toEqual({ opened: OPEN, edition: 1 });
@@ -1728,8 +1855,8 @@ describe("set_job_edition", () => {
       const [home = ""] = first;
       w.ok("ada", { type: "take_job", job: home });
       const before = hashWorld(w.state);
-      expect(w.town(edition(2))).toEqual([{ type: "job_edition_set", edition: 2 }]);
-      expect(w.state.jobs?.edition).toBe(2);
+      expect(w.town(edition(MADE_UP))).toEqual([{ type: "job_edition_set", edition: MADE_UP }]);
+      expect(w.state.jobs?.edition).toBe(MADE_UP);
       // The same day reads the other table now.
       const second = board(w);
       expect(second).not.toEqual(first);
@@ -1776,7 +1903,7 @@ describe("set_job_edition", () => {
       // With a second edition in the code and the switch later in the log, it hashes the same way.
       const { w, log, send, state, beforeSwitch } = record();
       expect(beforeSwitch).toBe(alone.beforeSwitch);
-      send(TOWN_ACTOR, edition(2));
+      send(TOWN_ACTOR, edition(MADE_UP));
       // Juniper's herbs are today's job under the first edition and no job at all under the second.
       expect(w.code("ada", { type: "take_job", job: "juniper_herbs" })).toBe("unknown_job");
       send("ada", { type: "take_job", job: board(w)[0] ?? "" });
@@ -1793,9 +1920,9 @@ describe("set_job_edition", () => {
       w.ok("ada", { type: "take_job", job: "juniper_herbs" });
       const [first, ...rest] = ripe(w, "ada", "herb", 3);
       harvest(w, "ada", first ?? { x: 0, y: 0 });
-      w.town(edition(2));
+      w.town(edition(MADE_UP));
       // The second edition has no such job, and Ada's is still hers, count and all.
-      expect(JOB_EDITIONS[2]?.some((j) => j.id === "juniper_herbs")).toBe(false);
+      expect(JOB_EDITIONS[MADE_UP]?.some((j) => j.id === "juniper_herbs")).toBe(false);
       expect(held(w, "ada")).toEqual({ job: "juniper_herbs", day: w.day(), count: 1 });
       const events = rest.flatMap((tile) => harvest(w, "ada", tile));
       expect(done(events)).toMatchObject({ job: "juniper_herbs", skill: "growing", total: 1 });
@@ -1932,5 +2059,20 @@ describe("the jobs fixture", () => {
     });
     expect(state.residents.hal).toBeUndefined();
     expect(hashWorld(state)).toBe(JOBS_HASH);
+  });
+
+  it("replays the switch to the second edition, and three jobs taken from its boards, to the pinned hash", () => {
+    const state = replay(JOB_EDITION_CONFIG, JOB_EDITION_LOG);
+    expectSupplyHolds(state);
+    expect(state.jobs?.edition).toBe(2);
+    expect(state.jobs?.held).toEqual({
+      dee: { job: "marlo_sand_find", day: 20_081, seq: expect.any(Number) },
+      eve: { job: "marlo_forest_find", day: 20_082, seq: expect.any(Number) },
+      bob: { job: "clem_cranberry_punch", day: 20_083, seq: expect.any(Number) },
+    });
+    // Dee's find on the sand isn't on Tuesday's board in the first edition: the log needs the switch.
+    const first = replay(JOB_EDITION_CONFIG, JOB_EDITION_LOG.slice(0, JOBS_LOG.length + 1));
+    expect(jobsOn(first).map((j) => j.id)).not.toContain("marlo_sand_find");
+    expect(hashWorld(state)).toBe(JOB_EDITION_HASH);
   });
 });

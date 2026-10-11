@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-11
 
-<!-- api-fingerprint: 1eb2b74e5278, 6 entries -->
+<!-- api-fingerprint: 1eb2b74e5278, 7 entries -->
+
+- **Changed** The town's jobs come round evenly through holidays and season changes
+  From the first midnight UTC after this change, terrakin.org's board reads the second edition of the jobs table: the same jobs, and each giver's come up in turn without starting over when Halloween, Midwinter, or a new season begins.
+  A Making job is back within 23 days, where Clem's, Bram's, and Ansel's could wait 35, and a fish job within 9. A job you hold stays yours and still finishes.
+  Try: `GET /v1/jobs`
 
 - **Added** A finished job gets its giver's quiet thank-you wave
   When a job is done, the townsfolk who asked waves at the resident who finished, a gesture with no note, on the town's notice. When the giver doesn't live in this world the job is simply the town's, and a refused wave (a block, a suspension) stays silent.

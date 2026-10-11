@@ -16,7 +16,15 @@ import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { isTownsfolk } from "./economy";
 import { findEvent } from "./events";
 import { findsOpen } from "./gather";
-import { dayName, type Holiday, holidayOf } from "./holiday";
+import {
+  dayName,
+  HOLIDAYS,
+  type Holiday,
+  holidayLastDay,
+  holidayOf,
+  inHoliday,
+  nextHolidayStart,
+} from "./holiday";
 import {
   ITEM_ID_PATTERN,
   ITEM_INFO,
@@ -44,7 +52,7 @@ import {
 import { isJobWear, JOB_WEAR, type JobWear, WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
 import { knownByAll } from "./recipes";
-import { type Season, seasonOf, weekStart } from "./season";
+import { type Season, seasonOf, seasonSpan, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
 import {
   type Command,
@@ -164,173 +172,182 @@ export type Job = JobBase &
   ({ deed: JobDeed; bring?: undefined } | { bring: RecipeName; deed?: undefined });
 
 /**
+ * The first edition's table. The first edition has no job for a `guest` deed or a `bounty` deed:
+ * both wait on a neighbor's calendar, and the economy run's residents seldom finished them
+ * (decision 0255).
+ */
+const FIRST_TABLE: readonly Job[] = [
+  // Juniper, for the garden.
+  {
+    id: "juniper_crops",
+    giver: "juniper",
+    skill: "growing",
+    deed: { type: "harvest", count: 3 },
+  },
+  {
+    id: "juniper_herbs",
+    giver: "juniper",
+    skill: "growing",
+    deed: { type: "harvest", count: 3, crops: ["herb"] },
+  },
+  {
+    id: "juniper_flowers",
+    giver: "juniper",
+    skill: "growing",
+    deed: { type: "harvest", count: 3, crops: ["flower"] },
+  },
+  {
+    id: "juniper_pumpkins",
+    giver: "juniper",
+    skill: "growing",
+    deed: { type: "harvest", count: 2, crops: ["pumpkin"] },
+    season: "autumn",
+  },
+  {
+    id: "juniper_cranberries",
+    giver: "juniper",
+    skill: "growing",
+    deed: { type: "harvest", count: 3, crops: ["cranberry"] },
+    season: "winter",
+  },
+  // Clem, for the kitchen.
+  { id: "clem_herb_tea", giver: "clem", skill: "making", bring: "herb_tea" },
+  { id: "clem_jam", giver: "clem", skill: "making", bring: "jam" },
+  {
+    id: "clem_pumpkin_pie",
+    giver: "clem",
+    skill: "making",
+    bring: "pumpkin_pie",
+    season: "autumn",
+  },
+  {
+    id: "clem_cranberry_punch",
+    giver: "clem",
+    skill: "making",
+    bring: "cranberry_punch",
+    season: "winter",
+  },
+  {
+    id: "clem_candy",
+    giver: "clem",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "candy" },
+    holiday: "halloween",
+  },
+  {
+    id: "clem_candy_canes",
+    giver: "clem",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "candy_cane" },
+    holiday: "midwinter",
+  },
+  // Bram, for the workbench.
+  {
+    id: "bram_chair",
+    giver: "bram",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "chair" },
+  },
+  {
+    id: "bram_table",
+    giver: "bram",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "table" },
+  },
+  {
+    id: "bram_stone_wall",
+    giver: "bram",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "stone_wall" },
+  },
+  {
+    id: "bram_barrel",
+    giver: "bram",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "barrel" },
+  },
+  {
+    id: "bram_jack_o_lantern",
+    giver: "bram",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "jack_o_lantern" },
+    holiday: "halloween",
+  },
+  // Ansel, for flowers.
+  { id: "ansel_bouquet", giver: "ansel", skill: "making", bring: "bouquet" },
+  {
+    id: "ansel_flower_box",
+    giver: "ansel",
+    skill: "making",
+    deed: { type: "craft", count: 1, recipe: "flower_box" },
+  },
+  // Marlo, for finds.
+  { id: "marlo_find", giver: "marlo", skill: "foraging", deed: { type: "find", count: 1 } },
+  {
+    id: "marlo_sand_find",
+    giver: "marlo",
+    skill: "foraging",
+    deed: { type: "find", count: 1, biome: "sand" },
+  },
+  {
+    id: "marlo_forest_find",
+    giver: "marlo",
+    skill: "foraging",
+    deed: { type: "find", count: 1, biome: "forest" },
+  },
+  {
+    id: "marlo_autumn_find",
+    giver: "marlo",
+    skill: "foraging",
+    deed: { type: "find", count: 1, kinds: ["chestnut", "maple_leaf"] },
+    season: "autumn",
+  },
+  // Sable, for fish.
+  {
+    id: "sable_dusk_fish",
+    giver: "sable",
+    skill: "foraging",
+    deed: { type: "fish", count: 1, timeOfDay: "dusk" },
+  },
+  {
+    id: "sable_night_fish",
+    giver: "sable",
+    skill: "foraging",
+    deed: { type: "fish", count: 1, timeOfDay: "night" },
+  },
+  { id: "sable_three_fish", giver: "sable", skill: "foraging", deed: { type: "fish", count: 3 } },
+  // Otis, for hosting.
+  { id: "otis_teach", giver: "otis", skill: "hosting", deed: { type: "teach", count: 1 } },
+  {
+    id: "otis_host",
+    giver: "otis",
+    skill: "hosting",
+    deed: { type: "host", count: 1, guests: 3 },
+  },
+  // Pip, for the game tables.
+  { id: "pip_game", giver: "pip", skill: "playing", deed: { type: "game", count: 1 } },
+  { id: "pip_two_games", giver: "pip", skill: "playing", deed: { type: "game", count: 2 } },
+  {
+    id: "pip_win",
+    giver: "pip",
+    skill: "playing",
+    deed: { type: "game", count: 1, first: true },
+  },
+];
+
+/**
  * The table, by edition. An edition is frozen once a live world reads it: a logged `take_job` is
  * checked against its day's board, so the board for a past day must never change. A changed table
- * is the next edition. A job's id and what it asks stay the same in every edition that has it, so
- * a job held under one edition still finishes under the next.
+ * or a changed rule for reading it is the next edition. A job's id and what it asks stay the same
+ * in every edition that has it, so a job held under one edition still finishes under the next.
  *
- * The first edition has no job for a `guest` deed or a `bounty` deed: both wait on a neighbor's
- * calendar, and the economy run's residents seldom finished them (decision 0255).
+ * The second edition has the first one's jobs and changes how a lane's regular jobs take their
+ * turns (`carriesOn`): each one is the next in table order after the last one the lane gave, so a
+ * holiday or a season's edge never sends the lane back to a job it just gave or past one it hadn't.
  */
 export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
-  1: [
-    // Juniper, for the garden.
-    {
-      id: "juniper_crops",
-      giver: "juniper",
-      skill: "growing",
-      deed: { type: "harvest", count: 3 },
-    },
-    {
-      id: "juniper_herbs",
-      giver: "juniper",
-      skill: "growing",
-      deed: { type: "harvest", count: 3, crops: ["herb"] },
-    },
-    {
-      id: "juniper_flowers",
-      giver: "juniper",
-      skill: "growing",
-      deed: { type: "harvest", count: 3, crops: ["flower"] },
-    },
-    {
-      id: "juniper_pumpkins",
-      giver: "juniper",
-      skill: "growing",
-      deed: { type: "harvest", count: 2, crops: ["pumpkin"] },
-      season: "autumn",
-    },
-    {
-      id: "juniper_cranberries",
-      giver: "juniper",
-      skill: "growing",
-      deed: { type: "harvest", count: 3, crops: ["cranberry"] },
-      season: "winter",
-    },
-    // Clem, for the kitchen.
-    { id: "clem_herb_tea", giver: "clem", skill: "making", bring: "herb_tea" },
-    { id: "clem_jam", giver: "clem", skill: "making", bring: "jam" },
-    {
-      id: "clem_pumpkin_pie",
-      giver: "clem",
-      skill: "making",
-      bring: "pumpkin_pie",
-      season: "autumn",
-    },
-    {
-      id: "clem_cranberry_punch",
-      giver: "clem",
-      skill: "making",
-      bring: "cranberry_punch",
-      season: "winter",
-    },
-    {
-      id: "clem_candy",
-      giver: "clem",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "candy" },
-      holiday: "halloween",
-    },
-    {
-      id: "clem_candy_canes",
-      giver: "clem",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "candy_cane" },
-      holiday: "midwinter",
-    },
-    // Bram, for the workbench.
-    {
-      id: "bram_chair",
-      giver: "bram",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "chair" },
-    },
-    {
-      id: "bram_table",
-      giver: "bram",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "table" },
-    },
-    {
-      id: "bram_stone_wall",
-      giver: "bram",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "stone_wall" },
-    },
-    {
-      id: "bram_barrel",
-      giver: "bram",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "barrel" },
-    },
-    {
-      id: "bram_jack_o_lantern",
-      giver: "bram",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "jack_o_lantern" },
-      holiday: "halloween",
-    },
-    // Ansel, for flowers.
-    { id: "ansel_bouquet", giver: "ansel", skill: "making", bring: "bouquet" },
-    {
-      id: "ansel_flower_box",
-      giver: "ansel",
-      skill: "making",
-      deed: { type: "craft", count: 1, recipe: "flower_box" },
-    },
-    // Marlo, for finds.
-    { id: "marlo_find", giver: "marlo", skill: "foraging", deed: { type: "find", count: 1 } },
-    {
-      id: "marlo_sand_find",
-      giver: "marlo",
-      skill: "foraging",
-      deed: { type: "find", count: 1, biome: "sand" },
-    },
-    {
-      id: "marlo_forest_find",
-      giver: "marlo",
-      skill: "foraging",
-      deed: { type: "find", count: 1, biome: "forest" },
-    },
-    {
-      id: "marlo_autumn_find",
-      giver: "marlo",
-      skill: "foraging",
-      deed: { type: "find", count: 1, kinds: ["chestnut", "maple_leaf"] },
-      season: "autumn",
-    },
-    // Sable, for fish.
-    {
-      id: "sable_dusk_fish",
-      giver: "sable",
-      skill: "foraging",
-      deed: { type: "fish", count: 1, timeOfDay: "dusk" },
-    },
-    {
-      id: "sable_night_fish",
-      giver: "sable",
-      skill: "foraging",
-      deed: { type: "fish", count: 1, timeOfDay: "night" },
-    },
-    { id: "sable_three_fish", giver: "sable", skill: "foraging", deed: { type: "fish", count: 3 } },
-    // Otis, for hosting.
-    { id: "otis_teach", giver: "otis", skill: "hosting", deed: { type: "teach", count: 1 } },
-    {
-      id: "otis_host",
-      giver: "otis",
-      skill: "hosting",
-      deed: { type: "host", count: 1, guests: 3 },
-    },
-    // Pip, for the game tables.
-    { id: "pip_game", giver: "pip", skill: "playing", deed: { type: "game", count: 1 } },
-    { id: "pip_two_games", giver: "pip", skill: "playing", deed: { type: "game", count: 2 } },
-    {
-      id: "pip_win",
-      giver: "pip",
-      skill: "playing",
-      deed: { type: "game", count: 1, first: true },
-    },
-  ],
+  1: FIRST_TABLE,
+  2: FIRST_TABLE,
 };
 
 /** The edition `open_jobs` starts a world on. */
@@ -381,7 +398,8 @@ function partOpen(state: WorldState, job: Job): boolean {
 /**
  * The job a lane gives on its `turn`th turn, from its jobs that are up today, in table order, one
  * after the other. While a holiday runs, a lane with jobs for it gives one of those every other
- * turn, so a short holiday's jobs always come up.
+ * turn, so a short holiday's jobs always come up. This is the first edition's rule; from the
+ * second on, a lane's regular jobs carry on (`carriedBoard`).
  */
 function laneJob(up: readonly Job[], turn: number): Job | undefined {
   const regular = up.filter((job) => job.holiday === undefined);
@@ -421,22 +439,228 @@ function turns(state: WorldState, table: readonly Job[], day: number): (Job | un
   });
 }
 
+// ---------- the board from the second edition: lanes that carry on ----------
+
+/**
+ * Whether an edition's lanes carry on (decision 0265). In the first edition a lane's regular job
+ * is its `turn`th in the list of those up that day, and that list changes size at a season's edge
+ * and gives every other turn to a holiday's jobs, so the lane can go back to a job it just gave
+ * and leave one unasked for five weeks. From the second edition on, each regular job is the next
+ * one up after the last one the lane gave, and a walk that becomes a find takes the finds lane's
+ * next one and leaves the fish where it was.
+ */
+const carriesOn = (edition: number) => edition >= 2;
+
+/** One lane while the jobs up stay the same: its regular jobs and whether a holiday's are up. */
+interface LaneRun {
+  lane: Lane;
+  regular: readonly Job[];
+  festive: readonly Job[];
+}
+
+/**
+ * A slot's lanes with something up, in `SLOTS` order: with two, the first takes the even days and
+ * the second the odd ones, on turn `floor(day / 2)`; with one, it takes every day, on turn `day`.
+ */
+interface SlotRun {
+  on: readonly LaneRun[];
+}
+
+/** The slots' lanes for the jobs up, which hold from one edge (`nextEdge`) to the next. */
+function slotRuns(up: readonly Job[]): SlotRun[] {
+  return SLOTS.map((lanes) => ({
+    on: lanes
+      .map((lane) => {
+        const jobs = inLane(up, lane);
+        return {
+          lane,
+          regular: jobs.filter((job) => job.holiday === undefined),
+          festive: jobs.filter((job) => job.holiday !== undefined),
+        };
+      })
+      .filter((run) => run.regular.length + run.festive.length > 0),
+  }));
+}
+
+/**
+ * The next day after `day` on which the jobs up can change: the first day of the next season, or
+ * of a holiday, or the day after one ends.
+ */
+function nextEdge(day: number): number {
+  let edge = seasonSpan(day).end;
+  for (const holiday of HOLIDAYS) {
+    const at = inHoliday(holiday, day)
+      ? holidayLastDay(holiday, day) + 1
+      : nextHolidayStart(holiday, day);
+    edge = Math.min(edge, at);
+  }
+  return edge;
+}
+
+/** Each lane's last regular job given, by its place in the table; a lane that gave none has -1. */
+type Given = Map<Lane, number>;
+
+/** A table as the second edition reads it: each job's place in it, and which need nothing bought. */
+interface Reading {
+  place: ReadonlyMap<Job, number>;
+  solo: ReadonlySet<Job>;
+}
+const reading = (table: readonly Job[]): Reading => ({
+  place: new Map(table.map((job, i) => [job, i])),
+  solo: new Set(table.filter(soloJob)),
+});
+
+/** The first of `regular` after the lane's last one in `table`, going round to the start. */
+function nextOf(r: Reading, regular: readonly Job[], last: number): Job | undefined {
+  return regular.find((job) => (r.place.get(job) ?? -1) > last) ?? regular[0];
+}
+
+/**
+ * What a slot gives on `day`: the lane whose day it is, and its job. While a holiday's jobs are
+ * up in the lane they take its even turns, and the regular jobs its odd ones, as in the first
+ * edition. A regular turn gives the next regular job after the last one (`nextOf`).
+ */
+function slotGives(
+  r: Reading,
+  slot: SlotRun,
+  day: number,
+  given: Given,
+): { run: LaneRun; job: Job; regular: boolean } | undefined {
+  const shared = slot.on.length === 2;
+  const run = shared ? slot.on[day % 2] : slot.on[0];
+  if (!run) return undefined;
+  const turn = shared ? Math.floor(day / 2) : day;
+  if (run.festive.length > 0 && (turn % 2 === 0 || run.regular.length === 0)) {
+    const job = run.festive[Math.floor(turn / 2) % run.festive.length];
+    return job && { run, job, regular: false };
+  }
+  const job = nextOf(r, run.regular, given.get(run.lane) ?? -1);
+  return job && { run, job, regular: true };
+}
+
+/**
+ * The board on `day` from what each lane last gave: the slots' jobs, then, on a day with no job
+ * that needs nothing bought, the walk as the finds lane's next regular job, when it has two or
+ * more up so the day either side can't give the same one. The lanes that gave a regular job are
+ * in `gave`; a fish the find stood in for isn't, so it comes on the lane's next turn.
+ */
+function dayBoard(r: Reading, slots: readonly SlotRun[], day: number, given: Given) {
+  const picks = slots.map((slot) => slotGives(r, slot, day, given));
+  const board = picks.map((pick) => pick?.job);
+  const gave = new Map<Lane, Job>();
+  for (const pick of picks) if (pick?.regular) gave.set(pick.run.lane, pick.job);
+  if (!board.some((job) => job && r.solo.has(job))) {
+    const finds = slots[WALK]?.on.find((run) => run.lane === "finds");
+    const walk = picks[WALK];
+    if (finds && finds.regular.length > 1 && walk) {
+      const find = nextOf(r, finds.regular, given.get("finds") ?? -1);
+      if (find) {
+        board[WALK] = find;
+        gave.delete(walk.run.lane);
+        gave.set("finds", find);
+      }
+    }
+  }
+  return { board, gave };
+}
+
+/**
+ * Whether a day of `slots` could have no job that needs nothing bought, so its walk could become
+ * a find: each slot has something up that needs something bought, or nothing up at all.
+ */
+const mayChangeWalk = (r: Reading, slots: readonly SlotRun[]) =>
+  slots.every(
+    (slot) =>
+      slot.on.length === 0 ||
+      slot.on.some((run) => [...run.regular, ...run.festive].some((job) => !r.solo.has(job))),
+  );
+
+/** How many days in `[from, to)` are `rest` past a multiple of `every`. */
+const daysIn = (from: number, to: number, every: number, rest: number) =>
+  Math.ceil((to - rest) / every) - Math.ceil((from - rest) / every);
+
+/**
+ * Each lane's last regular job given before `day`, counted from `from`, the day jobs opened. It
+ * goes a stretch at a time between the days the jobs up can change. Where every day of a stretch
+ * has a job that needs nothing bought, it counts each lane's regular turns there and moves through
+ * the stretch's regular jobs by that count; elsewhere it goes day by day, since a walk that
+ * becomes a find moves the finds lane and not the fish.
+ */
+function lastGiven(
+  state: WorldState,
+  table: readonly Job[],
+  r: Reading,
+  from: number,
+  day: number,
+): Given {
+  const given: Given = new Map();
+  for (let start = from; start < day; ) {
+    const end = Math.min(nextEdge(start), day);
+    const slots = slotRuns(upOn(state, table, start));
+    if (mayChangeWalk(r, slots)) {
+      for (let d = start; d < end; d++) {
+        for (const [lane, job] of dayBoard(r, slots, d, given).gave) {
+          given.set(lane, r.place.get(job) ?? -1);
+        }
+      }
+    } else {
+      for (const slot of slots) {
+        const shared = slot.on.length === 2;
+        slot.on.forEach((run, i) => {
+          if (run.regular.length === 0) return;
+          // A lane's days and, while a holiday's jobs are up in it, its odd turns only.
+          const festive = run.festive.length > 0;
+          const count = shared
+            ? festive
+              ? daysIn(start, end, 4, 2 + i)
+              : daysIn(start, end, 2, i)
+            : festive
+              ? daysIn(start, end, 2, 1)
+              : end - start;
+          if (count === 0) return;
+          const last = given.get(run.lane) ?? -1;
+          const first = Math.max(
+            0,
+            run.regular.findIndex((job) => (r.place.get(job) ?? -1) > last),
+          );
+          const job = run.regular[(first + count - 1) % run.regular.length];
+          if (job) given.set(run.lane, r.place.get(job) ?? -1);
+        });
+      }
+    }
+    start = end;
+  }
+  return given;
+}
+
+/** The board on `day` in an edition whose lanes carry on. */
+function carriedBoard(state: WorldState, table: readonly Job[], day: number, opened: number) {
+  const r = reading(table);
+  const given = lastGiven(state, table, r, Math.min(opened, day), day);
+  return dayBoard(r, slotRuns(upOn(state, table, day)), day, given).board;
+}
+
 /**
  * Today's board: three jobs, each in a different skill, the same for everyone (RFC 0030, section
  * 2). A pure function of the world's day, the season and holiday it and the days either side fall
- * in, which parts of the game are open, and the edition's table. Empty before `open_jobs`.
+ * in, which parts of the game are open, and the edition's table. Empty before `open_jobs`. From
+ * the second edition it also reads the day jobs opened, which `carriedBoard` counts from.
  *
- * It's what the lanes' turns give (`turns`), with one change. Every day has one job that needs
- * nothing bought (`soloJob`), and the turns leave some days without: the even days when Growing's
- * turn falls on a crop whose seed only the shop sells, beside a fish and a job for a host. On a
- * day like that the walk is a find in place of the fish: the first find up that day that the
- * turns give neither the day before nor the day after, so no job comes two days running.
+ * In the first edition it's what the lanes' turns give (`turns`), with one change. Every day has
+ * one job that needs nothing bought (`soloJob`), and the turns leave some days without: the even
+ * days when Growing's turn falls on a crop whose seed only the shop sells, beside a fish and a job
+ * for a host. On a day like that the walk is a find in place of the fish: the first find up that
+ * day that the turns give neither the day before nor the day after, so no job comes two days
+ * running.
  */
 export function jobsOn(state: WorldState): Job[] {
   const jobs = state.jobs;
   const day = state.day;
   if (!jobs || day === undefined) return [];
   const table = JOB_EDITIONS[jobs.edition] ?? [];
+  if (carriesOn(jobs.edition)) {
+    return carriedBoard(state, table, day, jobs.opened).filter((job) => job !== undefined);
+  }
   const board = turns(state, table, day);
   if (!board.some((job) => job && soloJob(job))) {
     const near = [day - 1, day + 1].map((d) => turns(state, table, d)[WALK]);
@@ -444,6 +668,75 @@ export function jobsOn(state: WorldState): Job[] {
     if (find) board[WALK] = find;
   }
   return board.filter((job) => job !== undefined);
+}
+
+/**
+ * A round of `job`'s lane on `day`: the days it takes the lane to give each of its regular jobs
+ * up that day once. That's one turn a job, and a lane that shares its slot with a lane that has
+ * something up takes a turn every other day. 0 for a job that isn't a regular job up that day. A
+ * job its lane skipped once waits two rounds less a day, so the economy run and `jobs.test.ts`
+ * hold every regular job's wait under that (decision 0265).
+ */
+export function laneRound(state: WorldState, job: Job, day: number): number {
+  const table = JOB_EDITIONS[state.jobs?.edition ?? FIRST_EDITION] ?? [];
+  return roundIn(upOn(state, table, day), job);
+}
+
+/** `laneRound` from the jobs up that day. */
+function roundIn(up: readonly Job[], job: Job): number {
+  const lane = laneOf(job);
+  const regular = inLane(up, lane).filter((j) => j.holiday === undefined);
+  if (!regular.some((j) => j.id === job.id)) return 0;
+  const lanes = SLOTS.find((slot) => slot.includes(lane)) ?? [];
+  const shared = lanes.every((l) => inLane(up, l).length > 0);
+  return regular.length * (shared ? 2 : 1);
+}
+
+/** A regular job's longest wait for the board, from `jobWaits`. */
+export interface JobWait {
+  job: Job;
+  /** The most days it waited, from `from` to the day it was next on the board. */
+  wait: number;
+  from: number;
+  /** The longest round of its lane on those days (`laneRound`). */
+  round: number;
+}
+
+/**
+ * Each regular job's longest wait for the board, from any of `days` that it's up on: the days from
+ * there until it's next on the board. A start whose job stops being up before it comes is left
+ * out, since a season's job can't come once its season ends. Holiday jobs aren't regular and
+ * aren't here. `laneRound`'s bound is `wait < 2 * round - 1`.
+ */
+export function jobWaits(state: WorldState, days: readonly number[]): JobWait[] {
+  const table = JOB_EDITIONS[state.jobs?.edition ?? FIRST_EDITION] ?? [];
+  const seen = new Map<number, { up: Job[]; board: Job[] }>();
+  const dayOf = (day: number) => {
+    let known = seen.get(day);
+    if (!known) {
+      known = { up: upOn(state, table, day), board: jobsOn({ ...state, day }) };
+      seen.set(day, known);
+    }
+    return known;
+  };
+  const waits: JobWait[] = [];
+  for (const job of table) {
+    if (job.holiday !== undefined) continue;
+    let longest: JobWait | undefined;
+    for (const from of days) {
+      let round = roundIn(dayOf(from).up, job);
+      let day = from;
+      while (round > 0 && !dayOf(day).board.some((j) => j.id === job.id)) {
+        day++;
+        const next = roundIn(dayOf(day).up, job);
+        round = next > 0 ? Math.max(round, next) : 0;
+      }
+      if (round === 0) continue;
+      if (!longest || day - from > longest.wait) longest = { job, wait: day - from, from, round };
+    }
+    if (longest) waits.push(longest);
+  }
+  return waits;
 }
 
 /** The job with this id in any edition, so a job held across a change of edition is still known. */

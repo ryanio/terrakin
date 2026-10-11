@@ -333,6 +333,20 @@ export const PICTURE_DRAWS_PER_MINUTE = 60;
 /** Which picture a path shows right now: the version key, kept `PICTURE_TTL.ask` seconds. */
 export const pictureAtKey = (route: PictureRoute) => `at${cardPath(route)}`;
 
+/** Whether a picture's PNG was drawn for the answer it went out in, or found already drawn. */
+type PictureDraw = "drawn" | "cached";
+
+/**
+ * The `Cache-Status` (RFC 9211) a picture's PNG goes out with: `fwd=miss` when this answer drew it,
+ * `hit` when it was found in the cache. Only the PNG's bytes are cached, so the header is made per
+ * answer and never comes back out of the cache. A cache further along that keeps the answer adds
+ * its own entry after this one, which is how a reader tells a replayed answer from a fresh one.
+ */
+const PICTURE_CACHE_STATUS: Record<PictureDraw, string> = {
+  drawn: "terrakin; fwd=miss",
+  cached: "terrakin; hit",
+};
+
 /** What a pointer holds for a path with no such plot or resident, kept `MISSING_TTL` seconds. */
 const MISSING = "missing";
 export const MISSING_TTL = 60;
@@ -389,12 +403,18 @@ async function servePicture(
     etag: `"${k}"`,
     "x-content-type-options": "nosniff",
   });
+  /** A PNG with `Cache-Status` saying whether this answer drew it or found it drawn. */
+  const png = (k: string, bytes: Uint8Array, how: PictureDraw): CardResponse => ({
+    status: 200,
+    headers: { ...headers(k), "cache-status": PICTURE_CACHE_STATUS[how] },
+    body: bytes,
+  });
   if (req.ifNoneMatch?.split(",").some((t) => t.trim().replace(/^W\//, "") === `"${key}"`)) {
     return { status: 304, headers: headers(key) };
   }
   const pngKey = `${route.kind}/${key}`;
   const hit = await deps.cache.get(pngKey);
-  if (hit) return { status: 200, headers: headers(key), body: hit };
+  if (hit) return png(key, hit, "cached");
   // The pointer outlived its PNG: read the world again for what to draw. When that changed, the
   // pointer moves to the new picture, which may already be drawn.
   if (!spec) {
@@ -406,7 +426,7 @@ async function servePicture(
       key = fresh;
       await point(key, ttl.ask);
       const drawn = await deps.cache.get(`${route.kind}/${key}`);
-      if (drawn) return { status: 200, headers: headers(key), body: drawn };
+      if (drawn) return png(key, drawn, "cached");
     }
   }
   // Each draw costs CPU: one client can cause only a few a minute, and the server a few dozen. A
@@ -419,7 +439,7 @@ async function servePicture(
     const card = await materializePicture(spec, deps.loadMedia);
     const { bytes } = await deps.render(card);
     await deps.cache.put(`${route.kind}/${key}`, bytes);
-    return { status: 200, headers: headers(key), body: bytes };
+    return png(key, bytes, "drawn");
   } catch (err) {
     console.error("picture render failed", route.kind, err);
     return redirect("no-store");

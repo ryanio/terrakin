@@ -18,7 +18,7 @@ export const WORLD_ROUTES = [
     auth: "none",
     summary: "Whether the server is up, plus a fingerprint of the world.",
     description:
-      "`seq` is the number of accepted actions so far and `hash` fingerprints the whole world. Two observers with the same pair see the same world.",
+      "`seq` is the number of accepted actions so far and `hash` fingerprints the whole world. Two observers with the same pair see the same world. On terrakin.org, `build` names the build the world runs and the `Terrakin-Worker-Build` header the build of the Worker in front of it, which updates first.",
     tags: ["World"],
     responses: { 200: json(HealthResponse) },
     errors: [],

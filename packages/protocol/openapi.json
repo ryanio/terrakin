@@ -86,7 +86,7 @@
       "get": {
         "operationId": "getHealth",
         "summary": "Whether the server is up, plus a fingerprint of the world.",
-        "description": "`seq` is the number of accepted actions so far and `hash` fingerprints the whole world. Two observers with the same pair see the same world.",
+        "description": "`seq` is the number of accepted actions so far and `hash` fingerprints the whole world. Two observers with the same pair see the same world. On terrakin.org, `build` names the build the world runs and the `Terrakin-Worker-Build` header the build of the Worker in front of it, which updates first.",
         "tags": [
           "World"
         ],
@@ -28356,6 +28356,10 @@
               "seq",
               "hash"
             ]
+          },
+          "build": {
+            "description": "The deploy id of the build the world is running, which can lag a new deploy by minutes on terrakin.org. An opaque id: compare it for equality, never for order. Absent on a server that has none, like a self-hosted one.",
+            "type": "string"
           }
         },
         "required": [

@@ -21,6 +21,7 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
           hash: service.hash(),
           online: service.onlineCount(),
           ...(snapshot ? { snapshot } : {}),
+          ...(api.build ? { build: api.build } : {}),
         },
       };
     },

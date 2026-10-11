@@ -268,6 +268,11 @@ export interface ApiOptions {
   skill: string;
   /** Served at `GET /v1/openapi.json`. */
   openapi: string;
+  /**
+   * The deploy id of the build this runs, shown as `build` on `GET /v1/health`. The World object
+   * passes its own Cloudflare version id; the Node server has none and leaves it out.
+   */
+  build?: string;
   /** Actions per second allowed per resident (burst = 2x). Default from RATE_LIMITS.actions. */
   actionsPerSecond?: number;
   /** New sessions per minute allowed per IP (burst = that many, at least 5). Default from RATE_LIMITS.sessions. */
@@ -339,6 +344,7 @@ export class Api {
   readonly service: WorldService;
   readonly skill: string;
   readonly openapi: string;
+  readonly build: string | undefined;
   readonly social: SocialService | undefined;
   readonly owners: OwnerService | undefined;
   readonly limiters: Record<RateLimitName, RateLimiters>;
@@ -377,6 +383,7 @@ export class Api {
     this.service = options.service;
     this.skill = options.skill;
     this.openapi = options.openapi;
+    this.build = options.build || undefined;
     this.social = options.social;
     this.now = options.now ?? Date.now;
     this.postListeners = new PostListeners({

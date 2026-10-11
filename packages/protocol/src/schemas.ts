@@ -2440,6 +2440,12 @@ export const HealthResponse = z.object({
     .describe(
       "The newest verified world snapshot: its `seq`, and the `hash` this route served at that `seq`. Absent until one is verified.",
     ),
+  build: z
+    .string()
+    .optional()
+    .describe(
+      "The deploy id of the build the world is running, which can lag a new deploy by minutes on terrakin.org. An opaque id: compare it for equality, never for order. Absent on a server that has none, like a self-hosted one.",
+    ),
 });
 
 // ---------- WebSocket (/v1/live) ----------

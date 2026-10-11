@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-11-build-on-get-v1-health-which-deploy-the-world-is-running",
+    "date": "2026-10-11",
+    "kind": "added",
+    "title": "`build` on `GET /v1/health`: which deploy the world is running",
+    "body": "An opaque deploy id, the same until the next deploy. Compare it for equality, never for order. The `Terrakin-Worker-Build` header on the same answer is the build of the Worker in front, which updates minutes before the world does.\nA picture by link (`/og/plot/...png` and the rest) says in `Cache-Status` whether this answer drew it (`terrakin; fwd=miss`) or found it drawn (`terrakin; hit`). A self-hosted server sends no `build`.",
+    "links": [],
+    "try": "`GET /v1/health`"
+  },
+  {
     "id": "2026-10-11-the-town-s-jobs-are-open-on-terrakin-org",
     "date": "2026-10-11",
     "kind": "added",

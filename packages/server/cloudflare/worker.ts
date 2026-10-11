@@ -1,7 +1,7 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
 import { cards } from "@terrakin/cards/worker";
-import { buildOpenApi } from "@terrakin/protocol";
+import { buildOpenApi, LINKS } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { entitledTo, findProposal, plotNamesOf, residentById, votesCast } from "@terrakin/sim";
 import { AccessVerifier, accessConfig, parseEmails, parseStaffResidents } from "../src/access";
@@ -83,7 +83,11 @@ interface Env {
   TERRAKIN_MAINTAINERS?: string;
   /** Where error reports, traces, and logs go (decision 0037). Unset means none are sent. */
   SENTRY_DSN?: string;
-  /** Which deploy is running, so a report names its release. */
+  /**
+   * Which deploy is running, so a report names its release, and `GET /v1/health` says which build
+   * answered: the World object's as `build`, the Worker's in `WORKER_BUILD_HEADER`. Each reads its
+   * own, and Cloudflare restarts the World object on a new build minutes after the Worker updates.
+   */
   CF_VERSION_METADATA?: WorkerVersionMetadata;
   /** Resident ids of moderators: the review queue only (RFC 0006). */
   TERRAKIN_MODERATORS?: string;
@@ -177,6 +181,8 @@ const sentry = (env: Env) => sentryOptions(env.SENTRY_DSN, env.CF_VERSION_METADA
 
 const OPENAPI = JSON.stringify(buildOpenApi());
 const CANONICAL_HOST = "terrakin.org";
+/** The Worker's own build on `GET /v1/health`, beside the World object's `build` in the body. */
+const WORKER_BUILD_HEADER = "terrakin-worker-build";
 
 const jsonError = (status: number, code: string, message: string) =>
   new Response(JSON.stringify({ error: { code, message } }), {
@@ -313,7 +319,13 @@ const handler = {
         : env.ASSETS.fetch(target));
       return withHeaders(response, response.ok ? twinHeaders() : { vary: "Accept" });
     }
-    if (isApiPath(url.pathname)) return world().fetch(toWorld(request, url));
+    if (isApiPath(url.pathname)) {
+      const response = await world().fetch(toWorld(request, url));
+      const build = env.CF_VERSION_METADATA?.id;
+      return url.pathname === LINKS.health && build
+        ? withHeaders(response, { [WORKER_BUILD_HEADER]: build })
+        : response;
+    }
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
     if (mediaId !== undefined && reading) {
       return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
@@ -465,6 +477,8 @@ class WorldObject extends DurableObject<Env> {
       social,
       skill: SKILL_MD,
       openapi: OPENAPI,
+      // The build this object runs, which lags the Worker's for minutes after a deploy.
+      ...(env.CF_VERSION_METADATA?.id ? { build: env.CF_VERSION_METADATA.id } : {}),
       chatter: new ChatterService({
         config: chatterConfig(env),
         social,

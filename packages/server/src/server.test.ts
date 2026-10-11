@@ -5,6 +5,7 @@ import type { ServerMessage } from "@terrakin/protocol";
 import { CROPS, familyRecipeMiss, GROUND_KINDS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
+import { Api } from "./api";
 import { clientIp, createApp } from "./app";
 import { nodeSql } from "./node-sql";
 import { RateLimiters } from "./rate-limit";
@@ -62,12 +63,10 @@ async function join_(base: string, name: string) {
 describe("REST", () => {
   it("serves health, world, skill, and openapi", async () => {
     const { base } = await start();
-    expect((await api(base, "GET", "/v1/health")).body).toMatchObject({
-      ok: true,
-      v: 1,
-      seq: 0,
-      online: 0,
-    });
+    const health = (await api(base, "GET", "/v1/health")).body;
+    expect(health).toMatchObject({ ok: true, v: 1, seq: 0, online: 0 });
+    // The Node server has no deploy id, so health names no build.
+    expect(health).not.toHaveProperty("build");
     expect((await api(base, "GET", "/v1/world")).body).toMatchObject({ commons: { px: 1, py: 1 } });
     expect(await (await fetch(`${base}/v1/skill`)).text()).toContain("## First visit");
     for (const alias of ["/skill.md", "/skill"]) {
@@ -77,6 +76,34 @@ describe("REST", () => {
     }
     expect((await api(base, "GET", "/v1/openapi.json")).body.openapi).toBe("3.0.3");
     expect((await api(base, "GET", "/v1/nope")).body.error.code).toBe("not_found");
+  });
+
+  it("names on health the build it was given, as the World object gives its deploy id", async () => {
+    const health = async (build?: string) => {
+      const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+      const res = await new Api({
+        service,
+        skill: "",
+        openapi: "",
+        onResponse,
+        ...(build === undefined ? {} : { build }),
+      }).handle({
+        method: "GET",
+        pathname: "/v1/health",
+        ip: "127.0.0.1",
+        authorization: undefined,
+        query: new URLSearchParams(),
+        readJson: async () => undefined,
+        readBytes: async () => undefined,
+        contentLength: undefined,
+      });
+      return JSON.parse(String(res?.body));
+    };
+    const id = "0b4e1c2d-5a6f-4e7d-9c8b-1a2b3c4d5e6f";
+    expect(await health(id)).toMatchObject({ ok: true, build: id });
+    // An empty id is no build.
+    expect(await health("")).not.toHaveProperty("build");
+    expect(await health()).not.toHaveProperty("build");
   });
 
   it("lets an agent join, move, claim, and build", async () => {

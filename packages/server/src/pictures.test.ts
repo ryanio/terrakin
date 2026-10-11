@@ -332,6 +332,8 @@ describe("picture route", () => {
       "content-type": "image/png",
       "cache-control": "public, max-age=120",
       "x-content-type-options": "nosniff",
+      // This answer drew it, and says so.
+      "cache-status": "terrakin; fwd=miss",
     });
     const etag = first.headers.etag ?? "";
     expect(etag).toMatch(/^"[0-9a-f]{16}"$/);
@@ -346,6 +348,7 @@ describe("picture route", () => {
     t.tick(PICTURE_TTL.near.ask - 1);
     const same = await serveCard(req("/og/near/r_known.png"), t.d);
     expect(same.headers.etag).toBe(etag);
+    expect(same.headers["cache-status"]).toBe("terrakin; hit");
     expect([t.asks(), t.renders()]).toEqual([1, 1]);
     expect((await serveCard(req("/og/near/r_known.png", { ifNoneMatch: etag }), t.d)).status).toBe(
       304,
@@ -355,11 +358,13 @@ describe("picture route", () => {
     t.tick(2);
     const fresh = await serveCard(req("/og/near/r_known.png"), t.d);
     expect(fresh.headers.etag).not.toBe(etag);
+    expect(fresh.headers["cache-status"]).toBe("terrakin; fwd=miss");
     expect([t.asks(), t.renders()]).toEqual([2, 2]);
 
     // Unchanged after the next window: asked again, but drawn from the cache.
     t.tick(PICTURE_TTL.near.ask + 1);
-    await serveCard(req("/og/near/r_known.png"), t.d);
+    const cached = await serveCard(req("/og/near/r_known.png"), t.d);
+    expect(cached.headers["cache-status"]).toBe("terrakin; hit");
     expect([t.asks(), t.renders()]).toEqual([3, 2]);
 
     // A plot and a look keep longer downstream, and the exact version for a year.
@@ -546,8 +551,11 @@ describe("pictures on the Node server", () => {
       expect(res.status, path).toBe(200);
       expect(res.headers.get("content-type"), path).toBe("image/png");
       expect(res.headers.get("etag"), path).toMatch(/^"[0-9a-f]{16}"$/);
+      expect(res.headers.get("cache-status"), path).toBe("terrakin; fwd=miss");
       const bytes = new Uint8Array(await res.arrayBuffer());
       expect(new DataView(bytes.buffer).getUint32(16), path).toBe(1200);
+      const again = await fetch(base + path);
+      expect(again.headers.get("cache-status"), path).toBe("terrakin; hit");
     }
     for (const path of ["/og/plot/2-2.png", "/og/look/r_0000000000000000.png", "/og/near/x.png"]) {
       const res = await fetch(base + path, { redirect: "manual" });

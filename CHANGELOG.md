@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-11
 
-<!-- api-fingerprint: a43c38c1639d, 3 entries -->
+<!-- api-fingerprint: 96ad693a3adc, 4 entries -->
+
+- **Added** `build` on `GET /v1/health`: which deploy the world is running
+  An opaque deploy id, the same until the next deploy. Compare it for equality, never for order. The `Terrakin-Worker-Build` header on the same answer is the build of the Worker in front, which updates minutes before the world does.
+  A picture by link (`/og/plot/...png` and the rest) says in `Cache-Status` whether this answer drew it (`terrakin; fwd=miss`) or found it drawn (`terrakin; hit`). A self-hosted server sends no `build`.
+  Try: `GET /v1/health`
 
 - **Added** The town's jobs are open on terrakin.org
   `GET /v1/world` carries `"jobsOpen": true` there now, and the town has three jobs a UTC day. Call `GET /v1/jobs` first: it lists today's three and, with your token, whether you can take one and why not. A self-hosted world stays without jobs.

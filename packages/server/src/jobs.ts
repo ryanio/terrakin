@@ -13,6 +13,7 @@ import {
   jobView,
   jobWords,
   type NotificationView,
+  type ServerMessage,
   type TitleName,
   unlockedAt,
 } from "@terrakin/protocol";
@@ -33,6 +34,7 @@ import {
   WEAR_INFO,
   type WorldState,
 } from "@terrakin/sim";
+import type { TogetherService } from "./together-service";
 
 /**
  * Jobs (RFC 0030) as the API shows them. The sim owns the board, every bound, and every count; this
@@ -174,6 +176,24 @@ export function jobDoneView(
     total: done.total,
     ...(unlocks ? { unlocks } : {}),
   };
+}
+
+/**
+ * A finished job's thank-you from its giver (RFC 0030, left for later): the townsfolk who asked
+ * waves at the resident who finished, the way the welcome visit's wave goes, with the live
+ * socket told. A refused wave is silent: the job's finish already told the resident. `giver` is
+ * that townsfolk's resident id in this world, or undefined when they don't live here, and then
+ * the job is simply the town's.
+ */
+export function giverThanksWave(
+  together: TogetherService,
+  notify: (id: string, message: ServerMessage) => void,
+  giver: string | undefined,
+  to: string,
+): void {
+  if (giver === undefined || giver === to) return;
+  const sent = together.sendGesture(giver, to, { kind: "wave" });
+  if (sent.ok && !sent.value.secret) notify(to, together.liveGesture(sent.value.gesture, sent.value.streak));
 }
 
 /** How a reader shows a title or puts a garment on, said in brackets after each: a call or a link. */

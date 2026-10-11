@@ -283,21 +283,58 @@ export async function openJobsOver(http: Http): Promise<void> {
   );
 }
 
-/** The most days `jobDayOver` moves the clock: every job in the first edition comes up sooner. */
+/**
+ * The most days `jobDayOver` moves the clock. Every job in the first edition that isn't held to a
+ * season or a holiday comes up sooner: within 35 days from any day, the longest waits beside a
+ * holiday, which takes every other turn of its lane.
+ */
 const JOB_DAY_MOST = 60;
+
+/** The most days `POST /v1/test/advance-day` moves the clock in one call. */
+const ADVANCE_MOST = 400;
+
+/** Move the test clock on `days` days and answer the world's day after, or throw. */
+async function advance(http: Http, days: number): Promise<number | null> {
+  const moved = await http.call("POST", `/v1/test/advance-day?days=${days}`);
+  if (moved.status !== 200) throw new Error("the clock didn't move: is this a test server?");
+  return (moved.body as { day?: number | null }).day ?? null;
+}
 
 /**
  * Move the world's clock on, a day at a time, until `job` is on the board, and say how many days
  * that took (0 when it's up today). The board is a function of the day, so a spec or a person who
  * wants one job in particular has to be on a day that has it. It moves the clock for everyone:
  * only for a spec with a server of its own.
+ *
+ * A test world kept across restarts (`.dev-test-world/`) can be days ahead of the restarted test
+ * clock, and the world's day never goes back, so a day on the clock moves nothing until it
+ * catches up. The clock first catches up with the world's day, read from `GET /v1/world`.
  */
 export async function jobDayOver(http: Http, job: string): Promise<number> {
+  const world = (await http.call("GET", "/v1/world")).body as {
+    day?: number;
+    time?: { nowMs?: number };
+  };
+  // The server clock's UTC day, as the sim's `utcDay` reads it.
+  const clockDay =
+    world.time?.nowMs === undefined ? undefined : Math.floor(world.time.nowMs / 864e5);
+  let behind = world.day === undefined || clockDay === undefined ? 0 : world.day - clockDay;
+  while (behind > 0) {
+    const step = Math.min(behind, ADVANCE_MOST);
+    await advance(http, step);
+    behind -= step;
+  }
+  let day = world.day ?? null;
   for (let days = 0; days <= JOB_DAY_MOST; days++) {
     const board = (await http.call("GET", "/v1/jobs")).body as { jobs?: { id: string }[] };
     if (board.jobs?.some((j) => j.id === job)) return days;
-    const moved = await http.call("POST", "/v1/test/advance-day");
-    if (moved.status !== 200) throw new Error("the clock didn't move: is this a test server?");
+    const next = await advance(http, 1);
+    if (day !== null && (next === null || next <= day)) {
+      throw new Error(
+        `The world's day stayed at ${day} when the clock moved a day on, so no other day's board can come up. Stop pnpm dev:test, delete .dev-test-world/, and start it again for a fresh test world.`,
+      );
+    }
+    day = next;
   }
   throw new Error(`${job} didn't come up in ${JOB_DAY_MOST} days: are jobs open here?`);
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isDay } from "./changelog";
+import { isDay } from "./day";
 import { escapeXml } from "./discovery";
 import { absolute, LINKS, SITE, type SitePage } from "./site";
 

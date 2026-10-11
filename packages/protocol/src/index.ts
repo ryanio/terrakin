@@ -5,6 +5,7 @@ export * from "./changelog.generated";
 export * from "./checkin";
 export * from "./coins";
 export * from "./collection";
+export * from "./day";
 export * from "./devlog";
 export * from "./devlog.generated";
 export * from "./discovery";

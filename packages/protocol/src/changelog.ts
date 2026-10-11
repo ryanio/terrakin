@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isDay } from "./day";
 import { escapeXml } from "./discovery";
 import { absolute, LINKS, SITE } from "./site";
 
@@ -113,15 +114,6 @@ const FINGERPRINT = /^<!-- api-fingerprint: ([0-9a-f]{12}), (\d+) entr(?:y|ies) 
 const REMOVAL = /Earliest removal: (\d{4}-\d{2}-\d{2})/;
 /** An entry's optional last line: one example to try, with the call in a code span. */
 const TRY = /^Try: (.+)$/;
-
-/** `2026-10-04` if it is a real day in that form. */
-export function isDay(text: string): boolean {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-  if (!m) return false;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
-}
 
 /** The title as an id-safe slug: lowercase letters and digits joined by single dashes. */
 export function changelogSlug(title: string): string {

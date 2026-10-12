@@ -320,7 +320,7 @@ describe("things", () => {
 
   it("puts the server's refusals in HUD words, never its hints for agents", () => {
     const agentish =
-      /\bp[xy]\b|settle|build_starter_home|Try home|with place|and block|move [nsew]|x \d+ to/;
+      /\bp[xy]\b|settle|build_starter_home|Try home|with place|and block|move [nsew]|x \d+ to|\/v1\//;
     const cases: [string, string, { hasPlot?: boolean }][] = [
       ["no_plot", "You need a plot first. Try settle at px 3, py 3.", {}],
       ["no_hearth", "Set a hearth on your plot first. Try build_starter_home.", { hasPlot: true }],
@@ -352,6 +352,11 @@ describe("things", () => {
       ["already_home", "Your starter home is already built. Add to it with place.", {}],
       ["no_planter", "Plant in a planter. Place one with place and block planter.", {}],
       ["no_station", "Herb tea is made at a kitchen. Place one with place and block kitchen.", {}],
+      [
+        "own_plot",
+        "That's your own door, or your household's. Knock at a neighbor's: GET /v1/plots lists them.",
+        {},
+      ],
     ];
     for (const [code, message, you] of cases) {
       const line = worldProblem(code, message, you);
@@ -359,6 +364,11 @@ describe("things", () => {
       expect(line, code).not.toBe("");
     }
     expect(worldProblem("no_plot", "Try settle at px 3, py 3.")).toBe(NO_PLOT_LINE);
+    // The web offers Trick or treat at every door that isn't yours, so a refused knock was at your
+    // household's: never "your own plot".
+    expect(
+      worldProblem("own_plot", "That's your own door, or your household's. Knock at a neighbor's."),
+    ).toBe("That door is your household's. Knock at a neighbor's instead.");
     expect(worldProblem("not_your_plot", "x", { hasPlot: false })).toBe(NO_PLOT_LINE);
     // A gather on someone else's plot says whose it is in plain words, plot or no plot.
     const gather = gatherRefusal();

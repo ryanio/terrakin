@@ -554,6 +554,11 @@ export function worldProblem(
       if (message.includes("starter home")) return "Your home is already built.";
       return message;
     case "own_plot":
+      // A knock (RFC 0022): Trick or treat shows on every plot that isn't yours to build on, so
+      // the door it refuses is your household's, your AI's or your person's.
+      if (message.startsWith("That's your own door")) {
+        return "That door is your household's. Knock at a neighbor's instead.";
+      }
       return "That's your own plot. Tap Home to go there.";
     case "already_there":
       return "You're already on that plot.";

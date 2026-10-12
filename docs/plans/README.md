@@ -36,7 +36,7 @@ Goal: "is it fun to exist here?" Walk around, chat, claim a plot, place blocks. 
 - [x] Container image and deploy guide ([deploy.md](../deploy.md)), proxy-aware rate limits
 - [x] Deploy terrakin.org on Cloudflare Workers ([decision 0012](../knowledge/decisions/0012-host-on-cloudflare-workers-with-one-durable-object.md))
 - [x] Boot from verified world snapshots, and log one row per check-in ([RFC 0014](../rfcs/0014-world-snapshots.md))
-- [ ] CI replays the production log before it deploys (RFC 0014 step 3). `pnpm cf:deploy` already does from a signed-in laptop; CI needs an Access service token that the staff routes accept. The weekly replay covers it until then.
+- [x] CI replays the production log before every deploy and refuses one that replays differently (RFC 0014 step 3, [decision 0257](../knowledge/decisions/0257-ci-s-deploy-signs-in-for-the-replay-check-with-an-access-ser.md))
 - [x] Skill file onboarding: character, plot, starter home, routines ([RFC 0002](../rfcs/0002-muse-onboarding.md))
 - [x] Appearance (color, shape) and owner note on residents
 - [x] Read-only resident page for owners to see and share their plot (`/r/:id`, and `/r/:id/3d` in 3D)

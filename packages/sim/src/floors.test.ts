@@ -7,6 +7,7 @@ import { FLOORS_CONFIG, FLOORS_HASH, FLOORS_LOG } from "./fixtures/floors-log";
 import { FLOORS } from "./floors";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize, type StackKind } from "./items";
+import { currentCommand } from "./renamed";
 import { replay } from "./replay";
 import { dayOfDate } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
@@ -935,8 +936,8 @@ describe("the floors log", () => {
 
 describe("inputs logged before `floor` had its name", () => {
   // A level of a home was `storey` in inputs until `floor` took its place, and the web's build bar
-  // sent `storey: 0` with every tap on the ground floor. A world's log may hold such inputs. The
-  // key means nothing to the rules now, and absent or 0 it was always the ground floor.
+  // sent `storey: 0` with every tap on the ground floor. A world's log may hold such inputs, and
+  // `renamed.ts` reads them under today's names: absent or 0 is the ground floor.
   const ON_A_TILE = ["place", "remove", "lay", "lift"];
   const LISTS = ["blocks", "ground", "remove", "lift"] as const;
   const asLogged = (input: Input): Input => {
@@ -975,5 +976,79 @@ describe("inputs logged before `floor` had its name", () => {
     expect(differs).toEqual([]);
     // The build log's own pin, with the old key on every tile it touches.
     expect(hashWorld(replay(BUILD_CONFIG, BUILD_LOG.map(asLogged)))).toBe(BUILD_HASH);
+  });
+
+  // `add_floor` was `add_storey`, and a floor above the ground was `storey: 1`, on the tile
+  // commands and a plan's entries. A world that logged them before the rename replays them under
+  // today's names (`renamed.ts`).
+  const asStorey = (input: Input): Input => {
+    const command = input.command as unknown as Record<string, unknown> & { type: string };
+    if (command.type === "add_floor") {
+      return { ...input, command: { ...command, type: "add_storey" } as unknown as Command };
+    }
+    if (!ON_A_TILE.includes(command.type) || command.floor === undefined) return input;
+    const { floor, ...rest } = command;
+    return { ...input, command: { ...rest, storey: floor } as unknown as Command };
+  };
+
+  it("replays `add_storey` and `storey: 1` as `add_floor` and `floor: 1`", () => {
+    const logged = FLOORS_LOG.map(asStorey);
+    const renamed = logged.filter((input, i) => input !== FLOORS_LOG[i]);
+    expect(new Set(renamed.map((i) => i.command.type as string))).toEqual(
+      new Set(["add_storey", "lay", "place", "remove", "lift"]),
+    );
+    const now = createWorld(FLOORS_CONFIG);
+    const then = createWorld(FLOORS_CONFIG);
+    const differs = FLOORS_LOG.flatMap((input, i) => {
+      const a = apply(now, input);
+      const b = apply(then, logged[i] as Input);
+      return a.ok && JSON.stringify(a) === JSON.stringify(b) && hashWorld(now) === hashWorld(then)
+        ? []
+        : [i];
+    });
+    expect(differs).toEqual([]);
+    expect(hashWorld(then)).toBe(FLOORS_HASH);
+  });
+
+  it("reads a plan's `storey` entries as `floor`, and leaves today's commands as they are", () => {
+    const plan = {
+      type: "build",
+      px: 1,
+      py: 0,
+      blocks: [
+        { x: 3, y: 2, block: "stairs" },
+        { x: 1, y: 2, storey: 1, block: "glass" },
+      ],
+      ground: [{ x: 1, y: 1, storey: 1, ground: "planks" }],
+      lift: [{ x: 2, y: 1, storey: 0 }],
+    } as unknown as Command;
+    expect(currentCommand(plan)).toEqual({
+      type: "build",
+      px: 1,
+      py: 0,
+      blocks: [
+        { x: 3, y: 2, block: "stairs" },
+        { x: 1, y: 2, floor: 1, block: "glass" },
+      ],
+      ground: [{ x: 1, y: 1, floor: 1, ground: "planks" }],
+      lift: [{ x: 2, y: 1 }],
+    });
+    const today: Command = { type: "place", x: 1, y: 2, floor: 1, block: "glass" };
+    expect(currentCommand(today)).toBe(today);
+    const todayPlan = {
+      ...plan,
+      blocks: [{ x: 1, y: 2, floor: 1, block: "glass" }],
+      ground: [],
+      lift: [],
+    };
+    expect(currentCommand(todayPlan as Command)).toBe(todayPlan);
+  });
+
+  it("refuses to replay a logged command no rule knows, naming it and its seq", () => {
+    const state = replay(FLOORS_CONFIG, FLOORS_LOG);
+    const unknown = { actor: "dee", command: { type: "add_attic", px: 1, py: 0 } };
+    expect(() => apply(state, unknown as unknown as Input)).toThrow(
+      `No rule for a logged "add_attic" command, at seq ${state.seq + 1}.`,
+    );
   });
 });

@@ -164,6 +164,7 @@ import {
   type RecipesChecked,
   recipeUnknown,
 } from "./recipes";
+import { currentCommand } from "./renamed";
 import { checkRetireRepeatJoins, isRetired } from "./repeat-joins";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
@@ -426,7 +427,9 @@ const sameProfile = (a: Profile, b: Profile) =>
  *   every change, so clients can mirror the world without re-running the rules.
  */
 export function prepare(state: WorldState, input: Input): Prepared {
-  const { actor, command } = input;
+  const { actor } = input;
+  // A command logged under an old name reads as today's, so old logs replay as they were made.
+  const command = currentCommand(input.command);
   // Once presence comes with acting (RFC 0014), a known resident acting while offline comes back
   // first, in the same input. The checks run with them back in place, then everything is put back
   // as it was, so nothing changes until commit.
@@ -438,6 +441,11 @@ export function prepare(state: WorldState, input: Input): Prepared {
   let newcomer: boolean;
   try {
     checked = check(state, actor, command, back !== undefined);
+    // Every command the protocol takes has a rule, so this is a logged command no rule knows: a
+    // rename without its old name in `renamed.ts`. Replaying past it would build a different world.
+    if (checked === undefined) {
+      throw new Error(`No rule for a logged "${command.type}" command, at seq ${state.seq + 1}.`);
+    }
     // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
     // until the economy opens.
     welcome = "ok" in checked ? null : welcomeDue(state, actor, command);

@@ -27,6 +27,7 @@ import {
   isTownsfolk,
   kindsIn,
   knockedToday,
+  nextHolidayStart,
   ownDoor,
   ownsWear,
   POND,
@@ -76,6 +77,16 @@ interface TryNext {
 }
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
+
+/** How many days before Halloween the check-in says candy can be made now. */
+const HALLOWEEN_SOON_DAYS = 7;
+
+/** Halloween's first day, while it's at most HALLOWEEN_SOON_DAYS away and hasn't started. */
+function halloweenSoon(state: WorldState): number | undefined {
+  if (state.day === undefined) return undefined;
+  const first = nextHolidayStart("halloween", state.day);
+  return first - state.day <= HALLOWEEN_SOON_DAYS ? first : undefined;
+}
 
 /** How many world days ahead the check-in points to a town event the resident isn't going to. */
 const TOWN_EVENT_AHEAD_DAYS = 7;
@@ -251,6 +262,23 @@ export const TRY_NEXT: readonly TryNext[] = [
       const e = townEventAhead(state, viewer, social);
       if (!e) return "";
       return `The town hosts its own event ${e.id} in the Commons, starting ${new Date(e.startsAt).toISOString()}. Read it with GET /v1/events/${e.id} and tell your owner. If they'd like you there, say you're going with POST /v1/events/${e.id}/going: the check-in then reminds you the day before, and a notice tells you when it starts.`;
+    },
+  },
+  {
+    // The week before Halloween (RFC 0022), to a resident with a hearth who holds no candy:
+    // candy is made at a kitchen any day, so there's some ready for trick-or-treaters. Making
+    // candy closes it, and it comes back next year.
+    id: "halloween_soon",
+    commands: [],
+    open: (state, viewer) =>
+      itemsOpen(state) &&
+      halloweenSoon(state) !== undefined &&
+      !isTownsfolk(state, viewer) &&
+      state.residents[viewer]?.hearth != null &&
+      (state.items?.inventories[viewer]?.stacks.candy ?? 0) === 0,
+    line: (state) => {
+      const first = halloweenSoon(state) ?? state.day ?? 0;
+      return `Halloween starts ${dayName(first)}: the town shop sells costumes and spooky decor until ${dayName(holidayLastDay("halloween", first))}, and ${trickOrTreatNights()} (UTC) are for trick-or-treating. Candy can be made now, any day: at a kitchen by your hearth, a pumpkin and a bag of sugar make five ({"type": "craft", "recipe": "candy", "x": <x>, "y": <y>}). Ask your owner whether they'd like some ready for trick-or-treaters.`;
     },
   },
   {

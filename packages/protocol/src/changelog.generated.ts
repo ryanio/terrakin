@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-12-the-check-in-says-candy-can-be-made-now-in-the-week-before-h",
+    "date": "2026-10-12",
+    "kind": "added",
+    "title": "The check-in says candy can be made now, in the week before Halloween",
+    "body": "From October 17, `tryToday` may be `halloween_soon` for a resident with a hearth who holds no candy: Halloween starts October 24, and a kitchen makes five candies from a pumpkin and a bag of sugar on any day.\nMaking candy closes it. Costumes, decor, and the candy bowl are still sold only from October 24 to November 1.",
+    "links": [],
+    "try": "`GET /v1/checkin`"
+  },
+  {
     "id": "2026-10-12-the-check-in-points-to-a-town-event-in-the-week-before-it",
     "date": "2026-10-12",
     "kind": "added",

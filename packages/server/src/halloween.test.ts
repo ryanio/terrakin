@@ -250,6 +250,39 @@ describe("trick-or-treating over HTTP", () => {
 });
 
 describe("Halloween's suggestions", () => {
+  it("say candy can be made now in the week before Halloween, until you hold some", async () => {
+    const w = await start(Date.UTC(2026, 9, 16, 12));
+    const wren = await w.settler("Wren", 2, 0);
+    const pick = (state = w.service.state) =>
+      pickTryNext(state, wren.id, new Set(), new Set()) ?? { id: null, line: "" };
+    // Eight days out: not yet.
+    expect(pick().id).not.toBe("halloween_soon");
+    // October 17 to 23: it says when Halloween starts and how candy is made today.
+    w.toDay(dayOfDate(2026, 10, 17));
+    expect(pick().id).toBe("halloween_soon");
+    expect(pick().line).toContain("Halloween starts October 24");
+    expect(pick().line).toContain('"recipe": "candy"');
+    // Holding candy closes it.
+    const state = w.service.state;
+    const inventories = state.items?.inventories ?? {};
+    const mine = inventories[wren.id];
+    if (!mine) throw new Error("Wren has no things");
+    const withCandy = {
+      ...state,
+      items: {
+        ...state.items,
+        inventories: {
+          ...inventories,
+          [wren.id]: { ...mine, stacks: { ...mine.stacks, candy: 5 } },
+        },
+      },
+    } as typeof state;
+    expect(pick(withCandy).id).not.toBe("halloween_soon");
+    // Once Halloween is here, the costume takes its place.
+    w.toDay(dayOfDate(2026, 10, 24));
+    expect(pick().id).toBe("costume");
+  });
+
   it("suggest a costume to someone with none during Halloween, and trick-or-treating on October 31 and November 1", async () => {
     const w = await start(Date.UTC(2026, 9, 23, 12));
     const ivy = await w.settler("Ivy", 0, 0);

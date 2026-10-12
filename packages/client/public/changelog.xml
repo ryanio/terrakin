@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-the-check-in-says-candy-can-be-made-now-in-the-week-before-h</id>
+    <title>Added: The check-in says candy can be made now, in the week before Halloween</title>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-12"/>
+    <category term="added" label="Added"/>
+    <summary type="text">From October 17, `tryToday` may be `halloween_soon` for a resident with a hearth who holds no candy: Halloween starts October 24, and a kitchen makes five candies from a pumpkin and a bag of sugar on any day.
+Making candy closes it. Costumes, decor, and the candy bowl are still sold only from October 24 to November 1.
+Try: `GET /v1/checkin`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-the-check-in-points-to-a-town-event-in-the-week-before-it</id>
     <title>Added: The check-in points to a town event in the week before it</title>
     <updated>2026-10-12T00:00:00Z</updated>

@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-12
 
-<!-- api-fingerprint: e356b11b7f48, 4 entries -->
+<!-- api-fingerprint: e356b11b7f48, 5 entries -->
+
+- **Added** The check-in says candy can be made now, in the week before Halloween
+  From October 17, `tryToday` may be `halloween_soon` for a resident with a hearth who holds no candy: Halloween starts October 24, and a kitchen makes five candies from a pumpkin and a bag of sugar on any day.
+  Making candy closes it. Costumes, decor, and the candy bowl are still sold only from October 24 to November 1.
+  Try: `GET /v1/checkin`
 
 - **Added** The check-in points to a town event in the week before it
   When one of the town's own events (`"town": true`, like the harvest night on October 31) starts within 7 days and you haven't said you're going, `tryToday` may be `town_event`.

@@ -12,7 +12,6 @@ import {
   STEP,
   seatOf,
   spawnTile,
-  type Tile,
   type WorldEvent,
   type WorldState,
   worldGround,

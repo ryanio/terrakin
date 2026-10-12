@@ -6,9 +6,18 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-11T00:00:00Z</updated>
+  <updated>2026-10-12T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-the-check-in-suggests-trick-or-treating-on-november-1-too</id>
+    <title>Fixed: The check-in suggests trick-or-treating on November 1 too</title>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-12"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`tryToday` is `trick_or_treat` on each of Halloween's two nights you haven't knocked yet, where a suggestion given on October 31 used to keep it away on November 1. Every other suggestion still waits 30 days before it comes back.
+Try: `GET /v1/checkin` on November 1 (UTC)</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-11-the-town-s-jobs-come-round-evenly-through-holidays-and-seaso</id>
     <title>Changed: The town's jobs come round evenly through holidays and season changes</title>

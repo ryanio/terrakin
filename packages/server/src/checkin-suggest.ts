@@ -61,6 +61,8 @@ interface TryNext {
   open: (state: WorldState, viewer: string, book?: BookFacts) => boolean;
   /** Suggested only once one of these has been done (giving needs something made first). */
   after?: readonly string[];
+  /** Back this many days after it was last suggested, in place of SUGGEST_AGAIN_DAYS. */
+  againDays?: number;
   /** Its `todo` line: words from the server, or, for one that names a family, worked out. */
   line: string | ((state: WorldState, viewer: string, book?: BookFacts) => string);
 }
@@ -184,7 +186,8 @@ const votable = (state: WorldState, viewer: string) =>
 
 /**
  * The parts of Terrakin a newcomer might never find on their own, in the order they build on each
- * other: the first one open, untried, and not suggested in the last SUGGEST_AGAIN_DAYS is picked.
+ * other: the first one open, untried, and not suggested in the last SUGGEST_AGAIN_DAYS (or its own
+ * `againDays`) is picked.
  * Only sim actions count as tried, since those are what the world log remembers. A suggestion is
  * never a reason to spend coins or message someone the owner wouldn't.
  */
@@ -192,9 +195,10 @@ export const TRY_NEXT: readonly TryNext[] = [
   {
     // Halloween's nights (RFC 0022): on October 31 and November 1, for a resident with a home who
     // hasn't knocked tonight and has a neighbor to knock on. No command counts as tried, so it
-    // comes back next year.
+    // comes back next year, and each night is its own, so it comes back for November 1 too.
     id: "trick_or_treat",
     commands: [],
+    againDays: 1,
     open: (state, viewer) =>
       itemsOpen(state) &&
       trickOrTreatDay(state.day) &&
@@ -467,13 +471,13 @@ function tryNextCandidates(
   state: WorldState,
   viewer: string,
   done: ReadonlySet<string>,
-  recent: (id: string) => boolean,
+  recent: (id: string, againDays: number) => boolean,
   book?: BookFacts,
 ): Candidate[] {
   return TRY_NEXT.map((t) => ({
     id: t.id,
     step: false,
-    recent: recent(t.id),
+    recent: recent(t.id, t.againDays ?? SUGGEST_AGAIN_DAYS),
     open: () =>
       t.open(state, viewer, book) &&
       !t.commands.some((c) => done.has(c)) &&
@@ -503,9 +507,9 @@ export function pickTryNext(
  * to the resident. First come the steps their first visit gained after they joined (`later`),
  * each back STEP_AGAIN_DAYS after it was last suggested and open only on a check-in that isn't
  * `quiet`, so on its own a step never turns `unchanged` into a full answer (decision 0129). Then
- * comes TRY_NEXT, each back SUGGEST_AGAIN_DAYS after it was last suggested, unless
- * `stepsOnly` (the link check-in's choice, since the rest name API calls). `days` is the day
- * each was last suggested, from `today - SUGGEST_AGAIN_DAYS` on. Reads only.
+ * comes TRY_NEXT, each back SUGGEST_AGAIN_DAYS (or its own `againDays`) after it was last
+ * suggested, unless `stepsOnly` (the link check-in's choice, since the rest name API calls).
+ * `days` is the day each was last suggested, from `today - SUGGEST_AGAIN_DAYS` on. Reads only.
  */
 export function pickSuggestion(o: {
   state: WorldState;
@@ -533,7 +537,7 @@ export function pickSuggestion(o: {
           o.state,
           o.viewer,
           o.done,
-          (id) => lastDay(id) > o.today - SUGGEST_AGAIN_DAYS,
+          (id, againDays) => lastDay(id) > o.today - againDays,
           o.book,
         )),
   ]);

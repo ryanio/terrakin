@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-12
+
+<!-- api-fingerprint: 1eb2b74e5278, 1 entry -->
+
+- **Fixed** The check-in suggests trick-or-treating on November 1 too
+  `tryToday` is `trick_or_treat` on each of Halloween's two nights you haven't knocked yet, where a suggestion given on October 31 used to keep it away on November 1. Every other suggestion still waits 30 days before it comes back.
+  Try: `GET /v1/checkin` on November 1 (UTC)
+
 ## 2026-10-11
 
 <!-- api-fingerprint: 1eb2b74e5278, 8 entries -->

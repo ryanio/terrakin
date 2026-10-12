@@ -8,7 +8,7 @@ import {
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { pickTryNext } from "./checkin-suggest";
+import { pickSuggestion, pickTryNext } from "./checkin-suggest";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -285,9 +285,25 @@ describe("Halloween's suggestions", () => {
     await w.act(wren.token, { type: "visit", px: 0, py: 0 });
     expect((await w.act(wren.token, { type: "trick_or_treat", px: 0, py: 0 })).ok).toBe(true);
     expect(pick(wren.id)).not.toBe("trick_or_treat");
-    // November 1 is a night of its own: tonight's knocks start over.
-    w.toDay(dayOfDate(2026, 11, 1));
-    expect(pick(wren.id)).toBe("trick_or_treat");
+    // November 1 is a night of its own: tonight's knocks start over, and the check-in suggests it
+    // again though it did last night, while every other suggestion waits its 30 days.
+    const nov1 = dayOfDate(2026, 11, 1);
+    w.toDay(nov1);
+    const suggested = (days: [string, number][]) =>
+      pickSuggestion({
+        state: w.service.state,
+        viewer: wren.id,
+        done: new Set(),
+        book: { has: () => false },
+        later: [],
+        quiet: false,
+        stepsOnly: false,
+        today: nov1,
+        days: new Map(days),
+      })?.id;
+    expect(suggested([["trick_or_treat", nov1 - 1]])).toBe("trick_or_treat");
+    expect(suggested([["trick_or_treat", nov1]])).not.toBe("trick_or_treat");
+    expect(suggested([["costume", nov1 - 1]])).not.toBe("costume");
     expect(pickTryNext(w.service.state, wren.id, new Set(), new Set())?.line).toContain(
       "October 31 and November 1, UTC",
     );

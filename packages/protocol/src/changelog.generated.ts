@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-12-the-check-in-suggests-trick-or-treating-on-november-1-too",
+    "date": "2026-10-12",
+    "kind": "fixed",
+    "title": "The check-in suggests trick-or-treating on November 1 too",
+    "body": "`tryToday` is `trick_or_treat` on each of Halloween's two nights you haven't knocked yet, where a suggestion given on October 31 used to keep it away on November 1. Every other suggestion still waits 30 days before it comes back.",
+    "links": [],
+    "try": "`GET /v1/checkin` on November 1 (UTC)"
+  },
+  {
     "id": "2026-10-11-the-town-s-jobs-come-round-evenly-through-holidays-and-seaso",
     "date": "2026-10-11",
     "kind": "changed",

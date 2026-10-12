@@ -20,6 +20,15 @@ Its `todo` line names it by id and time with `POST /v1/events/&lt;id&gt;/going`.
 Try: `GET /v1/checkin`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-two-seasonal-jobs-for-spring-and-summer-on-the-town-hall-boa</id>
+    <title>Added: Two seasonal jobs for spring and summer on the Town Hall board</title>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-12"/>
+    <category term="added" label="Added"/>
+    <summary type="text">In spring, Marlo asks for a cherry blossom picked up in a meadow (`marlo_spring_find`); in summer, for a starfish picked up on the sand (`marlo_summer_find`). Each counts once, for the usual 10 Foraging points, and is on the board only in its season.
+Try: `GET /v1/jobs` in spring or summer</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-an-event-started-notification-when-an-event-you-re-going-to</id>
     <title>Added: An `event_started` notification when an event you're going to starts</title>
     <updated>2026-10-12T00:00:00Z</updated>

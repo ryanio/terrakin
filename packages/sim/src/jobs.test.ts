@@ -29,7 +29,7 @@ import { tileKey } from "./keys";
 import { jobEarns, PROGRESS, pointsOf, titleOf } from "./levels";
 import { JOB_WEAR, WEAR_INFO, WEAR_ITEMS, type WearItem } from "./looks";
 import { replay } from "./replay";
-import { dateOfDay, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
+import { dateOfDay, dayOfDate, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import type { TimeOfDay } from "./time-of-day";
 import {
@@ -497,6 +497,8 @@ describe("the numbers", () => {
       "marlo_sand_find",
       "marlo_forest_find",
       "marlo_autumn_find",
+      "marlo_spring_find",
+      "marlo_summer_find",
       "sable_dusk_fish",
       "sable_night_fish",
       "sable_three_fish",
@@ -507,7 +509,7 @@ describe("the numbers", () => {
       "pip_win",
     ]);
     // Every word of it: what each job asks, its skill, and when it's up.
-    expect(fnv1a(canonicalJson(TABLE))).toBe("15637afd");
+    expect(fnv1a(canonicalJson(TABLE))).toBe("578db5c8");
   });
 
   it("keep a job's id to one meaning in every edition that has it", () => {
@@ -625,6 +627,8 @@ describe.each(EDITIONS)("the board in edition %i", (shipped) => {
       "marlo_sand_find",
       "marlo_forest_find",
       "marlo_autumn_find",
+      "marlo_spring_find",
+      "marlo_summer_find",
     ]);
   });
 
@@ -685,7 +689,12 @@ describe.each(EDITIONS)("the board in edition %i", (shipped) => {
       }
     }
     expect(missing).toEqual([]);
-    expect(SEASONS.filter((s) => TABLE.some((j) => j.season === s))).toEqual(["autumn", "winter"]);
+    expect(SEASONS.filter((s) => TABLE.some((j) => j.season === s))).toEqual([
+      "spring",
+      "summer",
+      "autumn",
+      "winter",
+    ]);
   });
 
   it("has a holiday's jobs only while it runs, and each one comes up every time it does", () => {
@@ -783,10 +792,12 @@ describe("a regular job's wait for the board", () => {
       bram_barrel: 23,
       ansel_bouquet: 23,
       ansel_flower_box: 23,
-      marlo_find: 6,
-      marlo_sand_find: 6,
-      marlo_forest_find: 6,
+      marlo_find: 9,
+      marlo_sand_find: 9,
+      marlo_forest_find: 9,
       marlo_autumn_find: 6,
+      marlo_spring_find: 7,
+      marlo_summer_find: 7,
       sable_dusk_fish: 9,
       sable_night_fish: 9,
       sable_three_fish: 9,
@@ -842,12 +853,32 @@ describe("a walk that becomes a find, from the second edition", () => {
 });
 
 describe("an edition's boards", () => {
+  // A season's jobs may join the table before that season first comes round in a live world
+  // (decision 0268). That moves the four-year pin, never the logged days': terrakin.org opened
+  // jobs on October 11, 2026, and this pin holds its boards to the end of the next winter.
+  it("stay as they were for every day terrakin.org has logged, whatever a later season adds", () => {
+    const live = dayOfDate(2026, 10, 11);
+    const logged = Array.from({ length: dayOfDate(2027, 3, 1) - live }, (_, i) => live + i);
+    const boards = (shipped: number) => {
+      const world = { ...opened, jobs: { ...opened.jobs, opened: live, edition: shipped } };
+      return fnv1a(
+        canonicalJson(
+          logged.map((day) => jobsOn({ ...world, day } as WorldState).map((j) => j.id)),
+        ),
+      );
+    };
+    expect(Object.fromEntries(EDITIONS.map((n) => [n, boards(n)]))).toEqual({
+      1: "c5696559",
+      2: "b4e03423",
+    });
+  });
+
   it("stay as they were for every day of four years, since a live world's logged take_job reads them", () => {
     const boards = (shipped: number) =>
       fnv1a(canonicalJson(DAYS.map((day) => boardIn(shipped)(day).map((j) => j.id))));
     expect(Object.fromEntries(EDITIONS.map((n) => [n, boards(n)]))).toEqual({
-      1: "e66967b1",
-      2: "0501f031",
+      1: "1b837457",
+      2: "c8ccdd8c",
     });
   });
 });
@@ -1219,6 +1250,24 @@ describe("a deed job", () => {
     expect(held(w, "ada")).toEqual({ job: "marlo_autumn_find", day: w.day() });
     expect(gather(lying("marlo_autumn_find", fallen))).toMatchObject([
       { type: "job_done", job: "marlo_autumn_find", skill: "foraging" },
+    ]);
+    // His spring job wants a cherry blossom, and no other find will do.
+    w.toDay();
+    const blossom = (kind: string) => kind === "cherry_blossom";
+    const notBlossom = lying("marlo_spring_find", (kind) => isFindKind(kind) && !blossom(kind));
+    expect(gather(notBlossom)).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "marlo_spring_find", day: w.day() });
+    expect(gather(lying("marlo_spring_find", blossom))).toMatchObject([
+      { type: "job_done", job: "marlo_spring_find", skill: "foraging" },
+    ]);
+    // His summer job wants a starfish, and no other find will do.
+    w.toDay();
+    const star = (kind: string) => kind === "starfish";
+    const notStar = lying("marlo_summer_find", (kind) => isFindKind(kind) && !star(kind));
+    expect(gather(notStar)).toEqual([]);
+    expect(held(w, "ada")).toEqual({ job: "marlo_summer_find", day: w.day() });
+    expect(gather(lying("marlo_summer_find", star))).toMatchObject([
+      { type: "job_done", job: "marlo_summer_find", skill: "foraging" },
     ]);
   });
 });

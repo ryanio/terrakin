@@ -302,6 +302,20 @@ const FIRST_TABLE: readonly Job[] = [
     deed: { type: "find", count: 1, kinds: ["chestnut", "maple_leaf"] },
     season: "autumn",
   },
+  {
+    id: "marlo_spring_find",
+    giver: "marlo",
+    skill: "foraging",
+    deed: { type: "find", count: 1, kinds: ["cherry_blossom"] },
+    season: "spring",
+  },
+  {
+    id: "marlo_summer_find",
+    giver: "marlo",
+    skill: "foraging",
+    deed: { type: "find", count: 1, kinds: ["starfish"] },
+    season: "summer",
+  },
   // Sable, for fish.
   {
     id: "sable_dusk_fish",
@@ -344,6 +358,10 @@ const FIRST_TABLE: readonly Job[] = [
  * The second edition has the first one's jobs and changes how a lane's regular jobs take their
  * turns (`carriesOn`): each one is the next in table order after the last one the lane gave, so a
  * holiday or a season's edge never sends the lane back to a job it just gave or past one it hadn't.
+ *
+ * A season's jobs may be added to the shared table before that season first comes round in a live
+ * world (RFC 0030's softer case, decision 0268), since no logged day reads them. `jobs.test.ts`
+ * pins the boards of every day a live world has logged, so an addition that moves one fails.
  */
 export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
   1: FIRST_TABLE,

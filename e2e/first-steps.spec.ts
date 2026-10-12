@@ -78,12 +78,13 @@ test("a newcomer's first steps tick off on the home wall as they're done", async
     // Gather all takes the chip's slot while anything lies within reach; it's a first thing too.
     const gatherAll = page.locator("#world-gather");
     const chip = page.locator("#world-next");
+    // Gather all can show up after the chip did, once the world has worked out what lies within
+    // reach, so the click is what's retried: until it lands, Gather all is pressed first.
     await expect(async () => {
       if (await gatherAll.isVisible()) await gatherAll.click({ timeout: 2_000 });
       await expect(chip).toHaveText("Plant a seed", { timeout: 3_000 });
-      await expect(chip).toBeVisible({ timeout: 1_000 });
-    }).toPass({ timeout: 20_000 });
-    await chip.click();
+      await chip.click({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
     await expect(page.getByText(/You planted an? .+ seed by your hearth\./)).toBeVisible();
     const steps = (await read(page.request, fern.token, "/v1/first-visit")).steps as {
       id: string;

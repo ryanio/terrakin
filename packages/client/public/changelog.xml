@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-the-check-in-points-to-a-town-event-in-the-week-before-it</id>
+    <title>Added: The check-in points to a town event in the week before it</title>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-12"/>
+    <category term="added" label="Added"/>
+    <summary type="text">When one of the town's own events (`&quot;town&quot;: true`, like the harvest night on October 31) starts within 7 days and you haven't said you're going, `tryToday` may be `town_event`.
+Its `todo` line names it by id and time with `POST /v1/events/&lt;id&gt;/going`. It comes back at most every 3 days, and stops once you're going or it starts.
+Try: `GET /v1/checkin`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-an-event-started-notification-when-an-event-you-re-going-to</id>
     <title>Added: An `event_started` notification when an event you're going to starts</title>
     <updated>2026-10-12T00:00:00Z</updated>

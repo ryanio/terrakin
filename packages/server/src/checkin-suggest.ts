@@ -35,6 +35,7 @@ import {
   RECIPES,
   type Season,
   seasonOf,
+  TOWN_ACTOR,
   TRICK_OR_TREAT,
   trickOrTreatDay,
   trickOrTreatNights,
@@ -51,6 +52,11 @@ export interface BookFacts {
   has(kind: ItemKind): boolean;
 }
 
+/** What a suggestion may know of the resident beyond the world: the events they said they're going to. */
+export interface SocialFacts {
+  going: ReadonlySet<string>;
+}
+
 /** One thing to try, suggested once on a resident's first check-in of a UTC day. */
 interface TryNext {
   /** What `tryToday` says. Stable: agents may key on it. */
@@ -58,16 +64,40 @@ interface TryNext {
   /** Any of these accepted once counts as tried. */
   commands: readonly string[];
   /** Whether it's open in this world, and to this resident now. */
-  open: (state: WorldState, viewer: string, book?: BookFacts) => boolean;
+  open: (state: WorldState, viewer: string, book?: BookFacts, social?: SocialFacts) => boolean;
   /** Suggested only once one of these has been done (giving needs something made first). */
   after?: readonly string[];
   /** Back this many days after it was last suggested, in place of SUGGEST_AGAIN_DAYS. */
   againDays?: number;
   /** Its `todo` line: words from the server, or, for one that names a family, worked out. */
-  line: string | ((state: WorldState, viewer: string, book?: BookFacts) => string);
+  line:
+    | string
+    | ((state: WorldState, viewer: string, book?: BookFacts, social?: SocialFacts) => string);
 }
 
 const itemsOpen = (state: WorldState) => state.items !== undefined;
+
+/** How many world days ahead the check-in points to a town event the resident isn't going to. */
+const TOWN_EVENT_AHEAD_DAYS = 7;
+
+/**
+ * The next town event (RFC 0010, decision 0081) that starts within TOWN_EVENT_AHEAD_DAYS and that
+ * the resident hasn't said they're going to. Without the social facts nobody is going, so none.
+ */
+function townEventAhead(state: WorldState, viewer: string, social?: SocialFacts) {
+  if (!social || state.day === undefined || isTownsfolk(state, viewer)) return undefined;
+  const today = state.day;
+  return (state.events?.list ?? [])
+    .filter(
+      (e) =>
+        e.host === TOWN_ACTOR &&
+        e.status === "scheduled" &&
+        e.day >= today &&
+        e.day < today + TOWN_EVENT_AHEAD_DAYS &&
+        !social.going.has(e.id),
+    )
+    .sort((a, b) => a.startsAt - b.startsAt)[0];
+}
 
 /**
  * The plot a resident calls home, when it could take an upstairs today (RFC 0028): theirs to build
@@ -207,6 +237,21 @@ export const TRY_NEXT: readonly TryNext[] = [
       knockedToday(state, viewer).length === 0 &&
       Object.values(state.plots).some((p) => !ownDoor(state, viewer, p)),
     line: `It's a Halloween night (${trickOrTreatNights()}, UTC): go trick-or-treating. Visit a neighbor ({"type": "visit", "px": <px>, "py": <py>}; GET /v1/plots lists them) and knock: {"type": "trick_or_treat", "px": <px>, "py": <py>}. Each knock gets a candy from whoever is home, their candy bowl, or the town. Once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight. Tell your owner how the night went.`,
+  },
+  {
+    // A town event coming up this week that the resident isn't going to (RFC 0010): by id and
+    // time, never its words. Saying you're going is a social row, not a command, so nothing
+    // counts as tried; it comes back every few days until they're going or it starts, and from
+    // then the going path takes over (the day-before line, then the event_started notice).
+    id: "town_event",
+    commands: [],
+    againDays: 3,
+    open: (state, viewer, _book, social) => townEventAhead(state, viewer, social) !== undefined,
+    line: (state, viewer, _book, social) => {
+      const e = townEventAhead(state, viewer, social);
+      if (!e) return "";
+      return `The town hosts its own event ${e.id} in the Commons, starting ${new Date(e.startsAt).toISOString()}. Read it with GET /v1/events/${e.id} and tell your owner. If they'd like you there, say you're going with POST /v1/events/${e.id}/going: the check-in then reminds you the day before, and a notice tells you when it starts.`;
+    },
   },
   {
     // Halloween's costumes (RFC 0022), for a resident who owns none: no command counts as tried,
@@ -473,16 +518,17 @@ function tryNextCandidates(
   done: ReadonlySet<string>,
   recent: (id: string, againDays: number) => boolean,
   book?: BookFacts,
+  social?: SocialFacts,
 ): Candidate[] {
   return TRY_NEXT.map((t) => ({
     id: t.id,
     step: false,
     recent: recent(t.id, t.againDays ?? SUGGEST_AGAIN_DAYS),
     open: () =>
-      t.open(state, viewer, book) &&
+      t.open(state, viewer, book, social) &&
       !t.commands.some((c) => done.has(c)) &&
       (t.after === undefined || t.after.some((c) => done.has(c))),
-    line: () => (typeof t.line === "string" ? t.line : t.line(state, viewer, book)),
+    line: () => (typeof t.line === "string" ? t.line : t.line(state, viewer, book, social)),
   }));
 }
 
@@ -497,8 +543,11 @@ export function pickTryNext(
   done: ReadonlySet<string>,
   recent: Pick<ReadonlySet<string>, "has">,
   book?: BookFacts,
+  social?: SocialFacts,
 ): { id: string; line: string } | null {
-  const picked = firstOpen(tryNextCandidates(state, viewer, done, (id) => recent.has(id), book));
+  const picked = firstOpen(
+    tryNextCandidates(state, viewer, done, (id) => recent.has(id), book, social),
+  );
   return picked && { id: picked.id, line: picked.line };
 }
 
@@ -516,6 +565,7 @@ export function pickSuggestion(o: {
   viewer: string;
   done: ReadonlySet<string>;
   book: BookFacts;
+  social: SocialFacts;
   later: readonly StepLeft[];
   quiet: boolean;
   stepsOnly: boolean;
@@ -539,6 +589,7 @@ export function pickSuggestion(o: {
           o.done,
           (id, againDays) => lastDay(id) > o.today - againDays,
           o.book,
+          o.social,
         )),
   ]);
 }

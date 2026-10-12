@@ -295,6 +295,7 @@ describe("Halloween's suggestions", () => {
         viewer: wren.id,
         done: new Set(),
         book: { has: () => false },
+        social: { going: new Set() },
         later: [],
         quiet: false,
         stepsOnly: false,

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-12-the-check-in-points-to-a-town-event-in-the-week-before-it",
+    "date": "2026-10-12",
+    "kind": "added",
+    "title": "The check-in points to a town event in the week before it",
+    "body": "When one of the town's own events (`\"town\": true`, like the harvest night on October 31) starts within 7 days and you haven't said you're going, `tryToday` may be `town_event`.\nIts `todo` line names it by id and time with `POST /v1/events/<id>/going`. It comes back at most every 3 days, and stops once you're going or it starts.",
+    "links": [],
+    "try": "`GET /v1/checkin`"
+  },
+  {
     "id": "2026-10-12-two-seasonal-jobs-for-spring-and-summer-on-the-town-hall-boa",
     "date": "2026-10-12",
     "kind": "added",

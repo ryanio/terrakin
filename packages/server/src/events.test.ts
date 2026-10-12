@@ -9,6 +9,7 @@ import {
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
+import { pickSuggestion } from "./checkin-suggest";
 import { countGuests, EventsSocial, eventWords } from "./events";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
@@ -357,6 +358,55 @@ describe("the town's calendar", () => {
     expect(logged()).toHaveLength(1);
     // It runs on its evening, and the Commons is the town's then.
     expect(again.nextEventWake()).toBe(Date.UTC(2026, 9, 31, 18));
+  });
+});
+
+describe("the check-in pointing to a town event", () => {
+  it("suggests the harvest night in the week before it, every few days, until you're going", async () => {
+    const t = await start({ townEvents: TOWN_EVENTS });
+    const pip = await t.resident("Pip");
+    const juniper = await t.resident("Juniper");
+    t.service.syncTownsfolk(new Set([juniper.id]));
+    const suggest = (
+      viewer: string,
+      going: ReadonlySet<string> = new Set(),
+      days = new Map<string, number>(),
+    ) =>
+      pickSuggestion({
+        state: t.service.state,
+        viewer,
+        done: new Set(),
+        book: { has: () => false },
+        social: { going },
+        later: [],
+        quiet: false,
+        stepsOnly: false,
+        today: t.service.state.day ?? 0,
+        days,
+      });
+    // October 24: logged, a week and a day out, so not yet.
+    t.later(Date.UTC(2026, 9, 24, 0, 1) - t.now());
+    const harvest = t.service.state.events?.list.find((e) => e.status === "scheduled");
+    expect(harvest).toBeDefined();
+    const id = harvest?.id ?? "";
+    expect(suggest(pip.id)?.id).not.toBe("town_event");
+    // October 25 to 31: within the week. The line names it by id and time, with the call to go.
+    t.later(DAY_MS);
+    const picked = suggest(pip.id);
+    expect(picked?.id).toBe("town_event");
+    expect(picked?.line).toContain(`POST /v1/events/${id}/going`);
+    expect(picked?.line).toContain("2026-10-31T18:00:00.000Z");
+    expect(picked?.line).not.toContain("Harvest night");
+    // Going, townsfolk, or suggested in the last three days: none.
+    expect(suggest(pip.id, new Set([id]))?.id).not.toBe("town_event");
+    expect(suggest(juniper.id)?.id).not.toBe("town_event");
+    const today = t.service.state.day ?? 0;
+    expect(suggest(pip.id, new Set(), new Map([["town_event", today]]))?.id).not.toBe("town_event");
+    t.later(3 * DAY_MS);
+    expect(suggest(pip.id, new Set(), new Map([["town_event", today]]))?.id).toBe("town_event");
+    // Once it starts, the going path and the live line take over.
+    t.later(Date.UTC(2026, 9, 31, 18, 1) - t.now());
+    expect(suggest(pip.id)?.id).not.toBe("town_event");
   });
 });
 

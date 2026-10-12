@@ -42,27 +42,55 @@ describe("first steps in plain words", () => {
     });
     expect(rows.map((r) => r.id)).toEqual([
       "plot",
-      "plot_name",
       "home",
+      "garden",
+      "plot_name",
+      "gather",
+      "pet",
       "handle",
       "bio",
       "look",
-      "pet",
-      "garden",
-      "gather",
       "post",
       "follow",
     ]);
     expect(rows.filter((r) => r.done).map((r) => r.id)).toEqual(["plot", "gather"]);
     expect(stepRound(rows).line).toBe("2 of 3 done");
-    expect(nextStep(rows)?.name).toBe("Name your plot");
-    // Where levels are open, making a first thing comes after gathering what it takes.
-    const withLevels = stepRows({
-      steps: steps([], true),
-      tries: [{ id: "gather", done: false }],
+    expect(nextStep(rows)?.name).toBe("Build a home");
+  });
+
+  it("leads a home straight to a first thing and the town's jobs, before the profile's chores", () => {
+    // Where levels and jobs are open, as at terrakin.org.
+    const rows = stepRows({
+      steps: steps(["plot", "home"], true),
+      tries: [
+        { id: "gather", done: false },
+        { id: "jobs", done: false },
+        { id: "pet", done: false },
+      ],
       tryToday: null,
     });
-    expect(withLevels.map((r) => r.id).slice(-4)).toEqual(["gather", "make", "post", "follow"]);
+    expect(nextStep(rows)?.chip).toBe("Plant a seed");
+    expect(rows.map((r) => r.id).slice(0, 9)).toEqual([
+      "plot",
+      "home",
+      "garden",
+      "plot_name",
+      "gather",
+      "jobs",
+      "make",
+      "pet",
+      "handle",
+    ]);
+    // Once the seed is in, the next round is naming the plot, gathering, and the jobs board.
+    const planted = stepRows({
+      steps: steps(["plot", "home", "garden"], true),
+      tries: [
+        { id: "gather", done: false },
+        { id: "jobs", done: false },
+      ],
+      tryToday: null,
+    });
+    expect(stepRound(planted).left.map((r) => r.id)).toEqual(["plot_name", "gather", "jobs"]);
   });
 
   it("has no next step once everything is done, and nothing for townsfolk", () => {
@@ -104,13 +132,13 @@ describe("first steps in plain words", () => {
     const at = (done: string[]) =>
       stepRound(stepRows({ steps: steps(done), tries: [], tryToday: null }));
     expect(at([]).line).toBe("0 of 3 done");
-    expect(at(["handle"]).left.map((r) => r.id)).toEqual(["plot", "plot_name"]);
-    const next = at(["plot", "plot_name", "home"]);
+    expect(at(["handle"]).left.map((r) => r.id)).toEqual(["plot", "home"]);
+    const next = at(["plot", "home", "garden"]);
     expect(next.line).toBe("Nice, three more. 0 of 3 done");
-    expect(next.left.map((r) => r.id)).toEqual(["handle", "bio", "look"]);
-    const last = at(["plot", "plot_name", "home", "handle", "bio", "look"]);
-    expect(last.left.map((r) => r.id)).toEqual(["garden", "post", "follow"]);
-    expect(at(["plot", "plot_name", "home", "handle", "bio", "look", "garden"]).line).toBe(
+    expect(next.left.map((r) => r.id)).toEqual(["plot_name", "handle", "bio"]);
+    const last = at(["plot", "home", "garden", "plot_name", "handle", "bio"]);
+    expect(last.left.map((r) => r.id)).toEqual(["look", "post", "follow"]);
+    expect(at(["plot", "home", "garden", "plot_name", "handle", "bio", "look"]).line).toBe(
       "1 of 3 done",
     );
   });
@@ -120,5 +148,6 @@ describe("first steps in plain words", () => {
     expect(stepHref("world", "r_ab12")).toBe("/world");
     expect(stepHref("visit", "r_ab12")).toBe("/visit");
     expect(stepHref("wall", "r_ab12")).toBe("/");
+    expect(stepHref("town", "r_ab12")).toBe("/town#jobs");
   });
 });

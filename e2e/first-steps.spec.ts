@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { join, signIn, watchErrors } from "./support";
+import { act, freePlots, join, read, settleFree, signIn, watchErrors } from "./support";
 
 /**
  * A new person's first steps on a phone: the world's chip leaves the first to Claim plot, the
  * home wall's Getting started card lists the first three with a link each, a handle and a bio
- * written on their profile tick off there and count toward the round, and hiding the card keeps
- * it away on this device.
+ * written on their profile tick off there and count toward the round, hiding the card keeps
+ * it away on this device, and once she has a home, away from her hearth, the chip plants a first
+ * seed in one tap (decision 0269).
  */
 test("a newcomer's first steps tick off on the home wall as they're done", async ({ page }) => {
   const errors = watchErrors(page);
@@ -59,6 +60,38 @@ test("a newcomer's first steps tick off on the home wall as they're done", async
     await page.reload();
     await expect(page.locator("form.composer")).toBeVisible();
     await expect(card).toHaveCount(0);
+  });
+
+  await test.step("with a home, the chip plants a first seed in one tap, from away from the hearth", async () => {
+    await settleFree(page.request, fern.token, await freePlots(page.request, 5, "top-right"));
+    expect((await act(page.request, fern.token, { type: "build_starter_home" })).ok).toBe(true);
+    // A step south of the hearth, out the hut's open middle, so the chip has to go home first.
+    type Spot = { id: string; x: number; y: number; hearth?: { x: number; y: number } };
+    const me = async () =>
+      ((await read(page.request, fern.token, "/v1/world")).residents as Spot[]).find(
+        (r) => r.id === fern.id,
+      );
+    const hearth = (await me())?.hearth;
+    expect(hearth).toBeDefined();
+    expect((await act(page.request, fern.token, { type: "move", dir: "s" })).ok).toBe(true);
+    await page.goto("/world");
+    // Gather all takes the chip's slot while anything lies within reach; it's a first thing too.
+    const gatherAll = page.locator("#world-gather");
+    const chip = page.locator("#world-next");
+    await expect(async () => {
+      if (await gatherAll.isVisible()) await gatherAll.click({ timeout: 2_000 });
+      await expect(chip).toHaveText("Plant a seed", { timeout: 3_000 });
+      await expect(chip).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
+    await chip.click();
+    await expect(page.getByText(/You planted an? .+ seed by your hearth\./)).toBeVisible();
+    const steps = (await read(page.request, fern.token, "/v1/first-visit")).steps as {
+      id: string;
+      done: boolean;
+    }[];
+    expect(steps.find((s) => s.id === "garden")?.done).toBe(true);
+    const after = await me();
+    expect({ x: after?.x, y: after?.y }).toEqual(hearth);
   });
 
   expect(errors).toEqual([]);

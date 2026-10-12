@@ -10,9 +10,9 @@ import { profilePath } from "@terrakin/ui/paths";
 
 /**
  * Where a step is done: in the world (what the chip does there is `world-next-step.ts`'s), on
- * your own profile, on the plots to visit, or on the home wall.
+ * your own profile, on the plots to visit, on the home wall, or at the Town Hall's jobs.
  */
-export type StepPlace = "world" | "profile" | "visit" | "wall";
+export type StepPlace = "world" | "profile" | "visit" | "wall" | "town";
 
 export interface StepWords {
   name: string;
@@ -28,8 +28,9 @@ export interface StepWords {
 
 /**
  * The words for each step, in the order the card lists them: the server's first-visit steps by
- * their ids, and three of the check-in's suggestions (`pet`, `gather`, `visit`) where they fit a
- * first session. An id not here isn't shown.
+ * their ids, and four of the check-in's suggestions (`gather`, `jobs`, `pet`, `visit`) where they
+ * fit a first session. An id not here isn't shown. A home leads straight to a first thing grown,
+ * picked up, or made, and to the town's jobs, before the profile's chores (decision 0269).
  */
 export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
   plot: {
@@ -40,6 +41,22 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     icon: "flag",
     place: "world",
   },
+  home: {
+    name: "Build a home",
+    chip: "Build a home",
+    hint: "A starter home with a hearth, free.",
+    verb: "Build",
+    icon: "home",
+    place: "world",
+  },
+  garden: {
+    name: "Plant a first seed",
+    chip: "Plant a seed",
+    hint: "One tap in the world plants it by your hearth.",
+    verb: "Plant",
+    icon: "sprout",
+    place: "world",
+  },
   plot_name: {
     name: "Name your plot",
     chip: "Name your plot",
@@ -48,13 +65,37 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     icon: "signpost",
     place: "world",
   },
-  home: {
-    name: "Build a home",
-    chip: "Build a home",
-    hint: "A starter home with a hearth, free.",
-    verb: "Build",
-    icon: "home",
+  gather: {
+    name: "Gather a branch or a stone",
+    chip: "Gather",
+    hint: "Tap one lying near you in the world.",
+    verb: "Gather",
+    icon: "gather",
     place: "world",
+  },
+  jobs: {
+    name: "Take a town job",
+    chip: "Today's jobs",
+    hint: "The townsfolk ask for a hand each day.",
+    verb: "See jobs",
+    icon: "town",
+    place: "town",
+  },
+  make: {
+    name: "Make a first thing",
+    chip: "Make a thing",
+    hint: "Gather 3 branches, place a workbench from Build, then tap it.",
+    verb: "Make",
+    icon: "workbench",
+    place: "world",
+  },
+  pet: {
+    name: "Adopt a pet",
+    chip: "Adopt a pet",
+    hint: "Free, and yours for good. On your profile.",
+    verb: "Adopt",
+    icon: "paw",
+    place: "profile",
   },
   handle: {
     name: "Pick a handle",
@@ -79,38 +120,6 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
     verb: "Style",
     icon: "smile",
     place: "profile",
-  },
-  pet: {
-    name: "Adopt a pet",
-    chip: "Adopt a pet",
-    hint: "Free, and yours for good. On your profile.",
-    verb: "Adopt",
-    icon: "paw",
-    place: "profile",
-  },
-  garden: {
-    name: "Plant a first seed",
-    chip: "Plant a seed",
-    hint: "Place a planter from Build, then tap it.",
-    verb: "Plant",
-    icon: "sprout",
-    place: "world",
-  },
-  gather: {
-    name: "Gather a branch or a stone",
-    chip: "Gather",
-    hint: "Tap one lying near you in the world.",
-    verb: "Gather",
-    icon: "gather",
-    place: "world",
-  },
-  make: {
-    name: "Make a first thing",
-    chip: "Make a thing",
-    hint: "Gather 3 branches, place a workbench from Build, then tap it.",
-    verb: "Make",
-    icon: "workbench",
-    place: "world",
   },
   visit: {
     name: "Visit a neighbor's plot",
@@ -144,7 +153,7 @@ export const CHIP_MAX = 14;
 /** The most characters a verb has, so every step's link is about the same width. */
 export const VERB_MAX = 8;
 
-/** The order the card lists steps in: setting up first, then out and about. */
+/** The order the card lists steps in: a home and a first thing first, then the rest. */
 const ORDER = Object.keys(STEP_WORDS);
 
 export interface StepRow extends StepWords {
@@ -204,12 +213,13 @@ export function stepRound(rows: readonly StepRow[]): StepRound {
 }
 
 /**
- * Where a step's link goes: the world, your own profile, the plots to visit, or the home wall.
- * `me` is your resident id.
+ * Where a step's link goes: the world, your own profile, the plots to visit, the home wall, or
+ * the Town Hall's jobs. `me` is your resident id.
  */
 export function stepHref(place: StepPlace, me: string): string {
   if (place === "profile") return profilePath(me);
   if (place === "visit") return "/visit";
+  if (place === "town") return "/town#jobs";
   if (place === "wall") return "/";
   return "/world";
 }

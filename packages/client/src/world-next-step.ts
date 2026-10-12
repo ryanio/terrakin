@@ -4,17 +4,24 @@
  * where Gather all, Pat, and Fish show, only while none of them does (style.css hides it then), and
  * keeps to their width, so it never covers more of the map than they do. While the next step is a
  * plot it stays away, since Claim plot is on screen beside it (decision 0234).
- * A tap does it or opens it: the plot name sheet, a starter home, the build bar, or
- * the page where it's done. It asks the server while the world is on screen and every so often
+ * A tap does it or opens it: the plot name sheet, a starter home, a first seed planted by the
+ * hearth (`first-plant.ts`: home, a planter inside the starter hut, and the seed, each sent and
+ * checked like any action), the build bar, or the page where it's done. It asks the server while the world is on screen and every so often
  * after, since steps are done in many places.
  */
+import type { Action } from "@terrakin/protocol";
+import { canBuildOn } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { everyVisible } from "@terrakin/ui/poll";
-import { toast } from "@terrakin/ui/ui";
+import { whileBusy } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { firstVisitApi } from "./api/first-visit";
+import { inventoryApi } from "./api/inventory";
 import { residentsApi } from "./api/residents";
+import { actProblem, worldApi } from "./api/world";
+import { planFirstPlanting, plantedLine } from "./first-plant";
 import { nextStep, type StepRow, stepHref, stepRows } from "./first-steps";
+import type { Mirror } from "./mirror";
 import { savedResidentId, savedToken } from "./net";
 import { openPlotNameSheet } from "./plot-name-sheet";
 
@@ -31,11 +38,69 @@ function press(id: string): boolean {
   return true;
 }
 
+/** Send one action; its refusal, if any, in the server's words. */
+async function send(action: Action): Promise<string | null> {
+  return actProblem(await worldApi.act(action));
+}
+
 /**
- * Put the chip in the world's HUD. `navigate` goes to another page of the site. Call once, when
- * the world's code loads.
+ * Plant a first seed by `me`'s hearth: home first when away from it, then a planter inside the
+ * starter hut when there's no empty one within reach, then the seed that grows soonest. False
+ * when there's no plan for it (no hearth, no seeds, no room), so the chip says how instead.
  */
-export function mountNextStep(o: { navigate: (path: string) => void }) {
+async function plantFirst(m: Mirror, me: string, say: (line: string) => void): Promise<boolean> {
+  const r = m.residents.get(me);
+  const hearth = r?.hearth;
+  if (!r || !hearth) return false;
+  if (r.x !== hearth.x || r.y !== hearth.y || r.floor !== undefined) {
+    const problem = await send({ type: "home" });
+    if (problem) {
+      say(problem);
+      return true;
+    }
+  }
+  const inv = await inventoryApi.inventory();
+  if (!inv.ok) return false;
+  const counts = new Map<string, number>(
+    (inv.data.inventory?.stacks ?? []).map((s) => [s.kind, s.count]),
+  );
+  const plan = planFirstPlanting({
+    config: m.config,
+    hearth,
+    blocks: m.blocks,
+    crops: m.crops,
+    mine: (t) => {
+      const ownerId = m.ownerAt(t.x, t.y);
+      return canBuildOn(
+        ownerId ? { ownerId, coOwners: [...m.coOwnersAt(t.x, t.y)] } : undefined,
+        me,
+      );
+    },
+    standing: (t) =>
+      [...m.residents.values()].some(
+        (o) => o.online && o.x === t.x && o.y === t.y && o.floor === undefined,
+      ),
+    held: (kind) => counts.get(kind) ?? 0,
+  });
+  if ("problem" in plan) return false;
+  const { tile, crop } = plan;
+  const problem =
+    (plan.place ? await send({ type: "place", ...tile, block: "planter" }) : null) ??
+    (await send({ type: "plant", ...tile, seed: crop }));
+  say(problem ?? plantedLine(crop));
+  return true;
+}
+
+/**
+ * Put the chip in the world's HUD. `navigate` goes to another page of the site, `mirror` is the
+ * world as this page has it, and `toast` is the world's own toast, which shows over the map. Call
+ * once, when the world's code loads.
+ */
+export function mountNextStep(o: {
+  navigate: (path: string) => void;
+  mirror: () => Mirror | undefined;
+  toast: (line: string) => void;
+}) {
   const hud = document.getElementById("hud");
   const near = document.querySelector(".world-near");
   if (!hud || !near) return;
@@ -73,6 +138,16 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
     else press("claim");
   }
 
+  async function plantOrSay(row: StepRow, me: string) {
+    const m = o.mirror();
+    const planted = m ? await whileBusy(chip, () => plantFirst(m, me, o.toast)) : false;
+    if (!planted) {
+      if (document.getElementById("build")?.getAttribute("aria-pressed") !== "true") press("build");
+      o.toast(row.hint);
+    }
+    void refresh();
+  }
+
   chip.addEventListener("click", () => {
     const me = savedResidentId();
     if (!step || !me) return;
@@ -83,18 +158,17 @@ export function mountNextStep(o: { navigate: (path: string) => void }) {
       case "home":
         void actFromButton(chip, { type: "build_starter_home" }, "Your home is built", {
           after: refresh,
+          say: o.toast,
         });
         return;
       case "garden":
-        if (document.getElementById("build")?.getAttribute("aria-pressed") !== "true")
-          press("build");
-        toast(step.hint);
-        break;
+        void plantOrSay(step, me);
+        return;
       case "gather":
-        if (!press("world-gather")) toast(step.hint);
+        if (!press("world-gather")) o.toast(step.hint);
         break;
       case "make":
-        toast(step.hint);
+        o.toast(step.hint);
         break;
       default:
         o.navigate(stepHref(step.place, me));

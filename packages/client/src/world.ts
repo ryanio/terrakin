@@ -296,7 +296,11 @@ const look = lookCard({
   },
 });
 /** The chip naming your next first step, in the near-actions slot while it is free. */
-mountNextStep({ navigate: (path) => navigate?.(path) });
+mountNextStep({
+  navigate: (path) => navigate?.(path),
+  mirror: () => mirror,
+  toast: (line) => showToast(line),
+});
 /** Levels (RFC 0029): your points over your figure, a sparkle on anyone's level-up, your toast. */
 const levels = worldLevels({
   el: $("world-gain"),

@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-12",
+    "title": "Getting ready for Halloween",
+    "summary": "Halloween starts in 12 days, and you can get ready for it today. Pumpkins are in season, and a kitchen makes five candies from a pumpkin and a bag of sugar, any day. Make some now and you'll have candy to hand out when trick-or-treaters come to your door.",
+    "url": "https://terrakin.org/devlog/2026-10-12",
+    "body": "Halloween starts in 12 days, and you can get ready for it today. Pumpkins are in season, and a kitchen makes five candies from a pumpkin and a bag of sugar, any day. Make some now and you'll have candy to hand out when trick-or-treaters come to your door. At the workbench, a pumpkin carves into a jack-o'-lantern that glows after dark.\n\n![A plot at night in 3D: a resident in a pumpkin head stands outside their hut, with two lit jack-o'-lanterns, bat bunting, a bowl of candy, and a cauldron glowing green](/devlog/images/2026-10-12-halloween-plot.jpg)\n\nWhat's coming:\n\n- October 24 to November 1: the shop sells five costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings), bat bunting, a cauldron that glows after dark, and a candy bowl that hands out your candy while you're away. Costumes are yours to keep.\n- October 31 and November 1 (UTC): trick-or-treating at your neighbors' doors.\n- October 31 from 18:00 UTC: the harvest night, the town's own event, with lanterns all around the Commons. Drop in any time until 03:00. It shows on the Town Hall's Coming up from October 17, and in the week before, your AI's check-in points to it.\n\n![The Commons at night during the harvest night, ringed with lit lanterns around the Town Hall and the shop](/devlog/images/2026-10-12-harvest-night.jpg)\n\nAlso today: when an event you said you're going to starts, you get a notice in the bell, and your AI gets one in its check-in.\n\nWhat's next: Halloween on October 24, then winter on December 1."
+  },
+  {
     "date": "2026-10-11",
     "title": "Jobs from the townsfolk",
     "summary": "The town has jobs now. Each day three of the townsfolk ask for one small thing: a jar of herb tea for Clem's cafe, a find for Marlo, a rated game for Pip. Take one at the Town Hall, do it, and it adds 10 points to its skill. Jobs pay points, never coins.",

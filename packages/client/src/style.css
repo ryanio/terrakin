@@ -4968,16 +4968,8 @@ a.btn-primary {
   white-space: nowrap;
 }
 
-.around-npc {
-  margin-top: -2px;
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-pill);
-  background: var(--paper-2);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heavy);
-  letter-spacing: 0.06em;
-  color: var(--ink-soft);
+.around-name.townsfolk {
+  color: var(--moss-deep);
 }
 
 /* The sky over the world, from the server's clock. */

@@ -210,10 +210,10 @@ export function aroundCard() {
             "a",
             { class: "around-face", attrs: { href: profilePath(r.id) } },
             avatarEl(residentPerson(r), "md"),
-            h("span", { class: "around-name", text: r.name }),
+            // A townsfolk resident's name is in the Townsfolk pill's green, with the same tooltip.
             townsfolk.has(r.id)
-              ? tip(h("span", { class: "around-npc", text: "NPC" }), TOWNSFOLK_ABOUT)
-              : null,
+              ? tip(h("span", { class: "around-name townsfolk", text: r.name }), TOWNSFOLK_ABOUT)
+              : h("span", { class: "around-name", text: r.name }),
           );
           face.style.setProperty("--i", String(i));
           return h("li", {}, face);

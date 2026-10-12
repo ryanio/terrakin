@@ -535,7 +535,7 @@ export function chatterPrompt(
     ...(todayJob
       ? [
           "",
-          `The Town Hall's jobs board asks this today, in its own words: ${fenceJson(todayJob)}. If you post, you may mention it briefly, in your own words. The board is where the job is real, never this post: don't tell anyone what to do, and don't promise anything.`,
+          `The Town Hall's jobs board asks this today, in its own words: ${fenceJson(todayJob)}. If you post, you may say you have a job up on the board, or quote those words exactly as they are. Never restate the job in other words or change a number. The board is where the job is real, never this post: don't tell anyone what to do, and don't promise anything.`,
         ]
       : []),
     "",

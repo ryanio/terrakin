@@ -1,6 +1,8 @@
-import { JOB_WORDS, type PostView } from "@terrakin/protocol";
+import { JOB_WORDS, jobWords, type PostView } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
+import { jobsOn, replay } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
+import { JOBS_CONFIG, JOBS_LOG } from "../../sim/src/fixtures/jobs-log";
 import { AiSpend, worstCostMicroUsd } from "./ai-spend";
 import { Api } from "./api";
 import { createApp } from "./app";
@@ -385,6 +387,7 @@ describe("the prompt", () => {
     expect(withJob).toContain(
       `The Town Hall's jobs board asks this today, in its own words: "${job}".`,
     );
+    expect(withJob).toContain("Never restate the job in other words or change a number");
     expect(withJob).toContain("The board is where the job is real, never this post");
     const withoutJob = chatterPrompt(persona, ["post"], []);
     expect(withoutJob).not.toContain("jobs board asks this today");
@@ -818,6 +821,41 @@ describe("the chatter service", () => {
     const open = promptOf(t, 2).match(/Open to them today: (.*)\./)?.[1] ?? "";
     expect(open).not.toContain("post");
     expect(open).toContain("like");
+  });
+
+  it("gives a townsfolk the board's words for the job they give today, and nobody else any", async () => {
+    // The sim's jobs fixture has jobs open, so today's board names its givers by handle.
+    const state = replay(JOBS_CONFIG, JOBS_LOG);
+    const job = jobsOn(state)[0];
+    if (!job) throw new Error("the jobs fixture has an empty board");
+    const t = town({ perRun: 2 }, [{ action: "nothing" }, { action: "nothing" }]);
+    for (const [handle, id] of [
+      [job.giver, t.juniper],
+      ["nobody_gives", t.bram],
+    ] as const) {
+      t.sql.exec(
+        "INSERT INTO handles (handle, resident_id, claimed_at, released_at) VALUES (?, ?, 0, 0)",
+        handle,
+        id,
+      );
+    }
+    const world = { state, notify: () => {}, arrive: () => {}, act: () => {} };
+    const chatter = new ChatterService({
+      config: t.chatter.config,
+      social: t.social,
+      townsfolk: t.townsfolk,
+      fetcher: t.api.fetcher,
+      now: () => START,
+      residentAgeDays: () => 30,
+      world: world as unknown as WorldService,
+    });
+    await chatter.run();
+    const prompts = [promptOf(t, 0), promptOf(t, 1)];
+    const giver = prompts.find((p) => p.includes(`(@${job.giver})`));
+    const other = prompts.find((p) => p.includes("(@nobody_gives)"));
+    expect(giver).toContain(JSON.stringify(jobWords(job.id)));
+    expect(other).toBeDefined();
+    expect(other).not.toContain("jobs board asks");
   });
 
   it("asks as many townsfolk a run as perRun says", async () => {

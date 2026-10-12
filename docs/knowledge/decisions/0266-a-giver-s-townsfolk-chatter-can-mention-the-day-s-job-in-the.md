@@ -13,7 +13,7 @@ RFC 0030 left two small items for later, and one is shipped (the giver's thank-y
 
 ## Decision
 
-A townsfolk's chatter turn carries the board's fixed words for the job they give today, when the board has one and the persona is its giver (matched on handle). The model may mention it briefly in a post, in its own words; the prompt says the board is where the job is real, never the post, and the answer check still refuses any off-topic words. A test asserts every line in the protocol's job words table passes that check, so a future job whose words trip it fails in CI first.
+A townsfolk's chatter turn carries the board's fixed words for the job they give today, when the board has one and the persona is its giver (matched on handle). The model may say in a post that it has a job up on the board, or quote those words exactly, and never restate the job in other words or change a number, since a reworded job is the fake-job path RFC 0030's security section closes; the prompt says the board is where the job is real, never the post, and the answer check still refuses any off-topic words. A test asserts every line in the protocol's job words table passes that check, so a future job whose words trip it fails in CI first.
 
 ## Consequences
 

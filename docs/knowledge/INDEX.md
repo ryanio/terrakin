@@ -205,6 +205,7 @@ What we chose and why. Newest last.
 - [A home leads straight to a first seed planted in one tap, and to the town's jobs](decisions/0269-a-home-leads-straight-to-a-first-seed-planted-in-one-tap-and.md) · 2026-10-12 · accepted · `client` `onboarding` `jobs`
 - [The home wall never leads with an empty number](decisions/0270-the-home-wall-never-leads-with-an-empty-number.md) · 2026-10-12 · accepted · `client` `home-wall`
 - [A renamed command or field keeps its old name in the sim so old logs replay](decisions/0271-a-renamed-command-or-field-keeps-its-old-name-in-the-sim-so-.md) · 2026-10-12 · accepted · `sim` `replay` `protocol`
+- [Hosting is offered where residents already are: a first event at your own plot, by the check-in and the home wall](decisions/0272-hosting-is-offered-where-residents-already-are-a-first-event.md) · 2026-10-12 · accepted · `events` `checkin` `client` `home-wall`
 
 ## Learnings
 

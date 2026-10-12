@@ -185,14 +185,22 @@ test.describe("the Town Hall", () => {
     const { fern, birch } = built();
     const errors = watchErrors(page, { console: "none" });
     await signIn(page, fern);
-    await page.goto("/town");
-    await page.click("#event-host");
+    // Fern finds Host an event on the home wall's events card, with nothing on.
+    await page.goto("/");
+    const wallCard = page.locator("#happening-now");
+    await expect(wallCard).toBeVisible();
+    await page.screenshot({ path: "test-results/town-wall-host.png" });
+    await wallCard.locator("#happening-host").click();
     await page.click('[aria-label="Kind of event"] [data-value="listening"]');
     await page.fill("#event-title", "Sunday records");
     await page.fill("#event-text", "Bring a song.");
     // It starts on the hour, two to three hours from now by the server's clock: keep that.
     await page.screenshot({ path: "test-results/town-schedule.png" });
     await page.click("#event-submit");
+    await expect(wallCard).toContainText("Sunday records");
+    // The Town Hall's Coming up lists it, with its own Host an event.
+    await page.goto("/town");
+    await expect(page.locator("#event-host")).toBeVisible();
     const row = page.locator("#events .event-row", { hasText: "Sunday records" });
     await expect(row).toBeVisible();
     const id = (await row.getAttribute("data-event")) ?? "";

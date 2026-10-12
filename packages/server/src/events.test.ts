@@ -410,6 +410,52 @@ describe("the check-in pointing to a town event", () => {
   });
 });
 
+describe("the check-in suggesting a first event", () => {
+  it("offers a resident who could host and never has the call for their own plot, free, at a time that clashes with nothing", async () => {
+    const t = await start({ townEvents: TOWN_EVENTS, at: Date.UTC(2026, 9, 20, 9) });
+    // The harvest night's own suggestion comes first in its week: as if it was made today.
+    const suggest = (viewer: string, done: ReadonlySet<string> = new Set()) =>
+      pickSuggestion({
+        state: t.service.state,
+        viewer,
+        done,
+        book: { has: () => false },
+        social: { going: new Set() },
+        later: [],
+        quiet: false,
+        stepsOnly: false,
+        today: t.service.state.day ?? 0,
+        days: new Map([["town_event", t.service.state.day ?? 0]]),
+      });
+    // Settled today, so not yet: hosting needs what voting in the Town Hall needs.
+    const ada = await t.settler("Ada", 0, 0);
+    expect(suggest(ada.id)?.id).not.toBe("host_event");
+    // Three days on, Ada may host, and she's never scheduled one. It's October 23: the harvest
+    // night is on the calendar, and tomorrow's evening is free.
+    t.later(3 * DAY_MS);
+    expect(await t.act(ada.token, { type: "move", dir: "n" })).toMatchObject({ ok: true });
+    const picked = suggest(ada.id);
+    expect(picked?.id).toBe("host_event");
+    expect(picked?.line).toContain('"px": 0, "py": 0');
+    expect(picked?.line).toContain('"startsAt": "2026-10-24T19:00:00.000Z"');
+    expect(picked?.line).toContain("Ask your owner first");
+    // The call in the line, filled in as an owner might, is one the server takes.
+    const call = JSON.parse(
+      (picked?.line ?? "")
+        .slice((picked?.line ?? "").indexOf("{"), (picked?.line ?? "").indexOf("}") + 1)
+        .replace("<a title>", "Tea on the porch")
+        .replace("<what to bring>", "A mug."),
+    );
+    expect(await t.act(ada.token, { ...call, dry: true })).toMatchObject({ ok: true, dry: true });
+    // On October 30 the next evening is the town's harvest night, so it names November 1.
+    t.later(Date.UTC(2026, 9, 30, 9) - t.now());
+    expect(await t.act(ada.token, { type: "move", dir: "s" })).toMatchObject({ ok: true });
+    expect(suggest(ada.id)?.line).toContain('"startsAt": "2026-11-01T19:00:00.000Z"');
+    // Once she's scheduled one, it's tried.
+    expect(suggest(ada.id, new Set(["schedule_event"]))?.id).not.toBe("host_event");
+  });
+});
+
 describe("scheduling over the API", () => {
   it("wants an hour's notice and a whole minute, and keeps the words off the socket", async () => {
     const t = await start();

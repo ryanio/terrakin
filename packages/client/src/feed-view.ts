@@ -628,7 +628,8 @@ export function feedView(ctx: ViewContext): View {
   const end = h("p", { class: "feed-end", attrs: { hidden: true }, text: "You're all caught up." });
   // The town before the posts: plots to visit and who's around, above the first post.
   const lead = h("div", { class: "stack wall-lead" });
-  main.append(lead, pillWrap, list, empty, h("div", { class: "feed-foot" }, more.el, end));
+  const foot = h("div", { class: "feed-foot" }, more.el, end);
+  main.append(lead, pillWrap, list, empty, foot);
   if (!settled) {
     // What the wall will hold: the composer, the town's cards above the posts, and the posts.
     const everyone = state.tab === "everyone";
@@ -724,14 +725,16 @@ export function feedView(ctx: ViewContext): View {
   /**
    * Run `change` without moving what you're reading. Pulse cards sit above the posts, and among
    * them on a phone, so one that shows up or grows above the screen would push the post you're on
-   * down. Measure the first post still on screen before and after, and scroll by the difference.
+   * down. Measure the first post still on screen before and after, or the foot of the wall when
+   * every post is above the screen, and scroll by the difference.
    */
   function keepPlace(change: () => void) {
     if (atTop()) return change();
     const cards = new Set<Element>(pulseEls);
-    const anchor = Array.from(list.children).find(
-      (c) => !cards.has(c) && c.getBoundingClientRect().bottom > 0,
-    );
+    const anchor =
+      Array.from(list.children).find(
+        (c) => !cards.has(c) && c.getBoundingClientRect().bottom > 0,
+      ) ?? foot;
     const before = anchor?.getBoundingClientRect().top;
     change();
     if (!anchor?.isConnected || before === undefined) return;

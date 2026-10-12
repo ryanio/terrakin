@@ -46,7 +46,6 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { eventsApi } from "./api/events";
 import { residentsApi } from "./api/residents";
 import { townApi } from "./api/town";
 import { actProblem, worldApi } from "./api/world";
@@ -60,7 +59,7 @@ import {
   paintHeldRow,
   tabOf,
 } from "./build-palette";
-import { eventRow, openScheduleSheet } from "./event-cards";
+import { eventRow, hostButton, hostEvent } from "./event-cards";
 import { jobsSection } from "./jobs-section";
 import { savedResidentId, savedToken } from "./net";
 import { coins } from "./purse";
@@ -251,15 +250,7 @@ export function townView(ctx: ViewContext): View {
         changed: () => void refresh(),
       }),
     );
-    const host = savedToken()
-      ? h(
-          "button",
-          { class: "pill-button", attrs: { type: "button", id: "event-host" } },
-          icon("calendar"),
-          h("span", { text: "Host an event" }),
-        )
-      : null;
-    host?.addEventListener("click", () => void openHost(host));
+    const host = savedToken() ? hostButton("event-host", (b) => void openHost(b)) : null;
     calendar.replaceChildren(
       h("p", {
         class: "town-lede",
@@ -277,24 +268,14 @@ export function townView(ctx: ViewContext): View {
 
   /** The Schedule sheet, with where you can host read fresh, or why you can't yet. */
   async function openHost(button: HTMLButtonElement) {
-    const [r, w] = await whileBusy(button, () =>
-      Promise.all([eventsApi.events(), worldApi.world()]),
-    );
-    if (destroyed) return;
-    if (!r.ok) return toast(r.message);
-    // The sheet places a Commons booking from the world's own answer, never a guess.
-    if (!w.ok) return toast(w.message);
-    const you = r.data.you;
-    if (!you?.canHost) return toast(you?.why ?? "Step into the world once to host here.");
-    sheetOpen = true;
-    openScheduleSheet({
-      events: r.data,
-      commons: w.data.commons,
+    const opened = await hostEvent(button, {
       done: () => void refresh(),
       closed: () => {
         sheetOpen = false;
       },
+      gone: () => destroyed,
     });
+    if (opened) sheetOpen = true;
   }
 
   // ---------- hero and proposals ----------

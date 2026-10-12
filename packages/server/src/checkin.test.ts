@@ -676,12 +676,15 @@ describe("first-visit steps and things to try", () => {
     expect(tryLine(next)).toContain("lay a path out of your door");
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBe("games");
-    // Her plot is 3 days old, so she may vote, but nothing is open to vote on: no Town Hall.
-    // Nothing else fits yet (crafting waits for a harvest), and each waits a month.
+    // Her plot is 3 days old, so she may host: a first event at her own plot.
+    advance(DAY);
+    expect((await checkin(wren.token)).tryToday).toBe("host_event");
+    // She may vote too, but nothing is open to vote on: no Town Hall. Nothing else fits yet
+    // (crafting waits for a harvest), and each waits a month.
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBeNull();
     // Gather comes back 30 days after it was suggested, not a day sooner.
-    advance(26 * DAY);
+    advance(25 * DAY);
     expect((await checkin(wren.token)).tryToday).toBeNull();
     advance(DAY);
     expect((await checkin(wren.token)).tryToday).toBe("gather");
@@ -760,7 +763,7 @@ describe("first-visit steps and things to try", () => {
     // Three days on, all three may vote. Everything before the Town Hall is done.
     advance(3 * DAY);
     service.tick();
-    const done = new Set(["adopt_pet", "build", "visit", "sit"]);
+    const done = new Set(["adopt_pet", "schedule_event", "build", "visit", "sit"]);
     const pick = () => pickTryNext(service.state, wren.id, done, new Set())?.id ?? null;
     expect(pick()).toBeNull();
     const advisory = { type: "propose", kind: "advisory", title: "More benches by the well" };

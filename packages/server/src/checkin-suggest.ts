@@ -6,8 +6,12 @@ import {
   type Crop,
   canBuildOn,
   countOf,
+  DAY_MS,
   dayName,
   displaysOf,
+  EVENTS,
+  eventEndsAt,
+  eventOpen,
   FAMILIES,
   type Family,
   type FamilyInfo,
@@ -20,13 +24,16 @@ import {
   FLOORS,
   findsOpen,
   type GoodKind,
+  HOUR_MS,
   holidayLastDay,
   holidayOf,
   homePlotOf,
+  hostingProblem,
   type ItemKind,
   isTownsfolk,
   kindsIn,
   knockedToday,
+  MINUTE_MS,
   nextHolidayStart,
   ownDoor,
   ownsWear,
@@ -108,6 +115,40 @@ function townEventAhead(state: WorldState, viewer: string, social?: SocialFacts)
         !social.going.has(e.id),
     )
     .sort((a, b) => a.startsAt - b.startsAt)[0];
+}
+
+/** The UTC hour a first event is suggested for: evening in Europe, afternoon in the Americas. */
+const HOST_HOUR = 19;
+/** How long a suggested first event lasts, in minutes. */
+const HOST_MINUTES = 60;
+
+/**
+ * The plot a resident could host a first event at for free, when they could host one now: their
+ * home plot, theirs to build on, by the sim's own `hostingProblem`. Townsfolk never host.
+ */
+function hostPlot(state: WorldState, viewer: string) {
+  if (state.day === undefined || isTownsfolk(state, viewer)) return undefined;
+  if (hostingProblem(state, viewer) !== null) return undefined;
+  const plot = homePlotOf(state, viewer);
+  return plot && canBuildOn(plot, viewer) ? plot : undefined;
+}
+
+/**
+ * When the first-event line suggests starting: HOST_HOUR UTC on the first day from tomorrow on
+ * when nothing on the calendar overlaps it, anywhere, so it never splits the town's evening.
+ * Tomorrow's evening is always more than an hour away, and the search stays inside the booking
+ * window.
+ */
+function hostStart(state: WorldState): number {
+  const today = state.day ?? 0;
+  const open = (state.events?.list ?? []).filter(eventOpen);
+  const at = (day: number) => day * DAY_MS + HOST_HOUR * HOUR_MS;
+  for (let day = today + 1; day <= today + EVENTS.aheadDays; day++) {
+    const start = at(day);
+    const end = start + HOST_MINUTES * MINUTE_MS;
+    if (!open.some((e) => e.startsAt < end && eventEndsAt(e) > start)) return start;
+  }
+  return at(today + 1);
 }
 
 /**
@@ -293,6 +334,21 @@ export const TRY_NEXT: readonly TryNext[] = [
       !isTownsfolk(state, viewer) &&
       !COSTUMES.some((c) => ownsWear(state, viewer, c)),
     line: costumeLine,
+  },
+  {
+    // A first event (RFC 0010), to a resident who could host one and never has: at their own
+    // plot, which is free, unlike the Commons' deposit. Scheduling one counts as tried. The line
+    // asks the owner first and names the exact call, at a time that overlaps nothing on the
+    // calendar.
+    id: "host_event",
+    commands: ["schedule_event"],
+    open: (state, viewer) => hostPlot(state, viewer) !== undefined,
+    line: (state, viewer) => {
+      const plot = hostPlot(state, viewer);
+      const at = plot ? `"px": ${plot.px}, "py": ${plot.py}` : '"px": <px>, "py": <py>';
+      const when = new Date(hostStart(state)).toISOString();
+      return `Host a small event at your own plot: it's free there (only the Commons holds a deposit), and an hour with a few neighbors is plenty. Ask your owner first, and pick the kind, title, and words with them. Then {"type": "schedule_event", "kind": "gathering", "title": "<a title>", "text": "<what to bring>", ${at}, "startsAt": "${when}", "minutes": ${HOST_MINUTES}} (kind is show, class, market, listening, or gathering; add "dry": true to check it first). It goes on the Town Hall board, and each neighbor who comes and stays counts toward your hosting record.`;
+    },
   },
   {
     id: "plant",

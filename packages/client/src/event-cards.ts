@@ -154,23 +154,38 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
 
 /**
  * The home wall's events card: what's on now, each with a Go button, or, when nothing is, the
- * next few to come. Hidden while the calendar is empty.
+ * next few to come. While nothing is on, someone signed in gets Host an event, which opens the
+ * Schedule sheet right here, and while the calendar is empty the card asks them to host
+ * (decision 0272). Hidden from a visitor while the calendar is empty.
  */
 export function happeningCard(navigate: (path: string) => void, me: () => string | undefined) {
   const eyebrow = h("p", { class: "eyebrow pulse-eyebrow" });
   const title = h("h2", { class: "pulse-title" });
   const list = h("ol", { class: "stack plain-list event-list" });
+  const empty = h("p", {
+    class: "pulse-foot",
+    text: "Host something: a few neighbors and a playlist at your place is plenty, and it's free on your own plot.",
+  });
+  const host = hostButton("happening-host", (b) => {
+    void hostEvent(b, { done: () => void refresh() });
+  });
   const el = pulseShell(
     "pulse-events",
     "Events",
     eyebrow,
     title,
     list,
+    empty,
     h(
-      "a",
-      { class: "text-link", attrs: { href: "/town#events" } },
-      h("span", { text: "See the calendar" }),
-      icon("arrow"),
+      "div",
+      { class: "cluster event-actions" },
+      host,
+      h(
+        "a",
+        { class: "text-link", attrs: { href: "/town#events" } },
+        h("span", { text: "See the calendar" }),
+        icon("arrow"),
+      ),
     ),
   );
   el.id = "happening-now";
@@ -179,7 +194,11 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
     if (!last) return;
     const { live, upcoming } = last.events;
     const shown = live.length > 0 ? live : upcoming.slice(0, 2);
-    el.hidden = shown.length === 0;
+    const signedIn = me() !== undefined;
+    el.hidden = shown.length === 0 && !signedIn;
+    list.hidden = shown.length === 0;
+    empty.hidden = shown.length > 0;
+    host.hidden = !signedIn || live.length > 0;
     el.classList.toggle("is-live", live.length > 0);
     // The wall's live activity is "Happening now"; this card is the events.
     eyebrow.replaceChildren(
@@ -188,7 +207,8 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
         : icon("calendar", "icon pulse-icon"),
       "Events",
     );
-    title.textContent = live.length > 0 ? "On now" : "Coming up";
+    title.textContent =
+      live.length > 0 ? "On now" : shown.length > 0 ? "Coming up" : "Nothing on the calendar";
     list.replaceChildren(
       ...shown.map((e) =>
         eventRow(e, {
@@ -219,7 +239,7 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
 
 // ---------- the Schedule sheet ----------
 
-export interface ScheduleOptions {
+interface ScheduleOptions {
   /** `GET /v1/events`, read just now: the server's time, the rules, and where you can host. */
   events: EventsResponse;
   /** Where the Commons is, from the world. */
@@ -230,11 +250,56 @@ export interface ScheduleOptions {
   closed?: () => void;
 }
 
+/**
+ * What a Host an event button does, on the Town Hall and the home wall: read where you can host
+ * fresh, then open the Schedule sheet, or say in the server's words why you can't host yet. True
+ * when the sheet opened.
+ */
+export async function hostEvent(
+  button: HTMLButtonElement,
+  o: { done: () => void; closed?: () => void; gone?: () => boolean },
+): Promise<boolean> {
+  const [r, w] = await whileBusy(button, () => Promise.all([eventsApi.events(), worldApi.world()]));
+  if (o.gone?.()) return false;
+  if (!r.ok) {
+    toast(r.message);
+    return false;
+  }
+  // The sheet places a Commons booking from the world's own answer, never a guess.
+  if (!w.ok) {
+    toast(w.message);
+    return false;
+  }
+  if (!r.data.you?.canHost) {
+    toast(r.data.you?.why ?? "Step into the world once to host here.");
+    return false;
+  }
+  openScheduleSheet({
+    events: r.data,
+    commons: w.data.commons,
+    done: o.done,
+    ...(o.closed ? { closed: o.closed } : {}),
+  });
+  return true;
+}
+
+/** The Host an event button, for whoever is signed in. */
+export function hostButton(id: string, onClick: (button: HTMLButtonElement) => void) {
+  const button = h(
+    "button",
+    { class: "pill-button", attrs: { type: "button", id } },
+    icon("calendar"),
+    h("span", { text: "Host an event" }),
+  );
+  button.addEventListener("click", () => onClick(button));
+  return button;
+}
+
 /** "Your plot", or the plot's place for a second one, for the Where chips. */
 const plotWords = (i: number) => (i === 0 ? "Your plot" : `Your plot ${i + 1}`);
 
 /** The Schedule sheet: kind, words, when, how long, and where. */
-export function openScheduleSheet(o: ScheduleOptions) {
+function openScheduleSheet(o: ScheduleOptions) {
   const { rules, you } = o.events;
   const now = Date.parse(o.events.now);
   let kind: EventKind = "listening";

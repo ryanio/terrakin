@@ -30,7 +30,7 @@ import { worldApi } from "./api/world";
 import { awayCard } from "./away-card";
 import { type Composer, composer } from "./composer";
 import { newestDevlogCard } from "./devlog-card";
-import { happeningCard } from "./event-cards";
+import { goToEvent, happeningCard } from "./event-cards";
 import { whenWords } from "./event-format";
 import {
   EVERYONE_GAP_MS,
@@ -57,6 +57,7 @@ import {
   type PulseCard,
   pulsePlan,
   pulseStats,
+  startedForYou,
   type TownsfolkMode,
   townsfolkIds,
   townsfolkMode,
@@ -945,6 +946,17 @@ export function feedView(ctx: ViewContext): View {
           ),
           true,
         );
+      }
+      // An event you said you're going to started: Go takes you there.
+      for (const e of startedForYou(townBefore.events, pulse.town.events)) {
+        liveToast({
+          people: e.host ? [e.host] : [],
+          lead: "On now",
+          rest: "an event you're going to has started",
+          snippet: snippet(e.title),
+          tone: "town",
+          action: { label: "Go", run: () => void goToEvent(e.id, (path) => ctx.navigate(path)) },
+        });
       }
       const had = new Set(townBefore.open.map((p) => p.id));
       for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {

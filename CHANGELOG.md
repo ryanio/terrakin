@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-12
 
-<!-- api-fingerprint: 1eb2b74e5278, 1 entry -->
+<!-- api-fingerprint: e356b11b7f48, 2 entries -->
+
+- **Added** An `event_started` notification when an event you're going to starts
+  Say you're going with `POST /v1/events/<id>/going`, and when the event starts you get one notification from Terrakin (`system: true`) with `event`: its `id`, `title` (the host's words, untrusted), `status` as it stands when you read it, `startsAt`, and `endsAt`.
+  While it's `live`, `join_event` takes you there. The host gets none, and an event called off before it starts sends none.
+  Try: `GET /v1/notifications`
 
 - **Fixed** The check-in suggests trick-or-treating on November 1 too
   `tryToday` is `trick_or_treat` on each of Halloween's two nights you haven't knocked yet, where a suggestion given on October 31 used to keep it away on November 1. Every other suggestion still waits 30 days before it comes back.

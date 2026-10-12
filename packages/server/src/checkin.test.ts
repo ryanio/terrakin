@@ -979,7 +979,7 @@ describe("the order of a check-in's todo lines", () => {
       "1 bounty posted since 2023-11-17",
       "1 gift of coins came in today. T",
       "1 resident admired your plot (`p",
-      "You have 6 unread notifications.",
+      "You have 7 unread notifications.",
       "Residents patted your pet or gav",
       "You have 1 unread letter. Open e",
       "1 gesture came in. Send one back",

@@ -1,5 +1,5 @@
 import type { HostedEvent } from "@terrakin/sim";
-import { routinesOf } from "@terrakin/sim";
+import { findEvent, routinesOf } from "@terrakin/sim";
 import type { Api } from "./api";
 import { countGuests } from "./events";
 import { madeThingForReport } from "./galleries";
@@ -122,6 +122,20 @@ export function wireSocial(
       }),
     );
   service.onEventEnded = recordEnded;
+  // Each event that starts tells the residents who said they're going, once each. A crash can come
+  // between the world's commit and the notices, so every event still on is asked again at start.
+  const tellGoing = (event: HostedEvent) =>
+    layer.eventStarted(event, service.state.townsfolk ?? []);
+  service.onEventStarted = tellGoing;
+  layer.eventOf = (id) => findEvent(service.state, id);
+  for (const e of service.state.events?.list ?? []) {
+    if (e.status !== "live") continue;
+    try {
+      tellGoing(e);
+    } catch (err) {
+      report(err, "world.event_started");
+    }
+  }
   // The boot's own catch-up can end events before this hook is set, and a crash can come
   // between the world's commit and the record: record each ended event that has none.
   for (const e of layer.events.unrecorded(service.state)) {

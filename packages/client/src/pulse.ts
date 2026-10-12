@@ -8,6 +8,7 @@
  */
 import type {
   AuthorView,
+  EventView,
   PostView,
   PublicGift,
   TreasuryLine,
@@ -368,6 +369,19 @@ export function coinNews(before: TreasuryView | null, after: TreasuryView | null
     }
   }
   return news.sort((a, b) => a.seq - b.seq).map(({ seq: _, ...n }) => n as CoinNews);
+}
+
+/**
+ * Events you said you're going to that started between two looks at the calendar: on now, and to
+ * come at the look before. One the page first saw already on isn't news, since the On now card
+ * shows it.
+ */
+export function startedForYou(
+  before: { upcoming: readonly EventView[] },
+  after: { live: readonly EventView[] },
+): EventView[] {
+  const coming = new Set(before.upcoming.map((e) => e.id));
+  return after.live.filter((e) => e.youreGoing && coming.has(e.id));
 }
 
 /** The weather on its way, before when. */

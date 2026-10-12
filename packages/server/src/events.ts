@@ -1,6 +1,7 @@
 import {
   type AuthorView,
   EVENT_RULES,
+  type EventNoticeView,
   type EventsResponse,
   type EventView,
   type HostingView,
@@ -88,6 +89,26 @@ export function eventView(
     ticks: e.ticks,
     attended: e.status === "ended" ? (e.attended ?? []).map((id) => person(ctx, id)) : null,
     moves: viewer ? eventMoves(state, viewer, e) : [],
+  };
+}
+
+/**
+ * The event on an `event_started` notice, read as it stands now: undefined once it has left the
+ * world, or while its host is one the reader shouldn't see, and called off in the same words
+ * `eventView` uses when a maintainer voided it.
+ */
+export function eventNoticeView(
+  e: HostedEvent | undefined,
+  ctx: Pick<EventContext, "hidden">,
+): EventNoticeView | undefined {
+  if (!e || (!isTownEvent(e) && ctx.hidden(e.host))) return undefined;
+  return {
+    id: e.id,
+    title: e.voidedBy !== undefined ? "Called off by a maintainer" : e.title,
+    status: e.status,
+    town: isTownEvent(e),
+    startsAt: iso(e.startsAt),
+    endsAt: iso(eventEndsAt(e)),
   };
 }
 
@@ -259,6 +280,14 @@ export class EventsSocial {
         String(r.event_id),
       ),
     );
+  }
+
+  /** Everyone who said they're going to `event`, in id order. */
+  goingTo(event: string): string[] {
+    return this.rows(
+      "SELECT resident_id FROM event_going WHERE event_id = ? ORDER BY resident_id",
+      event,
+    ).map((r) => String(r.resident_id));
   }
 
   /** Say `resident` is going, or take it back. Repeats change nothing. */

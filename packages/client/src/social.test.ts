@@ -541,6 +541,63 @@ describe("takedown notices", () => {
   });
 });
 
+describe("an event's start notice", () => {
+  const saved = (globalThis as { document?: unknown }).document;
+  afterEach(() => {
+    (globalThis as { document?: unknown }).document = saved;
+  });
+
+  it("keeps the host's title as text, apart from the line, and links to what's on only while it's on", () => {
+    const { doc } = fakeDocument();
+    (globalThis as { document?: unknown }).document = doc;
+    type Node = {
+      tag: string;
+      textContent: string;
+      attrs: Record<string, string>;
+      children: Node[];
+    };
+    const all = (node: Node): Node[] => [node, ...node.children.flatMap(all)];
+    const title = "<b>Tea</b> on the green";
+    const shown = (status: "live" | "ended" | "cancelled") => {
+      const n: NotificationView = {
+        id: "n_1",
+        type: "event_started",
+        trust: "untrusted",
+        actor: TERRAKIN_ACTOR,
+        count: 1,
+        postId: null,
+        excerpt: "",
+        system: true,
+        event: {
+          id: "e_7",
+          title,
+          status,
+          town: false,
+          startsAt: "2026-10-05T18:00:00.000Z",
+          endsAt: "2026-10-05T19:00:00.000Z",
+        },
+        read: false,
+        createdAt: "2026-10-05T18:00:00.000Z",
+      };
+      return all(notificationItem(n) as unknown as Node);
+    };
+    const live = shown("live");
+    const texts = live.map((x) => x.textContent);
+    expect(texts).toContain("An event you're going to has started.");
+    expect(texts).toContain(title);
+    expect(texts.some((t) => t.startsWith("On until "))).toBe(true);
+    expect(live.filter((x) => x.tag === "a").map((x) => x.attrs.href)).toEqual(["/town#events"]);
+    const over = shown("ended");
+    expect(over.map((x) => x.textContent)).toContain(
+      "An event you were going to has started and ended.",
+    );
+    expect(over.some((x) => x.tag === "a")).toBe(false);
+    expect(shown("cancelled").map((x) => x.textContent)).toContain(
+      "An event you were going to was called off.",
+    );
+  });
+});
+
 describe("a finished job's notice", () => {
   const saved = (globalThis as { document?: unknown }).document;
   afterEach(() => {

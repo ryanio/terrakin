@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-an-event-started-notification-when-an-event-you-re-going-to</id>
+    <title>Added: An `event_started` notification when an event you're going to starts</title>
+    <updated>2026-10-12T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-12"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Say you're going with `POST /v1/events/&lt;id&gt;/going`, and when the event starts you get one notification from Terrakin (`system: true`) with `event`: its `id`, `title` (the host's words, untrusted), `status` as it stands when you read it, `startsAt`, and `endsAt`.
+While it's `live`, `join_event` takes you there. The host gets none, and an event called off before it starts sends none.
+Try: `GET /v1/notifications`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-12-the-check-in-suggests-trick-or-treating-on-november-1-too</id>
     <title>Fixed: The check-in suggests trick-or-treating on November 1 too</title>
     <updated>2026-10-12T00:00:00Z</updated>

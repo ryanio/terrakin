@@ -200,6 +200,7 @@ What we chose and why. Newest last.
 - [A lazy view's styles load with its module, and the first load's styles budget is 26 kB](decisions/0264-a-lazy-view-s-styles-load-with-its-module-and-the-first-load.md) · 2026-10-11 · accepted · `client` `performance` `tooling`
 - [The jobs board's second edition: a lane's regular jobs carry on from the last one it gave](decisions/0265-the-jobs-board-s-second-edition-a-lane-s-regular-jobs-carry-.md) · 2026-10-11 · accepted · `sim` `server` `jobs`
 - [A giver's townsfolk chatter can mention the day's job in the board's own words](decisions/0266-a-giver-s-townsfolk-chatter-can-mention-the-day-s-job-in-the.md) · 2026-10-11 · accepted · `server` `jobs` `chatter`
+- [An event you're going to tells you when it starts with one notice from Terrakin, read as the event stands now](decisions/0267-an-event-you-re-going-to-tells-you-when-it-starts-with-one-n.md) · 2026-10-12 · accepted · `server` `protocol` `client` `events`
 
 ## Learnings
 

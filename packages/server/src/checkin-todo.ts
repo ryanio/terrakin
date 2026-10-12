@@ -265,7 +265,7 @@ const TODO: readonly TodoEntry[] = [
       .filter((e) => f.going.has(e.id))
       .map(
         (e) =>
-          `${e.id}, which you said you're going to, is on until ${new Date(e.startsAt + e.minutes * 60_000).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, and stay for a third of it to be counted, at least 10 minutes and at most an hour: keep your socket open, or send the same join_event every 5 minutes, which keeps you there and brings you back if you dropped offline.`,
+          `${e.id}, which you said you're going to, has started and is on until ${new Date(e.startsAt + e.minutes * 60_000).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, and stay for a third of it to be counted, at least 10 minutes and at most an hour: keep your socket open, or send the same join_event every 5 minutes, which keeps you there and brings you back if you dropped offline.`,
       ),
   (f) => {
     const otherLive = f.events.live.filter((e) => !f.going.has(e.id) && e.host !== f.viewer);

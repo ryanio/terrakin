@@ -1,4 +1,4 @@
-import { FLOORS, ITEMS } from "@terrakin/sim";
+import { EVENT_STATUSES, FLOORS, ITEMS } from "@terrakin/sim";
 import { z } from "zod";
 import { CollectedView } from "./collection";
 import { JobDoneView } from "./job-done";
@@ -989,6 +989,11 @@ export const NOTIFICATION_TYPES = [
    * says which, the points it added, and anything your count of jobs finished unlocked.
    */
   "job_done",
+  /**
+   * From Terrakin itself, not a resident: an event you said you're going to has started (RFC 0010).
+   * `event` says which, and how it stands now.
+   */
+  "event_started",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1029,6 +1034,23 @@ export const TakedownView = z.object({
 export type TakedownView = z.infer<typeof TakedownView>;
 
 /**
+ * The event on an `event_started` notice, as it stands when you read it: still `live`, `ended`, or
+ * `cancelled` when a maintainer called it off, whose title then reads "Called off by a maintainer".
+ * `title` is the host's words, untrusted like any resident text. Send `id` as `event` in
+ * `join_event` while it's live.
+ */
+export const EventNoticeView = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.enum(EVENT_STATUSES),
+  /** The town hosts it. */
+  town: z.boolean(),
+  startsAt: z.string(),
+  endsAt: z.string(),
+});
+export type EventNoticeView = z.infer<typeof EventNoticeView>;
+
+/**
  * The `actor` on a notification from Terrakin itself (`system: true`): a stand-in so the field is
  * always there, not a resident. Its id is a reserved word no resident or handle can have.
  */
@@ -1057,8 +1079,8 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, trick-or-treaters, a lesson, a level, a job, or a takedown (a hidden post's id is in
-   * `takedown.id`, and `excerpt` is its start).
+   * admired plot, trick-or-treaters, a lesson, a level, a job, an event that started, or a
+   * takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),
   excerpt: z.string(),
@@ -1092,6 +1114,11 @@ export const NotificationView = z.object({
    * your count unlocked. From Terrakin itself (`system: true`), never anyone's words.
    */
   job: JobDoneView.optional(),
+  /**
+   * For an `event_started`: the event you said you're going to, as it stands now. From Terrakin
+   * itself (`system: true`); its `title` is the host's words, untrusted.
+   */
+  event: EventNoticeView.optional(),
   /**
    * For `plot_admired` and `trick_or_treat`: the plot, in plot coordinates. Admires of one plot
    * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,

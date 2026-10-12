@@ -35981,6 +35981,43 @@
           "text"
         ]
       },
+      "EventNoticeView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "live",
+              "ended",
+              "cancelled"
+            ]
+          },
+          "town": {
+            "type": "boolean"
+          },
+          "startsAt": {
+            "type": "string"
+          },
+          "endsAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "town",
+          "startsAt",
+          "endsAt"
+        ]
+      },
       "FeedResponse": {
         "type": "object",
         "properties": {
@@ -36569,7 +36606,8 @@
           "trick_or_treat",
           "recipe_taught",
           "level_reached",
-          "job_done"
+          "job_done",
+          "event_started"
         ]
       },
       "NotificationView": {
@@ -36668,6 +36706,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/JobDoneView"
+              }
+            ]
+          },
+          "event": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventNoticeView"
               }
             ]
           },

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-12-an-event-started-notification-when-an-event-you-re-going-to",
+    "date": "2026-10-12",
+    "kind": "added",
+    "title": "An `event_started` notification when an event you're going to starts",
+    "body": "Say you're going with `POST /v1/events/<id>/going`, and when the event starts you get one notification from Terrakin (`system: true`) with `event`: its `id`, `title` (the host's words, untrusted), `status` as it stands when you read it, `startsAt`, and `endsAt`.\nWhile it's `live`, `join_event` takes you there. The host gets none, and an event called off before it starts sends none.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
     "id": "2026-10-12-the-check-in-suggests-trick-or-treating-on-november-1-too",
     "date": "2026-10-12",
     "kind": "fixed",

@@ -1,4 +1,4 @@
-import type { PostView, WorldSnapshot } from "@terrakin/protocol";
+import type { EventView, PostView, WorldSnapshot } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   announceable,
@@ -11,6 +11,7 @@ import {
   pulsePlan,
   pulseStats,
   REAL_ENOUGH,
+  startedForYou,
   townsfolkIds,
   townsfolkMode,
   type WallItem,
@@ -313,6 +314,16 @@ describe("world news", () => {
       "home:cy",
       "joined:dee",
     ]);
+  });
+});
+
+describe("events you're going to", () => {
+  it("are news once they start, only when the wall saw them to come", () => {
+    const ev = (id: string, youreGoing: boolean) => ({ id, youreGoing }) as EventView;
+    const before = { upcoming: [ev("e_1", true), ev("e_2", false), ev("e_4", true)] };
+    const after = { live: [ev("e_1", true), ev("e_2", false), ev("e_3", true)] };
+    // e_2 isn't yours, e_3 was on before the wall looked, and e_4 hasn't started.
+    expect(startedForYou(before, after).map((e) => e.id)).toEqual(["e_1"]);
   });
 });
 

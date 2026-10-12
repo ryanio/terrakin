@@ -5,6 +5,7 @@
  */
 
 import {
+  type EventNoticeView,
   jobDoneLine,
   LINKS,
   type NotificationsResponse,
@@ -20,6 +21,7 @@ import { emptyNote, moreButton } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { notificationsApi } from "./api/notifications";
 import { setUnread } from "./bell";
+import { soonWords } from "./event-format";
 import { canNowLine, levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
 import { pageData } from "./page-data";
@@ -47,6 +49,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   recipe_taught: "kitchen",
   level_reached: "level",
   job_done: "town",
+  event_started: "calendar",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -83,6 +86,7 @@ export function notificationLine(
     recipe_taught: `taught you ${n.recipe ? recipeWords(n.recipe).toLowerCase() : "a recipe"}`,
     level_reached: "says you reached a level",
     job_done: "says you finished a job",
+    event_started: "says an event you're going to started",
   };
   return { who, what: what[n.type] };
 }
@@ -149,12 +153,31 @@ function takedownPlace(t: TakedownView): { href: string; label: string } | null 
   return null;
 }
 
+/**
+ * An `event_started` notice in plain words, as the event stands now: on, over, or called off. The
+ * title is the host's words, so it's never in the line: the item shows it apart, as text.
+ */
+function eventStartedLine(e: EventNoticeView): { line: string; next: string | null } {
+  if (e.status === "cancelled") {
+    return { line: "An event you were going to was called off.", next: null };
+  }
+  if (e.status === "live") {
+    return {
+      line: "An event you're going to has started.",
+      next: `${soonWords(e, Date.now())}.`,
+    };
+  }
+  return { line: "An event you were going to has started and ended.", next: null };
+}
+
 /** What a notice from Terrakin itself says, and the links under it. */
 interface SystemWords {
   icon: IconName;
   line: string;
   next: string | null;
   links: { href: string; label: string }[];
+  /** Someone's words the notice is about, shown apart from the line as text. */
+  quote?: string;
 }
 
 /** The words for a notice from Terrakin itself, or null for a kind this client doesn't know. */
@@ -183,6 +206,15 @@ function systemWords(n: NotificationView): SystemWords | null {
       line: jobDoneLine(n.job),
       next: n.job.unlocks ? canNowLine([n.job.unlocks]) : null,
       links: [],
+    };
+  }
+  if (n.event) {
+    // An event you said you're going to started (RFC 0010); the Town Hall has its Go.
+    return {
+      icon: ICONS.event_started,
+      ...eventStartedLine(n.event),
+      links: n.event.status === "live" ? [{ href: "/town#events", label: "See what's on" }] : [],
+      quote: n.event.title,
     };
   }
   return null;
@@ -219,7 +251,9 @@ function systemItem(n: NotificationView, words: SystemWords): HTMLElement {
           line,
           n.read ? null : h("span", { class: "visually-hidden", text: " (new)" }),
         ),
-        n.excerpt ? h("span", { class: "notif-excerpt", text: n.excerpt }) : null,
+        n.excerpt || words.quote
+          ? h("span", { class: "notif-excerpt", text: words.quote ?? n.excerpt })
+          : null,
         next ? h("span", { class: "notif-next", text: next }) : null,
         words.links.length > 0
           ? h(

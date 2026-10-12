@@ -792,6 +792,12 @@ export class WorldService {
   onEventEnded: ((event: HostedEvent, day: number) => void) | undefined;
 
   /**
+   * Hears each event that started (RFC 0010), so the residents who said they're going can be told.
+   * A failure here is reported and the event stays on.
+   */
+  onEventStarted: ((event: HostedEvent) => void) | undefined;
+
+  /**
    * The one-time credit `open_levels` carries (RFC 0029): for each resident, the kinds in their
    * collection book that a first counts. The book is a social table (decision 0100), so `Api`
    * wires this; until it does, `tick` doesn't open levels.
@@ -1910,6 +1916,15 @@ export class WorldService {
           report(err, "world.event_ended", { command: input.command.type });
         }
         this.endedNow.push(e.event);
+      }
+      if (e.type === "event_started") {
+        const started = findEvent(this.state, e.event);
+        try {
+          if (started) this.onEventStarted?.(started);
+        } catch (err) {
+          // The event is on; the going residents' notices miss it.
+          report(err, "world.event_started", { command: input.command.type });
+        }
       }
       if (e.type === "pet_treated") this.onPetTreated?.(e.residentId, e.by, e.kind);
       if (e.type === "repeat_joins_retired") this.forgetRetired(e.ids, people);

@@ -199,10 +199,20 @@ describe("an event on the server's clock", () => {
     const noon = todayAt(t, 12);
     expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
     expect(await t.act(ada.token, listening(t, noon + 2 * HOUR))).toMatchObject({ ok: true });
+    for (const id of ["e_1", "e_2"]) {
+      expect((await t.call("POST", `/v1/events/${id}/going`, undefined, bob.token)).status).toBe(
+        200,
+      );
+    }
     t.later(noon + 2 * HOUR + 20 * MINUTE - t.now());
     const [first, second] = t.service.state.events?.list ?? [];
     expect(first).toMatchObject({ status: "ended", ticks: 0, attended: [] });
     expect(second).toMatchObject({ status: "live", ticks: 1, slot: 4 });
+    // Bob hears that the second started; the first was over before anyone could go.
+    const notices = (await t.call("GET", "/v1/notifications", undefined, bob.token)).body;
+    expect(
+      notices.notifications.flatMap((n: Json) => (n.type === "event_started" ? [n.event.id] : [])),
+    ).toEqual(["e_2"]);
     expect(await t.act(bob.token, { type: "join_event", event: "e_2" })).toMatchObject({
       ok: true,
     });
@@ -432,6 +442,79 @@ describe("going", () => {
     expect(
       (await t.call("DELETE", "/v1/events/e_1/going", undefined, bob.token)).body.event,
     ).toMatchObject({ going: 0, youreGoing: false });
+  });
+});
+
+describe("the notice when it starts", () => {
+  it("tells each resident going once, across sweeps and boots, never the host, a blocked guest, or a called-off event", async () => {
+    const store = new MemoryStore();
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const t = await start({ store, sql });
+    const { ada, bob, cy } = await hosts(t);
+    const noon = todayAt(t, 12);
+    expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
+    expect(await t.act(ada.token, listening(t, noon + 3 * HOUR))).toMatchObject({ ok: true });
+    for (const r of [ada, bob, cy]) {
+      expect((await t.call("POST", "/v1/events/e_1/going", undefined, r.token)).status).toBe(200);
+    }
+    expect((await t.call("POST", "/v1/events/e_2/going", undefined, bob.token)).status).toBe(200);
+    // Cy blocks the host after saying they're going; Ada calls the second event off.
+    expect((await t.call("PUT", `/v1/residents/${ada.id}/block`, undefined, cy.token)).status).toBe(
+      200,
+    );
+    expect(await t.act(ada.token, { type: "cancel_event", event: "e_2" })).toMatchObject({
+      ok: true,
+    });
+    const started = async (s: T, token: string) =>
+      (await s.call("GET", "/v1/notifications", undefined, token)).body.notifications.filter(
+        (n: Json) => n.type === "event_started",
+      );
+    expect(await started(t, bob.token)).toEqual([]);
+
+    t.later(noon + MINUTE - t.now());
+    const told = await started(t, bob.token);
+    expect(told).toMatchObject([
+      {
+        system: true,
+        actor: { id: "terrakin" },
+        event: { id: "e_1", title: "Sunday records", status: "live", town: false },
+      },
+    ]);
+    expect(told[0].event.endsAt).toBe(t.iso(noon + HOUR));
+    expect(await started(t, ada.token)).toEqual([]);
+    expect(await started(t, cy.token)).toEqual([]);
+    // The check-in carries it, and says how to get there.
+    const checkin = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
+    expect(checkin.notifications.items.map((n: Json) => n.type)).toContain("event_started");
+    expect(checkin.todo.join("\n")).toContain('{"type": "join_event", "event": "e_1"}');
+
+    // Another sweep, and a boot while it's still on, send no second one.
+    t.later(MINUTE);
+    const next = await start({ store, sql, at: noon + 10 * MINUTE });
+    expect(next.service.state.events?.list[0]?.status).toBe("live");
+    expect(await started(next, bob.token)).toHaveLength(1);
+    // The called-off one never started, so it sent nothing.
+    next.later(3 * HOUR);
+    expect((await started(next, bob.token)).map((n: Json) => n.event.id)).toEqual(["e_1"]);
+    expect((await started(next, bob.token))[0].event.status).toBe("ended");
+  });
+
+  it("reads as called off once a maintainer voids the event", async () => {
+    const t = await start();
+    const { ada, bob, cy } = await hosts(t);
+    const noon = todayAt(t, 12);
+    expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
+    expect((await t.call("POST", "/v1/events/e_1/going", undefined, bob.token)).status).toBe(200);
+    t.later(noon + MINUTE - t.now());
+    t.maintainers.add(cy.id);
+    const why = { reason: "Not an event, an ad." };
+    expect((await t.call("POST", "/v1/admin/events/e_1/void", why, cy.token)).status).toBe(200);
+    const notices = (await t.call("GET", "/v1/notifications", undefined, bob.token)).body;
+    expect(notices.notifications[0]).toMatchObject({
+      type: "event_started",
+      event: { status: "cancelled", title: "Called off by a maintainer" },
+    });
   });
 });
 

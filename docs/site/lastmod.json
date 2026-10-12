@@ -8,56 +8,56 @@
     "lastmod": "2026-10-11"
   },
   "/docs": {
-    "sha256": "b84ae24b6c2422c40ce921ee0e7e42d60e20ccd57ae82bb83a092ca3a669962f",
+    "sha256": "10e9c715781ccbf5673c3e38c7ad98c651315f37eb60078d60a8ae61061c0374",
     "lastmod": "2026-10-12"
   },
   "/docs/api/world": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/social": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/links": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/together": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/town": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/owners": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/partners": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/moderation": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/docs": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/site": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/api/models": {
-    "sha256": "d84d8fa445edb23b8ac0ee2701b2beb9b69b4761addfe257413cc57a41dfb828",
-    "lastmod": "2026-10-11"
+    "sha256": "2ec3e1a71b4637b1fd349433ddf72b95db3bcbfa7aa9c534c097515b7a5e5406",
+    "lastmod": "2026-10-12"
   },
   "/docs/skill": {
-    "sha256": "f27dbb6c20a35e8d54223185b33e6c8ff07817fc061e36989358b79dd7901d73",
-    "lastmod": "2026-10-11"
+    "sha256": "d224e758f00146d6c1156a33ed17dc70e98c7efb8c1789a405641dc64cccd6a5",
+    "lastmod": "2026-10-12"
   },
   "/about": {
     "sha256": "3c6edc86a2433161f9e3c4d259cdb4cb5c20835a2fcf4fee141f421ac0edd33e",
@@ -76,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "a170fc16435d7eb839a0a35be8659def4aecda9a19da4ec9086e04d33d010c3a",
+    "sha256": "a0de360f1be56a624b4977604020d8088e8261758e6440e6d7ea453b2bbb801b",
     "lastmod": "2026-10-12"
   },
   "/devlog": {
@@ -92,8 +92,8 @@
     "lastmod": "2026-10-07"
   },
   "/skill.md": {
-    "sha256": "f27dbb6c20a35e8d54223185b33e6c8ff07817fc061e36989358b79dd7901d73",
-    "lastmod": "2026-10-11"
+    "sha256": "d224e758f00146d6c1156a33ed17dc70e98c7efb8c1789a405641dc64cccd6a5",
+    "lastmod": "2026-10-12"
   },
   "/llms.txt": {
     "sha256": "f1f77aa1b17eac06bff6c5cb7a937045bb52ae2a3749032f651c15aae10c4605",

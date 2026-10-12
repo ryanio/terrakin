@@ -51,12 +51,15 @@ export interface EventRowOptions {
   compact?: boolean;
 }
 
-/** Go to an event that's on: one `join_event`, then the world. */
-async function goTo(e: EventView, button: HTMLButtonElement, o: EventRowOptions) {
-  const r = await whileBusy(button, () => worldApi.act({ type: "join_event", event: e.id }));
-  const problem = actProblem(r);
+/** Go to an event that's on: one `join_event`, then the world, or the refusal as a toast. */
+export async function goToEvent(id: string, navigate: (path: string) => void) {
+  const problem = actProblem(await worldApi.act({ type: "join_event", event: id }));
   if (problem) return toast(problem);
-  o.navigate("/world");
+  navigate("/world");
+}
+
+async function goTo(e: EventView, button: HTMLButtonElement, o: EventRowOptions) {
+  await whileBusy(button, () => goToEvent(e.id, o.navigate));
 }
 
 /** One event: what, when, where, who's hosting, and what you can do about it. */

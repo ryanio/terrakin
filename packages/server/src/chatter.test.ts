@@ -1,4 +1,4 @@
-import type { PostView } from "@terrakin/protocol";
+import { JOB_WORDS, type PostView } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { AiSpend, worstCostMicroUsd } from "./ai-spend";
@@ -377,6 +377,18 @@ describe("the prompt", () => {
       ),
     ).toContain("Open to them today: post, nothing.");
   });
+
+  it("tells a giver the board's own words for their job, and says nothing otherwise", () => {
+    const persona = { name: "Clem", handle: "clem", note: "", bio: "", recent: [] };
+    const job = "A jar of herb tea for the cafe";
+    const withJob = chatterPrompt(persona, ["post"], [], [], false, job);
+    expect(withJob).toContain(
+      `The Town Hall's jobs board asks this today, in its own words: "${job}".`,
+    );
+    expect(withJob).toContain("The board is where the job is real, never this post");
+    const withoutJob = chatterPrompt(persona, ["post"], []);
+    expect(withoutJob).not.toContain("jobs board asks this today");
+  });
 });
 
 describe("the answer check", () => {
@@ -445,6 +457,19 @@ describe("the answer check", () => {
     expect(
       code(check({ action: "post", text: "Fine words", target: "" }, { review: () => false })),
     ).toBe("filtered");
+  });
+
+  it("lets a giver name the board's own words for their job", () => {
+    // Every job's words must pass the topic check, so a giver who mentions their own job
+    // in a post isn't refused. A future job whose words trip it fails here first.
+    for (const words of Object.values(JOB_WORDS)) {
+      const result = check({
+        action: "post",
+        text: `Stop by, ${words} are on my mind today.`,
+        target: "",
+      });
+      expect(result.ok ? "ok" : result.code).toBe("ok");
+    }
   });
 });
 

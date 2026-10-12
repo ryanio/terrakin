@@ -1,13 +1,14 @@
 import {
   heartCount,
   hearted,
+  jobWords,
   type PostView,
   REACTION_KEYS,
   REAL_ENOUGH,
   type ReactionKey,
   TOWNSFOLK_ACTIONS,
 } from "@terrakin/protocol";
-import { DAY_MS, HOUR_MS } from "@terrakin/sim";
+import { DAY_MS, HOUR_MS, jobsOn } from "@terrakin/sim";
 import { z } from "zod";
 import {
   AiSpend,
@@ -499,7 +500,9 @@ export const MENTION_TURN =
 
 /**
  * The user message: the resident, what's open, then the town's posts and the people, each as JSON
- * in a fenced block. `mention` says the one post in the list @mentions the resident.
+ * in a fenced block. `mention` says the one post in the list @mentions the resident. `todayJob`
+ * is the Town Hall board's fixed words for the job this townsfolk asks today, so a giver can
+ * mention it; the board is still the only place the job is real (RFC 0030's security section).
  */
 export function chatterPrompt(
   persona: PersonaFacts,
@@ -507,6 +510,7 @@ export function chatterPrompt(
   candidates: readonly Candidate[],
   people: readonly Person[] = [],
   mention = false,
+  todayJob?: string,
 ): string {
   const offer = offered(open, candidates, people);
   const posts = candidates.map((c) => ({
@@ -528,6 +532,12 @@ export function chatterPrompt(
     "",
     `Open to them today: ${[...offer, "nothing"].join(", ")}. Anything else is closed.`,
     ...(mention ? ["", MENTION_TURN] : []),
+    ...(todayJob
+      ? [
+          "",
+          `The Town Hall's jobs board asks this today, in its own words: ${fenceJson(todayJob)}. If you post, you may mention it briefly, in your own words. The board is where the job is real, never this post: don't tell anyone what to do, and don't promise anything.`,
+        ]
+      : []),
     "",
     "<untrusted_posts>",
     fenceJson(posts),
@@ -1263,6 +1273,18 @@ export class ChatterService {
   }
 
   /**
+   * The board's fixed words for the job this townsfolk asks today, or undefined. The persona's
+   * key is its handle, which is what the sim's givers are, so a giver's own turns can mention
+   * their job. Empty before jobs open in this world.
+   */
+  private todayJob(persona: Persona): string | undefined {
+    const state = this.world?.state;
+    if (!state) return undefined;
+    const job = jobsOn(state).find((j) => j.giver === persona.key);
+    return job ? jobWords(job.id) : undefined;
+  }
+
+  /**
    * One model call for one townsfolk resident on what the service offered it, and what came of it.
    * `capped` when a guard refused before fetching.
    */
@@ -1275,6 +1297,7 @@ export class ChatterService {
       turn.candidates,
       turn.people,
       turn.kind === "mention",
+      this.todayJob(persona),
     );
     const request = this.request(prompt, model);
     const reserved = this.reserve(model, request);

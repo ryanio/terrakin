@@ -580,7 +580,22 @@ export type CheckedAnswer =
   | { ok: true; action: "like"; postId: string }
   | { ok: true; action: "react"; postId: string; reaction: ReactionKey }
   | { ok: true; action: "praise" | "admire" | "wave"; residentId: string }
-  | { ok: false; code: AnswerRefusal };
+  | { ok: false; code: AnswerRefusal; why?: TargetMiss };
+
+/**
+ * Why a target was turned away, logged with the action as codes: no ref like it in either list, a
+ * ref from the other list (a person's for a post, or a post's for a person), or a person whose
+ * entry doesn't allow that action.
+ */
+type TargetMiss = "unknown" | "other_list" | "not_allowed";
+
+/** A ref as the model may write it: spaces, a leading "#" or "ref", and any case are let go. */
+const refKey = (ref: string) =>
+  ref
+    .trim()
+    .replace(/^(?:#|ref\s*)/i, "")
+    .trim()
+    .toLowerCase();
 
 /** Subjects townsfolk stay out of: the economy, selling, and the Town Hall. */
 const OFF_TOPIC =
@@ -624,18 +639,23 @@ export function checkAnswer(
 ): CheckedAnswer {
   const parsed = Answer.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "shape" };
-  const { action, target } = parsed.data;
+  const { action } = parsed.data;
+  const target = refKey(parsed.data.target);
   if (action === "nothing") return { ok: true, action };
   if (!context.open.includes(action)) return { ok: false, code: "closed" };
+  const person = context.people?.find((p) => refKey(p.ref) === target);
+  const post = context.candidates.find((c) => refKey(c.ref) === target);
   if (action === "praise" || action === "admire" || action === "wave") {
-    const person = context.people?.find((p) => p.ref === target.trim());
-    if (!person?.open.includes(action)) return { ok: false, code: "target" };
+    if (!person) return { ok: false, code: "target", why: post ? "other_list" : "unknown" };
+    if (!person.open.includes(action)) return { ok: false, code: "target", why: "not_allowed" };
     return { ok: true, action, residentId: person.residentId };
   }
   let postId: string | undefined;
   if (action !== "post") {
-    postId = context.candidates.find((c) => c.ref === target.trim())?.postId;
-    if (postId === undefined) return { ok: false, code: "target" };
+    postId = post?.postId;
+    if (postId === undefined) {
+      return { ok: false, code: "target", why: person ? "other_list" : "unknown" };
+    }
     if (action === "like") return { ok: true, action, postId };
     if (action === "react") {
       const reaction = parsed.data.reaction.trim();
@@ -1431,7 +1451,8 @@ export class ChatterService {
     const { raw, checked } = read;
     const said = saidOf(checked, raw);
     if (!checked.ok) {
-      console.info(`Chatter: answer turned away (${checked.code})`);
+      const reason = checked.why ? `${checked.code}: ${said.action}, ${checked.why}` : checked.code;
+      console.info(`Chatter: answer turned away (${reason})`);
       if (checked.code === "shape") {
         this.failed(persona, answeredBy, tokens, false);
         return record(said);

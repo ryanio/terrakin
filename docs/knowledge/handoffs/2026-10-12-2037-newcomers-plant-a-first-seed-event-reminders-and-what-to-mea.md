@@ -26,7 +26,7 @@ tags: [onboarding, events, jobs, analytics]
 
 1. Around 2026-10-19, read the Newcomers page in the staff app: of people with a hearth, the share with a first thing (3 of 10 before), first jobs taken in a first week, and whether plot names and handles still get set now that they come later.
 2. Then decide whether the home wall shows newcomers a job (Ryan chose to measure first).
-3. Look into why 37% of townsfolk chatter answers are refused ("answer turned away (target)" is the most common line).
+3. Read which chatter targets miss: the log line is now "answer turned away (target: <action>, <why>)", with `why` one of `unknown`, `other_list`, or `not_allowed`, and refs written with a "#", "ref", or capitals are taken. If `other_list` leads, give posts refs of their own shape (`p1`) so the two lists can't be mixed up.
 4. Write the Halloween devlog near October 24.
 
 ## Open questions

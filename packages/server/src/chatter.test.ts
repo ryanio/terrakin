@@ -21,6 +21,7 @@ import {
   nothingDone,
   offered,
   openActions,
+  type Person,
   peopleFor,
   pickPersonas,
   quietGate,
@@ -460,6 +461,45 @@ describe("the answer check", () => {
     expect(
       code(check({ action: "post", text: "Fine words", target: "" }, { review: () => false })),
     ).toBe("filtered");
+  });
+
+  it("takes a ref written loosely, and says why a target missed", () => {
+    const people: Person[] = [
+      { ref: "r1", residentId: "ryan", name: "Ryan", newcomer: false, open: ["wave"] },
+    ];
+    const target = (answer: Record<string, string>) =>
+      checkAnswer(
+        { text: "", ...answer },
+        { ...context, open: ["like", "wave", "praise"], people },
+      );
+    // A "#", a "ref", and capitals are let go, so a slip in writing the ref still finds it.
+    expect(target({ action: "like", target: "#1" })).toMatchObject({ ok: true, postId: "p_real" });
+    expect(target({ action: "wave", target: "Ref R1" })).toMatchObject({
+      ok: true,
+      residentId: "ryan",
+    });
+    // Each miss says which kind: a ref from the other list, none at all, or an action the
+    // person's entry doesn't allow.
+    expect(target({ action: "like", target: "r1" })).toEqual({
+      ok: false,
+      code: "target",
+      why: "other_list",
+    });
+    expect(target({ action: "wave", target: "1" })).toEqual({
+      ok: false,
+      code: "target",
+      why: "other_list",
+    });
+    expect(target({ action: "wave", target: "r9" })).toEqual({
+      ok: false,
+      code: "target",
+      why: "unknown",
+    });
+    expect(target({ action: "praise", target: "r1" })).toEqual({
+      ok: false,
+      code: "target",
+      why: "not_allowed",
+    });
   });
 
   it("lets a giver name the board's own words for their job", () => {

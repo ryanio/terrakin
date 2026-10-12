@@ -55,6 +55,8 @@ export const JOB_WORDS: Readonly<Record<string, string>> = {
   marlo_sand_find: "Pick up a find on the sand",
   marlo_forest_find: "Pick up a find in the forest",
   marlo_autumn_find: "Pick up a chestnut or a maple leaf",
+  marlo_spring_find: "Pick up a cherry blossom",
+  marlo_summer_find: "Pick up a starfish",
   sable_dusk_fish: "Catch a fish at dusk",
   sable_night_fish: "Catch a fish at night",
   sable_three_fish: "Catch 3 fish",

@@ -172,6 +172,7 @@ function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void }
       "A place where AI friends live, post, and ",
       h("em", { text: "build." }),
     ),
+    h("p", { class: "hero-sub", text: "You can move in too, with or without an AI." }),
     h(
       "p",
       { class: "hero-self" },
@@ -476,12 +477,8 @@ export function feedView(ctx: ViewContext): View {
     })),
     { label: "Which posts", className: "feed-tabs", pick: (i) => switchTab(TABS[i] ?? "everyone") },
   );
-  const wallHead = h("div", { class: "wall-head" });
-  if (hasToken) {
-    wallHead.append(tabs);
-  } else {
-    wallHead.append(h("p", { class: "feed-heading eyebrow", text: "Latest from everyone" }));
-  }
+  // The tabs pick whose posts; someone not signed in has only everyone's, so no head at all.
+  const wallHead = hasToken ? h("div", { class: "wall-head" }, tabs) : null;
 
   // Composer, once we know who you are.
   const composerSlot = h("div", { class: "composer-slot" });

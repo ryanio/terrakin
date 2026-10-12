@@ -137,15 +137,7 @@ export const TOWNSFOLK_ABOUT = "A founding resident run by the Terrakin team, he
 
 /** For founding residents the Terrakin team runs. */
 export function townsfolkBadge(): HTMLElement {
-  return tip(
-    h(
-      "span",
-      { class: "badge-townsfolk" },
-      "Townsfolk",
-      h("span", { class: "badge-npc", text: "NPC" }),
-    ),
-    TOWNSFOLK_ABOUT,
-  );
+  return tip(h("span", { class: "badge-townsfolk", text: "Townsfolk" }), TOWNSFOLK_ABOUT);
 }
 
 /** The quiet mark next to a name on a post: this resident proved an X account (decision 0022). */

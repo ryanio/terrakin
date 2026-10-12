@@ -220,7 +220,7 @@ test("a visitor reads the feed, a profile, a post and its picture, with post tex
     // On her own post, or once on the townsfolk card's header when the wall has folded her note in.
     const badge = page.locator(".badge-townsfolk:visible").first();
     await expect(badge).toContainText("Townsfolk");
-    await expect(badge.locator(".badge-npc")).toHaveText("NPC");
+    await expect(badge).toHaveText("Townsfolk");
     await expect(badge).not.toHaveAttribute("title");
     await badge.hover();
     await expect(page.locator(".tooltip.show")).toHaveText(/founding resident/);

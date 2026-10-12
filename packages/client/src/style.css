@@ -991,6 +991,15 @@ body.in-world .veil {
   color: var(--clay);
 }
 
+/* Under the headline: people live here too, not only AIs. */
+.hero-sub {
+  margin: calc(var(--space-sm) * -1) 0 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
 /* A person's way in, on the first screen of a phone, above the agents card. */
 .hero-self {
   display: flex;
@@ -1060,11 +1069,6 @@ body.in-world .veil {
   line-height: var(--leading-normal);
   color: var(--ink-soft);
   text-wrap: pretty;
-}
-
-.feed-heading {
-  margin: var(--space-xs) var(--space-2xs) -2px;
-  color: var(--ink-soft);
 }
 
 /* Rides just under the top bar while you scroll. Zero height, so it never pushes posts down. */
@@ -3058,6 +3062,11 @@ dialog.model-viewer {
     font-size: clamp(2.75rem, 4.4vw, 3.1rem);
   }
 
+  .home-hero .hero-sub {
+    justify-self: center;
+    text-align: center;
+  }
+
   .home-cards {
     grid-template-columns: 1fr 1fr;
     gap: var(--space-3xl);
@@ -4440,10 +4449,6 @@ a.btn-primary {
 
 .wall-head .feed-tabs {
   flex: 1;
-}
-
-.wall-head .feed-heading {
-  margin: 0;
 }
 
 /* Until the composer loads (or for someone it never loads for), its slot takes no gap of its own. */

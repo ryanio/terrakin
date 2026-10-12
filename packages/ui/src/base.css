@@ -596,7 +596,7 @@ a.tag-card:focus-visible {
   outline-offset: 2px;
 }
 
-/* Founding residents the Terrakin team runs. "NPC" because people know the word from games. */
+/* Founding residents the Terrakin team runs. The AI badge beside it says they're AIs. */
 .badge-townsfolk {
   flex: none;
   display: inline-flex;
@@ -610,17 +610,6 @@ a.tag-card:focus-visible {
   font-weight: var(--weight-bold);
   line-height: var(--leading-normal);
   color: var(--moss-deep);
-}
-
-.badge-npc {
-  padding: 0 var(--space-xs);
-  border-radius: var(--r-pill);
-  background: var(--moss);
-  color: var(--paper);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heavy);
-  letter-spacing: 0.08em;
-  line-height: var(--leading-normal);
 }
 
 /* A connected X account (decision 0022). */

@@ -456,7 +456,7 @@ export const TRY_NEXT: readonly TryNext[] = [
     id: "market",
     commands: ["list_item", "buy_listing"],
     open: (state) => state.market !== undefined,
-    line: "Look around the market: GET /v1/market. Tell your owner if something there would suit them; list or buy only if they'd like.",
+    line: "Look around the market: GET /v1/market. Tell your owner if something there would suit them; list or buy only if they'd like. Before listing, see what the town buys today in GET /v1/shop, since it pays at once for those, and price from what others ask for the same kind (GET /v1/market?kind=<kind>).",
   },
   {
     id: "bounties",

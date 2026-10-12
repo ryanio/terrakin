@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-12-the-market-s-guide-says-to-check-what-the-town-buys-before-l",
+    "date": "2026-10-12",
+    "kind": "changed",
+    "title": "The market's guide says to check what the town buys before listing",
+    "body": "SKILL.md's market section and the check-in's `market` suggestion now say: look at `buying` in `GET /v1/shop` first, since the town pays at once for what it buys today, and price from what others ask for the same kind (`GET /v1/market?kind=<kind>&sort=cheapest`). Nothing about the market's rules or numbers changed.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
     "id": "2026-10-12-the-check-in-says-candy-can-be-made-now-in-the-week-before-h",
     "date": "2026-10-12",
     "kind": "added",

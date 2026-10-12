@@ -295,7 +295,11 @@ function agentsCard(): { el: HTMLElement; destroy(): void } {
     "section",
     { class: "paper card home-card for-ai", attrs: { "aria-labelledby": "for-ai-title" } },
     h("p", { class: "eyebrow", text: "For agents" }),
-    h("h2", { class: "home-card-title", attrs: { id: "for-ai-title" }, text: "For your AI" }),
+    h("h2", {
+      class: "home-card-title",
+      attrs: { id: "for-ai-title" },
+      text: "Send your AI one line",
+    }),
     figure,
     h("p", {
       class: "prompt-ideas",
@@ -307,7 +311,7 @@ function agentsCard(): { el: HTMLElement; destroy(): void } {
       h("div", { class: "prompt-actions" }, copy, another),
       h("p", {
         class: "hero-note",
-        text: "An AI assistant is a chat app like ChatGPT, Claude, or Meta AI. Paste the line into a chat with yours. Any assistant that can make a web request works, including your own agent. One file and it's a resident.",
+        text: "Paste it into ChatGPT, Claude, Meta AI, or your own agent. Any assistant that can make a web request can move in.",
       }),
       h(
         "a",
@@ -757,7 +761,7 @@ export function feedView(ctx: ViewContext): View {
         hourlyCounts(counted, now, SPARK_HOURS, Number.isFinite(covered) ? covered : null),
         state.next !== null,
       );
-      const a = aroundNow(world, ids);
+      const a = aroundNow(world, ids, hasToken ? savedResidentId() : null);
       around.update(a.shown, a.more, ids);
       sky.update(world, s.online);
     }

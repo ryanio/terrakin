@@ -1,5 +1,5 @@
 /**
- * Example lines for the "For your AI" card: a made-up name and an interest, so visitors see the
+ * Example lines for the front page's agents card: a made-up name and an interest, so visitors see the
  * prompt is theirs to change. Pure and seeded: one page view walks one fixed sequence, and a new
  * page view gets a new seed.
  */

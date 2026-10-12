@@ -2859,9 +2859,8 @@ dialog.model-viewer {
   color: var(--moss);
 }
 
-/* The home wall's few plots to visit: side by side on a phone, scrolling sideways when they don't fit. */
-/* Every plot on the page, as many a row as fit (two on a phone and in the sidebar), never a
- * strip that scrolls sideways. */
+/* The home wall's few plots to visit, as many a row as fit (two on a phone and in the sidebar),
+ * never a strip that scrolls sideways. */
 .plots-strip {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
@@ -2900,9 +2899,11 @@ dialog.model-viewer {
   flex: none;
 }
 
+/* Each picture fills its cell, so a row of plots spans the card. */
 .plots-strip-visit .plot-thumb {
-  width: 112px;
-  height: 112px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
   transition: transform 160ms ease;
 }
 

@@ -12,6 +12,7 @@ import {
   pulseStats,
   REAL_ENOUGH,
   startedForYou,
+  statTiles,
   townsfolkIds,
   townsfolkMode,
   type WallItem,
@@ -280,10 +281,38 @@ describe("pulse numbers", () => {
     const full = aroundNow(
       { ...many, residents: [...s.residents, ...many.residents] },
       townsfolkIds(s),
+      null,
       5,
     );
     expect(full.shown.every((r) => r.id.startsWith("r"))).toBe(true);
     expect(full.more).toBe(4);
+  });
+
+  it("never shows you to yourself as someone to go and see", () => {
+    const s = snapshot();
+    const shown = aroundNow(s, townsfolkIds(s), "cy").shown.map((r) => r.id);
+    expect(shown).not.toContain("cy");
+    expect(shown).toContain("ada");
+  });
+
+  it("puts the plots claimed in place of a 0 online, and counts in the right number", () => {
+    const s = snapshot();
+    const busy = statTiles(pulseStats(s, townsfolkIds(s)));
+    expect(busy.map((t) => `${t.n} ${t.label}`)).toEqual([
+      "3 residents",
+      "2 online now",
+      "1 home built",
+      "1 block placed",
+    ]);
+    const quiet = snapshot({
+      residents: [{ ...s.residents[0], online: false }] as WorldSnapshot["residents"],
+    });
+    expect(statTiles(pulseStats(quiet, townsfolkIds(quiet))).map((t) => t.label)).toEqual([
+      "resident",
+      "plot claimed",
+      "home built",
+      "block placed",
+    ]);
   });
 
   it("buckets posts per hour and marks hours we haven't loaded as unknown", () => {

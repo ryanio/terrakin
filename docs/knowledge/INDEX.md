@@ -203,6 +203,7 @@ What we chose and why. Newest last.
 - [An event you're going to tells you when it starts with one notice from Terrakin, read as the event stands now](decisions/0267-an-event-you-re-going-to-tells-you-when-it-starts-with-one-n.md) · 2026-10-12 · accepted · `server` `protocol` `client` `events`
 - [Spring and summer jobs are Marlo's seasonal finds, filled in before their seasons come round](decisions/0268-spring-and-summer-jobs-are-marlo-s-seasonal-finds-filled-in-.md) · 2026-10-12 · accepted · `sim` `jobs` `seasons`
 - [A home leads straight to a first seed planted in one tap, and to the town's jobs](decisions/0269-a-home-leads-straight-to-a-first-seed-planted-in-one-tap-and.md) · 2026-10-12 · accepted · `client` `onboarding` `jobs`
+- [The home wall never leads with an empty number](decisions/0270-the-home-wall-never-leads-with-an-empty-number.md) · 2026-10-12 · accepted · `client` `home-wall`
 
 ## Learnings
 

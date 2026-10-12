@@ -22,7 +22,7 @@ import { everyVisible } from "@terrakin/ui/poll";
 import { tip } from "@terrakin/ui/tooltip";
 import { timeAgo } from "@terrakin/ui/when";
 import { plotThumb } from "./plot-thumb";
-import { type PulseStats, phaseName, type WallItem, weatherReport } from "./pulse";
+import { type PulseStats, phaseName, statTiles, type WallItem, weatherReport } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
 import { visitTap } from "./visit-plot";
@@ -48,17 +48,12 @@ export function pulseShell(cls: string, label: string, ...children: (Node | null
 // ---------- the town's numbers ----------
 
 export function statsCard() {
-  const num = (label: string) => {
+  const num = () => {
     const n = h("span", { class: "stat-n", text: "0" });
-    return {
-      n,
-      el: h("div", { class: "stat" }, n, h("span", { class: "stat-label", text: label })),
-    };
+    const label = h("span", { class: "stat-label" });
+    return { n, label, el: h("div", { class: "stat" }, n, label) };
   };
-  const residents = num("residents");
-  const online = num("online now");
-  const homes = num("homes built");
-  const blocks = num("blocks placed");
+  const tiles = [num(), num(), num(), num()];
   const bars = h("div", { class: "spark-bars", attrs: { "aria-hidden": "true" } });
   const barsLabel = h("p", { class: "spark-label" });
   const fill = h("p", { class: "pulse-foot", attrs: { hidden: true } });
@@ -72,7 +67,7 @@ export function statsCard() {
       "Right now",
     ),
     h("h2", { class: "pulse-title", text: "The town's pulse" }),
-    h("div", { class: "stat-grid" }, residents.el, online.el, homes.el, blocks.el),
+    h("div", { class: "stat-grid" }, ...tiles.map((t) => t.el)),
     h("div", { class: "spark" }, bars, barsLabel),
     fill,
   );
@@ -80,10 +75,14 @@ export function statsCard() {
     el,
     update(stats: PulseStats, hourly: (number | null)[], partial: boolean) {
       el.hidden = false;
-      countStat(residents.n, stats.residents);
-      countStat(online.n, stats.online);
-      countStat(homes.n, stats.homes);
-      countStat(blocks.n, stats.blocks);
+      statTiles(stats).forEach((tile, i) => {
+        const shown = tiles[i];
+        if (!shown) return;
+        // A tile that changes what it counts shows the new count at once, never counting across.
+        if (shown.label.textContent !== tile.label) delete shown.n.dataset.n;
+        shown.label.textContent = tile.label;
+        countStat(shown.n, tile.n);
+      });
       const top = Math.max(1, ...hourly.map((c) => c ?? 0));
       bars.replaceChildren(
         ...hourly.map((c) => {
@@ -293,11 +292,11 @@ export function skyCard() {
     report.textContent = sky.next ? `${sky.now} ${sky.next}` : sky.now;
     const minutes = Math.round(anchor.dayMs / 60_000);
     const length = minutes < 120 ? `${minutes} minutes` : `${Math.round(minutes / 30) / 2} hours`;
-    line.textContent = `A whole day here takes ${length}. ${
+    // Who's out only while someone is: an empty town has nothing to say here.
+    line.textContent =
       online === 0
-        ? "Nobody is out right now."
-        : `${plural(online, "resident is", "residents are")} out right now.`
-    }`;
+        ? `A whole day here takes ${length}.`
+        : `A whole day here takes ${length}. ${plural(online, "resident is", "residents are")} out right now.`;
   };
   const stop = everyVisible(2_000, paint);
   return {
@@ -561,7 +560,7 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
               o.me,
               o.navigate,
               "plots-strip-visit",
-              world ? plotThumb(world, p, `${title}, from above`, 112) : null,
+              world ? plotThumb(world, p, `${title}, from above`, 176) : null,
               h("span", { class: "plots-strip-name", text: title }),
               whose ? h("span", { class: "plots-strip-whose", text: whose }) : null,
             ),

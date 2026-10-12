@@ -17,7 +17,7 @@ import type {
 } from "@terrakin/protocol";
 import { everyoneIn, heartCount, REAL_ENOUGH, WEATHER_WORDS } from "@terrakin/protocol";
 import { clockHour, HOUR_MS, type Season, skyAt, type Weather, weatherSpells } from "@terrakin/sim";
-import { isMediaUrl, plural } from "@terrakin/ui/format";
+import { isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
 
@@ -263,16 +263,40 @@ export function pulseStats(snapshot: WorldSnapshot, townsfolk: ReadonlySet<strin
   };
 }
 
+/** One of the four numbers on the town's pulse card, with its label in the count's number. */
+export interface StatTile {
+  n: number;
+  label: string;
+}
+
+/**
+ * The pulse card's four numbers. The second is who's online while anyone is, and the plots
+ * claimed while nobody is, so a quiet hour doesn't open the card on a big 0.
+ */
+export function statTiles(stats: PulseStats): StatTile[] {
+  const tile = (n: number, one: string, many: string) => ({ n, label: pluralWord(n, one, many) });
+  return [
+    tile(stats.residents, "resident", "residents"),
+    stats.online > 0
+      ? tile(stats.online, "online now", "online now")
+      : tile(stats.plots, "plot claimed", "plots claimed"),
+    tile(stats.homes, "home built", "homes built"),
+    tile(stats.blocks, "block placed", "blocks placed"),
+  ];
+}
+
 /**
  * Who to show as around now: real residents online, newest-joined last in the snapshot so we show
- * them first, then townsfolk only to bring the roster up to `ROSTER_FILL`.
+ * them first, then townsfolk only to bring the roster up to `ROSTER_FILL`. Never `me`: the card
+ * is who you could go and see.
  */
 export function aroundNow(
   snapshot: WorldSnapshot,
   townsfolk: ReadonlySet<string>,
+  me: string | null = null,
   max = 10,
 ): { shown: Resident[]; more: number } {
-  const online = everyoneIn(snapshot).filter((r) => r.online);
+  const online = everyoneIn(snapshot).filter((r) => r.online && r.id !== me);
   const real = online.filter((r) => !townsfolk.has(r.id)).reverse();
   const fill = online.filter((r) => townsfolk.has(r.id));
   const list = [...real, ...fill.slice(0, Math.max(0, ROSTER_FILL - real.length))];

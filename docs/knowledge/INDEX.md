@@ -199,6 +199,7 @@ What we chose and why. Newest last.
 - [The smoke check waits for the World object to run the deployed build, and a picture says whether it was drawn now](decisions/0263-the-smoke-check-waits-for-the-world-object-to-run-the-deploy.md) · 2026-10-11 · accepted · `ci` `deploy` `cards` `tooling`
 - [A lazy view's styles load with its module, and the first load's styles budget is 26 kB](decisions/0264-a-lazy-view-s-styles-load-with-its-module-and-the-first-load.md) · 2026-10-11 · accepted · `client` `performance` `tooling`
 - [The jobs board's second edition: a lane's regular jobs carry on from the last one it gave](decisions/0265-the-jobs-board-s-second-edition-a-lane-s-regular-jobs-carry-.md) · 2026-10-11 · accepted · `sim` `server` `jobs`
+- [A giver's townsfolk chatter can mention the day's job in the board's own words](decisions/0266-a-giver-s-townsfolk-chatter-can-mention-the-day-s-job-in-the.md) · 2026-10-11 · accepted · `server` `jobs` `chatter`
 
 ## Learnings
 

@@ -29,7 +29,7 @@ import { tileKey } from "./keys";
 import { jobEarns, PROGRESS, pointsOf, titleOf } from "./levels";
 import { JOB_WEAR, WEAR_INFO, WEAR_ITEMS, type WearItem } from "./looks";
 import { replay } from "./replay";
-import { dateOfDay, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
+import { dateOfDay, dayOfDate, SEASONS, seasonOf, seasonSpan, weekStart } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import type { TimeOfDay } from "./time-of-day";
 import {
@@ -853,10 +853,26 @@ describe("a walk that becomes a find, from the second edition", () => {
 });
 
 describe("an edition's boards", () => {
-  // The pins below moved once, for spring and summer days only: Marlo's spring and summer find
-  // jobs joined the table before either season first came round in a live world, under RFC
-  // 0030's softer case (decision 0268). Boards for the days a live world has logged (autumn
-  // and winter) are unchanged.
+  // A season's jobs may join the table before that season first comes round in a live world
+  // (decision 0268). That moves the four-year pin, never the logged days': terrakin.org opened
+  // jobs on October 11, 2026, and this pin holds its boards to the end of the next winter.
+  it("stay as they were for every day terrakin.org has logged, whatever a later season adds", () => {
+    const live = dayOfDate(2026, 10, 11);
+    const logged = Array.from({ length: dayOfDate(2027, 3, 1) - live }, (_, i) => live + i);
+    const boards = (shipped: number) => {
+      const world = { ...opened, jobs: { ...opened.jobs, opened: live, edition: shipped } };
+      return fnv1a(
+        canonicalJson(
+          logged.map((day) => jobsOn({ ...world, day } as WorldState).map((j) => j.id)),
+        ),
+      );
+    };
+    expect(Object.fromEntries(EDITIONS.map((n) => [n, boards(n)]))).toEqual({
+      1: "c5696559",
+      2: "b4e03423",
+    });
+  });
+
   it("stay as they were for every day of four years, since a live world's logged take_job reads them", () => {
     const boards = (shipped: number) =>
       fnv1a(canonicalJson(DAYS.map((day) => boardIn(shipped)(day).map((j) => j.id))));

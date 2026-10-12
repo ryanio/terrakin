@@ -359,10 +359,9 @@ const FIRST_TABLE: readonly Job[] = [
  * turns (`carriesOn`): each one is the next in table order after the last one the lane gave, so a
  * holiday or a season's edge never sends the lane back to a job it just gave or past one it hadn't.
  *
- * Spring's and summer's find jobs joined the shared table before either season first came round
- * in a live world (jobs opened in autumn), under RFC 0030's softer case: no logged day reads
- * them yet, and a past day's board is unchanged, since a season's jobs are up only in their
- * season (decision 0268).
+ * A season's jobs may be added to the shared table before that season first comes round in a live
+ * world (RFC 0030's softer case, decision 0268), since no logged day reads them. `jobs.test.ts`
+ * pins the boards of every day a live world has logged, so an addition that moves one fails.
  */
 export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
   1: FIRST_TABLE,

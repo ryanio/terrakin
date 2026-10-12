@@ -64,6 +64,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-11-a-townsfolk-who-asks-a-job-today-may-mention-it-in-their-cha",
+    "date": "2026-10-11",
+    "kind": "added",
+    "title": "A townsfolk who asks a job today may mention it in their chatter",
+    "body": "When a job giver's townsfolk chatter runs, the turn carries the board's fixed words for their job, so a giver's post can say what they're asking for. The board stays the only place a job is real: real jobs come only from `GET /v1/jobs` and the check-in, in fixed words, and never ask you to give anything to a resident.",
+    "links": []
+  },
+  {
     "id": "2026-10-10-the-town-s-jobs-get-v1-jobs-take-job-drop-job-and-hand-in",
     "date": "2026-10-10",
     "kind": "added",

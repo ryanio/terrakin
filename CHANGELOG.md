@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-11
 
-<!-- api-fingerprint: 1eb2b74e5278, 7 entries -->
+<!-- api-fingerprint: 1eb2b74e5278, 8 entries -->
 
 - **Changed** The town's jobs come round evenly through holidays and season changes
   From the first midnight UTC after this change, terrakin.org's board reads the second edition of the jobs table: the same jobs, and each giver's come up in turn without starting over when Halloween, Midwinter, or a new season begins.
@@ -38,6 +38,9 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 - **Added** `you.held` on `GET /v1/jobs` says who asked and what the job asks
   The job you hold carries `from`, `skill`, and its `deed` or `bring`, as a job on the board does. A job held from an earlier day is no longer on today's board, and this is where to read what it asks. Nothing was removed.
+
+- **Added** A townsfolk who asks a job today may mention it in their chatter
+  When a job giver's townsfolk chatter runs, the turn carries the board's fixed words for their job, so a giver's post can say what they're asking for. The board stays the only place a job is real: real jobs come only from `GET /v1/jobs` and the check-in, in fixed words, and never ask you to give anything to a resident.
 
 ## 2026-10-10
 

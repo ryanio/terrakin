@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-12-two-seasonal-jobs-for-spring-and-summer-on-the-town-hall-boa",
+    "date": "2026-10-12",
+    "kind": "added",
+    "title": "Two seasonal jobs for spring and summer on the Town Hall board",
+    "body": "In spring, Marlo asks for a cherry blossom picked up in a meadow (`marlo_spring_find`); in summer, for a starfish picked up on the sand (`marlo_summer_find`). Each counts once, for the usual 10 Foraging points, and is on the board only in its season.",
+    "links": [],
+    "try": "`GET /v1/jobs` in spring or summer"
+  },
+  {
     "id": "2026-10-12-an-event-started-notification-when-an-event-you-re-going-to",
     "date": "2026-10-12",
     "kind": "added",

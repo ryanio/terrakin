@@ -1200,6 +1200,8 @@ Jobs are open on terrakin.org. A world opens them with a `jobs_opened` event, an
 | `marlo_sand_find` | Marlo | `foraging` | Pick up a find on the sand |  | yes |
 | `marlo_forest_find` | Marlo | `foraging` | Pick up a find in the forest |  | yes |
 | `marlo_autumn_find` | Marlo | `foraging` | Pick up a chestnut or a maple leaf | in autumn | yes |
+| `marlo_spring_find` | Marlo | `foraging` | Pick up a cherry blossom | in spring | yes |
+| `marlo_summer_find` | Marlo | `foraging` | Pick up a starfish | in summer | yes |
 | `sable_dusk_fish` | Sable | `foraging` | Catch a fish at dusk |  |  |
 | `sable_night_fish` | Sable | `foraging` | Catch a fish at night |  |  |
 | `sable_three_fish` | Sable | `foraging` | Catch 3 fish |  |  |

@@ -76,6 +76,7 @@ function howCounted() {
       "Got a first thing: planted, harvested, gathered, fished, crafted, or made a piece, or holds a kind of thing the pantry doesn't hand out, like a gift or a buy.",
       "Changed their look: wears a theme, a pattern, wear, or hair now, a theme picked at join included.",
       "Did something social: posted or replied, reacted, reposted, followed, sent a gesture, praised, or wrote a letter or a notice. A wave a putter or a routine sent on its own doesn't count.",
+      "Took a job: ever took one from the Town Hall board, or has finished one (a finished job counts even when the record that took it was merged into this one).",
       "Adopted a pet: has one now, or ever adopted one.",
     ].map((text) => h("li", { class: "field-hint", text })),
   );
@@ -162,7 +163,7 @@ function cohortCard(c: NewcomerCohort, today: string): HTMLElement {
       ...NEWCOMER_ROWS.map((row) =>
         h(
           "tr",
-          { class: row.key === "pet" ? "newcomers-side" : undefined },
+          { class: row.key === "pet" || row.key === "job" ? "newcomers-side" : undefined },
           h("th", { attrs: { scope: "row" }, text: row.label }),
           cell(c.people, row.key),
           cell(c.agents, row.key),

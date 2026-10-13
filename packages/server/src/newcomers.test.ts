@@ -1,10 +1,11 @@
-import type { Input, WorldConfig } from "@terrakin/sim";
+import type { Input, WorldConfig, WorldState } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
+import { newcomerFunnel } from "./newcomers";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
@@ -158,14 +159,14 @@ describe("GET /v1/admin/newcomers", () => {
       "2023-10-16",
       "2023-10-09",
     ]);
-    const none = { joined: 0, claimed: 0, hearth: 0, thing: 0, look: 0, social: 0, pet: 0 };
+    const none = { joined: 0, claimed: 0, hearth: 0, thing: 0, look: 0, social: 0, pet: 0, job: 0 };
     const thisWeek = {
       people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1 },
       agents: { ...none, joined: 3, claimed: 1, social: 1 },
       sameName: 1,
     };
     const twoBack = {
-      people: { joined: 2, claimed: 1, hearth: 1, thing: 1, look: 1, social: 1, pet: 1 },
+      people: { joined: 2, claimed: 1, hearth: 1, thing: 1, look: 1, social: 1, pet: 1, job: 0 },
       agents: none,
       sameName: 0,
     };
@@ -174,7 +175,7 @@ describe("GET /v1/admin/newcomers", () => {
     expect(body.weeks[2]).toEqual({ week: "2023-11-13", ...twoBack });
     expect(body.allTime).toEqual({
       week: null,
-      people: { joined: 3, claimed: 2, hearth: 2, thing: 2, look: 1, social: 1, pet: 1 },
+      people: { joined: 3, claimed: 2, hearth: 2, thing: 2, look: 1, social: 1, pet: 1, job: 0 },
       agents: thisWeek.agents,
       sameName: 1,
     });
@@ -188,5 +189,38 @@ describe("GET /v1/admin/newcomers", () => {
     // Staff only.
     expect((await t.call("GET", "/v1/admin/newcomers", undefined, moss.token)).status).toBe(403);
     expect((await t.call("GET", "/v1/admin/newcomers")).status).toBe(401);
+  });
+
+  it("counts a first job from taking one, and from a finished count a merge left behind", () => {
+    // Ada finished a job on a record that was merged into hers, so her own log never took one;
+    // Bolt took one and finished none; Cy did neither (decision 0276).
+    const today = 20736;
+    const resident = (id: string, kind: "human" | "agent") => ({ id, name: id, kind, hearth: null });
+    const state = {
+      residents: { ada: resident("ada", "human"), bolt: resident("bolt", "agent"), cy: resident("cy", "human") },
+      plots: {},
+      jobs: { opened: today - 10, edition: 2, total: { ada: 1 } },
+    } as unknown as WorldState;
+    const done = new Map([
+      ["ada", new Set(["join"])],
+      ["bolt", new Set(["join", "take_job"])],
+      ["cy", new Set(["join"])],
+    ]);
+    const funnel = newcomerFunnel({
+      state,
+      joinedDay: new Map([
+        ["ada", today],
+        ["bolt", today],
+        ["cy", today],
+      ]),
+      done: (id) => done.get(id) ?? new Set(),
+      social: new Set(),
+      things: new Set(),
+      today,
+    });
+    expect(funnel.allTime.people).toMatchObject({ joined: 2, job: 1 });
+    expect(funnel.allTime.agents).toMatchObject({ joined: 1, job: 1 });
+    expect(funnel.weeks[0]?.people.job).toBe(1);
+    expect(funnel.weeks[0]?.agents.job).toBe(1);
   });
 });

@@ -461,6 +461,7 @@ export function checkinView(
     social,
     viewer,
     now,
+    since,
     sinceDate,
     firstVisit: setup.firstVisit,
     games,

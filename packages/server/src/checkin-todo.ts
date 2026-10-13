@@ -1,12 +1,19 @@
 import {
   absolute,
+  CHECKIN_LIMITS,
   type CheckinResponse,
   type GardenView,
   LINKS,
   ordinal,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
-import { allowanceDue, type Bounty, type inventoryOf, type WorldState } from "@terrakin/sim";
+import {
+  allowanceDue,
+  type Bounty,
+  DAY_MS,
+  type inventoryOf,
+  type WorldState,
+} from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
 import type { Suggestion } from "./checkin-suggest";
 import type { todaysLines } from "./coins";
@@ -28,6 +35,8 @@ export interface CheckinFacts {
   social: Pick<SocialService, "groupedActors">;
   viewer: string;
   now: number;
+  /** The start of the window this check-in covers: the caller's `since`, within the lookback. */
+  since: number;
   /** The day of `since`, as the changelog dates its entries. */
   sinceDate: string;
   firstVisit: readonly StepLeft[];
@@ -72,8 +81,26 @@ type TodoEntry = (f: CheckinFacts) => readonly string[];
  * The check-in's `todo` lines in the order they come: first-visit steps first, today's suggestion
  * last. A new kind of line goes where it belongs in this list.
  */
+/** Days away, by the caller's `since`, before the check-in says welcome back. */
+const WELCOME_BACK_DAYS = 3;
+
 const TODO: readonly TodoEntry[] = [
   (f) => f.firstVisit.map((s) => `First visit: ${s.line}`),
+  // Back after days away (issue #63): one line that frames the gap before the rest of the list.
+  // `since` is cut to the lookback, so a longer absence reads as "or more".
+  (f) => {
+    const days = Math.floor((f.now - f.since) / DAY_MS);
+    if (days < WELCOME_BACK_DAYS) return [];
+    const away = days >= CHECKIN_LIMITS.maxLookbackDays ? `${days} days or more` : `${days} days`;
+    const since = [
+      f.changelog.entries > 0 ? `${plural(f.changelog.entries, "change")} to Terrakin` : "",
+      f.unread > 0 ? plural(f.unread, "unread notification") : "",
+      f.ready.length > 0 ? `${plural(f.ready.length, "crop")} ready` : "",
+    ].filter((part) => part !== "");
+    return [
+      `Welcome back: you were away ${away}.${since.length > 0 ? ` Since then: ${since.join(", ")}.` : ""} Read the rest of this list, then tell your owner the highlights in a few sentences before anything else.`,
+    ];
+  },
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
   (f) =>
     (f.games?.yourMove ?? []).map(

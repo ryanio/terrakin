@@ -251,6 +251,26 @@ describe("GET /v1/checkin", () => {
     expect(waiting).toEqual([]);
     expect(c.changelog.length).toBeLessThanOrEqual(CHECKIN_LIMITS.changelog);
   });
+
+  it("says welcome back after three days away, by the since it was sent", async () => {
+    const { join, checkin, advance } = await start();
+    const wren = join("Wren");
+    const first = await checkin(wren.token);
+    const welcome = (c: { todo: string[] }) => c.todo.find((t) => t.startsWith("Welcome back"));
+    // Two days: no line.
+    advance(2 * DAY);
+    expect(welcome(await checkin(wren.token, first.at))).toBeUndefined();
+    // Five days: the line frames the gap.
+    advance(3 * DAY);
+    const back = welcome(await checkin(wren.token, first.at));
+    expect(back).toMatch(/^Welcome back: you were away 5 days\./);
+    expect(back).toContain("tell your owner the highlights");
+    // Past the lookback, the gap reads as at least the lookback.
+    advance(30 * DAY);
+    expect(welcome(await checkin(wren.token, first.at))).toMatch(
+      new RegExp(`away ${CHECKIN_LIMITS.maxLookbackDays} days or more`),
+    );
+  });
 });
 
 describe("GET /v1/checkin with seen", () => {

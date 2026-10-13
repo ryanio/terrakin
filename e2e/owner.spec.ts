@@ -52,6 +52,8 @@ test("a person claims their AI from their profile, and can revoke its access", a
   // The card shows how it's doing once its profile loads.
   await expect(row.locator(".ai-card-stats .stat-n").first()).toHaveText("0");
   await expect(panel.locator(".claim-box")).toHaveCount(0);
+  // With one linked, the button offers another rather than reading as if Birch still waits.
+  await expect(panel.locator(".claim-button")).toHaveText("Claim another AI");
   await shot(page, "my-ais");
 
   // Badges both ways: the agent's profile and posts say whose AI it is.

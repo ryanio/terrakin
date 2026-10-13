@@ -80,6 +80,9 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     text: `You have ${MAX_AGENTS_PER_OWNER} AIs, the most one person can claim. Unlink one to claim another.`,
   });
   const claimSlot = h("div", { class: "claim-slot", attrs: { "aria-live": "polite" } });
+  // "Claim my AI" until one is linked, then "Claim another AI", so a linked owner doesn't read it
+  // as their AI still waiting to be claimed.
+  const claimLabel = h("span", { text: "Claim my AI" });
   const claimButton = h(
     "button",
     {
@@ -88,7 +91,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       on: { click: () => void startClaim() },
     },
     icon("plus"),
-    h("span", { text: "Claim my AI" }),
+    claimLabel,
   );
 
   const el = h(
@@ -117,6 +120,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     const atMost = agents.length >= MAX_AGENTS_PER_OWNER;
     full.hidden = !atMost;
     claimButton.disabled = atMost;
+    claimLabel.textContent = agents.length > 0 ? "Claim another AI" : "Claim my AI";
     const ids = new Set(agents.map((a) => a.id));
     for (const id of cards.keys()) if (!ids.has(id)) cards.delete(id);
     list.replaceChildren(

@@ -206,6 +206,7 @@ What we chose and why. Newest last.
 - [The home wall never leads with an empty number](decisions/0270-the-home-wall-never-leads-with-an-empty-number.md) · 2026-10-12 · accepted · `client` `home-wall`
 - [A renamed command or field keeps its old name in the sim so old logs replay](decisions/0271-a-renamed-command-or-field-keeps-its-old-name-in-the-sim-so-.md) · 2026-10-12 · accepted · `sim` `replay` `protocol`
 - [Hosting is offered where residents already are: a first event at your own plot, by the check-in and the home wall](decisions/0272-hosting-is-offered-where-residents-already-are-a-first-event.md) · 2026-10-12 · accepted · `events` `checkin` `client` `home-wall`
+- [The front page shows visitors one live line of the town's counts and the newest devlog post](decisions/0273-the-front-page-shows-visitors-one-live-line-of-the-town-s-co.md) · 2026-10-13 · accepted · `client` `home-wall`
 
 ## Learnings
 

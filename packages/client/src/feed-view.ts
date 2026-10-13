@@ -6,6 +6,7 @@
  */
 
 import type {
+  DevlogEntry,
   PlotView,
   PostMessage,
   PostView,
@@ -22,6 +23,7 @@ import { everyVisible } from "@terrakin/ui/poll";
 import { skeletonCard, skeletonPosts } from "@terrakin/ui/skeleton";
 import { copyButton, emptyNote, linkTabs, moreButton, pageLayout, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
+import { devlogApi } from "./api/devlog";
 import { myProfile } from "./api/me";
 import { plotsApi } from "./api/plots";
 import { postsApi } from "./api/posts";
@@ -29,7 +31,7 @@ import { townApi } from "./api/town";
 import { worldApi } from "./api/world";
 import { awayCard } from "./away-card";
 import { type Composer, composer } from "./composer";
-import { newestDevlogCard } from "./devlog-card";
+import { devlogPage, newestDevlogCard } from "./devlog-card";
 import { goToEvent, happeningCard } from "./event-cards";
 import { whenWords } from "./event-format";
 import {
@@ -52,6 +54,7 @@ import {
   aroundNow,
   arrangeWall,
   coinNews,
+  heroCounts,
   hourlyCounts,
   namesLine,
   type PulseCard,
@@ -161,8 +164,13 @@ const storage = {
  * way into the world. On a phone the people card sits below the fold, so a big button under the
  * headline leads into the world first; once the cards sit side by side, it hides.
  */
-function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void } {
+function homeHero(feedTarget: HTMLElement): {
+  el: HTMLElement;
+  live: HeroLive;
+  destroy(): void;
+} {
   const agents = agentsCard();
+  const live = heroLive();
   const el = h(
     "section",
     { class: "column wide home-hero", attrs: { "aria-labelledby": "hero-title" } },
@@ -173,6 +181,7 @@ function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void }
       h("em", { text: "build." }),
     ),
     h("p", { class: "hero-sub", text: "You can move in too, with or without an AI." }),
+    live.el,
     h(
       "p",
       { class: "hero-self" },
@@ -191,7 +200,45 @@ function homeHero(feedTarget: HTMLElement): { el: HTMLElement; destroy(): void }
       peopleCard(feedTarget),
     ),
   );
-  return { el, destroy: agents.destroy };
+  return { el, live, destroy: agents.destroy };
+}
+
+/** The hero's live line, filled as the town's numbers and the devlog come in. */
+interface HeroLive {
+  el: HTMLElement;
+  counts(text: string): void;
+  latest(post: DevlogEntry): void;
+}
+
+/**
+ * One small line under the hero's sub line for a visitor: how many live here and how many plots are
+ * claimed, then the newest devlog post's title as a link. Its height is set before anything is in
+ * it and each part keeps to one line, so nothing moves as the numbers land, and the first paint
+ * never waits on it.
+ */
+function heroLive(): HeroLive {
+  const dot = h("span", { class: "live-dot", attrs: { "aria-hidden": "true", hidden: true } });
+  const counts = h("span");
+  const news = h("span", { class: "hero-live-news" });
+  const el = h(
+    "p",
+    { class: "hero-live", attrs: { id: "hero-live" } },
+    h("span", { class: "hero-live-counts" }, dot, counts),
+    news,
+  );
+  return {
+    el,
+    counts(text) {
+      counts.textContent = text;
+      dot.hidden = text === "";
+    },
+    latest(post) {
+      news.replaceChildren(
+        "Latest: ",
+        h("a", { attrs: { href: devlogPage(post) }, text: post.title }),
+      );
+    },
+  };
 }
 
 /** How long each example line shows before the next fades in. */
@@ -529,7 +576,13 @@ export function feedView(ctx: ViewContext): View {
   }
 
   // The newest devlog post, cut short, for everyone until they've read or hidden it (decision 0105).
-  const devlogIn = newestDevlogCard().then((card) => {
+  const devlogList = devlogApi.devlog();
+  if (hero)
+    void devlogList.then((list) => {
+      const newest = list.ok ? list.data.posts[0] : undefined;
+      if (newest && !destroyed) hero.live.latest(newest);
+    });
+  const devlogIn = newestDevlogCard(devlogList).then((card) => {
     whenPainted(() => {
       if (card) wallTop.append(card);
     });
@@ -764,6 +817,7 @@ export function feedView(ctx: ViewContext): View {
       const a = aroundNow(world, ids, hasToken ? savedResidentId() : null);
       around.update(a.shown, a.more, ids);
       sky.update(world, s.online);
+      hero?.live.counts(heroCounts(s));
     }
     if (pulse.town) {
       town.update(pulse.town);

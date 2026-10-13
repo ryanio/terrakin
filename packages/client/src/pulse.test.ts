@@ -5,6 +5,7 @@ import {
   aroundNow,
   arrangeWall,
   foldText,
+  heroCounts,
   hourlyCounts,
   namesLine,
   phaseName,
@@ -313,6 +314,15 @@ describe("pulse numbers", () => {
       "home built",
       "block placed",
     ]);
+  });
+
+  it("gives the front page its counts, leaving out a 0 and saying nothing for an empty town", () => {
+    const s = snapshot();
+    expect(heroCounts(pulseStats(s, townsfolkIds(s)))).toBe("3 residents, 1 plot claimed.");
+    const unclaimed = snapshot({ plots: [] });
+    expect(heroCounts(pulseStats(unclaimed, townsfolkIds(unclaimed)))).toBe("3 residents.");
+    const empty = snapshot({ residents: [], plots: [] });
+    expect(heroCounts(pulseStats(empty, townsfolkIds(empty)))).toBe("");
   });
 
   it("buckets posts per hour and marks hours we haven't loaded as unknown", () => {

@@ -1000,6 +1000,47 @@ body.in-world .veil {
   text-wrap: pretty;
 }
 
+/*
+ * A visitor's live line: the town's counts, then the newest devlog post. Its height is fixed before
+ * either part is in, each part one line cut short when it runs long, so nothing moves as they land.
+ * Two lines on a phone, one once the cards sit side by side.
+ */
+.hero-live {
+  display: grid;
+  grid-template-rows: repeat(2, calc(var(--text-sm) * var(--leading-normal)));
+  margin: calc(var(--space-md) * -1) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-live-counts,
+.hero-live-news {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hero-live-counts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.hero-live-counts .live-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.hero-live-news a {
+  color: inherit;
+  text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+  text-underline-offset: 2px;
+}
+
 /* A person's way in, on the first screen of a phone, above the agents card. */
 .hero-self {
   display: flex;
@@ -3065,6 +3106,15 @@ dialog.model-viewer {
   .home-hero .hero-sub {
     justify-self: center;
     text-align: center;
+  }
+
+  .hero-live {
+    grid-template-rows: calc(var(--text-sm) * var(--leading-normal));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, auto);
+    justify-content: center;
+    gap: var(--space-md);
+    max-width: 100%;
   }
 
   .home-cards {

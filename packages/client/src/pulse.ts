@@ -286,6 +286,18 @@ export function statTiles(stats: PulseStats): StatTile[] {
 }
 
 /**
+ * The front page's live line for a visitor: "41 residents, 38 plots claimed." A count of 0 is
+ * left out, and with no residents there's no line at all, so the hero never leads with an empty
+ * number (decision 0270).
+ */
+export function heroCounts(stats: PulseStats): string {
+  if (stats.residents <= 0) return "";
+  const parts = [plural(stats.residents, "resident", "residents")];
+  if (stats.plots > 0) parts.push(plural(stats.plots, "plot claimed", "plots claimed"));
+  return `${parts.join(", ")}.`;
+}
+
+/**
  * Who to show as around now: real residents online, newest-joined last in the snapshot so we show
  * them first, then townsfolk only to bring the roster up to `ROSTER_FILL`. Never `me`: the card
  * is who you could go and see.

@@ -4,7 +4,7 @@
  * the rest or the page, or hides the card, this device keeps the post's day, and the card stays
  * away until a newer post. Posts are the Terrakin team's Markdown, drawn by `markdownNodes`.
  */
-import { type DevlogPost, devlogLead } from "@terrakin/protocol";
+import { type DevlogEntry, type DevlogPost, devlogLead } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { shortDate } from "@terrakin/ui/format";
 import { announce, cardBar, closeButton, disclosure } from "@terrakin/ui/ui";
@@ -19,6 +19,9 @@ const showDevlog = (date: string, seen: string | null): boolean => seen === null
 
 /** A post's day, short enough for the card's eyebrow on a phone: "Oct 6", with a year if not this one. */
 const shortDay = (date: string) => shortDate(Date.parse(`${date}T00:00:00Z`), Date.now(), "UTC");
+
+/** A post's page on this site, from the full address the API gives. */
+export const devlogPage = (post: DevlogEntry): string => post.url.replace(/^https?:\/\/[^/]+/, "");
 
 function seenDay(): string | null {
   try {
@@ -48,7 +51,7 @@ function devlogCard(post: DevlogPost, done: (date: string) => void): HTMLElement
     finished = true;
     done(post.date);
   };
-  const page = post.url.replace(/^https?:\/\/[^/]+/, "");
+  const page = devlogPage(post);
   const hide = closeButton("Hide this devlog post", () => {
     finish();
     card.remove();
@@ -108,9 +111,14 @@ function devlogCard(post: DevlogPost, done: (date: string) => void): HTMLElement
   return card;
 }
 
-/** The newest post's card, unless this device is done with it. Null when there's none to show. */
-export async function newestDevlogCard(): Promise<HTMLElement | null> {
-  const list = await devlogApi.devlog();
+/**
+ * The newest post's card, from the list of posts the wall asked for, unless this device is done
+ * with it. Null when there's none to show.
+ */
+export async function newestDevlogCard(
+  asked: ReturnType<typeof devlogApi.devlog>,
+): Promise<HTMLElement | null> {
+  const list = await asked;
   const newest = list.ok ? list.data.posts[0] : undefined;
   if (!newest || !showDevlog(newest.date, seenDay())) return null;
   const one = await devlogApi.devlogPost(newest.date);

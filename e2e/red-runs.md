@@ -4,6 +4,9 @@ Every red e2e run on `main` or the nightly gets a line here, newest first (e2e/A
 
 | Date (UTC) | Run | Commit | Job | Spec, test | Cause | Kind |
 |------------|-----|--------|-----|------------|-------|------|
+| 2026-10-12 | 38323799674 | e81827fa | 2D 1 of 3 | first-steps, the chip plants a first seed in one tap | Same race. | flake |
+| 2026-10-12 | 38322935335 | 4f1fd1de | 2D 1 of 3 | first-steps, the chip plants a first seed in one tap | Same race. | flake |
+| 2026-10-12 | 38313125165 | 962ed452 | 2D 1 of 3 | first-steps, the chip plants a first seed in one tap | The step waited for the Plant a seed chip to show, then clicked it, but Gather all can take the chip's place once the world works out what lies within reach, after the chip showed. The click is what's retried now, with Gather all pressed first (5be2009a). | flake |
 | 2026-10-09 | 37958504628 | d625b87c | 2D 1 of 3 | feed, the newest devlog post on the wall | The step looked for a heading in the post's rest, and the 2026-10-07 post has none; it looks for a paragraph now (1d8d0776). The other four feed tests failed on the retry's names already taken. | test out of date |
 | 2026-10-07 | 37675823806 | 3dabbcbf | 2D 2 of 3 | smoke, taps walk around the Town Hall | A new chip in the world's button column covered the tiles the test taps, and a person taps. | real bug |
 | 2026-10-06 | 37509857194 | eab10663 | 2D 1 of 2 | docs, phone | Past the 30-second test timeout on a busy runner. CI gives 60 seconds since decision 0109. | flake |

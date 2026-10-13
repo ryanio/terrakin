@@ -16,6 +16,8 @@ import {
   stage,
 } from "./personas";
 
+export { SMOKE_STEPS, walkedOnto } from "./personas";
+
 /**
  * Helpers specs share: joining and acting over the REST API, signing a page in, finding free
  * plots in the shared world, tapping a tile on the map, running the server's minute sweep, and

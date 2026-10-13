@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { watchErrors } from "./support";
+import { walkedOnto, watchErrors } from "./support";
 
 /**
  * A newcomer's way home on a phone: the d-pad saying what's in the way, Claim plot in the Commons
@@ -50,8 +50,9 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
     await page.screenshot({ path: "test-results/claim-picker.png" });
     const home = page.getByRole("dialog", { name: "This plot is yours" });
     // Specs share one world: a plot taken meanwhile says so, and the next one is picked. Never
-    // plot (3, 3), which smoke.spec walks onto from spawn and claims where it stands.
-    const live = picker.locator('button[data-plot]:not([data-plot="3,3"]):not([disabled])');
+    // the plot smoke.spec walks onto from spawn and claims where it stands.
+    const smokes = walkedOnto((await world()).config).join(",");
+    const live = picker.locator(`button[data-plot]:not([data-plot="${smokes}"]):not([disabled])`);
     await expect(async () => {
       if (await picker.isVisible()) await live.first().click({ timeout: 2_000 });
       await expect(home).toBeVisible({ timeout: 3_000 });

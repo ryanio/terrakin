@@ -131,9 +131,24 @@ export async function actOver(http: Http, token: string, action: unknown) {
   } & Record<string, unknown>;
 }
 
+/** How far `smoke.spec.ts` walks west and north from spawn before it claims where it stands. */
+export const SMOKE_STEPS = 5;
+
 /**
- * Unclaimed plots, skipping the Commons. The search starts in `corner` and goes a row at a time,
- * so specs that run side by side ask for different corners.
+ * The plot `smoke.spec.ts` claims by walking onto it: `SMOKE_STEPS` west and north of spawn, the
+ * middle of the world (the sim's `spawnTile`). It can't pick another, so no free list offers it.
+ */
+export function walkedOnto(config: { width: number; height: number; plotSize: number }) {
+  const at = (side: number) => Math.floor(side / 2) - SMOKE_STEPS;
+  return [
+    Math.floor(at(config.width) / config.plotSize),
+    Math.floor(at(config.height) / config.plotSize),
+  ];
+}
+
+/**
+ * Unclaimed plots, skipping the Commons and the plot `smoke.spec.ts` walks onto. The search starts
+ * in `corner` and goes a row at a time, so specs that run side by side ask for different corners.
  */
 export async function freePlotsOver(
   http: Http,
@@ -148,6 +163,7 @@ export async function freePlotsOver(
   const { width, height, plotSize } = world.config;
   const taken = new Set(world.plots.map((p) => `${p.px},${p.py}`));
   taken.add(`${world.commons.px},${world.commons.py}`);
+  taken.add(walkedOnto(world.config).join(","));
   const span = (size: number, backwards: boolean) => {
     const all = Array.from({ length: size / plotSize }, (_, i) => i);
     return backwards ? all.reverse() : all;

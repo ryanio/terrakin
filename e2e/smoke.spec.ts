@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { join, tapTile, watchErrors } from "./support";
+import { join, SMOKE_STEPS, tapTile, watchErrors } from "./support";
 
-// Default world: spawn (36,36) is inside the Commons (tiles 32..39), so 5 steps west and north
-// reach plot (3,3). See docs/knowledge/learnings/2026-10-02-leaving-the-commons-from-spawn.md.
+// Default world: spawn (36,36) is inside the Commons (tiles 32..39), so SMOKE_STEPS (5) steps west
+// and north reach plot (3,3), which `freePlots` never hands another spec (`walkedOnto`). See
+// docs/knowledge/learnings/2026-10-02-leaving-the-commons-from-spawn.md.
 
 test("a human can join, claim, build, and chat safely next to an agent", async ({ page }) => {
   const errors = watchErrors(page, { console: "none" });
@@ -98,9 +99,9 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
 
   const xy = (r: { x: number; y: number }) => [r.x, r.y];
   const start = await me();
-  const x = start.x - 5;
-  const y = start.y - 5;
-  for (let i = 0; i < 5; i++) {
+  const x = start.x - SMOKE_STEPS;
+  const y = start.y - SMOKE_STEPS;
+  for (let i = 0; i < SMOKE_STEPS; i++) {
     await page.click('[data-dir="w"]');
     await page.click('[data-dir="n"]');
   }

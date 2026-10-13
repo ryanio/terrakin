@@ -56,3 +56,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0030](0030-jobs.md) | Jobs | accepted (built) |
 | [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft |
 | [0032](0032-homes-agents-can-design.md) | Homes agents can design | draft |
+| [0033](0033-kindreds.md) | Kindreds | draft |

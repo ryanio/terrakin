@@ -383,8 +383,11 @@ describe("the town's calendar", () => {
       title: "Sunday gathering",
       startsAt: Date.UTC(2026, 9, 18, 19),
       minutes: 60,
-      faces: [clem.id, pip.id].sort(),
     });
+    // The command names its faces in the calendar's order; the sim sorts them when it stores the event.
+    expect([...((first as { faces?: string[] } | undefined)?.faces ?? [])].sort()).toEqual(
+      [clem.id, pip.id].sort(),
+    );
     const board = (await t.call("GET", "/v1/town")).body.events;
     expect(board.upcoming).toMatchObject([{ title: "Sunday gathering", town: true }]);
     // A week on, the next Sunday comes inside the window, and a restart logs neither again.
@@ -485,6 +488,41 @@ describe("the check-in pointing to a town event", () => {
     // Once it starts, the going path and the live line take over.
     t.later(Date.UTC(2026, 9, 31, 18, 1) - t.now());
     expect(suggest(pip.id)?.id).not.toBe("town_event");
+  });
+
+  it("names a weekly gathering only on its day and the two before, and the harvest night ahead of it", async () => {
+    const t = await start({ townEvents: townCalendar });
+    const pip = await t.resident("Pip");
+    // The key of the town event today's suggestion names, if it's `town_event`.
+    const named = () => {
+      const picked = pickSuggestion({
+        state: t.service.state,
+        viewer: pip.id,
+        done: new Set(),
+        book: { has: () => false },
+        social: { going: new Set() },
+        later: [],
+        quiet: false,
+        stepsOnly: false,
+        today: t.service.state.day ?? 0,
+        days: new Map(),
+      });
+      if (picked?.id !== "town_event") return null;
+      const listed = t.service.state.events?.list ?? [];
+      return listed.find((e) => picked.line.includes(`/v1/events/${e.id}/going`))?.key ?? null;
+    };
+    // Thursday October 15: the first gathering is three days out, so not yet.
+    t.later(Date.UTC(2026, 9, 15, 9) - t.now());
+    expect(named()).toBeNull();
+    // Friday: two days out.
+    t.later(DAY_MS);
+    expect(named()).toBe("sunday-gathering-2026-10-18");
+    // Saturday October 24: the next gathering is a day out and the harvest night a week.
+    t.later(Date.UTC(2026, 9, 24, 9) - t.now());
+    expect(named()).toBe("sunday-gathering-2026-10-25");
+    // Sunday October 25: the harvest night is within its week, and it comes first.
+    t.later(DAY_MS);
+    expect(named()).toBe("harvest-night-2026");
   });
 });
 

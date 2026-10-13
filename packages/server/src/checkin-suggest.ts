@@ -51,6 +51,7 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
+import { WEEKLY_TOWN_EVENTS } from "./town-events";
 
 /**
  * What a suggestion may know of a resident's collection book (RFC 0021): whether they've ever had a
@@ -95,6 +96,16 @@ function halloweenSoon(state: WorldState): number | undefined {
   return first - state.day <= HALLOWEEN_SOON_DAYS ? first : undefined;
 }
 
+/**
+ * A weekly town event comes round every week, so the check-in points to one only on its day and the
+ * two days before, and a one-off (the harvest night) is named first, so the weekly one never hides it.
+ */
+const WEEKLY_AHEAD_DAYS = 3;
+
+/** Whether a town event's key is one of a weekly event's weeks (`sunday-gathering-2026-10-18`). */
+const weeklyKey = (key: string | undefined) =>
+  key !== undefined && WEEKLY_TOWN_EVENTS.some((w) => key.startsWith(`${w.key}-`));
+
 /** How many world days ahead the check-in points to a town event the resident isn't going to. */
 const TOWN_EVENT_AHEAD_DAYS = 7;
 
@@ -111,10 +122,12 @@ function townEventAhead(state: WorldState, viewer: string, social?: SocialFacts)
         e.host === TOWN_ACTOR &&
         e.status === "scheduled" &&
         e.day >= today &&
-        e.day < today + TOWN_EVENT_AHEAD_DAYS &&
+        e.day < today + (weeklyKey(e.key) ? WEEKLY_AHEAD_DAYS : TOWN_EVENT_AHEAD_DAYS) &&
         !social.going.has(e.id),
     )
-    .sort((a, b) => a.startsAt - b.startsAt)[0];
+    .sort(
+      (a, b) => Number(weeklyKey(a.key)) - Number(weeklyKey(b.key)) || a.startsAt - b.startsAt,
+    )[0];
 }
 
 /** The UTC hour a first event is suggested for: evening in Europe, afternoon in the Americas. */

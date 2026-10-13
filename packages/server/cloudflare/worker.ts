@@ -52,7 +52,7 @@ import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { report, sentryOptions, span } from "../src/telemetry";
-import { TOWN_EVENTS } from "../src/town-events";
+import { townCalendar } from "../src/town-events";
 import { lessonsMode, TownsfolkLessons } from "../src/townsfolk-lessons";
 import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "../src/townsfolk-welcome";
@@ -432,7 +432,7 @@ class WorldObject extends DurableObject<Env> {
       market: true,
       bounties: true,
       presence: true,
-      townEvents: TOWN_EVENTS,
+      townEvents: townCalendar,
       townsfolk,
       maintainers,
       moderation,

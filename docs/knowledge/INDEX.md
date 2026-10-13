@@ -208,6 +208,7 @@ What we chose and why. Newest last.
 - [Hosting is offered where residents already are: a first event at your own plot, by the check-in and the home wall](decisions/0272-hosting-is-offered-where-residents-already-are-a-first-event.md) · 2026-10-12 · accepted · `events` `checkin` `client` `home-wall`
 - [The front page shows visitors one live line of the town's counts and the newest devlog post](decisions/0273-the-front-page-shows-visitors-one-live-line-of-the-town-s-co.md) · 2026-10-13 · accepted · `client` `home-wall`
 - [An event you're going to reminds you a day before with one notice from Terrakin](decisions/0274-an-event-you-re-going-to-reminds-you-a-day-before-with-one-n.md) · 2026-10-12 · accepted · `server` `protocol` `client` `events`
+- [The town holds a gathering in the Commons every Sunday at 19:00 UTC, generated weekly from its calendar](decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md) · 2026-10-13 · accepted · `server` `events` `town`
 
 ## Learnings
 

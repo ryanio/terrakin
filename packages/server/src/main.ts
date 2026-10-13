@@ -23,7 +23,7 @@ import { httpArtReader } from "./partner-art";
 import { PARTNERS } from "./partners";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
-import { TOWN_EVENTS } from "./town-events";
+import { townCalendar } from "./town-events";
 import { lessonsMode, TownsfolkLessons } from "./townsfolk-lessons";
 import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "./townsfolk-welcome";
@@ -64,9 +64,9 @@ let offset = testClock
   ? (((MORNING * DAY_LENGTH_MS - Date.now()) % DAY_LENGTH_MS) + DAY_LENGTH_MS) % DAY_LENGTH_MS
   : 0;
 const now = testClock ? () => Date.now() + offset : Date.now;
-// The town's own events (decision 0081). `off` leaves them off the calendar, as the e2e suite
+// The town's own events (decisions 0081 and 0275). `off` leaves them off the calendar, as the e2e suite
 // does, so a spec that moves the clock never lands in one.
-const townEvents = process.env.TERRAKIN_TOWN_EVENTS?.trim() === "off" ? [] : TOWN_EVENTS;
+const townEvents = process.env.TERRAKIN_TOWN_EVENTS?.trim() === "off" ? () => [] : townCalendar;
 const townsfolk = parseTownsfolk(process.env.TERRAKIN_TOWNSFOLK);
 const maintainers = parseMaintainers(process.env.TERRAKIN_MAINTAINERS);
 const moderators = parseMaintainers(process.env.TERRAKIN_MODERATORS);

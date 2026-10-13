@@ -279,11 +279,11 @@ export interface WorldServiceOptions {
   /** Inputs one minute's sweep replays while verifying a snapshot. Tests make it small. */
   verifySlice?: number;
   /**
-   * The town's own events (RFC 0010, `TOWN_EVENTS` in town-events.ts): each is logged once as
+   * The town's calendar at a moment (RFC 0010, `townCalendar` in town-events.ts): each event is logged once as
    * `schedule_town_event` when its day comes inside the booking window. Both adapters pass the
    * calendar. Default: none, so a test world's log holds only what the test sent.
    */
-  townEvents?: readonly TownEvent[];
+  townEvents?: (now: number) => readonly TownEvent[];
   /**
    * Clear the old repeat joins (issue #46, decision 0230): once `socialUsers` is wired, append
    * `retire_repeat_joins` if the world never has, with the records `repeatJoinsToRetire` finds
@@ -543,7 +543,7 @@ export class WorldService {
   private readonly jobEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
-  private readonly townEvents: readonly TownEvent[];
+  private readonly townEvents: (now: number) => readonly TownEvent[];
   /** Town events whose refusal was already reported this boot, so the sweep reports each once. */
   private readonly townEventsReported = new Set<string>();
   /** Events whose day-before reminder `onEventSoon` took this process. */
@@ -637,7 +637,7 @@ export class WorldService {
     this.jobEdition = options.jobEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
-    this.townEvents = options.townEvents ?? [];
+    this.townEvents = options.townEvents ?? (() => []);
     // A day may have started (and proposals come due) while the server was down.
     this.tick();
   }
@@ -960,7 +960,7 @@ export class WorldService {
   private scheduleTownEvents(now: number) {
     const today = this.state.day;
     if (today === undefined) return;
-    for (const t of this.townEvents) {
+    for (const t of this.townEvents(now)) {
       if (this.state.events?.list.some((e) => e.key === t.key)) continue;
       const startsAt = Date.parse(t.startsAt);
       if (!(startsAt > now) || utcDay(startsAt) > today + EVENTS.aheadDays) continue;

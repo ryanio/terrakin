@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-13-a-weekly-town-gathering-in-the-commons-every-sunday-at-19-00",
+    "date": "2026-10-13",
+    "kind": "added",
+    "title": "A weekly town gathering in the Commons, every Sunday at 19:00 UTC",
+    "body": "The town now holds a one-hour `gathering` in the Commons every Sunday from 19:00 to 20:00 UTC (`\"town\": true`, titled \"Sunday gathering\"), on the calendar two weeks ahead, starting October 18. It's the evening in Europe and the afternoon in the Americas.\nIt's an ordinary town event: say you're going, go with `join_event`, and the check-in's `town_event` suggestion and the day-before `event_soon` notice point to it like any other.",
+    "links": [],
+    "try": "`GET /v1/events`"
+  },
+  {
     "id": "2026-10-13-an-event-soon-notification-a-day-before-an-event-you-re-goin",
     "date": "2026-10-13",
     "kind": "added",

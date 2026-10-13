@@ -17,7 +17,7 @@ import { supplyHolds } from "./snapshots";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { TOWN_EVENTS, type TownEvent } from "./town-events";
+import { TOWN_EVENTS, type TownEvent, townCalendar, WEEKLY_TOWN_EVENTS } from "./town-events";
 import { WorldService } from "./world-service";
 
 /**
@@ -54,7 +54,7 @@ async function start(
   options: {
     store?: MemoryStore;
     sql?: ReturnType<typeof nodeSql>;
-    townEvents?: readonly TownEvent[];
+    townEvents?: (now: number) => readonly TownEvent[];
     at?: number;
   } = {},
 ) {
@@ -67,7 +67,7 @@ async function start(
     days: true,
     economy: true,
     presence: true,
-    townEvents: options.townEvents ?? [],
+    townEvents: options.townEvents ?? (() => []),
   });
   const sql = options.sql ?? nodeSql();
   const maintainers = new Set<string>();
@@ -306,7 +306,7 @@ describe("the town's calendar", () => {
     const harvest = TOWN_EVENTS.find((e) => e.key === "harvest-night-2026");
     expect(harvest).toMatchObject({ startsAt: "2026-10-31T18:00:00Z", minutes: 540 });
     const store = new MemoryStore();
-    const t = await start({ store, townEvents: TOWN_EVENTS });
+    const t = await start({ store, townEvents: () => TOWN_EVENTS });
     const juniper = await t.resident("Juniper");
     const pip = await t.resident("Pip");
     for (const [r, handle] of [
@@ -352,18 +352,96 @@ describe("the town's calendar", () => {
       days: true,
       economy: true,
       presence: true,
-      townEvents: TOWN_EVENTS,
+      townEvents: () => TOWN_EVENTS,
     });
     again.sweepEvents();
     expect(logged()).toHaveLength(1);
     // The world wakes a day before for its reminders, then runs it on its evening.
     expect(again.nextEventWake()).toBe(Date.UTC(2026, 9, 30, 18));
   });
+
+  it("logs each Sunday's gathering once, two weeks ahead, beside the harvest night, across restarts", async () => {
+    const store = new MemoryStore();
+    const t = await start({ store, townEvents: townCalendar });
+    const clem = await t.resident("Clem");
+    const pip = await t.resident("Pip");
+    for (const [r, handle] of [
+      [clem, "clem"],
+      [pip, "pip"],
+    ] as const) {
+      expect((await t.call("PUT", "/v1/profile", { handle }, r.token)).status).toBe(200);
+    }
+    t.service.syncTownsfolk(new Set([clem.id, pip.id]));
+    const keys = () =>
+      store.log.flatMap((i) => (i.command.type === "schedule_town_event" ? [i.command.key] : []));
+    // Tuesday October 6: the first Sunday, the 18th, is inside the 14 days; the harvest night isn't.
+    t.later(MINUTE);
+    expect(keys()).toEqual(["sunday-gathering-2026-10-18"]);
+    const first = store.log.find((i) => i.command.type === "schedule_town_event")?.command;
+    expect(first).toMatchObject({
+      kind: "gathering",
+      title: "Sunday gathering",
+      startsAt: Date.UTC(2026, 9, 18, 19),
+      minutes: 60,
+      faces: [clem.id, pip.id].sort(),
+    });
+    const board = (await t.call("GET", "/v1/town")).body.events;
+    expect(board.upcoming).toMatchObject([{ title: "Sunday gathering", town: true }]);
+    // A week on, the next Sunday comes inside the window, and a restart logs neither again.
+    t.later(Date.UTC(2026, 9, 11, 0, 1) - t.now());
+    expect(keys()).toEqual(["sunday-gathering-2026-10-18", "sunday-gathering-2026-10-25"]);
+    const again = new WorldService({
+      store,
+      config: CONFIG,
+      now: t.now,
+      days: true,
+      economy: true,
+      presence: true,
+      townEvents: townCalendar,
+    });
+    again.sweepEvents();
+    expect(keys()).toHaveLength(2);
+    // The harvest night on Saturday the 31st and the gathering the next evening both go on.
+    t.later(Date.UTC(2026, 9, 18, 0, 1) - t.now());
+    expect(keys().slice(2)).toEqual(["harvest-night-2026", "sunday-gathering-2026-11-01"]);
+  });
+
+  it("generates each week under a key that never changes, and leaves out a week a one-off event would share the Commons with", () => {
+    const at = (iso: string) => Date.parse(iso);
+    const tuesday = townCalendar(at("2026-10-13T09:00:00Z")).map((e) => e.key);
+    expect(tuesday).toEqual([
+      "harvest-night-2026",
+      "sunday-gathering-2026-10-18",
+      "sunday-gathering-2026-10-25",
+    ]);
+    // Asked again later in the week, the same weeks have the same keys and start at 19:00 UTC.
+    const friday = townCalendar(at("2026-10-16T22:00:00Z"));
+    expect(friday.map((e) => e.key).slice(0, 3)).toEqual(tuesday);
+    expect(friday.find((e) => e.key === "sunday-gathering-2026-10-25")?.startsAt).toBe(
+      "2026-10-25T19:00:00.000Z",
+    );
+    // Once a week's hour has come, the calendar no longer offers it.
+    expect(townCalendar(at("2026-10-18T19:00:00Z")).map((e) => e.key)).not.toContain(
+      "sunday-gathering-2026-10-18",
+    );
+    // A one-off event ten minutes after the hour's gap would leave too little room: that week goes.
+    const fair: TownEvent = {
+      key: "fair",
+      kind: "market",
+      title: "Fair",
+      text: "",
+      startsAt: "2026-10-25T20:10:00Z",
+      minutes: 30,
+    };
+    expect(
+      townCalendar(at("2026-10-13T09:00:00Z"), [fair], WEEKLY_TOWN_EVENTS).map((e) => e.key),
+    ).toEqual(["fair", "sunday-gathering-2026-10-18"]);
+  });
 });
 
 describe("the check-in pointing to a town event", () => {
   it("suggests the harvest night in the week before it, every few days, until you're going", async () => {
-    const t = await start({ townEvents: TOWN_EVENTS });
+    const t = await start({ townEvents: () => TOWN_EVENTS });
     const pip = await t.resident("Pip");
     const juniper = await t.resident("Juniper");
     t.service.syncTownsfolk(new Set([juniper.id]));
@@ -412,7 +490,7 @@ describe("the check-in pointing to a town event", () => {
 
 describe("the check-in suggesting a first event", () => {
   it("offers a resident who could host and never has the call for their own plot, free, at a time that clashes with nothing", async () => {
-    const t = await start({ townEvents: TOWN_EVENTS, at: Date.UTC(2026, 9, 20, 9) });
+    const t = await start({ townEvents: () => TOWN_EVENTS, at: Date.UTC(2026, 9, 20, 9) });
     // The harvest night's own suggestion comes first in its week: as if it was made today.
     const suggest = (viewer: string, done: ReadonlySet<string> = new Set()) =>
       pickSuggestion({

@@ -2,10 +2,10 @@ import type { Input, WorldConfig, WorldState } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
+import { newcomerFunnel } from "./newcomers";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { newcomerFunnel } from "./newcomers";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
@@ -195,9 +195,18 @@ describe("GET /v1/admin/newcomers", () => {
     // Ada finished a job on a record that was merged into hers, so her own log never took one;
     // Bolt took one and finished none; Cy did neither (decision 0276).
     const today = 20736;
-    const resident = (id: string, kind: "human" | "agent") => ({ id, name: id, kind, hearth: null });
+    const resident = (id: string, kind: "human" | "agent") => ({
+      id,
+      name: id,
+      kind,
+      hearth: null,
+    });
     const state = {
-      residents: { ada: resident("ada", "human"), bolt: resident("bolt", "agent"), cy: resident("cy", "human") },
+      residents: {
+        ada: resident("ada", "human"),
+        bolt: resident("bolt", "agent"),
+        cy: resident("cy", "human"),
+      },
       plots: {},
       jobs: { opened: today - 10, edition: 2, total: { ada: 1 } },
     } as unknown as WorldState;

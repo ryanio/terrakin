@@ -418,6 +418,17 @@ export function offered(
 
 // ---------- the prompt ----------
 
+/**
+ * An action as the prompt's "Open to them today" line names it: one for people with the refs it's
+ * open to ("wave (to r2, r5)"), since the model otherwise waves at anyone in the list and the
+ * answer check turns it away (`not_allowed`).
+ */
+function openFor(action: ChatterAction, people: readonly Person[]): string {
+  if (!PEOPLE_ACTIONS.includes(action)) return action;
+  const refs = people.filter((p) => p.open.includes(action)).map((p) => p.ref);
+  return `${action} (to ${refs.join(", ")})`;
+}
+
 /** The facts about one townsfolk resident the prompt uses. Written by the team, but kept as data. */
 export interface PersonaFacts {
   name: string;
@@ -530,7 +541,7 @@ export function chatterPrompt(
     "Their own recent posts, newest first (don't repeat these):",
     fenceJson(persona.recent.map((t) => t.slice(0, CHATTER_LIMITS.maxChars))),
     "",
-    `Open to them today: ${[...offer, "nothing"].join(", ")}. Anything else is closed.`,
+    `Open to them today: ${[...offer.map((a) => openFor(a, people)), "nothing"].join(", ")}. Anything else is closed.`,
     ...(mention ? ["", MENTION_TURN] : []),
     ...(todayJob
       ? [

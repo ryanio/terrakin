@@ -379,6 +379,20 @@ describe("the prompt", () => {
         [],
       ),
     ).toContain("Open to them today: post, nothing.");
+    // An action for people names who it's open to, so the model doesn't wave at someone a wave is
+    // closed for (the answer check's `not_allowed`).
+    const people: Person[] = [
+      { ref: "r1", residentId: "a", name: "Ada", newcomer: true, open: ["praise"] },
+      { ref: "r2", residentId: "b", name: "Bo", newcomer: false, open: ["praise", "wave"] },
+    ];
+    expect(
+      chatterPrompt(
+        { name: "J", handle: undefined, note: "", bio: "", recent: [] },
+        ["post", "praise", "wave"],
+        [],
+        people,
+      ),
+    ).toContain("Open to them today: post, praise (to r1, r2), wave (to r2), nothing.");
   });
 
   it("tells a giver the board's own words for their job, and says nothing otherwise", () => {

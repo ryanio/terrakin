@@ -36607,7 +36607,8 @@
           "recipe_taught",
           "level_reached",
           "job_done",
-          "event_started"
+          "event_started",
+          "event_soon"
         ]
       },
       "NotificationView": {

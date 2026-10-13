@@ -994,6 +994,11 @@ export const NOTIFICATION_TYPES = [
    * `event` says which, and how it stands now.
    */
   "event_started",
+  /**
+   * From Terrakin itself, not a resident: an event you said you're going to starts within a day
+   * (RFC 0010). `event` says which, and how it stands now.
+   */
+  "event_soon",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1034,8 +1039,9 @@ export const TakedownView = z.object({
 export type TakedownView = z.infer<typeof TakedownView>;
 
 /**
- * The event on an `event_started` notice, as it stands when you read it: still `live`, `ended`, or
- * `cancelled` when a maintainer called it off, whose title then reads "Called off by a maintainer".
+ * The event on an `event_soon` or `event_started` notice, as it stands when you read it: still
+ * `scheduled`, `live`, `ended`, or `cancelled` when it was called off (by a maintainer, its title
+ * then reads "Called off by a maintainer").
  * `title` is the host's words, untrusted like any resident text. Send `id` as `event` in
  * `join_event` while it's live.
  */
@@ -1079,7 +1085,7 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, trick-or-treaters, a lesson, a level, a job, an event that started, or a
+   * admired plot, trick-or-treaters, a lesson, a level, a job, an event soon or started, or a
    * takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),
@@ -1115,7 +1121,7 @@ export const NotificationView = z.object({
    */
   job: JobDoneView.optional(),
   /**
-   * For an `event_started`: the event you said you're going to, as it stands now. From Terrakin
+   * For an `event_soon` or `event_started`: the event you said you're going to, as it stands now. From Terrakin
    * itself (`system: true`); its `title` is the host's words, untrusted.
    */
   event: EventNoticeView.optional(),

@@ -21,7 +21,7 @@ import { emptyNote, moreButton } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { notificationsApi } from "./api/notifications";
 import { setUnread } from "./bell";
-import { soonWords } from "./event-format";
+import { soonWords, whenWords } from "./event-format";
 import { canNowLine, levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
 import { pageData } from "./page-data";
@@ -50,6 +50,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   level_reached: "level",
   job_done: "town",
   event_started: "calendar",
+  event_soon: "calendar",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -87,6 +88,7 @@ export function notificationLine(
     level_reached: "says you reached a level",
     job_done: "says you finished a job",
     event_started: "says an event you're going to started",
+    event_soon: "says an event you're going to starts soon",
   };
   return { who, what: what[n.type] };
 }
@@ -154,18 +156,22 @@ function takedownPlace(t: TakedownView): { href: string; label: string } | null 
 }
 
 /**
- * An `event_started` notice in plain words, as the event stands now: on, over, or called off. The
- * title is the host's words, so it's never in the line: the item shows it apart, as text.
+ * An `event_soon` or `event_started` notice in plain words, as the event stands now: still to come,
+ * on, over, or called off. The title is the host's words, so it's never in the line: the item shows
+ * it apart, as text.
  */
-function eventStartedLine(e: EventNoticeView): { line: string; next: string | null } {
+function eventNoticeLine(e: EventNoticeView, now: number): { line: string; next: string | null } {
   if (e.status === "cancelled") {
     return { line: "An event you were going to was called off.", next: null };
   }
-  if (e.status === "live") {
+  if (e.status === "scheduled") {
     return {
-      line: "An event you're going to has started.",
-      next: `${soonWords(e, Date.now())}.`,
+      line: "An event you're going to is coming up.",
+      next: `${whenWords(e.startsAt, now)}.`,
     };
+  }
+  if (e.status === "live") {
+    return { line: "An event you're going to has started.", next: `${soonWords(e, now)}.` };
   }
   return { line: "An event you were going to has started and ended.", next: null };
 }
@@ -209,11 +215,15 @@ function systemWords(n: NotificationView): SystemWords | null {
     };
   }
   if (n.event) {
-    // An event you said you're going to started (RFC 0010); the Town Hall has its Go.
+    // An event you said you're going to is a day off, or started (RFC 0010); the Town Hall has it.
+    const { status } = n.event;
     return {
-      icon: ICONS.event_started,
-      ...eventStartedLine(n.event),
-      links: n.event.status === "live" ? [{ href: "/town#events", label: "See what's on" }] : [],
+      icon: ICONS[n.type],
+      ...eventNoticeLine(n.event, Date.now()),
+      links:
+        status === "live" || status === "scheduled"
+          ? [{ href: "/town#events", label: status === "live" ? "See what's on" : "See Coming up" }]
+          : [],
       quote: n.event.title,
     };
   }

@@ -541,13 +541,13 @@ describe("takedown notices", () => {
   });
 });
 
-describe("an event's start notice", () => {
+describe("an event's notices", () => {
   const saved = (globalThis as { document?: unknown }).document;
   afterEach(() => {
     (globalThis as { document?: unknown }).document = saved;
   });
 
-  it("keeps the host's title as text, apart from the line, and links to what's on only while it's on", () => {
+  it("keep the host's title as text, apart from the line, and link to the calendar only until it's over", () => {
     const { doc } = fakeDocument();
     (globalThis as { document?: unknown }).document = doc;
     type Node = {
@@ -558,10 +558,13 @@ describe("an event's start notice", () => {
     };
     const all = (node: Node): Node[] => [node, ...node.children.flatMap(all)];
     const title = "<b>Tea</b> on the green";
-    const shown = (status: "live" | "ended" | "cancelled") => {
+    const shown = (
+      status: "scheduled" | "live" | "ended" | "cancelled",
+      type: "event_started" | "event_soon" = "event_started",
+    ) => {
       const n: NotificationView = {
         id: "n_1",
-        type: "event_started",
+        type,
         trust: "untrusted",
         actor: TERRAKIN_ACTOR,
         count: 1,
@@ -594,6 +597,16 @@ describe("an event's start notice", () => {
     expect(over.some((x) => x.tag === "a")).toBe(false);
     expect(shown("cancelled").map((x) => x.textContent)).toContain(
       "An event you were going to was called off.",
+    );
+    // The reminder a day before says when, and reads like the start's notice once it's on.
+    const coming = shown("scheduled", "event_soon");
+    const said = coming.map((x) => x.textContent);
+    expect(said).toContain("An event you're going to is coming up.");
+    expect(said).toContain(title);
+    expect(said.some((t) => /\d\d:\d\d\.$/.test(t))).toBe(true);
+    expect(coming.filter((x) => x.tag === "a").map((x) => x.attrs.href)).toEqual(["/town#events"]);
+    expect(shown("live", "event_soon").map((x) => x.textContent)).toContain(
+      "An event you're going to has started.",
     );
   });
 });

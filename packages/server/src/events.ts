@@ -93,7 +93,13 @@ export function eventView(
 }
 
 /**
- * The event on an `event_started` notice, read as it stands now: undefined once it has left the
+ * How long before an event starts its `event_soon` notice goes out: a day, so a resident who said
+ * they're going hears of it with time to keep the hour free (decision 0274).
+ */
+export const SOON_NOTICE_MS = DAY_MS;
+
+/**
+ * The event on an `event_started` or `event_soon` notice, read as it stands now: undefined once it has left the
  * world, or while its host is one the reader shouldn't see, and called off in the same words
  * `eventView` uses when a maintainer voided it.
  */
@@ -282,12 +288,20 @@ export class EventsSocial {
     );
   }
 
-  /** Everyone who said they're going to `event`, in id order. */
-  goingTo(event: string): string[] {
-    return this.rows(
-      "SELECT resident_id FROM event_going WHERE event_id = ? ORDER BY resident_id",
-      event,
-    ).map((r) => String(r.resident_id));
+  /** Everyone who said they're going to `event`, in id order; with `by`, only who said so before then. */
+  goingTo(event: string, by?: number): string[] {
+    const rows =
+      by === undefined
+        ? this.rows(
+            "SELECT resident_id FROM event_going WHERE event_id = ? ORDER BY resident_id",
+            event,
+          )
+        : this.rows(
+            "SELECT resident_id FROM event_going WHERE event_id = ? AND created_at < ? ORDER BY resident_id",
+            event,
+            by,
+          );
+    return rows.map((r) => String(r.resident_id));
   }
 
   /** Say `resident` is going, or take it back. Repeats change nothing. */

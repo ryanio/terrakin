@@ -83,6 +83,7 @@ import {
   withinEarshot,
 } from "@terrakin/sim";
 import { randomId } from "./bytes";
+import { SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
@@ -545,6 +546,8 @@ export class WorldService {
   private readonly townEvents: readonly TownEvent[];
   /** Town events whose refusal was already reported this boot, so the sweep reports each once. */
   private readonly townEventsReported = new Set<string>();
+  /** Events whose day-before reminder `onEventSoon` took this process. */
+  private readonly soonTold = new Set<string>();
   /** The edge filters for names, notes, chat, and proposals. */
   readonly moderation: Moderation;
   /**
@@ -798,6 +801,13 @@ export class WorldService {
   onEventStarted: ((event: HostedEvent) => void) | undefined;
 
   /**
+   * Hears each event to come that starts within a day (RFC 0010), so the residents who said
+   * they're going can be reminded. The minute sweep asks once per event per process, and again
+   * after a failure, which is reported.
+   */
+  onEventSoon: ((event: HostedEvent) => void) | undefined;
+
+  /**
    * The one-time credit `open_levels` carries (RFC 0029): for each resident, the kinds in their
    * collection book that a first counts. The book is a social table (decision 0100), so `Api`
    * wires this; until it does, `tick` doesn't open levels.
@@ -981,13 +991,27 @@ export class WorldService {
   }
 
   /**
-   * The minute sweep's part in events: log the town's events that are due on the calendar, then
-   * sample attendance at every live event whose next 5-minute mark has come. A mark the server
-   * missed (asleep, or down) is skipped, never made up.
+   * The minute sweep's part in events: log the town's events that are due on the calendar, hand
+   * each event starting within a day to `onEventSoon`, then sample attendance at every live event
+   * whose next 5-minute mark has come. A mark the server missed (asleep, or down) is skipped,
+   * never made up.
    */
   sweepEvents() {
     const now = this.now();
     this.scheduleTownEvents(now);
+    for (const e of this.state.events?.list ?? []) {
+      if (e.status !== "scheduled" || e.startsAt - now > SOON_NOTICE_MS || now >= e.startsAt) {
+        continue;
+      }
+      if (this.soonTold.has(e.id) || !this.onEventSoon) continue;
+      try {
+        this.onEventSoon(e);
+        this.soonTold.add(e.id);
+      } catch (err) {
+        // Asked again next minute; the notices are once each, so a retry sends no second one.
+        report(err, "world.event_soon");
+      }
+    }
     for (const e of [...(this.state.events?.list ?? [])]) {
       if (e.status !== "live" || now >= eventEndsAt(e)) continue;
       const slot = Math.min(Math.floor((now - e.startsAt) / TICK_MS), lastSlot(e.minutes));
@@ -1002,14 +1026,22 @@ export class WorldService {
   /**
    * When the world should next be awake for its events, or undefined: in a minute while one is
    * live (so samples land on time and REST guests stay online between calls), else when the next
-   * one starts. The Worker sets its alarm from this.
+   * one starts or comes within a day of starting (its reminder). The Worker sets its alarm from
+   * this.
    */
   nextEventWake(): number | undefined {
     const now = this.now();
     let next: number | undefined;
     for (const e of this.state.events?.list ?? []) {
+      const soon = e.startsAt - SOON_NOTICE_MS;
       const at =
-        e.status === "live" ? now + 60_000 : e.status === "scheduled" ? e.startsAt : undefined;
+        e.status === "live"
+          ? now + 60_000
+          : e.status === "scheduled"
+            ? soon > now
+              ? soon
+              : e.startsAt
+            : undefined;
       if (at !== undefined && (next === undefined || at < next)) next = at;
     }
     return next === undefined ? undefined : Math.max(next, now + 60_000);

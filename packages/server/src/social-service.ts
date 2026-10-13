@@ -72,7 +72,7 @@ import { randomId } from "./bytes";
 import { CheckinLog } from "./checkin-log";
 import { CollectionBook } from "./collection";
 import { DiscoveryLog } from "./discovery-log";
-import { type EventContext, EventsSocial, eventNoticeView } from "./events";
+import { type EventContext, EventsSocial, eventNoticeView, SOON_NOTICE_MS } from "./events";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
@@ -2108,6 +2108,22 @@ export class SocialService {
   }
 
   /**
+   * Remind each resident going to `e` that it starts within a day (RFC 0010, decision 0274): one
+   * `event_soon` notice from Terrakin itself each, to the same residents `eventStarted` tells, and
+   * only those who said they're going before the day began, since someone who said so inside it
+   * just looked. Once per resident and event however often it's asked, and none once it has
+   * started or was called off.
+   */
+  eventSoon(e: HostedEvent, townsfolk: readonly string[]) {
+    if (e.status !== "scheduled" || this.now() >= e.startsAt) return;
+    for (const id of this.events.goingTo(e.id, e.startsAt - SOON_NOTICE_MS)) {
+      if (id === e.host || townsfolk.includes(id)) continue;
+      if (!isTownEvent(e) && this.blockedEither(id, e.host)) continue;
+      this.systemNotice(id, "event_soon", e.id, `event_soon:${e.id}`);
+    }
+  }
+
+  /**
    * One notice from Terrakin itself, with its fields kept as JSON in `detail`. No resident is the
    * actor, so there's no block to check and no per-actor cap to count toward. With `once`, a
    * notice of this type the recipient already has under that key stops it.
@@ -2203,10 +2219,10 @@ export class SocialService {
       if (type === "takedown") return this.takedownView(row, detail);
       if (type === "level_reached") return this.levelsView(row, detail);
       if (type === "job_done") return this.jobDoneView(row, detail);
-      if (type === "event_started") {
+      if (type === "event_started" || type === "event_soon") {
         events ??= this.eventContext(recipient);
         const view = eventNoticeView(this.eventOf(detail), events);
-        return view ? [{ ...systemNotification(row, "event_started"), event: view }] : [];
+        return view ? [{ ...systemNotification(row, type), event: view }] : [];
       }
       const actor = this.authorById(String(row.actor));
       if (!actor) return [];
@@ -2883,7 +2899,7 @@ function storedJson(detail: string): unknown {
 }
 
 /** The notices Terrakin itself sends: no resident is their actor. */
-type SystemNoticeType = "takedown" | "level_reached" | "job_done" | "event_started";
+type SystemNoticeType = "takedown" | "level_reached" | "job_done" | "event_started" | "event_soon";
 
 /** What every notice from Terrakin itself shares: the stand-in actor, one of it, and no post. */
 function systemNotification(

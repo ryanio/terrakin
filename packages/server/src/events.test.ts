@@ -356,8 +356,8 @@ describe("the town's calendar", () => {
     });
     again.sweepEvents();
     expect(logged()).toHaveLength(1);
-    // It runs on its evening, and the Commons is the town's then.
-    expect(again.nextEventWake()).toBe(Date.UTC(2026, 9, 31, 18));
+    // The world wakes a day before for its reminders, then runs it on its evening.
+    expect(again.nextEventWake()).toBe(Date.UTC(2026, 9, 30, 18));
   });
 });
 
@@ -611,6 +611,80 @@ describe("the notice when it starts", () => {
       type: "event_started",
       event: { status: "cancelled", title: "Called off by a maintainer" },
     });
+  });
+});
+
+describe("the notice a day before", () => {
+  it("reminds each resident going once, a day ahead, across sweeps and boots, never the host, a blocked guest, a late yes, or a called-off event", async () => {
+    const store = new MemoryStore();
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const t = await start({ store, sql });
+    const { ada, bob, cy } = await hosts(t);
+    const dee = await t.resident("Dee");
+    // Two days out: Ada's records at noon and a second event she calls off, and Bob's that a
+    // maintainer calls off.
+    const noon = todayAt(t, 12) + 2 * DAY_MS;
+    expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
+    expect(await t.act(ada.token, listening(t, noon + 3 * HOUR))).toMatchObject({ ok: true });
+    expect(
+      await t.act(bob.token, listening(t, noon + 3 * HOUR, { px: 2, py: 0, title: "Tea" })),
+    ).toMatchObject({ ok: true });
+    const going = async (event: string, r: { token: string }) =>
+      expect((await t.call("POST", `/v1/events/${event}/going`, undefined, r.token)).status).toBe(
+        200,
+      );
+    for (const r of [ada, bob, cy]) await going("e_1", r);
+    await going("e_2", bob);
+    await going("e_3", cy);
+    expect((await t.call("PUT", `/v1/residents/${ada.id}/block`, undefined, cy.token)).status).toBe(
+      200,
+    );
+    expect(await t.act(ada.token, { type: "cancel_event", event: "e_2" })).toMatchObject({
+      ok: true,
+    });
+    t.maintainers.add(dee.id);
+    const why = { reason: "Not an event, an ad." };
+    expect((await t.call("POST", "/v1/admin/events/e_3/void", why, dee.token)).status).toBe(200);
+    const soon = async (s: T, token: string) =>
+      (await s.call("GET", "/v1/notifications", undefined, token)).body.notifications.filter(
+        (n: Json) => n.type === "event_soon",
+      );
+    // The world wakes for the reminder, a day before it starts.
+    expect(t.service.nextEventWake()).toBe(noon - DAY_MS);
+    t.later(noon - DAY_MS - 2 * MINUTE - t.now());
+    expect(await soon(t, bob.token)).toEqual([]);
+
+    t.later(2 * MINUTE);
+    const told = await soon(t, bob.token);
+    expect(told).toMatchObject([
+      {
+        system: true,
+        actor: { id: "terrakin" },
+        event: { id: "e_1", title: "Sunday records", status: "scheduled", town: false },
+      },
+    ]);
+    expect(told[0].event.startsAt).toBe(t.iso(noon));
+    for (const r of [ada, cy, dee]) expect(await soon(t, r.token)).toEqual([]);
+    // The check-in carries it with the rest of what came in.
+    const checkin = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
+    expect(checkin.notifications.items.map((n: Json) => n.type)).toContain("event_soon");
+
+    // Dee says yes inside the day, so she just looked and hears nothing until it starts. Another
+    // sweep and a boot send no second reminder to Bob.
+    await going("e_1", dee);
+    t.later(MINUTE);
+    const next = await start({ store, sql, at: t.now() + MINUTE });
+    next.later(MINUTE);
+    expect(await soon(next, bob.token)).toHaveLength(1);
+    expect(await soon(next, dee.token)).toEqual([]);
+    // Once it starts, the same notice reads as on, beside the start's own.
+    next.later(DAY_MS);
+    const after = (await next.call("GET", "/v1/notifications", undefined, bob.token)).body;
+    expect(after.notifications.map((n: Json) => [n.type, n.event.status])).toEqual([
+      ["event_started", "live"],
+      ["event_soon", "live"],
+    ]);
   });
 });
 

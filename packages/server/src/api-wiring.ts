@@ -127,6 +127,9 @@ export function wireSocial(
   const tellGoing = (event: HostedEvent) =>
     layer.eventStarted(event, service.state.townsfolk ?? []);
   service.onEventStarted = tellGoing;
+  // A day before, the same residents hear it's coming. The minute sweep asks, and a boot's first
+  // sweep asks again for every event inside its day; each resident hears once.
+  service.onEventSoon = (event) => layer.eventSoon(event, service.state.townsfolk ?? []);
   layer.eventOf = (id) => findEvent(service.state, id);
   for (const e of service.state.events?.list ?? []) {
     if (e.status !== "live") continue;

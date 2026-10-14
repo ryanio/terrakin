@@ -618,6 +618,11 @@ export const NewcomerCounts = z.object({
   social: newcomerCount,
   /** Has a pet now, or ever adopted one. */
   pet: newcomerCount,
+  /**
+   * Ever took a job from the Town Hall board (`take_job`), or has finished one: a finished count
+   * can sit on a record the job was merged into, whose own log never took one (decision 0276).
+   */
+  job: newcomerCount,
 });
 export type NewcomerCounts = z.infer<typeof NewcomerCounts>;
 

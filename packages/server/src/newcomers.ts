@@ -6,6 +6,7 @@ import {
 } from "@terrakin/protocol";
 import {
   isTownsfolk,
+  jobsDone,
   PANTRY_STAPLES,
   type Resident,
   STARTER_SEEDS,
@@ -79,6 +80,7 @@ const noCounts = (): NewcomerCounts => ({
   look: 0,
   social: 0,
   pet: 0,
+  job: 0,
 });
 
 const cohort = (week: string | null): NewcomerCohort => ({
@@ -102,12 +104,15 @@ function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<strin
     look: hasLook(r),
     social: s.social.has(r.id),
     pet: r.pet !== undefined || done.has("adopt_pet"),
+    // A finished job's count can sit on a record the job was merged into, whose own log never
+    // took one, so the sim's count counts beside the command (decision 0276).
+    job: jobsDone(s.state, r.id) > 0 || done.has("take_job"),
   };
 }
 
 function add(counts: NewcomerCounts, steps: ReturnType<typeof stepsOf>) {
   counts.joined++;
-  for (const key of ["claimed", "hearth", "thing", "look", "social", "pet"] as const) {
+  for (const key of ["claimed", "hearth", "thing", "look", "social", "pet", "job"] as const) {
     if (steps[key]) counts[key]++;
   }
 }

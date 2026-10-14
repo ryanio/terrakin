@@ -858,9 +858,10 @@ const STEP_LABELS: Record<NewcomerStep, string> = {
   social: "Did something social",
 };
 
-/** What each newcomer step is called on the page, the steps in order and the pet last. */
+/** What each newcomer step is called on the page: the steps in order, then the two beside them. */
 export const NEWCOMER_ROWS: readonly { key: keyof NewcomerCounts; label: string }[] = [
   ...NEWCOMER_STEPS.map((key) => ({ key, label: STEP_LABELS[key] })),
+  { key: "job", label: "Took a job" },
   { key: "pet", label: "Adopted a pet" },
 ];
 

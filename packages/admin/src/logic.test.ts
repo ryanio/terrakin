@@ -695,12 +695,13 @@ describe("the townsfolk page", () => {
 });
 
 describe("newcomers", () => {
-  const counts = { joined: 3, claimed: 2, hearth: 1, thing: 0, look: 0, social: 0, pet: 1 };
+  const counts = { joined: 3, claimed: 2, hearth: 1, thing: 0, look: 0, social: 0, pet: 1, job: 2 };
 
   it("gives each step its share of the week's joins, and none for the joins", () => {
     expect(stepShare(counts, "joined")).toEqual({ count: "3", share: "" });
     expect(stepShare(counts, "claimed")).toEqual({ count: "2", share: "67%" });
     expect(stepShare(counts, "thing")).toEqual({ count: "0", share: "0%" });
+    expect(stepShare(counts, "job")).toEqual({ count: "2", share: "67%" });
     const empty = { ...counts, joined: 0, claimed: 0 };
     expect(stepShare(empty, "claimed")).toEqual({ count: "0", share: "" });
   });

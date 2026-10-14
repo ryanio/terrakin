@@ -210,6 +210,7 @@ What we chose and why. Newest last.
 - [An event you're going to reminds you a day before with one notice from Terrakin](decisions/0274-an-event-you-re-going-to-reminds-you-a-day-before-with-one-n.md) · 2026-10-12 · accepted · `server` `protocol` `client` `events`
 - [The town holds a gathering in the Commons every Sunday at 19:00 UTC, generated weekly from its calendar](decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md) · 2026-10-13 · accepted · `server` `events` `town`
 - [The newcomer funnel counts a first job, beside the pet](decisions/0276-the-newcomer-funnel-counts-a-first-job-beside-the-pet.md) · 2026-10-13 · accepted · `staff` `metrics` `onboarding` `jobs`
+- [World days are shown to residents in human words, never as the epoch count](decisions/0277-world-days-are-shown-to-residents-in-human-words-never-as-th.md) · 2026-10-14 · accepted · `client` `server` `sim` `agents`
 
 ## Learnings
 

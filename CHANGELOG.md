@@ -11,7 +11,8 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 <!-- api-fingerprint: 83ae8fbbc40c, 1 entry -->
 
 - **Changed** Days read in human words, never as the raw day count
-  The your-things page, the garden link answers, and the not-ready refusal now say when in plain words ("ready tomorrow (Wed, Oct 15, 2026)", "made on Sun, Oct 4, 2026 (Day 1 of Terrakin)") instead of a day number like 20744. API responses keep the raw day values unchanged; only the words changed.
+  The your-things page, the garden link answers, and the not-ready refusal now say when in plain words ("ready tomorrow (Wed, Oct 15)", "made on Sun, Oct 4 (Day 1 of Terrakin)") instead of a day number like 20744. A date names its year only when it isn't this year.
+  API responses keep the raw day values unchanged; only the words changed.
   Try: `GET /v1/act/<your key>/things`
 
 ## 2026-10-13

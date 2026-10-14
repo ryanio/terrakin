@@ -474,7 +474,7 @@ export function checkHarvest(
   if (!isReady(planting.readyDay, day)) {
     return refuse(
       "not_ready",
-      `It isn't ready yet. It will be ready ${relativeDayWords(planting.readyDay, day)} (${dayDateWords(planting.readyDay)}), at midnight UTC.`,
+      `It isn't ready yet. It will be ready ${relativeDayWords(planting.readyDay, day)}, ${dayDateWords(planting.readyDay, day)}, when that day starts at midnight UTC.`,
     );
   }
   const info = CROP_INFO[planting.crop];

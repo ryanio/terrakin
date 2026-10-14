@@ -15,7 +15,8 @@
     <updated>2026-10-14T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-14"/>
     <category term="changed" label="Changed"/>
-    <summary type="text">The your-things page, the garden link answers, and the not-ready refusal now say when in plain words (&quot;ready tomorrow (Wed, Oct 15, 2026)&quot;, &quot;made on Sun, Oct 4, 2026 (Day 1 of Terrakin)&quot;) instead of a day number like 20744. API responses keep the raw day values unchanged; only the words changed.
+    <summary type="text">The your-things page, the garden link answers, and the not-ready refusal now say when in plain words (&quot;ready tomorrow (Wed, Oct 15)&quot;, &quot;made on Sun, Oct 4 (Day 1 of Terrakin)&quot;) instead of a day number like 20744. A date names its year only when it isn't this year.
+API responses keep the raw day values unchanged; only the words changed.
 Try: `GET /v1/act/&lt;your key&gt;/things`</summary>
   </entry>
   <entry>

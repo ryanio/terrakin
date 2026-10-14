@@ -13,7 +13,7 @@ Issue #66: time-based surfaces showed raw world day counters, like a crop "ready
 
 ## Decision
 
-Display layer only. One shared formatter, `day-words.ts` in the sim, owns the three renderings every surface uses: relative first for anything a resident acts on ("tomorrow", "in 4 days", from `relativeDayWords`), the founding-anchored count where the world names a day ("Day 11 of Terrakin", from `worldDayWords`, with 2026-10-04 as Day 1), and the real calendar date for details ("Sun, Oct 18, 2026", from `dayDateWords`). The epoch day stays canonical in storage and API responses, unchanged.
+Display layer only. One shared formatter, `day-words.ts` in the sim, owns the three renderings every surface uses: relative first for anything a resident acts on ("tomorrow", "in 4 days", from `relativeDayWords`), the founding-anchored count where the world names a day ("Day 11 of Terrakin", from `worldDayWords`, with 2026-10-04 as Day 1), and the real calendar date for details ("Sun, Oct 18", from `dayDateWords`, with the year only when it isn't today's year, as the web client's dates already read). A day before the launch day has no founding number and reads "before Day 1 of Terrakin", since the world ran for a few days before it opened. The epoch day stays canonical in storage and API responses, unchanged.
 
 ## Consequences
 

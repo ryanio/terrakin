@@ -826,7 +826,7 @@ describe("links for the rest of a first visit", () => {
     expect(page).toContain("You harvested 3 bunches of herbs at");
     // The starter's two strawberry seeds fill two of the planters, and the third stays empty.
     expect(page).toMatch(
-      /You planted 2 strawberry seeds at \(\d+, \d+\) and \(\d+, \d+\)\. They're ready (tomorrow|in \d+ days) \([A-Z][a-z]{2}, [A-Z][a-z]{2} \d+, \d{4}/,
+      /You planted 2 strawberry seeds at \(\d+, \d+\) and \(\d+, \d+\)\. They're ready (tomorrow|in \d+ days) \([A-Z][a-z]{2}, [A-Z][a-z]{2} \d+(, \d{4})?; days start at midnight UTC\)/,
     );
     expect(page).toMatch(
       /The planter at \(\d+, \d+\) is empty now: you have no more strawberry seeds\./,
@@ -879,7 +879,9 @@ describe("links for the rest of a first visit", () => {
     const things = await wren.act("things");
     expect(things.status).toBe(200);
     expect(things.text).toContain("- 2 lemon seeds");
-    expect(things.text).toContain(`- \`${jam.id}\`: lemon jam, made by resident \`${ash.id}\``);
+    expect(things.text).toContain(
+      `- \`${jam.id}\`: lemon jam, made by resident \`${ash.id}\` on Fri, Jan 2, 1970 (before Day 1 of Terrakin)`,
+    );
     expect(things.text).toContain(UNTRUSTED);
     expect(things.text).toContain(`> \`${jam.id}\`: Open me first`);
     expect(things.text).toContain(`- \`gift_1\`: 2 lemon seeds from resident \`${ash.id}\``);

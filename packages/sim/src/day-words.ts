@@ -5,7 +5,7 @@
  *
  * - relative to today, for anything a resident acts on: "tomorrow", "in 4 days";
  * - the founding-anchored count, where the world names a day: "Day 11 of Terrakin";
- * - the real calendar date, for details: "Sun, Oct 18, 2026".
+ * - the real calendar date, for details: "Sun, Oct 18", with the year when it isn't this year's.
  *
  * Like the season, this is presentation only: never world state, never in the input log, and it
  * never changes what a day means for scheduling or replay.
@@ -18,8 +18,12 @@ export const LAUNCH_DAY = dayOfDate(2026, 10, 4);
 /** Which day of Terrakin a world day is: the launch day is 1, and each day after adds one. */
 export const foundingDay = (day: number) => day - LAUNCH_DAY + 1;
 
-/** A world day named the world's way: "Day 11 of Terrakin". */
-export const worldDayWords = (day: number) => `Day ${foundingDay(day)} of Terrakin`;
+/**
+ * A world day named the world's way: "Day 11 of Terrakin". The world ran before it opened, so a
+ * day before the launch day has no number of its own: "before Day 1 of Terrakin".
+ */
+export const worldDayWords = (day: number) =>
+  day < LAUNCH_DAY ? "before Day 1 of Terrakin" : `Day ${foundingDay(day)} of Terrakin`;
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -39,13 +43,16 @@ const MONTHS = [
 ] as const;
 
 /**
- * A world day as its real calendar date: "Sun, Oct 18, 2026". World days map 1:1 to real UTC
- * days, so this is exact. Day 0 (1970-01-01) was a Thursday, which anchors the weekday.
+ * A world day as its real calendar date: "Sun, Oct 18". The year is added when the day falls in
+ * another year than `today`, or when there's no `today` to compare with: "Thu, Jan 1, 1970".
+ * World days map 1:1 to real UTC days, so this is exact. Day 0 (1970-01-01) was a Thursday,
+ * which anchors the weekday.
  */
-export function dayDateWords(day: number): string {
+export function dayDateWords(day: number, today?: number): string {
   const { year, month, date } = dateOfDay(day);
   const weekday = WEEKDAYS[(((day + 4) % 7) + 7) % 7] as string;
-  return `${weekday}, ${MONTHS[month - 1]} ${date}, ${year}`;
+  const words = `${weekday}, ${MONTHS[month - 1]} ${date}`;
+  return today !== undefined && dateOfDay(today).year === year ? words : `${words}, ${year}`;
 }
 
 /**

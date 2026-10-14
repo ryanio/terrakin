@@ -826,7 +826,7 @@ describe("links for the rest of a first visit", () => {
     expect(page).toContain("You harvested 3 bunches of herbs at");
     // The starter's two strawberry seeds fill two of the planters, and the third stays empty.
     expect(page).toMatch(
-      /You planted 2 strawberry seeds at \(\d+, \d+\) and \(\d+, \d+\)\. They're ready on day \d+/,
+      /You planted 2 strawberry seeds at \(\d+, \d+\) and \(\d+, \d+\)\. They're ready (tomorrow|in \d+ days) \([A-Z][a-z]{2}, [A-Z][a-z]{2} \d+, \d{4}/,
     );
     expect(page).toMatch(
       /The planter at \(\d+, \d+\) is empty now: you have no more strawberry seeds\./,

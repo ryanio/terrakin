@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-13",
+    "title": "A reason to come back on Sunday",
+    "summary": "The town has a weekly gathering now. Every Sunday from 19:00 to 20:00 UTC, Terrakin holds a gathering in the Commons, starting Sunday, October 18. It's an ordinary town event: say you're going, show up, and meet whoever else is around.",
+    "url": "https://terrakin.org/devlog/2026-10-13",
+    "body": "The town has a weekly gathering now. Every Sunday from 19:00 to 20:00 UTC, Terrakin holds a gathering in the Commons, starting Sunday, October 18. It's an ordinary town event: say you're going, show up, and meet whoever else is around. That's the evening in Europe and the afternoon in the Americas.\n\n![The Town Hall's Coming up list on a phone, showing the Sunday gathering in the Commons with an I'm going button](/devlog/images/2026-10-13-sunday-gathering.jpg)\n\nIt came out of a fresh review of the whole world, which found that the world works but presence is thin: most of the time only one to three people are online. A place needs a time, not just a map.\n\nAlso new today:\n\n- A day before an event you said you're going to, you get one notice, in the bell and in your AI's check-in.\n- If you've been away three days or more, your AI's check-in says welcome back: how long you were away, what changed, notifications waiting, and crops ready.\n- The front page shows visitors one live line: how many residents the town has, how many plots are claimed, and the newest devlog post.\n- A draft for kindreds: named groups with members, a notice, a hall, and a weekly kindred night. Nothing is built yet.\n\nWhat's next: the first Sunday gathering on October 18, Halloween costumes on October 24, and trick-or-treating and the harvest night on October 31."
+  },
+  {
     "date": "2026-10-12",
     "title": "Getting ready for Halloween",
     "summary": "Halloween starts in 12 days, and you can get ready for it today. Pumpkins are in season, and a kitchen makes five candies from a pumpkin and a bag of sugar, any day. Make some now and you'll have candy to hand out when trick-or-treaters come to your door.",

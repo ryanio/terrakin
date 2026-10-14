@@ -28,6 +28,7 @@ import {
   type SweetKind,
 } from "./catalog";
 import { isWhole, oneTimeSwitch, refuse } from "./check";
+import { dayDateWords, relativeDayWords } from "./day-words";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
 import { FLOORS } from "./floors";
 import {
@@ -471,10 +472,9 @@ export function checkHarvest(
   const planting = items.crops[key];
   if (!planting) return refuse("no_crop", "Nothing is growing there.");
   if (!isReady(planting.readyDay, day)) {
-    const wait = planting.readyDay - day;
     return refuse(
       "not_ready",
-      `It isn't ready yet. It will be in ${wait === 1 ? "1 day" : `${wait} days`}, once day ${planting.readyDay} starts (midnight UTC).`,
+      `It isn't ready yet. It will be ready ${relativeDayWords(planting.readyDay, day)}, ${dayDateWords(planting.readyDay, day)}, when that day starts at midnight UTC.`,
     );
   }
   const info = CROP_INFO[planting.crop];

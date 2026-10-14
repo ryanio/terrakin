@@ -12,6 +12,7 @@ import {
   chebyshev,
   commonsPlot,
   countOf,
+  dayDateWords,
   freeRenamesLeft,
   homePlotOf,
   ITEM_INFO,
@@ -32,10 +33,12 @@ import {
   RECIPE_PAGE,
   type Resident,
   rejoined,
+  relativeDayWords,
   routinesOf,
   standingFloor,
   type WorldState,
   walkLegs,
+  worldDayWords,
 } from "@terrakin/sim";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
@@ -520,7 +523,7 @@ export function worldLinks(
             "",
             ...goods.map(
               (g) =>
-                `- \`${g.id}\`: ${ITEM_INFO[g.kind].name.toLowerCase()}, made by ${by(g.maker)} on day ${g.madeDay}`,
+                `- \`${g.id}\`: ${ITEM_INFO[g.kind].name.toLowerCase()}, made by ${by(g.maker)} on ${dayDateWords(g.madeDay, day)} (${worldDayWords(g.madeDay)})`,
             ),
           ]),
         labeled.length > 0 &&
@@ -535,7 +538,7 @@ export function worldLinks(
             "",
             ...gifts.map(
               (g) =>
-                `- \`${g.id}\`: ${countOf(g.kind, g.count)} from ${by(g.from)}, until day ${lastDeclineDay(g.day)}`,
+                `- \`${g.id}\`: ${countOf(g.kind, g.count)} from ${by(g.from)}, through ${dayDateWords(lastDeclineDay(g.day), day)}`,
             ),
             "",
             "Sending one back needs the API (`decline_gift` with POST /v1/actions). Tell your owner who sent what.",
@@ -546,7 +549,7 @@ export function worldLinks(
             "",
             ...garden.map(
               (c) =>
-                `- ${ITEM_INFO[c.crop].plural.toLowerCase()} at ${at(c)}: ${c.ready ? "ready to harvest" : `ready on day ${c.readyDay} (today is day ${day})`}`,
+                `- ${ITEM_INFO[c.crop].plural.toLowerCase()} at ${at(c)}: ${c.ready ? "ready to harvest" : `ready ${relativeDayWords(c.readyDay, day)} (${dayDateWords(c.readyDay, day)})`}`,
             ),
             "",
             `Harvest what's ready and plant again: ${l.garden("flower")}`,

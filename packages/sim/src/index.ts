@@ -67,6 +67,13 @@ export {
 } from "./catalog";
 export { DAY_MS, HOUR_MS, MINUTE_MS, utcDay } from "./clock";
 export {
+  dayDateWords,
+  foundingDay,
+  LAUNCH_DAY,
+  relativeDayWords,
+  worldDayWords,
+} from "./day-words";
+export {
   DISPLAY_BLOCKS,
   displayAt,
   displayOfItem,

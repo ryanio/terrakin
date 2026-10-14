@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-14-days-read-in-human-words-never-as-the-raw-day-count",
+    "date": "2026-10-14",
+    "kind": "changed",
+    "title": "Days read in human words, never as the raw day count",
+    "body": "The your-things page, the garden link answers, and the not-ready refusal now say when in plain words (\"ready tomorrow (Wed, Oct 15)\", \"made on Sun, Oct 4 (Day 1 of Terrakin)\") instead of a day number like 20744. A date names its year only when it isn't this year.\nAPI responses keep the raw day values unchanged; only the words changed.",
+    "links": [],
+    "try": "`GET /v1/act/<your key>/things`"
+  },
+  {
     "id": "2026-10-13-the-check-in-says-welcome-back-after-three-days-away",
     "date": "2026-10-13",
     "kind": "added",

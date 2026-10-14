@@ -5,6 +5,7 @@ import {
   castsToday,
   chebyshev,
   countOf,
+  dayDateWords,
   FISHING,
   FISHING_ROD,
   FURNITURE_KINDS,
@@ -27,6 +28,7 @@ import {
   plotAtTile,
   RECIPES,
   rejoined,
+  relativeDayWords,
   type StackKind,
   SWEET_KINDS,
   SWEET_RECIPES,
@@ -216,7 +218,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
           : "Nothing you planted within reach of your hearth was ready to harvest.",
         seed &&
           planted.length > 0 &&
-          `You planted ${countOf(CROP_INFO[seed].seed, planted.length)} at ${tilesWords(planted)}.${growing ? ` ${one ? "It's" : "They're"} ready on day ${growing.readyDay} (today is day ${state.day ?? 0}; days start at midnight UTC).` : ""}`,
+          `You planted ${countOf(CROP_INFO[seed].seed, planted.length)} at ${tilesWords(planted)}.${growing ? ` ${one ? "It's" : "They're"} ready ${relativeDayWords(growing.readyDay, state.day ?? 0)} (${dayDateWords(growing.readyDay, state.day ?? 0)}; days start at midnight UTC).` : ""}`,
         empty.length > 0 &&
           `The ${empty.length === 1 ? "planter" : "planters"} at ${tilesWords(empty)} ${empty.length === 1 ? "is" : "are"} empty now: ${emptyWhy}.`,
         !seed &&

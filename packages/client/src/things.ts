@@ -26,6 +26,7 @@ import {
   RECIPES,
   type RecipeName,
   recipeOf,
+  relativeDayWords,
   SEED_KINDS,
   type Station,
   SWEET_RECIPES,
@@ -251,10 +252,8 @@ export function cropOfSeed(kind: ItemKind): Crop | undefined {
 /** How a crop is doing today: "Ready to pick", "Ready tomorrow", "Ready in 3 days". */
 export function growthLine(readyDay: number, today: number | undefined): string {
   if (today === undefined) return "Growing";
-  const left = readyDay - today;
-  if (left <= 0) return "Ready to pick";
-  if (left === 1) return "Ready tomorrow";
-  return `Ready in ${left} days`;
+  if (readyDay - today <= 0) return "Ready to pick";
+  return `Ready ${relativeDayWords(readyDay, today)}`;
 }
 
 type InventoryEvent = Extract<WorldEvent, { type: "inventory" }>;

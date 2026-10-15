@@ -5,6 +5,7 @@ import { WINTER_CONFIG, WINTER_HASH, WINTER_LOG } from "./fixtures/winter-log";
 import { hashWorld } from "./hash";
 import { inHoliday } from "./holiday";
 import { CROP_INFO, isFishKind, RECIPES } from "./items";
+import { isShopWear } from "./looks";
 import { replay } from "./replay";
 import { dayOfDate, seasonOf } from "./season";
 import {
@@ -134,6 +135,8 @@ describe("winter's numbers", () => {
     });
     expect(Object.fromEntries(HOLIDAY_STOCK.midwinter.map((s) => [s, SHOP_CATALOG[s]]))).toEqual({
       candy_cane: { price: 2, section: "pantry" },
+      stocking: { price: 6, section: "decor" },
+      santa_hat: { price: 25, section: "wear" },
     });
   });
 
@@ -273,7 +276,8 @@ describe("Midwinter", () => {
   });
 
   it("sells candy canes from its first day to its last, and refuses them the day before and after", () => {
-    for (const sku of HOLIDAY_STOCK.midwinter) {
+    // The Santa hat is Midwinter stock too, but wear takes no count: `christmas.test.ts` covers it.
+    for (const sku of HOLIDAY_STOCK.midwinter.filter((s) => !isShopWear(s))) {
       expect(stockHoliday(sku)).toBe("midwinter");
       for (const day of [MIDWINTER.first, MIDWINTER.last]) {
         const state = shopOn(day);

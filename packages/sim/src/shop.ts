@@ -296,6 +296,7 @@ export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
 export const HOLIDAY_STOCK: Readonly<Record<Holiday, readonly ShopSku[]>> = {
   halloween: [...holidayKinds("halloween"), ...COSTUMES] as ShopSku[],
   midwinter: holidayKinds("midwinter") as ShopSku[],
+  thanksgiving: holidayKinds("thanksgiving") as ShopSku[],
 };
 
 /** The season `sku` is sold in, or undefined when the shop sells it all year. */

@@ -34,8 +34,10 @@ import {
   batPath,
   EARNED_HEX,
   HALLOWEEN_HEX,
+  leafPath,
   mediaUrlOf,
   RESIDENT_COLOR_HEX,
+  THANKSGIVING_HEX,
   WINTER_HEX,
 } from "./looks";
 
@@ -1790,6 +1792,52 @@ function candyBowl(): ArtShape[] {
   ];
 }
 
+// ---------- Thanksgiving (RFC 0034) ----------
+
+const T = THANKSGIVING_HEX;
+
+/** A wicker horn of plenty on its side, its mouth to the right, spilling fruit. */
+function cornucopia(): ArtShape[] {
+  return [
+    shadow(18, 43),
+    path(
+      "M41 30c0 7-5 11-11 11-8 0-16-5-21-12-3-4-5-9-3-12 1-2 3-1 3 1 0 2 2 4 4 4 3-1 6-6 13-7 8-1 15 6 15 15z",
+      T.wicker,
+      out(),
+    ),
+    line("M15 22c2 5 4 9 7 13M21 19c2 6 4 11 7 16M28 18c2 6 3 12 5 18", T.weave, 1.1),
+    ellipse(35, 30, 6.5, 9, T.weave, out()),
+    circle(34, 25, 4.6, T.apple, out({ "stroke-width": 1 })),
+    circle(39.5, 32, 4.4, T.gourd, out({ "stroke-width": 1 })),
+    circle(32, 34, 1.9, T.grapes),
+    circle(35, 35.5, 1.9, T.grapes),
+    circle(33.5, 37.5, 1.9, T.grapes),
+    path("M42 24c3-1 5 1 4 4-2 1-5 0-4-4z", T.pear, out({ "stroke-width": 0.9 })),
+    line("M34 20.5l1-2.5", WOOD_DARK, 1.2),
+  ];
+}
+
+/** Two posts with a string of maple leaves sagging between them. */
+function leafGarland(): ArtShape[] {
+  const at = (t: number) => ({ x: 7 + 34 * t, y: 15 + 30 * t * (1 - t) });
+  const leaf = (t: number, i: number) => {
+    const { x, y } = at(t);
+    return path(
+      leafPath(x, y + 4, 9),
+      T.leaves[i % T.leaves.length] as string,
+      out({ "stroke-width": 0.8 }),
+    );
+  };
+  return [
+    shadow(20, 43),
+    line("M7 14v28M41 14v28", WOOD_DARK, 2.4),
+    circle(7, 13.5, 1.9, WOOD_DARK),
+    circle(41, 13.5, 1.9, WOOD_DARK),
+    line("M7 15q17 15 34 0", T.twine, 1),
+    ...[0.14, 0.32, 0.5, 0.68, 0.86].map(leaf),
+  ];
+}
+
 // ---------- winter (RFC 0017) and Midwinter (RFC 0022) ----------
 
 const W = WINTER_HEX;
@@ -2226,6 +2274,8 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   fishing_rod: fishingRod,
   fried_minnows: friedMinnows,
   fish_stew: fishStew,
+  cornucopia,
+  leaf_garland: leafGarland,
 };
 
 /** Every piece of wear's drawing. */

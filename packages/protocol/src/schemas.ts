@@ -1035,6 +1035,22 @@ export const HandInAction = z.object({
   ),
   ...dry,
 });
+/**
+ * Set one dish on the Thanksgiving feast's table while it's on (RFC 0034), standing in the feast's
+ * area in the Commons. One a resident a feast. The dish leaves your things for good.
+ */
+export const BringDishAction = z.object({
+  type: z.literal("bring_dish"),
+  item: z
+    .string()
+    .min(1)
+    .max(40)
+    .describe(
+      "What to bring: a made thing's id, like `i_12` (a pie, a jam, a soup, a drink), or a sweet's kind, like `candy`.",
+    ),
+  ...dry,
+});
+
 /** The made thing a `hand_in` took, or on a dry run would take: its id and its kind. */
 export const HandedIn = z.object({ item: ItemId, kind: GoodKind });
 export type HandedIn = z.infer<typeof HandedIn>;
@@ -1396,6 +1412,7 @@ export const Action = z.discriminatedUnion("type", [
   TakeJobAction,
   DropJobAction,
   HandInAction,
+  BringDishAction,
   FoundKindredAction,
   InviteToKindredAction,
   CancelKindredInviteAction,
@@ -2332,6 +2349,13 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     caught: CatchName,
+  }),
+  /** `by` set a `kind` on the table of the Thanksgiving feast `event` (RFC 0034). */
+  z.object({
+    type: z.literal("dish_brought"),
+    by: z.string(),
+    kind: ItemKind,
+    event: z.string(),
   }),
   /**
    * `by` knocked at the door of plot (px, py) on Halloween night and got a candy (RFC 0022): from

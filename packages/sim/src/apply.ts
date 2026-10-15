@@ -197,6 +197,7 @@ import {
   stockHoliday,
 } from "./shop";
 import { checkTestGrant } from "./test-grant";
+import { checkBringDish } from "./thanksgiving";
 import {
   checkKeepTableSpots,
   checkPropose,
@@ -1525,6 +1526,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "trick_or_treat":
       return town(checkTrickOrTreat(state, actor, command));
+
+    case "bring_dish":
+      return town(checkBringDish(state, actor, command));
 
     case "fish":
       return town(checkFish(state, actor, command));

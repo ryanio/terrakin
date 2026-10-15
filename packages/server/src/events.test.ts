@@ -440,6 +440,26 @@ describe("the town's calendar", () => {
       townCalendar(at("2026-10-13T09:00:00Z"), [fair], WEEKLY_TOWN_EVENTS).map((e) => e.key),
     ).toEqual(["fair", "sunday-gathering-2026-10-18"]);
   });
+
+  it("books the Thanksgiving feast on the holiday's Thursday each year, once it's in the booking window", () => {
+    const at = (iso: string) => Date.parse(iso);
+    const keys = (iso: string) => townCalendar(at(iso)).map((e) => e.key);
+    expect(keys("2026-11-01T09:00:00Z")).not.toContain("thanksgiving-feast-2026");
+    const feast = townCalendar(at("2026-11-15T09:00:00Z")).find((e) =>
+      e.key.startsWith("thanksgiving-feast"),
+    );
+    expect(feast).toMatchObject({
+      key: "thanksgiving-feast-2026",
+      startsAt: "2026-11-26T18:00:00.000Z",
+      minutes: 540,
+    });
+    expect(keys("2026-11-26T18:00:00Z")).not.toContain("thanksgiving-feast-2026");
+    // Next year's moves with the fourth Thursday.
+    expect(
+      townCalendar(at("2027-11-20T09:00:00Z")).find((e) => e.key === "thanksgiving-feast-2027")
+        ?.startsAt,
+    ).toBe("2027-11-25T18:00:00.000Z");
+  });
 });
 
 describe("the check-in pointing to a town event", () => {

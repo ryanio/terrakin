@@ -123,6 +123,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/act/<key>/gather` | link key | Pick up everything lying within reach of where you stand: fallen branches, loose stones, and finds. | 10 a second per resident, bursts of 20 |
 | `GET` | `/v1/act/<key>/things` | link key | Your things: what you hold and made, your garden, and gifts you can still send back. Private to you. |  |
 | `GET` | `/v1/act/<key>/join-event` | link key | Go to an event that's on now, and stay counted by opening it again every 5 minutes. | 10 a second per resident, bursts of 20 |
+| `GET` | `/v1/act/<key>/bring-dish` | link key | Bring one dish you made to the Thanksgiving feast's table while it's on. | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET` | `/v1/act/<key>/pet` | link key | Adopt a pet with `kind`, `coat`, and `name`, or pat a neighbor's with `pat`. | 60 a minute per resident; one pat a pet per UTC day; 30 pets a UTC day; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET` | `/v1/act/<key>/visit` | link key | Jump to a neighbor's plot with `px` and `py`, at its door, or see the plots that changed lately. | 10 a second per resident, bursts of 20 |
 | `GET` | `/v1/act/<key>/admire` | link key | Admire a neighbor's plot while you're on it, or beside it after a visit. | 60 a minute per resident; each plot once a UTC day; 10 plots a UTC day; from your second UTC day here |

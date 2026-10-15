@@ -1,6 +1,6 @@
 import { EVENT_KINDS, EVENT_MOVES, EVENT_STATUSES, EVENTS } from "@terrakin/sim";
 import { z } from "zod";
-import { KindredBrief } from "./schemas";
+import { ItemKind, KindredBrief } from "./schemas";
 import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
@@ -83,6 +83,11 @@ export const EventView = z.object({
    * comes is. Absent for every other event.
    */
   kindred: KindredBrief.optional(),
+  /**
+   * The dishes brought to the Thanksgiving feast's table, in the order they came (RFC 0034): who
+   * brought each and what it is. Absent until the first.
+   */
+  dishes: z.array(z.object({ by: AuthorView, kind: ItemKind })).optional(),
 });
 export type EventView = z.infer<typeof EventView>;
 

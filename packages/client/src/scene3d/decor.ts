@@ -9,7 +9,13 @@
  */
 import type { DecorKind } from "@terrakin/sim";
 import { STRAW as STRAW_BRAND, WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
-import { BAT_POINTS, HALLOWEEN_HEX, WINTER_HEX } from "@terrakin/ui/looks";
+import {
+  BAT_POINTS,
+  HALLOWEEN_HEX,
+  LEAF_POINTS,
+  THANKSGIVING_HEX,
+  WINTER_HEX,
+} from "@terrakin/ui/looks";
 import {
   type BufferGeometry,
   CircleGeometry,
@@ -645,6 +651,77 @@ function sledParts(grain: Texture): Part[] {
   ];
 }
 
+// ---------- Thanksgiving's decor (RFC 0034) ----------
+
+const T = THANKSGIVING_HEX;
+
+/** A wicker horn of plenty on its side, its mouth to the east, with fruit spilling from it. */
+function cornucopiaParts(grain: Texture): Part[] {
+  // The horn: a cone lying along x, its point to the west and turned up a little, and a rim.
+  const horn = new ConeGeometry(0.21, 0.72, 14, 1, true);
+  horn.rotateZ(Math.PI / 2 - 0.18);
+  horn.translate(-0.02, 0.26, 0);
+  const rim = new TorusGeometry(0.2, 0.035, 6, 16);
+  rim.rotateY(Math.PI / 2);
+  rim.translate(0.33, 0.21, 0);
+  const wicker = merged([horn.toNonIndexed(), rim.toNonIndexed()], 0.75);
+  const ball = (r: number, x: number, y: number, z: number) =>
+    new SphereGeometry(r, 10, 8).translate(x, y, z).toNonIndexed();
+  const fruit = (color: string, pieces: BufferGeometry[]): Part => ({
+    geometry: noShade(mergeGeometries(pieces)),
+    material: paper(hex(color), grain),
+    cast: true,
+  });
+  return [
+    { geometry: wicker, material: paper(hex(T.wicker), grain, { side: DoubleSide }), cast: true },
+    fruit(T.apple, [ball(0.1, 0.36, 0.22, 0.06)]),
+    fruit(T.gourd, [ball(0.1, 0.42, 0.11, -0.08)]),
+    fruit(T.pear, [ball(0.08, 0.3, 0.1, 0.16)]),
+    fruit(T.grapes, [
+      ball(0.045, 0.44, 0.06, 0.1),
+      ball(0.045, 0.5, 0.06, 0.04),
+      ball(0.045, 0.47, 0.12, 0.08),
+    ]),
+  ];
+}
+
+/** Two little posts with a string of maple leaves between them, as the bat bunting hangs. */
+function leafGarlandParts(grain: Texture): Part[] {
+  const posts = merged([
+    box(0.06, 1.0, 0.06, [-0.42, 0.5, 0], [0, 0, 0], 0.02),
+    box(0.06, 1.0, 0.06, [0.42, 0.5, 0], [0, 0, 0], 0.02),
+    box(0.12, 0.04, 0.12, [-0.42, 0.02, 0]),
+    box(0.12, 0.04, 0.12, [0.42, 0.02, 0]),
+  ]);
+  const [mx, my] = string(0.5);
+  const half = Math.hypot(mx + 0.42, 0.95 - my);
+  const sag = Math.atan2(0.95 - my, mx + 0.42);
+  const line = merged(
+    [
+      box(half, 0.015, 0.015, [(-0.42 + mx) / 2, (0.95 + my) / 2, 0], [0, 0, -sag], 0.005),
+      box(half, 0.015, 0.015, [(0.42 + mx) / 2, (0.95 + my) / 2, 0], [0, 0, sag], 0.005),
+    ],
+    0.9,
+  );
+  const leaf = (t: number) => {
+    const [x, y] = string(t);
+    return flat(
+      LEAF_POINTS.map(([lx, ly]): [number, number] => [x + lx * 0.09, y - 0.1 - ly * 0.09]),
+    );
+  };
+  const spots = [0.14, 0.32, 0.5, 0.68, 0.86];
+  const leaves = T.leaves.slice(0, 3).map((color, c) => ({
+    geometry: noShade(mergeGeometries(spots.filter((_, i) => i % 3 === c).map(leaf))),
+    material: paper(hex(color), grain, { side: DoubleSide }),
+    cast: true,
+  }));
+  return [
+    { geometry: posts, material: paper(WOOD_DARK, grain), cast: true },
+    { geometry: line, material: paper(hex(T.twine), grain), cast: false },
+    ...leaves,
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
@@ -658,6 +735,8 @@ function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "string_lights") return stringLightsParts(stage, grain);
   if (kind === "little_fir") return littleFirParts(grain);
   if (kind === "sled") return sledParts(grain);
+  if (kind === "cornucopia") return cornucopiaParts(grain);
+  if (kind === "leaf_garland") return leafGarlandParts(grain);
   return benchParts(grain);
 }
 

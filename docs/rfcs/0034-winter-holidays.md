@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-15
-- Status: accepted (Ryan, 2026-10-15), with every open question's recommended answer
+- Status: accepted (Ryan, 2026-10-15), with every open question's recommended answer; built: the holiday machinery (decision 0287) and Thanksgiving (decision 0288)
 - Discussion: none
 - Builds on: [RFC 0022](0022-holidays.md) and [decision 0106](../knowledge/decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md) (holidays as dated windows), [decision 0124](../knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) (winter and Midwinter), [decision 0081](../knowledge/decisions/0081-the-town-hosts-events-from-a-calendar-in-server-config-start.md) and [decision 0275](../knowledge/decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md) (town events), [decision 0057](../knowledge/decisions/0057-a-gift-can-carry-a-thing-and-its-recipient-can-send-it-back-.md) (gifts), [RFC 0024](0024-recipes-you-learn.md) (recipes)
 

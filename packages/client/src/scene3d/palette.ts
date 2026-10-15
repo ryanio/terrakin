@@ -166,6 +166,9 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   pond: { color: hex(BLOCK_COLORS.pond), height: 0.14, opacity: 1, form: "water" },
   // Stairs up a floor (RFC 0028): plank treads a whole floor tall, modelled in blocks.ts.
   stairs: { color: hex(BLOCK_COLORS.stairs), height: 1.25, opacity: 1, form: "stairs" },
+  // Thanksgiving's decor (RFC 0034), modelled in decor.ts.
+  cornucopia: { color: hex(BLOCK_COLORS.cornucopia), height: 0.55, opacity: 1, form: "decor" },
+  leaf_garland: { color: hex(BLOCK_COLORS.leaf_garland), height: 1.05, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

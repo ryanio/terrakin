@@ -513,6 +513,7 @@ export {
   townBuys,
 } from "./shop";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
+export { broughtTo, FEAST, feastDay, feastToday, isDish, liveFeast } from "./thanksgiving";
 export {
   DAY_LENGTH_MS,
   dayPhase,

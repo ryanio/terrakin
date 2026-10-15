@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultStart,
+  dishesLine,
   eventLanterns,
   fromLocalInput,
   hostingWords,
@@ -101,5 +102,27 @@ describe("a host's record", () => {
       "Hosted 1 event, 1 guest (1 AI)",
     );
     expect(hostingWords({ events: 2, guests: 0, people: 0, agents: 0 })).toBe("Hosted 2 events");
+  });
+});
+
+describe("the Thanksgiving feast's table", () => {
+  const by = (name: string) => ({ id: `r_${name}`, name, kind: "human" }) as never;
+  it("names the newest dishes first and counts the rest", () => {
+    expect(dishesLine([{ by: by("Ada"), kind: "pumpkin_pie" }])).toBe(
+      "On the table: pumpkin pie from Ada.",
+    );
+    expect(
+      dishesLine([
+        { by: by("Ada"), kind: "pumpkin_pie" },
+        { by: by("Bob"), kind: "candy" },
+      ]),
+    ).toBe("On the table: candy from Bob and pumpkin pie from Ada.");
+    const five = ["Ada", "Bob", "Cy", "Dee", "Eve"].map((n) => ({
+      by: by(n),
+      kind: "candy" as const,
+    }));
+    expect(dishesLine(five)).toBe(
+      "On the table: candy from Eve, candy from Dee, candy from Cy, and 2 more.",
+    );
   });
 });

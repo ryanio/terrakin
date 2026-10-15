@@ -30,6 +30,9 @@ const ITEM_TEMPLATES = [
   "string_lights",
   "little_fir",
   "sled",
+  // Thanksgiving's decor (RFC 0034).
+  "cornucopia",
+  "leaf_garland",
 ] as const;
 export type ItemTemplate = (typeof ITEM_TEMPLATES)[number];
 

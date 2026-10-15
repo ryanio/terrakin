@@ -1,4 +1,13 @@
-import { DAY_MS, EVENTS, type EventKind, MINUTE_MS } from "@terrakin/sim";
+import {
+  DAY_MS,
+  dateOfDay,
+  EVENTS,
+  type EventKind,
+  FEAST,
+  type Holiday,
+  holidaySpan,
+  MINUTE_MS,
+} from "@terrakin/sim";
 
 /**
  * The town's own calendar (RFC 0010, decision 0081). The minute sweep logs each event here once,
@@ -57,7 +66,50 @@ export const WEEKLY_TOWN_EVENTS: readonly WeeklyTownEvent[] = [
   },
 ];
 
+/**
+ * A town event on a holiday that moves with the calendar (RFC 0034): each year's is its own
+ * `TownEvent`, keyed `<key>-<YYYY>` by the year its holiday's run starts, on the day `day` days
+ * after the run's first day, at `at` UTC.
+ */
+export interface HolidayTownEvent extends Omit<TownEvent, "startsAt"> {
+  holiday: Holiday;
+  /** Days after the holiday's first day. */
+  day: number;
+  /** The UTC time it starts, `HH:MM`. */
+  at: string;
+}
+
+/** The town's holiday events. */
+const HOLIDAY_TOWN_EVENTS: readonly HolidayTownEvent[] = [
+  {
+    // Thanksgiving's Thursday, evening in Europe, then the Americas (RFC 0034).
+    holiday: "thanksgiving",
+    day: FEAST.dayOfFeast,
+    at: "18:00",
+    key: "thanksgiving-feast",
+    kind: "gathering",
+    title: "Thanksgiving feast",
+    text: "The town's long table in the Commons. Bring one dish you made, a pie, a jam, a soup, or something sweet, and set it out for everyone. Drop in any time between 18:00 and 03:00 UTC.",
+    minutes: 540,
+    faces: ["clem", "otis"],
+  },
+];
+
 const WEEK_MS = 7 * DAY_MS;
+
+/** Each year's run of `e` that starts after `now` and no further out than `aheadMs`. */
+function holidayRuns(e: HolidayTownEvent, now: number, aheadMs: number): TownEvent[] {
+  const { holiday, day, at, ...rest } = e;
+  const [h = 0, m = 0] = at.split(":").map(Number);
+  const year = dateOfDay(Math.floor(now / DAY_MS)).year;
+  return [year - 1, year, year + 1].flatMap((y) => {
+    const run = holidaySpan(holiday, y);
+    if (!run) return [];
+    const start = (run.first + day) * DAY_MS + (h * 60 + m) * MINUTE_MS;
+    if (start <= now || start > now + aheadMs) return [];
+    return [{ ...rest, key: `${e.key}-${y}`, startsAt: new Date(start).toISOString() }];
+  });
+}
 
 /** Whether two town events would share the Commons, gap included. */
 function clash(a: TownEvent, b: TownEvent): boolean {
@@ -68,16 +120,19 @@ function clash(a: TownEvent, b: TownEvent): boolean {
 }
 
 /**
- * The town's calendar as it stands at `now`: every one-off event, and each weekly event's weeks
- * that start after `now` and no further out than the booking window reaches, less any week that
- * would share the Commons with a one-off event, which keeps its evening.
+ * The town's calendar as it stands at `now`: every one-off event, each holiday event's runs and
+ * each weekly event's weeks that start after `now` and no further out than the booking window
+ * reaches, less any week that would share the Commons with a one-off or holiday event, which keeps
+ * its evening.
  */
 export function townCalendar(
   now: number,
-  oneOff: readonly TownEvent[] = TOWN_EVENTS,
+  oneOffs: readonly TownEvent[] = TOWN_EVENTS,
   weekly: readonly WeeklyTownEvent[] = WEEKLY_TOWN_EVENTS,
+  holidays: readonly HolidayTownEvent[] = HOLIDAY_TOWN_EVENTS,
 ): TownEvent[] {
   const aheadMs = (EVENTS.aheadDays + 1) * DAY_MS;
+  const oneOff = [...oneOffs, ...holidays.flatMap((e) => holidayRuns(e, now, aheadMs))];
   const weeks: TownEvent[] = [];
   for (const { first, ...w } of weekly) {
     const from = Date.parse(first);

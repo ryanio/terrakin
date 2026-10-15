@@ -8,6 +8,7 @@ import {
   type KindredBrief,
 } from "@terrakin/protocol";
 import {
+  broughtTo,
   canBuildOn,
   coinsOf,
   DAY_MS,
@@ -20,7 +21,9 @@ import {
   hostingProblem,
   inCommons,
   isTownEvent,
+  isTownsfolk,
   kindredById,
+  liveFeast,
   plotKey,
   type ResidentId,
   sameHousehold,
@@ -104,9 +107,18 @@ export function eventView(
     youreGoing: ctx.mine.has(e.id),
     ticks: e.ticks,
     attended: e.status === "ended" ? (e.attended ?? []).map((id) => person(ctx, id)) : null,
-    moves: viewer ? eventMoves(state, viewer, e) : [],
+    moves: viewer ? [...eventMoves(state, viewer, e), ...dishMove(state, viewer, e)] : [],
     ...kindredField(state, e, ctx.wordsHeld),
+    ...(e.dishes?.length
+      ? { dishes: e.dishes.map((d) => ({ by: person(ctx, d.by), kind: d.kind })) }
+      : {}),
   };
+}
+
+/** `bring_dish` while `e` is the live Thanksgiving feast and `viewer` hasn't brought one (RFC 0034). */
+function dishMove(state: WorldState, viewer: string, e: HostedEvent): "bring_dish"[] {
+  if (liveFeast(state)?.id !== e.id || broughtTo(e, viewer)) return [];
+  return isTownsfolk(state, viewer) ? [] : ["bring_dish"];
 }
 
 /**

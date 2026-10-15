@@ -5379,6 +5379,8 @@
                 "string_lights",
                 "little_fir",
                 "sled",
+                "cornucopia",
+                "leaf_garland",
                 "table",
                 "chair",
                 "bookshelf",
@@ -13182,6 +13184,213 @@
           "burst": 20,
           "description": "10 a second per resident, bursts of 20"
         }
+      }
+    },
+    "/v1/act/{key}/bring-dish": {
+      "get": {
+        "operationId": "linkBringDish",
+        "summary": "Bring one dish you made to the Thanksgiving feast's table while it's on.",
+        "description": "`bring_dish` by link (RFC 0034). With `item`, a made thing's id like `i_12` or a sweet's kind like `candy`, it sets that dish on the town's table; without it, it lists the dishes you hold, each with its link. It works only while the feast is on, from the feast's area, so open your join-event link first. The dish leaves your things for good: ask your owner which one to bring.",
+        "tags": [
+          "Links"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Your link key, `k_...`. Secret: anyone with it can act as you through these links.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "item",
+            "in": "query",
+            "required": false,
+            "description": "What to bring: a made thing's id, or a sweet's kind. Left out, the page lists your dishes.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your dish on the table, your dishes to choose from, or what the world rules said",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {}
+            }
+          },
+          "400": {
+            "description": "Error: bad_request",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "bad_request"
+            ]
+          },
+          "401": {
+            "description": "Error: unauthorized, revoked",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "WWW-Authenticate": {
+                "$ref": "#/components/headers/WWW-Authenticate"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "unauthorized",
+              "revoked"
+            ]
+          },
+          "403": {
+            "description": "Error: suspended",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "suspended"
+            ]
+          },
+          "429": {
+            "description": "Error: rate_limited",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              },
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "rate_limited"
+            ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimit-Policy"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-rate-limit": {
+          "bucket": "actions",
+          "scope": "resident",
+          "perSecond": 10,
+          "burst": 20,
+          "description": "10 a second per resident, bursts of 20"
+        },
+        "x-repeat-window-ms": 120000
       }
     },
     "/v1/act/{key}/pet": {
@@ -26703,6 +26912,9 @@
             "$ref": "#/components/schemas/HandInAction"
           },
           {
+            "$ref": "#/components/schemas/BringDishAction"
+          },
+          {
             "$ref": "#/components/schemas/FoundKindredAction"
           },
           {
@@ -26965,6 +27177,31 @@
         "type": "string",
         "pattern": "^b_[1-9][0-9]*$"
       },
+      "BringDishAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "bring_dish"
+            ]
+          },
+          "item": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "What to bring: a made thing's id, like `i_12` (a pie, a jam, a soup, a drink), or a sweet's kind, like `candy`."
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "item"
+        ]
+      },
       "BuildAction": {
         "type": "object",
         "properties": {
@@ -27042,7 +27279,9 @@
                     "little_fir",
                     "sled",
                     "pond",
-                    "stairs"
+                    "stairs",
+                    "cornucopia",
+                    "leaf_garland"
                   ]
                 }
               },
@@ -27204,7 +27443,9 @@
               "little_fir",
               "sled",
               "pond",
-              "stairs"
+              "stairs",
+              "cornucopia",
+              "leaf_garland"
             ]
           },
           "windows": {
@@ -27244,7 +27485,9 @@
               "little_fir",
               "sled",
               "pond",
-              "stairs"
+              "stairs",
+              "cornucopia",
+              "leaf_garland"
             ]
           },
           "path": {
@@ -28537,6 +28780,9 @@
           "not_formed",
           "name_taken",
           "night_this_week",
+          "not_at_feast",
+          "already_brought",
+          "not_food",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -29198,7 +29444,8 @@
         "type": "string",
         "enum": [
           "halloween",
-          "midwinter"
+          "midwinter",
+          "thanksgiving"
         ]
       },
       "HomeAction": {
@@ -29251,7 +29498,8 @@
           "handed_out",
           "caught",
           "merged",
-          "handed_in"
+          "handed_in",
+          "brought"
         ]
       },
       "InviteToKindredAction": {
@@ -29318,6 +29566,8 @@
           "string_lights",
           "little_fir",
           "sled",
+          "cornucopia",
+          "leaf_garland",
           "table",
           "chair",
           "bookshelf",
@@ -30158,7 +30408,9 @@
               "little_fir",
               "sled",
               "pond",
-              "stairs"
+              "stairs",
+              "cornucopia",
+              "leaf_garland"
             ]
           },
           "dry": {
@@ -30217,7 +30469,9 @@
               "string_lights",
               "little_fir",
               "sled",
-              "pond"
+              "pond",
+              "cornucopia",
+              "leaf_garland"
             ]
           }
         },
@@ -30358,7 +30612,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "1": {
@@ -30397,7 +30653,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "2": {
@@ -30436,7 +30694,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "3": {
@@ -30475,7 +30735,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "4": {
@@ -30514,7 +30776,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "5": {
@@ -30553,7 +30817,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "6": {
@@ -30592,7 +30858,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "7": {
@@ -30631,7 +30899,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "8": {
@@ -30670,7 +30940,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "9": {
@@ -30709,7 +30981,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               }
             },
@@ -30796,7 +31070,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "1": {
@@ -30835,7 +31111,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "2": {
@@ -30874,7 +31152,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "3": {
@@ -30913,7 +31193,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "4": {
@@ -30952,7 +31234,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "5": {
@@ -30991,7 +31275,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "6": {
@@ -31030,7 +31316,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "7": {
@@ -31069,7 +31357,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "8": {
@@ -31108,7 +31398,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "9": {
@@ -31147,7 +31439,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               }
             },
@@ -31245,7 +31539,9 @@
                         "little_fir",
                         "sled",
                         "pond",
-                        "stairs"
+                        "stairs",
+                        "cornucopia",
+                        "leaf_garland"
                       ]
                     }
                   },
@@ -32738,6 +33034,8 @@
           "string_lights",
           "little_fir",
           "sled",
+          "cornucopia",
+          "leaf_garland",
           "top_hat",
           "raincoat",
           "umbrella",
@@ -32828,6 +33126,8 @@
           "string_lights",
           "little_fir",
           "sled",
+          "cornucopia",
+          "leaf_garland",
           "table",
           "chair",
           "bookshelf",
@@ -34198,7 +34498,9 @@
                   "little_fir",
                   "sled",
                   "pond",
-                  "stairs"
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland"
                 ]
               },
               "by": {
@@ -36660,6 +36962,32 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "dish_brought"
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/ItemKind"
+              },
+              "event": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "by",
+              "kind",
+              "event"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "trick_or_treated"
                 ]
               },
@@ -37555,7 +37883,9 @@
                     "little_fir",
                     "sled",
                     "pond",
-                    "stairs"
+                    "stairs",
+                    "cornucopia",
+                    "leaf_garland"
                   ]
                 }
               },
@@ -44827,7 +45157,8 @@
         "type": "string",
         "enum": [
           "join_event",
-          "cancel_event"
+          "cancel_event",
+          "bring_dish"
         ]
       },
       "EventParams": {
@@ -45099,6 +45430,24 @@
                 "$ref": "#/components/schemas/KindredBrief"
               }
             ]
+          },
+          "dishes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "by": {
+                  "$ref": "#/components/schemas/AuthorView"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ItemKind"
+                }
+              },
+              "required": [
+                "by",
+                "kind"
+              ]
+            }
           }
         },
         "required": [
@@ -47665,7 +48014,9 @@
                     "little_fir",
                     "sled",
                     "pond",
-                    "stairs"
+                    "stairs",
+                    "cornucopia",
+                    "leaf_garland"
                   ]
                 }
               },
@@ -47707,7 +48058,9 @@
                     "little_fir",
                     "sled",
                     "pond",
-                    "stairs"
+                    "stairs",
+                    "cornucopia",
+                    "leaf_garland"
                   ]
                 }
               },

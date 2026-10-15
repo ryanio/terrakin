@@ -4,7 +4,7 @@
  * an event's lanterns. The server decides every event; these only describe what it said.
  */
 import type { EventView, HostingView } from "@terrakin/protocol";
-import type { EventKind } from "@terrakin/sim";
+import { type EventKind, ITEM_INFO } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
 const MINUTE = 60_000;
@@ -193,4 +193,30 @@ export function hostingWords(h: HostingView): string {
     h.agents > 0 ? plural(h.agents, "AI", "AIs") : null,
   ].filter(Boolean);
   return `${held}, ${plural(h.guests, "guest", "guests")} (${split.join(", ")})`;
+}
+
+/** How many dishes `dishesLine` names before it counts the rest. */
+const DISHES_NAMED = 3;
+
+/**
+ * What's on the Thanksgiving feast's table (RFC 0034), newest first: "On the table: candy from
+ * Bob, pumpkin pie from Ada, and 4 more." Names are residents' own: set it as text.
+ */
+export function dishesLine(dishes: NonNullable<EventView["dishes"]>): string {
+  const named = [...dishes]
+    .reverse()
+    .slice(0, DISHES_NAMED)
+    .map((d) => {
+      const info = Object.hasOwn(ITEM_INFO, d.kind)
+        ? ITEM_INFO[d.kind as keyof typeof ITEM_INFO]
+        : undefined;
+      return `${(info?.name ?? d.kind).toLowerCase()} from ${d.by.name}`;
+    });
+  const more = dishes.length - named.length;
+  const parts = more > 0 ? [...named, plural(more, "more", "more")] : named;
+  const list =
+    parts.length < 3
+      ? parts.join(" and ")
+      : `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+  return `On the table: ${list}.`;
 }

@@ -875,6 +875,24 @@ const WRITTEN = {
     recipe: { station: "kitchen", needs: { carp: 1, tomato: 1, herb: 1 } },
     look: { template: "drawn" },
   }),
+  // Thanksgiving (RFC 0034): a horn of plenty and a garland of autumn leaves, sold only while it
+  // runs. Decision 0288 has the numbers.
+  cornucopia: entry({
+    name: "Cornucopia",
+    plural: "Cornucopias",
+    family: "decor",
+    role: "decor",
+    shop: { price: 12, holiday: "thanksgiving" },
+    look: { template: "drawn" },
+  }),
+  leaf_garland: entry({
+    name: "Leaf garland",
+    plural: "Leaf garlands",
+    family: "decor",
+    role: "decor",
+    shop: { price: 6, holiday: "thanksgiving" },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------

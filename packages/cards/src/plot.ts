@@ -74,6 +74,8 @@ export const PLOT_DECOR = [
   "string_lights",
   "little_fir",
   "sled",
+  "cornucopia",
+  "leaf_garland",
 ] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
@@ -680,6 +682,33 @@ const RUNNER = "#4a4542";
 const SLAT_SIDE = "#9e3428";
 const ROPE = "#e3cf9c";
 /**
+ * Thanksgiving's colors (RFC 0034), as `THANKSGIVING_HEX` in `packages/ui/src/looks.ts` has them.
+ * The cornucopia's wicker and the garland's first leaf are each one's `fill`.
+ */
+const WEAVE = "#9c6b3a";
+const APPLE = "#d2463a";
+const GOURD = "#e8862f";
+const GRAPES = "#7b4f9c";
+const TWINE = "#7a5a3a";
+const LEAVES = ["#e0a33a", "#a8382c", "#d47a2a", "#b85a2a"] as const;
+/** A maple leaf, point up, as `LEAF_POINTS` in `packages/ui/src/looks.ts`: half its width is 1. */
+const LEAF_POINTS: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [0.25, -0.45],
+  [0.75, -0.65],
+  [0.55, -0.1],
+  [1, 0.1],
+  [0.45, 0.35],
+  [0.5, 0.8],
+  [0, 0.5],
+  [-0.5, 0.8],
+  [-0.45, 0.35],
+  [-1, 0.1],
+  [-0.55, -0.1],
+  [-0.75, -0.65],
+  [-0.25, -0.45],
+];
+/**
  * A bat with its wings spread, as `BAT_POINTS` in `packages/ui/src/looks.ts`: half its span is 1.
  */
 const BAT_POINTS: readonly (readonly [number, number])[] = [
@@ -915,6 +944,37 @@ function decorSvg(
       `<path d="M${X(0.1)} ${Y(0.66)}H${X(0.78)}V${Y(0.74)}H${X(0.1)}z" fill="${SLAT_SIDE}" ${stroke}/>`,
       `<path d="M${X(0.1)} ${Y(0.66)}L${X(0.17)} ${Y(0.58)}H${X(0.85)}L${X(0.78)} ${Y(0.66)}z" fill="${fill}" ${stroke}/>`,
       `<path d="M${X(0.88)} ${Y(0.62)}Q${X(1)} ${Y(0.6)} ${X(0.96)} ${Y(0.78)}" fill="none" stroke="${ROPE}" stroke-width="0.03" stroke-linecap="round"/>`,
+    ];
+  }
+  if (kind === "cornucopia") {
+    return [
+      shade,
+      `<path d="M${X(0.86)} ${Y(0.62)}C${X(0.86)} ${Y(0.86)} ${X(0.5)} ${Y(0.9)} ${X(0.2)} ${Y(0.62)}C${X(0.1)} ${Y(0.5)} ${X(0.08)} ${Y(0.36)} ${X(0.14)} ${Y(0.34)}C${X(0.2)} ${Y(0.34)} ${X(0.2)} ${Y(0.46)} ${X(0.3)} ${Y(0.44)}C${X(0.42)} ${Y(0.38)} ${X(0.54)} ${Y(0.36)} ${X(0.66)} ${Y(0.38)}C${X(0.8)} ${Y(0.4)} ${X(0.86)} ${Y(0.5)} ${X(0.86)} ${Y(0.62)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.34)} ${Y(0.42)}L${X(0.42)} ${Y(0.74)}M${X(0.46)} ${Y(0.42)}L${X(0.54)} ${Y(0.74)}M${X(0.58)} ${Y(0.42)}L${X(0.66)} ${Y(0.74)}" stroke="${WEAVE}" stroke-width="0.025"/>`,
+      `<rect x="${X(0.6)}" y="${Y(0.43)}" width="0.26" height="0.38" rx="0.13" fill="${WEAVE}"/>`,
+      `<circle cx="${X(0.71)}" cy="${Y(0.52)}" r="0.095" fill="${APPLE}" ${stroke}/>`,
+      `<circle cx="${X(0.82)}" cy="${Y(0.67)}" r="0.09" fill="${GOURD}" ${stroke}/>`,
+      `<circle cx="${X(0.66)}" cy="${Y(0.71)}" r="0.04" fill="${GRAPES}"/>`,
+      `<circle cx="${X(0.73)}" cy="${Y(0.74)}" r="0.04" fill="${GRAPES}"/>`,
+      `<circle cx="${X(0.69)}" cy="${Y(0.78)}" r="0.04" fill="${GRAPES}"/>`,
+    ];
+  }
+  if (kind === "leaf_garland") {
+    const at = (t: number) => ({ x: 0.12 + 0.76 * t, y: 0.26 + 0.52 * t * (1 - t) });
+    const leaf = (t: number, i: number) => {
+      const p = at(t);
+      const k = 0.095;
+      const d = LEAF_POINTS.map(
+        ([lx, ly], j) => `${j ? "L" : "M"}${X(p.x + lx * k)} ${Y(p.y + 0.08 + ly * k)}`,
+      );
+      const color = i === 0 ? fill : (LEAVES[(i - 1) % LEAVES.length] as string);
+      return `<path d="${d.join("")}z" fill="${color}"/>`;
+    };
+    return [
+      shade,
+      `<path d="M${X(0.12)} ${Y(0.92)}V${Y(0.22)}M${X(0.88)} ${Y(0.92)}V${Y(0.22)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
+      `<path d="M${X(0.12)} ${Y(0.26)}Q${X(0.5)} ${Y(0.52)} ${X(0.88)} ${Y(0.26)}" fill="none" stroke="${TWINE}" stroke-width="0.02"/>`,
+      ...[0.14, 0.32, 0.5, 0.68, 0.86].map(leaf),
     ];
   }
   if (kind === "scarecrow") {

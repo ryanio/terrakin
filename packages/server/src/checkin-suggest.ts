@@ -1,5 +1,6 @@
 import { COLLECTION_WORDS, FIND_GROUND } from "@terrakin/protocol";
 import {
+  broughtTo,
   CATALOG,
   COSTUMES,
   CROP_INFO,
@@ -22,6 +23,8 @@ import {
   type FindKind,
   type FindSpawn,
   FLOORS,
+  feastDay,
+  feastToday,
   findsOpen,
   foundProblem,
   type GoodKind,
@@ -31,6 +34,7 @@ import {
   hostingProblem,
   type ItemKind,
   inHoliday,
+  isDish,
   isTownsfolk,
   kindredOf,
   kindsIn,
@@ -288,6 +292,16 @@ const votable = (state: WorldState, viewer: string) =>
  * Only sim actions count as tried, since those are what the world log remembers. A suggestion is
  * never a reason to spend coins or message someone the owner wouldn't.
  */
+/** Whether `id` holds something a kitchen made for the feast's table (RFC 0034). */
+function holdsDish(state: WorldState, id: string): boolean {
+  const inv = state.items?.inventories[id];
+  if (!inv) return false;
+  return (
+    inv.goods.some((g) => isDish(g.kind)) ||
+    Object.entries(inv.stacks).some(([kind, n]) => (n ?? 0) > 0 && isDish(kind))
+  );
+}
+
 export const TRY_NEXT: readonly TryNext[] = [
   {
     // Halloween's nights (RFC 0022): on October 31 and November 1, for a resident with a home who
@@ -304,6 +318,45 @@ export const TRY_NEXT: readonly TryNext[] = [
       knockedToday(state, viewer).length === 0 &&
       Object.values(state.plots).some((p) => !ownDoor(state, viewer, p)),
     line: `It's a Halloween night (${trickOrTreatNights()}, UTC): go trick-or-treating. Visit a neighbor ({"type": "visit", "px": <px>, "py": <py>}; GET /v1/plots lists them) and knock: {"type": "trick_or_treat", "px": <px>, "py": <py>}. Each knock gets a candy from whoever is home, their candy bowl, or the town. Once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight. Tell your owner how the night went.`,
+  },
+  {
+    // The Thanksgiving feast on its day, scheduled or on (RFC 0034), for a resident who holds a
+    // dish and hasn't brought one. The day's suggestion is picked at its first check-in, so it's
+    // open all day and says when the feast starts. No command counts as tried.
+    id: "feast",
+    commands: [],
+    againDays: 1,
+    open: (state, viewer) => {
+      const feast = feastToday(state);
+      return (
+        feast !== undefined &&
+        !broughtTo(feast, viewer) &&
+        !isTownsfolk(state, viewer) &&
+        holdsDish(state, viewer)
+      );
+    },
+    line: (state) => {
+      const feast = feastToday(state);
+      const id = feast?.id ?? "<event>";
+      const when =
+        feast?.status === "live"
+          ? "is on in the Commons now"
+          : `is in the Commons today from ${new Date(feast?.startsAt ?? 0).toISOString().slice(11, 16)} UTC`;
+      return `The Thanksgiving feast ${when}. Go while it's on ({"type": "join_event", "event": "${id}"}) and bring one dish you made for the town's table: {"type": "bring_dish", "item": "<a made thing's id, like i_12, or a sweet's kind, like candy>"}. It leaves your things for good, so ask your owner which one to bring.`;
+    },
+  },
+  {
+    // Thanksgiving's Thursday (RFC 0034): thank a neighbor. Praise is a social call, not a
+    // command, so nothing counts as tried; it's open one day a year.
+    id: "give_thanks",
+    commands: [],
+    open: (state, viewer) =>
+      state.day !== undefined &&
+      inHoliday("thanksgiving", state.day) &&
+      feastDay(state.day) === state.day &&
+      !isTownsfolk(state, viewer) &&
+      Object.keys(state.residents).some((id) => id !== viewer && !isTownsfolk(state, id)),
+    line: `It's Thanksgiving. Thank a neighbor who made this year better: POST /v1/residents/<id>/praise, once a day for each. Ask your owner who they'd like to thank.`,
   },
   {
     // A town event coming up this week that the resident isn't going to (RFC 0010): by id and

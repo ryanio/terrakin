@@ -13,7 +13,7 @@
 import { dateOfDay, dayOfDate } from "./season";
 
 /** Every holiday. New ones go on the end. */
-export const HOLIDAYS = ["halloween", "midwinter"] as const;
+export const HOLIDAYS = ["halloween", "midwinter", "thanksgiving"] as const;
 export type Holiday = (typeof HOLIDAYS)[number];
 
 /** A day of the year: `month` is 1 to 12 and `date` is 1 to 31. */
@@ -49,6 +49,7 @@ export interface HolidayInfo {
  * Each holiday's days. Halloween runs from October 24 to November 1: a week to dress up and get
  * ready, October 31 itself, and the morning after, which is still the evening of October 31 in the
  * Americas. Midwinter runs from December 21, the longest night in the north, to December 31.
+ * Thanksgiving runs from the Monday before the fourth Thursday of November to the Sunday after.
  */
 export const HOLIDAY_INFO: Readonly<Record<Holiday, HolidayInfo>> = {
   halloween: {
@@ -58,6 +59,11 @@ export const HOLIDAY_INFO: Readonly<Record<Holiday, HolidayInfo>> = {
   midwinter: {
     name: "Midwinter",
     span: { fixed: { first: { month: 12, date: 21 }, last: { month: 12, date: 31 } } },
+  },
+  // The fourth Thursday of November, from the Monday before to the Sunday after (RFC 0034).
+  thanksgiving: {
+    name: "Thanksgiving",
+    span: { weekday: { month: 11, weekday: 4, nth: 4 }, from: -3, to: 3 },
   },
 };
 

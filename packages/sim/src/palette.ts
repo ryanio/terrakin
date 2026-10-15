@@ -74,6 +74,9 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   pond: "#4f9ac4",
   // Stairs up to the floor above (RFC 0028): plank treads a shade lighter than a wood wall.
   stairs: "#c99a66",
+  // Thanksgiving decor (RFC 0034): a wicker horn, and maple leaves on a string.
+  cornucopia: "#c8955a",
+  leaf_garland: "#c8642e",
 };
 
 /**

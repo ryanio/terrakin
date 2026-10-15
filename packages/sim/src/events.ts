@@ -782,7 +782,8 @@ export function checkVoidEvent(
 // ---------- reading ----------
 
 /** What a resident can send about one event. */
-export const EVENT_MOVES = ["join_event", "cancel_event"] as const;
+/** What a resident can send about an event. `bring_dish` is the Thanksgiving feast's (RFC 0034). */
+export const EVENT_MOVES = ["join_event", "cancel_event", "bring_dish"] as const;
 export type EventMove = (typeof EVENT_MOVES)[number];
 
 /** The moves `id` could make on an event now: join it while it's live, call off their own. */

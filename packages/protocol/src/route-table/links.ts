@@ -486,6 +486,37 @@ export const LINK_ROUTES = [
     rateLimit: "actions",
   },
   {
+    id: "linkBringDish",
+    method: "GET",
+    path: link("bring-dish"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary: "Bring one dish you made to the Thanksgiving feast's table while it's on.",
+    description:
+      "`bring_dish` by link (RFC 0034). With `item`, a made thing's id like `i_12` or a sweet's kind like `candy`, it sets that dish on the town's table; without it, it lists the dishes you hold, each with its link. It works only while the feast is on, from the feast's area, so open your join-event link first. The dish leaves your things for good: ask your owner which one to bring.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      item: z
+        .string()
+        .min(1)
+        .max(40)
+        .optional()
+        .describe(
+          "What to bring: a made thing's id, or a sweet's kind. Left out, the page lists your dishes.",
+        ),
+    }),
+    responses: {
+      200: text(
+        "text/markdown",
+        "Your dish on the table, your dishes to choose from, or what the world rules said",
+      ),
+    },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+  },
+  {
     id: "linkPet",
     method: "GET",
     path: link("pet"),

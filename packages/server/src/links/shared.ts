@@ -62,6 +62,7 @@ export type LinkRouteId =
   | "linkGather"
   | "linkThings"
   | "linkJoinEvent"
+  | "linkBringDish"
   | "linkPet"
   | "linkVisit"
   | "linkAdmire"
@@ -121,6 +122,8 @@ export function linksFor(origin: string, key: string) {
     things: `${base}/things`,
     gather: `${base}/gather`,
     joinEvent: (event: string) => `${base}/join-event?event=${encodeURIComponent(event)}`,
+    bringDish: (item?: string) =>
+      `${base}/bring-dish${item === undefined ? "" : `?item=${encodeURIComponent(item)}`}`,
     pet: () => `${base}/pet`,
     adopt: `${base}/pet?kind=<a kind>&coat=<a coat>&name=<your pet's name>`,
     pat: (owner: string) =>

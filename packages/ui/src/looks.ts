@@ -105,6 +105,23 @@ export const WINTER_HEX = {
 } as const;
 
 /**
+ * Thanksgiving's colors (RFC 0034), as the item pictures, the map, the 3D views, and plot photos
+ * draw them.
+ */
+export const THANKSGIVING_HEX = {
+  /** The cornucopia: its wicker, the weave's shade, and what spills from it. */
+  wicker: "#c8955a",
+  weave: "#9c6b3a",
+  apple: "#d2463a",
+  gourd: "#e8862f",
+  grapes: "#7b4f9c",
+  pear: "#c9c25a",
+  /** The leaf garland: its string, and its maple leaves from one end to the other. */
+  twine: "#7a5a3a",
+  leaves: ["#c8642e", "#e0a33a", "#a8382c", "#d47a2a", "#b85a2a"],
+} as const;
+
+/**
  * Earned wear's colors, as the 2D figure, the item pictures, and the 3D figures draw them: one
  * garment a skill (RFC 0029), and the town satchel that comes with jobs finished (RFC 0030). A
  * garment with a color of its own (`wearStyle`) uses that instead of its main color here.
@@ -198,6 +215,35 @@ export function batPath(cx: number, cy: number, span: number): string {
   const at = ([x, y]: readonly [number, number]) =>
     `${Math.round((cx + x * k) * 100) / 100} ${Math.round((cy + y * k) * 100) / 100}`;
   return `M${BAT_POINTS.map(at).join("L")}z`;
+}
+
+/**
+ * A maple leaf, point up, its stem at the bottom (RFC 0034's leaf garland): half its width is 1.
+ * The map, the 3D views, and the plot photo draw it from these points.
+ */
+export const LEAF_POINTS: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [0.25, -0.45],
+  [0.75, -0.65],
+  [0.55, -0.1],
+  [1, 0.1],
+  [0.45, 0.35],
+  [0.5, 0.8],
+  [0, 0.5],
+  [-0.5, 0.8],
+  [-0.45, 0.35],
+  [-1, 0.1],
+  [-0.55, -0.1],
+  [-0.75, -0.65],
+  [-0.25, -0.45],
+];
+
+/** A maple leaf centered at (cx, cy), `span` wide, as SVG path data. */
+export function leafPath(cx: number, cy: number, span: number): string {
+  const k = span / 2;
+  const at = ([x, y]: readonly [number, number]) =>
+    `${Math.round((cx + x * k) * 100) / 100} ${Math.round((cy + y * k) * 100) / 100}`;
+  return `M${LEAF_POINTS.map(at).join("L")}z`;
 }
 
 const PAPER = BRAND_HEX.paper;

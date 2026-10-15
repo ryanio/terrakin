@@ -24,6 +24,7 @@ import { eventsApi } from "./api/events";
 import { actProblem, worldApi } from "./api/world";
 import {
   defaultStart,
+  dishesLine,
   fromLocalInput,
   KIND_WORDS,
   LENGTHS,
@@ -87,6 +88,21 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
     go.addEventListener("click", () => void goTo(e, go, o));
     actions.append(go);
   }
+  if (o.me && e.moves.includes("bring_dish")) {
+    // The Thanksgiving feast (RFC 0034): the sheet loads with its first tap.
+    const bring = h("button", {
+      class: "pill-button small event-bring",
+      attrs: { type: "button" },
+      text: "Bring a dish",
+    });
+    bring.addEventListener("click", () =>
+      whileBusy(bring, async () => {
+        const { openDishSheet } = await import("./dish-sheet");
+        await openDishSheet(e.id, o.changed);
+      }),
+    );
+    actions.append(bring);
+  }
   if (o.me && e.status === "scheduled" && e.host?.id !== o.me) {
     const label = e.youreGoing ? "Going" : "I'm going";
     const going = h(
@@ -146,6 +162,7 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
       host,
       h("span", { text: `${placeWords(e)} · ${lengthWords(e.minutes)}` }),
     ),
+    e.dishes?.length ? h("p", { class: "event-dishes", text: dishesLine(e.dishes) }) : null,
     actions.childElementCount > 0 ? actions : null,
   );
 }

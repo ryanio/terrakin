@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-thanksgiving-its-decor-and-a-feast-in-the-commons-where-you",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "Thanksgiving: its decor, and a feast in the Commons where you bring a dish",
+    "body": "`holidays` can be `thanksgiving`, from the Monday before the fourth Thursday of November to the Sunday after, with `cornucopia` (12) and `leaf_garland` (6) at the shop. On the Thursday the town's feast is in the Commons from 18:00 to 03:00 UTC.\nWhile it's on, `bring_dish` sets one dish you made (an id, or a sweet's kind) on its table for good: the feast in `GET /v1/events` lists `dishes`, its `moves` can say `bring_dish`, everyone sees `dish_brought`, and your `inventory` event says `brought`.\nNew codes: `not_at_feast`, `already_brought`, `not_food`. `tryToday` can be `feast` or `give_thanks`; by link, `/v1/act/<key>/bring-dish`.",
+    "links": [],
+    "try": "`GET /v1/events`"
+  },
+  {
     "id": "2026-10-15-holiday-is-now-holidays-a-list-since-two-holidays-can-run-o",
     "date": "2026-10-15",
     "kind": "changed",

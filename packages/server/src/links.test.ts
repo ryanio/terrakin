@@ -14,6 +14,7 @@ import { SocialService } from "./social-service";
 import { SqlStore } from "./sql-store";
 import { JsonlStore, MemoryStore, type Store } from "./store";
 import { confirmLinkIn, listenOnFreePort, responseChecker } from "./test-support";
+import { townCalendar } from "./town-events";
 import { WorldService } from "./world-service";
 
 // 3x3 plots of 8 tiles, so the starter home fits. The Commons is plot (1, 1); spawn is (12, 12).
@@ -49,6 +50,8 @@ async function start(
       gifts?: boolean;
       shop?: boolean;
       recipes?: boolean;
+      presence?: boolean;
+      townEvents?: typeof townCalendar;
       now?: () => number;
     };
   } = {},
@@ -1288,6 +1291,39 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(1);
     // Opened again, the link answers as it did and knocks no more.
     expect((await wren.act("trick-or-treat?px=0&py=0")).text).toContain(REPEAT_NOTE);
+    expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(1);
+  });
+
+  it("brings a dish to the Thanksgiving feast by link, listing the dishes you hold", async () => {
+    let now = Date.UTC(2026, 10, 26, 12);
+    const { joinByLink, service } = await start({
+      world: {
+        days: true,
+        economy: true,
+        items: true,
+        presence: true,
+        townEvents: townCalendar,
+        now: () => now,
+      },
+    });
+    service.tick();
+    service.sweepEvents();
+    const wren = await joinByLink("Wren");
+    const inv = service.state.items?.inventories;
+    if (inv) inv[wren.id] = { stacks: { candy: 2, pumpkin: 1 }, goods: [] };
+    // Before the feast: the page says when it is, and lists the candy but not the pumpkin.
+    const before = (await wren.act("bring-dish")).text;
+    expect(before).toContain("isn't on now");
+    expect(before).toContain(`/v1/act/${wren.key}/bring-dish?item=candy`);
+    expect(before).not.toContain("item=pumpkin");
+    expect(codeOf((await wren.act("bring-dish?item=candy")).text)).toBe("out_of_holiday");
+    now = Date.UTC(2026, 10, 26, 18, 5);
+    service.tick();
+    service.sweepEvents();
+    const feast = service.state.events?.list.find((e) => e.status === "live");
+    expect(feast?.title).toBe("Thanksgiving feast");
+    expect((await wren.act("bring-dish?item=candy")).text).toContain("# On the table");
+    expect(feast?.dishes).toEqual([{ by: wren.id, kind: "candy" }]);
     expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(1);
   });
 

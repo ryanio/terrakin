@@ -221,6 +221,7 @@ What we chose and why. Newest last.
 - [Kindreds are on at terrakin.org: the Worker sets kindreds, the Node server leaves it off, and the switch ships with its docs](decisions/0285-kindreds-are-on-at-terrakin-org-the-worker-sets-kindreds-the.md) · 2026-10-15 · accepted · `server` `deploy` `social`
 - [After a claim the web offers the designs drawn on your plot, and builds one from a hearth at the center](decisions/0286-after-a-claim-the-web-offers-the-designs-drawn-on-your-plot-.md) · 2026-10-15 · accepted · `client` `ux` `onboarding`
 - [Holidays have span rules, may overlap and cross a year end, and the wire carries holidays as a list](decisions/0287-holidays-have-span-rules-may-overlap-and-cross-a-year-end-an.md) · 2026-10-15 · accepted · `sim` `protocol` `holidays`
+- [Thanksgiving's numbers: decor, the feast's evening, and one dish a resident](decisions/0288-thanksgiving-s-numbers-decor-the-feast-s-evening-and-one-dis.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `events`
 
 ## Learnings
 

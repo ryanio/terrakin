@@ -89,6 +89,8 @@ export const BLOCK_KINDS = [
   "sled",
   "pond",
   "stairs",
+  "cornucopia",
+  "leaf_garland",
 ] as const;
 
 /**
@@ -882,6 +884,8 @@ export interface HostedEvent {
   faces?: ResidentId[];
   /** Who attended, sorted, once it ended. */
   attended?: ResidentId[];
+  /** The dishes brought to a Thanksgiving feast, in the order they came (RFC 0034). Absent until the first. */
+  dishes?: { by: ResidentId; kind: ItemKind }[];
   /** The day it ended or was cancelled. */
   closedDay?: number;
   /**
@@ -1260,6 +1264,8 @@ export const INVENTORY_REASONS = [
   "merged",
   /** A thing you made, handed in for a job (RFC 0030). It left the world. */
   "handed_in",
+  /** A dish you brought to the Thanksgiving feast's table (RFC 0034). It left the world. */
+  "brought",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -1557,6 +1563,11 @@ export type Command =
    * the one `item` names by id. The thing leaves the world.
    */
   | { type: "hand_in"; item?: string | undefined }
+  /**
+   * Set one dish on the Thanksgiving feast's table while it's live, from its area (RFC 0034): a
+   * made thing's id, or a sweet's kind. It leaves the world.
+   */
+  | { type: "bring_dish"; item: string }
   // Kindreds (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
   /** Found a kindred and become its first steward, for `KINDREDS.fee` coins, burned. */
   | { type: "found_kindred"; name: string }
@@ -2282,6 +2293,8 @@ export type WorldEvent =
    * back, or nothing (RFC 0023). Public, like a gather.
    */
   | { type: "fished"; by: ResidentId; x: number; y: number; caught: Catch }
+  /** `by` set a `kind` on the table of the feast `event` (RFC 0034). Public, like going. */
+  | { type: "dish_brought"; by: ResidentId; kind: ItemKind; event: string }
   /**
    * `by` knocked at the door of plot (px, py) and got a candy (RFC 0022): from `giver`, someone
    * home or their bowl by the door, or from the town. Public, like a visit.
@@ -2536,6 +2549,12 @@ export const REJECTION_CODES = [
   "name_taken",
   /** The kindred already has a kindred night that UTC week. */
   "night_this_week",
+  /** You aren't in the feast's area in the Commons (RFC 0034). */
+  "not_at_feast",
+  /** You brought a dish to this feast already. */
+  "already_brought",
+  /** That isn't something a kitchen makes: a pie, a jam, a soup, a drink, or a sweet. */
+  "not_food",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

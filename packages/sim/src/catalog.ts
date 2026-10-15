@@ -760,6 +760,17 @@ const WRITTEN = {
     recipe: { station: "kitchen", needs: { herb: 1, sugar: 1 }, makes: 5 },
     look: { template: "drawn" },
   }),
+  // Christmas inside Midwinter (RFC 0034): a stocking to hang by the hearth, sold only while
+  // Midwinter runs. The Santa hat is wear, in `looks.ts` (`MIDWINTER_WEAR`). Decision 0291 has
+  // the numbers.
+  stocking: entry({
+    name: "Stocking",
+    plural: "Stockings",
+    family: "decor",
+    role: "decor",
+    shop: { price: 6, holiday: "midwinter" },
+    look: { template: "drawn" },
+  }),
   // Fishing (RFC 0023): what bites beside water, by season, time of day, and weather. Decision 0123
   // has the numbers.
   minnow: fish("Minnow", "Minnows", {

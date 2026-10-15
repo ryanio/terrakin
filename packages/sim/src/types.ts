@@ -93,6 +93,7 @@ export const BLOCK_KINDS = [
   "leaf_garland",
   "menorah",
   "dreidel",
+  "stocking",
 ] as const;
 
 /**

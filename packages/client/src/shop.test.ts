@@ -112,7 +112,7 @@ describe("the shop page", () => {
       "Sold until November 1 (UTC). Costumes and decor are yours for good, and a kitchen makes candy any day.",
     );
     expect(holidayHint("midwinter", dayOfDate(2026, 12, 31))).toBe(
-      "Sold until December 31 (UTC). A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
+      "Sold until December 31 (UTC). A Santa hat and stockings for Christmas, yours for good. A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
     );
     // A holiday this client doesn't know yet still says when.
     expect(holidayHint("spring_fair", dayOfDate(2027, 4, 2))).toBe("Sold until April 2 (UTC).");

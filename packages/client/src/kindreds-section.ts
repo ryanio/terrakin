@@ -19,7 +19,7 @@ import {
 import { kindredsApi } from "./api/kindreds";
 import { actProblem, worldApi } from "./api/world";
 import { repaintKeepingFocus } from "./job-parts";
-import { inviteLine, statusWords, summaryLine } from "./kindreds";
+import { foundingLine, inviteLine, statusWords, summaryLine } from "./kindreds";
 import { coins } from "./purse";
 
 export interface KindredsSection {
@@ -87,7 +87,12 @@ export function kindredsSection(o: {
     const you = data.you;
     if (!you || you.kindred) return null;
     if (!you.canFound) {
-      return h("p", { class: "hint kindred-why", text: you.why ?? "You can't found one yet." });
+      // Short of coins only: say the cost against the purse and the way there (issue #69).
+      const short = you.whyCode === "not_enough_coins";
+      const text = short
+        ? foundingLine(data.rules, you.balance)
+        : (you.why ?? "You can't found one yet.");
+      return h("p", { class: "hint kindred-why", text });
     }
     const open = h(
       "button",
@@ -117,7 +122,7 @@ export function kindredsSection(o: {
       name,
       h("p", {
         class: "hint",
-        text: `The ${coins(data.rules.fee)} are burned. It forms once its members come from ${data.rules.formHouseholds} households, within ${data.rules.formDays} days. Found one with neighbors you already know.`,
+        text: `${foundingLine(data.rules, you.balance)} It forms once its members come from ${data.rules.formHouseholds} households. Found one with neighbors you already know.`,
       }),
       problem,
       submit,

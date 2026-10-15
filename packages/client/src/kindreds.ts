@@ -3,7 +3,12 @@
  * so tests pin them. A kindred's name and residents' names are their own words: these lines put
  * them in as plain strings, and the views draw them as text.
  */
-import type { KindredInvite, KindredMember, KindredSummary } from "@terrakin/protocol";
+import type {
+  KindredInvite,
+  KindredMember,
+  KindredSummary,
+  KindredsResponse,
+} from "@terrakin/protocol";
 import { relativeDayWords } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
@@ -49,3 +54,21 @@ export const hallWords = (hall: KindredSummary["hall"]) =>
 /** A kindred's row on the Town Hall: its members and how it's gathered. */
 export const summaryLine = (k: Pick<KindredSummary, "members" | "gathered" | "run">) =>
   `${membersWords(k.members)} · ${gatheredLine(k.gathered, k.run)}`;
+
+/**
+ * What founding costs against your coins, and the way to the rest, before you confirm (issue #69):
+ * "Founding takes 25 coins, and you have 8. Your allowance at your hearth, 10 a day, gets you
+ * there in about 2 days." Then what comes back if it doesn't form, and that members can chip in.
+ */
+export function foundingLine(
+  rules: Pick<KindredsResponse["rules"], "fee" | "trialBurn" | "formDays" | "allowance">,
+  balance: number,
+): string {
+  const short = rules.fee - balance;
+  const days = Math.ceil(short / rules.allowance);
+  const path =
+    short > 0
+      ? ` Your allowance at your hearth, ${rules.allowance} a day, gets you there in about ${plural(days, "day", "days")}.`
+      : "";
+  return `Founding takes ${rules.fee} coins, and you have ${balance}.${path} If it doesn't form within ${rules.formDays} days, all but ${rules.trialBurn} come back, and members can chip in toward it while it forms.`;
+}

@@ -7,6 +7,7 @@
  * world, and every refusal is its own words. Join shows on any invite, so a refusal says why it
  * can't happen yet. The name, the notice, and residents' names are their words: text nodes only.
  */
+
 import { type Action, KINDRED_NOTICE, type KindredResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { avatarEl } from "@terrakin/ui/people";
@@ -39,6 +40,7 @@ import {
 } from "./kindreds";
 import { savedResidentId } from "./net";
 import { pageData } from "./page-data";
+import { coins as coinWords } from "./purse";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 export function kindredView(id: string, ctx: ViewContext): View {
@@ -179,6 +181,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
         moves.has("set_kindred_hall") ? hallForm(k.hall, k.nights.length > 0) : null,
       ),
       you?.steward ? stewardCard(data, moves) : null,
+      k.status === "forming" ? feeCard(data, moves) : null,
       moves.has("leave_kindred") ? leaveButton() : null,
     ];
     side.replaceChildren(...sideCards.filter((x): x is HTMLElement => x !== null));
@@ -441,6 +444,58 @@ export function kindredView(id: string, ctx: ViewContext): View {
       row.append(make, remove);
     }
     return row.childElementCount > 0 ? row : null;
+  }
+
+  /**
+   * While it forms: what members have chipped in toward the founder's fee, and for a member who
+   * isn't the founder, Chip in (issue #69). The world checks the amount and the room left.
+   */
+  function feeCard(data: KindredResponse, moves: ReadonlySet<string>): HTMLElement {
+    const { rules } = data;
+    const room = rules.fee - rules.trialBurn;
+    const card = h(
+      "section",
+      { class: "stack tight paper card kindred-fee", attrs: { "aria-label": "Its fee" } },
+      h("p", {
+        text: `Members have chipped in ${data.kindred.chippedIn} of the ${room} coins they can toward the founder's ${rules.fee}. If it doesn't form, members get theirs back, and the founder all but ${rules.trialBurn}.`,
+      }),
+    );
+    if (!moves.has("chip_in_kindred")) return card;
+    const amount = h("input", {
+      class: "field-input",
+      attrs: {
+        id: "kindred-chip-amount",
+        type: "number",
+        inputmode: "numeric",
+        min: 1,
+        max: room - data.kindred.chippedIn,
+        value: Math.min(5, room - data.kindred.chippedIn),
+        "aria-label": "Coins to chip in",
+      },
+    });
+    const send = h("button", {
+      class: "btn-primary small",
+      attrs: { type: "submit", id: "kindred-chip-in" },
+      text: "Chip in",
+    });
+    const problem = errorLine("kindred-chip-error");
+    const form = h("form", { class: "cluster", attrs: { novalidate: true } }, amount, send);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const coins = Number(amount.value);
+      const r = await whileBusy(send, () =>
+        worldApi.act({ type: "chip_in_kindred", kindred: data.kindred.id, coins }),
+      );
+      const refused = actProblem(r);
+      if (refused) {
+        problem.textContent = refused;
+        return;
+      }
+      toast(`You chipped in ${coinWords(coins)}.`);
+      await loader.refresh();
+    });
+    card.append(form, problem);
+    return card;
   }
 
   function leaveButton(): HTMLElement {

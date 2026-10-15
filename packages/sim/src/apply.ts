@@ -113,6 +113,7 @@ import {
 import { plotKey, tileKey } from "./keys";
 import {
   checkCancelKindredInvite,
+  checkChipInKindred,
   checkClearKindredName,
   checkDeclineKindredInvite,
   checkDisbandKindred,
@@ -1552,6 +1553,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkDeclineKindredInvite(state, actor, command));
     case "leave_kindred":
       return town(checkLeaveKindred(state, actor));
+    case "chip_in_kindred":
+      return town(checkChipInKindred(state, actor, command));
     case "remove_from_kindred":
       return town(checkRemoveFromKindred(state, actor, command));
     case "set_kindred_steward":

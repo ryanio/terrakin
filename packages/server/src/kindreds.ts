@@ -14,6 +14,7 @@ import {
 import {
   asJoined,
   type Command,
+  chippedIn,
   DAY_MS,
   foundProblem,
   gatheredRun,
@@ -150,6 +151,8 @@ export function kindredsView(
       invites: invitesOf(state, me, ctx),
       canFound: problem === null,
       why: problem?.message ?? null,
+      whyCode: problem?.code ?? null,
+      balance: state.economy?.coins[me] ?? 0,
       nights: kindredNights(state, me),
     };
   }
@@ -182,6 +185,9 @@ function movesOf(state: WorldState, k: Kindred, viewer: string): KindredMove[] {
     moves.push("decline_kindred_invite");
   }
   if (member) moves.push("leave_kindred");
+  if (member && would({ type: "chip_in_kindred", kindred: k.id, coins: 1 })) {
+    moves.push("chip_in_kindred");
+  }
   if (isSteward(k, viewer)) {
     const room =
       Object.keys(k.invites ?? {}).length < KINDREDS.invitesMax &&
@@ -224,6 +230,7 @@ export function kindredView(
       ...summary(state, k, ctx.held),
       founder: k.founder,
       formedDay: k.formedDay ?? null,
+      chippedIn: chippedIn(k),
       // A suspended steward drops off the public page, as a suspended member does.
       stewards: k.stewards.filter((m) => !ctx.suspended(m) || m === viewer),
       members,

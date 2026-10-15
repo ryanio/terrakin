@@ -16,7 +16,7 @@ import { balanceLine, coins } from "./purse";
 import { failInto, joinCard, notOpenCard, staticView, type View, type ViewContext } from "./view";
 
 /** What a purse line was, in plain words. Pure, so tests pin it. */
-export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
+export function lineLabel(line: Pick<PurseLine, "reason" | "with"> & { amount?: number }): string {
   const who = line.with?.name ?? "someone";
   switch (line.reason) {
     case "allowance":
@@ -55,6 +55,14 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with">): string {
       return "An upstairs for your home";
     case "merged":
       return "From your other record, merged into this one";
+    case "kindred_fee":
+      return "Founding a kindred";
+    case "kindred_share":
+      return (line.amount ?? 0) < 0
+        ? "Chipped in toward your kindred"
+        : "Chipped in by a kindred member";
+    case "kindred_refund":
+      return "Back from a kindred that didn't form";
     default:
       return "Coins";
   }

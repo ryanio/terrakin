@@ -3,6 +3,7 @@ import type { NotificationView, ServerMessage, WorldEvent as WireEvent } from "@
 import { DAY_MS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp, TEST_OPEN_KINDREDS_PATH } from "./app";
+import { foundingCost, TRY_NEXT } from "./checkin-suggest";
 import { eventWords } from "./events";
 import { kindredWords } from "./kindreds";
 import { MemoryMediaStore } from "./media";
@@ -468,9 +469,9 @@ describe("a forming kindred", () => {
     const t = await start({ kindreds: true });
     const { ada, dee } = await t.town();
     await t.act(ada.token, { type: "found_kindred", name: "Secret Club" });
-    for (const type of ["join_kindred", "decline_kindred_invite"]) {
-      const real = await t.act(dee.token, { type, kindred: "k_1", dry: true });
-      const none = await t.act(dee.token, { type, kindred: "k_9", dry: true });
+    for (const type of ["join_kindred", "decline_kindred_invite", "chip_in_kindred"]) {
+      const real = await t.act(dee.token, { type, kindred: "k_1", coins: 1, dry: true });
+      const none = await t.act(dee.token, { type, kindred: "k_9", coins: 1, dry: true });
       expect(real).toEqual(none);
       expect(JSON.stringify(real)).not.toContain("Secret");
     }
@@ -491,6 +492,46 @@ describe("a forming kindred", () => {
     const left = await t.act(ada.token, { type: "leave_kindred" });
     expect(left.events).toContainEqual({ type: "kindred_disbanded", kindred: "k_1", how: "empty" });
     expect(outsider().some((e) => e.type.startsWith("kindred_"))).toBe(false);
+  });
+});
+
+describe("a forming kindred's fee (issue #69)", () => {
+  it("shows what members chipped in, and offers a member Chip in while it forms", async () => {
+    const t = await start({ kindreds: true });
+    const { ada, bob } = await t.town();
+    await t.act(ada.token, { type: "found_kindred", name: "Lantern Row" });
+    await t.act(ada.token, { type: "invite_to_kindred", resident: bob.id });
+    await t.act(bob.token, { type: "join_kindred", kindred: "k_1" });
+    const before = (await t.call("GET", "/v1/kindreds/k_1", undefined, bob.token)).body;
+    expect(before.kindred.chippedIn).toBe(0);
+    expect(before.you.moves).toContain("chip_in_kindred");
+    expect(before.rules).toMatchObject({ fee: 25, trialBurn: 5, allowance: 10 });
+    const chipped = await t.act(bob.token, { type: "chip_in_kindred", kindred: "k_1", coins: 6 });
+    expect(chipped).toMatchObject({ ok: true });
+    const after = (await t.call("GET", "/v1/kindreds/k_1", undefined, ada.token)).body;
+    expect(after.kindred.chippedIn).toBe(6);
+    // The founder paid the fee: members chip in to her, so she has no Chip in of her own.
+    expect(after.you.moves).not.toContain("chip_in_kindred");
+  });
+
+  it("is said against your purse, with the way to the rest, in the check-in and the list", async () => {
+    const t = await start({ kindreds: true });
+    const { dee } = await t.town();
+    const econ = t.service.state.economy;
+    if (econ) {
+      econ.burned += (econ.coins[dee.id] ?? 0) - 8;
+      econ.coins[dee.id] = 8;
+    }
+    const list = (await t.call("GET", "/v1/kindreds", undefined, dee.token)).body;
+    expect(list.you).toMatchObject({ canFound: false, balance: 8 });
+    // The check-in offers founding to Dee, short only of coins, with the way to the rest.
+    const kindred = TRY_NEXT.find((t) => t.id === "kindred");
+    expect(kindred?.open(t.service.state, dee.id, undefined, undefined)).toBe(true);
+    expect(list.you.whyCode).toBe("not_enough_coins");
+    const line = foundingCost(t.service.state, dee.id);
+    expect(line).toContain("Founding costs 25 coins, and you have 8.");
+    expect(line).toContain("gets you there in about 2 days");
+    expect(line).toContain("all but 5 coins come back");
   });
 });
 

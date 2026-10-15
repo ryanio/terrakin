@@ -125,4 +125,4 @@ export const KINDREDS_LOG: Input[] = [
 ];
 
 /** `hashWorld(replay(KINDREDS_CONFIG, KINDREDS_LOG))`, pinned when kindreds landed. */
-export const KINDREDS_HASH = "44cd7dd1";
+export const KINDREDS_HASH = "625a7639";

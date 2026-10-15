@@ -349,6 +349,7 @@ export {
 } from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
 export {
+  chippedIn,
   foundProblem,
   gatheredRun,
   hallAt,

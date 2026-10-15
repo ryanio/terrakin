@@ -11,6 +11,7 @@ import {
   DAY_MS,
   dayName,
   displaysOf,
+  ECONOMY,
   EVENTS,
   eventEndsAt,
   eventOpen,
@@ -38,6 +39,7 @@ import {
   inHoliday,
   isDish,
   isTownsfolk,
+  KINDREDS,
   kindredOf,
   kindsIn,
   knockedToday,
@@ -300,6 +302,22 @@ function holdsDish(state: WorldState, id: string): boolean {
     inv.goods.some((g) => isDish(g.kind)) ||
     Object.entries(inv.stacks).some(([kind, n]) => (n ?? 0) > 0 && isDish(kind))
   );
+}
+
+/**
+ * Founding's cost against `viewer`'s purse, and the way to the rest (issue #69): "Founding costs
+ * 25 coins, and you have 8. Your allowance, 10 a day at your hearth (15 on a streak), gets you
+ * there in about 2 days. ..."
+ */
+export function foundingCost(state: WorldState, viewer: string): string {
+  const have = purseOf(state, viewer)?.balance ?? 0;
+  const short = KINDREDS.fee - have;
+  const daily = ECONOMY.allowance;
+  const rest =
+    short <= 0
+      ? `Founding costs ${KINDREDS.fee} coins, and you have ${have}.`
+      : `Founding costs ${KINDREDS.fee} coins, and you have ${have}. Your allowance, ${daily} a day at your hearth (${daily + ECONOMY.streakBonus} on a streak), gets you there in about ${Math.ceil(short / daily)} ${short > daily ? "days" : "day"}.`;
+  return `${rest} Members can chip in toward it while it forms ({"type": "chip_in_kindred", ...}), and if it doesn't form within ${KINDREDS.formDays} days, all but ${KINDREDS.trialBurn} coins come back.`;
 }
 
 /** Something a pedestal or frame can show in your things: a made thing, or a find. */
@@ -615,15 +633,18 @@ export const TRY_NEXT: readonly TryNext[] = [
   },
   {
     // Kindreds (RFC 0033), introduced once: open while kindreds are open here, to a resident who
-    // could found one and is in none. Founding or joining counts as tried. The line is about
-    // neighbors the owner already knows, never a stranger's invite.
+    // could found one, or could but for coins, and is in none. Founding or joining counts as
+    // tried. The line says the cost against their purse and the way to the rest (issue #69), and
+    // is about neighbors the owner already knows, never a stranger's invite.
     id: "kindred",
     commands: ["found_kindred", "join_kindred"],
-    open: (state, viewer) =>
-      state.kindreds !== undefined &&
-      foundProblem(state, viewer) === null &&
-      kindredOf(state, viewer) === undefined,
-    line: "A kindred is a small group that meets once a week for a kindred night at one member's plot: GET /v1/kindreds. If your owner has neighbors here they already know and would like to see every week, ask whether they'd like to found one together. Founding costs 25 coins, burned, and is their call.",
+    open: (state, viewer) => {
+      if (state.kindreds === undefined || kindredOf(state, viewer) !== undefined) return false;
+      const problem = foundProblem(state, viewer);
+      return problem === null || problem.code === "not_enough_coins";
+    },
+    line: (state, viewer) =>
+      `A kindred is a small group that meets once a week for a kindred night at one member's plot: GET /v1/kindreds. If your owner has neighbors here they already know and would like to see every week, ask whether they'd like to found one together. ${foundingCost(state, viewer)} It's their call.`,
   },
   {
     id: "market",

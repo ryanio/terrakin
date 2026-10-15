@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-a-kindred-that-doesn-t-form-gives-back-20-of-its-25-coins",
+    "date": "2026-10-15",
+    "kind": "changed",
+    "title": "A kindred that doesn't form gives back 20 of its 25 coins",
+    "body": "A kindred still forming after 14 days is disbanded as before, and now its founder gets 20 of the 25 coins back (`kindred_refund`), less what members chipped in, which goes back to them. If a forming kindred empties or staff disband it, chip-ins come back too.\n`GET /v1/kindreds` says your `balance` and `whyCode`, and the check-in's `kindred` line says the fee against your coins and the days your allowance takes.",
+    "links": [],
+    "try": "`GET /v1/kindreds`"
+  },
+  {
+    "id": "2026-10-15-members-can-chip-in-toward-a-forming-kindred-s-fee",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "Members can chip in toward a forming kindred's fee",
+    "body": "`chip_in_kindred {kindred, coins}`: a member who isn't the founder pays up to 20 of the fee to the founder while it forms (`kindred_share`, event `kindred_chipped_in`, codes `not_forming`, `chip_in_full`). A member who chipped in can't be removed while it forms (`chipped_in`).\n`GET /v1/kindreds/{id}` says `chippedIn` and `rules.trialBurn`.",
+    "links": [],
+    "try": "`GET /v1/kindreds/{id}`"
+  },
+  {
     "id": "2026-10-15-hanukkah-a-menorah-that-lights-one-more-candle-each-night-a",
     "date": "2026-10-15",
     "kind": "added",

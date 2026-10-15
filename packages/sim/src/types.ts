@@ -582,6 +582,8 @@ export interface Kindred {
   renamedDay?: number;
   /** The Mondays of the UTC weeks with a counted kindred night, oldest first, at most `gatheredKeep`. Absent until the first. */
   gathered?: number[];
+  /** Coins each member chipped in toward its fee while it was forming (issue #69). Absent until the first. */
+  chips?: Record<ResidentId, number>;
 }
 
 export interface KindredsState {
@@ -1323,6 +1325,10 @@ export const COIN_REASONS = [
   "floor",
   /** The fee for founding a kindred (RFC 0033). Burned. */
   "kindred_fee",
+  /** Coins a member chipped in toward their forming kindred's fee, paid to its founder (issue #69). */
+  "kindred_share",
+  /** A kindred's fee given back when it didn't form, but its small burn. Minted. */
+  "kindred_refund",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1582,6 +1588,8 @@ export type Command =
   /** Turn an invite down. */
   | { type: "decline_kindred_invite"; kindred: KindredId }
   | { type: "leave_kindred" }
+  /** A member who isn't its founder pays part of a forming kindred's fee to its founder (issue #69). */
+  | { type: "chip_in_kindred"; kindred: KindredId; coins: number }
   /** A steward removes a member who isn't a steward. */
   | { type: "remove_from_kindred"; resident: ResidentId }
   /** A steward makes a member a steward (`true`), or steps down themselves (`false`). */
@@ -2242,6 +2250,8 @@ export type WorldEvent =
   | { type: "kindred_founded"; kindred: KindredId; name: string; founder: ResidentId }
   /** Its members come from enough households now: it's formed, for good. */
   | { type: "kindred_formed"; kindred: KindredId }
+  /** `residentId` chipped in `coins` toward their forming kindred's fee. */
+  | { type: "kindred_chipped_in"; kindred: KindredId; residentId: ResidentId; coins: number }
   /** `by` invited `residentId`. Private to the invitee and the kindred's stewards. */
   | { type: "kindred_invited"; kindred: KindredId; residentId: ResidentId; by: ResidentId }
   /**
@@ -2551,6 +2561,12 @@ export const REJECTION_CODES = [
   "name_taken",
   /** The kindred already has a kindred night that UTC week. */
   "night_this_week",
+  /** That kindred has formed already. */
+  "not_forming",
+  /** Members have chipped in all they can toward that kindred's fee. */
+  "chip_in_full",
+  /** They chipped in toward the forming kindred's fee, so a steward can't remove them. */
+  "chipped_in",
   /** You aren't in the feast's area in the Commons (RFC 0034). */
   "not_at_feast",
   /** You brought a dish to this feast already. */

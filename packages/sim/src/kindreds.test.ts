@@ -10,7 +10,7 @@ import {
 import { hashWorld } from "./hash";
 import { gatheredRun, KINDREDS, kindredById, kindredName, kindredOf } from "./kindreds";
 import { replay } from "./replay";
-import { expectSupplyHolds } from "./test-support";
+import { expectSupplyHolds, fund } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldState } from "./types";
 import { cloneWorld } from "./world";
 
@@ -474,7 +474,7 @@ describe("new_day", () => {
       how: "unformed",
     });
     expect(kindredOf(state, "ada")).toBeUndefined();
-    // The fee stays burned, and nobody waits.
+    // Nobody waits.
     expect(state.economy?.burned).toBe(burned);
     ok(state, "bob", { type: "home" });
     ok(state, "bob", found("Lantern Row"));
@@ -485,6 +485,91 @@ describe("new_day", () => {
     formedRow(state);
     town(state, { type: "new_day", day: KINDREDS_DAY + 30 });
     expect(kindredById(state, "k_1")?.status).toBe("formed");
+  });
+});
+
+describe("the fee (issue #69)", () => {
+  const coins = (state: WorldState, id: string) => state.economy?.coins[id] ?? 0;
+  const chip = (n: number, kindred = "k_1"): Command => ({
+    type: "chip_in_kindred",
+    kindred,
+    coins: n,
+  });
+
+  it("comes back but its small burn when the kindred doesn't form, to each who paid it", () => {
+    const state = world();
+    row(state, ["bob", "ada_a"]);
+    const ada = coins(state, "ada");
+    const bob = coins(state, "bob");
+    expect(ok(state, "bob", chip(8))).toContainEqual({
+      type: "kindred_chipped_in",
+      kindred: "k_1",
+      residentId: "bob",
+      coins: 8,
+    });
+    expect([coins(state, "ada"), coins(state, "bob")]).toEqual([ada + 8, bob - 8]);
+    ok(state, "ada_a", chip(4));
+    expect(kindredById(state, "k_1")?.chips).toEqual({ bob: 8, ada_a: 4 });
+    const events = town(state, { type: "new_day", day: KINDREDS_DAY + 14 });
+    const refunds = events.filter((e) => e.type === "coins" && e.reason === "kindred_refund");
+    expect(refunds).toEqual([
+      expect.objectContaining({ residentId: "bob", amount: 8 }),
+      expect.objectContaining({ residentId: "ada_a", amount: 4 }),
+      expect.objectContaining({ residentId: "ada", amount: 25 - 5 - 12 }),
+    ]);
+    // Bob is whole; Ada is out the small burn, and the chip-ins she held went back to the givers.
+    expect(coins(state, "bob")).toBe(bob);
+    expectSupplyHolds(state);
+  });
+
+  it("is shared by members up to all but the small burn, and only while it forms", () => {
+    const state = world();
+    row(state, ["bob"]);
+    refused(state, "ada", chip(5), "not_eligible");
+    refused(state, "cy", chip(5), "not_in_kindred");
+    refused(state, "bob", chip(0), "invalid_amount");
+    expect(refused(state, "bob", chip(21), "invalid_amount")).toContain("20 coins");
+    refused(state, "bob", chip(5, "k_9"), "unknown_kindred");
+    // Bob spends down to 3 coins, so 4 is more than he has.
+    const econ = state.economy;
+    if (econ) {
+      econ.burned += coins(state, "bob") - 3;
+      econ.coins.bob = 3;
+    }
+    refused(state, "bob", chip(4), "not_enough_coins");
+    fund(state, "bob", 30);
+    ok(state, "bob", chip(15));
+    expect(refused(state, "bob", chip(6), "invalid_amount")).toContain("5 coins");
+    ok(state, "bob", chip(5));
+    refused(state, "bob", chip(1), "chip_in_full");
+    ok(state, "ada", invite("cy"));
+    ok(state, "cy", join());
+    expect(kindredById(state, "k_1")?.status).toBe("formed");
+    refused(state, "cy", chip(1), "not_forming");
+  });
+
+  it("stays burned for its founder when a forming kindred empties, and chip-ins go back", () => {
+    const state = world();
+    row(state, ["bob"]);
+    const bob = coins(state, "bob");
+    ok(state, "bob", chip(6));
+    ok(state, "bob", { type: "leave_kindred" });
+    const ada = coins(state, "ada");
+    const events = ok(state, "ada", { type: "leave_kindred" });
+    expect(kindredById(state, "k_1")).toBeUndefined();
+    expect(events.filter((e) => e.type === "coins")).toEqual([
+      expect.objectContaining({ residentId: "bob", amount: 6, reason: "kindred_refund" }),
+    ]);
+    expect([coins(state, "ada"), coins(state, "bob")]).toEqual([ada, bob]);
+    expectSupplyHolds(state);
+  });
+
+  it("keeps a member who chipped in from being removed while it forms", () => {
+    const state = world();
+    row(state, ["bob", "ada_a"]);
+    ok(state, "bob", chip(3));
+    refused(state, "ada", { type: "remove_from_kindred", resident: "bob" }, "chipped_in");
+    ok(state, "ada", { type: "remove_from_kindred", resident: "ada_a" });
   });
 });
 

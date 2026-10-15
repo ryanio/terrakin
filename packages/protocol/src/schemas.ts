@@ -1061,7 +1061,7 @@ export type HandedIn = z.infer<typeof HandedIn>;
 /**
  * Found a kindred and be its first steward. You need what voting in the Town Hall needs, no
  * kindred of your own, and 25 coins, which are burned. It's forming until its members come from
- * three households, and disbanded if it hasn't in 14 days, with the fee kept burned.
+ * three households, and disbanded if it hasn't in 14 days, when all but 5 of the fee come back.
  */
 export const FoundKindredAction = z.object({
   type: z.literal("found_kindred"),
@@ -1094,6 +1094,20 @@ export const DeclineKindredInviteAction = z.object({
 });
 /** Leave your kindred, any time. You wait 7 days before you're in one again. */
 export const LeaveKindredAction = z.object({ type: z.literal("leave_kindred"), ...dry });
+/**
+ * A member who isn't its founder pays part of a forming kindred's fee to its founder (issue #69).
+ * Members together pay up to 20 of the 25; each gets theirs back if it doesn't form.
+ */
+export const ChipInKindredAction = z.object({
+  type: z.literal("chip_in_kindred"),
+  kindred: KindredId,
+  coins: z
+    .number()
+    .int()
+    .min(1)
+    .max(KINDREDS.fee - KINDREDS.trialBurn),
+  ...dry,
+});
 /** A steward removes a member who isn't a steward. They wait 7 days, like anyone who left. */
 export const RemoveFromKindredAction = z.object({
   type: z.literal("remove_from_kindred"),
@@ -1419,6 +1433,7 @@ export const Action = z.discriminatedUnion("type", [
   JoinKindredAction,
   DeclineKindredInviteAction,
   LeaveKindredAction,
+  ChipInKindredAction,
   RemoveFromKindredAction,
   SetKindredStewardAction,
   NameKindredAction,
@@ -2061,6 +2076,13 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** Its members come from three households now: it's formed, for good. */
   z.object({ type: z.literal("kindred_formed"), kindred: KindredId }),
+  /** `residentId` chipped in `coins` toward their forming kindred's fee (issue #69). */
+  z.object({
+    type: z.literal("kindred_chipped_in"),
+    kindred: KindredId,
+    residentId: z.string(),
+    coins: z.number().int(),
+  }),
   /** `by`, a steward, invited `residentId`. Only the invitee and the stewards get it. */
   z.object({
     type: z.literal("kindred_invited"),

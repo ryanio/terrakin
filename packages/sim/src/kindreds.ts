@@ -42,8 +42,13 @@ export const KINDREDS = {
   /** A name's length, in characters. */
   nameMin: 3,
   nameMax: 32,
-  /** Coins founding takes. Every one is burned. */
+  /**
+   * Coins founding takes, burned. A kindred that doesn't form gives back all but `trialBurn` of
+   * them: what members chipped in to whoever chipped it, and the rest to its founder.
+   */
   fee: 25,
+  /** What founding costs when the kindred doesn't form: the founder's share that stays burned. */
+  trialBurn: 5,
   /** Members at most, stewards included. */
   membersMax: 12,
   /** Members from one household at most. */
@@ -295,7 +300,89 @@ function nightsOff(state: WorldState, k: Kindred, host?: ResidentId): WorldEvent
 function disband(state: WorldState, k: Kindred, how: "empty" | "unformed" | "staff"): WorldEvent[] {
   const off = nightsOff(state, k);
   delete state.kindreds?.list[k.id];
-  return [...off, { type: "kindred_disbanded", kindred: k.id, how }];
+  const back = k.status === "forming" ? refundFee(state, k, how === "unformed") : [];
+  return [...off, { type: "kindred_disbanded", kindred: k.id, how }, ...back];
+}
+
+/** Whose purse a coin for `id` goes to: `id`, or the record a duplicate of it was merged into. */
+const payee = (state: WorldState, id: ResidentId): ResidentId =>
+  own(state.mergedResidents, id) ?? id;
+
+/** What members have chipped in toward `k`'s fee, in all. */
+export const chippedIn = (k: Kindred): number =>
+  Object.values(k.chips ?? {}).reduce((sum, n) => sum + n, 0);
+
+/**
+ * A forming kindred's fee when it goes (issue #69): each member who chipped in gets their coins
+ * back, however it went, and when it went for not forming in time (`founderToo`) its founder gets
+ * the rest but `trialBurn`. One that emptied or that staff disbanded gives its founder nothing back.
+ * The coins were burned at founding, so they're minted back, `kindred_refund` on each ledger: never
+ * more than the fee less `trialBurn`.
+ */
+function refundFee(state: WorldState, k: Kindred, founderToo: boolean): WorldEvent[] {
+  const econ = state.economy;
+  if (!econ) return [];
+  const at = { seq: state.seq + 1, day: state.day ?? 0 };
+  const owed: [ResidentId, number][] = [
+    ...Object.entries(k.chips ?? {}),
+    ...(founderToo
+      ? [[k.founder, KINDREDS.fee - KINDREDS.trialBurn - chippedIn(k)] as [ResidentId, number]]
+      : []),
+  ];
+  const events: WorldEvent[] = [];
+  for (const [id, coins] of owed) {
+    if (coins <= 0) continue;
+    econ.minted += coins;
+    events.push(movePurse(econ, payee(state, id), coins, "kindred_refund", at));
+  }
+  return events;
+}
+
+/**
+ * `chip_in_kindred {kindred, coins}`: a member who isn't its founder pays part of a forming
+ * kindred's fee to its founder (issue #69). Members together pay up to the fee less `trialBurn`, so
+ * the founder always carries that much of the risk. Each gets their part back if it doesn't form.
+ */
+export function checkChipInKindred(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "chip_in_kindred" }>,
+): KindredsChecked {
+  const on = opened(state);
+  if (isRejection(on)) return on;
+  const k = named(state, command.kindred);
+  if (isRejection(k)) return k;
+  if (!isMember(k, actor)) return refuse("not_in_kindred", "Only its members chip in.");
+  if (payee(state, k.founder) === actor) {
+    return refuse("not_eligible", "You founded it: you paid the fee, and members chip in to you.");
+  }
+  if (k.status !== "forming") {
+    return refuse("not_forming", "It has formed already: its fee is paid.");
+  }
+  const { coins } = command;
+  const room = KINDREDS.fee - KINDREDS.trialBurn - chippedIn(k);
+  if (!isWhole(coins) || coins < 1) return refuse("invalid_amount", "Chip in 1 coin or more.");
+  if (room <= 0) {
+    return refuse("chip_in_full", "Members have chipped in all they can toward this fee.");
+  }
+  if (coins > room) {
+    return refuse("invalid_amount", `Members can chip in ${coinCount(room)} more toward this fee.`);
+  }
+  const econ = state.economy;
+  if (!econ) return refuse("economy_closed", "Coins aren't open yet.");
+  const have = econ.coins[actor] ?? 0;
+  if (have < coins) {
+    return refuse("not_enough_coins", `You have ${coinCount(have)}.`);
+  }
+  const at = { seq: state.seq + 1, day: state.day ?? 0 };
+  return () => {
+    k.chips = { ...k.chips, [actor]: (own(k.chips, actor) ?? 0) + coins };
+    return [
+      movePurse(econ, actor, -coins, "kindred_share", at),
+      movePurse(econ, payee(state, k.founder), coins, "kindred_share", at),
+      { type: "kindred_chipped_in", kindred: k.id, residentId: actor, coins },
+    ];
+  };
 }
 
 /** Its hall goes, and the nights booked there with it. */
@@ -542,6 +629,13 @@ export function checkRemoveFromKindred(
   }
   if (isSteward(k, resident)) {
     return refuse("not_eligible", "A steward can't be removed. A steward steps down themselves.");
+  }
+  // What they chipped in toward the fee is theirs to get back if it doesn't form (issue #69).
+  if (k.status === "forming" && (own(k.chips, resident) ?? 0) > 0) {
+    return refuse(
+      "chipped_in",
+      "They chipped in toward the fee, so they stay while it forms. They can leave themselves.",
+    );
   }
   return () => removeMember(state, k, resident, "removed");
 }

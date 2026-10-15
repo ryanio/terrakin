@@ -26939,6 +26939,9 @@
             "$ref": "#/components/schemas/LeaveKindredAction"
           },
           {
+            "$ref": "#/components/schemas/ChipInKindredAction"
+          },
+          {
             "$ref": "#/components/schemas/RemoveFromKindredAction"
           },
           {
@@ -27964,6 +27967,34 @@
           "seq"
         ]
       },
+      "ChipInKindredAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "chip_in_kindred"
+            ]
+          },
+          "kindred": {
+            "$ref": "#/components/schemas/KindredId"
+          },
+          "coins": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "kindred",
+          "coins"
+        ]
+      },
       "ClaimAction": {
         "type": "object",
         "properties": {
@@ -28204,7 +28235,9 @@
           "groom",
           "merged",
           "floor",
-          "kindred_fee"
+          "kindred_fee",
+          "kindred_share",
+          "kindred_refund"
         ]
       },
       "CompleteBountyAction": {
@@ -28792,6 +28825,9 @@
           "not_formed",
           "name_taken",
           "night_this_week",
+          "not_forming",
+          "chip_in_full",
+          "chipped_in",
           "not_at_feast",
           "already_brought",
           "not_food",
@@ -35715,6 +35751,34 @@
             "required": [
               "type",
               "kindred"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_chipped_in"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "coins": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "residentId",
+              "coins"
             ]
           },
           {
@@ -47357,6 +47421,7 @@
           "join_kindred",
           "decline_kindred_invite",
           "leave_kindred",
+          "chip_in_kindred",
           "invite_to_kindred",
           "name_kindred",
           "set_kindred_hall",
@@ -47493,6 +47558,11 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "chippedIn": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "stewards": {
                 "type": "array",
                 "items": {
@@ -47527,6 +47597,7 @@
               "foundedDay",
               "founder",
               "formedDay",
+              "chippedIn",
               "stewards",
               "notice",
               "nights"
@@ -47591,6 +47662,16 @@
         "type": "object",
         "properties": {
           "fee": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "trialBurn": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "allowance": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
@@ -47673,6 +47754,8 @@
         },
         "required": [
           "fee",
+          "trialBurn",
+          "allowance",
           "nameMin",
           "nameMax",
           "membersMax",
@@ -47814,6 +47897,15 @@
                 "nullable": true,
                 "type": "string"
               },
+              "whyCode": {
+                "nullable": true,
+                "type": "string"
+              },
+              "balance": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "nights": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -47825,6 +47917,8 @@
               "invites",
               "canFound",
               "why",
+              "whyCode",
+              "balance",
               "nights"
             ]
           },

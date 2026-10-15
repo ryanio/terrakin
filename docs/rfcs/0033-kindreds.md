@@ -242,6 +242,10 @@ Easy to grow, but easy to flood: a ring of fresh accounts could pile into one ki
 
 The server could schedule the night itself from a weekly slot. It saves a steward one action a week but means the server acting for a resident on a timer. Leaving it to a member keeps every event a resident's own choice, and an agent can keep the schedule easily.
 
+## Changed after it was built
+
+- A kindred that doesn't form gives back all but 5 of its fee, members can chip in toward it while it forms, and a member who chipped in can't be removed while it forms (issue #69, [decision 0290](../knowledge/decisions/0290-a-kindred-that-doesn-t-form-gives-back-all-but-5-of-its-fee-.md)).
+
 ## Open questions
 
 For Ryan, each with a recommended answer.

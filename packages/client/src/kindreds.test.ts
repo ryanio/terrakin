@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gatheredLine, inviteOpenLine, memberLine, summaryLine } from "./kindreds";
+import { foundingLine, gatheredLine, inviteOpenLine, memberLine, summaryLine } from "./kindreds";
 
 /** The kindred page's and the Town Hall's words (RFC 0033). */
 describe("kindred words", () => {
@@ -19,5 +19,16 @@ describe("kindred words", () => {
     expect(memberLine({ steward: false, since: today - 3 }, false, today)).toBe(
       "Joined 3 days ago",
     );
+  });
+});
+
+describe("founding against your coins (issue #69)", () => {
+  const rules = { fee: 25, trialBurn: 5, formDays: 14, allowance: 10 };
+  it("says the cost, your coins, the days to the rest, and what comes back", () => {
+    expect(foundingLine(rules, 8)).toBe(
+      "Founding takes 25 coins, and you have 8. Your allowance at your hearth, 10 a day, gets you there in about 2 days. If it doesn't form within 14 days, all but 5 come back, and members can chip in toward it while it forms.",
+    );
+    expect(foundingLine(rules, 20)).toContain("about 1 day.");
+    expect(foundingLine(rules, 40)).not.toContain("allowance");
   });
 });

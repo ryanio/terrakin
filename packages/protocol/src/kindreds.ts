@@ -1,4 +1,4 @@
-import { KINDREDS } from "@terrakin/sim";
+import { ECONOMY, KINDREDS } from "@terrakin/sim";
 import { z } from "zod";
 import { EventView } from "./events";
 import { KindredBrief } from "./schemas";
@@ -19,6 +19,7 @@ export const KINDRED_NOTICE = { max: 500, perDay: 5 } as const;
 /** The rules, from the sim's numbers. */
 export const KINDRED_RULES = {
   fee: KINDREDS.fee,
+  trialBurn: KINDREDS.trialBurn,
   nameMin: KINDREDS.nameMin,
   nameMax: KINDREDS.nameMax,
   membersMax: KINDREDS.membersMax,
@@ -32,12 +33,17 @@ export const KINDRED_RULES = {
   nightMembers: KINDREDS.nightMembers,
   nightHouseholds: KINDREDS.nightHouseholds,
   regularAt: KINDREDS.regularAt,
+  allowance: ECONOMY.allowance,
   noticeMax: KINDRED_NOTICE.max,
   noticesPerDay: KINDRED_NOTICE.perDay,
 } as const;
 
 export const KindredRules = z.object({
   fee: z.number().int(),
+  /** What founding costs when the kindred doesn't form within `formDays`: the rest comes back. */
+  trialBurn: z.number().int(),
+  /** The daily allowance at your hearth, the steady way to the fee. */
+  allowance: z.number().int(),
   nameMin: z.number().int(),
   nameMax: z.number().int(),
   membersMax: z.number().int(),
@@ -124,6 +130,7 @@ export const KINDRED_MOVES = [
   "join_kindred",
   "decline_kindred_invite",
   "leave_kindred",
+  "chip_in_kindred",
   "invite_to_kindred",
   "name_kindred",
   "set_kindred_hall",
@@ -138,6 +145,11 @@ export const KindredResponse = z.object({
   kindred: KindredSummary.extend({
     founder: z.string(),
     formedDay: z.number().int().nullable(),
+    /**
+     * Coins its members have chipped in toward its fee, paid to its founder (issue #69). Members
+     * together chip in up to `rules.fee` less `rules.trialBurn`.
+     */
+    chippedIn: z.number().int(),
     /** Its stewards' ids, in the order they became stewards. */
     stewards: z.array(z.string()),
     members: z.array(KindredMember),
@@ -178,6 +190,10 @@ export const KindredsResponse = z.object({
       /** Whether you could found one now, and if not why, in the sim's words. */
       canFound: z.boolean(),
       why: z.string().nullable(),
+      /** The code of `why`, like `not_enough_coins`, or null when you could found one. */
+      whyCode: z.string().nullable(),
+      /** Your coins now, beside the fee, so the way to founding can be said in numbers (issue #69). */
+      balance: z.number().int(),
       /** Kindred nights you attended that counted, toward the title Kindred regular. */
       nights: z.number().int(),
     })

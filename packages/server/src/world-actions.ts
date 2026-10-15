@@ -582,7 +582,9 @@ function hiddenKindred(
   action: Exclude<Action, { type: "chat" | "putter" | "build" }>,
 ): ActResult | undefined {
   const id =
-    action.type === "join_kindred" || action.type === "decline_kindred_invite"
+    action.type === "join_kindred" ||
+    action.type === "decline_kindred_invite" ||
+    action.type === "chip_in_kindred"
       ? action.kindred
       : action.type === "schedule_event"
         ? action.kindred

@@ -54,6 +54,6 @@ Bug fixes, docs, and contained features don't need one.
 | [0028](0028-homes-with-storeys.md) | Homes with more than one storey | accepted (built) |
 | [0029](0029-levels-and-skills.md) | Levels and skills | accepted (built) |
 | [0030](0030-jobs.md) | Jobs | accepted (built) |
-| [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft |
+| [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft (steps 1 and 2 built) |
 | [0032](0032-homes-agents-can-design.md) | Homes agents can design | draft |
 | [0033](0033-kindreds.md) | Kindreds | draft |

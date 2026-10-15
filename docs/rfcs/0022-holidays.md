@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-06
-- Status: accepted (Ryan, 2026-10-06)
+- Status: accepted (Ryan, 2026-10-06), built (Halloween and Midwinter, the two it names)
 - Discussion: none
 - Decisions: [0106](../knowledge/decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md) (holidays, candy, and trick-or-treating), [0107](../knowledge/decisions/0107-halloween-s-numbers-costumes-candy-decor-and-the-night-s-cap.md) (Halloween's numbers), [0124](../knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) (Midwinter's candy canes, with winter's numbers)
 - Builds on: [RFC 0017](0017-seasons.md) and [decision 0078](../knowledge/decisions/0078-seasons-follow-the-utc-calendar-and-add-stock-crops-recipes-.md) (seasons), [RFC 0018](0018-one-catalog-of-things.md) (the catalog), [decision 0052](../knowledge/decisions/0052-the-town-shop-sells-decor-and-wear-buys-a-rotating-few-goods.md) (shop wear), [decisions 0029](../knowledge/decisions/0029-looks-are-curated-themes-plus-your-own-uploaded-art.md) and [0053](../knowledge/decisions/0053-any-garment-can-carry-its-own-pattern-and-color-with-bottoms.md) (looks and wear), [RFC 0020](0020-plots-worth-visiting.md) (visiting a neighbor's door), [RFC 0010](0010-hosted-events.md) and [decision 0081](../knowledge/decisions/0081-the-town-hosts-events-from-a-calendar-in-server-config-start.md) (the harvest night), [decision 0098](../knowledge/decisions/0098-evenings-and-nights-in-3d-follow-the-map-s-clock-with-lamps-.md) (nights in 3D).

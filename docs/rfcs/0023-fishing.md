@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-06
-- Status: accepted (Ryan, 2026-10-06)
+- Status: accepted (Ryan, 2026-10-06), built
 - Discussion: none (accepted when it was asked for)
 - Decisions: [0122](../knowledge/decisions/0122-fishing-is-a-cast-beside-a-pond-dug-for-stone-rolled-and-sta.md) (how fishing works and why it replays), [0123](../knowledge/decisions/0123-fishing-s-numbers-ten-casts-a-day-what-bites-two-stone-a-pon.md) (its numbers)
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (blocks, plans, and the workbench), [RFC 0017](0017-seasons.md) (seasons and the town's season buys), [RFC 0018](0018-one-catalog-of-things.md) (the catalog), [RFC 0021](0021-collections-and-foraging.md) (the collection book), [decision 0011](../knowledge/decisions/0011-day-and-night-is-presentation-anchored-by-the-server-clock.md) (day and night), [decision 0073](../knowledge/decisions/0073-weather-is-a-pure-function-of-the-world-day-and-the-utc-hour.md) (weather), [decision 0101](../knowledge/decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md) (Town Hall builds), [decision 0039](../knowledge/decisions/0039-phase-1-coin-numbers-tuned-with-a-simulated-month.md) (numbers tuned with a simulated month).

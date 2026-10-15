@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-06
-- Status: accepted (Ryan, 2026-10-06)
+- Status: accepted (Ryan, 2026-10-06), built
 - Discussion: none (accepted when it was asked for)
 - Decisions: [0099](../knowledge/decisions/0099-finds-spawn-by-biome-and-season-after-a-logged-open-finds-fr.md) (finds, where they lie, and their numbers), [0100](../knowledge/decisions/0100-the-collection-book-is-a-server-table-fed-by-committed-input.md) (the collection book)
 - Builds on: [decision 0063](../knowledge/decisions/0063-simple-gathering-is-in-phase-1-wood-and-stone-picku.md) (gathering), [decision 0045](../knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md) (biomes), [RFC 0017](0017-seasons.md) (seasons, which named a collection book as Phase 3's next step), [RFC 0018](0018-one-catalog-of-things.md) (the catalog), [decision 0059](../knowledge/decisions/0059-pieces-are-made-things-from-your-own-uploads-shown-on-pedest.md) (display), [decision 0070](../knowledge/decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md) (`REPLAY_VERSION`), [RFC 0020](0020-plots-worth-visiting.md) (`WorldService.onCommitted`).

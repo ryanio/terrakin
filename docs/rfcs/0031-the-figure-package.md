@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-10
-- Status: draft
+- Status: draft (rollout steps 1 and 2 built: `@terrakin/figure` 0.1.0 is on npm; steps 3 to 6 are not)
 - Discussion: <PR link>
 - Builds on: [RFC 0012](0012-character-bodies.md) (a partner character drawn as its own rigged body), [RFC 0013](0013-expressive-characters.md) (feelings), [decision 0253](../knowledge/decisions/0253-one-package-terrakin-figure-is-published-to-npm.md) (the package is public on npm).
 

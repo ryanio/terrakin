@@ -83,6 +83,7 @@ export const WEAR_ITEMS = [
   "pumpkin_head",
   "ghost_sheet",
   "bat_wings",
+  "santa_hat",
   // Earned wear (RFC 0029), one garment a skill.
   "sun_hat",
   "tool_belt",
@@ -100,7 +101,8 @@ export type WearItem = (typeof WEAR_ITEMS)[number];
 /**
  * Wear sold at the town shop (RFC 0008). The rest stays free. Wearing one of these takes having
  * bought it, and once bought it's yours for good. Halloween's costumes are shop wear too, sold
- * only while Halloween runs (`COSTUMES`, RFC 0022), and worn any day once bought.
+ * only while Halloween runs (`COSTUMES`, RFC 0022), and worn any day once bought. So is
+ * Midwinter's Santa hat (`MIDWINTER_WEAR`, RFC 0034).
  */
 export const SHOP_WEAR = [
   "top_hat",
@@ -111,6 +113,7 @@ export const SHOP_WEAR = [
   "pumpkin_head",
   "ghost_sheet",
   "bat_wings",
+  "santa_hat",
 ] as const satisfies readonly WearItem[];
 export type ShopWear = (typeof SHOP_WEAR)[number];
 export const isShopWear = (w: unknown): w is ShopWear =>
@@ -127,6 +130,12 @@ export const COSTUMES = [
 export type Costume = (typeof COSTUMES)[number];
 export const isCostume = (w: unknown): w is Costume =>
   typeof w === "string" && (COSTUMES as readonly string[]).includes(w);
+
+/** Midwinter's wear (RFC 0034): shop wear sold only while Midwinter runs, for Christmas. */
+export const MIDWINTER_WEAR = ["santa_hat"] as const satisfies readonly ShopWear[];
+export type MidwinterWear = (typeof MIDWINTER_WEAR)[number];
+export const isMidwinterWear = (w: unknown): w is MidwinterWear =>
+  typeof w === "string" && (MIDWINTER_WEAR as readonly string[]).includes(w);
 
 /**
  * Partner wear (RFC 0007): only residents the server entitled with `set_entitlements` may put it on,
@@ -428,6 +437,7 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   pumpkin_head: { slot: "hat", label: "Pumpkin head" },
   ghost_sheet: { slot: "top", label: "Ghost sheet" },
   bat_wings: { slot: "accessory", label: "Bat wings" },
+  santa_hat: { slot: "hat", label: "Santa hat" },
   sun_hat: { slot: "hat", label: "Sun hat" },
   tool_belt: { slot: "accessory", label: "Tool belt" },
   field_vest: { slot: "top", label: "Field vest" },

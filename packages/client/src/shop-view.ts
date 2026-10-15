@@ -155,7 +155,8 @@ function tagOf(item: Pick<ShopItemView, "season" | "holiday">): HTMLElement | nu
 /** What each holiday's shelf adds: that what you buy stays yours, and what a kitchen makes. */
 const HOLIDAY_SHELF: Readonly<Record<string, string>> = {
   halloween: "Costumes and decor are yours for good, and a kitchen makes candy any day.",
-  midwinter: "A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
+  midwinter:
+    "A Santa hat and stockings for Christmas, yours for good. A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
   thanksgiving:
     "Decor is yours for good. Bring a dish you made to the feast in the Commons on Thursday.",
   hanukkah:

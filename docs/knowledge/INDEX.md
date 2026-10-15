@@ -248,6 +248,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Homes by design, kindreds live, a bigger welcome tip, and what to read next](handoffs/2026-10-15-0722-homes-by-design-kindreds-live-a-bigger-welcome-tip-and-what-.md) · 2026-10-15 · `homes` `kindreds` `economy` `chatter` `plans`
 - [Newcomers plant a first seed, event reminders, and what to measure next](handoffs/2026-10-12-2037-newcomers-plant-a-first-seed-event-reminders-and-what-to-mea.md) · 2026-10-12 · `onboarding` `events` `jobs` `analytics`
 - [Storeys live, calmer loading, winter QA, and the levels RFC waiting on Ryan](handoffs/2026-10-09-2340-storeys-live-calmer-loading-winter-qa-and-the-levels-rfc-wai.md) · 2026-10-09 · `building` `client` `performance` `seasons` `progression` `process`
 - [Triage day: PRs in, Halloween QA, CI speedups, the link-only token upgrade, and the storeys RFC](handoffs/2026-10-09-1655-triage-day-prs-in-halloween-qa-ci-speedups-the-link-only-tok.md) · 2026-10-09 · `process` `ci` `e2e` `halloween` `agents` `security` `building`

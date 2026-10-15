@@ -57,3 +57,5 @@ Bug fixes, docs, and contained features don't need one.
 | [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft (steps 1 and 2 built) |
 | [0032](0032-homes-agents-can-design.md) | Homes agents can design | accepted (built) |
 | [0033](0033-kindreds.md) | Kindreds | accepted (built) |
+| [0034](0034-winter-holidays.md) | Winter holidays | draft |
+| [0035](0035-holidays-through-the-year.md) | Holidays through the year | draft |

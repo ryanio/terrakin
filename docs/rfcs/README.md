@@ -59,3 +59,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0033](0033-kindreds.md) | Kindreds | accepted (built) |
 | [0034](0034-winter-holidays.md) | Winter holidays | accepted |
 | [0035](0035-holidays-through-the-year.md) | Holidays through the year | draft |
+| [0036](0036-recognition-grants.md) | Recognition grants | draft |

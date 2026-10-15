@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { NotificationView, ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import { DAY_MS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -188,6 +189,16 @@ describe("the kindreds switch", () => {
     t.later(DAY_MS);
     expect(t.logged("open_kindreds")).toHaveLength(1);
     expect((await t.call("GET", "/v1/world")).body.kindredsOpen).toBe(true);
+  });
+
+  it("is passed by the Worker once and by the Node server never", () => {
+    // Kindreds are on at terrakin.org (decision 0285). Self-hosted, dev, and e2e worlds start
+    // without them, as the world in "a world without kindreds" above does.
+    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
+    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+    expect(worker.match(/\bkindreds\s*:\s*true\b/g)).toHaveLength(1);
+    expect(node).not.toMatch(/\bkindreds\s*:/);
+    expect(worker).not.toMatch(/open-kindreds|testOpenKindreds|open_kindreds/);
   });
 });
 

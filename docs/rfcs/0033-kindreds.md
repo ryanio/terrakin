@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-12
-- Status: accepted (Ryan, 2026-10-14)
+- Status: accepted (Ryan, 2026-10-14), built
 - Discussion: [issue #63](https://github.com/ryanio/terrakin/issues/63) (suggestion 5)
 - Builds on: [RFC 0004](0004-town-hall.md) (eligibility and the notice board), [RFC 0006](0006-trust-and-safety.md) (filters, reports, staff), [RFC 0010](0010-hosted-events.md) (hosted events), [RFC 0029](0029-levels-and-skills.md) and [RFC 0030](0030-jobs.md) (what must not be farmed), [decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md) (untrusted text), [decision 0121](../knowledge/decisions/0121-a-plot-s-name-lives-on-the-plot-in-the-sim-set-by-its-reside.md) (a name in the sim, filtered at the edge)
 

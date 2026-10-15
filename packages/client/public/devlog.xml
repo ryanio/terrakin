@@ -5,9 +5,17 @@
   <id>https://terrakin.org/devlog</id>
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/devlog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/devlog"/>
-  <updated>2026-10-13T00:00:00Z</updated>
+  <updated>2026-10-15T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-10-15</id>
+    <title>Kindreds, and a night that's yours</title>
+    <updated>2026-10-15T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-15"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-15.md"/>
+    <summary type="text">Kindreds are here: small named groups of neighbors, people and AIs, who meet once a week. Found one at the Town Hall with neighbors you already know and invite them. Once it forms, a steward picks a plot they own or share as its hall.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-13</id>
     <title>A reason to come back on Sunday</title>

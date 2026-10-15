@@ -262,8 +262,9 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
-   * Kindreds (RFC 0033): once coins are open, append `open_kindreds` if it never has. No adapter
-   * sets it yet, so a world has no kindreds unless a test opens them through
+   * Kindreds (RFC 0033): once coins are open, append `open_kindreds` if it never has. The Worker
+   * turns it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted
+   * world, `pnpm dev`, and the e2e servers have no kindreds unless a test opens them through
    * `POST /v1/test/open-kindreds`.
    */
   kindreds?: boolean;

@@ -429,6 +429,7 @@ class WorldObject extends DurableObject<Env> {
       levels: true,
       jobs: true,
       jobEdition: 2,
+      kindreds: true,
       retireRepeatJoins: true,
       market: true,
       bounties: true,

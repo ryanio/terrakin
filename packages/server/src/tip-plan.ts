@@ -5,9 +5,10 @@
  * script can load it as it is.
  *
  * Two kinds of gift, both from a townsfolk resident's daily budget:
- * - A welcome of 10 to each resident who got a welcome gift from the treasury since the last run.
+ * - A welcome of 25 to each resident who got a welcome gift from the treasury since the last run,
+ *   which is the most townsfolk may give one resident in a day (decision 0278).
  * - One tip of up to 25 to the author of the most-reacted post of the last day, if it isn't by
- *   townsfolk.
+ *   townsfolk and they haven't had their 25 from townsfolk today (a newcomer welcomed today has).
  *
  * The sim has the final say (25 a resident a day from all townsfolk together, never to townsfolk or
  * maintainers, never across a block), and both runners treat its refusals as normal. This only plans
@@ -16,8 +17,8 @@
 
 /** The amounts. `perResident` must match the sim's `ECONOMY.townsfolkPerResident` (a test checks). */
 export const TIPS = {
-  /** To each newcomer. */
-  welcome: 10,
+  /** To each newcomer: all of `perResident`, so a newcomer's first day brings 75 with the treasury's 50. */
+  welcome: 25,
   /** The most for the day's best post. */
   post: 25,
   /** The most all townsfolk together give one resident in a UTC day. */

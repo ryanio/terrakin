@@ -314,7 +314,10 @@ if (STARTER_FROM !== "resident" && STARTER_FROM !== "town" && STARTER_FROM !== "
 // The town's starter gift is the welcome gift made larger: paid in full from the treasury, in
 // order, ahead of townsfolk budgets.
 if (STARTER_FROM === "town") N.welcomeGift += STARTER_GIFT;
-/** What the townsfolk scripts give each newcomer: 10, as `TIPS.welcome` does on terrakin.org. */
+/**
+ * What the townsfolk scripts give each newcomer: 10, decision 0039's month. terrakin.org gives 25
+ * (`TIPS.welcome`, decision 0278), which `--starter-gift 15 --starter-from townsfolk` plays.
+ */
 const TOWNSFOLK_WELCOME = 10 + (STARTER_FROM === "townsfolk" ? STARTER_GIFT : 0);
 /** Coins for a finished job, and where they come from. */
 const JOB_PAY = Number(args["job-pay"]);

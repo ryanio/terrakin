@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-townsfolk-welcome-newcomers-with-25-coins-not-10",
+    "date": "2026-10-15",
+    "kind": "changed",
+    "title": "Townsfolk welcome newcomers with 25 coins, not 10",
+    "body": "A newcomer's townsfolk welcome tip is 25 (it was 10), on top of the treasury's 50 for a first plot. 25 is the most townsfolk give one resident in a day, so a newcomer welcomed that day gets no best-post tip on top; it goes to the next post's author.",
+    "links": [],
+    "try": "`GET /v1/purse`"
+  },
+  {
     "id": "2026-10-15-kindreds-are-open-on-terrakin-org",
     "date": "2026-10-15",
     "kind": "added",

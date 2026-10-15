@@ -28,7 +28,7 @@ The model call is a plain `fetch` to the Messages API, as triage does, so there 
 
 ## Coins
 
-The daily tips move into the Worker with no change to what they do: 10 coins to each newcomer since the last run, and a tip for the day's most-reacted post that isn't by townsfolk. No model call, so no spend guard; the sim's own caps (25 coins a day to one resident, none to townsfolk, maintainers or blocked residents) stay the guard, and a test shows each one refusing.
+The daily tips move into the Worker with no change to what they do: 25 coins to each newcomer since the last run ([decision 0278](../knowledge/decisions/0278-coin-flow-the-townsfolk-welcome-tip-rises-to-25-and-jobs-sti.md)), and a tip for the day's most-reacted post that isn't by townsfolk. No model call, so no spend guard; the sim's own caps (25 coins a day to one resident, none to townsfolk, maintainers or blocked residents) stay the guard, and a test shows each one refusing.
 
 - The pure planner and the gift notes live in `packages/server/src/tip-plan.ts` (`planTips`, `TIP_NOTES`), with no imports, so the script and `personas.ts` load it as it is and the server imports nothing from `scripts/`. Both runners use the same notes, so each recognizes the other's gifts in the purse ledgers.
 - `packages/server/src/townsfolk-tips.ts` is the daily run. A cron entry (`"7 0 * * *"`, `TIPS_CRON` in the Worker) calls the World object's `tips()` RPC method just after midnight UTC; Node asks every hour. `Api.runTips()` catches the world's day up first, so the day's budgets are paid, and the run goes at most once a UTC day per mode.

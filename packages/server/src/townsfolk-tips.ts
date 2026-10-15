@@ -19,7 +19,7 @@ import type { WorldService } from "./world-service";
 
 /**
  * The townsfolk's daily coin tips, run inside the world once a day (docs/plans/townsfolk-chatter.md,
- * "Coins"): 10 coins to each newcomer since the last run, and a tip for the day's most-reacted post
+ * "Coins"): 25 coins to each newcomer since the last run, and a tip for the day's most-reacted post
  * that isn't by townsfolk. The choosing is `planTips` (`tip-plan.ts`), the same plan
  * `scripts/townsfolk/tips.ts` makes through the public API.
  *

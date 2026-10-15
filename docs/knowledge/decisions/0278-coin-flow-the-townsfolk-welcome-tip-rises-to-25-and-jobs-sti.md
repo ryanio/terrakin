@@ -1,13 +1,13 @@
 ---
 title: "Coin flow: the townsfolk welcome tip rises to 25 and jobs still pay no coins"
 date: 2026-10-14
-status: proposed
+status: accepted
 tags: [economy, numbers, server, jobs]
 ---
 
 # Coin flow: the townsfolk welcome tip rises to 25 and jobs still pay no coins
 
-Proposed, for Ryan to accept or reject. Nothing in the economy has changed.
+Accepted by Ryan on 2026-10-14: the tip goes from 10 to 25, and jobs pay no coins.
 
 ## Context
 
@@ -56,7 +56,7 @@ Coins for a job, (c) at 5:
 
 Median month-end purse of every settled resident, today's scale: (a) 90, (b1) 90, (b2) 96, (c) 97. At 300: 85, 94, 88, 86. These move by up to 10 coins from noise alone, because the townsfolk tips draw from the same random stream as who visits each day.
 
-## Decision (proposed)
+## Decision
 
 Raise the townsfolk welcome tip from 10 to 25: `TIPS.welcome` in `packages/server/src/tip-plan.ts`. Keep RFC 0030's "no coins from a job".
 
@@ -82,7 +82,7 @@ Outside the RFC: `JOBS.coins` (5) in `packages/sim/src/jobs.ts`, paid in `job_do
 
 ## Consequences
 
-- To accept (b2): change `TIPS.welcome`, the tip plan's header, and the amount in `scripts/townsfolk/README.md`, and set this record to accepted. Run `pnpm townsfolk:tips -- --base https://terrakin.org` (a dry run) to see the next day's plan.
+- `TIPS.welcome` is 25 in `packages/server/src/tip-plan.ts`. `tip-plan.test.ts` and `townsfolk-tips.test.ts` show a newcomer getting 25 and the best-post tip passing to the next post's author, and the sim refusing any more from townsfolk to that newcomer the same day (`gift_limit`). `pnpm townsfolk:tips -- --base https://terrakin.org` (a dry run) shows the next day's plan.
 - The treasury still grows about 560 a day at today's scale, and nothing here spends it. Town bounties and grants (decision 0062) are how the town already pays for work; a smaller mint is a separate decision.
 - The sim's 80% townsfolk tipping is decision 0039's guess. Live it's about 10%; `--townsfolk-spend 10` plays that.
 - To rerun: `node scripts/economy-sim.ts --residents 41 --townsfolk-spend 10 --set treasuryOpening=9775 --starter-gift 15 --starter-from townsfolk` (or `town`, or `resident` with `--job-pay 5`, and `--job-pay-from mint`), with `--seed 1` to `5`.

@@ -147,14 +147,21 @@ describe("the tips setting", () => {
 });
 
 describe("the townsfolk's daily tips", () => {
-  it("welcome each newcomer with 10 and tip the day's best post, as the townsfolk", () => {
+  it("welcome each newcomer with 25 and tip the day's best post, as the townsfolk", () => {
     const t = town();
+    // Cy came yesterday and was welcomed then.
+    const cy = t.settle("Cy", 9);
+    expect(t.tips().run()).toMatchObject({ welcomed: 1, welcomeCoins: 25 });
+    t.nextDay();
     const ash = t.settle("Ash", 1);
     const bo = t.settle("Bo", 5);
-    const post = t.social.createPost(ash, { text: "My first hut is up!" });
-    if (!post.ok) throw new Error(post.message);
-    t.social.setReaction(bo, post.value.id, "heart", true);
-    const before = { ash: t.coins(ash), bo: t.coins(bo) };
+    const best = t.social.createPost(ash, { text: "My first hut is up!" });
+    const next = t.social.createPost(cy, { text: "The pond froze over." });
+    if (!best.ok || !next.ok) throw new Error("couldn't post");
+    t.social.setReaction(bo, best.value.id, "heart", true);
+    t.social.setReaction(cy, best.value.id, "heart", true);
+    t.social.setReaction(bo, next.value.id, "heart", true);
+    const before = { ash: t.coins(ash), bo: t.coins(bo), cy: t.coins(cy) };
 
     const result = t.tips().run();
     expect(result).toMatchObject({
@@ -162,12 +169,20 @@ describe("the townsfolk's daily tips", () => {
       refused: 0,
       welcomeCoins: 2 * TIPS.welcome,
       post: "tipped",
-      // Ash already had 10 from townsfolk today, so the tip fills up to their 25.
-      postCoins: TIPS.perResident - TIPS.welcome,
+      // Ash's post is the best, but Ash had all 25 from townsfolk in the welcome, so Cy's gets it.
+      postCoins: TIPS.post,
       stopped: false,
     });
-    expect(t.coins(ash) - before.ash).toBe(TIPS.perResident);
+    expect(TIPS.welcome).toBe(25);
+    expect(t.coins(ash) - before.ash).toBe(TIPS.welcome);
     expect(t.coins(bo) - before.bo).toBe(TIPS.welcome);
+    expect(t.coins(cy) - before.cy).toBe(TIPS.post);
+    // And the sim's own cap refuses anything more from townsfolk to Ash today, from the one with
+    // budget left.
+    const giver = t.coins(t.clem) > 0 ? t.clem : t.pip;
+    expect(t.coins(giver)).toBeGreaterThan(0);
+    const more = t.as(giver, { type: "give_coins", to: ash, amount: 1 });
+    expect(more.ok ? "" : more.error.code).toBe("gift_limit");
     // The notes say which townsfolk gave them, so the ledger shows its own gifts later.
     const notes = new Set<string>(Object.values(TIP_NOTES).flatMap((n) => [n.welcome, n.post]));
     for (const line of [...t.fromTownsfolk(ash), ...t.fromTownsfolk(bo)]) {

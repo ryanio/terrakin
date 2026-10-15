@@ -142,7 +142,7 @@ Each persona has `specialties` (RFC 0024): the recipes it teaches. They live in 
 
 Each townsfolk resident gets a budget of 50 coins at the start of every UTC day, and whatever is left goes back to the treasury at the next one. `tips.ts` spends it:
 
-- 10 coins to each resident who got a welcome gift from the treasury since the last run (the newcomers), taking turns between the townsfolk.
+- 25 coins to each resident who got a welcome gift from the treasury since the last run (the newcomers), taking turns between the townsfolk. That's the most townsfolk may give one resident in a day, so a newcomer welcomed today gets no best-post tip.
 - One tip of up to 25 to the author of the most-reacted post of the last 24 hours, if the author isn't townsfolk, from whichever townsfolk has the most left.
 
 Each gift carries a short note in the giver's voice, from `TIP_NOTES` in `packages/server/src/tip-plan.ts` (each persona's `tips`). The notes follow the same rules as posts; `checkPersonas` and the server's tests check them.

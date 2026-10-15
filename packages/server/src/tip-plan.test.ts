@@ -63,6 +63,7 @@ describe("townsfolk tips", () => {
     expect(TIPS.perResident).toBe(ECONOMY.townsfolkPerResident);
     expect(TIPS.post).toBeLessThanOrEqual(ECONOMY.townsfolkPerResident);
     expect(TIPS.welcome).toBeLessThanOrEqual(ECONOMY.townsfolkBudget);
+    expect(TIPS.welcome).toBeLessThanOrEqual(ECONOMY.townsfolkPerResident);
     // Every note is different, so a ledger line says which kind of gift it was.
     const notes = [...Object.values(TIP_NOTES), DEFAULT_TIP_NOTES].flatMap((n) => [
       n.welcome,
@@ -79,7 +80,7 @@ describe("townsfolk tips", () => {
     expect(tipNotesFor(undefined)).toBe(DEFAULT_TIP_NOTES);
   });
 
-  it("welcome each newcomer since the last run with 10, taking turns between townsfolk", () => {
+  it("welcome each newcomer since the last run with 25, taking turns between townsfolk", () => {
     const plan = planTips(
       input({
         welcomes: [welcome(5, "r_old", DAY - 1), welcome(9, "r_ada"), welcome(12, "r_bob")],
@@ -88,8 +89,8 @@ describe("townsfolk tips", () => {
     );
     const given = gifts(plan);
     expect(given.map((g) => [g.to, g.amount, g.why])).toEqual([
-      ["r_ada", 10, "welcome"],
-      ["r_bob", 10, "welcome"],
+      ["r_ada", 25, "welcome"],
+      ["r_bob", 25, "welcome"],
     ]);
     // Turns start at today % 2 and alternate.
     expect(new Set(given.map((g) => g.from.key)).size).toBe(2);
@@ -158,7 +159,7 @@ describe("townsfolk tips", () => {
     expect(plan.unfunded).toBe(2);
   });
 
-  it("give less than 10 when the newcomer is near the day's townsfolk limit", () => {
+  it("give less than the full welcome when the newcomer is near the day's townsfolk limit", () => {
     const pip = giver("pip");
     pip.ledger.push({ day: DAY, amount: -20, reason: "gift_out", with: "r_ada", note: "hi" });
     const plan = planTips(
@@ -174,7 +175,7 @@ describe("townsfolk tips", () => {
   it("stop at the first newcomer the budgets can't cover, and leave the rest waiting", () => {
     const plan = planTips(
       input({
-        givers: [giver("clem", 15), giver("pip", 4)],
+        givers: [giver("clem", 30), giver("pip", 24)],
         welcomes: [welcome(1, "r_a"), welcome(2, "r_b"), welcome(3, "r_c")],
         state: { welcomedThrough: 0, tippedPosts: [] },
       }),
@@ -207,16 +208,34 @@ describe("townsfolk tips", () => {
   });
 
   it("tip a newcomer's post only up to what's left of their 25", () => {
+    // Welcomed today, they've had all 25, so the best post's tip passes to the next author.
     const plan = planTips(
       input({
+        welcomes: [welcome(1, "r_ada")],
+        posts: [post("p_best", "r_ada", 9), post("p_bob", "r_bob", 3)],
+        state: { welcomedThrough: 0, tippedPosts: [] },
+      }),
+    );
+    expect(gifts(plan).map((g) => [g.to, g.amount])).toEqual([["r_ada", 25]]);
+    expect(plan.posts.map((g) => [g.to, g.amount])).toEqual([["r_bob", 25]]);
+    // From whoever has the most left after the welcomes.
+    expect(plan.posts[0]?.from.key).not.toBe(gifts(plan)[0]?.from.key);
+    // A newcomer short of the full welcome gets a tip up to what's left.
+    const pip = giver("pip");
+    pip.ledger.push({ day: DAY, amount: -20, reason: "gift_out", with: "r_ada", note: "hi" });
+    const short = planTips(
+      input({
+        givers: [giver("clem"), pip],
         welcomes: [welcome(1, "r_ada")],
         posts: [post("p_best", "r_ada", 9)],
         state: { welcomedThrough: 0, tippedPosts: [] },
       }),
     );
-    expect(plan.posts.map((g) => g.amount)).toEqual([15]);
-    // From whoever has the most left after the welcomes.
-    expect(plan.posts[0]?.from.key).not.toBe(gifts(plan)[0]?.from.key);
+    expect(gifts(short).map((g) => g.amount)).toEqual([5]);
+    expect(short).toMatchObject({
+      posts: [],
+      noPostTip: "the best posts' authors had their coins today",
+    });
   });
 
   it("tip one post a day, and never the same post twice", () => {

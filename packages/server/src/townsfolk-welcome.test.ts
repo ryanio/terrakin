@@ -208,7 +208,8 @@ describe("a welcome visit", () => {
     expect(t.tips.run()).toMatchObject({ welcomed: 0, skippedNewcomers: 1 });
     expect(t.coins(ash)).toBe(after);
     // The record of the visit's tip is what passed Ash over: without it (and the daily state,
-    // which the run above moved past Ash), a run would give.
+    // which the run above moved past Ash), a run would try to give, and only the sim's cap of 25
+    // from townsfolk a day stops it.
     t.sql.exec("DELETE FROM townsfolk_tips_welcomed");
     t.sql.exec("DELETE FROM townsfolk_tips");
     const check = new TownsfolkTips({
@@ -218,7 +219,7 @@ describe("a welcome visit", () => {
       townsfolk: new Set([t.clem, t.pip]),
       now: t.world.now,
     });
-    expect(check.run()).toMatchObject({ welcomed: 1 });
+    expect(check.run()).toMatchObject({ welcomed: 0, refused: 1 });
   });
 
   it("leaves the tip alone when the daily run gave it first", () => {

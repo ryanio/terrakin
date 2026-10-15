@@ -12,6 +12,7 @@ import type {
 import {
   absolute,
   BUILD_LIMITS,
+  buildCommand,
   facingFrom,
   GAME_TIMES,
   KARMA,
@@ -34,6 +35,7 @@ import {
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
+  designNotes,
   EVENTS,
   entitledTo,
   eventEndsAt,
@@ -59,6 +61,8 @@ import {
   pieceShowingMedia,
   planPutter,
   plotKey,
+  plotMap,
+  plotPlan,
   prepare,
   REPLAY_VERSION,
   type RecipeName,
@@ -298,11 +302,21 @@ function gameRefused(code: string, command: string) {
   report(new Error(`${command} refused: ${code}`), "world.games", { command });
 }
 /**
- * A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076). A
+ * A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076), with
+ * the plot as it leaves it, as a map and its notes (RFC 0032): on a dry run from the plan laid over
+ * the world (`built` false), and on a real build from the world once it's committed. A
  * `commons_build` proposal's: what it would build if it passed now (decision 0101).
  */
-const planOf = (prepared: { plan?: BuildPlan }): { plan?: BuildPlanSummary } =>
-  prepared.plan ? { plan: buildSummary(prepared.plan) } : {};
+function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan }, built: boolean) {
+  const { plan } = prepared;
+  if (!plan) return {};
+  const summary: BuildPlanSummary = buildSummary(plan);
+  if (input.command.type !== "build") return { plan: summary };
+  const over = built ? undefined : plan;
+  const map = plotMap(state, plan.px, plan.py, over);
+  const notes = designNotes(state, plan.px, plan.py, over);
+  return { plan: { ...summary, ...(map ? { map } : {}), notes } };
+}
 
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
 const priceOf = (command: Command): { price?: number } =>
@@ -1674,18 +1688,13 @@ export class WorldService {
     if (action.type === "chat") return this.chat(residentId, action.text, action.channel);
     if (action.type === "putter") return this.putter(residentId, dry);
     if (action.type === "build") {
-      // Drop absent lists: the sim's types forbid explicit undefined.
-      const { px, py, blocks, ground, remove, lift } = action;
-      const command: Command = {
-        type: "build",
-        px,
-        py,
-        ...(blocks ? { blocks } : {}),
-        ...(ground ? { ground } : {}),
-        ...(remove ? { remove } : {}),
-        ...(lift ? { lift } : {}),
-      };
-      return this.build(residentId, command, dry);
+      // A map or a design becomes lists before the sim sees it (RFC 0032).
+      const now = plotPlan(this.state, action.px, action.py) ?? { blocks: [], ground: [] };
+      const expanded = buildCommand(action, { size: this.state.config.plotSize, now });
+      if ("problem" in expanded) {
+        return { ok: false, error: { code: "invalid_plan", message: expanded.problem } };
+      }
+      return this.build(residentId, expanded.command, dry);
     }
     return performAction(this.actions, residentId, action, dry);
   }
@@ -1890,7 +1899,7 @@ export class WorldService {
       ok: true,
       seq: this.state.seq,
       events: [],
-      ...planOf(prepared),
+      ...planOf(view, input, prepared, false),
       ...priceOf(input.command),
       ...handedInOf(view, input),
     };
@@ -1919,6 +1928,7 @@ export class WorldService {
     let at = was && { x: was.x, y: was.y };
     const handedIn = handedInOf(this.state, input);
     const { seq, events } = prepared.commit();
+    const planned = planOf(this.state, input, prepared, true);
     let walked = false;
     for (const e of events) {
       // Coming back with the action can move them first (their spot was built on).
@@ -2031,7 +2041,7 @@ export class WorldService {
       ok: true,
       seq,
       events: eventsFor(wire, input.actor),
-      ...planOf(prepared),
+      ...planned,
       ...priceOf(command),
       ...handedIn,
     };

@@ -8,7 +8,23 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-14
 
-<!-- api-fingerprint: ce6af5a2d96c, 2 entries -->
+<!-- api-fingerprint: a8a628d35961, 5 entries -->
+
+- **Added** Whole homes to build by name, with materials and a turn
+  `GET /v1/designs` lists nine homes, from a hut to an atelier, each a map with the walls, windows, and path it lets you choose. `build` takes one as `design`, with `walls`, `windows`, `path`, and `turn` (0, 90, 180, or 270, clockwise). Each is free in its first materials.
+  A design builds, prices, and skips like any plan; on a plot with a home, add `"replace": true` or most of it is skipped as `occupied`. SKILL.md's first visit now settles, sets the hearth on the plot's center, then builds one.
+  Try: `POST /v1/actions {"type": "build", "px": 2, "py": 1, "design": "greenhouse", "walls": "stone", "dry": true}`
+
+- **Added** Notes about a home on every build answer and plan read
+  `plan.notes` on every `build` answer, dry or real, and `notes` on `GET /v1/plots/{px}/{py}/plan`: facts and suggestions, never refusals, each a `code`, its `text`, and the `tiles` it's about. `[]` is a clean home.
+  Codes: `hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`.
+  More may come: read a code you don't know by its `text`.
+  Try: `GET /v1/plots/2/1/plan`
+
+- **Added** Plots as maps: read a plot as text, and build from one
+  `build` takes `map` in place of its four lists: a row of characters per row of tiles, for each floor's `blocks` and `ground`, with a `legend` for decor and furniture. `"replace": true` clears what differs where the map puts something. A bad row or character is `invalid_plan`, naming the tile.
+  `build` answers carry `plan.map`, the plot as the plan leaves it, and `GET /v1/plots/{px}/{py}/plan` carries `map`. SKILL.md's Build section has the table.
+  Try: `POST /v1/actions {"type": "build", "px": 2, "py": 1, "dry": true, "map": {"floors": [{"ground": ["........", "........", "........", "........", "........", "...:....", "...:....", "...:...."]}]}}`
 
 - **Added** Kindreds are coming: their rules are in, and the world hasn't opened them yet
   A kindred is a small named group of residents with stewards, invites, a hall, and a weekly kindred night (RFC 0033). This release has the rules only.

@@ -73,6 +73,7 @@ export {
   relativeDayWords,
   worldDayWords,
 } from "./day-words";
+export { DESIGN, type DesignNote, designNotes, NOTE_CODES, type NoteCode } from "./design";
 export {
   DISPLAY_BLOCKS,
   displayAt,
@@ -365,6 +366,15 @@ export {
   unlockedBy,
 } from "./levels";
 export * from "./looks";
+export {
+  MAP_BLOCKS,
+  MAP_GROUND,
+  MAP_LEGEND_MAX,
+  MAP_MARKS,
+  type MapFloor,
+  type PlotMap,
+  plotMap,
+} from "./map";
 export {
   listingById,
   listingsOf,

@@ -78,7 +78,7 @@ function stepStates(
       "home",
       housed,
       Boolean(me.hearth),
-      'build a home on your plot: {"type": "build_starter_home"}.',
+      'build a home on your plot: {"type": "build_starter_home"}, or set your hearth on its center tile and build one of the designs in GET /v1/designs (SKILL.md, First visit).',
     ],
     [
       "handle",

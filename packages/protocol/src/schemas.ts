@@ -20,6 +20,7 @@ import {
   EXCLUSIVE_WEAR,
   FIND_KINDS,
   FISH_KINDS,
+  FLOORS,
   FREE_BLOCKS,
   FURNITURE_KINDS,
   GAME_KINDS,
@@ -79,6 +80,7 @@ import {
   WEATHERS,
 } from "@terrakin/sim";
 import { z } from "zod";
+import { DESIGN_IDS, DESIGN_TURNS } from "./design-ids";
 
 /** Bump only with an RFC. Old versions keep working until a published sunset date. */
 export const PROTOCOL_VERSION = 1;
@@ -351,6 +353,61 @@ const planCoord = z
   .min(0)
   .max(DEFAULT_CONFIG.plotSize - 1);
 const planTile = z.object({ x: planCoord, y: planCoord, ...toFloor });
+/**
+ * A row of a map (RFC 0032): a character per tile, west to east. Its length is checked against the
+ * plot's size when the map is read, so a refusal can name the row.
+ */
+const mapGrid = z.array(z.string().max(64)).max(64);
+/** Decor and furniture in a map, on the digits 0 to 9. */
+const MapLegend = z
+  .strictObject(
+    Object.fromEntries(
+      ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => [d, BlockKind.optional()]),
+    ) as Record<
+      "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9",
+      z.ZodOptional<typeof BlockKind>
+    >,
+  )
+  .describe(
+    'Decor and furniture in the map, on the digits 0 to 9, like `{"1": "table"}`. The fixed characters can\'t be redefined.',
+  );
+/** A plot drawn as a map, as `build` takes it: a grid of blocks and a grid of ground per floor. */
+export const PlotMapInput = z.object({
+  floors: z
+    .array(z.object({ ...toFloor, blocks: mapGrid.optional(), ground: mapGrid.optional() }))
+    .min(1)
+    .max(FLOORS.max + 1),
+  legend: MapLegend.optional(),
+});
+export type PlotMapInput = z.infer<typeof PlotMapInput>;
+/** A plot drawn as a map, as the server writes it: every floor the plot has. */
+export const PlotMapView = z.object({
+  floors: z.array(
+    z.object({
+      floor: z.number().int().describe("0 for the ground floor, 1 upstairs."),
+      blocks: z.array(z.string()).describe("A row of text per row of tiles, north first."),
+      ground: z.array(z.string()).describe("Paths and flooring, the same way."),
+    }),
+  ),
+  legend: MapLegend.optional(),
+});
+export type PlotMapView = z.infer<typeof PlotMapView>;
+/**
+ * A note about a home (RFC 0032): a fact or a suggestion, never a refusal. `code` is a string, not
+ * a closed list, so a new note isn't a breaking change: read one you don't know by its `text`.
+ */
+export const DesignNoteView = z.object({
+  code: z
+    .string()
+    .describe(
+      "`hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`.",
+    ),
+  text: z.string().describe("The note in our own words. It never quotes a resident."),
+  tiles: z
+    .array(z.object({ x: z.number().int(), y: z.number().int() }))
+    .describe("The tiles it's about, from the plot's north-west corner."),
+});
+export type DesignNoteView = z.infer<typeof DesignNoteView>;
 /** The most entries in each of a plan's lists: a whole plot on every floor a plot may have. */
 const PLAN_MAX = planMax(DEFAULT_CONFIG);
 /**
@@ -373,8 +430,29 @@ export const BuildAction = z.object({
     .optional(),
   remove: z.array(planTile).max(PLAN_MAX).optional(),
   lift: z.array(planTile).max(PLAN_MAX).optional(),
+  map: PlotMapInput.optional().describe(
+    "The plan drawn as a map (RFC 0032), in place of the four lists. Letters place, `x` clears, `.` leaves a tile alone.",
+  ),
+  design: z
+    .enum(DESIGN_IDS)
+    .optional()
+    .describe("A whole home by name, from `GET /v1/designs`, in place of the lists or a map."),
+  walls: BlockKind.optional().describe("A design's walls: one its `options.walls` lists."),
+  windows: BlockKind.optional().describe("A design's windows: one its `options.windows` lists."),
+  path: GroundKind.optional().describe("A design's path: one its `options.path` lists."),
+  turn: z
+    .union(DESIGN_TURNS.map((t) => z.literal(t)))
+    .optional()
+    .describe("Turn a design clockwise: 0, 90, 180, or 270. At 90 a door on the south faces west."),
+  replace: z
+    .boolean()
+    .optional()
+    .describe(
+      "With a map or a design: clear whatever stands where it puts something different, instead of skipping those tiles as `occupied`. The dry run's `removed` and `lifted` say what it takes away.",
+    ),
   ...dry,
 });
+export type BuildAction = z.infer<typeof BuildAction>;
 export const SetHearthAction = z.object({
   type: z.literal("set_hearth"),
   x: coord,
@@ -2448,6 +2526,13 @@ export const BuildPlanSummary = z.object({
       why: z.enum(BUILD_SKIPS),
     }),
   ),
+  map: PlotMapView.optional().describe(
+    "`build`: the plot as the plan leaves it, or on a dry run would leave it (RFC 0032).",
+  ),
+  notes: z
+    .array(DesignNoteView)
+    .optional()
+    .describe("`build`: notes about the plot as the plan leaves it. Empty for a clean home."),
 });
 export type BuildPlanSummary = z.infer<typeof BuildPlanSummary>;
 
@@ -2471,6 +2556,10 @@ export const PlotPlanResponse = z.object({
       z.object({ x: z.number().int(), y: z.number().int(), ...onFloor, ground: GroundKind }),
     ),
     hearths: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+    map: PlotMapView.describe("The plot drawn as a map, every floor (RFC 0032)."),
+    notes: z
+      .array(DesignNoteView)
+      .describe("Notes about the plot as it stands. Empty for a clean home."),
   }),
 });
 export type PlotPlanResponse = z.infer<typeof PlotPlanResponse>;

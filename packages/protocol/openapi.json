@@ -714,7 +714,7 @@
       "get": {
         "operationId": "getPlotPlan",
         "summary": "A plot's blocks and paths as a plan for build, to copy a design onto your own plot.",
-        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every floor is there, with `floor` on the entries above the ground floor, so a copy needs as many floors on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
+        "description": "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every floor is there, with `floor` on the entries above the ground floor, so a copy needs as many floors on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone. `map` is the same plot drawn in characters (RFC 0032), which `build` takes back as `map`, and `notes` are notes about the home as it stands, like a hearth nobody can walk to.",
         "tags": [
           "World"
         ],
@@ -801,6 +801,58 @@
             "x-error-codes": [
               "not_found"
             ]
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
+    "/v1/designs": {
+      "get": {
+        "operationId": "getDesigns",
+        "summary": "Whole homes to build by name, each drawn as a map with materials to choose.",
+        "description": "Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{\"type\": \"build\", \"px\": 2, \"py\": 1, \"design\": \"greenhouse\", \"walls\": \"stone\", \"turn\": 90, \"dry\": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `\"replace\": true`. Every design leaves the plot's middle four tiles open, so the hearth goes at its center whichever way it turns.",
+        "tags": [
+          "World"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesignsResponse"
+                }
+              }
+            }
           },
           "500": {
             "description": "Error: internal",
@@ -26602,6 +26654,150 @@
               ]
             }
           },
+          "map": {
+            "description": "The plan drawn as a map (RFC 0032), in place of the four lists. Letters place, `x` clears, `.` leaves a tile alone.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotMapInput"
+              }
+            ]
+          },
+          "design": {
+            "description": "A whole home by name, from `GET /v1/designs`, in place of the lists or a map.",
+            "type": "string",
+            "enum": [
+              "hut",
+              "greenhouse",
+              "workshop",
+              "cafe",
+              "post_stop",
+              "library",
+              "lookout",
+              "hill_house",
+              "atelier"
+            ]
+          },
+          "walls": {
+            "description": "A design's walls: one its `options.walls` lists.",
+            "type": "string",
+            "enum": [
+              "wood",
+              "stone",
+              "glass",
+              "leaf",
+              "planter",
+              "kitchen",
+              "workbench",
+              "lantern",
+              "frame",
+              "fence",
+              "bench",
+              "pedestal",
+              "hay_bale",
+              "scarecrow",
+              "table",
+              "chair",
+              "bookshelf",
+              "barrel",
+              "signpost",
+              "lamp_post",
+              "well",
+              "stone_wall",
+              "campfire",
+              "flower_box",
+              "jack_o_lantern",
+              "bat_bunting",
+              "cauldron",
+              "candy_bowl",
+              "snowman",
+              "string_lights",
+              "little_fir",
+              "sled",
+              "pond",
+              "stairs"
+            ]
+          },
+          "windows": {
+            "description": "A design's windows: one its `options.windows` lists.",
+            "type": "string",
+            "enum": [
+              "wood",
+              "stone",
+              "glass",
+              "leaf",
+              "planter",
+              "kitchen",
+              "workbench",
+              "lantern",
+              "frame",
+              "fence",
+              "bench",
+              "pedestal",
+              "hay_bale",
+              "scarecrow",
+              "table",
+              "chair",
+              "bookshelf",
+              "barrel",
+              "signpost",
+              "lamp_post",
+              "well",
+              "stone_wall",
+              "campfire",
+              "flower_box",
+              "jack_o_lantern",
+              "bat_bunting",
+              "cauldron",
+              "candy_bowl",
+              "snowman",
+              "string_lights",
+              "little_fir",
+              "sled",
+              "pond",
+              "stairs"
+            ]
+          },
+          "path": {
+            "description": "A design's path: one its `options.path` lists.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GroundKind"
+              }
+            ]
+          },
+          "turn": {
+            "description": "Turn a design clockwise: 0, 90, 180, or 270. At 90 a door on the south faces west.",
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [
+                  0
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  90
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  180
+                ]
+              },
+              {
+                "type": "number",
+                "enum": [
+                  270
+                ]
+              }
+            ]
+          },
+          "replace": {
+            "description": "With a map or a design: clear whatever stands where it puts something different, instead of skipping those tiles as `occupied`. The dry run's `removed` and `lifted` say what it takes away.",
+            "type": "boolean"
+          },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
             "type": "boolean"
@@ -26737,6 +26933,21 @@
                 "what",
                 "why"
               ]
+            }
+          },
+          "map": {
+            "description": "`build`: the plot as the plan leaves it, or on a dry run would leave it (RFC 0032).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotMapView"
+              }
+            ]
+          },
+          "notes": {
+            "description": "`build`: notes about the plot as the plan leaves it. Empty for a clean home.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesignNoteView"
             }
           }
         },
@@ -27472,6 +27683,47 @@
         "required": [
           "type",
           "gift"
+        ]
+      },
+      "DesignNoteView": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "`hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`."
+          },
+          "text": {
+            "type": "string",
+            "description": "The note in our own words. It never quotes a resident."
+          },
+          "tiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            },
+            "description": "The tiles it's about, from the plot's north-west corner."
+          }
+        },
+        "required": [
+          "code",
+          "text",
+          "tiles"
         ]
       },
       "Direction": {
@@ -29361,6 +29613,881 @@
           "seed"
         ]
       },
+      "PlotMapInput": {
+        "type": "object",
+        "properties": {
+          "floors": {
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
+                },
+                "blocks": {
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                },
+                "ground": {
+                  "maxItems": 64,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                }
+              }
+            }
+          },
+          "legend": {
+            "type": "object",
+            "properties": {
+              "0": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "1": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "2": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "3": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "4": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "5": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "6": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "7": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "8": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "9": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "description": "Decor and furniture in the map, on the digits 0 to 9, like `{\"1\": \"table\"}`. The fixed characters can't be redefined."
+          }
+        },
+        "required": [
+          "floors"
+        ]
+      },
+      "PlotMapView": {
+        "type": "object",
+        "properties": {
+          "floors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "floor": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "0 for the ground floor, 1 upstairs."
+                },
+                "blocks": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "A row of text per row of tiles, north first."
+                },
+                "ground": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Paths and flooring, the same way."
+                }
+              },
+              "required": [
+                "floor",
+                "blocks",
+                "ground"
+              ]
+            }
+          },
+          "legend": {
+            "type": "object",
+            "properties": {
+              "0": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "1": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "2": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "3": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "4": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "5": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "6": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "7": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "8": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              },
+              "9": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "description": "Decor and furniture in the map, on the digits 0 to 9, like `{\"1\": \"table\"}`. The fixed characters can't be redefined."
+          }
+        },
+        "required": [
+          "floors"
+        ]
+      },
       "PlotName": {
         "type": "string",
         "minLength": 1,
@@ -29511,6 +30638,21 @@
                     "y"
                   ]
                 }
+              },
+              "map": {
+                "description": "The plot drawn as a map, every floor (RFC 0032).",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PlotMapView"
+                  }
+                ]
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DesignNoteView"
+                },
+                "description": "Notes about the plot as it stands. Empty for a clean home."
               }
             },
             "required": [
@@ -29519,7 +30661,9 @@
               "size",
               "blocks",
               "ground",
-              "hearths"
+              "hearths",
+              "map",
+              "notes"
             ]
           }
         },
@@ -44946,6 +46090,169 @@
         "required": [
           "posts",
           "latest"
+        ]
+      },
+      "DesignView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "hut",
+              "greenhouse",
+              "workshop",
+              "cafe",
+              "post_stop",
+              "library",
+              "lookout",
+              "hill_house",
+              "atelier"
+            ],
+            "description": "Its name for `build`'s `design`."
+          },
+          "name": {
+            "type": "string"
+          },
+          "about": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "walls": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "wood",
+                    "stone",
+                    "glass",
+                    "leaf",
+                    "planter",
+                    "kitchen",
+                    "workbench",
+                    "lantern",
+                    "frame",
+                    "fence",
+                    "bench",
+                    "pedestal",
+                    "hay_bale",
+                    "scarecrow",
+                    "table",
+                    "chair",
+                    "bookshelf",
+                    "barrel",
+                    "signpost",
+                    "lamp_post",
+                    "well",
+                    "stone_wall",
+                    "campfire",
+                    "flower_box",
+                    "jack_o_lantern",
+                    "bat_bunting",
+                    "cauldron",
+                    "candy_bowl",
+                    "snowman",
+                    "string_lights",
+                    "little_fir",
+                    "sled",
+                    "pond",
+                    "stairs"
+                  ]
+                }
+              },
+              "windows": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "wood",
+                    "stone",
+                    "glass",
+                    "leaf",
+                    "planter",
+                    "kitchen",
+                    "workbench",
+                    "lantern",
+                    "frame",
+                    "fence",
+                    "bench",
+                    "pedestal",
+                    "hay_bale",
+                    "scarecrow",
+                    "table",
+                    "chair",
+                    "bookshelf",
+                    "barrel",
+                    "signpost",
+                    "lamp_post",
+                    "well",
+                    "stone_wall",
+                    "campfire",
+                    "flower_box",
+                    "jack_o_lantern",
+                    "bat_bunting",
+                    "cauldron",
+                    "candy_bowl",
+                    "snowman",
+                    "string_lights",
+                    "little_fir",
+                    "sled",
+                    "pond",
+                    "stairs"
+                  ]
+                }
+              },
+              "path": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GroundKind"
+                }
+              }
+            },
+            "required": [
+              "walls",
+              "windows",
+              "path"
+            ],
+            "description": "What `build` takes as `walls`, `windows`, and `path` for it, each first by default."
+          },
+          "floors": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "How many floors above the ground floor it needs: 0 for every design so far."
+          },
+          "map": {
+            "description": "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotMapView"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "about",
+          "options",
+          "floors",
+          "map"
+        ]
+      },
+      "DesignsResponse": {
+        "type": "object",
+        "properties": {
+          "designs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesignView"
+            }
+          }
+        },
+        "required": [
+          "designs"
         ]
       },
       "PageLinks": {

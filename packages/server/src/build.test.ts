@@ -156,6 +156,70 @@ describe("build", () => {
     expect(await t.act(ada, PATH)).toMatchObject({ ok: false, error: { code: "already_set" } });
   });
 
+  it("builds from a map or a design, answering with the plot as a map and notes about it (RFC 0032)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    // Her hut with no path yet: the plan route draws it and says so.
+    const read = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
+    expect(read.map.floors[0].blocks[3]).toBe(".G.h.G..");
+    expect(read.notes.map((n: { code: string }) => n.code)).toEqual(["no_path"]);
+    // A path out of the door drawn as a map, priced dry: the answer draws the plot it would make.
+    const path = [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "...:....",
+      "...:....",
+      "...:....",
+    ];
+    const map = { floors: [{ ground: path }] };
+    const priced = await t.act(ada, { type: "build", px: 0, py: 0, map, dry: true });
+    expect(priced).toMatchObject({ ok: true, dry: true, plan: { laid: 3, notes: [] } });
+    expect(priced.plan.map.floors[0].ground).toEqual(path);
+    expect((await t.call("GET", "/v1/plots/0/0/plan")).body.plan.notes).toHaveLength(1);
+    const built = await t.act(ada, { type: "build", px: 0, py: 0, map });
+    expect(built.plan).toEqual(priced.plan);
+    // A shape the map gets wrong refuses it whole, before the sim sees it.
+    t.advance(BUILD_LIMITS.secondsBetween * 1000);
+    expect(
+      await t.act(ada, {
+        type: "build",
+        px: 0,
+        py: 0,
+        map: { floors: [{ ground: path.slice(1) }] },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_plan",
+        message: "Floor 0's ground has 7 rows. A plot is 8 rows of 8 tiles.",
+      },
+    });
+    // A design by name on a plot with a home: most of it is skipped unless it replaces.
+    const designs = (await t.call("GET", "/v1/designs")).body.designs;
+    expect(designs.map((d: { id: string }) => d.id)).toContain("greenhouse");
+    const over = await t.act(ada, { type: "build", px: 0, py: 0, design: "greenhouse", dry: true });
+    expect(over.plan.skipped.some((s: { why: string }) => s.why === "occupied")).toBe(true);
+    const bob = await t.settler("Bob", 2, 0);
+    // The greenhouse stands on the hut's footprint, so in stone it swaps every wall.
+    const swap = {
+      type: "build",
+      px: 2,
+      py: 0,
+      design: "greenhouse",
+      walls: "stone",
+      replace: true,
+    };
+    const swapped = await t.act(bob, { ...swap, dry: true });
+    expect(swapped).toMatchObject({ ok: true, plan: { removed: 15, uses: [], notes: [] } });
+    expect(swapped.plan.map.floors[0].blocks.join("")).not.toContain("W");
+    // Turned, it clears only where it puts something: the hut's other walls stay, and say so.
+    const turned = await t.act(bob, { ...swap, turn: 90, dry: true });
+    expect(turned.plan.notes.map((n: { code: string }) => n.code)).toContain("hearth_walled_in");
+  });
+
   it("shows what's upstairs with its floor, and nothing about floors in a world without one (RFC 0028)", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);

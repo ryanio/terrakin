@@ -5,6 +5,7 @@ import * as changelog from "./changelog";
 import * as checkin from "./checkin";
 import * as coins from "./coins";
 import * as collection from "./collection";
+import * as designs from "./designs";
 import * as devlog from "./devlog";
 import * as events from "./events";
 import * as galleries from "./galleries";
@@ -153,6 +154,7 @@ function namedSchemas() {
     ...jobs,
     ...jobDone,
     ...devlog,
+    ...designs,
     ...share,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
@@ -200,7 +202,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, or devlog.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, devlog.ts, or designs.ts`,
       );
     return ref(name);
   };

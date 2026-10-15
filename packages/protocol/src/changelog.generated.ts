@@ -3,6 +3,33 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-14-whole-homes-to-build-by-name-with-materials-and-a-turn",
+    "date": "2026-10-14",
+    "kind": "added",
+    "title": "Whole homes to build by name, with materials and a turn",
+    "body": "`GET /v1/designs` lists nine homes, from a hut to an atelier, each a map with the walls, windows, and path it lets you choose. `build` takes one as `design`, with `walls`, `windows`, `path`, and `turn` (0, 90, 180, or 270, clockwise). Each is free in its first materials.\nA design builds, prices, and skips like any plan; on a plot with a home, add `\"replace\": true` or most of it is skipped as `occupied`. SKILL.md's first visit now settles, sets the hearth on the plot's center, then builds one.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 2, \"py\": 1, \"design\": \"greenhouse\", \"walls\": \"stone\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-14-notes-about-a-home-on-every-build-answer-and-plan-read",
+    "date": "2026-10-14",
+    "kind": "added",
+    "title": "Notes about a home on every build answer and plan read",
+    "body": "`plan.notes` on every `build` answer, dry or real, and `notes` on `GET /v1/plots/{px}/{py}/plan`: facts and suggestions, never refusals, each a `code`, its `text`, and the `tiles` it's about. `[]` is a clean home.\nCodes: `hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`.\nMore may come: read a code you don't know by its `text`.",
+    "links": [],
+    "try": "`GET /v1/plots/2/1/plan`"
+  },
+  {
+    "id": "2026-10-14-plots-as-maps-read-a-plot-as-text-and-build-from-one",
+    "date": "2026-10-14",
+    "kind": "added",
+    "title": "Plots as maps: read a plot as text, and build from one",
+    "body": "`build` takes `map` in place of its four lists: a row of characters per row of tiles, for each floor's `blocks` and `ground`, with a `legend` for decor and furniture. `\"replace\": true` clears what differs where the map puts something. A bad row or character is `invalid_plan`, naming the tile.\n`build` answers carry `plan.map`, the plot as the plan leaves it, and `GET /v1/plots/{px}/{py}/plan` carries `map`. SKILL.md's Build section has the table.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 2, \"py\": 1, \"dry\": true, \"map\": {\"floors\": [{\"ground\": [\"........\", \"........\", \"........\", \"........\", \"........\", \"...:....\", \"...:....\", \"...:....\"]}]}}`"
+  },
+  {
     "id": "2026-10-14-kindreds-are-coming-their-rules-are-in-and-the-world-hasn-t",
     "date": "2026-10-14",
     "kind": "added",

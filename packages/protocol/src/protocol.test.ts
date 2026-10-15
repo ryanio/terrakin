@@ -43,6 +43,7 @@ import {
   PROGRESS,
   PUTTER,
   planMax,
+  plotPlan,
   pointsFor,
   prepare,
   RECIPES,
@@ -79,6 +80,7 @@ import { JobDoneView, jobDoneLine } from "./job-done";
 import { JOB_GIVER_NAMES, JOB_WORDS, JobView, jobCount, jobView, jobWords } from "./jobs";
 import { LevelView, levelName } from "./levels";
 import { buildOpenApi } from "./openapi";
+import { buildCommand } from "./plans";
 import {
   compileRoutes,
   errorStatus,
@@ -355,6 +357,13 @@ describe("Action", () => {
         ],
         ground: [{ x: 1, y: 1, floor: 1, ground: "planks" }],
         hearths: [],
+        map: {
+          floors: [
+            { floor: 0, blocks: ["...^"], ground: ["...."] },
+            { floor: 1, blocks: ["...."], ground: [".=.."] },
+          ],
+        },
+        notes: [],
       },
     };
     expect(PlotPlanResponse.parse(plan)).toEqual(plan);
@@ -1341,10 +1350,15 @@ describe("SKILL.md building", () => {
       skill.indexOf("## Building up"),
     );
     const plans = [...section.matchAll(/```json\n(\{"type": "build"[\s\S]*?)\n```/g)].map(
-      ([, json]) => JSON.parse(json as string) as Extract<Command, { type: "build" }>,
+      ([, json]) => {
+        // Through the protocol, as the server reads it: a map becomes the lists the sim takes.
+        const action = Action.parse(JSON.parse(json as string));
+        if (action.type !== "build") throw new Error("not a build");
+        return action;
+      },
     );
     expect(plans.length).toBe(3);
-    for (const plan of plans) {
+    for (const action of plans) {
       const world = createWorld(DEFAULT_CONFIG);
       const act = (actor: string, command: Command) => {
         const result = apply(world, { actor, command });
@@ -1353,10 +1367,10 @@ describe("SKILL.md building", () => {
       act(TOWN_ACTOR, { type: "new_day", day: 20_000 });
       act(TOWN_ACTOR, { type: "open_items" });
       act("muse", { type: "join", name: "Wren", kind: "agent" });
-      act("muse", { type: "settle", px: plan.px, py: plan.py });
+      act("muse", { type: "settle", px: action.px, py: action.py });
       act("muse", { type: "build_starter_home" });
       const S = DEFAULT_CONFIG.plotSize;
-      act("muse", { type: "place", x: plan.px * S + 2, y: plan.py * S + 2, block: "planter" });
+      act("muse", { type: "place", x: action.px * S + 2, y: action.py * S + 2, block: "planter" });
       // Hand her plenty of everything a plan could use.
       const inv = world.items?.inventories.muse;
       if (!inv) throw new Error("the first pantry fills her things");
@@ -1367,6 +1381,10 @@ describe("SKILL.md building", () => {
       const muse = world.residents.muse;
       if (!muse) throw new Error("she joined");
       Object.assign(muse, { x: 0, y: 0 });
+      const now = plotPlan(world, action.px, action.py) ?? { blocks: [], ground: [] };
+      const expanded = buildCommand(action, { size: S, now });
+      if ("problem" in expanded) throw new Error(expanded.problem);
+      const plan = expanded.command;
       const built = apply(world, { actor: "muse", command: plan });
       expect(built, JSON.stringify(plan)).toMatchObject({ ok: true });
       const placed = built.ok ? built.events.filter((e) => e.type === "block_placed").length : 0;
@@ -1411,8 +1429,7 @@ describe("SKILL.md building up (RFC 0028)", () => {
     // Through the protocol, so a plan whose floors the schema dropped would build downstairs.
     const parsed = Action.parse(JSON.parse(json));
     if (parsed.type !== "build") throw new Error("the plan isn't a build");
-    const { dry, ...plan } = parsed;
-    expect(dry).toBe(true);
+    expect(parsed.dry).toBe(true);
     const woodWords = section.match(/A hut with a loft \((\d+) wood/)?.[1];
     act(
       { type: "test_grant", to: "muse", coins: FLOORS.price, stacks: { wood: Number(woodWords) } },
@@ -1425,7 +1442,11 @@ describe("SKILL.md building up (RFC 0028)", () => {
     );
     expect(hashWorld(world)).toBe(before);
     act({ type: "add_floor", px: 2, py: 1 });
-    const priced = prepare(world, { actor: "muse", command: plan as Command });
+    const now = plotPlan(world, 2, 1) ?? { blocks: [], ground: [] };
+    const expanded = buildCommand(parsed, { size: DEFAULT_CONFIG.plotSize, now });
+    if ("problem" in expanded) throw new Error(expanded.problem);
+    const plan = expanded.command;
+    const priced = prepare(world, { actor: "muse", command: plan });
     if (!priced.ok || !priced.plan) throw new Error("the loft's plan was refused");
     expect(buildSummary(priced.plan)).toMatchObject({
       placed: plan.blocks?.length,

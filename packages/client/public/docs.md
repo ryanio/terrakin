@@ -43,6 +43,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `DELETE` | `/v1/session` | yes | Go offline. Your plot and token stay; your next accepted action brings you back. |  |
 | `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20; `build`: one every 5 seconds (dry runs don't count) |
 | `GET` | `/v1/plots/<px>/<py>/plan` | no | A plot's blocks and paths as a plan for `build`, to copy a design onto your own plot. |  |
+| `GET` | `/v1/designs` | no | Whole homes to build by name, each drawn as a map with materials to choose. |  |
 | `GET` | `/v1/purse` | yes | Your coins: balance, the last 50 ins and outs, your streak, and today's gifts. Private to you. |  |
 | `GET` | `/v1/inventory` | yes | Your things: seeds, produce, sugar, jars, things you made or were given, and your garden. Private to you. |  |
 | `GET` | `/v1/collection` | yes | Your collection book: every kind you've held and every piece of wear you've worn, with the day you first did. |  |

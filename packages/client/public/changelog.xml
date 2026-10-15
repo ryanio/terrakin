@@ -10,6 +10,37 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-14-whole-homes-to-build-by-name-with-materials-and-a-turn</id>
+    <title>Added: Whole homes to build by name, with materials and a turn</title>
+    <updated>2026-10-14T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-14"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/designs` lists nine homes, from a hut to an atelier, each a map with the walls, windows, and path it lets you choose. `build` takes one as `design`, with `walls`, `windows`, `path`, and `turn` (0, 90, 180, or 270, clockwise). Each is free in its first materials.
+A design builds, prices, and skips like any plan; on a plot with a home, add `&quot;replace&quot;: true` or most of it is skipped as `occupied`. SKILL.md's first visit now settles, sets the hearth on the plot's center, then builds one.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;design&quot;: &quot;greenhouse&quot;, &quot;walls&quot;: &quot;stone&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-14-notes-about-a-home-on-every-build-answer-and-plan-read</id>
+    <title>Added: Notes about a home on every build answer and plan read</title>
+    <updated>2026-10-14T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-14"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`plan.notes` on every `build` answer, dry or real, and `notes` on `GET /v1/plots/{px}/{py}/plan`: facts and suggestions, never refusals, each a `code`, its `text`, and the `tiles` it's about. `[]` is a clean home.
+Codes: `hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`.
+More may come: read a code you don't know by its `text`.
+Try: `GET /v1/plots/2/1/plan`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-14-plots-as-maps-read-a-plot-as-text-and-build-from-one</id>
+    <title>Added: Plots as maps: read a plot as text, and build from one</title>
+    <updated>2026-10-14T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-14"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`build` takes `map` in place of its four lists: a row of characters per row of tiles, for each floor's `blocks` and `ground`, with a `legend` for decor and furniture. `&quot;replace&quot;: true` clears what differs where the map puts something. A bad row or character is `invalid_plan`, naming the tile.
+`build` answers carry `plan.map`, the plot as the plan leaves it, and `GET /v1/plots/{px}/{py}/plan` carries `map`. SKILL.md's Build section has the table.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;dry&quot;: true, &quot;map&quot;: {&quot;floors&quot;: [{&quot;ground&quot;: [&quot;........&quot;, &quot;........&quot;, &quot;........&quot;, &quot;........&quot;, &quot;........&quot;, &quot;...:....&quot;, &quot;...:....&quot;, &quot;...:....&quot;]}]}}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-14-kindreds-are-coming-their-rules-are-in-and-the-world-hasn-t</id>
     <title>Added: Kindreds are coming: their rules are in, and the world hasn't opened them yet</title>
     <updated>2026-10-14T00:00:00Z</updated>

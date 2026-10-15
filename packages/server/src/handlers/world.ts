@@ -1,12 +1,15 @@
-import { type AreaRouteIds, PROTOCOL_VERSION } from "@terrakin/protocol";
-import { plotPlan } from "@terrakin/sim";
+import { type AreaRouteIds, designViews, PROTOCOL_VERSION } from "@terrakin/protocol";
+import { designNotes, plotMap, plotPlan } from "@terrakin/sim";
 import type { Api } from "../api";
 import { fail, type Handlers } from "./shared";
 
 /**
- * The handlers for the world: health, the snapshot, sessions, actions, and plot plans. Their routes
+ * The handlers for the world: health, the snapshot, sessions, actions, plot plans, and designs. Their routes
  * are in the protocol's `route-table/world.ts`.
  */
+/** The designs never change while the server runs. */
+const DESIGNS = designViews();
+
 export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
   const { service } = api;
   return {
@@ -45,9 +48,13 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
       return { status: 200, body: service.act(viewer, body) };
     },
     getPlotPlan: ({ params }) => {
-      const plan = plotPlan(service.state, params.px, params.py);
-      if (!plan) return fail("not_found", "There's no plot there: it's outside the world.");
-      return { status: 200, body: { plan } };
+      const { state } = service;
+      const plan = plotPlan(state, params.px, params.py);
+      const map = plotMap(state, params.px, params.py);
+      if (!plan || !map) return fail("not_found", "There's no plot there: it's outside the world.");
+      const notes = designNotes(state, params.px, params.py);
+      return { status: 200, body: { plan: { ...plan, map, notes } } };
     },
+    getDesigns: () => ({ status: 200, body: DESIGNS }),
   };
 }

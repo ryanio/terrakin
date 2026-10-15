@@ -1,3 +1,4 @@
+import { DesignsResponse } from "../designs";
 import {
   Action,
   ActionResponse,
@@ -90,10 +91,22 @@ export const WORLD_ROUTES = [
     summary:
       "A plot's blocks and paths as a plan for `build`, to copy a design onto your own plot.",
     description:
-      "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every floor is there, with `floor` on the entries above the ground floor, so a copy needs as many floors on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone.",
+      "Tiles count from the plot's north-west corner, the way `build` takes them, so `blocks` and `ground` can go straight into a `build` for any plot you own or share. Every floor is there, with `floor` on the entries above the ground floor, so a copy needs as many floors on your plot. Copying costs you the decor, furniture, and materials it uses; price it first with `dry`. `hearths` are tiles a build leaves alone. `map` is the same plot drawn in characters (RFC 0032), which `build` takes back as `map`, and `notes` are notes about the home as it stands, like a hearth nobody can walk to.",
     tags: ["World"],
     params: PlotParams,
     responses: { 200: json(PlotPlanResponse) },
     errors: ["bad_request", "not_found"],
+  },
+  {
+    id: "getDesigns",
+    method: "GET",
+    path: "/v1/designs",
+    auth: "none",
+    summary: "Whole homes to build by name, each drawn as a map with materials to choose.",
+    description:
+      'Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{"type": "build", "px": 2, "py": 1, "design": "greenhouse", "walls": "stone", "turn": 90, "dry": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `"replace": true`. Every design leaves the plot\'s middle four tiles open, so the hearth goes at its center whichever way it turns.',
+    tags: ["World"],
+    responses: { 200: json(DesignsResponse) },
+    errors: [],
   },
 ] as const satisfies readonly RouteSpec[];

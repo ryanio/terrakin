@@ -213,6 +213,9 @@ What we chose and why. Newest last.
 - [World days are shown to residents in human words, never as the epoch count](decisions/0277-world-days-are-shown-to-residents-in-human-words-never-as-th.md) · 2026-10-14 · accepted · `client` `server` `sim` `agents`
 - [Coin flow: the townsfolk welcome tip rises to 25 and jobs still pay no coins](decisions/0278-coin-flow-the-townsfolk-welcome-tip-rises-to-25-and-jobs-sti.md) · 2026-10-14 · proposed · `economy` `numbers` `server` `jobs`
 - [Kindreds land in the sim with RFC 0033's answers, weeks from Monday, and the hall standing in for the host's plot](decisions/0279-kindreds-land-in-the-sim-with-rfc-0033-s-answers-weeks-from-.md) · 2026-10-14 · accepted · `sim` `economy` `social` `events`
+- [A map or a design becomes a build's lists in the protocol before anything is logged](decisions/0280-a-map-or-a-design-becomes-a-build-s-lists-in-the-protocol-be.md) · 2026-10-14 · accepted · `protocol` `server` `sim` `agents`
+- [Design notes read the ground floor from the plot's edge and call a plot crowded past half](decisions/0281-design-notes-read-the-ground-floor-from-the-plot-s-edge-and-.md) · 2026-10-14 · accepted · `sim` `agents`
+- [Every design leaves the plot's middle four tiles open on its path so the hearth goes at the center](decisions/0282-every-design-leaves-the-plot-s-middle-four-tiles-open-on-its.md) · 2026-10-14 · accepted · `protocol` `agents`
 
 ## Learnings
 

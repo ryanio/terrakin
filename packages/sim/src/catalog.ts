@@ -929,6 +929,24 @@ const WRITTEN = {
     holiday: "hanukkah",
     look: { template: "drawn" },
   }),
+  // Midwinter's stocking, and New Year's fireworks, set off on December 31 and January 1 (RFC
+  // 0034). Decision 0291 has the numbers.
+  stocking: entry({
+    name: "Stocking",
+    plural: "Stockings",
+    family: "decor",
+    role: "decor",
+    shop: { price: 6, holiday: "midwinter" },
+    look: { template: "drawn" },
+  }),
+  firework: entry({
+    name: "Firework",
+    plural: "Fireworks",
+    family: "tool",
+    role: "staple",
+    shop: { price: 2, holiday: "new_year" },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------

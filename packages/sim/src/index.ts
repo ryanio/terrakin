@@ -65,6 +65,7 @@ export {
   SWEET_RECIPES,
   type SweetKind,
 } from "./catalog";
+export { openDayOf, PRESENTS, presentsFor, wrapDay } from "./christmas";
 export { DAY_MS, HOUR_MS, MINUTE_MS, utcDay } from "./clock";
 export {
   dayDateWords,
@@ -404,6 +405,7 @@ export {
   takenDownOf,
 } from "./market";
 export { mergedInto } from "./merge";
+export { FIREWORKS, fireworkNight } from "./newyear";
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export {

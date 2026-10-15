@@ -37,6 +37,7 @@ import {
   mix,
   PatternCache,
   RESIDENT_COLOR_HEX,
+  WINTER_HEX,
 } from "./looks";
 
 /** A color and pattern per garment, as the sim keeps them or as the wire carries them. */
@@ -169,6 +170,7 @@ export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   pumpkin_head: () => HALLOWEEN_HEX.pumpkin,
   ghost_sheet: () => HALLOWEEN_HEX.sheet,
   bat_wings: () => HALLOWEEN_HEX.bat,
+  santa_hat: () => WINTER_HEX.santa,
   sun_hat: () => EARNED_HEX.sunHat,
   tool_belt: () => EARNED_HEX.belt,
   field_vest: () => EARNED_HEX.vest,
@@ -923,6 +925,46 @@ function drawHat(
   else if (wear.has("witch_hat")) drawWitchHat(ctx, u, side, back, garb("witch_hat"));
   else if (wear.has("cat_ears")) drawCatEars(ctx, u, side, back, garb("cat_ears"));
   else if (wear.has("sun_hat")) drawSunHat(ctx, u, side, garb("sun_hat"));
+  else if (wear.has("santa_hat")) drawSantaHat(ctx, u, side, back, garb("santa_hat"));
+}
+
+/** A Santa hat's cone: up from the cuff and flopping to one side, toward `lean`. */
+function santaPath(ctx: CanvasRenderingContext2D, u: number, lean: number) {
+  ctx.beginPath();
+  ctx.moveTo(-0.22 * u, HEAD_Y * u - 0.04 * u);
+  ctx.quadraticCurveTo(-0.12 * u, HAT_TOP * u - 0.16 * u, 0.05 * lean * u, HAT_TOP * u - 0.18 * u);
+  ctx.quadraticCurveTo(
+    0.24 * lean * u,
+    HAT_TOP * u - 0.12 * u,
+    0.3 * lean * u,
+    HAT_TOP * u + 0.06 * u,
+  );
+  ctx.quadraticCurveTo(0.18 * u, HAT_TOP * u - 0.02 * u, 0.22 * u, HEAD_Y * u - 0.04 * u);
+  ctx.closePath();
+}
+
+/** A red Santa hat flopping to one side, with a white cuff and a white bobble at its tip. */
+function drawSantaHat(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const lean = side ? -side : back ? -1 : 1;
+  const felt = g.color(WINTER_HEX.santa);
+  paintCloth(ctx, u, () => santaPath(ctx, u, lean), felt, g.fill());
+  ctx.strokeStyle = g.trim(mix(WINTER_HEX.santa, INK, 0.4));
+  ctx.lineWidth = Math.max(0.8, 0.015 * u);
+  santaPath(ctx, u, lean);
+  ctx.stroke();
+  ctx.fillStyle = WINTER_HEX.santaTrim;
+  ctx.beginPath();
+  ctx.roundRect(-0.24 * u, HEAD_Y * u - 0.08 * u, 0.48 * u, 0.08 * u, 0.04 * u);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0.3 * lean * u, HAT_TOP * u + 0.08 * u, 0.055 * u, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 const HAT_TOP = HEAD_Y - HEAD_R;
@@ -1679,6 +1721,7 @@ const HAT_COVER: Partial<Record<WearItem, { line: number; half: number }>> = {
   beanie: { line: -0.7, half: 0.235 },
   top_hat: { line: -0.82, half: 0.27 },
   witch_hat: { line: -0.78, half: 0.34 },
+  santa_hat: { line: -0.7, half: 0.24 },
   sun_hat: { line: -0.77, half: 0.4 },
 };
 

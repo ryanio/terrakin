@@ -116,6 +116,10 @@ export function everyGood(state: WorldState): { good: Good; holder: ResidentId }
   for (const l of Object.values(state.market?.listings ?? {})) {
     for (const good of l.goods ?? []) out.push({ good, holder: l.seller });
   }
+  // A wrapped present's made thing (RFC 0034) is still its giver's until it's opened.
+  for (const p of Object.values(items.presents ?? {})) {
+    for (const good of p.goods ?? []) out.push({ good, holder: p.from });
+  }
   return out;
 }
 

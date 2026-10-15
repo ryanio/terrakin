@@ -95,12 +95,14 @@ describe("Hanukkah", () => {
       shop.items.filter((i: Json) => i.holiday === "hanukkah").map((i: Json) => i.sku),
     ).toEqual(["menorah", "dreidel", "gelt"]);
     const together = await start(Date.UTC(2027, 11, 27, 12));
+    // New Year's runs from December 26 too, so all three are on.
     expect((await together.call("GET", "/v1/world")).body.holidays).toEqual([
       "midwinter",
       "hanukkah",
+      "new_year",
     ]);
     const both = (await together.call("GET", "/v1/shop")).body.shop.holidays;
-    expect(both.map((h: Json) => h.id)).toEqual(["midwinter", "hanukkah"]);
+    expect(both.map((h: Json) => h.id)).toEqual(["midwinter", "hanukkah", "new_year"]);
   });
 
   it("suggests a menorah to a resident with a home until there's one in their things", async () => {

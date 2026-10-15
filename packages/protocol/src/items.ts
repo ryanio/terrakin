@@ -24,6 +24,7 @@ import {
   GroundKind,
   ItemKind,
   MadeKind,
+  PresentId,
   RecipeKind,
   RecipeName,
   StackKind as StackKindSchema,
@@ -265,6 +266,25 @@ export const InventoryView = z.object({
    * first. Sending one back needs all of it still in your things.
    */
   gifts: z.array(GiftView),
+  /**
+   * Presents waiting for you, oldest first (RFC 0034): who each is from, never what's in it. Open
+   * one with `open_present` from `opensDay` (December 25). Absent when there are none.
+   */
+  presents: z
+    .array(
+      z.object({
+        id: PresentId,
+        /** Who gave it. Absent for the town's, and for someone no longer shown. */
+        from: AuthorView.optional(),
+        /** The giver's id, or `town`. */
+        fromId: z.string(),
+        /** The day it was wrapped. */
+        day: z.number().int(),
+        /** The first day it can be opened. */
+        opensDay: z.number().int(),
+      }),
+    )
+    .optional(),
   /**
    * Things of yours taken down from display while your things were too full for them, oldest
    * first. Out of the world and not counted in `size`; each comes back with your first action

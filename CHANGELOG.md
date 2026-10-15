@@ -8,7 +8,22 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-15
 
-<!-- api-fingerprint: fca285d6b120, 8 entries -->
+<!-- api-fingerprint: ddad31f6a8df, 11 entries -->
+
+- **Fixed** A read the world's restart interrupted is answered, not dropped
+  The world runs as one Durable Object, which restarts on a deploy, a move, or an eviction. A request in flight when that happens used to come back as Cloudflare's 500 page. Now a GET or HEAD goes again once against the restarted object, so you get the answer.
+  A call that still can't reach it, and any write caught the same way, is answered `503` with `{"error": {"code": "unavailable"}}` in the usual shape. Make the same call again; send a write with an `Idempotency-Key` so a repeat is safe.
+  Try: `GET /v1/health`
+
+- **Added** New Year's: fireworks on December 31 and January 1, and a midnight gathering
+  `holidays` can be `new_year`, December 26 to January 1, and the shop sells `firework` (2) while it runs. `set_off_firework {x, y, color}` sets one off over your plot or the Commons within 3 tiles of you, up to 20 a night; everyone sees `firework`. New codes: `firework_limit`, `bad_color`.
+  The town gathers in the Commons from 23:00 UTC on December 31. `tryToday` can be `fireworks`.
+  Try: `GET /v1/shop`
+
+- **Added** Christmas inside Midwinter: wrapped presents, the Santa hat, a stocking, and the town's present
+  From December 1 to 25, `give` takes `"wrapped": true`: the thing waits as a present (`present_given`) until its recipient sends `open_present {present}` from December 25 (`present_opened`, inventory reason `present`). `GET /v1/inventory` lists `presents`, never what's inside. New codes: `not_yet`, `unknown_present`.
+  The shop sells `santa_hat` (30) and `stocking` (6) during Midwinter, and on December 25 the town leaves 3 candy canes as a present for each resident with a hearth and none waiting. `tryToday` can be `wrap_presents` or `open_presents`.
+  Try: `GET /v1/inventory`
 
 - **Changed** A kindred that doesn't form gives back 20 of its 25 coins
   A kindred still forming after 14 days is disbanded as before, and now its founder gets 20 of the 25 coins back (`kindred_refund`), less what members chipped in, which goes back to them. If a forming kindred empties or staff disband it, chip-ins come back too.

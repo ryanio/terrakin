@@ -102,6 +102,16 @@ export const WINTER_HEX = {
   mug: "#f3ead9",
   caneRed: "#d63a3a",
   caneGreen: "#4f9a5a",
+  /** The Santa hat's red, and its white cuff and bobble (RFC 0034). */
+  santa: "#c8344a",
+  santaTrim: "#fbf6ec",
+  /** A stocking's red felt and its white cuff. */
+  stocking: "#c8344a",
+  stockingCuff: "#fbf6ec",
+  /** A firework's rocket, its paper and its stick, and its spark. */
+  rocket: "#c8344a",
+  rocketStick: "#9a6b43",
+  spark: "#f5c451",
 } as const;
 
 /**

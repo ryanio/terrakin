@@ -1903,6 +1903,42 @@ function sufganiyah(): ArtShape[] {
 
 // ---------- winter (RFC 0017) and Midwinter (RFC 0022) ----------
 
+/** A red Santa hat, its tip flopped over with a white bobble, on a white cuff (RFC 0034). */
+function santaHat(): ArtShape[] {
+  const W = WINTER_HEX;
+  return [
+    shadow(15, 42),
+    path("M11 33c2-10 7-19 15-21 6-1 10 3 11 9-2-2-5-2-6 1-1 4 1 8 3 11z", W.santa, out()),
+    rect(8.5, 31, 31, 8, 4, W.santaTrim, out()),
+    circle(34.5, 22, 4.2, W.santaTrim, out()),
+    line("M16 27c2-6 5-10 9-12", "#ffffff", 1.2, { opacity: 0.25 }),
+  ];
+}
+
+/** A red felt stocking with a white cuff, hung from a little hook (RFC 0034). */
+function stocking(): ArtShape[] {
+  const W = WINTER_HEX;
+  return [
+    shadow(12, 43),
+    path("M17 13h13v15c0 4 2 6 5 7 3 1 3 6-1 6h-9c-5 0-8-3-8-8z", W.stocking, out()),
+    rect(15.5, 9, 16, 7, 3, W.stockingCuff, out()),
+    line("M23.5 9V5", WOOD_DARK, 1.6),
+  ];
+}
+
+/** A paper rocket on its stick, a spark at its fuse (RFC 0034). */
+function firework(): ArtShape[] {
+  const W = WINTER_HEX;
+  return [
+    shadow(9, 43),
+    line("M24 24v18", W.rocketStick, 1.8),
+    path("M20 26V13l4-6 4 6v13z", W.rocket, out()),
+    line("M20 18h8", "#ffffff", 1.4, { opacity: 0.8 }),
+    circle(24, 27.5, 1.6, W.spark),
+    path("M24 30l-1.5 3M24 30l1.5 3M24 30v3.5", W.spark, { stroke: W.spark, "stroke-width": 1 }),
+  ];
+}
+
 const W = WINTER_HEX;
 
 /** Hot cranberry punch in a cream mug, steaming, with cranberries and a slice of lemon. */
@@ -2343,6 +2379,8 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   dreidel,
   gelt,
   sufganiyah,
+  stocking,
+  firework,
 };
 
 /** Every piece of wear's drawing. */
@@ -2372,6 +2410,7 @@ const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
   boots,
   sneakers,
   witch_hat: witchHat,
+  santa_hat: santaHat,
   cat_ears: catEars,
   pumpkin_head: pumpkinHead,
   ghost_sheet: ghostSheet,

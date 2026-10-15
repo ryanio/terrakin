@@ -132,8 +132,11 @@ describe("winter's numbers", () => {
       cranberry_jam: { price: 5, perDay: 1 },
       cranberry_punch: { price: 5, perDay: 1 },
     });
+    // Christmas's stocking and Santa hat joined Midwinter's stock later (RFC 0034, decision 0291).
     expect(Object.fromEntries(HOLIDAY_STOCK.midwinter.map((s) => [s, SHOP_CATALOG[s]]))).toEqual({
       candy_cane: { price: 2, section: "pantry" },
+      stocking: { price: 6, section: "decor" },
+      santa_hat: { price: 30, section: "wear" },
     });
   });
 
@@ -272,14 +275,16 @@ describe("Midwinter", () => {
     }
   });
 
-  it("sells candy canes from its first day to its last, and refuses them the day before and after", () => {
+  it("sells its stock from its first day to its last, and refuses it the day before and after", () => {
     for (const sku of HOLIDAY_STOCK.midwinter) {
       expect(stockHoliday(sku)).toBe("midwinter");
+      // Wear is one of a kind, bought without a count.
+      const count = SHOP_CATALOG[sku].section === "wear" ? 1 : 3;
       for (const day of [MIDWINTER.first, MIDWINTER.last]) {
         const state = shopOn(day);
         const before = coins(state);
-        ok(state, "ada", { type: "shop_buy", sku, count: 3 });
-        expect(coins(state)).toBe(before - 3 * SHOP_CATALOG[sku].price);
+        ok(state, "ada", { type: "shop_buy", sku, ...(count > 1 ? { count } : {}) });
+        expect(coins(state)).toBe(before - count * SHOP_CATALOG[sku].price);
       }
       for (const day of [MIDWINTER.first - 1, MIDWINTER.last + 1, dayOfDate(2027, 6, 1)]) {
         const state = shopOn(day);

@@ -19,10 +19,13 @@ import {
   climbsAt,
   type Direction,
   directionOf,
+  FIREWORK_COLORS,
   FLOORS,
+  fireworkNight,
   floorField,
   type GroundKind,
   ITEM_INFO,
+  isCommons,
   isGroundKind,
   isHeldBlock,
   pageKnown,
@@ -82,7 +85,16 @@ import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
 import { coins } from "./purse";
-import { blockColor, CAST_MS, type CastMark, HEARTH_COLOR, render } from "./render";
+import {
+  BURST_MS,
+  BURSTS_MAX,
+  type BurstMark,
+  blockColor,
+  CAST_MS,
+  type CastMark,
+  HEARTH_COLOR,
+  render,
+} from "./render";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
@@ -159,6 +171,7 @@ const petButton = $<HTMLButtonElement>("world-pet");
 const gatherButton = $<HTMLButtonElement>("world-gather");
 /** Shown while you stand beside water (RFC 0023): cast a line. */
 const fishButton = $<HTMLButtonElement>("world-fish");
+const fireworkButton = $<HTMLButtonElement>("world-firework");
 const claimButton = $<HTMLButtonElement>("claim");
 /** Takes Claim plot's place once you own all the plots you may: your things are a tap away. */
 const thingsLink = $<HTMLAnchorElement>("hud-things");
@@ -235,6 +248,8 @@ let rods: ReadonlySet<string> = new Set();
 let knownRecipes: ReadonlySet<string> = new Set();
 /** Casts made lately, anyone's, drawn on the water for a moment. */
 let casts: CastMark[] = [];
+/** Fireworks set off lately (RFC 0034), anyone's, bursting on the map for a moment. */
+let bursts: BurstMark[] = [];
 /** The chat line waiting for the server's answer: its text leaves the input only once accepted. */
 let pendingChat: { id: string; text: string } | undefined;
 /** Routine waves from neighbors at home, folded into one line while they come close together. */
@@ -601,6 +616,10 @@ function onMessage(msg: ServerMessage) {
       if (applied === "applied" && msg.event.type === "fished") {
         const { x, y, caught } = msg.event;
         casts = [...casts, { x, y, caught, at: performance.now() }];
+      }
+      if (applied === "applied" && msg.event.type === "firework") {
+        const { x, y, color } = msg.event;
+        bursts = [...bursts, { x, y, color, at: performance.now() }].slice(-BURSTS_MAX);
       }
       if (applied === "applied") levels.heard(msg.seq, msg.event, me, performance.now());
       // After the coins and things a deed brought, so a job it moved joins their line.
@@ -1982,6 +2001,7 @@ function frame() {
       // Plots' names keep clear of the top bar and the visit card (decision 0121).
       labelTop: Math.max(TOP_BAR_PX, visiting.bottom(), look.bottom()),
       casts,
+      bursts,
       hover,
       notes: jobs.givers(),
       // While building, the map is cut away at the floor the picker shows (RFC 0028).
@@ -1991,6 +2011,9 @@ function frame() {
   }
   paintClimb(now);
   levels.paint(headSpot(now), now);
+  if (bursts.length > 0 && now - (bursts[0]?.at ?? now) > BURST_MS) {
+    bursts = bursts.filter((b) => now - b.at <= BURST_MS);
+  }
   if (casts.length > 0 && now - (casts[0]?.at ?? now) > CAST_MS) {
     casts = casts.filter((c) => now - c.at <= CAST_MS);
   }
@@ -1999,6 +2022,7 @@ function frame() {
     paintPetButton(now);
     paintGatherButton();
     paintFishButton();
+    paintFireworkButton();
     paintClaim();
     paintSettled();
     paintEnterButton();
@@ -2104,6 +2128,32 @@ function castLine() {
 }
 
 fishButton.addEventListener("click", () => castLine());
+
+/**
+ * Show "Set off a firework" on a fireworks night (RFC 0034, the sim's `fireworkNight`) while you
+ * stand on ground a firework may go up over: a plot you can build on, or the Commons. The world
+ * says whether you hold one.
+ */
+function paintFireworkButton() {
+  const r = self();
+  const m = mirror;
+  const here =
+    !!r &&
+    !!m &&
+    (buildablePlot() !== undefined ||
+      isCommons(m.config, plotOf(m.config, r.x, r.y).px, plotOf(m.config, r.x, r.y).py));
+  fireworkButton.hidden = buildMode || !here || !fireworkNight(m?.day);
+}
+
+/** Each tap a firework of the next color, over where you stand. */
+let fireworkTaps = 0;
+fireworkButton.addEventListener("click", () => {
+  const r = self();
+  if (!r) return;
+  const color = FIREWORK_COLORS[fireworkTaps % FIREWORK_COLORS.length] ?? "gold";
+  fireworkTaps += 1;
+  tryAct({ type: "set_off_firework", x: r.x, y: r.y, color });
+});
 
 /** The Town Hall or the shop, when one is right beside where you stand: where its button goes. */
 function placeNear(): "/town" | "/shop" | undefined {
@@ -2228,9 +2278,11 @@ export function stopWorld() {
   jobs.reset();
   gathering?.done();
   fishButton.hidden = true;
+  fireworkButton.hidden = true;
   enterButton.hidden = true;
   rods = new Set();
   knownRecipes = new Set();
   casts = [];
+  bursts = [];
   landing.setJoining(false);
 }

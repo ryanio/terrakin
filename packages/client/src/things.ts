@@ -309,6 +309,12 @@ export function inventoryLine(e: InventoryEvent): string | null {
       const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
       return `A gift arrived: ${what}.`;
     }
+    case "present": {
+      // A present opened (RFC 0034), by hand or at the new year: only now is what's in it named.
+      const goods = e.gained ?? [];
+      const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
+      return `You opened a present: ${what}.`;
+    }
     case "gift_out":
       return "Your gift is on its way.";
     case "merged":

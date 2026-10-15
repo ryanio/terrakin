@@ -78,6 +78,48 @@ function familyGroup(
   );
 }
 
+type PresentView = NonNullable<NonNullable<InventoryResponse["inventory"]>["presents"]>[number];
+
+/**
+ * A present waiting for you (RFC 0034): who it's from, never what's in it, and Open from the day it
+ * opens. The world checks the day and the room.
+ */
+function presentItem(p: PresentView, today: number, opened: () => void): HTMLLIElement {
+  const ready = today >= p.opensDay;
+  const open = h("button", {
+    class: ready ? "btn-primary small" : "pill-button small",
+    attrs: { type: "button", ...(ready ? {} : { disabled: true }) },
+    text: ready ? "Open" : "Opens Dec 25",
+  });
+  open.addEventListener("click", () =>
+    whileBusy(open, async () => {
+      const res = await worldApi.act({ type: "open_present", present: p.id });
+      const problem = actProblem(res);
+      if (problem) return toast(problem);
+      opened();
+    }),
+  );
+  return itemRow({
+    className: "things-present",
+    attrs: { "data-present": p.id },
+    lead: itemArt("stocking", { size: 32 }),
+    name: "A present",
+    lines: [
+      h(
+        "span",
+        { class: "things-good-maker" },
+        h("span", { text: "From " }),
+        p.fromId === "town"
+          ? h("span", { text: "the town" })
+          : p.from
+            ? personLink(p.from)
+            : h("span", { text: "a former resident" }),
+      ),
+    ],
+    trail: open,
+  });
+}
+
 /**
  * A gift you can still send back, with a Send back button that asks once more before it goes.
  * The giver's name is a link; nothing they wrote shows here. A piece shows its own picture, found
@@ -307,6 +349,30 @@ export function inventoryView(ctx: ViewContext): View {
         }),
         pantryDue ? comeHomeButton("Come home for the pantry", () => void loader.refresh()) : null,
       ),
+      ...(inv.presents?.length
+        ? [
+            h(
+              "section",
+              {
+                class: "stack things-section",
+                attrs: { "aria-labelledby": "things-presents-title" },
+              },
+              h("h2", {
+                class: "section-title",
+                attrs: { id: "things-presents-title" },
+                text: "Presents",
+              }),
+              itemRows(
+                inv.presents.map((p) => presentItem(p, inv.day, () => void loader.refresh())),
+                { className: "things-presents" },
+              ),
+              h("p", {
+                class: "hint",
+                text: "Presents open from December 25. Any still wrapped on January 1 open themselves.",
+              }),
+            ),
+          ]
+        : []),
       ...(inv.gifts.length > 0
         ? [
             h(

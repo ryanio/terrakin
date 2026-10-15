@@ -13,7 +13,7 @@
 import { dateOfDay, dayOfDate } from "./season";
 
 /** Every holiday. New ones go on the end. */
-export const HOLIDAYS = ["halloween", "midwinter", "thanksgiving", "hanukkah"] as const;
+export const HOLIDAYS = ["halloween", "midwinter", "thanksgiving", "hanukkah", "new_year"] as const;
 export type Holiday = (typeof HOLIDAYS)[number];
 
 /** A day of the year: `month` is 1 to 12 and `date` is 1 to 31. */
@@ -89,6 +89,12 @@ export const HOLIDAY_INFO: Readonly<Record<Holiday, HolidayInfo>> = {
       },
       length: 8,
     },
+  },
+  // The week to get ready, New Year's Eve, and New Year's Day, beside the end of Midwinter and
+  // into the next year (RFC 0034).
+  new_year: {
+    name: "New Year's",
+    span: { fixed: { first: { month: 12, date: 26 }, last: { month: 1, date: 1 } } },
   },
 };
 

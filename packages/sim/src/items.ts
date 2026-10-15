@@ -28,6 +28,7 @@ import {
   type SweetKind,
 } from "./catalog";
 import { isWhole, oneTimeSwitch, refuse } from "./check";
+import { addPresent, wrapDay } from "./christmas";
 import { dayDateWords, relativeDayWords } from "./day-words";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
 import { FLOORS } from "./floors";
@@ -646,6 +647,16 @@ export function checkGiveItem(
     return refuse("unknown_resident", "Nobody in the world has that id.");
   }
   if (to === actor) return refuse("invalid_gift", "You can't give things to yourself.");
+  const wrapped = command.wrapped === true;
+  if (wrapped && !wrapDay(state.day as number)) {
+    return refuse(
+      "out_of_holiday",
+      "Presents are wrapped from December 1 to 25, and opened from December 25 (UTC).",
+    );
+  }
+  if (wrapped && note !== undefined) {
+    return refuse("invalid_gift", "A present carries no note. Send a letter with it instead.");
+  }
   const inv = items.inventories[actor];
   let kind: ItemKind;
   let goods: Good[] = [];
@@ -696,6 +707,24 @@ export function checkGiveItem(
     if (!paired) {
       items.today.given[actor] = given + count;
       items.today.received[to] = received + count;
+    }
+    if (wrapped) {
+      // A present (RFC 0034): out of the giver's things, and held until its recipient opens it.
+      const mine = inventory(items, actor);
+      const changes = isStackKind(kind) ? [addStack(mine, kind, -count)] : [];
+      if (!isStackKind(kind)) mine.goods = mine.goods.filter((g) => !ids.includes(g.id));
+      const present = addPresent(items, {
+        from: actor,
+        to,
+        kind,
+        count,
+        ...(goods.length > 0 ? { goods: goods.map((g) => ({ ...g })) } : {}),
+        day,
+      });
+      return [
+        inventoryEvent(actor, "gift_out", changes, { lost: ids, with: to }),
+        { type: "present_given", from: actor, to, present },
+      ];
     }
     // Once gifts can be sent back, each one is kept for a few days under its own id.
     let gift: { gift?: string } = {};

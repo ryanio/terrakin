@@ -93,6 +93,7 @@ export const BLOCK_KINDS = [
   "leaf_garland",
   "menorah",
   "dreidel",
+  "stocking",
 ] as const;
 
 /**
@@ -1145,6 +1146,29 @@ export interface ItemsToday {
   teaching?: Record<ResidentId, number>;
   /** Recipes each resident was taught today (RFC 0024). Absent until the day's first lesson. */
   taught?: Record<ResidentId, number>;
+  /** Fireworks each resident set off today (RFC 0034). Absent until the day's first. */
+  fireworks?: Record<ResidentId, number>;
+}
+
+/** A firework's color (RFC 0034). */
+export const FIREWORK_COLORS = ["gold", "red", "green", "blue", "violet", "white"] as const;
+export type FireworkColor = (typeof FIREWORK_COLORS)[number];
+
+/**
+ * A present waiting to be opened (RFC 0034): what's in it, held out of its recipient's things
+ * until they open it, from December 25. `from` is TOWN_ACTOR for the town's.
+ */
+export interface Present {
+  /** `present_1`, `present_2`, ... from `items.nextPresent`. */
+  id: string;
+  from: ResidentId;
+  to: ResidentId;
+  kind: ItemKind;
+  count: number;
+  /** The made things in it, whole. Absent for things that stack. */
+  goods?: Good[];
+  /** The day it was wrapped. */
+  day: number;
 }
 
 /**
@@ -1180,6 +1204,12 @@ export interface ItemsState {
    * hash as they always have.
    */
   gifts?: Record<string, GiftRecord>;
+  /** Presents waiting to be opened, by id (RFC 0034). Absent until the first. */
+  presents?: Record<string, Present>;
+  /** The number in the next present's id. Absent until the first. */
+  nextPresent?: number;
+  /** The year the town last left its presents. Absent until the first. */
+  townPresents?: number;
   /** The number in the next gift's id. Set with `gifts`. */
   nextGift?: number;
   /**
@@ -1262,6 +1292,10 @@ export const INVENTORY_REASONS = [
   "trick_or_treat",
   /** Candy you handed out to a trick-or-treater at your door, or from your bowl by it. */
   "handed_out",
+  /** What came out of a present you opened (RFC 0034). */
+  "present",
+  /** A firework you set off. */
+  "firework",
   /** A fish you caught (RFC 0023). */
   "caught",
   /** From a duplicate record of yours that the Terrakin team merged into this one. */
@@ -1483,7 +1517,19 @@ export type Command =
       y: number;
       label?: string;
     }
-  | { type: "give"; item: string; to: ResidentId; count?: number; note?: string }
+  | {
+      type: "give";
+      item: string;
+      to: ResidentId;
+      count?: number;
+      note?: string;
+      /** From December 1 to 25: wrapped as a present, opened from December 25 (RFC 0034). */
+      wrapped?: true | undefined;
+    }
+  /** Open a present you were given, from December 25 (RFC 0034). */
+  | { type: "open_present"; present: string }
+  /** Set off a firework at (x, y) on December 31 or January 1, on your own ground (RFC 0034). */
+  | { type: "set_off_firework"; x: number; y: number; color: FireworkColor }
   /** Send a gift back to whoever gave it, within `ITEMS.declineDays` days. */
   | { type: "decline_gift"; gift: string }
   // Showing (RFC 0005 step 3). `title` is untrusted text the server cleaned; `model` is set by the
@@ -1737,6 +1783,11 @@ export type Command =
       minutes: number;
       faces?: ResidentId[];
     }
+  /**
+   * On December 25, the town leaves a present of candy canes for each of `to`: residents with a
+   * hearth and no present waiting (RFC 0034). Once a year.
+   */
+  | { type: "town_presents"; to: ResidentId[] }
   /** An event's start time came. */
   | { type: "event_start"; event: string }
   /** An attendance sample at the event's `slot`th 5-minute mark. Marks the server missed are skipped. */
@@ -1818,6 +1869,7 @@ export const SERVER_COMMANDS = [
   "leave_idle",
   "routine_step",
   "schedule_town_event",
+  "town_presents",
   "event_start",
   "event_tick",
   "event_end",
@@ -2305,6 +2357,12 @@ export type WorldEvent =
    * back, or nothing (RFC 0023). Public, like a gather.
    */
   | { type: "fished"; by: ResidentId; x: number; y: number; caught: Catch }
+  /** `from` gave `to` a present, `present`, to open from December 25 (RFC 0034). Never what's in it. */
+  | { type: "present_given"; from: ResidentId; to: ResidentId; present: string }
+  /** `by` opened a present from `from`. What was in it is on their own `inventory` event. */
+  | { type: "present_opened"; by: ResidentId; from: ResidentId; present: string }
+  /** `by` set off a firework over (x, y) in `color` (RFC 0034). Public: everyone sees it burst. */
+  | { type: "firework"; by: ResidentId; x: number; y: number; color: FireworkColor }
   /** `by` set a `kind` on the table of the feast `event` (RFC 0034). Public, like going. */
   | { type: "dish_brought"; by: ResidentId; kind: ItemKind; event: string }
   /**
@@ -2567,6 +2625,14 @@ export const REJECTION_CODES = [
   "chip_in_full",
   /** They chipped in toward the forming kindred's fee, so a steward can't remove them. */
   "chipped_in",
+  /** Not yet: a present opens from December 25 (RFC 0034). */
+  "not_yet",
+  /** No present of yours has that id. */
+  "unknown_present",
+  /** You set off as many fireworks as one night has. */
+  "firework_limit",
+  /** A firework's color is one of six. */
+  "bad_color",
   /** You aren't in the feast's area in the Commons (RFC 0034). */
   "not_at_feast",
   /** You brought a dish to this feast already. */

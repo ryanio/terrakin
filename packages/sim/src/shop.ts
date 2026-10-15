@@ -44,7 +44,7 @@ import {
   isStackKind,
   type StackKind,
 } from "./items";
-import { COSTUMES, isShopWear, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
+import { COSTUMES, isShopWear, MIDWINTER_WEAR, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
 import { SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
@@ -86,6 +86,7 @@ const WEAR_PRICES: Readonly<Record<ShopWear, number>> = {
   pumpkin_head: 35,
   ghost_sheet: 25,
   bat_wings: 35,
+  santa_hat: 30,
 };
 
 /** The catalog's kinds the shop sells: those with a shop price, in catalog order. */
@@ -295,9 +296,10 @@ export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
  */
 export const HOLIDAY_STOCK: Readonly<Record<Holiday, readonly ShopSku[]>> = {
   halloween: [...holidayKinds("halloween"), ...COSTUMES] as ShopSku[],
-  midwinter: holidayKinds("midwinter") as ShopSku[],
+  midwinter: [...holidayKinds("midwinter"), ...MIDWINTER_WEAR] as ShopSku[],
   thanksgiving: holidayKinds("thanksgiving") as ShopSku[],
   hanukkah: holidayKinds("hanukkah") as ShopSku[],
+  new_year: holidayKinds("new_year") as ShopSku[],
 };
 
 /** The season `sku` is sold in, or undefined when the shop sells it all year. */

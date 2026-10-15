@@ -156,6 +156,7 @@ export const HAT_BAND: Partial<Record<WearItem, number>> = {
   top_hat: 0.13,
   witch_hat: 0.13,
   sun_hat: 0.13,
+  santa_hat: 0.03,
 };
 
 /** Hair styles that stand up past the head: a puff, spikes, a bun on top. */
@@ -168,7 +169,7 @@ const TALL_HAIR: readonly string[] = ["afro", "spiky", "bun"];
 export function tagHeight(f: Pick<LayoutFigure, "kind" | "look">, umbrellaUp = false): number {
   const wear = f.look.wear ?? [];
   if (umbrellaUp && wear.includes("umbrella")) return 1.32;
-  if (wear.includes("witch_hat")) return 1.26;
+  if (wear.includes("witch_hat") || wear.includes("santa_hat")) return 1.26;
   if (wear.includes("top_hat") || wear.includes("muse_halo")) return 1.2;
   if (f.kind === "agent") return 1.2;
   // A pumpkin head or a ghost sheet hides the hair (RFC 0022).

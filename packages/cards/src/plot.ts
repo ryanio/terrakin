@@ -78,6 +78,7 @@ export const PLOT_DECOR = [
   "leaf_garland",
   "menorah",
   "dreidel",
+  "stocking",
 ] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
@@ -985,6 +986,14 @@ function decorSvg(
       `<path d="M${X(0.12)} ${Y(0.92)}V${Y(0.22)}M${X(0.88)} ${Y(0.92)}V${Y(0.22)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
       `<path d="M${X(0.12)} ${Y(0.26)}Q${X(0.5)} ${Y(0.52)} ${X(0.88)} ${Y(0.26)}" fill="none" stroke="${TWINE}" stroke-width="0.02"/>`,
       ...[0.14, 0.32, 0.5, 0.68, 0.86].map(leaf),
+    ];
+  }
+  if (kind === "stocking") {
+    return [
+      shade,
+      `<path d="M${X(0.3)} ${Y(0.9)}V${Y(0.14)}H${X(0.5)}" fill="none" stroke="${WOOD_DARK}" stroke-width="0.04"/>`,
+      `<path d="M${X(0.4)} ${Y(0.26)}H${X(0.62)}V${Y(0.58)}Q${X(0.62)} ${Y(0.66)} ${X(0.74)} ${Y(0.68)}Q${X(0.82)} ${Y(0.72)} ${X(0.76)} ${Y(0.8)}H${X(0.54)}Q${X(0.4)} ${Y(0.8)} ${X(0.4)} ${Y(0.66)}z" fill="${fill}" ${stroke}/>`,
+      `<rect x="${X(0.37)}" y="${Y(0.18)}" width="0.28" height="0.11" rx="0.04" fill="${SNOW}"/>`,
     ];
   }
   if (kind === "menorah") {

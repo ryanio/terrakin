@@ -16,7 +16,7 @@ import {
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
-import { NOTE_MAX_LENGTH, PATTERN_LABELS, plotOf, THEME_INFO } from "@terrakin/sim";
+import { NOTE_MAX_LENGTH, PATTERN_LABELS, plotOf, THEME_INFO, wrapDay } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, isMediaUrl, karmaLine, plural, pluralWord } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
@@ -34,6 +34,7 @@ import {
 import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { tip } from "@terrakin/ui/tooltip";
 import {
+  checkRow,
   confirmTwice,
   copyButton,
   disclosure,
@@ -1341,6 +1342,17 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       text: "Give",
     });
     const status = h("p", { class: "field-hint", attrs: { id: "thing-hint" } });
+    // From December 1 to 25 a gift can be wrapped, to open on December 25 (RFC 0034).
+    const wrap = checkRow({
+      id: "thing-wrap",
+      label: "Wrap it as a present",
+      hint: "It waits for them, unopened, until December 25.",
+    });
+    wrap.el.hidden = true;
+    // A present carries no note (the server refuses one), so the note waits while it's checked.
+    wrap.input.addEventListener("change", () => {
+      note.disabled = wrap.input.checked;
+    });
     const countRow = h(
       "div",
       { class: "coin-row" },
@@ -1358,6 +1370,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       countRow,
       h("label", { class: "field-label", attrs: { for: "thing-note" }, text: "Note (optional)" }),
       h("div", { class: "gift-row" }, note, give),
+      wrap.el,
       status,
     );
     const open = h(
@@ -1391,6 +1404,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         return;
       }
       const inv = res.data.inventory;
+      wrap.el.hidden = inv === null || !wrapDay(inv.day);
       for (const g of inv?.goods ?? []) {
         // A label is someone's words: it goes in as text.
         const text = g.label ? `${thingName(g.kind)} “${g.label}”` : thingName(g.kind);
@@ -1420,6 +1434,20 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       const n = Number(count.value);
       const many = stacked.has(item) && Number.isInteger(n) && n > 1 ? { count: n } : {};
       const text = note.value.trim();
+      if (!wrap.el.hidden && wrap.input.checked) {
+        // A present: a plain give, so nothing tells them what's in it before they open it.
+        const wrapped = await whileBusy(give, () =>
+          worldApi.act({ type: "give", item, to: r.id, ...many, wrapped: true }),
+        );
+        if (destroyed) return;
+        const problem = actProblem(wrapped);
+        if (problem) return toast(problem);
+        floatUp(open, "🎁");
+        toast(`You wrapped a present for ${r.name}`);
+        toggle.close();
+        open.focus();
+        return;
+      }
       // A gift gesture carries the thing, so they hear about it live and can send it back.
       const res = await whileBusy(give, () =>
         gesturesApi.gesture(r.id, { kind: "gift", item, ...many, ...(text ? { note: text } : {}) }),

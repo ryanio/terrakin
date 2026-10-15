@@ -5364,6 +5364,7 @@
                 "cranberry",
                 "sugar",
                 "jar",
+                "firework",
                 "wood",
                 "stone",
                 "lantern",
@@ -5383,6 +5384,7 @@
                 "leaf_garland",
                 "menorah",
                 "dreidel",
+                "stocking",
                 "table",
                 "chair",
                 "bookshelf",
@@ -26921,6 +26923,12 @@
             "$ref": "#/components/schemas/BringDishAction"
           },
           {
+            "$ref": "#/components/schemas/OpenPresentAction"
+          },
+          {
+            "$ref": "#/components/schemas/SetOffFireworkAction"
+          },
+          {
             "$ref": "#/components/schemas/FoundKindredAction"
           },
           {
@@ -27292,7 +27300,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },
@@ -27458,7 +27467,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           },
           "windows": {
@@ -27502,7 +27512,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           },
           "path": {
@@ -28828,6 +28839,10 @@
           "not_forming",
           "chip_in_full",
           "chipped_in",
+          "not_yet",
+          "unknown_present",
+          "firework_limit",
+          "bad_color",
           "not_at_feast",
           "already_brought",
           "not_food",
@@ -28877,6 +28892,17 @@
           "four_leaf_clover",
           "maple_leaf",
           "cherry_blossom"
+        ]
+      },
+      "FireworkColor": {
+        "type": "string",
+        "enum": [
+          "gold",
+          "red",
+          "green",
+          "blue",
+          "violet",
+          "white"
         ]
       },
       "FishAction": {
@@ -29179,6 +29205,13 @@
           "note": {
             "type": "string",
             "maxLength": 140
+          },
+          "wrapped": {
+            "description": "From December 1 to 25: wrap it as a present. It leaves your things now and waits for them, unopened, until December 25 (RFC 0034).",
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -29495,7 +29528,8 @@
           "halloween",
           "midwinter",
           "thanksgiving",
-          "hanukkah"
+          "hanukkah",
+          "new_year"
         ]
       },
       "HomeAction": {
@@ -29546,6 +29580,8 @@
           "treat",
           "trick_or_treat",
           "handed_out",
+          "present",
+          "firework",
           "caught",
           "merged",
           "handed_in",
@@ -29601,6 +29637,7 @@
           "cranberry",
           "sugar",
           "jar",
+          "firework",
           "wood",
           "stone",
           "lantern",
@@ -29620,6 +29657,7 @@
           "leaf_garland",
           "menorah",
           "dreidel",
+          "stocking",
           "table",
           "chair",
           "bookshelf",
@@ -30213,6 +30251,28 @@
           "name"
         ]
       },
+      "OpenPresentAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "open_present"
+            ]
+          },
+          "present": {
+            "$ref": "#/components/schemas/PresentId"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "present"
+        ]
+      },
       "OpenTableAction": {
         "type": "object",
         "properties": {
@@ -30467,7 +30527,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           },
           "dry": {
@@ -30530,7 +30591,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           }
         },
@@ -30675,7 +30737,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "1": {
@@ -30718,7 +30781,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "2": {
@@ -30761,7 +30825,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "3": {
@@ -30804,7 +30869,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "4": {
@@ -30847,7 +30913,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "5": {
@@ -30890,7 +30957,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "6": {
@@ -30933,7 +31001,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "7": {
@@ -30976,7 +31045,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "8": {
@@ -31019,7 +31089,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "9": {
@@ -31062,7 +31133,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               }
             },
@@ -31153,7 +31225,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "1": {
@@ -31196,7 +31269,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "2": {
@@ -31239,7 +31313,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "3": {
@@ -31282,7 +31357,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "4": {
@@ -31325,7 +31401,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "5": {
@@ -31368,7 +31445,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "6": {
@@ -31411,7 +31489,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "7": {
@@ -31454,7 +31533,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "8": {
@@ -31497,7 +31577,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "9": {
@@ -31540,7 +31621,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               }
             },
@@ -31642,7 +31724,8 @@
                         "cornucopia",
                         "leaf_garland",
                         "menorah",
-                        "dreidel"
+                        "dreidel",
+                        "stocking"
                       ]
                     }
                   },
@@ -31798,6 +31881,10 @@
           "authorId",
           "createdAt"
         ]
+      },
+      "PresentId": {
+        "type": "string",
+        "pattern": "^present_[1-9][0-9]*$"
       },
       "ProfileAction": {
         "type": "object",
@@ -33009,6 +33096,40 @@
           "steward"
         ]
       },
+      "SetOffFireworkAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "set_off_firework"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "color": {
+            "$ref": "#/components/schemas/FireworkColor"
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "color"
+        ]
+      },
       "SetRoutinesAction": {
         "type": "object",
         "properties": {
@@ -33143,6 +33264,7 @@
           "leaf_garland",
           "menorah",
           "dreidel",
+          "stocking",
           "top_hat",
           "raincoat",
           "umbrella",
@@ -33151,6 +33273,7 @@
           "pumpkin_head",
           "ghost_sheet",
           "bat_wings",
+          "santa_hat",
           "lemon_seed",
           "strawberry_seed",
           "tomato_seed",
@@ -33161,6 +33284,7 @@
           "cranberry_seed",
           "sugar",
           "jar",
+          "firework",
           "candy",
           "candy_cane",
           "gelt"
@@ -33219,6 +33343,7 @@
           "cranberry",
           "sugar",
           "jar",
+          "firework",
           "wood",
           "stone",
           "lantern",
@@ -33238,6 +33363,7 @@
           "leaf_garland",
           "menorah",
           "dreidel",
+          "stocking",
           "table",
           "chair",
           "bookshelf",
@@ -33661,6 +33787,7 @@
           "pumpkin_head",
           "ghost_sheet",
           "bat_wings",
+          "santa_hat",
           "sun_hat",
           "tool_belt",
           "field_vest",
@@ -33912,6 +34039,14 @@
             ]
           },
           "bat_wings": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "santa_hat": {
             "nullable": true,
             "allOf": [
               {
@@ -34200,6 +34335,13 @@
             ]
           },
           "bat_wings": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "santa_hat": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/WearStyleView"
@@ -34614,7 +34756,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "by": {
@@ -36430,6 +36573,7 @@
                   "pumpkin_head",
                   "ghost_sheet",
                   "bat_wings",
+                  "santa_hat",
                   "sun_hat",
                   "tool_belt",
                   "field_vest",
@@ -37096,6 +37240,92 @@
               "x",
               "y",
               "caught"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "present_given"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "present": {
+                "$ref": "#/components/schemas/PresentId"
+              }
+            },
+            "required": [
+              "type",
+              "from",
+              "to",
+              "present"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "present_opened"
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "present": {
+                "$ref": "#/components/schemas/PresentId"
+              }
+            },
+            "required": [
+              "type",
+              "by",
+              "from",
+              "present"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "firework"
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "color": {
+                "$ref": "#/components/schemas/FireworkColor"
+              }
+            },
+            "required": [
+              "type",
+              "by",
+              "x",
+              "y",
+              "color"
             ]
           },
           {
@@ -38029,7 +38259,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },
@@ -43708,6 +43939,43 @@
               "$ref": "#/components/schemas/GiftView"
             }
           },
+          "presents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/PresentId"
+                },
+                "from": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthorView"
+                    }
+                  ]
+                },
+                "fromId": {
+                  "type": "string"
+                },
+                "day": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "opensDay": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "fromId",
+                "day",
+                "opensDay"
+              ]
+            }
+          },
           "heldAside": {
             "type": "array",
             "items": {
@@ -44778,7 +45046,8 @@
                 "cat_ears",
                 "pumpkin_head",
                 "ghost_sheet",
-                "bat_wings"
+                "bat_wings",
+                "santa_hat"
               ]
             }
           }
@@ -48192,7 +48461,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },
@@ -48238,7 +48508,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },

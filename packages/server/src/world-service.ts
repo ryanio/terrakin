@@ -35,6 +35,7 @@ import {
   type DailyAward,
   DEFAULT_CONFIG,
   type Direction,
+  dateOfDay,
   designNotes,
   EVENTS,
   entitledTo,
@@ -58,12 +59,14 @@ import {
   lastSlot,
   own,
   ownerPaired,
+  PRESENTS,
   pieceShowingMedia,
   planPutter,
   plotKey,
   plotMap,
   plotPlan,
   prepare,
+  presentsFor,
   REPLAY_VERSION,
   type RecipeName,
   type Resident,
@@ -950,6 +953,7 @@ export class WorldService {
       if (!set.ok) console.error(`Couldn't set the shop's share: ${set.error.message}`);
     }
     this.awardDays(day);
+    this.leaveTownPresents(day);
     const due = (this.state.town?.proposals ?? []).filter(
       (p) => p.status === "open" && p.closesDay !== undefined && p.closesDay <= day,
     );
@@ -961,6 +965,28 @@ export class WorldService {
       if (!closed.ok) console.error(`Couldn't close ${p.id}: ${closed.error.message}`);
     }
     this.runEvents();
+  }
+
+  /**
+   * On December 25, once a year: the town's present of candy canes for each resident with a hearth
+   * who isn't townsfolk and has no present waiting (RFC 0034). The sim checks the list again.
+   */
+  private leaveTownPresents(day: number) {
+    const items = this.state.items;
+    const { year, month, date } = dateOfDay(day);
+    if (!items || month !== 12 || date !== PRESENTS.openFrom || items.townPresents === year) return;
+    const to = Object.values(this.state.residents)
+      .filter(
+        (r) =>
+          r.hearth != null &&
+          !isTownsfolk(this.state, r.id) &&
+          presentsFor(this.state, r.id).length === 0,
+      )
+      .map((r) => r.id)
+      .sort();
+    if (to.length === 0) return;
+    const left = this.run({ actor: TOWN_ACTOR, command: { type: "town_presents", to } });
+    if (!left.ok) console.error(`Couldn't leave the town's presents: ${left.error.message}`);
   }
 
   // ---------- hosted events (RFC 0010) ----------

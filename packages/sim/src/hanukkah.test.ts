@@ -45,9 +45,12 @@ describe("Hanukkah's days", () => {
   });
 
   it("run beside Midwinter, and the one that started first comes first", () => {
-    expect(holidaysOf(day(2027, 12, 26))).toEqual(["midwinter", "hanukkah"]);
-    expect(holidaysOf(day(2027, 12, 31))).toEqual(["midwinter", "hanukkah"]);
-    expect(holidaysOf(day(2028, 1, 1))).toEqual([]);
+    expect(holidaysOf(day(2027, 12, 25))).toEqual(["midwinter", "hanukkah"]);
+    // New Year's starts on December 26, after both, and runs on into January 1 alone.
+    expect(holidaysOf(day(2027, 12, 26))).toEqual(["midwinter", "hanukkah", "new_year"]);
+    expect(holidaysOf(day(2027, 12, 31))).toEqual(["midwinter", "hanukkah", "new_year"]);
+    expect(holidaysOf(day(2028, 1, 1))).toEqual(["new_year"]);
+    expect(holidaysOf(day(2028, 1, 2))).toEqual([]);
     expect(hanukkahNight(day(2027, 12, 31))).toBe(8);
   });
 

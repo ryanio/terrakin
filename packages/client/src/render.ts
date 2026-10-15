@@ -60,6 +60,7 @@ import {
   paintTownMark,
 } from "./render/decor";
 import { lightBulbs } from "./render/decor-winter";
+import { type BurstMark, paintBurst } from "./render/fireworks";
 import { paintFurniture, paintGameTable } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
 import { paintHover } from "./render/hover";
@@ -79,6 +80,7 @@ import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
 
 export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
+export { BURST_MS, BURSTS_MAX, type BurstMark } from "./render/fireworks";
 export { blockColor } from "./render/palette";
 export { faceKey } from "./render/sprites";
 export { CAST_MS, type CastMark } from "./render/water";
@@ -114,6 +116,8 @@ export interface RenderState {
   labelTop?: number;
   /** Casts made lately (RFC 0023), drawn on the water for a moment. */
   casts?: readonly CastMark[];
+  /** Fireworks set off lately (RFC 0034), drawn bursting over their tiles, above the night. */
+  bursts?: readonly BurstMark[];
   /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
   hover?: readonly { x: number; y: number }[] | undefined;
   /** The townsfolk who ask for a job today (RFC 0030): a note over each, awake or asleep. */
@@ -162,6 +166,7 @@ export function render(
     clock,
     labelTop = 0,
     casts,
+    bursts,
     hover,
     notes,
     cutFloor,
@@ -1020,6 +1025,13 @@ export function render(
         ctx.fill();
       });
     }
+  }
+
+  // ---- fireworks (RFC 0034), over the night so they glow ----
+  for (const b of bursts ?? []) {
+    if (b.x < x0 || b.x > x1 || b.y < y0 || b.y > y1) continue;
+    const { sx, sy } = tileToScreen(cam, b.x, b.y);
+    paintBurst(ctx, b, sx, sy, scale, now, still);
   }
 
   // ---- plots' names, softly, along the top of each named plot near you (decision 0121) ----

@@ -83,6 +83,8 @@ export const WEAR_ITEMS = [
   "pumpkin_head",
   "ghost_sheet",
   "bat_wings",
+  // Midwinter's hat (RFC 0034).
+  "santa_hat",
   // Earned wear (RFC 0029), one garment a skill.
   "sun_hat",
   "tool_belt",
@@ -111,6 +113,7 @@ export const SHOP_WEAR = [
   "pumpkin_head",
   "ghost_sheet",
   "bat_wings",
+  "santa_hat",
 ] as const satisfies readonly WearItem[];
 export type ShopWear = (typeof SHOP_WEAR)[number];
 export const isShopWear = (w: unknown): w is ShopWear =>
@@ -127,6 +130,9 @@ export const COSTUMES = [
 export type Costume = (typeof COSTUMES)[number];
 export const isCostume = (w: unknown): w is Costume =>
   typeof w === "string" && (COSTUMES as readonly string[]).includes(w);
+
+/** Midwinter's wear (RFC 0034): shop wear sold only while Midwinter runs, worn any day once bought. */
+export const MIDWINTER_WEAR = ["santa_hat"] as const satisfies readonly ShopWear[];
 
 /**
  * Partner wear (RFC 0007): only residents the server entitled with `set_entitlements` may put it on,
@@ -428,6 +434,7 @@ export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {
   pumpkin_head: { slot: "hat", label: "Pumpkin head" },
   ghost_sheet: { slot: "top", label: "Ghost sheet" },
   bat_wings: { slot: "accessory", label: "Bat wings" },
+  santa_hat: { slot: "hat", label: "Santa hat" },
   sun_hat: { slot: "hat", label: "Sun hat" },
   tool_belt: { slot: "accessory", label: "Tool belt" },
   field_vest: { slot: "top", label: "Field vest" },

@@ -9,6 +9,7 @@ import {
   canBuildOn,
   countOf,
   DAY_MS,
+  dateOfDay,
   dayName,
   displaysOf,
   ECONOMY,
@@ -20,6 +21,7 @@ import {
   type FamilyInfo,
   FIND_KINDS,
   FIND_SPAWNS,
+  FIREWORKS,
   FISHING,
   FISHING_ROD,
   type FindKind,
@@ -28,6 +30,7 @@ import {
   feastDay,
   feastToday,
   findsOpen,
+  fireworkNight,
   foundProblem,
   type GoodKind,
   HOUR_MS,
@@ -45,9 +48,12 @@ import {
   knockedToday,
   MINUTE_MS,
   nextHolidayStart,
+  openDayOf,
   ownDoor,
   ownsWear,
   POND,
+  PRESENTS,
+  presentsFor,
   priceOf,
   purseOf,
   RECIPES,
@@ -60,6 +66,7 @@ import {
   trickOrTreatNights,
   WEAR_INFO,
   type WorldState,
+  wrapDay,
 } from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
 import { WEEKLY_TOWN_EVENTS } from "./town-events";
@@ -399,6 +406,52 @@ export const TRY_NEXT: readonly TryNext[] = [
       !hasMenorah(state, viewer),
     line: (state) =>
       `It's Hanukkah, night ${hanukkahNight(state.day ?? 0)} of 8. Ask your owner whether they'd like a menorah ({"type": "shop_buy", "sku": "menorah"}, ${priceOf(state, "menorah")} coins while Hanukkah runs), then place it by your hearth: it lights one more candle each night. A kitchen makes jelly doughnuts from 2 strawberries and a bag of sugar any day.`,
+  },
+  {
+    // Christmas (RFC 0034): in the ten days before it, December 15 to 24, wrap a present for
+    // someone your owner is close to. Once a season: nothing counts as tried, so it comes back next
+    // year. Wrapping opens on December 1; the hint waits for the run-up, so it doesn't crowd out
+    // winter's first suggestions.
+    id: "wrap_presents",
+    commands: [],
+    open: (state, viewer) =>
+      state.items !== undefined &&
+      state.day !== undefined &&
+      wrapDay(state.day) &&
+      dateOfDay(state.day).date >= PRESENTS.openFrom - 10 &&
+      dateOfDay(state.day).date < PRESENTS.openFrom &&
+      !isTownsfolk(state, viewer) &&
+      (state.items.inventories[viewer]?.goods.length ?? 0) +
+        Object.keys(state.items.inventories[viewer]?.stacks ?? {}).length >
+        0,
+    line: `It's December: presents can be wrapped until the 25th. Ask your owner whether they'd like to give someone they're close to something you hold, wrapped: {"type": "give", "item": "<an id or a kind>", "to": "<residentId>", "wrapped": true}. It waits for them, unopened, until December ${PRESENTS.openFrom}.`,
+  },
+  {
+    // Presents waiting that can be opened now (RFC 0034), every day until they're opened.
+    id: "open_presents",
+    commands: [],
+    againDays: 1,
+    open: (state, viewer) =>
+      state.day !== undefined &&
+      presentsFor(state, viewer).some((p) => openDayOf(p.day) <= (state.day as number)),
+    line: (state, viewer) => {
+      const ready = presentsFor(state, viewer).filter(
+        (p) => openDayOf(p.day) <= (state.day as number),
+      );
+      return `You have ${ready.length === 1 ? "a present" : `${ready.length} presents`} to open (GET /v1/inventory lists them, never what's in them). Open them with your owner if you can: {"type": "open_present", "present": "${ready[0]?.id ?? "<id>"}"}. Tell them who each was from, and thank the giver.`;
+    },
+  },
+  {
+    // New Year's Eve and Day (RFC 0034): fireworks, every night they're on.
+    id: "fireworks",
+    commands: [],
+    againDays: 1,
+    open: (state, viewer) =>
+      state.items !== undefined &&
+      fireworkNight(state.day) &&
+      !isTownsfolk(state, viewer) &&
+      state.residents[viewer]?.hearth != null,
+    line: `It's a fireworks night (December 31 or January 1, UTC). Set one off over your own plot or the Commons, within ${FIREWORKS.reach} tiles of you: {"type": "set_off_firework", "x": <x>, "y": <y>, "color": "gold"}. The shop sells them over New Year's. Up to ${FIREWORKS.perNight} a night. The town gathers in the Commons at midnight UTC; tell your owner what time that is for them.`,
   },
   {
     // Thanksgiving's Thursday (RFC 0034): thank a neighbor. Praise is a social call, not a

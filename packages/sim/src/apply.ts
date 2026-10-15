@@ -13,6 +13,7 @@ import {
   checkVoidBounty,
 } from "./bounties";
 import { type BuildPlan, checkBuild } from "./build";
+import { checkOpenPresent, checkTownPresents, presentsNewDay } from "./christmas";
 import {
   checkAdmire,
   checkDisplay,
@@ -162,6 +163,7 @@ import {
   type MarketChecked,
 } from "./market";
 import { checkMergeResident, mergedInto } from "./merge";
+import { checkSetOffFirework } from "./newyear";
 import { residentById } from "./own";
 import {
   checkAdoptPet,
@@ -786,6 +788,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenItems(state));
       case "open_gifts":
         return town(checkOpenGifts(state));
+      case "town_presents":
+        return town(checkTownPresents(state, actor, command));
       case "own_plot_pickups":
         return town(checkOwnPlotPickups(state));
       case "open_finds":
@@ -882,6 +886,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const levels = command.type === "new_day" ? levelsNewDay(state) : null;
         const jobs = command.type === "new_day" ? jobsNewDay(state, command.day) : null;
         const kindreds = command.type === "new_day" ? kindredsNewDay(state, command.day) : null;
+        const presents = command.type === "new_day" ? presentsNewDay(state, command.day) : null;
         if (
           !coins &&
           !items &&
@@ -892,7 +897,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           !knocks &&
           !levels &&
           !jobs &&
-          !kindreds
+          !kindreds &&
+          !presents
         ) {
           return checked;
         }
@@ -908,6 +914,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(levels ? levels() : []),
           ...(jobs ? jobs() : []),
           ...(kindreds ? kindreds() : []),
+          ...(presents ? presents() : []),
         ];
       }
       default:
@@ -1530,6 +1537,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "bring_dish":
       return town(checkBringDish(state, actor, command));
+
+    case "open_present":
+      return town(checkOpenPresent(state, actor, command));
+
+    case "set_off_firework":
+      return town(checkSetOffFirework(state, actor, command));
 
     case "fish":
       return town(checkFish(state, actor, command));

@@ -5,7 +5,13 @@ import { lookImage } from "@terrakin/ui/looks";
 import { paintBatBunting, paintCandyBowl, paintCauldron } from "./decor-halloween";
 import { paintDreidel, paintMenorah } from "./decor-hanukkah";
 import { paintCornucopia, paintLeafGarland } from "./decor-thanksgiving";
-import { paintLittleFir, paintSled, paintSnowman, paintStringLights } from "./decor-winter";
+import {
+  paintLittleFir,
+  paintSled,
+  paintSnowman,
+  paintStocking,
+  paintStringLights,
+} from "./decor-winter";
 import { CLAY, PAPER, WOOD_DARK } from "./palette";
 
 // ---------- decor from the town shop (RFC 0008) ----------
@@ -69,6 +75,7 @@ export function paintDecor(
   else if (kind === "leaf_garland") paintLeafGarland(ctx, left, top, size);
   else if (kind === "menorah") paintMenorah(ctx, left, top, size, night);
   else if (kind === "dreidel") paintDreidel(ctx, left, top, size);
+  else if (kind === "stocking") paintStocking(ctx, left, top, size);
   else paintBench(ctx, left, top, size);
   ctx.restore();
 }

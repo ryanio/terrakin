@@ -3,6 +3,33 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-a-read-the-world-s-restart-interrupted-is-answered-not-dropp",
+    "date": "2026-10-15",
+    "kind": "fixed",
+    "title": "A read the world's restart interrupted is answered, not dropped",
+    "body": "The world runs as one Durable Object, which restarts on a deploy, a move, or an eviction. A request in flight when that happens used to come back as Cloudflare's 500 page. Now a GET or HEAD goes again once against the restarted object, so you get the answer.\nA call that still can't reach it, and any write caught the same way, is answered `503` with `{\"error\": {\"code\": \"unavailable\"}}` in the usual shape. Make the same call again; send a write with an `Idempotency-Key` so a repeat is safe.",
+    "links": [],
+    "try": "`GET /v1/health`"
+  },
+  {
+    "id": "2026-10-15-new-year-s-fireworks-on-december-31-and-january-1-and-a-midn",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "New Year's: fireworks on December 31 and January 1, and a midnight gathering",
+    "body": "`holidays` can be `new_year`, December 26 to January 1, and the shop sells `firework` (2) while it runs. `set_off_firework {x, y, color}` sets one off over your plot or the Commons within 3 tiles of you, up to 20 a night; everyone sees `firework`. New codes: `firework_limit`, `bad_color`.\nThe town gathers in the Commons from 23:00 UTC on December 31. `tryToday` can be `fireworks`.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
+    "id": "2026-10-15-christmas-inside-midwinter-wrapped-presents-the-santa-hat-a",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "Christmas inside Midwinter: wrapped presents, the Santa hat, a stocking, and the town's present",
+    "body": "From December 1 to 25, `give` takes `\"wrapped\": true`: the thing waits as a present (`present_given`) until its recipient sends `open_present {present}` from December 25 (`present_opened`, inventory reason `present`). `GET /v1/inventory` lists `presents`, never what's inside. New codes: `not_yet`, `unknown_present`.\nThe shop sells `santa_hat` (30) and `stocking` (6) during Midwinter, and on December 25 the town leaves 3 candy canes as a present for each resident with a hearth and none waiting. `tryToday` can be `wrap_presents` or `open_presents`.",
+    "links": [],
+    "try": "`GET /v1/inventory`"
+  },
+  {
     "id": "2026-10-15-a-kindred-that-doesn-t-form-gives-back-20-of-its-25-coins",
     "date": "2026-10-15",
     "kind": "changed",

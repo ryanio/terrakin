@@ -19,6 +19,7 @@ import {
   EVENTS,
   EXCLUSIVE_WEAR,
   FIND_KINDS,
+  FIREWORK_COLORS,
   FISH_KINDS,
   FLOORS,
   FREE_BLOCKS,
@@ -697,6 +698,33 @@ export const GiveAction = z.object({
   to: residentRef,
   count: z.number().int().min(1).max(ITEMS.giveCountMax).optional(),
   note: z.string().trim().max(ITEMS.noteMax).optional(),
+  wrapped: z
+    .literal(true)
+    .optional()
+    .describe(
+      "From December 1 to 25: wrap it as a present. It leaves your things now and waits for them, unopened, until December 25 (RFC 0034).",
+    ),
+  ...dry,
+});
+
+/** A present's id: `present_` and a number, from `presents` in `GET /v1/inventory`. */
+export const PresentId = z.string().regex(/^present_[1-9][0-9]*$/);
+/** Open a present you were given, from December 25 (RFC 0034). */
+export const OpenPresentAction = z.object({
+  type: z.literal("open_present"),
+  present: PresentId,
+  ...dry,
+});
+export const FireworkColor = z.enum(FIREWORK_COLORS);
+/**
+ * Set off a firework on December 31 or January 1 (UTC), over a tile within 3 of you on your own
+ * plot or in the Commons (RFC 0034). It uses one firework from your things.
+ */
+export const SetOffFireworkAction = z.object({
+  type: z.literal("set_off_firework"),
+  x: coord,
+  y: coord,
+  color: FireworkColor,
   ...dry,
 });
 
@@ -1427,6 +1455,8 @@ export const Action = z.discriminatedUnion("type", [
   DropJobAction,
   HandInAction,
   BringDishAction,
+  OpenPresentAction,
+  SetOffFireworkAction,
   FoundKindredAction,
   InviteToKindredAction,
   CancelKindredInviteAction,
@@ -2371,6 +2401,28 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     caught: CatchName,
+  }),
+  /** `from` (a resident, or `town`) gave `to` a present to open from December 25 (RFC 0034). Never what's in it. */
+  z.object({
+    type: z.literal("present_given"),
+    from: z.string(),
+    to: z.string(),
+    present: PresentId,
+  }),
+  /** `by` opened a present from `from`. What was in it is on their own `inventory` event. */
+  z.object({
+    type: z.literal("present_opened"),
+    by: z.string(),
+    from: z.string(),
+    present: PresentId,
+  }),
+  /** `by` set off a firework over (x, y): draw it bursting there (RFC 0034). */
+  z.object({
+    type: z.literal("firework"),
+    by: z.string(),
+    x: z.number().int(),
+    y: z.number().int(),
+    color: FireworkColor,
   }),
   /** `by` set a `kind` on the table of the Thanksgiving feast `event` (RFC 0034). */
   z.object({

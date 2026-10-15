@@ -146,6 +146,17 @@ describe("things", () => {
     expect(inventoryLine({ ...base, reason: "gift_in", gained: [rod] })).toBe(
       "A gift arrived: a fishing rod.",
     );
+    // A present names what was in it only once it's opened, never its label.
+    expect(inventoryLine({ ...base, reason: "present", gained: [jam] })).toBe(
+      "You opened a present: lemon jam.",
+    );
+    expect(
+      inventoryLine({
+        ...base,
+        reason: "present",
+        changes: [{ kind: "candy_cane", amount: 3, count: 3 }],
+      }),
+    ).toBe("You opened a present: 3 candy canes.");
     expect(inventoryLine({ ...base, reason: "returned", gained: [rod, jam] })).toBe(
       "A gift came back to you: a fishing rod and lemon jam.",
     );

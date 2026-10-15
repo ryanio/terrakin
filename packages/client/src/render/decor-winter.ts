@@ -244,3 +244,40 @@ export function paintSled(ctx: CanvasRenderingContext2D, left: number, top: numb
   ctx.quadraticCurveTo(x(1), y(0.6), x(0.96), y(0.78));
   ctx.stroke();
 }
+
+/** A red felt stocking with a white cuff, hanging from a little post (RFC 0034). */
+export function paintStocking(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+) {
+  const x = (f: number) => left + size * f;
+  const y = (f: number) => top + size * f;
+  ctx.strokeStyle = WOOD_DARK;
+  ctx.lineWidth = Math.max(1, size * 0.04);
+  ctx.beginPath();
+  ctx.moveTo(x(0.3), y(0.9));
+  ctx.lineTo(x(0.3), y(0.14));
+  ctx.lineTo(x(0.5), y(0.14));
+  ctx.stroke();
+  ctx.fillStyle = W.stocking;
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.55)";
+  ctx.lineWidth = Math.max(1, size / 40);
+  ctx.beginPath();
+  ctx.moveTo(x(0.4), y(0.26));
+  ctx.lineTo(x(0.62), y(0.26));
+  ctx.lineTo(x(0.62), y(0.58));
+  ctx.quadraticCurveTo(x(0.62), y(0.66), x(0.74), y(0.68));
+  ctx.quadraticCurveTo(x(0.82), y(0.72), x(0.76), y(0.8));
+  ctx.lineTo(x(0.54), y(0.8));
+  ctx.quadraticCurveTo(x(0.4), y(0.8), x(0.4), y(0.66));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = W.stockingCuff;
+  ctx.beginPath();
+  ctx.roundRect(x(0.37), y(0.18), size * 0.28, size * 0.11, size * 0.04);
+  ctx.fill();
+  ctx.stroke();
+}

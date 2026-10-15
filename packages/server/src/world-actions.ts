@@ -275,6 +275,16 @@ export function performAction(
         error: { code: "forbidden", message: "You can't give things to this resident." },
       };
     }
+    // A present (RFC 0034) keeps nothing but the thing, so it takes no note.
+    if (action.wrapped && action.note !== undefined) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_gift",
+          message: "A present carries no note. Leave out note, and send a letter with it instead.",
+        },
+      };
+    }
     const note = action.note === undefined ? "" : cleanText(action.note);
     const refused = filtered(ctx.moderation, "gift_note", note, context);
     if (refused) return refused;
@@ -284,6 +294,7 @@ export function performAction(
       to: action.to,
       ...(action.count === undefined ? {} : { count: action.count }),
       ...(note ? { note } : {}),
+      ...(action.wrapped ? { wrapped: true } : {}),
     };
     return ctx.run({ actor: residentId, command }, dry);
   }

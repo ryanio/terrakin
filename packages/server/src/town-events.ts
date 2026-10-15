@@ -93,6 +93,18 @@ const HOLIDAY_TOWN_EVENTS: readonly HolidayTownEvent[] = [
     minutes: 540,
     faces: ["clem", "otis"],
   },
+  {
+    // New Year's Eve, from 23:00 UTC across midnight UTC, one moment the whole world shares (RFC 0034).
+    holiday: "new_year",
+    day: 5,
+    at: "23:00",
+    key: "new-years-eve",
+    kind: "gathering",
+    title: "New Year's Eve",
+    text: "The town in the Commons as the year turns, at midnight UTC: the evening in the Americas and the small hours in Europe. Bring a firework or two.",
+    minutes: 120,
+    faces: ["juniper", "marlo"],
+  },
 ];
 
 const WEEK_MS = 7 * DAY_MS;

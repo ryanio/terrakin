@@ -6,7 +6,7 @@
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
-import { BAT_WING, EARNED_HEX, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
+import { BAT_WING, EARNED_HEX, HALLOWEEN_HEX, PatternCache, WINTER_HEX } from "@terrakin/ui/looks";
 import {
   BoxGeometry,
   type BufferGeometry,
@@ -177,6 +177,17 @@ function piece(item: WearItem, mat: Material): Mesh[] {
       return [ring, ...studs];
     }
 
+    // Midwinter's hat (RFC 0034): a cone bent over to one side, a white cuff, a white bobble.
+    case "santa_hat": {
+      const cone = at(new ConeGeometry(0.17, 0.26, 16).translate(0, 0.13, 0), mat, 0, 0.7);
+      cone.rotation.set(0, 0, -0.55);
+      const white = solid(WINTER_HEX.santaTrim);
+      return [
+        cone,
+        at(new TorusGeometry(0.168, 0.035, 8, 24), white, 0, 0.71).rotateX(Math.PI / 2),
+        at(new SphereGeometry(0.045, 10, 8), white, 0.2, 0.84),
+      ];
+    }
     // Halloween's costumes (RFC 0022).
     case "witch_hat": {
       // A brim, a cone, and a tip that bends back over, banded in orange with a buckle in front.

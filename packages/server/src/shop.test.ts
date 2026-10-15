@@ -168,16 +168,18 @@ describe("the town shop", () => {
     );
     expect(winter.buying.every((b: Json) => !b.season || b.season === "winter")).toBe(true);
     expect(winter.buying.map((b: Json) => b.kind)).toEqual(townBuys(w.today()));
-    // Midwinter, December 21 to 31: candy canes on the shelf, with the holiday and its last day.
+    // Midwinter, December 21 to 31: candy canes, the stocking, and the Santa hat on the shelf,
+    // with the holiday and its last day.
     while (w.today() < dayOfDate(2026, 12, 21)) w.nextDay();
     const midwinter = (await w.call("GET", "/v1/shop")).body.shop;
     const lastDay = dayOfDate(2026, 12, 31);
     expect(midwinter.holidays).toEqual([{ id: "midwinter", lastDay }]);
-    const canes = midwinter.items.filter((i: Json) => i.holiday);
-    expect(canes).toEqual([
-      expect.objectContaining({ sku: "candy_cane", price: 2, holiday: "midwinter", lastDay }),
-    ]);
-    while (w.today() < dayOfDate(2027, 1, 1)) w.nextDay();
+    const stock = midwinter.items.filter((i: Json) => i.holiday);
+    expect(stock.map((i: Json) => i.sku).sort()).toEqual(["candy_cane", "santa_hat", "stocking"]);
+    for (const item of stock) expect(item).toMatchObject({ holiday: "midwinter", lastDay });
+    expect(stock.find((i: Json) => i.sku === "candy_cane").price).toBe(2);
+    // New Year's runs on to January 1, so the shelf is plain from January 2.
+    while (w.today() < dayOfDate(2027, 1, 2)) w.nextDay();
     const after = (await w.call("GET", "/v1/shop")).body.shop;
     expect(after.holidays).toBeUndefined();
     expect(after.items.some((i: Json) => i.holiday)).toBe(false);

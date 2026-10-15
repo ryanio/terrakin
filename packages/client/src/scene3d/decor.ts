@@ -773,6 +773,24 @@ function dreidelParts(grain: Texture): Part[] {
   ];
 }
 
+/** A red felt stocking with a white cuff, hanging from a little post (RFC 0034). */
+function stockingParts(grain: Texture): Part[] {
+  const felt = merged([
+    box(0.18, 0.3, 0.08, [0, 0.34, 0], [0, 0, 0], 0.03),
+    box(0.2, 0.1, 0.08, [0.06, 0.2, 0], [0, 0, 0], 0.03),
+  ]);
+  const cuff = merged([box(0.22, 0.08, 0.1, [0, 0.52, 0], [0, 0, 0], 0.03)]);
+  const post = merged([
+    box(0.04, 0.6, 0.04, [-0.16, 0.3, -0.06]),
+    box(0.22, 0.03, 0.03, [-0.06, 0.6, -0.06]),
+  ]);
+  return [
+    { geometry: felt, material: paper(hex(WINTER_HEX.stocking), grain), cast: true },
+    { geometry: cuff, material: paper(hex(WINTER_HEX.stockingCuff), grain), cast: true },
+    { geometry: post, material: paper(WOOD_DARK, grain), cast: true },
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
@@ -790,6 +808,7 @@ function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "leaf_garland") return leafGarlandParts(grain);
   if (kind === "menorah") return menorahParts(grain);
   if (kind === "dreidel") return dreidelParts(grain);
+  if (kind === "stocking") return stockingParts(grain);
   return benchParts(grain);
 }
 

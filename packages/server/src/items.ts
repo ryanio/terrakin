@@ -14,10 +14,13 @@ import {
   isReady,
   knownRecipes,
   lastDeclineDay,
+  openDayOf,
   pantryNumbers,
   parseKey,
   picksLeft,
   plotAtTile,
+  presentsFor,
+  TOWN_ACTOR,
   type WorldState,
 } from "@terrakin/sim";
 
@@ -106,7 +109,26 @@ export function inventoryView(
         };
       }),
       ...(held.length > 0 ? { heldAside: held } : {}),
+      ...presentsField(state, viewer, author),
     },
     ...base,
+  };
+}
+
+/** A resident's presents waiting to be opened (RFC 0034), who from but never what, oldest first. */
+function presentsField(state: WorldState, viewer: string, author: Authors) {
+  const mine = presentsFor(state, viewer);
+  if (mine.length === 0) return {};
+  return {
+    presents: mine.map((p) => {
+      const from = p.from === TOWN_ACTOR ? undefined : author(p.from);
+      return {
+        id: p.id,
+        ...(from ? { from } : {}),
+        fromId: p.from,
+        day: p.day,
+        opensDay: openDayOf(p.day),
+      };
+    }),
   };
 }

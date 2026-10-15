@@ -80,6 +80,8 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   // Hanukkah decor (RFC 0034): a brass menorah, and a blue dreidel.
   menorah: "#c9a24a",
   dreidel: "#3f6fb5",
+  // Midwinter's stocking (RFC 0034): red felt with a white cuff.
+  stocking: "#c8344a",
 };
 
 /**

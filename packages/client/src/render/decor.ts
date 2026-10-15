@@ -2,6 +2,7 @@ import { BLOCK_COLORS, type DecorKind } from "@terrakin/sim";
 import { BRAND_HEX, STRAW } from "@terrakin/ui/brand";
 import { type ArtKind, itemArtImage, type ThingLook } from "@terrakin/ui/item-art";
 import { lookImage } from "@terrakin/ui/looks";
+import { paintStocking } from "./decor-christmas";
 import { paintBatBunting, paintCandyBowl, paintCauldron } from "./decor-halloween";
 import { paintDreidel, paintMenorah } from "./decor-hanukkah";
 import { paintCornucopia, paintLeafGarland } from "./decor-thanksgiving";
@@ -22,8 +23,8 @@ export interface Joins {
  * A decor block on its tile, drawn as itself rather than a square: a paper lantern on a hook, a
  * picture on an easel, a fence post with rails out to the fences beside it, a garden bench,
  * autumn's hay bale and scarecrow, Halloween's bat bunting, cauldron, and candy bowl, winter's
- * snowman, string of lights, little fir, and sled, Thanksgiving's cornucopia and leaf garland, or
- * Hanukkah's menorah, its candles lit for the night, and dreidel.
+ * snowman, string of lights, little fir, and sled, Thanksgiving's cornucopia and leaf garland,
+ * Hanukkah's menorah, its candles lit for the night, and dreidel, or Christmas's stocking.
  * `left`, `top`, and `size` are the block's box; `edge` is the gap to the tile's edge, so fence
  * rails reach their neighbors' rails.
  */
@@ -69,6 +70,7 @@ export function paintDecor(
   else if (kind === "leaf_garland") paintLeafGarland(ctx, left, top, size);
   else if (kind === "menorah") paintMenorah(ctx, left, top, size, night);
   else if (kind === "dreidel") paintDreidel(ctx, left, top, size);
+  else if (kind === "stocking") paintStocking(ctx, left, top, size);
   else paintBench(ctx, left, top, size);
   ctx.restore();
 }

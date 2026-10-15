@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--no-jobs] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--no-jobs] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -33,6 +33,24 @@
  *                terrakin.org reads), logged with `set_job_edition` right after `open_jobs`, so the
  *                whole month reads it. `--job-edition 1` plays the first edition (the decision
  *                0255 run)
+ *   --townsfolk-spend  the percent of each townsfolk budget their scripts hand out as tips each day
+ *                (default 80). On terrakin.org with about 40 residents they hand out about 10%,
+ *                and the rest goes back to the treasury at `new_day`.
+ *   --starter-gift  coins a welcomer gives each settled newcomer (default 0, no welcomer). The
+ *                welcomer is one more resident who comes home every day and does nothing else, as
+ *                an AI resident welcoming newcomers might (issue #63). With `--starter-from
+ *                resident` (the default) they pay from their own purse, oldest newcomer first,
+ *                when they can, and the coin flow lines say how long the gifts waited. With `town`
+ *                the treasury pays it as part of a larger welcome gift (`welcomeGift` plus this),
+ *                and with `townsfolk` the townsfolk add it to their welcome tip of 10, from their
+ *                budgets (the sim refuses what goes past `townsfolkPerResident`); the welcomer then
+ *                gives nothing.
+ *   --job-pay    coins for each job finished (default 0, RFC 0030 pays none). With
+ *                `--job-pay-from treasury` (the default) the treasury pays it only while it keeps
+ *                `budgetReserve` afterwards, and skips it otherwise; with `mint` it's minted. No
+ *                sim rule pays it: the script moves the coins with the sim's own ledger helpers
+ *                when it hears `job_done`, so the supply still adds up. With a starter gift the
+ *                welcomer finishes a job on each of the first three days of a UTC week.
  *   --picks      how gardeners use their free picks: `sell` (the default) picks the goods they'd
  *                sell, best paid first; `shelf` picks any three cards off the shelf, as someone
  *                picking what they like might, and leaves the goods to cards and lessons
@@ -191,6 +209,9 @@ const {
 const { SPECIALTIES } = await import("../packages/server/src/lesson-plan.ts");
 const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../packages/protocol/src/social.ts");
 const { scoreKarma } = await import("../packages/server/src/karma.ts");
+const { movePurse, moveTreasury } = await import("../packages/sim/src/economy.ts");
+const { jobPayFromTreasury, starterGiftsToday, waits } = await import("./coin-flow.ts");
+type Waits = import("./coin-flow.ts").Waits;
 
 type Numbers = { -readonly [K in keyof typeof ECONOMY]: number };
 type Mutable = Record<string, number | Record<string, number | Record<string, number>>>;
@@ -214,6 +235,11 @@ const { values: args } = parseArgs({
     // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
     dump: { type: "boolean", default: false },
     picks: { type: "string", default: "sell" },
+    "townsfolk-spend": { type: "string", default: "80" },
+    "starter-gift": { type: "string", default: "0" },
+    "starter-from": { type: "string", default: "resident" },
+    "job-pay": { type: "string", default: "0" },
+    "job-pay-from": { type: "string", default: "treasury" },
     set: { type: "string", multiple: true, default: [] },
   },
 });
@@ -278,6 +304,30 @@ if (args.picks !== "sell" && args.picks !== "shelf") throw new Error("--picks is
 /** Whether gardeners pick the goods they'd sell (`--picks sell`) or any cards (`--picks shelf`). */
 const PICK_TO_SELL = args.picks === "sell";
 const SEED = Number(args.seed);
+/** A welcomer's starter gift to each newcomer (issue #63), and whether the town pays it instead. */
+const STARTER_GIFT = Number(args["starter-gift"]);
+const STARTER_FROM = args["starter-from"];
+if (STARTER_FROM !== "resident" && STARTER_FROM !== "town" && STARTER_FROM !== "townsfolk") {
+  throw new Error("--starter-from is resident, town, or townsfolk");
+}
+// The town's starter gift is the welcome gift made larger: paid in full from the treasury, in
+// order, ahead of townsfolk budgets.
+if (STARTER_FROM === "town") N.welcomeGift += STARTER_GIFT;
+/** What the townsfolk scripts give each newcomer: 10, as `TIPS.welcome` does on terrakin.org. */
+const TOWNSFOLK_WELCOME = 10 + (STARTER_FROM === "townsfolk" ? STARTER_GIFT : 0);
+/** Coins for a finished job, and where they come from. */
+const JOB_PAY = Number(args["job-pay"]);
+if (args["job-pay-from"] !== "treasury" && args["job-pay-from"] !== "mint") {
+  throw new Error("--job-pay-from is treasury or mint");
+}
+const JOB_PAY_MINTED = args["job-pay-from"] === "mint";
+for (const [flag, n] of [
+  ["--starter-gift", STARTER_GIFT],
+  ["--job-pay", JOB_PAY],
+  ["--townsfolk-spend", Number(args["townsfolk-spend"])],
+] as const) {
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${flag} wants a whole number`);
+}
 const DAYS = Number(args.days);
 const RESIDENTS = Number(args.residents);
 const [startYear = 0, startMonth = 0, startDate = 0] = (args.start ?? "").split("-").map(Number);
@@ -337,9 +387,9 @@ interface Rules {
   join(id: string): void;
   /**
    * Settle a first plot and build a starter home, which sets a hearth. With `near`, the first free
-   * plot it likes, else the next one.
+   * plot it likes, else the next one. With `last`, the last free plot, so nobody else's moves.
    */
-  settle(id: string, near?: (px: number, py: number) => boolean): void;
+  settle(id: string, near?: (px: number, py: number) => boolean, last?: boolean): void;
   /** Stand on your own hearth. */
   home(id: string): void;
   give(from: string, to: string, amount: number): boolean;
@@ -374,15 +424,19 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
   for (let py = 0; py < side; py++) {
     for (let px = 0; px < side; px++) if (!isCommons(state.config, px, py)) free.push([px, py]);
   }
+  // Only the month's own world pays for jobs; the labs' small worlds keep RFC 0030's rules.
+  const paysJobs = JOB_PAY > 0 && heard === monthJobs;
   const send = (actor: string, command: Command) => {
     const result = apply(state, { actor, command });
     if (result.ok && JOBS_ON) hearJobs(heard, state, result.events);
+    if (result.ok && paysJobs) payForJobs(state, result.events);
     return result.ok;
   };
   const must = (actor: string, command: Command) => {
     const result = apply(state, { actor, command });
     if (!result.ok) throw new Error(`${actor} ${command.type}: ${result.rejection.message}`);
     if (JOBS_ON) hearJobs(heard, state, result.events);
+    if (paysJobs) payForJobs(state, result.events);
   };
   return {
     open() {
@@ -422,9 +476,9 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
-    settle(id, near) {
+    settle(id, near, last) {
       const liked = near ? free.findIndex(([px, py]) => near(px, py)) : -1;
-      const plot = liked >= 0 ? free.splice(liked, 1)[0] : free.shift();
+      const plot = last ? free.pop() : liked >= 0 ? free.splice(liked, 1)[0] : free.shift();
       if (!plot) throw new Error("The simulated world ran out of plots.");
       must(id, { type: "settle", px: plot[0], py: plot[1] });
       // Settling lands on the plot's center, where the starter home puts the hearth.
@@ -444,6 +498,36 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
     send,
     state,
   };
+}
+
+/** What job pay came to in the month: paid, and skipped because the treasury held its reserve. */
+const jobPay = { paid: 0, coins: 0, skipped: 0, to: new Map<string, number>() };
+
+/**
+ * Pays `--job-pay` for one finished job, from the treasury or minted. There's no such rule in the
+ * sim, so this moves the coins with the sim's own ledger helpers, and the supply identity holds.
+ */
+function payJob(state: WorldState, id: string) {
+  const econ = state.economy;
+  if (!econ) return;
+  const at = { seq: state.seq, day: state.day ?? DAY0 };
+  const pay = JOB_PAY_MINTED
+    ? JOB_PAY
+    : jobPayFromTreasury(econ.treasury, JOB_PAY, N.budgetReserve);
+  if (pay === 0) {
+    jobPay.skipped++;
+    return;
+  }
+  if (JOB_PAY_MINTED) econ.minted += pay;
+  else moveTreasury(econ, -pay, "grant", at, id);
+  movePurse(econ, id, pay, "grant", at);
+  jobPay.paid++;
+  jobPay.coins += pay;
+  jobPay.to.set(id, (jobPay.to.get(id) ?? 0) + pay);
+}
+
+function payForJobs(state: WorldState, events: readonly WorldEvent[]) {
+  for (const e of events) if (e.type === "job_done") payJob(state, e.residentId);
 }
 
 // ---------- gardens and the shop ----------
@@ -2140,7 +2224,9 @@ const BUILDERS: Record<Kind, number> = { regular: 0.5, visitor: 0, drifter: 0, o
 
 const TOWNSFOLK = ["t_bram", "t_clem", "t_dot", "t_fern", "t_hale", "t_ivy", "t_juno", "t_moss"];
 /** Share of each townsfolk budget their scripts actually hand out on a typical day. */
-const TOWNSFOLK_SPEND = 0.8;
+const TOWNSFOLK_SPEND = Number(args["townsfolk-spend"]) / 100;
+/** The welcomer, when there's a starter gift: one more resident, never one of the month's people. */
+const WELCOMER = "w_welcomer";
 /** Owner-linked pairs among the arrivals: a person and their AI. */
 const PAIRS = 20;
 
@@ -2293,6 +2379,14 @@ function play(rules: Rules) {
 
   const rows: Row[] = [];
   let shortWelcomes = 0;
+  // Who waited for the treasury's welcome gift, and for a starter gift, from the day they settled
+  // to the day it came.
+  const welcomeOwed = new Map<string, number>();
+  const welcomePaid = new Map<string, number>();
+  const starterOwed = new Map<string, number>();
+  const starterPaid = new Map<string, number>();
+  const starterQueue: string[] = [];
+  let townsfolkWelcomed = 0;
   const settled = new Set<string>();
   const planters = new Map<string, Set<string>>();
   const atHome = (p: Person) => {
@@ -2312,6 +2406,11 @@ function play(rules: Rules) {
     goShopping(rules, p.id, p.habits);
   };
   rules.open();
+  const welcoming = STARTER_GIFT > 0;
+  if (welcoming) {
+    rules.join(WELCOMER);
+    rules.settle(WELCOMER, undefined, true);
+  }
   for (let day = 0; day < DAYS; day++) {
     const mintedBefore = rules.minted();
     // The town's coins are the treasury plus the townsfolk purses it funds. What they lose in a
@@ -2338,6 +2437,16 @@ function play(rules: Rules) {
     }
     const townMint = day > 0 ? N.treasuryMint : 0;
 
+    // The welcomer comes home every day, and finishes a job on the first three days of a UTC week.
+    if (welcoming) {
+      rules.home(WELCOMER);
+      if (JOB_PAY > 0 && JOBS_ON && DAY0 + day - weekStart(DAY0 + day) < 3)
+        payJob(rules.state, WELCOMER);
+    }
+    const owedNow = new Set(rules.state.economy?.owed ?? []);
+    for (const id of welcomeOwed.keys()) {
+      if (!welcomePaid.has(id) && !owedNow.has(id)) welcomePaid.set(id, day);
+    }
     const active: string[] = [];
     const arrived: string[] = [];
     for (const p of people) {
@@ -2359,6 +2468,11 @@ function play(rules: Rules) {
                 : undefined,
           );
           if (rules.balance(p.id) < N.welcomeGift) shortWelcomes++;
+          if (rules.state.economy?.owed.includes(p.id)) welcomeOwed.set(p.id, day);
+          if (welcoming && STARTER_FROM === "resident") {
+            starterOwed.set(p.id, day);
+            starterQueue.push(p.id);
+          }
           settled.add(p.id);
           rules.home(p.id);
           atHome(p);
@@ -2369,6 +2483,23 @@ function play(rules: Rules) {
           rules.home(p.id);
           atHome(p);
         }
+      }
+    }
+
+    // The welcomer pays starter gifts from their own purse, oldest newcomer first. Not on their
+    // own first day: the rules refuse that.
+    if (welcoming && day > 0) {
+      const given = rules.state.economy?.today.given[WELCOMER] ?? 0;
+      const due = starterGiftsToday(
+        starterQueue,
+        rules.balance(WELCOMER),
+        STARTER_GIFT,
+        N.giveCap - given,
+      );
+      for (const id of due) {
+        if (!rules.give(WELCOMER, id, STARTER_GIFT)) break;
+        starterQueue.shift();
+        starterPaid.set(id, day);
       }
     }
 
@@ -2417,7 +2548,7 @@ function play(rules: Rules) {
     };
     arrived.forEach((id, i) => {
       const from = TOWNSFOLK[i % TOWNSFOLK.length] ?? "";
-      tfGive(from, id, 10);
+      if (tfGive(from, id, TOWNSFOLK_WELCOME)) townsfolkWelcomed++;
     });
     for (const from of TOWNSFOLK) {
       const target = Math.floor(N.townsfolkBudget * TOWNSFOLK_SPEND);
@@ -2456,7 +2587,7 @@ function play(rules: Rules) {
 
     // The ledger must balance every day: everything minted is in a purse or the treasury, or held
     // in a bounty or a booking that hasn't finished (none without levels).
-    let inPurses = held;
+    let inPurses = held + (welcoming ? rules.balance(WELCOMER) : 0);
     for (const id of TOWNSFOLK) inPurses += rules.balance(id);
     const waiting = bountyHeld(rules.state) + eventHeld(rules.state);
     if (inPurses + rules.treasury() + waiting !== supply) {
@@ -2475,7 +2606,12 @@ function play(rules: Rules) {
       }
     }
   }
-  return { rows, people, shortWelcomes, facts, paired };
+  const flow = {
+    welcome: waits(welcomeOwed, welcomePaid, DAYS - 1),
+    starter: waits(starterOwed, starterPaid, DAYS - 1),
+    townsfolkWelcomed,
+  };
+  return { rows, people, shortWelcomes, facts, paired, flow };
 }
 
 // ---------- report ----------
@@ -3236,7 +3372,7 @@ const percentile = (sorted: number[], q: number) =>
   sorted.length ? (sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0) : 0;
 
 function report(rules: Rules) {
-  const { rows, people, shortWelcomes, facts, paired } = play(rules);
+  const { rows, people, shortWelcomes, facts, paired, flow } = play(rules);
   if (args.dump) {
     console.log(JSON.stringify(comparison(rules, people, rows)));
     return;
@@ -3342,7 +3478,72 @@ function report(rules: Rules) {
     console.log(
       `Welcome gifts that had to wait for a new_day because the treasury ran low: ${shortWelcomes}, still waiting at month end: ${rules.owed()}.`,
     );
+    flowLines(rules, people, rows, flow);
   }
+}
+
+/**
+ * Issue #63's coin flow: the treasury, how long welcome and starter gifts waited, what job pay
+ * came to, and the median resident's purse at month end.
+ */
+function flowLines(
+  rules: Rules,
+  people: Person[],
+  rows: Row[],
+  flow: { welcome: Waits; starter: Waits; townsfolkWelcomed: number },
+) {
+  const low = rows.reduce((a, r) => (r.treasury < a.treasury ? r : a), rows[0] as Row);
+  const last = rows.at(-1) as Row;
+  const median = (ids: string[]) =>
+    percentile(
+      ids.map((id) => rules.balance(id)).sort((a, b) => a - b),
+      0.5,
+    );
+  const settledIds = (f: (p: Person) => boolean) =>
+    people.filter((p) => p.settles && f(p)).map((p) => p.id);
+  const line = (w: Waits) =>
+    `median ${w.median} days, p90 ${w.p90}, longest ${w.max}; ${w.waiting} still waiting at month end${w.waiting ? `, the oldest for ${w.oldest} days` : ""}`;
+  const from = {
+    resident: "a welcomer's own purse",
+    town: "the town, in the welcome gift",
+    townsfolk: "the townsfolk, in their welcome tip",
+  }[STARTER_FROM];
+  console.log("");
+  console.log(
+    `Coin flow (issue #63): townsfolk hand out ${args["townsfolk-spend"]}% of their budgets; starter gift ${STARTER_GIFT}${STARTER_GIFT ? ` from ${from}` : ""}; job pay ${JOB_PAY}${JOB_PAY ? ` ${JOB_PAY_MINTED ? "minted" : "from the treasury"}` : ""}.`,
+  );
+  console.log(
+    `  Treasury: ${rows[0]?.treasury ?? 0} at the end of day 0, lowest ${low.treasury} on day ${low.day}, ${last.treasury} at month end.`,
+  );
+  const w = flow.welcome;
+  console.log(
+    `  Welcome gifts (${N.welcomeGift}): ${w.paid + w.waiting} waited for a new_day; of those paid, ${line(w)}.`,
+  );
+  const arrivals = people.filter((p) => p.arrives < DAYS).length;
+  console.log(
+    `  Townsfolk welcome tips (${TOWNSFOLK_WELCOME}): ${flow.townsfolkWelcomed} of ${arrivals} newcomers got one the day they arrived.`,
+  );
+  if (STARTER_GIFT > 0 && STARTER_FROM === "resident") {
+    const st = flow.starter;
+    console.log(
+      `  Starter gifts (${STARTER_GIFT}) from the welcomer: ${st.paid} of ${st.paid + st.waiting} paid, ${st.sameDay} the day the newcomer settled; ${line(st)}. The welcomer ends the month with ${rules.balance(WELCOMER)}.`,
+    );
+  }
+  if (JOB_PAY > 0) {
+    const week = rows.slice(-7);
+    const minted = week.reduce((s, r) => s + r.mint, 0);
+    const takers = [...jobPay.to.values()].sort((a, b) => a - b);
+    const paidWeek = Math.round((jobPay.coins / Math.max(1, rows.length)) * 7);
+    console.log(
+      `  Job pay: ${jobPay.paid} jobs paid, ${jobPay.coins} coins (about ${Math.round(jobPay.coins / rows.length)} a day, ${paidWeek} a week), ${jobPay.skipped} skipped because the treasury held its reserve. ${takers.length} residents were paid: median ${percentile(takers, 0.5)} over the month, most ${takers.at(-1) ?? 0}.${JOB_PAY_MINTED ? ` In the last 7 days everything minted came to ${Math.round(minted / 7)} a day.` : ""}`,
+    );
+  }
+  const all = settledIds(() => true);
+  const early = settledIds((p) => p.arrives <= 6);
+  const regulars = settledIds((p) => p.arrives <= 6 && p.kind === "regular");
+  console.log(
+    `  Median month-end purse: every settled resident ${median(all)} (n=${all.length}), those who arrived in the first week ${median(early)} (n=${early.length}), regulars among them ${median(regulars)} (n=${regulars.length}). Per active resident ${last.perActive}, supply ${last.supply}.`,
+  );
 }
 
 report(simRules());

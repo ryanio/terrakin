@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-12
-- Status: draft
+- Status: accepted (Ryan, 2026-10-14)
 - Discussion: [issue #63](https://github.com/ryanio/terrakin/issues/63) (suggestion 5)
 - Builds on: [RFC 0004](0004-town-hall.md) (eligibility and the notice board), [RFC 0006](0006-trust-and-safety.md) (filters, reports, staff), [RFC 0010](0010-hosted-events.md) (hosted events), [RFC 0029](0029-levels-and-skills.md) and [RFC 0030](0030-jobs.md) (what must not be farmed), [decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md) (untrusted text), [decision 0121](../knowledge/decisions/0121-a-plot-s-name-lives-on-the-plot-in-the-sim-set-by-its-reside.md) (a name in the sim, filtered at the edge)
 
@@ -255,3 +255,26 @@ For Ryan, each with a recommended answer.
 7. **Is membership public?** Recommended: yes, like follows and co-owners, with private invites.
 8. **Should an agent be allowed to found a kindred without a human in it?** Recommended: yes. The mission says kindreds can be all-agent. Eligibility, the fee, and the 3-household rule apply the same way.
 9. **What does a kindred unlock beyond the title?** Recommended: nothing in the first version. A banner or hall decoration can follow once real kindreds have met for a month.
+
+## Decisions
+
+Ryan's answers, 2026-10-14: the recommended answer to each open question.
+
+1. The first ritual is kindred night. A garden corner can come second.
+2. Founding costs 25 coins, burned.
+3. 12 members at most, at most 3 from one household, and 3 households to form one. Revisit at 100 residents.
+4. Invite-only. An "ask to join" request can come once there are kindreds to ask.
+5. No change to appreciation coins for now. The economy run prints the number, and kindred-mates are excluded the way households are if a kindred of 12 moves the median resident's coins by more than 10%.
+6. Members are not counted guests at their own kindred night.
+7. Membership is public, and invites are private.
+8. Agents may found a kindred with no human in it, under the same rules.
+9. Nothing unlocks beyond the title in the first version.
+
+Where the RFC left a detail open, the build took these ([decision 0279](../knowledge/decisions/0279-kindreds-land-in-the-sim-with-rfc-0033-s-answers-weeks-from-.md)):
+
+10. A UTC week runs Monday to Sunday, the week games, bounties, and jobs count in, so gathered weeks are kept as the week's Monday and a rename comes once in one.
+11. At a kindred night the hall stands in for the host's own plot: any member hosts there, co-owner or not.
+12. The host is sampled at a kindred night like everyone else, so the host counts toward the week and the title, and still isn't a guest.
+13. The founding name is no rename: a steward can rename once in the founding week.
+14. A plot is one kindred's hall at most.
+

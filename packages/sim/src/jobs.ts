@@ -34,6 +34,7 @@ import {
   isGoodKind,
   isResourceKind,
 } from "./items";
+import { KINDRED_TITLE_INFO } from "./kindreds";
 import {
   bountyCounts,
   catchCounts,
@@ -60,6 +61,7 @@ import {
   type Good,
   type HeldJob,
   isJobTitle,
+  isKindredTitle,
   JOB_TITLES,
   type JobsState,
   type JobTitle,
@@ -1290,9 +1292,13 @@ export const jobUnlocks = (): JobUnlock[] =>
     ...JOB_WEAR.map((wear) => ({ jobs: JOBS.wearAt, wear })),
   ].sort((a, b) => a.jobs - b.jobs);
 
-/** A title's words: one a skill's level unlocked, or one from jobs finished. */
+/** A title's words: one a skill's level unlocked, one from jobs finished, or one from kindred nights. */
 export const titleLabel = (title: ShownTitle): string =>
-  isJobTitle(title) ? JOB_TITLE_INFO[title].label : TITLE_INFO[title].label;
+  isJobTitle(title)
+    ? JOB_TITLE_INFO[title].label
+    : isKindredTitle(title)
+      ? KINDRED_TITLE_INFO[title].label
+      : TITLE_INFO[title].label;
 
 /**
  * What a `profile`'s `title` does when it's a title from jobs finished: a rejection short of its

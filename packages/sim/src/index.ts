@@ -332,6 +332,22 @@ export {
 } from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
 export {
+  foundProblem,
+  gatheredRun,
+  hallAt,
+  householdCount,
+  isMember,
+  isSteward,
+  KINDRED_TITLE_INFO,
+  KINDREDS,
+  kindredById,
+  kindredName,
+  kindredNights,
+  kindredOf,
+  membersByStanding,
+  waitLeft,
+} from "./kindreds";
+export {
   EARNED_WEAR_SKILL,
   firstSkill,
   firstsOf,

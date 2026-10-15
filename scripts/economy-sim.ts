@@ -158,6 +158,7 @@ const {
   jobsOn,
   jobWaits,
   joinTile,
+  kindredById,
   knownByAll,
   knows,
   levelOf,
@@ -1813,6 +1814,186 @@ function lab() {
   };
 }
 
+// ---------- kindreds (RFC 0033) ----------
+
+/**
+ * How a kindred lab's members behave: `none` is the same people with no kindreds, meeting weekly
+ * at an ordinary event on the founder's plot; `night` meets at kindred night instead and reacts as
+ * before; `kindred` also reacts to mates' posts before anyone else's, as many reactions as before;
+ * `ring` also has every member react to every mate's post every day, the most a group of friends
+ * could farm appreciation coins, in a kindred or not.
+ */
+type KindredRun = "none" | "night" | "kindred" | "ring";
+
+/** The neighbors in a kindred lab who aren't members. Two come to each night. */
+const KINDRED_NEIGHBORS = 12;
+
+/**
+ * What RFC 0033's economy check needs, in a small world of its own beside the month, so it changes
+ * nothing there: a kindred of `size` (a person, two AIs of hers, and the rest from households of
+ * their own) and `KINDRED_NEIGHBORS` neighbors, everyone home every day, posting and reacting from
+ * one stream seeded the same for every run, and the members meeting once a week from day 3, when
+ * they can first host. Each member's Hosting points, karma, appreciation coins, and month-end purse.
+ */
+function kindredLab(size: number, run: KindredRun) {
+  const rules = simRules(size + KINDRED_NEIGHBORS, jobCounts());
+  const { state } = rules;
+  const talk = draws(mulberry32(SEED ^ 0x41d));
+  rules.open();
+  if (run !== "none") rules.send(TOWN_ACTOR, { type: "open_kindreds" });
+  const members = Array.from({ length: size }, (_, i) => `k_m${String(i).padStart(2, "0")}`);
+  const neighbors = Array.from({ length: KINDRED_NEIGHBORS }, (_, i) => `k_n${i}`);
+  const everyone = [...members, ...neighbors];
+  for (const id of everyone) rules.join(id);
+  const founder = members[0] ?? "";
+  const ais = members.slice(1, 3);
+  rules.setOwnerPairs(ais.map((ai) => [ai, founder].sort() as [string, string]));
+  const pairKeys = new Set(ais.map((ai) => [ai, founder].sort().join(" ")));
+  const paired = (a: string, b: string) => pairKeys.has([a, b].sort().join(" "));
+  for (const id of everyone) rules.settle(id);
+  const byId = new Map(everyone.map((id) => [id, { id, arrives: 0 } as Person]));
+  const settled = new Set(everyone);
+  const facts: KarmaFacts = {
+    reactions: [],
+    praise: [],
+    gifts: [],
+    heartedReplies: [],
+    votes: [],
+    upheld: [],
+    hosted: [],
+    attended: [],
+  };
+  const appreciation = new Map<string, number>();
+  const isMember = new Set(members);
+  const hearth = state.residents[founder]?.hearth ?? { x: 0, y: 0 };
+  const hall = plotOf(state.config, hearth.x, hearth.y);
+  for (let day = 0; day < DAYS; day++) {
+    if (day > 0) {
+      rules.newDay(day);
+      const awards = appreciationFor(day - 1, facts, byId, settled, paired);
+      if (awards.length > 0) rules.award(day - 1, awards);
+      for (const a of awards) appreciation.set(a.to, (appreciation.get(a.to) ?? 0) + a.amount);
+    }
+    for (const id of everyone) rules.home(id);
+    if (day === 3 && run !== "none") {
+      const must = (actor: string, command: Command) => {
+        const result = apply(state, { actor, command });
+        if (!result.ok)
+          throw new Error(`The kindred lab's ${command.type}: ${result.rejection.message}`);
+      };
+      must(founder, { type: "found_kindred", name: "Lantern Row" });
+      for (const id of members.slice(1)) {
+        must(founder, { type: "invite_to_kindred", resident: id });
+        must(id, { type: "join_kindred", kindred: "k_1" });
+      }
+      must(founder, { type: "set_kindred_hall", ...hall });
+    }
+    if (day >= 3 && day % 7 === 3) {
+      const week = Math.floor(day / 7);
+      const guests = [
+        ...members.slice(1),
+        ...neighbors.slice((2 * week) % KINDRED_NEIGHBORS, ((2 * week) % KINDRED_NEIGHBORS) + 2),
+      ];
+      const booked = apply(state, {
+        actor: founder,
+        command: {
+          type: "schedule_event",
+          kind: "gathering",
+          title: "At the Row",
+          ...hall,
+          startsAt: (state.day ?? 0) * 24 * HOUR_MS + 19 * HOUR_MS,
+          minutes: 30,
+          ...(run === "none" ? {} : { kindred: "k_1" }),
+        },
+      });
+      const event = state.events?.list.at(-1);
+      if (!booked.ok || !event) {
+        throw new Error(`The kindred lab's night on day ${day}: ${JSON.stringify(booked)}`);
+      }
+      rules.send(TOWN_ACTOR, { type: "event_start", event: event.id });
+      for (const guest of guests) {
+        const tile = joinTile(state, guest, event);
+        rules.send(guest, { type: "join_event", event: event.id, ...(tile ?? {}) });
+      }
+      rules.send(TOWN_ACTOR, { type: "event_tick", event: event.id, slot: 1 });
+      rules.send(TOWN_ACTOR, { type: "event_tick", event: event.id, slot: 2 });
+      rules.send(TOWN_ACTOR, { type: "event_end", event: event.id });
+      // The guests the server would count: as for any event, and never the kindred's own.
+      const ended = findEvent(state, event.id);
+      const counted = (ended?.attended ?? []).filter(
+        (id) => !sameHousehold(state, founder, id) && !(ended?.kin ?? []).includes(id),
+      );
+      rules.send(TOWN_ACTOR, { type: "credit_event", event: event.id, guests: counted });
+      facts.hosted?.push({ host: founder, event: event.id, day, guests: counted });
+      for (const id of counted) facts.attended?.push({ from: id, host: founder, day });
+      for (const guest of guests) rules.home(guest);
+    }
+    const posters = everyone.filter(() => talk.chance(POSTS.regular));
+    for (const id of everyone) {
+      const others = posters.filter((p) => p !== id);
+      const first = (run === "kindred" || run === "ring") && isMember.has(id);
+      const mates = first ? others.filter((p) => isMember.has(p)) : [];
+      const rest = others.filter((p) => !mates.includes(p));
+      const reacts = Math.min(others.length, talk.between(0, REACTS_UP_TO));
+      for (let i = 0; i < reacts; i++) {
+        const from = mates.length > 0 ? mates : rest;
+        const [to] = from.splice(talk.between(0, from.length - 1), 1);
+        if (to) facts.reactions.push({ from: id, to, day });
+      }
+      if (run === "ring" && isMember.has(id)) {
+        for (const to of posters) {
+          if (to !== id && isMember.has(to)) facts.reactions.push({ from: id, to, day });
+        }
+      }
+    }
+  }
+  const scores = scoreKarma(facts, { counts: () => true, paired });
+  const each = (f: (id: string) => number) => members.map(f).sort((a, b) => a - b);
+  return {
+    hosting: each((id) => pointsOf(state, id).hosting ?? 0),
+    karma: each((id) => scores.get(id)?.score ?? 0),
+    appreciation: each((id) => appreciation.get(id) ?? 0),
+    purse: each((id) => coinsOf(state, id)),
+    gathered: kindredById(state, "k_1")?.gathered?.length ?? 0,
+  };
+}
+
+/**
+ * RFC 0033's economy check: a kindred of 6 meeting weekly earns no more Hosting points or karma a
+ * member than the same people meeting at an ordinary event, and what a kindred of 12 does to its
+ * members' coins through appreciation, when they react to mates first and when every member reacts
+ * to every mate every day. RFC 0033 says to exclude kindred-mates from appreciation, as households
+ * are, if a kindred of 12 moves the median member's coins by more than 10%.
+ */
+function kindredLines() {
+  const mean = (list: number[]) => list.reduce((sum, n) => sum + n, 0) / Math.max(1, list.length);
+  const median = (list: number[]) => percentile(list, 0.5);
+  const change = (now: number, was: number) =>
+    `${now >= was ? "+" : ""}${((100 * (now - was)) / Math.max(1, was)).toFixed(1)}%`;
+  const holds = (ok: boolean) => (ok ? "holds" : "fails");
+  console.log("");
+  console.log(
+    `Kindreds (RFC 0033), in a small world of their own with ${KINDRED_NEIGHBORS} neighbors who aren't members, meeting weekly from day 3 for ${DAYS} days:`,
+  );
+  const six = { none: kindredLab(6, "none"), night: kindredLab(6, "night") };
+  const hosting = [mean(six.night.hosting), mean(six.none.hosting)];
+  const karma = [mean(six.night.karma), mean(six.none.karma)];
+  console.log(
+    `  1. A kindred of 6 (a person and two AIs of hers, and three others) gathered ${six.night.gathered} weeks. Hosting points a member: ${hosting[0]?.toFixed(1)} at kindred night against ${hosting[1]?.toFixed(1)} at an ordinary weekly event among the same people (${holds((hosting[0] ?? 0) <= (hosting[1] ?? 0))}: no rise). Karma a member, reacting as before: ${karma[0]?.toFixed(1)} against ${karma[1]?.toFixed(1)} (${holds((karma[0] ?? 0) <= (karma[1] ?? 0))}: no rise).`,
+  );
+  const twelve = {
+    none: kindredLab(12, "none"),
+    kindred: kindredLab(12, "kindred"),
+    ring: kindredLab(12, "ring"),
+  };
+  const was = median(twelve.none.purse);
+  const first = median(twelve.kindred.purse);
+  const ring = median(twelve.ring.purse);
+  console.log(
+    `  2. A kindred of 12: appreciation coins a member over the month, mean ${mean(twelve.none.appreciation).toFixed(1)} with no kindreds, ${mean(twelve.kindred.appreciation).toFixed(1)} reacting to mates first, and ${mean(twelve.ring.appreciation).toFixed(1)} with every member reacting to every mate every day. The median member's month-end purse: ${was}, then ${first} (${change(first, was)}, ${holds(Math.abs(first - was) <= was / 10)}: within 10%), and ${ring} (${change(ring, was)}, ${holds(Math.abs(ring - was) <= was / 10)}: within 10%).`,
+  );
+}
+
 // ---------- jobs (RFC 0030) ----------
 
 /**
@@ -3459,6 +3640,7 @@ function report(rules: Rules) {
     if (SHOP_OPEN) floorLines(people, rows);
     if (LEVELS_ON) levelLines(rules, people, rows);
     if (JOBS_ON) jobLines(rules, people, rows);
+    if (LEVELS_ON && APPRECIATION) kindredLines();
     if (APPRECIATION) {
       console.log(
         `Last 7 days: appreciation minted ${avg((r) => r.appreciation)} a day, ${(

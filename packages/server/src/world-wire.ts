@@ -49,9 +49,10 @@ import { nameKey } from "./text";
 
 /**
  * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
- * server, and so do `event_credited`, the guest list the server sent the sim (RFC 0029), and two
- * of jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
- * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored. A gift
+ * server, and so do `event_credited`, the guest list the server sent the sim (RFC 0029), two of
+ * jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
+ * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored, and
+ * `kindred_nights`, a merge's bookkeeping for kindred nights attended (RFC 0033). A gift
  * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
  * side: their purses reset to the budget each day, so the public treasury lines would give the
  * amount away.
@@ -68,7 +69,8 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "event_ticked" ||
       e.type === "event_credited" ||
       e.type === "job_total" ||
-      e.type === "job_edition_set"
+      e.type === "job_edition_set" ||
+      e.type === "kindred_nights"
     ) {
       continue;
     }

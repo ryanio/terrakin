@@ -525,6 +525,73 @@ export interface WorldState {
    * `jobsOn` reads it from the day.
    */
   jobs?: JobsState;
+  /**
+   * Kindreds (RFC 0033): small named groups with stewards, invites, a hall, and the weeks their
+   * kindred night gathered. Absent until `open_kindreds`, so worlds from before it hash as they
+   * always have.
+   */
+  kindreds?: KindredsState;
+}
+
+/** `k_1`, `k_2`, ... from the counter. */
+export type KindredId = string;
+
+/** A kindred is forming until its members come from enough households, then formed for good. */
+export type KindredStatus = "forming" | "formed";
+
+/** A member of a kindred: the world day and the input they joined at, which orders who stood longest. */
+export interface KindredMember {
+  since: number;
+  seq: number;
+}
+
+/** An open invite to a kindred: the steward who sent it and the world day it was sent. */
+export interface KindredInvite {
+  by: ResidentId;
+  day: number;
+}
+
+export interface Kindred {
+  id: KindredId;
+  /**
+   * Untrusted text, cleaned and filtered by the server before it was logged. Absent after staff
+   * took it down (`clear_kindred_name`): the kindred goes by its id ("Kindred 3") until a steward
+   * names it again.
+   */
+  name?: string;
+  founder: ResidentId;
+  foundedDay: number;
+  status: KindredStatus;
+  /** The world day it was formed. Absent while forming. */
+  formedDay?: number;
+  /** One to `KINDREDS.stewardsMax`, in the order they became stewards, the founder first. */
+  stewards: ResidentId[];
+  /** Every member, stewards included. */
+  members: Record<ResidentId, KindredMember>;
+  /** Open invites by invitee. Absent when there are none. */
+  invites?: Record<ResidentId, KindredInvite>;
+  /** The plot its kindred nights are at, and the steward whose plot it is. Absent until set. */
+  hall?: { px: number; py: number; by: ResidentId };
+  /** The world day of its last rename. Absent until the first: the founding name isn't one. */
+  renamedDay?: number;
+  /** The Mondays of the UTC weeks with a counted kindred night, oldest first, at most `gatheredKeep`. Absent until the first. */
+  gathered?: number[];
+}
+
+export interface KindredsState {
+  /** The world day `open_kindreds` was logged. */
+  opened: number;
+  /** The number in the next kindred's id. */
+  nextId: number;
+  /** Every kindred still standing, by id. A disbanded kindred leaves, and its name is free again. */
+  list: Record<KindredId, Kindred>;
+  /**
+   * The world day each resident last left or was removed from a kindred, for the wait before they
+   * found or join one. Absent until the first, and `new_day` drops an entry once its wait is over.
+   */
+  leftDay?: Record<ResidentId, number>;
+  /** Counted kindred nights each resident attended, across every kindred. Absent until the first. */
+  nights?: Record<ResidentId, number>;
 }
 
 /** A job a resident holds (RFC 0030). */
@@ -626,8 +693,17 @@ export type JobTitle = (typeof JOB_TITLES)[number];
 export const isJobTitle = (title: unknown): title is JobTitle =>
   typeof title === "string" && (JOB_TITLES as readonly string[]).includes(title);
 
-/** A title a resident can show: one a skill's level unlocked, or one from jobs finished. */
-export type ShownTitle = Title | JobTitle;
+/**
+ * Titles from kindred nights attended (RFC 0033): fixed ids with fixed words, like a job's. New
+ * titles go on the end.
+ */
+export const KINDRED_TITLES = ["kindred_regular"] as const;
+export type KindredTitle = (typeof KINDRED_TITLES)[number];
+export const isKindredTitle = (title: unknown): title is KindredTitle =>
+  typeof title === "string" && (KINDRED_TITLES as readonly string[]).includes(title);
+
+/** A title a resident can show: one a skill's level unlocked, one from jobs, or one from kindred nights. */
+export type ShownTitle = Title | JobTitle | KindredTitle;
 
 /** The party games (RFC 0011). New games go on the end. */
 export const GAME_KINDS = ["hearth_race", "lowest_lantern"] as const;
@@ -816,6 +892,14 @@ export interface HostedEvent {
   voidedBy?: string;
   /** Its guests were counted for Hosting points (`credit_event`, RFC 0029). Absent until then. */
   credited?: true;
+  /** The kindred whose night it is (RFC 0033). Absent for every other event. */
+  kindred?: KindredId;
+  /**
+   * At a kindred night: from `event_start`, who was in the kindred as it started, and from
+   * `event_end`, those of them and of its members then who attended by its samples, the host
+   * included, sorted. None of them is a counted guest there. Absent for every other event.
+   */
+  kin?: ResidentId[];
 }
 
 export interface EventsState {
@@ -1227,6 +1311,8 @@ export const COIN_REASONS = [
   "merged",
   /** A floor added to a plot (RFC 0028). A small share goes to the treasury and the rest is burned. */
   "floor",
+  /** The fee for founding a kindred (RFC 0033). Burned. */
+  "kindred_fee",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1428,6 +1514,8 @@ export type Command =
       py: number;
       startsAt: number;
       minutes: number;
+      /** A kindred night (RFC 0033): the host's kindred, at its hall. */
+      kindred?: KindredId | undefined;
     }
   | { type: "cancel_event"; event: string }
   /** While it's live: a free tile in the event's area. */
@@ -1467,6 +1555,26 @@ export type Command =
    * the one `item` names by id. The thing leaves the world.
    */
   | { type: "hand_in"; item?: string | undefined }
+  // Kindreds (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
+  /** Found a kindred and become its first steward, for `KINDREDS.fee` coins, burned. */
+  | { type: "found_kindred"; name: string }
+  /** A steward invites a resident to their kindred. */
+  | { type: "invite_to_kindred"; resident: ResidentId }
+  /** A steward takes back an invite. */
+  | { type: "cancel_kindred_invite"; resident: ResidentId }
+  /** Accept an invite you hold. */
+  | { type: "join_kindred"; kindred: KindredId }
+  /** Turn an invite down. */
+  | { type: "decline_kindred_invite"; kindred: KindredId }
+  | { type: "leave_kindred" }
+  /** A steward removes a member who isn't a steward. */
+  | { type: "remove_from_kindred"; resident: ResidentId }
+  /** A steward makes a member a steward (`true`), or steps down themselves (`false`). */
+  | { type: "set_kindred_steward"; resident: ResidentId; steward: boolean }
+  /** A steward renames the kindred, once a UTC week. */
+  | { type: "name_kindred"; name: string }
+  /** A steward sets the hall to a plot they own or share, or clears it with `null`. */
+  | { type: "set_kindred_hall"; px: number | null; py: number | null }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1554,6 +1662,12 @@ export type Command =
   | { type: "open_jobs" }
   /** From now on, the board reads this edition of the jobs table (`JOB_EDITIONS`). */
   | { type: "set_job_edition"; edition: number }
+  /** From now on, residents may found and join kindreds (RFC 0033). */
+  | { type: "open_kindreds" }
+  /** Staff take a kindred's name down after a report. It goes by its id until it's named again. */
+  | { type: "clear_kindred_name"; kindred: KindredId }
+  /** Staff disband a kindred that exists to harass. `by` is who the log names. */
+  | { type: "disband_kindred"; kindred: KindredId; by: string }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1697,6 +1811,9 @@ export const SERVER_COMMANDS = [
   "credit_event",
   "open_jobs",
   "set_job_edition",
+  "open_kindreds",
+  "clear_kindred_name",
+  "disband_kindred",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -1973,9 +2090,12 @@ export type WorldEvent =
       startsAt: number;
       minutes: number;
       town?: true;
+      /** A kindred night's kindred (RFC 0033). */
+      kindred?: KindredId;
     }
   /** An event is on now. Public. */
-  | { type: "event_started"; event: string }
+  /** An event is on now. At a kindred night (RFC 0033), `kin` is who was in the kindred then. Public. */
+  | { type: "event_started"; event: string; kin?: ResidentId[] }
   /** An attendance sample: who was there this time. Stays on the server: clients draw nothing from it. */
   | { type: "event_ticked"; event: string; ticks: number; present: ResidentId[] }
   /** An event ended: who attended (sorted), and what happened to a Commons deposit. Public. */
@@ -1984,6 +2104,8 @@ export type WorldEvent =
       event: string;
       attended: ResidentId[];
       deposit?: "refunded" | "burned";
+      /** At a kindred night (RFC 0033): its members who attended, the host included, sorted. */
+      kin?: ResidentId[];
     }
   /** An event was called off before it ended, and what happened to a Commons deposit. Public. */
   | { type: "event_cancelled"; event: string; deposit?: "refunded" | "burned" }
@@ -2097,6 +2219,57 @@ export type WorldEvent =
   | { type: "job_edition_set"; edition: number }
   /** A resident let `job` go, or it lapsed at `new_day` after `JOBS.keepDays` days. Private. */
   | { type: "job_dropped"; residentId: ResidentId; job: string; lapsed?: true }
+  // Kindreds (RFC 0033). Public, but for a forming kindred the server sends them only to its
+  // members and the residents it invited, and invites go only to the invitee and the stewards.
+  /** Kindreds are open: residents may found and join them from now on. */
+  | { type: "kindreds_opened" }
+  /** `founder` founded `kindred` as `name` (untrusted). It's forming. */
+  | { type: "kindred_founded"; kindred: KindredId; name: string; founder: ResidentId }
+  /** Its members come from enough households now: it's formed, for good. */
+  | { type: "kindred_formed"; kindred: KindredId }
+  /** `by` invited `residentId`. Private to the invitee and the kindred's stewards. */
+  | { type: "kindred_invited"; kindred: KindredId; residentId: ResidentId; by: ResidentId }
+  /**
+   * An invite closed without being used: a steward took it back, its invitee turned it down, it
+   * lapsed at `new_day`, its invitee joined a kindred, or its invitee's record was merged into
+   * another. Private, like the invite.
+   */
+  | {
+      type: "kindred_uninvited";
+      kindred: KindredId;
+      residentId: ResidentId;
+      how: "cancelled" | "declined" | "lapsed" | "joined" | "merged";
+    }
+  | { type: "kindred_joined"; kindred: KindredId; residentId: ResidentId }
+  /** A member left, a steward removed them, or their record was merged into one in another kindred. */
+  | {
+      type: "kindred_left";
+      kindred: KindredId;
+      residentId: ResidentId;
+      how: "left" | "removed" | "merged";
+    }
+  /** `residentId` is a steward now, or isn't any more. */
+  | { type: "kindred_steward"; kindred: KindredId; residentId: ResidentId; steward: boolean }
+  /** Its name (untrusted) is `name` now, or it goes by its id (`null`) after a takedown. */
+  | { type: "kindred_named"; kindred: KindredId; name: string | null }
+  /** Its hall is plot (px, py) now, or it has none (`null`). */
+  | { type: "kindred_hall"; kindred: KindredId; hall: { px: number; py: number } | null }
+  /**
+   * A kindred night counted: `members` (sorted) attended `event`, and the UTC week starting on
+   * `week` is a gathered week. `weeks` is how many of the weeks it keeps (the last 52) gathered.
+   */
+  | {
+      type: "kindred_gathered";
+      kindred: KindredId;
+      event: string;
+      week: number;
+      members: ResidentId[];
+      weeks: number;
+    }
+  /** A resident's count of kindred nights attended moved with a merged record. */
+  | { type: "kindred_nights"; residentId: ResidentId; nights: number }
+  /** It's gone: its last member left, it didn't form in time, or staff disbanded it. Its name is free. */
+  | { type: "kindred_disbanded"; kindred: KindredId; how: "empty" | "unformed" | "staff" }
   /**
    * `by` cast a line into the water at (x, y) and caught `caught`: a fish, an old boot they threw
    * back, or nothing (RFC 0023). Public, like a gather.
@@ -2327,6 +2500,35 @@ export const REJECTION_CODES = [
   "no_job",
   /** You hold nothing of the kind the job asks for that you made yourself. */
   "nothing_to_hand_in",
+  // Kindreds (RFC 0033).
+  /** Kindreds aren't open in this world yet. */
+  "kindreds_closed",
+  /** No kindred has that id, or you can't see it while it's forming. */
+  "unknown_kindred",
+  /** You're already in a kindred, or the resident you named is. */
+  "in_kindred",
+  /** That needs you in a kindred, or the resident you named isn't in yours. */
+  "not_in_kindred",
+  /** You, or they, left or were removed from a kindred too recently. */
+  "wait_after_leaving",
+  /** The kindred has as many members as it can. */
+  "kindred_full",
+  /** The kindred has as many members from that household as it can. */
+  "household_full",
+  /** The kindred has as many open invites as it can. */
+  "invite_limit",
+  /** You hold no invite from that kindred, or they hold none from yours. */
+  "no_invite",
+  /** They already hold an invite from your kindred. */
+  "already_invited",
+  /** Only a steward can do that. */
+  "not_steward",
+  /** The kindred is still forming: its members need to come from more households first. */
+  "not_formed",
+  /** Another kindred has that name. */
+  "name_taken",
+  /** The kindred already has a kindred night that UTC week. */
+  "night_this_week",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

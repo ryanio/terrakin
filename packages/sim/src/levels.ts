@@ -721,6 +721,9 @@ export function checkCreditEvent(
     if (sameHousehold(state, e.host, id)) {
       return refuse("not_eligible", "A listed guest is in the host's household.");
     }
+    if (e.kin?.includes(id)) {
+      return refuse("not_eligible", "A listed guest is in the kindred whose night it was.");
+    }
     if (isTownsfolk(state, id)) {
       return refuse("not_eligible", "Townsfolk are never counted guests.");
     }

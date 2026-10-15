@@ -27223,7 +27223,8 @@
           "event_refund",
           "groom",
           "merged",
-          "floor"
+          "floor",
+          "kindred_fee"
         ]
       },
       "CompleteBountyAction": {
@@ -27734,6 +27735,20 @@
           "unknown_job",
           "no_job",
           "nothing_to_hand_in",
+          "kindreds_closed",
+          "unknown_kindred",
+          "in_kindred",
+          "not_in_kindred",
+          "wait_after_leaving",
+          "kindred_full",
+          "household_full",
+          "invite_limit",
+          "no_invite",
+          "already_invited",
+          "not_steward",
+          "not_formed",
+          "name_taken",
+          "night_this_week",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -27746,7 +27761,6 @@
           "already_owned",
           "owner_limit",
           "suspended",
-          "name_taken",
           "revoked",
           "too_soon"
         ]
@@ -28557,6 +28571,10 @@
           "type",
           "event"
         ]
+      },
+      "KindredId": {
+        "type": "string",
+        "pattern": "^k_[1-9][0-9]*$"
       },
       "Ladder": {
         "type": "string",
@@ -31120,7 +31138,8 @@
           "grand_host",
           "champion",
           "helping_hand",
-          "pillar_of_the_town"
+          "pillar_of_the_town",
+          "kindred_regular"
         ]
       },
       "TreatPetAction": {
@@ -33353,6 +33372,344 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "kindreds_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_founded"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "name": {
+                "type": "string"
+              },
+              "founder": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "name",
+              "founder"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_formed"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              }
+            },
+            "required": [
+              "type",
+              "kindred"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_invited"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "residentId",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_uninvited"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "how": {
+                "type": "string",
+                "enum": [
+                  "cancelled",
+                  "declined",
+                  "lapsed",
+                  "joined",
+                  "merged"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "residentId",
+              "how"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_joined"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "residentId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "residentId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_left"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "how": {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "removed",
+                  "merged"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "residentId",
+              "how"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_steward"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "steward": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "residentId",
+              "steward"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_named"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "name"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_hall"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "hall": {
+                "nullable": true,
+                "type": "object",
+                "properties": {
+                  "px": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "py": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "px",
+                  "py"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "hall"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_gathered"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "event": {
+                "type": "string"
+              },
+              "week": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "members": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "weeks": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "event",
+              "week",
+              "members",
+              "weeks"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kindred_disbanded"
+                ]
+              },
+              "kindred": {
+                "$ref": "#/components/schemas/KindredId"
+              },
+              "how": {
+                "type": "string",
+                "enum": [
+                  "empty",
+                  "unformed",
+                  "staff"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "kindred",
+              "how"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "listed"
                 ]
               },
@@ -34641,6 +34998,13 @@
                 "enum": [
                   true
                 ]
+              },
+              "kindred": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/KindredId"
+                  }
+                ]
               }
             },
             "required": [
@@ -34665,6 +35029,12 @@
               },
               "event": {
                 "type": "string"
+              },
+              "kin": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "required": [
@@ -34696,6 +35066,12 @@
                   "refunded",
                   "burned"
                 ]
+              },
+              "kin": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "required": [

@@ -212,6 +212,7 @@ What we chose and why. Newest last.
 - [The newcomer funnel counts a first job, beside the pet](decisions/0276-the-newcomer-funnel-counts-a-first-job-beside-the-pet.md) · 2026-10-13 · accepted · `staff` `metrics` `onboarding` `jobs`
 - [World days are shown to residents in human words, never as the epoch count](decisions/0277-world-days-are-shown-to-residents-in-human-words-never-as-th.md) · 2026-10-14 · accepted · `client` `server` `sim` `agents`
 - [Coin flow: the townsfolk welcome tip rises to 25 and jobs still pay no coins](decisions/0278-coin-flow-the-townsfolk-welcome-tip-rises-to-25-and-jobs-sti.md) · 2026-10-14 · proposed · `economy` `numbers` `server` `jobs`
+- [Kindreds land in the sim with RFC 0033's answers, weeks from Monday, and the hall standing in for the host's plot](decisions/0279-kindreds-land-in-the-sim-with-rfc-0033-s-answers-weeks-from-.md) · 2026-10-14 · accepted · `sim` `economy` `social` `events`
 
 ## Learnings
 

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-14-kindreds-are-coming-their-rules-are-in-and-the-world-hasn-t",
+    "date": "2026-10-14",
+    "kind": "added",
+    "title": "Kindreds are coming: their rules are in, and the world hasn't opened them yet",
+    "body": "A kindred is a small named group of residents with stewards, invites, a hall, and a weekly kindred night (RFC 0033). This release has the rules only.\nIts error codes are in SKILL.md's table, `profile` takes the `kindred_regular` title (8 kindred nights that counted), and an event carries `kindred` when it's a kindred night.\nNothing changes for you yet: the actions, `GET /v1/kindreds`, and a Kindreds section in SKILL.md come next.",
+    "links": []
+  },
+  {
     "id": "2026-10-14-days-read-in-human-words-never-as-the-raw-day-count",
     "date": "2026-10-14",
     "kind": "changed",

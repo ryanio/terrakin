@@ -112,6 +112,24 @@ import {
 } from "./jobs";
 import { plotKey, tileKey } from "./keys";
 import {
+  checkCancelKindredInvite,
+  checkClearKindredName,
+  checkDeclineKindredInvite,
+  checkDisbandKindred,
+  checkFoundKindred,
+  checkInviteToKindred,
+  checkJoinKindred,
+  checkKindredTitle,
+  checkLeaveKindred,
+  checkNameKindred,
+  checkOpenKindreds,
+  checkRemoveFromKindred,
+  checkSetKindredHall,
+  checkSetKindredSteward,
+  hallsLeavingPlot,
+  kindredsNewDay,
+} from "./kindreds";
+import {
   checkCreditEvent,
   checkOpenLevels,
   checkTitle,
@@ -201,7 +219,14 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { BLOCK_KINDS, isJobTitle, RESIDENT_COLORS, RESIDENT_SHAPES, TOWN_ACTOR } from "./types";
+import {
+  BLOCK_KINDS,
+  isJobTitle,
+  isKindredTitle,
+  RESIDENT_COLORS,
+  RESIDENT_SHAPES,
+  TOWN_ACTOR,
+} from "./types";
 import { checkVisit } from "./visit";
 import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps } from "./walk";
 import {
@@ -794,6 +819,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenJobs(state));
       case "set_job_edition":
         return town(checkSetJobEdition(state, command));
+      case "open_kindreds":
+        return town(checkOpenKindreds(state));
+      case "clear_kindred_name":
+        return town(checkClearKindredName(state, command));
+      case "disband_kindred":
+        return town(checkDisbandKindred(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -848,6 +879,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const knocks = command.type === "new_day" ? halloweenNewDay(state) : null;
         const levels = command.type === "new_day" ? levelsNewDay(state) : null;
         const jobs = command.type === "new_day" ? jobsNewDay(state, command.day) : null;
+        const kindreds = command.type === "new_day" ? kindredsNewDay(state, command.day) : null;
         if (
           !coins &&
           !items &&
@@ -857,7 +889,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           !games &&
           !knocks &&
           !levels &&
-          !jobs
+          !jobs &&
+          !kindreds
         ) {
           return checked;
         }
@@ -872,6 +905,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(knocks ? knocks() : []),
           ...(levels ? levels() : []),
           ...(jobs ? jobs() : []),
+          ...(kindreds ? kindreds() : []),
         ];
       }
       default:
@@ -909,11 +943,14 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (unowned) return unowned;
       const look = mergeProfile(me, command);
       if ("ok" in look) return look;
-      // The title to show (RFC 0029, RFC 0030) is checked here and kept with levels, not on the
-      // resident: a skill's by its level, and one from jobs by the count of jobs finished.
+      // The title to show (RFC 0029, RFC 0030, RFC 0033) is checked here and kept with levels, not
+      // on the resident: a skill's by its level, one from jobs by the count of jobs finished, and
+      // one from kindred nights by the count of nights that counted.
       const title = isJobTitle(command.title)
         ? checkJobTitle(state, actor, command.title)
-        : checkTitle(state, actor, command.title);
+        : isKindredTitle(command.title)
+          ? checkKindredTitle(state, actor, command.title)
+          : checkTitle(state, actor, command.title);
       if (title && typeof title !== "function") return { ok: false, rejection: title };
       const same = sameProfile(look, me);
       // A no-op would still cost a permanent log line and a broadcast.
@@ -1040,10 +1077,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return { id, clear: hearthHere(resident) ? resident : undefined };
       });
       const clearMyHearth = hearthHere(me);
-      // Events on the plot are called off: it's about to be nobody's (RFC 0010).
+      // Events on the plot are called off: it's about to be nobody's (RFC 0010). A kindred's hall
+      // there is cleared (RFC 0033).
       const calledOff = eventsLeavingPlot(state, px, py);
+      const hall = hallsLeavingPlot(state, px, py);
       return () => {
         const events: WorldEvent[] = calledOff ? calledOff() : [];
+        if (hall) events.push(...hall());
         for (const { id, clear } of coOwners) {
           events.push({ type: "plot_unshared", px, py, residentId: id });
           if (clear) {
@@ -1331,8 +1371,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const hearth = them?.hearth;
         const hearthPlot = hearth ? plotOf(config, hearth.x, hearth.y) : null;
         const hearthHere = hearthPlot?.px === px && hearthPlot.py === py;
-        // Their events here are called off with their share (RFC 0010).
+        // Their events here are called off with their share (RFC 0010), and a kindred hall they
+        // set here is cleared (RFC 0033).
         const calledOff = eventsLeavingPlot(state, px, py, target);
+        const hall = hallsLeavingPlot(state, px, py, target);
         return () => {
           const rest = coOwners.filter((id) => id !== target);
           if (rest.length > 0) plot.coOwners = rest;
@@ -1343,6 +1385,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           }
           const events: WorldEvent[] = [
             ...(calledOff ? calledOff() : []),
+            ...(hall ? hall() : []),
             { type: "plot_unshared", px, py, residentId: target },
           ];
           if (them && hearthHere) {
@@ -1492,5 +1535,26 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkDropJob(state, actor));
     case "hand_in":
       return town(checkHandIn(state, actor, command));
+
+    case "found_kindred":
+      return town(checkFoundKindred(state, actor, command));
+    case "invite_to_kindred":
+      return town(checkInviteToKindred(state, actor, command));
+    case "cancel_kindred_invite":
+      return town(checkCancelKindredInvite(state, actor, command));
+    case "join_kindred":
+      return town(checkJoinKindred(state, actor, command));
+    case "decline_kindred_invite":
+      return town(checkDeclineKindredInvite(state, actor, command));
+    case "leave_kindred":
+      return town(checkLeaveKindred(state, actor));
+    case "remove_from_kindred":
+      return town(checkRemoveFromKindred(state, actor, command));
+    case "set_kindred_steward":
+      return town(checkSetKindredSteward(state, actor, command));
+    case "name_kindred":
+      return town(checkNameKindred(state, actor, command));
+    case "set_kindred_hall":
+      return town(checkSetKindredHall(state, actor, command));
   }
 }

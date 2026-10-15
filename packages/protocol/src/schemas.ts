@@ -37,6 +37,7 @@ import {
   ITEMS,
   JOB_TITLES,
   JOB_WEAR,
+  KINDRED_TITLES,
   LADDERS,
   MADE_KINDS,
   MARKET,
@@ -194,10 +195,11 @@ export const SkillName = z.enum(SKILLS);
 export type SkillName = z.infer<typeof SkillName>;
 /**
  * A title to show: fixed words, never a resident's. A skill's level unlocks one at level 3 and a
- * second at level 10 (RFC 0029), and the count of jobs finished unlocks `helping_hand` and
- * `pillar_of_the_town` (RFC 0030).
+ * second at level 10 (RFC 0029), the count of jobs finished unlocks `helping_hand` and
+ * `pillar_of_the_town` (RFC 0030), and 8 kindred nights that counted unlock `kindred_regular`
+ * (RFC 0033).
  */
-export const TitleName = z.enum([...TITLES, ...JOB_TITLES]);
+export const TitleName = z.enum([...TITLES, ...JOB_TITLES, ...KINDRED_TITLES]);
 export type TitleName = z.infer<typeof TitleName>;
 /**
  * A garment that's earned: one a skill's level 5 unlocks (RFC 0029), or the town satchel, which
@@ -913,6 +915,9 @@ export const FishAction = z.object({
  */
 export const JobId = z.string().regex(/^[a-z][a-z_]{2,39}$/);
 export type JobId = z.infer<typeof JobId>;
+/** A kindred's id (RFC 0033): `k_1`, `k_2`, ... */
+export const KindredId = z.string().regex(/^k_[1-9][0-9]*$/);
+export type KindredId = z.infer<typeof KindredId>;
 
 /**
  * Hold one of today's jobs, from anywhere (RFC 0030). You need a hearth. You hold one at a time,
@@ -1832,6 +1837,83 @@ export const WorldEvent = z.discriminatedUnion("type", [
     job: JobId,
     lapsed: z.literal(true).optional(),
   }),
+  // Kindreds (RFC 0033). A forming kindred's events go only to its members and the residents it
+  // invited, and invites only to the invitee and the kindred's stewards.
+  /** From now on residents may found and join kindreds. */
+  z.object({ type: z.literal("kindreds_opened") }),
+  /** `founder` founded `kindred` as `name`, which is their words. It's forming. */
+  z.object({
+    type: z.literal("kindred_founded"),
+    kindred: KindredId,
+    name: z.string(),
+    founder: z.string(),
+    trust: z.literal("untrusted").optional(),
+  }),
+  /** Its members come from three households now: it's formed, for good. */
+  z.object({ type: z.literal("kindred_formed"), kindred: KindredId }),
+  /** `by`, a steward, invited `residentId`. Only the invitee and the stewards get it. */
+  z.object({
+    type: z.literal("kindred_invited"),
+    kindred: KindredId,
+    residentId: z.string(),
+    by: z.string(),
+  }),
+  /**
+   * An invite closed unused: a steward took it back, its invitee turned it down, it lapsed after 7
+   * days, or its invitee joined a kindred. Only the invitee and the stewards get it.
+   */
+  z.object({
+    type: z.literal("kindred_uninvited"),
+    kindred: KindredId,
+    residentId: z.string(),
+    how: z.enum(["cancelled", "declined", "lapsed", "joined", "merged"]),
+  }),
+  z.object({ type: z.literal("kindred_joined"), kindred: KindredId, residentId: z.string() }),
+  /** A member left, a steward removed them, or their record was merged into another. */
+  z.object({
+    type: z.literal("kindred_left"),
+    kindred: KindredId,
+    residentId: z.string(),
+    how: z.enum(["left", "removed", "merged"]),
+  }),
+  /** `residentId` is one of its stewards now, or isn't any more. */
+  z.object({
+    type: z.literal("kindred_steward"),
+    kindred: KindredId,
+    residentId: z.string(),
+    steward: z.boolean(),
+  }),
+  /** Its name is `name` now (a steward's words), or `null` after the team took it down. */
+  z.object({
+    type: z.literal("kindred_named"),
+    kindred: KindredId,
+    name: z.string().nullable(),
+    trust: z.literal("untrusted").optional(),
+  }),
+  /** Its hall is plot (px, py) now, or it has none. */
+  z.object({
+    type: z.literal("kindred_hall"),
+    kindred: KindredId,
+    hall: z.object({ px: z.number().int(), py: z.number().int() }).nullable(),
+  }),
+  /**
+   * A kindred night counted: `members` attended `event`, so the UTC week starting on world day
+   * `week` (a Monday) is a gathered week. `weeks` is how many of the last 52 it gathered.
+   */
+  z.object({
+    type: z.literal("kindred_gathered"),
+    kindred: KindredId,
+    event: z.string(),
+    week: z.number().int(),
+    members: z.array(z.string()),
+    weeks: z.number().int(),
+  }),
+  /** It's gone: its last member left, it didn't form within 14 days, or the team disbanded it. */
+  z.object({
+    type: z.literal("kindred_disbanded"),
+    kindred: KindredId,
+    how: z.enum(["empty", "unformed", "staff"]),
+  }),
   /** Something went up for sale in the market. */
   z.object({
     type: z.literal("listed"),
@@ -2116,9 +2198,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     startsAt: z.number().int(),
     minutes: z.number().int(),
     town: z.literal(true).optional(),
+    /** A kindred night's kindred (RFC 0033). */
+    kindred: KindredId.optional(),
   }),
-  /** An event is on now: `join_event` goes there. */
-  z.object({ type: z.literal("event_started"), event: z.string() }),
+  /**
+   * An event is on now: `join_event` goes there. At a kindred night (RFC 0033), `kin` is who was in
+   * the kindred as it started.
+   */
+  z.object({
+    type: z.literal("event_started"),
+    event: z.string(),
+    kin: z.array(z.string()).optional(),
+  }),
   /**
    * An event ended: who attended, and what happened to a Commons booking's deposit (back to the
    * host, or burned).
@@ -2128,6 +2219,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     event: z.string(),
     attended: z.array(z.string()),
     deposit: z.enum(["refunded", "burned"]).optional(),
+    /** At a kindred night (RFC 0033): its members who attended, the host included. None is a counted guest. */
+    kin: z.array(z.string()).optional(),
   }),
   /** An event was called off, and what happened to a Commons booking's deposit. */
   z.object({

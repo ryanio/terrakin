@@ -118,14 +118,14 @@ describe("Christmas stock", () => {
 
   it("keeps the hat wearable any day once bought, and refuses it before", () => {
     const state = shopOn(dayOfDate(2026, 12, 25));
-    expect(
-      refused(state, "ada", { type: "profile", wear: ["santa_hat"] }, "not_owned"),
-    ).toContain("Buy it there with shop_buy first");
+    expect(refused(state, "ada", { type: "profile", wear: ["santa_hat"] }, "not_owned")).toContain(
+      "Buy it there with shop_buy first",
+    );
     // Outside Midwinter the same refusal names the days, since shop_buy would refuse it too.
     const before = shopOn(dayOfDate(2026, 12, 20));
-    expect(
-      refused(before, "ada", { type: "profile", wear: ["santa_hat"] }, "not_owned"),
-    ).toContain("only for Midwinter, December 21 to December 31");
+    expect(refused(before, "ada", { type: "profile", wear: ["santa_hat"] }, "not_owned")).toContain(
+      "only for Midwinter, December 21 to December 31",
+    );
     ok(state, "ada", { type: "shop_buy", sku: "santa_hat" });
     ok(state, "ada", { type: "profile", wear: ["santa_hat"] });
     expect(state.residents.ada?.wear).toEqual(["santa_hat"]);

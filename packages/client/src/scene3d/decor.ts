@@ -779,10 +779,7 @@ function dreidelParts(grain: Texture): Part[] {
 /** A red stocking: a leg that turns into a foot, with a white cuff at its top and a white toe. */
 function stockingParts(grain: Texture): Part[] {
   const X = CHRISTMAS_HEX;
-  const body = merged([
-    box(0.17, 0.48, 0.05, [0, 0.36, 0]),
-    box(0.3, 0.12, 0.05, [0.07, 0.17, 0]),
-  ]);
+  const body = merged([box(0.17, 0.48, 0.05, [0, 0.36, 0]), box(0.3, 0.12, 0.05, [0.07, 0.17, 0])]);
   const cuff = merged([box(0.21, 0.09, 0.07, [0, 0.64, 0])]);
   const toe = merged([box(0.09, 0.12, 0.055, [0.19, 0.17, 0])]);
   return [

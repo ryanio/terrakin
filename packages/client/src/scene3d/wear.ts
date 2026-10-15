@@ -6,7 +6,13 @@
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
-import { BAT_WING, CHRISTMAS_HEX, EARNED_HEX, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
+import {
+  BAT_WING,
+  CHRISTMAS_HEX,
+  EARNED_HEX,
+  HALLOWEEN_HEX,
+  PatternCache,
+} from "@terrakin/ui/looks";
 import {
   BoxGeometry,
   type BufferGeometry,

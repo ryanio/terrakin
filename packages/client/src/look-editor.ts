@@ -14,8 +14,8 @@ import {
   type HairStyle,
   isCostume,
   isExclusiveWear,
-  isMidwinterWear,
   isJobWear,
+  isMidwinterWear,
   isShopWear,
   PATTERN_LABELS,
   PATTERNS,
@@ -108,7 +108,10 @@ export function wearChoices(
       WEAR_INFO[w].slot === slot &&
       (!isExclusiveWear(w) || entitled.includes(w) || wearing.includes(w)) &&
       earnedState(w, wearing, earned, fromJobs) !== "hidden" &&
-      (!(isCostume(w) || isMidwinterWear(w)) || owned.has(w) || wearing.includes(w) || onSale.has(w)),
+      (!(isCostume(w) || isMidwinterWear(w)) ||
+        owned.has(w) ||
+        wearing.includes(w) ||
+        onSale.has(w)),
   );
 }
 

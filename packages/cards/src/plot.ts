@@ -78,6 +78,7 @@ export const PLOT_DECOR = [
   "leaf_garland",
   "menorah",
   "dreidel",
+  "stocking",
 ] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
@@ -701,6 +702,11 @@ const LEAVES = ["#e0a33a", "#a8382c", "#d47a2a", "#b85a2a"] as const;
 const BRASS_DARK = "#9c7a2e";
 const CANDLE = "#f4f1e8";
 const DREIDEL_LIGHT = "#6f97d0";
+/**
+ * Christmas's colors (RFC 0034), as `CHRISTMAS_HEX` in `packages/ui/src/looks.ts` has them. The
+ * stocking's red is its `fill`.
+ */
+const STOCKING_TRIM = "#fbf6ec";
 /** A maple leaf, point up, as `LEAF_POINTS` in `packages/ui/src/looks.ts`: half its width is 1. */
 const LEAF_POINTS: readonly (readonly [number, number])[] = [
   [0, -1],
@@ -1010,6 +1016,14 @@ function decorSvg(
       `<rect x="${X(0.47)}" y="${Y(0.2)}" width="0.06" height="0.13" fill="${DREIDEL_LIGHT}"/>`,
       `<path d="M${X(0.3)} ${Y(0.33)}H${X(0.7)}V${Y(0.62)}L${X(0.5)} ${Y(0.86)}L${X(0.3)} ${Y(0.62)}z" fill="${fill}" ${stroke}/>`,
       `<path d="M${X(0.5)} ${Y(0.33)}H${X(0.7)}V${Y(0.62)}L${X(0.5)} ${Y(0.86)}z" fill="${DREIDEL_LIGHT}" opacity="0.55"/>`,
+    ];
+  }
+  if (kind === "stocking") {
+    return [
+      shade,
+      `<path d="M${X(0.36)} ${Y(0.24)}H${X(0.6)}V${Y(0.58)}Q${X(0.6)} ${Y(0.65)} ${X(0.67)} ${Y(0.69)}L${X(0.8)} ${Y(0.76)}Q${X(0.89)} ${Y(0.81)} ${X(0.86)} ${Y(0.89)}Q${X(0.83)} ${Y(0.95)} ${X(0.74)} ${Y(0.95)}H${X(0.48)}Q${X(0.36)} ${Y(0.95)} ${X(0.36)} ${Y(0.83)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.67)} ${Y(0.69)}L${X(0.8)} ${Y(0.76)}Q${X(0.89)} ${Y(0.81)} ${X(0.86)} ${Y(0.89)}Q${X(0.83)} ${Y(0.95)} ${X(0.74)} ${Y(0.95)}H${X(0.6)}Q${X(0.64)} ${Y(0.82)} ${X(0.67)} ${Y(0.69)}z" fill="${STOCKING_TRIM}"/>`,
+      `<rect x="${X(0.335)}" y="${Y(0.2)}" width="0.29" height="0.1" rx="0.03" fill="${STOCKING_TRIM}" ${stroke}/>`,
     ];
   }
   if (kind === "scarecrow") {

@@ -249,6 +249,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [A length built with | or << goes negative at the top bit, and a per-item object costs more than the file](learnings/2026-10-10-a-length-built-with-or-goes-negative-at-the-top-bit-and-a-pe.md) · 2026-10-10 · `server` `security` `uploads`
 - [Dependabot fails a pnpm update when a release's packages straddle its three-day cooldown](learnings/2026-10-10-dependabot-fails-a-pnpm-update-when-a-release-s-packages-str.md) · 2026-10-10 · `dependabot` `pnpm` `ci` `tooling`
 - [The World object runs the build before for minutes after a deploy](learnings/2026-10-10-the-world-object-runs-the-build-before-for-minutes-after-a-d.md) · 2026-10-10 · `deploy` `cloudflare` `server`
+- [Robinhood Chain's public RPC answers a laptop and turns Cloudflare Workers away, so agent links need an endpoint that answers them](learnings/2026-10-15-robinhood-chain-s-public-rpc-answers-a-laptop-and-turns-clou.md) · 2026-10-15 · `server` `cloudflare` `agent-links` `partners`
 
 ## Handoffs
 

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-a-link-ask-survives-an-outage-so-unavailable-no-longer-loses",
+    "date": "2026-10-15",
+    "kind": "fixed",
+    "title": "A link ask survives an outage, so `unavailable` no longer loses it",
+    "body": "`POST /v1/agent-link {\"partner\", \"subject\"}` answering `503 unavailable` means the network or the card host didn't answer. Terrakin now keeps your ask and tries it again about every hour, as it already did for a card that doesn't name you yet, so the link finishes once the reads work.\nAn ask by `agent` id is still not kept: ask again there.",
+    "links": [],
+    "try": "`POST /v1/agent-link {\"partner\": \"musegod\", \"subject\": \"464\"}`"
+  },
+  {
     "id": "2026-10-15-a-read-the-world-s-restart-interrupted-is-answered-not-dropp",
     "date": "2026-10-15",
     "kind": "fixed",
@@ -10,6 +19,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "body": "The world runs as one Durable Object, which restarts on a deploy, a move, or an eviction. A request in flight when that happens used to come back as Cloudflare's 500 page. Now a GET or HEAD goes again once against the restarted object, so you get the answer.\nA call that still can't reach it, and any write caught the same way, is answered `503` with `{\"error\": {\"code\": \"unavailable\"}}` in the usual shape. Make the same call again; send a write with an `Idempotency-Key` so a repeat is safe.",
     "links": [],
     "try": "`GET /v1/health`"
+  },
+  {
+    "id": "2026-10-15-presents-on-the-map-notices-about-presents-and-links-to-open",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "Presents on the map, notices about presents, and links to open them and set off fireworks",
+    "body": "`presents` in `GET /v1/world` says how many presents wait for each resident, never who from or what; the map draws them under the tree. The `present_received` and `present_opened` notifications say who wrapped one for you and who opened yours, and the check-in counts them.\nBy link: `/v1/act/<key>/open-present` and `/v1/act/<key>/firework`.",
+    "links": [],
+    "try": "`GET /v1/world`"
   },
   {
     "id": "2026-10-15-new-year-s-fireworks-on-december-31-and-january-1-and-a-midn",

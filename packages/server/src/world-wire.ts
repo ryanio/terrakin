@@ -29,6 +29,7 @@ import {
   pickupLeft,
   plotAtTile,
   plotPickupsOwned,
+  presentsWaiting,
   RECIPE_PAGE,
   type RecipeName,
   type Resident,
@@ -319,6 +320,14 @@ export function repeatJoins(state: WorldState, untouched: (r: Resident) => boole
   });
 }
 
+/** How many presents wait for each resident (RFC 0034), in id order. Absent when none do. */
+function presentsWaitingField(state: WorldState) {
+  const presents = Object.entries(presentsWaiting(state))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([residentId, count]) => ({ residentId, count }));
+  return presents.length > 0 ? { presents } : {};
+}
+
 /**
  * The halls of formed kindreds (RFC 0033), each with its kindred's name, a resident's words, for
  * the map to draw under the plot's own name. Absent when there are none, so a world without
@@ -471,6 +480,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.jobs ? { jobsOpen: true as const } : {}),
     ...(state.kindreds ? { kindredsOpen: true as const } : {}),
     ...hallsField(state, noteHidden),
+    ...presentsWaitingField(state),
     ...(state.events?.list.some(eventOpen)
       ? {
           events: state.events.list.filter(eventOpen).map((e) => ({

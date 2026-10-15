@@ -48,6 +48,16 @@ export const presentsFor = (state: WorldState, id: ResidentId): Present[] =>
     .filter((p) => p.to === id)
     .sort((a, b) => Number(a.id.slice(8)) - Number(b.id.slice(8)));
 
+/**
+ * How many presents wait for each resident, by id, never who from or what: what the map draws
+ * under a resident's tree. Empty when none do.
+ */
+export function presentsWaiting(state: WorldState): Record<ResidentId, number> {
+  const out: Record<ResidentId, number> = {};
+  for (const p of Object.values(state.items?.presents ?? {})) out[p.to] = (out[p.to] ?? 0) + 1;
+  return out;
+}
+
 /** Make a present and hand its id out, starting the counter on first use. Call only when committing. */
 export function addPresent(items: ItemsState, present: Omit<Present, "id">): string {
   const n = items.nextPresent ?? 1;

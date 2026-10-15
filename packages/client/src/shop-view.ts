@@ -12,7 +12,7 @@ import type {
   ShopItemView,
   ShopResponse,
 } from "@terrakin/protocol";
-import { cardOf, dayName, HOLIDAY_INFO } from "@terrakin/sim";
+import { cardOf, dateOfDay, dayName, HOLIDAY_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
@@ -54,12 +54,12 @@ type Shop = NonNullable<ShopResponse["shop"]>;
  * sections, without holiday stock. Pure.
  */
 export function shelvesOf(
-  shop: Pick<Shop, "items" | "holidays" | "recipes">,
+  shop: Pick<Shop, "items" | "holidays" | "recipes"> & { day?: number },
 ): { key: string; title: string; hint: string; items: ShopItemView[] }[] {
   return [
     ...(shop.holidays ?? []).map((holiday) => ({
       key: `holiday:${holiday.id}`,
-      title: `For ${holidayName(holiday.id)}`,
+      title: `For ${shelfName(holiday.id, shop.day)}`,
       hint: holidayHint(holiday.id, holiday.lastDay),
       items: shop.items.filter((i) => i.holiday === holiday.id),
     })),
@@ -130,6 +130,15 @@ type Holiday = NonNullable<ShopItemView["holiday"]>;
 /** A holiday's name, or its id for a holiday this client doesn't know yet. */
 const holidayName = (holiday: Holiday) =>
   Object.hasOwn(HOLIDAY_INFO, holiday) ? HOLIDAY_INFO[holiday].name : holiday;
+
+/** A holiday's shelf by name: Midwinter's reads Christmas on December 24 and 25 (RFC 0034). */
+function shelfName(holiday: Holiday, day: number | undefined): string {
+  if (holiday === "midwinter" && day !== undefined) {
+    const { month, date } = dateOfDay(day);
+    if (month === 12 && (date === 24 || date === 25)) return "Christmas";
+  }
+  return holidayName(holiday);
+}
 
 /**
  * The small tag on seasonal or holiday stock: "This autumn" or "This winter" (RFC 0017), or the

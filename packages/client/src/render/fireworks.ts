@@ -19,7 +19,7 @@ export const BURST_MS = 2200;
 export const BURSTS_MAX = 12;
 
 /** The colors each firework bursts in, bright enough to read over the night. */
-const BURST_HEX: Readonly<Record<FireworkColor, string>> = {
+export const BURST_HEX: Readonly<Record<FireworkColor, string>> = {
   gold: "#ffd36b",
   red: "#ff6b6b",
   green: "#7fe08a",

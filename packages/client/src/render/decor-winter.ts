@@ -281,3 +281,47 @@ export function paintStocking(
   ctx.fill();
   ctx.stroke();
 }
+
+/**
+ * Presents waiting to be opened (RFC 0034), up to three wrapped boxes at the foot of the tile at
+ * (left, top): under a little fir, at its front, or beside a hearth, to its right.
+ */
+export function paintPresents(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  count: number,
+  tree: boolean,
+) {
+  // Each box: where its left edge and its bottom sit in the tile, and its width and height.
+  const boxes = [
+    { x: 0.16, base: 0.98, w: 0.3, h: 0.24 },
+    { x: 0.5, base: 0.98, w: 0.24, h: 0.2 },
+    { x: 0.32, base: 0.8, w: 0.2, h: 0.16 },
+  ].slice(0, Math.min(count, 3));
+  // Beside a hearth the pile is smaller and tucked into the tile's right side, clear of the house
+  // and inside the tile.
+  const k = tree ? 1 : 0.55;
+  const from = tree ? 0 : 0.57;
+  ctx.lineWidth = Math.max(1, size / 32);
+  boxes.forEach((b, i) => {
+    const x = left + size * (from + b.x * k);
+    const w = size * b.w * k;
+    const h = size * b.h * k;
+    const base = 0.98 - (0.98 - b.base) * k;
+    const y = top + size * base - h;
+    ctx.fillStyle = "rgba(43, 30, 18, 0.22)";
+    ctx.fillRect(x + w * 0.1, top + size * base - h * 0.08, w, h * 0.16);
+    ctx.fillStyle = W.wrapping[i % W.wrapping.length] ?? W.santa;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = W.ribbon;
+    ctx.fillRect(x + w * 0.42, y, w * 0.16, h);
+    ctx.fillRect(x, y + h * 0.4, w, h * 0.18);
+    ctx.strokeStyle = W.ribbon;
+    ctx.beginPath();
+    ctx.ellipse(x + w * 0.38, y - h * 0.08, w * 0.12, h * 0.1, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(x + w * 0.62, y - h * 0.08, w * 0.12, h * 0.1, 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+}

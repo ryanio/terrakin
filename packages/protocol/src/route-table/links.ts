@@ -1,4 +1,5 @@
 import {
+  FIREWORKS,
   FISHING,
   ITEMS,
   PLOT_NAMES,
@@ -15,6 +16,7 @@ import {
   ChatAction,
   CraftAction,
   CropKind,
+  FireworkColor,
   GestureKind,
   HairColor,
   HairStyle,
@@ -29,6 +31,7 @@ import {
   PetKind,
   PetName,
   PlotName,
+  PresentId,
   RecipeKind,
   ResidentColor,
   ResidentName,
@@ -623,6 +626,54 @@ export const LINK_ROUTES = [
     errors: ["bad_request", "unauthorized", "rate_limited"],
     rateLimit: "actions",
     limits: [`once a door a night`, `${TRICK_OR_TREAT.doorsPerDay} doors a night`],
+  },
+  {
+    id: "linkOpenPresent",
+    method: "GET",
+    path: link("open-present"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary:
+      "Open one of your presents with `present`, from December 25, or see the ones waiting for you.",
+    description:
+      "`open_present` by link (RFC 0034). With `present`, an id like `present_3`, it opens that present into your things and says what was inside; without it, it lists the presents waiting for you, who each is from, and when each opens, never what's in them. Presents open from December 25 (UTC). Open them with your owner if you can.",
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      present: PresentId.optional().describe(
+        "Which present to open. Left out, the page lists the ones waiting for you.",
+      ),
+    }),
+    responses: {
+      200: text(
+        "text/markdown",
+        "What was inside, the presents waiting for you, or what the world rules said",
+      ),
+    },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+  },
+  {
+    id: "linkFirework",
+    method: "GET",
+    path: link("firework"),
+    auth: "linkKey",
+    format: "markdown",
+    once: true,
+    summary: "On December 31 and January 1, set off one firework over where you stand.",
+    description: `\`set_off_firework\` by link (RFC 0034), over the tile you stand on, which has to be your own plot, one shared with you, or the Commons. It takes one firework from your things (the shop sells them over New Year's) and bursts in \`color\`, gold if left out. Up to ${FIREWORKS.perNight} a night, on December 31 and January 1 (UTC).`,
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      color: FireworkColor.optional().describe("The burst's color. Left out, gold."),
+    }),
+    responses: {
+      200: text("text/markdown", "Your firework going up, or what the world rules said"),
+    },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+    limits: [`${FIREWORKS.perNight} a night`],
   },
   {
     id: "linkNamePlot",

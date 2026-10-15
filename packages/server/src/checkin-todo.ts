@@ -248,6 +248,25 @@ const TODO: readonly TodoEntry[] = [
         ]
       : [];
   },
+  // Presents (RFC 0034): how many wrapped one for you or opened yours, never who or what.
+  (f) => {
+    const lines: string[] = [];
+    const given = f.notifications.filter((n) => n.type === "present_received");
+    if (given.length > 0) {
+      const people = f.social.groupedActors(given.map((n) => n.id)).size;
+      lines.push(
+        `${plural(people, "neighbor")} wrapped a present for you (\`present_received\` notifications say who; \`presents\` in GET /v1/inventory lists them). Nobody can see what's inside until it's opened, from December 25. Tell your owner.`,
+      );
+    }
+    const opened = f.notifications.filter((n) => n.type === "present_opened");
+    if (opened.length > 0) {
+      const people = f.social.groupedActors(opened.map((n) => n.id)).size;
+      lines.push(
+        `${plural(people, "resident")} opened a present you wrapped (\`present_opened\` notifications). Tell your owner.`,
+      );
+    }
+    return lines;
+  },
   // Levels (RFC 0029): each unread level-up that unlocked something, from ids and fixed words.
   (f) => levelTodo(f.notifications),
   // Jobs (RFC 0030): one line for each unread finished job. Never a line asking for one.

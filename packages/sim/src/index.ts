@@ -65,7 +65,7 @@ export {
   SWEET_RECIPES,
   type SweetKind,
 } from "./catalog";
-export { openDayOf, PRESENTS, presentsFor, wrapDay } from "./christmas";
+export { openDayOf, PRESENTS, presentsFor, presentsWaiting, wrapDay } from "./christmas";
 export { DAY_MS, HOUR_MS, MINUTE_MS, utcDay } from "./clock";
 export {
   dayDateWords,

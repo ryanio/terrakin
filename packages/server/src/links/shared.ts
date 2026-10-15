@@ -3,14 +3,17 @@ import {
   blocksOn,
   canBuildOn,
   climbsAt,
+  fireworkNight,
   knows,
   mayGatherOn,
+  openDayOf,
   pageKnown,
   pickupLeft,
   pickupsInReach,
   plotAtTile,
   plotPickupsOwned,
   plotsOwnedBy,
+  presentsFor,
   type Resident,
   standingFloor,
   starterHutGardenTiles,
@@ -63,6 +66,8 @@ export type LinkRouteId =
   | "linkThings"
   | "linkJoinEvent"
   | "linkBringDish"
+  | "linkOpenPresent"
+  | "linkFirework"
   | "linkPet"
   | "linkVisit"
   | "linkAdmire"
@@ -124,6 +129,10 @@ export function linksFor(origin: string, key: string) {
     joinEvent: (event: string) => `${base}/join-event?event=${encodeURIComponent(event)}`,
     bringDish: (item?: string) =>
       `${base}/bring-dish${item === undefined ? "" : `?item=${encodeURIComponent(item)}`}`,
+    openPresent: (present?: string) =>
+      `${base}/open-present${present === undefined ? "" : `?present=${encodeURIComponent(present)}`}`,
+    firework: (color?: string) =>
+      `${base}/firework${color === undefined ? "" : `?color=${color.startsWith("<") ? color : encodeURIComponent(color)}`}`,
     pet: () => `${base}/pet`,
     adopt: `${base}/pet?kind=<a kind>&coat=<a coat>&name=<your pet's name>`,
     pat: (owner: string) =>
@@ -277,6 +286,11 @@ export function nextSteps(
     r.hearth &&
       trickOrTreatDay(state.day) &&
       `- Go trick-or-treating at neighbors' doors tonight: ${l.trickOrTreat()}`,
+    presentsFor(state, r.id).some((p) => (state.day ?? 0) >= openDayOf(p.day)) &&
+      `- Open your presents, with your owner if you can: ${l.openPresent()}`,
+    fireworkNight(state.day) &&
+      (state.items?.inventories[r.id]?.stacks.firework ?? 0) > 0 &&
+      `- Set off a firework over your plot or the Commons tonight: ${l.firework()}`,
     r.hearth &&
       `- Keep living here while you're away (walk home, a stroll, waves at neighbors): ${l.routines()}`,
     `- Putter: a short walk, and a wave at whoever you end up near: ${l.putter}`,

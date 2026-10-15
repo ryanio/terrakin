@@ -53,6 +53,7 @@ import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { lyingOn, type PetMotion, type PetScene } from "../pets";
+import type { BurstMark } from "../render/fireworks";
 import { nightAmount } from "../time";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
@@ -93,6 +94,7 @@ import {
   sizeSign,
   turnHead,
 } from "./figure";
+import { fireworkSparks } from "./fireworks";
 import { border, groundGrid } from "./ground";
 import { HEARTH_LIGHT, hearth, liftSmoke } from "./hearth";
 import {
@@ -110,6 +112,7 @@ import {
 import { hex, SKY } from "./palette";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
+import { presentBoxes } from "./presents";
 import { pickups, scenery } from "./scenery";
 import { createWeather } from "./weather";
 import {
@@ -181,6 +184,8 @@ export interface World3dFrame {
    * building, as on the map. Absent: the floor you stand on.
    */
   cutFloor?: number;
+  /** Fireworks set off lately (RFC 0034), the same the map draws. */
+  bursts?: readonly BurstMark[];
 }
 
 export interface World3d {
@@ -291,6 +296,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   });
   const { scene, camera, controls, renderer } = stage;
   const still = stage.reducedMotion;
+  // Fireworks (RFC 0034): one point cloud for every burst up.
+  const sparks = fireworkSparks();
+  scene.add(sparks.points);
   const grain = stage.keep(grainTexture());
   const shadowMap = stage.keep(spotTexture());
   const surfaces = {
@@ -448,6 +456,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       liftSmoke(home, smokeStart(h, data.blocks, data.ground));
       group.add(home);
     }
+    if (data.presents.length) group.add(presentBoxes(origin, data.presents));
     addAll(group, cropPlants(scope, origin, data.crops));
     group.add(displayedThings(scope, origin, data.displays, pictures, grain));
     scene.add(group);
@@ -1286,6 +1295,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (self) placeReach(mirror, self, buildMode && !look);
       // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
       // evenings tinted (RFC 0022).
+      if (sparks.set(frame.bursts ?? [], now, still)) moved = true;
       stage.holiday(mirror.day === undefined ? undefined : eveningHoliday(holidaysOf(mirror.day)));
       stage.timeOfDay(dayPhase);
       weather.set(sky ?? CLEAR);

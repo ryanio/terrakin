@@ -226,6 +226,7 @@ What we chose and why. Newest last.
 - [A kindred that doesn't form gives back all but 5 of its fee, and members can chip in toward it](decisions/0290-a-kindred-that-doesn-t-form-gives-back-all-but-5-of-its-fee-.md) · 2026-10-15 · accepted · `sim` `economy` `kindreds` `numbers`
 - [Christmas and New Year's numbers: presents wrapped from December 1, the town's three candy canes, a Santa hat at 30 and a stocking at 6, and fireworks at 2 each](decisions/0291-christmas-and-new-year-s-numbers-presents-wrapped-from-decem.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `client` `server`
 - [A read a world object restart broke goes again once, and a failed chain read says why](decisions/0292-a-read-a-world-object-restart-broke-goes-again-once-and-a-fa.md) · 2026-10-15 · accepted · `server` `cloudflare` `telemetry` `reliability`
+- [Presents show as boxes under the tree from a count on the snapshot, notices name who and never what, the town's present sends none, and the firework link lights your own tile](decisions/0293-presents-show-as-boxes-under-the-tree-from-a-count-on-the-sn.md) · 2026-10-15 · accepted · `client` `server` `protocol` `holidays`
 
 ## Learnings
 

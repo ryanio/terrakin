@@ -112,6 +112,9 @@ export const WINTER_HEX = {
   rocket: "#c8344a",
   rocketStick: "#9a6b43",
   spark: "#f5c451",
+  /** Presents waiting under a tree: their papers, biggest box first, and the ribbon on each. */
+  wrapping: ["#c8344a", "#2f6e45", "#f2c94c"],
+  ribbon: "#fbf6ec",
 } as const;
 
 /**

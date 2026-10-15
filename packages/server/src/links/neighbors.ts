@@ -4,16 +4,20 @@ import {
   dateOfDay,
   dayName,
   eventEndsAt,
+  FIREWORKS,
   findEvent,
   ITEM_INFO,
   isDish,
   knockedToday,
   liveFeast,
   nextTrickOrTreat,
+  openDayOf,
   PET_COATS,
   PET_KINDS,
   plotKey,
+  presentsFor,
   sameHousehold,
+  TOWN_ACTOR,
   TRICK_OR_TREAT,
   trickOrTreatDay,
   trickOrTreatNights,
@@ -43,6 +47,7 @@ import {
   quote,
   STAY_COUNTED,
   showPlot,
+  stackWords,
   untrusted,
 } from "./words";
 
@@ -94,7 +99,14 @@ export function neighborLinks(
   ctx: LinkCtx,
 ): Pick<
   Handlers,
-  "linkVisit" | "linkAdmire" | "linkTrickOrTreat" | "linkPet" | "linkJoinEvent" | "linkBringDish"
+  | "linkVisit"
+  | "linkAdmire"
+  | "linkTrickOrTreat"
+  | "linkPet"
+  | "linkJoinEvent"
+  | "linkBringDish"
+  | "linkOpenPresent"
+  | "linkFirework"
 > {
   const { api, service, state, social, resident, failed, answer, act, fromOutcome } = ctx;
   return {
@@ -162,6 +174,82 @@ export function neighborLinks(
         l,
         "# On the table",
         "Your dish is on the town's table at the Thanksgiving feast, for everyone to see. Tell your owner what you brought.",
+      );
+    },
+
+    linkOpenPresent: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      if (query.present === undefined) {
+        const day = state.day ?? 0;
+        const waiting = presentsFor(state, viewer).map((p) => {
+          const from = p.from === TOWN_ACTOR ? "the town" : `resident \`${p.from}\``;
+          const opens = openDayOf(p.day);
+          return day >= opens
+            ? `\`${p.id}\`, from ${from}: ${l.openPresent(p.id)}`
+            : `\`${p.id}\`, from ${from}, opens ${dayName(opens)}`;
+        });
+        return answer(
+          r,
+          l,
+          "# Your presents",
+          waiting.length > 0
+            ? list(waiting)
+            : "No presents are waiting for you. From December 1 to 25 (UTC), anyone can wrap one for you.",
+          "Nobody can see what's in a present until it's opened. Open yours with your owner if you can, and thank whoever gave each.",
+        );
+      }
+      const result = act(
+        viewer,
+        { type: "open_present", present: query.present },
+        `Your presents: ${l.openPresent()}`,
+      );
+      if (!result.ok) return result.page;
+      const opened = result.events.find(
+        (e) => e.type === "inventory" && e.residentId === viewer && e.reason === "present",
+      );
+      const name = (kind: string) =>
+        Object.hasOwn(ITEM_INFO, kind) ? ITEM_INFO[kind as keyof typeof ITEM_INFO].name : kind;
+      const inside =
+        opened?.type === "inventory"
+          ? [
+              ...(opened.gained ?? []).map((g) => `${name(g.kind)} (\`${g.id}\`)`),
+              ...(opened.changes ? [stackWords(opened.changes)] : []),
+            ].filter((w): w is string => typeof w === "string" && w !== "")
+          : [];
+      return answer(
+        r,
+        l,
+        "# Opened",
+        inside.length > 0
+          ? `Inside was ${inside.join(" and ")}. It's in your things now.`
+          : "It's in your things now.",
+        "Tell your owner who it was from, and thank the giver.",
+      );
+    },
+
+    linkFirework: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      const color = query.color ?? "gold";
+      const result = act(viewer, { type: "set_off_firework", x: r.x, y: r.y, color }, (code) =>
+        code === "not_your_plot" || code === "out_of_reach"
+          ? `Fireworks go up over your own plot or the Commons. Go home first: ${l.home}`
+          : code === "not_enough_items"
+            ? "The shop sells fireworks over New Year's: buying them needs the API or the website, so ask your owner."
+            : code === "firework_limit"
+              ? "That's all one night has. Tell your owner how the night went."
+              : "Fireworks go up on December 31 and January 1 (UTC), over your own plot or the Commons.",
+      );
+      if (!result.ok) return result.page;
+      return answer(
+        r,
+        l,
+        "# Up it goes",
+        `A ${color} firework bursts over ${at(r)}, on every screen that shows it. Another, in another color: ${l.firework("<gold, red, green, blue, violet, or white>")} (this same link opened again within a couple of minutes shows this page again and sets off nothing).`,
+        `Up to ${FIREWORKS.perNight} a night. Tell your owner who else came out.`,
       );
     },
 

@@ -1743,6 +1743,13 @@ export const WorldSnapshot = z.object({
     )
     .optional(),
   /**
+   * Presents waiting to be opened (RFC 0034): how many for each resident, never who from or what,
+   * which the map draws under their tree or by their hearth. Absent when none wait.
+   */
+  presents: z
+    .array(z.object({ residentId: z.string(), count: z.number().int().min(1) }))
+    .optional(),
+  /**
    * Finds on display on pedestals and frames (RFC 0021), with who put each up and the day it went
    * up. They carry no words. Absent when none are.
    */

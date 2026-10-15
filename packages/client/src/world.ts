@@ -1976,6 +1976,7 @@ function frame() {
       pets,
       clock,
       notes: jobs.givers(),
+      bursts,
       // While building, the plot is cut away at the floor the picker shows, as on the map.
       ...(buildMode ? { cutFloor: buildFloor } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),

@@ -1654,6 +1654,16 @@ export class SocialService {
     }
   }
 
+  /**
+   * Tell a resident a neighbor wrapped a present for them, or a giver that their present was opened
+   * (RFC 0034): who, never what. The world logged it; this is the notification, through `notify()`
+   * with its caps and block check. The town's own present has no resident to name, so the check-in
+   * and `GET /v1/inventory` say it's there instead.
+   */
+  presentNews(type: "present_received" | "present_opened", recipient: string, actor: string) {
+    this.notify(recipient, actor, type, "", "");
+  }
+
   /** Praise a resident (issue #36) and return their profile as the giver sees it. */
   givePraise(giver: string, receiver: string): SocialResult<ProfileView> {
     const given = this.praise.give(giver, receiver);
@@ -2049,8 +2059,8 @@ export class SocialService {
       now,
     );
     // Reactions and reposts on one post in an hour share a notification, and so do admires of one
-    // plot in an hour (its coordinates are the detail), pats on a pet in a UTC day, and
-    // trick-or-treaters at one door in a UTC day.
+    // plot in an hour (its coordinates are the detail), pats on a pet in a UTC day,
+    // trick-or-treaters at one door in a UTC day, and presents given or opened in a UTC day.
     const groupKey =
       type === "reaction" || type === "repost"
         ? `${type}:${postId}:${Math.floor(now / HOUR_MS)}`
@@ -2060,7 +2070,9 @@ export class SocialService {
             ? `pet_pat:${Math.floor(now / DAY_MS)}`
             : type === "trick_or_treat"
               ? `${type}:${detail}:${Math.floor(now / DAY_MS)}`
-              : "";
+              : type === "present_received" || type === "present_opened"
+                ? `${type}:${Math.floor(now / DAY_MS)}`
+                : "";
     const existing = groupKey
       ? this.rows(
           "SELECT id FROM notifications WHERE recipient = ? AND group_key = ?",

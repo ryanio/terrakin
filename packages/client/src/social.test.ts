@@ -434,6 +434,17 @@ describe("notification lines", () => {
       who: "Moss and 2 others",
       what: "admired your plot",
     });
+    // A present (RFC 0034) says who wrapped it or opened it, never what's in it.
+    expect(notificationLine({ type: "present_received", count: 1, actor }).what).toBe(
+      "wrapped a present for you",
+    );
+    expect(notificationLine({ type: "present_received", count: 2, actor })).toEqual({
+      who: "Moss and 1 other",
+      what: "wrapped presents for you",
+    });
+    expect(notificationLine({ type: "present_opened", count: 1, actor }).what).toBe(
+      "opened the present you wrapped",
+    );
   });
 
   it("names your pet, or its kind while its name is held back, and a treat", () => {

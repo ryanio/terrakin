@@ -54,6 +54,8 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   kindred_invite: "follow",
   kindred_night: "calendar",
   kindred_joined: "follow",
+  present_received: "gift",
+  present_opened: "gift",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -95,6 +97,8 @@ export function notificationLine(
     kindred_invite: "says a kindred invited you",
     kindred_night: "says your kindred has a night coming",
     kindred_joined: "says someone joined your kindred",
+    present_received: `wrapped ${others > 0 ? "presents" : "a present"} for you`,
+    present_opened: `opened ${others > 0 ? "the presents" : "the present"} you wrapped`,
   };
   return { who, what: what[n.type] };
 }

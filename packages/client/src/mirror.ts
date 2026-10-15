@@ -136,6 +136,8 @@ export class Mirror {
   plots = new Map<string, string>(); // plotKey -> ownerId
   coOwners = new Map<string, string[]>(); // plotKey -> residents the owner shares it with
   blocks = new Map<string, BlockKind>(); // tileKey -> block
+  /** How many presents wait for each resident (RFC 0034), never what: the map draws them. */
+  presents = new Map<string, number>();
   /** Paths and flooring under the blocks (RFC 0016), by tileKey. Nobody walks differently for them. */
   paving = new Map<string, GroundKind>();
   /**
@@ -251,6 +253,7 @@ export class Mirror {
     for (const h of snapshot.halls ?? []) {
       this.halls.set(plotKey(h.px, h.py), { kindred: h.kindred, name: h.name });
     }
+    for (const p of snapshot.presents ?? []) this.presents.set(p.residentId, p.count);
     this.day = snapshot.day;
     for (const t of snapshot.tables ?? []) {
       this.tables.set(t.id, { x: t.x, y: t.y, playing: t.status === "playing" });
@@ -561,6 +564,15 @@ export class Mirror {
       case "jobs_opened":
         this.jobsOpen = true;
         break;
+      case "present_given":
+        this.presents.set(event.to, (this.presents.get(event.to) ?? 0) + 1);
+        break;
+      case "present_opened": {
+        const left = (this.presents.get(event.by) ?? 0) - 1;
+        if (left > 0) this.presents.set(event.by, left);
+        else this.presents.delete(event.by);
+        break;
+      }
       case "kindreds_opened":
         this.kindredsOpen = true;
         break;

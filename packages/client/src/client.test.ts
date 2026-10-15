@@ -202,6 +202,19 @@ describe("Mirror", () => {
     expect(m.halls.size).toBe(0);
   });
 
+  it("counts the presents waiting for each resident from the snapshot and events (RFC 0034)", () => {
+    const m = new Mirror({ ...snapshot, presents: [{ residentId: "a", count: 1 }] });
+    expect(m.presents.get("a")).toBe(1);
+    const given = { type: "present_given", from: "b", to: "a" } as const;
+    m.apply({ seq: 4, event: { ...given, present: "present_2" } });
+    expect(m.presents.get("a")).toBe(2);
+    const opened = { type: "present_opened", by: "a", from: "b" } as const;
+    m.apply({ seq: 5, event: { ...opened, present: "present_1" } });
+    m.apply({ seq: 6, event: { ...opened, present: "present_2" } });
+    expect(m.presents.has("a")).toBe(false);
+    expect(m.presents.has("b")).toBe(false);
+  });
+
   it("asks the sim's rule whose pickups a resident may take, from the snapshot and live", () => {
     const m = new Mirror({ ...snapshot, plots: [{ px: 0, py: 0, ownerId: "a", coOwners: ["b"] }] });
     // Before the switch, anyone may gather anywhere.

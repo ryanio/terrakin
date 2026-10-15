@@ -99,6 +99,25 @@ describe("one plot of the world, read from the mirror", () => {
     pickupAt: (x: number, y: number) => lying.get(`${x},${y}`) ?? null,
   });
 
+  it("puts presents under the plot's fir, and rebuilds when their count changes (RFC 0034)", () => {
+    const none = new Set<string>();
+    const gifts = (n: number) => ({
+      ...source([["10,10", "little_fir"]]),
+      residents: new Map([
+        ["capri", { hearth: { x: 12, y: 12 } }],
+        ["far", { hearth: { x: 2, y: 2 } }],
+      ]),
+      presents: new Map([
+        ["capri", n],
+        ["far", 1],
+      ]),
+    });
+    const two = readChunk(gifts(2), 1, 1, none);
+    expect(two.presents).toEqual([{ key: "10,10", count: 2, tree: true }]);
+    expect(chunkSignature(gifts(2), 1, 1, none)).toBe(two.signature);
+    expect(chunkSignature(gifts(1), 1, 1, none)).not.toBe(two.signature);
+  });
+
   it("holds the plot's blocks, hearths, and owner, and no grass under them", () => {
     const hearths = hearthKeys([{ hearth: { x: 9, y: 9 } }, { hearth: null }]);
     const chunk = readChunk(source([["8,8", "wood"]], "capri"), 1, 1, hearths);

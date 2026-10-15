@@ -18,6 +18,7 @@ import {
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
+import { type PileSource, type PresentPile, presentPiles } from "../presents";
 import {
   type Bounds,
   cropIn,
@@ -141,6 +142,8 @@ export interface PlotChunk {
   pickups: { x: number; y: number; kind: PickupKind }[];
   /** A home someone's in, so its windows light up after dark (`litHomes`, decision 0098). */
   lit: boolean;
+  /** Presents waiting under a tree or by a hearth (RFC 0034). */
+  presents: ({ key: string } & PresentPile)[];
   /** Equal for two reads exactly when what's drawn is the same. */
   signature: string;
 }
@@ -168,6 +171,25 @@ export interface ChunkSource {
   day?: number | undefined;
   /** What lies on a tile to pick up today (`Mirror.pickupAt`). */
   pickupAt?(x: number, y: number): PickupKind | null;
+  /** Who lives where, for where their presents wait (RFC 0034). */
+  residents?: PileSource["residents"];
+  /** How many presents wait for each resident (RFC 0034). Absent reads as none. */
+  presents?: ReadonlyMap<string, number>;
+}
+
+/** The piles of presents (RFC 0034) on one plot, by tile key, with the words for its signature. */
+function pilesOn(source: ChunkSource, bounds: Bounds): ({ key: string } & PresentPile)[] {
+  if (!source.presents?.size || !source.residents) return [];
+  const here = presentPiles(
+    {
+      config: source.config,
+      residents: source.residents,
+      blocks: source.blocks,
+      presents: source.presents,
+    },
+    bounds,
+  );
+  return [...here].map(([key, pile]) => ({ key, ...pile }));
 }
 
 /**
@@ -267,6 +289,8 @@ export function readChunk(
   blocks.push(...up.blocks);
   ground.push(...up.ground);
   parts.push(...up.parts);
+  const presents = pilesOn(source, bounds);
+  for (const p of presents) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   return {
     px,
     py,
@@ -283,6 +307,7 @@ export function readChunk(
     leaves,
     pickups,
     lit,
+    presents,
     signature: parts.join("|"),
   };
 }
@@ -352,6 +377,7 @@ export function chunkSignature(
     for (let x = bounds.x0; x <= bounds.x1; x++)
       parts.push(...tileThings(source, x, y, hearths, lit).parts);
   parts.push(...upstairsOf(source, bounds, lit, cut).parts);
+  for (const p of pilesOn(source, bounds)) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   return parts.join("|");
 }
 

@@ -1327,6 +1327,50 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(service.state.items?.inventories[wren.id]?.stacks.candy).toBe(1);
   });
 
+  it("lists and opens presents, and sets off a firework, by link", async () => {
+    let now = Date.UTC(2026, 11, 20, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, presence: true, now: () => now },
+    });
+    service.tick();
+    const wren = await joinByLink("Wren");
+    const ivy = await joinByLink("Ivy");
+    for (const [who, px] of [
+      [wren, 0],
+      [ivy, 2],
+    ] as const) {
+      await who.act(`settle?px=${px}&py=0`);
+      await who.act("build-home");
+    }
+    const wrapped = service.act(wren.id, {
+      type: "give",
+      item: "lemon_seed",
+      to: ivy.id,
+      wrapped: true,
+    });
+    expect(wrapped.ok).toBe(true);
+    // Who it's from and when it opens, never what's in it.
+    const waiting = (await ivy.act("open-present")).text;
+    expect(waiting).toContain(`\`present_1\`, from resident \`${wren.id}\`, opens December 25`);
+    expect(waiting).not.toContain("lemon");
+    expect(codeOf((await ivy.act("open-present?present=present_1")).text)).toBe("not_yet");
+    now = Date.UTC(2026, 11, 25, 12);
+    service.tick();
+    expect((await ivy.act("checkin")).text).toContain(`/v1/act/${ivy.key}/open-present`);
+    const opened = (await ivy.act("open-present?present=present_1")).text;
+    expect(opened).toContain("# Opened");
+    expect(opened).toContain("lemon seed");
+
+    now = Date.UTC(2026, 11, 31, 12);
+    service.tick();
+    const inv = service.state.items?.inventories[wren.id];
+    if (inv) inv.stacks.firework = 2;
+    expect((await wren.act("checkin")).text).toContain(`/v1/act/${wren.key}/firework`);
+    expect((await wren.act("firework?color=red")).text).toContain("# Up it goes");
+    expect(inv?.stacks.firework).toBe(1);
+    expect(codeOf((await ivy.act("firework")).text)).toBe("not_enough_items");
+  });
+
   it("says when trick-or-treating is, in the check-in during Halloween and on the link before it", async () => {
     let now = Date.UTC(2026, 9, 25, 12);
     const { joinByLink, service } = await start({

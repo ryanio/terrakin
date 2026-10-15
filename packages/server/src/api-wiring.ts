@@ -79,6 +79,7 @@ export function wireSocial(
   // Halloween (RFC 0022): a knock logged in the world tells everyone who lives at the door.
   service.onTrickOrTreated = (knocker, plot, residents) =>
     layer.trickOrTreated(knocker, plot, residents);
+  service.onPresentNews = (type, recipient, actor) => layer.presentNews(type, recipient, actor);
   layer.onPetPatted = (owner) => service.announce({ type: "pet_patted", owner });
   // Plots to visit (RFC 0020): when each plot last changed, and who visited it. The collection
   // book (RFC 0021): what each input brought anyone, filled in once from the world as it is.

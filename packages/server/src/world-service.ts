@@ -791,6 +791,13 @@ export class WorldService {
     | ((knocker: string, plot: { px: number; py: number }, residents: string[]) => void)
     | undefined;
   /**
+   * Hears a present a resident wrapped for someone, and one opened (RFC 0034): who should be told,
+   * and by whom. Never the town's present.
+   */
+  onPresentNews:
+    | ((type: "present_received" | "present_opened", recipient: string, actor: string) => void)
+    | undefined;
+  /**
    * Hears every input the world commits, with its events, after it's logged and broadcast:
    * plots to visit (RFC 0020) keep when each plot changed and who visited it. A failure here is
    * reported and never undoes or fails the action.
@@ -2051,6 +2058,24 @@ export class WorldService {
         } catch (err) {
           // The lesson stands; the learner's notice misses it.
           report(err, "world.recipe_taught", { command: input.command.type });
+        }
+      }
+      // Presents (RFC 0034): who wrapped one for you, and who opened yours. The town names nobody,
+      // and a present the new year opened was opened by nobody.
+      if (
+        (e.type === "present_given" && e.from !== TOWN_ACTOR) ||
+        (e.type === "present_opened" && e.from !== TOWN_ACTOR && input.command.type !== "new_day")
+      ) {
+        const [recipient, actor] = e.type === "present_given" ? [e.to, e.from] : [e.from, e.by];
+        try {
+          this.onPresentNews?.(
+            e.type === "present_given" ? "present_received" : "present_opened",
+            recipient,
+            actor,
+          );
+        } catch (err) {
+          // The present moved; the notice misses it.
+          report(err, "world.present", { command: input.command.type });
         }
       }
       if (e.type === "trick_or_treated") {

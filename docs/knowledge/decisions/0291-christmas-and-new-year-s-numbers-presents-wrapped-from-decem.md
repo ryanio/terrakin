@@ -22,7 +22,7 @@ tags: [sim, economy, numbers, holidays, client, server]
 - A present's made thing is still its giver's until it's opened: `everyGood` lists it with the giver as its holder, so a staff takedown of a piece's picture reaches a wrapped piece too. `merge_resident` refuses while a present names the record to merge, given or to open, so no present is left addressed to a record that's gone.
 - A block made after a present was wrapped doesn't stop it. Wrapping a gift across a block is refused like any `give`, but the sim knows nothing of blocks, so a present wrapped before one still opens, by hand or at the new year. A present can't be sent back, and it carries no note, so what arrives is a thing and its maker's name.
 - The map draws at most 12 bursts at once, dropping the oldest.
-- Left for later: presents drawn under the fir or by the hearth, a `present_received` notice and a `present_opened` notice to the giver, the "For Christmas" shelf name on December 24 and 25, bursts in 3D, and link pages for opening presents and setting off fireworks.
+- Left for later, and built in [decision 0293](0293-presents-show-as-boxes-under-the-tree-from-a-count-on-the-sn.md): presents drawn under the fir or by the hearth, a `present_received` notice and a `present_opened` notice to the giver, the "For Christmas" shelf name on December 24 and 25, bursts in 3D, and link pages for opening presents and setting off fireworks.
 
 ## Consequences
 

@@ -25,11 +25,12 @@ import {
   Texture,
 } from "three";
 import { describe, expect, it, vi } from "vitest";
-import { blockColor, RESIDENT_COLOR_HEX } from "./render";
+import { BURST_MS, BURSTS_MAX, blockColor, RESIDENT_COLOR_HEX } from "./render";
 import { addAll, frameDistance, type Stage } from "./scene3d/art";
 import { blockMeshes } from "./scene3d/blocks";
 import { parseGallery } from "./scene3d/catalog";
 import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
+import { sparksAt } from "./scene3d/fireworks";
 import { hairMesh, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
@@ -983,6 +984,8 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/pets.ts",
     "scene3d/buildings.ts",
     "scene3d/weather.ts",
+    "scene3d/presents.ts",
+    "scene3d/fireworks.ts",
     "scene3d/world.ts",
   ]);
 
@@ -1003,6 +1006,25 @@ describe("three.js stays out of the main bundle", () => {
         if (hit) expect(m[1], `${rel(f)} imports ${m[2]}`).toBe("type ");
       }
     }
+  });
+});
+
+describe("fireworks in 3D (RFC 0034)", () => {
+  it("rise as one spark, burst in a shell that fades, and are gone after the map's time", () => {
+    const b = { x: 3, y: 4, color: "red" as const, at: 0 };
+    const rising = sparksAt([b], 100, false);
+    expect(rising).toHaveLength(1);
+    expect(rising[0]).toMatchObject({ x: 3, z: 4, color: "red", fade: 1 });
+    const shell = sparksAt([b], 1500, false);
+    expect(shell.length).toBeGreaterThan(1);
+    expect(shell.every((s) => s.fade > 0 && s.fade < 1)).toBe(true);
+    expect(sparksAt([b], BURST_MS + 1, false)).toEqual([]);
+    // Reduced motion: a burst shows still, the same however old it is.
+    expect(sparksAt([b], 100, true)).toEqual(sparksAt([b], 2000, true));
+    // Only the newest bursts show, as on the map.
+    const many = Array.from({ length: BURSTS_MAX + 3 }, (_, i) => ({ ...b, x: i, at: 1000 }));
+    const xs = new Set(sparksAt(many, 1500, false).map((s) => Math.round(s.x)));
+    expect(xs.has(0)).toBe(false);
   });
 });
 

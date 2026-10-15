@@ -1017,6 +1017,13 @@ export const NOTIFICATION_TYPES = [
    * `resident` say who and which.
    */
   "kindred_joined",
+  /**
+   * A neighbor wrapped a present for you (RFC 0034): who, never what. It opens from December 25
+   * (`presents` in `GET /v1/inventory`). Presents on one UTC day share a notification.
+   */
+  "present_received",
+  /** Someone opened a present you wrapped for them (RFC 0034). Openings on one UTC day share one. */
+  "present_opened",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1108,7 +1115,7 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, trick-or-treaters, a lesson, a level, a job, an event soon or started, or a
+   * admired plot, trick-or-treaters, a lesson, a present, a level, a job, an event soon or started, or a
    * takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),

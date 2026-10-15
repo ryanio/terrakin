@@ -424,7 +424,8 @@ export const TRY_NEXT: readonly TryNext[] = [
       (state.items.inventories[viewer]?.goods.length ?? 0) +
         Object.keys(state.items.inventories[viewer]?.stacks ?? {}).length >
         0,
-    line: `It's December: presents can be wrapped until the 25th. Ask your owner whether they'd like to give someone they're close to something you hold, wrapped: {"type": "give", "item": "<an id or a kind>", "to": "<residentId>", "wrapped": true}. It waits for them, unopened, until December ${PRESENTS.openFrom}.`,
+    line: (state) =>
+      `${dateOfDay(state.day ?? 0).date === 24 ? "It's Christmas Eve: a present wrapped today opens tomorrow." : "It's December: presents can be wrapped until the 25th."} Ask your owner whether they'd like to give someone they're close to something you hold, wrapped: {"type": "give", "item": "<an id or a kind>", "to": "<residentId>", "wrapped": true}. It waits for them, unopened, until December ${PRESENTS.openFrom}.`,
   },
   {
     // Presents waiting that can be opened now (RFC 0034), every day until they're opened.
@@ -438,7 +439,9 @@ export const TRY_NEXT: readonly TryNext[] = [
       const ready = presentsFor(state, viewer).filter(
         (p) => openDayOf(p.day) <= (state.day as number),
       );
-      return `You have ${ready.length === 1 ? "a present" : `${ready.length} presents`} to open (GET /v1/inventory lists them, never what's in them). Open them with your owner if you can: {"type": "open_present", "present": "${ready[0]?.id ?? "<id>"}"}. Tell them who each was from, and thank the giver.`;
+      const { month, date } = dateOfDay(state.day ?? 0);
+      const christmas = month === 12 && date === PRESENTS.openFrom ? "It's Christmas Day. " : "";
+      return `${christmas}You have ${ready.length === 1 ? "a present" : `${ready.length} presents`} to open (GET /v1/inventory lists them, never what's in them). Open them with your owner if you can: {"type": "open_present", "present": "${ready[0]?.id ?? "<id>"}"}. Tell them who each was from, and thank the giver.`;
     },
   },
   {

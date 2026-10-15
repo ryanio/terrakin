@@ -68,6 +68,13 @@ describe("the shop page", () => {
       title: "For Halloween",
       hint: holidayHint("halloween", lastDay),
     });
+    // Midwinter's shelf reads Christmas on December 24 and 25 (RFC 0034), and Midwinter otherwise.
+    const midwinter = (day: number) =>
+      shelvesOf({ items: [], holidays: [{ id: "midwinter", lastDay }], day })[0]?.title;
+    expect(midwinter(dayOfDate(2026, 12, 23))).toBe("For Midwinter");
+    expect(midwinter(dayOfDate(2026, 12, 24))).toBe("For Christmas");
+    expect(midwinter(dayOfDate(2026, 12, 25))).toBe("For Christmas");
+    expect(midwinter(dayOfDate(2026, 12, 26))).toBe("For Midwinter");
     const skus = (key: string) => shelves.find((s) => s.key === key)?.items.map((i) => i.sku);
     expect(skus("holiday:halloween")).toEqual(["cat_ears"]);
     expect(skus("wear")).toEqual([]);

@@ -104,6 +104,7 @@ describe("Christmas", () => {
       await t.act(who.token, { type: "build_starter_home" });
     }
     expect(tryFor(t, ada.id)?.id).toBe("wrap_presents");
+    expect(tryFor(t, ada.id)?.line).toMatch(/^It's December/);
     const give = { type: "give", item: "lemon_seed", to: bob.id, wrapped: true };
     const noted = await t.act(ada.token, { ...give, note: "for you" });
     expect(noted).toMatchObject({ ok: false, error: { code: "invalid_gift" } });
@@ -116,9 +117,28 @@ describe("Christmas", () => {
     expect(Object.keys(present).sort()).toEqual(["day", "from", "fromId", "id", "opensDay"]);
     expect(present).toMatchObject({ id: "present_1", fromId: ada.id, from: { id: ada.id } });
     expect(tryFor(t, bob.id)?.id).not.toBe("open_presents");
+    // The map learns how many wait for Bob, never from whom or what.
+    expect((await t.call("GET", "/v1/world")).body.presents).toEqual([
+      { residentId: bob.id, count: 1 },
+    ]);
+    // Bob hears who wrapped it, never what, and his check-in says so.
+    const notices = async (token: string) =>
+      (await t.call("GET", "/v1/notifications", undefined, token)).body.notifications as Json[];
+    expect(await notices(bob.token)).toEqual([
+      expect.objectContaining({
+        type: "present_received",
+        actor: expect.objectContaining({ id: ada.id }),
+      }),
+    ]);
+    const checkin = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
+    expect(checkin.todo.join("\n")).toContain("1 neighbor wrapped a present for you");
     const early = await t.act(bob.token, { type: "open_present", present: "present_1" });
     expect(early).toMatchObject({ ok: false, error: { code: "not_yet" } });
 
+    t.at(Date.UTC(2026, 11, 24, 12));
+    expect(tryFor(t, ada.id)?.line).toMatch(
+      /^It's Christmas Eve: a present wrapped today opens tomorrow\./,
+    );
     t.at(Date.UTC(2026, 11, 25, 12));
     // Ada has a home and nothing waiting; Bob has Ada's present waiting, and Cy has no home.
     expect((await things(ada.token)).presents).toEqual([
@@ -130,15 +150,24 @@ describe("Christmas", () => {
     const open = tryFor(t, bob.id);
     expect(open?.id).toBe("open_presents");
     expect(open?.line).toContain('"present": "present_1"');
+    expect(open?.line).toMatch(/^It's Christmas Day\. /);
     const seeds = await count(bob.token, "lemon_seed");
     expect(await t.act(bob.token, { type: "open_present", present: "present_1" })).toMatchObject({
       ok: true,
     });
     expect(await count(bob.token, "lemon_seed")).toBe(seeds + 1);
+    expect((await notices(ada.token)).map((n) => n.type)).toEqual(["present_opened"]);
     expect(await t.act(ada.token, { type: "open_present", present: "present_2" })).toMatchObject({
       ok: true,
     });
     expect(await count(ada.token, "candy_cane")).toBe(3);
+    // The town's present names nobody, so opening it tells no one.
+    expect((await notices(ada.token)).map((n) => n.type)).toEqual(["present_opened"]);
+    // A present the new year opens was opened by nobody, so its giver hears nothing.
+    expect(await t.act(ada.token, { ...give, item: "herb_seed" })).toMatchObject({ ok: true });
+    t.at(Date.UTC(2027, 0, 1, 12));
+    expect((await things(bob.token)).presents).toBeUndefined();
+    expect((await notices(ada.token)).map((n) => n.type)).toEqual(["present_opened"]);
   });
 });
 

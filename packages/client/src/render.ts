@@ -13,6 +13,7 @@ import {
   LEAF_TONES,
   OUTSIDE_GROUND,
   PET_BOX,
+  parseKey,
   plotDistance,
   plotKey,
   type Resident,
@@ -48,6 +49,7 @@ import {
   tagPaper,
 } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
+import { presentPiles } from "./presents";
 import { type BlockSkin, paintBlock, paintCrop } from "./render/blocks";
 import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
 import {
@@ -59,7 +61,7 @@ import {
   paintShown,
   paintTownMark,
 } from "./render/decor";
-import { lightBulbs } from "./render/decor-winter";
+import { lightBulbs, paintPresents } from "./render/decor-winter";
 import { type BurstMark, paintBurst } from "./render/fireworks";
 import { paintFurniture, paintGameTable } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
@@ -568,6 +570,18 @@ export function render(
     ctx.lineTo(sx + half * 0.72, sy - half * 0.12);
     ctx.closePath();
     ctx.fill();
+  }
+
+  // ---- presents waiting (RFC 0034): under the tree on their home plot, or by the hearth ----
+  if (mirror.presents.size > 0) {
+    // A pile stands on its hearth's plot, so hearths a plot beyond the view are read too.
+    const near = { x0: x0 - S, y0: y0 - S, x1: x1 + S, y1: y1 + S };
+    for (const [key, pile] of presentPiles(mirror, near)) {
+      const [px, py] = parseKey(key);
+      if (px < x0 || px > x1 || py < y0 || py > y1) continue;
+      const { sx, sy } = tileToScreen(cam, px, py);
+      paintPresents(ctx, sx - half, sy - half, Math.round(scale), pile.count, pile.tree);
+    }
   }
 
   // ---- floors (RFC 0028): from above, and cut away at your floor on the plot you're on ----

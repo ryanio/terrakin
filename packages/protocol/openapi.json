@@ -37371,13 +37371,12 @@
               }
             ]
           },
-          "holiday": {
-            "description": "The holiday the world's day falls in, by the UTC calendar (`halloween`: October 24 to November 1). Absent on ordinary days.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HolidayName"
-              }
-            ]
+          "holidays": {
+            "description": "The holidays the world's day falls in, by the UTC calendar, the one that started first first (`[\"halloween\"]` from October 24 to November 1). Two can run on one day. Absent on ordinary days.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HolidayName"
+            }
           },
           "config": {
             "type": "object",
@@ -41336,13 +41335,12 @@
               }
             ]
           },
-          "holiday": {
-            "description": "The holiday the world's day falls in, as `GET /v1/world` has it (`halloween`: October 24 to November 1). Absent on ordinary days. Present even when `unchanged`.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/HolidayName"
-              }
-            ]
+          "holidays": {
+            "description": "The holidays the world's day falls in, as `GET /v1/world` has them (`[\"halloween\"]` from October 24 to November 1). Absent on ordinary days. Present even when `unchanged`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HolidayName"
+            }
           },
           "catalog": {
             "type": "string",
@@ -44207,23 +44205,26 @@
               }
             ]
           },
-          "holiday": {
-            "description": "The holiday on today (RFC 0022), while one runs: its stock is in `items`, marked with `holiday`. Absent on ordinary days.",
-            "type": "object",
-            "properties": {
-              "id": {
-                "$ref": "#/components/schemas/HolidayName"
+          "holidays": {
+            "description": "The holidays on today (RFC 0022, RFC 0034), while any run, the one that started first first: each one's stock is in `items`, marked with its `holiday`. Absent on ordinary days.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/HolidayName"
+                },
+                "lastDay": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
               },
-              "lastDay": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": [
-              "id",
-              "lastDay"
-            ]
+              "required": [
+                "id",
+                "lastDay"
+              ]
+            }
           },
           "keeper": {
             "nullable": true,

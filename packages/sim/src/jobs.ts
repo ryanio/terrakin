@@ -21,7 +21,6 @@ import {
   HOLIDAYS,
   type Holiday,
   holidayLastDay,
-  holidayOf,
   inHoliday,
   nextHolidayStart,
 } from "./holiday";
@@ -433,12 +432,11 @@ function laneJob(up: readonly Job[], turn: number): Job | undefined {
 /** The jobs of `table` that are up on `day`: their part of the game open, in season, in their holiday. */
 function upOn(state: WorldState, table: readonly Job[], day: number): Job[] {
   const season = seasonOf(day);
-  const holiday = holidayOf(day);
   return table.filter(
     (job) =>
       partOpen(state, job) &&
       (job.season === undefined || job.season === season) &&
-      (job.holiday === undefined || job.holiday === holiday),
+      (job.holiday === undefined || inHoliday(job.holiday, day)),
   );
 }
 
@@ -512,7 +510,7 @@ function nextEdge(day: number): number {
     const at = inHoliday(holiday, day)
       ? holidayLastDay(holiday, day) + 1
       : nextHolidayStart(holiday, day);
-    edge = Math.min(edge, at);
+    if (at !== undefined) edge = Math.min(edge, at);
   }
   return edge;
 }

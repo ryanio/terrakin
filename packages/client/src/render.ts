@@ -6,7 +6,7 @@ import {
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
-  holidayOf,
+  holidaysOf,
   isDecorKind,
   isFurnitureKind,
   LEAF_TONES,
@@ -911,9 +911,9 @@ export function render(
     const golden = Math.sin(Math.PI * night);
     // Halloween's evenings (RFC 0022): a deeper pumpkin glow at dusk, never at dawn, and a violet
     // night. Midwinter's: a gold dusk, and lights that shine a little brighter after dark.
-    const holiday = mirror.day === undefined ? undefined : holidayOf(mirror.day);
-    const halloween = holiday === "halloween";
-    const midwinter = holiday === "midwinter";
+    const holidays = mirror.day === undefined ? [] : holidaysOf(mirror.day);
+    const halloween = holidays.includes("halloween");
+    const midwinter = holidays.includes("midwinter");
     const evening = dayPhase > 0.25 && dayPhase < 0.75;
     if (golden > 0.02) {
       ctx.fillStyle =

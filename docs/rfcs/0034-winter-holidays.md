@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-15
-- Status: draft
+- Status: accepted (Ryan, 2026-10-15), with every open question's recommended answer
 - Discussion: none
 - Builds on: [RFC 0022](0022-holidays.md) and [decision 0106](../knowledge/decisions/0106-holidays-are-dated-windows-read-from-the-world-s-day-candy-i.md) (holidays as dated windows), [decision 0124](../knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md) (winter and Midwinter), [decision 0081](../knowledge/decisions/0081-the-town-hosts-events-from-a-calendar-in-server-config-start.md) and [decision 0275](../knowledge/decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md) (town events), [decision 0057](../knowledge/decisions/0057-a-gift-can-carry-a-thing-and-its-recipient-can-send-it-back-.md) (gifts), [RFC 0024](0024-recipes-you-learn.md) (recipes)
 
@@ -42,7 +42,7 @@ After this RFC each holiday has a span rule, one of three kinds. All three are p
 
 The weekday of a world day is `(day + 4) % 7`, with 0 for Sunday, because 1970-01-01 was a Thursday. No clock, no host `Date`.
 
-`holidaysOf(day)` returns every holiday running that day, in calendar order: `[]`, `["midwinter"]`, or, on December 26, 2027, `["hanukkah", "midwinter", "new_year"]`. `holidayOf` goes away. Everything that read it asks `inHoliday(holiday, day)` instead, which was already the question each rule was really asking. A rule that needs a single date reads `dateOfDay` itself, as Halloween's two trick-or-treat nights already do.
+`holidaysOf(day)` returns every holiday running that day, the one that started first first: `[]`, `["midwinter"]`, or, on December 26, 2027, `["midwinter", "hanukkah", "new_year"]`. `holidayOf` goes away. Everything that read it asks `inHoliday(holiday, day)` instead, which was already the question each rule was really asking. A rule that needs a single date reads `dateOfDay` itself, as Halloween's two trick-or-treat nights already do.
 
 On the wire, `holiday` (a string or nothing) becomes `holidays`, an array, in `GET /v1/world`, `GET /v1/checkin`, and the link check-in. `GET /v1/shop`'s `shop.holiday` becomes `shop.holidays`, each with its `id` and `lastDay`. Terrakin is pre-alpha, so this is the clean change with a Changed entry in `CHANGELOG.md` ([decision 0146](../knowledge/decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md)).
 
@@ -209,9 +209,9 @@ Old clients that read `holiday` see it missing and draw an ordinary day until th
 - Fireworks set off anywhere. Over a neighbor's plot, without asking, they'd be a nuisance. Your own ground or the Commons is enough.
 - A turkey. There's no meat in Terrakin, and adding livestock for one day isn't worth it. Pumpkin pie is already the feast's dish.
 
-## Open questions
+## Decided at acceptance
 
-Each has a recommended answer for Ryan.
+Ryan accepted every recommended answer below on 2026-10-15.
 
 1. `holiday` to `holidays` on the wire: break it, or keep both for a while? Recommended: break it, with a Changed entry, as decision 0146 allows while pre-alpha.
 2. Hanukkah's dates: a table, or computed? Recommended: a table through 2040, checked against a published calendar, with a test that fails when fewer than three years are left.

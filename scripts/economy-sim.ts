@@ -139,8 +139,9 @@ const {
   GOOD_KINDS,
   HOLIDAY_STOCK,
   holdsRod,
-  holidayOf,
+  holidayRun,
   holidaySpan,
+  holidaysOf,
   ITEMS,
   inventorySize,
   isCommons,
@@ -856,15 +857,19 @@ const addTo = (sets: Map<string, Set<string>>, key: string, id: string) =>
  * decor. A holiday with no costume or decor (Midwinter's candy canes are all it sells) draws nothing.
  */
 function keepHoliday(rules: Rules, p: Person) {
+  const day = rules.state.day ?? 0;
+  for (const holiday of holidaysOf(day)) if (!keepOne(rules, p, holiday, day)) return;
+}
+
+/** `keepHoliday` for one holiday running on `day`: false once the resident can't afford more today. */
+function keepOne(rules: Rules, p: Person, holiday: Holiday, day: number): boolean {
   const { state } = rules;
-  const day = state.day ?? 0;
-  const holiday = holidayOf(day);
-  if (!holiday) return;
   const stock = HOLIDAY_STOCK[holiday];
   const costumes = stock.filter((sku) => isShopWear(sku));
   const decor = stock.filter((sku) => isDecorKind(sku));
-  if (costumes.length === 0 && decor.length === 0) return;
-  const key = `${holiday}:${dateOfDay(day).year}`;
+  if (costumes.length === 0 && decor.length === 0) return true;
+  // A run is named by the year it starts in, since one can cross into the next year.
+  const key = `${holiday}:${dateOfDay(holidayRun(holiday, day)?.first ?? day).year}`;
   const mine = `${p.id}:${key}`;
   let wants = holidayWants.get(mine);
   if (!wants) {
@@ -882,7 +887,7 @@ function keepHoliday(rules: Rules, p: Person) {
     const next = wants[0];
     const before = coinsOf(state, p.id);
     const burned = state.economy?.burned ?? 0;
-    if (before < priceOf(state, next) + 10 || !buy(rules, p.id, next)) return;
+    if (before < priceOf(state, next) + 10 || !buy(rules, p.id, next)) return false;
     tally.holiday += before - coinsOf(state, p.id);
     tally.holidayBurned += (state.economy?.burned ?? 0) - burned;
     wants.shift();
@@ -893,6 +898,7 @@ function keepHoliday(rules: Rules, p: Person) {
       if (tile) rules.send(p.id, { type: "place", ...tile, block: next });
     }
   }
+  return true;
 }
 
 // ---------- recipes you learn (RFC 0024) ----------
@@ -2856,7 +2862,9 @@ function holidayLines(people: Person[], rows: Row[]) {
   const arrives = new Map(people.map((p) => [p.id, p.arrives]));
   for (const [key, kept] of holidayKept) {
     const [holiday = "", year = "0"] = key.split(":");
-    const { first, last } = holidaySpan(holiday as Holiday, Number(year));
+    const run = holidaySpan(holiday as Holiday, Number(year));
+    if (!run) continue;
+    const { first, last } = run;
     const days = rows.filter((r) => r.day >= first - DAY0 && r.day <= last - DAY0);
     const active = days.reduce((s, r) => s + r.active, 0) / Math.max(1, days.length);
     const newcomers = [...kept].filter((id) => (arrives.get(id) ?? -99) >= first - DAY0 - 7);
@@ -3484,7 +3492,7 @@ function jobLines(rules: Rules, people: Person[], rows: Row[]) {
   const noSolo = boards.filter((board) => !board.some(soloJob)).length;
   const up = new Set(boards.flat().map((job) => job.id));
   const seasons = new Set(boards.map((_, d) => seasonOf(DAY0 + d)));
-  const holidays = new Set(boards.map((_, d) => holidayOf(DAY0 + d)));
+  const holidays = new Set(boards.flatMap((_, d) => holidaysOf(DAY0 + d)));
   const due = table.filter(
     (job) =>
       (job.season === undefined || seasons.has(job.season)) &&

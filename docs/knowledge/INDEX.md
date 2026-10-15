@@ -220,6 +220,7 @@ What we chose and why. Newest last.
 - [On the web a kindred is a page at /k/:id, a section at the Town Hall, a chip on profiles, and a label under its hall's name](decisions/0284-on-the-web-a-kindred-is-a-page-at-k-id-a-section-at-the-town.md) · 2026-10-14 · accepted · `client` `design` `social`
 - [Kindreds are on at terrakin.org: the Worker sets kindreds, the Node server leaves it off, and the switch ships with its docs](decisions/0285-kindreds-are-on-at-terrakin-org-the-worker-sets-kindreds-the.md) · 2026-10-15 · accepted · `server` `deploy` `social`
 - [After a claim the web offers the designs drawn on your plot, and builds one from a hearth at the center](decisions/0286-after-a-claim-the-web-offers-the-designs-drawn-on-your-plot-.md) · 2026-10-15 · accepted · `client` `ux` `onboarding`
+- [Holidays have span rules, may overlap and cross a year end, and the wire carries holidays as a list](decisions/0287-holidays-have-span-rules-may-overlap-and-cross-a-year-end-an.md) · 2026-10-15 · accepted · `sim` `protocol` `holidays`
 
 ## Learnings
 

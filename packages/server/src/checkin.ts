@@ -14,7 +14,7 @@ import {
   DAY_MS,
   HOUR_MS,
   heldAsideOf,
-  holidayField,
+  holidaysField,
   inventoryOf,
   isTownsfolk,
   skyAt,
@@ -281,7 +281,7 @@ export function checkinView(
   const sky = {
     ...skyAt(now, state.day),
     timeOfDay: timeOfDayAt(now),
-    ...holidayField(state.day),
+    ...holidaysField(state.day),
     catalog: CATALOG_VERSION,
   };
   const done = options.done ?? new Set<string>();

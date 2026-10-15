@@ -172,14 +172,14 @@ describe("the town shop", () => {
     while (w.today() < dayOfDate(2026, 12, 21)) w.nextDay();
     const midwinter = (await w.call("GET", "/v1/shop")).body.shop;
     const lastDay = dayOfDate(2026, 12, 31);
-    expect(midwinter.holiday).toEqual({ id: "midwinter", lastDay });
+    expect(midwinter.holidays).toEqual([{ id: "midwinter", lastDay }]);
     const canes = midwinter.items.filter((i: Json) => i.holiday);
     expect(canes).toEqual([
       expect.objectContaining({ sku: "candy_cane", price: 2, holiday: "midwinter", lastDay }),
     ]);
     while (w.today() < dayOfDate(2027, 1, 1)) w.nextDay();
     const after = (await w.call("GET", "/v1/shop")).body.shop;
-    expect(after.holiday).toBeUndefined();
+    expect(after.holidays).toBeUndefined();
     expect(after.items.some((i: Json) => i.holiday)).toBe(false);
   });
 

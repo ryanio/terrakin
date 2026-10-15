@@ -33,6 +33,7 @@ import { growth } from "@terrakin/ui/item-art";
 import { hidesHair } from "@terrakin/ui/looks";
 import { dayPhase, nightAmount } from "../time";
 import { skyNow } from "../weather";
+import { eveningHoliday } from "./daylight";
 import { blockLook } from "./palette";
 
 /** Inclusive tile range. */
@@ -467,7 +468,7 @@ export interface PlotLayout {
   /** The world's season, for the ground, and the weather when the snapshot was taken. */
   season: Season | undefined;
   weather: Weather;
-  /** The holiday the world's day falls in (RFC 0022), for its evenings' light. */
+  /** The holiday whose evenings the light shows (RFC 0022, `eveningHoliday`). */
   holiday?: Holiday;
   /** The owner's pet, by the hearth (RFC 0019). Absent when they have none, or no hearth here. */
   pet?: LayoutPet;
@@ -668,6 +669,8 @@ export function plotLayout(
         )
       : undefined;
 
+  const holiday = eveningHoliday(snapshot.holidays);
+  const evening = holiday ? { holiday } : {};
   return {
     ownerId: owner.id,
     ownerName: owner.name,
@@ -685,7 +688,7 @@ export function plotLayout(
     crops,
     season,
     weather,
-    ...(snapshot.holiday ? { holiday: snapshot.holiday } : {}),
+    ...evening,
     ...(owner.pet && pet
       ? {
           pet: {

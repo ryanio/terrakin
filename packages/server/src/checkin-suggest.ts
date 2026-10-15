@@ -27,10 +27,10 @@ import {
   type GoodKind,
   HOUR_MS,
   holidayLastDay,
-  holidayOf,
   homePlotOf,
   hostingProblem,
   type ItemKind,
+  inHoliday,
   isTownsfolk,
   kindredOf,
   kindsIn,
@@ -95,7 +95,7 @@ const HALLOWEEN_SOON_DAYS = 7;
 function halloweenSoon(state: WorldState): number | undefined {
   if (state.day === undefined) return undefined;
   const first = nextHolidayStart("halloween", state.day);
-  return first - state.day <= HALLOWEEN_SOON_DAYS ? first : undefined;
+  return first !== undefined && first - state.day <= HALLOWEEN_SOON_DAYS ? first : undefined;
 }
 
 /**
@@ -345,7 +345,7 @@ export const TRY_NEXT: readonly TryNext[] = [
     open: (state, viewer) =>
       state.shop !== undefined &&
       state.day !== undefined &&
-      holidayOf(state.day) === "halloween" &&
+      inHoliday("halloween", state.day) &&
       !isTownsfolk(state, viewer) &&
       !COSTUMES.some((c) => ownsWear(state, viewer, c)),
     line: costumeLine,

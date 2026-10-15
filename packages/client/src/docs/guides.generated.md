@@ -378,6 +378,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-15:
 
+- Changed: `holiday` is now `holidays`, a list, since two holidays can run on one day
 - Added: Link pages draw your plot as a map, with notes about your home
 - Changed: Townsfolk welcome newcomers with 25 coins, not 10
 - Added: Kindreds are open on terrakin.org

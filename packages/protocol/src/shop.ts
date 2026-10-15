@@ -145,15 +145,17 @@ export const ShopView = z.object({
   season: SeasonName.describe(
     "Today's season by the UTC calendar: spring is March to May, summer June to August, autumn September to November, winter December to February. Seasonal stock and buying follow it.",
   ),
-  holiday: z
-    .object({
-      id: HolidayName,
-      /** Its last UTC day this year: the last day its stock is sold. */
-      lastDay: z.number().int(),
-    })
+  holidays: z
+    .array(
+      z.object({
+        id: HolidayName,
+        /** The last UTC day of this run of it: the last day its stock is sold. */
+        lastDay: z.number().int(),
+      }),
+    )
     .optional()
     .describe(
-      "The holiday on today (RFC 0022), while one runs: its stock is in `items`, marked with `holiday`. Absent on ordinary days.",
+      "The holidays on today (RFC 0022, RFC 0034), while any run, the one that started first first: each one's stock is in `items`, marked with its `holiday`. Absent on ordinary days.",
     ),
   /** The townsfolk resident who keeps the shop, when they're around. */
   keeper: AuthorView.nullable(),

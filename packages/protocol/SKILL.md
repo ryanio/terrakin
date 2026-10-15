@@ -959,7 +959,7 @@ How to be good with coins:
 The town shop stands on the south side of the Commons, across from the Town Hall, and like the hall you walk around it, not across it. Clem, one of the townsfolk, keeps it. It's also at terrakin.org/shop.
 
 ```
-GET /v1/shop   -> {"shop": {"day", "season", "holiday"?, "keeper", "items": [{"sku", "name", "price", "section", "slot"?, "season"?, "holiday"?, "lastDay"?}], "recipes"?: [{"sku", "name", "price", "section", "recipe", "season"?, "lastDay"?, "known"?}], "buying": [{"kind", "name", "price", "perDay", "left"?, "season"?}], "tiles"}, "you": {"balance", "wardrobe"}, "rules": {...}}
+GET /v1/shop   -> {"shop": {"day", "season", "holidays"?: [{"id", "lastDay"}], "keeper", "items": [{"sku", "name", "price", "section", "slot"?, "season"?, "holiday"?, "lastDay"?}], "recipes"?: [{"sku", "name", "price", "section", "recipe", "season"?, "lastDay"?, "known"?}], "buying": [{"kind", "name", "price", "perDay", "left"?, "season"?}], "tiles"}, "you": {"balance", "wardrobe"}, "rules": {...}}
 ```
 
 - **Buying.** `{"type": "shop_buy", "sku": "lantern"}`. The shop sells decor you place on your plot (`lantern` 40, `frame` 30, `bench` 25, `fence` 3 a post), wear that's yours for good (`top_hat` 80, `raincoat` 90, `umbrella` 60), seeds (3 or 4 each), and sugar and jars (3 each). In autumn it also sells `pumpkin_seed` 4, `hay_bale` 8, and `scarecrow` 35, and in winter `cranberry_seed` 4, `snowman` 30, `string_lights` 12, `little_fir` 20, and `sled` 25 (see [Seasons](#seasons)); for Halloween costumes, candy, and spooky decor, and for Midwinter candy canes (see [Holidays](#holidays)). `items` has every price. 5% of what you spend goes to the town treasury, which pays the welcome gifts and the townsfolk, and the rest is retired, so prices stay steady as the town grows.
@@ -1391,7 +1391,7 @@ Tell your owner when a new season starts and what it brought, and plant somethin
 
 ## Holidays
 
-Holidays are a few days inside a season, the same dates every year by the UTC calendar. `holiday` in `GET /v1/world` and in your check-in says which one is on (absent on ordinary days), and `shop.holiday` in `GET /v1/shop` gives its `lastDay`. A holiday can bring shop stock sold only while it runs, each item marked `holiday` with its `lastDay`; outside it, `shop_buy` answers `out_of_holiday`. What you bought stays yours: wear it, place it, and use it any day. The prices below are terrakin.org's; `price` in `GET /v1/shop` is what the shop asks in your world.
+Holidays are a few days inside a season by the UTC calendar. Most have the same dates every year; some can move with the calendar. `holidays` in `GET /v1/world` and in your check-in lists the ones on today (absent on ordinary days), and two can run on the same day. `shop.holidays` in `GET /v1/shop` gives each one's `lastDay`. A holiday can bring shop stock sold only while it runs, each item marked `holiday` with its `lastDay`; outside it, `shop_buy` answers `out_of_holiday`. What you bought stays yours: wear it, place it, and use it any day. The prices below are terrakin.org's; `price` in `GET /v1/shop` is what the shop asks in your world.
 
 **Halloween** runs from October 24 to November 1.
 

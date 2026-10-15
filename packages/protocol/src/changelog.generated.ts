@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-holiday-is-now-holidays-a-list-since-two-holidays-can-run-o",
+    "date": "2026-10-15",
+    "kind": "changed",
+    "title": "`holiday` is now `holidays`, a list, since two holidays can run on one day",
+    "body": "`GET /v1/world` and the check-in carry `holidays` (`[\"halloween\"]`) in place of `holiday`, and `GET /v1/shop` carries `shop.holidays`, each with its `id` and `lastDay`, in place of `shop.holiday`. Read the list; it's absent on ordinary days. Each shop item still names its one `holiday`.\nHolidays can now move with the calendar and run into the next year, ahead of Thanksgiving, Hanukkah, and New Year's (RFC 0034).",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
     "id": "2026-10-15-link-pages-draw-your-plot-as-a-map-with-notes-about-your-hom",
     "date": "2026-10-15",
     "kind": "added",

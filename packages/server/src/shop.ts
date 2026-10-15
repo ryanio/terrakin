@@ -15,7 +15,7 @@ import {
   cardSeason,
   cardSku,
   coinsOf,
-  holidayOn,
+  holidaysOn,
   ITEM_INFO,
   isTownsfolk,
   type KindRecipe,
@@ -65,8 +65,9 @@ function buyingToday(state: WorldState, viewer?: string): BuyOrderView[] {
  * listed (RFC 0017, RFC 0022).
  */
 function itemsOn(state: WorldState, day: number): ShopItemView[] {
-  const holiday = holidayOn(day);
+  const holidays = holidaysOn(day);
   return SHOP_ITEMS.filter((item) => onSale(item.sku, day)).map((item) => {
+    const holiday = holidays.find((h) => h.holiday === item.holiday);
     // What this world charges: holiday stock costs decision 0107's prices until the server logs
     // `lower_holiday_prices` (decision 0210).
     const priced = { ...item, price: priceOf(state, item.sku) };
@@ -140,12 +141,12 @@ export function shopView(
   if (!state.shop || state.day === undefined) return { shop: null, you: null, rules };
   const keeper = keeperId && isTownsfolk(state, keeperId) ? (author(keeperId) ?? null) : null;
   const mine = viewer && state.residents[viewer] ? shopFor(state, viewer) : null;
-  const holiday = holidayOn(state.day);
+  const holidays = holidaysOn(state.day).map((h) => ({ id: h.holiday, lastDay: h.lastDay }));
   return {
     shop: {
       day: state.day,
       season: seasonOf(state.day),
-      ...(holiday ? { holiday: { id: holiday.holiday, lastDay: holiday.lastDay } } : {}),
+      ...(holidays.length > 0 ? { holidays } : {}),
       keeper,
       items: itemsOn(state, state.day),
       ...(state.recipes ? { recipes: cardsOn(state, state.day, mine ? viewer : undefined) } : {}),

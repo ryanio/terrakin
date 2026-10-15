@@ -396,7 +396,7 @@ function unownedWear(state: WorldState, actor: string, fields: ProfileFields): P
     if (holiday && (state.day === undefined || !inHoliday(holiday, state.day))) {
       return reject(
         "not_owned",
-        `That's from the town shop, which sells it only for ${HOLIDAY_INFO[holiday].name}, ${holidayDates(holiday)} (UTC). Buy it then with shop_buy, and it's yours to wear any day.`,
+        `That's from the town shop, which sells it only for ${HOLIDAY_INFO[holiday].name}, ${holidayDates(holiday, state.day)} (UTC). Buy it then with shop_buy, and it's yours to wear any day.`,
       );
     }
     return reject("not_owned", "That's from the town shop. Buy it there with shop_buy first.");

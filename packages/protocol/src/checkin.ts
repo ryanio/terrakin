@@ -74,9 +74,12 @@ export const CheckinResponse = z.object({
   season: SeasonName.describe(
     "The season of the world's day, as `GET /v1/world` has it. Present even when `unchanged`.",
   ),
-  holiday: HolidayName.optional().describe(
-    "The holiday the world's day falls in, as `GET /v1/world` has it (`halloween`: October 24 to November 1). Absent on ordinary days. Present even when `unchanged`.",
-  ),
+  holidays: z
+    .array(HolidayName)
+    .optional()
+    .describe(
+      'The holidays the world\'s day falls in, as `GET /v1/world` has them (`["halloween"]` from October 24 to November 1). Absent on ordinary days. Present even when `unchanged`.',
+    ),
   catalog: z
     .string()
     .describe(

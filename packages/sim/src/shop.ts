@@ -26,7 +26,8 @@ import {
   type Holiday,
   holidayDates,
   holidayLastDay,
-  holidayOf,
+  holidaysOf,
+  inHoliday,
   nextHolidayStart,
 } from "./holiday";
 import {
@@ -265,7 +266,7 @@ export const windowOf = <W extends string, X>(
 
 /** Whether `day` falls in `window`. */
 const inWindow = (window: Window, day: number): boolean =>
-  "season" in window ? window.season === seasonOf(day) : window.holiday === holidayOf(day);
+  "season" in window ? window.season === seasonOf(day) : inHoliday(window.holiday, day);
 
 /**
  * Shop stock sold in one season only, every day of it, and refused (`out_of_season`) the rest of
@@ -323,11 +324,9 @@ export const onSale = (sku: ShopSku, day: number): boolean =>
 /** The last day of the season `day` is in: the last day its stock is sold. */
 export const seasonLastDay = (day: number) => seasonSpan(day).end - 1;
 
-/** The holiday on `day` with its first and last day, as the shop shows it, or undefined. */
-export function holidayOn(day: number): { holiday: Holiday; lastDay: number } | undefined {
-  const holiday = holidayOf(day);
-  return holiday ? { holiday, lastDay: holidayLastDay(holiday, day) } : undefined;
-}
+/** The holidays on `day`, each with its last day, as the shop shows them: none on an ordinary day. */
+export const holidaysOn = (day: number): { holiday: Holiday; lastDay: number }[] =>
+  holidaysOf(day).map((holiday) => ({ holiday, lastDay: holidayLastDay(holiday, day) }));
 
 /** The first day of the next `season` after the season `day` is in. */
 export function nextSeasonStart(season: Season, day: number): number {
@@ -357,8 +356,8 @@ function notOnSale(sku: ShopSku, day: number): Rejection | null {
         }
       : {
           code: "out_of_holiday",
-          when: `for ${HOLIDAY_INFO[window.holiday].name}, ${holidayDates(window.holiday)}`,
-          back: `It's back on ${dayName(nextHolidayStart(window.holiday, day))}`,
+          when: `for ${HOLIDAY_INFO[window.holiday].name}, ${holidayDates(window.holiday, day)}`,
+          back: backOn(nextHolidayStart(window.holiday, day)),
           any: "any day",
         };
   return refuse(
@@ -378,19 +377,23 @@ export interface BuyOrderRead {
   season?: Season;
 }
 
-/** The shop as everyone sees it, or null before it opens. `holiday` is on while one runs. */
+/** "It's back on December 4", or "It's back next year" when no date is known yet. */
+const backOn = (day: number | undefined) =>
+  day === undefined ? "It's back next year" : `It's back on ${dayName(day)}`;
+
+/** The shop as everyone sees it, or null before it opens. `holidays` is on while any run. */
 export function shopOf(state: WorldState): {
   day: number;
   season: Season;
-  holiday?: { holiday: Holiday; lastDay: number };
+  holidays?: { holiday: Holiday; lastDay: number }[];
   buying: BuyOrderRead[];
 } | null {
   if (!state.shop || state.day === undefined) return null;
-  const holiday = holidayOn(state.day);
+  const holidays = holidaysOn(state.day);
   return {
     day: state.day,
     season: seasonOf(state.day),
-    ...(holiday ? { holiday } : {}),
+    ...(holidays.length > 0 ? { holidays } : {}),
     buying: townBuys(state.day).map((kind) => {
       const season = buySeason(kind);
       return { kind, ...BUY_ORDERS[kind], ...(season ? { season } : {}) };

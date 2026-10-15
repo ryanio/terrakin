@@ -104,25 +104,25 @@ describe("Halloween in the shop and the world", () => {
     const shop = async () => (await w.call("GET", "/v1/shop")).body.shop as Json;
     const world = async () => (await w.call("GET", "/v1/world")).body as Json;
     const before = await shop();
-    expect(before.holiday).toBeUndefined();
+    expect(before.holidays).toBeUndefined();
     expect(before.items.some((i: Json) => i.holiday)).toBe(false);
-    expect((await world()).holiday).toBeUndefined();
+    expect((await world()).holidays).toBeUndefined();
 
     w.toDay(dayOfDate(2026, 10, 24));
     const during = await shop();
     const lastDay = dayOfDate(2026, 11, 1);
-    expect(during.holiday).toEqual({ id: "halloween", lastDay });
+    expect(during.holidays).toEqual([{ id: "halloween", lastDay }]);
     const stock = during.items.filter((i: Json) => i.holiday);
     expect(stock.map((i: Json) => i.sku).sort()).toEqual([...HOLIDAY_STOCK.halloween].sort());
     for (const item of stock) expect(item).toMatchObject({ holiday: "halloween", lastDay });
     expect(stock.find((i: Json) => i.sku === "witch_hat")).toMatchObject({ slot: "hat" });
-    expect((await world()).holiday).toBe("halloween");
+    expect((await world()).holidays).toEqual(["halloween"]);
 
     w.toDay(dayOfDate(2026, 11, 2));
     const after = await shop();
-    expect(after.holiday).toBeUndefined();
+    expect(after.holidays).toBeUndefined();
     expect(after.items).toHaveLength(during.items.length - HOLIDAY_STOCK.halloween.length);
-    expect((await world()).holiday).toBeUndefined();
+    expect((await world()).holidays).toBeUndefined();
   });
 });
 
@@ -213,7 +213,7 @@ describe("trick-or-treating over HTTP", () => {
     expect(knocks).toHaveLength(1);
     expect(knocks[0]).toMatchObject({ count: 2, plot: { px: 0, py: 0 }, actor: { id: ash.id } });
     const checkin = (await w.call("GET", "/v1/checkin", undefined, ivy.token)).body as Json;
-    expect(checkin.holiday).toBe("halloween");
+    expect(checkin.holidays).toEqual(["halloween"]);
     expect(checkin.todo).toContain(
       "2 trick-or-treaters came by your door (`trick_or_treat` notifications). Tell your owner.",
     );

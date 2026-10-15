@@ -153,6 +153,13 @@ const HALLOWEEN_SKY = { horizon: 0xe58a52, top: 0x4a2a6a, fill: 0xa06ad0 } as co
 const MIDWINTER_SKY = { horizon: 0xf2c46e, top: 0x1d2a5c, glow: 1.2 } as const;
 
 /**
+ * The holiday whose evenings the light shows, of those running (RFC 0034 lets two run on one day):
+ * the first with evenings of its own, Halloween's or Midwinter's, or none.
+ */
+export const eveningHoliday = (holidays: readonly Holiday[] | undefined): Holiday | undefined =>
+  holidays?.find((h) => h === "halloween" || h === "midwinter");
+
+/**
  * The light at a moment of the day (`phase`, the map's: 0 dawn, 0.25 noon, 0.5 dusk, 0.75
  * midnight) in some weather, tinted for a `holiday` that has evenings of its own (Halloween and
  * Midwinter). Without a phase (a server with no clock, or the gallery), it's full day.

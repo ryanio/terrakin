@@ -18,7 +18,7 @@ import {
   findsOpen,
   floorField,
   groundOn,
-  holidayField,
+  holidaysField,
   isTownEvent,
   isTownsfolk,
   kindredById,
@@ -392,7 +392,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...skyAt(nowMs, state.day),
     // The time of day on the same clock, which a cast logs (RFC 0023).
     timeOfDay: timeOfDayAt(nowMs, DAY_LENGTH_MS),
-    ...holidayField(state.day),
+    ...holidaysField(state.day),
     config: {
       width: state.config.width,
       height: state.config.height,

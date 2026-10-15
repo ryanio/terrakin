@@ -21,7 +21,7 @@ import {
   dayName,
   eventEndsAt,
   holidayLastDay,
-  holidayOf,
+  inHoliday,
   PROGRESS,
   SKILLS,
   skillName,
@@ -223,7 +223,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
       // Halloween (RFC 0022): while it runs, when trick-or-treating is, with the link that does it.
       const halloween =
         state.day !== undefined &&
-        holidayOf(state.day) === "halloween" &&
+        inHoliday("halloween", state.day) &&
         list([
           "## Halloween",
           "",

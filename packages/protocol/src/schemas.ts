@@ -1110,7 +1110,7 @@ export const SetKindredHallAction = z.object({
 
 // ---------- Holidays (RFC 0022) ----------
 
-/** The holidays, by the UTC calendar. Halloween runs from October 24 to November 1. */
+/** The holidays, by the UTC calendar (RFC 0022, RFC 0034). Halloween runs from October 24 to November 1. */
 export const HolidayName = z.enum(HOLIDAYS);
 export type HolidayName = z.infer<typeof HolidayName>;
 /** Who handed out a trick-or-treater's candy: someone home, a bowl by the door, or the town. */
@@ -1496,9 +1496,12 @@ export const WorldSnapshot = z.object({
   timeOfDay: TimeOfDayName.describe(
     "The time of day on the map's clock now: `dawn`, `day`, `dusk`, or `night`, a quarter of `time.dayLengthMs` each. It changes nothing but what bites when you fish.",
   ),
-  holiday: HolidayName.optional().describe(
-    "The holiday the world's day falls in, by the UTC calendar (`halloween`: October 24 to November 1). Absent on ordinary days.",
-  ),
+  holidays: z
+    .array(HolidayName)
+    .optional()
+    .describe(
+      'The holidays the world\'s day falls in, by the UTC calendar, the one that started first first (`["halloween"]` from October 24 to November 1). Two can run on one day. Absent on ordinary days.',
+    ),
   config: z.object({
     width: z.number().int(),
     height: z.number().int(),

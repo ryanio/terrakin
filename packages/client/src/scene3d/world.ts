@@ -13,7 +13,7 @@
 
 import {
   groundTile,
-  holidayOf,
+  holidaysOf,
   isFindKind,
   isResourceKind,
   OUTSIDE_GROUND,
@@ -77,6 +77,7 @@ import {
   townHall,
 } from "./buildings";
 import { cropPlants } from "./crops";
+import { eveningHoliday } from "./daylight";
 import { createPictures, displayedThings, foundThings } from "./displays";
 import {
   fadeFigure,
@@ -1285,7 +1286,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (self) placeReach(mirror, self, buildMode && !look);
       // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
       // evenings tinted (RFC 0022).
-      stage.holiday(mirror.day === undefined ? undefined : holidayOf(mirror.day));
+      stage.holiday(mirror.day === undefined ? undefined : eveningHoliday(holidaysOf(mirror.day)));
       stage.timeOfDay(dayPhase);
       weather.set(sky ?? CLEAR);
       const up = (sky?.rain ?? 0) >= UMBRELLA_RAIN;

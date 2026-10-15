@@ -8,7 +8,7 @@ import { MERGE_CONFIG, MERGE_LOG } from "./fixtures/merge-log";
 import { REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG } from "./fixtures/repeat-joins-log";
 import { pickupLeft } from "./gather";
 import { canonicalJson, fnv1a, hashWorld } from "./hash";
-import { HOLIDAYS, holidayOf, holidaySpan } from "./holiday";
+import { HOLIDAYS, holidaySpan, inHoliday } from "./holiday";
 import { isFindKind, type StackKind } from "./items";
 import {
   JOB_EDITIONS,
@@ -701,14 +701,16 @@ describe.each(EDITIONS)("the board in edition %i", (shipped) => {
     const wrong: string[] = [];
     for (const day of DAYS) {
       for (const j of boardOn(day)) {
-        if (j.holiday !== undefined && j.holiday !== holidayOf(day)) wrong.push(`${day}: ${j.id}`);
+        if (j.holiday !== undefined && !inHoliday(j.holiday, day)) wrong.push(`${day}: ${j.id}`);
       }
     }
     expect(wrong).toEqual([]);
     const missing: string[] = [];
     for (const holiday of HOLIDAYS) {
       for (const year of [2024, 2025]) {
-        const { first, last } = holidaySpan(holiday, year);
+        const run = holidaySpan(holiday, year);
+        if (!run) continue;
+        const { first, last } = run;
         const up = new Set<string>();
         for (let day = first; day <= last; day++) for (const j of boardOn(day)) up.add(j.id);
         for (const j of TABLE) {
@@ -728,7 +730,9 @@ describe.each(EDITIONS)("the board in edition %i", (shipped) => {
         (j) =>
           (j.season === undefined || j.season === season) &&
           (j.holiday === undefined ||
-            Array.from({ length: 30 }, (_, i) => holidayOf(start + i)).includes(j.holiday)),
+            Array.from({ length: 30 }, (_, i) => start + i).some(
+              (day) => j.holiday !== undefined && inHoliday(j.holiday, day),
+            )),
       );
       expect(
         due.filter((j) => !up.has(j.id)).map((j) => j.id),

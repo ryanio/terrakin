@@ -3,7 +3,7 @@ import { apply } from "./apply";
 import { CATALOG } from "./catalog";
 import { WINTER_CONFIG, WINTER_HASH, WINTER_LOG } from "./fixtures/winter-log";
 import { hashWorld } from "./hash";
-import { holidayOf } from "./holiday";
+import { holidaysOf } from "./holiday";
 import { CROP_INFO, isFishKind, RECIPES } from "./items";
 import { replay } from "./replay";
 import { dayOfDate, seasonOf } from "./season";
@@ -263,10 +263,10 @@ describe("winter's buying", () => {
 describe("Midwinter", () => {
   it("runs from December 21 to December 31, inside winter", () => {
     for (const year of [2025, 2026, 2030]) {
-      expect(holidayOf(dayOfDate(year, 12, 20))).toBeUndefined();
-      expect(holidayOf(dayOfDate(year, 12, 21))).toBe("midwinter");
-      expect(holidayOf(dayOfDate(year, 12, 31))).toBe("midwinter");
-      expect(holidayOf(dayOfDate(year + 1, 1, 1))).toBeUndefined();
+      expect(holidaysOf(dayOfDate(year, 12, 20))).toEqual([]);
+      expect(holidaysOf(dayOfDate(year, 12, 21))).toEqual(["midwinter"]);
+      expect(holidaysOf(dayOfDate(year, 12, 31))).toEqual(["midwinter"]);
+      expect(holidaysOf(dayOfDate(year + 1, 1, 1))).toEqual([]);
       expect(seasonOf(dayOfDate(year, 12, 21))).toBe("winter");
     }
   });

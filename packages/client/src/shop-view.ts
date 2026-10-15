@@ -48,25 +48,21 @@ export const SHELVES: { section: Section; title: string; hint: string }[] = [
 type Shop = NonNullable<ShopResponse["shop"]>;
 
 /**
- * The shelves in the order they're shown, with what goes on each: a holiday's stock on a shelf of
- * its own, first, while it runs (RFC 0022); the Recipes shelf once recipes are learned here (RFC
- * 0024), whose cards the page lays out itself; then the four sections, without the holiday's
- * stock. Pure.
+ * The shelves in the order they're shown, with what goes on each: each running holiday's stock on a
+ * shelf of its own, first, in the order the shop lists them (RFC 0022, RFC 0034); the Recipes shelf
+ * once recipes are learned here (RFC 0024), whose cards the page lays out itself; then the four
+ * sections, without holiday stock. Pure.
  */
 export function shelvesOf(
-  shop: Pick<Shop, "items" | "holiday" | "recipes">,
+  shop: Pick<Shop, "items" | "holidays" | "recipes">,
 ): { key: string; title: string; hint: string; items: ShopItemView[] }[] {
   return [
-    ...(shop.holiday
-      ? [
-          {
-            key: "holiday",
-            title: `For ${holidayName(shop.holiday.id)}`,
-            hint: holidayHint(shop.holiday.id, shop.holiday.lastDay),
-            items: shop.items.filter((i) => i.holiday),
-          },
-        ]
-      : []),
+    ...(shop.holidays ?? []).map((holiday) => ({
+      key: `holiday:${holiday.id}`,
+      title: `For ${holidayName(holiday.id)}`,
+      hint: holidayHint(holiday.id, holiday.lastDay),
+      items: shop.items.filter((i) => i.holiday === holiday.id),
+    })),
     ...(shop.recipes && shop.recipes.length > 0
       ? [{ key: "recipes", title: "Recipes", hint: "", items: [] }]
       : []),

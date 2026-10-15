@@ -17,7 +17,7 @@ import { upstairsProblem } from "./floors";
 import {
   dayName,
   HOLIDAY_INFO,
-  holidayOf,
+  inHoliday,
   type MonthDate,
   monthDateName,
   nextDayOn,
@@ -67,7 +67,7 @@ export const CANDY_BOWL = "candy_bowl" as const;
 
 /** Whether `day` is a trick-or-treat night: October 31 or November 1, inside Halloween. */
 export function trickOrTreatDay(day: number | undefined): boolean {
-  if (day === undefined || holidayOf(day) !== "halloween") return false;
+  if (day === undefined || !inHoliday("halloween", day)) return false;
   const { month, date } = dateOfDay(day);
   return TRICK_OR_TREAT.nights.some((n) => n.month === month && n.date === date);
 }

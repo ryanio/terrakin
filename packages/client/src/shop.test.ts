@@ -49,30 +49,53 @@ describe("the shop page", () => {
     expect(stockTag({})).toBeNull();
   });
 
-  it("puts a holiday's stock on its own shelf first, and off its section's shelf", () => {
+  it("puts each holiday's stock on its own shelf first, and off its section's shelf", () => {
     const lastDay = dayOfDate(2026, 11, 1);
     const items = [
       { sku: "lantern", name: "Paper lantern", price: 40, section: "decor" },
       { sku: "pumpkin_seed", name: "Pumpkin seed", price: 4, section: "garden", season: "autumn" },
       { sku: "cat_ears", name: "Cat ears", price: 40, section: "wear", holiday: "halloween" },
     ] as const;
-    const shelves = shelvesOf({ items: [...items], holiday: { id: "halloween", lastDay } });
-    expect(shelves.map((s) => s.key)).toEqual(["holiday", "decor", "wear", "garden", "pantry"]);
+    const shelves = shelvesOf({ items: [...items], holidays: [{ id: "halloween", lastDay }] });
+    expect(shelves.map((s) => s.key)).toEqual([
+      "holiday:halloween",
+      "decor",
+      "wear",
+      "garden",
+      "pantry",
+    ]);
     expect(shelves[0]).toMatchObject({
       title: "For Halloween",
       hint: holidayHint("halloween", lastDay),
     });
     const skus = (key: string) => shelves.find((s) => s.key === key)?.items.map((i) => i.sku);
-    expect(skus("holiday")).toEqual(["cat_ears"]);
+    expect(skus("holiday:halloween")).toEqual(["cat_ears"]);
     expect(skus("wear")).toEqual([]);
     // Seasonal stock stays on its section's shelf, tagged.
     expect(skus("garden")).toEqual(["pumpkin_seed"]);
     expect(skus("decor")).toEqual(["lantern"]);
-    // Midwinter names its shelf too, and without a holiday there is no holiday shelf.
-    expect(
-      shelvesOf({ items: [], holiday: { id: "midwinter", lastDay: dayOfDate(2026, 12, 31) } })[0]
-        ?.title,
-    ).toBe("For Midwinter");
+    // Two holidays at once get a shelf each, in the shop's order, each with its own stock.
+    const both = shelvesOf({
+      items: [
+        ...items,
+        {
+          sku: "candy_cane",
+          name: "Candy cane",
+          price: 2,
+          section: "pantry",
+          holiday: "midwinter",
+        },
+      ],
+      holidays: [
+        { id: "halloween", lastDay },
+        { id: "midwinter", lastDay: dayOfDate(2026, 12, 31) },
+      ],
+    });
+    expect(both.slice(0, 2).map((s) => [s.title, s.items.map((i) => i.sku)])).toEqual([
+      ["For Halloween", ["cat_ears"]],
+      ["For Midwinter", ["candy_cane"]],
+    ]);
+    // Without a holiday there is no holiday shelf.
     expect(shelvesOf({ items: [...items] }).map((s) => s.key)).toEqual(
       SHELVES.map((s) => s.section),
     );

@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-15
 
-<!-- api-fingerprint: 20fff0e07f24, 3 entries -->
+<!-- api-fingerprint: c9975abba6f5, 4 entries -->
+
+- **Changed** `holiday` is now `holidays`, a list, since two holidays can run on one day
+  `GET /v1/world` and the check-in carry `holidays` (`["halloween"]`) in place of `holiday`, and `GET /v1/shop` carries `shop.holidays`, each with its `id` and `lastDay`, in place of `shop.holiday`. Read the list; it's absent on ordinary days. Each shop item still names its one `holiday`.
+  Holidays can now move with the calendar and run into the next year, ahead of Thanksgiving, Hanukkah, and New Year's (RFC 0034).
+  Try: `GET /v1/world`
 
 - **Added** Link pages draw your plot as a map, with notes about your home
   `/v1/act/<key>/me` and the answer to `/v1/act/<key>/build-home` now show your plot from above in a code block (blocks and ground side by side, the same characters `build` takes as `map`), with a key for the characters on it and the notes `GET /v1/plots/{px}/{py}/plan` gives.

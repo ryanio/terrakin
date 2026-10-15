@@ -27,6 +27,7 @@ import { BRAND_HEX, STRAW, STRAW_DEEP, WICKER, WOOD_DARK } from "./brand";
 import type { Feeling } from "./feelings";
 import {
   BAT_WING,
+  CHRISTMAS_HEX,
   EARNED_HEX,
   HALLOWEEN_HEX,
   hairOf,
@@ -169,6 +170,7 @@ export const GARMENT_COLOR: Record<WearItem, (p: ThemePalette) => string> = {
   pumpkin_head: () => HALLOWEEN_HEX.pumpkin,
   ghost_sheet: () => HALLOWEEN_HEX.sheet,
   bat_wings: () => HALLOWEEN_HEX.bat,
+  santa_hat: () => CHRISTMAS_HEX.red,
   sun_hat: () => EARNED_HEX.sunHat,
   tool_belt: () => EARNED_HEX.belt,
   field_vest: () => EARNED_HEX.vest,
@@ -922,6 +924,7 @@ function drawHat(
   else if (wear.has("muse_halo")) drawMuseHalo(ctx, u, p, garb("muse_halo"));
   else if (wear.has("witch_hat")) drawWitchHat(ctx, u, side, back, garb("witch_hat"));
   else if (wear.has("cat_ears")) drawCatEars(ctx, u, side, back, garb("cat_ears"));
+  else if (wear.has("santa_hat")) drawSantaHat(ctx, u, side, back, garb("santa_hat"));
   else if (wear.has("sun_hat")) drawSunHat(ctx, u, side, garb("sun_hat"));
 }
 
@@ -1392,6 +1395,47 @@ function drawWitchHat(
   ctx.fill();
 }
 
+/**
+ * A Santa hat (RFC 0034): a soft red cone whose tip flops over to one side with a white pompom
+ * on its end, over a thick white brim. The flop leans away from the way they face, like the
+ * witch hat's tip.
+ */
+function drawSantaHat(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  back: boolean,
+  g: Garb,
+) {
+  const lean = side ? -side : back ? -1 : 1;
+  const x = (f: number) => f * lean * u;
+  const y = (f: number) => f * u;
+  const red = g.color(CHRISTMAS_HEX.red);
+  const cone = () => {
+    ctx.beginPath();
+    ctx.moveTo(x(-0.17), y(-0.79));
+    ctx.bezierCurveTo(x(-0.13), y(-0.92), x(-0.05), y(-1.0), x(0.05), y(-1.03));
+    ctx.quadraticCurveTo(x(0.16), y(-1.05), x(0.23), y(-0.97));
+    ctx.quadraticCurveTo(x(0.2), y(-0.9), x(0.17), y(-0.79));
+    ctx.closePath();
+  };
+  paintCloth(ctx, u, cone, red, g.fill());
+  ctx.strokeStyle = g.trim(mix(CHRISTMAS_HEX.red, INK, 0.35));
+  ctx.lineWidth = Math.max(0.8, 0.015 * u);
+  cone();
+  ctx.stroke();
+  // The pompom on the flopped tip, and the thick white brim over the hair.
+  ctx.fillStyle = CHRISTMAS_HEX.trim;
+  ctx.beginPath();
+  ctx.arc(x(0.235), y(-0.945), 0.048 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.roundRect(-0.195 * u, y(HAT_TOP + 0.02), 0.39 * u, 0.095 * u, 0.045 * u);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(70, 40, 18, 0.25)";
+  ctx.stroke();
+}
+
 /** A point on a circle around the head's middle: `a` radians from straight up, clockwise. */
 const onHead = (a: number, r: number): [number, number] => [
   r * Math.sin(a),
@@ -1679,6 +1723,7 @@ const HAT_COVER: Partial<Record<WearItem, { line: number; half: number }>> = {
   beanie: { line: -0.7, half: 0.235 },
   top_hat: { line: -0.82, half: 0.27 },
   witch_hat: { line: -0.78, half: 0.34 },
+  santa_hat: { line: -0.77, half: 0.2 },
   sun_hat: { line: -0.77, half: 0.4 },
 };
 

@@ -145,6 +145,18 @@ export const HANUKKAH_HEX = {
 } as const;
 
 /**
+ * Christmas's colors (RFC 0034), as the item pictures, the figure, the 3D views, and plot photos
+ * draw them.
+ */
+export const CHRISTMAS_HEX = {
+  /** The Santa hat and the stocking: their red, and the red's shade. */
+  red: "#c03a30",
+  redDark: "#93302a",
+  /** The hat's brim and pompom, and the stocking's cuff, heel, and toe: a soft white. */
+  trim: "#fbf6ec",
+} as const;
+
+/**
  * Earned wear's colors, as the 2D figure, the item pictures, and the 3D figures draw them: one
  * garment a skill (RFC 0029), and the town satchel that comes with jobs finished (RFC 0030). A
  * garment with a color of its own (`wearStyle`) uses that instead of its main color here.

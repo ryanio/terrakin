@@ -32,6 +32,7 @@ import { BRAND_HEX, STRAW, STRAW_DEEP, WICKER, WOOD_DARK } from "./brand";
 import { SVG_NS } from "./dom";
 import {
   batPath,
+  CHRISTMAS_HEX,
   EARNED_HEX,
   HALLOWEEN_HEX,
   HANUKKAH_HEX,
@@ -1901,6 +1902,35 @@ function sufganiyah(): ArtShape[] {
   ];
 }
 
+// ---------- Christmas (RFC 0034) ----------
+
+const X = CHRISTMAS_HEX;
+
+/** A red stocking with a white cuff and toe, hung by its loop. */
+function stocking(): ArtShape[] {
+  return [
+    shadow(13, 43),
+    line("M20 9c0-3 6-3 6 0", X.redDark, 1.6),
+    path("M16 13h17v18c0 2.2 1.2 3.4 3 4.4l5.5 3c2.6 1.4 1.9 5.2-1.2 5.2H25c-5 0-9-4-9-9z", X.red, out()),
+    path("M35.5 34.6l6 3.2c2.6 1.4 1.9 5.2-1.2 5.2h-5.8c.8-2.8 1.1-5.6 1-8.4z", X.trim, out()),
+    rect(14.5, 8, 20, 7, 2.5, X.trim, out()),
+  ];
+}
+
+/** A Santa hat: a soft red cone flopped over with a white pompom, over a thick white brim. */
+function santaHat(): ArtShape[] {
+  return [
+    shadow(16, 42),
+    path(
+      "M13.5 34c1-10 4-19.5 8-25.5 2.5-4 7-6.2 11.5-5.7-1.2 3-.6 5.4 1 8.3 2.8 5.2 4.2 11.4 5 17.2-8.5 3-18.5 3-27.5 0z",
+      X.red,
+      out({ stroke: X.redDark }),
+    ),
+    circle(38.5, 11, 4.6, X.trim, out()),
+    rect(9.5, 30.5, 29, 7.5, 3.5, X.trim, out()),
+  ];
+}
+
 // ---------- winter (RFC 0017) and Midwinter (RFC 0022) ----------
 
 const W = WINTER_HEX;
@@ -2343,6 +2373,7 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   dreidel,
   gelt,
   sufganiyah,
+  stocking,
 };
 
 /** Every piece of wear's drawing. */
@@ -2376,6 +2407,7 @@ const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
   pumpkin_head: pumpkinHead,
   ghost_sheet: ghostSheet,
   bat_wings: batWings,
+  santa_hat: santaHat,
   sun_hat: sunHat,
   tool_belt: toolBelt,
   field_vest: fieldVest,

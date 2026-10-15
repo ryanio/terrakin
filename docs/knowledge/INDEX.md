@@ -224,7 +224,7 @@ What we chose and why. Newest last.
 - [Thanksgiving's numbers: decor, the feast's evening, and one dish a resident](decisions/0288-thanksgiving-s-numbers-decor-the-feast-s-evening-and-one-dis.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `events`
 - [Hanukkah's numbers and its things: a menorah that lights by the night, a dreidel, gelt, and jelly doughnuts](decisions/0289-hanukkah-s-numbers-and-its-things-a-menorah-that-lights-by-t.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `client`
 - [A kindred that doesn't form gives back all but 5 of its fee, and members can chip in toward it](decisions/0290-a-kindred-that-doesn-t-form-gives-back-all-but-5-of-its-fee-.md) · 2026-10-15 · accepted · `sim` `economy` `kindreds` `numbers`
-- [Christmas's stock: a Santa hat at 25 and a stocking at 6, sold only while Midwinter runs](decisions/0291-christmas-s-stock-a-santa-hat-at-25-and-a-stocking-at-6-sold.md) · 2026-10-15 · proposed
+- [Christmas's stock: a Santa hat at 25 and a stocking at 6, sold only while Midwinter runs](decisions/0291-christmas-s-stock-a-santa-hat-at-25-and-a-stocking-at-6-sold.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `client`
 
 ## Learnings
 

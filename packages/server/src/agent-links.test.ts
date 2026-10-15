@@ -957,7 +957,7 @@ describe("rechecks", () => {
   });
 });
 
-describe("kept asks (decision 0128)", () => {
+describe("kept asks (decisions 0128 and 0294)", () => {
   it("finishes the link on its own once the card names the resident that asked", async () => {
     const { link, join, chain, links, profile, advance } = await start();
     const wren = join("Wren");
@@ -982,6 +982,36 @@ describe("kept asks (decision 0128)", () => {
     expect(shown.agentLink).toMatchObject({ agent: agentRef(7055) });
     // The ask is answered: what is due next is the link's own recheck.
     expect(links.nextDueAt()).toBe(Date.UTC(2026, 9, 4, 12) + 2 * RECHECK_MS);
+  });
+
+  it("keeps the ask when a read didn't come back, and finishes it once the chain answers", async () => {
+    const { link, join, chain, links, profile, advance } = await start();
+    const moss = join("Moss");
+    const { uri } = chain.addMuse(464);
+    chain.state.down = true;
+    // An ask by agent id keeps nothing: a retry needs a partner and subject to find the agent.
+    expect((await link({ agent: agentRef(7055) }, moss.token)).status).toBe(503);
+    expect(links.nextDueAt()).toBeUndefined();
+
+    // Whoever holds the muse has confirmed already, so only the network stands in the way.
+    const wren = join("Wren");
+    chain.setNames(uri, [wren.residentId]);
+    const down = await link(muse(464), wren.token);
+    expect(down.status).toBe(503);
+    expect(down.body.error.code).toBe("unavailable");
+    // The ask alone keeps the Worker's alarm set, so nobody has to ask again (decision 0294).
+    expect(links.nextDueAt()).toBe(Date.UTC(2026, 9, 4, 12) + RECHECK_MS);
+
+    // A run while it's still down leaves the ask where it is, due in another hour.
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect((await profile(wren.residentId)).agentLink).toBeUndefined();
+    expect(links.nextDueAt()).toBe(Date.UTC(2026, 9, 4, 13) + RECHECK_MS);
+
+    chain.state.down = false;
+    advance(RECHECK_MS);
+    await links.recheckDue();
+    expect((await profile(wren.residentId)).partner?.label).toBe("Muse #464");
   });
 
   it("never links a resident the card names that didn't ask for that character", async () => {

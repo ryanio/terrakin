@@ -65,11 +65,12 @@ import { cleanText } from "./text";
  * registry, the per-resident attempt cap) cost nothing either. Cards are always fetched fresh,
  * since a fresh card is the point of asking again.
  *
- * An ask by partner and subject that the card doesn't answer yet is kept (`agent_link_asks`, one
- * per resident, for AGENT_LINK_ASK_DAYS), and each recheck run tries a few due ones again through
+ * An ask by partner and subject is kept (`agent_link_asks`, one per resident, for
+ * AGENT_LINK_ASK_DAYS) when the card doesn't name the resident yet (decision 0128) and when a read
+ * didn't come back at all (decision 0294), and each recheck run tries a few due ones again through
  * the same `attempt` the resident's own call runs, so the link finishes once whoever controls the
- * character confirms the profile (decision 0128). Only the resident's own ask starts one: a card
- * that names a resident who never asked links nobody.
+ * character confirms the profile, or once the endpoint answers again. Only the resident's own ask
+ * starts one: a card that names a resident who never asked links nobody.
  */
 
 export interface AgentLinkOptions {
@@ -363,8 +364,9 @@ export class AgentLinkService {
         resident_id TEXT NOT NULL, day INTEGER NOT NULL, attempts INTEGER NOT NULL,
         PRIMARY KEY (resident_id, day)
       )`,
-      // A resident's newest ask by partner and subject that the card didn't answer yet, tried
-      // again from \`due_at\` until \`asked_at\` is ASK_KEEP_MS old.
+      // A resident's newest ask by partner and subject that didn't link, because the card didn't
+      // name it yet or a read didn't come back, tried again from \`due_at\` until \`asked_at\` is
+      // ASK_KEEP_MS old.
       `CREATE TABLE IF NOT EXISTS agent_link_asks (
         resident_id TEXT PRIMARY KEY,
         partner_id TEXT NOT NULL,
@@ -419,9 +421,13 @@ export class AgentLinkService {
     const meter = this.meter();
     try {
       const reply = await this.attempt(residentId, meter, given, wanted, "link");
-      // Asked by partner and subject, and the card doesn't name the resident yet: keep the ask,
-      // so the link finishes once whoever controls the character confirms (decision 0128).
-      if (wanted && reply.ok && reply.value.status === 200) this.keepAsk(residentId, wanted);
+      // Asked by partner and subject: keep the ask, so the link finishes without the resident
+      // having to ask again. Either the card doesn't name it yet and whoever controls the
+      // character has still to confirm (decision 0128), or a read didn't come back at all and an
+      // endpoint has to answer again (decision 0294).
+      if (wanted && (reply.ok ? reply.value.status === 200 : reply.code === "unavailable")) {
+        this.keepAsk(residentId, wanted);
+      }
       return reply;
     } finally {
       this.settle("link", day, LINK_READS, meter.reads);

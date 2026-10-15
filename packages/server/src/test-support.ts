@@ -139,14 +139,16 @@ export function confirmLinkIn(page: string): string {
 }
 
 /**
- * For tests: a Sentry client that records what `report` and `gauge` in `telemetry.ts` hand it and
- * sends nothing. `start()` makes it the current client and empties the lists; `stop()` takes it
- * away again. Run them before and after each test, so no other test file sees it. `reports` holds
- * each reported error's message, `gauges` each gauge's name and value beside its attributes.
+ * For tests: a Sentry client that records what `report`, `gauge`, and `count` in `telemetry.ts`
+ * hand it and sends nothing. `start()` makes it the current client and empties the lists; `stop()`
+ * takes it away again. Run them before and after each test, so no other test file sees it.
+ * `reports` holds each reported error's message, `gauges` each gauge's name and value beside its
+ * attributes, and `counts` each count's name beside its attributes.
  */
 export function recordTelemetry() {
   const reports: string[] = [];
   const gauges: Record<string, unknown>[] = [];
+  const counts: Record<string, unknown>[] = [];
   class Recorder extends Client<ClientOptions> {
     // Public here: Client's own constructor is protected.
     constructor(options: ClientOptions) {
@@ -171,6 +173,7 @@ export function recordTelemetry() {
       if (metric.type === "gauge") {
         gauges.push({ name: metric.name, value: metric.value, ...metric.attributes });
       }
+      if (metric.type === "counter") counts.push({ name: metric.name, ...metric.attributes });
       // Recorded, so never buffered or sent.
       return null;
     },
@@ -178,10 +181,12 @@ export function recordTelemetry() {
   const clear = () => {
     reports.length = 0;
     gauges.length = 0;
+    counts.length = 0;
   };
   return {
     reports,
     gauges,
+    counts,
     start() {
       clear();
       setCurrentClient(client);

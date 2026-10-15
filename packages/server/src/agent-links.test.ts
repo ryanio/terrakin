@@ -1,5 +1,5 @@
 import { entitledTo, type WorldConfig } from "@terrakin/sim";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentCard, CardRead } from "./agent-card";
 import {
   type AgentLinkOptions,
@@ -23,13 +23,23 @@ import { PARTNER_RESIDENTS_MS } from "./partner-residents";
 import { MUSEGOD } from "./partners";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { abi, type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import {
+  abi,
+  type Cleanup,
+  jsonCaller,
+  listenOnFreePort,
+  recordTelemetry,
+  responseChecker,
+} from "./test-support";
 import { ENTITLEMENT_CHECK_MS, WorldService } from "./world-service";
 
 const cleanups: Cleanup[] = [];
 const { problems, onResponse } = responseChecker();
+const telemetry = recordTelemetry();
+beforeEach(telemetry.start);
 afterEach(async () => {
   for (const fn of cleanups.splice(0).reverse()) await fn();
+  telemetry.stop();
   expect(problems.splice(0)).toEqual([]);
 });
 
@@ -112,7 +122,9 @@ function fakeChain() {
   const word = (data: string) => Number(BigInt(`0x${data.slice(10)}`));
   const call: ChainCall = async (chainId, to, data) => {
     state.reads++;
-    if (state.down || chainId !== 4663) return { ok: false, missing: false };
+    // A network that can't be reached says why, as the real reader does (decision 0292).
+    if (state.down) return { ok: false, missing: false, why: "http", status: 503 };
+    if (chainId !== 4663) return { ok: false, missing: false, why: "no_rpc" };
     const selector = data.slice(0, 10);
     const id = word(data);
     if (to === MUSES && selector === SELECTORS.agentOf) {
@@ -378,6 +390,15 @@ describe("linking a muse", () => {
     const down = await post(muse(8));
     expect(down.status).toBe(503);
     expect(down.body.error.code).toBe("unavailable");
+    // Which read didn't come back and why, in codes, so a run of 503s says where to look.
+    expect(telemetry.counts).toContainEqual({
+      name: "agent_link.check",
+      during: "link",
+      result: "down",
+      where: "partner",
+      why: "http",
+      status: 503,
+    });
   });
 
   it("calls a registry answer it can't use bad, not down, so asking again isn't the advice", async () => {

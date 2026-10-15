@@ -39,9 +39,11 @@ import {
   ADMIN_ASSET_PREFIX,
   ADMIN_PAGE_HEADERS,
   adminRedirect,
+  askWorld,
   isAdminHost,
   negotiate,
   pageHeaders,
+  repeatable,
   STAFF_EMAIL_HEADER,
   STAFF_SERVICE_HEADER,
   toWorld,
@@ -52,7 +54,7 @@ import type { PictureRoute, PictureSpec } from "../src/pictures";
 import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
-import { report, sentryOptions, span } from "../src/telemetry";
+import { count, report, sentryOptions, span } from "../src/telemetry";
 import { townCalendar } from "../src/town-events";
 import { lessonsMode, TownsfolkLessons } from "../src/townsfolk-lessons";
 import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
@@ -157,7 +159,9 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
   });
   if ("refuse" in gate) return gate.refuse;
   if (isApiPath(url.pathname)) {
-    return env.WORLD.get(env.WORLD.idFromName("world")).fetch(toWorld(request, url, gate));
+    return fromWorld(request, () =>
+      env.WORLD.get(env.WORLD.idFromName("world")).fetch(toWorld(request, url, gate)),
+    );
   }
   const reading = request.method === "GET" || request.method === "HEAD";
   const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
@@ -195,6 +199,26 @@ const jsonError = (status: number, code: string, message: string) =>
     },
   });
 
+/** What an agent or a browser is told when the world couldn't be reached at all. */
+const WORLD_RESTARTING = "The world is restarting. Make the same call again in a moment.";
+
+/**
+ * Ask the World object and answer. A Durable Object restarts on a deploy, a move, or an eviction,
+ * and a request in flight when it does comes back as a broken connection: a read goes again once,
+ * and a call that still can't be reached is answered `unavailable` in the API's own shape instead
+ * of as a 500 page (decision 0292).
+ */
+async function fromWorld(request: Request, send: () => Promise<Response>): Promise<Response> {
+  const answer = await askWorld(send, {
+    repeat: repeatable(request),
+    onLost: (err, outcome) => {
+      count("world.lost", { outcome, method: request.method });
+      if (outcome === "refused") report(err, "world.fetch", { outcome });
+    },
+  });
+  return answer ?? jsonError(503, "unavailable", WORLD_RESTARTING);
+}
+
 /** A copy of `response` with `headers` set on top of its own. */
 function withHeaders(response: Response, headers: Record<string, string>): Response {
   if (Object.keys(headers).length === 0) return response;
@@ -212,8 +236,9 @@ const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, 60_000);
 /** A GET against the world's API from inside the Worker: the same data every client sees. */
 function apiGet(env: Env, origin: string): ApiGet {
   return async (path) => {
-    const res = await env.WORLD.get(env.WORLD.idFromName("world")).fetch(
-      new Request(new URL(path, origin)),
+    const target = new Request(new URL(path, origin));
+    const res = await fromWorld(target, () =>
+      env.WORLD.get(env.WORLD.idFromName("world")).fetch(new Request(target)),
     );
     const json = res.ok && res.headers.get("content-type")?.startsWith("application/json");
     return { status: res.status, body: json ? await res.json() : undefined };
@@ -316,12 +341,12 @@ const handler = {
     if (twin) {
       const target = new Request(new URL(twin, url), request);
       const response = await (isApiPath(twin)
-        ? world().fetch(toWorld(target, new URL(twin, url)))
+        ? fromWorld(target, () => world().fetch(toWorld(target, new URL(twin, url))))
         : env.ASSETS.fetch(target));
       return withHeaders(response, response.ok ? twinHeaders() : { vary: "Accept" });
     }
     if (isApiPath(url.pathname)) {
-      const response = await world().fetch(toWorld(request, url));
+      const response = await fromWorld(request, () => world().fetch(toWorld(request, url)));
       const build = env.CF_VERSION_METADATA?.id;
       return url.pathname === LINKS.health && build
         ? withHeaders(response, { [WORKER_BUILD_HEADER]: build })

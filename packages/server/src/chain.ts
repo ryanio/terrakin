@@ -54,11 +54,21 @@ export const SELECTORS = {
 } as const;
 
 /**
+ * Why a read didn't come back, in codes a log line and a metric may carry: no endpoint for that
+ * network, the read timed out, the endpoint refused with a status (`status` says which), it answered
+ * a JSON-RPC error that isn't a revert, it answered something that isn't JSON-RPC at all, or the
+ * fetch itself threw. A run of 503s says which of those to go and fix.
+ */
+export type ChainDown = "no_rpc" | "timeout" | "http" | "rpc_error" | "answer" | "threw";
+
+/**
  * What a read returns: a value, or why not. `missing` means the contract said no (it reverted).
  * `bad` means an answer came and can't be used (too big, or not the shape asked for): asking again
- * won't help, so it isn't a failure to reach the network.
+ * won't help, so it isn't a failure to reach the network. A failure to reach it carries `why`.
  */
-export type ChainRead<T> = { ok: true; value: T } | { ok: false; missing: boolean; bad?: true };
+export type ChainRead<T> =
+  | { ok: true; value: T }
+  | { ok: false; missing: boolean; bad?: true; why?: ChainDown; status?: number };
 
 /**
  * One `eth_call` against the latest block, returning the raw hex answer. `missing` is a revert;
@@ -87,7 +97,7 @@ export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
   const timeoutMs = options.timeoutMs ?? RPC_TIMEOUT_MS;
   return async (chainId, to, data) => {
     const url = urls[chainId];
-    if (!url) return { ok: false, missing: false };
+    if (!url) return { ok: false, missing: false, why: "no_rpc" };
     try {
       const res = await get(url, {
         method: "POST",
@@ -101,12 +111,14 @@ export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
         redirect: "error",
         signal: AbortSignal.timeout(timeoutMs),
       });
-      if (!res.ok) return { ok: false, missing: false };
+      if (!res.ok) return { ok: false, missing: false, why: "http", status: res.status };
       const bytes = await readCapped(res.body, MAX_RPC_ANSWER_BYTES);
       if (!bytes) return { ok: false, missing: false, bad: true };
       return parseRpcAnswer(safeJson(new TextDecoder().decode(bytes)));
-    } catch {
-      return { ok: false, missing: false };
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      const timeout = name === "TimeoutError" || name === "AbortError";
+      return { ok: false, missing: false, why: timeout ? "timeout" : "threw" };
     }
   };
 }
@@ -116,7 +128,7 @@ export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
  * contract refused, for example because that agent doesn't exist.
  */
 export function parseRpcAnswer(body: unknown): ChainRead<string> {
-  if (!body || typeof body !== "object") return { ok: false, missing: false };
+  if (!body || typeof body !== "object") return { ok: false, missing: false, why: "answer" };
   const { result, error } = body as { result?: unknown; error?: unknown };
   if (typeof result === "string" && /^0x([0-9a-fA-F]{2})*$/.test(result)) {
     return { ok: true, value: result.toLowerCase() };
@@ -125,9 +137,11 @@ export function parseRpcAnswer(body: unknown): ChainRead<string> {
     const { code, message } = error as { code?: unknown; message?: unknown };
     const reverted =
       code === 3 || (typeof message === "string" && /execution reverted|revert/i.test(message));
-    return { ok: false, missing: reverted };
+    return reverted
+      ? { ok: false, missing: true }
+      : { ok: false, missing: false, why: "rpc_error" };
   }
-  return { ok: false, missing: false };
+  return { ok: false, missing: false, why: "answer" };
 }
 
 function safeJson(text: string): unknown {

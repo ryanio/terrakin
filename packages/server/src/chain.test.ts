@@ -53,18 +53,24 @@ describe("ABI", () => {
     expect(decodeAgentOf(`0x${abi.word(2)}${abi.word(1)}`)).toBeUndefined();
   });
 
-  it("tells a revert from a failure", () => {
+  it("tells a revert from a failure, and says which failure it was", () => {
     expect(parseRpcAnswer({ result: "0xABCD" })).toEqual({ ok: true, value: "0xabcd" });
     expect(parseRpcAnswer({ error: { code: 3, message: "execution reverted" } })).toEqual({
       ok: false,
       missing: true,
     });
+    // An endpoint's own error (rate limited, no such block) isn't the contract saying no.
     expect(parseRpcAnswer({ error: { code: -32000, message: "header not found" } })).toEqual({
       ok: false,
       missing: false,
+      why: "rpc_error",
     });
-    expect(parseRpcAnswer({ result: "0xabc" })).toEqual({ ok: false, missing: false });
-    expect(parseRpcAnswer("nope")).toEqual({ ok: false, missing: false });
+    expect(parseRpcAnswer({ result: "0xabc" })).toEqual({
+      ok: false,
+      missing: false,
+      why: "answer",
+    });
+    expect(parseRpcAnswer("nope")).toEqual({ ok: false, missing: false, why: "answer" });
   });
 });
 
@@ -105,17 +111,40 @@ describe("the RPC reader", () => {
           return res;
         },
       });
-    const failed = { ok: false, missing: false };
-    expect(await answer(new Response("{}"))(1, "0xabc", "0x")).toEqual(failed);
-    expect(await answer(new Response("", { status: 502 }))(4663, "0xabc", "0x")).toEqual(failed);
-    expect(await answer(new Response("<html>"))(4663, "0xabc", "0x")).toEqual(failed);
+    // Every failure says why, in codes: a 503 run is one query from the reason (decision 0292).
+    expect(await answer(new Response("{}"))(1, "0xabc", "0x")).toEqual({
+      ok: false,
+      missing: false,
+      why: "no_rpc",
+    });
+    expect(await answer(new Response("", { status: 502 }))(4663, "0xabc", "0x")).toEqual({
+      ok: false,
+      missing: false,
+      why: "http",
+      status: 502,
+    });
+    expect(await answer(new Response("<html>"))(4663, "0xabc", "0x")).toEqual({
+      ok: false,
+      missing: false,
+      why: "answer",
+    });
     // An answer too big to use is bad, not a network that is down: asking again won't help.
     expect(await answer(new Response("x".repeat(300_000)))(4663, "0xabc", "0x")).toEqual({
       ok: false,
       missing: false,
       bad: true,
     });
-    expect(await answer(new Error("timeout"))(4663, "0xabc", "0x")).toEqual(failed);
+    expect(await answer(new Error("boom"))(4663, "0xabc", "0x")).toEqual({
+      ok: false,
+      missing: false,
+      why: "threw",
+    });
+    const timedOut = Object.assign(new Error("timed out"), { name: "TimeoutError" });
+    expect(await answer(timedOut)(4663, "0xabc", "0x")).toEqual({
+      ok: false,
+      missing: false,
+      why: "timeout",
+    });
   });
 
   it("remembers successes for a while, never failures, and reports only real reads", async () => {

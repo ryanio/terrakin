@@ -16,6 +16,7 @@ import {
   CHAINS,
   type ChainCall,
   type ChainConfig,
+  type ChainDown,
   cachedCall,
   readAgentOf,
   readBinding,
@@ -174,11 +175,41 @@ interface LinkRow {
   gone_checks: number;
 }
 
+/** Which read didn't come back. */
+type Where = "registry" | "partner" | "card";
+
+/** A failed read's reason codes, each left out when it has none. */
+type Down = { why?: ChainDown; status?: number };
+const downOf = (read: Down): Down => ({
+  ...(read.why ? { why: read.why } : {}),
+  ...(read.status ? { status: read.status } : {}),
+});
+
+/**
+ * A read that didn't come back, in the log line and the metric: which read it was and the reader's
+ * own code for what went wrong, codes only, never an id, a URL, or anyone's text (decision 0037).
+ */
+function reportDown(where: Where, read: Down, during: "link" | "ask") {
+  const why = read.why ? `${read.why}${read.status ? ` ${read.status}` : ""}` : "";
+  console.info(`Agent link: down at ${where}${why ? ` (${why})` : ""}`);
+  count("agent_link.check", {
+    during,
+    result: "down",
+    where,
+    ...(read.why ? { why: read.why } : {}),
+    ...(read.status ? { status: read.status } : {}),
+  });
+}
+
 /** What one read of an agent found. */
 type Check =
   | { kind: "gone" }
-  /** A read that didn't come back: from the registry, the partner's contracts, or the card host. */
-  | { kind: "down"; where: "registry" | "partner" | "card" }
+  /**
+   * A read that didn't come back: from the registry, the partner's contracts, or the card host.
+   * `why` is the chain reader's own code for what went wrong, with the status an endpoint refused
+   * with, so a run of 503s says where to look.
+   */
+  | ({ kind: "down"; where: Where } & Down)
   | { kind: "bad"; message: string }
   | {
       kind: "ok";
@@ -432,8 +463,7 @@ export class AgentLinkService {
       const found = await readAgentOf(meter.call, chain.chainId, partner.match.agentOf, subject);
       if (!found.ok && found.bad) return fail("bad_request", UNREADABLE_PARTNER);
       if (!found.ok && !found.missing) {
-        console.info("Agent link: down at partner");
-        count("agent_link.check", { during, result: "down", where: "partner" });
+        reportDown("partner", found, during);
         return fail("unavailable", UNAVAILABLE);
       }
       if (!found.ok || !found.value.registered) {
@@ -444,13 +474,8 @@ export class AgentLinkService {
     if (!ref) return fail("bad_request", "Send either `agent`, or `partner` with `subject`.");
 
     const check = await this.check(ref, meter);
-    count("agent_link.check", {
-      during,
-      result: check.kind,
-      ...(check.kind === "down" ? { where: check.where } : {}),
-    });
-    // Codes only (decision 0037): which read failed, so a run of 503s says where to look.
-    if (check.kind === "down") console.info(`Agent link: down at ${check.where}`);
+    if (check.kind === "down") reportDown(check.where, check, during);
+    else count("agent_link.check", { during, result: check.kind });
     if (check.kind === "gone") return fail("not_found", "No agent with that id in the registry.");
     if (check.kind === "down") return fail("unavailable", UNAVAILABLE);
     if (check.kind === "bad") return fail("bad_request", check.message);
@@ -952,7 +977,8 @@ export class AgentLinkService {
     if (!holder.ok && holder.bad) {
       return { kind: "bad", message: "The agent's registry entry can't be read." };
     }
-    if (!uri.ok || !holder.ok) return { kind: "down", where: "registry" };
+    if (!uri.ok) return { kind: "down", where: "registry", ...downOf(uri) };
+    if (!holder.ok) return { kind: "down", where: "registry", ...downOf(holder) };
 
     let partner: { id: string; subject: string; holderHash: string } | undefined;
     for (const p of this.partners) {
@@ -963,7 +989,7 @@ export class AgentLinkService {
         if (binding.missing) continue;
         return binding.bad
           ? { kind: "bad", message: UNREADABLE_PARTNER }
-          : { kind: "down", where: "partner" };
+          : { kind: "down", where: "partner", ...downOf(binding) };
       }
       const { standard, bound, tokenId } = binding.value;
       // 0 is ERC-721: one item in the partner's own collection.
@@ -974,7 +1000,7 @@ export class AgentLinkService {
           if (item.missing) break;
           return item.bad
             ? { kind: "bad", message: UNREADABLE_PARTNER }
-            : { kind: "down", where: "partner" };
+            : { kind: "down", where: "partner", ...downOf(item) };
         }
         partner = { id: p.id, subject: tokenId, holderHash: await holderHash(p.id, item.value) };
         break;

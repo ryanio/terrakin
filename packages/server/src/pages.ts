@@ -147,3 +147,55 @@ export function toWorld(
   if (staff.service) copy.headers.set(STAFF_SERVICE_HEADER, staff.service);
   return copy;
 }
+
+/**
+ * A connection to the World object that broke rather than answering. A Durable Object restarts on a
+ * deploy, a move, or an eviction, and a request in flight when it does fails like this; Cloudflare
+ * marks such a failure `retryable` and says to send it again.
+ */
+const RESTARTED = /network connection lost|no longer active|connection closed/i;
+
+/** Whether an error from the World object's stub is one of those broken connections. */
+export function worldRestarted(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  if ((err as { retryable?: unknown }).retryable === true) return true;
+  const message = (err as { message?: unknown }).message;
+  return typeof message === "string" && RESTARTED.test(message);
+}
+
+/**
+ * Whether a request can simply go again: a read with no body, and not a socket upgrade, which the
+ * client reopens itself.
+ */
+export function repeatable(request: Request): boolean {
+  const reading = request.method === "GET" || request.method === "HEAD";
+  return reading && request.headers.get("upgrade")?.toLowerCase() !== "websocket";
+}
+
+/**
+ * Ask the World object, and send a read again once when the connection broke because the object was
+ * restarting. Anything still broken comes back undefined, for the caller to answer in the API's own
+ * shape instead of letting a 500 page out; any other error is the object's own and goes on through
+ * (decision 0292). `send` builds its own request, so the second one is fresh.
+ */
+export async function askWorld(
+  send: () => Promise<Response>,
+  o: { repeat: boolean; onLost: (err: unknown, outcome: "retried" | "refused") => void },
+): Promise<Response | undefined> {
+  try {
+    return await send();
+  } catch (err) {
+    if (!worldRestarted(err)) throw err;
+    if (o.repeat) {
+      try {
+        const again = await send();
+        o.onLost(err, "retried");
+        return again;
+      } catch (second) {
+        if (!worldRestarted(second)) throw second;
+      }
+    }
+    o.onLost(err, "refused");
+    return undefined;
+  }
+}

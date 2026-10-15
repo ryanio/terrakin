@@ -11,6 +11,7 @@ import type { DecorKind } from "@terrakin/sim";
 import { STRAW as STRAW_BRAND, WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
 import {
   BAT_POINTS,
+  CHRISTMAS_HEX,
   HALLOWEEN_HEX,
   HANUKKAH_HEX,
   LEAF_POINTS,
@@ -773,6 +774,24 @@ function dreidelParts(grain: Texture): Part[] {
   ];
 }
 
+// ---------- Christmas's decor (RFC 0034) ----------
+
+/** A red stocking: a leg that turns into a foot, with a white cuff at its top and a white toe. */
+function stockingParts(grain: Texture): Part[] {
+  const X = CHRISTMAS_HEX;
+  const body = merged([
+    box(0.17, 0.48, 0.05, [0, 0.36, 0]),
+    box(0.3, 0.12, 0.05, [0.07, 0.17, 0]),
+  ]);
+  const cuff = merged([box(0.21, 0.09, 0.07, [0, 0.64, 0])]);
+  const toe = merged([box(0.09, 0.12, 0.055, [0.19, 0.17, 0])]);
+  return [
+    { geometry: body, material: paper(hex(X.red), grain), cast: true },
+    { geometry: cuff, material: paper(hex(X.trim), grain), cast: true },
+    { geometry: toe, material: paper(hex(X.trim), grain), cast: true },
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
@@ -790,6 +809,7 @@ function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "leaf_garland") return leafGarlandParts(grain);
   if (kind === "menorah") return menorahParts(grain);
   if (kind === "dreidel") return dreidelParts(grain);
+  if (kind === "stocking") return stockingParts(grain);
   return benchParts(grain);
 }
 

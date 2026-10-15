@@ -6,7 +6,7 @@
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
-import { BAT_WING, EARNED_HEX, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
+import { BAT_WING, CHRISTMAS_HEX, EARNED_HEX, HALLOWEEN_HEX, PatternCache } from "@terrakin/ui/looks";
 import {
   BoxGeometry,
   type BufferGeometry,
@@ -188,6 +188,17 @@ function piece(item: WearItem, mat: Material): Mesh[] {
         tip,
         at(new CylinderGeometry(0.13, 0.134, 0.035, 16), solid(HALLOWEEN_HEX.witchBand), 0, 0.815),
         at(new BoxGeometry(0.05, 0.034, 0.012), solid(HALLOWEEN_HEX.buckle), 0, 0.815, 0.132),
+      ];
+    }
+    case "santa_hat": {
+      // A thick white brim, a red cone, and its tip flopped over to one side with a white pompom.
+      const tip = at(new ConeGeometry(0.045, 0.17, 10).translate(0, 0.085, 0), mat, 0.05, 1.04);
+      tip.rotation.set(0, 0, -1.9);
+      return [
+        at(new CylinderGeometry(0.185, 0.2, 0.07, 20), solid(CHRISTMAS_HEX.trim), 0, 0.8),
+        at(new CylinderGeometry(0.045, 0.165, 0.27, 16), mat, 0, 0.96),
+        tip,
+        at(new SphereGeometry(0.052, 10, 8), solid(CHRISTMAS_HEX.trim), 0.17, 0.98),
       ];
     }
     case "cat_ears": {

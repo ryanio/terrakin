@@ -36,6 +36,8 @@ const ITEM_TEMPLATES = [
   // Hanukkah's decor (RFC 0034).
   "menorah",
   "dreidel",
+  // Christmas's decor (RFC 0034).
+  "stocking",
 ] as const;
 export type ItemTemplate = (typeof ITEM_TEMPLATES)[number];
 

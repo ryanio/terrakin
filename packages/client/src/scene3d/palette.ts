@@ -172,6 +172,8 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   // Hanukkah's decor (RFC 0034), modelled in decor.ts.
   menorah: { color: hex(BLOCK_COLORS.menorah), height: 0.8, opacity: 1, form: "decor" },
   dreidel: { color: hex(BLOCK_COLORS.dreidel), height: 0.45, opacity: 1, form: "decor" },
+  // Christmas's decor (RFC 0034), modelled in decor.ts.
+  stocking: { color: hex(BLOCK_COLORS.stocking), height: 0.69, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

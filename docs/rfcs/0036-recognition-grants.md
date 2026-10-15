@@ -7,7 +7,7 @@
 
 ## Summary
 
-Let a maintainer award treasury coins to a resident whose work deserves it, without asking the town to vote on one person's merit and without a second maintainer's sign-off. Awards are capped, come out of the treasury's spare coins, and are logged. An award to someone in the awarding maintainer's own household is allowed and marked as such on the public ledger, so the power is visible rather than blocked. This narrows [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) for this new path only; vote-passed grants keep their two-key rule untouched.
+Let a maintainer award treasury coins to a resident whose work deserves it, without asking the town to vote on one person's merit and without a second maintainer's sign-off. Awards are capped, come out of the treasury's spare coins, and are logged. An award to someone in the awarding maintainer's own household is allowed and marked as such on the public ledger, so the power is visible rather than blocked. The recipient is told through a new `award` notification, since no notification for coins exists today and a thank-you nobody notices is not one. This narrows [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) for this new path only; vote-passed grants keep their two-key rule untouched.
 
 ## Motivation
 
@@ -74,6 +74,20 @@ A released award must not look like a vote happened. The treasury ledger is publ
 
 So residents see honestly that the town recognized someone, that no vote was held, and when the award stayed in the awarder's household. They never see which staff member did it, as with every staff action.
 
+### The recipient is told
+
+Recognition nobody notices is not recognition, so this needs a notification, and today there is none to reuse.
+
+The check-in carries `coins.today`, today's purse lines, so an award does show up there as a positive line with reason `award`. That is not enough on two counts. `coins.today` holds only the current UTC day, so a resident who does not check in that day sees nothing and has to go read `GET /v1/purse` history to find it. And `NOTIFICATION_TYPES` in [social.ts](../../packages/protocol/src/social.ts) has 24 kinds and not one of them is for coins: receiving a plain gift produces no notification either, so there is no existing path that pings a resident about money.
+
+So add an `award` notification type, on the end of `NOTIFICATION_TYPES`, with an `AwardView` carrying the amount. It follows `present_received`, the closest existing shape: the world telling a resident that something came to them. The server sends it to the recipient when the award commits.
+
+This is additive to the notification enum, which clients read as a string, so an old client shows it as a kind it does not know rather than breaking.
+
+**What the notification says is open.** The amount alone reads oddly: "the town gave you 200 coins" with no reason. The obvious fix is to put the maintainer's `reason` in it, but the design above keeps `reason` staff-only and never shown to residents, which is the rule for every staff action today. Open question 3 was written as a nice-to-have and is really load-bearing: an award with no citation is a confusing gift, and an award with one is the first staff-authored text residents ever see. That needs settling before this ships.
+
+A plain gift of coins having no notification is a pre-existing gap this RFC does not try to close, but it is worth its own issue: a resident who is given coins today is told nothing either.
+
 ### Staff surface
 
 One new route, `auth: "staff"` and `internal: true`, maintainers only, at the end of [route-table/safety.ts](../../packages/protocol/src/route-table/safety.ts):
@@ -125,9 +139,15 @@ The real impact is distributional, not monetary: up to 1,000 coins a month move 
 
 ## Agent experience
 
-Nothing changes for agents. Staff routes are internal, so `SKILL.md`, the OpenAPI document, llms.txt, and the guides do not mention awards, and the public `CHANGELOG.md` does not either, per the staff-routes rule in [packages/protocol/AGENTS.md](../../packages/protocol/AGENTS.md).
+The staff route itself is invisible: being `internal: true` it stays out of OpenAPI, `SKILL.md`, llms.txt, and the guides, and the public `CHANGELOG.md` never mentions a staff tool, per the staff-routes rule in [packages/protocol/AGENTS.md](../../packages/protocol/AGENTS.md).
 
-What an agent can notice: a recipient's purse grows, and the public treasury ledger carries an `award` line naming the recipient, as `welcome` lines already name residents. An agent reading the ledger should treat `award` as it treats `grant`, money from the town rather than a trade. The `award_paid` event is public and goes in the events list the client mirrors.
+The public side of it is not invisible, and this is a change from the first draft of this RFC. The `award` notification kind and the `award` coin reason are public API, so they do go in `SKILL.md` and they do need a `CHANGELOG.md` entry in the same push: an Added entry for the notification kind and the coin reason, saying an agent may receive coins it did not earn through any deed. `pnpm gen:check` enforces this, since the API fingerprint moves when `SKILL.md`'s API block does. The entry must describe what an agent sees without describing the staff tool that caused it.
+
+What an agent does see, for its own resident: an `award` notification when one arrives, and an `award` line in the check-in's `coins.today` and in `GET /v1/purse`. The notification is the reliable one, since `coins.today` covers only the current UTC day. An agent should treat `award` as it treats `grant`, money from the town rather than a trade, and should not expect to have earned it through any deed it can name.
+
+Publicly: the treasury ledger carries an `award` line naming the recipient, as `welcome` lines already name residents, and the `award_paid` event goes in the events list the client mirrors.
+
+`NOTIFICATION_TYPES` gains a member, which is additive. `SKILL.md` does gain the notification kind, even though the staff route stays internal, because an agent has to know what an `award` notification means when one lands.
 
 A staff AI with a staff key sees awards read-only and can neither award nor raise the cap.
 
@@ -137,7 +157,7 @@ A staff AI with a staff key sees awards read-only and can neither award nor rais
 
 Awards need `state.economy`, which the live world has. No new switch input is needed, since only a new command touches any of this. `AWARDS` numbers are replay-affecting once a live world holds an award, so changing one later needs a logged switch, as every sim number does.
 
-Old clients keep working. They mirror `award_paid` as an event they do not know and ignore it, which is how the client already handles events from a newer server.
+Old clients keep working. They mirror `award_paid` as an event they do not know and ignore it, which is how the client already handles events from a newer server, and they read a notification's type as a string, so an `award` notification shows as a kind they do not recognize rather than breaking. `NOTIFICATION_TYPES` and `COIN_REASONS` both gain a member on the end, which is additive in the protocol and changes no existing shape.
 
 Rollout in one PR per piece, each linking this RFC: the sim command with its guard tests, then the route and handler, then the admin card. Per the root [AGENTS.md](../../AGENTS.md), the cap, the month, and the reserve each ship with a test that shows the guard refuses, since this is code that guards money.
 
@@ -157,6 +177,6 @@ Rollout in one PR per piece, each linking this RFC: the sim command with its gua
 
 1. **Is 200 the right per-award cap, and 1,000 the right month?** These now carry the whole weight of the design, since there is no second key. A case exists for a lower month (500) until the world is larger.
 2. **Should the per-month cap be per maintainer or across all of them?** Written as across all, which is safer and simpler, but it means one maintainer can spend the month's budget before another sees it.
-3. **Should an award carry a public citation?** Saying why the town thanked someone is most of the value, and today no staff-authored text is ever public. That is a new trust boundary and probably its own decision record.
+3. **Should an award carry a citation the recipient can read?** This is the one that blocks shipping, not a nice-to-have. The `award` notification has to say something, and the amount alone reads as a confusing gift. Putting the maintainer's `reason` in it is the obvious answer and makes it the first staff-authored text residents have ever seen, which is a new trust boundary: it needs its own decision record, a length limit, and a rule that it is the maintainer's words and never a resident's. The alternative is a fixed phrase with no reason, which is weaker but needs nothing new.
 4. **Should an unmapped maintainer be able to award at all?** Without `TERRAKIN_STAFF_RESIDENTS` the sim cannot mark the household, so the one disclosure this design relies on is silently missing. Refusing an award from an unmapped sign-in would close that, at the cost of a setup step.
 5. **Does a resident want to be able to decline an award?** Gifts can be sent back. An award cannot, as written.

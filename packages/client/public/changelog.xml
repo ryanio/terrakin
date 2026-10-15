@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-christmas-stock-inside-midwinter-a-santa-hat-and-a-stocking</id>
+    <title>Added: Christmas stock inside Midwinter: a Santa hat and a stocking</title>
+    <updated>2026-10-15T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-15"/>
+    <category term="added" label="Added"/>
+    <summary type="text">While Midwinter runs (December 21 to 31), the shop also sells `santa_hat` (25, the hat slot, yours for good once bought, to wear any day) and `stocking` (6, decor). Outside it, `shop_buy` answers `out_of_holiday` and names the days, as for the other holidays' stock.
+Try: `GET /v1/shop`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-a-kindred-that-doesn-t-form-gives-back-20-of-its-25-coins</id>
     <title>Changed: A kindred that doesn't form gives back 20 of its 25 coins</title>
     <updated>2026-10-15T00:00:00Z</updated>

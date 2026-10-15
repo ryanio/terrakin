@@ -5379,6 +5379,7 @@
                 "string_lights",
                 "little_fir",
                 "sled",
+                "stocking",
                 "cornucopia",
                 "leaf_garland",
                 "menorah",
@@ -27292,7 +27293,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },
@@ -27458,7 +27460,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           },
           "windows": {
@@ -27502,7 +27505,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           },
           "path": {
@@ -29616,6 +29620,7 @@
           "string_lights",
           "little_fir",
           "sled",
+          "stocking",
           "cornucopia",
           "leaf_garland",
           "menorah",
@@ -30467,7 +30472,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           },
           "dry": {
@@ -30530,7 +30536,8 @@
               "cornucopia",
               "leaf_garland",
               "menorah",
-              "dreidel"
+              "dreidel",
+              "stocking"
             ]
           }
         },
@@ -30675,7 +30682,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "1": {
@@ -30718,7 +30726,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "2": {
@@ -30761,7 +30770,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "3": {
@@ -30804,7 +30814,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "4": {
@@ -30847,7 +30858,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "5": {
@@ -30890,7 +30902,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "6": {
@@ -30933,7 +30946,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "7": {
@@ -30976,7 +30990,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "8": {
@@ -31019,7 +31034,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "9": {
@@ -31062,7 +31078,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               }
             },
@@ -31153,7 +31170,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "1": {
@@ -31196,7 +31214,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "2": {
@@ -31239,7 +31258,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "3": {
@@ -31282,7 +31302,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "4": {
@@ -31325,7 +31346,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "5": {
@@ -31368,7 +31390,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "6": {
@@ -31411,7 +31434,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "7": {
@@ -31454,7 +31478,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "8": {
@@ -31497,7 +31522,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "9": {
@@ -31540,7 +31566,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               }
             },
@@ -31642,7 +31669,8 @@
                         "cornucopia",
                         "leaf_garland",
                         "menorah",
-                        "dreidel"
+                        "dreidel",
+                        "stocking"
                       ]
                     }
                   },
@@ -33139,6 +33167,7 @@
           "string_lights",
           "little_fir",
           "sled",
+          "stocking",
           "cornucopia",
           "leaf_garland",
           "menorah",
@@ -33151,6 +33180,7 @@
           "pumpkin_head",
           "ghost_sheet",
           "bat_wings",
+          "santa_hat",
           "lemon_seed",
           "strawberry_seed",
           "tomato_seed",
@@ -33234,6 +33264,7 @@
           "string_lights",
           "little_fir",
           "sled",
+          "stocking",
           "cornucopia",
           "leaf_garland",
           "menorah",
@@ -33661,6 +33692,7 @@
           "pumpkin_head",
           "ghost_sheet",
           "bat_wings",
+          "santa_hat",
           "sun_hat",
           "tool_belt",
           "field_vest",
@@ -33912,6 +33944,14 @@
             ]
           },
           "bat_wings": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyle"
+              }
+            ]
+          },
+          "santa_hat": {
             "nullable": true,
             "allOf": [
               {
@@ -34200,6 +34240,13 @@
             ]
           },
           "bat_wings": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WearStyleView"
+              }
+            ]
+          },
+          "santa_hat": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/WearStyleView"
@@ -34614,7 +34661,8 @@
                   "cornucopia",
                   "leaf_garland",
                   "menorah",
-                  "dreidel"
+                  "dreidel",
+                  "stocking"
                 ]
               },
               "by": {
@@ -36430,6 +36478,7 @@
                   "pumpkin_head",
                   "ghost_sheet",
                   "bat_wings",
+                  "santa_hat",
                   "sun_hat",
                   "tool_belt",
                   "field_vest",
@@ -38029,7 +38078,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },
@@ -44778,7 +44828,8 @@
                 "cat_ears",
                 "pumpkin_head",
                 "ghost_sheet",
-                "bat_wings"
+                "bat_wings",
+                "santa_hat"
               ]
             }
           }
@@ -48192,7 +48243,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },
@@ -48238,7 +48290,8 @@
                     "cornucopia",
                     "leaf_garland",
                     "menorah",
-                    "dreidel"
+                    "dreidel",
+                    "stocking"
                   ]
                 }
               },

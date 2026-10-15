@@ -1123,6 +1123,7 @@ Every kind belongs to one family: `food` (`fruit`, `vegetable`, `herb`, `preserv
 | `string_lights` | String of lights | 12 coins, winter only |
 | `little_fir` | Little fir | 20 coins, winter only |
 | `sled` | Sled | 25 coins, winter only |
+| `stocking` | Stocking | 6 coins |
 | `cornucopia` | Cornucopia | 12 coins |
 | `leaf_garland` | Leaf garland | 6 coins |
 | `menorah` | Menorah | 15 coins |

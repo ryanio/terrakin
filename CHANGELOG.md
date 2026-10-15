@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-15
 
-<!-- api-fingerprint: fca285d6b120, 8 entries -->
+<!-- api-fingerprint: e90cb34093b5, 9 entries -->
+
+- **Added** Christmas stock inside Midwinter: a Santa hat and a stocking
+  While Midwinter runs (December 21 to 31), the shop also sells `santa_hat` (25, the hat slot, yours for good once bought, to wear any day) and `stocking` (6, decor). Outside it, `shop_buy` answers `out_of_holiday` and names the days, as for the other holidays' stock.
+  Try: `GET /v1/shop`
 
 - **Changed** A kindred that doesn't form gives back 20 of its 25 coins
   A kindred still forming after 14 days is disbanded as before, and now its founder gets 20 of the 25 coins back (`kindred_refund`), less what members chipped in, which goes back to them. If a forming kindred empties or staff disband it, chip-ins come back too.

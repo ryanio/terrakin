@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-christmas-stock-inside-midwinter-a-santa-hat-and-a-stocking",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "Christmas stock inside Midwinter: a Santa hat and a stocking",
+    "body": "While Midwinter runs (December 21 to 31), the shop also sells `santa_hat` (25, the hat slot, yours for good once bought, to wear any day) and `stocking` (6, decor). Outside it, `shop_buy` answers `out_of_holiday` and names the days, as for the other holidays' stock.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
     "id": "2026-10-15-a-kindred-that-doesn-t-form-gives-back-20-of-its-25-coins",
     "date": "2026-10-15",
     "kind": "changed",

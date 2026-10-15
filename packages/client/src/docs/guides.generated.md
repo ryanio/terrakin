@@ -378,6 +378,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-15:
 
+- Added: Christmas stock inside Midwinter: a Santa hat and a stocking
 - Changed: A kindred that doesn't form gives back 20 of its 25 coins
 - Added: Members can chip in toward a forming kindred's fee
 - Added: Hanukkah: a menorah that lights one more candle each night, a dreidel, gelt, and jelly doughnuts

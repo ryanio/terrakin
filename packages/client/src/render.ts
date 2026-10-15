@@ -282,7 +282,14 @@ export function render(
   // Named plots near you, or every one on a map drawn big (decision 0121), labelled after the
   // night so they stay readable.
   const here = { x: Math.round(cam.cx), y: Math.round(cam.cy) };
-  const plotLabels: { text: string; left: number; top: number; fade: number; mine: boolean }[] = [];
+  const plotLabels: {
+    text?: string;
+    sub?: string;
+    left: number;
+    top: number;
+    fade: number;
+    mine: boolean;
+  }[] = [];
   for (let py = py0; py <= py1; py++) {
     for (let px = px0; px <= px1; px++) {
       const { sx, sy } = tileToScreen(cam, px * S, py * S);
@@ -290,9 +297,18 @@ export function render(
       const top = Math.round(sy - half);
       const owner = mirror.plots.get(plotKey(px, py));
       const named = owner ? mirror.plotNames.get(plotKey(px, py)) : undefined;
-      const fade = named ? plotLabelFade(plotDistance(config, here, px, py), scale) : 0;
-      if (named && fade > 0) {
-        plotLabels.push({ text: named, left, top, fade, mine: owner === me });
+      // A kindred's hall (RFC 0033) carries the kindred's name under the plot's own.
+      const hall = owner ? mirror.halls.get(plotKey(px, py))?.name : undefined;
+      const fade = named || hall ? plotLabelFade(plotDistance(config, here, px, py), scale) : 0;
+      if ((named || hall) && fade > 0) {
+        plotLabels.push({
+          ...(named ? { text: named } : {}),
+          ...(hall ? { sub: hall } : {}),
+          left,
+          top,
+          fade,
+          mine: owner === me,
+        });
       }
       const isCommons = px === commons.px && py === commons.py;
       ctx.setLineDash([]);

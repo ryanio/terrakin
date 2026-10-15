@@ -476,6 +476,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           text: ratingWords(g),
         }),
       ),
+      // Their kindred (RFC 0033): its name is its stewards' words, drawn as text.
+      r.kindred
+        ? h(
+            "a",
+            { class: "profile-kindred", attrs: { href: `/k/${r.kindred.id}` } },
+            icon("follow"),
+            h("span", { text: r.kindred.name }),
+          )
+        : null,
       // Their collection book (RFC 0021): public, like the rest of the profile.
       h(
         "a",

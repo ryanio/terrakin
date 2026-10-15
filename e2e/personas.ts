@@ -281,6 +281,16 @@ export async function openLevelsOver(http: Http): Promise<void> {
   );
 }
 
+/** Switch kindreds on now (RFC 0033), unless the world has them. Coins must be open. */
+export async function openKindredsOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { kindredsOpen?: boolean };
+  if (world.kindredsOpen) return;
+  await expectOk(
+    "open kindreds (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-kindreds"),
+  );
+}
+
 /**
  * Switch the town's jobs on in this world now (RFC 0030), opening levels first when they aren't,
  * since jobs need them. The switch is once per world, so in a world where they're already open

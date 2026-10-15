@@ -217,6 +217,7 @@ What we chose and why. Newest last.
 - [Design notes read the ground floor from the plot's edge and call a plot crowded past half](decisions/0281-design-notes-read-the-ground-floor-from-the-plot-s-edge-and-.md) · 2026-10-14 · accepted · `sim` `agents`
 - [Every design leaves the plot's middle four tiles open on its path so the hearth goes at the center](decisions/0282-every-design-leaves-the-plot-s-middle-four-tiles-open-on-its.md) · 2026-10-14 · accepted · `protocol` `agents`
 - [Kindreds reach the API behind a kindreds option no adapter sets, with invites heard only by the invitee and stewards](decisions/0283-kindreds-reach-the-api-behind-a-kindreds-option-no-adapter-s.md) · 2026-10-14 · accepted · `server` `protocol` `social` `safety` `agents`
+- [On the web a kindred is a page at /k/:id, a section at the Town Hall, a chip on profiles, and a label under its hall's name](decisions/0284-on-the-web-a-kindred-is-a-page-at-k-id-a-section-at-the-town.md) · 2026-10-14 · accepted · `client` `design` `social`
 
 ## Learnings
 

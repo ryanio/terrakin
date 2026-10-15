@@ -378,6 +378,8 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-14:
 
+- Added: `kindred_hall` carries the kindred's name
+- Added: `GET /v1/kindreds/{id}` carries `day`
 - Added: Whole homes to build by name, with materials and a turn
 - Added: Notes about a home on every build answer and plan read
 - Added: Plots as maps: read a plot as text, and build from one

@@ -7,9 +7,11 @@ import {
   join,
   layoutShift,
   openJobs,
+  openKindreds,
   overflowsSideways,
   type Resident,
   read,
+  settler,
   signIn,
   tapTile,
   watchErrors,
@@ -20,7 +22,9 @@ import {
  * propose a fountain, a cobble path, and a bench for the Commons, vote it through, and see it
  * built. Then Fern hosts an event at her plot from the Town Hall's calendar, and Birch goes from
  * the home wall's On now card once it's on. Last, the town's jobs open (RFC 0030): Fern takes the
- * chair job from the Town Hall's Jobs section and finishes it at her workbench in the world. The
+ * chair job from the Town Hall's Jobs section and finishes it at her workbench in the world. Then
+ * kindreds open (RFC 0033): Fern founds one at the Town Hall, Birch joins from his invite notice,
+ * and Fern makes her plot its hall and holds a kindred night there. The
  * e2e server runs with TERRAKIN_TEST_CLOCK=1, so
  * `POST /v1/test/advance-day` moves its clock a day on, or some minutes. Each part is a test of its
  * own, run in order on what the first one built, so none of them needs the whole budget.
@@ -271,10 +275,12 @@ test.describe("the Town Hall", () => {
     const errors = watchErrors(page, { console: "none" });
     await signIn(page, fern);
     // Until jobs open here nothing asks for them: not the home wall, the world, the look editor,
-    // or the Town Hall, which has no Jobs section at all.
+    // or the Town Hall, which has no Jobs section at all. Kindreds aren't open yet either, and the
+    // Town Hall doesn't ask for them.
     const asked: string[] = [];
     const watch = (request: { url(): string }) => {
-      if (new URL(request.url()).pathname.startsWith("/v1/jobs")) asked.push(request.url());
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith("/v1/jobs") || path.startsWith("/v1/kindreds")) asked.push(request.url());
     };
     page.on("request", watch);
     await page.goto("/");
@@ -292,7 +298,7 @@ test.describe("the Town Hall", () => {
     await expect(page.getByRole("dialog", { name: "Your look" })).toBeVisible();
     await page.goto("/town");
     await expect(page.locator(".town-you")).toBeVisible();
-    await expect(page.locator("#jobs, .jobs-card")).toHaveCount(0);
+    await expect(page.locator("#jobs, .jobs-card, #kindreds, .kindreds-card")).toHaveCount(0);
     expect(asked).toEqual([]);
     page.off("request", watch);
     wall.off("request", watch);
@@ -383,6 +389,75 @@ test.describe("the Town Hall", () => {
     await expect(chair).toBeVisible();
     await expect(jobs.locator(".job-held")).toHaveCount(0);
     await expect(chair.locator(".job-yours")).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("kindreds open, Fern founds one at the Town Hall, Birch joins from his invite, and Fern holds a kindred night at its hall", async ({
+    page,
+    browser,
+  }) => {
+    const { fern, birch } = built();
+    const errors = watchErrors(page, { console: "none" });
+    // A third household, so the kindred forms.
+    const third = await settler(page.request, "Sorrel");
+    await openKindreds(page.request);
+    await signIn(page, fern);
+
+    // Fern founds Lantern Row from the Town Hall's Kindreds section.
+    await page.goto("/town#kindreds");
+    const card = page.locator(".kindreds-card");
+    await expect(card).toBeVisible();
+    await card.locator("#kindred-found-open").click();
+    await page.fill("#kindred-found-name", "Lantern Row");
+    await page.click("#kindred-found");
+    await expect(page).toHaveURL(/\/k\/k_\d+$/);
+    const kindred = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+    await expect(page.locator(".kindred-name")).toHaveText("Lantern Row");
+
+    // Birch and Sorrel are invited over the API, each a household of their own, and Sorrel joins.
+    expect(
+      await act(page.request, fern.token, { type: "invite_to_kindred", resident: birch.id }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await act(page.request, fern.token, { type: "invite_to_kindred", resident: third.id }),
+    ).toMatchObject({ ok: true });
+    expect(await act(page.request, third.token, { type: "join_kindred", kindred })).toMatchObject({
+      ok: true,
+    });
+
+    // Birch opens his invite from his notifications and joins on the kindred's page.
+    const birchPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await signIn(birchPage, birch);
+    await birchPage.goto("/notifications");
+    const note = birchPage.locator('[data-type="kindred_invite"]');
+    await expect(note).toContainText("invited you to a kindred");
+    await note.getByRole("link", { name: "Open the kindred" }).click();
+    await expect(birchPage).toHaveURL(new RegExp(`/k/${kindred}$`));
+    await birchPage.locator('[data-move="join_kindred"]').click();
+    await expect(birchPage.locator(".kindred-member")).toHaveCount(3);
+    await birchPage.screenshot({ path: "test-results/town-kindred.png" });
+    await birchPage.close();
+
+    // Formed now: Fern makes her plot its hall and holds a kindred night there. Her members' rows
+    // with their steward buttons fit a phone.
+    await page.reload();
+    await expect(page.locator(".kindred-member")).toHaveCount(3);
+    expect(await overflowsSideways(page)).toBe(false);
+    await page.click("#kindred-hall-open");
+    await page.locator("#kindred-hall-plots button").first().click();
+    await expect(page.locator(".kindred-hall")).toContainText("Its hall is plot");
+    await page.click("#kindred-night-host");
+    await page.fill("#event-title", "At the Row");
+    await page.click("#event-submit");
+    const night = page.locator(".kindred-nights .event-row", { hasText: "At the Row" });
+    await expect(night).toBeVisible();
+    // The Town Hall's Coming up lists it like any event.
+    await page.goto("/town");
+    await expect(page.locator("#events .event-row", { hasText: "At the Row" })).toBeVisible();
+    // Her profile shows the kindred as a chip that opens its page.
+    await page.goto(`/r/${fern.id}`);
+    await page.locator(".profile-kindred").click();
+    await expect(page).toHaveURL(new RegExp(`/k/${kindred}$`));
     expect(errors).toEqual([]);
   });
 });

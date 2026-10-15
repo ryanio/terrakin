@@ -382,6 +382,8 @@ function pageFor(route: Route, ctx: ViewContext): View {
       return lazyView(import("./invite-view"), (m) => m.inviteView(route.code, ctx), SHAPES.single);
     case "town":
       return lazyView(import("./town-view"), (m) => m.townView(ctx), SHAPES.town);
+    case "kindred":
+      return lazyView(import("./kindred-view"), (m) => m.kindredView(route.id, ctx), SHAPES.board);
     case "shop":
       return lazyView(import("./shop-view"), (m) => m.shopView(ctx), SHAPES.shelves);
     case "market":

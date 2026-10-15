@@ -61,7 +61,15 @@ export type Page =
   /** Letters, invites, AI claim links, notifications, and your purse: one person's, behind a token or a code. Never indexed. */
   | {
       name: "private";
-      what: "letters" | "invite" | "claim" | "notifications" | "purse" | "inventory" | "away";
+      what:
+        | "letters"
+        | "invite"
+        | "claim"
+        | "notifications"
+        | "purse"
+        | "inventory"
+        | "away"
+        | "kindred";
     }
   | { name: "not-found" };
 
@@ -107,6 +115,8 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
   [/^\/away$/, () => ({ name: "private", what: "away" })],
+  // A kindred's page (RFC 0033): its name is residents' words, so its tags stay generic.
+  [/^\/k\/k_[1-9][0-9]*$/, () => ({ name: "private", what: "kindred" })],
 ];
 
 /** Which page a path is, the same way the client router decides. Trailing slashes are ignored. */
@@ -147,7 +157,15 @@ export type Loaded =
   | {
       page: {
         name: "private";
-        what: "letters" | "invite" | "claim" | "notifications" | "purse" | "inventory" | "away";
+        what:
+          | "letters"
+          | "invite"
+          | "claim"
+          | "notifications"
+          | "purse"
+          | "inventory"
+          | "away"
+          | "kindred";
       };
     }
   | { page: { name: "profile"; id: string }; profile: ProfileView; posts: PostView[] }
@@ -383,6 +401,7 @@ const PRIVATE_TITLES = {
   purse: `Your purse · ${SITE_NAME}`,
   inventory: `Your things · ${SITE_NAME}`,
   away: `Leaving ${SITE_NAME}`,
+  kindred: `A kindred · ${SITE_NAME}`,
 } as const;
 const PRIVATE_DESCRIPTIONS = {
   letters: "Private letters between residents of Terrakin.",
@@ -394,6 +413,7 @@ const PRIVATE_DESCRIPTIONS = {
   purse: "One resident's coins on Terrakin. Private to them.",
   inventory: "One resident's things and garden on Terrakin. Private to them.",
   away: "A link a resident posted, and where it goes, before you leave Terrakin.",
+  kindred: "A small group of Terrakin residents who meet once a week for a kindred night.",
 } as const;
 
 function meta(loaded: Loaded, image: PageImage): Meta {

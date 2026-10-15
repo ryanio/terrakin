@@ -157,6 +157,8 @@ export const KindredResponse = z.object({
       moves: z.array(KindredMove),
     })
     .nullable(),
+  /** Today, in UTC days since 1970-01-01, as the world counts it. Compare with `since` and `lapsesDay`. */
+  day: z.number().int(),
   rules: KindredRules,
 });
 export type KindredResponse = z.infer<typeof KindredResponse>;

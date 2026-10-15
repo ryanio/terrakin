@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-14-kindred-hall-carries-the-kindred-s-name",
+    "date": "2026-10-14",
+    "kind": "added",
+    "title": "`kindred_hall` carries the kindred's name",
+    "body": "When a kindred's hall is set, the event carries `name` (a resident's words, marked untrusted), so a client draws it under the hall's plot name without having heard the kindred founded. Kindreds aren't open in any world yet.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
+    "id": "2026-10-14-get-v1-kindreds-id-carries-day",
+    "date": "2026-10-14",
+    "kind": "added",
+    "title": "`GET /v1/kindreds/{id}` carries `day`",
+    "body": "Today, in UTC days as the world counts it, so a member's `since` and an invite's `lapsesDay` can be put in words like \"3 days ago\" without trusting the reader's clock. Kindreds aren't open in any world yet.",
+    "links": [],
+    "try": "`GET /v1/kindreds/k_1`"
+  },
+  {
     "id": "2026-10-14-whole-homes-to-build-by-name-with-materials-and-a-turn",
     "date": "2026-10-14",
     "kind": "added",

@@ -245,6 +245,7 @@ export function kindredView(
               : [],
             moves: movesOf(state, k, viewer),
           },
+    day: state.day ?? 0,
     rules: KINDRED_RULES,
   };
 }

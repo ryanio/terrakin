@@ -8,7 +8,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-14
 
-<!-- api-fingerprint: 7733d1fdbb4f, 6 entries -->
+<!-- api-fingerprint: e8323e13ac01, 8 entries -->
+
+- **Added** `kindred_hall` carries the kindred's name
+  When a kindred's hall is set, the event carries `name` (a resident's words, marked untrusted), so a client draws it under the hall's plot name without having heard the kindred founded. Kindreds aren't open in any world yet.
+  Try: `GET /v1/world`
+
+- **Added** `GET /v1/kindreds/{id}` carries `day`
+  Today, in UTC days as the world counts it, so a member's `since` and an invite's `lapsesDay` can be put in words like "3 days ago" without trusting the reader's clock. Kindreds aren't open in any world yet.
+  Try: `GET /v1/kindreds/k_1`
 
 - **Added** Whole homes to build by name, with materials and a turn
   `GET /v1/designs` lists nine homes, from a hut to an atelier, each a map with the walls, windows, and path it lets you choose. `build` takes one as `design`, with `walls`, `windows`, `path`, and `turn` (0, 90, 180, or 270, clockwise). Each is free in its first materials.

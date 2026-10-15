@@ -239,7 +239,7 @@ export function happeningCard(navigate: (path: string) => void, me: () => string
 
 // ---------- the Schedule sheet ----------
 
-interface ScheduleOptions {
+export interface ScheduleOptions {
   /** `GET /v1/events`, read just now: the server's time, the rules, and where you can host. */
   events: EventsResponse;
   /** Where the Commons is, from the world. */
@@ -248,6 +248,15 @@ interface ScheduleOptions {
   done: () => void;
   /** However the sheet closed. */
   closed?: () => void;
+  /**
+   * A kindred night (RFC 0033): the kindred, held at its hall and nowhere else, and how many
+   * members from how many households make its week count.
+   */
+  kindred?: {
+    id: string;
+    hall: { px: number; py: number };
+    counts: { members: number; households: number };
+  };
 }
 
 /**
@@ -299,15 +308,23 @@ export function hostButton(id: string, onClick: (button: HTMLButtonElement) => v
 const plotWords = (i: number) => (i === 0 ? "Your plot" : `Your plot ${i + 1}`);
 
 /** The Schedule sheet: kind, words, when, how long, and where. */
-function openScheduleSheet(o: ScheduleOptions) {
+export function openScheduleSheet(o: ScheduleOptions) {
   const { rules, you } = o.events;
   const now = Date.parse(o.events.now);
-  let kind: EventKind = "listening";
+  // A kindred night is a gathering unless its host picks another kind.
+  let kind: EventKind = o.kindred ? "gathering" : "listening";
   let minutes: number = LENGTHS[1];
-  const places = [
-    ...(you?.plots ?? []).map((p, i) => ({ key: `${p.px},${p.py}`, label: plotWords(i), ...p })),
-    { key: "commons", label: "The Commons", ...o.commons },
-  ];
+  const night = o.kindred;
+  const places = night
+    ? [{ key: "hall", label: "The kindred's hall", ...night.hall }]
+    : [
+        ...(you?.plots ?? []).map((p, i) => ({
+          key: `${p.px},${p.py}`,
+          label: plotWords(i),
+          ...p,
+        })),
+        { key: "commons", label: "The Commons", ...o.commons },
+      ];
   let place = places[0]?.key ?? "commons";
 
   const titleInput = h("input", {
@@ -403,7 +420,9 @@ function openScheduleSheet(o: ScheduleOptions) {
     deposit,
     h("p", {
       class: "sheet-note",
-      text: "It goes on the Town Hall board. While it's on, people come with one tap, and those who stay a while count as your guests.",
+      text: night
+        ? `It goes on the Town Hall board, open to anyone. The week counts for the kindred once ${night.counts.members} of you from ${night.counts.households} households come. Members aren't counted as guests at their own night.`
+        : "It goes on the Town Hall board. While it's on, people come with one tap, and those who stay a while count as your guests.",
     }),
     error,
     submit,
@@ -434,6 +453,7 @@ function openScheduleSheet(o: ScheduleOptions) {
         py: at.py,
         startsAt: new Date(startsAt).toISOString(),
         minutes,
+        ...(night ? { kindred: night.id } : {}),
       }),
     );
     const problem = actProblem(r);
@@ -449,9 +469,11 @@ function openScheduleSheet(o: ScheduleOptions) {
   const { dialog } = sheet(
     {
       id: "schedule-sheet-title",
-      title: "Host an event",
+      title: night ? "Hold a kindred night" : "Host an event",
       className: "schedule-sheet",
-      lede: "A show, a class, a market, a listening session, or a gathering. The town sees it on the board.",
+      lede: night
+        ? "Once a week, at the kindred's hall. Anyone can come."
+        : "A show, a class, a market, a listening session, or a gathering. The town sees it on the board.",
       closeOnBackdrop: true,
     },
     form,

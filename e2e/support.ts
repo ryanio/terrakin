@@ -7,6 +7,7 @@ import {
   jobDayOver,
   makePersona,
   openJobsOver,
+  openKindredsOver,
   openLevelsOver,
   openRecipesOver,
   type Persona,
@@ -176,6 +177,14 @@ export async function openLevels(request: APIRequestContext) {
  */
 export async function openJobs(request: APIRequestContext) {
   await openJobsOver(httpOf(request));
+}
+
+/**
+ * Switch kindreds on now (RFC 0033). Once per server, so only for a spec with a server of its
+ * own.
+ */
+export async function openKindreds(request: APIRequestContext) {
+  await openKindredsOver(httpOf(request));
 }
 
 /**

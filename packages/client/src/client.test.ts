@@ -177,6 +177,31 @@ describe("Mirror", () => {
     expect(m.plotNames.size).toBe(0);
   });
 
+  it("keeps kindreds' halls from the snapshot and events, one hall a kindred (RFC 0033)", () => {
+    const m = new Mirror({
+      ...snapshot,
+      halls: [{ px: 0, py: 0, kindred: "k_1", name: "Lantern Row", trust: "untrusted" }],
+    });
+    expect(m.halls.get("0,0")).toEqual({ kindred: "k_1", name: "Lantern Row" });
+    // Moved: the old plot loses its label as the new one gets it.
+    const hall = { type: "kindred_hall", kindred: "k_1", trust: "untrusted" } as const;
+    m.apply({ seq: 4, event: { ...hall, hall: { px: 2, py: 0 }, name: "Lantern Row" } });
+    expect([...m.halls.keys()]).toEqual(["2,0"]);
+    // Renamed, then its name taken down: the label falls back to the kindred's number.
+    const named = { type: "kindred_named", kindred: "k_1", by: "a" } as const;
+    m.apply({ seq: 5, event: { ...named, name: "Fern Row", trust: "untrusted" } });
+    expect(m.halls.get("2,0")?.name).toBe("Fern Row");
+    m.apply({ seq: 6, event: { ...named, name: null, by: null } });
+    expect(m.halls.get("2,0")?.name).toBe("Kindred 1");
+    // Cleared, set again with no name sent, and gone when it disbands.
+    m.apply({ seq: 7, event: { ...hall, hall: null } });
+    expect(m.halls.size).toBe(0);
+    m.apply({ seq: 8, event: { ...hall, hall: { px: 0, py: 0 } } });
+    expect(m.halls.get("0,0")?.name).toBe("Kindred 1");
+    m.apply({ seq: 9, event: { type: "kindred_disbanded", kindred: "k_1", how: "empty" } });
+    expect(m.halls.size).toBe(0);
+  });
+
   it("asks the sim's rule whose pickups a resident may take, from the snapshot and live", () => {
     const m = new Mirror({ ...snapshot, plots: [{ px: 0, py: 0, ownerId: "a", coOwners: ["b"] }] });
     // Before the switch, anyone may gather anywhere.

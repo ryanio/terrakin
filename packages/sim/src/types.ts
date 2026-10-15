@@ -2254,7 +2254,6 @@ export type WorldEvent =
   | { type: "kindred_steward"; kindred: KindredId; residentId: ResidentId; steward: boolean }
   /** Its name (untrusted) is `name` now, written by `by`, or it goes by its id (`null`) after a takedown. */
   | { type: "kindred_named"; kindred: KindredId; name: string | null; by: ResidentId | null }
-  /** Its hall is plot (px, py) now, or it has none (`null`). */
   /** Its hall is plot (px, py) now, with what the kindred goes by for the map (untrusted), or it has none (`null`). */
   | {
       type: "kindred_hall";

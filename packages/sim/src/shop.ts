@@ -44,7 +44,7 @@ import {
   isStackKind,
   type StackKind,
 } from "./items";
-import { COSTUMES, isShopWear, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
+import { COSTUMES, isShopWear, MIDWINTER_WEAR, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
 import { SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
@@ -86,6 +86,7 @@ const WEAR_PRICES: Readonly<Record<ShopWear, number>> = {
   pumpkin_head: 35,
   ghost_sheet: 25,
   bat_wings: 35,
+  santa_hat: 25,
 };
 
 /** The catalog's kinds the shop sells: those with a shop price, in catalog order. */
@@ -290,12 +291,12 @@ export const SEASON_BUYS: Readonly<Record<Season, readonly SellKind[]>> = {
 /**
  * Shop stock sold only while a holiday runs, every day of it, and refused (`out_of_holiday`) the
  * rest of the year: the catalog's kinds with that holiday (Halloween's candy and decor, Midwinter's
- * candy canes), then its wear (Halloween's costumes). What you bought stays yours, to use and wear
- * any day.
+ * candy canes and stockings), then its wear (Halloween's costumes, Midwinter's Santa hat). What
+ * you bought stays yours, to use and wear any day.
  */
 export const HOLIDAY_STOCK: Readonly<Record<Holiday, readonly ShopSku[]>> = {
   halloween: [...holidayKinds("halloween"), ...COSTUMES] as ShopSku[],
-  midwinter: holidayKinds("midwinter") as ShopSku[],
+  midwinter: [...holidayKinds("midwinter"), ...MIDWINTER_WEAR] as ShopSku[],
   thanksgiving: holidayKinds("thanksgiving") as ShopSku[],
   hanukkah: holidayKinds("hanukkah") as ShopSku[],
 };

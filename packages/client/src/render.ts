@@ -367,10 +367,10 @@ export function render(
   const lanterns: { sx: number; sy: number; tint: MapGlow["tint"] }[] = [];
   /** The bulbs of strings of lights on screen, which glow their own colors after dark. */
   const bulbs: { x: number; y: number; color: string }[] = [];
-  // Ponds (RFC 0023) lie flat in the ground, each tile's bank only where no pond runs on, with
-  // any cast on them drawn before the blocks and figures.
   // Hanukkah's night, for how many candles a menorah lights (RFC 0034).
   const night = mirror.day === undefined ? 0 : hanukkahNight(mirror.day);
+  // Ponds (RFC 0023) lie flat in the ground, each tile's bank only where no pond runs on, with
+  // any cast on them drawn before the blocks and figures.
   const isPond = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "pond";
   for (const [key, block] of mirror.blocks) {
     if (block !== "pond") continue;

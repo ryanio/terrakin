@@ -5,6 +5,18 @@ import { HANUKKAH_HEX } from "@terrakin/ui/looks";
 const K = HANUKKAH_HEX;
 
 /**
+ * Whether the menorah's candle `i` (0 to 8 from the left, 4 the helper) burns on Hanukkah's `night`
+ * (1 to 8, or 0 outside it): the helper and `night` candles, the first night's on the far right and
+ * each next night's to the left of the last. Pure.
+ */
+export function candleLit(i: number, night: number): boolean {
+  if (night < 1) return false;
+  if (i === 4) return true;
+  const fromLeft = i > 4 ? i - 1 : i;
+  return fromLeft >= 8 - night;
+}
+
+/**
  * A brass menorah with nine candles, the helper candle tall in the middle. On Hanukkah's `night`
  * (1 to 8) the helper and that many candles burn, the first night's on the far right; outside
  * Hanukkah (0) none do.
@@ -43,9 +55,7 @@ export function paintMenorah(
     const cTop = y(helper ? 0.22 : 0.3);
     ctx.fillStyle = K.candle;
     ctx.fillRect(cx - size * 0.025, cTop, size * 0.05, y(0.44) - cTop);
-    // The first night's candle is the far right one (i = 8), the next to its left, and so on.
-    const lit = night > 0 && (helper || 8 - (i > 4 ? i - 1 : i) < night);
-    if (!lit) continue;
+    if (!candleLit(i, night)) continue;
     ctx.fillStyle = K.flame;
     ctx.beginPath();
     ctx.ellipse(cx, cTop - size * 0.05, size * 0.028, size * 0.05, 0, 0, Math.PI * 2);

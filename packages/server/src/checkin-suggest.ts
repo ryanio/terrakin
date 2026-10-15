@@ -1,5 +1,6 @@
 import { COLLECTION_WORDS, FIND_GROUND } from "@terrakin/protocol";
 import {
+  blocksOn,
   broughtTo,
   CATALOG,
   COSTUMES,
@@ -272,6 +273,35 @@ function oneFindShort(
   }
   return undefined;
 }
+/**
+ * Whether `id` holds a menorah or has one standing on their home plot, on any floor (RFC 0034).
+ */
+function hasMenorah(state: WorldState, id: string): boolean {
+  if ((state.items?.inventories[id]?.stacks.menorah ?? 0) > 0) return true;
+  const home = homePlotOf(state, id);
+  if (!home) return false;
+  const s = state.config.plotSize;
+  for (let floor = 0; floor <= (home.floors ?? 0); floor++) {
+    const blocks = blocksOn(state, floor);
+    for (let y = home.py * s; y < (home.py + 1) * s; y++) {
+      for (let x = home.px * s; x < (home.px + 1) * s; x++) {
+        if (blocks[tileKey(x, y)] === "menorah") return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Whether `id` holds something a kitchen made for the feast's table (RFC 0034). */
+function holdsDish(state: WorldState, id: string): boolean {
+  const inv = state.items?.inventories[id];
+  if (!inv) return false;
+  return (
+    inv.goods.some((g) => isDish(g.kind)) ||
+    Object.entries(inv.stacks).some(([kind, n]) => (n ?? 0) > 0 && isDish(kind))
+  );
+}
+
 /** Something a pedestal or frame can show in your things: a made thing, or a find. */
 const holdsShowable = (state: WorldState, viewer: string) => {
   const inv = state.items?.inventories[viewer];
@@ -294,30 +324,6 @@ const votable = (state: WorldState, viewer: string) =>
  * Only sim actions count as tried, since those are what the world log remembers. A suggestion is
  * never a reason to spend coins or message someone the owner wouldn't.
  */
-/** Whether `id` holds a menorah or has one standing on a plot they live on (RFC 0034). */
-function hasMenorah(state: WorldState, id: string): boolean {
-  if ((state.items?.inventories[id]?.stacks.menorah ?? 0) > 0) return true;
-  const home = homePlotOf(state, id);
-  if (!home) return false;
-  const s = state.config.plotSize;
-  for (let y = home.py * s; y < (home.py + 1) * s; y++) {
-    for (let x = home.px * s; x < (home.px + 1) * s; x++) {
-      if (state.blocks[tileKey(x, y)] === "menorah") return true;
-    }
-  }
-  return false;
-}
-
-/** Whether `id` holds something a kitchen made for the feast's table (RFC 0034). */
-function holdsDish(state: WorldState, id: string): boolean {
-  const inv = state.items?.inventories[id];
-  if (!inv) return false;
-  return (
-    inv.goods.some((g) => isDish(g.kind)) ||
-    Object.entries(inv.stacks).some(([kind, n]) => (n ?? 0) > 0 && isDish(kind))
-  );
-}
-
 export const TRY_NEXT: readonly TryNext[] = [
   {
     // Halloween's nights (RFC 0022): on October 31 and November 1, for a resident with a home who

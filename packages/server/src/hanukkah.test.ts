@@ -114,5 +114,16 @@ describe("Hanukkah", () => {
     const bought = await t.act(ada.token, { type: "shop_buy", sku: "menorah" });
     expect(bought).toMatchObject({ ok: true });
     expect(pickTryNext(t.service.state, ada.id, new Set(), new Set())?.id).not.toBe("menorah");
+    // Placed on her plot, it still counts.
+    const hearth = t.service.state.residents[ada.id]?.hearth;
+    const placed = await t.act(ada.token, {
+      type: "place",
+      x: (hearth?.x ?? 0) - 1,
+      y: (hearth?.y ?? 0) + 3,
+      block: "menorah",
+    });
+    expect(placed).toMatchObject({ ok: true });
+    expect(t.service.state.items?.inventories[ada.id]?.stacks.menorah ?? 0).toBe(0);
+    expect(pickTryNext(t.service.state, ada.id, new Set(), new Set())?.id).not.toBe("menorah");
   });
 });

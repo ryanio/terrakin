@@ -762,11 +762,7 @@ function dreidelParts(grain: Texture): Part[] {
   const K = HANUKKAH_HEX;
   const body = merged([
     box(0.24, 0.2, 0.24, [0, 0.27, 0], [0, Math.PI / 4, 0], 0.02),
-    new ConeGeometry(0.17, 0.17, 4)
-      .rotateX(Math.PI)
-      .rotateY(0)
-      .translate(0, 0.085, 0)
-      .toNonIndexed(),
+    new ConeGeometry(0.17, 0.17, 4).rotateX(Math.PI).translate(0, 0.085, 0).toNonIndexed(),
   ]);
   const handle = merged([
     new CylinderGeometry(0.025, 0.025, 0.1, 8).translate(0, 0.42, 0).toNonIndexed(),

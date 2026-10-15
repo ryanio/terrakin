@@ -1867,14 +1867,13 @@ function menorah(): ArtShape[] {
   ];
 }
 
-/** A four-sided blue spinning top, its point down, with a letter on its face. */
+/** A four-sided blue spinning top, its point down, its lit face lighter. */
 function dreidel(): ArtShape[] {
   return [
     shadow(9, 43),
     rect(22.5, 8, 3, 7, 1, K.dreidelLight, out()),
     path("M14 15h20v14l-10 12-10-12z", K.dreidel, out()),
     path("M24 15h10v14l-10 12z", K.dreidelLight, { opacity: 0.55 }),
-    line("M18.5 20.5h5M21 20.5v6.5M18.5 27h5", "#ffffff", 1.4, { opacity: 0.85 }),
   ];
 }
 

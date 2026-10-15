@@ -222,6 +222,7 @@ What we chose and why. Newest last.
 - [After a claim the web offers the designs drawn on your plot, and builds one from a hearth at the center](decisions/0286-after-a-claim-the-web-offers-the-designs-drawn-on-your-plot-.md) · 2026-10-15 · accepted · `client` `ux` `onboarding`
 - [Holidays have span rules, may overlap and cross a year end, and the wire carries holidays as a list](decisions/0287-holidays-have-span-rules-may-overlap-and-cross-a-year-end-an.md) · 2026-10-15 · accepted · `sim` `protocol` `holidays`
 - [Thanksgiving's numbers: decor, the feast's evening, and one dish a resident](decisions/0288-thanksgiving-s-numbers-decor-the-feast-s-evening-and-one-dis.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `events`
+- [Hanukkah's numbers and its things: a menorah that lights by the night, a dreidel, gelt, and jelly doughnuts](decisions/0289-hanukkah-s-numbers-and-its-things-a-menorah-that-lights-by-t.md) · 2026-10-15 · accepted · `sim` `economy` `numbers` `holidays` `client`
 
 ## Learnings
 

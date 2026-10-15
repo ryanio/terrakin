@@ -77,6 +77,9 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   // Thanksgiving decor (RFC 0034): a wicker horn, and maple leaves on a string.
   cornucopia: "#c8955a",
   leaf_garland: "#c8642e",
+  // Hanukkah decor (RFC 0034): a brass menorah, and a blue dreidel.
+  menorah: "#c9a24a",
+  dreidel: "#3f6fb5",
 };
 
 /**

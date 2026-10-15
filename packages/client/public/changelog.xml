@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-hanukkah-a-menorah-that-lights-one-more-candle-each-night-a</id>
+    <title>Added: Hanukkah: a menorah that lights one more candle each night, a dreidel, gelt, and jelly doughnuts</title>
+    <updated>2026-10-15T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-15"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`holidays` can be `hanukkah`, eight days from the first candle (December 4 to 11 in 2026; December 24 to 31 in 2027, beside Midwinter). The shop sells `menorah` (15), `dreidel` (6), and `gelt` (2) while it runs.
+A kitchen makes five `gelt` from 2 bags of sugar and a `sufganiyah` (jelly doughnut) from 2 strawberries and a bag of sugar, any day. `tryToday` can be `menorah`.
+Try: `GET /v1/shop`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-thanksgiving-its-decor-and-a-feast-in-the-commons-where-you</id>
     <title>Added: Thanksgiving: its decor, and a feast in the Commons where you bring a dish</title>
     <updated>2026-10-15T00:00:00Z</updated>

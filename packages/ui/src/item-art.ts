@@ -34,6 +34,7 @@ import {
   batPath,
   EARNED_HEX,
   HALLOWEEN_HEX,
+  HANUKKAH_HEX,
   leafPath,
   mediaUrlOf,
   RESIDENT_COLOR_HEX,
@@ -1838,6 +1839,69 @@ function leafGarland(): ArtShape[] {
   ];
 }
 
+// ---------- Hanukkah (RFC 0034) ----------
+
+const K = HANUKKAH_HEX;
+
+/** A brass menorah with its nine candles lit, the helper candle tall in the middle. */
+function menorah(): ArtShape[] {
+  const xs = [6, 10.5, 15, 19.5, 24, 28.5, 33, 37.5, 42];
+  const arms = [1, 2, 3, 4].map((i) => {
+    const r = i * 4.5;
+    return line(`M${24 - r} 21v${2 + i}a${r} ${r} 0 0 0 ${2 * r} 0v-${2 + i}`, K.brass, 1.6);
+  });
+  const candle = (x: number, i: number) => {
+    const top = i === 4 ? 10 : 14;
+    return [
+      rect(x - 1.3, top, 2.6, 21 - top, 0.6, K.candle, out({ "stroke-width": 0.7 })),
+      path(`M${x} ${top - 5}c-1.6 1.6-1.6 3.4 0 4.2 1.6-.8 1.6-2.6 0-4.2z`, K.flame),
+      circle(x, top - 1.6, 0.8, K.flameCore),
+    ];
+  };
+  return [
+    shadow(14, 43),
+    path("M17 42h14l-2-4h-10z", K.brassDark, out()),
+    line("M24 38V21", K.brass, 2.2),
+    ...arms,
+    ...xs.flatMap(candle),
+  ];
+}
+
+/** A four-sided blue spinning top, its point down, with a letter on its face. */
+function dreidel(): ArtShape[] {
+  return [
+    shadow(9, 43),
+    rect(22.5, 8, 3, 7, 1, K.dreidelLight, out()),
+    path("M14 15h20v14l-10 12-10-12z", K.dreidel, out()),
+    path("M24 15h10v14l-10 12z", K.dreidelLight, { opacity: 0.55 }),
+    line("M18.5 20.5h5M21 20.5v6.5M18.5 27h5", "#ffffff", 1.4, { opacity: 0.85 }),
+  ];
+}
+
+/** A coin of chocolate in gold foil, stamped. */
+function gelt(): ArtShape[] {
+  return [
+    shadow(13, 42),
+    ellipse(24, 26, 14, 13, K.geltRim, out()),
+    ellipse(24, 25, 12, 11, K.gelt),
+    ellipse(24, 25, 7.5, 7, K.geltRim, { opacity: 0.45 }),
+    path("M20.5 22.5h7l-3.5 6z", K.gelt, out({ "stroke-width": 0.8 })),
+  ];
+}
+
+/** A round jelly doughnut dusted with sugar, jam showing at its side. */
+function sufganiyah(): ArtShape[] {
+  return [
+    shadow(15, 42),
+    ellipse(24, 28, 16, 12, K.dough, out()),
+    path("M10 25c4-6 24-6 28 0-6-3-22-3-28 0z", K.sugar, { opacity: 0.9 }),
+    circle(17, 24, 1, K.sugar),
+    circle(30, 23.5, 1, K.sugar),
+    circle(24, 21.5, 1, K.sugar),
+    path("M36 29c3 0 5 2 4 4-2 1-4 0-5-2z", K.jelly, out({ "stroke-width": 0.8 })),
+  ];
+}
+
 // ---------- winter (RFC 0017) and Midwinter (RFC 0022) ----------
 
 const W = WINTER_HEX;
@@ -2276,6 +2340,10 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   fish_stew: fishStew,
   cornucopia,
   leaf_garland: leafGarland,
+  menorah,
+  dreidel,
+  gelt,
+  sufganiyah,
 };
 
 /** Every piece of wear's drawing. */

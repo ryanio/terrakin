@@ -6,6 +6,7 @@ import {
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
+  hanukkahNight,
   holidaysOf,
   isDecorKind,
   isFurnitureKind,
@@ -368,6 +369,8 @@ export function render(
   const bulbs: { x: number; y: number; color: string }[] = [];
   // Ponds (RFC 0023) lie flat in the ground, each tile's bank only where no pond runs on, with
   // any cast on them drawn before the blocks and figures.
+  // Hanukkah's night, for how many candles a menorah lights (RFC 0034).
+  const night = mirror.day === undefined ? 0 : hanukkahNight(mirror.day);
   const isPond = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "pond";
   for (const [key, block] of mirror.blocks) {
     if (block !== "pond") continue;
@@ -450,7 +453,7 @@ export function render(
         s: isFence(x, y + 1),
         w: isFence(x - 1, y),
       };
-      paintDecor(ctx, block, left, top, size, scale, inset, joins);
+      paintDecor(ctx, block, left, top, size, scale, inset, joins, night);
       // A frame shows what hangs in it in place of its own little landscape.
       const shown =
         block === "frame"

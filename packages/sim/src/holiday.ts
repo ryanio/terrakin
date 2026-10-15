@@ -13,7 +13,7 @@
 import { dateOfDay, dayOfDate } from "./season";
 
 /** Every holiday. New ones go on the end. */
-export const HOLIDAYS = ["halloween", "midwinter", "thanksgiving"] as const;
+export const HOLIDAYS = ["halloween", "midwinter", "thanksgiving", "hanukkah"] as const;
 export type Holiday = (typeof HOLIDAYS)[number];
 
 /** A day of the year: `month` is 1 to 12 and `date` is 1 to 31. */
@@ -64,6 +64,31 @@ export const HOLIDAY_INFO: Readonly<Record<Holiday, HolidayInfo>> = {
   thanksgiving: {
     name: "Thanksgiving",
     span: { weekday: { month: 11, weekday: 4, nth: 4 }, from: -3, to: 3 },
+  },
+  // Eight days from the evening of the first candle (RFC 0034). The dates follow the Hebrew
+  // calendar, so they're a table, checked against Hebcal's (hebcal.com) on 2026-10-15.
+  hanukkah: {
+    name: "Hanukkah",
+    span: {
+      table: {
+        2026: { month: 12, date: 4 },
+        2027: { month: 12, date: 24 },
+        2028: { month: 12, date: 12 },
+        2029: { month: 12, date: 1 },
+        2030: { month: 12, date: 20 },
+        2031: { month: 12, date: 9 },
+        2032: { month: 11, date: 27 },
+        2033: { month: 12, date: 16 },
+        2034: { month: 12, date: 6 },
+        2035: { month: 12, date: 25 },
+        2036: { month: 12, date: 13 },
+        2037: { month: 12, date: 2 },
+        2038: { month: 12, date: 21 },
+        2039: { month: 12, date: 11 },
+        2040: { month: 11, date: 29 },
+      },
+      length: 8,
+    },
   },
 };
 
@@ -135,6 +160,15 @@ export const holidayRun = (holiday: Holiday, day: number): HolidayRun | undefine
 export const inHoliday = (holiday: Holiday, day: number) => holidayRun(holiday, day) !== undefined;
 
 const nextRun = (holiday: Holiday, day: number) => nextRunOf(HOLIDAY_INFO[holiday].span, day);
+
+/**
+ * Which night of Hanukkah `day` is, 1 to 8, or 0 outside it: the menorah lights that many candles
+ * (RFC 0034). Drawing only, from the world's day.
+ */
+export function hanukkahNight(day: number): number {
+  const run = holidayRun("hanukkah", day);
+  return run ? day - run.first + 1 : 0;
+}
 
 /** Every holiday running on `day`, the one that started first first, and none on an ordinary day. */
 export function holidaysOf(day: number): Holiday[] {

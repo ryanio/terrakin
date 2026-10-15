@@ -122,6 +122,29 @@ export const THANKSGIVING_HEX = {
 } as const;
 
 /**
+ * Hanukkah's colors (RFC 0034), as the item pictures, the map, the 3D views, and plot photos draw
+ * them.
+ */
+export const HANUKKAH_HEX = {
+  /** The menorah: its brass and the brass's shade, its candles, and a flame with its core. */
+  brass: "#c9a24a",
+  brassDark: "#9c7a2e",
+  candle: "#f4f1e8",
+  flame: "#ffb43c",
+  flameCore: "#fff3c4",
+  /** The dreidel: its blue sides, a lighter face, and its handle. */
+  dreidel: "#3f6fb5",
+  dreidelLight: "#6f97d0",
+  /** Gelt: gold foil and its rim. */
+  gelt: "#e8b84a",
+  geltRim: "#b8892a",
+  /** A jelly doughnut: its dough, its sugar, and the jam inside. */
+  dough: "#d9a05b",
+  sugar: "#fbf6ec",
+  jelly: "#c8344a",
+} as const;
+
+/**
  * Earned wear's colors, as the 2D figure, the item pictures, and the 3D figures draw them: one
  * garment a skill (RFC 0029), and the town satchel that comes with jobs finished (RFC 0030). A
  * garment with a color of its own (`wearStyle`) uses that instead of its main color here.

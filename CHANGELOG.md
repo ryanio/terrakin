@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-15
 
-<!-- api-fingerprint: 624b952dca15, 5 entries -->
+<!-- api-fingerprint: 84c7da1502a6, 6 entries -->
+
+- **Added** Hanukkah: a menorah that lights one more candle each night, a dreidel, gelt, and jelly doughnuts
+  `holidays` can be `hanukkah`, eight days from the first candle (December 4 to 11 in 2026; December 24 to 31 in 2027, beside Midwinter). The shop sells `menorah` (15), `dreidel` (6), and `gelt` (2) while it runs.
+  A kitchen makes five `gelt` from 2 bags of sugar and a `sufganiyah` (jelly doughnut) from 2 strawberries and a bag of sugar, any day. `tryToday` can be `menorah`.
+  Try: `GET /v1/shop`
 
 - **Added** Thanksgiving: its decor, and a feast in the Commons where you bring a dish
   `holidays` can be `thanksgiving`, from the Monday before the fourth Thursday of November to the Sunday after, with `cornucopia` (12) and `leaf_garland` (6) at the shop. On the Thursday the town's feast is in the Commons from 18:00 to 03:00 UTC.

@@ -12,6 +12,7 @@ import { STRAW as STRAW_BRAND, WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/bran
 import {
   BAT_POINTS,
   HALLOWEEN_HEX,
+  HANUKKAH_HEX,
   LEAF_POINTS,
   THANKSGIVING_HEX,
   WINTER_HEX,
@@ -722,6 +723,60 @@ function leafGarlandParts(grain: Texture): Part[] {
   ];
 }
 
+// ---------- Hanukkah's decor (RFC 0034) ----------
+
+/** A brass menorah: a foot, a stem, four arms each side, and nine candles, the helper tallest. */
+function menorahParts(grain: Texture): Part[] {
+  const K = HANUKKAH_HEX;
+  const arms: BufferGeometry[] = [];
+  for (let i = 1; i <= 4; i++) {
+    const arm = new TorusGeometry(i * 0.085, 0.014, 5, 18, Math.PI);
+    arm.rotateZ(Math.PI);
+    arm.translate(0, 0.5, 0);
+    arms.push(arm.toNonIndexed());
+  }
+  const brass = merged(
+    [
+      new CylinderGeometry(0.1, 0.16, 0.06, 14).translate(0, 0.03, 0).toNonIndexed(),
+      new CylinderGeometry(0.018, 0.018, 0.47, 8).translate(0, 0.27, 0).toNonIndexed(),
+      ...arms,
+    ],
+    0.8,
+  );
+  const candles = merged(
+    Array.from({ length: 9 }, (_, i) => {
+      const x = -0.34 + i * 0.085;
+      const h = i === 4 ? 0.2 : 0.12;
+      return new CylinderGeometry(0.014, 0.014, h, 6).translate(x, 0.5 + h / 2, 0).toNonIndexed();
+    }),
+    0.9,
+  );
+  return [
+    { geometry: brass, material: paper(hex(K.brass), grain), cast: true },
+    { geometry: candles, material: paper(hex(K.candle), grain), cast: false },
+  ];
+}
+
+/** A blue spinning top on its point, with its handle up. */
+function dreidelParts(grain: Texture): Part[] {
+  const K = HANUKKAH_HEX;
+  const body = merged([
+    box(0.24, 0.2, 0.24, [0, 0.27, 0], [0, Math.PI / 4, 0], 0.02),
+    new ConeGeometry(0.17, 0.17, 4)
+      .rotateX(Math.PI)
+      .rotateY(0)
+      .translate(0, 0.085, 0)
+      .toNonIndexed(),
+  ]);
+  const handle = merged([
+    new CylinderGeometry(0.025, 0.025, 0.1, 8).translate(0, 0.42, 0).toNonIndexed(),
+  ]);
+  return [
+    { geometry: body, material: paper(hex(K.dreidel), grain), cast: true },
+    { geometry: handle, material: paper(hex(K.dreidelLight), grain), cast: true },
+  ];
+}
+
 function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "lantern") return lanternParts(stage, grain);
   if (kind === "frame") return frameParts(stage, grain);
@@ -737,6 +792,8 @@ function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "sled") return sledParts(grain);
   if (kind === "cornucopia") return cornucopiaParts(grain);
   if (kind === "leaf_garland") return leafGarlandParts(grain);
+  if (kind === "menorah") return menorahParts(grain);
+  if (kind === "dreidel") return dreidelParts(grain);
   return benchParts(grain);
 }
 

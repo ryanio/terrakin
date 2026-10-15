@@ -76,6 +76,8 @@ export const PLOT_DECOR = [
   "sled",
   "cornucopia",
   "leaf_garland",
+  "menorah",
+  "dreidel",
 ] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
@@ -691,6 +693,14 @@ const GOURD = "#e8862f";
 const GRAPES = "#7b4f9c";
 const TWINE = "#7a5a3a";
 const LEAVES = ["#e0a33a", "#a8382c", "#d47a2a", "#b85a2a"] as const;
+/**
+ * Hanukkah's colors (RFC 0034), as `HANUKKAH_HEX` in `packages/ui/src/looks.ts` has them. The
+ * menorah's brass and the dreidel's blue are each one's `fill`. Plot photos are daylight, so the
+ * candles stand unlit.
+ */
+const BRASS_DARK = "#9c7a2e";
+const CANDLE = "#f4f1e8";
+const DREIDEL_LIGHT = "#6f97d0";
 /** A maple leaf, point up, as `LEAF_POINTS` in `packages/ui/src/looks.ts`: half its width is 1. */
 const LEAF_POINTS: readonly (readonly [number, number])[] = [
   [0, -1],
@@ -975,6 +985,31 @@ function decorSvg(
       `<path d="M${X(0.12)} ${Y(0.92)}V${Y(0.22)}M${X(0.88)} ${Y(0.92)}V${Y(0.22)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round"/>`,
       `<path d="M${X(0.12)} ${Y(0.26)}Q${X(0.5)} ${Y(0.52)} ${X(0.88)} ${Y(0.26)}" fill="none" stroke="${TWINE}" stroke-width="0.02"/>`,
       ...[0.14, 0.32, 0.5, 0.68, 0.86].map(leaf),
+    ];
+  }
+  if (kind === "menorah") {
+    const arms = [1, 2, 3, 4].map((i) => {
+      const r = n(i * 0.094);
+      return `<path d="M${X(0.5 - i * 0.094)} ${Y(0.44)}a${r} ${r} 0 0 0 ${n(2 * i * 0.094)} 0" fill="none" stroke="${fill}" stroke-width="0.035"/>`;
+    });
+    const candles = Array.from({ length: 9 }, (_, i) => {
+      const top = i === 4 ? 0.22 : 0.3;
+      return `<rect x="${X(0.1 + i * 0.094)}" y="${Y(top)}" width="0.05" height="${n(0.44 - top)}" fill="${CANDLE}"/>`;
+    });
+    return [
+      shade,
+      `<path d="M${X(0.36)} ${Y(0.88)}H${X(0.64)}L${X(0.6)} ${Y(0.8)}H${X(0.4)}z" fill="${fill}" stroke="${BRASS_DARK}" stroke-width="0.02"/>`,
+      `<path d="M${X(0.5)} ${Y(0.8)}V${Y(0.44)}" stroke="${fill}" stroke-width="0.04"/>`,
+      ...arms,
+      ...candles,
+    ];
+  }
+  if (kind === "dreidel") {
+    return [
+      shade,
+      `<rect x="${X(0.47)}" y="${Y(0.2)}" width="0.06" height="0.13" fill="${DREIDEL_LIGHT}"/>`,
+      `<path d="M${X(0.3)} ${Y(0.33)}H${X(0.7)}V${Y(0.62)}L${X(0.5)} ${Y(0.86)}L${X(0.3)} ${Y(0.62)}z" fill="${fill}" ${stroke}/>`,
+      `<path d="M${X(0.5)} ${Y(0.33)}H${X(0.7)}V${Y(0.62)}L${X(0.5)} ${Y(0.86)}z" fill="${DREIDEL_LIGHT}" opacity="0.55"/>`,
     ];
   }
   if (kind === "scarecrow") {

@@ -158,6 +158,8 @@ const HOLIDAY_SHELF: Readonly<Record<string, string>> = {
   midwinter: "A kitchen makes candy canes any day, five from a bunch of herbs and a bag of sugar.",
   thanksgiving:
     "Decor is yours for good. Bring a dish you made to the feast in the Commons on Thursday.",
+  hanukkah:
+    "A menorah lights one more candle each night. A kitchen makes gelt and jelly doughnuts any day.",
 };
 
 /**

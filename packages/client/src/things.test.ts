@@ -437,6 +437,7 @@ describe("a made thing in a sentence", () => {
     fried_minnows: "fried minnows",
     fish_stew: "fish stew",
     pumpkin_pie: "a pumpkin pie",
+    sufganiyah: "a jelly doughnut",
     bouquet: "a bouquet",
     herb_sachet: "an herb sachet",
     flower_wreath: "a flower wreath",

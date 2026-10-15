@@ -163,7 +163,13 @@ describe("the recipe lists", () => {
   });
 
   it("knows the holiday recipes from the catalog's marks", () => {
-    expect([...HOLIDAY_RECIPES].sort()).toEqual(["candy", "candy_cane", "jack_o_lantern"]);
+    expect([...HOLIDAY_RECIPES].sort()).toEqual([
+      "candy",
+      "candy_cane",
+      "gelt",
+      "jack_o_lantern",
+      "sufganiyah",
+    ]);
   });
 
   it("sells a card for every other recipe", () => {

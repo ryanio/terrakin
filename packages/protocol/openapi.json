@@ -5381,6 +5381,8 @@
                 "sled",
                 "cornucopia",
                 "leaf_garland",
+                "menorah",
+                "dreidel",
                 "table",
                 "chair",
                 "bookshelf",
@@ -5410,6 +5412,7 @@
                 "cherry_blossom",
                 "candy",
                 "candy_cane",
+                "gelt",
                 "minnow",
                 "perch",
                 "carp",
@@ -5439,6 +5442,7 @@
                 "fishing_rod",
                 "fried_minnows",
                 "fish_stew",
+                "sufganiyah",
                 "piece"
               ]
             }
@@ -14659,6 +14663,7 @@
                 "fishing_rod",
                 "fried_minnows",
                 "fish_stew",
+                "sufganiyah",
                 "table",
                 "chair",
                 "bookshelf",
@@ -14671,7 +14676,8 @@
                 "flower_box",
                 "jack_o_lantern",
                 "candy",
-                "candy_cane"
+                "candy_cane",
+                "gelt"
               ]
             }
           },
@@ -27281,7 +27287,9 @@
                     "pond",
                     "stairs",
                     "cornucopia",
-                    "leaf_garland"
+                    "leaf_garland",
+                    "menorah",
+                    "dreidel"
                   ]
                 }
               },
@@ -27445,7 +27453,9 @@
               "pond",
               "stairs",
               "cornucopia",
-              "leaf_garland"
+              "leaf_garland",
+              "menorah",
+              "dreidel"
             ]
           },
           "windows": {
@@ -27487,7 +27497,9 @@
               "pond",
               "stairs",
               "cornucopia",
-              "leaf_garland"
+              "leaf_garland",
+              "menorah",
+              "dreidel"
             ]
           },
           "path": {
@@ -29237,7 +29249,8 @@
           "cranberry_punch",
           "fishing_rod",
           "fried_minnows",
-          "fish_stew"
+          "fish_stew",
+          "sufganiyah"
         ]
       },
       "GroomPetAction": {
@@ -29445,7 +29458,8 @@
         "enum": [
           "halloween",
           "midwinter",
-          "thanksgiving"
+          "thanksgiving",
+          "hanukkah"
         ]
       },
       "HomeAction": {
@@ -29568,6 +29582,8 @@
           "sled",
           "cornucopia",
           "leaf_garland",
+          "menorah",
+          "dreidel",
           "table",
           "chair",
           "bookshelf",
@@ -29597,6 +29613,7 @@
           "cherry_blossom",
           "candy",
           "candy_cane",
+          "gelt",
           "minnow",
           "perch",
           "carp",
@@ -29626,6 +29643,7 @@
           "fishing_rod",
           "fried_minnows",
           "fish_stew",
+          "sufganiyah",
           "piece"
         ]
       },
@@ -30031,6 +30049,7 @@
           "fishing_rod",
           "fried_minnows",
           "fish_stew",
+          "sufganiyah",
           "piece"
         ]
       },
@@ -30410,7 +30429,9 @@
               "pond",
               "stairs",
               "cornucopia",
-              "leaf_garland"
+              "leaf_garland",
+              "menorah",
+              "dreidel"
             ]
           },
           "dry": {
@@ -30471,7 +30492,9 @@
               "sled",
               "pond",
               "cornucopia",
-              "leaf_garland"
+              "leaf_garland",
+              "menorah",
+              "dreidel"
             ]
           }
         },
@@ -30614,7 +30637,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "1": {
@@ -30655,7 +30680,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "2": {
@@ -30696,7 +30723,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "3": {
@@ -30737,7 +30766,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "4": {
@@ -30778,7 +30809,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "5": {
@@ -30819,7 +30852,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "6": {
@@ -30860,7 +30895,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "7": {
@@ -30901,7 +30938,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "8": {
@@ -30942,7 +30981,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "9": {
@@ -30983,7 +31024,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               }
             },
@@ -31072,7 +31115,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "1": {
@@ -31113,7 +31158,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "2": {
@@ -31154,7 +31201,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "3": {
@@ -31195,7 +31244,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "4": {
@@ -31236,7 +31287,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "5": {
@@ -31277,7 +31330,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "6": {
@@ -31318,7 +31373,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "7": {
@@ -31359,7 +31416,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "8": {
@@ -31400,7 +31459,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "9": {
@@ -31441,7 +31502,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               }
             },
@@ -31541,7 +31604,9 @@
                         "pond",
                         "stairs",
                         "cornucopia",
-                        "leaf_garland"
+                        "leaf_garland",
+                        "menorah",
+                        "dreidel"
                       ]
                     }
                   },
@@ -32025,6 +32090,7 @@
           "fishing_rod",
           "fried_minnows",
           "fish_stew",
+          "sufganiyah",
           "table",
           "chair",
           "bookshelf",
@@ -32037,7 +32103,8 @@
           "flower_box",
           "jack_o_lantern",
           "candy",
-          "candy_cane"
+          "candy_cane",
+          "gelt"
         ]
       },
       "RecipeName": {
@@ -32068,7 +32135,9 @@
           "candy_cane",
           "fishing_rod",
           "fried_minnows",
-          "fish_stew"
+          "fish_stew",
+          "gelt",
+          "sufganiyah"
         ]
       },
       "ReleaseAction": {
@@ -33036,6 +33105,8 @@
           "sled",
           "cornucopia",
           "leaf_garland",
+          "menorah",
+          "dreidel",
           "top_hat",
           "raincoat",
           "umbrella",
@@ -33055,7 +33126,8 @@
           "sugar",
           "jar",
           "candy",
-          "candy_cane"
+          "candy_cane",
+          "gelt"
         ]
       },
       "SitAction": {
@@ -33128,6 +33200,8 @@
           "sled",
           "cornucopia",
           "leaf_garland",
+          "menorah",
+          "dreidel",
           "table",
           "chair",
           "bookshelf",
@@ -33157,6 +33231,7 @@
           "cherry_blossom",
           "candy",
           "candy_cane",
+          "gelt",
           "minnow",
           "perch",
           "carp",
@@ -33227,7 +33302,8 @@
         "type": "string",
         "enum": [
           "candy",
-          "candy_cane"
+          "candy_cane",
+          "gelt"
         ]
       },
       "TableId": {
@@ -34500,7 +34576,9 @@
                   "pond",
                   "stairs",
                   "cornucopia",
-                  "leaf_garland"
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel"
                 ]
               },
               "by": {
@@ -37885,7 +37963,9 @@
                     "pond",
                     "stairs",
                     "cornucopia",
-                    "leaf_garland"
+                    "leaf_garland",
+                    "menorah",
+                    "dreidel"
                   ]
                 }
               },
@@ -48016,7 +48096,9 @@
                     "pond",
                     "stairs",
                     "cornucopia",
-                    "leaf_garland"
+                    "leaf_garland",
+                    "menorah",
+                    "dreidel"
                   ]
                 }
               },
@@ -48060,7 +48142,9 @@
                     "pond",
                     "stairs",
                     "cornucopia",
-                    "leaf_garland"
+                    "leaf_garland",
+                    "menorah",
+                    "dreidel"
                   ]
                 }
               },

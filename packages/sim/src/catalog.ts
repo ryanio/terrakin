@@ -893,6 +893,42 @@ const WRITTEN = {
     shop: { price: 6, holiday: "thanksgiving" },
     look: { template: "drawn" },
   }),
+  // Hanukkah (RFC 0034): a menorah that lights a candle more each night, a dreidel, gelt, and
+  // jelly doughnuts from a kitchen any day. Decision 0289 has the numbers.
+  menorah: entry({
+    name: "Menorah",
+    plural: "Menorahs",
+    family: "decor",
+    role: "decor",
+    shop: { price: 15, holiday: "hanukkah" },
+    look: { template: "drawn" },
+  }),
+  dreidel: entry({
+    name: "Dreidel",
+    plural: "Dreidels",
+    family: "decor",
+    role: "decor",
+    shop: { price: 6, holiday: "hanukkah" },
+    look: { template: "drawn" },
+  }),
+  gelt: entry({
+    name: "Gelt",
+    plural: "Pieces of gelt",
+    family: "sweets",
+    role: "sweet",
+    shop: { price: 2, holiday: "hanukkah" },
+    recipe: { station: "kitchen", needs: { sugar: 2 }, makes: 5 },
+    look: { template: "drawn" },
+  }),
+  sufganiyah: entry({
+    name: "Jelly doughnut",
+    plural: "Jelly doughnuts",
+    family: "baked",
+    role: "good",
+    recipe: { station: "kitchen", needs: { strawberry: 2, sugar: 1 } },
+    holiday: "hanukkah",
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------

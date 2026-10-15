@@ -3,6 +3,7 @@ import { BRAND_HEX, STRAW } from "@terrakin/ui/brand";
 import { type ArtKind, itemArtImage, type ThingLook } from "@terrakin/ui/item-art";
 import { lookImage } from "@terrakin/ui/looks";
 import { paintBatBunting, paintCandyBowl, paintCauldron } from "./decor-halloween";
+import { paintDreidel, paintMenorah } from "./decor-hanukkah";
 import { paintCornucopia, paintLeafGarland } from "./decor-thanksgiving";
 import { paintLittleFir, paintSled, paintSnowman, paintStringLights } from "./decor-winter";
 import { CLAY, PAPER, WOOD_DARK } from "./palette";
@@ -21,7 +22,8 @@ export interface Joins {
  * A decor block on its tile, drawn as itself rather than a square: a paper lantern on a hook, a
  * picture on an easel, a fence post with rails out to the fences beside it, a garden bench,
  * autumn's hay bale and scarecrow, Halloween's bat bunting, cauldron, and candy bowl, winter's
- * snowman, string of lights, little fir, and sled, or Thanksgiving's cornucopia and leaf garland.
+ * snowman, string of lights, little fir, and sled, Thanksgiving's cornucopia and leaf garland, or
+ * Hanukkah's menorah, its candles lit for the night, and dreidel.
  * `left`, `top`, and `size` are the block's box; `edge` is the gap to the tile's edge, so fence
  * rails reach their neighbors' rails.
  */
@@ -34,6 +36,8 @@ export function paintDecor(
   scale: number,
   edge: number,
   joins: Joins,
+  /** Hanukkah's night today, 1 to 8, or 0: a menorah lights that many candles (RFC 0034). */
+  night = 0,
 ) {
   ctx.save();
   ctx.lineJoin = "round";
@@ -63,6 +67,8 @@ export function paintDecor(
   else if (kind === "sled") paintSled(ctx, left, top, size);
   else if (kind === "cornucopia") paintCornucopia(ctx, left, top, size);
   else if (kind === "leaf_garland") paintLeafGarland(ctx, left, top, size);
+  else if (kind === "menorah") paintMenorah(ctx, left, top, size, night);
+  else if (kind === "dreidel") paintDreidel(ctx, left, top, size);
   else paintBench(ctx, left, top, size);
   ctx.restore();
 }

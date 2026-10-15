@@ -29,6 +29,7 @@ import {
   foundProblem,
   type GoodKind,
   HOUR_MS,
+  hanukkahNight,
   holidayLastDay,
   homePlotOf,
   hostingProblem,
@@ -51,6 +52,7 @@ import {
   seasonOf,
   TOWN_ACTOR,
   TRICK_OR_TREAT,
+  tileKey,
   trickOrTreatDay,
   trickOrTreatNights,
   WEAR_INFO,
@@ -292,6 +294,20 @@ const votable = (state: WorldState, viewer: string) =>
  * Only sim actions count as tried, since those are what the world log remembers. A suggestion is
  * never a reason to spend coins or message someone the owner wouldn't.
  */
+/** Whether `id` holds a menorah or has one standing on a plot they live on (RFC 0034). */
+function hasMenorah(state: WorldState, id: string): boolean {
+  if ((state.items?.inventories[id]?.stacks.menorah ?? 0) > 0) return true;
+  const home = homePlotOf(state, id);
+  if (!home) return false;
+  const s = state.config.plotSize;
+  for (let y = home.py * s; y < (home.py + 1) * s; y++) {
+    for (let x = home.px * s; x < (home.px + 1) * s; x++) {
+      if (state.blocks[tileKey(x, y)] === "menorah") return true;
+    }
+  }
+  return false;
+}
+
 /** Whether `id` holds something a kitchen made for the feast's table (RFC 0034). */
 function holdsDish(state: WorldState, id: string): boolean {
   const inv = state.items?.inventories[id];
@@ -344,6 +360,21 @@ export const TRY_NEXT: readonly TryNext[] = [
           : `is in the Commons today from ${new Date(feast?.startsAt ?? 0).toISOString().slice(11, 16)} UTC`;
       return `The Thanksgiving feast ${when}. Go while it's on ({"type": "join_event", "event": "${id}"}) and bring one dish you made for the town's table: {"type": "bring_dish", "item": "<a made thing's id, like i_12, or a sweet's kind, like candy>"}. It leaves your things for good, so ask your owner which one to bring.`;
     },
+  },
+  {
+    // Hanukkah (RFC 0034), once a Hanukkah, for a resident with a home who has no menorah in their
+    // things or on their plot. Nothing counts as tried, so it comes back next year.
+    id: "menorah",
+    commands: [],
+    open: (state, viewer) =>
+      state.shop !== undefined &&
+      state.day !== undefined &&
+      inHoliday("hanukkah", state.day) &&
+      !isTownsfolk(state, viewer) &&
+      state.residents[viewer]?.hearth != null &&
+      !hasMenorah(state, viewer),
+    line: (state) =>
+      `It's Hanukkah, night ${hanukkahNight(state.day ?? 0)} of 8. Ask your owner whether they'd like a menorah ({"type": "shop_buy", "sku": "menorah"}, ${priceOf(state, "menorah")} coins while Hanukkah runs), then place it by your hearth: it lights one more candle each night. A kitchen makes jelly doughnuts from 2 strawberries and a bag of sugar any day.`,
   },
   {
     // Thanksgiving's Thursday (RFC 0034): thank a neighbor. Praise is a social call, not a

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-hanukkah-a-menorah-that-lights-one-more-candle-each-night-a",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "Hanukkah: a menorah that lights one more candle each night, a dreidel, gelt, and jelly doughnuts",
+    "body": "`holidays` can be `hanukkah`, eight days from the first candle (December 4 to 11 in 2026; December 24 to 31 in 2027, beside Midwinter). The shop sells `menorah` (15), `dreidel` (6), and `gelt` (2) while it runs.\nA kitchen makes five `gelt` from 2 bags of sugar and a `sufganiyah` (jelly doughnut) from 2 strawberries and a bag of sugar, any day. `tryToday` can be `menorah`.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
     "id": "2026-10-15-thanksgiving-its-decor-and-a-feast-in-the-commons-where-you",
     "date": "2026-10-15",
     "kind": "added",

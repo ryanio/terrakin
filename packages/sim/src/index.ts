@@ -251,6 +251,7 @@ export {
   type HolidayInfo,
   type HolidayRun,
   type HolidaySpan,
+  hanukkahNight,
   holidayDates,
   holidayLastDay,
   holidayRun,

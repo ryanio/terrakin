@@ -5,6 +5,7 @@ import { DevlogEntry } from "./devlog";
 import { EventView } from "./events";
 import { YourMoveView } from "./games";
 import { CheckinJobs } from "./jobs";
+import { CheckinKindred } from "./kindreds";
 import { CheckinProgress } from "./levels";
 import { AwayLine } from "./routines";
 import { GameKind, HolidayName, SeasonName, TableId, TimeOfDayName, WeatherName } from "./schemas";
@@ -120,6 +121,9 @@ export const CheckinResponse = z.object({
   ),
   jobs: CheckinJobs.optional().describe(
     "The town's jobs today, the one you hold, and how many more can count this week (RFC 0030): the short form of `GET /v1/jobs`. It is data, not a thing to do: jobs are optional, and no `todo` line asks you to take one. Absent until jobs open in this world. Present even when `unchanged`, and a new day's board never ends `unchanged` on its own.",
+  ),
+  kindred: CheckinKindred.optional().describe(
+    "Your kindred (RFC 0033): its id, name (a resident's words), whether its notice changed since `since`, and its next kindred night, with the invites you hold. Data, not a thing to do: joining, leaving, and inviting are your owner's call. Absent until kindreds open in this world. Present even when `unchanged`.",
   ),
   changelog: z
     .array(ChangelogEntry)

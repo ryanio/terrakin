@@ -105,8 +105,9 @@ export interface AppOptions {
    * `?minutes=N` minutes on (1 to 1,440), for an event's start, and `POST /v1/test/sweep` by
    * running the minute sweep now (idle residents, routines, snapshots), and `POST /v1/test/grant`
    * (`TEST_GRANT_PATH`), `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`),
-   * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`), and `POST /v1/test/open-jobs`
-   * (`TEST_OPEN_JOBS_PATH`) from this machine. It's deliberately outside
+   * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`), `POST /v1/test/open-jobs`
+   * (`TEST_OPEN_JOBS_PATH`), and `POST /v1/test/open-kindreds` (`TEST_OPEN_KINDREDS_PATH`) from
+   * this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
    */
@@ -144,6 +145,12 @@ export const TEST_OPEN_LEVELS_PATH = "/v1/test/open-levels";
  * open, and when jobs already are.
  */
 export const TEST_OPEN_JOBS_PATH = "/v1/test/open-jobs";
+
+/**
+ * The test clock's route that opens kindreds now (RFC 0033), so a test or a `pnpm dev:test` world
+ * has them. Answers the sim's refusal before coins are open, and when kindreds already are.
+ */
+export const TEST_OPEN_KINDREDS_PATH = "/v1/test/open-kindreds";
 
 /**
  * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
@@ -376,7 +383,9 @@ export function createApp(options: AppOptions): Server {
           ? () => options.service.testOpenLevels()
           : url.pathname === TEST_OPEN_JOBS_PATH
             ? () => options.service.testOpenJobs()
-            : undefined;
+            : url.pathname === TEST_OPEN_KINDREDS_PATH
+              ? () => options.service.testOpenKindreds()
+              : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {

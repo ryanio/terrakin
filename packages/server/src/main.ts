@@ -15,6 +15,7 @@ import { parseRpcUrls, rpcReader } from "./chain";
 import { ChatterService, chatterConfig } from "./chatter";
 import { eventWords } from "./events";
 import { FileMediaStore } from "./file-media-store";
+import { kindredWords } from "./kindreds";
 import { MemoryMediaStore } from "./media";
 import { Moderation } from "./moderation";
 import { cardFetch, publicHost } from "./node-net";
@@ -115,6 +116,7 @@ const social = new SocialService({
   proposal: (id) => findProposal(service.state, id),
   bounty: (id) => bountyWords(service.state, id),
   event: (id) => eventWords(service.state, id),
+  kindred: (id) => kindredWords(service.state, id),
   plotNames: (id) => plotNamesOf(service.state, id),
   moderators,
   // AI triage only with ANTHROPIC_API_KEY set; otherwise reports wait for people (decision 0040).

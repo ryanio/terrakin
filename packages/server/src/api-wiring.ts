@@ -1,10 +1,11 @@
 import type { HostedEvent } from "@terrakin/sim";
-import { findEvent, routinesOf } from "@terrakin/sim";
+import { findEvent, kindredById, routinesOf } from "@terrakin/sim";
 import type { Api } from "./api";
 import { countGuests } from "./events";
 import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
 import { giverIds, giverThanksWave, jobDoneView, jobsDoneField } from "./jobs";
+import { kindredBrief, profileKindred, tellKindreds } from "./kindreds";
 import { levelView } from "./levels";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
@@ -179,6 +180,16 @@ export function wireSocial(
     );
   };
   layer.jobsDone = (id) => jobsDoneField(service.state, id);
+  // Kindreds (RFC 0033): notices for an invite, a kindred night, and someone joining, each read
+  // back from the world when it's shown; a disbanded kindred's notice goes; profiles show the
+  // formed kindred a resident is in.
+  const held = (id: string) => layer.safety.isQuarantined(id);
+  layer.kindredOf = (id) => {
+    const k = kindredById(service.state, id);
+    return k && kindredBrief(k, held);
+  };
+  layer.kindredOfResident = (id) => profileKindred(service.state, id, held);
+  service.onKindredEvents = (events) => tellKindreds(service.state, layer, events);
   // Party-game ladders (RFC 0011) live in the world; profiles show them.
   layer.gameRatings = (id) => gameRatings(service.state, id);
   service.syncOwnerPairs(layer.ownerPairs());

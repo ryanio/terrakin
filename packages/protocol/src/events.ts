@@ -1,5 +1,6 @@
 import { EVENT_KINDS, EVENT_MOVES, EVENT_STATUSES, EVENTS } from "@terrakin/sim";
 import { z } from "zod";
+import { KindredBrief } from "./schemas";
 import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
@@ -77,6 +78,11 @@ export const EventView = z.object({
   attended: z.array(AuthorView).nullable(),
   /** What you can send about it now, as action types. Empty without a token. */
   moves: z.array(EventMove),
+  /**
+   * A kindred night's kindred (RFC 0033). Its members aren't counted guests there; anyone else who
+   * comes is. Absent for every other event.
+   */
+  kindred: KindredBrief.optional(),
 });
 export type EventView = z.infer<typeof EventView>;
 

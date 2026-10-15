@@ -65,6 +65,10 @@ export interface SafetyOptions {
     | undefined;
   /** A hosted event from the world, for reports on one. Its author is its host. Default: none. */
   event?: ((id: string) => { author: string; title: string; text: string } | undefined) | undefined;
+  /** A kindred from the world with its notice, for reports on one (RFC 0033). Default: none. */
+  kindred?:
+    | ((id: string) => { author: string; title: string; text: string } | undefined)
+    | undefined;
   /**
    * The names on plots a resident owns or named (the sim's `plotNamesOf`), for reports on them
    * (decision 0121). Default: none.
@@ -387,6 +391,7 @@ export class SafetyService {
     if (kind === "display" || kind === "piece") return this.madeThing(kind, id)?.owner;
     if (kind === "bounty") return this.o.bounty?.(id)?.author;
     if (kind === "event") return this.o.event?.(id)?.author;
+    if (kind === "kindred") return this.o.kindred?.(id)?.author;
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
       return row ? String(row.author) : undefined;
@@ -872,7 +877,9 @@ export class SafetyService {
         ? this.o.bounty?.(id)
         : kind === "event"
           ? this.o.event?.(id)
-          : this.o.proposal(id);
+          : kind === "kindred"
+            ? this.o.kindred?.(id)
+            : this.o.proposal(id);
     return p ? base(p.author, [p.title, p.text].filter(Boolean).join("\n")) : gone;
   }
 
@@ -1077,7 +1084,9 @@ export class SafetyService {
               ? this.o.bounty?.(String(row.target))?.author
               : row.kind === "event"
                 ? this.o.event?.(String(row.target))?.author
-                : row.against;
+                : row.kind === "kindred"
+                  ? this.o.kindred?.(String(row.target))?.author
+                  : row.against;
         return typeof against === "string" && against !== "" ? [against] : [];
       })
       .concat(made);
@@ -1413,6 +1422,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   display: "That isn't on display.",
   piece: "No piece with that id shows a picture.",
   event: "No such event.",
+  kindred: "No such kindred.",
 };
 
 function reportView(row: Row): ReportView {

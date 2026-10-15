@@ -39,6 +39,7 @@ import {
   JOB_TITLES,
   JOB_WEAR,
   KINDRED_TITLES,
+  KINDREDS,
   LADDERS,
   MADE_KINDS,
   MARKET,
@@ -996,6 +997,15 @@ export type JobId = z.infer<typeof JobId>;
 /** A kindred's id (RFC 0033): `k_1`, `k_2`, ... */
 export const KindredId = z.string().regex(/^k_[1-9][0-9]*$/);
 export type KindredId = z.infer<typeof KindredId>;
+/** A kindred's name: a resident's words, filtered like a resident's name before it's logged. */
+export const KindredName = z.string().trim().min(KINDREDS.nameMin).max(KINDREDS.nameMax);
+/** A kindred as profiles and events name it: its id and its name, a resident's words. */
+export const KindredBrief = z.object({
+  id: KindredId,
+  name: z.string(),
+  trust: z.literal("untrusted"),
+});
+export type KindredBrief = z.infer<typeof KindredBrief>;
 
 /**
  * Hold one of today's jobs, from anywhere (RFC 0030). You need a hearth. You hold one at a time,
@@ -1028,6 +1038,75 @@ export const HandInAction = z.object({
 /** The made thing a `hand_in` took, or on a dry run would take: its id and its kind. */
 export const HandedIn = z.object({ item: ItemId, kind: GoodKind });
 export type HandedIn = z.infer<typeof HandedIn>;
+
+// ---------- Kindreds (RFC 0033) ----------
+// Joining, leaving, inviting, and founding are your owner's choice: ask them first, every time.
+
+/**
+ * Found a kindred and be its first steward. You need what voting in the Town Hall needs, no
+ * kindred of your own, and 25 coins, which are burned. It's forming until its members come from
+ * three households, and disbanded if it hasn't in 14 days, with the fee kept burned.
+ */
+export const FoundKindredAction = z.object({
+  type: z.literal("found_kindred"),
+  name: KindredName,
+  ...dry,
+});
+/** A steward invites a resident with a hearth who's in no kindred. The invite lasts 7 days. */
+export const InviteToKindredAction = z.object({
+  type: z.literal("invite_to_kindred"),
+  resident: residentRef,
+  ...dry,
+});
+/** A steward takes an open invite back. */
+export const CancelKindredInviteAction = z.object({
+  type: z.literal("cancel_kindred_invite"),
+  resident: residentRef,
+  ...dry,
+});
+/** Accept an invite you hold. Your other invites close. */
+export const JoinKindredAction = z.object({
+  type: z.literal("join_kindred"),
+  kindred: KindredId,
+  ...dry,
+});
+/** Turn an invite down. */
+export const DeclineKindredInviteAction = z.object({
+  type: z.literal("decline_kindred_invite"),
+  kindred: KindredId,
+  ...dry,
+});
+/** Leave your kindred, any time. You wait 7 days before you're in one again. */
+export const LeaveKindredAction = z.object({ type: z.literal("leave_kindred"), ...dry });
+/** A steward removes a member who isn't a steward. They wait 7 days, like anyone who left. */
+export const RemoveFromKindredAction = z.object({
+  type: z.literal("remove_from_kindred"),
+  resident: residentRef,
+  ...dry,
+});
+/** A steward makes a member a steward (`true`, up to 3), or steps down themselves (`false`). */
+export const SetKindredStewardAction = z.object({
+  type: z.literal("set_kindred_steward"),
+  resident: residentRef,
+  steward: z.boolean(),
+  ...dry,
+});
+/** A steward renames the kindred, once a UTC week, Monday to Sunday. */
+export const NameKindredAction = z.object({
+  type: z.literal("name_kindred"),
+  name: KindredName,
+  ...dry,
+});
+/**
+ * A steward of a formed kindred makes a plot they own or share its hall, where its kindred nights
+ * are, or clears it with both `null`. Plot coordinates, not tiles.
+ */
+export const SetKindredHallAction = z.object({
+  type: z.literal("set_kindred_hall"),
+  px: coord.nullable(),
+  py: coord.nullable(),
+  ...dry,
+});
 
 // ---------- Holidays (RFC 0022) ----------
 
@@ -1089,6 +1168,9 @@ export const ScheduleEventAction = z.object({
   py: coord,
   startsAt: isoTime,
   minutes: z.number().int().min(EVENTS.minutesMin).max(EVENTS.minutesMax),
+  kindred: KindredId.optional().describe(
+    "A kindred night (RFC 0033): your kindred's id. It must be formed, and the place its hall.",
+  ),
   ...dry,
 });
 /** Call off your own event before it starts. */
@@ -1314,6 +1396,16 @@ export const Action = z.discriminatedUnion("type", [
   TakeJobAction,
   DropJobAction,
   HandInAction,
+  FoundKindredAction,
+  InviteToKindredAction,
+  CancelKindredInviteAction,
+  JoinKindredAction,
+  DeclineKindredInviteAction,
+  LeaveKindredAction,
+  RemoveFromKindredAction,
+  SetKindredStewardAction,
+  NameKindredAction,
+  SetKindredHallAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -1565,6 +1657,26 @@ export const WorldSnapshot = z.object({
    * `take_job` works.
    */
   jobsOpen: z.literal(true).optional(),
+  /**
+   * Present once kindreds are open (RFC 0033): residents may found and join them, and `GET
+   * /v1/kindreds` lists the formed ones.
+   */
+  kindredsOpen: z.literal(true).optional(),
+  /**
+   * The halls of formed kindreds (RFC 0033): the plot each one's kindred nights are at, with the
+   * kindred's name, a resident's words, which the map draws under the plot's own. Absent when none.
+   */
+  halls: z
+    .array(
+      z.object({
+        px: z.number().int(),
+        py: z.number().int(),
+        kindred: KindredId,
+        name: z.string(),
+        trust: z.literal("untrusted"),
+      }),
+    )
+    .optional(),
   /**
    * Finds on display on pedestals and frames (RFC 0021), with who put each up and the day it went
    * up. They carry no words. Absent when none are.
@@ -1966,6 +2078,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("kindred_named"),
     kindred: KindredId,
     name: z.string().nullable(),
+    /** Who wrote it, or `null` for a takedown. */
+    by: z.string().nullable(),
     trust: z.literal("untrusted").optional(),
   }),
   /** Its hall is plot (px, py) now, or it has none. */
@@ -1973,6 +2087,9 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("kindred_hall"),
     kindred: KindredId,
     hall: z.object({ px: z.number().int(), py: z.number().int() }).nullable(),
+    /** What the kindred goes by, a resident's words, for the map's label under the hall's name. */
+    name: z.string().optional(),
+    trust: z.literal("untrusted").optional(),
   }),
   /**
    * A kindred night counted: `members` attended `event`, so the UTC week starting on world day

@@ -100,6 +100,16 @@ export function kindredOf(state: WorldState, id: ResidentId): Kindred | undefine
 export const kindredName = (k: Pick<Kindred, "id" | "name">): string =>
   k.name ?? `Kindred ${k.id.replace(/^k_/, "")}`;
 
+/**
+ * What a kindred goes by where others read it: its name, or "Kindred 3" while `held` says staff
+ * hold back the words of whoever wrote it, as a plot's name is held. Presentation only.
+ */
+export const shownKindredName = (
+  k: Pick<Kindred, "id" | "name" | "namedBy">,
+  held: (id: ResidentId) => boolean = () => false,
+): string =>
+  k.namedBy !== undefined && held(k.namedBy) ? kindredName({ id: k.id }) : kindredName(k);
+
 /** Its members, longest-standing first. */
 export const membersByStanding = (k: Kindred): ResidentId[] =>
   Object.entries(k.members)
@@ -173,6 +183,10 @@ function nameOf(state: WorldState, value: unknown, except?: Kindred): string | R
 
 /** "1 day", "3 days". */
 const days = (n: number) => (n === 1 ? "1 day" : `${n} days`);
+
+/** Whether `k` was renamed in `day`'s UTC week already, so a rename waits for the next. */
+export const renamedThisWeek = (k: Pick<Kindred, "renamedDay">, day: number): boolean =>
+  k.renamedDay !== undefined && weekStart(k.renamedDay) === weekStart(day);
 
 // ---------- checks every command shares ----------
 
@@ -347,7 +361,7 @@ export function foundProblem(state: WorldState, id: ResidentId): Rejection | nul
     );
   }
   const k = kindredOf(state, id);
-  if (k) return refuse("in_kindred", `You're already in ${kindredName(k)}. Leave it first.`);
+  if (k) return refuse("in_kindred", "You're already in a kindred. Leave it first.");
   const wait = waiting(state, id, "You");
   if (wait) return wait;
   const have = state.economy?.coins[id] ?? 0;
@@ -380,6 +394,7 @@ export function checkFoundKindred(
     kindreds.list[id] = {
       id,
       name,
+      namedBy: actor,
       founder: actor,
       foundedDay: at.day,
       status: "forming",
@@ -463,7 +478,7 @@ function invitedTo(state: WorldState, actor: ResidentId, id: unknown): Kindred |
   const k = named(state, id);
   if (isRejection(k)) return k;
   if (!k.invites || !Object.hasOwn(k.invites, actor)) {
-    return refuse("no_invite", `You hold no invite from ${kindredName(k)}. A steward invites you.`);
+    return refuse("no_invite", "You hold no invite from that kindred. A steward invites you.");
   }
   return k;
 }
@@ -478,8 +493,7 @@ export function checkJoinKindred(
   if (isRejection(k)) return k;
   if (isTownsfolk(state, actor)) return refuse("not_eligible", "Townsfolk aren't in kindreds.");
   const theirs = kindredOf(state, actor);
-  if (theirs)
-    return refuse("in_kindred", `You're already in ${kindredName(theirs)}. Leave it first.`);
+  if (theirs) return refuse("in_kindred", "You're already in a kindred. Leave it first.");
   const problem = waiting(state, actor, "You") ?? roomFor(state, k, actor);
   if (problem) return problem;
   return () => {
@@ -578,7 +592,7 @@ export function checkNameKindred(
   const k = stewarding(state, actor);
   if (isRejection(k)) return k;
   const day = state.day ?? 0;
-  if (k.renamedDay !== undefined && weekStart(k.renamedDay) === weekStart(day)) {
+  if (renamedThisWeek(k, day)) {
     return refuse(
       "rename_limit",
       `A kindred is renamed once a UTC week, and it was this week. The next rename can come on Monday, ${dayName(weekStart(day) + 7)} (UTC).`,
@@ -589,8 +603,9 @@ export function checkNameKindred(
   if (name === k.name) return refuse("invalid_name", "That's its name already.");
   return () => {
     k.name = name;
+    k.namedBy = actor;
     k.renamedDay = day;
-    return [{ type: "kindred_named", kindred: k.id, name }];
+    return [{ type: "kindred_named", kindred: k.id, name, by: actor }];
   };
 }
 
@@ -633,7 +648,10 @@ export function checkSetKindredHall(
     // Nights booked at the old hall are called off: a night stands only at the hall.
     const moved = nightsOff(state, k);
     k.hall = { px, py, by: actor };
-    return [{ type: "kindred_hall", kindred: k.id, hall: { px, py } }, ...moved];
+    return [
+      { type: "kindred_hall", kindred: k.id, hall: { px, py }, name: kindredName(k) },
+      ...moved,
+    ];
   };
 }
 
@@ -695,7 +713,7 @@ export function kindredNightProblem(
   if (taken) {
     return refuse(
       "night_this_week",
-      `${kindredName(k)} has a kindred night that UTC week already. One a week, Monday to Sunday.`,
+      "That kindred has a kindred night that UTC week already. One a week, Monday to Sunday.",
     );
   }
   return null;
@@ -797,7 +815,8 @@ export function checkClearKindredName(
   if (k.name === undefined) return refuse("already_set", "Its name is already down.");
   return () => {
     delete k.name;
-    return [{ type: "kindred_named", kindred: k.id, name: null }];
+    delete k.namedBy;
+    return [{ type: "kindred_named", kindred: k.id, name: null, by: null }];
   };
 }
 

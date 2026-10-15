@@ -127,6 +127,12 @@ describe("the edge filters on every surface", () => {
     refusedBy(await t.post(await fresh(), bad, { replyTo: ok.body.post.id }));
     refusedBy(await t.call("PUT", "/v1/profile", { bio: bad }, await fresh()));
     refusedBy(await t.call("POST", "/v1/notices", { text: bad }, await fresh()));
+    // A kindred's notice (RFC 0033): the route checks its steward, then sets it through here.
+    const steward = await t.join(`Writer ${n++}`);
+    expect(t.social.kindredNotices.set("k_1", steward.id, bad)).toMatchObject({
+      ok: false,
+      message: HATE_MESSAGE,
+    });
     refusedBy(await t.call("POST", "/v1/letters", { to: bo.id, text: bad }, await fresh()));
     refusedBy(
       await t.call(
@@ -168,6 +174,9 @@ describe("the edge filters on every surface", () => {
       { type: "adopt_pet", kind: "cat", coat: "ginger", name: bad },
       { type: "rename_pet", name: bad },
       { type: "name_plot", px: 0, py: 0, name: bad },
+      // A kindred's name (RFC 0033) is filtered before the world sees it, open or not.
+      { type: "found_kindred", name: bad },
+      { type: "name_kindred", name: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({

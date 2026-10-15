@@ -19,6 +19,7 @@ export * from "./games";
 export * from "./items";
 export * from "./job-done";
 export * from "./jobs";
+export * from "./kindreds";
 export * from "./levels";
 export * from "./maps";
 export * from "./market";

@@ -198,6 +198,11 @@ export const MODERATION_ACTIONS = [
   "rekey_agent",
   /** A maintainer merged a duplicate record into the record that stays (decision 0239). */
   "merge_resident",
+  /** Staff took down a kindred's name, or its notice (RFC 0033). */
+  "clear_kindred_name",
+  "clear_kindred_notice",
+  /** A maintainer disbanded a kindred that existed to harass (RFC 0033). */
+  "disband_kindred",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

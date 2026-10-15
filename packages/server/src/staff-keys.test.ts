@@ -227,7 +227,7 @@ describe("staff keys", () => {
       .filter((id) => !reach("role").includes(id))
       .sort();
     expect(never).toEqual(["createStaffKey", "getStaffKeys", "getWorldLog", "revokeStaffKey"]);
-    expect(staff).toHaveLength(30);
+    expect(staff).toHaveLength(33);
   });
 
   it("are refused from another site, and need JSON to write, like a signed-in call", async () => {

@@ -559,6 +559,8 @@ export interface Kindred {
    * names it again.
    */
   name?: string;
+  /** Who wrote the name up now: the founder, or the steward who last renamed it. Absent with no name. */
+  namedBy?: ResidentId;
   founder: ResidentId;
   foundedDay: number;
   status: KindredStatus;
@@ -2250,10 +2252,16 @@ export type WorldEvent =
     }
   /** `residentId` is a steward now, or isn't any more. */
   | { type: "kindred_steward"; kindred: KindredId; residentId: ResidentId; steward: boolean }
-  /** Its name (untrusted) is `name` now, or it goes by its id (`null`) after a takedown. */
-  | { type: "kindred_named"; kindred: KindredId; name: string | null }
+  /** Its name (untrusted) is `name` now, written by `by`, or it goes by its id (`null`) after a takedown. */
+  | { type: "kindred_named"; kindred: KindredId; name: string | null; by: ResidentId | null }
   /** Its hall is plot (px, py) now, or it has none (`null`). */
-  | { type: "kindred_hall"; kindred: KindredId; hall: { px: number; py: number } | null }
+  /** Its hall is plot (px, py) now, with what the kindred goes by for the map (untrusted), or it has none (`null`). */
+  | {
+      type: "kindred_hall";
+      kindred: KindredId;
+      hall: { px: number; py: number } | null;
+      name?: string;
+    }
   /**
    * A kindred night counted: `members` (sorted) attended `event`, and the UTC week starting on
    * `week` is a gathered week. `weeks` is how many of the weeks it keeps (the last 52) gathered.

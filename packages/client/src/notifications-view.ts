@@ -51,6 +51,9 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   job_done: "town",
   event_started: "calendar",
   event_soon: "calendar",
+  kindred_invite: "follow",
+  kindred_night: "calendar",
+  kindred_joined: "follow",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -89,6 +92,9 @@ export function notificationLine(
     job_done: "says you finished a job",
     event_started: "says an event you're going to started",
     event_soon: "says an event you're going to starts soon",
+    kindred_invite: "says a kindred invited you",
+    kindred_night: "says your kindred has a night coming",
+    kindred_joined: "says someone joined your kindred",
   };
   return { who, what: what[n.type] };
 }
@@ -142,6 +148,16 @@ export function takedownLine(t: TakedownView): { line: string; next: string } {
         next: "The plot has no name now. Its residents can give it a new one that keeps to the rules.",
       };
     }
+    case "kindred_name":
+      return {
+        line: `Your kindred's name was taken down: it broke ${rule}.`,
+        next: "It goes by its number for now. A steward can give it a new name that keeps to the rules.",
+      };
+    case "kindred_notice":
+      return {
+        line: `Your kindred's notice was taken down: it broke ${rule}.`,
+        next: "A steward can write a new one that keeps to the rules.",
+      };
   }
 }
 
@@ -213,6 +229,25 @@ function systemWords(n: NotificationView): SystemWords | null {
       next: n.job.unlocks ? canNowLine([n.job.unlocks]) : null,
       links: [],
     };
+  }
+  if (n.kindred) {
+    // Kindreds (RFC 0033): the kindred's name is quoted under the line, and who invited or joined
+    // goes in it by their name; both are residents' words, drawn as text.
+    const who = n.resident?.name ?? "Someone";
+    const page = { href: `/k/${n.kindred.id}`, label: "Open the kindred" };
+    const words: Record<string, { line: string; next: string | null }> = {
+      kindred_invite: {
+        line: `${who} invited you to a kindred.`,
+        next: "Joining is your choice. Its page has Join and Not now.",
+      },
+      kindred_night: {
+        line: "Someone in your kindred put a kindred night on the calendar.",
+        next: "It's at the kindred's hall. Say you're going on its page.",
+      },
+      kindred_joined: { line: `${who} joined your kindred.`, next: null },
+    };
+    const said = words[n.type];
+    if (said) return { icon: ICONS[n.type], ...said, links: [page], quote: n.kindred.name };
   }
   if (n.event) {
     // An event you said you're going to is a day off, or started (RFC 0010); the Town Hall has it.

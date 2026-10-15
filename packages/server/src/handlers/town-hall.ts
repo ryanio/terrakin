@@ -1,11 +1,12 @@
 import type { AreaRouteIds } from "@terrakin/protocol";
-import { findProposal } from "@terrakin/sim";
+import { findProposal, isSteward, kindredById } from "@terrakin/sim";
 import type { Api } from "../api";
+import { kindredsView, kindredView, seesKindred } from "../kindreds";
 import { archiveView, proposalDetail, townView } from "../town";
 import { fail, fromResult, type Handlers } from "./shared";
 
 /**
- * The handlers for the town hall: proposals, petitions, and the notice board. Their routes are in
+ * The handlers for the town hall: proposals, petitions, the notice board, and kindreds (RFC 0033). Their routes are in
  * the protocol's `route-table/town-hall.ts`.
  */
 export function townHallHandlers(api: Api): Pick<Handlers, AreaRouteIds["townHall"]> {
@@ -62,5 +63,32 @@ export function townHallHandlers(api: Api): Pick<Handlers, AreaRouteIds["townHal
       })),
     deleteNotice: ({ viewer, params }) =>
       fromResult(social().deleteNotice(viewer, params.id), () => ({ status: 204 as const })),
+    getKindreds: ({ viewer }) => ({
+      status: 200,
+      body: kindredsView(service.state, viewer, social().kindredContext(viewer)),
+    }),
+    getKindred: ({ viewer, params }) => {
+      const view = kindredView(service.state, params.id, viewer, social().kindredContext(viewer));
+      return view ? { status: 200, body: view } : fail("not_found", "No such kindred.");
+    },
+    setKindredNotice: ({ viewer, params, body }) => {
+      const k = kindredById(service.state, params.id);
+      if (!k || !seesKindred(k, viewer)) return fail("not_found", "No such kindred.");
+      if (!isSteward(k, viewer)) {
+        return fail("forbidden", "Only one of the kindred's stewards sets its notice.");
+      }
+      if (k.status !== "formed") {
+        return fail(
+          "forbidden",
+          "A forming kindred has no notice yet. It forms with three households.",
+        );
+      }
+      if (service.noteHidden(viewer)) {
+        return fail("forbidden", "Your words are held back for review right now.");
+      }
+      const set = social().kindredNotices.set(k.id, viewer, body.text);
+      if (!set.ok) return fail(set.code, set.message, set.retryAfter);
+      return { status: 200, body: { notice: set.value } };
+    },
   };
 }

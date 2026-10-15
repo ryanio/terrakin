@@ -36,6 +36,7 @@ import { checkinEvents, eventView } from "./events";
 import { gamesCheckin } from "./games";
 import { gardenOf } from "./items";
 import { checkinJobs } from "./jobs";
+import { checkinKindred } from "./kindreds";
 import { checkinProgress } from "./levels";
 import { awayLine } from "./routines";
 import type { SocialService } from "./social-service";
@@ -429,7 +430,14 @@ export function checkinView(
   // Jobs (RFC 0030): the board, the job held, and what's left this week, as data. Absent until
   // jobs open. It's outside the digest, so a new day's board never ends `unchanged`.
   const jobs = checkinJobs(state, viewer);
-  const progress = { ...(levels ? { progress: levels } : {}), ...(jobs ? { jobs } : {}) };
+  // Kindreds (RFC 0033): yours and the invites you hold, as data. Absent until kindreds open, and
+  // outside the digest like jobs.
+  const kindred = checkinKindred(state, viewer, since, social.kindredContext(viewer));
+  const progress = {
+    ...(levels ? { progress: levels } : {}),
+    ...(jobs ? { jobs } : {}),
+    ...(kindred ? { kindred } : {}),
+  };
 
   if (quiet && tryToday === null) {
     return {
@@ -485,6 +493,7 @@ export function checkinView(
     devlog,
     away,
     ownerNote: options.ownerNote?.line ?? null,
+    kindred,
     suggestion,
   });
   return {

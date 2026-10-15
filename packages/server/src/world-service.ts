@@ -123,6 +123,8 @@ import {
   eventsFor,
   holdBackNames,
   isPrivate,
+  kindredAudience,
+  kindredRoster,
   publicEvents,
   repeatJoins,
   toWire,
@@ -260,6 +262,12 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
+   * Kindreds (RFC 0033): once coins are open, append `open_kindreds` if it never has. No adapter
+   * sets it yet, so a world has no kindreds unless a test opens them through
+   * `POST /v1/test/open-kindreds`.
+   */
+  kindreds?: boolean;
+  /**
    * The edition of the jobs table this server's world reads (RFC 0030, decision 0265). Once jobs
    * are open on an older edition, `set_job_edition` is logged right after a `new_day`, never in
    * the middle of a day, since it changes the board from then on and people may be looking at
@@ -374,6 +382,7 @@ interface TownSwitch {
     | "holidayPrices"
     | "levels"
     | "jobs"
+    | "kindreds"
     | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
@@ -509,6 +518,13 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_jobs" },
     label: "open jobs",
   },
+  // Kindreds (RFC 0033) take a fee in coins, so they open once coins have.
+  {
+    option: "kindreds",
+    due: (s) => !s.kindreds && !!s.economy,
+    command: { type: "open_kindreds" },
+    label: "open kindreds",
+  },
 ];
 
 /**
@@ -554,6 +570,7 @@ export class WorldService {
   private readonly holidayPrices: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
+  private readonly kindreds: boolean;
   private readonly jobEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
@@ -620,6 +637,7 @@ export class WorldService {
       run: (input, dry) => this.run(input, dry),
       blockedEither: (a, b) => this.blockedEither(a, b),
       suspended: (id) => this.suspended(id),
+      wordsHeld: (id) => this.noteHidden(id),
       listingRefusal: (id) => this.listingRefusal(id),
       mediaType: (owner, id) => this.mediaType?.(owner, id),
       pinLookMedia: (id) => this.onLookMedia?.(id, this.lookMedia(id)),
@@ -648,6 +666,7 @@ export class WorldService {
     this.holidayPrices = options.holidayPrices ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
+    this.kindreds = options.kindreds ?? false;
     this.jobEdition = options.jobEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
@@ -840,6 +859,12 @@ export class WorldService {
    */
   onLevelsReached: ((residentId: string, levels: LevelUpView[]) => void) | undefined;
 
+  /**
+   * Kindreds (RFC 0033): every committed input's events, for the notices they bring (an invite, a
+   * kindred night, someone joining) and the notice a disbanded kindred leaves behind. A failure here
+   * is reported and the input stands.
+   */
+  onKindredEvents: ((events: readonly WorldEvent[]) => void) | undefined;
   /**
    * Hears each job a resident finished (RFC 0030), so they can be told: a job can be finished
    * while its resident is away, by an event's credit or a game's last round. A failure here is
@@ -1283,6 +1308,14 @@ export class WorldService {
     return this.run({ actor: TOWN_ACTOR, command: { type: "open_jobs" } });
   }
 
+  /**
+   * Kindreds (RFC 0033), switched on now rather than at the next tick. Only the Node server's test
+   * route calls it, like `testGrant`. The sim refuses it before coins.
+   */
+  testOpenKindreds() {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_kindreds" } });
+  }
+
   // ---------- levels (RFC 0029) ----------
 
   /** Events that ended in the input being committed, to credit once it has gone out. */
@@ -1321,7 +1354,9 @@ export class WorldService {
         (guest) =>
           attended.includes(guest) &&
           !isTownsfolk(this.state, guest) &&
-          !sameHousehold(this.state, e.host, guest),
+          !sameHousehold(this.state, e.host, guest) &&
+          // A kindred's own members at its kindred night (RFC 0033).
+          !(e.kin ?? []).includes(guest),
       )
       .sort();
     const done = this.run({
@@ -1397,6 +1432,16 @@ export class WorldService {
    */
   clearPlotName(px: number, py: number): ActResult {
     return this.run({ actor: TOWN_ACTOR, command: { type: "clear_plot_name", px, py } });
+  }
+
+  /** Staff took a kindred's name down after a report (RFC 0033). It goes by its id until renamed. */
+  clearKindredName(kindred: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "clear_kindred_name", kindred } });
+  }
+
+  /** A maintainer disbanded a kindred that exists to harass (RFC 0033). `by` is who the log names. */
+  disbandKindred(kindred: string, by: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "disband_kindred", kindred, by } });
   }
 
   /**
@@ -1927,6 +1972,8 @@ export class WorldService {
     );
     let at = was && { x: was.x, y: was.y };
     const handedIn = handedInOf(this.state, input);
+    // Who could hear each kindred's events before the commit, for one it disbands (RFC 0033).
+    const kindredsBefore = kindredRoster(this.state);
     const { seq, events } = prepared.commit();
     const planned = planOf(this.state, input, prepared, true);
     let walked = false;
@@ -1990,6 +2037,14 @@ export class WorldService {
         }
       }
     }
+    // Kindreds (RFC 0033): invites, kindred nights, and joins are told; a disbanded one's notice goes.
+    if (this.state.kindreds || events.some((e) => e.type === "kindred_disbanded")) {
+      try {
+        this.onKindredEvents?.(events);
+      } catch (err) {
+        report(err, "world.kindreds", { command: input.command.type });
+      }
+    }
     // Jobs finished (RFC 0030): each resident is told, here or away.
     for (const e of events) {
       if (e.type !== "job_done") continue;
@@ -2009,8 +2064,15 @@ export class WorldService {
         report(err, "world.levels_reached", { command: input.command.type });
       }
     }
-    const wire = holdBackNames(toWire(events, this.state.townsfolk), this.noteHidden);
-    for (const event of publicEvents(wire)) this.broadcast({ type: "event", seq, event });
+    const wire = holdBackNames(toWire(events, this.state.townsfolk), this.noteHidden, this.state);
+    // A kindred's invites, and a forming kindred's events, reach only a few (RFC 0033).
+    const audience = kindredAudience(this.state, kindredsBefore);
+    for (const event of publicEvents(wire, audience)) {
+      this.broadcast({ type: "event", seq, event });
+    }
+    for (const event of wire) {
+      for (const id of audience(event) ?? []) this.notify(id, { type: "event", seq, event });
+    }
     // Purse moves and inventory changes go only to their owner (purses and inventories are
     // private).
     for (const event of wire) {
@@ -2040,7 +2102,7 @@ export class WorldService {
     return {
       ok: true,
       seq,
-      events: eventsFor(wire, input.actor),
+      events: eventsFor(wire, input.actor, audience),
       ...planned,
       ...priceOf(command),
       ...handedIn,

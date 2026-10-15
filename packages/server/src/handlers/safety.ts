@@ -11,6 +11,7 @@ import {
   goodById,
   heldAsideOf,
   inventorySize,
+  kindredById,
   listingById,
   own,
   plotNamesOf,
@@ -180,6 +181,78 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
           plot: { px: p.px, py: p.py },
         });
       }
+      return { status: 200, body: { logged: entry } };
+    },
+    // RFC 0033: a kindred's name comes down in the world, and its stewards hear why.
+    clearKindredName: ({ viewer, params, body }) => {
+      const k = kindredById(service.state, params.id);
+      if (!k || k.name === undefined) return fail("not_found", "That kindred has no name up.");
+      const safety = social().safety;
+      const rule = safety.ruleFor(["kindred"], params.id, body.rule);
+      const done = service.clearKindredName(params.id);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      const entry = safety.recordAction(
+        viewer,
+        "clear_kindred_name",
+        "kindred",
+        params.id,
+        body.reason,
+        rule,
+      );
+      for (const steward of k.stewards) {
+        safety.tellOwner(steward, {
+          what: "kindred_name",
+          rule,
+          outcome: "removed",
+          kindred: params.id,
+        });
+      }
+      return { status: 200, body: { logged: entry } };
+    },
+    // RFC 0033: a kindred's notice is a social row, so it comes down there.
+    clearKindredNotice: ({ viewer, params, body }) => {
+      const notices = social().kindredNotices;
+      if (!kindredById(service.state, params.id) || !notices.get(params.id)) {
+        return fail("not_found", "That kindred has no notice up.");
+      }
+      const safety = social().safety;
+      const rule = safety.ruleFor(["kindred"], params.id, body.rule);
+      const author = notices.clear(params.id);
+      const entry = safety.recordAction(
+        viewer,
+        "clear_kindred_notice",
+        "kindred",
+        params.id,
+        body.reason,
+        rule,
+      );
+      if (author) {
+        safety.tellOwner(author, {
+          what: "kindred_notice",
+          rule,
+          outcome: "removed",
+          kindred: params.id,
+        });
+      }
+      return { status: 200, body: { logged: entry } };
+    },
+    // RFC 0033: maintainers only, in the moderation log and in the world with an opaque staff id.
+    disbandKindred: async ({ viewer, params, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") {
+        return fail("forbidden", WORLD_MAINTAINERS_ONLY);
+      }
+      if (!kindredById(service.state, params.id)) return fail("not_found", "No such kindred.");
+      const done = service.disbandKindred(params.id, await worldStaffId(viewer));
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      const rule = social().safety.ruleFor(["kindred"], params.id, body.rule);
+      const entry = social().safety.recordAction(
+        viewer,
+        "disband_kindred",
+        "kindred",
+        params.id,
+        body.reason,
+        rule,
+      );
       return { status: 200, body: { logged: entry } };
     },
     // Decision 0056: the lot goes back to its seller, or waits out of view when they're full.

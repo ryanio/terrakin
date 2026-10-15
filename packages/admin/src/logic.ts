@@ -407,6 +407,7 @@ const KIND_WORDS: Record<ReportKind, string> = {
   display: "On display",
   piece: "Piece of art",
   event: "Event",
+  kindred: "Kindred",
 };
 
 /** The eyebrow over an item: "Post · 3 reports". */

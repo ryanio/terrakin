@@ -363,7 +363,7 @@ describe("names", () => {
     ok(state, "cy", found("Cy's Row"));
     refused(state, "ada", name("cy's row"), "name_taken");
     expect(ok(state, "ada", name("Lantern Lane"))).toEqual([
-      { type: "kindred_named", kindred: "k_1", name: "Lantern Lane" },
+      { type: "kindred_named", kindred: "k_1", name: "Lantern Lane", by: "ada" },
     ]);
     expect(refused(state, "ada", name("Lantern Way"), "rename_limit")).toContain("Monday");
     town(state, { type: "new_day", day: KINDREDS_DAY + 2 });
@@ -376,7 +376,7 @@ describe("names", () => {
     const state = world();
     row(state);
     expect(town(state, { type: "clear_kindred_name", kindred: "k_1" })).toEqual([
-      { type: "kindred_named", kindred: "k_1", name: null },
+      { type: "kindred_named", kindred: "k_1", name: null, by: null },
     ]);
     refused(state, TOWN_ACTOR, { type: "clear_kindred_name", kindred: "k_1" }, "already_set");
     refused(state, "ada", { type: "clear_kindred_name", kindred: "k_1" }, "server_only");
@@ -406,7 +406,7 @@ describe("the hall", () => {
     refused(state, "ada", hall(9, 0), "out_of_bounds");
     refused(state, "ada", hall(null, null), "already_set");
     expect(ok(state, "ada", hall(0, 0))).toEqual([
-      { type: "kindred_hall", kindred: "k_1", hall: { px: 0, py: 0 } },
+      { type: "kindred_hall", kindred: "k_1", hall: { px: 0, py: 0 }, name: "Lantern Row" },
     ]);
     refused(state, "ada", hall(0, 0), "already_set");
     // Ada shares her plot with Dee, whose own kindred can't have it as a hall too.
@@ -626,7 +626,7 @@ describe("a kindred night's place", () => {
     const moved = booked();
     // Bob moves the hall to his own plot.
     expect(ok(moved, "bob", { type: "set_kindred_hall", px: 1, py: 0 })).toEqual([
-      { type: "kindred_hall", kindred: "k_1", hall: { px: 1, py: 0 } },
+      { type: "kindred_hall", kindred: "k_1", hall: { px: 1, py: 0 }, name: "Lantern Row" },
       cancelled,
     ]);
     const cleared = booked();

@@ -21,6 +21,8 @@ import {
   holidayField,
   isTownEvent,
   isTownsfolk,
+  kindredById,
+  kindredName,
   type PickupKind,
   pageOn,
   parseKey,
@@ -33,6 +35,7 @@ import {
   residentById,
   type StepRoutine,
   shopTiles,
+  shownKindredName,
   skyAt,
   timeOfDayAt,
   townHallTiles,
@@ -107,6 +110,15 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       out.push({ ...e, trust: "untrusted" });
       continue;
     }
+    if (
+      e.type === "kindred_founded" ||
+      (e.type === "kindred_named" && e.name !== null) ||
+      (e.type === "kindred_hall" && e.name !== undefined)
+    ) {
+      // A kindred's name is its stewards' words (RFC 0033). A takedown carries none.
+      out.push({ ...e, trust: "untrusted" });
+      continue;
+    }
     if (e.type === "plot_named") {
       // A plot's name is the words of whoever named it (decision 0121). A clear carries none.
       out.push(e.name === null ? e : { ...e, trust: "untrusted" });
@@ -137,8 +149,24 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
  * name they write (decision 0121), stay out of the events everyone gets too, as they do out of the
  * snapshot. A held-back plot name goes out as no name.
  */
-export function holdBackNames(events: WireEvent[], hidden: (id: string) => boolean): WireEvent[] {
+export function holdBackNames(
+  events: WireEvent[],
+  hidden: (id: string) => boolean,
+  state?: WorldState,
+): WireEvent[] {
   return events.map((e) => {
+    // A kindred's name while its writer's words are held back goes by the kindred's id (RFC 0033).
+    if (e.type === "kindred_founded" && hidden(e.founder)) {
+      return { ...e, name: kindredName({ id: e.kindred }) };
+    }
+    if (e.type === "kindred_named" && e.by !== null && hidden(e.by)) {
+      const { trust: _words, ...rest } = e;
+      return { ...rest, name: null };
+    }
+    if (e.type === "kindred_hall" && e.name !== undefined) {
+      const k = state ? kindredById(state, e.kindred) : undefined;
+      if (k) return { ...e, name: shownKindredName(k, hidden) };
+    }
     if ((e.type === "pet_adopted" || e.type === "pet_renamed") && hidden(e.residentId)) {
       return e.type === "pet_adopted" ? { ...e, pet: { ...e.pet, name: "" } } : { ...e, name: "" };
     }
@@ -177,26 +205,80 @@ export const isPrivate = (
 ): e is Extract<WireEvent, { type: (typeof PRIVATE_EVENTS)[number] }> =>
   (PRIVATE_EVENTS as readonly string[]).includes(e.type);
 
+/** Who may hear an event that isn't for everyone and isn't one resident's alone, or undefined. */
+export type Audience = (e: WireEvent) => readonly string[] | undefined;
+
+const everyone: Audience = () => undefined;
+
+/** Who could hear a kindred's events, by kindred: undefined for a formed one, which is everyone's. */
+export type KindredRoster = ReadonlyMap<
+  string,
+  { few?: readonly string[]; stewards: readonly string[] }
+>;
+
+/** Who hears each kindred's events now, read before a commit that may disband one (RFC 0033). */
+export function kindredRoster(state: WorldState): KindredRoster {
+  const roster = new Map<string, { few?: readonly string[]; stewards: readonly string[] }>();
+  for (const k of Object.values(state.kindreds?.list ?? {})) {
+    roster.set(k.id, {
+      stewards: [...k.stewards],
+      ...(k.status === "formed"
+        ? {}
+        : { few: [...Object.keys(k.members), ...Object.keys(k.invites ?? {})] }),
+    });
+  }
+  return roster;
+}
+
 /**
- * What everyone may see: no purse moves and no inventory changes. Never empty, so every client's
- * `seq` keeps counting.
+ * Who hears a kindred's event (RFC 0033), or undefined when everyone does. An invite, and its
+ * closing, go to the invitee and the kindred's stewards. A forming kindred's events go to its
+ * members, the residents it invited, and the resident the event names, so someone who just left
+ * still hears it. A formed kindred's go to everyone. Read from the world after the commit, and for
+ * a kindred the commit disbanded, from `before`, so a forming one stays with its few to its end.
  */
-export function publicEvents(events: WireEvent[]): WireEvent[] {
-  const shown = events.filter((e) => !isPrivate(e));
+export function kindredAudience(state: WorldState, before: KindredRoster = new Map()): Audience {
+  const now = kindredRoster(state);
+  return (e) => {
+    const id = "kindred" in e ? e.kindred : undefined;
+    if (!e.type.startsWith("kindred_") || typeof id !== "string") return undefined;
+    const k = now.get(id) ?? before.get(id);
+    if (!k) return undefined;
+    const named = "residentId" in e && typeof e.residentId === "string" ? [e.residentId] : [];
+    if (e.type === "kindred_invited" || e.type === "kindred_uninvited") {
+      return [...new Set([...named, ...k.stewards])];
+    }
+    if (!k.few) return undefined;
+    return [...new Set([...named, ...k.few])];
+  };
+}
+
+/**
+ * What everyone may see: no purse moves, no inventory changes, and nothing `audience` keeps to a
+ * few. Never empty, so every client's `seq` keeps counting.
+ */
+export function publicEvents(events: WireEvent[], audience: Audience = everyone): WireEvent[] {
+  const shown = events.filter((e) => !isPrivate(e) && audience(e) === undefined);
   return shown.length > 0 ? shown : [{ type: "quiet" }];
 }
 
 /**
- * What one resident may see: everything public, plus their own purse and inventory changes. A
- * lesson's `recipe_learned` goes to its teacher too (RFC 0024): both of them were there.
+ * What one resident may see: everything public, plus their own purse and inventory changes, and
+ * what `audience` lets them hear. A lesson's `recipe_learned` goes to its teacher too (RFC 0024):
+ * both of them were there.
  */
-export function eventsFor(events: WireEvent[], viewer: string): WireEvent[] {
-  return events.filter(
-    (e) =>
-      !isPrivate(e) ||
-      e.residentId === viewer ||
-      (e.type === "recipe_learned" && e.from === viewer),
-  );
+export function eventsFor(
+  events: WireEvent[],
+  viewer: string,
+  audience: Audience = everyone,
+): WireEvent[] {
+  return events.filter((e) => {
+    if (isPrivate(e)) {
+      return e.residentId === viewer || (e.type === "recipe_learned" && e.from === viewer);
+    }
+    const few = audience(e);
+    return few === undefined || few.includes(viewer);
+  });
 }
 
 /** What the snapshot draws from the server's memory besides the world: never logged. */
@@ -235,6 +317,28 @@ export function repeatJoins(state: WorldState, untouched: (r: Resident) => boole
     const left = idle.length === same.length ? idle.slice(1) : idle;
     return left.map((r) => r.id);
   });
+}
+
+/**
+ * The halls of formed kindreds (RFC 0033), each with its kindred's name, a resident's words, for
+ * the map to draw under the plot's own name. Absent when there are none, so a world without
+ * kindreds snapshots as it always did.
+ */
+function hallsField(state: WorldState, held: (id: string) => boolean) {
+  const halls = Object.values(state.kindreds?.list ?? {}).flatMap((k) =>
+    k.status === "formed" && k.hall
+      ? [
+          {
+            px: k.hall.px,
+            py: k.hall.py,
+            kindred: k.id,
+            name: shownKindredName(k, held),
+            trust: "untrusted" as const,
+          },
+        ]
+      : [],
+  );
+  return halls.length > 0 ? { halls } : {};
 }
 
 /** The world as `GET /v1/world` and a socket's `welcome` show it. */
@@ -365,6 +469,8 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.recipes ? { recipesOpen: true as const } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),
     ...(state.jobs ? { jobsOpen: true as const } : {}),
+    ...(state.kindreds ? { kindredsOpen: true as const } : {}),
+    ...hallsField(state, noteHidden),
     ...(state.events?.list.some(eventOpen)
       ? {
           events: state.events.list.filter(eventOpen).map((e) => ({

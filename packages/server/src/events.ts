@@ -5,6 +5,7 @@ import {
   type EventsResponse,
   type EventView,
   type HostingView,
+  type KindredBrief,
 } from "@terrakin/protocol";
 import {
   canBuildOn,
@@ -19,9 +20,11 @@ import {
   hostingProblem,
   inCommons,
   isTownEvent,
+  kindredById,
   plotKey,
   type ResidentId,
   sameHousehold,
+  shownKindredName,
   TOWN_ACTOR,
   type WorldState,
 } from "@terrakin/sim";
@@ -55,9 +58,22 @@ export interface EventContext {
   mine: ReadonlySet<string>;
   /** Hosts the viewer shouldn't see: blocked either way, or suspended. Never the town. */
   hidden: (host: ResidentId) => boolean;
+  /** Residents whose words staff hold back: a kindred name they wrote goes by its id. */
+  wordsHeld?: (id: ResidentId) => boolean;
 }
 
 const person = (ctx: EventContext, id: string) => ctx.author(id) ?? unknownAuthor(id);
+
+/** A kindred night's kindred (RFC 0033), while it stands, its name held as `kindredBrief` holds it. */
+function kindredField(
+  state: WorldState,
+  e: HostedEvent,
+  held: ((id: ResidentId) => boolean) | undefined,
+): { kindred?: KindredBrief } {
+  const k = e.kindred === undefined ? undefined : kindredById(state, e.kindred);
+  if (!k) return {};
+  return { kindred: { id: k.id, name: shownKindredName(k, held), trust: "untrusted" } };
+}
 
 export function eventView(
   state: WorldState,
@@ -89,6 +105,7 @@ export function eventView(
     ticks: e.ticks,
     attended: e.status === "ended" ? (e.attended ?? []).map((id) => person(ctx, id)) : null,
     moves: viewer ? eventMoves(state, viewer, e) : [],
+    ...kindredField(state, e, ctx.wordsHeld),
   };
 }
 
@@ -215,6 +232,8 @@ export function countGuests(
     const fair =
       isTownEvent(e) ||
       (!sameHousehold(state, e.host, id) &&
+        // A kindred's own members are never counted guests at its kindred night (RFC 0033).
+        !(e.kin ?? []).includes(id) &&
         !canBuildOn(plot, id) &&
         !options.blockedEither(e.host, id) &&
         [...options.hostsToday(id)].filter((h) => h !== e.host).length < GUEST_HOSTS_PER_DAY);

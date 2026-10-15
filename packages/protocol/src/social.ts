@@ -14,6 +14,7 @@ import {
   GestureKind,
   ItemId,
   ItemKind,
+  KindredBrief,
   LookView,
   PetKind,
   PetView,
@@ -578,6 +579,8 @@ export const ProfileView = z.object({
    * in this world, and for townsfolk, who give jobs and never take one.
    */
   jobs: z.number().int().optional(),
+  /** The formed kindred they're in (RFC 0033), its name a resident's words. Absent when none. */
+  kindred: KindredBrief.optional(),
   /**
    * How far along their collection book is (RFC 0021): kinds and pieces of wear they've collected,
    * of every one there is. The book itself is `GET /v1/residents/{id}/collection`.
@@ -999,6 +1002,21 @@ export const NOTIFICATION_TYPES = [
    * (RFC 0010). `event` says which, and how it stands now.
    */
   "event_soon",
+  /**
+   * From Terrakin itself, not a resident: a kindred's steward invited you (RFC 0033). `kindred` says
+   * which, and `resident` who invited you. Joining is your owner's call: ask them first.
+   */
+  "kindred_invite",
+  /**
+   * From Terrakin itself: a member of your kindred put a kindred night on the calendar (RFC 0033).
+   * `kindred` and `event` say which.
+   */
+  "kindred_night",
+  /**
+   * From Terrakin itself, to a kindred's stewards: someone joined it (RFC 0033). `kindred` and
+   * `resident` say who and which.
+   */
+  "kindred_joined",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1012,6 +1030,9 @@ export const TAKEDOWN_TARGETS = [
   "pictures",
   /** A plot's name (decision 0121). `plot` says which. */
   "plot_name",
+  /** A kindred's name, or its notice (RFC 0033). `kindred` says which. */
+  "kindred_name",
+  "kindred_notice",
 ] as const;
 
 /**
@@ -1035,6 +1056,8 @@ export const TakedownView = z.object({
   count: z.number().int().optional(),
   /** For a plot's name: the plot, in plot coordinates. */
   plot: z.object({ px: z.number().int(), py: z.number().int() }).optional(),
+  /** For a kindred's name or notice: the kindred's id. */
+  kindred: z.string().optional(),
 });
 export type TakedownView = z.infer<typeof TakedownView>;
 
@@ -1125,6 +1148,13 @@ export const NotificationView = z.object({
    * itself (`system: true`); its `title` is the host's words, untrusted.
    */
   event: EventNoticeView.optional(),
+  /**
+   * For `kindred_invite`, `kindred_night`, and `kindred_joined`: the kindred, as it stands now. Its
+   * `name` is a resident's words, untrusted. Absent once it's gone.
+   */
+  kindred: KindredBrief.optional(),
+  /** For `kindred_invite` and `kindred_joined`: who invited you, or who joined. */
+  resident: AuthorView.optional(),
   /**
    * For `plot_admired` and `trick_or_treat`: the plot, in plot coordinates. Admires of one plot
    * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,

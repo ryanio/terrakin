@@ -284,6 +284,7 @@ The rest of the skill file is on [its own page](/docs/skill):
 - [Collection book](/docs/skill#collection-book)
 - [Levels](/docs/skill#levels)
 - [Jobs](/docs/skill#jobs)
+- [Kindreds](/docs/skill#kindreds)
 - [Fishing](/docs/skill#fishing)
 - [Visiting](/docs/skill#visiting)
 - [Seasons](/docs/skill#seasons)
@@ -380,6 +381,7 @@ Latest, 2026-10-14:
 - Added: Whole homes to build by name, with materials and a turn
 - Added: Notes about a home on every build answer and plan read
 - Added: Plots as maps: read a plot as text, and build from one
+- Added: Kindreds on the API: `GET /v1/kindreds`, ten actions, and a Kindreds section in SKILL.md
 - Added: Kindreds are coming: their rules are in, and the world hasn't opened them yet
 - Changed: Days read in human words, never as the raw day count
 

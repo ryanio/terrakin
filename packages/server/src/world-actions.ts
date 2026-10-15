@@ -15,6 +15,8 @@ import {
   isTownEvent,
   isWater,
   joinTile,
+  kindredById,
+  kindredOf,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
@@ -38,8 +40,9 @@ import {
 } from "@terrakin/sim";
 import { randomBytes, toHex } from "./bytes";
 import { startFree } from "./games";
+import { seesKindred } from "./kindreds";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
-import { cleanMultiline, cleanText } from "./text";
+import { cleanMultiline, cleanText, nameKey } from "./text";
 import type { ActResult } from "./world-service";
 
 /**
@@ -58,6 +61,8 @@ export interface ActionContext {
   run(input: Input, dry: boolean): ActResult;
   blockedEither(a: string, b: string): boolean;
   suspended(residentId: string): boolean;
+  /** Whether staff hold a resident's words back (a quarantine, RFC 0006). */
+  wordsHeld(residentId: string): boolean;
   listingRefusal(residentId: string): string | null;
   /** The type of an upload the owner made, or undefined (see `OwnedMediaType`). */
   mediaType: OwnedMediaType;
@@ -361,6 +366,25 @@ export function performAction(
     const command: Command = { type: "name_plot", px: action.px, py: action.py, name };
     return ctx.run({ actor: residentId, command }, dry);
   }
+  if (action.type === "found_kindred" || action.type === "name_kindred") {
+    // A kindred's name is shown to everyone, agents included, wherever its members are: cleaned
+    // and filtered like a resident's name before it's logged (RFC 0033), and unique the way
+    // residents' names are, which folds more than the sim's ASCII letters.
+    const name = cleanText(action.name);
+    const refused = kindredNameProblem(ctx, residentId, name);
+    if (refused) return refused;
+    const command: Command = { type: action.type, name };
+    return ctx.run({ actor: residentId, command }, dry);
+  }
+  const hidden = hiddenKindred(ctx, residentId, action);
+  if (hidden) return hidden;
+  if (action.type === "invite_to_kindred" && ctx.blockedEither(residentId, action.resident)) {
+    // Like a gift, an invite can't cross a block either way (RFC 0033).
+    return {
+      ok: false,
+      error: { code: "forbidden", message: "You can't invite this resident." },
+    };
+  }
   if (action.type === "teach" && ctx.blockedEither(residentId, action.to)) {
     // Like a gift, a lesson can't cross a block either way (RFC 0024).
     return {
@@ -548,6 +572,63 @@ export function performAction(
 }
 
 /**
+ * A kindred named by `join_kindred`, `decline_kindred_invite`, or a kindred night that the actor
+ * can't see (a forming one they're not in and weren't invited to) answers exactly as one that
+ * doesn't exist, so its name and its being there stay with its members (RFC 0033).
+ */
+function hiddenKindred(
+  ctx: ActionContext,
+  residentId: string,
+  action: Exclude<Action, { type: "chat" | "putter" | "build" }>,
+): ActResult | undefined {
+  const id =
+    action.type === "join_kindred" || action.type === "decline_kindred_invite"
+      ? action.kindred
+      : action.type === "schedule_event"
+        ? action.kindred
+        : undefined;
+  if (id === undefined || !ctx.state.kindreds) return undefined;
+  const k = kindredById(ctx.state, id);
+  if (!k || seesKindred(k, residentId)) return undefined;
+  return {
+    ok: false,
+    error: { code: "unknown_kindred", message: "No kindred has that id. See GET /v1/kindreds." },
+  };
+}
+
+/**
+ * Why a kindred's name can't be logged, or undefined: the edge filters (`kindred_name`), a name
+ * another kindred has by the server's `nameKey`, and a writer whose words staff hold back, whose
+ * new name would otherwise go up while their other words are held (RFC 0033).
+ */
+function kindredNameProblem(
+  ctx: ActionContext,
+  residentId: string,
+  name: string,
+): ActResult | undefined {
+  if (ctx.wordsHeld(residentId)) {
+    return {
+      ok: false,
+      error: {
+        code: "forbidden",
+        message: "Your words are held back for review right now, so you can't name a kindred.",
+      },
+    };
+  }
+  const refused = filtered(ctx.moderation, "kindred_name", name, { resident: residentId });
+  if (refused) return refused;
+  const mine = kindredOf(ctx.state, residentId);
+  const key = nameKey(name);
+  const taken = Object.values(ctx.state.kindreds?.list ?? {}).some(
+    (k) => k !== mine && k.name !== undefined && nameKey(k.name) === key,
+  );
+  if (taken) {
+    return { ok: false, error: { code: "name_taken", message: "Another kindred has that name." } };
+  }
+  return undefined;
+}
+
+/**
  * `schedule_event`: the words are cleaned and filtered like a bounty's before they're logged
  * (decision 0004), and the start, sent as an ISO time, is checked against the clock (at least
  * `EVENT_LEAD_MINUTES` ahead). The sim checks the rest.
@@ -594,6 +675,7 @@ function scheduleEvent(
     py: action.py,
     startsAt,
     minutes: action.minutes,
+    ...(action.kindred !== undefined ? { kindred: action.kindred } : {}),
   };
   return ctx.run({ actor: residentId, command }, dry);
 }

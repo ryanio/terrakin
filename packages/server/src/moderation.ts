@@ -56,6 +56,8 @@ export type Surface =
   | "item_label"
   | "pet_name"
   | "plot_name"
+  | "kindred_name"
+  | "kindred_notice"
   | "proposal_title"
   | "proposal_text"
   | "bounty_title"
@@ -176,6 +178,22 @@ export const POLICY: Record<Surface, Policy> = {
     impersonation: "name",
     shorteners: true,
     spam: ["runs"],
+  },
+  // A kindred's name (RFC 0033) is shown wherever its members are, like a plot's name.
+  kindred_name: {
+    label: "Kindred names",
+    vulgar: "refuse",
+    impersonation: "name",
+    shorteners: true,
+    spam: ["runs"],
+  },
+  // A kindred's notice is read by everyone who can see the kindred, like the Town Hall's board.
+  kindred_notice: {
+    label: "Kindred notices",
+    vulgar: "refuse",
+    impersonation: null,
+    shorteners: false,
+    spam: ["repeat", "links", "mentions", "runs", "caps"],
   },
   proposal_title: {
     label: "Proposals",

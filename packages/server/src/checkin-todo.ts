@@ -1,6 +1,7 @@
 import {
   absolute,
   CHECKIN_LIMITS,
+  type CheckinKindred,
   type CheckinResponse,
   type GardenView,
   LINKS,
@@ -20,6 +21,7 @@ import type { todaysLines } from "./coins";
 import type { checkinEvents } from "./events";
 import { gameName, type gamesCheckin, timeLeft } from "./games";
 import { jobTodo } from "./jobs";
+import { kindredTodo } from "./kindreds";
 import { levelTodo } from "./levels";
 import { plural } from "./markdown";
 import { ROUTINE_WORDS } from "./routines";
@@ -69,6 +71,8 @@ export interface CheckinFacts {
   changelog: { news: boolean; entries: number; shown: number };
   devlog: CheckinResponse["devlog"];
   away: CheckinResponse["away"]["items"];
+  /** The resident's kindred and the invites they hold (RFC 0033), once kindreds are open. */
+  kindred: CheckinKindred | undefined;
   /** The server's line about the resident's owner (a cancelled re-key, or no owner yet). */
   ownerNote: string | null;
   suggestion: Suggestion | null;
@@ -248,6 +252,8 @@ const TODO: readonly TodoEntry[] = [
   (f) => levelTodo(f.notifications),
   // Jobs (RFC 0030): one line for each unread finished job. Never a line asking for one.
   (f) => jobTodo(f.notifications),
+  // Kindreds (RFC 0033): fixed words, never what a name or a notice says.
+  (f) => kindredTodo(f.kindred, f.now),
   ({ lettersUnread, letters }) =>
     lettersUnread > 0
       ? [

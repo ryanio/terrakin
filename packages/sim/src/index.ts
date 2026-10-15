@@ -346,6 +346,8 @@ export {
   kindredNights,
   kindredOf,
   membersByStanding,
+  renamedThisWeek,
+  shownKindredName,
   waitLeft,
 } from "./kindreds";
 export {

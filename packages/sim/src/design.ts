@@ -1,6 +1,6 @@
 import type { BuildPlan } from "./build";
 import { type PlotTiles, plotTiles } from "./map";
-import type { BlockKind, Direction, Tile, WorldState } from "./types";
+import type { BlockKind, Direction, Tile, WorldConfig, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import { blocksWalkers, chebyshev, STEP } from "./world";
 
@@ -68,10 +68,26 @@ export function designNotes(
   plan?: BuildPlan,
 ): DesignNote[] {
   const tiles = plotTiles(state, px, py, plan);
-  return tiles ? notesFor(state, tiles) : [];
+  if (!tiles) return [];
+  return plotNotes(tiles, {
+    config: state.config,
+    solidBuildings: state.solidBuildings === true,
+    shopOpen: state.shop !== undefined,
+  });
 }
 
-function notesFor(state: WorldState, plot: PlotTiles): DesignNote[] {
+/** What the notes read besides the plot: the world's size and reach, and which buildings stop walkers. */
+export interface NoteFacts {
+  config: WorldConfig;
+  solidBuildings: boolean;
+  shopOpen: boolean;
+}
+
+/**
+ * The notes for a plot's tiles, from plain facts, so the web's build bar asks the same question
+ * of its mirror that `designNotes` asks of the world (decision 0052).
+ */
+export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   const S = plot.size;
   const x0 = plot.px * S;
   const y0 = plot.py * S;
@@ -89,10 +105,10 @@ function notesFor(state: WorldState, plot: PlotTiles): DesignNote[] {
     (!blocksWalkers(blockAt(t)) || sameTile(t, removed));
   const groundFor = (removed?: Tile): Ground =>
     groundOf({
-      config: state.config,
+      config: facts.config,
       hasBlock: (x, y) => !open({ x: x - x0, y: y - y0 }, removed),
-      solidBuildings: state.solidBuildings === true,
-      shopOpen: state.shop !== undefined,
+      solidBuildings: facts.solidBuildings,
+      shopOpen: facts.shopOpen,
     });
   /** Every tile a walk reaches from `from` over `dirs`, keeping to tiles `ok` allows. */
   const walk = (
@@ -182,13 +198,13 @@ function notesFor(state: WorldState, plot: PlotTiles): DesignNote[] {
     const block = blockAt(t);
     const how = block === undefined ? undefined : STATIONS[block];
     if (!how) return false;
-    const near = how === "beside" ? 1 : state.config.reach;
+    const near = how === "beside" ? 1 : facts.config.reach;
     return !standable.some((s) => chebyshev(s, t) <= near);
   });
   if (far.length > 0) {
     const first = far[0] as Tile;
     const kind = blockAt(first);
-    const near = kind === "pond" ? "right beside it" : `within ${state.config.reach} tiles of it`;
+    const near = kind === "pond" ? "right beside it" : `within ${facts.config.reach} tiles of it`;
     const others =
       far.length > 1 ? `, or ${plural(far.length - 1, "other", "others")} like it` : "";
     notes.push({

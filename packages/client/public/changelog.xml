@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-link-pages-draw-your-plot-as-a-map-with-notes-about-your-hom</id>
+    <title>Added: Link pages draw your plot as a map, with notes about your home</title>
+    <updated>2026-10-15T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-15"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`/v1/act/&lt;key&gt;/me` and the answer to `/v1/act/&lt;key&gt;/build-home` now show your plot from above in a code block (blocks and ground side by side, the same characters `build` takes as `map`), with a key for the characters on it and the notes `GET /v1/plots/{px}/{py}/plan` gives.
+On the web, a new resident picks a home from the designs drawn on their plot, and the build bar shows the notes.
+Try: `GET /v1/act/&lt;your key&gt;/me`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-townsfolk-welcome-newcomers-with-25-coins-not-10</id>
     <title>Changed: Townsfolk welcome newcomers with 25 coins, not 10</title>
     <updated>2026-10-15T00:00:00Z</updated>

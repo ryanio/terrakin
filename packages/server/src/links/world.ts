@@ -13,6 +13,7 @@ import {
   commonsPlot,
   countOf,
   dayDateWords,
+  designNotes,
   freeRenamesLeft,
   homePlotOf,
   ITEM_INFO,
@@ -22,11 +23,15 @@ import {
   isFindKind,
   isTownsfolk,
   lastDeclineDay,
+  MAP_BLOCKS,
+  MAP_GROUND,
+  MAP_MARKS,
   nearestOpenPickup,
   type Plot,
   pickupLeft,
   pickupsInReach,
   plotKey,
+  plotMap,
   plotOf,
   plotsOwnedBy,
   purseOf,
@@ -92,6 +97,55 @@ function plotLabel(state: WorldState, viewer: string, x: number, y: number): str
   if (plot.ownerId === viewer) return `your plot (${px}, ${py})`;
   if (plot.coOwners?.includes(viewer)) return `plot (${px}, ${py}), which is shared with you`;
   return `plot (${px}, ${py}), which belongs to resident \`${plot.ownerId}\``;
+}
+
+/** What a map's character stands for, in a link page's key. */
+const MAP_WORDS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(
+    Object.entries({ ...MAP_BLOCKS, ...MAP_GROUND }).map(([c, kind]) => [
+      c,
+      kind.replace(/_/g, " "),
+    ]),
+  ),
+  [MAP_MARKS.hearth]: "a hearth",
+  [MAP_MARKS.standing]: "someone standing",
+  [MAP_MARKS.more]: "more decor or furniture",
+};
+
+/**
+ * Plot (`px`, `py`) from above for a link page (RFC 0032): its blocks and paths side by side in a
+ * code block, a row of text per row of tiles, north first, with what each character there stands
+ * for, and the notes about the home. The same map `GET /v1/plots/{px}/{py}/plan` gives.
+ */
+function mapSection(state: WorldState, px: number, py: number, title: string): string | false {
+  const map = plotMap(state, px, py);
+  if (!map) return false;
+  const rows = map.floors.flatMap((f) => [
+    ...(map.floors.length > 1 ? [f.floor === 0 ? "ground floor" : `floor ${f.floor}`] : []),
+    `${"blocks".padEnd(f.blocks[0]?.length ?? 0)}    ground`,
+    ...f.blocks.map((row, y) => `${row}    ${f.ground[y] ?? ""}`),
+  ]);
+  const used = new Set(map.floors.flatMap((f) => [...f.blocks.join(""), ...f.ground.join("")]));
+  const key = [...used]
+    .filter((c) => MAP_WORDS[c])
+    .map((c) => `\`${c}\` ${MAP_WORDS[c]}`)
+    .concat(
+      Object.entries(map.legend ?? {}).map(([d, kind]) => `\`${d}\` ${kind.replace(/_/g, " ")}`),
+    );
+  const notes = designNotes(state, px, py);
+  return list([
+    `## ${title}`,
+    "",
+    `Each row is a row of tiles, north at the top, \`.\` open${key.length > 0 ? `: ${key.join(", ")}` : ""}.`,
+    "",
+    "```text",
+    ...rows,
+    "```",
+    "",
+    notes.length === 0
+      ? "Nothing about this home needs a look."
+      : list(["Notes about this home:", "", ...notes.map((n) => `- ${n.text}`)]),
+  ]);
 }
 
 /** Unclaimed plots, nearest first (in plots), not counting the Commons. */
@@ -236,6 +290,7 @@ export function worldLinks(
             `- Shared with you: ${shared.map((p: Plot) => `(${p.px}, ${p.py})`).join(", ")}`,
           `- Hearth: ${r.hearth ? at(r.hearth) : "not set (building a starter home sets it)"}`,
         ]),
+        owned && mapSection(state, owned.px, owned.py, "Your plot from above"),
         plotNamesBlock(
           [owned, ...shared].flatMap((p) =>
             p ? [{ px: p.px, py: p.py, name: shownPlotName(p, service.noteHidden) }] : [],
@@ -338,6 +393,10 @@ export function worldLinks(
         l,
         "# Home built",
         `You built your starter home: ${blocks} blocks, with a doorway on the south side. Your hearth is at ${r.hearth ? at(r.hearth) : "the middle"}, inside it, and you're at ${at(r)}. The home link brings you back to the hearth from anywhere.`,
+        (() => {
+          const home = homePlotOf(state, viewer);
+          return home && mapSection(state, home.px, home.py, "Your plot from above");
+        })(),
         showHome(origin, state, viewer, "Show your owner your plot with its new home"),
       );
     },

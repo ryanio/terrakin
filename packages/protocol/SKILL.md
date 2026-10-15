@@ -1496,7 +1496,7 @@ A letter on a tile that holds something else is skipped as `occupied`, as a list
 
 ### Notes
 
-Every `build` answer, dry or real, has `plan.map` (the plot as the plan leaves it) and `plan.notes`, and `GET /v1/plots/{px}/{py}/plan` has both for the plot as it stands. A note is a fact or a suggestion about the home, never a refusal: `{"code", "text", "tiles"}`, with the tiles from the plot's corner. `"notes": []` is a clean home.
+Every `build` answer, dry or real, has `plan.map` (the plot as the plan leaves it) and `plan.notes`, and `GET /v1/plots/{px}/{py}/plan` has both for the plot as it stands. Link-only: `/v1/act/<key>/me` and the answer to `/v1/act/<key>/build-home` draw your plot the same way, in a code block, with its notes. On the web, the build bar shows the notes about the plot you're building on. A note is a fact or a suggestion about the home, never a refusal: `{"code", "text", "tiles"}`, with the tiles from the plot's corner. `"notes": []` is a clean home.
 
 - `hearth_walled_in`: nobody can walk from the plot's edge to a hearth. It names a wall whose removal opens the way.
 - `walled_in`: open tiles nobody can walk to.
@@ -1981,7 +1981,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/join` | no | Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key. | 3 a minute per IP, bursts of 5, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `POST` | `/v1/link-key` | yes | Make a link key for an assistant that can only open links. Replaces any earlier key. | 60 a minute per resident |
 | `DELETE` | `/v1/link-key` | yes | Turn off your link key. Links with it stop working at once. |  |
-| `GET` | `/v1/act/<key>/me` | link key | Who you are: profile, plot, hearth, and the links you can open. |  |
+| `GET` | `/v1/act/<key>/me` | link key | Who you are: profile, plot (drawn as a map, with notes about your home), hearth, and the links you can open. |  |
 | `GET` | `/v1/act/<key>/world` | link key | A short text view of the world around you, with settle links for free plots nearby. |  |
 | `GET` | `/v1/act/<key>/settle` | link key | Claim plot (px, py) as your first plot and land on it. | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET` | `/v1/act/<key>/build-home` | link key | Build the starter home on your plot, with your hearth inside. | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |

@@ -32,6 +32,7 @@ import {
   type Resident,
   route,
   STEP,
+  seasonOf,
   settleProblem,
   type Tile,
   tileKey,
@@ -42,10 +43,11 @@ import { h } from "@terrakin/ui/dom";
 import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
-import { confirmTwice, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
+import { confirmTwice, disclosure, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
 import { whoseKey } from "./api/me";
 import { residentsApi } from "./api/residents";
+import { mirrorNotes, notesLabel, noteWords } from "./build-notes";
 import {
   blockLine,
   blockShort,
@@ -123,6 +125,16 @@ const paletteRows: Record<PaletteTab, HTMLElement> = {
   furniture: $("palette-furniture"),
 };
 const paletteLine = $("palette-line");
+const notesList = $("palette-notes");
+/** The chip at the end of the floors row that opens the notes about this home. */
+const notesToggle = h("button", {
+  class: "palette-notes-toggle",
+  attrs: { type: "button", id: "palette-notes-toggle" },
+});
+disclosure(notesToggle, notesList, undefined, () => {
+  if (buildMode)
+    hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
+});
 /** Which floor taps build on, or Add an upstairs, on a plot you can build on (RFC 0028). */
 const floorRow = $("palette-floors");
 /** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
@@ -175,6 +187,8 @@ let petCheckAt = 0;
 let gathering: { id: string; done: () => void } | undefined;
 /** How long "Gather all" waits on an answer before it can be tapped again. */
 const GATHER_WAIT_MS = 5000;
+/** How long building a new home waits for you to walk near your plot's middle before it tries. */
+const WALK_NEAR_MS = 8000;
 /** The pets you've patted today, from here or anywhere else: the server takes one pat a day. */
 const patsToday = new PatsToday(
   async (owner) => {
@@ -556,7 +570,32 @@ function onMessage(msg: ServerMessage) {
       // A plot you just claimed offers a home, then asks for a name (decisions 0144 and 0121).
       if (applied === "applied" && msg.event.type === "plot_claimed" && msg.event.ownerId === me) {
         const { px, py } = msg.event;
-        openHomeSheet({ plot: { px, py }, say: showToast, buildMyself: buildFromHearth });
+        const m = mirror;
+        if (m)
+          openHomeSheet({
+            plot: { px, py },
+            say: showToast,
+            buildMyself: buildFromHearth,
+            where: { config: m.config, season: m.day === undefined ? undefined : seasonOf(m.day) },
+            standing: () => self(),
+            hearth: () => (me ? m.residents.get(me)?.hearth : undefined),
+            walkNear: (tile, near) =>
+              new Promise((done) => {
+                // Done once the world has you within reach, not when the last step is only sent.
+                const there = () => {
+                  const at = self();
+                  return at !== undefined && chebyshev(at, tile) <= near;
+                };
+                const started = performance.now();
+                const wait = () => {
+                  if (there() || performance.now() - started > WALK_NEAR_MS) done();
+                  else setTimeout(wait, 100);
+                };
+                // A walk with nowhere to go never gets there: the hearth's own refusal says so then.
+                walkToward(tile, near);
+                wait();
+              }),
+          });
       }
       // A cast (RFC 0023), anyone's: its float, its rings, and what it brought up, on the water.
       if (applied === "applied" && msg.event.type === "fished") {
@@ -1423,6 +1462,7 @@ function setBuildMode(on: boolean) {
   if (on && !chatPanel.hidden) toggleChat(false);
   paintFloors();
   paintPalette();
+  paintNotes();
   if (on) hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
 
@@ -1537,6 +1577,7 @@ function paintFloors() {
     );
     floorRow.append(add);
   }
+  if (notesToggle.textContent) floorRow.append(notesToggle);
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
@@ -1556,6 +1597,38 @@ function followFloor() {
   }
   // A floor added since (yours or a co-owner's): the picker starts on it.
   paintFloors();
+  paintNotes();
+}
+
+/** What the build bar's notes last read: the plot and the mirror's `seq`, so they're asked again only after a change. */
+let notesRead = "";
+
+/**
+ * Notes about the home on the plot you're building on (RFC 0032): a hearth nobody can walk to, no
+ * path, a crowded plot. A chip at the end of the floors row says how many and opens them under the
+ * bar's line, so the bar takes no more of the map around you, and a note never holds a tap back.
+ */
+function paintNotes() {
+  const plot = buildMode ? buildablePlot() : undefined;
+  const m = mirror;
+  const read = plot && m ? `${plot.px},${plot.py},${m.seq}` : "";
+  if (read === notesRead) return;
+  notesRead = read;
+  const notes = plot && m ? mirrorNotes(m, plot.px, plot.py) : [];
+  const label = notesLabel(notes);
+  const shown = [...notesList.children].map((li) => li.textContent).join("\n");
+  if (notesToggle.textContent === label.text && shown === notes.map(noteWords).join("\n")) {
+    return;
+  }
+  // A clean home has no chip, and its list closes.
+  if (notes.length === 0 && !notesList.hidden) notesToggle.click();
+  notesToggle.textContent = label.text;
+  notesToggle.setAttribute("aria-label", label.name);
+  if (notes.length === 0) notesToggle.remove();
+  else if (!notesToggle.isConnected) floorRow.append(notesToggle);
+  notesList.replaceChildren(...notes.map((n) => h("li", { text: noteWords(n) })));
+  if (buildMode)
+    hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
 
 /**

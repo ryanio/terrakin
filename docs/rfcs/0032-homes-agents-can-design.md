@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-10
-- Status: accepted (Ryan, 2026-10-14), built (phases 1 to 3; phase 4, the web, to come)
+- Status: accepted (Ryan, 2026-10-14), built
 - Discussion: [issue #48](https://github.com/ryanio/terrakin/issues/48) (item 3, guided setup)
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (build plans), [RFC 0028](0028-homes-with-storeys.md) (an upstairs), [decision 0076](../knowledge/decisions/0076-a-build-plan-uses-plot-coordinates-refuses-whole-what-the-pl.md) (how a plan is checked), [decision 0252](../knowledge/decisions/0252-a-home-s-levels-are-floors-in-the-api-and-an-upstairs-in-wha.md) (floor is a level, flooring is what you lay), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (replay), [decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md) (untrusted text)
 
@@ -261,13 +261,13 @@ Walls are four kinds of cube with no doors and no roofs, so even a well planned 
 
 ## Decisions
 
-Ryan accepted the draft on 2026-10-14 and asked for the plot map, dry-run notes, and starter designs (phases 1 to 3). The open questions take the answers this RFC leans to:
+Ryan accepted the draft on 2026-10-14 and asked for the plot map, dry-run notes, and starter designs (phases 1 to 3), then for phase 4, the web, the same day. The open questions take the answers this RFC leans to:
 
 1. `replace` is in. It clears only the tiles where a map or design puts something different, never a tile it leaves open, so a turned design over a hut keeps the hut's other walls, and the dry run's map and notes show them ([decision 0280](../knowledge/decisions/0280-a-map-or-a-design-becomes-a-build-s-lists-in-the-protocol-be.md)).
 2. `crowded` is more than half the plot. Measured on terrakin.org at `seq` 17058: of 27 built plots that aren't the townsfolk's, 8 are over half, 4 over 60%, and 9 over 40% ([decision 0281](../knowledge/decisions/0281-design-notes-read-the-ground-floor-from-the-plot-s-edge-and-.md)). The guide says to leave half the plot open, to match.
 3. Notes ride on real builds too, as section 2 has them: the same answer, dry or real, is simpler to read, and the next build can fix what a note says.
 4. Four turns, no `flip`.
-5. Phase 4's question, for when the web gets designs.
+5. All nine, as pictures of the home on the plot just claimed, in a row that scrolls sideways on a phone, with the walls to choose. The hut comes first and is picked to start.
 6. `build_starter_home` stays as it is.
 7. The fixed table stays as written.
 
@@ -277,4 +277,4 @@ Built differently from the text above:
 - A map the server writes may also have `*`, for an eleventh kind of decor or furniture past the legend's ten digits. It reads back as `.`.
 - `no_path` counts a doorway (an open tile between two walls) and the tiles beside the hearth as part of the way out, so the path SKILL.md always suggested, which starts past the doorway, is enough. Notes read the ground floor only.
 - Designs are a hut and eight homes in the townsfolk's spirit (greenhouse, workshop, corner cafe, post stop, library, lookout, hill house, atelier), drawn new rather than copied from `personas.ts`, since every design keeps the plot's middle four tiles open on its path ([decision 0282](../knowledge/decisions/0282-every-design-leaves-the-plot-s-middle-four-tiles-open-on-its.md)). A design marks the hearth's tile `h`; SKILL.md says to set the hearth at the plot's center.
-- The link-only map on `/v1/act/<key>/me` and in the answer to building by link is left for phase 4.
+- On the web (phase 4), building a design from the home sheet sets the hearth on the plot's center first (walking within reach of it if the claim left you farther), steps onto it for the pantry, then sends `build` with the design. A hearth already there isn't set again, so a retry goes straight to the build ([decision 0286](../knowledge/decisions/0286-after-a-claim-the-web-offers-the-designs-drawn-on-your-plot-.md)). The build bar's notes open from a chip at the end of its floors row, so the bar takes no more of the map, and say each note without the tile numbers, which the map doesn't label. The build bar's notes come from `plotNotes`, the sim's notes over plain facts, which `designNotes` and the client's mirror both call.

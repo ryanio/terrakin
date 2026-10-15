@@ -446,6 +446,14 @@ describe("action links", () => {
     expect(built.text).toContain("# Home built");
     expect(built.text).toContain("15 blocks");
     expect(service.state.residents[wren.id]?.hearth).toEqual({ x: 3, y: 3 });
+    // The plot from above, in the map the API reads and writes, and what's off about it (RFC 0032).
+    expect(built.text).toContain(
+      "```text\nblocks      ground\n........    ........\n.SSSSS..    ........",
+    );
+    expect(built.text).toContain(".G.h.G..");
+    expect(built.text).toContain("`S` stone");
+    expect(built.text).toContain("- This plot has no path or flooring.");
+    expect((await wren.act("me")).text).toContain("## Your plot from above");
     expect(codeOf((await wren.act("build-home?walls=gold")).text)).toBe("bad_request");
 
     // Out the doorway (3, 5) and south to the edge. A move link acts every time it's opened.

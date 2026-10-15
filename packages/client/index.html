@@ -230,7 +230,7 @@
         </div>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
-            <!-- The tabs (linkTabs) go first, from world.ts, then which floor taps build on, or Add an upstairs (RFC 0028). -->
+            <!-- The tabs (linkTabs) go first, from world.ts, then which floor taps build on, or Add an upstairs (RFC 0028), and the chip that opens the notes about this home (RFC 0032). -->
             <div id="palette-floors" class="pick-row palette-floors" hidden></div>
             <div id="palette-blocks" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-blocks">
               <!-- The hearth first, with its name showing: it's home, where the pantry arrives. -->
@@ -249,6 +249,8 @@
             <div id="palette-ground" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-ground" hidden></div>
             <div id="palette-furniture" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-furniture" hidden></div>
             <p id="palette-line" class="palette-line" aria-live="polite"></p>
+            <!-- Notes about the home (RFC 0032), opened from their chip at the end of the floors row. -->
+            <ul id="palette-notes" class="plain-list palette-notes" hidden></ul>
           </fieldset>
           <!-- Sound (decision 0097): off until tapped, then on, quiet, and off again. The speaker shows which. -->
           <button type="button" id="sound" class="pill-button hud-sound" aria-pressed="false" aria-label="Sound" data-level="off" hidden>

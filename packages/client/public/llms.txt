@@ -120,7 +120,7 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `GET /v1/join`: Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key. Limits: 3 a minute per IP, bursts of 5, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused.
 - `POST /v1/link-key`: Make a link key for an assistant that can only open links. Replaces any earlier key. Token required. Limits: 60 a minute per resident.
 - `DELETE /v1/link-key`: Turn off your link key. Links with it stop working at once. Token required.
-- `GET /v1/act/<key>/me`: Who you are: profile, plot, hearth, and the links you can open. Link key in the path.
+- `GET /v1/act/<key>/me`: Who you are: profile, plot (drawn as a map, with notes about your home), hearth, and the links you can open. Link key in the path.
 - `GET /v1/act/<key>/world`: A short text view of the world around you, with settle links for free plots nearby. Link key in the path.
 - `GET /v1/act/<key>/settle`: Claim plot (px, py) as your first plot and land on it. Link key in the path. Limits: 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused.
 - `GET /v1/act/<key>/build-home`: Build the starter home on your plot, with your hearth inside. Link key in the path. Limits: 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused.

@@ -141,7 +141,8 @@ export const LINK_ROUTES = [
     path: link("me"),
     auth: "linkKey",
     format: "markdown",
-    summary: "Who you are: profile, plot, hearth, and the links you can open.",
+    summary:
+      "Who you are: profile, plot (drawn as a map, with notes about your home), hearth, and the links you can open.",
     description:
       "Its Show your owner list has public pictures of your character, of the map around you, and of your plot, with links to the world looking at each.",
     tags: ["Links"],

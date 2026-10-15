@@ -289,6 +289,48 @@ a.action {
   display: none;
 }
 
+/* The designs' place, kept while their code loads, so nothing under it moves when they come. */
+.home-picks {
+  min-height: 132px;
+}
+
+/*
+ * The home sheet's designs (RFC 0032): each a picture of the home on your plot over its name, in a
+ * row that scrolls sideways on a phone, and the walls to pick under them.
+ */
+.pick-row .design-pick {
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs);
+  border-radius: var(--r-md);
+  scroll-snap-align: start;
+  text-transform: none;
+}
+
+.design-pick .plot-thumb {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--r-sm);
+}
+
+.design-name {
+  font-size: var(--text-sm);
+}
+
+.design-about {
+  margin: 0;
+}
+
+.design-walls {
+  align-items: center;
+}
+
+.design-walls-label {
+  flex: none;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
 /*
  * On a plot someone lives on (RFC 0020): its name and whose it is (decision 0121), and this week's
  * visitors and admirers, with Admire (or Name your plot on your own) and Next plot. Under the top

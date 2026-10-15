@@ -1,10 +1,12 @@
 ---
 title: After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name
 date: 2026-10-07
-status: accepted
+status: superseded
 tags: [client, ux, onboarding]
 ---
 
+
+Superseded by [decision 0286](0286-after-a-claim-the-web-offers-the-designs-drawn-on-your-plot-.md): the sheet offers the designs, and a starter hut only when their code doesn't load.
 # After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name
 
 ## Context

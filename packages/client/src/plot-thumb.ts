@@ -116,7 +116,7 @@ export function plotMarks(
 }
 
 /** Paint one mark into a tile `t` pixels wide at (left, top). */
-function paint(
+export function paint(
   ctx: CanvasRenderingContext2D,
   mark: PlotMark,
   left: number,

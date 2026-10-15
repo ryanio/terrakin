@@ -3,11 +3,12 @@ import { walkedOnto, watchErrors } from "./support";
 
 /**
  * A newcomer's way home on a phone: the d-pad saying what's in the way, Claim plot in the Commons
- * opening the picker of empty plots (decision 0143), the one picked claimed with `settle`, a
- * starter home in one tap with the first pantry said in words (decision 0144), and the starter
- * seeds in Your things, which takes Claim plot's place in the HUD.
+ * opening the picker of empty plots (decision 0143), the one picked claimed with `settle`, a home
+ * picked from the designs drawn on her plot and built in one tap with the first pantry said in
+ * words (decision 0144, RFC 0032), and the starter seeds in Your things, which takes Claim plot's
+ * place in the HUD.
  */
-test("a newcomer claims a plot from the Commons, takes a starter home, and finds seeds", async ({
+test("a newcomer claims a plot from the Commons, builds a design, and finds seeds", async ({
   page,
 }) => {
   const errors = watchErrors(page, { console: "none" });
@@ -61,9 +62,20 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
     expect(plots.filter((p) => p.ownerId === id)).toHaveLength(1);
   });
 
-  await test.step("a starter home in one tap brings the first pantry, then the name ask", async () => {
-    // Both choices fit on a phone's screen at once.
+  await test.step("a design picked and built in one tap brings the first pantry, then the name ask", async () => {
+    // The designs drawn on her plot, and both choices on a phone's screen at once.
     const offer = page.getByRole("dialog", { name: "This plot is yours" });
+    const designs = offer.getByRole("group", { name: "Designs" });
+    await expect(designs.locator("canvas")).toHaveCount(9);
+    await designs.getByRole("button", { name: /Greenhouse/ }).click();
+    await expect(designs.getByRole("button", { name: /Greenhouse/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await offer
+      .getByRole("group", { name: "Walls" })
+      .getByRole("button", { name: "Stone" })
+      .click();
     await expect(offer.getByRole("button", { name: "I'll build it myself" })).toBeInViewport({
       ratio: 1,
     });
@@ -82,9 +94,9 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
       },
       { times: 1 },
     );
-    await page.getByRole("button", { name: "Build me a starter home" }).click();
+    await page.getByRole("button", { name: "Build this home" }).click();
     await expect(offer.getByRole("button", { name: "I'll build it myself" })).toBeDisabled();
-    await expect(offer.getByRole("button", { name: "Build me a starter home" })).toBeDisabled();
+    await expect(offer.getByRole("button", { name: "Build this home" })).toBeDisabled();
     release();
     const name = page.getByRole("dialog", { name: "Name your new plot" });
     await expect(name).toBeVisible();
@@ -93,6 +105,13 @@ test("a newcomer claims a plot from the Commons, takes a starter home, and finds
     await page.screenshot({ path: "test-results/claim-home.png" });
     const r = await me();
     expect(r.hearth).toEqual({ x: r.x, y: r.y });
+    // The greenhouse in stone stands round her hearth, with nothing off about it.
+    const size = (await world()).config.plotSize;
+    const plot = `${Math.floor(r.x / size)}/${Math.floor(r.y / size)}`;
+    const plan = (await (await page.request.get(`/v1/plots/${plot}/plan`)).json()).plan;
+    expect(plan.map.floors[0].blocks[1]).toBe(".GGGGG..");
+    expect(plan.map.floors[0].blocks[2]).toBe(".S...S.p");
+    expect(plan.notes).toEqual([]);
     await name.locator("#plot-name-input").fill("Linden's Lemon Grove");
     await name.locator("#plot-name-save").click();
     await expect(name).toBeHidden();

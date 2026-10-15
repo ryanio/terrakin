@@ -73,7 +73,15 @@ export {
   relativeDayWords,
   worldDayWords,
 } from "./day-words";
-export { DESIGN, type DesignNote, designNotes, NOTE_CODES, type NoteCode } from "./design";
+export {
+  DESIGN,
+  type DesignNote,
+  designNotes,
+  NOTE_CODES,
+  type NoteCode,
+  type NoteFacts,
+  plotNotes,
+} from "./design";
 export {
   DISPLAY_BLOCKS,
   displayAt,
@@ -375,6 +383,7 @@ export {
   MAP_MARKS,
   type MapFloor,
   type PlotMap,
+  type PlotTiles,
   plotMap,
 } from "./map";
 export {

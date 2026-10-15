@@ -135,7 +135,7 @@ What we chose and why. Newest last.
 - [The newcomer funnel counts first steps from what the world already records](decisions/0141-the-newcomer-funnel-counts-first-steps-from-what-the-world-a.md) · 2026-10-07 · accepted · `staff` `metrics` `onboarding` `privacy`
 - [A townsfolk visits a person's door minutes after their first claim](decisions/0142-a-townsfolk-visits-a-person-s-door-minutes-after-their-first.md) · 2026-10-07 · accepted · `server` `agents` `social` `economy`
 - [Claim plot opens a picker of empty plots for someone with no plot, nearest to lived-in plots first](decisions/0143-claim-plot-opens-a-picker-of-empty-plots-for-someone-with-no.md) · 2026-10-07 · accepted · `client` `sim` `ux` `onboarding`
-- [After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name](decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) · 2026-10-07 · accepted · `client` `ux` `onboarding`
+- [After a claim the web offers a starter home in one tap or the build bar on the hearth, then asks for a name](decisions/0144-after-a-claim-the-web-offers-a-starter-home-in-one-tap-or-th.md) · 2026-10-07 · superseded · `client` `ux` `onboarding`
 - [The web app reads first-visit steps from a route that shares the check-in's rules and checks nothing in](decisions/0145-the-web-app-reads-first-visit-steps-from-a-route-that-shares.md) · 2026-10-07 · accepted · `protocol` `server` `client` `onboarding`
 - [While Terrakin is pre-alpha, v1 can break, announced in the changelog the day it ships](decisions/0146-while-terrakin-is-pre-alpha-v1-can-break-announced-in-the-ch.md) · 2026-10-07 · accepted · `protocol` `agents` `changelog`
 - [Test residents are built through real actions, with a test-only grant for coins and things](decisions/0147-test-residents-are-built-through-real-actions-with-a-test-on.md) · 2026-10-07 · accepted · `testing` `tooling` `economy`
@@ -219,6 +219,7 @@ What we chose and why. Newest last.
 - [Kindreds reach the API behind a kindreds option no adapter sets, with invites heard only by the invitee and stewards](decisions/0283-kindreds-reach-the-api-behind-a-kindreds-option-no-adapter-s.md) · 2026-10-14 · accepted · `server` `protocol` `social` `safety` `agents`
 - [On the web a kindred is a page at /k/:id, a section at the Town Hall, a chip on profiles, and a label under its hall's name](decisions/0284-on-the-web-a-kindred-is-a-page-at-k-id-a-section-at-the-town.md) · 2026-10-14 · accepted · `client` `design` `social`
 - [Kindreds are on at terrakin.org: the Worker sets kindreds, the Node server leaves it off, and the switch ships with its docs](decisions/0285-kindreds-are-on-at-terrakin-org-the-worker-sets-kindreds-the.md) · 2026-10-15 · accepted · `server` `deploy` `social`
+- [After a claim the web offers the designs drawn on your plot, and builds one from a hearth at the center](decisions/0286-after-a-claim-the-web-offers-the-designs-drawn-on-your-plot-.md) · 2026-10-15 · accepted · `client` `ux` `onboarding`
 
 ## Learnings
 

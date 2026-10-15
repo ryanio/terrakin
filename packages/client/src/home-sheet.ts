@@ -1,14 +1,19 @@
 /**
  * The sheet the world opens once you claim a plot (decision 0144): a home in one tap, or the build
- * bar with the hearth picked. A starter home is `build_starter_home`, which sets your hearth inside
- * it, and standing on your hearth brings your first pantry, so this says what arrived and where it
- * is. Either way the plot's name is asked next (decision 0121).
+ * bar with the hearth picked. The homes are the designs (RFC 0032), drawn as they'd stand on your
+ * plot (`design-picks.ts`, loaded when the sheet opens). Building one sets your hearth on the
+ * plot's center, which every design leaves open, steps you onto it, which brings your first pantry,
+ * and sends `build` with the design, so this says what arrived and where it is. Either way the
+ * plot's name is asked next (decision 0121).
  */
-import type { WorldEvent } from "@terrakin/protocol";
+import type { Action, WorldEvent } from "@terrakin/protocol";
+import { plotCenter, type Season, type Tile, type WorldConfig } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import type { Result } from "@terrakin/ui/http";
 import { closeOverlay, openOverlay, overlayShowing, sheet, whileBusyAll } from "@terrakin/ui/ui";
 import { worldApi } from "./api/world";
+import type { DesignChoice } from "./design-picks";
+import { doneAlready, homeSteps } from "./home-steps";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { pantryWords, worldProblem } from "./things";
 
@@ -19,9 +24,22 @@ export interface HomeSheetOptions {
   buildMyself: () => void;
   /** Say something in the world's own notice line. */
   say: (text: string) => void;
+  /** The world's size and reach, and its season, for drawing the designs on your plot. */
+  where: { config: WorldConfig; season?: Season | undefined };
+  /** Where the world says you stand now, and your hearth, from the mirror. */
+  standing: () => Tile | undefined;
+  hearth: () => Tile | null | undefined;
+  /**
+   * Walk until a tile is within `near` tiles, around whatever is in the way, done once the world
+   * has you there (or the walk gives up).
+   */
+  walkNear: (tile: Tile, near: number) => Promise<void>;
 }
 
 type Inventory = Extract<WorldEvent, { type: "inventory" }>;
+
+/** The sheet closed during the walk to the plot's center, so nothing was sent. */
+const CLOSED = "closed";
 
 /** Your pantry, if one of these events brought it. */
 const pantryIn = (events: readonly WorldEvent[]) =>
@@ -36,11 +54,15 @@ export function openHomeSheet(o: HomeSheetOptions) {
     class: "field-hint home-status",
     attrs: { id: "home-status", role: "status" },
   });
+  // Off until the designs are drawn, so a tap never builds a home nobody saw picked.
   const starter = h("button", {
     class: "btn-primary",
-    attrs: { type: "button", id: "home-starter" },
-    text: "Build me a starter home",
+    attrs: { type: "button", id: "home-build", disabled: "" },
+    text: "Build this home",
   });
+  /** The designs, once their code is in. Until then, and if it never comes, the starter home. */
+  let picker: { choice: () => DesignChoice } | undefined;
+  const picks = h("div", { class: "home-picks" });
   const myself = h("button", {
     class: "pill-button",
     attrs: { type: "button", id: "home-myself" },
@@ -51,10 +73,24 @@ export function openHomeSheet(o: HomeSheetOptions) {
       id: "home-title",
       title: "This plot is yours",
       className: "home-sheet",
-      lede: "Next, a home. Its hearth is where Home brings you and where your pantry arrives: seeds the first time, then sugar and jars each day. A starter home is a small wooden hut with the hearth inside.",
+      lede: "Next, a home. Pick one: its hearth goes in the middle of your plot, where Home brings you and where your pantry arrives, seeds the first time, then sugar and jars each day. Every home here is free.",
     },
+    picks,
     h("div", { class: "stack home-choices" }, status, starter, myself),
   );
+  void import("./design-picks")
+    .then(({ designPicker }) => {
+      const made = designPicker(o.where, o.plot);
+      picker = made;
+      picks.replaceChildren(made.element);
+      starter.disabled = false;
+    })
+    .catch(() => {
+      // No designs to show: the one-tap starter home still works.
+      picks.remove();
+      starter.textContent = "Build me a starter home";
+      starter.disabled = false;
+    });
 
   starter.addEventListener("click", () => void build());
   myself.addEventListener("click", () => {
@@ -70,19 +106,59 @@ export function openHomeSheet(o: HomeSheetOptions) {
       starter,
       status,
       async (): Promise<Result<WorldEvent[]>> => {
-        const built = await worldApi.act({ type: "build_starter_home" });
-        if (!built.ok) return built;
-        if (!built.data.ok) {
-          // The world's refusals are worded for agents: say them in HUD words, by their code.
-          const { code, message } = built.data.error;
-          return {
-            ok: false,
-            status: 200,
-            code,
-            message: worldProblem(code, message, { hasPlot: true }),
-          };
+        const events: WorldEvent[] = [];
+        /** One action, its events kept, or why the world turned it down in HUD words. */
+        const send = async (action: Action): Promise<Result<WorldEvent[]> | undefined> => {
+          const done = await worldApi.act(action);
+          if (!done.ok) return done;
+          if (!done.data.ok) {
+            // The world's refusals are worded for agents: say them in HUD words, by their code.
+            const { code, message } = done.data.error;
+            return {
+              ok: false,
+              status: 200,
+              code,
+              message: worldProblem(code, message, { hasPlot: true }),
+            };
+          }
+          events.push(...done.data.events);
+          return undefined;
+        };
+        const chosen = picker?.choice();
+        if (chosen) {
+          // The hearth on the plot's center, which every design leaves open, set from within reach.
+          const { config } = o.where;
+          const center = plotCenter(config, o.plot.px, o.plot.py);
+          const steps = homeSteps({
+            standing: o.standing(),
+            center,
+            reach: config.reach,
+            hearth: o.hearth(),
+          });
+          if (steps.walk) {
+            await o.walkNear(center, config.reach);
+            // Closed during the walk: that was a no, so nothing is sent.
+            if (!overlayShowing(s.dialog))
+              return { ok: false, status: 0, code: CLOSED, message: "" };
+          }
+          /** A refusal that still leaves the way to the build clear is no refusal. */
+          const stopped = (r: Result<WorldEvent[]> | undefined) =>
+            r && (r.ok || !doneAlready(r.code)) ? r : undefined;
+          const hearth = steps.setHearth
+            ? stopped(await send({ type: "set_hearth", ...center }))
+            : undefined;
+          if (hearth) return hearth;
+          // Standing on it brings the pantry: step onto it if setting it left you off it.
+          if (!pantryIn(events)) {
+            const home = stopped(await send({ type: "home" }));
+            if (home) return home;
+          }
+          const built = await send({ type: "build", px: o.plot.px, py: o.plot.py, ...chosen });
+          if (built) return built;
+          return { ok: true, data: events };
         }
-        const events = [...built.data.events];
+        const refused = await send({ type: "build_starter_home" });
+        if (refused) return refused;
         // The pantry comes once you stand on your hearth: step onto it if the build left you off it.
         if (!pantryIn(events) && events.some((e) => e.type === "hearth_set")) {
           const home = await worldApi.act({ type: "home" });
@@ -93,7 +169,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
     );
     if (!res.ok) {
       // Closed meanwhile: the status line went with it, so say it in the world.
-      if (!overlayShowing(s.dialog)) o.say(res.message);
+      if (!overlayShowing(s.dialog) && res.code !== CLOSED) o.say(res.message);
       return;
     }
     // Closed while it built (Escape, the back gesture): the home is up, and nothing else opens.

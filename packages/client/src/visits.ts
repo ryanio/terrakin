@@ -67,6 +67,10 @@ export function nextPlot(
   return next;
 }
 
+/** Whether nobody came or admired this week, so `weekLine` has nothing to say. */
+export const quietWeek = (plot: Pick<PlotView, "admirers" | "visitors">): boolean =>
+  !(plot.admirers > 0) && !(plot.visitors > 0);
+
 /** "Admired by 2 neighbors, 5 visitors this week", or as much of it as there is. */
 export function weekLine(plot: Pick<PlotView, "admirers" | "visitors">): string {
   const admired =

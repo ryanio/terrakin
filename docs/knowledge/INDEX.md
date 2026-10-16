@@ -236,6 +236,7 @@ What we chose and why. Newest last.
 - [A plot photo shows the moment it was taken, in one shared sky](decisions/0300-a-plot-photo-shows-the-moment-it-was-taken-in-one-shared-sky.md) · 2026-10-16 · accepted · `cards` `design` `server` `client`
 - [The move pad is drawn as the joystick it already was](decisions/0301-the-move-pad-is-drawn-as-the-joystick-it-already-was.md) · 2026-10-16 · accepted · `client` `design` `mobile`
 - [A taken name comes back with free ones to tap](decisions/0302-a-taken-name-comes-back-with-free-ones-to-tap.md) · 2026-10-16 · accepted · `design` `client` `protocol` `onboarding`
+- [On a phone the world's controls are icons round the map](decisions/0303-on-a-phone-the-world-s-controls-are-icons-round-the-map.md) · 2026-10-16 · accepted · `client` `design` `mobile`
 
 ## Learnings
 

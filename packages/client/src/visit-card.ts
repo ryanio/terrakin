@@ -15,7 +15,7 @@ import { whileBusy } from "@terrakin/ui/ui";
 import { plotsApi } from "./api/plots";
 import type { Mirror } from "./mirror";
 import { openPlotNameSheet } from "./plot-name-sheet";
-import { nextPlot, plotName, weekLine } from "./visits";
+import { nextPlot, plotName, quietWeek, weekLine } from "./visits";
 
 /** How long the tour's list of plots is good for before Next plot asks again. */
 const LIST_MS = 60_000;
@@ -99,6 +99,8 @@ export function visitCard(o: VisitCardOptions): VisitCard {
 
   function paint(view: PlotView) {
     week.textContent = weekLine(view);
+    // A phone drops the line while it has nothing to say, so a plot you live on takes less world.
+    el.toggleAttribute("data-quiet", quietWeek(view));
     const done = view.admiredToday === true;
     admire.disabled = done;
     admireLabel.textContent = done ? "Admired today" : "Admire";
@@ -130,8 +132,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     key = plotKey(px, py);
     plot = { px, py };
     yours = own;
+    el.toggleAttribute("data-mine", own);
     paintNames(mirror);
     week.textContent = "";
+    el.toggleAttribute("data-quiet", true);
     admire.hidden = own;
     admire.disabled = false;
     admireLabel.textContent = "Admire";

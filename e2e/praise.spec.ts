@@ -95,9 +95,11 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
-    // On her own plot the card is hers: no Admire, a way to name it.
-    await expect(page.locator("#visit-card-owner")).toHaveText("Your plot");
+    // On her own plot the card is hers: no Admire, a way to name it. On a phone, with nobody in
+    // it this week, that is all it is: the map draws the plot's name under her (decision 0303).
+    await expect(page.locator("#visit-name")).toBeVisible();
     await expect(page.locator("#visit-admire")).toBeHidden();
+    await expect(page.locator("#visit-card-owner")).toBeHidden();
     expect(await labelRows(page)).toBeLessThan(2);
 
     await page.locator("#visit-name").click();
@@ -106,8 +108,6 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
     await sheet.locator("#plot-name-input").fill("Iris's Lemon Grove");
     await sheet.locator("#plot-name-save").click();
     await expect(sheet).toBeHidden();
-    await expect(page.locator("#visit-card-owner")).toHaveText("Iris's Lemon Grove");
-    await expect(page.locator("#visit-card-whose")).toHaveText("Your plot");
     await expect(page.locator("#visit-name")).toHaveText("Rename");
     // Over the plot on the map: a paper label along its top edge.
     await expect.poll(() => labelRows(page), { timeout: 5000 }).toBeGreaterThan(6);

@@ -6,6 +6,7 @@ import {
   plotLabelFade,
   plotName,
   plotTitles,
+  quietWeek,
   stripPlots,
   VISIT_STRIP,
   weekLine,
@@ -85,6 +86,10 @@ describe("plot words", () => {
     expect(weekLine({ admirers: 1, visitors: 0 })).toBe("Admired by 1 neighbor this week");
     expect(weekLine({ admirers: 0, visitors: 1 })).toBe("1 visitor this week");
     expect(weekLine({ admirers: 0, visitors: 0 })).toBe("No visitors yet this week");
+    // A quiet week is the one the card drops on a phone, so it says nothing it needn't.
+    expect(quietWeek({ admirers: 0, visitors: 0 })).toBe(true);
+    expect(quietWeek({ admirers: 0, visitors: 1 })).toBe(false);
+    expect(quietWeek({ admirers: 1, visitors: 0 })).toBe(false);
   });
 
   it("name whose plot it is, owner first", () => {

@@ -53,7 +53,7 @@ When `resident` is given and `sameHousehold(state, resident, to)` holds, the awa
 
 This is the deliberate trade. The operator keeps the power, and cannot use it quietly. A maintainer awarding their own AI is a judgment call they are accountable for in public, rather than a thing the rules forbid.
 
-Where `resident` is absent, because the maintainer's email is not mapped in `TERRAKIN_STAFF_RESIDENTS`, the sim cannot see the household and the flag is absent. That is a reason to map every maintainer's email, which [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) already asks for. An unmapped maintainer's award is not blocked, it is just unmarked, which is worth fixing before this ships.
+`resident` is **required**, unlike `confirm_town_bounty`'s, and the sim refuses an award without it. The household flag is the only disclosure this design has, so an award the sim cannot place in a household is refused rather than paid unmarked. A maintainer whose email is not in `TERRAKIN_STAFF_RESIDENTS` therefore cannot award at all, and the staff route says so in those words. That makes mapping every maintainer's email a requirement rather than the good practice [decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md) asks for. This settles open question 4.
 
 ### The numbers
 
@@ -84,7 +84,7 @@ So add an `award` notification type, on the end of `NOTIFICATION_TYPES`, with an
 
 This is additive to the notification enum, which clients read as a string, so an old client shows it as a kind it does not know rather than breaking.
 
-**What the notification says is open.** The amount alone reads oddly: "the town gave you 200 coins" with no reason. The obvious fix is to put the maintainer's `reason` in it, but the design above keeps `reason` staff-only and never shown to residents, which is the rule for every staff action today. Open question 3 was written as a nice-to-have and is really load-bearing: an award with no citation is a confusing gift, and an award with one is the first staff-authored text residents ever see. That needs settling before this ships.
+**It ships carrying the amount and nothing else**, reading "Terrakin awarded you 200 coins for your work." The maintainer's `reason` stays staff-only, as every staff reason is today. That was chosen over a citation because adding one later is additive in the protocol (`award` gains a field, and an old client reads a notification's type as a string), while making staff-authored text visible to residents is a new trust boundary that wants its own decision record, a length limit, and a rule that the words are the maintainer's and never a resident's. So the weaker version ships and forecloses nothing. Open question 3 keeps the citation open on those terms.
 
 A plain gift of coins having no notification is a pre-existing gap this RFC does not try to close, but it is worth its own issue: a resident who is given coins today is told nothing either.
 
@@ -100,7 +100,7 @@ The admin app grows an Award card on `/bounties`, where town money already lives
 
 `reason` is the maintainer's words, kept in the moderation log with who and what. It is never shown to residents and never rendered as markup.
 
-**An award needs a human staff sign-in, not a staff key.** Per [decision 0194](../knowledge/decisions/0194-staff-ais-use-a-staff-key-their-maker-makes-capped-by-role-a.md) a staff AI's key never does more than its maker's role, but moving treasury coins should not be delegable to an AI. `POST /v1/admin/awards` refuses a staff key whatever its scope. This matters more now that awards are single-key: a staff AI reads resident-authored reports and triage rationales, which is exactly the content an attacker controls.
+**An award needs a human staff sign-in, not a staff key.** Per [decision 0194](../knowledge/decisions/0194-staff-ais-use-a-staff-key-their-maker-makes-capped-by-role-a.md) a staff AI's key never does more than its maker's role, but moving treasury coins should not be delegable to an AI at all. `awardGrant` goes in `KEY_NEVER` in `packages/server/src/staff-keys.ts`, beside the key routes and the world-log export, so no scope reaches it and the refusal happens at the auth layer rather than in the handler; the handler refuses a key too, so widening a scope later cannot quietly open money. This matters more now that awards are single-key: a staff AI reads resident-authored reports and triage rationales, which is exactly the content an attacker controls.
 
 ## Invariants
 
@@ -159,7 +159,7 @@ Awards need `state.economy`, which the live world has. No new switch input is ne
 
 Old clients keep working. They mirror `award_paid` as an event they do not know and ignore it, which is how the client already handles events from a newer server, and they read a notification's type as a string, so an `award` notification shows as a kind they do not recognize rather than breaking. `NOTIFICATION_TYPES` and `COIN_REASONS` both gain a member on the end, which is additive in the protocol and changes no existing shape.
 
-Rollout in one PR per piece, each linking this RFC: the sim command with its guard tests, then the route and handler, then the admin card. Per the root [AGENTS.md](../../AGENTS.md), the cap, the month, and the reserve each ship with a test that shows the guard refuses, since this is code that guards money.
+It landed in one change rather than the three PRs first planned here, because the pieces are not separable: the `award` coin reason and the `award_paid` event are public API, so shipping the sim alone would have needed a changelog entry announcing an event nothing could produce. Per the root [AGENTS.md](../../AGENTS.md), the cap, the month and the reserve each ship with a test that shows the guard refuses, since this is code that guards money, and each was checked by deleting its guard and watching the test go red.
 
 ## Alternatives considered
 
@@ -177,6 +177,7 @@ Rollout in one PR per piece, each linking this RFC: the sim command with its gua
 
 1. **Is 200 the right per-award cap, and 1,000 the right month?** These now carry the whole weight of the design, since there is no second key. A case exists for a lower month (500) until the world is larger.
 2. **Should the per-month cap be per maintainer or across all of them?** Written as across all, which is safer and simpler, but it means one maintainer can spend the month's budget before another sees it.
-3. **Should an award carry a citation the recipient can read?** This is the one that blocks shipping, not a nice-to-have. The `award` notification has to say something, and the amount alone reads as a confusing gift. Putting the maintainer's `reason` in it is the obvious answer and makes it the first staff-authored text residents have ever seen, which is a new trust boundary: it needs its own decision record, a length limit, and a rule that it is the maintainer's words and never a resident's. The alternative is a fixed phrase with no reason, which is weaker but needs nothing new.
-4. **Should an unmapped maintainer be able to award at all?** Without `TERRAKIN_STAFF_RESIDENTS` the sim cannot mark the household, so the one disclosure this design relies on is silently missing. Refusing an award from an unmapped sign-in would close that, at the cost of a setup step.
+3. **Should an award carry a citation the recipient can read?** Still open, and now safely so: the notification ships with the amount alone, and a citation is an additive field whenever it is wanted. Saying why is most of the value of recognition, so this is worth returning to. It needs its own decision record, a length limit, and a rule that the words are the maintainer's and never a resident's, since it would be the first staff-authored text residents ever see.
+4. ~~Should an unmapped maintainer be able to award at all?~~ **Settled: no.** `resident` is required on the sim command and an award without it is refused, so the household can always be marked. Mapping every maintainer's email is now a requirement.
 5. **Does a resident want to be able to decline an award?** Gifts can be sent back. An award cannot, as written.
+6. **Should the staff app show how much of the window is left before you award, not only after?** The response carries `left`, so the card says it once an award goes through, but a maintainer sizing one up cannot see the remaining budget first. A read on the awards screen would fix it.

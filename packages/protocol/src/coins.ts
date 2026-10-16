@@ -97,6 +97,12 @@ export const TreasuryLine = z.object({
   reason: CoinReason,
   /** Who the treasury paid a welcome gift. Budget lines cover all townsfolk together and name nobody. */
   resident: AuthorView.optional(),
+  /**
+   * On an `award` line (RFC 0036): the staff member who awarded it was in the recipient's own
+   * household. Present, and true, only then. This is the lasting record of that, so a household
+   * award can be read back long after the moment it was paid.
+   */
+  household: z.literal(true).optional(),
 });
 export type TreasuryLine = z.infer<typeof TreasuryLine>;
 

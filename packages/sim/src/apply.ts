@@ -1,3 +1,4 @@
+import { checkAwardGrant } from "./awards";
 import {
   type BountiesChecked,
   bountiesNewDay,
@@ -867,6 +868,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkCloseRound(state, command));
       case "close_table":
         return town(checkCloseTable(state, command));
+      case "award_grant":
+        return town(checkAwardGrant(state, command));
       case "test_grant":
         return town(checkTestGrant(state, command));
       case "new_day":

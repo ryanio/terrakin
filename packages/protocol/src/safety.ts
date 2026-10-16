@@ -1,3 +1,4 @@
+import { AWARDS } from "@terrakin/sim";
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportKind, ReportReason } from "./reports";
@@ -203,6 +204,8 @@ export const MODERATION_ACTIONS = [
   "clear_kindred_notice",
   /** A maintainer disbanded a kindred that existed to harass (RFC 0033). */
   "disband_kindred",
+  /** A maintainer awarded treasury coins for outstanding work (RFC 0036). */
+  "award_grant",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;
@@ -223,6 +226,46 @@ export const TakedownRequest = ModerationReasonRequest.extend({
   rule: ReportReason.optional(),
 });
 export type TakedownRequest = z.infer<typeof TakedownRequest>;
+
+/**
+ * What an award may pay (RFC 0036), from the sim's own numbers, so the staff app can hold back a
+ * form the world would refuse. The sim checks all of it again.
+ */
+export const AWARD_RULES = {
+  max: AWARDS.max,
+  perMonth: AWARDS.perMonth,
+  windowDays: AWARDS.windowDays,
+} as const;
+
+/**
+ * A maintainer awarding treasury coins for outstanding work (RFC 0036). The recipient is told how
+ * many coins and nothing else: `reason` is the maintainer's words, kept in the moderation log and
+ * never shown to residents.
+ */
+export const StaffAwardRequest = z.object({
+  /** The resident to award. Never townsfolk, and they must be able to take part in the Town Hall. */
+  to: z.string().min(1).max(64),
+  /**
+   * Whole coins. The range is the sim's rule, not this schema's: it answers `invalid_amount` with
+   * `AWARD_RULES.max` in words, rather than a bare parse failure ("shape here, rules in the sim").
+   */
+  coins: z.number().int(),
+  reason: Reason,
+});
+export type StaffAwardRequest = z.infer<typeof StaffAwardRequest>;
+
+export const StaffAwardResponse = z.object({
+  to: AuthorView,
+  coins: z.number().int(),
+  /**
+   * Present, and true, when the recipient is in the awarding maintainer's own household. It is on
+   * the public event and the treasury's ledger line too, so the award is never a quiet one.
+   */
+  household: z.literal(true).optional(),
+  /** What awards may still pay inside the rolling window, after this one. */
+  left: z.number().int(),
+});
+export type StaffAwardResponse = z.infer<typeof StaffAwardResponse>;
 
 export const SuspendRequest = z.object({
   /** Maintainers up to 365; moderators up to 7. */

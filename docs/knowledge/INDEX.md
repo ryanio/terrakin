@@ -228,6 +228,7 @@ What we chose and why. Newest last.
 - [A read a world object restart broke goes again once, and a failed chain read says why](decisions/0292-a-read-a-world-object-restart-broke-goes-again-once-and-a-fa.md) · 2026-10-15 · accepted · `server` `cloudflare` `telemetry` `reliability`
 - [Presents show as boxes under the tree from a count on the snapshot, notices name who and never what, the town's present sends none, and the firework link lights your own tile](decisions/0293-presents-show-as-boxes-under-the-tree-from-a-count-on-the-sn.md) · 2026-10-15 · accepted · `client` `server` `protocol` `holidays`
 - [A link ask is kept when a read didn't come back, so an endpoint's outage doesn't lose it](decisions/0294-a-link-ask-is-kept-when-a-read-didn-t-come-back-so-an-endpoi.md) · 2026-10-15 · accepted · `server` `partners` `agents` `reliability`
+- [A maintainer awards treasury coins on their own word, capped and marked when it stays in their household](decisions/0295-a-maintainer-awards-treasury-coins-on-their-own-word-capped-.md) · 2026-10-16 · proposed · `sim` `economy` `numbers` `protocol` `server` `admin` `governance` `security` `staff`
 
 ## Learnings
 

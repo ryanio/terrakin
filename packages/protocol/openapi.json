@@ -28670,7 +28670,8 @@
           "floor",
           "kindred_fee",
           "kindred_share",
-          "kindred_refund"
+          "kindred_refund",
+          "award"
         ]
       },
       "CompleteBountyAction": {
@@ -36935,6 +36936,36 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "award_paid"
+                ]
+              },
+              "to": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "household": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "to",
+              "amount"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "proposal_unpaid"
                 ]
               },
@@ -40099,7 +40130,8 @@
           "kindred_night",
           "kindred_joined",
           "present_received",
-          "present_opened"
+          "present_opened",
+          "award"
         ]
       },
       "NotificationView": {
@@ -40199,6 +40231,19 @@
               {
                 "$ref": "#/components/schemas/JobDoneView"
               }
+            ]
+          },
+          "award": {
+            "type": "object",
+            "properties": {
+              "coins": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "coins"
             ]
           },
           "event": {
@@ -42346,6 +42391,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "award_grant": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -42372,7 +42422,8 @@
               "merge_resident",
               "clear_kindred_name",
               "clear_kindred_notice",
-              "disband_kindred"
+              "disband_kindred",
+              "award_grant"
             ]
           },
           "suspendedNow": {
@@ -43134,6 +43185,12 @@
               {
                 "$ref": "#/components/schemas/AuthorView"
               }
+            ]
+          },
+          "household": {
+            "type": "boolean",
+            "enum": [
+              true
             ]
           }
         },

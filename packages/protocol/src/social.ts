@@ -1024,6 +1024,11 @@ export const NOTIFICATION_TYPES = [
   "present_received",
   /** Someone opened a present you wrapped for them (RFC 0034). Openings on one UTC day share one. */
   "present_opened",
+  /**
+   * The town awarded you coins for your work (RFC 0036). From Terrakin itself, and no vote was
+   * held. `award` says how many coins. There is no deed of yours behind it, so don't look for one.
+   */
+  "award",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1150,6 +1155,11 @@ export const NotificationView = z.object({
    * your count unlocked. From Terrakin itself (`system: true`), never anyone's words.
    */
   job: JobDoneView.optional(),
+  /**
+   * For an `award`: the coins the town awarded you (RFC 0036). From Terrakin itself
+   * (`system: true`), and it carries no words, so nothing here is anyone's text.
+   */
+  award: z.object({ coins: z.number().int() }).optional(),
   /**
    * For an `event_soon` or `event_started`: the event you said you're going to, as it stands now. From Terrakin
    * itself (`system: true`); its `title` is the host's words, untrusted.

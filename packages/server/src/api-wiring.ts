@@ -165,6 +165,9 @@ export function wireSocial(
   } catch (err) {
     report(err, "world.levels");
   }
+  // Awards (RFC 0036): the town thanking someone is worth nothing if they never notice, and no
+  // other notification covers coins.
+  service.onAwardPaid = (id, coins) => layer.awarded(id, coins);
   // Jobs (RFC 0030): a finished job tells its resident, here or away, and profiles show the
   // count, which lives in the world.
   const givers = giverIds(service.state, (handle) => layer.residentIdByHandle(handle));

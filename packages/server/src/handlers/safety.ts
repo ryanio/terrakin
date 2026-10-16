@@ -6,6 +6,8 @@ import {
   type WorldLogResponse,
 } from "@terrakin/protocol";
 import {
+  AWARDS,
+  awardedInWindow,
   findBounty,
   findEvent,
   goodById,
@@ -591,6 +593,57 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         today: service.state.day ?? utcDay(api.now()),
       }),
     }),
+    // Recognition awards (RFC 0036). This is the one staff route that moves treasury coins on one
+    // person's word, so it takes three gates the other money routes don't: a maintainer, a staff
+    // sign-in of their own rather than a key, and a sign-in the staff mapping names.
+    awardGrant: async ({ viewer, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      // `KEY_NEVER` in `staff-keys.ts` already turns a key away before this, so this is the second
+      // belt: money should not come open again because someone widened a scope.
+      if (staffKeyId(viewer) !== undefined) {
+        return fail("forbidden", "An award needs your own staff sign-in, not a staff key.");
+      }
+      // Without the mapping the sim can't see the household, and the household mark is the only
+      // disclosure standing in for a second maintainer, so an unmapped sign-in can't award.
+      const resident = api.staffResident(viewer);
+      if (!resident) {
+        return fail(
+          "forbidden",
+          "Your sign-in isn't mapped to a resident, so an award's household can't be shown. Add it to TERRAKIN_STAFF_RESIDENTS first.",
+        );
+      }
+      // Read the recipient before paying, so a resident the social layer doesn't know is turned
+      // down instead of awarded and then failed on the way out.
+      const to = social().authorView(body.to);
+      if (!to) return fail("not_found", "No such resident.");
+      // Rewarding someone who is currently suspended is incoherent, so the one check the sim can't
+      // make (it never sees suspensions) is made here. Blocks are deliberately not checked: an
+      // award is a payment rather than contact (decision 0295).
+      if (social().safety.suspendedUntil(body.to) !== undefined) {
+        return fail("not_eligible", "That resident is suspended. End the suspension first.");
+      }
+      const done = service.awardGrant(body.to, body.coins, await worldStaffId(viewer), resident);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      const paid = done.events.find((e) => e.type === "award_paid");
+      const household = paid?.type === "award_paid" && paid.household === true;
+      social().safety.recordNote(
+        viewer,
+        "award_grant",
+        "resident",
+        body.to,
+        `Awarded ${body.coins}${household ? " (own household)" : ""}: ${body.reason}`,
+      );
+      const day = service.state.day ?? utcDay(api.now());
+      return {
+        status: 200,
+        body: {
+          to,
+          coins: body.coins,
+          ...(household ? { household: true as const } : {}),
+          left: Math.max(0, AWARDS.perMonth - awardedInWindow(service.state, day)),
+        },
+      };
+    },
   };
 }
 

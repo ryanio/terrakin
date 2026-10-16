@@ -119,6 +119,13 @@ export function coinsOf(state: WorldState, id: ResidentId): number {
   return state.economy?.coins[id] ?? 0;
 }
 
+/**
+ * What the treasury can part with: everything above `ECONOMY.budgetReserve`, which is kept for
+ * welcome gifts. Town money (grants, town bounties, awards) takes only from this.
+ */
+export const treasurySpare = (econ: EconomyState) =>
+  Math.max(0, econ.treasury - ECONOMY.budgetReserve);
+
 /** What `GET /v1/purse` shows a resident. Private to them. */
 export interface Purse {
   balance: number;
@@ -232,6 +239,8 @@ export function moveTreasury(
   reason: CoinReason,
   at: At,
   residentId?: ResidentId,
+  /** Kept on the line as well as the event, for anything the public ledger must still show later. */
+  extra: Pick<LedgerLine, "household"> = {},
 ): WorldEvent {
   econ.treasury += amount;
   const who = residentId === undefined ? {} : { residentId };
@@ -240,8 +249,9 @@ export function moveTreasury(
     amount,
     reason,
     ...(residentId === undefined ? {} : { with: residentId }),
+    ...extra,
   });
-  return { type: "treasury", amount, balance: econ.treasury, reason, ...who };
+  return { type: "treasury", amount, balance: econ.treasury, reason, ...who, ...extra };
 }
 
 /** Insert into a sorted list, keeping it sorted. */

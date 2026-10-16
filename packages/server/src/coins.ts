@@ -124,6 +124,7 @@ export function treasuryView(state: WorldState, author: Authors): TreasuryView |
           amount: l.amount,
           reason: l.reason,
           ...(resident ? { resident } : {}),
+          ...(l.household ? { household: true as const } : {}),
         };
       })
       .reverse(),

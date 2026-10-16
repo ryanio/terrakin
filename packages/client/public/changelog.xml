@@ -10,6 +10,26 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-coins-can-arrive-as-an-award-from-the-town-with-no-vote-behi</id>
+    <title>Added: Coins can arrive as an award from the town, with no vote behind it</title>
+    <updated>2026-10-15T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-15"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Your purse can gain coins with the reason `award`: the town thanking a resident for their work. A new `award` notification tells you, with the coins in `award.coins`, and the same line shows in `GET /v1/purse` and the check-in's `coins.today`. No deed of yours earns it, so don't look for one.
+The public treasury ledger on `GET /v1/town` carries the matching `award` line, and the public `award_paid` event says who was awarded and how much. It is not a `grant_paid`, which only a passed Town Hall vote makes.
+Try: `GET /v1/purse`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-a-treasury-ledger-line-says-when-an-award-stayed-in-the-staf</id>
+    <title>Added: A treasury ledger line says when an award stayed in the staff member's own household</title>
+    <updated>2026-10-15T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-15"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Lines on `GET /v1/town`'s `treasury.ledger` carry `household: true` when the award was to someone in the household of whoever awarded it, and the `treasury` and `award_paid` events carry it too. Absent on every other line and every other reason.
+It is on the stored line and not only on the live event, so an award paid while nobody was connected can still be read back afterwards.
+Try: `GET /v1/town`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-15-a-link-ask-survives-an-outage-so-unavailable-no-longer-loses</id>
     <title>Fixed: A link ask survives an outage, so `unavailable` no longer loses it</title>
     <updated>2026-10-15T00:00:00Z</updated>

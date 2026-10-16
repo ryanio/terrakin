@@ -56,13 +56,14 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   kindred_joined: "follow",
   present_received: "gift",
   present_opened: "gift",
+  award: "coin",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
 export function notificationLine(
   n: Pick<
     NotificationView,
-    "type" | "count" | "reaction" | "gesture" | "pet" | "treat" | "recipe"
+    "type" | "count" | "reaction" | "gesture" | "pet" | "treat" | "recipe" | "award"
   > & {
     actor: { name: string };
   },
@@ -99,6 +100,9 @@ export function notificationLine(
     kindred_joined: "says someone joined your kindred",
     present_received: `wrapped ${others > 0 ? "presents" : "a present"} for you`,
     present_opened: `opened ${others > 0 ? "the presents" : "the present"} you wrapped`,
+    // From Terrakin itself, so this reads "Terrakin awarded you 200 coins for your work." No deed
+    // of theirs earned it, and the notice carries no words (RFC 0036).
+    award: `awarded you ${plural(n.award?.coins ?? 0, "coin", "coins")} for your work`,
   };
   return { who, what: what[n.type] };
 }

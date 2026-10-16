@@ -49,7 +49,9 @@ It pays straight from the treasury into the recipient's purse. No escrow and no 
 
 The sim does not refuse an award to someone in the awarding maintainer's household. It records it.
 
-When `resident` is given and `sameHousehold(state, resident, to)` holds, the award carries `household: true`, and that flag rides on the public `award_paid` event and the public treasury ledger line. Residents reading the ledger see that the town awarded coins and that the maintainer who did it was in the recipient's household.
+When `sameHousehold(state, resident, to)` holds, the award carries `household: true`, and that flag rides on the public `award_paid` event **and on the treasury's own ledger line**. Residents reading the ledger see that the town awarded coins and that the maintainer who did it was in the recipient's household.
+
+The ledger line is the part that matters, and the first draft of this design got it wrong by putting the flag only on the event. Events are not stored: there is no public event-history route, so a flag on the event alone is visible only to whoever happens to hold a socket at that moment. An award paid at 03:00 UTC with nobody connected would have left a treasury line byte-identical to an arm's-length one, and the single disclosure standing in for the second maintainer would never have been seen. So `LedgerLine` carries `household`, `treasuryView` surfaces it, and `TreasuryLine` publishes it. A test asserts the mark on the line, because the test that only checked the amount and the reason is exactly how this slipped through.
 
 This is the deliberate trade. The operator keeps the power, and cannot use it quietly. A maintainer awarding their own AI is a judgment call they are accountable for in public, rather than a thing the rules forbid.
 

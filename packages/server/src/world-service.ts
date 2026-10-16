@@ -888,6 +888,13 @@ export class WorldService {
       ) => void)
     | undefined;
 
+  /**
+   * Hears each award a maintainer paid (RFC 0036), so its resident is told. Nothing else notifies
+   * about coins, so without this an award reaches them only as a purse line. A failure here is
+   * reported and the award stands.
+   */
+  onAwardPaid: ((residentId: string, coins: number) => void) | undefined;
+
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
     return this.facts.credits.filter((c) => c.day >= sinceDay);
@@ -1292,6 +1299,18 @@ export class WorldService {
     return this.run({
       actor: TOWN_ACTOR,
       command: { type: "void_bounty", bounty, by, ...(resident ? { resident } : {}) },
+    });
+  }
+
+  /**
+   * A maintainer awards treasury coins for outstanding work (RFC 0036). `resident` is required,
+   * unlike the bounty inputs': the sim refuses an award it cannot place in a household, since that
+   * mark is the only disclosure standing in for a second maintainer.
+   */
+  awardGrant(to: string, coins: number, by: string, resident: string): ActResult {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "award_grant", to, coins, by, resident },
     });
   }
 
@@ -2105,6 +2124,16 @@ export class WorldService {
       } catch (err) {
         // The job stands; the notice misses it.
         report(err, "world.job_done", { command: input.command.type });
+      }
+    }
+    // Awards paid (RFC 0036): the resident is told, since no other notice covers coins.
+    for (const e of events) {
+      if (e.type !== "award_paid") continue;
+      try {
+        this.onAwardPaid?.(e.to, e.amount);
+      } catch (err) {
+        // The award stands; the notice misses it.
+        report(err, "world.award_paid", { command: input.command.type });
       }
     }
     // Levels reached (RFC 0029): each resident is told once for the input, with what it unlocked.

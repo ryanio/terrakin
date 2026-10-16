@@ -6,6 +6,7 @@ import {
   moveTreasury,
   ownerPaired,
   pairSkipsCaps,
+  treasurySpare,
 } from "./economy";
 import { bountyJob, townBountyJob } from "./jobs";
 import { bountyEarns, earned, townBountyEarns } from "./levels";
@@ -116,9 +117,6 @@ function finish(bounties: BountiesState, b: Bounty, status: BountyStatus, day: n
     bounties.list = bounties.list.filter((x) => !drop.has(x));
   }
 }
-
-/** What the treasury can spare for a grant or a town bounty: what it holds above the reserve. */
-const treasurySpare = (econ: EconomyState) => Math.max(0, econ.treasury - ECONOMY.budgetReserve);
 
 /** Whether `who` is one of `ids`, or in one of their owner-linked households. */
 const inHousehold = (state: WorldState, who: string, ids: readonly (string | undefined)[]) =>

@@ -1,8 +1,15 @@
-import type { AdminOverviewResponse, ReportQueueItem, TriageVerdictView } from "@terrakin/protocol";
+import {
+  type AdminOverviewResponse,
+  AWARD_RULES,
+  type ReportQueueItem,
+  type TriageVerdictView,
+} from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   activityLine,
   actorLabel,
+  awardedWords,
+  awardProblem,
   bountyActions,
   chatterLine,
   chatterState,
@@ -290,6 +297,39 @@ describe("what each role may do", () => {
     expect(reasonProblem("  ")).toMatch(/reason/);
     expect(reasonProblem("Spam ad")).toBeUndefined();
     expect(reasonProblem("x".repeat(301))).toMatch(/300/);
+  });
+
+  // An award moves treasury coins with no vote and no second maintainer (RFC 0036), so the form
+  // holds back what the world would refuse. These are the bounds a maintainer can see; the sim
+  // checks the treasury's reserve and the rolling month, which the form can't know.
+  it("holds back an award the world would refuse, and says which field is wrong", () => {
+    const ok = "Welcomes every newcomer";
+    expect(awardProblem("r_abc", 200, ok)).toBeUndefined();
+    expect(awardProblem("  ", 200, ok)).toMatchObject({ field: "to" });
+    // Not whole and below 1 are separate messages, so each case says what is actually wrong.
+    expect(awardProblem("r_abc", 1.5, ok)).toMatchObject({
+      field: "coins",
+      message: expect.stringMatching(/whole number/),
+    });
+    expect(awardProblem("r_abc", 0, ok)).toMatchObject({
+      field: "coins",
+      message: expect.stringMatching(/at least 1/),
+    });
+    expect(awardProblem("r_abc", -5, ok)?.message).toMatch(/at least 1/);
+    expect(awardProblem("r_abc", AWARD_RULES.max + 1, ok)).toMatchObject({
+      field: "coins",
+      message: expect.stringMatching(/Town Hall grant/),
+    });
+    // A missing reason is caught last, so the amount's problem shows first, and the field it
+    // names is what the card focuses.
+    expect(awardProblem("r_abc", 200, " ")).toMatchObject({ field: "reason" });
+  });
+
+  it("says what an award paid, and names a household award as one", () => {
+    expect(awardedWords(200, 800, false)).toContain("Awarded 200 coins");
+    expect(awardedWords(200, 800, false)).toContain("left to award today");
+    expect(awardedWords(200, 800, false)).not.toMatch(/household/);
+    expect(awardedWords(200, 800, true)).toMatch(/your own household/);
   });
 });
 

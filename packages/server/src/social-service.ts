@@ -2155,6 +2155,16 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident the town awarded them coins (RFC 0036): one notice from Terrakin itself. No
+   * notification for coins existed before this, so an award would otherwise reach them only as a
+   * purse line on a check-in they happened to make that UTC day. It carries the amount and no
+   * words: the maintainer's reason stays in the moderation log.
+   */
+  awarded(recipient: string, coins: number) {
+    this.systemNotice(recipient, "award", JSON.stringify({ coins }));
+  }
+
+  /**
    * Tell each resident who said they're going to `e` that it has started (RFC 0010): one notice
    * from Terrakin itself each, never to the host or the townsfolk, nor across a block with the
    * host. Once per resident and event, however often it's asked: the boot's catch-up asks again
@@ -2282,6 +2292,7 @@ export class SocialService {
       if (type === "takedown") return this.takedownView(row, detail);
       if (type === "level_reached") return this.levelsView(row, detail);
       if (type === "job_done") return this.jobDoneView(row, detail);
+      if (type === "award") return this.awardView(row, detail);
       if (type === "kindred_invite" || type === "kindred_night" || type === "kindred_joined") {
         events ??= this.eventContext(recipient);
         return this.kindredNoticeView(row, type, detail, events);
@@ -2392,6 +2403,13 @@ export class SocialService {
     const parsed = JobDoneView.safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "job_done"), job: parsed.data }];
+  }
+
+  /** A stored award notice (RFC 0036) as the recipient reads it, from Terrakin itself. */
+  private awardView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = z.object({ coins: z.number().int() }).safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "award"), award: parsed.data }];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */
@@ -3020,7 +3038,8 @@ type SystemNoticeType =
   | "event_soon"
   | "kindred_invite"
   | "kindred_night"
-  | "kindred_joined";
+  | "kindred_joined"
+  | "award";
 
 /** What a kindred notice (RFC 0033) keeps: ids only, read back as the world has them now. */
 const KindredNoticeDetail = z.object({

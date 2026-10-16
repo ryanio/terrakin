@@ -17,10 +17,18 @@ const KEY_MARK = "|key:";
 export const STAFF_KEY_PREFIX = "tks_";
 
 /**
- * Routes a key never reaches: keys themselves, and the whole-world log export. Everything else a
+ * Routes a key never reaches: keys themselves, the whole-world log export, and awarding treasury
+ * coins (RFC 0036), which is never delegable to an AI, since a staff AI reads resident-authored
+ * reports and triage rationales, exactly the content an attacker controls. Everything else a
  * `role` key may call, as far as its maker's role goes.
  */
-const KEY_NEVER = new Set(["getStaffKeys", "createStaffKey", "revokeStaffKey", "getWorldLog"]);
+const KEY_NEVER = new Set([
+  "getStaffKeys",
+  "createStaffKey",
+  "revokeStaffKey",
+  "getWorldLog",
+  "awardGrant",
+]);
 /**
  * What a `read` key sees, named one by one, so a new staff route is never readable by default.
  * `staff-keys.test.ts` pins every scope against the whole route table.

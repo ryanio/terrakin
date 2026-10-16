@@ -226,8 +226,14 @@ describe("staff keys", () => {
       .map((r) => r.id)
       .filter((id) => !reach("role").includes(id))
       .sort();
-    expect(never).toEqual(["createStaffKey", "getStaffKeys", "getWorldLog", "revokeStaffKey"]);
-    expect(staff).toHaveLength(33);
+    expect(never).toEqual([
+      "awardGrant",
+      "createStaffKey",
+      "getStaffKeys",
+      "getWorldLog",
+      "revokeStaffKey",
+    ]);
+    expect(staff).toHaveLength(34);
   });
 
   it("are refused from another site, and need JSON to write, like a signed-in call", async () => {

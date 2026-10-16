@@ -8,6 +8,7 @@ export {
   prepare,
   rejoined,
 } from "./apply";
+export { AWARDS, awardedInWindow } from "./awards";
 export { BIOME_REGION, BIOMES, type Biome, biomeAt } from "./biome";
 export {
   BOUNTIES,

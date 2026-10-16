@@ -491,6 +491,39 @@ describe("town money", () => {
     expect(voided.body.error.code).toBe("not_eligible");
     expect(t.service.state.bounties?.list.map((b) => b.status)).toEqual(["done", "done"]);
   });
+
+  // The sim never sees suspensions, so this is the one recipient check the server owns. Blocks
+  // are deliberately not checked: an award is a payment, not contact (decision 0295).
+  it("won't award a resident who is suspended", async () => {
+    const { t, ada, bob } = await town();
+    t.maintainers.add(ada.id);
+    const before = t.service.state.economy?.coins[bob.id] ?? 0;
+    expect(t.social.safety.suspend(ada.id, bob.id, 3, "Spam").ok).toBe(true);
+    const body = { to: bob.id, coins: 20, reason: "Helpful anyway" };
+    const refused = await t.call("POST", "/v1/admin/awards", body, ada.token);
+    expect(refused.body.error.code).toBe("not_eligible");
+    expect(t.service.state.economy?.coins[bob.id]).toBe(before);
+    // Once the suspension ends, the same award goes through.
+    expect(t.social.safety.unsuspend(ada.id, bob.id, "Sorted").ok).toBe(true);
+    expect((await t.call("POST", "/v1/admin/awards", body, ada.token)).status).toBe(200);
+    expect(t.service.state.economy?.coins[bob.id]).toBe(before + 20);
+  });
+
+  // Awards move treasury coins on one person's word (RFC 0036), so the role gate is the first
+  // thing in front of them: a moderator works the queue and never the town's money.
+  it("lets only maintainers award coins", async () => {
+    const { t, ada, bob } = await town();
+    t.moderators.add(ada.id);
+    const before = t.service.state.economy?.coins[bob.id] ?? 0;
+    const body = { to: bob.id, coins: 10, reason: "Helpful" };
+    const asModerator = await t.call("POST", "/v1/admin/awards", body, ada.token);
+    expect(asModerator.status).toBe(403);
+    expect(t.service.state.economy?.coins[bob.id]).toBe(before);
+    t.moderators.delete(ada.id);
+    t.maintainers.add(ada.id);
+    expect((await t.call("POST", "/v1/admin/awards", body, ada.token)).status).toBe(200);
+    expect(t.service.state.economy?.coins[bob.id]).toBe(before + 10);
+  });
 });
 
 describe("maintainers signed in through Access", () => {
@@ -681,5 +714,86 @@ describe("maintainers signed in through Access", () => {
       expect(text).not.toContain("example.com");
       expect(text).not.toContain("access:");
     }
+  });
+
+  // Recognition awards (RFC 0036). Unlike a grant, one maintainer pays with no vote and no second
+  // key, so what this pins is the two things that stand in for them: the recipient is told, and an
+  // award inside the awarder's own household says so where everyone can see it.
+  it("awards coins, marks one inside the awarder's household, and tells the recipient", async () => {
+    const t = await accessTown();
+    // Ryan is Cy; Dee is Cy's AI, so awarding Dee is awarding his own household.
+    t.mapped.set("ryan@example.com", t.cy.id);
+    const before = t.service.state.economy?.coins[t.dee.id] ?? 0;
+    const paid = await t.call(
+      "POST",
+      "/v1/admin/awards",
+      { to: t.dee.id, coins: 200, reason: "Welcomes every newcomer" },
+      t.as("ryan@example.com"),
+    );
+    expect(paid.status).toBe(200);
+    expect(paid.body).toMatchObject({ coins: 200, household: true });
+    expect(t.service.state.economy?.coins[t.dee.id]).toBe(before + 200);
+    // Nothing minted: it came out of the treasury. The ledger is the only durable public record
+    // of an award, so the household mark has to be on the line and not only on the live event.
+    const treasury = (await t.call("GET", "/v1/town")).body.treasury;
+    expect(treasury.ledger[0]).toMatchObject({
+      amount: -200,
+      reason: "award",
+      household: true,
+      resident: expect.objectContaining({ id: t.dee.id }),
+    });
+    // The recipient is told, which no notification covered before this.
+    const notices = await t.call("GET", "/v1/notifications", undefined, {
+      authorization: `Bearer ${t.dee.token}`,
+    });
+    expect(notices.body.notifications[0]).toMatchObject({
+      type: "award",
+      system: true,
+      award: { coins: 200 },
+    });
+  });
+
+  it("leaves an award outside the awarder's household unmarked", async () => {
+    const t = await accessTown();
+    t.mapped.set("ana@example.com", t.ada.id);
+    const paid = await t.call(
+      "POST",
+      "/v1/admin/awards",
+      { to: t.bob.id, coins: 50, reason: "Built the bridge" },
+      t.as("ana@example.com"),
+    );
+    expect(paid.status).toBe(200);
+    expect(paid.body).not.toHaveProperty("household");
+    // And the public ledger line carries no mark either, so the flag means what it says.
+    const treasury = (await t.call("GET", "/v1/town")).body.treasury;
+    expect(treasury.ledger[0]).toMatchObject({ amount: -50, reason: "award" });
+    expect(treasury.ledger[0]).not.toHaveProperty("household");
+  });
+
+  // The household mark is the only disclosure the design has, so a sign-in the mapping doesn't
+  // name can't award at all: it would otherwise pay its own household with nothing shown.
+  it("refuses an award from a sign-in the staff mapping doesn't name", async () => {
+    const t = await accessTown();
+    const before = t.service.state.economy?.coins[t.bob.id] ?? 0;
+    const paid = await t.call(
+      "POST",
+      "/v1/admin/awards",
+      { to: t.bob.id, coins: 50, reason: "Nice work" },
+      t.as("other@example.com"),
+    );
+    expect(paid.status).toBe(403);
+    expect(t.service.state.economy?.coins[t.bob.id]).toBe(before);
+  });
+
+  it("keeps the award's reason out of the world log, like every staff reason", async () => {
+    const t = await accessTown();
+    t.mapped.set("ana@example.com", t.ada.id);
+    await t.call(
+      "POST",
+      "/v1/admin/awards",
+      { to: t.bob.id, coins: 10, reason: "a-secret-staff-note" },
+      t.as("ana@example.com"),
+    );
+    expect(JSON.stringify(t.store.log)).not.toContain("a-secret-staff-note");
   });
 });

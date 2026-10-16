@@ -101,4 +101,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   clear_kindred_name: "Took down a kindred's name",
   clear_kindred_notice: "Took down a kindred's notice",
   disband_kindred: "Disbanded a kindred",
+  award_grant: "Awarded coins for good work",
 };

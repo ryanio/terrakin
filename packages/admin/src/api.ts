@@ -16,6 +16,7 @@ import {
   type ReportKind,
   ReportQueueResponse,
   type ReportReason,
+  StaffAwardResponse,
   StaffBountiesResponse,
   StaffBountyResponse,
   StaffEventResponse,
@@ -135,6 +136,8 @@ export const api = {
     request("POST", path("/v1/admin/bounties/{id}/reopen", id), StaffBountyResponse, { reason }),
   voidBounty: (id: string, reason: string) =>
     request("POST", path("/v1/admin/bounties/{id}/void", id), StaffBountyResponse, { reason }),
+  award: (to: string, coins: number, reason: string) =>
+    request("POST", "/v1/admin/awards", StaffAwardResponse, { to, coins, reason }),
   voidEvent: (id: string, reason: string) =>
     request("POST", path("/v1/admin/events/{id}/void", id), StaffEventResponse, { reason }),
   dismiss: (kind: ReportKind, id: string, reason: string) =>

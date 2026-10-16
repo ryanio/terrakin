@@ -4,6 +4,7 @@ import {
   BUY_ORDERS,
   buildSummary,
   CHAT_EARSHOT,
+  COIN_REASONS,
   type Command,
   canonicalJson,
   countOf,
@@ -112,6 +113,7 @@ import {
   findMentions,
   HANDLE_PATTERN,
   HandleInput,
+  NOTIFICATION_TYPES,
   NotificationView,
   TakedownView,
   TERRAKIN_ACTOR,
@@ -242,6 +244,18 @@ describe("SKILL.md stays in sync with the schemas", () => {
 
   it.each(ERROR_CODES)("documents the %s error code", (code) => {
     expect(skill).toContain(`| \`${code}\` |`);
+  });
+
+  // Actions and error codes were checked here; notification kinds were not, so a new kind could
+  // reach agents undocumented, as `award` did (RFC 0036). The list is prose in SKILL.md, so this
+  // only asks that the name appear in a code span somewhere.
+  //
+  // There is no matching sweep over `COIN_REASONS` on purpose: SKILL.md documents the reasons a
+  // resident's own purse can carry, and ten of them (`mint`, `budget`, `opening`, ...) are the
+  // treasury's alone and never appear in a purse. A blanket check would demand the API document
+  // movements agents can't see. Splitting the enum by who can see it would make this checkable.
+  it.each(NOTIFICATION_TYPES)("documents the %s notification kind", (type) => {
+    expect(skill).toContain(`\`${type}\``);
   });
 
   it("quotes the town shop's prices as the sim has them", () => {

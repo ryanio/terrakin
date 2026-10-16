@@ -6,6 +6,7 @@
  */
 import {
   type AdminOverviewResponse,
+  AWARD_RULES,
   type BountyView,
   MODERATION_REASON_MAX_LENGTH,
   MODERATOR_SUSPEND_MAX_DAYS,
@@ -382,6 +383,41 @@ export function reasonProblem(reason: string): string | undefined {
     return `Keep the reason to ${MODERATION_REASON_MAX_LENGTH} characters.`;
   }
   return undefined;
+}
+
+/**
+ * Why an award can't go yet, or undefined (RFC 0036). The server and the sim check every one of
+ * these again; this is so a maintainer sees the problem before any coin moves. It never says
+ * whether the recipient is in their household: that is the world's to answer, and the answer is
+ * yes, with a flag, rather than a refusal.
+ */
+export function awardProblem(
+  to: string,
+  coins: number,
+  reason: string,
+): { field: "to" | "coins" | "reason"; message: string } | undefined {
+  if (!to.trim()) return { field: "to", message: "Name the resident to award, by their id." };
+  if (!Number.isInteger(coins)) {
+    return { field: "coins", message: "Award a whole number of coins." };
+  }
+  if (coins < 1) return { field: "coins", message: "Award at least 1 coin." };
+  if (coins > AWARD_RULES.max) {
+    return {
+      field: "coins",
+      message: `One award is at most ${AWARD_RULES.max} coins. A bigger payout needs a Town Hall grant.`,
+    };
+  }
+  const why = reasonProblem(reason);
+  return why ? { field: "reason", message: why } : undefined;
+}
+
+/**
+ * What an award paid, for the line after it goes through. `left` is the headroom right now, not
+ * the next window's: coins free up as old awards fall out of it, so this says today.
+ */
+export function awardedWords(coins: number, left: number, household: boolean): string {
+  const own = household ? " It went to your own household, so the town can see that it did." : "";
+  return `Awarded ${plural(coins, "coin", "coins")}.${own} ${plural(left, "coin", "coins")} left to award today.`;
 }
 
 /** A suspension length the role may give, or why not. */

@@ -536,6 +536,29 @@ export interface WorldState {
    * always have.
    */
   kindreds?: KindredsState;
+  /**
+   * Recognition awards a maintainer has paid (RFC 0036), newest last. Pruned to the rolling window
+   * when an award is paid and at no other time, so after a quiet month it still holds awards the
+   * window has passed: read it through `awardedInWindow`, which applies the window, and never by
+   * summing it. Absent until the first award, so worlds from before it hash as they always have.
+   */
+  awards?: Award[];
+}
+
+/**
+ * One recognition award (RFC 0036). `by` is the opaque staff id, never a resident, so world state
+ * never says which resident did a staff action (decision 0062). `household` is present, and true,
+ * when it went to the awarding maintainer's own household.
+ */
+export interface Award {
+  /** The `seq` of the input that paid it. */
+  seq: number;
+  /** The world day it was paid, which the rolling window is counted over. */
+  day: number;
+  to: ResidentId;
+  coins: number;
+  by: string;
+  household?: true;
 }
 
 /** `k_1`, `k_2`, ... from the counter. */
@@ -1363,6 +1386,8 @@ export const COIN_REASONS = [
   "kindred_share",
   /** A kindred's fee given back when it didn't form, but its small burn. Minted. */
   "kindred_refund",
+  /** From the treasury, awarded by a maintainer for outstanding work (RFC 0036). No vote. */
+  "award",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1378,6 +1403,12 @@ export interface LedgerLine {
   with?: ResidentId;
   /** A gift's note. Untrusted text, cleaned by the server before it was logged. */
   note?: string;
+  /**
+   * On a treasury `award` line (RFC 0036): the maintainer who awarded it was in the recipient's
+   * own household. The ledger is the only durable public record of an award, so the flag lives
+   * here and not only on the `award_paid` event, which nobody connected later ever sees.
+   */
+  household?: true;
 }
 
 export interface EconomyState {
@@ -1673,6 +1704,14 @@ export type Command =
   | { type: "remove_owner_pair"; pair: [ResidentId, ResidentId] }
   | { type: "set_maintainers"; ids: ResidentId[] }
   /**
+   * Treasury coins awarded to one resident for outstanding work, by a maintainer, with no vote
+   * (RFC 0036). `by` is the opaque staff id. `resident` is the awarding maintainer's own resident
+   * and is required, unlike `confirm_town_bounty`'s: the household mark is this design's only
+   * disclosure, so an award the sim cannot place in a household is refused rather than left
+   * unmarked. It is never `by`, since staff identity stays out of world state (decision 0062).
+   */
+  | { type: "award_grant"; to: ResidentId; coins: number; by: string; resident: ResidentId }
+  /**
    * Coins from the treasury and stacks of things for one resident, from the server's test route
    * only (decision 0147). Never logged by a production server.
    */
@@ -1889,6 +1928,7 @@ export const SERVER_COMMANDS = [
   "open_kindreds",
   "clear_kindred_name",
   "disband_kindred",
+  "award_grant",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -2014,6 +2054,8 @@ export type WorldEvent =
       reason: CoinReason;
       /** Who a welcome gift went to. Budgets and their returns are one line for all townsfolk. */
       residentId?: ResidentId;
+      /** On an `award` (RFC 0036): the maintainer who awarded it was in the recipient's household. */
+      household?: true;
     }
   | { type: "owner_pairs_set"; pairs: [ResidentId, ResidentId][] }
   | { type: "owner_pair_added"; pair: [ResidentId, ResidentId] }
@@ -2080,6 +2122,12 @@ export type WorldEvent =
   | { type: "bounty_closed"; bounty: string; status: "cancelled" | "expired" }
   /** A passed grant paid its resident from the treasury. Public. */
   | { type: "grant_paid"; proposal: string; to: ResidentId; amount: number }
+  /**
+   * A maintainer awarded treasury coins for outstanding work (RFC 0036). Public, and it never
+   * names the maintainer. `household` is present, and true, when the award went to someone in the
+   * awarding maintainer's own household, so that case is visible rather than forbidden.
+   */
+  | { type: "award_paid"; to: ResidentId; amount: number; household?: true }
   /** A passed grant or bounty the treasury couldn't spare (or whose resident can't have it) moved nothing. */
   | { type: "proposal_unpaid"; proposal: string; amount: number }
   /** The treasury's share of shop spending changed. Public, like the treasury. */

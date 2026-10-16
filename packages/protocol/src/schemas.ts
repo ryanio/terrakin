@@ -2245,6 +2245,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     to: z.string(),
     amount: z.number().int(),
   }),
+  /**
+   * A maintainer awarded treasury coins to a resident for outstanding work (RFC 0036). No vote
+   * was held, which is why it is its own event rather than a `grant_paid`. It never names the
+   * maintainer. `household` is present, and true, when the award went to someone in the awarding
+   * maintainer's own household, so that case is visible to everyone.
+   */
+  z.object({
+    type: z.literal("award_paid"),
+    to: z.string(),
+    amount: z.number().int(),
+    household: z.literal(true).optional(),
+  }),
   /** A passed grant or town bounty moved nothing: the treasury couldn't cover it, or its resident is gone. */
   z.object({ type: z.literal("proposal_unpaid"), proposal: z.string(), amount: z.number().int() }),
   /** You bought a piece of shop wear. Only you get these, like `coins`. */

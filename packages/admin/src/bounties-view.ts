@@ -4,7 +4,7 @@
  * still running, any of which can be cancelled with a reason. Titles, texts, and names are
  * residents' words, so they go in as text. The server checks every step again.
  */
-import type { AdminOverviewResponse, BountyView } from "@terrakin/protocol";
+import { type AdminOverviewResponse, AWARD_RULES, type BountyView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
@@ -18,7 +18,7 @@ import {
   whileBusyAll,
 } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
-import { bountyActions, mainSite, reasonProblem } from "./logic";
+import { awardedWords, awardProblem, bountyActions, mainSite, reasonProblem } from "./logic";
 import { button, quoted, type View } from "./view";
 
 export function bountiesView(overview: AdminOverviewResponse): View {
@@ -45,8 +45,89 @@ export function bountiesView(overview: AdminOverviewResponse): View {
     ),
   );
   main.append(h("h2", { class: "section-title", text: "Waiting for you" }), waiting);
-  side.append(h("h2", { class: "section-title", text: "Still running" }), running);
+  side.append(
+    h("h2", { class: "section-title", text: "Award coins" }),
+    awardCard(),
+    h("h2", { class: "section-title", text: "Still running" }),
+    running,
+  );
   let destroyed = false;
+
+  /**
+   * Awarding treasury coins for good work (RFC 0036). No vote and no second maintainer, so the
+   * card says the caps out loud and takes two taps. An award to your own household goes through
+   * and is flagged where residents can see it; the card says so rather than hiding the case.
+   */
+  function awardCard(): HTMLElement {
+    const to = h("input", {
+      class: "field-input",
+      attrs: { id: "award-to", placeholder: "Resident id (r_...)", autocomplete: "off" },
+    });
+    const coins = h("input", {
+      class: "field-input",
+      attrs: {
+        id: "award-coins",
+        type: "number",
+        min: "1",
+        max: String(AWARD_RULES.max),
+        placeholder: "Coins",
+        autocomplete: "off",
+      },
+    });
+    const reason = h("input", {
+      class: "field-input",
+      attrs: { id: "award-reason", placeholder: "Why (kept in the log)", autocomplete: "off" },
+    });
+    const status = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
+    const pressed = button("Award coins", () => {}, true);
+    pressed.dataset.part = "action-award";
+    const problem = () => awardProblem(to.value, Number(coins.value), reason.value);
+    confirmTwice(
+      pressed,
+      "Tap again to pay them",
+      () => {
+        const why = problem();
+        if (why) {
+          status.textContent = why.message;
+          // The field comes from `awardProblem`, so rewording a message never misplaces focus.
+          ({ to, coins, reason })[why.field].focus();
+          return;
+        }
+        void (async () => {
+          const res = await whileBusyAll([pressed], pressed, status, () =>
+            api.award(to.value.trim(), Number(coins.value), reason.value.trim()),
+          );
+          if (destroyed || !res.ok) return;
+          status.textContent = awardedWords(
+            res.data.coins,
+            res.data.left,
+            res.data.household === true,
+          );
+          toast("Awarded. It's in the log.");
+          to.value = "";
+          coins.value = "";
+          reason.value = "";
+        })();
+      },
+      () => problem() === undefined,
+    );
+    return h(
+      "article",
+      { class: "stack paper card" },
+      h("p", {
+        class: "field-hint",
+        text: `Up to ${AWARD_RULES.max} coins each, ${AWARD_RULES.perMonth} across every award in ${AWARD_RULES.windowDays} days, out of what the treasury can spare. Awarding your own AI or person works, and the town is told it was your household.`,
+      }),
+      h("label", { class: "field-label", attrs: { for: "award-to" }, text: "Who" }),
+      to,
+      h("label", { class: "field-label", attrs: { for: "award-coins" }, text: "Coins" }),
+      coins,
+      h("label", { class: "field-label", attrs: { for: "award-reason" }, text: "Why" }),
+      reason,
+      pressed,
+      status,
+    );
+  }
 
   async function load() {
     const res = await api.bounties();

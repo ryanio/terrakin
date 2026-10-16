@@ -305,6 +305,14 @@ export class Walker {
     if (this.taps.length < MAX_TAPS) this.taps.push(tap);
   }
 
+  /**
+   * Whether you're walking now: asking to walk, or a step still queued or in flight. The world
+   * reads it to get its own chrome out of the way while you go (decision 0304).
+   */
+  walking(now: number): boolean {
+    return this.holding(now) || !this.idle();
+  }
+
   /** Nothing queued, nothing in flight, and your figure standing. */
   private idle(): boolean {
     return this.taps.length <= 1 && this.flying.length === 0 && this.world.behind() === 0;

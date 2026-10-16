@@ -182,6 +182,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  /* The box between the buttons is the world: taps in it reach the map, not this column. */
+  pointer-events: none;
+}
+
+.actions > * {
+  pointer-events: auto;
 }
 
 .action {
@@ -230,124 +236,6 @@ a.action {
 
 .action[aria-pressed="true"] .icon {
   color: var(--paper);
-}
-
-/*
- * On a phone the world is the point, so its controls give the map back as much of the screen as
- * they can ([decision 0303](../../../docs/knowledge/decisions/0303-on-a-phone-the-world-s-controls-are-icons-round-the-map.md)):
- * the four actions become a 2x2 of icon circles under the thumb, the two settings shrink, and the
- * card over the plot you stand on loses the lines the map already tells you. Each button keeps its
- * words for a screen reader, and keeps them on screen from 480px up, where there is room.
- */
-@media (max-width: 479px) {
-  .actions {
-    width: auto;
-    display: grid;
-    grid-template-columns: repeat(2, auto);
-    justify-items: end;
-    gap: var(--space-sm);
-  }
-
-  .action {
-    width: var(--tap);
-    min-width: var(--tap);
-    height: var(--tap);
-    padding: 0;
-    justify-content: center;
-    gap: 0;
-    border-radius: 50%;
-  }
-
-  .action > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .action .icon {
-    width: 24px;
-    height: 24px;
-  }
-
-  /* Claim plot is a newcomer's one thing to do, and the only button up then: it keeps its words. */
-  /* It sets the column's width while it's up, and it is the only button up then. */
-  #claim {
-    grid-column: 1 / -1;
-    width: auto;
-    padding: 0 var(--space-lg);
-    border-radius: var(--r-pill);
-    justify-content: flex-start;
-    gap: var(--space-md);
-  }
-
-  #claim > span {
-    position: static;
-    width: auto;
-    height: auto;
-    clip-path: none;
-  }
-
-  /* The speaker is a setting, not an action: smaller, on its own line over them. */
-  .hud-sound {
-    grid-column: 1 / -1;
-    justify-self: end;
-    width: 44px;
-    min-height: 44px;
-  }
-
-  .world-mode {
-    width: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-
-  .world-mode > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .visit-card {
-    padding: var(--space-xs) var(--space-md);
-  }
-
-  .visit-card-owner {
-    font-size: var(--text-lg);
-  }
-
-  /*
-   * On a plot you live on, with nobody in it this week, the card is the two things you can do
-   * there and nothing else: the map draws the plot's name under your feet, and the week has
-   * nothing to say. On anyone else's it stays whole, since that is where its words are the point.
-   */
-  .visit-card[data-mine][data-quiet] .visit-card-owner,
-  .visit-card[data-mine][data-quiet] .visit-card-whose,
-  .visit-card[data-mine][data-quiet] .visit-card-week {
-    display: none;
-  }
-
-  .visit-card[data-mine][data-quiet] .visit-card-actions {
-    margin-top: 0;
-  }
-
-  .visit-card-week:empty {
-    display: none;
-  }
-
-  .visit-card-week:empty::before {
-    content: none;
-  }
-
-  .visit-card-actions {
-    margin-top: var(--space-2xs);
-  }
 }
 
 /* The 2D or 3D toggle: an action button on its own, just above the d-pad, in reach of the thumb. */
@@ -771,4 +659,155 @@ a.action {
 .world-climb[data-dir="up"] .climb-down,
 .world-climb[data-dir="down"] .climb-up {
   display: none;
+}
+
+/*
+ * On a phone the world is the point, so its controls give the map back as much of the screen as
+ * they can ([decision 0303](../../../docs/knowledge/decisions/0303-on-a-phone-the-world-s-controls-are-icons-round-the-map.md)):
+ * the four actions become a 2x2 with each word under its icon, the two settings shrink to a row of
+ * circles over them, and the card over the plot you stand on loses the lines the map already tells
+ * you. From 480px up there is room for the labelled column, which is what it keeps.
+ */
+@media (max-width: 479px) {
+  .hud {
+    /* One action button, and the row of two settings over them. Both corners read it. */
+    --act-h: 60px;
+    --act-w: 82px;
+  }
+
+  /*
+   * The four things you do in the world, as a 2x2 under the thumb: the icon with its own word
+   * under it, so nothing is a guess, in half the height the labelled column took.
+   */
+  .actions {
+    width: auto;
+    display: grid;
+    grid-template-columns: repeat(2, var(--act-w));
+    gap: var(--space-sm);
+  }
+
+  .action:not(.world-mode) {
+    flex-direction: column;
+    justify-content: center;
+    width: var(--act-w);
+    min-width: var(--act-w);
+    height: var(--act-h);
+    min-height: var(--act-h);
+    padding: var(--space-xs) var(--space-2xs);
+    gap: 2px;
+    border-radius: var(--r-card);
+    font-size: var(--text-xs);
+    line-height: var(--leading-none);
+  }
+
+  .action:not(.world-mode) .icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  /* Claim plot is a newcomer's one thing to do, and the only action up then: it stays a pill. */
+  #claim {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+    width: auto;
+    height: var(--tap);
+    padding: 0 var(--space-lg);
+    gap: var(--space-md);
+    border-radius: var(--r-pill);
+    font-size: var(--text-base);
+  }
+
+  /* The speaker and the 3D view are settings, not actions: smaller, on a row of their own. */
+  .hud-sound {
+    grid-column: 2;
+    justify-self: end;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .world-mode {
+    left: auto;
+    right: calc(14px + env(safe-area-inset-right) + 44px + var(--space-sm));
+    bottom: calc(14px + env(safe-area-inset-bottom) + var(--act-h) * 2 + var(--space-sm) * 2);
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .world-mode > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .visit-card {
+    padding: var(--space-xs) var(--space-md);
+  }
+
+  .visit-card-owner {
+    font-size: var(--text-lg);
+  }
+
+  /*
+   * On a plot you live on, with nobody in it this week, the card is the two things you can do
+   * there and nothing else: the map draws the plot's name under your feet, and the week has
+   * nothing to say. On anyone else's it stays whole, since that is where its words are the point.
+   */
+  .visit-card[data-mine][data-quiet] .visit-card-owner,
+  .visit-card[data-mine][data-quiet] .visit-card-whose,
+  .visit-card[data-mine][data-quiet] .visit-card-week {
+    display: none;
+  }
+
+  .visit-card[data-mine][data-quiet] .visit-card-actions {
+    margin-top: 0;
+  }
+
+  .visit-card-week:empty {
+    display: none;
+  }
+
+  .visit-card-week:empty::before {
+    content: none;
+  }
+}
+
+/*
+ * Walking (decision 0304): the world is what you came for, so once you have been going a moment
+ * everything but the pad and what the world is telling you fades back, and comes straight back
+ * when you stop. It only dims, never moves or goes away, so a button you reach for mid-walk is
+ * still under your thumb, and a screen reader never loses one.
+ */
+.hud[data-walking] .actions,
+.hud[data-walking] .world-mode,
+.hud[data-walking] .hud-feed,
+.hud[data-walking] .hud-invite,
+.hud[data-walking] .visit-card,
+.hud[data-walking] .world-near {
+  opacity: 0.32;
+}
+
+.actions,
+.world-mode,
+.hud-feed,
+.hud-invite,
+.visit-card,
+.world-near {
+  transition: opacity 0.25s ease;
+}
+
+/* Coming back is quicker than going: you stopped because you want them. */
+.hud:not([data-walking]) .actions,
+.hud:not([data-walking]) .world-mode,
+.hud:not([data-walking]) .hud-feed,
+.hud:not([data-walking]) .hud-invite,
+.hud:not([data-walking]) .visit-card,
+.hud:not([data-walking]) .world-near {
+  transition-duration: 0.12s;
 }

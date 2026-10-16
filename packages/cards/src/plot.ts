@@ -206,17 +206,34 @@ export interface PlotCard {
   place: string;
   /** Short lines under the photo in our own words, like "Meadow and forest" or "24 blocks". */
   facts: string[];
-  /** Tiles per side. */
+  /**
+   * One line of what is new on the plot since this resident's last photo, in our own words, like
+   * "New since your last photo: 4 blocks, a pet" (issue #80). Left out when nothing is new.
+   */
+  story?: string | undefined;
+  /** The plot's tiles per side. With `surround`, the drawn box is wider than this. */
   size: number;
-  /** `size * size` tiles, row by row from the top left. */
+  /**
+   * The drawn box, row by row from its top left: `size * size` tiles for the plot alone, or
+   * `surround.cols * surround.rows` with slivers of the world around it.
+   */
   ground: PlotGround[];
-  /** The owner's theme laid over the plot, when they have one. */
-  tint?: string | undefined;
+  /**
+   * Slivers of the world around the plot, so a home reads as a place in a town rather than a
+   * floating square (issue #80): the whole drawn box in tiles, and where the plot sits in it. The
+   * plot stays the subject, so what lies outside it is washed back. Without this the box is the
+   * plot alone.
+   */
+  surround?: { cols: number; rows: number; x: number; y: number } | undefined;
+  /** Theme tints over parts of the box: each plot's owner's, over that plot. */
+  tints?: { x: number; y: number; w: number; h: number; fill: string }[] | undefined;
   blocks: PlotBlock[];
   /** What's growing in the plot's planters. */
   crops?: PlotCrop[] | undefined;
   /** The hearth's tile, when it's on this plot. */
   hearth?: { x: number; y: number } | undefined;
+  /** The neighbors' hearths standing in the slivers around the plot, so their homes show too. */
+  hearths?: { x: number; y: number }[] | undefined;
   /** The owner's own picture of their home, standing over the hearth (a data URI and its size). */
   homeArt?: { src: string; width: number; height: number } | undefined;
   /** The owner's pet, curled up by the hearth. */
@@ -277,6 +294,12 @@ export interface PlotArea {
   floorPlan?: boolean | undefined;
   /** A ring on the ground under someone, drawn under the figures standing in the area. */
   ring?: { x: number; y: number } | undefined;
+  /**
+   * The part of the area the picture is about (issue #80). Everything outside it is washed back
+   * with paper, under the sky, so slivers of the world around a plot read as the edges of a place
+   * without pulling the eye off the plot itself.
+   */
+  subject?: { x: number; y: number; w: number; h: number } | undefined;
   /** The weather and the map's light at the moment drawn, over everything standing in the area. */
   sky?: Sky | undefined;
   ink: PlotInk;
@@ -286,23 +309,29 @@ const n = (v: number) => Number(v.toFixed(3));
 
 /** The plot as SVG markup, `px` pixels square. Our own markup only: numbers and checked colors. */
 export function plotSvg(c: PlotCard, px: number): string {
-  const S = Math.max(1, Math.min(32, Math.floor(c.size)));
+  const side = (v: number) => Math.max(1, Math.min(32, Math.floor(v)));
+  const S = side(c.size);
+  // With slivers of the world around it the box is wider than the plot, which sits inside it.
+  const cols = c.surround ? side(c.surround.cols) : S;
+  const rows = c.surround ? side(c.surround.rows) : S;
+  const at = c.surround ?? { x: 0, y: 0 };
   const parts = areaParts({
-    cols: S,
-    rows: S,
+    cols,
+    rows,
     ground: c.ground,
-    ...(c.tint ? { tints: [{ x: 0, y: 0, w: S, h: S, fill: c.tint }] } : {}),
+    tints: c.tints,
     blocks: c.blocks,
     crops: c.crops,
-    hearths: c.hearth ? [c.hearth] : [],
+    hearths: [...(c.hearth ? [c.hearth] : []), ...(c.hearths ?? [])],
     pets: c.pet ? [c.pet] : [],
     figures: c.figures,
     floors: c.floors,
     floorPlan: c.floorPlan,
+    ...(c.surround ? { subject: { x: at.x, y: at.y, w: S, h: S } } : {}),
     sky: c.sky,
     ink: c.ink,
   });
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${cols} ${rows}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
 }
 
 /** Most tiles an area may be across or down, and most figures and pets it draws. */
@@ -444,8 +473,38 @@ export function areaParts(a: PlotArea): string[] {
   figures.forEach((f, i) => {
     parts.push(...figureSvg(f, `f${i}`));
   });
+  parts.push(...surroundWash(a, cols, rows));
   if (a.sky) parts.push(...skyParts(a.sky, a.hearths ?? [], cols, rows));
   return parts;
+}
+
+/** How far the paper wash takes the world outside the subject back. */
+const OUTSIDE_WASH = "rgba(255, 250, 240, 0.52)";
+
+/**
+ * The band outside the subject, washed back with paper: four rects, any of them empty where the
+ * subject reaches that edge. It goes over everything standing in the area and under the sky, so
+ * the night and the weather still fall on the whole picture evenly (issue #80).
+ */
+function surroundWash(a: PlotArea, cols: number, rows: number): string[] {
+  const s = a.subject;
+  if (!s) return [];
+  const x = Math.max(0, Math.min(cols, s.x));
+  const y = Math.max(0, Math.min(rows, s.y));
+  const right = Math.max(x, Math.min(cols, s.x + s.w));
+  const bottom = Math.max(y, Math.min(rows, s.y + s.h));
+  const band = (bx: number, by: number, w: number, h: number) =>
+    w > 0 && h > 0
+      ? [
+          `<rect x="${n(bx)}" y="${n(by)}" width="${n(w)}" height="${n(h)}" fill="${OUTSIDE_WASH}"/>`,
+        ]
+      : [];
+  return [
+    ...band(0, 0, cols, y),
+    ...band(0, bottom, cols, rows - bottom),
+    ...band(0, y, x, bottom - y),
+    ...band(right, y, cols - right, bottom - y),
+  ];
 }
 
 /**

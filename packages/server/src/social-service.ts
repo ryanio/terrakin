@@ -90,6 +90,7 @@ import {
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
 import { httpArtReader, PartnerArtService } from "./partner-art";
 import { PetPatService, petDetail, readPetDetail } from "./pets";
+import { PhotoStories } from "./photo-story";
 import { PlotVisits } from "./plots";
 import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
@@ -637,6 +638,7 @@ export class SocialService {
       moderation: this.moderation,
     });
     this.collection = new CollectionBook({ sql: this.sql, now: this.now });
+    this.photoStories = new PhotoStories({ sql: this.sql, now: this.now });
     this.plots = new PlotVisits({
       sql: this.sql,
       now: this.now,
@@ -763,6 +765,8 @@ export class SocialService {
   onPetPatted: ((owner: string) => void) | undefined;
   /** Plots worth visiting (RFC 0020): who visited and admired each plot, and when it changed. */
   readonly plots: PlotVisits;
+  /** What each resident's last plot photo showed, for its story line (issue #80). */
+  readonly photoStories: PhotoStories;
   /** The collection book (RFC 0021): what each resident has ever held and worn, and since when. */
   readonly collection: CollectionBook;
   /** When residents check in, for the staff app's numbers. */

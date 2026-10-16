@@ -10,9 +10,12 @@ import {
   GROUND_LOOK,
   groundTile,
   type Input,
+  isCommons,
   petShapes,
+  plotOf,
   THEME_INFO,
   THEME_TINT_ALPHA,
+  tileKey,
   tuftStroke,
   type WorldConfig,
 } from "@terrakin/sim";
@@ -31,6 +34,20 @@ import { WorldService } from "./world-service";
  * with nothing over it. The light and the weather have tests of their own.
  */
 const AT_NOON = { now: Math.round(DAY_LENGTH_MS * 0.25) };
+
+/** Where a tile of the plot lands in the box a photo draws, slivers and all (issue #80). */
+function tileOn<T>(
+  spec: {
+    ground: T[];
+    size: number;
+    surround?: { cols: number; x: number; y: number } | undefined;
+  },
+  x: number,
+  y: number,
+): T | undefined {
+  const at = spec.surround;
+  return spec.ground[(y + (at?.y ?? 0)) * (at?.cols ?? spec.size) + x + (at?.x ?? 0)];
+}
 
 const CONFIG: WorldConfig = {
   width: 24,
@@ -153,12 +170,17 @@ describe("plot photo data", () => {
       size: 8,
       posted: true,
     });
-    expect(spec.ground).toHaveLength(64);
+    // The box is the plot with a sliver of the world on each side, the plot at the world's corner
+    // sitting in its own corner of the box (issue #80).
+    expect(spec.surround).toEqual({ cols: 10, rows: 10, x: 0, y: 0 });
+    expect(spec.ground).toHaveLength(100);
     // The starter home: a ring of walls with windows, and the hearth in the middle.
     expect(spec.blocks.length).toBeGreaterThan(10);
     expect(spec.blocks.every((b) => b.x >= 0 && b.x < 8 && b.y >= 0 && b.y < 8)).toBe(true);
     expect(spec.hearth).toEqual({ x: 3, y: 3 });
-    expect(spec.tint).toBe(alphaHex(THEME_INFO.lemon.palette.ground, THEME_TINT_ALPHA));
+    expect(spec.tints).toEqual([
+      { x: 0, y: 0, w: 8, h: 8, fill: alphaHex(THEME_INFO.lemon.palette.ground, THEME_TINT_ALPHA) },
+    ]);
     const wall = spec.blocks.find((b) => !b.glass);
     expect(wall?.fill).toBe(blockFill("wood", THEME_INFO.lemon.palette));
     expect(spec.facts[1]).toBe(`${spec.blocks.length} blocks`);
@@ -166,6 +188,114 @@ describe("plot photo data", () => {
     // One floor: nothing about floors in its data or its words.
     expect(spec.facts).toHaveLength(2);
     expect(spec).not.toHaveProperty("floors");
+  });
+
+  it("shows a sliver of the plots next door, and counts only the plot's own blocks", async () => {
+    const { call, service } = await start();
+    // A plot with a plot either side of it, so a sliver of each falls in the frame.
+    const { body } = await call("POST", "/v1/session", undefined, { name: "Wren", kind: "agent" });
+    const wren = body as { residentId: string; token: string };
+    for (const action of [{ type: "settle", px: 1, py: 0 }, { type: "build_starter_home" }]) {
+      expect((await call("POST", "/v1/actions", wren.token, action)).body.ok).toBe(true);
+    }
+    const spec = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
+    if (!spec) throw new Error("no spec");
+    // Plot 1, 0 sits against the world's top edge, so the box reaches down instead of up.
+    expect(spec.surround).toEqual({ cols: 10, rows: 10, x: 1, y: 0 });
+    expect(spec.ground).toHaveLength(100);
+    // The plot's own tiles still name its ground and count its blocks.
+    expect(spec.size).toBe(8);
+    const own = spec.facts[1];
+    const blocks = spec.blocks.length;
+    // A neighbor's wall right across the line is drawn in the sliver and never counted as theirs.
+    const next = structuredClone(service.state);
+    next.blocks[tileKey(7, 2)] = "wood";
+    const beside = plotPhotoSpec(next, wren.residentId, AT_NOON);
+    expect(beside?.blocks.some((b) => b.x === 0 && b.y === 2)).toBe(true);
+    expect(beside?.blocks).toHaveLength(blocks + 1);
+    expect(beside?.facts[1]).toBe(own);
+  });
+
+  it("leaves a neighbor's upstairs out of the plot's floors and its story", async () => {
+    const { settled, photo, drawn, service } = await start();
+    const wren = await settled("Wren");
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[0]?.story).toBe("First photo of this home");
+    expect(drawn.specs[0]).not.toHaveProperty("floors");
+    // Ivy lays a tile of upstairs flooring on her own edge, inside Wren's sliver. It is hers: no
+    // floor of Wren's, no shadow over Wren's edge, and nothing new to say about Wren's home.
+    service.state.floors = { "1": { ground: { "8,3": "moss" }, blocks: {} } };
+    const spec = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
+    expect(spec).not.toHaveProperty("floors");
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[1]).not.toHaveProperty("story");
+  });
+
+  it("draws a neighbor's home in the sliver, and only the owner's pet and picture", async () => {
+    const { call, service, settled } = await start();
+    const wren = await settled("Wren");
+    const { body } = await call("POST", "/v1/session", undefined, { name: "Ivy", kind: "agent" });
+    const ivy = body as { residentId: string; token: string };
+    expect(
+      (await call("POST", "/v1/actions", ivy.token, { type: "settle", px: 1, py: 0 })).body.ok,
+    ).toBe(true);
+    // Ivy's hearth sits one tile past Wren's line, so Wren's photo shows Ivy's home in the sliver.
+    const next = structuredClone(service.state);
+    const ivyAt = next.residents[ivy.residentId];
+    if (ivyAt) ivyAt.hearth = { x: 8, y: 4 };
+    const spec = plotPhotoSpec(next, wren.residentId, AT_NOON);
+    expect(spec?.hearth).toEqual({ x: 3, y: 3 });
+    expect(spec?.hearths).toEqual([{ x: 8, y: 4 }]);
+    // A neighbor's hearth is never the owner's: no pet of theirs, no picture of their home.
+    expect(spec).not.toHaveProperty("pet");
+    expect(spec).not.toHaveProperty("homeArt");
+  });
+
+  it("tells what is new since the resident's last photo, and says nothing when nothing is", async () => {
+    const { settled, photo, call, drawn } = await start();
+    const wren = await settled("Wren");
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[0]?.story).toBe("First photo of this home");
+    // Nothing has changed, so the second photo has no story and says only when it was taken.
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[1]).not.toHaveProperty("story");
+    expect(drawn.specs[1]?.stamp?.length).toBeGreaterThan(0);
+    // Name the plot, and the next photo says so.
+    expect(
+      (
+        await call("POST", "/v1/actions", wren.token, {
+          type: "name_plot",
+          px: 0,
+          py: 0,
+          name: "Lemon Grove",
+        })
+      ).body.ok,
+    ).toBe(true);
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[2]?.story).toBe("New since your last photo: a name");
+  });
+
+  it("tells no story for a floor plan, and never lets one stand in for the home's photo", async () => {
+    const { settled, photo, call, drawn } = await start();
+    const wren = await settled("Wren");
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[0]?.story).toBe("First photo of this home");
+    expect(
+      (
+        await call("POST", "/v1/actions", wren.token, {
+          type: "name_plot",
+          px: 0,
+          py: 0,
+          name: "Lemon Grove",
+        })
+      ).body.ok,
+    ).toBe(true);
+    // A floor plan is a different picture: it tells no story and keeps no mark of its own, so the
+    // next photo of the home still measures against the last photo of the home.
+    expect((await photo(wren, { floor: 0 })).status).toBe(201);
+    expect(drawn.specs[1]).not.toHaveProperty("story");
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn.specs[2]?.story).toBe("New since your last photo: a name");
   });
 
   it("draws every floor from above, or one floor's plan with what's above it left out (RFC 0028)", async () => {
@@ -258,10 +388,15 @@ describe("plot photo data", () => {
     const wren = await settled("Wren");
     const photo = (day: number) =>
       plotPhotoSpec({ ...service.state, day }, wren.residentId, AT_NOON);
+    // The box is the plot and a sliver of the world on each side, so its tiles run past the plot
+    // and reach the Commons plaza in the corner.
     const tiles = (season: "autumn" | "winter") =>
-      Array.from({ length: 64 }, (_, i) =>
-        groundTile(CONFIG, i % 8, Math.floor(i / 8), false, season),
-      );
+      Array.from({ length: 100 }, (_, i) => {
+        const x = i % 10;
+        const y = Math.floor(i / 10);
+        const { px, py } = plotOf(CONFIG, x, y);
+        return groundTile(CONFIG, x, y, isCommons(CONFIG, px, py), season);
+      });
     // 2026-10-06 is autumn, 2026-12-25 winter.
     const autumn = photo(dayOfDate(2026, 10, 6));
     const winter = photo(dayOfDate(2026, 12, 25));
@@ -297,12 +432,12 @@ describe("plot photo data", () => {
       furniture: "well",
       fill: BLOCK_COLORS.well,
     });
-    expect(spec.ground[6 * 8 + 3]?.paving).toEqual({
+    expect(tileOn(spec, 3, 6)?.paving).toEqual({
       fill: GROUND_LOOK.cobble.fill,
       marks: GROUND_LOOK.cobble.marks,
     });
     // Stepping stones let the grass under them show: no fill of their own.
-    expect(spec.ground[7 * 8 + 3]?.paving).toEqual({ marks: GROUND_LOOK.stepping_stones.marks });
+    expect(tileOn(spec, 3, 7)?.paving).toEqual({ marks: GROUND_LOOK.stepping_stones.marks });
   });
 
   it("draws what grows in its planters, as far along as the world's day has it", async () => {
@@ -486,14 +621,22 @@ describe("POST /v1/plots/photo", () => {
   });
 
   it("answers unavailable, storing nothing, when drawing fails", async () => {
+    let boom = true;
+    const drawn: { story?: string | undefined }[] = [];
     const { settled, photo, media } = await start({
-      photos: async () => {
-        throw new Error("boom");
+      photos: async (spec) => {
+        drawn.push(spec);
+        if (boom) throw new Error("boom");
+        return new Uint8Array(await PNG);
       },
     });
     const wren = await settled("Wren");
     expect((await photo(wren)).status).toBe(503);
     expect(media.files.size).toBe(0);
+    // Nothing was stored, so the photo that works is still this plot's first (issue #80).
+    boom = false;
+    expect((await photo(wren)).status).toBe(201);
+    expect(drawn[1]?.story).toBe("First photo of this home");
   });
 
   it(`refuses past ${RATE_LIMITS.photos.burst} photos at once from one resident`, async () => {

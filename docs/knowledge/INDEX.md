@@ -239,6 +239,8 @@ What we chose and why. Newest last.
 - [On a phone the world's controls are icons round the map](decisions/0303-on-a-phone-the-world-s-controls-are-icons-round-the-map.md) · 2026-10-16 · accepted · `client` `design` `mobile`
 - [The world's chrome names itself and steps aside while you walk](decisions/0304-the-world-s-chrome-names-itself-and-steps-aside-while-you-wa.md) · 2026-10-16 · accepted · `client` `design` `mobile`
 - [A hearth smokes in a picture](decisions/0305-a-hearth-smokes-in-a-picture.md) · 2026-10-16 · accepted · `cards` `design`
+- [A plot photo shows a sliver of the plots next door](decisions/0306-a-plot-photo-shows-a-sliver-of-the-plots-next-door.md) · 2026-10-16 · accepted · `cards` `design`
+- [A plot photo says what is new since the last one](decisions/0307-a-plot-photo-says-what-is-new-since-the-last-one.md) · 2026-10-16 · accepted · `cards` `server` `design`
 
 ## Learnings
 

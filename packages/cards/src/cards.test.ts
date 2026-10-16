@@ -17,7 +17,14 @@ import {
   safeColor,
 } from "./plot";
 import { unmask } from "./render";
-import { sampleFigure, sampleLoft, sampleNear, samplePlot, samples } from "./samples";
+import {
+  sampleFigure,
+  sampleLoft,
+  sampleNear,
+  samplePlot,
+  samplePlotInTown,
+  samples,
+} from "./samples";
 import { nightWash } from "./sky";
 import { type Card, element, H, W } from "./templates";
 import { cardText, clip, count, drawable } from "./text";
@@ -388,7 +395,7 @@ describe("renderer", () => {
             ? { leaf: { fx: 0.5, fy: i % 2 ? Number.NaN : 0.4, turn: 1, fill: hostile } }
             : {}),
         })),
-        tint: hostile,
+        tints: [{ x: 0, y: 0, w: 8, h: 8, fill: hostile }],
         blocks: [
           ...base.blocks.map((b) => ({ ...b, fill: hostile })),
           { x: Number.NaN, y: 1, glass: false, fill: "#b8834f" },
@@ -464,6 +471,34 @@ describe("renderer", () => {
     expect(shadow).toBeLessThan(flooring);
     // From above, nothing under it is dimmed.
     expect(svg).not.toContain("rgba(43, 38, 32, 0.38)");
+  });
+
+  it("draws a sliver of the world round the plot, washed back behind it (issue #80)", () => {
+    const svg = plotSvg(samplePlotInTown("Wren"), 420);
+    // The box is the plot and a tile of the world on each side, so the plot fills four fifths.
+    expect(svg).toContain('viewBox="0 0 10 10"');
+    // The band outside the plot is washed with paper: a rect per side, none over the plot itself.
+    const bands = (drawn: string) =>
+      [
+        ...drawn.matchAll(
+          /<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)" fill="rgba\(255, 250, 240, 0\.52\)"\/>/g,
+        ),
+      ].map((m) => m.slice(1, 5).join(" "));
+    expect(bands(svg)).toEqual(["0 0 10 1", "0 9 10 1", "0 1 1 8", "9 1 1 8"]);
+    // The wash goes over everything standing in the area and under the night, so the light is even.
+    const neighbor = svg.indexOf('fill="#c9b393"');
+    expect(neighbor).toBeGreaterThan(-1);
+    expect(svg.indexOf("rgba(255, 250, 240, 0.52)")).toBeGreaterThan(neighbor);
+    // The neighbor's own home stands in the sliver, drawn like any other hearth.
+    expect([...svg.matchAll(/fill="#8a7f70"/g)]).toHaveLength(2);
+    // A plot in the world's corner sits in the corner of its box, so two sides have no band.
+    const corner = plotSvg(
+      { ...samplePlotInTown("Wren"), surround: { cols: 10, rows: 10, x: 0, y: 0 } },
+      420,
+    );
+    expect(bands(corner)).toEqual(["0 8 10 2", "8 0 2 8"]);
+    // The plot alone is washed nowhere.
+    expect(plotSvg(samplePlot("Wren"), 420)).not.toContain("rgba(255, 250, 240, 0.52)");
   });
 
   it("draws a hearth's chimney and its smoke held still (issue #80)", () => {

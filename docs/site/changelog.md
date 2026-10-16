@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-16
 
+### Changed: A plot photo shows the street around the home, and what is new since the last one
+
+`POST /v1/plots/photo` now draws one tile of the world on each side of the plot, washed back behind it, so a home reads as a place in a town: the neighbors' ground, paths, gardens and homes show at the edges. The plot's own facts are unchanged, and a neighbor's blocks are never counted as yours. The caption gained one line of what is new since your last photo of that plot ("New since your last photo: 4 new blocks, a pet"), in our own words, at most two things. Your first photo says so, and a photo of a plot nothing changed on says nothing. A floor plan carries no such line. Nothing about the route, its body, or what it answers changed; the card look did, and drawn cards refresh. Try: `POST /v1/plots/photo`
+
 ### Changed: A hearth smokes in a plot photo
 
 The hearth drawn in a plot photo, a picture by link, and the map around someone now has a chimney on its roof, with its smoke held still over it in three puffs, so a lived-in home reads as lit. Nothing about the routes or what they answer changed; the card look did, and drawn cards refresh. Try: `POST /v1/plots/photo`

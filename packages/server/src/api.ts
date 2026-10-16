@@ -887,6 +887,18 @@ export class Api {
         5,
       );
     }
+    // What is new since their last photo of this plot (issue #80), read once every guard has let
+    // the photo through, so a refused call does no work. The home from above only: a floor plan is
+    // a different picture, and its counts aren't the home's. A caption line is never worth failing
+    // a photo for, so a read that throws is reported and the photo goes on without it.
+    if (floor === undefined) {
+      try {
+        const story = social.photoStories.story(viewer, place, spec);
+        if (story !== undefined) spec.story = story;
+      } catch (err) {
+        report(err, "photo.story");
+      }
+    }
     this.photosInFlight++;
     try {
       let png: Uint8Array;
@@ -900,7 +912,17 @@ export class Api {
       const overIpNow = this.ipUploadRefusal(key, png.length);
       if (overIpNow) return overIpNow;
       const outcome = await social.upload(viewer, png, place);
-      if (outcome.ok) this.countIpUpload(key, day, png.length);
+      if (outcome.ok) {
+        this.countIpUpload(key, day, png.length);
+        // Kept only once the photo is stored, so a refused one leaves the next story to tell.
+        if (floor === undefined) {
+          try {
+            social.photoStories.keep(viewer, place, spec);
+          } catch (err) {
+            report(err, "photo.story");
+          }
+        }
+      }
       return fromResult(outcome, (media) => ({ status: 201 as const, body: { media } }));
     } finally {
       this.photosInFlight--;

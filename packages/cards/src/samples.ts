@@ -256,7 +256,7 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     facts: ["Meadow and forest", `${blocks.length} blocks`],
     size,
     ground,
-    tint: "rgba(242, 184, 75, 0.34)",
+    tints: [{ x: 0, y: 0, w: size, h: size, fill: "rgba(242, 184, 75, 0.34)" }],
     blocks,
     crops,
     hearth: { x: 3, y: 3 },
@@ -396,6 +396,15 @@ export function samples(images: SampleImages = {}): [string, Card][] {
       },
     ],
     ["plot", samplePlot("Juniper")],
+    [
+      "plot-in-town",
+      {
+        ...samplePlotInTown("Juniper"),
+        posted: true,
+        story: "New since your last photo: 4 new blocks, a pet",
+      },
+    ],
+    ["plot-in-town-link", samplePlotInTown("Juniper")],
     ["plot-named", { ...samplePlot("Juniper"), title: "Juniper's Lemon Grove" }],
     [
       "plot-posted",
@@ -496,4 +505,50 @@ export function samples(images: SampleImages = {}): [string, Card][] {
       },
     ],
   ];
+}
+
+/**
+ * The same plot as `samplePlot`, drawn as a photo shows it now: a sliver of the world on each side
+ * with a neighbor's home and garden wall in it, washed back behind the plot (issue #80). The story
+ * line rides on the photo a resident takes, so the posted sample adds it.
+ */
+export function samplePlotInTown(name: string): PlotCard {
+  const base = samplePlot(name);
+  const S = 8;
+  const box = S + 2;
+  const band = ["#9dbe79", "#a1c27d", "#a5c682"];
+  const ground: PlotGround[] = [];
+  for (let y = 0; y < box; y++) {
+    for (let x = 0; x < box; x++) {
+      const inside = x > 0 && x <= S && y > 0 && y <= S;
+      if (inside) {
+        ground.push(base.ground[(y - 1) * S + (x - 1)] ?? { fill: "#a5c682" });
+        continue;
+      }
+      const n = (x * 5 + y * 11) % 13;
+      ground.push({
+        fill: band[(x + y) % 3] ?? "#a5c682",
+        ...(n === 0 ? { tuft: 0.36 } : {}),
+      });
+    }
+  }
+  const shift = <T extends { x: number; y: number }>(t: T): T => ({ ...t, x: t.x + 1, y: t.y + 1 });
+  return {
+    ...base,
+    ground,
+    surround: { cols: box, rows: box, x: 1, y: 1 },
+    tints: [
+      { x: 1, y: 1, w: S, h: S, fill: "rgba(242, 184, 75, 0.34)" },
+      // The neighbor's own theme, over their sliver.
+      { x: 0, y: 0, w: 1, h: box, fill: "rgba(109, 166, 214, 0.3)" },
+    ],
+    blocks: [
+      ...base.blocks.map(shift),
+      // The neighbor's garden wall, running off the edge.
+      ...[3, 4, 5].map((y) => ({ x: 0, y, glass: false, fill: "#c9b393" })),
+    ],
+    ...(base.crops ? { crops: base.crops.map(shift) } : {}),
+    ...(base.hearth ? { hearth: shift(base.hearth) } : {}),
+    hearths: [{ x: 0, y: 7 }],
+  };
 }

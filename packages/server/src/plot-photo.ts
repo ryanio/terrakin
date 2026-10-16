@@ -1,6 +1,7 @@
 import {
   imageDataUri,
   type PlacedFigure,
+  type PlotArea,
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
@@ -29,6 +30,7 @@ import {
   growth,
   HEARTH_COLOR,
   HEARTH_DOOR,
+  isCommons,
   isDecorKind,
   isFurnitureKind,
   LEAF_TONES,
@@ -39,6 +41,8 @@ import {
   POND_LOOK,
   petBed,
   petShapes,
+  plotKey,
+  plotOf,
   type Resident,
   seasonOf,
   skyAt,
@@ -100,6 +104,13 @@ export interface PhotoOptions {
 
 /** Draws a spec as a PNG. Node draws in-process; the World object calls the Worker over RPC. */
 export type PlotPhotoRenderer = (spec: PlotPhotoSpec) => Promise<Uint8Array>;
+
+/**
+ * How many tiles of the world beyond a plot a picture of it shows on each side (issue #80). One
+ * tile is a sliver: enough for the ground, a path, a fence or a neighbor's doorstep to run past
+ * the edge, while the plot still fills four fifths of the frame.
+ */
+const SURROUND = 1;
 
 const BIOME_WORDS: Record<Biome, string> = {
   meadow: "meadow",
@@ -175,16 +186,64 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
   const y0 = plot.py * S;
   const owner = state.residents[plot.ownerId];
   const palette = owner?.theme ? THEME_INFO[owner.theme]?.palette : undefined;
-  // Plots are never the Commons, so the ground is always the biome's.
+
+  // The box drawn: the plot with a sliver of the world on each side, kept inside the world's edges,
+  // so a home reads as a place in a town (issue #80). A world too small for the slivers gets the
+  // plot alone.
+  const cols = Math.min(S + SURROUND * 2, config.width);
+  const rows = Math.min(S + SURROUND * 2, config.height);
+  const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+  const bx = clamp(x0 - SURROUND, config.width - cols);
+  const by = clamp(y0 - SURROUND, config.height - rows);
+  // Where the plot sits in the box. It stays the subject: every count and every fact is its own.
+  const at = { x: x0 - bx, y: y0 - by };
+  const inPlot = (p: { x: number; y: number }) =>
+    p.x >= at.x && p.x < at.x + S && p.y >= at.y && p.y < at.y + S;
+
+  // Each plot's owner's theme, looked up once per plot, as the map around someone reads them.
+  const themes = new Map<string, ThemePalette | undefined>();
+  const paletteAt = (x: number, y: number) => {
+    const { px, py } = plotOf(config, x, y);
+    const key = plotKey(px, py);
+    if (!themes.has(key)) {
+      const res = state.plots[key] ? state.residents[state.plots[key].ownerId] : undefined;
+      themes.set(key, res?.theme ? THEME_INFO[res.theme]?.palette : undefined);
+    }
+    return themes.get(key);
+  };
+  const commonsAt = (x: number, y: number) => {
+    const { px, py } = plotOf(config, x, y);
+    return isCommons(config, px, py);
+  };
   const area = areaOf(
     state,
-    x0,
-    y0,
-    S,
-    S,
-    () => palette,
-    () => false,
+    bx,
+    by,
+    cols,
+    rows,
+    paletteAt,
+    commonsAt,
+    // Only the plot's own tiles name its ground, however much of the world around it is drawn.
+    (x, y) => x >= x0 && x < x0 + S && y >= y0 && y < y0 + S,
   );
+
+  // Each themed plot's tint over its own part of the box, the plot's own included.
+  const tints: NonNullable<PlotArea["tints"]> = [];
+  for (let py = Math.floor(by / S); py * S < by + rows; py++) {
+    for (let px = Math.floor(bx / S); px * S < bx + cols; px++) {
+      const theme = paletteAt(px * S, py * S);
+      if (!theme || !state.plots[plotKey(px, py)]) continue;
+      const left = Math.max(px * S, bx);
+      const top = Math.max(py * S, by);
+      tints.push({
+        x: left - bx,
+        y: top - by,
+        w: Math.min((px + 1) * S, bx + cols) - left,
+        h: Math.min((py + 1) * S, by + rows) - top,
+        fill: alphaHex(theme.ground, THEME_TINT_ALPHA),
+      });
+    }
+  }
 
   // The owner's hearth if it's on this plot, else the first hearth anyone keeps here.
   const onPlot = (h: { x: number; y: number } | null | undefined) =>
@@ -194,26 +253,50 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
     Object.values(state.residents)
       .map((r) => onPlot(r.hearth))
       .find((h) => h !== undefined);
+  // The neighbors' homes standing in a sliver, so a sliver reads as somebody else's plot.
+  const inBox = (h: { x: number; y: number }) =>
+    h.x >= bx && h.x < bx + cols && h.y >= by && h.y < by + rows;
+  const nearbyHearths: { x: number; y: number }[] = [];
+  const seenHearth = new Set<string>();
+  for (const res of Object.values(state.residents)) {
+    const h = res.hearth;
+    if (!h || onPlot(h) || !inBox(h)) continue;
+    const key = `${h.x},${h.y}`;
+    if (seenHearth.has(key)) continue;
+    seenHearth.add(key);
+    nearbyHearths.push({ x: h.x - bx, y: h.y - by });
+  }
 
   // The owner's pet, curled up beside their hearth where the map puts it (RFC 0019).
   const ownHearth = onPlot(owner?.hearth);
   const pet =
     owner?.pet && ownHearth
-      ? petPicture(owner.pet, ownHearth, petBed(worldGround(state), ownHearth), x0, y0)
+      ? petPicture(owner.pet, ownHearth, petBed(worldGround(state), ownHearth), bx, by)
       : undefined;
 
-  // Whoever is standing on the plot, so a home with someone in it reads as one (issue #80).
-  const figures = figuresIn(state, x0, y0, S, S, { x: x0 + S / 2, y: y0 + S / 2 });
+  // Whoever is standing on the plot, so a home with someone in it reads as one (issue #80). Only
+  // the plot's own: a neighbor in their garden isn't the subject, and a photo is kept and posted.
+  const figures = figuresIn(state, bx, by, cols, rows, { x: x0 + S / 2, y: y0 + S / 2 }).filter(
+    inPlot,
+  );
   // The moment the picture shows: the map's own light and weather (decision 0300).
   const sky = skyAt(o.now, state.day);
   const phase = dayPhase(o.now, DAY_LENGTH_MS);
 
   const biomes = [...area.biomes.entries()].sort((a, b) => b[1] - a[1]).map(([b]) => b);
   const { blocks, crops } = area;
-  // Every block on the plot counts, on every floor, as the plot's view counts them.
-  const count = blocks.length + area.floors.reduce((sum, s) => sum + s.blocks.length, 0);
+  // Upstairs is the plot's own: a neighbor's loft in a sliver would otherwise lay its shadow over
+  // the plot's edge, escape a floor plan's dim, and count as a floor the owner added.
+  const upstairs = area.floors.map((f) => ({
+    flooring: f.flooring.filter(inPlot),
+    blocks: f.blocks.filter(inPlot),
+  }));
+  // Every block on the plot counts, on every floor, as the plot's view counts them. A block in a
+  // sliver belongs to a neighbor, so it's drawn and never counted.
+  const count =
+    blocks.filter(inPlot).length + upstairs.reduce((sum, s) => sum + s.blocks.length, 0);
   const added = plot.floors ?? 0;
-  const shown = floor === undefined ? drawnFromAbove(area.floors) : area.floors.slice(0, floor);
+  const shown = floor === undefined ? drawnFromAbove(upstairs) : upstairs.slice(0, floor);
   return {
     kind: "plot",
     name: owner?.name ?? "",
@@ -225,13 +308,15 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
       ...(floor !== undefined ? [floorName(floor)] : added > 0 ? [`${added + 1} floors`] : []),
     ],
     size: S,
+    ...(cols > S || rows > S ? { surround: { cols, rows, x: at.x, y: at.y } } : {}),
     ground: area.ground,
-    ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),
+    ...(tints.length > 0 ? { tints } : {}),
     blocks,
     ...(shown.length > 0 ? { floors: shown } : {}),
     ...(floor !== undefined && floor > 0 ? { floorPlan: true } : {}),
     ...(crops.length > 0 ? { crops } : {}),
-    ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
+    ...(hearth ? { hearth: { x: hearth.x - bx, y: hearth.y - by } } : {}),
+    ...(nearbyHearths.length > 0 ? { hearths: nearbyHearths } : {}),
     ...(o.withArt !== false && owner?.homeArt ? { homeArt: owner.homeArt } : {}),
     ...(pet ? { pet } : {}),
     ...(figures.length > 0 ? { figures } : {}),
@@ -309,7 +394,9 @@ export function plotInk(s: ReturnType<typeof seasonOf> | undefined): PlotInk {
  * dressed for the season, paths and flooring, blocks in the theme `palette` gives for their tile
  * (glass and water keep their own), crops as far along as the world's day, and each floor above
  * the ground floor up to `FLOORS.max` (RFC 0028), its flooring and blocks, empty or not. Coordinates
- * come back relative to (x0, y0). `commons` says which tiles are the Commons plaza.
+ * come back relative to (x0, y0). `commons` says which tiles are the Commons plaza. `counts` says
+ * which tiles count toward `biomes`, so a photo that shows slivers of the world around a plot still
+ * describes the plot's own ground (issue #80); without it every tile in the box counts.
  */
 export function areaOf(
   state: WorldState,
@@ -319,6 +406,7 @@ export function areaOf(
   rows: number,
   palette: (x: number, y: number) => ThemePalette | undefined,
   commons: (x: number, y: number) => boolean,
+  counts?: (x: number, y: number) => boolean,
 ): {
   ground: PlotGround[];
   blocks: PlotBlock[];
@@ -337,7 +425,7 @@ export function areaOf(
       const wx = x0 + x;
       const wy = y0 + y;
       const tile = groundTile(config, wx, wy, commons(wx, wy), s);
-      biomes.set(tile.biome, (biomes.get(tile.biome) ?? 0) + 1);
+      if (!counts || counts(wx, wy)) biomes.set(tile.biome, (biomes.get(tile.biome) ?? 0) + 1);
       const sc = tile.scenery;
       const key = tileKey(wx, wy);
       // A path or flooring (RFC 0016), in the same look the map draws.

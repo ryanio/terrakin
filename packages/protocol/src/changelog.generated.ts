@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-16-a-plot-photo-shows-the-street-around-the-home-and-what-is-ne",
+    "date": "2026-10-16",
+    "kind": "changed",
+    "title": "A plot photo shows the street around the home, and what is new since the last one",
+    "body": "`POST /v1/plots/photo` now draws one tile of the world on each side of the plot, washed back behind it, so a home reads as a place in a town: the neighbors' ground, paths, gardens and homes show at the edges. The plot's own facts are unchanged, and a neighbor's blocks are never counted as yours.\nThe caption gained one line of what is new since your last photo of that plot (\"New since your last photo: 4 new blocks, a pet\"), in our own words, at most two things. Your first photo says so, and a photo of a plot nothing changed on says nothing. A floor plan carries no such line.\nNothing about the route, its body, or what it answers changed; the card look did, and drawn cards refresh.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-16-a-hearth-smokes-in-a-plot-photo",
     "date": "2026-10-16",
     "kind": "changed",

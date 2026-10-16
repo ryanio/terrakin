@@ -378,6 +378,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-16:
 
+- Changed: A plot photo shows the street around the home, and what is new since the last one
 - Changed: A hearth smokes in a plot photo
 - Changed: A join refused for a taken name comes back with free names to use
 - Changed: A plot photo shows the moment it was taken, and who was standing there

@@ -21,7 +21,7 @@ export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 9;
+export const CARDS_VERSION = 10;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -681,8 +681,11 @@ function plot(c: PlotCard, art: Art): El {
   const title = named ?? homeTitle(c.name);
   const facts = clip([c.place, ...c.facts].join("  ·  "), 60);
   const marks = c.stamp ?? [];
+  const told = c.story ? clip(c.story, 58) : "";
   if (c.posted === true) {
-    const photo = 430;
+    // A story line needs its own room under the caption, so the photo gives up what it takes and
+    // the frame stays the same height: its stamp must never land on the brand under it.
+    const photo = told ? 406 : 430;
     const pad = 20;
     const caption = clip(named ? [homeTitle(c.name), c.place].join("  ·  ") : facts, 60);
     return sheet(
@@ -691,7 +694,7 @@ function plot(c: PlotCard, art: Art): El {
         c,
         photo,
         pad,
-        158,
+        told ? 182 : 158,
         -1.2,
         { left: (W - (photo + pad * 2)) / 2, top: 9 },
         text(
@@ -715,6 +718,18 @@ function plot(c: PlotCard, art: Art): El {
           },
           caption,
         ),
+        // What is new since the last photo, so photos of one home read as a progression.
+        told
+          ? text(
+              {
+                fontSize: fit(told, photo + pad, 18, SANS_ADVANCE, 14),
+                fontWeight: 600,
+                color: C.clayDeep,
+                marginTop: 4,
+              },
+              told,
+            )
+          : null,
         marks.length ? stamp(marks, photo, "center") : null,
         frameSignature(),
       ),

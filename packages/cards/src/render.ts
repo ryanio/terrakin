@@ -37,6 +37,12 @@ export interface Cards {
   render(card: Card): Promise<Rendered>;
 }
 
+/**
+ * What the cards Worker answers over the `CARDS` service binding (`cloudflare/worker.ts`): a card,
+ * drawn, and nothing else. `Card` and `Rendered` are plain data, so both cross RPC as they are.
+ */
+export type CardDrawer = Pick<Cards, "render">;
+
 export function createCards(load: () => Promise<Engine>): Cards {
   let ready: Promise<{ fonts: FontFile[]; art: Art }> | undefined;
   // Once per process or isolate: resvg refuses a second initWasm.

@@ -40,7 +40,7 @@ Every workspace package is a folder in `packages/` named for its package (`packa
 | [`packages/client/`](packages/client/AGENTS.md) | Mobile-first web client and the `/docs` page. Renders, never decides. |
 | [`packages/admin/`](packages/admin/AGENTS.md) | The staff app at admin.terrakin.org: review queue, AI triage suggestions, moderation log. Behind Cloudflare Access. |
 | [`packages/ui/`](packages/ui/AGENTS.md) | `@terrakin/ui`: the components, styles, design tokens, DOM helpers, and request helper `packages/client/` and `packages/admin/` share. Build a piece once, here. |
-| [`packages/cards/`](packages/cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. |
+| [`packages/cards/`](packages/cards/AGENTS.md) | Link preview cards, drawn with satori and resvg-wasm. Its own Worker on Cloudflare, reached over a service binding. |
 | [`packages/figure/`](packages/figure/AGENTS.md) | `@terrakin/figure`: a rigged character body for three.js that plays clips, shows feelings, blinks and looks around, with the body spec and the check for a body file. The one package published to npm. |
 | [`e2e/`](e2e/AGENTS.md) | Playwright tests on a phone viewport against the real build. |
 | [`scripts/`](scripts/AGENTS.md) | Repo tooling: `gen`, `kb`, the brand generator, the coin simulation, the townsfolk seed and tips, and the Sentry reader. |
@@ -60,7 +60,7 @@ pnpm e2e          # Playwright on a phone viewport against the real build
 pnpm format       # Biome: fix formatting and safe lint issues
 pnpm gen          # regenerate everything derived from the route table and site config
 pnpm kb           # rebuild the knowledge index
-pnpm cf:deploy    # deploy to terrakin.org by hand; main also deploys itself once CI passes (docs/deploy.md)
+pnpm cf:deploy    # deploy both Workers to terrakin.org by hand; main also deploys itself once CI passes (docs/deploy.md)
 ```
 
 ## Definition of done

@@ -34,7 +34,7 @@ export {
   plotSvg,
   safeColor,
 } from "./plot";
-export type { Cards, Rendered } from "./render";
+export type { CardDrawer, Cards, Rendered } from "./render";
 export {
   CARDS_VERSION,
   type Card,

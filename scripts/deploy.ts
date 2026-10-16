@@ -2,6 +2,10 @@
  * Deploy terrakin.org, but only from the tip of `origin/main` (`pnpm cf:deploy` runs this after
  * the build, so the check happens right before the upload).
  *
+ * Two Workers go out, the cards Worker first (`wrangler.cards.jsonc`, decision 0299): the main
+ * Worker's CARDS binding fails to deploy while that service doesn't exist, so a first deploy from
+ * nothing has to go in this order. Extra arguments reach both.
+ *
  * The world rebuilds itself by replaying its log, so a Worker older than the one live can't boot
  * once the newer one has logged a command the old sim doesn't know: every `/v1` route answers 500
  * until something newer goes out. On a laptop an older or dirty HEAD is refused. In CI a run whose
@@ -211,13 +215,22 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     );
     process.exit(1);
   }
+  const args = process.argv.slice(2);
+  // The cards Worker first: the main Worker's CARDS binding needs the service to exist. It writes
+  // no output file, since only the main Worker's version id is worth printing.
+  const plain = { ...process.env };
+  delete plain.WRANGLER_OUTPUT_FILE_PATH;
+  execFileSync("wrangler", ["deploy", "-c", "wrangler.cards.jsonc", ...args], {
+    stdio: "inherit",
+    env: plain,
+  });
   // wrangler appends what it uploaded to this file, the version id among it.
   const outputFile = join(
     process.env.RUNNER_TEMP || tmpdir(),
     `wrangler-deploy-${process.pid}.jsonl`,
   );
   rmSync(outputFile, { force: true });
-  execFileSync("wrangler", ["deploy", ...process.argv.slice(2)], {
+  execFileSync("wrangler", ["deploy", ...args], {
     stdio: "inherit",
     env: { ...process.env, WRANGLER_OUTPUT_FILE_PATH: outputFile },
   });

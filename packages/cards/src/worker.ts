@@ -2,7 +2,7 @@
  * Cards in the Cloudflare Worker. Wrangler bundles a `.wasm` import as a compiled
  * WebAssembly.Module, which a Worker may instantiate (Workers refuse to compile wasm from bytes at
  * run time, hence `satori/standalone` and `init()`), and a `.woff` import as an ArrayBuffer (the
- * `Data` rule in wrangler.jsonc). Keep the font list in step with `fonts.ts`.
+ * `Data` rule in wrangler.cards.jsonc). Keep the font list in step with `fonts.ts`.
  */
 
 import figtree600 from "@fontsource/figtree/files/figtree-latin-600-normal.woff";

@@ -1,0 +1,17 @@
+{
+  // The cards Worker: satori, resvg's wasm and the card fonts, reached only from the main Worker
+  // over its CARDS service binding (decision 0299). See docs/deploy.md.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "terrakin-cards",
+  "main": "packages/cards/cloudflare/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // No routes and no address of its own: a service binding is the only way in.
+  "workers_dev": false,
+  "preview_urls": false,
+  "rules": [
+    // Card fonts (packages/cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.
+    { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
+  ]
+}

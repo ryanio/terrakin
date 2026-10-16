@@ -10,7 +10,7 @@
     "./worker": "./src/worker.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p cloudflare/tsconfig.json",
     "samples": "tsx scripts/samples.ts"
   },
   "dependencies": {

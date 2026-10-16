@@ -60,19 +60,20 @@
   // The deploy's version id, sent as the Sentry release.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "terrakin-media" }],
-  // This Worker's own PlotPhotos entrypoint: the World object asks it to draw plot photos, so the
-  // drawing runs in the Worker and never in the world (packages/server/AGENTS.md).
-  "services": [{ "binding": "PHOTOS", "service": "terrakin", "entrypoint": "PlotPhotos" }],
+  // PHOTOS is this Worker's own PlotPhotos entrypoint: the World object asks it to draw plot
+  // photos, so the drawing runs in the Worker and never in the world (packages/server/AGENTS.md).
+  // CARDS is the cards Worker (wrangler.cards.jsonc), which holds satori, resvg's wasm and the card
+  // fonts so this Worker doesn't load them on a cold start (decision 0299).
+  "services": [
+    { "binding": "PHOTOS", "service": "terrakin", "entrypoint": "PlotPhotos" },
+    { "binding": "CARDS", "service": "terrakin-cards" }
+  ],
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["World"] }],
   // Townsfolk chatter every two hours (packages/server/src/chatter.ts, CHATTER_EVERY_MS), off until
   // TERRAKIN_CHATTER_DAILY_CALLS is above 0, and the townsfolk's coin tips just after midnight UTC
   // (packages/server/src/townsfolk-tips.ts, TIPS_CRON in the Worker), off until TERRAKIN_TIPS is set.
   "triggers": { "crons": ["17 */2 * * *", "7 0 * * *"] },
-  "rules": [
-    { "type": "Text", "globs": ["**/*.md"], "fallthrough": true },
-    // Card fonts (packages/cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.
-    { "type": "Data", "globs": ["**/*.woff"], "fallthrough": true }
-  ],
+  "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
   "routes": [
     { "pattern": "terrakin.org", "custom_domain": true },
     { "pattern": "www.terrakin.org", "custom_domain": true },

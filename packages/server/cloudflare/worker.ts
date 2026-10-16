@@ -1,6 +1,6 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
-import { cards } from "@terrakin/cards/worker";
+import type { CardDrawer } from "@terrakin/cards";
 import { buildOpenApi, LINKS } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import { entitledTo, findProposal, plotNamesOf, residentById, votesCast } from "@terrakin/sim";
@@ -80,6 +80,12 @@ interface Env {
    * to draw plot photos, so the drawing runs in the Worker, never in the world.
    */
   PHOTOS: Service<PlotPhotos>;
+  /**
+   * The cards Worker (`wrangler.cards.jsonc`, decision 0299), which holds satori, resvg's wasm and
+   * the card fonts. Keeping them out of this Worker is what keeps its cold start short, so nothing
+   * here imports `@terrakin/cards/worker`: every draw goes over this binding.
+   */
+  CARDS: CardDrawer;
   /** Resident ids of the founding townsfolk (NPC badge), comma separated. Set in wrangler.jsonc vars. */
   TERRAKIN_TOWNSFOLK?: string;
   /** Resident ids of Town Hall maintainers (void proposals, answer petitions), comma separated. */
@@ -265,7 +271,7 @@ async function card(
       const object = await env.MEDIA.get(id);
       return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
     },
-    render: (c) => cards.render(c),
+    render: (c) => env.CARDS.render(c),
     cache: {
       get: async (key) => {
         const hit = await cache.match(cacheUrl(key)).catch(() => undefined);
@@ -733,7 +739,7 @@ export class PlotPhotos extends WorkerEntrypoint<Env> {
       const object = await this.env.MEDIA.get(id);
       return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
     });
-    return (await cards.render(card)).bytes;
+    return (await this.env.CARDS.render(card)).bytes;
   }
 }
 

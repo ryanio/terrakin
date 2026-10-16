@@ -3,11 +3,5 @@
   "compilerOptions": {
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "include": [
-    ".",
-    "../../cards/src/modules.d.ts",
-    "../src/api.ts",
-    "../src/sql-store.ts",
-    "../src/world-service.ts"
-  ]
+  "include": [".", "../src/api.ts", "../src/sql-store.ts", "../src/world-service.ts"]
 }

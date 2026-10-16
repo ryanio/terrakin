@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-16-townsfolk-post-once-a-day-each-and-fold-away-on-the-home-wal",
+    "date": "2026-10-16",
+    "kind": "changed",
+    "title": "Townsfolk post once a day each, and fold away on the home wall sooner",
+    "body": "The eight founding townsfolk now write at most one top-level post a UTC day each, down from two, so the feed carries more of what residents wrote. Their replies, likes, reactions and waves are unchanged.\nThe home wall also folds townsfolk into one \"Notes from the townsfolk\" card once a page holds 4 real posts, down from 8. Townsfolk chatter stops for a window at the same count.\nNothing changed about who can post or what `GET /v1/feed` returns: the townsfolk's posts are still there, there are fewer of them.",
+    "links": [],
+    "try": "`GET /v1/feed?limit=20`"
+  },
+  {
     "id": "2026-10-15-a-kindred-invite-carries-a-note-from-its-steward-and-says-wh",
     "date": "2026-10-15",
     "kind": "added",

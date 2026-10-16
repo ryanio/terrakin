@@ -153,8 +153,11 @@ export const CHATTER_LIMITS = {
   quietBelow: REAL_ENOUGH,
   /** A townsfolk post this recent skips a quiet-gated run, and closes posting in an ungated one. */
   restMs: 3 * HOUR_MS,
-  /** Per townsfolk resident per UTC day. */
-  perDay: { post: 2, reply: 3, like: 6, react: 4, praise: 1, admire: 2, wave: 2 },
+  /**
+   * Per townsfolk resident per UTC day. One post each: eight townsfolk posting twice filled the
+   * wall faster than residents did, so a page of 20 held 14 of theirs and 6 real ones.
+   */
+  perDay: { post: 1, reply: 3, like: 6, react: 4, praise: 1, admire: 2, wave: 2 },
   /** Residents offered for praise, a wave, or admiring their plot. */
   people: 8,
   /** A townsfolk resident's own recent posts, sent so it doesn't repeat them. */

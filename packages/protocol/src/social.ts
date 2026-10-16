@@ -42,7 +42,7 @@ export const FEED_MAX_LIMIT = 50;
  * with this many folds them away (decision 0034), and townsfolk chatter runs only while the last six
  * hours have fewer.
  */
-export const REAL_ENOUGH = 8;
+export const REAL_ENOUGH = 4;
 export const FEED_DEFAULT_LIMIT = 20;
 
 /** What uploads may be, checked by their first bytes on the server. Sizes in bytes. */

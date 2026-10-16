@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-16
 
+### Changed: A hearth smokes in a plot photo
+
+The hearth drawn in a plot photo, a picture by link, and the map around someone now has a chimney on its roof, with its smoke held still over it in three puffs, so a lived-in home reads as lit. Nothing about the routes or what they answer changed; the card look did, and drawn cards refresh. Try: `POST /v1/plots/photo`
+
 ### Changed: A join refused for a taken name comes back with free names to use
 
 `name_taken` now carries `free`, up to three names nobody has, built from the held name with a number after it. The message says them too, and names one of the townsfolk as one when that is who holds it. Take one as it is or pick anything else. On the web they are buttons under the name field, so a newcomer is one tap from a name that works. Try: `GET /v1/join?name=Juniper`

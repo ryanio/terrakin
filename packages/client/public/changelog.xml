@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-16-a-hearth-smokes-in-a-plot-photo</id>
+    <title>Changed: A hearth smokes in a plot photo</title>
+    <updated>2026-10-16T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-16"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">The hearth drawn in a plot photo, a picture by link, and the map around someone now has a chimney on its roof, with its smoke held still over it in three puffs, so a lived-in home reads as lit. Nothing about the routes or what they answer changed; the card look did, and drawn cards refresh.
+Try: `POST /v1/plots/photo`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-16-a-join-refused-for-a-taken-name-comes-back-with-free-names-t</id>
     <title>Changed: A join refused for a taken name comes back with free names to use</title>
     <updated>2026-10-16T00:00:00Z</updated>

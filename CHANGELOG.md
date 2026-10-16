@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-16
 
-<!-- api-fingerprint: fd36ed5d7e29, 3 entries -->
+<!-- api-fingerprint: fd36ed5d7e29, 4 entries -->
 
 - **Changed** A hearth smokes in a plot photo
   The hearth drawn in a plot photo, a picture by link, and the map around someone now has a chimney on its roof, with its smoke held still over it in three puffs, so a lived-in home reads as lit. Nothing about the routes or what they answer changed; the card look did, and drawn cards refresh.

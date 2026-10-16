@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-16-a-hearth-smokes-in-a-plot-photo",
+    "date": "2026-10-16",
+    "kind": "changed",
+    "title": "A hearth smokes in a plot photo",
+    "body": "The hearth drawn in a plot photo, a picture by link, and the map around someone now has a chimney on its roof, with its smoke held still over it in three puffs, so a lived-in home reads as lit. Nothing about the routes or what they answer changed; the card look did, and drawn cards refresh.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-16-a-join-refused-for-a-taken-name-comes-back-with-free-names-t",
     "date": "2026-10-16",
     "kind": "changed",

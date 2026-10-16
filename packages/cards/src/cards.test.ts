@@ -466,6 +466,26 @@ describe("renderer", () => {
     expect(svg).not.toContain("rgba(43, 38, 32, 0.38)");
   });
 
+  it("draws a hearth's chimney and its smoke held still (issue #80)", () => {
+    const base = samplePlot("Wren");
+    const svg = plotSvg(base, 420);
+    // The chimney stands on the roof's right slope, and the roof covers its foot.
+    const chimney = svg.indexOf('<rect x="3.63" y="3.14" width="0.08" height="0.21" fill="#8a7f70"/>');
+    const roof = svg.indexOf('<path d="M3.14 3.44L3.5 3.11L3.86 3.44z" fill="#d9653a"/>');
+    expect(chimney).toBeGreaterThan(-1);
+    expect(roof).toBeGreaterThan(chimney);
+    // Three puffs rise from the chimney top, each fainter, all after the roof.
+    const puffs = [...svg.matchAll(/rgba\(246, 244, 240, (0\.5|0\.38|0\.26)\)/g)];
+    expect(puffs.map((m) => m[1])).toEqual(["0.5", "0.38", "0.26"]);
+    expect(svg.indexOf("rgba(246, 244, 240, 0.5)")).toBeGreaterThan(roof);
+    // The puffs are paths, so the hearth's shadow stays the photo's only ellipse.
+    expect(svg.match(/<ellipse/g)).toHaveLength(1);
+    // No hearth, no chimney and no smoke.
+    const cold = plotSvg({ ...base, hearth: undefined }, 420);
+    expect(cold).not.toContain("#8a7f70");
+    expect(cold).not.toContain("rgba(246, 244, 240,");
+  });
+
   it("draws a floor's plan with what's under it dimmed where it has no flooring (RFC 0028)", () => {
     const dim = 'fill="rgba(43, 38, 32, 0.38)"';
     const above = plotSvg(sampleLoft("Wren"), 420);

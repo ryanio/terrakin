@@ -470,7 +470,9 @@ describe("renderer", () => {
     const base = samplePlot("Wren");
     const svg = plotSvg(base, 420);
     // The chimney stands on the roof's right slope, and the roof covers its foot.
-    const chimney = svg.indexOf('<rect x="3.63" y="3.14" width="0.08" height="0.21" fill="#8a7f70"/>');
+    const chimney = svg.indexOf(
+      '<rect x="3.63" y="3.14" width="0.08" height="0.21" fill="#8a7f70"/>',
+    );
     const roof = svg.indexOf('<path d="M3.14 3.44L3.5 3.11L3.86 3.44z" fill="#d9653a"/>');
     expect(chimney).toBeGreaterThan(-1);
     expect(roof).toBeGreaterThan(chimney);

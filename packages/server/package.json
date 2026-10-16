@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@sentry/cloudflare": "11.4.0",
-    "@sentry/core": "11.4.0",
+    "@sentry/core": "11.7.0",
     "@terrakin/cards": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",

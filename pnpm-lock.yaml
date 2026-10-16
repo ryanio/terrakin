@@ -153,8 +153,8 @@ importers:
         specifier: 11.4.0
         version: 11.4.0(@cloudflare/workers-types@5.20261007.1)(wrangler@4.148.0(@cloudflare/workers-types@5.20261007.1)(@types/node@26.6.4))
       '@sentry/core':
-        specifier: 11.4.0
-        version: 11.4.0
+        specifier: 11.7.0
+        version: 11.7.0
       '@terrakin/cards':
         specifier: workspace:*
         version: link:../cards
@@ -1290,8 +1290,16 @@ packages:
     resolution: {integrity: sha512-7SouCAX3qx+AzLsxb6gbl3dKVWNhp2wFjdYQ/T90sGwqPPQUoZVA9YwsWwvx07hqcCiSqFW9mUAzyUftASnuhQ==}
     engines: {node: '>=14'}
 
+  '@sentry/conventions@0.27.0':
+    resolution: {integrity: sha512-Mrqd/o7n/z7qWSYfQQA7x4fFTA0IqOG6JNsbBpnC97khPwZk7n6DPtOO7YgaYplSl8R8QLRbBz9Xv2lVhToSAg==}
+    engines: {node: '>=14'}
+
   '@sentry/core@11.4.0':
     resolution: {integrity: sha512-kAhK8XVJuzu1IKx9uSu04OISxTU9BcIyDVOWbY/ATUCYr5Z6L7GRBtOGOlYCbxEuPtdZCw5TrbphnBsyO9fuTA==}
+    engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
+
+  '@sentry/core@11.7.0':
+    resolution: {integrity: sha512-jhnI/RHpZoe32ouzbdcR2K42bzVuSfCl8SlOe0VcDxrU/KtNi99hFzjrRBDnft9ozpa4I7xjoN+s+8xihVKtww==}
     engines: {node: '>=20.19.0 <22.0.0 || >=22.12.0 <23.0.0 || >=23.2.0'}
 
   '@sentry/feedback@11.4.0':
@@ -2665,9 +2673,15 @@ snapshots:
 
   '@sentry/conventions@0.25.0': {}
 
+  '@sentry/conventions@0.27.0': {}
+
   '@sentry/core@11.4.0':
     dependencies:
       '@sentry/conventions': 0.25.0
+
+  '@sentry/core@11.7.0':
+    dependencies:
+      '@sentry/conventions': 0.27.0
 
   '@sentry/feedback@11.4.0':
     dependencies:

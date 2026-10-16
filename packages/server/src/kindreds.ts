@@ -102,7 +102,6 @@ function summary(state: WorldState, k: Kindred, held?: (id: string) => boolean):
 }
 
 function inviteView(
-  state: WorldState,
   k: Kindred,
   resident: string,
   ctx: Pick<KindredContext, "author" | "held">,
@@ -126,7 +125,7 @@ function invitesOf(
   ctx: Pick<KindredContext, "author" | "held">,
 ): KindredInvite[] {
   return Object.values(state.kindreds?.list ?? {}).flatMap((k) => {
-    const view = inviteView(state, k, viewer, ctx);
+    const view = inviteView(k, viewer, ctx);
     return view ? [view] : [];
   });
 }
@@ -243,10 +242,10 @@ export function kindredView(
         : {
             member: isMember(k, viewer),
             steward,
-            invite: inviteView(state, k, viewer, ctx) ?? null,
+            invite: inviteView(k, viewer, ctx) ?? null,
             invites: steward
               ? Object.keys(k.invites ?? {}).flatMap((r) => {
-                  const view = inviteView(state, k, r, ctx);
+                  const view = inviteView(k, r, ctx);
                   return view ? [view] : [];
                 })
               : [],

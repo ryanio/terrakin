@@ -1,5 +1,4 @@
 import {
-  BLOCK_KINDS,
   type BlockKind,
   type Command,
   GROUND_KINDS,
@@ -59,8 +58,6 @@ const KEEPS: ReadonlySet<string> = new Set([
   MAP_MARKS.more,
 ]);
 
-const isBlockKind = (k: unknown): k is BlockKind =>
-  typeof k === "string" && (BLOCK_KINDS as readonly string[]).includes(k);
 const isGroundKind = (k: unknown): k is GroundKind =>
   typeof k === "string" && (GROUND_KINDS as readonly string[]).includes(k);
 

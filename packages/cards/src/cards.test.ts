@@ -475,9 +475,9 @@ describe("renderer", () => {
     expect(chimney).toBeGreaterThan(-1);
     expect(roof).toBeGreaterThan(chimney);
     // Three puffs rise from the chimney top, each fainter, all after the roof.
-    const puffs = [...svg.matchAll(/rgba\(246, 244, 240, (0\.5|0\.38|0\.26)\)/g)];
-    expect(puffs.map((m) => m[1])).toEqual(["0.5", "0.38", "0.26"]);
-    expect(svg.indexOf("rgba(246, 244, 240, 0.5)")).toBeGreaterThan(roof);
+    const puffs = [...svg.matchAll(/rgba\(246, 244, 240, (0\.55|0\.42|0\.3)\)/g)];
+    expect(puffs.map((m) => m[1])).toEqual(["0.55", "0.42", "0.3"]);
+    expect(svg.indexOf("rgba(246, 244, 240, 0.55)")).toBeGreaterThan(roof);
     // The puffs are paths, so the hearth's shadow stays the photo's only ellipse.
     expect(svg.match(/<ellipse/g)).toHaveLength(1);
     // No hearth, no chimney and no smoke.

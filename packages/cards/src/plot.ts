@@ -330,9 +330,9 @@ const UNDER_FLOORING_OPACITY = 0.5;
  */
 function smokeSvg(cx: number, cy: number): string[] {
   return [
-    oval(cx + 0.02, cy - 0.1, 0.055, 0.045, 0, "rgba(246, 244, 240, 0.5)"),
-    oval(cx + 0.07, cy - 0.21, 0.075, 0.06, 0, "rgba(246, 244, 240, 0.38)"),
-    oval(cx + 0.14, cy - 0.34, 0.1, 0.08, 0, "rgba(246, 244, 240, 0.26)"),
+    oval(cx + 0.02, cy - 0.11, 0.07, 0.055, 0, "rgba(246, 244, 240, 0.55)"),
+    oval(cx + 0.08, cy - 0.24, 0.09, 0.07, 0, "rgba(246, 244, 240, 0.42)"),
+    oval(cx + 0.16, cy - 0.39, 0.12, 0.09, 0, "rgba(246, 244, 240, 0.3)"),
   ];
 }
 

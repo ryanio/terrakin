@@ -5,7 +5,7 @@ import { countGuests } from "./events";
 import { madeThingForReport } from "./galleries";
 import { gameRatings } from "./games";
 import { giverIds, giverThanksWave, jobDoneView, jobsDoneField } from "./jobs";
-import { kindredBrief, profileKindred, tellKindreds } from "./kindreds";
+import { kindredBrief, kindredInviteNote, profileKindred, tellKindreds } from "./kindreds";
 import { levelView } from "./levels";
 import { listingForReport, listingRefusal } from "./market";
 import { PartnerResidents } from "./partner-residents";
@@ -193,6 +193,8 @@ export function wireSocial(
     return k && kindredBrief(k, held);
   };
   layer.kindredOfResident = (id) => profileKindred(service.state, id, held);
+  layer.kindredInviteNote = (kindred, resident) =>
+    kindredInviteNote(service.state, kindred, resident);
   service.onKindredEvents = (events) => tellKindreds(service.state, layer, events);
   // Party-game ladders (RFC 0011) live in the world; profiles show them.
   layer.gameRatings = (id) => gameRatings(service.state, id);

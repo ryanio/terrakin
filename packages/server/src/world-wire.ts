@@ -114,9 +114,11 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
     if (
       e.type === "kindred_founded" ||
       (e.type === "kindred_named" && e.name !== null) ||
-      (e.type === "kindred_hall" && e.name !== undefined)
+      (e.type === "kindred_hall" && e.name !== undefined) ||
+      (e.type === "kindred_invited" && e.note !== undefined)
     ) {
-      // A kindred's name is its stewards' words (RFC 0033). A takedown carries none.
+      // A kindred's name is its stewards' words, and an invite's note the steward's own to its
+      // invitee (RFC 0033, issue #73). A takedown carries no name.
       out.push({ ...e, trust: "untrusted" });
       continue;
     }

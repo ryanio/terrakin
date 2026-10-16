@@ -365,6 +365,24 @@ describe("the kindred's page and notice", () => {
       trust: "untrusted",
     });
   });
+
+  it("takes a notice while the kindred is forming, so its invitees read what it's for", async () => {
+    const t = await start({ kindreds: true });
+    const { ada, bob, dee } = await t.town();
+    await t.act(ada.token, { type: "found_kindred", name: "Lantern Row" });
+    await t.act(ada.token, { type: "invite_to_kindred", resident: bob.id });
+    const text = "A hall for the gardeners on the north row, one evening a week.";
+    expect((await t.call("POST", "/v1/kindreds/k_1/notice", { text }, ada.token)).status).toBe(200);
+    const mine = (await t.call("GET", "/v1/kindreds/k_1", undefined, ada.token)).body;
+    expect(mine.kindred).toMatchObject({ status: "forming", notice: { text } });
+    expect(mine.you.moves).toContain("set_kindred_notice");
+    // A hall still waits for it to form.
+    expect(mine.you.moves).not.toContain("set_kindred_hall");
+    const theirs = (await t.call("GET", "/v1/kindreds/k_1", undefined, bob.token)).body;
+    expect(theirs.you.invite).toMatchObject({ notice: { text }, status: "forming" });
+    // It's still a forming kindred: nobody outside it sees the notice, or the kindred.
+    expect((await t.call("GET", "/v1/kindreds/k_1", undefined, dee.token)).status).toBe(404);
+  });
 });
 
 describe("the check-in", () => {
@@ -372,13 +390,34 @@ describe("the check-in", () => {
     const t = await start({ kindreds: true });
     const { ada, bob } = await t.town();
     await t.act(ada.token, { type: "found_kindred", name: "Lantern Row" });
-    await t.act(ada.token, { type: "invite_to_kindred", resident: bob.id });
+    const notice = "A hall for the gardeners on the north row.";
+    await t.call("POST", "/v1/kindreds/k_1/notice", { text: notice }, ada.token);
+    const note = "Your garden backs onto ours, and the hall would be two plots away.";
+    await t.act(ada.token, { type: "invite_to_kindred", resident: bob.id, note });
     const checkin = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
-    expect(checkin.kindred).toMatchObject({ mine: null, invites: [{ kindred: { id: "k_1" } }] });
+    expect(checkin.kindred.mine).toBeNull();
+    // Everything it takes to answer an invite, without another read (issue #73).
+    expect(checkin.kindred.invites).toMatchObject([
+      {
+        kindred: { id: "k_1", name: "Lantern Row", trust: "untrusted" },
+        by: { id: ada.id },
+        founder: { id: ada.id },
+        status: "forming",
+        hall: null,
+        note,
+        notice: { text: notice, trust: "untrusted" },
+        lapsesIn: "in 7 days",
+        formsIn: "in 14 days",
+        members: 1,
+        joining: expect.stringContaining("one kindred at a time"),
+      },
+    ]);
     expect(checkin.todo).toContain(
-      "A kindred invited you (see kindred.invites). Ask your owner before you join.",
+      "A kindred invited you, with a note from the steward (see kindred.invites: who founded it, what it's for, and when the invite lapses). Ask your owner before you join.",
     );
-    expect(checkin.todo.join(" ")).not.toContain("Lantern Row");
+    // A line says a note is there and quotes nobody: not the name, the note, or the notice.
+    const lines = checkin.todo.join(" ");
+    for (const words of ["Lantern Row", note, notice]) expect(lines).not.toContain(words);
   });
 
   it("says a kindred's notice changed and its night is near, in fixed words", async () => {
@@ -554,9 +593,16 @@ describe("invites inside a kindred", () => {
       await t.act(ada.token, { type: "invite_to_kindred", resident: dee.id });
       await t.act(ada.token, { type: "cancel_kindred_invite", resident: dee.id });
     }
-    await t.act(ada.token, { type: "invite_to_kindred", resident: dee.id });
+    const note = "You and Cocoa garden next door to each other.";
+    await t.act(ada.token, { type: "invite_to_kindred", resident: dee.id, note });
     const invites = (await t.notes(dee.token)).filter((n) => n.type === "kindred_invite");
     expect(invites).toHaveLength(1);
+    // The note is read off the invite each time the notice is, so taking the invite back takes
+    // the words with it (issue #73).
+    expect(invites[0]).toMatchObject({ note });
+    await t.act(ada.token, { type: "cancel_kindred_invite", resident: dee.id });
+    const after = (await t.notes(dee.token)).filter((n) => n.type === "kindred_invite");
+    expect(after[0]?.note).toBeUndefined();
   });
 
   it("are refused when the steward blocked them, as when they blocked the steward", async () => {
@@ -602,6 +648,16 @@ describe("held-back words", () => {
     expect(renamed).toMatchObject({ ok: false, error: { code: "forbidden" } });
     const notice = await t.call("POST", "/v1/kindreds/k_1/notice", { text: "Hi" }, r.ada.token);
     expect(notice.status).toBe(403);
+    // An invite's note is their words too (issue #73), and the invite still goes without one.
+    const noted = await t.act(r.ada.token, {
+      type: "invite_to_kindred",
+      resident: r.dee.id,
+      note: "Come and join us.",
+    });
+    expect(noted).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await t.act(r.ada.token, { type: "invite_to_kindred", resident: r.dee.id }),
+    ).toMatchObject({ ok: true });
     const page = (await t.call("GET", "/v1/kindreds/k_1", undefined, r.dee.token)).body;
     expect(page.kindred.name).toBe("Kindred 1");
     expect(page.kindred.notice).toBeNull();

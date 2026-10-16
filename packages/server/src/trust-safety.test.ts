@@ -174,9 +174,11 @@ describe("the edge filters on every surface", () => {
       { type: "adopt_pet", kind: "cat", coat: "ginger", name: bad },
       { type: "rename_pet", name: bad },
       { type: "name_plot", px: 0, py: 0, name: bad },
-      // A kindred's name (RFC 0033) is filtered before the world sees it, open or not.
+      // A kindred's name (RFC 0033) is filtered before the world sees it, open or not, and so is
+      // the note on an invite (issue #73), which reaches a resident who never asked for it.
       { type: "found_kindred", name: bad },
       { type: "name_kindred", name: bad },
+      { type: "invite_to_kindred", resident: bo.id, note: bad },
     ]) {
       const res = await t.call("POST", "/v1/actions", action, await fresh());
       expect(res.body, action.type).toMatchObject({

@@ -61,6 +61,8 @@ export const KINDREDS = {
   invitesMax: 8,
   /** Days an invite lasts. It lapses at the `new_day` that many days after it was sent. */
   inviteDays: 7,
+  /** An invite's note, in characters. Untrusted text, like a gift's note. */
+  noteMax: 280,
   /** Days a resident waits after leaving or being removed before they found or join one. */
   waitDays: 7,
   /** Stewards at most. */
@@ -524,7 +526,11 @@ function inviteProblem(state: WorldState, k: Kindred, id: ResidentId): Rejection
   return roomFor(state, k, id);
 }
 
-/** `invite_to_kindred {resident}`: a steward invites a resident with a hearth who's in no kindred. */
+/**
+ * `invite_to_kindred {resident, note?}`: a steward invites a resident with a hearth who's in no
+ * kindred. The note is the steward's own words to them, kept on the invite and shown wherever the
+ * invite is (issue #73). The server cleans and filters it first, as it does a gift's note.
+ */
 export function checkInviteToKindred(
   state: WorldState,
   actor: ResidentId,
@@ -532,13 +538,17 @@ export function checkInviteToKindred(
 ): KindredsChecked {
   const k = stewarding(state, actor);
   if (isRejection(k)) return k;
-  const { resident } = command;
+  const { resident, note } = command;
+  if (note !== undefined && (typeof note !== "string" || note.length > KINDREDS.noteMax)) {
+    return refuse("invalid_note", `A note is text, at most ${KINDREDS.noteMax} characters.`);
+  }
   const problem = inviteProblem(state, k, resident);
   if (problem) return problem;
   const day = state.day ?? 0;
+  const words = note ? { note } : {};
   return () => {
-    k.invites = { ...k.invites, [resident]: { by: actor, day } };
-    return [{ type: "kindred_invited", kindred: k.id, residentId: resident, by: actor }];
+    k.invites = { ...k.invites, [resident]: { by: actor, day, ...words } };
+    return [{ type: "kindred_invited", kindred: k.id, residentId: resident, by: actor, ...words }];
   };
 }
 

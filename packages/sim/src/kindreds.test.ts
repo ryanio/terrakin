@@ -220,6 +220,26 @@ describe("inviting and joining", () => {
     refused(state, "ada", invite("bob"), "in_kindred");
   });
 
+  it("keeps the steward's note on the invite, and refuses one past its length (issue #73)", () => {
+    const state = world();
+    ok(state, "ada", found());
+    const note = "Your garden backs onto ours, and the hall would be two plots away.";
+    expect(ok(state, "ada", { type: "invite_to_kindred", resident: "bob", note })).toEqual([
+      { type: "kindred_invited", kindred: "k_1", residentId: "bob", by: "ada", note },
+    ]);
+    expect(kindredById(state, "k_1")?.invites?.bob).toMatchObject({ by: "ada", note });
+    const long = "x".repeat(KINDREDS.noteMax + 1);
+    refused(
+      state,
+      "ada",
+      { type: "invite_to_kindred", resident: "cy", note: long },
+      "invalid_note",
+    );
+    // The note is the invite's: taking the invite back takes it with it.
+    ok(state, "ada", { type: "cancel_kindred_invite", resident: "bob" });
+    expect(kindredById(state, "k_1")?.invites).toBeUndefined();
+  });
+
   it("holds 8 open invites at most, and a resident may hold several; joining one closes the rest", () => {
     const state = world();
     ok(state, "ada", found());

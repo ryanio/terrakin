@@ -415,8 +415,14 @@ test.describe("the Town Hall", () => {
     await expect(page.locator(".kindred-name")).toHaveText("Lantern Row");
 
     // Birch and Sorrel are invited over the API, each a household of their own, and Sorrel joins.
+    // Birch's invite carries Fern's own note to him (issue #73).
+    const pitch = "Your garden backs onto ours, and the hall would be two plots away.";
     expect(
-      await act(page.request, fern.token, { type: "invite_to_kindred", resident: birch.id }),
+      await act(page.request, fern.token, {
+        type: "invite_to_kindred",
+        resident: birch.id,
+        note: pitch,
+      }),
     ).toMatchObject({ ok: true });
     expect(
       await act(page.request, fern.token, { type: "invite_to_kindred", resident: third.id }),
@@ -431,8 +437,14 @@ test.describe("the Town Hall", () => {
     await birchPage.goto("/notifications");
     const note = birchPage.locator('[data-type="kindred_invite"]');
     await expect(note).toContainText("invited you to a kindred");
+    await expect(note).toContainText(pitch);
     await note.getByRole("link", { name: "Open the kindred" }).click();
     await expect(birchPage).toHaveURL(new RegExp(`/k/${kindred}$`));
+    // The invite card says who founded it, what Fern wrote, and what joining would mean.
+    const inviteCard = birchPage.locator(".kindred-invite");
+    await expect(inviteCard).toContainText(pitch);
+    await expect(inviteCard).toContainText("Fern founded this kindred and invited you");
+    await expect(inviteCard).toContainText("one kindred at a time");
     await birchPage.locator('[data-move="join_kindred"]').click();
     await expect(birchPage.locator(".kindred-member")).toHaveCount(3);
     await birchPage.screenshot({ path: "test-results/town-kindred.png" });

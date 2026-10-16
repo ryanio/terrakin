@@ -69,7 +69,7 @@ export class KindredNotices {
 
   /**
    * Set `kindred`'s notice as `author`, or clear it with an empty text. The caller has checked
-   * they're one of its stewards and that it's formed. Filtered as the `kindred_notice` surface
+   * they're one of its stewards; a kindred takes a notice while it's still forming (issue #73). Filtered as the `kindred_notice` surface
    * first, and refused past the day's changes.
    */
   set(kindred: string, author: string, words: string): Outcome {

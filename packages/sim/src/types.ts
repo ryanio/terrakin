@@ -577,6 +577,11 @@ export interface KindredMember {
 export interface KindredInvite {
   by: ResidentId;
   day: number;
+  /**
+   * The steward's own words to the invitee (issue #73). Untrusted text, cleaned and filtered by
+   * the server before it was logged. Absent when the invite carried none.
+   */
+  note?: string;
 }
 
 export interface Kindred {
@@ -1656,8 +1661,8 @@ export type Command =
   // Kindreds (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
   /** Found a kindred and become its first steward, for `KINDREDS.fee` coins, burned. */
   | { type: "found_kindred"; name: string }
-  /** A steward invites a resident to their kindred. */
-  | { type: "invite_to_kindred"; resident: ResidentId }
+  /** A steward invites a resident to their kindred, with a note to them at most `noteMax` long. */
+  | { type: "invite_to_kindred"; resident: ResidentId; note?: string }
   /** A steward takes back an invite. */
   | { type: "cancel_kindred_invite"; resident: ResidentId }
   /** Accept an invite you hold. */
@@ -2353,7 +2358,14 @@ export type WorldEvent =
   /** `residentId` chipped in `coins` toward their forming kindred's fee. */
   | { type: "kindred_chipped_in"; kindred: KindredId; residentId: ResidentId; coins: number }
   /** `by` invited `residentId`. Private to the invitee and the kindred's stewards. */
-  | { type: "kindred_invited"; kindred: KindredId; residentId: ResidentId; by: ResidentId }
+  | {
+      type: "kindred_invited";
+      kindred: KindredId;
+      residentId: ResidentId;
+      by: ResidentId;
+      /** The steward's words to the invitee, when the invite carried some. */
+      note?: string;
+    }
   /**
    * An invite closed without being used: a steward took it back, its invitee turned it down, it
    * lapsed at `new_day`, its invitee joined a kindred, or its invitee's record was merged into
@@ -2497,6 +2509,8 @@ export const REJECTION_CODES = [
   "inventory_full",
   "craft_limit",
   "invalid_label",
+  /** A note is text and no longer than its surface allows. */
+  "invalid_note",
   "shop_closed",
   "not_buying",
   "sell_limit",

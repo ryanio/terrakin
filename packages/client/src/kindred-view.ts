@@ -34,6 +34,7 @@ import {
   hallWords,
   inviteLine,
   inviteOpenLine,
+  inviteStandingLine,
   memberLine,
   membersWords,
   statusWords,
@@ -81,10 +82,14 @@ export function kindredView(id: string, ctx: ViewContext): View {
           "section",
           { class: "stack paper card kindred-invite", attrs: { "aria-label": "Your invite" } },
           h("p", { text: inviteLine(you.invite) }),
-          h("p", {
-            class: "hint",
-            text: "Joining is your choice. You'd be in this kindred alone, and leaving means a week before another.",
-          }),
+          // The steward's own words to you, drawn as text (issue #73). What the kindred is for is
+          // on the invite too, for readers with no page; here the Notice section below has it.
+          you.invite.note === null
+            ? null
+            : h("p", { class: "kindred-invite-note", text: you.invite.note }),
+          h("p", { class: "hint", text: inviteStandingLine(you.invite, rules) }),
+          h("p", { class: "hint", text: `${inviteOpenLine(you.invite)}.` }),
+          h("p", { class: "hint", text: `Joining is your choice. ${you.invite.joining}` }),
           h(
             "div",
             { class: "cluster" },
@@ -289,6 +294,17 @@ export function kindredView(id: string, ctx: ViewContext): View {
       text: "Invite",
     });
     const problem = errorLine("kindred-invite-error");
+    // A note with the invite (issue #73): why them, and what the kindred is for. Optional, so an
+    // empty box sends the invite as it always did.
+    const note = h("textarea", {
+      class: "field-input",
+      attrs: {
+        id: "kindred-invite-note",
+        rows: 2,
+        maxlength: data.rules.inviteNoteMax,
+        placeholder: "why you're asking them (optional)",
+      },
+    });
     const invite = h(
       "form",
       { class: "stack tight", attrs: { novalidate: true } },
@@ -297,7 +313,14 @@ export function kindredView(id: string, ctx: ViewContext): View {
         attrs: { for: "kindred-invite-handle" },
         text: "Invite a neighbor",
       }),
-      h("div", { class: "cluster" }, handle, send),
+      handle,
+      h("label", {
+        class: "field-label",
+        attrs: { for: "kindred-invite-note" },
+        text: "A note to them",
+      }),
+      note,
+      h("div", { class: "cluster" }, send),
       problem,
     );
     invite.addEventListener("submit", async (e) => {
@@ -311,8 +334,13 @@ export function kindredView(id: string, ctx: ViewContext): View {
         problem.textContent = `Nobody here goes by @${who}.`;
         return;
       }
+      const words = note.value.trim();
       const r = await whileBusy(send, () =>
-        worldApi.act({ type: "invite_to_kindred", resident: found.data.resident.id }),
+        worldApi.act({
+          type: "invite_to_kindred",
+          resident: found.data.resident.id,
+          ...(words ? { note: words } : {}),
+        }),
       );
       const refused = actProblem(r);
       if (refused) {
@@ -320,6 +348,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
         return;
       }
       handle.value = "";
+      note.value = "";
       toast(`Invited @${who}.`);
       await loader.refresh();
     });
@@ -340,7 +369,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
                 plain: true,
                 lead: avatarEl(i.resident, "sm"),
                 name: i.resident.name,
-                lines: [inviteOpenLine(i.lapsesDay, data.day)],
+                lines: [inviteOpenLine(i)],
                 trail: cancelInvite(i.resident.id),
               }),
             ),

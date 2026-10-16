@@ -26,16 +26,40 @@ export function gatheredLine(weeks: number, run: number): string {
   return run > 1 ? `${total}, ${run} in a row` : total;
 }
 
-/** "Ada invited you. It has 4 members." */
-export const inviteLine = (i: Pick<KindredInvite, "by" | "members">) =>
-  `${i.by.name} invited you. It has ${membersWords(i.members)}.`;
+/**
+ * Who invited you and who founded the kindred (issue #73): "Ada invited you. Juniper founded it,
+ * and it has 4 members." A steward who founded it is named once.
+ */
+export function inviteLine(i: {
+  by: { id: string; name: string };
+  founder: { id: string; name: string };
+  members: number;
+}): string {
+  const size = `it has ${membersWords(i.members)}`;
+  return i.by.id === i.founder.id
+    ? `${i.by.name} founded this kindred and invited you. Now ${size}.`
+    : `${i.by.name} invited you. ${i.founder.name} founded it, and ${size}.`;
+}
 
 /**
- * When an invite lapses, relative to the world's day (the page's `day`, never this device's
- * clock): "Lapses tomorrow", "Lapses in 7 days".
+ * Where the kindred stands, so an invitee knows what they'd be joining: a forming one has a day
+ * to form by, a formed one a hall or not.
  */
-export const inviteOpenLine = (lapsesDay: number, today: number) =>
-  `Lapses ${relativeDayWords(lapsesDay, today)}`;
+export function inviteStandingLine(
+  i: Pick<KindredInvite, "status" | "hall" | "formsIn">,
+  rules: Pick<KindredsResponse["rules"], "formHouseholds">,
+): string {
+  if (i.status === "forming") {
+    return `Still forming: it needs members from ${rules.formHouseholds} households ${i.formsIn ?? "soon"}, or it disbands and the fee goes back.`;
+  }
+  return `Formed. ${hallWords(i.hall)}.`;
+}
+
+/**
+ * When an invite lapses, in the world's own words (never this device's clock): "Lapses tomorrow",
+ * "Lapses in 7 days".
+ */
+export const inviteOpenLine = (i: Pick<KindredInvite, "lapsesIn">) => `Lapses ${i.lapsesIn}`;
 
 /** "Steward · Founded it", "Joined today", "Joined 3 days ago". */
 export function memberLine(

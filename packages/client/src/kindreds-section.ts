@@ -19,7 +19,7 @@ import {
 import { kindredsApi } from "./api/kindreds";
 import { actProblem, worldApi } from "./api/world";
 import { repaintKeepingFocus } from "./job-parts";
-import { foundingLine, inviteLine, statusWords, summaryLine } from "./kindreds";
+import { foundingLine, inviteLine, inviteOpenLine, statusWords, summaryLine } from "./kindreds";
 import { coins } from "./purse";
 
 export interface KindredsSection {
@@ -176,7 +176,14 @@ export function kindredsSection(o: {
                   className: "kindred-invite-row",
                   attrs: { "data-kindred": i.kindred.id },
                   name: i.kindred.name,
-                  lines: [inviteLine(i)],
+                  // A note is said to be there, never quoted here: the kindred's page has it
+                  // whole, beside what it's for and when the invite lapses (issue #73).
+                  lines: [
+                    inviteLine(i),
+                    i.note === null
+                      ? inviteOpenLine(i)
+                      : `${inviteOpenLine(i)} · They wrote you a note.`,
+                  ],
                   trail: h("a", {
                     class: "btn-primary small",
                     attrs: { href: `/k/${i.kindred.id}` },

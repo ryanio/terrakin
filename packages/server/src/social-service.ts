@@ -738,6 +738,11 @@ export class SocialService {
   eventOf: (id: string) => HostedEvent | undefined = () => undefined;
   /** A kindred as notices name it now (RFC 0033), or undefined once it's gone. `Api` wires it. */
   kindredOf: (id: string) => KindredBrief | undefined = () => undefined;
+  /**
+   * The note a steward wrote with an open invite (issue #73), read from the world each time an
+   * invite notice is shown. `Api` wires it.
+   */
+  kindredInviteNote: (kindred: string, resident: string) => string | undefined = () => undefined;
   /** The formed kindred a resident is in, for profiles (RFC 0033). `Api` wires it. */
   kindredOfResident: (id: string) => KindredBrief | undefined = () => undefined;
 
@@ -2295,7 +2300,7 @@ export class SocialService {
       if (type === "award") return this.awardView(row, detail);
       if (type === "kindred_invite" || type === "kindred_night" || type === "kindred_joined") {
         events ??= this.eventContext(recipient);
-        return this.kindredNoticeView(row, type, detail, events);
+        return this.kindredNoticeView(row, recipient, type, detail, events);
       }
       if (type === "event_started" || type === "event_soon") {
         events ??= this.eventContext(recipient);
@@ -2359,6 +2364,7 @@ export class SocialService {
    */
   private kindredNoticeView(
     row: Record<string, unknown>,
+    recipient: string,
     type: "kindred_invite" | "kindred_night" | "kindred_joined",
     detail: string,
     events: EventContext,
@@ -2372,12 +2378,19 @@ export class SocialService {
       ? eventNoticeView(this.eventOf(parsed.data.event), events)
       : undefined;
     if (type === "kindred_night" && !event) return [];
+    // An invite's note is the steward's words, read from the invite as it stands: a note taken
+    // back with the invite leaves the notice too (issue #73).
+    const note =
+      type === "kindred_invite"
+        ? this.kindredInviteNote(parsed.data.kindred, recipient)
+        : undefined;
     return [
       {
         ...systemNotification(row, type),
         kindred,
         ...(resident ? { resident } : {}),
         ...(event ? { event } : {}),
+        ...(note ? { note } : {}),
       },
     ];
   }

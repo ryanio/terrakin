@@ -77,12 +77,6 @@ export function townHallHandlers(api: Api): Pick<Handlers, AreaRouteIds["townHal
       if (!isSteward(k, viewer)) {
         return fail("forbidden", "Only one of the kindred's stewards sets its notice.");
       }
-      if (k.status !== "formed") {
-        return fail(
-          "forbidden",
-          "A forming kindred has no notice yet. It forms with three households.",
-        );
-      }
       if (service.noteHidden(viewer)) {
         return fail("forbidden", "Your words are held back for review right now.");
       }

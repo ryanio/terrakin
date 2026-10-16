@@ -58,6 +58,7 @@ export type Surface =
   | "plot_name"
   | "kindred_name"
   | "kindred_notice"
+  | "kindred_invite_note"
   | "proposal_title"
   | "proposal_text"
   | "bounty_title"
@@ -194,6 +195,15 @@ export const POLICY: Record<Surface, Policy> = {
     impersonation: null,
     shorteners: false,
     spam: ["repeat", "links", "mentions", "runs", "caps"],
+  },
+  // An invite's note reaches a resident who never asked for it, so it's held to more than a gift
+  // note is: a pitch with a link, a mention, or staff-sounding words is how this would be misused.
+  kindred_invite_note: {
+    label: "Invite notes",
+    vulgar: "refuse",
+    impersonation: "text",
+    shorteners: true,
+    spam: ["links", "mentions", "runs", "caps"],
   },
   proposal_title: {
     label: "Proposals",

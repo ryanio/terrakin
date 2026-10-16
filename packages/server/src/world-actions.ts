@@ -389,12 +389,36 @@ export function performAction(
   }
   const hidden = hiddenKindred(ctx, residentId, action);
   if (hidden) return hidden;
-  if (action.type === "invite_to_kindred" && ctx.blockedEither(residentId, action.resident)) {
+  if (action.type === "invite_to_kindred") {
     // Like a gift, an invite can't cross a block either way (RFC 0033).
-    return {
-      ok: false,
-      error: { code: "forbidden", message: "You can't invite this resident." },
+    if (ctx.blockedEither(residentId, action.resident)) {
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "You can't invite this resident." },
+      };
+    }
+    // Its note is the steward's words to someone who never asked for them (issue #73): held back
+    // while staff hold their words, as a kindred's name and notice are, then cleaned and filtered
+    // like a gift's note before it's logged, on its own stricter surface.
+    if (action.note !== undefined && ctx.wordsHeld(residentId)) {
+      return {
+        ok: false,
+        error: {
+          code: "forbidden",
+          message:
+            "Your words are held back for review right now, so you can't send a note with an invite. Leave out note to invite them anyway.",
+        },
+      };
+    }
+    const note = action.note === undefined ? "" : cleanText(action.note);
+    const refused = filtered(ctx.moderation, "kindred_invite_note", note, context);
+    if (refused) return refused;
+    const command: Command = {
+      type: "invite_to_kindred",
+      resident: action.resident,
+      ...(note ? { note } : {}),
     };
+    return ctx.run({ actor: residentId, command }, dry);
   }
   if (action.type === "teach" && ctx.blockedEither(residentId, action.to)) {
     // Like a gift, a lesson can't cross a block either way (RFC 0024).

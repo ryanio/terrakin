@@ -1,6 +1,7 @@
 import {
   type AuthorView,
   type CheckinKindred,
+  joiningWords,
   KINDRED_RULES,
   type KindredBrief,
   type KindredInvite,
@@ -28,6 +29,7 @@ import {
   kindredOf,
   membersByStanding,
   prepare,
+  relativeDayWords,
   renamedThisWeek,
   shownKindredName,
   type WorldEvent,
@@ -101,33 +103,65 @@ function summary(state: WorldState, k: Kindred, held?: (id: string) => boolean):
   };
 }
 
+/** What a kindred's invites say, beyond who sent them. */
+type InviteContext = Pick<KindredContext, "author" | "held" | "notice">;
+
+/**
+ * An open invite with the context it takes to answer one (issue #73): who founded the kindred and
+ * how big it is, the steward's note and the kindred's notice, when the invite lapses and when a
+ * forming kindred has to form by, both in days and in words, and what joining means. A bare
+ * notification said none of this, and an invitee (or the owner an agent asks) needs all of it.
+ */
 function inviteView(
+  state: WorldState,
   k: Kindred,
   resident: string,
-  ctx: Pick<KindredContext, "author" | "held">,
+  ctx: InviteContext,
 ): KindredInvite | undefined {
   const invite = k.invites?.[resident];
   if (!invite || !Object.hasOwn(k.invites ?? {}, resident)) return undefined;
+  const today = state.day ?? 0;
+  const lapsesDay = invite.day + KINDREDS.inviteDays;
+  const formsByDay = k.status === "forming" ? k.foundedDay + KINDREDS.formDays : null;
   return {
     kindred: kindredBrief(k, ctx.held),
     resident: person(ctx, resident),
     by: person(ctx, invite.by),
+    founder: person(ctx, k.founder),
+    status: k.status,
+    hall: k.hall ? { px: k.hall.px, py: k.hall.py } : null,
+    note: invite.note ?? null,
+    notice: ctx.notice(k.id) ?? null,
     day: invite.day,
-    lapsesDay: invite.day + KINDREDS.inviteDays,
+    lapsesDay,
+    lapsesIn: relativeDayWords(lapsesDay, today),
+    formsByDay,
+    formsIn: formsByDay === null ? null : relativeDayWords(formsByDay, today),
     members: Object.keys(k.members).length,
+    joining: joiningWords(KINDRED_RULES),
   };
 }
 
 /** Every open invite `viewer` holds, oldest kindred first. */
-function invitesOf(
-  state: WorldState,
-  viewer: string,
-  ctx: Pick<KindredContext, "author" | "held">,
-): KindredInvite[] {
+function invitesOf(state: WorldState, viewer: string, ctx: InviteContext): KindredInvite[] {
   return Object.values(state.kindreds?.list ?? {}).flatMap((k) => {
-    const view = inviteView(k, viewer, ctx);
+    const view = inviteView(state, k, viewer, ctx);
     return view ? [view] : [];
   });
+}
+
+/**
+ * The note a steward wrote with `resident`'s open invite from `kindred`, read from the world, so a
+ * notification shows what the invite holds now and nothing once it's gone (issue #73).
+ */
+export function kindredInviteNote(
+  state: WorldState,
+  kindred: string,
+  resident: string,
+): string | undefined {
+  const k = kindredById(state, kindred);
+  const invite = k?.invites?.[resident];
+  return invite && Object.hasOwn(k?.invites ?? {}, resident) ? invite.note : undefined;
 }
 
 const newestFirst = (a: Kindred, b: Kindred) =>
@@ -137,7 +171,7 @@ const newestFirst = (a: Kindred, b: Kindred) =>
 export function kindredsView(
   state: WorldState,
   viewer: string | undefined,
-  ctx: Pick<KindredContext, "author" | "held">,
+  ctx: InviteContext,
 ): KindredsResponse {
   const list = Object.values(state.kindreds?.list ?? {});
   const me = viewer !== undefined && state.residents[viewer] ? viewer : undefined;
@@ -193,7 +227,10 @@ function movesOf(state: WorldState, k: Kindred, viewer: string): KindredMove[] {
       Object.keys(k.members).length < KINDREDS.membersMax;
     if (room) moves.push("invite_to_kindred");
     if (!renamedThisWeek(k, state.day ?? 0)) moves.push("name_kindred");
-    if (k.status === "formed") moves.push("set_kindred_hall", "set_kindred_notice");
+    // The notice is how a forming kindred says what it's for, so its invitees read a pitch and
+    // not a bare name (issue #73). A hall waits for it to form.
+    moves.push("set_kindred_notice");
+    if (k.status === "formed") moves.push("set_kindred_hall");
   }
   if (member && k.status === "formed" && k.hall) moves.push("schedule_kindred_night");
   return moves;
@@ -233,7 +270,7 @@ export function kindredView(
       // A suspended steward drops off the public page, as a suspended member does.
       stewards: k.stewards.filter((m) => !ctx.suspended(m) || m === viewer),
       members,
-      notice: k.status === "formed" ? (ctx.notice(k.id) ?? null) : null,
+      notice: ctx.notice(k.id) ?? null,
       nights,
     },
     you:
@@ -242,10 +279,10 @@ export function kindredView(
         : {
             member: isMember(k, viewer),
             steward,
-            invite: inviteView(k, viewer, ctx) ?? null,
+            invite: inviteView(state, k, viewer, ctx) ?? null,
             invites: steward
               ? Object.keys(k.invites ?? {}).flatMap((r) => {
-                  const view = inviteView(k, r, ctx);
+                  const view = inviteView(state, k, r, ctx);
                   return view ? [view] : [];
                 })
               : [],
@@ -274,7 +311,7 @@ export function checkinKindred(
   state: WorldState,
   viewer: string,
   since: number,
-  ctx: Pick<KindredContext, "author" | "notice" | "held">,
+  ctx: InviteContext,
 ): CheckinKindred | undefined {
   if (!state.kindreds) return undefined;
   const k = kindredOf(state, viewer);
@@ -379,7 +416,12 @@ export function kindredTodo(kindred: CheckinKindred | undefined, now: number): s
   if (!kindred) return [];
   const lines: string[] = [];
   if (kindred.invites.length > 0) {
-    lines.push("A kindred invited you (see kindred.invites). Ask your owner before you join.");
+    // What the invite says is in `kindred.invites`: who founded the kindred, its notice, the
+    // steward's note, when it lapses, and what joining means. The line never quotes any of it.
+    const noted = kindred.invites.some((i) => i.note !== null);
+    lines.push(
+      `A kindred invited you${noted ? ", with a note from the steward" : ""} (see kindred.invites: who founded it, what it's for, and when the invite lapses). Ask your owner before you join.`,
+    );
   }
   const night = kindred.mine?.nextNight;
   if (night && (night.status === "live" || Date.parse(night.startsAt) - now <= DAY_MS)) {

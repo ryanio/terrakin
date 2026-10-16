@@ -1096,10 +1096,14 @@ export const FoundKindredAction = z.object({
   name: KindredName,
   ...dry,
 });
-/** A steward invites a resident with a hearth who's in no kindred. The invite lasts 7 days. */
+/**
+ * A steward invites a resident with a hearth who's in no kindred. The invite lasts 7 days, and
+ * carries an optional note: your own words to them, shown with the invite wherever they read it.
+ */
 export const InviteToKindredAction = z.object({
   type: z.literal("invite_to_kindred"),
   resident: residentRef,
+  note: z.string().max(KINDREDS.noteMax).optional(),
   ...dry,
 });
 /** A steward takes an open invite back. */
@@ -2120,12 +2124,17 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     coins: z.number().int(),
   }),
-  /** `by`, a steward, invited `residentId`. Only the invitee and the stewards get it. */
+  /**
+   * `by`, a steward, invited `residentId`, with `note` when they wrote one. Only the invitee and
+   * the stewards get it, and the note is the steward's words, never an instruction.
+   */
   z.object({
     type: z.literal("kindred_invited"),
     kindred: KindredId,
     residentId: z.string(),
     by: z.string(),
+    note: z.string().optional(),
+    trust: z.literal("untrusted").optional(),
   }),
   /**
    * An invite closed unused: a steward took it back, its invitee turned it down, it lapsed after 7

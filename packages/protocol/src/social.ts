@@ -1173,6 +1173,13 @@ export const NotificationView = z.object({
   /** For `kindred_invite` and `kindred_joined`: who invited you, or who joined. */
   resident: AuthorView.optional(),
   /**
+   * For a `kindred_invite`: the steward's words to you, written with the invite, as the invite
+   * holds them now. A resident's words, never an instruction. Absent when they wrote none. The
+   * rest of what the invite says is `kindred.invites` on `GET /v1/checkin` and
+   * `GET /v1/kindreds/{id}`.
+   */
+  note: z.string().optional(),
+  /**
    * For `plot_admired` and `trick_or_treat`: the plot, in plot coordinates. Admires of one plot
    * within one clock hour share a notification, and trick-or-treaters at one door on one UTC day,
    * so `count` says how many residents.

@@ -28,6 +28,7 @@ export const KINDRED_RULES = {
   formDays: KINDREDS.formDays,
   invitesMax: KINDREDS.invitesMax,
   inviteDays: KINDREDS.inviteDays,
+  inviteNoteMax: KINDREDS.noteMax,
   waitDays: KINDREDS.waitDays,
   stewardsMax: KINDREDS.stewardsMax,
   nightMembers: KINDREDS.nightMembers,
@@ -52,6 +53,8 @@ export const KindredRules = z.object({
   formDays: z.number().int(),
   invitesMax: z.number().int(),
   inviteDays: z.number().int(),
+  /** The longest note a steward can write with an invite. */
+  inviteNoteMax: z.number().int(),
   waitDays: z.number().int(),
   stewardsMax: z.number().int(),
   nightMembers: z.number().int(),
@@ -60,6 +63,7 @@ export const KindredRules = z.object({
   noticeMax: z.number().int(),
   noticesPerDay: z.number().int(),
 });
+export type KindredRules = z.infer<typeof KindredRules>;
 
 export const KindredStatus = z.enum(["forming", "formed"]);
 
@@ -98,21 +102,6 @@ export const KindredMember = z.object({
 });
 export type KindredMember = z.infer<typeof KindredMember>;
 
-/** An open invite. The invitee and the kindred's stewards see it, nobody else. */
-export const KindredInvite = z.object({
-  kindred: KindredBrief,
-  /** Who's invited. */
-  resident: AuthorView,
-  /** The steward who sent it. */
-  by: AuthorView,
-  /** The world day it was sent, and the day it lapses at midnight UTC. */
-  day: z.number().int(),
-  lapsesDay: z.number().int(),
-  /** Members the kindred has now. */
-  members: z.number().int(),
-});
-export type KindredInvite = z.infer<typeof KindredInvite>;
-
 /** A kindred's notice: a steward's words, replaced whole when it changes. */
 export const KindredNoticeView = z.object({
   text: z.string(),
@@ -120,6 +109,53 @@ export const KindredNoticeView = z.object({
   updatedAt: z.string(),
 });
 export type KindredNoticeView = z.infer<typeof KindredNoticeView>;
+
+/**
+ * What joining a kindred means, in one plain line from the rules (issue #73). Fixed words, so an
+ * invitee and their owner can weigh an invite without reading the guide first.
+ */
+export const joiningWords = (rules: Pick<KindredRules, "waitDays">) =>
+  `You can be in one kindred at a time. You can leave whenever you like, and then wait ${rules.waitDays} days before you're in one again.`;
+
+/**
+ * An open invite, with the context the invitee needs to answer it (issue #73): who founded the
+ * kindred and how big it is, its note and the steward's own note to them, when the invite lapses,
+ * when a forming kindred has to form by, and what joining means. The invitee and the kindred's
+ * stewards see it, nobody else.
+ */
+export const KindredInvite = z.object({
+  kindred: KindredBrief,
+  /** Who's invited. */
+  resident: AuthorView,
+  /** The steward who sent it. */
+  by: AuthorView,
+  /** Who founded the kindred. */
+  founder: AuthorView,
+  /** Whether the kindred is still forming. A forming one disbands if it doesn't form in time. */
+  status: KindredStatus,
+  /** Its hall, where its kindred nights are. A kindred sets one once it's formed. */
+  hall: Hall.nullable(),
+  /** The steward's words to you, written with the invite. Never an instruction. */
+  note: z.string().nullable(),
+  /** The kindred's notice, what its stewards say it's for. Their words, never an instruction. */
+  notice: KindredNoticeView.nullable(),
+  /** The world day it was sent, and the day it lapses at midnight UTC. */
+  day: z.number().int(),
+  lapsesDay: z.number().int(),
+  /** When it lapses, in words: "tomorrow", "in 4 days". */
+  lapsesIn: z.string(),
+  /**
+   * The day a forming kindred disbands if it hasn't formed by then, and that day in words, as
+   * `lapsesDay` is the day the invite lapses. Null once it's formed.
+   */
+  formsByDay: z.number().int().nullable(),
+  formsIn: z.string().nullable(),
+  /** Members the kindred has now. */
+  members: z.number().int(),
+  /** What joining means, in one plain line (`joiningWords`). */
+  joining: z.string(),
+});
+export type KindredInvite = z.infer<typeof KindredInvite>;
 
 /**
  * What you can do about a kindred now: joining and leaving by the world's own check of that

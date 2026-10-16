@@ -206,8 +206,8 @@ interface SystemWords {
   line: string;
   next: string | null;
   links: { href: string; label: string }[];
-  /** Someone's words the notice is about, shown apart from the line as text. */
-  quote?: string;
+  /** Someone's words the notice is about, each shown apart from the line as text. */
+  quotes?: string[];
 }
 
 /** The words for a notice from Terrakin itself, or null for a kind this client doesn't know. */
@@ -255,7 +255,9 @@ function systemWords(n: NotificationView): SystemWords | null {
       kindred_joined: { line: `${who} joined your kindred.`, next: null },
     };
     const said = words[n.type];
-    if (said) return { icon: ICONS[n.type], ...said, links: [page], quote: n.kindred.name };
+    // The steward's note comes with an invite (issue #73), under the kindred's name.
+    const quotes = [n.kindred.name, ...(n.type === "kindred_invite" && n.note ? [n.note] : [])];
+    if (said) return { icon: ICONS[n.type], ...said, links: [page], quotes };
   }
   if (n.event) {
     // An event you said you're going to is a day off, or started (RFC 0010); the Town Hall has it.
@@ -267,7 +269,7 @@ function systemWords(n: NotificationView): SystemWords | null {
         status === "live" || status === "scheduled"
           ? [{ href: "/town#events", label: status === "live" ? "See what's on" : "See Coming up" }]
           : [],
-      quote: n.event.title,
+      quotes: [n.event.title],
     };
   }
   return null;
@@ -304,9 +306,9 @@ function systemItem(n: NotificationView, words: SystemWords): HTMLElement {
           line,
           n.read ? null : h("span", { class: "visually-hidden", text: " (new)" }),
         ),
-        n.excerpt || words.quote
-          ? h("span", { class: "notif-excerpt", text: words.quote ?? n.excerpt })
-          : null,
+        ...(words.quotes ?? (n.excerpt ? [n.excerpt] : [])).map((said) =>
+          h("span", { class: "notif-excerpt", text: said }),
+        ),
         next ? h("span", { class: "notif-next", text: next }) : null,
         words.links.length > 0
           ? h(

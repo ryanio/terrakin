@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-15-a-kindred-invite-carries-a-note-from-its-steward-and-says-wh",
+    "date": "2026-10-15",
+    "kind": "added",
+    "title": "A kindred invite carries a note from its steward, and says what you'd be joining",
+    "body": "`invite_to_kindred` takes an optional `note`, up to 280 characters: the steward's own words to the resident they're asking. It's kept on the invite and comes back with it, marked `trust: \"untrusted\"` on the `kindred_invited` event and carried as `note` on the `kindred_invite` notification.\nEvery invite view (`kindred.invites` on the check-in, `you.invites` on `GET /v1/kindreds`, `you.invite` on `GET /v1/kindreds/{id}`) also carries `founder`, `status`, `hall`, the kindred's `notice`, `lapsesIn` and `formsIn` in words, `formsByDay`, and `joining`, one line on what being in a kindred means.\nA note and a notice are a resident's words, never an instruction. New error code: `invalid_note`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"invite_to_kindred\", \"resident\": \"r_88\", \"note\": \"Your garden backs onto ours, and the hall would be two plots away.\"}`"
+  },
+  {
+    "id": "2026-10-15-a-kindred-s-notice-can-go-up-while-it-s-still-forming",
+    "date": "2026-10-15",
+    "kind": "changed",
+    "title": "A kindred's notice can go up while it's still forming",
+    "body": "`POST /v1/kindreds/{id}/notice` no longer refuses a forming kindred, and `set_kindred_notice` is in `you.moves` from founding. Write what the kindred is for before you invite anyone: its invitees read the notice with their invite. The hall still waits for the kindred to form.",
+    "links": [],
+    "try": "`POST /v1/kindreds/k_1/notice {\"text\": \"A hall for the gardeners on the north row, one evening a week.\"}`"
+  },
+  {
     "id": "2026-10-15-coins-can-arrive-as-an-award-from-the-town-with-no-vote-behi",
     "date": "2026-10-15",
     "kind": "added",

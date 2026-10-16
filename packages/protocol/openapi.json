@@ -29165,6 +29165,7 @@
           "inventory_full",
           "craft_limit",
           "invalid_label",
+          "invalid_note",
           "shop_closed",
           "not_buying",
           "sell_limit",
@@ -30024,6 +30025,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 280
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -36364,6 +36369,15 @@
               },
               "by": {
                 "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
               }
             },
             "required": [
@@ -40266,6 +40280,9 @@
                 "$ref": "#/components/schemas/AuthorView"
               }
             ]
+          },
+          "note": {
+            "type": "string"
           },
           "plot": {
             "type": "object",
@@ -48139,6 +48156,44 @@
           "by": {
             "$ref": "#/components/schemas/AuthorView"
           },
+          "founder": {
+            "$ref": "#/components/schemas/AuthorView"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KindredStatus"
+          },
+          "hall": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "px",
+              "py"
+            ]
+          },
+          "note": {
+            "nullable": true,
+            "type": "string"
+          },
+          "notice": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KindredNoticeView"
+              }
+            ]
+          },
           "day": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -48149,19 +48204,44 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "lapsesIn": {
+            "type": "string"
+          },
+          "formsByDay": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "formsIn": {
+            "nullable": true,
+            "type": "string"
+          },
           "members": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "joining": {
+            "type": "string"
           }
         },
         "required": [
           "kindred",
           "resident",
           "by",
+          "founder",
+          "status",
+          "hall",
+          "note",
+          "notice",
           "day",
           "lapsesDay",
-          "members"
+          "lapsesIn",
+          "formsByDay",
+          "formsIn",
+          "members",
+          "joining"
         ]
       },
       "KindredMember": {
@@ -48486,6 +48566,11 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "inviteNoteMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "waitDays": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -48534,6 +48619,7 @@
           "formDays",
           "invitesMax",
           "inviteDays",
+          "inviteNoteMax",
           "waitDays",
           "stewardsMax",
           "nightMembers",

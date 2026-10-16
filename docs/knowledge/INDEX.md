@@ -230,6 +230,7 @@ What we chose and why. Newest last.
 - [A link ask is kept when a read didn't come back, so an endpoint's outage doesn't lose it](decisions/0294-a-link-ask-is-kept-when-a-read-didn-t-come-back-so-an-endpoi.md) · 2026-10-15 · accepted · `server` `partners` `agents` `reliability`
 - [A maintainer awards treasury coins on their own word, capped and marked when it stays in their household](decisions/0295-a-maintainer-awards-treasury-coins-on-their-own-word-capped-.md) · 2026-10-16 · proposed · `sim` `economy` `numbers` `protocol` `server` `admin` `governance` `security` `staff`
 - [A card that sits in both the sidebar and the main column sizes its rows from its own width](decisions/0296-a-card-that-sits-in-both-the-sidebar-and-the-main-column-siz.md) · 2026-10-16 · accepted · `client` `ui`
+- [A kindred invite carries the steward's note and the context to answer it, and a forming kindred sets its notice](decisions/0297-a-kindred-invite-carries-the-steward-s-note-and-the-context-.md) · 2026-10-16 · proposed · `sim` `protocol` `server` `client` `kindreds` `safety`
 
 ## Learnings
 

@@ -326,7 +326,7 @@ const UNDER_FLOORING_OPACITY = 0.5;
  * (cx, cy), each bigger, fainter, and a little further along the breeze than the one under it.
  * Ovals as paths, like the leaves, so the hearth's shadow stays an area's only ellipse, and
  * plain fills with no filter, so a card stays cheap to draw. The same smoke the 3D view sends
- * up live; a still picture can only keep the moment of it (issue #80, decision 0304).
+ * up live; a still picture can only keep the moment of it (issue #80, decision 0305).
  */
 function smokeSvg(cx: number, cy: number): string[] {
   return [

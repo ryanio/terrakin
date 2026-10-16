@@ -1922,6 +1922,21 @@ function snapCamera() {
 /** How far down the top bar's pills reach, in CSS pixels: where the visit card starts. */
 const TOP_BAR_PX = 60;
 
+/**
+ * The chrome steps aside while you walk (decision 0304): once you have been going `WALK_FADE_MS`,
+ * everything but the pad and what the world is telling you fades back, and it all comes back the
+ * moment you stop. One step never flickers it, because the hold outlasts a step.
+ */
+const WALK_FADE_MS = 400;
+let walkingSince = 0;
+
+function paintWalking(now: number) {
+  const going = walker.walking(now);
+  if (!going) walkingSince = 0;
+  else if (walkingSince === 0) walkingSince = now;
+  hud?.toggleAttribute("data-walking", going && now - walkingSince > WALK_FADE_MS);
+}
+
 function frame() {
   const now = performance.now();
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
@@ -1940,6 +1955,7 @@ function frame() {
     if (!resyncing) walker.tick(now);
     motion.ahead = walker.ahead;
   }
+  paintWalking(now);
   if (focus || r) {
     // The map's camera follows your figure as it's drawn, so the world glides under a walk, or
     // the place a link named.

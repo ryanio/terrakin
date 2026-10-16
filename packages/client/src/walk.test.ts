@@ -460,3 +460,32 @@ describe("a thumb on the move pad", () => {
     expect(Math.round(Math.hypot(corner.x, corner.y))).toBe(40);
   });
 });
+
+describe("whether you're walking", () => {
+  it("says so while a key or the pad asks, and until the last step has landed", () => {
+    const w = world({ lag: 200 });
+    const seen: [string, boolean][] = [["standing", w.walker.walking(0)]];
+    w.walker.press("e", 0);
+    seen.push(["key down", w.walker.walking(0)]);
+    // Walking a while, then letting go: her last step is still out with the server.
+    for (let t = 0; t <= 300; t += 16) w.run(t);
+    w.walker.release("e", 300);
+    w.run(316);
+    seen.push(["key up, step in flight", w.walker.walking(316)]);
+    for (let t = 316; t <= 1600; t += 16) w.run(t);
+    seen.push(["step landed", w.walker.walking(1600)]);
+    w.walker.padDown("n", 1600);
+    seen.push(["pad down", w.walker.walking(1600)]);
+    w.walker.padUp();
+    for (let t = 1600; t <= 3200; t += 16) w.run(t);
+    seen.push(["pad up, step landed", w.walker.walking(3200)]);
+    expect(seen).toEqual([
+      ["standing", false],
+      ["key down", true],
+      ["key up, step in flight", true],
+      ["step landed", false],
+      ["pad down", true],
+      ["pad up, step landed", false],
+    ]);
+  });
+});

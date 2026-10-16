@@ -1,7 +1,15 @@
 import { type Direction, groundOf, route, STEP, type Tile, tileKey } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { Motion, WALK_SPEED } from "./motion";
-import { CHORD_MS, FLIGHT_MS, IN_FLIGHT, RELEASE_MS, REPEAT_GAP_MS, Walker } from "./walk";
+import {
+  CHORD_MS,
+  FLIGHT_MS,
+  IN_FLIGHT,
+  padThumb,
+  RELEASE_MS,
+  REPEAT_GAP_MS,
+  Walker,
+} from "./walk";
 
 const CONFIG = { width: 24, height: 24, plotSize: 8, maxPlotsPerResident: 1, reach: 3 };
 const FRAME = 16;
@@ -412,5 +420,43 @@ describe("a route", () => {
     w.walker.release("s", 320);
     w.run(1500);
     expect(w.dirs().at(-1)).toBe("s");
+  });
+});
+
+describe("a thumb on the move pad", () => {
+  // The pad as the HUD draws it: 132 across, and a knob that stops half its own width in.
+  const thumb = (dx: number, dy: number) => padThumb(132, dx, dy, 26);
+
+  it("walks nowhere while the thumb is in the dead middle, and rests the knob there", () => {
+    for (const [dx, dy] of [
+      [0, 0],
+      [20, 0],
+      [0, -22],
+      [-15, 15],
+    ] as const) {
+      const at = thumb(dx, dy);
+      expect(at.dir, `${dx},${dy}`).toBeUndefined();
+      expect([at.x, at.y]).toEqual([dx, dy]);
+    }
+  });
+
+  it("points the way the thumb leans, diagonals included", () => {
+    expect(thumb(0, -40).dir).toBe("n");
+    expect(thumb(40, 0).dir).toBe("e");
+    expect(thumb(0, 40).dir).toBe("s");
+    expect(thumb(-40, 0).dir).toBe("w");
+    expect(thumb(40, -40).dir).toBe("ne");
+    expect(thumb(-40, 40).dir).toBe("sw");
+  });
+
+  it("stops the knob at the rim however far the thumb slides, and keeps walking that way", () => {
+    // A thumb far off the pad: the knob is 40 from the middle (66 across, less the 26 inset).
+    const far = thumb(400, 0);
+    expect(far.dir).toBe("e");
+    expect([far.x, far.y]).toEqual([40, 0]);
+    // Off a corner, the knob rides the rim rather than the corner of a box.
+    const corner = thumb(300, -300);
+    expect(corner.dir).toBe("ne");
+    expect(Math.round(Math.hypot(corner.x, corner.y))).toBe(40);
   });
 });

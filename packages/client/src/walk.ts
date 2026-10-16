@@ -85,6 +85,31 @@ function combine(a: Direction, b: Direction): Direction | undefined {
   return directionOf(ax + bx, ay + by);
 }
 
+/**
+ * The move pad is one round joystick: how far the thumb is from its middle says which way to walk,
+ * and the knob sits under the thumb. `dx` and `dy` are the thumb's offset from the middle, `width`
+ * the pad across, and `inset` how far inside the rim the knob stops.
+ *
+ * Inside a sixth of the pad is the dead middle: no direction, and the knob rests there. Past the
+ * rim the knob stops at it, so a thumb that slides off the pad keeps walking the way it points.
+ */
+export function padThumb(
+  width: number,
+  dx: number,
+  dy: number,
+  inset: number,
+): { dir: Direction | undefined; x: number; y: number } {
+  const dead = width / 6;
+  const dir = directionOf(
+    Math.abs(dx) > dead ? Math.sign(dx) : 0,
+    Math.abs(dy) > dead ? Math.sign(dy) : 0,
+  );
+  const reach = Math.max(0, width / 2 - inset);
+  const away = Math.hypot(dx, dy);
+  const k = away > reach ? reach / away : 1;
+  return { dir, x: Math.round(dx * k), y: Math.round(dy * k) };
+}
+
 export class Walker {
   /** Where your figure is headed: the tile your last step lands on. Undefined before you're in. */
   ahead: Tile | undefined;

@@ -234,6 +234,7 @@ What we chose and why. Newest last.
 - [Townsfolk post once a day and fold into one card at four real posts](decisions/0298-townsfolk-post-once-a-day-and-fold-into-one-card-at-four-rea.md) · 2026-10-16 · accepted · `social` `client` `chatter` `design`
 - [Card drawing moves to a Worker of its own, reached over a service binding](decisions/0299-card-drawing-moves-to-a-worker-of-its-own-reached-over-a-ser.md) · 2026-10-16 · accepted · `cloudflare` `performance` `cards` `deploy`
 - [A plot photo shows the moment it was taken, in one shared sky](decisions/0300-a-plot-photo-shows-the-moment-it-was-taken-in-one-shared-sky.md) · 2026-10-16 · accepted · `cards` `design` `server` `client`
+- [The move pad is drawn as the joystick it already was](decisions/0301-the-move-pad-is-drawn-as-the-joystick-it-already-was.md) · 2026-10-16 · accepted · `client` `design` `mobile`
 
 ## Learnings
 

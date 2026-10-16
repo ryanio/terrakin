@@ -18,7 +18,6 @@ import {
   chebyshev,
   climbsAt,
   type Direction,
-  directionOf,
   FIREWORK_COLORS,
   FLOORS,
   fireworkNight,
@@ -105,7 +104,7 @@ import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from 
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
 import { visitCard } from "./visit-card";
-import { Walker } from "./walk";
+import { padThumb, Walker } from "./walk";
 import { Sky, skyNow } from "./weather";
 import { worldJobs } from "./world-jobs";
 import { worldLevels } from "./world-levels";
@@ -435,12 +434,12 @@ function connect(identity: Identity) {
 }
 
 /** The server turned a new character away (a name it refuses, too many joins): back to the form. */
-function joinRefused(code: string, message: string) {
+function joinRefused(code: string, message: string, free?: readonly string[]) {
   joiningFresh = false;
   conn?.close();
   conn = undefined;
   landing.setJoining(false);
-  landing.setError(joinProblem(code, message));
+  landing.setError(joinProblem(code, message, free?.length ?? 0), free);
   // A taken name may be your own character from another browser: the way back is the key.
   if (code === "name_taken") landing.openRestore();
   if (code === "invalid_profile") landing.focusNote();
@@ -668,7 +667,7 @@ function onMessage(msg: ServerMessage) {
       }
       break;
     case "error": {
-      const { code, message } = msg.error;
+      const { code, message, free } = msg.error;
       // A step the mirror said was open was turned down (someone built there meanwhile): the
       // walker stops and goes back to where the server says you are.
       if (msg.id !== undefined) {
@@ -677,7 +676,7 @@ function onMessage(msg: ServerMessage) {
       }
       if (gathering && msg.id === gathering.id) gathering.done();
       // Before the welcome, any refusal is about joining: the form says why.
-      if (joiningFresh && !me) return joinRefused(code, message);
+      if (joiningFresh && !me) return joinRefused(code, message, free);
       if (code === "unauthorized" || code === "revoked") return keyNotFound();
       // A refused chat line stays in the input, so it isn't lost.
       if (pendingChat && msg.id === pendingChat.id) pendingChat = undefined;
@@ -1297,20 +1296,33 @@ function fallBack(reason: "slow" | "lost" | "failed") {
 
 // ---------- the d-pad: press for a step, hold to walk, slide your thumb to turn ----------
 
+/** How far inside the pad's rim the knob stops, half its own width, so it never hangs over. */
+const KNOB_INSET = 26;
+
 /**
- * The way a point on the d-pad points on screen: the button under it, a corner between two
- * buttons for a diagonal, or nothing on the hub. Past the pad's edge it points the way it went.
+ * Where the thumb is on the move pad: which way it points, and where the knob goes under it
+ * (`padThumb`). Reading it from the pad's own box is all this does; the geometry is in `walk.ts`.
  */
-function padWay(e: PointerEvent): Direction | undefined {
-  if (!pad) return undefined;
-  const box = pad.getBoundingClientRect();
-  const half = box.width / 6;
-  const dx = e.clientX - (box.left + box.width / 2);
-  const dy = e.clientY - (box.top + box.height / 2);
-  return directionOf(
-    Math.abs(dx) > half ? Math.sign(dx) : 0,
-    Math.abs(dy) > half ? Math.sign(dy) : 0,
+function padThumbAt(e: PointerEvent) {
+  const box = (pad as HTMLElement).getBoundingClientRect();
+  return padThumb(
+    box.width,
+    e.clientX - (box.left + box.width / 2),
+    e.clientY - (box.top + box.height / 2),
+    KNOB_INSET,
   );
+}
+
+/** The knob under the thumb, or back in the middle when the thumb comes off. */
+function moveKnob(at?: { x: number; y: number }) {
+  if (!pad) return;
+  if (!at) {
+    pad.style.removeProperty("--knob-x");
+    pad.style.removeProperty("--knob-y");
+    return;
+  }
+  pad.style.setProperty("--knob-x", `${at.x}px`);
+  pad.style.setProperty("--knob-y", `${at.y}px`);
 }
 
 /** Light the buttons the d-pad is walking toward: one, or the two either side of a diagonal. */
@@ -1326,11 +1338,12 @@ function paintHeld(dir: Direction | undefined) {
 let padClickUntil = 0;
 
 pad?.addEventListener("pointerdown", (e) => {
-  const dir = padWay(e);
-  if (!active || !me || !dir || e.button > 0) return;
+  const thumb = padThumbAt(e);
+  if (!active || !me || !thumb.dir || e.button > 0) return;
   e.preventDefault();
-  walker.padDown(dir, performance.now());
-  paintHeld(dir);
+  walker.padDown(thumb.dir, performance.now());
+  paintHeld(thumb.dir);
+  moveKnob(thumb);
   // Keep the thumb's moves coming to the pad as it slides off a button, or past the pad's edge.
   try {
     pad.setPointerCapture(e.pointerId);
@@ -1340,13 +1353,15 @@ pad?.addEventListener("pointerdown", (e) => {
 });
 pad?.addEventListener("pointermove", (e) => {
   if (!pad.hasPointerCapture(e.pointerId)) return;
-  const dir = padWay(e);
-  walker.padMove(dir);
-  paintHeld(dir);
+  const thumb = padThumbAt(e);
+  walker.padMove(thumb.dir);
+  paintHeld(thumb.dir);
+  moveKnob(thumb);
 });
 const padUp = () => {
   walker.padUp();
   paintHeld(undefined);
+  moveKnob();
   padClickUntil = performance.now() + 500;
 };
 pad?.addEventListener("pointerup", padUp);

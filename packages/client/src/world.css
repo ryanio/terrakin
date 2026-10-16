@@ -6,6 +6,8 @@
  */
 
 .hud {
+  /* One cell of the move pad: three of them across, so the pad and what sits above it agree. */
+  --pad-cell: 44px;
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -63,48 +65,52 @@
   display: none;
 }
 
+/*
+ * Walking: one round pad under the thumb, with a knob that follows it (issue #80 follow-up). It
+ * has always worked like a joystick (`padWay` in world.ts reads how far the thumb is from the
+ * middle, not which arrow it is over), so this is what it does, drawn. The arrows around the rim
+ * say which way is which, and each is still a button a keyboard or a screen reader can press for
+ * one step.
+ */
 .dpad {
   position: absolute;
   left: calc(14px + env(safe-area-inset-left));
   bottom: calc(14px + env(safe-area-inset-bottom));
   display: grid;
-  grid-template: repeat(3, var(--tap)) / repeat(3, var(--tap));
-  gap: var(--space-2xs);
+  grid-template: repeat(3, var(--pad-cell)) / repeat(3, var(--pad-cell));
   margin: 0;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--paper-edge);
+  border-radius: 50%;
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
   touch-action: none;
 }
 
 .dpad button {
   display: grid;
   place-items: center;
-  min-width: var(--tap);
-  min-height: var(--tap);
+  min-width: var(--pad-cell);
+  min-height: var(--pad-cell);
   padding: 0;
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-card);
-  background: var(--paper-fill);
-  box-shadow: var(--shadow-pill);
-  color: var(--clay-deep);
-  transition:
-    transform 0.08s ease,
-    box-shadow 0.08s ease;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--clay);
+  opacity: 0.5;
+  transition: opacity 0.1s ease;
 }
 
 .dpad button > svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 2;
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.5;
 }
 
+/* The way you're walking: the arrow lights, and the knob has already moved under your thumb. */
 .dpad button:active,
 .dpad button[data-held] {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 1px 2px rgba(92, 60, 30, 0.18);
-  background: var(--pressed);
+  opacity: 1;
 }
 
 .dpad [data-dir="n"] {
@@ -129,25 +135,41 @@
   transform: rotate(180deg);
 }
 
+/*
+ * The knob. `world.ts` sets --knob-x and --knob-y from where the thumb is, clamped to the pad, so
+ * it sits under the thumb rather than snapping to a direction; `rotate` is the compass in 3D, and
+ * the two stay apart because each is its own property.
+ */
 .dpad-hub {
   grid-area: 2 / 2;
   place-self: center;
-  width: 18px;
-  height: 18px;
+  width: var(--tap);
+  height: var(--tap);
   border-radius: 50%;
   background: var(--paper);
   border: 1px solid var(--paper-edge);
   box-shadow: var(--shadow-pill);
   position: relative;
+  pointer-events: none;
+  translate: var(--knob-x, 0) var(--knob-y, 0);
   rotate: var(--north, 0deg);
-  transition: rotate 0.25s ease;
+  transition:
+    translate 0.12s ease,
+    rotate 0.25s ease;
+}
+
+/* The knob follows the thumb either way; only its spring back is motion. */
+@media (prefers-reduced-motion: reduce) {
+  .dpad-hub {
+    transition: none;
+  }
 }
 
 /* In 3D the d-pad walks the way the camera looks, so the hub carries a needle pointing north. */
 .dpad[data-compass] .dpad-hub::before {
   content: "";
   position: absolute;
-  inset: 1px calc(50% - 3px) 50%;
+  inset: 4px calc(50% - 4px) 60%;
   background: var(--clay);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
@@ -214,15 +236,7 @@ a.action {
 .world-mode {
   position: absolute;
   left: calc(14px + env(safe-area-inset-left));
-  bottom: calc(
-    14px +
-    env(safe-area-inset-bottom) +
-    var(--tap) *
-    3 +
-    var(--space-2xs) *
-    2 +
-    var(--space-md)
-  );
+  bottom: calc(14px + env(safe-area-inset-bottom) + var(--pad-cell) * 3 + var(--space-md));
   width: auto;
 }
 

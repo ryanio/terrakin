@@ -144,7 +144,7 @@ export function wavesLine(waves: FoldedWaves): string {
 
 /** The streak with one person, in plain words. */
 export function streakLine(days: number): string {
-  if (days <= 0) return "No streak yet. Send a little something today to start one.";
+  if (days <= 0) return "No streak yet. Say hi today to start one.";
   if (days === 1) return "1 day in a row. Come back tomorrow to keep it going.";
   return `${days} days in a row`;
 }

@@ -709,15 +709,50 @@ button.profile-avatar.editable:disabled {
   color: var(--clay-deep);
 }
 
+/*
+ * The card is 360px wide in the sidebar on a desktop and fills the column on a phone, so its rows
+ * read its own width, not the window's: a viewport query would be wrong in one of the two.
+ */
+.together {
+  container-type: inline-size;
+}
+
+/*
+ * Quick hellos. Each button is as wide as its own word and then grows to share what's left, so no
+ * label is ever crushed into two lines and the row stays one line wherever it fits.
+ */
 .gesture-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
 }
 
+.gesture {
+  display: grid;
+  flex: 1 1 auto;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-2xs);
+  min-height: 64px;
+  padding: var(--space-sm);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--paper-fill);
+  box-shadow: var(--shadow-pill);
+  transition: transform 0.15s ease;
+}
+
+.gesture:active {
+  transform: scale(var(--press));
+}
+
+.gesture[aria-expanded="true"] {
+  border-color: var(--clay);
+  background: var(--pressed);
+}
+
 .gesture-emoji {
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   line-height: var(--leading-tight);
 }
 
@@ -725,14 +760,29 @@ button.profile-avatar.editable:disabled {
   font-size: var(--text-sm);
   font-weight: var(--weight-bold);
   color: var(--ink-soft);
-  text-align: center;
   line-height: var(--leading-tight);
+  white-space: nowrap;
 }
 
-/* Six buttons (Kiss shows for someone close) on a phone: smaller labels so "Comfort" fits. */
-@media (max-width: 480px) {
-  .gesture-row:has(> :nth-child(6)) .gesture-label {
+/* A narrow card: smaller labels, and six (Kiss shows for someone close) go three and three. */
+@container (max-width: 420px) {
+  .gesture {
+    padding-inline: var(--space-xs);
+  }
+
+  .gesture-label {
     font-size: var(--text-xs);
+  }
+
+  .gesture-row:has(> :nth-child(6)) > .gesture {
+    flex-basis: calc((100% - 2 * var(--space-xs)) / 3);
+  }
+}
+
+/* Under about 300px no row of five fits, so they all go three to a row and none stretches alone. */
+@container (max-width: 300px) {
+  .gesture-row > .gesture {
+    flex-basis: calc((100% - 2 * var(--space-xs)) / 3);
   }
 }
 
@@ -752,7 +802,8 @@ button.profile-avatar.editable:disabled {
 
 /*
  * Extra room above: the gesture buttons' shadow fills part of that gap, so this looks even. The
- * flame sits in its own column, so a line that wraps on a phone lines up under the words.
+ * flame sits in its own column, so a line that wraps on a phone lines up under the words. A streak
+ * that is running is news and says so; the nudge before there is one stays quiet.
  */
 
 .streak-line {
@@ -760,13 +811,13 @@ button.profile-avatar.editable:disabled {
   gap: var(--space-xs);
   margin: var(--space-2xs) 0 0;
   font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   color: var(--ink-soft);
   text-wrap: pretty;
 }
 
 .streak-line.on {
+  font-weight: var(--weight-semibold);
   color: var(--clay-deep);
 }
 
@@ -775,7 +826,7 @@ button.profile-avatar.editable:disabled {
   flex: none;
 }
 
-/* Letter, coins, a thing: one even row under a divider. On a phone the letter spans the row. */
+/* Letter, coins, a thing: one even row under a divider. In a narrow card the letter spans it. */
 
 .together-sends {
   display: grid;
@@ -805,7 +856,7 @@ button.profile-avatar.editable:disabled {
   color: var(--clay);
 }
 
-@media (min-width: 560px) {
+@container (min-width: 420px) {
   .together-sends {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

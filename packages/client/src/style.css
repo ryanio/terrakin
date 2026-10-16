@@ -3539,29 +3539,6 @@ a.btn-primary {
   text-wrap: balance;
 }
 
-.gesture {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 2px;
-  min-height: 64px;
-  padding: var(--space-xs) 2px;
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-card);
-  background: var(--paper-fill);
-  box-shadow: var(--shadow-pill);
-  transition: transform 0.15s ease;
-}
-
-.gesture:active {
-  transform: scale(var(--press));
-}
-
-.gesture[aria-expanded="true"] {
-  border-color: var(--clay);
-  background: var(--pressed);
-}
-
 .gift-row {
   display: flex;
   gap: var(--space-sm);

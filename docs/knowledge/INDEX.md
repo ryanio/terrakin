@@ -238,6 +238,7 @@ What we chose and why. Newest last.
 - [A taken name comes back with free ones to tap](decisions/0302-a-taken-name-comes-back-with-free-ones-to-tap.md) · 2026-10-16 · accepted · `design` `client` `protocol` `onboarding`
 - [On a phone the world's controls are icons round the map](decisions/0303-on-a-phone-the-world-s-controls-are-icons-round-the-map.md) · 2026-10-16 · accepted · `client` `design` `mobile`
 - [The world's chrome names itself and steps aside while you walk](decisions/0304-the-world-s-chrome-names-itself-and-steps-aside-while-you-wa.md) · 2026-10-16 · accepted · `client` `design` `mobile`
+- [A hearth smokes in a picture](decisions/0305-a-hearth-smokes-in-a-picture.md) · 2026-10-16 · accepted · `cards` `design`
 
 ## Learnings
 

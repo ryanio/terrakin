@@ -322,6 +322,21 @@ const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
 const UNDER_FLOORING_OPACITY = 0.5;
 
 /**
+ * A hearth's smoke, held still as a photo holds it: three puffs rising from the chimney at
+ * (cx, cy), each bigger, fainter, and a little further along the breeze than the one under it.
+ * Ovals as paths, like the leaves, so the hearth's shadow stays an area's only ellipse, and
+ * plain fills with no filter, so a card stays cheap to draw. The same smoke the 3D view sends
+ * up live; a still picture can only keep the moment of it (issue #80, decision 0305).
+ */
+function smokeSvg(cx: number, cy: number): string[] {
+  return [
+    oval(cx + 0.02, cy - 0.11, 0.07, 0.055, 0, "rgba(246, 244, 240, 0.55)"),
+    oval(cx + 0.08, cy - 0.24, 0.09, 0.07, 0, "rgba(246, 244, 240, 0.42)"),
+    oval(cx + 0.16, cy - 0.39, 0.12, 0.09, 0, "rgba(246, 244, 240, 0.3)"),
+  ];
+}
+
+/**
  * An area's markup, in tile units from its top left: the ground and what lies on it, ponds, blocks,
  * decor and furniture, crops, hearths, the floors above the ground floor, pets, and figures, back
  * to front, with the weather and the light over all of it. Our own markup only.
@@ -397,7 +412,7 @@ export function areaParts(a: PlotArea): string[] {
     if (inX(crop.x) && inY(crop.y)) parts.push(...cropSvg(crop));
   }
 
-  // Hearths: a little house with a door and a clay roof.
+  // Hearths: a little house with a door, a clay roof, a chimney, and its smoke.
   for (const h of (a.hearths ?? []).slice(0, 64)) {
     if (!inX(h.x) || !inY(h.y)) continue;
     const sx = h.x + 0.5;
@@ -407,7 +422,10 @@ export function areaParts(a: PlotArea): string[] {
       `<ellipse cx="${n(sx)}" cy="${n(sy + half * 0.62)}" rx="${n(half * 0.62)}" ry="${n(half * 0.16)}" fill="rgba(74, 52, 28, 0.2)"/>`,
       `<rect x="${n(sx - half * 0.52)}" y="${n(sy - half * 0.2)}" width="${n(half * 1.04)}" height="${n(half * 0.78)}" fill="${safeColor(a.ink.walls)}"/>`,
       `<rect x="${n(sx - half * 0.14)}" y="${n(sy + half * 0.12)}" width="${n(half * 0.28)}" height="${n(half * 0.46)}" rx="0.04" fill="${safeColor(a.ink.door)}"/>`,
+      // The chimney stands on the roof's right slope; the roof drawn after it covers its foot.
+      `<rect x="${n(sx + half * 0.26)}" y="${n(sy - half * 0.72)}" width="${n(half * 0.16)}" height="${n(half * 0.42)}" fill="#8a7f70"/>`,
       `<path d="M${n(sx - half * 0.72)} ${n(sy - half * 0.12)}L${n(sx)} ${n(sy - half * 0.78)}L${n(sx + half * 0.72)} ${n(sy - half * 0.12)}z" fill="${safeColor(a.ink.roof)}"/>`,
+      ...smokeSvg(sx + half * 0.34, sy - half * 0.72),
     );
   }
   parts.push(...floorsSvg(a, cols, rows, inX, inY));

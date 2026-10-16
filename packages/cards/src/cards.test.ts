@@ -18,6 +18,7 @@ import {
 } from "./plot";
 import { unmask } from "./render";
 import { sampleFigure, sampleLoft, sampleNear, samplePlot, samples } from "./samples";
+import { nightWash } from "./sky";
 import { type Card, element, H, W } from "./templates";
 import { cardText, clip, count, drawable } from "./text";
 
@@ -157,32 +158,69 @@ describe("cards", () => {
     }
   });
 
-  it("titles a named plot's photo with its name, and keeps whose home it is in the frame", async () => {
-    const bottom = (n?: { top: number; height: number }) => (n ? n.top + n.height : Infinity);
-    const plain = await textNodes(samplePlot("Juniper"));
-    const room = bottom(plain.find((n) => n.text.startsWith("Plot 3, 4")));
+  it("titles a named plot's photo with its name, and keeps whose home it is beside it", async () => {
     for (const name of ["Lemon Grove", "Wild Meadow Workshop & Windmill Gardens!"]) {
       const nodes = await textNodes({ ...samplePlot("Juniper"), title: name });
       const title = nodes.find((n) => n.text === name);
       const line = nodes.find((n) => n.text.startsWith("Juniper's home"));
       expect(title, `${name}: drawn whole`).toBeDefined();
       expect(line && title && line.top > title.top, `${name}: whose home, beneath`).toBe(true);
-      // Never lower than an unnamed photo's caption: the frame has room for that and no more.
-      expect(bottom(line), name).toBeLessThanOrEqual(room);
     }
     // A name with nothing the fonts can draw leaves the home as the title.
     const undrawable = await textNodes({ ...samplePlot("Juniper"), title: "🍋🍋🍋" });
     expect(undrawable.map((n) => n.text)).toContain("Juniper's home");
-    // A longer line of facts, like a home with a loft's "2 floors", stays one line in the frame.
+    // A longer line of facts, like a home with a loft's "2 floors", stays one line beside the photo.
     const loft = await textNodes(sampleLoft("Juniper"));
     const facts = loft.find((n) => n.text.endsWith("2 floors"));
-    expect(facts?.text.startsWith("Plot 3, 4")).toBe(true);
-    expect(bottom(facts)).toBeLessThanOrEqual(room);
+    expect(facts?.text.startsWith("Meadow and forest")).toBe(true);
+    expect(facts && facts.left + facts.width <= W - 48).toBe(true);
+  });
+
+  it("stamps a photo with the day, the sky, and the weather it was taken in", async () => {
+    const marks = ["Day 13 of Terrakin", "Autumn", "Dusk", "Rain"];
+    for (const posted of [false, true]) {
+      const nodes = await textNodes({ ...samplePlot("Juniper"), stamp: marks, posted });
+      // Drawn in capitals by the card's own style; the words are the server's, as they came.
+      const line = nodes.find((n) => n.text.includes("Day 13"));
+      const title = nodes.find((n) => n.text === "Juniper's home");
+      expect(line?.text, `posted: ${posted}`).toBe("Day 13 of Terrakin · Autumn · Dusk · Rain");
+      expect(line && title && line.top > title.top, `posted: ${posted}`).toBe(true);
+    }
+    // A world counting no days has nothing to stamp, and the card is drawn without one.
+    const bare = await textNodes({ ...samplePlot("Juniper"), stamp: [] });
+    expect(bare.some((n) => n.text.includes("Day 13"))).toBe(false);
+    // The longest stamp a world can make stays one line: a second would land on the brand under
+    // it. Its tracking is a flat cost a character, which the size has to take off the width first.
+    // The longest day words are a world's before it opened, and the longest sky four parts.
+    const longest = ["before Day 1 of Terrakin", "Autumn", "Night", "Cloudy"];
+    for (const posted of [false, true]) {
+      const nodes = await textNodes({ ...samplePlot("Juniper"), stamp: longest, posted });
+      const line = nodes.find((n) => n.text.includes("before Day 1"));
+      expect(line?.text, `posted: ${posted}`).toContain("Cloudy");
+      expect(line && line.height < 30, `posted: ${posted}, one line`).toBe(true);
+      const brand = nodes.find((n) => n.text === "terrakin");
+      expect(brand && line && brand.top >= line.top + line.height, `posted: ${posted}`).toBe(true);
+    }
+  });
+
+  it("lets the night fall on the owner's home picture too, which sits over the drawing", async () => {
+    const homeArt = { src: await picture(), width: 1200, height: 630 };
+    const night = {
+      ...samplePlot("Juniper"),
+      homeArt,
+      sky: { night: 1, weather: "clear" as const },
+    };
+    const wash = nightWash(night.sky);
+    expect(wash).toBeDefined();
+    expect(await cards.svg(night)).toContain(wash);
+    // By day there's nothing to wash, and the picture is drawn as it was uploaded.
+    expect(await cards.svg({ ...samplePlot("Juniper"), homeArt })).not.toContain("rgba(26, 18, 54");
   });
 
   it("puts a posted photo's brand on its frame, inside what a phone's crop of the picture shows", async () => {
     const title = "Wild Meadow Workshop & Windmill Gardens!";
-    const nodes = await textNodes({ ...sampleLoft("Juniper"), title, posted: true });
+    const marks = ["Day 13 of Terrakin", "Autumn", "Rain"];
+    const nodes = await textNodes({ ...sampleLoft("Juniper"), title, stamp: marks, posted: true });
     const brand = nodes.find((n) => n.text === "terrakin");
     const line = nodes.find((n) => n.text.startsWith("Juniper's home"));
     expect(brand && line && brand.top >= line.top + line.height, "under the caption").toBe(true);
@@ -191,9 +229,11 @@ describe("cards", () => {
     for (const n of nodes) {
       expect(n.left >= side && n.left + n.width <= W - side, n.text).toBe(true);
     }
-    // The card for a link has the whole picture to itself, and signs in its corner.
-    const card = (await textNodes(samplePlot("Juniper"))).find((n) => n.text === "terrakin");
-    expect(card && card.left < side).toBe(true);
+    // The card for a link has the whole width: the photo on one side, its words and its brand on
+    // the other, so no band of paper is left over (issue #80).
+    const card = await textNodes({ ...samplePlot("Juniper"), stamp: marks });
+    expect(card.find((n) => n.text === "terrakin")).toBeDefined();
+    for (const n of card) expect(n.left > W / 2, n.text).toBe(true);
   });
 
   it("formats counts and clips on word boundaries", () => {
@@ -489,6 +529,12 @@ describe("renderer", () => {
     expect(grown("strawberry", 0, "#d9434f")).not.toBe(bare);
     expect(fruit(grown("strawberry", 0.5, "#d9434f"), "#d9434f")).toBe(0);
     expect(fruit(grown("strawberry", 1, "#d9434f"), "#d9434f")).toBe(3);
+    // Fruit set before they ripen (issue #80), so a half-grown tomato reads as a tomato rather
+    // than as the same green sprout every other crop would be.
+    const circles = (svg: string) => (svg.match(/<circle/g) ?? []).length;
+    const berry = (done: number) => circles(grown("strawberry", done, "#d9434f"));
+    expect(berry(0.7) - berry(0.3)).toBe(3);
+    expect(grown("strawberry", 0.7, "#d9434f")).not.toBe(grown("strawberry", 0.9, "#d9434f"));
     // A crop on a vine, like a pumpkin, is a vine at first, then swells from green, and is its own
     // orange once ripe.
     expect(fruit(grown("pumpkin", 0.1, "#e8862f", true), "#e8862f")).toBe(0);
@@ -572,12 +618,12 @@ describe("renderer", () => {
 
   it("keeps the map around someone our own markup, whatever the light and sky say", () => {
     const odd = nearSvg(
-      sampleNear("Wren", { night: Number.NaN, weather: "<script>" as never }),
+      sampleNear("Wren", { sky: { night: Number.NaN, weather: "<script>" as never } }),
       1040,
       430,
     );
     expect(odd).not.toMatch(/<script|NaN|radialGradient/);
-    const night = nearSvg(sampleNear("Wren", { night: 1, weather: "snow" }), 1040, 430);
+    const night = nearSvg(sampleNear("Wren", { sky: { night: 1, weather: "snow" } }), 1040, 430);
     expect(night).toContain("radialGradient");
     expect(night).toContain('fill="rgba(255, 255, 255, 0.9)"');
     // Figures are scaled from the figure's units, a tile to a hundred, and stand where they're put.

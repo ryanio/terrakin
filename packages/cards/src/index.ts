@@ -5,14 +5,7 @@
 
 export { type Drawing, type DrawShape, type DrawTile, drawingSvg } from "./drawing";
 export { imageDataUri, MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, probeImage } from "./images";
-export {
-  type LookCard,
-  lookSvg,
-  type NearCard,
-  nearSvg,
-  type PictureWeather,
-  WEATHERS,
-} from "./pictures";
+export { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 export {
   areaParts,
   homeArtBox,
@@ -35,6 +28,7 @@ export {
   safeColor,
 } from "./plot";
 export type { CardDrawer, Cards, Rendered } from "./render";
+export { type PictureWeather, type Sky, WEATHERS } from "./sky";
 export {
   CARDS_VERSION,
   type Card,

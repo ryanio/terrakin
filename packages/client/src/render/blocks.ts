@@ -164,10 +164,15 @@ function paintWorkshop(
   ctx.restore();
 }
 
+/** A crop's unripe green, and how far along a crop sets its fruit. Both are in the cards' own copy. */
+const BUD = "#8cbf5a";
+const FRUIT_SET = 0.45;
+
 /**
  * A crop in a planter, drawn from its entry in the catalog and how far along it is (0 to 1): a
- * sprout that grows, then the crop's color in small fruit or petals once it's ready, or, for a crop
- * that grows on a vine, a vine along the soil.
+ * sprout that grows, its small fruit or petals setting at `FRUIT_SET` and ripening from a green bud
+ * to the crop's own color, or, for a crop that grows on a vine, a vine along the soil. The plot
+ * photos draw the same shapes (`packages/cards/src/plot.ts`), so keep the two in step.
  */
 export function paintCrop(
   ctx: CanvasRenderingContext2D,
@@ -199,11 +204,13 @@ export function paintCrop(
     ctx.ellipse(cx + side * leaf, base - tall * 0.55, leaf, leaf * 0.5, side * 0.5, 0, Math.PI * 2);
     ctx.fill();
   }
-  if (done >= 1) {
-    ctx.fillStyle = CROP_HEX[crop];
+  if (done >= FRUIT_SET) {
+    const ripe = done >= 1;
+    const swell = (done - FRUIT_SET) / (1 - FRUIT_SET);
+    ctx.fillStyle = ripe ? CROP_HEX[crop] : mixHex(BUD, CROP_HEX[crop], 0.55 + 0.45 * swell);
     ctx.strokeStyle = "rgba(43, 38, 32, 0.35)";
     ctx.lineWidth = 1;
-    const r = size * 0.09;
+    const r = size * (0.05 + 0.04 * swell);
     for (const [dx, dy] of [
       [-0.16, -0.05],
       [0.16, -0.1],
@@ -261,7 +268,7 @@ function paintVine(
     const swell = (done - 0.2) / 0.8;
     const r = size * (0.08 + 0.15 * swell);
     const y = base - r * 0.55;
-    ctx.fillStyle = ripe ? CROP_HEX[crop] : mixHex("#8cbf5a", CROP_HEX[crop], swell * 0.5);
+    ctx.fillStyle = ripe ? CROP_HEX[crop] : mixHex(BUD, CROP_HEX[crop], swell * 0.5);
     ctx.strokeStyle = "rgba(43, 38, 32, 0.35)";
     ctx.lineWidth = 1;
     for (const dx of [-0.5, 0.5, 0]) {

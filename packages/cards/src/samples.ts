@@ -103,8 +103,7 @@ export function sampleNear(name: string, over: Partial<NearCard> = {}): NearCard
       ink: { roof: "#d9653a", door: "#f2b84b", walls: "#fffaf0", tuft: "rgba(78, 112, 54, 0.45)" },
     },
     at: { x: 11.5, y: 6.88 },
-    night: 0,
-    weather: "clear",
+    sky: { night: 0, weather: "clear" },
     ...over,
   };
 }
@@ -168,14 +167,16 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     { x: 6, y: 0, glass: false, fill: "#8a5a36" },
     { x: 7, y: 0, glass: false, fill: "#8a5a36" },
     { x: 6, y: 1, glass: false, fill: "#8a5a36" },
+    { x: 6, y: 2, glass: false, fill: "#8a5a36" },
     { x: 6, y: 3, glass: false, fill: "#8a5a36" },
   );
-  // A ripe pumpkin, one still swelling, ripe strawberries, and herbs not long in.
+  // A ripe pumpkin, one still swelling, ripe strawberries, tomatoes half way, and herbs just in.
   const crops: PlotCrop[] = [
-    { x: 6, y: 0, crop: "pumpkin", done: 1, fill: "#e8862f" },
-    { x: 7, y: 0, crop: "pumpkin", done: 0.6, fill: "#e8862f" },
+    { x: 6, y: 0, crop: "pumpkin", done: 1, fill: "#e8862f", vine: true },
+    { x: 7, y: 0, crop: "pumpkin", done: 0.6, fill: "#e8862f", vine: true },
     { x: 6, y: 1, crop: "strawberry", done: 1, fill: "#d9434f" },
-    { x: 6, y: 3, crop: "herb", done: 0.4, fill: "#4f8a3a" },
+    { x: 6, y: 2, crop: "tomato", done: 0.7, fill: "#d2463a" },
+    { x: 6, y: 3, crop: "herb", done: 0.25, fill: "#4f8a3a" },
   ];
   // A cobble path out of the door, plank flooring inside, and fallen leaves by the well.
   const cobble = {
@@ -259,6 +260,7 @@ export function samplePlot(name: string, homeArt?: PlotCard["homeArt"]): PlotCar
     blocks,
     crops,
     hearth: { x: 3, y: 3 },
+    stamp: ["Day 13 of Terrakin", "Autumn", "Clear"],
     ...(homeArt ? { homeArt } : {}),
     ink: { roof: "#d9653a", door: "#f2b84b", walls: "#fffaf0", tuft: "rgba(78, 112, 54, 0.45)" },
   };
@@ -395,7 +397,35 @@ export function samples(images: SampleImages = {}): [string, Card][] {
     ],
     ["plot", samplePlot("Juniper")],
     ["plot-named", { ...samplePlot("Juniper"), title: "Juniper's Lemon Grove" }],
-    ["plot-posted", { ...sampleLoft("Juniper"), title: "Juniper's Lemon Grove", posted: true }],
+    [
+      "plot-posted",
+      {
+        ...sampleLoft("Juniper"),
+        title: "Juniper's Lemon Grove",
+        posted: true,
+        figures: [{ x: 3.5, y: 6.88, drawing: sampleFigure() }],
+      },
+    ],
+    [
+      "plot-night",
+      {
+        ...samplePlot("Juniper"),
+        posted: true,
+        sky: { night: 0.95, weather: "clear" },
+        stamp: ["Day 13 of Terrakin", "Autumn", "Night", "Clear"],
+        figures: [{ x: 3.5, y: 6.88, drawing: sampleFigure() }],
+      },
+    ],
+    [
+      "plot-dusk-rain",
+      {
+        ...samplePlot("Juniper"),
+        posted: true,
+        sky: { night: 0.55, weather: "rain" },
+        stamp: ["Day 13 of Terrakin", "Autumn", "Dusk", "Rain"],
+        figures: [{ x: 3.5, y: 6.88, drawing: sampleFigure() }],
+      },
+    ],
     ["plot-loft", sampleLoft("Juniper")],
     ["plot-loft-ground", sampleLoft("Juniper", 0)],
     ["plot-loft-upstairs", sampleLoft("Juniper", 1)],
@@ -420,12 +450,17 @@ export function samples(images: SampleImages = {}): [string, Card][] {
     [
       "near-night-rain",
       sampleNear('"><script>alert(1)</script> 🎉', {
-        night: 0.9,
-        weather: "rain",
+        sky: { night: 0.9, weather: "rain" },
         facts: ["Night", "Rain", "2 nearby"],
       }),
     ],
-    ["near-dusk-snow", sampleNear("Wren", { night: 0.5, weather: "snow" })],
+    [
+      "near-dusk-snow",
+      sampleNear("Wren", {
+        sky: { night: 0.5, weather: "snow" },
+        facts: ["Dusk", "Snow", "2 nearby"],
+      }),
+    ],
     [
       "look",
       {

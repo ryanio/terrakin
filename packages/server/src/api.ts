@@ -852,7 +852,11 @@ export class Api {
     const key = ipKey(ip);
     if (!this.limiters.photosIp.take(key)) return fail("rate_limited", RATE_LIMITED.photosIp);
     const { state } = this.service;
-    const spec = plotPhotoSpec(state, viewer, this.service.noteHidden, floor);
+    const spec = plotPhotoSpec(state, viewer, {
+      now: this.now(),
+      held: this.service.noteHidden,
+      ...(floor === undefined ? {} : { floor }),
+    });
     const place = photoPlace(state, viewer);
     if (!spec || !place) {
       return fail(

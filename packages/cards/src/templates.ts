@@ -14,13 +14,14 @@ import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { div, type El, img, type Style, svg, text } from "./h";
 import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
+import { nightWash } from "./sky";
 import { clip, count, day, drawable, fit, plural } from "./text";
 
 export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 7;
+export const CARDS_VERSION = 8;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -581,89 +582,199 @@ function homeTitle(name: string): string {
 }
 
 /**
- * A plot photo (issue #34): the plot from above in an instant-photo frame in the middle of the
- * card, with the owner's name on the frame. Everything that matters sits in the middle 800 pixels,
- * so the feed's 4:3 crop keeps it. One taken to post (`posted`) has no card border and no brand in
- * the corner, which a post's card would double and a phone would cut: the brand sits on the frame.
+ * The photo's frame: the plot, the owner's home picture over the hearth, and a white border with a
+ * deeper lip at its foot, tilted on its soft shadow. `lip` is the room under the picture, for a
+ * caption or the brand.
  */
-function plot(c: PlotCard, art: Art): El {
-  // A posted photo (`posted`) is smaller, so the paper shows all round it, and its frame is
-  // deeper, for the brand under the caption.
-  const posted = c.posted === true;
-  const photo = posted ? 380 : 420;
-  const pad = posted ? 20 : 22;
+function photoFrame(
+  c: PlotCard,
+  photo: number,
+  pad: number,
+  lip: number,
+  turn: number,
+  place: Style,
+  ...caption: Content
+): El {
   const frameW = photo + pad * 2;
-  const caption = posted ? 134 : 112;
-  const frameH = pad + photo + caption;
-  // A named plot (decision 0121) wears its name as the title, and whose home it is goes below.
-  const named = c.title ? drawable(c.title, 40) : undefined;
-  const title = named ?? homeTitle(c.name);
-  const lines = named ? [homeTitle(c.name), c.place] : [c.place, ...c.facts];
-  const line = clip(lines.join("  ·  "), 60);
+  const frameH = pad + photo + lip;
   const homeArt = c.homeArt ? homeArtBox(c, photo) : undefined;
-  return (posted ? sheet : stage)(
-    art,
+  const wash = nightWash(c.sky);
+  return div(
+    abs({ width: frameW, height: frameH, transform: `rotate(${turn}deg)`, ...place }),
     div(
       abs({
-        left: (W - frameW) / 2,
-        top: (H - frameH) / 2,
+        left: 6,
+        top: 12,
         width: frameW,
         height: frameH,
-        transform: "rotate(-1.2deg)",
+        borderRadius: 10,
+        backgroundColor: SHADOW,
+      }),
+    ),
+    div(
+      abs({
+        left: 0,
+        top: 0,
+        width: frameW,
+        height: frameH,
+        borderRadius: 10,
+        backgroundColor: "#ffffff",
+        flexDirection: "column",
+        alignItems: "center",
       }),
       div(
-        abs({
-          left: 6,
-          top: 12,
-          width: frameW,
-          height: frameH,
-          borderRadius: 10,
-          backgroundColor: SHADOW,
-        }),
+        { position: "relative", width: photo, height: photo, marginTop: pad, overflow: "hidden" },
+        svg(plotSvg(c, photo), photo, photo, abs({ left: 0, top: 0 })),
+        homeArt && c.homeArt
+          ? img(c.homeArt.src, homeArt.width, homeArt.height, abs({ ...homeArt }))
+          : null,
+        // The drawing darkens from inside (`skyParts`); the home picture is laid over it here, so
+        // the same night falls on it as a flat wash.
+        homeArt && wash ? div(abs({ ...homeArt, backgroundColor: wash })) : null,
       ),
-      div(
-        abs({
-          left: 0,
-          top: 0,
-          width: frameW,
-          height: frameH,
-          borderRadius: 10,
-          backgroundColor: "#ffffff",
-          flexDirection: "column",
-          alignItems: "center",
-        }),
-        div(
-          { position: "relative", width: photo, height: photo, marginTop: pad, overflow: "hidden" },
-          svg(plotSvg(c, photo), photo, photo, abs({ left: 0, top: 0 })),
-          homeArt && c.homeArt
-            ? img(c.homeArt.src, homeArt.width, homeArt.height, abs({ ...homeArt }))
-            : null,
-        ),
+      ...caption,
+    ),
+  );
+}
+
+/** How far apart a stamp's capitals stand, and the average advance of one at its own size. */
+const STAMP_TRACKING = 1.4;
+const STAMP_ADVANCE = 0.57;
+
+/**
+ * The stamp under a photo: the day, the season and the sky it was taken in, in our own words, set
+ * small and wide the way a photo lab prints a date. Nothing here is a resident's text.
+ *
+ * It has to stay one line: on a posted photo a second line would land on the brand under it. The
+ * tracking is a flat cost per character, so it comes out of the width before `fit` divides the
+ * rest, and the advance is a capital's, not the mixed-case `SANS_ADVANCE`.
+ */
+function stamp(words: string[], width: number, align: "center" | "flex-start"): El | null {
+  const line = clip(words.join("  ·  "), 52);
+  if (!line) return null;
+  const room = width - STAMP_TRACKING * [...line].length;
+  return div(
+    { flexDirection: "column", alignItems: align, width, gap: 7, marginTop: 12 },
+    div({ width: align === "center" ? 54 : 44, height: 2, backgroundColor: "#dcc8a4" }),
+    text(
+      {
+        fontSize: fit(line, room, 19, STAMP_ADVANCE, 12),
+        fontWeight: 700,
+        letterSpacing: STAMP_TRACKING,
+        color: "#8a7f70",
+        textTransform: "uppercase",
+      },
+      line,
+    ),
+  );
+}
+
+/**
+ * A plot photo (issue #34), as a postcard. A photo taken to post (`posted`) is a tall instant photo
+ * in the middle of the card with its caption on the frame: a post's card crops it to a square from
+ * the middle, so nothing that matters may leave the middle 630 pixels. The card for a link has the
+ * photo on the left and its caption beside it, so the picture is as big as the card is tall and no
+ * band of empty paper is left over (issue #80).
+ */
+function plot(c: PlotCard, art: Art): El {
+  const named = c.title ? drawable(c.title, 40) : undefined;
+  const title = named ?? homeTitle(c.name);
+  const facts = clip([c.place, ...c.facts].join("  ·  "), 60);
+  const marks = c.stamp ?? [];
+  if (c.posted === true) {
+    const photo = 430;
+    const pad = 20;
+    const caption = clip(named ? [homeTitle(c.name), c.place].join("  ·  ") : facts, 60);
+    return sheet(
+      art,
+      photoFrame(
+        c,
+        photo,
+        pad,
+        158,
+        -1.2,
+        { left: (W - (photo + pad * 2)) / 2, top: 9 },
         text(
           {
             fontFamily: SERIF,
             fontWeight: 600,
             // A plot's own name runs to 40 characters, so it may shrink further to stay one line.
-            fontSize: fit(title, photo, posted ? 36 : 40, SERIF_ADVANCE, named ? 18 : 26),
+            fontSize: fit(title, photo, 36, SERIF_ADVANCE, named ? 18 : 26),
             lineHeight: 1.1,
-            marginTop: posted ? 14 : 16,
+            marginTop: 13,
           },
           title,
         ),
         text(
           {
             // A longer line of facts ("2 floors") shrinks to stay one line in the frame.
-            fontSize: fit(line, photo + pad, posted ? 20 : 22, SANS_ADVANCE, 16),
+            fontSize: fit(caption, photo + pad, 20, SANS_ADVANCE, 16),
             fontWeight: 600,
             color: INK_SOFT,
-            marginTop: 6,
+            marginTop: 5,
           },
-          line,
+          caption,
         ),
-        posted ? frameSignature() : null,
+        marks.length ? stamp(marks, photo, "center") : null,
+        frameSignature(),
       ),
+    );
+  }
+  const line = clip(c.facts.join("  ·  "), 46);
+  const photo = 452;
+  const pad = 18;
+  const column = 452;
+  const left = 66;
+  const beside = left + photo + pad * 2 + 66;
+  return stage(
+    art,
+    photoFrame(c, photo, pad, 46, -1.4, { left, top: (H - (pad + photo + 46)) / 2 }),
+    div(
+      abs({
+        left: beside,
+        top: 80,
+        bottom: 150,
+        width: column,
+        flexDirection: "column",
+        justifyContent: "center",
+      }),
+      text(
+        { fontSize: 20, fontWeight: 800, letterSpacing: 2.2, color: C.clayDeep },
+        clip(c.place.toUpperCase(), 28),
+      ),
+      text(
+        {
+          fontFamily: SERIF,
+          fontWeight: 600,
+          fontSize: fit(title, column, 58, SERIF_ADVANCE, 30),
+          lineHeight: 1.08,
+          letterSpacing: -0.6,
+          marginTop: 12,
+        },
+        title,
+      ),
+      named
+        ? text(
+            { fontSize: 26, fontWeight: 600, color: INK_SOFT, marginTop: 12 },
+            clip(homeTitle(c.name), 40),
+          )
+        : null,
+      text(
+        {
+          fontSize: fit(line, column, 23, SANS_ADVANCE, 17),
+          fontWeight: 600,
+          color: "#7b7265",
+          marginTop: named ? 8 : 12,
+        },
+        line,
+      ),
+      marks.length ? stamp(marks, column, "flex-start") : null,
     ),
-    posted ? null : signature(),
+    div(
+      abs({ left: beside, bottom: 76, alignItems: "center", gap: 12 }),
+      mark(38, {}, false),
+      text({ fontFamily: SERIF, fontWeight: 600, fontSize: 30, letterSpacing: -0.4 }, "terrakin"),
+    ),
   );
 }
 

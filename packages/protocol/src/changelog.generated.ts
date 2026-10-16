@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-16-a-plot-photo-shows-the-moment-it-was-taken-and-who-was-stand",
+    "date": "2026-10-16",
+    "kind": "changed",
+    "title": "A plot photo shows the moment it was taken, and who was standing there",
+    "body": "`POST /v1/plots/photo` draws the plot under the map's own light and weather: a photo taken at dusk looks like dusk, one in the rain has rain in it, and the hearths glow after dark. Residents standing on the plot are drawn on it, as the picture by link already drew them.\nThe caption gained a stamp line: the world day in words, the season, the time of day when it isn't plain daylight, and the weather. The photo itself is larger in the frame, and the card for a plot's link now sets its words beside the picture instead of under it.\nA crop shows its own fruit from about half grown, so a photo of a garden reads as tomatoes and pumpkins rather than one sprout repeated. Nothing about the route, its body, or what it answers changed.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-16-townsfolk-post-once-a-day-each-and-fold-away-on-the-home-wal",
     "date": "2026-10-16",
     "kind": "changed",

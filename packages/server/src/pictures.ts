@@ -1,18 +1,14 @@
 import {
   type LookCard,
   type NearCard,
-  type PlacedFigure,
   type PlotArea,
   type PlotCard,
   RESIDENT_HEX,
 } from "@terrakin/cards";
 import {
   alphaHex,
-  blocksOn,
   DAY_LENGTH_MS,
   dayPhase,
-  FLOORS,
-  groundOn,
   isCommons,
   nightAmount,
   type PetCoat,
@@ -24,11 +20,9 @@ import {
   type Resident,
   residentById,
   skyAt,
-  standingFloor,
   THEME_INFO,
   THEME_TINT_ALPHA,
   type ThemePalette,
-  tileKey,
   timeOfDay,
   WEAR_INFO,
   type WorldState,
@@ -37,12 +31,17 @@ import {
 import { type EdgeLook, figureDrawing, hairName } from "@terrakin/ui/figure-svg";
 import {
   areaOf,
+  drawnFigures,
   drawnFromAbove,
+  edgeLook,
+  FEET,
+  figuresIn,
   materializePlot,
   type PlotPhotoSpec,
   petPicture,
   plotInk,
   plotSpecOf,
+  type SpecFigure,
 } from "./plot-photo";
 
 /**
@@ -65,18 +64,6 @@ export type PictureRoute =
   | { kind: "look"; id: string }
   | { kind: "near"; id: string };
 
-/**
- * A resident's figure before it's drawn: where their feet are, in tiles, their look, and whether
- * flooring the picture draws over them hides them, so they're drawn faded (RFC 0028).
- */
-interface SpecFigure {
-  x: number;
-  y: number;
-  look: EdgeLook;
-  faded?: true;
-}
-
-type PlotPictureSpec = Omit<PlotPhotoSpec, "figures"> & { figures?: SpecFigure[] };
 export type NearSpec = Omit<NearCard, "area"> & {
   area: Omit<PlotArea, "figures"> & { figures: SpecFigure[] };
 };
@@ -84,10 +71,10 @@ export type LookSpec = Omit<LookCard, "figure" | "pet"> & {
   look: EdgeLook;
   pet?: { kind: PetKind; coat: PetCoat } | undefined;
 };
-export type PictureSpec = PlotPictureSpec | NearSpec | LookSpec;
+export type PictureSpec = PlotPhotoSpec | NearSpec | LookSpec;
 
 export interface PictureOptions {
-  /** The server's clock, for the light and the sky over `near`. */
+  /** The server's clock: the light and the weather every picture of the world is drawn under. */
   nowMs: number;
   /** Whether staff hold back a resident's words (a quarantine): a plot name they gave stays out. */
   held: (id: string) => boolean;
@@ -102,87 +89,21 @@ export interface PictureOptions {
 /** The map around someone, in tiles: as wide as the photo is, about 2.4 to 1. */
 const NEAR_COLS = 24;
 const NEAR_ROWS = 10;
-/** Most figures a picture draws, nearest first. Each costs a few hundred shapes. */
-const MAX_FIGURES = 16;
-/** Where a figure's feet are in its tile, as the map stands it. */
-const FEET = 0.88;
-
-/** A resident's look as a picture draws it: no uploaded pattern tile, ever. */
-export function edgeLook(r: Resident): EdgeLook {
-  const styles = r.wearStyle
-    ? Object.fromEntries(
-        Object.entries(r.wearStyle).filter(
-          (e): e is [string, NonNullable<(typeof e)[1]>] => e[1] != null,
-        ),
-      )
-    : undefined;
-  return {
-    color: r.color,
-    shape: r.shape,
-    ...(r.theme ? { theme: r.theme } : {}),
-    ...(r.pattern ? { pattern: r.pattern } : {}),
-    ...(r.wear?.length ? { wear: [...r.wear] } : {}),
-    ...(styles && Object.keys(styles).length ? { wearStyle: styles } : {}),
-    ...(r.hair ? { hair: r.hair } : {}),
-    ...(r.hairColor ? { hairColor: r.hairColor } : {}),
-  };
-}
-
-/**
- * Whether a picture from above draws flooring or a block over someone on `floor` at (x, y), as the
- * map's `underFlooring` has it for every plot but the one you stand on.
- */
-function underFlooring(state: WorldState, x: number, y: number, floor: number): boolean {
-  const key = tileKey(x, y);
-  for (let above = floor + 1; above <= FLOORS.max; above++) {
-    if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Online residents standing in the box from (x0, y0), `cols` by `rows`, nearest `here` first. */
-function figuresIn(
-  state: WorldState,
-  x0: number,
-  y0: number,
-  cols: number,
-  rows: number,
-  here: { x: number; y: number },
-): SpecFigure[] {
-  return Object.values(state.residents)
-    .filter((r) => r.online && r.x >= x0 && r.x < x0 + cols && r.y >= y0 && r.y < y0 + rows)
-    .sort(
-      (a, b) =>
-        Math.hypot(a.x - here.x, a.y - here.y) - Math.hypot(b.x - here.x, b.y - here.y) ||
-        (a.id < b.id ? -1 : 1),
-    )
-    .slice(0, MAX_FIGURES)
-    .map((r) => ({
-      x: r.x - x0 + 0.5,
-      y: r.y - y0 + FEET,
-      look: edgeLook(r),
-      ...(underFlooring(state, r.x, r.y, standingFloor(r)) ? { faded: true as const } : {}),
-    }));
-}
-
 /** A plot as it looks now, with whoever stands on it. Undefined for a plot nobody has claimed. */
 function plotPicture(
   state: WorldState,
   px: number,
   py: number,
   o: PictureOptions,
-): PlotPictureSpec | undefined {
+): PlotPhotoSpec | undefined {
   const plot = state.plots[plotKey(px, py)];
   if (!plot || plot.px !== px || plot.py !== py) return undefined;
   const art = state.residents[plot.ownerId]?.homeArt;
-  const spec = plotSpecOf(state, plot, o.held, art !== undefined && o.artShown(plot.ownerId, art));
-  const S = state.config.plotSize;
-  const x0 = px * S;
-  const y0 = py * S;
-  const figures = figuresIn(state, x0, y0, S, S, { x: x0 + S / 2, y: y0 + S / 2 });
-  return figures.length ? { ...spec, figures } : spec;
+  return plotSpecOf(state, plot, {
+    now: o.nowMs,
+    held: o.held,
+    withArt: art !== undefined && o.artShown(plot.ownerId, art),
+  });
 }
 
 /** "Lemon outfit", "Auburn bob", "Straw hat and boots", "With their cat", as each applies. */
@@ -339,8 +260,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
       ink: plotInk(state.day === undefined ? undefined : sky.season),
     },
     ...(r.online ? { at: { x: r.x - x0 + 0.5, y: r.y - y0 + FEET } } : {}),
-    night,
-    weather: sky.weather,
+    sky: { night, weather: sky.weather },
   };
 }
 
@@ -360,27 +280,16 @@ export function pictureSpec(
   }
 }
 
-const drawn = (figures: SpecFigure[] | undefined): PlacedFigure[] =>
-  (figures ?? []).map((f) => ({
-    x: f.x,
-    y: f.y,
-    drawing: figureDrawing(f.look),
-    ...(f.faded ? { faded: true } : {}),
-  }));
-
 /** A picture's card: its figures drawn, its pet's shapes, and the home picture loaded. */
 export async function materializePicture(
   spec: PictureSpec,
   loadMedia: (id: string) => Promise<Uint8Array | undefined>,
 ): Promise<PlotCard | NearCard | LookCard> {
   switch (spec.kind) {
-    case "plot": {
-      const { figures, ...photo } = spec;
-      const card = await materializePlot(photo, loadMedia);
-      return figures?.length ? { ...card, figures: drawn(figures) } : card;
-    }
+    case "plot":
+      return materializePlot(spec, loadMedia);
     case "near":
-      return { ...spec, area: { ...spec.area, figures: drawn(spec.area.figures) } };
+      return { ...spec, area: { ...spec.area, figures: drawnFigures(spec.area.figures) } };
     case "look": {
       const { look, pet, ...rest } = spec;
       return {

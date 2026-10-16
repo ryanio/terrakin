@@ -18,13 +18,13 @@ import {
   windowLimiter,
 } from "./og";
 import {
-  edgeLook,
   type LookSpec,
   materializePicture,
   type NearSpec,
   type PictureSpec,
   pictureSpec,
 } from "./pictures";
+import { edgeLook } from "./plot-photo";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { listenOnFreePort, loftLog, responseChecker } from "./test-support";
@@ -217,7 +217,7 @@ describe("picture data", () => {
     expect(spec.area.figures).toHaveLength(2);
     expect(spec.at).toBeDefined();
     expect(spec.facts).toContain("1 nearby");
-    expect(Number.isInteger(spec.night * 20)).toBe(true);
+    expect(Number.isInteger(spec.sky.night * 20)).toBe(true);
 
     // Bram leaves: away residents aren't on the map, as in the world.
     const state = structuredClone(w.service.state);

@@ -1,5 +1,6 @@
 import {
   imageDataUri,
+  type PlacedFigure,
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
@@ -18,6 +19,8 @@ import {
   blockFill,
   blocksOn,
   CROP_HEX,
+  DAY_LENGTH_MS,
+  dayPhase,
   FLOORS,
   FLOWER_TONES,
   GROUND_LOOK,
@@ -29,22 +32,30 @@ import {
   isDecorKind,
   isFurnitureKind,
   LEAF_TONES,
+  nightAmount,
   onVine,
   PAPER,
   PET_BOX,
   POND_LOOK,
   petBed,
   petShapes,
+  type Resident,
   seasonOf,
+  skyAt,
+  standingFloor,
   THEME_INFO,
   THEME_TINT_ALPHA,
   type ThemePalette,
   tileHash,
   tileKey,
+  timeOfDay,
   tuftStroke,
+  type Weather,
   type WorldState,
+  worldDayWords,
   worldGround,
 } from "@terrakin/sim";
+import { type EdgeLook, figureDrawing } from "@terrakin/ui/figure-svg";
 import { shownPlotName } from "./plots";
 
 /**
@@ -56,12 +67,36 @@ import { shownPlotName } from "./plots";
  */
 
 /**
- * A plot photo before its home picture is loaded: `homeArt` is a media id, so the spec is plain
- * data that can cross from the World object to the Worker that draws it.
+ * A resident's figure before it's drawn: where their feet are, in tiles, their look, and whether
+ * flooring the picture draws over them hides them, so they're drawn faded (RFC 0028).
+ */
+export interface SpecFigure {
+  x: number;
+  y: number;
+  look: EdgeLook;
+  faded?: true;
+}
+
+/**
+ * A plot photo before its pictures are drawn: `homeArt` is a media id and a figure is a look, so
+ * the spec is plain data that can cross from the World object to the Worker that draws it.
  */
 export type PlotPhotoSpec = Omit<PlotCard, "homeArt" | "figures"> & {
   homeArt?: string | undefined;
+  figures?: SpecFigure[] | undefined;
 };
+
+/** What a photo needs from outside the world: the server's clock, and what staff hold back. */
+export interface PhotoOptions {
+  /** The server's clock, for the light and the sky the photo was taken under. */
+  now: number;
+  /** Whether staff hold back a resident's words (a quarantine): a plot name they gave stays out. */
+  held?: ((id: string) => boolean) | undefined;
+  /** The owner's own picture of their home comes along. Off where a picture may not be shown. */
+  withArt?: boolean | undefined;
+  /** That floor's plan instead of the home from above (RFC 0028). */
+  floor?: number | undefined;
+}
 
 /** Draws a spec as a PNG. Node draws in-process; the World object calls the Worker over RPC. */
 export type PlotPhotoRenderer = (spec: PlotPhotoSpec) => Promise<Uint8Array>;
@@ -115,11 +150,10 @@ export function photoPlace(
 export function plotPhotoSpec(
   state: WorldState,
   residentId: string,
-  held: (id: string) => boolean = () => false,
-  floor?: number,
+  o: PhotoOptions,
 ): PlotPhotoSpec | undefined {
   const plot = photoPlot(state, residentId);
-  return plot ? { ...plotSpecOf(state, plot, held, true, floor), posted: true } : undefined;
+  return plot ? { ...plotSpecOf(state, plot, o), posted: true } : undefined;
 }
 
 /** A world plot record, as `state.plots` keeps them. */
@@ -132,14 +166,9 @@ type WorldPlot = WorldState["plots"][string];
  * it left out, and what's under it dimmed where it has no flooring, as the map shows the floor you
  * stand on.
  */
-export function plotSpecOf(
-  state: WorldState,
-  plot: WorldPlot,
-  held: (id: string) => boolean = () => false,
-  withArt = true,
-  floor?: number,
-): PlotPhotoSpec {
-  const title = shownPlotName(plot, held);
+export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions): PlotPhotoSpec {
+  const { floor } = o;
+  const title = shownPlotName(plot, o.held ?? (() => false));
   const { config } = state;
   const S = config.plotSize;
   const x0 = plot.px * S;
@@ -173,6 +202,12 @@ export function plotSpecOf(
       ? petPicture(owner.pet, ownHearth, petBed(worldGround(state), ownHearth), x0, y0)
       : undefined;
 
+  // Whoever is standing on the plot, so a home with someone in it reads as one (issue #80).
+  const figures = figuresIn(state, x0, y0, S, S, { x: x0 + S / 2, y: y0 + S / 2 });
+  // The moment the picture shows: the map's own light and weather (decision 0300).
+  const sky = skyAt(o.now, state.day);
+  const phase = dayPhase(o.now, DAY_LENGTH_MS);
+
   const biomes = [...area.biomes.entries()].sort((a, b) => b[1] - a[1]).map(([b]) => b);
   const { blocks, crops } = area;
   // Every block on the plot counts, on every floor, as the plot's view counts them.
@@ -197,10 +232,46 @@ export function plotSpecOf(
     ...(floor !== undefined && floor > 0 ? { floorPlan: true } : {}),
     ...(crops.length > 0 ? { crops } : {}),
     ...(hearth ? { hearth: { x: hearth.x - x0, y: hearth.y - y0 } } : {}),
-    ...(withArt && owner?.homeArt ? { homeArt: owner.homeArt } : {}),
+    ...(o.withArt !== false && owner?.homeArt ? { homeArt: owner.homeArt } : {}),
     ...(pet ? { pet } : {}),
+    ...(figures.length > 0 ? { figures } : {}),
+    // Night in twentieths, so a plot's picture by link changes with the light, not every second.
+    sky: { night: Math.round(nightAmount(phase) * 20) / 20, weather: sky.weather },
+    stamp: stampOf(state, phase, sky.weather),
     ink: plotInk(season(state)),
   };
+}
+
+const TIME_WORDS = { dawn: "Dawn", day: "Day", dusk: "Dusk", night: "Night" } as const;
+const WEATHER_WORDS = {
+  clear: "Clear",
+  cloudy: "Cloudy",
+  rain: "Rain",
+  fog: "Fog",
+  snow: "Snow",
+} as const;
+const SEASON_WORDS = {
+  spring: "Spring",
+  summer: "Summer",
+  autumn: "Autumn",
+  winter: "Winter",
+} as const;
+
+/**
+ * The stamp along the foot of a photo: the day it was taken, the season, the time of day when it
+ * isn't plain daylight (which is when the picture itself looks different), and the weather. Our own
+ * words from the world's own day and clock, never anything a resident wrote. A world that has never
+ * counted a day has no day and no season to stamp.
+ */
+function stampOf(state: WorldState, phase: number, weather: Weather): string[] {
+  const time = timeOfDay(phase);
+  return [
+    ...(state.day === undefined
+      ? []
+      : [worldDayWords(state.day), SEASON_WORDS[seasonOf(state.day)]]),
+    ...(time === "day" ? [] : [TIME_WORDS[time]]),
+    WEATHER_WORDS[weather],
+  ];
 }
 
 /** The floors a picture from above draws: up to the highest with something on it. */
@@ -380,17 +451,98 @@ export function petPicture(
   };
 }
 
-/** Load the home picture. One that's missing or can't be drawn leaves the photo without it. */
+/** Most figures a picture draws, nearest first. Each costs a few hundred shapes. */
+const MAX_FIGURES = 16;
+/** Where a figure's feet are in its tile, as the map stands it. */
+export const FEET = 0.88;
+
+/** A resident's look as a picture draws it: no uploaded pattern tile, ever. */
+export function edgeLook(r: Resident): EdgeLook {
+  const styles = r.wearStyle
+    ? Object.fromEntries(
+        Object.entries(r.wearStyle).filter(
+          (e): e is [string, NonNullable<(typeof e)[1]>] => e[1] != null,
+        ),
+      )
+    : undefined;
+  return {
+    color: r.color,
+    shape: r.shape,
+    ...(r.theme ? { theme: r.theme } : {}),
+    ...(r.pattern ? { pattern: r.pattern } : {}),
+    ...(r.wear?.length ? { wear: [...r.wear] } : {}),
+    ...(styles && Object.keys(styles).length ? { wearStyle: styles } : {}),
+    ...(r.hair ? { hair: r.hair } : {}),
+    ...(r.hairColor ? { hairColor: r.hairColor } : {}),
+  };
+}
+
+/**
+ * Whether a picture from above draws flooring or a block over someone on `floor` at (x, y), as the
+ * map's `underFlooring` has it for every plot but the one you stand on.
+ */
+function underFlooring(state: WorldState, x: number, y: number, floor: number): boolean {
+  const key = tileKey(x, y);
+  for (let above = floor + 1; above <= FLOORS.max; above++) {
+    if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Online residents standing in the box from (x0, y0), `cols` by `rows`, nearest `here` first. */
+export function figuresIn(
+  state: WorldState,
+  x0: number,
+  y0: number,
+  cols: number,
+  rows: number,
+  here: { x: number; y: number },
+): SpecFigure[] {
+  return Object.values(state.residents)
+    .filter((r) => r.online && r.x >= x0 && r.x < x0 + cols && r.y >= y0 && r.y < y0 + rows)
+    .sort(
+      (a, b) =>
+        Math.hypot(a.x - here.x, a.y - here.y) - Math.hypot(b.x - here.x, b.y - here.y) ||
+        (a.id < b.id ? -1 : 1),
+    )
+    .slice(0, MAX_FIGURES)
+    .map((r) => ({
+      x: r.x - x0 + 0.5,
+      y: r.y - y0 + FEET,
+      look: edgeLook(r),
+      ...(underFlooring(state, r.x, r.y, standingFloor(r)) ? { faded: true as const } : {}),
+    }));
+}
+
+/** Figures drawn from their looks, with the map's own recorder. Never in the World object. */
+export const drawnFigures = (figures: SpecFigure[] | undefined): PlacedFigure[] =>
+  (figures ?? []).map((f) => ({
+    x: f.x,
+    y: f.y,
+    drawing: figureDrawing(f.look),
+    ...(f.faded ? { faded: true } : {}),
+  }));
+
+/**
+ * The photo's card: its figures drawn and the home picture loaded. One that's missing or can't be
+ * drawn leaves the photo without it.
+ */
 export async function materializePlot(
   spec: PlotPhotoSpec,
   loadMedia: (id: string) => Promise<Uint8Array | undefined>,
 ): Promise<PlotCard> {
-  const { homeArt, ...rest } = spec;
-  if (!homeArt) return rest;
+  const { homeArt, figures, ...rest } = spec;
+  const card: PlotCard = {
+    ...rest,
+    ...(figures?.length ? { figures: drawnFigures(figures) } : {}),
+  };
+  if (!homeArt) return card;
   const bytes = await loadMedia(homeArt).catch(() => undefined);
   const src = bytes ? imageDataUri(bytes) : undefined;
   const probe = bytes && src ? probeImage(bytes) : undefined;
   return probe && src
-    ? { ...rest, homeArt: { src, width: probe.width, height: probe.height } }
-    : rest;
+    ? { ...card, homeArt: { src, width: probe.width, height: probe.height } }
+    : card;
 }

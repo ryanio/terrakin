@@ -5,6 +5,7 @@ import {
   BLOCK_COLORS,
   blockFill,
   CROP_HEX,
+  DAY_LENGTH_MS,
   dayOfDate,
   GROUND_LOOK,
   groundTile,
@@ -24,6 +25,12 @@ import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { listenOnFreePort, loftLog, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
+
+/**
+ * Noon on the map's clock and a clear hour, so a photo these tests read is drawn in flat daylight
+ * with nothing over it. The light and the weather have tests of their own.
+ */
+const AT_NOON = { now: Math.round(DAY_LENGTH_MS * 0.25) };
 
 const CONFIG: WorldConfig = {
   width: 24,
@@ -136,7 +143,7 @@ describe("plot photo data", () => {
     const { settled, service, call } = await start();
     const wren = await settled("Wren");
     await call("POST", "/v1/actions", wren.token, { type: "profile", theme: "lemon" });
-    const spec = plotPhotoSpec(service.state, wren.residentId);
+    const spec = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
     if (!spec) throw new Error("no spec");
     // Drawn to post: a post's card frames it, so the photo brings no card border of its own.
     expect(spec).toMatchObject({
@@ -177,7 +184,7 @@ describe("plot photo data", () => {
       ],
       blocks: [{ x: 1, y: 1, glass: true, fill: blockFill("glass") }],
     };
-    const above = plotPhotoSpec(service.state, "r_ada");
+    const above = plotPhotoSpec(service.state, "r_ada", AT_NOON);
     if (!above) throw new Error("no spec");
     expect(above.floors).toEqual([loft]);
     expect(above).not.toHaveProperty("floorPlan");
@@ -185,22 +192,72 @@ describe("plot photo data", () => {
     expect(above.facts.slice(1)).toEqual([`${above.blocks.length + 1} blocks`, "2 floors"]);
 
     // The ground floor's plan leaves the loft out, and shows the hearth under it.
-    const ground = plotPhotoSpec(service.state, "r_ada", undefined, 0);
+    const ground = plotPhotoSpec(service.state, "r_ada", { ...AT_NOON, floor: 0 });
     expect(ground).not.toHaveProperty("floors");
     expect(ground).not.toHaveProperty("floorPlan");
     expect(ground?.blocks).toEqual(above.blocks);
     expect(ground?.hearth).toEqual({ x: 3, y: 3 });
     expect(ground?.facts.at(-1)).toBe("Ground floor");
     // Upstairs is the loft over the ground floor, dimmed where the loft has no flooring.
-    const upstairs = plotPhotoSpec(service.state, "r_ada", undefined, 1);
+    const upstairs = plotPhotoSpec(service.state, "r_ada", { ...AT_NOON, floor: 1 });
     expect(upstairs).toMatchObject({ floors: [loft], floorPlan: true });
     expect(upstairs?.facts.at(-1)).toBe("Upstairs");
+  });
+
+  it("carries the moment it was taken: the map's light, the weather, and a stamp", async () => {
+    const { settled, service } = await start();
+    const wren = await settled("Wren");
+    // 2026-10-06 is Day 3 of Terrakin and autumn. The map's clock turns every 3.5 hours, so a
+    // quarter of the way through is noon and three quarters is midnight; the weather of that UTC
+    // hour is the sim's, pinned in its own tests.
+    const day = dayOfDate(2026, 10, 6);
+    const at = (fraction: number) =>
+      plotPhotoSpec({ ...service.state, day }, wren.residentId, {
+        now: Math.round(DAY_LENGTH_MS * fraction),
+      });
+    const noon = at(0.25);
+    expect(noon?.sky).toEqual({ night: 0, weather: "fog" });
+    // Plain daylight needs no word for itself: the day, the season, and the sky.
+    expect(noon?.stamp).toEqual(["Day 3 of Terrakin", "Autumn", "Fog"]);
+    const midnight = at(0.75);
+    expect(midnight?.sky).toEqual({ night: 1, weather: "fog" });
+    expect(midnight?.stamp).toEqual(["Day 3 of Terrakin", "Autumn", "Night", "Fog"]);
+    // The night is rounded to a twentieth, so a plot's picture by link changes with the light
+    // rather than with every second: this moment's own 0.206 is drawn as 0.2.
+    expect(at(0.4)?.sky?.night).toBe(0.2);
+    // A world that has never counted a day has no day and no season to stamp.
+    const { day: _counted, ...dayless } = service.state;
+    expect(plotPhotoSpec(dayless, wren.residentId, AT_NOON)?.stamp).toEqual(["Fog"]);
+  });
+
+  it("shows whoever is standing on the plot, so a home with someone in it reads as one", async () => {
+    const { settled, service, call } = await start();
+    const wren = await settled("Wren");
+    const ivy = await settled("Ivy");
+    const mine = () => plotPhotoSpec(service.state, wren.residentId, AT_NOON);
+    // Wren is home on their own plot; Ivy settled another, so only Wren is in the picture.
+    const alone = mine();
+    const them = service.state.residents[wren.residentId];
+    expect(alone?.figures).toHaveLength(1);
+    // Feet on their own tile, in their own look, as the map stands them.
+    expect(alone?.figures?.[0]).toMatchObject({
+      x: (them?.x ?? 0) + 0.5,
+      y: (them?.y ?? 0) + 0.88,
+    });
+    expect(alone?.figures?.[0]?.look.color).toBe(them?.color);
+    await call("POST", "/v1/actions", ivy.token, { type: "visit", px: 0, py: 0 });
+    expect(mine()?.figures).toHaveLength(2);
+    // Someone who goes offline is drawn asleep by the map, never standing in a photo.
+    const away = structuredClone(service.state);
+    for (const r of Object.values(away.residents)) r.online = false;
+    expect(plotPhotoSpec(away, wren.residentId, AT_NOON)).not.toHaveProperty("figures");
   });
 
   it("dresses the ground for the world's season, as the map does", async () => {
     const { settled, service } = await start();
     const wren = await settled("Wren");
-    const photo = (day: number) => plotPhotoSpec({ ...service.state, day }, wren.residentId);
+    const photo = (day: number) =>
+      plotPhotoSpec({ ...service.state, day }, wren.residentId, AT_NOON);
     const tiles = (season: "autumn" | "winter") =>
       Array.from({ length: 64 }, (_, i) =>
         groundTile(CONFIG, i % 8, Math.floor(i / 8), false, season),
@@ -220,7 +277,7 @@ describe("plot photo data", () => {
     const wren = await settled("Wren");
     // Set straight into the world for this read-model test: buying and placing are tested in the sim.
     service.state.blocks["6,6"] = "lantern";
-    const spec = plotPhotoSpec(service.state, wren.residentId);
+    const spec = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
     expect(spec?.blocks.find((b) => b.x === 6 && b.y === 6)).toMatchObject({
       decor: "lantern",
       fill: BLOCK_COLORS.lantern,
@@ -234,7 +291,7 @@ describe("plot photo data", () => {
     // tested in the sim.
     service.state.blocks["6,6"] = "well";
     service.state.ground = { "3,6": "cobble", "3,7": "stepping_stones" };
-    const spec = plotPhotoSpec(service.state, wren.residentId);
+    const spec = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
     if (!spec) throw new Error("no spec");
     expect(spec.blocks.find((b) => b.x === 6 && b.y === 6)).toMatchObject({
       furniture: "well",
@@ -264,7 +321,7 @@ describe("plot photo data", () => {
       readyDay: day + 3,
     };
     items.crops["2,6"] = { crop: "lemon", by: wren.residentId, plantedDay: day - 4, readyDay: day };
-    const spec = plotPhotoSpec({ ...service.state, day }, wren.residentId);
+    const spec = plotPhotoSpec({ ...service.state, day }, wren.residentId, AT_NOON);
     expect(spec?.crops).toEqual([
       { x: 2, y: 6, crop: "lemon", done: 1, fill: CROP_HEX.lemon },
       { x: 6, y: 6, crop: "pumpkin", done: 0.4, fill: CROP_HEX.pumpkin, vine: true },
@@ -274,14 +331,14 @@ describe("plot photo data", () => {
   it("draws the owner's pet asleep beside the hearth, facing it", async () => {
     const { settled, service, call } = await start();
     const wren = await settled("Wren");
-    expect(plotPhotoSpec(service.state, wren.residentId)?.pet).toBeUndefined();
+    expect(plotPhotoSpec(service.state, wren.residentId, AT_NOON)?.pet).toBeUndefined();
     await call("POST", "/v1/actions", wren.token, {
       type: "adopt_pet",
       kind: "fox",
       coat: "red",
       name: "Ember",
     });
-    const pet = plotPhotoSpec(service.state, wren.residentId)?.pet;
+    const pet = plotPhotoSpec(service.state, wren.residentId, AT_NOON)?.pet;
     // The hearth is at (3, 3); the first open tile beside it is east, so the fox faces west.
     expect(pet).toMatchObject({ size: 1, flip: true });
     expect(pet?.x).toBeGreaterThan(3.5);

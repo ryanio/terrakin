@@ -11,6 +11,7 @@
 
 import { safeColor } from "./color";
 import { type Drawing, drawingBox, drawingSvg } from "./drawing";
+import { type Sky, skyParts } from "./sky";
 
 export { safeColor };
 
@@ -231,6 +232,10 @@ export interface PlotCard {
    * card border, the brand on the photo's own frame, and room all round the frame.
    */
   posted?: boolean | undefined;
+  /** The moment it shows: the map's light and the weather, drawn over the plot (decision 0300). */
+  sky?: Sky | undefined;
+  /** The stamp under the caption, in our own words, like "Day 13 of Terrakin", "Autumn", "Rain". */
+  stamp?: string[] | undefined;
   ink: PlotInk;
 }
 
@@ -270,6 +275,10 @@ export interface PlotArea {
    * under it shows through dimmed wherever it has no flooring.
    */
   floorPlan?: boolean | undefined;
+  /** A ring on the ground under someone, drawn under the figures standing in the area. */
+  ring?: { x: number; y: number } | undefined;
+  /** The weather and the map's light at the moment drawn, over everything standing in the area. */
+  sky?: Sky | undefined;
   ink: PlotInk;
 }
 
@@ -290,6 +299,7 @@ export function plotSvg(c: PlotCard, px: number): string {
     figures: c.figures,
     floors: c.floors,
     floorPlan: c.floorPlan,
+    sky: c.sky,
     ink: c.ink,
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 ${S} ${S}" shape-rendering="geometricPrecision">${parts.join("")}</svg>`;
@@ -314,7 +324,7 @@ const UNDER_FLOORING_OPACITY = 0.5;
 /**
  * An area's markup, in tile units from its top left: the ground and what lies on it, ponds, blocks,
  * decor and furniture, crops, hearths, the floors above the ground floor, pets, and figures, back
- * to front. Our own markup only.
+ * to front, with the weather and the light over all of it. Our own markup only.
  */
 export function areaParts(a: PlotArea): string[] {
   const cols = Math.max(1, Math.min(MAX_SIDE, Math.floor(a.cols)));
@@ -401,6 +411,12 @@ export function areaParts(a: PlotArea): string[] {
     );
   }
   parts.push(...floorsSvg(a, cols, rows, inX, inY));
+  // A ring on the ground marks who the picture is about: under the pets and figures, over the rest.
+  if (a.ring && Number.isFinite(a.ring.x) && Number.isFinite(a.ring.y)) {
+    parts.push(
+      `<ellipse cx="${n(a.ring.x)}" cy="${n(a.ring.y)}" rx="0.46" ry="0.17" fill="none" stroke="#ffffff" stroke-width="0.07" stroke-opacity="0.9"/>`,
+    );
+  }
   for (const pet of (a.pets ?? []).slice(0, MAX_PETS)) parts.push(...petSvg(pet, cols, rows));
   // Figures back to front, so someone further south stands in front.
   const figures = (a.figures ?? [])
@@ -410,6 +426,7 @@ export function areaParts(a: PlotArea): string[] {
   figures.forEach((f, i) => {
     parts.push(...figureSvg(f, `f${i}`));
   });
+  if (a.sky) parts.push(...skyParts(a.sky, a.hearths ?? [], cols, rows));
   return parts;
 }
 
@@ -1045,6 +1062,8 @@ const STEM = "#5f9a43";
 const LEAF = "#6fae4c";
 /** A pumpkin before it ripens, swelling toward its color. */
 const BUD = "#8cbf5a";
+/** How far along a crop on a stem sets its fruit. The same number is in the client's `paintCrop`. */
+const FRUIT_SET = 0.45;
 const PUMPKIN_STEM = "#76703a";
 /** The thin dark edge around each fruit. */
 const FRUIT_EDGE = ' stroke="rgba(43, 38, 32, 0.35)" stroke-width="0.02"';
@@ -1086,10 +1105,11 @@ function oval(
 
 /**
  * A crop on its planter, as `packages/client/src/render.ts` paints it: a sprout that grows taller,
- * with three fruit or flowers in its color once it's ready; or, for a crop on a vine like a
- * pumpkin, a vine along the soil, its fruit swelling from a green bud and turning its color, with a
- * stem once it's ripe. The planter is the block under it, so the same 0.05 inset and 0.9 tile size
- * apply.
+ * its three fruit or flowers setting at `FRUIT_SET` and swelling from a green bud to the crop's own
+ * color, full at ready; or, for a crop on a vine like a pumpkin, a vine along the soil, its fruit
+ * swelling the same way, with a stem once it's ripe. Fruit before ready is what tells one crop from
+ * another at a glance, so a photo of a garden reads as tomatoes and wheat rather than sprouts. The
+ * planter is the block under it, so the same 0.05 inset and 0.9 tile size apply.
  */
 function cropSvg(c: PlotCrop): string[] {
   const done = Number.isFinite(c.done) ? Math.max(0, Math.min(1, c.done)) : 0;
@@ -1140,14 +1160,18 @@ function cropSvg(c: PlotCrop): string[] {
       oval(cx + side * leaf, base - tall * 0.55, leaf, leaf * 0.5, side * 29, LEAF),
     ),
   ];
-  if (done >= 1) {
+  if (done >= FRUIT_SET) {
+    const ripe = done >= 1;
+    const swell = (done - FRUIT_SET) / (1 - FRUIT_SET);
+    const r = size * (0.05 + 0.04 * swell);
+    const skin = ripe ? fill : mixColor(BUD, fill, 0.55 + 0.45 * swell);
     for (const [dx, dy] of [
       [-0.16, -0.05],
       [0.16, -0.1],
       [0, -0.2],
     ] as const) {
       out.push(
-        `<circle cx="${n(cx + dx * size)}" cy="${n(base - tall + dy * size + tall * 0.4)}" r="${n(size * 0.09)}" fill="${fill}"${FRUIT_EDGE}/>`,
+        `<circle cx="${n(cx + dx * size)}" cy="${n(base - tall + dy * size + tall * 0.4)}" r="${n(r)}" fill="${skin}"${FRUIT_EDGE}/>`,
       );
     }
   }

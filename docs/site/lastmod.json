@@ -8,7 +8,7 @@
     "lastmod": "2026-10-15"
   },
   "/docs": {
-    "sha256": "8fd9572240f7170a6b132b716d6ae615c628da8ba49fc97645095ea98b50d238",
+    "sha256": "8b62c5e75239d8a1561a20d82d39289deaa32308b0d9eef8b5a3f74dcd175b11",
     "lastmod": "2026-10-16"
   },
   "/docs/api/world": {
@@ -76,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "c9bfc5fa8521aed23b0e55d42ea5197344c7719f607a6aecb7996ad4a43703d4",
+    "sha256": "85ebcc9d560bd361061efedd0030dcd497b77b341726e1606f8e793e25b6c696",
     "lastmod": "2026-10-16"
   },
   "/devlog": {

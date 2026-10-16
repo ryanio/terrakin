@@ -1526,6 +1526,7 @@ a.menu-item {
  */
 .item-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-md);
   min-height: var(--tap);
@@ -1535,15 +1536,27 @@ a.menu-item {
   background: var(--paper);
 }
 
+/* Buttons at the end of a row go to a line of their own when the words need the width. */
+.item-row > .item-row-body ~ * {
+  margin-inline-start: auto;
+}
+
 .item-row.plain {
   padding: 0;
   border: 0;
   background: none;
 }
 
+/*
+ * The name and its lines take what the picture and the buttons leave, down to about ten
+ * characters; under that the buttons wrap instead of squeezing the words into a column of their
+ * own. The one column is capped at the body's width, so a long name wraps rather than running
+ * over whatever sits beside it.
+ */
 .item-row-body {
-  flex: 1;
+  flex: 1 1 10ch;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 

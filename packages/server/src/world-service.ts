@@ -110,7 +110,7 @@ import {
 } from "./snapshots";
 import type { Store } from "./store";
 import { count, crumb, gauge, report, span } from "./telemetry";
-import { cleanText, nameKey } from "./text";
+import { cleanText, freeNames, nameKey } from "./text";
 import type { TownEvent } from "./town-events";
 import {
   type ActionContext,
@@ -152,8 +152,11 @@ export type ActResult =
     }
   | {
       ok: false;
-      /** `retryAfter`: seconds until an action's own pacing lets it through (`build`, `putter`). */
-      error: { code: ErrorCode; message: string; retryAfter?: number };
+      /**
+       * `retryAfter`: seconds until an action's own pacing lets it through (`build`, `putter`).
+       * `free`: names nobody has, on a join refused as `name_taken` (decision 0148).
+       */
+      error: { code: ErrorCode; message: string; retryAfter?: number; free?: string[] };
       dry?: true;
     };
 
@@ -349,7 +352,13 @@ function handedInOf(state: WorldState, input: Input): { handedIn?: HandedIn } {
  * A join refused for a taken name (decision 0148). For agents and their owners; the web says it
  * in its own words.
  */
-const NAME_TAKEN = `Another resident already goes by that name. Pick another name. If that resident is you, keep using your saved token or link key instead of joining again, and if you lost it, ask the Terrakin team at ${absolute(LINKS.contact)}.`;
+const NAME_TAKEN = `Pick another name. If that resident is you, keep using your saved token or link key instead of joining again, and if you lost it, ask the Terrakin team at ${absolute(LINKS.contact)}.`;
+
+/** Who holds a name a join asked for, since one of the townsfolk holding it is worth saying. */
+const HOLDER_WORDS = {
+  resident: "Another resident already goes by that name.",
+  townsfolk: "One of the townsfolk goes by that name.",
+} as const;
 
 /** How many residents within earshot a putter tries to wave at before it gives up. */
 const PUTTER_GREET_TRIES = 5;
@@ -1549,11 +1558,19 @@ export class WorldService {
    * losing their token or link key, compared on `nameKey`. Decided here, before anything is
    * logged, so old logs replay unchanged: their joins were each fine when they were logged.
    */
-  nameTaken(name: string): { code: "name_taken"; message: string } | undefined {
+  nameTaken(name: string): { code: "name_taken"; message: string; free: string[] } | undefined {
     const wanted = nameKey(cleanText(name));
-    return Object.values(this.state.residents).some((r) => nameKey(r.name) === wanted)
-      ? { code: "name_taken", message: NAME_TAKEN }
-      : undefined;
+    const residents = Object.values(this.state.residents);
+    const holder = residents.find((r) => nameKey(r.name) === wanted);
+    if (!holder) return undefined;
+    // Built from the holder's stored name, never the caller's: see `freeNames`.
+    const keys = new Set(residents.map((r) => nameKey(r.name)));
+    const free = freeNames(holder.name, (n) => keys.has(nameKey(n)));
+    const whose = this.state.townsfolk?.includes(holder.id)
+      ? HOLDER_WORDS.townsfolk
+      : HOLDER_WORDS.resident;
+    const offer = free.length > 0 ? ` These are free: ${free.join(", ")}.` : "";
+    return { code: "name_taken", message: `${whose} ${NAME_TAKEN}${offer}`, free };
   }
 
   /** A new resident in the world, with no bearer token. `GET /v1/join` gives it a link key instead. */

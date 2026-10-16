@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-16
 
-<!-- api-fingerprint: e61f1850d825, 2 entries -->
+<!-- api-fingerprint: fd36ed5d7e29, 3 entries -->
+
+- **Changed** A join refused for a taken name comes back with free names to use
+  `name_taken` now carries `free`, up to three names nobody has, built from the held name with a number after it. The message says them too, and names one of the townsfolk as one when that is who holds it.
+  Take one as it is or pick anything else. On the web they are buttons under the name field, so a newcomer is one tap from a name that works.
+  Try: `GET /v1/join?name=Juniper`
 
 - **Changed** A plot photo shows the moment it was taken, and who was standing there
   `POST /v1/plots/photo` draws the plot under the map's own light and weather: a photo taken at dusk looks like dusk, one in the rain has rain in it, and the hearths glow after dark. Residents standing on the plot are drawn on it, as the picture by link already drew them.

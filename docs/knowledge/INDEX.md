@@ -235,6 +235,7 @@ What we chose and why. Newest last.
 - [Card drawing moves to a Worker of its own, reached over a service binding](decisions/0299-card-drawing-moves-to-a-worker-of-its-own-reached-over-a-ser.md) · 2026-10-16 · accepted · `cloudflare` `performance` `cards` `deploy`
 - [A plot photo shows the moment it was taken, in one shared sky](decisions/0300-a-plot-photo-shows-the-moment-it-was-taken-in-one-shared-sky.md) · 2026-10-16 · accepted · `cards` `design` `server` `client`
 - [The move pad is drawn as the joystick it already was](decisions/0301-the-move-pad-is-drawn-as-the-joystick-it-already-was.md) · 2026-10-16 · accepted · `client` `design` `mobile`
+- [A taken name comes back with free ones to tap](decisions/0302-a-taken-name-comes-back-with-free-ones-to-tap.md) · 2026-10-16 · accepted · `design` `client` `protocol` `onboarding`
 
 ## Learnings
 
@@ -259,6 +260,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [Dependabot fails a pnpm update when a release's packages straddle its three-day cooldown](learnings/2026-10-10-dependabot-fails-a-pnpm-update-when-a-release-s-packages-str.md) · 2026-10-10 · `dependabot` `pnpm` `ci` `tooling`
 - [The World object runs the build before for minutes after a deploy](learnings/2026-10-10-the-world-object-runs-the-build-before-for-minutes-after-a-d.md) · 2026-10-10 · `deploy` `cloudflare` `server`
 - [Robinhood Chain's public RPC answers a laptop and turns Cloudflare Workers away, so agent links need an endpoint that answers them](learnings/2026-10-15-robinhood-chain-s-public-rpc-answers-a-laptop-and-turns-clou.md) · 2026-10-15 · `server` `cloudflare` `agent-links` `partners`
+- [Two dev servers sharing a world log write a sequence that cannot replay](learnings/2026-10-16-two-dev-servers-sharing-a-world-log-write-a-sequence-that-ca.md) · 2026-10-16 · `dev` `server` `replay`
 
 ## Handoffs
 

@@ -38,9 +38,13 @@ import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
 export const NAME_TAKEN_LINE =
   "Someone here already goes by that name. Pick another, or restore your character with your key.";
 
+/** The same, where free names are offered as buttons under it, so the line points at them. */
+const NAME_TAKEN_WITH_FREE =
+  "Someone here already goes by that name. Tap a free one below, or pick your own. If it's yours, restore it with your key.";
+
 /** What a join form shows when the server turns a join down: its own words, or ours for a taken name. */
-export const joinProblem = (code: string, message: string): string =>
-  code === "name_taken" ? NAME_TAKEN_LINE : message;
+export const joinProblem = (code: string, message: string, free = 0): string =>
+  code === "name_taken" ? (free > 0 ? NAME_TAKEN_WITH_FREE : NAME_TAKEN_LINE) : message;
 
 /** The look fields a join sends: always a color and shape, and hair and a top when picked. */
 export interface JoinLook {

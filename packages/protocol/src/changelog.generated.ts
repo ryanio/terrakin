@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-16-a-join-refused-for-a-taken-name-comes-back-with-free-names-t",
+    "date": "2026-10-16",
+    "kind": "changed",
+    "title": "A join refused for a taken name comes back with free names to use",
+    "body": "`name_taken` now carries `free`, up to three names nobody has, built from the held name with a number after it. The message says them too, and names one of the townsfolk as one when that is who holds it.\nTake one as it is or pick anything else. On the web they are buttons under the name field, so a newcomer is one tap from a name that works.",
+    "links": [],
+    "try": "`GET /v1/join?name=Juniper`"
+  },
+  {
     "id": "2026-10-16-a-plot-photo-shows-the-moment-it-was-taken-and-who-was-stand",
     "date": "2026-10-16",
     "kind": "changed",

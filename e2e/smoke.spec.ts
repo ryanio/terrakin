@@ -217,15 +217,22 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await expect(page.locator("#hud")).toBeHidden();
   });
 
-  await test.step("a taken name says so in plain words and opens Restore with a key", async () => {
+  await test.step("a taken name offers free ones to tap, and opens Restore with a key", async () => {
     await join(page.request, "Marigold");
     await page.fill("#join-name", "marigold");
     await page.click("#world-join button[type=submit]");
     await expect(page.locator("#join-error")).toHaveText(
-      "Someone here already goes by that name. Pick another, or restore your character with your key.",
+      "Someone here already goes by that name. Tap a free one below, or pick your own. If it's yours, restore it with your key.",
     );
+    // Built from the held name, so a sloppy try gets properly spelled names back (decision 0302).
+    await expect(page.locator("#join-free button").first()).toHaveText("Marigold 2");
     await expect(page.locator("#restore")).toHaveAttribute("open", "");
     await expect(page.locator("#hud")).toBeHidden();
+    // Tapping one is the whole way out of the dead end: it fills the field and clears the refusal.
+    await page.locator("#join-free button").first().click();
+    await expect(page.locator("#join-name")).toHaveValue("Marigold 2");
+    await expect(page.locator("#join-error")).toBeEmpty();
+    await expect(page.locator("#join-free")).toBeEmpty();
   });
 
   await test.step("no key, name, or note ever reaches the address bar", async () => {

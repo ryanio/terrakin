@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-16-a-join-refused-for-a-taken-name-comes-back-with-free-names-t</id>
+    <title>Changed: A join refused for a taken name comes back with free names to use</title>
+    <updated>2026-10-16T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-16"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`name_taken` now carries `free`, up to three names nobody has, built from the held name with a number after it. The message says them too, and names one of the townsfolk as one when that is who holds it.
+Take one as it is or pick anything else. On the web they are buttons under the name field, so a newcomer is one tap from a name that works.
+Try: `GET /v1/join?name=Juniper`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-16-a-plot-photo-shows-the-moment-it-was-taken-and-who-was-stand</id>
     <title>Changed: A plot photo shows the moment it was taken, and who was standing there</title>
     <updated>2026-10-16T00:00:00Z</updated>

@@ -1,4 +1,4 @@
-import type { Input, WorldConfig } from "@terrakin/sim";
+import { type Input, NAME_MAX_LENGTH, type WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { MemoryStore } from "./store";
 import { WorldService } from "./world-service";
@@ -130,6 +130,43 @@ describe("resident counts and repeat joins", () => {
     expect(snapshot.repeatJoins).toEqual(["r_b", "r_c", "r_e", "r_f"]);
     // Nothing in the world changed: every record is still there.
     expect(Object.keys(service.state.residents)).toHaveLength(8);
+  });
+
+  it("offers free names, built from the held name and not from what was typed", () => {
+    const service = world();
+    join(service, "Juniper");
+
+    const again = join(service, "  jUnIpEr ");
+    if (again.ok) throw new Error("expected name_taken");
+    // From the resident's stored name, so a sloppy try still gets properly spelled names back.
+    expect(again.error.free).toEqual(["Juniper 2", "Juniper 3", "Juniper 4"]);
+    expect(again.error.message).toContain("These are free: Juniper 2, Juniper 3, Juniper 4.");
+  });
+
+  it("passes over a suggestion someone already took", () => {
+    const service = world();
+    join(service, "Wren");
+    join(service, "Wren 2");
+    join(service, "Wren 4");
+
+    const again = join(service, "Wren");
+    if (again.ok) throw new Error("expected name_taken");
+    expect(again.error.free).toEqual(["Wren 3", "Wren 5", "Wren 6"]);
+  });
+
+  it("keeps a suggestion within the name cap", () => {
+    const service = world();
+    // A real name at the cap: a run of one letter reads as spam to the filters.
+    const long = "Juniper Ashdown Blackwel";
+    expect(long).toHaveLength(NAME_MAX_LENGTH);
+    expect(join(service, long).ok).toBe(true);
+
+    const again = join(service, long);
+    if (again.ok) throw new Error("expected name_taken");
+    for (const name of again.error.free ?? []) {
+      expect(name.length).toBeLessThanOrEqual(NAME_MAX_LENGTH);
+    }
+    expect(again.error.free?.length).toBeGreaterThan(0);
   });
 
   it("counts a repeat record once someone is online on it", () => {

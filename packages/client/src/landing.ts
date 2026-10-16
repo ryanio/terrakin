@@ -6,6 +6,7 @@
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
 
+import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
@@ -19,7 +20,8 @@ export interface Landing {
   /** Lift the curtain with a short fade. `instant` skips the animation. */
   hide(options?: { instant?: boolean }): void;
   setJoining(on: boolean): void;
-  setError(text: string): void;
+  /** The refusal to show, with any free names to offer as buttons (`name_taken`). */
+  setError(text: string, free?: readonly string[]): void;
   focusName(): void;
   focusNote(): void;
   /** Open "Restore with a key", for a saved key the server no longer knows. */
@@ -71,8 +73,34 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
   // it. The field it's about (the one that gets focus) is marked invalid until the error clears.
   name.setAttribute("aria-describedby", "join-error");
   note.setAttribute("aria-describedby", "join-error");
-  const showError = (text: string) => {
+  // Names nobody has, offered after a `name_taken` refusal so a newcomer is one tap from a name
+  // that works instead of inventing another themselves. The row is empty the rest of the time,
+  // and `.cluster:empty` leaves no gap.
+  const freeRow = byId(root, "join-free");
+  const offerFree = (names: readonly string[]) => {
+    freeRow.replaceChildren(
+      ...names.map((free) =>
+        h(
+          "button",
+          {
+            class: "pill-button small",
+            attrs: { type: "button" },
+            on: {
+              click: () => {
+                name.value = free;
+                showError("");
+                name.focus();
+              },
+            },
+          },
+          free,
+        ),
+      ),
+    );
+  };
+  const showError = (text: string, free: readonly string[] = []) => {
     error.textContent = text;
+    offerFree(text ? free : []);
     if (text) {
       error.scrollIntoView({ block: "nearest" });
       return;

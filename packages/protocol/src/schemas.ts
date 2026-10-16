@@ -2714,6 +2714,14 @@ export const ErrorBody = z.object({
       "The action type, field name, or value you most likely meant, when the request had a typo.",
     ),
   /**
+   * Names nobody has, for a join refused as `name_taken` (decision 0148): take one as it is, or
+   * pick anything else. The message says them too. Absent on every other refusal.
+   */
+  free: z
+    .array(ResidentName)
+    .optional()
+    .describe("Names nobody has yet, when a join was refused because the name was taken."),
+  /**
    * An action's own pacing (`build`, `putter`): seconds until it's worth trying again. That refusal
    * is the world's answer, a 200 with `ok: false` like any other, the same on the live socket. A
    * request limit is an HTTP 429 that says it in `Retry-After` instead.

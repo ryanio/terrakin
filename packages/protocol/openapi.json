@@ -29102,6 +29102,13 @@
             "description": "The action type, field name, or value you most likely meant, when the request had a typo.",
             "type": "string"
           },
+          "free": {
+            "description": "Names nobody has yet, when a join was refused because the name was taken.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResidentName"
+            }
+          },
           "retryAfter": {
             "description": "`rate_limited` from an action's own pacing (`build`, `putter`): seconds until it's worth trying again.",
             "type": "integer",

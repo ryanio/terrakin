@@ -230,15 +230,21 @@ export class LiveSession {
   private fail(
     code: ErrorCode,
     message: string,
-    id?: string,
-    didYouMean?: string,
-    dry?: true,
-    retryAfter?: number,
+    extra: {
+      id?: string | undefined;
+      didYouMean?: string | undefined;
+      dry?: true | undefined;
+      retryAfter?: number | undefined;
+      /** Free names, for a join refused as `name_taken` (decision 0148). */
+      free?: readonly string[] | undefined;
+    } = {},
   ) {
+    const { id, didYouMean, dry, retryAfter, free } = extra;
     const error = {
       code,
       message,
       ...(didYouMean ? { did_you_mean: didYouMean } : {}),
+      ...(free?.length ? { free: [...free] } : {}),
       ...(retryAfter === undefined ? {} : { retryAfter }),
     };
     this.send({
@@ -287,9 +293,13 @@ export class LiveSession {
     if (hint) {
       if (!this.residentId) return this.fail("bad_request", "Say hello first.");
       if (!this.api.takeAction(this.residentId)) {
-        return this.fail("rate_limited", "Slow down.", hint.id);
+        return this.fail("rate_limited", "Slow down.", { id: hint.id });
       }
-      return this.fail(hint.code, hint.message, hint.id, hint.didYouMean, hint.dry);
+      return this.fail(hint.code, hint.message, {
+        id: hint.id,
+        didYouMean: hint.didYouMean,
+        dry: hint.dry,
+      });
     }
     if (!parsed.success) return this.fail("bad_request", parsed.error.message);
     const msg = parsed.data;
@@ -366,7 +376,10 @@ export class LiveSession {
           return this.fail("rate_limited", "Too many new sessions. Try again in a minute.");
         }
         const created = service.createSession({ ...msg, name: msg.name, kind: msg.kind });
-        if (!created.ok) return this.fail(created.error.code, created.error.message);
+        if (!created.ok)
+          return this.fail(created.error.code, created.error.message, {
+            free: created.error.free,
+          });
         if (!created.residentId || !created.token) return this.fail("internal", "No session.");
         id = created.residentId;
         token = created.token;
@@ -396,21 +409,22 @@ export class LiveSession {
       return this.fail(
         "bad_request",
         "This socket only watches posts. Say hello on another to act.",
-        msg.id,
+        { id: msg.id },
       );
     }
     const residentId = this.residentId;
     if (!residentId || msg.type === "ping") return this.fail("bad_request", "Say hello first.");
-    if (!this.api.takeAction(residentId)) return this.fail("rate_limited", "Slow down.", msg.id);
+    if (!this.api.takeAction(residentId))
+      return this.fail("rate_limited", "Slow down.", { id: msg.id });
     const blocked = this.api.writeBlock(residentId);
-    if (blocked) return this.fail(blocked.error, blocked.message, msg.id);
+    if (blocked) return this.fail(blocked.error, blocked.message, { id: msg.id });
     // The resident may have been marked offline (DELETE /v1/session from another client).
     // An open socket means they're here, so bring them back. A dry run changes nothing.
     if (!msg.action.dry) service.ensureOnline(residentId);
     const result = service.act(residentId, msg.action);
     if (!result.ok) {
       const { code, message, retryAfter } = result.error;
-      return this.fail(code, message, msg.id, undefined, result.dry, retryAfter);
+      return this.fail(code, message, { id: msg.id, dry: result.dry, retryAfter });
     }
     this.send({
       type: "ack",

@@ -173,6 +173,19 @@ export function repeatable(request: Request): boolean {
 }
 
 /**
+ * The World object's answer with its body in hand. A stub's `fetch` settles as soon as the headers
+ * arrive and the body streams after them, so an object that restarts mid-answer breaks the stream
+ * rather than the call: the retry below never saw it, the caller had already passed the response on,
+ * and it reached the client as a failed read and Sentry as an error nobody handled. Reading it here
+ * puts that failure where the retry can see it. An answer with no body (a socket upgrade, a 204, a
+ * 304) has nothing to break and passes through as it is.
+ */
+async function inHand(response: Response): Promise<Response> {
+  if (response.body === null) return response;
+  return new Response(await response.arrayBuffer(), response);
+}
+
+/**
  * Ask the World object, and send a read again once when the connection broke because the object was
  * restarting. Anything still broken comes back undefined, for the caller to answer in the API's own
  * shape instead of letting a 500 page out; any other error is the object's own and goes on through
@@ -183,12 +196,12 @@ export async function askWorld(
   o: { repeat: boolean; onLost: (err: unknown, outcome: "retried" | "refused") => void },
 ): Promise<Response | undefined> {
   try {
-    return await send();
+    return await inHand(await send());
   } catch (err) {
     if (!worldRestarted(err)) throw err;
     if (o.repeat) {
       try {
-        const again = await send();
+        const again = await inHand(await send());
         o.onLost(err, "retried");
         return again;
       } catch (second) {

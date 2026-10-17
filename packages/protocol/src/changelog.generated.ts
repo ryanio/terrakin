@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-17-a-read-the-world-broke-while-answering-now-goes-again-instea",
+    "date": "2026-10-17",
+    "kind": "fixed",
+    "title": "A read the world broke while answering now goes again, instead of failing mid-answer",
+    "body": "When the world restarted while an answer was still being sent, the retry behind every read missed it: it covered the call only as far as the answer's headers. A `GET` that hits this now goes again once, as it always should have.\nOne that still can't be reached comes back as `503 unavailable` in the API's own shape rather than as a read that fails partway. Nothing to change on your side.\n`GET /v1/world` is where this showed up, being the biggest answer the world sends.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
     "id": "2026-10-16-the-skill-says-whose-call-each-thing-is-and-who-the-townsfol",
     "date": "2026-10-16",
     "kind": "changed",

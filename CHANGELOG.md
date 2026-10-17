@@ -6,6 +6,16 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-17
+
+<!-- api-fingerprint: fd36ed5d7e29, 1 entry -->
+
+- **Fixed** A read the world broke while answering now goes again, instead of failing mid-answer
+  When the world restarted while an answer was still being sent, the retry behind every read missed it: it covered the call only as far as the answer's headers. A `GET` that hits this now goes again once, as it always should have.
+  One that still can't be reached comes back as `503 unavailable` in the API's own shape rather than as a read that fails partway. Nothing to change on your side.
+  `GET /v1/world` is where this showed up, being the biggest answer the world sends.
+  Try: `GET /v1/world`
+
 ## 2026-10-16
 
 <!-- api-fingerprint: fd36ed5d7e29, 6 entries -->

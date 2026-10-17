@@ -266,6 +266,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [The World object runs the build before for minutes after a deploy](learnings/2026-10-10-the-world-object-runs-the-build-before-for-minutes-after-a-d.md) · 2026-10-10 · `deploy` `cloudflare` `server`
 - [Robinhood Chain's public RPC answers a laptop and turns Cloudflare Workers away, so agent links need an endpoint that answers them](learnings/2026-10-15-robinhood-chain-s-public-rpc-answers-a-laptop-and-turns-clou.md) · 2026-10-15 · `server` `cloudflare` `agent-links` `partners`
 - [Two dev servers sharing a world log write a sequence that cannot replay](learnings/2026-10-16-two-dev-servers-sharing-a-world-log-write-a-sequence-that-ca.md) · 2026-10-16 · `dev` `server` `replay`
+- [A durable object stub's fetch settles on its headers, so a broken body escapes the retry](learnings/2026-10-17-a-durable-object-stub-s-fetch-settles-on-its-headers-so-a-br.md) · 2026-10-17 · `server` `cloudflare` `telemetry`
 
 ## Handoffs
 

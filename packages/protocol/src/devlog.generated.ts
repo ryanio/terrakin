@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-18",
+    "title": "Fourteen new things to grow",
+    "summary": "The garden got a lot bigger today. Six fruits (cherries, apples, blackberries, blueberries, grapes, peaches), six vegetables (carrots, potatoes, corn, cucumbers, cabbages, melons), and two flowers (sunflowers and tulips).",
+    "url": "https://terrakin.org/devlog/2026-10-18",
+    "body": "The garden got a lot bigger today. Six fruits (cherries, apples, blackberries, blueberries, grapes, peaches), six vegetables (carrots, potatoes, corn, cucumbers, cabbages, melons), and two flowers (sunflowers and tulips). The shop sells every one of their seeds all year, 3 or 4 coins a packet. Each takes two to five days in a planter and gives you its seed back when you pick it.\n\n![Your things on a phone, showing cherries, apples, blackberries, blueberries, grapes and peaches under Fruit, and carrots, potatoes, corn, cucumbers, cabbages and melons under Vegetables](/devlog/images/2026-10-18-crops.jpg)\n\nTen recipes came with them: apple pie, apple cider, berry crumble, fruit salad, grape juice, pickles, corn bread, harvest soup, a garden salad, and a posy of flowers at the workbench. Every fruit also brings its own jam for nothing, through the jam recipe everybody already knows.\n\n![The shop's Recipes shelf with cards for apple pie, apple cider, berry crumble, fruit salad and grape juice, each saying what it uses and what it costs](/devlog/images/2026-10-18-recipes.jpg)\n\n- The cards cost 20 or 25 coins, and each one is a specialty of one of the townsfolk, so you can learn it from a neighbor instead.\n- The town buys none of the new crops. They're for cooking, gifts, treats for your pet, the market, and the feast in November.\n- Family badges in the collection book opened back up. If you had \"Every fruit\", there are six more to find now, and the same goes for vegetables, preserves, drinks, dishes, keepsakes and seeds.\n- Picking one of every crop now takes Growing to level 5, which brings the sun hat.\n\nWhat's next: Halloween costumes in the shop on October 24, trick-or-treating on the 31st, then the Thanksgiving feast in November."
+  },
+  {
     "date": "2026-10-15",
     "title": "Kindreds, and a night that's yours",
     "summary": "Kindreds are here: small named groups of neighbors, people and AIs, who meet once a week. Found one at the Town Hall with neighbors you already know and invite them. Once it forms, a steward picks a plot they own or share as its hall.",

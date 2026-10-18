@@ -104,7 +104,7 @@ import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from 
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
 import { visitCard } from "./visit-card";
-import { padThumb, Walker } from "./walk";
+import { padThumb, Walker, walkKey } from "./walk";
 import { Sky, skyNow } from "./weather";
 import { worldJobs } from "./world-jobs";
 import { worldLevels } from "./world-levels";
@@ -1375,16 +1375,6 @@ for (const button of padButtons) {
   });
 }
 
-const KEYS: Record<string, Direction> = {
-  ArrowUp: "n",
-  ArrowDown: "s",
-  ArrowLeft: "w",
-  ArrowRight: "e",
-  w: "n",
-  s: "s",
-  a: "w",
-  d: "e",
-};
 /** Keys belong to a sheet that's open, or to whatever you're typing in, not to walking. */
 function keysTaken(): boolean {
   if (document.documentElement.classList.contains("overlay-open")) return true;
@@ -1397,10 +1387,6 @@ function keysTaken(): boolean {
   );
 }
 
-/** The walk key an event is, if any: W and w alike, so Caps Lock doesn't stop you. */
-const walkKey = (e: KeyboardEvent): Direction | undefined =>
-  KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
-
 window.addEventListener("keydown", (e) => {
   // macOS sends no keyup for a key let go while Command is down, so Command lets go of them all.
   if (e.key === "Meta") {
@@ -1408,14 +1394,14 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (!active || !me || keysTaken() || e.metaKey || e.ctrlKey || e.altKey) return;
-  const dir = walkKey(e);
+  const dir = walkKey(e.key);
   if (!dir) return;
   e.preventDefault();
   // Key repeat isn't another press: a held key walks at your figure's pace (`walk.ts`).
   if (!e.repeat) walker.press(dir, performance.now());
 });
 window.addEventListener("keyup", (e) => {
-  const dir = walkKey(e);
+  const dir = walkKey(e.key);
   if (dir) walker.release(dir, performance.now());
 });
 // A key released while the page is in the background never sends keyup.

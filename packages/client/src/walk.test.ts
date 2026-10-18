@@ -9,6 +9,7 @@ import {
   RELEASE_MS,
   REPEAT_GAP_MS,
   Walker,
+  walkKey,
 } from "./walk";
 
 const CONFIG = { width: 24, height: 24, plotSize: 8, maxPlotsPerResident: 1, reach: 3 };
@@ -487,5 +488,13 @@ describe("whether you're walking", () => {
       ["pad down", true],
       ["pad up, step landed", false],
     ]);
+  });
+});
+
+describe("which way a key walks", () => {
+  it("reads arrows and WASD in either case, and nothing from an event with no key", () => {
+    // Chrome's autofill fires keyup with no `key` while a form beside the world fills in.
+    const keys = ["ArrowUp", "a", "D", "Enter", "", undefined];
+    expect(keys.map(walkKey)).toEqual(["n", "w", "e", undefined, undefined, undefined]);
   });
 });

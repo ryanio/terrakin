@@ -85,6 +85,26 @@ function combine(a: Direction, b: Direction): Direction | undefined {
   return directionOf(ax + bx, ay + by);
 }
 
+const KEYS: Record<string, Direction> = {
+  ArrowUp: "n",
+  ArrowDown: "s",
+  ArrowLeft: "w",
+  ArrowRight: "e",
+  w: "n",
+  s: "s",
+  a: "w",
+  d: "e",
+};
+
+/**
+ * The walk key a key event's `key` is, if any: W and w alike, so Caps Lock doesn't stop you.
+ * Chrome's autofill sends `keydown` and `keyup` as plain events with no `key`, which walk nowhere.
+ */
+export function walkKey(key: string | undefined): Direction | undefined {
+  if (typeof key !== "string") return undefined;
+  return KEYS[key.length === 1 ? key.toLowerCase() : key];
+}
+
 /**
  * The move pad is one round joystick: how far the thumb is from its middle says which way to walk,
  * and the knob sits under the thumb. `dx` and `dy` are the thumb's offset from the middle, `width`

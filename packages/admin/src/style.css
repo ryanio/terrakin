@@ -230,10 +230,6 @@ body {
   color: var(--ink);
 }
 
-.today-row .state-chip {
-  flex: none;
-}
-
 /* ---------- fields ---------- */
 
 /* ---------- queue items ---------- */
@@ -585,6 +581,11 @@ body {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--ink-soft);
+}
+
+/* In the Today card a chip sits beside the row's words rather than sharing their width. */
+.today-row .state-chip {
+  flex: none;
 }
 
 .state-chip.state-live {

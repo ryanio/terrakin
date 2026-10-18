@@ -240,12 +240,6 @@ a {
   display: none;
 }
 
-/* Tabs over a wide page keep a column's width rather than stretching across it. */
-.layout-head > .link-tabs {
-  width: 100%;
-  max-width: var(--page-narrow);
-}
-
 @media (min-width: 1000px) {
   .layout {
     grid-template-columns: minmax(0, 1fr) 360px;
@@ -282,11 +276,6 @@ a {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
   gap: var(--gap-page);
   align-items: start;
-}
-
-/* A state card (empty, or an error) says one thing about the whole grid, so it spans it. */
-.card-grid > .state-card {
-  grid-column: 1 / -1;
 }
 
 /*
@@ -691,6 +680,11 @@ a.person-link:hover .person-name {
   gap: var(--space-md);
   padding: var(--space-3xl) var(--space-2xl) var(--space-2xl);
   text-align: center;
+}
+
+/* A state card (empty, or an error) says one thing about the whole grid, so it spans it. */
+.card-grid > .state-card {
+  grid-column: 1 / -1;
 }
 
 .state-title {
@@ -1589,6 +1583,12 @@ a.menu-item {
   border-radius: var(--r-pill);
   background: rgba(236, 220, 192, 0.42);
   border: 1px solid rgba(220, 200, 165, 0.6);
+}
+
+/* Tabs over a wide page keep a column's width rather than stretching across it. */
+.layout-head > .link-tabs {
+  width: 100%;
+  max-width: var(--page-narrow);
 }
 
 .link-tab {

@@ -368,6 +368,8 @@ a.action {
   padding: var(--space-md) var(--space-lg);
   border-radius: var(--r-card);
   touch-action: none;
+  /* It fades back while you walk, with the rest of the chrome (at the foot of this file). */
+  transition: opacity 0.25s ease;
 }
 
 .chat:not([hidden]) ~ .visit-card,
@@ -784,6 +786,14 @@ a.action {
  * when you stop. It only dims, never moves or goes away, so a button you reach for mid-walk is
  * still under your thumb, and a screen reader never loses one.
  */
+.actions,
+.world-mode,
+.hud-feed,
+.hud-invite,
+.world-near {
+  transition: opacity 0.25s ease;
+}
+
 .hud[data-walking] .actions,
 .hud[data-walking] .world-mode,
 .hud[data-walking] .hud-feed,
@@ -791,15 +801,6 @@ a.action {
 .hud[data-walking] .visit-card,
 .hud[data-walking] .world-near {
   opacity: 0.32;
-}
-
-.actions,
-.world-mode,
-.hud-feed,
-.hud-invite,
-.visit-card,
-.world-near {
-  transition: opacity 0.25s ease;
 }
 
 /* Coming back is quicker than going: you stopped because you want them. */

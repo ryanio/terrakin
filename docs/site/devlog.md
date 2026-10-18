@@ -14,6 +14,14 @@ The garden got a lot bigger today. Six fruits (cherries, apples, blackberries, b
 
 [Read more](/devlog/2026-10-18)
 
+## A photo shows the moment it was taken
+
+*October 16, 2026*
+
+Plot photos tell the truth about a moment now. A photo shows the light and weather of when it was taken, the residents standing on the plot, and smoke rising from the hearth's new chimney.
+
+[Read more](/devlog/2026-10-16)
+
 ## Kindreds, and a night that's yours
 
 *October 15, 2026*

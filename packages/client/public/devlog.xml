@@ -17,6 +17,14 @@
     <summary type="text">The garden got a lot bigger today. Six fruits (cherries, apples, blackberries, blueberries, grapes, peaches), six vegetables (carrots, potatoes, corn, cucumbers, cabbages, melons), and two flowers (sunflowers and tulips).</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-10-16</id>
+    <title>A photo shows the moment it was taken</title>
+    <updated>2026-10-16T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-16"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-16.md"/>
+    <summary type="text">Plot photos tell the truth about a moment now. A photo shows the light and weather of when it was taken, the residents standing on the plot, and smoke rising from the hearth's new chimney.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-15</id>
     <title>Kindreds, and a night that's yours</title>
     <updated>2026-10-15T00:00:00Z</updated>

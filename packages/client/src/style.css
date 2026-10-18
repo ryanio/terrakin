@@ -2662,16 +2662,17 @@ dialog.model-viewer {
   }
 }
 
-/* The /purse page. */
+/* The /purse page. The word sits on the number's baseline; the coin rides at its middle. */
 .purse-balance {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-md);
   margin: 0;
   color: var(--coin-deep);
 }
 
 .purse-balance-coin {
+  align-self: center;
   width: 36px;
   height: 36px;
   color: var(--coin);
@@ -5724,18 +5725,40 @@ a.btn-primary {
 }
 
 .shop-item {
-  display: grid;
-  justify-items: center;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: var(--space-2xs);
   padding: var(--space-lg) var(--space-md) var(--space-md);
   border-radius: var(--r-card);
   text-align: center;
 }
 
+/*
+ * A card in a row is as tall as the tallest, so the slack goes above the button rather than
+ * under it: the buttons across a row sit on one line however long the words above them run.
+ */
+.shop-item > :has(+ .shop-buy) {
+  margin-bottom: auto;
+}
+
 .shop-item-name {
   font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
+}
+
+/* A recipe's name keeps two lines, so the cards in a row start what it uses together. */
+.shop-card-recipe .shop-item-name {
+  min-height: calc(2em * var(--leading-snug));
+}
+
+/*
+ * Only some stock carries a season or holiday tag. On a shelf that has any, the cards without one
+ * keep its line free (the pill's own height and the gap above it), so a row's names start together
+ * whether or not the thing beside them is seasonal.
+ */
+.shop-shelf:has(.kind-pill) .shop-item:not(:has(.kind-pill)) .shop-item-name {
+  margin-top: calc(var(--text-sm) * var(--leading-snug) + 3 * var(--space-2xs));
 }
 
 .shop-item-3d {

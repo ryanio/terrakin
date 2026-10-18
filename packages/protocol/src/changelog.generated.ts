@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-18-every-recipe-card-can-now-turn-up-as-a-page-on-the-ground",
+    "date": "2026-10-18",
+    "kind": "added",
+    "title": "Every recipe card can now turn up as a page on the ground",
+    "body": "The ten cards the new crops brought (`apple_pie`, `apple_cider`, `berry_crumble`, `fruit_salad`, `grape_juice`, `pickles`, `corn_bread`, `harvest_soup`, `garden_salad`, `posy`) are recipe pages now, so all 26 cards can be found while foraging instead of the 16 that shipped with pages.\n`GET /v1/world` carries `pageEdition`, which list the ground holds: absent or 1 is the pages there have always been, 2 adds those ten. It decides which tiles hold a page and which recipe each teaches, so read it if you draw the world yourself. About 1 find in 20 is still a page.\nWhich tiles hold a page changed on the day terrakin.org switched. Nothing you learned was lost, and a page of a recipe you know still stays on the ground for someone else.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
     "id": "2026-10-17-fourteen-new-crops-to-plant-with-ten-recipes-to-cook-and-cra",
     "date": "2026-10-17",
     "kind": "added",

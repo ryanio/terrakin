@@ -2103,7 +2103,10 @@ function paintGatherButton() {
           at,
           (x, y) => m.pickupAt(x, y),
           (x, y) => m.mayGatherAt(x, y, you),
-        ).filter((t) => !pageKnown(t.kind, t.x, t.y, m.day ?? 0, (r) => knownRecipes.has(r))).length
+        ).filter(
+          (t) =>
+            !pageKnown(t.kind, t.x, t.y, m.day ?? 0, (r) => knownRecipes.has(r), m.pageEdition),
+        ).length
       : 0;
   // Gathering happens on the ground floor (RFC 0028): upstairs the sim refuses it.
   const upstairs = upstairsProblem(self() ?? {}, "gather") !== null;

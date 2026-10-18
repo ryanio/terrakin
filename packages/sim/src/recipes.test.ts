@@ -3,6 +3,11 @@ import { apply } from "./apply";
 import { RECIPE_NAMES, type RecipeName } from "./catalog";
 import { treasuryShareOf } from "./economy";
 import { LESSONS_CONFIG, LESSONS_HASH, LESSONS_LOG } from "./fixtures/lessons-log";
+import {
+  PAGE_EDITION_CONFIG,
+  PAGE_EDITION_HASH,
+  PAGE_EDITION_LOG,
+} from "./fixtures/page-edition-log";
 import { RECIPES_CONFIG, RECIPES_HASH, RECIPES_LOG } from "./fixtures/recipes-log";
 import { SHOP_CONFIG, SHOP_LOG } from "./fixtures/shop-log";
 import { gatherableAt, nearestOpenPickup, pickupLeft } from "./gather";
@@ -17,7 +22,9 @@ import {
   knownRecipes,
   knows,
   onShelf,
+  PAGE_EDITIONS,
   PAGE_RECIPES,
+  pageEditionOf,
   pageOn,
   picksLeft,
   RECIPES_RULES,
@@ -140,6 +147,55 @@ describe("the lessons log", () => {
     // The page went into nobody's things, and the day after, nothing is counted.
     expect(state.items?.inventories.fran?.stacks ?? {}).not.toHaveProperty("recipe_page");
     expect(state.items?.today.taught).toBeUndefined();
+  });
+});
+
+describe("the page edition log", () => {
+  it("replays the switch and a page only edition 2 has, to its pinned hash", () => {
+    const state = replay(PAGE_EDITION_CONFIG, PAGE_EDITION_LOG);
+    expect(hashWorld(state)).toBe(PAGE_EDITION_HASH);
+    expectSupplyHolds(state);
+    expect(state.recipes?.pages).toBe(2);
+    // The page Fran gathered at (14, 7) is a page only under edition 2: edition 1 has no page
+    // there at all, so the switch is what put it on the ground.
+    expect(pageOn(14, 7, 20_027, 1)).toBeNull();
+    expect(pageOn(14, 7, 20_027, 2)).toBe("corn_bread");
+    expect(state.recipes?.learned.fran).toContain("corn_bread");
+  });
+});
+
+describe("set_page_edition", () => {
+  it("comes from the town, moves forward only, and turns on the wider list", () => {
+    // Before recipes are learned there is no edition to set.
+    expect(world().code(TOWN_ACTOR, { type: "set_page_edition", edition: 2 })).toBe("not_due");
+    const w = opened();
+    expect(pageEditionOf(w.state)).toBe(1);
+    // An edition that doesn't exist, the one in use, and anyone but the town are all refused.
+    expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 3 })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 0 })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 1 })).toBe("already_set");
+    expect(w.code("ada", { type: "set_page_edition", edition: 2 })).toBe("server_only");
+    // The switch sets the edition and says so, and it never goes back.
+    expect(w.town({ type: "set_page_edition", edition: 2 })).toEqual([
+      { type: "page_edition_set", edition: 2 },
+    ]);
+    expect(pageEditionOf(w.state)).toBe(2);
+    expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 1 })).toBe("server_only");
+  });
+
+  it("widens the list without moving edition 1's pages", () => {
+    // Edition 1 is frozen: every tile it called a page it still calls a page, teaching the same
+    // recipe, whatever edition 2 holds.
+    expect([pageOn(0, 2, DAY, 1), pageOn(8, 1, DAY, 1), pageOn(2, 0, DAY, 1)]).toEqual([
+      "lemonade",
+      "flower_wreath",
+      "well",
+    ]);
+    const edition = (n: number) => [...(PAGE_EDITIONS[n] ?? [])];
+    expect(edition(1)).toEqual([...PAGE_RECIPES]);
+    // Edition 2 is edition 1 and the ten cards the new crops brought, so every card is a page.
+    expect(edition(2).slice(0, PAGE_RECIPES.length)).toEqual([...PAGE_RECIPES]);
+    expect(edition(2).sort()).toEqual([...CARD_RECIPES].sort());
   });
 });
 

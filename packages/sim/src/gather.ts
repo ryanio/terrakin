@@ -17,7 +17,7 @@ import {
 import { gatherJob } from "./jobs";
 import { tileKey } from "./keys";
 import { earned, gatherEarns } from "./levels";
-import { howToMake, knows, learn, pageOn } from "./recipes";
+import { howToMake, knows, learn, pageEditionOf, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
 import type {
   Command,
@@ -171,6 +171,7 @@ export function gatherableAt(
   day: number,
   finds = false,
   pages = false,
+  edition = 1,
 ): PickupKind | null {
   const biome = biomeAt(config, x, y);
   const kind: ResourceKind | null =
@@ -186,7 +187,7 @@ export function gatherableAt(
   }
   if (!finds) return null;
   const find = findAt(biome, x, y, day);
-  return find && pages && pageOn(x, y, day) ? RECIPE_PAGE : find;
+  return find && pages && pageOn(x, y, day, edition) ? RECIPE_PAGE : find;
 }
 
 /**
@@ -200,10 +201,10 @@ export function pickupOn(
   x: number,
   y: number,
   day: number,
-  tile: { built: boolean; picked: boolean; finds?: boolean; pages?: boolean },
+  tile: { built: boolean; picked: boolean; finds?: boolean; pages?: boolean; edition?: number },
 ): PickupKind | null {
   if (tile.built || tile.picked) return null;
-  return gatherableAt(config, x, y, day, tile.finds === true, tile.pages === true);
+  return gatherableAt(config, x, y, day, tile.finds === true, tile.pages === true, tile.edition);
 }
 
 /** Whether finds lie on the ground in this world (`open_finds` was logged). */
@@ -226,6 +227,7 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
     picked: state.items?.gathered?.[key] === day,
     finds: findsOpen(state),
     pages: pagesOpen(state),
+    edition: pageEditionOf(state),
   });
 }
 
@@ -267,8 +269,9 @@ export function pageKnown(
   y: number,
   day: number,
   known: (recipe: RecipeName) => boolean,
+  edition = 1,
 ): boolean {
-  return kind === RECIPE_PAGE && known(pageOn(x, y, day) as RecipeName);
+  return kind === RECIPE_PAGE && known(pageOn(x, y, day, edition) as RecipeName);
 }
 
 /**
@@ -291,7 +294,7 @@ export function nearestOpenPickup(
         if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
         if (!inBounds(state.config, x, y)) continue;
         const kind = pickupLeft(state, x, y);
-        if (!kind || pageKnown(kind, x, y, day, known)) continue;
+        if (!kind || pageKnown(kind, x, y, day, known, pageEditionOf(state))) continue;
         if (mayGatherOn(plotAtTile(state, x, y), actor, ownersOnly)) return { x, y };
       }
     }
@@ -363,7 +366,7 @@ function checkGatherAll(
   let knownPage: RecipeName | undefined;
   for (const at of mine) {
     if (at.kind !== RECIPE_PAGE) continue;
-    const recipe = pageOn(at.x, at.y, day) as RecipeName;
+    const recipe = pageOn(at.x, at.y, day, pageEditionOf(state)) as RecipeName;
     if (knows(state, actor, recipe) || pages.some((p) => p.recipe === recipe)) knownPage ??= recipe;
     else pages.push({ at, recipe });
   }
@@ -473,7 +476,7 @@ export function checkGather(
   const job = gatherJob(state, actor, [{ kind, x, y }]);
   if (kind === RECIPE_PAGE) {
     // A page teaches its recipe and takes no room (RFC 0024). One you know stays for someone else.
-    const recipe = pageOn(x, y, day) as RecipeName;
+    const recipe = pageOn(x, y, day, pageEditionOf(state)) as RecipeName;
     if (knows(state, actor, recipe)) {
       return refuse(
         "already_known",

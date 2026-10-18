@@ -1717,6 +1717,12 @@ export const WorldSnapshot = z.object({
    */
   recipesOpen: z.literal(true).optional(),
   /**
+   * Which edition of the recipe page list the ground holds (RFC 0024). Absent is edition 1, the
+   * pages there were when recipes opened; 2 adds the ten cards the new crops brought. It decides
+   * which tiles hold a page and which recipe each teaches, so a client draws pages with it.
+   */
+  pageEdition: z.number().int().min(1).optional(),
+  /**
    * Present once levels are open (RFC 0029): deeds earn points, and `GET /v1/progress` and a
    * profile's `level` say how far along a resident is.
    */

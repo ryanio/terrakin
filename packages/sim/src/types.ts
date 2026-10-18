@@ -1087,6 +1087,12 @@ export interface RecipesState {
   picks: Record<ResidentId, number>;
   /** When each resident was last taught by a townsfolk, as the world's day. Absent until their first. */
   townsfolkTaught: Record<ResidentId, number>;
+  /**
+   * The edition of the recipe page list the ground holds (`PAGE_EDITIONS`). Absent until the
+   * server logs `set_page_edition`, and absent reads as edition 1, so worlds from before it roll
+   * exactly the pages they always rolled.
+   */
+  pages?: number;
 }
 
 export interface ShopToday {
@@ -1775,6 +1781,8 @@ export type Command =
   | { type: "open_jobs" }
   /** From now on, the board reads this edition of the jobs table (`JOB_EDITIONS`). */
   | { type: "set_job_edition"; edition: number }
+  /** From now on, pages on the ground come from this edition of the list (`PAGE_EDITIONS`). */
+  | { type: "set_page_edition"; edition: number }
   /** From now on, residents may found and join kindreds (RFC 0033). */
   | { type: "open_kindreds" }
   /** Staff take a kindred's name down after a report. It goes by its id until it's named again. */
@@ -1930,6 +1938,7 @@ export const SERVER_COMMANDS = [
   "credit_event",
   "open_jobs",
   "set_job_edition",
+  "set_page_edition",
   "open_kindreds",
   "clear_kindred_name",
   "disband_kindred",
@@ -2345,6 +2354,8 @@ export type WorldEvent =
   | { type: "job_total"; residentId: ResidentId; total: number }
   /** The board reads this edition of the jobs table from now on. Public. */
   | { type: "job_edition_set"; edition: number }
+  /** The recipe pages on the ground now come from this edition of the list (RFC 0024). */
+  | { type: "page_edition_set"; edition: number }
   /** A resident let `job` go, or it lapsed at `new_day` after `JOBS.keepDays` days. Private. */
   | { type: "job_dropped"; residentId: ResidentId; job: string; lapsed?: true }
   // Kindreds (RFC 0033). Public, but for a forming kindred the server sends them only to its

@@ -177,6 +177,8 @@ export class Mirror {
    * recipe pages. What anyone knows isn't here; `inventory.recipes` and profiles say that.
    */
   recipesOpen = false;
+  /** Which edition of the recipe page list the ground holds (RFC 0024). 1 until the snapshot says. */
+  pageEdition = 1;
   /** Whether the town's jobs are open (`jobs_opened`, RFC 0030). The board itself is `GET /v1/jobs`. */
   jobsOpen = false;
   /** Whether kindreds are open (`kindreds_opened`, RFC 0033). */
@@ -248,6 +250,7 @@ export class Mirror {
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.findsOpen = snapshot.findsOpen === true;
     this.recipesOpen = snapshot.recipesOpen === true;
+    this.pageEdition = snapshot.pageEdition ?? 1;
     this.jobsOpen = snapshot.jobsOpen === true;
     this.kindredsOpen = snapshot.kindredsOpen === true;
     for (const h of snapshot.halls ?? []) {
@@ -725,6 +728,7 @@ export class Mirror {
       picked: this.gathered.has(key),
       finds: this.findsOpen,
       pages: this.recipesOpen,
+      edition: this.pageEdition,
     });
   }
 

@@ -8,7 +8,7 @@ import {
   ROTATION_GOODS,
   recipeOf,
 } from "./catalog";
-import { coinCount as coins, oneTimeSwitch, refuse } from "./check";
+import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
 import { dayName } from "./holiday";
 import { lessonJob } from "./jobs";
@@ -112,8 +112,9 @@ export const CARD_RECIPES: readonly RecipeName[] = RECIPE_NAMES.filter((r) => !k
 
 /**
  * The recipes a page on the ground can teach, frozen by name in the order `pageOn` counts them: a
- * logged `gather` of a page replays only while this list stays exactly as it is. Today it's every
- * card. A recipe added later is no page until a new list starts at a logged switch.
+ * logged `gather` of a page replays only while this list stays exactly as it is, since the roll
+ * picks a place in it. This is edition 1, the cards there were when pages opened. A card added to
+ * the catalog later joins a new edition instead (`PAGE_EDITIONS`), which a logged switch turns on.
  */
 export const PAGE_RECIPES = [
   "lemonade",
@@ -135,6 +136,41 @@ export const PAGE_RECIPES = [
 ] as const satisfies readonly RecipeName[];
 
 /**
+ * Edition 2: edition 1 and the ten cards the basket of crops brought (decision 0308), in catalog
+ * order. A wider list changes which tiles hold a page and which recipe each teaches, so it comes
+ * only with `set_page_edition` and days before it replay under the edition they had.
+ */
+const PAGE_RECIPES_2 = [
+  ...PAGE_RECIPES,
+  "apple_pie",
+  "apple_cider",
+  "berry_crumble",
+  "fruit_salad",
+  "grape_juice",
+  "pickles",
+  "corn_bread",
+  "harvest_soup",
+  "garden_salad",
+  "posy",
+] as const satisfies readonly RecipeName[];
+
+/**
+ * Every edition of the page list, by the number `state.recipes.pages` holds. A world with no
+ * number reads edition 1, so worlds from before the switch answer exactly as they always did.
+ * An edition a live world has read is frozen; a new list is the next number.
+ */
+export const PAGE_EDITIONS: Readonly<Record<number, readonly RecipeName[]>> = {
+  1: PAGE_RECIPES,
+  2: PAGE_RECIPES_2,
+};
+
+/** The page edition a world reads: `state.recipes.pages`, or 1 where it has none. */
+export const pageEditionOf = (state: WorldState): number => state.recipes?.pages ?? 1;
+
+/** The recipes an edition's pages teach, in the order `pageOn` counts them. */
+const pagesIn = (edition: number): readonly RecipeName[] => PAGE_EDITIONS[edition] ?? PAGE_RECIPES;
+
+/**
  * The roll for a recipe page on a tile and a day, a whole number below 2^32. Its own constants and
  * finalizer, so it never follows a tile's other rolls.
  */
@@ -150,13 +186,15 @@ function pageRoll(x: number, y: number, day: number): number {
 
 /**
  * The recipe a find on (x, y) on `day` would be a page for, or null when it would stay a find:
- * about one in `RECIPES_RULES.pageOneIn`, each page recipe as likely. Pure, like the find itself,
- * so every client draws the same page and replay never needs it logged. Only asked once recipes
- * are learned and a find lies there.
+ * about one in `RECIPES_RULES.pageOneIn`, each of `edition`'s pages as likely. Pure, like the find
+ * itself, so every client draws the same page and replay never needs it logged. Only asked once
+ * recipes are learned and a find lies there. `edition` is the world's (`pageEditionOf`); 1 is what
+ * a world with no switch reads.
  */
-export function pageOn(x: number, y: number, day: number): RecipeName | null {
-  const n = pageRoll(x, y, day) % (RECIPES_RULES.pageOneIn * PAGE_RECIPES.length);
-  return n < PAGE_RECIPES.length ? (PAGE_RECIPES[n] as RecipeName) : null;
+export function pageOn(x: number, y: number, day: number, edition = 1): RecipeName | null {
+  const pages = pagesIn(edition);
+  const n = pageRoll(x, y, day) % (RECIPES_RULES.pageOneIn * pages.length);
+  return n < pages.length ? (pages[n] as RecipeName) : null;
 }
 
 /** A card's sku in `shop_buy` and `GET /v1/shop`: `recipe:lemonade`. */
@@ -328,6 +366,34 @@ export function checkOpenRecipes(state: WorldState): RecipesChecked {
     },
     event: { type: "recipes_opened" },
   });
+}
+
+/**
+ * `set_page_edition {edition}`, which only `TOWN_ACTOR` sends: from now on the pages lying on the
+ * ground come from that edition of the list. Days before it were rolled under the edition they
+ * had, so a logged `gather` of a page replays against the list it saw. Forward only, like the
+ * jobs board's editions.
+ */
+export function checkSetPageEdition(
+  state: WorldState,
+  command: Extract<Command, { type: "set_page_edition" }>,
+): Mutation | Rejection {
+  const recipes = state.recipes;
+  if (!recipes) return refuse("not_due", "Recipes aren't learned in this world yet.");
+  const { edition } = command;
+  if (!isWhole(edition) || !Object.hasOwn(PAGE_EDITIONS, edition)) {
+    return refuse("server_only", "The server names an edition of the page list that exists.");
+  }
+  if (edition === pageEditionOf(state)) {
+    return refuse("already_set", `Pages already come from edition ${edition}.`);
+  }
+  if (edition < pageEditionOf(state)) {
+    return refuse("server_only", "A page edition only goes forward.");
+  }
+  return () => {
+    recipes.pages = edition;
+    return [{ type: "page_edition_set", edition }];
+  };
 }
 
 /** Add `recipe` to what `id` learned, keeping the list sorted. Call only when committing. */

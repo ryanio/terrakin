@@ -460,6 +460,7 @@ class WorldObject extends DurableObject<Env> {
       levels: true,
       jobs: true,
       jobEdition: 2,
+      pageEdition: 2,
       kindreds: true,
       retireRepeatJoins: true,
       market: true,

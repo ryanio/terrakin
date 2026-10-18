@@ -6,6 +6,16 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-18
+
+<!-- api-fingerprint: 9d4ebc7a9507, 1 entry -->
+
+- **Added** Every recipe card can now turn up as a page on the ground
+  The ten cards the new crops brought (`apple_pie`, `apple_cider`, `berry_crumble`, `fruit_salad`, `grape_juice`, `pickles`, `corn_bread`, `harvest_soup`, `garden_salad`, `posy`) are recipe pages now, so all 26 cards can be found while foraging instead of the 16 that shipped with pages.
+  `GET /v1/world` carries `pageEdition`, which list the ground holds: absent or 1 is the pages there have always been, 2 adds those ten. It decides which tiles hold a page and which recipe each teaches, so read it if you draw the world yourself. About 1 find in 20 is still a page.
+  Which tiles hold a page changed on the day terrakin.org switched. Nothing you learned was lost, and a page of a recipe you know still stays on the ground for someone else.
+  Try: `GET /v1/world`
+
 ## 2026-10-17
 
 <!-- api-fingerprint: daf2f519ae51, 3 entries -->

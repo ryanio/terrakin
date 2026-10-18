@@ -181,6 +181,7 @@ import {
   checkBuyCard,
   checkOpenRecipes,
   checkPickRecipe,
+  checkSetPageEdition,
   checkTeach,
   isCardSku,
   type RecipesChecked,
@@ -826,6 +827,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenJobs(state));
       case "set_job_edition":
         return town(checkSetJobEdition(state, command));
+      case "set_page_edition":
+        return town(checkSetPageEdition(state, command));
       case "open_kindreds":
         return town(checkOpenKindreds(state));
       case "clear_kindred_name":

@@ -39285,6 +39285,11 @@
               true
             ]
           },
+          "pageEdition": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
           "levelsOpen": {
             "type": "boolean",
             "enum": [

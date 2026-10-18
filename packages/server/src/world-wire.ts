@@ -24,6 +24,7 @@ import {
   kindredById,
   kindredName,
   type PickupKind,
+  pageEditionOf,
   pageOn,
   parseKey,
   pickupLeft,
@@ -55,8 +56,9 @@ import { nameKey } from "./text";
  * What an input's sim events look like on the wire. Owner-pair and maintainer lists stay on the
  * server, and so do `event_credited`, the guest list the server sent the sim (RFC 0029), two of
  * jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
- * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored, and
- * `kindred_nights`, a merge's bookkeeping for kindred nights attended (RFC 0033). A gift
+ * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored,
+ * `page_edition_set`, since the snapshot's `pageEdition` is what a client draws pages from
+ * (RFC 0024), and `kindred_nights`, a merge's bookkeeping for kindred nights attended (RFC 0033). A gift
  * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
  * side: their purses reset to the budget each day, so the public treasury lines would give the
  * amount away.
@@ -74,6 +76,7 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "event_credited" ||
       e.type === "job_total" ||
       e.type === "job_edition_set" ||
+      e.type === "page_edition_set" ||
       e.type === "kindred_nights"
     ) {
       continue;
@@ -478,6 +481,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
+    ...(state.recipes?.pages ? { pageEdition: state.recipes.pages } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),
     ...(state.jobs ? { jobsOpen: true as const } : {}),
     ...(state.kindreds ? { kindredsOpen: true as const } : {}),
@@ -529,12 +533,13 @@ interface PickupView {
 function pickupsToday(state: WorldState): PickupView[] {
   const owned = plotPickupsOwned(state);
   const day = state.day ?? 0;
+  const edition = pageEditionOf(state);
   const out: PickupView[] = [];
   for (let y = 0; y < state.config.height; y++) {
     for (let x = 0; x < state.config.width; x++) {
       const kind = pickupLeft(state, x, y);
       if (!kind) continue;
-      const recipe = kind === RECIPE_PAGE ? pageOn(x, y, day) : null;
+      const recipe = kind === RECIPE_PAGE ? pageOn(x, y, day, edition) : null;
       out.push({
         x,
         y,

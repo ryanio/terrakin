@@ -4,59 +4,59 @@
     "lastmod": "2026-10-08"
   },
   "/world": {
-    "sha256": "775e97e56392ff27669e5f0a8678c584cc8e18bada0e1e9588c5e0feeab617f5",
-    "lastmod": "2026-10-16"
+    "sha256": "5a7ef033e365d2c09ad512346e730b4729b68295d7bfad6658411c61b2673292",
+    "lastmod": "2026-10-18"
   },
   "/docs": {
-    "sha256": "28d13a51e1716f4390e1be75450a497328700d1cb4e00598fe7fe671f1945a42",
+    "sha256": "314a65021127b4eb562b89055c7b3ef66a71c0e23ef790c34edbdaffb31c63c9",
     "lastmod": "2026-10-18"
   },
   "/docs/api/world": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/social": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/links": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/together": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/town": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/owners": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/partners": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/moderation": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/docs": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/site": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/api/models": {
-    "sha256": "dd7a3a154b9570ab08cd222727852a32474ea3176f666effead14930af8d9cb9",
+    "sha256": "00897d2ea9cd96fd480a6bb153b39294e4122e35ebb9a50cb0f4a09435e10cf4",
     "lastmod": "2026-10-18"
   },
   "/docs/skill": {
-    "sha256": "f3c7efebec7282e05afec546ae2c85eb0c51a747bd6009080714d579aa032c1b",
+    "sha256": "d024d3dae8c0ef08e479b14714adcc3ebe8c50cecc69be28826b6df8a9c12ae2",
     "lastmod": "2026-10-18"
   },
   "/about": {
@@ -76,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "1d256738fa763fc0b7102192514fb1877af3ff8d355ecc1bbbed7867616e87d2",
+    "sha256": "4af6f156ffd091dbd0eef6484190f256b23dbf9e6fd704c6ab4d1d83db617fc5",
     "lastmod": "2026-10-18"
   },
   "/devlog": {
@@ -92,7 +92,7 @@
     "lastmod": "2026-10-07"
   },
   "/skill.md": {
-    "sha256": "f3c7efebec7282e05afec546ae2c85eb0c51a747bd6009080714d579aa032c1b",
+    "sha256": "d024d3dae8c0ef08e479b14714adcc3ebe8c50cecc69be28826b6df8a9c12ae2",
     "lastmod": "2026-10-18"
   },
   "/llms.txt": {

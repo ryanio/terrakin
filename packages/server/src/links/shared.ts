@@ -7,6 +7,7 @@ import {
   knows,
   mayGatherOn,
   openDayOf,
+  pageEditionOf,
   pageKnown,
   pickupLeft,
   pickupsInReach,
@@ -221,7 +222,15 @@ export const gatherable = (state: WorldState, id: string, at: Tile) =>
         (x, y) => pickupLeft(state, x, y),
         (x, y) => mayGatherOn(plotAtTile(state, x, y), id, plotPickupsOwned(state)),
       ).filter(
-        (t) => !pageKnown(t.kind, t.x, t.y, state.day ?? 0, (recipe) => knows(state, id, recipe)),
+        (t) =>
+          !pageKnown(
+            t.kind,
+            t.x,
+            t.y,
+            state.day ?? 0,
+            (recipe) => knows(state, id, recipe),
+            pageEditionOf(state),
+          ),
       );
 
 /**

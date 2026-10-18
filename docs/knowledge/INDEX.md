@@ -243,6 +243,7 @@ What we chose and why. Newest last.
 - [A plot photo says what is new since the last one](decisions/0307-a-plot-photo-says-what-is-new-since-the-last-one.md) · 2026-10-16 · accepted · `cards` `server` `design`
 - [A basket of fourteen crops, sold all year, with ten recipes and no new town buy orders](decisions/0308-a-basket-of-fourteen-crops-sold-all-year-with-ten-recipes-an.md) · 2026-10-18 · accepted · `sim` `economy` `numbers` `items` `catalog`
 - [The dev client can read the live world, and only read it](decisions/0309-the-dev-client-can-read-the-live-world-and-only-read-it.md) · 2026-10-18 · accepted · `tooling` `client` `safety`
+- [Recipe pages come in editions, and edition 2 puts every card on the ground](decisions/0310-recipe-pages-come-in-editions-and-edition-2-puts-every-card-.md) · 2026-10-18 · accepted · `sim` `protocol` `server` `client` `recipes` `replay`
 
 ## Learnings
 

@@ -60,6 +60,7 @@ import {
   own,
   ownerPaired,
   PRESENTS,
+  pageEditionOf,
   pieceShowingMedia,
   planPutter,
   plotKey,
@@ -283,6 +284,15 @@ export interface WorldServiceOptions {
    * edition `open_jobs` starts on unless set.
    */
   jobEdition?: number;
+  /**
+   * The edition of the recipe page list this server's world reads (RFC 0024, decision 0310). Once
+   * recipes are learned on an older edition, `set_page_edition` is logged right after a `new_day`,
+   * like the jobs board's, since it changes which tiles hold a page from then on. It only moves
+   * forward. The Worker passes 2, so terrakin.org switches once; the Node server leaves it out,
+   * so a self-hosted world, `pnpm dev`, and the e2e servers keep the pages `open_recipes` starts
+   * with unless set.
+   */
+  pageEdition?: number;
   /**
    * Maintainers' resident ids from config. Logged as `set_maintainers` when they differ from the
    * log, so the sim keeps townsfolk budgets away from them.
@@ -585,6 +595,7 @@ export class WorldService {
   private readonly jobs: boolean;
   private readonly kindreds: boolean;
   private readonly jobEdition: number | undefined;
+  private readonly pageEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
   private readonly presence: boolean;
   private readonly townEvents: (now: number) => readonly TownEvent[];
@@ -681,6 +692,7 @@ export class WorldService {
     this.jobs = options.jobs ?? false;
     this.kindreds = options.kindreds ?? false;
     this.jobEdition = options.jobEdition;
+    this.pageEdition = options.pageEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
     this.presence = options.presence ?? false;
     this.townEvents = options.townEvents ?? (() => []);
@@ -940,6 +952,19 @@ export class WorldService {
     if (!set.ok) console.error(`Couldn't set the jobs edition: ${set.error.message}`);
   }
 
+  /**
+   * Move the recipe pages on the ground to the `pageEdition` option's edition, when recipes are
+   * learned on an older one. Called right after a `new_day` like the jobs board's, so the pages
+   * lying today never change once the day is up.
+   */
+  private movePageEdition() {
+    const edition = this.pageEdition;
+    const recipes = this.state.recipes;
+    if (edition === undefined || !recipes || pageEditionOf(this.state) >= edition) return;
+    const set = this.run({ actor: TOWN_ACTOR, command: { type: "set_page_edition", edition } });
+    if (!set.ok) console.error(`Couldn't set the page edition: ${set.error.message}`);
+  }
+
   /** Log `sw` from the town when its option is on and the world is due it. */
   private switchOn(sw: TownSwitch) {
     if (!this[sw.option] || !sw.due(this.state)) return;
@@ -959,6 +984,7 @@ export class WorldService {
       const started = this.run({ actor: TOWN_ACTOR, command: { type: "new_day", day: today } });
       if (started.ok) {
         this.moveJobEdition();
+        this.movePageEdition();
         // A new day is the snapshot's natural boundary: the next boot replays at most a day.
         this.takeSnapshot();
       }

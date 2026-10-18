@@ -38,6 +38,56 @@ describe("askWorld", () => {
     expect(outcomes).toEqual(["retried"]);
   });
 
+  it("sends a read again when the world object's answer broke as its body came", async () => {
+    // The one error this reached Sentry as: a GET /v1/world whose stream died after its headers,
+    // which the retry never saw because the call itself had already settled.
+    const broke = () =>
+      new Response(
+        new ReadableStream({
+          start(c) {
+            c.enqueue(new TextEncoder().encode('{"residents":'));
+            c.error(lost());
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    let tries = 0;
+    const outcomes: string[] = [];
+    const answer = await askWorld(
+      () => {
+        tries += 1;
+        return Promise.resolve(
+          tries === 1 ? broke() : new Response('{"residents":[]}', { status: 200 }),
+        );
+      },
+      { repeat: repeatable(read()), onLost: (_err, outcome) => outcomes.push(outcome) },
+    );
+    expect(tries).toBe(2);
+    expect(outcomes).toEqual(["retried"]);
+    // The answer comes back whole, body and headers, for the caller to pass on.
+    expect(await answer?.text()).toBe('{"residents":[]}');
+    expect(answer?.status).toBe(200);
+  });
+
+  it("keeps an answer's headers, and lets one with no body through untouched", async () => {
+    const sent = new Response('{"ok":true}', {
+      status: 201,
+      headers: { "content-type": "application/json", "x-terrakin-worker-build": "abc" },
+    });
+    const answer = await askWorld(() => Promise.resolve(sent), {
+      repeat: true,
+      onLost: () => {},
+    });
+    expect(answer?.status).toBe(201);
+    expect(answer?.headers.get("x-terrakin-worker-build")).toBe("abc");
+    expect(await answer?.text()).toBe('{"ok":true}');
+    // A socket upgrade and a 304 carry no body: nothing to read, and nothing that could break.
+    const bodiless = new Response(null, { status: 304 });
+    expect(
+      await askWorld(() => Promise.resolve(bodiless), { repeat: true, onLost: () => {} }),
+    ).toBe(bodiless);
+  });
+
   it("refuses rather than retry a write, or a read whose second try broke too", async () => {
     const write = new Request("https://terrakin.org/v1/actions", { method: "POST", body: "{}" });
     let tries = 0;

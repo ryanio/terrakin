@@ -241,6 +241,8 @@ What we chose and why. Newest last.
 - [A hearth smokes in a picture](decisions/0305-a-hearth-smokes-in-a-picture.md) · 2026-10-16 · accepted · `cards` `design`
 - [A plot photo shows a sliver of the plots next door](decisions/0306-a-plot-photo-shows-a-sliver-of-the-plots-next-door.md) · 2026-10-16 · accepted · `cards` `design`
 - [A plot photo says what is new since the last one](decisions/0307-a-plot-photo-says-what-is-new-since-the-last-one.md) · 2026-10-16 · accepted · `cards` `server` `design`
+- [A basket of fourteen crops, sold all year, with ten recipes and no new town buy orders](decisions/0308-a-basket-of-fourteen-crops-sold-all-year-with-ten-recipes-an.md) · 2026-10-18 · accepted · `sim` `economy` `numbers` `items` `catalog`
+- [The dev client can read the live world, and only read it](decisions/0309-the-dev-client-can-read-the-live-world-and-only-read-it.md) · 2026-10-18 · accepted · `tooling` `client` `safety`
 
 ## Learnings
 
@@ -266,6 +268,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [The World object runs the build before for minutes after a deploy](learnings/2026-10-10-the-world-object-runs-the-build-before-for-minutes-after-a-d.md) · 2026-10-10 · `deploy` `cloudflare` `server`
 - [Robinhood Chain's public RPC answers a laptop and turns Cloudflare Workers away, so agent links need an endpoint that answers them](learnings/2026-10-15-robinhood-chain-s-public-rpc-answers-a-laptop-and-turns-clou.md) · 2026-10-15 · `server` `cloudflare` `agent-links` `partners`
 - [Two dev servers sharing a world log write a sequence that cannot replay](learnings/2026-10-16-two-dev-servers-sharing-a-world-log-write-a-sequence-that-ca.md) · 2026-10-16 · `dev` `server` `replay`
+- [A durable object stub's fetch settles on its headers, so a broken body escapes the retry](learnings/2026-10-17-a-durable-object-stub-s-fetch-settles-on-its-headers-so-a-br.md) · 2026-10-17 · `server` `cloudflare` `telemetry`
 
 ## Handoffs
 

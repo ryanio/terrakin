@@ -167,6 +167,23 @@ const leaf = (x: number, y: number, len: number, turn: number, fill = LEAF): Art
 
 type Paint = (body: string, detail: string) => ArtShape[];
 
+/** Where the little fruit of a bunch sit, widest at the top, like grapes. */
+const CLUSTER_SPOTS: readonly [number, number][] = [
+  [16, 22],
+  [22, 20.5],
+  [28, 21],
+  [34, 23],
+  [19, 27.5],
+  [25, 26.5],
+  [31, 28],
+  [22, 33],
+  [28, 33.5],
+  [25, 38.5],
+];
+
+/** The kernels on a cob, five rows of three, every other row nudged over. */
+const KERNEL_ROWS: readonly number[] = [18.5, 22.5, 26.5, 30.5, 34.5];
+
 const BERRY_SEEDS: readonly [number, number][] = [
   [19, 24],
   [25, 23],
@@ -214,6 +231,72 @@ const SHAPES: Readonly<Record<ProduceLook["shape"], Paint>> = {
     }),
     shine(17.5, 26, 2.6, 1.3),
   ],
+  // A pair hanging from one stem, like cherries.
+  cherries: (body, detail) => [
+    line("M24.5 14.5c-3.4 4.6-5.8 9-7 14.5M24.5 14.5c2.6 4.6 5 8.6 6.4 13", "#76703a", 1.5),
+    circle(17.5, 31.5, 7.4, body, out()),
+    circle(31, 34, 6.4, body, out()),
+    line("M12.5 34c1.6 3 4.6 4.8 8 4.8", detail, 1.2, { opacity: 0.45 }),
+    line("M27.2 38.6c2.4 1.2 5.4.4 7.2-1.8", detail, 1.2, { opacity: 0.45 }),
+    shine(14.5, 27.5, 2.8, 1.4),
+    shine(28.6, 30.6, 2.2, 1.1),
+  ],
+  // A bunch of little fruit, widest at the top, like grapes or a blackberry.
+  cluster: (body, detail) => [
+    ...CLUSTER_SPOTS.map(([x, y], i) =>
+      circle(x, y, 3.7, i % 3 === 2 ? detail : body, out({ "stroke-width": 1 })),
+    ),
+    shine(17.5, 20.5, 2.2, 1.1),
+  ],
+  // A tapering root, with ridges across it, like a carrot.
+  root: (body, detail) => [
+    path("M16.5 17.5h15l-5.4 20.6c-.5 2-1.4 3.2-2.1 3.2s-1.6-1.2-2.1-3.2z", body, out()),
+    line("M18.4 23h11M19.4 28h9M20.4 33h7", detail, 1.1, { opacity: 0.6 }),
+    shine(20.5, 22, 1.6, 3.2, 10),
+  ],
+  // A cob of kernels in the husk it grew in, like corn.
+  cob: (body, detail) => [
+    leaf(21.5, 40, 25, -112, LEAF),
+    leaf(26.5, 40, 25, -68, MOSS_LIGHT),
+    path("M24 11.5c4.3 0 7 5.6 7 14.4S28.3 41 24 41s-7-6.3-7-15.1 2.7-14.4 7-14.4z", body, out()),
+    ...KERNEL_ROWS.flatMap((y, r) =>
+      [-3.2, 0, 3.2].map((dx) =>
+        circle(24 + dx + (r % 2 ? 1.6 : 0), y, 1.4, detail, { opacity: 0.55 }),
+      ),
+    ),
+    shine(21, 20, 1.6, 3.4, 0),
+  ],
+  // Round with stripes arching over it, like a melon.
+  striped: (body, detail) => [
+    path("M24 16c9.5 0 15 5.5 15 12.5S33 41 24 41 9 35.5 9 28.5 14.5 16 24 16z", body, out()),
+    line("M24 16.2v24.6M16.4 17.9c-2 6.8-2 14.2 0 21M31.6 17.9c2 6.8 2 14.2 0 21", detail, 1.6, {
+      opacity: 0.75,
+    }),
+    shine(16.5, 23.5, 3.4, 1.7),
+  ],
+  // A long one lying at an angle, like a cucumber.
+  long: (body, detail) => [
+    group("rotate(-32 24 29)", [
+      ellipse(24, 29, 13, 5.6, body, out()),
+      line("M14.5 27c6-1.6 13-1.6 19 .4", "#ffffff", 1.4, { opacity: 0.35 }),
+      ellipse(17.5, 31, 1, 1.4, detail, { opacity: 0.7 }),
+      ellipse(23.5, 32, 1, 1.4, detail, { opacity: 0.7 }),
+      ellipse(29, 31.2, 1, 1.4, detail, { opacity: 0.7 }),
+    ]),
+  ],
+  // A leafy head with two leaves falling away from it, like a cabbage.
+  leafy: (body, detail) => [
+    leaf(14.5, 33, 12, -165, MOSS_LIGHT),
+    leaf(33.5, 33, 12, -15, MOSS_LIGHT),
+    ellipse(24, 29.5, 11.5, 11, body, out()),
+    line(
+      "M24 18.8c-4 4-5.2 8-4.2 11.2M24 18.8c4 4 5.2 8 4.2 11.2M15 33.4c3-2.6 15-2.6 18 0",
+      detail,
+      1.2,
+      { opacity: 0.6 },
+    ),
+    shine(18.5, 24, 3.2, 1.6),
+  ],
 };
 
 /**
@@ -254,6 +337,15 @@ const TOPS: Readonly<Record<ProduceLook["top"], { back?: Paint; front?: Paint }>
     front: (body, detail) => [
       path("M20.6 18.4 19.4 12.6l2.2 1.9 2.4-3.6 2.4 3.6 2.2-1.9-1.2 5.8z", body, out()),
       line("M21.3 17.5c1.8.6 3.6.6 5.4 0", detail, 1, { opacity: 0.7 }),
+    ],
+  },
+  // A fan of narrow greens, like a carrot's.
+  greens: {
+    front: () => [
+      line("M24 20.5V15.5", STEM, 1.6),
+      leaf(23.5, 16.5, 9, -125),
+      leaf(24, 16, 10, -90, MOSS_LIGHT),
+      leaf(24.5, 16.5, 9, -55),
     ],
   },
 };
@@ -2308,6 +2400,129 @@ function fishStew(): ArtShape[] {
   ];
 }
 
+// ---------- what the kitchen and the workbench make from the new crops ----------
+
+/** Apple pie: a golden crust with a lattice over the filling, crimped round the edge. */
+function applePie(): ArtShape[] {
+  const crust = "#e0ad68";
+  const crimps: ArtShape[] = [];
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const x = Math.round((24 + Math.cos(a) * 16.3) * 10) / 10;
+    const y = Math.round((29 + Math.sin(a) * 6.4) * 10) / 10;
+    crimps.push(circle(x, y, 1.9, crust, out({ "stroke-width": 0.8 })));
+  }
+  return [
+    shadow(18, 42),
+    path("M6 29v4.5c0 4.3 8 8 18 8s18-3.7 18-8V29z", "#bf8a46", out()),
+    ellipse(24, 29, 18, 7.6, crust, out()),
+    ellipse(24, 29, 14.6, 5.4, CROP_HEX.apple, out({ "stroke-width": 1 })),
+    line("M11.5 27.4c7.4-2.4 17.6-2.4 25 0M13.5 31.6c6.6 2 14.4 2 21 0", crust, 2.6),
+    line("M20 24.3c-1 3.4-1 6.2 0 9.4M28 24.3c1 3.4 1 6.2 0 9.4", crust, 2.6),
+    ...crimps,
+    shine(17, 26.8, 3, 1.1, 0),
+  ];
+}
+
+/** Berry crumble: a clay dish of dark berries under golden crumbs. */
+function berryCrumble(): ArtShape[] {
+  const crumb = "#e2b878";
+  const crumbs: readonly [number, number][] = [
+    [17, 23.4],
+    [21, 22.6],
+    [25, 23],
+    [29, 22.8],
+    [32, 24],
+    [19, 24.8],
+    [27, 24.6],
+  ];
+  return [
+    shadow(16, 43),
+    path("M10 26h28l-2.5 13a4 4 0 0 1-4 3.4H16.5a4 4 0 0 1-4-3.4z", CLAY, out()),
+    line("M13.5 31.5h21", "#ffffff", 1.2, { opacity: 0.25 }),
+    ellipse(24, 26, 14.4, 4.4, CLAY_DEEP, out()),
+    ellipse(24, 25.6, 11.5, 3.4, CROP_HEX.blackberry, out({ "stroke-width": 1 })),
+    circle(18.5, 25, 2.2, CROP_HEX.blueberry, out({ "stroke-width": 0.8 })),
+    circle(28.5, 26, 2, CROP_HEX.blackberry, out({ "stroke-width": 0.8 })),
+    ...crumbs.map(([x, y]) => circle(x, y, 1.6, crumb, out({ "stroke-width": 0.7 }))),
+  ];
+}
+
+/** Fruit salad: a glass bowl of cherry, peach, melon, and a berry, with a mint leaf. */
+function fruitSalad(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    path("M11 25.5h26c0 9-5.5 16-13 16s-13-7-13-16z", GLASS, out()),
+    line("M14.5 30.5c1.6 4.6 5 7.8 9 8.8", "#ffffff", 1.4, { opacity: 0.4 }),
+    ellipse(24, 25.5, 13, 3.4, "#eaf6f5", out()),
+    ellipse(24, 32, 5.4, 3, CROP_HEX.melon, out({ "stroke-width": 0.9 })),
+    circle(19, 27, 3, CROP_HEX.cherry, out({ "stroke-width": 0.9 })),
+    circle(28.8, 27.6, 3.4, CROP_HEX.peach, out({ "stroke-width": 0.9 })),
+    circle(24, 24.6, 2.4, CROP_HEX.blueberry, out({ "stroke-width": 0.9 })),
+    leaf(30.5, 23, 6, -55, MOSS_LIGHT),
+  ];
+}
+
+/** Corn bread: a golden loaf with a split crust and kernels pressed into it. */
+function cornBread(): ArtShape[] {
+  return [
+    shadow(17, 43),
+    path("M8 41c-1-9 1-16 6-19.5 6-4 14-4 20 0 5 3.5 7 10.5 6 19.5z", "#e5a63c", out()),
+    path("M10.5 28c4-3.4 23-3.4 27 0", "none", out({ stroke: "#f2cd6a", "stroke-width": 3 })),
+    line("M12.5 36h23", "#c98a2c", 1.2, { opacity: 0.5 }),
+    circle(21, 25.4, 1.5, CROP_HEX.corn, out({ "stroke-width": 0.7 })),
+    circle(28, 25, 1.5, CROP_HEX.corn, out({ "stroke-width": 0.7 })),
+    circle(18, 32, 1.3, "#f7e3a6", { opacity: 0.85 }),
+    circle(25.5, 34, 1.2, "#f7e3a6", { opacity: 0.85 }),
+    circle(31, 31, 1.2, "#f7e3a6", { opacity: 0.85 }),
+  ];
+}
+
+/** Garden salad: a bowl of cabbage leaves with carrot and tomato. */
+function gardenSalad(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    path("M10 26h28c0 9-6 16-14 16s-14-7-14-16z", PAPER2, out()),
+    line("M13.5 31c1.6 5 5.6 8.6 10.4 9.4", "#ffffff", 1.4, { opacity: 0.35 }),
+    ellipse(24, 26, 14, 4, "#e9e1d0", out()),
+    leaf(15, 25.5, 11, -40, CROP_HEX.cabbage),
+    leaf(27, 24.5, 12, -150, MOSS_LIGHT),
+    leaf(22, 23.8, 10, -70, LEAF),
+    path("M28.6 23.4 33.4 24.8 30 27.4z", CROP_HEX.carrot, out({ "stroke-width": 0.8 })),
+    circle(19.5, 24.8, 2.6, CROP_HEX.tomato, out({ "stroke-width": 0.9 })),
+  ];
+}
+
+/** A posy: two tulips and a sunflower tied in paper. */
+function posy(): ArtShape[] {
+  const tulip = (x: number, y: number, turn: number): ArtShape =>
+    group(`translate(${x} ${y}) rotate(${turn})`, [
+      path(
+        "M-3.6-4.4c0 5 1.6 7.4 3.6 7.4s3.6-2.4 3.6-7.4l-2 2.4-1.6-3-1.6 3z",
+        CROP_HEX.tulip,
+        out({ "stroke-width": 1 }),
+      ),
+    ]);
+  const petals = [0, 60, 120, 180, 240, 300].map((a) =>
+    ellipse(24, 9.5, 2, 3.6, CROP_HEX.sunflower, {
+      transform: `rotate(${a} 24 14)`,
+      ...out({ "stroke-width": 0.9 }),
+    }),
+  );
+  return [
+    shadow(11, 44),
+    line("M24 34 18 18M24 34V16M24 34l7-15", STEM, 1.6),
+    leaf(22, 26, 8, -150),
+    leaf(26.5, 25, 8, -30),
+    tulip(18, 15, -14),
+    tulip(31, 16, 14),
+    ...petals,
+    circle(24, 14, 3, "#8a5a2a", out({ "stroke-width": 0.9 })),
+    path("M17.5 33h13l-2 9.5h-9z", KRAFT, out()),
+    line("M17.2 35.6c4.4 1.6 9.8 1.6 14 0", CLAY, 2),
+  ];
+}
+
 // ---------- the catalog ----------
 
 /**
@@ -2343,6 +2558,12 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   herb_sachet: herbSachet,
   flower_wreath: flowerWreath,
   pumpkin_pie: pumpkinPie,
+  apple_pie: applePie,
+  berry_crumble: berryCrumble,
+  fruit_salad: fruitSalad,
+  corn_bread: cornBread,
+  garden_salad: gardenSalad,
+  posy,
   piece,
   acorn,
   pinecone,

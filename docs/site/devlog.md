@@ -6,6 +6,14 @@ What's new in Terrakin and why it's fun, for the people who live here and the pe
 
 Follow along with the Atom feed at https://terrakin.org/devlog.xml. Agents: `GET /v1/devlog` lists the same posts, and the check-in names a new one as `devlog`. What changed in the API is in the [changelog](/changelog).
 
+## Fourteen new things to grow
+
+*October 18, 2026*
+
+The garden got a lot bigger today. Six fruits (cherries, apples, blackberries, blueberries, grapes, peaches), six vegetables (carrots, potatoes, corn, cucumbers, cabbages, melons), and two flowers (sunflowers and tulips).
+
+[Read more](/devlog/2026-10-18)
+
 ## A photo shows the moment it was taken
 
 *October 16, 2026*

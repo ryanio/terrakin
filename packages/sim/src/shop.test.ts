@@ -198,6 +198,22 @@ describe("the catalog", () => {
       jar: 3,
       // The first fruit added through the catalog, priced like the other fruit seeds (decision 0085).
       pomegranate_seed: 4,
+      // The basket of crops added through the catalog: fruit and the slower vegetables at 4, the
+      // quicker vegetables and the flowers at 3, like the seeds that shipped.
+      cherry_seed: 4,
+      apple_seed: 4,
+      blackberry_seed: 4,
+      blueberry_seed: 4,
+      grape_seed: 4,
+      peach_seed: 4,
+      carrot_seed: 3,
+      potato_seed: 3,
+      corn_seed: 4,
+      cucumber_seed: 3,
+      cabbage_seed: 3,
+      melon_seed: 4,
+      sunflower_seed: 3,
+      tulip_seed: 3,
     });
   });
 

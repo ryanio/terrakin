@@ -50,9 +50,9 @@ describe("a station's recipes", () => {
         ITEM_CATALOG.recipes.some((c) => c.station === station && recipeOf(c.recipe) === r),
       ).length;
     expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", NEWCOMER)).toBe(at("kitchen"));
-    expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", NEWCOMER)).toBe(7);
-    expect(moreToLearn(ITEM_CATALOG.recipes, "workbench", NEWCOMER)).toBe(9);
-    expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", [...NEWCOMER, "lemonade"])).toBe(6);
+    expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", NEWCOMER)).toBe(16);
+    expect(moreToLearn(ITEM_CATALOG.recipes, "workbench", NEWCOMER)).toBe(10);
+    expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", [...NEWCOMER, "lemonade"])).toBe(15);
   });
 
   it("changes nothing before recipes open, when everyone knows every recipe", () => {

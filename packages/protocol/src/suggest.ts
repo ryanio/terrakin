@@ -388,8 +388,11 @@ function choiceWords({ values, forms }: Choices): string {
   return [...forms, list].filter(Boolean).join(", or ");
 }
 
-/** Most choices a "did you mean one of" names, so a long list never comes back twice. */
-const MEANT_MAX = 5;
+/**
+ * Most choices a "did you mean one of" names, so a guess stays much shorter than the whole list.
+ * Every fruit's jam shares the word `jam`, so it holds as many as the catalog has fruit.
+ */
+const MEANT_MAX = 12;
 
 /**
  * What a value outside `values` most likely meant: a name a typo away (`nearestName`), else the

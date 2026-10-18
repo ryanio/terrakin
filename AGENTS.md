@@ -53,6 +53,7 @@ Dependencies point one way: `client -> ui -> protocol -> sim` (client and ui als
 ```sh
 pnpm dev          # server :8787 + client :5173 + staff app :5174 (proxied), hot reload
 pnpm dev:test     # a test world beside it: server :8797 + client :5183, test routes on, kept in .dev-test-world/
+pnpm dev:live     # the client on :5193 drawing terrakin.org's own world, reads only: real pages with no seeding
 pnpm persona settled   # a resident at a stage on the test world (visitor, settled, stocked, pet, staff, owner), with a line to sign a tab in
 pnpm verify       # vendored secrets check, lint, knip (unused files, exports, deps), typecheck, test, kb:check, gen:check, build. Same as CI.
 pnpm vitest run --project sim   # one package's tests

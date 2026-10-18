@@ -1006,6 +1006,8 @@ body.in-world .veil {
  * Two lines on a phone, one once the cards sit side by side.
  */
 .hero-live {
+  /* The dot that says the town is live hangs to the left, so both lines of it share one edge. */
+  --live-dot: 7px;
   display: grid;
   grid-template-rows: repeat(2, calc(var(--text-sm) * var(--leading-normal)));
   margin: calc(var(--space-md) * -1) 0 0;
@@ -1031,8 +1033,13 @@ body.in-world .veil {
 }
 
 .hero-live-counts .live-dot {
-  width: 7px;
-  height: 7px;
+  width: var(--live-dot);
+  height: var(--live-dot);
+}
+
+/* Under the counts, the news starts where their words do rather than where the dot does. */
+.hero-live-news {
+  padding-left: calc(var(--live-dot) + var(--space-xs));
 }
 
 .hero-live-news a {
@@ -2662,16 +2669,17 @@ dialog.model-viewer {
   }
 }
 
-/* The /purse page. */
+/* The /purse page. The word sits on the number's baseline; the coin rides at its middle. */
 .purse-balance {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-md);
   margin: 0;
   color: var(--coin-deep);
 }
 
 .purse-balance-coin {
+  align-self: center;
   width: 36px;
   height: 36px;
   color: var(--coin);
@@ -2864,12 +2872,22 @@ dialog.model-viewer {
   box-shadow: var(--shadow-pill);
 }
 
+/*
+ * The plots in a row are as tall as the tallest, since one with a name of its own or a busy week
+ * carries a line the others don't. Each card's buttons then sit at its foot, so a row's Visit
+ * buttons land on one line instead of wherever that card's words happened to end.
+ */
+.visit-body {
+  align-items: stretch;
+}
+
 /* One plot to visit: its drawing beside whose it is and how lately it changed, Visit below. */
 .plot-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-md) var(--space-lg);
   align-items: start;
+  align-content: space-between;
 }
 
 .plot-card-body {
@@ -3115,6 +3133,11 @@ dialog.model-viewer {
     justify-content: center;
     gap: var(--space-md);
     max-width: 100%;
+  }
+
+  /* Side by side there is no line under the counts to line up with, only the gap between them. */
+  .hero-live-news {
+    padding-left: 0;
   }
 
   .home-cards {
@@ -5724,18 +5747,40 @@ a.btn-primary {
 }
 
 .shop-item {
-  display: grid;
-  justify-items: center;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: var(--space-2xs);
   padding: var(--space-lg) var(--space-md) var(--space-md);
   border-radius: var(--r-card);
   text-align: center;
 }
 
+/*
+ * A card in a row is as tall as the tallest, so the slack goes above the button rather than
+ * under it: the buttons across a row sit on one line however long the words above them run.
+ */
+.shop-item > :has(+ .shop-buy) {
+  margin-bottom: auto;
+}
+
 .shop-item-name {
   font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
+}
+
+/* A recipe's name keeps two lines, so the cards in a row start what it uses together. */
+.shop-card-recipe .shop-item-name {
+  min-height: calc(2em * var(--leading-snug));
+}
+
+/*
+ * Only some stock carries a season or holiday tag. On a shelf that has any, the cards without one
+ * keep its line free (the pill's own height and the gap above it), so a row's names start together
+ * whether or not the thing beside them is seasonal.
+ */
+.shop-shelf:has(.kind-pill) .shop-item:not(:has(.kind-pill)) .shop-item-name {
+  margin-top: calc(var(--text-sm) * var(--leading-snug) + 3 * var(--space-2xs));
 }
 
 .shop-item-3d {

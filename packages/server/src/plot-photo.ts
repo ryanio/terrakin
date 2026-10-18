@@ -185,7 +185,6 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
   const x0 = plot.px * S;
   const y0 = plot.py * S;
   const owner = state.residents[plot.ownerId];
-  const palette = owner?.theme ? THEME_INFO[owner.theme]?.palette : undefined;
 
   // The box drawn: the plot with a sliver of the world on each side, kept inside the world's edges,
   // so a home reads as a place in a town (issue #80). A world too small for the slivers gets the

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import type { Crop } from "./catalog";
+import { type Crop, ITEM_KINDS } from "./catalog";
 import { LEVELS_CONFIG, LEVELS_HASH, LEVELS_LOG } from "./fixtures/levels-log";
 import { MERGE_CONFIG, MERGE_LOG } from "./fixtures/merge-log";
 import { REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG } from "./fixtures/repeat-joins-log";
@@ -621,6 +621,21 @@ describe("firsts", () => {
     for (const tile of again) w.ok("ada", { type: "harvest", ...tile });
     expect(w.points("ada")).toEqual({ growing: 16 });
     expect(firstsOf(w.state, "ada")).toEqual(["herb"]);
+  });
+
+  it("are worth a level each by themselves, so a batch of new kinds moves what a skill reaches", () => {
+    // A first is `PROGRESS.first` outside the daily cap, so holding one of every kind a skill
+    // counts for is worth a level on its own. These are the levels the catalog as it stands
+    // reaches that way. A batch of new kinds that moves one changes what a title or a garment
+    // takes, which is a decision to make rather than a number to notice later (decision 0308).
+    const fromFirsts = (skill: Skill) =>
+      levelOf(ITEM_KINDS.filter((kind) => firstSkill(kind) === skill).length * PROGRESS.first);
+    expect(fromFirsts("growing")).toBe(UNLOCKS.wear);
+    expect(fromFirsts("making")).toBe(7);
+    expect(fromFirsts("foraging")).toBe(UNLOCKS.wear);
+    // Nothing a resident holds earns these: they come from neighbors and tables.
+    expect(fromFirsts("hosting")).toBe(1);
+    expect(fromFirsts("playing")).toBe(1);
   });
 });
 

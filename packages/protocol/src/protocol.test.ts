@@ -4,7 +4,6 @@ import {
   BUY_ORDERS,
   buildSummary,
   CHAT_EARSHOT,
-  COIN_REASONS,
   type Command,
   canonicalJson,
   countOf,

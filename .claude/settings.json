@@ -12,6 +12,7 @@
       "Bash(pnpm build)",
       "Bash(pnpm kb:*)",
       "Bash(pnpm kb)",
+      "Bash(pnpm dev:live)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",

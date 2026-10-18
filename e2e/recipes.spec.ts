@@ -83,7 +83,7 @@ test("a newcomer picks recipes at her first kitchen, and it lists what she knows
   await expect(kitchen.locator(".workshop-row", { hasText: "Herb tea" })).toHaveCount(1);
   await expect(kitchen.locator(".workshop-row", { hasText: "Tomato sauce" })).toHaveCount(0);
   const learn = kitchen.locator(".workshop-learn");
-  await expect(learn).toHaveText("6 more recipes to learn");
+  await expect(learn).toHaveText("15 more recipes to learn");
   await page.screenshot({ path: "test-results/recipes-kitchen.png" });
 
   // The link lands on the shop's Recipes shelf, where her picks are still free.

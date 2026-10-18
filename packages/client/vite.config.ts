@@ -13,12 +13,20 @@ import {
 import { apiPage, type DocsPage, docsPage, pageMarkdown } from "@terrakin/protocol/reference";
 import { iconSvg, isIconName } from "@terrakin/ui/icons";
 import { build, defineConfig, type Plugin } from "vite";
+import { passesToAnotherWorld, worldIsHere } from "./src/dev-proxy";
 import { JSON_SCHEMA_MODULES, processorsStub, TO_JSON_SCHEMA_STUB } from "./src/no-json-schema";
 import { footerHtml, markdownTwin, skillPageMarkdown, staticPage } from "./src/site-page";
 import { stripDescribe } from "./src/strip-describe";
 
 const server = process.env.TERRAKIN_SERVER ?? "http://localhost:8787";
 const repo = (path: string) => fileURLToPath(new URL(`../../${path}`, import.meta.url));
+
+/**
+ * Whether the dev server reads a world somewhere else, which `pnpm dev:live` does: it points the
+ * proxy at terrakin.org, so the pages draw the real town's residents, plots, posts and stock
+ * without a copy of anything. A world on this machine is the usual case and is left alone.
+ */
+const remoteWorld = !worldIsHere(server);
 
 /**
  * A Content-Security-Policy for the production build, as a meta tag at the top of every page
@@ -303,6 +311,34 @@ function sitePages(): Plugin {
  */
 export const FIRST_LOAD_BUDGET = { js: 135_000, css: 26_000 } as const;
 
+/**
+ * Reading a world somewhere else, never writing to it. `pnpm dev:live` points the proxy at
+ * terrakin.org so a page draws the real town, and this turns everything but a read into a refusal
+ * before the proxy sees it: no action, upload, post or purchase can leave this dev server for a
+ * world that isn't on this machine, whatever the page or the person at it tries. It stands down
+ * for a world on this machine, where writing is the point.
+ */
+function readsOnlyFromElsewhere(): Plugin {
+  return {
+    name: "terrakin-reads-only-from-elsewhere",
+    apply: "serve",
+    configureServer(dev) {
+      if (!remoteWorld) return;
+      dev.middlewares.use((req, res, next) => {
+        if (passesToAnotherWorld(req.method, req.url)) return next();
+        res.statusCode = 405;
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify({
+            error: "read_only",
+            message: `This dev server only reads ${server}. Run pnpm dev or pnpm dev:test to change a world.`,
+          }),
+        );
+      });
+    },
+  };
+}
+
 function firstLoadBudget(): Plugin {
   return {
     name: "terrakin-first-load-budget",
@@ -398,6 +434,7 @@ export default defineConfig({
     icons(),
     sitePages(),
     contentSecurityPolicy(),
+    readsOnlyFromElsewhere(),
     firstLoadBudget(),
   ],
   build: {
@@ -430,13 +467,17 @@ export default defineConfig({
     // `pnpm dev:test` moves it, so a test world runs beside a plain `pnpm dev`.
     port: Number(process.env.TERRAKIN_CLIENT_PORT ?? 5173),
     proxy: {
-      "/v1": { target: server, ws: true },
-      "/media": { target: server },
+      // A world somewhere else routes by the name it's asked for, so the proxy sends its own.
+      "/v1": { target: server, ws: true, changeOrigin: remoteWorld },
+      "/media": { target: server, changeOrigin: remoteWorld },
       // Pages built from live data: Markdown twins of profiles and posts, and the sitemaps.
-      "^/(r|p)/[^/]+\\.md$": { target: server },
-      "^/sitemap(-(residents|posts)(-\\d+)?)?\\.xml$": { target: server },
+      "^/(r|p)/[^/]+\\.md$": { target: server, changeOrigin: remoteWorld },
+      "^/sitemap(-(residents|posts)(-\\d+)?)?\\.xml$": {
+        target: server,
+        changeOrigin: remoteWorld,
+      },
       // Link preview cards (/og/...png). Not /og.png, which is a static file Vite serves itself.
-      "^/og/": { target: server },
+      "^/og/": { target: server, changeOrigin: remoteWorld },
     },
   },
 });

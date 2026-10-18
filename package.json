@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @terrakin/server --filter @terrakin/client --filter @terrakin/admin dev",
     "dev:test": "TERRAKIN_TEST_CLOCK=1 TERRAKIN_SESSIONS_PER_MINUTE=60 TERRAKIN_DATA_DIR=.dev-test-world PORT=8797 TERRAKIN_SERVER=http://localhost:8797 TERRAKIN_CLIENT_PORT=5183 pnpm --parallel --filter @terrakin/server --filter @terrakin/client dev",
+    "dev:live": "TERRAKIN_SERVER=https://terrakin.org TERRAKIN_CLIENT_PORT=5193 pnpm --filter @terrakin/client dev",
     "dev:server": "pnpm --filter @terrakin/server dev",
     "dev:client": "pnpm --filter @terrakin/client dev",
     "dev:admin": "pnpm --filter @terrakin/admin dev",

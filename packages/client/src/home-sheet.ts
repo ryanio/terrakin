@@ -190,7 +190,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
             { class: "paper note home-news", attrs: { id: "home-news" } },
             h("p", {
               text: first
-                ? `Your first pantry is in: ${got}. Place a planter from Build to grow the seeds.`
+                ? `Your first pantry is in: ${got}. Tap Plant a seed in the world to put one in by your hearth.`
                 : `Today's pantry is in: ${got}.`,
             }),
             h("a", {

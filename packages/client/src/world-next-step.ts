@@ -1,9 +1,10 @@
 /**
  * The world's next-step chip: one small button naming your next first step (`first-steps.ts`), shown
- * while one is left and hidden once they're all done. It takes the slot in the `.world-near` column
- * where Gather all, Pat, and Fish show, only while none of them does (style.css hides it then), and
- * keeps to their width, so it never covers more of the map than they do. While the next step is a
- * plot it stays away, since Claim plot is on screen beside it (decision 0234).
+ * while one is left and hidden once they're all done. It stacks in the `.world-near` column with
+ * Gather all, Pat, and Fish and keeps to their width, so it never covers more of the map than they
+ * do. It stays away only where the button for its own step is already on screen: Claim plot while
+ * the step is a plot (decision 0234), and Gather all while the step is to gather, which the chip's
+ * `data-step` lets style.css hide the moment that button comes or goes (decision 0312).
  * A tap does it or opens it: the plot name sheet, a starter home, a first seed planted by the
  * hearth (`first-plant.ts`: home, a planter inside the starter hut, and the seed, each sent and
  * checked like any action), the build bar, or the page where it's done. It asks the server while the world is on screen and every so often
@@ -126,6 +127,8 @@ export function mountNextStep(o: {
     step = r.ok ? nextStep(stepRows(r.data)) : undefined;
     chip.hidden = !step || step.id === "plot";
     if (!step) return;
+    // style.css reads this, so the chip gives its place up to Gather all the moment that shows.
+    chip.dataset.step = step.id;
     label.textContent = step.chip;
     chip.setAttribute("aria-label", `Next step: ${step.name}`);
   }

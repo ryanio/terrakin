@@ -267,7 +267,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
   const list = (cs: typeof gained) => cs.map((c) => thingCount(c.kind, c.amount)).join(", ");
   switch (e.reason) {
     case "starter":
-      return "Your first pantry: seeds, sugar, and jars. Place a planter to start a garden.";
+      return "Your first pantry: seeds, sugar, and jars. Tap Plant a seed to start a garden.";
     case "pantry":
       return gained.length > 0 ? `From the pantry: ${list(gained)}.` : null;
     case "harvest":

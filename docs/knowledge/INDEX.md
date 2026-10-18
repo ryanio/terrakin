@@ -245,6 +245,7 @@ What we chose and why. Newest last.
 - [The dev client can read the live world, and only read it](decisions/0309-the-dev-client-can-read-the-live-world-and-only-read-it.md) · 2026-10-18 · accepted · `tooling` `client` `safety`
 - [Recipe pages come in editions, and edition 2 puts every card on the ground](decisions/0310-recipe-pages-come-in-editions-and-edition-2-puts-every-card-.md) · 2026-10-18 · accepted · `sim` `protocol` `server` `client` `recipes` `replay`
 - [Spring and summer get a crop and a decor piece each, with no new buy orders](decisions/0311-spring-and-summer-get-a-crop-and-a-decor-piece-each-with-no-.md) · 2026-10-18 · accepted · `sim` `economy` `numbers` `seasons` `items`
+- [The world's next-step chip keeps its place beside Gather all](decisions/0312-the-world-s-next-step-chip-keeps-its-place-beside-gather-all.md) · 2026-10-18 · accepted · `client` `onboarding` `ux`
 
 ## Learnings
 

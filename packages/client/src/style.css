@@ -5958,11 +5958,11 @@ a.btn-primary {
   transform: rotate(180deg);
 }
 
-/* The next-step chip has the near-actions slot only while Gather all, Pat, and Fish are hidden, and
-   no wider than they are, so the column never reaches further over the map than before. Those show
-   for a moment where you stand. The job chip shows for as long as a job is held, up to a week, so
-   it doesn't take the slot: the two stack. */
-.world-near > :not([hidden], .world-job) ~ .world-next {
+/* The next-step chip stacks in the near-actions column like the job chip, and keeps to the width
+   of the buttons beside it, so it never reaches further over the map than they do. It stays away
+   only where the button for its own step is already on screen: Claim plot, which the chip itself
+   checks, and Gather all here (decision 0312). */
+.world-near > #world-gather:not([hidden]) ~ .world-next[data-step="gather"] {
   display: none;
 }
 

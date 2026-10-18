@@ -6,21 +6,17 @@
  * the step is a plot (decision 0234), and Gather all while the step is to gather, which the chip's
  * `data-step` lets style.css hide the moment that button comes or goes (decision 0312).
  * A tap does it or opens it: the plot name sheet, a starter home, a first seed planted by the
- * hearth (`first-plant.ts`: home, a planter inside the starter hut, and the seed, each sent and
- * checked like any action), the build bar, or the page where it's done. It asks the server while the world is on screen and every so often
+ * hearth (`sendFirstPlanting` in `first-plant.ts`, which the sheet after a home shares), the build
+ * bar, or the page where it's done. It asks the server while the world is on screen and every so often
  * after, since steps are done in many places.
  */
-import type { Action } from "@terrakin/protocol";
-import { canBuildOn } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { everyVisible } from "@terrakin/ui/poll";
 import { whileBusy } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { firstVisitApi } from "./api/first-visit";
-import { inventoryApi } from "./api/inventory";
 import { residentsApi } from "./api/residents";
-import { actProblem, worldApi } from "./api/world";
-import { planFirstPlanting, plantedLine } from "./first-plant";
+import { sendFirstPlanting } from "./first-plant";
 import { nextStep, type StepRow, stepHref, stepRows } from "./first-steps";
 import type { Mirror } from "./mirror";
 import { savedResidentId, savedToken } from "./net";
@@ -36,59 +32,6 @@ function press(id: string): boolean {
   const button = document.getElementById(id);
   if (!(button instanceof HTMLButtonElement) || button.hidden || button.disabled) return false;
   button.click();
-  return true;
-}
-
-/** Send one action; its refusal, if any, in the server's words. */
-async function send(action: Action): Promise<string | null> {
-  return actProblem(await worldApi.act(action));
-}
-
-/**
- * Plant a first seed by `me`'s hearth: home first when away from it, then a planter inside the
- * starter hut when there's no empty one within reach, then the seed that grows soonest. False
- * when there's no plan for it (no hearth, no seeds, no room), so the chip says how instead.
- */
-async function plantFirst(m: Mirror, me: string, say: (line: string) => void): Promise<boolean> {
-  const r = m.residents.get(me);
-  const hearth = r?.hearth;
-  if (!r || !hearth) return false;
-  if (r.x !== hearth.x || r.y !== hearth.y || r.floor !== undefined) {
-    const problem = await send({ type: "home" });
-    if (problem) {
-      say(problem);
-      return true;
-    }
-  }
-  const inv = await inventoryApi.inventory();
-  if (!inv.ok) return false;
-  const counts = new Map<string, number>(
-    (inv.data.inventory?.stacks ?? []).map((s) => [s.kind, s.count]),
-  );
-  const plan = planFirstPlanting({
-    config: m.config,
-    hearth,
-    blocks: m.blocks,
-    crops: m.crops,
-    mine: (t) => {
-      const ownerId = m.ownerAt(t.x, t.y);
-      return canBuildOn(
-        ownerId ? { ownerId, coOwners: [...m.coOwnersAt(t.x, t.y)] } : undefined,
-        me,
-      );
-    },
-    standing: (t) =>
-      [...m.residents.values()].some(
-        (o) => o.online && o.x === t.x && o.y === t.y && o.floor === undefined,
-      ),
-    held: (kind) => counts.get(kind) ?? 0,
-  });
-  if ("problem" in plan) return false;
-  const { tile, crop } = plan;
-  const problem =
-    (plan.place ? await send({ type: "place", ...tile, block: "planter" }) : null) ??
-    (await send({ type: "plant", ...tile, seed: crop }));
-  say(problem ?? plantedLine(crop));
   return true;
 }
 
@@ -143,8 +86,10 @@ export function mountNextStep(o: {
 
   async function plantOrSay(row: StepRow, me: string) {
     const m = o.mirror();
-    const planted = m ? await whileBusy(chip, () => plantFirst(m, me, o.toast)) : false;
-    if (!planted) {
+    const said = m ? await whileBusy(chip, () => sendFirstPlanting(m, me)) : null;
+    if (said) o.toast(said);
+    else {
+      // No one-tap plan for it: the build bar and the hint are how it's done by hand.
       if (document.getElementById("build")?.getAttribute("aria-pressed") !== "true") press("build");
       o.toast(row.hint);
     }

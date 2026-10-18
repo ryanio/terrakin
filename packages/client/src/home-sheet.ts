@@ -3,14 +3,22 @@
  * bar with the hearth picked. The homes are the designs (RFC 0032), drawn as they'd stand on your
  * plot (`design-picks.ts`, loaded when the sheet opens). Building one sets your hearth on the
  * plot's center, which every design leaves open, steps you onto it, which brings your first pantry,
- * and sends `build` with the design, so this says what arrived and where it is. Either way the
- * plot's name is asked next (decision 0121).
+ * and sends `build` with the design, so this says what arrived and where it is. The first pantry's
+ * note offers Plant a seed, which puts one in by the hearth without leaving the sheet
+ * (decision 0313). Either way the plot's name is asked next (decision 0121).
  */
 import type { Action, WorldEvent } from "@terrakin/protocol";
 import { plotCenter, type Season, type Tile, type WorldConfig } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import type { Result } from "@terrakin/ui/http";
-import { closeOverlay, openOverlay, overlayShowing, sheet, whileBusyAll } from "@terrakin/ui/ui";
+import {
+  closeOverlay,
+  openOverlay,
+  overlayShowing,
+  sheet,
+  whileBusy,
+  whileBusyAll,
+} from "@terrakin/ui/ui";
 import { worldApi } from "./api/world";
 import type { DesignChoice } from "./design-picks";
 import { doneAlready, homeSteps } from "./home-steps";
@@ -34,6 +42,11 @@ export interface HomeSheetOptions {
    * has you there (or the walk gives up).
    */
   walkNear: (tile: Tile, near: number) => Promise<void>;
+  /**
+   * Plant the first seed by the hearth in one tap, giving back what to say: the planted line, the
+   * world's refusal, or null when there's no one-tap plan for it (`sendFirstPlanting`).
+   */
+  plantFirst: () => Promise<string | null>;
 }
 
 type Inventory = Extract<WorldEvent, { type: "inventory" }>;
@@ -47,6 +60,51 @@ const pantryIn = (events: readonly WorldEvent[]) =>
     (e): e is Inventory =>
       e.type === "inventory" && (e.reason === "starter" || e.reason === "pantry"),
   );
+
+/**
+ * The pantry note on the name sheet: what arrived, and, for the first pantry, Plant a seed, which
+ * puts one in by the hearth without leaving the sheet (decision 0313). The plot still wants a name,
+ * so the sheet stays open and the note says what happened in place of the button. Only the first
+ * pantry brings seeds, so only it offers the tap.
+ */
+function pantryNews(got: string, first: boolean, plantFirst: () => Promise<string | null>): Node {
+  const line = h("p", {
+    attrs: { role: "status" },
+    text: first ? `Your first pantry is in: ${got}.` : `Today's pantry is in: ${got}.`,
+  });
+  const things = h("a", {
+    class: "pill-button small",
+    attrs: { href: "/inventory", id: "home-things" },
+    text: "See your things",
+  });
+  const plant = first
+    ? h("button", {
+        class: "btn-primary small",
+        attrs: { type: "button", id: "home-plant" },
+        text: "Plant a seed",
+      })
+    : null;
+  plant?.addEventListener("click", () => {
+    void (async () => {
+      const said = await whileBusy(plant, plantFirst, "Planting…");
+      // Either way the button has had its turn: what it did, or how to do it by hand, is the note,
+      // which says it where a reader is told about it too (`role="status"`).
+      line.textContent =
+        said ??
+        "There's no room for a planter by your hearth yet. Place one from Build, then tap it.";
+      const held = document.activeElement === plant;
+      plant.remove();
+      // Focus was on the button that just left, so hand it to the link beside it, inside the sheet.
+      if (held) things.focus();
+    })();
+  });
+  return h(
+    "div",
+    { class: "paper note home-news", attrs: { id: "home-news" } },
+    line,
+    h("div", { class: "cluster" }, plant, things),
+  );
+}
 
 export function openHomeSheet(o: HomeSheetOptions) {
   /** "Saving…" while the home goes up, or why it couldn't. */
@@ -184,22 +242,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
       say: o.say,
       claimed: true,
       lede: "Your home is built, with your hearth inside. Now give your plot a name everyone sees on the map. You can name it later from your profile, too.",
-      news: got
-        ? h(
-            "div",
-            { class: "paper note home-news", attrs: { id: "home-news" } },
-            h("p", {
-              text: first
-                ? `Your first pantry is in: ${got}. Tap Plant a seed in the world to put one in by your hearth.`
-                : `Today's pantry is in: ${got}.`,
-            }),
-            h("a", {
-              class: "pill-button small",
-              attrs: { href: "/inventory", id: "home-things" },
-              text: "See your things",
-            }),
-          )
-        : null,
+      news: got ? pantryNews(got, first, o.plantFirst) : null,
     });
   }
 

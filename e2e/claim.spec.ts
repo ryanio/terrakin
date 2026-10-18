@@ -5,8 +5,8 @@ import { walkedOnto, watchErrors } from "./support";
  * A newcomer's way home on a phone: the d-pad saying what's in the way, Claim plot in the Commons
  * opening the picker of empty plots (decision 0143), the one picked claimed with `settle`, a home
  * picked from the designs drawn on her plot and built in one tap with the first pantry said in
- * words (decision 0144, RFC 0032), and the starter seeds in Your things, which takes Claim plot's
- * place in the HUD.
+ * words (decision 0144, RFC 0032), her first seed planted from that note without leaving the sheet
+ * (decision 0313), and the starter seeds in Your things, which takes Claim plot's place in the HUD.
  */
 test("a newcomer claims a plot from the Commons, builds a design, and finds seeds", async ({
   page,
@@ -112,6 +112,19 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     expect(plan.map.floors[0].blocks[1]).toBe(".GGGGG..");
     expect(plan.map.floors[0].blocks[2]).toBe(".S...S.p");
     expect(plan.notes).toEqual([]);
+    // Her first seed goes in from the pantry note itself, so the home and the first thing are one
+    // go and nothing waits on her finding the chip out on the map (decision 0313). The button has
+    // had its turn either way, so it leaves and the note says what it did.
+    await name.locator("#home-plant").click();
+    await expect(name.locator("#home-news")).toContainText(
+      /You planted an? .+ seed by your hearth\./,
+    );
+    await expect(name.locator("#home-plant")).toHaveCount(0);
+    const onPlot = (c: { x: number; y: number }) =>
+      `${Math.floor(c.x / size)}/${Math.floor(c.y / size)}` === plot;
+    await expect
+      .poll(async () => ((await world()).crops as { x: number; y: number }[]).filter(onPlot).length)
+      .toBe(1);
     await name.locator("#plot-name-input").fill("Linden's Lemon Grove");
     await name.locator("#plot-name-save").click();
     await expect(name).toBeHidden();
@@ -122,7 +135,9 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await page.click("#hud-things");
     await expect(page).toHaveURL(/\/inventory$/);
     await expect(page.getByText(/2 lemon seeds/i)).toBeVisible();
-    await expect(page.getByText(/2 herb seeds/i)).toBeVisible();
+    // One of her two herb seeds is in the ground: herbs ripen soonest, so that's the one the
+    // pantry note planted.
+    await expect(page.getByText(/1 herb seed\b/i)).toBeVisible();
   });
 
   await test.step("your own profile links to your things", async () => {

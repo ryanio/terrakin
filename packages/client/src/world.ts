@@ -71,6 +71,7 @@ import {
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
+import { sendFirstPlanting } from "./first-plant";
 import { noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { floorChips } from "./floor-chips";
 import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
@@ -593,6 +594,8 @@ function onMessage(msg: ServerMessage) {
             where: { config: m.config, season: m.day === undefined ? undefined : seasonOf(m.day) },
             standing: () => self(),
             hearth: () => (me ? m.residents.get(me)?.hearth : undefined),
+            // The world as it is when the button is tapped, so the home just built is in it.
+            plantFirst: async () => (mirror && me ? await sendFirstPlanting(mirror, me) : null),
             walkNear: (tile, near) =>
               new Promise((done) => {
                 // Done once the world has you within reach, not when the last step is only sent.

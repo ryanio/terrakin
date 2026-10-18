@@ -284,6 +284,16 @@ const SHAPES: Readonly<Record<ProduceLook["shape"], Paint>> = {
       ellipse(29, 31.2, 1, 1.4, detail, { opacity: 0.7 }),
     ]),
   ],
+  // A pod with its peas showing through, lying at a slight angle.
+  pod: (body, detail) => [
+    group("rotate(-18 24 29)", [
+      path("M11 29c0-5 5.8-8.4 13-8.4S37 24 37 29s-5.8 8.4-13 8.4S11 34 11 29z", body, out()),
+      circle(17.4, 29, 3.1, detail, out({ "stroke-width": 0.9 })),
+      circle(24, 29, 3.3, detail, out({ "stroke-width": 0.9 })),
+      circle(30.6, 29, 3.1, detail, out({ "stroke-width": 0.9 })),
+      line("M13 25.6c6-2.4 16-2.4 22 0", "#ffffff", 1.2, { opacity: 0.3 }),
+    ]),
+  ],
   // A leafy head with two leaves falling away from it, like a cabbage.
   leafy: (body, detail) => [
     leaf(14.5, 33, 12, -165, MOSS_LIGHT),
@@ -2400,6 +2410,46 @@ function fishStew(): ArtShape[] {
   ];
 }
 
+// ---------- spring's and summer's decor ----------
+
+/** A bird bath: a stone basin on a stem, with a little water and a bird on the rim. */
+function birdBath(): ArtShape[] {
+  const stone = BLOCK_COLORS.bird_bath;
+  const deep = "#9aa6ae";
+  return [
+    shadow(14, 43),
+    ellipse(24, 41, 9, 2.8, deep, out()),
+    path("M20.5 40.5 22 24h4l1.5 16.5z", stone, out()),
+    ellipse(24, 23, 14, 5, stone, out()),
+    ellipse(24, 22.4, 10.5, 3.3, "#5fa9d0", out({ "stroke-width": 0.9 })),
+    ellipse(21, 21.8, 3, 1, "#ffffff", { opacity: 0.5 }),
+    ellipse(33, 19.5, 3.4, 2.6, "#8a6a4a", out({ "stroke-width": 0.9 })),
+    circle(35.6, 17.2, 2, "#8a6a4a", out({ "stroke-width": 0.9 })),
+    path("M37.4 16.6 40 17.4l-2.6 1z", "#e2a33a"),
+    circle(36.3, 16.8, 0.5, INK),
+  ];
+}
+
+/** A beehive: a straw skep of three stacked bands on a board, with a bee over it. */
+function beehive(): ArtShape[] {
+  const straw = BLOCK_COLORS.beehive;
+  const deep = "#b8882c";
+  const band = (y: number, w: number, h: number) => rect(24 - w / 2, y, w, h, h / 2, straw, out());
+  return [
+    shadow(16, 43),
+    path("M8 41h32l-2.5-4.5h-27z", "#b98a52", out()),
+    band(31, 28, 6),
+    band(25.5, 23, 6),
+    band(20.5, 17, 5.5),
+    ellipse(24, 18, 6, 3, straw, out()),
+    line("M11 34h26M14 28.5h20M18 23.5h12", deep, 0.9, { opacity: 0.5 }),
+    path("M21.5 41v-3.4a2.5 2.5 0 0 1 5 0V41z", "#6e4a2c", out({ "stroke-width": 0.9 })),
+    ellipse(35, 14, 3, 2, "#f2c53d", out({ "stroke-width": 0.9 })),
+    line("M33.6 13.2h2.8M33.9 15h2.6", INK, 0.7),
+    ellipse(34.4, 11.4, 2, 1.1, "#ffffff", { opacity: 0.7, transform: "rotate(-25 34.4 11.4)" }),
+  ];
+}
+
 // ---------- what the kitchen and the workbench make from the new crops ----------
 
 /** Apple pie: a golden crust with a lattice over the filling, crimped round the edge. */
@@ -2564,6 +2614,8 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   corn_bread: cornBread,
   garden_salad: gardenSalad,
   posy,
+  bird_bath: birdBath,
+  beehive,
   piece,
   acorn,
   pinecone,

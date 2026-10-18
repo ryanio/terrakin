@@ -82,6 +82,8 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   dreidel: "#3f6fb5",
   // Midwinter's stocking (RFC 0034): red felt with a white cuff.
   stocking: "#c8344a",
+  bird_bath: "#b9c4cc",
+  beehive: "#d9a63f",
 };
 
 /**

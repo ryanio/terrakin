@@ -5368,6 +5368,8 @@
                 "melon_seed",
                 "sunflower_seed",
                 "tulip_seed",
+                "pea_seed",
+                "chili_seed",
                 "lemon",
                 "strawberry",
                 "tomato",
@@ -5390,6 +5392,8 @@
                 "melon",
                 "sunflower",
                 "tulip",
+                "pea",
+                "chili",
                 "sugar",
                 "jar",
                 "firework",
@@ -5413,6 +5417,8 @@
                 "menorah",
                 "dreidel",
                 "stocking",
+                "bird_bath",
+                "beehive",
                 "table",
                 "chair",
                 "bookshelf",
@@ -12609,7 +12615,9 @@
                 "cabbage",
                 "melon",
                 "sunflower",
-                "tulip"
+                "tulip",
+                "pea",
+                "chili"
               ]
             }
           }
@@ -27797,7 +27805,9 @@
                     "leaf_garland",
                     "menorah",
                     "dreidel",
-                    "stocking"
+                    "stocking",
+                    "bird_bath",
+                    "beehive"
                   ]
                 }
               },
@@ -27964,7 +27974,9 @@
               "leaf_garland",
               "menorah",
               "dreidel",
-              "stocking"
+              "stocking",
+              "bird_bath",
+              "beehive"
             ]
           },
           "windows": {
@@ -28009,7 +28021,9 @@
               "leaf_garland",
               "menorah",
               "dreidel",
-              "stocking"
+              "stocking",
+              "bird_bath",
+              "beehive"
             ]
           },
           "path": {
@@ -28950,7 +28964,9 @@
           "cabbage",
           "melon",
           "sunflower",
-          "tulip"
+          "tulip",
+          "pea",
+          "chili"
         ]
       },
       "DecideAction": {
@@ -30180,6 +30196,8 @@
           "melon_seed",
           "sunflower_seed",
           "tulip_seed",
+          "pea_seed",
+          "chili_seed",
           "lemon",
           "strawberry",
           "tomato",
@@ -30202,6 +30220,8 @@
           "melon",
           "sunflower",
           "tulip",
+          "pea",
+          "chili",
           "sugar",
           "jar",
           "firework",
@@ -30225,6 +30245,8 @@
           "menorah",
           "dreidel",
           "stocking",
+          "bird_bath",
+          "beehive",
           "table",
           "chair",
           "bookshelf",
@@ -31127,7 +31149,9 @@
               "leaf_garland",
               "menorah",
               "dreidel",
-              "stocking"
+              "stocking",
+              "bird_bath",
+              "beehive"
             ]
           },
           "dry": {
@@ -31191,7 +31215,9 @@
               "leaf_garland",
               "menorah",
               "dreidel",
-              "stocking"
+              "stocking",
+              "bird_bath",
+              "beehive"
             ]
           }
         },
@@ -31337,7 +31363,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "1": {
@@ -31381,7 +31409,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "2": {
@@ -31425,7 +31455,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "3": {
@@ -31469,7 +31501,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "4": {
@@ -31513,7 +31547,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "5": {
@@ -31557,7 +31593,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "6": {
@@ -31601,7 +31639,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "7": {
@@ -31645,7 +31685,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "8": {
@@ -31689,7 +31731,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "9": {
@@ -31733,7 +31777,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               }
             },
@@ -31825,7 +31871,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "1": {
@@ -31869,7 +31917,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "2": {
@@ -31913,7 +31963,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "3": {
@@ -31957,7 +32009,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "4": {
@@ -32001,7 +32055,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "5": {
@@ -32045,7 +32101,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "6": {
@@ -32089,7 +32147,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "7": {
@@ -32133,7 +32193,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "8": {
@@ -32177,7 +32239,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "9": {
@@ -32221,7 +32285,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               }
             },
@@ -32324,7 +32390,9 @@
                         "leaf_garland",
                         "menorah",
                         "dreidel",
-                        "stocking"
+                        "stocking",
+                        "bird_bath",
+                        "beehive"
                       ]
                     }
                   },
@@ -33900,6 +33968,8 @@
           "menorah",
           "dreidel",
           "stocking",
+          "bird_bath",
+          "beehive",
           "top_hat",
           "raincoat",
           "umbrella",
@@ -33931,6 +34001,8 @@
           "melon_seed",
           "sunflower_seed",
           "tulip_seed",
+          "pea_seed",
+          "chili_seed",
           "sugar",
           "jar",
           "firework",
@@ -33996,6 +34068,8 @@
           "melon_seed",
           "sunflower_seed",
           "tulip_seed",
+          "pea_seed",
+          "chili_seed",
           "lemon",
           "strawberry",
           "tomato",
@@ -34018,6 +34092,8 @@
           "melon",
           "sunflower",
           "tulip",
+          "pea",
+          "chili",
           "sugar",
           "jar",
           "firework",
@@ -34041,6 +34117,8 @@
           "menorah",
           "dreidel",
           "stocking",
+          "bird_bath",
+          "beehive",
           "table",
           "chair",
           "bookshelf",
@@ -35434,7 +35512,9 @@
                   "leaf_garland",
                   "menorah",
                   "dreidel",
-                  "stocking"
+                  "stocking",
+                  "bird_bath",
+                  "beehive"
                 ]
               },
               "by": {
@@ -38976,7 +39056,9 @@
                     "leaf_garland",
                     "menorah",
                     "dreidel",
-                    "stocking"
+                    "stocking",
+                    "bird_bath",
+                    "beehive"
                   ]
                 }
               },
@@ -49303,7 +49385,9 @@
                     "leaf_garland",
                     "menorah",
                     "dreidel",
-                    "stocking"
+                    "stocking",
+                    "bird_bath",
+                    "beehive"
                   ]
                 }
               },
@@ -49350,7 +49434,9 @@
                     "leaf_garland",
                     "menorah",
                     "dreidel",
-                    "stocking"
+                    "stocking",
+                    "bird_bath",
+                    "beehive"
                   ]
                 }
               },

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-18-spring-and-summer-get-a-crop-and-a-decor-piece-of-their-own",
+    "date": "2026-10-18",
+    "kind": "added",
+    "title": "Spring and summer get a crop and a decor piece of their own",
+    "body": "Every season has its own shelf at the shop now. Spring sells `pea_seed` for 3 coins and a `bird_bath` for 22; summer sells `chili_seed` for 3 and a `beehive` for 18, each only while its season runs, like autumn's pumpkin seeds and winter's cranberries.\nA pod of peas and a chili each take 3 days and give 3 and a seed back, the numbers the quicker vegetables have. What you bought stays yours to place or plant any day of the year.\nThe town buys neither crop, so what it pays a resident in a day is unchanged. `GET /v1/catalog` has the numbers and its `version` changed.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
     "id": "2026-10-18-every-recipe-card-can-now-turn-up-as-a-page-on-the-ground",
     "date": "2026-10-18",
     "kind": "added",

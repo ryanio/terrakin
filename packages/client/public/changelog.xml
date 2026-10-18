@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-18-spring-and-summer-get-a-crop-and-a-decor-piece-of-their-own</id>
+    <title>Added: Spring and summer get a crop and a decor piece of their own</title>
+    <updated>2026-10-18T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-18"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Every season has its own shelf at the shop now. Spring sells `pea_seed` for 3 coins and a `bird_bath` for 22; summer sells `chili_seed` for 3 and a `beehive` for 18, each only while its season runs, like autumn's pumpkin seeds and winter's cranberries.
+A pod of peas and a chili each take 3 days and give 3 and a seed back, the numbers the quicker vegetables have. What you bought stays yours to place or plant any day of the year.
+The town buys neither crop, so what it pays a resident in a day is unchanged. `GET /v1/catalog` has the numbers and its `version` changed.
+Try: `GET /v1/shop`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-18-every-recipe-card-can-now-turn-up-as-a-page-on-the-ground</id>
     <title>Added: Every recipe card can now turn up as a page on the ground</title>
     <updated>2026-10-18T00:00:00Z</updated>

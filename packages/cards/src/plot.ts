@@ -80,6 +80,8 @@ export const PLOT_DECOR = [
   "menorah",
   "dreidel",
   "stocking",
+  "bird_bath",
+  "beehive",
 ] as const;
 export type PlotDecor = (typeof PLOT_DECOR)[number];
 
@@ -746,7 +748,10 @@ export function petSvg(p: PlotPet, cols: number, rows = cols): string[] {
 const WOOD_DARK = "#6e4a2c";
 const EDGE = "rgba(70, 40, 18, 0.5)";
 const STRAW = "#e8c878";
+const STRAW_DEEP = "#c9a452";
 const BURLAP = "#d9bf8f";
+/** The water in a bird bath, the pond's own blue (decision 0311). */
+const POND_WATER = "#5fa9d0";
 /**
  * Halloween's colors (RFC 0022), as `packages/ui/src/looks.ts` has them. Bunting's bats are its
  * `fill`.
@@ -1113,6 +1118,29 @@ function decorSvg(
       `<rect x="${X(0.47)}" y="${Y(0.2)}" width="0.06" height="0.13" fill="${DREIDEL_LIGHT}"/>`,
       `<path d="M${X(0.3)} ${Y(0.33)}H${X(0.7)}V${Y(0.62)}L${X(0.5)} ${Y(0.86)}L${X(0.3)} ${Y(0.62)}z" fill="${fill}" ${stroke}/>`,
       `<path d="M${X(0.5)} ${Y(0.33)}H${X(0.7)}V${Y(0.62)}L${X(0.5)} ${Y(0.86)}z" fill="${DREIDEL_LIGHT}" opacity="0.55"/>`,
+    ];
+  }
+  if (kind === "bird_bath") {
+    // A round stone basin on a stem, with a disc of water in it.
+    return [
+      shade,
+      `<path d="M${X(0.42)} ${Y(0.88)}H${X(0.58)}L${X(0.56)} ${Y(0.5)}H${X(0.44)}z" fill="${fill}" ${stroke}/>`,
+      `<ellipse cx="${X(0.5)}" cy="${Y(0.88)}" rx="0.17" ry="0.055" fill="${fill}" ${stroke}/>`,
+      `<ellipse cx="${X(0.5)}" cy="${Y(0.46)}" rx="0.3" ry="0.12" fill="${fill}" ${stroke}/>`,
+      `<ellipse cx="${X(0.5)}" cy="${Y(0.45)}" rx="0.22" ry="0.08" fill="${POND_WATER}"/>`,
+    ];
+  }
+  if (kind === "beehive") {
+    // A straw skep: three stacked domes with a doorway at its foot.
+    const band = (i: number, w: number) =>
+      `<rect x="${X(0.5 - w / 2)}" y="${Y(0.46 + i * 0.14)}" width="${n(w)}" height="0.13" rx="0.06" fill="${fill}" ${stroke}/>`;
+    return [
+      shade,
+      `<path d="M${X(0.22)} ${Y(0.88)}H${X(0.78)}L${X(0.74)} ${Y(0.78)}H${X(0.26)}z" fill="${STRAW_DEEP}" ${stroke}/>`,
+      band(2, 0.56),
+      band(1, 0.46),
+      band(0, 0.34),
+      `<path d="M${X(0.44)} ${Y(0.88)}v-0.1a0.06 0.06 0 0 1 0.12 0V${Y(0.88)}z" fill="${WOOD_DARK}"/>`,
     ];
   }
   if (kind === "scarecrow") {

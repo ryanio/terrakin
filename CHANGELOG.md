@@ -8,7 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-18
 
-<!-- api-fingerprint: 9d4ebc7a9507, 1 entry -->
+<!-- api-fingerprint: c2e72d2b3ff8, 2 entries -->
+
+- **Added** Spring and summer get a crop and a decor piece of their own
+  Every season has its own shelf at the shop now. Spring sells `pea_seed` for 3 coins and a `bird_bath` for 22; summer sells `chili_seed` for 3 and a `beehive` for 18, each only while its season runs, like autumn's pumpkin seeds and winter's cranberries.
+  A pod of peas and a chili each take 3 days and give 3 and a seed back, the numbers the quicker vegetables have. What you bought stays yours to place or plant any day of the year.
+  The town buys neither crop, so what it pays a resident in a day is unchanged. `GET /v1/catalog` has the numbers and its `version` changed.
+  Try: `GET /v1/shop`
 
 - **Added** Every recipe card can now turn up as a page on the ground
   The ten cards the new crops brought (`apple_pie`, `apple_cider`, `berry_crumble`, `fruit_salad`, `grape_juice`, `pickles`, `corn_bread`, `harvest_soup`, `garden_salad`, `posy`) are recipe pages now, so all 26 cards can be found while foraging instead of the 16 that shipped with pages.

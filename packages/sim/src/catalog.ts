@@ -124,7 +124,7 @@ export interface CropNumbers {
  * of its speckles, seeds, or ribs. The outlines are an oval with pointed ends like a lemon, a berry,
  * round, three ribbed lobes like a pumpkin, a pair on one stem like cherries, a bunch of little
  * fruit like grapes, a tapering root like a carrot, a cob of kernels, a striped one like a melon, a
- * long one like a cucumber, and a leafy head like a cabbage. On top grows a leaf, a leafy cap, a star of sepals with a stem,
+ * long one like a cucumber, a pod of peas, and a leafy head like a cabbage. On top grows a leaf, a leafy cap, a star of sepals with a stem,
  * a stubby stem with a curl of vine and a leaf, a small crown like a pomegranate's, or a fan of
  * greens like a carrot's. A crop with a vine on top grows along the soil in a planter. A fruit also
  * gives the colors of its jam: what fills the jar the jam family recipe makes, and the cloth tied
@@ -142,6 +142,7 @@ export interface ProduceLook {
     | "root"
     | "cob"
     | "striped"
+    | "pod"
     | "long"
     | "leafy";
   top: "leaf" | "cap" | "star" | "vine" | "crown" | "greens";
@@ -1227,6 +1228,46 @@ const WRITTEN = {
     family: "keepsake",
     role: "good",
     recipe: { station: "workbench", needs: { tulip: 2, sunflower: 1 } },
+    look: { template: "drawn" },
+  }),
+  // Spring and summer get their own crop and their own decor, as autumn and winter have
+  // (decision 0311). Seeds sell only in their season, like pumpkins' and cranberries'.
+  ...crop("pea", {
+    name: "Pod of peas",
+    plural: "Pods of peas",
+    family: "vegetable",
+    days: 3,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 3,
+    seedSeasons: ["spring"],
+    look: { template: "produce", shape: "pod", top: "vine", body: "#7fb04a", detail: "#4f7a2e" },
+  }),
+  ...crop("chili", {
+    name: "Chili",
+    plural: "Chilis",
+    family: "vegetable",
+    days: 3,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 3,
+    seedSeasons: ["summer"],
+    look: { template: "produce", shape: "long", top: "leaf", body: "#cf3a2c", detail: "#8f2017" },
+  }),
+  bird_bath: entry({
+    name: "Bird bath",
+    plural: "Bird baths",
+    family: "decor",
+    role: "decor",
+    shop: { price: 22, seasons: ["spring"] },
+    look: { template: "drawn" },
+  }),
+  beehive: entry({
+    name: "Beehive",
+    plural: "Beehives",
+    family: "decor",
+    role: "decor",
+    shop: { price: 18, seasons: ["summer"] },
     look: { template: "drawn" },
   }),
 };

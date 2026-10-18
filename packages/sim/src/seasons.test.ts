@@ -184,6 +184,25 @@ describe("seasonal buying", () => {
   });
 });
 
+describe("spring's and summer's numbers", () => {
+  it("are the ones decision 0311 records", () => {
+    expect(CROP_INFO.pea).toEqual({ seed: "pea_seed", days: 3, yield: 3, seeds: 1 });
+    expect(CROP_INFO.chili).toEqual({ seed: "chili_seed", days: 3, yield: 3, seeds: 1 });
+    expect(Object.fromEntries(SEASON_STOCK.spring.map((s) => [s, SHOP_CATALOG[s]]))).toEqual({
+      pea_seed: { price: 3, section: "garden" },
+      bird_bath: { price: 22, section: "decor" },
+    });
+    expect(Object.fromEntries(SEASON_STOCK.summer.map((s) => [s, SHOP_CATALOG[s]]))).toEqual({
+      chili_seed: { price: 3, section: "garden" },
+      beehive: { price: 18, section: "decor" },
+    });
+    // The town buys neither: a new kind earns coins only by a decision of its own (0308).
+    for (const kind of ["pea", "chili"]) expect(Object.keys(BUY_ORDERS)).not.toContain(kind);
+    expect(SEASON_BUYS.spring).toEqual(["trout"]);
+    expect(SEASON_BUYS.summer).toEqual(["sunfish"]);
+  });
+});
+
 describe("autumn's numbers", () => {
   it("are the ones decision 0079 records", () => {
     expect(CROP_INFO.pumpkin).toEqual({ seed: "pumpkin_seed", days: 5, yield: 2, seeds: 1 });

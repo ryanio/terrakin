@@ -14,6 +14,9 @@ import {
 } from "./decor-winter";
 import { CLAY, PAPER, WOOD_DARK } from "./palette";
 
+/** The water in spring's bird bath, the pond's own blue. */
+const BATH_WATER = "#5fa9d0";
+
 // ---------- decor from the town shop (RFC 0008) ----------
 
 /** Which neighbors a fence post joins: the four sides that hold a fence too. */
@@ -76,8 +79,67 @@ export function paintDecor(
   else if (kind === "menorah") paintMenorah(ctx, left, top, size, night);
   else if (kind === "dreidel") paintDreidel(ctx, left, top, size);
   else if (kind === "stocking") paintStocking(ctx, left, top, size);
+  else if (kind === "bird_bath") paintBirdBath(ctx, left, top, size);
+  else if (kind === "beehive") paintBeehive(ctx, left, top, size);
   else paintBench(ctx, left, top, size);
   ctx.restore();
+}
+
+/** Spring's bird bath: a stone basin on a stem, with a disc of water in it. */
+function paintBirdBath(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const cx = left + size / 2;
+  const y = (f: number) => top + size * f;
+  ctx.fillStyle = BLOCK_COLORS.bird_bath;
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.09, y(0.86));
+  ctx.lineTo(cx - size * 0.06, y(0.45));
+  ctx.lineTo(cx + size * 0.06, y(0.45));
+  ctx.lineTo(cx + size * 0.09, y(0.86));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  for (const [cy, rx, ry] of [
+    [0.86, 0.19, 0.06],
+    [0.42, 0.32, 0.12],
+  ] as const) {
+    ctx.beginPath();
+    ctx.ellipse(cx, y(cy), size * rx, size * ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.fillStyle = BATH_WATER;
+  ctx.beginPath();
+  ctx.ellipse(cx, y(0.41), size * 0.23, size * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Summer's beehive: a straw skep of three bands on a board, with a doorway at its foot. */
+function paintBeehive(ctx: CanvasRenderingContext2D, left: number, top: number, size: number) {
+  const cx = left + size / 2;
+  const y = (f: number) => top + size * f;
+  ctx.fillStyle = WOOD_DARK;
+  ctx.beginPath();
+  ctx.moveTo(left + size * 0.14, y(0.88));
+  ctx.lineTo(left + size * 0.86, y(0.88));
+  ctx.lineTo(left + size * 0.79, y(0.78));
+  ctx.lineTo(left + size * 0.21, y(0.78));
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = BLOCK_COLORS.beehive;
+  for (const [cy, half, h] of [
+    [0.74, 0.3, 0.14],
+    [0.58, 0.25, 0.13],
+    [0.44, 0.18, 0.12],
+  ] as const) {
+    ctx.beginPath();
+    ctx.ellipse(cx, y(cy), size * half, size * h, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.fillStyle = WOOD_DARK;
+  ctx.beginPath();
+  ctx.ellipse(cx, y(0.82), size * 0.06, size * 0.07, 0, Math.PI, 0);
+  ctx.fill();
 }
 
 /** Built by the town: a little sun-gold rosette in a block's corner, whatever the block. */

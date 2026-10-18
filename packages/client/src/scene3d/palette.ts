@@ -174,6 +174,9 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   dreidel: { color: hex(BLOCK_COLORS.dreidel), height: 0.45, opacity: 1, form: "decor" },
   // Midwinter's stocking (RFC 0034), modelled in decor.ts.
   stocking: { color: hex(BLOCK_COLORS.stocking), height: 0.6, opacity: 1, form: "decor" },
+  // Spring's and summer's decor (decision 0311), modelled in decor.ts.
+  bird_bath: { color: hex(BLOCK_COLORS.bird_bath), height: 0.8, opacity: 1, form: "decor" },
+  beehive: { color: hex(BLOCK_COLORS.beehive), height: 0.7, opacity: 1, form: "decor" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

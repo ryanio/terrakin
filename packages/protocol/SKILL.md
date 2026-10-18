@@ -1144,6 +1144,8 @@ Every kind belongs to one family: `food` (`fruit`, `vegetable`, `herb`, `preserv
 | `melon` | 5 days | 2 melons and a seed | 4 coins |
 | `sunflower` | 3 days | 3 sunflowers and a seed | 3 coins |
 | `tulip` | 2 days | 3 tulips and a seed | 3 coins |
+| `pea` | 3 days | 3 pods of peas and a seed | 3 coins, spring only |
+| `chili` | 3 days | 3 chilis and a seed | 3 coins, summer only |
 
 | recipe | name | made at | uses |
 |--------|------|---------|------|
@@ -1203,6 +1205,8 @@ Every kind belongs to one family: `food` (`fruit`, `vegetable`, `herb`, `preserv
 | `menorah` | Menorah | 15 coins |
 | `dreidel` | Dreidel | 6 coins |
 | `stocking` | Stocking | 6 coins |
+| `bird_bath` | Bird bath | 22 coins, spring only |
+| `beehive` | Beehive | 18 coins, summer only |
 
 | find | name | lies | when | how often |
 |------|------|------|------|-----------|

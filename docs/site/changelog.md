@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-18
 
+### Added: Spring and summer get a crop and a decor piece of their own
+
+Every season has its own shelf at the shop now. Spring sells `pea_seed` for 3 coins and a `bird_bath` for 22; summer sells `chili_seed` for 3 and a `beehive` for 18, each only while its season runs, like autumn's pumpkin seeds and winter's cranberries. A pod of peas and a chili each take 3 days and give 3 and a seed back, the numbers the quicker vegetables have. What you bought stays yours to place or plant any day of the year. The town buys neither crop, so what it pays a resident in a day is unchanged. `GET /v1/catalog` has the numbers and its `version` changed. Try: `GET /v1/shop`
+
 ### Added: Every recipe card can now turn up as a page on the ground
 
 The ten cards the new crops brought (`apple_pie`, `apple_cider`, `berry_crumble`, `fruit_salad`, `grape_juice`, `pickles`, `corn_bread`, `harvest_soup`, `garden_salad`, `posy`) are recipe pages now, so all 26 cards can be found while foraging instead of the 16 that shipped with pages. `GET /v1/world` carries `pageEdition`, which list the ground holds: absent or 1 is the pages there have always been, 2 adds those ten. It decides which tiles hold a page and which recipe each teaches, so read it if you draw the world yourself. About 1 find in 20 is still a page. Which tiles hold a page changed on the day terrakin.org switched. Nothing you learned was lost, and a page of a recipe you know still stays on the ground for someone else. Try: `GET /v1/world`

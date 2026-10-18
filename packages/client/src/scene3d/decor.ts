@@ -79,6 +79,8 @@ const WOOD_DARK = hex(WOOD_BRAND);
 const WOOD = hex("#9a6b43");
 const GOLD = hex("#d8b45a");
 const STRAW = hex(STRAW_BRAND);
+/** The water in spring's bird bath, the pond's own blue (decision 0311). */
+const BATH_WATER = hex("#5fa9d0");
 
 /** A rounded box, moved and turned into place, shade baked in. */
 export function box(
@@ -809,7 +811,42 @@ function partsOf(stage: Stage, kind: DecorKind, grain: Texture): Part[] {
   if (kind === "menorah") return menorahParts(grain);
   if (kind === "dreidel") return dreidelParts(grain);
   if (kind === "stocking") return stockingParts(grain);
+  if (kind === "bird_bath") return birdBathParts(grain);
+  if (kind === "beehive") return beehiveParts(grain);
   return benchParts(grain);
+}
+
+/** A bird bath: a round basin on a stem, with a disc of water in it (decision 0311). */
+function birdBathParts(grain: Texture): Part[] {
+  const stone = blockLook("bird_bath").color;
+  const body = merged([
+    new CylinderGeometry(0.3, 0.34, 0.05, 16).translate(0, 0.025, 0).toNonIndexed(),
+    new CylinderGeometry(0.08, 0.11, 0.42, 12).translate(0, 0.26, 0).toNonIndexed(),
+    new CylinderGeometry(0.34, 0.24, 0.1, 18).translate(0, 0.52, 0).toNonIndexed(),
+  ]);
+  const water = new CylinderGeometry(0.27, 0.27, 0.02, 18).translate(0, 0.565, 0).toNonIndexed();
+  return [
+    { geometry: body, material: paper(stone, grain), cast: true },
+    { geometry: noShade(water), material: paper(BATH_WATER, grain), cast: false },
+  ];
+}
+
+/** A beehive: a straw skep of three stacked bands on a board (decision 0311). */
+function beehiveParts(grain: Texture): Part[] {
+  const straw = blockLook("beehive").color;
+  const skep = merged([
+    new CylinderGeometry(0.3, 0.32, 0.18, 16).translate(0, 0.14, 0).toNonIndexed(),
+    new CylinderGeometry(0.24, 0.3, 0.16, 16).translate(0, 0.31, 0).toNonIndexed(),
+    new CylinderGeometry(0.14, 0.24, 0.15, 16).translate(0, 0.46, 0).toNonIndexed(),
+    new SphereGeometry(0.14, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2)
+      .translate(0, 0.53, 0)
+      .toNonIndexed(),
+  ]);
+  const board = new CylinderGeometry(0.36, 0.36, 0.05, 16).translate(0, 0.025, 0).toNonIndexed();
+  return [
+    { geometry: board, material: paper(hex(WOOD_BRAND), grain), cast: true },
+    { geometry: skep, material: paper(straw, grain), cast: true },
+  ];
 }
 
 // ---------- placing them ----------

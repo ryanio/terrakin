@@ -1189,14 +1189,14 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(menu).toContain("- `fishing_rod`, at a workbench");
     expect(menu).not.toContain("`lemonade`");
     expect(menu).not.toContain("`well`");
-    expect(menu).toContain("16 more recipes to learn, from the Recipes shelf of the town shop");
+    expect(menu).toContain("26 more recipes to learn, from the Recipes shelf of the town shop");
     expect(menu).toContain("You have 3 free picks: `pick_recipe`");
     // A pick takes it off the list of ones to learn, and onto the menu.
     expect(service.act(wren.id, { type: "pick_recipe", recipe: "lemonade" }).ok).toBe(true);
     // A different link than the first, so it isn't answered as a repeat of that one.
     const after = (await wren.act("craft?label=")).text;
     expect(after).toContain("- `lemonade`, at a kitchen");
-    expect(after).toContain("15 more recipes to learn");
+    expect(after).toContain("25 more recipes to learn");
     expect(after).toContain("You have 2 free picks");
   });
 

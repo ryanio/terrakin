@@ -453,6 +453,22 @@ describe("a made thing in a sentence", () => {
     herb_sachet: "an herb sachet",
     flower_wreath: "a flower wreath",
     fishing_rod: "a fishing rod",
+    cherry_jam: "cherry jam",
+    apple_jam: "apple jam",
+    blackberry_jam: "blackberry jam",
+    blueberry_jam: "blueberry jam",
+    grape_jam: "grape jam",
+    peach_jam: "peach jam",
+    apple_pie: "an apple pie",
+    apple_cider: "apple cider",
+    berry_crumble: "a berry crumble",
+    fruit_salad: "fruit salad",
+    grape_juice: "grape juice",
+    pickles: "pickles",
+    corn_bread: "corn bread",
+    harvest_soup: "harvest soup",
+    garden_salad: "garden salad",
+    posy: "a posy",
   };
   const made = (kind: GoodKind | "piece") =>
     inventoryLine({

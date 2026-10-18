@@ -1,4 +1,11 @@
-import { CARD_RECIPES, DAY_MS, knows, type WorldConfig } from "@terrakin/sim";
+import {
+  CARD_RECIPES,
+  cardSku,
+  DAY_MS,
+  knows,
+  RECIPES_RULES,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { SPECIALTIES } from "./lesson-plan";
@@ -102,13 +109,13 @@ function town({ mode = "on", recipes = true }: { mode?: LessonsMode; recipes?: b
 }
 
 describe("the specialties", () => {
-  it("are 2 or 3 recipe cards for each of the eight townsfolk", () => {
+  it("are 2 to 4 recipe cards for each of the eight townsfolk", () => {
     expect(Object.keys(SPECIALTIES).sort()).toEqual(
       ["ansel", "bram", "clem", "juniper", "marlo", "otis", "pip", "sable"].sort(),
     );
     for (const [who, list] of Object.entries(SPECIALTIES)) {
       expect(list.length, who).toBeGreaterThanOrEqual(2);
-      expect(list.length, who).toBeLessThanOrEqual(3);
+      expect(list.length, who).toBeLessThanOrEqual(4);
       expect(new Set(list).size, who).toBe(list.length);
       for (const recipe of list) expect(CARD_RECIPES, `${who} ${recipe}`).toContain(recipe);
     }
@@ -157,7 +164,15 @@ describe("townsfolk lessons", () => {
   it("teach only specialties, and nothing to someone who knows them all", () => {
     const t = town();
     const ada = t.newcomer("Ada");
-    for (const recipe of SPECIALTIES.clem) t.as(ada, { type: "pick_recipe", recipe });
+    // A townsfolk can have more specialties than a newcomer has free picks, so Ada buys the rest
+    // as cards: what matters here is that she ends up knowing every one of Clem's.
+    const picks = SPECIALTIES.clem.slice(0, RECIPES_RULES.starterPicks);
+    const bought = SPECIALTIES.clem.slice(RECIPES_RULES.starterPicks);
+    for (const recipe of picks) t.as(ada, { type: "pick_recipe", recipe });
+    if (bought.length > 0) {
+      expect(t.world.testGrant(ada, 500, undefined).ok).toBe(true);
+      for (const recipe of bought) t.as(ada, { type: "shop_buy", sku: cardSku(recipe) });
+    }
     expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
     for (const recipe of CARD_RECIPES) {
       const mine = (SPECIALTIES.clem as readonly string[]).includes(recipe);

@@ -120,17 +120,31 @@ export interface CropNumbers {
 }
 
 /**
- * A crop drawn from the produce template: its outline (an oval with pointed ends like a lemon, a
- * berry, round, or three ribbed lobes like a pumpkin), what grows on top (a leaf, a leafy cap, a
- * star of sepals with a stem, a stubby stem with a curl of vine and a leaf, or a small crown like a
- * pomegranate's), its skin, and the color of its speckles, seeds, or ribs. A crop with a vine on
- * top grows along the soil in a planter. A fruit also gives the colors of its jam: what fills the
- * jar the jam family recipe makes, and the cloth tied over it.
+ * A crop drawn from the produce template: its outline, what grows on top, its skin, and the color
+ * of its speckles, seeds, or ribs. The outlines are an oval with pointed ends like a lemon, a berry,
+ * round, three ribbed lobes like a pumpkin, a pair on one stem like cherries, a bunch of little
+ * fruit like grapes, a tapering root like a carrot, a cob of kernels, a striped one like a melon, a
+ * long one like a cucumber, and a leafy head like a cabbage. On top grows a leaf, a leafy cap, a star of sepals with a stem,
+ * a stubby stem with a curl of vine and a leaf, a small crown like a pomegranate's, or a fan of
+ * greens like a carrot's. A crop with a vine on top grows along the soil in a planter. A fruit also
+ * gives the colors of its jam: what fills the jar the jam family recipe makes, and the cloth tied
+ * over it.
  */
 export interface ProduceLook {
   template: "produce";
-  shape: "oval" | "berry" | "round" | "lobed";
-  top: "leaf" | "cap" | "star" | "vine" | "crown";
+  shape:
+    | "oval"
+    | "berry"
+    | "round"
+    | "lobed"
+    | "cherries"
+    | "cluster"
+    | "root"
+    | "cob"
+    | "striped"
+    | "long"
+    | "leafy";
+  top: "leaf" | "cap" | "star" | "vine" | "crown" | "greens";
   body: string;
   detail: string;
   jam?: { fill: string; cloth: string };
@@ -945,6 +959,274 @@ const WRITTEN = {
     family: "tool",
     role: "staple",
     shop: { price: 2, holiday: "new_year" },
+    look: { template: "drawn" },
+  }),
+  // A basket of new things to grow: six fruits, each with its jam from the jam family recipe, six
+  // vegetables, and two flowers. The shop sells all of their seeds all year, as it does
+  // pomegranates', and the town buys none of them, so the coin faucet is where it was tuned: these
+  // are for the kitchen, the workbench, gifts, the feast, pet treats, and trade between residents.
+  ...fruit("cherry", {
+    name: "Cherry",
+    plural: "Cherries",
+    days: 4,
+    yield: 4,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "cherries",
+      top: "leaf",
+      body: "#d62a3d",
+      detail: "#8e1724",
+      jam: { fill: "#b31f36", cloth: "#e8c7a8" },
+    },
+  }),
+  ...fruit("apple", {
+    name: "Apple",
+    plural: "Apples",
+    days: 5,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "round",
+      top: "leaf",
+      body: "#d8453c",
+      detail: "#a52f2b",
+      jam: { fill: "#c66a3c", cloth: "#e8d9a8" },
+    },
+  }),
+  ...fruit("blackberry", {
+    name: "Blackberry",
+    plural: "Blackberries",
+    days: 3,
+    yield: 4,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "cluster",
+      top: "leaf",
+      body: "#3f2b57",
+      detail: "#241a33",
+      jam: { fill: "#42284f", cloth: "#c9b6d8" },
+    },
+  }),
+  ...fruit("blueberry", {
+    name: "Blueberry",
+    plural: "Blueberries",
+    days: 3,
+    yield: 4,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "round",
+      top: "star",
+      body: "#4a6fae",
+      detail: "#2f4a7a",
+      jam: { fill: "#3f5f99", cloth: "#cdd9ee" },
+    },
+  }),
+  ...fruit("grape", {
+    name: "Grape",
+    plural: "Grapes",
+    days: 5,
+    yield: 4,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "cluster",
+      top: "vine",
+      body: "#7b4a9c",
+      detail: "#4f2e68",
+      jam: { fill: "#6a3a8a", cloth: "#d8c6e4" },
+    },
+  }),
+  ...fruit("peach", {
+    name: "Peach",
+    plural: "Peaches",
+    days: 5,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "round",
+      top: "leaf",
+      body: "#f0a06a",
+      detail: "#d9793f",
+      jam: { fill: "#efa05a", cloth: "#f3d7c2" },
+    },
+  }),
+  ...crop("carrot", {
+    name: "Carrot",
+    plural: "Carrots",
+    family: "vegetable",
+    days: 3,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 3,
+    look: { template: "produce", shape: "root", top: "greens", body: "#e8762c", detail: "#c45a18" },
+  }),
+  ...crop("potato", {
+    name: "Potato",
+    plural: "Potatoes",
+    family: "vegetable",
+    days: 4,
+    yield: 4,
+    seedsBack: 1,
+    seedPrice: 3,
+    look: { template: "produce", shape: "oval", top: "greens", body: "#c49a62", detail: "#a07640" },
+  }),
+  ...crop("corn", {
+    name: "Ear of corn",
+    plural: "Ears of corn",
+    family: "vegetable",
+    days: 4,
+    yield: 2,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: { template: "produce", shape: "cob", top: "greens", body: "#f0c23c", detail: "#d09a22" },
+  }),
+  ...crop("cucumber", {
+    name: "Cucumber",
+    plural: "Cucumbers",
+    family: "vegetable",
+    days: 3,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 3,
+    look: { template: "produce", shape: "long", top: "vine", body: "#4f8f45", detail: "#37702f" },
+  }),
+  ...crop("cabbage", {
+    name: "Cabbage",
+    plural: "Cabbages",
+    family: "vegetable",
+    days: 4,
+    yield: 2,
+    seedsBack: 1,
+    seedPrice: 3,
+    look: { template: "produce", shape: "leafy", top: "leaf", body: "#8fb95c", detail: "#6a9440" },
+  }),
+  ...crop("melon", {
+    name: "Melon",
+    plural: "Melons",
+    family: "vegetable",
+    days: 5,
+    yield: 2,
+    seedsBack: 1,
+    seedPrice: 4,
+    look: {
+      template: "produce",
+      shape: "striped",
+      top: "vine",
+      body: "#4e8f4a",
+      detail: "#2f6b34",
+    },
+  }),
+  ...crop("sunflower", {
+    name: "Sunflower",
+    plural: "Sunflowers",
+    family: "flower",
+    days: 3,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 3,
+    look: { template: "bloom", body: "#f2b32e" },
+  }),
+  ...crop("tulip", {
+    name: "Tulip",
+    plural: "Tulips",
+    family: "flower",
+    days: 2,
+    yield: 3,
+    seedsBack: 1,
+    seedPrice: 3,
+    look: { template: "bloom", body: "#e0577f" },
+  }),
+  // What the kitchen and the workbench make from them. Each is a card on the Recipes shelf, priced
+  // by the rule for what the town doesn't buy, and each is some townsfolk's specialty to teach.
+  apple_pie: entry({
+    name: "Apple pie",
+    plural: "Apple pies",
+    family: "baked",
+    role: "good",
+    recipe: { station: "kitchen", needs: { apple: 2, sugar: 1 } },
+    look: { template: "drawn" },
+  }),
+  apple_cider: entry({
+    name: "Apple cider",
+    plural: "Jars of apple cider",
+    family: "drink",
+    role: "good",
+    recipe: { station: "kitchen", needs: { apple: 3, jar: 1 } },
+    look: { template: "jar", fill: "#d79a3a", label: "apple", lid: "#a0703c" },
+  }),
+  berry_crumble: entry({
+    name: "Berry crumble",
+    plural: "Berry crumbles",
+    family: "baked",
+    role: "good",
+    recipe: { station: "kitchen", needs: { blackberry: 2, blueberry: 1, sugar: 1 } },
+    look: { template: "drawn" },
+  }),
+  fruit_salad: entry({
+    name: "Fruit salad",
+    plural: "Bowls of fruit salad",
+    family: "dish",
+    role: "good",
+    recipe: { station: "kitchen", needs: { cherry: 1, peach: 1, melon: 1 } },
+    look: { template: "drawn" },
+  }),
+  grape_juice: entry({
+    name: "Grape juice",
+    plural: "Jars of grape juice",
+    family: "drink",
+    role: "good",
+    recipe: { station: "kitchen", needs: { grape: 3, jar: 1 } },
+    look: { template: "jar", fill: "#6a3a8a", label: "grape", lid: "#a86f3c" },
+  }),
+  pickles: entry({
+    name: "Pickles",
+    plural: "Jars of pickles",
+    family: "preserve",
+    role: "good",
+    recipe: { station: "kitchen", needs: { cucumber: 3, herb: 1, jar: 1 } },
+    look: { template: "jar", fill: "#86a84a", label: "cucumber", lid: "#4f8f45" },
+  }),
+  corn_bread: entry({
+    name: "Corn bread",
+    plural: "Loaves of corn bread",
+    family: "baked",
+    role: "good",
+    recipe: { station: "kitchen", needs: { corn: 2, sugar: 1 } },
+    look: { template: "drawn" },
+  }),
+  harvest_soup: entry({
+    name: "Harvest soup",
+    plural: "Jars of harvest soup",
+    family: "preserve",
+    role: "good",
+    recipe: { station: "kitchen", needs: { potato: 2, carrot: 1, jar: 1 } },
+    look: { template: "jar", fill: "#e0a24a", label: "potato", lid: "#8a6a3a" },
+  }),
+  garden_salad: entry({
+    name: "Garden salad",
+    plural: "Bowls of garden salad",
+    family: "dish",
+    role: "good",
+    recipe: { station: "kitchen", needs: { cabbage: 1, carrot: 1, tomato: 1 } },
+    look: { template: "drawn" },
+  }),
+  posy: entry({
+    name: "Posy",
+    plural: "Posies",
+    family: "keepsake",
+    role: "good",
+    recipe: { station: "workbench", needs: { tulip: 2, sunflower: 1 } },
     look: { template: "drawn" },
   }),
 };

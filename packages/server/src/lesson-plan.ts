@@ -9,14 +9,14 @@
  * card's (`townsfolk-lessons.test.ts` checks), never resident text.
  */
 export const SPECIALTIES = {
-  juniper: ["herb_sachet", "flower_wreath"],
-  bram: ["barrel", "well"],
-  clem: ["lemonade", "tomato_sauce", "pumpkin_pie"],
-  pip: ["signpost", "fried_minnows"],
-  otis: ["bookshelf", "pumpkin_soup"],
-  marlo: ["campfire", "fish_stew"],
-  sable: ["lamp_post", "cranberry_punch"],
-  ansel: ["flower_box", "flower_wreath"],
+  juniper: ["herb_sachet", "flower_wreath", "posy", "garden_salad"],
+  bram: ["barrel", "well", "pickles"],
+  clem: ["lemonade", "tomato_sauce", "pumpkin_pie", "apple_cider"],
+  pip: ["signpost", "fried_minnows", "corn_bread"],
+  otis: ["bookshelf", "pumpkin_soup", "harvest_soup"],
+  marlo: ["campfire", "fish_stew", "fruit_salad"],
+  sable: ["lamp_post", "cranberry_punch", "grape_juice"],
+  ansel: ["flower_box", "flower_wreath", "apple_pie", "berry_crumble"],
 } as const satisfies Record<string, readonly string[]>;
 
 /** A townsfolk's specialties, by its handle. None for a handle with no list above. */

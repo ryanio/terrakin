@@ -191,6 +191,16 @@ describe("the recipe lists", () => {
         "signpost",
         "tomato_sauce",
         "well",
+        "apple_pie",
+        "apple_cider",
+        "berry_crumble",
+        "fruit_salad",
+        "grape_juice",
+        "pickles",
+        "corn_bread",
+        "harvest_soup",
+        "garden_salad",
+        "posy",
       ].sort(),
     );
     expect(CARD_SKUS).toContain("recipe:well");
@@ -222,6 +232,16 @@ describe("recipeCardPrice", () => {
       lamp_post: 20,
       campfire: 25,
       well: 35,
+      apple_pie: 20,
+      apple_cider: 20,
+      berry_crumble: 20,
+      fruit_salad: 20,
+      grape_juice: 20,
+      pickles: 25,
+      corn_bread: 20,
+      harvest_soup: 20,
+      garden_salad: 20,
+      posy: 20,
     });
   });
 
@@ -688,18 +708,51 @@ describe("recipe pages", () => {
       const want = pages / PAGE_RECIPES.length;
       expect(Math.abs((counts[recipe] ?? 0) - want), recipe).toBeLessThan(4 * Math.sqrt(want));
     }
-    // The same tile and day always give the same page: a logged gather of one replays.
-    expect([pageOn(5, 7, DAY), pageOn(12, 40, DAY + 3), pageOn(0, 0, DAY)]).toEqual([
-      pageOn(5, 7, DAY),
-      pageOn(12, 40, DAY + 3),
-      pageOn(0, 0, DAY),
+    // A tile and a day give the page they always gave: a logged gather of one replays only while
+    // `PAGE_RECIPES` keeps its length and its order, since the roll picks a place in it.
+    expect([
+      pageOn(0, 2, DAY),
+      pageOn(8, 1, DAY),
+      pageOn(49, 2, DAY),
+      pageOn(4, 5, DAY),
+      pageOn(2, 0, DAY),
+      pageOn(13, 0, DAY),
+      pageOn(1, 0, DAY),
+    ]).toEqual([
+      "lemonade",
+      "flower_wreath",
+      "pumpkin_soup",
+      "lamp_post",
+      "well",
+      "fried_minnows",
+      null,
     ]);
     expect(pages).toBe(7286);
   });
 
-  it("are frozen to today's cards, never the base or a holiday's", () => {
-    expect([...PAGE_RECIPES].sort()).toEqual([...CARD_RECIPES].sort());
+  it("are frozen to the cards they shipped with, never the base or a holiday's", () => {
+    // A card added to the catalog later is no page until a new list starts at a logged switch, so
+    // every logged gather of a page replays through exactly these, in this order.
+    expect([...PAGE_RECIPES]).toEqual([
+      "lemonade",
+      "tomato_sauce",
+      "herb_sachet",
+      "flower_wreath",
+      "pumpkin_pie",
+      "pumpkin_soup",
+      "bookshelf",
+      "barrel",
+      "signpost",
+      "lamp_post",
+      "well",
+      "campfire",
+      "flower_box",
+      "cranberry_punch",
+      "fried_minnows",
+      "fish_stew",
+    ]);
     for (const recipe of PAGE_RECIPES) {
+      expect(CARD_RECIPES, recipe).toContain(recipe);
       expect((BASE_RECIPES as readonly string[]).includes(recipe), recipe).toBe(false);
       expect(HOLIDAY_RECIPES.includes(recipe), recipe).toBe(false);
     }

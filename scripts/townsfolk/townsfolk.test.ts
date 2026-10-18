@@ -27,10 +27,10 @@ describe("townsfolk personas", () => {
     expect(checkPersonas([bad]).join("\n")).toMatch(/refused/);
   });
 
-  it("each teach 2 or 3 recipe cards, the server's own list (RFC 0024)", () => {
+  it("each teach 2 to 4 recipe cards, the server's own list (RFC 0024)", () => {
     for (const p of PERSONAS) {
       expect(p.specialties.length, p.key).toBeGreaterThanOrEqual(2);
-      expect(p.specialties.length, p.key).toBeLessThanOrEqual(3);
+      expect(p.specialties.length, p.key).toBeLessThanOrEqual(4);
       for (const r of p.specialties) expect(CARD_RECIPES, `${p.key} ${r}`).toContain(r);
     }
   });

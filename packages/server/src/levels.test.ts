@@ -696,15 +696,25 @@ describe("points are private, and levels are public", () => {
   });
 });
 
-/** A world where Ada holds every crop, find, and fish before levels open, and Bob nothing. */
+/**
+ * The crops Ada holds in `credited()`: the first eight the catalog grows, which is enough for a
+ * title in Growing and not enough for its garment. The test needs one skill at each, and one of
+ * every crop is past the garment now (`levels.test.ts` in the sim pins what firsts alone reach),
+ * so it takes a few rather than all of them. The checks below hold it to that.
+ */
+const CREDITED_CROPS = CROPS.slice(0, 8);
+
+/** A world where Ada holds those crops and every find and fish before levels open, Bob nothing. */
 async function credited() {
   const t = await start();
   const ada = await t.settler("Ada", 0, 0);
   const bob = await t.settler("Bob", 2, 0);
-  const stacks = Object.fromEntries([...CROPS, ...FIND_KINDS, ...FISH_KINDS].map((k) => [k, 1]));
+  const stacks = Object.fromEntries(
+    [...CREDITED_CROPS, ...FIND_KINDS, ...FISH_KINDS].map((k) => [k, 1]),
+  );
   expect(t.service.testGrant(ada.id, undefined, stacks)).toMatchObject({ ok: true });
   expect(t.open()).toMatchObject({ ok: true });
-  const growing = levelOf(CROPS.length * PROGRESS.first);
+  const growing = levelOf(CREDITED_CROPS.length * PROGRESS.first);
   const foraging = levelOf((FIND_KINDS.length + FISH_KINDS.length) * PROGRESS.first);
   // The catalog gives this test what it needs: a first title in Growing, a garment in Foraging.
   expect(growing).toBeGreaterThanOrEqual(UNLOCKS.title);
@@ -718,7 +728,7 @@ describe("a level-up", () => {
   it("makes one notice from Terrakin for the input, and a todo line for each level that unlocked something", async () => {
     const { t, ada, bob, growing, foraging } = await credited();
     const notes = (await t.call("GET", "/v1/notifications", undefined, ada.token)).body;
-    const total = (CROPS.length + FIND_KINDS.length + FISH_KINDS.length) * PROGRESS.first;
+    const total = (CREDITED_CROPS.length + FIND_KINDS.length + FISH_KINDS.length) * PROGRESS.first;
     expect(notes.unread).toBe(1);
     expect(notes.notifications).toMatchObject([
       {

@@ -241,6 +241,7 @@ What we chose and why. Newest last.
 - [A hearth smokes in a picture](decisions/0305-a-hearth-smokes-in-a-picture.md) · 2026-10-16 · accepted · `cards` `design`
 - [A plot photo shows a sliver of the plots next door](decisions/0306-a-plot-photo-shows-a-sliver-of-the-plots-next-door.md) · 2026-10-16 · accepted · `cards` `design`
 - [A plot photo says what is new since the last one](decisions/0307-a-plot-photo-says-what-is-new-since-the-last-one.md) · 2026-10-16 · accepted · `cards` `server` `design`
+- [A basket of fourteen crops, sold all year, with ten recipes and no new town buy orders](decisions/0308-a-basket-of-fourteen-crops-sold-all-year-with-ten-recipes-an.md) · 2026-10-18 · accepted · `sim` `economy` `numbers` `items` `catalog`
 
 ## Learnings
 

@@ -249,7 +249,7 @@ A 200 with `ok: false` means the request was fine but the rules rejected it. Rea
 
 A typo in an action type or field name gets a 400 `bad_request` with `did_you_mean`, the name you most likely meant: `{"error": {"code": "bad_request", "message": "Unknown action 'mvoe'. Did you mean 'move'?", "did_you_mean": "move"}}`. A field one typo away from a real one is refused even when the rest of the action is fine, and so is any spelling of `dry` like `dry_run` or `dryRun`, so a misspelled `dry` never acts for real.
 
-A value a field doesn't take gets the field's choices in the message, a sentence per problem, and `did_you_mean` when one is a typo away or is the only one that shares a word with it: `{"type": "plant", "x": 3, "y": 4, "seed": "pumpkin_seed"}` answers ``"`seed` must be one of: lemon, strawberry, tomato, herb, flower, pumpkin, pomegranate. Did you mean 'pumpkin'?"`` with `"did_you_mean": "pumpkin"`. Fields that take an id say which, like `display`'s `item`: a made thing's id from your things (`i_12`), or a find's kind.
+A value a field doesn't take gets the field's choices in the message, a sentence per problem, and `did_you_mean` when one is a typo away or is the only one that shares a word with it: `{"type": "plant", "x": 3, "y": 4, "seed": "pumpkin_seed"}` answers ``"`seed` must be one of: lemon, strawberry, tomato, ... Did you mean 'pumpkin'?"`` with `"did_you_mean": "pumpkin"`, naming every crop in the catalog. Fields that take an id say which, like `display`'s `item`: a made thing's id from your things (`i_12`), or a find's kind.
 
 **Dry runs.** Add `"dry": true` to any action except `chat` to check it against the rules without doing it: `{"type": "settle", "px": 3, "py": 2, "dry": true}`. You get `{"ok": true, "dry": true, "seq": <current seq>, "events": []}` if it would be accepted, or the same rejection a real call would get (with `"dry": true`). Nothing changes, nothing is logged, and nobody else sees it. Dry runs count against the rate limit like any action, and text in them (a note, a proposal, a gift note) goes through the same filters. Chat has no dry run: `chat` with `"dry": true` is refused with `bad_request`.
 
@@ -1130,6 +1130,20 @@ Every kind belongs to one family: `food` (`fruit`, `vegetable`, `herb`, `preserv
 | `pumpkin` | 5 days | 2 pumpkins and a seed | 4 coins, autumn only |
 | `pomegranate` | 4 days | 3 pomegranates and a seed | 4 coins |
 | `cranberry` | 4 days | 3 cranberries and a seed | 4 coins, winter only |
+| `cherry` | 4 days | 4 cherries and a seed | 4 coins |
+| `apple` | 5 days | 3 apples and a seed | 4 coins |
+| `blackberry` | 3 days | 4 blackberries and a seed | 4 coins |
+| `blueberry` | 3 days | 4 blueberries and a seed | 4 coins |
+| `grape` | 5 days | 4 grapes and a seed | 4 coins |
+| `peach` | 5 days | 3 peaches and a seed | 4 coins |
+| `carrot` | 3 days | 3 carrots and a seed | 3 coins |
+| `potato` | 4 days | 4 potatoes and a seed | 3 coins |
+| `corn` | 4 days | 2 ears of corn and a seed | 4 coins |
+| `cucumber` | 3 days | 3 cucumbers and a seed | 3 coins |
+| `cabbage` | 4 days | 2 cabbages and a seed | 3 coins |
+| `melon` | 5 days | 2 melons and a seed | 4 coins |
+| `sunflower` | 3 days | 3 sunflowers and a seed | 3 coins |
+| `tulip` | 2 days | 3 tulips and a seed | 3 coins |
 
 | recipe | name | made at | uses |
 |--------|------|---------|------|
@@ -1150,8 +1164,24 @@ Every kind belongs to one family: `food` (`fruit`, `vegetable`, `herb`, `preserv
 | `fried_minnows` | Fried minnows | kitchen | 3 minnows, 1 bunch of herbs |
 | `fish_stew` | Fish stew | kitchen | 1 carp, 1 tomato, 1 bunch of herbs |
 | `sufganiyah` | Jelly doughnut | kitchen | 2 strawberries, 1 bag of sugar |
+| `cherry_jam` | Cherry jam | kitchen | 3 cherries, 1 bag of sugar, 1 jar |
+| `apple_jam` | Apple jam | kitchen | 3 apples, 1 bag of sugar, 1 jar |
+| `blackberry_jam` | Blackberry jam | kitchen | 3 blackberries, 1 bag of sugar, 1 jar |
+| `blueberry_jam` | Blueberry jam | kitchen | 3 blueberries, 1 bag of sugar, 1 jar |
+| `grape_jam` | Grape jam | kitchen | 3 grapes, 1 bag of sugar, 1 jar |
+| `peach_jam` | Peach jam | kitchen | 3 peaches, 1 bag of sugar, 1 jar |
+| `apple_pie` | Apple pie | kitchen | 2 apples, 1 bag of sugar |
+| `apple_cider` | Apple cider | kitchen | 3 apples, 1 jar |
+| `berry_crumble` | Berry crumble | kitchen | 2 blackberries, 1 blueberry, 1 bag of sugar |
+| `fruit_salad` | Fruit salad | kitchen | 1 cherry, 1 peach, 1 melon |
+| `grape_juice` | Grape juice | kitchen | 3 grapes, 1 jar |
+| `pickles` | Pickles | kitchen | 3 cucumbers, 1 bunch of herbs, 1 jar |
+| `corn_bread` | Corn bread | kitchen | 2 ears of corn, 1 bag of sugar |
+| `harvest_soup` | Harvest soup | kitchen | 2 potatoes, 1 carrot, 1 jar |
+| `garden_salad` | Garden salad | kitchen | 1 cabbage, 1 carrot, 1 tomato |
+| `posy` | Posy | workbench | 2 tulips, 1 sunflower |
 
-**Jam** is a family recipe: at a kitchen, 3 of any one kind in `fruit`, 1 bag of sugar, 1 jar make that kind's jam. Each has its own row above: `lemon_jam`, `strawberry_jam`, `pomegranate_jam`, `cranberry_jam`.
+**Jam** is a family recipe: at a kitchen, 3 of any one kind in `fruit`, 1 bag of sugar, 1 jar make that kind's jam. Each has its own row above: `lemon_jam`, `strawberry_jam`, `pomegranate_jam`, `cranberry_jam`, `cherry_jam`, `apple_jam`, `blackberry_jam`, `blueberry_jam`, `grape_jam`, `peach_jam`.
 
 | decor | name | at the town shop |
 |-------|------|------------------|

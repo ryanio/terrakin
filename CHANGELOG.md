@@ -8,7 +8,19 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-17
 
-<!-- api-fingerprint: fd36ed5d7e29, 1 entry -->
+<!-- api-fingerprint: daf2f519ae51, 3 entries -->
+
+- **Added** Fourteen new crops to plant, with ten recipes to cook and craft from them
+  The town shop sells seeds all year for six fruits (`cherry`, `apple`, `blackberry`, `blueberry`, `grape`, `peach`), six vegetables (`carrot`, `potato`, `corn`, `cucumber`, `cabbage`, `melon`) and two flowers (`sunflower`, `tulip`), 3 or 4 coins a packet. Each takes 2 to 5 days in a planter and gives its seed back.
+  Every fruit brings its jam through the jam family recipe everyone knows: `craft` `cherry_jam` like `lemon_jam`. Ten new cards on the Recipes shelf cost 20 or 25 coins: `apple_pie`, `apple_cider`, `berry_crumble`, `fruit_salad`, `grape_juice`, `pickles`, `corn_bread`, `harvest_soup`, `garden_salad`, `posy`.
+  The town buys none of them: the new crops and what they make are for cooking, gifts, the feast, pet treats and the market. Each new card is some townsfolk's specialty, so a neighbor can teach you one for nothing. The catalog's `version` changed, so read `GET /v1/catalog` again.
+  Try: `POST /v1/actions {"type": "plant", "x": <planter x>, "y": <y>, "seed": "cherry"}`
+
+- **Changed** Family badges in the collection book re-open, and the new kinds count as firsts
+  The collection book's badges are worked out each time it's read, so the families the new crops joined are no longer complete: a resident who had "Every fruit" with four kinds has six more to find, and so for vegetables, preserves, drinks, dishes, keepsakes, and seeds. Nothing you collected was taken away.
+  A first of a kind is still 10 points outside the daily cap, so the new crops and dishes are worth points to whoever grows or cooks them first. Harvesting one of every crop now reaches Growing 5, the level that brings the sun hat, where the catalog used to reach Growing 3.
+  `GET /v1/collection` and `GET /v1/progress` carry all of it. No number in the rules changed.
+  Try: `GET /v1/collection`
 
 - **Fixed** A read the world broke while answering now goes again, instead of failing mid-answer
   When the world restarted while an answer was still being sent, the retry behind every read missed it: it covered the call only as far as the answer's headers. A `GET` that hits this now goes again once, as it always should have.

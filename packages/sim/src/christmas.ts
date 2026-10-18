@@ -141,7 +141,7 @@ export function checkTownPresents(
   }
   for (const id of to) {
     const r = residentById(state, id);
-    if (!r || !r.hearth || isTownsfolk(state, id) || presentsFor(state, id).length > 0) {
+    if (!r?.hearth || isTownsfolk(state, id) || presentsFor(state, id).length > 0) {
       return refuse("server_only", `Resident ${id} isn't one the town leaves a present for.`);
     }
   }

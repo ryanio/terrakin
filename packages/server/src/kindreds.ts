@@ -340,7 +340,7 @@ export function kindredWords(
 ): { author: string; title: string; text: string } | undefined {
   const k = kindredById(state, id);
   // A forming kindred is its members' alone, so it's no more reportable than a missing one.
-  if (!k || k.status !== "formed") return undefined;
+  if (k?.status !== "formed") return undefined;
   return {
     author: k.namedBy ?? k.stewards[0] ?? k.founder,
     title: kindredName(k),

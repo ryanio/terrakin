@@ -921,6 +921,18 @@ export function cohortTitle(week: string | null, today: string): string {
   return `Week of ${shortDate(start, now, "UTC")}`;
 }
 
+/**
+ * The one line that crosses two steps: of a cohort's residents with a hearth, how many got a
+ * first thing. Every row above counts "ever did this, in any order", so the rows alone can't say
+ * it; the pantry a first thing usually comes from arrives with the hearth, which is why this pair
+ * is worth reading. Null when nobody in the cohort has a hearth.
+ */
+export function hearthThingLine(counts: NewcomerCounts, who: string): string | null {
+  if (counts.hearth === 0) return null;
+  const share = Math.round((100 * counts.hearthAndThing) / counts.hearth);
+  return `Of the ${formatCount(counts.hearth)} ${who} with a hearth, ${formatCount(counts.hearthAndThing)} got a first thing (${share}%).`;
+}
+
 /** The footnote for residents whose name someone who joined earlier already had (issue #46). */
 export function sameNameLine(n: number): string | null {
   if (n === 0) return null;

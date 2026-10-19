@@ -677,6 +677,12 @@ export const NewcomerCounts = z.object({
   social: newcomerCount,
   /** Holds a handle now. A handle they gave up doesn't count: the name is free again. */
   handle: newcomerCount,
+  /**
+   * Reached both `hearth` and `thing`. Every other count here is "ever did this, in any order", so
+   * no two of them can be crossed: this is the one pair the roadmap asks about, since the pantry a
+   * first thing usually comes from arrives with the hearth. It is not a step and gets no row.
+   */
+  hearthAndThing: newcomerCount,
   /** Has a pet now, or ever adopted one. */
   pet: newcomerCount,
   /**

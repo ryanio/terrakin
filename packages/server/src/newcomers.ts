@@ -88,6 +88,7 @@ const noCounts = (): NewcomerCounts => ({
   look: 0,
   social: 0,
   handle: 0,
+  hearthAndThing: 0,
   pet: 0,
   job: 0,
 });
@@ -106,10 +107,13 @@ const hasLook = (r: Resident) =>
 function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<string>) {
   const done = s.done(r.id);
   const did = (kinds: readonly string[]) => kinds.some((k) => done.has(k));
+  const hearth = r.hearth !== null || done.has("set_hearth");
+  const thing = did(THING_COMMANDS) || s.things.has(r.id);
   return {
     claimed: plotHolders.has(r.id) || did(CLAIM_COMMANDS),
-    hearth: r.hearth !== null || done.has("set_hearth"),
-    thing: did(THING_COMMANDS) || s.things.has(r.id),
+    hearth,
+    thing,
+    hearthAndThing: hearth && thing,
     // The check-in's own rule for the `plot_name` step, so the page and the step agree.
     plotName: plotNamed(s.state, r.id, done),
     look: hasLook(r),

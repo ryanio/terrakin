@@ -171,11 +171,12 @@ describe("GET /v1/admin/newcomers", () => {
       look: 0,
       social: 0,
       handle: 0,
+      hearthAndThing: 0,
       pet: 0,
       job: 0,
     };
     const thisWeek = {
-      people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1, handle: 1 },
+      people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1, hearthAndThing: 1, handle: 1 },
       agents: { ...none, joined: 3, claimed: 1, social: 1 },
       sameName: 1,
     };
@@ -186,6 +187,7 @@ describe("GET /v1/admin/newcomers", () => {
         claimed: 1,
         hearth: 1,
         thing: 1,
+        hearthAndThing: 1,
         plotName: 1,
         look: 1,
         social: 1,
@@ -206,6 +208,7 @@ describe("GET /v1/admin/newcomers", () => {
         claimed: 2,
         hearth: 2,
         thing: 2,
+        hearthAndThing: 2,
         plotName: 1,
         look: 1,
         social: 1,

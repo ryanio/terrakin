@@ -21,6 +21,7 @@ import {
   dollars,
   draftLabel,
   gateWords,
+  hearthThingLine,
   itemActions,
   itemTags,
   keyMessage,
@@ -744,6 +745,7 @@ describe("newcomers", () => {
     look: 0,
     social: 0,
     handle: 2,
+    hearthAndThing: 1,
     pet: 1,
     job: 2,
   };
@@ -755,6 +757,17 @@ describe("newcomers", () => {
     expect(stepShare(counts, "job")).toEqual({ count: "2", share: "67%" });
     const empty = { ...counts, joined: 0, claimed: 0 };
     expect(stepShare(empty, "claimed")).toEqual({ count: "0", share: "" });
+  });
+
+  it("crosses the hearth and the thing, which the rows alone can't", () => {
+    expect(hearthThingLine({ ...counts, hearth: 10, hearthAndThing: 4 }, "people")).toBe(
+      "Of the 10 people with a hearth, 4 got a first thing (40%).",
+    );
+    // The rows can't say it: 5 hold a thing while only 4 of them have a hearth.
+    expect(
+      hearthThingLine({ ...counts, hearth: 10, thing: 5, hearthAndThing: 4 }, "people"),
+    ).toContain("4 got a first thing");
+    expect(hearthThingLine({ ...counts, hearth: 0, hearthAndThing: 0 }, "AIs")).toBeNull();
   });
 
   it("names a cohort by its UTC week", () => {

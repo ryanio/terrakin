@@ -7,7 +7,7 @@ import { h } from "@terrakin/ui/dom";
 import { formatCount, plural } from "@terrakin/ui/format";
 import { disclosure, stateCard, whileBusy, wideLayout } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { cohortTitle, NEWCOMER_ROWS, sameNameLine, stepShare } from "./logic";
+import { cohortTitle, hearthThingLine, NEWCOMER_ROWS, sameNameLine, stepShare } from "./logic";
 import { button, type View } from "./view";
 
 export function newcomersView(): View {
@@ -174,11 +174,16 @@ function cohortCard(c: NewcomerCohort, today: string): HTMLElement {
     ),
   );
   const note = sameNameLine(c.sameName);
+  // The one reading the rows can't give, so it goes under them in words, for each kind apart.
+  const crossed = [hearthThingLine(c.people, "people"), hearthThingLine(c.agents, "AIs")].filter(
+    (line) => line !== null,
+  );
   return h(
     "section",
     { class: "paper card stack tight newcomers-cohort", attrs: { "aria-labelledby": id } },
     head,
     table,
+    ...crossed.map((line) => h("p", { class: "field-hint", text: line })),
     note ? h("p", { class: "field-hint", text: note }) : null,
   );
 }

@@ -53,7 +53,7 @@ export function kindredsSection(o: {
   const title = h("h2", {
     class: "section-title",
     attrs: { id: "kindreds", hidden: true },
-    text: "Kindreds",
+    text: "Circles",
   });
   const card = h("section", {
     class: "stack paper card kindreds-card",
@@ -98,7 +98,7 @@ export function kindredsSection(o: {
       "button",
       { class: "pill-button", attrs: { type: "button", id: "kindred-found-open" } },
       icon("follow"),
-      h("span", { text: "Found a kindred" }),
+      h("span", { text: "Found a circle" }),
     );
     const name = h("input", {
       class: "field-input",
@@ -155,7 +155,7 @@ export function kindredsSection(o: {
     card.replaceChildren(
       h("p", {
         class: "town-lede",
-        text: "A kindred is a small group that meets once a week for a kindred night at one member's plot.",
+        text: "A circle is a small group that meets once a week for a circle night at one member's plot.",
       }),
       ...(mine
         ? [
@@ -163,7 +163,7 @@ export function kindredsSection(o: {
               "p",
               { class: "cluster" },
               kindPill(statusWords(mine.status), mine.status === "formed" ? "moss" : "sun"),
-              h("span", { text: "Your kindred" }),
+              h("span", { text: "Your circle" }),
             ),
             itemRows([kindredRow(mine, true)], { className: "kindred-rows mine" }),
           ]
@@ -200,7 +200,7 @@ export function kindredsSection(o: {
             others.map((k) => kindredRow(k, false)),
             { className: "kindred-rows" },
           )
-        : emptyNote("No kindreds yet", "Found the first with neighbors you know."),
+        : emptyNote("No circles yet", "Found the first with neighbors you know."),
       ...[foundForm(data)].filter((x): x is HTMLElement => x !== null),
     );
   }

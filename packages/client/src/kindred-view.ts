@@ -45,9 +45,9 @@ import { coins as coinWords } from "./purse";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
 export function kindredView(id: string, ctx: ViewContext): View {
-  ctx.setTitle("Kindred · Terrakin");
+  ctx.setTitle("Circle · Terrakin");
   // On a phone what someone came for (the notice, the night, the members) comes before the hall.
-  const { el, head, main, side } = pageLayout("kindred-page", "The kindred's hall and stewards", {
+  const { el, head, main, side } = pageLayout("kindred-page", "The circle's hall and stewards", {
     sideLast: true,
   });
   const me = savedResidentId() ?? undefined;
@@ -131,7 +131,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
     const nights = h(
       "section",
       { class: "stack kindred-nights", attrs: { "aria-labelledby": "kindred-nights" } },
-      h("h2", { class: "section-title", attrs: { id: "kindred-nights" }, text: "Kindred night" }),
+      h("h2", { class: "section-title", attrs: { id: "kindred-nights" }, text: "Circle night" }),
       k.nights.length > 0
         ? h(
             "ul",
@@ -146,7 +146,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
             ),
           )
         : emptyNote(
-            "No kindred night on the calendar",
+            "No circle night on the calendar",
             k.hall
               ? "Any member can hold one at the hall, once a week."
               : "A steward sets the hall first.",
@@ -181,7 +181,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
         h("p", { class: "cluster" }, icon("home"), h("span", { text: hallWords(k.hall) })),
         h("p", {
           class: "hint",
-          text: `Kindred nights count once ${rules.nightMembers} members from ${rules.nightHouseholds} households come. Members aren't counted guests at their own night.`,
+          text: `Circle nights count once ${rules.nightMembers} members from ${rules.nightHouseholds} households come. Members aren't counted guests at their own night.`,
         }),
         moves.has("set_kindred_hall") ? hallForm(k.hall, k.nights.length > 0) : null,
       ),
@@ -410,7 +410,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
       "form",
       { class: "stack tight", attrs: { hidden: true, novalidate: true } },
       h("div", { class: "cluster" }, input, save),
-      h("p", { class: "hint", text: "A kindred is renamed once a week, Monday to Sunday." }),
+      h("p", { class: "hint", text: "A circle is renamed once a week, Monday to Sunday." }),
     );
     disclosure(open, panel, input);
     panel.addEventListener("submit", (e) => {
@@ -531,7 +531,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
     const button = h("button", {
       class: "pill-button small",
       attrs: { type: "button", id: "kindred-leave" },
-      text: "Leave the kindred",
+      text: "Leave the circle",
     });
     confirmTwice(
       button,
@@ -555,7 +555,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
       "button",
       { class: "pill-button", attrs: { type: "button", id: "kindred-night-host" } },
       icon("calendar"),
-      h("span", { text: "Hold a kindred night" }),
+      h("span", { text: "Hold a circle night" }),
     );
     button.addEventListener("click", async () => {
       const r = await whileBusy(button, () => eventsApi.events());
@@ -581,7 +581,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
   const loader = pageData({
     ask: () => kindredsApi.kindred(id),
     paint,
-    fail: failInto(main, () => notFoundCard("No kindred here")),
+    fail: failInto(main, () => notFoundCard("No circle here")),
   });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

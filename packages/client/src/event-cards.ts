@@ -333,7 +333,7 @@ export function openScheduleSheet(o: ScheduleOptions) {
   let minutes: number = LENGTHS[1];
   const night = o.kindred;
   const places = night
-    ? [{ key: "hall", label: "The kindred's hall", ...night.hall }]
+    ? [{ key: "hall", label: "The circle's hall", ...night.hall }]
     : [
         ...(you?.plots ?? []).map((p, i) => ({
           key: `${p.px},${p.py}`,
@@ -438,7 +438,7 @@ export function openScheduleSheet(o: ScheduleOptions) {
     h("p", {
       class: "sheet-note",
       text: night
-        ? `It goes on the Town Hall board, open to anyone. The week counts for the kindred once ${night.counts.members} of you from ${night.counts.households} households come. Members aren't counted as guests at their own night.`
+        ? `It goes on the Town Hall board, open to anyone. The week counts for the circle once ${night.counts.members} of you from ${night.counts.households} households come. Members aren't counted as guests at their own night.`
         : "It goes on the Town Hall board. While it's on, people come with one tap, and those who stay a while count as your guests.",
     }),
     error,
@@ -486,10 +486,10 @@ export function openScheduleSheet(o: ScheduleOptions) {
   const { dialog } = sheet(
     {
       id: "schedule-sheet-title",
-      title: night ? "Hold a kindred night" : "Host an event",
+      title: night ? "Hold a circle night" : "Host an event",
       className: "schedule-sheet",
       lede: night
-        ? "Once a week, at the kindred's hall. Anyone can come."
+        ? "Once a week, at the circle's hall. Anyone can come."
         : "A show, a class, a market, a listening session, or a gathering. The town sees it on the board.",
       closeOnBackdrop: true,
     },

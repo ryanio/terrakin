@@ -1,5 +1,5 @@
 /**
- * Kindreds (RFC 0033) in words, for the kindred's page and the Town Hall's Kindreds section. Pure,
+ * Circles (RFC 0033) in words, for the kindred's page and the Town Hall's Kindreds section. Pure,
  * so tests pin them. A kindred's name and residents' names are their own words: these lines put
  * them in as plain strings, and the views draw them as text.
  */
@@ -37,7 +37,7 @@ export function inviteLine(i: {
 }): string {
   const size = `it has ${membersWords(i.members)}`;
   return i.by.id === i.founder.id
-    ? `${i.by.name} founded this kindred and invited you. Now ${size}.`
+    ? `${i.by.name} founded this circle and invited you. Now ${size}.`
     : `${i.by.name} invited you. ${i.founder.name} founded it, and ${size}.`;
 }
 

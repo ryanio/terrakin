@@ -1,4 +1,4 @@
-/** Kindreds (RFC 0033). */
+/** Circles (RFC 0033). */
 import { KindredNoticeResponse, KindredResponse, KindredsResponse } from "@terrakin/protocol";
 import { request } from "./request";
 

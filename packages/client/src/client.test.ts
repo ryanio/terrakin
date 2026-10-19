@@ -192,12 +192,12 @@ describe("Mirror", () => {
     m.apply({ seq: 5, event: { ...named, name: "Fern Row", trust: "untrusted" } });
     expect(m.halls.get("2,0")?.name).toBe("Fern Row");
     m.apply({ seq: 6, event: { ...named, name: null, by: null } });
-    expect(m.halls.get("2,0")?.name).toBe("Kindred 1");
+    expect(m.halls.get("2,0")?.name).toBe("Circle 1");
     // Cleared, set again with no name sent, and gone when it disbands.
     m.apply({ seq: 7, event: { ...hall, hall: null } });
     expect(m.halls.size).toBe(0);
     m.apply({ seq: 8, event: { ...hall, hall: { px: 0, py: 0 } } });
-    expect(m.halls.get("0,0")?.name).toBe("Kindred 1");
+    expect(m.halls.get("0,0")?.name).toBe("Circle 1");
     m.apply({ seq: 9, event: { type: "kindred_disbanded", kindred: "k_1", how: "empty" } });
     expect(m.halls.size).toBe(0);
   });

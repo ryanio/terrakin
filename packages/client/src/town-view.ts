@@ -160,7 +160,7 @@ export function townView(ctx: ViewContext): View {
   let archiveNext: string | null = null;
   // The town's jobs (RFC 0030). Asked for only once the world says they're open.
   const jobs = jobsSection({ gone: () => destroyed });
-  // Kindreds (RFC 0033). Asked for only once the world says they're open.
+  // Circles (RFC 0033). Asked for only once the world says they're open.
   const kindreds = kindredsSection({ gone: () => destroyed, navigate: ctx.navigate });
   let kindredsOpen = false;
   /** Keep what the world said, and say whether jobs are open in it. */

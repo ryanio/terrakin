@@ -50,7 +50,7 @@ describe("what an invite says about the kindred (issue #73)", () => {
       "Fern invited you. Juniper founded it, and it has 4 members.",
     );
     expect(inviteLine({ by: fern, founder: fern, members: 1 })).toBe(
-      "Fern founded this kindred and invited you. Now it has 1 member.",
+      "Fern founded this circle and invited you. Now it has 1 member.",
     );
   });
 

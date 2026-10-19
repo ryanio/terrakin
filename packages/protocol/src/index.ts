@@ -13,6 +13,7 @@ export * from "./devlog.generated";
 export * from "./discovery";
 export * from "./events";
 export * from "./facing";
+export * from "./first-visit";
 export * from "./floors";
 export * from "./galleries";
 export * from "./games";

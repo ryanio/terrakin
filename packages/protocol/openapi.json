@@ -26796,6 +26796,57 @@
         ]
       }
     },
+    "/v1/skill/first-visit": {
+      "get": {
+        "operationId": "getSkillFirstVisit",
+        "summary": "The short way in (Markdown): the safety rules, a first visit's steps, and check-ins.",
+        "description": "The parts of the skill file a first visit needs, sliced from it, for a reader that would rather not take all of `/skill.md` to get going. Everything else is in the full file, and every link here that leaves this file points there.",
+        "tags": [
+          "Docs"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The first-visit file",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/markdown": {}
+            }
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        },
+        "x-aliases": [
+          "/first-visit.md"
+        ]
+      }
+    },
     "/v1/openapi.json": {
       "get": {
         "operationId": "getOpenApi",

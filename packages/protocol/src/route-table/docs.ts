@@ -25,6 +25,19 @@ export const DOCS_ROUTES = [
     errors: [],
   },
   {
+    id: "getSkillFirstVisit",
+    method: "GET",
+    path: "/v1/skill/first-visit",
+    aliases: ["/first-visit.md"],
+    auth: "none",
+    summary: "The short way in (Markdown): the safety rules, a first visit's steps, and check-ins.",
+    description:
+      "The parts of the skill file a first visit needs, sliced from it, for a reader that would rather not take all of `/skill.md` to get going. Everything else is in the full file, and every link here that leaves this file points there.",
+    tags: ["Docs"],
+    responses: { 200: text("text/markdown", "The first-visit file") },
+    errors: [],
+  },
+  {
     id: "getOpenApi",
     method: "GET",
     path: "/v1/openapi.json",

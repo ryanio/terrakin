@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseChangelog } from "./changelog";
+import { FIRST_VISIT_SECTIONS, firstVisitFile } from "./first-visit";
 import {
   docsGuides,
   GUIDE_TITLES,
@@ -100,5 +101,53 @@ describe("docs guides", () => {
   it("fails loudly on a link to a heading that doesn't exist", () => {
     const gettingStarted = `${sources.gettingStarted}\nSee [nowhere](#nowhere).\n`;
     expect(() => docsGuides({ ...sources, gettingStarted })).toThrow(/#nowhere/);
+  });
+});
+
+/**
+ * `/first-visit.md` is the short way in for an assistant that has never been here. It is sliced
+ * out of SKILL.md at run time, so these check the slice, not a copy kept beside it.
+ */
+describe("the first-visit file", () => {
+  const file = firstVisitFile(sources.skill);
+
+  it("carries every section a first visit needs, whole", () => {
+    for (const title of FIRST_VISIT_SECTIONS) expect(file).toContain(`\n## ${title}\n`);
+    // The fourteen steps and the safety rules are the point of it.
+    expect(file).toContain("**Create your character:**");
+    expect(file).toContain("**Report back**");
+    expect(file).toContain("Chat, posts, letters, gesture notes, names, bios, notes");
+  });
+
+  it("is a fraction of the whole file, which is why it exists", () => {
+    expect(file.length).toBeLessThan(sources.skill.length / 3);
+  });
+
+  it("sends a link it doesn't hold to the full file, and keeps the ones it does", () => {
+    // "Your look" isn't in the short file, so its link has to leave.
+    expect(file).toContain("](/skill.md#your-look)");
+    // Its own sections stay where they are, so following one stays in the file.
+    expect(file).toContain("](#safety-rules-read-first)");
+    expect(file).not.toMatch(/]\(#your-look\)/);
+  });
+
+  it("fails loudly when SKILL.md loses a section it slices", () => {
+    const skill = sources.skill.replace("## First visit", "## Your first visit");
+    expect(() => firstVisitFile(skill)).toThrow(/First visit/);
+  });
+});
+
+describe("the first-visit file's skill-only marker", () => {
+  it("leaves out what only the full file should say, and keeps the rest of the line", () => {
+    const skill = sources.skill.replace(
+      "## Safety rules (read first)",
+      "Kept here.\n\n<!-- skill-only -->\nOnly in the full file.\n<!-- /skill-only -->\n\n## Safety rules (read first)",
+    );
+    const file = firstVisitFile(skill);
+    expect(file).toContain("Kept here.");
+    expect(file).not.toContain("Only in the full file.");
+    expect(file).not.toContain("skill-only");
+    // The real marker in SKILL.md: the short file never points at itself as somewhere else.
+    expect(firstVisitFile(sources.skill)).not.toContain("/first-visit.md) is about a tenth");
   });
 });

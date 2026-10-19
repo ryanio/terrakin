@@ -144,7 +144,7 @@ interface Section {
  * SKILL.md without its frontmatter and title, split at its `## ` headings. Fenced code is
  * skipped, so a `##` inside an example never starts a section.
  */
-function splitSkill(skill: string): { intro: string; sections: Section[] } {
+export function splitSkill(skill: string): { intro: string; sections: Section[] } {
   const text = skill.replace(/^---\n[\s\S]*?\n---\n/, "");
   const lines = text.split("\n");
   const sections: Section[] = [];

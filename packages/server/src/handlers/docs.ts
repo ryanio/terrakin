@@ -4,6 +4,7 @@ import {
   changelogResponse,
   DEVLOG_POSTS,
   devlogResponse,
+  firstVisitFile,
 } from "@terrakin/protocol";
 import type { Api } from "../api";
 import { fail, type Handlers } from "./shared";
@@ -13,11 +14,17 @@ import { fail, type Handlers } from "./shared";
  * routes are in the protocol's `route-table/docs.ts`.
  */
 export function docsHandlers(api: Api): Pick<Handlers, AreaRouteIds["docs"]> {
+  // Sliced from the same text `getSkill` serves, once: the file never changes while we run.
+  let firstVisit: string | undefined;
   return {
     // A read with a partner's `?from=` is counted for it (`arrivals7d`); nothing about the reader is.
     getSkill: ({ query }) => {
       api.noteArrival("skill", query.from);
       return { status: 200, text: api.skill };
+    },
+    getSkillFirstVisit: () => {
+      firstVisit ??= firstVisitFile(api.skill);
+      return { status: 200 as const, text: firstVisit };
     },
     getOpenApi: () => ({ status: 200, text: api.openapi }),
     // Built into the bundle by `pnpm gen` from CHANGELOG.md, so no file is read at run time.

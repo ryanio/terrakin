@@ -392,7 +392,7 @@ test.describe("the Town Hall", () => {
     expect(errors).toEqual([]);
   });
 
-  test("kindreds open, Fern founds one at the Town Hall, Birch joins from his invite, and Fern holds a kindred night at its hall", async ({
+  test("circles open, Fern founds one at the Town Hall, Birch joins from his invite, and Fern holds a circle night at its hall", async ({
     page,
     browser,
   }) => {
@@ -436,15 +436,15 @@ test.describe("the Town Hall", () => {
     await signIn(birchPage, birch);
     await birchPage.goto("/notifications");
     const note = birchPage.locator('[data-type="kindred_invite"]');
-    await expect(note).toContainText("invited you to a kindred");
+    await expect(note).toContainText("invited you to a circle");
     await expect(note).toContainText(pitch);
-    await note.getByRole("link", { name: "Open the kindred" }).click();
+    await note.getByRole("link", { name: "Open the circle" }).click();
     await expect(birchPage).toHaveURL(new RegExp(`/k/${kindred}$`));
     // The invite card says who founded it, what Fern wrote, and what joining would mean.
     const inviteCard = birchPage.locator(".kindred-invite");
     await expect(inviteCard).toContainText(pitch);
-    await expect(inviteCard).toContainText("Fern founded this kindred and invited you");
-    await expect(inviteCard).toContainText("one kindred at a time");
+    await expect(inviteCard).toContainText("Fern founded this circle and invited you");
+    await expect(inviteCard).toContainText("one circle at a time");
     await birchPage.locator('[data-move="join_kindred"]').click();
     await expect(birchPage.locator(".kindred-member")).toHaveCount(3);
     await birchPage.screenshot({ path: "test-results/town-kindred.png" });

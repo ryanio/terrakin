@@ -111,7 +111,9 @@ describe("GET /v1/admin/newcomers", () => {
     await t.act(wren.token, { type: "build_starter_home" });
     await t.act(wren.token, { type: "place", x: 6, y: 6, block: "planter" });
     await t.act(wren.token, { type: "plant", x: 6, y: 6, seed: "flower" });
+    await t.act(wren.token, { type: "name_plot", px: 1, py: 1, name: "Wren's Hollow" });
     await t.act(wren.token, { type: "profile", theme: "meadow" });
+    await t.ok("PUT", "/v1/profile", { handle: "wren" }, wren.token);
     await t.ok("POST", "/v1/posts", { text: "Hello" }, wren.token);
     await t.act(wren.token, { type: "adopt_pet", kind: "dog", coat: "golden", name: "Rex" });
     await t.act(juniper.token, { type: "settle", px: 3, py: 1 });
@@ -137,6 +139,7 @@ describe("GET /v1/admin/newcomers", () => {
     await t.act(fern.token, { type: "settle", px: 1, py: 3 });
     await t.act(fern.token, { type: "build_starter_home" });
     await t.act(bolt.token, { type: "settle", px: 3, py: 3 });
+    await t.ok("PUT", "/v1/profile", { handle: "fern" }, fern.token);
     await t.ok("PUT", `/v1/residents/${moss.id}/follow`, undefined, wren2.token);
     // The pantry handed Fern starter seeds, which don't count as a first thing.
     expect(t.social.collection.collected(fern.id).count).toBeGreaterThan(0);
@@ -159,14 +162,36 @@ describe("GET /v1/admin/newcomers", () => {
       "2023-10-16",
       "2023-10-09",
     ]);
-    const none = { joined: 0, claimed: 0, hearth: 0, thing: 0, look: 0, social: 0, pet: 0, job: 0 };
+    const none = {
+      joined: 0,
+      claimed: 0,
+      hearth: 0,
+      thing: 0,
+      plotName: 0,
+      look: 0,
+      social: 0,
+      handle: 0,
+      pet: 0,
+      job: 0,
+    };
     const thisWeek = {
-      people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1 },
+      people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1, handle: 1 },
       agents: { ...none, joined: 3, claimed: 1, social: 1 },
       sameName: 1,
     };
     const twoBack = {
-      people: { joined: 2, claimed: 1, hearth: 1, thing: 1, look: 1, social: 1, pet: 1, job: 0 },
+      people: {
+        ...none,
+        joined: 2,
+        claimed: 1,
+        hearth: 1,
+        thing: 1,
+        plotName: 1,
+        look: 1,
+        social: 1,
+        handle: 1,
+        pet: 1,
+      },
       agents: none,
       sameName: 0,
     };
@@ -175,7 +200,18 @@ describe("GET /v1/admin/newcomers", () => {
     expect(body.weeks[2]).toEqual({ week: "2023-11-13", ...twoBack });
     expect(body.allTime).toEqual({
       week: null,
-      people: { joined: 3, claimed: 2, hearth: 2, thing: 2, look: 1, social: 1, pet: 1, job: 0 },
+      people: {
+        ...none,
+        joined: 3,
+        claimed: 2,
+        hearth: 2,
+        thing: 2,
+        plotName: 1,
+        look: 1,
+        social: 1,
+        handle: 2,
+        pet: 1,
+      },
       agents: thisWeek.agents,
       sameName: 1,
     });
@@ -225,6 +261,7 @@ describe("GET /v1/admin/newcomers", () => {
       done: (id) => done.get(id) ?? new Set(),
       social: new Set(),
       things: new Set(),
+      handles: new Set(),
       today,
     });
     expect(funnel.allTime.people).toMatchObject({ joined: 2, job: 1 });

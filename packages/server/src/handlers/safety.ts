@@ -28,7 +28,7 @@ import { staffBountiesView } from "../bounties";
 import { eventView } from "../events";
 import { madeThingForReport } from "../galleries";
 import { DEFAULT_ORIGIN } from "../links";
-import { newcomerFunnel, socialActors, thingHolders } from "../newcomers";
+import { handleHolders, newcomerFunnel, socialActors, thingHolders } from "../newcomers";
 import { reportable, type SnapshotHeader } from "../snapshots";
 import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
@@ -590,6 +590,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         done: (id) => service.doneCommands(id),
         social: socialActors(social().sql),
         things: thingHolders(social().sql),
+        handles: handleHolders(social().sql),
         today: service.state.day ?? utcDay(api.now()),
       }),
     }),

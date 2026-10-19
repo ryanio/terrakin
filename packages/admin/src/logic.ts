@@ -891,8 +891,10 @@ const STEP_LABELS: Record<NewcomerStep, string> = {
   claimed: "Claimed a plot",
   hearth: "Set a hearth",
   thing: "Got a first thing",
+  plotName: "Named their plot",
   look: "Changed their look",
   social: "Did something social",
+  handle: "Picked a handle",
 };
 
 /** What each newcomer step is called on the page: the steps in order, then the two beside them. */

@@ -634,7 +634,16 @@ export type TownsfolkActivityResponse = z.infer<typeof TownsfolkActivityResponse
  */
 
 /** The steps in the order a newcomer usually meets them. `pet` is counted beside them. */
-export const NEWCOMER_STEPS = ["joined", "claimed", "hearth", "thing", "look", "social"] as const;
+export const NEWCOMER_STEPS = [
+  "joined",
+  "claimed",
+  "hearth",
+  "thing",
+  "plotName",
+  "look",
+  "social",
+  "handle",
+] as const;
 export type NewcomerStep = (typeof NEWCOMER_STEPS)[number];
 
 /** How many weekly cohorts the funnel shows, this week included. */
@@ -657,6 +666,8 @@ export const NewcomerCounts = z.object({
    * kind of thing the pantry doesn't hand out (a gift, a buy).
    */
   thing: newcomerCount,
+  /** A plot they can build on has a name now, or they ever sent `name_plot`. */
+  plotName: newcomerCount,
   /** Wears a theme, a pattern, an item of wear, or a hair style now. */
   look: newcomerCount,
   /**
@@ -664,6 +675,8 @@ export const NewcomerCounts = z.object({
    * notice. Waves a putter or a routine sent by itself don't count.
    */
   social: newcomerCount,
+  /** Holds a handle now. A handle they gave up doesn't count: the name is free again. */
+  handle: newcomerCount,
   /** Has a pet now, or ever adopted one. */
   pet: newcomerCount,
   /**

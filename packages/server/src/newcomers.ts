@@ -13,6 +13,7 @@ import {
   type WorldState,
   weekStart,
 } from "@terrakin/sim";
+import { plotNamed } from "./checkin-steps";
 import { idsFrom, type SqlExec } from "./sql-store";
 import { nameKey } from "./text";
 import { dayString } from "./together";
@@ -48,6 +49,11 @@ export function socialActors(sql: SqlExec): Set<string> {
   ]);
 }
 
+/** Everyone holding a handle right now. One given up is released, so the name is free again. */
+export function handleHolders(sql: SqlExec): Set<string> {
+  return idsFrom(sql, ["SELECT resident_id FROM handles WHERE released_at = 0"]);
+}
+
 /**
  * Everyone the collection book shows holding a kind of thing the pantry doesn't hand out: a gift,
  * a buy, a harvest, a catch.
@@ -68,6 +74,7 @@ interface NewcomerSources {
   done: (id: string) => ReadonlySet<string>;
   social: ReadonlySet<string>;
   things: ReadonlySet<string>;
+  handles: ReadonlySet<string>;
   /** Today, in UTC days since 1970-01-01. */
   today: number;
 }
@@ -77,8 +84,10 @@ const noCounts = (): NewcomerCounts => ({
   claimed: 0,
   hearth: 0,
   thing: 0,
+  plotName: 0,
   look: 0,
   social: 0,
+  handle: 0,
   pet: 0,
   job: 0,
 });
@@ -101,8 +110,11 @@ function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<strin
     claimed: plotHolders.has(r.id) || did(CLAIM_COMMANDS),
     hearth: r.hearth !== null || done.has("set_hearth"),
     thing: did(THING_COMMANDS) || s.things.has(r.id),
+    // The check-in's own rule for the `plot_name` step, so the page and the step agree.
+    plotName: plotNamed(s.state, r.id, done),
     look: hasLook(r),
     social: s.social.has(r.id),
+    handle: s.handles.has(r.id),
     pet: r.pet !== undefined || done.has("adopt_pet"),
     // A finished job's count can sit on a record the job was merged into, whose own log never
     // took one, so the sim's count counts beside the command (decision 0276).
@@ -112,7 +124,17 @@ function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<strin
 
 function add(counts: NewcomerCounts, steps: ReturnType<typeof stepsOf>) {
   counts.joined++;
-  for (const key of ["claimed", "hearth", "thing", "look", "social", "pet", "job"] as const) {
+  for (const key of [
+    "claimed",
+    "hearth",
+    "thing",
+    "plotName",
+    "look",
+    "social",
+    "handle",
+    "pet",
+    "job",
+  ] as const) {
     if (steps[key]) counts[key]++;
   }
 }

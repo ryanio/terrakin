@@ -658,9 +658,13 @@ export class TogetherService {
       return ok({ note });
     }
     const cooldown = GESTURE_COOLDOWN_MINUTES * 60_000;
+    // A putter's or a routine's wave went out on its own, so it never stands in the way of one
+    // this resident chose to send, any more than it moves their streak or asks to be answered.
+    // Chosen waves still cool down against each other, so this opens no way to send more.
     const last = this.rows(
       `SELECT MAX(created_at) AS at FROM gestures
-        WHERE sender = ? AND recipient = ? AND kind = ? AND item_kind = '' AND created_at > ?`,
+        WHERE sender = ? AND recipient = ? AND kind = ? AND item_kind = ''
+          AND putter = 0 AND routine = 0 AND created_at > ?`,
       sender,
       to,
       request.kind,

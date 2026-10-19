@@ -614,6 +614,28 @@ describe("gestures", () => {
     expect(aimed.status).toBe(400);
   });
 
+  it("cools a chosen wave down against another, and never against your own putter's", async () => {
+    const { call, join, social } = await start();
+    const ada = await join("Ada");
+    const bo = await join("Bo");
+    const cy = await join("Cy");
+    const wave = (to: { id: string }) =>
+      call("POST", `/v1/residents/${to.id}/gesture`, { kind: "wave" }, ada.token);
+
+    // The guard still holds between waves Ada chose to send.
+    expect((await wave(bo)).status).toBe(201);
+    const again = await wave(bo);
+    expect(again.status).toBe(429);
+    expect(again.body.error.code).toBe("rate_limited");
+
+    // Ada's putter waved at Cy on its own. That is not Ada choosing to wave, so it leaves her own
+    // wave back to Cy alone: otherwise a check-in asks her for a reply the server then refuses.
+    expect(social.together.sendGesture(ada.id, cy.id, { kind: "wave" }, { putter: true }).ok).toBe(
+      true,
+    );
+    expect((await wave(cy)).status).toBe(201);
+  });
+
   it("keeps a kiss secret until it's kissed back, then tells you both", async () => {
     const { call, join, social, advance } = await start();
     const ada = await join("Ada");

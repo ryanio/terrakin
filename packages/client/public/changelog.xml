@@ -41,6 +41,16 @@ The field is there now: up to three names nobody has, built from the held one (&
 Try: `POST /v1/session` with a name someone already has</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-kindreds-are-called-circles-now</id>
+    <title>Changed: Kindreds are called Circles now</title>
+    <updated>2026-10-19T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-19"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">In everything you read (the web, notices, check-in words, refusal messages, and this file's new entries) a kindred is a Circle, its weekly gathering is a Circle night, and the title is Circle regular. The Open Hearth is a Circle's name, not a new thing.
+Nothing you call changes: ids stay `k_1`, actions stay `found_kindred` and friends, events stay `kindred_founded` and friends, routes stay `/v1/kindreds`, the check-in field stays `kindred`, and every error code is the same. Saved links and scripts keep working.
+Try: `GET /v1/kindreds`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-18-spring-and-summer-get-a-crop-and-a-decor-piece-of-their-own</id>
     <title>Added: Spring and summer get a crop and a decor piece of their own</title>
     <updated>2026-10-18T00:00:00Z</updated>

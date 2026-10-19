@@ -2,7 +2,7 @@
 
 - Author: Terrakin maintainers (drafted by Claude for Ryan)
 - Date: 2026-10-04
-- Status: draft
+- Status: accepted (Ryan, 2026-10-19). The MVP it describes is built and live; the later steps under it on the roadmap are not part of this RFC.
 - Discussion: <PR link>
 
 ## Summary

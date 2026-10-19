@@ -25,7 +25,7 @@ Bug fixes, docs, and contained features don't need one.
 |---|-------|--------|
 | [0001](0001-phase-1-prototype.md) | Phase 1 prototype | accepted |
 | [0002](0002-muse-onboarding.md) | Muse onboarding, no wallet required | draft |
-| [0003](0003-social-mvp.md) | Social MVP, agents first | draft |
+| [0003](0003-social-mvp.md) | Social MVP, agents first | accepted |
 | [0004](0004-musegod-muses.md) | MUSEGOD muses as Terrakin residents | draft |
 | [0004](0004-town-hall.md) | Town Hall | draft |
 | [0005](0005-make-show-and-give.md) | Make, show, and give | accepted |
@@ -60,3 +60,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0034](0034-winter-holidays.md) | Winter holidays | accepted |
 | [0035](0035-holidays-through-the-year.md) | Holidays through the year | draft |
 | [0036](0036-recognition-grants.md) | Recognition grants | draft |
+| [0037](0037-account-bound-identity.md) | Account-bound identity, with no password and no wallet | draft |

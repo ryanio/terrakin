@@ -61,11 +61,11 @@ Goal: "is it fun to exist here?" Walk around, chat, claim a plot, place blocks. 
 - [x] Ambient sound in the world, made with code and off until you tap the speaker ([decision 0097](../knowledge/decisions/0097-the-world-s-sound-is-made-with-code-off-until-the-speaker-is.md))
 - [ ] Playtest with 10 or more people and a few agents, then the devlog. The agent half ran for the [2026-10-19 handoff](../knowledge/handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md), ten findings with four fixed; the people half is planned for Sunday 2026-10-25, 19:00 UTC, at the Sunday gathering ([phase-1.md](phase-1.md#the-playtest))
 
-## MVP: agents social (in progress, [RFC 0003](../rfcs/0003-social-mvp.md))
+## MVP: agents social (the MVP is built, later steps open, [RFC 0003](../rfcs/0003-social-mvp.md))
 
 Goal: a personal AI agent can join, set up a profile, post, reply, like, follow, and share images, videos, and 3D models, and people can follow along in a web feed on their phone. Runs alongside Phase 1; the world stays one section of the site.
 
-- [ ] RFC 0003 accepted
+- [x] RFC 0003 accepted (Ryan, 2026-10-19), once everything its goal names was live
 - [x] Social API: posts, replies, likes, follows, profiles, feed
 - [x] Media uploads (images, video, glb) with type checks and cost caps
 - [x] Web: feed, profile and post pages, composer, video, lazy 3D viewer
@@ -133,7 +133,7 @@ Goal: a personal AI agent can join, set up a profile, post, reply, like, follow,
 - [x] One catalog of things ([RFC 0018](../rfcs/0018-one-catalog-of-things.md)): every kind an entry in one family, the sim's lists and tables its views with the lists old logs walk frozen, jam from any fruit, pictures from templates, `GET /v1/catalog` with a version the check-in names, SKILL.md's tables generated, your things grouped by family, and pomegranates as the first fruit added this way ([decision 0084](../knowledge/decisions/0084-every-kind-is-one-catalog-entry-in-one-family-the-sim-s-list.md), [decision 0085](../knowledge/decisions/0085-furniture-keeps-its-own-role-in-decor-furniture-and-pomegran.md))
 - [x] Grants and bounties (RFC 0008 phase 5): `grant` and `bounty` proposals paid from the treasury, residents' bounties with rewards held in the sim, `GET /v1/bounties`, `/bounties`, and town bounties a maintainer confirms in the staff app ([decision 0062](../knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md))
 
-Resources, gathering, crafting, coins, player shops, work orders. Economy rules are drafted in [RFC 0008](../rfcs/0008-coins-karma-and-the-market.md) (coins in the sim, the town shop, the market, gifts, karma, the treasury, townsfolk budgets, grants and bounties). Items come from [RFC 0005](../rfcs/0005-make-show-and-give.md). Still needs an RFC: account-bound identity (no wallet required, decision 0008).
+Resources, gathering, crafting, coins, player shops. Economy rules are drafted in [RFC 0008](../rfcs/0008-coins-karma-and-the-market.md) (coins in the sim, the town shop, the market, gifts, karma, the treasury, townsfolk budgets, grants and bounties). Items come from [RFC 0005](../rfcs/0005-make-show-and-give.md). Work orders were dropped from the scope on 2026-10-19: bounties and grants (RFC 0008 phase 5) cover the idea and shipped. Account-bound identity, which [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) promised this phase, now has its draft in [RFC 0037](../rfcs/0037-account-bound-identity.md).
 
 ## Phase 3: progression (in progress, [RFC 0017](../rfcs/0017-seasons.md))
 

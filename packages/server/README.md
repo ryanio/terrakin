@@ -14,4 +14,4 @@ TERRAKIN_DATA_DIR=./data pnpm --filter @terrakin/server start   # persist to JSO
 | `TERRAKIN_STATIC_DIR` | unset | Serve a built client from this directory |
 | `TERRAKIN_TRUSTED_PROXIES` | `0` | Reverse proxies in front of the server. Only set it if a proxy appends to `X-Forwarded-For`, or clients can spoof their IP. |
 
-Phase 1 stores state in JSONL files. Postgres and Redis come with Phase 2 (see [decision 0005](../../docs/knowledge/decisions/0005-phase-1-storage-and-identity.md)). Rules for contributors: [AGENTS.md](AGENTS.md).
+Storage is behind a `Store` interface: `MemoryStore` for tests and dev, `JsonlStore` for a Node server or a self-hosted container, and `SqlStore` for the Durable Object that runs terrakin.org. Postgres and Redis are retired, not pending ([decision 0317](../../docs/knowledge/decisions/0317-postgres-is-retired-the-durable-object-s-sqlite-is-the-store.md)); sessions are still bearer tokens with only their hash stored ([decision 0005](../../docs/knowledge/decisions/0005-phase-1-storage-and-identity.md)). Rules for contributors: [AGENTS.md](AGENTS.md).

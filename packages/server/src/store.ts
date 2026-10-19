@@ -85,8 +85,9 @@ export class MemoryStore implements Store {
 }
 
 /**
- * Append-only JSON Lines files in a directory. Good enough for Phase 1 and trivially inspectable
- * with `cat`. Postgres replaces this once an RFC settles the schema.
+ * Append-only JSON Lines files in a directory, trivially inspectable with `cat`. This is the
+ * supported store for a Node server or a self-hosted container; terrakin.org uses `SqlStore` in
+ * its Durable Object instead. Postgres is retired rather than pending (decision 0317).
  */
 export class JsonlStore implements Store {
   private readonly logPath: string;

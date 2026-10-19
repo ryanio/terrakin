@@ -520,6 +520,22 @@ export function othersPickupLine(name?: string): string {
 /** The first sentence of a server message, without the hint for agents that follows it. */
 const firstSentence = (message: string) => message.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? message;
 
+/** What the landing card says when this browser's saved key opens nobody, and we know no more. */
+export const KEY_UNKNOWN_LINE =
+  "We couldn't find your character in this browser. If you saved your key, restore it below, or make a new one.";
+
+/**
+ * The landing card's line when a saved key didn't open a character. A `revoked` key was turned off
+ * on purpose, and the server says why in words written for a person: the record was cleared as a
+ * repeat join of a name someone already had, or merged into another record, each naming what to do
+ * next and who to write to. That reason is the whole value of the message, so it is kept as it came.
+ * An `unauthorized` key is only one the server doesn't know, and its message tells an API caller to
+ * check the token it sent, so the page says that in its own words instead.
+ */
+export function keyNotFoundLine(code: string, message?: string): string {
+  return code === "revoked" && message ? message : KEY_UNKNOWN_LINE;
+}
+
 /**
  * The server's refusal in HUD words. Its messages are written for agents ("Try settle at px 3,
  * py 3."), so codes with agent hints get our own line, and the rest keep the server's text.

@@ -20,6 +20,8 @@ import {
   dayLabel,
   growthLine,
   inventoryLine,
+  KEY_UNKNOWN_LINE,
+  keyNotFoundLine,
   lotWords,
   missingLine,
   NO_PLOT_LINE,
@@ -553,5 +555,28 @@ describe("what was bought, in a sentence", () => {
     expect(lotWords("lemon_jam", 1)).toBe("lemon jam");
     expect(lotWords("fishing_rod", 1)).toBe("a fishing rod");
     expect(lotWords("lemon", 3)).toBe("3 lemons");
+  });
+});
+
+describe("the line when a saved key opens nobody", () => {
+  it("keeps the server's reason for a key turned off, and says an unknown one in its own words", () => {
+    // A record cleared as a repeat join, or merged: the reason names what the person must do, and
+    // throwing it away is what made this read as "it doesn't know I already joined".
+    const cleared =
+      "This token was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: write to the Terrakin team at https://terrakin.org/contact and they'll help you back in.";
+    expect(keyNotFoundLine("revoked", cleared)).toBe(cleared);
+    const merged =
+      "This token was for a second record of yours. The Terrakin team merged it into your other record, Juniper.";
+    expect(keyNotFoundLine("revoked", merged)).toBe(merged);
+
+    // An unknown token's message is written for an API caller, so the page says it its own way.
+    expect(
+      keyNotFoundLine(
+        "unauthorized",
+        "We don't know this token, and we have no record of turning it off: check that you sent the whole token you saved when you joined, exactly as it was.",
+      ),
+    ).toBe(KEY_UNKNOWN_LINE);
+    // And a revoked one with nothing to say falls back too.
+    expect(keyNotFoundLine("revoked", undefined)).toBe(KEY_UNKNOWN_LINE);
   });
 });

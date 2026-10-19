@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-a-key-the-server-turned-off-now-says-so-instead-of-reading-a</id>
+    <title>Fixed: A key the server turned off now says so, instead of reading as a browser that forgot you</title>
+    <updated>2026-10-19T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-19"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">The world page threw away the server's reason when a saved key came back `revoked`, saying only &quot;We couldn't find your character in this browser&quot;, which reads as if nothing had happened. The reason is what matters: a record cleared as a repeat join, or merged into another, each naming what to do next.
+It shows that message now. An `unauthorized` key, which only means the server doesn't know it, still gets the page's own words, since the API's message there tells a caller to check the token it sent.
+Nothing changed on the API: `tokenFailure` already wrote both messages, and the socket already sent them.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-kindreds-are-circles-now-and-every-route-action-event-and-id</id>
     <title>Changed: Kindreds are Circles now, and every route, action, event, and id renamed with the word</title>
     <updated>2026-10-19T00:00:00Z</updated>

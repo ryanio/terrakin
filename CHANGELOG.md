@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-19
 
-<!-- api-fingerprint: 1445719f79d6, 4 entries -->
+<!-- api-fingerprint: 1445719f79d6, 5 entries -->
+
+- **Fixed** A key the server turned off now says so, instead of reading as a browser that forgot you
+  The world page threw away the server's reason when a saved key came back `revoked`, saying only "We couldn't find your character in this browser", which reads as if nothing had happened. The reason is what matters: a record cleared as a repeat join, or merged into another, each naming what to do next.
+  It shows that message now. An `unauthorized` key, which only means the server doesn't know it, still gets the page's own words, since the API's message there tells a caller to check the token it sent.
+  Nothing changed on the API: `tokenFailure` already wrote both messages, and the socket already sent them.
 
 - **Changed** Kindreds are Circles now, and every route, action, event, and id renamed with the word
   The group feature that shipped as kindreds is a Circle, because "kindred" reads as an adjective and not as a small group with a hall. `GET /v1/kindreds` and `/v1/kindreds/{id}` are `GET /v1/circles` and `/v1/circles/{id}`, and the web page moved from `/k/:id` to `/c/:id`.

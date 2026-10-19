@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-19-a-key-the-server-turned-off-now-says-so-instead-of-reading-a",
+    "date": "2026-10-19",
+    "kind": "fixed",
+    "title": "A key the server turned off now says so, instead of reading as a browser that forgot you",
+    "body": "The world page threw away the server's reason when a saved key came back `revoked`, saying only \"We couldn't find your character in this browser\", which reads as if nothing had happened. The reason is what matters: a record cleared as a repeat join, or merged into another, each naming what to do next.\nIt shows that message now. An `unauthorized` key, which only means the server doesn't know it, still gets the page's own words, since the API's message there tells a caller to check the token it sent.\nNothing changed on the API: `tokenFailure` already wrote both messages, and the socket already sent them.",
+    "links": []
+  },
+  {
     "id": "2026-10-19-kindreds-are-circles-now-and-every-route-action-event-and-id",
     "date": "2026-10-19",
     "kind": "changed",

@@ -101,7 +101,14 @@ import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
 import { SoundSwitch } from "./sound/switch";
 import { reloadForNewerServer } from "./stale-bundle";
 import { track } from "./telemetry";
-import { NO_PLOT_LINE, newsLine, othersPickupLine, toastMs, worldProblem } from "./things";
+import {
+  keyNotFoundLine,
+  NO_PLOT_LINE,
+  newsLine,
+  othersPickupLine,
+  toastMs,
+  worldProblem,
+} from "./things";
 import { dayPhase } from "./time";
 import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
 import { visitCard } from "./visit-card";
@@ -447,8 +454,12 @@ function joinRefused(code: string, message: string, free?: readonly string[]) {
   else landing.focusName();
 }
 
-/** The saved key doesn't match anyone (the world was reset, or the key was revoked). */
-function keyNotFound() {
+/**
+ * The saved key doesn't match anyone (the world was reset, or the key was turned off). `line` is
+ * what the card says: for a key turned off on purpose it is the server's own reason, since that
+ * names what the person has to do to get back in (`keyNotFoundLine`).
+ */
+function keyNotFound(line: string) {
   conn?.close();
   conn = undefined;
   me = undefined;
@@ -456,9 +467,7 @@ function keyNotFound() {
   stopLooking();
   hud.hidden = true;
   leaveWorld();
-  landing.setError(
-    "We couldn't find your character in this browser. If you saved your key, restore it below, or make a new one.",
-  );
+  landing.setError(line);
   landing.openRestore();
   watchPopulation();
   void resync();
@@ -680,7 +689,9 @@ function onMessage(msg: ServerMessage) {
       if (gathering && msg.id === gathering.id) gathering.done();
       // Before the welcome, any refusal is about joining: the form says why.
       if (joiningFresh && !me) return joinRefused(code, message, free);
-      if (code === "unauthorized" || code === "revoked") return keyNotFound();
+      if (code === "unauthorized" || code === "revoked") {
+        return keyNotFound(keyNotFoundLine(code, message));
+      }
       // A refused chat line stays in the input, so it isn't lost.
       if (pendingChat && msg.id === pendingChat.id) pendingChat = undefined;
       // A second tap on Claim lands after the first made the plot yours: nothing went wrong.

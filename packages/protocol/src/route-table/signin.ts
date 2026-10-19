@@ -176,7 +176,10 @@ export const SIGNIN_ROUTES = [
     description:
       "For a token you think someone else has, or a device you no longer have. The token you call with keeps working and every other one stops, including the link key, so an AI on one needs a new key and a person signed in elsewhere signs in again with their passkey. Live connections are all dropped, this call's own included, so nothing is left listening; your page reconnects by itself.",
     tags: ["Owners"],
-    responses: { 200: json(SignedOutResponse, "How many sessions ended") },
+    // Like blocking and reporting: a resident suspended or paused by the filters, which a thief
+    // holding their token can arrange, must still be able to end that thief's session.
+    safety: true,
+    responses: { 200: json(SignedOutResponse, "How many sessions and keys ended") },
     errors: ["unauthorized", "rate_limited"],
     rateLimit: "owner",
   },

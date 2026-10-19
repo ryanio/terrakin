@@ -196,9 +196,11 @@ async function importPasskey(
   publicKey: Uint8Array<ArrayBuffer>,
   algorithm: PasskeyAlgorithm,
 ): Promise<CryptoKey | undefined> {
-  // Web Crypto imports an RSA key of any size, so a 2048-bit floor is checked here. SPKI wraps the
-  // modulus with about 38 bytes of header, so the whole key is a sound proxy for its length.
-  if (algorithm === -257 && publicKey.length < 256) return undefined;
+  // Web Crypto imports an RSA key of any size, so a 2048-bit floor is checked here. The floor is
+  // on the whole SPKI, which wraps the modulus in a header: measured, a 2048-bit key is 292 bytes
+  // with a short exponent and 294 with 65537, while 1792 bits is 256. Comparing against the
+  // modulus alone (256) is the mistake, since it lets 1792-bit keys through.
+  if (algorithm === -257 && publicKey.length < 292) return undefined;
   const params =
     algorithm === -7
       ? { name: "ECDSA", namedCurve: "P-256" }

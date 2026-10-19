@@ -127,7 +127,9 @@ export type RetiredReason =
   | "repeat_join"
   | "repeat_join_person"
   | "merged"
-  | "upgraded";
+  | "upgraded"
+  | "signed_out"
+  | "passkey_unbound";
 
 const RETIRED_REASONS: readonly RetiredReason[] = [
   "revoked",
@@ -136,6 +138,8 @@ const RETIRED_REASONS: readonly RetiredReason[] = [
   "repeat_join_person",
   "merged",
   "upgraded",
+  "signed_out",
+  "passkey_unbound",
 ];
 
 interface RekeyRow {
@@ -654,6 +658,15 @@ export class OwnerService {
    */
   retireMerged(residentId: string) {
     this.retire(residentId, "merged");
+  }
+
+  /**
+   * Record why these credentials stopped working, for the paths that end a session without going
+   * through a revoke or a re-key: signing other sessions out, and unbinding a passkey (RFC 0037).
+   * Without it the next call hears "we have no record of turning it off" and tries again.
+   */
+  retireSessions(residentId: string, reason: RetiredReason, hashes: readonly string[]) {
+    this.retireHashes(residentId, reason, hashes);
   }
 
   private retire(residentId: string, reason: RetiredReason) {

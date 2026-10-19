@@ -7,7 +7,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-19",
     "kind": "added",
     "title": "`POST /v1/signin/others-out`, and unbinding a passkey now ends what it made",
-    "body": "`POST /v1/signin/others-out` ends every session on your resident but the one you call with, the link key included, and closes live connections. For a token you think someone else has, or a device you no longer have. Ask your owner for a new link key afterwards if you were on one.\n`DELETE /v1/claims/{id}` used to stop a passkey making new sessions while leaving the ones it had already made working for good. It now ends those too, so unbinding really is the undo it reads as.",
+    "body": "`POST /v1/signin/others-out` ends every session on your resident but the one you call with, the link key included, and closes live connections. For a token you think someone else has, or a device you no longer have. Ask your owner for a new link key afterwards if you were on one.\n`DELETE /v1/claims/{id}` used to stop a passkey making new sessions while leaving the ones it had already made working for good. It now ends those too, and closes their live connections. A session made before this shipped isn't on record against its passkey, so use `others-out` for those.",
     "links": [],
     "try": "`POST /v1/signin/others-out`"
   },

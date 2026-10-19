@@ -2,7 +2,7 @@ import type { PasskeyCreationOptions, PasskeyRequestOptions } from "@terrakin/pr
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { fromBase64Url, sha256Bytes, toBase64Url } from "./bytes";
+import { fromBase64Url, sha256Bytes, sha256HexSync, toBase64Url } from "./bytes";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -79,6 +79,7 @@ async function start() {
     call,
     base,
     join,
+    service,
     advance: (ms: number) => {
       at += ms;
     },
@@ -509,10 +510,108 @@ describe("ending sessions", () => {
 
     const out = await call("POST", "/v1/signin/others-out", undefined, human);
     expect(out.status).toBe(200);
-    expect((out.body as Json).ended).toBeGreaterThanOrEqual(1);
+    // The agent's token and nothing else: this resident has no link key in the fixture.
+    expect((out.body as Json).ended).toBe(1);
     // The caller keeps playing; the agent's own token is one of the ones that stopped, which is
     // the point of the call and why its description says the AI needs a new key.
     expect((await call("GET", "/v1/me", undefined, human)).status).toBe(200);
     expect((await call("GET", "/v1/me", undefined, cocoa.token)).status).toBe(401);
+  });
+});
+
+describe("the connections an ended session was holding", () => {
+  it("closes the ones that session opened, and leaves the others alone", async () => {
+    const { call, base, join, service } = await start();
+    const cocoa = await join("Cocoa", "agent");
+    const key = await authenticator(base);
+    const code = String(
+      ((await call("POST", "/v1/signin-links", undefined, cocoa.token)).body as Json).path,
+    ).replace("/signin/", "");
+    const options = (await call("POST", "/v1/signin/link/begin", { link: code }))
+      .body as PasskeyCreationOptions;
+    const human = String(
+      (
+        (
+          await call("POST", "/v1/signin/link/finish", {
+            ...(await key.create(options)),
+            link: code,
+          })
+        ).body as Json
+      ).token,
+    );
+
+    // Stand in for the two live sockets: the agent's and the person's, each watching its own
+    // session the way `live.ts` registers them.
+    let agentClosed = false;
+    let humanClosed = false;
+    service.watchRevocation(cocoa.id, sha256HexSync(cocoa.token), () => {
+      agentClosed = true;
+    });
+    service.watchRevocation(cocoa.id, sha256HexSync(human), () => {
+      humanClosed = true;
+    });
+
+    // Unbinding ends the person's session, so their connection goes and the agent plays on.
+    // Without this a thief whose token was unbound kept walking and spending on an open socket.
+    const id = String(
+      ((await call("GET", "/v1/claims", undefined, human)).body as Json).claims[0].id,
+    );
+    await call("DELETE", `/v1/claims/${id}`, undefined, human);
+    expect(humanClosed).toBe(true);
+    expect(agentClosed).toBe(false);
+  });
+
+  it("leaves the caller's own connection up when it signs the others out", async () => {
+    const { call, join, service } = await start();
+    const fern = await join("Fern", "human");
+    const other = await join("Birch", "human");
+    let mineClosed = false;
+    service.watchRevocation(fern.id, sha256HexSync(fern.token), () => {
+      mineClosed = true;
+    });
+    expect((await call("POST", "/v1/signin/others-out", undefined, fern.token)).status).toBe(200);
+    // Telling the caller `revoked` would have an agent think it was cut off and a browser throw a
+    // token that still works away, so its connection is the one thing left alone.
+    expect(mineClosed).toBe(false);
+    expect((await call("GET", "/v1/me", undefined, fern.token)).status).toBe(200);
+    expect((await call("GET", "/v1/me", undefined, other.token)).status).toBe(200);
+  });
+});
+
+describe("the RSA floor", () => {
+  it("refuses a modulus under 2048 bits and takes one at it", async () => {
+    // Web Crypto imports any size, so this is the only thing between a passkey and a 1024-bit key.
+    const sizes: [number, boolean][] = [];
+    for (const bits of [1024, 1792, 2048]) {
+      const pair = await crypto.subtle.generateKey(
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          modulusLength: bits,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["sign", "verify"],
+      );
+      const spki = new Uint8Array(await crypto.subtle.exportKey("spki", pair.publicKey));
+      const { call, base, join } = await start();
+      const fern = await join("Fern", "human");
+      const options = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+        .body as PasskeyCreationOptions;
+      const key = await authenticator(base);
+      const made = await key.create(options);
+      const bound = await call(
+        "POST",
+        "/v1/claims/passkey/finish",
+        { ...made, publicKey: toBase64Url(spki), algorithm: -257 },
+        fern.token,
+      );
+      sizes.push([bits, bound.status === 201]);
+    }
+    expect(sizes).toEqual([
+      [1024, false],
+      [1792, false],
+      [2048, true],
+    ]);
   });
 });

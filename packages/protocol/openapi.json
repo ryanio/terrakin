@@ -28255,7 +28255,7 @@
         ],
         "responses": {
           "200": {
-            "description": "How many sessions ended",
+            "description": "How many sessions and keys ended",
             "headers": {
               "API-Version": {
                 "$ref": "#/components/headers/API-Version"
@@ -28343,36 +28343,6 @@
             "x-error-codes": [
               "unauthorized",
               "revoked"
-            ]
-          },
-          "403": {
-            "description": "Error: suspended",
-            "headers": {
-              "API-Version": {
-                "$ref": "#/components/headers/API-Version"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              },
-              "RateLimit": {
-                "$ref": "#/components/headers/RateLimit"
-              },
-              "RateLimit-Policy": {
-                "$ref": "#/components/headers/RateLimit-Policy"
-              },
-              "Idempotency-Replayed": {
-                "$ref": "#/components/headers/Idempotency-Replayed"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "x-error-codes": [
-              "suspended"
             ]
           },
           "422": {

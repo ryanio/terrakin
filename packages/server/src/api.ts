@@ -400,7 +400,12 @@ export class Api {
       ? new OwnerService({ social: options.social, credentials: options.service })
       : undefined;
     this.claims = options.social
-      ? new ClaimsService({ social: options.social, credentials: options.service })
+      ? new ClaimsService({
+          social: options.social,
+          credentials: options.service,
+          retireSessions: (residentId, reason, hashes) =>
+            this.owners?.retireSessions(residentId, reason, hashes),
+        })
       : undefined;
     this.welcome = options.welcome;
     this.lessons = options.lessons;

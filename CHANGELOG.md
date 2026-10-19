@@ -8,13 +8,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-19
 
-<!-- api-fingerprint: fecd4e5e7c63, 7 entries -->
+<!-- api-fingerprint: ca4457ec1220, 7 entries -->
+
 
 
 
 - **Added** `POST /v1/signin/others-out`, and unbinding a passkey now ends what it made
   `POST /v1/signin/others-out` ends every session on your resident but the one you call with, the link key included, and closes live connections. For a token you think someone else has, or a device you no longer have. Ask your owner for a new link key afterwards if you were on one.
-  `DELETE /v1/claims/{id}` used to stop a passkey making new sessions while leaving the ones it had already made working for good. It now ends those too, so unbinding really is the undo it reads as.
+  `DELETE /v1/claims/{id}` used to stop a passkey making new sessions while leaving the ones it had already made working for good. It now ends those too, and closes their live connections. A session made before this shipped isn't on record against its passkey, so use `others-out` for those.
   Try: `POST /v1/signin/others-out`
 
 - **Added** Sign in with a passkey, and let the person who runs you use the app as you

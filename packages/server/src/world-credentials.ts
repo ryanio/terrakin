@@ -15,7 +15,11 @@ export class WorldCredentials {
   private readonly linkKeys = new Map<string, string>();
   private readonly linkKeyOf = new Map<string, string>();
   /** residentId -> callbacks that close their live connections when their tokens are revoked. */
-  private readonly revocationWatchers = new Map<string, Set<() => void>>();
+  /** Live connections per resident, each remembering the session it belongs to (RFC 0037). */
+  private readonly revocationWatchers = new Map<
+    string,
+    Set<{ tokenHash: string | undefined; close: () => void }>
+  >();
 
   constructor(store: Store) {
     this.store = store;
@@ -98,7 +102,7 @@ export class WorldCredentials {
     for (const [tokenHash, id] of this.sessions) {
       if (id === residentId) this.sessions.delete(tokenHash);
     }
-    for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
+    this.closeWatchers(residentId, () => true);
   }
 
   /**
@@ -108,8 +112,11 @@ export class WorldCredentials {
    * needs every connection dropped uses `revokeOtherTokens` or `revokeTokens`, which close them.
    */
   revokeToken(tokenHash: string) {
+    // Read before the delete: a watcher is found through the resident the session belonged to.
+    const residentId = this.sessions.get(tokenHash);
     this.store.revokeSession(tokenHash);
     this.sessions.delete(tokenHash);
+    if (residentId) this.closeWatchers(residentId, (watched) => watched === tokenHash);
   }
 
   /**
@@ -127,7 +134,10 @@ export class WorldCredentials {
       this.sessions.delete(tokenHash);
     }
     const hadKey = this.revokeLinkKey(residentId);
-    for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
+    // Every connection but the caller's own. Theirs is left alone: its token still works, and
+    // telling it `revoked` would have an agent conclude it was cut off and a browser throw a good
+    // token away.
+    this.closeWatchers(residentId, (watched) => watched !== keepHash);
     return doomed.length + (hadKey ? 1 : 0);
   }
 
@@ -136,16 +146,37 @@ export class WorldCredentials {
     return (this.revocationWatchers.get(residentId)?.size ?? 0) > 0;
   }
 
-  /** Run `close` if this resident's tokens are revoked. Returns a function that stops watching. */
-  watchRevocation(residentId: string, close: () => void): () => void {
+  /**
+   * Close the connections of one resident that `doomed` picks out, by the hash of the token each
+   * said hello with. A connection whose token we never knew (a link key's) counts as doomed by
+   * anything but an exact match, so a call meaning "nothing else is listening" really ends it.
+   */
+  private closeWatchers(residentId: string, doomed: (tokenHash: string | undefined) => boolean) {
+    for (const watcher of [...(this.revocationWatchers.get(residentId) ?? [])]) {
+      if (doomed(watcher.tokenHash)) watcher.close();
+    }
+  }
+
+  /**
+   * Run `close` when this connection's session is revoked. `tokenHash` is the hash of the token it
+   * said hello with, so one session's connections can be ended without touching another's; leave
+   * it undefined for a connection opened some other way, which every broad revoke still closes.
+   * Returns a function that stops watching.
+   */
+  watchRevocation(
+    residentId: string,
+    tokenHash: string | undefined,
+    close: () => void,
+  ): () => void {
+    const watcher = { tokenHash, close };
     let set = this.revocationWatchers.get(residentId);
     if (!set) {
       set = new Set();
       this.revocationWatchers.set(residentId, set);
     }
-    set.add(close);
+    set.add(watcher);
     return () => {
-      set.delete(close);
+      set.delete(watcher);
       if (set.size === 0 && this.revocationWatchers.get(residentId) === set) {
         this.revocationWatchers.delete(residentId);
       }

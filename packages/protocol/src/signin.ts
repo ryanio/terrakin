@@ -122,6 +122,6 @@ export const SigninResponse = z.object({
 });
 export type SigninResponse = z.infer<typeof SigninResponse>;
 
-/** How many sessions `POST /v1/signin/others-out` ended. */
+/** How many sessions `POST /v1/signin/others-out` ended, counting the link key if it had one. */
 export const SignedOutResponse = z.object({ ended: z.number().int() });
 export type SignedOutResponse = z.infer<typeof SignedOutResponse>;

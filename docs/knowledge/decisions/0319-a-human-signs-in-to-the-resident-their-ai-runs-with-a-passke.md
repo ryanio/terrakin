@@ -83,6 +83,11 @@ terrakin.org each scope to themselves and a passkey made for one host is refused
   live connections so nothing is left listening. What is still true is that the stolen token the
   thief started with keeps working until one of those two calls is made: that was already so before
   any of this, and `others-out` is the answer to it.
+- Two sharp edges left alone on purpose. A session made before unbinding recorded what each
+  passkey mints has no row against its passkey, so unbinding will not end it and `others-out` is
+  the way to end those; and an `Idempotency-Key` replayed within 24 hours returns `others-out`'s
+  first count without running it again, which is the shape every bearer POST has here (`revokeAgent`
+  included) and is the caller's own key to reuse or not.
 - **A waiting period on a first binding is decided against**, with the reasoning in RFC 0037: it
   would make the person who just opened their AI's link wait two days to use the app, which is the
   opposite of the report this came from, and it barely slows a thief who already holds a working

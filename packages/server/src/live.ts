@@ -11,6 +11,7 @@ import {
 } from "@terrakin/protocol";
 import { familyRecipeMiss } from "@terrakin/sim";
 import type { Api } from "./api";
+import { sha256HexSync } from "./bytes";
 import { bearerToken, tokenFailure } from "./credential-help";
 import type { SocialService } from "./social-service";
 import { report } from "./telemetry";
@@ -341,11 +342,15 @@ export class LiveSession {
       this.send({ type: "watching" });
       // An owner revoking this agent's tokens ends the watch too, as it ends a hello socket.
       if (viewer) {
-        this.unwatch = service.watchRevocation(viewer, () => {
-          this.fail("revoked", TOKEN_TURNED_OFF);
-          this.onClose();
-          this.socket.close(4003, "token revoked");
-        });
+        this.unwatch = service.watchRevocation(
+          viewer,
+          sent ? sha256HexSync(sent) : undefined,
+          () => {
+            this.fail("revoked", TOKEN_TURNED_OFF);
+            this.onClose();
+            this.socket.close(4003, "token revoked");
+          },
+        );
       }
       return;
     }
@@ -395,7 +400,7 @@ export class LiveSession {
         this.api.postListeners.addHelloPosts(this.posts);
       }
       // A revoke or a re-key turning off this agent's tokens ends every connection one opened.
-      this.unwatch = service.watchRevocation(id, () => {
+      this.unwatch = service.watchRevocation(id, sha256HexSync(token), () => {
         this.fail("revoked", TOKEN_TURNED_OFF);
         this.onClose();
         this.socket.close(4003, "token revoked");

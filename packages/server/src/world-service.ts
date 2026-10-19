@@ -1773,8 +1773,12 @@ export class WorldService {
   }
 
   /** Run `close` if this resident's tokens are revoked. Returns a function that stops watching. */
-  watchRevocation(residentId: string, close: () => void): () => void {
-    return this.credentials.watchRevocation(residentId, close);
+  watchRevocation(
+    residentId: string,
+    tokenHash: string | undefined,
+    close: () => void,
+  ): () => void {
+    return this.credentials.watchRevocation(residentId, tokenHash, close);
   }
 
   /** Resolve a bearer token to a resident id, or undefined if unknown. */

@@ -38,6 +38,15 @@ import type { SocialResult, SocialService } from "./social-service";
 export interface ClaimsServiceOptions {
   social: SocialService;
   credentials: Credentials;
+  /**
+   * Record why these credentials stopped working, so the next call with one hears that rather than
+   * "we have no record of turning it off". `Api` wires it to `OwnerService.retireSessions`.
+   */
+  retireSessions: (
+    residentId: string,
+    reason: "passkey_unbound",
+    hashes: readonly string[],
+  ) => void;
 }
 
 /**
@@ -137,9 +146,12 @@ export class ClaimsService {
   private readonly social: SocialService;
   private readonly credentials: Credentials;
 
-  constructor({ social, credentials }: ClaimsServiceOptions) {
+  private readonly retireSessions: ClaimsServiceOptions["retireSessions"];
+
+  constructor({ social, credentials, retireSessions }: ClaimsServiceOptions) {
     this.social = social;
     this.credentials = credentials;
+    this.retireSessions = retireSessions;
     createClaimTables(social.sql);
   }
 
@@ -479,6 +491,17 @@ export class ClaimsService {
     };
   }
 
+  /**
+   * Forget the bookkeeping for sessions that ended some other way (an owner revoke, a re-key, a
+   * sign-out). Nothing breaks without it, since a stale row only re-revokes a hash that resolves
+   * to nothing, but the table would otherwise grow one row per sign-in forever.
+   */
+  forgetSessions(hashes: readonly string[]) {
+    for (const hash of hashes) {
+      this.social.sql.exec("DELETE FROM passkey_sessions WHERE token_hash = ?", hash);
+    }
+  }
+
   /** Unbind one, by the short id `list` gives. Only this resident's own token may. */
   remove(residentId: string, id: string): SocialResult<undefined> {
     const row = this.rows(
@@ -489,12 +512,15 @@ export class ClaimsService {
     const credentialId = String(row.credential_id);
     // Every session this passkey minted goes with it. Without this, unbinding only stopped it
     // minting another, and a token it had already minted kept working for good (decision 0319).
-    for (const minted of this.rows(
-      "SELECT token_hash FROM passkey_sessions WHERE credential_id = ?",
+    const minted = this.rows(
+      "SELECT token_hash FROM passkey_sessions WHERE credential_id = ? AND resident_id = ?",
       credentialId,
-    )) {
-      this.credentials.revokeToken(String(minted.token_hash));
-    }
+      residentId,
+    ).map((row) => String(row.token_hash));
+    // Recorded before they are ended, so a caller with one is told what happened instead of being
+    // sent to check it copied its token correctly.
+    this.retireSessions(residentId, "passkey_unbound", minted);
+    for (const hash of minted) this.credentials.revokeToken(hash);
     this.social.sql.exec("DELETE FROM passkey_sessions WHERE credential_id = ?", credentialId);
     this.social.sql.exec("DELETE FROM passkeys WHERE credential_id = ?", credentialId);
     return { ok: true, value: undefined };

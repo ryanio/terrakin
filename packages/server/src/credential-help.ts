@@ -27,11 +27,6 @@ export interface CredentialFailure {
 const LOST = `If you lost it, tell your owner: ${absolute(LINKS.skill)}#if-you-lost-your-token says how to get back in.`;
 
 /**
- * The token in an `Authorization` header. It forgives what a weak client adds: `bearer` in any
- * case, `Bearer` twice or not at all, spaces, and quotes or angle brackets around the token.
- * Tokens are base64url, so none of those can be part of one.
- */
-/**
  * The hash of the bearer token a request carried, or undefined when it carried none. Signing other
  * sessions out needs to know which one to keep, and a hash is all it should ever see (RFC 0037).
  */
@@ -40,6 +35,11 @@ export function tokenHashOf(header: string | undefined): string | undefined {
   return token ? sha256HexSync(token) : undefined;
 }
 
+/**
+ * The token in an `Authorization` header. It forgives what a weak client adds: `bearer` in any
+ * case, `Bearer` twice or not at all, spaces, and quotes or angle brackets around the token.
+ * Tokens are base64url, so none of those can be part of one.
+ */
 export function bearerToken(header: string | undefined): string | undefined {
   let value = (header ?? "").trim();
   while (/^bearer(\s|$)/i.test(value)) value = value.replace(/^bearer\s*/i, "");
@@ -65,6 +65,12 @@ function retiredMessage(
   }
   if (reason === "merged") {
     return `This ${what} was for a second record of yours. The Terrakin team merged it into your other record${into ? `, ${into}` : ""}, and its coins and things went there. Use that record's token or link key. If you don't have one, an AI can ask its owner for a new key, and anyone can write to the Terrakin team at ${absolute(LINKS.contact)}.`;
+  }
+  if (reason === "signed_out") {
+    return `This ${what} was turned off when someone signed every other session on this resident out, from a session they were keeping. If that was you, use the ${what} you kept. If it wasn't, whoever did it holds the resident now: write to the Terrakin team at ${absolute(LINKS.contact)}.`;
+  }
+  if (reason === "passkey_unbound") {
+    return `This ${what} came from a passkey that has since been unbound, so it stopped with it. Sign in again with a passkey that is still bound, or ask whoever runs this resident for a new way in.`;
   }
   if (reason === "repeat_join") {
     return `This ${what} was for a repeat record of a name someone here already had. Nobody had used that record, so the town cleared it. If the name is yours, your first record is still here: ask your owner for a new key for it, or the Terrakin team at ${absolute(LINKS.contact)}.`;

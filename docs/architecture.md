@@ -99,7 +99,11 @@ their AI may both act as one. A human character is an optional add-on for someon
 
 The checks are `packages/server/src/passkeys.ts`, which holds no table and no clock, and the
 remembering is `packages/server/src/claims.ts`: the credentials bound to each resident, the
-challenges (by hash, spent on use), and the links. There is no CBOR parser, because registration
+challenges (by hash, spent on use), the links, and which session each passkey made. That last one
+is what lets a session end on its own: unbinding a passkey ends every session it made and closes
+their connections, and `POST /v1/signin/others-out` ends every session but the caller's, the link
+key too. Both are built on a single-session revoke the stores gained for it, and both record why,
+so a caller holding an ended token is told what happened rather than to check how it copied it. There is no CBOR parser, because registration
 sends the public key as SPKI and its authenticator data flat, so the only bytes walked are that
 data's fixed header and a signature's ASN.1 wrapper. What a passkey is scoped to comes from the
 request's own origin, so dev, e2e and terrakin.org each scope to themselves. None of it enters the

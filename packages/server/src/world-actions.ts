@@ -629,7 +629,7 @@ function hiddenKindred(
   if (!k || seesKindred(k, residentId)) return undefined;
   return {
     ok: false,
-    error: { code: "unknown_kindred", message: "No kindred has that id. See GET /v1/kindreds." },
+    error: { code: "unknown_kindred", message: "No circle has that id. See GET /v1/kindreds." },
   };
 }
 
@@ -648,7 +648,7 @@ function kindredNameProblem(
       ok: false,
       error: {
         code: "forbidden",
-        message: "Your words are held back for review right now, so you can't name a kindred.",
+        message: "Your words are held back for review right now, so you can't name a circle.",
       },
     };
   }
@@ -660,7 +660,7 @@ function kindredNameProblem(
     (k) => k !== mine && k.name !== undefined && nameKey(k.name) === key,
   );
   if (taken) {
-    return { ok: false, error: { code: "name_taken", message: "Another kindred has that name." } };
+    return { ok: false, error: { code: "name_taken", message: "Another circle has that name." } };
   }
   return undefined;
 }

@@ -182,7 +182,7 @@ export const POLICY: Record<Surface, Policy> = {
   },
   // A kindred's name (RFC 0033) is shown wherever its members are, like a plot's name.
   kindred_name: {
-    label: "Kindred names",
+    label: "Circle names",
     vulgar: "refuse",
     impersonation: "name",
     shorteners: true,
@@ -190,7 +190,7 @@ export const POLICY: Record<Surface, Policy> = {
   },
   // A kindred's notice is read by everyone who can see the kindred, like the Town Hall's board.
   kindred_notice: {
-    label: "Kindred notices",
+    label: "Circle notices",
     vulgar: "refuse",
     impersonation: null,
     shorteners: false,

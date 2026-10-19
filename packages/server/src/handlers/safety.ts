@@ -188,7 +188,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     // RFC 0033: a kindred's name comes down in the world, and its stewards hear why.
     clearKindredName: ({ viewer, params, body }) => {
       const k = kindredById(service.state, params.id);
-      if (!k || k.name === undefined) return fail("not_found", "That kindred has no name up.");
+      if (!k || k.name === undefined) return fail("not_found", "That circle has no name up.");
       const safety = social().safety;
       const rule = safety.ruleFor(["kindred"], params.id, body.rule);
       const done = service.clearKindredName(params.id);
@@ -215,7 +215,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     clearKindredNotice: ({ viewer, params, body }) => {
       const notices = social().kindredNotices;
       if (!kindredById(service.state, params.id) || !notices.get(params.id)) {
-        return fail("not_found", "That kindred has no notice up.");
+        return fail("not_found", "That circle has no notice up.");
       }
       const safety = social().safety;
       const rule = safety.ruleFor(["kindred"], params.id, body.rule);
@@ -243,7 +243,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
       if (api.staffRole(viewer) !== "maintainer") {
         return fail("forbidden", WORLD_MAINTAINERS_ONLY);
       }
-      if (!kindredById(service.state, params.id)) return fail("not_found", "No such kindred.");
+      if (!kindredById(service.state, params.id)) return fail("not_found", "No such circle.");
       const done = service.disbandKindred(params.id, await worldStaffId(viewer));
       if (!done.ok) return fail(done.error.code, done.error.message);
       const rule = social().safety.ruleFor(["kindred"], params.id, body.rule);

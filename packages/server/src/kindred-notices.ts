@@ -89,7 +89,7 @@ export class KindredNotices {
       return {
         ok: false,
         code: "rate_limited",
-        message: `A kindred's notice changes at most ${KINDRED_NOTICE.perDay} times a UTC day. Try again after midnight UTC.`,
+        message: `A circle's notice changes at most ${KINDRED_NOTICE.perDay} times a UTC day. Try again after midnight UTC.`,
         retryAfter: Math.max(1, Math.ceil((since + DAY_MS - now) / 1000)),
       };
     }

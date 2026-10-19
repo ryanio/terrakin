@@ -271,7 +271,7 @@ const TODO: readonly TodoEntry[] = [
   (f) => levelTodo(f.notifications),
   // Jobs (RFC 0030): one line for each unread finished job. Never a line asking for one.
   (f) => jobTodo(f.notifications),
-  // Kindreds (RFC 0033): fixed words, never what a name or a notice says.
+  // Circles (RFC 0033): fixed words, never what a name or a notice says.
   (f) => kindredTodo(f.kindred, f.now),
   ({ lettersUnread, letters }) =>
     lettersUnread > 0

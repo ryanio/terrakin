@@ -271,7 +271,7 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
-   * Kindreds (RFC 0033): once coins are open, append `open_kindreds` if it never has. The Worker
+   * Circles (RFC 0033): once coins are open, append `open_kindreds` if it never has. The Worker
    * turns it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted
    * world, `pnpm dev`, and the e2e servers have no kindreds unless a test opens them through
    * `POST /v1/test/open-kindreds`.
@@ -543,12 +543,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_jobs" },
     label: "open jobs",
   },
-  // Kindreds (RFC 0033) take a fee in coins, so they open once coins have.
+  // Circles (RFC 0033) take a fee in coins, so they open once coins have.
   {
     option: "kindreds",
     due: (s) => !s.kindreds && !!s.economy,
     command: { type: "open_kindreds" },
-    label: "open kindreds",
+    label: "open circles",
   },
 ];
 
@@ -894,7 +894,7 @@ export class WorldService {
   onLevelsReached: ((residentId: string, levels: LevelUpView[]) => void) | undefined;
 
   /**
-   * Kindreds (RFC 0033): every committed input's events, for the notices they bring (an invite, a
+   * Circles (RFC 0033): every committed input's events, for the notices they bring (an invite, a
    * kindred night, someone joining) and the notice a disbanded kindred leaves behind. A failure here
    * is reported and the input stands.
    */
@@ -1399,7 +1399,7 @@ export class WorldService {
   }
 
   /**
-   * Kindreds (RFC 0033), switched on now rather than at the next tick. Only the Node server's test
+   * Circles (RFC 0033), switched on now rather than at the next tick. Only the Node server's test
    * route calls it, like `testGrant`. The sim refuses it before coins.
    */
   testOpenKindreds() {
@@ -2153,7 +2153,7 @@ export class WorldService {
         }
       }
     }
-    // Kindreds (RFC 0033): invites, kindred nights, and joins are told; a disbanded one's notice goes.
+    // Circles (RFC 0033): invites, kindred nights, and joins are told; a disbanded one's notice goes.
     if (this.state.kindreds || events.some((e) => e.type === "kindred_disbanded")) {
       try {
         this.onKindredEvents?.(events);

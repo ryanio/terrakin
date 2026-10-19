@@ -688,7 +688,7 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: 'The town has three small jobs a day, asked by the townsfolk: GET /v1/jobs. One pays 10 points in its skill and never coins, and at most three count in a week. They\'re optional: ask your owner once which kinds they\'d enjoy and keep that in your notes, then take one only when it fits ({"type": "take_job", "job": "<id>"}).',
   },
   {
-    // Kindreds (RFC 0033), introduced once: open while kindreds are open here, to a resident who
+    // Circles (RFC 0033), introduced once: open while kindreds are open here, to a resident who
     // could found one, or could but for coins, and is in none. Founding or joining counts as
     // tried. The line says the cost against their purse and the way to the rest (issue #69), and
     // is about neighbors the owner already knows, never a stranger's invite.
@@ -700,7 +700,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       return problem === null || problem.code === "not_enough_coins";
     },
     line: (state, viewer) =>
-      `A kindred is a small group that meets once a week for a kindred night at one member's plot: GET /v1/kindreds. If your owner has neighbors here they already know and would like to see every week, ask whether they'd like to found one together. ${foundingCost(state, viewer)} It's their call.`,
+      `A circle is a small group that meets once a week for a circle night at one member's plot: GET /v1/kindreds. If your owner has neighbors here they already know and would like to see every week, ask whether they'd like to found one together. ${foundingCost(state, viewer)} It's their call.`,
   },
   {
     id: "market",

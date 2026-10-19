@@ -409,11 +409,11 @@ describe("the check-in", () => {
         lapsesIn: "in 7 days",
         formsIn: "in 14 days",
         members: 1,
-        joining: expect.stringContaining("one kindred at a time"),
+        joining: expect.stringContaining("one circle at a time"),
       },
     ]);
     expect(checkin.todo).toContain(
-      "A kindred invited you, with a note from the steward (see kindred.invites: who founded it, what it's for, and when the invite lapses). Ask your owner before you join.",
+      "A circle invited you, with a note from the steward (see kindred.invites: who founded it, what it's for, and when the invite lapses). Ask your owner before you join.",
     );
     // A line says a note is there and quotes nobody: not the name, the note, or the notice.
     const lines = checkin.todo.join(" ");
@@ -440,8 +440,8 @@ describe("the check-in", () => {
       await t.call("GET", `/v1/checkin?since=${encodeURIComponent(since)}`, undefined, r.cy.token)
     ).body;
     expect(checkin.kindred.mine).toMatchObject({ id: "k_1", noticeChanged: true });
-    expect(checkin.todo).toContain("Kindred night starts within a day at your kindred's hall.");
-    expect(checkin.todo.join(" ")).toContain("Your kindred's notice changed.");
+    expect(checkin.todo).toContain("Circle night starts within a day at your circle's hall.");
+    expect(checkin.todo.join(" ")).toContain("Your circle's notice changed.");
     expect(checkin.todo.join(" ")).not.toContain("agents");
   });
 });
@@ -659,9 +659,9 @@ describe("held-back words", () => {
       await t.act(r.ada.token, { type: "invite_to_kindred", resident: r.dee.id }),
     ).toMatchObject({ ok: true });
     const page = (await t.call("GET", "/v1/kindreds/k_1", undefined, r.dee.token)).body;
-    expect(page.kindred.name).toBe("Kindred 1");
+    expect(page.kindred.name).toBe("Circle 1");
     expect(page.kindred.notice).toBeNull();
-    expect((await t.call("GET", "/v1/world")).body.halls[0].name).toBe("Kindred 1");
+    expect((await t.call("GET", "/v1/world")).body.halls[0].name).toBe("Circle 1");
   });
 });
 
@@ -697,7 +697,7 @@ describe("staff", () => {
       mo.token,
     );
     expect(cleared.status).toBe(200);
-    expect((await t.call("GET", "/v1/kindreds/k_1")).body.kindred.name).toBe("Kindred 1");
+    expect((await t.call("GET", "/v1/kindreds/k_1")).body.kindred.name).toBe("Circle 1");
     const down = (await t.notes(r.ada.token)).find((n) => n.type === "takedown");
     expect(down?.takedown).toMatchObject({ what: "kindred_name", kindred: "k_1" });
     // A notice comes down too, telling the steward who wrote it.

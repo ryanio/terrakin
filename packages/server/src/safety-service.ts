@@ -1422,7 +1422,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   display: "That isn't on display.",
   piece: "No piece with that id shows a picture.",
   event: "No such event.",
-  kindred: "No such kindred.",
+  kindred: "No such circle.",
 };
 
 function reportView(row: Row): ReportView {

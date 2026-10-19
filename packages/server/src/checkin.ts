@@ -430,7 +430,7 @@ export function checkinView(
   // Jobs (RFC 0030): the board, the job held, and what's left this week, as data. Absent until
   // jobs open. It's outside the digest, so a new day's board never ends `unchanged`.
   const jobs = checkinJobs(state, viewer);
-  // Kindreds (RFC 0033): yours and the invites you hold, as data. Absent until kindreds open, and
+  // Circles (RFC 0033): yours and the invites you hold, as data. Absent until kindreds open, and
   // outside the digest like jobs.
   const kindred = checkinKindred(state, viewer, since, social.kindredContext(viewer));
   const progress = {

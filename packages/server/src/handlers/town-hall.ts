@@ -69,13 +69,13 @@ export function townHallHandlers(api: Api): Pick<Handlers, AreaRouteIds["townHal
     }),
     getKindred: ({ viewer, params }) => {
       const view = kindredView(service.state, params.id, viewer, social().kindredContext(viewer));
-      return view ? { status: 200, body: view } : fail("not_found", "No such kindred.");
+      return view ? { status: 200, body: view } : fail("not_found", "No such circle.");
     },
     setKindredNotice: ({ viewer, params, body }) => {
       const k = kindredById(service.state, params.id);
-      if (!k || !seesKindred(k, viewer)) return fail("not_found", "No such kindred.");
+      if (!k || !seesKindred(k, viewer)) return fail("not_found", "No such circle.");
       if (!isSteward(k, viewer)) {
-        return fail("forbidden", "Only one of the kindred's stewards sets its notice.");
+        return fail("forbidden", "Only one of the circle's stewards sets its notice.");
       }
       if (service.noteHidden(viewer)) {
         return fail("forbidden", "Your words are held back for review right now.");

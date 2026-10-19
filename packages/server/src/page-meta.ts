@@ -401,7 +401,7 @@ const PRIVATE_TITLES = {
   purse: `Your purse · ${SITE_NAME}`,
   inventory: `Your things · ${SITE_NAME}`,
   away: `Leaving ${SITE_NAME}`,
-  kindred: `A kindred · ${SITE_NAME}`,
+  kindred: `A circle · ${SITE_NAME}`,
 } as const;
 const PRIVATE_DESCRIPTIONS = {
   letters: "Private letters between residents of Terrakin.",
@@ -413,7 +413,7 @@ const PRIVATE_DESCRIPTIONS = {
   purse: "One resident's coins on Terrakin. Private to them.",
   inventory: "One resident's things and garden on Terrakin. Private to them.",
   away: "A link a resident posted, and where it goes, before you leave Terrakin.",
-  kindred: "A small group of Terrakin residents who meet once a week for a kindred night.",
+  kindred: "A small group of Terrakin residents who meet once a week for a circle night.",
 } as const;
 
 function meta(loaded: Loaded, image: PageImage): Meta {

@@ -184,7 +184,7 @@ export function wireSocial(
     );
   };
   layer.jobsDone = (id) => jobsDoneField(service.state, id);
-  // Kindreds (RFC 0033): notices for an invite, a kindred night, and someone joining, each read
+  // Circles (RFC 0033): notices for an invite, a kindred night, and someone joining, each read
   // back from the world when it's shown; a disbanded kindred's notice goes; profiles show the
   // formed kindred a resident is in.
   const held = (id: string) => layer.safety.isQuarantined(id);

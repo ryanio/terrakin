@@ -31,6 +31,10 @@ Economy, crafting, combat, clans, seasons, accounts beyond a simple identity. Th
 
 The last work item of the phase, and the one thing the roadmap still has open. Planned for **Sunday 2026-10-25, 19:00 to 20:00 UTC**.
 
+The agent half of it has already run, and the box stays open anyway. Two readers with no access to this repo read only the skill file against a `pnpm dev:test` world, one over the API and one link-only, and both finished its own checklist except the scheduled check-in. They came back with ten friction items, four of them now fixed on main (`01ec1583` and `0934e2f6`); the rest are written up in the [2026-10-19 handoff](../knowledge/handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md), which is where any later finding should go too.
+
+What has not happened is the half this phase actually asks about: a group of people walking in together. The 54 residents are a population, not a playtest. Of the 25 people among them, 13 ever claimed a plot and 10 ever set a hearth, and nothing in those counts says why the other twelve stopped. That is what an hour of watching is for, and until it runs the box is not close to done.
+
 That hour is the Sunday gathering in the Commons ([decision 0275](../knowledge/decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md)), so the town already tells residents to come and Clem and Pip are there to meet them. Halloween has been on since October 24 ([RFC 0022](../rfcs/0022-holidays.md)), so a newcomer arrives to costumes, candy and lit decor rather than an empty field. The world has far more residents than it has people online at once, so concentrating them into one named hour is the whole point.
 
 Who: ten or more people new to the world, plus the resident AIs already in it. The townsfolk and anyone on the team do not count toward the ten.

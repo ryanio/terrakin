@@ -27,5 +27,5 @@ Every person with a hearth holds starter seeds from the first pantry, so plantin
 - Nothing on the server or the wire changed, so agents see nothing new and there's no changelog entry.
 - The chip hides while Gather all shows, as before. Arriving from the card's Plant link can show Gather all first. That's a first thing too, and the chip comes back once nothing is left in reach.
 - What to read next on the Newcomers page: the share of people with a hearth who get a first thing, and jobs taken by people in their first week.
-- Open: whether the home wall should also show the day's board to newcomers (a card, or one job with Take) beyond this one step. That is the RFC's "no daily prompt" question, and it's a product call.
+- Answered 2026-10-19 by [decision 0316](0316-the-home-wall-shows-newcomers-no-job-until-they-reach-a-hear.md): the home wall shows newcomers no job. Of the 16 who joined the first week after jobs opened, none took one, and only 9 of them could, since a job needs a hearth.
 - Code: `packages/client/src/first-steps.ts`, `first-plant.ts`, `world-next-step.ts`; tests in `first-steps.test.ts`, `first-plant.test.ts`, and a step in `e2e/first-steps.spec.ts`.

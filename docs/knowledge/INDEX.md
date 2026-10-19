@@ -249,6 +249,7 @@ What we chose and why. Newest last.
 - [The sheet after a home plants the first seed](decisions/0313-the-sheet-after-a-home-plants-the-first-seed.md) · 2026-10-18 · accepted · `client` `onboarding` `ux`
 - [The newcomer funnel counts a named plot and a handle](decisions/0314-the-newcomer-funnel-counts-a-named-plot-and-a-handle.md) · 2026-10-19 · accepted · `admin` `server` `protocol` `onboarding`
 - [A move takes steps, walked a tile at a time and paid for per tile](decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) · 2026-10-19 · accepted · `protocol` `server` `agents`
+- [The home wall shows newcomers no job until they reach a hearth](decisions/0316-the-home-wall-shows-newcomers-no-job-until-they-reach-a-hear.md) · 2026-10-19 · accepted · `client` `onboarding` `jobs` `product`
 
 ## Learnings
 

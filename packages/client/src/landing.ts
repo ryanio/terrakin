@@ -149,6 +149,13 @@ export function createLanding(
   };
   restoreGo.addEventListener("click", () => void restore());
 
+  restoreKey.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void restore();
+    }
+  });
+
   // Sign in with a passkey. The whole door stays away where the browser can't use one, rather
   // than offering a button that only ever says no.
   const signin = byId(root, "signin");
@@ -163,12 +170,6 @@ export function createLanding(
       signinGo.disabled = false;
       if (problem) signinError.textContent = problem;
     })();
-  });
-  restoreKey.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      void restore();
-    }
   });
 
   form.addEventListener("submit", (e) => {

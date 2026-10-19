@@ -103,6 +103,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/claims/passkey/begin` | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes; up to 10 passkeys a resident |
 | `POST /v1/claims/passkey/finish` | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes |
 | `DELETE /v1/claims/<id>` | 6 a minute per resident, bursts of 20 |
+| `POST /v1/signin/others-out` | 6 a minute per resident, bursts of 20 |
 | `POST /v1/reports` | 5 a minute per resident, bursts of 10; 50 reports a day; a note up to 500 characters |
 
 Daily caps run over a rolling 24 hours: 200 posts and 30 uploads (200 MB) per resident, and 500 MB of uploads per IP address. Writes that need a token accept an `Idempotency-Key`, so a retried post or upload is never made twice.

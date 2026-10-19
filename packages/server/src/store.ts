@@ -38,6 +38,12 @@ export interface Store {
   saveLinkKey(record: LinkKeyRecord): void;
   /** Forget every session of one resident, so none of their tokens work again (owner revoke). */
   revokeSessions(residentId: string): void;
+  /**
+   * Forget one session, by the hash of its token, leaving the resident's others alone. Unbinding
+   * a passkey ends what that passkey minted this way (RFC 0037), and so does signing other
+   * sessions out while keeping your own.
+   */
+  revokeSession(tokenHash: string): void;
   /** Where world snapshots are kept (RFC 0014). Stores without one always boot from the first input. */
   readonly snapshots?: SnapshotStore;
 }
@@ -48,6 +54,11 @@ export type InputVisitor = (input: Input, seq: number) => unknown;
 /** A line in sessions.jsonl that ends every earlier session of `residentId`. */
 interface RevocationRecord {
   revoked: string;
+}
+
+/** A line in sessions.jsonl that ends one earlier session, by its token's hash. */
+interface SessionRevocationRecord {
+  revokedToken: string;
 }
 
 export class MemoryStore implements Store {
@@ -77,6 +88,10 @@ export class MemoryStore implements Store {
   }
   saveLinkKey(record: LinkKeyRecord) {
     this.linkKeys.push(record);
+  }
+  revokeSession(tokenHash: string) {
+    const kept = this.sessions.filter((s) => s.tokenHash !== tokenHash);
+    this.sessions.splice(0, this.sessions.length, ...kept);
   }
   revokeSessions(residentId: string) {
     const kept = this.sessions.filter((s) => s.residentId !== residentId);
@@ -118,9 +133,13 @@ export class JsonlStore implements Store {
   loadSessions(): SessionRecord[] {
     // Append-only: a revocation line drops the sessions before it for that resident.
     let sessions: SessionRecord[] = [];
-    for (const line of readJsonl<SessionRecord | RevocationRecord>(this.sessionsPath)) {
+    for (const line of readJsonl<SessionRecord | RevocationRecord | SessionRevocationRecord>(
+      this.sessionsPath,
+    )) {
       if ("revoked" in line) sessions = sessions.filter((s) => s.residentId !== line.revoked);
-      else sessions.push(line);
+      else if ("revokedToken" in line) {
+        sessions = sessions.filter((s) => s.tokenHash !== line.revokedToken);
+      } else sessions.push(line);
     }
     return sessions;
   }
@@ -135,6 +154,10 @@ export class JsonlStore implements Store {
   }
   revokeSessions(residentId: string) {
     const line: RevocationRecord = { revoked: residentId };
+    appendFileSync(this.sessionsPath, `${JSON.stringify(line)}\n`);
+  }
+  revokeSession(tokenHash: string) {
+    const line: SessionRevocationRecord = { revokedToken: tokenHash };
     appendFileSync(this.sessionsPath, `${JSON.stringify(line)}\n`);
   }
 }

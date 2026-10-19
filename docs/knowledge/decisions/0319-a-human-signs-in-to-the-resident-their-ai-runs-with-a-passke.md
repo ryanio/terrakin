@@ -76,15 +76,19 @@ terrakin.org each scope to themselves and a passkey made for one host is refused
   rather than closes, and the honest statement is that a person with no passkey and a cleared
   browser is still back to a staff re-key.
 - A stolen token can bind a passkey and keep a way in the owner does not know about. RFC 0037 names
-  this as the main abuse case, and the undo is narrower than it first reads: unbinding needs only
-  the resident's own token, and it stops that passkey ever minting another session, but **it does
-  not revoke the tokens it already minted**, because nothing here revokes a single token (every
-  token lasts until `revokeTokens` takes the resident's whole set, the agent's included). So the
-  honest sequence is: the owner unbinds, no new sessions can be minted from that device, and a
-  token the thief already holds keeps working, exactly as the stolen token they started with does.
-  Closing that needs either a per-credential record of what it minted or the "sign out everywhere"
-  call RFC 0037 already lists, and both are open. `signin.test.ts` does prove a credential already
-  bound elsewhere is refused, and a waiting period on a first binding is open too.
+  this as the main abuse case, and both halves of the undo are now built: unbinding a passkey ends
+  every session that passkey minted (`passkey_sessions` records them by token hash, and
+  `revokeToken` ends one session without touching the resident's others), and
+  `POST /v1/signin/others-out` ends every session but the caller's, the link key included, closing
+  live connections so nothing is left listening. What is still true is that the stolen token the
+  thief started with keeps working until one of those two calls is made: that was already so before
+  any of this, and `others-out` is the answer to it.
+- **A waiting period on a first binding is decided against**, with the reasoning in RFC 0037: it
+  would make the person who just opened their AI's link wait two days to use the app, which is the
+  opposite of the report this came from, and it barely slows a thief who already holds a working
+  token. What would help is the notice RFC 0037 promises on a binding and a sign-in, **which is not
+  built**: that turns a silent durable takeover into one the owner sees and can now really undo. It
+  is the recommended next slice.
 - A verified ceremony is required, not preferred: the client asks for `userVerification: "required"`
   and the server refuses an assertion without the UV flag (`not_verified`). Without that, picking up
   an unlocked phone would have been enough, while four documents promised Face ID or a fingerprint.

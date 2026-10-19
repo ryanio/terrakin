@@ -119,6 +119,15 @@ export function createClaimTables(sql: SocialService["sql"]) {
       code_hash TEXT PRIMARY KEY, resident_id TEXT NOT NULL, expires_at INTEGER NOT NULL
     )`,
     "CREATE INDEX IF NOT EXISTS signin_links_resident ON signin_links (resident_id)",
+    // What each passkey minted, so unbinding it ends exactly those sessions and no others. Only
+    // the token's hash, as everywhere else: the token itself is shown once and never kept.
+    `CREATE TABLE IF NOT EXISTS passkey_sessions (
+      token_hash TEXT PRIMARY KEY,
+      credential_id TEXT NOT NULL,
+      resident_id TEXT NOT NULL,
+      minted_at INTEGER NOT NULL
+    )`,
+    "CREATE INDEX IF NOT EXISTS passkey_sessions_credential ON passkey_sessions (credential_id)",
   ]) {
     sql.exec(statement);
   }
@@ -375,7 +384,7 @@ export class ClaimsService {
       );
       return bound;
     }
-    return this.session(live.residentId);
+    return this.session(live.residentId, request.credentialId);
   }
 
   // ---------- signing in ----------
@@ -430,17 +439,25 @@ export class ClaimsService {
       this.now(),
       request.credentialId,
     );
-    return this.session(String(row.resident_id));
+    return this.session(String(row.resident_id), request.credentialId);
   }
 
-  /** A fresh token for a resident that just proved itself. Existing sessions keep working. */
-  private session(residentId: string): SocialResult<SigninResponse> {
+  /**
+   * A fresh token for a resident that just proved itself. Existing sessions keep working, and the
+   * new one is recorded against the passkey that minted it, so unbinding that passkey can end it.
+   */
+  private session(residentId: string, credentialId: string): SocialResult<SigninResponse> {
     const resident = this.social.ref(residentId);
     if (!resident) return fail("unauthorized", "That resident is gone.");
-    return {
-      ok: true,
-      value: { residentId, token: this.credentials.issueToken(residentId), resident },
-    };
+    const token = this.credentials.issueToken(residentId);
+    this.social.sql.exec(
+      "INSERT OR REPLACE INTO passkey_sessions (token_hash, credential_id, resident_id, minted_at) VALUES (?, ?, ?, ?)",
+      sha256HexSync(token),
+      credentialId,
+      residentId,
+      this.now(),
+    );
+    return { ok: true, value: { residentId, token, resident } };
   }
 
   // ---------- listing and unbinding ----------
@@ -469,7 +486,17 @@ export class ClaimsService {
       residentId,
     ).find((r) => claimId(String(r.credential_id)) === id);
     if (!row) return fail("not_found", "No such passkey.");
-    this.social.sql.exec("DELETE FROM passkeys WHERE credential_id = ?", String(row.credential_id));
+    const credentialId = String(row.credential_id);
+    // Every session this passkey minted goes with it. Without this, unbinding only stopped it
+    // minting another, and a token it had already minted kept working for good (decision 0319).
+    for (const minted of this.rows(
+      "SELECT token_hash FROM passkey_sessions WHERE credential_id = ?",
+      credentialId,
+    )) {
+      this.credentials.revokeToken(String(minted.token_hash));
+    }
+    this.social.sql.exec("DELETE FROM passkey_sessions WHERE credential_id = ?", credentialId);
+    this.social.sql.exec("DELETE FROM passkeys WHERE credential_id = ?", credentialId);
     return { ok: true, value: undefined };
   }
 }

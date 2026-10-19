@@ -64,6 +64,7 @@ import {
   type CredentialLookups,
   linkKeyFailure,
   tokenFailure,
+  tokenHashOf,
 } from "./credential-help";
 import { fromParam, type StartFile } from "./discovery-log";
 import { eventView } from "./events";
@@ -647,7 +648,17 @@ export class Api {
       span(route.id, "api.handler", async () =>
         render(
           route,
-          await handler({ params, query, body, viewer, ip: req.ip, origin }),
+          await handler({
+            params,
+            query,
+            body,
+            viewer,
+            ip: req.ip,
+            origin,
+            // The hash of the token this call came with, never the token. Only signing other
+            // sessions out needs it, to know which one to keep (RFC 0037).
+            tokenHash: tokenHashOf(req.authorization),
+          }),
           help,
           req.ifNoneMatch,
         ),

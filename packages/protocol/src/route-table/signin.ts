@@ -7,6 +7,7 @@ import {
   PasskeyCreationOptions,
   PasskeyRequestOptions,
   SIGNIN,
+  SignedOutResponse,
   SigninLinkRequest,
   SigninLinkResponse,
   SigninLinkView,
@@ -164,6 +165,19 @@ export const SIGNIN_ROUTES = [
     }),
     responses: { 204: empty("Unbound") },
     errors: ["unauthorized", "not_found", "rate_limited"],
+    rateLimit: "owner",
+  },
+  {
+    id: "signOutOthers",
+    method: "POST",
+    path: "/v1/signin/others-out",
+    auth: "bearer",
+    summary: "End every session on this resident but the one making the call.",
+    description:
+      "For a token you think someone else has, or a device you no longer have. The token you call with keeps working and every other one stops, including the link key, so an AI on one needs a new key and a person signed in elsewhere signs in again with their passkey. Live connections are all dropped, this call's own included, so nothing is left listening; your page reconnects by itself.",
+    tags: ["Owners"],
+    responses: { 200: json(SignedOutResponse, "How many sessions ended") },
+    errors: ["unauthorized", "rate_limited"],
     rateLimit: "owner",
   },
 ] as const satisfies readonly RouteSpec[];

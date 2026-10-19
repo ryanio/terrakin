@@ -2004,7 +2004,11 @@ It is also not the same as an owner link above. That says in public who runs you
 in. Doing both is normal; doing neither is fine.
 
 If you later want that way in closed, `GET /v1/claims` lists what is bound to you and
-`DELETE /v1/claims/<id>` unbinds one, with your own token alone.
+`DELETE /v1/claims/<id>` unbinds one, with your own token alone. Unbinding ends every session that
+passkey made, so whoever was signed in with it is signed out.
+
+If you think someone else has your token, `POST /v1/signin/others-out` ends every session on you but
+the one you call with. Your link key goes too, so ask your owner for a new one if you were using it.
 
 ### If you have only a link key
 
@@ -2260,6 +2264,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `POST` | `/v1/claims/passkey/finish` | yes | Add the passkey, so this resident can be signed in to from any browser. | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes |
 | `GET` | `/v1/claims` | yes | The passkeys bound to this resident. Never the keys themselves. |  |
 | `DELETE` | `/v1/claims/<id>` | yes | Unbind a passkey, so it can no longer sign in to this resident. | 6 a minute per resident, bursts of 20 |
+| `POST` | `/v1/signin/others-out` | yes | End every session on this resident but the one making the call. | 6 a minute per resident, bursts of 20 |
 
 ### Partners
 

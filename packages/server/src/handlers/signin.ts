@@ -69,6 +69,14 @@ export function signinHandlers(api: Api): Pick<Handlers, AreaRouteIds["signin"]>
       }));
     },
     getClaims: ({ viewer }) => ({ status: 200 as const, body: claims().list(viewer) }),
+    signOutOthers: ({ viewer, tokenHash }) =>
+      // Unreachable without a token: the route is `auth: "bearer"`, so the dispatcher has one.
+      tokenHash === undefined
+        ? fail("unauthorized", "Send the token you want to keep.")
+        : {
+            status: 200 as const,
+            body: { ended: api.service.revokeOtherTokens(viewer, tokenHash) },
+          },
     removeClaim: ({ viewer, params }) =>
       fromResult(claims().remove(viewer, params.id), () => ({ status: 204 as const })),
   };

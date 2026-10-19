@@ -57,6 +57,10 @@ export interface Credentials {
   /** Whether the resident holds a bearer token now. */
   holdsToken(residentId: string): boolean;
   revokeTokens(residentId: string): void;
+  /** End one session by the hash of its token, leaving the resident's others alone (RFC 0037). */
+  revokeToken(tokenHash: string): void;
+  /** End every session but the one `keepHash` names, and close live connections. How many ended. */
+  revokeOtherTokens(residentId: string, keepHash: string): number;
   mintLinkKey(residentId: string): string;
   revokeLinkKey(residentId: string): boolean;
 }

@@ -140,6 +140,9 @@ export class SqlStore implements Store {
   revokeSessions(residentId: string) {
     this.sql.exec("DELETE FROM sessions WHERE resident_id = ?", residentId);
   }
+  revokeSession(tokenHash: string) {
+    this.sql.exec("DELETE FROM sessions WHERE token_hash = ?", tokenHash);
+  }
 }
 
 /**

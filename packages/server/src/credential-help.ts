@@ -1,4 +1,5 @@
 import { absolute, type ErrorCode, LINKS } from "@terrakin/protocol";
+import { sha256HexSync } from "./bytes";
 import type { RetiredReason } from "./owner-service";
 
 /**
@@ -30,6 +31,15 @@ const LOST = `If you lost it, tell your owner: ${absolute(LINKS.skill)}#if-you-l
  * case, `Bearer` twice or not at all, spaces, and quotes or angle brackets around the token.
  * Tokens are base64url, so none of those can be part of one.
  */
+/**
+ * The hash of the bearer token a request carried, or undefined when it carried none. Signing other
+ * sessions out needs to know which one to keep, and a hash is all it should ever see (RFC 0037).
+ */
+export function tokenHashOf(header: string | undefined): string | undefined {
+  const token = bearerToken(header);
+  return token ? sha256HexSync(token) : undefined;
+}
+
 export function bearerToken(header: string | undefined): string | undefined {
   let value = (header ?? "").trim();
   while (/^bearer(\s|$)/i.test(value)) value = value.replace(/^bearer\s*/i, "");

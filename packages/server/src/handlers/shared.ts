@@ -83,6 +83,8 @@ interface HandlerInput<K extends RouteId> {
   ip: string;
   /** See `ApiRequest.origin`. */
   origin: string;
+  /** The hash of the bearer token this call came with, never the token itself (RFC 0037). */
+  tokenHash: string | undefined;
 }
 
 /** An error reply. The code must be one the route declares (tests check it). */
@@ -144,6 +146,8 @@ export type AnyHandler = (input: {
   viewer: string | undefined;
   ip: string;
   origin: string;
+  /** The hash of the bearer token this call came with, never the token itself. */
+  tokenHash: string | undefined;
 }) => Promise<HandlerReply | Failure>;
 
 export const fail = (

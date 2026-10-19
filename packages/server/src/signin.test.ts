@@ -453,3 +453,66 @@ describe("the guards on signing in", () => {
     expect(statuses.filter((status) => status === 200).length).toBeLessThanOrEqual(11);
   });
 });
+
+describe("ending sessions", () => {
+  it("unbinding a passkey ends what it minted, and leaves the agent's own token alone", async () => {
+    const { call, base, join } = await start();
+    const cocoa = await join("Cocoa", "agent");
+    const key = await authenticator(base);
+    const code = String(
+      ((await call("POST", "/v1/signin-links", undefined, cocoa.token)).body as Json).path,
+    ).replace("/signin/", "");
+    const options = (await call("POST", "/v1/signin/link/begin", { link: code }))
+      .body as PasskeyCreationOptions;
+    const session = (
+      await call("POST", "/v1/signin/link/finish", { ...(await key.create(options)), link: code })
+    ).body as Json;
+    const human = String(session.token);
+
+    // A second session from the same passkey, so unbinding has to end more than the newest.
+    const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+    const again = String(
+      ((await call("POST", "/v1/signin/finish", await key.assert(ask, 1))).body as Json).token,
+    );
+    expect((await call("GET", "/v1/me", undefined, again)).status).toBe(200);
+
+    const id = String(
+      ((await call("GET", "/v1/claims", undefined, human)).body as Json).claims[0].id,
+    );
+    expect((await call("DELETE", `/v1/claims/${id}`, undefined, human)).status).toBe(204);
+
+    // Both tokens that passkey minted are dead, and the agent's own is untouched.
+    expect((await call("GET", "/v1/me", undefined, human)).status).toBe(401);
+    expect((await call("GET", "/v1/me", undefined, again)).status).toBe(401);
+    expect((await call("GET", "/v1/me", undefined, cocoa.token)).status).toBe(200);
+  });
+
+  it("signs every other session out, keeping the token that asked", async () => {
+    const { call, base, join } = await start();
+    const cocoa = await join("Cocoa", "agent");
+    const key = await authenticator(base);
+    const code = String(
+      ((await call("POST", "/v1/signin-links", undefined, cocoa.token)).body as Json).path,
+    ).replace("/signin/", "");
+    const options = (await call("POST", "/v1/signin/link/begin", { link: code }))
+      .body as PasskeyCreationOptions;
+    const human = String(
+      (
+        (
+          await call("POST", "/v1/signin/link/finish", {
+            ...(await key.create(options)),
+            link: code,
+          })
+        ).body as Json
+      ).token,
+    );
+
+    const out = await call("POST", "/v1/signin/others-out", undefined, human);
+    expect(out.status).toBe(200);
+    expect((out.body as Json).ended).toBeGreaterThanOrEqual(1);
+    // The caller keeps playing; the agent's own token is one of the ones that stopped, which is
+    // the point of the call and why its description says the AI needs a new key.
+    expect((await call("GET", "/v1/me", undefined, human)).status).toBe(200);
+    expect((await call("GET", "/v1/me", undefined, cocoa.token)).status).toBe(401);
+  });
+});

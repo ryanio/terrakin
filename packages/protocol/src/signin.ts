@@ -121,3 +121,7 @@ export const SigninResponse = z.object({
   resident: ResidentBrief,
 });
 export type SigninResponse = z.infer<typeof SigninResponse>;
+
+/** How many sessions `POST /v1/signin/others-out` ended. */
+export const SignedOutResponse = z.object({ ended: z.number().int() });
+export type SignedOutResponse = z.infer<typeof SignedOutResponse>;

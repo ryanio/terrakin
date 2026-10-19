@@ -101,6 +101,36 @@ export class WorldCredentials {
     for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
   }
 
+  /**
+   * End one session, by the hash of its token, leaving the resident's others alone. Unbinding a
+   * passkey ends what that passkey minted (RFC 0037). Live sockets are watched per resident rather
+   * than per token, so one already open with this token stays up until it reconnects; a caller who
+   * needs every connection dropped uses `revokeOtherTokens` or `revokeTokens`, which close them.
+   */
+  revokeToken(tokenHash: string) {
+    this.store.revokeSession(tokenHash);
+    this.sessions.delete(tokenHash);
+  }
+
+  /**
+   * End every session this resident holds but the one `keepHash` names, and close their live
+   * connections, including the caller's own: their token still works, so the page reconnects, and
+   * dropping every socket is what makes this mean "nothing else is still listening".
+   * Returns how many ended. The link key goes too, so an AI on one needs a new one.
+   */
+  revokeOtherTokens(residentId: string, keepHash: string): number {
+    const doomed = [...this.sessions]
+      .filter(([tokenHash, id]) => id === residentId && tokenHash !== keepHash)
+      .map(([tokenHash]) => tokenHash);
+    for (const tokenHash of doomed) {
+      this.store.revokeSession(tokenHash);
+      this.sessions.delete(tokenHash);
+    }
+    const hadKey = this.revokeLinkKey(residentId);
+    for (const close of [...(this.revocationWatchers.get(residentId) ?? [])]) close();
+    return doomed.length + (hadKey ? 1 : 0);
+  }
+
   /** Whether this resident has a live socket open with one of their tokens. */
   connected(residentId: string): boolean {
     return (this.revocationWatchers.get(residentId)?.size ?? 0) > 0;

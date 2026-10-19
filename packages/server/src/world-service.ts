@@ -1736,6 +1736,16 @@ export class WorldService {
     this.credentials.revokeTokens(residentId);
   }
 
+  /** End one session by the hash of its token, leaving the resident's others alone (RFC 0037). */
+  revokeToken(tokenHash: string) {
+    this.credentials.revokeToken(tokenHash);
+  }
+
+  /** End every session but the one `keepHash` names, closing live connections. How many ended. */
+  revokeOtherTokens(residentId: string, keepHash: string): number {
+    return this.credentials.revokeOtherTokens(residentId, keepHash);
+  }
+
   /** Whether this resident has a live socket open with one of their tokens. */
   connected(residentId: string): boolean {
     return this.credentials.connected(residentId);

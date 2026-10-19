@@ -35,7 +35,8 @@ afterEach(async () => {
 type Json = Record<string, any>;
 
 async function start() {
-  const now = () => Date.UTC(2026, 9, 19, 9);
+  let at = Date.UTC(2026, 9, 19, 9);
+  const now = () => at;
   const service = new WorldService({
     store: new MemoryStore(),
     config: CONFIG,
@@ -72,11 +73,23 @@ async function start() {
     const made = (await call("POST", "/v1/session", { name, kind })).body as Json;
     return { id: made.residentId as string, token: made.token as string };
   };
-  return { call, base, join };
+  // Rate-limit buckets refill from the clock, so a test that needs more calls than a burst allows
+  // moves time rather than working around the limit.
+  return {
+    call,
+    base,
+    join,
+    advance: (ms: number) => {
+      at += ms;
+    },
+  };
 }
 
 const FLAG_UP = 0x01;
+const FLAG_UV = 0x04;
 const FLAG_AT = 0x40;
+/** What a real ceremony carries: the person was there and the device checked who they were. */
+const CONFIRMED = FLAG_UP | FLAG_UV;
 
 /**
  * A test authenticator: one real P-256 key that answers the server's own ceremonies, so these
@@ -110,12 +123,12 @@ async function authenticator(origin: string, credentialId = "dGVzdC1rZXk") {
         publicKey: toBase64Url(spki),
         algorithm: -7,
         clientData: clientData("webauthn.create", options.challenge),
-        authenticatorData: toBase64Url(await authData(FLAG_UP | FLAG_AT, 0)),
+        authenticatorData: toBase64Url(await authData(CONFIRMED | FLAG_AT, 0)),
       };
     },
     /** The answer to a `begin` that asked this passkey to prove itself. */
     async assert(options: PasskeyRequestOptions, signCount = 1, from = origin) {
-      const data = await authData(FLAG_UP, signCount);
+      const data = await authData(CONFIRMED, signCount);
       const client = clientData("webauthn.get", options.challenge, from);
       const signed = new Uint8Array(data.length + 32);
       signed.set(data, 0);
@@ -320,5 +333,123 @@ describe("the passkeys a resident has bound", () => {
       (await call("POST", "/v1/claims/passkey/finish", await key.create(birches), fern.token))
         .status,
     ).toBe(400);
+  });
+});
+
+describe("the guards on signing in", () => {
+  /** An agent with a passkey bound, which is where most of these start. */
+  async function bound() {
+    const started = await start();
+    const cocoa = await started.join("Cocoa", "agent");
+    const key = await authenticator(started.base);
+    const code = String(
+      ((await started.call("POST", "/v1/signin-links", undefined, cocoa.token)).body as Json).path,
+    ).replace("/signin/", "");
+    const options = (await started.call("POST", "/v1/signin/link/begin", { link: code }))
+      .body as PasskeyCreationOptions;
+    await started.call("POST", "/v1/signin/link/finish", {
+      ...(await key.create(options)),
+      link: code,
+    });
+    return { ...started, cocoa, key };
+  }
+
+  it("keeps the counter as a high-water mark, so a zero can't erase it", async () => {
+    const { call, key } = await bound();
+    const signIn = async (count: number) => {
+      const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+      return (await call("POST", "/v1/signin/finish", await key.assert(ask, count))).status;
+    };
+    expect(await signIn(50)).toBe(200);
+    // An authenticator that sends 0 means "I keep no counter", so it is accepted and must not
+    // write 0 over the 50. Before it did, and then 1 passed, which 50 had already refused.
+    expect(await signIn(0)).toBe(200);
+    expect(await signIn(1)).toBe(401);
+    expect(await signIn(51)).toBe(200);
+  });
+
+  it("won't spend a sign-in challenge on a binding, or a binding's on a sign-in", async () => {
+    const { call, base, join, key } = await bound();
+    const fern = await join("Fern", "human");
+
+    // A sign-in challenge, offered to the bind route.
+    const toSignin = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+    const other = await authenticator(base, "b3RoZXI");
+    expect(
+      (
+        await call(
+          "POST",
+          "/v1/claims/passkey/finish",
+          await other.create({
+            challenge: toSignin.challenge,
+            rpId: toSignin.rpId,
+            rpName: "Terrakin",
+            user: { id: "x", name: "Fern", displayName: "Fern" },
+            algorithms: [-7],
+            exclude: [],
+            timeoutMs: 1000,
+          }),
+          fern.token,
+        )
+      ).status,
+    ).toBe(400);
+
+    // And a binding challenge, offered to the sign-in route.
+    const toBind = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+      .body as PasskeyCreationOptions;
+    expect(
+      (
+        await call(
+          "POST",
+          "/v1/signin/finish",
+          await key.assert({
+            challenge: toBind.challenge,
+            rpId: toBind.rpId,
+            timeoutMs: 1000,
+          }),
+        )
+      ).status,
+    ).toBe(401);
+  });
+
+  it("refuses the eleventh passkey, however many challenges are held at once", async () => {
+    const { call, base, join, advance } = await start();
+    const fern = await join("Fern", "human");
+    // Every challenge first, then every finish: the cap has to hold at the write, not only when
+    // a ceremony was offered.
+    const asked: PasskeyCreationOptions[] = [];
+    for (let n = 0; n < 11; n++) {
+      asked.push(
+        (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+          .body as PasskeyCreationOptions,
+      );
+    }
+    // 22 calls is two past the `owner` burst, so the clock moves enough to refill those two and
+    // far less than the 5 minutes a challenge lives: this must fail on the cap, not the limit.
+    advance(30_000);
+    const results: number[] = [];
+    for (const [n, options] of asked.entries()) {
+      const key = await authenticator(base, `a2V5LW${n}`);
+      results.push(
+        (await call("POST", "/v1/claims/passkey/finish", await key.create(options), fern.token))
+          .status,
+      );
+    }
+    expect(results.filter((status) => status === 201)).toHaveLength(10);
+    expect(results.filter((status) => status === 403)).toHaveLength(1);
+    expect(
+      ((await call("GET", "/v1/claims", undefined, fern.token)).body as Json).claims,
+    ).toHaveLength(10);
+  });
+
+  it("rate limits sign-in tries from one place", async () => {
+    const { call } = await start();
+    // The limit is the only thing bounding guessing here, since nothing names the resident first.
+    const statuses: number[] = [];
+    for (let n = 0; n < 12; n++) {
+      statuses.push((await call("POST", "/v1/signin/begin")).status);
+    }
+    expect(statuses).toContain(429);
+    expect(statuses.filter((status) => status === 200).length).toBeLessThanOrEqual(11);
   });
 });

@@ -21,6 +21,7 @@ export type PasskeyProblem =
   | "bad_authenticator_data"
   | "wrong_relying_party"
   | "not_present"
+  | "not_verified"
   | "no_credential"
   | "bad_key"
   | "bad_signature";
@@ -35,6 +36,12 @@ export const isPasskeyAlgorithm = (alg: unknown): alg is PasskeyAlgorithm =>
 const AUTH_DATA_MIN = 37;
 /** User present. Every ceremony needs it: the person touched the authenticator. */
 const FLAG_USER_PRESENT = 0x01;
+/**
+ * User verified: the authenticator checked who it was, with a face, a fingerprint or a screen
+ * lock. Required, not preferred, because every page, SKILL.md and the auth page say that is what
+ * confirming means. Without it, picking up an unlocked phone would be enough.
+ */
+const FLAG_USER_VERIFIED = 0x04;
 /** Attested credential data follows, which only a registration has. */
 const FLAG_ATTESTED = 0x40;
 
@@ -67,7 +74,7 @@ export function rawEcdsaSignature(der: Uint8Array): Uint8Array<ArrayBuffer> | un
   const out = new Uint8Array(64);
   let at = 2;
   for (const half of [0, 32]) {
-    if (der[at] !== 0x02) return undefined;
+    if (der[at] !== 0x02 || at + 1 >= der.length) return undefined;
     const len = der[at + 1] as number;
     at += 2;
     if (len === 0 || len > 0x7f || at + len > der.length) return undefined;
@@ -139,6 +146,7 @@ async function checkCeremony(
   const rpIdHash = await sha256Bytes(new TextEncoder().encode(expect.rp.id));
   if (!sameBytes(header.rpIdHash, rpIdHash)) return refuse("wrong_relying_party");
   if ((header.flags & FLAG_USER_PRESENT) === 0) return refuse("not_present");
+  if ((header.flags & FLAG_USER_VERIFIED) === 0) return refuse("not_verified");
 
   return { ok: true, value: { authData, signCount: header.signCount, flags: header.flags } };
 }

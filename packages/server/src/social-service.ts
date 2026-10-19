@@ -74,6 +74,7 @@ import { randomId } from "./bytes";
 import { CheckinLog } from "./checkin-log";
 import { CircleNotices } from "./circle-notices";
 import type { CircleContext } from "./circles";
+import { createClaimTables } from "./claims";
 import { CollectionBook } from "./collection";
 import { DiscoveryLog } from "./discovery-log";
 import { type EventContext, EventsSocial, eventNoticeView, SOON_NOTICE_MS } from "./events";
@@ -532,6 +533,7 @@ export class SocialService {
       // Already there.
     }
     this.sql.exec("CREATE INDEX IF NOT EXISTS reactions_created ON reactions (created_at)");
+    createClaimTables(this.sql);
     // Circle notices were kindred ones until decision 0318, keyed by a `k_1` id in the stored
     // detail and the group key. A row under an old type matches no branch when it's read, so it
     // is dropped from the list while `unread()` still counts it, leaving a badge nobody can clear.

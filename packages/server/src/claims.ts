@@ -75,10 +75,54 @@ const PROBLEM_WORDS: Readonly<Record<PasskeyProblem, string>> = {
   bad_authenticator_data: "That didn't arrive as we expect. Try again.",
   wrong_relying_party: "That passkey was made for another site.",
   not_present: "Nobody confirmed it. Try again and confirm when your device asks.",
-  no_credential: "We don't know that passkey. Sign in another way, or make a new one.",
+  not_verified:
+    "Your device didn't check who you are. Turn on Face ID, a fingerprint, or a screen lock, then try again.",
+  // One line for an unknown passkey and for one that failed its signature, so the route never says
+  // which credential ids are registered here.
+  no_credential: "We couldn't sign you in with that passkey. Try again, or make a new one.",
   bad_key: "Your device offered a kind of key we can't read. Try another way in.",
   bad_signature: "That didn't check out. Try again.",
 };
+
+/**
+ * The tables signing in keeps. Exported because `repeat-joins.ts` reads them when a record is
+ * retired or merged, and that runs wherever the social layer does, whether or not a `ClaimsService`
+ * was built: `SocialService` makes them for that reason, and this service makes them again
+ * harmlessly.
+ */
+export function createClaimTables(sql: SocialService["sql"]) {
+  for (const statement of [
+    // A passkey bound to a resident. public_key is SPKI as base64url, which Web Crypto imports as
+    // it is; sign_count is the authenticator's counter, kept as a high-water mark for spotting a
+    // clone; rp_id is the host it was bound for, so one made elsewhere can't sign in here.
+    `CREATE TABLE IF NOT EXISTS passkeys (
+      credential_id TEXT PRIMARY KEY,
+      resident_id TEXT NOT NULL,
+      public_key TEXT NOT NULL,
+      algorithm INTEGER NOT NULL,
+      sign_count INTEGER NOT NULL,
+      rp_id TEXT NOT NULL DEFAULT '',
+      bound_at INTEGER NOT NULL,
+      used_at INTEGER
+    )`,
+    "CREATE INDEX IF NOT EXISTS passkeys_resident ON passkeys (resident_id, bound_at)",
+    // A challenge we issued, kept by its hash so the row is useless to whoever reads the table.
+    // resident_id is empty for a sign-in, where nobody is named until the key proves itself.
+    `CREATE TABLE IF NOT EXISTS passkey_challenges (
+      challenge_hash TEXT PRIMARY KEY,
+      purpose TEXT NOT NULL,
+      resident_id TEXT NOT NULL DEFAULT '',
+      expires_at INTEGER NOT NULL
+    )`,
+    // An agent's one-time link for the person who runs it: the latest one per resident.
+    `CREATE TABLE IF NOT EXISTS signin_links (
+      code_hash TEXT PRIMARY KEY, resident_id TEXT NOT NULL, expires_at INTEGER NOT NULL
+    )`,
+    "CREATE INDEX IF NOT EXISTS signin_links_resident ON signin_links (resident_id)",
+  ]) {
+    sql.exec(statement);
+  }
+}
 
 export class ClaimsService {
   private readonly social: SocialService;
@@ -87,35 +131,7 @@ export class ClaimsService {
   constructor({ social, credentials }: ClaimsServiceOptions) {
     this.social = social;
     this.credentials = credentials;
-    for (const statement of [
-      // A passkey bound to a resident. public_key is SPKI as base64url, which Web Crypto imports
-      // as it is; sign_count is the authenticator's counter, for spotting a cloned one.
-      `CREATE TABLE IF NOT EXISTS passkeys (
-        credential_id TEXT PRIMARY KEY,
-        resident_id TEXT NOT NULL,
-        public_key TEXT NOT NULL,
-        algorithm INTEGER NOT NULL,
-        sign_count INTEGER NOT NULL,
-        bound_at INTEGER NOT NULL,
-        used_at INTEGER
-      )`,
-      "CREATE INDEX IF NOT EXISTS passkeys_resident ON passkeys (resident_id, bound_at)",
-      // A challenge we issued, kept by its hash so the row is useless to whoever reads the table.
-      // resident_id is empty for a sign-in, where nobody is named until the key proves itself.
-      `CREATE TABLE IF NOT EXISTS passkey_challenges (
-        challenge_hash TEXT PRIMARY KEY,
-        purpose TEXT NOT NULL,
-        resident_id TEXT NOT NULL DEFAULT '',
-        expires_at INTEGER NOT NULL
-      )`,
-      // An agent's one-time link for the person who runs it: the latest one per resident.
-      `CREATE TABLE IF NOT EXISTS signin_links (
-        code_hash TEXT PRIMARY KEY, resident_id TEXT NOT NULL, expires_at INTEGER NOT NULL
-      )`,
-      "CREATE INDEX IF NOT EXISTS signin_links_resident ON signin_links (resident_id)",
-    ]) {
-      this.social.sql.exec(statement);
-    }
+    createClaimTables(social.sql);
   }
 
   private now() {
@@ -278,18 +294,35 @@ export class ClaimsService {
     if (held && String(held.resident_id) !== residentId) {
       return fail("forbidden", "That passkey already belongs to another resident.");
     }
+    // Counted again here, not only when the challenge was issued: a burst of `begin` calls could
+    // otherwise hold several live challenges and spend them all past the cap. A credential this
+    // resident already holds is a re-bind, so it doesn't count against it.
+    if (!held) {
+      const count = this.rows(
+        "SELECT COUNT(*) AS n FROM passkeys WHERE resident_id = ?",
+        residentId,
+      )[0];
+      if (Number(count?.n ?? 0) >= SIGNIN.passkeysMax) {
+        return fail(
+          "forbidden",
+          `This resident already has ${SIGNIN.passkeysMax} passkeys. Remove one first.`,
+        );
+      }
+    }
     const boundAt = this.now();
     this.social.sql.exec(
-      `INSERT INTO passkeys (credential_id, resident_id, public_key, algorithm, sign_count, bound_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO passkeys (credential_id, resident_id, public_key, algorithm, sign_count, rp_id, bound_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (credential_id) DO UPDATE SET
          resident_id = excluded.resident_id, public_key = excluded.public_key,
-         algorithm = excluded.algorithm, sign_count = excluded.sign_count, bound_at = excluded.bound_at`,
+         algorithm = excluded.algorithm, sign_count = excluded.sign_count,
+         rp_id = excluded.rp_id, bound_at = excluded.bound_at`,
       checked.value.credentialId,
       residentId,
       toBase64Url(checked.value.publicKey),
       checked.value.algorithm,
       checked.value.signCount,
+      rp.id,
       boundAt,
     );
     return { ok: true, value: this.view(checked.value.credentialId, boundAt, undefined) };
@@ -326,13 +359,22 @@ export class ClaimsService {
     if (!live) return fail("not_found", "That link has expired or was already used.");
     const challenge = this.takeChallenge(request.challenge, "bind", live.residentId);
     if (!challenge) return fail("bad_request", PROBLEM_WORDS.wrong_challenge);
+    // Spent in the same turn as the challenge, before the crypto's await: two calls each holding
+    // their own challenge could otherwise both pass the link check and both mint a session, and
+    // "a link works once" is the only thing bounding a link someone forwarded. It goes back if the
+    // ceremony is refused, so a person whose device said no still has their link.
+    const hash = sha256HexSync(request.link);
+    this.social.sql.exec("DELETE FROM signin_links WHERE code_hash = ?", hash);
     const bound = await this.bind(live.residentId, request, challenge, rp);
-    if (!bound.ok) return bound;
-    // Spent only once the passkey is really bound, so a refused ceremony leaves the link usable.
-    this.social.sql.exec(
-      "DELETE FROM signin_links WHERE code_hash = ?",
-      sha256HexSync(request.link),
-    );
+    if (!bound.ok) {
+      this.social.sql.exec(
+        "INSERT OR IGNORE INTO signin_links (code_hash, resident_id, expires_at) VALUES (?, ?, ?)",
+        hash,
+        live.residentId,
+        live.expiresAt,
+      );
+      return bound;
+    }
     return this.session(live.residentId);
   }
 
@@ -355,7 +397,7 @@ export class ClaimsService {
     const challenge = this.takeChallenge(request.challenge, "signin");
     if (!challenge) return fail("unauthorized", PROBLEM_WORDS.wrong_challenge);
     const row = this.rows(
-      "SELECT resident_id, public_key, algorithm, sign_count FROM passkeys WHERE credential_id = ?",
+      "SELECT resident_id, public_key, algorithm, sign_count, rp_id FROM passkeys WHERE credential_id = ?",
       request.credentialId,
     )[0];
     if (!row) return fail("unauthorized", PROBLEM_WORDS.no_credential);
@@ -364,8 +406,18 @@ export class ClaimsService {
     if (!publicKey || !isPasskeyAlgorithm(algorithm)) {
       return fail("unauthorized", PROBLEM_WORDS.bad_key);
     }
+    // Bound for another host, so it is not ours to sign in. An authenticator can't forge our RP id
+    // hash either, but a row that remembers the host means the server doesn't have to rely on that.
+    const boundFor = String(row.rp_id ?? "");
+    if (boundFor !== "" && boundFor !== rp.id) {
+      return fail("unauthorized", PROBLEM_WORDS.no_credential);
+    }
     const checked = await checkAssertion(request, { publicKey, algorithm }, { challenge, rp });
-    if (!checked.ok) return fail("unauthorized", PROBLEM_WORDS[checked.why]);
+    if (!checked.ok) {
+      // A failed signature reads the same as an unknown passkey; the rest name what to do.
+      const why = checked.why === "bad_signature" ? "no_credential" : checked.why;
+      return fail("unauthorized", PROBLEM_WORDS[why]);
+    }
     const stored = Number(row.sign_count);
     // Authenticators that keep a counter must move it. Many always send 0, and those are left
     // alone rather than locked out: a counter that never moves tells us nothing either way.
@@ -373,7 +425,7 @@ export class ClaimsService {
       return fail("unauthorized", "That passkey looks like a copy. Write to us before using it.");
     }
     this.social.sql.exec(
-      "UPDATE passkeys SET sign_count = ?, used_at = ? WHERE credential_id = ?",
+      "UPDATE passkeys SET sign_count = MAX(sign_count, ?), used_at = ? WHERE credential_id = ?",
       checked.value.signCount,
       this.now(),
       request.credentialId,

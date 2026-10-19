@@ -99,6 +99,8 @@ curl localhost:8787/v1/health
 
 If Docker Hub rate-limits you, add `--build-arg NODE_IMAGE=public.ecr.aws/docker/library/node:22-slim`. On networks with a TLS-intercepting proxy, add `--secret id=ca,src=/path/to/ca.pem`.
 
+`TERRAKIN_TRUSTED_PROXIES` also decides what a passkey is scoped to (RFC 0037): a passkey's relying party comes from the scheme and host the request reached, so behind a TLS-terminating proxy with it left at `0` the server reads `http://your.host` while the browser says `https://your.host`, and every sign-in is refused with "That came from another site". Set it to the number of proxies in front of you.
+
 The port is bound to `127.0.0.1` so only a reverse proxy on the same machine can reach it. Keep it that way in production: with `TERRAKIN_TRUSTED_PROXIES=1`, anyone who can reach port 8787 directly could fake their IP in `X-Forwarded-For` and get past the per-IP limits. (Docker's published ports skip host firewalls like ufw.) Use `-p 8787:8787` only when nothing sits in front and `TERRAKIN_TRUSTED_PROXIES` is `0`.
 
 The container starts as root only long enough to make `/data` writable (host volumes are often owned by root), then runs the server as the unprivileged `node` user.

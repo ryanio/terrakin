@@ -74,7 +74,7 @@ export async function makePasskey(options: PasskeyCreationOptions) {
           id: fromBase64Url(id),
         })),
         // Discoverable, so signing in later needs no name and no list: the passkey says who it is.
-        authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+        authenticatorSelection: { residentKey: "required", userVerification: "required" },
         attestation: "none",
         timeout: options.timeoutMs,
       },
@@ -108,7 +108,7 @@ export async function provePasskey(options: PasskeyRequestOptions) {
       publicKey: {
         challenge: fromBase64Url(options.challenge),
         rpId: options.rpId,
-        userVerification: "preferred",
+        userVerification: "required",
         timeout: options.timeoutMs,
       },
     });

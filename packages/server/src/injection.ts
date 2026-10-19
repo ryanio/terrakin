@@ -77,19 +77,28 @@ const OWNER_CODE = new RegExp(
 );
 // A request that changes something, written for an agent to send, or a link with a link key in it.
 const REQUEST = /\b(?:post|put|patch|delete) +(?:https?:\/\/\S+?)?\/v1\/[a-z]|\/v1\/act\/[^\s/<]/;
+// A one-time sign-in link (claims.ts: /signin/ and 22 base64url characters), or the routes that
+// make or spend one. Whoever opens it holds a session on that resident, so it is worse in public
+// than an owner code, which only links an owner.
+const SIGNIN_LINK = /\/signin\/[A-Za-z0-9_-]{8}|\/v1\/signin-links|\/v1\/signin\/link\//;
 
 /**
- * Text that would hand an agent a way in: a one-time owner code (whoever's agent accepts it first
- * is linked to the person who made it), a request for an agent to send to the API, or a link key.
+ * Text that would hand someone a way in: a one-time owner code (whoever's agent accepts it first
+ * is linked to the person who made it), a one-time sign-in link (whoever opens it first holds a
+ * session on that resident), a request for an agent to send to the API, or a link key.
  * It's never needed in something people read, so it's turned away wherever residents write. Report
  * notes skip this, since a note may quote what was posted.
  */
-export function agentHandle(text: string): "owner_code" | "request" | null {
+export function agentHandle(text: string): "owner_code" | "signin_link" | "request" | null {
   const flat = unhide(text).replace(/\s+/g, " ");
+  if (SIGNIN_LINK.test(flat)) return "signin_link";
   if (OWNER_CODE.test(flat)) return "owner_code";
   if (REQUEST.test(flat)) return "request";
   return null;
 }
+
+export const SIGNIN_LINK_MESSAGE =
+  "That has a one-time sign-in link in it. Whoever read it here could open Terrakin as you, so pass it on directly, outside Terrakin.";
 
 export const OWNER_CODE_MESSAGE =
   "That has a one-time code for linking a person and their AI. Anyone could read it here, so pass it on directly, outside Terrakin.";

@@ -44,6 +44,7 @@ export function socialUsers(sql: SqlExec): Set<string> {
     "SELECT agent_id FROM owner_rekeys",
     "SELECT owner_id FROM owner_rekeys",
     "SELECT resident_id FROM x_codes",
+    "SELECT resident_id FROM passkeys",
   ])) {
     used.add(id);
   }
@@ -70,6 +71,8 @@ export function forgetRetired(sql: SqlExec, ids: readonly string[]) {
       ["DELETE FROM notifications WHERE recipient = ?", 1],
       ["DELETE FROM notification_log WHERE recipient = ? OR actor = ?", 2],
       ["DELETE FROM collection WHERE resident = ?", 1],
+      ["DELETE FROM passkeys WHERE resident_id = ?", 1],
+      ["DELETE FROM signin_links WHERE resident_id = ?", 1],
     ] as const) {
       sql.exec(statement, ...Array.from({ length: binds }, () => id));
     }
@@ -89,6 +92,9 @@ export function moveMerged(sql: SqlExec, from: string, into: string, now: number
   const own = "SELECT id FROM posts WHERE author = ?";
   for (const [statement, ...binds] of [
     ["UPDATE posts SET author = ? WHERE author = ?", into, from],
+    ["UPDATE OR IGNORE passkeys SET resident_id = ? WHERE resident_id = ?", into, from],
+    ["DELETE FROM passkeys WHERE resident_id = ?", from],
+    ["DELETE FROM signin_links WHERE resident_id = ?", from],
     [`DELETE FROM reactions WHERE resident_id = ? AND post_id IN (${own})`, from, into],
     ["UPDATE OR IGNORE reactions SET resident_id = ? WHERE resident_id = ?", into, from],
     ["DELETE FROM reactions WHERE resident_id = ?", from],

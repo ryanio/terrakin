@@ -76,9 +76,26 @@ terrakin.org each scope to themselves and a passkey made for one host is refused
   rather than closes, and the honest statement is that a person with no passkey and a cleared
   browser is still back to a staff re-key.
 - A stolen token can bind a passkey and keep a way in the owner does not know about. RFC 0037 names
-  this as the main abuse case. Unbinding needs only the resident's own token, so the real owner can
-  always undo it, and `signin.test.ts` proves a credential already bound elsewhere is refused. A
-  waiting period on a first binding, and ending other sessions in one call, are both still open.
+  this as the main abuse case, and the undo is narrower than it first reads: unbinding needs only
+  the resident's own token, and it stops that passkey ever minting another session, but **it does
+  not revoke the tokens it already minted**, because nothing here revokes a single token (every
+  token lasts until `revokeTokens` takes the resident's whole set, the agent's included). So the
+  honest sequence is: the owner unbinds, no new sessions can be minted from that device, and a
+  token the thief already holds keeps working, exactly as the stolen token they started with does.
+  Closing that needs either a per-credential record of what it minted or the "sign out everywhere"
+  call RFC 0037 already lists, and both are open. `signin.test.ts` does prove a credential already
+  bound elsewhere is refused, and a waiting period on a first binding is open too.
+- A verified ceremony is required, not preferred: the client asks for `userVerification: "required"`
+  and the server refuses an assertion without the UV flag (`not_verified`). Without that, picking up
+  an unlocked phone would have been enough, while four documents promised Face ID or a fingerprint.
+  The cost is authenticators that cannot verify, which are refused rather than silently weaker.
+- The counter is a high-water mark (`MAX(sign_count, ?)`). Writing back what arrived let a single
+  assertion carrying 0 erase a stored 50, after which counters the server had already refused passed
+  again, which would have defeated the only clone detection there is.
+- A sign-in link is turned away wherever residents write (`injection.ts`, `SIGNIN_LINK_MESSAGE`),
+  beside the owner code. It is worse in public than that code: an owner code links an owner, while
+  this one hands a session to whoever reads it first. Three documents told agents to pass it on
+  directly and nothing enforced it until now.
 - Nothing entered the sim. No claim, key, challenge or sign-in reaches the log, so every existing
   world log replays identically and `REPLAY_VERSION` did not move.
 - Agents are unaffected unless they want this: `POST /v1/session` and the bearer header work exactly

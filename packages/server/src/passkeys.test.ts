@@ -16,7 +16,10 @@ import {
 
 const RP: PasskeyRelyingParty = { origin: "https://terrakin.org", id: "terrakin.org" };
 const FLAG_UP = 0x01;
+const FLAG_UV = 0x04;
 const FLAG_AT = 0x40;
+/** What a real ceremony carries: the person was there and the device checked who they were. */
+const CONFIRMED = FLAG_UP | FLAG_UV;
 
 /** Authenticator data as an authenticator lays it out: the RP id hash, flags, then the counter. */
 async function authenticatorData(
@@ -26,7 +29,7 @@ async function authenticatorData(
   const extra = options.extra ?? 0;
   const bytes = new Uint8Array(37 + extra);
   bytes.set(hash, 0);
-  bytes[32] = options.flags ?? FLAG_UP;
+  bytes[32] = options.flags ?? CONFIRMED;
   new DataView(bytes.buffer).setUint32(33, options.signCount ?? 0, false);
   return bytes;
 }
@@ -77,7 +80,7 @@ describe("binding a passkey", () => {
   it("takes a credential made over the challenge we issued, from our own origin", async () => {
     const { spki } = await authenticator();
     const ask = challenge();
-    const authData = await authenticatorData({ flags: FLAG_UP | FLAG_AT, signCount: 7 });
+    const authData = await authenticatorData({ flags: CONFIRMED | FLAG_AT, signCount: 7 });
     const result = await checkBinding(
       {
         clientData: clientDataOf("webauthn.create", ask),
@@ -95,7 +98,7 @@ describe("binding a passkey", () => {
     const { spki } = await authenticator();
     const ask = challenge();
     const good = {
-      authenticatorData: toBase64Url(await authenticatorData({ flags: FLAG_UP | FLAG_AT })),
+      authenticatorData: toBase64Url(await authenticatorData({ flags: CONFIRMED | FLAG_AT })),
       credentialId: toBase64Url(new Uint8Array([1])),
       publicKey: toBase64Url(spki),
       algorithm: -7,
@@ -121,16 +124,22 @@ describe("binding a passkey", () => {
     expect(
       await why({
         authenticatorData: toBase64Url(
-          await authenticatorData({ rpId: "example.com", flags: FLAG_UP | FLAG_AT }),
+          await authenticatorData({ rpId: "example.com", flags: CONFIRMED | FLAG_AT }),
         ),
       }),
     ).toBe("wrong_relying_party");
     expect(
       await why({ authenticatorData: toBase64Url(await authenticatorData({ flags: FLAG_AT })) }),
     ).toBe("not_present");
+    // Present but unverified: a tap on an unlocked phone, which every page promises is not enough.
+    expect(
+      await why({
+        authenticatorData: toBase64Url(await authenticatorData({ flags: FLAG_UP | FLAG_AT })),
+      }),
+    ).toBe("not_verified");
     // A binding with no attested credential data is not a registration.
     expect(
-      await why({ authenticatorData: toBase64Url(await authenticatorData({ flags: FLAG_UP })) }),
+      await why({ authenticatorData: toBase64Url(await authenticatorData({ flags: CONFIRMED })) }),
     ).toBe("bad_authenticator_data");
     expect(await why({ algorithm: -8 })).toBe("bad_key");
     expect(await why({ publicKey: toBase64Url(new Uint8Array([9, 9, 9])) })).toBe("bad_key");
@@ -205,7 +214,7 @@ describe("the bytes these checks walk", () => {
     const whole = await authenticatorData({ extra: 20 });
     for (let n = 0; n < 37; n++)
       expect(readAuthenticatorData(whole.subarray(0, n))).toBeUndefined();
-    expect(readAuthenticatorData(whole)).toMatchObject({ flags: FLAG_UP, signCount: 0 });
+    expect(readAuthenticatorData(whole)).toMatchObject({ flags: CONFIRMED, signCount: 0 });
     // A counter past 2^31 reads unsigned, not negative.
     const high = await authenticatorData({ signCount: 4_000_000_000 });
     expect(readAuthenticatorData(high)?.signCount).toBe(4_000_000_000);
@@ -250,5 +259,61 @@ describe("the bytes these checks walk", () => {
         expect(out === undefined || out.length === 64).toBe(true);
       }
     }
+  });
+});
+
+describe("an RS256 passkey", () => {
+  it("binds and signs in, with the signature sent raw rather than as DER", async () => {
+    // Half the algorithms this server accepts are RSA, and nothing else here exercises that path:
+    // the key import, and the assertion that skips the ECDSA DER conversion.
+    const pair = await crypto.subtle.generateKey(
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["sign", "verify"],
+    );
+    const spki = new Uint8Array(await crypto.subtle.exportKey("spki", pair.publicKey));
+    const ask = challenge();
+
+    const authData = await authenticatorData({ flags: CONFIRMED | FLAG_AT });
+    const bound = await checkBinding(
+      {
+        clientData: clientDataOf("webauthn.create", ask),
+        authenticatorData: toBase64Url(authData),
+        credentialId: toBase64Url(new Uint8Array([7, 7])),
+        publicKey: toBase64Url(spki),
+        algorithm: -257,
+      },
+      { challenge: ask, rp: RP },
+    );
+    expect(bound).toMatchObject({ ok: true, value: { algorithm: -257 } });
+
+    const next = challenge();
+    const signData = await authenticatorData({ signCount: 4 });
+    const client = clientDataOf("webauthn.get", next);
+    const signed = new Uint8Array(signData.length + 32);
+    signed.set(signData, 0);
+    signed.set(
+      await sha256Bytes(fromBase64Url(client) as Uint8Array<ArrayBuffer>),
+      signData.length,
+    );
+    const signature = new Uint8Array(
+      await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, pair.privateKey, signed),
+    );
+    expect(
+      await checkAssertion(
+        {
+          clientData: client,
+          authenticatorData: toBase64Url(signData),
+          signature: toBase64Url(signature),
+        },
+        { publicKey: spki, algorithm: -257 },
+        { challenge: next, rp: RP },
+      ),
+    ).toMatchObject({ ok: true, value: { signCount: 4 } });
   });
 });

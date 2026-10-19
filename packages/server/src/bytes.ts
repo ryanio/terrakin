@@ -16,7 +16,6 @@ export const toBase64Url = (bytes: Uint8Array) =>
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 
-/** A record's id: its prefix and 16 random hex characters (`r_`, `p_`, `rep_`). */
 /**
  * Bytes from base64url, or undefined when the text isn't base64url. WebAuthn sends every binary
  * field this way, and all of it is hostile input, so an unpadded length, a stray character or a
@@ -52,6 +51,7 @@ export function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
+/** A record's id: its prefix and 16 random hex characters (`r_`, `p_`, `rep_`). */
 export const randomId = (prefix: string) => `${prefix}_${toHex(randomBytes(8))}`;
 
 /**

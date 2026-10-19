@@ -26659,7 +26659,7 @@
             "name": "code",
             "in": "path",
             "required": true,
-            "description": "The invite code, like `abcd-efgh-jkmn-pqrs`.",
+            "description": "The code from the link's path, like `kJ3n8QaRt7vZbL2cXyM1Aw`.",
             "schema": {
               "type": "string",
               "minLength": 1,

@@ -6,6 +6,7 @@ import {
   OWNER_CODE_MESSAGE,
   readerMessage,
   requestMessage,
+  SIGNIN_LINK_MESSAGE,
   TAGS,
 } from "./injection";
 import {
@@ -751,6 +752,7 @@ export class Moderation {
     if (aimed) return refuse("injection", readerMessage(policy.label, aimed));
     const handle = agentHandle(text);
     if (handle === "owner_code") return refuse("injection", OWNER_CODE_MESSAGE);
+    if (handle === "signin_link") return refuse("injection", SIGNIN_LINK_MESSAGE);
     if (handle === "request") return refuse("injection", requestMessage(policy.label));
 
     const n = normalize(text);

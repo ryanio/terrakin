@@ -13,7 +13,16 @@ import {
   SigninRequest,
   SigninResponse,
 } from "../signin";
-import { CodeParams, empty, json, type RouteSpec } from "./shared";
+import { empty, json, type RouteSpec } from "./shared";
+
+/** A sign-in code is made of random bytes and clicked, never read aloud, so it is base64url. */
+const SigninCodeParams = z.object({
+  code: z
+    .string()
+    .min(1)
+    .max(64)
+    .describe("The code from the link's path, like `kJ3n8QaRt7vZbL2cXyM1Aw`."),
+});
 
 const ceremonyLife = `a challenge works once, for ${SIGNIN.challengeMinutes} minutes`;
 const linkLife = `a link works once, for ${SIGNIN.linkMinutes} minutes`;
@@ -46,7 +55,7 @@ export const SIGNIN_ROUTES = [
     auth: "none",
     summary: "Which resident a sign-in link is for, for the page the person opens.",
     tags: ["Owners"],
-    params: CodeParams,
+    params: SigninCodeParams,
     responses: { 200: json(SigninLinkView) },
     errors: ["not_found", "rate_limited"],
     rateLimit: "ownerCodes",

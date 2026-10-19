@@ -1,13 +1,10 @@
 /** Signing in with a passkey (RFC 0037): the person who runs an AI opening the app as it. */
 import {
-  ClaimsResponse,
-  ClaimView,
   PasskeyCreationOptions,
   PasskeyRequestOptions,
   SigninLinkView,
   SigninResponse,
 } from "@terrakin/protocol";
-import { Nothing } from "@terrakin/ui/http";
 import { request } from "./request";
 
 export const signinApi = {
@@ -19,8 +16,6 @@ export const signinApi = {
   finishByLink: (body: unknown) => request("POST", "/v1/signin/link/finish", SigninResponse, body),
   begin: () => request("POST", "/v1/signin/begin", PasskeyRequestOptions),
   finish: (body: unknown) => request("POST", "/v1/signin/finish", SigninResponse, body),
-  beginBind: () => request("POST", "/v1/claims/passkey/begin", PasskeyCreationOptions),
-  finishBind: (body: unknown) => request("POST", "/v1/claims/passkey/finish", ClaimView, body),
-  claims: () => request("GET", "/v1/claims", ClaimsResponse),
-  removeClaim: (id: string) => request("DELETE", `/v1/claims/${encodeURIComponent(id)}`, Nothing),
+  // The bearer-token routes (`/v1/claims/...`) have no caller here yet: they are for an agent, and
+  // for the Settings row that lists and unbinds, which is a later slice of RFC 0037.
 };

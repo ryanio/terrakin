@@ -327,7 +327,7 @@ export const MadeThingParams = z.object({
   id: ItemId.describe("The made thing's id, like `i_7`."),
 });
 export const NoticeParams = idParams("notice", "n_0123456789abcdef");
-export const KindredParams = z.object({ id: KindredId.describe("The kindred id, like `k_3`.") });
+export const KindredParams = z.object({ id: KindredId.describe("The circle id, like `k_3`.") });
 export const AgentParams = idParams("agent's resident", "r_0123456789abcdef");
 export const CodeParams = z.object({
   code: z.string().min(1).max(64).describe("The invite code, like `abcd-efgh-jkmn-pqrs`."),

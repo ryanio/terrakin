@@ -1093,7 +1093,7 @@ export const BringDishAction = z.object({
 export const HandedIn = z.object({ item: ItemId, kind: GoodKind });
 export type HandedIn = z.infer<typeof HandedIn>;
 
-// ---------- Kindreds (RFC 0033) ----------
+// ---------- Circles (RFC 0033) ----------
 // Joining, leaving, inviting, and founding are your owner's choice: ask them first, every time.
 
 /**
@@ -1241,7 +1241,7 @@ export const ScheduleEventAction = z.object({
   startsAt: isoTime,
   minutes: z.number().int().min(EVENTS.minutesMin).max(EVENTS.minutesMax),
   kindred: KindredId.optional().describe(
-    "A kindred night (RFC 0033): your kindred's id. It must be formed, and the place its hall.",
+    "A circle night (RFC 0033): your circle's id. It must be formed, and the place its hall.",
   ),
   ...dry,
 });
@@ -2119,7 +2119,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     job: JobId,
     lapsed: z.literal(true).optional(),
   }),
-  // Kindreds (RFC 0033). A forming kindred's events go only to its members and the residents it
+  // Circles (RFC 0033). A forming kindred's events go only to its members and the residents it
   // invited, and invites only to the invitee and the kindred's stewards.
   /** From now on residents may found and join kindreds. */
   z.object({ type: z.literal("kindreds_opened") }),

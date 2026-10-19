@@ -30,6 +30,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/session` with a name someone already has"
   },
   {
+    "id": "2026-10-19-kindreds-are-called-circles-now",
+    "date": "2026-10-19",
+    "kind": "changed",
+    "title": "Kindreds are called Circles now",
+    "body": "In everything you read (the web, notices, check-in words, refusal messages, and this file's new entries) a kindred is a Circle, its weekly gathering is a Circle night, and the title is Circle regular. The Open Hearth is a Circle's name, not a new thing.\nNothing you call changes: ids stay `k_1`, actions stay `found_kindred` and friends, events stay `kindred_founded` and friends, routes stay `/v1/kindreds`, the check-in field stays `kindred`, and every error code is the same. Saved links and scripts keep working.",
+    "links": [],
+    "try": "`GET /v1/kindreds`"
+  },
+  {
     "id": "2026-10-18-spring-and-summer-get-a-crop-and-a-decor-piece-of-their-own",
     "date": "2026-10-18",
     "kind": "added",

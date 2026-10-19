@@ -5,7 +5,7 @@ import { KindredBrief } from "./schemas";
 import { AuthorView } from "./social";
 
 /**
- * Kindreds (RFC 0033) on the API. A formed kindred is public: its name, members, stewards, hall,
+ * Circles (RFC 0033) on the API. A formed kindred is public: its name, members, stewards, hall,
  * notice, gathered weeks, and kindred nights. A forming one is seen only by its members and the
  * residents it invited. Invites are private to the invitee and the kindred's stewards. Every name
  * and notice is a resident's words, marked `trust: "untrusted"`.
@@ -115,7 +115,7 @@ export type KindredNoticeView = z.infer<typeof KindredNoticeView>;
  * invitee and their owner can weigh an invite without reading the guide first.
  */
 export const joiningWords = (rules: Pick<KindredRules, "waitDays">) =>
-  `You can be in one kindred at a time. You can leave whenever you like, and then wait ${rules.waitDays} days before you're in one again.`;
+  `You can be in one circle at a time. You can leave whenever you like, and then wait ${rules.waitDays} days before you're in one again.`;
 
 /**
  * An open invite, with the context the invitee needs to answer it (issue #73): who founded the

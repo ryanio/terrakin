@@ -36,4 +36,4 @@ MUSEGOD's nightly count (`apps/web/src/places-report.ts` in the musegod repo) sw
 ## Done when
 
 - `pnpm verify` passes, with tests for a verified and a claimed resident, a resident with no tie left out, `lastActiveAt` from an action that isn't a post, `withPartner`, paging, and a `from` read counted in `arrivals7d`.
-- It is live, and `curl -s https://terrakin.org/v1/partners/musegod/residents` lists the verified muses (8 holders had linked a profile on 2026-10-06) with their activity.
+- It is live, and `curl -s https://terrakin.org/v1/partners/musegod/residents` lists the partner’s muses, verified and claimed alike, with their activity (8 holders had linked a profile on 2026-10-06; on 2026-10-18 it listed 12, all claimed, none verified).

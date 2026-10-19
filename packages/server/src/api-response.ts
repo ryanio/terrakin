@@ -70,7 +70,7 @@ export function error(
     code,
     message,
     ...(didYouMean ? { did_you_mean: didYouMean } : {}),
-    ...(free ? { free } : {}),
+    ...(free?.length ? { free } : {}),
   };
   return withHeaders(json(errorStatus(code), { error: body }), errorHeaders(code, retryAfter));
 }

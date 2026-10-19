@@ -962,7 +962,8 @@ export class Api {
     if (!invite) return fail("not_found", INVITE_GONE);
     const { plot: chosen, build, share, ...profile } = body;
     const created = service.createSession(profile);
-    if (!created.ok) return fail(created.error.code, created.error.message);
+    if (!created.ok)
+      return fail(created.error.code, created.error.message, undefined, created.error.free);
     if (!created.residentId || !created.token) return fail("internal", "No session.");
     const me = created.residentId;
     const inviter = invite.inviter;

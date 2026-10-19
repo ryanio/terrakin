@@ -32,7 +32,7 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
     createSession: ({ body }) => {
       const result = service.createSession(body);
       // `free` goes out on a `name_taken` as the live socket's join already sends it, since SKILL.md
-      // tells an agent a refused join carries it (decision 0148).
+      // tells an agent a refused join carries it (decision 0302).
       if (!result.ok)
         return fail(result.error.code, result.error.message, undefined, result.error.free);
       if (!result.residentId || !result.token) return fail("internal", "No session.");

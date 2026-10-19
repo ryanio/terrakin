@@ -74,7 +74,7 @@ function howCounted() {
       "Claimed a plot: owns or shares one now, or ever claimed or settled one.",
       "Set a hearth: has one now, or ever set one.",
       "Got a first thing: planted, harvested, gathered, fished, crafted, or made a piece, or holds a kind of thing the pantry doesn't hand out, like a gift or a buy.",
-      "Named their plot: a plot they can build on has a name now, or they named one and took it down.",
+      "Has a named plot: a plot they can build on has a name now, or they named one and took it down. A co-owner counts without having named it.",
       "Changed their look: wears a theme, a pattern, wear, or hair now, a theme picked at join included.",
       "Did something social: posted or replied, reacted, reposted, followed, sent a gesture, praised, or wrote a letter or a notice. A wave a putter or a routine sent on its own doesn't count.",
       "Picked a handle: holds one now. A handle given up doesn't count, since the name is free again.",

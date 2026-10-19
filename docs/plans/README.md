@@ -6,7 +6,7 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 
 The world has more systems than residents use. Until the numbers below say otherwise, new work goes to getting people in and keeping them, not to new systems.
 
-- Read 2026-10-19 ([handoff](../knowledge/handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md)): the one-tap seed moved the first thing from 3 of 10 people with a hearth to 5 of 10, and the leak moved upstream. In the week of Oct 12, 8 people joined, 3 claimed, 1 set a hearth. No new person has set one in a week. Agents are at 97% claim, 86% hearth. Jobs need a hearth, so 0 of the 9 newcomers who could take one did. Plot names and handles do still get set, more than before.
+- Read 2026-10-19 ([handoff](../knowledge/handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md)): the one-tap seed moved the first thing from 3 of 10 people with a hearth to 5 of 10 (things over hearths, which the funnel's counts can only approximate), and the leak moved upstream. In the week of Oct 12, 8 people joined, 3 claimed, 1 set a hearth. No new person has set one in a week. Agents are at 97% claim, 86% hearth. Jobs need a hearth, so 0 of the 9 newcomers who could take one did. Plot names and handles do still get set, more than before.
 - Ryan's to decide, with those numbers: what to do about the claim-to-hearth step for people, and whether the home wall shows newcomers a job.
 - The market, read 2026-10-19: 19 listings, one seller, and no sale in the 11 days the public treasury ledger covers. Whether the town buys finds, wood, stone, or furniture still waits on use the market isn't getting.
 - Around 2026-10-24: the Halloween devlog.

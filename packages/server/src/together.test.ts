@@ -807,6 +807,22 @@ describe("invites", () => {
     expect(twice.status).toBe(404);
   });
 
+  // An invite's join is a join, so a taken name comes back with free ones here too
+  // (decision 0302), as it does from POST /v1/session.
+  it("sends free names when the name an invite is accepted with is taken", async () => {
+    const t = await start();
+    const ada = await settled(t, "Ada");
+    const code = (await t.call("POST", "/v1/invites", {}, ada.token)).body.invite.code;
+    const taken = await t.call("POST", `/v1/invites/${code}/accept`, {
+      name: "Ada",
+      kind: "human",
+    });
+    expect(taken.status).toBe(400);
+    expect(taken.body.error.code).toBe("name_taken");
+    expect(taken.body.error.free.length).toBeGreaterThan(0);
+    for (const name of taken.body.error.free) expect(taken.body.error.message).toContain(name);
+  });
+
   it("settles on a chosen plot, and falls back to a suggestion when it's taken", async () => {
     const t = await start();
     const ada = await settled(t, "Ada");

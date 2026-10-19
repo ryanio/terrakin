@@ -90,7 +90,7 @@ export interface Failure {
   message: string;
   /** For `rate_limited`: seconds until trying again makes sense. */
   retryAfter?: number;
-  /** For a join refused as `name_taken`: names nobody has (decision 0148). */
+  /** For a join refused as `name_taken`: names nobody has (decision 0302). */
   free?: readonly string[];
 }
 
@@ -154,7 +154,7 @@ export const fail = (
   error,
   message,
   ...(retryAfter === undefined ? {} : { retryAfter }),
-  ...(free === undefined ? {} : { free }),
+  ...(free?.length ? { free } : {}),
 });
 export const unauthorized = () => fail("unauthorized", "Missing or unknown bearer token.");
 

@@ -122,20 +122,14 @@ function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<strin
   };
 }
 
+/**
+ * Every step but `joined`, read off what `stepsOf` returned rather than a list kept beside it: a
+ * step this list forgot would count zero and look like a real answer.
+ */
 function add(counts: NewcomerCounts, steps: ReturnType<typeof stepsOf>) {
   counts.joined++;
-  for (const key of [
-    "claimed",
-    "hearth",
-    "thing",
-    "plotName",
-    "look",
-    "social",
-    "handle",
-    "pet",
-    "job",
-  ] as const) {
-    if (steps[key]) counts[key]++;
+  for (const [key, reached] of Object.entries(steps) as [keyof typeof steps, boolean][]) {
+    if (reached) counts[key]++;
   }
 }
 

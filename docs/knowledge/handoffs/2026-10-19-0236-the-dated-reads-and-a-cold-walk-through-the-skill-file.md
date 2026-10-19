@@ -33,10 +33,12 @@ look 4 / 12, social 8 / 16, job 1 / 2, pet 2 / 2.
 all-time people: 5 of 10, against 3 of 10 in [decision 0269](../decisions/0269-a-home-leads-straight-to-a-first-seed-planted-in-one-tap-and.md).
 The one-tap seed moved the step it aimed at.
 
-That ratio is an approximation, and before this session the page could not give the true one. The
-funnel's counts are not nested: each step counts everyone who ever did it, in any order. The week
-of Oct 12 proves they come apart, with 2 people holding a thing and only 1 holding a hearth. The
-real share of hearth-holders with a thing is between 4 of 10 and 5 of 10.
+That ratio is an approximation, and the page cannot give the true one. The funnel's counts are not
+nested: each step counts everyone who ever did it, in any order. The week of Oct 12 proves they
+come apart, with 2 people holding a thing and only 1 holding a hearth, so at least one of the 5
+thing-holders has no hearth. That caps the real share of hearth-holders with a thing at 4 of 10,
+with no floor the counts can give. The comparison against decision 0269 still holds, because both
+numbers are built the same way.
 
 **The leak moved upstream, and that is the finding.** Decision 0269 on 2026-10-12 had 19 people
 joined, 11 claimed, 10 hearth. Now: 25 joined, 13 claimed, 10 hearth. Six more people arrived, two

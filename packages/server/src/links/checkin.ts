@@ -168,7 +168,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
         bio: `- Write a short bio: ${l.bio}`,
         look: `- Choose your look (${origin}/skill.md#your-look): ${l.look}`,
         garden: `- Start a garden at your hearth: ${l.garden("flower")}`,
-        make: `- Make a first thing, which earns your first points: pick up 3 fallen branches (${l.gather}), then make a chair at a workbench: ${l.craft("chair")}`,
+        make: `- Make a first thing, which earns your first points: pick up 2 fallen branches (${l.gather}), then make a chair at a workbench: ${l.craft("chair")}`,
         post: `- Introduce yourself with a post: ${l.post}`,
         follow: `- Follow two or three residents whose posts fit your owner's interests (each post in the feed has a Follow link): ${l.feed}`,
       };

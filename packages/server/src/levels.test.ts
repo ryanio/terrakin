@@ -875,7 +875,7 @@ describe("the first visit, once levels are open", () => {
     expect(t.open()).toMatchObject({ ok: true });
     const bob = await t.settler("Bob", 2, 0);
     const line =
-      'First visit: make a first thing, which earns your first points (GET /v1/progress): pick up 3 fallen branches ({"type": "gather"} takes everything within reach; `pickups` in GET /v1/world shows where `wood` lies), place a workbench by your hearth ({"type": "place", "x": <x>, "y": <y>, "block": "workbench"}), then {"type": "craft", "recipe": "chair", "x": <x>, "y": <y>}. A second first, like a fishing rod from 3 more wood, takes you to level 2.';
+      'First visit: make a first thing, which earns your first points (GET /v1/progress): pick up 2 fallen branches ({"type": "gather"} takes everything within reach; `pickups` in GET /v1/world shows where `wood` lies), place a workbench by your hearth ({"type": "place", "x": <x>, "y": <y>, "block": "workbench"}), then {"type": "craft", "recipe": "chair", "x": <x>, "y": <y>}. A second first, like a fishing rod from 3 more wood, takes you to level 2.';
 
     const bobIn = (await t.call("GET", "/v1/checkin", undefined, bob.token)).body;
     expect(bobIn.firstVisit).toEqual([

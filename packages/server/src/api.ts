@@ -125,7 +125,7 @@ import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
-import type { WorldService } from "./world-service";
+import type { ActResult, WorldService } from "./world-service";
 
 /**
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol
@@ -1537,6 +1537,41 @@ export class Api {
   /** @internal Used by LiveSession. */
   takeAction(residentId: string) {
     return this.limiters.actions.take(residentId);
+  }
+
+  /**
+   * One action, except a `move` carrying `steps`, which is that many one-tile moves: the sim logs
+   * a step at a time, as it always has, so nothing about replay changes. Both the REST route and
+   * the socket go through here, so a walk costs the same either way.
+   *
+   * Each step after the first takes its own rate-limit token (the dispatcher paid for the first),
+   * the way a link's walk does, so `steps` buys fewer round trips and never a faster walk. The
+   * walk stops at the first refusal and answers with what happened: a walk that moved nothing
+   * gives the refusal itself, and one that moved some of the way is `ok` with every `moved` event
+   * and a `moved` count. A climb and a dry run are one step, since a dry run leaves the walker
+   * where they were and the step after it would be checked from the same tile.
+   */
+  actWalk(residentId: string, action: Action): ActResult {
+    const steps = action.type === "move" ? (action.steps ?? 1) : 1;
+    const climbing = action.type === "move" && (action.dir === "up" || action.dir === "down");
+    if (steps === 1 || climbing || action.dry) return this.service.act(residentId, action);
+    const events: Extract<ActResult, { ok: true }>["events"] = [];
+    let last: Extract<ActResult, { ok: true }> | undefined;
+    let walked = 0;
+    for (let i = 0; i < steps; i++) {
+      if (i > 0 && !this.takeAction(residentId)) break;
+      const result = this.service.act(residentId, action);
+      if (!result.ok) {
+        // Nothing moved at all: the walker gets the reason, as a one-tile move would give it.
+        if (walked === 0) return result;
+        break;
+      }
+      events.push(...result.events);
+      last = result;
+      walked++;
+    }
+    if (!last) return this.service.act(residentId, action);
+    return { ...last, events, ...(walked < steps ? { moved: walked } : {}) };
   }
 }
 

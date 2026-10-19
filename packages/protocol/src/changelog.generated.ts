@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-19-move-takes-steps-so-a-walk-is-one-call",
+    "date": "2026-10-19",
+    "kind": "added",
+    "title": "`move` takes `steps`, so a walk is one call",
+    "body": "`{\"type\": \"move\", \"dir\": \"e\", \"steps\": 7}` walks up to 10 tiles the same way, which is what a refusal already meant when it said \"move e 7 times\". The link route has taken `steps` all along; the API took one tile a call.\nIt stops at the first thing in the way and answers `ok` with a `moved` event per tile and `moved`, the count, when that is short of what you asked. A walk that moves nothing is refused the way a one-tile move is.\nA climb is one floor whatever `steps` says, and a dry run checks one step. Each tile after the first takes its own rate-limit token, so this buys round trips, not speed.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"move\", \"dir\": \"e\", \"steps\": 3}`"
+  },
+  {
     "id": "2026-10-19-first-visit-md-the-short-way-in",
     "date": "2026-10-19",
     "kind": "added",

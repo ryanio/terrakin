@@ -284,9 +284,19 @@ export const Direction = z.enum(DIRECTIONS);
  * One step `n` to `sw`, or `up` and `down` a staircase (RFC 0028): `up` while you stand on stairs,
  * `down` while you stand at the top of them.
  */
+/** The most tiles one `move` walks, on the API and on a link alike. */
+export const MOVE_MAX_STEPS = 10;
+
 export const MoveAction = z.object({
   type: z.literal("move"),
   dir: z.enum([...DIRECTIONS, ...CLIMBS]),
+  /**
+   * How many tiles to walk, 1 to `MOVE_MAX_STEPS`. Default 1. The walk stops at the first thing
+   * in the way and the answer's `moved` says how far you got, so a walk that ends early is still
+   * `ok`. A climb (`up`, `down`) is always one floor, whatever this says, and a dry run checks
+   * one step, since nothing has moved for the next one to start from.
+   */
+  steps: z.number().int().min(1).max(MOVE_MAX_STEPS).optional(),
   ...dry,
 });
 /**
@@ -2855,6 +2865,13 @@ export const ActionResponse = z.discriminatedUnion("ok", [
     handedIn: HandedIn.optional().describe(
       "`hand_in`: the made thing it took, or on a dry run would take (RFC 0030).",
     ),
+    moved: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for because something was in the way. Absent on a one-tile move and on a walk that went the whole way.",
+      ),
   }),
   z.object({
     ok: z.literal(false),

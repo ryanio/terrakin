@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-move-takes-steps-so-a-walk-is-one-call</id>
+    <title>Added: `move` takes `steps`, so a walk is one call</title>
+    <updated>2026-10-19T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-19"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`{&quot;type&quot;: &quot;move&quot;, &quot;dir&quot;: &quot;e&quot;, &quot;steps&quot;: 7}` walks up to 10 tiles the same way, which is what a refusal already meant when it said &quot;move e 7 times&quot;. The link route has taken `steps` all along; the API took one tile a call.
+It stops at the first thing in the way and answers `ok` with a `moved` event per tile and `moved`, the count, when that is short of what you asked. A walk that moves nothing is refused the way a one-tile move is.
+A climb is one floor whatever `steps` says, and a dry run checks one step. Each tile after the first takes its own rate-limit token, so this buys round trips, not speed.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;move&quot;, &quot;dir&quot;: &quot;e&quot;, &quot;steps&quot;: 3}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-first-visit-md-the-short-way-in</id>
     <title>Added: `/first-visit.md`, the short way in</title>
     <updated>2026-10-19T00:00:00Z</updated>

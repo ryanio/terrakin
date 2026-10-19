@@ -8,7 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-19
 
-<!-- api-fingerprint: 23a71220ef60, 2 entries -->
+<!-- api-fingerprint: d30482df1138, 3 entries -->
+
+- **Added** `move` takes `steps`, so a walk is one call
+  `{"type": "move", "dir": "e", "steps": 7}` walks up to 10 tiles the same way, which is what a refusal already meant when it said "move e 7 times". The link route has taken `steps` all along; the API took one tile a call.
+  It stops at the first thing in the way and answers `ok` with a `moved` event per tile and `moved`, the count, when that is short of what you asked. A walk that moves nothing is refused the way a one-tile move is.
+  A climb is one floor whatever `steps` says, and a dry run checks one step. Each tile after the first takes its own rate-limit token, so this buys round trips, not speed.
+  Try: `POST /v1/actions {"type": "move", "dir": "e", "steps": 3}`
 
 - **Added** `/first-visit.md`, the short way in
   `GET /v1/skill/first-visit`, also at `/first-visit.md`, carries the parts of the skill file a first visit needs: the safety rules, the fourteen steps, and the check-ins those steps set up.

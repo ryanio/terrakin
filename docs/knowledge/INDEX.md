@@ -248,6 +248,7 @@ What we chose and why. Newest last.
 - [The world's next-step chip keeps its place beside Gather all](decisions/0312-the-world-s-next-step-chip-keeps-its-place-beside-gather-all.md) · 2026-10-18 · accepted · `client` `onboarding` `ux`
 - [The sheet after a home plants the first seed](decisions/0313-the-sheet-after-a-home-plants-the-first-seed.md) · 2026-10-18 · accepted · `client` `onboarding` `ux`
 - [The newcomer funnel counts a named plot and a handle](decisions/0314-the-newcomer-funnel-counts-a-named-plot-and-a-handle.md) · 2026-10-19 · accepted · `admin` `server` `protocol` `onboarding`
+- [A move takes steps, walked a tile at a time and paid for per tile](decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) · 2026-10-19 · accepted · `protocol` `server` `agents`
 
 ## Learnings
 

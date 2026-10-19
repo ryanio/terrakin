@@ -381,7 +381,7 @@ export const JOIN_CONFIRM_CODE = /^[0-9a-z]{16,64}$/;
 /** How long a code from the first page of `GET /v1/join` works. */
 export const JOIN_CODE_MS = 10 * 60_000;
 /** Most tiles one move link walks. Each step is one move in the world. */
-export const MOVE_MAX_STEPS = 10;
+export { MOVE_MAX_STEPS } from "../schemas";
 
 /**
  * The body of a Markdown error. The `Error code:` line is the contract: tests read the code from

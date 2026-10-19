@@ -307,6 +307,119 @@ describe("REST", () => {
     expect(codes).toContain(429);
   });
 
+  describe("a move with steps", () => {
+    const where = (service: WorldService, id: string) => {
+      const r = service.state.residents[id];
+      return `${r?.x},${r?.y}`;
+    };
+
+    it("walks that many tiles in one call, and says so when something stops it short", async () => {
+      const { base, service } = await start();
+      const { token, residentId } = await join_(base, "Wren");
+      const from = where(service, residentId);
+
+      const walked = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 3 },
+        token,
+      );
+      expect(walked.status).toBe(200);
+      expect(walked.body.ok).toBe(true);
+      expect(walked.body.events.filter((e: { type: string }) => e.type === "moved")).toHaveLength(
+        3,
+      );
+      // The whole walk went through, so there is nothing to say about how far it got.
+      expect(walked.body.moved).toBeUndefined();
+      expect(where(service, residentId)).not.toBe(from);
+
+      // The world's edge stops the rest of a long walk: what happened still happened.
+      const short = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 10 },
+        token,
+      );
+      expect(short.body.ok).toBe(true);
+      expect(short.body.moved).toBeLessThan(10);
+      expect(short.body.events.filter((e: { type: string }) => e.type === "moved")).toHaveLength(
+        short.body.moved,
+      );
+
+      // Against the edge now, so the walk moves nothing and is refused like one tile would be.
+      const stuck = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 4 },
+        token,
+      );
+      expect(stuck.body.ok).toBe(false);
+      expect(stuck.body.error.code).toBe("out_of_bounds");
+    });
+
+    it("pays a rate-limit token for each tile after the first", async () => {
+      // A world wide enough that only the tokens can stop the walk, never its edge.
+      const wide = { ...CONFIG, width: 40, height: 40 };
+      const service = new WorldService({ store: new MemoryStore(), config: wide });
+      // The bucket holds twice the rate, so this is 4 tokens: the dispatcher takes one and the
+      // walk can pay for 3 more tiles, well short of the 6 it was asked for.
+      const server = createApp({ service, actionsPerSecond: 2, onResponse });
+      const base = await listenOnFreePort(server, cleanups);
+      const { token } = await join_(base, "Wren");
+      const walked = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 6 },
+        token,
+      );
+      expect(walked.body.ok).toBe(true);
+      // The bucket refills as the walk runs, so pin that it ran out rather than the exact tile.
+      expect(walked.body.moved).toBeGreaterThanOrEqual(4);
+      expect(walked.body.moved).toBeLessThan(6);
+    });
+
+    it("takes one step for a climb and for a dry run", async () => {
+      const { base } = await start();
+      const { token } = await join_(base, "Wren");
+      const dry = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 4, dry: true },
+        token,
+      );
+      expect(dry.body).toMatchObject({ ok: true, dry: true });
+      expect(dry.body.events).toHaveLength(0);
+      // No stairs here, so a climb is refused once rather than four times.
+      const climb = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "up", steps: 4 },
+        token,
+      );
+      expect(climb.body).toMatchObject({ ok: false, error: { code: "no_stairs" } });
+    });
+
+    it("refuses more steps than the cap", async () => {
+      const { base } = await start();
+      const { token } = await join_(base, "Wren");
+      const over = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 11 },
+        token,
+      );
+      expect(over.status).toBe(400);
+      expect(over.body.error.code).toBe("bad_request");
+    });
+  });
+
   it("brings idle residents back online on their next action", async () => {
     let now = 0;
     const { base, service } = await start(new MemoryStore(), { now: () => now });

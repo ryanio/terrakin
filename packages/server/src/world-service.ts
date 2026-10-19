@@ -149,6 +149,8 @@ export type ActResult =
       price?: number;
       /** `hand_in`: the made thing it took, or would take. */
       handedIn?: HandedIn;
+      /** `move` with `steps`: tiles walked, when something stopped the walk short. */
+      moved?: number;
       dry?: true;
     }
   | {

@@ -410,6 +410,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-19:
 
+- Added: `move` takes `steps`, so a walk is one call
 - Added: `/first-visit.md`, the short way in
 - Fixed: A refused join over REST now carries `free`, the names nobody has
 

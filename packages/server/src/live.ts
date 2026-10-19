@@ -421,7 +421,8 @@ export class LiveSession {
     // The resident may have been marked offline (DELETE /v1/session from another client).
     // An open socket means they're here, so bring them back. A dry run changes nothing.
     if (!msg.action.dry) service.ensureOnline(residentId);
-    const result = service.act(residentId, msg.action);
+    // A `move` with `steps` walks a tile at a time here too, paying for each one (`actWalk`).
+    const result = this.api.actWalk(residentId, msg.action);
     if (!result.ok) {
       const { code, message, retryAfter } = result.error;
       return this.fail(code, message, { id: msg.id, dry: result.dry, retryAfter });

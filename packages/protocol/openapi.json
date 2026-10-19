@@ -27578,6 +27578,12 @@
                     "$ref": "#/components/schemas/HandedIn"
                   }
                 ]
+              },
+              "moved": {
+                "description": "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for because something was in the way. Absent on a one-tile move and on a walk that went the whole way.",
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -30851,6 +30857,11 @@
               "up",
               "down"
             ]
+          },
+          "steps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",

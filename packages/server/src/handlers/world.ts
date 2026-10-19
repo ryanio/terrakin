@@ -48,7 +48,8 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
     act: ({ viewer, body }) => {
       // A dry run never brings anyone online: `act` checks it as if they were.
       if (!body.dry) service.arrive(viewer, body.type);
-      return { status: 200, body: service.act(viewer, body) };
+      // `actWalk` is `act`, except a `move` with `steps`, which it walks a tile at a time.
+      return { status: 200, body: api.actWalk(viewer, body) };
     },
     getPlotPlan: ({ params }) => {
       const { state } = service;

@@ -401,7 +401,7 @@ describe("names", () => {
     refused(state, TOWN_ACTOR, { type: "clear_kindred_name", kindred: "k_1" }, "already_set");
     refused(state, "ada", { type: "clear_kindred_name", kindred: "k_1" }, "server_only");
     const k = kindredById(state, "k_1");
-    expect(k && kindredName(k)).toBe("Kindred 1");
+    expect(k && kindredName(k)).toBe("Circle 1");
     // Its old name is free for anyone.
     ok(state, "bob", found("Lantern Row"));
     ok(state, "ada", { type: "name_kindred", name: "Lantern Lane" });

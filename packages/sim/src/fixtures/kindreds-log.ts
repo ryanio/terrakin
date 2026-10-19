@@ -2,7 +2,7 @@ import type { Input, WorldConfig } from "../types";
 import { TOWN_ACTOR } from "../types";
 
 /**
- * Kindreds (RFC 0033) from the switch on. `KINDREDS_SETUP` is a world of 5 by 5 plots with
+ * Circles (RFC 0033) from the switch on. `KINDREDS_SETUP` is a world of 5 by 5 plots with
  * thirteen people and Ada's three AIs, each on a plot of their own with a hearth, three days on so
  * they can found and host, with coins, items, and levels open and kindreds just opened.
  * `kindreds.test.ts` builds its worlds from it.

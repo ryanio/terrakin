@@ -533,7 +533,7 @@ export interface WorldState {
    */
   jobs?: JobsState;
   /**
-   * Kindreds (RFC 0033): small named groups with stewards, invites, a hall, and the weeks their
+   * Circles (RFC 0033): small named groups with stewards, invites, a hall, and the weeks their
    * kindred night gathered. Absent until `open_kindreds`, so worlds from before it hash as they
    * always have.
    */
@@ -1666,7 +1666,7 @@ export type Command =
    * made thing's id, or a sweet's kind. It leaves the world.
    */
   | { type: "bring_dish"; item: string }
-  // Kindreds (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
+  // Circles (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
   /** Found a kindred and become its first steward, for `KINDREDS.fee` coins, burned. */
   | { type: "found_kindred"; name: string }
   /** A steward invites a resident to their kindred, with a note to them at most `noteMax` long. */
@@ -2360,7 +2360,7 @@ export type WorldEvent =
   | { type: "page_edition_set"; edition: number }
   /** A resident let `job` go, or it lapsed at `new_day` after `JOBS.keepDays` days. Private. */
   | { type: "job_dropped"; residentId: ResidentId; job: string; lapsed?: true }
-  // Kindreds (RFC 0033). Public, but for a forming kindred the server sends them only to its
+  // Circles (RFC 0033). Public, but for a forming kindred the server sends them only to its
   // members and the residents it invited, and invites go only to the invitee and the stewards.
   /** Kindreds are open: residents may found and join them from now on. */
   | { type: "kindreds_opened" }
@@ -2665,7 +2665,7 @@ export const REJECTION_CODES = [
   "no_job",
   /** You hold nothing of the kind the job asks for that you made yourself. */
   "nothing_to_hand_in",
-  // Kindreds (RFC 0033).
+  // Circles (RFC 0033).
   /** Kindreds aren't open in this world yet. */
   "kindreds_closed",
   /** No kindred has that id, or you can't see it while it's forming. */

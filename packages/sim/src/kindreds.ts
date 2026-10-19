@@ -21,7 +21,7 @@ import type {
 import { canBuildOn, isCommons, plotInBounds } from "./world";
 
 /**
- * Kindreds (RFC 0033): a small named group of residents, people, agents, or both, with a steward
+ * Circles (RFC 0033): a small named group of residents, people, agents, or both, with a steward
  * or two, a hall, and one shared ritual, kindred night. Everything here is a logged input checked
  * against the state, and nothing runs until the server logs `open_kindreds`, so older worlds hash
  * as they always have.
@@ -79,7 +79,7 @@ export const KINDREDS = {
 
 /** Each kindred title's words, and which `KINDREDS` number is the count of nights that unlocks it. */
 export const KINDRED_TITLE_INFO: Record<KindredTitle, { label: string; at: "regularAt" }> = {
-  kindred_regular: { label: "Kindred regular", at: "regularAt" },
+  kindred_regular: { label: "Circle regular", at: "regularAt" },
 };
 
 type Mutation = () => WorldEvent[];
@@ -105,7 +105,7 @@ export function kindredOf(state: WorldState, id: ResidentId): Kindred | undefine
 
 /** What a kindred goes by: its name, or "Kindred 3" after staff took its name down. */
 export const kindredName = (k: Pick<Kindred, "id" | "name">): string =>
-  k.name ?? `Kindred ${k.id.replace(/^k_/, "")}`;
+  k.name ?? `Circle ${k.id.replace(/^k_/, "")}`;
 
 /**
  * What a kindred goes by where others read it: its name, or "Kindred 3" while `held` says staff
@@ -173,16 +173,16 @@ function nameOf(state: WorldState, value: unknown, except?: Kindred): string | R
   if (name.length < KINDREDS.nameMin || name.length > KINDREDS.nameMax) {
     return refuse(
       "invalid_name",
-      `A kindred's name is ${KINDREDS.nameMin} to ${KINDREDS.nameMax} characters.`,
+      `A circle's name is ${KINDREDS.nameMin} to ${KINDREDS.nameMax} characters.`,
     );
   }
   if (BY_ID.test(name)) {
-    return refuse("invalid_name", "That's how a kindred without a name is shown. Pick another.");
+    return refuse("invalid_name", "That's how a circle without a name is shown. Pick another.");
   }
   const key = nameKey(name);
   for (const k of Object.values(state.kindreds?.list ?? {})) {
     if (k !== except && k.name !== undefined && nameKey(k.name) === key) {
-      return refuse("name_taken", "Another kindred has that name.");
+      return refuse("name_taken", "Another circle has that name.");
     }
   }
   return name;
@@ -199,7 +199,7 @@ export const renamedThisWeek = (k: Pick<Kindred, "renamedDay">, day: number): bo
 
 /** The kindreds state, or why kindreds aren't open. */
 function opened(state: WorldState): KindredsState | Rejection {
-  return state.kindreds ?? refuse("kindreds_closed", "Kindreds aren't open in this world yet.");
+  return state.kindreds ?? refuse("kindreds_closed", "Circles aren't open in this world yet.");
 }
 
 const isRejection = (value: unknown): value is Rejection =>
@@ -211,7 +211,7 @@ function mine(state: WorldState, actor: ResidentId): Kindred | Rejection {
   if (isRejection(on)) return on;
   return (
     kindredOf(state, actor) ??
-    refuse("not_in_kindred", "You aren't in a kindred. Found one, or accept an invite.")
+    refuse("not_in_kindred", "You aren't in a circle. Found one, or accept an invite.")
   );
 }
 
@@ -229,7 +229,7 @@ function named(state: WorldState, id: unknown): Kindred | Rejection {
   if (isRejection(on)) return on;
   return (
     kindredById(state, id) ??
-    refuse("unknown_kindred", "No kindred has that id. See GET /v1/kindreds.")
+    refuse("unknown_kindred", "No circle has that id. See GET /v1/kindreds.")
   );
 }
 
@@ -239,19 +239,19 @@ function waiting(state: WorldState, id: ResidentId, who: "You" | "They"): Reject
   if (left === 0) return null;
   return refuse(
     "wait_after_leaving",
-    `${who} left a kindred recently. ${who} can be in one again in ${days(left)}.`,
+    `${who} left a circle recently. ${who} can be in one again in ${days(left)}.`,
   );
 }
 
 /** Why `k` can't take `id` as a member now, or null: its size, and its share of one household. */
 function roomFor(state: WorldState, k: Kindred, id: ResidentId): Rejection | null {
   if (Object.keys(k.members).length >= KINDREDS.membersMax) {
-    return refuse("kindred_full", `A kindred has at most ${KINDREDS.membersMax} members.`);
+    return refuse("kindred_full", `A circle has at most ${KINDREDS.membersMax} members.`);
   }
   if (fromHousehold(state, k, id) >= KINDREDS.perHousehold) {
     return refuse(
       "household_full",
-      `A kindred has at most ${KINDREDS.perHousehold} members from one household (a person and their AIs).`,
+      `A circle has at most ${KINDREDS.perHousehold} members from one household (a person and their AIs).`,
     );
   }
   return null;
@@ -441,23 +441,23 @@ function removeMember(
 export function foundProblem(state: WorldState, id: ResidentId): Rejection | null {
   const on = opened(state);
   if (isRejection(on)) return on;
-  if (isTownsfolk(state, id)) return refuse("not_eligible", "Townsfolk don't found kindreds.");
+  if (isTownsfolk(state, id)) return refuse("not_eligible", "Townsfolk don't found circles.");
   const ok = townEligibility(state, id);
   if (!ok.eligible) {
     return refuse(
       "not_eligible",
-      `To found a kindred, you need what voting in the Town Hall needs. ${ok.message}`,
+      `To found a circle, you need what voting in the Town Hall needs. ${ok.message}`,
     );
   }
   const k = kindredOf(state, id);
-  if (k) return refuse("in_kindred", "You're already in a kindred. Leave it first.");
+  if (k) return refuse("in_kindred", "You're already in a circle. Leave it first.");
   const wait = waiting(state, id, "You");
   if (wait) return wait;
   const have = state.economy?.coins[id] ?? 0;
   if (have < KINDREDS.fee) {
     return refuse(
       "not_enough_coins",
-      `Founding a kindred is ${coinCount(KINDREDS.fee)}, and you have ${coinCount(have)}.`,
+      `Founding a circle is ${coinCount(KINDREDS.fee)}, and you have ${coinCount(have)}.`,
     );
   }
   return null;
@@ -503,24 +503,24 @@ export function checkFoundKindred(
 function inviteProblem(state: WorldState, k: Kindred, id: ResidentId): Rejection | null {
   const them = residentById(state, id);
   if (!them) return refuse("unknown_resident", "Nobody in the world has that id.");
-  if (isTownsfolk(state, id)) return refuse("not_eligible", "Townsfolk aren't in kindreds.");
-  if (!them.hearth) return refuse("no_hearth", "They need a hearth before they join a kindred.");
+  if (isTownsfolk(state, id)) return refuse("not_eligible", "Townsfolk aren't in circles.");
+  if (!them.hearth) return refuse("no_hearth", "They need a hearth before they join a circle.");
   const theirs = kindredOf(state, id);
   if (theirs) {
     return refuse(
       "in_kindred",
-      theirs === k ? "They're already in your kindred." : "They're already in a kindred.",
+      theirs === k ? "They're already in your circle." : "They're already in a circle.",
     );
   }
   const wait = waiting(state, id, "They");
   if (wait) return wait;
   if (k.invites && Object.hasOwn(k.invites, id)) {
-    return refuse("already_invited", "They already hold an invite from your kindred.");
+    return refuse("already_invited", "They already hold an invite from your circle.");
   }
   if (Object.keys(k.invites ?? {}).length >= KINDREDS.invitesMax) {
     return refuse(
       "invite_limit",
-      `A kindred holds at most ${KINDREDS.invitesMax} open invites. Take one back, or wait for one to be answered.`,
+      `A circle holds at most ${KINDREDS.invitesMax} open invites. Take one back, or wait for one to be answered.`,
     );
   }
   return roomFor(state, k, id);
@@ -562,7 +562,7 @@ export function checkCancelKindredInvite(
   if (isRejection(k)) return k;
   const { resident } = command;
   if (typeof resident !== "string" || !k.invites || !Object.hasOwn(k.invites, resident)) {
-    return refuse("no_invite", "They hold no invite from your kindred.");
+    return refuse("no_invite", "They hold no invite from your circle.");
   }
   return () => {
     dropInvite(k, resident);
@@ -575,7 +575,7 @@ function invitedTo(state: WorldState, actor: ResidentId, id: unknown): Kindred |
   const k = named(state, id);
   if (isRejection(k)) return k;
   if (!k.invites || !Object.hasOwn(k.invites, actor)) {
-    return refuse("no_invite", "You hold no invite from that kindred. A steward invites you.");
+    return refuse("no_invite", "You hold no invite from that circle. A steward invites you.");
   }
   return k;
 }
@@ -588,9 +588,9 @@ export function checkJoinKindred(
 ): KindredsChecked {
   const k = invitedTo(state, actor, command.kindred);
   if (isRejection(k)) return k;
-  if (isTownsfolk(state, actor)) return refuse("not_eligible", "Townsfolk aren't in kindreds.");
+  if (isTownsfolk(state, actor)) return refuse("not_eligible", "Townsfolk aren't in circles.");
   const theirs = kindredOf(state, actor);
-  if (theirs) return refuse("in_kindred", "You're already in a kindred. Leave it first.");
+  if (theirs) return refuse("in_kindred", "You're already in a circle. Leave it first.");
   const problem = waiting(state, actor, "You") ?? roomFor(state, k, actor);
   if (problem) return problem;
   return () => {
@@ -635,7 +635,7 @@ export function checkRemoveFromKindred(
   if (isRejection(k)) return k;
   const { resident } = command;
   if (typeof resident !== "string" || !isMember(k, resident)) {
-    return refuse("not_in_kindred", "They aren't in your kindred.");
+    return refuse("not_in_kindred", "They aren't in your circle.");
   }
   if (isSteward(k, resident)) {
     return refuse("not_eligible", "A steward can't be removed. A steward steps down themselves.");
@@ -663,7 +663,7 @@ export function checkSetKindredSteward(
     return refuse("not_eligible", "Say steward: true to make one, or false to step down.");
   }
   if (typeof resident !== "string" || !isMember(k, resident)) {
-    return refuse("not_in_kindred", "They aren't in your kindred.");
+    return refuse("not_in_kindred", "They aren't in your circle.");
   }
   if (!steward) {
     if (resident !== actor) {
@@ -679,7 +679,7 @@ export function checkSetKindredSteward(
   }
   if (isSteward(k, resident)) return refuse("already_set", "They're a steward already.");
   if (k.stewards.length >= KINDREDS.stewardsMax) {
-    return refuse("not_eligible", `A kindred has at most ${KINDREDS.stewardsMax} stewards.`);
+    return refuse("not_eligible", `A circle has at most ${KINDREDS.stewardsMax} stewards.`);
   }
   return () => {
     k.stewards = [...k.stewards, resident];
@@ -699,7 +699,7 @@ export function checkNameKindred(
   if (renamedThisWeek(k, day)) {
     return refuse(
       "rename_limit",
-      `A kindred is renamed once a UTC week, and it was this week. The next rename can come on Monday, ${dayName(weekStart(day) + 7)} (UTC).`,
+      `A circle is renamed once a UTC week, and it was this week. The next rename can come on Monday, ${dayName(weekStart(day) + 7)} (UTC).`,
     );
   }
   const name = nameOf(state, command.name, k);
@@ -732,7 +732,7 @@ export function checkSetKindredHall(
   if (k.status !== "formed") {
     return refuse(
       "not_formed",
-      "A forming kindred has no hall yet. It forms with three households.",
+      "A forming circle has no hall yet. It forms with three households.",
     );
   }
   if (!isWhole(px) || !isWhole(py) || !plotInBounds(state.config, px, py)) {
@@ -747,7 +747,7 @@ export function checkSetKindredHall(
   if (k.hall?.px === px && k.hall.py === py)
     return refuse("already_set", "That's its hall already.");
   const other = hallAt(state, px, py);
-  if (other) return refuse("already_set", "That plot is another kindred's hall.");
+  if (other) return refuse("already_set", "That plot is another circle's hall.");
   return () => {
     // Nights booked at the old hall are called off: a night stands only at the hall.
     const moved = nightsOff(state, k);
@@ -771,7 +771,7 @@ export function checkKindredTitle(
   if (nights < need) {
     return refuse(
       "not_earned",
-      `${label} comes with ${need} kindred nights that counted, and you've been at ${nights}.`,
+      `${label} comes with ${need} circle nights that counted, and you've been at ${nights}.`,
     );
   }
   return showTitle(state, id, title);
@@ -794,12 +794,11 @@ export function kindredNightProblem(
 ): Rejection | null {
   const k = named(state, kindred);
   if (isRejection(k)) return k;
-  if (!isMember(k, actor))
-    return refuse("not_in_kindred", "Only its members host a kindred night.");
+  if (!isMember(k, actor)) return refuse("not_in_kindred", "Only its members host a circle night.");
   if (k.status !== "formed") {
     return refuse(
       "not_formed",
-      "A forming kindred holds no kindred nights. It forms with three households.",
+      "A forming circle holds no circle nights. It forms with three households.",
     );
   }
   if (!k.hall)
@@ -807,7 +806,7 @@ export function kindredNightProblem(
   if (k.hall.px !== px || k.hall.py !== py) {
     return refuse(
       "not_your_plot",
-      `A kindred night is at its hall, plot (${k.hall.px}, ${k.hall.py}).`,
+      `A circle night is at its hall, plot (${k.hall.px}, ${k.hall.py}).`,
     );
   }
   const week = weekStart(day);
@@ -817,7 +816,7 @@ export function kindredNightProblem(
   if (taken) {
     return refuse(
       "night_this_week",
-      "That kindred has a kindred night that UTC week already. One a week, Monday to Sunday.",
+      "That circle has a circle night that UTC week already. One a week, Monday to Sunday.",
     );
   }
   return null;
@@ -897,10 +896,10 @@ export function hallsLeavingPlot(
 export function checkOpenKindreds(state: WorldState): KindredsChecked {
   return oneTimeSwitch({
     on: state.kindreds,
-    already: "Kindreds are already open.",
+    already: "Circles are already open.",
     notYet: () =>
       state.day === undefined || !state.economy
-        ? refuse("not_due", "Kindreds open once the world counts days and coins are open.")
+        ? refuse("not_due", "Circles open once the world counts days and coins are open.")
         : null,
     turnOn: () => {
       state.kindreds = { opened: state.day as number, nextId: 1, list: {} };

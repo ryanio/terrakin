@@ -219,7 +219,7 @@ export function checkMergeResident(
     events.push(...mergeProgress(state, from, into));
     // Jobs (RFC 0030): the count of jobs finished moves, and what only counts toward now is dropped.
     events.push(...mergeJobs(state, from, into));
-    // Kindreds (RFC 0033): nights move, and so does a membership `into` has room for.
+    // Circles (RFC 0033): nights move, and so does a membership `into` has room for.
     events.push(...mergeKindreds(state, from, into));
     for (const ladder of Object.values(state.games?.ratings ?? {})) dropKey(ladder, from);
     dropKey(state.games?.today.rated, from);

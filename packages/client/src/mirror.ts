@@ -11,13 +11,13 @@ import {
   type BlockKind,
   blocksWalkers,
   type Crop,
+  circleName,
   type Direction,
   type FindKind,
   FLOORS,
   type Ground,
   type GroundKind,
   groundOf,
-  kindredName,
   LOOK_KEYS,
   lookOf,
   mayGatherOn,
@@ -119,9 +119,9 @@ export interface OutOnRoutine {
  * The client's read-only copy of the world. It never runs game rules: it only applies the events
  * the server sends. If it ever falls out of step, it asks for a fresh snapshot.
  */
-/** What a hall's label says: the kindred's name, or its number while its name is held back. */
-const hallName = (kindred: string, name: string | null | undefined) =>
-  kindredName(name ? { id: kindred, name } : { id: kindred });
+/** What a hall's label says: the circle's name, or its number while its name is held back. */
+const hallName = (circle: string, name: string | null | undefined) =>
+  circleName(name ? { id: circle, name } : { id: circle });
 
 export class Mirror {
   config: WorldConfig;
@@ -181,13 +181,13 @@ export class Mirror {
   pageEdition = 1;
   /** Whether the town's jobs are open (`jobs_opened`, RFC 0030). The board itself is `GET /v1/jobs`. */
   jobsOpen = false;
-  /** Whether kindreds are open (`kindreds_opened`, RFC 0033). */
-  kindredsOpen = false;
+  /** Whether circles are open (`circles_opened`, RFC 0033). */
+  circlesOpen = false;
   /**
-   * Formed kindreds' halls (RFC 0033): by plotKey, the kindred and what it goes by, which the map
+   * Formed circles' halls (RFC 0033): by plotKey, the circle and what it goes by, which the map
    * draws under the plot's own name. The name is its stewards' words: text only.
    */
-  halls = new Map<string, { kindred: string; name: string }>();
+  halls = new Map<string, { circle: string; name: string }>();
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -252,9 +252,9 @@ export class Mirror {
     this.recipesOpen = snapshot.recipesOpen === true;
     this.pageEdition = snapshot.pageEdition ?? 1;
     this.jobsOpen = snapshot.jobsOpen === true;
-    this.kindredsOpen = snapshot.kindredsOpen === true;
+    this.circlesOpen = snapshot.circlesOpen === true;
     for (const h of snapshot.halls ?? []) {
-      this.halls.set(plotKey(h.px, h.py), { kindred: h.kindred, name: h.name });
+      this.halls.set(plotKey(h.px, h.py), { circle: h.circle, name: h.name });
     }
     for (const p of snapshot.presents ?? []) this.presents.set(p.residentId, p.count);
     this.day = snapshot.day;
@@ -576,26 +576,26 @@ export class Mirror {
         else this.presents.delete(event.by);
         break;
       }
-      case "kindreds_opened":
-        this.kindredsOpen = true;
+      case "circles_opened":
+        this.circlesOpen = true;
         break;
-      case "kindred_hall": {
-        // A kindred has one hall at a time: the old one's label goes before the new one's comes.
-        for (const [key, h] of this.halls) if (h.kindred === event.kindred) this.halls.delete(key);
+      case "circle_hall": {
+        // A circle has one hall at a time: the old one's label goes before the new one's comes.
+        for (const [key, h] of this.halls) if (h.circle === event.circle) this.halls.delete(key);
         if (event.hall) {
-          const name = hallName(event.kindred, event.name);
-          this.halls.set(plotKey(event.hall.px, event.hall.py), { kindred: event.kindred, name });
+          const name = hallName(event.circle, event.name);
+          this.halls.set(plotKey(event.hall.px, event.hall.py), { circle: event.circle, name });
         }
         break;
       }
-      case "kindred_named":
+      case "circle_named":
         for (const [key, h] of this.halls) {
-          if (h.kindred !== event.kindred) continue;
-          this.halls.set(key, { kindred: h.kindred, name: hallName(h.kindred, event.name) });
+          if (h.circle !== event.circle) continue;
+          this.halls.set(key, { circle: h.circle, name: hallName(h.circle, event.name) });
         }
         break;
-      case "kindred_disbanded":
-        for (const [key, h] of this.halls) if (h.kindred === event.kindred) this.halls.delete(key);
+      case "circle_disbanded":
+        for (const [key, h] of this.halls) if (h.circle === event.circle) this.halls.delete(key);
         break;
       case "repeat_joins_retired": {
         const gone = new Set(event.ids);

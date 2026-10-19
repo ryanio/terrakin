@@ -5,6 +5,8 @@ import {
   asJoined,
   type Command,
   canBuildOn,
+  circleById,
+  circleOf,
   DAY_LENGTH_MS,
   exactWearStyles,
   FISHING,
@@ -15,8 +17,6 @@ import {
   isTownEvent,
   isWater,
   joinTile,
-  kindredById,
-  kindredOf,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
@@ -39,8 +39,8 @@ import {
   waterBeside,
 } from "@terrakin/sim";
 import { randomBytes, toHex } from "./bytes";
+import { seesCircle } from "./circles";
 import { startFree } from "./games";
-import { seesKindred } from "./kindreds";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
 import { cleanMultiline, cleanText, nameKey } from "./text";
 import type { ActResult } from "./world-service";
@@ -377,19 +377,19 @@ export function performAction(
     const command: Command = { type: "name_plot", px: action.px, py: action.py, name };
     return ctx.run({ actor: residentId, command }, dry);
   }
-  if (action.type === "found_kindred" || action.type === "name_kindred") {
-    // A kindred's name is shown to everyone, agents included, wherever its members are: cleaned
+  if (action.type === "found_circle" || action.type === "name_circle") {
+    // A circle's name is shown to everyone, agents included, wherever its members are: cleaned
     // and filtered like a resident's name before it's logged (RFC 0033), and unique the way
     // residents' names are, which folds more than the sim's ASCII letters.
     const name = cleanText(action.name);
-    const refused = kindredNameProblem(ctx, residentId, name);
+    const refused = circleNameProblem(ctx, residentId, name);
     if (refused) return refused;
     const command: Command = { type: action.type, name };
     return ctx.run({ actor: residentId, command }, dry);
   }
-  const hidden = hiddenKindred(ctx, residentId, action);
+  const hidden = hiddenCircle(ctx, residentId, action);
   if (hidden) return hidden;
-  if (action.type === "invite_to_kindred") {
+  if (action.type === "invite_to_circle") {
     // Like a gift, an invite can't cross a block either way (RFC 0033).
     if (ctx.blockedEither(residentId, action.resident)) {
       return {
@@ -398,7 +398,7 @@ export function performAction(
       };
     }
     // Its note is the steward's words to someone who never asked for them (issue #73): held back
-    // while staff hold their words, as a kindred's name and notice are, then cleaned and filtered
+    // while staff hold their words, as a circle's name and notice are, then cleaned and filtered
     // like a gift's note before it's logged, on its own stricter surface.
     if (action.note !== undefined && ctx.wordsHeld(residentId)) {
       return {
@@ -411,10 +411,10 @@ export function performAction(
       };
     }
     const note = action.note === undefined ? "" : cleanText(action.note);
-    const refused = filtered(ctx.moderation, "kindred_invite_note", note, context);
+    const refused = filtered(ctx.moderation, "circle_invite_note", note, context);
     if (refused) return refused;
     const command: Command = {
-      type: "invite_to_kindred",
+      type: "invite_to_circle",
       resident: action.resident,
       ...(note ? { note } : {}),
     };
@@ -607,38 +607,38 @@ export function performAction(
 }
 
 /**
- * A kindred named by `join_kindred`, `decline_kindred_invite`, or a kindred night that the actor
+ * A circle named by `join_circle`, `decline_circle_invite`, or a circle night that the actor
  * can't see (a forming one they're not in and weren't invited to) answers exactly as one that
  * doesn't exist, so its name and its being there stay with its members (RFC 0033).
  */
-function hiddenKindred(
+function hiddenCircle(
   ctx: ActionContext,
   residentId: string,
   action: Exclude<Action, { type: "chat" | "putter" | "build" }>,
 ): ActResult | undefined {
   const id =
-    action.type === "join_kindred" ||
-    action.type === "decline_kindred_invite" ||
-    action.type === "chip_in_kindred"
-      ? action.kindred
+    action.type === "join_circle" ||
+    action.type === "decline_circle_invite" ||
+    action.type === "chip_in_circle"
+      ? action.circle
       : action.type === "schedule_event"
-        ? action.kindred
+        ? action.circle
         : undefined;
-  if (id === undefined || !ctx.state.kindreds) return undefined;
-  const k = kindredById(ctx.state, id);
-  if (!k || seesKindred(k, residentId)) return undefined;
+  if (id === undefined || !ctx.state.circles) return undefined;
+  const k = circleById(ctx.state, id);
+  if (!k || seesCircle(k, residentId)) return undefined;
   return {
     ok: false,
-    error: { code: "unknown_kindred", message: "No kindred has that id. See GET /v1/kindreds." },
+    error: { code: "unknown_circle", message: "No circle has that id. See GET /v1/circles." },
   };
 }
 
 /**
- * Why a kindred's name can't be logged, or undefined: the edge filters (`kindred_name`), a name
- * another kindred has by the server's `nameKey`, and a writer whose words staff hold back, whose
+ * Why a circle's name can't be logged, or undefined: the edge filters (`circle_name`), a name
+ * another circle has by the server's `nameKey`, and a writer whose words staff hold back, whose
  * new name would otherwise go up while their other words are held (RFC 0033).
  */
-function kindredNameProblem(
+function circleNameProblem(
   ctx: ActionContext,
   residentId: string,
   name: string,
@@ -648,19 +648,19 @@ function kindredNameProblem(
       ok: false,
       error: {
         code: "forbidden",
-        message: "Your words are held back for review right now, so you can't name a kindred.",
+        message: "Your words are held back for review right now, so you can't name a circle.",
       },
     };
   }
-  const refused = filtered(ctx.moderation, "kindred_name", name, { resident: residentId });
+  const refused = filtered(ctx.moderation, "circle_name", name, { resident: residentId });
   if (refused) return refused;
-  const mine = kindredOf(ctx.state, residentId);
+  const mine = circleOf(ctx.state, residentId);
   const key = nameKey(name);
-  const taken = Object.values(ctx.state.kindreds?.list ?? {}).some(
+  const taken = Object.values(ctx.state.circles?.list ?? {}).some(
     (k) => k !== mine && k.name !== undefined && nameKey(k.name) === key,
   );
   if (taken) {
-    return { ok: false, error: { code: "name_taken", message: "Another kindred has that name." } };
+    return { ok: false, error: { code: "name_taken", message: "Another circle has that name." } };
   }
   return undefined;
 }
@@ -712,7 +712,7 @@ function scheduleEvent(
     py: action.py,
     startsAt,
     minutes: action.minutes,
-    ...(action.kindred !== undefined ? { kindred: action.kindred } : {}),
+    ...(action.circle !== undefined ? { circle: action.circle } : {}),
   };
   return ctx.run({ actor: residentId, command }, dry);
 }

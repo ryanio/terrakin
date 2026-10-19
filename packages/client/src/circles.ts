@@ -1,19 +1,19 @@
 /**
- * Kindreds (RFC 0033) in words, for the kindred's page and the Town Hall's Kindreds section. Pure,
- * so tests pin them. A kindred's name and residents' names are their own words: these lines put
+ * Circles (RFC 0033) in words, for the circle's page and the Town Hall's Circles section. Pure,
+ * so tests pin them. A circle's name and residents' names are their own words: these lines put
  * them in as plain strings, and the views draw them as text.
  */
 import type {
-  KindredInvite,
-  KindredMember,
-  KindredSummary,
-  KindredsResponse,
+  CircleInvite,
+  CircleMember,
+  CircleSummary,
+  CirclesResponse,
 } from "@terrakin/protocol";
 import { relativeDayWords } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
 /** "Forming" or "Formed". */
-export const statusWords = (status: KindredSummary["status"]) =>
+export const statusWords = (status: CircleSummary["status"]) =>
   status === "formed" ? "Formed" : "Forming";
 
 /** "1 member", "4 members". */
@@ -27,7 +27,7 @@ export function gatheredLine(weeks: number, run: number): string {
 }
 
 /**
- * Who invited you and who founded the kindred (issue #73): "Ada invited you. Juniper founded it,
+ * Who invited you and who founded the circle (issue #73): "Ada invited you. Juniper founded it,
  * and it has 4 members." A steward who founded it is named once.
  */
 export function inviteLine(i: {
@@ -37,17 +37,17 @@ export function inviteLine(i: {
 }): string {
   const size = `it has ${membersWords(i.members)}`;
   return i.by.id === i.founder.id
-    ? `${i.by.name} founded this kindred and invited you. Now ${size}.`
+    ? `${i.by.name} founded this circle and invited you. Now ${size}.`
     : `${i.by.name} invited you. ${i.founder.name} founded it, and ${size}.`;
 }
 
 /**
- * Where the kindred stands, so an invitee knows what they'd be joining: a forming one has a day
+ * Where the circle stands, so an invitee knows what they'd be joining: a forming one has a day
  * to form by, a formed one a hall or not.
  */
 export function inviteStandingLine(
-  i: Pick<KindredInvite, "status" | "hall" | "formsIn">,
-  rules: Pick<KindredsResponse["rules"], "formHouseholds">,
+  i: Pick<CircleInvite, "status" | "hall" | "formsIn">,
+  rules: Pick<CirclesResponse["rules"], "formHouseholds">,
 ): string {
   if (i.status === "forming") {
     return `Still forming: it needs members from ${rules.formHouseholds} households ${i.formsIn ?? "soon"}, or it disbands and the fee goes back.`;
@@ -59,11 +59,11 @@ export function inviteStandingLine(
  * When an invite lapses, in the world's own words (never this device's clock): "Lapses tomorrow",
  * "Lapses in 7 days".
  */
-export const inviteOpenLine = (i: Pick<KindredInvite, "lapsesIn">) => `Lapses ${i.lapsesIn}`;
+export const inviteOpenLine = (i: Pick<CircleInvite, "lapsesIn">) => `Lapses ${i.lapsesIn}`;
 
 /** "Steward · Founded it", "Joined today", "Joined 3 days ago". */
 export function memberLine(
-  m: Pick<KindredMember, "steward" | "since">,
+  m: Pick<CircleMember, "steward" | "since">,
   founder: boolean,
   today: number,
 ): string {
@@ -72,11 +72,11 @@ export function memberLine(
 }
 
 /** "Its hall is plot 4, 2", "No hall yet". */
-export const hallWords = (hall: KindredSummary["hall"]) =>
+export const hallWords = (hall: CircleSummary["hall"]) =>
   hall ? `Its hall is plot ${hall.px}, ${hall.py}` : "No hall yet";
 
-/** A kindred's row on the Town Hall: its members and how it's gathered. */
-export const summaryLine = (k: Pick<KindredSummary, "members" | "gathered" | "run">) =>
+/** A circle's row on the Town Hall: its members and how it's gathered. */
+export const summaryLine = (k: Pick<CircleSummary, "members" | "gathered" | "run">) =>
   `${membersWords(k.members)} · ${gatheredLine(k.gathered, k.run)}`;
 
 /**
@@ -85,7 +85,7 @@ export const summaryLine = (k: Pick<KindredSummary, "members" | "gathered" | "ru
  * there in about 2 days." Then what comes back if it doesn't form, and that members can chip in.
  */
 export function foundingLine(
-  rules: Pick<KindredsResponse["rules"], "fee" | "trialBurn" | "formDays" | "allowance">,
+  rules: Pick<CirclesResponse["rules"], "fee" | "trialBurn" | "formDays" | "allowance">,
   balance: number,
 ): string {
   const short = rules.fee - balance;

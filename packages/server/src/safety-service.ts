@@ -65,8 +65,8 @@ export interface SafetyOptions {
     | undefined;
   /** A hosted event from the world, for reports on one. Its author is its host. Default: none. */
   event?: ((id: string) => { author: string; title: string; text: string } | undefined) | undefined;
-  /** A kindred from the world with its notice, for reports on one (RFC 0033). Default: none. */
-  kindred?:
+  /** A circle from the world with its notice, for reports on one (RFC 0033). Default: none. */
+  circle?:
     | ((id: string) => { author: string; title: string; text: string } | undefined)
     | undefined;
   /**
@@ -179,6 +179,26 @@ function fingerprint(text: string): string {
   return `${hash.toString(36)}:${text.length}`;
 }
 
+/**
+ * A kind or action written before kindreds became Circles (decision 0318), as it reads now.
+ * `moderation_log` is append-only (its triggers refuse an UPDATE and a DELETE), so an old row is
+ * mapped on the way out instead. It matters more than it looks: the staff app parses the log with
+ * a zod enum, so one unmapped row fails the whole page, and because paging reads its `before`
+ * cursor off the page you just loaded, every older entry goes with it.
+ */
+const RENAMED_KINDS: Readonly<Record<string, string>> = { kindred: "circle" };
+const RENAMED_ACTIONS: Readonly<Record<string, string>> = {
+  clear_kindred_name: "clear_circle_name",
+  clear_kindred_notice: "clear_circle_notice",
+  disband_kindred: "disband_circle",
+};
+const nowKind = (kind: string): ReportKind =>
+  (Object.hasOwn(RENAMED_KINDS, kind) ? (RENAMED_KINDS[kind] as string) : kind) as ReportKind;
+const nowAction = (action: string): ModerationAction =>
+  (Object.hasOwn(RENAMED_ACTIONS, action)
+    ? (RENAMED_ACTIONS[action] as string)
+    : action) as ModerationAction;
+
 export class SafetyService {
   private readonly o: SafetyOptions;
   /** Triage calls in flight, by target, so one target is never read twice at once. */
@@ -269,6 +289,17 @@ export class SafetyService {
       this.o.sql.exec("ALTER TABLE reports ADD COLUMN owner TEXT");
     } catch {
       // Already there.
+    }
+    // Reports of a circle were `kind = 'kindred'` with a `k_1` target until decision 0318. The
+    // kind fails the staff app's schema and the old id finds no circle, so the queue would show
+    // the item as gone under a heading reading "undefined". Unlike the log, this table takes an
+    // UPDATE.
+    try {
+      this.o.sql.exec(
+        "UPDATE reports SET kind = 'circle', target = replace(target, 'k_', 'c_') WHERE kind = 'kindred'",
+      );
+    } catch {
+      // No such rows, or no table yet.
     }
     // Added with takedown notices: the rule a takedown's owner was told it broke. Older rows stay
     // null.
@@ -391,7 +422,7 @@ export class SafetyService {
     if (kind === "display" || kind === "piece") return this.madeThing(kind, id)?.owner;
     if (kind === "bounty") return this.o.bounty?.(id)?.author;
     if (kind === "event") return this.o.event?.(id)?.author;
-    if (kind === "kindred") return this.o.kindred?.(id)?.author;
+    if (kind === "circle") return this.o.circle?.(id)?.author;
     if (kind === "post") {
       const row = this.rows("SELECT author FROM posts WHERE id = ?", id)[0];
       return row ? String(row.author) : undefined;
@@ -730,7 +761,7 @@ export class SafetyService {
       window,
     );
     const items: ReportQueueItem[] = groups.map((g) => {
-      const kind = String(g.kind) as ReportKind;
+      const kind = nowKind(String(g.kind));
       const id = String(g.target);
       const reports = this.rows(
         "SELECT * FROM reports WHERE kind = ? AND target = ? AND status = 'open' ORDER BY n",
@@ -877,8 +908,8 @@ export class SafetyService {
         ? this.o.bounty?.(id)
         : kind === "event"
           ? this.o.event?.(id)
-          : kind === "kindred"
-            ? this.o.kindred?.(id)
+          : kind === "circle"
+            ? this.o.circle?.(id)
             : this.o.proposal(id);
     return p ? base(p.author, [p.title, p.text].filter(Boolean).join("\n")) : gone;
   }
@@ -1084,8 +1115,8 @@ export class SafetyService {
               ? this.o.bounty?.(String(row.target))?.author
               : row.kind === "event"
                 ? this.o.event?.(String(row.target))?.author
-                : row.kind === "kindred"
-                  ? this.o.kindred?.(String(row.target))?.author
+                : row.kind === "circle"
+                  ? this.o.circle?.(String(row.target))?.author
                   : row.against;
         return typeof against === "string" && against !== "" ? [against] : [];
       })
@@ -1342,8 +1373,8 @@ export class SafetyService {
       const actor = staffOwner(String(row.actor));
       const keyId = staffKeyId(String(row.actor));
       return {
-        action: String(row.action) as ModerationAction,
-        kind: String(row.kind) as ReportKind,
+        action: nowAction(String(row.action)),
+        kind: nowKind(String(row.kind)),
         id: String(row.target),
         reason: String(row.reason),
         at: iso(Number(row.at)),
@@ -1422,7 +1453,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   display: "That isn't on display.",
   piece: "No piece with that id shows a picture.",
   event: "No such event.",
-  kindred: "No such kindred.",
+  circle: "No such circle.",
 };
 
 function reportView(row: Row): ReportView {

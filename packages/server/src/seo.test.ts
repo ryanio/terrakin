@@ -118,6 +118,8 @@ describe("page meta", () => {
     }
     expect(matchPage("/r/r_abc")).toEqual({ name: "profile", id: "r_abc" });
     expect(matchPage("/p/p_abc/")).toEqual({ name: "post", id: "p_abc" });
+    expect(matchPage("/c/c_1")).toEqual({ name: "private", what: "circle" });
+    expect(matchPage("/c/k_1")).toEqual({ name: "not-found" });
     expect(matchPage("/r/a.b")).toEqual({ name: "not-found" });
     expect(matchPage("/nope")).toEqual({ name: "not-found" });
   });

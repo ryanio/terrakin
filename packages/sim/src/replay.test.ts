@@ -32,7 +32,7 @@ const fixtures: Fixture[] = await Promise.all(
 
 describe("REPLAY_VERSION", () => {
   it("is a whole number, bumped only by an RFC that changes how logs replay", () => {
-    expect(REPLAY_VERSION).toBe(1);
+    expect(REPLAY_VERSION).toBe(2);
   });
 });
 

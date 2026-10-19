@@ -81,6 +81,8 @@ describe("matching pages", () => {
     expect(matchRoute("/away")).toEqual({ name: "away" });
     expect(matchRoute("/")).toEqual({ name: "feed" });
     expect(matchRoute("/r/r_0123abcd")).toEqual({ name: "profile", id: "r_0123abcd" });
+    expect(matchRoute("/c/c_1")).toEqual({ name: "circle", id: "c_1" });
+    expect(matchRoute("/c/k_1")).toEqual({ name: "not-found" });
     expect(matchRoute("/p/p_0123456789abcdef/")).toEqual({
       name: "post",
       id: "p_0123456789abcdef",

@@ -51,9 +51,9 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   job_done: "town",
   event_started: "calendar",
   event_soon: "calendar",
-  kindred_invite: "follow",
-  kindred_night: "calendar",
-  kindred_joined: "follow",
+  circle_invite: "follow",
+  circle_night: "calendar",
+  circle_joined: "follow",
   present_received: "gift",
   present_opened: "gift",
   award: "coin",
@@ -95,9 +95,9 @@ export function notificationLine(
     job_done: "says you finished a job",
     event_started: "says an event you're going to started",
     event_soon: "says an event you're going to starts soon",
-    kindred_invite: "says a kindred invited you",
-    kindred_night: "says your kindred has a night coming",
-    kindred_joined: "says someone joined your kindred",
+    circle_invite: "says a circle invited you",
+    circle_night: "says your circle has a night coming",
+    circle_joined: "says someone joined your circle",
     present_received: `wrapped ${others > 0 ? "presents" : "a present"} for you`,
     present_opened: `opened ${others > 0 ? "the presents" : "the present"} you wrapped`,
     // From Terrakin itself, so this reads "Terrakin awarded you 200 coins for your work." No deed
@@ -156,14 +156,14 @@ export function takedownLine(t: TakedownView): { line: string; next: string } {
         next: "The plot has no name now. Its residents can give it a new one that keeps to the rules.",
       };
     }
-    case "kindred_name":
+    case "circle_name":
       return {
-        line: `Your kindred's name was taken down: it broke ${rule}.`,
+        line: `Your circle's name was taken down: it broke ${rule}.`,
         next: "It goes by its number for now. A steward can give it a new name that keeps to the rules.",
       };
-    case "kindred_notice":
+    case "circle_notice":
       return {
-        line: `Your kindred's notice was taken down: it broke ${rule}.`,
+        line: `Your circle's notice was taken down: it broke ${rule}.`,
         next: "A steward can write a new one that keeps to the rules.",
       };
   }
@@ -238,25 +238,25 @@ function systemWords(n: NotificationView): SystemWords | null {
       links: [],
     };
   }
-  if (n.kindred) {
-    // Kindreds (RFC 0033): the kindred's name is quoted under the line, and who invited or joined
+  if (n.circle) {
+    // Circles (RFC 0033): the circle's name is quoted under the line, and who invited or joined
     // goes in it by their name; both are residents' words, drawn as text.
     const who = n.resident?.name ?? "Someone";
-    const page = { href: `/k/${n.kindred.id}`, label: "Open the kindred" };
+    const page = { href: `/c/${n.circle.id}`, label: "Open the circle" };
     const words: Record<string, { line: string; next: string | null }> = {
-      kindred_invite: {
-        line: `${who} invited you to a kindred.`,
+      circle_invite: {
+        line: `${who} invited you to a circle.`,
         next: "Joining is your choice. Its page has Join and Not now.",
       },
-      kindred_night: {
-        line: "Someone in your kindred put a kindred night on the calendar.",
-        next: "It's at the kindred's hall. Say you're going on its page.",
+      circle_night: {
+        line: "Someone in your circle put a circle night on the calendar.",
+        next: "It's at the circle's hall. Say you're going on its page.",
       },
-      kindred_joined: { line: `${who} joined your kindred.`, next: null },
+      circle_joined: { line: `${who} joined your circle.`, next: null },
     };
     const said = words[n.type];
-    // The steward's note comes with an invite (issue #73), under the kindred's name.
-    const quotes = [n.kindred.name, ...(n.type === "kindred_invite" && n.note ? [n.note] : [])];
+    // The steward's note comes with an invite (issue #73), under the circle's name.
+    const quotes = [n.circle.name, ...(n.type === "circle_invite" && n.note ? [n.note] : [])];
     if (said) return { icon: ICONS[n.type], ...said, links: [page], quotes };
   }
   if (n.event) {

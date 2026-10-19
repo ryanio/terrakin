@@ -6,6 +6,7 @@ import {
   DAY_MS,
   hashWorld,
   type Input,
+  REPLAY_VERSION,
   TOWN_ACTOR,
   type WorldConfig,
   type WorldState,
@@ -267,7 +268,13 @@ describe("snapshots", () => {
     const service = h.boot();
     // The boot's own tick started the first day.
     const [first] = h.headers();
-    expect(first).toMatchObject({ seq: 1, format: 1, replayVersion: 1, verified: 0, parts: 1 });
+    expect(first).toMatchObject({
+      seq: 1,
+      format: 1,
+      replayVersion: REPLAY_VERSION,
+      verified: 0,
+      parts: 1,
+    });
     expect(service.snapshotInfo()).toBeUndefined();
     const { ada, bob } = people(service);
     h.verifyAll(service);
@@ -370,11 +377,17 @@ describe("snapshots", () => {
     it(`with another ${column} are left alone, and the boot uses an older one`, () => {
       const { h, first, ada, newest, older } = grown();
       const want = facts(first, ada);
-      h.sql.exec(`UPDATE world_snapshot SET ${column} = 2 WHERE seq = ?`, newest.seq);
+      // No format or REPLAY_VERSION this build knows, so the newest snapshot is never booted from.
+      const other = 99;
+      h.sql.exec(`UPDATE world_snapshot SET ${column} = ? WHERE seq = ?`, other, newest.seq);
       gauges.length = 0;
       expect(facts(h.boot(), ada)).toEqual(want);
       expect(reports).toEqual([]);
-      expect(h.headers()[0]).toMatchObject({ seq: newest.seq, verified: 1, [camel(column)]: 2 });
+      expect(h.headers()[0]).toMatchObject({
+        seq: newest.seq,
+        verified: 1,
+        [camel(column)]: other,
+      });
       expect(gauges).toContainEqual({
         name: "world.boot_inputs",
         value: want.seq - older.seq,
@@ -611,7 +624,9 @@ describe("staff routes for snapshots and the log", () => {
     const taken = await call("POST", "/v1/admin/snapshots");
     expect(taken).toMatchObject({
       status: 200,
-      body: { snapshot: { seq: service.state.seq, status: "pending", replayVersion: 1 } },
+      body: {
+        snapshot: { seq: service.state.seq, status: "pending", replayVersion: REPLAY_VERSION },
+      },
     });
     expect(await call("POST", "/v1/admin/snapshots")).toMatchObject({
       status: 400,
@@ -619,7 +634,11 @@ describe("staff routes for snapshots and the log", () => {
     });
     h.verifyAll(service);
     const listed = await call("GET", "/v1/admin/snapshots");
-    expect(listed.body).toMatchObject({ kept: true, replayVersion: 1, seq: service.state.seq });
+    expect(listed.body).toMatchObject({
+      kept: true,
+      replayVersion: REPLAY_VERSION,
+      seq: service.state.seq,
+    });
     expect(listed.body.snapshots.map((x: { status: string }) => x.status)).toEqual([
       "verified",
       "verified",
@@ -647,7 +666,7 @@ describe("staff routes for snapshots and the log", () => {
     expect(page.body).toMatchObject({
       seq: first.state.seq,
       hash: first.hash(),
-      replayVersion: 1,
+      replayVersion: REPLAY_VERSION,
       next: 5,
     });
     expect(page.body.rows.map((r: { seq: number }) => r.seq)).toEqual([3, 4, 5]);

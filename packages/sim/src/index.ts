@@ -67,6 +67,25 @@ export {
   type SweetKind,
 } from "./catalog";
 export { openDayOf, PRESENTS, presentsFor, presentsWaiting, wrapDay } from "./christmas";
+export {
+  CIRCLE_TITLE_INFO,
+  CIRCLES,
+  chippedIn,
+  circleById,
+  circleName,
+  circleNights,
+  circleOf,
+  foundProblem,
+  gatheredRun,
+  hallAt,
+  householdCount,
+  isMember,
+  isSteward,
+  membersByStanding,
+  renamedThisWeek,
+  shownCircleName,
+  waitLeft,
+} from "./circles";
 export { DAY_MS, HOUR_MS, MINUTE_MS, utcDay } from "./clock";
 export {
   dayDateWords,
@@ -350,25 +369,6 @@ export {
   titleLabel,
 } from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
-export {
-  chippedIn,
-  foundProblem,
-  gatheredRun,
-  hallAt,
-  householdCount,
-  isMember,
-  isSteward,
-  KINDRED_TITLE_INFO,
-  KINDREDS,
-  kindredById,
-  kindredName,
-  kindredNights,
-  kindredOf,
-  membersByStanding,
-  renamedThisWeek,
-  shownKindredName,
-  waitLeft,
-} from "./kindreds";
 export {
   EARNED_WEAR_SKILL,
   firstSkill,

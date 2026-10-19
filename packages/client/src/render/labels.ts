@@ -32,7 +32,7 @@ function fitText(ctx: CanvasRenderingContext2D, font: string, text: string, max:
  * Plots' names as soft paper labels, centred along the top of each plot (decision 0121). A label
  * stays in view while its plot does: it slides down the plot when the plot's top edge is off the
  * screen or under the top bar and the visit card (`labelTop`), and along it when the plot's middle
- * is off one side. A kindred's hall (RFC 0033) carries the kindred's name on a smaller tag of its
+ * is off one side. A circle's hall (RFC 0033) carries the circle's name on a smaller tag of its
  * own, under the plot's name or alone, and the two move as one so neither leaves the plot. Canvas
  * text can't execute anything, so a name is drawn as written.
  */
@@ -41,7 +41,7 @@ export function paintPlotLabels(
   labels: readonly {
     /** The plot's name, when it has one. */
     text?: string;
-    /** The kindred whose hall the plot is. */
+    /** The circle whose hall the plot is. */
     sub?: string;
     left: number;
     top: number;

@@ -8,12 +8,12 @@ import {
 import {
   AWARDS,
   awardedInWindow,
+  circleById,
   findBounty,
   findEvent,
   goodById,
   heldAsideOf,
   inventorySize,
-  kindredById,
   listingById,
   own,
   plotNamesOf,
@@ -185,72 +185,72 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
       }
       return { status: 200, body: { logged: entry } };
     },
-    // RFC 0033: a kindred's name comes down in the world, and its stewards hear why.
-    clearKindredName: ({ viewer, params, body }) => {
-      const k = kindredById(service.state, params.id);
-      if (!k || k.name === undefined) return fail("not_found", "That kindred has no name up.");
+    // RFC 0033: a circle's name comes down in the world, and its stewards hear why.
+    clearCircleName: ({ viewer, params, body }) => {
+      const k = circleById(service.state, params.id);
+      if (!k || k.name === undefined) return fail("not_found", "That circle has no name up.");
       const safety = social().safety;
-      const rule = safety.ruleFor(["kindred"], params.id, body.rule);
-      const done = service.clearKindredName(params.id);
+      const rule = safety.ruleFor(["circle"], params.id, body.rule);
+      const done = service.clearCircleName(params.id);
       if (!done.ok) return fail(done.error.code, done.error.message);
       const entry = safety.recordAction(
         viewer,
-        "clear_kindred_name",
-        "kindred",
+        "clear_circle_name",
+        "circle",
         params.id,
         body.reason,
         rule,
       );
       for (const steward of k.stewards) {
         safety.tellOwner(steward, {
-          what: "kindred_name",
+          what: "circle_name",
           rule,
           outcome: "removed",
-          kindred: params.id,
+          circle: params.id,
         });
       }
       return { status: 200, body: { logged: entry } };
     },
-    // RFC 0033: a kindred's notice is a social row, so it comes down there.
-    clearKindredNotice: ({ viewer, params, body }) => {
-      const notices = social().kindredNotices;
-      if (!kindredById(service.state, params.id) || !notices.get(params.id)) {
-        return fail("not_found", "That kindred has no notice up.");
+    // RFC 0033: a circle's notice is a social row, so it comes down there.
+    clearCircleNotice: ({ viewer, params, body }) => {
+      const notices = social().circleNotices;
+      if (!circleById(service.state, params.id) || !notices.get(params.id)) {
+        return fail("not_found", "That circle has no notice up.");
       }
       const safety = social().safety;
-      const rule = safety.ruleFor(["kindred"], params.id, body.rule);
+      const rule = safety.ruleFor(["circle"], params.id, body.rule);
       const author = notices.clear(params.id);
       const entry = safety.recordAction(
         viewer,
-        "clear_kindred_notice",
-        "kindred",
+        "clear_circle_notice",
+        "circle",
         params.id,
         body.reason,
         rule,
       );
       if (author) {
         safety.tellOwner(author, {
-          what: "kindred_notice",
+          what: "circle_notice",
           rule,
           outcome: "removed",
-          kindred: params.id,
+          circle: params.id,
         });
       }
       return { status: 200, body: { logged: entry } };
     },
     // RFC 0033: maintainers only, in the moderation log and in the world with an opaque staff id.
-    disbandKindred: async ({ viewer, params, body }) => {
+    disbandCircle: async ({ viewer, params, body }) => {
       if (api.staffRole(viewer) !== "maintainer") {
         return fail("forbidden", WORLD_MAINTAINERS_ONLY);
       }
-      if (!kindredById(service.state, params.id)) return fail("not_found", "No such kindred.");
-      const done = service.disbandKindred(params.id, await worldStaffId(viewer));
+      if (!circleById(service.state, params.id)) return fail("not_found", "No such circle.");
+      const done = service.disbandCircle(params.id, await worldStaffId(viewer));
       if (!done.ok) return fail(done.error.code, done.error.message);
-      const rule = social().safety.ruleFor(["kindred"], params.id, body.rule);
+      const rule = social().safety.ruleFor(["circle"], params.id, body.rule);
       const entry = social().safety.recordAction(
         viewer,
-        "disband_kindred",
-        "kindred",
+        "disband_circle",
+        "circle",
         params.id,
         body.reason,
         rule,

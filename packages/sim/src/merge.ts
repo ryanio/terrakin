@@ -1,13 +1,13 @@
 import { isRunning } from "./bounties";
 import type { StackKind } from "./catalog";
 import { refuse } from "./check";
+import { mergeCircles } from "./circles";
 import { isMaintainer, isTownsfolk, movePurse } from "./economy";
 import { plotHasAnything } from "./floors";
 import { activeTables } from "./games";
 import { addStack, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
 import { mergeJobs } from "./jobs";
 import { plotKey } from "./keys";
-import { mergeKindreds } from "./kindreds";
 import { mergeProgress } from "./levels";
 import { own, residentById } from "./own";
 import { knownRecipes } from "./recipes";
@@ -219,8 +219,8 @@ export function checkMergeResident(
     events.push(...mergeProgress(state, from, into));
     // Jobs (RFC 0030): the count of jobs finished moves, and what only counts toward now is dropped.
     events.push(...mergeJobs(state, from, into));
-    // Kindreds (RFC 0033): nights move, and so does a membership `into` has room for.
-    events.push(...mergeKindreds(state, from, into));
+    // Circles (RFC 0033): nights move, and so does a membership `into` has room for.
+    events.push(...mergeCircles(state, from, into));
     for (const ladder of Object.values(state.games?.ratings ?? {})) dropKey(ladder, from);
     dropKey(state.games?.today.rated, from);
     dropKey(state.knocks?.by, from);

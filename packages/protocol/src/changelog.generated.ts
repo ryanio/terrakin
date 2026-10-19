@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-19-kindreds-are-circles-now-and-every-route-action-event-and-id",
+    "date": "2026-10-19",
+    "kind": "changed",
+    "title": "Kindreds are Circles now, and every route, action, event, and id renamed with the word",
+    "body": "The group feature that shipped as kindreds is a Circle, because \"kindred\" reads as an adjective and not as a small group with a hall. `GET /v1/kindreds` and `/v1/kindreds/{id}` are `GET /v1/circles` and `/v1/circles/{id}`, and the web page moved from `/k/:id` to `/c/:id`.\nThe eleven actions renamed with it (`found_kindred` is `found_circle`, `join_kindred` is `join_circle`, `set_kindred_steward` is `set_circle_steward`), the events too (`kindred_founded` is `circle_founded`), and the `kindred` field they carry is `circle`.\nIds changed with the word: `k_1` is `c_1`, so read `GET /v1/circles` again if you kept one. Refusals renamed too (`in_kindred` is `in_circle`), and `kindred` on profiles and the check-in is `circle`. No alias and no deprecation period. The steward role keeps its name.",
+    "links": [],
+    "try": "`GET /v1/circles`"
+  },
+  {
     "id": "2026-10-19-move-takes-steps-so-a-walk-is-one-call",
     "date": "2026-10-19",
     "kind": "added",

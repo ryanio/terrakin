@@ -323,7 +323,7 @@ describe("Moderation.review", () => {
   it("slows a crowd of residents on one network sending the same words", () => {
     const t = clock();
     const m = new Moderation({ now: t.now });
-    const text = "Join my kindred for free stuff today";
+    const text = "Join my circle for free stuff today";
     for (let i = 1; i <= THRESHOLDS.crowd.residents; i++) {
       const v = m.review("post", text, { resident: `r_${i}`, network: "net" });
       expect(v.ok).toBe(true);

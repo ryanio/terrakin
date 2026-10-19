@@ -16,6 +16,25 @@ import {
 import { type BuildPlan, checkBuild } from "./build";
 import { checkOpenPresent, checkTownPresents, presentsNewDay } from "./christmas";
 import {
+  checkCancelCircleInvite,
+  checkChipInCircle,
+  checkCircleTitle,
+  checkClearCircleName,
+  checkDeclineCircleInvite,
+  checkDisbandCircle,
+  checkFoundCircle,
+  checkInviteToCircle,
+  checkJoinCircle,
+  checkLeaveCircle,
+  checkNameCircle,
+  checkOpenCircles,
+  checkRemoveFromCircle,
+  checkSetCircleHall,
+  checkSetCircleSteward,
+  circlesNewDay,
+  hallsLeavingPlot,
+} from "./circles";
+import {
   checkAdmire,
   checkDisplay,
   checkMakePiece,
@@ -114,25 +133,6 @@ import {
 } from "./jobs";
 import { plotKey, tileKey } from "./keys";
 import {
-  checkCancelKindredInvite,
-  checkChipInKindred,
-  checkClearKindredName,
-  checkDeclineKindredInvite,
-  checkDisbandKindred,
-  checkFoundKindred,
-  checkInviteToKindred,
-  checkJoinKindred,
-  checkKindredTitle,
-  checkLeaveKindred,
-  checkNameKindred,
-  checkOpenKindreds,
-  checkRemoveFromKindred,
-  checkSetKindredHall,
-  checkSetKindredSteward,
-  hallsLeavingPlot,
-  kindredsNewDay,
-} from "./kindreds";
-import {
   checkCreditEvent,
   checkOpenLevels,
   checkTitle,
@@ -227,8 +227,8 @@ import type {
 } from "./types";
 import {
   BLOCK_KINDS,
+  isCircleTitle,
   isJobTitle,
-  isKindredTitle,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   TOWN_ACTOR,
@@ -829,12 +829,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkSetJobEdition(state, command));
       case "set_page_edition":
         return town(checkSetPageEdition(state, command));
-      case "open_kindreds":
-        return town(checkOpenKindreds(state));
-      case "clear_kindred_name":
-        return town(checkClearKindredName(state, command));
-      case "disband_kindred":
-        return town(checkDisbandKindred(state, command));
+      case "open_circles":
+        return town(checkOpenCircles(state));
+      case "clear_circle_name":
+        return town(checkClearCircleName(state, command));
+      case "disband_circle":
+        return town(checkDisbandCircle(state, command));
       case "remove_listing":
         return town(checkRemoveListing(state, command));
       case "remove_display":
@@ -891,7 +891,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const knocks = command.type === "new_day" ? halloweenNewDay(state) : null;
         const levels = command.type === "new_day" ? levelsNewDay(state) : null;
         const jobs = command.type === "new_day" ? jobsNewDay(state, command.day) : null;
-        const kindreds = command.type === "new_day" ? kindredsNewDay(state, command.day) : null;
+        const circles = command.type === "new_day" ? circlesNewDay(state, command.day) : null;
         const presents = command.type === "new_day" ? presentsNewDay(state, command.day) : null;
         if (
           !coins &&
@@ -903,7 +903,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           !knocks &&
           !levels &&
           !jobs &&
-          !kindreds &&
+          !circles &&
           !presents
         ) {
           return checked;
@@ -919,7 +919,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           ...(knocks ? knocks() : []),
           ...(levels ? levels() : []),
           ...(jobs ? jobs() : []),
-          ...(kindreds ? kindreds() : []),
+          ...(circles ? circles() : []),
           ...(presents ? presents() : []),
         ];
       }
@@ -960,11 +960,11 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if ("ok" in look) return look;
       // The title to show (RFC 0029, RFC 0030, RFC 0033) is checked here and kept with levels, not
       // on the resident: a skill's by its level, one from jobs by the count of jobs finished, and
-      // one from kindred nights by the count of nights that counted.
+      // one from circle nights by the count of nights that counted.
       const title = isJobTitle(command.title)
         ? checkJobTitle(state, actor, command.title)
-        : isKindredTitle(command.title)
-          ? checkKindredTitle(state, actor, command.title)
+        : isCircleTitle(command.title)
+          ? checkCircleTitle(state, actor, command.title)
           : checkTitle(state, actor, command.title);
       if (title && typeof title !== "function") return { ok: false, rejection: title };
       const same = sameProfile(look, me);
@@ -1092,7 +1092,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return { id, clear: hearthHere(resident) ? resident : undefined };
       });
       const clearMyHearth = hearthHere(me);
-      // Events on the plot are called off: it's about to be nobody's (RFC 0010). A kindred's hall
+      // Events on the plot are called off: it's about to be nobody's (RFC 0010). A circle's hall
       // there is cleared (RFC 0033).
       const calledOff = eventsLeavingPlot(state, px, py);
       const hall = hallsLeavingPlot(state, px, py);
@@ -1386,7 +1386,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const hearth = them?.hearth;
         const hearthPlot = hearth ? plotOf(config, hearth.x, hearth.y) : null;
         const hearthHere = hearthPlot?.px === px && hearthPlot.py === py;
-        // Their events here are called off with their share (RFC 0010), and a kindred hall they
+        // Their events here are called off with their share (RFC 0010), and a circle hall they
         // set here is cleared (RFC 0033).
         const calledOff = eventsLeavingPlot(state, px, py, target);
         const hall = hallsLeavingPlot(state, px, py, target);
@@ -1560,27 +1560,27 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "hand_in":
       return town(checkHandIn(state, actor, command));
 
-    case "found_kindred":
-      return town(checkFoundKindred(state, actor, command));
-    case "invite_to_kindred":
-      return town(checkInviteToKindred(state, actor, command));
-    case "cancel_kindred_invite":
-      return town(checkCancelKindredInvite(state, actor, command));
-    case "join_kindred":
-      return town(checkJoinKindred(state, actor, command));
-    case "decline_kindred_invite":
-      return town(checkDeclineKindredInvite(state, actor, command));
-    case "leave_kindred":
-      return town(checkLeaveKindred(state, actor));
-    case "chip_in_kindred":
-      return town(checkChipInKindred(state, actor, command));
-    case "remove_from_kindred":
-      return town(checkRemoveFromKindred(state, actor, command));
-    case "set_kindred_steward":
-      return town(checkSetKindredSteward(state, actor, command));
-    case "name_kindred":
-      return town(checkNameKindred(state, actor, command));
-    case "set_kindred_hall":
-      return town(checkSetKindredHall(state, actor, command));
+    case "found_circle":
+      return town(checkFoundCircle(state, actor, command));
+    case "invite_to_circle":
+      return town(checkInviteToCircle(state, actor, command));
+    case "cancel_circle_invite":
+      return town(checkCancelCircleInvite(state, actor, command));
+    case "join_circle":
+      return town(checkJoinCircle(state, actor, command));
+    case "decline_circle_invite":
+      return town(checkDeclineCircleInvite(state, actor, command));
+    case "leave_circle":
+      return town(checkLeaveCircle(state, actor));
+    case "chip_in_circle":
+      return town(checkChipInCircle(state, actor, command));
+    case "remove_from_circle":
+      return town(checkRemoveFromCircle(state, actor, command));
+    case "set_circle_steward":
+      return town(checkSetCircleSteward(state, actor, command));
+    case "name_circle":
+      return town(checkNameCircle(state, actor, command));
+    case "set_circle_hall":
+      return town(checkSetCircleHall(state, actor, command));
   }
 }

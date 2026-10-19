@@ -533,11 +533,11 @@ export interface WorldState {
    */
   jobs?: JobsState;
   /**
-   * Kindreds (RFC 0033): small named groups with stewards, invites, a hall, and the weeks their
-   * kindred night gathered. Absent until `open_kindreds`, so worlds from before it hash as they
+   * Circles (RFC 0033): small named groups with stewards, invites, a hall, and the weeks their
+   * circle night gathered. Absent until `open_circles`, so worlds from before it hash as they
    * always have.
    */
-  kindreds?: KindredsState;
+  circles?: CirclesState;
   /**
    * Recognition awards a maintainer has paid (RFC 0036), newest last. Pruned to the rolling window
    * when an award is paid and at no other time, so after a quiet month it still holds awards the
@@ -563,20 +563,20 @@ export interface Award {
   household?: true;
 }
 
-/** `k_1`, `k_2`, ... from the counter. */
-export type KindredId = string;
+/** `c_1`, `c_2`, ... from the counter. */
+export type CircleId = string;
 
-/** A kindred is forming until its members come from enough households, then formed for good. */
-export type KindredStatus = "forming" | "formed";
+/** A circle is forming until its members come from enough households, then formed for good. */
+export type CircleStatus = "forming" | "formed";
 
-/** A member of a kindred: the world day and the input they joined at, which orders who stood longest. */
-export interface KindredMember {
+/** A member of a circle: the world day and the input they joined at, which orders who stood longest. */
+export interface CircleMember {
   since: number;
   seq: number;
 }
 
-/** An open invite to a kindred: the steward who sent it and the world day it was sent. */
-export interface KindredInvite {
+/** An open invite to a circle: the steward who sent it and the world day it was sent. */
+export interface CircleInvite {
   by: ResidentId;
   day: number;
   /**
@@ -586,11 +586,11 @@ export interface KindredInvite {
   note?: string;
 }
 
-export interface Kindred {
-  id: KindredId;
+export interface Circle {
+  id: CircleId;
   /**
    * Untrusted text, cleaned and filtered by the server before it was logged. Absent after staff
-   * took it down (`clear_kindred_name`): the kindred goes by its id ("Kindred 3") until a steward
+   * took it down (`clear_circle_name`): the circle goes by its id ("Circle 3") until a steward
    * names it again.
    */
   name?: string;
@@ -598,38 +598,38 @@ export interface Kindred {
   namedBy?: ResidentId;
   founder: ResidentId;
   foundedDay: number;
-  status: KindredStatus;
+  status: CircleStatus;
   /** The world day it was formed. Absent while forming. */
   formedDay?: number;
-  /** One to `KINDREDS.stewardsMax`, in the order they became stewards, the founder first. */
+  /** One to `CIRCLES.stewardsMax`, in the order they became stewards, the founder first. */
   stewards: ResidentId[];
   /** Every member, stewards included. */
-  members: Record<ResidentId, KindredMember>;
+  members: Record<ResidentId, CircleMember>;
   /** Open invites by invitee. Absent when there are none. */
-  invites?: Record<ResidentId, KindredInvite>;
-  /** The plot its kindred nights are at, and the steward whose plot it is. Absent until set. */
+  invites?: Record<ResidentId, CircleInvite>;
+  /** The plot its circle nights are at, and the steward whose plot it is. Absent until set. */
   hall?: { px: number; py: number; by: ResidentId };
   /** The world day of its last rename. Absent until the first: the founding name isn't one. */
   renamedDay?: number;
-  /** The Mondays of the UTC weeks with a counted kindred night, oldest first, at most `gatheredKeep`. Absent until the first. */
+  /** The Mondays of the UTC weeks with a counted circle night, oldest first, at most `gatheredKeep`. Absent until the first. */
   gathered?: number[];
   /** Coins each member chipped in toward its fee while it was forming (issue #69). Absent until the first. */
   chips?: Record<ResidentId, number>;
 }
 
-export interface KindredsState {
-  /** The world day `open_kindreds` was logged. */
+export interface CirclesState {
+  /** The world day `open_circles` was logged. */
   opened: number;
-  /** The number in the next kindred's id. */
+  /** The number in the next circle's id. */
   nextId: number;
-  /** Every kindred still standing, by id. A disbanded kindred leaves, and its name is free again. */
-  list: Record<KindredId, Kindred>;
+  /** Every circle still standing, by id. A disbanded circle leaves, and its name is free again. */
+  list: Record<CircleId, Circle>;
   /**
-   * The world day each resident last left or was removed from a kindred, for the wait before they
+   * The world day each resident last left or was removed from a circle, for the wait before they
    * found or join one. Absent until the first, and `new_day` drops an entry once its wait is over.
    */
   leftDay?: Record<ResidentId, number>;
-  /** Counted kindred nights each resident attended, across every kindred. Absent until the first. */
+  /** Counted circle nights each resident attended, across every circle. Absent until the first. */
   nights?: Record<ResidentId, number>;
 }
 
@@ -733,16 +733,16 @@ export const isJobTitle = (title: unknown): title is JobTitle =>
   typeof title === "string" && (JOB_TITLES as readonly string[]).includes(title);
 
 /**
- * Titles from kindred nights attended (RFC 0033): fixed ids with fixed words, like a job's. New
+ * Titles from circle nights attended (RFC 0033): fixed ids with fixed words, like a job's. New
  * titles go on the end.
  */
-export const KINDRED_TITLES = ["kindred_regular"] as const;
-export type KindredTitle = (typeof KINDRED_TITLES)[number];
-export const isKindredTitle = (title: unknown): title is KindredTitle =>
-  typeof title === "string" && (KINDRED_TITLES as readonly string[]).includes(title);
+export const CIRCLE_TITLES = ["circle_regular"] as const;
+export type CircleTitle = (typeof CIRCLE_TITLES)[number];
+export const isCircleTitle = (title: unknown): title is CircleTitle =>
+  typeof title === "string" && (CIRCLE_TITLES as readonly string[]).includes(title);
 
-/** A title a resident can show: one a skill's level unlocked, one from jobs, or one from kindred nights. */
-export type ShownTitle = Title | JobTitle | KindredTitle;
+/** A title a resident can show: one a skill's level unlocked, one from jobs, or one from circle nights. */
+export type ShownTitle = Title | JobTitle | CircleTitle;
 
 /** The party games (RFC 0011). New games go on the end. */
 export const GAME_KINDS = ["hearth_race", "lowest_lantern"] as const;
@@ -933,10 +933,10 @@ export interface HostedEvent {
   voidedBy?: string;
   /** Its guests were counted for Hosting points (`credit_event`, RFC 0029). Absent until then. */
   credited?: true;
-  /** The kindred whose night it is (RFC 0033). Absent for every other event. */
-  kindred?: KindredId;
+  /** The circle whose night it is (RFC 0033). Absent for every other event. */
+  circle?: CircleId;
   /**
-   * At a kindred night: from `event_start`, who was in the kindred as it started, and from
+   * At a circle night: from `event_start`, who was in the circle as it started, and from
    * `event_end`, those of them and of its members then who attended by its samples, the host
    * included, sorted. None of them is a counted guest there. Absent for every other event.
    */
@@ -1393,12 +1393,12 @@ export const COIN_REASONS = [
   "merged",
   /** A floor added to a plot (RFC 0028). A small share goes to the treasury and the rest is burned. */
   "floor",
-  /** The fee for founding a kindred (RFC 0033). Burned. */
-  "kindred_fee",
-  /** Coins a member chipped in toward their forming kindred's fee, paid to its founder (issue #69). */
-  "kindred_share",
-  /** A kindred's fee given back when it didn't form, but its small burn. Minted. */
-  "kindred_refund",
+  /** The fee for founding a circle (RFC 0033). Burned. */
+  "circle_fee",
+  /** Coins a member chipped in toward their forming circle's fee, paid to its founder (issue #69). */
+  "circle_share",
+  /** A circle's fee given back when it didn't form, but its small burn. Minted. */
+  "circle_refund",
   /** From the treasury, awarded by a maintainer for outstanding work (RFC 0036). No vote. */
   "award",
 ] as const;
@@ -1620,8 +1620,8 @@ export type Command =
       py: number;
       startsAt: number;
       minutes: number;
-      /** A kindred night (RFC 0033): the host's kindred, at its hall. */
-      kindred?: KindredId | undefined;
+      /** A circle night (RFC 0033): the host's circle, at its hall. */
+      circle?: CircleId | undefined;
     }
   | { type: "cancel_event"; event: string }
   /** While it's live: a free tile in the event's area. */
@@ -1666,28 +1666,28 @@ export type Command =
    * made thing's id, or a sweet's kind. It leaves the world.
    */
   | { type: "bring_dish"; item: string }
-  // Kindreds (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
-  /** Found a kindred and become its first steward, for `KINDREDS.fee` coins, burned. */
-  | { type: "found_kindred"; name: string }
-  /** A steward invites a resident to their kindred, with a note to them at most `noteMax` long. */
-  | { type: "invite_to_kindred"; resident: ResidentId; note?: string }
+  // Circles (RFC 0033). `name` is untrusted text the server cleaned and filtered before logging it.
+  /** Found a circle and become its first steward, for `CIRCLES.fee` coins, burned. */
+  | { type: "found_circle"; name: string }
+  /** A steward invites a resident to their circle, with a note to them at most `noteMax` long. */
+  | { type: "invite_to_circle"; resident: ResidentId; note?: string }
   /** A steward takes back an invite. */
-  | { type: "cancel_kindred_invite"; resident: ResidentId }
+  | { type: "cancel_circle_invite"; resident: ResidentId }
   /** Accept an invite you hold. */
-  | { type: "join_kindred"; kindred: KindredId }
+  | { type: "join_circle"; circle: CircleId }
   /** Turn an invite down. */
-  | { type: "decline_kindred_invite"; kindred: KindredId }
-  | { type: "leave_kindred" }
-  /** A member who isn't its founder pays part of a forming kindred's fee to its founder (issue #69). */
-  | { type: "chip_in_kindred"; kindred: KindredId; coins: number }
+  | { type: "decline_circle_invite"; circle: CircleId }
+  | { type: "leave_circle" }
+  /** A member who isn't its founder pays part of a forming circle's fee to its founder (issue #69). */
+  | { type: "chip_in_circle"; circle: CircleId; coins: number }
   /** A steward removes a member who isn't a steward. */
-  | { type: "remove_from_kindred"; resident: ResidentId }
+  | { type: "remove_from_circle"; resident: ResidentId }
   /** A steward makes a member a steward (`true`), or steps down themselves (`false`). */
-  | { type: "set_kindred_steward"; resident: ResidentId; steward: boolean }
-  /** A steward renames the kindred, once a UTC week. */
-  | { type: "name_kindred"; name: string }
+  | { type: "set_circle_steward"; resident: ResidentId; steward: boolean }
+  /** A steward renames the circle, once a UTC week. */
+  | { type: "name_circle"; name: string }
   /** A steward sets the hall to a plot they own or share, or clears it with `null`. */
-  | { type: "set_kindred_hall"; px: number | null; py: number | null }
+  | { type: "set_circle_hall"; px: number | null; py: number | null }
   // Only the server sends these, as TOWN_ACTOR.
   | { type: "new_day"; day: number }
   | { type: "set_townsfolk"; ids: ResidentId[] }
@@ -1785,12 +1785,12 @@ export type Command =
   | { type: "set_job_edition"; edition: number }
   /** From now on, pages on the ground come from this edition of the list (`PAGE_EDITIONS`). */
   | { type: "set_page_edition"; edition: number }
-  /** From now on, residents may found and join kindreds (RFC 0033). */
-  | { type: "open_kindreds" }
-  /** Staff take a kindred's name down after a report. It goes by its id until it's named again. */
-  | { type: "clear_kindred_name"; kindred: KindredId }
-  /** Staff disband a kindred that exists to harass. `by` is who the log names. */
-  | { type: "disband_kindred"; kindred: KindredId; by: string }
+  /** From now on, residents may found and join circles (RFC 0033). */
+  | { type: "open_circles" }
+  /** Staff take a circle's name down after a report. It goes by its id until it's named again. */
+  | { type: "clear_circle_name"; circle: CircleId }
+  /** Staff disband a circle that exists to harass. `by` is who the log names. */
+  | { type: "disband_circle"; circle: CircleId; by: string }
   | { type: "open_bounties" }
   /**
    * A maintainer confirms a town bounty is done and pays `to`, who must be the claimant. In these
@@ -1941,9 +1941,9 @@ export const SERVER_COMMANDS = [
   "open_jobs",
   "set_job_edition",
   "set_page_edition",
-  "open_kindreds",
-  "clear_kindred_name",
-  "disband_kindred",
+  "open_circles",
+  "clear_circle_name",
+  "disband_circle",
   "award_grant",
 ] as const satisfies readonly CommandType[];
 
@@ -2229,11 +2229,11 @@ export type WorldEvent =
       startsAt: number;
       minutes: number;
       town?: true;
-      /** A kindred night's kindred (RFC 0033). */
-      kindred?: KindredId;
+      /** A circle night's circle (RFC 0033). */
+      circle?: CircleId;
     }
   /** An event is on now. Public. */
-  /** An event is on now. At a kindred night (RFC 0033), `kin` is who was in the kindred then. Public. */
+  /** An event is on now. At a circle night (RFC 0033), `kin` is who was in the circle then. Public. */
   | { type: "event_started"; event: string; kin?: ResidentId[] }
   /** An attendance sample: who was there this time. Stays on the server: clients draw nothing from it. */
   | { type: "event_ticked"; event: string; ticks: number; present: ResidentId[] }
@@ -2243,7 +2243,7 @@ export type WorldEvent =
       event: string;
       attended: ResidentId[];
       deposit?: "refunded" | "burned";
-      /** At a kindred night (RFC 0033): its members who attended, the host included, sorted. */
+      /** At a circle night (RFC 0033): its members who attended, the host included, sorted. */
       kin?: ResidentId[];
     }
   /** An event was called off before it ended, and what happened to a Commons deposit. Public. */
@@ -2360,20 +2360,20 @@ export type WorldEvent =
   | { type: "page_edition_set"; edition: number }
   /** A resident let `job` go, or it lapsed at `new_day` after `JOBS.keepDays` days. Private. */
   | { type: "job_dropped"; residentId: ResidentId; job: string; lapsed?: true }
-  // Kindreds (RFC 0033). Public, but for a forming kindred the server sends them only to its
+  // Circles (RFC 0033). Public, but for a forming circle the server sends them only to its
   // members and the residents it invited, and invites go only to the invitee and the stewards.
-  /** Kindreds are open: residents may found and join them from now on. */
-  | { type: "kindreds_opened" }
-  /** `founder` founded `kindred` as `name` (untrusted). It's forming. */
-  | { type: "kindred_founded"; kindred: KindredId; name: string; founder: ResidentId }
+  /** Circles are open: residents may found and join them from now on. */
+  | { type: "circles_opened" }
+  /** `founder` founded `circle` as `name` (untrusted). It's forming. */
+  | { type: "circle_founded"; circle: CircleId; name: string; founder: ResidentId }
   /** Its members come from enough households now: it's formed, for good. */
-  | { type: "kindred_formed"; kindred: KindredId }
-  /** `residentId` chipped in `coins` toward their forming kindred's fee. */
-  | { type: "kindred_chipped_in"; kindred: KindredId; residentId: ResidentId; coins: number }
-  /** `by` invited `residentId`. Private to the invitee and the kindred's stewards. */
+  | { type: "circle_formed"; circle: CircleId }
+  /** `residentId` chipped in `coins` toward their forming circle's fee. */
+  | { type: "circle_chipped_in"; circle: CircleId; residentId: ResidentId; coins: number }
+  /** `by` invited `residentId`. Private to the invitee and the circle's stewards. */
   | {
-      type: "kindred_invited";
-      kindred: KindredId;
+      type: "circle_invited";
+      circle: CircleId;
       residentId: ResidentId;
       by: ResidentId;
       /** The steward's words to the invitee, when the invite carried some. */
@@ -2381,50 +2381,50 @@ export type WorldEvent =
     }
   /**
    * An invite closed without being used: a steward took it back, its invitee turned it down, it
-   * lapsed at `new_day`, its invitee joined a kindred, or its invitee's record was merged into
+   * lapsed at `new_day`, its invitee joined a circle, or its invitee's record was merged into
    * another. Private, like the invite.
    */
   | {
-      type: "kindred_uninvited";
-      kindred: KindredId;
+      type: "circle_uninvited";
+      circle: CircleId;
       residentId: ResidentId;
       how: "cancelled" | "declined" | "lapsed" | "joined" | "merged";
     }
-  | { type: "kindred_joined"; kindred: KindredId; residentId: ResidentId }
-  /** A member left, a steward removed them, or their record was merged into one in another kindred. */
+  | { type: "circle_joined"; circle: CircleId; residentId: ResidentId }
+  /** A member left, a steward removed them, or their record was merged into one in another circle. */
   | {
-      type: "kindred_left";
-      kindred: KindredId;
+      type: "circle_left";
+      circle: CircleId;
       residentId: ResidentId;
       how: "left" | "removed" | "merged";
     }
   /** `residentId` is a steward now, or isn't any more. */
-  | { type: "kindred_steward"; kindred: KindredId; residentId: ResidentId; steward: boolean }
+  | { type: "circle_steward"; circle: CircleId; residentId: ResidentId; steward: boolean }
   /** Its name (untrusted) is `name` now, written by `by`, or it goes by its id (`null`) after a takedown. */
-  | { type: "kindred_named"; kindred: KindredId; name: string | null; by: ResidentId | null }
-  /** Its hall is plot (px, py) now, with what the kindred goes by for the map (untrusted), or it has none (`null`). */
+  | { type: "circle_named"; circle: CircleId; name: string | null; by: ResidentId | null }
+  /** Its hall is plot (px, py) now, with what the circle goes by for the map (untrusted), or it has none (`null`). */
   | {
-      type: "kindred_hall";
-      kindred: KindredId;
+      type: "circle_hall";
+      circle: CircleId;
       hall: { px: number; py: number } | null;
       name?: string;
     }
   /**
-   * A kindred night counted: `members` (sorted) attended `event`, and the UTC week starting on
+   * A circle night counted: `members` (sorted) attended `event`, and the UTC week starting on
    * `week` is a gathered week. `weeks` is how many of the weeks it keeps (the last 52) gathered.
    */
   | {
-      type: "kindred_gathered";
-      kindred: KindredId;
+      type: "circle_gathered";
+      circle: CircleId;
       event: string;
       week: number;
       members: ResidentId[];
       weeks: number;
     }
-  /** A resident's count of kindred nights attended moved with a merged record. */
-  | { type: "kindred_nights"; residentId: ResidentId; nights: number }
+  /** A resident's count of circle nights attended moved with a merged record. */
+  | { type: "circle_nights"; residentId: ResidentId; nights: number }
   /** It's gone: its last member left, it didn't form in time, or staff disbanded it. Its name is free. */
-  | { type: "kindred_disbanded"; kindred: KindredId; how: "empty" | "unformed" | "staff" }
+  | { type: "circle_disbanded"; circle: CircleId; how: "empty" | "unformed" | "staff" }
   /**
    * `by` cast a line into the water at (x, y) and caught `caught`: a fish, an old boot they threw
    * back, or nothing (RFC 0023). Public, like a gather.
@@ -2665,40 +2665,40 @@ export const REJECTION_CODES = [
   "no_job",
   /** You hold nothing of the kind the job asks for that you made yourself. */
   "nothing_to_hand_in",
-  // Kindreds (RFC 0033).
-  /** Kindreds aren't open in this world yet. */
-  "kindreds_closed",
-  /** No kindred has that id, or you can't see it while it's forming. */
-  "unknown_kindred",
-  /** You're already in a kindred, or the resident you named is. */
-  "in_kindred",
-  /** That needs you in a kindred, or the resident you named isn't in yours. */
-  "not_in_kindred",
-  /** You, or they, left or were removed from a kindred too recently. */
+  // Circles (RFC 0033).
+  /** Circles aren't open in this world yet. */
+  "circles_closed",
+  /** No circle has that id, or you can't see it while it's forming. */
+  "unknown_circle",
+  /** You're already in a circle, or the resident you named is. */
+  "in_circle",
+  /** That needs you in a circle, or the resident you named isn't in yours. */
+  "not_in_circle",
+  /** You, or they, left or were removed from a circle too recently. */
   "wait_after_leaving",
-  /** The kindred has as many members as it can. */
-  "kindred_full",
-  /** The kindred has as many members from that household as it can. */
+  /** The circle has as many members as it can. */
+  "circle_full",
+  /** The circle has as many members from that household as it can. */
   "household_full",
-  /** The kindred has as many open invites as it can. */
+  /** The circle has as many open invites as it can. */
   "invite_limit",
-  /** You hold no invite from that kindred, or they hold none from yours. */
+  /** You hold no invite from that circle, or they hold none from yours. */
   "no_invite",
-  /** They already hold an invite from your kindred. */
+  /** They already hold an invite from your circle. */
   "already_invited",
   /** Only a steward can do that. */
   "not_steward",
-  /** The kindred is still forming: its members need to come from more households first. */
+  /** The circle is still forming: its members need to come from more households first. */
   "not_formed",
-  /** Another kindred has that name. */
+  /** Another circle has that name. */
   "name_taken",
-  /** The kindred already has a kindred night that UTC week. */
+  /** The circle already has a circle night that UTC week. */
   "night_this_week",
-  /** That kindred has formed already. */
+  /** That circle has formed already. */
   "not_forming",
-  /** Members have chipped in all they can toward that kindred's fee. */
+  /** Members have chipped in all they can toward that circle's fee. */
   "chip_in_full",
-  /** They chipped in toward the forming kindred's fee, so a steward can't remove them. */
+  /** They chipped in toward the forming circle's fee, so a steward can't remove them. */
   "chipped_in",
   /** Not yet: a present opens from December 25 (RFC 0034). */
   "not_yet",

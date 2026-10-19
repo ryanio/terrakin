@@ -7,11 +7,11 @@ import {
   inviteStandingLine,
   memberLine,
   summaryLine,
-} from "./kindreds";
+} from "./circles";
 
-/** The kindred page's and the Town Hall's words (RFC 0033). */
-describe("kindred words", () => {
-  it("say how a kindred has gathered, and a run only once it's more than one week", () => {
+/** The circle page's and the Town Hall's words (RFC 0033). */
+describe("circle words", () => {
+  it("say how a circle has gathered, and a run only once it's more than one week", () => {
     expect(gatheredLine(0, 0)).toBe("Hasn't gathered yet");
     expect(gatheredLine(1, 1)).toBe("Gathered 1 week");
     expect(gatheredLine(5, 3)).toBe("Gathered 5 weeks, 3 in a row");
@@ -41,7 +41,7 @@ describe("founding against your coins (issue #69)", () => {
   });
 });
 
-describe("what an invite says about the kindred (issue #73)", () => {
+describe("what an invite says about the circle (issue #73)", () => {
   const fern = { id: "r_1", name: "Fern" };
   const juniper = { id: "r_2", name: "Juniper" };
 
@@ -50,11 +50,11 @@ describe("what an invite says about the kindred (issue #73)", () => {
       "Fern invited you. Juniper founded it, and it has 4 members.",
     );
     expect(inviteLine({ by: fern, founder: fern, members: 1 })).toBe(
-      "Fern founded this kindred and invited you. Now it has 1 member.",
+      "Fern founded this circle and invited you. Now it has 1 member.",
     );
   });
 
-  it("says a forming kindred's deadline, and a formed one's hall", () => {
+  it("says a forming circle's deadline, and a formed one's hall", () => {
     expect(
       inviteStandingLine(
         { status: "forming", hall: null, formsIn: "in 9 days" },

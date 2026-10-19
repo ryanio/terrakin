@@ -2,6 +2,7 @@ import {
   type AgentLinkView,
   type AuthorView,
   BOARD_LIMITS,
+  type CircleBrief,
   type CreateNoticeRequest,
   type CreatePostRequest,
   CropKind,
@@ -20,7 +21,6 @@ import {
   isReservedHandle,
   JobDoneView,
   type KeptCharacter,
-  type KindredBrief,
   LevelUpView,
   type LevelView,
   type LookView,
@@ -72,14 +72,14 @@ import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
 import { randomId } from "./bytes";
 import { CheckinLog } from "./checkin-log";
+import { CircleNotices } from "./circle-notices";
+import type { CircleContext } from "./circles";
 import { CollectionBook } from "./collection";
 import { DiscoveryLog } from "./discovery-log";
 import { type EventContext, EventsSocial, eventNoticeView, SOON_NOTICE_MS } from "./events";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
-import { KindredNotices } from "./kindred-notices";
-import type { KindredContext } from "./kindreds";
 import {
   type MediaPlace,
   type MediaStore,
@@ -229,8 +229,8 @@ export interface SocialServiceOptions {
   bounty?: (id: string) => { author: string; title: string; text: string } | undefined;
   /** A hosted event, for reports on one; `author` is its host. Default: none exist. */
   event?: (id: string) => { author: string; title: string; text: string } | undefined;
-  /** A kindred from the world, for reports on one (RFC 0033). Its notice is added here. */
-  kindred?: (id: string) => { author: string; title: string; text: string } | undefined;
+  /** A circle from the world, for reports on one (RFC 0033). Its notice is added here. */
+  circle?: (id: string) => { author: string; title: string; text: string } | undefined;
   /**
    * The names on plots a resident owns or named, from the world (the sim's `plotNamesOf`), for
    * reports on them (decision 0121). Default: none.
@@ -532,6 +532,28 @@ export class SocialService {
       // Already there.
     }
     this.sql.exec("CREATE INDEX IF NOT EXISTS reactions_created ON reactions (created_at)");
+    // Circle notices were kindred ones until decision 0318, keyed by a `k_1` id in the stored
+    // detail and the group key. A row under an old type matches no branch when it's read, so it
+    // is dropped from the list while `unread()` still counts it, leaving a badge nobody can clear.
+    // The detail keys are written by JSON.stringify with no spaces, so these replacements are
+    // exact rather than a guess at the shape.
+    for (const statement of [
+      `UPDATE notifications SET type = 'circle_' || substr(type, 9)
+         WHERE type IN ('kindred_invite', 'kindred_night', 'kindred_joined')`,
+      `UPDATE notifications SET detail = replace(replace(replace(detail,
+           '"kindred":"k_', '"circle":"c_'),
+           '"kindred_name"', '"circle_name"'),
+           '"kindred_notice"', '"circle_notice"')
+         WHERE detail LIKE '%kindred%'`,
+      `UPDATE notifications SET group_key = replace(replace(group_key, 'kindred_', 'circle_'), ':k_', ':c_')
+         WHERE group_key LIKE '%kindred%'`,
+    ]) {
+      try {
+        this.sql.exec(statement);
+      } catch {
+        // No such rows.
+      }
+    }
     // Every boot, so a backfill that stopped partway finishes. Only undated rows are touched.
     this.sql.exec(
       `UPDATE reactions SET created_at =
@@ -606,9 +628,9 @@ export class SocialService {
       proposal: options.proposal ?? (() => undefined),
       bounty: options.bounty,
       event: options.event,
-      kindred: (id) => {
-        const k = options.kindred?.(id);
-        const notice = k && this.kindredNotices.get(id);
+      circle: (id) => {
+        const k = options.circle?.(id);
+        const notice = k && this.circleNotices.get(id);
         return (
           k && {
             ...k,
@@ -632,7 +654,7 @@ export class SocialService {
       triage: options.triage,
     });
     this.events = new EventsSocial({ sql: this.sql, now: this.now });
-    this.kindredNotices = new KindredNotices({
+    this.circleNotices = new CircleNotices({
       sql: this.sql,
       now: this.now,
       moderation: this.moderation,
@@ -738,15 +760,15 @@ export class SocialService {
    * `event_started` notice reads the event as it stands now.
    */
   eventOf: (id: string) => HostedEvent | undefined = () => undefined;
-  /** A kindred as notices name it now (RFC 0033), or undefined once it's gone. `Api` wires it. */
-  kindredOf: (id: string) => KindredBrief | undefined = () => undefined;
+  /** A circle as notices name it now (RFC 0033), or undefined once it's gone. `Api` wires it. */
+  circleOf: (id: string) => CircleBrief | undefined = () => undefined;
   /**
    * The note a steward wrote with an open invite (issue #73), read from the world each time an
    * invite notice is shown. `Api` wires it.
    */
-  kindredInviteNote: (kindred: string, resident: string) => string | undefined = () => undefined;
-  /** The formed kindred a resident is in, for profiles (RFC 0033). `Api` wires it. */
-  kindredOfResident: (id: string) => KindredBrief | undefined = () => undefined;
+  circleInviteNote: (circle: string, resident: string) => string | undefined = () => undefined;
+  /** The formed circle a resident is in, for profiles (RFC 0033). `Api` wires it. */
+  circleOfResident: (id: string) => CircleBrief | undefined = () => undefined;
 
   /** Letters, gestures, streaks, and invites (decision 0024). Shares this service's tables. */
   readonly together: TogetherService;
@@ -779,8 +801,8 @@ export class SocialService {
   readonly karma: KarmaService;
   /** Hosted events' social side (RFC 0010): who's going, and each host's record. */
   readonly events: EventsSocial;
-  /** Kindreds' notices (RFC 0033): one text a kindred, set by a steward. */
-  readonly kindredNotices: KindredNotices;
+  /** Circles' notices (RFC 0033): one text a circle, set by a steward. */
+  readonly circleNotices: CircleNotices;
 
   /**
    * What the event views need for one viewer, read once: going counts, the viewer's own, and the
@@ -807,16 +829,16 @@ export class SocialService {
     };
   }
 
-  /** What the kindred views need from the social side (RFC 0033), read once per request. */
-  kindredContext(viewer: string | undefined): KindredContext {
+  /** What the circle views need from the social side (RFC 0033), read once per request. */
+  circleContext(viewer: string | undefined): CircleContext {
     const held = (id: string) => this.safety.isQuarantined(id);
     return {
       author: (id) => this.authorView(id),
       suspended: (id) => this.safety.suspendedUntil(id) !== undefined,
       // A notice whose writer's words staff hold back is held too (RFC 0033).
-      notice: (kindred) => {
-        const author = this.kindredNotices.authorOf(kindred);
-        return author !== undefined && held(author) ? undefined : this.kindredNotices.get(kindred);
+      notice: (circle) => {
+        const author = this.circleNotices.authorOf(circle);
+        return author !== undefined && held(author) ? undefined : this.circleNotices.get(circle);
       },
       events: this.eventContext(viewer),
       held,
@@ -1391,7 +1413,7 @@ export class SocialService {
       ...this.entitledField(r.id),
       ...this.levelField(r.id),
       ...this.jobsField(r.id),
-      ...this.kindredField(r.id),
+      ...this.circleField(r.id),
       collected: this.collection.collected(r.id),
       ...this.petField(r, viewerId, quarantined),
     };
@@ -1437,10 +1459,10 @@ export class SocialService {
     return level ? { level } : {};
   }
 
-  /** The formed kindred they're in (RFC 0033), its name a resident's words. */
-  private kindredField(id: string): { kindred?: KindredBrief } {
-    const kindred = this.kindredOfResident(id);
-    return kindred ? { kindred } : {};
+  /** The formed circle they're in (RFC 0033), its name a resident's words. */
+  private circleField(id: string): { circle?: CircleBrief } {
+    const circle = this.circleOfResident(id);
+    return circle ? { circle } : {};
   }
 
   /** How many jobs they've finished (RFC 0030), once jobs are open. */
@@ -2302,9 +2324,9 @@ export class SocialService {
       if (type === "level_reached") return this.levelsView(row, detail);
       if (type === "job_done") return this.jobDoneView(row, detail);
       if (type === "award") return this.awardView(row, detail);
-      if (type === "kindred_invite" || type === "kindred_night" || type === "kindred_joined") {
+      if (type === "circle_invite" || type === "circle_night" || type === "circle_joined") {
         events ??= this.eventContext(recipient);
-        return this.kindredNoticeView(row, recipient, type, detail, events);
+        return this.circleNoticeView(row, recipient, type, detail, events);
       }
       if (type === "event_started" || type === "event_soon") {
         events ??= this.eventContext(recipient);
@@ -2362,36 +2384,34 @@ export class SocialService {
   }
 
   /**
-   * A stored kindred notice (RFC 0033) as the recipient reads it, from Terrakin itself: the kindred,
-   * who invited them or joined, and the kindred night, each as they stand now. Gone once the
-   * kindred is, and a resident or a night the reader shouldn't see is left out.
+   * A stored circle notice (RFC 0033) as the recipient reads it, from Terrakin itself: the circle,
+   * who invited them or joined, and the circle night, each as they stand now. Gone once the
+   * circle is, and a resident or a night the reader shouldn't see is left out.
    */
-  private kindredNoticeView(
+  private circleNoticeView(
     row: Record<string, unknown>,
     recipient: string,
-    type: "kindred_invite" | "kindred_night" | "kindred_joined",
+    type: "circle_invite" | "circle_night" | "circle_joined",
     detail: string,
     events: EventContext,
   ): NotificationView[] {
-    const parsed = KindredNoticeDetail.safeParse(storedJson(detail));
+    const parsed = CircleNoticeDetail.safeParse(storedJson(detail));
     if (!parsed.success) return [];
-    const kindred = this.kindredOf(parsed.data.kindred);
-    if (!kindred) return [];
+    const circle = this.circleOf(parsed.data.circle);
+    if (!circle) return [];
     const resident = parsed.data.resident ? this.authorView(parsed.data.resident) : undefined;
     const event = parsed.data.event
       ? eventNoticeView(this.eventOf(parsed.data.event), events)
       : undefined;
-    if (type === "kindred_night" && !event) return [];
+    if (type === "circle_night" && !event) return [];
     // An invite's note is the steward's words, read from the invite as it stands: a note taken
     // back with the invite leaves the notice too (issue #73).
     const note =
-      type === "kindred_invite"
-        ? this.kindredInviteNote(parsed.data.kindred, recipient)
-        : undefined;
+      type === "circle_invite" ? this.circleInviteNote(parsed.data.circle, recipient) : undefined;
     return [
       {
         ...systemNotification(row, type),
-        kindred,
+        circle,
         ...(resident ? { resident } : {}),
         ...(event ? { event } : {}),
         ...(note ? { note } : {}),
@@ -2400,14 +2420,14 @@ export class SocialService {
   }
 
   /**
-   * Tell a resident about a kindred (RFC 0033): an invite they hold, a kindred night a member
+   * Tell a resident about a circle (RFC 0033): an invite they hold, a circle night a member
    * scheduled, or, for a steward, someone who joined. One notice from Terrakin itself, with ids
    * only; `once` keeps a night's notice to one per member.
    */
-  kindredNotice(
+  circleNotice(
     recipient: string,
-    type: "kindred_invite" | "kindred_night" | "kindred_joined",
-    detail: { kindred: string; resident?: string; event?: string },
+    type: "circle_invite" | "circle_night" | "circle_joined",
+    detail: { circle: string; resident?: string; event?: string },
     once = "",
   ) {
     const from = detail.resident;
@@ -3053,14 +3073,14 @@ type SystemNoticeType =
   | "job_done"
   | "event_started"
   | "event_soon"
-  | "kindred_invite"
-  | "kindred_night"
-  | "kindred_joined"
+  | "circle_invite"
+  | "circle_night"
+  | "circle_joined"
   | "award";
 
-/** What a kindred notice (RFC 0033) keeps: ids only, read back as the world has them now. */
-const KindredNoticeDetail = z.object({
-  kindred: z.string(),
+/** What a circle notice (RFC 0033) keeps: ids only, read back as the world has them now. */
+const CircleNoticeDetail = z.object({
+  circle: z.string(),
   resident: z.string().optional(),
   event: z.string().optional(),
 });

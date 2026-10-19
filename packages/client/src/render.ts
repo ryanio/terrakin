@@ -305,7 +305,7 @@ export function render(
       const top = Math.round(sy - half);
       const owner = mirror.plots.get(plotKey(px, py));
       const named = owner ? mirror.plotNames.get(plotKey(px, py)) : undefined;
-      // A kindred's hall (RFC 0033) carries the kindred's name under the plot's own.
+      // A circle's hall (RFC 0033) carries the circle's name under the plot's own.
       const hall = owner ? mirror.halls.get(plotKey(px, py))?.name : undefined;
       const fade = named || hall ? plotLabelFade(plotDistance(config, here, px, py), scale) : 0;
       if ((named || hall) && fade > 0) {

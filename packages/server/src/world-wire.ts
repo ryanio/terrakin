@@ -8,6 +8,8 @@ import {
 import {
   activeTables,
   blocksOn,
+  circleById,
+  circleName,
   commonsPlot,
   DAY_LENGTH_MS,
   type Direction,
@@ -21,8 +23,6 @@ import {
   holidaysField,
   isTownEvent,
   isTownsfolk,
-  kindredById,
-  kindredName,
   type PickupKind,
   pageEditionOf,
   pageOn,
@@ -37,7 +37,7 @@ import {
   residentById,
   type StepRoutine,
   shopTiles,
-  shownKindredName,
+  shownCircleName,
   skyAt,
   timeOfDayAt,
   townHallTiles,
@@ -58,7 +58,7 @@ import { nameKey } from "./text";
  * jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
  * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored,
  * `page_edition_set`, since the snapshot's `pageEdition` is what a client draws pages from
- * (RFC 0024), and `kindred_nights`, a merge's bookkeeping for kindred nights attended (RFC 0033). A gift
+ * (RFC 0024), and `circle_nights`, a merge's bookkeeping for circle nights attended (RFC 0033). A gift
  * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
  * side: their purses reset to the budget each day, so the public treasury lines would give the
  * amount away.
@@ -77,7 +77,7 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "job_total" ||
       e.type === "job_edition_set" ||
       e.type === "page_edition_set" ||
-      e.type === "kindred_nights"
+      e.type === "circle_nights"
     ) {
       continue;
     }
@@ -115,12 +115,12 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       continue;
     }
     if (
-      e.type === "kindred_founded" ||
-      (e.type === "kindred_named" && e.name !== null) ||
-      (e.type === "kindred_hall" && e.name !== undefined) ||
-      (e.type === "kindred_invited" && e.note !== undefined)
+      e.type === "circle_founded" ||
+      (e.type === "circle_named" && e.name !== null) ||
+      (e.type === "circle_hall" && e.name !== undefined) ||
+      (e.type === "circle_invited" && e.note !== undefined)
     ) {
-      // A kindred's name is its stewards' words, and an invite's note the steward's own to its
+      // A circle's name is its stewards' words, and an invite's note the steward's own to its
       // invitee (RFC 0033, issue #73). A takedown carries no name.
       out.push({ ...e, trust: "untrusted" });
       continue;
@@ -161,17 +161,17 @@ export function holdBackNames(
   state?: WorldState,
 ): WireEvent[] {
   return events.map((e) => {
-    // A kindred's name while its writer's words are held back goes by the kindred's id (RFC 0033).
-    if (e.type === "kindred_founded" && hidden(e.founder)) {
-      return { ...e, name: kindredName({ id: e.kindred }) };
+    // A circle's name while its writer's words are held back goes by the circle's id (RFC 0033).
+    if (e.type === "circle_founded" && hidden(e.founder)) {
+      return { ...e, name: circleName({ id: e.circle }) };
     }
-    if (e.type === "kindred_named" && e.by !== null && hidden(e.by)) {
+    if (e.type === "circle_named" && e.by !== null && hidden(e.by)) {
       const { trust: _words, ...rest } = e;
       return { ...rest, name: null };
     }
-    if (e.type === "kindred_hall" && e.name !== undefined) {
-      const k = state ? kindredById(state, e.kindred) : undefined;
-      if (k) return { ...e, name: shownKindredName(k, hidden) };
+    if (e.type === "circle_hall" && e.name !== undefined) {
+      const k = state ? circleById(state, e.circle) : undefined;
+      if (k) return { ...e, name: shownCircleName(k, hidden) };
     }
     if ((e.type === "pet_adopted" || e.type === "pet_renamed") && hidden(e.residentId)) {
       return e.type === "pet_adopted" ? { ...e, pet: { ...e.pet, name: "" } } : { ...e, name: "" };
@@ -216,16 +216,16 @@ export type Audience = (e: WireEvent) => readonly string[] | undefined;
 
 const everyone: Audience = () => undefined;
 
-/** Who could hear a kindred's events, by kindred: undefined for a formed one, which is everyone's. */
-export type KindredRoster = ReadonlyMap<
+/** Who could hear a circle's events, by circle: undefined for a formed one, which is everyone's. */
+export type CircleRoster = ReadonlyMap<
   string,
   { few?: readonly string[]; stewards: readonly string[] }
 >;
 
-/** Who hears each kindred's events now, read before a commit that may disband one (RFC 0033). */
-export function kindredRoster(state: WorldState): KindredRoster {
+/** Who hears each circle's events now, read before a commit that may disband one (RFC 0033). */
+export function circleRoster(state: WorldState): CircleRoster {
   const roster = new Map<string, { few?: readonly string[]; stewards: readonly string[] }>();
-  for (const k of Object.values(state.kindreds?.list ?? {})) {
+  for (const k of Object.values(state.circles?.list ?? {})) {
     roster.set(k.id, {
       stewards: [...k.stewards],
       ...(k.status === "formed"
@@ -237,21 +237,21 @@ export function kindredRoster(state: WorldState): KindredRoster {
 }
 
 /**
- * Who hears a kindred's event (RFC 0033), or undefined when everyone does. An invite, and its
- * closing, go to the invitee and the kindred's stewards. A forming kindred's events go to its
+ * Who hears a circle's event (RFC 0033), or undefined when everyone does. An invite, and its
+ * closing, go to the invitee and the circle's stewards. A forming circle's events go to its
  * members, the residents it invited, and the resident the event names, so someone who just left
- * still hears it. A formed kindred's go to everyone. Read from the world after the commit, and for
- * a kindred the commit disbanded, from `before`, so a forming one stays with its few to its end.
+ * still hears it. A formed circle's go to everyone. Read from the world after the commit, and for
+ * a circle the commit disbanded, from `before`, so a forming one stays with its few to its end.
  */
-export function kindredAudience(state: WorldState, before: KindredRoster = new Map()): Audience {
-  const now = kindredRoster(state);
+export function circleAudience(state: WorldState, before: CircleRoster = new Map()): Audience {
+  const now = circleRoster(state);
   return (e) => {
-    const id = "kindred" in e ? e.kindred : undefined;
-    if (!e.type.startsWith("kindred_") || typeof id !== "string") return undefined;
+    const id = "circle" in e ? e.circle : undefined;
+    if (!e.type.startsWith("circle_") || typeof id !== "string") return undefined;
     const k = now.get(id) ?? before.get(id);
     if (!k) return undefined;
     const named = "residentId" in e && typeof e.residentId === "string" ? [e.residentId] : [];
-    if (e.type === "kindred_invited" || e.type === "kindred_uninvited") {
+    if (e.type === "circle_invited" || e.type === "circle_uninvited") {
       return [...new Set([...named, ...k.stewards])];
     }
     if (!k.few) return undefined;
@@ -334,19 +334,19 @@ function presentsWaitingField(state: WorldState) {
 }
 
 /**
- * The halls of formed kindreds (RFC 0033), each with its kindred's name, a resident's words, for
+ * The halls of formed circles (RFC 0033), each with its circle's name, a resident's words, for
  * the map to draw under the plot's own name. Absent when there are none, so a world without
- * kindreds snapshots as it always did.
+ * circles snapshots as it always did.
  */
 function hallsField(state: WorldState, held: (id: string) => boolean) {
-  const halls = Object.values(state.kindreds?.list ?? {}).flatMap((k) =>
+  const halls = Object.values(state.circles?.list ?? {}).flatMap((k) =>
     k.status === "formed" && k.hall
       ? [
           {
             px: k.hall.px,
             py: k.hall.py,
-            kindred: k.id,
-            name: shownKindredName(k, held),
+            circle: k.id,
+            name: shownCircleName(k, held),
             trust: "untrusted" as const,
           },
         ]
@@ -484,7 +484,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.recipes?.pages ? { pageEdition: state.recipes.pages } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),
     ...(state.jobs ? { jobsOpen: true as const } : {}),
-    ...(state.kindreds ? { kindredsOpen: true as const } : {}),
+    ...(state.circles ? { circlesOpen: true as const } : {}),
     ...hallsField(state, noteHidden),
     ...presentsWaitingField(state),
     ...(state.events?.list.some(eventOpen)

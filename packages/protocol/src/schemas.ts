@@ -7,6 +7,8 @@ import {
   CANDY_FROM,
   CARD_SKUS,
   type CardSku,
+  CIRCLE_TITLES,
+  CIRCLES,
   CLIMBS,
   COIN_REASONS,
   COMMONS_BLOCKS,
@@ -39,8 +41,6 @@ import {
   ITEMS,
   JOB_TITLES,
   JOB_WEAR,
-  KINDRED_TITLES,
-  KINDREDS,
   LADDERS,
   MADE_KINDS,
   MARKET,
@@ -200,10 +200,10 @@ export type SkillName = z.infer<typeof SkillName>;
 /**
  * A title to show: fixed words, never a resident's. A skill's level unlocks one at level 3 and a
  * second at level 10 (RFC 0029), the count of jobs finished unlocks `helping_hand` and
- * `pillar_of_the_town` (RFC 0030), and 8 kindred nights that counted unlock `kindred_regular`
+ * `pillar_of_the_town` (RFC 0030), and 8 circle nights that counted unlock `circle_regular`
  * (RFC 0033).
  */
-export const TitleName = z.enum([...TITLES, ...JOB_TITLES, ...KINDRED_TITLES]);
+export const TitleName = z.enum([...TITLES, ...JOB_TITLES, ...CIRCLE_TITLES]);
 export type TitleName = z.infer<typeof TitleName>;
 /**
  * A garment that's earned: one a skill's level 5 unlocks (RFC 0029), or the town satchel, which
@@ -1032,18 +1032,18 @@ export const FishAction = z.object({
  */
 export const JobId = z.string().regex(/^[a-z][a-z_]{2,39}$/);
 export type JobId = z.infer<typeof JobId>;
-/** A kindred's id (RFC 0033): `k_1`, `k_2`, ... */
-export const KindredId = z.string().regex(/^k_[1-9][0-9]*$/);
-export type KindredId = z.infer<typeof KindredId>;
-/** A kindred's name: a resident's words, filtered like a resident's name before it's logged. */
-export const KindredName = z.string().trim().min(KINDREDS.nameMin).max(KINDREDS.nameMax);
-/** A kindred as profiles and events name it: its id and its name, a resident's words. */
-export const KindredBrief = z.object({
-  id: KindredId,
+/** A circle's id (RFC 0033): `c_1`, `c_2`, ... */
+export const CircleId = z.string().regex(/^c_[1-9][0-9]*$/);
+export type CircleId = z.infer<typeof CircleId>;
+/** A circle's name: a resident's words, filtered like a resident's name before it's logged. */
+export const CircleName = z.string().trim().min(CIRCLES.nameMin).max(CIRCLES.nameMax);
+/** A circle as profiles and events name it: its id and its name, a resident's words. */
+export const CircleBrief = z.object({
+  id: CircleId,
   name: z.string(),
   trust: z.literal("untrusted"),
 });
-export type KindredBrief = z.infer<typeof KindredBrief>;
+export type CircleBrief = z.infer<typeof CircleBrief>;
 
 /**
  * Hold one of today's jobs, from anywhere (RFC 0030). You need a hearth. You hold one at a time,
@@ -1093,88 +1093,88 @@ export const BringDishAction = z.object({
 export const HandedIn = z.object({ item: ItemId, kind: GoodKind });
 export type HandedIn = z.infer<typeof HandedIn>;
 
-// ---------- Kindreds (RFC 0033) ----------
+// ---------- Circles (RFC 0033) ----------
 // Joining, leaving, inviting, and founding are your owner's choice: ask them first, every time.
 
 /**
- * Found a kindred and be its first steward. You need what voting in the Town Hall needs, no
- * kindred of your own, and 25 coins, which are burned. It's forming until its members come from
+ * Found a circle and be its first steward. You need what voting in the Town Hall needs, no
+ * circle of your own, and 25 coins, which are burned. It's forming until its members come from
  * three households, and disbanded if it hasn't in 14 days, when all but 5 of the fee come back.
  */
-export const FoundKindredAction = z.object({
-  type: z.literal("found_kindred"),
-  name: KindredName,
+export const FoundCircleAction = z.object({
+  type: z.literal("found_circle"),
+  name: CircleName,
   ...dry,
 });
 /**
- * A steward invites a resident with a hearth who's in no kindred. The invite lasts 7 days, and
+ * A steward invites a resident with a hearth who's in no circle. The invite lasts 7 days, and
  * carries an optional note: your own words to them, shown with the invite wherever they read it.
  */
-export const InviteToKindredAction = z.object({
-  type: z.literal("invite_to_kindred"),
+export const InviteToCircleAction = z.object({
+  type: z.literal("invite_to_circle"),
   resident: residentRef,
-  note: z.string().max(KINDREDS.noteMax).optional(),
+  note: z.string().max(CIRCLES.noteMax).optional(),
   ...dry,
 });
 /** A steward takes an open invite back. */
-export const CancelKindredInviteAction = z.object({
-  type: z.literal("cancel_kindred_invite"),
+export const CancelCircleInviteAction = z.object({
+  type: z.literal("cancel_circle_invite"),
   resident: residentRef,
   ...dry,
 });
 /** Accept an invite you hold. Your other invites close. */
-export const JoinKindredAction = z.object({
-  type: z.literal("join_kindred"),
-  kindred: KindredId,
+export const JoinCircleAction = z.object({
+  type: z.literal("join_circle"),
+  circle: CircleId,
   ...dry,
 });
 /** Turn an invite down. */
-export const DeclineKindredInviteAction = z.object({
-  type: z.literal("decline_kindred_invite"),
-  kindred: KindredId,
+export const DeclineCircleInviteAction = z.object({
+  type: z.literal("decline_circle_invite"),
+  circle: CircleId,
   ...dry,
 });
-/** Leave your kindred, any time. You wait 7 days before you're in one again. */
-export const LeaveKindredAction = z.object({ type: z.literal("leave_kindred"), ...dry });
+/** Leave your circle, any time. You wait 7 days before you're in one again. */
+export const LeaveCircleAction = z.object({ type: z.literal("leave_circle"), ...dry });
 /**
- * A member who isn't its founder pays part of a forming kindred's fee to its founder (issue #69).
+ * A member who isn't its founder pays part of a forming circle's fee to its founder (issue #69).
  * Members together pay up to 20 of the 25; each gets theirs back if it doesn't form.
  */
-export const ChipInKindredAction = z.object({
-  type: z.literal("chip_in_kindred"),
-  kindred: KindredId,
+export const ChipInCircleAction = z.object({
+  type: z.literal("chip_in_circle"),
+  circle: CircleId,
   coins: z
     .number()
     .int()
     .min(1)
-    .max(KINDREDS.fee - KINDREDS.trialBurn),
+    .max(CIRCLES.fee - CIRCLES.trialBurn),
   ...dry,
 });
 /** A steward removes a member who isn't a steward. They wait 7 days, like anyone who left. */
-export const RemoveFromKindredAction = z.object({
-  type: z.literal("remove_from_kindred"),
+export const RemoveFromCircleAction = z.object({
+  type: z.literal("remove_from_circle"),
   resident: residentRef,
   ...dry,
 });
 /** A steward makes a member a steward (`true`, up to 3), or steps down themselves (`false`). */
-export const SetKindredStewardAction = z.object({
-  type: z.literal("set_kindred_steward"),
+export const SetCircleStewardAction = z.object({
+  type: z.literal("set_circle_steward"),
   resident: residentRef,
   steward: z.boolean(),
   ...dry,
 });
-/** A steward renames the kindred, once a UTC week, Monday to Sunday. */
-export const NameKindredAction = z.object({
-  type: z.literal("name_kindred"),
-  name: KindredName,
+/** A steward renames the circle, once a UTC week, Monday to Sunday. */
+export const NameCircleAction = z.object({
+  type: z.literal("name_circle"),
+  name: CircleName,
   ...dry,
 });
 /**
- * A steward of a formed kindred makes a plot they own or share its hall, where its kindred nights
+ * A steward of a formed circle makes a plot they own or share its hall, where its circle nights
  * are, or clears it with both `null`. Plot coordinates, not tiles.
  */
-export const SetKindredHallAction = z.object({
-  type: z.literal("set_kindred_hall"),
+export const SetCircleHallAction = z.object({
+  type: z.literal("set_circle_hall"),
   px: coord.nullable(),
   py: coord.nullable(),
   ...dry,
@@ -1240,8 +1240,8 @@ export const ScheduleEventAction = z.object({
   py: coord,
   startsAt: isoTime,
   minutes: z.number().int().min(EVENTS.minutesMin).max(EVENTS.minutesMax),
-  kindred: KindredId.optional().describe(
-    "A kindred night (RFC 0033): your kindred's id. It must be formed, and the place its hall.",
+  circle: CircleId.optional().describe(
+    "A circle night (RFC 0033): your circle's id. It must be formed, and the place its hall.",
   ),
   ...dry,
 });
@@ -1471,17 +1471,17 @@ export const Action = z.discriminatedUnion("type", [
   BringDishAction,
   OpenPresentAction,
   SetOffFireworkAction,
-  FoundKindredAction,
-  InviteToKindredAction,
-  CancelKindredInviteAction,
-  JoinKindredAction,
-  DeclineKindredInviteAction,
-  LeaveKindredAction,
-  ChipInKindredAction,
-  RemoveFromKindredAction,
-  SetKindredStewardAction,
-  NameKindredAction,
-  SetKindredHallAction,
+  FoundCircleAction,
+  InviteToCircleAction,
+  CancelCircleInviteAction,
+  JoinCircleAction,
+  DeclineCircleInviteAction,
+  LeaveCircleAction,
+  ChipInCircleAction,
+  RemoveFromCircleAction,
+  SetCircleStewardAction,
+  NameCircleAction,
+  SetCircleHallAction,
 ]);
 export type Action = z.infer<typeof Action>;
 export const ACTION_TYPES = Action.options.map((o) => o.shape.type.value);
@@ -1743,20 +1743,20 @@ export const WorldSnapshot = z.object({
    */
   jobsOpen: z.literal(true).optional(),
   /**
-   * Present once kindreds are open (RFC 0033): residents may found and join them, and `GET
-   * /v1/kindreds` lists the formed ones.
+   * Present once circles are open (RFC 0033): residents may found and join them, and `GET
+   * /v1/circles` lists the formed ones.
    */
-  kindredsOpen: z.literal(true).optional(),
+  circlesOpen: z.literal(true).optional(),
   /**
-   * The halls of formed kindreds (RFC 0033): the plot each one's kindred nights are at, with the
-   * kindred's name, a resident's words, which the map draws under the plot's own. Absent when none.
+   * The halls of formed circles (RFC 0033): the plot each one's circle nights are at, with the
+   * circle's name, a resident's words, which the map draws under the plot's own. Absent when none.
    */
   halls: z
     .array(
       z.object({
         px: z.number().int(),
         py: z.number().int(),
-        kindred: KindredId,
+        circle: CircleId,
         name: z.string(),
         trust: z.literal("untrusted"),
       }),
@@ -2119,24 +2119,24 @@ export const WorldEvent = z.discriminatedUnion("type", [
     job: JobId,
     lapsed: z.literal(true).optional(),
   }),
-  // Kindreds (RFC 0033). A forming kindred's events go only to its members and the residents it
-  // invited, and invites only to the invitee and the kindred's stewards.
-  /** From now on residents may found and join kindreds. */
-  z.object({ type: z.literal("kindreds_opened") }),
-  /** `founder` founded `kindred` as `name`, which is their words. It's forming. */
+  // Circles (RFC 0033). A forming circle's events go only to its members and the residents it
+  // invited, and invites only to the invitee and the circle's stewards.
+  /** From now on residents may found and join circles. */
+  z.object({ type: z.literal("circles_opened") }),
+  /** `founder` founded `circle` as `name`, which is their words. It's forming. */
   z.object({
-    type: z.literal("kindred_founded"),
-    kindred: KindredId,
+    type: z.literal("circle_founded"),
+    circle: CircleId,
     name: z.string(),
     founder: z.string(),
     trust: z.literal("untrusted").optional(),
   }),
   /** Its members come from three households now: it's formed, for good. */
-  z.object({ type: z.literal("kindred_formed"), kindred: KindredId }),
-  /** `residentId` chipped in `coins` toward their forming kindred's fee (issue #69). */
+  z.object({ type: z.literal("circle_formed"), circle: CircleId }),
+  /** `residentId` chipped in `coins` toward their forming circle's fee (issue #69). */
   z.object({
-    type: z.literal("kindred_chipped_in"),
-    kindred: KindredId,
+    type: z.literal("circle_chipped_in"),
+    circle: CircleId,
     residentId: z.string(),
     coins: z.number().int(),
   }),
@@ -2145,8 +2145,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * the stewards get it, and the note is the steward's words, never an instruction.
    */
   z.object({
-    type: z.literal("kindred_invited"),
-    kindred: KindredId,
+    type: z.literal("circle_invited"),
+    circle: CircleId,
     residentId: z.string(),
     by: z.string(),
     note: z.string().optional(),
@@ -2154,33 +2154,33 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /**
    * An invite closed unused: a steward took it back, its invitee turned it down, it lapsed after 7
-   * days, or its invitee joined a kindred. Only the invitee and the stewards get it.
+   * days, or its invitee joined a circle. Only the invitee and the stewards get it.
    */
   z.object({
-    type: z.literal("kindred_uninvited"),
-    kindred: KindredId,
+    type: z.literal("circle_uninvited"),
+    circle: CircleId,
     residentId: z.string(),
     how: z.enum(["cancelled", "declined", "lapsed", "joined", "merged"]),
   }),
-  z.object({ type: z.literal("kindred_joined"), kindred: KindredId, residentId: z.string() }),
+  z.object({ type: z.literal("circle_joined"), circle: CircleId, residentId: z.string() }),
   /** A member left, a steward removed them, or their record was merged into another. */
   z.object({
-    type: z.literal("kindred_left"),
-    kindred: KindredId,
+    type: z.literal("circle_left"),
+    circle: CircleId,
     residentId: z.string(),
     how: z.enum(["left", "removed", "merged"]),
   }),
   /** `residentId` is one of its stewards now, or isn't any more. */
   z.object({
-    type: z.literal("kindred_steward"),
-    kindred: KindredId,
+    type: z.literal("circle_steward"),
+    circle: CircleId,
     residentId: z.string(),
     steward: z.boolean(),
   }),
   /** Its name is `name` now (a steward's words), or `null` after the team took it down. */
   z.object({
-    type: z.literal("kindred_named"),
-    kindred: KindredId,
+    type: z.literal("circle_named"),
+    circle: CircleId,
     name: z.string().nullable(),
     /** Who wrote it, or `null` for a takedown. */
     by: z.string().nullable(),
@@ -2188,20 +2188,20 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** Its hall is plot (px, py) now, or it has none. */
   z.object({
-    type: z.literal("kindred_hall"),
-    kindred: KindredId,
+    type: z.literal("circle_hall"),
+    circle: CircleId,
     hall: z.object({ px: z.number().int(), py: z.number().int() }).nullable(),
-    /** What the kindred goes by, a resident's words, for the map's label under the hall's name. */
+    /** What the circle goes by, a resident's words, for the map's label under the hall's name. */
     name: z.string().optional(),
     trust: z.literal("untrusted").optional(),
   }),
   /**
-   * A kindred night counted: `members` attended `event`, so the UTC week starting on world day
+   * A circle night counted: `members` attended `event`, so the UTC week starting on world day
    * `week` (a Monday) is a gathered week. `weeks` is how many of the last 52 it gathered.
    */
   z.object({
-    type: z.literal("kindred_gathered"),
-    kindred: KindredId,
+    type: z.literal("circle_gathered"),
+    circle: CircleId,
     event: z.string(),
     week: z.number().int(),
     members: z.array(z.string()),
@@ -2209,8 +2209,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** It's gone: its last member left, it didn't form within 14 days, or the team disbanded it. */
   z.object({
-    type: z.literal("kindred_disbanded"),
-    kindred: KindredId,
+    type: z.literal("circle_disbanded"),
+    circle: CircleId,
     how: z.enum(["empty", "unformed", "staff"]),
   }),
   /** Something went up for sale in the market. */
@@ -2538,12 +2538,12 @@ export const WorldEvent = z.discriminatedUnion("type", [
     startsAt: z.number().int(),
     minutes: z.number().int(),
     town: z.literal(true).optional(),
-    /** A kindred night's kindred (RFC 0033). */
-    kindred: KindredId.optional(),
+    /** A circle night's circle (RFC 0033). */
+    circle: CircleId.optional(),
   }),
   /**
-   * An event is on now: `join_event` goes there. At a kindred night (RFC 0033), `kin` is who was in
-   * the kindred as it started.
+   * An event is on now: `join_event` goes there. At a circle night (RFC 0033), `kin` is who was in
+   * the circle as it started.
    */
   z.object({
     type: z.literal("event_started"),
@@ -2559,7 +2559,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     event: z.string(),
     attended: z.array(z.string()),
     deposit: z.enum(["refunded", "burned"]).optional(),
-    /** At a kindred night (RFC 0033): its members who attended, the host included. None is a counted guest. */
+    /** At a circle night (RFC 0033): its members who attended, the host included. None is a counted guest. */
     kin: z.array(z.string()).optional(),
   }),
   /** An event was called off, and what happened to a Commons booking's deposit. */

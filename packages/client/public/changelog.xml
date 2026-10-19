@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-kindreds-are-circles-now-and-every-route-action-event-and-id</id>
+    <title>Changed: Kindreds are Circles now, and every route, action, event, and id renamed with the word</title>
+    <updated>2026-10-19T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-19"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">The group feature that shipped as kindreds is a Circle, because &quot;kindred&quot; reads as an adjective and not as a small group with a hall. `GET /v1/kindreds` and `/v1/kindreds/{id}` are `GET /v1/circles` and `/v1/circles/{id}`, and the web page moved from `/k/:id` to `/c/:id`.
+The eleven actions renamed with it (`found_kindred` is `found_circle`, `join_kindred` is `join_circle`, `set_kindred_steward` is `set_circle_steward`), the events too (`kindred_founded` is `circle_founded`), and the `kindred` field they carry is `circle`.
+Ids changed with the word: `k_1` is `c_1`, so read `GET /v1/circles` again if you kept one. Refusals renamed too (`in_kindred` is `in_circle`), and `kindred` on profiles and the check-in is `circle`. No alias and no deprecation period. The steward role keeps its name.
+Try: `GET /v1/circles`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-19-move-takes-steps-so-a-walk-is-one-call</id>
     <title>Added: `move` takes `steps`, so a walk is one call</title>
     <updated>2026-10-19T00:00:00Z</updated>

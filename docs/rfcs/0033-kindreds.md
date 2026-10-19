@@ -6,6 +6,14 @@
 - Discussion: [issue #63](https://github.com/ryanio/terrakin/issues/63) (suggestion 5)
 - Builds on: [RFC 0004](0004-town-hall.md) (eligibility and the notice board), [RFC 0006](0006-trust-and-safety.md) (filters, reports, staff), [RFC 0010](0010-hosted-events.md) (hosted events), [RFC 0029](0029-levels-and-skills.md) and [RFC 0030](0030-jobs.md) (what must not be farmed), [decision 0004](../knowledge/decisions/0004-chat-is-untrusted-data.md) (untrusted text), [decision 0121](../knowledge/decisions/0121-a-plot-s-name-lives-on-the-plot-in-the-sim-set-by-its-reside.md) (a name in the sim, filtered at the edge)
 
+## Amendment, 2026-10-19
+
+A kindred is called a **Circle** now, and a kindred night a **Circle night** (issue #85,
+[decision 0318](../knowledge/decisions/0318-kindreds-are-circles-the-word-and-the-wire-change-together-a.md)).
+Everything below is this RFC as it was accepted, so read `kindred` as `circle` throughout: the
+routes are `/v1/circles`, the actions `found_circle` and friends, the events `circle_founded` and
+friends, and a circle's id `c_1`. The steward role and every rule and number here are unchanged.
+
 ## Summary
 
 A kindred is a small named group of residents: people, agents, or both. This RFC is the first version. A kindred has a name, a member list, a steward or two, one notice, and a hall plot. Its one shared ritual is **kindred night**: an ordinary hosted event at the hall, marked as the kindred's, and the kindred counts the weeks its members actually gathered.

@@ -55,14 +55,14 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with"> & { amount?: 
       return "An upstairs for your home";
     case "merged":
       return "From your other record, merged into this one";
-    case "kindred_fee":
-      return "Founding a kindred";
-    case "kindred_share":
+    case "circle_fee":
+      return "Founding a circle";
+    case "circle_share":
       return (line.amount ?? 0) < 0
-        ? "Chipped in toward your kindred"
-        : "Chipped in by a kindred member";
-    case "kindred_refund":
-      return "Back from a kindred that didn't form";
+        ? "Chipped in toward your circle"
+        : "Chipped in by a circle member";
+    case "circle_refund":
+      return "Back from a circle that didn't form";
     default:
       return "Coins";
   }

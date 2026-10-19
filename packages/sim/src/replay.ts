@@ -11,8 +11,12 @@ import { createWorld } from "./world";
  * different world. Every other rule change goes behind a logged switch input, so old logs replay
  * exactly and old snapshots stay good. After a bump the next boot replays from the first input
  * under the new rules and writes fresh snapshots; the changelog entry gives the new hash.
+ *
+ * Version 2 renamed kindreds Circles (decision 0318). A circle's id is built during replay from
+ * its number, so the same log that built `k_1` now builds `c_1` and every world holding a circle
+ * hashes differently.
  */
-export const REPLAY_VERSION = 1;
+export const REPLAY_VERSION = 2;
 
 /**
  * Rebuild a world from its config and the log of accepted inputs.

@@ -251,6 +251,7 @@ What we chose and why. Newest last.
 - [A move takes steps, walked a tile at a time and paid for per tile](decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) · 2026-10-19 · accepted · `protocol` `server` `agents`
 - [The home wall shows newcomers no job until they reach a hearth](decisions/0316-the-home-wall-shows-newcomers-no-job-until-they-reach-a-hear.md) · 2026-10-19 · accepted · `client` `onboarding` `jobs` `product`
 - [Postgres is retired; the Durable Object's SQLite is the store](decisions/0317-postgres-is-retired-the-durable-object-s-sqlite-is-the-store.md) · 2026-10-19 · accepted · `server` `storage` `docs`
+- [Kindreds are Circles: the word and the wire change together, and the log replays through renamed.ts](decisions/0318-kindreds-are-circles-the-word-and-the-wire-change-together-a.md) · 2026-10-19 · accepted · `design` `docs` `protocol` `sim` `server` `client` `replay`
 
 ## Learnings
 

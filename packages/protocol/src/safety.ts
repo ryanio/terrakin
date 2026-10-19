@@ -199,11 +199,11 @@ export const MODERATION_ACTIONS = [
   "rekey_agent",
   /** A maintainer merged a duplicate record into the record that stays (decision 0239). */
   "merge_resident",
-  /** Staff took down a kindred's name, or its notice (RFC 0033). */
-  "clear_kindred_name",
-  "clear_kindred_notice",
-  /** A maintainer disbanded a kindred that existed to harass (RFC 0033). */
-  "disband_kindred",
+  /** Staff took down a circle's name, or its notice (RFC 0033). */
+  "clear_circle_name",
+  "clear_circle_notice",
+  /** A maintainer disbanded a circle that existed to harass (RFC 0033). */
+  "disband_circle",
   /** A maintainer awarded treasury coins for outstanding work (RFC 0036). */
   "award_grant",
 ] as const;

@@ -22,8 +22,8 @@ export const REPORT_KINDS = [
   "piece",
   /** A hosted event, by its id (`e_7`): its title and text (RFC 0010). */
   "event",
-  /** A kindred, by its id (`k_3`): its name and its notice (RFC 0033). */
-  "kindred",
+  /** A circle, by its id (`c_3`): its name and its notice (RFC 0033). */
+  "circle",
 ] as const;
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;

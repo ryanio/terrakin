@@ -1,9 +1,9 @@
 import { coinCount as coins, isWhole, refuse } from "./check";
+import { circleNightEnd, circleNightProblem, circleNightStart } from "./circles";
 import { DAY_MS, MINUTE_MS } from "./clock";
 import { isTownsfolk, movePurse, sameHousehold } from "./economy";
 import { setFloor, standingFloor } from "./floors";
 import { plotKey, tileKey } from "./keys";
-import { kindredNightEnd, kindredNightProblem, kindredNightStart } from "./kindreds";
 import { own, residentById } from "./own";
 import { townEligibility } from "./town";
 import type {
@@ -251,7 +251,7 @@ function scheduled(e: HostedEvent): WorldEvent {
     startsAt: e.startsAt,
     minutes: e.minutes,
     ...(isTownEvent(e) ? { town: true as const } : {}),
-    ...(e.kindred !== undefined ? { kindred: e.kindred } : {}),
+    ...(e.circle !== undefined ? { circle: e.circle } : {}),
   };
 }
 
@@ -343,10 +343,10 @@ export function hostingProblem(state: WorldState, id: ResidentId): string | null
 }
 
 /**
- * `schedule_event {kind, title, text?, px, py, startsAt, minutes, kindred?}`: a resident who could
+ * `schedule_event {kind, title, text?, px, py, startsAt, minutes, circle?}`: a resident who could
  * take part in the Town Hall puts on an event at their own or shared plot, or in the Commons, whose
- * booking holds a deposit until it ends. With `kindred` it's a kindred night (RFC 0033): the host
- * is a member, and the place is the kindred's hall, which stands in for a plot of their own.
+ * booking holds a deposit until it ends. With `circle` it's a circle night (RFC 0033): the host
+ * is a member, and the place is the circle's hall, which stands in for a plot of their own.
  */
 export function checkScheduleEvent(
   state: WorldState,
@@ -368,9 +368,9 @@ export function checkScheduleEvent(
     return refuse("invalid_event", "That plot is outside the world.");
   }
   const commons = isCommons(state.config, px, py);
-  const { kindred } = command;
-  if (kindred !== undefined) {
-    const night = kindredNightProblem(state, actor, kindred, px, py, fields.day);
+  const { circle } = command;
+  if (circle !== undefined) {
+    const night = circleNightProblem(state, actor, circle, px, py, fields.day);
     if (night) return night;
   } else if (!commons && !canBuildOn(state.plots[plotKey(px, py)], actor)) {
     return refuse("not_your_plot", "Host on your own plot, one shared with you, or the Commons.");
@@ -438,7 +438,7 @@ export function checkScheduleEvent(
       ticks: 0,
       seen: {},
       ...(commons ? { deposit: EVENTS.deposit } : {}),
-      ...(kindred !== undefined ? { kindred } : {}),
+      ...(circle !== undefined ? { circle } : {}),
     };
     events.nextId += 1;
     events.list.push(e);
@@ -640,9 +640,9 @@ export function checkEventStart(
   if ("code" in e) return e;
   if (e.status !== "scheduled") return refuse("event_closed", `${e.id} ${STATUS_WORDS[e.status]}.`);
   if ((state.day ?? 0) < e.day) return refuse("not_due", `${e.id} starts on day ${e.day}.`);
-  // A kindred night (RFC 0033) keeps who was in the kindred as it started, so leaving before the
-  // end never makes a member a counted guest at their own kindred's night.
-  const kin = kindredNightStart(state, e);
+  // A circle night (RFC 0033) keeps who was in the circle as it started, so leaving before the
+  // end never makes a member a counted guest at their own circle's night.
+  const kin = circleNightStart(state, e);
   return () => {
     e.status = "live";
     if (kin) e.kin = kin;
@@ -652,11 +652,11 @@ export function checkEventStart(
 
 /**
  * Who counts at a sample: online residents in the area, never townsfolk, and never the host but at
- * a kindred night (RFC 0033), where the host counts toward the kindred's gathered week. Sorted.
+ * a circle night (RFC 0033), where the host counts toward the circle's gathered week. Sorted.
  */
 function presentAt(state: WorldState, e: HostedEvent): ResidentId[] {
   const area = eventArea(state.config, e.px, e.py);
-  const host = e.kindred === undefined ? e.host : undefined;
+  const host = e.circle === undefined ? e.host : undefined;
   return Object.values(state.residents)
     .filter((r) => r.online && r.id !== host && !isTownsfolk(state, r.id) && inArea(area, r.x, r.y))
     .map((r) => r.id)
@@ -719,8 +719,8 @@ export function checkEventEnd(
   const attended = attendedOf(state, e);
   const guests = attended.filter((id) => !sameHousehold(state, e.host, id)).length;
   const refund = guests >= EVENTS.refundAt;
-  // A kindred night (RFC 0033): which members were there, and whether its week counts.
-  const night = kindredNightEnd(state, e, attendNeeded(e.ticks));
+  // A circle night (RFC 0033): which members were there, and whether its week counts.
+  const night = circleNightEnd(state, e, attendNeeded(e.ticks));
   return () => {
     const gathered = night ? night() : [];
     const settled = settleDeposit(state, e, refund, state.seq + 1);

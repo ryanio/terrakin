@@ -281,13 +281,13 @@ export async function openLevelsOver(http: Http): Promise<void> {
   );
 }
 
-/** Switch kindreds on now (RFC 0033), unless the world has them. Coins must be open. */
-export async function openKindredsOver(http: Http): Promise<void> {
-  const world = (await http.call("GET", "/v1/world")).body as { kindredsOpen?: boolean };
-  if (world.kindredsOpen) return;
+/** Switch circles on now (RFC 0033), unless the world has them. Coins must be open. */
+export async function openCirclesOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { circlesOpen?: boolean };
+  if (world.circlesOpen) return;
   await expectOk(
-    "open kindreds (is the server running with TERRAKIN_TEST_CLOCK=1?)",
-    http.call("POST", "/v1/test/open-kindreds"),
+    "open circles (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-circles"),
   );
 }
 

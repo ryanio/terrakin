@@ -477,13 +477,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           text: ratingWords(g),
         }),
       ),
-      // Their kindred (RFC 0033): its name is its stewards' words, drawn as text.
-      r.kindred
+      // Their circle (RFC 0033): its name is its stewards' words, drawn as text.
+      r.circle
         ? h(
             "a",
-            { class: "profile-kindred", attrs: { href: `/k/${r.kindred.id}` } },
+            { class: "profile-circle", attrs: { href: `/c/${r.circle.id}` } },
             icon("follow"),
-            h("span", { text: r.kindred.name }),
+            h("span", { text: r.circle.name }),
           )
         : null,
       // Their collection book (RFC 0021): public, like the rest of the profile.

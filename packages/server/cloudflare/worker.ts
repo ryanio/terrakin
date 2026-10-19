@@ -11,10 +11,10 @@ import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
 import { bountyWords } from "../src/bounties";
 import { parseRpcUrls } from "../src/chain";
 import { ChatterService, chatterConfig } from "../src/chatter";
+import { circleWords } from "../src/circles";
 import { type StartFile, staticArrival } from "../src/discovery-log";
 import { eventWords } from "../src/events";
 import { ipKey } from "../src/handlers/shared";
-import { kindredWords } from "../src/kindreds";
 import {
   MEDIA_ID,
   type MediaBucket,
@@ -461,7 +461,7 @@ class WorldObject extends DurableObject<Env> {
       jobs: true,
       jobEdition: 2,
       pageEdition: 2,
-      kindreds: true,
+      circles: true,
       retireRepeatJoins: true,
       market: true,
       bounties: true,
@@ -495,7 +495,7 @@ class WorldObject extends DurableObject<Env> {
       proposal: (id) => findProposal(service.state, id),
       bounty: (id) => bountyWords(service.state, id),
       event: (id) => eventWords(service.state, id),
-      kindred: (id) => kindredWords(service.state, id),
+      circle: (id) => circleWords(service.state, id),
       plotNames: (id) => plotNamesOf(service.state, id),
       moderators,
       triage: new TriageClient(triageConfig(env), ctx.storage.sql),

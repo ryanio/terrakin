@@ -98,8 +98,8 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   clear_plot_names: "Took down plot names",
   rekey_agent: "Made a re-key code for an agent",
   merge_resident: "Merged a duplicate record",
-  clear_kindred_name: "Took down a kindred's name",
-  clear_kindred_notice: "Took down a kindred's notice",
-  disband_kindred: "Disbanded a kindred",
+  clear_circle_name: "Took down a circle's name",
+  clear_circle_notice: "Took down a circle's notice",
+  disband_circle: "Disbanded a circle",
   award_grant: "Awarded coins for good work",
 };

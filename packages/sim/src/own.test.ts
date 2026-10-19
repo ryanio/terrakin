@@ -47,9 +47,9 @@ function build(): WorldState {
   });
   ok("ada", { type: "open_table", game: "hearth_race", pace: "slow", salt: "0".repeat(32), at: 1 });
   ok("bob", { type: "sit", table: "g_1", at: 1 });
-  ok(TOWN_ACTOR, { type: "open_kindreds" });
-  ok("cy", { type: "found_kindred", name: "Lantern Row" });
-  ok("cy", { type: "invite_to_kindred", resident: "dee" });
+  ok(TOWN_ACTOR, { type: "open_circles" });
+  ok("cy", { type: "found_circle", name: "Lantern Row" });
+  ok("cy", { type: "invite_to_circle", resident: "dee" });
   return state;
 }
 
@@ -140,14 +140,14 @@ function inputs(id: string, day: number): [string, Command][] {
     // A job is named by its id in the table, and a thing to hand in by its own (RFC 0030).
     ada({ type: "take_job", job: id }),
     ada({ type: "hand_in", item: id }),
-    // Kindreds by their ids, and residents named to one (RFC 0033).
-    ada({ type: "join_kindred", kindred: id }),
-    ada({ type: "decline_kindred_invite", kindred: id }),
-    ["cy", { type: "invite_to_kindred", resident: id }],
-    ["cy", { type: "cancel_kindred_invite", resident: id }],
-    ["cy", { type: "remove_from_kindred", resident: id }],
-    ["cy", { type: "set_kindred_steward", resident: id, steward: true }],
-    ["cy", { type: "set_kindred_steward", resident: id, steward: false }],
+    // Circles by their ids, and residents named to one (RFC 0033).
+    ada({ type: "join_circle", circle: id }),
+    ada({ type: "decline_circle_invite", circle: id }),
+    ["cy", { type: "invite_to_circle", resident: id }],
+    ["cy", { type: "cancel_circle_invite", resident: id }],
+    ["cy", { type: "remove_from_circle", resident: id }],
+    ["cy", { type: "set_circle_steward", resident: id, steward: true }],
+    ["cy", { type: "set_circle_steward", resident: id, steward: false }],
     ada({
       type: "schedule_event",
       kind: "gathering",
@@ -156,10 +156,10 @@ function inputs(id: string, day: number): [string, Command][] {
       py: 0,
       startsAt: (day + 1) * 86_400_000,
       minutes: 60,
-      kindred: id,
+      circle: id,
     }),
-    town({ type: "clear_kindred_name", kindred: id }),
-    town({ type: "disband_kindred", kindred: id, by: "staff_0123456789ab" }),
+    town({ type: "clear_circle_name", circle: id }),
+    town({ type: "disband_circle", circle: id, by: "staff_0123456789ab" }),
     town({ type: "routine_step", resident: id, routine: "walk_home", step: { type: "home" } }),
     town({ type: "routine_step", resident: "ada", routine: id, step: { type: "home" } } as Command),
     ada({ type: "set_routines", routines: [{ kind: id, hour: 1 }] } as Command),

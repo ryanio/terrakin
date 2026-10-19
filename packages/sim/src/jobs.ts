@@ -13,6 +13,7 @@ import {
   SWEET_RECIPES,
 } from "./catalog";
 import { isWhole, oneTimeSwitch, refuse } from "./check";
+import { CIRCLE_TITLE_INFO } from "./circles";
 import { isTownsfolk } from "./economy";
 import { findEvent } from "./events";
 import { findsOpen } from "./gather";
@@ -33,7 +34,6 @@ import {
   isGoodKind,
   isResourceKind,
 } from "./items";
-import { KINDRED_TITLE_INFO } from "./kindreds";
 import {
   bountyCounts,
   catchCounts,
@@ -59,8 +59,8 @@ import {
   type GameTable,
   type Good,
   type HeldJob,
+  isCircleTitle,
   isJobTitle,
-  isKindredTitle,
   JOB_TITLES,
   type JobsState,
   type JobTitle,
@@ -1290,12 +1290,12 @@ export const jobUnlocks = (): JobUnlock[] =>
     ...JOB_WEAR.map((wear) => ({ jobs: JOBS.wearAt, wear })),
   ].sort((a, b) => a.jobs - b.jobs);
 
-/** A title's words: one a skill's level unlocked, one from jobs finished, or one from kindred nights. */
+/** A title's words: one a skill's level unlocked, one from jobs finished, or one from circle nights. */
 export const titleLabel = (title: ShownTitle): string =>
   isJobTitle(title)
     ? JOB_TITLE_INFO[title].label
-    : isKindredTitle(title)
-      ? KINDRED_TITLE_INFO[title].label
+    : isCircleTitle(title)
+      ? CIRCLE_TITLE_INFO[title].label
       : TITLE_INFO[title].label;
 
 /**

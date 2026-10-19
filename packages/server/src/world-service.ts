@@ -124,11 +124,11 @@ import {
 } from "./world-actions";
 import { WorldCredentials } from "./world-credentials";
 import {
+  circleAudience,
+  circleRoster,
   eventsFor,
   holdBackNames,
   isPrivate,
-  kindredAudience,
-  kindredRoster,
   publicEvents,
   repeatJoins,
   toWire,
@@ -271,12 +271,12 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
-   * Kindreds (RFC 0033): once coins are open, append `open_kindreds` if it never has. The Worker
+   * Circles (RFC 0033): once coins are open, append `open_circles` if it never has. The Worker
    * turns it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted
-   * world, `pnpm dev`, and the e2e servers have no kindreds unless a test opens them through
-   * `POST /v1/test/open-kindreds`.
+   * world, `pnpm dev`, and the e2e servers have no circles unless a test opens them through
+   * `POST /v1/test/open-circles`.
    */
-  kindreds?: boolean;
+  circles?: boolean;
   /**
    * The edition of the jobs table this server's world reads (RFC 0030, decision 0265). Once jobs
    * are open on an older edition, `set_job_edition` is logged right after a `new_day`, never in
@@ -407,7 +407,7 @@ interface TownSwitch {
     | "holidayPrices"
     | "levels"
     | "jobs"
-    | "kindreds"
+    | "circles"
     | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
@@ -543,12 +543,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_jobs" },
     label: "open jobs",
   },
-  // Kindreds (RFC 0033) take a fee in coins, so they open once coins have.
+  // Circles (RFC 0033) take a fee in coins, so they open once coins have.
   {
-    option: "kindreds",
-    due: (s) => !s.kindreds && !!s.economy,
-    command: { type: "open_kindreds" },
-    label: "open kindreds",
+    option: "circles",
+    due: (s) => !s.circles && !!s.economy,
+    command: { type: "open_circles" },
+    label: "open circles",
   },
 ];
 
@@ -595,7 +595,7 @@ export class WorldService {
   private readonly holidayPrices: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
-  private readonly kindreds: boolean;
+  private readonly circles: boolean;
   private readonly jobEdition: number | undefined;
   private readonly pageEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
@@ -692,7 +692,7 @@ export class WorldService {
     this.holidayPrices = options.holidayPrices ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
-    this.kindreds = options.kindreds ?? false;
+    this.circles = options.circles ?? false;
     this.jobEdition = options.jobEdition;
     this.pageEdition = options.pageEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
@@ -894,11 +894,11 @@ export class WorldService {
   onLevelsReached: ((residentId: string, levels: LevelUpView[]) => void) | undefined;
 
   /**
-   * Kindreds (RFC 0033): every committed input's events, for the notices they bring (an invite, a
-   * kindred night, someone joining) and the notice a disbanded kindred leaves behind. A failure here
+   * Circles (RFC 0033): every committed input's events, for the notices they bring (an invite, a
+   * circle night, someone joining) and the notice a disbanded circle leaves behind. A failure here
    * is reported and the input stands.
    */
-  onKindredEvents: ((events: readonly WorldEvent[]) => void) | undefined;
+  onCircleEvents: ((events: readonly WorldEvent[]) => void) | undefined;
   /**
    * Hears each job a resident finished (RFC 0030), so they can be told: a job can be finished
    * while its resident is away, by an event's credit or a game's last round. A failure here is
@@ -1399,11 +1399,11 @@ export class WorldService {
   }
 
   /**
-   * Kindreds (RFC 0033), switched on now rather than at the next tick. Only the Node server's test
+   * Circles (RFC 0033), switched on now rather than at the next tick. Only the Node server's test
    * route calls it, like `testGrant`. The sim refuses it before coins.
    */
-  testOpenKindreds() {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "open_kindreds" } });
+  testOpenCircles() {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_circles" } });
   }
 
   // ---------- levels (RFC 0029) ----------
@@ -1445,7 +1445,7 @@ export class WorldService {
           attended.includes(guest) &&
           !isTownsfolk(this.state, guest) &&
           !sameHousehold(this.state, e.host, guest) &&
-          // A kindred's own members at its kindred night (RFC 0033).
+          // A circle's own members at its circle night (RFC 0033).
           !(e.kin ?? []).includes(guest),
       )
       .sort();
@@ -1524,14 +1524,14 @@ export class WorldService {
     return this.run({ actor: TOWN_ACTOR, command: { type: "clear_plot_name", px, py } });
   }
 
-  /** Staff took a kindred's name down after a report (RFC 0033). It goes by its id until renamed. */
-  clearKindredName(kindred: string): ActResult {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "clear_kindred_name", kindred } });
+  /** Staff took a circle's name down after a report (RFC 0033). It goes by its id until renamed. */
+  clearCircleName(circle: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "clear_circle_name", circle } });
   }
 
-  /** A maintainer disbanded a kindred that exists to harass (RFC 0033). `by` is who the log names. */
-  disbandKindred(kindred: string, by: string): ActResult {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "disband_kindred", kindred, by } });
+  /** A maintainer disbanded a circle that exists to harass (RFC 0033). `by` is who the log names. */
+  disbandCircle(circle: string, by: string): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "disband_circle", circle, by } });
   }
 
   /**
@@ -2070,8 +2070,8 @@ export class WorldService {
     );
     let at = was && { x: was.x, y: was.y };
     const handedIn = handedInOf(this.state, input);
-    // Who could hear each kindred's events before the commit, for one it disbands (RFC 0033).
-    const kindredsBefore = kindredRoster(this.state);
+    // Who could hear each circle's events before the commit, for one it disbands (RFC 0033).
+    const circlesBefore = circleRoster(this.state);
     const { seq, events } = prepared.commit();
     const planned = planOf(this.state, input, prepared, true);
     let walked = false;
@@ -2153,12 +2153,12 @@ export class WorldService {
         }
       }
     }
-    // Kindreds (RFC 0033): invites, kindred nights, and joins are told; a disbanded one's notice goes.
-    if (this.state.kindreds || events.some((e) => e.type === "kindred_disbanded")) {
+    // Circles (RFC 0033): invites, circle nights, and joins are told; a disbanded one's notice goes.
+    if (this.state.circles || events.some((e) => e.type === "circle_disbanded")) {
       try {
-        this.onKindredEvents?.(events);
+        this.onCircleEvents?.(events);
       } catch (err) {
-        report(err, "world.kindreds", { command: input.command.type });
+        report(err, "world.circles", { command: input.command.type });
       }
     }
     // Jobs finished (RFC 0030): each resident is told, here or away.
@@ -2191,8 +2191,8 @@ export class WorldService {
       }
     }
     const wire = holdBackNames(toWire(events, this.state.townsfolk), this.noteHidden, this.state);
-    // A kindred's invites, and a forming kindred's events, reach only a few (RFC 0033).
-    const audience = kindredAudience(this.state, kindredsBefore);
+    // A circle's invites, and a forming circle's events, reach only a few (RFC 0033).
+    const audience = circleAudience(this.state, circlesBefore);
     for (const event of publicEvents(wire, audience)) {
       this.broadcast({ type: "event", seq, event });
     }

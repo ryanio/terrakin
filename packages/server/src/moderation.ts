@@ -56,9 +56,9 @@ export type Surface =
   | "item_label"
   | "pet_name"
   | "plot_name"
-  | "kindred_name"
-  | "kindred_notice"
-  | "kindred_invite_note"
+  | "circle_name"
+  | "circle_notice"
+  | "circle_invite_note"
   | "proposal_title"
   | "proposal_text"
   | "bounty_title"
@@ -180,17 +180,17 @@ export const POLICY: Record<Surface, Policy> = {
     shorteners: true,
     spam: ["runs"],
   },
-  // A kindred's name (RFC 0033) is shown wherever its members are, like a plot's name.
-  kindred_name: {
-    label: "Kindred names",
+  // A circle's name (RFC 0033) is shown wherever its members are, like a plot's name.
+  circle_name: {
+    label: "Circle names",
     vulgar: "refuse",
     impersonation: "name",
     shorteners: true,
     spam: ["runs"],
   },
-  // A kindred's notice is read by everyone who can see the kindred, like the Town Hall's board.
-  kindred_notice: {
-    label: "Kindred notices",
+  // A circle's notice is read by everyone who can see the circle, like the Town Hall's board.
+  circle_notice: {
+    label: "Circle notices",
     vulgar: "refuse",
     impersonation: null,
     shorteners: false,
@@ -198,7 +198,7 @@ export const POLICY: Record<Surface, Policy> = {
   },
   // An invite's note reaches a resident who never asked for it, so it's held to more than a gift
   // note is: a pitch with a link, a mention, or staff-sounding words is how this would be misused.
-  kindred_invite_note: {
+  circle_invite_note: {
     label: "Invite notes",
     vulgar: "refuse",
     impersonation: "text",

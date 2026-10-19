@@ -1,14 +1,14 @@
 /**
- * `/k/:id`: one kindred (RFC 0033). Its name and members, its notice, its next kindred night with
+ * `/c/:id`: one circle (RFC 0033). Its name and members, its notice, its next circle night with
  * Going, the weeks it gathered, and for its stewards one place to invite, write the notice, rename,
- * set the hall, and schedule a kindred night. An invite you hold shows Join and Not now. The server
+ * set the hall, and schedule a circle night. An invite you hold shows Join and Not now. The server
  * decides everything: a button is one of its `you.moves`, or for the steward tools with no move of
  * their own (Make steward, Remove, Take back, Step down), shown to a steward and checked by the
  * world, and every refusal is its own words. Join shows on any invite, so a refusal says why it
  * can't happen yet. The name, the notice, and residents' names are their words: text nodes only.
  */
 
-import { type Action, KINDRED_NOTICE, type KindredResponse } from "@terrakin/protocol";
+import { type Action, CIRCLE_NOTICE, type CircleResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { avatarEl } from "@terrakin/ui/people";
 import {
@@ -24,11 +24,10 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
+import { circlesApi } from "./api/circles";
 import { eventsApi } from "./api/events";
-import { kindredsApi } from "./api/kindreds";
 import { residentsApi } from "./api/residents";
 import { actProblem, worldApi } from "./api/world";
-import { eventRow, openScheduleSheet } from "./event-cards";
 import {
   gatheredLine,
   hallWords,
@@ -38,38 +37,39 @@ import {
   memberLine,
   membersWords,
   statusWords,
-} from "./kindreds";
+} from "./circles";
+import { eventRow, openScheduleSheet } from "./event-cards";
 import { savedResidentId } from "./net";
 import { pageData } from "./page-data";
 import { coins as coinWords } from "./purse";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 
-export function kindredView(id: string, ctx: ViewContext): View {
-  ctx.setTitle("Kindred · Terrakin");
+export function circleView(id: string, ctx: ViewContext): View {
+  ctx.setTitle("Circle · Terrakin");
   // On a phone what someone came for (the notice, the night, the members) comes before the hall.
-  const { el, head, main, side } = pageLayout("kindred-page", "The kindred's hall and stewards", {
+  const { el, head, main, side } = pageLayout("circle-page", "The circle's hall and stewards", {
     sideLast: true,
   });
   const me = savedResidentId() ?? undefined;
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
     actFromButton(button, action, done, { gone: loader.gone, after: loader.refresh });
-  // Once you've left or turned down a forming kindred its page is closed to you, so it goes back to
+  // Once you've left or turned down a forming circle its page is closed to you, so it goes back to
   // the Town Hall's list rather than keep drawing what you can no longer do.
   const actAndGo = (button: HTMLButtonElement, action: Action, done: string) =>
     actFromButton(button, action, done, {
       gone: loader.gone,
-      after: () => ctx.navigate("/town#kindreds"),
+      after: () => ctx.navigate("/town#circles"),
     });
 
-  function paint(data: KindredResponse) {
-    const { kindred: k, you, rules } = data;
+  function paint(data: CircleResponse) {
+    const { circle: k, you, rules } = data;
     const moves = new Set(you?.moves ?? []);
     head.replaceChildren(
-      h("h1", { class: "page-title kindred-name", text: k.name }),
+      h("h1", { class: "page-title circle-name", text: k.name }),
       h(
         "p",
-        { class: "cluster kindred-meta" },
+        { class: "cluster circle-meta" },
         kindPill(statusWords(k.status), k.status === "formed" ? "moss" : "sun"),
         h("span", {
           text: `${membersWords(k.members.length)} · ${gatheredLine(k.gathered, k.run)}`,
@@ -80,24 +80,24 @@ export function kindredView(id: string, ctx: ViewContext): View {
     const invite = you?.invite
       ? h(
           "section",
-          { class: "stack paper card kindred-invite", attrs: { "aria-label": "Your invite" } },
+          { class: "stack paper card circle-invite", attrs: { "aria-label": "Your invite" } },
           h("p", { text: inviteLine(you.invite) }),
-          // The steward's own words to you, drawn as text (issue #73). What the kindred is for is
+          // The steward's own words to you, drawn as text (issue #73). What the circle is for is
           // on the invite too, for readers with no page; here the Notice section below has it.
           you.invite.note === null
             ? null
-            : h("p", { class: "kindred-invite-note", text: you.invite.note }),
+            : h("p", { class: "circle-invite-note", text: you.invite.note }),
           h("p", { class: "hint", text: inviteStandingLine(you.invite, rules) }),
           h("p", { class: "hint", text: `${inviteOpenLine(you.invite)}.` }),
           h("p", { class: "hint", text: `Joining is your choice. ${you.invite.joining}` }),
           h(
             "div",
             { class: "cluster" },
-            actionButton("join_kindred", "Join", "btn-primary", (b) =>
-              act(b, { type: "join_kindred", kindred: k.id }, "You're in."),
+            actionButton("join_circle", "Join", "btn-primary", (b) =>
+              act(b, { type: "join_circle", circle: k.id }, "You're in."),
             ),
-            actionButton("decline_kindred_invite", "Not now", "pill-button", (b) =>
-              actAndGo(b, { type: "decline_kindred_invite", kindred: k.id }, "Invite turned down."),
+            actionButton("decline_circle_invite", "Not now", "pill-button", (b) =>
+              actAndGo(b, { type: "decline_circle_invite", circle: k.id }, "Invite turned down."),
             ),
           ),
         )
@@ -120,18 +120,18 @@ export function kindredView(id: string, ctx: ViewContext): View {
 
     const notice = h(
       "section",
-      { class: "stack paper card kindred-notice", attrs: { "aria-labelledby": "kindred-notice" } },
-      h("h2", { class: "section-title", attrs: { id: "kindred-notice" }, text: "Notice" }),
+      { class: "stack paper card circle-notice", attrs: { "aria-labelledby": "circle-notice" } },
+      h("h2", { class: "section-title", attrs: { id: "circle-notice" }, text: "Notice" }),
       k.notice
-        ? h("p", { class: "kindred-notice-text", text: k.notice.text })
+        ? h("p", { class: "circle-notice-text", text: k.notice.text })
         : h("p", { class: "hint", text: "No notice yet." }),
-      moves.has("set_kindred_notice") ? noticeForm(k.notice?.text ?? "") : null,
+      moves.has("set_circle_notice") ? noticeForm(k.notice?.text ?? "") : null,
     );
 
     const nights = h(
       "section",
-      { class: "stack kindred-nights", attrs: { "aria-labelledby": "kindred-nights" } },
-      h("h2", { class: "section-title", attrs: { id: "kindred-nights" }, text: "Kindred night" }),
+      { class: "stack circle-nights", attrs: { "aria-labelledby": "circle-nights" } },
+      h("h2", { class: "section-title", attrs: { id: "circle-nights" }, text: "Circle night" }),
       k.nights.length > 0
         ? h(
             "ul",
@@ -146,30 +146,30 @@ export function kindredView(id: string, ctx: ViewContext): View {
             ),
           )
         : emptyNote(
-            "No kindred night on the calendar",
+            "No circle night on the calendar",
             k.hall
               ? "Any member can hold one at the hall, once a week."
               : "A steward sets the hall first.",
           ),
-      moves.has("schedule_kindred_night") && k.hall ? scheduleButton(k.id, k.hall, rules) : null,
+      moves.has("schedule_circle_night") && k.hall ? scheduleButton(k.id, k.hall, rules) : null,
     );
 
     const members = h(
       "section",
-      { class: "stack kindred-members", attrs: { "aria-labelledby": "kindred-members" } },
-      h("h2", { class: "section-title", attrs: { id: "kindred-members" }, text: "Members" }),
+      { class: "stack circle-members", attrs: { "aria-labelledby": "circle-members" } },
+      h("h2", { class: "section-title", attrs: { id: "circle-members" }, text: "Members" }),
       itemRows(
         k.members.map((m) =>
           itemRow({
-            className: "kindred-member",
+            className: "circle-member",
             attrs: { "data-resident": m.resident.id },
             lead: avatarEl(m.resident, "sm"),
             name: m.resident.name,
-            lines: [memberLine(m, m.resident.id === data.kindred.founder, data.day)],
+            lines: [memberLine(m, m.resident.id === data.circle.founder, data.day)],
             trail: you?.steward ? memberActions(m.resident.id, m.steward, k.members.length) : null,
           }),
         ),
-        { className: "kindred-member-rows" },
+        { className: "circle-member-rows" },
       ),
     );
     main.replaceChildren(...[invite, notice, nights, members].filter((x) => x !== null));
@@ -177,17 +177,17 @@ export function kindredView(id: string, ctx: ViewContext): View {
     const sideCards: (HTMLElement | null)[] = [
       h(
         "section",
-        { class: "stack paper card kindred-hall", attrs: { "aria-label": "Its hall" } },
+        { class: "stack paper card circle-hall", attrs: { "aria-label": "Its hall" } },
         h("p", { class: "cluster" }, icon("home"), h("span", { text: hallWords(k.hall) })),
         h("p", {
           class: "hint",
-          text: `Kindred nights count once ${rules.nightMembers} members from ${rules.nightHouseholds} households come. Members aren't counted guests at their own night.`,
+          text: `Circle nights count once ${rules.nightMembers} members from ${rules.nightHouseholds} households come. Members aren't counted guests at their own night.`,
         }),
-        moves.has("set_kindred_hall") ? hallForm(k.hall, k.nights.length > 0) : null,
+        moves.has("set_circle_hall") ? hallForm(k.hall, k.nights.length > 0) : null,
       ),
       you?.steward ? stewardCard(data, moves) : null,
       k.status === "forming" ? feeCard(data, moves) : null,
-      moves.has("leave_kindred") ? leaveButton() : null,
+      moves.has("leave_circle") ? leaveButton() : null,
     ];
     side.replaceChildren(...sideCards.filter((x): x is HTMLElement => x !== null));
   }
@@ -195,12 +195,12 @@ export function kindredView(id: string, ctx: ViewContext): View {
   function noticeForm(text: string): HTMLElement {
     const open = h("button", {
       class: "text-button",
-      attrs: { type: "button", id: "kindred-notice-edit" },
+      attrs: { type: "button", id: "circle-notice-edit" },
       text: "Edit notice",
     });
     const input = h("textarea", {
       class: "field-input",
-      attrs: { id: "kindred-notice-input", rows: 3, maxlength: KINDRED_NOTICE.max },
+      attrs: { id: "circle-notice-input", rows: 3, maxlength: CIRCLE_NOTICE.max },
     });
     input.value = text;
     const save = h("button", {
@@ -208,12 +208,12 @@ export function kindredView(id: string, ctx: ViewContext): View {
       attrs: { type: "submit" },
       text: "Save notice",
     });
-    const problem = errorLine("kindred-notice-error");
+    const problem = errorLine("circle-notice-error");
     const panel = h(
       "form",
       {
         class: "stack tight",
-        attrs: { hidden: true, id: "kindred-notice-form", novalidate: true },
+        attrs: { hidden: true, id: "circle-notice-form", novalidate: true },
       },
       input,
       problem,
@@ -222,7 +222,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
     disclosure(open, panel, input);
     panel.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const r = await whileBusy(save, () => kindredsApi.setNotice(id, input.value));
+      const r = await whileBusy(save, () => circlesApi.setNotice(id, input.value));
       if (loader.gone()) return;
       if (!r.ok) {
         problem.textContent = r.message;
@@ -243,10 +243,10 @@ export function kindredView(id: string, ctx: ViewContext): View {
   function hallForm(hall: { px: number; py: number } | null, booked: boolean): HTMLElement {
     const open = h("button", {
       class: "text-button",
-      attrs: { type: "button", id: "kindred-hall-open" },
+      attrs: { type: "button", id: "circle-hall-open" },
       text: "Set the hall",
     });
-    const panel = h("div", { class: "cluster", attrs: { hidden: true, id: "kindred-hall-plots" } });
+    const panel = h("div", { class: "cluster", attrs: { hidden: true, id: "circle-hall-plots" } });
     disclosure(open, panel, undefined, async (shown) => {
       if (!shown) return;
       const r = await eventsApi.events();
@@ -263,7 +263,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
                 text: `Plot ${p.px}, ${p.py}`,
               });
               const move = () =>
-                void act(button, { type: "set_kindred_hall", ...p }, "That's the hall now.");
+                void act(button, { type: "set_circle_hall", ...p }, "That's the hall now.");
               if (booked) confirmTwice(button, "Tap again: its nights are called off", move);
               else button.addEventListener("click", move);
               return button;
@@ -283,23 +283,23 @@ export function kindredView(id: string, ctx: ViewContext): View {
     return h("div", { class: "stack tight" }, open, panel);
   }
 
-  function stewardCard(data: KindredResponse, moves: ReadonlySet<string>): HTMLElement {
+  function stewardCard(data: CircleResponse, moves: ReadonlySet<string>): HTMLElement {
     const handle = h("input", {
       class: "field-input",
-      attrs: { id: "kindred-invite-handle", placeholder: "their handle", autocomplete: "off" },
+      attrs: { id: "circle-invite-handle", placeholder: "their handle", autocomplete: "off" },
     });
     const send = h("button", {
       class: "btn-primary small",
-      attrs: { type: "submit", id: "kindred-invite-send" },
+      attrs: { type: "submit", id: "circle-invite-send" },
       text: "Invite",
     });
-    const problem = errorLine("kindred-invite-error");
-    // A note with the invite (issue #73): why them, and what the kindred is for. Optional, so an
+    const problem = errorLine("circle-invite-error");
+    // A note with the invite (issue #73): why them, and what the circle is for. Optional, so an
     // empty box sends the invite as it always did.
     const note = h("textarea", {
       class: "field-input",
       attrs: {
-        id: "kindred-invite-note",
+        id: "circle-invite-note",
         rows: 2,
         maxlength: data.rules.inviteNoteMax,
         placeholder: "why you're asking them (optional)",
@@ -310,13 +310,13 @@ export function kindredView(id: string, ctx: ViewContext): View {
       { class: "stack tight", attrs: { novalidate: true } },
       h("label", {
         class: "field-label",
-        attrs: { for: "kindred-invite-handle" },
+        attrs: { for: "circle-invite-handle" },
         text: "Invite a neighbor",
       }),
       handle,
       h("label", {
         class: "field-label",
-        attrs: { for: "kindred-invite-note" },
+        attrs: { for: "circle-invite-note" },
         text: "A note to them",
       }),
       note,
@@ -337,7 +337,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
       const words = note.value.trim();
       const r = await whileBusy(send, () =>
         worldApi.act({
-          type: "invite_to_kindred",
+          type: "invite_to_circle",
           resident: found.data.resident.id,
           ...(words ? { note: words } : {}),
         }),
@@ -355,8 +355,8 @@ export function kindredView(id: string, ctx: ViewContext): View {
     const invites = data.you?.invites ?? [];
     return h(
       "section",
-      { class: "stack paper card kindred-steward", attrs: { "aria-label": "For stewards" } },
-      moves.has("invite_to_kindred")
+      { class: "stack paper card circle-steward", attrs: { "aria-label": "For stewards" } },
+      moves.has("invite_to_circle")
         ? invite
         : h("p", {
             class: "hint",
@@ -373,10 +373,10 @@ export function kindredView(id: string, ctx: ViewContext): View {
                 trail: cancelInvite(i.resident.id),
               }),
             ),
-            { className: "kindred-invites" },
+            { className: "circle-invites" },
           )
         : null,
-      moves.has("name_kindred")
+      moves.has("name_circle")
         ? renameForm(data.rules.nameMax)
         : h("p", { class: "hint", text: "It was renamed this week. Next week it can be again." }),
     );
@@ -390,7 +390,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
     });
     button.addEventListener(
       "click",
-      () => void act(button, { type: "cancel_kindred_invite", resident }, "Invite taken back."),
+      () => void act(button, { type: "cancel_circle_invite", resident }, "Invite taken back."),
     );
     return button;
   }
@@ -399,7 +399,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
     const open = h("button", { class: "text-button", attrs: { type: "button" }, text: "Rename" });
     const input = h("input", {
       class: "field-input",
-      attrs: { id: "kindred-rename", maxlength: nameMax, autocomplete: "off" },
+      attrs: { id: "circle-rename", maxlength: nameMax, autocomplete: "off" },
     });
     const save = h("button", {
       class: "pill-button small",
@@ -410,12 +410,12 @@ export function kindredView(id: string, ctx: ViewContext): View {
       "form",
       { class: "stack tight", attrs: { hidden: true, novalidate: true } },
       h("div", { class: "cluster" }, input, save),
-      h("p", { class: "hint", text: "A kindred is renamed once a week, Monday to Sunday." }),
+      h("p", { class: "hint", text: "A circle is renamed once a week, Monday to Sunday." }),
     );
     disclosure(open, panel, input);
     panel.addEventListener("submit", (e) => {
       e.preventDefault();
-      void act(save, { type: "name_kindred", name: input.value.trim() }, "Renamed.");
+      void act(save, { type: "name_circle", name: input.value.trim() }, "Renamed.");
     });
     return h("div", { class: "stack tight" }, open, panel);
   }
@@ -439,7 +439,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
           () =>
             void act(
               down,
-              { type: "set_kindred_steward", resident, steward: false },
+              { type: "set_circle_steward", resident, steward: false },
               "You're not a steward now.",
             ),
         );
@@ -454,11 +454,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
       make.addEventListener(
         "click",
         () =>
-          void act(
-            make,
-            { type: "set_kindred_steward", resident, steward: true },
-            "A steward now.",
-          ),
+          void act(make, { type: "set_circle_steward", resident, steward: true }, "A steward now."),
       );
       const remove = h("button", {
         class: "text-button",
@@ -468,7 +464,7 @@ export function kindredView(id: string, ctx: ViewContext): View {
       confirmTwice(
         remove,
         "Tap again to remove",
-        () => void act(remove, { type: "remove_from_kindred", resident }, "Removed."),
+        () => void act(remove, { type: "remove_from_circle", resident }, "Removed."),
       );
       row.append(make, remove);
     }
@@ -479,41 +475,41 @@ export function kindredView(id: string, ctx: ViewContext): View {
    * While it forms: what members have chipped in toward the founder's fee, and for a member who
    * isn't the founder, Chip in (issue #69). The world checks the amount and the room left.
    */
-  function feeCard(data: KindredResponse, moves: ReadonlySet<string>): HTMLElement {
+  function feeCard(data: CircleResponse, moves: ReadonlySet<string>): HTMLElement {
     const { rules } = data;
     const room = rules.fee - rules.trialBurn;
     const card = h(
       "section",
-      { class: "stack tight paper card kindred-fee", attrs: { "aria-label": "Its fee" } },
+      { class: "stack tight paper card circle-fee", attrs: { "aria-label": "Its fee" } },
       h("p", {
-        text: `Members have chipped in ${data.kindred.chippedIn} of the ${room} coins they can toward the founder's ${rules.fee}. If it doesn't form, members get theirs back, and the founder all but ${rules.trialBurn}.`,
+        text: `Members have chipped in ${data.circle.chippedIn} of the ${room} coins they can toward the founder's ${rules.fee}. If it doesn't form, members get theirs back, and the founder all but ${rules.trialBurn}.`,
       }),
     );
-    if (!moves.has("chip_in_kindred")) return card;
+    if (!moves.has("chip_in_circle")) return card;
     const amount = h("input", {
       class: "field-input",
       attrs: {
-        id: "kindred-chip-amount",
+        id: "circle-chip-amount",
         type: "number",
         inputmode: "numeric",
         min: 1,
-        max: room - data.kindred.chippedIn,
-        value: Math.min(5, room - data.kindred.chippedIn),
+        max: room - data.circle.chippedIn,
+        value: Math.min(5, room - data.circle.chippedIn),
         "aria-label": "Coins to chip in",
       },
     });
     const send = h("button", {
       class: "btn-primary small",
-      attrs: { type: "submit", id: "kindred-chip-in" },
+      attrs: { type: "submit", id: "circle-chip-in" },
       text: "Chip in",
     });
-    const problem = errorLine("kindred-chip-error");
+    const problem = errorLine("circle-chip-error");
     const form = h("form", { class: "cluster", attrs: { novalidate: true } }, amount, send);
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const coins = Number(amount.value);
       const r = await whileBusy(send, () =>
-        worldApi.act({ type: "chip_in_kindred", kindred: data.kindred.id, coins }),
+        worldApi.act({ type: "chip_in_circle", circle: data.circle.id, coins }),
       );
       const refused = actProblem(r);
       if (refused) {
@@ -530,32 +526,32 @@ export function kindredView(id: string, ctx: ViewContext): View {
   function leaveButton(): HTMLElement {
     const button = h("button", {
       class: "pill-button small",
-      attrs: { type: "button", id: "kindred-leave" },
-      text: "Leave the kindred",
+      attrs: { type: "button", id: "circle-leave" },
+      text: "Leave the circle",
     });
     confirmTwice(
       button,
       "Tap again to leave",
-      () => void actAndGo(button, { type: "leave_kindred" }, "You left."),
+      () => void actAndGo(button, { type: "leave_circle" }, "You left."),
     );
     return h("p", {}, button);
   }
 
   /**
-   * Hold a kindred night: read the server's clock and rules fresh, then open the Schedule sheet with
+   * Hold a circle night: read the server's clock and rules fresh, then open the Schedule sheet with
    * the hall as its one place. The world checks the rest: that you're a member, that it's formed,
    * and that the week has no other night.
    */
   function scheduleButton(
-    kindred: string,
+    circle: string,
     hall: { px: number; py: number },
-    rules: KindredResponse["rules"],
+    rules: CircleResponse["rules"],
   ): HTMLElement {
     const button = h(
       "button",
-      { class: "pill-button", attrs: { type: "button", id: "kindred-night-host" } },
+      { class: "pill-button", attrs: { type: "button", id: "circle-night-host" } },
       icon("calendar"),
-      h("span", { text: "Hold a kindred night" }),
+      h("span", { text: "Hold a circle night" }),
     );
     button.addEventListener("click", async () => {
       const r = await whileBusy(button, () => eventsApi.events());
@@ -568,8 +564,8 @@ export function kindredView(id: string, ctx: ViewContext): View {
         events: r.data,
         commons: hall,
         done: () => void loader.refresh(),
-        kindred: {
-          id: kindred,
+        circle: {
+          id: circle,
           hall,
           counts: { members: rules.nightMembers, households: rules.nightHouseholds },
         },
@@ -579,9 +575,9 @@ export function kindredView(id: string, ctx: ViewContext): View {
   }
 
   const loader = pageData({
-    ask: () => kindredsApi.kindred(id),
+    ask: () => circlesApi.circle(id),
     paint,
-    fail: failInto(main, () => notFoundCard("No kindred here")),
+    fail: failInto(main, () => notFoundCard("No circle here")),
   });
   return { el, ready: loader.ready, destroy: loader.leave };
 }

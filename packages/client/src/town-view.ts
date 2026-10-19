@@ -59,9 +59,9 @@ import {
   paintHeldRow,
   tabOf,
 } from "./build-palette";
+import { circlesSection } from "./circles-section";
 import { eventRow, hostButton, hostEvent } from "./event-cards";
 import { jobsSection } from "./jobs-section";
-import { kindredsSection } from "./kindreds-section";
 import { savedResidentId, savedToken } from "./net";
 import { coins } from "./purse";
 import {
@@ -160,14 +160,14 @@ export function townView(ctx: ViewContext): View {
   let archiveNext: string | null = null;
   // The town's jobs (RFC 0030). Asked for only once the world says they're open.
   const jobs = jobsSection({ gone: () => destroyed });
-  // Kindreds (RFC 0033). Asked for only once the world says they're open.
-  const kindreds = kindredsSection({ gone: () => destroyed, navigate: ctx.navigate });
-  let kindredsOpen = false;
+  // Circles (RFC 0033). Asked for only once the world says they're open.
+  const circles = circlesSection({ gone: () => destroyed, navigate: ctx.navigate });
+  let circlesOpen = false;
   /** Keep what the world said, and say whether jobs are open in it. */
   function readWorld(w: WorldSnapshot): boolean {
     commons = commonsOf(w);
     clock = { ms: w.time.nowMs, at: Date.now() };
-    kindredsOpen = w.kindredsOpen === true;
+    circlesOpen = w.circlesOpen === true;
     return w.jobsOpen === true;
   }
 
@@ -190,7 +190,7 @@ export function townView(ctx: ViewContext): View {
     // The board comes in with the page, so the section never pushes the page down later. In a
     // world without jobs the section isn't on the page at all.
     const jobsOpen = w.ok && readWorld(w.data);
-    await Promise.all([jobsOpen ? jobs.refresh() : null, kindredsOpen ? kindreds.refresh() : null]);
+    await Promise.all([jobsOpen ? jobs.refresh() : null, circlesOpen ? circles.refresh() : null]);
     if (destroyed) return;
     head.replaceChildren(hero);
     main.replaceChildren(
@@ -199,7 +199,7 @@ export function townView(ctx: ViewContext): View {
       queuedTitle,
       queuedList,
       ...(jobsOpen ? jobs.els : []),
-      ...(kindredsOpen ? kindreds.els : []),
+      ...(circlesOpen ? circles.els : []),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,
       h("div", { class: "feed-foot" }, more.el),
@@ -228,7 +228,7 @@ export function townView(ctx: ViewContext): View {
     if (destroyed || !t.ok) return;
     town = t.data;
     if (w.ok && readWorld(w.data)) void jobs.refresh();
-    if (kindredsOpen) void kindreds.refresh();
+    if (circlesOpen) void circles.refresh();
     // Only what changed gets drawn again, so a vote you're about to tap stays put.
     paint();
     paintEvents();

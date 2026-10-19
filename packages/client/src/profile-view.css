@@ -1408,12 +1408,12 @@ button.profile-avatar.editable:disabled {
   height: 16px;
 }
 
-/* Their kindred (RFC 0033): a chip that opens its page. */
-.profile-facts > .profile-kindred {
+/* Their circle (RFC 0033): a chip that opens its page. */
+.profile-facts > .profile-circle {
   gap: var(--space-xs);
 }
 
-.profile-facts > .profile-kindred .icon {
+.profile-facts > .profile-circle .icon {
   width: 16px;
   height: 16px;
 }

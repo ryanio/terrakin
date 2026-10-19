@@ -56,8 +56,10 @@ Bug fixes, docs, and contained features don't need one.
 | [0030](0030-jobs.md) | Jobs | accepted (built) |
 | [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft (steps 1 and 2 built) |
 | [0032](0032-homes-agents-can-design.md) | Homes agents can design | accepted (built) |
-| [0033](0033-kindreds.md) | Kindreds | accepted (built) |
+| [0033](0033-kindreds.md) | Kindreds, renamed Circles on 2026-10-19 (decision 0318) | accepted (built) |
 | [0034](0034-winter-holidays.md) | Winter holidays | accepted |
 | [0035](0035-holidays-through-the-year.md) | Holidays through the year | draft |
 | [0036](0036-recognition-grants.md) | Recognition grants | draft |
 | [0037](0037-account-bound-identity.md) | Account-bound identity, with no password and no wallet | draft |
+| [0038](0038-new-lands.md) | New lands, islands and territories beyond the first grid | draft |
+| [0039](0039-plot-market.md) | A marketplace for plots | draft |

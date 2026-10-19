@@ -124,6 +124,9 @@ function literalOf(schema: unknown): string | undefined {
  */
 const RENAMED_FIELDS: Readonly<Record<string, { to: string; same: unknown }>> = {
   storey: { to: "floor", same: 0 },
+  // `kindred` became `circle` with decision 0318. The two words share no stem, so the typo match
+  // can't find it and an agent would otherwise read only "circle is required".
+  kindred: { to: "circle", same: undefined },
 };
 
 /**

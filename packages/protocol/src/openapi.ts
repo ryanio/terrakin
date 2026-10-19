@@ -3,6 +3,7 @@ import * as bounties from "./bounties";
 import * as catalog from "./catalog";
 import * as changelog from "./changelog";
 import * as checkin from "./checkin";
+import * as circles from "./circles";
 import * as coins from "./coins";
 import * as collection from "./collection";
 import * as designs from "./designs";
@@ -13,7 +14,6 @@ import * as games from "./games";
 import * as items from "./items";
 import * as jobDone from "./job-done";
 import * as jobs from "./jobs";
-import * as kindreds from "./kindreds";
 import * as levels from "./levels";
 import * as market from "./market";
 import * as partners from "./partners";
@@ -153,7 +153,7 @@ function namedSchemas() {
     ...collection,
     ...levels,
     ...jobs,
-    ...kindreds,
+    ...circles,
     ...jobDone,
     ...devlog,
     ...designs,
@@ -204,7 +204,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, kindreds.ts, devlog.ts, or designs.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, devlog.ts, or designs.ts`,
       );
     return ref(name);
   };

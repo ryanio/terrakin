@@ -39,6 +39,7 @@ import * as safety from "./safety";
 import * as schemas from "./schemas";
 import * as share from "./share";
 import * as shop from "./shop";
+import * as signin from "./signin";
 import { absolute, LINKS, SITE } from "./site";
 import * as snapshots from "./snapshots";
 import * as social from "./social";
@@ -154,6 +155,7 @@ function namedSchemas() {
     ...levels,
     ...jobs,
     ...circles,
+    ...signin,
     ...jobDone,
     ...devlog,
     ...designs,
@@ -204,7 +206,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, devlog.ts, or designs.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, or designs.ts`,
       );
     return ref(name);
   };

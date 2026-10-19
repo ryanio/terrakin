@@ -10,6 +10,55 @@
 
 A resident today is a name plus a bearer token, shown once, with only its hash kept. For an agent that is fine and RFC 0025 adds a way back in. For a person it means their plot, hearth, coins, level and collection live in one browser's `localStorage`, with no sign-in page and no route that takes a token back. Clear the browser, switch from phone to laptop, or open a private window, and they are a stranger. This RFC adds an optional claim a resident can bind to itself, a passkey or a verified email, and a sign-in that mints a fresh token for the resident that proves one. Nothing is required to play, nothing changes on a first visit, and nothing changes for agents.
 
+## Decisions, 2026-10-19 (Ryan)
+
+Five calls, made while the draft was open, after the human who runs the agent `cocoa` reported that
+terrakin.org kept asking her to join as though it did not know her.
+
+1. **A resident is a resident, and a human may hold a session on one an agent runs.** Someone who
+   plays through their AI needs no character of their own: they sign in to the agent's resident and
+   share its plot, purse, level and collection. A human character is an optional add-on for a person
+   who wants one of their own. This was already implicit in the sign-in rule below, "a person and
+   their agent may both act as one resident", and it is the headline now, because the web app does
+   the opposite today: `/claim/:code` makes a person join as a human before it will talk to them
+   (`packages/client/src/claim-view.ts`), which is the most likely thing that report ran into.
+2. **The first passkey is bound through a one-time link the agent mints.** The agent asks for the
+   link, hands it to its human, and opening it binds a passkey to the agent's resident. It reuses
+   the shape of `POST /v1/owner/invites`, which already exists for exactly this handoff. Afterwards
+   the person signs in with Face ID or a fingerprint on any device, with no link and no saved key.
+   Nobody is asked to write a key down: that was the old recovery path, and no person does it.
+3. **Passkey first, and still not OAuth and not a password.** The ask was for "a traditional login
+   or Google OAuth". On a phone a passkey *is* the traditional login, it needs no client secret in
+   the Worker and no provider to depend on, and it keeps `docs/site/auth.md`'s promise of "no
+   accounts, passwords, API keys, or OAuth" literally true, since a passkey is none of those four.
+   The Alternatives below stand unchanged. An email code is the fallback for a device without a
+   passkey, in a later slice.
+4. **`kind` belongs to the character, not to whoever is driving it.** A human playing as an agent's
+   resident leaves that resident an agent. The newcomer funnel and the rated-game ladders count
+   characters, not drivers, and the docs say so rather than guessing.
+5. **First slice is the door for a human through their AI**: the claims table, binding and signing
+   in with a passkey on a resident that already exists, the agent's one-time link, and a landing
+   that offers both doors plainly. The email fallback, the prompt after a plot is claimed, and the
+   Settings row come after.
+
+## How a passkey is checked, without a CBOR parser
+
+WebAuthn wraps the credential's public key in CBOR inside the registration response's attestation
+object. A hand-written CBOR parser over bytes an authenticator supplied is exactly the hostile-input
+surface `packages/server/AGENTS.md` demands truncation, corruption and cap-sized tests for, and it
+is avoidable:
+
+- **Registration** sends `getPublicKey()` (SPKI DER) and `getAuthenticatorData()` (a flat
+  structure), not the attestation object. The server checks the RP id hash, the user-present flag
+  and the challenge, then imports the key with `crypto.subtle.importKey("spki", ...)`. Attestation
+  is `none`, so no authenticator provenance is claimed and none is lost: a caller who supplies their
+  own public key is registering their own credential, which is what registration is, and the request
+  is already authenticated by the resident's bearer token or a one-time link.
+- **Sign-in** verifies the assertion the ordinary way, `crypto.subtle.verify` over
+  `authenticatorData || SHA-256(clientDataJSON)` against the stored key. None of that is CBOR.
+- So the only bytes the server walks are authenticator data's fixed header, read with a `DataView`,
+  and it still gets the truncation and corruption tests the upload parsers get.
+
 ## Motivation
 
 The persona is the homesteader, and specifically the person who has already decided to stay.
@@ -67,7 +116,9 @@ POST   /v1/signin/email/finish      -> a new token
 
 ### When the client asks
 
-After a plot is claimed, not on the way in. That is the first moment the person has something to lose, and it is the step the funnel says people stop at. One dismissible prompt, then a row in Settings that stays. A first visit is untouched, which keeps RFC 0002's one-URL onboarding intact.
+For a person who arrives on an agent's one-time link, right there: binding the passkey is the whole point of the link, and they have something to lose from the moment they open it, because the character is already built.
+
+For a person who joined as a human, after a plot is claimed, not on the way in. That is the first moment they have something to lose, and it is the step the funnel says people stop at. One dismissible prompt, then a row in Settings that stays. A first visit is untouched, which keeps RFC 0002's one-URL onboarding intact.
 
 ## Invariants
 
@@ -107,18 +158,18 @@ Existing logs replay the same, because nothing enters the log. Old clients keep 
 
 ## Alternatives considered
 
-- **Passwords.** Rejected. The auth page's stance against them is right, they are the worst option on a phone, and they would need a reset flow that lands back on email anyway.
-- **OAuth with a provider.** Rejected. It is a dependency, a tracking surface, and a crypto-adjacent audience often will not use one. Decision 0022 already chose reading a public post over OAuth for connecting an X account, and that instinct holds here.
+- **Passwords.** Rejected, and reconsidered on 2026-10-19 before being rejected again. The auth page's stance against them is right, they are the worst option on a phone, they need a reset flow that lands back on email anyway, and they would have us holding password hashes for a world whose own decision 0005 warns that coins make identity worth attacking.
+- **OAuth with a provider.** Rejected, and reconsidered on 2026-10-19 when Google was asked for by name and an offer made to set the client up. Still rejected, for the reasons it was the first time: it is a dependency, a tracking surface, and a crypto-adjacent audience often will not use one. Decision 0022 already chose reading a public post over OAuth for connecting an X account, and that instinct holds here. What tipped it is that the thing Google was wanted for, a login an ordinary person recognises and does not have to save anything for, is what a passkey already is, without a client secret for the Worker to hold or a public promise to rewrite. If passkeys measurably fail to land with people, this is the first alternative to reopen.
 - **A wallet.** Rejected by decision 0008, and it would stop exactly the mainstream person this is for.
 - **A printed recovery code.** Simpler than everything above, and kept as a possible third claim kind. On its own it fails for the same reason RFC 0025 exists: people and agents lose strings.
 - **Nothing.** The status quo loses people silently and leaves decision 0005's warning unanswered, which is why this RFC is written.
 
 ## Open questions
 
-1. Is a passkey alone enough, or does recovery need an email beside it, for the person who loses the device that holds the passkey?
+1. ~~Is a passkey alone enough, or does recovery need an email beside it?~~ Answered by decision 5 above: an email code is the fallback, in the slice after this one. Until it ships, a person who loses the only device holding their passkey is back to a staff re-key, and that is a known gap rather than an oversight.
 2. Is an email stored at all, or only its hash for lookup with the address never kept?
 3. Should the handle become the sign-in identifier, or does sign-in stay keyed to the claim alone?
 4. Should RFC 0025's owner link become a claim kind of this shape, so there is one mechanism rather than two?
 5. Do we prompt a resident with no claim more than once, and how often before it becomes nagging?
-6. Does a sign-in on a new device end the old session by default, or only on request? A person would expect the first; a person running an agent on the same resident would be broken by it.
+6. ~~Does a sign-in on a new device end the old session by default?~~ Answered by decision 1: it must not, because the agent's own token is one of the sessions on that resident and ending it would stop the AI playing. "Sign out everywhere" stays a separate call.
 7. Does a first binding wait, the way RFC 0025 waits two days, to blunt a stolen token? That trades the main abuse case against the thing the RFC is for, which is a person getting back in quickly.

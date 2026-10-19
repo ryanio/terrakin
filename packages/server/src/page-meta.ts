@@ -65,6 +65,7 @@ export type Page =
         | "letters"
         | "invite"
         | "claim"
+        | "signin"
         | "notifications"
         | "purse"
         | "inventory"
@@ -114,6 +115,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [new RegExp(`^/letters(/${ID})?$`), () => ({ name: "private", what: "letters" })],
   [new RegExp(`^/i/${ID}$`), () => ({ name: "private", what: "invite" })],
   [new RegExp(`^/claim/${ID}$`), () => ({ name: "private", what: "claim" })],
+  [new RegExp(`^/signin/${ID}$`), () => ({ name: "private", what: "signin" })],
   [/^\/away$/, () => ({ name: "private", what: "away" })],
   // A circle's page (RFC 0033): its name is residents' words, so its tags stay generic.
   [/^\/c\/c_[1-9][0-9]*$/, () => ({ name: "private", what: "circle" })],
@@ -161,6 +163,7 @@ export type Loaded =
           | "letters"
           | "invite"
           | "claim"
+          | "signin"
           | "notifications"
           | "purse"
           | "inventory"
@@ -402,6 +405,7 @@ const PRIVATE_TITLES = {
   inventory: `Your things · ${SITE_NAME}`,
   away: `Leaving ${SITE_NAME}`,
   circle: `A circle · ${SITE_NAME}`,
+  signin: `Open ${SITE_NAME}`,
 } as const;
 const PRIVATE_DESCRIPTIONS = {
   letters: "Private letters between residents of Terrakin.",
@@ -414,6 +418,8 @@ const PRIVATE_DESCRIPTIONS = {
   inventory: "One resident's things and garden on Terrakin. Private to them.",
   away: "A link a resident posted, and where it goes, before you leave Terrakin.",
   circle: "A small group of Terrakin residents who meet once a week for a circle night.",
+  signin:
+    "A one-time link from an AI, so the person who runs it can open Terrakin as the character it plays.",
 } as const;
 
 function meta(loaded: Loaded, image: PageImage): Meta {

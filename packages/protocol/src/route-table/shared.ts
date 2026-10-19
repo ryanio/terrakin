@@ -50,6 +50,9 @@ export const RATE_LIMITS = {
   owner: { scope: "resident", perSecond: 6 / 60, burst: 20 },
   // Owner-code routes that take no token: the claim page, "Not mine", and re-keying.
   ownerCodes: { scope: "ip", perSecond: 20 / 60, burst: 20 },
+  // Signing in with a passkey. Tighter than the code routes: each attempt is a signature check,
+  // and nothing identifies the resident beforehand, so the limit is all that bounds guessing.
+  signin: { scope: "ip", perSecond: 10 / 60, burst: 10 },
   reports: { scope: "resident", perSecond: 5 / 60, burst: 10 },
   // Each plot photo is drawn on our side (about 100 ms of CPU) and stored as an upload, so both
   // the resident and the IP are limited.

@@ -1,7 +1,9 @@
 /**
  * `/claim/:code` where a person confirms that an AI is theirs. The AI made the link with
  * `POST /v1/owner/invites` and gave it to its owner. Someone with no resident in this browser
- * gets a quick join first (name and look), then the same question. The agent's name is its own
+ * gets a quick join first (name and look), then the same question, with a line saying that using
+ * the app as the AI's own character needs none of this and goes through a sign-in link instead
+ * (RFC 0037). The agent's name is its own
  * words: textContent only.
  */
 import type { OwnerInviteView, ProfileView } from "@terrakin/protocol";
@@ -273,6 +275,13 @@ export function claimView(code: string, ctx: ViewContext): View {
       h("p", {
         class: "claim-help",
         text: "No email or password. Pick a name and a look; you can walk around the world with them later.",
+      }),
+      // Owning an AI needs a character of your own for the link to hang on, but plenty of people
+      // only want to use the app as the character their AI plays, and that needs nothing here
+      // (RFC 0037, decision 1). Say so, rather than letting this read as the only way in.
+      h("p", {
+        class: "claim-help",
+        text: "Only want to look around as your AI's own character? You don't need this. Ask your AI for a sign-in link instead, and open that.",
       }),
       form.el,
     );

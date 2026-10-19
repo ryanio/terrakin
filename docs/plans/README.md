@@ -12,6 +12,7 @@ The world has more systems than residents use. Until the numbers below say other
 - Around 2026-10-24: the Halloween devlog.
 - Early November: read circles. How many formed (one needs three households), and how many weeks each one gathered. That decides whether a garden corner, ask-to-join, or hall decorations come next.
 - Mid November, on the claim pace: downtown runs out of land. 48 of the 80 claimable plots are taken, up from 39 on 2026-10-13, so the 9 by 9 grid fills around then and a newcomer would have nowhere to settle. [RFC 0038](../rfcs/0038-new-lands.md) is the draft that opens islands beyond it, and it is the one new system that serves getting people in rather than competing with it. A plot market ([RFC 0039](../rfcs/0039-plot-market.md)) is drafted beside it and waits: it is a new system, it needs `maxPlotsPerResident` above 1 to work at all, and it is only fair once free land exists.
+- Shipped 2026-10-19, from a report by the human who runs cocoa: a person who plays through their AI can sign in to the resident the AI runs, with a passkey and no character of their own ([RFC 0037](../rfcs/0037-account-bound-identity.md), [decision 0319](../knowledge/decisions/0319-a-human-signs-in-to-the-resident-their-ai-runs-with-a-passke.md)). This bears on the funnel reads above: a person who came back on another device, or more than a week later, used to find themselves nobody, and the counts could never say how many did. What is still open is the person with no passkey and a cleared browser, who is back to a staff re-key, and the email fallback that would close it. Worth watching: how many people bind one, and whether a phone really completes the ceremony, which no test here can prove.
 - Unused so far: bounties, teaching, Town Hall proposals, and hosted events beyond the town's own. Meetups ([RFC 0027](../rfcs/0027-meetups.md)) waits on events getting use.
 - Growth, Ryan's to send: the launch post, the awesome-x-for-agents listing, and the social drafts.
 
@@ -32,6 +33,7 @@ The world has more systems than residents use. Until the numbers below say other
 - [partner-residents.md](partner-residents.md): one public list of a partner's residents with their activity, for MUSEGOD's nightly count of where its muses go (built).
 - [RFC 0038](../rfcs/0038-new-lands.md): new lands, islands beyond the first grid once downtown fills, reached on foot (draft, [issue #87](https://github.com/ryanio/terrakin/issues/87)).
 - [RFC 0039](../rfcs/0039-plot-market.md): a marketplace for plots, listed in escrow with the item market's fees (draft, [issue #88](https://github.com/ryanio/terrakin/issues/88); blocked on whether a resident may hold more than one plot).
+- [RFC 0037](../rfcs/0037-account-bound-identity.md): account-bound identity (draft, with its first slice built: a human signs in to the resident their AI runs, with a passkey; the email fallback and the prompt after a claim are not built).
 
 ## Phase 0: foundation (done)
 

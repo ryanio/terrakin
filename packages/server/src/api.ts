@@ -57,6 +57,7 @@ import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
 import { randomBytes, sha256Hex, toHex } from "./bytes";
 import type { ChatterRun, ChatterService, MentionRun } from "./chatter";
+import { ClaimsService } from "./claims";
 import {
   bearerToken,
   type CredentialFailure,
@@ -84,6 +85,7 @@ import {
   STAFF_ONLY,
   type Upload,
 } from "./handlers/shared";
+import { signinHandlers } from "./handlers/signin";
 import { siteHandlers } from "./handlers/site";
 import { socialHandlers } from "./handlers/social";
 import { togetherHandlers } from "./handlers/together";
@@ -347,6 +349,7 @@ export class Api {
   readonly build: string | undefined;
   readonly social: SocialService | undefined;
   readonly owners: OwnerService | undefined;
+  readonly claims: ClaimsService | undefined;
   readonly limiters: Record<RateLimitName, RateLimiters>;
   private readonly ipUploads = new Map<string, { day: number; bytes: number }>();
   uploadsInFlight = 0;
@@ -395,6 +398,9 @@ export class Api {
     this.owners = options.social
       ? new OwnerService({ social: options.social, credentials: options.service })
       : undefined;
+    this.claims = options.social
+      ? new ClaimsService({ social: options.social, credentials: options.service })
+      : undefined;
     this.welcome = options.welcome;
     this.lessons = options.lessons;
     // The world and the social layer hear each other through hooks (api-wiring.ts).
@@ -437,6 +443,7 @@ export class Api {
       letterMedia: bucket("letterMedia"),
       owner: bucket("owner"),
       ownerCodes: bucket("ownerCodes"),
+      signin: bucket("signin"),
       reports: bucket("reports"),
       photos: bucket("photos"),
       photosIp: bucket("photosIp"),
@@ -795,6 +802,12 @@ export class Api {
     return this.owners;
   }
 
+  requireClaims(): ClaimsService {
+    // Unreachable: the sign-in routes aren't matched without a social service.
+    if (!this.claims) throw new Error("Sign-in routes need a SocialService.");
+    return this.claims;
+  }
+
   /** The per-IP daily upload bytes, refused when `bytes` more would go over. */
   ipUploadRefusal(key: string, bytes: number): Failure | undefined {
     const now = this.now();
@@ -943,6 +956,7 @@ export class Api {
       ...townHallHandlers(this),
       ...eventHandlers(this),
       ...ownerHandlers(this),
+      ...signinHandlers(this),
       ...safetyHandlers(this),
       ...docsHandlers(this),
       ...linkHandlers(this),

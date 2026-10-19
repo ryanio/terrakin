@@ -15,6 +15,7 @@ import {
   routeErrors,
   type TextReply,
 } from "./route-table/shared";
+import { SIGNIN_ROUTES } from "./route-table/signin";
 import { SOCIAL_ROUTES } from "./route-table/social";
 import { TOGETHER_ROUTES } from "./route-table/together";
 import { TOWN_HALL_ROUTES } from "./route-table/town-hall";
@@ -75,6 +76,7 @@ export const ROUTES = [
   ...TOWN_HALL_ROUTES,
   ...EVENT_ROUTES,
   ...OWNER_ROUTES,
+  ...SIGNIN_ROUTES,
   ...SAFETY_ROUTES,
   ...DOCS_ROUTES,
 ] as const satisfies readonly RouteSpec[];
@@ -88,6 +90,7 @@ export type AreaRouteIds = {
   townHall: (typeof TOWN_HALL_ROUTES)[number]["id"];
   events: (typeof EVENT_ROUTES)[number]["id"];
   owners: (typeof OWNER_ROUTES)[number]["id"];
+  signin: (typeof SIGNIN_ROUTES)[number]["id"];
   safety: (typeof SAFETY_ROUTES)[number]["id"];
   docs: (typeof DOCS_ROUTES)[number]["id"];
 };

@@ -157,6 +157,13 @@
               </div>
             </details>
 
+            <!-- The other door: a character that already exists, your own or the one your AI
+                 plays. Hidden until landing.ts finds this browser can use a passkey. -->
+            <div id="signin" class="restore" hidden>
+              <button type="button" id="signin-go" class="pill-button small" disabled data-until-ready>Sign in to a character you have</button>
+              <p id="signin-error" class="form-error" role="alert"></p>
+            </div>
+
             <details id="restore" class="restore">
               <summary>Restore with a key</summary>
               <p class="field-hint">Your character lives in the browser you made it in, as a secret key. If you copied your key from your profile, paste it here to bring your character to this browser.</p>

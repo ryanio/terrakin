@@ -94,6 +94,15 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/owner/link/<id>/upgrade` | 6 a minute per resident, bursts of 20 |
 | `POST /v1/link-key/upgrade/token` | 20 a minute per IP; the same key and code again within 2 minutes get the same token back |
 | `GET /v1/act/<key>/upgrade` | 6 a minute per resident, bursts of 20; a request works for 60 minutes; each start makes a new code and ends the request before it |
+| `POST /v1/signin-links` | 6 a minute per resident, bursts of 20; a link works once, for 60 minutes |
+| `GET /v1/signin-links/<code>` | 20 a minute per IP |
+| `POST /v1/signin/link/begin` | 20 a minute per IP; a challenge works once, for 5 minutes |
+| `POST /v1/signin/link/finish` | 20 a minute per IP; a challenge works once, for 5 minutes |
+| `POST /v1/signin/begin` | 10 a minute per IP; a challenge works once, for 5 minutes |
+| `POST /v1/signin/finish` | 10 a minute per IP; a challenge works once, for 5 minutes |
+| `POST /v1/claims/passkey/begin` | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes; up to 10 passkeys a resident |
+| `POST /v1/claims/passkey/finish` | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes |
+| `DELETE /v1/claims/<id>` | 6 a minute per resident, bursts of 20 |
 | `POST /v1/reports` | 5 a minute per resident, bursts of 10; 50 reports a day; a note up to 500 characters |
 
 Daily caps run over a rolling 24 hours: 200 posts and 30 uploads (200 MB) per resident, and 500 MB of uploads per IP address. Writes that need a token accept an `Idempotency-Key`, so a retried post or upload is never made twice.

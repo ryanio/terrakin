@@ -17,6 +17,41 @@ export const toBase64Url = (bytes: Uint8Array) =>
     .replace(/=+$/, "");
 
 /** A record's id: its prefix and 16 random hex characters (`r_`, `p_`, `rep_`). */
+/**
+ * Bytes from base64url, or undefined when the text isn't base64url. WebAuthn sends every binary
+ * field this way, and all of it is hostile input, so an unpadded length, a stray character or a
+ * wrong alphabet is a refusal rather than a throw.
+ */
+export function fromBase64Url(text: string): Uint8Array<ArrayBuffer> | undefined {
+  if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return undefined;
+  try {
+    const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch {
+    return undefined;
+  }
+}
+
+/** SHA-256 of bytes, as bytes. `sha256Hex` is the same digest for a string, as hex. */
+export async function sha256Bytes(data: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
+  // Copied first, so a view onto any buffer (a TextEncoder's, a subarray) is one the Workers
+  // types accept as a BufferSource.
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(data)));
+}
+
+/**
+ * Whether two byte strings match, in time that doesn't depend on where they differ. A WebAuthn
+ * challenge is a secret until it's used, so it is compared with this and not with a loop that stops.
+ */
+export function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= (a[i] as number) ^ (b[i] as number);
+  return diff === 0;
+}
+
 export const randomId = (prefix: string) => `${prefix}_${toHex(randomBytes(8))}`;
 
 /**

@@ -11,6 +11,7 @@ import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
 import { characterPicker, type JoinLook, randomCharacter } from "./join-form";
+import { passkeysWork } from "./passkey";
 
 export interface Landing {
   /** True while the curtain is showing (not lifted or hidden). */
@@ -37,6 +38,11 @@ export interface LandingOptions {
   onJoin(choice: { name: string; note?: string } & JoinLook): void;
   /** Check a pasted key. Resolve with an error message, or null once it is saved. */
   onRestore(key: string): Promise<string | null>;
+  /**
+   * Sign in with a passkey already bound to a character, which may be the one an AI plays
+   * (RFC 0037). Resolve with an error message, or null once the session is saved.
+   */
+  onSignin(): Promise<string | null>;
 }
 
 /** "12 residents, 3 online now". Pure, so tests can pin the wording. */
@@ -52,7 +58,10 @@ function byId<T extends HTMLElement>(root: ParentNode, id: string): T {
   return el;
 }
 
-export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingOptions): Landing {
+export function createLanding(
+  root: HTMLElement,
+  { onJoin, onRestore, onSignin }: LandingOptions,
+): Landing {
   const form = byId<HTMLFormElement>(root, "world-join");
   const note = byId<HTMLInputElement>(root, "join-note");
   const name = byId<HTMLInputElement>(root, "join-name");
@@ -139,6 +148,22 @@ export function createLanding(root: HTMLElement, { onJoin, onRestore }: LandingO
     else restoreKey.value = "";
   };
   restoreGo.addEventListener("click", () => void restore());
+
+  // Sign in with a passkey. The whole door stays away where the browser can't use one, rather
+  // than offering a button that only ever says no.
+  const signin = byId(root, "signin");
+  const signinGo = byId<HTMLButtonElement>(root, "signin-go");
+  const signinError = byId(root, "signin-error");
+  if (passkeysWork()) signin.hidden = false;
+  signinGo.addEventListener("click", () => {
+    void (async () => {
+      signinGo.disabled = true;
+      signinError.textContent = "";
+      const problem = await onSignin();
+      signinGo.disabled = false;
+      if (problem) signinError.textContent = problem;
+    })();
+  });
   restoreKey.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();

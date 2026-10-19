@@ -1,7 +1,7 @@
 /**
  * A tiny History API router. `/` the feed, `/r/:id` a profile (also at `/u/handle`), `/r/:id/3d`
  * their plot in 3D, `/r/:id/collection` their collection book, `/p/:id` a post, `/notifications`, `/purse` your coins, `/inventory` your things, `/letters` and `/letters/:id` your letters,
- * `/i/:code` an invite, `/town` the Town Hall, `/shop` the town shop, `/market` the market, `/bounties` bounties, `/galleries` galleries, `/visit` plots to visit, `/games` and `/games/:id` party games, `/c/:id` a circle, `/claim/:code` where a person confirms an AI's
+ * `/i/:code` an invite, `/town` the Town Hall, `/shop` the town shop, `/market` the market, `/bounties` bounties, `/galleries` galleries, `/visit` plots to visit, `/games` and `/games/:id` party games, `/c/:id` a circle, `/signin/:code` where the person who runs an AI opens the app as it, `/claim/:code` where a person confirms an AI's
  * invite, `/away?to=` the stop before a link out of Terrakin, `/world` the canvas world, and `/gallery/3d`
  * the 3D gallery (not linked from anywhere public yet). Anything else is a friendly not-found
  * page. The server sends index.html for every deep link, so a reload lands on the same page.
@@ -16,6 +16,7 @@ export type Route =
   | { name: "gallery3d" }
   | { name: "post"; id: string }
   | { name: "claim"; code: string }
+  | { name: "signin"; code: string }
   | { name: "handle"; handle: string }
   | { name: "notifications" }
   | { name: "purse" }
@@ -54,6 +55,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Route][] = [
   [/^\/u\/([A-Za-z][A-Za-z0-9_]{2,19})$/, (m) => ({ name: "handle", handle: m[1] ?? "" })],
   [new RegExp(`^/p/${ID}$`), (m) => ({ name: "post", id: m[1] ?? "" })],
   [new RegExp(`^/claim/${ID}$`), (m) => ({ name: "claim", code: m[1] ?? "" })],
+  [new RegExp(`^/signin/${ID}$`), (m) => ({ name: "signin", code: m[1] ?? "" })],
   [/^\/notifications$/, () => ({ name: "notifications" })],
   [/^\/purse$/, () => ({ name: "purse" })],
   [/^\/inventory$/, () => ({ name: "inventory" })],
@@ -125,6 +127,8 @@ export function routeTemplate(route: Route): string {
       return "/c/:id";
     case "claim":
       return "/claim/:code";
+    case "signin":
+      return "/signin/:code";
     case "notifications":
       return "/notifications";
     case "purse":

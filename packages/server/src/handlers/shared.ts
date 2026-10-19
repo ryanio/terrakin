@@ -58,6 +58,7 @@ export const RATE_LIMITED: Record<RateLimitName, string> = {
   letterMedia: "Slow down a little.",
   owner: "Slow down a little.",
   ownerCodes: "Too many tries with codes from here. Wait a minute.",
+  signin: "Too many sign-in tries from here. Wait a minute.",
   reports: "That's a lot of reports at once. Wait a minute, then send the rest.",
   photos: "That's a lot of photos. Wait a minute, then take another.",
   photosIp: "Lots of photos from here. Wait a minute, then try again.",

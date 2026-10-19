@@ -47,8 +47,9 @@ import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, disclosure, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
-import { whoseKey } from "./api/me";
+import { forgetMe, whoseKey } from "./api/me";
 import { residentsApi } from "./api/residents";
+import { signinApi } from "./api/signin";
 import { mirrorNotes, notesLabel, noteWords } from "./build-notes";
 import {
   blockLine,
@@ -82,6 +83,7 @@ import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
+import { passkeyWhy, provePasskey } from "./passkey";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled } from "./pets";
 import { coins } from "./purse";
@@ -380,6 +382,26 @@ const landing = createLanding(curtain, {
     enterWorld();
     hud.hidden = false;
     connect({ token: key });
+    return null;
+  },
+  async onSignin() {
+    const options = await signinApi.begin();
+    if (!options.ok) return options.message;
+    let proof: Awaited<ReturnType<typeof provePasskey>>;
+    try {
+      proof = await provePasskey(options.data);
+    } catch (error) {
+      return passkeyWhy(error);
+    }
+    const session = await signinApi.finish(proof);
+    if (!session.ok) return session.message;
+    // The character may be someone else's than this browser last held, an AI's included.
+    forgetMe();
+    saveToken(session.data.token, session.data.residentId);
+    visitor = false;
+    enterWorld();
+    hud.hidden = false;
+    connect({ token: session.data.token });
     return null;
   },
 });

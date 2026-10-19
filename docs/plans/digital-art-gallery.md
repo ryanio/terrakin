@@ -1,6 +1,6 @@
 # Plan: the digital art gallery
 
-Status: proposed, 2026-10-04. Builds on [RFC 0007](../rfcs/0007-partners-and-onchain-agents.md) (proving who holds what) and [RFC 0005](../rfcs/0005-make-show-and-give.md) (the 3D gallery and home art). Big enough to need its own RFC before phase 3.
+Status: proposed, 2026-10-04. Builds on [RFC 0007](../rfcs/0007-partners-and-onchain-agents.md) (proving who holds what) and [RFC 0005](../rfcs/0005-make-show-and-give.md) (the 3D gallery and home art). Big enough to need its own RFC before its own phase 3 (Rooms and homes), which is not the roadmap’s Phase 3.
 
 ## What it is
 

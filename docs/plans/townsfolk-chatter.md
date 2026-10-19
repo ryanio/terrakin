@@ -1,6 +1,6 @@
 # Townsfolk chatter
 
-Status: built. terrakin.org runs chatter live on Claude Haiku 5.5, at most 120 calls and $0.28 a day, with 2 Sonnet 5.5 drafts a day beside it for staff, townsfolk answering @mentions within minutes, and the coin tips on ([decision 0190](../knowledge/decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md)). Runs on the server, not from anyone's machine.
+Status: built. terrakin.org runs chatter live on Claude Haiku 5.5, at most 120 calls and $0.28 a day, townsfolk answering @mentions within minutes, and the coin tips on. The Sonnet compare drafts were removed on 2026-10-07, once Haiku had answered the question they were for ([decision 0190](../knowledge/decisions/0190-townsfolk-chatter-runs-on-haiku-5-5-under-a-daily-dollar-cap.md)). Runs on the server, not from anyone's machine.
 
 ## Why
 

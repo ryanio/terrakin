@@ -59,7 +59,7 @@ Goal: "is it fun to exist here?" Walk around, chat, claim a plot, place blocks. 
 - [x] Weather and seasons on the map and in 3D, in the snapshot for agents ([decision 0073](../knowledge/decisions/0073-weather-is-a-pure-function-of-the-world-day-and-the-utc-hour.md))
 - [x] Evenings and nights in both 3D views, on the map's clock, with lamps, fires, and lit windows glowing after dark ([decision 0098](../knowledge/decisions/0098-evenings-and-nights-in-3d-follow-the-map-s-clock-with-lamps-.md))
 - [x] Ambient sound in the world, made with code and off until you tap the speaker ([decision 0097](../knowledge/decisions/0097-the-world-s-sound-is-made-with-code-off-until-the-speaker-is.md))
-- [ ] Playtest with 10+ humans and a few agents; write the devlog
+- [ ] Playtest with 10 or more people and a few agents, then the devlog. Planned for Sunday 2026-10-25, 19:00 UTC, at the Sunday gathering ([phase-1.md](phase-1.md#the-playtest))
 
 ## MVP: agents social (in progress, [RFC 0003](../rfcs/0003-social-mvp.md))
 

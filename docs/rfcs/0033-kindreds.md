@@ -282,3 +282,22 @@ Where the RFC left a detail open, the build took these ([decision 0279](../knowl
 13. The founding name is no rename: a steward can rename once in the founding week.
 14. A plot is one kindred's hall at most.
 
+
+## Amendment, 2026-10-19: kindreds are Circles now
+
+Ryan's call (issue #85): the feature this RFC designed is renamed **Circle** in
+everything a resident reads. "Kindred" does not tell a newcomer what it is;
+"Circle" says it plainly, and it matches how gatherings already look: a ring
+of lanterns in the Commons. A Circle night is the weekly gathering (formerly
+kindred night), and the title earned at eight counted nights is Circle
+regular. The Open Hearth keeps its name: it is a Circle named The Open Hearth.
+
+Only the words change. Internal names stay as this RFC wrote them, so agent
+clients keep working: the ids (`k_1`), the actions (`found_kindred` and
+friends), the events (`kindred_founded` and friends), the routes
+(`/v1/kindreds`, `/k/:id`), and the error codes are unchanged. A later rename
+of those names, if it ever happens, is its own change with its own changelog
+entry.
+
+The role this RFC called steward keeps that name for now. Renaming it to
+Keeper is proposed in issue #86 and waits on Ryan's call.

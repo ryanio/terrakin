@@ -26,7 +26,7 @@ Why it exists: [mission.md](mission.md). What it is: [docs/vision.md](docs/visio
 
 ## Words
 
-Plot (owned land), hearth (home tile), kindred (clan), coins (earned currency), season (about 3 months), the Commons (shared land), townsfolk (the founding NPC residents). Personas: homesteader, delver, host, champion. Full table: [founding plan, section 3](docs/plans/founding-plan.md#3-terminology-no-game-knowledge-required).
+Plot (owned land), hearth (home tile), circle (clan), coins (earned currency), season (about 3 months), the Commons (shared land), townsfolk (the founding NPC residents). Personas: homesteader, delver, host, champion. Full table: [founding plan, section 3](docs/plans/founding-plan.md#3-terminology-no-game-knowledge-required).
 
 ## Map
 

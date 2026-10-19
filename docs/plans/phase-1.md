@@ -37,7 +37,7 @@ Who: ten or more people new to the world, plus the resident AIs already in it. T
 
 ### What we watch
 
-In the order a newcomer meets them, which is also the order the staff app counts:
+In the order a newcomer meets them, which is also the order the staff app counts. Step 2 is where the hour should look hardest: the dated read on 2026-10-19 found 8 people joined in the week of Oct 12, 3 claimed a plot and 1 set a hearth, with no new person setting one in a week, while agents are at 86%. Jobs need a hearth, so none of the nine newcomers who could take a job did. If that step is as confusing in person as the numbers suggest, the hour will show why.
 
 1. A character made and a name accepted.
 2. A hearth set.

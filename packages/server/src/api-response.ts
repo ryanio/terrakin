@@ -64,8 +64,14 @@ export function error(
   message: string,
   retryAfter?: number,
   didYouMean?: string,
+  free?: readonly string[],
 ): ApiResponse {
-  const body = { code, message, ...(didYouMean ? { did_you_mean: didYouMean } : {}) };
+  const body = {
+    code,
+    message,
+    ...(didYouMean ? { did_you_mean: didYouMean } : {}),
+    ...(free ? { free } : {}),
+  };
   return withHeaders(json(errorStatus(code), { error: body }), errorHeaders(code, retryAfter));
 }
 
@@ -129,7 +135,8 @@ export function render(
   ifNoneMatch?: string,
 ): ApiResponse {
   if ("error" in reply) {
-    if (route.format !== "markdown") return error(reply.error, reply.message, reply.retryAfter);
+    if (route.format !== "markdown")
+      return error(reply.error, reply.message, reply.retryAfter, undefined, reply.free);
     return {
       status: errorStatus(reply.error),
       headers: { ...PRIVATE_PAGE, ...errorHeaders(reply.error, reply.retryAfter) },

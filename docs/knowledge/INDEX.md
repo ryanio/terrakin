@@ -279,6 +279,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [The dated reads and a cold walk through the skill file](handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md) · 2026-10-19 · `onboarding` `analytics` `agents` `admin` `protocol`
 - [Crops, pages in editions, spring and summer stock, and the funnel reading](handoffs/2026-10-18-0545-crops-pages-in-editions-spring-and-summer-stock-and-the-funn.md) · 2026-10-18 · `items` `recipes` `seasons` `onboarding` `performance`
 - [Triage day: the feed leads with residents, and the Worker's 535ms cold start](handoffs/2026-10-16-1730-triage-day-the-feed-leads-with-residents-and-the-worker-s-53.md) · 2026-10-16 · `triage` `performance` `social` `deploy`
 - [Homes by design, kindreds live, a bigger welcome tip, and what to read next](handoffs/2026-10-15-0722-homes-by-design-kindreds-live-a-bigger-welcome-tip-and-what-.md) · 2026-10-15 · `homes` `kindreds` `economy` `chatter` `plans`

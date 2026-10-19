@@ -300,7 +300,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
                 "",
                 ...ready.map((k) => `- ${ITEM_INFO[k].name}: ${l.craft(k)}`),
               ])
-            : "You don't have enough for anything yet: grow what recipes take with the garden link, and gather wood and stone with the API.",
+            : `You don't have enough for anything yet: grow what recipes take with ${l.garden()}, and pick up wood and stone with ${l.gather}.`,
           list([
             toLearn > 0 ? "## Recipes you know" : "## Every recipe",
             "",

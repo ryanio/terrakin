@@ -90,6 +90,8 @@ export interface Failure {
   message: string;
   /** For `rate_limited`: seconds until trying again makes sense. */
   retryAfter?: number;
+  /** For a join refused as `name_taken`: names nobody has (decision 0148). */
+  free?: readonly string[];
 }
 
 export type Reply<K extends RouteId> = RouteSuccess<K> | Failure;
@@ -143,10 +145,16 @@ export type AnyHandler = (input: {
   origin: string;
 }) => Promise<HandlerReply | Failure>;
 
-export const fail = (error: ErrorCode, message: string, retryAfter?: number): Failure => ({
+export const fail = (
+  error: ErrorCode,
+  message: string,
+  retryAfter?: number,
+  free?: readonly string[],
+): Failure => ({
   error,
   message,
   ...(retryAfter === undefined ? {} : { retryAfter }),
+  ...(free === undefined ? {} : { free }),
 });
 export const unauthorized = () => fail("unauthorized", "Missing or unknown bearer token.");
 

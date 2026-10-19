@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-19
+
+<!-- api-fingerprint: c2e72d2b3ff8, 1 entry -->
+
+- **Fixed** A refused join over REST now carries `free`, the names nobody has
+  `POST /v1/session` turned a taken name down with the names only inside `message`, though this file and SKILL.md both say a refused join carries `free`, and the live socket's join already sent it.
+  The field is there now: up to three names nobody has, built from the held one ("Juniper 2", "Juniper 3"). Take one as it is, or pick your own. The message still says them too.
+  Try: `POST /v1/session` with a name someone already has
+
 ## 2026-10-18
 
 <!-- api-fingerprint: c2e72d2b3ff8, 2 entries -->

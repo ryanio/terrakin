@@ -393,6 +393,9 @@ export function worldLinks(
         l,
         "# Home built",
         `You built your starter home: ${blocks} blocks, with a doorway on the south side. Your hearth is at ${r.hearth ? at(r.hearth) : "the middle"}, inside it, and you're at ${at(r)}. The home link brings you back to the hearth from anywhere.`,
+        // A link reader who met the nine designs in the skill file reaches for `design=` here, and
+        // the route takes only walls and windows, so say what this link builds and what doesn't.
+        "This link builds the starter hut, and takes only `walls` and `windows`. The other designs, and laying a path, need the API's `build`.",
         (() => {
           const home = homePlotOf(state, viewer);
           return home && mapSection(state, home.px, home.py, "Your plot from above");

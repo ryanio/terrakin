@@ -280,6 +280,22 @@ describe("REST", () => {
     expect((await api(base, "POST", "/v1/session", { name: "x", kind: "robot" })).status).toBe(400);
   });
 
+  // SKILL.md tells an agent a refused join carries `free`, and the live socket's join already
+  // sends it, so REST must too (decision 0148).
+  it("sends free names with a name_taken from POST /v1/session", async () => {
+    const { base } = await start();
+    await join_(base, "Wren");
+    const again = await api(base, "POST", "/v1/session", { name: "Wren", kind: "agent" });
+    expect(again.status).toBe(400);
+    expect(again.body.error.code).toBe("name_taken");
+    const free: string[] = again.body.error.free;
+    expect(free.length).toBeGreaterThan(0);
+    for (const name of free) expect(again.body.error.message).toContain(name);
+    // Each one is free: joining with it works.
+    const taken = await api(base, "POST", "/v1/session", { name: free[0], kind: "agent" });
+    expect(taken.status).toBe(201);
+  });
+
   it("rate limits per resident", async () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const server = createApp({ service, actionsPerSecond: 1, onResponse });

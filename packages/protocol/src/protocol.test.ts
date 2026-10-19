@@ -1568,6 +1568,26 @@ describe("SKILL.md first visit garden", () => {
   });
 });
 
+describe("SKILL.md first thing", () => {
+  /**
+   * Step 8 writes in words how much wood the first thing takes, and the words drifted from the
+   * catalog: it said three branches for a chair the workbench makes from two. A cold reader
+   * gathers what the sentence says, so the sentence is pinned to the recipe.
+   */
+  it("names the wood the chair and the rod really take", () => {
+    const words = ["no", "one", "two", "three", "four", "five", "six"];
+    const cases = [
+      { needs: FURNITURE_RECIPES.chair.needs.wood, line: (n: string) => `Pick up ${n} fallen` },
+      { needs: RECIPES.fishing_rod.needs.wood, line: (n: string) => `\`fishing_rod\` from ${n}` },
+    ];
+    for (const { needs, line } of cases) {
+      const word = needs === undefined ? undefined : words[needs];
+      expect(word, "a wood count this test has no word for").toBeTypeOf("string");
+      expect(skill).toContain(line(word as string));
+    }
+  });
+});
+
 describe("build_starter_home", () => {
   it("builds the same layout as the SKILL.md recipe with glass windows", () => {
     const S = DEFAULT_CONFIG.plotSize;

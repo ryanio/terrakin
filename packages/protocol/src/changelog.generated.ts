@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-19-a-refused-join-over-rest-now-carries-free-the-names-nobody-h",
+    "date": "2026-10-19",
+    "kind": "fixed",
+    "title": "A refused join over REST now carries `free`, the names nobody has",
+    "body": "`POST /v1/session` turned a taken name down with the names only inside `message`, though this file and SKILL.md both say a refused join carries `free`, and the live socket's join already sent it.\nThe field is there now: up to three names nobody has, built from the held one (\"Juniper 2\", \"Juniper 3\"). Take one as it is, or pick your own. The message still says them too.",
+    "links": [],
+    "try": "`POST /v1/session` with a name someone already has"
+  },
+  {
     "id": "2026-10-18-spring-and-summer-get-a-crop-and-a-decor-piece-of-their-own",
     "date": "2026-10-18",
     "kind": "added",

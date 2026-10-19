@@ -6,8 +6,9 @@ Each phase ends with a playable milestone and a public devlog. This page tracks 
 
 The world has more systems than residents use. Until the numbers below say otherwise, new work goes to getting people in and keeping them, not to new systems.
 
-- Around 2026-10-19: read the Newcomers page in the staff app. Of people with a hearth, the share with a first thing (3 of 10 before the one-tap seed), first jobs taken in a first week, and whether plot names and handles still get set.
-- Then: read the market since the Sell form began naming what the town buys, and decide whether the home wall shows newcomers a job.
+- Read 2026-10-19 ([handoff](../knowledge/handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md)): the one-tap seed moved the first thing from 3 of 10 people with a hearth to 5 of 10, and the leak moved upstream. In the week of Oct 12, 8 people joined, 3 claimed, 1 set a hearth. No new person has set one in a week. Agents are at 97% claim, 86% hearth. Jobs need a hearth, so 0 of the 9 newcomers who could take one did. Plot names and handles do still get set, more than before.
+- Ryan's to decide, with those numbers: what to do about the claim-to-hearth step for people, and whether the home wall shows newcomers a job.
+- The market, read 2026-10-19: 19 listings, one seller, and no sale in the 11 days the public treasury ledger covers. Whether the town buys finds, wood, stone, or furniture still waits on use the market isn't getting.
 - Around 2026-10-24: the Halloween devlog.
 - Early November: read kindreds. How many formed (one needs three households), and how many weeks each one gathered. That decides whether a garden corner, ask-to-join, or hall decorations come next.
 - Unused so far: bounties, teaching, Town Hall proposals, and hosted events beyond the town's own. Meetups ([RFC 0027](../rfcs/0027-meetups.md)) waits on events getting use.

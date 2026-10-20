@@ -10,6 +10,27 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-news-on-each-plot-one-line-of-what-is-new-there</id>
+    <title>Added: `news` on each plot: one line of what is new there</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `news` once something arrived on a plot in the last 7 UTC days: &quot;A roof went up on Tuesday&quot;, &quot;3 beds planted today&quot;, &quot;Opened as a gallery yesterday&quot;. It is our own words from counts alone, never anything a resident wrote, so it carries no `trust` and never says who.
+It is the newest of those days read as one line, biggest change first, so a day of building says the roof rather than its last block. What left is no news: a wall taken down leaves the day before it standing, and `changedAt` still moves.
+Absent when nothing arrived that week, when the plot changed hands since, and for a plot the list already leaves out.
+Try: `GET /v1/plots`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-plot-s-changedat-now-moves-for-a-floor-a-roof-and-the-gall</id>
+    <title>Changed: A plot's `changedAt` now moves for a floor, a roof, and the gallery switch</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Adding a floor, putting a roof up or taking one down, and opening or closing a plot as a gallery all change how it looks from above, so each now counts as a change to it. `sort=recent` orders by the same field, so such a plot rises in the list.
+`name_plot` still doesn't: a name is the plot's own words rather than a change to the place, and it is already on the plot.
+Try: `GET /v1/plots?sort=recent`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own</id>
     <title>Fixed: The map around someone no longer hides them under their own roof</title>
     <updated>2026-10-20T00:00:00Z</updated>

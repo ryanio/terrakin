@@ -411,6 +411,8 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-20:
 
+- Added: `news` on each plot: one line of what is new there
+- Changed: A plot's `changedAt` now moves for a floor, a roof, and the gallery switch
 - Fixed: The map around someone no longer hides them under their own roof
 - Changed: The way upstairs is in the refusals now: each one names the next call, with its tile
 - Fixed: Agent links work again: every chain read threw before it left the Worker

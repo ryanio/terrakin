@@ -3,6 +3,21 @@ import { BLOCK_COLORS } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { plotMarks } from "./plot-thumb";
 
+/** Ivy, online and standing on her own hearth. */
+const IVY: WorldSnapshot["residents"][number] = {
+  id: "ivy",
+  name: "Ivy",
+  kind: "human",
+  color: "sun",
+  shape: "round",
+  note: "",
+  x: 5,
+  y: 1,
+  online: true,
+  hearth: { x: 5, y: 1 },
+  theme: "lemon",
+};
+
 /** Plots of 4 tiles. Ivy lives on plot (1, 0), tiles x 4 to 7 and y 0 to 3, with a lemon theme. */
 const world: WorldSnapshot = {
   v: 1,
@@ -16,21 +31,7 @@ const world: WorldSnapshot = {
   day: 20_000,
   config: { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 },
   commons: { px: 1, py: 1 },
-  residents: [
-    {
-      id: "ivy",
-      name: "Ivy",
-      kind: "human",
-      color: "sun",
-      shape: "round",
-      note: "",
-      x: 5,
-      y: 1,
-      online: true,
-      hearth: { x: 5, y: 1 },
-      theme: "lemon",
-    },
-  ],
+  residents: [IVY],
   plots: [{ px: 1, py: 0, ownerId: "ivy" }],
   blocks: [
     { x: 4, y: 0, block: "stone" },
@@ -54,6 +55,8 @@ describe("a plot's drawing", () => {
       { x: 2, y: 3, kind: "block", fill: BLOCK_COLORS.lantern, glass: false, decor: true },
       expect.objectContaining({ x: 3, y: 2, kind: "crop", ripe: true }),
       { x: 1, y: 1, kind: "hearth" },
+      // Ivy is online and standing on her own hearth, so the card shows someone is here.
+      { x: 1, y: 1, kind: "here" },
     ]);
     const stone = marks.find((m) => m.kind === "block" && m.x === 0);
     expect(stone && "fill" in stone ? stone.fill : "").not.toBe(BLOCK_COLORS.stone);
@@ -72,11 +75,28 @@ describe("a plot's drawing", () => {
       ground: [...(world.ground ?? []), { x: 5, y: 1, floor: 1, ground: "planks" }],
     };
     const drawn = plotMarks(loft, 1, 0).marks.filter((m) => m.kind !== "ground");
-    expect(drawn.slice(-3)).toEqual([
+    expect(drawn.slice(-4)).toEqual([
       { x: 1, y: 1, kind: "hearth" },
       { x: 1, y: 1, kind: "path", ground: "planks" },
       expect.objectContaining({ x: 0, y: 1, kind: "block", glass: true }),
+      // Whoever is standing there comes after the upstairs, so flooring never covers them.
+      { x: 1, y: 1, kind: "here" },
     ]);
+  });
+
+  it("draws whoever is standing there now, once a tile, and nobody who is away (RFC 0020)", () => {
+    const sam = { ...IVY, id: "sam", name: "Sam", x: 7, y: 0 };
+    const here = (residents: WorldSnapshot["residents"]) =>
+      plotMarks({ ...world, residents }, 1, 0)
+        .marks.filter((m) => m.kind === "here")
+        .map((m) => `${m.x},${m.y}`);
+    // Ivy on her hearth and Sam at the plot's north-east corner.
+    expect(here([IVY, sam])).toEqual(["1,1", "3,0"]);
+    // Two on one tile are one mark, and someone away is drawn asleep rather than standing.
+    expect(here([IVY, { ...sam, x: 5, y: 1 }])).toEqual(["1,1"]);
+    expect(here([{ ...IVY, online: false }, sam])).toEqual(["3,0"]);
+    // Nobody from the plot next door.
+    expect(here([{ ...sam, x: 3, y: 0 }])).toEqual([]);
   });
 
   it("puts the roof over the home, last of all, from the sim's own shape (RFC 0041)", () => {
@@ -113,26 +133,6 @@ describe("a plot's drawing", () => {
     ).toEqual([]);
   });
 
-  it("leaves the roof off the plot the drawing is about, so the home shows (RFC 0041)", () => {
-    // The same home as above. A card on the Visit page, the home wall, or a profile is a picture
-    // of this plot, so its roof lifts the way the map lifts the one you stand on: with it on, an
-    // opaque quadrilateral is the whole card, walls, hearth and garden gone (decision 0331).
-    const walls: WorldSnapshot["blocks"] = [];
-    for (let x = 4; x <= 6; x++) {
-      for (let y = 0; y <= 2; y++) {
-        if (x === 5 && y === 1) continue;
-        walls.push({ x, y, block: "wood" });
-      }
-    }
-    const roofed: WorldSnapshot = {
-      ...world,
-      residents: [],
-      crops: [],
-      ground: [],
-      plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
-      blocks: walls,
-    };
-    const marks = plotMarks(roofed, 1, 0).marks;
   it("lets winter's snow lie on a neighbor's roof (RFC 0041)", () => {
     // A roof wears the season the ground wears (the sim's `roofTone`), so a winter town reads as
     // snowed-over homes rather than summer-colored boxes on white ground.
@@ -165,6 +165,26 @@ describe("a plot's drawing", () => {
     expect(fillIn("autumn")).toBe(fillIn("summer"));
   });
 
+  it("leaves the roof off the plot the drawing is about, so the home shows (RFC 0041)", () => {
+    // The same home as above. A card on the Visit page, the home wall, or a profile is a picture
+    // of this plot, so its roof lifts the way the map lifts the one you stand on: with it on, an
+    // opaque quadrilateral is the whole card, walls, hearth and garden gone (decision 0331).
+    const walls: WorldSnapshot["blocks"] = [];
+    for (let x = 4; x <= 6; x++) {
+      for (let y = 0; y <= 2; y++) {
+        if (x === 5 && y === 1) continue;
+        walls.push({ x, y, block: "wood" });
+      }
+    }
+    const roofed: WorldSnapshot = {
+      ...world,
+      residents: [],
+      crops: [],
+      ground: [],
+      plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
+      blocks: walls,
+    };
+    const marks = plotMarks(roofed, 1, 0).marks;
     expect(marks.filter((m) => m.kind === "roof")).toEqual([]);
     // The walls it would have covered are still drawn.
     expect(marks.filter((m) => m.kind === "block")).toHaveLength(walls.length);

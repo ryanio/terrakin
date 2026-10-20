@@ -1,8 +1,9 @@
 /**
  * A small drawing of one plot from above, painted from the world snapshot the page already has: the
  * ground in its biome, the owner's theme tint, blocks in their colors (themed as in the world),
- * crops, things on display, and hearths. It uses the world's own palette
- * (`packages/sim/src/palette.ts`), so a plot looks the same here, on the map, and in a plot photo.
+ * crops, things on display, hearths, and whoever is standing there now. It uses the world's own
+ * palette (`packages/sim/src/palette.ts`), so a plot looks the same here, on the map, and in a plot
+ * photo.
  * A drawing costs no request and no upload, which is why the plot cards use it rather than plot
  * photos (RFC 0020).
  */
@@ -26,6 +27,7 @@ import {
   THEME_TINT_ALPHA,
   tileKey,
 } from "@terrakin/sim";
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import { h } from "@terrakin/ui/dom";
 import { paintGround } from "@terrakin/ui/ground-art";
 import { bridgeOf, seaOf } from "./lands";
@@ -40,7 +42,9 @@ export type PlotMark =
   | { x: number; y: number; kind: "display" }
   | { x: number; y: number; kind: "hearth" }
   /** A tile of the home's roof (RFC 0041), lit by how high its corners stand (`high`, 0 to 1). */
-  | { x: number; y: number; kind: "roof"; fill: string; high: number };
+  | { x: number; y: number; kind: "roof"; fill: string; high: number }
+  /** An online resident standing there (RFC 0020). It says someone is here, never who. */
+  | { x: number; y: number; kind: "here" };
 
 /** The floor a snapshot entry is on: absent is the ground floor. */
 const floorOf = (t: { floor?: number | undefined }) => t.floor ?? 0;
@@ -51,8 +55,8 @@ const GROWING = "#7fae55";
 /**
  * What to paint for plot (px, py), back to front: the ground in its season, then paths and flooring,
  * blocks, crops, displays, and hearths, then the flooring and blocks of each floor above the ground
- * floor (RFC 0028). `tint` is the owner's theme over the ground, under the paths. Pure, so tests
- * pin it.
+ * floor (RFC 0028), and last whoever is standing there online. `tint` is the owner's theme over the
+ * ground, under the paths. Pure, so tests pin it.
  *
  * `roof` draws the home's roof over all of it (RFC 0041), which only a plot drawn as a neighbor
  * wants: a drawing of one plot is about that plot, so its roof lifts away as it does on the map
@@ -159,6 +163,15 @@ export function plotMarks(
       });
     }
   }
+  // Whoever is standing there now, over everything: a plot with someone on it is the one to visit,
+  // and from above they'd be lost under a roof or an upstairs. Online residents only, since the
+  // snapshot draws everyone away asleep at their hearth (decision 0086), and no two on one tile.
+  const taken = new Set<string>();
+  for (const r of everyoneIn(world)) {
+    if (!r.online || !here(r) || taken.has(tileKey(r.x, r.y))) continue;
+    taken.add(tileKey(r.x, r.y));
+    marks.push({ x: r.x - x0, y: r.y - y0, kind: "here" });
+  }
   return {
     size,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),
@@ -230,12 +243,34 @@ export function paint(
       ctx.fillRect(left + t * 0.42, top + t * 0.62, t * 0.16, t * 0.25);
       return;
     }
+    case "here": {
+      // A head and shoulders from above, in a rim of paper so it reads over a roof, a dark path,
+      // or another figure. No color and no name: the card says someone is here, never who.
+      const cx = left + t / 2;
+      const rim = Math.max(1, t * 0.07);
+      for (const [fill, grow] of [
+        [PAPER, rim],
+        [BRAND_HEX.ink, 0],
+      ] as const) {
+        ctx.fillStyle = fill;
+        for (const [dy, r] of [
+          [0.12, 0.19],
+          [-0.12, 0.13],
+        ] as const) {
+          ctx.beginPath();
+          ctx.arc(cx, top + t * (0.5 + dy), t * r + grow, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      return;
+    }
   }
 }
 
 /**
  * A plot drawn on a canvas `px` CSS pixels square, for a card. `label` says whose plot it is, for
- * screen readers. The owner's name in it is text the canvas never draws.
+ * screen readers, and gains whoever is standing there, since that is on the drawing and nowhere in
+ * the card's words. The owner's name in it is text the canvas never draws.
  */
 export function plotThumb(
   world: WorldSnapshot,
@@ -252,13 +287,18 @@ export function plotThumb(
   canvas.height = Math.round(px * dpr);
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
-  paintPlot(ctx, world, plot, 0, 0, canvas.width / world.config.plotSize);
+  const marks = paintPlot(ctx, world, plot, 0, 0, canvas.width / world.config.plotSize);
+  const here = marks.filter((m) => m.kind === "here").length;
+  if (here > 0) {
+    canvas.setAttribute("aria-label", `${label}, ${here === 1 ? "someone" : here} here now`);
+  }
   return canvas;
 }
 
 /**
- * Paint plot (px, py) with its north-west corner at (left, top), `t` pixels a tile. `roof` is for
- * a plot drawn beside the one the picture is about, which keeps its roof as the map does.
+ * Paint plot (px, py) with its north-west corner at (left, top), `t` pixels a tile, and give back
+ * what it painted. `roof` is for a plot drawn beside the one the picture is about, which keeps its
+ * roof as the map does.
  */
 function paintPlot(
   ctx: CanvasRenderingContext2D,
@@ -268,7 +308,7 @@ function paintPlot(
   top: number,
   t: number,
   o: { roof?: boolean } = {},
-) {
+): PlotMark[] {
   const { size, tint, marks } = plotMarks(world, plot.px, plot.py, o);
   for (const mark of marks) {
     paint(ctx, mark, left + mark.x * t, top + mark.y * t, t);
@@ -278,6 +318,7 @@ function paintPlot(
       ctx.fillRect(left, top, size * t, size * t);
     }
   }
+  return marks;
 }
 
 /**

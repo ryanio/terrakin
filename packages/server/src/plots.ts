@@ -25,20 +25,31 @@ import {
   type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
+import {
+  addNews,
+  NEWS_FIELDS,
+  newsLine,
+  newsOfEvent,
+  noNews,
+  type PlotNews,
+  someNews,
+} from "./plot-news";
 import type { SocialResult } from "./social-service";
 import type { SqlExec } from "./sql-store";
 
 /**
- * Plots worth visiting (RFC 0020): who visited and who admired each plot, and when each last
- * changed. Social data, never world state and never in the log, like praise (decision 0047).
+ * Plots worth visiting (RFC 0020): who visited and who admired each plot, when each last changed,
+ * and what is new on it. Social data, never world state and never in the log, like praise
+ * (decision 0047).
  *
  * Admiring a plot is a thank-you for a place: once a UTC day per resident per plot, only from on
  * it, or from beside it after a visit this week, never your own, your household's, or across a
  * block, and it earns nothing. Every admire is its own row, kept like praise. Visits are rows
  * too (one per visitor, plot, and day), kept only for the week the counts cover: a `visit`, or a
  * resident's own step or putter that lands on someone else's plot (decision 0092). `plot_changes`
- * keeps the newest time something on each plot changed. Both are written as the world commits
- * (`noteCommitted`).
+ * keeps the newest time something on each plot changed, and `plot_news` the newest UTC day's worth
+ * of what arrived there, which `plot-news.ts` turns into one public line. All of them are written
+ * as the world commits (`noteCommitted`).
  */
 
 export interface PlotVisitsOptions {
@@ -71,6 +82,8 @@ export interface PlotFacts {
   /** Distinct visitors and admirers this week, by plot key and owner (`"px,py|owner"`). */
   visitors: Map<string, number>;
   admirers: Map<string, number>;
+  /** What is new on a plot in one line, and who owned it then, by plot key. */
+  news: Map<string, { owner: string; line: string }>;
 }
 
 /** A resident as the plot views name them, or undefined for one who's gone. */
@@ -85,7 +98,7 @@ export interface PlotViewer {
   hidden?: (plot: PlotView) => boolean;
 }
 
-/** World events that change how a plot looks, and the tile (or plot) each one is on. */
+/** World events that change how a plot looks, on the tile each one names. */
 const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "block_placed",
   "block_removed",
@@ -100,19 +113,41 @@ const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "hearth_set",
 ]);
 
-/** The claimed plots an input's events changed, each once. */
-function plotsChangedBy(state: WorldState, events: readonly WorldEvent[]): Plot[] {
+/** The same, on the plot each one names rather than a tile. */
+const PLOT_CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
+  "plot_claimed",
+  "floor_added",
+  "roof_set",
+  "gallery_set",
+]);
+
+/**
+ * The claimed plots an input's events changed, each once, with that input's news on each. A
+ * `plot_named` isn't here: a name is the plot's words rather than a change to the place, and it's
+ * already on the card.
+ */
+function plotsChangedBy(
+  state: WorldState,
+  events: readonly WorldEvent[],
+): { plot: Plot; news: PlotNews }[] {
   const size = state.config.plotSize;
-  const keys = new Set<string>();
+  const found = new Map<string, PlotNews>();
+  const on = (key: string, event: WorldEvent) => {
+    const news = found.get(key) ?? noNews();
+    found.set(key, news);
+    for (const [field, count] of Object.entries(newsOfEvent(event) ?? {})) {
+      news[field as keyof PlotNews] += count;
+    }
+  };
   for (const e of events) {
-    if (e.type === "plot_claimed") keys.add(plotKey(e.px, e.py));
+    if (PLOT_CHANGES.has(e.type) && "px" in e && "py" in e) on(plotKey(e.px, e.py), e);
     else if (CHANGES.has(e.type) && "x" in e && "y" in e) {
-      keys.add(plotKey(Math.floor(e.x / size), Math.floor(e.y / size)));
+      on(plotKey(Math.floor(e.x / size), Math.floor(e.y / size)), e);
     }
   }
-  return [...keys].flatMap((key) => {
+  return [...found].flatMap(([key, news]) => {
     const plot = own(state.plots, key);
-    return plot ? [plot] : [];
+    return plot ? [{ plot, news }] : [];
   });
 }
 
@@ -177,6 +212,16 @@ export class PlotVisits {
         changed_at INTEGER NOT NULL,
         PRIMARY KEY (px, py)
       )`,
+      // The newest UTC day's worth of what arrived on each plot, and who owned it then, which
+      // `plot-news.ts` turns into one public line. One row per plot, whoever is looking.
+      `CREATE TABLE IF NOT EXISTS plot_news (
+        px INTEGER NOT NULL,
+        py INTEGER NOT NULL,
+        owner TEXT NOT NULL,
+        day INTEGER NOT NULL,
+        ${NEWS_FIELDS.map((field) => `${field} INTEGER NOT NULL`).join(", ")},
+        PRIMARY KEY (px, py)
+      )`,
     ]) {
       o.sql.exec(statement);
     }
@@ -208,7 +253,8 @@ export class PlotVisits {
    */
   noteCommitted(state: WorldState, input: Input, events: readonly WorldEvent[]): void {
     const now = this.o.now();
-    for (const plot of plotsChangedBy(state, events)) {
+    const today = utcDay(now);
+    for (const { plot, news } of plotsChangedBy(state, events)) {
       this.o.sql.exec(
         `INSERT INTO plot_changes (px, py, owner, changed_at) VALUES (?, ?, ?, ?)
           ON CONFLICT (px, py) DO UPDATE SET owner = excluded.owner, changed_at = excluded.changed_at`,
@@ -217,6 +263,7 @@ export class PlotVisits {
         plot.ownerId,
         now,
       );
+      this.noteNews(plot, news, today);
     }
     const { actor, command } = input;
     const day = utcDay(now);
@@ -232,6 +279,44 @@ export class PlotVisits {
       const plot = plotAt(state, Math.floor(e.x / size), Math.floor(e.y / size));
       if (plot) this.noteVisit(actor, plot, day, true);
     }
+  }
+
+  /** The news on a plot's row, with the day and owner it was written for, or undefined. */
+  private newsRow(plot: Plot): { owner: string; day: number; news: PlotNews } | undefined {
+    const row = [
+      ...this.o.sql.exec(
+        `SELECT owner, day, ${NEWS_FIELDS.join(", ")} FROM plot_news WHERE px = ? AND py = ?`,
+        plot.px,
+        plot.py,
+      ),
+    ][0];
+    if (!row) return undefined;
+    const news = noNews();
+    for (const field of NEWS_FIELDS) news[field] = Number(row[field]);
+    return { owner: String(row.owner), day: Number(row.day), news };
+  }
+
+  /**
+   * Keep what arrived on a plot today: added to the row when it already holds this plot's own
+   * today, and in place of it otherwise, so a line reads as a day's work rather than its last
+   * block, and a day that only took things away leaves the day before it standing.
+   */
+  private noteNews(plot: Plot, news: PlotNews, today: number): void {
+    if (!someNews(news)) return;
+    const was = this.newsRow(plot);
+    const day =
+      was && was.owner === plot.ownerId && was.day === today ? addNews(was.news, news) : news;
+    this.o.sql.exec(
+      `INSERT INTO plot_news (px, py, owner, day, ${NEWS_FIELDS.join(", ")})
+        VALUES (?, ?, ?, ?, ${NEWS_FIELDS.map(() => "?").join(", ")})
+        ON CONFLICT (px, py) DO UPDATE SET owner = excluded.owner, day = excluded.day,
+          ${NEWS_FIELDS.map((field) => `${field} = excluded.${field}`).join(", ")}`,
+      plot.px,
+      plot.py,
+      plot.ownerId,
+      today,
+      ...NEWS_FIELDS.map((field) => day[field]),
+    );
   }
 
   /**
@@ -400,10 +485,27 @@ export class PlotVisits {
         at: Number(row.changed_at),
       });
     }
+    // The line is written here, with the clock the whole read shares, so the views stay pure and
+    // "today" can't change halfway down a page of cards.
+    const today = utcDay(this.o.now());
+    const news = new Map<string, { owner: string; line: string }>();
+    for (const row of this.o.sql.exec(
+      `SELECT px, py, owner, day, ${NEWS_FIELDS.join(", ")} FROM plot_news${
+        only ? " WHERE px = ? AND py = ?" : ""
+      }`,
+      ...at,
+    )) {
+      const counts = noNews();
+      for (const field of NEWS_FIELDS) counts[field] = Number(row[field]);
+      const line = newsLine(counts, Number(row.day), today);
+      if (line === undefined) continue;
+      news.set(plotKey(Number(row.px), Number(row.py)), { owner: String(row.owner), line });
+    }
     return {
       changed,
       visitors: tally("plot_visits", "visitor"),
       admirers: tally("plot_admires", "admirer"),
+      news,
     };
   }
 
@@ -500,11 +602,12 @@ const ORDER: Record<PlotSort, (a: PlotView, b: PlotView) => number> = {
 };
 
 /**
- * Plots someone lives on, as the plot routes show them: whose it is, when it last changed, this
- * week's visitors and admirers, and what's on it on every floor, from the world and `facts`. Every plot, or only
+ * Plots someone lives on, as the plot routes show them: whose it is, when it last changed, what is
+ * new on it, this week's visitors and admirers, and what's on it on every floor, from the world and
+ * `facts`. Every plot, or only
  * `only`, which looks at that plot's own tiles rather than every block in the world. Unsorted, and
  * without the viewer's parts. Nothing here is private: the world snapshot already shows plots,
- * blocks, and displays, and the counts never say who.
+ * blocks, and displays, the counts never say who, and the line is our words from counts alone.
  */
 function plotViews(
   state: WorldState,
@@ -555,6 +658,9 @@ function plotViews(
           ? undefined
           : plot.claimedDay * DAY_MS;
     const week = weekKey(plot.px, plot.py, plot.ownerId);
+    // What is new is this plot's own: a line written while someone else owned it says nothing
+    // about the home standing here now.
+    const fresh = facts.news.get(key);
     views.push({
       px: plot.px,
       py: plot.py,
@@ -564,6 +670,7 @@ function plotViews(
         return a ? [a] : [];
       }),
       changedAt: at === undefined ? null : new Date(at).toISOString(),
+      ...(fresh?.owner === plot.ownerId ? { news: fresh.line } : {}),
       visitors: facts.visitors.get(week) ?? 0,
       admirers: facts.admirers.get(week) ?? 0,
       blocks: blocks.get(key) ?? 0,

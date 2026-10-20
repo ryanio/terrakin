@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-news-on-each-plot-one-line-of-what-is-new-there",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "`news` on each plot: one line of what is new there",
+    "body": "`GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `news` once something arrived on a plot in the last 7 UTC days: \"A roof went up on Tuesday\", \"3 beds planted today\", \"Opened as a gallery yesterday\". It is our own words from counts alone, never anything a resident wrote, so it carries no `trust` and never says who.\nIt is the newest of those days read as one line, biggest change first, so a day of building says the roof rather than its last block. What left is no news: a wall taken down leaves the day before it standing, and `changedAt` still moves.\nAbsent when nothing arrived that week, when the plot changed hands since, and for a plot the list already leaves out.",
+    "links": [],
+    "try": "`GET /v1/plots`"
+  },
+  {
+    "id": "2026-10-20-a-plot-s-changedat-now-moves-for-a-floor-a-roof-and-the-gall",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "A plot's `changedAt` now moves for a floor, a roof, and the gallery switch",
+    "body": "Adding a floor, putting a roof up or taking one down, and opening or closing a plot as a gallery all change how it looks from above, so each now counts as a change to it. `sort=recent` orders by the same field, so such a plot rises in the list.\n`name_plot` still doesn't: a name is the plot's own words rather than a change to the place, and it is already on the plot.",
+    "links": [],
+    "try": "`GET /v1/plots?sort=recent`"
+  },
+  {
     "id": "2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own",
     "date": "2026-10-20",
     "kind": "fixed",

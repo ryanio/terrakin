@@ -40,10 +40,18 @@ export const PlotView = z.object({
   coOwners: z.array(AuthorView),
   /**
    * When something on it last changed: a block or a path placed or taken away, a crop planted or picked,
-   * a thing put on display or taken down, a hearth set, or the plot claimed. Before anything has,
-   * the day it was claimed; null when that was before the world counted days.
+   * a thing put on display or taken down, a hearth set, a floor or a roof added, it opened or closed
+   * as a gallery, or the plot claimed. Before anything has, the day it was claimed; null when that
+   * was before the world counted days.
    */
   changedAt: z.string().nullable(),
+  /**
+   * One line of what is new on it, like "A roof went up on Tuesday" or "3 beds planted today":
+   * the newest UTC day of the last 7 on which something arrived there. Our own words, written from
+   * counts alone and never from anything a resident wrote, so it is never untrusted text. Absent
+   * when nothing arrived in that week.
+   */
+  news: z.string().optional(),
   /**
    * Residents who came by in the last 7 UTC days, each counted once: with `visit`, or by walking
    * onto it (a `move` or `putter` step of their own).

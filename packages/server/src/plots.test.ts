@@ -518,6 +518,46 @@ describe("plots to visit over HTTP", () => {
     expect(await listed()).toMatchObject({ visitors: 1, admirers: 1 });
   });
 
+  it("says what is new on a plot in one line, from a day's changes, for a week", async () => {
+    const t = await start();
+    const ivy = t.join("Ivy");
+    const news = async () => ((await t.call("GET", "/v1/plots/0/0")).body.plot as Json).news;
+    // Nothing is new on an empty world's plots, and claiming one is "someone moved in", which
+    // stands even once the starter home's blocks go up the same day.
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    expect(await news()).toBe("Someone moved in today");
+    await t.act(ivy.token, { type: "build_starter_home" });
+    expect(await news()).toBe("Someone moved in today");
+
+    // The next day the blocks of their own are the day's news, and yesterday's line is yesterday's.
+    t.advance(DAY_MS);
+    expect(await news()).toBe("Someone moved in yesterday");
+    await t.act(ivy.token, { type: "place", x: 1, y: 6, block: "leaf" });
+    expect(await news()).toBe("A new block went up today");
+    await t.act(ivy.token, { type: "place", x: 2, y: 6, block: "leaf" });
+    expect(await news()).toBe("2 new blocks went up today");
+    // Taking one away is no news, so the two that went up still stand.
+    await t.act(ivy.token, { type: "remove", x: 2, y: 6 });
+    expect(await news()).toBe("2 new blocks went up today");
+
+    // A roof is more of a change than blocks, and a gallery more than a roof, whatever the order.
+    await t.act(ivy.token, { type: "set_roof", px: 0, py: 0, style: "gable", material: "leaf" });
+    expect(await news()).toBe("A roof went up today");
+    await t.act(ivy.token, { type: "set_gallery", px: 0, py: 0, open: true });
+    expect(await news()).toBe("Opened as a gallery today");
+
+    // Past yesterday the line names the weekday, for the week it covers and no longer: the
+    // gallery opened on Wednesday the 7th.
+    t.advance(DAY_MS);
+    expect(await news()).toBe("Opened as a gallery yesterday");
+    t.advance(DAY_MS);
+    expect(await news()).toBe("Opened as a gallery on Wednesday");
+    t.advance(4 * DAY_MS);
+    expect(await news()).toBe("Opened as a gallery on Wednesday");
+    t.advance(DAY_MS);
+    expect(await news()).toBeUndefined();
+  });
+
   it("refuses a visit across a block either way, with the owner or a co-owner, dry runs too", async () => {
     const t = await start();
     const ivy = t.join("Ivy");

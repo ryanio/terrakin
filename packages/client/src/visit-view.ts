@@ -1,9 +1,10 @@
 /**
  * `/visit`: plots to visit (RFC 0020). Every plot someone lives on as a card: a drawing of it from
- * above, its name (decision 0121) and whose it is, when it last changed, and this week's visitors
- * and admirers, with a Visit button that jumps you there and opens the world. Newest change first,
- * or most admired. The Galleries page is the other tab of the same place. Names are residents'
- * words: text only.
+ * above with whoever is standing on it, its name (decision 0121) and whose it is, what is new on it
+ * in the server's own words (else how lately it changed), and this week's visitors and admirers
+ * when anyone came, with a Visit button that jumps you there and opens the world. Newest change
+ * first, or most admired. The Galleries page is the other tab of the same place. Names are
+ * residents' words: text only.
  */
 import { PLOT_SORTS, type PlotSort, type PlotView, type WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
@@ -19,7 +20,7 @@ import { pageData, withOptional } from "./page-data";
 import { plotThumb } from "./plot-thumb";
 import { failInto, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-plot";
-import { isMine, plotTitles, weekLine } from "./visits";
+import { isMine, plotTitles, quietWeek, weekLine } from "./visits";
 import { worldLinkPath } from "./world-link";
 
 const SORT_WORDS: Record<PlotSort, string> = {
@@ -92,8 +93,13 @@ function copyPlaceLink(plot: Pick<PlotView, "px" | "py">, title: string): HTMLEl
   return button;
 }
 
-/** "Changed 2h", from when something on the plot last changed. Null when that's unknown. */
+/**
+ * The one line beside the drawing about how the plot has been lately: what is new on it, in the
+ * server's own words ("A roof went up on Tuesday"), else "Changed 2h" when nothing arrived this
+ * week. Null when neither is known.
+ */
 function changedLine(plot: PlotView): HTMLElement | null {
+  if (plot.news) return h("span", { class: "plot-card-changed", text: plot.news });
   if (!plot.changedAt) return null;
   const when = timeAgo(plot.changedAt);
   if (when.textContent === "now") when.textContent = "just now";
@@ -135,7 +141,9 @@ export function plotCard(
         plot.name ? h("h2", { class: "plot-card-name", text: plot.name }) : null,
         h("div", { class: "cluster plot-card-people" }, ...people.map((p) => personLink(p))),
         changedLine(plot),
-        h("span", { class: "plot-card-week", text: weekLine(plot) }),
+        // A quiet week says nothing rather than "No visitors yet this week" on every card: the
+        // line is there to tell one plot from another.
+        quietWeek(plot) ? null : h("span", { class: "plot-card-week", text: weekLine(plot) }),
         plot.gallery ? kindPill("Gallery", "sun", "plot-card-gallery") : null,
       ),
       h(

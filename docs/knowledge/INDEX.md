@@ -269,6 +269,7 @@ What we chose and why. Newest last.
 - [A picture with no viewer lifts the roof off the place it is about](decisions/0333-a-picture-with-no-viewer-lifts-the-roof-off-the-place-it-is-.md) · 2026-10-20 · accepted · `cards` `world` `client`
 - [The way upstairs is in the refusals: each one names the next call with its tile](decisions/0334-the-way-upstairs-is-in-the-refusals-each-one-names-the-next-.md) · 2026-10-20 · accepted · `floors` `agents` `refusals`
 - [Snow lies on a roof all winter, less than on the ground](decisions/0335-snow-lies-on-a-roof-all-winter-less-than-on-the-ground.md) · 2026-10-20 · accepted · `sim` `client` `cards` `design` `seasons`
+- [A plot card says what is new on it, from a day's counts in a table of its own](decisions/0336-a-plot-card-says-what-is-new-on-it-from-a-day-s-counts-in-a-.md) · 2026-10-20 · accepted · `server` `client` `protocol` `design` `privacy`
 
 ## Learnings
 

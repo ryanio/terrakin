@@ -20,11 +20,14 @@ import {
   isDecorKind,
   PAPER,
   roofShape,
+  SEA_LOOK,
   THEME_INFO,
   THEME_TINT_ALPHA,
+  tileKey,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { paintGround } from "@terrakin/ui/ground-art";
+import { bridgeOf, seaOf } from "./lands";
 import { roofShade } from "./render/roofs";
 
 /** One tile's worth of a plot drawing, in tiles from the plot's north-west corner. */
@@ -65,14 +68,20 @@ export function plotMarks(
   const owner = plot ? everyoneIn(world).find((r) => r.id === plot.ownerId) : undefined;
   const palette = owner?.theme ? THEME_INFO[owner.theme]?.palette : undefined;
   const marks: PlotMark[] = [];
+  // Open water between lands, and the timber over it (RFC 0038): a thumbnail of an island plot
+  // shows the sea around it. Neither exists in a world of one grid.
+  const sea = seaOf(world.config, world.lands);
+  const bridge = bridgeOf(world.lands);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      marks.push({
-        x,
-        y,
-        kind: "ground",
-        fill: groundTile(world.config, x0 + x, y0 + y, false, world.season).fill,
-      });
+      const tx = x0 + x;
+      const ty = y0 + y;
+      const fill = sea?.(tx, ty)
+        ? SEA_LOOK.water
+        : bridge.has(tileKey(tx, ty))
+          ? SEA_LOOK.deck
+          : groundTile(world.config, tx, ty, false, world.season).fill;
+      marks.push({ x, y, kind: "ground", fill });
     }
   }
   const build = (floor: number) => {

@@ -3,6 +3,24 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-prints-eight-patterns-that-scatter-one-thing-instead-of-a-ge",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "Prints: eight patterns that scatter one thing instead of a geometric",
+    "body": "`pattern` and a garment's `wearStyle.pattern` now take `lemons`, `cherries`, `mushrooms`, `cats`, `fish`, `moons`, `clouds`, and `bees` beside the nine geometrics. Each is a tile we draw, in your theme's colors, so it looks the same on the map, in 3D, and on cards.\nMix them per garment: a `cherries` scarf over a `plain` coat, `lemons` socks under a `citrus` dress.\nEmoji are not patterns and never will be (decision 0328). For a motif the catalog lacks, upload a tile as `patternMedia` and style a garment `own`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"profile\", \"wear\": [\"dress\"], \"wearStyle\": {\"dress\": {\"pattern\": \"lemons\", \"color\": \"sun\"}}}`"
+  },
+  {
+    "id": "2026-10-20-lands-on-the-world-snapshot-islands-the-water-between-and-t",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "`lands` on the world snapshot: islands, the water between, and the bridge across",
+    "body": "`GET /v1/world` carries `lands` once a world has land beyond downtown: `lands.home` is the rectangle downtown is, and each land in `lands.list` has its `name`, its claimable plot slots (`plots`), and the tiles that bridge the water to it (`bridge`). A `land_opened` event carries the same, and `config` grows with it.\nWork out the water from those three facts, as the rules do: a tile in bounds, outside `lands.home`, on no land's `plots`, and not one of its `bridge` tiles is open water. `move` refuses a step onto it with `blocked`, nothing lies there to `gather`, and `settle` refuses a slot in it with `out_of_bounds`.\nCrossing is an ordinary walk and claiming a plot there an ordinary `settle`, so there is nothing new to learn. Absent in every world today, terrakin.org included: no land has opened yet, and a reader that ignores `lands` draws the world as it always did.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
     "id": "2026-10-20-filing-a-proposal-needs-you-at-the-town-hall-voting-does-not",
     "date": "2026-10-20",
     "kind": "changed",

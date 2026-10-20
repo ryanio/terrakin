@@ -1,7 +1,7 @@
 import { oneTimeSwitch, refuse } from "./check";
 import { plotKey } from "./keys";
 import type { Command, Land, Rejection, Tile, WorldConfig, WorldEvent, WorldState } from "./types";
-import { plotOf } from "./world";
+import { inBounds, isCommons, plotOf } from "./world";
 
 /**
  * New lands beyond the first grid ([RFC 0038](../../../docs/rfcs/0038-new-lands.md)). An island is
@@ -33,16 +33,34 @@ export const LANDS = {
   bridgeMax: 200,
 } as const;
 
-/** The rectangle the world started as: downtown, which needs no slot list. */
-function homeRect(state: WorldState): { width: number; height: number } {
-  return state.lands?.home ?? { width: state.config.width, height: state.config.height };
+/**
+ * What the lands rules need to know, which is exactly what the world snapshot carries: the
+ * rectangle downtown is, and each open land's plot slots and bridge tiles. `LandsState` is one, so
+ * a client reading `lands` off the wire answers these questions as the rules do.
+ */
+export interface LandsFacts {
+  readonly home: { readonly width: number; readonly height: number };
+  readonly list: readonly {
+    readonly plots: readonly (readonly [number, number])[];
+    readonly bridge: readonly (readonly [number, number])[];
+  }[];
 }
 
 /** Whether a plot slot is inside downtown, the land that needs no `open_land`. */
-function inHome(state: WorldState, px: number, py: number): boolean {
-  const home = homeRect(state);
-  const size = state.config.plotSize;
-  return px >= 0 && py >= 0 && px * size < home.width && py * size < home.height;
+function inHome(config: WorldConfig, lands: LandsFacts, px: number, py: number): boolean {
+  const size = config.plotSize;
+  return px >= 0 && py >= 0 && px * size < lands.home.width && py * size < lands.home.height;
+}
+
+/** Whether a plot slot is inside downtown or a slot some open land brought in. */
+function landed(config: WorldConfig, lands: LandsFacts, px: number, py: number): boolean {
+  if (inHome(config, lands, px, py)) return true;
+  return lands.list.some((l) => l.plots.some(([x, y]) => x === px && y === py));
+}
+
+/** Whether a tile bridges the water, from the facts alone. */
+function bridged(lands: LandsFacts, x: number, y: number): boolean {
+  return lands.list.some((l) => l.bridge.some(([bx, by]) => bx === x && by === y));
 }
 
 /** The land a plot slot belongs to, or undefined when no land claims it. */
@@ -55,34 +73,65 @@ export function landOfPlot(state: WorldState, px: number, py: number): Land | un
  * the water between lands is neither, and `settle` refuses it.
  */
 export function onLand(state: WorldState, px: number, py: number): boolean {
-  return inHome(state, px, py) || landOfPlot(state, px, py) !== undefined;
+  const { config, lands } = state;
+  return landed(config, lands ?? { home: config, list: [] }, px, py);
 }
 
 /** Whether a tile is a bridge tile of any open land. */
 export function onBridge(state: WorldState, x: number, y: number): boolean {
-  return (state.lands?.list ?? []).some((l) => l.bridge.some(([bx, by]) => bx === x && by === y));
+  return state.lands !== undefined && bridged(state.lands, x, y);
 }
 
 /**
- * Whether a tile is sea: in bounds, on no land's plots, and not a bridge. Nobody walks on it and
- * nothing is built there. False everywhere in a world that never opened a land.
+ * Whether a tile is open water, from the facts alone: in bounds, on no land's plots, and not a
+ * bridge. Undefined in a world that never opened a land, where there is no sea, so `groundOf` is
+ * handed nothing and such a world walks exactly as it always did. Past the world's edge is not
+ * water but nothing at all, so a view can tell a shore from the edge of the map.
+ */
+export function seaFrom(
+  config: WorldConfig,
+  lands: LandsFacts | undefined,
+): ((x: number, y: number) => boolean) | undefined {
+  if (!lands) return undefined;
+  return (x, y) => {
+    if (!inBounds(config, x, y)) return false;
+    const { px, py } = plotOf(config, x, y);
+    return !landed(config, lands, px, py) && !bridged(lands, x, y);
+  };
+}
+
+/**
+ * Whether a tile is sea. Nobody walks on it, nothing is built there, and nothing lies on it to
+ * pick up. False everywhere in a world that never opened a land.
  */
 export function isSea(state: WorldState, x: number, y: number): boolean {
-  if (!state.lands) return false;
-  const { px, py } = plotOf(state.config, x, y);
-  return !onLand(state, px, py) && !onBridge(state, x, y);
+  return seaFrom(state.config, state.lands)?.(x, y) === true;
 }
 
 /** Every plot slot on land, for a count of what's left to claim. */
 export function landPlots(state: WorldState): Tile[] {
   const size = state.config.plotSize;
   const home: Tile[] = [];
-  const rect = homeRect(state);
+  const rect = state.lands?.home ?? state.config;
   for (let px = 0; px * size < rect.width; px++) {
     for (let py = 0; py * size < rect.height; py++) home.push({ x: px, y: py });
   }
   const rest = (state.lands?.list ?? []).flatMap((l) => l.plots.map(([x, y]) => ({ x, y })));
   return [...home, ...rest];
+}
+
+/**
+ * Plot slots anyone could still claim: on land, outside the Commons, and nobody's yet. The server
+ * watches this to decide when to open the next land (`LANDS.openAt`); the sim never counts it to
+ * grow itself, so no rule here reads it.
+ */
+export function plotsLeft(state: WorldState): number {
+  // The Commons belongs to downtown, so read it from the rectangle the world started as: the
+  // grown config's center plot is somewhere else entirely once a land opens.
+  const home = { ...state.config, ...(state.lands?.home ?? {}) };
+  return landPlots(state).filter(
+    ({ x: px, y: py }) => !isCommons(home, px, py) && state.plots[plotKey(px, py)] === undefined,
+  ).length;
 }
 
 const whole = (n: unknown): boolean => Number.isInteger(n) && (n as number) >= 0;
@@ -169,7 +218,7 @@ export function checkOpenLand(
       return refuse("server_only", `The bridge at ${x},${y} is outside the world this land makes.`);
     }
     const { px, py } = plotOf(grown, x, y);
-    if (inHome(state, px, py) || landOfPlot(state, px, py) || slots.has(plotKey(px, py))) {
+    if (onLand(state, px, py) || slots.has(plotKey(px, py))) {
       return refuse("server_only", `The bridge at ${x},${y} is on land, not across the water.`);
     }
   }

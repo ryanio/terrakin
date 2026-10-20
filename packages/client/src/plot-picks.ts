@@ -2,10 +2,15 @@
  * Which plots the "Claim plot" picker offers someone with no plot yet, and in what order: every
  * plot `settle` would take (the sim's own `settleProblem`, decision 0052), nearest to plots someone
  * lives on first, so a newcomer lands among neighbors. Pure, so tests pin it.
+ *
+ * Downtown comes before any island (RFC 0038, its open question 2): the center fills, and the land
+ * across the water opens with a reason. The water between is never offered, because the sim would
+ * turn it down.
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
 import { directionOf, settleProblem } from "@terrakin/sim";
 import { listOf } from "@terrakin/ui/format";
+import { landNameAt, onLandPlot } from "./lands";
 
 /** One plot the picker offers. */
 export interface PlotPick {
@@ -15,19 +20,22 @@ export interface PlotPick {
   near: number;
   /** Owners of the plots around it, north to south, then west to east, each once. */
   neighbors: string[];
+  /** The land it's on, by name, when it isn't downtown (RFC 0038). The town writes these names. */
+  land?: string;
 }
 
 /** What the picker reads from the world: a snapshot will do. */
 type World = Pick<WorldSnapshot, "config" | "commons"> & {
   plots: readonly { px: number; py: number; ownerId: string }[];
   residents: readonly { hearth?: { x: number; y: number } | null | undefined }[];
+  lands?: WorldSnapshot["lands"];
 };
 
 const key = (px: number, py: number) => `${px},${py}`;
 
 /** Every plot `settle` would take for someone who owns none, best first. */
 export function plotPicks(world: World): PlotPick[] {
-  const { config, commons } = world;
+  const { config, commons, lands } = world;
   const across = config.width / config.plotSize;
   const down = config.height / config.plotSize;
   const owners = new Map(world.plots.map((p) => [key(p.px, p.py), p.ownerId]));
@@ -45,7 +53,11 @@ export function plotPicks(world: World): PlotPick[] {
   for (let py = 0; py < down; py++) {
     for (let px = 0; px < across; px++) {
       const claimed = owners.has(key(px, py));
-      if (settleProblem(config, px, py, { claimed, ownsAPlot: false })) continue;
+      // The water between lands is no plot. The picker asks the sim with `onLand` rather than
+      // deciding anything itself (RFC 0038).
+      const land = landNameAt(lands, px, py);
+      const onLand = onLandPlot(config, lands, px, py);
+      if (settleProblem(config, px, py, { claimed, ownsAPlot: false, onLand })) continue;
       const here = { px, py };
       const neighbors: string[] = [];
       for (let y = py - 1; y <= py + 1; y++) {
@@ -59,12 +71,18 @@ export function plotPicks(world: World): PlotPick[] {
         py,
         near: livedIn.reduce((best, p) => Math.min(best, apart(here, p)), Infinity),
         neighbors,
+        ...(land === undefined ? {} : { land }),
         fromCommons: apart(here, commons),
       });
     }
   }
   picks.sort(
-    (a, b) => a.near - b.near || a.fromCommons - b.fromCommons || a.py - b.py || a.px - b.px,
+    (a, b) =>
+      (a.land ? 1 : 0) - (b.land ? 1 : 0) ||
+      a.near - b.near ||
+      a.fromCommons - b.fromCommons ||
+      a.py - b.py ||
+      a.px - b.px,
   );
   return picks.map(({ fromCommons: _, ...pick }) => pick);
 }
@@ -80,8 +98,15 @@ const COMPASS: Record<string, string> = {
   nw: "northwest",
 };
 
-/** Where a plot is from the Commons: "Just north of the Commons", "2 plots northeast of the Commons". */
-export function pickWhere(pick: { px: number; py: number }, commons: { px: number; py: number }) {
+/**
+ * Where a plot is: "Just north of the Commons", "2 plots northeast of the Commons", or, on an
+ * island, the land's own name and the walk there (RFC 0038).
+ */
+export function pickWhere(
+  pick: { px: number; py: number; land?: string },
+  commons: { px: number; py: number },
+) {
+  if (pick.land) return `On ${pick.land}, across the bridge`;
   const dx = pick.px - commons.px;
   const dy = pick.py - commons.py;
   const d = Math.max(Math.abs(dx), Math.abs(dy));

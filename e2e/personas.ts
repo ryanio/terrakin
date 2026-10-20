@@ -159,11 +159,25 @@ export async function freePlotsOver(
     config: { width: number; height: number; plotSize: number };
     plots: { px: number; py: number }[];
     commons: { px: number; py: number };
+    lands?: {
+      home: { width: number; height: number };
+      list: { plots: { px: number; py: number }[] }[];
+    };
   };
   const { width, height, plotSize } = world.config;
   const taken = new Set(world.plots.map((p) => `${p.px},${p.py}`));
   taken.add(`${world.commons.px},${world.commons.py}`);
   taken.add(walkedOnto(world.config).join(","));
+  // The water between lands is no plot (RFC 0038), so leave it out rather than offer a slot
+  // `settle` refuses. A world of one grid has no `lands` and every slot in it is land.
+  const onLand = ({ lands } = world) => {
+    if (!lands) return () => true;
+    const slots = new Set(lands.list.flatMap((l) => l.plots.map((p) => `${p.px},${p.py}`)));
+    return (px: number, py: number) =>
+      (px * plotSize < lands.home.width && py * plotSize < lands.home.height) ||
+      slots.has(`${px},${py}`);
+  };
+  const dry = onLand();
   const span = (size: number, backwards: boolean) => {
     const all = Array.from({ length: size / plotSize }, (_, i) => i);
     return backwards ? all.reverse() : all;
@@ -171,7 +185,7 @@ export async function freePlotsOver(
   const out: [number, number][] = [];
   for (const py of span(height, corner !== "top-right")) {
     for (const px of span(width, corner !== "bottom-left")) {
-      if (out.length < n && !taken.has(`${px},${py}`)) out.push([px, py]);
+      if (out.length < n && !taken.has(`${px},${py}`) && dry(px, py)) out.push([px, py]);
     }
   }
   return out;
@@ -288,6 +302,20 @@ export async function openCirclesOver(http: Http): Promise<void> {
   await expectOk(
     "open circles (is the server running with TERRAKIN_TEST_CLOCK=1?)",
     http.call("POST", "/v1/test/open-circles"),
+  );
+}
+
+/**
+ * Open the next land beyond downtown now (RFC 0038), unless this world already has one, so a test
+ * world has an island, the water round it, and the bridge across to look at. The count is what
+ * opens one in a real world. Test servers only (`POST /v1/test/open-land`).
+ */
+export async function openLandOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { lands?: unknown };
+  if (world.lands) return;
+  await expectOk(
+    "open a land (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-land"),
   );
 }
 

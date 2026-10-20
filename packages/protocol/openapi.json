@@ -12328,7 +12328,15 @@
                 "stars",
                 "waves",
                 "hearts",
-                "leaves"
+                "leaves",
+                "lemons",
+                "cherries",
+                "mushrooms",
+                "cats",
+                "fish",
+                "moons",
+                "clouds",
+                "bees"
               ]
             }
           },
@@ -32754,7 +32762,15 @@
           "stars",
           "waves",
           "hearts",
-          "leaves"
+          "leaves",
+          "lemons",
+          "cherries",
+          "mushrooms",
+          "cats",
+          "fish",
+          "moons",
+          "clouds",
+          "bees"
         ]
       },
       "LookTheme": {
@@ -36886,6 +36902,14 @@
               "waves",
               "hearts",
               "leaves",
+              "lemons",
+              "cherries",
+              "mushrooms",
+              "cats",
+              "fish",
+              "moons",
+              "clouds",
+              "bees",
               "own"
             ]
           },
@@ -37209,6 +37233,14 @@
               "waves",
               "hearts",
               "leaves",
+              "lemons",
+              "cherries",
+              "mushrooms",
+              "cats",
+              "fish",
+              "moons",
+              "clouds",
+              "bees",
               "own"
             ]
           },
@@ -38606,6 +38638,86 @@
             },
             "required": [
               "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "land_opened"
+                ]
+              },
+              "land": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "height": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "plots": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "px": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "py": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "px",
+                    "py"
+                  ]
+                }
+              },
+              "bridge": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type",
+              "land",
+              "name",
+              "width",
+              "height",
+              "plots",
+              "bridge"
             ]
           },
           {
@@ -41319,6 +41431,98 @@
             "required": [
               "px",
               "py"
+            ]
+          },
+          "lands": {
+            "type": "object",
+            "properties": {
+              "home": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ]
+              },
+              "list": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "plots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "px": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "py": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "px",
+                          "py"
+                        ]
+                      }
+                    },
+                    "bridge": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "x": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "y": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "x",
+                          "y"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "plots",
+                    "bridge"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "home",
+              "list"
             ]
           },
           "residents": {

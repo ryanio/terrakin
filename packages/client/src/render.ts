@@ -77,7 +77,7 @@ import {
   petSprite,
   sprite,
 } from "./render/sprites";
-import { type CastMark, paintCast, paintPond } from "./render/water";
+import { type CastMark, paintBridge, paintCast, paintPond, paintSea } from "./render/water";
 import { roofCover, roofsShown } from "./roofs";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
@@ -192,6 +192,8 @@ export function render(
   // ---- ground: one fillRect per tile, edges rounded so neighbors share pixels (no seams) ----
   const dpr = ctx.getTransform().a || 1;
   const paved = mirror.paving.size > 0;
+  // A world of one grid has no water at all, so it draws exactly as it always did.
+  const water = mirror.lands !== undefined;
   const tufts = new Path2D();
   const flowers: [Path2D, Path2D] = [new Path2D(), new Path2D()];
   const leaves: [Path2D, Path2D, Path2D] = [new Path2D(), new Path2D(), new Path2D()];
@@ -207,6 +209,24 @@ export function render(
       const top = Math.round(sy - half);
       const w = Math.round(sx + half) - left;
       const h = Math.round(sy + half) - top;
+      // Open water and the bridges over it (RFC 0038) take the tile instead of any ground: no
+      // biome, no scenery, and nothing lying there, since nobody stands on water.
+      if (water) {
+        const sea = mirror.isSea(x, y);
+        const bridge = !sea && mirror.onBridge(x, y);
+        if (sea || bridge) {
+          const dry = (tx: number, ty: number) => !mirror.isSea(tx, ty);
+          const sides = {
+            n: dry(x, y - 1),
+            e: dry(x + 1, y),
+            s: dry(x, y + 1),
+            w: dry(x - 1, y),
+          };
+          if (sea) paintSea(ctx, left, top, w, h, sides, tileHash(x, y), now, still);
+          else paintBridge(ctx, left, top, w, h, sides, tileHash(x, y));
+          continue;
+        }
+      }
       const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
       // Tone and scenery come from the sim's palette, shared with the plot photos.
       const ground = groundTile(config, x, y, inCommons, season);

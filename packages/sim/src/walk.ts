@@ -1,6 +1,6 @@
 import { refuse } from "./check";
 import { tileKey } from "./keys";
-import { isSea } from "./lands";
+import { seaFrom } from "./lands";
 import type {
   Direction,
   Rejection,
@@ -90,6 +90,15 @@ export function groundOf(facts: {
   };
 }
 
+/**
+ * The world's open water as `groundOf` takes it (RFC 0038), or nothing at all in a world that
+ * never opened a land, so such a world's ground is built exactly as it always was.
+ */
+function withSea(state: WorldState): { sea?: (x: number, y: number) => boolean } {
+  const sea = seaFrom(state.config, state.lands);
+  return sea ? { sea } : {};
+}
+
 /** The world's ground as the rules see it now. */
 export function worldGround(state: WorldState): Ground {
   return groundOf({
@@ -97,7 +106,7 @@ export function worldGround(state: WorldState): Ground {
     hasBlock: (x, y) => isSolid(state, x, y),
     solidBuildings: state.solidBuildings === true,
     shopOpen: state.shop !== undefined,
-    ...(state.lands ? { sea: (x: number, y: number) => isSea(state, x, y) } : {}),
+    ...withSea(state),
   });
 }
 

@@ -42,6 +42,53 @@ describe("plotPicks", () => {
   });
 });
 
+describe("plotPicks with an island", () => {
+  // Downtown is the 5 by 5 grid; the water is plot column 5, and Willowmere is columns 6 to 7.
+  const lands = {
+    home: { width: 40, height: 40 },
+    list: [
+      {
+        id: "willowmere",
+        name: "Willowmere",
+        plots: [
+          { px: 6, py: 1 },
+          { px: 6, py: 2 },
+          { px: 7, py: 1 },
+          { px: 7, py: 2 },
+        ],
+        bridge: [{ x: 40, y: 19 }],
+      },
+    ],
+  };
+  const island = { config: { ...config, width: 64 }, commons, lands, residents: [] };
+
+  it("offers downtown before the island, and never the water between", () => {
+    const picks = plotPicks({ ...island, plots: [] });
+    // 25 downtown, less the Commons, then the island's 4. The water column brings none.
+    expect(picks).toHaveLength(28);
+    expect(picks.filter((p) => p.land).map((p) => [p.px, p.py])).toEqual([
+      [6, 1],
+      [6, 2],
+      [7, 1],
+      [7, 2],
+    ]);
+    expect(picks.slice(0, 24).every((p) => p.land === undefined)).toBe(true);
+    expect(picks.some((p) => p.px === 5)).toBe(false);
+  });
+
+  it("names the land a plot is on, so a newcomer knows it's across the bridge", () => {
+    const picks = plotPicks({ ...island, plots: [] });
+    const far = picks.find((p) => p.px === 6 && p.py === 1);
+    expect(far).toMatchObject({ land: "Willowmere" });
+    expect(pickWhere(far ?? { px: 0, py: 0 }, commons)).toBe("On Willowmere, across the bridge");
+  });
+
+  it("leaves the island out while downtown is all there is", () => {
+    const picks = plotPicks({ config, commons, plots: [], residents: [] });
+    expect(picks.every((p) => p.land === undefined)).toBe(true);
+  });
+});
+
 describe("pick words", () => {
   it("says where a plot is from the Commons", () => {
     expect(pickWhere({ px: 2, py: 1 }, commons)).toBe("Just north of the Commons");

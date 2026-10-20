@@ -180,6 +180,8 @@ export interface ChunkSource {
   presents?: ReadonlyMap<string, number>;
   /** The roof over a plot (RFC 0041), drawn over its walls (`Mirror.roofAt`). */
   roofAt?(px: number, py: number): RoofShape | undefined;
+  /** Whether a tile is open water between lands (RFC 0038). Absent reads as none, as it is today. */
+  isSea?(x: number, y: number): boolean;
 }
 
 /** The piles of presents (RFC 0034) on one plot, by tile key, with the words for its signature. */
@@ -271,7 +273,8 @@ export function readChunk(
       if (at.display) displays.push(at.display);
       if (at.crop) crops.push(at.crop);
       if (at.pickup) pickups.push({ x, y, kind: at.pickup });
-      if (at.block || at.hearth || at.ground) continue;
+      // Nothing grows or falls on open water (RFC 0038), as on the map.
+      if (at.block || at.hearth || at.ground || source.isSea?.(x, y)) continue;
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons, season).scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });

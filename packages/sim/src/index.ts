@@ -372,11 +372,14 @@ export { parseKey, plotKey, tileKey } from "./keys";
 export {
   isSea,
   LANDS,
+  type LandsFacts,
   landName,
   landOfPlot,
   landPlots,
   onBridge,
   onLand,
+  plotsLeft,
+  seaFrom,
 } from "./lands";
 export {
   EARNED_WEAR_SKILL,

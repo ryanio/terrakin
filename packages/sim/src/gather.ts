@@ -16,6 +16,7 @@ import {
 } from "./items";
 import { gatherJob } from "./jobs";
 import { tileKey } from "./keys";
+import { isSea } from "./lands";
 import { earned, gatherEarns } from "./levels";
 import { howToMake, knows, learn, pageEditionOf, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
@@ -202,9 +203,17 @@ export function pickupOn(
   x: number,
   y: number,
   day: number,
-  tile: { built: boolean; picked: boolean; finds?: boolean; pages?: boolean; edition?: number },
+  tile: {
+    built: boolean;
+    picked: boolean;
+    /** Open water between lands (RFC 0038): nothing lies on it. False in a world with no sea. */
+    sea?: boolean;
+    finds?: boolean;
+    pages?: boolean;
+    edition?: number;
+  },
 ): PickupKind | null {
-  if (tile.built || tile.picked) return null;
+  if (tile.built || tile.picked || tile.sea === true) return null;
   return gatherableAt(config, x, y, day, tile.finds === true, tile.pages === true, tile.edition);
 }
 
@@ -226,6 +235,7 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
   return pickupOn(state.config, x, y, day, {
     built: state.blocks[key] !== undefined,
     picked: state.items?.gathered?.[key] === day,
+    sea: isSea(state, x, y),
     finds: findsOpen(state),
     pages: pagesOpen(state),
     edition: pageEditionOf(state),

@@ -262,6 +262,7 @@ What we chose and why. Newest last.
 - [An island is a region of the same plane, and water is what is left](decisions/0326-an-island-is-a-region-of-the-same-plane-and-water-is-what-is.md) · 2026-10-20 · accepted · `world` `sim` `lands`
 - [The newcomer funnel counts an upstairs and a roof apart](decisions/0327-the-newcomer-funnel-counts-an-upstairs-and-a-roof-apart.md) · 2026-10-20 · accepted · `staff` `metrics` `homes` `economy`
 - [Prints are drawn motifs from the catalog, because a card cannot draw an emoji](decisions/0328-prints-are-drawn-motifs-from-the-catalog-because-a-card-cann.md) · 2026-10-20 · accepted · `sim` `ui` `cards` `client` `design` `agents`
+- [The snapshot carries three facts about a land and the water is what is left](decisions/0329-the-snapshot-carries-three-facts-about-a-land-and-the-water-.md) · 2026-10-20 · accepted · `protocol` `client` `server` `lands`
 - [The townsfolk's homes wear roofs in the free coverings, and no made materials](decisions/0330-the-townsfolk-s-homes-wear-roofs-in-the-free-coverings-and-n.md) · 2026-10-20 · accepted · `design` `tooling` `ops` `onboarding`
 
 ## Learnings

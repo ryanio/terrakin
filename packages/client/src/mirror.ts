@@ -12,6 +12,7 @@ import {
   blocksWalkers,
   type Crop,
   circleName,
+  counterTiles,
   type Direction,
   type FindKind,
   FLOORS,
@@ -31,7 +32,7 @@ import {
   type RoofShape,
   roofShape,
   type StepRoutine,
-  shopTiles,
+  squareOf,
   tileKey,
   upstairsGroundOf,
   type WorldConfig,
@@ -373,6 +374,23 @@ export class Mirror {
     return this.shop.some((t) => t.x === x && t.y === y);
   }
 
+  /** Whether a tile is in the Commons, downtown's own square. */
+  inCommons(x: number, y: number): boolean {
+    const size = this.config.plotSize;
+    return Math.floor(x / size) === this.commons.px && Math.floor(y / size) === this.commons.py;
+  }
+
+  /**
+   * Whether a plot slot is a town square, and so never claimable: downtown's Commons, or a land's
+   * own (RFC 0038). Read from where the halls stand, since a square is the plot its hall is on.
+   */
+  isSquare(px: number, py: number): boolean {
+    const size = this.config.plotSize;
+    return this.townHall.some(
+      (t) => Math.floor(t.x / size) === px && Math.floor(t.y / size) === py,
+    );
+  }
+
   /**
    * Keep the lands and what follows from them: whether a tile is water, and which tiles bridge it.
    * Both come from the sim's own rule, so the map draws the water the server walks us around.
@@ -407,7 +425,8 @@ export class Mirror {
             config: this.config,
             hasBlock: (x, y) => blocksWalkers(this.blocks.get(tileKey(x, y))),
             solidBuildings: this.solidBuildings,
-            shopOpen: this.shop.length > 0,
+            townHall: this.townHall,
+            shop: this.shop,
             // Open water between lands, so a tap-to-walk route crosses by the bridge rather than
             // ending in a refusal (RFC 0038). Left out where there is none.
             ...(this.#sea ? { sea: this.#sea } : {}),
@@ -540,11 +559,15 @@ export class Mirror {
         if (r) r.hearth = null;
         break;
       }
-      // The event names no tiles; where the shop stands is fixed by the world's size.
-      case "shop_opened":
-        this.shop = shopTiles(this.config);
+      // The event names no tiles. The counter faces the hall across the same square, on the same
+      // column, so the square is read back from the hall tiles the snapshot carries rather than
+      // worked out from the world's middle, which moves when a land opens (RFC 0038).
+      case "shop_opened": {
+        const square = squareOf(this.config, this.townHall);
+        this.shop = square ? counterTiles(this.config, square) : [];
         this.walkable.clear();
         break;
+      }
       case "buildings_solid":
         this.solidBuildings = true;
         this.walkable.clear();

@@ -144,7 +144,8 @@ export async function walkTo(
       config: world.config,
       hasBlock: (x: number, y: number) => blocksWalkers(blocks.get(`${x},${y}`) as never),
       solidBuildings: world.solidBuildings === true,
-      shopOpen: (world.shop ?? []).length > 0,
+      townHall: world.townHall,
+      shop: world.shop ?? [],
     });
     const radius = Math.max(world.config.width, world.config.height);
     const path = route(ground, { x: me.x, y: me.y }, to, near, radius);

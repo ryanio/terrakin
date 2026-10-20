@@ -245,6 +245,7 @@ import {
   inBounds,
   isCommons,
   isSolid,
+  isTownSquare,
   outOfReach,
   plotAtTile,
   plotCenter,
@@ -623,7 +624,7 @@ function nearestFreePlot(
   let best: { px: number; py: number; d: number } | undefined;
   for (let y = 0; y < down; y++) {
     for (let x = 0; x < across; x++) {
-      if (isCommons(config, x, y) || state.plots[plotKey(x, y)]) continue;
+      if (isCommons(state, x, y) || state.plots[plotKey(x, y)]) continue;
       const d = Math.max(Math.abs(x - px), Math.abs(y - py));
       if (!best || d < best.d) best = { px: x, py: y, d };
     }
@@ -696,7 +697,7 @@ function joining(
     (floor === 0
       ? !isSolid(state, me.x, me.y)
       : floorGround(state, floor).obstacle(me.x, me.y) === undefined);
-  const spawn = me?.hearth ?? spawnTile(state.config);
+  const spawn = me?.hearth ?? spawnTile(state);
   const unowned = unownedWear(state, actor, command);
   if (unowned) return unowned;
   const look = mergeProfile(me ?? { ...defaultLook(actor), note: "" }, command);
@@ -1040,7 +1041,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "claim": {
       const { px, py } = plotOf(config, me.x, me.y);
-      if (isCommons(config, px, py)) {
+      if (isCommons(state, px, py)) {
         return reject("plot_is_commons", "The Commons belongs to everyone.");
       }
       if (state.plots[plotKey(px, py)]) {
@@ -1283,6 +1284,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       const problem = settleProblem(config, px, py, {
         claimed: state.plots[key] !== undefined,
         ownsAPlot: plotsOwnedBy(state, actor).length > 0,
+        square: isTownSquare(state, px, py),
         onLand: onLand(state, px, py),
       });
       switch (problem) {
@@ -1295,8 +1297,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
             "out_of_bounds",
             "That's open water between the lands, not a plot. Settle on land, or cross the bridge and claim there.",
           );
-        case "plot_is_commons":
-          return reject(problem, "The Commons belongs to everyone.");
+        case "plot_is_square":
+          // Downtown's square is the Commons; a land's is the ground its own hall and counter
+          // stand on. Both belong to everyone, so both answer with the Commons' code (RFC 0038).
+          return reject("plot_is_commons", "The Commons belongs to everyone.");
         case "plot_owned":
           return reject(
             problem,

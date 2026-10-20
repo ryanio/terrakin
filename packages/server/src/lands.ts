@@ -63,7 +63,7 @@ export function planLand(state: WorldState): Extract<Command, { type: "open_land
   const edge = config.width / size;
   const px0 = edge + channel;
   // Centered on the Commons' row, so the bridge arrives level with the middle of town.
-  const commons = commonsPlot(downtown(state));
+  const commons = commonsPlot(state);
   const py0 = Math.max(0, commons.py - Math.floor((span - 1) / 2));
   const plots: [number, number][] = [];
   for (let px = px0; px < px0 + span; px++) {

@@ -183,7 +183,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   };
   const commons = (x: number, y: number) => {
     const { px, py } = plotOf(config, x, y);
-    return isCommons(config, px, py);
+    return isCommons(state, px, py);
   };
   const area = areaOf(state, x0, y0, cols, rows, paletteAt, commons);
   const floors = drawnFromAbove(area.floors);
@@ -233,7 +233,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   // In twentieths, so the picture changes with the light, not with every second.
   const night = Math.round(nightAmount(phase) * 20) / 20;
   const spot = plotOf(config, here.x, here.y);
-  const place = isCommons(config, spot.px, spot.py)
+  const place = isCommons(state, spot.px, spot.py)
     ? "In the Commons"
     : state.plots[plotKey(spot.px, spot.py)]
       ? `On plot ${spot.px}, ${spot.py}`

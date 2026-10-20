@@ -637,15 +637,16 @@ describe("the pantry once the shop is open", () => {
 
 describe("the shop's tiles", () => {
   it("stand on the Commons' south edge, clear of the Town Hall", () => {
-    const tiles = shopTiles(CONFIG);
+    const state = createWorld(CONFIG);
+    const tiles = shopTiles(state);
     expect(tiles).toHaveLength(6);
     for (const t of tiles) {
       expect(Math.floor(t.x / 8)).toBe(1);
       expect(Math.floor(t.y / 8)).toBe(1);
-      expect(isShopTile(CONFIG, t.x, t.y)).toBe(true);
+      expect(isShopTile(state, t.x, t.y)).toBe(true);
     }
     expect(Math.max(...tiles.map((t) => t.y))).toBe(15);
-    const hall = new Set(townHallTiles(CONFIG).map((t) => `${t.x},${t.y}`));
+    const hall = new Set(townHallTiles(state).map((t) => `${t.x},${t.y}`));
     for (const t of tiles) expect(hall.has(`${t.x},${t.y}`)).toBe(false);
   });
 
@@ -700,7 +701,7 @@ describe("pomegranates, the first fruit added through the catalog", () => {
 });
 
 describe("shopping in person (RFC 0042)", () => {
-  const door = shopTile(CONFIG);
+  const door = shopTile(createWorld(CONFIG));
 
   /** A card on today's shelf that `who` doesn't know yet, with the recipe it teaches. */
   function shelfCard(state: WorldState, who: string): { sku: ShopSku; recipe: RecipeName } {

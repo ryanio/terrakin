@@ -522,7 +522,7 @@ export function notAtTheCounter(
   state: WorldState,
   me: Pick<Resident, "x" | "y" | "floor">,
 ): Rejection | null {
-  return notAtDoor(state, me, shopTile(state.config), {
+  return notAtDoor(state, me, shopTile(state), {
     lead: "Clem serves at the counter.",
     doing: "shop",
     there: "the shop",

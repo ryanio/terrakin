@@ -152,7 +152,7 @@ describe("the games fixture", () => {
 describe("opening a table", () => {
   it("takes the first free spot in the Commons and puts its opener beside it", () => {
     const w = games();
-    const spots = gameTableTiles(CONFIG);
+    const spots = gameTableTiles(w.state);
     expect(spots).toHaveLength(4);
     const events = w.ok("ada", w.opening());
     expect(events).toMatchObject([

@@ -44,8 +44,9 @@ Nothing is shipped broken, because no adapter logs `open_land`. But no land can 
 centre is pinned to `state.lands.home` instead of the current size. The geometry helpers take a
 config, and the client calls them too (`mirror.ts` draws the shop from `shopTiles(this.config)`), so
 the fix reaches the wire: either the snapshot carries the home rect or it carries the town centre
-outright. It is being done with the island doors below, since it is the same code and the same
-question.
+outright. The wire half is already done, as of rollout step 2 below: `lands.home` on the snapshot
+is that rectangle. It is being done with the island doors below, since it is the same code and the
+same question.
 
 ## Decisions, 2026-10-20 (Ryan)
 
@@ -218,12 +219,17 @@ lets residents walk onto the bridge without knowing why it is there.
 
 Rollout in slices, the way jobs and Circles went in:
 
-1. The sim: `open_land`, `state.lands`, the growing config, and a fixture log that opens a land and
-   claims a plot on it, behind the switch so nothing changes until it is logged.
-2. The API, dark: `lands` on the snapshot, free plots on an island in the plot picker's data.
-3. The web: the bridge and the island on the map, and the plot picker offering island plots when
-   downtown has none.
-4. On at terrakin.org: `WorldService` watches the free count and logs the first `open_land`.
+1. **Shipped 2026-10-20.** The sim: `open_land`, `state.lands`, the growing config, and a fixture
+   log that opens a land and claims a plot on it, behind the switch so nothing changes until it is
+   logged ([decision 0326](../knowledge/decisions/0326-an-island-is-a-region-of-the-same-plane-and-water-is-what-is.md)).
+2. **Shipped 2026-10-20.** The API, dark: `lands` on the snapshot, free plots on an island in the
+   plot picker's data ([decision 0329](../knowledge/decisions/0329-the-snapshot-carries-three-facts-about-a-land-and-the-water-.md)).
+3. **Shipped 2026-10-20.** The web: the bridge and the island on the map, and the plot picker
+   offering island plots after downtown's (open question 2 below, answered downtown first).
+4. On at terrakin.org: `WorldService` watches the free count and logs the first `open_land`. The
+   count and the planner are built, behind an option no adapter sets. **Two things come first:**
+   the town centre has to stop moving when the world grows ("Blocking" above), and
+   every island needs the counter and hall door of the 2026-10-20 decision above.
 
 ## Alternatives considered
 

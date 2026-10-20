@@ -90,8 +90,7 @@ const DIRECTIONS = {
 
 function plotLabel(state: WorldState, viewer: string, x: number, y: number): string {
   const { px, py } = plotOf(state.config, x, y);
-  if (isCommons(state.config, px, py))
-    return `the Commons, plot (${px}, ${py}), which nobody can claim`;
+  if (isCommons(state, px, py)) return `the Commons, plot (${px}, ${py}), which nobody can claim`;
   const plot = state.plots[plotKey(px, py)];
   if (!plot) return `plot (${px}, ${py}), which is free`;
   if (plot.ownerId === viewer) return `your plot (${px}, ${py})`;
@@ -155,7 +154,7 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   const free: { px: number; py: number; away: number }[] = [];
   for (let py = 0; py < config.height / config.plotSize; py++) {
     for (let px = 0; px < config.width / config.plotSize; px++) {
-      if (isCommons(config, px, py) || state.plots[plotKey(px, py)]) continue;
+      if (isCommons(state, px, py) || state.plots[plotKey(px, py)]) continue;
       free.push({ px, py, away: chebyshev({ x: px, y: py }, { x: here.px, y: here.py }) });
     }
   }
@@ -306,7 +305,7 @@ export function worldLinks(
       const l = linksFor(origin, params.key);
       const { config } = state;
       const owned = plotsOwnedBy(state, viewer)[0];
-      const commons = commonsPlot(config);
+      const commons = commonsPlot(state);
       const everyone = Object.values(state.residents);
       // Counted like the home page: townsfolk and their plots are left out.
       const onlineCount = everyone.filter((o) => o.online && !isTownsfolk(state, o.id)).length;

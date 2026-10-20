@@ -57,7 +57,7 @@ function namedPlot(state: WorldState, px: number, py: number): Plot | Rejection 
   if (!plotInBounds(config, px, py)) {
     return refuse("out_of_bounds", "That plot is outside the world.");
   }
-  if (isCommons(config, px, py)) {
+  if (isCommons(state, px, py)) {
     return refuse("plot_is_commons", "The Commons belongs to everyone, so it keeps its own name.");
   }
   const plot = own(state.plots, plotKey(px, py));

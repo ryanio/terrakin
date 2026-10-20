@@ -126,11 +126,10 @@ export function landPlots(state: WorldState): Tile[] {
  * grow itself, so no rule here reads it.
  */
 export function plotsLeft(state: WorldState): number {
-  // The Commons belongs to downtown, so read it from the rectangle the world started as: the
-  // grown config's center plot is somewhere else entirely once a land opens.
-  const home = { ...state.config, ...(state.lands?.home ?? {}) };
+  // `isCommons` pins itself to the rectangle the world started as (5927c9a8), so this no longer
+  // has to work the home rect out for itself.
   return landPlots(state).filter(
-    ({ x: px, y: py }) => !isCommons(home, px, py) && state.plots[plotKey(px, py)] === undefined,
+    ({ x: px, y: py }) => !isCommons(state, px, py) && state.plots[plotKey(px, py)] === undefined,
   ).length;
 }
 

@@ -127,7 +127,7 @@ export function townShopView(
   state: WorldState,
 ): { tiles: { x: number; y: number }[]; buying: BuyOrderView[] } | null {
   if (!state.shop) return null;
-  return { tiles: shopTiles(state.config), buying: buyingToday(state) };
+  return { tiles: shopTiles(state), buying: buyingToday(state) };
 }
 
 /**
@@ -141,7 +141,7 @@ function counterFields(
 ): { counter?: { x: number; y: number }; away?: string } {
   if (!state.shop?.inPerson) return {};
   const away = notAtTheCounter(state, me);
-  return { counter: shopTile(state.config), ...(away ? { away: away.message } : {}) };
+  return { counter: shopTile(state), ...(away ? { away: away.message } : {}) };
 }
 
 /**
@@ -170,7 +170,7 @@ export function shopView(
       items: itemsOn(state, state.day),
       ...(state.recipes ? { recipes: cardsOn(state, state.day, mine ? viewer : undefined) } : {}),
       buying: buyingToday(state, mine ? viewer : undefined),
-      tiles: shopTiles(state.config),
+      tiles: shopTiles(state),
     },
     you:
       mine && me

@@ -124,7 +124,7 @@ function freeSpot(state: WorldState): Tile | undefined {
   const taken = new Set(
     Object.values(state.games?.tables ?? {}).map((t) => tileKey(t.place.x, t.place.y)),
   );
-  return gameTableTiles(state.config).find(
+  return gameTableTiles(state).find(
     (t) => !taken.has(tileKey(t.x, t.y)) && state.blocks[tileKey(t.x, t.y)] === undefined,
   );
 }
@@ -138,7 +138,7 @@ function freeSpot(state: WorldState): Tile | undefined {
 function besideTable(state: WorldState, me: Resident, place: Tile): Tile | undefined {
   const { config } = state;
   const ground = worldGround(state);
-  const spots = new Set(gameTableTiles(config).map((t) => tileKey(t.x, t.y)));
+  const spots = new Set(gameTableTiles(state).map((t) => tileKey(t.x, t.y)));
   const open = (x: number, y: number) =>
     ground.obstacle(x, y) === undefined && !spots.has(tileKey(x, y));
   if (chebyshev(me, place) === 1 && open(me.x, me.y)) return undefined;
@@ -148,7 +148,7 @@ function besideTable(state: WorldState, me: Resident, place: Tile): Tile | undef
       .map((r) => tileKey(r.x, r.y)),
   );
   const { plotSize } = config;
-  const c = commonsPlot(config);
+  const c = commonsPlot(state);
   const tiles: Tile[] = [];
   for (let y = c.py * plotSize; y < (c.py + 1) * plotSize; y++) {
     for (let x = c.px * plotSize; x < (c.px + 1) * plotSize; x++) {

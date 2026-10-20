@@ -1,4 +1,12 @@
-import { chebyshev, DAY_MS, plotOf, purseOf, spawnTile, type WorldConfig } from "@terrakin/sim";
+import {
+  chebyshev,
+  createWorld,
+  DAY_MS,
+  plotOf,
+  purseOf,
+  spawnTile,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { Api } from "./api";
 import { MemoryMediaStore } from "./media";
@@ -447,7 +455,7 @@ describe("a greeting in the town square", () => {
     // Pip wandered off to the west edge; home is nearer the square than there.
     t.as(t.pip, { type: "visit", px: 1, py: 1 });
     const ash = t.newcomer("Ash");
-    const spawn = spawnTile(CONFIG);
+    const spawn = spawnTile(createWorld(CONFIG));
     t.as(ash, { type: "move", dir: "se" });
     t.as(ash, { type: "move", dir: "e" });
     t.advance(GREET.afterMs);

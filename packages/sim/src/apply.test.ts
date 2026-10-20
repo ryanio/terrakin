@@ -6,7 +6,9 @@ import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldState
 import {
   CHAT_EARSHOT,
   createWorld,
+  isTownSquare,
   plotsOwnedBy,
+  type SettleProblem,
   settleProblem,
   spawnTile,
   starterHutGardenTiles,
@@ -47,7 +49,7 @@ function rejectionCode(result: ReturnType<typeof apply>) {
 describe("join and leave", () => {
   it("spawns new residents in the Commons", () => {
     const state = joined("ada");
-    expect(state.residents.ada).toMatchObject({ ...spawnTile(CONFIG), online: true });
+    expect(state.residents.ada).toMatchObject({ ...spawnTile(state), online: true });
   });
 
   it("rejects a second join and actions before joining", () => {
@@ -266,7 +268,7 @@ describe("place and remove", () => {
       apply(state, { actor: "ada", command: { type: "place", x: 1, y: 2, block: "stone" } }).ok,
     ).toBe(true);
     run(state, "bob", { type: "join", name: "bob", kind: "human" });
-    expect(state.residents.bob).toMatchObject(spawnTile(CONFIG));
+    expect(state.residents.bob).toMatchObject(spawnTile(state));
   });
 });
 
@@ -502,17 +504,28 @@ describe("settle", () => {
   it("refuses exactly where settleProblem says, which the web's plot picker reads", () => {
     const state = roomy("ada", "bob");
     run(state, "ada", { type: "settle", px: 0, py: 0 });
+    // Two problems answer with another problem's code, because either way the next move is to pick
+    // a different plot: water with `out_of_bounds`, and a town square with the Commons' own code
+    // (RFC 0038).
+    const codes: Record<NonNullable<SettleProblem>, string> = {
+      out_of_bounds: "out_of_bounds",
+      plot_is_water: "out_of_bounds",
+      plot_is_square: "plot_is_commons",
+      plot_owned: "plot_owned",
+      plot_limit: "plot_limit",
+    };
     for (const actor of ["ada", "bob"]) {
       for (let py = -1; py <= 3; py++) {
         for (let px = -1; px <= 3; px++) {
           const said = settleProblem(ROOMY, px, py, {
             claimed: state.plots[`${px},${py}`] !== undefined,
             ownsAPlot: plotsOwnedBy(state, actor).length > 0,
+            square: isTownSquare(state, px, py),
           });
           // `prepare` checks without changing anything, so every plot is asked of the same world.
           const checked = prepare(state, { actor, command: { type: "settle", px, py } });
           const code = checked.ok ? undefined : checked.rejection.code;
-          expect(code, `${actor} ${px},${py}`).toBe(said);
+          expect(code, `${actor} ${px},${py}`).toBe(said ? codes[said] : undefined);
         }
       }
     }

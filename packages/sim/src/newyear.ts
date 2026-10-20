@@ -63,7 +63,7 @@ export function checkSetOffFirework(
   }
   const { px, py } = plotOf(state.config, x, y);
   const plot = state.plots[`${px},${py}`];
-  if (!isCommons(state.config, px, py) && !(plot && canBuildOn(plot, actor))) {
+  if (!isCommons(state, px, py) && !(plot && canBuildOn(plot, actor))) {
     return refuse(
       "not_your_plot",
       "Set fireworks off over your own plot or the Commons, never over a neighbor's.",

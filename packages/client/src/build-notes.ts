@@ -35,7 +35,8 @@ export function mirrorNotes(m: Mirror, px: number, py: number): DesignNote[] {
   return plotNotes(mirrorTiles(m, px, py), {
     config: m.config,
     solidBuildings: m.solidBuildings,
-    shopOpen: m.shop.length > 0,
+    townHall: m.townHall,
+    shop: m.shop,
   });
 }
 

@@ -1,4 +1,13 @@
-import { type Direction, groundOf, route, STEP, type Tile, tileKey } from "@terrakin/sim";
+import {
+  counterTiles,
+  type Direction,
+  groundOf,
+  hallTiles,
+  route,
+  STEP,
+  type Tile,
+  tileKey,
+} from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { Motion, WALK_SPEED } from "./motion";
 import {
@@ -13,6 +22,8 @@ import {
 } from "./walk";
 
 const CONFIG = { width: 24, height: 24, plotSize: 8, maxPlotsPerResident: 1, reach: 3 };
+/** The Commons of that world, which is where its hall and its counter stand, on the spawn column. */
+const COMMONS = { px: 1, py: 1, x: 12 };
 const FRAME = 16;
 
 /**
@@ -27,7 +38,8 @@ function world(
     config: CONFIG,
     hasBlock: (x, y) => blocks.has(tileKey(x, y)),
     solidBuildings: true,
-    shopOpen: true,
+    townHall: hallTiles(CONFIG, COMMONS),
+    shop: counterTiles(CONFIG, COMMONS),
   });
   const motion = new Motion();
   motion.self = "me";

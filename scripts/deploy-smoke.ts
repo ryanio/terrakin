@@ -180,6 +180,7 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   holidayPrices: null,
   shopInPerson: "shopInPerson",
   proposeInPerson: "proposeInPerson",
+  scheduleInPerson: "scheduleInPerson",
   levels: "levelsOpen",
   jobs: "jobsOpen",
   circles: "circlesOpen",

@@ -271,6 +271,12 @@ export interface WorldServiceOptions {
    */
   proposeInPerson?: boolean;
   /**
+   * Booking an event in person (RFC 0042): append `schedule_in_person` if it never has, after
+   * which `schedule_event` needs the caller standing on the place being booked. The town's own
+   * events are untouched. Both adapters turn it on, like `shopInPerson`.
+   */
+  scheduleInPerson?: boolean;
+  /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
    * (`levelFirsts`). The Worker turns it on, so terrakin.org logs it once; the Node server leaves
@@ -429,6 +435,7 @@ interface TownSwitch {
     | "holidayPrices"
     | "shopInPerson"
     | "proposeInPerson"
+    | "scheduleInPerson"
     | "levels"
     | "jobs"
     | "circles"
@@ -558,6 +565,14 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "propose_in_person" },
     label: "send proposers to the Town Hall",
   },
+  // Booking in person (RFC 0042) needs nothing open first: the flag is top level, like filing's,
+  // rather than on the events state the first booking creates.
+  {
+    option: "scheduleInPerson",
+    due: (s) => !s.scheduleInPerson,
+    command: { type: "schedule_in_person" },
+    label: "send hosts to the place they book",
+  },
   // Levels (RFC 0029) open with a one-time credit read from the collection book, a social table.
   // Until `Api` wires `levelFirsts` there's no book to read, so the switch waits, and a read that
   // throws is reported and leaves it for a later tick: levels never open without their credit.
@@ -644,6 +659,7 @@ export class WorldService {
   private readonly holidayPrices: boolean;
   private readonly shopInPerson: boolean;
   private readonly proposeInPerson: boolean;
+  private readonly scheduleInPerson: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
@@ -746,6 +762,7 @@ export class WorldService {
     this.holidayPrices = options.holidayPrices ?? false;
     this.shopInPerson = options.shopInPerson ?? false;
     this.proposeInPerson = options.proposeInPerson ?? false;
+    this.scheduleInPerson = options.scheduleInPerson ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;

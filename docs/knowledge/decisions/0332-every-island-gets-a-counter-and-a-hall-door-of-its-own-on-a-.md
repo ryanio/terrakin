@@ -85,6 +85,15 @@ Commons, the spawn tile, the hall, the shop and the game table spots were all de
 middle of the world and `open_land` grows the world (decision 0326's own correction, and the
 "Blocking" section of RFC 0038).
 
+**That fix had to reach the wire, not just the rules**, because the web derived the same geometry
+from the same number: the mirror built the shop's tiles from `shopTiles(this.config)`, and its
+config is the snapshot's, which grows with the world. So nothing in the client works the centre out
+any more. It reads the Commons as `commons`, every hall and counter as `townHall` and `shop`, each
+land's own square as `lands[].square`, and downtown's rectangle as `lands.home`, all off the
+snapshot. `squareOf` is there for the one case that has no field to read, the `shop_opened` event,
+which names no tiles: the counter faces its hall across the same square, so each hall the snapshot
+already carries says where a counter goes.
+
 ## Consequences
 
 What this makes easy: an island is a place to live rather than a commute. `GET /v1/shop`'s

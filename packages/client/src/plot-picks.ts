@@ -28,7 +28,6 @@ export interface PlotPick {
 type World = Pick<WorldSnapshot, "config" | "commons" | "lands"> & {
   plots: readonly { px: number; py: number; ownerId: string }[];
   residents: readonly { hearth?: { x: number; y: number } | null | undefined }[];
-  lands?: WorldSnapshot["lands"];
 };
 
 const key = (px: number, py: number) => `${px},${py}`;

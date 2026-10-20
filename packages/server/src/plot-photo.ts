@@ -275,10 +275,14 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
       ? petPicture(owner.pet, ownHearth, petBed(worldGround(state), ownHearth), bx, by)
       : undefined;
 
-  // The home's roof (RFC 0041), drawn from above only: a floor plan is for seeing in.
+  // The roofs of the homes around (RFC 0041), but never this plot's own, which lifts away the way
+  // it does on the map when you stand there (`render.ts`: "every home's but the one you stand
+  // on"). A photo has no "you" to lift it, and a roof drawn from above is opaque, so leaving it on
+  // hid the whole subject: the hearth, the walls, the planters and the doorway. A floor plan asks
+  // for none at all, since the point of one is seeing in.
   const roofs =
     floor === undefined
-      ? roofsIn(state, bx, by, cols, rows, paletteAt, (px, py) => px === plot.px && py === plot.py)
+      ? roofsIn(state, bx, by, cols, rows, paletteAt, (px, py) => px !== plot.px || py !== plot.py)
       : [];
   // Whoever is standing on the plot, so a home with someone in it reads as one (issue #80). Only
   // the plot's own: a neighbor in their garden isn't the subject, and a photo is kept and posted.
@@ -413,9 +417,10 @@ export function plotInk(s: ReturnType<typeof seasonOf> | undefined): PlotInk {
  */
 /**
  * The roofs of the homes in a box of the world (RFC 0041), their tiles counted from its top left,
- * each in its covering's own color on that plot's theme. `only` keeps it to one plot, which is
- * what a plot photo wants: a neighbor's roof in a sliver is not the subject. A floor plan asks for
- * none, since the point of one is seeing in.
+ * each in its covering's own color on that plot's theme. `only` chooses which plots' roofs are
+ * drawn: a plot photo passes every plot but its own, so the subject's roof lifts away as it does
+ * on the map, while the neighbors' stay on in the sliver around it, where their hearths and blocks
+ * are drawn too (decision 0306). A floor plan asks for none, since the point of one is seeing in.
  */
 export function roofsIn(
   state: WorldState,

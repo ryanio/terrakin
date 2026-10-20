@@ -96,7 +96,7 @@ export function suggestPlots(state: WorldState, around: PlotRef, count: number):
     for (const { px, py } of cells) {
       if (found.length >= count) break;
       if (!plotInBounds(config, px, py) || isTownSquare(state, px, py)) continue;
-      // Nor open water, nor a town square: neither is a plot anyone can settle (decision 0328).
+      // Nor open water, nor a town square: neither is a plot anyone can settle (decision 0332).
       if (!onLand(state, px, py)) continue;
       if (state.plots[plotKey(px, py)]) continue;
       found.push({ px, py });

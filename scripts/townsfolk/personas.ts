@@ -18,6 +18,7 @@ import { TIP_NOTES } from "../../packages/server/src/tip-plan.ts";
 import type { BlockKind, ResidentColor, ResidentShape } from "../../packages/sim/src/index";
 import type { BuildingKind } from "./buildings.ts";
 import type { PetChoice } from "./pet-plan.ts";
+import type { RoofChoice } from "./roof-plan.ts";
 
 /** Where a resident would like to live. The nearest free plot to it wins. */
 export type Spot =
@@ -70,6 +71,13 @@ export interface Persona {
     building: BuildingKind;
     walls: BlockKind;
     windows: BlockKind;
+    /**
+     * Its roof (RFC 0041), put up with `set_roof` once the home is built. What a roof covers is
+     * read from the walls, so there's nothing to lay out here: a style, and a free block to cover
+     * it in. No two wear the same pair, and none wears `pitched`, which draws as one almost flat
+     * plane over homes as wide as these ([decision 0330](../../docs/knowledge/decisions/0330-the-townsfolk-s-homes-wear-roofs-in-the-free-coverings-and-n.md)).
+     */
+    roof: RoofChoice;
     /**
      * Signature blocks placed after the starter home, so each home in the world echoes its
      * postcard. In tiles from the plot's north-west corner. The starter home fills the ring from
@@ -124,6 +132,8 @@ export const PERSONAS: Persona[] = [
       building: "greenhouse",
       walls: "wood",
       windows: "leaf",
+      // The glass gable her postcard draws over the greenhouse: light on the seedlings.
+      roof: { style: "gable", material: "glass" },
       decor: [
         { dx: 6, dy: 1, block: "leaf" },
         { dx: 6, dy: 2, block: "leaf" },
@@ -189,6 +199,8 @@ export const PERSONAS: Persona[] = [
       building: "workshop",
       walls: "stone",
       windows: "glass",
+      // A barn in sawn boards. His pillars and lumber count as walls, so it covers the yard too.
+      roof: { style: "gable", material: "wood" },
       decor: [
         { dx: 0, dy: 0, block: "stone" },
         { dx: 6, dy: 0, block: "stone" },
@@ -248,6 +260,8 @@ export const PERSONAS: Persona[] = [
       building: "cafe",
       walls: "wood",
       windows: "glass",
+      // Green and sloping to all four sides, over a corner building with tables on two of them.
+      roof: { style: "hip", material: "leaf" },
       decor: [
         { dx: 0, dy: 6, block: "leaf" },
         { dx: 1, dy: 6, block: "glass" },
@@ -309,6 +323,8 @@ export const PERSONAS: Persona[] = [
       building: "postOffice",
       walls: "wood",
       windows: "glass",
+      // A green roof over the post stop, low and plain like the rest of the house.
+      roof: { style: "gable", material: "leaf" },
       decor: [
         { dx: 4, dy: 6, block: "wood" },
         { dx: 2, dy: 6, block: "glass" },
@@ -363,6 +379,8 @@ export const PERSONAS: Persona[] = [
       building: "library",
       walls: "stone",
       windows: "wood",
+      // Slate, with the ridge down the long side, like the gable the postcard draws.
+      roof: { style: "gable", material: "stone" },
       decor: [
         { dx: 2, dy: 2, block: "wood" },
         { dx: 4, dy: 2, block: "wood" },
@@ -417,6 +435,8 @@ export const PERSONAS: Persona[] = [
       building: "lookout",
       walls: "wood",
       windows: "glass",
+      // The hipped cap his postcard draws, in the same boards as the stilts and the ladder.
+      roof: { style: "hip", material: "wood" },
       decor: [
         { dx: 0, dy: 5, block: "stone" },
         { dx: 0, dy: 6, block: "stone" },
@@ -480,6 +500,8 @@ export const PERSONAS: Persona[] = [
       building: "observatory",
       walls: "stone",
       windows: "glass",
+      // Four slopes of glass where the postcard has a dome, so the sky stays overhead.
+      roof: { style: "hip", material: "glass" },
       decor: [
         { dx: 4, dy: 0, block: "glass" },
         { dx: 5, dy: 0, block: "glass" },
@@ -537,6 +559,8 @@ export const PERSONAS: Persona[] = [
       building: "atelier",
       walls: "wood",
       windows: "glass",
+      // Pale slate over the white atelier. The tall glass wall is what brings the light in.
+      roof: { style: "hip", material: "stone" },
       decor: [
         { dx: 6, dy: 4, block: "wood" },
         { dx: 6, dy: 5, block: "leaf" },

@@ -1,4 +1,4 @@
-import { POND_LOOK } from "@terrakin/sim";
+import { POND_LOOK, SEA_LOOK } from "@terrakin/sim";
 import { type ArtKind, itemArtImage } from "@terrakin/ui/item-art";
 import { WOOD_DARK } from "./palette";
 
@@ -160,4 +160,106 @@ export function paintCast(
     }
   }
   ctx.restore();
+}
+
+/** Which sides of a tile the land (or a bridge) is on. */
+export interface Sides {
+  n: boolean;
+  e: boolean;
+  s: boolean;
+  w: boolean;
+}
+
+/**
+ * A tile of open water between lands (RFC 0038), flat in the ground like a pond but with no rim:
+ * the sea, foam along each side that meets land or a bridge, and a glint that drifts, still under
+ * reduced motion. A tile with water on all four sides is drawn deeper, so a channel darkens away
+ * from either bank in one band rather than tile by tile. `shore` says which sides are dry.
+ */
+export function paintSea(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  w: number,
+  h: number,
+  shore: Sides,
+  seed: number,
+  now: number,
+  still: boolean,
+) {
+  const u = Math.min(w, h);
+  ctx.fillStyle = SEA_LOOK.water;
+  ctx.fillRect(left, top, w, h);
+  // Out of sight of either bank, the water is deeper. Whole tiles, so the channel darkens in one
+  // band instead of drawing a lattice of edges.
+  if (!shore.n && !shore.e && !shore.s && !shore.w) {
+    ctx.fillStyle = SEA_LOOK.deep;
+    ctx.fillRect(left, top, w, h);
+  }
+  const foam = Math.max(1.5, u * 0.11);
+  ctx.fillStyle = SEA_LOOK.foam;
+  if (shore.n) ctx.fillRect(left, top, w, foam);
+  if (shore.s) ctx.fillRect(left, top + h - foam, w, foam);
+  if (shore.w) ctx.fillRect(left, top, foam, h);
+  if (shore.e) ctx.fillRect(left + w - foam, top, foam, h);
+  const t = still ? 0 : now / 1000;
+  const drift = still ? 0 : Math.sin(t * 0.5 + seed * 1.7) * u * 0.07;
+  ctx.strokeStyle = POND_LOOK.glint;
+  ctx.globalAlpha = 0.3 + 0.18 * Math.sin(t * 1.1 + seed);
+  ctx.lineWidth = Math.max(1, u * 0.04);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(left + w * 0.22 + drift, top + h * (seed % 2 === 0 ? 0.38 : 0.62));
+  ctx.lineTo(left + w * 0.46 + drift, top + h * (seed % 2 === 0 ? 0.38 : 0.62));
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * A tile of bridge over the water (RFC 0038): a timber deck with planks across the way it runs and
+ * a rail along each side that meets open water, so the crossing reads as a walk rather than ground
+ * that happens to be dry. `run` says which sides carry on to more bridge or to land.
+ */
+export function paintBridge(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  w: number,
+  h: number,
+  run: Sides,
+  seed: number,
+) {
+  const u = Math.min(w, h);
+  ctx.fillStyle = SEA_LOOK.deck;
+  ctx.fillRect(left, top, w, h);
+  // Planks lie across the way the crossing runs: east to west along it, north to south across.
+  const alongX = run.e || run.w;
+  ctx.strokeStyle = SEA_LOOK.plank;
+  ctx.lineWidth = Math.max(1, u * 0.055);
+  ctx.beginPath();
+  for (const f of [0.22, 0.5, 0.78]) {
+    if (alongX) {
+      const x = left + w * f;
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, top + h);
+    } else {
+      const y = top + h * f;
+      ctx.moveTo(left, y);
+      ctx.lineTo(left + w, y);
+    }
+  }
+  ctx.stroke();
+  // A rail where the deck's edge is over water.
+  const rail = Math.max(1.5, u * 0.12);
+  ctx.fillStyle = SEA_LOOK.rail;
+  if (!run.n) ctx.fillRect(left, top, w, rail);
+  if (!run.s) ctx.fillRect(left, top + h - rail, w, rail);
+  if (!run.w) ctx.fillRect(left, top, rail, h);
+  if (!run.e) ctx.fillRect(left + w - rail, top, rail, h);
+  // One darker board, so a long crossing isn't a flat ribbon.
+  if (seed % 3 === 0) {
+    ctx.fillStyle = SEA_LOOK.plank;
+    if (alongX) ctx.fillRect(left + w * 0.36, top + rail, w * 0.14, h - rail * 2);
+    else ctx.fillRect(left + rail, top + h * 0.36, w - rail * 2, h * 0.14);
+  }
 }

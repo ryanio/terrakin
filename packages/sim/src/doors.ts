@@ -62,7 +62,7 @@ export function notAtDoor(
 
 /**
  * Which door a resident is sent to, now that every land has a hall and a counter of its own
- * ([RFC 0038](../../../docs/rfcs/0038-new-lands.md), decision 0328): the one on the land they
+ * ([RFC 0038](../../../docs/rfcs/0038-new-lands.md), decision 0332): the one on the land they
  * stand on, the nearest of those when a land ever has more than one, and the nearest of all when
  * they stand on no land at all, which is a bridge tile. Downtown's with no resident to ask about.
  *

@@ -10,6 +10,7 @@
  *   pnpm persona stocked --open-levels   (opens levels first, once per world: deeds earn points)
  *   pnpm persona stocked --open-jobs     (opens the town's jobs first, and levels with them)
  *   pnpm persona settled --open-circles (opens circles first)
+ *   pnpm persona settled --open-land    (opens the next land, so there's an island to see)
  *   pnpm persona stocked --job bram_chair  (moves the clock on to a day with that job)
  *
  * It prints who it made and a line of JavaScript that signs a browser tab in as them. Presets and
@@ -24,6 +25,7 @@ import {
   makePersona,
   openCirclesOver,
   openJobsOver,
+  openLandOver,
   openLevelsOver,
   openRecipesOver,
   type PersonaSpec,
@@ -47,6 +49,7 @@ const { values, positionals } = parseArgs({
     "open-levels": { type: "boolean" },
     "open-jobs": { type: "boolean" },
     "open-circles": { type: "boolean" },
+    "open-land": { type: "boolean" },
     job: { type: "string" },
     path: { type: "string", default: "/world" },
     json: { type: "boolean" },
@@ -58,7 +61,7 @@ const preset = positionals[0] ?? "settled";
 if (values.help || !isPreset(preset)) {
   console.log(`Usage: pnpm persona [${Object.keys(PRESETS).join("|")}] [--name N] [--coins N]
   [--stacks kind=n,kind=n] [--staff] [--agent Name] [--kind human|agent] [--days N]
-  [--open-recipes] [--open-levels] [--open-jobs] [--open-circles] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
+  [--open-recipes] [--open-levels] [--open-jobs] [--open-circles] [--open-land] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
   process.exit(values.help ? 0 : 2);
 }
 
@@ -103,6 +106,7 @@ try {
   if (values["open-levels"]) await openLevelsOver(http);
   if (values["open-jobs"]) await openJobsOver(http);
   if (values["open-circles"]) await openCirclesOver(http);
+  if (values["open-land"]) await openLandOver(http);
   if (values.job) {
     const days = await jobDayOver(http, values.job);
     if (!values.json)

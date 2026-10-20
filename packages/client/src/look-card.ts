@@ -7,6 +7,7 @@
  */
 import { canBuildOn, plotKey, plotOf, type Tile, type WorldConfig } from "@terrakin/sim";
 import { profilePath } from "@terrakin/ui/paths";
+import { type LandsView, onLandPlot } from "./lands";
 import type { Dozer } from "./scene3d/layout";
 import { plotTitles } from "./visits";
 import type { LookTarget } from "./world-link";
@@ -24,6 +25,8 @@ export interface LookWorld {
   plotNames: ReadonlyMap<string, string>;
   outOnRoutine(me?: string): readonly { r: { id: string }; routine: string }[];
   asleep(me?: string): readonly Dozer<{ id: string }>[];
+  /** The lands beyond downtown (RFC 0038), for the plots that are open water. Absent: none. */
+  lands?: LandsView | undefined;
 }
 
 /** A place on the map to look at, as it is now. */
@@ -61,6 +64,9 @@ export function placeOf(world: LookWorld, target: LookTarget, me?: string): Plac
     const at = { x: px * plotSize + middle, y: py * plotSize + middle, px, py };
     if (px === world.commons.px && py === world.commons.py)
       return { ...at, title: "The Commons", line: null, profile: null };
+    // Open water (RFC 0038) is no plot: nobody lives there and nobody will.
+    if (!onLandPlot(world.config, world.lands, px, py))
+      return { ...at, title: "Open water", line: "Cross by the bridge.", profile: null };
     const owner = world.plots.get(plotKey(px, py));
     if (owner === undefined)
       return { ...at, title: "An empty plot", line: "Nobody lives here yet.", profile: null };

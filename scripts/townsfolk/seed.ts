@@ -5,7 +5,7 @@
  *
  *   pnpm townsfolk -- --base http://localhost:8787
  *   pnpm townsfolk -- --base http://localhost:8787 --handles [--send]
- *   pnpm townsfolk -- --base http://localhost:8787 --routines --pets [--send]
+ *   pnpm townsfolk -- --base http://localhost:8787 --routines --pets --roofs [--send]
  *   node scripts/townsfolk/seed.ts --base <url> [--dry-run] [--refresh-art] [--creds <file>] [--images <dir>] [--pace <ms>]
  *
  *   --base         server to seed (required)
@@ -16,10 +16,11 @@
  *                  blocks placed. Does nothing once the credentials file records the current version.
  *   --handles      only claim each stored resident's handle (`handle` in personas.ts)
  *   --routines     only set each stored resident's routines (`routines` in personas.ts)
- *   --pets         only adopt each stored resident's pet (`pet` in personas.ts), or rename it.
- *                  These three go together in any mix and change nothing else. Each is a dry run
+ *   --pets         only adopt each stored resident's pet (`pet` in personas.ts), or rename it
+ *   --roofs        only put up each stored resident's roof (`home.roof` in personas.ts).
+ *                  These four go together in any mix and change nothing else. Each is a dry run
  *                  that prints the plan and the exact requests unless --send is given too.
- *   --send     with --handles, --routines or --pets: send them
+ *   --send     with --handles, --routines, --pets or --roofs: send them
  *   --creds    where to keep tokens (default ~/.config/terrakin/townsfolk.<host>.json, mode 0600)
  *   --images   also write the postcards and avatars to this directory
  *   --pace     pause between social writes, in ms (default 800)
@@ -46,6 +47,7 @@ import { describeStep, planHandle } from "./handle-plan.ts";
 import { checkPersonas, PERSONAS, type Persona } from "./personas.ts";
 import { describePetStep, planPet } from "./pet-plan.ts";
 import { choosePlot, describePlace, type Plot, plotKey } from "./plan.ts";
+import { describeRoofStep, planRoof, type RoofOnPlot } from "./roof-plan.ts";
 import { describeRoutinesStep, planRoutines } from "./routine-plan.ts";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +64,7 @@ const { values: args } = parseArgs({
     handles: { type: "boolean", default: false },
     routines: { type: "boolean", default: false },
     pets: { type: "boolean", default: false },
+    roofs: { type: "boolean", default: false },
     send: { type: "boolean", default: false },
     creds: { type: "string" },
     images: { type: "string" },
@@ -79,15 +82,18 @@ const REFRESH = args["refresh-art"];
 const HANDLES = args.handles;
 const ROUTINES = args.routines;
 const PETS = args.pets;
-/** Only some steps, for residents already seeded: `--handles`, `--routines`, `--pets`. */
-const ONLY = HANDLES || ROUTINES || PETS;
+const ROOFS = args.roofs;
+/** Only some steps, for residents already seeded: `--handles`, `--routines`, `--pets`, `--roofs`. */
+const ONLY = HANDLES || ROUTINES || PETS || ROOFS;
 if (args.send && !ONLY) {
-  console.error("--send goes with --handles, --routines or --pets. A full seed has --dry-run.");
+  console.error(
+    "--send goes with --handles, --routines, --pets or --roofs. A full seed has --dry-run.",
+  );
   process.exit(2);
 }
 if (ONLY && (DRY || REFRESH)) {
   console.error(
-    "--handles, --routines and --pets are a dry run unless you add --send; leave out --dry-run and --refresh-art.",
+    "--handles, --routines, --pets and --roofs are a dry run unless you add --send; leave out --dry-run and --refresh-art.",
   );
   process.exit(2);
 }
@@ -377,8 +383,36 @@ async function ensurePet(
   await runStep(p, describePetStep(step, send), action, send ? s : undefined);
 }
 
-/** `--handles`, `--routines`, `--pets`: those steps for each stored resident, and nothing else. */
+/**
+ * Put up the persona's roof unless the plot wears it already (RFC 0041). `current` is the roof on
+ * the plot now. Every roof in the cast is covered in a free block, so this takes nothing out of
+ * the resident's things and a change gives the old covering back.
+ */
+async function ensureRoof(
+  p: Persona,
+  s: Stored,
+  plot: Plot,
+  current: RoofOnPlot,
+  send: boolean,
+): Promise<void> {
+  const step = planRoof(plot, p.home.roof, current);
+  const action = step.kind === "set" ? step.action : undefined;
+  await runStep(p, describeRoofStep(step, send), action, send ? s : undefined);
+}
+
+/** The plot a stored resident owns, and the roof on it, from a world snapshot. */
+function plotOf(s: Stored, snap: WorldSnapshot): { plot: Plot; roof: RoofOnPlot } | undefined {
+  const mine = snap.plots.find((plot) => plot.ownerId === s.residentId);
+  return mine ? { plot: { px: mine.px, py: mine.py }, roof: mine.roof } : undefined;
+}
+
+/**
+ * `--handles`, `--routines`, `--pets`, `--roofs`: those steps for each stored resident, and
+ * nothing else.
+ */
 async function onlySteps(creds: Creds): Promise<void> {
+  // A roof is read from the plot, so it takes the world; the other steps read a profile each.
+  const snap = ROOFS ? await world() : undefined;
   for (const p of PERSONAS) {
     const s = creds.residents[p.key];
     if (!s) {
@@ -392,6 +426,11 @@ async function onlySteps(creds: Creds): Promise<void> {
     if (HANDLES) await ensureHandle(p, s, resident.handle, args.send);
     if (ROUTINES) await ensureRoutines(p, s, args.send);
     if (PETS) await ensurePet(p, s, resident.pet, args.send);
+    if (ROOFS && snap) {
+      const home = plotOf(s, snap);
+      if (home) await ensureRoof(p, s, home.plot, home.roof, args.send);
+      else say(p.name, "roof: holds no plot here, so there's no home to roof");
+    }
     if (args.send) await sleep(PACE);
   }
   if (!args.send) console.log("\nDry run: nothing changed. Add --send to send it.");
@@ -696,7 +735,12 @@ async function main(): Promise<void> {
 
   const creds = loadCreds();
   if (ONLY) {
-    const steps = [HANDLES && "handles", ROUTINES && "routines", PETS && "pets"].filter(Boolean);
+    const steps = [
+      HANDLES && "handles",
+      ROUTINES && "routines",
+      PETS && "pets",
+      ROOFS && "roofs",
+    ].filter(Boolean);
     const what =
       steps.length > 1 ? `${steps.slice(0, -1).join(", ")} and ${steps.at(-1)}` : steps[0];
     console.log(
@@ -737,6 +781,7 @@ async function main(): Promise<void> {
         await ensureHandle(p, stored, resident.handle, false);
         await ensureRoutines(p, stored, false);
         await ensurePet(p, stored, resident.pet, false);
+        await ensureRoof(p, stored, { px: owned.px, py: owned.py }, owned.roof, false);
         continue;
       }
       const plot = choosePlot(p.spot, snap, reserved);
@@ -746,12 +791,18 @@ async function main(): Promise<void> {
       }
       reserved.add(plotKey(plot));
       say(p.name, `would join and settle (${plot.px}, ${plot.py}), ${describePlace(plot, snap)}`);
-      // Someone new has no routines and no pet yet.
+      // Someone new has no routines, no pet, and a home with no roof yet.
       const routines = planRoutines(p.routines, []);
       const pet = planPet(p.pet, undefined);
+      const roof = planRoof(plot, p.home.roof, undefined);
       const set = routines.kind === "set" ? routines.action : undefined;
       await runStep(p, describeRoutinesStep(routines, false), set);
       await runStep(p, describePetStep(pet, false), pet.kind === "adopt" ? pet.action : undefined);
+      await runStep(
+        p,
+        describeRoofStep(roof, false),
+        roof.kind === "set" ? roof.action : undefined,
+      );
     }
     return;
   }
@@ -829,14 +880,16 @@ async function main(): Promise<void> {
     saveCreds(creds);
   }
 
-  // 5. Routines and pets.
-  for (const { persona: p, stored: s } of lives) {
+  // 5. Routines, pets, and roofs. The roof goes up last, over the walls the home ended with.
+  const roofing = await world();
+  for (const { persona: p, stored: s, plot } of lives) {
     await ensureRoutines(p, s, true);
     const { resident } = await call<{ resident: ProfileView }>(
       "GET",
       `/v1/residents/${s.residentId}`,
     );
     await ensurePet(p, s, resident.pet, true);
+    await ensureRoof(p, s, plot, plotOf(s, roofing)?.roof, true);
   }
 
   if (artIsCurrent(creds)) {

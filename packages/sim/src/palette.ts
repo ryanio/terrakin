@@ -118,6 +118,22 @@ export const POND_LOOK = {
 } as const;
 
 /**
+ * How the open water between lands and the bridges over it look ([RFC 0038](../../../docs/rfcs/0038-new-lands.md)):
+ * the sea (deeper than a pond, so a channel reads as water to cross rather than a puddle), the
+ * deeper water out of sight of either bank, foam where it meets land, and the timber of a bridge
+ * with its planks and its rail. The map, the 3D world, and the plot photos all read it, so
+ * a crossing looks the same everywhere.
+ */
+export const SEA_LOOK = {
+  water: "#3f86b4",
+  deep: "rgba(24, 58, 90, 0.18)",
+  foam: "rgba(255, 255, 255, 0.5)",
+  deck: "#b08b5c",
+  plank: "rgba(92, 62, 36, 0.45)",
+  rail: "#8a6a42",
+} as const;
+
+/**
  * One shape of a path or flooring's picture, in tile units: (0, 0) is the tile's top left and (1, 1)
  * its bottom right. Colors are `#rrggbb` or `rgba(r, g, b, a)`. `turn` is in degrees.
  */

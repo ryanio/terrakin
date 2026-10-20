@@ -58,13 +58,11 @@ import { nameKey } from "./text";
  * jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
  * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored,
  * `page_edition_set`, since the snapshot's `pageEdition` is what a client draws pages from
- * (RFC 0024), `circle_nights`, a merge's bookkeeping for circle nights attended (RFC 0033), and
- * `land_opened` while new lands are the sim's alone (RFC 0038): no adapter opens one, and the
- * snapshot has no `lands` yet, so there is nothing for a client to draw from it. It goes on the
- * wire with that field, not before. A gift
- * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
- * side: their purses reset to the budget each day, so the public treasury lines would give the
- * amount away.
+ * (RFC 0024), and `circle_nights`, a merge's bookkeeping for circle nights attended (RFC 0033). A
+ * gift also shows as a public `gift` event, without the amount or note, unless townsfolk are on
+ * either side: their purses reset to the budget each day, so the public treasury lines would give
+ * the amount away. A `land_opened` goes out as the snapshot's `lands` names its tiles (RFC 0038),
+ * so one reader draws water and bridges one way.
  */
 export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []): WireEvent[] {
   const out: WireEvent[] = [];
@@ -80,9 +78,19 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "job_total" ||
       e.type === "job_edition_set" ||
       e.type === "page_edition_set" ||
-      e.type === "circle_nights" ||
-      e.type === "land_opened"
+      e.type === "circle_nights"
     ) {
+      continue;
+    }
+    if (e.type === "land_opened") {
+      // Plot slots and bridge tiles are `[x, y]` pairs in the sim and named coordinates on the
+      // wire, as the snapshot's `lands` has them.
+      out.push({
+        ...e,
+        plots: e.plots.map(([px, py]) => ({ px, py })),
+        bridge: e.bridge.map(([x, y]) => ({ x, y })),
+        square: { px: e.square[0], py: e.square[1] },
+      });
       continue;
     }
     if (e.type === "inventory") {
@@ -359,6 +367,30 @@ function hallsField(state: WorldState, held: (id: string) => boolean) {
   return halls.length > 0 ? { halls } : {};
 }
 
+/**
+ * The lands beyond downtown (RFC 0038): the rectangle downtown is, and each open land with its
+ * name, its claimable plot slots, and the bridge tiles that reach it. Absent in a world that never
+ * opened one, which is every world so far, so such a world's snapshot is exactly what it was. A
+ * reader works out the water from these facts, the way the rules do (the sim's `seaFrom`): its
+ * square is ground too, so a counter is never drawn in the sea.
+ */
+function landsField(state: WorldState) {
+  const lands = state.lands;
+  if (!lands) return {};
+  return {
+    lands: {
+      home: { ...lands.home },
+      list: lands.list.map((l) => ({
+        id: l.id,
+        name: l.name,
+        plots: l.plots.map(([px, py]) => ({ px, py })),
+        bridge: l.bridge.map(([x, y]) => ({ x, y })),
+        square: { px: l.square[0], py: l.square[1] },
+      })),
+    },
+  };
+}
+
 /** The world as `GET /v1/world` and a socket's `welcome` show it. */
 export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldSnapshot {
   const { nowMs, hash, facing, routineSteps, noteHidden, repeatJoins } = extras;
@@ -419,6 +451,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
       reach: state.config.reach,
     },
     commons: commonsPlot(state),
+    ...landsField(state),
     residents: Object.values(state.residents).flatMap((r) =>
       isTownsfolk(state, r.id) ? [] : [view(r)],
     ),

@@ -330,7 +330,9 @@ export type Role = keyof Omit<ThemePalette, "ground">;
 
 /**
  * One motif in a pattern tile, in tile units (0 to 1). Every motif sits inside the tile, so tiles
- * repeat without seams; waves run edge to edge and start and end at the same height.
+ * repeat without seams; waves run edge to edge and start and end at the same height. A painter
+ * fills and strokes only: a tile is recorded for cards by a pen of its own (`figure-svg.ts`),
+ * whose clip paths don't travel with it, so nothing here may clip.
  */
 export type Motif =
   | { kind: "circle"; x: number; y: number; r: number; fill: Role; alpha?: number }
@@ -340,7 +342,15 @@ export type Motif =
   | { kind: "leaf"; x: number; y: number; r: number; angle: number; fill: Role; vein: Role }
   | { kind: "flower"; x: number; y: number; r: number; fill: Role; center: Role }
   | { kind: "slice"; x: number; y: number; r: number }
-  | { kind: "wave"; y: number; amp: number; width: number; stroke: Role };
+  | { kind: "wave"; y: number; amp: number; width: number; stroke: Role }
+  | { kind: "lemon"; x: number; y: number; r: number; angle: number; fill: Role; leaf: Role }
+  | { kind: "cherry"; x: number; y: number; r: number; fill: Role; stem: Role }
+  | { kind: "mushroom"; x: number; y: number; r: number; cap: Role; stalk: Role }
+  | { kind: "cat"; x: number; y: number; r: number; fill: Role; face: Role }
+  | { kind: "fish"; x: number; y: number; r: number; angle: number; fill: Role; fin: Role }
+  | { kind: "moon"; x: number; y: number; r: number; fill: Role }
+  | { kind: "cloud"; x: number; y: number; r: number; fill: Role }
+  | { kind: "bee"; x: number; y: number; r: number; fill: Role; band: Role };
 
 const MOTIFS: Record<Pattern, Motif[]> = {
   plain: [],
@@ -376,6 +386,49 @@ const MOTIFS: Record<Pattern, Motif[]> = {
   leaves: [
     { kind: "leaf", x: 0.3, y: 0.32, r: 0.19, angle: -0.6, fill: "accent", vein: "deep" },
     { kind: "leaf", x: 0.76, y: 0.76, r: 0.13, angle: 0.9, fill: "light", vein: "deep" },
+  ],
+  // Prints scatter one thing three times at mixed sizes and angles, so a print reads as a print
+  // rather than as another two-up geometric.
+  lemons: [
+    { kind: "lemon", x: 0.29, y: 0.27, r: 0.22, angle: -0.5, fill: "accent", leaf: "deep" },
+    { kind: "lemon", x: 0.74, y: 0.66, r: 0.17, angle: 0.75, fill: "deep", leaf: "light" },
+    { kind: "lemon", x: 0.82, y: 0.17, r: 0.11, angle: 2.1, fill: "accent", leaf: "deep" },
+  ],
+  cherries: [
+    { kind: "cherry", x: 0.31, y: 0.3, r: 0.22, fill: "accent", stem: "deep" },
+    { kind: "cherry", x: 0.75, y: 0.72, r: 0.17, fill: "deep", stem: "accent" },
+    { kind: "cherry", x: 0.8, y: 0.21, r: 0.11, fill: "accent", stem: "deep" },
+  ],
+  mushrooms: [
+    { kind: "mushroom", x: 0.3, y: 0.3, r: 0.22, cap: "accent", stalk: "light" },
+    { kind: "mushroom", x: 0.74, y: 0.71, r: 0.17, cap: "deep", stalk: "light" },
+    { kind: "mushroom", x: 0.81, y: 0.19, r: 0.1, cap: "accent", stalk: "light" },
+  ],
+  cats: [
+    { kind: "cat", x: 0.3, y: 0.31, r: 0.22, fill: "accent", face: "light" },
+    { kind: "cat", x: 0.74, y: 0.72, r: 0.17, fill: "deep", face: "light" },
+    { kind: "cat", x: 0.8, y: 0.2, r: 0.11, fill: "accent", face: "light" },
+  ],
+  fish: [
+    { kind: "fish", x: 0.3, y: 0.28, r: 0.22, angle: -0.22, fill: "accent", fin: "deep" },
+    { kind: "fish", x: 0.73, y: 0.68, r: 0.17, angle: 0.3, fill: "deep", fin: "light" },
+    { kind: "fish", x: 0.8, y: 0.2, r: 0.11, angle: 2.9, fill: "accent", fin: "deep" },
+  ],
+  moons: [
+    { kind: "moon", x: 0.3, y: 0.3, r: 0.21, fill: "accent" },
+    { kind: "moon", x: 0.74, y: 0.71, r: 0.16, fill: "deep" },
+    { kind: "circle", x: 0.8, y: 0.21, r: 0.05, fill: "accent" },
+    { kind: "circle", x: 0.2, y: 0.74, r: 0.04, fill: "deep" },
+  ],
+  clouds: [
+    { kind: "cloud", x: 0.32, y: 0.28, r: 0.24, fill: "light" },
+    { kind: "cloud", x: 0.72, y: 0.7, r: 0.19, fill: "accent" },
+    { kind: "cloud", x: 0.84, y: 0.16, r: 0.12, fill: "accent" },
+  ],
+  bees: [
+    { kind: "bee", x: 0.3, y: 0.3, r: 0.22, fill: "deep", band: "main" },
+    { kind: "bee", x: 0.74, y: 0.71, r: 0.17, fill: "accent", band: "main" },
+    { kind: "bee", x: 0.81, y: 0.2, r: 0.11, fill: "deep", band: "main" },
   ],
 };
 
@@ -555,6 +608,211 @@ export function paintMotif(ctx: Ctx, m: Motif, p: ThemePalette, ox: number, oy: 
       ctx.stroke();
       return;
     }
+    case "lemon": {
+      // A whole lemon: a lens with a point at each end, turned by `angle`, and a leaf at its side.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      const cos = Math.cos(m.angle);
+      const sin = Math.sin(m.angle);
+      const pt = (a: number, b: number): [number, number] => [
+        x + a * cos - b * sin,
+        y + a * sin + b * cos,
+      ];
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * 0.76, r * 0.55, m.angle, 0, Math.PI * 2);
+      ctx.fill();
+      // A nub at each end, which is what tells a lemon from the leaf motif at this size.
+      ctx.beginPath();
+      ctx.moveTo(...pt(0.68 * r, -0.13 * r));
+      ctx.lineTo(...pt(0.97 * r, 0));
+      ctx.lineTo(...pt(0.68 * r, 0.13 * r));
+      ctx.closePath();
+      ctx.moveTo(...pt(-0.68 * r, -0.13 * r));
+      ctx.lineTo(...pt(-0.97 * r, 0));
+      ctx.lineTo(...pt(-0.68 * r, 0.13 * r));
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = p[m.leaf];
+      ctx.beginPath();
+      ctx.moveTo(...pt(0.08 * r, -0.44 * r));
+      ctx.quadraticCurveTo(...pt(0.42 * r, -0.88 * r), ...pt(0.56 * r, -0.5 * r));
+      ctx.quadraticCurveTo(...pt(0.3 * r, -0.4 * r), ...pt(0.08 * r, -0.44 * r));
+      ctx.fill();
+      return;
+    }
+    case "cherry": {
+      // Two cherries on stems that meet above them.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      ctx.strokeStyle = p[m.stem];
+      ctx.lineWidth = Math.max(0.6, r * 0.13);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x - 0.34 * r, y + 0.42 * r);
+      ctx.quadraticCurveTo(x - 0.22 * r, y - 0.44 * r, x + 0.04 * r, y - 0.8 * r);
+      ctx.moveTo(x + 0.36 * r, y + 0.54 * r);
+      ctx.quadraticCurveTo(x + 0.36 * r, y - 0.26 * r, x + 0.04 * r, y - 0.8 * r);
+      ctx.stroke();
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.01 * r, y + 0.42 * r);
+      ctx.arc(x - 0.34 * r, y + 0.42 * r, r * 0.33, 0, Math.PI * 2);
+      ctx.moveTo(x + 0.64 * r, y + 0.54 * r);
+      ctx.arc(x + 0.36 * r, y + 0.54 * r, r * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    case "mushroom": {
+      // Stalk first, then the cap over it, then two spots on the cap.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      ctx.fillStyle = p[m.stalk];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.2 * r, y - 0.1 * r);
+      ctx.lineTo(x + 0.2 * r, y - 0.1 * r);
+      ctx.quadraticCurveTo(x + 0.26 * r, y + 0.7 * r, x, y + 0.74 * r);
+      ctx.quadraticCurveTo(x - 0.26 * r, y + 0.7 * r, x - 0.2 * r, y - 0.1 * r);
+      ctx.fill();
+      ctx.fillStyle = p[m.cap];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.8 * r, y - 0.06 * r);
+      ctx.quadraticCurveTo(x - 0.74 * r, y - 0.86 * r, x, y - 0.86 * r);
+      ctx.quadraticCurveTo(x + 0.74 * r, y - 0.86 * r, x + 0.8 * r, y - 0.06 * r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = p[m.stalk];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.16 * r, y - 0.42 * r);
+      ctx.arc(x - 0.34 * r, y - 0.42 * r, r * 0.18, 0, Math.PI * 2);
+      ctx.moveTo(x + 0.44 * r, y - 0.3 * r);
+      ctx.arc(x + 0.3 * r, y - 0.3 * r, r * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    case "cat": {
+      // A cat's face: two ears, a round head, two eyes.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.56 * r, y - 0.2 * r);
+      ctx.lineTo(x - 0.42 * r, y - 0.84 * r);
+      ctx.lineTo(x - 0.04 * r, y - 0.42 * r);
+      ctx.closePath();
+      ctx.moveTo(x + 0.56 * r, y - 0.2 * r);
+      ctx.lineTo(x + 0.42 * r, y - 0.84 * r);
+      ctx.lineTo(x + 0.04 * r, y - 0.42 * r);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x, y + 0.12 * r, r * 0.62, r * 0.56, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = p[m.face];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.08 * r, y + 0.02 * r);
+      ctx.arc(x - 0.22 * r, y + 0.02 * r, r * 0.14, 0, Math.PI * 2);
+      ctx.moveTo(x + 0.36 * r, y + 0.02 * r);
+      ctx.arc(x + 0.22 * r, y + 0.02 * r, r * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    case "fish": {
+      // A little fish swimming along `angle`: a tail, a lens of a body, and an eye.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      const cos = Math.cos(m.angle);
+      const sin = Math.sin(m.angle);
+      const pt = (a: number, b: number): [number, number] => [
+        x + a * cos - b * sin,
+        y + a * sin + b * cos,
+      ];
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.moveTo(...pt(-0.3 * r, 0));
+      ctx.lineTo(...pt(-0.9 * r, -0.3 * r));
+      ctx.lineTo(...pt(-0.9 * r, 0.3 * r));
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(...pt(-0.36 * r, 0));
+      ctx.quadraticCurveTo(...pt(0.1 * r, -0.8 * r), ...pt(0.82 * r, 0));
+      ctx.quadraticCurveTo(...pt(0.1 * r, 0.8 * r), ...pt(-0.36 * r, 0));
+      ctx.fill();
+      ctx.fillStyle = p[m.fin];
+      const [ex, ey] = pt(0.42 * r, -0.1 * r);
+      ctx.beginPath();
+      ctx.arc(ex, ey, r * 0.11, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    case "moon": {
+      // A crescent: the long way round the outside, then one curve back for the inner edge, so
+      // the shape is a single filled path with nothing cut out of it.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const R = m.r * u * 0.95;
+      const a = Math.PI * 0.32;
+      const hx = x + Math.cos(a) * R;
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.moveTo(hx, y + Math.sin(a) * R);
+      ctx.arc(x, y, R, a, -a, false);
+      ctx.quadraticCurveTo(x - 1.2 * R, y, hx, y + Math.sin(a) * R);
+      ctx.fill();
+      return;
+    }
+    case "cloud": {
+      // Three bumps along a flat bottom, drawn as one path.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.moveTo(x - 0.86 * r, y + 0.42 * r);
+      ctx.quadraticCurveTo(x - 0.92 * r, y - 0.18 * r, x - 0.4 * r, y - 0.2 * r);
+      ctx.quadraticCurveTo(x - 0.34 * r, y - 0.78 * r, x + 0.16 * r, y - 0.6 * r);
+      ctx.quadraticCurveTo(x + 0.6 * r, y - 0.72 * r, x + 0.62 * r, y - 0.1 * r);
+      ctx.quadraticCurveTo(x + 0.96 * r, y - 0.04 * r, x + 0.84 * r, y + 0.42 * r);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+    case "bee": {
+      // Wings behind, then a round body with two bands.
+      const x = X(m.x);
+      const y = Y(m.y);
+      const r = m.r * u;
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = p[m.band];
+      ctx.beginPath();
+      ctx.ellipse(x - 0.18 * r, y - 0.44 * r, r * 0.3, r * 0.16, -0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + 0.2 * r, y - 0.42 * r, r * 0.26, r * 0.14, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = p[m.fill];
+      ctx.beginPath();
+      ctx.ellipse(x - 0.06 * r, y + 0.14 * r, r * 0.56, r * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = p[m.band];
+      ctx.beginPath();
+      ctx.ellipse(x + 0.58 * r, y + 0.06 * r, r * 0.24, r * 0.24, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x - 0.26 * r, y + 0.14 * r, r * 0.08, r * 0.33, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + 0.06 * r, y + 0.14 * r, r * 0.08, r * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
   }
 }
 
@@ -712,6 +970,14 @@ const PATTERN_WORDS: Record<GarmentPattern, string> = {
   waves: "wavy",
   hearts: "heart print",
   leaves: "leafy",
+  lemons: "lemon print",
+  cherries: "cherry print",
+  mushrooms: "mushroom print",
+  cats: "cat print",
+  fish: "fish print",
+  moons: "moon print",
+  clouds: "cloud print",
+  bees: "bee print",
   own: "own pattern",
 };
 

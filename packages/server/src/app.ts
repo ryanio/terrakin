@@ -106,7 +106,8 @@ export interface AppOptions {
    * running the minute sweep now (idle residents, routines, snapshots), and `POST /v1/test/grant`
    * (`TEST_GRANT_PATH`), `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`),
    * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`), `POST /v1/test/open-jobs`
-   * (`TEST_OPEN_JOBS_PATH`), and `POST /v1/test/open-circles` (`TEST_OPEN_CIRCLES_PATH`) from
+   * (`TEST_OPEN_JOBS_PATH`), `POST /v1/test/open-circles` (`TEST_OPEN_CIRCLES_PATH`), and
+   * `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now, RFC 0038) from
    * this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
@@ -151,6 +152,7 @@ export const TEST_OPEN_JOBS_PATH = "/v1/test/open-jobs";
  * has them. Answers the sim's refusal before coins are open, and when circles already are.
  */
 export const TEST_OPEN_CIRCLES_PATH = "/v1/test/open-circles";
+export const TEST_OPEN_LAND_PATH = "/v1/test/open-land";
 
 /**
  * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
@@ -374,8 +376,8 @@ export function createApp(options: AppOptions): Server {
         body: JSON.stringify(result.ok ? { ok: true } : { ok: false, error: result.error }),
       });
     }
-    // The switches a test turns on now: recipes (RFC 0024), levels (RFC 0029), and jobs (RFC
-    // 0030). Only from this machine, like the grant above.
+    // The switches a test turns on now: recipes (RFC 0024), levels (RFC 0029), jobs (RFC 0030),
+    // circles (RFC 0033), and the next land (RFC 0038). Only from this machine, like the grant.
     const openNow =
       url.pathname === TEST_OPEN_RECIPES_PATH
         ? () => options.service.testOpenRecipes()
@@ -385,7 +387,9 @@ export function createApp(options: AppOptions): Server {
             ? () => options.service.testOpenJobs()
             : url.pathname === TEST_OPEN_CIRCLES_PATH
               ? () => options.service.testOpenCircles()
-              : undefined;
+              : url.pathname === TEST_OPEN_LAND_PATH
+                ? () => options.service.testOpenLand()
+                : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {

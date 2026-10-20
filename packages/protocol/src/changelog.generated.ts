@@ -3,6 +3,42 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-a-plot-photo-no-longer-hides-the-home-under-its-own-roof",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "A plot photo no longer hides the home under its own roof",
+    "body": "A photo drew the roof of the plot it was about and skipped every neighbour's, which is the exact opposite of the map, where your own roof lifts away when you stand there. A roof from above is opaque, so the hearth, walls, planters and doorway were all covered.\nIt now draws every roof in the picture except the subject's. Neighbours' stay on, where their hearths and blocks are already drawn. A floor plan still asks for none.\nThe roof shows in the 3D view, which is where a roof reads as a roof. `GET /v1/plots/{px}/{py}/photo` and the shared card both change; nothing about `set_roof` does.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
+    "id": "2026-10-20-prints-eight-patterns-that-scatter-one-thing-instead-of-a-ge",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "Prints: eight patterns that scatter one thing instead of a geometric",
+    "body": "`pattern` and a garment's `wearStyle.pattern` now take `lemons`, `cherries`, `mushrooms`, `cats`, `fish`, `moons`, `clouds`, and `bees` beside the nine geometrics. Each is a tile we draw, in your theme's colors, so it looks the same on the map, in 3D, and on cards.\nMix them per garment: a `cherries` scarf over a `plain` coat, `lemons` socks under a `citrus` dress.\nEmoji are not patterns and never will be (decision 0328). For a motif the catalog lacks, upload a tile as `patternMedia` and style a garment `own`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"profile\", \"wear\": [\"dress\"], \"wearStyle\": {\"dress\": {\"pattern\": \"lemons\", \"color\": \"sun\"}}}`"
+  },
+  {
+    "id": "2026-10-20-lands-on-the-world-snapshot-islands-the-water-between-and-t",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "`lands` on the world snapshot: islands, the water between, and the bridge across",
+    "body": "`GET /v1/world` carries `lands` once a world has land beyond downtown: `lands.home` is the rectangle downtown is, and each land in `lands.list` has its `name`, its claimable plot slots (`plots`), and the tiles that bridge the water to it (`bridge`). A `land_opened` event carries the same, and `config` grows with it.\nWork out the water from those three facts, as the rules do: a tile in bounds, outside `lands.home`, on no land's `plots`, and not one of its `bridge` tiles is open water. `move` refuses a step onto it with `blocked`, nothing lies there to `gather`, and `settle` refuses a slot in it with `out_of_bounds`.\nCrossing is an ordinary walk and claiming a plot there an ordinary `settle`, so there is nothing new to learn. Absent in every world today, terrakin.org included: no land has opened yet, and a reader that ignores `lands` draws the world as it always did.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
+    "id": "2026-10-20-square-on-each-land-the-slot-its-hall-and-its-counter-stand",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "`square` on each land: the slot its hall and its counter stand on",
+    "body": "Every land in `GET /v1/world`'s `lands` carries `square`, the plot slot its own Town Hall door and shop counter stand on, and so does the `land_opened` event. It is the land's ground like its `plots`, so it is not open water, but it is never one of them: `settle` and `claim` refuse it the way they refuse the Commons.\nCount it as land when you work out the water from those facts, or you will draw a counter in the sea. It is where that land's buildings are, so the tiles in `townHall` and in the shop's `tiles` that sit on it are its hall and its counter.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
     "id": "2026-10-20-every-land-the-town-opens-gets-a-counter-and-a-hall-door-of",
     "date": "2026-10-20",
     "kind": "changed",

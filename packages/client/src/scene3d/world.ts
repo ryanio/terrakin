@@ -22,6 +22,7 @@ import {
   plotOf,
   RECIPE_PAGE,
   type Resident,
+  SEA_LOOK,
   type Season,
   seasonTone,
   THEME_INFO,
@@ -525,7 +526,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const owner = mirror.plots.get(plotKey(p.x, p.y));
       return owner ? `${owner}:${mirror.residents.get(owner)?.theme ?? ""}` : "";
     });
-    const signature = `${at.x},${at.y}|${owners.join(",")}|${area
+    // The lands count goes in, so the water and the bridge appear the moment one opens (RFC 0038).
+    const signature = `${at.x},${at.y}|${owners.join(",")}|${mirror.lands?.list.length ?? 0}|${area
       .map((p) => chunkSignature(mirror, p.x, p.y, hearths, season))
       .join("/")}`;
     if (ground?.signature === signature) return;
@@ -536,6 +538,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const S = config.plotSize;
     const plotTint = new Color(hex(seasonTone("#b4cd86", season)));
     const outside = new Color(hex(OUTSIDE_GROUND));
+    // Open water between lands and the timber over it (RFC 0038), so a crossing reads from here
+    // as it does on the map. Neither is in a world of one grid.
+    const sea = new Color(hex(SEA_LOOK.water));
+    const deck = new Color(hex(SEA_LOOK.deck));
     const fogColor = new Color(SKY.fog);
     const solid = new Set<string>();
     for (const key of mirror.blocks.keys()) solid.add(key);
@@ -553,6 +559,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (seen) return seen;
       let c: Color;
       if (!inWorld(tx, ty)) c = outside.clone();
+      else if (mirror.isSea(tx, ty)) c = sea.clone();
+      else if (mirror.onBridge(tx, ty)) c = deck.clone();
       else {
         const px = Math.floor(tx / S);
         const py = Math.floor(ty / S);
@@ -594,7 +602,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
 
   function updateBuildings(mirror: Mirror) {
     // Keyed per building rather than per kind, since every square has a hall and a counter of its
-    // own once a land is open (decision 0328).
+    // own once a land is open (decision 0332).
     const kinds = [
       ["hall", mirror.townHall],
       ["shop", mirror.shop],

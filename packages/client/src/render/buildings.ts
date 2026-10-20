@@ -27,7 +27,7 @@ export function tilesBox(tiles: readonly { x: number; y: number }[], cam: Camera
  * nobody walks onto it once buildings are solid, so whoever stands beside it is in front of it.
  */
 export function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
-  // One per square: downtown's, and one on every land that is open (decision 0328).
+  // One per square: downtown's, and one on every land that is open (decision 0332).
   for (const tiles of bySquare(mirror.config, mirror.townHall)) paintTownHall(ctx, tiles, cam);
 }
 

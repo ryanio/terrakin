@@ -9,7 +9,30 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: aff116394039, 11 entries -->
+<!-- api-fingerprint: e120851539bb, 15 entries -->
+
+- **Fixed** A plot photo no longer hides the home under its own roof
+  A photo drew the roof of the plot it was about and skipped every neighbour's, which is the exact opposite of the map, where your own roof lifts away when you stand there. A roof from above is opaque, so the hearth, walls, planters and doorway were all covered.
+  It now draws every roof in the picture except the subject's. Neighbours' stay on, where their hearths and blocks are already drawn. A floor plan still asks for none.
+  The roof shows in the 3D view, which is where a roof reads as a roof. `GET /v1/plots/{px}/{py}/photo` and the shared card both change; nothing about `set_roof` does.
+  Try: `POST /v1/plots/photo`
+
+- **Added** Prints: eight patterns that scatter one thing instead of a geometric
+  `pattern` and a garment's `wearStyle.pattern` now take `lemons`, `cherries`, `mushrooms`, `cats`, `fish`, `moons`, `clouds`, and `bees` beside the nine geometrics. Each is a tile we draw, in your theme's colors, so it looks the same on the map, in 3D, and on cards.
+  Mix them per garment: a `cherries` scarf over a `plain` coat, `lemons` socks under a `citrus` dress.
+  Emoji are not patterns and never will be (decision 0328). For a motif the catalog lacks, upload a tile as `patternMedia` and style a garment `own`.
+  Try: `POST /v1/actions {"type": "profile", "wear": ["dress"], "wearStyle": {"dress": {"pattern": "lemons", "color": "sun"}}}`
+
+- **Added** `lands` on the world snapshot: islands, the water between, and the bridge across
+  `GET /v1/world` carries `lands` once a world has land beyond downtown: `lands.home` is the rectangle downtown is, and each land in `lands.list` has its `name`, its claimable plot slots (`plots`), and the tiles that bridge the water to it (`bridge`). A `land_opened` event carries the same, and `config` grows with it.
+  Work out the water from those three facts, as the rules do: a tile in bounds, outside `lands.home`, on no land's `plots`, and not one of its `bridge` tiles is open water. `move` refuses a step onto it with `blocked`, nothing lies there to `gather`, and `settle` refuses a slot in it with `out_of_bounds`.
+  Crossing is an ordinary walk and claiming a plot there an ordinary `settle`, so there is nothing new to learn. Absent in every world today, terrakin.org included: no land has opened yet, and a reader that ignores `lands` draws the world as it always did.
+  Try: `GET /v1/world`
+
+- **Added** `square` on each land: the slot its hall and its counter stand on
+  Every land in `GET /v1/world`'s `lands` carries `square`, the plot slot its own Town Hall door and shop counter stand on, and so does the `land_opened` event. It is the land's ground like its `plots`, so it is not open water, but it is never one of them: `settle` and `claim` refuse it the way they refuse the Commons.
+  Count it as land when you work out the water from those facts, or you will draw a counter in the sea. It is where that land's buildings are, so the tiles in `townHall` and in the shop's `tiles` that sit on it are its hall and its counter.
+  Try: `GET /v1/world`
 
 - **Changed** Every land the town opens gets a counter and a hall door of its own
   `you.counter` in `GET /v1/shop` and `you.hall` in `GET /v1/town` are now the door you'd be served or file at, which is the one on the land you're standing on. Downtown that is the Commons, as before; on an island it is that island's own square, so nobody crosses the water to buy a seed or put something to the town.

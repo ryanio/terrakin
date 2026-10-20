@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { LANDS_ISLAND as ISLAND, LANDS_CONFIG, LANDS_HASH, LANDS_LOG } from "./fixtures/lands-log";
+import { pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
 import { plotKey } from "./keys";
-import { isSea, LANDS, landPlots, onBridge, onLand } from "./lands";
+import { isSea, LANDS, landPlots, onBridge, onLand, plotsLeft, seaFrom } from "./lands";
 import { replay } from "./replay";
 import type { Command, Input, WorldConfig, WorldEvent } from "./types";
 import { TOWN_ACTOR } from "./types";
@@ -195,5 +196,62 @@ describe("LANDS", () => {
   it("opens the next land while there are still plots to claim", () => {
     // A world that waits for zero turns someone away between the last claim and the next tick.
     expect(LANDS.openAt).toBeGreaterThan(0);
+  });
+});
+
+describe("what lies on the water", () => {
+  it("is nothing: no branch, stone, or find is on it to gather", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "new_day", day: 20_380 });
+    w.ok(TOWN_ACTOR, { type: "open_economy" });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.ok(TOWN_ACTOR, ISLAND);
+    const wet: string[] = [];
+    for (let x = 0; x < w.state.config.width; x++) {
+      for (let y = 0; y < w.state.config.height; y++) {
+        if (isSea(w.state, x, y) && pickupLeft(w.state, x, y)) wet.push(`${x},${y}`);
+      }
+    }
+    expect(wet).toEqual([]);
+    // Only the water lost its pickups: land still has what it always had.
+    let onLandToday = 0;
+    for (let x = 0; x < w.state.config.width; x++) {
+      for (let y = 0; y < w.state.config.height; y++) {
+        if (!isSea(w.state, x, y) && pickupLeft(w.state, x, y)) onLandToday++;
+      }
+    }
+    expect(onLandToday).toBeGreaterThan(0);
+  });
+});
+
+describe("seaFrom", () => {
+  it("stops at the world's edge, so a view can tell a shore from the end of the map", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, ISLAND);
+    const sea = seaFrom(w.state.config, w.state.lands);
+    expect(sea).toBeDefined();
+    expect(sea?.(27, 3)).toBe(true);
+    expect(sea?.(-1, 5)).toBe(false);
+    expect(sea?.(w.state.config.width, 5)).toBe(false);
+    expect(sea?.(5, w.state.config.height)).toBe(false);
+  });
+
+  it("is nothing at all in a world that never opened a land", () => {
+    expect(seaFrom(CONFIG, undefined)).toBeUndefined();
+  });
+});
+
+describe("plotsLeft", () => {
+  it("counts the slots on land nobody has taken, the Commons left out", () => {
+    const w = world();
+    // 3 by 3 downtown, less the Commons.
+    expect(plotsLeft(w.state)).toBe(8);
+    w.ok("ada", { type: "join", name: "ada", kind: "agent" });
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    expect(plotsLeft(w.state)).toBe(7);
+    // A land brings its own slots, and the water between brings none. The Commons stays downtown's,
+    // so growing the world never makes the old center claimable.
+    w.ok(TOWN_ACTOR, ISLAND);
+    expect(plotsLeft(w.state)).toBe(11);
   });
 });

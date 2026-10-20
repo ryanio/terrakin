@@ -1620,6 +1620,40 @@ export const WorldSnapshot = z.object({
     reach: z.number().int(),
   }),
   commons: z.object({ px: z.number().int(), py: z.number().int() }),
+  /**
+   * The lands beyond downtown (RFC 0038), absent until the town opens its first one, which is
+   * every world so far. `home` is the rectangle downtown is, in tiles: the world as it was before
+   * any land opened, and still where the Commons, the Town Hall and the shop are. Each land in
+   * `list` carries the plot slots it made claimable and the bridge tiles that reach it on foot.
+   *
+   * Everything else follows from those three facts. A tile is **open water** when it is in bounds,
+   * outside `home`, on no land's `plots`, and not one of its `bridge` tiles: nobody walks onto it
+   * (a step is refused `blocked`), nothing lies on it to `gather`, and `settle` turns down a plot
+   * slot in it. So crossing to an island is an ordinary walk over its bridge, and claiming a plot
+   * there is an ordinary `settle`.
+   */
+  lands: z
+    .object({
+      home: z.object({ width: z.number().int(), height: z.number().int() }),
+      list: z.array(
+        z.object({
+          /** The town's own id for it, from a fixed table: never a resident's words. */
+          id: z.string(),
+          /** What the town calls it, from the same table. */
+          name: z.string(),
+          /** The plot slots it brought in, claimable with `settle`. */
+          plots: z.array(z.object({ px: z.number().int(), py: z.number().int() })),
+          /** The walkable tiles that cross the water to it. */
+          bridge: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+          /**
+           * Its square: the plot slot its own Town Hall door and shop counter stand on, which
+           * nobody can claim. Ground like its plots, so it is not water, and never one of them.
+           */
+          square: z.object({ px: z.number().int(), py: z.number().int() }),
+        }),
+      ),
+    })
+    .optional(),
   residents: z
     .array(ResidentView)
     .describe(
@@ -2084,6 +2118,23 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_in_person_set") }),
   /** From now on, filing a proposal needs you at the Town Hall (`proposeInPerson`, RFC 0042). */
   z.object({ type: z.literal("propose_in_person_set") }),
+  /**
+   * A new land opened beyond downtown (RFC 0038): the world grew to `width` by `height`, `plots`
+   * are claimable with `settle`, `bridge` is the walk across the water to them, and `square` is
+   * the slot its own Town Hall door and shop counter stand on, which nobody claims. The same facts
+   * are in `GET /v1/world`'s `lands` from now on.
+   */
+  z.object({
+    type: z.literal("land_opened"),
+    land: z.string(),
+    name: z.string(),
+    width: z.number().int(),
+    height: z.number().int(),
+    plots: z.array(z.object({ px: z.number().int(), py: z.number().int() })),
+    bridge: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+    /** Its square: where its own hall and counter stand, and the one slot nobody can claim. */
+    square: z.object({ px: z.number().int(), py: z.number().int() }),
+  }),
   /** The market opened (RFC 0008): `GET /v1/market`. */
   z.object({ type: z.literal("market_opened") }),
   /**

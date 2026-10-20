@@ -137,7 +137,7 @@ export interface Square {
  * The tiles of each building in a list, grouped by the square it stands on, in the order they come.
  * `townHall` and `shop` carry every building of their kind once a land is open, so a view that
  * draws a box per building groups them with this first: boxing the whole list would draw one hall
- * stretched from downtown across the water (decision 0328).
+ * stretched from downtown across the water (decision 0332).
  */
 export function bySquare(config: WorldConfig, tiles: readonly Tile[]): Tile[][] {
   const groups = new Map<string, Tile[]>();

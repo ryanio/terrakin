@@ -93,6 +93,7 @@ import {
 import { randomId } from "./bytes";
 import { SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";
+import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import {
@@ -292,6 +293,13 @@ export interface WorldServiceOptions {
    */
   circles?: boolean;
   /**
+   * New lands (RFC 0038): watch the claimable plots left and append the next land's `open_land`
+   * once they fall to `LANDS.openAt`, so nobody who wants in ever finds the world full. A count,
+   * never a date. **No adapter sets it yet**, so no world grows until Ryan says: terrakin.org,
+   * self-hosting, `pnpm dev`, and the e2e servers all stay one grid.
+   */
+  lands?: boolean;
+  /**
    * The edition of the jobs table this server's world reads (RFC 0030, decision 0265). Once jobs
    * are open on an older edition, `set_job_edition` is logged right after a `new_day`, never in
    * the middle of a day, since it changes the board from then on and people may be looking at
@@ -424,6 +432,7 @@ interface TownSwitch {
     | "levels"
     | "jobs"
     | "circles"
+    | "lands"
     | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
@@ -580,6 +589,16 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_circles" },
     label: "open circles",
   },
+  // New land (RFC 0038) comes last, and comes again: unlike every switch above it this one can be
+  // due more than once, each time the plots left fall to `LANDS.openAt`, until the town runs out
+  // of names for a land. `planLand` works out the geometry and the input carries every number of
+  // it, so replay never plans anything and tuning the plan never changes a logged land.
+  {
+    option: "lands",
+    due: landDue,
+    command: (service) => planLand(service.state),
+    label: "open the next land",
+  },
 ];
 
 /**
@@ -628,6 +647,9 @@ export class WorldService {
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
+  private readonly lands: boolean;
+  /** The last refusal printed for each logged switch, so one keeps quiet until it changes. */
+  private readonly switchRefused = new Map<string, string>();
   private readonly jobEdition: number | undefined;
   private readonly pageEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
@@ -727,6 +749,7 @@ export class WorldService {
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;
+    this.lands = options.lands ?? false;
     this.jobEdition = options.jobEdition;
     this.pageEdition = options.pageEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
@@ -1007,7 +1030,16 @@ export class WorldService {
     const command = typeof sw.command === "function" ? sw.command(this) : { ...sw.command };
     if (!command) return;
     const on = this.run({ actor: TOWN_ACTOR, command });
-    if (!on.ok) console.error(`Couldn't ${sw.label}: ${on.error.message}`);
+    if (on.ok) {
+      this.switchRefused.delete(sw.option);
+      return;
+    }
+    // Said once per switch, not once per tick. A one-time switch that the sim refuses stays due
+    // until something changes, and `lands` can come due again and again, so without this a refusal
+    // prints on every tick and every request that ticks, for as long as the world runs.
+    if (this.switchRefused.get(sw.option) === on.error.message) return;
+    this.switchRefused.set(sw.option, on.error.message);
+    console.error(`Couldn't ${sw.label}: ${on.error.message}`);
   }
 
   private tickDays() {
@@ -1438,6 +1470,19 @@ export class WorldService {
    */
   testOpenCircles() {
     return this.run({ actor: TOWN_ACTOR, command: { type: "open_circles" } });
+  }
+
+  /**
+   * The next land (RFC 0038), opened now whatever the plots left say, so a test world has an
+   * island to look at. Only the Node server's test route calls it, like `testGrant`; the count is
+   * what opens one in a real world. With no name left in the town's table there is nothing to open.
+   */
+  testOpenLand() {
+    const command = planLand(this.state);
+    if (!command) {
+      return { ok: false as const, error: { code: "not_found", message: "No land left to open." } };
+    }
+    return this.run({ actor: TOWN_ACTOR, command });
   }
 
   // ---------- levels (RFC 0029) ----------

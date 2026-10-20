@@ -35,7 +35,7 @@ export const LANDS_ISLAND: Extract<Command, { type: "open_land" }> = {
     [5, 1],
   ],
   // Just south of the island's west column: its hall and its counter stand here, and nobody
-  // claims it (decision 0328).
+  // claims it (decision 0332).
   square: [4, 2],
   bridge: [
     [24, 11],
@@ -105,7 +105,7 @@ export const LANDS_LOG: Input[] = [
 
 /**
  * Pinned in `lands.test.ts`. It moved once, when the island gained the square its hall and its
- * counter stand on (decision 0328): the only difference in the whole world is the land's own
+ * counter stand on (decision 0332): the only difference in the whole world is the land's own
  * `square`, with Ada on the same tile and Isla's plot unchanged. No live log holds an `open_land`,
  * so nothing replayed differently.
  */

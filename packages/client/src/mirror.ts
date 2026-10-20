@@ -10,8 +10,8 @@ import {
 import {
   type BlockKind,
   blocksWalkers,
-  type Crop,
   bySquare,
+  type Crop,
   circleName,
   counterTiles,
   type Direction,
@@ -40,6 +40,7 @@ import {
 } from "@terrakin/sim";
 import type { EventMark } from "./event-format";
 import type { FloorLayers } from "./floors";
+import { bridgeOf, type LandsView, seaOf } from "./lands";
 import { type Dozer, dozers } from "./scene3d/layout";
 
 type EventMessage = { seq: number; event: WorldEvent };
@@ -196,6 +197,15 @@ export class Mirror {
    * draws under the plot's own name. The name is its stewards' words: text only.
    */
   halls = new Map<string, { circle: string; name: string }>();
+  /**
+   * The lands beyond downtown (RFC 0038): the snapshot's `lands`, with each land's name, which the
+   * town writes and nobody else. Absent in a world of one grid, where there is no water.
+   */
+  lands: LandsView | undefined;
+  /** Whether a tile is open water, the sim's own rule over `lands`. Absent with no lands. */
+  #sea: ((x: number, y: number) => boolean) | undefined;
+  /** The bridge tiles of every open land, by tileKey, so the map draws planks over the water. */
+  #bridge = new Set<string>();
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -265,6 +275,7 @@ export class Mirror {
     for (const h of snapshot.halls ?? []) {
       this.halls.set(plotKey(h.px, h.py), { circle: h.circle, name: h.name });
     }
+    this.#setLands(snapshot.lands);
     for (const p of snapshot.presents ?? []) this.presents.set(p.residentId, p.count);
     this.day = snapshot.day;
     for (const t of snapshot.tables ?? []) {
@@ -372,13 +383,31 @@ export class Mirror {
 
   /**
    * Whether a plot slot is a town square, and so never claimable: downtown's Commons, or a land's
-   * own (RFC 0038). Read from where the halls stand, since a square is the plot its hall is on.
+   * own, which the snapshot carries beside its plots (RFC 0038, decision 0332).
    */
   isSquare(px: number, py: number): boolean {
-    const size = this.config.plotSize;
-    return this.townHall.some(
-      (t) => Math.floor(t.x / size) === px && Math.floor(t.y / size) === py,
-    );
+    if (this.commons.px === px && this.commons.py === py) return true;
+    return (this.lands?.list ?? []).some((l) => l.square.px === px && l.square.py === py);
+  }
+
+  /**
+   * Keep the lands and what follows from them: whether a tile is water, and which tiles bridge it.
+   * Both come from the sim's own rule, so the map draws the water the server walks us around.
+   */
+  #setLands(lands: LandsView | undefined) {
+    this.lands = lands;
+    this.#bridge = bridgeOf(lands);
+    this.#sea = seaOf(this.config, lands);
+  }
+
+  /** Whether a tile is open water between lands (RFC 0038): nobody walks on it. */
+  isSea(x: number, y: number): boolean {
+    return this.#sea?.(x, y) === true;
+  }
+
+  /** Whether a tile is a bridge over the water, which the map draws as planks. */
+  onBridge(x: number, y: number): boolean {
+    return this.#bridge.size > 0 && this.#bridge.has(tileKey(x, y));
   }
 
   /**
@@ -397,6 +426,9 @@ export class Mirror {
             solidBuildings: this.solidBuildings,
             townHall: this.townHall,
             shop: this.shop,
+            // Open water between lands, so a tap-to-walk route crosses by the bridge rather than
+            // ending in a refusal (RFC 0038). Left out where there is none.
+            ...(this.#sea ? { sea: this.#sea } : {}),
           })
         : upstairsGroundOf({
             config: this.config,
@@ -541,6 +573,30 @@ export class Mirror {
         this.solidBuildings = true;
         this.walkable.clear();
         break;
+      // A land opened (RFC 0038): the world grew east, and the water and the bridge came with it.
+      case "land_opened": {
+        // Downtown is the world as it was before the first land, so read it before growing.
+        const home = this.lands?.home ?? {
+          width: this.config.width,
+          height: this.config.height,
+        };
+        this.config = { ...this.config, width: event.width, height: event.height };
+        this.#setLands({
+          home,
+          list: [
+            ...(this.lands?.list ?? []),
+            {
+              id: event.land,
+              name: event.name,
+              plots: event.plots.map((p) => ({ ...p })),
+              bridge: event.bridge.map((t) => ({ ...t })),
+              square: { ...event.square },
+            },
+          ],
+        });
+        this.walkable.clear();
+        break;
+      }
       case "day_started":
         this.day = event.day;
         // A new day grows every tile's pickup back.
@@ -779,6 +835,7 @@ export class Mirror {
     return pickupOn(this.config, x, y, this.day, {
       built: this.blocks.has(key),
       picked: this.gathered.has(key),
+      sea: this.isSea(x, y),
       finds: this.findsOpen,
       pages: this.recipesOpen,
       edition: this.pageEdition,

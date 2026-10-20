@@ -38706,6 +38706,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "schedule_in_person_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "land_opened"
                 ]
               },
@@ -41896,6 +41910,12 @@
             ]
           },
           "proposeInPerson": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "scheduleInPerson": {
             "type": "boolean",
             "enum": [
               true

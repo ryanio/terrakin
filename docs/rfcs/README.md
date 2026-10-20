@@ -63,3 +63,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0037](0037-account-bound-identity.md) | Account-bound identity, with no password and no wallet | draft |
 | [0038](0038-new-lands.md) | New lands, islands and territories beyond the first grid | draft |
 | [0039](0039-plot-market.md) | A marketplace for plots | draft |
+| [0040](0040-reaching-a-resident-by-email.md) | Reaching a resident by email | draft |

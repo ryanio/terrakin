@@ -214,7 +214,14 @@ function boxOn(
  * plot count is odd, downtown on the live world included.
  */
 export function squares(state: WorldState): Square[] {
-  return [{ ...commonsPlot(state), x: spawnTile(state).x }];
+  const { plotSize } = state.config;
+  const home = { ...commonsPlot(state), x: spawnTile(state).x };
+  const lands = (state.lands?.list ?? []).map(({ square: [px, py] }) => ({
+    px,
+    py,
+    x: px * plotSize + Math.floor(plotSize / 2),
+  }));
+  return [home, ...lands];
 }
 
 /**
@@ -230,7 +237,10 @@ export function townHallTiles(state: WorldState): Tile[] {
   return squares(state).flatMap((square) => hallTiles(state.config, square));
 }
 
-/** The Town Hall's door downtown, the first of the squares. */
+/**
+ * The Town Hall's door downtown, on the Commons. Every land brings a hall door of its own, and
+ * which one a resident is sent to is `nearestHall` in `doors.ts` (RFC 0038).
+ */
 export function townHallTile(state: WorldState): Tile {
   return hallDoor(state.config, squares(state)[0] as Square);
 }
@@ -245,7 +255,10 @@ export function shopTiles(state: WorldState): Tile[] {
   return squares(state).flatMap((square) => counterTiles(state.config, square));
 }
 
-/** The shop's counter downtown, where Clem serves. */
+/**
+ * The shop's counter downtown, where Clem serves. Every land brings a counter of its own, nobody
+ * behind it, and which one a resident is sent to is `nearestCounter` in `doors.ts` (RFC 0038).
+ */
 export function shopTile(state: WorldState): Tile {
   return counterDoor(state.config, squares(state)[0] as Square);
 }

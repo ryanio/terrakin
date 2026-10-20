@@ -132,7 +132,7 @@ import {
   unearnedJobWear,
 } from "./jobs";
 import { plotKey, tileKey } from "./keys";
-import { checkOpenLand, onLand } from "./lands";
+import { checkOpenLand, onLand, squareWords } from "./lands";
 import {
   checkCreditEvent,
   checkOpenLevels,
@@ -243,7 +243,6 @@ import {
   canBuildOn,
   chebyshev,
   inBounds,
-  isCommons,
   isSolid,
   isTownSquare,
   outOfReach,
@@ -624,7 +623,7 @@ function nearestFreePlot(
   let best: { px: number; py: number; d: number } | undefined;
   for (let y = 0; y < down; y++) {
     for (let x = 0; x < across; x++) {
-      if (isCommons(state, x, y) || state.plots[plotKey(x, y)]) continue;
+      if (isTownSquare(state, x, y) || state.plots[plotKey(x, y)]) continue;
       const d = Math.max(Math.abs(x - px), Math.abs(y - py));
       if (!best || d < best.d) best = { px: x, py: y, d };
     }
@@ -1041,8 +1040,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "claim": {
       const { px, py } = plotOf(config, me.x, me.y);
-      if (isCommons(state, px, py)) {
-        return reject("plot_is_commons", "The Commons belongs to everyone.");
+      // The Commons, or a land's own square, which a resident can stand on and never claim.
+      if (isTownSquare(state, px, py)) {
+        return reject("plot_is_commons", squareWords(state, px, py));
       }
       if (state.plots[plotKey(px, py)]) {
         return reject(
@@ -1300,7 +1300,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         case "plot_is_square":
           // Downtown's square is the Commons; a land's is the ground its own hall and counter
           // stand on. Both belong to everyone, so both answer with the Commons' code (RFC 0038).
-          return reject("plot_is_commons", "The Commons belongs to everyone.");
+          return reject("plot_is_commons", squareWords(state, px, py));
         case "plot_owned":
           return reject(
             problem,

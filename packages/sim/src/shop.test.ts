@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import type { RecipeName } from "./catalog";
+import { nearestCounter } from "./doors";
 import { ITEMS_CONFIG, ITEMS_LOG } from "./fixtures/items-log";
+import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import {
   SHOP_COUNTER_CONFIG,
   SHOP_COUNTER_HASH,
@@ -815,6 +817,31 @@ describe("shopping in person (RFC 0042)", () => {
       expect(buy.rejection.message).toContain("There's no walk from where you stand to the shop");
       expect(buy.rejection.message).not.toContain("move ");
     }
+  });
+
+  it("gives the island a counter of its own, with Clem still downtown (RFC 0038)", () => {
+    const w = shop();
+    w.town(ISLAND);
+    w.town({ type: "shop_in_person" });
+    fund(w.state, "ada", 500);
+    // Downtown's counter, where Clem serves, and the island's, which nobody stands behind.
+    expect(shopTile(w.state)).toEqual(door);
+    expect(shopTiles(w.state)).toHaveLength(12);
+    expect(nearestCounter(w.state, { x: 36, y: 21 })).toEqual({ x: 36, y: 22 });
+    // Ada crosses to the island and buys a lantern at its counter, 24 tiles from downtown's. (Set
+    // directly: the lands log walks the bridge, so the crossing is tested there.)
+    const ada = w.state.residents.ada;
+    if (!ada) throw new Error("no ada");
+    Object.assign(ada, { x: 36, y: 21 });
+    expect(notAtTheCounter(w.state, ada)).toBe(null);
+    expect(w.code("ada", { type: "shop_buy", sku: "lantern" })).toBe(null);
+    // Bob is home downtown, so he is still sent to downtown's counter and told the walk there.
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("no bob");
+    expect(nearestCounter(w.state, bob)).toEqual(door);
+    const away = notAtTheCounter(w.state, bob);
+    expect(away?.message).toContain("Clem serves at the counter.");
+    expect(away?.message).toContain("Walk there:");
   });
 
   it("tells someone upstairs to come down, with the walk when they're far off too", () => {

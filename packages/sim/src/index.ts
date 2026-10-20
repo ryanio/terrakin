@@ -117,6 +117,7 @@ export {
   isShownFind,
   pieceShowingMedia,
 } from "./display";
+export { nearestCounter, nearestHall } from "./doors";
 export {
   allowanceDue,
   coinsOf,
@@ -374,9 +375,11 @@ export {
   LANDS,
   landName,
   landOfPlot,
+  landOfSquare,
   landPlots,
   onBridge,
   onLand,
+  squareWords,
 } from "./lands";
 export {
   EARNED_WEAR_SKILL,

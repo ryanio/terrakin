@@ -1,6 +1,6 @@
 import { oneTimeSwitch, refuse } from "./check";
 import { plotKey } from "./keys";
-import type { Command, Land, Rejection, Tile, WorldConfig, WorldEvent, WorldState } from "./types";
+import type { Command, Land, Rejection, Tile, WorldEvent, WorldState } from "./types";
 import { plotOf } from "./world";
 
 /**
@@ -16,6 +16,12 @@ import { plotOf } from "./world";
  * Water is what's left: a tile in bounds that belongs to no land and isn't a bridge tile is sea,
  * and nobody walks on it. Before the first `open_land` there is no sea, because every tile in
  * bounds is downtown, so every older log walks exactly as it did.
+ *
+ * A land also brings a square, one plot slot nobody can claim, where its own Town Hall door and
+ * shop counter stand, so an island is a day's walk from nothing it needs (decision 0328). It is in
+ * the logged input like everything else geometric, because which slot is the square is the kind of
+ * choice a better planner should be free to make differently for the next land without changing how
+ * this one replays.
  */
 
 type Mutation = () => WorldEvent[];
@@ -51,11 +57,24 @@ export function landOfPlot(state: WorldState, px: number, py: number): Land | un
 }
 
 /**
- * Whether a plot slot is on land at all: downtown, or a slot some open land brought in. A slot in
- * the water between lands is neither, and `settle` refuses it.
+ * The land whose square a plot slot is, or undefined when it is nobody's square. A square is
+ * ground the land brought in for its own hall and counter, and no resident ever claims it
+ * ([decision 0328](../../../docs/knowledge/decisions/0328-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
+ */
+export function landOfSquare(state: WorldState, px: number, py: number): Land | undefined {
+  return state.lands?.list.find((l) => l.square[0] === px && l.square[1] === py);
+}
+
+/**
+ * Whether a plot slot is on land at all: downtown, a slot some open land brought in, or a land's
+ * own square. A slot in the water between lands is none of those, and `settle` refuses it.
  */
 export function onLand(state: WorldState, px: number, py: number): boolean {
-  return inHome(state, px, py) || landOfPlot(state, px, py) !== undefined;
+  return (
+    inHome(state, px, py) ||
+    landOfPlot(state, px, py) !== undefined ||
+    landOfSquare(state, px, py) !== undefined
+  );
 }
 
 /** Whether a tile is a bridge tile of any open land. */
@@ -154,6 +173,10 @@ export function checkOpenLand(
       `A land's bridge is sorted whole [x, y] pairs, up to ${LANDS.bridgeMax}.`,
     );
   }
+  const square = tiles([command.square], 1, Math.max(width, height) / size)?.[0];
+  if (!square) {
+    return refuse("server_only", "A land's square is one whole [px, py] pair.");
+  }
   const grown = { ...config, width, height };
   for (const [px, py] of plots) {
     if (px * size >= width || py * size >= height) {
@@ -164,12 +187,31 @@ export function checkOpenLand(
     }
   }
   const slots = new Set(plots.map(([px, py]) => plotKey(px, py)));
+  // The square is the land's own ground, so it is held to the plots' rules and to one more: it
+  // touches the land it belongs to, side on, or its hall and counter would stand on a rock in the
+  // sea that no walk reaches (a diagonal step past two corners of water is refused, `walk.ts`).
+  const [sx, sy] = square;
+  if (sx * size >= width || sy * size >= height) {
+    return refuse("server_only", `The square ${sx},${sy} is outside the world this land makes.`);
+  }
+  if (onLand(state, sx, sy) || slots.has(plotKey(sx, sy))) {
+    return refuse("server_only", `The square ${sx},${sy} is already on land.`);
+  }
+  if (!plots.some(([px, py]) => Math.abs(px - sx) + Math.abs(py - sy) === 1)) {
+    return refuse("server_only", `The square ${sx},${sy} doesn't touch the land it belongs to.`);
+  }
   for (const [x, y] of bridge) {
     if (x >= width || y >= height) {
       return refuse("server_only", `The bridge at ${x},${y} is outside the world this land makes.`);
     }
     const { px, py } = plotOf(grown, x, y);
-    if (inHome(state, px, py) || landOfPlot(state, px, py) || slots.has(plotKey(px, py))) {
+    if (
+      inHome(state, px, py) ||
+      landOfPlot(state, px, py) ||
+      landOfSquare(state, px, py) ||
+      slots.has(plotKey(px, py)) ||
+      (px === sx && py === sy)
+    ) {
       return refuse("server_only", `The bridge at ${x},${y} is on land, not across the water.`);
     }
   }
@@ -182,10 +224,20 @@ export function checkOpenLand(
       state.lands ??= { home: { width: config.width, height: config.height }, list: [] };
       state.config.width = width;
       state.config.height = height;
-      state.lands.list.push({ id: land, name, plots, bridge });
+      state.lands.list.push({ id: land, name, plots, bridge, square });
     },
-    event: { type: "land_opened", land, name, width, height, plots, bridge },
+    event: { type: "land_opened", land, name, width, height, plots, bridge, square },
   });
+}
+
+/**
+ * What a refusal says about a town square: downtown's Commons, or a land's own, which names the
+ * land and points at the plots that are there to claim.
+ */
+export function squareWords(state: WorldState, px: number, py: number): string {
+  const land = landOfSquare(state, px, py);
+  if (!land) return "The Commons belongs to everyone.";
+  return `That's ${land.name}'s square, where its own hall and counter stand. Settle on one of its plots instead.`;
 }
 
 /** The plots a land brought in, for a view: the land each claimable slot belongs to. */

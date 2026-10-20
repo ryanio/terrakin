@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import { LANDS_CONFIG, LANDS_HASH, LANDS_LOG } from "./fixtures/lands-log";
+import { LANDS_ISLAND as ISLAND, LANDS_CONFIG, LANDS_HASH, LANDS_LOG } from "./fixtures/lands-log";
 import { hashWorld } from "./hash";
 import { plotKey } from "./keys";
 import { isSea, LANDS, landPlots, onBridge, onLand } from "./lands";
@@ -22,40 +22,7 @@ const CONFIG: WorldConfig = {
   maxPlotsPerResident: 1,
   reach: 3,
 };
-/** Water is x 24 to 31; the island's plots are columns 4 and 5, rows 0 and 1 (x 32 to 47). */
-const ISLAND: Extract<Command, { type: "open_land" }> = {
-  type: "open_land",
-  land: "willowmere",
-  name: "Willowmere",
-  width: 48,
-  height: 24,
-  plots: [
-    [4, 0],
-    [4, 1],
-    [5, 0],
-    [5, 1],
-  ],
-  // The Commons is plot (1, 1), so its latitude is y 8 to 15: bridge along y 11 and 12.
-  bridge: [
-    [24, 11],
-    [24, 12],
-    [25, 11],
-    [25, 12],
-    [26, 11],
-    [26, 12],
-    [27, 11],
-    [27, 12],
-    [28, 11],
-    [28, 12],
-    [29, 11],
-    [29, 12],
-    [30, 11],
-    [30, 12],
-    [31, 11],
-    [31, 12],
-  ],
-};
-
+/** Downtown, before the island opens: 3 by 3 plots of 8 tiles. */
 function world() {
   const state = createWorld(CONFIG);
   const log: Input[] = [];
@@ -113,6 +80,11 @@ describe("open_land", () => {
     expect(landPlots(w.state)).toHaveLength(13);
     expect(onLand(w.state, 4, 0)).toBe(true);
     expect(onBridge(w.state, 24, 11)).toBe(true);
+    // The square is the land's own ground, and no plot anyone can claim: it is land, it isn't sea,
+    // and `landPlots` leaves it out, so it never counts toward the plots left to claim.
+    expect(onLand(w.state, 4, 2)).toBe(true);
+    expect(isSea(w.state, 34, 18)).toBe(false);
+    expect(landPlots(w.state).some((p) => p.x === 4 && p.y === 2)).toBe(false);
   });
 
   it("comes once per land and only from the town", () => {
@@ -145,6 +117,15 @@ describe("open_land", () => {
     // A bridge tile on land is a shortcut, not a crossing.
     expect(w.code(TOWN_ACTOR, { ...ISLAND, bridge: [[10, 10]] })).toBe("server_only");
     expect(w.code(TOWN_ACTOR, { ...ISLAND, bridge: [[32, 11]] })).toBe("server_only");
+    // A bridge tile on the land's own square is on land too.
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, bridge: [[34, 18]] })).toBe("server_only");
+    // A square outside the world, already downtown, one of the land's own plots, or off in the
+    // water on its own, where a diagonal step past two corners of sea could never reach it.
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, square: [9, 0] })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, square: [1, 1] })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, square: [4, 0] })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, square: [3, 2] })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, square: [3, 1] })).toBe("server_only");
     // Nothing of any of that stuck.
     expect(w.state.lands).toBeUndefined();
     expect(w.state.config.width).toBe(24);

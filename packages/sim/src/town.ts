@@ -1,7 +1,7 @@
 import { townMoneyOnPass, townMoneyProblem } from "./bounties";
 import type { BuildPlan } from "./build";
 import { oneTimeSwitch, refuse } from "./check";
-import { notAtDoor } from "./doors";
+import { nearestHall, notAtDoor } from "./doors";
 import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
@@ -22,15 +22,7 @@ import type {
   WorldState,
 } from "./types";
 import { COMMONS_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
-import {
-  commonsPlot,
-  gameTableTiles,
-  inBounds,
-  isShopTile,
-  isTownHallTile,
-  plotOf,
-  townHallTile,
-} from "./world";
+import { commonsPlot, gameTableTiles, inBounds, isShopTile, isTownHallTile, plotOf } from "./world";
 
 /**
  * The Town Hall (RFC 0004): who may take part, proposals, votes, closes, and Commons builds.
@@ -518,14 +510,16 @@ export function checkProposeInPerson(state: WorldState): TownChecked {
 }
 
 /**
- * Why a resident isn't at the Town Hall, or null when they are. Only checked once
- * `propose_in_person` is logged. The web calls it to hold Propose back and show the reason.
+ * Why a resident isn't at the Town Hall, or null when they are. The hall is `nearestHall`'s, so
+ * once a land is open its residents file at their own hall and the same proposal reaches the same
+ * town (RFC 0038). Only checked once `propose_in_person` is logged. The web calls it to hold
+ * Propose back and show the reason.
  */
 export function notAtTheHall(
   state: WorldState,
   me: Pick<Resident, "x" | "y" | "floor">,
 ): Rejection | null {
-  return notAtDoor(state, me, townHallTile(state), {
+  return notAtDoor(state, me, nearestHall(state, me), {
     lead: "Proposals are filed at the Town Hall.",
     doing: "file a proposal",
     there: "the Town Hall",
@@ -677,7 +671,6 @@ interface CommonsBuilt {
  * are listed so the event says what didn't happen. Reads only.
  */
 function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
-  const { config } = state;
   const taken = new Set<string>();
   for (const r of Object.values(state.residents)) {
     if (r.online) taken.add(tileKey(r.x, r.y));

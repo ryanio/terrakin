@@ -20,6 +20,7 @@ import {
   isTownsfolk,
   type KindRecipe,
   knows,
+  nearestCounter,
   notAtTheCounter,
   onSale,
   onShelf,
@@ -31,7 +32,6 @@ import {
   seasonOf,
   shopFor,
   shopOf,
-  shopTile,
   shopTiles,
   treasuryShareOf,
   type WorldState,
@@ -141,7 +141,9 @@ function counterFields(
 ): { counter?: { x: number; y: number }; away?: string } {
   if (!state.shop?.inPerson) return {};
   const away = notAtTheCounter(state, me);
-  return { counter: shopTile(state), ...(away ? { away: away.message } : {}) };
+  // The counter the caller would be served at, which once a land is open is the one on the land
+  // they stand on (RFC 0038), so a reader still gets one tile and it is the right one.
+  return { counter: nearestCounter(state, me), ...(away ? { away: away.message } : {}) };
 }
 
 /**

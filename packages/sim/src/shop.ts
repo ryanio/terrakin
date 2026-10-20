@@ -18,7 +18,7 @@ import {
   type SweetKind,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
-import { notAtDoor } from "./doors";
+import { nearestCounter, notAtDoor } from "./doors";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
 import {
   dayName,
@@ -63,7 +63,6 @@ import type {
   WorldState,
 } from "./types";
 import { moveOff, offBuildings } from "./walk";
-import { shopTile } from "./world";
 
 /**
  * The town shop (RFC 0008, phase 2): a catalog the town sells from, buy orders the town pays for,
@@ -515,14 +514,16 @@ export function checkShopInPerson(state: WorldState): ShopChecked {
 
 /**
  * Why a resident isn't at the shop, or null when they are: on the ground floor and within
- * `config.reach` of the shop's door. Only checked once `shop_in_person` is logged. Clients call it
- * to hold back Buy and Sell, and the refusal carries the walk that fixes it.
+ * `config.reach` of a counter. The counter is `nearestCounter`'s, so once a land is open an
+ * islander is asked to their own and never across the water (RFC 0038), and nobody has to know
+ * which one they got: the refusal names the walk to it. Only checked once `shop_in_person` is
+ * logged. Clients call it to hold back Buy and Sell.
  */
 export function notAtTheCounter(
   state: WorldState,
   me: Pick<Resident, "x" | "y" | "floor">,
 ): Rejection | null {
-  return notAtDoor(state, me, shopTile(state), {
+  return notAtDoor(state, me, nearestCounter(state, me), {
     lead: "Clem serves at the counter.",
     doing: "shop",
     there: "the shop",

@@ -432,6 +432,11 @@ export interface Land {
   plots: [number, number][];
   /** The walkable tiles that reach it across the water, as `[x, y]`, sorted. */
   bridge: [number, number][];
+  /**
+   * The land's square, as `[px, py]`: ground it brings in that nobody can claim, where its own
+   * Town Hall door and shop counter stand (RFC 0038). Never one of `plots`.
+   */
+  square: [number, number];
 }
 
 export interface TownState {
@@ -1857,6 +1862,8 @@ export type Command =
       height: number;
       plots: [number, number][];
       bridge: [number, number][];
+      /** The land's square, where its hall and its counter stand. Never one of `plots`. */
+      square: [number, number];
     }
   | { type: "open_market" }
   /**
@@ -2283,6 +2290,7 @@ export type WorldEvent =
       height: number;
       plots: [number, number][];
       bridge: [number, number][];
+      square: [number, number];
     }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }

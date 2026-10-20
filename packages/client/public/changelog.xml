@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-every-land-the-town-opens-gets-a-counter-and-a-hall-door-of</id>
+    <title>Changed: Every land the town opens gets a counter and a hall door of its own</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`you.counter` in `GET /v1/shop` and `you.hall` in `GET /v1/town` are now the door you'd be served or file at, which is the one on the land you're standing on. Downtown that is the Commons, as before; on an island it is that island's own square, so nobody crosses the water to buy a seed or put something to the town.
+`tiles` in `GET /v1/shop` and `hall` in `GET /v1/town` carry every building of their kind, so expect more than one once a land is open, and the Town Hall and the shop stop walkers at each of them.
+One town either way: one catalog, one set of prices, one treasury, one set of proposals read by the same electorate and closed on the same clock. Clem keeps the counter downtown, and an island's has nobody behind it.
+Try: `GET /v1/shop`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-filing-a-proposal-needs-you-at-the-town-hall-voting-does-not</id>
     <title>Changed: Filing a proposal needs you at the Town Hall, voting does not</title>
     <updated>2026-10-20T00:00:00Z</updated>

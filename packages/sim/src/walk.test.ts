@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { WALK_CONFIG, WALK_HASH, WALK_LOG } from "./fixtures/walk-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
@@ -198,6 +199,24 @@ describe("solid buildings", () => {
     // Bob comes back where he was moved to, not inside the hall.
     w.ok("bob", { type: "join", name: "bob", kind: "agent" });
     expect(w.here("bob")).toEqual({ x: 12, y: 7 });
+  });
+
+  it("stop walkers at an island's own hall and counter too (RFC 0038)", () => {
+    const w = world();
+    w.openShop();
+    w.town({ type: "solid_buildings" });
+    w.town(ISLAND);
+    const ground = worldGround(w.state);
+    // The island's square is at plot (4, 2), so its hall covers (35..37, 16..17) and its counter
+    // (35..37, 22..23), laid out as downtown's are on the Commons.
+    expect(ground.obstacle(36, 17)).toBe("town_hall");
+    expect(ground.obstacle(36, 22)).toBe("shop");
+    // The square is the land's own ground, so the tiles between them are walkable: a resident
+    // stands in front of either door, which is the whole point of giving the island its own.
+    expect(ground.obstacle(36, 18)).toBeUndefined();
+    expect(ground.obstacle(36, 21)).toBeUndefined();
+    // Nobody was standing there to step off: the square was open water until the land opened.
+    expect(w.state.lands).toBeDefined();
   });
 
   it("then stop every step onto them, straight or past a corner", () => {

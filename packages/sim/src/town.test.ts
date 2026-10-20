@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
+import { nearestHall } from "./doors";
 import { COMMONS_CONFIG, COMMONS_HASH, COMMONS_LOG } from "./fixtures/commons-log";
+import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { TABLE_SPOTS_CONFIG, TABLE_SPOTS_HASH, TABLE_SPOTS_LOG } from "./fixtures/table-spots-log";
 import { hashWorld } from "./hash";
@@ -19,8 +21,10 @@ import {
   createWorld,
   DEFAULT_CONFIG,
   gameTableTiles,
+  shopTile,
   shopTiles,
   spawnTile,
+  townHallTile,
   townHallTiles,
 } from "./world";
 
@@ -996,43 +1000,6 @@ describe("game table spots (decision 0126)", () => {
 });
 
 describe("the town's centre (RFC 0038)", () => {
-  /**
-   * RFC 0038's island, east of this 24 by 24 downtown: one plot-width of water (x 24 to 31) and a
-   * 2 by 2 island beyond it, bridged at the Commons' latitude. Opening it takes the world to 48
-   * tiles wide, which is what moves the centre when the centre is read from the world's size.
-   */
-  const ISLAND: Extract<Command, { type: "open_land" }> = {
-    type: "open_land",
-    land: "willowmere",
-    name: "Willowmere",
-    width: 48,
-    height: 24,
-    plots: [
-      [4, 0],
-      [4, 1],
-      [5, 0],
-      [5, 1],
-    ],
-    bridge: [
-      [24, 11],
-      [24, 12],
-      [25, 11],
-      [25, 12],
-      [26, 11],
-      [26, 12],
-      [27, 11],
-      [27, 12],
-      [28, 11],
-      [28, 12],
-      [29, 11],
-      [29, 12],
-      [30, 11],
-      [30, 12],
-      [31, 11],
-      [31, 12],
-    ],
-  };
-
   it("stays where it is when a land opens", () => {
     const w = town("ada", "bob");
     w.ok(TOWN_ACTOR, { type: "open_economy" });
@@ -1041,19 +1008,59 @@ describe("the town's centre (RFC 0038)", () => {
     const centre = () => ({
       commons: commonsPlot(w.state),
       spawn: spawnTile(w.state),
-      hall: townHallTiles(w.state),
-      shop: shopTiles(w.state),
+      hall: townHallTile(w.state),
+      counter: shopTile(w.state),
       tables: gameTableTiles(w.state),
     });
     const before = centre();
+    const buildings = [...townHallTiles(w.state), ...shopTiles(w.state)];
     expect(before.commons).toEqual({ px: 1, py: 1 });
     expect(before.spawn).toEqual({ x: 12, y: 12 });
 
     w.ok(TOWN_ACTOR, ISLAND);
 
-    // The world is wider, and every part of downtown is exactly where it was.
+    // The world is wider, and every part of downtown is exactly where it was: the Commons, the
+    // spawn tile, the doors Clem and the clerk stand at, the four table spots, and every tile the
+    // two buildings cover. The island adds its own; it moves nothing.
     expect(w.state.config.width).toBe(48);
     expect(centre()).toEqual(before);
+    expect([...townHallTiles(w.state), ...shopTiles(w.state)]).toEqual(
+      expect.arrayContaining(buildings),
+    );
+  });
+
+  it("gives the island a hall of its own, and sends its residents to that one", () => {
+    const w = town("ada", "bob");
+    w.ok(TOWN_ACTOR, ISLAND);
+    w.ok(TOWN_ACTOR, { type: "propose_in_person" });
+    // Downtown's hall is on the Commons' spawn column; the island's is on its own square, three
+    // plots east across the water. Six tiles each, and nothing is built on either.
+    expect(townHallTile(w.state)).toEqual({ x: 12, y: 9 });
+    expect(townHallTiles(w.state)).toHaveLength(12);
+    expect(nearestHall(w.state, { x: 36, y: 18 })).toEqual({ x: 36, y: 17 });
+    // Ada crosses to the island and stands at its hall's door. (Set directly: the lands log walks
+    // the bridge a tile at a time, so the walk is tested there.)
+    const ada = w.state.residents.ada;
+    if (!ada) throw new Error("no ada");
+    Object.assign(ada, { x: 36, y: 18 });
+    expect(notAtTheHall(w.state, ada)).toBe(null);
+    // One town, many doors: filing at the island's hall files the town's proposal.
+    expect(w.propose("ada", { title: "A bench by the water" }).ok).toBe(true);
+    expect(w.state.town?.proposals).toHaveLength(1);
+    // Bob is home downtown, so he is sent downtown, however much nearer the crow flies.
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("no bob");
+    expect(nearestHall(w.state, bob)).toEqual({ x: 12, y: 9 });
+    expect(notAtTheHall(w.state, bob)?.message).toContain("Walk there:");
+  });
+
+  it("sends someone on the bridge to whichever hall is nearer", () => {
+    const w = town("ada");
+    w.ok(TOWN_ACTOR, ISLAND);
+    // The bridge runs from x 24 to x 31 at the Commons' latitude, with downtown's hall behind and
+    // the island's ahead. Nobody stands on a land there, so the nearer door wins.
+    expect(nearestHall(w.state, { x: 24, y: 11 })).toEqual({ x: 12, y: 9 });
+    expect(nearestHall(w.state, { x: 31, y: 11 })).toEqual({ x: 36, y: 17 });
   });
 });
 

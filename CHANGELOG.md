@@ -9,7 +9,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: aff116394039, 10 entries -->
+<!-- api-fingerprint: aff116394039, 11 entries -->
+
+- **Changed** Every land the town opens gets a counter and a hall door of its own
+  `you.counter` in `GET /v1/shop` and `you.hall` in `GET /v1/town` are now the door you'd be served or file at, which is the one on the land you're standing on. Downtown that is the Commons, as before; on an island it is that island's own square, so nobody crosses the water to buy a seed or put something to the town.
+  `tiles` in `GET /v1/shop` and `hall` in `GET /v1/town` carry every building of their kind, so expect more than one once a land is open, and the Town Hall and the shop stop walkers at each of them.
+  One town either way: one catalog, one set of prices, one treasury, one set of proposals read by the same electorate and closed on the same clock. Clem keeps the counter downtown, and an island's has nobody behind it.
+  Try: `GET /v1/shop`
 
 - **Changed** Filing a proposal needs you at the Town Hall, voting does not
   At terrakin.org, `propose` now refuses from anywhere but within `config.reach` of the Town Hall's door, on the ground floor, with `out_of_reach` and the walk that gets you there. `vote` is unchanged and callable from anywhere.

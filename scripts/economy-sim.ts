@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--no-jobs] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--no-jobs] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -12,6 +12,13 @@
  *                `--start 2024-12-04` plays a winter month (decision 0124).
  *   --residents  residents who arrive over those days, not counting the townsfolk (default 300)
  *   --no-shop    play phase 1 only: coins, no gardens, no shop (the decision 0039 baseline)
+ *   --no-shop-counter  the shop serves from anywhere, as it did before RFC 0042. The default
+ *                logs `shop_in_person` as terrakin.org does, so a resident walks to the counter
+ *                and back for every purchase and sale.
+ *   --shop-trips the percent of days a resident who wants the shop actually makes the walk
+ *                (default 100). The walk costs nothing in the sim, so this is the only channel
+ *                the counter rule has on the coin numbers: a trade either happens or it doesn't.
+ *                Nobody has measured the real figure; a week of the live world will say.
  *   --no-appreciation  no posts, reactions, or appreciation coins (the decision 0052 baseline)
  *   --no-fishing  nobody fishes (RFC 0023), so the month plays as it did before fishing (the
  *                decision 0123 baseline)
@@ -164,6 +171,8 @@ const {
   knows,
   levelOf,
   levelsOf,
+  nearestCounter,
+  notAtTheCounter,
   onSale,
   onShelf,
   pageOn,
@@ -225,6 +234,8 @@ const { values: args } = parseArgs({
     residents: { type: "string", default: "300" },
     start: { type: "string", default: "2024-10-04" },
     "no-shop": { type: "boolean", default: false },
+    "no-shop-counter": { type: "boolean", default: false },
+    "shop-trips": { type: "string", default: "100" },
     "no-appreciation": { type: "boolean", default: false },
     "no-fishing": { type: "boolean", default: false },
     "no-recipes": { type: "boolean", default: false },
@@ -304,6 +315,23 @@ if (args["holiday-prices"] !== "lower" && args["holiday-prices"] !== "before") {
 const LOWER_HOLIDAY_PRICES = SHOP_OPEN && args["holiday-prices"] === "lower";
 if (args.picks !== "sell" && args.picks !== "shelf") throw new Error("--picks is sell or shelf");
 /** Whether gardeners pick the goods they'd sell (`--picks sell`) or any cards (`--picks shelf`). */
+/**
+ * The shop is a place you go to ([RFC 0042](../docs/rfcs/0042-actions-that-need-you-there.md)):
+ * the world logs `shop_in_person`, as terrakin.org does, and a resident walks to the counter
+ * before buying or selling and comes home after. `--no-shop-counter` plays the month as it was
+ * before the rule, which is the run every number before 2026-10-20 was tuned against.
+ */
+const SHOP_COUNTER = SHOP_OPEN && !args["no-shop-counter"];
+/**
+ * The share of days a resident who wants something actually makes the trip, as a percent. The
+ * walk itself costs nothing in the sim, so this is the only channel the counter rule has on the
+ * coin numbers: a trade either happens or it doesn't. 100 is the designed behaviour, residents
+ * shop as they did and walk for it. Lower numbers are the pessimistic end of the bracket, for
+ * residents who stop bothering. Nobody has measured the real figure yet; a week of the live
+ * world now that the rule is on will say what it is.
+ */
+const SHOP_TRIPS = Number(args["shop-trips"] ?? 100) / 100;
+
 const PICK_TO_SELL = args.picks === "sell";
 const SEED = Number(args.seed);
 /** A welcomer's starter gift to each newcomer (issue #63), and whether the town pays it instead. */
@@ -382,6 +410,8 @@ const building = draws(mulberry32(SEED ^ 0x5707));
 const climbing = draws(mulberry32(SEED ^ 0x1e7e1));
 // Who takes jobs and what they do for one (RFC 0030): `--no-jobs` draws none of it.
 const working = draws(mulberry32(SEED ^ 0x10b5));
+/** Whether a resident bothers with the walk to the counter today (RFC 0042), its own stream. */
+const walking = draws(mulberry32(SEED ^ 0xc0117e2));
 
 // ---------- the rules ----------
 
@@ -456,6 +486,8 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
           must(TOWN_ACTOR, { type: "set_shop_share", percent: SHOP.treasuryShare });
         }
         if (LOWER_HOLIDAY_PRICES) must(TOWN_ACTOR, { type: "lower_holiday_prices" });
+        // Both adapters set `shopInPerson`, so every world but a `--no-shop-counter` run has it.
+        if (SHOP_COUNTER) must(TOWN_ACTOR, { type: "shop_in_person" });
       }
       if (RECIPES_ON) {
         // Finds are out on terrakin.org, and recipe pages lie only where a find would. Nobody here
@@ -633,6 +665,14 @@ function gardenTiles(state: WorldState, id: string): { x: number; y: number }[] 
       if ((dx === 0 && dy === 0) || state.blocks[tileKey(x, y)] !== undefined) continue;
       if (pond && pond.x === x && pond.y === y) continue;
       if (stairs && stairs.x === x && stairs.y === y) continue;
+      // Nothing on the column south of the hearth: the hut's doorway is on it
+      // (`starterHome` puts it at the hearth's x), and so is the way out of the plot. The sim
+      // has the same rule for a planter inside the hut (`starterHutGardenTiles`, "never the tile
+      // between the hearth and the doorway") and the garden link follows it. Without it these
+      // residents wall themselves in, and almost none of them could walk to the counter once the
+      // rule asked them to (RFC 0042). It is the same thing that has happened to two residents
+      // of the live world, whose check-ins now say so.
+      if (dx === 0 && dy > 0) continue;
       tiles.push({ x, y, d: Math.abs(dx) + Math.abs(dy) });
     }
   }
@@ -797,15 +837,92 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
   }
 }
 
+/** How the counter rule went: trips made, days nobody bothered, tiles walked. */
+const trips = { made: 0, skipped: 0, nowhere: 0, tiles: [] as number[] };
+/** Whether each resident could be bothered with the walk today, drawn once a day. */
+let bothersToday = { day: -1, by: new Map<string, boolean>() };
+
+/**
+ * Do something at the shop's counter: walk there over the sim's own route, run `at`, and come
+ * home (RFC 0042). False when they never went, either because they couldn't be bothered today
+ * (`--shop-trips`) or because no walk reaches it.
+ *
+ * A round trip per visit rather than one trip a day, because the rest of a resident's day happens
+ * within reach of their hearth: their planters, their kitchen, their workbench. Leaving them
+ * standing at the counter would refuse everything that came after, which is a change to the day
+ * and not to the shop. Walking costs no coins and no time in the sim, so a round trip each is
+ * worth exactly what one trip is: the only thing the counter rule changes is whether the trade
+ * happens at all.
+ */
+function atShop<T>(rules: Rules, id: string, at: () => T, nothing: T): T {
+  if (!SHOP_COUNTER) return at();
+  const { state } = rules;
+  const me = state.residents[id];
+  if (!me) return nothing;
+  if (!notAtTheCounter(state, me)) return at();
+  const day = state.day ?? 0;
+  if (bothersToday.day !== day) bothersToday = { day, by: new Map() };
+  let bothered = bothersToday.by.get(id);
+  if (bothered === undefined) {
+    bothered = walking.chance(SHOP_TRIPS);
+    bothersToday.by.set(id, bothered);
+  }
+  if (!bothered) {
+    trips.skipped++;
+    return nothing;
+  }
+  const home = { x: me.x, y: me.y };
+  const door = nearestCounter(state, me);
+  let walked = 0;
+  for (const dir of route(worldGround(state), me, door, state.config.reach, 128)) {
+    if (!rules.send(id, { type: "move", dir })) break;
+    walked++;
+  }
+  if (notAtTheCounter(state, state.residents[id] as never)) {
+    trips.nowhere++;
+    walkBack(rules, id, home);
+    return nothing;
+  }
+  trips.made++;
+  trips.tiles.push(walked);
+  const out = at();
+  walkBack(rules, id, home);
+  return out;
+}
+
+/** Back to the tile they left, so the rest of their day is within reach of it as it always was. */
+function walkBack(rules: Rules, id: string, to: { x: number; y: number }) {
+  const { state } = rules;
+  const me = state.residents[id];
+  if (!me || (me.x === to.x && me.y === to.y)) return;
+  // `home` is a jump to the hearth, which is where everything else in the day happens from.
+  if (!rules.send(id, { type: "home" })) {
+    for (const dir of route(worldGround(state), me, to, 0, 128)) {
+      if (!rules.send(id, { type: "move", dir })) break;
+    }
+  }
+}
+
 /** Buy at the shop, counting what was spent. True when the sim took it. */
 function buy(rules: Rules, id: string, sku: ShopSku, count = 1): boolean {
-  const before = coinsOf(rules.state, id);
-  const ok = rules.send(id, { type: "shop_buy", sku, count });
-  if (ok) spend(id, before - coinsOf(rules.state, id));
-  return ok;
+  return atShop(
+    rules,
+    id,
+    () => {
+      const before = coinsOf(rules.state, id);
+      const ok = rules.send(id, { type: "shop_buy", sku, count });
+      if (ok) spend(id, before - coinsOf(rules.state, id));
+      return ok;
+    },
+    false,
+  );
 }
 
 function sell(rules: Rules, id: string, item: string, count: number) {
+  atShop(rules, id, () => sellAtCounter(rules, id, item, count), undefined);
+}
+
+function sellAtCounter(rules: Rules, id: string, item: string, count: number) {
   const before = coinsOf(rules.state, id);
   if (rules.send(id, { type: "sell_to_town", item, count })) {
     tally.sold += coinsOf(rules.state, id) - before;
@@ -3702,6 +3819,17 @@ function flowLines(
     townsfolk: "the townsfolk, in their welcome tip",
   }[STARTER_FROM];
   console.log("");
+  if (SHOP_COUNTER) {
+    const sorted = [...trips.tiles].sort((a, b) => a - b);
+    const median = sorted.length ? (sorted[Math.floor(sorted.length / 2)] ?? 0) : 0;
+    const asked = trips.made + trips.skipped + trips.nowhere;
+    console.log(
+      `\nThe shop's counter (RFC 0042): ${trips.made} trips made, ${trips.skipped} days nobody ` +
+        `bothered (--shop-trips ${Math.round(SHOP_TRIPS * 100)}%), ${trips.nowhere} with no walk ` +
+        `to it. Median walk ${median} tiles, longest ${sorted[sorted.length - 1] ?? 0}. ` +
+        `${asked === 0 ? "Nobody" : `${Math.round((trips.made / asked) * 100)}% of the times a ` + `resident wanted the shop they got there`}.`,
+    );
+  }
   console.log(
     `Coin flow (issue #63): townsfolk hand out ${args["townsfolk-spend"]}% of their budgets; starter gift ${STARTER_GIFT}${STARTER_GIFT ? ` from ${from}` : ""}; job pay ${JOB_PAY}${JOB_PAY ? ` ${JOB_PAY_MINTED ? "minted" : "from the treasury"}` : ""}.`,
   );

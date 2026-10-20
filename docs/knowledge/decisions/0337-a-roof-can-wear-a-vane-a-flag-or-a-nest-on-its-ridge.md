@@ -49,6 +49,12 @@ slivers and in the pictures by link, and the owner sees it in the 3D home view w
 by stepping off their own plot. That is the same trade decision 0333 made and is worth saying out
 loud, since someone will set a vane and then take a photo.
 
+A change to the ridge alone emits `roof_top_set` rather than `roof_set`. Keeping one event looked
+fine until the Visit cards' news read it ([decision 0336](0336-a-plot-card-says-what-is-new-on-it-from-a-day-s-counts-in-a-.md)):
+`roof_set` carries the whole new roof and nothing about what changed, so putting a vane on a roof
+that went up weeks ago said "a roof went up today". Anything that counts a deed from an event
+needs the event to say which deed it was.
+
 In 3D the mark is extra triangles in the roof's own merged mesh, shaded dark, so it adds no draw
 call, no material and no light, and decision 0030's budget is untouched.
 

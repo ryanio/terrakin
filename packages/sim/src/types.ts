@@ -2142,6 +2142,17 @@ export type WorldEvent =
       top?: RoofTop;
       by: ResidentId;
     }
+  /**
+   * Only what stands on a roof's ridge changed (RFC 0041): the roof itself is the one that was
+   * there, in the same style and covering. `top` is absent when the ridge was cleared.
+   */
+  | {
+      type: "roof_top_set";
+      px: number;
+      py: number;
+      top?: RoofTop;
+      by: ResidentId;
+    }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
   | { type: "hearth_cleared"; residentId: ResidentId }

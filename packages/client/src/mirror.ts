@@ -505,6 +505,18 @@ export class Mirror {
       case "floor_added":
         this.floors.set(plotKey(event.px, event.py), event.floor);
         break;
+      case "roof_top_set": {
+        // Only the ridge changed: the roof itself is the one the mirror already holds.
+        const was = this.roofs.get(plotKey(event.px, event.py));
+        if (was) {
+          const { top: _gone, ...rest } = was;
+          this.roofs.set(plotKey(event.px, event.py), {
+            ...rest,
+            ...(event.top ? { top: event.top } : {}),
+          });
+        }
+        break;
+      }
       case "roof_set": {
         const key = plotKey(event.px, event.py);
         // Flat is no roof at all, so it takes the plot's off (RFC 0041).

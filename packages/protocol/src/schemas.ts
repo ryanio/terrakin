@@ -2026,6 +2026,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     top: RoofTop.optional(),
     by: z.string(),
   }),
+  /**
+   * Only what stands on a roof's ridge changed (RFC 0041): the roof is the one that was already
+   * there, in the same style and covering, so this is never a roof going up. `top` is absent when
+   * the ridge was cleared.
+   */
+  z.object({
+    type: z.literal("roof_top_set"),
+    px: z.number().int(),
+    py: z.number().int(),
+    top: RoofTop.optional(),
+    by: z.string(),
+  }),
   z.object({
     type: z.literal("plot_shared"),
     px: z.number().int(),

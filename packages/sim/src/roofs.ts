@@ -354,19 +354,31 @@ export function checkSetRoof(
   const change = roofChange(was, next);
   const cost = roofCostProblem(state, actor, change);
   if (cost) return cost;
+  // A roof that keeps its shape and its covering and changes only what stands on its ridge says
+  // so, rather than reading as a roof going up: the roof has been there since it went up, and a
+  // reader that counts new roofs (the Visit cards' news) would count it again every time.
+  const ridgeOnly = !!was && !!next && was.style === next.style && was.material === next.material;
   return () => {
     if (next) plot.roof = next;
     else delete plot.roof;
     return [
-      {
-        type: "roof_set",
-        px,
-        py,
-        style,
-        ...(next ? { material: next.material } : {}),
-        ...(next?.top ? { top: next.top } : {}),
-        by: actor,
-      },
+      ridgeOnly && next
+        ? {
+            type: "roof_top_set" as const,
+            px,
+            py,
+            ...(next.top ? { top: next.top } : {}),
+            by: actor,
+          }
+        : {
+            type: "roof_set" as const,
+            px,
+            py,
+            style,
+            ...(next ? { material: next.material } : {}),
+            ...(next?.top ? { top: next.top } : {}),
+            by: actor,
+          },
       ...moveRoofCost(state, actor, change),
     ];
   };

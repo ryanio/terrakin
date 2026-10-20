@@ -106,12 +106,14 @@ describe("what a roof is", () => {
     expect(state.plots["0,0"]?.roof?.top).toBeUndefined();
     expect(plotRoof(state, 0, 0)?.top).toBeUndefined();
 
-    // A vane goes up for nothing: the covering is already paid for, and no stack moves.
+    // A vane goes up for nothing: the covering is already paid for, and no stack moves. The roof
+    // it stands on hasn't changed, so the event says the ridge did rather than reading as a roof
+    // going up, which anything counting new roofs would count twice (decision 0337).
     const held = { ...(state.items?.inventories.ada?.stacks ?? {}) };
     const events = ok(state, "ada", top("vane"));
     expect(state.plots["0,0"]?.roof).toEqual({ style: "gable", material: "wood", top: "vane" });
     expect(state.items?.inventories.ada?.stacks).toEqual(held);
-    expect(events.find((e) => e.type === "roof_set")).toMatchObject({ top: "vane" });
+    expect(events).toEqual([{ type: "roof_top_set", px: 0, py: 0, top: "vane", by: "ada" }]);
 
     // It stands on the middle of the roof's highest tiles, which every view reads from the shape.
     const shape = plotRoof(state, 0, 0);
@@ -125,12 +127,17 @@ describe("what a roof is", () => {
     ok(state, "ada", top("nest"));
     expect(state.plots["0,0"]?.roof?.top).toBe("nest");
     // Asking for a bare ridge takes it down, and the roof stays up.
-    ok(state, "ada", top());
+    expect(ok(state, "ada", top())).toEqual([{ type: "roof_top_set", px: 0, py: 0, by: "ada" }]);
     expect(state.plots["0,0"]?.roof).toEqual({ style: "gable", material: "wood" });
+    // A roof going up with something on its ridge is a roof going up, ridge and all.
+    ok(state, "ada", roof("flat"));
+    expect(ok(state, "ada", top("flag")).find((e) => e.type === "roof_set")).toMatchObject({
+      style: "gable",
+      top: "flag",
+    });
     // Something the world doesn't know leaves the world as it was.
     refused(state, "ada", top("chimney"), "unknown_item");
     // Taking the roof down takes the ridge with it.
-    ok(state, "ada", top("flag"));
     ok(state, "ada", roof("flat"));
     expect(state.plots["0,0"]?.roof).toBeUndefined();
   });

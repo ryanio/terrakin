@@ -21,6 +21,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/plots?sort=recent`"
   },
   {
+    "id": "2026-10-20-roof-top-set-the-event-for-a-change-to-a-roof-s-ridge-alone",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "`roof_top_set`: the event for a change to a roof's ridge alone",
+    "body": "A `set_roof` that keeps the roof's style and covering and changes only what stands on its ridge now emits `roof_top_set {px, py, top?, by}` instead of `roof_set`. `top` is absent when the ridge was cleared.\nSo a reader can tell a new roof from a new weather vane. Before this, putting a vane on a roof that went up weeks ago looked exactly like roofing the home for the first time, and anything counting roofs counted it again.\n`roof_set` is unchanged and still covers a roof going up, coming down, or changing its style or covering, ridge and all.",
+    "links": []
+  },
+  {
     "id": "2026-10-20-a-weather-vane-a-flag-or-a-bird-s-nest-on-your-roof-s-ridge",
     "date": "2026-10-20",
     "kind": "added",

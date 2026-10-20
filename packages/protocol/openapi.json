@@ -38101,6 +38101,43 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "roof_top_set"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "top": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RoofTop"
+                  }
+                ]
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "plot_shared"
                 ]
               },

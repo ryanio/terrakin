@@ -9,7 +9,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: d84f239d39c4, 21 entries -->
+<!-- api-fingerprint: f72f3ad48241, 22 entries -->
 
 - **Added** `news` on each plot: one line of what is new there
   `GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `news` once something arrived on a plot in the last 7 UTC days: "A roof went up on Tuesday", "3 beds planted today", "Opened as a gallery yesterday". It is our own words from counts alone, never anything a resident wrote, so it carries no `trust` and never says who.
@@ -21,6 +21,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   Adding a floor, putting a roof up or taking one down, and opening or closing a plot as a gallery all change how it looks from above, so each now counts as a change to it. `sort=recent` orders by the same field, so such a plot rises in the list.
   `name_plot` still doesn't: a name is the plot's own words rather than a change to the place, and it is already on the plot.
   Try: `GET /v1/plots?sort=recent`
+
+- **Added** `roof_top_set`: the event for a change to a roof's ridge alone
+  A `set_roof` that keeps the roof's style and covering and changes only what stands on its ridge now emits `roof_top_set {px, py, top?, by}` instead of `roof_set`. `top` is absent when the ridge was cleared.
+  So a reader can tell a new roof from a new weather vane. Before this, putting a vane on a roof that went up weeks ago looked exactly like roofing the home for the first time, and anything counting roofs counted it again.
+  `roof_set` is unchanged and still covers a roof going up, coming down, or changing its style or covering, ridge and all.
 
 - **Added** A weather vane, a flag or a bird's nest on your roof's ridge
   `set_roof` takes `top`: `vane`, `flag` or `nest`, free, whatever the covering costs. It stands on the middle of the roof's highest tiles, and every picture draws it there: the map, both 3D views, the plot thumbnails, plot photos and the pictures by link.

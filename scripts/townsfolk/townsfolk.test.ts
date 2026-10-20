@@ -35,9 +35,11 @@ describe("townsfolk personas", () => {
     }
   });
 
-  it("each have their own building and their own hat", () => {
+  it("each have their own building, their own hat, and their own roof", () => {
     expect(new Set(PERSONAS.map((p) => p.home.building)).size).toBe(PERSONAS.length);
     expect(new Set(PERSONAS.map((p) => p.scene.prop)).size).toBe(PERSONAS.length);
+    const roofs = PERSONAS.map((p) => `${p.home.roof.style} ${p.home.roof.material}`);
+    expect(new Set(roofs).size).toBe(PERSONAS.length);
   });
 
   it("keep each home inside the part of the postcard the feed's 2x2 grid shows", () => {

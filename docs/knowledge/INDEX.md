@@ -261,6 +261,8 @@ What we chose and why. Newest last.
 - [Filing a proposal needs you at the Town Hall, voting stays remote](decisions/0325-filing-a-proposal-needs-you-at-the-town-hall-voting-stays-re.md) · 2026-10-20 · accepted · `town-hall` `world` `sim` `agents`
 - [An island is a region of the same plane, and water is what is left](decisions/0326-an-island-is-a-region-of-the-same-plane-and-water-is-what-is.md) · 2026-10-20 · accepted · `world` `sim` `lands`
 - [The newcomer funnel counts an upstairs and a roof apart](decisions/0327-the-newcomer-funnel-counts-an-upstairs-and-a-roof-apart.md) · 2026-10-20 · accepted · `staff` `metrics` `homes` `economy`
+- [Prints are drawn motifs from the catalog, because a card cannot draw an emoji](decisions/0328-prints-are-drawn-motifs-from-the-catalog-because-a-card-cann.md) · 2026-10-20 · accepted · `sim` `ui` `cards` `client` `design` `agents`
+- [The townsfolk's homes wear roofs in the free coverings, and no made materials](decisions/0330-the-townsfolk-s-homes-wear-roofs-in-the-free-coverings-and-n.md) · 2026-10-20 · accepted · `design` `tooling` `ops` `onboarding`
 
 ## Learnings
 

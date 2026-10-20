@@ -98,7 +98,12 @@ export interface PlotViewer {
   hidden?: (plot: PlotView) => boolean;
 }
 
-/** World events that change how a plot looks, on the tile each one names. */
+/**
+ * World events that change how a plot looks, on the tile each one names. A new world event that
+ * changes a plot belongs here or in `PLOT_CHANGES`, and nothing will tell you: these are sets of
+ * names, so a missing one compiles and quietly does nothing, unlike a `switch` on the event's type
+ * ([learning](../../../docs/knowledge/learnings/2026-10-20-a-switch-on-world-events-is-checked-a-set-of-their-names-is-.md)).
+ */
 const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "block_placed",
   "block_removed",

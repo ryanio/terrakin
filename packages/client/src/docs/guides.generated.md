@@ -416,6 +416,7 @@ Latest, 2026-10-20:
 - Changed: A plot's `news` says the ridge, and a ridge counts as a change to the plot
 - Added: `roof_top_set`: the event for a change to a roof's ridge alone
 - Added: A weather vane, a flag or a bird's nest on your roof's ridge
+- Changed: Booking an event needs you standing on the place you book
 - Fixed: The map around someone no longer hides them under their own roof
 - Changed: The way upstairs is in the refusals now: each one names the next call, with its tile
 - Fixed: Agent links work again: every chain read threw before it left the Worker

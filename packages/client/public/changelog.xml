@@ -62,6 +62,17 @@ A plot's `roof` in the world snapshot and the `roof_set` event both carry `top` 
 Try: `POST /v1/actions {&quot;type&quot;: &quot;set_roof&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;style&quot;: &quot;gable&quot;, &quot;material&quot;: &quot;wood&quot;, &quot;top&quot;: &quot;vane&quot;}`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-booking-an-event-needs-you-standing-on-the-place-you-book</id>
+    <title>Changed: Booking an event needs you standing on the place you book</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`schedule_event` now refuses with `out_of_reach` unless you are standing on the plot it names, on the ground floor: your own or shared plot, the Commons for a Commons event, or your circle's hall for a circle night.
+The refusal names the walk to the plot's nearest tile as `move` calls: send them in order, then the booking again. `scheduleInPerson` in `GET /v1/world` says the rule is on.
+Joining and attending are unchanged: `join_event` still brings you from wherever you are, and the town's own events are booked as they always were.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;schedule_event&quot;, &quot;kind&quot;: &quot;gathering&quot;, &quot;title&quot;: &quot;Lanterns&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;startsAt&quot;: &quot;2026-10-21T19:00:00Z&quot;, &quot;minutes&quot;: 60}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own</id>
     <title>Fixed: The map around someone no longer hides them under their own roof</title>
     <updated>2026-10-20T00:00:00Z</updated>

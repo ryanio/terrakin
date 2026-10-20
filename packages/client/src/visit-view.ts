@@ -121,21 +121,29 @@ export function plotCard(
       class: "paper card plot-card",
       attrs: { "data-plot": `${plot.px},${plot.py}`, "aria-label": title },
     },
-    world ? plotThumb(world, plot, `${title}, from above`) : h("span", { class: "plot-thumb" }),
+    world
+      ? plotThumb(world, plot, `${title}, from above`, 176)
+      : h("span", { class: "plot-thumb" }),
+    // The words and the buttons share the column beside the drawing, which takes the card's own
+    // height: the words at the top, the buttons at the foot, nothing left stranded between them.
     h(
       "div",
-      { class: "stack tight plot-card-body" },
-      plot.name ? h("h2", { class: "plot-card-name", text: plot.name }) : null,
-      h("div", { class: "cluster plot-card-people" }, ...people.map((p) => personLink(p))),
-      changedLine(plot),
-      h("span", { class: "plot-card-week", text: weekLine(plot) }),
-      plot.gallery ? kindPill("Gallery", "sun", "plot-card-gallery") : null,
-    ),
-    h(
-      "div",
-      { class: "cluster plot-card-foot" },
-      copyPlaceLink(plot, title),
-      visitButton(plot, me, navigate),
+      { class: "plot-card-side" },
+      h(
+        "div",
+        { class: "stack tight plot-card-body" },
+        plot.name ? h("h2", { class: "plot-card-name", text: plot.name }) : null,
+        h("div", { class: "cluster plot-card-people" }, ...people.map((p) => personLink(p))),
+        changedLine(plot),
+        h("span", { class: "plot-card-week", text: weekLine(plot) }),
+        plot.gallery ? kindPill("Gallery", "sun", "plot-card-gallery") : null,
+      ),
+      h(
+        "div",
+        { class: "cluster plot-card-foot" },
+        copyPlaceLink(plot, title),
+        visitButton(plot, me, navigate),
+      ),
     ),
   );
 }

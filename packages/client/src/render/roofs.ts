@@ -3,6 +3,8 @@ import {
   blockFill,
   mixHex,
   type RoofShape,
+  roofTone,
+  type Season,
   type ThemePalette,
 } from "@terrakin/sim";
 import { type Camera, tileToScreen } from "../camera";
@@ -32,16 +34,18 @@ export const roofShade = (fill: string, high: number) =>
 /**
  * Paint one plot's roof. `palette` is the plot's theme, so a wood roof matches the wood walls it
  * sits on, and a made material keeps its own color whatever the theme (the sim's `blockFill`).
+ * `season` lays winter's snow over the covering, the way the ground wears it (`roofTone`).
  */
 export function paintRoof(
   ctx: CanvasRenderingContext2D,
   cam: Camera,
   roof: RoofShape,
   palette?: ThemePalette,
+  season?: Season,
 ) {
   const { scale } = cam;
   const half = scale / 2;
-  const fill = blockFill(roof.material as BlockKind, palette);
+  const fill = roofTone(blockFill(roof.material as BlockKind, palette), season);
   const box = (x: number, y: number) => {
     const { sx, sy } = tileToScreen(cam, x, y);
     const left = Math.round(sx - half);

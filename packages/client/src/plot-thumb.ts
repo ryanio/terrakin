@@ -20,6 +20,7 @@ import {
   isDecorKind,
   PAPER,
   roofShape,
+  roofTone,
   SEA_LOOK,
   THEME_INFO,
   THEME_TINT_ALPHA,
@@ -146,7 +147,8 @@ export function plotMarks(
     });
   }
   if (roof) {
-    const fill = blockFill(roof.material, palette);
+    // Winter lies on a roof as it lies on the ground (RFC 0041).
+    const fill = roofTone(blockFill(roof.material, palette), world.season);
     for (const t of roof.tiles) {
       marks.push({
         x: t.x - x0,

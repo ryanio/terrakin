@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { act, freePlots, join, read, signIn, tapTile, watchErrors } from "./support";
+import { act, freePlots, join, read, signIn, tapsTheMap, tapTile, watchErrors } from "./support";
 
 /**
  * Gathering (phase 1, item 9) on a phone: a resident settles a plot where branches or stones lie
@@ -58,17 +58,33 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
         .map((r: Tile) => `${r.x},${r.y}`),
     ]);
     const settled = home;
-    const target = (now.pickups as Pickup[]).find(
+    // A branch or a stone, never a find: a find lying nearer would be picked up with "You found
+    // 1 seashell" and this step is about the gather toast. Finds have their own step below.
+    const reachable = (now.pickups as Pickup[]).filter(
       (p) =>
+        (p.kind === "wood" || p.kind === "stone") &&
         Math.max(Math.abs(p.x - me.x), Math.abs(p.y - me.y)) <= config.reach &&
         !standing.has(`${p.x},${p.y}`) &&
         (!p.ownersOnly || inPlot(p, settled.px, settled.py)),
     );
-    if (!target) throw new Error(`Nothing lies within reach of ${me.x},${me.y} today`);
+    if (reachable.length === 0)
+      throw new Error(`Nothing lies within reach of ${me.x},${me.y} today`);
 
     await signIn(page, ash);
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
+    // One whose tap reaches the map: a tile under a chip in the HUD's corners would do what the
+    // chip does instead, and `#world-next` would plant her first seed.
+    let target: Pickup | undefined;
+    for (const p of reachable) {
+      if (await tapsTheMap(page, p.x - me.x, p.y - me.y)) {
+        target = p;
+        break;
+      }
+    }
+    if (!target) {
+      throw new Error(`Everything within reach of ${me.x},${me.y} today is under the HUD`);
+    }
     await tapTile(page, target.x - me.x, target.y - me.y);
     await expect(page.locator("#toast")).toContainText("You picked up 1");
     await page.screenshot({ path: "test-results/gather-picked.png" });

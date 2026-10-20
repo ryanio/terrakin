@@ -46,6 +46,7 @@ import {
   plotOf,
   plotRoof,
   type Resident,
+  roofTone,
   seasonOf,
   skyAt,
   standingFloor,
@@ -439,7 +440,11 @@ export function roofsIn(
       const shape = plotRoof(state, px, py);
       if (!shape) continue;
       roofs.push({
-        fill: blockFill(shape.material, palette(px * plotSize, py * plotSize)),
+        // Snow lies on it all winter (RFC 0041), as it lies on the ground under it.
+        fill: roofTone(
+          blockFill(shape.material, palette(px * plotSize, py * plotSize)),
+          season(state),
+        ),
         tiles: shape.tiles.map((t) => ({ x: t.x - bx, y: t.y - by, h: t.h })),
       });
     }

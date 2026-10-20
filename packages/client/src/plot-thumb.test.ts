@@ -133,6 +133,38 @@ describe("a plot's drawing", () => {
       blocks: walls,
     };
     const marks = plotMarks(roofed, 1, 0).marks;
+  it("lets winter's snow lie on a neighbor's roof (RFC 0041)", () => {
+    // A roof wears the season the ground wears (the sim's `roofTone`), so a winter town reads as
+    // snowed-over homes rather than summer-colored boxes on white ground.
+    const walls: WorldSnapshot["blocks"] = [];
+    for (let x = 4; x <= 6; x++) {
+      for (let y = 0; y <= 2; y++) walls.push({ x, y, block: "wood" });
+    }
+    const roofed: WorldSnapshot = {
+      ...world,
+      residents: [],
+      crops: [],
+      ground: [],
+      plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
+      blocks: walls,
+    };
+    const fillIn = (season: WorldSnapshot["season"]) => {
+      const mark = plotMarks({ ...roofed, season }, 1, 0, { roof: true }).marks.find(
+        (m) => m.kind === "roof",
+      );
+      if (mark?.kind !== "roof") throw new Error("no roof drawn");
+      return mark.fill;
+    };
+    const lightness = (hex: string) =>
+      [1, 3, 5].reduce((sum, at) => sum + Number.parseInt(hex.slice(at, at + 2), 16), 0);
+
+    // The fixture's world is already in winter, so the plain covering is what summer draws.
+    expect(fillIn("winter")).not.toBe(fillIn("summer"));
+    expect(lightness(fillIn("winter"))).toBeGreaterThan(lightness(fillIn("summer")));
+    // Autumn warms the ground but leaves roofs alone: only winter lies on them.
+    expect(fillIn("autumn")).toBe(fillIn("summer"));
+  });
+
     expect(marks.filter((m) => m.kind === "roof")).toEqual([]);
     // The walls it would have covered are still drawn.
     expect(marks.filter((m) => m.kind === "block")).toHaveLength(walls.length);

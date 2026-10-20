@@ -390,7 +390,7 @@ export const THEME_TINT_ALPHA = 0.34;
 
 /** Autumn warms the grass toward this gold; winter lays this snow over everything. */
 const AUTUMN_GOLD = "#d4a94f";
-const SNOW = "#f3f5f7";
+export const SNOW_WHITE = "#f3f5f7";
 
 /** The ground's tones in one season: per biome, and the Commons plaza. */
 export interface SeasonGround {
@@ -419,12 +419,12 @@ export const SEASON_GROUND: Readonly<Record<Season, SeasonGround>> = {
   },
   winter: {
     ground: {
-      meadow: toward(GROUND.meadow, SNOW, 0.74),
-      forest: toward(GROUND.forest, SNOW, 0.7),
-      stone: toward(GROUND.stone, SNOW, 0.7),
-      sand: toward(GROUND.sand, SNOW, 0.64),
+      meadow: toward(GROUND.meadow, SNOW_WHITE, 0.74),
+      forest: toward(GROUND.forest, SNOW_WHITE, 0.7),
+      stone: toward(GROUND.stone, SNOW_WHITE, 0.7),
+      sand: toward(GROUND.sand, SNOW_WHITE, 0.64),
     },
-    commons: toward(COMMONS_GROUND, SNOW, 0.5),
+    commons: toward(COMMONS_GROUND, SNOW_WHITE, 0.5),
   },
 };
 
@@ -434,8 +434,30 @@ export const SEASON_GROUND: Readonly<Record<Season, SeasonGround>> = {
  */
 export function seasonTone(hex: string, season: Season | undefined): string {
   if (season === "autumn") return mixHex(hex, AUTUMN_GOLD, 0.32);
-  if (season === "winter") return mixHex(hex, SNOW, 0.74);
+  if (season === "winter") return mixHex(hex, SNOW_WHITE, 0.74);
   return hex;
+}
+
+/** How far a roof goes toward `SNOW_WHITE` in winter, against the ground's 0.74. */
+const ROOF_SNOW = 0.56;
+
+/**
+ * How much snow lies on a roof in a season (RFC 0041): all winter, and none otherwise, since the
+ * weather table only ever snows in winter. The 3D views mix it into their own numeric colors, so
+ * every view wears the same winter; `roofTone` is the same mix for a hex string.
+ */
+export function roofSnow(season: Season | undefined): number {
+  return season === "winter" ? ROOF_SNOW : 0;
+}
+
+/**
+ * A roof's covering as a season wears it: snow lies on it all winter, as it lies on every biome,
+ * but less than on the ground, so the covering someone chose still reads through it and a leaf
+ * roof is still greener than a stone one. The walls under it keep their own color, so from above a
+ * snowy roof is also what tells a home from the garden wall beside it.
+ */
+export function roofTone(hex: string, season: Season | undefined): string {
+  return mixHex(hex, SNOW_WHITE, roofSnow(season));
 }
 
 /** The tufts' stroke in a season: olive in autumn, and pale where they poke through winter snow. */

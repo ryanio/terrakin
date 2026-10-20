@@ -444,7 +444,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     if (slabs) group.add(slabs);
     // The roof over the home (RFC 0041), on every plot but the one you stand on.
     if (data.roof) {
-      const roof = roofMesh(origin, data.roof, grain);
+      const roof = roofMesh(origin, data.roof, grain, 0, season);
       if (roof) group.add(roof);
     }
     if (data.owner) group.add(border(data.bounds, origin, grain));

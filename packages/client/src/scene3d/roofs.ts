@@ -1,8 +1,8 @@
-import type { RoofShape } from "@terrakin/sim";
+import { type RoofShape, roofSnow, type Season, SNOW_WHITE } from "@terrakin/sim";
 import { BufferAttribute, BufferGeometry, Mesh, type Texture } from "three";
 import { paper } from "./art";
 import { FLOOR_HEIGHT, floorY } from "./layout";
-import { blockLook, mix, SKY, shade } from "./palette";
+import { blockLook, hex, mix, SKY, shade } from "./palette";
 
 /**
  * A home's roof in 3D (RFC 0041). What it covers comes from the sim (`roofShape`), a tile at a
@@ -24,6 +24,7 @@ export function roofMesh(
   roof: RoofShape,
   grain: Texture,
   fade = 0,
+  season?: Season,
 ): Mesh | null {
   if (roof.tiles.length === 0) return null;
   const base = floorY(roof.floor) + FLOOR_HEIGHT;
@@ -81,8 +82,10 @@ export function roofMesh(
   geo.setAttribute("color", new BufferAttribute(new Float32Array(shades), 3));
   geo.computeVertexNormals();
   const look = blockLook(roof.material);
-  // A neighbor's roof melts into the haze as their blocks do.
-  const color = mix(shade(look.color, 0.04), SKY.fog, fade);
+  // Winter's snow lies on it, the sim's own mix (`roofSnow`), then a neighbor's roof melts into
+  // the haze as their blocks do.
+  const snowy = mix(look.color, hex(SNOW_WHITE), roofSnow(season));
+  const color = mix(shade(snowy, 0.04), SKY.fog, fade);
   const mesh = new Mesh(geo, paper(color, grain));
   mesh.castShadow = true;
   mesh.receiveShadow = true;

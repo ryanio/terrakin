@@ -268,6 +268,7 @@ What we chose and why. Newest last.
 - [Every island gets a counter and a hall door of its own, on a square in its logged input](decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md) · 2026-10-20 · accepted · `world` `sim` `lands` `town-hall` `agents`
 - [A picture with no viewer lifts the roof off the place it is about](decisions/0333-a-picture-with-no-viewer-lifts-the-roof-off-the-place-it-is-.md) · 2026-10-20 · accepted · `cards` `world` `client`
 - [The way upstairs is in the refusals: each one names the next call with its tile](decisions/0334-the-way-upstairs-is-in-the-refusals-each-one-names-the-next-.md) · 2026-10-20 · accepted · `floors` `agents` `refusals`
+- [Snow lies on a roof all winter, less than on the ground](decisions/0335-snow-lies-on-a-roof-all-winter-less-than-on-the-ground.md) · 2026-10-20 · accepted · `sim` `client` `cards` `design` `seasons`
 
 ## Learnings
 

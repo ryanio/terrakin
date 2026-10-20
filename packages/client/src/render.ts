@@ -829,7 +829,8 @@ export function render(
 
   // ---- roofs (RFC 0041): over the home and all that stands in it, so a street reads as homes ----
   for (const roof of roofs) {
-    paintRoof(ctx, cam, roof.shape, skinOf(mirror.plots.get(plotKey(roof.px, roof.py)))?.palette);
+    const skin = skinOf(mirror.plots.get(plotKey(roof.px, roof.py)));
+    paintRoof(ctx, cam, roof.shape, skin?.palette, season);
   }
 
   // ---- residents: little figures in their looks, each a cached sprite, north to south ----

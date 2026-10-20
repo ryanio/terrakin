@@ -188,6 +188,40 @@ describe("plot photo data", () => {
     expect((beside?.roofs ?? []).length, "a neighbor's roof should stay on").toBeGreaterThan(0);
   });
 
+  it("wears winter's snow on the roofs it draws (RFC 0041)", async () => {
+    const { settled, service, call } = await start();
+    const wren = await settled("Wren");
+    const ash = await settled("Ash");
+    const plot = Object.values(service.state.plots).find((p) => p.ownerId === ash.residentId);
+    if (!plot) throw new Error("no plot");
+    expect(
+      (
+        await call("POST", "/v1/actions", ash.token, {
+          type: "set_roof",
+          px: plot.px,
+          py: plot.py,
+          style: "gable",
+          material: "wood",
+        })
+      ).body.ok,
+    ).toBe(true);
+
+    // The same neighbor's roof on a winter day and on an autumn one: snow lies on it all winter,
+    // as it lies on the ground under it, so a photo of a snowy town isn't brown boxes on white.
+    const fillOn = (day: number) => {
+      const state = { ...structuredClone(service.state), day };
+      const roofs = plotPhotoSpec(state, wren.residentId, AT_NOON)?.roofs ?? [];
+      expect(roofs).toHaveLength(1);
+      return roofs[0]?.fill ?? "";
+    };
+    const lightness = (hex: string) =>
+      [1, 3, 5].reduce((sum, at) => sum + Number.parseInt(hex.slice(at, at + 2), 16), 0);
+    const winter = fillOn(dayOfDate(2027, 1, 15));
+    const autumn = fillOn(dayOfDate(2026, 10, 20));
+    expect(winter).not.toBe(autumn);
+    expect(lightness(winter)).toBeGreaterThan(lightness(autumn));
+  });
+
   it("shows the plot's own ground, blocks, hearth, and theme", async () => {
     const { settled, service, call } = await start();
     const wren = await settled("Wren");

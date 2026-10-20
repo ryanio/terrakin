@@ -154,7 +154,7 @@ export function buildPlot(
     // The roof (RFC 0041) is the last thing above the walls, so it goes only with the whole home:
     // pick a floor and it lifts away, exactly as the flooring over you does.
     if (layout.roof && top > layout.top) {
-      const roof = roofMesh(origin, layout.roof, grain);
+      const roof = roofMesh(origin, layout.roof, grain, 0, layout.season);
       if (roof) group.add(roof);
     }
     root.add(group);

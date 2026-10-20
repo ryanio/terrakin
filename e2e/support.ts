@@ -302,12 +302,32 @@ async function settleCamera(page: Page) {
  * once the loader a returning resident sees has stepped aside.
  */
 export async function tapTile(page: Page, dx: number, dy: number) {
+  await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
+  await settleCamera(page);
+  const at = tilePoint(page, dx, dy);
+  await page.mouse.click(at.x, at.y);
+}
+
+/** Where the tile `dx`, `dy` from where you stand falls on screen. */
+function tilePoint(page: Page, dx: number, dy: number) {
   const vp = page.viewportSize();
   if (!vp) throw new Error("no viewport");
   const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
-  await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
-  await settleCamera(page);
-  await page.mouse.click(vp.width / 2 + dx * scale, vp.height / 2 + dy * scale);
+  return { x: vp.width / 2 + dx * scale, y: vp.height / 2 + dy * scale };
+}
+
+/**
+ * Whether a tap on the tile `dx`, `dy` from where you stand would reach the map rather than a
+ * button over it. The HUD's chips sit in the corners, so a tile a few steps south-east of someone
+ * can be under one, and the tap would do what the chip does instead (`#world-next` plants a seed).
+ * A spec that picks its own tile asks this first.
+ */
+export async function tapsTheMap(page: Page, dx: number, dy: number): Promise<boolean> {
+  const at = tilePoint(page, dx, dy);
+  return page.evaluate(
+    ([x, y]) => document.elementFromPoint(x as number, y as number)?.tagName === "CANVAS",
+    [at.x, at.y],
+  );
 }
 
 /**

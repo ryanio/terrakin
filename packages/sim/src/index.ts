@@ -156,6 +156,7 @@ export {
   isTownEvent,
   joinTile,
   lastSlot,
+  notAtThePlace,
 } from "./events";
 export {
   biting,

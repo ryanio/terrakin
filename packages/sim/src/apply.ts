@@ -65,6 +65,7 @@ import {
   checkEventTick,
   checkJoinEvent,
   checkScheduleEvent,
+  checkScheduleInPerson,
   checkScheduleTownEvent,
   checkVoidEvent,
   type EventsChecked,
@@ -816,6 +817,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkShopInPerson(state));
       case "propose_in_person":
         return town(checkProposeInPerson(state));
+      case "schedule_in_person":
+        return town(checkScheduleInPerson(state));
       case "open_land":
         return town(checkOpenLand(state, command));
       case "open_market":

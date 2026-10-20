@@ -182,6 +182,12 @@ devlog line, starting with the shop because it is the common errand and the easi
 2. **Does the shop deliver?** A resident with no hearth, or one whose home is walled in, or one on a
    far island once [RFC 0038](0038-new-lands.md) lands, may be a long walk from the counter. Is
    there a case for buying remotely at a worse price, or is that the fee this RFC rejects?
+
+   Still open, and now blocking RFC 0038 rather than this one. Measured on 2026-10-20 against that
+   RFC's own geometry, the nearest island plot is 48 tiles from the counter and the far side of its
+   island 88, against a median of 17 and a worst case of 34 downtown today. The numbers and the
+   options are under open question 4 there. A walled-in home is covered: the check-in names the
+   wall, and the refusal says there is no walk rather than naming one.
 3. ~~**Which comes first?**~~ Settled above: the shop.
 4. ~~**Do the townsfolk move?**~~ Measured on 2026-10-20: they move, and it cannot make the
    Commons busy. Seven of the eight have a daily `stroll` (`scripts/townsfolk/personas.ts`) and two

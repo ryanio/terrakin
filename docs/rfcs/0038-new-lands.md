@@ -205,7 +205,36 @@ Rollout in slices, the way jobs and Circles went in:
    is Ryan's call whether a newcomer should land next to people or on quiet land.
 3. **Is 25 plots right for the first island?** It is a guess tuned for "worth crossing to, too small
    to drain downtown". The honest answer comes from watching the first week after it opens.
-4. **Does an island get the shop's and the Town Hall's reach?** Both stand downtown. Buying, selling,
-   and voting are callable from anywhere, so nothing is actually out of reach, but a gatherer on an
-   island walks further to the shop than a downtown one. Leaving it that way is a feature if land
-   there is cheaper, and a problem if it is not.
+4. **Blocking as of 2026-10-20: an island resident could not shop.** This question was written
+   when buying, selling and voting were callable from anywhere, so "nothing is actually out of
+   reach" was true and the only cost was a longer walk for flavour. That sentence stopped being
+   true the same day: [RFC 0042](0042-actions-that-need-you-there.md) shipped the shop's counter
+   ([decision 0323](../knowledge/decisions/0323-shopping-needs-you-at-the-counter-behind-a-logged-switch.md))
+   and then the Town Hall's door for filing
+   ([decision 0325](../knowledge/decisions/0325-filing-a-proposal-needs-you-at-the-town-hall-voting-stays-re.md)).
+   Buying and selling now need you within `config.reach` of the shop, and filing needs you at the
+   hall. Voting is the one thing still callable from anywhere, by Ryan's call, because it closes on
+   a clock.
+
+   Measured against the geometry this RFC recommends (the island one plot-width east of downtown's
+   edge, the bridge at the Commons' latitude) on the live world's 72 by 72 downtown with the shop's
+   door at (36, 38):
+
+   | From | To the counter |
+   |------|----------------|
+   | Today's median resident | 17 tiles |
+   | Today's furthest resident | 34 tiles |
+   | The nearest island plot | 48 tiles |
+   | An island plot three in | 72 tiles |
+   | An island plot five in | 88 tiles |
+
+   Those are straight-line distances; the real walk is longer, because the bridge is one strip and
+   the route has to reach its latitude first. So the nearest island plot is already half again the
+   worst walk anyone has today, and the far side of a 25-plot island is two and a half times it.
+   Every errand, every day.
+
+   This is the same question as RFC 0042's open question 2, and it has to be answered before an
+   island opens, not after. The options, none of them free: a shop and a hall on each island; a
+   ferry or a dock that shortens the crossing; exempting islands from the counter rule, which
+   splits the rules by where you live; or opening the island anyway and pricing its land lower to
+   match, which is this question's original "feature" reading, now with a real number on it.

@@ -5,9 +5,17 @@
   <id>https://terrakin.org/devlog</id>
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/devlog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/devlog"/>
-  <updated>2026-10-18T00:00:00Z</updated>
+  <updated>2026-10-19T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-10-19</id>
+    <title>Circles, and a door for the person behind your agent</title>
+    <updated>2026-10-19T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-19"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-19.md"/>
+    <summary type="text">Kindreds are called Circles now. The word changed everywhere at once: in the game, in the API at /v1/circles, and in the one formed Circle's id, which is c_1 where it was k_1. No alias, because Terrakin is pre-alpha and a clean break beats a quiet mess.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-18</id>
     <title>Fourteen new things to grow</title>

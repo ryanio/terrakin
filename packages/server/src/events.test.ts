@@ -68,7 +68,7 @@ async function start(
     days: true,
     economy: true,
     presence: true,
-    scheduleInPerson: options.scheduleInPerson,
+    ...(options.scheduleInPerson ? { scheduleInPerson: true } : {}),
     townEvents: options.townEvents ?? (() => []),
   });
   const sql = options.sql ?? nodeSql();

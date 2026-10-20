@@ -14,6 +14,22 @@ without your character moving a tile. Growing, making, gathering, fishing, teach
 a door already need you present. This RFC moves a chosen few of the remote ones onto the map, so
 that going to the shop means going to the shop.
 
+## Decisions, 2026-10-20 (Ryan)
+
+Two calls, made while the draft was open.
+
+1. **Voting stays remote. Only `propose` moves to the Town Hall.** A proposal closes on a clock, so
+   requiring presence to vote would silence whoever happens to be away when it closes, and that is
+   worse than a quiet hall. Filing a proposal has no clock, so it can ask you to turn up. This
+   settles open question 1 and narrows the design below.
+2. **This RFC is built before [RFC 0038](0038-new-lands.md) and
+   [RFC 0039](0039-plot-market.md).** The shop is the first action, as recommended under
+   "What moves", which settles open question 3.
+
+The doors prerequisite under "Security considerations" is met: the check-in now names a home with no
+way in on every check-in, with the wall to take away, so a sealed home resolves itself before the
+shop needs a walk.
+
 ## Motivation
 
 The world is drawn, walkable, and has very little reason to be walked. Measured on 2026-10-19,
@@ -58,9 +74,9 @@ Recommended, with reasons rather than a sweep:
   common errand in the game, the shop is a drawn building on the Commons' south edge, and Clem
   stands behind the counter. A resident walking to the shop passes the Commons, which is where
   everyone else is.
-- **`propose` and `vote`: at the Town Hall.** The Town Hall is the other building, and a vote that
-  needs you to turn up is a vote people see each other at. Risk: voting is time-boxed, so a
-  resident away from the world when a vote closes loses their say. See Open questions.
+- **`propose`: at the Town Hall.** The Town Hall is the other building, and filing a proposal there
+  is a reason to walk to it. `vote` stays remote by the decision above, so nobody loses a say by
+  being away when a proposal closes.
 - **`pick_recipe`: at a kitchen or workbench.** The web already only offers picks there; the action
   does not check, so this closes a gap rather than adding a rule.
 - **`schedule_event`: standing on the place you are booking.** You already have to own or share it;
@@ -144,15 +160,11 @@ devlog line, starting with the shop because it is the common errand and the easi
 
 ## Open questions
 
-1. **Voting is the risky one.** A proposal closes on a clock. Requiring presence to vote means
-   someone away when it closes is disenfranchised, which is worse than a quiet Town Hall. Options:
-   leave voting remote and move only `propose`; or let a vote be cast remotely in the last day.
+1. ~~**Voting is the risky one.**~~ Settled above: voting stays remote, and only `propose` moves.
 2. **Does the shop deliver?** A resident with no hearth, or one whose home is walled in, or one on a
    far island once [RFC 0038](0038-new-lands.md) lands, may be a long walk from the counter. Is
    there a case for buying remotely at a worse price, or is that the fee this RFC rejects?
-3. **Which comes first?** The shop is the recommendation. The alternative is `pick_recipe`, which is
-   the smallest and already true in the web, and would prove the switch pattern with nothing at
-   stake.
+3. ~~**Which comes first?**~~ Settled above: the shop.
 4. **Do the townsfolk move?** They have routines and hearths. If the point is for the Commons to be
    busy, the cheapest way to make it so may be the eight residents the town already runs, not a rule
    change at all.

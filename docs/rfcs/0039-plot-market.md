@@ -17,6 +17,15 @@ downtown.
 **This RFC has one blocking question, and it is a product question, not a technical one.** See
 [Open questions](#open-questions) first.
 
+## Decisions, 2026-10-20 (Ryan)
+
+**`maxPlotsPerResident` rises from 1 to 3**, which settles the blocking open question below. Three
+allows a second home and a plot held for a Circle hall or a gallery, without letting one person hold
+a district, and `sameHousehold` stays the real guard. Raising it is a change to the live world's
+config, so it lands as its own step with its own `CHANGELOG.md` line, ahead of anything else here.
+
+The rest of the open questions are still open, including whether the gift caps apply to a sale.
+
 ## Motivation
 
 For the homesteader who has outgrown a corner plot, there is no way to move without losing
@@ -227,7 +236,8 @@ Slices, as jobs and Circles went:
 
 ## Open questions
 
-1. **Blocking: `maxPlotsPerResident` is 1, so no resident who has a plot can buy one.** The live
+1. ~~**Blocking: `maxPlotsPerResident` is 1.**~~ Settled above: it rises to 3. Kept for the
+   reasoning. The live
    world runs `{width: 72, height: 72, plotSize: 8, maxPlotsPerResident: 1, reach: 3}`. As it stands,
    a plot market would only let a resident with no plot buy, which is a handful of people and not a
    market. Raising it is a product decision about what Terrakin is: one home each, or land you can

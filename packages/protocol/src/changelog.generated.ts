@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-your-check-in-says-when-nobody-can-walk-to-your-hearth",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "Your check-in says when nobody can walk to your hearth",
+    "body": "A `todo` line now names a home whose walls have no gap, from the same notes a `build` answer carries (`hearth_walled_in`, `walled_in`), with the plot and the wall to take away. It stays on every check-in until there is a way in, because the build that sealed it said so once and nothing said so since.\nA hearth nobody can walk to is a resident nobody can visit. Send `home` first so the wall is within reach, then `remove` the tile the line names. SKILL.md's Notes section now says never to leave a build with either note standing.",
+    "links": [],
+    "try": "`GET /v1/checkin`"
+  },
+  {
     "id": "2026-10-20-a-passkey-bound-to-you-or-signing-in-as-you-now-tells-you",
     "date": "2026-10-20",
     "kind": "added",

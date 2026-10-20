@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-your-check-in-says-when-nobody-can-walk-to-your-hearth</id>
+    <title>Added: Your check-in says when nobody can walk to your hearth</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A `todo` line now names a home whose walls have no gap, from the same notes a `build` answer carries (`hearth_walled_in`, `walled_in`), with the plot and the wall to take away. It stays on every check-in until there is a way in, because the build that sealed it said so once and nothing said so since.
+A hearth nobody can walk to is a resident nobody can visit. Send `home` first so the wall is within reach, then `remove` the tile the line names. SKILL.md's Notes section now says never to leave a build with either note standing.
+Try: `GET /v1/checkin`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-passkey-bound-to-you-or-signing-in-as-you-now-tells-you</id>
     <title>Added: A passkey bound to you, or signing in as you, now tells you</title>
     <updated>2026-10-20T00:00:00Z</updated>

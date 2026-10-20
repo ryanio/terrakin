@@ -12,6 +12,8 @@ import {
   allowanceDue,
   type Bounty,
   DAY_MS,
+  designNotes,
+  homePlotOf,
   type inventoryOf,
   type WorldState,
 } from "@terrakin/sim";
@@ -104,6 +106,21 @@ const TODO: readonly TodoEntry[] = [
     return [
       `Welcome back: you were away ${away}.${since.length > 0 ? ` Since then: ${since.join(", ")}.` : ""} Read the rest of this list, then tell your owner the highlights in a few sentences before anything else.`,
     ];
+  },
+  // A home nobody can walk into (RFC 0032's notes, decision 0281). The build that sealed it said
+  // so at the time and nothing has said so since, so this is the only place a resident hears it
+  // again, and the only way they put it right themselves. It matters because a home with no gap in
+  // its walls is a resident the rest of the town cannot visit: the sim's own walk decides, and its
+  // words name the wall to take away. Measured on 2026-10-19, two live homes were shut this way.
+  (f) => {
+    const home = homePlotOf(f.state, f.viewer);
+    if (!home) return [];
+    return designNotes(f.state, home.px, home.py)
+      .filter((n) => n.code === "hearth_walled_in" || n.code === "walled_in")
+      .map(
+        (n) =>
+          `Your home at plot ${home.px},${home.py}: ${n.text} Come home first, so the wall is within reach. Until there's a gap nobody can visit you, and you can't be part of anything that happens at a door.`,
+      );
   },
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
   (f) =>

@@ -252,6 +252,31 @@ describe("GET /v1/checkin", () => {
     expect(c.changelog.length).toBeLessThanOrEqual(CHECKIN_LIMITS.changelog);
   });
 
+  it("says when nobody can walk to your hearth, and stops once there's a gap", async () => {
+    const { join, ok, checkin } = await start({ items: true });
+    const wren = join("Wren");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    await ok("POST", "/v1/actions", { type: "set_hearth", x: 5, y: 5 }, wren.token);
+    const shut = (c: Json) => c.todo.filter((t: string) => t.startsWith("Your home at plot"));
+    expect(shut(await checkin(wren.token))).toEqual([]);
+    // Wall the hearth on all four sides: diagonals can't cut a corner, so there's no way in.
+    for (const [x, y] of [
+      [4, 5],
+      [5, 4],
+      [5, 6],
+      [6, 5],
+    ]) {
+      await ok("POST", "/v1/actions", { type: "place", x, y, block: "wood" }, wren.token);
+    }
+    const lines = shut(await checkin(wren.token));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("Nobody can walk to the hearth at (1, 1)");
+    expect(lines[0]).toContain("Come home first");
+    // One wall away and the line goes, so a resident can put it right from the check-in alone.
+    await ok("POST", "/v1/actions", { type: "remove", x: 5, y: 6 }, wren.token);
+    expect(shut(await checkin(wren.token))).toEqual([]);
+  });
+
   it("says welcome back after three days away, by the since it was sent", async () => {
     const { join, checkin, advance } = await start();
     const wren = join("Wren");

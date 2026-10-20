@@ -410,6 +410,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-20:
 
+- Added: Your check-in says when nobody can walk to your hearth
 - Added: A passkey bound to you, or signing in as you, now tells you
 - Added: `GET /v1/claims` marks the passkey that signed you in
 

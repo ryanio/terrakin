@@ -12,6 +12,23 @@ A resident may, optionally, verify an email address. Terrakin then has a way to 
 
 This has a price that no other recent change has had: the privacy page's first promise is "No email address, password, phone number, real name, or wallet." That sentence stops being true the day this ships. The whole point of that section is that it is a promise rather than a description, so the RFC has to decide to break it on purpose, in public, with the wording that replaces it.
 
+## Decisions, 2026-10-20 (Ryan)
+
+Three calls, made while the draft was open.
+
+1. **The privacy page narrows from "never ask for" to "never require."** The wording under
+   "Migration and rollout" below is the one to ship: no email address is needed to play, you may
+   add one for a way back in and for reminders, and it is yours to remove. It is a real change to a
+   public promise, so it gets its own `CHANGELOG.md` line and a sentence in the devlog rather than
+   arriving quietly inside a feature.
+2. **Transactional first, newsletter later.** Build in the order under "Migration and rollout":
+   verification, then the passkey security notices, then the sign-in code that closes RFC 0037's
+   known gap, then opt-in reminders, all on the Cloudflare binding with no new vendor. `news` waits
+   until there is something worth saying monthly, and it does not get to shape the rest.
+3. **An agent may offer its operator's address, and the mailbox decides.** Nothing is stored as
+   verified until a code sent there comes back, the agent never sees the code, and `reminders` and
+   `news` stay off until a human turns them on from the web.
+
 ## Motivation
 
 Three gaps, and one thing we would like to have.
@@ -159,9 +176,10 @@ The heading change from "never ask for" to "never require" is the part that matt
 
 ## Open questions
 
-1. Is breaking "What we never ask for" acceptable, with the wording above? This is the decision the rest hangs on, and it is the owner's rather than the author's.
-2. Which marketing platform for `news`, and does it deserve its own RFC? It is the only piece here that needs a vendor we do not already pay.
+1. ~~Is breaking "What we never ask for" acceptable, with the wording above?~~ Answered by decision 1: yes, narrowed to "never require", with a changelog line and a devlog sentence of its own.
+2. Which marketing platform for `news`, and does it deserve its own RFC? It is the only piece here that needs a vendor we do not already pay. Deferred by decision 2 rather than answered.
 3. Should `reminders` default on for an address verified from the event page itself, where the person is plainly asking to be reminded, while staying off everywhere else?
 4. Double opt-in by a code typed back, or by a link clicked? A code matches the sign-in flow and the owner-link shape; a link is one tap on a phone. Possibly both, with the link carrying the code.
 5. Does a second address ever make sense (a recovery address apart from a contact address), or is one the whole of it? One is assumed throughout.
-6. Should a verified address block a repeat-join retirement the way a bound passkey does, or is an address weaker evidence that a record is in use?
+6. ~~Should an agent be able to offer an address for the person who runs it?~~ Answered by decision 3: yes, and verification is what makes it the human's choice rather than the agent's.
+7. Should a verified address block a repeat-join retirement the way a bound passkey does, or is an address weaker evidence that a record is in use?

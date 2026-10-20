@@ -116,6 +116,16 @@ export function recipesHint(picks: number): string {
     : what;
 }
 
+/**
+ * Whether the counter rule holds a shop button back (RFC 0042). `away` is the server's own
+ * sentence from `you.away`, the same one the action refuses with, and null in a world that serves
+ * from anywhere. A buy and a sale need you at the counter; a free pick does not, because it sends
+ * `pick_recipe`, which isn't a shop command at all.
+ */
+export function holdsBack(what: "buy" | "sell" | "pick", away: string | null): boolean {
+  return away !== null && what !== "pick";
+}
+
 /** How many the town would take from you now: what's left today, up to what you hold. */
 export const sellable = (order: BuyOrderView, held: number) =>
   Math.max(0, Math.min(order.left ?? 0, held));
@@ -192,6 +202,9 @@ export function shopView(ctx: ViewContext): View {
   const { el, head, main, side } = pageLayout("shop-page", "Your purse and what the town buys");
   head.append(h("h1", { class: "page-title", text: "The town shop" }));
   let landed = false;
+  // Why trading is held back from where you stand, in a world that needs you at the counter
+  // (RFC 0042). Set from each answer, so a walk and a refresh clear it.
+  let away: string | null = null;
   const signedIn = savedToken() !== null;
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
@@ -205,7 +218,7 @@ export function shopView(ctx: ViewContext): View {
       attrs: { type: "button", "aria-label": `${label.text}: ${item.name}` },
       text: label.text,
     });
-    button.disabled = !label.can;
+    button.disabled = !label.can || holdsBack("buy", away);
     button.addEventListener("click", () =>
       act(button, { type: "shop_buy", sku: item.sku }, `You bought ${aNamed(item.name)}.`),
     );
@@ -240,7 +253,7 @@ export function shopView(ctx: ViewContext): View {
       attrs: { type: "button", "aria-label": `${label.text}: ${card.name}` },
       text: label.text,
     });
-    button.disabled = !label.can;
+    button.disabled = !label.can || holdsBack(label.send === "pick" ? "pick" : "buy", away);
     const recipe = cardOf(card.sku);
     const learned = recipe ? learnedLine(recipe, "bought") : "";
     button.addEventListener("click", () => {
@@ -277,7 +290,7 @@ export function shopView(ctx: ViewContext): View {
       attrs: { type: "button" },
       text: n > 1 ? `Sell ${n}` : "Sell",
     });
-    sell.disabled = n === 0;
+    sell.disabled = n === 0 || holdsBack("sell", away);
     sell.addEventListener("click", () =>
       act(
         sell,
@@ -303,6 +316,7 @@ export function shopView(ctx: ViewContext): View {
 
   function paint(data: ShopResponse, inv: InventoryResponse | null) {
     const { shop, you } = data;
+    away = you?.away ?? null;
     if (!shop) {
       main.replaceChildren(notOpenCard("The shop isn't open yet"));
       side.replaceChildren();
@@ -325,6 +339,18 @@ export function shopView(ctx: ViewContext): View {
               class: "shop-keeper",
               text: "Most of what you spend is retired; a little goes to the town.",
             }),
+        away !== null
+          ? h(
+              "p",
+              { class: "shop-away", attrs: { id: "shop-away" } },
+              h("span", { text: away }),
+              h("a", {
+                class: "pill-button small",
+                attrs: { href: "/world" },
+                text: "Open the world",
+              }),
+            )
+          : null,
         you
           ? balanceLine(you.balance, "shop-balance")
           : h(

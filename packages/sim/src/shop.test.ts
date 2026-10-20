@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import type { RecipeName } from "./catalog";
 import { ITEMS_CONFIG, ITEMS_LOG } from "./fixtures/items-log";
+import {
+  SHOP_COUNTER_CONFIG,
+  SHOP_COUNTER_HASH,
+  SHOP_COUNTER_LOG,
+} from "./fixtures/shop-counter-log";
 import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
 import { hashWorld } from "./hash";
 import {
@@ -15,10 +21,12 @@ import {
   type StackKind,
 } from "./items";
 import { SHOP_WEAR } from "./looks";
+import { CARD_RECIPES, cardSku, knows, onShelf } from "./recipes";
 import { replay } from "./replay";
 import { dayOfDate, SEASONS, seasonOf } from "./season";
 import {
   BUY_ORDERS,
+  notAtTheCounter,
   ROTATION_CROPS,
   ROTATION_GOODS,
   SEASON_BUYS,
@@ -41,8 +49,10 @@ import {
   TOWN_ACTOR,
   type WorldConfig,
   type WorldEvent,
+  type WorldState,
 } from "./types";
-import { createWorld, isShopTile, shopTiles, townHallTiles } from "./world";
+import { route, worldGround } from "./walk";
+import { createWorld, isShopTile, shopTile, shopTiles, townHallTiles } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1). Settling lands on the plot's center, where the
 // starter home puts its hearth: (3, 3) on plot (0, 0), inside a hut from (1, 1) to (5, 5).
@@ -126,6 +136,12 @@ describe("old logs", () => {
   it("replay the shop log to its pinned hash", () => {
     const state = replay(SHOP_CONFIG, SHOP_LOG);
     expect(hashWorld(state)).toBe(SHOP_HASH);
+    expectSupplyHolds(state);
+  });
+
+  it("replay a log from both sides of shop_in_person to its pinned hash", () => {
+    const state = replay(SHOP_COUNTER_CONFIG, SHOP_COUNTER_LOG);
+    expect(hashWorld(state)).toBe(SHOP_COUNTER_HASH);
     expectSupplyHolds(state);
   });
 
@@ -680,5 +696,97 @@ describe("pomegranates, the first fruit added through the catalog", () => {
       expect(townBuys(d)).not.toContain("pomegranate");
       expect(townBuys(d)).not.toContain("pomegranate_jam");
     }
+  });
+});
+
+describe("shopping in person (RFC 0042)", () => {
+  const door = shopTile(CONFIG);
+
+  /** A card on today's shelf that `who` doesn't know yet, with the recipe it teaches. */
+  function shelfCard(state: WorldState, who: string): { sku: ShopSku; recipe: RecipeName } {
+    const day = state.day ?? 0;
+    for (const recipe of CARD_RECIPES) {
+      if (onShelf(recipe, day) && !knows(state, who, recipe)) {
+        return { sku: cardSku(recipe) as ShopSku, recipe };
+      }
+    }
+    throw new Error("no card on the shelf today");
+  }
+
+  /** Walk `who` one logged step at a time until the shop's door is within reach. */
+  function walkToShop(w: ReturnType<typeof world>, who: string) {
+    for (let i = 0; i < 64; i++) {
+      const me = w.state.residents[who];
+      if (!me) throw new Error(`${who} hasn't joined`);
+      if (!notAtTheCounter(w.state, me)) return;
+      const [dir] = route(worldGround(w.state), me, door, CONFIG.reach);
+      if (!dir) throw new Error("no way to the shop from there");
+      w.ok(who, { type: "move", dir });
+    }
+    throw new Error("64 steps and still not at the counter");
+  }
+
+  it("lets anyone buy from anywhere until the switch, then asks for the counter", () => {
+    const w = shop();
+    fund(w.state, "ada", 500);
+    // Ada stands on her hearth, two plots from the Commons, and the shop serves her there.
+    expect(w.code("ada", { type: "shop_buy", sku: "lantern" })).toBe(null);
+    w.town({ type: "shop_in_person" });
+    const away = w.send("ada", { type: "shop_buy", sku: "lantern" });
+    expect(away.ok).toBe(false);
+    if (!away.ok) {
+      expect(away.rejection.code).toBe("out_of_reach");
+      expect(away.rejection.message).toContain("Clem serves at the counter.");
+      // The refusal carries the walk that fixes it, which is the whole agent experience.
+      expect(away.rejection.message).toContain("Walk closer first:");
+    }
+    walkToShop(w, "ada");
+    expect(w.code("ada", { type: "shop_buy", sku: "lantern" })).toBe(null);
+  });
+
+  it("asks the seller to the counter too, and comes only once", () => {
+    const day = dayBuying("lemon");
+    const w = shop(day);
+    stock(w.state, "ada", { lemon: 3 });
+    w.town({ type: "shop_in_person" });
+    expect(w.code("ada", { type: "sell_to_town", item: "lemon" })).toBe("out_of_reach");
+    walkToShop(w, "ada");
+    expect(w.code("ada", { type: "sell_to_town", item: "lemon" })).toBe(null);
+    expect(w.code(TOWN_ACTOR, { type: "shop_in_person" })).toBe("already_open");
+  });
+
+  it("covers a recipe card's buy at the shop, and leaves a free pick alone", () => {
+    const w = shop();
+    // Residents who were here when recipes opened know everything, so Cy joins after.
+    w.town({ type: "open_recipes" });
+    w.settle("cy", 2);
+    fund(w.state, "cy", 500);
+    w.town({ type: "shop_in_person" });
+    // A card is bought over the counter like anything else on the shelves.
+    expect(w.code("cy", { type: "shop_buy", sku: shelfCard(w.state, "cy").sku })).toBe(
+      "out_of_reach",
+    );
+    // A free pick is `pick_recipe`, which never goes through the shop's own gate, so the walk
+    // isn't asked for: RFC 0042 puts picks at a kitchen or workbench instead.
+    expect(w.code("cy", { type: "pick_recipe", recipe: shelfCard(w.state, "cy").recipe })).toBe(
+      null,
+    );
+    walkToShop(w, "cy");
+    expect(w.code("cy", { type: "shop_buy", sku: shelfCard(w.state, "cy").sku })).toBe(null);
+  });
+
+  it("tells someone upstairs to come down, with the walk when they're far off too", () => {
+    const w = shop();
+    // Over the counter itself: nothing to say but come down.
+    const over = notAtTheCounter(w.state, { ...door, floor: 1 });
+    expect(over?.code).toBe("ground_floor_only");
+    expect(over?.message).toBe("Go down to the ground floor to shop.");
+    // Upstairs in a loft across town: both, in one answer, so it takes one round trip.
+    const loft = notAtTheCounter(w.state, { x: door.x - 12, y: door.y - 9, floor: 1 });
+    expect(loft?.code).toBe("ground_floor_only");
+    expect(loft?.message).toContain("Go down to the ground floor to shop.");
+    expect(loft?.message).toContain("Clem serves at the counter.");
+    expect(loft?.message).toContain("Walk closer first:");
+    expect(notAtTheCounter(w.state, door)).toBe(null);
   });
 });

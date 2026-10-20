@@ -58,6 +58,21 @@ if (testClock && process.env.NODE_ENV === "production") {
   console.error("TERRAKIN_TEST_CLOCK is for tests and can't be set when NODE_ENV=production.");
   process.exit(1);
 }
+
+// Tests only: actions per second per resident. A spec that walks a resident across the world (to
+// the shop's counter, RFC 0042) spends more than the real burst allows, and the limiter is never
+// what a spec is about. Never in production, so the shipped limit can't be loosened by config.
+const testActionsPerSecond = Number(process.env.TERRAKIN_TEST_ACTIONS_PER_SECOND ?? 0);
+if (testActionsPerSecond && process.env.NODE_ENV === "production") {
+  console.error(
+    "TERRAKIN_TEST_ACTIONS_PER_SECOND is for tests and can't be set when NODE_ENV=production.",
+  );
+  process.exit(1);
+}
+if (process.env.TERRAKIN_TEST_ACTIONS_PER_SECOND && !(testActionsPerSecond > 0)) {
+  console.error("TERRAKIN_TEST_ACTIONS_PER_SECOND must be a number above 0.");
+  process.exit(1);
+}
 // The test clock also starts in the world's morning (day and night are presentation, decision
 // 0011), so a picture of the world in e2e doesn't depend on the hour the suite runs.
 const MORNING = 0.15;
@@ -90,6 +105,7 @@ const service = new WorldService({
   solidBuildings: true,
   tableSpots: true,
   shop: true,
+  shopInPerson: true,
   market: true,
   bounties: true,
   presence: true,
@@ -237,6 +253,7 @@ const server = createApp({
   lessons,
   trustedProxies,
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
+  ...(testActionsPerSecond ? { actionsPerSecond: testActionsPerSecond } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),
   ...(testClock
     ? {

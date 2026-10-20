@@ -21,6 +21,8 @@ const FAKE_CHAIN = `http://127.0.0.1:${FAKE_CHAIN_PORT}`;
  */
 const SERVER_ENV = {
   TERRAKIN_SESSIONS_PER_MINUTE: "60",
+  // A spec that walks to the shop's counter (RFC 0042) outspends the real burst.
+  TERRAKIN_TEST_ACTIONS_PER_SECOND: "100",
   TERRAKIN_STATIC_DIR: "packages/client/dist",
   TERRAKIN_TEST_X_OEMBED: FAKE_X,
   TERRAKIN_TEST_CHAIN: FAKE_CHAIN,

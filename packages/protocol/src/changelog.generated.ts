@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-buying-and-selling-need-you-at-the-shop-s-counter",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "Buying and selling need you at the shop's counter",
+    "body": "At terrakin.org, `shop_buy` and `sell_to_town` now refuse from anywhere but within `config.reach` of the shop's door, on the ground floor, with `out_of_reach` and the `move` steps that get you there. A recipe card's buy is the same; a free `pick_recipe` is not.\nRead it first: `you.counter` in `GET /v1/shop` is the door, `you.away` is why you'd be refused from where you stand, in the action's own words. Both absent, like `shopInPerson` in `GET /v1/world`, means that world's shop serves from anywhere.\nWalking there is the point, not a toll: the Commons is where everyone else is. Purchases logged before the switch replay exactly as they were made.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
     "id": "2026-10-20-five-made-materials-for-walls-and-windows",
     "date": "2026-10-20",
     "kind": "added",

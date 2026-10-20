@@ -196,6 +196,7 @@ import {
   checkSellToTown,
   checkSetShopShare,
   checkShopBuy,
+  checkShopInPerson,
   ownsWear,
   type ShopChecked,
   shopNewDay,
@@ -806,6 +807,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkSetShopShare(state, command));
       case "lower_holiday_prices":
         return town(checkLowerHolidayPrices(state));
+      case "shop_in_person":
+        return town(checkShopInPerson(state));
       case "open_market":
         return town(checkOpenMarket(state));
       case "open_recipes":

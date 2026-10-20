@@ -506,6 +506,7 @@ export {
   HOLIDAY_STOCK,
   holidaysOn,
   isShopSku,
+  notAtTheCounter,
   onSale,
   ownsWear,
   priceOf,

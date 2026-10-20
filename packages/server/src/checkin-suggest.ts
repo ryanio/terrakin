@@ -102,6 +102,16 @@ interface TryNext {
     | ((state: WorldState, viewer: string, book?: BookFacts, social?: SocialFacts) => string);
 }
 
+/**
+ * What a line that hands out a `shop_buy` adds in a world that needs you at the counter
+ * ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)). Empty where the shop
+ * serves from anywhere, so such a world's lines are what they always were.
+ */
+const counterNote = (state: WorldState) =>
+  state.shop?.inPerson
+    ? " Buying needs you at the shop's counter in this world: `you.away` in GET /v1/shop says whether you have to walk there first."
+    : "";
+
 const itemsOpen = (state: WorldState) => state.items !== undefined;
 
 /** How many days before Halloween the check-in says candy can be made now. */
@@ -201,7 +211,7 @@ function costumeLine(state: WorldState, viewer: string): string {
   const others = (state.residents[viewer]?.wear ?? []).filter((w) => WEAR_INFO[w].slot !== "hat");
   const wear = JSON.stringify([...others, "witch_hat"]).replaceAll(",", ", ");
   const last = dayName(holidayLastDay("halloween", state.day ?? 0));
-  return `It's Halloween until ${last}: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with the rest of what you wear: {"type": "profile", "wear": ${wear}}, since \`wear\` is your whole outfit. On ${trickOrTreatNights()} (UTC), go trick-or-treating.`;
+  return `It's Halloween until ${last}: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with the rest of what you wear: {"type": "profile", "wear": ${wear}}, since \`wear\` is your whole outfit. On ${trickOrTreatNights()} (UTC), go trick-or-treating.${counterNote(state)}`;
 }
 
 /**
@@ -405,7 +415,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       state.residents[viewer]?.hearth != null &&
       !hasMenorah(state, viewer),
     line: (state) =>
-      `It's Hanukkah, night ${hanukkahNight(state.day ?? 0)} of 8. Ask your owner whether they'd like a menorah ({"type": "shop_buy", "sku": "menorah"}, ${priceOf(state, "menorah")} coins while Hanukkah runs), then place it by your hearth: it lights one more candle each night. A kitchen makes jelly doughnuts from 2 strawberries and a bag of sugar any day.`,
+      `It's Hanukkah, night ${hanukkahNight(state.day ?? 0)} of 8. Ask your owner whether they'd like a menorah ({"type": "shop_buy", "sku": "menorah"}, ${priceOf(state, "menorah")} coins while Hanukkah runs), then place it by your hearth: it lights one more candle each night. A kitchen makes jelly doughnuts from 2 strawberries and a bag of sugar any day.${counterNote(state)}`,
   },
   {
     // Christmas (RFC 0034): in the ten days before it, December 15 to 24, wrap a present for
@@ -573,7 +583,8 @@ export const TRY_NEXT: readonly TryNext[] = [
     commands: [],
     open: (state, viewer) => seasonCropOpen(state, viewer, "autumn", "pumpkin", PUMPKIN_KINDS),
     after: ["harvest"],
-    line: 'It\'s autumn: the town shop sells pumpkin seeds until November 30, and the town buys pumpkins, pumpkin pie, and pumpkin soup every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "pumpkin_seed", "count": 2}) and plant them like any seed. They take 5 days.',
+    line: (state) =>
+      `It's autumn: the town shop sells pumpkin seeds until November 30, and the town buys pumpkins, pumpkin pie, and pumpkin soup every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "pumpkin_seed", "count": 2}) and plant them like any seed. They take 5 days.${counterNote(state)}`,
   },
   {
     // Winter's crop, the same way: back a month later while winter lasts, until they have some.
@@ -581,7 +592,8 @@ export const TRY_NEXT: readonly TryNext[] = [
     commands: [],
     open: (state, viewer) => seasonCropOpen(state, viewer, "winter", "cranberry", CRANBERRY_KINDS),
     after: ["harvest"],
-    line: 'It\'s winter: the town shop sells cranberry seeds until the last day of February, and the town buys cranberries, cranberry jam, and hot cranberry punch every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "cranberry_seed", "count": 2}) and plant them like any seed. They take 4 days, and a kitchen makes jam from 3 of them, a bag of sugar, and a jar.',
+    line: (state) =>
+      `It's winter: the town shop sells cranberry seeds until the last day of February, and the town buys cranberries, cranberry jam, and hot cranberry punch every day of it. If your owner would like some, buy a few ({"type": "shop_buy", "sku": "cranberry_seed", "count": 2}) and plant them like any seed. They take 4 days, and a kitchen makes jam from 3 of them, a bag of sugar, and a jar.${counterNote(state)}`,
   },
   {
     id: "build",

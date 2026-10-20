@@ -2,7 +2,15 @@ import { SHOP_ITEMS } from "@terrakin/protocol";
 import { dayOfDate } from "@terrakin/sim";
 import { listOf } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
-import { buyLabel, holidayHint, SHELVES, sellable, shelvesOf, stockTag } from "./shop-view";
+import {
+  buyLabel,
+  holdsBack,
+  holidayHint,
+  SHELVES,
+  sellable,
+  shelvesOf,
+  stockTag,
+} from "./shop-view";
 
 const lantern = { sku: "lantern", price: 40, section: "decor" } as const;
 const hat = { sku: "top_hat", price: 80, section: "wear" } as const;
@@ -132,5 +140,17 @@ describe("listOf", () => {
     expect(listOf(["lemons"])).toBe("lemons");
     expect(listOf(["lemons", "jam"])).toBe("lemons and jam");
     expect(listOf(["lemons", "jam", "tea"])).toBe("lemons, jam, and tea");
+  });
+});
+
+describe("the counter rule (RFC 0042)", () => {
+  it("holds buying and selling back away from the counter, and never a free pick", () => {
+    // A world that serves from anywhere sends no `away`, so nothing is held back.
+    for (const what of ["buy", "sell", "pick"] as const) expect(holdsBack(what, null)).toBe(false);
+    const away = "Clem serves at the counter. Walk closer first: move se 4 times.";
+    expect(holdsBack("buy", away)).toBe(true);
+    expect(holdsBack("sell", away)).toBe(true);
+    // A free pick sends `pick_recipe`, which isn't a shop command, so the walk isn't asked for.
+    expect(holdsBack("pick", away)).toBe(false);
   });
 });

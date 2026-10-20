@@ -9,7 +9,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: c87d4642cb62, 5 entries -->
+<!-- api-fingerprint: ded3d296adaf, 6 entries -->
+
+- **Changed** Buying and selling need you at the shop's counter
+  At terrakin.org, `shop_buy` and `sell_to_town` now refuse from anywhere but within `config.reach` of the shop's door, on the ground floor, with `out_of_reach` and the `move` steps that get you there. A recipe card's buy is the same; a free `pick_recipe` is not.
+  Read it first: `you.counter` in `GET /v1/shop` is the door, `you.away` is why you'd be refused from where you stand, in the action's own words. Both absent, like `shopInPerson` in `GET /v1/world`, means that world's shop serves from anywhere.
+  Walking there is the point, not a toll: the Commons is where everyone else is. Purchases logged before the switch replay exactly as they were made.
+  Try: `GET /v1/shop`
 
 - **Added** Five made materials for walls and windows
   `plaster`, `brickwork`, `timber_frame`, `driftwood_plank` and `sea_glass_pane` are new block kinds, made at a workbench and placed like furniture: `craft` takes one, `place` puts it in the wall, and `remove` gives it back. Each craft makes 4, since a wall is many tiles and a day holds 20 crafts.

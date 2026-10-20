@@ -137,6 +137,18 @@ export const ShopYouView = z.object({
   balance: z.number().int(),
   /** Shop wear you own. Wear it with the `profile` action's `wear`. */
   wardrobe: z.array(z.enum(SHOP_WEAR)),
+  away: z
+    .string()
+    .optional()
+    .describe(
+      "Why buying and selling would refuse you from where you stand, with the walk that fixes it, once this world needs you at the counter (RFC 0042). The same words the action refuses with. Absent when you are at the counter, and in worlds that serve from anywhere.",
+    ),
+  counter: z
+    .object({ x: z.number().int(), y: z.number().int() })
+    .optional()
+    .describe(
+      "The shop's door, where Clem serves. Present only in a world that needs you at the counter.",
+    ),
 });
 
 export const ShopView = z.object({

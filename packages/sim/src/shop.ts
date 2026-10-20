@@ -19,6 +19,7 @@ import {
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { upstairsProblem } from "./floors";
 import {
   dayName,
   HOLIDAY_INFO,
@@ -45,6 +46,7 @@ import {
   type StackKind,
 } from "./items";
 import { COSTUMES, isShopWear, MIDWINTER_WEAR, SHOP_WEAR, type ShopWear, WEAR_INFO } from "./looks";
+import { residentById } from "./own";
 import { SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
@@ -53,6 +55,7 @@ import type {
   ItemsState,
   Rejection,
   RejectionCode,
+  Resident,
   ResidentId,
   ShopState,
   ShopToday,
@@ -60,6 +63,7 @@ import type {
   WorldState,
 } from "./types";
 import { moveOff, offBuildings } from "./walk";
+import { outOfReach, shopTile } from "./world";
 
 /**
  * The town shop (RFC 0008, phase 2): a catalog the town sells from, buy orders the town pays for,
@@ -491,6 +495,48 @@ export function checkLowerHolidayPrices(state: WorldState): ShopChecked {
   });
 }
 
+/**
+ * `shop_in_person`, which only TOWN_ACTOR sends once the shop is open ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)):
+ * from now on buying and selling need you at the counter. Purchases and sales logged before it
+ * were callable from anywhere, so they replay as they were made.
+ */
+export function checkShopInPerson(state: WorldState): ShopChecked {
+  const shop = state.shop;
+  if (!shop) return refuse("shop_closed", "The town shop hasn't opened in this world yet.");
+  return oneTimeSwitch({
+    on: shop.inPerson,
+    already: "Shopping already needs you at the counter.",
+    turnOn: () => {
+      shop.inPerson = true;
+    },
+    event: { type: "shop_in_person_set" },
+  });
+}
+
+/**
+ * Why a resident isn't at the shop, or null when they are: on the ground floor and within
+ * `config.reach` of the shop's door. Only checked once `shop_in_person` is logged. Clients call it
+ * to hold back Buy and Sell, and the refusal carries the walk that fixes it.
+ */
+export function notAtTheCounter(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+): Rejection | null {
+  const far = outOfReach(
+    me,
+    shopTile(state.config),
+    state.config.reach,
+    "Clem serves at the counter.",
+  );
+  const upstairs = upstairsProblem(me, "shop");
+  // Someone upstairs and across town needs both, in one answer: being told to go down and then
+  // told to walk is two round trips, and the first reads as if going down were enough.
+  if (upstairs) {
+    return far ? refuse("ground_floor_only", `${upstairs.message} ${far.message}`) : upstairs;
+  }
+  return far;
+}
+
 /** What `new_day` does to the shop, or null before it opens: today's sales start over. */
 export function shopNewDay(state: WorldState): Mutation | null {
   const shop = state.shop;
@@ -509,18 +555,25 @@ export interface Open {
 }
 
 /**
- * The checks every shop command shares: the shop open, the resident joined, not townsfolk. Recipe
- * cards (`recipes.ts`) check with it too.
+ * The checks every shop command shares: the shop open, the resident joined, not townsfolk, and
+ * once `shop_in_person` is logged, standing at the counter. Recipe cards (`recipes.ts`) check with
+ * it too, since the Recipes shelf is in the shop.
  */
 export function opened(state: WorldState, actor: ResidentId): Open | Rejection {
   const { shop, economy: econ, items, day } = state;
   if (!shop || !econ || !items || day === undefined) {
     return refuse("shop_closed", "The town shop hasn't opened in this world yet.");
   }
-  if (!state.residents[actor]) return refuse("not_joined", "Join the world first.");
+  const me = residentById(state, actor);
+  if (!me) return refuse("not_joined", "Join the world first.");
   if (isTownsfolk(state, actor)) {
     return refuse("not_eligible", "Townsfolk don't shop. Their coins are the town's.");
   }
+  // Being at the counter is a precondition for shopping at all, like being joined, so it answers
+  // before anything about the sku: an agent away from the shop is told the walk, which is the one
+  // useful thing to say (RFC 0042).
+  const away = shop.inPerson ? notAtTheCounter(state, me) : null;
+  if (away) return away;
   return { shop, econ, items, day };
 }
 

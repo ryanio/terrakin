@@ -5731,6 +5731,19 @@ a.btn-primary {
   font-weight: var(--weight-bold);
 }
 
+/* Why trading is held back: a soft fill, no accent stroke, with the way to the world. */
+.shop-away {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  margin: 0;
+  padding: var(--space-md);
+  border-radius: var(--r-xs);
+  background: color-mix(in oklab, var(--sun) 12%, var(--field));
+  color: var(--ink);
+}
+
 .shop-section .hint {
   margin: 0;
 }

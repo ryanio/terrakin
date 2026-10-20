@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import {
   act,
+  actFirmly,
   freePlots,
   openLevels,
   openRecipes,
@@ -10,6 +11,7 @@ import {
   settleFree,
   signIn,
   tapTile,
+  walkTo,
   watchErrors,
 } from "./support";
 
@@ -97,6 +99,12 @@ test("a newcomer picks recipes at her first kitchen, and it lists what she knows
   await sachet.getByRole("button", { name: /^Free pick/ }).click();
   await expect(page.locator("#site-toast")).toContainText("You learned herb sachet.");
   await expect(sachet.locator(".shop-buy")).toHaveText("You know this");
+  // Walk her to the counter here, not in the next test: a card is bought at the shop in this world
+  // (RFC 0042), and the walk spends action tokens that the next test's taps then need. A free pick
+  // needs no walk, which is why the picks above worked from her kitchen.
+  const counter = (await read(page.request, juniper.token, "/v1/shop")).you.counter;
+  const world = await (await page.request.get("/v1/world")).json();
+  await walkTo(page.request, juniper, counter, world.config.reach);
   expect(errors).toEqual([]);
 });
 
@@ -109,6 +117,8 @@ test("she buys a card once her picks are used, and a card she can't afford says 
   expect(
     (await act(page.request, juniper.token, { type: "pick_recipe", recipe: "flower_box" })).ok,
   ).toBe(true);
+  // The first test left her at the shop's counter, which this world's card buys need.
+  expect((await read(page.request, juniper.token, "/v1/shop")).you.away).toBeUndefined();
   await signIn(page, juniper);
   await page.goto("/shop#recipes");
   const shelf = page.locator("#recipes");
@@ -127,10 +137,15 @@ test("she buys a card once her picks are used, and a card she can't afford says 
   while (balance >= 35) {
     const card = cheap.shift();
     if (!card) throw new Error("Ran out of cards to spend on");
-    await act(page.request, juniper.token, { type: "shop_buy", sku: `recipe:${card}`, count: 1 });
+    const bought = await actFirmly(page.request, juniper.token, {
+      type: "shop_buy",
+      sku: `recipe:${card}`,
+      count: 1,
+    });
+    expect(bought.ok, `buying ${card}: ${JSON.stringify(bought.error ?? {})}`).toBe(true);
     balance = (await read(page.request, juniper.token, "/v1/shop")).you.balance;
   }
-  const why = await act(page.request, juniper.token, {
+  const why = await actFirmly(page.request, juniper.token, {
     type: "shop_buy",
     sku: "recipe:well",
     count: 1,

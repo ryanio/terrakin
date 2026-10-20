@@ -20,14 +20,18 @@ import {
   isTownsfolk,
   type KindRecipe,
   knows,
+  notAtTheCounter,
   onSale,
   onShelf,
   priceOf,
+  type Resident,
   recipeCardPrice,
+  residentById,
   seasonLastDay,
   seasonOf,
   shopFor,
   shopOf,
+  shopTile,
   shopTiles,
   treasuryShareOf,
   type WorldState,
@@ -127,6 +131,20 @@ export function townShopView(
 }
 
 /**
+ * `counter` and `away` on `GET /v1/shop`'s `you`, in a world that needs you at the shop: the
+ * door, and why buying and selling would refuse you from where you stand. Empty where the shop
+ * serves from anywhere, so such a world's answer is what it always was.
+ */
+function counterFields(
+  state: WorldState,
+  me: Resident,
+): { counter?: { x: number; y: number }; away?: string } {
+  if (!state.shop?.inPerson) return {};
+  const away = notAtTheCounter(state, me);
+  return { counter: shopTile(state.config), ...(away ? { away: away.message } : {}) };
+}
+
+/**
  * `GET /v1/shop`. `keeperId` is whoever holds the keeper's handle; they're shown only while
  * they're townsfolk, so a resident who somehow held the handle couldn't pose as the shopkeeper.
  */
@@ -140,7 +158,8 @@ export function shopView(
   const rules = { ...SHOP_RULES, treasuryShare: treasuryShareOf(state) };
   if (!state.shop || state.day === undefined) return { shop: null, you: null, rules };
   const keeper = keeperId && isTownsfolk(state, keeperId) ? (author(keeperId) ?? null) : null;
-  const mine = viewer && state.residents[viewer] ? shopFor(state, viewer) : null;
+  const me = viewer ? residentById(state, viewer) : undefined;
+  const mine = viewer && me ? shopFor(state, viewer) : null;
   const holidays = holidaysOn(state.day).map((h) => ({ id: h.holiday, lastDay: h.lastDay }));
   return {
     shop: {
@@ -153,7 +172,17 @@ export function shopView(
       buying: buyingToday(state, mine ? viewer : undefined),
       tiles: shopTiles(state.config),
     },
-    you: mine && viewer ? { balance: coinsOf(state, viewer), wardrobe: mine.wardrobe } : null,
+    you:
+      mine && me
+        ? {
+            balance: coinsOf(state, viewer as string),
+            wardrobe: mine.wardrobe,
+            // Once the world needs you at the counter (RFC 0042), say where it is and, from where
+            // you stand, why buying would refuse you, in the sim's own words with its walk. The
+            // client shows this rather than deciding anything.
+            ...counterFields(state, me),
+          }
+        : null,
     rules,
   };
 }

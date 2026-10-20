@@ -256,6 +256,14 @@ export interface WorldServiceOptions {
    */
   holidayPrices?: boolean;
   /**
+   * Shopping in person (RFC 0042): once the shop is open, append `shop_in_person` if it never has,
+   * after which buying and selling need you within `config.reach` of the shop's door on the ground
+   * floor. Both adapters turn it on, since walking to the shop is a world rule rather than a
+   * feature, so `pnpm dev` and the e2e servers have it too. Purchases logged before it were
+   * callable from anywhere and replay that way.
+   */
+  shopInPerson?: boolean;
+  /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
    * (`levelFirsts`). The Worker turns it on, so terrakin.org logs it once; the Node server leaves
@@ -405,6 +413,7 @@ interface TownSwitch {
     | "bounties"
     | "recipes"
     | "holidayPrices"
+    | "shopInPerson"
     | "levels"
     | "jobs"
     | "circles"
@@ -519,6 +528,13 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "lower_holiday_prices" },
     label: "lower the holiday prices",
   },
+  // Shopping in person (RFC 0042) waits for the shop, whose counter it sends residents to.
+  {
+    option: "shopInPerson",
+    due: (s) => !!s.shop && !s.shop.inPerson,
+    command: { type: "shop_in_person" },
+    label: "send shoppers to the counter",
+  },
   // Levels (RFC 0029) open with a one-time credit read from the collection book, a social table.
   // Until `Api` wires `levelFirsts` there's no book to read, so the switch waits, and a read that
   // throws is reported and leaves it for a later tick: levels never open without their credit.
@@ -593,6 +609,7 @@ export class WorldService {
   private readonly bounties: boolean;
   private readonly recipes: boolean;
   private readonly holidayPrices: boolean;
+  private readonly shopInPerson: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
@@ -690,6 +707,7 @@ export class WorldService {
     this.bounties = options.bounties ?? false;
     this.recipes = options.recipes ?? false;
     this.holidayPrices = options.holidayPrices ?? false;
+    this.shopInPerson = options.shopInPerson ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;

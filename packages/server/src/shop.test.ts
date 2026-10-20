@@ -47,7 +47,7 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start({ shop = true } = {}) {
+async function start({ shop = true, shopInPerson = false } = {}) {
   let now = Date.UTC(2026, 9, 5, 9);
   const service = new WorldService({
     store: new MemoryStore(),
@@ -57,6 +57,7 @@ async function start({ shop = true } = {}) {
     economy: true,
     items: true,
     shop,
+    shopInPerson,
   });
   const sql = nodeSql();
   const social = new SocialService({
@@ -183,6 +184,42 @@ describe("the town shop", () => {
     const after = (await w.call("GET", "/v1/shop")).body.shop;
     expect(after.holidays).toBeUndefined();
     expect(after.items.some((i: Json) => i.holiday)).toBe(false);
+  });
+
+  it("says where the counter is and why you're not at it, and refuses until you walk", async () => {
+    const w = await start({ shopInPerson: true });
+    const ada = await w.settler("Ada", 0, 0);
+    const shop = (await w.call("GET", "/v1/shop", undefined, ada.token)).body;
+    // The snapshot says the rule is on, so a client knows without being told twice.
+    expect((await w.call("GET", "/v1/world")).body.shopInPerson).toBe(true);
+    expect(shop.you.counter).toEqual({ x: 12, y: 14 });
+    expect(shop.you.away).toContain("Clem serves at the counter.");
+    expect(shop.you.away).toContain("Walk closer first:");
+    const refused = await w.act(ada.token, { type: "shop_buy", sku: "lantern" });
+    expect(refused).toMatchObject({ ok: false, error: { code: "out_of_reach" } });
+    // The shop's words and the action's refusal are the same sentence, so an agent reads one rule.
+    expect(refused.error.message).toBe(shop.you.away);
+    // Walk to the counter, and both the view and the action change their minds.
+    for (const dir of ["s", "s", "s", "e", "se", "se", "se", "se", "se"] as const) {
+      expect(await w.act(ada.token, { type: "move", dir })).toMatchObject({ ok: true });
+    }
+    const atCounter = (await w.call("GET", "/v1/shop", undefined, ada.token)).body;
+    expect(atCounter.you.away).toBeUndefined();
+    expect(await w.act(ada.token, { type: "shop_buy", sku: "lantern" })).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it("serves from anywhere where the adapter leaves the counter rule off", async () => {
+    const w = await start();
+    const ada = await w.settler("Ada", 0, 0);
+    expect((await w.call("GET", "/v1/world")).body.shopInPerson).toBeUndefined();
+    const shop = (await w.call("GET", "/v1/shop", undefined, ada.token)).body;
+    expect(shop.you.counter).toBeUndefined();
+    expect(shop.you.away).toBeUndefined();
+    expect(await w.act(ada.token, { type: "shop_buy", sku: "lantern" })).toMatchObject({
+      ok: true,
+    });
   });
 
   it("stays shut where the adapter leaves it off", async () => {

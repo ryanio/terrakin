@@ -1095,6 +1095,13 @@ export interface ShopState {
    * until then, and they cost `HOLIDAY_PRICES_BEFORE` (decision 0210).
    */
   holidayPricesLowered?: true;
+  /**
+   * Set by `shop_in_person`: buying and selling need you within `config.reach` of the shop's door
+   * ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)). Absent until then, and
+   * both are callable from anywhere, so purchases and sales logged before it replay as they were
+   * made.
+   */
+  inPerson?: true;
 }
 
 /**
@@ -1772,6 +1779,7 @@ export type Command =
   | { type: "set_shop_share"; percent: number }
   /** From now on, Halloween's costumes and decor cost the catalog's lower prices (decision 0210). */
   | { type: "lower_holiday_prices" }
+  | { type: "shop_in_person" }
   | { type: "open_market" }
   /**
    * From now on, recipes are learned (RFC 0024): everyone here now knows every recipe, and anyone
@@ -1956,6 +1964,7 @@ export const SERVER_COMMANDS = [
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
+  "shop_in_person",
   "retire_repeat_joins",
   "merge_resident",
   "open_levels",
@@ -2172,6 +2181,8 @@ export type WorldEvent =
   | { type: "shop_share_set"; percent: number }
   /** `lower_holiday_prices`: holiday stock costs the catalog's lower prices from now on. Public. */
   | { type: "holiday_prices_lowered" }
+  /** `shop_in_person` turned on: buying and selling need you at the shop's counter. Public. */
+  | { type: "shop_in_person_set" }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }
   /** `merge_resident`: `from` left the world, merged into `into`. Public: drop `from`. */

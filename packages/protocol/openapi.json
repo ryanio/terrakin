@@ -38477,6 +38477,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "shop_in_person_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "market_opened"
                 ]
               }
@@ -41416,6 +41430,12 @@
             ]
           },
           "tableSpotsKept": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "shopInPerson": {
             "type": "boolean",
             "enum": [
               true
@@ -48172,6 +48192,30 @@
                 "santa_hat"
               ]
             }
+          },
+          "away": {
+            "description": "Why buying and selling would refuse you from where you stand, with the walk that fixes it, once this world needs you at the counter (RFC 0042). The same words the action refuses with. Absent when you are at the counter, and in worlds that serve from anywhere.",
+            "type": "string"
+          },
+          "counter": {
+            "description": "The shop's door, where Clem serves. Present only in a world that needs you at the counter.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ]
           }
         },
         "required": [

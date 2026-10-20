@@ -1,5 +1,6 @@
 import { crc32, deflateSync } from "node:zlib";
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
+import { blocksWalkers, groundOf, route } from "../packages/sim/src/index.ts";
 import {
   freePlotsOver,
   type Http,
@@ -79,6 +80,86 @@ export async function read(request: APIRequestContext, token: string, path: stri
   const res = await request.get(path, { headers: { authorization: `Bearer ${token}` } });
   expect(res.ok()).toBe(true);
   return res.json();
+}
+
+/**
+ * Send an action, waiting out the per-resident rate limiter rather than failing on it. A spec that
+ * walks across the world or buys in a loop spends more than the burst allows, and the limiter is
+ * never what a spec is about. Polling, never a fixed wait. Any other answer comes straight back,
+ * refusals included, so a caller still sees `ok: false`.
+ */
+export async function actFirmly(
+  request: APIRequestContext,
+  token: string,
+  action: unknown,
+  // biome-ignore lint/suspicious/noExplicitAny: an action's answer, as `act` hands it back.
+): Promise<any> {
+  let last: { ok?: boolean; error?: { code?: string; message?: string } } = {};
+  await expect
+    .poll(
+      async () => {
+        last = await act(request, token, action);
+        return last.ok === true || last.error?.code !== "rate_limited";
+      },
+      { message: `sending ${JSON.stringify(action)}` },
+    )
+    .toBe(true);
+  return last;
+}
+
+/**
+ * Walk a resident to within `near` tiles of a world tile, one logged `move` at a time, planned
+ * over the sim's own step rule read from the snapshot. For a flow that needs someone somewhere
+ * before it starts: the shop's counter (RFC 0042), not the d-pad, which the world's own specs
+ * cover. It plans over the whole world rather than `route`'s default radius, since the e2e world
+ * is wider than that, and plans again from where each leg ends.
+ */
+export async function walkTo(
+  request: APIRequestContext,
+  who: Pick<Resident, "id" | "token">,
+  to: { x: number; y: number },
+  near = 0,
+) {
+  const far = (at: { x: number; y: number }) =>
+    Math.max(Math.abs(at.x - to.x), Math.abs(at.y - to.y));
+  const whereIAm = async () => {
+    const world = await (await request.get("/v1/world")).json();
+    const me = world.residents.find((r: { id: string }) => r.id === who.id);
+    if (!me) throw new Error(`${who.id} isn't in the world`);
+    return { world, me };
+  };
+  let start = (await whereIAm()).me;
+  for (let leg = 0; leg < 4; leg++) {
+    const { world, me } = await whereIAm();
+    if (far(me) <= near) return;
+    if (leg === 0) start = me;
+    // The snapshot lists every floor, so an upstairs wall would plant a phantom obstacle on the
+    // ground floor, and overwrite the real one on its tile.
+    const blocks = new Map<string, string>(
+      (world.blocks ?? [])
+        .filter((b: { floor?: number }) => b.floor === undefined)
+        .map((b: { x: number; y: number; block: string }) => [`${b.x},${b.y}`, b.block]),
+    );
+    const ground = groundOf({
+      config: world.config,
+      hasBlock: (x: number, y: number) => blocksWalkers(blocks.get(`${x},${y}`) as never),
+      solidBuildings: world.solidBuildings === true,
+      shopOpen: (world.shop ?? []).length > 0,
+    });
+    const radius = Math.max(world.config.width, world.config.height);
+    const path = route(ground, { x: me.x, y: me.y }, to, near, radius);
+    expect(path.length, `no way from ${me.x},${me.y} to ${to.x},${to.y}`).toBeGreaterThan(0);
+    for (const dir of path) {
+      const moved = await actFirmly(request, who.token, { type: "move", dir });
+      expect(moved.ok, `move ${dir}: ${JSON.stringify(moved.error ?? {})}`).toBe(true);
+    }
+  }
+  // Arriving is the point, so say so here rather than letting the caller puzzle over a page.
+  const { me: at } = await whereIAm();
+  expect(
+    far(at),
+    `walked from ${start.x},${start.y} to ${at.x},${at.y}, wanted within ${near} of ${to.x},${to.y}`,
+  ).toBeLessThanOrEqual(near);
 }
 
 /**

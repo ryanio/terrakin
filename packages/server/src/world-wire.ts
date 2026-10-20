@@ -439,6 +439,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.shop ? { shop: shopTiles(state.config) } : {}),
     ...(state.solidBuildings ? { solidBuildings: true as const } : {}),
     ...(state.tableSpotsKept ? { tableSpotsKept: true as const } : {}),
+    ...(state.shop?.inPerson ? { shopInPerson: true as const } : {}),
     ...(state.town
       ? {
           townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {

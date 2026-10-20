@@ -7,6 +7,7 @@ import {
   read,
   settler,
   signIn,
+  walkTo,
   watchErrors,
 } from "./support";
 
@@ -89,7 +90,28 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   });
 
   await signIn(page, hazel);
+
+  await test.step("from home the shop says to come to the counter, and holds trading back", async () => {
+    // RFC 0042: this world needs you at the shop, and Hazel is standing on her own hearth.
+    await page.goto("/shop");
+    // The words are the server's, pinned in packages/server/src/shop.test.ts; what only a browser
+    // shows is that the card is up and both buttons are off.
+    const away = page.locator("#shop-away");
+    await expect(away).toBeVisible();
+    await expect(away.getByRole("link", { name: "Open the world" })).toHaveAttribute(
+      "href",
+      "/world",
+    );
+    await expect(page.locator('.shop-order[data-kind="herb"] .shop-sell')).toBeDisabled();
+    await expect(page.locator('.shop-item[data-sku="lantern"] .shop-buy')).toBeDisabled();
+  });
+
+  // Walk to the counter the shop named, and the page changes its mind.
+  const shopNow = await read(page.request, hazel.token, "/v1/shop");
+  const world = await (await page.request.get("/v1/world")).json();
+  await walkTo(page.request, hazel, shopNow.you.counter, world.config.reach);
   await page.goto("/shop");
+  await expect(page.locator("#shop-away")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1, name: "The town shop" })).toBeVisible();
   await expect(page.locator("#shop-balance")).toContainText(String(before));
 

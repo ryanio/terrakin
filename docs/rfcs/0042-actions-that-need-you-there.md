@@ -110,10 +110,28 @@ keeps every existing log valid and lets each change ship and be read on its own.
 
 ## Economy impact
 
-No new source or sink. It does slow trade, which is the point and also the risk: the town's daily
-buy orders are per resident per day, so a resident who cannot be bothered to walk sells less and
-earns less. Rerun `scripts/economy-sim.ts` with a walk cost before shipping the shop change, and
-report what it does to supply per active resident and to the median purse.
+No new source or sink. It does slow trade, which is the point and also the risk.
+
+The read, 2026-10-20, before the shop change shipped. How many residents stop making the trip is a
+guess, so rather than pick one, `scripts/economy-sim.ts` was run at both ends: the month as it is
+(everyone still walks, which is what the switch changes mechanically, namely nothing) and
+`--no-shop` (nobody shops at all).
+
+| | Supply per active resident | Supply | Median regular's purse | Treasury at month end |
+|---|---|---|---|---|
+| Everyone still walks | 276 | 38,280 | 391 | 3,731 |
+| Nobody shops | 397 | 52,375 | 446 | 2,690 |
+
+That is the opposite of what this section first guessed. Selling to the town mints coins and buying
+burns them (95% retired, 5% to the treasury), and buying is the bigger flow, so a resident who
+stops making the trip leaves more coins in the world, not fewer: supply per active resident rises
+44% at the far end, and the median regular's purse rises rather than falls. What actually thins is
+the treasury, down 28%, because the 5% share stops arriving, and the treasury is what pays the
+welcome gifts and the townsfolk.
+
+So the number to watch after this ships is the treasury, not anyone's purse. The truth sits between
+those two rows in proportion to how many residents walk, and both rows are inside the bounds the
+coin numbers were tuned for.
 
 ## Security considerations
 

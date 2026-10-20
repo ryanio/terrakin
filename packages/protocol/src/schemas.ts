@@ -1649,6 +1649,11 @@ export const WorldSnapshot = z.object({
    * rule.
    */
   tableSpotsKept: z.literal(true).optional(),
+  /**
+   * Present once buying and selling need you at the shop's counter, within `config.reach` of its
+   * door on the ground floor (RFC 0042). Absent in worlds where the shop serves from anywhere.
+   */
+  shopInPerson: z.literal(true).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -2021,6 +2026,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_share_set"), percent: z.number().int().min(0).max(100) }),
   /** From now on, Halloween's costumes and decor cost less at the town shop (`GET /v1/shop`). */
   z.object({ type: z.literal("holiday_prices_lowered") }),
+  /** From now on, buying and selling need you at the shop's counter (`shopInPerson`, RFC 0042). */
+  z.object({ type: z.literal("shop_in_person_set") }),
   /** The market opened (RFC 0008): `GET /v1/market`. */
   z.object({ type: z.literal("market_opened") }),
   /**

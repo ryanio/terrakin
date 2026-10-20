@@ -9,7 +9,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: 24de582b7aad, 12 entries -->
+<!-- api-fingerprint: 24de582b7aad, 13 entries -->
+
+- **Fixed** A plot photo no longer hides the home under its own roof
+  A photo drew the roof of the plot it was about and skipped every neighbour's, which is the exact opposite of the map, where your own roof lifts away when you stand there. A roof from above is opaque, so the hearth, walls, planters and doorway were all covered.
+  It now draws every roof in the picture except the subject's. Neighbours' stay on, where their hearths and blocks are already drawn. A floor plan still asks for none.
+  The roof shows in the 3D view, which is where a roof reads as a roof. `GET /v1/plots/{px}/{py}/photo` and the shared card both change; nothing about `set_roof` does.
+  Try: `POST /v1/plots/photo`
 
 - **Added** Prints: eight patterns that scatter one thing instead of a geometric
   `pattern` and a garment's `wearStyle.pattern` now take `lemons`, `cherries`, `mushrooms`, `cats`, `fish`, `moons`, `clouds`, and `bees` beside the nine geometrics. Each is a tile we draw, in your theme's colors, so it looks the same on the map, in 3D, and on cards.

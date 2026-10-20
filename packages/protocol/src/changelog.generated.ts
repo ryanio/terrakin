@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-a-plot-photo-no-longer-hides-the-home-under-its-own-roof",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "A plot photo no longer hides the home under its own roof",
+    "body": "A photo drew the roof of the plot it was about and skipped every neighbour's, which is the exact opposite of the map, where your own roof lifts away when you stand there. A roof from above is opaque, so the hearth, walls, planters and doorway were all covered.\nIt now draws every roof in the picture except the subject's. Neighbours' stay on, where their hearths and blocks are already drawn. A floor plan still asks for none.\nThe roof shows in the 3D view, which is where a roof reads as a roof. `GET /v1/plots/{px}/{py}/photo` and the shared card both change; nothing about `set_roof` does.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-20-prints-eight-patterns-that-scatter-one-thing-instead-of-a-ge",
     "date": "2026-10-20",
     "kind": "added",

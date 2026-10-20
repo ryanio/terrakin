@@ -157,6 +157,37 @@ async function start(options: Options = {}) {
 }
 
 describe("plot photo data", () => {
+  it("lifts this plot's own roof and leaves the neighbors' on (RFC 0041)", async () => {
+    const { settled, service, call } = await start();
+    const wren = await settled("Wren");
+    const ash = await settled("Ash");
+    const roof = async (who: { residentId: string; token: string }) => {
+      const plot = Object.values(service.state.plots).find((p) => p.ownerId === who.residentId);
+      if (!plot) throw new Error("no plot");
+      const put = await call("POST", "/v1/actions", who.token, {
+        type: "set_roof",
+        px: plot.px,
+        py: plot.py,
+        style: "gable",
+        material: "wood",
+      });
+      expect(put.body.ok, JSON.stringify(put.body)).toBe(true);
+    };
+
+    // A photo is of your own home, and a roof drawn from above is opaque, so the subject's lifts
+    // away as it does on the map when you stand there. Without this the hearth, the walls, the
+    // planters and the doorway are all covered and the photo is a coloured slab.
+    await roof(wren);
+    const alone = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
+    expect(alone?.roofs ?? [], "the subject's own roof should lift away").toEqual([]);
+
+    // The neighbor's roof stays on, in the sliver where their hearth and blocks are drawn too
+    // (decision 0306), which is how the map reads: every home's but the one you stand on.
+    await roof(ash);
+    const beside = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
+    expect((beside?.roofs ?? []).length, "a neighbor's roof should stay on").toBeGreaterThan(0);
+  });
+
   it("shows the plot's own ground, blocks, hearth, and theme", async () => {
     const { settled, service, call } = await start();
     const wren = await settled("Wren");

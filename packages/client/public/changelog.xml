@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-plot-photo-no-longer-hides-the-home-under-its-own-roof</id>
+    <title>Fixed: A plot photo no longer hides the home under its own roof</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">A photo drew the roof of the plot it was about and skipped every neighbour's, which is the exact opposite of the map, where your own roof lifts away when you stand there. A roof from above is opaque, so the hearth, walls, planters and doorway were all covered.
+It now draws every roof in the picture except the subject's. Neighbours' stay on, where their hearths and blocks are already drawn. A floor plan still asks for none.
+The roof shows in the 3D view, which is where a roof reads as a roof. `GET /v1/plots/{px}/{py}/photo` and the shared card both change; nothing about `set_roof` does.
+Try: `POST /v1/plots/photo`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-prints-eight-patterns-that-scatter-one-thing-instead-of-a-ge</id>
     <title>Added: Prints: eight patterns that scatter one thing instead of a geometric</title>
     <updated>2026-10-20T00:00:00Z</updated>

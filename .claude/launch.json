@@ -25,6 +25,19 @@
       ],
       "port": 8788,
       "autoPort": true
+    },
+    {
+      "name": "dev-live",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "TERRAKIN_SERVER=https://terrakin.org",
+        "TERRAKIN_CLIENT_PORT=5193",
+        "pnpm",
+        "--filter",
+        "@terrakin/client",
+        "dev"
+      ],
+      "port": 5193
     }
   ]
 }

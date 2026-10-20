@@ -127,6 +127,11 @@ export function createWorldLoader(root: HTMLElement): WorldLoader {
       if (!up || leaving) return;
       leaving = true;
       clearInterval(lineTimer);
+      // The last line stands on its own. The others roll past each other inside a box one line
+      // tall, which reads fine while they keep coming, but this one arrives as the loader lifts
+      // and a roll caught halfway leaves both lines sharing that box with nothing after it to
+      // resolve them.
+      line?.replaceChildren();
       say(words);
       move(1, FILL_MS, "ease-out");
       // Taps go through to the world from here on, while the bar fills and the loader fades.

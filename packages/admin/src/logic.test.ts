@@ -1,6 +1,7 @@
 import {
   type AdminOverviewResponse,
   AWARD_RULES,
+  NewcomerCounts,
   type ReportQueueItem,
   type TriageVerdictView,
 } from "@terrakin/protocol";
@@ -29,6 +30,7 @@ import {
   mainSite,
   mergeSummary,
   modelName,
+  NEWCOMER_ROWS,
   participationLine,
   pathFor,
   RULE_CHOICES,
@@ -748,13 +750,28 @@ describe("newcomers", () => {
     hearthAndThing: 1,
     pet: 1,
     job: 2,
+    upstairs: 1,
+    roof: 1,
   };
+
+  it("gives every count the server sends a row, bar the one pair that isn't a step", () => {
+    // Read off the schema, not off the fixture: a count added to the protocol and not to the page
+    // would be read and never shown. `hearthAndThing` is the one exception, since it crosses two
+    // steps and goes under the table in words (`hearthThingLine`).
+    const rows = new Set<string>(NEWCOMER_ROWS.map((r) => r.key));
+    const missing = Object.keys(NewcomerCounts.shape).filter(
+      (key) => key !== "hearthAndThing" && !rows.has(key),
+    );
+    expect(missing).toEqual([]);
+    expect(rows.has("hearthAndThing")).toBe(false);
+  });
 
   it("gives each step its share of the week's joins, and none for the joins", () => {
     expect(stepShare(counts, "joined")).toEqual({ count: "3", share: "" });
     expect(stepShare(counts, "claimed")).toEqual({ count: "2", share: "67%" });
     expect(stepShare(counts, "thing")).toEqual({ count: "0", share: "0%" });
     expect(stepShare(counts, "job")).toEqual({ count: "2", share: "67%" });
+    expect(stepShare(counts, "upstairs")).toEqual({ count: "1", share: "33%" });
     const empty = { ...counts, joined: 0, claimed: 0 };
     expect(stepShare(empty, "claimed")).toEqual({ count: "0", share: "" });
   });

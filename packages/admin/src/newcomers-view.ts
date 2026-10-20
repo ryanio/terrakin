@@ -80,6 +80,8 @@ function howCounted() {
       "Picked a handle: holds one now. A handle given up doesn't count, since the name is free again.",
       "Took a job: ever took one from the Town Hall board, or has finished one (a finished job counts even when the record that took it was merged into this one).",
       "Adopted a pet: has one now, or ever adopted one.",
+      "Added an upstairs: a plot they can build on has a floor above the ground floor now, or they ever added one. It costs 200 coins, the most anything here does, so this is the count that says whether the coins get spent. A co-owner counts without having paid.",
+      "Put a roof up: a plot they can build on has a roof now, or they ever set one, a roof since taken down included. A roof needs no upstairs, so this says whether the look is used, not whether it was bought.",
     ].map((text) => h("li", { class: "field-hint", text })),
   );
   disclosure(toggle, panel);
@@ -165,7 +167,7 @@ function cohortCard(c: NewcomerCohort, today: string): HTMLElement {
       ...NEWCOMER_ROWS.map((row) =>
         h(
           "tr",
-          { class: row.key === "pet" || row.key === "job" ? "newcomers-side" : undefined },
+          { class: row.side ? "newcomers-side" : undefined },
           h("th", { attrs: { scope: "row" }, text: row.label }),
           cell(c.people, row.key),
           cell(c.agents, row.key),

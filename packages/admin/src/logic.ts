@@ -897,11 +897,20 @@ const STEP_LABELS: Record<NewcomerStep, string> = {
   handle: "Picked a handle",
 };
 
-/** What each newcomer step is called on the page: the steps in order, then the two beside them. */
-export const NEWCOMER_ROWS: readonly { key: keyof NewcomerCounts; label: string }[] = [
-  ...NEWCOMER_STEPS.map((key) => ({ key, label: STEP_LABELS[key] })),
-  { key: "job", label: "Took a job" },
-  { key: "pet", label: "Adopted a pet" },
+/**
+ * What each newcomer step is called on the page: the steps in order, then the counts beside them,
+ * which `side` marks so the page never has to know which keys those are.
+ */
+export const NEWCOMER_ROWS: readonly {
+  key: keyof NewcomerCounts;
+  label: string;
+  side: boolean;
+}[] = [
+  ...NEWCOMER_STEPS.map((key) => ({ key, label: STEP_LABELS[key], side: false })),
+  { key: "job", label: "Took a job", side: true },
+  { key: "pet", label: "Adopted a pet", side: true },
+  { key: "upstairs", label: "Added an upstairs", side: true },
+  { key: "roof", label: "Put a roof up", side: true },
 ];
 
 /** A step's count, and its share of the cohort's joins as a whole percent ("" for the joins). */

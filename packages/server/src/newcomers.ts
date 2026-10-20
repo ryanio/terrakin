@@ -91,6 +91,8 @@ const noCounts = (): NewcomerCounts => ({
   hearthAndThing: 0,
   pet: 0,
   job: 0,
+  upstairs: 0,
+  roof: 0,
 });
 
 const cohort = (week: string | null): NewcomerCohort => ({
@@ -103,14 +105,25 @@ const cohort = (week: string | null): NewcomerCohort => ({
 const hasLook = (r: Resident) =>
   Boolean(r.theme || r.pattern || r.patternMedia || r.wear?.length || r.wearStyle || r.hair);
 
+/**
+ * Everyone a plot counts for, read in one pass: who holds one at all, who holds one with a floor
+ * above the ground floor, and who holds one with a roof up. Each is owners and co-owners alike,
+ * the sim's own `canBuildOn`, so a co-owner counts for a plot someone else paid to raise.
+ */
+interface PlotHolders {
+  any: ReadonlySet<string>;
+  upstairs: ReadonlySet<string>;
+  roof: ReadonlySet<string>;
+}
+
 /** Which steps one resident reached, by the cheapest honest source for each. */
-function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<string>) {
+function stepsOf(r: Resident, s: NewcomerSources, plots: PlotHolders) {
   const done = s.done(r.id);
   const did = (kinds: readonly string[]) => kinds.some((k) => done.has(k));
   const hearth = r.hearth !== null || done.has("set_hearth");
   const thing = did(THING_COMMANDS) || s.things.has(r.id);
   return {
-    claimed: plotHolders.has(r.id) || did(CLAIM_COMMANDS),
+    claimed: plots.any.has(r.id) || did(CLAIM_COMMANDS),
     hearth,
     thing,
     hearthAndThing: hearth && thing,
@@ -123,6 +136,11 @@ function stepsOf(r: Resident, s: NewcomerSources, plotHolders: ReadonlySet<strin
     // A finished job's count can sit on a record the job was merged into, whose own log never
     // took one, so the sim's count counts beside the command (decision 0276).
     job: jobsDone(s.state, r.id) > 0 || done.has("take_job"),
+    // The 200 coins an upstairs costs (RFC 0028), and the roof it gave the town to look at
+    // (RFC 0041). Both read the world first, like `claimed` and `plotName`, and fall back to the
+    // command, so a floor or a roof on a plot since released or taken down still counts.
+    upstairs: plots.upstairs.has(r.id) || done.has("add_floor"),
+    roof: plots.roof.has(r.id) || done.has("set_roof"),
   };
 }
 
@@ -140,10 +158,21 @@ function add(counts: NewcomerCounts, steps: ReturnType<typeof stepsOf>) {
 /** The funnel: the last `NEWCOMER_WEEKS` weeks, newest first, and all time. */
 export function newcomerFunnel(s: NewcomerSources): NewcomersResponse {
   const { state } = s;
-  const plotHolders = new Set<string>();
+  const plots: { [K in keyof PlotHolders]: Set<string> } = {
+    any: new Set(),
+    upstairs: new Set(),
+    roof: new Set(),
+  };
   for (const plot of Object.values(state.plots)) {
-    plotHolders.add(plot.ownerId);
-    for (const id of plot.coOwners ?? []) plotHolders.add(id);
+    // `floors` is absent at 0 and `roof` while the home has none, which is what every plot looked
+    // like before either shipped (the sim's `Plot`).
+    const sets = [plots.any];
+    if (plot.floors) sets.push(plots.upstairs);
+    if (plot.roof) sets.push(plots.roof);
+    for (const set of sets) {
+      set.add(plot.ownerId);
+      for (const id of plot.coOwners ?? []) set.add(id);
+    }
   }
   const thisWeek = weekStart(s.today);
   const weeks = Array.from({ length: NEWCOMER_WEEKS }, (_, i) =>
@@ -160,7 +189,7 @@ export function newcomerFunnel(s: NewcomerSources): NewcomersResponse {
   for (const id of order) {
     const r = state.residents[id];
     if (!r || isTownsfolk(state, id)) continue;
-    const steps = stepsOf(r, s, plotHolders);
+    const steps = stepsOf(r, s, plots);
     const side = r.kind === "human" ? "people" : "agents";
     const name = nameKey(r.name);
     const repeat = names.has(name);

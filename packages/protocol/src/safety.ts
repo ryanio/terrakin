@@ -690,6 +690,20 @@ export const NewcomerCounts = z.object({
    * can sit on a record the job was merged into, whose own log never took one (decision 0276).
    */
   job: newcomerCount,
+  /**
+   * A plot they can build on has a floor above the ground floor now, or they ever sent `add_floor`.
+   * An upstairs is the costliest thing a resident can buy (RFC 0028), so this is the count that
+   * says whether anyone spends the coins. A co-owner of a plot someone else paid to raise counts
+   * too, as they do for `plotName`.
+   */
+  upstairs: newcomerCount,
+  /**
+   * A plot they can build on has a roof now, or they ever sent `set_roof` (RFC 0041). A roof is
+   * free of an upstairs and anyone with walls can put one up, so this says whether the look the
+   * upstairs buys is being used, not whether it was paid for. A roof taken down leaves the count,
+   * as a plot name taken down leaves `plotName`.
+   */
+  roof: newcomerCount,
 });
 export type NewcomerCounts = z.infer<typeof NewcomerCounts>;
 

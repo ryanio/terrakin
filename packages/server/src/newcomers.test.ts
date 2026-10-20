@@ -174,6 +174,8 @@ describe("GET /v1/admin/newcomers", () => {
       hearthAndThing: 0,
       pet: 0,
       job: 0,
+      upstairs: 0,
+      roof: 0,
     };
     const thisWeek = {
       people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1, hearthAndThing: 1, handle: 1 },
@@ -230,9 +232,16 @@ describe("GET /v1/admin/newcomers", () => {
     expect((await t.call("GET", "/v1/admin/newcomers")).status).toBe(401);
   });
 
-  it("counts a first job from taking one, and from a finished count a merge left behind", () => {
-    // Ada finished a job on a record that was merged into hers, so her own log never took one;
-    // Bolt took one and finished none; Cy did neither (decision 0276).
+  /**
+   * The three counts a resident can reach without the route being able to get them there cheaply:
+   * a job finished on a merged-away record, and the two that cost coins. Earning the 200 an
+   * upstairs costs over HTTP would say nothing the world's own `floors` doesn't.
+   */
+  it("counts a job, an upstairs, and a roof from the world and from the log", () => {
+    // Ada finished a job on a record that was merged into hers, so her own log never took one, and
+    // she paid to raise the plot she shares with Bolt. Bolt took a job and roofed a plot of his
+    // own, and the plot Ada raised counts for him as a co-owner. Cy released the plot he raised
+    // and took its roof down, so only his log says so. (Decisions 0276, 0324.)
     const today = 20736;
     const resident = (id: string, kind: "human" | "agent") => ({
       id,
@@ -246,13 +255,16 @@ describe("GET /v1/admin/newcomers", () => {
         bolt: resident("bolt", "agent"),
         cy: resident("cy", "human"),
       },
-      plots: {},
+      plots: {
+        "1,1": { px: 1, py: 1, ownerId: "ada", coOwners: ["bolt"], floors: 1 },
+        "2,1": { px: 2, py: 1, ownerId: "bolt", roof: { style: "gable", material: "stone" } },
+      },
       jobs: { opened: today - 10, edition: 2, total: { ada: 1 } },
     } as unknown as WorldState;
     const done = new Map([
       ["ada", new Set(["join"])],
       ["bolt", new Set(["join", "take_job"])],
-      ["cy", new Set(["join"])],
+      ["cy", new Set(["join", "add_floor", "set_roof"])],
     ]);
     const funnel = newcomerFunnel({
       state,
@@ -267,9 +279,30 @@ describe("GET /v1/admin/newcomers", () => {
       handles: new Set(),
       today,
     });
-    expect(funnel.allTime.people).toMatchObject({ joined: 2, job: 1 });
-    expect(funnel.allTime.agents).toMatchObject({ joined: 1, job: 1 });
-    expect(funnel.weeks[0]?.people.job).toBe(1);
-    expect(funnel.weeks[0]?.agents.job).toBe(1);
+    // Ada's upstairs and Cy's released one; only Cy's log says he ever roofed anything.
+    expect(funnel.allTime.people).toMatchObject({ joined: 2, job: 1, upstairs: 2, roof: 1 });
+    expect(funnel.allTime.agents).toMatchObject({ joined: 1, job: 1, upstairs: 1, roof: 1 });
+    expect(funnel.weeks[0]?.people).toMatchObject({ job: 1, upstairs: 2, roof: 1 });
+    expect(funnel.weeks[0]?.agents).toMatchObject({ job: 1, upstairs: 1, roof: 1 });
+  });
+
+  it("counts no upstairs or roof for a plot that has neither", () => {
+    // The fields are absent until an input sets them, so a world from before they shipped reads 0
+    // rather than counting every plot holder (decision 0324).
+    const today = 20736;
+    const state = {
+      residents: { ada: { id: "ada", name: "ada", kind: "human", hearth: null } },
+      plots: { "1,1": { px: 1, py: 1, ownerId: "ada" } },
+    } as unknown as WorldState;
+    const funnel = newcomerFunnel({
+      state,
+      joinedDay: new Map([["ada", today]]),
+      done: () => new Set(["join", "settle"]),
+      social: new Set(),
+      things: new Set(),
+      handles: new Set(),
+      today,
+    });
+    expect(funnel.allTime.people).toMatchObject({ joined: 1, claimed: 1, upstairs: 0, roof: 0 });
   });
 });

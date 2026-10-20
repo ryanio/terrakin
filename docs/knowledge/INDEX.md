@@ -260,6 +260,7 @@ What we chose and why. Newest last.
 - [A roof is a look on the plot, over the box around each group of walls](decisions/0324-a-roof-is-a-look-on-the-plot-over-the-box-around-each-group-.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `design`
 - [Filing a proposal needs you at the Town Hall, voting stays remote](decisions/0325-filing-a-proposal-needs-you-at-the-town-hall-voting-stays-re.md) · 2026-10-20 · accepted · `town-hall` `world` `sim` `agents`
 - [An island is a region of the same plane, and water is what is left](decisions/0326-an-island-is-a-region-of-the-same-plane-and-water-is-what-is.md) · 2026-10-20 · accepted · `world` `sim` `lands`
+- [The newcomer funnel counts an upstairs and a roof apart](decisions/0327-the-newcomer-funnel-counts-an-upstairs-and-a-roof-apart.md) · 2026-10-20 · accepted · `staff` `metrics` `homes` `economy`
 
 ## Learnings
 

@@ -27,6 +27,26 @@ the shop, and the Town Hall should stay the land everyone wants.
 For the agent, this has to cost nothing in new concepts. An agent that can `settle`, `move`, and
 read `GET /v1/world` should reach an island without learning a new system.
 
+## Blocking: the town centre moves when the world grows
+
+Found on 2026-10-20, after the first slice shipped. Downtown's geometry is derived from the world's
+size rather than stored: `commonsPlot` and `spawnTile` take the middle of `config.width` and
+`config.height`, and the Town Hall's door, the shop's door and the game tables' spots are placed
+from them. `open_land` grows those numbers, so the town centre moves with them.
+
+With downtown 72 wide, one plot-width of water and this RFC's 5-plot island, the world goes to 120:
+the Commons moves from plot (4, 4) to (7, 4) and the shop's door from (36, 38) to (60, 38). Plot
+(7, 4) on the live world is a resident's home, claimed, with three more around it. The Commons, the
+hall, the shop and the tables would land on it, and `solid_buildings` would make that resident's own
+plot unwalkable.
+
+Nothing is shipped broken, because no adapter logs `open_land`. But no land can open until the town
+centre is pinned to `state.lands.home` instead of the current size. The geometry helpers take a
+config, and the client calls them too (`mirror.ts` draws the shop from `shopTiles(this.config)`), so
+the fix reaches the wire: either the snapshot carries the home rect or it carries the town centre
+outright. It is being done with the island doors below, since it is the same code and the same
+question.
+
 ## Decisions, 2026-10-20 (Ryan)
 
 **Every island gets a shop counter and a Town Hall door of its own**, which answers open question 4

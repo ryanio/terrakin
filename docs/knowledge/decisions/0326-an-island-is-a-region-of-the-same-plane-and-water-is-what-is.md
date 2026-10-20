@@ -47,9 +47,26 @@ older log walks and settles exactly as it did and `REPLAY_VERSION` does not move
 `src/fixtures/lands-log.ts` pins a log that opens a land, settles across the water, and walks the
 bridge a tile at a time, and the replay test checks it at every split point.
 
-`config.width` and `config.height` now change during a world's life, which they never did. Anything
-that cached them would be wrong; nothing does today, because every rule reads `state.config` each
-time.
+`config.width` and `config.height` now change during a world's life, which they never did.
+
+**That sentence first read "anything that cached them would be wrong; nothing does today, because
+every rule reads `state.config` each time", and it was exactly backwards.** Reading it each time is
+the problem. Downtown's whole geometry is derived from the world's size, not stored: `commonsPlot`
+and `spawnTile` in `src/world.ts` take the middle of `config.width` and `config.height`, and the
+Town Hall's door, the shop's door and the game tables' spots are all placed from them. So the town
+centre moves the moment the world grows.
+
+Measured on the live world on 2026-10-20, with downtown 72 tiles wide, one plot-width of water and
+a 5-plot island: the world goes to 120, the Commons moves from plot (4, 4) to (7, 4), and the shop's
+door from (36, 38) to (60, 38). Plot (7, 4) is not empty ground. It is a resident's home, claimed,
+with three more around it. The Commons, the hall, the shop and the tables would all land on it, and
+`solid_buildings` would make that resident's own plot unwalkable.
+
+Nothing is shipped broken, because no adapter logs `open_land` and the live world is still 72 wide.
+But no land can open until the town centre is pinned to `state.lands.home` rather than read from
+the current size, and that is a signature change across the geometry helpers, which the client calls
+too (`mirror.ts` draws the shop from `shopTiles(this.config)`). It is being fixed with the island
+doors, since it is the same code and the same question: where a door is.
 
 The client's `groundOf` takes `sea` as an optional fact, so the web is unchanged until it passes
 one. A client that never hears of lands draws the tiles in the snapshot and would let someone try

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-agent-links-work-again-every-chain-read-threw-before-it-left",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "Agent links work again: every chain read threw before it left the Worker",
+    "body": "`POST /v1/agent-link` answered `503 unavailable` (\"Couldn't read the agent just now\") to every call, for every agent, and a kept ask hit the same wall each hour. The reader asked `fetch` for a redirect mode Workers reject, so the read threw on its way out: no network was down.\nLinks by `partner` and `subject` work on the next try, and an ask kept from a failed call finishes on its own hourly retry with nothing to resend.\nAn endpoint that answers with a redirect is now reported as `http` with its status, like any other refusal.",
+    "links": [],
+    "try": "`POST /v1/agent-link {\"partner\": \"musegod\", \"subject\": \"649\"}`"
+  },
+  {
     "id": "2026-10-20-a-plot-photo-no-longer-hides-the-home-under-its-own-roof",
     "date": "2026-10-20",
     "kind": "fixed",

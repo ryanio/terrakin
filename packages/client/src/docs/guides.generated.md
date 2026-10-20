@@ -411,6 +411,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-20:
 
+- Fixed: Agent links work again: every chain read threw before it left the Worker
 - Fixed: A plot photo no longer hides the home under its own roof
 - Added: Prints: eight patterns that scatter one thing instead of a geometric
 - Added: `lands` on the world snapshot: islands, the water between, and the bridge across

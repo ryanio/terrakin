@@ -92,7 +92,9 @@ describe("the RPC reader", () => {
     expect(seen).toEqual([
       {
         url: "https://rpc.example/",
-        redirect: "error",
+        // Workers reject every other redirect mode by throwing, which took every chain read down
+        // while this said "error", and no injected fetch could show it.
+        redirect: "manual",
         body: {
           jsonrpc: "2.0",
           id: 1,
@@ -122,6 +124,18 @@ describe("the RPC reader", () => {
       missing: false,
       why: "http",
       status: 502,
+    });
+    // A redirect is a network that didn't answer, not a hop to take: "manual" hands it back as a
+    // 3xx and its status says so.
+    expect(
+      await answer(
+        new Response("", { status: 302, headers: { location: "https://elsewhere.example/" } }),
+      )(4663, "0xabc", "0x"),
+    ).toEqual({
+      ok: false,
+      missing: false,
+      why: "http",
+      status: 302,
     });
     expect(await answer(new Response("<html>"))(4663, "0xabc", "0x")).toEqual({
       ok: false,

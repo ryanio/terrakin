@@ -108,7 +108,9 @@ export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
           method: "eth_call",
           params: [{ to, data }, "latest"],
         }),
-        redirect: "error",
+        // Workers take "follow" or "manual" only, and throw on anything else, so a redirect is
+        // caught by its status below rather than by the fetch refusing to follow it.
+        redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) return { ok: false, missing: false, why: "http", status: res.status };

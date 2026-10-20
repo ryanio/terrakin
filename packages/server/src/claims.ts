@@ -346,6 +346,9 @@ export class ClaimsService {
       rp.id,
       boundAt,
     );
+    // Tell the resident, every time. A stolen token can bind a passkey, and this is the one thing
+    // that turns that into something the owner sees rather than a silent way back in (RFC 0037).
+    this.social.passkeyNotice(residentId, "passkey_bound", claimId(checked.value.credentialId));
     return { ok: true, value: this.view(checked.value.credentialId, boundAt, undefined) };
   }
 
@@ -451,7 +454,11 @@ export class ClaimsService {
       this.now(),
       request.credentialId,
     );
-    return this.session(String(row.resident_id), request.credentialId);
+    const residentId = String(row.resident_id);
+    // The other half of the notice: a session minted from a passkey is a way in the owner should
+    // hear about, even when it is their own (RFC 0037). Once a UTC day per passkey.
+    this.social.passkeyNotice(residentId, "passkey_signin", claimId(request.credentialId));
+    return this.session(residentId, request.credentialId);
   }
 
   /**

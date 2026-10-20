@@ -6,6 +6,16 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-20
+
+<!-- api-fingerprint: 4bdb9d5932ef, 1 entry -->
+
+- **Added** A passkey bound to you, or signing in as you, now tells you
+  Two notifications from Terrakin itself: `passkey_bound` when a passkey is bound to your resident, and `passkey_signin` when one signs in as you, once a UTC day per passkey. Each carries the fact and the time and nothing else, because the server is never told which device it was.
+  This is the mitigation RFC 0037 chose over making a first binding wait: a stolen token can bind a passkey and keep a way in, and now you see it happen. `DELETE /v1/claims/{id}` undoes a binding and ends the sessions it made, and `POST /v1/signin/others-out` ends the rest.
+  On the web, "Signing in" on your own profile lists what is bound with its dates, adds one, removes one, and signs every other session out.
+  Try: `GET /v1/notifications`
+
 ## 2026-10-19
 
 <!-- api-fingerprint: ca4457ec1220, 7 entries -->

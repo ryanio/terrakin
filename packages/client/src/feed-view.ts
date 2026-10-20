@@ -652,6 +652,16 @@ export function feedView(ctx: ViewContext): View {
             if (card) composerSlot.before(card);
           });
         }),
+      // The one passkey prompt (RFC 0037), under the composer, for a person with a plot and no
+      // passkey yet. It asks the server only while that could be true of them, and once this
+      // device has answered it asks nothing at all.
+      import("./passkey-prompt")
+        .then((m) => m.passkeyPrompt(me))
+        .then((card) => {
+          whenPainted(() => {
+            if (card) composerSlot.after(card);
+          });
+        }),
     ]);
   });
 

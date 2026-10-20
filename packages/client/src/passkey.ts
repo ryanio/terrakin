@@ -54,6 +54,9 @@ const WHY: Record<PasskeyFailure, string> = {
 export const passkeyWhy = (error: unknown): string =>
   WHY[error instanceof PasskeyError ? error.why : "failed"];
 
+/** The same words, for a caller that checked `passkeysWork` before it started a ceremony. */
+export const noPasskeys = (): string => WHY.unsupported;
+
 /** Make a passkey for these options, as the API wants it back. */
 export async function makePasskey(options: PasskeyCreationOptions) {
   if (!passkeysWork()) throw new PasskeyError("unsupported");

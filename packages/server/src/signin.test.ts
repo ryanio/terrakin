@@ -455,6 +455,107 @@ describe("the guards on signing in", () => {
   });
 });
 
+describe("the notice a binding and a sign-in send", () => {
+  /** The notices on a resident, newest first, by type. */
+  const noticeTypes = async (
+    call: Awaited<ReturnType<typeof start>>["call"],
+    token: string,
+  ): Promise<string[]> => {
+    const body = (await call("GET", "/v1/notifications", undefined, token)).body as Json;
+    return (body.notifications as Json[]).map((n) => String(n.type));
+  };
+
+  it("tells the resident a passkey was bound, and that one signed in, with nothing about it", async () => {
+    const { call, base, join } = await start();
+    const fern = await join("Fern", "human");
+    const key = await authenticator(base);
+
+    const options = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+      .body as PasskeyCreationOptions;
+    await call("POST", "/v1/claims/passkey/finish", await key.create(options), fern.token);
+    expect(await noticeTypes(call, fern.token)).toEqual(["passkey_bound"]);
+
+    const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+    const signed = await call("POST", "/v1/signin/finish", await key.assert(ask, 1));
+    expect(signed.status).toBe(200);
+    expect(await noticeTypes(call, fern.token)).toEqual(["passkey_signin", "passkey_bound"]);
+
+    // From Terrakin itself, and carrying nothing: no key, no credential, no challenge, no device.
+    const body = (await call("GET", "/v1/notifications", undefined, fern.token)).body as Json;
+    const notice = (body.notifications as Json[])[0] as Json;
+    expect(notice).toMatchObject({ system: true, actor: { id: "terrakin" }, count: 1 });
+    expect(notice.excerpt).toBe("");
+    expect(notice.postId).toBe(null);
+    const said = JSON.stringify(notice);
+    expect(said).not.toContain(key.credentialId);
+    expect(said).not.toContain(options.challenge);
+  });
+
+  it("says a sign-in once a UTC day per passkey, and again the next day", async () => {
+    const { call, base, join, advance } = await start();
+    const fern = await join("Fern", "human");
+    const key = await authenticator(base);
+    const options = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+      .body as PasskeyCreationOptions;
+    await call("POST", "/v1/claims/passkey/finish", await key.create(options), fern.token);
+
+    const signIn = async (count: number) => {
+      const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+      return (await call("POST", "/v1/signin/finish", await key.assert(ask, count))).status;
+    };
+    expect(await signIn(1)).toBe(200);
+    expect(await signIn(2)).toBe(200);
+    // Two sessions, one notice: a thief minting session after session can't bury the first one.
+    expect(await noticeTypes(call, fern.token)).toEqual(["passkey_signin", "passkey_bound"]);
+
+    advance(2 * 24 * 60 * 60 * 1000);
+    expect(await signIn(3)).toBe(200);
+    expect(await noticeTypes(call, fern.token)).toEqual([
+      "passkey_signin",
+      "passkey_signin",
+      "passkey_bound",
+    ]);
+  });
+
+  it("tells the agent when its owner binds a passkey from the link it handed over", async () => {
+    const { call, base, join } = await start();
+    const cocoa = await join("Cocoa", "agent");
+    const key = await authenticator(base);
+    const code = String(
+      ((await call("POST", "/v1/signin-links", undefined, cocoa.token)).body as Json).path,
+    ).replace("/signin/", "");
+    const options = (await call("POST", "/v1/signin/link/begin", { link: code }))
+      .body as PasskeyCreationOptions;
+    await call("POST", "/v1/signin/link/finish", { ...(await key.create(options)), link: code });
+
+    // One notice for the binding, which is what the link is: the session comes with it rather
+    // than from a sign-in ceremony of its own.
+    expect(await noticeTypes(call, cocoa.token)).toEqual(["passkey_bound"]);
+  });
+
+  it("sends nothing when the ceremony was refused", async () => {
+    const { call, base, join } = await start();
+    const fern = await join("Fern", "human");
+    const birch = await join("Birch", "human");
+    const key = await authenticator(base);
+
+    // Birch's challenge, finished with Fern's token: refused, so neither hears anything.
+    const birches = (await call("POST", "/v1/claims/passkey/begin", undefined, birch.token))
+      .body as PasskeyCreationOptions;
+    expect(
+      (await call("POST", "/v1/claims/passkey/finish", await key.create(birches), fern.token))
+        .status,
+    ).toBe(400);
+    expect(await noticeTypes(call, fern.token)).toEqual([]);
+    expect(await noticeTypes(call, birch.token)).toEqual([]);
+
+    // A passkey nobody bound, proving itself: no resident to tell, and nothing stored.
+    const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+    expect((await call("POST", "/v1/signin/finish", await key.assert(ask, 1))).status).toBe(401);
+    expect(await noticeTypes(call, birch.token)).toEqual([]);
+  });
+});
+
 describe("ending sessions", () => {
   it("unbinding a passkey ends what it minted, and leaves the agent's own token alone", async () => {
     const { call, base, join } = await start();

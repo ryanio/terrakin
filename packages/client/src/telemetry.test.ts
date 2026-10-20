@@ -105,6 +105,11 @@ describe("error reports carry nothing private", () => {
         "DELETE /v1/owner/link/r_0123456789abcdef 500 internal",
         "DELETE /v1/owner/link/:id 500 internal",
       ],
+      // A passkey's claim id (RFC 0037) is the one id with two letters before the underscore.
+      [
+        "DELETE /v1/claims/pk_0123456789abcdef 404 not_found",
+        "DELETE /v1/claims/:id 404 not_found",
+      ],
     ] as const) {
       expect(templateIds(raw), raw).toBe(templated);
     }

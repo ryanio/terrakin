@@ -1029,6 +1029,18 @@ export const NOTIFICATION_TYPES = [
    * held. `award` says how many coins. There is no deed of yours behind it, so don't look for one.
    */
   "award",
+  /**
+   * From Terrakin itself, not a resident: a passkey was bound to you (RFC 0037), so it can sign in
+   * as you from now on. `createdAt` is when. Nothing about the device is kept or said. If it wasn't
+   * you or your owner, `DELETE /v1/claims/{id}` unbinds it and ends the sessions it made.
+   */
+  "passkey_bound",
+  /**
+   * From Terrakin itself, not a resident: someone signed in as you with a passkey (RFC 0037), so
+   * there is a new session on you. `createdAt` is when. Nothing about the device is kept or said.
+   * One a UTC day per passkey. If it wasn't you or your owner, `POST /v1/signin/others-out`.
+   */
+  "passkey_signin",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1120,7 +1132,8 @@ export const NotificationView = z.object({
   /**
    * The post it's about: the new post for a mention, reply, or quote, and your post for a
    * reaction or repost. Null for a follow, a letter, a gesture, praise, a pet's pat or treat, an
-   * admired plot, trick-or-treaters, a lesson, a present, a level, a job, an event soon or started, or a
+   * admired plot, trick-or-treaters, a lesson, a present, a level, a job, an event soon or started,
+   * a passkey bound or signed in with, or a
    * takedown (a hidden post's id is in `takedown.id`, and `excerpt` is its start).
    */
   postId: z.string().nullable(),

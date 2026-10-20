@@ -398,7 +398,22 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             current?.close();
             void openRoutines(actions.querySelector<HTMLElement>(".more-button") ?? undefined);
           });
-          const items: HTMLElement[] = [copyItem, photo, routines];
+          // Signing in (RFC 0037): the passkeys bound to you, and the other sessions open on you.
+          const signin = h(
+            "button",
+            { class: "menu-item calm signin-open", attrs: { type: "button" } },
+            icon("key"),
+            h("span", { text: "Signing in" }),
+          );
+          const openSignin = () => {
+            current?.close();
+            const from = actions.querySelector<HTMLElement>(".more-button") ?? undefined;
+            void import("./passkey-sheet").then((m) => m.openSigninSheet(from));
+          };
+          signin.addEventListener("click", openSignin);
+          // `/r/<you>#signin` opens it straight away, which is where a passkey notice sends you.
+          if (location.hash === "#signin") openSignin();
+          const items: HTMLElement[] = [copyItem, photo, routines, signin];
           if (r.handle) {
             handle.className = "menu-item calm handle-edit";
             handle.addEventListener("click", () => current?.close());

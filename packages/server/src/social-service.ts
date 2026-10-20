@@ -66,6 +66,7 @@ import {
   petView,
   type RecipeName,
   type Resident,
+  utcDay,
 } from "@terrakin/sim";
 import { z } from "zod";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
@@ -2219,6 +2220,21 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident a passkey was bound to them, or signed in as them (RFC 0037): one notice from
+   * Terrakin itself. It is the mitigation the RFC chose over a waiting period on a first binding,
+   * because it turns a silent, durable takeover by whoever holds a stolen token into one the owner
+   * can see and undo.
+   *
+   * It carries nothing but the fact and `createdAt`: no challenge, no credential, no key, and
+   * nothing about the device, which the server never learns in the first place. `key` is the
+   * claim's own short id, used only to tell one passkey's notices from another's in the group key,
+   * so a sign-in says so once a UTC day per passkey rather than once per session minted.
+   */
+  passkeyNotice(recipient: string, type: "passkey_bound" | "passkey_signin", key: string) {
+    this.systemNotice(recipient, type, "", `${type}:${key}:${utcDay(this.now())}`);
+  }
+
+  /**
    * Tell each resident who said they're going to `e` that it has started (RFC 0010): one notice
    * from Terrakin itself each, never to the host or the townsfolk, nor across a block with the
    * host. Once per resident and event, however often it's asked: the boot's catch-up asks again
@@ -2347,6 +2363,10 @@ export class SocialService {
       if (type === "level_reached") return this.levelsView(row, detail);
       if (type === "job_done") return this.jobDoneView(row, detail);
       if (type === "award") return this.awardView(row, detail);
+      // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
+      if (type === "passkey_bound" || type === "passkey_signin") {
+        return [systemNotification(row, type)];
+      }
       if (type === "circle_invite" || type === "circle_night" || type === "circle_joined") {
         events ??= this.eventContext(recipient);
         return this.circleNoticeView(row, recipient, type, detail, events);
@@ -3099,7 +3119,9 @@ type SystemNoticeType =
   | "circle_invite"
   | "circle_night"
   | "circle_joined"
-  | "award";
+  | "award"
+  | "passkey_bound"
+  | "passkey_signin";
 
 /** What a circle notice (RFC 0033) keeps: ids only, read back as the world has them now. */
 const CircleNoticeDetail = z.object({

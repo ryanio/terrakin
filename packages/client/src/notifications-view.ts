@@ -25,6 +25,7 @@ import { soonWords, whenWords } from "./event-format";
 import { canNowLine, levelsLine } from "./levels";
 import { savedResidentId, savedToken } from "./net";
 import { pageData } from "./page-data";
+import { passkeyNoticeLine } from "./passkey-words";
 import { petCalled } from "./pets";
 import { REACTIONS } from "./reactions";
 import { aThing, recipeWords, thingCount, thingName } from "./things";
@@ -57,6 +58,8 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   present_received: "gift",
   present_opened: "gift",
   award: "coin",
+  passkey_bound: "key",
+  passkey_signin: "key",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -103,6 +106,10 @@ export function notificationLine(
     // From Terrakin itself, so this reads "Terrakin awarded you 200 coins for your work." No deed
     // of theirs earned it, and the notice carries no words (RFC 0036).
     award: `awarded you ${plural(n.award?.coins ?? 0, "coin", "coins")} for your work`,
+    // Both from Terrakin itself (RFC 0037), so these read "Terrakin says ...". The words never
+    // name a device: the server is never told one.
+    passkey_bound: "says a passkey was added",
+    passkey_signin: "says someone signed in with a passkey",
   };
   return { who, what: what[n.type] };
 }
@@ -258,6 +265,16 @@ function systemWords(n: NotificationView): SystemWords | null {
     // The steward's note comes with an invite (issue #73), under the circle's name.
     const quotes = [n.circle.name, ...(n.type === "circle_invite" && n.note ? [n.note] : [])];
     if (said) return { icon: ICONS[n.type], ...said, links: [page], quotes };
+  }
+  if (n.type === "passkey_bound" || n.type === "passkey_signin") {
+    // Signing in (RFC 0037). The notice carries nothing but the fact and the time, so the words
+    // are fixed and the link goes where both can be undone: Signing in on your own profile.
+    const me = savedResidentId();
+    return {
+      icon: ICONS[n.type],
+      ...passkeyNoticeLine(n.type),
+      links: me ? [{ href: `${profilePath(me)}#signin`, label: "Open Signing in" }] : [],
+    };
   }
   if (n.event) {
     // An event you said you're going to is a day off, or started (RFC 0010); the Town Hall has it.

@@ -110,7 +110,7 @@ POST   /v1/signin/email/finish      -> a new token
 - Binding needs the current bearer token. Only whoever already holds the token can bind a claim, so binding can never take over a resident that is not yours.
 - Unbinding needs the current token too.
 - Signing in mints a new token and leaves existing ones working, because a person and their agent may both act as one resident. A separate "sign out everywhere" revokes the rest.
-- A sign-in is rate limited per IP (`signin`, tighter than the code routes, since nothing names the resident beforehand). It **should** also send the resident a notice through the notices that already exist, and that part is not built: see the amendment below, where it is the recommended next piece of work.
+- A sign-in is rate limited per IP (`signin`, tighter than the code routes, since nothing names the resident beforehand). It also sends the resident a notice through the notices that already exist, as a binding does: `passkey_signin` and `passkey_bound`, from Terrakin itself. Each carries the fact and the time and nothing else, since the server is never told the device. A sign-in says so once a UTC day per passkey, so a thief minting session after session cannot bury the first notice.
 - `GET /v1/claims` never returns a value: an email comes back masked, a passkey as its kind and the date it was bound.
 - The email begin routes answer the same whether or not the address is known, so the API does not say who is a resident.
 
@@ -119,6 +119,8 @@ POST   /v1/signin/email/finish      -> a new token
 For a person who arrives on an agent's one-time link, right there: binding the passkey is the whole point of the link, and they have something to lose from the moment they open it, because the character is already built.
 
 For a person who joined as a human, after a plot is claimed, not on the way in. That is the first moment they have something to lose, and it is the step the funnel says people stop at. One dismissible prompt, then a row in Settings that stays. A first visit is untouched, which keeps RFC 0002's one-URL onboarding intact.
+
+Both are built. The prompt is a card on the home wall beside Getting started (`packages/client/src/passkey-prompt.ts`), offered only to a person's own character with a plot and no passkey, on a browser that can make one, and only until that device answers either way. It is deliberately not a first-visit step: a step is server state the check-in and an AI's `todo` lines read, and whether a person protects their own way in is not their AI's business. The row is "Signing in" in the "…" menu on your own profile (`packages/client/src/passkey-sheet.ts`): what is bound with the dates it was added and last used, Add a passkey, Remove behind a second tap, and "Sign them out" for every other session.
 
 ## Invariants
 
@@ -148,11 +150,11 @@ character would wait two days for the protection, which is exactly when they are
 clear a browser and lose everything.
 
 **What to do instead: tell the resident.** This RFC already says a binding and a sign-in notify, and
-that is the piece worth building, because it is the one that turns a silent durable takeover into a
-visible one. Paired with an unbind that now really ends what the passkey minted
+that was the piece worth building, because it is the one that turns a silent durable takeover into a
+visible one. Paired with an unbind that really ends what the passkey minted
 ([decision 0319](../knowledge/decisions/0319-a-human-signs-in-to-the-resident-their-ai-runs-with-a-passke.md)),
-the owner sees it happen and can undo it, which is better than a delay nobody feels but them. It is
-the recommended next slice and it is not built yet.
+the owner sees it happen and can undo it, which is better than a delay nobody feels but them. Both
+notices are built.
 
 ## Economy impact
 
@@ -160,7 +162,7 @@ None directly: no coins or items are created or destroyed. It protects the econo
 
 ## Security considerations
 
-- **A stolen token can bind a claim**, and then the thief has a way back in that the owner does not. This is the main abuse case. Mitigations: a sign-in and a new binding both notify the resident, unbinding needs only the current token so the real owner can undo it, and "sign out everywhere" is one call. A token was already full authority, so this does not create the exposure, but it does make it durable, which is worse. Worth considering a waiting period on a first binding, the way RFC 0025 waits two days.
+- **A stolen token can bind a claim**, and then the thief has a way back in that the owner does not. This is the main abuse case. Mitigations, all built: a sign-in and a new binding both notify the resident, unbinding needs only the current token so the real owner can undo it and ends every session that passkey minted, and `POST /v1/signin/others-out` is one call. A token was already full authority, so this does not create the exposure, but it does make it durable, which is worse. A waiting period on a first binding was considered and declined; the section above says why.
 - **Passkeys are phishing-resistant** and scoped to the origin, so a lookalike site cannot replay one.
 - **Email is as strong as the mailbox.** It is the weaker kind, and it exists for reach rather than strength. A code, short-lived and single-use, with attempts rate limited.
 - **No enumeration.** The email begin routes do not reveal whether an address is bound.
@@ -180,7 +182,7 @@ Existing logs replay the same, because nothing enters the log. Old clients keep 
 1. The claims table and the routes, dark behind a server option, with tests.
 2. Passkeys on the web: bind, and sign in.
 3. Email as the fallback, with the code flow.
-4. The prompt after a claim, and the Settings row.
+4. The prompt after a claim, and the Settings row. Built, with the notices on a binding and a sign-in beside them.
 5. SKILL.md, `docs/site/auth.md` and a `CHANGELOG.md` entry. The auth page currently says Terrakin has "no accounts, passwords, API keys, or OAuth, by design"; that stays true and gains a paragraph, since a passkey is none of those four.
 
 ## Alternatives considered
@@ -197,6 +199,6 @@ Existing logs replay the same, because nothing enters the log. Old clients keep 
 2. Is an email stored at all, or only its hash for lookup with the address never kept?
 3. Should the handle become the sign-in identifier, or does sign-in stay keyed to the claim alone?
 4. Should RFC 0025's owner link become a claim kind of this shape, so there is one mechanism rather than two?
-5. Do we prompt a resident with no claim more than once, and how often before it becomes nagging?
+5. ~~Do we prompt a resident with no claim more than once, and how often before it becomes nagging?~~ Answered by what shipped: once per device, either way. The card remembers that this device answered, and the Settings row is the way back to it, so nothing nags.
 6. ~~Does a sign-in on a new device end the old session by default?~~ Answered by decision 1: it must not, because the agent's own token is one of the sessions on that resident and ending it would stop the AI playing. "Sign out everywhere" stays a separate call.
 7. Does a first binding wait, the way RFC 0025 waits two days, to blunt a stolen token? That trades the main abuse case against the thing the RFC is for, which is a person getting back in quickly.

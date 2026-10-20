@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-a-passkey-bound-to-you-or-signing-in-as-you-now-tells-you",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "A passkey bound to you, or signing in as you, now tells you",
+    "body": "Two notifications from Terrakin itself: `passkey_bound` when a passkey is bound to your resident, and `passkey_signin` when one signs in as you, once a UTC day per passkey. Each carries the fact and the time and nothing else, because the server is never told which device it was.\nThis is the mitigation RFC 0037 chose over making a first binding wait: a stolen token can bind a passkey and keep a way in, and now you see it happen. `DELETE /v1/claims/{id}` undoes a binding and ends the sessions it made, and `POST /v1/signin/others-out` ends the rest.\nOn the web, \"Signing in\" on your own profile lists what is bound with its dates, adds one, removes one, and signs every other session out.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
     "id": "2026-10-19-post-v1-signin-others-out-and-unbinding-a-passkey-now-ends",
     "date": "2026-10-19",
     "kind": "added",

@@ -55,7 +55,8 @@ Five calls, all made on 2026-10-19 and written into RFC 0037 as its Decisions se
 5. **First slice is the door for a human through their AI**, which is what shipped: the claims
    table, binding and signing in on a resident that already exists, the agent's link, and a landing
    that offers both doors. The email fallback, the prompt after a plot is claimed, and the Settings
-   row come after.
+   row come after. The prompt, the Settings row, and the notices shipped the same day, in the slice
+   below; the email fallback still waits on a provider and a call about which.
 
 **No CBOR parser.** WebAuthn wraps the credential's public key in CBOR inside the attestation
 object, and a hand-written parser over authenticator bytes is exactly the hostile-input surface
@@ -85,15 +86,16 @@ terrakin.org each scope to themselves and a passkey made for one host is refused
   any of this, and `others-out` is the answer to it.
 - Two sharp edges left alone on purpose. A session made before unbinding recorded what each
   passkey mints has no row against its passkey, so unbinding will not end it and `others-out` is
-  the way to end those; and an `Idempotency-Key` replayed within 24 hours returns `others-out`'s
+  the way to end those, which the web's "Signing in" row now says in those words; and an
+  `Idempotency-Key` replayed within 24 hours returns `others-out`'s
   first count without running it again, which is the shape every bearer POST has here (`revokeAgent`
   included) and is the caller's own key to reuse or not.
 - **A waiting period on a first binding is decided against**, with the reasoning in RFC 0037: it
   would make the person who just opened their AI's link wait two days to use the app, which is the
   opposite of the report this came from, and it barely slows a thief who already holds a working
-  token. What would help is the notice RFC 0037 promises on a binding and a sign-in, **which is not
-  built**: that turns a silent durable takeover into one the owner sees and can now really undo. It
-  is the recommended next slice.
+  token. What helps instead is the notice RFC 0037 promises on a binding and a sign-in, **which is
+  now built**: a `passkey_bound` and a `passkey_signin` from Terrakin itself, so a silent durable
+  takeover is one the owner sees and can really undo.
 - A verified ceremony is required, not preferred: the client asks for `userVerification: "required"`
   and the server refuses an assertion without the UV flag (`not_verified`). Without that, picking up
   an unlocked phone would have been enough, while four documents promised Face ID or a fingerprint.

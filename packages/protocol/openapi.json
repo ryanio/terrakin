@@ -42580,7 +42580,9 @@
           "circle_joined",
           "present_received",
           "present_opened",
-          "award"
+          "award",
+          "passkey_bound",
+          "passkey_signin"
         ]
       },
       "NotificationView": {

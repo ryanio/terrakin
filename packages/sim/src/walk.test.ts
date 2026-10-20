@@ -14,8 +14,8 @@ import {
   type WorldConfig,
   type WorldEvent,
 } from "./types";
-import { DIRECTIONS, directionOf, route, stepFrom, walkTree, worldGround } from "./walk";
-import { chebyshev, createWorld, STEP, shopTiles, townHallTiles } from "./world";
+import { DIRECTIONS, directionOf, route, stepFrom, walkTree, walkWords, worldGround } from "./walk";
+import { chebyshev, createWorld, STEP, shopTiles, townHallTiles, walkHint } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8 to 15; spawn is (12,12). The Town Hall
 // stands on x 11 to 13, y 8 and 9 (its door at (12,9)); the shop on x 11 to 13, y 14 and 15.
@@ -337,5 +337,39 @@ describe("walks over the rule", () => {
     expect(tiles.some(onHall)).toBe(false);
     expect(w.send("ada", { type: "putter", steps }).ok).toBe(true);
     expect(chebyshev(w.here("ada"), { x: 12, y: 6 })).toBeLessThan(4);
+  });
+});
+
+describe("the walk a refusal names", () => {
+  it("goes around what's in the way, where a straight line points through it", () => {
+    const w = world();
+    w.join("ada");
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    w.ok("ada", { type: "build_starter_home" });
+    // Ada is on her hearth inside the hut, whose only way out is its doorway at (3, 5).
+    const me = { x: 3, y: 3 };
+    const far = { x: 12, y: 14 };
+    // The straight line from the hearth starts east, into the hut's own wall.
+    expect(walkHint(me, far, CONFIG.reach)).toContain("move e");
+    const walk = walkWords(w.state, me, far, CONFIG.reach);
+    // The real walk starts south, out of the doorway.
+    expect(walk.startsWith("move s")).toBe(true);
+    // And following it arrives: every step is one the sim would accept.
+    for (const [, dir, n] of walk.matchAll(/move (\w+) (?:(\d+) times|once)/g)) {
+      for (let i = 0; i < Number(n ?? 1); i++) {
+        w.ok("ada", { type: "move", dir } as Command);
+      }
+    }
+    expect(chebyshev(w.state.residents.ada as Tile, far)).toBeLessThanOrEqual(CONFIG.reach);
+  });
+
+  it("is empty when no walk gets there at all", () => {
+    const w = world();
+    w.join("bob");
+    w.ok("bob", { type: "settle", px: 0, py: 0 });
+    w.ok("bob", { type: "build_starter_home" });
+    // Seal the hut's doorway and there's nothing to name.
+    w.ok("bob", { type: "place", x: 3, y: 5, block: "wood" });
+    expect(walkWords(w.state, { x: 3, y: 3 }, { x: 12, y: 14 }, CONFIG.reach)).toBe("");
   });
 });

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-every-walk-a-refusal-names-now-goes-around-what-s-in-the-way",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "Every walk a refusal names now goes around what's in the way",
+    "body": "`nothing_to_gather`, `no_water` and `not_near` named a straight line to the nearest pickup, pond or learner. Across a plot it pointed through whatever stood between, your own walls included, so following it could get you nowhere.\nAll three now name the real route, as `move` calls in order, the same way the shop's counter does. Where nothing is in the way the walk is unchanged, and it is never longer than the old one.\nWhen nothing can be walked from where you stand to it, each says that instead of naming steps.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"gather\"}`"
+  },
+  {
     "id": "2026-10-20-the-walk-to-the-shop-s-counter-goes-around-walls",
     "date": "2026-10-20",
     "kind": "fixed",

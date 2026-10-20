@@ -38,8 +38,9 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
+import { walkWords } from "./walk";
 import { WEATHERS, type Weather } from "./weather";
-import { inBounds, walkHint } from "./world";
+import { inBounds } from "./world";
 
 /** The numbers (decision 0123). */
 export const FISHING = {
@@ -185,6 +186,17 @@ const rodNeeds = () =>
  * `fish {roll, weather, timeOfDay}`: cast a line into the water beside you, with a fishing rod in
  * your things, at most `FISHING.castsPerDay` times a day. Every cast counts, whatever it brings up.
  */
+/**
+ * The walk to stand beside a pond, or the plain truth when there isn't one: a straight-line hint
+ * would point through whatever is between, including your own walls.
+ */
+function pondWalk(state: WorldState, me: Tile, pond: Tile): string {
+  const walk = walkWords(state, me, pond, 1);
+  return walk === ""
+    ? " There's no walk from where you stand to it: something has you closed in."
+    : ` Walk there: ${walk}.`;
+}
+
 export function checkFish(
   state: WorldState,
   actor: ResidentId,
@@ -222,7 +234,7 @@ export function checkFish(
   if (!water) {
     const near = nearestWater(state, me, FISHING.hintRadius);
     const where = near
-      ? ` The nearest pond is at x ${near.x}, y ${near.y}.${walkHint(me, near, 1)}`
+      ? ` The nearest pond is at x ${near.x}, y ${near.y}.${pondWalk(state, me, near)}`
       : ` There's none within ${FISHING.hintRadius} tiles. Make one on your plot with {"type": "place", "x": <x>, "y": <y>, "block": "${POND.block}"}, ${countOf("stone", POND.stone)} a tile, or ask the Town Hall for one in the Commons.`;
     return refuse(
       "no_water",

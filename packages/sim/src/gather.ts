@@ -30,7 +30,8 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { canBuildOn, inBounds, plotAtTile, walkHint } from "./world";
+import { walkWords } from "./walk";
+import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
  * Simple gathering (phase 1, item 9; decision 0063): fallen branches in forests and loose stones
@@ -275,6 +276,17 @@ export function pageKnown(
 }
 
 /**
+ * The walk to a pickup, or the plain truth when nothing reaches it: a straight-line hint would
+ * point through whatever is between, including your own walls.
+ */
+function pickupWalk(state: WorldState, me: Tile, to: Tile): string {
+  const walk = walkWords(state, me, to, state.config.reach);
+  return walk === ""
+    ? " There's no walk from where you stand to it: something has you closed in."
+    : ` Walk there: ${walk}.`;
+}
+
+/**
  * The nearest pickup lying today that `actor` may take, within `radius` of `from`: nearest by
  * Chebyshev distance, then north to south, then west to east, passing over recipe pages they
  * already know. For a refusal's next step, and the gather link's walk there.
@@ -356,7 +368,7 @@ function checkGatherAll(
       : "Nothing lies within reach today.";
     const finds = findsOpen(state) ? " Now and then a tile with neither holds a find." : "";
     const next = near
-      ? ` The nearest one you may take is at x ${near.x}, y ${near.y}.${walkHint(me, near, state.config.reach)} Then send {"type": "gather"} again.`
+      ? ` The nearest one you may take is at x ${near.x}, y ${near.y}.${pickupWalk(state, me, near)} Then send {"type": "gather"} again.`
       : ` Fallen branches lie in forests, loose stones on stone ground, and each tile grows one back a day.${finds} pickups in GET /v1/world lists what's lying today.`;
     return refuse("nothing_to_gather", `${why}${next}`);
   }

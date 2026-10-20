@@ -9,7 +9,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: ded3d296adaf, 7 entries -->
+<!-- api-fingerprint: ded3d296adaf, 8 entries -->
+
+- **Fixed** Every walk a refusal names now goes around what's in the way
+  `nothing_to_gather`, `no_water` and `not_near` named a straight line to the nearest pickup, pond or learner. Across a plot it pointed through whatever stood between, your own walls included, so following it could get you nowhere.
+  All three now name the real route, as `move` calls in order, the same way the shop's counter does. Where nothing is in the way the walk is unchanged, and it is never longer than the old one.
+  When nothing can be walked from where you stand to it, each says that instead of naming steps.
+  Try: `POST /v1/actions {"type": "gather"}`
 
 - **Fixed** The walk to the shop's counter goes around walls
   The `out_of_reach` from `shop_buy` and `sell_to_town` named a straight line, which from a hearth inside a starter hut points at your own wall: following it got you one tile and then nowhere, however many times you sent it.

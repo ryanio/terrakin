@@ -211,6 +211,40 @@ export function route(ground: Ground, from: Tile, to: Tile, near = 0, radius = 2
   return walkPath(nodes, best).map((i) => nodes[i]?.dir as Direction);
 }
 
+/**
+ * The walk from `me` to within `near` tiles of `to`, around whatever is in the way, as the `move`
+ * calls that make it: consecutive steps in one direction folded into one leg. Empty when no walk
+ * gets there, which is what a home with no gap in its walls leaves you.
+ *
+ * This is what a refusal names when the walk is more than a step or two. `walkHint` is a straight
+ * line, which is right for the tile in front of you and wrong across a plot or a town: it points
+ * through whatever stands between, so from a hearth inside a starter hut it points at the hut's
+ * own wall, and following it never arrives.
+ */
+export function walkWords(state: WorldState, me: Tile, to: Tile, near: number): string {
+  const path = route(
+    worldGround(state),
+    me,
+    to,
+    near,
+    Math.max(state.config.width, state.config.height),
+  );
+  // `route` falls back to the reachable tile nearest `to`, so walk the path through and see
+  // whether it actually arrives before naming it.
+  const at = { x: me.x, y: me.y };
+  const legs: [Direction, number][] = [];
+  for (const dir of path) {
+    const [dx, dy] = STEP[dir];
+    at.x += dx;
+    at.y += dy;
+    const last = legs[legs.length - 1];
+    if (last && last[0] === dir) last[1]++;
+    else legs.push([dir, 1]);
+  }
+  if (chebyshev(at, to) > near) return "";
+  return legs.map(([dir, n]) => `move ${dir} ${n === 1 ? "once" : `${n} times`}`).join(", then ");
+}
+
 // ---------- solid buildings ----------
 
 type Mutation = () => WorldEvent[];

@@ -471,14 +471,14 @@ describe("gathering everything within reach (decision 0125)", () => {
     const theirs = w.send("bob", ALL);
     expect(theirs).toMatchObject({ ok: false, rejection: { code: "nothing_to_gather" } });
     expect(theirs.ok ? "" : theirs.rejection.message).toBe(
-      'What lies within reach is on someone else\'s plot: only its owner and the people they share it with can gather there. The nearest one you may take is at x 0, y 10. Walk closer first: move s 4 times. Then send {"type": "gather"} again.',
+      'What lies within reach is on someone else\'s plot: only its owner and the people they share it with can gather there. The nearest one you may take is at x 0, y 10. Walk there: move s 4 times. Then send {"type": "gather"} again.',
     );
     // Out on the bare southeast, nothing lies within reach at all.
     stand(w, "bob", { x: 20, y: 20 });
     const bare = w.send("bob", ALL);
     expect(bare).toMatchObject({ ok: false, rejection: { code: "nothing_to_gather" } });
     expect(bare.ok ? "" : bare.rejection.message).toContain(
-      "Nothing lies within reach today. The nearest one you may take is at x 15, y 9. Walk closer first: move w 2 times, then move n 8 times.",
+      "Nothing lies within reach today. The nearest one you may take is at x 15, y 9. Walk there: move n 6 times, then move nw 2 times.",
     );
   });
 

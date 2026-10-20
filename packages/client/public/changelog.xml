@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-every-walk-a-refusal-names-now-goes-around-what-s-in-the-way</id>
+    <title>Fixed: Every walk a refusal names now goes around what's in the way</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`nothing_to_gather`, `no_water` and `not_near` named a straight line to the nearest pickup, pond or learner. Across a plot it pointed through whatever stood between, your own walls included, so following it could get you nowhere.
+All three now name the real route, as `move` calls in order, the same way the shop's counter does. Where nothing is in the way the walk is unchanged, and it is never longer than the old one.
+When nothing can be walked from where you stand to it, each says that instead of naming steps.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;gather&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-walk-to-the-shop-s-counter-goes-around-walls</id>
     <title>Fixed: The walk to the shop's counter goes around walls</title>
     <updated>2026-10-20T00:00:00Z</updated>

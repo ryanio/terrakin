@@ -30,10 +30,12 @@ import type {
   RecipesState,
   Rejection,
   ResidentId,
+  Tile,
   WorldEvent,
   WorldState,
 } from "./types";
-import { chebyshev, walkHint } from "./world";
+import { walkWords } from "./walk";
+import { chebyshev } from "./world";
 
 /**
  * Recipes you learn (RFC 0024, decision 0170). A resident knows the base, every holiday recipe, and
@@ -501,6 +503,15 @@ export function teachable(
 }
 
 /**
+ * The walk to stand within reach of a learner, or the plain truth when nothing reaches them: a
+ * straight-line hint would point through whatever is between, including either one's walls.
+ */
+function teachWalk(state: WorldState, me: Tile, them: Tile): string {
+  const walk = walkWords(state, me, them, state.config.reach);
+  return walk === "" ? " There's no walk from where you stand to them." : ` Walk there: ${walk}.`;
+}
+
+/**
  * `teach {recipe, to}`: teach a recipe you know to a resident within reach who doesn't (RFC 0024).
  * Both must be online and within `config.reach` of each other. Each resident teaches
  * `RECIPES_RULES.teachPerDay` a day and is taught `taughtPerDay` a day. A townsfolk's lesson (the
@@ -562,7 +573,7 @@ export function checkTeach(
   if (chebyshev(me, them) > reach) {
     return refuse(
       "not_near",
-      `${them.id} is more than ${reach} tiles away. Stand within ${reach} tiles of each other to teach.${walkHint(me, them, reach)}`,
+      `${them.id} is more than ${reach} tiles away. Stand within ${reach} tiles of each other to teach.${teachWalk(state, me, them)}`,
     );
   }
   const townsfolk = isTownsfolk(state, actor);

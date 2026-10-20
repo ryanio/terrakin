@@ -8,13 +8,18 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-20
 
-<!-- api-fingerprint: 4bdb9d5932ef, 1 entry -->
+<!-- api-fingerprint: fae6f05d634d, 2 entries -->
 
 - **Added** A passkey bound to you, or signing in as you, now tells you
-  Two notifications from Terrakin itself: `passkey_bound` when a passkey is bound to your resident, and `passkey_signin` when one signs in as you, once a UTC day per passkey. Each carries the fact and the time and nothing else, because the server is never told which device it was.
+  Two notifications from Terrakin itself: `passkey_bound` every time a passkey is bound to your resident, and `passkey_signin` when one signs in as you, once a UTC day per passkey so a burst can't bury the first. Each carries the fact and the time and nothing else, because the server is never told which device it was.
   This is the mitigation RFC 0037 chose over making a first binding wait: a stolen token can bind a passkey and keep a way in, and now you see it happen. `DELETE /v1/claims/{id}` undoes a binding and ends the sessions it made, and `POST /v1/signin/others-out` ends the rest.
   On the web, "Signing in" on your own profile lists what is bound with its dates, adds one, removes one, and signs every other session out.
   Try: `GET /v1/notifications`
+
+- **Added** `GET /v1/claims` marks the passkey that signed you in
+  A claim now carries `thisSession: true` on the passkey that minted the session you are calling with. Nothing else tells one bound passkey from another, because no device is kept, and unbinding that one is what signs you out where you are.
+  It is absent on every other claim, absent without a passkey behind your session (a join, a link key, a re-key), and absent from `POST /v1/claims/passkey/finish`, whose caller already knows which one it just made.
+  Try: `GET /v1/claims`
 
 ## 2026-10-19
 

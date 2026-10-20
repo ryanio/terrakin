@@ -2226,12 +2226,24 @@ export class SocialService {
    * can see and undo.
    *
    * It carries nothing but the fact and `createdAt`: no challenge, no credential, no key, and
-   * nothing about the device, which the server never learns in the first place. `key` is the
-   * claim's own short id, used only to tell one passkey's notices from another's in the group key,
-   * so a sign-in says so once a UTC day per passkey rather than once per session minted.
+   * nothing about the device, which the server never learns in the first place.
+   *
+   * A binding is never grouped, so every one of them says so. Grouping it would mean an owner who
+   * removed a thief's passkey heard nothing when the thief, still holding the token, bound the
+   * same one again that day, which is the one silence this notice exists to prevent. A sign-in is
+   * grouped per passkey per UTC day (`key` is the claim's own short id), so a thief minting
+   * session after session cannot bury the first notice, and a re-bind is loud either way.
+   *
+   * Never on the critical path: a notifications write that fails is reported and the ceremony
+   * carries on, as `last_calls` does, rather than turning a passkey that proved itself away.
    */
   passkeyNotice(recipient: string, type: "passkey_bound" | "passkey_signin", key: string) {
-    this.systemNotice(recipient, type, "", `${type}:${key}:${utcDay(this.now())}`);
+    const once = type === "passkey_signin" ? `${type}:${key}:${utcDay(this.now())}` : "";
+    try {
+      this.systemNotice(recipient, type, "", once);
+    } catch (err) {
+      report(err, "passkey.notice");
+    }
   }
 
   /**

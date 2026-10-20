@@ -34,10 +34,19 @@ the device, which the server never learns and so cannot leak. Two kinds rather t
 event field, because every other pair of related notices here is two (`event_soon` and
 `event_started`, `present_received` and `present_opened`), so the client's maps stay flat.
 
-**A sign-in says so once a UTC day per passkey**, keyed by the claim's own short id and the day.
-Each distinct passkey still gets its own notice, and a re-bind or a burst of sign-ins from one
-passkey does not. Without that, whoever holds a stolen passkey could bury the first notice under
-fifty more, which is the one thing the notice has to survive.
+**A binding is never grouped, and a sign-in says so once a UTC day per passkey**, keyed by the
+claim's own short id and the day. Each distinct passkey still gets its own notice, and a burst of
+sign-ins from one does not: without that, whoever holds a stolen passkey could bury the first
+notice under fifty more, which is the one thing the notice has to survive. Grouping a binding the
+same way looked symmetrical and was wrong, and the review caught it: an owner who removed a thief's
+passkey would have heard nothing when the thief, still holding the token, bound the same one again
+that day, which is the exact silence this notice exists to prevent. A re-bind flood is bounded by
+the `owner` rate limit, and more notices is the safe direction anyway.
+
+**`GET /v1/claims` marks the passkey that minted the caller's own session.** Keeping nothing about
+a device left a person with no way to tell two bound passkeys apart, and no warning that removing
+one would sign them out of the page they were standing on. The mark is read from `passkey_sessions`
+by the caller's own token hash, so it says only what that session already knows.
 
 **The prompt is a card on the home wall, not a first-visit step.** It shows to a person's own
 character with a plot and no passkey, on a browser that can make one, and only until that device

@@ -103,7 +103,15 @@ challenges (by hash, spent on use), the links, and which session each passkey ma
 is what lets a session end on its own: unbinding a passkey ends every session it made and closes
 their connections, and `POST /v1/signin/others-out` ends every session but the caller's, the link
 key too. Both are built on a single-session revoke the stores gained for it, and both record why,
-so a caller holding an ended token is told what happened rather than to check how it copied it. There is no CBOR parser, because registration
+so a caller holding an ended token is told what happened rather than to check how it copied it.
+
+A binding and a sign-in each tell the resident, which is how a takeover by whoever holds a stolen
+token stops being silent: a `passkey_bound` or a `passkey_signin` notice from Terrakin itself,
+carrying the fact and the time and nothing else, since no device is ever learned. Every binding
+says so; a sign-in says so once a UTC day per passkey, so a thief minting session after session
+cannot bury the first. The notice is what RFC 0037 chose instead of making a first binding wait,
+and `GET /v1/claims` marks the passkey that minted the caller's own session, which is the only
+thing that tells one bound passkey from another. There is no CBOR parser, because registration
 sends the public key as SPKI and its authenticator data flat, so the only bytes walked are that
 data's fixed header and a signature's ASN.1 wrapper. What a passkey is scoped to comes from the
 request's own origin, so dev, e2e and terrakin.org each scope to themselves. None of it enters the

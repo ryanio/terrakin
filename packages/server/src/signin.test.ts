@@ -294,6 +294,32 @@ describe("the passkeys a resident has bound", () => {
     expect((await call("POST", "/v1/signin/finish", await key.assert(ask, 1))).status).toBe(401);
   });
 
+  it("marks the one that signed the caller in, and marks none for a session it didn't mint", async () => {
+    const { call, base, join } = await start();
+    const fern = await join("Fern", "human");
+    const key = await authenticator(base);
+    const other = await authenticator(base, "b3RoZXI");
+    for (const made of [key, other]) {
+      const options = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+        .body as PasskeyCreationOptions;
+      await call("POST", "/v1/claims/passkey/finish", await made.create(options), fern.token);
+    }
+    const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+    const session = (await call("POST", "/v1/signin/finish", await key.assert(ask, 1)))
+      .body as Json;
+
+    // Nothing about a device is kept, so this is the only thing that tells one passkey from
+    // another on sight, and the only warning that removing it signs you out where you stand.
+    const mine = ((await call("GET", "/v1/claims", undefined, String(session.token))).body as Json)
+      .claims as Json[];
+    expect(mine.filter((c) => c.thisSession === true)).toHaveLength(1);
+    expect(mine.find((c) => c.thisSession === true)?.usedAt).toBeDefined();
+    // The token Fern joined with was minted by no passkey, so it matches none.
+    const joined = ((await call("GET", "/v1/claims", undefined, fern.token)).body as Json)
+      .claims as Json[];
+    expect(joined.some((c) => c.thisSession === true)).toBe(false);
+  });
+
   it("can't be bound to a resident someone else already bound it to", async () => {
     const { call, base, join } = await start();
     const fern = await join("Fern", "human");
@@ -513,6 +539,50 @@ describe("the notice a binding and a sign-in send", () => {
     expect(await noticeTypes(call, fern.token)).toEqual([
       "passkey_signin",
       "passkey_signin",
+      "passkey_bound",
+    ]);
+  });
+
+  it("says so on every binding, so a re-bind after a removal is never the silent one", async () => {
+    const { call, base, join } = await start();
+    const fern = await join("Fern", "human");
+    const key = await authenticator(base);
+    const bind = async () => {
+      const options = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+        .body as PasskeyCreationOptions;
+      return (
+        (await call("POST", "/v1/claims/passkey/finish", await key.create(options), fern.token))
+          .body as Json
+      ).id as string;
+    };
+
+    const id = await bind();
+    expect((await call("DELETE", `/v1/claims/${id}`, undefined, fern.token)).status).toBe(204);
+    // The same passkey, the same UTC day, after the owner used the undo. Grouping a binding would
+    // buy whoever holds a stolen token a day of silence right when the owner was watching.
+    await bind();
+    expect(await noticeTypes(call, fern.token)).toEqual(["passkey_bound", "passkey_bound"]);
+  });
+
+  it("gives each passkey its own sign-in notice on the same day", async () => {
+    const { call, base, join } = await start();
+    const fern = await join("Fern", "human");
+    const first = await authenticator(base, "Zmlyc3Q");
+    const second = await authenticator(base, "c2Vjb25k");
+    for (const key of [first, second]) {
+      const options = (await call("POST", "/v1/claims/passkey/begin", undefined, fern.token))
+        .body as PasskeyCreationOptions;
+      await call("POST", "/v1/claims/passkey/finish", await key.create(options), fern.token);
+    }
+    for (const key of [first, second]) {
+      const ask = (await call("POST", "/v1/signin/begin")).body as PasskeyRequestOptions;
+      expect((await call("POST", "/v1/signin/finish", await key.assert(ask, 1))).status).toBe(200);
+    }
+    // The day groups a passkey with itself, never one passkey with another.
+    expect(await noticeTypes(call, fern.token)).toEqual([
+      "passkey_signin",
+      "passkey_signin",
+      "passkey_bound",
       "passkey_bound",
     ]);
   });

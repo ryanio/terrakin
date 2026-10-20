@@ -19,7 +19,9 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { forgetMe } from "./api/me";
 import { signinApi } from "./api/signin";
+import { saveToken } from "./net";
 import { makePasskey, noPasskeys, passkeysWork, passkeyWhy } from "./passkey";
 import { passkeyLines, signinSummary } from "./passkey-words";
 
@@ -44,7 +46,7 @@ export async function addPasskey(): Promise<string | null> {
 /** The sheet, from the "…" menu on your own profile. `returnTo` takes focus back when it closes. */
 export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
   const body = h("div", { class: "stack" }, skLine(), skLine(72), skLine(56));
-  const { dialog } = sheet(
+  const { dialog, card } = sheet(
     {
       id: "signin-title",
       title: "Signing in",
@@ -57,19 +59,22 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
 
   const problem = errorLine("signin-error");
 
-  /** Read the passkeys again and draw the sheet. A failed read says so and leaves the rest. */
-  async function load(): Promise<void> {
+  /**
+   * Read the passkeys again and draw the sheet. A read that fails still leaves Add a passkey and
+   * Sign them out, because neither depends on it and the second is what someone who thinks their
+   * token was taken came here for. `again` means an action redrew this, so focus goes to the card:
+   * the button it was on has just been replaced.
+   */
+  async function load(again = false): Promise<void> {
     const r = await signinApi.claims();
     if (!dialog.isConnected) return;
-    if (!r.ok) {
-      problem.textContent = r.message;
-      body.replaceChildren(problem);
-      return;
-    }
-    const claims = r.data.claims;
+    const claims = r.ok ? r.data.claims : [];
     const now = Date.now();
+    if (!r.ok) problem.textContent = r.message;
     body.replaceChildren(
-      h("p", { class: "hint", text: signinSummary(claims.length) }),
+      r.ok
+        ? h("p", { class: "hint", text: signinSummary(claims.length) })
+        : h("p", { class: "hint", text: "We couldn't read your passkeys just now." }),
       ...(claims.length > 0
         ? [
             itemRows(
@@ -82,6 +87,7 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
       otherSessions(),
       problem,
     );
+    if (again) card.focus({ preventScroll: true });
   }
 
   /** One bound passkey: its dates, and Remove behind a second tap, since nothing undoes it. */
@@ -91,7 +97,7 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
       attrs: { type: "button" },
       text: "Remove",
     }) as HTMLButtonElement;
-    confirmTwice(remove, "Remove it?", () =>
+    confirmTwice(remove, claim.thisSession ? "Sign yourself out?" : "Remove it?", () =>
       whileBusy(
         remove,
         async () => {
@@ -102,8 +108,14 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
             problem.textContent = gone.message;
             return;
           }
+          // Removing the passkey that signed this browser in ends this session with it, so the
+          // page says so itself rather than letting the next call fail as an unknown key.
+          if (claim.thisSession) {
+            signedOutHere();
+            return;
+          }
           toast("Passkey removed. Any session it made has ended.");
-          await load();
+          await load(true);
         },
         "Removing…",
       ),
@@ -111,10 +123,27 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
     return itemRow({
       lead: icon("key", "icon"),
       name: "Passkey",
-      lines: [...passkeyLines(claim, now), "Removing it ends the sessions it made."],
+      lines: passkeyLines(claim, now),
       trail: remove,
-      className: "signin-key",
+      className: claim.thisSession ? "signin-key here" : "signin-key",
     });
+  }
+
+  /**
+   * What the sheet becomes once the passkey it was signed in with is gone: this browser holds a
+   * token the server has ended, so the page says so and forgets it rather than acting signed in
+   * until the next call comes back as an unknown key.
+   */
+  function signedOutHere() {
+    saveToken(null);
+    forgetMe();
+    body.replaceChildren(
+      h("h3", { class: "section-title", text: "Signed out here" }),
+      h("p", {
+        text: "That was the passkey signing you in on this device, so it signed you out with it. Sign in again with another passkey, or ask your AI for a fresh link.",
+      }),
+    );
+    card.focus({ preventScroll: true });
   }
 
   /** Add a passkey, or, where the browser can't make one, what to do instead. */
@@ -144,7 +173,7 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
             return;
           }
           toast("Passkey added. You can sign in with it on any device.");
-          await load();
+          await load(true);
         },
         "Waiting for your device…",
         label,
@@ -175,10 +204,13 @@ export async function openSigninSheet(returnTo?: HTMLElement): Promise<void> {
             problem.textContent = done.message;
             return;
           }
+          const ended = done.data.ended;
           toast(
-            done.data.ended === 1
-              ? "One other session ended."
-              : `${done.data.ended} other sessions ended.`,
+            ended === 0
+              ? "Nothing else was open, so nothing ended."
+              : ended === 1
+                ? "One other session ended."
+                : `${ended} other sessions ended.`,
           );
         },
         "Signing out…",

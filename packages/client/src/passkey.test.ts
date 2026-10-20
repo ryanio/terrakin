@@ -7,14 +7,23 @@ import { describe, expect, it } from "vitest";
 import { offerPasskey, passkeyLines, passkeyNoticeLine, signinSummary } from "./passkey-words";
 
 const NOW = Date.UTC(2026, 9, 19, 12);
-const lines = (claim: { boundAt: string; usedAt?: string }) => passkeyLines(claim, NOW, "UTC");
+const lines = (claim: { boundAt: string; usedAt?: string; thisSession?: true }) =>
+  passkeyLines(claim, NOW, "UTC");
 
-describe("a bound passkey's two lines", () => {
-  it("says when it was added, and that it has never signed in", () => {
+describe("a bound passkey's lines", () => {
+  it("says when it was added, that it has never signed in, and what removing it ends", () => {
     expect(lines({ boundAt: "2026-10-19T09:00:00.000Z" })).toEqual([
       "Added Oct 19",
       "Never used to sign in",
+      "Removing it ends the sessions it made.",
     ]);
+  });
+
+  it("warns on the one signing you in here, since removing it signs you out", () => {
+    const here = lines({ boundAt: "2026-10-19T09:00:00.000Z", thisSession: true });
+    expect(here[2]).toBe("This is the one signing you in here. Removing it signs you out.");
+    // It is the only thing that tells one bound passkey from another: no device is kept.
+    expect(lines({ boundAt: "2026-10-19T09:00:00.000Z" })[2]).not.toBe(here[2]);
   });
 
   it("says today, an earlier day by its date, and another year with the year", () => {
@@ -30,13 +39,13 @@ describe("a bound passkey's two lines", () => {
 });
 
 describe("what the sheet says above the list", () => {
-  it("offers a first passkey, counts the rest, and says why they go by their dates", () => {
-    expect(signinSummary(0)).toContain("No passkey yet");
-    expect(signinSummary(1)).toContain("One passkey opens it");
-    expect(signinSummary(3)).toContain("3 passkeys open it");
-    // Nothing about a device is kept, so the sheet says so rather than leaving it a puzzle.
+  it("counts what is bound, and says why several go by their dates", () => {
+    expect(signinSummary(3)).toContain("3 passkeys");
+    // Nothing about a device is kept, so the sheet says so rather than leaving it a puzzle. With
+    // one there is nothing to tell apart, so it doesn't raise the subject.
     expect(signinSummary(3)).toContain("keeps nothing about the device");
     expect(signinSummary(1)).not.toContain("device");
+    expect(new Set([signinSummary(0), signinSummary(1), signinSummary(3)]).size).toBe(3);
   });
 });
 

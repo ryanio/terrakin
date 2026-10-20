@@ -68,7 +68,10 @@ export function signinHandlers(api: Api): Pick<Handlers, AreaRouteIds["signin"]>
         body: claim,
       }));
     },
-    getClaims: ({ viewer }) => ({ status: 200 as const, body: claims().list(viewer) }),
+    getClaims: ({ viewer, tokenHash }) => ({
+      status: 200 as const,
+      body: claims().list(viewer, tokenHash),
+    }),
     signOutOthers: ({ viewer, tokenHash }) =>
       // Unreachable without a token: the route is `auth: "bearer"`, so the dispatcher has one.
       tokenHash === undefined

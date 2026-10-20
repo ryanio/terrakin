@@ -352,7 +352,12 @@ export class ClaimsService {
     return { ok: true, value: this.view(checked.value.credentialId, boundAt, undefined) };
   }
 
-  private view(credentialId: string, boundAt: number, usedAt: number | undefined): ClaimView {
+  private view(
+    credentialId: string,
+    boundAt: number,
+    usedAt: number | undefined,
+    thisSession = false,
+  ): ClaimView {
     return {
       // The credential id is the authenticator's and can be long, so a claim is listed by a short
       // id of our own, derived from it so it is stable without a column.
@@ -360,6 +365,7 @@ export class ClaimsService {
       kind: "passkey",
       boundAt: new Date(boundAt).toISOString(),
       ...(usedAt === undefined ? {} : { usedAt: new Date(usedAt).toISOString() }),
+      ...(thisSession ? { thisSession: true as const } : {}),
     };
   }
 
@@ -481,20 +487,35 @@ export class ClaimsService {
 
   // ---------- listing and unbinding ----------
 
-  /** The passkeys bound to this resident. */
-  list(residentId: string): ClaimsResponse {
+  /**
+   * The passkeys bound to this resident, with the one that minted the caller's own session marked.
+   * That mark is the only thing that tells one bound passkey from another on sight, since nothing
+   * about a device is kept, and without it a person can't see that removing this one signs them
+   * out here. A session made some other way (a join, a link key, a re-key) matches none.
+   */
+  list(residentId: string, tokenHash = ""): ClaimsResponse {
+    const minted = tokenHash
+      ? this.rows(
+          "SELECT credential_id FROM passkey_sessions WHERE token_hash = ? AND resident_id = ?",
+          tokenHash,
+          residentId,
+        )[0]
+      : undefined;
+    const here = minted ? String(minted.credential_id) : "";
     const rows = this.rows(
       "SELECT credential_id, bound_at, used_at FROM passkeys WHERE resident_id = ? ORDER BY bound_at",
       residentId,
     );
     return {
-      claims: rows.map((row) =>
-        this.view(
-          String(row.credential_id),
+      claims: rows.map((row) => {
+        const credentialId = String(row.credential_id);
+        return this.view(
+          credentialId,
           Number(row.bound_at),
           row.used_at === null || row.used_at === undefined ? undefined : Number(row.used_at),
-        ),
-      ),
+          credentialId === here,
+        );
+      }),
     };
   }
 

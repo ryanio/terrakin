@@ -42,19 +42,22 @@ function today(at: number, nowMs: number, timeZone?: string): boolean {
  * passkey that has never signed in says so, since that is how a person spots one they didn't make.
  */
 export function passkeyLines(
-  claim: Pick<ClaimView, "boundAt" | "usedAt">,
+  claim: Pick<ClaimView, "boundAt" | "usedAt" | "thisSession">,
   nowMs: number,
   timeZone?: string,
-): [string, string] {
+): string[] {
   const added = `Added ${shortDate(Date.parse(claim.boundAt), nowMs, timeZone)}`;
-  if (claim.usedAt === undefined) return [added, "Never used to sign in"];
-  const used = Date.parse(claim.usedAt);
-  return [
-    added,
-    today(used, nowMs, timeZone)
-      ? "Signed in today"
-      : `Last signed in ${shortDate(used, nowMs, timeZone)}`,
-  ];
+  const used =
+    claim.usedAt === undefined
+      ? "Never used to sign in"
+      : today(Date.parse(claim.usedAt), nowMs, timeZone)
+        ? "Signed in today"
+        : `Last signed in ${shortDate(Date.parse(claim.usedAt), nowMs, timeZone)}`;
+  // The one thing that tells a passkey apart on sight, and the one a person has to be warned
+  // about: removing it signs them out of the page they are standing on.
+  return claim.thisSession
+    ? [added, used, "This is the one signing you in here. Removing it signs you out."]
+    : [added, used, "Removing it ends the sessions it made."];
 }
 
 /** What the Signing in sheet says above the list, from how many passkeys are bound. */

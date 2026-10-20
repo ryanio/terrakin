@@ -445,13 +445,6 @@ describe("notification lines", () => {
     expect(notificationLine({ type: "present_opened", count: 1, actor }).what).toBe(
       "opened the present you wrapped",
     );
-    // Both passkey notices are Terrakin's (RFC 0037), so they read "Terrakin says ...".
-    expect(notificationLine({ type: "passkey_bound", count: 1, actor }).what).toBe(
-      "says a passkey was added",
-    );
-    expect(notificationLine({ type: "passkey_signin", count: 1, actor }).what).toBe(
-      "says someone signed in with a passkey",
-    );
   });
 
   it("names your pet, or its kind while its name is held back, and a treat", () => {

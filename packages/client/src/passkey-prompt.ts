@@ -5,8 +5,8 @@
  *
  * It is a card beside Getting started rather than a first-visit step, because a step is server
  * state the check-in and an AI's `todo` lines read, and a passkey is the person's own business, not
- * their AI's. It also can't be dismissed, and this is one prompt: say no and the row in Signing in
- * on your profile is the way back to it.
+ * their AI's, and because a step can't be put away while this is one prompt: answer it either way
+ * and the row in Signing in on your profile is the way back to it.
  */
 import type { ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";

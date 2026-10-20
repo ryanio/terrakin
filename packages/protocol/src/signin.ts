@@ -108,6 +108,12 @@ export const ClaimView = z.object({
   boundAt: z.string(),
   /** When it last signed in, absent until it has. */
   usedAt: z.string().optional(),
+  /**
+   * Present and true on the passkey that minted the session making this call: unbinding this one
+   * signs you out here. Nothing else tells one bound passkey from another, since no device is
+   * kept. Absent on `POST /v1/claims/passkey/finish`, whose caller already knows which it made.
+   */
+  thisSession: z.literal(true).optional(),
 });
 export type ClaimView = z.infer<typeof ClaimView>;
 

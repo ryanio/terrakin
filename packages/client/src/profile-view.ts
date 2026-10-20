@@ -411,8 +411,6 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
             void import("./passkey-sheet").then((m) => m.openSigninSheet(from));
           };
           signin.addEventListener("click", openSignin);
-          // `/r/<you>#signin` opens it straight away, which is where a passkey notice sends you.
-          if (location.hash === "#signin") openSignin();
           const items: HTMLElement[] = [copyItem, photo, routines, signin];
           if (r.handle) {
             handle.className = "menu-item calm handle-edit";
@@ -433,6 +431,14 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
           items.push(remove);
           jump3d.setAttribute("aria-label", "Jump into your plot in 3D");
           mount([invite, jump3d], items);
+          // `/r/<you>#signin` opens it straight away, which is where a passkey notice sends you.
+          // After `mount`, so the sheet comes back to the "…" that is on the page, and the hash
+          // goes with it, since `load()` runs again after a look change or a block and would
+          // otherwise open the sheet over whatever they were doing.
+          if (location.hash === "#signin") {
+            history.replaceState(history.state, "", location.pathname);
+            openSignin();
+          }
           return;
         }
         // The server never takes praise across a block, so don't offer it. Someone you blocked

@@ -51368,6 +51368,12 @@
           },
           "usedAt": {
             "type": "string"
+          },
+          "thisSession": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           }
         },
         "required": [

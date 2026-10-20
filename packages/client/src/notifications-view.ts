@@ -106,8 +106,8 @@ export function notificationLine(
     // From Terrakin itself, so this reads "Terrakin awarded you 200 coins for your work." No deed
     // of theirs earned it, and the notice carries no words (RFC 0036).
     award: `awarded you ${plural(n.award?.coins ?? 0, "coin", "coins")} for your work`,
-    // Both from Terrakin itself (RFC 0037), so these read "Terrakin says ...". The words never
-    // name a device: the server is never told one.
+    // Both arrive with `system: true`, so `systemWords` writes what a person reads and these two
+    // are here for the type alone, as the words a client would fall back to (RFC 0037).
     passkey_bound: "says a passkey was added",
     passkey_signin: "says someone signed in with a passkey",
   };

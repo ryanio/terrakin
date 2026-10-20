@@ -50,14 +50,19 @@ const GROWING = "#7fae55";
 /**
  * What to paint for plot (px, py), back to front: the ground in its season, then paths and flooring,
  * blocks, crops, displays, and hearths, then the flooring and blocks of each floor above the ground
- * floor (RFC 0028), and the home's roof over all of it (RFC 0041), so a home is drawn from above,
- * as the map draws someone else's. `tint` is the owner's theme over the ground, under the paths.
- * Pure, so tests pin it.
+ * floor (RFC 0028). `tint` is the owner's theme over the ground, under the paths. Pure, so tests
+ * pin it.
+ *
+ * `roof` draws the home's roof over all of it (RFC 0041), which only a plot drawn as a neighbor
+ * wants: a drawing of one plot is about that plot, so its roof lifts away as it does on the map
+ * for the plot you stand on, and a roof from above is opaque, so leaving it on would hide the
+ * home, the hearth and the garden the card is there to show.
  */
 export function plotMarks(
   world: WorldSnapshot,
   px: number,
   py: number,
+  o: { roof?: boolean } = {},
 ): { size: number; tint?: string; marks: PlotMark[] } {
   const size = world.config.plotSize;
   const x0 = px * size;
@@ -123,16 +128,23 @@ export function plotMarks(
     }
   }
   for (let floor = 1; floor <= FLOORS.max; floor++) build(floor);
-  // The home's roof over all of it (RFC 0041), as the map draws a plot you're not standing on.
-  const walls = new Map(world.blocks.map((b) => [`${floorOf(b)}|${b.x},${b.y}`, b.block] as const));
-  const roof = roofShape({
-    plotSize: size,
-    px,
-    py,
-    roof: plot?.roof,
-    floors: plot?.floors ?? 0,
-    wall: (x, y, floor) => holdsRoof(walls.get(`${floor}|${x},${y}`)),
-  });
+  // A neighbor's roof over all of it (RFC 0041), as the map draws a plot you're not standing on.
+  // Reading the walls is only worth it for a plot that draws one, since a page of cards calls this
+  // once per plot and the snapshot's blocks are the whole world's.
+  let roof: ReturnType<typeof roofShape>;
+  if (o.roof) {
+    const walls = new Map(
+      world.blocks.map((b) => [`${floorOf(b)}|${b.x},${b.y}`, b.block] as const),
+    );
+    roof = roofShape({
+      plotSize: size,
+      px,
+      py,
+      roof: plot?.roof,
+      floors: plot?.floors ?? 0,
+      wall: (x, y, floor) => holdsRoof(walls.get(`${floor}|${x},${y}`)),
+    });
+  }
   if (roof) {
     const fill = blockFill(roof.material, palette);
     for (const t of roof.tiles) {
@@ -242,7 +254,10 @@ export function plotThumb(
   return canvas;
 }
 
-/** Paint plot (px, py) with its north-west corner at (left, top), `t` pixels a tile. */
+/**
+ * Paint plot (px, py) with its north-west corner at (left, top), `t` pixels a tile. `roof` is for
+ * a plot drawn beside the one the picture is about, which keeps its roof as the map does.
+ */
 function paintPlot(
   ctx: CanvasRenderingContext2D,
   world: WorldSnapshot,
@@ -250,8 +265,9 @@ function paintPlot(
   left: number,
   top: number,
   t: number,
+  o: { roof?: boolean } = {},
 ) {
-  const { size, tint, marks } = plotMarks(world, plot.px, plot.py);
+  const { size, tint, marks } = plotMarks(world, plot.px, plot.py, o);
   for (const mark of marks) {
     paint(ctx, mark, left + mark.x * t, top + mark.y * t, t);
     if (mark.kind === "ground" && tint && mark.x === size - 1 && mark.y === size - 1) {
@@ -295,7 +311,7 @@ export function plotArea(
       }
       const left = (dx + 1) * side;
       const top = (dy + 1) * side;
-      paintPlot(ctx, world, at, left, top, t);
+      paintPlot(ctx, world, at, left, top, t, { roof: dx !== 0 || dy !== 0 });
       if (dx !== 0 || dy !== 0) {
         ctx.fillStyle = alphaHex(PAPER, 0.45);
         ctx.fillRect(left, top, side, side);

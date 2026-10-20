@@ -164,6 +164,8 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   const cols = Math.min(NEAR_COLS, config.width);
   const rows = Math.min(NEAR_ROWS, config.height);
   const here = r.online ? { x: r.x, y: r.y } : (r.hearth ?? { x: r.x, y: r.y });
+  /** The plot they're standing on, which the roofs and the caption's `place` both read. */
+  const spot = plotOf(config, here.x, here.y);
   const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
   const x0 = clamp(here.x - Math.floor(cols / 2), config.width - cols);
   const y0 = clamp(here.y - Math.floor(rows / 2), config.height - rows);
@@ -187,8 +189,19 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   };
   const area = areaOf(state, x0, y0, cols, rows, paletteAt, commons);
   const floors = drawnFromAbove(area.floors);
-  // Every home's roof in the box (RFC 0041): this picture is the world from above.
-  const roofs = roofsIn(state, x0, y0, cols, rows, paletteAt);
+  // Every home's roof in the box (RFC 0041) but the one over the resident this picture is about,
+  // which lifts away as it does on the map for the plot you stand on. The caption says "Wren is
+  // here", and a roof from above is opaque, so leaving it on hid the one thing the picture names
+  // (decision 0333).
+  const roofs = roofsIn(
+    state,
+    x0,
+    y0,
+    cols,
+    rows,
+    paletteAt,
+    (px, py) => px !== spot.px || py !== spot.py,
+  );
 
   // Each themed plot's tint, cut to the box.
   const S = config.plotSize;
@@ -232,7 +245,6 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   const phase = dayPhase(o.nowMs, DAY_LENGTH_MS);
   // In twentieths, so the picture changes with the light, not with every second.
   const night = Math.round(nightAmount(phase) * 20) / 20;
-  const spot = plotOf(config, here.x, here.y);
   const place = isCommons(state, spot.px, spot.py)
     ? "In the Commons"
     : state.plots[plotKey(spot.px, spot.py)]

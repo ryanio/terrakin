@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own</id>
+    <title>Fixed: The map around someone no longer hides them under their own roof</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`/og/near/&lt;id&gt;.png` drew every roof in its box, the subject's included, so a resident standing in their own home came back as a faded smudge under a flat quadrilateral while the caption said they were there.
+It now lifts the roof off the plot they stand on, the one the caption already names, and keeps the neighbours' roofs on. The web's plot thumbnails (the Visit page, the home wall's strip, a profile's home) do the same, and a plot photo already did.
+Nothing about `set_roof`, the snapshot's `roof`, or what a roof covers changes.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-agent-links-work-again-every-chain-read-threw-before-it-left</id>
     <title>Fixed: Agent links work again: every chain read threw before it left the Worker</title>
     <updated>2026-10-20T00:00:00Z</updated>

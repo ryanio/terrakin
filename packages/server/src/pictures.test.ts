@@ -231,6 +231,39 @@ describe("picture data", () => {
     expect(away.facts).toContain("Away");
     expect(away.at).toBeUndefined();
   });
+
+  it("lifts the roof over the resident the map is about, and keeps the neighbors' (RFC 0041)", async () => {
+    const w = world();
+    const ivy = await w.join("Ivy");
+    const bram = await w.join("Bram");
+    let px = 0;
+    for (const who of [ivy, bram]) {
+      expect((await w.act(who.token, { type: "settle", px, py: 0 })).ok).toBe(true);
+      expect((await w.act(who.token, { type: "build_starter_home" })).ok).toBe(true);
+      expect(
+        (await w.act(who.token, { type: "set_roof", px, py: 0, style: "gable", material: "wood" }))
+          .ok,
+      ).toBe(true);
+      px++;
+    }
+    // Both stand on their own hearths, inside their huts.
+    const spec = w.api.pictureSpec({ kind: "near", id: ivy.residentId }) as NearSpec;
+    const here = w.service.state.residents[ivy.residentId];
+    if (!here) throw new Error("no Ivy");
+
+    // The caption says Ivy is here, so Ivy's roof lifts: only the neighbor's is drawn, and no tile
+    // of it falls on the plot Ivy stands on. With Ivy's on, the whole home was a solid quad.
+    const roofs = spec.area.roofs ?? [];
+    expect(roofs).toHaveLength(1);
+    const tiles = roofs.flatMap((r) => r.tiles.map((t) => `${t.x},${t.y}`));
+    expect(tiles).not.toContain(`${here.x},${here.y}`);
+    expect(tiles.length).toBeGreaterThan(0);
+
+    // Ivy is drawn plain and the neighbor faded under their own roof, as the map draws them.
+    const [first, second] = spec.area.figures ?? [];
+    expect(first?.faded).toBeUndefined();
+    expect(second?.faded).toBe(true);
+  });
 });
 
 describe("figures for pictures", () => {

@@ -96,7 +96,7 @@ describe("a plot's drawing", () => {
       plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
       blocks: walls,
     };
-    const marks = plotMarks(roofed, 1, 0).marks.filter((m) => m.kind !== "ground");
+    const marks = plotMarks(roofed, 1, 0, { roof: true }).marks.filter((m) => m.kind !== "ground");
     const roof = marks.filter((m) => m.kind === "roof");
     // The box around the walls, nine tiles, and every one of them after the blocks.
     expect(roof).toHaveLength(9);
@@ -107,9 +107,34 @@ describe("a plot's drawing", () => {
     expect((at(1, 1)?.high ?? 0) > (at(1, 0)?.high ?? 0)).toBe(true);
     // A plot with no roof set gets none, however its walls stand.
     expect(
-      plotMarks({ ...roofed, plots: [{ px: 1, py: 0, ownerId: "ivy" }] }, 1, 0).marks.filter(
-        (m) => m.kind === "roof",
-      ),
+      plotMarks({ ...roofed, plots: [{ px: 1, py: 0, ownerId: "ivy" }] }, 1, 0, {
+        roof: true,
+      }).marks.filter((m) => m.kind === "roof"),
     ).toEqual([]);
+  });
+
+  it("leaves the roof off the plot the drawing is about, so the home shows (RFC 0041)", () => {
+    // The same home as above. A card on the Visit page, the home wall, or a profile is a picture
+    // of this plot, so its roof lifts the way the map lifts the one you stand on: with it on, an
+    // opaque quadrilateral is the whole card, walls, hearth and garden gone (decision 0331).
+    const walls: WorldSnapshot["blocks"] = [];
+    for (let x = 4; x <= 6; x++) {
+      for (let y = 0; y <= 2; y++) {
+        if (x === 5 && y === 1) continue;
+        walls.push({ x, y, block: "wood" });
+      }
+    }
+    const roofed: WorldSnapshot = {
+      ...world,
+      residents: [],
+      crops: [],
+      ground: [],
+      plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
+      blocks: walls,
+    };
+    const marks = plotMarks(roofed, 1, 0).marks;
+    expect(marks.filter((m) => m.kind === "roof")).toEqual([]);
+    // The walls it would have covered are still drawn.
+    expect(marks.filter((m) => m.kind === "block")).toHaveLength(walls.length);
   });
 });

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "The map around someone no longer hides them under their own roof",
+    "body": "`/og/near/<id>.png` drew every roof in its box, the subject's included, so a resident standing in their own home came back as a faded smudge under a flat quadrilateral while the caption said they were there.\nIt now lifts the roof off the plot they stand on, the one the caption already names, and keeps the neighbours' roofs on. The web's plot thumbnails (the Visit page, the home wall's strip, a profile's home) do the same, and a plot photo already did.\nNothing about `set_roof`, the snapshot's `roof`, or what a roof covers changes.",
+    "links": []
+  },
+  {
     "id": "2026-10-20-agent-links-work-again-every-chain-read-threw-before-it-left",
     "date": "2026-10-20",
     "kind": "fixed",

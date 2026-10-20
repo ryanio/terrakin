@@ -222,27 +222,31 @@ export function route(ground: Ground, from: Tile, to: Tile, near = 0, radius = 2
  * own wall, and following it never arrives.
  */
 export function walkWords(state: WorldState, me: Tile, to: Tile, near: number): string {
-  const path = route(
-    worldGround(state),
-    me,
-    to,
-    near,
-    Math.max(state.config.width, state.config.height),
-  );
-  // `route` falls back to the reachable tile nearest `to`, so walk the path through and see
-  // whether it actually arrives before naming it.
-  const at = { x: me.x, y: me.y };
-  const legs: [Direction, number][] = [];
-  for (const dir of path) {
-    const [dx, dy] = STEP[dir];
-    at.x += dx;
-    at.y += dy;
-    const last = legs[legs.length - 1];
-    if (last && last[0] === dir) last[1]++;
-    else legs.push([dir, 1]);
+  const ground = worldGround(state);
+  const world = Math.max(state.config.width, state.config.height);
+  // A detour hardly ever needs more room than the walk itself, and this runs on refusals an agent
+  // meets often, so look near first and only fall back to the whole world when that didn't arrive.
+  // Looking at r tiles around means a square of side 2r + 1, so a short walk costs far less.
+  for (const radius of [Math.min(world, chebyshev(me, to) + near + 8), world]) {
+    const at = { x: me.x, y: me.y };
+    const legs: [Direction, number][] = [];
+    for (const dir of route(ground, me, to, near, radius)) {
+      const [dx, dy] = STEP[dir];
+      at.x += dx;
+      at.y += dy;
+      const last = legs[legs.length - 1];
+      if (last && last[0] === dir) last[1]++;
+      else legs.push([dir, 1]);
+    }
+    // `route` falls back to the reachable tile nearest `to`, so check it arrived before naming it.
+    if (chebyshev(at, to) <= near) {
+      return legs
+        .map(([dir, n]) => `move ${dir} ${n === 1 ? "once" : `${n} times`}`)
+        .join(", then ");
+    }
+    if (radius === world) break;
   }
-  if (chebyshev(at, to) > near) return "";
-  return legs.map(([dir, n]) => `move ${dir} ${n === 1 ? "once" : `${n} times`}`).join(", then ");
+  return "";
 }
 
 // ---------- solid buildings ----------

@@ -370,6 +370,15 @@ export {
 } from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
 export {
+  isSea,
+  LANDS,
+  landName,
+  landOfPlot,
+  landPlots,
+  onBridge,
+  onLand,
+} from "./lands";
+export {
   EARNED_WEAR_SKILL,
   firstSkill,
   firstsOf,

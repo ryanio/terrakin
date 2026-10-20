@@ -410,6 +410,30 @@ export interface Proposal {
   voidedBy?: ResidentId;
 }
 
+/**
+ * New lands ([RFC 0038](../../../docs/rfcs/0038-new-lands.md)). An island is a region of the same
+ * coordinate plane, not a world of its own, so every stored key keeps its meaning. Absent until
+ * the first `open_land`, after which `inBounds` grows with the world's new size and the space
+ * between lands is sea nobody walks on.
+ */
+export interface LandsState {
+  /** The rectangle the world had before any land opened: downtown, which needs no slot list. */
+  home: { width: number; height: number };
+  /** Each open land by id, in the order they opened. */
+  list: Land[];
+}
+
+export interface Land {
+  /** Stable id, from the server's own table: never resident text. */
+  id: string;
+  /** What the town calls it, from the same table. */
+  name: string;
+  /** The plot slots this land makes claimable, as `[px, py]`, sorted. */
+  plots: [number, number][];
+  /** The walkable tiles that reach it across the water, as `[x, y]`, sorted. */
+  bridge: [number, number][];
+}
+
 export interface TownState {
   /** The number in the next proposal id. */
   nextId: number;
@@ -452,6 +476,12 @@ export interface WorldState {
    * created lazily by the first proposal.
    */
   proposeInPerson?: true;
+  /**
+   * The lands beyond the first grid (RFC 0038), absent until the first `open_land`. The world's
+   * `width` and `height` in `config` grow with each one, from the numbers the logged input
+   * carries, so the same log always builds the same world.
+   */
+  lands?: LandsState;
   /**
    * Paths and flooring (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
    * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
@@ -1819,6 +1849,15 @@ export type Command =
   | { type: "lower_holiday_prices" }
   | { type: "shop_in_person" }
   | { type: "propose_in_person" }
+  | {
+      type: "open_land";
+      land: string;
+      name: string;
+      width: number;
+      height: number;
+      plots: [number, number][];
+      bridge: [number, number][];
+    }
   | { type: "open_market" }
   /**
    * From now on, recipes are learned (RFC 0024): everyone here now knows every recipe, and anyone
@@ -2005,6 +2044,7 @@ export const SERVER_COMMANDS = [
   "lower_holiday_prices",
   "shop_in_person",
   "propose_in_person",
+  "open_land",
   "retire_repeat_joins",
   "merge_resident",
   "open_levels",
@@ -2234,6 +2274,16 @@ export type WorldEvent =
   | { type: "shop_in_person_set" }
   /** `propose_in_person` turned on: filing a proposal needs you at the Town Hall. Public. */
   | { type: "propose_in_person_set" }
+  /** A new land opened (RFC 0038): the world grew, and `lands` in the snapshot says what's there. */
+  | {
+      type: "land_opened";
+      land: string;
+      name: string;
+      width: number;
+      height: number;
+      plots: [number, number][];
+      bridge: [number, number][];
+    }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }
   /** `merge_resident`: `from` left the world, merged into `into`. Public: drop `from`. */

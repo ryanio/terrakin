@@ -1,5 +1,6 @@
 import { refuse } from "./check";
 import { tileKey } from "./keys";
+import { isSea } from "./lands";
 import type {
   Direction,
   Rejection,
@@ -47,7 +48,7 @@ export function directionOf(dx: number, dy: number): Direction | undefined {
 }
 
 /** What stops a walker on a tile. `no_flooring` is a tile upstairs with nothing to stand on (RFC 0028). */
-export type Obstacle = "block" | "town_hall" | "shop" | "no_flooring";
+export type Obstacle = "block" | "town_hall" | "shop" | "no_flooring" | "sea";
 
 /** What a walk needs to know: the world's size, and what stands where. */
 export interface Ground {
@@ -67,6 +68,11 @@ export function groundOf(facts: {
   solidBuildings: boolean;
   /** The town shop has opened. Its tiles are a building only then. */
   shopOpen: boolean;
+  /**
+   * Whether a tile is open water between lands (RFC 0038). Left out in a world that never opened
+   * a land, where there is none, so such a world walks exactly as it always did.
+   */
+  sea?: (x: number, y: number) => boolean;
 }): Ground {
   const { config, hasBlock } = facts;
   const buildings = new Map<string, Obstacle>();
@@ -78,6 +84,7 @@ export function groundOf(facts: {
     config,
     obstacle: (x, y) => {
       if (hasBlock(x, y)) return "block";
+      if (facts.sea?.(x, y)) return "sea";
       return buildings.size > 0 ? buildings.get(tileKey(x, y)) : undefined;
     },
   };
@@ -90,6 +97,7 @@ export function worldGround(state: WorldState): Ground {
     hasBlock: (x, y) => isSolid(state, x, y),
     solidBuildings: state.solidBuildings === true,
     shopOpen: state.shop !== undefined,
+    ...(state.lands ? { sea: (x: number, y: number) => isSea(state, x, y) } : {}),
   });
 }
 
@@ -98,6 +106,7 @@ const IN_THE_WAY: Record<Obstacle, string> = {
   town_hall: "The Town Hall is in the way.",
   shop: "The shop is in the way.",
   no_flooring: "There's no flooring there.",
+  sea: "That's open water. Cross by the bridge.",
 };
 
 const CORNER: Record<Obstacle, string> = {
@@ -105,6 +114,7 @@ const CORNER: Record<Obstacle, string> = {
   town_hall: "The Town Hall's corner is in the way. Step around it.",
   shop: "The shop's corner is in the way. Step around it.",
   no_flooring: "The flooring's corner is in the way. Step around it.",
+  sea: "Open water is at the corner. Step around it.",
 };
 
 /** Where a step lands, or why it can't be taken (and what's in the way). */

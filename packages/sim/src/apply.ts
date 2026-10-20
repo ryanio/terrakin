@@ -132,6 +132,7 @@ import {
   unearnedJobWear,
 } from "./jobs";
 import { plotKey, tileKey } from "./keys";
+import { checkOpenLand, onLand } from "./lands";
 import {
   checkCreditEvent,
   checkOpenLevels,
@@ -813,6 +814,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkShopInPerson(state));
       case "propose_in_person":
         return town(checkProposeInPerson(state));
+      case "open_land":
+        return town(checkOpenLand(state, command));
       case "open_market":
         return town(checkOpenMarket(state));
       case "open_recipes":
@@ -1280,10 +1283,18 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       const problem = settleProblem(config, px, py, {
         claimed: state.plots[key] !== undefined,
         ownsAPlot: plotsOwnedBy(state, actor).length > 0,
+        onLand: onLand(state, px, py),
       });
       switch (problem) {
         case "out_of_bounds":
           return reject(problem, "That plot is outside the world.");
+        case "plot_is_water":
+          // The same code as a tile off the map: either way the next move is another plot, so
+          // this needs no error code of its own, only its own words (RFC 0038).
+          return reject(
+            "out_of_bounds",
+            "That's open water between the lands, not a plot. Settle on land, or cross the bridge and claim there.",
+          );
         case "plot_is_commons":
           return reject(problem, "The Commons belongs to everyone.");
         case "plot_owned":

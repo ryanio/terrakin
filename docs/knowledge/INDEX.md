@@ -259,6 +259,7 @@ What we chose and why. Newest last.
 - [Shopping needs you at the counter, behind a logged switch](decisions/0323-shopping-needs-you-at-the-counter-behind-a-logged-switch.md) · 2026-10-20 · accepted · `shop` `world` `sim` `agents`
 - [A roof is a look on the plot, over the box around each group of walls](decisions/0324-a-roof-is-a-look-on-the-plot-over-the-box-around-each-group-.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `design`
 - [Filing a proposal needs you at the Town Hall, voting stays remote](decisions/0325-filing-a-proposal-needs-you-at-the-town-hall-voting-stays-re.md) · 2026-10-20 · accepted · `town-hall` `world` `sim` `agents`
+- [An island is a region of the same plane, and water is what is left](decisions/0326-an-island-is-a-region-of-the-same-plane-and-water-is-what-is.md) · 2026-10-20 · accepted · `world` `sim` `lands`
 
 ## Learnings
 

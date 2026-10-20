@@ -248,7 +248,12 @@ export function plotInBounds(config: WorldConfig, px: number, py: number): boole
 }
 
 /** Why `settle` turns a plot down. */
-export type SettleProblem = "out_of_bounds" | "plot_is_commons" | "plot_owned" | "plot_limit";
+export type SettleProblem =
+  | "out_of_bounds"
+  | "plot_is_water"
+  | "plot_is_commons"
+  | "plot_owned"
+  | "plot_limit";
 
 /**
  * Why `settle` would turn down plot (px, py), in the order it checks, or undefined when it would
@@ -260,9 +265,18 @@ export function settleProblem(
   config: WorldConfig,
   px: number,
   py: number,
-  facts: { claimed: boolean; ownsAPlot: boolean },
+  facts: {
+    claimed: boolean;
+    ownsAPlot: boolean;
+    /**
+     * Whether the slot is on land at all (RFC 0038). Left out means yes, which is every slot in a
+     * world that never opened a land, so such a world answers exactly as it did.
+     */
+    onLand?: boolean;
+  },
 ): SettleProblem | undefined {
   if (!plotInBounds(config, px, py)) return "out_of_bounds";
+  if (facts.onLand === false) return "plot_is_water";
   if (isCommons(config, px, py)) return "plot_is_commons";
   if (facts.claimed) return "plot_owned";
   if (facts.ownsAPlot) return "plot_limit";

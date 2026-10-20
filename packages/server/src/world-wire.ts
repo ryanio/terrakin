@@ -58,7 +58,10 @@ import { nameKey } from "./text";
  * jobs' events (RFC 0030): `job_total`, a merge's bookkeeping (the count is on the profile), and
  * `job_edition_set`, since the board is read from `GET /v1/jobs` and never mirrored,
  * `page_edition_set`, since the snapshot's `pageEdition` is what a client draws pages from
- * (RFC 0024), and `circle_nights`, a merge's bookkeeping for circle nights attended (RFC 0033). A gift
+ * (RFC 0024), `circle_nights`, a merge's bookkeeping for circle nights attended (RFC 0033), and
+ * `land_opened` while new lands are the sim's alone (RFC 0038): no adapter opens one, and the
+ * snapshot has no `lands` yet, so there is nothing for a client to draw from it. It goes on the
+ * wire with that field, not before. A gift
  * also shows as a public `gift` event, without the amount or note, unless townsfolk are on either
  * side: their purses reset to the budget each day, so the public treasury lines would give the
  * amount away.
@@ -77,7 +80,8 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       e.type === "job_total" ||
       e.type === "job_edition_set" ||
       e.type === "page_edition_set" ||
-      e.type === "circle_nights"
+      e.type === "circle_nights" ||
+      e.type === "land_opened"
     ) {
       continue;
     }

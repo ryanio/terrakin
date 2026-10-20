@@ -220,6 +220,15 @@ test.describe("the Town Hall", () => {
     await page.fill("#event-text", "Bring a song.");
     // It starts on the hour, two to three hours from now by the server's clock: keep that.
     await page.screenshot({ path: "test-results/town-schedule.png" });
+    // RFC 0042: a booking is made standing on the place, and Fern is still up at the Town Hall
+    // from the proposal, so the sheet refuses her with the walk. She walks home over the API and
+    // the same booking goes through.
+    await page.click("#event-submit");
+    await expect(page.locator(".schedule-sheet .form-error")).toContainText(
+      "Events are booked where they happen.",
+    );
+    const size = (await (await page.request.get("/v1/world")).json()).config.plotSize as number;
+    await walkTo(page.request, fern, { x: 4 * size + 4, y: 5 * size + 4 }, 3);
     await page.click("#event-submit");
     await expect(wallCard).toContainText("Sunday records");
     // The Town Hall's Coming up lists it, with its own Host an event.

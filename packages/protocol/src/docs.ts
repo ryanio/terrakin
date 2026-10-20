@@ -23,6 +23,8 @@ import {
   type JobUnlock,
   jobUnlocks,
   kindsIn,
+  MATERIAL_KINDS,
+  MATERIAL_RECIPES,
   PROGRESS,
   pointsFor,
   RECIPES,
@@ -232,6 +234,17 @@ export function furnitureBlock(): string {
       (kind) =>
         `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${needsWords(FURNITURE_RECIPES[kind].needs, " and ")} |`,
     ),
+    "",
+    "Made materials (RFC 0041) are made at a workbench too, and placed as walls and windows rather",
+    "than stood on the floor. Nobody learns one: there is no card, page, or lesson, only what it",
+    "takes. Each craft makes several, since a wall is many tiles.",
+    "",
+    "| material | name | made from | a craft makes |",
+    "|----------|------|-----------|---------------|",
+    ...MATERIAL_KINDS.map((kind) => {
+      const { needs, makes = 1 } = MATERIAL_RECIPES[kind];
+      return `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${needsWords(needs, " and ")} | ${makes} |`;
+    }),
     end,
   ].join("\n");
 }

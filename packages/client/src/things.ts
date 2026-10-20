@@ -21,7 +21,10 @@ import {
   type ItemKind,
   isFindKind,
   isFurnitureKind,
+  isMaterialKind,
   isSweetKind,
+  MATERIAL_RECIPES,
+  type MaterialKind,
   OTHERS_PLOT_GATHER,
   RECIPES,
   type RecipeName,
@@ -159,12 +162,14 @@ export function pantryWords(changes: readonly { kind: ItemKind; amount: number }
 }
 
 /** What a recipe uses, as one line: "3 lemons, 1 bag of sugar, 1 jar", or "3 wood" for a table. */
-export function needsLine(recipe: GoodKind | FurnitureKind | SweetKind): string {
+export function needsLine(recipe: GoodKind | FurnitureKind | SweetKind | MaterialKind): string {
   const needs = isFurnitureKind(recipe)
     ? FURNITURE_RECIPES[recipe].needs
     : isSweetKind(recipe)
       ? SWEET_RECIPES[recipe].needs
-      : RECIPES[recipe].needs;
+      : isMaterialKind(recipe)
+        ? MATERIAL_RECIPES[recipe].needs
+        : RECIPES[recipe].needs;
   return Object.entries(needs)
     .map(([kind, n]) => thingCount(kind as ItemKind, n ?? 0))
     .join(", ");
@@ -184,19 +189,27 @@ export const recipeWords = (recipe: RecipeName): string =>
  * A station's recipes that you know (RFC 0024), in catalog order. `known` is `inventory.recipes`
  * from the server: the client's mirror doesn't carry what each resident learned, so the server's
  * list decides what a kitchen or workbench offers (decision 0052). `jam` covers every fruit's jam.
- * Before recipes open the list holds every recipe, so nothing is held back.
+ * Before recipes open the list holds every recipe, so nothing is held back. A made material
+ * (RFC 0041) is never learned, so it is always offered: there is no card standing in front of a
+ * wall, only the things it takes.
  */
 export function knownAt<R extends { recipe: CraftKind; station: Station }>(
   recipes: readonly R[],
   station: Station,
   known: readonly RecipeName[],
 ): R[] {
-  return recipes.filter((r) => r.station === station && known.includes(recipeOf(r.recipe)));
+  return recipes.filter(
+    (r) =>
+      r.station === station &&
+      (isMaterialKind(r.recipe) ||
+        known.includes(recipeOf(r.recipe as Exclude<CraftKind, MaterialKind>))),
+  );
 }
 
 /**
  * How many of a station's recipes you don't know yet, each family recipe once: what the sheet's
- * "13 more recipes to learn" counts. 0 before recipes open, when everyone knows everything.
+ * "13 more recipes to learn" counts. 0 before recipes open, when everyone knows everything. Made
+ * materials are left out: nobody learns one, so none is ever left to learn.
  */
 export function moreToLearn(
   recipes: readonly { recipe: CraftKind; station: Station }[],
@@ -204,7 +217,9 @@ export function moreToLearn(
   known: readonly RecipeName[],
 ): number {
   const names = new Set(
-    recipes.filter((r) => r.station === station).map((r) => recipeOf(r.recipe)),
+    recipes
+      .filter((r) => r.station === station && !isMaterialKind(r.recipe))
+      .map((r) => recipeOf(r.recipe as Exclude<CraftKind, MaterialKind>)),
   );
   return [...names].filter((name) => !known.includes(name)).length;
 }

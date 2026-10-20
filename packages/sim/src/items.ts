@@ -41,6 +41,7 @@ import {
 import { craftJob, harvestJob } from "./jobs";
 import { tileKey } from "./keys";
 import { craftEarns, earned, harvestEarns } from "./levels";
+import { isMaterialKind, MATERIAL_KINDS, MATERIAL_RECIPES, type MaterialKind } from "./materials";
 import { own, residentById } from "./own";
 import type {
   Command,
@@ -166,8 +167,8 @@ export const isDecorKind = (k: unknown): k is DecorKind =>
  * A block you hold before you place it: decor from the town shop, or furniture from a workbench.
  * `place` takes one from your things and `remove` gives it back.
  */
-export const isHeldBlock = (k: unknown): k is DecorKind | FurnitureKind =>
-  isDecorKind(k) || isFurnitureKind(k);
+export const isHeldBlock = (k: unknown): k is DecorKind | FurnitureKind | MaterialKind =>
+  isDecorKind(k) || isFurnitureKind(k) || isMaterialKind(k);
 export const isCrop = (k: unknown): k is Crop =>
   typeof k === "string" && (CROPS as readonly string[]).includes(k);
 export const isResourceKind = (k: unknown): k is ResourceKind =>
@@ -531,19 +532,22 @@ export function checkCraft(
   const { recipe, x, y, label } = command;
   const furniture = isFurnitureKind(recipe);
   const sweet = isSweetKind(recipe);
-  if (!furniture && !sweet && !isGoodKind(recipe)) {
+  // A made material (RFC 0041) stacks and takes no label, exactly as furniture does.
+  const material = isMaterialKind(recipe);
+  if (!furniture && !sweet && !material && !isGoodKind(recipe)) {
     // A family recipe asked of a kind outside its family: say which kinds it takes.
     const miss = typeof recipe === "string" ? familyRecipeMiss(recipe) : undefined;
     if (miss) return refuse("unknown_item", miss);
     return refuse(
       "unknown_item",
-      `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}, or sweets: ${SWEET_KINDS.join(", ")}.`,
+      `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}, or sweets: ${SWEET_KINDS.join(", ")}, or materials: ${MATERIAL_KINDS.join(", ")}.`,
     );
   }
-  if ((furniture || sweet) && label !== undefined) {
+  if ((furniture || sweet || material) && label !== undefined) {
+    const what = furniture ? "Furniture stacks" : material ? "A material stacks" : "Candy stacks";
     return refuse(
       "invalid_label",
-      `${furniture ? "Furniture stacks" : "Candy stacks"} with others like it, so it takes no label. Leave out label.`,
+      `${what} with others like it, so it takes no label. Leave out label.`,
     );
   }
   if (label !== undefined && (typeof label !== "string" || label.length > ITEMS.labelMax)) {
@@ -555,7 +559,13 @@ export function checkCraft(
     station,
     needs,
     makes = 1,
-  } = furniture ? FURNITURE_RECIPES[recipe] : sweet ? SWEET_RECIPES[recipe] : RECIPES[recipe];
+  } = furniture
+    ? FURNITURE_RECIPES[recipe]
+    : sweet
+      ? SWEET_RECIPES[recipe]
+      : material
+        ? MATERIAL_RECIPES[recipe]
+        : RECIPES[recipe];
   if (state.blocks[tileKey(x, y)] !== station) {
     return refuse(
       "no_station",
@@ -586,7 +596,9 @@ export function checkCraft(
   }
   const points = craftEarns(state, actor, recipe);
   const job = craftJob(state, actor, recipe);
-  if (furniture || sweet) {
+  // Furniture, sweets and made materials all stack: no id, no maker, no label, so the craft adds
+  // a count rather than making a thing of its own.
+  if (furniture || sweet || material) {
     return () => {
       items.today.crafted[actor] = crafted + 1;
       const mine = inventory(items, actor);
@@ -894,8 +906,8 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
 // ---------- blocks that cost: decor, furniture, and ponds ----------
 
 /** Where to get one more of a held block, for a refusal. */
-function heldBlockHint(kind: DecorKind | FurnitureKind): string {
-  return isFurnitureKind(kind)
+function heldBlockHint(kind: DecorKind | FurnitureKind | MaterialKind): string {
+  return isFurnitureKind(kind) || isMaterialKind(kind)
     ? `Make one at a workbench with craft {"recipe": "${kind}"}.`
     : "Buy one at the town shop with shop_buy.";
 }

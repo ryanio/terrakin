@@ -5462,6 +5462,11 @@
                 "char",
                 "golden_koi",
                 "moonfish",
+                "plaster",
+                "brick",
+                "timber_frame",
+                "driftwood_plank",
+                "sea_glass_pane",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -15183,7 +15188,12 @@
                 "jack_o_lantern",
                 "candy",
                 "candy_cane",
-                "gelt"
+                "gelt",
+                "plaster",
+                "brick",
+                "timber_frame",
+                "driftwood_plank",
+                "sea_glass_pane"
               ]
             }
           },
@@ -29901,7 +29911,12 @@
                     "dreidel",
                     "stocking",
                     "bird_bath",
-                    "beehive"
+                    "beehive",
+                    "plaster",
+                    "brick",
+                    "timber_frame",
+                    "driftwood_plank",
+                    "sea_glass_pane"
                   ]
                 }
               },
@@ -30070,7 +30085,12 @@
               "dreidel",
               "stocking",
               "bird_bath",
-              "beehive"
+              "beehive",
+              "plaster",
+              "brick",
+              "timber_frame",
+              "driftwood_plank",
+              "sea_glass_pane"
             ]
           },
           "windows": {
@@ -30117,7 +30137,12 @@
               "dreidel",
               "stocking",
               "bird_bath",
-              "beehive"
+              "beehive",
+              "plaster",
+              "brick",
+              "timber_frame",
+              "driftwood_plank",
+              "sea_glass_pane"
             ]
           },
           "path": {
@@ -32415,6 +32440,11 @@
           "char",
           "golden_koi",
           "moonfish",
+          "plaster",
+          "brick",
+          "timber_frame",
+          "driftwood_plank",
+          "sea_glass_pane",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -33250,7 +33280,12 @@
               "dreidel",
               "stocking",
               "bird_bath",
-              "beehive"
+              "beehive",
+              "plaster",
+              "brick",
+              "timber_frame",
+              "driftwood_plank",
+              "sea_glass_pane"
             ]
           },
           "dry": {
@@ -33464,7 +33499,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "1": {
@@ -33510,7 +33550,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "2": {
@@ -33556,7 +33601,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "3": {
@@ -33602,7 +33652,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "4": {
@@ -33648,7 +33703,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "5": {
@@ -33694,7 +33754,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "6": {
@@ -33740,7 +33805,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "7": {
@@ -33786,7 +33856,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "8": {
@@ -33832,7 +33907,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "9": {
@@ -33878,7 +33958,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               }
             },
@@ -33972,7 +34057,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "1": {
@@ -34018,7 +34108,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "2": {
@@ -34064,7 +34159,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "3": {
@@ -34110,7 +34210,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "4": {
@@ -34156,7 +34261,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "5": {
@@ -34202,7 +34312,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "6": {
@@ -34248,7 +34363,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "7": {
@@ -34294,7 +34414,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "8": {
@@ -34340,7 +34465,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "9": {
@@ -34386,7 +34516,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               }
             },
@@ -34491,7 +34626,12 @@
                         "dreidel",
                         "stocking",
                         "bird_bath",
-                        "beehive"
+                        "beehive",
+                        "plaster",
+                        "brick",
+                        "timber_frame",
+                        "driftwood_plank",
+                        "sea_glass_pane"
                       ]
                     }
                   },
@@ -35019,7 +35159,12 @@
           "jack_o_lantern",
           "candy",
           "candy_cane",
-          "gelt"
+          "gelt",
+          "plaster",
+          "brick",
+          "timber_frame",
+          "driftwood_plank",
+          "sea_glass_pane"
         ]
       },
       "RecipeName": {
@@ -36260,7 +36405,12 @@
           "pike",
           "char",
           "golden_koi",
-          "moonfish"
+          "moonfish",
+          "plaster",
+          "brick",
+          "timber_frame",
+          "driftwood_plank",
+          "sea_glass_pane"
         ]
       },
       "StandAction": {
@@ -37613,7 +37763,12 @@
                   "dreidel",
                   "stocking",
                   "bird_bath",
-                  "beehive"
+                  "beehive",
+                  "plaster",
+                  "brick",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane"
                 ]
               },
               "by": {
@@ -41157,7 +41312,12 @@
                     "dreidel",
                     "stocking",
                     "bird_bath",
-                    "beehive"
+                    "beehive",
+                    "plaster",
+                    "brick",
+                    "timber_frame",
+                    "driftwood_plank",
+                    "sea_glass_pane"
                   ]
                 }
               },
@@ -46565,7 +46725,8 @@
               "furniture",
               "find",
               "sweet",
-              "fish"
+              "fish",
+              "material"
             ]
           }
         },
@@ -46619,6 +46780,12 @@
             ]
           },
           "sweet": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "material": {
             "type": "boolean",
             "enum": [
               true
@@ -49209,7 +49376,8 @@
               "furniture",
               "find",
               "sweet",
-              "fish"
+              "fish",
+              "material"
             ],
             "description": "What it is to the rules: a `good` is a made thing with an id and a maker; everything else stacks."
           },
@@ -51834,7 +52002,12 @@
                     "dreidel",
                     "stocking",
                     "bird_bath",
-                    "beehive"
+                    "beehive",
+                    "plaster",
+                    "brick",
+                    "timber_frame",
+                    "driftwood_plank",
+                    "sea_glass_pane"
                   ]
                 }
               },
@@ -51883,7 +52056,12 @@
                     "dreidel",
                     "stocking",
                     "bird_bath",
-                    "beehive"
+                    "beehive",
+                    "plaster",
+                    "brick",
+                    "timber_frame",
+                    "driftwood_plank",
+                    "sea_glass_pane"
                   ]
                 }
               },

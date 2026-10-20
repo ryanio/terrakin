@@ -92,7 +92,9 @@ export type Role =
   | "piece"
   | "find"
   | "sweet"
-  | "fish";
+  | "fish"
+  /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
+  | "material";
 
 /** Block kinds you craft at. `craft` names the station's tile. */
 export const STATIONS = ["kitchen", "workbench"] as const;
@@ -1270,6 +1272,50 @@ const WRITTEN = {
     shop: { price: 18, seasons: ["summer"] },
     look: { template: "drawn" },
   }),
+  // Made materials (RFC 0041): walls and windows made at a workbench, held and placed like
+  // furniture, so a home can say where its builder forages. The four free blocks (wood, stone,
+  // glass, leaf) stay free and unchanged, and these are extras on top of them. Each craft makes
+  // `MATERIAL_MAKES`, since a wall is many tiles and a day holds `ITEMS.craftPerDay` crafts.
+  plaster: entry({
+    name: "Plaster block",
+    plural: "Plaster blocks",
+    family: "material",
+    role: "material",
+    recipe: { station: "workbench", needs: { stone: 2 }, makes: 4 },
+    look: { template: "drawn" },
+  }),
+  brick: entry({
+    name: "Brick",
+    plural: "Bricks",
+    family: "material",
+    role: "material",
+    recipe: { station: "workbench", needs: { stone: 2, wood: 1 }, makes: 4 },
+    look: { template: "drawn" },
+  }),
+  timber_frame: entry({
+    name: "Timber frame",
+    plural: "Timber frames",
+    family: "material",
+    role: "material",
+    recipe: { station: "workbench", needs: { plaster: 1, wood: 2 }, makes: 4 },
+    look: { template: "drawn" },
+  }),
+  driftwood_plank: entry({
+    name: "Driftwood plank",
+    plural: "Driftwood planks",
+    family: "material",
+    role: "material",
+    recipe: { station: "workbench", needs: { driftwood: 3 }, makes: 4 },
+    look: { template: "drawn" },
+  }),
+  sea_glass_pane: entry({
+    name: "Sea glass pane",
+    plural: "Sea glass panes",
+    family: "material",
+    role: "material",
+    recipe: { station: "workbench", needs: { sea_glass: 2 }, makes: 4 },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------
@@ -1352,6 +1398,7 @@ export type PieceKind = With<{ role: "piece" }>;
 export type FindKind = With<{ role: "find" }>;
 export type SweetKind = With<{ role: "sweet" }>;
 export type FishKind = With<{ role: "fish" }>;
+export type MaterialKind = With<{ role: "material" }>;
 export type StackKind =
   | SeedKind
   | ProduceKind
@@ -1361,7 +1408,8 @@ export type StackKind =
   | FurnitureKind
   | FindKind
   | SweetKind
-  | FishKind;
+  | FishKind
+  | MaterialKind;
 export type MadeKind = GoodKind | PieceKind;
 
 /** What a family recipe makes from one kind in its family. */
@@ -1430,9 +1478,12 @@ export const FIND_KINDS = withRole("find") as readonly FindKind[];
 export const SWEET_KINDS = withRole("sweet") as readonly SweetKind[];
 /** Fish (RFC 0023): caught with a rod beside water, by season, time of day, and weather. */
 export const FISH_KINDS = withRole("fish") as readonly FishKind[];
+/** Made materials (RFC 0041): walls and windows made at a workbench, held and placed. */
+export const MATERIAL_KINDS = withRole("material") as readonly MaterialKind[];
 /**
- * Things that stack: you hold a count of each, not separate items. Finds, then sweets, then fish
- * came last, after every role that shipped before them, so no kind that shipped earlier moves.
+ * Things that stack: you hold a count of each, not separate items. Finds, then sweets, then fish,
+ * then made materials came last, after every role that shipped before them, so no kind that
+ * shipped earlier moves.
  */
 export const STACK_KINDS: readonly StackKind[] = [
   ...SEED_KINDS,
@@ -1444,6 +1495,7 @@ export const STACK_KINDS: readonly StackKind[] = [
   ...FIND_KINDS,
   ...SWEET_KINDS,
   ...FISH_KINDS,
+  ...MATERIAL_KINDS,
 ];
 /** Made things with a recipe. Each one is its own item with an id, its maker, and its made day. */
 export const GOOD_KINDS = withRole("good") as readonly GoodKind[];
@@ -1462,7 +1514,9 @@ export type ItemCategory =
   | "furniture"
   | "find"
   | "sweet"
-  | "fish";
+  | "fish"
+  /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
+  | "material";
 
 export interface ItemInfo {
   /** One of it, in plain words. */
@@ -1522,8 +1576,13 @@ export const SWEET_RECIPES = Object.fromEntries(
   SWEET_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
 ) as Readonly<Record<SweetKind, Recipe>>;
 
-/** Every kind `craft` makes: made goods, furniture, and sweets. */
-export type CraftKind = GoodKind | FurnitureKind | SweetKind;
+/** One recipe per made material, named after what it makes (RFC 0041). */
+export const MATERIAL_RECIPES = Object.fromEntries(
+  MATERIAL_KINDS.map((kind) => [kind, CATALOG[kind].recipe]),
+) as Readonly<Record<MaterialKind, Recipe>>;
+
+/** Every kind `craft` makes: made goods, furniture, sweets, and materials. */
+export type CraftKind = GoodKind | FurnitureKind | SweetKind | MaterialKind;
 
 /**
  * A recipe by the name a resident learns it under (RFC 0024): what it makes, or for a family
@@ -1541,12 +1600,20 @@ export const recipeOf = (kind: CraftKind): RecipeName =>
   (Object.hasOwn(FAMILY_MADE, kind) ? FAMILY_MADE[kind] : kind) as RecipeName;
 
 /**
- * Every recipe, in catalog order: each kind with a recipe under `recipeOf`, a family recipe once,
- * where the first kind it makes stands.
+ * Every recipe a resident learns (RFC 0024), in catalog order: each kind with a recipe under
+ * `recipeOf`, a family recipe once, where the first kind it makes stands.
+ *
+ * Made materials (RFC 0041) are left out on purpose. They are crafted, but they are not knowledge
+ * to be learned: what makes a brick wall earned is the stone and the walk, not a card. Gating a
+ * wall behind the shop as well would be a second gate on the same thing, and it would put a
+ * building supply on the Recipes shelf, where every price is checked against what the town pays
+ * for a good (`recipes.test.ts`) and a material is never sold at all.
  */
 export const RECIPE_NAMES: readonly RecipeName[] = [
   ...new Set(
-    KINDS.filter((kind) => CATALOG[kind].recipe).map((kind) => recipeOf(kind as CraftKind)),
+    KINDS.filter((kind) => CATALOG[kind].recipe && CATALOG[kind].role !== "material").map((kind) =>
+      recipeOf(kind as CraftKind),
+    ),
   ),
 ];
 

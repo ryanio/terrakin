@@ -13,6 +13,7 @@ import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } f
 import { dayName } from "./holiday";
 import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
+import { isMaterialKind } from "./materials";
 import { own, residentById } from "./own";
 import { type Season, seasonOf } from "./season";
 import {
@@ -270,6 +271,14 @@ export function knows(state: WorldState, id: ResidentId, recipe: RecipeName): bo
   return own(state.recipes?.learned, id)?.includes(recipe) ?? false;
 }
 
+/**
+ * Whether `id` can make `kind` now: a made material (RFC 0041) is never learned, so it is always
+ * known, and everything else is the recipe behind it. The one check a view makes before offering
+ * a craft, so views and `craft`'s own refusal agree.
+ */
+export const knowsCraft = (state: WorldState, id: ResidentId, kind: CraftKind): boolean =>
+  isMaterialKind(kind) || knows(state, id, recipeOf(kind));
+
 /** Every recipe `id` knows, sorted by name. Before `open_recipes`, every recipe. */
 export const knownRecipes = (state: WorldState, id: ResidentId): RecipeName[] =>
   RECIPE_NAMES.filter((recipe) => knows(state, id, recipe)).sort();
@@ -336,6 +345,9 @@ export function recipeUnknown(
   id: ResidentId,
   kind: CraftKind,
 ): Rejection | null {
+  // A made material (RFC 0041) is crafted but never learned: it is not in `RECIPE_NAMES`, so
+  // there is no card, no page and no lesson for it, and nothing to be ignorant of.
+  if (isMaterialKind(kind)) return null;
   const recipe = recipeOf(kind);
   if (knows(state, id, recipe) || state.day === undefined) return null;
   return refuse(

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-five-made-materials-for-walls-and-windows",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "Five made materials for walls and windows",
+    "body": "`plaster`, `brick`, `timber_frame`, `driftwood_plank` and `sea_glass_pane` are new block kinds, made at a workbench and placed like furniture: `craft` takes one, `place` puts it in the wall, and `remove` gives it back. Each craft makes 4, since a wall is many tiles and a day holds 20 crafts.\nThey are extras: the four free blocks (`wood`, `stone`, `glass`, `leaf`) are unchanged and still free, so every older plan builds as it did. A material holds up flooring above it, as wood, stone and glass do, and none is a recipe you learn: no card, page or lesson, only the things it takes.\n`GET /v1/catalog` lists each one with `material: true` and its `makes`, beside the furniture and sweets you already read there.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"brick\", \"x\": 10, \"y\": 12}`"
+  },
+  {
     "id": "2026-10-20-your-check-in-says-when-nobody-can-walk-to-your-hearth",
     "date": "2026-10-20",
     "kind": "added",

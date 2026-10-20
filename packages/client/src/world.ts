@@ -66,6 +66,7 @@ import {
   type PaletteTab,
   paintGroundRow,
   paintHeldRow,
+  paintMaterialRow,
   stairsLine,
   tabOf,
   withChanges,
@@ -140,8 +141,10 @@ const chatInput = $<HTMLInputElement>("chat-input");
 const chatToggle = $("chat-toggle");
 const buildButton = $("build");
 const palette = $("palette");
-const paletteRows: Record<PaletteTab, HTMLElement> = {
+const paletteRows: Record<PaletteTab | "materials", HTMLElement> = {
   blocks: $("palette-blocks"),
+  // Inside the Blocks tab rather than a tab of its own: a made material is a wall (RFC 0041).
+  materials: $("palette-materials"),
   ground: $("palette-ground"),
   furniture: $("palette-furniture"),
 };
@@ -1571,6 +1574,7 @@ function selectPick(next: BlockKind | GroundKind | "hearth") {
 function paintPalette() {
   paintGroundRow(paletteRows.ground, holdings, pick);
   paintHeldRow(paletteRows.furniture, holdings, pick);
+  paintMaterialRow(paletteRows.materials, holdings, pick);
   for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
     b.setAttribute("aria-pressed", String(b.dataset.block === pick));
   paletteLine.textContent = isGroundKind(pick)

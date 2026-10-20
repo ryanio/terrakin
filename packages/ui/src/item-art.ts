@@ -2580,6 +2580,83 @@ function posy(): ArtShape[] {
  * decor, furniture, made things that no template draws, finds (RFC 0021), and the fishing rod and
  * what the kitchen cooks from fish (RFC 0023).
  */
+// ---------- made materials (RFC 0041) ----------
+
+/**
+ * Walls and windows made at a workbench. Each is drawn as a small stack of what you would place,
+ * rather than as a finished wall, because that is what you hold: the picture has to read at 28px
+ * in the build bar and in your things, so each leans on one shape (a course of bricks, a beam, a
+ * bleached plank, a pane) and its own color rather than on detail.
+ */
+function plaster(): ArtShape[] {
+  const face = BLOCK_COLORS.plaster;
+  return [
+    shadow(15, 42),
+    rect(8, 14, 32, 26, 3, face, out()),
+    // A trowel's sweep across the face, so it reads as plaster rather than as pale stone.
+    line("M12 22q7 -3 13 0t11 -1", "#d8cdb8", 1.6),
+    line("M12 30q8 3 14 0t10 1", "#d8cdb8", 1.6),
+    rect(8, 14, 32, 5, 3, "#f6f1e6"),
+  ];
+}
+
+function brick(): ArtShape[] {
+  const face = BLOCK_COLORS.brick;
+  const dark = "#8f4231";
+  const brickAt = (x: number, y: number, w: number) =>
+    rect(x, y, w, 7, 1.5, face, out({ "stroke-width": 1.1 }));
+  return [
+    shadow(15, 42),
+    // Three courses, offset like real bonding: the offset is what says "brick" at a glance.
+    brickAt(7, 15, 17),
+    brickAt(26, 15, 15),
+    brickAt(7, 24, 15),
+    brickAt(24, 24, 17),
+    brickAt(7, 33, 17),
+    brickAt(26, 33, 15),
+    line("M7 23h34M7 32h34", dark, 1),
+  ];
+}
+
+function timberFrame(): ArtShape[] {
+  const beam = BLOCK_COLORS.timber_frame;
+  return [
+    shadow(15, 42),
+    // Plaster behind, dark beams over it: the beams are what the eye reads, so they go on top.
+    rect(8, 14, 32, 26, 3, BLOCK_COLORS.plaster, out()),
+    line("M12 14v26M36 14v26", beam, 3.4),
+    line("M8 26h32", beam, 3),
+    line("M12 14 36 26", beam, 2.6),
+  ];
+}
+
+function driftwoodPlank(): ArtShape[] {
+  const wash = BLOCK_COLORS.driftwood_plank;
+  const grain = "#9a948a";
+  const plank = (y: number) => rect(7, y, 34, 8, 2.5, wash, out({ "stroke-width": 1.1 }));
+  return [
+    shadow(15, 42),
+    plank(15),
+    plank(26),
+    // Salt-worn grain, drawn as a long split rather than straight lines: it is wood the sea had.
+    line("M11 19q9 -2 14 1t15 -1", grain, 1.2),
+    line("M11 30q10 2 15 -1t14 1", grain, 1.2),
+    line("M20 15v8M31 26v8", grain, 1),
+  ];
+}
+
+function seaGlassPane(): ArtShape[] {
+  const glass = BLOCK_COLORS.sea_glass_pane;
+  return [
+    shadow(14, 42),
+    // A pane in a frame, with the sea in it: greener than glass, and see-through where it shines.
+    rect(9, 12, 30, 28, 2.5, glass, out({ opacity: 0.92 })),
+    line("M24 12v28M9 26h30", "#e8f2ee", 1.8),
+    shine(16, 19, 4.5, 2.4),
+    ellipse(31, 33, 3.4, 2, "#ffffff", { opacity: 0.3, transform: "rotate(-24 31 33)" }),
+  ];
+}
+
 const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
   jar,
@@ -2599,6 +2676,11 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   lamp_post: lampPost,
   well,
   stone_wall: stoneWall,
+  plaster,
+  brick,
+  timber_frame: timberFrame,
+  driftwood_plank: driftwoodPlank,
+  sea_glass_pane: seaGlassPane,
   campfire,
   flower_box: flowerBox,
   jack_o_lantern: jackOLantern,

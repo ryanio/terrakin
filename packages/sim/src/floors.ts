@@ -3,18 +3,19 @@ import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./econom
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { own } from "./own";
-import type {
-  BlockKind,
-  Climb,
-  Command,
-  FloorLayer,
-  Plot,
-  Rejection,
-  Resident,
-  ResidentId,
-  WorldConfig,
-  WorldEvent,
-  WorldState,
+import {
+  type BlockKind,
+  type Climb,
+  type Command,
+  type FloorLayer,
+  MATERIAL_BLOCKS,
+  type Plot,
+  type Rejection,
+  type Resident,
+  type ResidentId,
+  type WorldConfig,
+  type WorldEvent,
+  type WorldState,
 } from "./types";
 import { type Ground, worldGround } from "./walk";
 import { blocksWalkers, canBuildOn, inBounds, isCommons, plotInBounds, plotOf } from "./world";
@@ -51,8 +52,11 @@ export const FLOORS = {
   stairsWood: 4,
 } as const;
 
-/** The blocks that hold up what's above them: walls and windows. A hedge holds nothing up. */
-const HOLDING_BLOCKS: readonly BlockKind[] = ["wood", "stone", "glass"];
+/**
+ * The blocks that hold up what's above them: walls and windows, the free ones and the made
+ * materials of RFC 0041 alike. A hedge holds nothing up.
+ */
+const HOLDING_BLOCKS: readonly BlockKind[] = ["wood", "stone", "glass", ...MATERIAL_BLOCKS];
 
 /**
  * Blocks that stay on the ground floor, because other state is keyed by their tile alone: crops

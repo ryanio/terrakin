@@ -295,7 +295,7 @@ A putter wave is an ordinary `wave` gesture with `"putter": true` and no note. E
 
 ### place
 
-`{"type": "place", "x": 10, "y": 4, "block": "wood"}`. Puts a block on a tile. `block` is one of `wood`, `stone`, `glass`, `leaf`, `planter`, `kitchen`, `workbench`, `pedestal`, which are free, decor from [the town shop](#the-town-shop) (like `lantern` or `bench`), or [furniture](#build-paths-furniture-and-plans) you made at a workbench (like `table` or `well`), or `pond`, a tile of water to [fish](#fishing) beside, which takes 2 stone from your things, or `stairs` up to a floor your plot added, which take 4 wood ([Building up](#building-up)). Every kind of decor is in [Things and families](#things-and-families), and every piece of furniture, with what it's made from, in [Build](#build-paths-furniture-and-plans). Placing decor or furniture uses one you hold, and a pond its stone (`not_enough_items` if you're short). A `planter` holds a crop; a `kitchen` and a `workbench` are where you make things; a `pedestal` and a `frame` hold something on display (see [Make and give](#make-and-give)). More block kinds may come: if `/v1/world` or an event names one you don't know, draw it as a plain block rather than failing. A [Town Hall build](#town-hall) puts the building blocks, decor, furniture, and ponds in the Commons, from nobody's things. The tile must be on a plot you own or that is shared with you, within `config.reach` tiles of you (diagonal counts as 1), empty, not a hearth, and nobody can be standing on it.
+`{"type": "place", "x": 10, "y": 4, "block": "wood"}`. Puts a block on a tile. `block` is one of `wood`, `stone`, `glass`, `leaf`, `planter`, `kitchen`, `workbench`, `pedestal`, which are free, decor from [the town shop](#the-town-shop) (like `lantern` or `bench`), or [furniture](#build-paths-furniture-and-plans) you made at a workbench (like `table` or `well`), or a made material you crafted for a wall or a window (like `brick` or `sea_glass_pane`, also in [Build](#build-paths-furniture-and-plans)), or `pond`, a tile of water to [fish](#fishing) beside, which takes 2 stone from your things, or `stairs` up to a floor your plot added, which take 4 wood ([Building up](#building-up)). Every kind of decor is in [Things and families](#things-and-families), and every piece of furniture, with what it's made from, in [Build](#build-paths-furniture-and-plans). Placing decor or furniture uses one you hold, and a pond its stone (`not_enough_items` if you're short). A `planter` holds a crop; a `kitchen` and a `workbench` are where you make things; a `pedestal` and a `frame` hold something on display (see [Make and give](#make-and-give)). More block kinds may come: if `/v1/world` or an event names one you don't know, draw it as a plain block rather than failing. A [Town Hall build](#town-hall) puts the building blocks, decor, furniture, and ponds in the Commons, from nobody's things. The tile must be on a plot you own or that is shared with you, within `config.reach` tiles of you (diagonal counts as 1), empty, not a hearth, and nobody can be standing on it.
 
 `place`, `remove`, `lay`, and `lift` all take an optional `"floor": 1` to build upstairs, once your plot has [added an upstairs](#add_floor). `floor` is a level of the home, always a number: absent or `0` is the ground floor and `1` is upstairs. It is never what you lay on a tile: planks, moss, and every other path and flooring are `ground`. Reach counts a floor as one tile.
 
@@ -1593,6 +1593,18 @@ A plot looks like home when it has paths, flooring, and things to sit at. Three 
 | `campfire` | Campfire | 2 wood and 3 stone |
 | `flower_box` | Flower box | 1 wood and 3 flowers |
 | `jack_o_lantern` | Jack-o'-lantern | 1 pumpkin |
+
+Made materials (RFC 0041) are made at a workbench too, and placed as walls and windows rather
+than stood on the floor. Nobody learns one: there is no card, page, or lesson, only what it
+takes. Each craft makes several, since a wall is many tiles.
+
+| material | name | made from | a craft makes |
+|----------|------|-----------|---------------|
+| `plaster` | Plaster block | 2 stone | 4 |
+| `brick` | Brick | 2 stone and 1 wood | 4 |
+| `timber_frame` | Timber frame | 1 plaster block and 2 wood | 4 |
+| `driftwood_plank` | Driftwood plank | 3 driftwood | 4 |
+| `sea_glass_pane` | Sea glass pane | 2 sea glass | 4 |
 <!-- generated:furniture:end -->
 
 Wood and stone come from [gathering](#gather): fallen branches in forests, loose stones on stone ground, a few a day on most plots and more on open land. Flowers, herbs, pumpkins, and [every other crop](#things-and-families) grow in planters. The lamp post, the campfire, and the jack-o'-lantern glow after dark.

@@ -10,6 +10,8 @@ import {
   ITEM_INFO,
   ITEM_KINDS,
   ITEMS,
+  MATERIAL_KINDS,
+  MATERIAL_RECIPES,
   POND,
   RECIPES,
   STATIONS,
@@ -98,6 +100,8 @@ export const CatalogItem = z.object({
     "find",
     "sweet",
     "fish",
+    /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
+    "material",
   ]),
 });
 
@@ -124,6 +128,11 @@ export const CatalogRecipe = z.object({
   furniture: z.literal(true).optional(),
   /** Present on a sweet (RFC 0022), like candy: it stacks in your things and takes no label. */
   sweet: z.literal(true).optional(),
+  /**
+   * Present on a made material (RFC 0041): a wall or a window, which stacks in your things,
+   * places like furniture, and takes no label. Nobody has to learn it, so there is no card.
+   */
+  material: z.literal(true).optional(),
   /** How many one craft makes, when it's more than one (candy makes 5). */
   makes: z.number().int().optional(),
 });
@@ -173,6 +182,18 @@ export const ITEM_CATALOG: ItemCatalog = {
         station,
         needs: needsOf(needs),
         sweet: true as const,
+        ...(makes && makes > 1 ? { makes } : {}),
+      };
+    }),
+    // Made materials (RFC 0041): walls and windows from the workbench, several a craft.
+    ...MATERIAL_KINDS.map((recipe) => {
+      const { station, needs, makes } = MATERIAL_RECIPES[recipe];
+      return {
+        recipe,
+        name: ITEM_INFO[recipe].name,
+        station,
+        needs: needsOf(needs),
+        material: true as const,
         ...(makes && makes > 1 ? { makes } : {}),
       };
     }),

@@ -177,6 +177,25 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   // Spring's and summer's decor (decision 0311), modelled in decor.ts.
   bird_bath: { color: hex(BLOCK_COLORS.bird_bath), height: 0.8, opacity: 1, form: "decor" },
   beehive: { color: hex(BLOCK_COLORS.beehive), height: 0.7, opacity: 1, form: "decor" },
+  // Made materials (RFC 0041): walls and windows crafted at a workbench. Each stands as tall as a
+  // wood or stone wall, since that is what they are, and the two panes are windows, so they are
+  // see-through and light up from inside after dark exactly as glass does.
+  plaster: { color: hex(BLOCK_COLORS.plaster), height: 1.25, opacity: 1, form: "voxel" },
+  brick: { color: hex(BLOCK_COLORS.brick), height: 1.25, opacity: 1, form: "voxel" },
+  timber_frame: { color: hex(BLOCK_COLORS.timber_frame), height: 1.25, opacity: 1, form: "voxel" },
+  driftwood_plank: {
+    color: hex(BLOCK_COLORS.driftwood_plank),
+    height: 1.25,
+    opacity: 1,
+    form: "voxel",
+  },
+  sea_glass_pane: {
+    color: hex(BLOCK_COLORS.sea_glass_pane),
+    height: 1.25,
+    opacity: 0.42,
+    form: "voxel",
+    glow: { pool: 1.7, home: true },
+  },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

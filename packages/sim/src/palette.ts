@@ -84,6 +84,19 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   stocking: "#c8344a",
   bird_bath: "#b9c4cc",
   beehive: "#d9a63f",
+  // Made materials (RFC 0041): walls and windows crafted at a workbench, each pitched to read
+  // apart from wood and stone at a glance, which is the whole point of them.
+  // Lime-washed plaster, a shade warmer and lighter than a stone wall.
+  plaster: "#ece4d5",
+  // Fired clay, warm and a little dusty, nothing like the grey of stone.
+  brick: "#b4593f",
+  // Dark beams over plaster: the beams carry it, since they are what the eye reads.
+  timber_frame: "#6b4a35",
+  // Salt-bleached wood off the shore: cooler and lighter than stone's warm grey (#a39d93), so a
+  // driftwood wall never reads as a stone one at a glance, which is the whole point of it.
+  driftwood_plank: "#bfc5c2",
+  // A window with the sea in it, greener than glass.
+  sea_glass_pane: "#8fc9b4",
 };
 
 /**

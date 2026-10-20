@@ -1,6 +1,7 @@
 import { type CropKind, type ErrorCode, REPEAT_WINDOW_MS } from "@terrakin/protocol";
 import {
   CROP_INFO,
+  type CraftKind,
   canBuildOn,
   castsToday,
   chebyshev,
@@ -10,17 +11,18 @@ import {
   FISHING_ROD,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
-  type FurnitureKind,
   GOOD_KINDS,
-  type GoodKind,
   holdsRod,
   ITEM_INFO,
   ITEMS,
   isFurnitureKind,
+  isMaterialKind,
   isSweetKind,
   isWater,
-  knows,
+  knowsCraft,
   recipeOf as learnedAs,
+  MATERIAL_KINDS,
+  MATERIAL_RECIPES,
   POND,
   pantryDue,
   pantryWould,
@@ -32,7 +34,6 @@ import {
   type StackKind,
   SWEET_KINDS,
   SWEET_RECIPES,
-  type SweetKind,
   tileKey,
   trickOrTreatNights,
   waterBeside,
@@ -54,9 +55,6 @@ import {
   turnedDown,
 } from "./shared";
 import { andList, at, tilesWords } from "./words";
-
-/** A recipe's name: a good, a piece of furniture, or a sweet (RFC 0022). */
-type RecipeName = GoodKind | FurnitureKind | SweetKind;
 
 /**
  * The links that work from the hearth like a short routine: the garden, making things, and
@@ -263,28 +261,36 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         );
       }
       const inv = items.inventories[viewer];
-      const recipeOf = (kind: RecipeName) =>
+      const recipeOf = (kind: CraftKind) =>
         isFurnitureKind(kind)
           ? FURNITURE_RECIPES[kind]
           : isSweetKind(kind)
             ? SWEET_RECIPES[kind]
-            : RECIPES[kind];
-      // A sweet's recipe makes more than one: candy makes five.
-      const makes = (kind: RecipeName) => recipeOf(kind).makes ?? 1;
+            : isMaterialKind(kind)
+              ? MATERIAL_RECIPES[kind]
+              : RECIPES[kind];
+      // A sweet's recipe makes more than one: candy makes five, and a material four (RFC 0041).
+      const makes = (kind: CraftKind) => recipeOf(kind).makes ?? 1;
       // Every recipe takes things that stack (the catalog's tests hold it to that).
-      const needs = (kind: RecipeName) =>
+      const needs = (kind: CraftKind) =>
         Object.entries(recipeOf(kind).needs) as [StackKind, number][];
-      const needWords = (kind: RecipeName) => andList(needs(kind).map(([k, n]) => countOf(k, n)));
-      const short = (kind: RecipeName) =>
+      const needWords = (kind: CraftKind) => andList(needs(kind).map(([k, n]) => countOf(k, n)));
+      const short = (kind: CraftKind) =>
         needs(kind).flatMap(([k, n]) => {
           const have = inv?.stacks[k] ?? 0;
           return have < n ? [countOf(k, n - have)] : [];
         });
       const recipe = query.recipe;
       if (!recipe) {
-        const every: RecipeName[] = [...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS];
-        // Once recipes are learned (RFC 0024), only the ones you know; the rest are to learn.
-        const all = every.filter((k) => knows(state, viewer, learnedAs(k)));
+        const every: CraftKind[] = [
+          ...GOOD_KINDS,
+          ...FURNITURE_KINDS,
+          ...SWEET_KINDS,
+          ...MATERIAL_KINDS,
+        ];
+        // Once recipes are learned (RFC 0024), only the ones you know; the rest are to learn. A
+        // made material is never learned, so `knowsCraft` always has it (RFC 0041).
+        const all = every.filter((k) => knowsCraft(state, viewer, k));
         const toLearn = new Set(every.filter((k) => !all.includes(k)).map((k) => learnedAs(k)))
           .size;
         const picks = picksLeft(state, viewer);

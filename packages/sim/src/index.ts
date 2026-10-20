@@ -405,6 +405,14 @@ export {
   stallOf,
   takenDownOf,
 } from "./market";
+export {
+  HOLDING_MATERIALS,
+  isMaterialKind,
+  MATERIAL_KINDS,
+  MATERIAL_RECIPES,
+  type MaterialKind,
+  type MaterialRecipe,
+} from "./materials";
 export { mergedInto } from "./merge";
 export { FIREWORKS, fireworkNight } from "./newyear";
 export { isOwnableKey, own, residentById } from "./own";
@@ -451,6 +459,7 @@ export {
   knownByAll,
   knownRecipes,
   knows,
+  knowsCraft,
   knowsEverything,
   onShelf,
   PAGE_EDITIONS,

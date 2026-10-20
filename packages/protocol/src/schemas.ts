@@ -44,6 +44,7 @@ import {
   LADDERS,
   MADE_KINDS,
   MARKET,
+  MATERIAL_KINDS,
   MAX_WEAR,
   MEDIA_ID_PATTERN,
   NAME_MAX_LENGTH,
@@ -658,11 +659,17 @@ export const SweetKind = z.enum(SWEET_KINDS);
  * What `craft` makes: a good, signed with your name, or a piece of furniture or a sweet, which
  * stack.
  */
-export const RecipeKind = z.enum([...GOOD_KINDS, ...FURNITURE_KINDS, ...SWEET_KINDS]);
+export const RecipeKind = z.enum([
+  ...GOOD_KINDS,
+  ...FURNITURE_KINDS,
+  ...SWEET_KINDS,
+  ...MATERIAL_KINDS,
+]);
 /**
  * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
- * your own name for a good, untrusted text that travels with it. Furniture and sweets take no
- * label, and a sweet's recipe can make more than one (candy makes 5).
+ * your own name for a good, untrusted text that travels with it. Furniture, sweets and made
+ * materials take no label, and their recipes can make more than one (candy makes 5, and a
+ * material 4, since a wall is many tiles).
  */
 export const CraftAction = z.object({
   type: z.literal("craft"),

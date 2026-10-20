@@ -28,6 +28,9 @@ import {
   ITEM_INFO,
   isDecorKind,
   isFurnitureKind,
+  isMaterialKind,
+  MATERIAL_KINDS,
+  type MaterialKind,
   type StackKind,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
@@ -45,10 +48,17 @@ export const PALETTE_TAB_WORDS: Record<PaletteTab, string> = {
   furniture: "Furniture",
 };
 
-/** A block you hold before you place it: decor from the shop, or furniture from a workbench. */
-export type HeldKind = DecorKind | FurnitureKind;
-/** Every held block, in the Furniture tab's order: furniture, then the shop's decor. */
-export const HELD_KINDS: readonly HeldKind[] = [...FURNITURE_KINDS, ...DECOR_KINDS];
+/**
+ * A block you hold before you place it: decor from the shop, furniture from a workbench, or a
+ * made material (RFC 0041), which is also from a workbench but is a wall rather than a thing to
+ * stand on the floor.
+ */
+export type HeldKind = DecorKind | FurnitureKind | MaterialKind;
+/** Every held block in the Furniture tab, in its order: furniture, then the shop's decor. */
+export const HELD_KINDS: readonly (DecorKind | FurnitureKind)[] = [
+  ...FURNITURE_KINDS,
+  ...DECOR_KINDS,
+];
 
 /** What you hold, by kind, as far as the build bar needs: kinds at 0 are left out. */
 export type Holdings = ReadonlyMap<string, number>;
@@ -90,6 +100,31 @@ export function heldLabel(kind: HeldKind, n: number): string {
 function heldSource(kind: HeldKind): string {
   if (isDecorKind(kind)) return "Buy one at the town shop.";
   return `Make one at a workbench from ${needsLine(kind)}.`;
+}
+
+/**
+ * Fill the Materials row, inside the Blocks tab (RFC 0041): the walls and windows you made, each
+ * in its own color with how many are left, dimmed at none so the line under the tabs can say what
+ * one takes. With no holdings (a Town Hall build) there are none to show, since the town builds
+ * from nobody's things.
+ */
+export function paintMaterialRow(
+  row: HTMLElement,
+  holdings: Holdings | null,
+  picked: string,
+): void {
+  row.replaceChildren(
+    ...MATERIAL_KINDS.map((kind) => {
+      const n = holdings ? heldOf(holdings, kind) : 0;
+      return choice({ "data-block": kind }, heldLabel(kind, n), null, {
+        count: n,
+        dim: n === 0,
+        picked: kind === picked,
+        color: BLOCK_COLORS[kind],
+      });
+    }),
+  );
+  row.hidden = holdings === null;
 }
 
 /** The line under the tabs for a held block. */
@@ -148,9 +183,10 @@ export function blockLine(kind: string): string {
   return `${name}: free. Tap a tile to place it, tap a block to remove it.`;
 }
 
-/** Which tab a pick lives on. */
+/** Which tab a pick lives on. A made material is a wall, so it sits with the blocks. */
 export function tabOf(pick: string): PaletteTab {
   if ((GROUND_KINDS as readonly string[]).includes(pick)) return "ground";
+  if (isMaterialKind(pick)) return "blocks";
   if (isDecorKind(pick) || isFurnitureKind(pick)) return "furniture";
   return "blocks";
 }

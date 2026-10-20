@@ -7,7 +7,9 @@ import {
   type FurnitureKind,
   type GoodKind,
   type ItemKind,
+  MATERIAL_KINDS,
   type MadeKind,
+  type MaterialKind,
   type RecipeName,
   type StackKind,
   type SweetKind,
@@ -96,6 +98,13 @@ export const BLOCK_KINDS = [
   "stocking",
   "bird_bath",
   "beehive",
+  // Made materials (RFC 0041), on the end like every kind added after the first: walls and
+  // windows made at a workbench, held and placed like furniture.
+  "plaster",
+  "brick",
+  "timber_frame",
+  "driftwood_plank",
+  "sea_glass_pane",
 ] as const;
 
 /**
@@ -126,7 +135,20 @@ export const FREE_BLOCKS = [
 ] as const satisfies readonly (typeof BLOCK_KINDS)[number][];
 export type FreeBlock = (typeof FREE_BLOCKS)[number];
 
-/** The four building blocks: walls, windows, and hedges. */
+/**
+ * Made materials (RFC 0041): the catalog's kinds with the role `material`, made at a workbench,
+ * held in your things, and placed and taken up like furniture. Every one blocks walking, like
+ * every block, and every one holds up a floor above it.
+ */
+export const MATERIAL_BLOCKS: readonly MaterialKind[] = MATERIAL_KINDS;
+export type MaterialBlock = MaterialKind;
+
+/**
+ * The four free building blocks: walls, windows, and hedges, placed from nobody's things. Made
+ * materials (`MATERIAL_BLOCKS`) are walls too, and deliberately not here: this list is what the
+ * Town Hall may place from nobody's things (`COMMONS_BLOCKS`) and what a plot's theme dresses, and
+ * a material someone crafted should be neither free to the town nor recolored by a theme.
+ */
 export const BUILDING_BLOCKS = [
   "wood",
   "stone",
@@ -1556,7 +1578,7 @@ export type Command =
    */
   | {
       type: "craft";
-      recipe: GoodKind | FurnitureKind | SweetKind;
+      recipe: GoodKind | FurnitureKind | SweetKind | MaterialKind;
       x: number;
       y: number;
       label?: string;

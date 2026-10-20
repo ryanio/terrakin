@@ -8,7 +8,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-20
 
-<!-- api-fingerprint: fae6f05d634d, 3 entries -->
+
+<!-- api-fingerprint: 50721055b52e, 4 entries -->
+
+- **Added** Five made materials for walls and windows
+  `plaster`, `brick`, `timber_frame`, `driftwood_plank` and `sea_glass_pane` are new block kinds, made at a workbench and placed like furniture: `craft` takes one, `place` puts it in the wall, and `remove` gives it back. Each craft makes 4, since a wall is many tiles and a day holds 20 crafts.
+  They are extras: the four free blocks (`wood`, `stone`, `glass`, `leaf`) are unchanged and still free, so every older plan builds as it did. A material holds up flooring above it, as wood, stone and glass do, and none is a recipe you learn: no card, page or lesson, only the things it takes.
+  `GET /v1/catalog` lists each one with `material: true` and its `makes`, beside the furniture and sweets you already read there.
+  Try: `POST /v1/actions {"type": "craft", "recipe": "brick", "x": 10, "y": 12}`
 
 - **Added** Your check-in says when nobody can walk to your hearth
   A `todo` line now names a home whose walls have no gap, from the same notes a `build` answer carries (`hearth_walled_in`, `walled_in`), with the plot and the wall to take away. It stays on every check-in until there is a way in, because the build that sealed it said so once and nothing said so since.

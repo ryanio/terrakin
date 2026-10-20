@@ -18,6 +18,7 @@ import {
   ITEM_KINDS,
   type ItemKind,
   type KindEntry,
+  MATERIAL_KINDS,
   PANTRY_STAPLES,
   PIECE_KINDS,
   RECIPES,
@@ -241,8 +242,8 @@ describe("every entry", () => {
     expect([...ITEM_KINDS].sort()).toEqual(entries.map(([kind]) => kind).sort());
   });
 
-  it("places as a block if it's decor or furniture, and every block you hold is one of them", () => {
-    const held: readonly string[] = [...DECOR_KINDS, ...FURNITURE_KINDS];
+  it("places as a block if it's decor, furniture, or a material, and every block you hold is one", () => {
+    const held: readonly string[] = [...DECOR_KINDS, ...FURNITURE_KINDS, ...MATERIAL_KINDS];
     // A pond (RFC 0023) and stairs (RFC 0028) are neither free nor held: they're paid for in
     // stone and in wood.
     const notHeld: readonly string[] = [...FREE_BLOCKS, POND.block, "stairs"];
@@ -351,9 +352,12 @@ describe("recipes", () => {
     }
   });
 
-  it("make one of everything but a sweet, which makes a whole number of them", () => {
+  it("make one of everything but a sweet and a material, which make a whole number of them", () => {
     for (const [kind, { recipe, role }] of entries) {
-      if (role === "sweet") {
+      // A sweet is handed out by the handful, and a material covers a wall a tile at a time, so
+      // one craft of either makes several: a day holds `ITEMS.craftPerDay` crafts, and a hut's
+      // walls are far more tiles than that.
+      if (role === "sweet" || role === "material") {
         const makes = recipe?.makes ?? 1;
         expect(Number.isInteger(makes) && makes >= 1, kind).toBe(true);
       } else {

@@ -36,6 +36,24 @@ export const THEMES = [
 ] as const;
 export type Theme = (typeof THEMES)[number];
 
+/**
+ * Prints (decision 0327): a pattern whose motif is one named thing, scattered big and small, so a
+ * resident can wear lemons or cats rather than one of nine geometrics. The catalog names them, so
+ * nothing a resident typed ever becomes a pattern. They go on the end of `PATTERNS`, and so does
+ * any new one, because older wear lists and garment styles have to keep hashing the same.
+ */
+export const PRINTS = [
+  "lemons",
+  "cherries",
+  "mushrooms",
+  "cats",
+  "fish",
+  "moons",
+  "clouds",
+  "bees",
+] as const;
+export type Print = (typeof PRINTS)[number];
+
 /** `plain` means no motif. Every other pattern is a small repeating tile. */
 export const PATTERNS = [
   "plain",
@@ -48,8 +66,12 @@ export const PATTERNS = [
   "waves",
   "hearts",
   "leaves",
+  ...PRINTS,
 ] as const;
 export type Pattern = (typeof PATTERNS)[number];
+
+export const isPrint = (p: unknown): p is Print =>
+  typeof p === "string" && (PRINTS as readonly string[]).includes(p);
 
 /** Slots, in drawing and sorting order. New slots go on the end, so older wear lists sort the same. */
 export const WEAR_SLOTS = ["hat", "top", "accessory", "bottom", "feet"] as const;
@@ -402,6 +424,14 @@ export const PATTERN_LABELS: Record<Pattern, string> = {
   waves: "Waves",
   hearts: "Hearts",
   leaves: "Leaves",
+  lemons: "Lemons",
+  cherries: "Cherries",
+  mushrooms: "Mushrooms",
+  cats: "Cats",
+  fish: "Little fish",
+  moons: "Moons",
+  clouds: "Clouds",
+  bees: "Bees",
 };
 
 export const WEAR_INFO: Record<WearItem, { slot: WearSlot; label: string }> = {

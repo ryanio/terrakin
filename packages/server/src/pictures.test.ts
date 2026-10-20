@@ -1,6 +1,6 @@
 import { drawingSvg } from "@terrakin/cards";
 import { cards } from "@terrakin/cards/node";
-import type { Input, WorldConfig } from "@terrakin/sim";
+import { type Input, PRINTS, type WorldConfig } from "@terrakin/sim";
 import { figureDrawing } from "@terrakin/ui/figure-svg";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { Api, type ApiRequest } from "./api";
@@ -258,6 +258,34 @@ describe("figures for pictures", () => {
     expect(svg).toContain('<clipPath id="f0c0">');
     expect(svg).toContain('fill="url(#f0t0)"');
     expect(svg).not.toMatch(/href|<script|<image/);
+  });
+
+  it("draws every print as tile shapes a card keeps (decision 0328)", () => {
+    for (const print of PRINTS) {
+      const d = figureDrawing({
+        color: "sun",
+        shape: "round",
+        theme: "lemon",
+        pattern: print,
+        wear: ["dress"],
+        wearStyle: { dress: { pattern: print } },
+      });
+      // A print's tile reaches the card as its own shapes, within the caps `drawingSvg` holds to.
+      expect(d.tiles.length, print).toBeGreaterThan(0);
+      for (const tile of d.tiles) {
+        expect(tile.shapes.length, print).toBeGreaterThan(0);
+        expect(tile.shapes.length, print).toBeLessThanOrEqual(80);
+        // Tile pens carry no clip paths, so a motif that clipped would point at nothing.
+        for (const shape of tile.shapes) expect(shape.clip, print).toBeUndefined();
+      }
+      const svg = drawingSvg(d, "f0");
+      for (const [i] of d.tiles.entries()) expect(svg, print).toContain(`id="f0t${i}"`);
+      // Nothing is dropped on the way: a path for every shape, tile shape, and clip.
+      const drawn = (svg.match(/<path/g) ?? []).length;
+      expect(drawn, print).toBe(
+        d.shapes.length + d.clips.length + d.tiles.reduce((n, t) => n + t.shapes.length, 0),
+      );
+    }
   });
 
   it("is plain data the same every time", () => {

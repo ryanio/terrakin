@@ -6,7 +6,7 @@ import { freePlots, join, overflowsSideways, settleFree, signIn, watchErrors } f
  * wears them on the profile. Capri loves lemons. She opens the look editor from her profile, picks the lemon
  * theme, citrus slices, and a straw hat, saves, and sees it on her profile and in the world. Then
  * someone at 390x844 picks a color on the card, waits on an upload, puts their hair in a ginger
- * bun, and styles single garments: a citrus dress in sun yellow and striped socks.
+ * bun, and styles single garments: a citrus dress in sun yellow and lemon-print socks.
  */
 
 test("a newcomer picks a ginger bun and a cardigan at the door, and wears them on the profile", async ({
@@ -114,7 +114,7 @@ test("pick lemon, citrus, and a straw hat, and see it on the profile and in the 
   expect(errors).toEqual([]);
 });
 
-test("style a garment: a citrus dress in sun yellow and striped socks, keeping a color and waiting for an upload", async ({
+test("style a garment: a citrus dress in sun yellow and lemon-print socks, keeping a color and waiting for an upload", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -186,13 +186,13 @@ test("style a garment: a citrus dress in sun yellow and striped socks, keeping a
   await expect(bun).toHaveAttribute("aria-pressed", "true");
   await hairColors.locator('[data-value="ginger"]').click();
 
-  // Socks, then tap them again to style them: stripes.
+  // Socks, then tap them again to style them, in a print from the catalog (decision 0328).
   await editor.locator('[data-wear="socks"]').click();
   await editor.locator('[data-wear="socks"]').click();
   const socks = editor.getByRole("group", { name: "Style your socks" });
-  await socks.locator('[data-garment-pattern="stripes"]').click();
+  await socks.locator('[data-garment-pattern="lemons"]').click();
   await expect(editor.locator(".look-summary")).toHaveText(
-    "Your color, ginger bun, plain, citrus dress in sun yellow, striped socks",
+    "Your color, ginger bun, plain, citrus dress in sun yellow, lemon print socks",
   );
 
   // Nothing scrolls sideways, in the page or in the sheet.
@@ -213,14 +213,14 @@ test("style a garment: a citrus dress in sun yellow and striped socks, keeping a
   expect(me).toMatchObject({
     color: "leaf",
     wear: ["dress", "socks"],
-    wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "stripes" } },
+    wearStyle: { dress: { pattern: "citrus", color: "sun" }, socks: { pattern: "lemons" } },
     hair: "bun",
     hairColor: "ginger",
   });
 
   // The profile says it in words and draws the figure.
   await expect(page.locator(".profile [data-look]")).toHaveText(
-    "Ginger bun · Citrus dress in sun yellow, Striped socks",
+    "Ginger bun · Citrus dress in sun yellow, Lemon print socks",
   );
   await expect(page.locator(".profile .avatar.has-figure canvas")).toBeVisible();
   expect(await overflowsSideways(page)).toBe(false);

@@ -15,6 +15,7 @@ import {
   isCostume,
   isExclusiveWear,
   isJobWear,
+  isPrint,
   isShopWear,
   PATTERN_LABELS,
   PATTERNS,
@@ -391,6 +392,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
   }
 
   const patternRow = h("div", { class: "cluster look-chips" });
+  const printRow = h("div", { class: "cluster look-chips", attrs: { "data-prints": "" } });
   const patternButtons = new Map<Pattern, HTMLButtonElement>();
   for (const pattern of PATTERNS) {
     const b = patternChip(
@@ -405,8 +407,10 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
       outfitThumbs,
     );
     patternButtons.set(pattern, b);
-    patternRow.append(b);
+    // Prints go in a row of their own, so eighteen choices still read on a phone.
+    (isPrint(pattern) ? printRow : patternRow).append(b);
   }
+  const printHead = h("p", { class: "look-sub", text: "Prints" });
 
   /** Change your own pattern. Without one, no garment can wear it, so those lose that pattern. */
   function setPatternMedia(id: string | null) {
@@ -921,7 +925,7 @@ export function openLookEditor(owner: LookOwner, onSaved: (look: LookView) => vo
     { class: "look-form", attrs: { novalidate: true } },
     section("Theme", "Colors for your clothes, your plot, and your blocks.", themeRow),
     section("Hair", "A style, then its color. A hat sits on top.", hair.row, hairColorBox),
-    section("Pattern", null, patternRow),
+    section("Pattern", null, patternRow, printHead, printRow),
     section(
       "Wear",
       "One of each. Tap Style, or what you have on, to give it its own color and pattern.",

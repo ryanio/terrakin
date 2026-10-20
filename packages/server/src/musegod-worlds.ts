@@ -120,7 +120,10 @@ export class MusegodWorlds {
     this.signer = this.key ? signerOf(this.key) : "";
     this.base = options.base ?? MUSEGOD;
     this.now = options.now ?? Date.now;
-    this.send = options.fetch ?? fetch;
+    // Through a wrapper, never the bare global: workerd refuses its own `fetch` called as a
+    // method of anything else ("Illegal invocation"), and Node's takes it, so a stored global
+    // sends nothing from the Worker and every test that passes its own fetch still passes.
+    this.send = options.fetch ?? ((input, init) => fetch(input, init));
     // One row per resident reported, so nothing is sent twice for the same state.
     this.sql.exec(`CREATE TABLE IF NOT EXISTS musegod_worlds (
       resident_id TEXT PRIMARY KEY,
@@ -194,25 +197,32 @@ export class MusegodWorlds {
       signer: this.signer,
       signature: signLine(placeLine(muse, event, url, at), this.key as string),
     };
-    void this.send(`${this.base}/api/v1/muses/${muse}/worlds`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-      .then((response) => {
-        if (response.ok) {
-          count("musegod_worlds.report", { event, result: "sent" });
-          return;
-        }
-        // Codes only: the status says whether the key (403) or the body (400) is wrong.
-        console.info(`musegod worlds: ${event} refused with ${response.status}`);
-        count("musegod_worlds.report", { event, result: "refused", status: response.status });
+    // Dropped whichever way it fails, a throw as much as a rejection: `tell` may have another
+    // report to send and its own row to write, and the crawl is the backstop either way.
+    const down = (err: unknown) => {
+      count("musegod_worlds.report", { event, result: "down" });
+      report(err, "musegod_worlds.post");
+    };
+    try {
+      void this.send(`${this.base}/api/v1/muses/${muse}/worlds`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       })
-      .catch((err: unknown) => {
-        count("musegod_worlds.report", { event, result: "down" });
-        report(err, "musegod_worlds.post");
-      });
+        .then((response) => {
+          if (response.ok) {
+            count("musegod_worlds.report", { event, result: "sent" });
+            return;
+          }
+          // Codes only: the status says whether the key (403) or the body (400) is wrong.
+          console.info(`musegod worlds: ${event} refused with ${response.status}`);
+          count("musegod_worlds.report", { event, result: "refused", status: response.status });
+        })
+        .catch(down);
+    } catch (err) {
+      down(err);
+    }
   }
 
   /** Whether this minute has room for another report. */

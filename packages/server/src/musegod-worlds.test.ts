@@ -140,6 +140,47 @@ describe("what a report says", () => {
     expect(t.sent).toEqual([]);
   });
 
+  it("goes out through the global fetch as the global, the only way the Worker takes it", () => {
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    // workerd refuses its own `fetch` called as a method of anything else ("Illegal
+    // invocation"), so a sender that stored the bare global sends nothing from the Worker.
+    // Node's fetch takes any `this`, so a test that passes its own can never see it.
+    const asked: string[] = [];
+    const strict = function (this: unknown, input: Parameters<typeof fetch>[0]) {
+      if (this !== undefined && this !== globalThis) throw new TypeError("Illegal invocation");
+      asked.push(String(input));
+      return Promise.resolve(new Response("{}"));
+    } as unknown as typeof fetch;
+    const was = globalThis.fetch;
+    globalThis.fetch = strict;
+    try {
+      const worlds = new MusegodWorlds(sql, { key: KEY, base: "https://musegod.test" });
+      worlds.tell(ADA, { subject: "947", verified: true });
+    } finally {
+      globalThis.fetch = was;
+    }
+    expect(asked).toEqual(["https://musegod.test/api/v1/muses/947/worlds"]);
+  });
+
+  it("drops a send that throws, and goes on with the reports and the row behind it", () => {
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const tried: string[] = [];
+    const worlds = new MusegodWorlds(sql, {
+      key: KEY,
+      base: "https://musegod.test",
+      fetch: (input) => {
+        tried.push(String(input).replace(/^.*\/muses\/([^/]*)\/worlds$/, "$1"));
+        throw new TypeError("no fetch for you");
+      },
+    });
+    worlds.tell(ADA, { subject: "12", verified: false });
+    // The row was written even though the send failed, so the muse it left is known.
+    worlds.tell(ADA, { subject: "13", verified: true });
+    expect(tried).toEqual(["12", "12", "13"]);
+  });
+
   it("keeps to ten a minute, musegod's limit for one sender", () => {
     const t = sender();
     for (let i = 0; i < 12; i++) {

@@ -282,6 +282,22 @@ async function start(
   };
 }
 
+/** A fake musegod that keeps the reports Terrakin sends it (musegod-worlds.ts). */
+function musegodSpy() {
+  const sent: { muse: string; event: string }[] = [];
+  const options: MusegodWorldsOptions = {
+    // A made-up key, never anyone's: the report is caught here, not sent.
+    key: `0x${"11".repeat(32)}`,
+    base: "https://musegod.test",
+    fetch: async (input, init) => {
+      const { event } = JSON.parse(String(init?.body)) as { event: string };
+      sent.push({ muse: String(input).replace(/^.*\/muses\/([^/]*)\/worlds$/, "$1"), event });
+      return new Response("{}", { headers: { "content-type": "application/json" } });
+    },
+  };
+  return { sent, options };
+}
+
 describe("linking a muse", () => {
   it("hands back the partner's confirm link first, then links once the card names the resident", async () => {
     const { base, call, link, join, chain, profile } = await start();
@@ -1679,24 +1695,44 @@ describe("a partner's residents (docs/plans/partner-residents.md)", () => {
   });
 
   it("tells musegod a muse linked here, and that it left when the link ends", async () => {
-    const sent: { muse: string; event: string }[] = [];
-    const t = await start(
-      {},
-      {},
-      {
-        // A made-up key, never anyone's: the report is caught here, not sent.
-        key: `0x${"11".repeat(32)}`,
-        base: "https://musegod.test",
-        fetch: async (input, init) => {
-          const { event } = JSON.parse(String(init?.body)) as { event: string };
-          sent.push({ muse: String(input).replace(/^.*\/muses\/([^/]*)\/worlds$/, "$1"), event });
-          return new Response("{}", { headers: { "content-type": "application/json" } });
-        },
-      },
-    );
+    const musegod = musegodSpy();
+    const t = await start({}, {}, musegod.options);
     const wren = await linkedMuse(t, 464, "Wren");
     expect((await t.call("DELETE", "/v1/agent-link", undefined, wren.token)).status).toBe(204);
-    expect(sent).toEqual([
+    expect(musegod.sent).toEqual([
+      { muse: "464", event: "linked" },
+      { muse: "464", event: "left" },
+    ]);
+  });
+
+  it("tells it a kept ask linked one too, the way most links finish", async () => {
+    const musegod = musegodSpy();
+    const t = await start({}, {}, musegod.options);
+    const wren = t.join("Wren");
+    const { uri } = t.chain.addMuse(464);
+    // The card doesn't name Wren yet, so the ask is kept and there is nothing to report.
+    expect((await t.link(muse(464), wren.token)).status).toBe(200);
+    expect(musegod.sent).toEqual([]);
+
+    // Whoever holds the muse confirms, and the hour's run finishes the link with no call of
+    // Wren's to answer. The report has to come from the run (decision 0128).
+    t.chain.setNames(uri, [wren.residentId]);
+    t.advance(RECHECK_MS);
+    await t.links.recheckDue();
+    expect((await t.profile(wren.residentId)).partner?.label).toBe("Muse #464");
+    expect(musegod.sent).toEqual([{ muse: "464", event: "linked" }]);
+  });
+
+  it("tells it a muse left when a recheck drops the link, not only when a resident does", async () => {
+    const musegod = musegodSpy();
+    const t = await start({}, {}, musegod.options);
+    const wren = await linkedMuse(t, 464, "Wren");
+    // The muse changes hands: whoever holds it now decides where it lives.
+    t.chain.holders.set(464, BUYER);
+    t.advance(RECHECK_MS);
+    await t.links.recheckDue();
+    expect((await t.profile(wren.residentId)).agentLink).toBeUndefined();
+    expect(musegod.sent).toEqual([
       { muse: "464", event: "linked" },
       { muse: "464", event: "left" },
     ]);

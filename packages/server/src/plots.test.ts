@@ -89,7 +89,7 @@ function admiring() {
     for (let i = 0; i < tiles; i++) run(actor, { type: "move", dir });
   };
   const admire = (actor: string, px: number, py: number) => visits.admire(state, actor, px, py);
-  const week = () => visits.facts().admirers;
+  const week = () => visits.facts(state).admirers;
   /** Every visit row, as "visitor (px, py) day", oldest first. */
   const visitRows = () =>
     [...sql.exec("SELECT visitor, px, py, day FROM plot_visits ORDER BY rowid")].map(
@@ -102,7 +102,7 @@ function admiring() {
     walk,
     admire,
     week,
-    facts: (only?: { px: number; py: number }) => visits.facts(only),
+    facts: (only?: { px: number; py: number }) => visits.facts(state, only),
     visitRows,
     told,
     blocked,
@@ -543,6 +543,17 @@ describe("plots to visit over HTTP", () => {
     // A roof is more of a change than blocks, and a gallery more than a roof, whatever the order.
     await t.act(ivy.token, { type: "set_roof", px: 0, py: 0, style: "gable", material: "leaf" });
     expect(await news()).toBe("A roof went up today");
+    // A vane on a roof that is already up is its own event (decision 0337), so it never reads as
+    // the roof going up again, and it sits below the day's building.
+    await t.act(ivy.token, {
+      type: "set_roof",
+      px: 0,
+      py: 0,
+      style: "gable",
+      material: "leaf",
+      top: "vane",
+    });
+    expect(await news()).toBe("A roof went up today");
     await t.act(ivy.token, { type: "set_gallery", px: 0, py: 0, open: true });
     expect(await news()).toBe("Opened as a gallery today");
 
@@ -555,6 +566,25 @@ describe("plots to visit over HTTP", () => {
     t.advance(4 * DAY_MS);
     expect(await news()).toBe("Opened as a gallery on Wednesday");
     t.advance(DAY_MS);
+    expect(await news()).toBeUndefined();
+
+    // A day whose only change is the ridge says the ridge, named by what stands there (RFC 0041),
+    // and the ridge counts as a change to the plot like the roof under it.
+    const before = ((await t.call("GET", "/v1/plots/0/0")).body.plot as Json).changedAt;
+    t.advance(60_000);
+    await t.act(ivy.token, {
+      type: "set_roof",
+      px: 0,
+      py: 0,
+      style: "gable",
+      material: "leaf",
+      top: "nest",
+    });
+    expect(await news()).toBe("A bird's nest on the ridge today");
+    expect(((await t.call("GET", "/v1/plots/0/0")).body.plot as Json).changedAt).not.toBe(before);
+    // Clearing it the same day leaves nothing standing that arrived today, so the card goes back
+    // to saying how lately the plot changed.
+    await t.act(ivy.token, { type: "set_roof", px: 0, py: 0, style: "gable", material: "leaf" });
     expect(await news()).toBeUndefined();
   });
 

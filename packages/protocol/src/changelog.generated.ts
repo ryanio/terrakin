@@ -21,6 +21,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/plots?sort=recent`"
   },
   {
+    "id": "2026-10-20-a-plot-s-news-says-the-ridge-and-a-ridge-counts-as-a-change",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "A plot's `news` says the ridge, and a ridge counts as a change to the plot",
+    "body": "A day whose only change is the roof's ridge now reads \"A weather vane on the ridge today\", named by what stands there. It sits below the day's building, so a day of blocks or beds still says those.\n`changedAt` moves for a `roof_top_set` as it does for a `roof_set`, so a plot whose ridge changed rises in `sort=recent`. A ridge left bare is no news, and one set and cleared the same day leaves the card saying how lately the plot changed.",
+    "links": [],
+    "try": "`GET /v1/plots`"
+  },
+  {
     "id": "2026-10-20-roof-top-set-the-event-for-a-change-to-a-roof-s-ridge-alone",
     "date": "2026-10-20",
     "kind": "added",

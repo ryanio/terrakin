@@ -38,8 +38,8 @@ none is news. An input that only takes things away still moves `changedAt` and l
 it standing. A card is a reason to come and look.
 
 **One part, the biggest.** [`plot-news.ts`](../../../packages/server/src/plot-news.ts) orders the
-kinds by how visibly they change a place (gallery, roof, upstairs, moved in, blocks, beds, display,
-paths, picked) and says the first that happened, with the day in words: "A roof went up on Tuesday",
+kinds by how visibly they change a place (gallery, roof, upstairs, moved in, blocks, beds, ridge,
+display, paths, picked) and says the first that happened, with the day in words: "A roof went up on Tuesday",
 "3 beds planted today", "Opened as a gallery yesterday". Two parts joined with "and" wrap to three
 lines in the card's column at 375px, which is the width the card is built for. Nothing older than
 `NEWS_DAYS` (7, the week the visitor counts cover), where the card falls back to "Changed 2h".

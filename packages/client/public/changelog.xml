@@ -31,6 +31,16 @@ Try: `GET /v1/plots`</summary>
 Try: `GET /v1/plots?sort=recent`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-plot-s-news-says-the-ridge-and-a-ridge-counts-as-a-change</id>
+    <title>Changed: A plot's `news` says the ridge, and a ridge counts as a change to the plot</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">A day whose only change is the roof's ridge now reads &quot;A weather vane on the ridge today&quot;, named by what stands there. It sits below the day's building, so a day of blocks or beds still says those.
+`changedAt` moves for a `roof_top_set` as it does for a `roof_set`, so a plot whose ridge changed rises in `sort=recent`. A ridge left bare is no news, and one set and cleared the same day leaves the card saying how lately the plot changed.
+Try: `GET /v1/plots`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-roof-top-set-the-event-for-a-change-to-a-roof-s-ridge-alone</id>
     <title>Added: `roof_top_set`: the event for a change to a roof's ridge alone</title>
     <updated>2026-10-20T00:00:00Z</updated>

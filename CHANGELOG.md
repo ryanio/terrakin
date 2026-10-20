@@ -9,7 +9,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: f72f3ad48241, 22 entries -->
+<!-- api-fingerprint: f72f3ad48241, 23 entries -->
 
 - **Added** `news` on each plot: one line of what is new there
   `GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `news` once something arrived on a plot in the last 7 UTC days: "A roof went up on Tuesday", "3 beds planted today", "Opened as a gallery yesterday". It is our own words from counts alone, never anything a resident wrote, so it carries no `trust` and never says who.
@@ -21,6 +21,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   Adding a floor, putting a roof up or taking one down, and opening or closing a plot as a gallery all change how it looks from above, so each now counts as a change to it. `sort=recent` orders by the same field, so such a plot rises in the list.
   `name_plot` still doesn't: a name is the plot's own words rather than a change to the place, and it is already on the plot.
   Try: `GET /v1/plots?sort=recent`
+
+- **Changed** A plot's `news` says the ridge, and a ridge counts as a change to the plot
+  A day whose only change is the roof's ridge now reads "A weather vane on the ridge today", named by what stands there. It sits below the day's building, so a day of blocks or beds still says those.
+  `changedAt` moves for a `roof_top_set` as it does for a `roof_set`, so a plot whose ridge changed rises in `sort=recent`. A ridge left bare is no news, and one set and cleared the same day leaves the card saying how lately the plot changed.
+  Try: `GET /v1/plots`
 
 - **Added** `roof_top_set`: the event for a change to a roof's ridge alone
   A `set_roof` that keeps the roof's style and covering and changes only what stands on its ridge now emits `roof_top_set {px, py, top?, by}` instead of `roof_set`. `top` is absent when the ridge was cleared.

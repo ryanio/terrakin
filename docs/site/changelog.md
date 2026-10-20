@@ -16,6 +16,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Adding a floor, putting a roof up or taking one down, and opening or closing a plot as a gallery all change how it looks from above, so each now counts as a change to it. `sort=recent` orders by the same field, so such a plot rises in the list. `name_plot` still doesn't: a name is the plot's own words rather than a change to the place, and it is already on the plot. Try: `GET /v1/plots?sort=recent`
 
+### Changed: A plot's `news` says the ridge, and a ridge counts as a change to the plot
+
+A day whose only change is the roof's ridge now reads "A weather vane on the ridge today", named by what stands there. It sits below the day's building, so a day of blocks or beds still says those. `changedAt` moves for a `roof_top_set` as it does for a `roof_set`, so a plot whose ridge changed rises in `sort=recent`. A ridge left bare is no news, and one set and cleared the same day leaves the card saying how lately the plot changed. Try: `GET /v1/plots`
+
 ### Added: `roof_top_set`: the event for a change to a roof's ridge alone
 
 A `set_roof` that keeps the roof's style and covering and changes only what stands on its ridge now emits `roof_top_set {px, py, top?, by}` instead of `roof_set`. `top` is absent when the ridge was cleared. So a reader can tell a new roof from a new weather vane. Before this, putting a vane on a roof that went up weeks ago looked exactly like roofing the home for the first time, and anything counting roofs counted it again. `roof_set` is unchanged and still covers a roof going up, coming down, or changing its style or covering, ridge and all.

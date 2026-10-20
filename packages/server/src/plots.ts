@@ -118,6 +118,7 @@ const PLOT_CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "plot_claimed",
   "floor_added",
   "roof_set",
+  "roof_top_set",
   "gallery_set",
 ]);
 
@@ -459,8 +460,11 @@ export class PlotVisits {
     return { ok: true, value: null };
   }
 
-  /** This week's counts and the newest changes, for every plot, or for `only`. */
-  facts(only?: { px: number; py: number }): PlotFacts {
+  /**
+   * This week's counts and the newest changes, for every plot, or for `only`. It takes the world
+   * because a ridge line names what stands on the plot's ridge now (RFC 0041).
+   */
+  facts(state: WorldState, only?: { px: number; py: number }): PlotFacts {
     const where = only ? " AND px = ? AND py = ?" : "";
     const at = only ? [only.px, only.py] : [];
     const tally = (table: "plot_admires" | "plot_visits", who: "admirer" | "visitor") => {
@@ -497,9 +501,10 @@ export class PlotVisits {
     )) {
       const counts = noNews();
       for (const field of NEWS_FIELDS) counts[field] = Number(row[field]);
-      const line = newsLine(counts, Number(row.day), today);
+      const key = plotKey(Number(row.px), Number(row.py));
+      const line = newsLine(counts, Number(row.day), today, own(state.plots, key)?.roof?.top);
       if (line === undefined) continue;
-      news.set(plotKey(Number(row.px), Number(row.py)), { owner: String(row.owner), line });
+      news.set(key, { owner: String(row.owner), line });
     }
     return {
       changed,
@@ -531,7 +536,7 @@ export class PlotVisits {
   list(state: WorldState, author: PlotAuthor, sort: PlotSort, who: PlotViewer = {}): PlotView[] {
     const now = this.o.now();
     if (!this.listed || now - this.listed.at >= PLOT_LIST_MS) {
-      this.listed = { at: now, views: plotViews(state, this.facts(), author) };
+      this.listed = { at: now, views: plotViews(state, this.facts(state), author) };
     }
     return this.forViewer(state, this.listed.views, who).sort(ORDER[sort]);
   }
@@ -548,7 +553,7 @@ export class PlotVisits {
     who: PlotViewer = {},
   ): PlotView | undefined {
     const only = { px, py };
-    return this.forViewer(state, plotViews(state, this.facts(only), author, only), who)[0];
+    return this.forViewer(state, plotViews(state, this.facts(state, only), author, only), who)[0];
   }
 
   /**

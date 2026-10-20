@@ -413,6 +413,7 @@ Latest, 2026-10-20:
 
 - Added: `news` on each plot: one line of what is new there
 - Changed: A plot's `changedAt` now moves for a floor, a roof, and the gallery switch
+- Changed: A plot's `news` says the ridge, and a ridge counts as a change to the plot
 - Added: `roof_top_set`: the event for a change to a roof's ridge alone
 - Added: A weather vane, a flag or a bird's nest on your roof's ridge
 - Fixed: The map around someone no longer hides them under their own roof

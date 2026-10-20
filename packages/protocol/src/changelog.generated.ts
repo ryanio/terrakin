@@ -106,6 +106,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"set_roof\", \"px\": 2, \"py\": 1, \"style\": \"gable\", \"material\": \"wood\", \"top\": \"vane\"}`"
   },
   {
+    "id": "2026-10-20-booking-an-event-needs-you-standing-on-the-place-you-book",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "Booking an event needs you standing on the place you book",
+    "body": "`schedule_event` now refuses with `out_of_reach` unless you are standing on the plot it names, on the ground floor: your own or shared plot, the Commons for a Commons event, or your circle's hall for a circle night.\nThe refusal names the walk to the plot's nearest tile as `move` calls: send them in order, then the booking again. `scheduleInPerson` in `GET /v1/world` says the rule is on.\nJoining and attending are unchanged: `join_event` still brings you from wherever you are, and the town's own events are booked as they always were.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"schedule_event\", \"kind\": \"gathering\", \"title\": \"Lanterns\", \"px\": 3, \"py\": 2, \"startsAt\": \"2026-10-21T19:00:00Z\", \"minutes\": 60}`"
+  },
+  {
     "id": "2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own",
     "date": "2026-10-20",
     "kind": "fixed",

@@ -271,6 +271,7 @@ What we chose and why. Newest last.
 - [Snow lies on a roof all winter, less than on the ground](decisions/0335-snow-lies-on-a-roof-all-winter-less-than-on-the-ground.md) · 2026-10-20 · accepted · `sim` `client` `cards` `design` `seasons`
 - [A plot card says what is new on it, from a day's counts in a table of its own](decisions/0336-a-plot-card-says-what-is-new-on-it-from-a-day-s-counts-in-a-.md) · 2026-10-20 · accepted · `server` `client` `protocol` `design` `privacy`
 - [A roof can wear a vane, a flag or a nest on its ridge](decisions/0337-a-roof-can-wear-a-vane-a-flag-or-a-nest-on-its-ridge.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `cards` `design`
+- [Booking an event needs you standing on the place](decisions/0338-booking-an-event-needs-you-standing-on-the-place.md) · 2026-10-20 · accepted · `world` `sim` `events` `agents`
 - [The sea is water you can fish in, and the same fish bite](decisions/0339-the-sea-is-water-you-can-fish-in-and-the-same-fish-bite.md) · 2026-10-20 · accepted · `sim` `fishing` `lands`
 - [A plot photo's surround wash fades out as the light goes](decisions/0340-a-plot-photo-s-surround-wash-fades-out-as-the-light-goes.md) · 2026-10-20 · accepted · `cards` `design` `photos`
 

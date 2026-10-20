@@ -1,8 +1,8 @@
-import { coinCount as coins, isWhole, refuse } from "./check";
+import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { circleNightEnd, circleNightProblem, circleNightStart } from "./circles";
 import { DAY_MS, MINUTE_MS } from "./clock";
 import { isTownsfolk, movePurse, sameHousehold } from "./economy";
-import { setFloor, standingFloor } from "./floors";
+import { setFloor, standingFloor, upstairsProblem } from "./floors";
 import { plotKey, tileKey } from "./keys";
 import { own, residentById } from "./own";
 import { townEligibility } from "./town";
@@ -12,6 +12,7 @@ import type {
   EventsState,
   HostedEvent,
   Rejection,
+  Resident,
   ResidentId,
   Tile,
   WorldConfig,
@@ -20,8 +21,16 @@ import type {
 } from "./types";
 import { EVENT_KINDS, TOWN_ACTOR } from "./types";
 import { visitTile } from "./visit";
-import { worldGround } from "./walk";
-import { canBuildOn, chebyshev, commonsPlot, isCommons, plotCenter, plotInBounds } from "./world";
+import { walkWords, worldGround } from "./walk";
+import {
+  canBuildOn,
+  chebyshev,
+  commonsPlot,
+  isCommons,
+  plotCenter,
+  plotInBounds,
+  plotOf,
+} from "./world";
 
 /**
  * Hosted events (RFC 0010): a resident, or the town, puts on an event at a place and a time, and
@@ -343,6 +352,56 @@ export function hostingProblem(state: WorldState, id: ResidentId): string | null
 }
 
 /**
+ * `schedule_in_person`, which only TOWN_ACTOR sends (RFC 0042): from now on booking an event
+ * needs you standing on the place you are booking. Events logged before it were callable from
+ * anywhere, so they replay as they were made. The town's own `schedule_town_event` is untouched:
+ * the town has no body to stand anywhere.
+ */
+export function checkScheduleInPerson(state: WorldState): EventsChecked {
+  return oneTimeSwitch({
+    on: state.scheduleInPerson,
+    already: "Booking an event already needs you at the place.",
+    turnOn: () => {
+      state.scheduleInPerson = true;
+    },
+    event: { type: "schedule_in_person_set" },
+  });
+}
+
+/**
+ * Why `me` isn't on the plot (px, py), or null when they are: standing on one of its tiles, on
+ * the ground floor. The refusal names the walk to the plot's nearest tile, around whatever is in
+ * the way, the way `notAtDoor` names the walk to a door, and someone upstairs and far off gets
+ * both in one answer. Only checked once `schedule_in_person` is logged.
+ */
+export function notAtThePlace(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+  px: number,
+  py: number,
+): Rejection | null {
+  const here = plotOf(state.config, me.x, me.y);
+  const upstairs = upstairsProblem(me, "book an event");
+  if (here.px === px && here.py === py) return upstairs;
+  const size = state.config.plotSize;
+  let target: Tile | undefined;
+  for (let y = py * size; y < py * size + size; y++) {
+    for (let x = px * size; x < px * size + size; x++) {
+      if (!target || chebyshev(me, { x, y }) < chebyshev(me, target)) target = { x, y };
+    }
+  }
+  const walk = target ? walkWords(state, me, target, 0) : "";
+  const far = refuse(
+    "out_of_reach",
+    walk === ""
+      ? "Events are booked where they happen. There's no walk from where you stand to that plot: something has you closed in. Take a wall away to open the way out."
+      : `Events are booked where they happen. Walk there: ${walk}.`,
+  );
+  if (upstairs) return { ...upstairs, message: `${upstairs.message} ${far.message}` };
+  return far;
+}
+
+/**
  * `schedule_event {kind, title, text?, px, py, startsAt, minutes, circle?}`: a resident who could
  * take part in the Town Hall puts on an event at their own or shared plot, or in the Commons, whose
  * booking holds a deposit until it ends. With `circle` it's a circle night (RFC 0033): the host
@@ -367,6 +426,12 @@ export function checkScheduleEvent(
   if (!plotInBounds(state.config, px, py)) {
     return refuse("invalid_event", "That plot is outside the world.");
   }
+  // Being at the place is a precondition for booking it, like being eligible, so it answers
+  // before who may host there, the limits, and the calendar (RFC 0042). It needs the plot first,
+  // which is why it sits after the bounds check.
+  const me = residentById(state, actor);
+  const away = state.scheduleInPerson && me ? notAtThePlace(state, me, px, py) : null;
+  if (away) return away;
   const commons = isCommons(state, px, py);
   const { circle } = command;
   if (circle !== undefined) {

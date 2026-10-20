@@ -1743,6 +1743,11 @@ export const WorldSnapshot = z.object({
    * from anywhere.
    */
   proposeInPerson: z.literal(true).optional(),
+  /**
+   * Present once booking an event needs you standing on the place it is booked for, on the ground
+   * floor (RFC 0042). Absent in worlds that take a booking from anywhere.
+   */
+  scheduleInPerson: z.literal(true).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -2144,6 +2149,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_in_person_set") }),
   /** From now on, filing a proposal needs you at the Town Hall (`proposeInPerson`, RFC 0042). */
   z.object({ type: z.literal("propose_in_person_set") }),
+  /** From now on, booking an event needs you on the place booked (`scheduleInPerson`, RFC 0042). */
+  z.object({ type: z.literal("schedule_in_person_set") }),
   /**
    * A new land opened beyond downtown (RFC 0038): the world grew to `width` by `height`, `plots`
    * are claimable with `settle`, `bridge` is the walk across the water to them, and `square` is

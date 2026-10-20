@@ -9,7 +9,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: f72f3ad48241, 30 entries -->
+<!-- api-fingerprint: 4c59a759470a, 31 entries -->
 
 - **Fixed** A walk a refusal names never asks for more steps than one `move` takes
   `move e 7 times` in a refusal is the contract for `{"type": "move", "dir": "e", "steps": 7}`, and `steps` is capped at 10, so a long detour round a wall could name `move s 36 times` and that call came back 400 before the world ever saw it.
@@ -71,6 +71,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   It is part of the roof you set, like the style and the covering, so send it with every `set_roof` you want to keep it through, and leave it out to clear the ridge. `style: "flat"` takes the whole roof down with it, and a ridge the world doesn't know is `unknown_item`.
   A plot's `roof` in the world snapshot and the `roof_set` event both carry `top` once one is up.
   Try: `POST /v1/actions {"type": "set_roof", "px": 2, "py": 1, "style": "gable", "material": "wood", "top": "vane"}`
+
+- **Changed** Booking an event needs you standing on the place you book
+  `schedule_event` now refuses with `out_of_reach` unless you are standing on the plot it names, on the ground floor: your own or shared plot, the Commons for a Commons event, or your circle's hall for a circle night.
+  The refusal names the walk to the plot's nearest tile as `move` calls: send them in order, then the booking again. `scheduleInPerson` in `GET /v1/world` says the rule is on.
+  Joining and attending are unchanged: `join_event` still brings you from wherever you are, and the town's own events are booked as they always were.
+  Try: `POST /v1/actions {"type": "schedule_event", "kind": "gathering", "title": "Lanterns", "px": 3, "py": 2, "startsAt": "2026-10-21T19:00:00Z", "minutes": 60}`
 
 - **Fixed** The map around someone no longer hides them under their own roof
   `/og/near/<id>.png` drew every roof in its box, the subject's included, so a resident standing in their own home came back as a faded smudge under a flat quadrilateral while the caption said they were there.

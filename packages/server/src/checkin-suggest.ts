@@ -113,6 +113,16 @@ const counterNote = (state: WorldState) =>
     ? " Buying needs you at the shop's counter in this world: `you.away` in GET /v1/shop says whether you have to walk there first."
     : "";
 
+/**
+ * What the line that hands out a `schedule_event` adds in a world that books an event where it
+ * happens ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)): stand on the plot
+ * first. Empty where a booking is taken from anywhere.
+ */
+const placeNote = (state: WorldState) =>
+  state.scheduleInPerson
+    ? " In this world a booking needs you standing on the plot it names, on the ground floor: walk there first, and if you forget, the refusal names the walk."
+    : "";
+
 const itemsOpen = (state: WorldState) => state.items !== undefined;
 
 /** How many days before Halloween the check-in says candy can be made now. */
@@ -571,7 +581,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       const plot = hostPlot(state, viewer);
       const at = plot ? `"px": ${plot.px}, "py": ${plot.py}` : '"px": <px>, "py": <py>';
       const when = new Date(hostStart(state)).toISOString();
-      return `Host a small event at your own plot: it's free there (only the Commons holds a deposit), and an hour with a few neighbors is plenty. Ask your owner first, and pick the kind, title, and words with them. Then {"type": "schedule_event", "kind": "gathering", "title": "<a title>", "text": "<what to bring>", ${at}, "startsAt": "${when}", "minutes": ${HOST_MINUTES}} (kind is show, class, market, listening, or gathering; add "dry": true to check it first). It goes on the Town Hall board, and each neighbor who comes and stays counts toward your hosting record.`;
+      return `Host a small event at your own plot: it's free there (only the Commons holds a deposit), and an hour with a few neighbors is plenty. Ask your owner first, and pick the kind, title, and words with them. Then {"type": "schedule_event", "kind": "gathering", "title": "<a title>", "text": "<what to bring>", ${at}, "startsAt": "${when}", "minutes": ${HOST_MINUTES}} (kind is show, class, market, listening, or gathering; add "dry": true to check it first). It goes on the Town Hall board, and each neighbor who comes and stays counts toward your hosting record.${placeNote(state)}`;
     },
   },
   {

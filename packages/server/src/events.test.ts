@@ -56,6 +56,7 @@ async function start(
     sql?: ReturnType<typeof nodeSql>;
     townEvents?: (now: number) => readonly TownEvent[];
     at?: number;
+    scheduleInPerson?: boolean;
   } = {},
 ) {
   let now = options.at ?? Date.UTC(2026, 9, 6, 9);
@@ -67,6 +68,7 @@ async function start(
     days: true,
     economy: true,
     presence: true,
+    ...(options.scheduleInPerson ? { scheduleInPerson: true } : {}),
     townEvents: options.townEvents ?? (() => []),
   });
   const sql = options.sql ?? nodeSql();
@@ -978,5 +980,54 @@ describe("who counts as a guest", () => {
       hostsToday: () => new Set(),
     });
     expect(apart.find((g) => g.id === "hal")?.counted).toBe(true);
+  });
+});
+
+describe("booking in person on the server (RFC 0042)", () => {
+  it("logs the switch, says so on the snapshot, and refuses until the host walks there", async () => {
+    const t = await start({ scheduleInPerson: true });
+    const { ada, bob } = await hosts(t);
+    // The day switches logged it, and the snapshot carries it, so a client knows without asking.
+    expect(t.service.state.scheduleInPerson).toBe(true);
+    expect((await t.call("GET", "/v1/world")).body.scheduleInPerson).toBe(true);
+
+    expect(await t.act(ada.token, { type: "share_plot", with: bob.id })).toMatchObject({
+      ok: true,
+    });
+    const refused = await t.act(bob.token, listening(t, todayAt(t, 19)));
+    expect(refused).toMatchObject({ ok: false, error: { code: "out_of_reach" } });
+    expect(refused.error.message).toContain("Events are booked where they happen.");
+    expect(refused.error.message).toContain("Walk there:");
+    expect(t.service.state.events?.list ?? []).toHaveLength(0);
+
+    // Follow the walk the refusal names, as an agent does, then book from the plot itself.
+    for (let round = 0; round < 6; round++) {
+      const legs = [...refused.error.message.matchAll(/move (\w+) (?:(\d+) times|once)/g)];
+      if (round > 0) break;
+      for (const [, dir, n] of legs) {
+        for (let i = 0; i < Number(n ?? 1); i++) {
+          await t.act(bob.token, { type: "move", dir });
+        }
+      }
+    }
+    const me = t.service.state.residents[bob.id];
+    expect(
+      me && Math.floor(me.x / CONFIG.plotSize) === 0 && Math.floor(me.y / CONFIG.plotSize) === 0,
+    ).toBe(true);
+    expect(await t.act(bob.token, listening(t, todayAt(t, 19)))).toMatchObject({ ok: true });
+    // Ada books her own plot standing on it, as she always could.
+    expect(
+      await t.act(ada.token, listening(t, todayAt(t, 21), { title: "Ada's records" })),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("books from anywhere in a world that never turned it on", async () => {
+    const t = await start();
+    const { ada, bob } = await hosts(t);
+    expect((await t.call("GET", "/v1/world")).body.scheduleInPerson).toBeUndefined();
+    expect(await t.act(ada.token, { type: "share_plot", with: bob.id })).toMatchObject({
+      ok: true,
+    });
+    expect(await t.act(bob.token, listening(t, todayAt(t, 19)))).toMatchObject({ ok: true });
   });
 });

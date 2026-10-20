@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
-import { eventHeld, findEvent, joinTile } from "./events";
+import { eventHeld, findEvent, joinTile, notAtThePlace } from "./events";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
@@ -606,6 +606,82 @@ describe("finished events", () => {
     ok(town(state, { type: "new_day", day: TODAY + 32 }));
     expect(state.events?.list).toEqual([]);
     expect(state.events?.nextId).toBe(3);
+  });
+});
+
+describe("booking in person (RFC 0042)", () => {
+  /** Walk `who` onto the plot (px, py) by following the refusal's own walk, as an agent would. */
+  function walkToPlace(state: WorldState, who: string, px: number, py: number) {
+    for (let round = 0; round < 6; round++) {
+      const me = state.residents[who];
+      if (!me || !notAtThePlace(state, me, px, py)) return;
+      const said = notAtThePlace(state, me, px, py)?.message ?? "";
+      const legs = [...said.matchAll(/move (\w+) (?:(\d+) times|once)/g)];
+      expect(legs.length, `no walk in: ${said}`).toBeGreaterThan(0);
+      let walked = 0;
+      for (const [, dir, n] of legs) {
+        for (let i = 0; i < Number(n ?? 1); i++) {
+          if (code(act(state, who, { type: "move", dir } as Command)) !== null) break;
+          walked++;
+        }
+      }
+      expect(walked, `the walk went nowhere from ${said}`).toBeGreaterThan(0);
+    }
+    expect(notAtThePlace(state, state.residents[who] as never, px, py)).toBe(null);
+  }
+
+  it("books from anywhere until the switch, then asks for the place", () => {
+    const state = world();
+    ok(act(state, "ada", { type: "share_plot", with: "bob" }));
+    // Bob, on his own plot two plots east, books the plot Ada shares with him fine before it.
+    ok(act(state, "bob", schedule({ kind: "class", title: "Knots" })));
+    ok(town(state, { type: "schedule_in_person" }));
+    const away = act(state, "bob", schedule({ title: "Ropes", startsAt: at(TODAY, 21) }));
+    expect(away.ok).toBe(false);
+    if (!away.ok) {
+      expect(away.rejection.code).toBe("out_of_reach");
+      expect(away.rejection.message).toContain("Events are booked where they happen.");
+      expect(away.rejection.message).toContain("Walk there:");
+    }
+    // Nothing was booked by the refusal.
+    expect(state.events?.list).toHaveLength(1);
+    walkToPlace(state, "bob", 0, 0);
+    ok(act(state, "bob", schedule({ title: "Ropes", startsAt: at(TODAY, 21) })));
+    expect(code(town(state, { type: "schedule_in_person" }))).toBe("already_open");
+  });
+
+  it("still books your own plot from home, and a Commons booking asks you to the Commons", () => {
+    const state = world();
+    ok(town(state, { type: "schedule_in_person" }));
+    // Ada stands on her own plot, where her hearth is: nothing to walk.
+    ok(act(state, "ada", schedule()));
+    // Dee books the Commons from her own plot in the far corner and is sent there.
+    const away = act(state, "dee", schedule({ ...COMMONS, title: "Lantern walk" }));
+    expect(away.ok).toBe(false);
+    if (!away.ok) expect(away.rejection.code).toBe("out_of_reach");
+    walkToPlace(state, "dee", COMMONS.px, COMMONS.py);
+    ok(act(state, "dee", schedule({ ...COMMONS, title: "Lantern walk" })));
+  });
+
+  it("leaves the town's own events alone: it has no body to stand anywhere", () => {
+    const state = world();
+    ok(town(state, { type: "schedule_in_person" }));
+    ok(
+      town(state, {
+        type: "schedule_town_event",
+        key: "harvest-night",
+        kind: "gathering",
+        title: "Harvest night",
+        startsAt: at(TODAY, 18),
+        minutes: 540,
+      }),
+    );
+  });
+
+  it("refuses a resident, never the town, who sends the switch", () => {
+    const state = world();
+    expect(code(act(state, "ada", { type: "schedule_in_person" } as Command))).toBe("server_only");
+    expect(state.scheduleInPerson).toBeUndefined();
   });
 });
 

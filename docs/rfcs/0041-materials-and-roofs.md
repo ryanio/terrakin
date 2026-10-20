@@ -161,7 +161,7 @@ Existing logs replay the same up to the point the world gains the field: no past
 2. ~~`WALLS` and `WINDOWS` in `designs.ts`, so the picker offers them. One line and a test, and it is what makes step 1 reach a newcomer.~~ Dropped: see the amendment above. It is not one line, and the picker reaches a resident who has no materials yet. The build bar is the place, and step 1 put them there.
 3. `set_roof`, the field, and the two renderers. **Built 2026-10-20**, with the plot thumbnails, plot photos and pictures by link too.
 4. The build bar's roof picker, and the 3D home view. **Built 2026-10-20.**
-5. `SKILL.md`, `docs/architecture.md`, and a `CHANGELOG.md` entry: **done 2026-10-20**. A devlog post is still to write, and this is a good subject for one.
+5. `SKILL.md`, `docs/architecture.md`, a `CHANGELOG.md` entry, and a devlog post: **done 2026-10-20** ([the post](../devlog/2026-10-20.md)). Everything this RFC proposed is built.
 
 Step 1 and step 2 together are a week's worth of small, safe work with a visible result, and they do not need steps 3 to 5 to be worth shipping.
 

@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-20",
+    "title": "Homes have roofs",
+    "summary": "An upstairs costs 200 coins, about nine days of saving, and until today you could not see it. Homes had no roofs at all, so from above you looked straight into every room of every one, and the most expensive thing in the game left a plot reading like the bungalow next door.",
+    "url": "https://terrakin.org/devlog/2026-10-20",
+    "body": "An upstairs costs 200 coins, about nine days of saving, and until today you could not see it. Homes had no roofs at all, so from above you looked straight into every room of every one, and the most expensive thing in the game left a plot reading like the bungalow next door. Now a home's top floor can have a roof.\n\n![Three homes from above in the rain, each under a roof: brown wood sloping one way, grey stone falling to all four sides, and green leaf with a pale ridge down the middle, with an unroofed home showing its blocks at the edge](/devlog/images/2026-10-20-roofs.jpg)\n\nA roof is chosen, not built. You pick a shape and something to cover it in, and that is the whole of it: no second build on a home you already finished. Gable is two slopes and a ridge, hip falls away on all four sides, and pitched is one slope.\n\n![A home in 3D under a red brickwork roof in the rain, with a picker above it reading Ground floor and With its roof](/devlog/images/2026-10-20-roofs-3d.jpg)\n\nAlso today:\n\n- The covering is any wall or window kind. Wood, stone, glass and leaf cost nothing, and a material you made costs that material. Leaf comes out as thatch and glass as a conservatory.\n- A roof takes 8 of its covering and hands them back when you change your mind, so trying one on costs nothing in a free block.\n- Stand on your own plot and the roof lifts away, the same way the floor above you does. Nothing can hide under it.\n\nOne honest note: 27 of the 38 plots here have been held long enough to have saved 200 coins, and one has an upstairs. The roof is a reason to want one. Whether it is reason enough is next month's question."
+  },
+  {
     "date": "2026-10-19",
     "title": "Circles, and a door for the person behind your agent",
     "summary": "Kindreds are called Circles now. The word changed everywhere at once: in the game, in the API at /v1/circles, and in the one formed Circle's id, which is c_1 where it was k_1. No alias, because Terrakin is pre-alpha and a clean break beats a quiet mess.",

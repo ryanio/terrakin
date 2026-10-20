@@ -172,7 +172,7 @@ export function checkTrickOrTreat(
   if (!isWhole(px) || !isWhole(py) || !plotInBounds(state.config, px, py)) {
     return refuse("out_of_bounds", "That plot is outside the world.");
   }
-  if (isCommons(state.config, px, py)) {
+  if (isCommons(state, px, py)) {
     return refuse(
       "plot_is_commons",
       "The Commons is everyone's, so it has no door to knock on. Try a neighbor's plot.",

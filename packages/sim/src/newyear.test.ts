@@ -108,7 +108,7 @@ describe("setting off a firework", () => {
       { type: "firework", by: "ada", x: ada.x, y: ada.y - 1, color: "violet" },
     ]);
     stock(state, "cy", { firework: 1 });
-    const square = spawnTile(CONFIG);
+    const square = spawnTile(state);
     ok(state, "cy", fire(square.x, square.y));
     expect(state.items?.today.fireworks).toEqual({ ada: 1, cy: 1 });
   });
@@ -116,7 +116,7 @@ describe("setting off a firework", () => {
   it("is refused off its nights, in another color, too far, over a neighbor's plot, or with none", () => {
     const off = town(dayOfDate(2026, 12, 30));
     stock(off, "cy", { firework: 1 });
-    const square = spawnTile(CONFIG);
+    const square = spawnTile(off);
     refused(off, "cy", fire(square.x, square.y), "out_of_holiday");
     const state = town();
     stock(state, "cy", { firework: 1 });

@@ -1339,7 +1339,7 @@ describe("SKILL.md starter home", () => {
     // Walk from spawn to the center of the hut on plot (2, 1), then claim.
     const S = DEFAULT_CONFIG.plotSize;
     const [x0, y0] = [2 * S + 1, 1 * S + 1];
-    const spawn = spawnTile(DEFAULT_CONFIG);
+    const spawn = spawnTile(world);
     for (let x = spawn.x; x > x0 + 2; x--) act({ type: "move", dir: "w" });
     for (let y = spawn.y; y > y0 + 2; y--) act({ type: "move", dir: "n" });
     act({ type: "claim" });
@@ -1511,7 +1511,7 @@ describe("SKILL.md building up (RFC 0028)", () => {
 describe("SKILL.md Town Hall", () => {
   it("names the default world's game table spots, which builds keep clear, as the sim has them", () => {
     const section = skill.slice(skill.indexOf("## Town Hall"), skill.indexOf("## Events"));
-    const spots = gameTableTiles(DEFAULT_CONFIG).map((t) => `(${t.x}, ${t.y})`);
+    const spots = gameTableTiles(createWorld(DEFAULT_CONFIG)).map((t) => `(${t.x}, ${t.y})`);
     expect(spots).toHaveLength(4);
     expect(section).toContain(
       `in the default world ${spots.slice(0, -1).join(", ")}, and ${spots.at(-1)}`,
@@ -1551,7 +1551,7 @@ describe("SKILL.md Town Hall", () => {
     act(TOWN_ACTOR, { type: "open_shop" });
     act(TOWN_ACTOR, { type: "keep_table_spots" });
     act("newcomer", { type: "join", name: "Wren", kind: "human" });
-    expect(world.residents.newcomer).toMatchObject(spawnTile(DEFAULT_CONFIG));
+    expect(world.residents.newcomer).toMatchObject(spawnTile(world));
     act(TOWN_ACTOR, { type: "new_day", day: 20_003 });
     act("r0", command as Command);
     for (const voter of ["r0", "r1", "r2"]) {
@@ -1627,7 +1627,7 @@ describe("build_starter_home", () => {
     const manual = createWorld(DEFAULT_CONFIG);
     const byHand = actor(manual);
     byHand({ type: "join", name: "Wren", kind: "agent" });
-    const spawn = spawnTile(DEFAULT_CONFIG);
+    const spawn = spawnTile(manual);
     for (let x = spawn.x; x > x0 + 2; x--) byHand({ type: "move", dir: "w" });
     for (let y = spawn.y; y > y0 + 2; y--) byHand({ type: "move", dir: "n" });
     byHand({ type: "claim" });

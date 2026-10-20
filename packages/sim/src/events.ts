@@ -156,8 +156,8 @@ export const inEventArea = (
 ) => inArea(eventArea(config, e.px, e.py), x, y);
 
 /** Whether an event is in the Commons. */
-export const inCommons = (config: WorldConfig, e: Pick<HostedEvent, "px" | "py">) =>
-  isCommons(config, e.px, e.py);
+export const inCommons = (state: WorldState, e: Pick<HostedEvent, "px" | "py">) =>
+  isCommons(state, e.px, e.py);
 
 /** The events still on the calendar at plot (px, py), oldest first. */
 export const eventsAt = (state: WorldState, px: number, py: number): HostedEvent[] =>
@@ -367,7 +367,7 @@ export function checkScheduleEvent(
   if (!plotInBounds(state.config, px, py)) {
     return refuse("invalid_event", "That plot is outside the world.");
   }
-  const commons = isCommons(state.config, px, py);
+  const commons = isCommons(state, px, py);
   const { circle } = command;
   if (circle !== undefined) {
     const night = circleNightProblem(state, actor, circle, px, py, fields.day);
@@ -387,7 +387,7 @@ export function checkScheduleEvent(
     mine.some(
       (e) =>
         e.status !== "cancelled" &&
-        inCommons(state.config, e) &&
+        inCommons(state, e) &&
         Math.abs(e.day - fields.day) < EVENTS.commonsEveryDays,
     )
   ) {
@@ -595,7 +595,7 @@ export function checkScheduleTownEvent(
       return refuse("invalid_event", "A town event's faces are townsfolk.");
     }
   }
-  const { px, py } = commonsPlot(state.config);
+  const { px, py } = commonsPlot(state);
   const taken = clashAt(state, px, py, startsAt, minutes);
   if (taken) {
     return refuse(

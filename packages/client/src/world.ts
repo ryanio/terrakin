@@ -24,7 +24,6 @@ import {
   floorField,
   type GroundKind,
   ITEM_INFO,
-  isCommons,
   isGroundKind,
   isHeldBlock,
   pageKnown,
@@ -1473,7 +1472,12 @@ claimButton.addEventListener("click", () => {
   // opens the picker of ones it would (decision 0143).
   const { px, py } = plotOf(m.config, r.x, r.y);
   const claimed = m.plots.has(`${px},${py}`);
-  if (myPlots().owned === 0 && settleProblem(m.config, px, py, { claimed, ownsAPlot: false })) {
+  const problem = settleProblem(m.config, px, py, {
+    claimed,
+    ownsAPlot: false,
+    square: m.isSquare(px, py),
+  });
+  if (myPlots().owned === 0 && problem) {
     void import("./claim-sheet").then((c) => c.openClaimSheet());
     return;
   }
@@ -2223,11 +2227,7 @@ fishButton.addEventListener("click", () => castLine());
 function paintFireworkButton() {
   const r = self();
   const m = mirror;
-  const here =
-    !!r &&
-    !!m &&
-    (buildablePlot() !== undefined ||
-      isCommons(m.config, plotOf(m.config, r.x, r.y).px, plotOf(m.config, r.x, r.y).py));
+  const here = !!r && !!m && (buildablePlot() !== undefined || m.inCommons(r.x, r.y));
   fireworkButton.hidden = buildMode || !here || !fireworkNight(m?.day);
 }
 

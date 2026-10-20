@@ -264,7 +264,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
   if (total > TOWN_LIMITS.buildMax) {
     return `A build can make at most ${TOWN_LIMITS.buildMax} changes: blocks placed and taken away and paths laid and lifted, together.`;
   }
-  const commons = commonsPlot(config);
+  const commons = commonsPlot(state);
   const lists: [string, readonly unknown[]][] = [
     ["blocks", blocks],
     ["remove", remove],
@@ -282,7 +282,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
       if (p.px !== commons.px || p.py !== commons.py) {
         return `(${x}, ${y}) isn't in the Commons. Builds only go in the Commons.`;
       }
-      if (isTownHallTile(config, x, y)) {
+      if (isTownHallTile(state, x, y)) {
         return `(${x}, ${y}) is where the Town Hall stands. Keep it clear.`;
       }
       const key = tileKey(x, y);
@@ -300,7 +300,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
   // Only once the shop is open, so builds from before it replay as they did. Taking away a block or
   // lifting a path that was already there stays allowed, so the town can clear the shop's ground.
   const onShop = (t: Tile) =>
-    state.shop && isShopTile(config, t.x, t.y)
+    state.shop && isShopTile(state, t.x, t.y)
       ? `(${t.x}, ${t.y}) is where the town shop stands. Keep it clear.`
       : null;
   // Only once the server logs `keep_table_spots`, so builds from before it replay as they did. A
@@ -352,7 +352,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
  */
 function tableSpots(state: WorldState): ReadonlySet<string> {
   if (!state.tableSpotsKept) return new Set();
-  return new Set(gameTableTiles(state.config).map((t) => tileKey(t.x, t.y)));
+  return new Set(gameTableTiles(state).map((t) => tileKey(t.x, t.y)));
 }
 
 /**
@@ -525,7 +525,7 @@ export function notAtTheHall(
   state: WorldState,
   me: Pick<Resident, "x" | "y" | "floor">,
 ): Rejection | null {
-  return notAtDoor(state, me, townHallTile(state.config), {
+  return notAtDoor(state, me, townHallTile(state), {
     lead: "Proposals are filed at the Town Hall.",
     doing: "file a proposal",
     there: "the Town Hall",
@@ -641,7 +641,7 @@ export function checkPropose(
   };
   if (command.kind !== "commons_build") return { commit };
   const now = closeBuild(state, lists);
-  const { px, py } = commonsPlot(state.config);
+  const { px, py } = commonsPlot(state);
   return {
     commit,
     plan: {
@@ -689,7 +689,7 @@ function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
   const blockAt = (key: string) => (blocksNow.has(key) ? blocksNow.get(key) : state.blocks[key]);
   const groundAt = (key: string) => (groundNow.has(key) ? groundNow.get(key) : state.ground?.[key]);
   const building = (t: Tile) =>
-    isTownHallTile(config, t.x, t.y) || (state.shop !== undefined && isShopTile(config, t.x, t.y));
+    isTownHallTile(state, t.x, t.y) || (state.shop !== undefined && isShopTile(state, t.x, t.y));
   const spots = tableSpots(state);
   const built: CommonsBuilt = { placed: [], removed: [], laid: [], lifted: [], skipped: [] };
   const skip = (t: Tile) => built.skipped.push({ x: t.x, y: t.y });

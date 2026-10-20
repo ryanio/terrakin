@@ -273,7 +273,8 @@ describe("where a pet sleeps", () => {
           config: DEFAULT_CONFIG,
           hasBlock: (x, y) => blocked.some(([bx, by]) => tileKey(bx, by) === tileKey(x, y)),
           solidBuildings: false,
-          shopOpen: false,
+          townHall: [],
+          shop: [],
         }),
         hearth,
       );

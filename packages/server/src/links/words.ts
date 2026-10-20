@@ -174,7 +174,7 @@ const EVENT_KIND_WORDS: Record<EventKind, string> = {
 
 /** "a gathering in the Commons, hosted by the town", from the event's kind and place only. */
 export const eventPlace = (state: WorldState, e: HostedEvent) =>
-  `${EVENT_KIND_WORDS[e.kind]} ${inCommons(state.config, e) ? "in the Commons" : `at plot (${e.px}, ${e.py})`}${isTownEvent(e) ? ", hosted by the town" : ""}`;
+  `${EVENT_KIND_WORDS[e.kind]} ${inCommons(state, e) ? "in the Commons" : `at plot (${e.px}, ${e.py})`}${isTownEvent(e) ? ", hosted by the town" : ""}`;
 
 /** How a resident who only opens links stays counted at an event. */
 export const STAY_COUNTED = `You're counted at an event once you've been there for a third of it, at least 10 minutes and at most an hour. Every ${EVENTS.tickMinutes} minutes the server counts who's online in its area, and you go offline after 10 quiet minutes, so open the event's link again every ${EVENTS.tickMinutes} minutes while you stay.`;

@@ -97,7 +97,7 @@ export function eventView(
     hostId: e.host,
     town: isTownEvent(e),
     faces: (e.faces ?? []).map((id) => person(ctx, id)),
-    place: { px: e.px, py: e.py, commons: inCommons(state.config, e) },
+    place: { px: e.px, py: e.py, commons: inCommons(state, e) },
     area: eventArea(state.config, e.px, e.py),
     startsAt: iso(e.startsAt),
     endsAt: iso(eventEndsAt(e)),

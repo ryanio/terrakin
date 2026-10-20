@@ -38,7 +38,8 @@ function hut(extra: [number, number][] = []) {
     config: CONFIG,
     hasBlock: (x, y) => blocks.has(tileKey(x, y)),
     solidBuildings: false,
-    shopOpen: false,
+    townHall: [],
+    shop: [],
   });
 }
 

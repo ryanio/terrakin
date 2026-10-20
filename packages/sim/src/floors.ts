@@ -478,7 +478,7 @@ export function checkAddFloor(
   const { px, py } = command;
   if (!plotInBounds(config, px, py))
     return refuse("out_of_bounds", "That plot is outside the world.");
-  if (isCommons(config, px, py)) {
+  if (isCommons(state, px, py)) {
     return refuse(
       "plot_is_commons",
       "The Commons stays on the ground. Add an upstairs to your own plot.",

@@ -18,7 +18,7 @@ export interface PlotPick {
 }
 
 /** What the picker reads from the world: a snapshot will do. */
-type World = Pick<WorldSnapshot, "config" | "commons"> & {
+type World = Pick<WorldSnapshot, "config" | "commons" | "townHall"> & {
   plots: readonly { px: number; py: number; ownerId: string }[];
   residents: readonly { hearth?: { x: number; y: number } | null | undefined }[];
 };
@@ -28,6 +28,14 @@ const key = (px: number, py: number) => `${px},${py}`;
 /** Every plot `settle` would take for someone who owns none, best first. */
 export function plotPicks(world: World): PlotPick[] {
   const { config, commons } = world;
+  // A town square is never claimable, and a square is the plot its hall stands on, so the halls
+  // the snapshot carries say where every one of them is: downtown's Commons and each land's own
+  // (RFC 0038).
+  const squares = new Set(
+    world.townHall.map((t) =>
+      key(Math.floor(t.x / config.plotSize), Math.floor(t.y / config.plotSize)),
+    ),
+  );
   const across = config.width / config.plotSize;
   const down = config.height / config.plotSize;
   const owners = new Map(world.plots.map((p) => [key(p.px, p.py), p.ownerId]));
@@ -45,7 +53,14 @@ export function plotPicks(world: World): PlotPick[] {
   for (let py = 0; py < down; py++) {
     for (let px = 0; px < across; px++) {
       const claimed = owners.has(key(px, py));
-      if (settleProblem(config, px, py, { claimed, ownsAPlot: false })) continue;
+      if (
+        settleProblem(config, px, py, {
+          claimed,
+          ownsAPlot: false,
+          square: squares.has(key(px, py)),
+        })
+      )
+        continue;
       const here = { px, py };
       const neighbors: string[] = [];
       for (let y = py - 1; y <= py + 1; y++) {

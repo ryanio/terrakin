@@ -2,7 +2,7 @@ import type { BuildPlan } from "./build";
 import { type PlotTiles, plotTiles } from "./map";
 import type { BlockKind, Direction, Tile, WorldConfig, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
-import { blocksWalkers, chebyshev, STEP } from "./world";
+import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./world";
 
 /**
  * Notes about a home (RFC 0032): what the server says about a plot after reading it, facts and
@@ -72,7 +72,8 @@ export function designNotes(
   return plotNotes(tiles, {
     config: state.config,
     solidBuildings: state.solidBuildings === true,
-    shopOpen: state.shop !== undefined,
+    townHall: townHallTiles(state),
+    shop: state.shop ? shopTiles(state) : [],
   });
 }
 
@@ -80,7 +81,9 @@ export function designNotes(
 export interface NoteFacts {
   config: WorldConfig;
   solidBuildings: boolean;
-  shopOpen: boolean;
+  /** Where the halls and the shops stand, as `groundOf` takes them (RFC 0038). */
+  townHall: readonly Tile[];
+  shop: readonly Tile[];
 }
 
 /**
@@ -108,7 +111,8 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
       config: facts.config,
       hasBlock: (x, y) => !open({ x: x - x0, y: y - y0 }, removed),
       solidBuildings: facts.solidBuildings,
-      shopOpen: facts.shopOpen,
+      townHall: facts.townHall,
+      shop: facts.shop,
     });
   /** Every tile a walk reaches from `from` over `dirs`, keeping to tiles `ok` allows. */
   const walk = (

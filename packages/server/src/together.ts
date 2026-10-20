@@ -94,7 +94,7 @@ export function suggestPlots(state: WorldState, around: PlotRef, count: number):
     cells.sort((a, b) => Number(b.side) - Number(a.side) || a.py - b.py || a.px - b.px);
     for (const { px, py } of cells) {
       if (found.length >= count) break;
-      if (!plotInBounds(config, px, py) || isCommons(config, px, py)) continue;
+      if (!plotInBounds(config, px, py) || isCommons(state, px, py)) continue;
       if (state.plots[plotKey(px, py)]) continue;
       found.push({ px, py });
     }

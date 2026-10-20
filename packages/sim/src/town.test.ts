@@ -14,7 +14,15 @@ import {
   TOWN_ACTOR,
   type WorldConfig,
 } from "./types";
-import { createWorld, DEFAULT_CONFIG, gameTableTiles, shopTiles, townHallTiles } from "./world";
+import {
+  commonsPlot,
+  createWorld,
+  DEFAULT_CONFIG,
+  gameTableTiles,
+  shopTiles,
+  spawnTile,
+  townHallTiles,
+} from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8..15; spawn is (12,12). The Town Hall
 // stands on (11..13, 8..9).
@@ -316,7 +324,7 @@ describe("propose", () => {
         blocks,
         ...(remove ? { remove } : {}),
       });
-    const [hall] = townHallTiles(CONFIG);
+    const [hall] = townHallTiles(w.state);
     expect(code([])).toBe("invalid_proposal");
     expect(code([{ x: 3, y: 3, block: "wood" }])).toBe("invalid_proposal"); // Ada's plot
     expect(code([{ x: 30, y: 3, block: "wood" }])).toBe("invalid_proposal"); // off the world
@@ -341,7 +349,7 @@ describe("propose", () => {
 
   it("keeps new builds off the town shop once it's open, but can clear its ground", () => {
     const w = town("ada", "bob");
-    const [tile] = shopTiles(CONFIG);
+    const [tile] = shopTiles(w.state);
     if (!tile) throw new Error("no shop tiles");
     const build = (who: string, extra: Partial<Extract<Command, { type: "propose" }>>) =>
       w.code(who, { type: "propose", kind: "commons_build", title: "Shop", text: "", ...extra });
@@ -384,7 +392,7 @@ describe("propose", () => {
       y,
       ground,
     });
-    const [hall] = townHallTiles(CONFIG);
+    const [hall] = townHallTiles(w.state);
     if (!hall) throw new Error("no hall tiles");
 
     // Refused: off the Commons, on the Town Hall, kinds the town doesn't build with, a block on
@@ -760,7 +768,7 @@ describe("close_proposal", () => {
 
   it("skips what moved since filing: a path another build laid, someone standing, the shop", () => {
     const w = town("ada", "bob", "cy");
-    const [shop] = shopTiles(CONFIG);
+    const [shop] = shopTiles(w.state);
     if (!shop) throw new Error("no shop tiles");
     w.propose("ada", {
       kind: "commons_build",
@@ -890,13 +898,13 @@ describe("game table spots (decision 0126)", () => {
     expect(w.ok(TOWN_ACTOR, { type: "keep_table_spots" })).toEqual([{ type: "table_spots_kept" }]);
 
   it("are pinned: once they're kept, a build's blocks replay only while the spots stay put", () => {
-    expect(gameTableTiles(CONFIG)).toEqual([
+    expect(gameTableTiles(createWorld(CONFIG))).toEqual([
       { x: 9, y: 10 },
       { x: 14, y: 10 },
       { x: 9, y: 13 },
       { x: 14, y: 13 },
     ]);
-    expect(gameTableTiles(DEFAULT_CONFIG)).toEqual([
+    expect(gameTableTiles(createWorld(DEFAULT_CONFIG))).toEqual([
       { x: 33, y: 34 },
       { x: 38, y: 34 },
       { x: 33, y: 37 },
@@ -984,6 +992,68 @@ describe("game table spots (decision 0126)", () => {
     expect(state.ground?.["14,10"]).toBe("moss");
     // Ada's lamp post went up before the switch, and Cy's build took it off after.
     expect(state.blocks["9,13"]).toBeUndefined();
+  });
+});
+
+describe("the town's centre (RFC 0038)", () => {
+  /**
+   * RFC 0038's island, east of this 24 by 24 downtown: one plot-width of water (x 24 to 31) and a
+   * 2 by 2 island beyond it, bridged at the Commons' latitude. Opening it takes the world to 48
+   * tiles wide, which is what moves the centre when the centre is read from the world's size.
+   */
+  const ISLAND: Extract<Command, { type: "open_land" }> = {
+    type: "open_land",
+    land: "willowmere",
+    name: "Willowmere",
+    width: 48,
+    height: 24,
+    plots: [
+      [4, 0],
+      [4, 1],
+      [5, 0],
+      [5, 1],
+    ],
+    bridge: [
+      [24, 11],
+      [24, 12],
+      [25, 11],
+      [25, 12],
+      [26, 11],
+      [26, 12],
+      [27, 11],
+      [27, 12],
+      [28, 11],
+      [28, 12],
+      [29, 11],
+      [29, 12],
+      [30, 11],
+      [30, 12],
+      [31, 11],
+      [31, 12],
+    ],
+  };
+
+  it("stays where it is when a land opens", () => {
+    const w = town("ada", "bob");
+    w.ok(TOWN_ACTOR, { type: "open_economy" });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.ok(TOWN_ACTOR, { type: "open_shop" });
+    const centre = () => ({
+      commons: commonsPlot(w.state),
+      spawn: spawnTile(w.state),
+      hall: townHallTiles(w.state),
+      shop: shopTiles(w.state),
+      tables: gameTableTiles(w.state),
+    });
+    const before = centre();
+    expect(before.commons).toEqual({ px: 1, py: 1 });
+    expect(before.spawn).toEqual({ x: 12, y: 12 });
+
+    w.ok(TOWN_ACTOR, ISLAND);
+
+    // The world is wider, and every part of downtown is exactly where it was.
+    expect(w.state.config.width).toBe(48);
+    expect(centre()).toEqual(before);
   });
 });
 

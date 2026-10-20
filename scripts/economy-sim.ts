@@ -427,7 +427,7 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
   });
   const free: [number, number][] = [];
   for (let py = 0; py < side; py++) {
-    for (let px = 0; px < side; px++) if (!isCommons(state.config, px, py)) free.push([px, py]);
+    for (let px = 0; px < side; px++) if (!isCommons(state, px, py)) free.push([px, py]);
   }
   // Only the month's own world pays for jobs; the labs' small worlds keep RFC 0030's rules.
   const paysJobs = JOB_PAY > 0 && heard === monthJobs;

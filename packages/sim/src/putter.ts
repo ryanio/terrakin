@@ -147,7 +147,7 @@ export function planPutter(
   }
 
   // 3. The Commons, where newcomers arrive.
-  const c = commonsPlot(state.config);
+  const c = commonsPlot(state);
   const commons = plotRect(state, c.px, c.py);
   const steps = toward((t) => toRect(t, commons), "commons");
   if (steps.length > 0) return steps;

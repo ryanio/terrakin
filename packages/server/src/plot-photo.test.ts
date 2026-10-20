@@ -5,6 +5,7 @@ import {
   BLOCK_COLORS,
   blockFill,
   CROP_HEX,
+  createWorld,
   DAY_LENGTH_MS,
   dayOfDate,
   GROUND_LOOK,
@@ -395,7 +396,7 @@ describe("plot photo data", () => {
         const x = i % 10;
         const y = Math.floor(i / 10);
         const { px, py } = plotOf(CONFIG, x, y);
-        return groundTile(CONFIG, x, y, isCommons(CONFIG, px, py), season);
+        return groundTile(CONFIG, x, y, isCommons(createWorld(CONFIG), px, py), season);
       });
     // 2026-10-06 is autumn, 2026-12-25 winter.
     const autumn = photo(dayOfDate(2026, 10, 6));

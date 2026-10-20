@@ -66,8 +66,14 @@ export function groundOf(facts: {
   hasBlock: (x: number, y: number) => boolean;
   /** The Town Hall and the shop stop walkers (`solid_buildings`). */
   solidBuildings: boolean;
-  /** The town shop has opened. Its tiles are a building only then. */
-  shopOpen: boolean;
+  /**
+   * The tiles every Town Hall stands on, and every shop's, empty before the shop opens. They're
+   * handed in rather than worked out here, because where they stand depends on downtown's own
+   * rectangle and on which lands are open (RFC 0038), and because the snapshot carries both
+   * arrays, so a client builds this ground from its mirror with no new field.
+   */
+  townHall: readonly Tile[];
+  shop: readonly Tile[];
   /**
    * Whether a tile is open water between lands (RFC 0038). Left out in a world that never opened
    * a land, where there is none, so such a world walks exactly as it always did.
@@ -77,8 +83,8 @@ export function groundOf(facts: {
   const { config, hasBlock } = facts;
   const buildings = new Map<string, Obstacle>();
   if (facts.solidBuildings) {
-    for (const t of townHallTiles(config)) buildings.set(tileKey(t.x, t.y), "town_hall");
-    if (facts.shopOpen) for (const t of shopTiles(config)) buildings.set(tileKey(t.x, t.y), "shop");
+    for (const t of facts.townHall) buildings.set(tileKey(t.x, t.y), "town_hall");
+    for (const t of facts.shop) buildings.set(tileKey(t.x, t.y), "shop");
   }
   return {
     config,
@@ -96,7 +102,8 @@ export function worldGround(state: WorldState): Ground {
     config: state.config,
     hasBlock: (x, y) => isSolid(state, x, y),
     solidBuildings: state.solidBuildings === true,
-    shopOpen: state.shop !== undefined,
+    townHall: townHallTiles(state),
+    shop: state.shop ? shopTiles(state) : [],
     ...(state.lands ? { sea: (x: number, y: number) => isSea(state, x, y) } : {}),
   });
 }
@@ -296,7 +303,8 @@ export function offBuildings(
     config: state.config,
     hasBlock: (x, y) => isSolid(state, x, y),
     solidBuildings: change.solidBuildings ?? state.solidBuildings === true,
-    shopOpen: change.shopOpen ?? state.shop !== undefined,
+    townHall: townHallTiles(state),
+    shop: (change.shopOpen ?? state.shop !== undefined) ? shopTiles(state) : [],
   });
   const off: SteppingOff[] = [];
   for (const id of Object.keys(state.residents).sort()) {

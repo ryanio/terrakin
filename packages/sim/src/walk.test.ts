@@ -70,7 +70,8 @@ function world() {
   return { state, log, send, ok, refusal, join, here, move, town, openShop };
 }
 
-const onHall = (t: Tile) => townHallTiles(CONFIG).some((h) => h.x === t.x && h.y === t.y);
+const HALL_TILES = townHallTiles(createWorld(CONFIG));
+const onHall = (t: Tile) => HALL_TILES.some((h) => h.x === t.x && h.y === t.y);
 
 describe("stepFrom", () => {
   it("steps one tile in each of the eight directions", () => {
@@ -227,7 +228,7 @@ describe("solid buildings", () => {
     w.town({ type: "solid_buildings" });
     w.join("ada", { x: 12, y: 13 });
     expect(w.move("ada", "s").ok).toBe(true);
-    expect(shopTiles(CONFIG).some((t) => t.x === 12 && t.y === 14)).toBe(true);
+    expect(shopTiles(w.state).some((t) => t.x === 12 && t.y === 14)).toBe(true);
     w.town({ type: "new_day", day: 20_000 });
     w.town({ type: "open_economy" });
     w.town({ type: "open_items" });

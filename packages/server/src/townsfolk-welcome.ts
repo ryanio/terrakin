@@ -423,10 +423,10 @@ export class TownsfolkWelcome {
     const r = residentById(state, newcomer);
     if (!r) return { ok: false, code: "gone" };
     const here = plotOf(state.config, r.x, r.y);
-    const c = commonsPlot(state.config);
+    const c = commonsPlot(state);
     if (here.px !== c.px || here.py !== c.py) return { ok: false, code: "away" };
     const target = { x: r.x, y: r.y };
-    const candidates = this.visitors(newcomer, spawnTile(state.config)).slice(0, GREET.tries);
+    const candidates = this.visitors(newcomer, spawnTile(state)).slice(0, GREET.tries);
     if (candidates.length === 0) return { ok: false, code: "nobody" };
     let code = "nobody";
     for (const by of candidates) {

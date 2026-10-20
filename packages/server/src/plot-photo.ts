@@ -214,7 +214,7 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
   };
   const commonsAt = (x: number, y: number) => {
     const { px, py } = plotOf(config, x, y);
-    return isCommons(config, px, py);
+    return isCommons(state, px, py);
   };
   const area = areaOf(
     state,

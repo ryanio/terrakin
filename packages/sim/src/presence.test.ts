@@ -136,11 +136,11 @@ describe("acting while offline, once presence comes with acting", () => {
     act(state, "bob", { type: "move", dir: "w" });
     act(state, "bob", { type: "leave" });
     expect(act(state, "ada", { type: "place", x: 1, y: 2, block: "stone" }).ok).toBe(true);
-    expect(rejoined(state, "bob")).toMatchObject({ ...spawnTile(CONFIG), online: true });
+    expect(rejoined(state, "bob")).toMatchObject({ ...spawnTile(state), online: true });
     const result = act(state, "bob", { type: "move", dir: "n" });
     expect(result).toMatchObject({
       ok: true,
-      events: [{ type: "joined", resident: spawnTile(CONFIG) }, { type: "moved" }],
+      events: [{ type: "joined", resident: spawnTile(state) }, { type: "moved" }],
     });
   });
 

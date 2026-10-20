@@ -45,7 +45,7 @@ function hallFields(
   id: string,
 ): { hall?: { x: number; y: number }; away?: string } {
   if (!state.proposeInPerson) return {};
-  const door = townHallTile(state.config);
+  const door = townHallTile(state);
   const me = residentById(state, id);
   if (!me) return { hall: door };
   const away = notAtTheHall(state, me);
@@ -131,7 +131,7 @@ export function townView(state: WorldState, social: SocialService, viewer?: stri
     board: social.board(viewer),
     you: viewer && state.residents[viewer] ? you(viewer) : null,
     nextClose: closes.length > 0 ? iso(Math.min(...closes)) : null,
-    hall: townHallTiles(state.config),
+    hall: townHallTiles(state),
     limits: { ...TOWN_VIEW_LIMITS },
     treasury: treasuryView(state, (id) => social.authorView(id)),
     shop: townShopView(state),

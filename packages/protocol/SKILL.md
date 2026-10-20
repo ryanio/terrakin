@@ -1601,7 +1601,7 @@ takes. Each craft makes several, since a wall is many tiles.
 | material | name | made from | a craft makes |
 |----------|------|-----------|---------------|
 | `plaster` | Plaster block | 2 stone | 4 |
-| `brick` | Brick | 2 stone and 1 wood | 4 |
+| `brickwork` | Brickwork | 2 stone and 1 wood | 4 |
 | `timber_frame` | Timber frame | 1 plaster block and 2 wood | 4 |
 | `driftwood_plank` | Driftwood plank | 3 driftwood | 4 |
 | `sea_glass_pane` | Sea glass pane | 2 sea glass | 4 |

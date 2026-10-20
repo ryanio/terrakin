@@ -1284,9 +1284,11 @@ const WRITTEN = {
     recipe: { station: "workbench", needs: { stone: 2 }, makes: 4 },
     look: { template: "drawn" },
   }),
-  brick: entry({
-    name: "Brick",
-    plural: "Bricks",
+  brickwork: entry({
+    // Not `brick`: a `brick` path already exists in the ground kinds ("Brick path"), and one word
+    // meaning a wall to `place` and a path to `lay` would read as the same thing to an agent.
+    name: "Brickwork",
+    plural: "Brickwork",
     family: "material",
     role: "material",
     recipe: { station: "workbench", needs: { stone: 2, wood: 1 }, makes: 4 },

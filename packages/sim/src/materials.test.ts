@@ -105,7 +105,7 @@ describe("what a made material is", () => {
 describe("making and placing one", () => {
   it("takes what the recipe says, makes several, and places into the wall", () => {
     const { state, bench } = town();
-    const made = ok(state, "ada", craft("brick", bench));
+    const made = ok(state, "ada", craft("brickwork", bench));
     const inventory = made.find((e) => e.type === "inventory");
     expect(inventory).toMatchObject({
       residentId: "ada",
@@ -113,7 +113,7 @@ describe("making and placing one", () => {
       changes: expect.arrayContaining([
         { kind: "stone", amount: -2, count: 38 },
         { kind: "wood", amount: -1, count: 19 },
-        { kind: "brick", amount: 4, count: 4 },
+        { kind: "brickwork", amount: 4, count: 4 },
       ]),
     });
 
@@ -121,11 +121,11 @@ describe("making and placing one", () => {
     const ada = state.residents.ada;
     if (!ada) throw new Error("no ada");
     const at = { x: ada.x, y: ada.y - 1 };
-    ok(state, "ada", { type: "place", block: "brick", ...at });
-    expect(state.items?.inventories.ada?.stacks.brick).toBe(3);
-    expect(state.blocks[`${at.x},${at.y}`]).toBe("brick");
+    ok(state, "ada", { type: "place", block: "brickwork", ...at });
+    expect(state.items?.inventories.ada?.stacks.brickwork).toBe(3);
+    expect(state.blocks[`${at.x},${at.y}`]).toBe("brickwork");
     ok(state, "ada", { type: "remove", ...at });
-    expect(state.items?.inventories.ada?.stacks.brick).toBe(4);
+    expect(state.items?.inventories.ada?.stacks.brickwork).toBe(4);
   });
 
   it("is refused with nothing to build from, and the world is untouched", () => {

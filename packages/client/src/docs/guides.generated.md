@@ -411,6 +411,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 Latest, 2026-10-20:
 
 - Added: Five made materials for walls and windows
+- Added: `material`, a new item category and recipe flag on `GET /v1/catalog`
 - Added: Your check-in says when nobody can walk to your hearth
 - Added: A passkey bound to you, or signing in as you, now tells you
 - Added: `GET /v1/claims` marks the passkey that signed you in

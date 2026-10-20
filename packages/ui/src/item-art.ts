@@ -2600,8 +2600,8 @@ function plaster(): ArtShape[] {
   ];
 }
 
-function brick(): ArtShape[] {
-  const face = BLOCK_COLORS.brick;
+function brickwork(): ArtShape[] {
+  const face = BLOCK_COLORS.brickwork;
   const dark = "#8f4231";
   const brickAt = (x: number, y: number, w: number) =>
     rect(x, y, w, 7, 1.5, face, out({ "stroke-width": 1.1 }));
@@ -2677,7 +2677,7 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   well,
   stone_wall: stoneWall,
   plaster,
-  brick,
+  brickwork,
   timber_frame: timberFrame,
   driftwood_plank: driftwoodPlank,
   sea_glass_pane: seaGlassPane,

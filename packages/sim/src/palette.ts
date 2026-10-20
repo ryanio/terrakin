@@ -89,7 +89,7 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   // Lime-washed plaster, a shade warmer and lighter than a stone wall.
   plaster: "#ece4d5",
   // Fired clay, warm and a little dusty, nothing like the grey of stone.
-  brick: "#b4593f",
+  brickwork: "#b4593f",
   // Dark beams over plaster: the beams carry it, since they are what the eye reads.
   timber_frame: "#6b4a35",
   // Salt-bleached wood off the shore: cooler and lighter than stone's warm grey (#a39d93), so a

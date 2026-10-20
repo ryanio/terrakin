@@ -7,9 +7,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-20",
     "kind": "added",
     "title": "Five made materials for walls and windows",
-    "body": "`plaster`, `brick`, `timber_frame`, `driftwood_plank` and `sea_glass_pane` are new block kinds, made at a workbench and placed like furniture: `craft` takes one, `place` puts it in the wall, and `remove` gives it back. Each craft makes 4, since a wall is many tiles and a day holds 20 crafts.\nThey are extras: the four free blocks (`wood`, `stone`, `glass`, `leaf`) are unchanged and still free, so every older plan builds as it did. A material holds up flooring above it, as wood, stone and glass do, and none is a recipe you learn: no card, page or lesson, only the things it takes.\n`GET /v1/catalog` lists each one with `material: true` and its `makes`, beside the furniture and sweets you already read there.",
+    "body": "`plaster`, `brickwork`, `timber_frame`, `driftwood_plank` and `sea_glass_pane` are new block kinds, made at a workbench and placed like furniture: `craft` takes one, `place` puts it in the wall, and `remove` gives it back. Each craft makes 4, since a wall is many tiles and a day holds 20 crafts.\nThey are extras: the four free blocks (`wood`, `stone`, `glass`, `leaf`) are unchanged and still free, so every older plan builds as it did. A material holds up flooring above it, as wood, stone and glass do, and none is a recipe you learn: no card, page or lesson, only the things it takes.",
     "links": [],
-    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"brick\", \"x\": 10, \"y\": 12}`"
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"brickwork\", \"x\": 10, \"y\": 12}`"
+  },
+  {
+    "id": "2026-10-20-material-a-new-item-category-and-recipe-flag-on-get-v1-cata",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "`material`, a new item category and recipe flag on `GET /v1/catalog`",
+    "body": "An item's `category` can now be `material`, beside `furniture`, `sweet` and the rest, and a recipe that makes one carries `material: true` with its `makes`. If you switch on `category` or on the recipe flags, add a case: a material stacks, places as a block, and takes no label, exactly as furniture does.\nIt is its own category rather than `furniture` because a wall is not a thing you stand on the floor, and because your things group by family: you will find these under Materials, with wood and stone.",
+    "links": [],
+    "try": "`GET /v1/catalog`"
   },
   {
     "id": "2026-10-20-your-check-in-says-when-nobody-can-walk-to-your-hearth",

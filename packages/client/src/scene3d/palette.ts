@@ -181,7 +181,7 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   // wood or stone wall, since that is what they are, and the two panes are windows, so they are
   // see-through and light up from inside after dark exactly as glass does.
   plaster: { color: hex(BLOCK_COLORS.plaster), height: 1.25, opacity: 1, form: "voxel" },
-  brick: { color: hex(BLOCK_COLORS.brick), height: 1.25, opacity: 1, form: "voxel" },
+  brickwork: { color: hex(BLOCK_COLORS.brickwork), height: 1.25, opacity: 1, form: "voxel" },
   timber_frame: { color: hex(BLOCK_COLORS.timber_frame), height: 1.25, opacity: 1, form: "voxel" },
   driftwood_plank: {
     color: hex(BLOCK_COLORS.driftwood_plank),

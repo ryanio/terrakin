@@ -101,7 +101,7 @@ export const BLOCK_KINDS = [
   // Made materials (RFC 0041), on the end like every kind added after the first: walls and
   // windows made at a workbench, held and placed like furniture.
   "plaster",
-  "brick",
+  "brickwork",
   "timber_frame",
   "driftwood_plank",
   "sea_glass_pane",

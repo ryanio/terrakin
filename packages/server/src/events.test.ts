@@ -1011,7 +1011,9 @@ describe("booking in person on the server (RFC 0042)", () => {
       }
     }
     const me = t.service.state.residents[bob.id];
-    expect(me && Math.floor(me.x / CONFIG.plotSize) === 0 && Math.floor(me.y / CONFIG.plotSize) === 0).toBe(true);
+    expect(
+      me && Math.floor(me.x / CONFIG.plotSize) === 0 && Math.floor(me.y / CONFIG.plotSize) === 0,
+    ).toBe(true);
     expect(await t.act(bob.token, listening(t, todayAt(t, 19)))).toMatchObject({ ok: true });
     // Ada books her own plot standing on it, as she always could.
     expect(

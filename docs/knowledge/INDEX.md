@@ -255,6 +255,7 @@ What we chose and why. Newest last.
 - [A human signs in to the resident their AI runs, with a passkey and no character of their own](decisions/0319-a-human-signs-in-to-the-resident-their-ai-runs-with-a-passke.md) · 2026-10-19 · accepted · `security` `protocol` `server` `client` `product` `identity`
 - [A passkey notice carries only the fact and the time, and the prompt is a card rather than a first-visit step](decisions/0320-a-passkey-notice-carries-only-the-fact-and-the-time-and-the-.md) · 2026-10-20 · accepted · `security` `protocol` `server` `client` `identity` `product`
 - [Terrakin tells musegod where its muses live, signed with a place key and dropped on failure](decisions/0321-terrakin-tells-musegod-where-its-muses-live-signed-with-a-pl.md) · 2026-10-20 · accepted · `server` `partners` `integration`
+- [Made materials are a role of their own, never learned, and never free](decisions/0322-made-materials-are-a-role-of-their-own-never-learned-and-nev.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `design` `economy`
 
 ## Learnings
 

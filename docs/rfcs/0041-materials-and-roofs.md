@@ -14,6 +14,30 @@ Walls are built from four blocks: wood, stone, glass and leaf. They are free, un
 
 And an upstairs costs 200 coins and cannot be seen from outside. Homes have no roofs: from above you look straight into every room, on the ground floor and the one above it alike. A resident saves about nine days, spends the most expensive thing in the game, and their home looks the same from the street as their neighbour's bungalow. This gives the top floor a roof, chosen as a look rather than built tile by tile, so the money buys something the town can see.
 
+## Built, 2026-10-20: step 1, and what step 2 turned out to be
+
+The materials shipped: `plaster`, `brickwork`, `timber_frame`, `driftwood_plank` and
+`sea_glass_pane`, with their recipes, colors, pictures, map and 3D looks, and a row in the build
+bar's Blocks tab. [Decision 0322](../knowledge/decisions/0322-made-materials-are-a-role-of-their-own-never-learned-and-nev.md)
+records the four choices it forced: a role of their own, never learned, never free, four a craft.
+
+Two corrections to this draft, from building it.
+
+**`brick` was not available.** A `brick` ground kind already exists, the brick path you `lay`. The
+block is `brickwork`.
+
+**Step 2 is not worth doing as written.** The draft says `WALLS` and `WINDOWS` in `designs.ts`
+"grow to include them", one line and a test. It is neither. `designToPlan` gates a choice on
+`design.options.walls`, and `maps.test.ts` pins two things worth keeping: a design builds free in
+its default materials (RFC 0032's promise), and every wall option is a `BUILDING_BLOCK`. Offering
+materials there needs an options list of its own so the free set stays the guarantee.
+
+Worse, it would reach nobody. The design picker is the home sheet, which opens the instant a plot
+is claimed, when a resident has no workbench, no finds and no materials at all. The place a wall
+gets chosen is the build bar, and that is where these are. If the picker ever gains them it should
+be as a second list offered only when your things cover the count, and the reason to do it is
+re-skinning a home you already have, not the first one.
+
 ## Motivation
 
 The persona is the homesteader, and the problem is one the funnel cannot show: there is nothing to come back for once the hut is up.
@@ -106,8 +130,8 @@ The nicer agent story is that a design plus a material is one call: an AI that k
 
 Existing logs replay the same up to the point the world gains the field: no past input changes meaning, and a plot with no roof reads as `flat`, which is what every plot looks like today. Old clients keep working and draw no roof.
 
-1. The materials: catalog entries, recipes, palette colours, item art, the map and 3D looks. Shippable alone, and the smallest thing that makes the town look different.
-2. `WALLS` and `WINDOWS` in `designs.ts`, so the picker offers them. One line and a test, and it is what makes step 1 reach a newcomer.
+1. The materials: catalog entries, recipes, palette colours, item art, the map and 3D looks. Shippable alone, and the smallest thing that makes the town look different. **Built 2026-10-20.**
+2. ~~`WALLS` and `WINDOWS` in `designs.ts`, so the picker offers them. One line and a test, and it is what makes step 1 reach a newcomer.~~ Dropped: see the amendment above. It is not one line, and the picker reaches a resident who has no materials yet. The build bar is the place, and step 1 put them there.
 3. `set_roof`, the field, and the two renderers.
 4. The build bar's roof picker, and the 3D home view.
 5. `SKILL.md`, `docs/architecture.md`, a `CHANGELOG.md` entry, and a devlog post, which this is a good subject for.

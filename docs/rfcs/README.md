@@ -65,3 +65,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0039](0039-plot-market.md) | A marketplace for plots | draft |
 | [0040](0040-reaching-a-resident-by-email.md) | Reaching a resident by email | draft |
 | [0041](0041-materials-and-roofs.md) | Materials worth choosing, and an upstairs you can see | draft |
+| [0042](0042-actions-that-need-you-there.md) | Actions that need you there | draft |

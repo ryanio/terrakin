@@ -16,7 +16,15 @@ import {
   type WorldEvent,
 } from "./types";
 import { DIRECTIONS, directionOf, route, stepFrom, walkTree, walkWords, worldGround } from "./walk";
-import { chebyshev, createWorld, STEP, shopTiles, townHallTiles, walkHint } from "./world";
+import {
+  chebyshev,
+  createWorld,
+  inBounds,
+  STEP,
+  shopTiles,
+  townHallTiles,
+  walkHint,
+} from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8 to 15; spawn is (12,12). The Town Hall
 // stands on x 11 to 13, y 8 and 9 (its door at (12,9)); the shop on x 11 to 13, y 14 and 15.
@@ -215,8 +223,10 @@ describe("solid buildings", () => {
     // stands in front of either door, which is the whole point of giving the island its own.
     expect(ground.obstacle(36, 18)).toBeUndefined();
     expect(ground.obstacle(36, 21)).toBeUndefined();
-    // Nobody was standing there to step off: the square was open water until the land opened.
-    expect(w.state.lands).toBeDefined();
+    // Nobody was standing there to step off, because until the land opened those tiles weren't in
+    // the world at all, so `solid_buildings` had nothing to move.
+    expect(inBounds(CONFIG, 36, 17)).toBe(false);
+    expect(w.state.config.width).toBe(48);
   });
 
   it("then stop every step onto them, straight or past a corner", () => {

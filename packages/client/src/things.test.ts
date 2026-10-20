@@ -346,6 +346,11 @@ describe("things", () => {
       ],
       ["plot_owned", "This plot is already claimed. Try settle at px 4, py 3.", {}],
       ["plot_is_commons", "The Commons belongs to everyone.", {}],
+      [
+        "plot_is_commons",
+        "That's Willowmere's square, where its own hall and counter stand. Settle on one of its plots instead.",
+        {},
+      ],
       ["plot_limit", "You can own at most 1 plot(s).", {}],
       [
         "not_your_plot",
@@ -383,6 +388,16 @@ describe("things", () => {
       worldProblem("own_plot", "That's your own door, or your household's. Knock at a neighbor's."),
     ).toBe("That door is your household's. Knock at a neighbor's instead.");
     expect(worldProblem("not_your_plot", "x", { hasPlot: false })).toBe(NO_PLOT_LINE);
+    // A land's square answers with the Commons' code, so the line keeps the world's own sentence
+    // and names the land rather than saying the Commons (decision 0332).
+    expect(
+      worldProblem(
+        "plot_is_commons",
+        "That's Willowmere's square, where its own hall and counter stand. Settle on one of its plots instead.",
+      ),
+    ).toBe(
+      "That's Willowmere's square, where its own hall and counter stand. Tap Claim plot to pick an empty plot.",
+    );
     // A gather on someone else's plot says whose it is in plain words, plot or no plot.
     const gather = gatherRefusal();
     for (const hasPlot of [true, false]) {

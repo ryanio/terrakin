@@ -571,7 +571,9 @@ export function worldProblem(
     case "plot_owned":
       return "Someone already lives on this plot. Tap Claim plot to pick an empty one.";
     case "plot_is_commons":
-      return "The Commons belongs to everyone. Tap Claim plot to pick an empty plot.";
+      // Downtown's Commons or a land's own square: the world names which, so use its words
+      // (decision 0332) rather than always saying the Commons.
+      return `${firstSentence(message)} Tap Claim plot to pick an empty plot.`;
     case "plot_limit":
       return "You already have as many plots as you can own.";
     case "not_your_plot":

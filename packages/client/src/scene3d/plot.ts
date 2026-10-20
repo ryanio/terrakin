@@ -40,6 +40,7 @@ import {
   homeFrame,
   modelFootprint,
   type PlotLayout,
+  roofTop,
   signSize,
   smokeStart,
   tileHash,
@@ -47,6 +48,7 @@ import {
 } from "./layout";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometry, petMaterial } from "./pets";
+import { roofMesh } from "./roofs";
 import { scenery } from "./scenery";
 import { createWeather } from "./weather";
 
@@ -119,14 +121,14 @@ export function buildPlot(
   let floors: { group: Group; scope: Scope } | undefined;
   // Figures, placed below; someone on a floor the cut leaves out is faded, their name still shown.
   const figures: Group[] = [];
-  let shownTop = opts.floor ?? layout.top;
+  let shownAt = opts.floor ?? roofTop(layout);
   const fadeAbove = () => {
     for (const [i, fig] of figures.entries()) {
-      fadeFigure(fig, (layout.figures[i]?.floor ?? 0) > shownTop);
+      fadeFigure(fig, (layout.figures[i]?.floor ?? 0) > shownAt);
     }
   };
   const showFloors = (top: number) => {
-    shownTop = top;
+    shownAt = top;
     fadeAbove();
     if (floors) {
       root.remove(floors.group);
@@ -149,12 +151,18 @@ export function buildPlot(
       grain,
     );
     if (slabs) group.add(slabs);
+    // The roof (RFC 0041) is the last thing above the walls, so it goes only with the whole home:
+    // pick a floor and it lifts away, exactly as the flooring over you does.
+    if (layout.roof && top > layout.top) {
+      const roof = roofMesh(origin, layout.roof, grain);
+      if (roof) group.add(roof);
+    }
     root.add(group);
     floors = { group, scope };
     if (fire && layout.hearth) liftSmoke(fire, smokeStart(layout.hearth, shown, flooring));
     stage.invalidate();
   };
-  showFloors(opts.floor ?? layout.top);
+  showFloors(opts.floor ?? roofTop(layout));
   // No grass tufts poking through the ground floor's paths.
   const covered = new Set([...solid, ...downstairs.map((g) => `${g.x},${g.y}`)]);
   const { tufts, flowers, leaves } = groundDecor(
@@ -268,7 +276,7 @@ export function buildPlot(
   }
 
   // The whole home, its top floor too, whichever floor is shown: a photo frames it all.
-  const framed = homeFrame(layout.size, layout.top);
+  const framed = homeFrame(layout.size, roofTop(layout));
   stage.light(new Vector3(0, 0, 0), layout.size / 2 + layout.margin);
   stage.frame(new Vector3(0, framed.y, 0), framed.radius, new Vector3(0.55, 0.78, 1));
   // Signs keep a readable size as the camera pulls back. Only a zoom changes it.

@@ -16,13 +16,16 @@ import {
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
+  holdsRoof,
   isDecorKind,
   PAPER,
+  roofShape,
   THEME_INFO,
   THEME_TINT_ALPHA,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { paintGround } from "@terrakin/ui/ground-art";
+import { roofShade } from "./render/roofs";
 
 /** One tile's worth of a plot drawing, in tiles from the plot's north-west corner. */
 export type PlotMark =
@@ -31,7 +34,9 @@ export type PlotMark =
   | { x: number; y: number; kind: "block"; fill: string; glass: boolean; decor: boolean }
   | { x: number; y: number; kind: "crop"; fill: string; ripe: boolean }
   | { x: number; y: number; kind: "display" }
-  | { x: number; y: number; kind: "hearth" };
+  | { x: number; y: number; kind: "hearth" }
+  /** A tile of the home's roof (RFC 0041), lit by how high its corners stand (`high`, 0 to 1). */
+  | { x: number; y: number; kind: "roof"; fill: string; high: number };
 
 /** The floor a snapshot entry is on: absent is the ground floor. */
 const floorOf = (t: { floor?: number | undefined }) => t.floor ?? 0;
@@ -41,9 +46,10 @@ const GROWING = "#7fae55";
 
 /**
  * What to paint for plot (px, py), back to front: the ground in its season, then paths and flooring,
- * blocks, crops, displays, and hearths, then the flooring and blocks of each floor above the ground floor
- * (RFC 0028), so a home is drawn from above, as the map draws someone else's. `tint` is the owner's
- * theme over the ground, under the paths. Pure, so tests pin it.
+ * blocks, crops, displays, and hearths, then the flooring and blocks of each floor above the ground
+ * floor (RFC 0028), and the home's roof over all of it (RFC 0041), so a home is drawn from above,
+ * as the map draws someone else's. `tint` is the owner's theme over the ground, under the paths.
+ * Pure, so tests pin it.
  */
 export function plotMarks(
   world: WorldSnapshot,
@@ -108,6 +114,28 @@ export function plotMarks(
     }
   }
   for (let floor = 1; floor <= FLOORS.max; floor++) build(floor);
+  // The home's roof over all of it (RFC 0041), as the map draws a plot you're not standing on.
+  const walls = new Map(world.blocks.map((b) => [`${floorOf(b)}|${b.x},${b.y}`, b.block] as const));
+  const roof = roofShape({
+    plotSize: size,
+    px,
+    py,
+    roof: plot?.roof,
+    floors: plot?.floors ?? 0,
+    wall: (x, y, floor) => holdsRoof(walls.get(`${floor}|${x},${y}`)),
+  });
+  if (roof) {
+    const fill = blockFill(roof.material, palette);
+    for (const t of roof.tiles) {
+      marks.push({
+        x: t.x - x0,
+        y: t.y - y0,
+        kind: "roof",
+        fill,
+        high: (t.h[0] + t.h[1] + t.h[2] + t.h[3]) / 4,
+      });
+    }
+  }
   return {
     size,
     ...(palette ? { tint: alphaHex(palette.ground, THEME_TINT_ALPHA) } : {}),
@@ -152,6 +180,11 @@ export function paint(
       ctx.beginPath();
       ctx.arc(left + t / 2, top + t / 2, t * (mark.ripe ? 0.24 : 0.16), 0, Math.PI * 2);
       ctx.fill();
+      return;
+    case "roof":
+      // The map's own shading, so a ridge reads even this small (RFC 0041).
+      ctx.fillStyle = roofShade(mark.fill, mark.high);
+      ctx.fillRect(left, top, t + 0.5, t + 0.5);
       return;
     case "display":
       ctx.fillStyle = PAPER;

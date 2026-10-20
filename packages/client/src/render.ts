@@ -68,6 +68,7 @@ import { type MapGlow, mapGlow } from "./render/glow";
 import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
 import { CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
+import { paintRoof } from "./render/roofs";
 import {
   AWAY_TAG_ALPHA,
   figureSprite,
@@ -77,6 +78,7 @@ import {
   sprite,
 } from "./render/sprites";
 import { type CastMark, paintCast, paintPond } from "./render/water";
+import { roofCover, roofsShown } from "./roofs";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
@@ -587,6 +589,18 @@ export function render(
   // ---- floors (RFC 0028): from above, and cut away at your floor on the plot you're on ----
   const standing = me ? mirror.residents.get(me) : undefined;
   const cut: Cutaway | undefined = cutaway(standing, S, cutFloor);
+  // Roofs (RFC 0041) follow the same rule: every home's but the one you stand on, which lifts
+  // away. They're painted after everything that stands inside a home and before the figures,
+  // which are never hidden, only faded.
+  const roofs = roofsShown(
+    mirror.roofs.keys(),
+    (px, py) => mirror.roofAt(px, py),
+    cut,
+    // Only the plots the view reaches: a roof a plot away still lays its shadow into it.
+    (px, py) =>
+      px * S <= x1 + S && px * S + S - 1 >= x0 - S && py * S <= y1 + S && py * S + S - 1 >= y0 - S,
+  );
+  const roofed = roofCover(roofs);
   // An empty floor picked to build on still dims the ground floor under it.
   const upstairs = mirror.hasUpstairs() || (cut?.floor ?? 0) > 0 ? mirror.layers() : undefined;
   if (upstairs) {
@@ -792,6 +806,11 @@ export function render(
     pets.keep(drawn);
   }
 
+  // ---- roofs (RFC 0041): over the home and all that stands in it, so a street reads as homes ----
+  for (const roof of roofs) {
+    paintRoof(ctx, cam, roof.shape, skinOf(mirror.plots.get(plotKey(roof.px, roof.py)))?.palette);
+  }
+
   // ---- residents: little figures in their looks, each a cached sprite, north to south ----
   const labels: {
     text: string;
@@ -886,9 +905,11 @@ export function render(
     const ground = feet - (p.lift + m.lift) * scale;
     // Leaning, swaying, and squashing from the feet.
     // Never hidden: someone under flooring is drawn faded, with their name (RFC 0028).
+    // Someone inside a home whose roof is drawn is under it too, and fades the same way (RFC 0041).
     const covered =
-      upstairs !== undefined &&
-      underFlooring(upstairs, S, cut, Math.round(m.x), Math.round(m.y), r.floor ?? 0);
+      (upstairs !== undefined &&
+        underFlooring(upstairs, S, cut, Math.round(m.x), Math.round(m.y), r.floor ?? 0)) ||
+      roofed.has(tileKey(Math.round(m.x), Math.round(m.y)));
     ctx.save();
     if (covered) ctx.globalAlpha = UNDER_FLOORING_ALPHA;
     ctx.translate(sx, ground);

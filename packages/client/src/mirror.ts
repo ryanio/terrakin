@@ -18,14 +18,18 @@ import {
   type Ground,
   type GroundKind,
   groundOf,
+  holdsRoof,
   LOOK_KEYS,
   lookOf,
   mayGatherOn,
   type Pet,
   type PickupKind,
+  type PlotRoof,
   pickupOn,
   plotKey,
   type Resident,
+  type RoofShape,
+  roofShape,
   type StepRoutine,
   shopTiles,
   tileKey,
@@ -147,6 +151,8 @@ export class Mirror {
   upstairs = new Map<number, FloorLayer>();
   /** How many floors each plot added above its ground floor, by plotKey. */
   floors = new Map<string, number>();
+  /** Each plot's roof (RFC 0041), by plotKey. Absent while the home has none. */
+  roofs = new Map<string, PlotRoof>();
   /** The tiles the Town Hall stands on. Tapping one opens /town. */
   townHall: { x: number; y: number }[];
   /** The tiles the town shop stands on, once it's open (RFC 0008). Tapping one opens /shop. */
@@ -224,6 +230,7 @@ export class Mirror {
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
       if (p.name !== undefined) this.plotNames.set(plotKey(p.px, p.py), p.name);
       if (p.floors) this.floors.set(plotKey(p.px, p.py), p.floors);
+      if (p.roof) this.roofs.set(plotKey(p.px, p.py), { ...p.roof });
     }
     for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
     for (const g of snapshot.ground ?? []) {
@@ -312,6 +319,18 @@ export class Mirror {
   floorsAt(x: number, y: number): number {
     const { plotSize } = this.config;
     return this.floors.get(plotKey(Math.floor(x / plotSize), Math.floor(y / plotSize))) ?? 0;
+  }
+
+  /** The roof over the plot (px, py), drawn over the walls as this mirror has them (RFC 0041). */
+  roofAt(px: number, py: number): RoofShape | undefined {
+    return roofShape({
+      plotSize: this.config.plotSize,
+      px,
+      py,
+      roof: this.roofs.get(plotKey(px, py)),
+      floors: this.floors.get(plotKey(px, py)) ?? 0,
+      wall: (x, y, floor) => holdsRoof(this.blocksOn(floor).get(tileKey(x, y))),
+    });
   }
 
   /** Whether anything stands or lies on any floor above the ground floor. */
@@ -424,11 +443,19 @@ export class Mirror {
         // A plot's name goes with it (decision 0121), and so do its floors (RFC 0028).
         this.plotNames.delete(key);
         this.floors.delete(key);
+        this.roofs.delete(key);
         break;
       }
       case "floor_added":
         this.floors.set(plotKey(event.px, event.py), event.floor);
         break;
+      case "roof_set": {
+        const key = plotKey(event.px, event.py);
+        // Flat is no roof at all, so it takes the plot's off (RFC 0041).
+        if (event.style === "flat" || !event.material) this.roofs.delete(key);
+        else this.roofs.set(key, { style: event.style, material: event.material });
+        break;
+      }
       case "plot_named": {
         const key = plotKey(event.px, event.py);
         if (event.name === null) this.plotNames.delete(key);

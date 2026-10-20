@@ -54,9 +54,10 @@ export const FLOORS = {
 
 /**
  * The blocks that hold up what's above them: walls and windows, the free ones and the made
- * materials of RFC 0041 alike. A hedge holds nothing up.
+ * materials of RFC 0041 alike. A hedge holds nothing up. A roof sits on the same ones
+ * (`holdsRoof` in `roofs.ts`).
  */
-const HOLDING_BLOCKS: readonly BlockKind[] = ["wood", "stone", "glass", ...MATERIAL_BLOCKS];
+export const HOLDING_BLOCKS: readonly BlockKind[] = ["wood", "stone", "glass", ...MATERIAL_BLOCKS];
 
 /**
  * Blocks that stay on the ground floor, because other state is keyed by their tile alone: crops

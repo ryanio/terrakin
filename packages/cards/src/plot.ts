@@ -137,6 +137,26 @@ export interface PlotFloor {
   blocks: PlotBlock[];
 }
 
+/**
+ * A home's roof from above (RFC 0041): the tiles it covers and how high each of their corners
+ * stands, from 0 at the eave to 1 along the ridge, as the sim's `roofShape` works them out. The
+ * card draws the same slopes the map does, so a photo of a home matches the home.
+ */
+export interface PlotRoofing {
+  /** The block it's covered in, as a color. */
+  fill: string;
+  tiles: {
+    /** Tiles from the area's top left corner. */
+    x: number;
+    y: number;
+    /**
+     * Four heights, north-west, north-east, south-east, south-west. A plain array rather than a
+     * tuple because a spec crosses a Cloudflare RPC boundary, which rewrites tuples as arrays.
+     */
+    h: number[];
+  }[];
+}
+
 /** Something growing in a planter, drawn over it as the map draws it. */
 export interface PlotCrop {
   /** Tiles from the plot's top left corner: the planter's tile. */
@@ -246,6 +266,8 @@ export interface PlotCard {
   floors?: PlotFloor[] | undefined;
   /** The top floor drawn is a floor plan: what's under it shows through dimmed where it has no flooring. */
   floorPlan?: boolean | undefined;
+  /** The home's roof (RFC 0041), over everything standing in it, as the map draws it. */
+  roofs?: PlotRoofing[] | undefined;
   /**
    * A photo taken to post on Terrakin, where the post's card frames it and may crop its sides: no
    * card border, the brand on the photo's own frame, and room all round the frame.
@@ -294,6 +316,8 @@ export interface PlotArea {
    * under it shows through dimmed wherever it has no flooring.
    */
   floorPlan?: boolean | undefined;
+  /** The roofs of the homes in the area (RFC 0041), over everything standing in them. */
+  roofs?: PlotRoofing[] | undefined;
   /** A ring on the ground under someone, drawn under the figures standing in the area. */
   ring?: { x: number; y: number } | undefined;
   /**
@@ -328,6 +352,7 @@ export function plotSvg(c: PlotCard, px: number): string {
     pets: c.pet ? [c.pet] : [],
     figures: c.figures,
     floors: c.floors,
+    roofs: c.roofs,
     floorPlan: c.floorPlan,
     ...(c.surround ? { subject: { x: at.x, y: at.y, w: S, h: S } } : {}),
     sky: c.sky,
@@ -349,6 +374,14 @@ const FLOOR_SHADOW = 0.22;
 const FLOOR_SHADE = "rgba(43, 30, 18, 0.24)";
 /** How dim what's under a floor plan shows where it has no flooring, as on the map. */
 const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
+/** Most roofs an area draws, so a wide picture of the town stays cheap. */
+const MAX_ROOFS = 12;
+/** A roof (RFC 0041): how far its shadow falls, the light on its ridge, and its eaves' ink. */
+const ROOF_SHADOW = 0.16;
+const ROOF_LIGHT = "#fff7e6";
+const ROOF_SHADE = "#3d3024";
+const ROOF_EDGE = "rgba(61, 48, 36, 0.5)";
+const ROOF_RIDGE = "rgba(255, 247, 230, 0.7)";
 /** How faded a figure under flooring is drawn, as on the map. */
 const UNDER_FLOORING_OPACITY = 0.5;
 
@@ -460,6 +493,7 @@ export function areaParts(a: PlotArea): string[] {
     );
   }
   parts.push(...floorsSvg(a, cols, rows, inX, inY));
+  for (const roof of (a.roofs ?? []).slice(0, MAX_ROOFS)) parts.push(...roofSvg(roof, inX, inY));
   // A ring on the ground marks who the picture is about: under the pets and figures, over the rest.
   if (a.ring && Number.isFinite(a.ring.x) && Number.isFinite(a.ring.y)) {
     parts.push(
@@ -613,6 +647,80 @@ function floorsSvg(
     for (const f of s.flooring) parts.push(...pavingSvg(f.paving, f.x, f.y));
     parts.push(...blocksSvg(s.blocks, inX, inY));
   });
+  return parts;
+}
+
+/** A roof tile's four corner heights, each kept to 0 to 1, whatever the spec carried. */
+const corners = (h: number[]): [number, number, number, number] =>
+  [0, 1, 2, 3].map((i) =>
+    Math.max(0, Math.min(1, Number.isFinite(h[i]) ? (h[i] as number) : 0)),
+  ) as [number, number, number, number];
+
+/**
+ * A home's roof (RFC 0041), as the map draws it: its shadow on everything below, then a tile at a
+ * time lit by how high its corners stand, an ink line round the eaves, and a pale line along the
+ * ridge, which is what names a gable, a hip or a pitched roof at a glance.
+ */
+function roofSvg(
+  roof: PlotRoofing,
+  inX: (v: number) => boolean,
+  inY: (v: number) => boolean,
+): string[] {
+  const tiles = roof.tiles.slice(0, MAX_FLOOR_TILES).filter((t) => inX(t.x) && inY(t.y));
+  if (tiles.length === 0) return [];
+  const fill = safeColor(roof.fill);
+  const covered = new Set(tiles.map((t) => `${t.x},${t.y}`));
+  const on = (x: number, y: number) => covered.has(`${x},${y}`);
+  const parts: string[] = [];
+  for (const t of tiles) {
+    parts.push(
+      `<rect x="${n(t.x + ROOF_SHADOW)}" y="${n(t.y + ROOF_SHADOW)}" width="1.02" height="1.02" fill="${FLOOR_SHADE}"/>`,
+    );
+  }
+  for (const t of tiles) {
+    const high = corners(t.h).reduce((sum, h) => sum + h, 0) / 4;
+    parts.push(
+      `<rect x="${t.x}" y="${t.y}" width="1.02" height="1.02" fill="${fill}"/>`,
+      // The eaves sit in shadow and the ridge catches the light, as the map shades them.
+      `<rect x="${t.x}" y="${t.y}" width="1.02" height="1.02" fill="${high >= 0.5 ? ROOF_LIGHT : ROOF_SHADE}" fill-opacity="${n(Math.abs(high - 0.5) * 0.5)}"/>`,
+    );
+  }
+  // The ridge is the pale line where the roof is at its highest, and only where it falls away
+  // across the edge, so the flat top of a gable is outlined rather than gridded into its tiles.
+  const top = Math.max(...tiles.flatMap((t) => corners(t.h)));
+  const heights = new Map(tiles.map((t) => [`${t.x},${t.y}`, corners(t.h)] as const));
+  const falls = (x: number, y: number) => {
+    const h = heights.get(`${x},${y}`);
+    return h === undefined || h.some((k) => k < top);
+  };
+  const eaves: string[] = [];
+  const ridges: string[] = [];
+  for (const t of tiles) {
+    const [nw, ne, se, sw] = corners(t.h);
+    const line = (a: string, b: string, which: string[]) => which.push(`M${a}L${b}`);
+    const NW = `${t.x} ${t.y}`;
+    const NE = `${t.x + 1} ${t.y}`;
+    const SE = `${t.x + 1} ${t.y + 1}`;
+    const SW = `${t.x} ${t.y + 1}`;
+    if (!on(t.x, t.y - 1)) line(NW, NE, eaves);
+    if (!on(t.x, t.y + 1)) line(SW, SE, eaves);
+    if (!on(t.x - 1, t.y)) line(NW, SW, eaves);
+    if (!on(t.x + 1, t.y)) line(NE, SE, eaves);
+    if (nw >= top && ne >= top && falls(t.x, t.y - 1)) line(NW, NE, ridges);
+    if (sw >= top && se >= top && falls(t.x, t.y + 1)) line(SW, SE, ridges);
+    if (nw >= top && sw >= top && falls(t.x - 1, t.y)) line(NW, SW, ridges);
+    if (ne >= top && se >= top && falls(t.x + 1, t.y)) line(NE, SE, ridges);
+  }
+  if (eaves.length > 0) {
+    parts.push(
+      `<path d="${eaves.join("")}" fill="none" stroke="${ROOF_EDGE}" stroke-width="0.05"/>`,
+    );
+  }
+  if (ridges.length > 0) {
+    parts.push(
+      `<path d="${ridges.join("")}" fill="none" stroke="${ROOF_RIDGE}" stroke-width="0.06"/>`,
+    );
+  }
   return parts;
 }
 

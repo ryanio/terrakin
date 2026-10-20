@@ -98,6 +98,9 @@ function inputs(id: string, day: number): [string, Command][] {
     ada({ type: "lay", x: 1, y: 1, floor: id, ground: "dirt" } as unknown as Command),
     ada({ type: "lift", x: 1, y: 1, floor: id } as unknown as Command),
     ada({ type: "add_floor", px: id, py: 0 } as unknown as Command),
+    // A roof's style and covering come from input too (RFC 0041), and neither is ever a key.
+    ada({ type: "set_roof", px: 0, py: 0, style: id, material: "wood" } as unknown as Command),
+    ada({ type: "set_roof", px: 0, py: 0, style: "gable", material: id } as unknown as Command),
     ada({ type: "putter", steps: [id] } as Command),
     ada({ type: "claim_bounty", bounty: id }),
     ada({ type: "drop_bounty", bounty: id }),

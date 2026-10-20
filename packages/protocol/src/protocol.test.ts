@@ -299,6 +299,32 @@ describe("Action", () => {
     expect(Action.safeParse({ type: "chat", text: "   " }).success).toBe(false);
   });
 
+  it("takes a roof's style and covering, and leaves the covering off a flat one (RFC 0041)", () => {
+    expect(
+      Action.parse({ type: "set_roof", px: 2, py: 1, style: "gable", material: "wood" }),
+    ).toEqual({ type: "set_roof", px: 2, py: 1, style: "gable", material: "wood" });
+    // `flat` takes a roof down and names no covering, so `material` is optional on the wire.
+    expect(Action.parse({ type: "set_roof", px: 2, py: 1, style: "flat" })).toEqual({
+      type: "set_roof",
+      px: 2,
+      py: 1,
+      style: "flat",
+    });
+    // A made material is a covering; a block that is neither a wall nor a window is not.
+    expect(
+      Action.safeParse({ type: "set_roof", px: 0, py: 0, style: "hip", material: "brickwork" })
+        .success,
+    ).toBe(true);
+    for (const bad of [
+      { style: "mansard", material: "wood" },
+      { style: "gable", material: "bookshelf" },
+    ]) {
+      expect(Action.safeParse({ type: "set_roof", px: 0, py: 0, ...bad }).success, bad.style).toBe(
+        false,
+      );
+    }
+  });
+
   it("carries a floor on every action and plan entry that names a tile (RFC 0028)", () => {
     expect(Action.parse({ type: "add_floor", px: 0, py: 0, dry: true })).toEqual({
       type: "add_floor",

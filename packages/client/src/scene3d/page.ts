@@ -158,7 +158,10 @@ export function mount3d(
         const viewer = everyoneIn(snapshot).find((r) => r.id === savedResidentId());
         const floor = startFloor(layout, viewer);
         const scene = buildPlot(stage, layout, extras, { onNote: showNote, floor });
-        if (layout.top > 0) bar.append(floorPicker(layout.top, floor, scene.showFloors));
+        // A home with a roof gets the picker too, so its roof can be lifted to look inside.
+        if (layout.top > 0 || layout.roof) {
+          bar.append(floorPicker(layout.top, floor, scene.showFloors, layout.roof !== undefined));
+        }
       }
       if (gone) return;
       status.textContent = "";
@@ -265,10 +268,16 @@ export function mount3d(
 
 /**
  * The floor picker (RFC 0028): a chip for each floor, "Ground floor" and "Upstairs", on a line
- * of its own under the bar. The pressed one shows that floor and everything under it.
+ * of its own under the bar, with one more for the home under its roof (RFC 0041). The pressed one
+ * shows that floor and everything under it.
  */
-function floorPicker(top: number, start: number, show: (top: number) => void): HTMLElement {
-  const row = floorChips(h("div", { class: "view3d-floors" }), top, start, show);
+function floorPicker(
+  top: number,
+  start: number,
+  show: (top: number) => void,
+  roof = false,
+): HTMLElement {
+  const row = floorChips(h("div", { class: "view3d-floors" }), top, start, show, roof);
   return h("div", { class: "view3d-floors-line" }, row);
 }
 

@@ -10,6 +10,7 @@ import {
   type FindKind,
   type GroundKind,
   type Holiday,
+  holdsRoof,
   type MadeKind,
   type Pattern,
   type PetCoat,
@@ -17,6 +18,8 @@ import {
   plotKey,
   type ResidentColor,
   type ResidentShape,
+  type RoofShape,
+  roofShape,
   type Season,
   sortWear,
   type ThemePalette,
@@ -289,8 +292,8 @@ export function cutWalls<T extends { block: BlockKind; own?: boolean; floor?: nu
 /**
  * The sphere the 3D home view frames, for a plot `size` tiles across whose highest floor is
  * `top`: its middle lifted half a floor for each floor up, and its radius grown as much, so a
- * photo of a home with a loft keeps the loft's walls in it with room to spare. A home of one
- * floor frames as it always has.
+ * photo of a home with a loft keeps the loft's walls in it with room to spare. A roof counts as a
+ * floor here (`roofTop`), which is a little more room than it needs and never crops its ridge.
  */
 export function homeFrame(size: number, top: number): { y: number; radius: number } {
   const rise = floorY(top) / 2;
@@ -298,14 +301,21 @@ export function homeFrame(size: number, top: number): { y: number; radius: numbe
 }
 
 /**
+ * How high the 3D home view can be shown: its highest floor, or one above it when it has a roof
+ * (RFC 0041), which is the whole home from the street.
+ */
+export const roofTop = (layout: Pick<PlotLayout, "top" | "roof">): number =>
+  layout.top + (layout.roof ? 1 : 0);
+
+/**
  * The floor the 3D home view starts on: cut away at the floor you stand on while you're on the
- * plot, as the map is, else the whole home (its highest floor).
+ * plot, as the map is (so its roof lifts away too), else the whole home, roof and all.
  */
 export function startFloor(
-  layout: Pick<PlotLayout, "bounds" | "top">,
+  layout: Pick<PlotLayout, "bounds" | "top" | "roof">,
   viewer: { x: number; y: number; online: boolean; floor?: number | undefined } | undefined,
 ): number {
-  if (!viewer?.online || !inBounds(layout.bounds, viewer.x, viewer.y)) return layout.top;
+  if (!viewer?.online || !inBounds(layout.bounds, viewer.x, viewer.y)) return roofTop(layout);
   return Math.min(viewer.floor ?? 0, layout.top);
 }
 
@@ -460,6 +470,8 @@ export interface PlotLayout {
   ground: LayoutGround[];
   /** The highest floor with anything on it on the plot shown (RFC 0028): 0 for one floor. */
   top: number;
+  /** The plot's roof, over the highest floor its walls reach (RFC 0041). Absent with none. */
+  roof?: RoofShape;
   hearth: { x: number; y: number } | null;
   figures: LayoutFigure[];
   /** What's on display on the plot's pedestals and frames. */
@@ -672,6 +684,19 @@ export function plotLayout(
 
   const holiday = eveningHoliday(snapshot.holidays);
   const evening = holiday ? { holiday } : {};
+  // The plot's roof (RFC 0041), drawn over the walls the snapshot carries, as the map draws it.
+  const here = snapshot.plots.find((p) => p.px === plot.px && p.py === plot.py);
+  const walls = new Map(
+    blocks.flatMap((b) => (b.own ? [[`${b.floor ?? 0}|${b.x},${b.y}`, b.block] as const] : [])),
+  );
+  const roof = roofShape({
+    plotSize,
+    px: plot.px,
+    py: plot.py,
+    roof: here?.roof,
+    floors: here?.floors ?? 0,
+    wall: (x, y, floor) => holdsRoof(walls.get(`${floor}|${x},${y}`)),
+  });
   return {
     ownerId: owner.id,
     ownerName: owner.name,
@@ -683,6 +708,7 @@ export function plotLayout(
     blocks,
     ground,
     top,
+    ...(roof ? { roof } : {}),
     hearth,
     figures,
     displays,

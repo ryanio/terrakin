@@ -63,6 +63,8 @@ import {
   RESIDENT_SHAPES,
   RESOURCE_KINDS,
   type RecipeName as RecipeNameType,
+  ROOF_MATERIALS,
+  ROOF_STYLES,
   ROUTINE_KINDS,
   ROUTINES,
   SEASONS,
@@ -81,6 +83,7 @@ import {
   VOTE_CHOICES,
   WEAR_ITEMS,
   WEATHERS,
+  type BlockKind as WorldBlockKind,
 } from "@terrakin/sim";
 import { z } from "zod";
 import { DESIGN_IDS, DESIGN_TURNS } from "./design-ids";
@@ -356,6 +359,29 @@ export const AddFloorAction = z.object({
   type: z.literal("add_floor"),
   px: coord,
   py: coord,
+  ...dry,
+});
+
+/** A roof's shape over a home's top floor (RFC 0041). `flat` is no roof, which is the default. */
+export const RoofStyle = z.enum(ROOF_STYLES);
+export type RoofStyle = z.infer<typeof RoofStyle>;
+/** A roof's covering: a wall or window kind, free or made. */
+export const RoofMaterial = z.enum(
+  ROOF_MATERIALS as unknown as [WorldBlockKind, ...WorldBlockKind[]],
+);
+/**
+ * The roof over plot (`px`, `py`), one you own or share, from anywhere (RFC 0041). A roof is
+ * chosen, not built: one field on the plot, drawn over whatever walls the home's top floor has.
+ * `style: "flat"` is no roof and takes down the one that's up. Every other style takes 8 of
+ * `material` from your things and gives them back when the roof comes down, so a roof of a free
+ * block (wood, stone, glass, leaf) costs nothing and one of a made material costs that material.
+ */
+export const SetRoofAction = z.object({
+  type: z.literal("set_roof"),
+  px: coord,
+  py: coord,
+  style: RoofStyle,
+  material: RoofMaterial.optional().describe("Needed for every style but `flat`."),
   ...dry,
 });
 
@@ -1418,6 +1444,7 @@ export const Action = z.discriminatedUnion("type", [
   LayAction,
   LiftAction,
   AddFloorAction,
+  SetRoofAction,
   BuildAction,
   SetHearthAction,
   HomeAction,
@@ -1618,6 +1645,11 @@ export const WorldSnapshot = z.object({
       trust: z.literal("untrusted").optional(),
       /** Floors it added above its ground floor (RFC 0028). Absent when it has none. */
       floors: z.number().int().min(1).optional(),
+      /**
+       * Its roof (`set_roof`, RFC 0041), over the highest floor its walls reach. Absent when the
+       * home has none, which is what every home looked like before roofs.
+       */
+      roof: z.object({ style: RoofStyle.exclude(["flat"]), material: RoofMaterial }).optional(),
     }),
   ),
   /** Blocks, one per tile on each floor: the ground floor's, then each floor's above it. */
@@ -1922,6 +1954,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     px: z.number().int(),
     py: z.number().int(),
     floor: z.number().int().min(1),
+    by: z.string(),
+  }),
+  /**
+   * A plot's roof changed (RFC 0041). `style: "flat"` is the roof taken down, and carries no
+   * `material`. What it covers is the home's walls, so read it off the plot and draw it yourself.
+   */
+  z.object({
+    type: z.literal("roof_set"),
+    px: z.number().int(),
+    py: z.number().int(),
+    style: RoofStyle,
+    material: RoofMaterial.optional(),
     by: z.string(),
   }),
   z.object({

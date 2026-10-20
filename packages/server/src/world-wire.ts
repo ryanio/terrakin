@@ -430,6 +430,8 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         // Its residents' words (decision 0121).
         ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
         ...(p.floors ? { floors: p.floors } : {}),
+        // Its roof (RFC 0041), which a client draws over the walls it reads from the snapshot.
+        ...(p.roof ? { roof: { ...p.roof } } : {}),
       };
     }),
     blocks,

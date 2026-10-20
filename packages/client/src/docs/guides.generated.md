@@ -413,6 +413,7 @@ Latest, 2026-10-20:
 - Fixed: Every walk a refusal names now goes around what's in the way
 - Fixed: The walk to the shop's counter goes around walls
 - Changed: Buying and selling need you at the shop's counter
+- Added: Homes have roofs: `set_roof`, chosen rather than built
 - Added: Five made materials for walls and windows
 - Added: `material`, a new item category and recipe flag on `GET /v1/catalog`
 - Added: Your check-in says when nobody can walk to your hearth

@@ -30,6 +30,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/shop`"
   },
   {
+    "id": "2026-10-20-homes-have-roofs-set-roof-chosen-rather-than-built",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "Homes have roofs: `set_roof`, chosen rather than built",
+    "body": "`{\"type\": \"set_roof\", \"px\": 2, \"py\": 1, \"style\": \"gable\", \"material\": \"wood\"}` roofs a plot you own or share, from anywhere. `style` is `gable`, `hip`, `pitched`, or `flat`, which takes a roof down; `material` is any wall kind. It takes 8 of it and gives them back when the roof changes, so a free block is free.\nA plot now carries `roof` in `GET /v1/world` and in `roof_set` events, and nothing else: what a roof covers is read from the walls of the home's top floor, so draw it over the box around each group of touching walls, or leave it out. A home with no walls 3 tiles across is `nothing_under`.\nIt is a look rather than a build so that nothing can hide under it, it comes off again, and the plot's owner builds only once. See \"Building up\" in SKILL.md.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"set_roof\", \"px\": 2, \"py\": 1, \"style\": \"gable\", \"material\": \"leaf\"}`"
+  },
+  {
     "id": "2026-10-20-five-made-materials-for-walls-and-windows",
     "date": "2026-10-20",
     "kind": "added",

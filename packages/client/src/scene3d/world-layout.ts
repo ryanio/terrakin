@@ -12,6 +12,7 @@ import {
   groundTile,
   type PickupKind,
   type Resident,
+  type RoofShape,
   type Scenery,
   type Season,
   STEP,
@@ -130,6 +131,8 @@ export interface PlotChunk {
   ground: { x: number; y: number; ground: GroundKind; floor?: number }[];
   /** The highest floor with anything on it, shown or cut away. */
   highest: number;
+  /** Its roof (RFC 0041), drawn over the walls, or none while the plot is the one cut away. */
+  roof?: RoofShape;
   hearths: Tile[];
   /** What's on display on its pedestals and frames, and what grows in its planters. */
   displays: LayoutDisplay[];
@@ -175,6 +178,8 @@ export interface ChunkSource {
   residents?: PileSource["residents"];
   /** How many presents wait for each resident (RFC 0034). Absent reads as none. */
   presents?: ReadonlyMap<string, number>;
+  /** The roof over a plot (RFC 0041), drawn over its walls (`Mirror.roofAt`). */
+  roofAt?(px: number, py: number): RoofShape | undefined;
 }
 
 /** The piles of presents (RFC 0034) on one plot, by tile key, with the words for its signature. */
@@ -291,6 +296,9 @@ export function readChunk(
   parts.push(...up.parts);
   const presents = pilesOn(source, bounds);
   for (const p of presents) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
+  // The roof lifts away on the plot you stand on, which is the one with a cut (RFC 0041).
+  const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
+  if (roof) parts.push(`roof:${roof.style}:${roof.material}:${roof.floor}`);
   return {
     px,
     py,
@@ -299,6 +307,7 @@ export function readChunk(
     blocks,
     ground,
     highest: up.highest,
+    ...(roof ? { roof } : {}),
     hearths: homes,
     displays,
     crops,

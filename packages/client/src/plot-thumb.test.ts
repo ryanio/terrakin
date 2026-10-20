@@ -78,4 +78,38 @@ describe("a plot's drawing", () => {
       expect.objectContaining({ x: 0, y: 1, kind: "block", glass: true }),
     ]);
   });
+
+  it("puts the roof over the home, last of all, from the sim's own shape (RFC 0041)", () => {
+    // Four walls across the plot's north-west, and a gable of wood over them.
+    const walls: WorldSnapshot["blocks"] = [];
+    for (let x = 4; x <= 6; x++) {
+      for (let y = 0; y <= 2; y++) {
+        if (x === 5 && y === 1) continue;
+        walls.push({ x, y, block: "wood" });
+      }
+    }
+    const roofed: WorldSnapshot = {
+      ...world,
+      residents: [],
+      crops: [],
+      ground: [],
+      plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
+      blocks: walls,
+    };
+    const marks = plotMarks(roofed, 1, 0).marks.filter((m) => m.kind !== "ground");
+    const roof = marks.filter((m) => m.kind === "roof");
+    // The box around the walls, nine tiles, and every one of them after the blocks.
+    expect(roof).toHaveLength(9);
+    expect(marks.slice(-9)).toEqual(roof);
+    expect(roof.map((m) => `${m.x},${m.y}`)).toContain("1,1");
+    // The ridge runs through the middle row, so it stands higher than the eaves.
+    const at = (x: number, y: number) => roof.find((m) => m.x === x && m.y === y);
+    expect((at(1, 1)?.high ?? 0) > (at(1, 0)?.high ?? 0)).toBe(true);
+    // A plot with no roof set gets none, however its walls stand.
+    expect(
+      plotMarks({ ...roofed, plots: [{ px: 1, py: 0, ownerId: "ivy" }] }, 1, 0).marks.filter(
+        (m) => m.kind === "roof",
+      ),
+    ).toEqual([]);
+  });
 });

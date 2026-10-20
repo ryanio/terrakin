@@ -7,7 +7,8 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * Then, in the world's build bar, they lay a dirt path from the Paths tab and place the table
  * from the Furniture tab, and the world shows both. Then a neighbor with a hut builds up (RFC
  * 0028): an upstairs added from the build bar after a second tap, stairs, a loft's flooring laid with
- * Upstairs picked, and Go up beside her on the stairs, with the picker following her up.
+ * Upstairs picked, and Go up beside her on the stairs, with the picker following her up, then a
+ * gable roof of wood put on from the bar's Roof chip (RFC 0041).
  */
 
 interface Tile {
@@ -193,6 +194,28 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
       "aria-pressed",
       "true",
     );
+  });
+
+  await test.step("put a gable roof of wood on the home from the build bar's Roof chip", async () => {
+    const roof = page.locator("#palette-roof");
+    await expect(roof).toHaveText("Roof");
+    await roof.click();
+    const sheet = page.locator(".roof-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Gable" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await sheet.locator("#roof-set").click();
+    await expect(sheet).toBeHidden();
+    // The world took it, and the chip reads the roof the mirror now has.
+    await expect
+      .poll(async () => {
+        const world = await (await page.request.get("/v1/world")).json();
+        return world.plots.find((p: { roof?: unknown }) => p.roof)?.roof;
+      })
+      .toEqual({ style: "gable", material: "wood" });
+    await expect(roof).toHaveText("Roof: gable");
   });
 
   expect(errors).toEqual([]);

@@ -10,6 +10,7 @@ import {
   type PlotGround,
   type PlotInk,
   type PlotPet,
+  type PlotRoofing,
   probeImage,
 } from "@terrakin/cards";
 import { floorName } from "@terrakin/protocol";
@@ -43,6 +44,7 @@ import {
   petShapes,
   plotKey,
   plotOf,
+  plotRoof,
   type Resident,
   seasonOf,
   skyAt,
@@ -273,11 +275,22 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
       ? petPicture(owner.pet, ownHearth, petBed(worldGround(state), ownHearth), bx, by)
       : undefined;
 
+  // The home's roof (RFC 0041), drawn from above only: a floor plan is for seeing in.
+  const roofs =
+    floor === undefined
+      ? roofsIn(state, bx, by, cols, rows, paletteAt, (px, py) => px === plot.px && py === plot.py)
+      : [];
   // Whoever is standing on the plot, so a home with someone in it reads as one (issue #80). Only
   // the plot's own: a neighbor in their garden isn't the subject, and a photo is kept and posted.
-  const figures = figuresIn(state, bx, by, cols, rows, { x: x0 + S / 2, y: y0 + S / 2 }).filter(
-    inPlot,
-  );
+  const figures = figuresIn(
+    state,
+    bx,
+    by,
+    cols,
+    rows,
+    { x: x0 + S / 2, y: y0 + S / 2 },
+    roofs,
+  ).filter(inPlot);
   // The moment the picture shows: the map's own light and weather (decision 0300).
   const sky = skyAt(o.now, state.day);
   const phase = dayPhase(o.now, DAY_LENGTH_MS);
@@ -312,6 +325,7 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
     ...(tints.length > 0 ? { tints } : {}),
     blocks,
     ...(shown.length > 0 ? { floors: shown } : {}),
+    ...(roofs.length > 0 ? { roofs } : {}),
     ...(floor !== undefined && floor > 0 ? { floorPlan: true } : {}),
     ...(crops.length > 0 ? { crops } : {}),
     ...(hearth ? { hearth: { x: hearth.x - bx, y: hearth.y - by } } : {}),
@@ -397,6 +411,37 @@ export function plotInk(s: ReturnType<typeof seasonOf> | undefined): PlotInk {
  * which tiles count toward `biomes`, so a photo that shows slivers of the world around a plot still
  * describes the plot's own ground (issue #80); without it every tile in the box counts.
  */
+/**
+ * The roofs of the homes in a box of the world (RFC 0041), their tiles counted from its top left,
+ * each in its covering's own color on that plot's theme. `only` keeps it to one plot, which is
+ * what a plot photo wants: a neighbor's roof in a sliver is not the subject. A floor plan asks for
+ * none, since the point of one is seeing in.
+ */
+export function roofsIn(
+  state: WorldState,
+  bx: number,
+  by: number,
+  cols: number,
+  rows: number,
+  palette: (x: number, y: number) => ThemePalette | undefined,
+  only?: (px: number, py: number) => boolean,
+): PlotRoofing[] {
+  const { plotSize } = state.config;
+  const roofs: PlotRoofing[] = [];
+  for (let py = Math.floor(by / plotSize); py <= Math.floor((by + rows - 1) / plotSize); py++) {
+    for (let px = Math.floor(bx / plotSize); px <= Math.floor((bx + cols - 1) / plotSize); px++) {
+      if (only && !only(px, py)) continue;
+      const shape = plotRoof(state, px, py);
+      if (!shape) continue;
+      roofs.push({
+        fill: blockFill(shape.material, palette(px * plotSize, py * plotSize)),
+        tiles: shape.tiles.map((t) => ({ x: t.x - bx, y: t.y - by, h: t.h })),
+      });
+    }
+  }
+  return roofs;
+}
+
 export function areaOf(
   state: WorldState,
   x0: number,
@@ -586,7 +631,11 @@ export function figuresIn(
   cols: number,
   rows: number,
   here: { x: number; y: number },
+  roofs: PlotRoofing[] = [],
 ): SpecFigure[] {
+  // Someone inside a home whose roof the picture draws is under it, and fades as someone under
+  // flooring does (RFC 0041), so a figure never stands on a roof the way the map never lets one.
+  const roofed = new Set(roofs.flatMap((r) => r.tiles.map((t) => `${t.x},${t.y}`)));
   return Object.values(state.residents)
     .filter((r) => r.online && r.x >= x0 && r.x < x0 + cols && r.y >= y0 && r.y < y0 + rows)
     .sort(
@@ -599,7 +648,9 @@ export function figuresIn(
       x: r.x - x0 + 0.5,
       y: r.y - y0 + FEET,
       look: edgeLook(r),
-      ...(underFlooring(state, r.x, r.y, standingFloor(r)) ? { faded: true as const } : {}),
+      ...(underFlooring(state, r.x, r.y, standingFloor(r)) || roofed.has(`${r.x - x0},${r.y - y0}`)
+        ? { faded: true as const }
+        : {}),
     }));
 }
 

@@ -288,6 +288,24 @@ describe("build", () => {
       dry: true,
       error: { code: "too_high" },
     });
+
+    // A roof is a look on the plot (RFC 0041), so the snapshot carries it and nothing else: what
+    // it covers a reader draws from the walls. Flat takes it off the plot again.
+    const roofed = await t.act(ada, {
+      type: "set_roof",
+      px: 0,
+      py: 0,
+      style: "gable",
+      material: "wood",
+    });
+    expect(roofed).toMatchObject({ ok: true });
+    const plotIn = async () =>
+      (await t.call("GET", "/v1/world")).body.plots.find(
+        (p: { px: number; py: number }) => p.px === 0 && p.py === 0,
+      );
+    expect((await plotIn()).roof).toEqual({ style: "gable", material: "wood" });
+    await t.act(ada, { type: "set_roof", px: 0, py: 0, style: "flat" });
+    expect((await plotIn()).roof).toBeUndefined();
   });
 
   it("spaces real builds apart, but never dry runs", async () => {

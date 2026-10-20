@@ -6,6 +6,7 @@ import {
   HAIR_COLOR_INFO,
   HAIR_STYLES,
   RESIDENT_COLORS,
+  type RoofShape,
   THEME_INFO,
   type WearItem,
 } from "@terrakin/sim";
@@ -402,6 +403,12 @@ describe("homes with an upstairs in 3D (RFC 0028)", () => {
     expect(startFloor(layout, { ...on, x: 30 })).toBe(1);
     expect(startFloor(layout, { ...on, online: false })).toBe(1);
     expect(startFloor({ ...layout, top: 0 }, { ...on, floor: 1 })).toBe(0);
+    // A roof is one more step above the top floor (RFC 0041): the street sees the home with it,
+    // and standing on the plot still cuts away at the floor you're on, roof and all.
+    const roof: RoofShape = { style: "gable", material: "wood", floor: 0, tiles: [] };
+    expect(startFloor({ ...layout, roof }, undefined)).toBe(2);
+    expect(startFloor({ ...layout, top: 0, roof }, undefined)).toBe(1);
+    expect(startFloor({ ...layout, roof }, on)).toBe(0);
   });
 
   it("lifts each block upstairs by a floor, as more of the draws its kind already has", () => {
@@ -985,6 +992,7 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/buildings.ts",
     "scene3d/weather.ts",
     "scene3d/presents.ts",
+    "scene3d/roofs.ts",
     "scene3d/fireworks.ts",
     "scene3d/world.ts",
   ]);

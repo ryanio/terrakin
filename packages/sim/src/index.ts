@@ -479,6 +479,20 @@ export {
 export { isRetired, retireProblems } from "./repeat-joins";
 export { REPLAY_VERSION, replay } from "./replay";
 export {
+  holdsRoof,
+  isRoofMaterial,
+  isRoofStyle,
+  plotRoof,
+  ROOF_MATERIALS,
+  ROOFS,
+  type RoofShape,
+  type RoofTile,
+  roofBoxes,
+  roofNeeds,
+  roofSeat,
+  roofShape,
+} from "./roofs";
+export {
   isRoutineKind,
   planStroll,
   ROUTINES,

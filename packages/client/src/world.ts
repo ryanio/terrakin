@@ -30,6 +30,7 @@ import {
   pageKnown,
   parseKey,
   pickupsInReach,
+  plotKey,
   plotOf,
   type Resident,
   route,
@@ -98,6 +99,7 @@ import {
   HEARTH_COLOR,
   render,
 } from "./render";
+import { ROOF_STYLE_WORDS } from "./roofs";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
@@ -159,7 +161,13 @@ disclosure(notesToggle, notesList, undefined, () => {
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 });
-/** Which floor taps build on, or Add an upstairs, on a plot you can build on (RFC 0028). */
+/** The chip at the end of the floors row that opens the roof picker (RFC 0041). */
+const roofToggle = h("button", {
+  class: "palette-notes-toggle",
+  attrs: { type: "button", id: "palette-roof" },
+  on: { click: () => void openRoof() },
+});
+/** Which floor taps build on, Add an upstairs, or the roof, on a plot you can build on. */
 const floorRow = $("palette-floors");
 /** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
 const climbButton = $<HTMLButtonElement>("world-climb");
@@ -1618,7 +1626,10 @@ function paintFloors() {
   const plot = buildMode ? buildablePlot() : undefined;
   // Never a floor the plot lacks: walking onto one with no upstairs builds on its ground floor.
   buildFloor = pickedFloor(buildFloor, plot?.floors, myFloor());
-  const drawn = plot ? `${plot.px},${plot.py},${plot.floors},${buildFloor}` : "";
+  const roofNow = plot ? mirror?.roofs.get(plotKey(plot.px, plot.py)) : undefined;
+  const drawn = plot
+    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""}`
+    : "";
   if (drawn === floorsDrawn) return;
   floorsDrawn = drawn;
   floorRow.hidden = !plot;
@@ -1637,9 +1648,23 @@ function paintFloors() {
     );
     floorRow.append(add);
   }
+  // The roof over the home (RFC 0041), named by the one it has, since it's a look you change.
+  const roof = mirror?.roofs.get(plotKey(plot.px, plot.py));
+  roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
+  roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
+  floorRow.append(roofToggle);
   if (notesToggle.textContent) floorRow.append(notesToggle);
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
+}
+
+/** Open the roof picker for the plot you're building on, loading it on its own. */
+async function openRoof() {
+  const plot = buildablePlot();
+  if (!plot) return;
+  const r = await import("./roof-sheet");
+  const roof = mirror?.roofs.get(plotKey(plot.px, plot.py));
+  r.openRoofSheet({ px: plot.px, py: plot.py, roof, holdings, say: showToast });
 }
 
 /** Build on another floor, and cut the map away there, without moving you. */

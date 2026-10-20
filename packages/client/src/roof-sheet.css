@@ -1,0 +1,30 @@
+/* The roof picker (RFC 0041), opened from the build bar's floors row. */
+.roof-sheet .roof-styles,
+.roof-sheet .roof-materials {
+  gap: var(--space-sm);
+}
+
+.roof-sheet .roof-about {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.roof-sheet .roof-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+}
+
+.roof-sheet .roof-chip-name {
+  font-size: var(--text-xs);
+}
+
+.roof-sheet .roof-covering {
+  gap: var(--space-xs);
+}
+
+.roof-sheet .roof-actions {
+  justify-content: flex-end;
+}

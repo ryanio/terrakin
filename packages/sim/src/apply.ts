@@ -189,6 +189,7 @@ import {
 } from "./recipes";
 import { currentCommand } from "./renamed";
 import { checkRetireRepeatJoins, isRetired } from "./repeat-joins";
+import { checkSetRoof } from "./roofs";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
   checkLowerHolidayPrices,
@@ -1082,6 +1083,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           "Remove every block and lift all the flooring upstairs on the plot first.",
         );
       }
+      // A roof goes with the plot's record too, and its covering would go with it (RFC 0041).
+      if (plot.roof) {
+        return reject(
+          "plot_has_blocks",
+          'Take the roof down first, with set_roof and "style": "flat", so its covering comes back to you.',
+        );
+      }
       // Every hearth on the plot goes with it: a hearth must sit on a plot its resident can build
       // on, and this one is about to be nobody's. Co-owners lose their share exactly as if the
       // owner had sent unshare_plot for each of them, so the events read the same.
@@ -1259,6 +1267,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "add_floor":
       return town(checkAddFloor(state, actor, command));
+
+    case "set_roof":
+      return town(checkSetRoof(state, actor, command));
 
     case "settle": {
       const { px, py } = command;

@@ -29351,6 +29351,9 @@
             "$ref": "#/components/schemas/AddFloorAction"
           },
           {
+            "$ref": "#/components/schemas/SetRoofAction"
+          },
+          {
             "$ref": "#/components/schemas/BuildAction"
           },
           {
@@ -35494,6 +35497,29 @@
           "hearth"
         ]
       },
+      "RoofMaterial": {
+        "type": "string",
+        "enum": [
+          "wood",
+          "stone",
+          "glass",
+          "leaf",
+          "plaster",
+          "brickwork",
+          "timber_frame",
+          "driftwood_plank",
+          "sea_glass_pane"
+        ]
+      },
+      "RoofStyle": {
+        "type": "string",
+        "enum": [
+          "flat",
+          "gable",
+          "hip",
+          "pitched"
+        ]
+      },
       "RoutineChoice": {
         "oneOf": [
           {
@@ -36075,6 +36101,48 @@
           "x",
           "y",
           "color"
+        ]
+      },
+      "SetRoofAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "set_roof"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "style": {
+            "$ref": "#/components/schemas/RoofStyle"
+          },
+          "material": {
+            "description": "Needed for every style but `flat`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RoofMaterial"
+              }
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py",
+          "style"
         ]
       },
       "SetRoutinesAction": {
@@ -37928,6 +37996,47 @@
               "px",
               "py",
               "floor",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "roof_set"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "style": {
+                "$ref": "#/components/schemas/RoofStyle"
+              },
+              "material": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RoofMaterial"
+                  }
+                ]
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "style",
               "by"
             ]
           },
@@ -41253,6 +41362,26 @@
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 9007199254740991
+                },
+                "roof": {
+                  "type": "object",
+                  "properties": {
+                    "style": {
+                      "type": "string",
+                      "enum": [
+                        "gable",
+                        "hip",
+                        "pitched"
+                      ]
+                    },
+                    "material": {
+                      "$ref": "#/components/schemas/RoofMaterial"
+                    }
+                  },
+                  "required": [
+                    "style",
+                    "material"
+                  ]
                 }
               },
               "required": [

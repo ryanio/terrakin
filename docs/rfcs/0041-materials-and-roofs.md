@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-20
-- Status: draft
+- Status: accepted (built: made materials and roofs; see the amendments)
 - Discussion: <PR link>
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (held blocks and ground kinds, the model this copies), [RFC 0028](0028-homes-with-storeys.md) (the upstairs, and the roof it parked), [RFC 0021](0021-collections-and-foraging.md) (the finds these are made from), [RFC 0032](0032-homes-agents-can-design.md) (the designs that would offer them)
 
@@ -37,6 +37,33 @@ is claimed, when a resident has no workbench, no finds and no materials at all. 
 gets chosen is the build bar, and that is where these are. If the picker ever gains them it should
 be as a second list offered only when your things cover the count, and the reason to do it is
 re-skinning a home you already have, not the first one.
+
+## Built, 2026-10-20: steps 3 and 4, the roof
+
+The roof shipped as this draft describes it: `set_roof {px, py, style, material}`, one `roof` field
+on the plot, `flat` for none, drawn by RFC 0028's own cutaway rule so the plot you stand on has its
+roof lifted away. [Decision 0324](../knowledge/decisions/0324-a-roof-is-a-look-on-the-plot-over-the-box-around-each-group-.md)
+records the four choices it forced. Three corrections to this draft, from building it.
+
+**The materials are the wall kinds, not `thatch`, `slate` and `tile`.** A roof is covered in any
+wall or window kind, free or made, and costs `blockNeeds(material)` times `ROOFS.blocks` (8),
+taken when it goes up and given back when it changes. So a free block roofs for free, a made
+material costs that material, a leaf roof is thatch and a glass one is a conservatory. Three new
+kinds of roofing would have needed three recipes, three colors and three pictures for nothing.
+
+**`REPLAY_VERSION` does not move.** The Invariants section says it does, "which is the ordinary cost
+of a world change". That was wrong: `set_roof` is a new command and `roof` is absent until an input
+sets it, so every fixture keeps its pinned hash, and `src/fixtures/roof-log.ts` pins a log with
+roofs in it as the proof.
+
+**The footprint is read from the walls, and the roof sits where the walls reach.** The draft says a
+roof "belongs to the plot's top floor". It sits on the highest floor whose walls hold one, so an
+upstairs with nothing built on it leaves the roof where it was. What it covers is the box around
+each group of touching walls at least 3 tiles across each way, worked out at drawing time; the
+decision record says why, and why the two readings that look more correct both fail on a doorway.
+
+**Open question 3 is answered yes**: a plot with no upstairs may set a roof. The reason is in the
+decision record.
 
 ## Motivation
 
@@ -132,9 +159,9 @@ Existing logs replay the same up to the point the world gains the field: no past
 
 1. The materials: catalog entries, recipes, palette colours, item art, the map and 3D looks. Shippable alone, and the smallest thing that makes the town look different. **Built 2026-10-20.**
 2. ~~`WALLS` and `WINDOWS` in `designs.ts`, so the picker offers them. One line and a test, and it is what makes step 1 reach a newcomer.~~ Dropped: see the amendment above. It is not one line, and the picker reaches a resident who has no materials yet. The build bar is the place, and step 1 put them there.
-3. `set_roof`, the field, and the two renderers.
-4. The build bar's roof picker, and the 3D home view.
-5. `SKILL.md`, `docs/architecture.md`, a `CHANGELOG.md` entry, and a devlog post, which this is a good subject for.
+3. `set_roof`, the field, and the two renderers. **Built 2026-10-20**, with the plot thumbnails, plot photos and pictures by link too.
+4. The build bar's roof picker, and the 3D home view. **Built 2026-10-20.**
+5. `SKILL.md`, `docs/architecture.md`, and a `CHANGELOG.md` entry: **done 2026-10-20**. A devlog post is still to write, and this is a good subject for one.
 
 Step 1 and step 2 together are a week's worth of small, safe work with a visible result, and they do not need steps 3 to 5 to be worth shipping.
 
@@ -150,7 +177,7 @@ Step 1 and step 2 together are a week's worth of small, safe work with a visible
 
 1. Which materials, and how many? Six above is a guess. The cost is per material and mostly art, so the right number is the one we can draw well.
 2. How many finds does a wall take? Wants decision 0039's simulated month rather than a guess.
-3. Can a plot with no upstairs set a roof? Saying yes makes a roof a thing everyone can have and weakens the 200 coins; saying no makes the floor the gate and the roof its reward. The draft leans yes, and the argument for no is good.
+3. ~~Can a plot with no upstairs set a roof?~~ Answered yes, and built that way ([decision 0324](../knowledge/decisions/0324-a-roof-is-a-look-on-the-plot-over-the-box-around-each-group-.md)): what a roof fixes is true of every home, so gating it would leave the town roofless for a reward almost nobody could see.
 4. Does a made material belong in the collection book, like wear and finds, or is it a building supply the book ignores?
 5. Should `FLOORS.max` rise above 1 at the same time, or does a roof give the top floor enough to say?
 6. Do the townsfolk's homes get the new materials, seeded like their routines and pets (decision 0113)? They are the first homes a newcomer sees, so probably yes, and that is a seed change rather than a rule.

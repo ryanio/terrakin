@@ -41,6 +41,7 @@ import {
   petPicture,
   plotInk,
   plotSpecOf,
+  roofsIn,
   type SpecFigure,
 } from "./plot-photo";
 
@@ -186,6 +187,8 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   };
   const area = areaOf(state, x0, y0, cols, rows, paletteAt, commons);
   const floors = drawnFromAbove(area.floors);
+  // Every home's roof in the box (RFC 0041): this picture is the world from above.
+  const roofs = roofsIn(state, x0, y0, cols, rows, paletteAt);
 
   // Each themed plot's tint, cut to the box.
   const S = config.plotSize;
@@ -224,7 +227,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
     if (res.pet) pets.push(petPicture(res.pet, h, petBed(ground, h), x0, y0));
   }
 
-  const figures = figuresIn(state, x0, y0, cols, rows, here);
+  const figures = figuresIn(state, x0, y0, cols, rows, here, roofs);
   const sky = skyAt(o.nowMs, state.day);
   const phase = dayPhase(o.nowMs, DAY_LENGTH_MS);
   // In twentieths, so the picture changes with the light, not with every second.
@@ -254,6 +257,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
       blocks: area.blocks,
       ...(area.crops.length ? { crops: area.crops } : {}),
       ...(floors.length ? { floors } : {}),
+      ...(roofs.length ? { roofs } : {}),
       hearths,
       ...(pets.length ? { pets } : {}),
       figures,

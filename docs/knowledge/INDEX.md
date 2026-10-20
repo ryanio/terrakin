@@ -257,6 +257,7 @@ What we chose and why. Newest last.
 - [Terrakin tells musegod where its muses live, signed with a place key and dropped on failure](decisions/0321-terrakin-tells-musegod-where-its-muses-live-signed-with-a-pl.md) · 2026-10-20 · accepted · `server` `partners` `integration`
 - [Made materials are a role of their own, never learned, and never free](decisions/0322-made-materials-are-a-role-of-their-own-never-learned-and-nev.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `design` `economy`
 - [Shopping needs you at the counter, behind a logged switch](decisions/0323-shopping-needs-you-at-the-counter-behind-a-logged-switch.md) · 2026-10-20 · accepted · `shop` `world` `sim` `agents`
+- [A roof is a look on the plot, over the box around each group of walls](decisions/0324-a-roof-is-a-look-on-the-plot-over-the-box-around-each-group-.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `design`
 
 ## Learnings
 

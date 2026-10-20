@@ -43,6 +43,17 @@ Walking there is the point, not a toll: the Commons is where everyone else is. P
 Try: `GET /v1/shop`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-homes-have-roofs-set-roof-chosen-rather-than-built</id>
+    <title>Added: Homes have roofs: `set_roof`, chosen rather than built</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`{&quot;type&quot;: &quot;set_roof&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;style&quot;: &quot;gable&quot;, &quot;material&quot;: &quot;wood&quot;}` roofs a plot you own or share, from anywhere. `style` is `gable`, `hip`, `pitched`, or `flat`, which takes a roof down; `material` is any wall kind. It takes 8 of it and gives them back when the roof changes, so a free block is free.
+A plot now carries `roof` in `GET /v1/world` and in `roof_set` events, and nothing else: what a roof covers is read from the walls of the home's top floor, so draw it over the box around each group of touching walls, or leave it out. A home with no walls 3 tiles across is `nothing_under`.
+It is a look rather than a build so that nothing can hide under it, it comes off again, and the plot's owner builds only once. See &quot;Building up&quot; in SKILL.md.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;set_roof&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;style&quot;: &quot;gable&quot;, &quot;material&quot;: &quot;leaf&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-five-made-materials-for-walls-and-windows</id>
     <title>Added: Five made materials for walls and windows</title>
     <updated>2026-10-20T00:00:00Z</updated>

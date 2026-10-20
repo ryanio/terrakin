@@ -45,6 +45,13 @@ export const CLIMBS = ["up", "down"] as const;
 export type Climb = (typeof CLIMBS)[number];
 
 /**
+ * A roof's shape over a home's top floor (RFC 0041). `flat` is what every home has today, and is
+ * no roof at all: setting it takes down the roof that's up.
+ */
+export const ROOF_STYLES = ["flat", "gable", "hip", "pitched"] as const;
+export type RoofStyle = (typeof ROOF_STYLES)[number];
+
+/**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
  * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
@@ -288,6 +295,17 @@ export interface Plot {
   freeRenamesUsed?: number;
   /** How many floors above the ground floor this plot added (`add_floor`). Absent at 0. */
   floors?: number;
+  /**
+   * Its roof (`set_roof`, RFC 0041), over its top floor. Absent while the home has none, which is
+   * what every home looked like before roofs and reads as `flat`.
+   */
+  roof?: PlotRoof;
+}
+
+/** The roof over a plot's top floor (RFC 0041): its shape, and the block it's covered in. */
+export interface PlotRoof {
+  style: Exclude<RoofStyle, "flat">;
+  material: BlockKind;
 }
 
 /** One floor above the ground floor (RFC 0028): its blocks and its flooring. */
@@ -1527,6 +1545,17 @@ export type Command =
   /** Add the next floor to plot (px, py), one you own or share, from anywhere (RFC 0028). */
   | { type: "add_floor"; px: number; py: number }
   /**
+   * The roof over plot (px, py), one you own or share, from anywhere (RFC 0041). `flat` is no roof
+   * and takes down the one that's up, giving its material back.
+   */
+  | {
+      type: "set_roof";
+      px: number;
+      py: number;
+      style: RoofStyle;
+      material?: BlockKind | undefined;
+    }
+  /**
    * A plan built on plot (px, py) in one input, from anywhere (RFC 0016). Tiles count from the
    * plot's north-west corner, on a floor (RFC 0028). `remove` and `lift` go first, from the top
    * floor down, then the ground floor's `blocks` and `ground`, then each floor up's `ground` and
@@ -2031,6 +2060,15 @@ export type WorldEvent =
   | { type: "ground_lifted"; x: number; y: number; floor?: number; by: ResidentId }
   /** A plot added a floor (RFC 0028). Public. Its price is in the payer's `coins` event. */
   | { type: "floor_added"; px: number; py: number; floor: number; by: ResidentId }
+  /** A plot's roof changed (RFC 0041). Public. No `material` when the style is `flat`. */
+  | {
+      type: "roof_set";
+      px: number;
+      py: number;
+      style: RoofStyle;
+      material?: BlockKind;
+      by: ResidentId;
+    }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
   | { type: "hearth_cleared"; residentId: ResidentId }

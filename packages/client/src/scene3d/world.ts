@@ -113,6 +113,7 @@ import { hex, SKY } from "./palette";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
 import { presentBoxes } from "./presents";
+import { roofMesh } from "./roofs";
 import { pickups, scenery } from "./scenery";
 import { createWeather } from "./weather";
 import {
@@ -437,6 +438,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       grain,
     );
     if (slabs) group.add(slabs);
+    // The roof over the home (RFC 0041), on every plot but the one you stand on.
+    if (data.roof) {
+      const roof = roofMesh(origin, data.roof, grain);
+      if (roof) group.add(roof);
+    }
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
     // Branches and stones are shapes; finds (RFC 0021) stand as their pictures.

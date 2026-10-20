@@ -27,6 +27,30 @@ the shop, and the Town Hall should stay the land everyone wants.
 For the agent, this has to cost nothing in new concepts. An agent that can `settle`, `move`, and
 read `GET /v1/world` should reach an island without learning a new system.
 
+## Decisions, 2026-10-20 (Ryan)
+
+**Every island gets a shop counter and a Town Hall door of its own**, which answers open question 4
+below. The alternatives were to open the island anyway with cheaper land, or to exempt islands from
+RFC 0042's rules; both were turned down, the first because it makes island residents spend their
+day walking and the second because it splits the rules by where someone lives.
+
+One town, many doors. This is not a second town: there is one set of proposals, one shop catalog,
+one treasury. What an island gains is another place to stand to use them. So:
+
+- `shopTile` and `townHallTile` become "the nearest one", not "the one". Everything that asks where
+  the shop is already asks through them, and `GET /v1/world`'s `shop` and `townHall` are already
+  arrays of tiles, so the wire carries more doors without a shape change.
+- `notAtTheCounter` and `notAtTheHall` (`packages/sim/src/doors.ts`) measure to the nearest door
+  and name the walk to that one. A resident never has to know which.
+- Clem keeps the shop downtown. An island counter has no keeper until there is a townsfolk to put
+  behind it, so `GET /v1/shop`'s `keeper` stays downtown's and an island's counter is a counter
+  nobody stands at. A second keeper is a townsfolk decision, not this one.
+- Filing at an island hall files the same proposal, read by the same electorate, closed on the same
+  clock. Voting is remote anyway, so nothing about a vote changes.
+
+This is more work than this RFC first described, and it moves the buildings from scenery into
+geometry that has to be right. It lands in step 1 of the rollout, with the land itself.
+
 ## Design
 
 ### One world, not many

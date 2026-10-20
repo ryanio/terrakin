@@ -3,11 +3,12 @@ import { apply } from "./apply";
 import { eventHeld, findEvent, joinTile, notAtThePlace } from "./events";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
 import { hashWorld } from "./hash";
+import { tileKey } from "./keys";
 import { replay } from "./replay";
 import { expectSupplyHolds } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
 import { visitTile } from "./visit";
-import { createWorld } from "./world";
+import { createWorld, plotOf } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1, 1), tiles 8 to 15; the Town Hall stands on x 11
 // to 13, y 8 and 9.
@@ -682,6 +683,45 @@ describe("booking in person (RFC 0042)", () => {
     const state = world();
     expect(code(act(state, "ada", { type: "schedule_in_person" } as Command))).toBe("server_only");
     expect(state.scheduleInPerson).toBeUndefined();
+  });
+
+  it("names a walk to a tile the plot can actually be reached at, not its nearest corner", () => {
+    const state = world();
+    ok(town(state, { type: "schedule_in_person" }));
+    // Wall the whole column of Bob's plot that faces Ada, so the tile nearest her is a block
+    // while the other sixty are open. Asking for a walk onto that one tile answers "something
+    // has you closed in" for a plot anyone can stroll onto.
+    const bob = state.residents.bob;
+    if (!bob) throw new Error("bob isn't here");
+    const { px, py } = plotOf(state.config, bob.x, bob.y);
+    const size = state.config.plotSize;
+    const nearest = state.residents.ada && state.residents.ada.x < px * size ? px * size : 0;
+    for (let y = py * size; y < py * size + size; y++) {
+      state.blocks[tileKey(nearest, y)] = "wood";
+    }
+    const me = state.residents.ada;
+    if (!me) throw new Error("ada isn't here");
+    const said = notAtThePlace(state, me, px, py)?.message ?? "";
+    expect(said, said).not.toContain("something has you closed in");
+    expect(said).toContain("Walk there:");
+    // And following it arrives, which is the whole point of naming one.
+    walkToPlace(state, "ada", px, py);
+  });
+
+  it("tells a host upstairs to come down, and names no walk from up there", () => {
+    const state = world();
+    ok(town(state, { type: "schedule_in_person" }));
+    const me = state.residents.ada;
+    if (!me) throw new Error("ada isn't here");
+    const bob = state.residents.bob;
+    if (!bob) throw new Error("bob isn't here");
+    const { px, py } = plotOf(state.config, bob.x, bob.y);
+    const away = notAtThePlace(state, { x: me.x, y: me.y, floor: 1 }, px, py);
+    expect(away?.code).toBe("ground_floor_only");
+    // No walk: `move down` puts them on the staircase, not on the tile they stand on upstairs,
+    // so a walk planned from up here starts in the wrong place. They get one once they're down.
+    expect(away?.message).not.toContain("Walk there:");
+    expect(away?.message).toContain("Events are booked where they happen.");
   });
 });
 

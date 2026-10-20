@@ -21,7 +21,7 @@ import type {
 } from "./types";
 import { EVENT_KINDS, TOWN_ACTOR } from "./types";
 import { visitTile } from "./visit";
-import { walkWords, worldGround } from "./walk";
+import { walkTree, walkWords, worldGround } from "./walk";
 import {
   canBuildOn,
   chebyshev,
@@ -383,22 +383,41 @@ export function notAtThePlace(
   const here = plotOf(state.config, me.x, me.y);
   const upstairs = upstairsProblem(me, "book an event");
   if (here.px === px && here.py === py) return upstairs;
-  const size = state.config.plotSize;
-  let target: Tile | undefined;
-  for (let y = py * size; y < py * size + size; y++) {
-    for (let x = px * size; x < px * size + size; x++) {
-      if (!target || chebyshev(me, { x, y }) < chebyshev(me, target)) target = { x, y };
-    }
-  }
-  const walk = target ? walkWords(state, me, target, 0) : "";
-  const far = refuse(
+  const lead = "Events are booked where they happen.";
+  // Upstairs, say only that. `move down` puts them on the staircase, not on the tile they stand
+  // on up here, so a walk planned from up here starts in the wrong place and its first legs
+  // point at their own walls. The refusal they get once they're down names a right one.
+  if (upstairs) return { ...upstairs, message: `${upstairs.message} ${lead}` };
+  const walk = walkToPlot(state, me, px, py);
+  return refuse(
     "out_of_reach",
     walk === ""
-      ? "Events are booked where they happen. There's no walk from where you stand to that plot: something has you closed in. Take a wall away to open the way out."
-      : `Events are booked where they happen. Walk there: ${walk}.`,
+      ? `${lead} There's no walk from where you stand to that plot: something has you closed in. Take a wall away to open the way out.`
+      : `${lead} Walk there: ${walk}.`,
   );
-  if (upstairs) return { ...upstairs, message: `${upstairs.message} ${far.message}` };
-  return far;
+}
+
+/**
+ * The walk onto a plot: to the nearest of its tiles a walk actually reaches, not the nearest of
+ * its tiles. A built plot's nearest corner is usually a wall, and demanding a walk onto that one
+ * tile answers "something has you closed in" for a plot whose other sixty are open. Empty only
+ * when no tile of the plot can be reached at all, which is the one case those words are true of.
+ */
+function walkToPlot(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+  px: number,
+  py: number,
+): string {
+  const ground = worldGround(state);
+  const reach = Math.max(state.config.width, state.config.height);
+  let best: Tile | undefined;
+  for (const node of walkTree(ground, me, reach)) {
+    const at = plotOf(state.config, node.x, node.y);
+    if (at.px !== px || at.py !== py) continue;
+    if (!best || chebyshev(me, node) < chebyshev(me, best)) best = { x: node.x, y: node.y };
+  }
+  return best ? walkWords(state, me, best, 0) : "";
 }
 
 /**

@@ -9,7 +9,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: f72f3ad48241, 23 entries -->
+<!-- api-fingerprint: 4c59a759470a, 24 entries -->
 
 - **Added** `news` on each plot: one line of what is new there
   `GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `news` once something arrived on a plot in the last 7 UTC days: "A roof went up on Tuesday", "3 beds planted today", "Opened as a gallery yesterday". It is our own words from counts alone, never anything a resident wrote, so it carries no `trust` and never says who.

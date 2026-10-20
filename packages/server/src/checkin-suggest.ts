@@ -213,15 +213,28 @@ function bareLoft(state: WorldState, viewer: string) {
   const floors = plot?.floors ?? 0;
   if (!plot || floors < 1 || !canBuildOn(plot, viewer)) return undefined;
   const s = state.config.plotSize;
+  const ground = plot.px * s;
+  // The staircase, if one already stands: then the line is about the tile it comes up through,
+  // the one tile flooring is refused on, rather than about building stairs they have.
+  let stairs: { x: number; y: number } | undefined;
   for (let floor = 1; floor <= floors; floor++) {
-    const ground = groundOn(state, floor);
+    const up = groundOn(state, floor);
     for (let y = plot.py * s; y < (plot.py + 1) * s; y++) {
-      for (let x = plot.px * s; x < (plot.px + 1) * s; x++) {
-        if (ground[tileKey(x, y)] !== undefined) return undefined;
+      for (let x = ground; x < ground + s; x++) {
+        if (up[tileKey(x, y)] !== undefined) return undefined;
       }
     }
   }
-  return plot;
+  const below = blocksOn(state, 0);
+  for (let y = plot.py * s; y < (plot.py + 1) * s && !stairs; y++) {
+    for (let x = ground; x < ground + s; x++) {
+      if (below[tileKey(x, y)] === "stairs") {
+        stairs = { x, y };
+        break;
+      }
+    }
+  }
+  return { plot, stairs };
 }
 
 /**
@@ -651,11 +664,18 @@ export const TRY_NEXT: readonly TryNext[] = [
     // `place` are everyday calls; laying any flooring up there closes it.
     id: "loft",
     commands: [],
+    // A week, not the usual month: the whole job of this line is to unstick someone who has
+    // already paid, and an upstairs nobody can walk on is worth saying again sooner than that.
+    againDays: 7,
     open: (state, viewer) => bareLoft(state, viewer) !== undefined,
     line: (state, viewer) => {
-      const plot = bareLoft(state, viewer);
-      const where = plot ? `px ${plot.px}, py ${plot.py}` : "your home plot";
-      return `Your upstairs (${where}) has no flooring, so nobody can walk up there yet. Flooring is {"type": "lay", "x": <x>, "y": <y>, "floor": 1, "ground": "dirt"} on a tile with a wall under it (dirt, sand, moss, and fallen leaves cost nothing), and stairs are {"type": "place", "x": <x>, "y": <y>, "block": "stairs"} on the ground floor, ${FLOORS.stairsWood} wood. Put the stairs in first: the tile they come up through stays clear. One {"type": "build"} plan orders it for you, and "Building up" in SKILL.md has one to copy.`;
+      const loft = bareLoft(state, viewer);
+      const where = loft ? `px ${loft.plot.px}, py ${loft.plot.py}` : "your home plot";
+      const { stairs } = loft ?? {};
+      const climb = stairs
+        ? `Your stairs at x ${stairs.x}, y ${stairs.y} come up through that tile on floor 1, so floor the tiles round it and leave that one clear.`
+        : `Stairs are {"type": "place", "x": <x>, "y": <y>, "block": "stairs"} on the ground floor, ${FLOORS.stairsWood} wood, and they go in first: the tile they come up through stays clear.`;
+      return `Your upstairs (${where}) has no flooring, so nobody can walk up there yet. Flooring is {"type": "lay", "x": <x>, "y": <y>, "floor": 1, "ground": "dirt"} on a tile with a wall under it, within ${FLOORS.span} tiles on the floor below (dirt, sand, moss, and fallen leaves cost nothing). ${climb} One {"type": "build"} plan orders the whole loft for you, and "Building up" in SKILL.md has one to copy.`;
     },
   },
   {

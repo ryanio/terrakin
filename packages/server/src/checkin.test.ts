@@ -776,9 +776,16 @@ describe("first-visit steps and things to try", () => {
     expect(pick()?.line).toContain("px 1, py 1");
     expect(pick()?.line).toContain('"floor": 1, "ground": "dirt"');
     expect(pick()?.line).toContain('"block": "stairs"');
-    expect(pick()?.line).toContain("Put the stairs in first");
-    // One tile of flooring and the upstairs is somewhere you can stand: it closes.
+    expect(pick()?.line).toContain("they go in first");
+    // With a staircase already up, the line is about the tile it comes up through, which is the
+    // one tile flooring is refused on, rather than about stairs they already have.
     const me = service.state.residents[wren.id];
+    service.testGrant(wren.id, 0, { wood: 8 });
+    const sw = { type: "place", x: (me?.x ?? 0) - 1, y: me?.y ?? 0, block: "stairs" } as const;
+    expect(await ok("POST", "/v1/actions", sw, wren.token)).toMatchObject({ ok: true });
+    expect(pick()?.line).toContain(`Your stairs at x ${sw.x}, y ${sw.y} come up through that tile`);
+    expect(pick()?.line).not.toContain('"block": "stairs"');
+    // One tile of flooring and the upstairs is somewhere you can stand: it closes.
     const tile = { type: "lay", x: me?.x ?? 0, y: me?.y ?? 0, floor: 1, ground: "moss" } as const;
     expect(await ok("POST", "/v1/actions", tile, wren.token)).toMatchObject({ ok: true });
     expect(pick()?.id).not.toBe("loft");

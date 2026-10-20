@@ -18,7 +18,7 @@ import {
   type WorldEvent,
   type WorldState,
 } from "./types";
-import { type Ground, worldGround } from "./walk";
+import { type Ground, walkWords, worldGround } from "./walk";
 import {
   blocksWalkers,
   canBuildOn,
@@ -28,7 +28,6 @@ import {
   plotAtTile,
   plotInBounds,
   plotOf,
-  walkHint,
 } from "./world";
 
 /**
@@ -187,7 +186,16 @@ const noFloor = (plot?: Plot) => {
 };
 
 /** A tile in a refusal's words, as the rest of the sim names one. */
-const at = (x: number, y: number) => `x ${x}, y ${y}`;
+const tileWords = (x: number, y: number) => `x ${x}, y ${y}`;
+
+/**
+ * Where the stairs are and the walk onto them, around whatever is in the way on that floor. The
+ * walk is left out when none gets there, which a loft with no flooring between the two leaves.
+ */
+function standOn(state: WorldState, me: Resident, stairs: Tile, floor: number): string {
+  const walk = walkWords(state, me, stairs, 0, floorGround(state, floor));
+  return `${tileWords(stairs.x, stairs.y)}.${walk ? ` Walk there first: ${walk}.` : ""}`;
+}
 
 /** The walls that hold up what's above them, for a refusal that has to say which. */
 const HOLDING_WORDS = "wood, stone, glass, or a material you made";
@@ -222,7 +230,12 @@ function stairsOn(state: WorldState, me: Tile, plot: Plot, floor: number): Tile 
 function stairsSpot(state: WorldState, me: Tile, plot: Plot, floor: number): Tile | undefined {
   const blocks = blocksOn(state, floor);
   const above = floor + 1;
-  return plotTilesNear(state, plot, me).find(({ x, y }) => {
+  // Within build reach, so the call it names isn't answered with `out_of_reach` in its turn. A
+  // floor counts as one tile of it, as `outOfFloorReach` has it, since the stairwell is up there.
+  const near = plotTilesNear(state, plot, me).filter(
+    (t) => chebyshev(me, t) + 1 <= state.config.reach,
+  );
+  return near.find(({ x, y }) => {
     const key = tileKey(x, y);
     if (blocks[key] !== undefined) return false;
     if (blocksOn(state, above)[key] !== undefined || groundOn(state, above)[key] !== undefined) {
@@ -242,15 +255,16 @@ function upHint(state: WorldState, me: Resident): string {
   const floor = standingFloor(me);
   if (floor + 1 > FLOORS.max) return ` ${TOO_HIGH}`;
   const plot = plotAtTile(state, me.x, me.y);
+  // Anyone may climb anyone's stairs, so where they are is said on any plot. Only the calls that
+  // build wait on building rights, which is all they would be good for.
+  const stairs = plot && stairsOn(state, me, plot, floor);
+  if (stairs) return ` The stairs on this plot are at ${standOn(state, me, stairs, floor)}`;
   if (!plot || !canBuildOn(plot, me.id)) return "";
-  const stairs = stairsOn(state, me, plot, floor);
-  if (stairs)
-    return ` The stairs on this plot are at ${at(stairs.x, stairs.y)}.${walkHint(me, stairs, 0)}`;
   if ((plot.floors ?? 0) <= floor) return ` ${noFloor(plot)} Stairs go up to it once it's there.`;
   const spot = stairsSpot(state, me, plot, floor);
   if (!spot)
     return " A staircase needs the tile above it clear, and every tile here has something on it.";
-  return ` This plot has none yet: place ${at(spot.x, spot.y)}, block stairs puts a flight up from here, for ${FLOORS.stairsWood} wood. The tile above a staircase stays clear.`;
+  return ` This plot has none yet: place ${tileWords(spot.x, spot.y)}, block stairs puts a flight up from here, for ${FLOORS.stairsWood} wood. The tile above a staircase stays clear.`;
 }
 
 /** Where the way down is, for `no_stairs` on the way down: the stairs under this floor. */
@@ -259,7 +273,7 @@ function downHint(state: WorldState, me: Resident): string {
   const plot = plotAtTile(state, me.x, me.y);
   if (!plot) return "";
   const stairs = stairsOn(state, me, plot, floor - 1);
-  return stairs ? ` The way down is at ${at(stairs.x, stairs.y)}.${walkHint(me, stairs, 0)}` : "";
+  return stairs ? ` The way down is at ${standOn(state, me, stairs, floor)}` : "";
 }
 
 /**
@@ -273,7 +287,7 @@ export function noFlooringHint(state: WorldState, me: Resident, tile: Tile, floo
   if (flooringProblem(state, tile.x, tile.y, floor)) {
     return ` Nothing holds flooring up there: put a wall on the floor below first, within ${FLOORS.span} tiles (${HOLDING_WORDS}).`;
   }
-  return ` Lay some first: lay ${at(tile.x, tile.y)}, floor ${floor}, ground dirt. ${FREE_FLOORING}`;
+  return ` Lay some first: lay ${tileWords(tile.x, tile.y)}, floor ${floor}, ground dirt. ${FREE_FLOORING}`;
 }
 
 /**
@@ -411,13 +425,13 @@ export function blockSupportProblem(
     if (view.block(above, key) !== undefined) {
       return refuse(
         "tile_occupied",
-        `Stairs come up through ${at(x, y)} on floor ${above}, and a block is there. Take it away first: remove ${at(x, y)}, floor ${above}.`,
+        `Stairs come up through ${tileWords(x, y)} on floor ${above}, and a block is there. Take it away first: remove ${tileWords(x, y)}, floor ${above}.`,
       );
     }
     if (view.ground(above, key) !== undefined) {
       return refuse(
         "tile_occupied",
-        `Stairs come up through ${at(x, y)} on floor ${above}, and flooring is there. Lift it first: lift ${at(x, y)}, floor ${above}. That tile stays clear, so stairs go in before the flooring round them.`,
+        `Stairs come up through ${tileWords(x, y)} on floor ${above}, and flooring is there. Lift it first: lift ${tileWords(x, y)}, floor ${above}. That tile stays clear, so stairs go in before the flooring round them.`,
       );
     }
     if (floor > 0 && view.ground(floor, key) === undefined) {
@@ -430,7 +444,7 @@ export function blockSupportProblem(
   if (holds(view.block(floor - 1, key))) return null;
   return refuse(
     "nothing_under",
-    `Nothing holds that up. Lay flooring there first (lay ${at(x, y)}, floor ${floor}), or put a wall right under it.`,
+    `Nothing holds that up. Lay flooring there first (lay ${tileWords(x, y)}, floor ${floor}), or put a wall right under it.`,
   );
 }
 

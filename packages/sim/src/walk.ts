@@ -264,8 +264,14 @@ export function route(ground: Ground, from: Tile, to: Tile, near = 0, radius = 2
  * through whatever stands between, so from a hearth inside a starter hut it points at the hut's
  * own wall, and following it never arrives.
  */
-export function walkWords(state: WorldState, me: Tile, to: Tile, near: number): string {
-  const ground = worldGround(state);
+export function walkWords(
+  state: WorldState,
+  me: Tile,
+  to: Tile,
+  near: number,
+  /** The floor's own ground, for a walk upstairs; the world's is the ground floor's. */
+  ground: Ground = worldGround(state),
+): string {
   const world = Math.max(state.config.width, state.config.height);
   // A detour hardly ever needs more room than the walk itself, and this runs on refusals an agent
   // meets often, so look near first and only fall back to the whole world when that didn't arrive.

@@ -10,9 +10,9 @@ tags: [floors, agents, refusals]
 ## Context
 
 RFC 0028 gave homes an upstairs in August. On terrakin.org on 2026-10-20, of 48 claimed plots exactly
-one had `floors`: Aphation's plot (3, 2). That plot held one staircase at (25, 21), one signpost
-upstairs at (26, 18), and zero tiles of upstairs flooring. So the only resident who spent the 200
-coins could climb to the stairwell, had tried to furnish the floor, and had nothing to stand on.
+one had `floors`. That plot held one staircase, one block upstairs, and zero tiles of upstairs
+flooring. So the only resident who spent the 200 coins could climb to the stairwell, had tried to
+furnish the floor, and had nothing to stand on.
 
 Getting a walkable upstairs is four steps in an order nothing told you: `add_floor`, a staircase on
 the ground floor, flooring upstairs held up by a wall below, and the stairwell left clear. Both
@@ -23,9 +23,9 @@ orders a reasonable agent tries ended in a refusal that named no way on:
 - Flooring first, the obvious reading of "the new floor is empty air until you lay flooring". Every
   tile then refused stairs with "Stairs come up through the tile above them, and something is there.
   Clear it first.", which names no tile, no floor, and no call.
-- Aphation's own case, stairs with no flooring. Every step off the stairwell said "There's no
-  flooring there." That is the live dead end, and nothing in it mentions `lay`, `floor: 1`, the free
-  kinds, or the wall that has to hold the flooring up.
+- The live case, stairs with no flooring. Every step off the stairwell said "There's no flooring
+  there." That is the dead end a paying resident actually met, and nothing in it mentions `lay`,
+  `floor: 1`, the free kinds, or the wall that has to hold the flooring up.
 
 One `build` plan gets the order right by itself, and SKILL.md's walkthrough works, so the rules were
 never the problem. The web client has a floor picker and an "Add an upstairs" button. The surface
@@ -53,8 +53,8 @@ worked out from the world, in [packages/sim/src/floors.ts](../../../packages/sim
 `stepFrom` now reports `at`, the tile it blamed, so a caller can say what to do about that tile.
 
 The check-in gained one suggestion, `loft`, for a resident whose upstairs has no flooring on it, and
-the `upstairs` line says what the 200 coins buy: empty air, with the stairs going in first. That is
-the line Aphation's state would have met.
+the `upstairs` line says what the 200 coins buy: empty air. Where a staircase already stands, the
+line says where it comes up and to floor round that tile rather than it, which is the live case.
 
 The price stays 200 (decision 0242) and `FLOORS.max` stays 1. The funnel above the loft, 1 of 48
 plots paying, is the price and the rule that an agent asks its owner before spending, which are

@@ -440,7 +440,7 @@ describe("the way upstairs", () => {
     // The stairs are built but she isn't on them, so the refusal says where they are and walks her.
     const away = w.refused("ada", { type: "move", dir: "up" });
     expect(away.message).toContain(`at x ${stairs.x}, y ${stairs.y}`);
-    const legs = [...away.message.matchAll(/move (n|s|e|w) (?:once|(\d+) times)/g)];
+    const legs = [...away.message.matchAll(/move ([nsew]{1,2}) (?:once|(\d+) times)/g)];
     expect(legs.length, away.message).toBeGreaterThan(0);
     for (const [, dir, times] of legs) {
       for (let i = 0; i < Number(times ?? 1); i++) {
@@ -494,6 +494,44 @@ describe("the way upstairs", () => {
     w.ok("ada", { type: "move", dir: "w" });
     w.ok("ada", { type: "move", dir: "up" });
     expect(w.state.residents.ada).toMatchObject({ x: 2, y: 3, floor: 1 });
+  });
+
+  it("names the wall a loft needs, where no flooring could be laid yet", () => {
+    const w = loft();
+    // Cy's plot has no walls at all, so nothing upstairs holds flooring up. He adds the floor and
+    // a staircase, climbs, and the step off the stairwell names the wall rather than a lay that
+    // would be refused in its turn.
+    w.ok("cy", { type: "add_floor", px: 1, py: 0 });
+    w.give("cy", { wood: FLOORS.stairsWood });
+    w.ok("cy", { type: "place", x: 11, y: 4, block: "stairs" });
+    w.ok("cy", { type: "move", dir: "s" });
+    w.ok("cy", { type: "move", dir: "up" });
+    const bare = w.refused("cy", { type: "move", dir: "n" });
+    expect(bare.code).toBe("blocked");
+    expect(bare.message).toContain("Nothing holds flooring up there");
+    expect(bare.message).toContain(`within ${FLOORS.span} tiles`);
+    expect(bare.message).not.toContain("lay x");
+  });
+
+  it("tells a visitor where the stairs are, since anyone may climb them", () => {
+    const w = loft();
+    // Bob is on Ada's plot, where he can't build. He can still walk onto her stairs and go up, so
+    // the refusal says where they are, and names none of the calls he'd be refused.
+    w.standAt("bob", 3, 3);
+    const refused = w.refused("bob", { type: "move", dir: "up" });
+    expect(refused.message).toContain("The stairs on this plot are at x 2, y 4.");
+    expect(refused.message).not.toContain("place");
+    expect(refused.message).not.toContain("add_floor");
+    w.ok("bob", { type: "move", dir: "sw" });
+    expect(w.ok("bob", { type: "move", dir: "up" })).toEqual([
+      { type: "moved", residentId: "bob", x: 2, y: 4, floor: 1 },
+    ]);
+    // Back on his own plot, with no upstairs, he gets the call that starts one.
+    w.ok("bob", { type: "move", dir: "down" });
+    w.standAt("bob", 19, 3);
+    expect(w.refused("bob", { type: "move", dir: "up" }).message).toContain(
+      "add_floor at px 2, py 0",
+    );
   });
 
   it("says so on the top floor, and on the ground floor on the way down", () => {

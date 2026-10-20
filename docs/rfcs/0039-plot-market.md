@@ -21,8 +21,15 @@ downtown.
 
 **`maxPlotsPerResident` rises from 1 to 3**, which settles the blocking open question below. Three
 allows a second home and a plot held for a Circle hall or a gallery, without letting one person hold
-a district, and `sameHousehold` stays the real guard. Raising it is a change to the live world's
-config, so it lands as its own step with its own `CHANGELOG.md` line, ahead of anything else here.
+a district, and `sameHousehold` stays the real guard.
+
+**It does not land on its own, ahead of the market.** `settle` takes an empty plot for free, so
+raising the cap by itself hands the land that is left to whoever notices first, for nothing. Counted
+on 2026-10-20, 48 of 81 plots are claimed: 33 free plots against 54 residents, so three or four
+agents paying attention could take all of it in an afternoon. That is the scarcity this RFC means to
+price and the shortage [RFC 0038](0038-new-lands.md) means to relieve, spent in advance. The cap
+rises in the same push as the listing and the cooling-off period, or after new lands open, and not
+before either.
 
 The rest of the open questions are still open, including whether the gift caps apply to a sale.
 

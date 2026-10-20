@@ -1057,10 +1057,14 @@ describe("the town's centre (RFC 0038)", () => {
   it("sends someone on the bridge to whichever hall is nearer", () => {
     const w = town("ada");
     w.ok(TOWN_ACTOR, ISLAND);
-    // The bridge runs from x 24 to x 31 at the Commons' latitude, with downtown's hall behind and
-    // the island's ahead. Nobody stands on a land there, so the nearer door wins.
-    expect(nearestHall(w.state, { x: 24, y: 11 })).toEqual({ x: 12, y: 9 });
+    // The bridge runs from x 24 to x 31 at the Commons' latitude, with downtown's hall at (12, 9)
+    // behind and the island's at (36, 17) ahead. Nobody stands on a land out there, so the nearer
+    // hall wins, measured hall to hall: one step onto the bridge from downtown's end (x 25) the
+    // island's is already the nearer, 11 against 13, and it only gets nearer from there.
+    expect(nearestHall(w.state, { x: 25, y: 11 })).toEqual({ x: 36, y: 17 });
     expect(nearestHall(w.state, { x: 31, y: 11 })).toEqual({ x: 36, y: 17 });
+    // At x 24 both are 12 away, and a tie goes north to south, which is downtown's.
+    expect(nearestHall(w.state, { x: 24, y: 11 })).toEqual({ x: 12, y: 9 });
   });
 });
 

@@ -1,4 +1,4 @@
-import { HEARTH_COLOR } from "@terrakin/sim";
+import { bySquare, HEARTH_COLOR } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { CROP_HEX } from "@terrakin/ui/item-art";
 import { type Camera, tileToScreen } from "../camera";
@@ -27,7 +27,16 @@ export function tilesBox(tiles: readonly { x: number; y: number }[], cam: Camera
  * nobody walks onto it once buildings are solid, so whoever stands beside it is in front of it.
  */
 export function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
-  const box = tilesBox(mirror.townHall, cam);
+  // One per square: downtown's, and one on every land that is open (decision 0328).
+  for (const tiles of bySquare(mirror.config, mirror.townHall)) paintTownHall(ctx, tiles, cam);
+}
+
+function paintTownHall(
+  ctx: CanvasRenderingContext2D,
+  tiles: readonly { x: number; y: number }[],
+  cam: Camera,
+) {
+  const box = tilesBox(tiles, cam);
   if (!box) return;
   const { left, top, w, h } = box;
   const s = cam.scale;
@@ -115,7 +124,15 @@ export function drawTownHall(ctx: CanvasRenderingContext2D, mirror: Mirror, cam:
  * and a sign hanging from a bracket. Like the Town Hall, it's drawn under the residents.
  */
 export function drawShop(ctx: CanvasRenderingContext2D, mirror: Mirror, cam: Camera) {
-  const box = tilesBox(mirror.shop, cam);
+  for (const tiles of bySquare(mirror.config, mirror.shop)) paintShop(ctx, tiles, cam);
+}
+
+function paintShop(
+  ctx: CanvasRenderingContext2D,
+  tiles: readonly { x: number; y: number }[],
+  cam: Camera,
+) {
+  const box = tilesBox(tiles, cam);
   if (!box) return;
   const { left, top, w, h } = box;
   const s = cam.scale;

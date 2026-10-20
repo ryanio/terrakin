@@ -147,7 +147,7 @@ export const ShopYouView = z.object({
     .object({ x: z.number().int(), y: z.number().int() })
     .optional()
     .describe(
-      "The shop's door, where Clem serves. Present only in a world that needs you at the counter.",
+      "The counter you would be served at, which is the one on the land you are standing on once the town has opened land beyond downtown. Clem serves at the one downtown. Present only in a world that needs you at the counter.",
     ),
 });
 
@@ -180,7 +180,7 @@ export const ShopView = z.object({
   recipes: z.array(RecipeCardView).optional(),
   /** What the town buys today: its daily rotation, then anything the season adds. */
   buying: z.array(BuyOrderView),
-  /** The Commons tiles the shop stands on. */
+  /** The tiles the shop stands on, and every other counter once the town has opened land beyond downtown. */
   tiles: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
 });
 export type ShopView = z.infer<typeof ShopView>;

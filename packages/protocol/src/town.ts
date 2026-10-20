@@ -123,7 +123,7 @@ export const YouView = z.object({
     .object({ x: z.number().int(), y: z.number().int() })
     .optional()
     .describe(
-      "The Town Hall's door, where a proposal is filed. Present only in a world that needs you there.",
+      "The Town Hall's door where you would file, which is the one on the land you are standing on once the town has opened land beyond downtown. Present only in a world that needs you there.",
     ),
   away: z
     .string()
@@ -155,7 +155,7 @@ export const TownResponse = z.object({
   you: YouView.nullable(),
   /** When the next open proposal closes, or null. */
   nextClose: z.string().nullable(),
-  /** The Commons tiles the Town Hall stands on. */
+  /** The tiles the Town Hall stands on, and every other hall once the town has opened land beyond downtown. */
   hall: z.array(tile),
   limits: TownLimits,
   /** The town's purse and recent gifts between residents. Null until coins open. */

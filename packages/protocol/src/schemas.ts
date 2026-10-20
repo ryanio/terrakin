@@ -1666,9 +1666,13 @@ export const WorldSnapshot = z.object({
     .optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
-  /** The tiles the Town Hall stands on, in the Commons. Nothing is built there; tap it for /town. */
+  /**
+   * The tiles every Town Hall stands on: downtown's in the Commons, and one on each land the town
+   * has opened beyond it, so group them by plot to draw a building (RFC 0038). Nothing is built
+   * there; tap one for /town.
+   */
   townHall: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
-  /** The tiles the town shop stands on, in the Commons, once it's open. Tap it for /shop. */
+  /** The tiles every counter stands on once the shop is open, one per square. Tap one for /shop. */
   shop: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   /**
    * Present once the Town Hall's and the shop's tiles stop walkers: a step onto one is refused with

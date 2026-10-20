@@ -11,6 +11,7 @@ import {
   type BlockKind,
   blocksWalkers,
   type Crop,
+  bySquare,
   circleName,
   counterTiles,
   type Direction,
@@ -525,12 +526,14 @@ export class Mirror {
         if (r) r.hearth = null;
         break;
       }
-      // The event names no tiles. The counter faces the hall across the same square, on the same
-      // column, so the square is read back from the hall tiles the snapshot carries rather than
-      // worked out from the world's middle, which moves when a land opens (RFC 0038).
+      // The event names no tiles. A counter faces its hall across the same square, so each hall
+      // the snapshot gave us says where a counter goes: downtown's, and one on every land that is
+      // open. Read per building, since the world's middle moves when a land opens (RFC 0038).
       case "shop_opened": {
-        const square = squareOf(this.config, this.townHall);
-        this.shop = square ? counterTiles(this.config, square) : [];
+        this.shop = bySquare(this.config, this.townHall).flatMap((hall) => {
+          const square = squareOf(this.config, hall);
+          return square ? counterTiles(this.config, square) : [];
+        });
         this.walkable.clear();
         break;
       }

@@ -21,12 +21,14 @@ import {
   inventoryOf,
   isCommons,
   isFindKind,
+  isTownSquare,
   isTownsfolk,
   lastDeclineDay,
   MAP_BLOCKS,
   MAP_GROUND,
   MAP_MARKS,
   nearestOpenPickup,
+  onLand,
   type Plot,
   pickupLeft,
   pickupsInReach,
@@ -147,14 +149,17 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
   ]);
 }
 
-/** Unclaimed plots, nearest first (in plots), not counting the Commons. */
+/** Unclaimed plots, nearest first (in plots), not counting a town square or open water. */
 function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   const { config } = state;
   const here = plotOf(config, x, y);
   const free: { px: number; py: number; away: number }[] = [];
   for (let py = 0; py < config.height / config.plotSize; py++) {
     for (let px = 0; px < config.width / config.plotSize; px++) {
-      if (isCommons(state, px, py) || state.plots[plotKey(px, py)]) continue;
+      // A square is where a hall and a counter stand and water is no plot at all, so neither is
+      // ever offered as free (decisions 0326 and 0328).
+      if (isTownSquare(state, px, py) || !onLand(state, px, py)) continue;
+      if (state.plots[plotKey(px, py)]) continue;
       free.push({ px, py, away: chebyshev({ x: px, y: py }, { x: here.px, y: here.py }) });
     }
   }

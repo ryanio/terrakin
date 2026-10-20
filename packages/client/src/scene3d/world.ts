@@ -12,12 +12,14 @@
  */
 
 import {
+  bySquare,
   groundTile,
   holidaysOf,
   isFindKind,
   isResourceKind,
   OUTSIDE_GROUND,
   plotKey,
+  plotOf,
   RECIPE_PAGE,
   type Resident,
   type Season,
@@ -363,7 +365,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   petShadows.frustumCulled = false;
   scene.add(petShadows);
   const petAt = new Matrix4();
-  const buildings = new Map<"hall" | "shop", Building>();
+  /** Each hall and each counter, by its kind and the square it stands on ("shop:4,2"). */
+  const buildings = new Map<string, Building>();
   let ground: { mesh: Mesh; signature: string } | undefined;
   let mirrorSeen: Mirror | undefined;
   let seqSeen = -1;
@@ -590,35 +593,60 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   // ---------- the Town Hall and the shop ----------
 
   function updateBuildings(mirror: Mirror) {
-    for (const [name, tiles] of [
+    // Keyed per building rather than per kind, since every square has a hall and a counter of its
+    // own once a land is open (decision 0328).
+    const kinds = [
       ["hall", mirror.townHall],
       ["shop", mirror.shop],
-    ] as const) {
-      const fp = footprintOf(tiles);
-      const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth}` : "";
-      const have = buildings.get(name);
-      if (have?.signature === signature) continue;
-      if (have) {
-        have.unlight();
-        scene.remove(have.group);
-        disposeTree(have.group, shared);
-        buildings.delete(name);
+    ] as const;
+    const wanted = new Set<string>();
+    for (const [kind, all] of kinds) {
+      for (const tiles of bySquare(mirror.config, all)) {
+        const at = plotOf(mirror.config, tiles[0]?.x ?? 0, tiles[0]?.y ?? 0);
+        wanted.add(`${kind}:${at.px},${at.py}`);
       }
-      if (!fp) continue;
-      const group = name === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain);
-      group.position.set(fp.x, 0, fp.y);
-      scene.add(group);
-      // The shop's windows light up after dark, as on the map.
-      const stops = buildingGlows(group).map((g) => stage.glow(g));
-      buildings.set(name, {
-        group,
-        footprint: fp,
-        signature,
-        unlight: () => {
-          for (const stop of stops) stop();
-        },
-      });
     }
+    for (const name of [...buildings.keys()]) {
+      if (wanted.has(name)) continue;
+      const gone = buildings.get(name);
+      if (!gone) continue;
+      gone.unlight();
+      scene.remove(gone.group);
+      disposeTree(gone.group, shared);
+      buildings.delete(name);
+    }
+    for (const [kind, all] of kinds) {
+      for (const tiles of bySquare(mirror.config, all)) updateBuilding(mirror, kind, tiles);
+    }
+  }
+
+  function updateBuilding(mirror: Mirror, kind: "hall" | "shop", tiles: readonly Tile[]) {
+    const at = plotOf(mirror.config, tiles[0]?.x ?? 0, tiles[0]?.y ?? 0);
+    const name = `${kind}:${at.px},${at.py}`;
+    const fp = footprintOf(tiles);
+    const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth}` : "";
+    const have = buildings.get(name);
+    if (have?.signature === signature) return;
+    if (have) {
+      have.unlight();
+      scene.remove(have.group);
+      disposeTree(have.group, shared);
+      buildings.delete(name);
+    }
+    if (!fp) return;
+    const group = kind === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain);
+    group.position.set(fp.x, 0, fp.y);
+    scene.add(group);
+    // The shop's windows light up after dark, as on the map.
+    const stops = buildingGlows(group).map((g) => stage.glow(g));
+    buildings.set(name, {
+      group,
+      footprint: fp,
+      signature,
+      unlight: () => {
+        for (const stop of stops) stop();
+      },
+    });
   }
 
   // ---------- residents ----------

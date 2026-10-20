@@ -134,8 +134,27 @@ export interface Square {
 }
 
 /**
- * The square a hall's or a counter's tiles stand on, read back from them, for a reader that has the
+ * The tiles of each building in a list, grouped by the square it stands on, in the order they come.
+ * `townHall` and `shop` carry every building of their kind once a land is open, so a view that
+ * draws a box per building groups them with this first: boxing the whole list would draw one hall
+ * stretched from downtown across the water (decision 0328).
+ */
+export function bySquare(config: WorldConfig, tiles: readonly Tile[]): Tile[][] {
+  const groups = new Map<string, Tile[]>();
+  for (const t of tiles) {
+    const { px, py } = plotOf(config, t.x, t.y);
+    const group = groups.get(plotKey(px, py));
+    if (group) group.push(t);
+    else groups.set(plotKey(px, py), [t]);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * The square **one** building's tiles stand on, read back from them, for a reader that has the
  * tiles and not the world: the snapshot carries them, so the web gets the square with no new field.
+ * Hand it one building's tiles (`bySquare` groups a list into those), never a list of several: the
+ * answer is a plot slot and a column, and tiles from two squares have neither in common.
  */
 export function squareOf(config: WorldConfig, tiles: readonly Tile[]): Square | undefined {
   const first = tiles[0];

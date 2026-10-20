@@ -164,6 +164,18 @@ describe("the water between lands", () => {
     expect(at).toEqual({ x: 35, y: 12 });
   });
 
+  it("refuses a square that would bridge the water on its own", () => {
+    const w = world();
+    // Plot (3, 0) is the water column, side on to downtown's (2, 0) and to the island's (4, 0).
+    // As the land's square it would be ground joining the two, so a resident could walk east out
+    // of downtown and onto the island without ever touching the bridge.
+    expect(w.code(TOWN_ACTOR, { ...ISLAND, square: [3, 0] })).toBe("server_only");
+    // Its own square, which touches only its own land, still opens, and water stays water.
+    expect(w.code(TOWN_ACTOR, ISLAND)).toBe(null);
+    expect(isSea(w.state, 24, 3)).toBe(true);
+    expect(stepFrom(worldGround(w.state), { x: 23, y: 3 }, "e").ok).toBe(false);
+  });
+
   it("refuses settling on water, and takes a plot on the island", () => {
     const w = world();
     w.ok(TOWN_ACTOR, ISLAND);

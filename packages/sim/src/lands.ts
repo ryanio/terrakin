@@ -197,8 +197,23 @@ export function checkOpenLand(
   if (onLand(state, sx, sy) || slots.has(plotKey(sx, sy))) {
     return refuse("server_only", `The square ${sx},${sy} is already on land.`);
   }
-  if (!plots.some(([px, py]) => Math.abs(px - sx) + Math.abs(py - sy) === 1)) {
+  const beside = [
+    [sx - 1, sy],
+    [sx + 1, sy],
+    [sx, sy - 1],
+    [sx, sy + 1],
+  ] as const;
+  if (!beside.some(([px, py]) => slots.has(plotKey(px, py)))) {
     return refuse("server_only", `The square ${sx},${sy} doesn't touch the land it belongs to.`);
+  }
+  // And it touches nothing else: a square beside downtown or beside another land would be ground
+  // joining the two, so a resident could walk across without ever using the bridge, which is the
+  // one thing the bridge check below is for.
+  if (beside.some(([px, py]) => onLand(state, px, py))) {
+    return refuse(
+      "server_only",
+      `The square ${sx},${sy} touches land across the water, so it would be a crossing of its own.`,
+    );
   }
   for (const [x, y] of bridge) {
     if (x >= width || y >= height) {

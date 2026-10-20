@@ -610,6 +610,7 @@ export {
 } from "./weather";
 export {
   blocksWalkers,
+  bySquare,
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,

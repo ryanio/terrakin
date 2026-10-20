@@ -2,6 +2,7 @@ import { fourWayFacing } from "@terrakin/protocol";
 import {
   type BlockKind,
   blockFill,
+  bySquare,
   FLOWER_TONES,
   groundTile,
   HEARTH_COLOR,
@@ -831,11 +832,16 @@ export function render(
     /** How much of the tag's paper shows (`tagPaper`): less over something standing behind it. */
     paper?: number;
   }[] = [];
-  const hall = tilesBox(mirror.townHall, cam);
-  if (hall)
-    labels.push({ text: "Town Hall", x: hall.left + hall.w / 2, y: hall.top - 2, mine: false });
-  const shop = tilesBox(mirror.shop, cam);
-  if (shop) labels.push({ text: "Shop", x: shop.left + shop.w / 2, y: shop.top - 2, mine: false });
+  // A label over each building of each kind: one square's, or every open land's too.
+  for (const [text, tiles] of [
+    ["Town Hall", mirror.townHall],
+    ["Shop", mirror.shop],
+  ] as const) {
+    for (const group of bySquare(mirror.config, tiles)) {
+      const box = tilesBox(group, cam);
+      if (box) labels.push({ text, x: box.left + box.w / 2, y: box.top - 2, mine: false });
+    }
+  }
   // `m` is how they move between tiles (`motion.ts`); `p` below is their face (`feelings.ts`).
   // `away` is someone away from the world; `out`, someone away out on a routine (decision 0083).
   const shown: { r: Resident; m: MotionPose; away: boolean; out: boolean }[] = [];
@@ -1028,8 +1034,9 @@ export function render(
         ctx.fillStyle = g;
         ctx.fillRect(l.sx - reach, l.sy - reach, reach * 2, reach * 2);
       }
-      const box = tilesBox(mirror.shop, cam);
-      if (box) {
+      for (const group of bySquare(mirror.config, mirror.shop)) {
+        const box = tilesBox(group, cam);
+        if (!box) continue;
         for (const f of [0.255, 0.745])
           glow(box.left + box.w * f, box.top + box.h * 0.7, scale * 1.1, 0.4);
       }

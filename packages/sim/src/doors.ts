@@ -70,11 +70,13 @@ export function notAtDoor(
  * another land's counter means walking to the bridge and over it, which is far longer than the
  * crow flies. On the east edge of downtown an island's counter is the nearer of the two as the
  * crow flies and much the farther to walk, and people live on that edge. Nearest is then reach's
- * own distance (Chebyshev), ties north to south, then west to east, so replay never has to guess.
+ * own distance (Chebyshev) to the door being asked for, so the nearest hall is measured by halls
+ * and the nearest counter by counters, with ties going north to south, then west to east, so
+ * replay never has to guess.
  *
  * A resident never has to know which door they got: `notAtDoor` names the walk to it.
  */
-function squareFor(state: WorldState, me?: Tile): Square {
+function squareFor(state: WorldState, me: Tile | undefined, door: Door): Square {
   const all = squares(state);
   const first = all[0] as Square;
   if (!me || all.length === 1) return first;
@@ -83,7 +85,7 @@ function squareFor(state: WorldState, me?: Tile): Square {
   const mine = all.filter((s) => landOf(state, s.px, s.py) === land);
   const choose = land !== undefined && mine.length > 0 ? mine : all;
   const nearer = (s: Square, best: Square) => {
-    const away = (q: Square) => chebyshev(me, counterDoor(state.config, q));
+    const away = (q: Square) => chebyshev(me, door(state.config, q));
     if (away(s) !== away(best)) return away(s) < away(best);
     return s.py < best.py || (s.py === best.py && s.px < best.px);
   };
@@ -103,12 +105,15 @@ function landOf(state: WorldState, px: number, py: number): string | undefined {
   return (landOfPlot(state, px, py) ?? landOfSquare(state, px, py))?.id;
 }
 
+/** A door on a square: the hall's or the shop's, which is what the choice is measured to. */
+type Door = (config: WorldState["config"], square: Square) => Tile;
+
 /** The Town Hall door `me` is sent to, and the only one any rule or view asks for. */
 export function nearestHall(state: WorldState, me?: Tile): Tile {
-  return hallDoor(state.config, squareFor(state, me));
+  return hallDoor(state.config, squareFor(state, me, hallDoor));
 }
 
 /** The shop counter `me` is sent to. Clem stands at downtown's; an island's has no keeper. */
 export function nearestCounter(state: WorldState, me?: Tile): Tile {
-  return counterDoor(state.config, squareFor(state, me));
+  return counterDoor(state.config, squareFor(state, me, counterDoor));
 }

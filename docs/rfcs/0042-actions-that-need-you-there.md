@@ -183,6 +183,20 @@ devlog line, starting with the shop because it is the common errand and the easi
    far island once [RFC 0038](0038-new-lands.md) lands, may be a long walk from the counter. Is
    there a case for buying remotely at a worse price, or is that the fee this RFC rejects?
 3. ~~**Which comes first?**~~ Settled above: the shop.
-4. **Do the townsfolk move?** They have routines and hearths. If the point is for the Commons to be
-   busy, the cheapest way to make it so may be the eight residents the town already runs, not a rule
-   change at all.
+4. ~~**Do the townsfolk move?**~~ Measured on 2026-10-20: they move, and it cannot make the
+   Commons busy. Seven of the eight have a daily `stroll` (`scripts/townsfolk/personas.ts`) and two
+   of eight were away from their hearths at the moment of the read, so the routines do run. But a
+   stroll is confined to the strolling resident's own plot by construction: `planStroll` walks
+   `plotGround` of `strollPlot`, which is the plot they stand on, up to `ROUTINES.strollOut` (4)
+   tiles. It can never reach the Commons from anywhere but the Commons. Their hours are spread over
+   seven of the twenty-four (2, 6, 7, 8, 12, 15, 19), so even a stroll that could get there would
+   rarely put two of them in the square at once, and only four of the eight (Clem and Bram at 7
+   tiles, Juniper at 9, Pip at 11) live near enough for it to matter.
+
+   So the cheap lever this question hoped for isn't there. Making the town itself fill the square
+   means a routine kind that walks somewhere other than home, or a reason the town's own calendar
+   already gives: the Sunday gathering, which is the thing that does put residents in the Commons
+   together. That is its own change and shouldn't be smuggled in here.
+
+   For scale, the same read: 54 residents, 0 online, 7 standing in the Commons, and 25 of the 35
+   with a home standing on their own hearth. The world is as this RFC describes it.

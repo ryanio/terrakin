@@ -573,6 +573,31 @@ describe("walking upstairs", () => {
     expect(w.refused("ada", { type: "move", dir: "e" }).message).toBe("A block is in the way.");
   });
 
+  it("names no lay for a tile on a plot that has no upstairs, however the step reaches it", () => {
+    const w = loft();
+    // Cy's plot (px 1) is east of Ada's and never added a floor. Cy shares it with Ada, so
+    // `canBuildOn` passes and the old hint named a `lay` there, which `lay` refuses `no_floor`,
+    // and the refusal that leads to offers to spend 200 of Ada's coins adding an upstairs to
+    // Cy's plot. Nobody asked for that, and walking into a wall is a strange way to be offered it.
+    w.ok("cy", { type: "share_plot", with: "ada" });
+    // Flooring to the east edge of Ada's own plot, on a wall that holds it up.
+    w.give("ada", { wood: 2 });
+    w.standAt("ada", 5, 3);
+    w.ok("ada", { type: "place", x: 6, y: 3, block: "wood" });
+    w.ok("ada", { type: "lay", x: 7, y: 3, floor: 1, ground: "moss" });
+    const ada = w.state.residents.ada;
+    if (!ada) throw new Error("ada isn't here");
+    w.standAt("ada", 7, 3);
+    ada.floor = 1;
+    const edge = w.refused("ada", { type: "move", dir: "e" });
+    expect(edge.code).toBe("blocked");
+    expect(edge.message, edge.message).toBe("There's no flooring there.");
+    // On her own plot, which does have the floor, the hint is still there and still works.
+    w.standAt("ada", 4, 3);
+    const mine = w.refused("ada", { type: "move", dir: "s" });
+    expect(mine.message).toContain("Lay some first: lay x 4, y 4, floor 1");
+  });
+
   it("puts a block on a tile only when nobody stands there on that floor", () => {
     const w = loft();
     for (const step of UP) w.ok("ada", step);

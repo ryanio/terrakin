@@ -105,6 +105,7 @@ import {
   ERROR_CODES,
   JobId,
   MOVE_MAX_STEPS,
+  MoveAction,
   PlotPlanResponse,
   WorldEvent,
   WorldSnapshot,
@@ -1704,5 +1705,40 @@ describe("a walk a refusal names", () => {
     // package. If the two drift, every long walk the sim names fails to parse before the sim
     // sees it, and the agent gets a 400 instead of a route.
     expect(WALK_LEG_MAX).toBe(MOVE_MAX_STEPS);
+  });
+
+  it("names only move calls this schema takes, however long the walk", () => {
+    // The constant pin above passes happily while a second code path ignores the constant,
+    // which is exactly what happened: `walkWords` was capped and `walkHint` was not. So read
+    // the words a real long refusal carries and parse every call out of them.
+    // Through a real action, so it is the refusal an agent actually gets. A `place` with a
+    // mistyped coordinate is the everyday way to meet the longest hint in the game.
+    const world = createWorld(DEFAULT_CONFIG);
+    for (const command of [
+      { type: "new_day", day: 20_380 },
+      { type: "open_economy" },
+      { type: "open_items" },
+    ] as const) {
+      apply(world, { actor: TOWN_ACTOR, command });
+    }
+    apply(world, { actor: "ada", command: { type: "join", name: "ada", kind: "agent" } });
+    apply(world, { actor: "ada", command: { type: "settle", px: 0, py: 0 } });
+    const far = apply(world, {
+      actor: "ada",
+      command: {
+        type: "place",
+        x: DEFAULT_CONFIG.width - 2,
+        y: DEFAULT_CONFIG.height - 2,
+        block: "wood",
+      },
+    });
+    expect(far.ok).toBe(false);
+    const said = far.ok ? "" : far.rejection.message;
+    const legs = [...said.matchAll(/move ([nsew]{1,2}) (?:once|(\d+) times)/g)];
+    expect(legs.length, said).toBeGreaterThan(0);
+    for (const [, dir, n] of legs) {
+      const call = { type: "move", dir, ...(n ? { steps: Number(n) } : {}) };
+      expect(MoveAction.safeParse(call).success, `${JSON.stringify(call)} in: ${said}`).toBe(true);
+    }
   });
 });

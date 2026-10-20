@@ -9,7 +9,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: 4c59a759470a, 31 entries -->
+<!-- api-fingerprint: 4c59a759470a, 32 entries -->
+
+- **Fixed** `GET /v1/plots/{px}/{py}` answered 500 on terrakin.org for three hours
+  A plot's news gained a `ridge` count yesterday, and the table that holds it was created before the column existed, so every read and write naming it failed with `no such column: ridge`. The column is added on boot now, starting at 0 for every plot, which is what "no ridge went up" already meant.
+  Nothing about `news`, `changedAt` or `roof_top_set` changes. A world created since the field shipped was never affected.
+  Try: `GET /v1/plots/2/1`
 
 - **Fixed** A walk a refusal names never asks for more steps than one `move` takes
   `move e 7 times` in a refusal is the contract for `{"type": "move", "dir": "e", "steps": 7}`, and `steps` is capped at 10, so a long detour round a wall could name `move s 36 times` and that call came back 400 before the world ever saw it.

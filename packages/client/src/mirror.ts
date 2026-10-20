@@ -23,6 +23,7 @@ import {
   hallTiles,
   holdsRoof,
   LOOK_KEYS,
+  landSquare,
   lookOf,
   mayGatherOn,
   type Pet,
@@ -621,11 +622,7 @@ export class Mirror {
         // (decision 0332), and the event names no tiles, exactly as `shop_opened` names none.
         // Without this a tab that was open when the land opened never draws the island's
         // buildings, walks routes straight through them, and never offers the Enter button.
-        const square = {
-          px: event.square.px,
-          py: event.square.py,
-          x: event.square.px * this.config.plotSize + Math.floor(this.config.plotSize / 2),
-        };
+        const square = landSquare(this.config, event.square.px, event.square.py);
         this.townHall = [...this.townHall, ...hallTiles(this.config, square)];
         if (this.shop.length > 0) {
           this.shop = [...this.shop, ...counterTiles(this.config, square)];

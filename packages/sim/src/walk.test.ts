@@ -15,23 +15,16 @@ import {
   type WorldConfig,
   type WorldEvent,
 } from "./types";
-import {
-  DIRECTIONS,
-  directionOf,
-  route,
-  stepFrom,
-  WALK_LEG_MAX,
-  walkTree,
-  walkWords,
-  worldGround,
-} from "./walk";
+import { DIRECTIONS, directionOf, route, stepFrom, walkTree, walkWords, worldGround } from "./walk";
 import {
   chebyshev,
   createWorld,
   inBounds,
+  outOfReach,
   STEP,
   shopTiles,
   townHallTiles,
+  WALK_LEG_MAX,
   walkHint,
 } from "./world";
 
@@ -446,5 +439,29 @@ describe("a walk a refusal names", () => {
       }
     }
     expect(at).toEqual({ x: 11, y: 5 });
+  });
+
+  it("caps the straight-line hint too, which is the one most refusals carry", () => {
+    // `walkHint` is `outOfReach`'s default, so building, planting, harvesting, gathering and
+    // showing all end with it. Capping `walkWords` and not this one caps neither: a mistyped
+    // coordinate in `place` named `move e 65 times` and that call is refused by the schema.
+    const config: WorldConfig = {
+      width: 72,
+      height: 72,
+      plotSize: 8,
+      maxPlotsPerResident: 1,
+      reach: 3,
+    };
+    const said = outOfReach({ x: 2, y: 2 }, { x: 70, y: 70 }, config.reach)?.message ?? "";
+    expect(said).toContain("Walk closer first:");
+    const legs = [...said.matchAll(/move ([nsew]{1,2}) (?:once|(\d+) times)/g)];
+    expect(legs.length).toBeGreaterThan(0);
+    for (const [, dir, n] of legs) {
+      expect(Number(n ?? 1), `${dir} in: ${said}`).toBeLessThanOrEqual(WALK_LEG_MAX);
+    }
+    // The legs still add up to the same walk: 65 east and 65 south, in calls of at most 10.
+    const east = legs.filter((l) => l[1] === "e").reduce((t, l) => t + Number(l[2] ?? 1), 0);
+    const south = legs.filter((l) => l[1] === "s").reduce((t, l) => t + Number(l[2] ?? 1), 0);
+    expect({ east, south }).toEqual({ east: 65, south: 65 });
   });
 });

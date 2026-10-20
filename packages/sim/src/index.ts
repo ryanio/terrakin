@@ -597,7 +597,6 @@ export {
   route,
   type Step,
   stepFrom,
-  WALK_LEG_MAX,
   type WalkNode,
   walkPath,
   walkTree,
@@ -637,6 +636,7 @@ export {
   isSolid,
   isTownHallTile,
   isTownSquare,
+  landSquare,
   plotAtTile,
   plotCenter,
   plotDistance,
@@ -657,6 +657,7 @@ export {
   townHallTile,
   townHallTiles,
   validateConfig,
+  WALK_LEG_MAX,
   walkLegs,
   withinEarshot,
 } from "./world";

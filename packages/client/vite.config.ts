@@ -438,6 +438,14 @@ export default defineConfig({
     firstLoadBudget(),
   ],
   build: {
+    // Sourcemaps, served beside the scripts. A client error reaches Sentry as a frame like
+    // `du /assets/world-Ckfpyn3b.js:2:125058`, which names nothing anyone can act on, and that
+    // is how TERRAKIN-WEB-7 stayed unreadable. Sentry fetches a map from the public URL, so
+    // this needs no token and no upload step. Terrakin is open source, so there is nothing in
+    // the source to keep back, and a map is only fetched when something asks for it: the first
+    // load's budget (decision 0258) counts what the browser downloads to run the app, and this
+    // is not in it.
+    sourcemap: true,
     // three.js lives in its own chunk (model-viewer), loaded only when someone opens a 3D model.
     chunkSizeWarningLimit: 700,
     rolldownOptions: {

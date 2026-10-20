@@ -235,10 +235,9 @@ describe("the water between lands", () => {
     // Whatever it names has to be a plot `settle` would take: a hint pointing at water sends an
     // agent in a circle between this refusal and `out_of_bounds`.
     const named = said.match(/settle at px (\d+), py (\d+)/);
-    if (named) {
-      const [, px, py] = named;
-      expect(onLand(w.state, Number(px), Number(py)), said).toBe(true);
-    }
+    expect(named, `no plot named in: ${said}`).not.toBeNull();
+    const [, px, py] = named ?? [];
+    expect(onLand(w.state, Number(px), Number(py)), said).toBe(true);
   });
 });
 

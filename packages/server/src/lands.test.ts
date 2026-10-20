@@ -4,9 +4,11 @@ import {
   isSea,
   LANDS,
   plotsLeft,
+  SEA_LOOK,
   seaFrom,
   spawnTile,
   stepFrom,
+  tileKey,
   type WorldConfig,
   walkTree,
   worldGround,
@@ -16,6 +18,7 @@ import { createApp, TEST_OPEN_LAND_PATH } from "./app";
 import { LAND_PLAN } from "./lands";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
+import { plotPhotoSpec } from "./plot-photo";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -247,6 +250,14 @@ describe("the snapshot's lands", () => {
       }
       expect(any, `no walk from downtown to the slot at ${sx},${sy}`).toBe(true);
     }
+
+    // And a photo of the shore plot draws the channel as water, not as meadow with flowers on
+    // it. The map and the 3D view both draw it; a cached public PNG that disagrees with the
+    // live client is the one a link preview shows.
+    const photo = plotPhotoSpec(w.service.state, isla.id, { now: Date.now() });
+    expect(photo, "no photo spec for the island settler").toBeTruthy();
+    const fills = new Set((photo?.ground ?? []).map((g) => g.fill));
+    expect([...fills], `the photo's ground fills`).toContain(SEA_LOOK.water);
   });
 });
 
@@ -286,6 +297,21 @@ describe("the count that opens the next land", () => {
     expect(w.logged("open_land")).toHaveLength(1);
     // Its square is not one of them: a land brings its slots less the one its buildings stand on.
     expect(plotsLeft(w.service.state)).toBe(LANDS.openAt + LAND_PLAN.plots ** 2 - 1);
+  });
+
+  it("still opens one when the town has built on the middle of the Commons", async () => {
+    const w = await start({ lands: true });
+    await w.crowd();
+    // The Commons is exactly where the town builds: a passed `commons_build` puts blocks on it,
+    // and nothing keeps the centre clear (the game tables' spots are the only protected ones,
+    // and they skip the spawn tile). Hanging the plan's reachability check on that one tile
+    // would let a Town Hall vote stop any land from ever opening, silently.
+    const state = w.service.state;
+    const centre = spawnTile(state);
+    state.blocks[tileKey(centre.x, centre.y)] = "lantern";
+    expect(worldGround(state).obstacle(centre.x, centre.y)).toBe("block");
+    w.later(60_000);
+    expect(w.logged("open_land")).toHaveLength(1);
   });
 
   it("opens nothing in a server that didn't ask for lands", async () => {

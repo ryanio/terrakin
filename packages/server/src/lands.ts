@@ -3,10 +3,11 @@ import {
   type Command,
   cloneWorld,
   commonsPlot,
+  type Ground,
   LANDS,
   plotCenter,
   plotsLeft,
-  spawnTile,
+  type Tile,
   TOWN_ACTOR,
   type WorldState,
   walkTree,
@@ -92,7 +93,13 @@ export function planLand(state: WorldState): Extract<Command, { type: "open_land
     bridge,
     square,
   };
-  return reaches(state, command) ? command : undefined;
+  if (reaches(state, command)) return command;
+  // A land is due, a name is left, and the plan doesn't carry: without a line this is silent,
+  // and `switchOn` drops an undefined command exactly as it drops "not due yet", so nobody
+  // would know the town had stopped opening land. It says this once a tick, which is as often
+  // as the switch is tried and rare enough: `landDue` is false until the count falls again.
+  console.warn(`Lands: ${next.id} is due and its plan doesn't carry, so no land opened.`);
+  return undefined;
 }
 
 /**
@@ -116,10 +123,12 @@ function reaches(state: WorldState, command: Extract<Command, { type: "open_land
   const opened = apply(after, { actor: TOWN_ACTOR, command });
   if (!opened.ok) return false;
   const ground = worldGround(after);
-  // Somewhere in downtown to walk from: the Commons is ground nobody builds on, so it is always
-  // standable and always on the home rectangle.
-  const from = spawnTile(after);
-  if (ground.obstacle(from.x, from.y)) return false;
+  // Somewhere in downtown to walk from. Not the spawn tile alone: the Commons is exactly where
+  // the town builds, and a passed `commons_build` may put a lantern on the centre. Hanging the
+  // whole thing on one tile would mean a Town Hall vote could stop any land from ever opening,
+  // with no line anywhere saying so. Take the first tile of the Commons anyone can stand on.
+  const from = standableInCommons(after, ground);
+  if (!from) return false;
   const size = after.config.plotSize;
   const reachable = walkTree(ground, from, Math.max(after.config.width, after.config.height));
   const arrived = new Set<string>();
@@ -133,6 +142,18 @@ function reaches(state: WorldState, command: Extract<Command, { type: "open_land
     }
     return false;
   });
+}
+
+/** The first tile of the Commons a walker can stand on, reading north to south then west to east. */
+function standableInCommons(state: WorldState, ground: Ground): Tile | undefined {
+  const { px, py } = commonsPlot(state);
+  const size = state.config.plotSize;
+  for (let y = py * size; y < (py + 1) * size; y++) {
+    for (let x = px * size; x < (px + 1) * size; x++) {
+      if (!ground.obstacle(x, y)) return { x, y };
+    }
+  }
+  return undefined;
 }
 
 /**

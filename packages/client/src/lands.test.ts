@@ -1,5 +1,5 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
-import { route, stepFrom } from "@terrakin/sim";
+import { counterTiles, hallTiles, landSquare, route, stepFrom } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { Mirror } from "./mirror";
 
@@ -159,11 +159,10 @@ describe("land_opened", () => {
     // route is planned straight through them, and Enter never shows beside either door.
     expect(mirror.townHall.length).toBeGreaterThan(halls);
     expect(mirror.shop.length).toBeGreaterThan(counters);
-    // Both stand on the land's own square, which is plot (4, 2): tiles x 32 to 39, y 16 to 23.
-    const added = mirror.townHall.slice(halls);
-    for (const t of added) {
-      expect(t.x, JSON.stringify(t)).toBeGreaterThanOrEqual(32);
-      expect(t.y, JSON.stringify(t)).toBeGreaterThanOrEqual(16);
-    }
+    // And on exactly the tiles the sim puts them on, by the sim's own rule, so the web can
+    // never draw an island's buildings on a different column than the world has them.
+    const square = landSquare(mirror.config, ISLAND.square.px, ISLAND.square.py);
+    expect(mirror.townHall.slice(halls)).toEqual(hallTiles(mirror.config, square));
+    expect(mirror.shop.slice(counters)).toEqual(counterTiles(mirror.config, square));
   });
 });

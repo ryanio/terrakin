@@ -11,7 +11,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { chebyshev, inBounds, isSolid, STEP, shopTiles, townHallTiles } from "./world";
+import { chebyshev, inBounds, isSolid, moveCalls, STEP, shopTiles, townHallTiles } from "./world";
 
 /**
  * How residents walk: one tile a step in any of eight directions, never into a block, never onto
@@ -264,15 +264,6 @@ export function route(ground: Ground, from: Tile, to: Tile, near = 0, radius = 2
  * through whatever stands between, so from a hearth inside a starter hut it points at the hut's
  * own wall, and following it never arrives.
  */
-/**
- * The most tiles one leg of a named walk asks for. A refusal's "move e 7 times" is the contract
- * for `{"type": "move", "dir": "e", "steps": 7}` (SKILL.md), and the API caps `steps` at
- * `MOVE_MAX_STEPS`, so a longer leg names a call that fails to parse before the sim ever sees it.
- * The sim can't import the protocol (it depends the other way), so the protocol pins the two
- * together in a test instead.
- */
-export const WALK_LEG_MAX = 10;
-
 export function walkWords(
   state: WorldState,
   me: Tile,
@@ -299,14 +290,7 @@ export function walkWords(
     // `route` falls back to the reachable tile nearest `to`, so check it arrived before naming it.
     if (chebyshev(at, to) <= near) {
       // A leg longer than one `move` takes is split into several, so every call it names works.
-      const calls: string[] = [];
-      for (const [dir, n] of legs) {
-        for (let left = n; left > 0; left -= WALK_LEG_MAX) {
-          const take = Math.min(left, WALK_LEG_MAX);
-          calls.push(`move ${dir} ${take === 1 ? "once" : `${take} times`}`);
-        }
-      }
-      return calls.join(", then ");
+      return moveCalls(legs).join(", then ");
     }
     if (radius === world) break;
   }

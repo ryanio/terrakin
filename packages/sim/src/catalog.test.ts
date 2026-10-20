@@ -401,11 +401,32 @@ describe("recipes", () => {
 });
 
 describe("patterns", () => {
-  it("keeps the prints at the end, where a new one goes", () => {
-    // A wear list and a garment style keep a pattern by name, and the order of this list is
-    // what the comment on `PRINTS` promises stays put. Inserting a print into the middle of
-    // `PATTERNS` instead of the end of `PRINTS` fails nothing else.
-    expect(PATTERNS.slice(-PRINTS.length)).toEqual([...PRINTS]);
+  it("keeps the order it has, so older wear lists and garment styles hash the same", () => {
+    // A wear list keeps a pattern by name and the sim hashes the list, so what has to hold is
+    // that the names already in this list stay where they are. A new one goes on the end, which
+    // leaves this prefix untouched; moving or dropping one is what breaks a logged look.
+    expect([...PATTERNS].slice(0, 18)).toEqual([
+      "plain",
+      "dots",
+      "stripes",
+      "gingham",
+      "florals",
+      "citrus",
+      "stars",
+      "waves",
+      "hearts",
+      "leaves",
+      "lemons",
+      "cherries",
+      "mushrooms",
+      "cats",
+      "fish",
+      "moons",
+      "clouds",
+      "bees",
+    ]);
     expect(new Set(PATTERNS).size).toBe(PATTERNS.length);
+    // Every print is in it, so a print added to `PRINTS` alone can't go missing from the enum.
+    for (const print of PRINTS) expect(PATTERNS).toContain(print);
   });
 });

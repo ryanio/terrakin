@@ -274,7 +274,7 @@ function upHint(state: WorldState, me: Resident): string {
     // qualifies, so a reader walks rather than stops.
     const far = stairsSpot(state, me, plot, floor, false);
     if (far) {
-      const walk = walkWords(state, me, far, state.config.reach - 1);
+      const walk = walkWords(state, me, far, state.config.reach - 1, floorGround(state, floor));
       return walk === ""
         ? ` Nowhere within reach can take a staircase. There's room at ${tileWords(far.x, far.y)}, with no walk to it from here.`
         : ` Nowhere within reach can take a staircase. There's room at ${tileWords(far.x, far.y)}: walk there (${walk}), then place ${tileWords(far.x, far.y)}, block stairs, for ${FLOORS.stairsWood} wood.`;

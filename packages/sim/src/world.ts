@@ -233,14 +233,22 @@ function boxOn(
  * plot count is odd, downtown on the live world included.
  */
 export function squares(state: WorldState): Square[] {
-  const { plotSize } = state.config;
   const home = { ...commonsPlot(state), x: spawnTile(state).x };
-  const lands = (state.lands?.list ?? []).map(({ square: [px, py] }) => ({
-    px,
-    py,
-    x: px * plotSize + Math.floor(plotSize / 2),
-  }));
+  const lands = (state.lands?.list ?? []).map(({ square: [px, py] }) =>
+    landSquare(state.config, px, py),
+  );
   return [home, ...lands];
+}
+
+/**
+ * A land's square from its plot slot: the slot, and the column its hall and counter stand on,
+ * which is the middle of it. The one rule, so the web puts an island's buildings where the sim
+ * does rather than keeping a copy of the arithmetic that could drift
+ * ([decision 0332](../../docs/knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
+ * Downtown's square is the Commons and comes from `spawnTile`, not from here.
+ */
+export function landSquare(config: WorldConfig, px: number, py: number): Square {
+  return { px, py, x: px * config.plotSize + Math.floor(config.plotSize / 2) };
 }
 
 /**
@@ -493,6 +501,30 @@ export function chebyshev(a: Tile, b: Tile): number {
 const times = (n: number) => (n === 1 ? "once" : `${n} times`);
 
 /**
+ * The most tiles one leg of a named walk asks for. A refusal's "move e 7 times" is the contract
+ * for `{"type": "move", "dir": "e", "steps": 7}` (SKILL.md), and the API caps `steps` at
+ * `MOVE_MAX_STEPS`, so a longer leg names a call that fails to parse before the sim ever sees
+ * it. The sim can't import the protocol (it depends the other way), so `protocol.test.ts` pins
+ * the two together and checks the words themselves.
+ */
+export const WALK_LEG_MAX = 10;
+
+/**
+ * Legs as the `move` calls a refusal ends with, each leg split at `WALK_LEG_MAX` so every call
+ * named is one the API takes. The one formatter: `walkHint`'s straight line and `walkWords`'
+ * routed walk both go through it, because a cap on one of them is a cap on neither.
+ */
+export function moveCalls(legs: readonly (readonly [string, number])[]): string[] {
+  const calls: string[] = [];
+  for (const [dir, n] of legs) {
+    for (let left = n; left > 0; left -= WALK_LEG_MAX) {
+      calls.push(`move ${dir} ${times(Math.min(left, WALK_LEG_MAX))}`);
+    }
+  }
+  return calls;
+}
+
+/**
  * The walk that brings `target` within `reach` of `me`: east or west, then north or south, each
  * leg with its steps. Empty when it's already within reach.
  */
@@ -512,7 +544,7 @@ export function walkLegs(me: Tile, target: Tile, reach: number): ["e" | "w" | "n
  * " Walk closer first: move e 3 times, then move n once." Empty when it's already within reach.
  */
 export function walkHint(me: Tile, target: Tile, reach: number): string {
-  const steps = walkLegs(me, target, reach).map(([dir, n]) => `move ${dir} ${times(n)}`);
+  const steps = moveCalls(walkLegs(me, target, reach));
   return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
 }
 

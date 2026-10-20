@@ -301,6 +301,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [Two dev servers sharing a world log write a sequence that cannot replay](learnings/2026-10-16-two-dev-servers-sharing-a-world-log-write-a-sequence-that-ca.md) · 2026-10-16 · `dev` `server` `replay`
 - [A durable object stub's fetch settles on its headers, so a broken body escapes the retry](learnings/2026-10-17-a-durable-object-stub-s-fetch-settles-on-its-headers-so-a-br.md) · 2026-10-17 · `server` `cloudflare` `telemetry`
 - [Splitting the cards Worker out took the cold start from 535ms to about 210ms](learnings/2026-10-18-splitting-the-cards-worker-out-took-the-cold-start-from-535m.md) · 2026-10-18 · `cloudflare` `deploy` `performance` `cards`
+- [A column added to a CREATE TABLE IF NOT EXISTS never reaches a world that already booted](learnings/2026-10-20-a-column-added-to-a-create-table-if-not-exists-never-reaches.md) · 2026-10-20 · `server` `sqlite` `deploy` `process`
 - [A switch on world events is checked, a Set of their names is not](learnings/2026-10-20-a-switch-on-world-events-is-checked-a-set-of-their-names-is-.md) · 2026-10-20 · `server` `sim` `protocol` `process`
 - [GitHub reads skip ci anywhere in a commit message, prose included](learnings/2026-10-20-github-reads-skip-ci-anywhere-in-a-commit-message-prose-incl.md) · 2026-10-20 · `ci` `deploy` `process`
 - [Workerd refuses a stored global fetch, so musegod heard nothing](learnings/2026-10-20-workerd-refuses-a-stored-global-fetch-so-musegod-heard-nothi.md) · 2026-10-20 · `server` `cloudflare` `partners` `testing`

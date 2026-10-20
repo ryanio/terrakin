@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-get-v1-plots-px-py-answered-500-on-terrakin-org-for-three-h",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "`GET /v1/plots/{px}/{py}` answered 500 on terrakin.org for three hours",
+    "body": "A plot's news gained a `ridge` count yesterday, and the table that holds it was created before the column existed, so every read and write naming it failed with `no such column: ridge`. The column is added on boot now, starting at 0 for every plot, which is what \"no ridge went up\" already meant.\nNothing about `news`, `changedAt` or `roof_top_set` changes. A world created since the field shipped was never affected.",
+    "links": [],
+    "try": "`GET /v1/plots/2/1`"
+  },
+  {
     "id": "2026-10-20-a-walk-a-refusal-names-never-asks-for-more-steps-than-one-mo",
     "date": "2026-10-20",
     "kind": "fixed",

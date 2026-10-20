@@ -121,11 +121,14 @@ describe("what a roof is", () => {
     const at = (shape?.tiles ?? []).find((t) => t.x === shape?.top?.x && t.y === shape?.top?.y);
     expect(shape?.top?.kind).toBe("vane");
     expect(Math.max(...(at?.h ?? [0]))).toBe(high);
-    // And the *first* of them in reading order, north row first and west to east, which is what
-    // decision 0337 promises and what every view has to agree on: the wire carries the ridge's
-    // kind and never its tile, so a reader works the tile out from the walls with this rule.
+    // And on this gable's north-west ridge tile by its coordinates, not by recomputing the rule
+    // from the same array: decision 0337 promises reading order, north row first and west to
+    // east, and the wire carries the ridge's kind and never its tile, so a reader has to work
+    // the tile out from the walls with that rule. Pinning the tile is what holds the promise.
     const highest = (shape?.tiles ?? []).filter((t) => Math.max(...t.h) === high);
-    expect({ x: shape?.top?.x, y: shape?.top?.y }).toEqual({ x: highest[0]?.x, y: highest[0]?.y });
+    const north = Math.min(...highest.map((t) => t.y));
+    const west = Math.min(...highest.filter((t) => t.y === north).map((t) => t.x));
+    expect({ x: shape?.top?.x, y: shape?.top?.y }).toEqual({ x: west, y: north });
 
     // The same roof again is nothing to change; another ridge is.
     refused(state, "ada", top("vane"), "already_set");

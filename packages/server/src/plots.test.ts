@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { type ErrorCode, PLOT_ADMIRE } from "@terrakin/protocol";
 import {
   apply,
@@ -11,6 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
+import { NEWS_FIELDS } from "./plot-news";
 import { PLOT_LIST_MS, PlotVisits } from "./plots";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -632,5 +634,74 @@ describe("the commit hook", () => {
       actor: made.residentId,
       command: { type: "move", dir: "n" },
     });
+  });
+});
+
+describe("the plot_news table's columns", () => {
+  /** The columns a table has now, as SQLite reports them. */
+  const columnsOf = (sql: ReturnType<typeof nodeSql>, table: string): string[] =>
+    // Through the pragma's table-valued form, since `nodeSql` only hands back rows for a SELECT.
+    [...sql.exec(`SELECT name FROM pragma_table_info('${table}')`)].map((r) => String(r.name));
+
+  it("gains a field added after the world's first boot, so an older table still reads", () => {
+    // How `ridge` took `GET /v1/plots/{px}/{py}` down on terrakin.org: `NEWS_FIELDS` gained a
+    // field, `CREATE TABLE IF NOT EXISTS` does nothing to a table that is already there, and
+    // every read and write naming the new column answered `no such column: ridge`. A fresh
+    // world never meets it, so no test here could, which is why it reached production.
+    const sql = nodeSql();
+    cleanups.push(() => sql.close());
+    const older = NEWS_FIELDS.filter((f) => f !== "ridge");
+    sql.exec(`CREATE TABLE plot_news (
+      px INTEGER NOT NULL,
+      py INTEGER NOT NULL,
+      owner TEXT NOT NULL,
+      day INTEGER NOT NULL,
+      ${older.map((f) => `${f} INTEGER NOT NULL`).join(", ")},
+      PRIMARY KEY (px, py)
+    )`);
+    sql.exec(
+      `INSERT INTO plot_news (px, py, owner, day, ${older.join(", ")})
+       VALUES (1, 1, 'ada', 20380, ${older.map(() => "0").join(", ")})`,
+    );
+    expect(columnsOf(sql, "plot_news")).not.toContain("ridge");
+    new PlotVisits({
+      sql,
+      now: () => NOON,
+      exists: () => true,
+      blockedEither: () => false,
+      household: (a, b) => a === b,
+      ageDays: () => 30,
+      suspended: () => false,
+      notify: () => {},
+    });
+    for (const field of NEWS_FIELDS) expect(columnsOf(sql, "plot_news")).toContain(field);
+    // And the row that was there still reads, with the new count at nothing rather than null.
+    const rows = [...sql.exec("SELECT ridge FROM plot_news WHERE px = 1")];
+    expect(rows).toEqual([{ ridge: 0 }]);
+  });
+
+  it("keeps every table built from a fields constant repairing itself", () => {
+    // The source rule behind the test above. A `CREATE TABLE IF NOT EXISTS` whose columns come
+    // from a list in the code will silently skip a field added to that list later, so it needs
+    // an `ADD COLUMN` pass over the same list. Today `plot_news` is the only such table; this
+    // fails when a second one arrives without one.
+    const dir = new URL(".", import.meta.url);
+    const files = readdirSync(dir).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+    const missing: string[] = [];
+    for (const file of files) {
+      const src = readFileSync(new URL(file, dir), "utf8");
+      // One statement at a time: a window that ran on would read the next table's columns.
+      for (const chunk of src.split("CREATE TABLE IF NOT EXISTS ").slice(1)) {
+        const statement = chunk.slice(0, chunk.indexOf("`"));
+        const table = statement.match(/^(\w+)/)?.[1];
+        const constant = statement.match(/\$\{(\w+)\.map/)?.[1];
+        if (!table || !constant) continue;
+        const adds = new RegExp(
+          `ALTER TABLE ${table} ADD COLUMN \\$\\{\\w+\\}|for \\(const \\w+ of ${constant}\\)`,
+        );
+        if (!adds.test(src)) missing.push(`${file}: ${table} from ${constant}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

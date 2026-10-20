@@ -231,6 +231,19 @@ export class PlotVisits {
     ]) {
       o.sql.exec(statement);
     }
+    // `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists, so a field added
+    // to `NEWS_FIELDS` after a world's first boot never reaches its `plot_news`, and every read
+    // and write naming it fails with `no such column`. That is how `ridge` took terrakin.org's
+    // `GET /v1/plots/{px}/{py}` down (decision 0337 shipped the field, and nothing added the
+    // column). Add whatever is missing, every boot: a new count starts at 0 for every plot,
+    // which is what "nothing of that arrived" means anyway.
+    for (const field of NEWS_FIELDS) {
+      try {
+        o.sql.exec(`ALTER TABLE plot_news ADD COLUMN ${field} INTEGER NOT NULL DEFAULT 0`);
+      } catch {
+        // Already there.
+      }
+    }
   }
 
   /** The list `GET /v1/plots` last built, before any viewer's parts, and when. */

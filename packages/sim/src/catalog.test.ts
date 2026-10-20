@@ -32,7 +32,7 @@ import {
   SWEET_KINDS,
 } from "./catalog";
 import { POND } from "./items";
-import { WEAR_ITEMS } from "./looks";
+import { PATTERNS, PRINTS, WEAR_ITEMS } from "./looks";
 import { BLOCK_KINDS, FREE_BLOCKS } from "./types";
 
 const entries = Object.entries(CATALOG) as [ItemKind, KindEntry][];
@@ -397,5 +397,15 @@ describe("recipes", () => {
     for (const name of [...jams, "bouquet", "jam", "_jam", "jam_tomato"]) {
       expect(familyRecipeMiss(name), name).toBeUndefined();
     }
+  });
+});
+
+describe("patterns", () => {
+  it("keeps the prints at the end, where a new one goes", () => {
+    // A wear list and a garment style keep a pattern by name, and the order of this list is
+    // what the comment on `PRINTS` promises stays put. Inserting a print into the middle of
+    // `PATTERNS` instead of the end of `PRINTS` fails nothing else.
+    expect(PATTERNS.slice(-PRINTS.length)).toEqual([...PRINTS]);
+    expect(new Set(PATTERNS).size).toBe(PATTERNS.length);
   });
 });

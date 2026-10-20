@@ -28,6 +28,7 @@ import {
   MAP_GROUND,
   MAP_MARKS,
   nearestOpenPickup,
+  onBridge,
   onLand,
   type Plot,
   pickupLeft,
@@ -94,6 +95,14 @@ function plotLabel(state: WorldState, viewer: string, x: number, y: number): str
   const { px, py } = plotOf(state.config, x, y);
   if (isCommons(state, px, py)) return `the Commons, plot (${px}, ${py}), which nobody can claim`;
   const plot = state.plots[plotKey(px, py)];
+  // A bridge tile sits in a water slot, so the slot under someone crossing is nobody's ground
+  // and `settle` refuses it. Calling it free is the wrong instruction in the most literal
+  // reader's hands, since the link pages are where link-only agents live (RFC 0038).
+  if (!plot && !onLand(state, px, py)) {
+    return onBridge(state, x, y)
+      ? `the bridge over the water, which nobody can claim`
+      : `open water, which nobody can claim`;
+  }
   if (!plot) return `plot (${px}, ${py}), which is free`;
   if (plot.ownerId === viewer) return `your plot (${px}, ${py})`;
   if (plot.coOwners?.includes(viewer)) return `plot (${px}, ${py}), which is shared with you`;

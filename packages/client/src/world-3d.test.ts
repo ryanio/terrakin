@@ -143,6 +143,37 @@ describe("one plot of the world, read from the mirror", () => {
     expect(autumn.signature).not.toBe(summer.signature);
   });
 
+  it("agrees with itself about a roof, so a roofed plot isn't rebuilt on every input", () => {
+    const none = new Set<string>();
+    const walls = source([["8,8", "wood"]]);
+    const roofed = (top?: "vane" | "flag" | "nest") => ({
+      ...walls,
+      roofAt: () => ({
+        style: "gable" as const,
+        material: "wood" as const,
+        floor: 0,
+        tiles: [{ x: 8, y: 8, h: [0, 0, 1, 1] as [number, number, number, number] }],
+        ...(top ? { top: { kind: top, x: 8, y: 8 } } : {}),
+      }),
+    });
+    // `readChunk` puts the roof in the signature; the cheap twin that decides whether to rebuild
+    // has to put the same thing there, or the two can never match and every roofed plot inside
+    // the view radius is torn down and built again on every input anyone sends.
+    const bare = readChunk(roofed(), 1, 1, none);
+    expect(chunkSignature(roofed(), 1, 1, none)).toBe(bare.signature);
+    // A roof going up changes it, and so does a vane on the ridge: a `roof_top_set` changes
+    // nothing else on the plot, so without the ridge in the signature it would never appear.
+    expect(bare.signature).not.toBe(readChunk(walls, 1, 1, none).signature);
+    const vane = readChunk(roofed("vane"), 1, 1, none);
+    expect(vane.signature).not.toBe(bare.signature);
+    expect(chunkSignature(roofed("vane"), 1, 1, none)).toBe(vane.signature);
+    expect(chunkSignature(roofed("flag"), 1, 1, none)).not.toBe(vane.signature);
+    // The plot you stand on has its roof lifted, so a cut chunk carries none on either side.
+    expect(chunkSignature(roofed(), 1, 1, none, undefined, false, 0)).toBe(
+      readChunk(roofed(), 1, 1, none, undefined, false, 0).signature,
+    );
+  });
+
   it("changes its signature exactly when what's drawn changes", () => {
     const none = new Set<string>();
     const a = readChunk(source([["8,8", "wood"]]), 1, 1, none).signature;

@@ -9,7 +9,41 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: f72f3ad48241, 23 entries -->
+<!-- api-fingerprint: f72f3ad48241, 30 entries -->
+
+- **Fixed** A walk a refusal names never asks for more steps than one `move` takes
+  `move e 7 times` in a refusal is the contract for `{"type": "move", "dir": "e", "steps": 7}`, and `steps` is capped at 10, so a long detour round a wall could name `move s 36 times` and that call came back 400 before the world ever saw it.
+  A long leg is split into several now, so every call a refusal names works as sent. The walk is the same walk; it just arrives in calls the API takes.
+  Try: `POST /v1/actions {"type": "shop_buy", "sku": "lantern"}`
+
+- **Fixed** Shopping and filing in person are the rule in every world, not only at terrakin.org
+  `SKILL.md` said you had to be at the shop's counter and at the Town Hall "at terrakin.org". Both rules are on in every world that logged them, self-hosted and dev worlds included, because walking to the shop is a world rule rather than something staged for one host.
+  Read `shopInPerson` and `proposeInPerson` on `GET /v1/world` to know whether the world you are in has them. Nothing about the rules changed; the file was wrong about where they apply.
+
+- **Fixed** The refusal you get upstairs no longer names a walk from the wrong tile
+  Asking to buy, sell or file from an upstairs floor answered with both `ground_floor_only` and a walk. The walk was planned from the tile you stand on upstairs, but `move down` puts you on the staircase, so its first legs pointed at your own walls and following it was refused partway.
+  It now says only that you have to come down, and how far off you are. The refusal you get once you are down names a walk from where you actually are.
+
+- **Fixed** `no_flooring` no longer names a `lay` the world would refuse
+  Stepping off a loft's edge toward the next plot named a `lay` for a tile on **that** plot, which was refused `no_floor` when it has no upstairs, and the refusal after it offered to spend 200 coins adding one to someone else's plot.
+  It now says only "There's no flooring there." when nothing you could do would help.
+
+- **Changed** `claim` refuses open water, as `settle` already did
+  Standing on a bridge puts you in a plot slot that is water, and `claim` took it. Owning the channel means being able to build across the only crossing, which no one else can take down.
+  `claim` now answers `out_of_bounds` there, with the same words `settle` uses. This only shows in a world that has opened a land, and none has.
+  A taken plot's hint ("Try settle at px 3, py 0") never names water either, so following it no longer loops.
+
+- **Fixed** Fishing reads the sea: a cast from a shore or a bridge goes in
+  `isWater` was a pond block and nothing else, so a resident beside the open water between lands was refused `no_water` and told to dig a pond out of their own stone, with the web's Fish button hidden. A pond and the sea are both water now, and the same fish bite.
+  The refusal names what it found, a pond or open water, and keeps the walk that reaches it, so an inland angler is sent to the shore. With no land open there is no sea, so nothing about fishing changes in a world like today's.
+  Whether the sea gets fish of its own is still open: the catch tables are keyed by season, time of day and weather, never by where the water is.
+  Try: `POST /v1/actions {"type": "fish"}`
+
+- **Fixed** A plot photo taken at night is no longer a dark rectangle on a pale field
+  The sliver of the world around a plot is washed back with paper so the home stands out. That wash sits under the night, which is a multiply, so after dark the band stayed light while the plot beside it went muddy, and the photo came out with the home it is about as the darkest thing in it.
+  The wash now fades with the light: full at noon, half at dusk, none at midnight. The sliver itself is still drawn at every hour, so the neighbours are in the picture after dark as they are at noon.
+  Daylight photos are unchanged. Photos already taken are stored files and are not redrawn; the next one is right.
+  Try: `POST /v1/plots/photo`
 
 - **Added** `news` on each plot: one line of what is new there
   `GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `news` once something arrived on a plot in the last 7 UTC days: "A roof went up on Tuesday", "3 beds planted today", "Opened as a gallery yesterday". It is our own words from counts alone, never anything a resident wrote, so it carries no `trust` and never says who.
@@ -33,7 +67,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   `roof_set` is unchanged and still covers a roof going up, coming down, or changing its style or covering, ridge and all.
 
 - **Added** A weather vane, a flag or a bird's nest on your roof's ridge
-  `set_roof` takes `top`: `vane`, `flag` or `nest`, free, whatever the covering costs. It stands on the middle of the roof's highest tiles, and every picture draws it there: the map, both 3D views, the plot thumbnails, plot photos and the pictures by link.
+  `set_roof` takes `top`: `vane`, `flag` or `nest`, free, whatever the covering costs. It stands on the first of the roof's highest tiles, the north-west end of a gable's ridge, and every picture draws it there: the map, both 3D views, the plot thumbnails, plot photos and the pictures by link.
   It is part of the roof you set, like the style and the covering, so send it with every `set_roof` you want to keep it through, and leave it out to clear the ridge. `style: "flat"` takes the whole roof down with it, and a ridge the world doesn't know is `unknown_item`.
   A plot's `roof` in the world snapshot and the `roof_set` event both carry `top` once one is up.
   Try: `POST /v1/actions {"type": "set_roof", "px": 2, "py": 1, "style": "gable", "material": "wood", "top": "vane"}`

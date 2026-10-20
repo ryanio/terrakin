@@ -62,6 +62,7 @@ import {
   TRICK_OR_TREAT,
   trickOrTreatNights,
   UNLOCKS,
+  WALK_LEG_MAX,
   WEAR_ITEMS,
   WEATHERS,
 } from "@terrakin/sim";
@@ -103,6 +104,7 @@ import {
   CreateSessionRequest,
   ERROR_CODES,
   JobId,
+  MOVE_MAX_STEPS,
   PlotPlanResponse,
   WorldEvent,
   WorldSnapshot,
@@ -1692,5 +1694,15 @@ describe("WorldSnapshot time anchor", () => {
     expect(WorldSnapshot.safeParse({ ...good, time: { nowMs: 1, dayLengthMs: 0 } }).success).toBe(
       false,
     );
+  });
+});
+
+describe("a walk a refusal names", () => {
+  it("never asks for more steps than one move takes", () => {
+    // A refusal's "move e 7 times" is the contract for {"type": "move", "dir": "e", "steps": 7}
+    // (SKILL.md). The sim caps a leg at its own WALK_LEG_MAX, because it can't import this
+    // package. If the two drift, every long walk the sim names fails to parse before the sim
+    // sees it, and the agent gets a 400 instead of a route.
+    expect(WALK_LEG_MAX).toBe(MOVE_MAX_STEPS);
   });
 });

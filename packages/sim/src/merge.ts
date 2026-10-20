@@ -72,6 +72,14 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
         "The record to merge has blocks or paths on its plot. Its plot is released only empty.",
       );
     }
+    // A roof goes with the plot's record, and its covering with it, so the merge would burn the
+    // material it took. `release` refuses the same case (RFC 0041).
+    if (plot.roof) {
+      return refuse(
+        "plot_has_blocks",
+        'The record to merge has a roof on its plot. Take it down first, with set_roof and "style": "flat", so its covering comes back.',
+      );
+    }
   }
   if (Object.values(state.market?.listings ?? {}).some((l) => l.seller === from)) {
     return refuse("not_eligible", "The record to merge has a lot in the market.");

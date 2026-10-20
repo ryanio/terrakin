@@ -264,6 +264,15 @@ export function route(ground: Ground, from: Tile, to: Tile, near = 0, radius = 2
  * through whatever stands between, so from a hearth inside a starter hut it points at the hut's
  * own wall, and following it never arrives.
  */
+/**
+ * The most tiles one leg of a named walk asks for. A refusal's "move e 7 times" is the contract
+ * for `{"type": "move", "dir": "e", "steps": 7}` (SKILL.md), and the API caps `steps` at
+ * `MOVE_MAX_STEPS`, so a longer leg names a call that fails to parse before the sim ever sees it.
+ * The sim can't import the protocol (it depends the other way), so the protocol pins the two
+ * together in a test instead.
+ */
+export const WALK_LEG_MAX = 10;
+
 export function walkWords(
   state: WorldState,
   me: Tile,
@@ -289,9 +298,15 @@ export function walkWords(
     }
     // `route` falls back to the reachable tile nearest `to`, so check it arrived before naming it.
     if (chebyshev(at, to) <= near) {
-      return legs
-        .map(([dir, n]) => `move ${dir} ${n === 1 ? "once" : `${n} times`}`)
-        .join(", then ");
+      // A leg longer than one `move` takes is split into several, so every call it names works.
+      const calls: string[] = [];
+      for (const [dir, n] of legs) {
+        for (let left = n; left > 0; left -= WALK_LEG_MAX) {
+          const take = Math.min(left, WALK_LEG_MAX);
+          calls.push(`move ${dir} ${take === 1 ? "once" : `${take} times`}`);
+        }
+      }
+      return calls.join(", then ");
     }
     if (radius === world) break;
   }
@@ -337,6 +352,10 @@ export function offBuildings(
     solidBuildings: change.solidBuildings ?? state.solidBuildings === true,
     townHall: townHallTiles(state),
     shop: (change.shopOpen ?? state.shop !== undefined) ? shopTiles(state) : [],
+    // The same ground every other walk reads, so nobody is ever stepped off a building onto
+    // water. Unreachable today, since both switches come long before any land can open, and one
+    // line rather than a hole to remember (RFC 0038).
+    ...withSea(state),
   });
   const off: SteppingOff[] = [];
   for (const id of Object.keys(state.residents).sort()) {

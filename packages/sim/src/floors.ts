@@ -227,14 +227,20 @@ function stairsOn(state: WorldState, me: Tile, plot: Plot, floor: number): Tile 
  * A tile of `plot` where a staircase up from `floor` would stand as things are, nearest `me`:
  * nothing on it, nothing on the stairwell above it, and no hearth or feet in the way.
  */
-function stairsSpot(state: WorldState, me: Tile, plot: Plot, floor: number): Tile | undefined {
+function stairsSpot(
+  state: WorldState,
+  me: Tile,
+  plot: Plot,
+  floor: number,
+  /** Keep to build reach, so the call named isn't refused `out_of_reach` in its turn. */
+  inReach = true,
+): Tile | undefined {
   const blocks = blocksOn(state, floor);
   const above = floor + 1;
-  // Within build reach, so the call it names isn't answered with `out_of_reach` in its turn. A
-  // floor counts as one tile of it, as `outOfFloorReach` has it, since the stairwell is up there.
-  const near = plotTilesNear(state, plot, me).filter(
-    (t) => chebyshev(me, t) + 1 <= state.config.reach,
-  );
+  // A floor counts as one tile of reach, as `outOfFloorReach` has it, since the stairwell is up
+  // there. With `inReach` off this is every tile of the plot, for naming one to walk to.
+  const all = plotTilesNear(state, plot, me);
+  const near = inReach ? all.filter((t) => chebyshev(me, t) + 1 <= state.config.reach) : all;
   return near.find(({ x, y }) => {
     const key = tileKey(x, y);
     if (blocks[key] !== undefined) return false;
@@ -262,8 +268,19 @@ function upHint(state: WorldState, me: Resident): string {
   if (!plot || !canBuildOn(plot, me.id)) return "";
   if ((plot.floors ?? 0) <= floor) return ` ${noFloor(plot)} Stairs go up to it once it's there.`;
   const spot = stairsSpot(state, me, plot, floor);
-  if (!spot)
+  if (!spot) {
+    // `stairsSpot` only looks within build reach, so "the plot is full" is usually wrong: the
+    // room is there, a few tiles off. Name a tile further out and the walk to it when one
+    // qualifies, so a reader walks rather than stops.
+    const far = stairsSpot(state, me, plot, floor, false);
+    if (far) {
+      const walk = walkWords(state, me, far, state.config.reach - 1);
+      return walk === ""
+        ? ` Nowhere within reach can take a staircase. There's room at ${tileWords(far.x, far.y)}, with no walk to it from here.`
+        : ` Nowhere within reach can take a staircase. There's room at ${tileWords(far.x, far.y)}: walk there (${walk}), then place ${tileWords(far.x, far.y)}, block stairs, for ${FLOORS.stairsWood} wood.`;
+    }
     return " A staircase needs the tile above it clear, and every tile here has something on it.";
+  }
   return ` This plot has none yet: place ${tileWords(spot.x, spot.y)}, block stairs puts a flight up from here, for ${FLOORS.stairsWood} wood. The tile above a staircase stays clear.`;
 }
 
@@ -284,6 +301,11 @@ function downHint(state: WorldState, me: Resident): string {
 export function noFlooringHint(state: WorldState, me: Resident, tile: Tile, floor: number): string {
   const plot = plotAtTile(state, tile.x, tile.y);
   if (!plot || !canBuildOn(plot, me.id)) return "";
+  // The tile aimed at can be on the next plot along, which may have no floor up here. `lay`
+  // checks that (`floorOf`) and would refuse, and the refusal it leads to names an `add_floor`
+  // that spends 200 coins adding an upstairs to that other plot. Say nothing instead: the plain
+  // "There's no flooring there." is true, and nothing here would help.
+  if ((plot.floors ?? 0) < floor) return "";
   if (flooringProblem(state, tile.x, tile.y, floor)) {
     return ` Nothing holds flooring up there: put a wall on the floor below first, within ${FLOORS.span} tiles (${HOLDING_WORDS}).`;
   }

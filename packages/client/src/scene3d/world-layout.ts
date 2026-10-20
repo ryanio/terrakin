@@ -301,7 +301,7 @@ export function readChunk(
   for (const p of presents) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   // The roof lifts away on the plot you stand on, which is the one with a cut (RFC 0041).
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
-  if (roof) parts.push(`roof:${roof.style}:${roof.material}:${roof.floor}`);
+  if (roof) parts.push(roofPart(roof));
   return {
     px,
     py,
@@ -373,6 +373,17 @@ function upstairsOf(
   return { blocks, ground, highest, parts };
 }
 
+/**
+ * A roof in a chunk's signature. `chunkSignature` and `readChunk` both build it, so a plot with a
+ * roof can match itself: a part one of them pushes and the other doesn't is a chunk that never
+ * matches and so is torn down and rebuilt on every input anyone sends. The ridge is in it because
+ * a `roof_top_set` changes nothing else on the plot, so without it a new vane would never appear.
+ */
+function roofPart(roof: RoofShape): string {
+  const top = roof.top ? `${roof.top.kind}@${roof.top.x},${roof.top.y}` : "";
+  return `roof:${roof.style}:${roof.material}:${roof.floor}:${top}`;
+}
+
 /** Just the signature of a plot, cheap enough to check on every change to the mirror. */
 export function chunkSignature(
   source: ChunkSource,
@@ -390,6 +401,8 @@ export function chunkSignature(
       parts.push(...tileThings(source, x, y, hearths, lit).parts);
   parts.push(...upstairsOf(source, bounds, lit, cut).parts);
   for (const p of pilesOn(source, bounds)) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
+  const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
+  if (roof) parts.push(roofPart(roof));
   return parts.join("|");
 }
 

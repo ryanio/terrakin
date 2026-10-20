@@ -522,8 +522,21 @@ export function areaParts(a: PlotArea): string[] {
   return parts;
 }
 
-/** How far the paper wash takes the world outside the subject back. */
-const OUTSIDE_WASH = "rgba(255, 250, 240, 0.52)";
+/** How far the paper wash takes the world outside the subject back, at noon. */
+const OUTSIDE_WASH_ALPHA = 0.52;
+
+/**
+ * How much of that wash a moment gets: all of it by day, none at midnight. The wash is paper, and
+ * it goes under the night, which is a multiply: a bright warm band multiplied down stays light
+ * while the subject beside it goes muddy, so at night the picture reads as a dark rectangle
+ * stamped on a pale field, which is the fade backwards. Fading the wash out as the light goes
+ * keeps the subject the brightest thing in the frame at every hour, and leaves every daylight
+ * photo exactly as it was.
+ */
+function washAlpha(sky: Sky | undefined): number {
+  const night = sky ? Math.min(1, Math.max(0, sky.night)) : 0;
+  return OUTSIDE_WASH_ALPHA * (1 - night);
+}
 
 /**
  * The band outside the subject, washed back with paper: four rects, any of them empty where the
@@ -533,15 +546,16 @@ const OUTSIDE_WASH = "rgba(255, 250, 240, 0.52)";
 function surroundWash(a: PlotArea, cols: number, rows: number): string[] {
   const s = a.subject;
   if (!s) return [];
+  const alpha = washAlpha(a.sky);
+  if (alpha <= 0.01) return [];
+  const wash = `rgba(255, 250, 240, ${n(alpha)})`;
   const x = Math.max(0, Math.min(cols, s.x));
   const y = Math.max(0, Math.min(rows, s.y));
   const right = Math.max(x, Math.min(cols, s.x + s.w));
   const bottom = Math.max(y, Math.min(rows, s.y + s.h));
   const band = (bx: number, by: number, w: number, h: number) =>
     w > 0 && h > 0
-      ? [
-          `<rect x="${n(bx)}" y="${n(by)}" width="${n(w)}" height="${n(h)}" fill="${OUTSIDE_WASH}"/>`,
-        ]
+      ? [`<rect x="${n(bx)}" y="${n(by)}" width="${n(w)}" height="${n(h)}" fill="${wash}"/>`]
       : [];
   return [
     ...band(0, 0, cols, y),
@@ -674,10 +688,15 @@ function roofSvg(
   inX: (v: number) => boolean,
   inY: (v: number) => boolean,
 ): string[] {
-  const tiles = roof.tiles.slice(0, MAX_FLOOR_TILES).filter((t) => inX(t.x) && inY(t.y));
+  // The whole roof decides its shape; the box only decides what is drawn. A neighbour's roof
+  // that runs off the edge of the picture keeps its real ridge and its real eaves, instead of
+  // growing a pale ridge along the highest tile that happens to be visible and an ink line down
+  // the cut.
+  const whole = roof.tiles.slice(0, MAX_FLOOR_TILES);
+  const tiles = whole.filter((t) => inX(t.x) && inY(t.y));
   if (tiles.length === 0) return [];
   const fill = safeColor(roof.fill);
-  const covered = new Set(tiles.map((t) => `${t.x},${t.y}`));
+  const covered = new Set(whole.map((t) => `${t.x},${t.y}`));
   const on = (x: number, y: number) => covered.has(`${x},${y}`);
   const parts: string[] = [];
   for (const t of tiles) {
@@ -695,8 +714,8 @@ function roofSvg(
   }
   // The ridge is the pale line where the roof is at its highest, and only where it falls away
   // across the edge, so the flat top of a gable is outlined rather than gridded into its tiles.
-  const top = Math.max(...tiles.flatMap((t) => corners(t.h)));
-  const heights = new Map(tiles.map((t) => [`${t.x},${t.y}`, corners(t.h)] as const));
+  const top = Math.max(...whole.flatMap((t) => corners(t.h)));
+  const heights = new Map(whole.map((t) => [`${t.x},${t.y}`, corners(t.h)] as const));
   const falls = (x: number, y: number) => {
     const h = heights.get(`${x},${y}`);
     return h === undefined || h.some((k) => k < top);

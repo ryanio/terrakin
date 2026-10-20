@@ -2187,12 +2187,15 @@ gatherButton.addEventListener("click", () => {
   );
 });
 
-/** The water beside where the server has you, if any: where a cast would go in. */
+/**
+ * The water beside where the server has you, if any: where a cast would go in. A pond or the open
+ * sea, the same question the sim's `isWater` asks (decision 0339), so the button shows on a shore.
+ */
 function waterNear(): Tile | undefined {
   const r = self();
   const m = mirror;
   if (!r || !m) return undefined;
-  return waterBeside(r, (x, y) => m.blocks.get(tileKey(x, y)) === "pond");
+  return waterBeside(r, (x, y) => m.blocks.get(tileKey(x, y)) === "pond" || m.isSea(x, y));
 }
 
 /** Show Fish while you stand beside water, out of build mode (RFC 0023). */

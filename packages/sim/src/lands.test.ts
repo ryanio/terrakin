@@ -9,7 +9,7 @@ import { replay } from "./replay";
 import type { Command, Input, WorldConfig, WorldEvent } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { route, stepFrom, worldGround } from "./walk";
-import { createWorld } from "./world";
+import { createWorld, isTownSquare } from "./world";
 
 /**
  * New lands (RFC 0038). Downtown here is 3 by 3 plots of 8 tiles (24 by 24), with one plot-width
@@ -189,6 +189,56 @@ describe("the water between lands", () => {
       expect(wet.rejection.message).toContain("open water between the lands");
     }
     expect(w.code("ada", { type: "settle", px: 4, py: 0 })).toBe(null);
+  });
+
+  it("refuses claiming the channel from a bridge tile, so nobody can wall the crossing off", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, ISLAND);
+    w.ok("ada", { type: "join", name: "ada", kind: "agent" });
+    // A bridge tile is inside the water plot slot, so standing on one puts the claimer on ground
+    // that is nobody's. Owning it would let them build across the only crossing and strand the
+    // island, and `remove` needs the plot's owner, so nobody else could take the wall down.
+    const ada = w.state.residents.ada;
+    if (!ada) throw new Error("ada isn't here");
+    ada.x = 24;
+    ada.y = 12;
+    expect(onBridge(w.state, ada.x, ada.y)).toBe(true);
+    const wet = w.send("ada", { type: "claim" });
+    expect(wet.ok).toBe(false);
+    if (!wet.ok) {
+      expect(wet.rejection.code).toBe("out_of_bounds");
+      expect(wet.rejection.message).toContain("open water between the lands");
+    }
+    // Across the bridge, on the island's own ground, the same claim is taken.
+    ada.x = 35;
+    ada.y = 12;
+    expect(w.code("ada", { type: "claim" })).toBe(null);
+  });
+
+  it("never names the water in the hint a taken plot gives", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, ISLAND);
+    w.ok("ada", { type: "join", name: "ada", kind: "agent" });
+    w.ok("bo", { type: "join", name: "bo", kind: "agent" });
+    // Fill downtown, so the nearest free slot to its east edge is the water column.
+    const size = w.state.config.plotSize;
+    for (let px = 0; px < CONFIG.width / size; px++) {
+      for (let py = 0; py < CONFIG.height / size; py++) {
+        if (isTownSquare(w.state, px, py)) continue;
+        w.state.plots[plotKey(px, py)] = { px, py, ownerId: "bo" };
+      }
+    }
+    const taken = w.send("ada", { type: "settle", px: 2, py: 0 });
+    expect(taken.ok).toBe(false);
+    if (taken.ok) return;
+    const said = taken.rejection.message;
+    // Whatever it names has to be a plot `settle` would take: a hint pointing at water sends an
+    // agent in a circle between this refusal and `out_of_bounds`.
+    const named = said.match(/settle at px (\d+), py (\d+)/);
+    if (named) {
+      const [, px, py] = named;
+      expect(onLand(w.state, Number(px), Number(py)), said).toBe(true);
+    }
   });
 });
 

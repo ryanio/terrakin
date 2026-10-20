@@ -426,6 +426,17 @@ export function samples(images: SampleImages = {}): [string, Card][] {
       },
     ],
     [
+      "plot-in-town-night",
+      {
+        ...samplePlotInTown("Juniper"),
+        posted: true,
+        sky: { night: 0.95, weather: "clear" },
+        stamp: ["Day 13 of Terrakin", "Autumn", "Night", "Clear"],
+        story: "New since your last photo: a bed planted",
+        figures: [{ x: 4.5, y: 7.88, drawing: sampleFigure() }],
+      },
+    ],
+    [
       "plot-dusk-rain",
       {
         ...samplePlot("Juniper"),

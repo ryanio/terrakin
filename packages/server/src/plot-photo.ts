@@ -36,6 +36,7 @@ import {
   isFurnitureKind,
   LEAF_TONES,
   nightAmount,
+  onBridge,
   onVine,
   PAPER,
   PET_BOX,
@@ -47,6 +48,8 @@ import {
   plotRoof,
   type Resident,
   roofTone,
+  SEA_LOOK,
+  seaFrom,
   seasonOf,
   skyAt,
   standingFloor,
@@ -474,6 +477,9 @@ export function areaOf(
 } {
   const { config } = state;
   const s = season(state);
+  // The sim's own rule for the water, so a picture and the world agree on where it is.
+  const sea = seaFrom(config, state.lands);
+  const bridge = sea ? (x: number, y: number) => onBridge(state, x, y) : undefined;
   const ground: PlotGround[] = [];
   const biomes = new Map<Biome, number>();
   const blocks: PlotBlock[] = [];
@@ -484,8 +490,19 @@ export function areaOf(
       const wy = y0 + y;
       const tile = groundTile(config, wx, wy, commons(wx, wy), s);
       if (!counts || counts(wx, wy)) biomes.set(tile.biome, (biomes.get(tile.biome) ?? 0) + 1);
-      const sc = tile.scenery;
       const key = tileKey(wx, wy);
+      // Water, and the planks across it, in place of the ground (RFC 0038). The map and the 3D
+      // view draw both; without this a photo of an island's shore, and the map around anyone
+      // standing on the bridge, came back as meadow with flowers on the open channel.
+      if (sea?.(wx, wy) === true) {
+        ground.push({ fill: SEA_LOOK.water });
+        continue;
+      }
+      if (bridge?.(wx, wy) === true) {
+        ground.push({ fill: SEA_LOOK.deck });
+        continue;
+      }
+      const sc = tile.scenery;
       // A path or flooring (RFC 0016), in the same look the map draws.
       const laid = state.ground?.[key];
       const look = laid ? GROUND_LOOK[laid] : undefined;

@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-19
-- Status: draft
+- Status: accepted (Ryan, 2026-10-20, in the decisions below); the shop's counter and the Town Hall's door are built and on at terrakin.org. `schedule_event` is in flight, and `pick_recipe` is deliberately left out (see Rollout).
 - Discussion: Ryan, 2026-10-19: "we should require less things to be remote so that the characters walk around and experience the world more"
 - Builds on: [decision 0009](../knowledge/decisions/0009-home-is-an-instant-jump-to-your-hearth.md) (home is a jump), [decision 0016](../knowledge/decisions/0016-settle-claims-a-first-plot-from-anywhere.md) (settle from anywhere), [decision 0072](../knowledge/decisions/0072-walking-is-eight-ways-around-solid-buildings-paced-by-your-f.md) (walking), [decision 0315](../knowledge/decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) (a walk is one call), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (replay)
 

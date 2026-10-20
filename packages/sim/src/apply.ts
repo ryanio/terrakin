@@ -625,7 +625,9 @@ function nearestFreePlot(
   let best: { px: number; py: number; d: number } | undefined;
   for (let y = 0; y < down; y++) {
     for (let x = 0; x < across; x++) {
-      if (isTownSquare(state, x, y) || state.plots[plotKey(x, y)]) continue;
+      // Water is never a plot to try: `settle` refuses it, so naming one sends an agent in a
+      // circle between this hint and that refusal (RFC 0038).
+      if (isTownSquare(state, x, y) || state.plots[plotKey(x, y)] || !onLand(state, x, y)) continue;
       const d = Math.max(Math.abs(x - px), Math.abs(y - py));
       if (!best || d < best.d) best = { px: x, py: y, d };
     }
@@ -1056,6 +1058,15 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // The Commons, or a land's own square, which a resident can stand on and never claim.
       if (isTownSquare(state, px, py)) {
         return reject("plot_is_commons", squareWords(state, px, py));
+      }
+      // A bridge tile is inside a water plot slot, so standing on one puts a resident on a slot
+      // that is nobody's ground. `settle` has always refused it; `claim` must too, or the first
+      // resident across owns the channel and can wall the crossing off (RFC 0038).
+      if (!onLand(state, px, py)) {
+        return reject(
+          "out_of_bounds",
+          "That's open water between the lands, not a plot. Claim on land, or cross the bridge and claim there.",
+        );
       }
       if (state.plots[plotKey(px, py)]) {
         return reject(

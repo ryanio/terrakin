@@ -4,6 +4,7 @@ import { FISH_KINDS } from "./catalog";
 import { ECONOMY } from "./economy";
 import { biting, CATCHES, type CatchChance, catchOf, FISHING, FISHING_ROD } from "./fishing";
 import { FISHING_CONFIG, FISHING_HASH, FISHING_LOG } from "./fixtures/fishing-log";
+import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize, POND } from "./items";
 import { replay } from "./replay";
@@ -440,5 +441,63 @@ describe("coins for fish", () => {
     ok(state, TOWN_ACTOR, { type: "new_day", day: WINTER });
     refused(state, "ada", { type: "sell_to_town", item: "salmon" }, "not_buying");
     ok(state, "ada", { type: "sell_to_town", item: "char" });
+  });
+});
+
+describe("the sea (RFC 0038)", () => {
+  /** Ada with a rod and no pond, in a town with the island and its water open. */
+  function shoreAngler(): WorldState {
+    const state = town();
+    stock(state, "ada", { wood: 3 });
+    ok(state, "ada", { type: "place", ...ADA_BENCH, block: "workbench" });
+    ok(state, "ada", { type: "craft", recipe: FISHING_ROD, ...ADA_BENCH });
+    ok(state, TOWN_ACTOR, ISLAND);
+    return state;
+  }
+
+  it("is water, so a cast from the shore or the bridge goes in and the same fish bite", () => {
+    const state = shoreAngler();
+    // The east edge of downtown, with the water that separates it from Willowmere beside her.
+    standAt(state, "ada", 23, 5);
+    expect(ok(state, "ada", cast(500, "clear", "day"))).toEqual([
+      { type: "fished", by: "ada", x: 24, y: 4, caught: "minnow" },
+      {
+        type: "inventory",
+        residentId: "ada",
+        reason: "caught",
+        changes: [{ kind: "minnow", amount: 1, count: 1 }],
+      },
+    ]);
+    // And from the bridge, with sea on both sides of it.
+    standAt(state, "ada", 24, 11);
+    expect(ok(state, "ada", cast(500, "clear", "day"))).toMatchObject([
+      { type: "fished", by: "ada", x: 24, y: 10, caught: "minnow" },
+      { type: "inventory", residentId: "ada" },
+    ]);
+  });
+
+  it("sends an inland angler to the shore, by a walk that goes round the walls", () => {
+    const state = shoreAngler();
+    // Inside Bob's hut, whose only way out is its doorway. A straight line to the water points
+    // at the hut's east wall, so following it never arrives: this is the walk the refusal owes.
+    standAt(state, "ada", 18, 3);
+    const said = refused(state, "ada", cast(500, "clear", "day"), "no_water");
+    expect(said).toContain("The nearest open water is at x 24, y 0.");
+    expect(said).toContain("Walk there:");
+    // Follow it exactly as an agent would, then cast.
+    const legs = [...said.matchAll(/move (\w+) (?:(\d+) times|once)/g)];
+    expect(legs.length, `no walk in: ${said}`).toBeGreaterThan(0);
+    for (const [, dir, n] of legs) {
+      for (let i = 0; i < Number(n ?? 1); i++) ok(state, "ada", { type: "move", dir } as Command);
+    }
+    expect(ok(state, "ada", cast(500, "clear", "day"))[0]).toMatchObject({ type: "fished" });
+  });
+
+  it("still says to dig a pond where no water is near, so an inland town reads as it did", () => {
+    const state = shoreAngler();
+    // Ada's own hearth is three plots from the water, past `FISHING.hintRadius`.
+    expect(refused(state, "ada", cast(500, "clear", "day"), "no_water")).toContain(
+      "none within 12 tiles",
+    );
   });
 });

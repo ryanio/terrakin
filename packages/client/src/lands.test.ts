@@ -126,4 +126,44 @@ describe("land_opened", () => {
     // The ground a walk reads was built before the land opened, and is built again after it.
     expect(mirror.ground().obstacle(27, 3)).toBe("sea");
   });
+
+  it("brings the island's hall and counter, so a tab open at the time draws them", () => {
+    // Downtown's own buildings, as the snapshot gives them: the hall on the Commons' square and
+    // the counter facing it. The shop has to be open for an island to get a counter.
+    const mirror = new Mirror({
+      ...base,
+      townHall: [{ x: 12, y: 9 }],
+      shop: [{ x: 12, y: 14 }],
+    });
+    const halls = mirror.townHall.length;
+    const counters = mirror.shop.length;
+    expect(halls).toBeGreaterThan(0);
+    expect(counters).toBeGreaterThan(0);
+    expect(
+      mirror.apply({
+        seq: 4,
+        event: {
+          type: "land_opened",
+          land: ISLAND.id,
+          name: ISLAND.name,
+          width: 48,
+          height: 24,
+          square: ISLAND.square,
+          plots: ISLAND.plots,
+          bridge: ISLAND.bridge,
+        },
+      }),
+    ).toBe("applied");
+    // The event names no tiles, so the mirror works the square's buildings out, as it does for
+    // `shop_opened`. Without this the island's hall and counter are drawn nowhere, a tap-to-walk
+    // route is planned straight through them, and Enter never shows beside either door.
+    expect(mirror.townHall.length).toBeGreaterThan(halls);
+    expect(mirror.shop.length).toBeGreaterThan(counters);
+    // Both stand on the land's own square, which is plot (4, 2): tiles x 32 to 39, y 16 to 23.
+    const added = mirror.townHall.slice(halls);
+    for (const t of added) {
+      expect(t.x, JSON.stringify(t)).toBeGreaterThanOrEqual(32);
+      expect(t.y, JSON.stringify(t)).toBeGreaterThanOrEqual(16);
+    }
+  });
 });

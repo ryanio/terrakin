@@ -3,15 +3,13 @@ import {
   type Command,
   cloneWorld,
   commonsPlot,
-  DIRECTIONS,
-  isSea,
   LANDS,
-  onBridge,
   plotCenter,
   plotsLeft,
-  stepFrom,
+  spawnTile,
   TOWN_ACTOR,
   type WorldState,
+  walkTree,
   worldGround,
 } from "@terrakin/sim";
 
@@ -98,16 +96,19 @@ export function planLand(state: WorldState): Extract<Command, { type: "open_land
 }
 
 /**
- * Whether a planned bridge actually gets anyone across: a walker can stand on each end, and each
- * end has a step onto land. The sim can't check this, because to it a bridge is a list of tiles
- * and it only refuses one that sits *on* land.
+ * Whether a planned land is actually reachable on foot: from a tile in downtown, a walk over the
+ * sim's own step rule arrives at every plot slot the land brings and at its square. The sim can't
+ * check this, because to it a bridge and a plot list are lists of tiles and nothing works out
+ * what joins what.
  *
  * The plan above can't fail this today: the channel is one plot wide, the bridge spans exactly it,
  * and the island's rows always cover the Commons' own row. It is here because `LAND_PLAN` is meant
- * to be tuned, and the input is logged forever: a wider channel or a taller island could lay a
- * bridge from water to water, and the land's plots would be claimable with the island unreachable
- * on foot, stranding whoever settled one. Opening no land is the better failure. The property this
- * protects is pinned where it can be: `lands.test.ts` walks off both ends of the planned bridge.
+ * to be tuned, and the input is logged forever. Two ways a tuned plan goes wrong, and both end
+ * with a resident stranded on ground they settled in good faith: a bridge laid from water to
+ * water, and a plot joined to the rest of its island only at a corner, which no step crosses (a
+ * diagonal past two corners of water is refused). Checking the bridge's ends catches the first
+ * and not the second, so this walks the whole land instead. Opening no land is the better
+ * failure. `lands.test.ts` pins it.
  */
 function reaches(state: WorldState, command: Extract<Command, { type: "open_land" }>): boolean {
   // The world as the land would leave it, so the ground knows about its tiles.
@@ -115,17 +116,22 @@ function reaches(state: WorldState, command: Extract<Command, { type: "open_land
   const opened = apply(after, { actor: TOWN_ACTOR, command });
   if (!opened.ok) return false;
   const ground = worldGround(after);
-  const ends = [command.bridge[0], command.bridge[command.bridge.length - 1]];
-  return ends.every((end) => {
-    if (!end) return false;
-    const [x, y] = end;
-    if (ground.obstacle(x, y)) return false;
-    return DIRECTIONS.some((dir) => {
-      const step = stepFrom(ground, { x, y }, dir);
-      return (
-        step.ok && !isSea(after, step.to.x, step.to.y) && !onBridge(after, step.to.x, step.to.y)
-      );
-    });
+  // Somewhere in downtown to walk from: the Commons is ground nobody builds on, so it is always
+  // standable and always on the home rectangle.
+  const from = spawnTile(after);
+  if (ground.obstacle(from.x, from.y)) return false;
+  const size = after.config.plotSize;
+  const reachable = walkTree(ground, from, Math.max(after.config.width, after.config.height));
+  const arrived = new Set<string>();
+  for (const node of reachable) arrived.add(`${node.x},${node.y}`);
+  const slots: readonly (readonly [number, number])[] = [...command.plots, command.square];
+  return slots.every(([px, py]) => {
+    for (let y = py * size; y < (py + 1) * size; y++) {
+      for (let x = px * size; x < (px + 1) * size; x++) {
+        if (arrived.has(`${x},${y}`)) return true;
+      }
+    }
+    return false;
   });
 }
 

@@ -142,9 +142,11 @@ export function seaFrom(
 
 /**
  * Whether a tile is sea. Nobody walks on it, nothing is built there, and nothing lies on it to
- * pick up. False everywhere in a world that never opened a land.
+ * pick up, but a line cast from the shore goes in it (`isWater` in `fishing.ts`). False everywhere
+ * in a world that never opened a land. It takes the two facts it reads rather than the whole
+ * world, so a caller holding only those can ask.
  */
-export function isSea(state: WorldState, x: number, y: number): boolean {
+export function isSea(state: Pick<WorldState, "config" | "lands">, x: number, y: number): boolean {
   return seaFrom(state.config, state.lands)?.(x, y) === true;
 }
 

@@ -524,6 +524,27 @@ describe("renderer", () => {
     expect(plotSvg(samplePlot("Wren"), 420)).not.toContain("rgba(255, 250, 240, 0.52)");
   });
 
+  it("fades that wash out as the light goes, so night never stamps a dark plot on a pale field", () => {
+    const town = samplePlotInTown("Wren");
+    // The wash is paper and it goes under the night, which is a multiply: left at full strength
+    // after dark the band stays light while the plot beside it goes muddy, and the picture reads
+    // as a rectangle stamped on the world instead of a home in a town.
+    const noon = plotSvg({ ...town, sky: { night: 0, weather: "clear" } }, 420);
+    expect(noon).toContain("rgba(255, 250, 240, 0.52)");
+    const dusk = plotSvg({ ...town, sky: { night: 0.5, weather: "clear" } }, 420);
+    expect(dusk).toContain("rgba(255, 250, 240, 0.26)");
+    const night = plotSvg({ ...town, sky: { night: 0.95, weather: "clear" } }, 420);
+    expect(night).toContain("rgba(255, 250, 240, 0.026)");
+    // At midnight it goes entirely, rather than leaving a wash nobody can see in the markup.
+    const midnight = plotSvg({ ...town, sky: { night: 1, weather: "clear" } }, 420);
+    expect(midnight).not.toContain("rgba(255, 250, 240");
+    // The sliver is still drawn at night: only the wash over it goes, so the neighbor is there.
+    expect(midnight).toContain('viewBox="0 0 10 10"');
+    expect(midnight).toContain('fill="#c9b393"');
+    // A photo with no sky is a daylight photo and is washed exactly as it always was.
+    expect(plotSvg(town, 420)).toContain("rgba(255, 250, 240, 0.52)");
+  });
+
   it("draws a hearth's chimney and its smoke held still (issue #80)", () => {
     const base = samplePlot("Wren");
     const svg = plotSvg(base, 420);

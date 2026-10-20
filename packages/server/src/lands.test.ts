@@ -5,8 +5,10 @@ import {
   LANDS,
   plotsLeft,
   seaFrom,
+  spawnTile,
   stepFrom,
   type WorldConfig,
+  walkTree,
   worldGround,
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -224,6 +226,27 @@ describe("the snapshot's lands", () => {
     expect(ground.obstacle(ex, ey)).toBeUndefined();
     expect(stepFrom(ground, { x: wx, y: wy }, "w").ok).toBe(true);
     expect(stepFrom(ground, { x: ex, y: ey }, "e").ok).toBe(true);
+    // And every slot the land brought is walkable to from downtown, not just the crossing. A
+    // plot joined to its island only at a corner is unreachable (a diagonal past two corners of
+    // water is refused) and would strand whoever settled it, so the planner's guard walks the
+    // whole land rather than the bridge's two ends.
+    const state = w.service.state;
+    const size = state.config.plotSize;
+    const arrived = new Set(
+      walkTree(ground, spawnTile(state), Math.max(state.config.width, state.config.height)).map(
+        (n) => `${n.x},${n.y}`,
+      ),
+    );
+    const slots = [...island.plots, island.square];
+    for (const [sx, sy] of slots) {
+      let any = false;
+      for (let y = sy * size; y < (sy + 1) * size && !any; y++) {
+        for (let x = sx * size; x < (sx + 1) * size && !any; x++) {
+          if (arrived.has(`${x},${y}`)) any = true;
+        }
+      }
+      expect(any, `no walk from downtown to the slot at ${sx},${sy}`).toBe(true);
+    }
   });
 });
 

@@ -43,19 +43,32 @@ export function notAtDoor(
   door: Tile,
   words: DoorWords,
 ): Rejection | null {
-  const walk = walkWords(state, me, door, state.config.reach);
-  const far = outOfReach(
-    me,
-    door,
-    state.config.reach,
-    words.lead,
-    walk === ""
-      ? ` There's no walk from where you stand to ${words.there}: something has you closed in. Take a wall away to open the way out.`
-      : ` Walk there: ${walk}.`,
-  );
+  // Only plan the walk once we know it refuses. `walkWords` is a breadth-first search of the
+  // world, and this runs on every accepted buy and sale and on every read of the shop and the
+  // Town Hall, where the caller is usually standing at the door and the walk is thrown away.
+  const reach = state.config.reach;
+  const away = outOfReach(me, door, reach, words.lead, "");
+  const far =
+    away &&
+    (() => {
+      const walk = walkWords(state, me, door, reach);
+      return outOfReach(
+        me,
+        door,
+        reach,
+        words.lead,
+        walk === ""
+          ? ` There's no walk from where you stand to ${words.there}: something has you closed in. Take a wall away to open the way out.`
+          : ` Walk there: ${walk}.`,
+      );
+    })();
   const upstairs = upstairsProblem(me, words.doing);
   if (upstairs) {
-    return far ? { ...upstairs, message: `${upstairs.message} ${far.message}` } : upstairs;
+    // Only how far off they are, never the walk. `move down` puts them on the staircase, not on
+    // the tile they stand on up here, so a walk planned from here starts in the wrong place and
+    // its first legs point at their own walls. The refusal they get once they are down names a
+    // right one, from where they will actually be.
+    return away ? { ...upstairs, message: `${upstairs.message} ${away.message}` } : upstairs;
   }
   return far;
 }

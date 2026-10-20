@@ -15,7 +15,16 @@ import {
   type WorldConfig,
   type WorldEvent,
 } from "./types";
-import { DIRECTIONS, directionOf, route, stepFrom, walkTree, walkWords, worldGround } from "./walk";
+import {
+  DIRECTIONS,
+  directionOf,
+  route,
+  stepFrom,
+  WALK_LEG_MAX,
+  walkTree,
+  walkWords,
+  worldGround,
+} from "./walk";
 import {
   chebyshev,
   createWorld,
@@ -402,5 +411,40 @@ describe("the walk a refusal names", () => {
     // Seal the hut's doorway and there's nothing to name.
     w.ok("bob", { type: "place", x: 3, y: 5, block: "wood" });
     expect(walkWords(w.state, { x: 3, y: 3 }, { x: 12, y: 14 }, CONFIG.reach)).toBe("");
+  });
+});
+
+describe("a walk a refusal names", () => {
+  it("never asks for more steps than one move takes, however long the detour", () => {
+    // A wall from the top of the world down to y 40 forces a long way round. Before the cap this
+    // read "move s 36 times", and `{"steps": 36}` fails the API's schema before the sim sees it.
+    const config: WorldConfig = {
+      width: 48,
+      height: 48,
+      plotSize: 8,
+      maxPlotsPerResident: 1,
+      reach: 3,
+    };
+    const state = createWorld(config);
+    for (let y = 0; y <= 40; y++) state.blocks[tileKey(10, y)] = "wood";
+    const words = walkWords(state, { x: 9, y: 5 }, { x: 11, y: 5 }, 0);
+    expect(words).not.toBe("");
+    const legs = [...words.matchAll(/move ([nsew]{1,2}) (?:once|(\d+) times)/g)];
+    expect(legs.length).toBeGreaterThan(0);
+    for (const [, dir, n] of legs) {
+      expect(Number(n ?? 1), `${dir} in: ${words}`).toBeLessThanOrEqual(WALK_LEG_MAX);
+    }
+    // Split into legs, it still walks the whole way: every step is taken and it arrives.
+    const at = { x: 9, y: 5 };
+    for (const [, dir, n] of legs) {
+      for (let i = 0; i < Number(n ?? 1); i++) {
+        const step = stepFrom(worldGround(state), at, dir as Direction);
+        expect(step.ok, `step ${dir} from ${at.x},${at.y} in: ${words}`).toBe(true);
+        if (!step.ok) return;
+        at.x = step.to.x;
+        at.y = step.to.y;
+      }
+    }
+    expect(at).toEqual({ x: 11, y: 5 });
   });
 });

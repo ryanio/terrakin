@@ -115,12 +115,17 @@ describe("what a roof is", () => {
     expect(state.items?.inventories.ada?.stacks).toEqual(held);
     expect(events).toEqual([{ type: "roof_top_set", px: 0, py: 0, top: "vane", by: "ada" }]);
 
-    // It stands on the middle of the roof's highest tiles, which every view reads from the shape.
+    // It stands on the first of the roof's highest tiles, which every view reads from the shape.
     const shape = plotRoof(state, 0, 0);
     const high = Math.max(...(shape?.tiles ?? []).map((t) => Math.max(...t.h)));
     const at = (shape?.tiles ?? []).find((t) => t.x === shape?.top?.x && t.y === shape?.top?.y);
     expect(shape?.top?.kind).toBe("vane");
     expect(Math.max(...(at?.h ?? [0]))).toBe(high);
+    // And the *first* of them in reading order, north row first and west to east, which is what
+    // decision 0337 promises and what every view has to agree on: the wire carries the ridge's
+    // kind and never its tile, so a reader works the tile out from the walls with this rule.
+    const highest = (shape?.tiles ?? []).filter((t) => Math.max(...t.h) === high);
+    expect({ x: shape?.top?.x, y: shape?.top?.y }).toEqual({ x: highest[0]?.x, y: highest[0]?.y });
 
     // The same roof again is nothing to change; another ridge is.
     refused(state, "ada", top("vane"), "already_set");

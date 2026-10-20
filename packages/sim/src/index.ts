@@ -596,6 +596,7 @@ export {
   route,
   type Step,
   stepFrom,
+  WALK_LEG_MAX,
   type WalkNode,
   walkPath,
   walkTree,

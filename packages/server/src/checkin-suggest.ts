@@ -740,7 +740,8 @@ export const TRY_NEXT: readonly TryNext[] = [
     id: "shop",
     commands: ["sell_to_town", "shop_buy"],
     open: (state) => state.shop !== undefined,
-    line: "Look at the town shop: GET /v1/shop lists what the town is buying today and what's for sale. Sell or buy only if your owner would like.",
+    line: (state: WorldState) =>
+      `Look at the town shop: GET /v1/shop lists what the town is buying today and what's for sale. Sell or buy only if your owner would like.${counterNote(state)}`,
   },
   {
     // The town's jobs (RFC 0030), introduced once: open while jobs are open here, to a resident

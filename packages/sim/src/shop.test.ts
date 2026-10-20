@@ -844,18 +844,22 @@ describe("shopping in person (RFC 0042)", () => {
     expect(away?.message).toContain("Walk there:");
   });
 
-  it("tells someone upstairs to come down, with the walk when they're far off too", () => {
+  it("tells someone upstairs to come down, and how far off they are, but names no walk", () => {
     const w = shop();
     // Over the counter itself: nothing to say but come down.
     const over = notAtTheCounter(w.state, { ...door, floor: 1 });
     expect(over?.code).toBe("ground_floor_only");
     expect(over?.message).toBe("Go down to the ground floor to shop.");
-    // Upstairs in a loft across town: both, in one answer, so it takes one round trip.
+    // Upstairs in a loft across town: both facts in one answer, so it takes one round trip.
     const loft = notAtTheCounter(w.state, { x: door.x - 12, y: door.y - 9, floor: 1 });
     expect(loft?.code).toBe("ground_floor_only");
     expect(loft?.message).toContain("Go down to the ground floor to shop.");
     expect(loft?.message).toContain("Clem serves at the counter.");
-    expect(loft?.message).toContain("Walk there:");
+    // And no walk. `move down` puts them on the staircase, not on the tile they stand on up
+    // here, so a walk planned from up here starts in the wrong place: its first legs point at
+    // their own walls and following it is refused partway. The refusal they get once they're
+    // down names a right one, from where they actually are.
+    expect(loft?.message).not.toContain("Walk there:");
     expect(notAtTheCounter(w.state, door)).toBe(null);
   });
 });

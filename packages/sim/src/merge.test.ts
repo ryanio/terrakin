@@ -228,6 +228,16 @@ describe("merge_resident", () => {
     ["has a block on its plot", "plot_has_blocks", (s) => (s.blocks[tileKey(17, 9)] = "wood")],
     ["has a path on its plot", "plot_has_blocks", (s) => (s.ground = { [tileKey(17, 9)]: "dirt" })],
     [
+      // A roof is on the plot's record rather than its tiles, so an empty plot can still carry
+      // one, and the merge would delete the record with the covering it took (RFC 0041).
+      "has a roof on its plot",
+      "plot_has_blocks",
+      (s) => {
+        const plot = s.plots["2,1"];
+        if (plot) plot.roof = { style: "gable", material: "wood" };
+      },
+    ],
+    [
       "has a lot in the market",
       "not_eligible",
       (s) => {

@@ -37,7 +37,7 @@ export const THEMES = [
 export type Theme = (typeof THEMES)[number];
 
 /**
- * Prints (decision 0327): a pattern whose motif is one named thing, scattered big and small, so a
+ * Prints (decision 0328): a pattern whose motif is one named thing, scattered big and small, so a
  * resident can wear lemons or cats rather than one of nine geometrics. The catalog names them, so
  * nothing a resident typed ever becomes a pattern. They go on the end of `PATTERNS`, and so does
  * any new one, because older wear lists and garment styles have to keep hashing the same.

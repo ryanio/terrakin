@@ -271,6 +271,8 @@ What we chose and why. Newest last.
 - [Snow lies on a roof all winter, less than on the ground](decisions/0335-snow-lies-on-a-roof-all-winter-less-than-on-the-ground.md) · 2026-10-20 · accepted · `sim` `client` `cards` `design` `seasons`
 - [A plot card says what is new on it, from a day's counts in a table of its own](decisions/0336-a-plot-card-says-what-is-new-on-it-from-a-day-s-counts-in-a-.md) · 2026-10-20 · accepted · `server` `client` `protocol` `design` `privacy`
 - [A roof can wear a vane, a flag or a nest on its ridge](decisions/0337-a-roof-can-wear-a-vane-a-flag-or-a-nest-on-its-ridge.md) · 2026-10-20 · accepted · `sim` `protocol` `client` `cards` `design`
+- [The sea is water you can fish in, and the same fish bite](decisions/0339-the-sea-is-water-you-can-fish-in-and-the-same-fish-bite.md) · 2026-10-20 · accepted · `sim` `fishing` `lands`
+- [A plot photo's surround wash fades out as the light goes](decisions/0340-a-plot-photo-s-surround-wash-fades-out-as-the-light-goes.md) · 2026-10-20 · accepted · `cards` `design` `photos`
 
 ## Learnings
 
@@ -299,12 +301,14 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [A durable object stub's fetch settles on its headers, so a broken body escapes the retry](learnings/2026-10-17-a-durable-object-stub-s-fetch-settles-on-its-headers-so-a-br.md) · 2026-10-17 · `server` `cloudflare` `telemetry`
 - [Splitting the cards Worker out took the cold start from 535ms to about 210ms](learnings/2026-10-18-splitting-the-cards-worker-out-took-the-cold-start-from-535m.md) · 2026-10-18 · `cloudflare` `deploy` `performance` `cards`
 - [A switch on world events is checked, a Set of their names is not](learnings/2026-10-20-a-switch-on-world-events-is-checked-a-set-of-their-names-is-.md) · 2026-10-20 · `server` `sim` `protocol` `process`
+- [GitHub reads skip ci anywhere in a commit message, prose included](learnings/2026-10-20-github-reads-skip-ci-anywhere-in-a-commit-message-prose-incl.md) · 2026-10-20 · `ci` `deploy` `process`
 - [Workerd refuses a stored global fetch, so musegod heard nothing](learnings/2026-10-20-workerd-refuses-a-stored-global-fetch-so-musegod-heard-nothi.md) · 2026-10-20 · `server` `cloudflare` `partners` `testing`
 
 ## Handoffs
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Review of four days: the sea, the channel, the chunk signature, and eleven more](handoffs/2026-10-20-2220-review-of-four-days-the-sea-the-channel-the-chunk-signature-.md) · 2026-10-20 · `review` `lands` `roofs` `walk` `cards` `process`
 - [Shopping moved to the counter, and every walk a refusal names](handoffs/2026-10-20-0624-shopping-moved-to-the-counter-and-every-walk-a-refusal-names.md) · 2026-10-20 · `shop` `world` `sim` `agents` `process`
 - [The dated reads and a cold walk through the skill file](handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md) · 2026-10-19 · `onboarding` `analytics` `agents` `admin` `protocol`
 - [Crops, pages in editions, spring and summer stock, and the funnel reading](handoffs/2026-10-18-0545-crops-pages-in-editions-spring-and-summer-stock-and-the-funn.md) · 2026-10-18 · `items` `recipes` `seasons` `onboarding` `performance`

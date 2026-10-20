@@ -26,6 +26,7 @@ import {
 } from "./items";
 import { catchJob } from "./jobs";
 import { tileKey } from "./keys";
+import { isSea } from "./lands";
 import { catchEarns, earned } from "./levels";
 import { type Season, seasonOf } from "./season";
 import { isTimeOfDay, type TimeOfDay } from "./time-of-day";
@@ -122,9 +123,17 @@ export function catchOf(roll: number, season: Season, time: TimeOfDay, weather: 
   return "nothing";
 }
 
-/** Whether a tile holds water to fish in. */
-export const isWater = (state: Pick<WorldState, "blocks">, x: number, y: number): boolean =>
-  state.blocks[tileKey(x, y)] === POND.block;
+/** What `isWater` reads: the blocks for a pond, and the lands for the sea between them. */
+export type WaterFacts = Pick<WorldState, "blocks" | "config" | "lands">;
+
+/**
+ * Whether a tile holds water to fish in: a pond someone dug, or the open sea between lands
+ * ([RFC 0038](../../../docs/rfcs/0038-new-lands.md), [decision 0339](../../../docs/knowledge/decisions/0339-the-sea-is-water-you-can-fish-in-and-the-same-fish-bite.md)).
+ * In a world that never opened a land there is no sea, so this answers exactly as it always did
+ * and every logged cast replays as it was made.
+ */
+export const isWater = (state: WaterFacts, x: number, y: number): boolean =>
+  state.blocks[tileKey(x, y)] === POND.block || isSea(state, x, y);
 
 /** The eight tiles around one, north first and on round clockwise. */
 const AROUND: readonly [number, number][] = [
@@ -154,7 +163,8 @@ export function waterBeside(at: Tile, water: (x: number, y: number) => boolean):
 
 /**
  * The nearest tile of water within `radius` of `from`: nearest by Chebyshev distance, then north to
- * south, then west to east. For a refusal's next step.
+ * south, then west to east. For a refusal's next step. A sea tile counts, so a resident on an
+ * island is sent to the shore rather than told to dig.
  */
 export function nearestWater(state: WorldState, from: Tile, radius: number): Tile | undefined {
   for (let d = 1; d <= radius; d++) {
@@ -187,11 +197,12 @@ const rodNeeds = () =>
  * your things, at most `FISHING.castsPerDay` times a day. Every cast counts, whatever it brings up.
  */
 /**
- * The walk to stand beside a pond, or the plain truth when there isn't one: a straight-line hint
- * would point through whatever is between, including your own walls.
+ * The walk to stand beside water, or the plain truth when none gets there: a straight-line hint
+ * would point through whatever is between, including your own walls. A sea tile is never walked
+ * on, so `near` of 1 ends the walk on the shore beside it.
  */
-function pondWalk(state: WorldState, me: Tile, pond: Tile): string {
-  const walk = walkWords(state, me, pond, 1);
+function waterWalk(state: WorldState, me: Tile, water: Tile): string {
+  const walk = walkWords(state, me, water, 1);
   return walk === ""
     ? " There's no walk from where you stand to it: something has you closed in."
     : ` Walk there: ${walk}.`;
@@ -234,11 +245,11 @@ export function checkFish(
   if (!water) {
     const near = nearestWater(state, me, FISHING.hintRadius);
     const where = near
-      ? ` The nearest pond is at x ${near.x}, y ${near.y}.${pondWalk(state, me, near)}`
+      ? ` The nearest ${isSea(state, near.x, near.y) ? "open water is" : "pond is"} at x ${near.x}, y ${near.y}.${waterWalk(state, me, near)}`
       : ` There's none within ${FISHING.hintRadius} tiles. Make one on your plot with {"type": "place", "x": <x>, "y": <y>, "block": "${POND.block}"}, ${countOf("stone", POND.stone)} a tile, or ask the Town Hall for one in the Commons.`;
     return refuse(
       "no_water",
-      `Fish from right beside water: a pond tile next to you, diagonals included.${where}`,
+      `Fish from right beside water: a pond or the open sea next to you, diagonals included.${where}`,
     );
   }
   const cast = castsToday(state, actor);

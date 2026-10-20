@@ -5,7 +5,7 @@
  * the server walks us around, rather than a copy of the rule that could drift from it.
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
-import { type LandsFacts, seaFrom, tileKey, type WorldConfig } from "@terrakin/sim";
+import { type LandsFacts, landedFrom, seaFrom, tileKey, type WorldConfig } from "@terrakin/sim";
 
 /** The lands as the snapshot carries them. */
 export type LandsView = NonNullable<WorldSnapshot["lands"]>;
@@ -33,9 +33,9 @@ export function seaOf(
 }
 
 /**
- * Whether a plot slot is land at all: inside downtown, or a slot some land brought in. A slot in
- * the water between lands is neither, and `settle` refuses it. True everywhere in a world of one
- * grid, which is every world today.
+ * Whether a plot slot is land at all: inside downtown, or a slot some land brought in. The sim's
+ * own rule, asked of the snapshot's facts, so the picker never offers a slot `settle` would refuse.
+ * True everywhere in a world of one grid, which is every world today.
  */
 export function onLandPlot(
   config: WorldConfig,
@@ -43,10 +43,7 @@ export function onLandPlot(
   px: number,
   py: number,
 ): boolean {
-  if (!lands) return true;
-  const { plotSize } = config;
-  if (px * plotSize < lands.home.width && py * plotSize < lands.home.height) return true;
-  return landNameAt(lands, px, py) !== undefined;
+  return !lands || landedFrom(config, factsOf(lands), px, py);
 }
 
 /** The name of the land a plot slot is on, or undefined downtown and in the water. */

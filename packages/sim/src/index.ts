@@ -373,6 +373,7 @@ export {
   isSea,
   LANDS,
   type LandsFacts,
+  landedFrom,
   landName,
   landOfPlot,
   landPlots,

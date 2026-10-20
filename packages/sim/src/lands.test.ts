@@ -232,22 +232,12 @@ describe("what lies on the water", () => {
 });
 
 describe("seaFrom", () => {
-  it("answers as the world's own rule does, from the facts the wire can carry", () => {
+  it("stops at the world's edge, so a view can tell a shore from the end of the map", () => {
     const w = world();
     w.ok(TOWN_ACTOR, ISLAND);
-    const sea = seaFrom(w.state.config, {
-      home: { width: CONFIG.width, height: CONFIG.height },
-      list: [{ plots: ISLAND.plots, bridge: ISLAND.bridge }],
-    });
+    const sea = seaFrom(w.state.config, w.state.lands);
     expect(sea).toBeDefined();
-    const wrong: string[] = [];
-    for (let x = 0; x < w.state.config.width; x++) {
-      for (let y = 0; y < w.state.config.height; y++) {
-        if (sea?.(x, y) !== isSea(w.state, x, y)) wrong.push(`${x},${y}`);
-      }
-    }
-    expect(wrong).toEqual([]);
-    // Past the world's edge is nothing at all, not water, so a view can tell a shore from the edge.
+    expect(sea?.(27, 3)).toBe(true);
     expect(sea?.(-1, 5)).toBe(false);
     expect(sea?.(w.state.config.width, 5)).toBe(false);
     expect(sea?.(5, w.state.config.height)).toBe(false);

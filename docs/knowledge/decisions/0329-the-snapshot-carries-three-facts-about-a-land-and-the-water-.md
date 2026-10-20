@@ -33,8 +33,13 @@ for tiles. The sim keeps `[x, y]` pairs, so `toWire` reshapes `land_opened` on i
 shape for the same facts on the wire is worth a map in one function.
 
 **Nothing lies on the water.** `pickupOn` takes the sea as a fact, so no branch, stone or find is
-on it to gather and no client draws one floating there. This changes no logged replay: every sea
-tile is ground an `open_land` brought in, since a tile in bounds before one opened is downtown.
+on it to gather and no client draws one floating there. This is a rule change, and the reason it
+moves no logged replay is narrower than it first looks. Every sea tile is ground an `open_land`
+brought in, since a tile in bounds before one opened is downtown, so nobody ever *stood* on water.
+But `gather` reaches `config.reach` rather than the tile underfoot, so in a world that already had
+a land open, someone on the shore could have taken a sea tile and now cannot. What makes it safe is
+that no such log exists: no adapter opens a land, and the lands fixture holds no `gather`. A later
+water rule cannot reuse the geometry argument on its own.
 
 **The plot picker fills downtown first**, which answers the RFC's open question 2. Island plots are
 offered, last, named by their land ("On Willowmere, across the bridge"), so the center fills and

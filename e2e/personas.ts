@@ -169,15 +169,17 @@ export async function freePlotsOver(
   taken.add(`${world.commons.px},${world.commons.py}`);
   taken.add(walkedOnto(world.config).join(","));
   // The water between lands is no plot (RFC 0038), so leave it out rather than offer a slot
-  // `settle` refuses. A world of one grid has no `lands` and every slot in it is land.
-  const onLand = ({ lands } = world) => {
-    if (!lands) return () => true;
-    const slots = new Set(lands.list.flatMap((l) => l.plots.map((p) => `${p.px},${p.py}`)));
-    return (px: number, py: number) =>
-      (px * plotSize < lands.home.width && py * plotSize < lands.home.height) ||
-      slots.has(`${px},${py}`);
-  };
-  const dry = onLand();
+  // `settle` refuses. This is the sim's `landedFrom` written out, because this file has no imports:
+  // `scripts/persona.ts` loads it as it is, outside the bundler. A world of one grid has no
+  // `lands`, and every slot in one is land.
+  const lands = world.lands;
+  const slots = new Set((lands?.list ?? []).flatMap((l) => l.plots.map((p) => `${p.px},${p.py}`)));
+  const dry = (px: number, py: number) =>
+    !lands ||
+    (px >= 0 &&
+      py >= 0 &&
+      ((px * plotSize < lands.home.width && py * plotSize < lands.home.height) ||
+        slots.has(`${px},${py}`)));
   const span = (size: number, backwards: boolean) => {
     const all = Array.from({ length: size / plotSize }, (_, i) => i);
     return backwards ? all.reverse() : all;

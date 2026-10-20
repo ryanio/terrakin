@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
 import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
-import { LANDS, plotsLeft, stepFrom, type WorldConfig, worldGround } from "@terrakin/sim";
+import {
+  isSea,
+  LANDS,
+  plotsLeft,
+  seaFrom,
+  stepFrom,
+  type WorldConfig,
+  worldGround,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp, TEST_OPEN_LAND_PATH } from "./app";
 import { LAND_PLAN } from "./lands";
@@ -152,6 +160,35 @@ describe("the snapshot's lands", () => {
     });
   });
 
+  it("carries enough for a reader to find the water the rules find", async () => {
+    const w = await start({ lands: true });
+    await w.crowd();
+    w.later(60_000);
+    const snapshot = await w.world();
+    // The three facts the wire sends, read back as the sim takes them. This is what a client does
+    // with `lands`, so it fails if `landsField` ever drops or renames one of them.
+    const lands = snapshot.lands as {
+      home: { width: number; height: number };
+      list: { plots: { px: number; py: number }[]; bridge: { x: number; y: number }[] }[];
+    };
+    const sea = seaFrom(w.service.state.config, {
+      home: lands.home,
+      list: lands.list.map((l) => ({
+        plots: l.plots.map((p) => [p.px, p.py] as const),
+        bridge: l.bridge.map((t) => [t.x, t.y] as const),
+      })),
+    });
+    const wrong: string[] = [];
+    const { width, height } = w.service.state.config;
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        if (sea?.(x, y) !== isSea(w.service.state, x, y)) wrong.push(`${x},${y}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect(sea?.(ISLAND_BRIDGE[0]?.x ?? 0, (ISLAND_BRIDGE[0]?.y ?? 0) - 1)).toBe(true);
+  });
+
   it("leaves a walk over the bridge and a plot to claim on the far side", async () => {
     const w = await start({ lands: true });
     await w.crowd();
@@ -167,11 +204,15 @@ describe("the snapshot's lands", () => {
     const wet = await w.act(made.token, { type: "settle", px: px - 1, py });
     expect(wet).toMatchObject({ ok: false, error: { code: "out_of_bounds" } });
     expect(wet.error.message).toContain("open water");
-    // The bridge is walkable ground: the far end of it is a step from the island.
+    // The bridge is walkable ground, and it carries at both ends: west onto downtown, east onto
+    // the island. The sim can't check that, so the planner does.
     const ground = worldGround(w.service.state);
-    const [bx, by] = island.bridge[island.bridge.length - 1] as [number, number];
-    expect(ground.obstacle(bx, by)).toBeUndefined();
-    expect(stepFrom(ground, { x: bx, y: by }, "e").ok).toBe(true);
+    const [wx, wy] = island.bridge[0] as [number, number];
+    const [ex, ey] = island.bridge[island.bridge.length - 1] as [number, number];
+    expect(ground.obstacle(wx, wy)).toBeUndefined();
+    expect(ground.obstacle(ex, ey)).toBeUndefined();
+    expect(stepFrom(ground, { x: wx, y: wy }, "w").ok).toBe(true);
+    expect(stepFrom(ground, { x: ex, y: ey }, "e").ok).toBe(true);
   });
 });
 

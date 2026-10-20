@@ -1,11 +1,18 @@
 import {
+  apply,
   type Command,
+  cloneWorld,
   commonsPlot,
+  DIRECTIONS,
+  isSea,
   LANDS,
+  onBridge,
   plotCenter,
   plotsLeft,
-  type WorldConfig,
+  stepFrom,
+  TOWN_ACTOR,
   type WorldState,
+  worldGround,
 } from "@terrakin/sim";
 
 /**
@@ -40,11 +47,6 @@ export const LAND_PLAN = {
   bridgeRows: 2,
 } as const;
 
-/** The rectangle downtown is: the world as it was before any land opened (decision 0326). */
-function downtown(state: WorldState): WorldConfig {
-  return { ...state.config, ...(state.lands?.home ?? {}) };
-}
-
 /**
  * The next land's `open_land`, or undefined when the town has no name left for one. The land sits
  * a plot-width of water east of the world's edge, `LAND_PLAN.plots` square, bridged across the
@@ -70,12 +72,12 @@ export function planLand(state: WorldState): Extract<Command, { type: "open_land
     for (let py = py0; py < py0 + span; py++) plots.push([px, py]);
   }
   const bridge: [number, number][] = [];
-  const y0 = plotCenter(downtown(state), commons.px, commons.py).y;
+  const y0 = plotCenter(config, commons.px, commons.py).y;
   for (let x = edge * size; x < px0 * size; x++) {
     for (let y = y0; y < y0 + bridgeRows; y++) bridge.push([x, y]);
   }
-  return {
-    type: "open_land",
+  const command = {
+    type: "open_land" as const,
     land: next.id,
     name: next.name,
     width: (px0 + span) * size,
@@ -83,6 +85,39 @@ export function planLand(state: WorldState): Extract<Command, { type: "open_land
     plots,
     bridge,
   };
+  return reaches(state, command) ? command : undefined;
+}
+
+/**
+ * Whether a planned bridge actually gets anyone across: a walker can stand on each end, and each
+ * end has a step onto land. The sim can't check this, because to it a bridge is a list of tiles
+ * and it only refuses one that sits *on* land.
+ *
+ * The plan above can't fail this today: the channel is one plot wide, the bridge spans exactly it,
+ * and the island's rows always cover the Commons' own row. It is here because `LAND_PLAN` is meant
+ * to be tuned, and the input is logged forever: a wider channel or a taller island could lay a
+ * bridge from water to water, and the land's plots would be claimable with the island unreachable
+ * on foot, stranding whoever settled one. Opening no land is the better failure. The property this
+ * protects is pinned where it can be: `lands.test.ts` walks off both ends of the planned bridge.
+ */
+function reaches(state: WorldState, command: Extract<Command, { type: "open_land" }>): boolean {
+  // The world as the land would leave it, so the ground knows about its tiles.
+  const after = cloneWorld(state);
+  const opened = apply(after, { actor: TOWN_ACTOR, command });
+  if (!opened.ok) return false;
+  const ground = worldGround(after);
+  const ends = [command.bridge[0], command.bridge[command.bridge.length - 1]];
+  return ends.every((end) => {
+    if (!end) return false;
+    const [x, y] = end;
+    if (ground.obstacle(x, y)) return false;
+    return DIRECTIONS.some((dir) => {
+      const step = stepFrom(ground, { x, y }, dir);
+      return (
+        step.ok && !isSea(after, step.to.x, step.to.y) && !onBridge(after, step.to.x, step.to.y)
+      );
+    });
+  });
 }
 
 /**

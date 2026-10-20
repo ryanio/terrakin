@@ -648,6 +648,8 @@ export class WorldService {
   private readonly jobs: boolean;
   private readonly circles: boolean;
   private readonly lands: boolean;
+  /** The last refusal printed for each logged switch, so one keeps quiet until it changes. */
+  private readonly switchRefused = new Map<string, string>();
   private readonly jobEdition: number | undefined;
   private readonly pageEdition: number | undefined;
   private readonly retireRepeatJoins: boolean;
@@ -1028,7 +1030,16 @@ export class WorldService {
     const command = typeof sw.command === "function" ? sw.command(this) : { ...sw.command };
     if (!command) return;
     const on = this.run({ actor: TOWN_ACTOR, command });
-    if (!on.ok) console.error(`Couldn't ${sw.label}: ${on.error.message}`);
+    if (on.ok) {
+      this.switchRefused.delete(sw.option);
+      return;
+    }
+    // Said once per switch, not once per tick. A one-time switch that the sim refuses stays due
+    // until something changes, and `lands` can come due again and again, so without this a refusal
+    // prints on every tick and every request that ticks, for as long as the world runs.
+    if (this.switchRefused.get(sw.option) === on.error.message) return;
+    this.switchRefused.set(sw.option, on.error.message);
+    console.error(`Couldn't ${sw.label}: ${on.error.message}`);
   }
 
   private tickDays() {

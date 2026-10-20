@@ -52,8 +52,18 @@ function inHome(config: WorldConfig, lands: LandsFacts, px: number, py: number):
   return px >= 0 && py >= 0 && px * size < lands.home.width && py * size < lands.home.height;
 }
 
-/** Whether a plot slot is inside downtown or a slot some open land brought in. */
-function landed(config: WorldConfig, lands: LandsFacts, px: number, py: number): boolean {
+/**
+ * Whether a plot slot is land at all, from the facts alone: inside downtown, or a slot some open
+ * land brought in. A slot in the water between lands is neither, and `settle` refuses it. The web
+ * asks this of the snapshot's `lands` (`onLandPlot`), so there is one rule rather than a copy of
+ * it that could answer differently.
+ */
+export function landedFrom(
+  config: WorldConfig,
+  lands: LandsFacts,
+  px: number,
+  py: number,
+): boolean {
   if (inHome(config, lands, px, py)) return true;
   return lands.list.some((l) => l.plots.some(([x, y]) => x === px && y === py));
 }
@@ -74,7 +84,7 @@ export function landOfPlot(state: WorldState, px: number, py: number): Land | un
  */
 export function onLand(state: WorldState, px: number, py: number): boolean {
   const { config, lands } = state;
-  return landed(config, lands ?? { home: config, list: [] }, px, py);
+  return landedFrom(config, lands ?? { home: config, list: [] }, px, py);
 }
 
 /** Whether a tile is a bridge tile of any open land. */
@@ -96,7 +106,7 @@ export function seaFrom(
   return (x, y) => {
     if (!inBounds(config, x, y)) return false;
     const { px, py } = plotOf(config, x, y);
-    return !landed(config, lands, px, py) && !bridged(lands, x, y);
+    return !landedFrom(config, lands, px, py) && !bridged(lands, x, y);
   };
 }
 

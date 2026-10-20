@@ -245,6 +245,15 @@ Rollout in slices, the way jobs and Circles went in:
 - **A portal.** Cheapest to build and the worst for the world: a town you teleport past is not a
   town. A bridge keeps the walk, and a ferry later keeps a dock worth standing on.
 
+## Found while building, 2026-10-20
+
+- **Fishing reads wrong beside the ocean.** `isWater` is a `pond` block and nothing else
+  (`packages/sim/src/fishing.ts`), so a resident standing on a bridge with sea on both sides is
+  refused with `no_water` and told to dig a pond from their own stone, and the web's Fish button
+  stays hidden. Nothing breaks and nothing is urgent, because no land is open; it starts reading
+  wrong the first day one is. Whether the sea holds fish, and which, is a decision of its own: the
+  catch tables are keyed by season, time and weather, not by where the water is.
+
 ## Open questions
 
 1. **Where does the first island sit, and how wide is the water?** East at the Commons' latitude is

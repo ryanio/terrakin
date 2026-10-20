@@ -493,6 +493,14 @@ export interface WorldState {
    */
   proposeInPerson?: true;
   /**
+   * Set by `schedule_in_person`: booking an event needs you standing on the place it is booked
+   * for, on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
+   * Absent until then, and `schedule_event` is callable from anywhere, so events logged before it
+   * replay as they were made. Top level rather than on `EventsState`, which the first event
+   * creates lazily. `schedule_town_event` is the town's own and is untouched.
+   */
+  scheduleInPerson?: true;
+  /**
    * The lands beyond the first grid (RFC 0038), absent until the first `open_land`. The world's
    * `width` and `height` in `config` grow with each one, from the numbers the logged input
    * carries, so the same log always builds the same world.
@@ -1867,6 +1875,7 @@ export type Command =
   | { type: "lower_holiday_prices" }
   | { type: "shop_in_person" }
   | { type: "propose_in_person" }
+  | { type: "schedule_in_person" }
   | {
       type: "open_land";
       land: string;
@@ -2064,6 +2073,7 @@ export const SERVER_COMMANDS = [
   "lower_holiday_prices",
   "shop_in_person",
   "propose_in_person",
+  "schedule_in_person",
   "open_land",
   "retire_repeat_joins",
   "merge_resident",
@@ -2307,6 +2317,8 @@ export type WorldEvent =
   | { type: "shop_in_person_set" }
   /** `propose_in_person` turned on: filing a proposal needs you at the Town Hall. Public. */
   | { type: "propose_in_person_set" }
+  /** `schedule_in_person` turned on: booking an event needs you on the place booked. Public. */
+  | { type: "schedule_in_person_set" }
   /** A new land opened (RFC 0038): the world grew, and `lands` in the snapshot says what's there. */
   | {
       type: "land_opened";

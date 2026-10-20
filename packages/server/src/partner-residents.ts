@@ -42,9 +42,29 @@ export interface PartnerResidentsOptions {
 /** How long a partner's list is reused before it's built again. */
 export const PARTNER_RESIDENTS_MS = PARTNER_RESIDENTS_MINUTES * 60_000;
 
-interface Tie {
+/** What ties a resident to a partner: which character it is, and whether a link proved it. */
+export interface Tie {
   subject: string;
   verified: boolean;
+}
+
+/**
+ * A resident's tie from what the tables say: a link to one of the partner's characters wins over
+ * a claim in its name or bio. `tie` and `ties` both read it, so one resident on its own and the
+ * whole list can never disagree.
+ */
+function tieFrom(
+  partner: PartnerConfig,
+  linked: string | undefined,
+  name: string,
+  bio: string,
+): Tie | undefined {
+  if (linked !== undefined && partner.subject.test(linked)) {
+    return { subject: linked, verified: true };
+  }
+  if (!partner.claim) return undefined;
+  const subject = claimedSubject(partner, name) ?? claimedSubject(partner, bio);
+  return subject ? { subject, verified: false } : undefined;
 }
 
 interface Activity {
@@ -138,37 +158,53 @@ export class PartnerResidents {
   }
 
   /**
+   * One resident's tie to `partner`, on the same terms as the list. Each report to musegod reads
+   * it after the write it reports (musegod-worlds.ts), so what Terrakin says as it happens and
+   * what the list says on the next read are the same thing.
+   */
+  tie(partner: PartnerConfig, residentId: string): Tie | undefined {
+    const r = this.o.resident(residentId);
+    if (!r || this.o.suspended(residentId)) return undefined;
+    const linked = this.rows(
+      "SELECT subject FROM agent_links WHERE resident_id = ? AND partner_id = ?",
+      residentId,
+      partner.id,
+    )[0];
+    const bio =
+      !partner.claim || this.o.quarantined(residentId)
+        ? ""
+        : String(
+            this.rows("SELECT bio FROM profiles WHERE resident_id = ?", residentId)[0]?.bio ?? "",
+          );
+    return tieFrom(partner, linked ? String(linked.subject) : undefined, r.name, bio);
+  }
+
+  /**
    * Who is tied to `partner`: each resident linked as one of its characters, then each whose name
    * or bio says it is one in the partner's `claim` words. A link wins over a claim. Residents who
    * are gone or suspended are left out.
    */
   private ties(partner: PartnerConfig): Map<string, Tie> {
+    const linked = new Map(
+      this.rows(
+        "SELECT resident_id, subject FROM agent_links WHERE partner_id = ?",
+        partner.id,
+      ).map((row) => [String(row.resident_id), String(row.subject)]),
+    );
+    const bios = partner.claim
+      ? new Map(
+          this.rows("SELECT resident_id, bio FROM profiles WHERE bio <> ''").map((row) => [
+            String(row.resident_id),
+            String(row.bio),
+          ]),
+        )
+      : new Map<string, string>();
     const ties = new Map<string, Tie>();
-    for (const row of this.rows(
-      "SELECT resident_id, subject FROM agent_links WHERE partner_id = ?",
-      partner.id,
-    )) {
-      const subject = String(row.subject);
-      if (partner.subject.test(subject)) {
-        ties.set(String(row.resident_id), { subject, verified: true });
-      }
-    }
-    if (partner.claim) {
-      const bios = new Map(
-        this.rows("SELECT resident_id, bio FROM profiles WHERE bio <> ''").map((row) => [
-          String(row.resident_id),
-          String(row.bio),
-        ]),
-      );
-      for (const r of this.o.residents()) {
-        if (ties.has(r.id)) continue;
-        const bio = this.o.quarantined(r.id) ? "" : (bios.get(r.id) ?? "");
-        const subject = claimedSubject(partner, r.name) ?? claimedSubject(partner, bio);
-        if (subject) ties.set(r.id, { subject, verified: false });
-      }
-    }
-    for (const id of [...ties.keys()]) {
-      if (!this.o.resident(id) || this.o.suspended(id)) ties.delete(id);
+    for (const r of this.o.residents()) {
+      if (this.o.suspended(r.id)) continue;
+      const bio = this.o.quarantined(r.id) ? "" : (bios.get(r.id) ?? "");
+      const tie = tieFrom(partner, linked.get(r.id), r.name, bio);
+      if (tie) ties.set(r.id, tie);
     }
     return ties;
   }

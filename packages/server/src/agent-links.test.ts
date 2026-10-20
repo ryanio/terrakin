@@ -17,6 +17,7 @@ import { type ChainCall, SELECTORS } from "./chain";
 import { MemoryMediaStore } from "./media";
 import { jpegWithExif } from "./media-fixtures";
 import { Moderation } from "./moderation";
+import type { MusegodWorldsOptions } from "./musegod-worlds";
 import { nodeSql } from "./node-sql";
 import { ART_RETRY_MS, type ArtRead } from "./partner-art";
 import { PARTNER_RESIDENTS_MS } from "./partner-residents";
@@ -219,7 +220,11 @@ function fakeChain() {
   };
 }
 
-async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimits> = {}) {
+async function start(
+  options: AgentLinkOptions = {},
+  limits: Partial<SocialLimits> = {},
+  musegodWorlds?: MusegodWorldsOptions,
+) {
   let now = Date.UTC(2026, 9, 4, 12);
   const chain = fakeChain();
   const service = new WorldService({ store: new MemoryStore(), config: CONFIG, now: () => now });
@@ -235,6 +240,7 @@ async function start(options: AgentLinkOptions = {}, limits: Partial<SocialLimit
     entitledTo: (id) => entitledTo(service.state, id),
     now: () => now,
     agentLinks: { call: chain.call, readCard: chain.readCard, readArt: chain.readArt, ...options },
+    ...(musegodWorlds ? { musegodWorlds } : {}),
   });
   const server = createApp({
     service,
@@ -1670,6 +1676,30 @@ describe("a partner's residents (docs/plans/partner-residents.md)", () => {
       routine: false,
       withPartner: 0,
     });
+  });
+
+  it("tells musegod a muse linked here, and that it left when the link ends", async () => {
+    const sent: { muse: string; event: string }[] = [];
+    const t = await start(
+      {},
+      {},
+      {
+        // A made-up key, never anyone's: the report is caught here, not sent.
+        key: `0x${"11".repeat(32)}`,
+        base: "https://musegod.test",
+        fetch: async (input, init) => {
+          const { event } = JSON.parse(String(init?.body)) as { event: string };
+          sent.push({ muse: String(input).replace(/^.*\/muses\/([^/]*)\/worlds$/, "$1"), event });
+          return new Response("{}", { headers: { "content-type": "application/json" } });
+        },
+      },
+    );
+    const wren = await linkedMuse(t, 464, "Wren");
+    expect((await t.call("DELETE", "/v1/agent-link", undefined, wren.token)).status).toBe(204);
+    expect(sent).toEqual([
+      { muse: "464", event: "linked" },
+      { muse: "464", event: "left" },
+    ]);
   });
 
   it("counts the replies, letters, and gifts that went to another of the partner's residents", async () => {

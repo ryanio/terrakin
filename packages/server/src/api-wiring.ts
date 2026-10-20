@@ -8,7 +8,9 @@ import { gameRatings } from "./games";
 import { giverIds, giverThanksWave, jobDoneView, jobsDoneField } from "./jobs";
 import { levelView } from "./levels";
 import { listingForReport, listingRefusal } from "./market";
+import { MUSEGOD_PARTNER } from "./musegod-worlds";
 import { PartnerResidents } from "./partner-residents";
+import { findPartner } from "./partners";
 import { forgetRetired, moveMerged, socialUsers } from "./repeat-joins";
 import { Routines } from "./routines";
 import type { SocialService } from "./social-service";
@@ -58,6 +60,21 @@ export function wireSocial(
     quarantined: (id) => layer.safety.isQuarantined(id),
     credits: (sinceDay) => service.credits(sinceDay),
   });
+  // Telling musegod.org where its muses live (musegod-worlds.ts, step 8 of its muse-worlds plan).
+  // Every write that can change what `GET /v1/partners/musegod/residents` says about a resident
+  // ends in `tellMusegod`, after it has committed: the agent link made, ended, or rechecked
+  // below, a bio saved, a `join` (the only input that sets a name), and a record that left the
+  // world. It reads the resident's tie exactly as the list builds it and returns at once, so no
+  // answer waits on a report. Nothing is sent without the key, or for any other partner.
+  const musegod = findPartner(MUSEGOD_PARTNER, layer.agentLinks.partnerList);
+  const tellMusegod = (id: string) => {
+    if (!musegod || !layer.musegodWorlds.on) return;
+    try {
+      layer.musegodWorlds.tell(id, partnerResidents.tie(musegod, id));
+    } catch (err) {
+      report(err, "musegod_worlds.tell");
+    }
+  };
   service.onWalked = (id) => {
     routines.greetFor(id);
   };
@@ -90,6 +107,7 @@ export function wireSocial(
     } finally {
       api.welcome?.noteCommitted(input, events);
       layer.collection.noteCommitted(service.state, input, events);
+      if (input.command.type === "join") tellMusegod(input.actor);
     }
   };
   // Greetings (decision 0237): a person's first join queues one; that never throws.
@@ -200,7 +218,11 @@ export function wireSocial(
   service.syncOwnerPairs(layer.ownerPairs());
   // Partner wear (RFC 0007 phase 3): logged as each link changes, and caught up on a timer so
   // promos start and end on the server's clock. At boot, everything at once.
-  layer.onPartnerPerks = (id) => service.syncEntitlements(id, layer.agentLinks.entitled(id));
+  layer.onPartnerPerks = (id) => {
+    service.syncEntitlements(id, layer.agentLinks.entitled(id));
+    tellMusegod(id);
+  };
+  layer.onBioChanged = (id) => tellMusegod(id);
   // A kept agent link ask finishes only while the resident's own call would get through
   // (decision 0128). Not a request, so a pause isn't counted.
   layer.agentLinks.writeBlocked = (id) => api.writeBlock(id, false) !== undefined;
@@ -213,6 +235,7 @@ export function wireSocial(
   service.onRetired = (ids, people) => {
     for (const id of ids) api.owners?.retireRepeatJoin(id, people.has(id));
     forgetRetired(layer.sql, ids);
+    for (const id of ids) tellMusegod(id);
   };
   service.forgetRetired(service.state.retiredRepeatJoins ?? []);
   // Merging a duplicate record (decision 0239): its credentials kept as merged before they're
@@ -223,6 +246,8 @@ export function wireSocial(
     api.owners?.retireMerged(from);
     moveMerged(layer.sql, from, into, service.now());
     forgetRetired(layer.sql, [from]);
+    tellMusegod(from);
+    tellMusegod(into);
   };
   for (const [from, into] of Object.entries(service.state.mergedResidents ?? {})) {
     service.forgetMerged(from, into);

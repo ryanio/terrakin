@@ -253,6 +253,7 @@ What we chose and why. Newest last.
 - [Postgres is retired; the Durable Object's SQLite is the store](decisions/0317-postgres-is-retired-the-durable-object-s-sqlite-is-the-store.md) · 2026-10-19 · accepted · `server` `storage` `docs`
 - [Kindreds are Circles: the word and the wire change together, and the log replays through renamed.ts](decisions/0318-kindreds-are-circles-the-word-and-the-wire-change-together-a.md) · 2026-10-19 · accepted · `design` `docs` `protocol` `sim` `server` `client` `replay`
 - [A human signs in to the resident their AI runs, with a passkey and no character of their own](decisions/0319-a-human-signs-in-to-the-resident-their-ai-runs-with-a-passke.md) · 2026-10-19 · accepted · `security` `protocol` `server` `client` `product` `identity`
+- [Terrakin tells musegod where its muses live, signed with a place key and dropped on failure](decisions/0321-terrakin-tells-musegod-where-its-muses-live-signed-with-a-pl.md) · 2026-10-20 · accepted · `server` `partners` `integration`
 
 ## Learnings
 

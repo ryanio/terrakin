@@ -89,6 +89,7 @@ import {
   sniffMediaType,
 } from "./media";
 import { Moderation, type ReviewContext, refusal, type Surface } from "./moderation";
+import { MusegodWorlds, type MusegodWorldsOptions } from "./musegod-worlds";
 import { httpArtReader, PartnerArtService } from "./partner-art";
 import { PetPatService, petDetail, readPetDetail } from "./pets";
 import { PhotoStories } from "./photo-story";
@@ -246,6 +247,12 @@ export interface SocialServiceOptions {
   triage?: TriageClient | undefined;
   /** Gifts and Town Hall votes from the world's log, for karma (`WorldService.credits`). */
   credits?: ((sinceDay: number) => readonly WorldCredit[]) | undefined;
+  /**
+   * Telling musegod.org where its muses live (musegod-worlds.ts): the key Terrakin signs with,
+   * which is the Worker's `MUSEGOD_WORLDS_KEY` secret. Without it nothing is sent, here and in
+   * every other deployment, and musegod's crawl is the only way it hears. Tests pass their own.
+   */
+  musegodWorlds?: MusegodWorldsOptions;
 }
 
 type Row = Record<string, unknown>;
@@ -691,6 +698,10 @@ export class SocialService {
       { sql: this.sql, now: this.now, moderation: this.moderation },
       options.agentLinks,
     );
+    this.musegodWorlds = new MusegodWorlds(this.sql, {
+      now: this.now,
+      ...options.musegodWorlds,
+    });
     const links = this.agentLinks;
     this.partnerArt = new PartnerArtService({
       sql: this.sql,
@@ -736,11 +747,18 @@ export class SocialService {
   readonly agentLinks: AgentLinkService;
   /** A partner character's own picture as its avatar (RFC 0007 phase 2). */
   readonly partnerArt: PartnerArtService;
+  /** Telling musegod.org where its muses live. Off without a key, as everywhere but terrakin.org. */
+  readonly musegodWorlds: MusegodWorlds;
   /**
    * Called after a resident's partner perks may have changed: a link made, ended, or rechecked.
    * `Api` logs their partner wear to the world from it (`set_entitlements`).
    */
   onPartnerPerks: ((residentId: string) => void) | undefined;
+  /**
+   * A resident saved a bio. `wireSocial` reads the partner claim it may hold and tells musegod
+   * (musegod-worlds.ts).
+   */
+  onBioChanged: ((residentId: string) => void) | undefined;
 
   /** A resident's party-game ladders (RFC 0011), from the world. `Api` wires it; profiles show it. */
   gameRatings: (residentId: string) => GameRatingView[] = () => [];
@@ -1830,6 +1848,9 @@ export class SocialService {
     }
     for (const id of replaced) await this.releaseIfUnused(id);
     if (borderlineBio) this.safety.requestTriage("resident", residentId);
+    // The bio is one of the two places a partner's claim words can stand (the other is the name,
+    // which only `join` sets), so musegod hears about a muse that arrived or left in one.
+    if (request.bio !== undefined) this.onBioChanged?.(residentId);
     const profile = this.profile(residentId, residentId);
     return profile ? { ok: true, value: profile } : fail("internal", "Profile vanished.");
   }

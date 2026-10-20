@@ -112,6 +112,12 @@ interface Env {
   TERRAKIN_STAFF_RESIDENTS?: string;
   /** AI triage (decision 0040). A Worker secret; without it, triage is off. */
   ANTHROPIC_API_KEY?: string;
+  /**
+   * The key Terrakin signs its reports to musegod.org with (`musegod-worlds.ts`): a Worker secret,
+   * set with `wrangler secret put MUSEGOD_WORLDS_KEY`. Without it nothing is sent and musegod's
+   * crawl is the only way it hears where its muses live.
+   */
+  MUSEGOD_WORLDS_KEY?: string;
   TERRAKIN_TRIAGE_MODEL?: string;
   TERRAKIN_TRIAGE_DAILY_CALLS?: string;
   TERRAKIN_TRIAGE_DAILY_TOKENS?: string;
@@ -506,6 +512,7 @@ class WorldObject extends DurableObject<Env> {
           void this.armRecheck();
         },
       },
+      musegodWorlds: { key: env.MUSEGOD_WORLDS_KEY },
     });
     const tips = new TownsfolkTips({ mode: tipsMode(env), world: service, social, townsfolk });
     this.api = new Api({

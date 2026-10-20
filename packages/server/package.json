@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p cloudflare/tsconfig.json"
   },
   "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "@sentry/cloudflare": "11.7.0",
     "@sentry/core": "11.7.0",
     "@terrakin/cards": "workspace:*",

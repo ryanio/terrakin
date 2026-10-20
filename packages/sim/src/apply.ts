@@ -208,6 +208,7 @@ import { checkBringDish } from "./thanksgiving";
 import {
   checkKeepTableSpots,
   checkPropose,
+  checkProposeInPerson,
   checkTown,
   isActivity,
   isServerCommand,
@@ -810,6 +811,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkLowerHolidayPrices(state));
       case "shop_in_person":
         return town(checkShopInPerson(state));
+      case "propose_in_person":
+        return town(checkProposeInPerson(state));
       case "open_market":
         return town(checkOpenMarket(state));
       case "open_recipes":

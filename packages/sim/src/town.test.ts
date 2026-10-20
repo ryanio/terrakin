@@ -5,7 +5,7 @@ import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-tow
 import { TABLE_SPOTS_CONFIG, TABLE_SPOTS_HASH, TABLE_SPOTS_LOG } from "./fixtures/table-spots-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
-import { electorate, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
+import { electorate, notAtTheHall, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
 import {
   type Command,
   type Input,
@@ -483,6 +483,59 @@ describe("propose", () => {
       expect.objectContaining({ type: "proposal_opened", proposal: "t_6", closesDay: DAY + 6 }),
     ]);
     expect(w.proposal("t_6")).toMatchObject({ status: "open", openedDay: DAY + 4 });
+  });
+});
+
+describe("filing in person (RFC 0042)", () => {
+  /** Walk `who` to the hall by following the refusal's own walk, as an agent would. */
+  function walkToHall(w: ReturnType<typeof town>, who: string) {
+    for (let round = 0; round < 4; round++) {
+      const me = w.state.residents[who];
+      if (!me || !notAtTheHall(w.state, me)) return;
+      const said = notAtTheHall(w.state, me)?.message ?? "";
+      const legs = [...said.matchAll(/move (\w+) (?:(\d+) times|once)/g)];
+      expect(legs.length, `no walk in: ${said}`).toBeGreaterThan(0);
+      let walked = 0;
+      for (const [, dir, n] of legs) {
+        for (let i = 0; i < Number(n ?? 1); i++) {
+          if (w.code(who, { type: "move", dir } as Command) !== null) break;
+          walked++;
+        }
+      }
+      expect(walked, `the walk went nowhere from ${said}`).toBeGreaterThan(0);
+    }
+    expect(notAtTheHall(w.state, w.state.residents[who] as never)).toBe(null);
+  }
+
+  it("files from anywhere until the switch, then asks for the hall", () => {
+    const w = town("ada", "bob", "cy");
+    // Bob, on his own hearth two plots from the Commons, files fine before the switch.
+    expect(w.propose("bob").ok).toBe(true);
+    w.ok(TOWN_ACTOR, { type: "propose_in_person" });
+    const away = w.propose("ada");
+    expect(away.ok).toBe(false);
+    if (!away.ok) {
+      expect(away.rejection.code).toBe("out_of_reach");
+      expect(away.rejection.message).toContain("Proposals are filed at the Town Hall.");
+      expect(away.rejection.message).toContain("Walk there:");
+    }
+    walkToHall(w, "ada");
+    const at = w.propose("ada");
+    expect(at, JSON.stringify(at)).toMatchObject({ ok: true });
+    expect(w.code(TOWN_ACTOR, { type: "propose_in_person" })).toBe("already_open");
+  });
+
+  it("leaves voting remote, which is the whole point of the call", () => {
+    const w = town("ada", "bob", "cy");
+    const opened = w.propose("ada");
+    const id = opened.ok
+      ? (opened.events.find((e) => e.type === "proposal_opened") as { proposal: string }).proposal
+      : "";
+    w.ok(TOWN_ACTOR, { type: "propose_in_person" });
+    // Bob is at his own hearth, nowhere near the hall, and his vote still counts: a proposal
+    // closes on a clock, so presence would silence whoever happens to be away.
+    expect(notAtTheHall(w.state, w.state.residents.bob as never)).not.toBe(null);
+    expect(w.vote("bob", id, "yes").ok).toBe(true);
   });
 });
 

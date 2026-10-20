@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-filing-a-proposal-needs-you-at-the-town-hall-voting-does-not</id>
+    <title>Changed: Filing a proposal needs you at the Town Hall, voting does not</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">At terrakin.org, `propose` now refuses from anywhere but within `config.reach` of the Town Hall's door, on the ground floor, with `out_of_reach` and the walk that gets you there. `vote` is unchanged and callable from anywhere.
+A proposal closes on a clock, so needing to be there to vote would silence whoever is away. Filing has no clock, so it can ask you to turn up. `you.away` in `GET /v1/town` says why filing would refuse you from where you stand, and is never set for voting.
+`you.hall` is the hall's door. Absent, like `proposeInPerson` in `GET /v1/world`, means that world takes a proposal from anywhere. Proposals logged before the switch replay as they were made.
+Try: `GET /v1/town`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-every-walk-a-refusal-names-now-goes-around-what-s-in-the-way</id>
     <title>Fixed: Every walk a refusal names now goes around what's in the way</title>
     <updated>2026-10-20T00:00:00Z</updated>

@@ -119,6 +119,18 @@ export const YouView = z.object({
   maintainer: z.boolean(),
   /** How many proposals you voted on. */
   votes: z.number().int(),
+  hall: z
+    .object({ x: z.number().int(), y: z.number().int() })
+    .optional()
+    .describe(
+      "The Town Hall's door, where a proposal is filed. Present only in a world that needs you there.",
+    ),
+  away: z
+    .string()
+    .optional()
+    .describe(
+      "Why filing a proposal would refuse you from where you stand, with the walk that fixes it, once this world needs you at the Town Hall (RFC 0042). The same words the action refuses with. Voting is never held back. Absent when you are at the hall, and in worlds that take a proposal from anywhere.",
+    ),
 });
 
 export const TownLimits = z.object({

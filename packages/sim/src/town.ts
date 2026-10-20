@@ -1,9 +1,10 @@
 import { townMoneyOnPass, townMoneyProblem } from "./bounties";
 import type { BuildPlan } from "./build";
 import { oneTimeSwitch, refuse } from "./check";
+import { notAtDoor } from "./doors";
 import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
-import { own } from "./own";
+import { own, residentById } from "./own";
 import type {
   BlockKind,
   Command,
@@ -12,6 +13,7 @@ import type {
   Proposal,
   ProposalStatus,
   Rejection,
+  Resident,
   ResidentId,
   Tile,
   TownState,
@@ -20,7 +22,15 @@ import type {
   WorldState,
 } from "./types";
 import { COMMONS_BLOCKS, PROPOSAL_KINDS, SERVER_COMMANDS, VOTE_CHOICES } from "./types";
-import { commonsPlot, gameTableTiles, inBounds, isShopTile, isTownHallTile, plotOf } from "./world";
+import {
+  commonsPlot,
+  gameTableTiles,
+  inBounds,
+  isShopTile,
+  isTownHallTile,
+  plotOf,
+  townHallTile,
+} from "./world";
 
 /**
  * The Town Hall (RFC 0004): who may take part, proposals, votes, closes, and Commons builds.
@@ -491,6 +501,37 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
  * checks leave nothing to skip), so a dry proposal previews it and nothing is ever taken from
  * anyone's things (decision 0101).
  */
+/**
+ * `propose_in_person`, which only TOWN_ACTOR sends once the Town Hall is open (RFC 0042): from now
+ * on filing a proposal needs you at the hall. Voting is untouched, by Ryan's call on 2026-10-20,
+ * since a proposal closes on a clock and presence would silence whoever happens to be away.
+ */
+export function checkProposeInPerson(state: WorldState): TownChecked {
+  return oneTimeSwitch({
+    on: state.proposeInPerson,
+    already: "Filing a proposal already needs you at the Town Hall.",
+    turnOn: () => {
+      state.proposeInPerson = true;
+    },
+    event: { type: "propose_in_person_set" },
+  });
+}
+
+/**
+ * Why a resident isn't at the Town Hall, or null when they are. Only checked once
+ * `propose_in_person` is logged. The web calls it to hold Propose back and show the reason.
+ */
+export function notAtTheHall(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+): Rejection | null {
+  return notAtDoor(state, me, townHallTile(state.config), {
+    lead: "Proposals are filed at the Town Hall.",
+    doing: "file a proposal",
+    there: "the Town Hall",
+  });
+}
+
 export function checkPropose(
   state: WorldState,
   actor: string,
@@ -501,6 +542,11 @@ export function checkPropose(
   if (!ok.eligible || day === undefined) {
     return refuse("not_eligible", ok.eligible ? "The Town Hall isn't open yet." : ok.message);
   }
+  // Being at the hall is a precondition for filing at all, like being eligible, so it answers
+  // before anything about the proposal (RFC 0042). Voting is untouched.
+  const me = residentById(state, actor);
+  const away = state.proposeInPerson && me ? notAtTheHall(state, me) : null;
+  if (away) return away;
   if (!PROPOSAL_KINDS.includes(command.kind)) {
     return refuse(
       "invalid_proposal",

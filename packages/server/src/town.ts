@@ -11,10 +11,13 @@ import {
 import {
   DAY_MS,
   findProposal,
+  notAtTheHall,
   type Proposal,
   quorum,
+  residentById,
   tally,
   townEligibility,
+  townHallTile,
   townHallTiles,
   votesCast,
   type WorldState,
@@ -31,6 +34,23 @@ import type { SocialService } from "./social-service";
  */
 
 const iso = (day: number) => new Date(day * DAY_MS).toISOString();
+
+/**
+ * `away` on `GET /v1/town`'s `you`, in a world that needs you at the Town Hall to file: why
+ * `propose` would refuse you from where you stand. Empty where a proposal is taken from anywhere,
+ * so such a world's answer is what it always was, and never set for voting, which stays remote.
+ */
+function hallFields(
+  state: WorldState,
+  id: string,
+): { hall?: { x: number; y: number }; away?: string } {
+  if (!state.proposeInPerson) return {};
+  const door = townHallTile(state.config);
+  const me = residentById(state, id);
+  if (!me) return { hall: door };
+  const away = notAtTheHall(state, me);
+  return { hall: door, ...(away ? { away: away.message } : {}) };
+}
 
 /** Someone the world knows but the social layer can't describe. Shouldn't happen; never throws. */
 export const unknownAuthor = (id: string): AuthorView => ({
@@ -97,6 +117,9 @@ export function townView(state: WorldState, social: SocialService, viewer?: stri
       message: e.eligible ? null : e.message,
       maintainer: social.isMaintainer(id),
       votes: votesCast(state, id),
+      // Once the world needs you at the hall to file (RFC 0042), say why filing would refuse you
+      // from where you stand, in the sim's own words with its walk. Voting is never held back.
+      ...hallFields(state, id),
     };
   };
   return {

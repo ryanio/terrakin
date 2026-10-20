@@ -18,8 +18,8 @@ import {
   type SweetKind,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
+import { notAtDoor } from "./doors";
 import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
-import { upstairsProblem } from "./floors";
 import {
   dayName,
   HOLIDAY_INFO,
@@ -50,7 +50,6 @@ import { residentById } from "./own";
 import { SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
-  Direction,
   EconomyState,
   Good,
   ItemsState,
@@ -63,8 +62,8 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { moveOff, offBuildings, walkWords } from "./walk";
-import { chebyshev, outOfReach, STEP, shopTile } from "./world";
+import { moveOff, offBuildings } from "./walk";
+import { shopTile } from "./world";
 
 /**
  * The town shop (RFC 0008, phase 2): a catalog the town sells from, buy orders the town pays for,
@@ -523,23 +522,11 @@ export function notAtTheCounter(
   state: WorldState,
   me: Pick<Resident, "x" | "y" | "floor">,
 ): Rejection | null {
-  const walk = walkWords(state, me, shopTile(state.config), state.config.reach);
-  const far = outOfReach(
-    me,
-    shopTile(state.config),
-    state.config.reach,
-    "Clem serves at the counter.",
-    walk === ""
-      ? " There's no walk from where you stand to the shop: something has you closed in. Take a wall away to open the way out."
-      : ` Walk there: ${walk}.`,
-  );
-  const upstairs = upstairsProblem(me, "shop");
-  // Someone upstairs and across town needs both, in one answer: being told to go down and then
-  // told to walk is two round trips, and the first reads as if going down were enough.
-  if (upstairs) {
-    return far ? refuse("ground_floor_only", `${upstairs.message} ${far.message}`) : upstairs;
-  }
-  return far;
+  return notAtDoor(state, me, shopTile(state.config), {
+    lead: "Clem serves at the counter.",
+    doing: "shop",
+    there: "the shop",
+  });
 }
 
 /** What `new_day` does to the shop, or null before it opens: today's sales start over. */

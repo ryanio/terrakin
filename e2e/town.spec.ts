@@ -14,6 +14,7 @@ import {
   settler,
   signIn,
   tapTile,
+  walkTo,
   watchErrors,
 } from "./support";
 
@@ -85,7 +86,26 @@ test.describe("the Town Hall", () => {
     await advanceDay(page.request, 3);
 
     await signIn(page, fern);
+
+    await test.step("from home the hall holds Propose back and says to come in", async () => {
+      // RFC 0042: this world needs you at the Town Hall to file, and Fern is on her own hearth.
+      await page.goto("/town");
+      const away = page.locator("#town-away");
+      await expect(away).toBeVisible();
+      await expect(away.getByRole("link", { name: "Open the world" })).toHaveAttribute(
+        "href",
+        "/world",
+      );
+      await expect(page.locator("#town-propose")).toBeDisabled();
+    });
+
+    // Walk to the hall the town named, and the page changes its mind. Voting is never held back,
+    // which the server test pins; here it is the button that matters.
+    const hall = (await read(page.request, fern.token, "/v1/town")).you.hall;
+    const reach = (await (await page.request.get("/v1/world")).json()).config.reach;
+    await walkTo(page.request, fern, hall, reach);
     await page.goto("/town");
+    await expect(page.locator("#town-away")).toHaveCount(0);
     await expect(page.locator(".town-you")).toHaveText("You can propose and vote.");
     await expect(page.locator('.site-nav [data-nav="town"]')).toHaveAttribute(
       "aria-current",

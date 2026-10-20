@@ -264,6 +264,12 @@ export interface WorldServiceOptions {
    */
   shopInPerson?: boolean;
   /**
+   * Filing a proposal in person (RFC 0042): once the Town Hall is open, append `propose_in_person`
+   * if it never has, after which `propose` needs the caller at the hall. Voting stays remote.
+   * Both adapters turn it on, like `shopInPerson`.
+   */
+  proposeInPerson?: boolean;
+  /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
    * (`levelFirsts`). The Worker turns it on, so terrakin.org logs it once; the Node server leaves
@@ -414,6 +420,7 @@ interface TownSwitch {
     | "recipes"
     | "holidayPrices"
     | "shopInPerson"
+    | "proposeInPerson"
     | "levels"
     | "jobs"
     | "circles"
@@ -535,6 +542,13 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "shop_in_person" },
     label: "send shoppers to the counter",
   },
+  // Filing in person (RFC 0042) waits for the Town Hall, whose door it sends proposers to.
+  {
+    option: "proposeInPerson",
+    due: (s) => !s.proposeInPerson,
+    command: { type: "propose_in_person" },
+    label: "send proposers to the Town Hall",
+  },
   // Levels (RFC 0029) open with a one-time credit read from the collection book, a social table.
   // Until `Api` wires `levelFirsts` there's no book to read, so the switch waits, and a read that
   // throws is reported and leaves it for a later tick: levels never open without their credit.
@@ -610,6 +624,7 @@ export class WorldService {
   private readonly recipes: boolean;
   private readonly holidayPrices: boolean;
   private readonly shopInPerson: boolean;
+  private readonly proposeInPerson: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
@@ -708,6 +723,7 @@ export class WorldService {
     this.recipes = options.recipes ?? false;
     this.holidayPrices = options.holidayPrices ?? false;
     this.shopInPerson = options.shopInPerson ?? false;
+    this.proposeInPerson = options.proposeInPerson ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;

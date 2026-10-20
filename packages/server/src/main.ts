@@ -106,6 +106,7 @@ const service = new WorldService({
   tableSpots: true,
   shop: true,
   shopInPerson: true,
+  proposeInPerson: true,
   market: true,
   bounties: true,
   presence: true,

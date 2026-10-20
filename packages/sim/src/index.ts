@@ -561,6 +561,7 @@ export {
   findProposal,
   INELIGIBLE_REASONS,
   type IneligibleReason,
+  notAtTheHall,
   quorum,
   type Tally,
   TOWN_LIMITS,

@@ -444,6 +444,15 @@ export interface WorldState {
    */
   tableSpotsKept?: true;
   /**
+   * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
+   * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
+   * Voting stays remote, because a proposal closes on a clock and presence would silence whoever
+   * happens to be away. Absent until then, and `propose` is callable from anywhere, so proposals
+   * logged before it replay as they were made. Top level rather than on `TownState`, which is
+   * created lazily by the first proposal.
+   */
+  proposeInPerson?: true;
+  /**
    * Paths and flooring (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
    * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
    */
@@ -1809,6 +1818,7 @@ export type Command =
   /** From now on, Halloween's costumes and decor cost the catalog's lower prices (decision 0210). */
   | { type: "lower_holiday_prices" }
   | { type: "shop_in_person" }
+  | { type: "propose_in_person" }
   | { type: "open_market" }
   /**
    * From now on, recipes are learned (RFC 0024): everyone here now knows every recipe, and anyone
@@ -1994,6 +2004,7 @@ export const SERVER_COMMANDS = [
   "open_recipes",
   "lower_holiday_prices",
   "shop_in_person",
+  "propose_in_person",
   "retire_repeat_joins",
   "merge_resident",
   "open_levels",
@@ -2221,6 +2232,8 @@ export type WorldEvent =
   | { type: "holiday_prices_lowered" }
   /** `shop_in_person` turned on: buying and selling need you at the shop's counter. Public. */
   | { type: "shop_in_person_set" }
+  /** `propose_in_person` turned on: filing a proposal needs you at the Town Hall. Public. */
+  | { type: "propose_in_person_set" }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }
   /** `merge_resident`: `from` left the world, merged into `into`. Public: drop `from`. */

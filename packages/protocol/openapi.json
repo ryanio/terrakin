@@ -38600,6 +38600,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "propose_in_person_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "market_opened"
                 ]
               }
@@ -41565,6 +41579,12 @@
             ]
           },
           "shopInPerson": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "proposeInPerson": {
             "type": "boolean",
             "enum": [
               true
@@ -44757,6 +44777,30 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "hall": {
+            "description": "The Town Hall's door, where a proposal is filed. Present only in a world that needs you there.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ]
+          },
+          "away": {
+            "description": "Why filing a proposal would refuse you from where you stand, with the walk that fixes it, once this world needs you at the Town Hall (RFC 0042). The same words the action refuses with. Voting is never held back. Absent when you are at the hall, and in worlds that take a proposal from anywhere.",
+            "type": "string"
           }
         },
         "required": [

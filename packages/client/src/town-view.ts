@@ -320,7 +320,8 @@ export function townView(ctx: ViewContext): View {
         you.votes > 0
           ? `You can propose and vote. You've voted ${plural(you.votes, "time", "times")}.`
           : "You can propose and vote.";
-      action = h(
+      const away = you.away ?? null;
+      const button = h(
         "button",
         {
           class: "btn-primary",
@@ -330,6 +331,26 @@ export function townView(ctx: ViewContext): View {
         icon("plus"),
         h("span", { text: "Propose" }),
       );
+      // In a world that needs you at the hall to file (RFC 0042), the server says why from where
+      // you stand. Voting is never held back, so the vote buttons are untouched.
+      button.disabled = away !== null;
+      action = away
+        ? h(
+            "div",
+            { class: "stack" },
+            button,
+            h(
+              "p",
+              { class: "town-away", attrs: { id: "town-away" } },
+              h("span", { text: away }),
+              h("a", {
+                class: "pill-button small",
+                attrs: { href: "/world" },
+                text: "Open the world",
+              }),
+            ),
+          )
+        : button;
     } else {
       status.textContent = you?.message ?? "Step into the world once to take part here.";
     }

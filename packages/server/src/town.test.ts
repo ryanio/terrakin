@@ -55,7 +55,13 @@ function clock(start = START) {
   return { now: () => t, advance: (ms: number) => (t += ms) };
 }
 
-async function start(options: { townsfolk?: ReadonlySet<string>; tableSpots?: boolean } = {}) {
+async function start(
+  options: {
+    townsfolk?: ReadonlySet<string>;
+    tableSpots?: boolean;
+    proposeInPerson?: boolean;
+  } = {},
+) {
   const time = clock();
   const store = new MemoryStore();
   const service = new WorldService({
@@ -808,5 +814,68 @@ describe("the test clock", () => {
     expect(worker).not.toMatch(
       /testClock|advance-day|test\/sweep|test\/grant|testGrant|open-recipes|testOpenRecipes|open-levels|testOpenLevels|open-jobs|testOpenJobs|TEST_CLOCK/,
     );
+  });
+});
+
+describe("filing a proposal in person (RFC 0042)", () => {
+  it("says where the hall is and why you're not at it, refuses until you walk, and still takes your vote", async () => {
+    const t = await start({ proposeInPerson: true });
+    const ada = await t.resident("Ada");
+    const bob = await t.resident("Bob");
+    await t.resident("Cy");
+    t.days(3);
+    // The snapshot says the rule is on, so a client knows without being told twice.
+    expect((await t.call("GET", "/v1/world")).body.proposeInPerson).toBe(true);
+    const town = await t.call("GET", "/v1/town", undefined, ada.token);
+    expect(town.body.you.away).toContain("Proposals are filed at the Town Hall.");
+    expect(town.body.you.away).toContain("Walk there:");
+    const refused = await t.act(ada.token, {
+      type: "propose",
+      kind: "advisory",
+      title: "Benches",
+      text: "",
+    });
+    expect(refused).toMatchObject({ ok: false, error: { code: "out_of_reach" } });
+    // The hall's words and the action's refusal are one sentence, so an agent reads one rule.
+    expect(refused.error.message).toBe(town.body.you.away);
+
+    // Voting stays remote: Bob walks to the hall and files, Ada votes from her own hearth.
+    // Follow the walk the server names, which is what an agent does, rather than a fixed path.
+    for (let round = 0; round < 4; round++) {
+      const seen = await t.call("GET", "/v1/town", undefined, bob.token);
+      const said = seen.body.you.away as string | undefined;
+      if (!said) break;
+      const legs = [...said.matchAll(/move (\w+) (?:(\d+) times|once)/g)];
+      expect(legs.length, `no walk in: ${said}`).toBeGreaterThan(0);
+      for (const [, dir, n] of legs) {
+        for (let i = 0; i < Number(n ?? 1); i++) {
+          await t.act(bob.token, { type: "move", dir });
+        }
+      }
+    }
+    expect((await t.call("GET", "/v1/town", undefined, bob.token)).body.you.away).toBeUndefined();
+    const filed = await t.act(bob.token, {
+      type: "propose",
+      kind: "advisory",
+      title: "Lanterns",
+      text: "",
+    });
+    expect(filed, JSON.stringify(filed)).toMatchObject({ ok: true });
+    const voted = await t.act(ada.token, { type: "vote", proposal: "t_1", choice: "yes" });
+    expect(voted, JSON.stringify(voted)).toMatchObject({ ok: true });
+  });
+
+  it("takes a proposal from anywhere where the adapter leaves the rule off", async () => {
+    const t = await start();
+    const ada = await t.resident("Ada");
+    await t.resident("Bob");
+    await t.resident("Cy");
+    t.days(3);
+    expect((await t.call("GET", "/v1/world")).body.proposeInPerson).toBeUndefined();
+    const town = await t.call("GET", "/v1/town", undefined, ada.token);
+    expect(town.body.you.away).toBeUndefined();
+    expect(
+      await t.act(ada.token, { type: "propose", kind: "advisory", title: "Benches", text: "" }),
+    ).toMatchObject({ ok: true });
   });
 });

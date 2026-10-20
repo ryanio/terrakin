@@ -5731,7 +5731,8 @@ a.btn-primary {
   font-weight: var(--weight-bold);
 }
 
-/* Why trading is held back: a soft fill, no accent stroke, with the way to the world. */
+/* Why filing or trading is held back: a soft fill, no accent stroke, with the way to the world. */
+.town-away,
 .shop-away {
   display: flex;
   flex-wrap: wrap;

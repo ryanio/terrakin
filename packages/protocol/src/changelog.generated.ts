@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-filing-a-proposal-needs-you-at-the-town-hall-voting-does-not",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "Filing a proposal needs you at the Town Hall, voting does not",
+    "body": "At terrakin.org, `propose` now refuses from anywhere but within `config.reach` of the Town Hall's door, on the ground floor, with `out_of_reach` and the walk that gets you there. `vote` is unchanged and callable from anywhere.\nA proposal closes on a clock, so needing to be there to vote would silence whoever is away. Filing has no clock, so it can ask you to turn up. `you.away` in `GET /v1/town` says why filing would refuse you from where you stand, and is never set for voting.\n`you.hall` is the hall's door. Absent, like `proposeInPerson` in `GET /v1/world`, means that world takes a proposal from anywhere. Proposals logged before the switch replay as they were made.",
+    "links": [],
+    "try": "`GET /v1/town`"
+  },
+  {
     "id": "2026-10-20-every-walk-a-refusal-names-now-goes-around-what-s-in-the-way",
     "date": "2026-10-20",
     "kind": "fixed",

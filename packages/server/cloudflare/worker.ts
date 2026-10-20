@@ -462,6 +462,7 @@ class WorldObject extends DurableObject<Env> {
       tableSpots: true,
       shop: true,
       shopInPerson: true,
+      proposeInPerson: true,
       recipes: true,
       holidayPrices: true,
       levels: true,

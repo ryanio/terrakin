@@ -194,7 +194,7 @@ describe("the town shop", () => {
     expect((await w.call("GET", "/v1/world")).body.shopInPerson).toBe(true);
     expect(shop.you.counter).toEqual({ x: 12, y: 14 });
     expect(shop.you.away).toContain("Clem serves at the counter.");
-    expect(shop.you.away).toContain("Walk closer first:");
+    expect(shop.you.away).toContain("Walk there:");
     const refused = await w.act(ada.token, { type: "shop_buy", sku: "lantern" });
     expect(refused).toMatchObject({ ok: false, error: { code: "out_of_reach" } });
     // The shop's words and the action's refusal are the same sentence, so an agent reads one rule.

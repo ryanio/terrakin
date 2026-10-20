@@ -386,9 +386,15 @@ export function outOfReach(
   target: Tile,
   reach: number,
   say = `That's more than ${reach} tiles away.`,
+  /**
+   * The walk, already in words, for a caller that can plan one around what's in the way. The
+   * default hint is a straight line, which is right for a tile in front of you and wrong for a
+   * walk across town, where a wall between the two makes it point nowhere.
+   */
+  hint?: string,
 ): Rejection | null {
   if (chebyshev(me, target) <= reach) return null;
-  return refuse("out_of_reach", `${say}${walkHint(me, target, reach)}`);
+  return refuse("out_of_reach", `${say}${hint ?? walkHint(me, target, reach)}`);
 }
 
 /** Deep copy. WorldState is plain JSON data by design, so a JSON round trip is exact. */

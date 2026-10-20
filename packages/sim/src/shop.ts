@@ -50,6 +50,7 @@ import { residentById } from "./own";
 import { SEASONS, type Season, seasonOf, seasonSpan } from "./season";
 import type {
   Command,
+  Direction,
   EconomyState,
   Good,
   ItemsState,
@@ -59,11 +60,12 @@ import type {
   ResidentId,
   ShopState,
   ShopToday,
+  Tile,
   WorldEvent,
   WorldState,
 } from "./types";
-import { moveOff, offBuildings } from "./walk";
-import { outOfReach, shopTile } from "./world";
+import { moveOff, offBuildings, route, worldGround } from "./walk";
+import { chebyshev, outOfReach, STEP, shopTile } from "./world";
 
 /**
  * The town shop (RFC 0008, phase 2): a catalog the town sells from, buy orders the town pays for,
@@ -514,6 +516,35 @@ export function checkShopInPerson(state: WorldState): ShopChecked {
 }
 
 /**
+ * The walk to the shop as `move` calls, around whatever is in the way: the sim's own step rule
+ * from where you stand to the counter, with consecutive steps in one direction folded into a leg.
+ * Empty when there's no walk at all, which is what a home with no gap in its walls leaves you.
+ *
+ * `outOfReach`'s own hint is a straight line, which is right for the tile in front of you and
+ * wrong for a walk across town: from a hearth inside a starter hut it points at the hut's own
+ * wall, and following it never gets anywhere.
+ */
+function walkToCounter(state: WorldState, me: Tile): string {
+  const door = shopTile(state.config);
+  const size = Math.max(state.config.width, state.config.height);
+  const path = route(worldGround(state), me, door, state.config.reach, size);
+  // `route` falls back to the reachable tile nearest the door, so walk the path through to see
+  // whether it actually arrives: from a home with no gap in its walls, it never does.
+  const at = { x: me.x, y: me.y };
+  const legs: [Direction, number][] = [];
+  for (const dir of path) {
+    const [dx, dy] = STEP[dir];
+    at.x += dx;
+    at.y += dy;
+    const last = legs[legs.length - 1];
+    if (last && last[0] === dir) last[1]++;
+    else legs.push([dir, 1]);
+  }
+  if (chebyshev(at, door) > state.config.reach) return "";
+  return legs.map(([dir, n]) => `move ${dir} ${n === 1 ? "once" : `${n} times`}`).join(", then ");
+}
+
+/**
  * Why a resident isn't at the shop, or null when they are: on the ground floor and within
  * `config.reach` of the shop's door. Only checked once `shop_in_person` is logged. Clients call it
  * to hold back Buy and Sell, and the refusal carries the walk that fixes it.
@@ -522,11 +553,15 @@ export function notAtTheCounter(
   state: WorldState,
   me: Pick<Resident, "x" | "y" | "floor">,
 ): Rejection | null {
+  const walk = walkToCounter(state, me);
   const far = outOfReach(
     me,
     shopTile(state.config),
     state.config.reach,
     "Clem serves at the counter.",
+    walk === ""
+      ? " There's no walk from where you stand to the shop: something has you closed in. Take a wall away to open the way out."
+      : ` Walk there: ${walk}.`,
   );
   const upstairs = upstairsProblem(me, "shop");
   // Someone upstairs and across town needs both, in one answer: being told to go down and then

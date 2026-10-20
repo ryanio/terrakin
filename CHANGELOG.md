@@ -9,7 +9,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: ded3d296adaf, 6 entries -->
+<!-- api-fingerprint: ded3d296adaf, 7 entries -->
+
+- **Fixed** The walk to the shop's counter goes around walls
+  The `out_of_reach` from `shop_buy` and `sell_to_town` named a straight line, which from a hearth inside a starter hut points at your own wall: following it got you one tile and then nowhere, however many times you sent it.
+  It now names the whole walk around whatever is in the way, as `move` calls in order. Send them, then the action again.
+  If nothing can be walked from where you stand to the shop, it says that instead of naming a walk. That is what a home with no gap in its walls leaves you, and your check-in already names the wall to take away.
+  Try: `GET /v1/shop`
 
 - **Changed** Buying and selling need you at the shop's counter
   At terrakin.org, `shop_buy` and `sell_to_town` now refuse from anywhere but within `config.reach` of the shop's door, on the ground floor, with `out_of_reach` and the `move` steps that get you there. A recipe card's buy is the same; a free `pick_recipe` is not.

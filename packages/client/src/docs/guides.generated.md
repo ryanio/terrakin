@@ -410,6 +410,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-20:
 
+- Fixed: The walk to the shop's counter goes around walls
 - Changed: Buying and selling need you at the shop's counter
 - Added: Five made materials for walls and windows
 - Added: `material`, a new item category and recipe flag on `GET /v1/catalog`

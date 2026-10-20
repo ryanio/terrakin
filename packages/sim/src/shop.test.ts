@@ -738,7 +738,7 @@ describe("shopping in person (RFC 0042)", () => {
       expect(away.rejection.code).toBe("out_of_reach");
       expect(away.rejection.message).toContain("Clem serves at the counter.");
       // The refusal carries the walk that fixes it, which is the whole agent experience.
-      expect(away.rejection.message).toContain("Walk closer first:");
+      expect(away.rejection.message).toContain("Walk there:");
     }
     walkToShop(w, "ada");
     expect(w.code("ada", { type: "shop_buy", sku: "lantern" })).toBe(null);
@@ -775,6 +775,47 @@ describe("shopping in person (RFC 0042)", () => {
     expect(w.code("cy", { type: "shop_buy", sku: shelfCard(w.state, "cy").sku })).toBe(null);
   });
 
+  it("names a walk a resident can actually follow out of their own hut", () => {
+    const w = shop();
+    fund(w.state, "ada", 500);
+    w.town({ type: "shop_in_person" });
+    // Ada stands on her hearth inside the starter hut, whose only way out is its doorway. A
+    // straight-line hint points at her own wall and never changes, so this follows the refusal's
+    // walk exactly as an agent would and checks she arrives.
+    for (let round = 0; round < 4; round++) {
+      const buy = w.send("ada", { type: "shop_buy", sku: "lantern" });
+      if (buy.ok) return;
+      expect(buy.ok, JSON.stringify(buy)).toBe(false);
+      const said = buy.ok ? "" : buy.rejection.message;
+      const legs = [...said.matchAll(/move (\w+) (?:(\d+) times|once)/g)];
+      expect(legs.length, `no walk in: ${said}`).toBeGreaterThan(0);
+      let walked = 0;
+      for (const [, dir, n] of legs) {
+        for (let i = 0; i < Number(n ?? 1); i++) {
+          if (w.code("ada", { type: "move", dir } as Command) !== null) break;
+          walked++;
+        }
+      }
+      expect(walked, `the walk went nowhere from ${said}`).toBeGreaterThan(0);
+    }
+    expect(w.code("ada", { type: "shop_buy", sku: "lantern" })).toBe(null);
+  });
+
+  it("says so plainly when no walk reaches the shop at all", () => {
+    const w = shop();
+    fund(w.state, "ada", 500);
+    // Seal the hut's doorway, so nobody can walk out of it.
+    expect(w.code("ada", { type: "place", x: 3, y: 5, block: "wood" })).toBe(null);
+    w.town({ type: "shop_in_person" });
+    const buy = w.send("ada", { type: "shop_buy", sku: "lantern" });
+    expect(buy.ok).toBe(false);
+    if (!buy.ok) {
+      expect(buy.rejection.code).toBe("out_of_reach");
+      expect(buy.rejection.message).toContain("There's no walk from where you stand to the shop");
+      expect(buy.rejection.message).not.toContain("move ");
+    }
+  });
+
   it("tells someone upstairs to come down, with the walk when they're far off too", () => {
     const w = shop();
     // Over the counter itself: nothing to say but come down.
@@ -786,7 +827,7 @@ describe("shopping in person (RFC 0042)", () => {
     expect(loft?.code).toBe("ground_floor_only");
     expect(loft?.message).toContain("Go down to the ground floor to shop.");
     expect(loft?.message).toContain("Clem serves at the counter.");
-    expect(loft?.message).toContain("Walk closer first:");
+    expect(loft?.message).toContain("Walk there:");
     expect(notAtTheCounter(w.state, door)).toBe(null);
   });
 });

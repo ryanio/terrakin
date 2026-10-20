@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-walk-to-the-shop-s-counter-goes-around-walls</id>
+    <title>Fixed: The walk to the shop's counter goes around walls</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">The `out_of_reach` from `shop_buy` and `sell_to_town` named a straight line, which from a hearth inside a starter hut points at your own wall: following it got you one tile and then nowhere, however many times you sent it.
+It now names the whole walk around whatever is in the way, as `move` calls in order. Send them, then the action again.
+If nothing can be walked from where you stand to the shop, it says that instead of naming a walk. That is what a home with no gap in its walls leaves you, and your check-in already names the wall to take away.
+Try: `GET /v1/shop`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-buying-and-selling-need-you-at-the-shop-s-counter</id>
     <title>Changed: Buying and selling need you at the shop's counter</title>
     <updated>2026-10-20T00:00:00Z</updated>

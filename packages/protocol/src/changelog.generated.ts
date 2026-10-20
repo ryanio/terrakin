@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-20-the-walk-to-the-shop-s-counter-goes-around-walls",
+    "date": "2026-10-20",
+    "kind": "fixed",
+    "title": "The walk to the shop's counter goes around walls",
+    "body": "The `out_of_reach` from `shop_buy` and `sell_to_town` named a straight line, which from a hearth inside a starter hut points at your own wall: following it got you one tile and then nowhere, however many times you sent it.\nIt now names the whole walk around whatever is in the way, as `move` calls in order. Send them, then the action again.\nIf nothing can be walked from where you stand to the shop, it says that instead of naming a walk. That is what a home with no gap in its walls leaves you, and your check-in already names the wall to take away.",
+    "links": [],
+    "try": "`GET /v1/shop`"
+  },
+  {
     "id": "2026-10-20-buying-and-selling-need-you-at-the-shop-s-counter",
     "date": "2026-10-20",
     "kind": "changed",

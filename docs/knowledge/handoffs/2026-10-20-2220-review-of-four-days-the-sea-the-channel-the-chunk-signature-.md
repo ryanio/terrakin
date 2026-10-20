@@ -88,21 +88,58 @@ The plot photo is the other shape: two features that are each right alone and wr
 a sample for each and none for the pair. Where a renderer stacks washes and glazes, the pair is
 the test.
 
+## What came after the review, in the same session
+
+**A production outage the review didn't find, Sentry did.** `GET /v1/plots/{px}/{py}` had been
+answering 500 since the ridge shipped: `no such column: ridge`. `NEWS_FIELDS` gained a field and
+`plots.ts` interpolates that list into `CREATE TABLE IF NOT EXISTS plot_news`, which does nothing
+to a table that already exists. Every read **and every write** of a plot's news failed for about a
+day, so no plot recorded news in that window and those days' counts are gone. The column is added
+on boot now, with two guards and a rule in `packages/server/AGENTS.md`
+([learning](../learnings/2026-10-20-a-column-added-to-a-create-table-if-not-exists-never-reaches.md)).
+The gate was green the whole time, because every test builds a fresh world where the column is
+right there. **That is the bug class worth remembering: state that exists only in production.**
+
+Client sourcemaps are on, so the next browser error is readable. The one open web issue
+(TERRAKIN-WEB-7, a `TypeError` on `/world`, once, 2026-10-18, release long superseded) has a single
+frame reading `du /assets/world-Ckfpyn3b.js:2:125058` and cannot be localised without them.
+
+**Reviewing the review** found that the leg cap went on `walkWords` and not on `walkHint`, the
+straight-line sibling every build and item reach refusal carries, while the changelog claimed the
+bug was gone. Both go through one formatter now, and the test reads a real refusal and parses the
+calls out of it rather than pinning two constants against each other, which is what passed while a
+second path ignored them. Also: `reaches()` hung on the spawn tile being standable, and the Commons
+is where the town builds, so a passed `commons_build` could have stopped any land from ever opening
+with nothing saying so.
+
+**PR #91 is merged**, with two fixes on top: `notAtThePlace` asked for a walk onto the plot's
+nearest tile, which on a built plot is usually a wall, so a plot anyone could stroll onto answered
+"something has you closed in"; and it named a walk to someone upstairs, which starts from the wrong
+tile for the same reason the shop's and the hall's did.
+
+**The economy run walks to the counter now.** The only channel the rule has on the coin numbers is
+whether a trade happens, since walking is free in the sim, so that one assumption is a flag
+(`--shop-trips`, default 100) rather than a guess baked in. Measured: the counter suppresses buying
+(down 17%) more than selling (down 5%), so residents end the month richer (274 to 302 per active
+resident) and the treasury thins (3744 to 3633), which is the direction RFC 0042 bracketed by hand.
+Its residents were also walling themselves into their huts, which is why the first run had 8% of
+shop visits arrive.
+
 ## Still open
 
-- `scripts/economy-sim.ts` never logs `shop_in_person`, so it no longer models terrakin.org's
-  shop. Named in the 2026-10-20 handoff and still true. Modelling it means walking residents to
-  the counter and home again, which is a behaviour assumption that drives every number in the run,
-  so it wants a decision rather than a guess.
-- [PR #91](https://github.com/ryanio/terrakin/pull/91) (booking an event needs you standing on the
-  place, RFC 0042's third action) is green and mergeable, from MuseFelipe, and holds decision
-  0338. Left for Ryan. It will want a rebase after this push: it touches `CHANGELOG.md` and the
-  knowledge index, as this does.
+- **What share of residents actually walk to the shop.** `--shop-trips` defaults to 100 because
+  nobody has measured it. The rule has been on at terrakin.org since 2026-10-20, so a week of the
+  live log will say, and that measurement should set the default. Until then every number the run
+  prints assumes residents shop as they always did.
 - RFC 0038 slice 4, opening a land at terrakin.org, is built behind an option no adapter sets.
   Both things that came first are done. Ryan's word is the only thing left.
 - `pick_recipe` at a station is RFC 0042's last action and is deliberately unscoped.
-- Two live homes, cocoa's and Cardigan's, still have no walk to their hearth.
+- Two live homes, cocoa's and Cardigan's, still have no walk to their hearth. The economy run just
+  reproduced the same mistake at scale, which says how easy it is to make.
 - Whether the sea holds fish of its own (decision 0339 leaves it open).
 - A `roof_set` is emitted for a style or colour change as well as a roof going up, so `plot_news`
   reads "A roof went up today" when only the covering changed. That is what the event is defined
   as, but not what a reader sees.
+- Two changes still have no test, both low value and both noted rather than written: `plotLabel`'s
+  water and bridge words (nothing covers `plotLabel` at all) and `counterNote` on the shop
+  suggestion.

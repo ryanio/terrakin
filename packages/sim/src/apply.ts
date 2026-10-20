@@ -80,6 +80,7 @@ import {
   floorGround,
   floorOf,
   layerFor,
+  noFlooringHint,
   plotHasAnything,
   removeProblem,
   setFloor,
@@ -250,6 +251,7 @@ import {
   plotCenter,
   plotOf,
   plotsOwnedBy,
+  STEP,
   settleProblem,
   spawnTile,
   starterHome,
@@ -1008,7 +1010,18 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // A step keeps to the floor you stand on.
       const floor = standingFloor(me);
       const step = stepFrom(floorGround(state, floor), me, command.dir);
-      if (!step.ok) return reject(step.code, step.message);
+      if (!step.ok) {
+        // A tile upstairs with nothing to stand on is the one obstacle you build your way past
+        // (RFC 0028), so the refusal names the call that floors the tile the step aimed at. A
+        // corner in the way says to step around it, which is advice enough, and keeps its words.
+        let hint = "";
+        if (step.obstacle === "no_flooring" && step.at) {
+          const [dx, dy] = STEP[command.dir];
+          const aimed = step.at.x === me.x + dx && step.at.y === me.y + dy;
+          if (aimed) hint = noFlooringHint(state, me, step.at, floor);
+        }
+        return reject(step.code, `${step.message}${hint}`);
+      }
       const { x, y } = step.to;
       return () => {
         me.x = x;

@@ -267,6 +267,7 @@ What we chose and why. Newest last.
 - [A plot photo lifts the roof off the home it is a picture of](decisions/0331-a-plot-photo-lifts-the-roof-off-the-home-it-is-a-picture-of.md) · 2026-10-20 · accepted · `cards` `world` `client`
 - [Every island gets a counter and a hall door of its own, on a square in its logged input](decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md) · 2026-10-20 · accepted · `world` `sim` `lands` `town-hall` `agents`
 - [A picture with no viewer lifts the roof off the place it is about](decisions/0333-a-picture-with-no-viewer-lifts-the-roof-off-the-place-it-is-.md) · 2026-10-20 · accepted · `cards` `world` `client`
+- [The way upstairs is in the refusals: each one names the next call with its tile](decisions/0334-the-way-upstairs-is-in-the-refusals-each-one-names-the-next-.md) · 2026-10-20 · accepted · `floors` `agents` `refusals`
 
 ## Learnings
 

@@ -751,10 +751,37 @@ describe("first-visit steps and things to try", () => {
     expect(pick()?.line).toContain('{"type": "add_floor", "px": 1, "py": 1}');
     expect(pick()?.line).toContain(`${FLOORS.price} coins`);
     expect(pick()?.line).toContain("Ask your owner first");
+    // The line says what the coins leave her with, so the loft isn't a surprise.
+    expect(pick()?.line).toContain("empty air");
     // With the upstairs added there's no room for another, whatever the purse holds.
     await ok("POST", "/v1/actions", { type: "add_floor", px: 1, py: 1 }, wren.token);
     service.testGrant(wren.id, FLOORS.price, undefined);
     expect(pickTryNext(service.state, wren.id, tried, new Set())?.id).not.toBe("upstairs");
+  });
+
+  it("suggests the rest of a loft while the upstairs has no flooring (RFC 0028)", async () => {
+    const { join, ok, service } = await start({ days: true, economy: true, items: true });
+    const wren = join("Wren");
+    await ok("POST", "/v1/actions", { type: "settle", px: 1, py: 1 }, wren.token);
+    await ok("POST", "/v1/actions", { type: "build_starter_home" }, wren.token);
+    const tried = new Set(TRY_NEXT.flatMap((t) => (t.id === "loft" ? [] : [...t.commands])));
+    tried.add("build_starter_home");
+    const pick = () => pickTryNext(service.state, wren.id, tried, new Set());
+    // Nothing to say while the home is one floor.
+    expect(pick()?.id).not.toBe("loft");
+    service.testGrant(wren.id, FLOORS.price, undefined);
+    await ok("POST", "/v1/actions", { type: "add_floor", px: 1, py: 1 }, wren.token);
+    // The 200 coins are spent and the floor is empty air: this is the line that says what's left.
+    expect(pick()?.id).toBe("loft");
+    expect(pick()?.line).toContain("px 1, py 1");
+    expect(pick()?.line).toContain('"floor": 1, "ground": "dirt"');
+    expect(pick()?.line).toContain('"block": "stairs"');
+    expect(pick()?.line).toContain("Put the stairs in first");
+    // One tile of flooring and the upstairs is somewhere you can stand: it closes.
+    const me = service.state.residents[wren.id];
+    const tile = { type: "lay", x: me?.x ?? 0, y: me?.y ?? 0, floor: 1, ground: "moss" } as const;
+    expect(await ok("POST", "/v1/actions", tile, wren.token)).toMatchObject({ ok: true });
+    expect(pick()?.id).not.toBe("loft");
   });
 
   it("waits for each suggestion's prerequisites, in order", async () => {

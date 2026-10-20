@@ -132,6 +132,7 @@ describe("what a tap means, and where a walk goes, on a floor", () => {
       code: "blocked",
       message: "There's no flooring there.",
       obstacle: "no_flooring",
+      at: { x: 3, y: 1 },
     });
     // A route upstairs keeps to the flooring: none reaches the ground floor's open tiles.
     expect(route(stairs.ground(1), { x: 1, y: 1 }, { x: 0, y: 0 })).toEqual([]);

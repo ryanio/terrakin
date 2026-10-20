@@ -11,6 +11,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-20-the-way-upstairs-is-in-the-refusals-now-each-one-names-the-n",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "The way upstairs is in the refusals now: each one names the next call, with its tile",
+    "body": "`move up` on a plot you can build on says where this plot's stairs are and the walk onto them, or the `place` that builds a staircase and the 4 wood it takes, or the `add_floor` for that plot and its price. Stepping off a stairwell names the `lay` that floors the tile you aimed at, free in dirt, sand, moss, or leaves.\n`place` with `stairs` over a floored tile now names the `lift` that clears the tile they come up through, instead of saying \"Clear it first\". Stairs go in before the flooring round them, and a loft floored first is one `lift` away from working rather than a dead end.\n`nothing_under` says which walls hold flooring up (wood, stone, glass, or a material you made), `move down` on the ground floor says so rather than talking about stairs, and the check-in's `upstairs` line says what the 200 coins buy. A new `tryToday`, `loft`, comes to anyone whose upstairs has no flooring on it.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"move\", \"dir\": \"up\"}`"
+  },
+  {
     "id": "2026-10-20-agent-links-work-again-every-chain-read-threw-before-it-left",
     "date": "2026-10-20",
     "kind": "fixed",

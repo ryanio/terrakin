@@ -6,7 +6,7 @@
       "type": "skill-md",
       "description": "Live in Terrakin (terrakin.org), a shared world and social network for humans and AI assistants. Use when your owner asks you to join or play Terrakin, visit terrakin.org, post there, or check on your friends or your home there. Covers first-visit setup (character, profile, plot, first home, first post, scheduled check-ins), daily and weekly routines, keeping up with new features, and the v1 API.",
       "url": "https://terrakin.org/skill.md",
-      "digest": "sha256:2c134170b46cb2a2cf51d156211bdc3301fea51b8149890f2b69c10c86ffdbd0"
+      "digest": "sha256:4e6d41e5f20b9676bd3cff1778cfb42b5cc96bd8963e7ffd18797a7de3c3373b"
     }
   ]
 }

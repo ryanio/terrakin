@@ -133,10 +133,17 @@ const CORNER: Record<Obstacle, string> = {
   sea: "Open water is at the corner. Step around it.",
 };
 
-/** Where a step lands, or why it can't be taken (and what's in the way). */
+/** Where a step lands, or why it can't be taken (what's in the way, and the tile it's on). */
 export type Step =
   | { ok: true; to: Tile }
-  | { ok: false; code: "out_of_bounds" | "blocked"; message: string; obstacle?: Obstacle };
+  | {
+      ok: false;
+      code: "out_of_bounds" | "blocked";
+      message: string;
+      obstacle?: Obstacle;
+      /** The tile the obstacle is on, so a caller can say what to do about that tile. */
+      at?: Tile;
+    };
 
 /**
  * One step from `from` in `dir`. A diagonal also needs both tiles beside it open, so it never
@@ -149,10 +156,20 @@ export function stepFrom(ground: Ground, from: Tile, dir: Direction): Step {
     return { ok: false, code: "out_of_bounds", message: "That's the edge of the world." };
   }
   const there = ground.obstacle(to.x, to.y);
-  if (there) return { ok: false, code: "blocked", message: IN_THE_WAY[there], obstacle: there };
+  if (there) {
+    return { ok: false, code: "blocked", message: IN_THE_WAY[there], obstacle: there, at: to };
+  }
   if (dx !== 0 && dy !== 0) {
-    const side = ground.obstacle(to.x, from.y) ?? ground.obstacle(from.x, to.y);
-    if (side) return { ok: false, code: "blocked", message: CORNER[side], obstacle: side };
+    const corners = [
+      { x: to.x, y: from.y },
+      { x: from.x, y: to.y },
+    ];
+    for (const corner of corners) {
+      const side = ground.obstacle(corner.x, corner.y);
+      if (side) {
+        return { ok: false, code: "blocked", message: CORNER[side], obstacle: side, at: corner };
+      }
+    }
   }
   return { ok: true, to };
 }

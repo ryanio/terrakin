@@ -5,6 +5,7 @@ import { PANTRY_STAPLES } from "./catalog";
 import { BUILD_CONFIG, BUILD_HASH, BUILD_LOG } from "./fixtures/build-log";
 import { FLOORS_CONFIG, FLOORS_HASH, FLOORS_LOG } from "./fixtures/floors-log";
 import { FLOORS } from "./floors";
+import type { GroundKind } from "./ground";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize, type StackKind } from "./items";
 import { currentCommand } from "./renamed";
@@ -14,6 +15,7 @@ import { expectSupplyHolds, fund, stock } from "./test-support";
 import {
   type BlockKind,
   type Command,
+  type Direction,
   type Input,
   type PlanBlock,
   type PlanGround,
@@ -374,7 +376,10 @@ describe("stairs", () => {
   it("keep the tile they come up through clear", () => {
     const w = loft();
     const lay = w.refused("ada", { type: "lay", x: 2, y: 4, floor: 1, ground: "moss" });
-    expect(lay).toEqual({ code: "tile_occupied", message: "Stairs come up here. Keep it clear." });
+    expect(lay).toEqual({
+      code: "tile_occupied",
+      message: "Stairs come up here. Keep it clear, and build round it.",
+    });
     // Nor a block.
     expect(w.refused("ada", { type: "place", x: 2, y: 4, floor: 1, block: "glass" }).code).toBe(
       "tile_occupied",
@@ -412,6 +417,97 @@ describe("stairs", () => {
   });
 });
 
+describe("the way upstairs", () => {
+  it("is in the refusals, each naming the next call, with nothing else to go on (RFC 0028)", () => {
+    const w = world();
+    w.give("ada", { wood: FLOORS.stairsWood });
+    // Every call below is read out of the refusal before it. An agent that knows only `move up`
+    // gets from an empty plot to a floor it can stand on, in the order that works.
+    const noFloor = w.refused("ada", { type: "move", dir: "up" });
+    const add = /add_floor at px (\d+), py (\d+) adds it for 200 coins/.exec(noFloor.message);
+    expect(add, noFloor.message).not.toBeNull();
+    w.ok("ada", { type: "add_floor", px: Number(add?.[1]), py: Number(add?.[2]) });
+
+    const noStairs = w.refused("ada", { type: "move", dir: "up" });
+    const place =
+      /place x (\d+), y (\d+), block stairs puts a flight up from here, for 4 wood/.exec(
+        noStairs.message,
+      );
+    expect(place, noStairs.message).not.toBeNull();
+    const stairs = { x: Number(place?.[1]), y: Number(place?.[2]) };
+    w.ok("ada", { type: "place", ...stairs, block: "stairs" });
+
+    // The stairs are built but she isn't on them, so the refusal says where they are and walks her.
+    const away = w.refused("ada", { type: "move", dir: "up" });
+    expect(away.message).toContain(`at x ${stairs.x}, y ${stairs.y}`);
+    const legs = [...away.message.matchAll(/move (n|s|e|w) (?:once|(\d+) times)/g)];
+    expect(legs.length, away.message).toBeGreaterThan(0);
+    for (const [, dir, times] of legs) {
+      for (let i = 0; i < Number(times ?? 1); i++) {
+        w.ok("ada", { type: "move", dir: dir as Direction });
+      }
+    }
+    w.ok("ada", { type: "move", dir: "up" });
+    expect(w.state.residents.ada).toMatchObject({ ...stairs, floor: 1 });
+
+    // Upstairs on the stairwell, with nowhere to step: each way out names the flooring to lay.
+    let walked = false;
+    for (const dir of ["n", "e", "s", "w"] as const) {
+      const bare = w.refused("ada", { type: "move", dir });
+      const lay = /lay x (\d+), y (\d+), floor (\d+), ground (\w+)\./.exec(bare.message);
+      if (!lay) continue;
+      expect(bare.message).toContain("cost nothing");
+      w.ok("ada", {
+        type: "lay",
+        x: Number(lay[1]),
+        y: Number(lay[2]),
+        floor: Number(lay[3]),
+        ground: lay[4] as GroundKind,
+      });
+      w.ok("ada", { type: "move", dir });
+      walked = true;
+      break;
+    }
+    expect(walked).toBe(true);
+    expect(w.state.residents.ada?.floor).toBe(1);
+    // The 200 coins and the stairs' wood are all it took: the flooring she was told to lay is free.
+    expect(w.state.items?.inventories.ada?.stacks.wood ?? 0).toBe(0);
+  });
+
+  it("names the flooring to lift when a loft went down before its stairs", () => {
+    const w = world();
+    w.ok("ada", { type: "add_floor", px: 0, py: 0 });
+    w.give("ada", { wood: FLOORS.stairsWood });
+    // The loft first, which is the order that leaves stairs nowhere to come up.
+    for (const y of [2, 3, 4]) w.ok("ada", { type: "lay", x: 2, y, floor: 1, ground: "moss" });
+    const taken = w.refused("ada", { type: "place", x: 2, y: 3, block: "stairs" });
+    expect(taken.code).toBe("tile_occupied");
+    const lift = /lift x (\d+), y (\d+), floor (\d+)\./.exec(taken.message);
+    expect(lift, taken.message).not.toBeNull();
+    w.ok("ada", {
+      type: "lift",
+      x: Number(lift?.[1]),
+      y: Number(lift?.[2]),
+      floor: Number(lift?.[3]),
+    });
+    w.ok("ada", { type: "place", x: 2, y: 3, block: "stairs" });
+    w.ok("ada", { type: "move", dir: "w" });
+    w.ok("ada", { type: "move", dir: "up" });
+    expect(w.state.residents.ada).toMatchObject({ x: 2, y: 3, floor: 1 });
+  });
+
+  it("says so on the top floor, and on the ground floor on the way down", () => {
+    const w = loft();
+    expect(w.refused("ada", { type: "move", dir: "down" }).message).toBe(
+      "You're on the ground floor already.",
+    );
+    for (const step of UP) w.ok("ada", step);
+    expect(w.refused("ada", { type: "move", dir: "up" }).message).toBe(
+      "Stand on stairs to go up. A home has a ground floor and one upstairs, and goes no higher.",
+    );
+  });
+});
+
 describe("walking upstairs", () => {
   it("keeps to the flooring: never off its edge or past a corner of it", () => {
     const w = loft();
@@ -422,7 +518,8 @@ describe("walking upstairs", () => {
     w.ok("ada", { type: "move", dir: "e" });
     expect(w.refused("ada", { type: "move", dir: "s" })).toEqual({
       code: "blocked",
-      message: "There's no flooring there.",
+      message:
+        "There's no flooring there. Lay some first: lay x 3, y 4, floor 1, ground dirt. Dirt, sand, moss, and fallen leaves cost nothing.",
     });
     // From (3, 3) down to the stairwell at (2, 4) cuts past (3, 4), which has no flooring.
     expect(w.refused("ada", { type: "move", dir: "sw" })).toEqual({
@@ -568,7 +665,8 @@ describe("build plans", () => {
       build(2, { ground: [{ x: 3, y: 3, floor, ground: "moss" } as PlanGround] });
     const noFloor = w.refused("bob", flooring(1));
     expect(noFloor.code).toBe("no_floor");
-    expect(noFloor.message).toContain(`add_floor adds it for ${FLOORS.price} coins`);
+    // Bob's own plot, since a plan names the plot it would build on.
+    expect(noFloor.message).toContain(`add_floor at px 2, py 0 adds it for ${FLOORS.price} coins`);
     expect(w.refused("bob", build(2, hutWithLoft())).code).toBe("no_floor");
     expect(w.refused("bob", build(2, { remove: [{ x: 1, y: 1, floor: 1 }] })).code).toBe(
       "no_floor",

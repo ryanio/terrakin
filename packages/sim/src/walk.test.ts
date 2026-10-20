@@ -124,6 +124,7 @@ describe("stepFrom", () => {
       code: "blocked",
       message: "A block's corner is in the way. Step around it.",
       obstacle: "block",
+      at: { x: 13, y: 12 },
     });
     expect(step("se").ok).toBe(false);
     expect(step("nw").ok && step("sw").ok).toBe(true);

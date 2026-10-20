@@ -525,7 +525,7 @@ describe("action links", () => {
     expect(down).toContain(link("up"));
     const again = await wren.act("move?dir=down");
     expect([again.status, codeOf(again.text)]).toEqual([200, "no_stairs"]);
-    expect(again.text).toContain("Stand at the top of the stairs to go down.");
+    expect(again.text).toContain("You're on the ground floor already.");
   });
 
   it("charges one action per step of a walk", async () => {

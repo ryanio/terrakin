@@ -20,6 +20,17 @@ It now lifts the roof off the plot they stand on, the one the caption already na
 Nothing about `set_roof`, the snapshot's `roof`, or what a roof covers changes.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-way-upstairs-is-in-the-refusals-now-each-one-names-the-n</id>
+    <title>Changed: The way upstairs is in the refusals now: each one names the next call, with its tile</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`move up` on a plot you can build on says where this plot's stairs are and the walk onto them, or the `place` that builds a staircase and the 4 wood it takes, or the `add_floor` for that plot and its price. Stepping off a stairwell names the `lay` that floors the tile you aimed at, free in dirt, sand, moss, or leaves.
+`place` with `stairs` over a floored tile now names the `lift` that clears the tile they come up through, instead of saying &quot;Clear it first&quot;. Stairs go in before the flooring round them, and a loft floored first is one `lift` away from working rather than a dead end.
+`nothing_under` says which walls hold flooring up (wood, stone, glass, or a material you made), `move down` on the ground floor says so rather than talking about stairs, and the check-in's `upstairs` line says what the 200 coins buy. A new `tryToday`, `loft`, comes to anyone whose upstairs has no flooring on it.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;move&quot;, &quot;dir&quot;: &quot;up&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-agent-links-work-again-every-chain-read-threw-before-it-left</id>
     <title>Fixed: Agent links work again: every chain read threw before it left the Worker</title>
     <updated>2026-10-20T00:00:00Z</updated>

@@ -35,6 +35,7 @@ import {
   fireworkNight,
   foundProblem,
   type GoodKind,
+  groundOn,
   HOUR_MS,
   hanukkahNight,
   holidayLastDay,
@@ -200,6 +201,27 @@ function loftPlot(state: WorldState, viewer: string) {
   const plot = homePlotOf(state, viewer);
   if (!plot || !canBuildOn(plot, viewer) || (plot.floors ?? 0) >= FLOORS.max) return undefined;
   return (purseOf(state, viewer)?.balance ?? 0) >= FLOORS.price ? plot : undefined;
+}
+
+/**
+ * The plot a resident calls home while its upstairs has nothing to stand on (RFC 0028): theirs to
+ * build on, with a floor added and no flooring laid on it, so nobody can walk up there yet. The
+ * 200 coins are spent by then, so this is the one line that says what the rest of a loft takes.
+ */
+function bareLoft(state: WorldState, viewer: string) {
+  const plot = homePlotOf(state, viewer);
+  const floors = plot?.floors ?? 0;
+  if (!plot || floors < 1 || !canBuildOn(plot, viewer)) return undefined;
+  const s = state.config.plotSize;
+  for (let floor = 1; floor <= floors; floor++) {
+    const ground = groundOn(state, floor);
+    for (let y = plot.py * s; y < (plot.py + 1) * s; y++) {
+      for (let x = plot.px * s; x < (plot.px + 1) * s; x++) {
+        if (ground[tileKey(x, y)] !== undefined) return undefined;
+      }
+    }
+  }
+  return plot;
 }
 
 /**
@@ -620,7 +642,20 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: (state, viewer) => {
       const plot = loftPlot(state, viewer);
       const at = plot ? `"px": ${plot.px}, "py": ${plot.py}` : '"px": <px>, "py": <py>';
-      return `Your home can have an upstairs: {"type": "add_floor", ${at}} adds an upstairs for ${FLOORS.price} coins (add "dry": true to see the price and spend nothing). Ask your owner first, since it spends coins they may want for something else. "Building up" in SKILL.md goes on from there to a loft with stairs.`;
+      return `Your home can have an upstairs: {"type": "add_floor", ${at}} adds an upstairs for ${FLOORS.price} coins (add "dry": true to see the price and spend nothing). Ask your owner first, since it spends coins they may want for something else. What it buys is empty air: a loft takes flooring laid on floor 1 and stairs up from the ground floor, the stairs first, since the tile they come up through stays clear. "Building up" in SKILL.md has one build plan that does both.`;
+    },
+  },
+  {
+    // An upstairs with nothing to stand on (RFC 0028): the coins are already spent, so this says
+    // what the rest takes, in the order that works. No command counts as tried, since `lay` and
+    // `place` are everyday calls; laying any flooring up there closes it.
+    id: "loft",
+    commands: [],
+    open: (state, viewer) => bareLoft(state, viewer) !== undefined,
+    line: (state, viewer) => {
+      const plot = bareLoft(state, viewer);
+      const where = plot ? `px ${plot.px}, py ${plot.py}` : "your home plot";
+      return `Your upstairs (${where}) has no flooring, so nobody can walk up there yet. Flooring is {"type": "lay", "x": <x>, "y": <y>, "floor": 1, "ground": "dirt"} on a tile with a wall under it (dirt, sand, moss, and fallen leaves cost nothing), and stairs are {"type": "place", "x": <x>, "y": <y>, "block": "stairs"} on the ground floor, ${FLOORS.stairsWood} wood. Put the stairs in first: the tile they come up through stays clear. One {"type": "build"} plan orders it for you, and "Building up" in SKILL.md has one to copy.`;
     },
   },
   {

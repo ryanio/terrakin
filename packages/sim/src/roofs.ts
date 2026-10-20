@@ -22,7 +22,9 @@ import {
   type Rejection,
   type ResidentId,
   ROOF_STYLES,
+  ROOF_TOPS,
   type RoofStyle,
+  type RoofTop,
   type WorldEvent,
   type WorldState,
 } from "./types";
@@ -201,6 +203,11 @@ export interface RoofShape {
   floor: number;
   /** North row first, west to east, as a plot's tiles are read everywhere else. */
   tiles: RoofTile[];
+  /**
+   * What stands on the ridge and the tile it stands on (RFC 0041), absent while the ridge is
+   * bare. Every view draws it from here, so they agree on where it is as they do on the slopes.
+   */
+  top?: { kind: RoofTop; x: number; y: number };
 }
 
 /**
@@ -212,7 +219,11 @@ export function roofShape(facts: {
   plotSize: number;
   px: number;
   py: number;
-  roof: PlotRoof | undefined;
+  /**
+   * The plot's own roof, or one read off the wire, where an absent ridge may come as `undefined`
+   * rather than not at all. State itself never holds an undefined (`PlotRoof`).
+   */
+  roof: (Omit<PlotRoof, "top"> & { top?: RoofTop | undefined }) | undefined;
   /** Floors the plot added above its ground floor (`Plot.floors`). */
   floors: number;
   /** Whether a wall or window stands on the tile of that floor. */
@@ -240,7 +251,28 @@ export function roofShape(facts: {
       if (covered) tiles.push({ x, y, h });
     }
   }
-  return { style, material: roof.material, floor: seat.floor, tiles };
+  const top = roof.top ? roofPeak(tiles) : undefined;
+  return {
+    style,
+    material: roof.material,
+    floor: seat.floor,
+    tiles,
+    ...(roof.top && top ? { top: { kind: roof.top, ...top } } : {}),
+  };
+}
+
+/**
+ * Where something on the ridge stands: the first of the roof's highest tiles, in the order tiles
+ * are read, so it sits at the north-west end of a gable's ridge rather than in the middle of the
+ * home, where the hearth and whoever is home usually are. Pure, like the rest of the shape, so
+ * every view puts it on the same tile.
+ */
+function roofPeak(tiles: RoofTile[]): { x: number; y: number } | undefined {
+  if (tiles.length === 0) return undefined;
+  const high = (t: RoofTile) => Math.max(...t.h);
+  const top = Math.max(...tiles.map(high));
+  const at = tiles.find((t) => high(t) === top);
+  return at ? { x: at.x, y: at.y } : undefined;
 }
 
 /** The roof over a plot of the world, read from the walls the home's floors hold. */
@@ -256,6 +288,9 @@ export function plotRoof(state: WorldState, px: number, py: number): RoofShape |
     wall: (x, y, floor) => holdsRoof(blocksOn(state, floor)[tileKey(x, y)]),
   });
 }
+
+/** Whether a value from an input is one of the ridge's own (`ROOF_TOPS`). */
+const isRoofTop = (v: unknown): v is RoofTop => ROOF_TOPS.includes(v as RoofTop);
 
 type Mutation = () => WorldEvent[];
 
@@ -293,11 +328,20 @@ export function checkSetRoof(
       "unknown_item",
       "A roof is covered in a wall or window: a free block, or a material you made.",
     );
-  } else if (was?.style === style && was.material === command.material) {
+  } else if (command.top !== undefined && !isRoofTop(command.top)) {
+    return refuse("unknown_item", `A roof wears one of ${ROOF_TOPS.join(", ")} on its ridge.`);
+  } else if (was?.style === style && was.material === command.material && was.top === command.top) {
     return refuse("already_set", "That's the roof it has already.");
   }
   const next: PlotRoof | undefined =
-    style === "flat" ? undefined : { style, material: command.material as BlockKind };
+    style === "flat"
+      ? undefined
+      : {
+          style,
+          material: command.material as BlockKind,
+          // Absent leaves the ridge bare, so a `set_roof` from before ridges reads as it did.
+          ...(command.top ? { top: command.top } : {}),
+        };
   // What a roof covers is read from the walls, so one with nothing under it would draw nothing.
   const wall = (x: number, y: number, floor: number) =>
     holdsRoof(blocksOn(state, floor)[tileKey(x, y)]);
@@ -314,7 +358,15 @@ export function checkSetRoof(
     if (next) plot.roof = next;
     else delete plot.roof;
     return [
-      { type: "roof_set", px, py, style, ...(next ? { material: next.material } : {}), by: actor },
+      {
+        type: "roof_set",
+        px,
+        py,
+        style,
+        ...(next ? { material: next.material } : {}),
+        ...(next?.top ? { top: next.top } : {}),
+        by: actor,
+      },
       ...moveRoofCost(state, actor, change),
     ];
   };

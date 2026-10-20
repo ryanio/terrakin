@@ -65,6 +65,7 @@ import {
   type RecipeName as RecipeNameType,
   ROOF_MATERIALS,
   ROOF_STYLES,
+  ROOF_TOPS,
   ROUTINE_KINDS,
   ROUTINES,
   SEASONS,
@@ -369,6 +370,9 @@ export type RoofStyle = z.infer<typeof RoofStyle>;
 export const RoofMaterial = z.enum(
   ROOF_MATERIALS as unknown as [WorldBlockKind, ...WorldBlockKind[]],
 );
+/** What stands on a roof's ridge (RFC 0041), free. Absent leaves the ridge bare. */
+export const RoofTop = z.enum(ROOF_TOPS);
+export type RoofTop = z.infer<typeof RoofTop>;
 /**
  * The roof over plot (`px`, `py`), one you own or share, from anywhere (RFC 0041). A roof is
  * chosen, not built: one field on the plot, drawn over whatever walls the home's top floor has.
@@ -382,6 +386,9 @@ export const SetRoofAction = z.object({
   py: coord,
   style: RoofStyle,
   material: RoofMaterial.optional().describe("Needed for every style but `flat`."),
+  top: RoofTop.optional().describe(
+    "What stands on the ridge, free. Absent leaves it bare, so send it with every change you want to keep.",
+  ),
   ...dry,
 });
 
@@ -1683,7 +1690,13 @@ export const WorldSnapshot = z.object({
        * Its roof (`set_roof`, RFC 0041), over the highest floor its walls reach. Absent when the
        * home has none, which is what every home looked like before roofs.
        */
-      roof: z.object({ style: RoofStyle.exclude(["flat"]), material: RoofMaterial }).optional(),
+      roof: z
+        .object({
+          style: RoofStyle.exclude(["flat"]),
+          material: RoofMaterial,
+          top: RoofTop.optional(),
+        })
+        .optional(),
     }),
   ),
   /** Blocks, one per tile on each floor: the ground floor's, then each floor's above it. */
@@ -2010,6 +2023,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     py: z.number().int(),
     style: RoofStyle,
     material: RoofMaterial.optional(),
+    top: RoofTop.optional(),
     by: z.string(),
   }),
   z.object({

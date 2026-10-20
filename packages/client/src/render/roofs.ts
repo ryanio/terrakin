@@ -3,6 +3,7 @@ import {
   blockFill,
   mixHex,
   type RoofShape,
+  type RoofTop,
   roofTone,
   type Season,
   type ThemePalette,
@@ -30,6 +31,75 @@ const EAVE_SHADE = "#3d3024";
  */
 export const roofShade = (fill: string, high: number) =>
   mixHex(mixHex(fill, EAVE_SHADE, 0.26 * (1 - high)), RIDGE_LIGHT, 0.3 * high);
+
+/** The ink and the paper a ridge's mark is drawn in, dark on any covering and light on any ink. */
+const TOP_INK = "#3d3024";
+const TOP_PAPER = "#fff7e6";
+
+/**
+ * What stands on a roof's ridge (RFC 0041), drawn from above in a tile `t` pixels wide centered on
+ * (cx, cy): a weather vane as a cross with its pointer, a flag as a pole with its cloth out to the
+ * east, a bird's nest as a ring of twigs. Small, dark, and the same shapes on the map, on a
+ * thumbnail, and in a plot photo, so a home's mark is its own wherever you meet it.
+ */
+export function paintRoofTop(
+  ctx: CanvasRenderingContext2D,
+  kind: RoofTop,
+  cx: number,
+  cy: number,
+  t: number,
+) {
+  const line = Math.max(1, t * 0.07);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (kind === "nest") {
+    ctx.strokeStyle = TOP_INK;
+    ctx.lineWidth = line * 1.6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, t * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = TOP_PAPER;
+    ctx.beginPath();
+    ctx.arc(cx, cy, t * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  // Both the vane and the flag stand on a pole, which from above is a dot in a pale ring.
+  ctx.strokeStyle = TOP_INK;
+  ctx.lineWidth = line;
+  if (kind === "vane") {
+    ctx.beginPath();
+    ctx.moveTo(cx - t * 0.22, cy);
+    ctx.lineTo(cx + t * 0.22, cy);
+    ctx.moveTo(cx, cy - t * 0.22);
+    ctx.lineTo(cx, cy + t * 0.22);
+    ctx.stroke();
+    // The pointer, so it reads as a vane rather than a cross.
+    ctx.fillStyle = TOP_INK;
+    ctx.beginPath();
+    ctx.moveTo(cx + t * 0.3, cy);
+    ctx.lineTo(cx + t * 0.14, cy - t * 0.12);
+    ctx.lineTo(cx + t * 0.14, cy + t * 0.12);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(cx - t * 0.12, cy - t * 0.18);
+    ctx.lineTo(cx - t * 0.12, cy + t * 0.18);
+    ctx.stroke();
+    ctx.fillStyle = TOP_INK;
+    ctx.beginPath();
+    ctx.moveTo(cx - t * 0.1, cy - t * 0.16);
+    ctx.lineTo(cx + t * 0.26, cy - t * 0.04);
+    ctx.lineTo(cx - t * 0.1, cy + t * 0.08);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = TOP_PAPER;
+  ctx.beginPath();
+  ctx.arc(cx, cy, line * 0.9, 0, Math.PI * 2);
+  ctx.fill();
+}
 
 /**
  * Paint one plot's roof. `palette` is the plot's theme, so a wood roof matches the wood walls it
@@ -127,5 +197,10 @@ export function paintRoof(
     ctx.strokeStyle = "rgba(255, 247, 230, 0.7)";
     ctx.lineWidth = Math.max(1, line * 1.2);
     ctx.stroke(ridge);
+  }
+  // What stands on the ridge, last of all, so nothing on the roof covers it.
+  if (roof.top) {
+    const b = box(roof.top.x, roof.top.y);
+    paintRoofTop(ctx, roof.top.kind, b.left + b.w / 2, b.top + b.h / 2, scale);
   }
 }

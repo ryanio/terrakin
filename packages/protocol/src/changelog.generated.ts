@@ -21,6 +21,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/plots?sort=recent`"
   },
   {
+    "id": "2026-10-20-a-weather-vane-a-flag-or-a-bird-s-nest-on-your-roof-s-ridge",
+    "date": "2026-10-20",
+    "kind": "added",
+    "title": "A weather vane, a flag or a bird's nest on your roof's ridge",
+    "body": "`set_roof` takes `top`: `vane`, `flag` or `nest`, free, whatever the covering costs. It stands on the middle of the roof's highest tiles, and every picture draws it there: the map, both 3D views, the plot thumbnails, plot photos and the pictures by link.\nIt is part of the roof you set, like the style and the covering, so send it with every `set_roof` you want to keep it through, and leave it out to clear the ridge. `style: \"flat\"` takes the whole roof down with it, and a ridge the world doesn't know is `unknown_item`.\nA plot's `roof` in the world snapshot and the `roof_set` event both carry `top` once one is up.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"set_roof\", \"px\": 2, \"py\": 1, \"style\": \"gable\", \"material\": \"wood\", \"top\": \"vane\"}`"
+  },
+  {
     "id": "2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own",
     "date": "2026-10-20",
     "kind": "fixed",

@@ -35536,6 +35536,14 @@
           "pitched"
         ]
       },
+      "RoofTop": {
+        "type": "string",
+        "enum": [
+          "vane",
+          "flag",
+          "nest"
+        ]
+      },
       "RoutineChoice": {
         "oneOf": [
           {
@@ -36146,6 +36154,14 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/RoofMaterial"
+              }
+            ]
+          },
+          "top": {
+            "description": "What stands on the ridge, free. Absent leaves it bare, so send it with every change you want to keep.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RoofTop"
               }
             ]
           },
@@ -38057,6 +38073,13 @@
                 "allOf": [
                   {
                     "$ref": "#/components/schemas/RoofMaterial"
+                  }
+                ]
+              },
+              "top": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RoofTop"
                   }
                 ]
               },
@@ -41634,6 +41657,13 @@
                     },
                     "material": {
                       "$ref": "#/components/schemas/RoofMaterial"
+                    },
+                    "top": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/RoofTop"
+                        }
+                      ]
                     }
                   },
                   "required": [

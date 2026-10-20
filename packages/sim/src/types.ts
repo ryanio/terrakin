@@ -52,6 +52,15 @@ export const ROOF_STYLES = ["flat", "gable", "hip", "pitched"] as const;
 export type RoofStyle = (typeof ROOF_STYLES)[number];
 
 /**
+ * What stands on a roof's ridge (RFC 0041): a mark of its own, since from above a roof is one
+ * quadrilateral and every home on a street wears the same few coverings. It costs nothing and
+ * changes nothing: no rule reads it, and a home with none is what every roof was before.
+ * A new one goes on the end, so older roofs read the same.
+ */
+export const ROOF_TOPS = ["vane", "flag", "nest"] as const;
+export type RoofTop = (typeof ROOF_TOPS)[number];
+
+/**
  * What can be placed. The first four are building blocks. `planter` holds a crop, and `kitchen`
  * and `workbench` are stations to craft at (RFC 0005). Those are placed for free. The next four are
  * decor from the town shop (RFC 0008): placing one uses one from your things, and removing it puts
@@ -306,6 +315,8 @@ export interface Plot {
 export interface PlotRoof {
   style: Exclude<RoofStyle, "flat">;
   material: BlockKind;
+  /** What stands on its ridge, absent while nothing does, as every roof was at first. */
+  top?: RoofTop;
 }
 
 /** One floor above the ground floor (RFC 0028): its blocks and its flooring. */
@@ -1598,6 +1609,8 @@ export type Command =
       py: number;
       style: RoofStyle;
       material?: BlockKind | undefined;
+      /** What stands on the ridge (`ROOF_TOPS`), free. Absent leaves the ridge bare. */
+      top?: RoofTop | undefined;
     }
   /**
    * A plan built on plot (px, py) in one input, from anywhere (RFC 0016). Tiles count from the
@@ -2125,6 +2138,8 @@ export type WorldEvent =
       py: number;
       style: RoofStyle;
       material?: BlockKind;
+      /** What stands on its ridge, absent while nothing does. */
+      top?: RoofTop;
       by: ResidentId;
     }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }

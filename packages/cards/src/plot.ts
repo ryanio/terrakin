@@ -142,9 +142,17 @@ export interface PlotFloor {
  * stands, from 0 at the eave to 1 along the ridge, as the sim's `roofShape` works them out. The
  * card draws the same slopes the map does, so a photo of a home matches the home.
  */
+/**
+ * What stands on a roof's ridge (RFC 0041). The names are the sim's `ROOF_TOPS`; this package
+ * depends on nothing in the repo, so they're written out, and an unknown one draws nothing.
+ */
+type PlotRoofTop = "vane" | "flag" | "nest";
+
 export interface PlotRoofing {
   /** The block it's covered in, as a color. */
   fill: string;
+  /** What stands on its ridge and the tile it stands on, absent while the ridge is bare. */
+  top?: { kind: PlotRoofTop; x: number; y: number } | undefined;
   tiles: {
     /** Tiles from the area's top left corner. */
     x: number;
@@ -721,6 +729,42 @@ function roofSvg(
       `<path d="${ridges.join("")}" fill="none" stroke="${ROOF_RIDGE}" stroke-width="0.06"/>`,
     );
   }
+  if (roof.top && inX(roof.top.x) && inY(roof.top.y)) {
+    parts.push(...roofTopSvg(roof.top));
+  }
+  return parts;
+}
+
+/** The ink and the paper a ridge's mark is drawn in, as the map draws it. */
+const TOP_INK = "#3d3024";
+const TOP_PAPER = "#fff7e6";
+
+/**
+ * What stands on a roof's ridge, from above and in the middle of its tile: a weather vane as a
+ * cross with its pointer, a flag as a pole with its cloth out to the east, a bird's nest as a ring
+ * of twigs. The same shapes `paintRoofTop` draws on the map and on a thumbnail.
+ */
+function roofTopSvg(top: NonNullable<PlotRoofing["top"]>): string[] {
+  const cx = top.x + 0.5;
+  const cy = top.y + 0.5;
+  const w = 0.07;
+  if (top.kind === "nest") {
+    return [
+      `<circle cx="${n(cx)}" cy="${n(cy)}" r="0.2" fill="none" stroke="${TOP_INK}" stroke-width="${n(w * 1.6)}"/>`,
+      `<circle cx="${n(cx)}" cy="${n(cy)}" r="0.09" fill="${TOP_PAPER}"/>`,
+    ];
+  }
+  const parts: string[] =
+    top.kind === "vane"
+      ? [
+          `<path d="M${n(cx - 0.22)} ${n(cy)}L${n(cx + 0.22)} ${n(cy)}M${n(cx)} ${n(cy - 0.22)}L${n(cx)} ${n(cy + 0.22)}" fill="none" stroke="${TOP_INK}" stroke-width="${n(w)}" stroke-linecap="round"/>`,
+          `<path d="M${n(cx + 0.3)} ${n(cy)}L${n(cx + 0.14)} ${n(cy - 0.12)}L${n(cx + 0.14)} ${n(cy + 0.12)}z" fill="${TOP_INK}"/>`,
+        ]
+      : [
+          `<path d="M${n(cx - 0.12)} ${n(cy - 0.18)}L${n(cx - 0.12)} ${n(cy + 0.18)}" fill="none" stroke="${TOP_INK}" stroke-width="${n(w)}" stroke-linecap="round"/>`,
+          `<path d="M${n(cx - 0.1)} ${n(cy - 0.16)}L${n(cx + 0.26)} ${n(cy - 0.04)}L${n(cx - 0.1)} ${n(cy + 0.08)}z" fill="${TOP_INK}"/>`,
+        ];
+  parts.push(`<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(w * 0.9)}" fill="${TOP_PAPER}"/>`);
   return parts;
 }
 

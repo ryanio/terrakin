@@ -31,6 +31,17 @@ Try: `GET /v1/plots`</summary>
 Try: `GET /v1/plots?sort=recent`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-weather-vane-a-flag-or-a-bird-s-nest-on-your-roof-s-ridge</id>
+    <title>Added: A weather vane, a flag or a bird's nest on your roof's ridge</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`set_roof` takes `top`: `vane`, `flag` or `nest`, free, whatever the covering costs. It stands on the middle of the roof's highest tiles, and every picture draws it there: the map, both 3D views, the plot thumbnails, plot photos and the pictures by link.
+It is part of the roof you set, like the style and the covering, so send it with every `set_roof` you want to keep it through, and leave it out to clear the ridge. `style: &quot;flat&quot;` takes the whole roof down with it, and a ridge the world doesn't know is `unknown_item`.
+A plot's `roof` in the world snapshot and the `roof_set` event both carry `top` once one is up.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;set_roof&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;style&quot;: &quot;gable&quot;, &quot;material&quot;: &quot;wood&quot;, &quot;top&quot;: &quot;vane&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-the-map-around-someone-no-longer-hides-them-under-their-own</id>
     <title>Fixed: The map around someone no longer hides them under their own roof</title>
     <updated>2026-10-20T00:00:00Z</updated>

@@ -89,6 +89,52 @@ describe("what a roof is", () => {
     expect(Object.keys(state.plots["0,0"] ?? {})).not.toContain("roof");
   });
 
+  it("wears something on its ridge, free, and nothing until it's asked for (RFC 0041)", () => {
+    const state = town();
+    const top = (t?: string) =>
+      ({
+        type: "set_roof",
+        px: 0,
+        py: 0,
+        style: "gable",
+        material: "wood",
+        ...(t ? { top: t } : {}),
+      }) as Command;
+
+    // A roof with nothing on its ridge is what every roof was: no field, no mark on the shape.
+    ok(state, "ada", roof("gable", "wood"));
+    expect(state.plots["0,0"]?.roof?.top).toBeUndefined();
+    expect(plotRoof(state, 0, 0)?.top).toBeUndefined();
+
+    // A vane goes up for nothing: the covering is already paid for, and no stack moves.
+    const held = { ...(state.items?.inventories.ada?.stacks ?? {}) };
+    const events = ok(state, "ada", top("vane"));
+    expect(state.plots["0,0"]?.roof).toEqual({ style: "gable", material: "wood", top: "vane" });
+    expect(state.items?.inventories.ada?.stacks).toEqual(held);
+    expect(events.find((e) => e.type === "roof_set")).toMatchObject({ top: "vane" });
+
+    // It stands on the middle of the roof's highest tiles, which every view reads from the shape.
+    const shape = plotRoof(state, 0, 0);
+    const high = Math.max(...(shape?.tiles ?? []).map((t) => Math.max(...t.h)));
+    const at = (shape?.tiles ?? []).find((t) => t.x === shape?.top?.x && t.y === shape?.top?.y);
+    expect(shape?.top?.kind).toBe("vane");
+    expect(Math.max(...(at?.h ?? [0]))).toBe(high);
+
+    // The same roof again is nothing to change; another ridge is.
+    refused(state, "ada", top("vane"), "already_set");
+    ok(state, "ada", top("nest"));
+    expect(state.plots["0,0"]?.roof?.top).toBe("nest");
+    // Asking for a bare ridge takes it down, and the roof stays up.
+    ok(state, "ada", top());
+    expect(state.plots["0,0"]?.roof).toEqual({ style: "gable", material: "wood" });
+    // Something the world doesn't know leaves the world as it was.
+    refused(state, "ada", top("chimney"), "unknown_item");
+    // Taking the roof down takes the ridge with it.
+    ok(state, "ada", top("flag"));
+    ok(state, "ada", roof("flat"));
+    expect(state.plots["0,0"]?.roof).toBeUndefined();
+  });
+
   it("pins its numbers and its choices", () => {
     expect(ROOFS.blocks).toBe(8);
     expect(ROOFS.minSpan).toBe(3);

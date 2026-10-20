@@ -220,6 +220,25 @@ describe("plot photo data", () => {
     const autumn = fillOn(dayOfDate(2026, 10, 20));
     expect(winter).not.toBe(autumn);
     expect(lightness(winter)).toBeGreaterThan(lightness(autumn));
+
+    // What stands on the neighbor's ridge comes with it, on a tile of its own roof, counted from
+    // the photo's box like everything else in it (RFC 0041).
+    expect(
+      (
+        await call("POST", "/v1/actions", ash.token, {
+          type: "set_roof",
+          px: plot.px,
+          py: plot.py,
+          style: "gable",
+          material: "wood",
+          top: "vane",
+        })
+      ).body.ok,
+    ).toBe(true);
+    const spec = plotPhotoSpec(service.state, wren.residentId, AT_NOON);
+    const roof = (spec?.roofs ?? [])[0];
+    expect(roof?.top?.kind).toBe("vane");
+    expect(roof?.tiles.some((t) => t.x === roof?.top?.x && t.y === roof?.top?.y)).toBe(true);
   });
 
   it("shows the plot's own ground, blocks, hearth, and theme", async () => {

@@ -446,6 +446,10 @@ export function roofsIn(
           season(state),
         ),
         tiles: shape.tiles.map((t) => ({ x: t.x - bx, y: t.y - by, h: t.h })),
+        // What stands on its ridge, counted from the box like its tiles.
+        ...(shape.top
+          ? { top: { kind: shape.top.kind, x: shape.top.x - bx, y: shape.top.y - by } }
+          : {}),
       });
     }
   }

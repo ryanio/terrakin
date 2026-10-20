@@ -428,6 +428,29 @@ describe("renderer", () => {
     expect(svg.match(/<svg/g)).toHaveLength(1);
   });
 
+  it("draws a roof's slopes and what stands on its ridge (RFC 0041)", () => {
+    const base = samplePlot("Wren");
+    // A gable over four tiles: the north row at the eave, the south row along the ridge.
+    const tiles = [
+      { x: 2, y: 2, h: [0, 0, 1, 1] },
+      { x: 3, y: 2, h: [0, 0, 1, 1] },
+    ];
+    const roofed = (top?: { kind: "vane" | "flag" | "nest"; x: number; y: number }) =>
+      plotSvg({ ...base, roofs: [{ fill: "#b8834f", tiles, ...(top ? { top } : {}) }] }, 420);
+
+    // The covering, and nothing standing on it until something does.
+    const bare = roofed();
+    expect(bare).toContain('fill="#b8834f"');
+    expect(bare).not.toContain("M3.28 2.5L3.72 2.5");
+
+    // A vane is a cross with a pointer, on the tile the spec names and nowhere else.
+    const vane = roofed({ kind: "vane", x: 3, y: 2 });
+    expect(vane).toContain("M3.28 2.5L3.72 2.5M3.5 2.28L3.5 2.72");
+    // A nest is a ring of twigs instead, and a ridge off the picture is drawn not at all.
+    expect(roofed({ kind: "nest", x: 3, y: 2 })).toContain('r="0.2" fill="none"');
+    expect(roofed({ kind: "vane", x: 99, y: 2 })).not.toContain("M99");
+  });
+
   it("draws paths and flooring from their marks, and keeps them on the tile and in the palette", () => {
     const hostile = '"/><script>x</script>';
     const base = samplePlot("Wren");

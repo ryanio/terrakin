@@ -4,7 +4,7 @@
  * a style and a covering, and a line saying what the covering takes. The server decides: the sheet
  * sends `set_roof` and says what came back, and nothing here checks a rule the sim doesn't own.
  */
-import type { BlockKind, RoofStyle } from "@terrakin/sim";
+import type { BlockKind, RoofStyle, RoofTop } from "@terrakin/sim";
 import { BLOCK_COLORS, isMaterialKind, ROOFS } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { itemArt } from "@terrakin/ui/item-art";
@@ -23,6 +23,8 @@ import {
   ROOF_PICKS,
   ROOF_STYLE_ABOUT,
   ROOF_STYLE_WORDS,
+  ROOF_TOP_PICKS,
+  ROOF_TOP_WORDS,
   type RoofChoice,
   roofChoices,
   roofLine,
@@ -34,7 +36,7 @@ export interface RoofSheetOptions {
   px: number;
   py: number;
   /** The roof the plot has now, from the mirror. */
-  roof?: { style: RoofStyle; material: BlockKind } | undefined;
+  roof?: { style: RoofStyle; material: BlockKind; top?: RoofTop | undefined } | undefined;
   holdings: Holdings;
   /** Where to say it worked: the world has its own toast. */
   say: (text: string) => void;
@@ -53,6 +55,7 @@ export function openRoofSheet(o: RoofSheetOptions) {
   const choices = roofChoices(o.holdings, o.roof?.material);
   let style: RoofStyle = o.roof?.style ?? "gable";
   let material: BlockKind = o.roof?.material ?? "wood";
+  let top: RoofTop | "none" = o.roof?.top ?? "none";
   const about = h("p", { class: "roof-about", text: ROOF_STYLE_ABOUT[style] });
   const line = h("p", { class: "palette-line", attrs: { "aria-live": "polite" } });
   const error = errorLine("roof-error");
@@ -69,9 +72,11 @@ export function openRoofSheet(o: RoofSheetOptions) {
     line.textContent = style === "flat" || !c ? "" : roofLine(c);
     set.textContent = style === "flat" ? "Take it down" : o.roof ? "Change it" : "Put it up";
     materials.hidden = style === "flat";
+    ridge.hidden = style === "flat";
     // The roof it has already is the one the sheet opens on, and the world would refuse it, so
     // the button waits for a change rather than answering "That's the roof it has already."
-    set.disabled = o.roof?.style === style && o.roof.material === material;
+    set.disabled =
+      o.roof?.style === style && o.roof.material === material && (o.roof.top ?? "none") === top;
   }
 
   const styleRow = chips(
@@ -105,6 +110,24 @@ export function openRoofSheet(o: RoofSheetOptions) {
     materialRow,
   );
 
+  const ridgeRow = chips(
+    [...ROOF_TOP_PICKS],
+    top,
+    (t) => [h("span", { text: t === "none" ? "Nothing" : ROOF_TOP_WORDS[t] })],
+    (t) => {
+      top = t;
+      say();
+    },
+    h("div", { class: "pick-row roof-tops" }),
+  ).row;
+  ridgeRow.setAttribute("aria-label", "What stands on the ridge");
+  const ridge = h(
+    "div",
+    { class: "stack roof-covering" },
+    h("p", { class: "field-label", text: "On the ridge" }),
+    ridgeRow,
+  );
+
   const s = sheet(
     {
       id: "roof-title",
@@ -116,6 +139,7 @@ export function openRoofSheet(o: RoofSheetOptions) {
     styleRow,
     about,
     materials,
+    ridge,
     line,
     error,
     h("div", { class: "cluster roof-actions" }, set),
@@ -132,6 +156,7 @@ export function openRoofSheet(o: RoofSheetOptions) {
           py: o.py,
           style,
           ...(style === "flat" ? {} : { material }),
+          ...(style === "flat" || top === "none" ? {} : { top }),
         }),
       );
       const problem = actProblem(r);

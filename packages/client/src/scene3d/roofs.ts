@@ -77,6 +77,52 @@ export function roofMesh(
     if (!on(tile.x - 1, tile.y)) skirt(NW, SW, nw, sw);
     if (!on(tile.x + 1, tile.y)) skirt(SE, NE, se, ne);
   }
+  // What stands on the ridge (RFC 0041), in the same geometry: it is the roof's own color taken
+  // right down, so a mark costs no draw call, no material and no light of its own.
+  const top = roof.top;
+  if (top) {
+    const at = roof.tiles.find((t) => t.x === top.x && t.y === top.y);
+    const stands = base + Math.max(...(at?.h ?? [0])) * rise;
+    const cx = top.x - origin.x;
+    const cz = top.y - origin.y;
+    const DARK = 0.42;
+    /** An upright quad, so a mark reads from any side the camera comes round to. */
+    const panel = (
+      x0: number,
+      z0: number,
+      x1: number,
+      z1: number,
+      y0: number,
+      y1: number,
+      light = DARK,
+    ) => {
+      const a: [number, number, number] = [cx + x0, y0, cz + z0];
+      const b: [number, number, number] = [cx + x1, y0, cz + z1];
+      const c: [number, number, number] = [cx + x1, y1, cz + z1];
+      const d: [number, number, number] = [cx + x0, y1, cz + z0];
+      tri(a, b, c, [light, light, light]);
+      tri(a, c, d, [light, light, light]);
+    };
+    const tall = FLOOR_HEIGHT * 0.3;
+    if (top.kind === "nest") {
+      // A low ring of twigs, drawn as a shallow box so it reads as a lump from above and aside.
+      const r = 0.16;
+      panel(-r, -r, r, -r, stands, stands + tall * 0.3);
+      panel(-r, r, r, r, stands, stands + tall * 0.3);
+      panel(-r, -r, -r, r, stands, stands + tall * 0.3);
+      panel(r, -r, r, r, stands, stands + tall * 0.3);
+    } else {
+      // A pole, as two crossed quads, with the vane's arms or the flag's cloth near its top.
+      panel(-0.02, 0, 0.02, 0, stands, stands + tall);
+      panel(0, -0.02, 0, 0.02, stands, stands + tall);
+      if (top.kind === "vane") {
+        panel(-0.18, 0, 0.18, 0, stands + tall * 0.78, stands + tall * 0.92);
+        panel(0, -0.18, 0, 0.18, stands + tall * 0.78, stands + tall * 0.92);
+      } else {
+        panel(0.02, 0, 0.26, 0, stands + tall * 0.58, stands + tall * 0.95);
+      }
+    }
+  }
   const geo = new BufferGeometry();
   geo.setAttribute("position", new BufferAttribute(new Float32Array(points), 3));
   geo.setAttribute("color", new BufferAttribute(new Float32Array(shades), 3));

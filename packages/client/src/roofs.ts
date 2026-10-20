@@ -4,8 +4,10 @@ import {
   isMaterialKind,
   ROOF_MATERIALS,
   ROOF_STYLES,
+  ROOF_TOPS,
   type RoofShape,
   type RoofStyle,
+  type RoofTop,
   roofNeeds,
   tileKey,
 } from "@terrakin/sim";
@@ -75,6 +77,16 @@ export const ROOF_STYLE_ABOUT: Record<RoofStyle, string> = {
   hip: "Four slopes falling to every eave.",
   pitched: "One slope, high at the back and low at the front.",
 };
+
+/** What stands on a ridge, in people's words, with "Nothing" for a bare one. */
+export const ROOF_TOP_WORDS: Record<RoofTop, string> = {
+  vane: "Weather vane",
+  flag: "Flag",
+  nest: "Bird's nest",
+};
+
+/** The ridge's choices the picker offers, a bare ridge first, since that's where every roof starts. */
+export const ROOF_TOP_PICKS: readonly (RoofTop | "none")[] = ["none", ...ROOF_TOPS];
 
 /** The styles the picker offers, with `flat` last, since it takes a roof down. */
 export const ROOF_PICKS: readonly RoofStyle[] = [

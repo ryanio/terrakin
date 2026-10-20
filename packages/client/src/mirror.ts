@@ -242,7 +242,11 @@ export class Mirror {
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
       if (p.name !== undefined) this.plotNames.set(plotKey(p.px, p.py), p.name);
       if (p.floors) this.floors.set(plotKey(p.px, p.py), p.floors);
-      if (p.roof) this.roofs.set(plotKey(p.px, p.py), { ...p.roof });
+      if (p.roof) {
+        // The wire may carry an absent ridge as `undefined`; the sim's own roof never holds one.
+        const { top, ...roof } = p.roof;
+        this.roofs.set(plotKey(p.px, p.py), { ...roof, ...(top ? { top } : {}) });
+      }
     }
     for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
     for (const g of snapshot.ground ?? []) {
@@ -505,7 +509,13 @@ export class Mirror {
         const key = plotKey(event.px, event.py);
         // Flat is no roof at all, so it takes the plot's off (RFC 0041).
         if (event.style === "flat" || !event.material) this.roofs.delete(key);
-        else this.roofs.set(key, { style: event.style, material: event.material });
+        else {
+          this.roofs.set(key, {
+            style: event.style,
+            material: event.material,
+            ...(event.top ? { top: event.top } : {}),
+          });
+        }
         break;
       }
       case "plot_named": {

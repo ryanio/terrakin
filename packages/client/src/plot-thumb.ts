@@ -20,6 +20,7 @@ import {
   holdsRoof,
   isDecorKind,
   PAPER,
+  type RoofTop,
   roofShape,
   roofTone,
   SEA_LOOK,
@@ -31,7 +32,7 @@ import { BRAND_HEX } from "@terrakin/ui/brand";
 import { h } from "@terrakin/ui/dom";
 import { paintGround } from "@terrakin/ui/ground-art";
 import { bridgeOf, seaOf } from "./lands";
-import { roofShade } from "./render/roofs";
+import { paintRoofTop, roofShade } from "./render/roofs";
 
 /** One tile's worth of a plot drawing, in tiles from the plot's north-west corner. */
 export type PlotMark =
@@ -43,6 +44,8 @@ export type PlotMark =
   | { x: number; y: number; kind: "hearth" }
   /** A tile of the home's roof (RFC 0041), lit by how high its corners stand (`high`, 0 to 1). */
   | { x: number; y: number; kind: "roof"; fill: string; high: number }
+  /** What stands on that roof's ridge (RFC 0041), over the roof and under the people. */
+  | { x: number; y: number; kind: "roofTop"; top: RoofTop }
   /** An online resident standing there (RFC 0020). It says someone is here, never who. */
   | { x: number; y: number; kind: "here" };
 
@@ -162,6 +165,9 @@ export function plotMarks(
         high: (t.h[0] + t.h[1] + t.h[2] + t.h[3]) / 4,
       });
     }
+    if (roof.top) {
+      marks.push({ x: roof.top.x - x0, y: roof.top.y - y0, kind: "roofTop", top: roof.top.kind });
+    }
   }
   // Whoever is standing there now, over everything: a plot with someone on it is the one to visit,
   // and from above they'd be lost under a roof or an upstairs. Online residents only, since the
@@ -243,6 +249,9 @@ export function paint(
       ctx.fillRect(left + t * 0.42, top + t * 0.62, t * 0.16, t * 0.25);
       return;
     }
+    case "roofTop":
+      paintRoofTop(ctx, mark.top, left + t / 2, top + t / 2, t);
+      return;
     case "here": {
       // A head and shoulders from above, in a rim of paper so it reads over a roof, a dark path,
       // or another figure. No color and no name: the card says someone is here, never who.

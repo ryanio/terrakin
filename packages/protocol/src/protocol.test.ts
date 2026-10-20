@@ -315,9 +315,21 @@ describe("Action", () => {
       Action.safeParse({ type: "set_roof", px: 0, py: 0, style: "hip", material: "brickwork" })
         .success,
     ).toBe(true);
+    // What stands on the ridge is one of the sim's own, and absent leaves it bare.
+    expect(
+      Action.parse({
+        type: "set_roof",
+        px: 2,
+        py: 1,
+        style: "gable",
+        material: "wood",
+        top: "vane",
+      }),
+    ).toMatchObject({ top: "vane" });
     for (const bad of [
       { style: "mansard", material: "wood" },
       { style: "gable", material: "bookshelf" },
+      { style: "gable", material: "wood", top: "chimney" },
     ]) {
       expect(Action.safeParse({ type: "set_roof", px: 0, py: 0, ...bad }).success, bad.style).toBe(
         false,

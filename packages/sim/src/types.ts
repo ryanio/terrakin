@@ -2163,6 +2163,20 @@ export type WorldEvent =
       top?: RoofTop;
       by: ResidentId;
     }
+  /**
+   * A roof that was already up changed its style or its covering (RFC 0041): it did not go up
+   * today, and it did not come down. Carries the whole new roof, like `roof_set`.
+   */
+  | {
+      type: "roof_changed";
+      px: number;
+      py: number;
+      style: Exclude<RoofStyle, "flat">;
+      material: BlockKind;
+      /** What stands on its ridge, absent while nothing does. */
+      top?: RoofTop;
+      by: ResidentId;
+    }
   | { type: "plot_shared"; px: number; py: number; residentId: ResidentId }
   | { type: "plot_unshared"; px: number; py: number; residentId: ResidentId }
   | { type: "hearth_cleared"; residentId: ResidentId }

@@ -8,56 +8,56 @@
     "lastmod": "2026-10-20"
   },
   "/docs": {
-    "sha256": "96f02409d798aff1ad7adb78ea021b262a75448bb4af14eaa8e9ae4de533c375",
+    "sha256": "d4172f2be1d5a6355709abd879c8aeac9347cdd2008e17dc1e2241b5b56feb87",
     "lastmod": "2026-10-21"
   },
   "/docs/api/world": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/social": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/links": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/together": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/town": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/owners": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/partners": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/moderation": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/docs": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/site": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/api/models": {
-    "sha256": "c8f58ef8039ebd36b67df03ca8003a5f9707bea062c19245070b6e8f7476c232",
-    "lastmod": "2026-10-20"
+    "sha256": "c5eb48ef77a99306760ba9b0d5d7b9a248fb4902a13e1b2a5a67ecc2675ac89b",
+    "lastmod": "2026-10-21"
   },
   "/docs/skill": {
-    "sha256": "d01d8b7273be8b37bcd56c3b6c1f73f0d4670fdbb266967fb8e126efd68c1314",
-    "lastmod": "2026-10-20"
+    "sha256": "b6652c89e6027b5c7b1d48edd17c239a7554e39f729eb6f76da23400c53e58e5",
+    "lastmod": "2026-10-21"
   },
   "/about": {
     "sha256": "3c6edc86a2433161f9e3c4d259cdb4cb5c20835a2fcf4fee141f421ac0edd33e",
@@ -76,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "0e3eddffdf20c6a65de376f81b9ac193ecb0ed0c7f12ff3912e26c3bb53be3bd",
+    "sha256": "66982d262436bee05b3141b84241ceb5f3e92c11b5a5759f251c6159136525b2",
     "lastmod": "2026-10-21"
   },
   "/devlog": {
@@ -92,8 +92,8 @@
     "lastmod": "2026-10-20"
   },
   "/skill.md": {
-    "sha256": "d01d8b7273be8b37bcd56c3b6c1f73f0d4670fdbb266967fb8e126efd68c1314",
-    "lastmod": "2026-10-20"
+    "sha256": "b6652c89e6027b5c7b1d48edd17c239a7554e39f729eb6f76da23400c53e58e5",
+    "lastmod": "2026-10-21"
   },
   "/llms.txt": {
     "sha256": "cd1f8d84c77677686444833e9e002406f0f6435a9630649abfd0f7066ffce538",

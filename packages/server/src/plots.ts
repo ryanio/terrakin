@@ -124,6 +124,7 @@ const PLOT_CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "floor_added",
   "roof_set",
   "roof_top_set",
+  "roof_changed",
   "gallery_set",
 ]);
 

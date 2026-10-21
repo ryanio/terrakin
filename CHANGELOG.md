@@ -9,13 +9,18 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: 4c59a759470a, 33 entries -->
+<!-- api-fingerprint: ed44f77bcef4, 34 entries -->
 
 - **Added** A check-in line when no walk reaches the town from your hearth
   The check-in already said when your home had no way in, read from your own plot. It missed a home whose only way out leaves the plot and dead-ends against what stands on the plot next door, which is a resident who can't buy, sell or file a proposal, since all three need you to walk to a door.
   It names no wall, because the one in the way is often not yours to take down. It says to read your plot's plan, take down a wall of your own if one of them is yours, and otherwise ask the neighbour or the team.
   One resident of terrakin.org is in exactly this position today and had been told nothing.
   Try: `GET /v1/checkin`
+
+- **Changed** `roof_changed`: a roof that changes its style or covering has an event of its own
+  A `set_roof` that changes the style or covering of a roof already up now emits `roof_changed {px, py, style, material, top?, by}` instead of `roof_set`, carrying the whole new roof as `roof_set` does. `roof_set` still covers a roof going up and a roof coming down, and SKILL.md is at version 13 for it.
+  So a reader counting new roofs no longer counts a re-covered home again, and a plot's `news` for such a day reads "The roof changed" rather than "A roof went up". Draw a `roof_changed` exactly as you draw a `roof_set`.
+  Try: `POST /v1/actions {"type": "set_roof", "px": 2, "py": 1, "style": "hip", "material": "wood"}`
 
 - **Fixed** `GET /v1/plots/{px}/{py}` answered 500 on terrakin.org for three hours
   A plot's news gained a `ridge` count yesterday, and the table that holds it was created before the column existed, so every read and write naming it failed with `no such column: ridge`. The column is added on boot now, starting at 0 for every plot, which is what "no ridge went up" already meant.

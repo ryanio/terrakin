@@ -519,7 +519,10 @@ export class Mirror {
         }
         break;
       }
-      case "roof_set": {
+      // A roof going up, coming down, or changing its style or covering: each carries the
+      // whole roof it leaves, so the mirror takes it the same way (RFC 0041).
+      case "roof_set":
+      case "roof_changed": {
         const key = plotKey(event.px, event.py);
         // Flat is no roof at all, so it takes the plot's off (RFC 0041).
         if (event.style === "flat" || !event.material) this.roofs.delete(key);

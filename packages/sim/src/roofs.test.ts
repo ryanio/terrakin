@@ -150,6 +150,47 @@ describe("what a roof is", () => {
     expect(state.plots["0,0"]?.roof).toBeUndefined();
   });
 
+  it("says a roof changed when one already up changes its style or covering", () => {
+    const state = town();
+    // A roof going up is a roof going up.
+    expect(
+      ok(state, "ada", roof("gable", "wood")).find((e) => e.type === "roof_set"),
+    ).toMatchObject({ style: "gable", material: "wood" });
+    // Another style in the same covering is not a second roof going up (decision 0342): the
+    // event names the deed, so a reader counting new roofs counts this home once.
+    expect(ok(state, "ada", roof("hip", "wood"))).toEqual([
+      { type: "roof_changed", px: 0, py: 0, style: "hip", material: "wood", by: "ada" },
+    ]);
+    expect(state.plots["0,0"]?.roof).toEqual({ style: "hip", material: "wood" });
+    // Another covering in the same style is the same deed, and it carries the ridge with it.
+    expect(
+      ok(state, "ada", {
+        type: "set_roof",
+        px: 0,
+        py: 0,
+        style: "hip",
+        material: "leaf",
+        top: "vane",
+      } as Command),
+    ).toEqual([
+      {
+        type: "roof_changed",
+        px: 0,
+        py: 0,
+        style: "hip",
+        material: "leaf",
+        top: "vane",
+        by: "ada",
+      },
+    ]);
+    expect(state.plots["0,0"]?.roof).toEqual({ style: "hip", material: "leaf", top: "vane" });
+    // Taking it down is still `roof_set` with `flat`, as every reader of that event expects.
+    expect(ok(state, "ada", roof("flat"))).toEqual([
+      { type: "roof_set", px: 0, py: 0, style: "flat", by: "ada" },
+    ]);
+    expect(state.plots["0,0"]?.roof).toBeUndefined();
+  });
+
   it("pins its numbers and its choices", () => {
     expect(ROOFS.blocks).toBe(8);
     expect(ROOFS.minSpan).toBe(3);

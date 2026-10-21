@@ -2043,6 +2043,19 @@ export const WorldEvent = z.discriminatedUnion("type", [
     top: RoofTop.optional(),
     by: z.string(),
   }),
+  /**
+   * A roof that was already up changed its style or covering (RFC 0041): never a roof going
+   * up, and never one coming down, so it always carries the whole new roof.
+   */
+  z.object({
+    type: z.literal("roof_changed"),
+    px: z.number().int(),
+    py: z.number().int(),
+    style: RoofStyle.exclude(["flat"]),
+    material: RoofMaterial,
+    top: RoofTop.optional(),
+    by: z.string(),
+  }),
   z.object({
     type: z.literal("plot_shared"),
     px: z.number().int(),

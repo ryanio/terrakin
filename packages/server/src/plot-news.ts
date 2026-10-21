@@ -22,6 +22,8 @@ export interface PlotNews {
   gallery: number;
   /** A roof went up (RFC 0041). A roof taken down is no news. */
   roof: number;
+  /** A roof already up changed its style or covering (RFC 0041). */
+  restyle: number;
   /** Floors added above the ground floor (RFC 0028). */
   floors: number;
   /** The plot was claimed. */
@@ -44,6 +46,7 @@ export interface PlotNews {
 export const NEWS_FIELDS = [
   "gallery",
   "roof",
+  "restyle",
   "floors",
   "claimed",
   "blocks",
@@ -58,6 +61,7 @@ export const NEWS_FIELDS = [
 export const noNews = (): PlotNews => ({
   gallery: 0,
   roof: 0,
+  restyle: 0,
   floors: 0,
   claimed: 0,
   blocks: 0,
@@ -91,6 +95,10 @@ export function newsOfEvent(event: WorldEvent): Partial<PlotNews> | undefined {
       return event.open ? { gallery: 1 } : undefined;
     case "roof_set":
       return event.style === "flat" ? undefined : { roof: 1 };
+    // A restyle is its own event (decision 0341), so a roof that changed its covering weeks
+    // after it went up is never counted as the roof going up.
+    case "roof_changed":
+      return { restyle: 1 };
     // A ridge alone is its own event (decision 0337), so a vane on a roof that went up weeks ago
     // is never counted as the roof going up. A ridge left bare carries no `top` and is no news.
     case "roof_top_set":
@@ -133,6 +141,7 @@ function some(count: number, one: string, many: string): string {
 function whatHappened(news: PlotNews, top: RoofTop | undefined): string | undefined {
   if (news.gallery > 0) return "opened as a gallery";
   if (news.roof > 0) return "a roof went up";
+  if (news.restyle > 0) return "the roof changed";
   // "Upstairs" is what a floor is called in what people read (decision 0252).
   if (news.floors > 0) {
     return news.floors === 1 ? "an upstairs went up" : `${news.floors} floors went up`;

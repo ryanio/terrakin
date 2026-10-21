@@ -73,6 +73,15 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     await signIn(page, ash);
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
+    // The near column takes its shape only once its buttons land: Gather all waits for the
+    // world to say what lies within reach, and the next-step chip waits for the first-visit
+    // answer. Either one arriving after the check below would put a button over a tile that
+    // was the map a moment before, and a tap on Gather all picks up everything within reach,
+    // not the one tile this step is about (the 2026-10-21 nightly, run 39577378246). Aspen
+    // still has first steps left, so the chip will show; the gather-all step below waits the
+    // same way for its own button.
+    await expect(page.locator("#world-gather")).toBeVisible();
+    await expect(page.locator("#world-next")).toBeVisible();
     // One whose tap reaches the map: a tile under a chip in the HUD's corners would do what the
     // chip does instead, and `#world-next` would plant her first seed.
     let target: Pickup | undefined;

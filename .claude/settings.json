@@ -18,7 +18,7 @@
       "Bash(git log:*)",
       "Bash(git show:*)"
     ],
-    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(./data/**)"]
+    "deny": ["Read(./.env)", "Read(./.env.local)", "Read(./.env.*.local)", "Read(./data/**)"]
   },
   "hooks": {
     "SessionStart": [

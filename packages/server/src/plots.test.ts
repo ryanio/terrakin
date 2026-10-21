@@ -588,6 +588,17 @@ describe("plots to visit over HTTP", () => {
     // to saying how lately the plot changed.
     await t.act(ivy.token, { type: "set_roof", px: 0, py: 0, style: "gable", material: "leaf" });
     expect(await news()).toBeUndefined();
+
+    // A restyle on a later day is its own news (decision 0341): the roof changed, not a roof
+    // going up again, and it counts as a change to the plot like the roof under it.
+    t.advance(DAY_MS);
+    const beforeRestyle = ((await t.call("GET", "/v1/plots/0/0")).body.plot as Json).changedAt;
+    t.advance(60_000);
+    await t.act(ivy.token, { type: "set_roof", px: 0, py: 0, style: "hip", material: "leaf" });
+    expect(await news()).toBe("The roof changed today");
+    expect(((await t.call("GET", "/v1/plots/0/0")).body.plot as Json).changedAt).not.toBe(
+      beforeRestyle,
+    );
   });
 
   it("refuses a visit across a block either way, with the owner or a co-owner, dry runs too", async () => {

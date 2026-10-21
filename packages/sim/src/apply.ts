@@ -34,6 +34,7 @@ import {
   circlesNewDay,
   hallsLeavingPlot,
 } from "./circles";
+import { checkClearBlock } from "./clear-block";
 import {
   checkAdmire,
   checkDisplay,
@@ -858,6 +859,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkRemoveDisplay(state, command));
       case "clear_plot_name":
         return town(checkClearPlotName(state, command));
+      case "clear_block":
+        return town(checkClearBlock(state, command));
       case "set_entitlements":
         return town(checkSetEntitlements(state, command));
       case "open_bounties":

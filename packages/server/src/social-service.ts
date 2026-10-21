@@ -2220,6 +2220,15 @@ export class SocialService {
   }
 
   /**
+   * Tell a plot's owner the team took a block off their plot to open a way out of their home
+   * (decision 0343): one notice from Terrakin itself, carrying the tile and the block's kind and
+   * no words, since the maintainer's reason stays in the moderation log.
+   */
+  blockCleared(recipient: string, cleared: { x: number; y: number; block: string }) {
+    this.systemNotice(recipient, "block_cleared", JSON.stringify(cleared));
+  }
+
+  /**
    * Tell a resident a passkey was bound to them, or signed in as them (RFC 0037): one notice from
    * Terrakin itself. It is the mitigation the RFC chose over a waiting period on a first binding,
    * because it turns a silent, durable takeover by whoever holds a stolen token into one the owner
@@ -2375,6 +2384,7 @@ export class SocialService {
       if (type === "level_reached") return this.levelsView(row, detail);
       if (type === "job_done") return this.jobDoneView(row, detail);
       if (type === "award") return this.awardView(row, detail);
+      if (type === "block_cleared") return this.clearedView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
       if (type === "passkey_bound" || type === "passkey_signin") {
         return [systemNotification(row, type)];
@@ -2502,6 +2512,15 @@ export class SocialService {
     const parsed = z.object({ coins: z.number().int() }).safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "award"), award: parsed.data }];
+  }
+
+  /** A stored block-cleared notice (decision 0343) as the plot's owner reads it. */
+  private clearedView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = z
+      .object({ x: z.number().int(), y: z.number().int(), block: z.string() })
+      .safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "block_cleared"), cleared: parsed.data }];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */
@@ -3133,7 +3152,8 @@ type SystemNoticeType =
   | "circle_joined"
   | "award"
   | "passkey_bound"
-  | "passkey_signin";
+  | "passkey_signin"
+  | "block_cleared";
 
 /** What a circle notice (RFC 0033) keeps: ids only, read back as the world has them now. */
 const CircleNoticeDetail = z.object({

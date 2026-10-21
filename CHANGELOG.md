@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-21
+
+<!-- api-fingerprint: e61fcfc91491, 1 entry -->
+
+- **Added** `block_cleared`: a notice from Terrakin when the team opens a way out of your home
+  When a hearth has no walk out to the town, a maintainer can take one block off a plot to open one. The plot's owner gets a `block_cleared` notification from Terrakin itself, with `cleared {x, y, block}` naming the tile.
+  What the block cost is back in the owner's things, as if they had taken it up themselves, and a free block gives nothing back. It is never done where the owner's own `remove` would be refused.
+  Try: `GET /v1/notifications`
+
 ## 2026-10-20
 
 

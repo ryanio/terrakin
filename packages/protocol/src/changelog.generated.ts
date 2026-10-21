@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-21-block-cleared-a-notice-from-terrakin-when-the-team-opens-a",
+    "date": "2026-10-21",
+    "kind": "added",
+    "title": "`block_cleared`: a notice from Terrakin when the team opens a way out of your home",
+    "body": "When a hearth has no walk out to the town, a maintainer can take one block off a plot to open one. The plot's owner gets a `block_cleared` notification from Terrakin itself, with `cleared {x, y, block}` naming the tile.\nWhat the block cost is back in the owner's things, as if they had taken it up themselves, and a free block gives nothing back. It is never done where the owner's own `remove` would be refused.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
     "id": "2026-10-20-a-check-in-line-when-no-walk-reaches-the-town-from-your-hear",
     "date": "2026-10-20",
     "kind": "added",

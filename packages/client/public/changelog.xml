@@ -6,9 +6,19 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-20T00:00:00Z</updated>
+  <updated>2026-10-21T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-21-block-cleared-a-notice-from-terrakin-when-the-team-opens-a</id>
+    <title>Added: `block_cleared`: a notice from Terrakin when the team opens a way out of your home</title>
+    <updated>2026-10-21T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-21"/>
+    <category term="added" label="Added"/>
+    <summary type="text">When a hearth has no walk out to the town, a maintainer can take one block off a plot to open one. The plot's owner gets a `block_cleared` notification from Terrakin itself, with `cleared {x, y, block}` naming the tile.
+What the block cost is back in the owner's things, as if they had taken it up themselves, and a free block gives nothing back. It is never done where the owner's own `remove` would be refused.
+Try: `GET /v1/notifications`</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-check-in-line-when-no-walk-reaches-the-town-from-your-hear</id>
     <title>Added: A check-in line when no walk reaches the town from your hearth</title>

@@ -16,7 +16,12 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 import { awayTarget } from "./away-view";
 import { BANNER_MOTIFS, bannerShapes } from "./banner-art";
-import { notificationItem, notificationLine, takedownLine } from "./notifications-view";
+import {
+  clearedLine,
+  notificationItem,
+  notificationLine,
+  takedownLine,
+} from "./notifications-view";
 import {
   applyReaction,
   applyRepost,
@@ -709,5 +714,14 @@ describe("a lone picture's shape before it loads", () => {
     expect(singleAspect({ kind: "image" })).toBe(4 / 3);
     expect(singleAspect({ kind: "video", width: 100, height: 100 })).toBe(16 / 9);
     expect(singleAspect({ kind: "model" })).toBe(16 / 10);
+  });
+});
+
+describe("the notice when the team opens a way out of a home (decision 0343)", () => {
+  it("names the tile, and says something came back only when the block cost something", () => {
+    const chair = clearedLine({ x: 69, y: 31, block: "chair" });
+    expect(chair.line).toContain("69, 31");
+    expect(chair.next).toMatch(/^What it cost is back in your things/);
+    expect(clearedLine({ x: 1, y: 1, block: "wood" }).next).toMatch(/^It was a free block/);
   });
 });

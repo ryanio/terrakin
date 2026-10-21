@@ -1833,6 +1833,11 @@ export type Command =
    * moderation log, not here.
    */
   | { type: "clear_plot_name"; px: number; py: number }
+  /**
+   * Staff took one block off the ground floor of a claimed plot, to open a way out of a home
+   * nobody can walk out of (decision 0343). What it took comes back to the plot's owner.
+   */
+  | { type: "clear_block"; x: number; y: number }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
   /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
@@ -2051,6 +2056,7 @@ export const SERVER_COMMANDS = [
   "remove_listing",
   "remove_display",
   "clear_plot_name",
+  "clear_block",
   "set_entitlements",
   "open_bounties",
   "confirm_town_bounty",

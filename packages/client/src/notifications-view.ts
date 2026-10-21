@@ -12,6 +12,7 @@ import {
   type NotificationView,
   type TakedownView,
 } from "@terrakin/protocol";
+import { blockNeeds } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -60,6 +61,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   award: "coin",
   passkey_bound: "key",
   passkey_signin: "key",
+  block_cleared: "town",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -110,6 +112,7 @@ export function notificationLine(
     // are here for the type alone, as the words a client would fall back to (RFC 0037).
     passkey_bound: "says a passkey was added",
     passkey_signin: "says someone signed in with a passkey",
+    block_cleared: "opened a way out of your home",
   };
   return { who, what: what[n.type] };
 }
@@ -266,6 +269,10 @@ function systemWords(n: NotificationView): SystemWords | null {
     const quotes = [n.circle.name, ...(n.type === "circle_invite" && n.note ? [n.note] : [])];
     if (said) return { icon: ICONS[n.type], ...said, links: [page], quotes };
   }
+  if (n.cleared) {
+    // The team opened a way out of a home nobody could walk out of (decision 0343).
+    return { icon: ICONS.block_cleared, ...clearedLine(n.cleared), links: [] };
+  }
   if (n.type === "passkey_bound" || n.type === "passkey_signin") {
     // Signing in (RFC 0037). The notice carries nothing but the fact and the time, so the words
     // are fixed and the link goes where both can be undone: Signing in on your own profile.
@@ -290,6 +297,24 @@ function systemWords(n: NotificationView): SystemWords | null {
     };
   }
   return null;
+}
+
+/**
+ * A block-cleared notice in plain words (decision 0343): where the block was, and whether
+ * anything came back, by the sim's own `blockNeeds`. Built from the notice's fields only. Pure, so
+ * tests pin it.
+ */
+export function clearedLine(c: { x: number; y: number; block: string }): {
+  line: string;
+  next: string;
+} {
+  const back = blockNeeds(c.block).length > 0;
+  return {
+    line: `Your hearth had no way out to the town, so the team took the block at ${c.x}, ${c.y} off your plot.`,
+    next: back
+      ? "What it cost is back in your things. Build it somewhere else if you like, as long as a way out stays open."
+      : "It was a free block, so nothing came back. Build it somewhere else if you like, as long as a way out stays open.",
+  };
 }
 
 /**

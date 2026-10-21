@@ -102,4 +102,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   clear_circle_notice: "Took down a circle's notice",
   disband_circle: "Disbanded a circle",
   award_grant: "Awarded coins for good work",
+  clear_block: "Opened a way out of a home",
 };

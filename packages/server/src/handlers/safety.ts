@@ -16,9 +16,12 @@ import {
   inventorySize,
   listingById,
   own,
+  plotAtTile,
   plotNamesOf,
   plotsOwnedBy,
   REPLAY_VERSION,
+  residentById,
+  tileKey,
   utcDay,
 } from "@terrakin/sim";
 import { DEPLOY_ACTOR } from "../access";
@@ -29,6 +32,7 @@ import { eventView } from "../events";
 import { madeThingForReport } from "../galleries";
 import { DEFAULT_ORIGIN } from "../links";
 import { handleHolders, newcomerFunnel, socialActors, thingHolders } from "../newcomers";
+import { shutHomes, walksOutWithout } from "../shut-homes";
 import { reportable, type SnapshotHeader } from "../snapshots";
 import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
@@ -434,6 +438,49 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         status: 201,
         body: { agent, ...made.value.code, unlinked: made.value.unlinked },
       };
+    },
+    // Homes nobody can walk out of (decision 0343), read with the sim's own walk.
+    getShutHomes: () => {
+      const ref = (id: string) => social().ref(id);
+      const homes = shutHomes(service.state).flatMap((home) => {
+        const resident = ref(home.residentId);
+        if (!resident) return [];
+        const frees = home.frees.flatMap(({ ownerId, ...tile }) => {
+          const owner = ref(ownerId);
+          return owner ? [{ ...tile, owner }] : [];
+        });
+        return [{ resident, hearth: home.hearth, reached: home.reached, frees }];
+      });
+      return { status: 200, body: { homes } };
+    },
+    // A maintainer opens a way out of a home by taking one block off a plot (decision 0343). What
+    // it cost goes back to the plot's owner, who hears it from Terrakin.
+    clearBlock: ({ viewer, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const { state } = service;
+      const { x, y } = body;
+      const plot = plotAtTile(state, x, y);
+      const block = state.blocks[tileKey(x, y)];
+      const owner = plot ? social().ref(plot.ownerId) : undefined;
+      const dry = body.dry === true;
+      const done = service.clearBlock(x, y, dry);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      if (!plot || !owner || block === undefined)
+        return fail("no_plot", "That tile isn't on a claimed plot.");
+      const hearth = residentById(state, plot.ownerId)?.hearth;
+      // On a dry run the block is still there, so ask the walk as if it weren't.
+      const walksOut = hearth ? walksOutWithout(state, hearth, dry ? { x, y } : undefined) : null;
+      if (!dry) {
+        social().safety.recordNote(
+          viewer,
+          "clear_block",
+          "resident",
+          plot.ownerId,
+          `At ${x},${y}: ${body.reason}`,
+        );
+        social().blockCleared(plot.ownerId, { x, y, block });
+      }
+      return { status: 200, body: { owner, x, y, block, walksOut, cleared: !dry } };
     },
     // A duplicate record merged into the one that stays (issue #46, decision 0239). What moves is
     // read before the merge, which takes the duplicate out of the world.

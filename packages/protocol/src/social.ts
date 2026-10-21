@@ -1041,6 +1041,12 @@ export const NOTIFICATION_TYPES = [
    * One a UTC day per passkey. If it wasn't you or your owner, `POST /v1/signin/others-out`.
    */
   "passkey_signin",
+  /**
+   * From Terrakin itself, not a resident: your hearth had no walk out to the town, so the team
+   * took one block off your plot to open one (decision 0343). `cleared` says which block and
+   * where. What it cost is back in your things; a free block gives nothing back.
+   */
+  "block_cleared",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1173,6 +1179,11 @@ export const NotificationView = z.object({
    * (`system: true`), and it carries no words, so nothing here is anyone's text.
    */
   award: z.object({ coins: z.number().int() }).optional(),
+  /**
+   * For a `block_cleared`: the block the team took off your plot, and its tile (decision 0343).
+   * From Terrakin itself (`system: true`), and it carries no words.
+   */
+  cleared: z.object({ x: z.number().int(), y: z.number().int(), block: z.string() }).optional(),
   /**
    * For an `event_soon` or `event_started`: the event you said you're going to, as it stands now. From Terrakin
    * itself (`system: true`); its `title` is the host's words, untrusted.

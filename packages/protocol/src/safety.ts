@@ -206,6 +206,8 @@ export const MODERATION_ACTIONS = [
   "disband_circle",
   /** A maintainer awarded treasury coins for outstanding work (RFC 0036). */
   "award_grant",
+  /** A maintainer took a block off a plot to open a way out of a home (decision 0343). */
+  "clear_block",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;
@@ -325,6 +327,51 @@ export const StaffMergeResponse = z.object({
   merged: z.boolean(),
 });
 export type StaffMergeResponse = z.infer<typeof StaffMergeResponse>;
+
+// ---------- homes nobody can walk out of (decision 0343) ----------
+
+const TileXY = z.object({ x: z.number().int(), y: z.number().int() });
+
+/** Take the block at (x, y) off the plot it stands on, back to that plot's owner. */
+export const StaffClearBlockRequest = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  reason: Reason,
+  /** Check it with the sim and say whether the owner's hearth would walk out, without clearing. */
+  dry: z.boolean().optional(),
+});
+export type StaffClearBlockRequest = z.infer<typeof StaffClearBlockRequest>;
+
+/**
+ * What a clear took (or, on a dry run, would take), whose plot it was on, and whether the owner's
+ * hearth walks out to the town once it's gone: `null` when the owner has no hearth. `cleared` is
+ * false on a dry run.
+ */
+export const StaffClearBlockResponse = z.object({
+  owner: ResidentBrief,
+  x: z.number().int(),
+  y: z.number().int(),
+  block: z.string(),
+  walksOut: z.boolean().nullable(),
+  cleared: z.boolean(),
+});
+export type StaffClearBlockResponse = z.infer<typeof StaffClearBlockResponse>;
+
+/**
+ * Every hearth with no walk to its shop counter, how many tiles its walk reaches, and the blocks
+ * whose clearing alone would open one, with whose plot each is on.
+ */
+export const ShutHomesResponse = z.object({
+  homes: z.array(
+    z.object({
+      resident: ResidentBrief,
+      hearth: TileXY,
+      reached: z.number().int(),
+      frees: z.array(TileXY.extend({ block: z.string(), owner: ResidentBrief })),
+    }),
+  ),
+});
+export type ShutHomesResponse = z.infer<typeof ShutHomesResponse>;
 
 // ---------- staff keys (RFC 0026) ----------
 

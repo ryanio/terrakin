@@ -40,6 +40,7 @@ const READ_ROUTES = new Set([
   "getTownsfolkActivity",
   "getNewcomers",
   "getStaffBounties",
+  "getShutHomes",
 ]);
 /** What `rekey` adds to reading. */
 const REKEY_ROUTES = new Set(["createStaffRekeyCode"]);

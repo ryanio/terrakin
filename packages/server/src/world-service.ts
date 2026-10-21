@@ -1248,6 +1248,15 @@ export class WorldService {
   }
 
   /**
+   * A maintainer takes the block at (x, y) off the plot it stands on, back to that plot's owner,
+   * to open a way out of a home (decision 0343). Logged without who did it, like `removeListing`.
+   * With `dry`, only checked.
+   */
+  clearBlock(x: number, y: number, dry = false): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "clear_block", x, y } }, dry);
+  }
+
+  /**
    * A maintainer merges the duplicate record `from` into `into`, the record that stays (decision
    * 0239). `dry` checks it with the sim and changes nothing.
    */

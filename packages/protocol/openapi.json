@@ -43292,7 +43292,8 @@
           "present_opened",
           "award",
           "passkey_bound",
-          "passkey_signin"
+          "passkey_signin",
+          "block_cleared"
         ]
       },
       "NotificationView": {
@@ -43405,6 +43406,29 @@
             },
             "required": [
               "coins"
+            ]
+          },
+          "cleared": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "block": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "block"
             ]
           },
           "event": {
@@ -45584,6 +45608,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "clear_block": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -45611,7 +45640,8 @@
               "clear_circle_name",
               "clear_circle_notice",
               "disband_circle",
-              "award_grant"
+              "award_grant",
+              "clear_block"
             ]
           },
           "suspendedNow": {

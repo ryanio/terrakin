@@ -17,6 +17,7 @@ import * as jobs from "./jobs";
 import * as levels from "./levels";
 import * as market from "./market";
 import * as partners from "./partners";
+import * as plotMarket from "./plot-market";
 import * as plots from "./plots";
 import * as reports from "./reports";
 import {
@@ -146,6 +147,7 @@ function namedSchemas() {
     ...plots,
     ...shop,
     ...market,
+    ...plotMarket,
     ...bounties,
     ...events,
     ...snapshots,
@@ -206,7 +208,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, or designs.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, plot-market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, or designs.ts`,
       );
     return ref(name);
   };

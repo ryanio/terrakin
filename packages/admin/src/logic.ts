@@ -225,6 +225,7 @@ export type ActionKind =
   | "remove_pictures"
   | "clear_plot_names"
   | "remove_listing"
+  | "remove_plot_listing"
   | "remove_display"
   | "remove_piece"
   | "void_bounty"
@@ -293,6 +294,16 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
       target: item.id,
       primary: true,
       confirm: "Tap again to take it down",
+    });
+  }
+  // A plot for sale (RFC 0039) goes back to its seller as it stood; its listing fee stays spent.
+  if (item.kind === "plot_listing" && target.exists) {
+    out.push({
+      kind: "remove_plot_listing",
+      label: "Take plot off the market",
+      target: item.id,
+      primary: true,
+      confirm: "Tap again to take it off",
     });
   }
   // A thing on display goes back to whoever put it up, label and picture and all. A reported
@@ -396,6 +407,7 @@ export const TAKEDOWN_ACTIONS: ReadonlySet<ActionKind> = new Set([
   "remove_pictures",
   "clear_plot_names",
   "remove_listing",
+  "remove_plot_listing",
   "remove_display",
   "remove_piece",
 ]);
@@ -497,6 +509,7 @@ const KIND_WORDS: Record<ReportKind, string> = {
   piece: "Piece of art",
   event: "Event",
   circle: "Circle",
+  plot_listing: "Plot for sale",
 };
 
 /** The eyebrow over an item: "Post · 3 reports". */

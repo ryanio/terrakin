@@ -111,6 +111,12 @@ export const api = {
       reason,
       rule,
     }),
+  /** A plot for sale, by its report id `px,py` (RFC 0039). */
+  removePlotListing: (id: string, reason: string, rule: ReportReason) => {
+    const [px = "", py = ""] = id.split(",");
+    const at = `/v1/admin/plot-listings/${encodeURIComponent(px)}/${encodeURIComponent(py)}/remove`;
+    return request("POST", at, ModerationResponse, { reason, rule });
+  },
   removeDisplay: (id: string, reason: string, rule: ReportReason) =>
     request("POST", path("/v1/admin/displays/{id}/remove", id), ModerationResponse, {
       reason,

@@ -24,6 +24,8 @@ export const REPORT_KINDS = [
   "event",
   /** A circle, by its id (`c_3`): its name and its notice (RFC 0033). */
   "circle",
+  /** A plot for sale, by its plot coordinates written `px,py` (`3,4`): its price and name (RFC 0039). */
+  "plot_listing",
 ] as const;
 export const ReportKind = z.enum(REPORT_KINDS);
 export type ReportKind = z.infer<typeof ReportKind>;
@@ -51,7 +53,8 @@ export const CreateReportRequest = z.object({
   kind: ReportKind,
   /**
    * The id of what you're reporting: `p_...`, `r_...`, `l_...` (a letter to or from you, or a
-   * listing in the market), `n_...`, `t_...`, `b_...`, or `i_...` (a thing on display, or a piece).
+   * listing in the market), `n_...`, `t_...`, `b_...`, `i_...` (a thing on display, or a piece), or
+   * a plot for sale as `px,py`.
    */
   id: z.string().min(1).max(64),
   reason: ReportReason,

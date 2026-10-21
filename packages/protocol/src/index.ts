@@ -27,6 +27,7 @@ export * from "./market";
 export { buildOpenApi } from "./openapi";
 export * from "./partners";
 export * from "./plans";
+export * from "./plot-market";
 export * from "./plots";
 export * from "./reports";
 export * from "./routes";

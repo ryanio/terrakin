@@ -527,6 +527,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.progress ? { levelsOpen: true as const } : {}),
     ...(state.jobs ? { jobsOpen: true as const } : {}),
     ...(state.circles ? { circlesOpen: true as const } : {}),
+    ...(state.plotMarket ? { plotMarketOpen: true as const } : {}),
     ...hallsField(state, noteHidden),
     ...presentsWaitingField(state),
     ...(state.events?.list.some(eventOpen)

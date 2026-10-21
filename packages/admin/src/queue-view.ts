@@ -195,6 +195,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         remove_pictures: () => api.removePictures(action.target, why, broke),
         clear_plot_names: () => api.clearPlotNames(action.target, why, broke),
         remove_listing: () => api.removeListing(action.target, why, broke),
+        remove_plot_listing: () => api.removePlotListing(action.target, why, broke),
         remove_display: () => api.removeDisplay(action.target, why, broke),
         remove_piece: () => api.removePiece(action.target, why, broke),
         void_bounty: () => api.voidBounty(action.target, why),

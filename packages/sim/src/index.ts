@@ -459,6 +459,14 @@ export {
   petView,
   treatedToday,
 } from "./pets";
+export {
+  listPlotProblem,
+  PLOTS,
+  type PlotSale,
+  plotListing,
+  plotListings,
+  plotSale,
+} from "./plot-market";
 export { freeRenamesLeft, PLOT_NAMES, plotNamesOf } from "./plot-names";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export {

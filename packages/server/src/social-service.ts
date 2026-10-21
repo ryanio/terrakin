@@ -2229,6 +2229,15 @@ export class SocialService {
   }
 
   /**
+   * Tell a plot's seller it sold (RFC 0039): one notice from Terrakin itself, carrying the plot, its
+   * price, and the coins that reached them, and no words. It never names the buyer, as the item
+   * market never does, though the plot's new owner is on the map for anyone to see.
+   */
+  plotSold(recipient: string, sold: { px: number; py: number; price: number; coins: number }) {
+    this.systemNotice(recipient, "plot_sold", JSON.stringify(sold));
+  }
+
+  /**
    * Tell a resident a passkey was bound to them, or signed in as them (RFC 0037): one notice from
    * Terrakin itself. It is the mitigation the RFC chose over a waiting period on a first binding,
    * because it turns a silent, durable takeover by whoever holds a stolen token into one the owner
@@ -2385,6 +2394,7 @@ export class SocialService {
       if (type === "job_done") return this.jobDoneView(row, detail);
       if (type === "award") return this.awardView(row, detail);
       if (type === "block_cleared") return this.clearedView(row, detail);
+      if (type === "plot_sold") return this.soldView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
       if (type === "passkey_bound" || type === "passkey_signin") {
         return [systemNotification(row, type)];
@@ -2521,6 +2531,20 @@ export class SocialService {
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "block_cleared"), cleared: parsed.data }];
+  }
+
+  /** A stored plot-sold notice (RFC 0039) as the seller reads it. */
+  private soldView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = z
+      .object({
+        px: z.number().int(),
+        py: z.number().int(),
+        price: z.number().int(),
+        coins: z.number().int(),
+      })
+      .safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "plot_sold"), sold: parsed.data }];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */
@@ -3153,7 +3177,8 @@ type SystemNoticeType =
   | "award"
   | "passkey_bound"
   | "passkey_signin"
-  | "block_cleared";
+  | "block_cleared"
+  | "plot_sold";
 
 /** What a circle notice (RFC 0033) keeps: ids only, read back as the world has them now. */
 const CircleNoticeDetail = z.object({

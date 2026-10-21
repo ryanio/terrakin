@@ -11,7 +11,14 @@ import { giverIds, jobsView } from "../jobs";
 import { progressView } from "../levels";
 import { marketView } from "../market";
 import { findPartner, partnerViews } from "../partners";
-import { checkinWithLinks, plotWithLinks, postWithLinks, profileWithLinks } from "../share-links";
+import { plotMarketView } from "../plot-market";
+import {
+  checkinWithLinks,
+  plotMarketWithLinks,
+  plotWithLinks,
+  postWithLinks,
+  profileWithLinks,
+} from "../share-links";
 import { SHOP_KEEPER_HANDLE, shopView } from "../shop";
 import { teachFields } from "../townsfolk-lessons";
 import {
@@ -159,6 +166,28 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       );
       if ("error" in view) return fail("bad_request", view.error);
       return { status: 200, body: view };
+    },
+    getPlotMarket: ({ viewer, origin }) => {
+      const layer = social();
+      // Read once per request, as `GET /v1/plots` does: who the viewer blocked (one way, so the
+      // list never tells anyone who blocked them) and each seller's suspension (RFC 0039).
+      const blocked = viewer === undefined ? new Set<string>() : layer.blockedBy(viewer);
+      const closed = new Map<string, boolean>();
+      const hidden = (seller: string) => {
+        if (blocked.has(seller)) return true;
+        let shut = closed.get(seller);
+        if (shut === undefined) {
+          shut = layer.safety.suspendedUntil(seller) !== undefined;
+          closed.set(seller, shut);
+        }
+        return shut;
+      };
+      const view = plotMarketView(service.state, viewer, {
+        author: (id) => layer.authorView(id),
+        hidden,
+        held: service.noteHidden,
+      });
+      return { status: 200, body: plotMarketWithLinks(origin, view) };
     },
     getBounties: ({ viewer }) => {
       const layer = social();

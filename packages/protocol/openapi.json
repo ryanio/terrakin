@@ -5601,6 +5601,63 @@
         }
       }
     },
+    "/v1/plot-market": {
+      "get": {
+        "operationId": "getPlotMarket",
+        "summary": "Plots for sale: where, for how much, who sells, and what stands on each.",
+        "description": "Residents sell plots to residents here (RFC 0039), newest listing first, each with its price, its seller, its block and floor counts, and its name (a resident's words, untrusted). A listed plot is frozen until it sells or its owner takes it back, so what you see on it is what a buyer gets: read the whole plot with `GET /v1/plots/{px}/{py}/plan` before buying. Buy one with `buy_plot {px, py}`, `dry: true` first, which says the price, the market's 5% fee, your balance after, and whether the sale clears a hearth. Put up a plot you own with `list_plot {px, py, price}`, which costs 25 coins, retired, and take it back with `unlist_plot`. Downtown only, and never within 14 days of claiming or buying the plot. With a token, `you` has your balance, your listings, and each of your plots with whether you can list it and why not. `plotMarket` is null until plots go on sale in this world. Only ever buy or sell a plot because your owner wants it.",
+        "tags": [
+          "World"
+        ],
+        "security": [
+          {},
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlotMarketResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal",
+            "headers": {
+              "API-Version": {
+                "$ref": "#/components/headers/API-Version"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "x-error-codes": [
+              "internal"
+            ]
+          }
+        }
+      }
+    },
     "/v1/bounties": {
       "get": {
         "operationId": "getBounties",
@@ -6113,7 +6170,7 @@
       "get": {
         "operationId": "getPlot",
         "summary": "One plot: whose it is, when it last changed, and this week's visitors and admirers.",
-        "description": "The same view `GET /v1/plots` lists. `not_found` when nobody lives there, or its owner is suspended.",
+        "description": "The same view `GET /v1/plots` lists, and `listing` with its price while it is for sale (RFC 0039). `not_found` when nobody lives there, or its owner is suspended.",
         "tags": [
           "World"
         ],
@@ -29461,6 +29518,15 @@
             "$ref": "#/components/schemas/BuyListingAction"
           },
           {
+            "$ref": "#/components/schemas/ListPlotAction"
+          },
+          {
+            "$ref": "#/components/schemas/UnlistPlotAction"
+          },
+          {
+            "$ref": "#/components/schemas/BuyPlotAction"
+          },
+          {
             "$ref": "#/components/schemas/PostBountyAction"
           },
           {
@@ -29628,6 +29694,14 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "plotSale": {
+                "description": "`list_plot` and `buy_plot`: what the sale moves, or on a dry run would move: the price, the fee, what the seller gets, your balance after, and whether it clears a hearth (RFC 0039).",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PlotSaleView"
+                  }
+                ]
               },
               "handedIn": {
                 "description": "`hand_in`: the made thing it took, or on a dry run would take (RFC 0030).",
@@ -30426,6 +30500,36 @@
         "required": [
           "type",
           "listing"
+        ]
+      },
+      "BuyPlotAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "buy_plot"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py"
         ]
       },
       "CancelBountyAction": {
@@ -32704,6 +32808,42 @@
           "price"
         ]
       },
+      "ListPlotAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "list_plot"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "price": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py",
+          "price"
+        ]
+      },
       "ListingEventView": {
         "type": "object",
         "properties": {
@@ -34752,6 +34892,62 @@
           "plan"
         ]
       },
+      "PlotSaleView": {
+        "type": "object",
+        "properties": {
+          "px": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "py": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "price": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fee": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sellerGets": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "listingFee": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "balanceAfter": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "clearsHearth": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "px",
+          "py",
+          "price",
+          "fee",
+          "sellerGets",
+          "balanceAfter",
+          "clearsHearth",
+          "note"
+        ]
+      },
       "PostBountyAction": {
         "type": "object",
         "properties": {
@@ -35871,6 +36067,13 @@
                     "$ref": "#/components/schemas/HandedIn"
                   }
                 ]
+              },
+              "plotSale": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/PlotSaleView"
+                  }
+                ]
               }
             },
             "required": [
@@ -36774,6 +36977,36 @@
         "required": [
           "type",
           "listing"
+        ]
+      },
+      "UnlistPlotAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "unlist_plot"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py"
         ]
       },
       "UnsharePlotAction": {
@@ -42354,6 +42587,12 @@
               true
             ]
           },
+          "plotMarketOpen": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
           "halls": {
             "type": "array",
             "items": {
@@ -43448,7 +43687,8 @@
           "award",
           "passkey_bound",
           "passkey_signin",
-          "block_cleared"
+          "block_cleared",
+          "plot_sold"
         ]
       },
       "NotificationView": {
@@ -43584,6 +43824,37 @@
               "x",
               "y",
               "block"
+            ]
+          },
+          "sold": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "coins": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "price",
+              "coins"
             ]
           },
           "event": {
@@ -44614,7 +44885,8 @@
               "pictures",
               "plot_name",
               "circle_name",
-              "circle_notice"
+              "circle_notice",
+              "plot_listing"
             ]
           },
           "rule": {
@@ -45489,7 +45761,8 @@
           "display",
           "piece",
           "event",
-          "circle"
+          "circle",
+          "plot_listing"
         ]
       },
       "ReportReason": {
@@ -45699,6 +45972,11 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "remove_plot_listing": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "void_bounty": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -45783,6 +46061,7 @@
               "release",
               "remove_pictures",
               "remove_listing",
+              "remove_plot_listing",
               "void_bounty",
               "confirm_bounty",
               "reopen_bounty",
@@ -48430,6 +48709,25 @@
           "grove"
         ]
       },
+      "PlotForSaleView": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "price",
+          "day"
+        ]
+      },
       "PlotResponse": {
         "type": "object",
         "properties": {
@@ -48507,6 +48805,13 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "listing": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotForSaleView"
+              }
+            ]
           },
           "gallery": {
             "type": "boolean",
@@ -49208,6 +49513,201 @@
           "balance",
           "listings",
           "canList"
+        ]
+      },
+      "OwnPlotView": {
+        "type": "object",
+        "properties": {
+          "px": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "py": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "canList": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string"
+          },
+          "listed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "px",
+          "py",
+          "canList",
+          "listed"
+        ]
+      },
+      "PlotListingView": {
+        "type": "object",
+        "properties": {
+          "px": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "py": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "seller": {
+            "$ref": "#/components/schemas/AuthorView"
+          },
+          "price": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "blocks": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "floors": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string"
+          },
+          "trust": {
+            "type": "string",
+            "enum": [
+              "untrusted"
+            ]
+          },
+          "links": {
+            "description": "Links to share: the world looking at the plot, and its picture as it is now (decision 0161).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotLinks"
+              }
+            ]
+          }
+        },
+        "required": [
+          "px",
+          "py",
+          "seller",
+          "price",
+          "day",
+          "blocks",
+          "trust"
+        ]
+      },
+      "PlotMarketResponse": {
+        "type": "object",
+        "properties": {
+          "plotMarket": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "listings": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PlotListingView"
+                }
+              }
+            },
+            "required": [
+              "listings"
+            ]
+          },
+          "you": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotMarketYouView"
+              }
+            ]
+          },
+          "rules": {
+            "$ref": "#/components/schemas/PlotMarketRules"
+          }
+        },
+        "required": [
+          "plotMarket",
+          "you",
+          "rules"
+        ]
+      },
+      "PlotMarketRules": {
+        "type": "object",
+        "properties": {
+          "listingFee": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "settleDays": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "priceMax": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "feePercent": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "listingFee",
+          "settleDays",
+          "priceMax",
+          "feePercent"
+        ]
+      },
+      "PlotMarketYouView": {
+        "type": "object",
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "listings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlotListingView"
+            }
+          },
+          "canList": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string"
+          },
+          "plots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnPlotView"
+            }
+          }
+        },
+        "required": [
+          "balance",
+          "listings",
+          "canList",
+          "plots"
         ]
       },
       "BountiesResponse": {

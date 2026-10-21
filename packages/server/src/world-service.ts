@@ -5,6 +5,7 @@ import type {
   ErrorCode,
   HandedIn,
   LevelUpView,
+  PlotSaleView,
   ServerMessage,
   WorldEvent as WireEvent,
   WorldSnapshot,
@@ -96,6 +97,7 @@ import { closeDue, startBy, townsfolkMove } from "./games";
 import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
+import { plotSaleOf } from "./plot-market";
 import {
   boot,
   encodeSnapshot,
@@ -150,6 +152,8 @@ export type ActResult =
       price?: number;
       /** `hand_in`: the made thing it took, or would take. */
       handedIn?: HandedIn;
+      /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
+      plotSale?: PlotSaleView;
       /** `move` with `steps`: tiles walked, when something stopped the walk short. */
       moved?: number;
       dry?: true;
@@ -992,6 +996,15 @@ export class WorldService {
    */
   onAwardPaid: ((residentId: string, coins: number) => void) | undefined;
 
+  /**
+   * Hears each plot that sold (RFC 0039), so its seller is told: a plot sells while its seller is
+   * away, and without this they learn it only from a purse line. A failure here is reported and
+   * the sale stands.
+   */
+  onPlotSold:
+    | ((seller: string, sold: { px: number; py: number; price: number }) => void)
+    | undefined;
+
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
     return this.facts.credits.filter((c) => c.day >= sinceDay);
@@ -1608,6 +1621,14 @@ export class WorldService {
   }
 
   /**
+   * Staff take a plot off the market (RFC 0039). It goes back to its seller as it stood. Logged
+   * without who did it, like `removeListing`.
+   */
+  removePlotListing(px: number, py: number): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "remove_plot_listing", px, py } });
+  }
+
+  /**
    * Staff take a made thing off display, and with `picture` a piece's picture everywhere (decision
    * 0059). Logged without who did it, like `removeListing`. With `dry`, only checked.
    */
@@ -2164,6 +2185,7 @@ export class WorldService {
       ...planOf(view, input, prepared, false),
       ...priceOf(input.command),
       ...handedInOf(view, input),
+      ...plotSaleOf(view, input),
     };
   }
 
@@ -2189,6 +2211,8 @@ export class WorldService {
     );
     let at = was && { x: was.x, y: was.y };
     const handedIn = handedInOf(this.state, input);
+    // What a plot's sale moves, read before the commit takes the listing and the coins (RFC 0039).
+    const sale = plotSaleOf(this.state, input);
     // Who could hear each circle's events before the commit, for one it disbands (RFC 0033).
     const circlesBefore = circleRoster(this.state);
     const { seq, events } = prepared.commit();
@@ -2300,6 +2324,16 @@ export class WorldService {
         report(err, "world.award_paid", { command: input.command.type });
       }
     }
+    // Plots sold (RFC 0039): the seller is told, since they may be nowhere near when it sells.
+    for (const e of events) {
+      if (e.type !== "plot_sold") continue;
+      try {
+        this.onPlotSold?.(e.seller, { px: e.px, py: e.py, price: e.price });
+      } catch (err) {
+        // The sale stands; the notice misses it.
+        report(err, "world.plot_sold", { command: input.command.type });
+      }
+    }
     // Levels reached (RFC 0029): each resident is told once for the input, with what it unlocked.
     for (const [residentId, levels] of levelUps(events)) {
       try {
@@ -2351,6 +2385,7 @@ export class WorldService {
       ...planned,
       ...priceOf(command),
       ...handedIn,
+      ...sale,
     };
   }
 

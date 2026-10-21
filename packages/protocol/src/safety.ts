@@ -181,6 +181,8 @@ export const MODERATION_ACTIONS = [
   "release",
   "remove_pictures",
   "remove_listing",
+  /** Staff took a plot off the market (RFC 0039); it is its seller's again, as it stood. */
+  "remove_plot_listing",
   /** A maintainer cancelled a bounty; its reward went back to its poster or the treasury. */
   "void_bounty",
   /** A maintainer confirmed a town bounty was done, which paid its claimant from the treasury's coins. */

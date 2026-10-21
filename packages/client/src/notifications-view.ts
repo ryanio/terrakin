@@ -62,6 +62,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   passkey_bound: "key",
   passkey_signin: "key",
   block_cleared: "town",
+  plot_sold: "coin",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -113,6 +114,7 @@ export function notificationLine(
     passkey_bound: "says a passkey was added",
     passkey_signin: "says someone signed in with a passkey",
     block_cleared: "opened a way out of your home",
+    plot_sold: "says a plot you had for sale sold",
   };
   return { who, what: what[n.type] };
 }
@@ -176,6 +178,13 @@ export function takedownLine(t: TakedownView): { line: string; next: string } {
         line: `Your circle's notice was taken down: it broke ${rule}.`,
         next: "A steward can write a new one that keeps to the rules.",
       };
+    case "plot_listing": {
+      const which = t.plot ? `Plot ${t.plot.px}, ${t.plot.py}` : "Your plot";
+      return {
+        line: `${which} was taken off the market: it broke ${rule}.`,
+        next: "It's yours as it stood, and you can build on it again. The listing fee isn't returned.",
+      };
+    }
   }
 }
 
@@ -273,6 +282,10 @@ function systemWords(n: NotificationView): SystemWords | null {
     // The team opened a way out of a home nobody could walk out of (decision 0343).
     return { icon: ICONS.block_cleared, ...clearedLine(n.cleared), links: [] };
   }
+  if (n.sold) {
+    // A plot you had for sale sold (RFC 0039). The notice carries numbers and no words.
+    return { icon: ICONS.plot_sold, ...soldLine(n.sold), links: [] };
+  }
   if (n.type === "passkey_bound" || n.type === "passkey_signin") {
     // Signing in (RFC 0037). The notice carries nothing but the fact and the time, so the words
     // are fixed and the link goes where both can be undone: Signing in on your own profile.
@@ -314,6 +327,20 @@ export function clearedLine(c: { x: number; y: number; block: string }): {
     next: back
       ? "What it cost is back in your things. Build it somewhere else if you like, as long as a way out stays open."
       : "It was a free block, so nothing came back. Build it somewhere else if you like, as long as a way out stays open.",
+  };
+}
+
+/**
+ * A plot-sold notice in plain words (RFC 0039): which plot, its price, and what reached the
+ * seller after the market's fee. Built from the notice's fields only. Pure, so tests pin it.
+ */
+export function soldLine(s: { px: number; py: number; price: number; coins: number }): {
+  line: string;
+  next: string;
+} {
+  return {
+    line: `Plot ${s.px}, ${s.py} sold for ${plural(s.price, "coin", "coins")}.`,
+    next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared, so settle again to keep your pantry and allowance.`,
   };
 }
 

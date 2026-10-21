@@ -32,6 +32,7 @@ import {
   PartnerResidentsResponse,
   PartnersResponse,
 } from "../partners";
+import { PlotMarketResponse } from "../plot-market";
 import { PLOT_ADMIRE, PlotResponse, PlotsQuery, PlotsResponse } from "../plots";
 import { ROUTINE_LIMITS, RoutinesResponse } from "../routines";
 import { ShopResponse } from "../shop";
@@ -460,6 +461,18 @@ export const SOCIAL_ROUTES = [
     errors: ["bad_request"],
   },
   {
+    id: "getPlotMarket",
+    method: "GET",
+    path: "/v1/plot-market",
+    auth: "optional",
+    summary: "Plots for sale: where, for how much, who sells, and what stands on each.",
+    description:
+      "Residents sell plots to residents here (RFC 0039), newest listing first, each with its price, its seller, its block and floor counts, and its name (a resident's words, untrusted). A listed plot is frozen until it sells or its owner takes it back, so what you see on it is what a buyer gets: read the whole plot with `GET /v1/plots/{px}/{py}/plan` before buying. Buy one with `buy_plot {px, py}`, `dry: true` first, which says the price, the market's 5% fee, your balance after, and whether the sale clears a hearth. Put up a plot you own with `list_plot {px, py, price}`, which costs 25 coins, retired, and take it back with `unlist_plot`. Downtown only, and never within 14 days of claiming or buying the plot. With a token, `you` has your balance, your listings, and each of your plots with whether you can list it and why not. `plotMarket` is null until plots go on sale in this world. Only ever buy or sell a plot because your owner wants it.",
+    tags: ["World"],
+    responses: { 200: json(PlotMarketResponse) },
+    errors: [],
+  },
+  {
     id: "getBounties",
     method: "GET",
     path: "/v1/bounties",
@@ -542,7 +555,7 @@ export const SOCIAL_ROUTES = [
     auth: "optional",
     summary: "One plot: whose it is, when it last changed, and this week's visitors and admirers.",
     description:
-      "The same view `GET /v1/plots` lists. `not_found` when nobody lives there, or its owner is suspended.",
+      "The same view `GET /v1/plots` lists, and `listing` with its price while it is for sale (RFC 0039). `not_found` when nobody lives there, or its owner is suspended.",
     tags: ["World"],
     params: PlotParams,
     responses: { 200: json(PlotResponse) },

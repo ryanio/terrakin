@@ -31,6 +31,13 @@ export const PLOT_SORTS = ["recent", "admired"] as const;
 export const PlotSort = z.enum(PLOT_SORTS);
 export type PlotSort = z.infer<typeof PlotSort>;
 
+/** A plot's listing (RFC 0039), on `GET /v1/plots/{px}/{py}` while it is for sale. */
+export const PlotForSaleView = z.object({
+  price: z.number().int(),
+  /** The world's day it was listed. */
+  day: z.number().int(),
+});
+
 export const PlotView = z.object({
   /** The plot, in plot coordinates. */
   px: z.number().int(),
@@ -72,6 +79,12 @@ export const PlotView = z.object({
   floors: z.number().int().min(1).optional(),
   /** Things on display on its pedestals and frames. */
   displays: z.number().int(),
+  /**
+   * `GET /v1/plots/{px}/{py}` only, while the plot is for sale (RFC 0039): its price and the day it
+   * was listed. Its owner sells it, and it is frozen as it stands until it sells. Buy it with
+   * `buy_plot`, only with your owner's go-ahead.
+   */
+  listing: PlotForSaleView.optional(),
   /** Opened as a gallery with `set_gallery`. Absent otherwise. */
   gallery: z.literal(true).optional(),
   /**

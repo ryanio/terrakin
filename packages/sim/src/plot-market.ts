@@ -212,6 +212,48 @@ export function checkListPlot(
   };
 }
 
+/**
+ * Why `actor` can't list plot (px, py) now, or null when they can: `list_plot`'s own checks, every
+ * one but the price, which a reader picks. `GET /v1/plot-market` answers `canList` from it.
+ */
+export function listPlotProblem(
+  state: WorldState,
+  actor: ResidentId,
+  px: number,
+  py: number,
+): Rejection | null {
+  const checked = checkListPlot(state, actor, { type: "list_plot", px, py, price: 1 });
+  return typeof checked === "function" ? null : checked;
+}
+
+/** Every plot for sale, newest listing first, then north to south and west to east. */
+export function plotListings(state: WorldState): PlotListing[] {
+  return Object.values(state.plotMarket?.listings ?? {}).sort(
+    (a, b) => b.day - a.day || a.py - b.py || a.px - b.px,
+  );
+}
+
+/** What a sale at `price` moves: the fee to the treasury, and what reaches the seller. */
+export interface PlotSale {
+  price: number;
+  /** `marketFee`, never more than the price. */
+  fee: number;
+  sellerGets: number;
+  /** Everyone whose hearth is on the plot, which the sale clears: its seller's, or a co-owner's. */
+  hearths: ResidentId[];
+}
+
+/** What selling plot (px, py) at `price` would move and clear, as `buy_plot` does it. */
+export function plotSale(state: WorldState, px: number, py: number, price: number): PlotSale {
+  const fee = Math.min(marketFee(price), price);
+  const hearths = Object.values(state.residents).flatMap((r) => {
+    if (!r.hearth) return [];
+    const p = plotOf(state.config, r.hearth.x, r.hearth.y);
+    return p.px === px && p.py === py ? [r.id] : [];
+  });
+  return { price, fee, sellerGets: price - fee, hearths };
+}
+
 /** Whether anything stands on display on plot (px, py). */
 function displayOnPlot(state: WorldState, px: number, py: number): boolean {
   const { plotSize } = state.config;
@@ -293,13 +335,10 @@ export function checkBuyPlot(
   if (have < price) {
     return refuse("not_enough_coins", `That plot is ${coins(price)}, and you have ${coins(have)}.`);
   }
-  const fee = Math.min(marketFee(price), price);
+  const sale = plotSale(state, px, py, price);
+  const { fee } = sale;
   const at = { seq: state.seq + 1, day };
-  const hearthsHere = Object.values(state.residents).filter((r) => {
-    if (!r.hearth) return false;
-    const p = plotOf(state.config, r.hearth.x, r.hearth.y);
-    return p.px === px && p.py === py;
-  });
+  const hearthsHere = sale.hearths.flatMap((id) => state.residents[id] ?? []);
   const coOwners = plot.coOwners ?? [];
   return () => {
     delete plots.listings[plotKey(px, py)];

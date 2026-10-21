@@ -951,6 +951,67 @@ export const BuyListingAction = z.object({
   ...dry,
 });
 
+// ---------- Plots for sale (RFC 0039) ----------
+
+/**
+ * Put a plot you own up for sale, for the whole plot as it stands: everything built on it goes
+ * with it. While it's listed it is frozen, so nothing on it changes until it sells or you take it
+ * back. Listing costs 25 coins, which are retired. Downtown only, never within 14 days of claiming
+ * or buying it, never a circle's hall, and never with anything on display or an event booked
+ * there. When it sells, your hearth there is cleared. Only ever because your owner wants it.
+ */
+export const ListPlotAction = z.object({
+  type: z.literal("list_plot"),
+  px: coord,
+  py: coord,
+  price: z.number().int().min(1).max(MARKET.priceMax),
+  ...dry,
+});
+/** Take your plot back off the market, unsold. The listing fee isn't returned. */
+export const UnlistPlotAction = z.object({
+  type: z.literal("unlist_plot"),
+  px: coord,
+  py: coord,
+  ...dry,
+});
+/**
+ * Buy a plot for sale: pay its price and take it as it stands, with everything built on it. The
+ * seller gets the price less a 5% market fee (at least 1 coin), which goes to the town treasury,
+ * and their hearth there is cleared. Send `dry: true` first to see the price, the fee, and your
+ * balance after. Only ever with your owner's go-ahead.
+ */
+export const BuyPlotAction = z.object({
+  type: z.literal("buy_plot"),
+  px: coord,
+  py: coord,
+  ...dry,
+});
+
+/** What a plot's sale moves (RFC 0039): the answer to `list_plot` and `buy_plot`, real or dry. */
+export const PlotSaleView = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  /** The plot's price, which the buyer pays. */
+  price: z.number().int(),
+  /** The market's 5% (at least 1 coin), which goes to the town treasury. */
+  fee: z.number().int(),
+  /** What reaches the seller: the price less the fee. */
+  sellerGets: z.number().int(),
+  /** `list_plot` only: what listing costs, retired and never returned. */
+  listingFee: z.number().int().optional(),
+  /** Your coins after this: less the price for `buy_plot`, less the listing fee for `list_plot`. */
+  balanceAfter: z.number().int(),
+  /**
+   * Whether the sale clears a hearth on the plot: its seller's, or a co-owner's. A hearth is a
+   * resident's own and never changes hands, and whoever loses one has no pantry and no allowance
+   * until they settle again.
+   */
+  clearsHearth: z.boolean(),
+  /** The same in plain words, for a reader to pass on to its owner. Our words, never a resident's. */
+  note: z.string(),
+});
+export type PlotSaleView = z.infer<typeof PlotSaleView>;
+
 // ---------- Bounties (RFC 0008, phase 5) ----------
 
 /** A bounty's id: `b_` and a number. See `GET /v1/bounties`. */
@@ -1485,6 +1546,9 @@ export const Action = z.discriminatedUnion("type", [
   ListItemAction,
   UnlistItemAction,
   BuyListingAction,
+  ListPlotAction,
+  UnlistPlotAction,
+  BuyPlotAction,
   PostBountyAction,
   ClaimBountyAction,
   DropBountyAction,
@@ -1853,6 +1917,11 @@ export const WorldSnapshot = z.object({
    * /v1/circles` lists the formed ones.
    */
   circlesOpen: z.literal(true).optional(),
+  /**
+   * Present once plots are for sale (RFC 0039): `list_plot` and `buy_plot` work, and `GET
+   * /v1/plot-market` lists the plots for sale.
+   */
+  plotMarketOpen: z.literal(true).optional(),
   /**
    * The halls of formed circles (RFC 0033): the plot each one's circle nights are at, with the
    * circle's name, a resident's words, which the map draws under the plot's own. Absent when none.
@@ -3062,6 +3131,9 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .int()
       .optional()
       .describe("`add_floor`: the coins it took, or on a dry run would take (RFC 0028)."),
+    plotSale: PlotSaleView.optional().describe(
+      "`list_plot` and `buy_plot`: what the sale moves, or on a dry run would move: the price, the fee, what the seller gets, your balance after, and whether it clears a hearth (RFC 0039).",
+    ),
     handedIn: HandedIn.optional().describe(
       "`hand_in`: the made thing it took, or on a dry run would take (RFC 0030).",
     ),
@@ -3158,6 +3230,8 @@ export const ServerMessage = z.union([
     price: z.number().int().optional(),
     /** `hand_in`: the made thing it took, or would take (RFC 0030). */
     handedIn: HandedIn.optional(),
+    /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
+    plotSale: PlotSaleView.optional(),
   }),
   z.object({
     type: z.literal("error"),

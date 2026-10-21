@@ -1047,6 +1047,12 @@ export const NOTIFICATION_TYPES = [
    * where. What it cost is back in your things; a free block gives nothing back.
    */
   "block_cleared",
+  /**
+   * From Terrakin itself, not a resident: a plot you had for sale sold (RFC 0039). `sold` says
+   * which plot, its price, and the coins that reached you, the price less the market's fee. Your
+   * hearth there, if you had one, was cleared.
+   */
+  "plot_sold",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1063,6 +1069,8 @@ export const TAKEDOWN_TARGETS = [
   /** A circle's name, or its notice (RFC 0033). `circle` says which. */
   "circle_name",
   "circle_notice",
+  /** A plot you had for sale (RFC 0039). `plot` says which. It is yours again, as it stood. */
+  "plot_listing",
 ] as const;
 
 /**
@@ -1084,7 +1092,7 @@ export const TakedownView = z.object({
   kind: ItemKind.optional(),
   /** For a listing: how many were in the lot. */
   count: z.number().int().optional(),
-  /** For a plot's name: the plot, in plot coordinates. */
+  /** For a plot's name or a plot for sale: the plot, in plot coordinates. */
   plot: z.object({ px: z.number().int(), py: z.number().int() }).optional(),
   /** For a circle's name or notice: the circle's id. */
   circle: z.string().optional(),
@@ -1184,6 +1192,19 @@ export const NotificationView = z.object({
    * From Terrakin itself (`system: true`), and it carries no words.
    */
   cleared: z.object({ x: z.number().int(), y: z.number().int(), block: z.string() }).optional(),
+  /**
+   * For a `plot_sold`: the plot you sold, its price, and the coins that reached you, the price
+   * less the market's fee (RFC 0039). From Terrakin itself (`system: true`), and it carries no
+   * words.
+   */
+  sold: z
+    .object({
+      px: z.number().int(),
+      py: z.number().int(),
+      price: z.number().int(),
+      coins: z.number().int(),
+    })
+    .optional(),
   /**
    * For an `event_soon` or `event_started`: the event you said you're going to, as it stands now. From Terrakin
    * itself (`system: true`); its `title` is the host's words, untrusted.

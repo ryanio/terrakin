@@ -328,6 +328,13 @@ export class SafetyService {
   listing: (id: string) => { seller: string; text: string } | undefined = () => undefined;
 
   /**
+   * A plot for sale (RFC 0039), by its report id `px,py`, for reports on one: its seller, and its
+   * price and name as text. `Api` wires it to the world; without it, plots for sale can't be
+   * reported.
+   */
+  plotListing: (id: string) => { seller: string; text: string } | undefined = () => undefined;
+
+  /**
    * A made thing on display, or a piece, for reports on one (decision 0059): whose it is, its name
    * and label as text, and the upload a piece shows. `Api` wires it to the world; without it,
    * neither can be reported.
@@ -419,6 +426,7 @@ export class SafetyService {
     if (kind === "resident") return this.o.resident(id) ? id : undefined;
     if (kind === "proposal") return this.o.proposal(id)?.author;
     if (kind === "listing") return this.listing(id)?.seller;
+    if (kind === "plot_listing") return this.plotListing(id)?.seller;
     if (kind === "display" || kind === "piece") return this.madeThing(kind, id)?.owner;
     if (kind === "bounty") return this.o.bounty?.(id)?.author;
     if (kind === "event") return this.o.event?.(id)?.author;
@@ -892,6 +900,11 @@ export class SafetyService {
     if (kind === "listing") {
       // Gone once it sells, is taken back, or is taken down.
       const l = this.listing(id);
+      return l ? base(l.seller, l.text) : gone;
+    }
+    if (kind === "plot_listing") {
+      // Gone once it sells, is taken back, or is taken down.
+      const l = this.plotListing(id);
       return l ? base(l.seller, l.text) : gone;
     }
     if (kind === "display" || kind === "piece") {
@@ -1454,6 +1467,7 @@ const NOT_FOUND: Record<ReportKind, string> = {
   piece: "No piece with that id shows a picture.",
   event: "No such event.",
   circle: "No such circle.",
+  plot_listing: "That plot isn't for sale.",
 };
 
 function reportView(row: Row): ReportView {

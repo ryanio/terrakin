@@ -18,6 +18,7 @@ import {
   plotDistance,
   plotInBounds,
   plotKey,
+  plotListing,
   residentById,
   tileKey,
   trickOrTreatDay,
@@ -648,16 +649,11 @@ function plotViews(
   // The ground floor and every floor above it (RFC 0028).
   const floors = Array.from({ length: FLOORS.max + 1 }, (_, floor) => blocksOn(state, floor));
   if (only) {
-    let placed = 0;
     let onDisplay = 0;
-    for (let y = only.py * size; y < (only.py + 1) * size; y++) {
-      for (let x = only.px * size; x < (only.px + 1) * size; x++) {
-        const tile = tileKey(x, y);
-        for (const layer of floors) if (own(layer, tile) !== undefined) placed++;
-        if (own(shown, tile) !== undefined) onDisplay++;
-      }
+    for (const tile of plotTiles(state, only.px, only.py)) {
+      if (own(shown, tile) !== undefined) onDisplay++;
     }
-    blocks.set(plotKey(only.px, only.py), placed);
+    blocks.set(plotKey(only.px, only.py), blocksOnPlot(state, only.px, only.py));
     displays.set(plotKey(only.px, only.py), onDisplay);
   } else {
     const add = (counts: Map<string, number>, tile: string) => {
@@ -669,6 +665,8 @@ function plotViews(
     for (const tile of Object.keys(shown)) add(displays, tile);
   }
   const one = only ? own(state.plots, plotKey(only.px, only.py)) : undefined;
+  // For sale (RFC 0039): on the one plot's read only, since the list is built once a minute.
+  const forSale = only ? plotListing(state, only.px, only.py) : undefined;
   const plots = only ? (one ? [one] : []) : Object.values(state.plots);
   const views: PlotView[] = [];
   for (const plot of plots) {
@@ -701,8 +699,29 @@ function plotViews(
       blocks: blocks.get(key) ?? 0,
       ...(plot.floors ? { floors: plot.floors } : {}),
       displays: displays.get(key) ?? 0,
+      ...(forSale ? { listing: { price: forSale.price, day: forSale.day } } : {}),
       ...(plot.gallery ? { gallery: true as const } : {}),
     });
   }
   return views;
+}
+
+/** Every tile key of plot (px, py). */
+function plotTiles(state: WorldState, px: number, py: number): string[] {
+  const size = state.config.plotSize;
+  const tiles: string[] = [];
+  for (let y = py * size; y < (py + 1) * size; y++) {
+    for (let x = px * size; x < (px + 1) * size; x++) tiles.push(tileKey(x, y));
+  }
+  return tiles;
+}
+
+/** Blocks on plot (px, py), on every floor, decor and stations included (RFC 0028). */
+export function blocksOnPlot(state: WorldState, px: number, py: number): number {
+  const floors = Array.from({ length: FLOORS.max + 1 }, (_, floor) => blocksOn(state, floor));
+  let placed = 0;
+  for (const tile of plotTiles(state, px, py)) {
+    for (const layer of floors) if (own(layer, tile) !== undefined) placed++;
+  }
+  return placed;
 }

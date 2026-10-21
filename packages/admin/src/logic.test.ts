@@ -280,6 +280,7 @@ describe("the rule a takedown cites", () => {
         "remove_listing",
         "remove_pictures",
         "remove_piece",
+        "remove_plot_listing",
       ].sort(),
     );
     expect(TAKEDOWN_ACTIONS.has("suspend")).toBe(false);

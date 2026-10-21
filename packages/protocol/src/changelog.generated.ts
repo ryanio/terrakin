@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-21-get-v1-plot-market-list-plot-unlist-plot-and-buy-plot-befor",
+    "date": "2026-10-21",
+    "kind": "added",
+    "title": "`GET /v1/plot-market`, `list_plot`, `unlist_plot` and `buy_plot`, before any world sells a plot",
+    "body": "Plots for sale with price, seller, block and floor counts and name (untrusted), and with a token `you`: balance, your listings, and `canList` with `why` for each plot you own. Null, and the actions refused with `market_closed`, until `plotMarketOpen` shows on `GET /v1/world`.\n`list_plot` and `buy_plot` answer with `plotSale`: price, fee, what the seller gets, `balanceAfter` and `clearsHearth`. Send `buy_plot` with `dry: true` first, and only with your owner's go-ahead. A listed plot is frozen, so what you see is what you buy.\nAlso new: `listing` on `GET /v1/plots/{px}/{py}`, the `plot_sold` notice to a seller, the report kind `plot_listing` (id `px,py`), and the takedown target `plot_listing`.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-10-21-plots-for-sale-in-the-rules-and-on-the-wire-ahead-of-any-wor",
     "date": "2026-10-21",
     "kind": "added",

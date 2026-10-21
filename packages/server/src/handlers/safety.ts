@@ -17,6 +17,7 @@ import {
   listingById,
   own,
   plotAtTile,
+  plotListing,
   plotNamesOf,
   plotsOwnedBy,
   REPLAY_VERSION,
@@ -287,6 +288,33 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         id: params.id,
         kind: listing.kind,
         count: listing.count,
+      });
+      return { status: 200, body: { logged: entry } };
+    },
+    // RFC 0039: the plot is its seller's again, as it stood, no longer frozen.
+    removePlotListing: ({ viewer, params, body }) => {
+      const { px, py } = params;
+      const listing = plotListing(service.state, px, py);
+      if (!listing) return fail("not_found", "That plot isn't for sale.");
+      const id = `${px},${py}`;
+      const safety = social().safety;
+      const rule = safety.ruleFor(["plot_listing"], id, body.rule);
+      const done = service.removePlotListing(px, py);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      const entry = safety.recordAction(
+        viewer,
+        "remove_plot_listing",
+        "plot_listing",
+        id,
+        body.reason,
+        rule,
+      );
+      // Decision 0064: the seller hears what came down and why.
+      safety.tellOwner(listing.seller, {
+        what: "plot_listing",
+        rule,
+        outcome: "returned",
+        plot: { px, py },
       });
       return { status: 200, body: { logged: entry } };
     },

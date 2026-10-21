@@ -20,6 +20,7 @@ import {
   clearedLine,
   notificationItem,
   notificationLine,
+  soldLine,
   takedownLine,
 } from "./notifications-view";
 import {
@@ -723,5 +724,13 @@ describe("the notice when the team opens a way out of a home (decision 0343)", (
     expect(chair.line).toContain("69, 31");
     expect(chair.next).toMatch(/^What it cost is back in your things/);
     expect(clearedLine({ x: 1, y: 1, block: "wood" }).next).toMatch(/^It was a free block/);
+  });
+});
+
+describe("the notice when a plot you had for sale sells (RFC 0039)", () => {
+  it("names the plot, the price, and what reached the seller after the fee", () => {
+    const sold = soldLine({ px: 3, py: 2, price: 300, coins: 285 });
+    expect(sold.line).toBe("Plot 3, 2 sold for 300 coins.");
+    expect(sold.next).toMatch(/^285 coins reached you after the market's fee/);
   });
 });

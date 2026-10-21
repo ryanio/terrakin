@@ -28,6 +28,8 @@ export interface PlotNews {
   floors: number;
   /** The plot was claimed. */
   claimed: number;
+  /** The plot was bought from its owner (RFC 0039), with everything on it. */
+  sold: number;
   /** Blocks placed, on every floor, decor and stations included. */
   blocks: number;
   /** Seeds planted. */
@@ -49,6 +51,7 @@ export const NEWS_FIELDS = [
   "restyle",
   "floors",
   "claimed",
+  "sold",
   "blocks",
   "planted",
   "ridge",
@@ -64,6 +67,7 @@ export const noNews = (): PlotNews => ({
   restyle: 0,
   floors: 0,
   claimed: 0,
+  sold: 0,
   blocks: 0,
   planted: 0,
   ridge: 0,
@@ -91,6 +95,10 @@ export function newsOfEvent(event: WorldEvent): Partial<PlotNews> | undefined {
   switch (event.type) {
     case "plot_claimed":
       return { claimed: 1 };
+    // A plot that changed hands (RFC 0039). Its row is the new owner's, since the line is about the
+    // home standing there now.
+    case "plot_sold":
+      return { sold: 1 };
     case "gallery_set":
       return event.open ? { gallery: 1 } : undefined;
     case "roof_set":
@@ -147,6 +155,7 @@ function whatHappened(news: PlotNews, top: RoofTop | undefined): string | undefi
     return news.floors === 1 ? "an upstairs went up" : `${news.floors} floors went up`;
   }
   if (news.claimed > 0) return "someone moved in";
+  if (news.sold > 0) return "a new owner moved in";
   if (news.blocks > 0) return `${some(news.blocks, "new block", "new blocks")} went up`;
   if (news.planted > 0) return `${some(news.planted, "bed", "beds")} planted`;
   // Below the building: a ridge is one tile of ornament, however far it is seen from. `top` is

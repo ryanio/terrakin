@@ -1,5 +1,5 @@
 import type { HostedEvent } from "@terrakin/sim";
-import { circleById, findEvent, routinesOf } from "@terrakin/sim";
+import { circleById, findEvent, plotSale, routinesOf } from "@terrakin/sim";
 import type { Api } from "./api";
 import { circleBrief, circleInviteNote, profileCircle, tellCircles } from "./circles";
 import { countGuests } from "./events";
@@ -11,6 +11,7 @@ import { listingForReport, listingRefusal } from "./market";
 import { MUSEGOD_PARTNER } from "./musegod-worlds";
 import { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
+import { plotListingForReport } from "./plot-market";
 import { forgetRetired, moveMerged, socialUsers } from "./repeat-joins";
 import { Routines } from "./routines";
 import type { SocialService } from "./social-service";
@@ -121,6 +122,8 @@ export function wireSocial(
   }
   // Reports on a listing (decision 0056) read it from the world.
   layer.safety.listing = (id) => listingForReport(service.state, id);
+  // And on a plot for sale (RFC 0039), its price and its name as staff may read them.
+  layer.safety.plotListing = (id) => plotListingForReport(service.state, id);
   // Reports on a thing on display, or a piece (decision 0059), read it from the world too.
   layer.safety.madeThing = (kind, id) => madeThingForReport(service.state, kind, id);
   // Purged uploads clear every piece made from them (decision 0065): the world logs it.
@@ -186,6 +189,14 @@ export function wireSocial(
   // Awards (RFC 0036): the town thanking someone is worth nothing if they never notice, and no
   // other notification covers coins.
   service.onAwardPaid = (id, coins) => layer.awarded(id, coins);
+  // Plots for sale (RFC 0039): a sale tells its seller what reached them, here or away.
+  service.onPlotSold = (seller, { px, py, price }) =>
+    layer.plotSold(seller, {
+      px,
+      py,
+      price,
+      coins: plotSale(service.state, px, py, price).sellerGets,
+    });
   // Jobs (RFC 0030): a finished job tells its resident, here or away, and profiles show the
   // count, which lives in the world.
   const givers = giverIds(service.state, (handle) => layer.residentIdByHandle(handle));

@@ -17,6 +17,8 @@ import {
   type ReportKind,
   type ReportQueueItem,
   type ReportReason,
+  type ShutHomesResponse,
+  type StaffClearBlockResponse,
   type StaffKeyScope,
   type StaffMergeResponse,
   type StaffRole,
@@ -26,6 +28,7 @@ import {
   type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
+import { blockBackWords, blockName, clearCost } from "@terrakin/ui/blocks";
 import { formatCount, plural, pluralWord, relativeTime, shortDate } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
@@ -127,6 +130,56 @@ export function mergeSummary(r: StaffMergeResponse): string {
   return r.merged
     ? `Merged ${r.from.name} into ${r.into.name}: ${moved} moved, with its posts and follows${where ? `, and ${plots} went back to the world` : ""}.`
     : `Merging ${r.from.name} into ${r.into.name} moves ${moved}, with its posts and follows${where ? `, and gives ${plots} back to the world` : ""}.`;
+}
+
+type FreeingBlock = ShutHomesResponse["homes"][number]["frees"][number];
+
+/**
+ * A shut home's blocks, the cheapest to their owner first (decision 0343, docs/staff-agents.md):
+ * free walls and hedges, then what comes back to their things (a chair, a fence), then what they
+ * use where it stands (a kitchen, a pond, a planter). The server's north-to-south order holds
+ * within each.
+ */
+export function freesByCost(frees: readonly FreeingBlock[]): FreeingBlock[] {
+  return [...frees].sort((a, b) => clearCost(a.block) - clearCost(b.block));
+}
+
+/** What a block in a shut home's list costs its owner, as a pill's words. */
+export const CLEAR_COST_WORDS = ["Free", "Comes back", "In use"] as const;
+
+/** A block's place and what clearing it gives back: "Chair at 69, 31. Gives back 1 chair." */
+export function freeLine(f: Pick<FreeingBlock, "x" | "y" | "block">): string {
+  const name = blockName(f.block);
+  return `${name[0]?.toUpperCase() ?? ""}${name.slice(1)} at ${f.x}, ${f.y}. Gives back ${blockBackWords(f.block)}.`;
+}
+
+/** The reason a check sends. A dry run clears nothing and is never logged. */
+export const CLEAR_CHECK_REASON = "Checking a way out of a shut home";
+
+/**
+ * What a clear took, or on a dry run would take, in a sentence or three (decision 0343): the block
+ * and whose plot, what goes back to them, and whether their own hearth walks out to the town once
+ * it's gone (the owner's hearth, which is the shut home when they walled themselves in).
+ */
+export function clearWords(r: StaffClearBlockResponse): string {
+  const owner = r.owner.name;
+  const name = blockName(r.block);
+  const back = blockBackWords(r.block);
+  const took = r.cleared
+    ? `Took the ${name} at ${r.x}, ${r.y} off ${owner}'s plot.`
+    : `Clearing takes the ${name} at ${r.x}, ${r.y} off ${owner}'s plot.`;
+  const gives =
+    back === "nothing"
+      ? "It was free, so nothing goes back."
+      : `${back[0]?.toUpperCase() ?? ""}${back.slice(1)} goes back to their things.`;
+  const walk =
+    r.walksOut === null
+      ? `${owner} has no hearth of their own.`
+      : r.walksOut
+        ? `${owner}'s hearth walks out to the town ${r.cleared ? "now" : "once it's gone"}.`
+        : `${owner}'s hearth still has no walk out to the town${r.cleared ? "" : " once it's gone"}.`;
+  const notice = r.cleared ? " They got a notice from Terrakin." : "";
+  return `${took} ${gives} ${walk}${notice}`;
 }
 
 /**

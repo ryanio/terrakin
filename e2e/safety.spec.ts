@@ -87,6 +87,10 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.locator(".who .person-name")).toHaveText("Marlow");
   await expect(page.locator(".who-role")).toHaveText("Maintainer");
+  // Beside the queue, homes with no walk out to the town, read from the world (decision 0343).
+  const shut = page.locator("section.shut-homes");
+  await expect(shut.getByRole("heading", { name: "Shut homes", exact: true })).toBeVisible();
+  await expect(shut).not.toContainText("Looking for shut homes");
   const item = page.locator(`article.item[data-id="${post.id}"]`);
   await expect(item).toContainText("Cheap lanterns, ask me how");
   await expect(item).toContainText("Spam · from Quill");

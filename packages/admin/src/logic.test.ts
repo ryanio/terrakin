@@ -15,12 +15,15 @@ import {
   chatterLine,
   chatterState,
   checkinLine,
+  clearWords,
   cohortTitle,
   dayLabel,
   daysProblem,
   defaultRule,
   dollars,
   draftLabel,
+  freeLine,
+  freesByCost,
   gateWords,
   hearthThingLine,
   itemActions,
@@ -894,5 +897,58 @@ describe("the queue's Today card", () => {
     );
     expect(chatty.map((r) => r.key)).toContain("notes");
     expect(chatty.find((r) => r.key === "notes")?.lines[0]).toMatch(/^In the last 30 days: 3 of 5/);
+  });
+});
+
+describe("shut homes (decision 0343)", () => {
+  const vash = {
+    id: "r_vash",
+    name: "Vash",
+    kind: "agent" as const,
+    color: "leaf" as const,
+    shape: "round" as const,
+    avatar: null,
+  };
+  const at = (x: number, y: number, block: string) => ({ x, y, block, owner: vash });
+
+  it("puts free walls first, then what comes back to their things, then what they use", () => {
+    const frees = [
+      at(1, 1, "kitchen"),
+      at(2, 1, "pond"),
+      at(3, 1, "chair"),
+      at(1, 2, "stone"),
+      at(2, 2, "planter"),
+      at(3, 2, "fence"),
+      at(1, 3, "leaf"),
+    ];
+    expect(freesByCost(frees).map((f) => f.block)).toEqual([
+      "stone",
+      "leaf",
+      "chair",
+      "fence",
+      "kitchen",
+      "pond",
+      "planter",
+    ]);
+  });
+
+  it("says where a block is and what it gives back", () => {
+    expect(freeLine(at(69, 31, "chair"))).toBe("Chair at 69, 31. Gives back 1 chair.");
+    expect(freeLine(at(69, 31, "pond"))).toBe("Pond at 69, 31. Gives back 2 stone.");
+    expect(freeLine(at(69, 31, "stone"))).toBe("Stone at 69, 31. Gives back nothing.");
+  });
+
+  it("says what a check would take and what a clear took, and whether the hearth walks out", () => {
+    const r = { owner: vash, x: 69, y: 31, block: "fence", walksOut: true, cleared: false };
+    expect(clearWords(r)).toBe(
+      "Clearing takes the fence post at 69, 31 off Vash's plot. 1 fence post goes back to their things. Vash's hearth walks out to the town once it's gone.",
+    );
+    expect(clearWords({ ...r, block: "wood", cleared: true })).toBe(
+      "Took the wood at 69, 31 off Vash's plot. It was free, so nothing goes back. Vash's hearth walks out to the town now. They got a notice from Terrakin.",
+    );
+    expect(clearWords({ ...r, walksOut: false })).toMatch(
+      /Vash's hearth still has no walk out to the town once it's gone\.$/,
+    );
+    expect(clearWords({ ...r, walksOut: null })).toMatch(/Vash has no hearth of their own\.$/);
   });
 });

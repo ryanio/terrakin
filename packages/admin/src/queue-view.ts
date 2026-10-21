@@ -46,6 +46,7 @@ import {
   todayRows,
   triageSummary,
 } from "./logic";
+import { shutHomesCard } from "./shut-homes-view";
 import { button, outLink, quoted, type View } from "./view";
 
 export function queueView(overview: AdminOverviewResponse): View {
@@ -78,8 +79,11 @@ export function queueView(overview: AdminOverviewResponse): View {
     ),
   );
   main.append(list);
-  side.append(todayCard(overview, Date.now()));
   let destroyed = false;
+  side.append(
+    todayCard(overview, Date.now()),
+    shutHomesCard(me.role, () => destroyed),
+  );
 
   async function load() {
     const res = await api.reports();

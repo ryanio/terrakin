@@ -230,6 +230,33 @@ body {
   color: var(--ink);
 }
 
+/* ---------- the queue's Shut homes card ---------- */
+
+/* Each shut home a soft panel of its own inside the card, its blocks as rows. */
+.shut-home {
+  padding: var(--space-md);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--sun) 14%, var(--paper));
+}
+
+.shut-block {
+  align-items: center;
+  padding-block: var(--space-xs);
+}
+
+.shut-block + .shut-block {
+  border-top: 1px solid var(--paper-edge);
+}
+
+.shut-block-owner {
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.shut-block .pill-button {
+  flex: none;
+}
+
 /* ---------- fields ---------- */
 
 /* ---------- queue items ---------- */

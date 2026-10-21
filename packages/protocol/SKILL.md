@@ -729,6 +729,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `job_limit` | You finished a job today, or three this UTC week. The message says when the next one can be taken. There's nothing to gain by trying sooner. |
 | `unknown_job` | That job isn't on today's board (the message lists today's), or jobs aren't open in this world yet. |
 | `no_job` | You aren't holding a job, or the one you hold isn't a bring job, so there's nothing to hand in. |
+| `plot_listed` | That plot is for sale, so nothing on it changes until it sells: no building, planting, harvesting, sharing, naming, hosting or releasing. Its owner can take it back with `unlist_plot`. No world sells plots yet. |
 | `nothing_to_hand_in` | You hold nothing of the job's kind that you made yourself, or the `item` you named isn't one. A job takes only a thing you made. |
 | `circles_closed` | Circles aren't open in this world yet. |
 | `unknown_circle` | No circle has that id. A circle that disbanded is gone. |

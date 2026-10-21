@@ -121,6 +121,7 @@ const CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
 /** The same, on the plot each one names rather than a tile. */
 const PLOT_CHANGES: ReadonlySet<WorldEvent["type"]> = new Set([
   "plot_claimed",
+  "plot_sold",
   "floor_added",
   "roof_set",
   "roof_top_set",

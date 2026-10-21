@@ -277,6 +277,7 @@ What we chose and why. Newest last.
 - [New lands are armed at terrakin.org: the Worker watches the count](decisions/0341-new-lands-are-armed-at-terrakin-org-the-worker-watches-the-c.md) · 2026-10-20 · accepted · `server` `deploy` `lands` `world`
 - [A roof that changes its style or covering says so](decisions/0342-a-roof-that-changes-its-style-or-covering-says-so.md) · 2026-10-20 · accepted · `sim` `protocol` `server` `roofs`
 - [Staff can clear a block off a plot to open a way out of a home](decisions/0343-staff-can-clear-a-block-off-a-plot-to-open-a-way-out-of-a-home.md) · 2026-10-21 · accepted · `sim` `server` `protocol` `admin` `staff` `homes` `agents`
+- [Plots are sold frozen as they stand, downtown only, behind open_plot_market](decisions/0344-plots-are-sold-frozen-as-they-stand-downtown-only-behind-ope.md) · 2026-10-21 · accepted · `sim` `economy` `numbers` `protocol` `replay` `plots`
 
 ## Learnings
 

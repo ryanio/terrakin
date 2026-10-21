@@ -491,6 +491,11 @@ export class Mirror {
       case "plot_claimed":
         this.plots.set(plotKey(event.px, event.py), event.ownerId);
         break;
+      // A plot changed hands with everything on it (RFC 0039). The sim sends plot_unshared and
+      // hearth_cleared first, so only the owner is left to change.
+      case "plot_sold":
+        this.plots.set(plotKey(event.px, event.py), event.buyer);
+        break;
       case "plot_released": {
         // The sim sends plot_unshared for each co-owner first; this keeps a stale list from
         // outliving the plot if one is ever missed.

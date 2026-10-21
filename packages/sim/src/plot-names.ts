@@ -18,6 +18,7 @@
 import { refuse } from "./check";
 import { plotKey } from "./keys";
 import { own } from "./own";
+import { plotListedProblem } from "./plot-market";
 import type { Command, Plot, Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { canBuildOn, isCommons, plotInBounds } from "./world";
 
@@ -110,6 +111,8 @@ export function checkNamePlot(
       "Only the plot's owner, or someone it's shared with, can name it.",
     );
   }
+  const listed = plotListedProblem(state, plot.px, plot.py);
+  if (listed) return listed;
   const { px, py } = plot;
   if (command.name === null) {
     if (plot.name === undefined) return refuse("already_set", "That plot has no name to clear.");

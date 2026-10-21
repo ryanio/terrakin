@@ -84,6 +84,9 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
   if (Object.values(state.market?.listings ?? {}).some((l) => l.seller === from)) {
     return refuse("not_eligible", "The record to merge has a lot in the market.");
   }
+  if (Object.values(state.plotMarket?.listings ?? {}).some((l) => l.seller === from)) {
+    return refuse("not_eligible", "The record to merge has a plot for sale.");
+  }
   if (
     state.bounties?.list.some((b) => isRunning(b) && (b.poster === from || b.claimant === from))
   ) {

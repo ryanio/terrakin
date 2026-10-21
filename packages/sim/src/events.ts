@@ -5,6 +5,7 @@ import { isTownsfolk, movePurse, sameHousehold } from "./economy";
 import { setFloor, standingFloor, upstairsProblem } from "./floors";
 import { plotKey, tileKey } from "./keys";
 import { own, residentById } from "./own";
+import { plotListedProblem } from "./plot-market";
 import { townEligibility } from "./town";
 import type {
   Command,
@@ -459,6 +460,8 @@ export function checkScheduleEvent(
   } else if (!commons && !canBuildOn(state.plots[plotKey(px, py)], actor)) {
     return refuse("not_your_plot", "Host on your own plot, one shared with you, or the Commons.");
   }
+  const listed = commons ? null : plotListedProblem(state, px, py);
+  if (listed) return listed;
   const mine = (state.events?.list ?? []).filter((e) => e.host === actor);
   if (mine.filter(eventOpen).length >= EVENTS.scheduledMax) {
     return refuse(

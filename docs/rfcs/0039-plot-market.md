@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-19
-- Status: draft
+- Status: accepted, building
 - Discussion: [issue #88](https://github.com/ryanio/terrakin/issues/88)
 - Builds on: [decision 0056](../knowledge/decisions/0056-the-market-holds-listings-in-escrow-in-the-sim-burns-a-listi.md) (the item market: escrow, a burned listing fee, 5% to the treasury), [decision 0018](../knowledge/decisions/0018-release-refuses-with-blocks-clears-the-hearth.md) (release refuses with blocks and clears the hearth), [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (never block someone over cost), [RFC 0038](0038-new-lands.md) (new land at the edges), [RFC 0033](0033-kindreds.md) (a Circle's hall)
 
@@ -31,7 +31,18 @@ price and the shortage [RFC 0038](0038-new-lands.md) means to relieve, spent in 
 rises in the same push as the listing and the cooling-off period, or after new lands open, and not
 before either.
 
-The rest of the open questions are still open, including whether the gift caps apply to a sale.
+## Decisions, 2026-10-21 (Ryan)
+
+- **A sale is exempt from the gift caps**, and `buy_plot` is refused between two records in the same
+  household (`sameHousehold`). It loosens a money guard, so it ships behind a test that proves the
+  household refusal runs.
+- **Downtown only in the first version.** A plot on an island can't be listed. Loosening it later is
+  one check.
+- **The listing fee is 25 coins, burned, and the cooling-off is 14 days** from the plot's claim.
+- **The cap rises to 3 in the push that turns the market on at terrakin.org**, which comes after the
+  first island opens. Until then every slice ships dark.
+- A plot listed by a record that is later merged follows the item market: `merge_resident` refuses
+  while the plot is listed.
 
 ## Motivation
 

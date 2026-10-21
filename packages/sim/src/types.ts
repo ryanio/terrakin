@@ -309,6 +309,11 @@ export interface Plot {
    * what every home looked like before roofs and reads as `flat`.
    */
   roof?: PlotRoof;
+  /**
+   * The world's day it was last bought (`buy_plot`, RFC 0039), which the cooling-off before it may
+   * be listed again reads. Absent on a plot that never changed hands.
+   */
+  boughtDay?: number;
 }
 
 /** The roof over a plot's top floor (RFC 0041): its shape, and the block it's covered in. */
@@ -562,6 +567,11 @@ export interface WorldState {
    * so worlds from before it hash as they always have.
    */
   market?: MarketState;
+  /**
+   * The plot market (RFC 0039): plots for sale. Absent until `open_plot_market`, so worlds from
+   * before it hash as they always have.
+   */
+  plotMarket?: PlotMarketState;
   /**
    * Recipes residents learned (RFC 0024). Absent until `open_recipes`, and until then everyone
    * knows every recipe, so worlds from before it hash and replay as they always have.
@@ -1134,6 +1144,22 @@ export interface BountiesState {
   list: Bounty[];
 }
 
+/** A plot for sale (RFC 0039). The plot itself is the escrow: nothing on it changes while listed. */
+export interface PlotListing {
+  px: number;
+  py: number;
+  seller: ResidentId;
+  /** The whole plot's price, in coins. */
+  price: number;
+  /** The world's day it was listed. */
+  day: number;
+}
+
+export interface PlotMarketState {
+  /** Plots for sale, by `plotKey`. */
+  listings: Record<string, PlotListing>;
+}
+
 /** Something a resident put up for sale. The things are held here, in escrow, until it ends. */
 export interface Listing {
   /** `l_1`, `l_2`, ... from the market's counter. */
@@ -1485,6 +1511,14 @@ export const COIN_REASONS = [
   "market_sale",
   /** The market's share of a sale, to the treasury. */
   "market_fee",
+  /** The fee for putting a plot up for sale (RFC 0039). Burned. */
+  "plot_listing_fee",
+  /** Paid to another resident for a plot. */
+  "plot_buy",
+  /** Paid for a plot you sold, less the market fee. */
+  "plot_sale",
+  /** The market's share of a plot sale, to the treasury. */
+  "plot_fee",
   /** Out of a purse, or the treasury, into a bounty until it pays or ends. */
   "bounty_held",
   /** Back from a bounty that was cancelled or expired, to its poster or the treasury. */
@@ -1722,6 +1756,11 @@ export type Command =
   | { type: "set_routines"; routines: Routine[] }
   // The market (RFC 0008, phase 4).
   | { type: "list_item"; item: string; count?: number; price: number }
+  /** Put a plot you own up for sale, as it stands (RFC 0039). */
+  | { type: "list_plot"; px: number; py: number; price: number }
+  | { type: "unlist_plot"; px: number; py: number }
+  /** Buy a plot for sale, as it stands. */
+  | { type: "buy_plot"; px: number; py: number }
   | { type: "unlist_item"; listing: string }
   | { type: "buy_listing"; listing: string }
   // Bounties (RFC 0008, phase 5). `title` and `text` are untrusted text the server cleaned.
@@ -1893,6 +1932,10 @@ export type Command =
       square: [number, number];
     }
   | { type: "open_market" }
+  /** Plots may be listed and bought from now on (RFC 0039). */
+  | { type: "open_plot_market" }
+  /** Staff took a plot off the market after a report. */
+  | { type: "remove_plot_listing"; px: number; py: number }
   /**
    * From now on, recipes are learned (RFC 0024): everyone here now knows every recipe, and anyone
    * who joins later starts with the base, the holiday recipes, and free picks.
@@ -2053,6 +2096,8 @@ export const SERVER_COMMANDS = [
   "set_shop_share",
   "daily_awards",
   "open_market",
+  "open_plot_market",
+  "remove_plot_listing",
   "remove_listing",
   "remove_display",
   "clear_plot_name",
@@ -2273,6 +2318,18 @@ export type WorldEvent =
   | { type: "table_spots_kept" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
+  | { type: "plot_market_opened" }
+  | { type: "plot_listed"; px: number; py: number; seller: ResidentId; price: number }
+  | { type: "plot_unlisted"; px: number; py: number; seller: ResidentId }
+  | {
+      type: "plot_sold";
+      px: number;
+      py: number;
+      seller: ResidentId;
+      buyer: ResidentId;
+      price: number;
+    }
+  | { type: "plot_listing_removed"; px: number; py: number; seller: ResidentId }
   /** `open_recipes`: recipes are learned from now on (RFC 0024). Public. */
   | { type: "recipes_opened" }
   /**
@@ -2863,6 +2920,8 @@ export const REJECTION_CODES = [
   "unknown_job",
   /** You aren't holding a job, or the one you hold isn't one to hand in. */
   "no_job",
+  /** That plot is for sale, so nothing on it changes until it sells or is taken back (RFC 0039). */
+  "plot_listed",
   /** You hold nothing of the kind the job asks for that you made yourself. */
   "nothing_to_hand_in",
   // Circles (RFC 0033).

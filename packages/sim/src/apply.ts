@@ -178,6 +178,15 @@ import {
   type PetsChecked,
   petView,
 } from "./pets";
+import {
+  checkBuyPlot,
+  checkListPlot,
+  checkOpenPlotMarket,
+  checkRemovePlotListing,
+  checkUnlistPlot,
+  plotListedProblem,
+  tileListedProblem,
+} from "./plot-market";
 import { checkClearPlotName, checkNamePlot } from "./plot-names";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
@@ -826,6 +835,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenLand(state, command));
       case "open_market":
         return town(checkOpenMarket(state));
+      case "open_plot_market":
+        return town(checkOpenPlotMarket(state));
+      case "remove_plot_listing":
+        return town(checkRemovePlotListing(state, command));
       case "open_recipes":
         return town(checkOpenRecipes(state));
       case "retire_repeat_joins":
@@ -1096,6 +1109,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (!plot || plot.ownerId !== actor) {
         return reject("not_your_plot", "You can only release a plot you own.");
       }
+      const releaseListed = plotListedProblem(state, px, py);
+      if (releaseListed) return { ok: false, rejection: releaseListed };
       // Releasing never demolishes: clear the blocks first. That keeps release a single,
       // honest change instead of a silent teardown (see decision 0018). Paths and flooring too
       // (RFC 0016), so nobody inherits a stranger's.
@@ -1175,6 +1190,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           `Your hearth has to be on your own plot.${buildHint(state, me)}`,
         );
       }
+      const hearthListed = tileListedProblem(state, x, y);
+      if (hearthListed) return { ok: false, rejection: hearthListed };
       // Any block, stairs too (RFC 0028).
       if (state.blocks[tileKey(x, y)] !== undefined) {
         return reject("tile_occupied", "A block is there.");
@@ -1239,6 +1256,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           `You can only build on your own plot.${buildHint(state, me)}`,
         );
       }
+      const buildListed = tileListedProblem(state, x, y);
+      if (buildListed) return { ok: false, rejection: buildListed };
       // The floor the tile is on (RFC 0028): absent is the ground floor.
       const floor = floorOf(plot, command.floor);
       if (typeof floor !== "number") return { ok: false, rejection: floor };
@@ -1363,6 +1382,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "build_starter_home": {
       const plot = workingPlot(state, me, true);
       if (!plot) return reject("no_plot", `You need a plot first.${settleHint(state, me)}`);
+      const starterListed = plotListedProblem(state, plot.px, plot.py);
+      if (starterListed) return { ok: false, rejection: starterListed };
       const onPlot = (t: Tile) => {
         const p = plotOf(config, t.x, t.y);
         return inBounds(config, t.x, t.y) && p.px === plot.px && p.py === plot.py;
@@ -1436,6 +1457,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           : reject("no_plot", `You need a plot of your own first.${settleHint(state, me)}`);
       }
       const { px, py } = plot;
+      const shareListed = plotListedProblem(state, px, py);
+      if (shareListed) return { ok: false, rejection: shareListed };
       const target = command.with;
       const coOwners = plot.coOwners ?? [];
       if (command.type === "unshare_plot") {
@@ -1557,6 +1580,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
 
     case "list_item":
       return town(checkListItem(state, actor, command));
+    case "list_plot":
+      return town(checkListPlot(state, actor, command));
+    case "unlist_plot":
+      return town(checkUnlistPlot(state, actor, command));
+    case "buy_plot":
+      return town(checkBuyPlot(state, actor, command));
     case "unlist_item":
       return town(checkUnlistItem(state, actor, command));
     case "buy_listing":

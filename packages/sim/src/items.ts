@@ -43,6 +43,7 @@ import { tileKey } from "./keys";
 import { craftEarns, earned, harvestEarns } from "./levels";
 import { isMaterialKind, MATERIAL_KINDS, MATERIAL_RECIPES, type MaterialKind } from "./materials";
 import { own, residentById } from "./own";
+import { tileListedProblem } from "./plot-market";
 import type {
   Command,
   GiftRecord,
@@ -428,6 +429,8 @@ export function checkPlant(
   if (!canBuildOn(plotAtTile(state, x, y), actor)) {
     return refuse("not_your_plot", "You can only plant on your own plot, or one shared with you.");
   }
+  const plantListed = tileListedProblem(state, x, y);
+  if (plantListed) return plantListed;
   const key = tileKey(x, y);
   if (state.blocks[key] !== "planter") {
     return refuse("no_planter", "Plant in a planter. Place one with place and block planter.");
@@ -470,6 +473,8 @@ export function checkHarvest(
       "You can only harvest on your own plot, or one shared with you.",
     );
   }
+  const harvestListed = tileListedProblem(state, x, y);
+  if (harvestListed) return harvestListed;
   const key = tileKey(x, y);
   const planting = items.crops[key];
   if (!planting) return refuse("no_crop", "Nothing is growing there.");

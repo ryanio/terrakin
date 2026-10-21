@@ -2394,6 +2394,39 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * waits for them under `you.takenDown` in `GET /v1/market`.
    */
   z.object({ type: z.literal("listing_removed"), listing: z.string(), seller: z.string() }),
+  /** Plots can be put up for sale from now on (RFC 0039). */
+  z.object({ type: z.literal("plot_market_opened") }),
+  /** A plot went up for sale, for the whole plot as it stands. Nothing on it changes until it sells. */
+  z.object({
+    type: z.literal("plot_listed"),
+    px: z.number().int(),
+    py: z.number().int(),
+    seller: z.string(),
+    price: z.number().int(),
+  }),
+  /** Its owner took a plot back off the market. */
+  z.object({
+    type: z.literal("plot_unlisted"),
+    px: z.number().int(),
+    py: z.number().int(),
+    seller: z.string(),
+  }),
+  /** A plot changed hands, with everything built on it. Its old owner's hearth there was cleared. */
+  z.object({
+    type: z.literal("plot_sold"),
+    px: z.number().int(),
+    py: z.number().int(),
+    seller: z.string(),
+    buyer: z.string(),
+    price: z.number().int(),
+  }),
+  /** Staff took a plot off the market after a report. It is its seller's again, as it stood. */
+  z.object({
+    type: z.literal("plot_listing_removed"),
+    px: z.number().int(),
+    py: z.number().int(),
+    seller: z.string(),
+  }),
   /** A listing sold. Who bought it isn't said. */
   z.object({
     type: z.literal("listing_sold"),

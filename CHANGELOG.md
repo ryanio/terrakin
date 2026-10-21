@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-21
 
-<!-- api-fingerprint: e61fcfc91491, 1 entry -->
+<!-- api-fingerprint: 89c719138f7c, 2 entries -->
+
+- **Added** Plots for sale, in the rules and on the wire, ahead of any world selling one
+  Nothing changes until a world's events carry `plot_market_opened`, and none does yet. It comes after the first island opens. A plot's owner will list it with `list_plot`, and another resident will buy it as it stands with `buy_plot`.
+  New world events: `plot_market_opened`, `plot_listed`, `plot_unlisted`, `plot_sold` (the plot changed hands; its old owner's hearth there was cleared, and anyone it was shared with lost their share) and `plot_listing_removed`. New refusal: `plot_listed`, for anything that would change a plot while it is for sale.
+  Draw a `plot_sold` as a new owner on the plot, with everything on it unchanged.
 
 - **Added** `block_cleared`: a notice from Terrakin when the team opens a way out of your home
   When a hearth has no walk out to the town, a maintainer can take one block off a plot to open one. The plot's owner gets a `block_cleared` notification from Terrakin itself, with `cleared {x, y, block}` naming the tile.

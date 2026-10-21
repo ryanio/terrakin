@@ -5,6 +5,7 @@ import { dayName } from "./holiday";
 import { plotKey } from "./keys";
 import { showTitle } from "./levels";
 import { own, residentById } from "./own";
+import { plotListedProblem } from "./plot-market";
 import { weekStart } from "./season";
 import { townEligibility } from "./town";
 import type {
@@ -742,6 +743,8 @@ export function checkSetCircleHall(
   if (!canBuildOn(own(state.plots, plotKey(px, py)), actor)) {
     return refuse("not_your_plot", "A hall is a plot you own, or one shared with you.");
   }
+  const listed = plotListedProblem(state, px, py);
+  if (listed) return listed;
   if (k.hall?.px === px && k.hall.py === py)
     return refuse("already_set", "That's its hall already.");
   const other = hallAt(state, px, py);

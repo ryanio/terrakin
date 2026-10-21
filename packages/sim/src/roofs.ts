@@ -13,6 +13,7 @@ import {
   inventorySize,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
+import { plotListedProblem } from "./plot-market";
 import {
   type BlockKind,
   BUILDING_BLOCKS,
@@ -317,6 +318,8 @@ export function checkSetRoof(
   if (!plot || !canBuildOn(plot, actor)) {
     return refuse("not_your_plot", "You can roof only a plot you own or share.");
   }
+  const listed = plotListedProblem(state, plot.px, plot.py);
+  if (listed) return listed;
   if (!isRoofStyle(style)) {
     return refuse("unknown_item", `A roof's style is one of ${ROOF_STYLES.join(", ")}.`);
   }

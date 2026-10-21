@@ -14,6 +14,7 @@ import {
 } from "./items";
 import { parseKey, plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
+import { plotListedProblem, tileListedProblem } from "./plot-market";
 import type {
   BlockKind,
   Command,
@@ -261,6 +262,8 @@ export function checkDisplay(
       "You can only display on your own plot, or one shared with you.",
     );
   }
+  const listed = tileListedProblem(state, x, y);
+  if (listed) return listed;
   const key = tileKey(x, y);
   if (!isDisplayBlock(state.blocks[key])) {
     return refuse(
@@ -493,6 +496,8 @@ export function checkSetGallery(
       "Only the plot's owner, or someone it's shared with, can do that.",
     );
   }
+  const galleryListed = plotListedProblem(state, px, py);
+  if (galleryListed) return galleryListed;
   if ((plot.gallery === true) === open) {
     return refuse("already_set", open ? "It's already a gallery." : "It isn't a gallery.");
   }

@@ -30908,6 +30908,10 @@
           "market_buy",
           "market_sale",
           "market_fee",
+          "plot_listing_fee",
+          "plot_buy",
+          "plot_sale",
+          "plot_fee",
           "bounty_held",
           "bounty_returned",
           "bounty",
@@ -31517,6 +31521,7 @@
           "job_limit",
           "unknown_job",
           "no_job",
+          "plot_listed",
           "nothing_to_hand_in",
           "circles_closed",
           "unknown_circle",
@@ -39690,6 +39695,156 @@
             "required": [
               "type",
               "listing",
+              "seller"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_market_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_listed"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "seller": {
+                "type": "string"
+              },
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "seller",
+              "price"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_unlisted"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "seller": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "seller"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_sold"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "seller": {
+                "type": "string"
+              },
+              "buyer": {
+                "type": "string"
+              },
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "seller",
+              "buyer",
+              "price"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "plot_listing_removed"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "seller": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
               "seller"
             ]
           },

@@ -3,6 +3,7 @@ import { displayRemoveProblem } from "./display";
 import { removeProblem } from "./floors";
 import { blockRemoveProblem, cropAt, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
+import { plotListedProblem } from "./plot-market";
 import type { Command, Rejection, WorldEvent, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { inBounds, plotAtTile } from "./world";
@@ -29,6 +30,9 @@ export function checkClearBlock(
   }
   const plot = plotAtTile(state, x, y);
   if (!plot) return refuse("no_plot", "That tile isn't on a claimed plot.");
+  // Staff take a plot off the market first: a buyer pays for the plot as it stands.
+  const listed = plotListedProblem(state, plot.px, plot.py);
+  if (listed) return listed;
   const key = tileKey(x, y);
   const taken = state.blocks[key];
   if (taken === undefined) return refuse("no_block", "Nothing to remove there.");

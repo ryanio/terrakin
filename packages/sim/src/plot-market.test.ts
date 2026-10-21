@@ -1,0 +1,244 @@
+import { describe, expect, it } from "vitest";
+import { apply } from "./apply";
+import {
+  PLOT_MARKET_CONFIG,
+  PLOT_MARKET_DAY,
+  PLOT_MARKET_HASH,
+  PLOT_MARKET_LOG,
+  PLOT_MARKET_SETUP,
+} from "./fixtures/plot-market-log";
+import { hashWorld } from "./hash";
+import { PLOTS, plotListing } from "./plot-market";
+import { replay } from "./replay";
+import { expectSupplyHolds } from "./test-support";
+import { type Command, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
+import { createWorld } from "./world";
+
+/**
+ * The plot market (RFC 0039, decision 0344). It moves the largest sums in the game between
+ * residents and loosens one money guard (a sale skips the gift caps), so what these protect is:
+ * that a listed plot is frozen against every rule that changes a plot, that the household refusal
+ * runs, that coins are conserved through a sale, and that a refusal leaves the world as it was.
+ */
+
+/** The fixture's world on the first day Ada may list, nothing listed yet. */
+function world(): WorldState {
+  return replay(PLOT_MARKET_CONFIG, PLOT_MARKET_SETUP);
+}
+
+function ok(state: WorldState, actor: string, command: Command) {
+  const result = apply(state, { actor, command });
+  if (!result.ok)
+    throw new Error(`${actor} ${JSON.stringify(command)}: ${result.rejection.message}`);
+  expectSupplyHolds(state);
+  return result.events;
+}
+
+function refused(state: WorldState, actor: string, command: Command, code: RejectionCode) {
+  const before = hashWorld(state);
+  const result = apply(state, { actor, command });
+  expect(
+    result.ok ? "accepted" : result.rejection.code,
+    `${actor} ${JSON.stringify(command)}`,
+  ).toBe(code);
+  expect(hashWorld(state)).toBe(before);
+}
+
+const list = (price = 300): Command => ({ type: "list_plot", px: 0, py: 0, price });
+const buy: Command = { type: "buy_plot", px: 0, py: 0 };
+
+describe("opening the plot market", () => {
+  it("waits for the item market and for a second land, so free land exists whenever prices do", () => {
+    const state = createWorld(PLOT_MARKET_CONFIG);
+    for (const command of [
+      { type: "new_day", day: PLOT_MARKET_DAY },
+      { type: "open_economy" },
+      { type: "open_items" },
+      { type: "open_shop" },
+    ] as Command[]) {
+      ok(state, TOWN_ACTOR, command);
+    }
+    refused(state, TOWN_ACTOR, { type: "open_plot_market" }, "not_due");
+    ok(state, TOWN_ACTOR, { type: "open_market" });
+    refused(state, TOWN_ACTOR, { type: "open_plot_market" }, "not_due");
+  });
+
+  it("refuses every plot command before it opens", () => {
+    const state = replay(PLOT_MARKET_CONFIG, PLOT_MARKET_SETUP.slice(0, 6));
+    refused(state, TOWN_ACTOR, { type: "remove_plot_listing", px: 0, py: 0 }, "market_closed");
+  });
+});
+
+describe("listing a plot", () => {
+  it("refuses a plot that isn't yours, one claimed too lately, one on the island, and a bad price", () => {
+    const state = world();
+    refused(state, "bob", list(), "not_your_plot");
+    // Eve shares the plot, but only its owner sells it.
+    refused(state, "eve", list(), "not_your_plot");
+    refused(state, "ada", list(0), "invalid_amount");
+    refused(state, "ada", list(1.5), "invalid_amount");
+    refused(state, "dee", { type: "list_plot", px: 4, py: 0, price: 300 }, "not_eligible");
+    const early = replay(PLOT_MARKET_CONFIG, [
+      ...PLOT_MARKET_SETUP.slice(0, -1),
+      {
+        actor: TOWN_ACTOR,
+        command: { type: "new_day", day: PLOT_MARKET_DAY + PLOTS.settleDays - 1 },
+      },
+    ]);
+    refused(early, "ada", list(), "not_yet");
+  });
+
+  it("burns the listing fee, and refuses a second listing or one its seller can't pay for", () => {
+    const state = world();
+    const burned = state.economy?.burned ?? 0;
+    // Ada's first act of the day also pays her allowance, so the fee is read from its own line.
+    const events = ok(state, "ada", list());
+    expect(state.economy?.burned).toBe(burned + PLOTS.listingFee);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "coins",
+        residentId: "ada",
+        amount: -PLOTS.listingFee,
+        reason: "plot_listing_fee",
+      }),
+    );
+    expect(plotListing(state, 0, 0)).toMatchObject({ seller: "ada", price: 300 });
+    refused(state, "ada", list(400), "plot_listed");
+    // Taking it back keeps the fee burned.
+    ok(state, "ada", { type: "unlist_plot", px: 0, py: 0 });
+    expect(state.economy?.burned).toBe(burned + PLOTS.listingFee);
+    const broke = world();
+    const econ = broke.economy;
+    if (!econ) throw new Error("no economy");
+    econ.burned += econ.coins.ada ?? 0;
+    delete econ.coins.ada;
+    refused(broke, "ada", list(), "not_enough_coins");
+  });
+});
+
+describe("a listed plot is frozen", () => {
+  // Every rule that changes a plot, tried on a listed one by its owner, a co-owner, and staff. A
+  // rule that forgets to ask compiles and passes everything else, so a new one belongs here.
+  // `set_circle_hall` asks too and is the one left out, because only a formed circle has a hall
+  // and forming takes three households.
+  const frozen: [actor: string, command: Command][] = [
+    ["ada", { type: "place", x: 2, y: 2, block: "wood" }],
+    ["eve", { type: "name_plot", px: 0, py: 0, name: "Eve's Corner" }],
+    ["ada", { type: "remove", x: 1, y: 1 }],
+    ["ada", { type: "lay", x: 3, y: 6, ground: "dirt" }],
+    ["ada", { type: "lift", x: 3, y: 6 }],
+    ["ada", { type: "build", px: 0, py: 0, remove: [{ x: 1, y: 1 }] }],
+    ["ada", { type: "build_starter_home" }],
+    ["ada", { type: "add_floor", px: 0, py: 0 }],
+    ["ada", { type: "set_roof", px: 0, py: 0, style: "gable", material: "wood" }],
+    ["ada", { type: "set_hearth", x: 2, y: 3 }],
+    ["ada", { type: "share_plot", with: "bob" }],
+    ["ada", { type: "unshare_plot", with: "eve" }],
+    ["ada", { type: "release" }],
+    ["ada", { type: "plant", x: 2, y: 2, seed: "herb" }],
+    ["ada", { type: "harvest", x: 2, y: 2 }],
+    ["ada", { type: "set_gallery", px: 0, py: 0, open: true }],
+    ["ada", { type: "name_plot", px: 0, py: 0, name: "Ada's Corner" }],
+    ["ada", { type: "display", item: "i_1", x: 2, y: 2 }],
+    [
+      "ada",
+      {
+        type: "schedule_event",
+        kind: "gathering",
+        title: "Tea",
+        px: 0,
+        py: 0,
+        startsAt: (PLOT_MARKET_DAY + 15) * 86_400_000 + 18 * 3_600_000,
+        minutes: 60,
+      },
+    ],
+    [TOWN_ACTOR, { type: "clear_block", x: 1, y: 1 }],
+  ] as [string, Command][];
+
+  it.each(frozen)("%s %j is refused with plot_listed", (actor, command) => {
+    const state = world();
+    ok(state, "ada", list());
+    refused(state, actor, command, "plot_listed");
+  });
+
+  it("thaws when its owner takes it back", () => {
+    const state = world();
+    ok(state, "ada", list());
+    ok(state, "ada", { type: "unlist_plot", px: 0, py: 0 });
+    ok(state, "ada", { type: "place", x: 2, y: 2, block: "wood" });
+  });
+
+  it("thaws when staff take it off the market, and the fee stays burned", () => {
+    const state = world();
+    ok(state, "ada", list());
+    const burned = state.economy?.burned;
+    expect(ok(state, TOWN_ACTOR, { type: "remove_plot_listing", px: 0, py: 0 })).toEqual([
+      { type: "plot_listing_removed", px: 0, py: 0, seller: "ada" },
+    ]);
+    expect(state.economy?.burned).toBe(burned);
+    ok(state, "ada", { type: "place", x: 2, y: 2, block: "wood" });
+  });
+});
+
+describe("buying a plot", () => {
+  it("refuses a sale inside one household, which is the guard the gift caps' exemption leans on", () => {
+    const state = world();
+    ok(state, "ada", list());
+    // Cy is Ada's AI, with the coins to pay.
+    refused(state, "cy", buy, "not_eligible");
+  });
+
+  it("refuses your own plot, a buyer at the plot cap, one who can't pay, and a plot not for sale", () => {
+    const state = world();
+    refused(state, "bob", buy, "unknown_listing");
+    ok(state, "ada", list());
+    refused(state, "ada", buy, "own_listing");
+    // Dee owns her island plot, and a resident owns one here.
+    const econ = state.economy;
+    if (!econ) throw new Error("no economy");
+    econ.coins.dee = (econ.coins.dee ?? 0) + 1000;
+    econ.minted += 1000;
+    refused(state, "dee", buy, "plot_limit");
+    refused(state, "eve", buy, "not_enough_coins");
+  });
+
+  it("moves the plot as it stands and the coins less the fee, and clears what was a person's", () => {
+    const state = world();
+    ok(state, "ada", list());
+    const blocks = JSON.stringify(state.blocks);
+    const econ = state.economy;
+    if (!econ) throw new Error("no economy");
+    const before = { ada: econ.coins.ada ?? 0, bob: econ.coins.bob ?? 0, treasury: econ.treasury };
+    const events = ok(state, "bob", buy);
+    expect(state.plots["0,0"]?.ownerId).toBe("bob");
+    expect(state.plots["0,0"]?.coOwners).toBeUndefined();
+    expect(JSON.stringify(state.blocks)).toBe(blocks);
+    expect(state.residents.ada?.hearth).toBeNull();
+    expect(econ.coins.bob).toBe(before.bob - 300);
+    expect(econ.coins.ada).toBe(before.ada + 285);
+    expect(econ.treasury).toBe(before.treasury + 15);
+    expect(plotListing(state, 0, 0)).toBeUndefined();
+    expect(events).toContainEqual({ type: "plot_unshared", px: 0, py: 0, residentId: "eve" });
+    expect(events).toContainEqual({ type: "hearth_cleared", residentId: "ada" });
+    expect(events.at(-1)).toEqual({
+      type: "plot_sold",
+      px: 0,
+      py: 0,
+      seller: "ada",
+      buyer: "bob",
+      price: 300,
+    });
+    // A bought plot waits out the cooling-off like a claimed one, so it can't be flipped at once.
+    refused(state, "bob", list(), "not_yet");
+  });
+
+  it("replays its fixture to the hash pinned when it landed", () => {
+    const state = createWorld(PLOT_MARKET_CONFIG);
+    for (const input of PLOT_MARKET_LOG) {
+      const result = apply(state, input);
+      expect(result.ok, `${input.actor} ${input.command.type}`).toBe(true);
+      expectSupplyHolds(state);
+    }
+    expect(hashWorld(state)).toBe(PLOT_MARKET_HASH);
+  });
+});

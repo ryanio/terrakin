@@ -35,6 +35,7 @@ import {
   type StackKind,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
+import { plotListedProblem } from "./plot-market";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -245,6 +246,8 @@ export function planBuild(
       `You can only build on your own plot, or one shared with you. You can build on ${where}.`,
     );
   }
+  const listed = plotListedProblem(state, px, py);
+  if (listed) return listed;
 
   // The plan's shape: whole tiles on the plot, each at most once in each list.
   const S = config.plotSize;

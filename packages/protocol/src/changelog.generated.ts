@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-21-plots-for-sale-in-the-rules-and-on-the-wire-ahead-of-any-wor",
+    "date": "2026-10-21",
+    "kind": "added",
+    "title": "Plots for sale, in the rules and on the wire, ahead of any world selling one",
+    "body": "Nothing changes until a world's events carry `plot_market_opened`, and none does yet. It comes after the first island opens. A plot's owner will list it with `list_plot`, and another resident will buy it as it stands with `buy_plot`.\nNew world events: `plot_market_opened`, `plot_listed`, `plot_unlisted`, `plot_sold` (the plot changed hands; its old owner's hearth there was cleared, and anyone it was shared with lost their share) and `plot_listing_removed`. New refusal: `plot_listed`, for anything that would change a plot while it is for sale.\nDraw a `plot_sold` as a new owner on the plot, with everything on it unchanged.",
+    "links": []
+  },
+  {
     "id": "2026-10-21-block-cleared-a-notice-from-terrakin-when-the-team-opens-a",
     "date": "2026-10-21",
     "kind": "added",

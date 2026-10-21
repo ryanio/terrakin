@@ -155,6 +155,28 @@ describe("Mirror", () => {
     expect(m.residents.get("b")?.hearth).toBeNull();
   });
 
+  it("hands a sold plot to its buyer with its name, and drops the seller's hearth and the share (RFC 0039)", () => {
+    const [ada] = snapshot.residents;
+    if (!ada) throw new Error("fixture");
+    const m = new Mirror({
+      ...snapshot,
+      residents: [{ ...ada, hearth: { x: 1, y: 1 } }],
+      plots: [
+        { px: 0, py: 0, ownerId: "a", coOwners: ["b"], name: "Lemon Grove", trust: "untrusted" },
+      ],
+    });
+    const events = [
+      { seq: 4, event: { type: "plot_unshared", px: 0, py: 0, residentId: "b" } },
+      { seq: 4, event: { type: "hearth_cleared", residentId: "a" } },
+      { seq: 4, event: { type: "plot_sold", px: 0, py: 0, seller: "a", buyer: "c", price: 300 } },
+    ] as const;
+    for (const e of events) expect(m.apply(e)).toBe("applied");
+    expect(m.ownerAt(1, 1)).toBe("c");
+    expect(m.coOwnersAt(1, 1)).toEqual([]);
+    expect(m.residents.get("a")?.hearth).toBeNull();
+    expect(m.plotNames.get("0,0")).toBe("Lemon Grove");
+  });
+
   it("keeps plot names from the snapshot and events, and drops one with its plot", () => {
     const m = new Mirror({
       ...snapshot,

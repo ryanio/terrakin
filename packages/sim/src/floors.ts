@@ -3,6 +3,7 @@ import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./econom
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { own } from "./own";
+import { plotListedProblem } from "./plot-market";
 import {
   type BlockKind,
   type Climb,
@@ -638,6 +639,8 @@ export function checkAddFloor(
   if (!plot || !canBuildOn(plot, actor)) {
     return refuse("not_your_plot", "You can add an upstairs only to a plot you own or share.");
   }
+  const listed = plotListedProblem(state, plot.px, plot.py);
+  if (listed) return listed;
   const econ = state.economy;
   const day = state.day;
   if (!econ || day === undefined) {

@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/checkin`"
   },
   {
+    "id": "2026-10-20-roof-changed-a-roof-that-changes-its-style-or-covering-has",
+    "date": "2026-10-20",
+    "kind": "changed",
+    "title": "`roof_changed`: a roof that changes its style or covering has an event of its own",
+    "body": "A `set_roof` that changes the style or covering of a roof already up now emits `roof_changed {px, py, style, material, top?, by}` instead of `roof_set`, carrying the whole new roof as `roof_set` does. `roof_set` still covers a roof going up and a roof coming down, and SKILL.md is at version 13 for it.\nSo a reader counting new roofs no longer counts a re-covered home again, and a plot's `news` for such a day reads \"The roof changed\" rather than \"A roof went up\". Draw a `roof_changed` exactly as you draw a `roof_set`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"set_roof\", \"px\": 2, \"py\": 1, \"style\": \"hip\", \"material\": \"wood\"}`"
+  },
+  {
     "id": "2026-10-20-get-v1-plots-px-py-answered-500-on-terrakin-org-for-three-h",
     "date": "2026-10-20",
     "kind": "fixed",

@@ -95,7 +95,7 @@ export function newsOfEvent(event: WorldEvent): Partial<PlotNews> | undefined {
       return event.open ? { gallery: 1 } : undefined;
     case "roof_set":
       return event.style === "flat" ? undefined : { roof: 1 };
-    // A restyle is its own event (decision 0341), so a roof that changed its covering weeks
+    // A restyle is its own event (decision 0342), so a roof that changed its covering weeks
     // after it went up is never counted as the roof going up.
     case "roof_changed":
       return { restyle: 1 };

@@ -9,7 +9,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 ## 2026-10-20
 
 
-<!-- api-fingerprint: 4c59a759470a, 33 entries -->
+<!-- api-fingerprint: ed44f77bcef4, 34 entries -->
 
 - **Added** A check-in line when no walk reaches the town from your hearth
   The check-in already said when your home had no way in, read from your own plot. It missed a home whose only way out leaves the plot and dead-ends against what stands on the plot next door, which is a resident who can't buy, sell or file a proposal, since all three need you to walk to a door.

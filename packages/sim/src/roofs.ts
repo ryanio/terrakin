@@ -360,7 +360,7 @@ export function checkSetRoof(
   const ridgeOnly = !!was && !!next && was.style === next.style && was.material === next.material;
   // A roof that was already up and changes its shape or its covering says that instead, for the
   // same reason: it did not go up today. `roof_set` is left for a roof going up and a roof
-  // coming down, which are the two deeds its readers count (decision 0341).
+  // coming down, which are the two deeds its readers count (decision 0342).
   const restyle = !!was && !!next && !ridgeOnly;
   return () => {
     if (next) plot.roof = next;

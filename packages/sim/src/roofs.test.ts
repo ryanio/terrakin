@@ -156,7 +156,7 @@ describe("what a roof is", () => {
     expect(
       ok(state, "ada", roof("gable", "wood")).find((e) => e.type === "roof_set"),
     ).toMatchObject({ style: "gable", material: "wood" });
-    // Another style in the same covering is not a second roof going up (decision 0341): the
+    // Another style in the same covering is not a second roof going up (decision 0342): the
     // event names the deed, so a reader counting new roofs counts this home once.
     expect(ok(state, "ada", roof("hip", "wood"))).toEqual([
       { type: "roof_changed", px: 0, py: 0, style: "hip", material: "wood", by: "ada" },

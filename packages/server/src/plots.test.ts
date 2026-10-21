@@ -589,7 +589,7 @@ describe("plots to visit over HTTP", () => {
     await t.act(ivy.token, { type: "set_roof", px: 0, py: 0, style: "gable", material: "leaf" });
     expect(await news()).toBeUndefined();
 
-    // A restyle on a later day is its own news (decision 0341): the roof changed, not a roof
+    // A restyle on a later day is its own news (decision 0342): the roof changed, not a roof
     // going up again, and it counts as a change to the plot like the roof under it.
     t.advance(DAY_MS);
     const beforeRestyle = ((await t.call("GET", "/v1/plots/0/0")).body.plot as Json).changedAt;

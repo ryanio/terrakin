@@ -358,6 +358,10 @@ export function checkSetRoof(
   // so, rather than reading as a roof going up: the roof has been there since it went up, and a
   // reader that counts new roofs (the Visit cards' news) would count it again every time.
   const ridgeOnly = !!was && !!next && was.style === next.style && was.material === next.material;
+  // A roof that was already up and changes its shape or its covering says that instead, for the
+  // same reason: it did not go up today. `roof_set` is left for a roof going up and a roof
+  // coming down, which are the two deeds its readers count (decision 0341).
+  const restyle = !!was && !!next && !ridgeOnly;
   return () => {
     if (next) plot.roof = next;
     else delete plot.roof;
@@ -370,15 +374,25 @@ export function checkSetRoof(
             ...(next.top ? { top: next.top } : {}),
             by: actor,
           }
-        : {
-            type: "roof_set" as const,
-            px,
-            py,
-            style,
-            ...(next ? { material: next.material } : {}),
-            ...(next?.top ? { top: next.top } : {}),
-            by: actor,
-          },
+        : restyle && next
+          ? {
+              type: "roof_changed" as const,
+              px,
+              py,
+              style: next.style,
+              material: next.material,
+              ...(next.top ? { top: next.top } : {}),
+              by: actor,
+            }
+          : {
+              type: "roof_set" as const,
+              px,
+              py,
+              style,
+              ...(next ? { material: next.material } : {}),
+              ...(next?.top ? { top: next.top } : {}),
+              by: actor,
+            },
       ...moveRoofCost(state, actor, change),
     ];
   };

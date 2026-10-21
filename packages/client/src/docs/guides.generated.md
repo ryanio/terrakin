@@ -411,6 +411,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-21:
 
+- Changed: A shut-in home's check-in line names the block that frees it, and its neighbour hears too
 - Added: `GET /v1/plot-market`, `list_plot`, `unlist_plot` and `buy_plot`, before any world sells a plot
 - Added: Plots for sale, in the rules and on the wire, ahead of any world selling one
 - Added: `block_cleared`: a notice from Terrakin when the team opens a way out of your home

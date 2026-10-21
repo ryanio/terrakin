@@ -1,10 +1,14 @@
 import {
   chebyshev,
+  clearCost,
   type Ground,
   nearestCounter,
   plotAtTile,
+  plotOf,
+  plotsOwnedBy,
   type WorldState,
   walkTree,
+  walkWords,
   worldGround,
 } from "@terrakin/sim";
 
@@ -51,45 +55,89 @@ export function walksOutWithout(state: WorldState, from: Tile, cleared?: Tile): 
   return walkOut(state, g, from, nearestCounter(state, from)).out;
 }
 
-/** Every shut home in the world, in the order residents joined. Empty before the shop opens. */
-export function shutHomes(state: WorldState): ShutHome[] {
-  if (!state.shop) return [];
+/**
+ * One resident's home, if the town can't be walked to from it; null when it can, or they have no
+ * hearth. A walk that arrives is found by `walkWords`, which looks near first, so an open home
+ * costs a short search; only a shut one walks every tile it can reach to find what would free it.
+ */
+export function shutHomeOf(state: WorldState, residentId: string): ShutHome | null {
+  if (!state.shop) return null;
+  const home = state.residents[residentId]?.hearth;
+  if (!home) return null;
+  const door = nearestCounter(state, home);
+  const { reach } = state.config;
+  if (chebyshev(home, door) <= reach || walkWords(state, home, door, reach) !== "") return null;
   const ground = worldGround(state);
-  const shut: ShutHome[] = [];
-  for (const resident of Object.values(state.residents)) {
-    const home = resident.hearth;
-    if (!home) continue;
-    const door = nearestCounter(state, home);
-    const { out, nodes } = walkOut(state, ground, home, door);
-    if (out) continue;
-    // A block that opens a way must touch a tile the walk already reaches, so only those are tried.
-    const reached = new Set(nodes.map((n) => `${n.x},${n.y}`));
-    const tried = new Set<string>();
-    const frees: ShutHome["frees"] = [];
-    for (const n of nodes) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const x = n.x + dx;
-          const y = n.y + dy;
-          const key = `${x},${y}`;
-          if (reached.has(key) || tried.has(key)) continue;
-          tried.add(key);
-          const block = state.blocks[key];
-          const plot = plotAtTile(state, x, y);
-          if (block === undefined || !plot) continue;
-          if (walkOut(state, without(ground, x, y), home, door).out) {
-            frees.push({ x, y, block, ownerId: plot.ownerId });
-          }
+  const { out, nodes } = walkOut(state, ground, home, door);
+  if (out) return null;
+  // A block that opens a way must touch a tile the walk already reaches, so only those are tried.
+  const reached = new Set(nodes.map((n) => `${n.x},${n.y}`));
+  const tried = new Set<string>();
+  const frees: ShutHome["frees"] = [];
+  for (const n of nodes) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = n.x + dx;
+        const y = n.y + dy;
+        const key = `${x},${y}`;
+        if (reached.has(key) || tried.has(key)) continue;
+        tried.add(key);
+        const block = state.blocks[key];
+        const plot = plotAtTile(state, x, y);
+        if (block === undefined || !plot) continue;
+        if (walkOut(state, without(ground, x, y), home, door).out) {
+          frees.push({ x, y, block, ownerId: plot.ownerId });
         }
       }
     }
-    frees.sort((a, b) => a.y - b.y || a.x - b.x);
-    shut.push({
-      residentId: resident.id,
-      hearth: { x: home.x, y: home.y },
-      reached: nodes.length,
-      frees,
-    });
   }
-  return shut;
+  frees.sort((a, b) => a.y - b.y || a.x - b.x);
+  return { residentId, hearth: { x: home.x, y: home.y }, reached: nodes.length, frees };
+}
+
+/** Every shut home in the world, in the order residents joined. Empty before the shop opens. */
+export function shutHomes(state: WorldState): ShutHome[] {
+  return Object.keys(state.residents).flatMap((id) => shutHomeOf(state, id) ?? []);
+}
+
+/** The block among `frees` that costs its owner least (`clearCost`), north to south on a tie. */
+export function cheapestFree(frees: readonly ShutHome["frees"][number][]) {
+  return frees.reduce<ShutHome["frees"][number] | undefined>(
+    (best, f) => (!best || clearCost(f.block) < clearCost(best.block) ? f : best),
+    undefined,
+  );
+}
+
+/**
+ * Whether `ownerId` hears about a home whose hearth is at `hearth` in their check-in: when it's on
+ * one of their plots or a plot beside one, the reach `homesShutBy` walks.
+ */
+export function toldNear(state: WorldState, ownerId: string, hearth: Tile): boolean {
+  const at = plotOf(state.config, hearth.x, hearth.y);
+  return plotsOwnedBy(state, ownerId).some(
+    (m) => Math.abs(m.px - at.px) <= 1 && Math.abs(m.py - at.py) <= 1,
+  );
+}
+
+/**
+ * Other residents' homes that a block on `ownerId`'s plots shuts in, and that they can't free
+ * themselves (no block on their own plot opens a way), each with the cheapest of `ownerId`'s
+ * blocks that would. A block on a plot can only shut in a home its walk reaches, so only hearths
+ * on the owner's plots and the plots around them are walked.
+ */
+export function homesShutBy(
+  state: WorldState,
+  ownerId: string,
+): { home: ShutHome; block: ShutHome["frees"][number] }[] {
+  if (!state.shop || plotsOwnedBy(state, ownerId).length === 0) return [];
+  const out: { home: ShutHome; block: ShutHome["frees"][number] }[] = [];
+  for (const resident of Object.values(state.residents)) {
+    if (resident.id === ownerId || !resident.hearth) continue;
+    if (!toldNear(state, ownerId, resident.hearth)) continue;
+    const home = shutHomeOf(state, resident.id);
+    if (!home || home.frees.some((f) => f.ownerId === resident.id)) continue;
+    const block = cheapestFree(home.frees.filter((f) => f.ownerId === ownerId));
+    if (block) out.push({ home, block });
+  }
+  return out;
 }

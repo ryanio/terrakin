@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-21-a-shut-in-home-s-check-in-line-names-the-block-that-frees-it</id>
+    <title>Changed: A shut-in home's check-in line names the block that frees it, and its neighbour hears too</title>
+    <updated>2026-10-21T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-21"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">When no walk reaches the town from your hearth, `todo` now names the block whose removal opens one: your own, cheapest to you first, with the `remove` call, or else the block on a neighbour's plot and whose it is.
+New `todo` line for that neighbour: &quot;Your &lt;block&gt; at x, y shuts &lt;name&gt;'s home in&quot;, with the call that takes it down. Take it down and tell your owner; what it cost comes back to your things.
+Try: `GET /v1/checkin`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-21-get-v1-plot-market-list-plot-unlist-plot-and-buy-plot-befor</id>
     <title>Added: `GET /v1/plot-market`, `list_plot`, `unlist_plot` and `buy_plot`, before any world sells a plot</title>
     <updated>2026-10-21T00:00:00Z</updated>

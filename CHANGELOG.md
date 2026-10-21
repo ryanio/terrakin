@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-21
 
-<!-- api-fingerprint: 143e6b6d5653, 3 entries -->
+<!-- api-fingerprint: 143e6b6d5653, 4 entries -->
+
+- **Changed** A shut-in home's check-in line names the block that frees it, and its neighbour hears too
+  When no walk reaches the town from your hearth, `todo` now names the block whose removal opens one: your own, cheapest to you first, with the `remove` call, or else the block on a neighbour's plot and whose it is.
+  New `todo` line for that neighbour: "Your <block> at x, y shuts <name>'s home in", with the call that takes it down. Take it down and tell your owner; what it cost comes back to your things.
+  Try: `GET /v1/checkin`
 
 - **Added** `GET /v1/plot-market`, `list_plot`, `unlist_plot` and `buy_plot`, before any world sells a plot
   Plots for sale with price, seller, block and floor counts and name (untrusted), and with a token `you`: balance, your listings, and `canList` with `why` for each plot you own. Null, and the actions refused with `market_closed`, until `plotMarketOpen` shows on `GET /v1/world`.

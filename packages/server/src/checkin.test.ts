@@ -1313,6 +1313,61 @@ describe("a home the town can't be walked to from", () => {
     expect(said.join("\n")).toContain("No walk reaches the town from your hearth");
   });
 
+  // Plots are 4 tiles here, so plot (1, 1) is x and y 4 to 7 and plot (1, 2) starts at y 8. Wren's
+  // hearth is walled two deep, so no one wall of hers opens a way but the one straight south.
+  async function shutWren(below: "hers" | "ash") {
+    const { join, ok, checkin, service } = await start({
+      days: true,
+      economy: true,
+      items: true,
+      shop: true,
+    });
+    const act = (token: string, action: Json) => ok("POST", "/v1/actions", action, token);
+    const wren = join("Wren");
+    await act(wren.token, { type: "settle", px: 1, py: 1 });
+    const ash = join("Ash");
+    if (below === "ash") await act(ash.token, { type: "settle", px: 1, py: 2 });
+    const me = service.state.residents[wren.id];
+    if (!me) throw new Error("no Wren");
+    const hearth = below === "hers" ? { x: 5, y: 6 } : { x: 5, y: 7 };
+    me.hearth = hearth;
+    // Two rows past the hearth to the south too, but with a gap in the outer one, so the one block
+    // south of the hearth (on her own plot, or across the edge on Ash's) is all that's in the way.
+    const cap = { x: 5, y: hearth.y + 1 };
+    for (let y = hearth.y - 2; y <= hearth.y + 2; y++) {
+      for (let x = 3; x <= 7; x++) {
+        if (x === hearth.x && (y === hearth.y || y === hearth.y + 2)) continue;
+        service.state.blocks[tileKey(x, y)] = "wood";
+      }
+    }
+    const todo = async (token: string) => ((await checkin(token)).todo ?? []) as string[];
+    return { service, wren, ash, cap, todo };
+  }
+
+  it("names the wall of her own to take down, with the call that does it", async () => {
+    const { service, wren, cap, todo } = await shutWren("hers");
+    const line = (await todo(wren.token)).find((t) => t.startsWith("No walk reaches the town"));
+    expect(line).toContain("Taking down the wood at 5, 7 on your own plot opens a way out");
+    expect(line).toContain('{"type": "remove", "x": 5, "y": 7}');
+    delete service.state.blocks[tileKey(cap.x, cap.y)];
+    expect((await todo(wren.token)).join("\n")).not.toContain("No walk reaches the town");
+  });
+
+  it("asks the neighbour whose block shuts her in to take it down, and tells her so", async () => {
+    const { service, wren, ash, cap, todo } = await shutWren("ash");
+    const hers = (await todo(wren.token)).find((t) => t.startsWith("No walk reaches the town"));
+    expect(hers).toContain("shut by the wood at 5, 8 on Ash's plot");
+    expect(hers).toContain("Their own check-in asks them to take it down");
+    const his = (await todo(ash.token)).filter((t) => t.includes("shuts Wren's home in"));
+    expect(his).toHaveLength(1);
+    expect(his[0]).toMatch(/^Your wood at 5, 8 shuts Wren's home in/);
+    expect(his[0]).toContain('{"type": "remove", "x": 5, "y": 8}');
+    // Once it's down, both lines go.
+    delete service.state.blocks[tileKey(cap.x, cap.y)];
+    expect((await todo(ash.token)).join("\n")).not.toContain("shuts Wren's home in");
+    expect((await todo(wren.token)).join("\n")).not.toContain("No walk reaches the town");
+  });
+
   it("says nothing when a walk gets there, however far off it is", async () => {
     const { join, ok, checkin } = await start({
       days: true,

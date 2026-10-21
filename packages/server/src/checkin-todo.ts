@@ -11,16 +11,15 @@ import {
 import {
   allowanceDue,
   type Bounty,
-  chebyshev,
+  blockBackWords,
+  blockName,
   DAY_MS,
   designNotes,
   homePlotOf,
   type inventoryOf,
-  nearestCounter,
   plotOf,
   residentById,
   type WorldState,
-  walkWords,
 } from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
 import type { Suggestion } from "./checkin-suggest";
@@ -32,6 +31,7 @@ import { jobTodo } from "./jobs";
 import { levelTodo } from "./levels";
 import { plural } from "./markdown";
 import { ROUTINE_WORDS } from "./routines";
+import { cheapestFree, homesShutBy, shutHomeOf, toldNear } from "./shut-homes";
 import type { SocialService } from "./social-service";
 
 /**
@@ -131,24 +131,52 @@ const TODO: readonly TodoEntry[] = [
   // hearth sealed by its own home and misses one whose only way out leaves the plot and then
   // dead-ends against what stands on the plot next door. That is what shut a live resident in on
   // 2026-10-20: six tiles of corridor, his own plot's edge reached, and a neighbour's wall across
-  // the end of it. Nothing told him, because nothing looked past his own plot. Once the shop, the
-  // Town Hall and a booking all need you to walk there (RFC 0042), it is the difference between
-  // playing and watching. It names no wall, because the one in the way is usually not theirs to
-  // take down; what it can say is that asking is the way out.
+  // the end of it. Once the shop, the Town Hall and a booking all need you to walk there (RFC
+  // 0042), it is the difference between playing and watching. `shutHomeOf` is the walk staff read
+  // too (decision 0343), and it knows which blocks free the home, so the line names the one to
+  // take down when it's theirs, cheapest first, and otherwise says whose plot it's on: that
+  // neighbour hears it in their own check-in (below), so a home frees itself without staff.
   (f) => {
-    const me = residentById(f.state, f.viewer);
-    const home = me?.hearth;
-    if (!home || !f.state.shop) return [];
-    const { reach } = f.state.config;
-    const door = nearestCounter(f.state, home);
-    if (chebyshev(home, door) <= reach) return [];
-    // `walkWords` is the sim's own walk, around whatever stands between. Empty means no walk
-    // arrives, which is the whole of this line's claim.
-    if (walkWords(f.state, home, door, reach) !== "") return [];
+    const shut = shutHomeOf(f.state, f.viewer);
+    if (!shut) return [];
+    const { px, py } = plotOf(f.state.config, shut.hearth.x, shut.hearth.y);
+    const head =
+      "No walk reaches the town from your hearth: every way out of it is blocked. Buying, selling and filing a proposal all need you to walk to a door, so from here you can do none of them.";
+    const own = cheapestFree(shut.frees.filter((b) => b.ownerId === f.viewer));
+    if (own) {
+      return [
+        `${head} Taking down the ${blockName(own.block)} at ${own.x}, ${own.y} on your own plot opens a way out, and it gives back ${blockBackWords(own.block)}: come within reach, then {"type": "remove", "x": ${own.x}, "y": ${own.y}}. Tell your owner what you took down and why.`,
+      ];
+    }
+    // The neighbour told in their own check-in, if any is: `homesShutBy` names the same block.
+    const told = shut.frees.filter((b) => toldNear(f.state, b.ownerId, shut.hearth));
+    const theirs = cheapestFree(told.length > 0 ? told : shut.frees);
+    const who = theirs ? residentById(f.state, theirs.ownerId)?.name : undefined;
+    if (theirs && who) {
+      const asked =
+        told.length > 0
+          ? "Their own check-in asks them to take it down; if it's still there in a day, ask them yourself"
+          : "Ask them to take it down";
+      return [
+        `${head} The way out is shut by the ${blockName(theirs.block)} at ${theirs.x}, ${theirs.y} on ${who}'s plot. ${asked}, or tell the team through the contact page.`,
+      ];
+    }
     return [
-      `No walk reaches the town from your hearth: every way out of it is blocked. Buying, selling and filing a proposal all need you to walk to a door, so from here you can do none of them. Look at what's in the way with GET /v1/plots/${plotOf(f.state.config, home.x, home.y).px}/${plotOf(f.state.config, home.x, home.y).py}/plan, take down a wall of your own if one of them is yours, and if the way is shut by a neighbour's plot, ask them or tell the team through the contact page.`,
+      `${head} Look at what's in the way with GET /v1/plots/${px}/${py}/plan: no single block opens a way, so take down what you can of your own, and if the way is shut by a neighbour's plot, ask them or tell the team through the contact page.`,
     ];
   },
+  // A neighbour's home that a block on your plot shuts in, and that they can't free themselves
+  // (decision 0343). The plot's owner is the only resident who can take it down, so this is the
+  // line that frees a home like the one shut on 2026-10-20 without staff: it names the block, the
+  // cheapest of theirs that opens the way, and says what comes back.
+  (f) =>
+    homesShutBy(f.state, f.viewer).flatMap(({ home, block }) => {
+      const who = residentById(f.state, home.residentId)?.name;
+      if (!who) return [];
+      return [
+        `Your ${blockName(block.block)} at ${block.x}, ${block.y} shuts ${who}'s home in: no walk reaches the town from their hearth, so they can't buy, sell or file a proposal, and nothing on their own plot opens a way. Taking it down does, and it gives back ${blockBackWords(block.block)}: come within reach, then {"type": "remove", "x": ${block.x}, "y": ${block.y}}. Build it again somewhere that leaves their way open, and tell your owner you did.`,
+      ];
+    }),
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
   (f) =>
     (f.games?.yourMove ?? []).map(

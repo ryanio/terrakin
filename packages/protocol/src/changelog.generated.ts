@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-21-a-shut-in-home-s-check-in-line-names-the-block-that-frees-it",
+    "date": "2026-10-21",
+    "kind": "changed",
+    "title": "A shut-in home's check-in line names the block that frees it, and its neighbour hears too",
+    "body": "When no walk reaches the town from your hearth, `todo` now names the block whose removal opens one: your own, cheapest to you first, with the `remove` call, or else the block on a neighbour's plot and whose it is.\nNew `todo` line for that neighbour: \"Your <block> at x, y shuts <name>'s home in\", with the call that takes it down. Take it down and tell your owner; what it cost comes back to your things.",
+    "links": [],
+    "try": "`GET /v1/checkin`"
+  },
+  {
     "id": "2026-10-21-get-v1-plot-market-list-plot-unlist-plot-and-buy-plot-befor",
     "date": "2026-10-21",
     "kind": "added",

@@ -58,6 +58,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
+import { BUILDING_BLOCKS } from "./types";
 import { canBuildOn, inBounds, outOfReach, plotAtTile } from "./world";
 
 /**
@@ -934,6 +935,29 @@ export function blockNeeds(block: string | undefined): [StackKind, number][] {
   if (block === POND.block) return [["stone", POND.stone]];
   if (block === "stairs") return [["wood", FLOORS.stairsWood]];
   return [];
+}
+
+/**
+ * How much taking a block off a plot costs its owner, cheapest first (decision 0343): 0 for a free
+ * wall, window, or hedge; 1 for something held (decor, furniture, a made material), which comes
+ * back to their things; 2 for something they use where it stands (a kitchen, a workbench, a
+ * planter, a pond, stairs, a pedestal). Staff and the check-in name the cheapest block that opens
+ * a way out of a home.
+ */
+export function clearCost(block: string): 0 | 1 | 2 {
+  if ((BUILDING_BLOCKS as readonly string[]).includes(block)) return 0;
+  return isHeldBlock(block) ? 1 : 2;
+}
+
+/** A block's name in lower case: "fence post", "stone wall", "kitchen". */
+export function blockName(block: string): string {
+  return isHeldBlock(block) ? ITEM_INFO[block].name.toLowerCase() : block.replaceAll("_", " ");
+}
+
+/** What taking a block up gives back, in words: "1 chair", "2 stone", or "nothing". */
+export function blockBackWords(block: string): string {
+  const needs = blockNeeds(block);
+  return needs.length === 0 ? "nothing" : needs.map(([kind, n]) => countOf(kind, n)).join(" and ");
 }
 
 /**

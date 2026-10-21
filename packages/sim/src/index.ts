@@ -290,11 +290,14 @@ export {
   weekdayOf,
 } from "./holiday";
 export {
+  blockBackWords,
+  blockName,
   blockNeeds,
   CROP_INFO,
   CROPS,
   type Crop,
   type CropInfo,
+  clearCost,
   countOf,
   DECOR_KINDS,
   type DecorKind,

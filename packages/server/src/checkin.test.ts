@@ -6,7 +6,7 @@ import {
   DEVLOG_POSTS,
   FIRST_VISIT_STEPS,
 } from "@terrakin/protocol";
-import { dayOfDate, FLOORS, type WorldConfig } from "@terrakin/sim";
+import { dayOfDate, designNotes, FLOORS, tileKey, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { checkinDigest, checkinSince, type DigestParts } from "./checkin";
@@ -1271,5 +1271,60 @@ describe("GET /v1/act/{key}/checkin", () => {
     expect(quiet.text).not.toContain("Look at my garden");
     const bad = await call("GET", `/v1/act/${key}/checkin?since=soon`);
     expect(bad.status).toBe(400);
+  });
+});
+
+describe("a home the town can't be walked to from", () => {
+  it("says so when the way out leaves the plot and dead-ends on the one next door", async () => {
+    const { join, ok, checkin, service } = await start({
+      days: true,
+      economy: true,
+      items: true,
+      shop: true,
+    });
+    const act = (token: string, action: Json) => ok("POST", "/v1/actions", action, token);
+    const wren = join("Wren");
+    await act(wren.token, { type: "settle", px: 1, py: 1 });
+    await act(wren.token, { type: "build_starter_home" });
+    const me = service.state.residents[wren.id];
+    if (!me?.hearth) throw new Error("no hearth");
+    const hearth = me.hearth;
+    const size = service.state.config.plotSize;
+    // Wren's own plot leaves a way to its edge, so the plot-scoped note (RFC 0032's `designNotes`)
+    // sees nothing wrong: wall her in on every side but the corridor south, then cap that corridor
+    // one tile past her plot's edge, on the plot below. That is the live shape this line is for.
+    for (let y = hearth.y - 3; y <= hearth.y + 4; y++) {
+      for (let x = hearth.x - 3; x <= hearth.x + 3; x++) {
+        if (x === hearth.x || (x === hearth.x && y === hearth.y)) continue;
+        service.state.blocks[tileKey(x, y)] = "wood";
+      }
+    }
+    // The cap: the first row of the plot below hers.
+    const south = (Math.floor(hearth.y / size) + 1) * size;
+    for (let x = hearth.x - 1; x <= hearth.x + 1; x++) {
+      service.state.blocks[tileKey(x, south)] = "wood";
+    }
+    const notes = designNotes(service.state, 1, 1).map((n) => n.code);
+    expect(
+      notes,
+      "the plot-scoped note should see nothing: that is why this line exists",
+    ).not.toContain("hearth_walled_in");
+    const said = ((await checkin(wren.token)).todo ?? []) as string[];
+    expect(said.join("\n")).toContain("No walk reaches the town from your hearth");
+  });
+
+  it("says nothing when a walk gets there, however far off it is", async () => {
+    const { join, ok, checkin } = await start({
+      days: true,
+      economy: true,
+      items: true,
+      shop: true,
+    });
+    const act = (token: string, action: Json) => ok("POST", "/v1/actions", action, token);
+    const wren = join("Wren");
+    await act(wren.token, { type: "settle", px: 1, py: 1 });
+    await act(wren.token, { type: "build_starter_home" });
+    const said = ((await checkin(wren.token)).todo ?? []) as string[];
+    expect(said.join("\n")).not.toContain("No walk reaches the town");
   });
 });

@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-19
-- Status: accepted (Ryan, 2026-10-20, in the decisions below); slices 1 to 3 built (the sim, the API, the web). Slice 4, opening a land at terrakin.org, is behind an option no adapter sets and waits on Ryan.
+- Status: accepted (Ryan, 2026-10-20, in the decisions below), built. The Worker watches the plots left and opens the first island when they fall to 9.
 - Discussion: [issue #87](https://github.com/ryanio/terrakin/issues/87)
 - Builds on: [decision 0016](../knowledge/decisions/0016-settle-claims-a-first-plot-from-anywhere.md) (settle claims from anywhere), [decision 0045](../knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md) (biomes are a function of position), [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (never block someone who wants in), [RFC 0033](0033-kindreds.md) (Circles and their halls), [decision 0315](../knowledge/decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) (a walk is one call)
 
@@ -226,13 +226,13 @@ Rollout in slices, the way jobs and Circles went in:
    plot picker's data ([decision 0329](../knowledge/decisions/0329-the-snapshot-carries-three-facts-about-a-land-and-the-water-.md)).
 3. **Shipped 2026-10-20.** The web: the bridge and the island on the map, and the plot picker
    offering island plots after downtown's (open question 2 below, answered downtown first).
-4. **Waiting on Ryan alone.** On at terrakin.org: `WorldService` watches the free count and logs
+4. **On at terrakin.org, 2026-10-20.** The Worker sets `lands`, which opens nothing on its own: it watches the count and logs the first `open_land` when the plots left fall to `LANDS.openAt` (9). There were 32 free of 80 when it was armed. Before that: `WorldService` watches the free count and logs
    the first `open_land`. The count and the planner are built, behind an option no adapter sets.
    The two things that came first are both done: the town centre is pinned to downtown whatever
    the world grows to (`downtown(state)`, commit 5927c9a8), and every island brings the counter
    and hall door of the 2026-10-20 decision above
    ([decision 0332](../knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
-   Nothing opens a land until Ryan says so.
+   Ryan's word came on 2026-10-20.
 
 ## Alternatives considered
 

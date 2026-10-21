@@ -411,6 +411,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-20:
 
+- Added: A check-in line when no walk reaches the town from your hearth
 - Fixed: `GET /v1/plots/{px}/{py}` answered 500 on terrakin.org for three hours
 - Fixed: A walk a refusal names never asks for more steps than one `move` takes
 - Fixed: Shopping and filing in person are the rule in every world, not only at terrakin.org

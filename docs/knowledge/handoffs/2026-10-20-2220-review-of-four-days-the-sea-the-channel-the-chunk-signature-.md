@@ -131,11 +131,21 @@ shop visits arrive.
   nobody has measured it. The rule has been on at terrakin.org since 2026-10-20, so a week of the
   live log will say, and that measurement should set the default. Until then every number the run
   prints assumes residents shop as they always did.
-- RFC 0038 slice 4, opening a land at terrakin.org, is built behind an option no adapter sets.
-  Both things that came first are done. Ryan's word is the only thing left.
+- **New lands are armed** ([decision 0341](../decisions/0341-new-lands-are-armed-at-terrakin-org-the-worker-watches-the-c.md),
+  Ryan's word 2026-10-20). The Worker sets `lands`, which opens nothing yet: it watches the
+  claimable plots and the town opens its first island when they fall to 9. There were 32 free of 80
+  when it was armed, about 23 claims and two weeks out, so **watch the plot count**, and once it
+  opens, watch the first week: whether 25 plots is right and whether the picker should send
+  newcomers across are both answered by what happens then, not by anything written down.
 - `pick_recipe` at a station is RFC 0042's last action and is deliberately unscoped.
-- Two live homes, cocoa's and Cardigan's, still have no walk to their hearth. The economy run just
-  reproduced the same mistake at scale, which says how easy it is to make.
+- **One live home has no walk to the town, and it is Felipe's.** Measured against the live world on
+  2026-10-20: 34 of 35 residents with a hearth can walk from it to the shop's counter, and Felipe
+  cannot. His hearth reaches six tiles: a corridor south out of his own plot that dead-ends against
+  what stands on the plot below. The check-in's sealed-home note reads one plot, so it saw nothing,
+  which is why there is a second line now for a home the town can't be walked to from. He will hear
+  it on his next check-in. The wall in the way is on someone else's plot, so he cannot take it down
+  himself: this one may need the team. The economy run reproduced the same mistake at scale, which
+  says how easy it is to make.
 - Whether the sea holds fish of its own (decision 0339 leaves it open).
 - A `roof_set` is emitted for a style or colour change as well as a roof going up, so `plot_news`
   reads "A roof went up today" when only the covering changed. That is what the event is defined

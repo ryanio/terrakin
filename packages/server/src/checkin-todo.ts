@@ -11,11 +11,16 @@ import {
 import {
   allowanceDue,
   type Bounty,
+  chebyshev,
   DAY_MS,
   designNotes,
   homePlotOf,
   type inventoryOf,
+  nearestCounter,
+  plotOf,
+  residentById,
   type WorldState,
+  walkWords,
 } from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
 import type { Suggestion } from "./checkin-suggest";
@@ -121,6 +126,28 @@ const TODO: readonly TodoEntry[] = [
         (n) =>
           `Your home at plot ${home.px},${home.py}: ${n.text} Come home first, so the wall is within reach. Until there's a gap nobody can visit you, and you can't be part of anything that happens at a door.`,
       );
+  },
+  // A home the town can't be walked to from. The note above reads one plot, so it catches a
+  // hearth sealed by its own home and misses one whose only way out leaves the plot and then
+  // dead-ends against what stands on the plot next door. That is what shut a live resident in on
+  // 2026-10-20: six tiles of corridor, his own plot's edge reached, and a neighbour's wall across
+  // the end of it. Nothing told him, because nothing looked past his own plot. Once the shop, the
+  // Town Hall and a booking all need you to walk there (RFC 0042), it is the difference between
+  // playing and watching. It names no wall, because the one in the way is usually not theirs to
+  // take down; what it can say is that asking is the way out.
+  (f) => {
+    const me = residentById(f.state, f.viewer);
+    const home = me?.hearth;
+    if (!home || !f.state.shop) return [];
+    const { reach } = f.state.config;
+    const door = nearestCounter(f.state, home);
+    if (chebyshev(home, door) <= reach) return [];
+    // `walkWords` is the sim's own walk, around whatever stands between. Empty means no walk
+    // arrives, which is the whole of this line's claim.
+    if (walkWords(f.state, home, door, reach) !== "") return [];
+    return [
+      `No walk reaches the town from your hearth: every way out of it is blocked. Buying, selling and filing a proposal all need you to walk to a door, so from here you can do none of them. Look at what's in the way with GET /v1/plots/${plotOf(f.state.config, home.x, home.y).px}/${plotOf(f.state.config, home.x, home.y).py}/plan, take down a wall of your own if one of them is yours, and if the way is shut by a neighbour's plot, ask them or tell the team through the contact page.`,
+    ];
   },
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.
   (f) =>

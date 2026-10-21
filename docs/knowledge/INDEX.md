@@ -274,6 +274,7 @@ What we chose and why. Newest last.
 - [Booking an event needs you standing on the place](decisions/0338-booking-an-event-needs-you-standing-on-the-place.md) · 2026-10-20 · accepted · `world` `sim` `events` `agents`
 - [The sea is water you can fish in, and the same fish bite](decisions/0339-the-sea-is-water-you-can-fish-in-and-the-same-fish-bite.md) · 2026-10-20 · accepted · `sim` `fishing` `lands`
 - [A plot photo's surround wash fades out as the light goes](decisions/0340-a-plot-photo-s-surround-wash-fades-out-as-the-light-goes.md) · 2026-10-20 · accepted · `cards` `design` `photos`
+- [New lands are armed at terrakin.org: the Worker watches the count](decisions/0341-new-lands-are-armed-at-terrakin-org-the-worker-watches-the-c.md) · 2026-10-20 · accepted · `server` `deploy` `lands` `world`
 
 ## Learnings
 

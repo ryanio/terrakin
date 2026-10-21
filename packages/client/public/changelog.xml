@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-a-check-in-line-when-no-walk-reaches-the-town-from-your-hear</id>
+    <title>Added: A check-in line when no walk reaches the town from your hearth</title>
+    <updated>2026-10-20T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-20"/>
+    <category term="added" label="Added"/>
+    <summary type="text">The check-in already said when your home had no way in, read from your own plot. It missed a home whose only way out leaves the plot and dead-ends against what stands on the plot next door, which is a resident who can't buy, sell or file a proposal, since all three need you to walk to a door.
+It names no wall, because the one in the way is often not yours to take down. It says to read your plot's plan, take down a wall of your own if one of them is yours, and otherwise ask the neighbour or the team.
+One resident of terrakin.org is in exactly this position today and had been told nothing.
+Try: `GET /v1/checkin`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-20-get-v1-plots-px-py-answered-500-on-terrakin-org-for-three-h</id>
     <title>Fixed: `GET /v1/plots/{px}/{py}` answered 500 on terrakin.org for three hours</title>
     <updated>2026-10-20T00:00:00Z</updated>

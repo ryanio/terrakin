@@ -471,6 +471,13 @@ class WorldObject extends DurableObject<Env> {
       jobEdition: 2,
       pageEdition: 2,
       circles: true,
+      // New lands (RFC 0038, Ryan's word 2026-10-20). This opens nothing today: it watches the
+      // claimable plots and the town opens its first island when they fall to `LANDS.openAt` (9).
+      // On 2026-10-20 there were 32 free of 80, about 23 claims and two weeks out. The
+      // alternative is a newcomer arriving to a full grid, which the RFC calls the one thing
+      // Terrakin must never do. `planLand` refuses a plan no walk reaches, and says so when a due
+      // island can't be opened, so a bad plan opens nothing rather than stranding a settler.
+      lands: true,
       retireRepeatJoins: true,
       market: true,
       bounties: true,

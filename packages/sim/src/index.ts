@@ -600,6 +600,7 @@ export {
   type WalkNode,
   walkPath,
   walkTree,
+  walkWords,
   worldGround,
 } from "./walk";
 export {

@@ -130,7 +130,7 @@ function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan
 }
 
 /**
- * Notes for a `settle` or `claim` of plot (`px`, `py`), read before it's claimed (decision 0352):
+ * Notes for a `settle` or `claim` of plot (`px`, `py`), read before it's claimed (decision 0354):
  * `no_opening` when the plot would have no way out of its own, and `seals_neighbor` for each plot
  * around it whose last way out the claim takes. Their tiles are on this plot, from its north-west
  * corner: where a neighbour's way out steps onto it. The first note names the nearest free plot

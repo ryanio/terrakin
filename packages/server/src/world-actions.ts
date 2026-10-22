@@ -211,7 +211,7 @@ export function performAction(
   }
   if (action.type === "settle" || action.type === "claim") {
     // What the claim does to ways out, its own and the plots around it, read before it's made
-    // (decision 0352): notes, dry or real, never a refusal.
+    // (decision 0354): notes, dry or real, never a refusal.
     const me = action.type === "claim" && asJoined(ctx.state, residentId).residents[residentId];
     const slot = action.type === "settle" ? action : me && plotOf(ctx.state.config, me.x, me.y);
     const notes = slot ? claimNotes(ctx.state, slot.px, slot.py) : [];

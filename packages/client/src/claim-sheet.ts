@@ -1,7 +1,7 @@
 /**
  * The "Claim plot" picker (decision 0143): for someone with no plot, a sheet of the empty plots
  * `settle` would take, nearest to plots people live on first (`plotPicks`), each drawn with the
- * plots around it, and a line on one that would close a neighbor in (decision 0352). Picking one sends `settle`, which claims it from anywhere and puts you there;
+ * plots around it, and a line on one that would close a neighbor in (decision 0354). Picking one sends `settle`, which claims it from anywhere and puts you there;
  * the world then asks about a home (`home-sheet.ts`). Neighbors' names are their words: text only.
  */
 import { h } from "@terrakin/ui/dom";
@@ -60,7 +60,7 @@ export function openClaimSheet() {
       return;
     }
     const world = r.data;
-    // The walking ground the sim's openings read, from the same snapshot (decision 0352).
+    // The walking ground the sim's openings read, from the same snapshot (decision 0354).
     const claimed = new Set(world.plots.map((p) => `${p.px},${p.py}`));
     const picks = plotPicks(world, {
       ground: new Mirror(world).ground(0),

@@ -161,7 +161,7 @@ describe("openings (decision 0351)", () => {
   });
 });
 
-describe("a claim's ways out (decision 0352)", () => {
+describe("a claim's ways out (decision 0354)", () => {
   it("names each plot next door whose last way out a claim takes, and a claim with none of its own", () => {
     const t = town(AROUND);
     const before = hashWorld(t.state);

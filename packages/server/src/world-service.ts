@@ -158,7 +158,7 @@ export type ActResult =
       plotSale?: PlotSaleView;
       /** `move` with `steps`: tiles walked, when something stopped the walk short. */
       moved?: number;
-      /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0352): notes. */
+      /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0354): notes. */
       notes?: DesignNote[];
       dry?: true;
     }

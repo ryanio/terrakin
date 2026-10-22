@@ -42,7 +42,7 @@ describe("plotPicks", () => {
     expect(picks.at(-1)).toMatchObject({ px: 4, py: 4 });
   });
 
-  it("puts a plot that closes nobody in before one as near that would, and marks that one (decision 0352)", () => {
+  it("puts a plot that closes nobody in before one as near that would, and marks that one (decision 0354)", () => {
     // Ivy lives on (1, 0). Wren's (0, 0) has Ivy east and Moss south, so (1, 1) is its last way out.
     const plots = [
       { px: 1, py: 0, ownerId: "ivy" },

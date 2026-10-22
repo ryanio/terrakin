@@ -275,7 +275,7 @@ describe("build", () => {
     expect(turned.map((n: { code: string }) => n.code)).not.toContain("door_no_edge");
   });
 
-  it("says when a settle would take a neighbor's last way out, dry or real (decision 0352)", async () => {
+  it("says when a settle would take a neighbor's last way out, dry or real (decision 0354)", async () => {
     // 5x5 plots, the Commons at (2, 2). Ada's (0, 0) has Bea east and Cee south, so its one way
     // out is the corner step onto (1, 1).
     const t = await start({ config: { ...CONFIG, width: 40, height: 40 } });

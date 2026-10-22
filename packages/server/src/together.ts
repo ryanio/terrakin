@@ -79,7 +79,7 @@ export function anchorPlot(
 
 /**
  * Free plots near `around`, nearest first: ring by ring (Chebyshev distance), and within a ring
- * plots whose claim closes nobody in first (the sim's `closesNobodyIn`, decision 0352), then the
+ * plots whose claim closes nobody in first (the sim's `closesNobodyIn`, decision 0354), then the
  * four sides before the corners, then north to south and west to east. Free means inside the
  * world, not the Commons, and unclaimed.
  */

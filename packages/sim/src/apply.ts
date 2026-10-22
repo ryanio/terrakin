@@ -633,7 +633,7 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
 
 /**
  * Where to settle or claim next: the free plot nearest to plot (px, py), as a call to make. Of
- * plots as near, one whose claim closes nobody in (`nearestFreePlot`, decision 0352).
+ * plots as near, one whose claim closes nobody in (`nearestFreePlot`, decision 0354).
  */
 function freePlotHint(state: WorldState, actor: string, px: number, py: number): string {
   const owned = plotsOwnedBy(state, actor).length;

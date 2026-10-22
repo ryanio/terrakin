@@ -188,7 +188,7 @@ export function landlocked(state: WorldState): Landlocked[] {
   return landlockedFrom(openingFacts(state), Object.values(state.plots), hearthsOf(state));
 }
 
-// ---------- a claim (decision 0352) ----------
+// ---------- a claim (decision 0354) ----------
 
 /** What claiming a free plot would do to ways out. */
 export interface ClaimWays {

@@ -162,7 +162,7 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
 
 /**
  * Unclaimed plots, nearest first (in plots), not counting a town square or open water. Of those as
- * near, plots whose claim closes nobody in come first (the sim's `closesNobodyIn`, decision 0352).
+ * near, plots whose claim closes nobody in come first (the sim's `closesNobodyIn`, decision 0354).
  */
 function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   const { config } = state;

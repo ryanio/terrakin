@@ -8,7 +8,7 @@
  * turn it down.
  *
  * Handed the world's opening facts, it also says what each claim would do to ways out (the sim's
- * `claimWaysFrom`, decision 0352): of plots as near to neighbors, one whose claim closes nobody in
+ * `claimWaysFrom`, decision 0354): of plots as near to neighbors, one whose claim closes nobody in
  * comes first, and a pick that would take a neighbor's last way out, or have none of its own,
  * says so.
  */
@@ -167,7 +167,7 @@ export function pickNeighbors(names: readonly string[]): string {
 }
 
 /**
- * What a pick does to ways out (decision 0352), short enough for a phone's row, or undefined when
+ * What a pick does to ways out (decision 0354), short enough for a phone's row, or undefined when
  * it closes nobody in: "Takes Ivy's only way out", or "No way out of its own". Names are
  * residents' words: the line only ever reaches the page as text.
  */

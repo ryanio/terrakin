@@ -483,9 +483,9 @@ export function marketView(ctx: ViewContext): View {
               void import("./plot-sale-sheet").then((m) =>
                 m.openBuySheet(l, title, l.price, loader.refresh, plots.rules),
               ),
-            sell: (at, name) =>
+            sell: (at, title) =>
               void import("./plot-sale-sheet").then((m) =>
-                m.openListSheet(at, name, plots.rules, loader.refresh),
+                m.openListSheet(at, title, plots.rules, loader.refresh),
               ),
           },
         })

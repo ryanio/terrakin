@@ -6,11 +6,12 @@
  * (decision 0365). A plot's name and its seller's are residents' words: text nodes only.
  */
 import type { PlotListingView, PlotMarketResponse, WorldSnapshot } from "@terrakin/protocol";
+import { plotOf } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
-import { confirmTwice, emptyNote, itemRow, itemRows } from "@terrakin/ui/ui";
+import { confirmTwice, emptyNote, itemRow, itemRows, kindPill } from "@terrakin/ui/ui";
 import { listingAction } from "./market-words";
-import { listingFacts, ownPlotLine } from "./plot-market";
+import { listingFacts, ownPlotLine, ownPlotTitle } from "./plot-market";
 import { plotThumb } from "./plot-thumb";
 import { coins } from "./purse";
 import { reportMenu } from "./report-sheet";
@@ -27,8 +28,8 @@ export interface PlotMarketMoves {
   unlist: (button: HTMLButtonElement, at: { px: number; py: number }) => void;
   /** Open the Buy sheet for a plot for sale. */
   buy: (listing: PlotListingView, title: string) => void;
-  /** Open the Sell sheet for a plot of yours, by its name when it has one. */
-  sell: (at: { px: number; py: number }, name: string | null) => void;
+  /** Open the Sell sheet for a plot of yours, with the sheet's title. */
+  sell: (at: { px: number; py: number }, title: string) => void;
 }
 
 /** A pill in a row's trail, named with the plot it's for. */
@@ -73,8 +74,9 @@ function listingRow(
 ): HTMLLIElement {
   const { title } = plotTitles(l, [l.seller.name]);
   const action = listingAction(l, me, data.you?.balance ?? null);
-  let trail: HTMLButtonElement | null = null;
-  if (action.kind === "take") trail = takeBack(l, title, data.rules, moves);
+  // Your own plot for sale says so, and is taken back from "Your plots", below.
+  let trail: HTMLElement | null = null;
+  if (action.kind === "take") trail = kindPill("Yours", "moss");
   else if (action.kind === "buy") {
     const buy = rowButton(action.text, title);
     buy.disabled = !action.can;
@@ -102,23 +104,36 @@ function listingRow(
   });
 }
 
-function sellButton(at: { px: number; py: number }, name: string | null, moves: PlotMarketMoves) {
-  const sell = rowButton("Sell", name ?? "your plot");
-  sell.addEventListener("click", () => moves.sell(at, name));
+function sellButton(
+  at: { px: number; py: number },
+  title: string,
+  sheet: string,
+  moves: PlotMarketMoves,
+) {
+  const sell = rowButton("Sell", title);
+  sell.addEventListener("click", () => moves.sell(at, sheet));
   return sell;
+}
+
+/** Whether your hearth is on plot `at`, as the world snapshot has it. */
+function hearthOn(world: WorldSnapshot | null, me: string | null, at: { px: number; py: number }) {
+  const hearth = world?.residents.find((r) => r.id === me)?.hearth;
+  if (!world || !hearth) return false;
+  const p = plotOf(world.config, hearth.x, hearth.y);
+  return p.px === at.px && p.py === at.py;
 }
 
 /** One plot of yours: for sale at its price with Take back, or why it can't be sold yet. */
 function ownRow(
   plot: OwnPlot,
   data: Data,
+  me: string | null,
   world: WorldSnapshot | null,
   moves: PlotMarketMoves,
 ): HTMLLIElement {
   const listing = data.you?.listings.find((l) => l.px === plot.px && l.py === plot.py);
   const named = world?.plots.find((p) => p.px === plot.px && p.py === plot.py)?.name;
-  const name = listing?.name ?? named ?? null;
-  const title = name ?? "Your plot";
+  const { title, sell } = ownPlotTitle(plot, listing?.name ?? named, hearthOn(world, me, plot));
   const line = ownPlotLine(plot, listing, data.rules);
   return itemRow({
     className: "plot-own",
@@ -129,7 +144,7 @@ function ownRow(
     trail: plot.listed
       ? takeBack(plot, title, data.rules, moves)
       : plot.canList
-        ? sellButton(plot, name, moves)
+        ? sellButton(plot, title, sell, moves)
         : null,
   });
 }
@@ -146,7 +161,7 @@ export function plotMarketSection(
   const open = data as Data;
   const { listings } = open.plotMarket;
   const rows = listings.map((l) => listingRow(l, open, o.me, o.world, o.moves));
-  const own = (open.you?.plots ?? []).map((p) => ownRow(p, open, o.world, o.moves));
+  const own = (open.you?.plots ?? []).map((p) => ownRow(p, open, o.me, o.world, o.moves));
   return h(
     "section",
     { class: "stack market-section plot-sales", attrs: { "aria-labelledby": "plots" } },

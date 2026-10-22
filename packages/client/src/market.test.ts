@@ -6,6 +6,7 @@ import { listingAction } from "./market-words";
 import {
   listingFacts,
   ownPlotLine,
+  ownPlotTitle,
   plotMarketProblem,
   priceProblem,
   saleRows,
@@ -239,5 +240,24 @@ describe("plots for sale (RFC 0039)", () => {
     const why =
       "A plot can be sold 14 days after it was claimed or bought. This one can be in 3 days.";
     expect(ownPlotLine({ ...plot, listed: false, why }, undefined, rules)).toBe(why);
+  });
+
+  it("names each of your plots so no two rows read the same", () => {
+    const at = { px: 3, py: 2 };
+    expect(ownPlotTitle(at, "Lemon Grove", true)).toEqual({
+      title: "Lemon Grove",
+      sell: "Sell Lemon Grove",
+    });
+    expect(ownPlotTitle(at, undefined, true)).toEqual({
+      title: "Your home",
+      sell: "Sell your home",
+    });
+    expect(ownPlotTitle(at, undefined, false)).toEqual({
+      title: "Your plot at (3, 2)",
+      sell: "Sell your plot at (3, 2)",
+    });
+    expect(ownPlotTitle({ px: 4, py: 2 }, undefined, false).title).not.toBe(
+      ownPlotTitle(at, undefined, false).title,
+    );
   });
 });

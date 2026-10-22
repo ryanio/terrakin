@@ -108,6 +108,22 @@ export function saleRows(
 }
 
 /**
+ * What a plot of yours under "Your plots" is called, and its Sell sheet's title: the home's name
+ * when it has one (a resident's words, text only), else "Your home" for the plot with your hearth,
+ * else "Your plot at (3, 2)", so no two rows read the same.
+ */
+export function ownPlotTitle(
+  at: { px: number; py: number },
+  name: string | undefined,
+  hearthHere: boolean,
+): { title: string; sell: string } {
+  if (name) return { title: name, sell: `Sell ${name}` };
+  if (hearthHere) return { title: "Your home", sell: "Sell your home" };
+  const where = `at (${at.px}, ${at.py})`;
+  return { title: `Your plot ${where}`, sell: `Sell your plot ${where}` };
+}
+
+/**
  * A plot of yours under "Your plots": for sale at its price, ready to sell (no line, the Sell
  * button says it), or why not, in the world's words made plain.
  */

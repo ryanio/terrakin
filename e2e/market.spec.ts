@@ -171,7 +171,9 @@ test("list a jar that a neighbor buys from the stall; a reported listing taken d
     await expect(page.getByRole("heading", { name: "Plots for sale", exact: true })).toBeVisible();
     const yours = page.locator(".plot-own");
     await yours.getByRole("button", { name: /^Sell/ }).click();
-    const sell = page.locator("dialog.sheet").filter({ hasText: "Sell your plot" });
+    // Her hearth is on it, so it's her home.
+    await expect(yours).toContainText("Your home");
+    const sell = page.locator("dialog.sheet").filter({ hasText: "Sell your home" });
     await sell.getByLabel("Price for the plot").fill("300");
     await sell.getByRole("button", { name: "Check the sale" }).click();
     await expect(sell).toContainText("285 coins");
@@ -182,6 +184,10 @@ test("list a jar that a neighbor buys from the stall; a reported listing taken d
     await list.click();
     await expect(page.locator("#site-toast")).toContainText("Your plot is for sale.");
     await expect(yours).toContainText("For sale at 300 coins");
+    // In Plots for sale her own reads Yours, with nothing to tap: Take back is under Your plots.
+    const hers = page.locator(".plot-sale").filter({ hasText: "Mara" });
+    await expect(hers).toContainText("Yours");
+    await expect(hers.getByRole("button")).toHaveCount(0);
     expect(await overflowsSideways(page)).toBe(false);
 
     await signIn(page, nils);

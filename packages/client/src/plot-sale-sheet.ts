@@ -110,11 +110,12 @@ export function openBuySheet(
 }
 
 /**
- * Put plot `at`, called `name` when it has one, up for sale: a price, "Check the sale" (a dry `list_plot`) to see
- * what listing costs and what a sale would bring, then the listing on a second tap. Changing the
- * price clears what was checked. `done` reads the market again once it went through.
+ * Put plot `at` up for sale, under the sheet title `title` ("Sell your home"): a price, "Check
+ * the sale" (a dry `list_plot`) to see what listing costs and what a sale would bring, then the
+ * listing on a second tap. Changing the price clears what was checked. `done` reads the market
+ * again once it went through.
  */
-export function openListSheet(at: At, name: string | null, rules: Rules, done: () => void) {
+export function openListSheet(at: At, title: string, rules: Rules, done: () => void) {
   const problem = errorLine("plot-list-problem");
   const price = coinField({ id: "plot-price", max: rules.priceMax });
   const check = h("button", {
@@ -135,7 +136,7 @@ export function openListSheet(at: At, name: string | null, rules: Rules, done: (
   const s = sheet(
     {
       id: "plot-list-title",
-      title: name ? `Sell ${name}` : "Sell your plot",
+      title,
       lede: `A buyer gets everything on it, as it stands. Listing costs ${coins(rules.listingFee)}, which doesn't come back, and nothing on the plot changes until it sells or you take it back.`,
     },
     h("label", {

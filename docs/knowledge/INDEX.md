@@ -284,6 +284,7 @@ What we chose and why. Newest last.
 - [Pets go out on the green, the middle of each town square, and a meeting earns 2 Hosting points](decisions/0348-pets-go-out-on-the-green-the-middle-of-each-town-square-and-.md) · 2026-10-22 · accepted · `pets` `levels` `commons` `lands`
 - [A door is a free ground-floor block walked through like an open tile, and new starter homes hang one from a logged switch](decisions/0349-a-door-is-a-free-ground-floor-block-walked-through-like-an-o.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `replay`
 - [Homes get more room from seats you walk onto, not a bigger starter hut](decisions/0350-homes-get-more-room-from-seats-you-walk-onto-not-a-bigger-st.md) · 2026-10-22 · accepted · `homes` `furniture` `sim` `economy`
+- [A plot's way out is a step from its hearth's walk onto ground nobody has claimed, checked nightly and noted on builds, never refused](decisions/0351-a-plot-s-way-out-is-a-step-from-its-hearth-s-walk-onto-groun.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `ci`
 
 ## Learnings
 

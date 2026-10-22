@@ -567,6 +567,12 @@ const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
  * first one they own (north to south, then west to east), else, when `shared` is set, the first
  * one shared with them.
  */
+/** The plot `build_starter_home` builds on for `actor`, or undefined. The server's notes read it. */
+export function starterHomePlot(state: WorldState, actor: string): Plot | undefined {
+  const me = residentById(state, actor);
+  return me && workingPlot(state, me, true);
+}
+
 function workingPlot(state: WorldState, me: Resident, shared: boolean): Plot | undefined {
   const mine = (p: Plot | undefined): p is Plot =>
     p !== undefined && (shared ? canBuildOn(p, me.id) : p.ownerId === me.id);

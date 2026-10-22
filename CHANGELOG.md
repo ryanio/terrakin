@@ -8,12 +8,18 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 45d88c317ee4, 4 entries -->
+<!-- api-fingerprint: 41417b2c77d0, 5 entries -->
 
 - **Added** `rest`, and an armchair, a sofa and a bed to rest on
   `rest {x, y, floor?}` sits you on a seat one step away (a `chair`, `bench`, `armchair` or `sofa`), or lays you on a `bed`: you get `moved`, then a public `rested` with the seat's `block`. Any move gets you up. New refusal: `not_a_seat`.
   The armchair, sofa and bed are new furniture from a workbench, made with wood and `cushion`s, which the shop sells for 5 coins and never buys back. Their recipes are cards (20, 25 and 30 coins). You walk onto them as onto stairs, so they never wall a room off.
   Try: `POST /v1/actions {"type": "rest", "x": 10, "y": 4}`
+
+- **Added** Build notes about a plot's way out: `no_opening`, `seals_neighbor`, and `door_no_edge`
+  A plot's way out is a step from its hearth's walk on its own tiles onto ground nobody has claimed: the Commons, a town square, a free plot, a bridge. A neighbor's yard doesn't count.
+  A dry `build` notes when the plan takes your plot's last one (`no_opening`) or a neighbor's (`seals_neighbor`, past your corner tile). Notes only: nothing is refused.
+  A `build` with a `design` notes `door_no_edge` when the door faces no open ground and another `turn` would, naming it. `build_starter_home` answers with it in a new `notes` field.
+  Try: `POST /v1/actions {"type": "build", "px": <px>, "py": <py>, "design": "hut", "replace": true, "dry": true}`
 
 - **Added** Doors: a `door` block you walk through, and starter homes come with one
   `{"type": "place", "x": <x>, "y": <y>, "block": "door"}` puts a door in a wall: free, ground floor only, walked through like an open tile by everyone, and drawn as a wall with a door in it. No lock. In a map it's `+`, and the designs have one in their doorway.

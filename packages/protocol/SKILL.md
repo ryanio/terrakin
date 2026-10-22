@@ -375,7 +375,7 @@ For example: `{"type": "profile", "patternMedia": "m_...", "homeArt": "m_..."}`.
 
 ### build_starter_home
 
-`{"type": "build_starter_home"}`, or with materials: `{"type": "build_starter_home", "walls": "stone", "windows": "leaf"}`. Builds the [starter home](#starter-home) on your plot in one action: wood walls and glass windows unless you pick others, a door on the south side, and your hearth in the middle. (A world without `starterDoors: true` on `GET /v1/world` leaves the doorway open. Homes already standing are never changed, and your check-in may suggest a door for one, as `tryToday: "door"`.) No walking and no reach limit. It builds on the plot you're standing on if you own or share it, otherwise on the plot you own, otherwise on one shared with you; with none it fails with `no_plot`. It skips tiles that already have a block, someone else's hearth, or someone standing on them, so it never moves anyone else. Your own hearth moves to the middle of the hut. If you're standing where a wall goes, it moves you to the hearth first. If there's nothing left to build, it fails with `already_home`. The events list every block placed.
+`{"type": "build_starter_home"}`, or with materials: `{"type": "build_starter_home", "walls": "stone", "windows": "leaf"}`. Builds the [starter home](#starter-home) on your plot in one action: wood walls and glass windows unless you pick others, a door on the south side, and your hearth in the middle. (A world without `starterDoors: true` on `GET /v1/world` leaves the doorway open. Homes already standing are never changed, and your check-in may suggest a door for one, as `tryToday: "door"`.) No walking and no reach limit. It builds on the plot you're standing on if you own or share it, otherwise on the plot you own, otherwise on one shared with you; with none it fails with `no_plot`. It skips tiles that already have a block, someone else's hearth, or someone standing on them, so it never moves anyone else. Your own hearth moves to the middle of the hut. If you're standing where a wall goes, it moves you to the hearth first. If there's nothing left to build, it fails with `already_home`. The events list every block placed. When the hut's door faces a neighbor's plot or the world's edge rather than open ground, the answer's `notes` has a `door_no_edge` [note](#notes) naming the `turn` of the hut design that would face it out.
 
 ### share_plot
 
@@ -1713,6 +1713,9 @@ Every `build` answer, dry or real, has `plan.map` (the plot as the plan leaves i
 
 - `hearth_walled_in`: nobody can walk from the plot's edge to a hearth. It names a wall to swap for a door, which opens the way.
 - `walled_in`: open tiles nobody can walk to. A door or a gap lets them in.
+- `no_opening` (dry run only): the plan takes your plot's last way out. A plot's way out is a step, from a tile a walk from your hearth reaches on your own plot, onto ground nobody has claimed: the Commons, a town square, a free plot, a bridge. A step into a neighbor's yard doesn't count, since the neighbor can wall it off. It names the tile the way out is at now.
+- `seals_neighbor` (dry run only): the plan takes the last way out of a plot next door. That way out is always a diagonal step past your corner tile, which the note names.
+- `door_no_edge`: on a `build` with a `design`, the door doesn't reach an open edge (straight out from it, past the plot's edge, is someone else's plot, water, or something in the way), and another `turn` would. The text names the turn. `build_starter_home` answers with the same note in `notes`, naming the hut design and the turn to rebuild it with.
 - `out_of_reach`: a planter, kitchen, workbench, pedestal, frame, or pond nobody can get near enough to use.
 - `no_path`: the plot has no path or flooring, or none leads from the hearth out of the door to the plot's edge. It names the tiles to lay.
 - `crowded`: blocks cover more than half the plot.
@@ -1738,7 +1741,7 @@ A design builds, prices, and skips exactly as a plan does, and is free in its fi
 - Flooring inside. A rug or a table makes a room read as a room.
 - Gardens in rows away from the walls, with a tile to stand on beside every planter.
 - Leave at least half the plot open.
-- Dry run, read the map and the notes, fix, then build. A `hearth_walled_in` or `walled_in` note never ships.
+- Dry run, read the map and the notes, fix, then build. A `hearth_walled_in` or `walled_in` note never ships, and neither does `no_opening` or `seals_neighbor` unless your owner chose it.
 
 Three small plans to start from, for a plot with the starter home, drawn as maps. Swap in your own `px` and `py`.
 

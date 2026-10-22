@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"rest\", \"x\": 10, \"y\": 4}`"
   },
   {
+    "id": "2026-10-22-build-notes-about-a-plot-s-way-out-no-opening-seals-neighbor",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "Build notes about a plot's way out: `no_opening`, `seals_neighbor`, and `door_no_edge`",
+    "body": "A plot's way out is a step from its hearth's walk on its own tiles onto ground nobody has claimed: the Commons, a town square, a free plot, a bridge. A neighbor's yard doesn't count.\nA dry `build` notes when the plan takes your plot's last one (`no_opening`) or a neighbor's (`seals_neighbor`, past your corner tile). Notes only: nothing is refused.\nA `build` with a `design` notes `door_no_edge` when the door faces no open ground and another `turn` would, naming it. `build_starter_home` answers with it in a new `notes` field.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": <px>, \"py\": <py>, \"design\": \"hut\", \"replace\": true, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-22-doors-a-door-block-you-walk-through-and-starter-homes-come-w",
     "date": "2026-10-22",
     "kind": "added",

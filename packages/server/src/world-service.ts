@@ -35,6 +35,7 @@ import {
   DAY_MS,
   type DailyAward,
   DEFAULT_CONFIG,
+  type DesignNote,
   type Direction,
   dateOfDay,
   designNotes,
@@ -92,6 +93,7 @@ import {
   withinEarshot,
 } from "@terrakin/sim";
 import { randomId } from "./bytes";
+import { doorNote, withNote } from "./door-notes";
 import { SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";
 import { landDue, planLand } from "./lands";
@@ -156,6 +158,8 @@ export type ActResult =
       plotSale?: PlotSaleView;
       /** `move` with `steps`: tiles walked, when something stopped the walk short. */
       moved?: number;
+      /** `build_starter_home`: notes about the home it built, or would build (decision 0351). */
+      notes?: DesignNote[];
       dry?: true;
     }
   | {
@@ -1992,7 +1996,15 @@ export class WorldService {
       if ("problem" in expanded) {
         return { ok: false, error: { code: "invalid_plan", message: expanded.problem } };
       }
-      return this.build(residentId, expanded.command, dry);
+      const result = this.build(residentId, expanded.command, dry);
+      if (!result.ok || !result.plan || action.design === undefined) return result;
+      // Whether the design's door reaches an open edge, or which turn would (decision 0351).
+      const door = doorNote(this.state, action.px, action.py, {
+        design: action.design,
+        turn: action.turn,
+      });
+      if (!door) return result;
+      return { ...result, plan: { ...result.plan, notes: withNote(result.plan.notes, door) } };
     }
     return performAction(this.actions, residentId, action, dry);
   }

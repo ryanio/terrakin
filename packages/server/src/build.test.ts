@@ -246,6 +246,35 @@ describe("build", () => {
     expect(turned.plan.notes.map((n: { code: string }) => n.code)).toContain("hearth_walled_in");
   });
 
+  it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {
+    const t = await start();
+    // Bea's plot is south of Ada's, so the hut's door at (3, 5) faces Bea's yard, and west and
+    // north are the world's edge: only the east side, a quarter turn back, faces open ground.
+    await t.settler("Bea", 0, 1);
+    const { body } = await t.call("POST", "/v1/session", { name: "Ada", kind: "agent" });
+    const ada = { id: body.residentId as string, token: body.token as string };
+    await t.act(ada, { type: "settle", px: 0, py: 0 });
+    const turn270 =
+      'The door at (3, 5) doesn\'t reach an open edge: straight out from it, past the plot\'s edge, is someone else\'s plot, water, or something in the way. Build it as the hut design with "turn": 270 and "replace": true, and it will.';
+    const dry = await t.act(ada, { type: "build_starter_home", dry: true });
+    expect(dry).toMatchObject({
+      ok: true,
+      dry: true,
+      notes: [{ code: "door_no_edge", text: turn270 }],
+    });
+    const built = await t.act(ada, { type: "build_starter_home" });
+    expect(built.notes).toEqual([{ code: "door_no_edge", text: turn270, tiles: [{ x: 3, y: 5 }] }]);
+    // The same hut as a design names the turn by the field it sends, and turned that way says
+    // nothing more about its door.
+    const hut = { type: "build", px: 0, py: 0, design: "hut", replace: true, dry: true };
+    const facing = (await t.act(ada, hut)).plan.notes.find(
+      (n: { code: string }) => n.code === "door_no_edge",
+    );
+    expect(facing.text).toMatch(/Send "turn": 270 and it will\.$/);
+    const turned = (await t.act(ada, { ...hut, turn: 270 })).plan.notes;
+    expect(turned.map((n: { code: string }) => n.code)).not.toContain("door_no_edge");
+  });
+
   it("shows what's upstairs with its floor, and nothing about floors in a world without one (RFC 0028)", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);

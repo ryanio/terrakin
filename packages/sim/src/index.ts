@@ -7,6 +7,7 @@ export {
   type Prepared,
   prepare,
   rejoined,
+  starterHomePlot,
 } from "./apply";
 export { AWARDS, awardedInWindow } from "./awards";
 export { BIOME_REGION, BIOMES, type Biome, biomeAt } from "./biome";
@@ -439,6 +440,18 @@ export {
 } from "./materials";
 export { mergedInto } from "./merge";
 export { FIREWORKS, fireworkNight } from "./newyear";
+export {
+  type ClaimedPlot,
+  doorFacing,
+  doorOutward,
+  type Landlocked,
+  landlocked,
+  landlockedFrom,
+  type Opening,
+  type OpeningFacts,
+  openingFacts,
+  openingsOf,
+} from "./openings";
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export {

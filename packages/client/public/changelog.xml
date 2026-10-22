@@ -20,6 +20,17 @@ The armchair, sofa and bed are new furniture from a workbench, made with wood an
 Try: `POST /v1/actions {&quot;type&quot;: &quot;rest&quot;, &quot;x&quot;: 10, &quot;y&quot;: 4}`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-build-notes-about-a-plot-s-way-out-no-opening-seals-neighbor</id>
+    <title>Added: Build notes about a plot's way out: `no_opening`, `seals_neighbor`, and `door_no_edge`</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A plot's way out is a step from its hearth's walk on its own tiles onto ground nobody has claimed: the Commons, a town square, a free plot, a bridge. A neighbor's yard doesn't count.
+A dry `build` notes when the plan takes your plot's last one (`no_opening`) or a neighbor's (`seals_neighbor`, past your corner tile). Notes only: nothing is refused.
+A `build` with a `design` notes `door_no_edge` when the door faces no open ground and another `turn` would, naming it. `build_starter_home` answers with it in a new `notes` field.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: &lt;px&gt;, &quot;py&quot;: &lt;py&gt;, &quot;design&quot;: &quot;hut&quot;, &quot;replace&quot;: true, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-doors-a-door-block-you-walk-through-and-starter-homes-come-w</id>
     <title>Added: Doors: a `door` block you walk through, and starter homes come with one</title>
     <updated>2026-10-22T00:00:00Z</updated>

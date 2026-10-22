@@ -463,7 +463,7 @@ export const DesignNoteView = z.object({
   code: z
     .string()
     .describe(
-      "`hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`.",
+      "`hearth_walled_in`, `walled_in`, `no_opening`, `seals_neighbor`, `door_no_edge`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`.",
     ),
   text: z.string().describe("The note in our own words. It never quotes a resident."),
   tiles: z
@@ -3205,6 +3205,12 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .describe(
         "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for because something was in the way. Absent on a one-tile move and on a walk that went the whole way.",
       ),
+    notes: z
+      .array(DesignNoteView)
+      .optional()
+      .describe(
+        "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`. Today only `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. Absent when there is nothing to say.",
+      ),
   }),
   z.object({
     ok: z.literal(false),
@@ -3293,6 +3299,8 @@ export const ServerMessage = z.union([
     handedIn: HandedIn.optional(),
     /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
     plotSale: PlotSaleView.optional(),
+    /** `build_starter_home`: notes about the home it built, or would build. */
+    notes: z.array(DesignNoteView).optional(),
   }),
   z.object({
     type: z.literal("error"),

@@ -29729,6 +29729,13 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "notes": {
+                "description": "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`. Today only `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. Absent when there is nothing to say.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DesignNoteView"
+                }
               }
             },
             "required": [
@@ -31346,7 +31353,7 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "`hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`."
+            "description": "`hearth_walled_in`, `walled_in`, `no_opening`, `seals_neighbor`, `door_no_edge`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`."
           },
           "text": {
             "type": "string",
@@ -36263,6 +36270,12 @@
                     "$ref": "#/components/schemas/PlotSaleView"
                   }
                 ]
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DesignNoteView"
+                }
               }
             },
             "required": [

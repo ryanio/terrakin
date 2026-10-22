@@ -620,6 +620,16 @@ export function checkCraft(
       `${ITEM_INFO[recipe].name} is made at a ${station}. Place one with place and block ${station}, or use one nearby.`,
     );
   }
+  // A kiln is a station on its owners' plot (RFC 0047): its pot goes back to whoever loaded it, so
+  // only someone who could open it again may load it, and not on a plot for sale.
+  if (pot && !canBuildOn(plotAtTile(state, x, y), actor)) {
+    return refuse(
+      "not_your_plot",
+      "You can only fire a pot in a kiln on your own plot, or one shared with you.",
+    );
+  }
+  const potListed = pot ? tileListedProblem(state, x, y) : null;
+  if (potListed) return potListed;
   // A kiln holds one pot at a time, and a pot's glaze costs one thing on top of its clay.
   if (pot && firingAt(state, x, y)) {
     return refuse(

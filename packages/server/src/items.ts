@@ -63,7 +63,14 @@ function kilnsOf(state: WorldState, viewer: string): KilnView[] {
       const yours = firing.by === viewer;
       const { kind, glaze, label } = firing.good;
       const pot =
-        yours && glaze ? { kind, glaze, ...(label === undefined ? {} : { label }) } : null;
+        yours && glaze
+          ? {
+              kind,
+              glaze,
+              ...(label === undefined ? {} : { label }),
+              trust: "untrusted" as const,
+            }
+          : null;
       return { x, y, readyDay: firing.readyDay, ready, yours, ...(pot ? { pot } : {}) };
     });
 }

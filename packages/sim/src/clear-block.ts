@@ -4,6 +4,7 @@ import { removeProblem } from "./floors";
 import { blockRemoveProblem, cropAt, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
+import { kilnRemoveProblem } from "./pottery";
 import type { Command, Rejection, WorldEvent, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { inBounds, plotAtTile } from "./world";
@@ -16,7 +17,7 @@ type Mutation = () => WorldEvent[];
  * to the plot's owner as if they had taken it up themselves: what a held block, a pond, or stairs
  * took comes back to their things, and a free block gives nothing back. It is refused exactly where
  * the owner's own `remove` would be, so staff can never leave a plot in a state its owner couldn't:
- * a planter with something growing, a block under a display, a wall that holds up an upstairs, or
+ * a planter with something growing, a kiln firing a pot, a block under a display, a wall that holds up an upstairs, or
  * an owner with no room for what comes back. Whether the way is open afterwards is the server's
  * question, not this rule's.
  */
@@ -41,6 +42,9 @@ export function checkClearBlock(
   }
   const shown = displayRemoveProblem(state, x, y);
   if (shown) return shown;
+  // A kiln firing a pot (RFC 0047) stays until the pot is out, as for its owner.
+  const firing = kilnRemoveProblem(state, x, y);
+  if (firing) return firing;
   const holding = removeProblem(state, x, y, 0);
   if (holding) return holding;
   const owner = plot.ownerId;

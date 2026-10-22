@@ -175,7 +175,7 @@ describe("a world with clay", () => {
         readyDay: tomorrow(),
         ready: false,
         yours: true,
-        pot: { kind: "bowl", glaze: "moss", label: "For tea" },
+        pot: { kind: "bowl", glaze: "moss", label: "For tea", trust: "untrusted" },
       },
     ]);
     expect(await kilns(bob.token)).toBeUndefined();

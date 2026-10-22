@@ -49201,11 +49201,18 @@
               },
               "label": {
                 "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
               }
             },
             "required": [
               "kind",
-              "glaze"
+              "glaze",
+              "trust"
             ]
           }
         },

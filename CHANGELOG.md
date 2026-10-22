@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 337887b9444e, 16 entries -->
+<!-- api-fingerprint: 3daad42dcc75, 16 entries -->
 
 - **Added** Pottery, built and switched off: a `kiln`, clay, three pots, and a `glaze` on `craft`
   Not open on terrakin.org yet: `clayOpen` in `GET /v1/world` says when it is. Until then a kiln, a pot, or a glaze is refused with the new code `pottery_closed`.

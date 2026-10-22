@@ -194,6 +194,8 @@ describe("a kiln", () => {
     refused(state, "ada", load("vase"), "tile_occupied");
     refused(state, "ada", open(0), "not_ready");
     refused(state, "ada", { type: "remove", ...KILN_AT }, "tile_occupied");
+    // Nor can staff clear it from under the pot, which would leave the pot with no way out.
+    refused(state, TOWN_ACTOR, { type: "clear_block", ...KILN_AT }, "tile_occupied");
     ok(state, TOWN_ACTOR, { type: "new_day", day: DAY + 1 });
     expect(readyKilns(state, "ada")).toHaveLength(1);
     refused(state, "ada", open(), "server_only");
@@ -218,6 +220,12 @@ describe("a kiln", () => {
   it("refuses what a pot can't be: a glaze off the list or not held, a glaze on anything else", () => {
     const state = potter();
     refused(state, "ada", load("bowl", "gold"), "unknown_item");
+    // Bob stands within reach of Ada's kiln, but it isn't his to load: he could never open it.
+    const bob = state.residents.bob;
+    if (!bob) throw new Error("no Bob");
+    stock(state, "bob", { clay: 2 });
+    Object.assign(bob, { x: KILN_AT.x, y: KILN_AT.y + 1 });
+    refused(state, "bob", load("bowl"), "not_your_plot");
     refused(state, "ada", load("bowl", "sea"), "not_enough_items");
     ok(state, "ada", { type: "place", x: 4, y: 3, block: "workbench" });
     refused(

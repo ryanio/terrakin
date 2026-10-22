@@ -511,6 +511,7 @@ describe("settle", () => {
       out_of_bounds: "out_of_bounds",
       plot_is_water: "out_of_bounds",
       plot_is_square: "plot_is_commons",
+      plot_is_street: "plot_is_commons",
       plot_owned: "plot_owned",
       plot_limit: "plot_limit",
     };
@@ -521,6 +522,7 @@ describe("settle", () => {
             claimed: state.plots[`${px},${py}`] !== undefined,
             ownsAPlot: plotsOwnedBy(state, actor).length > 0,
             square: isTownSquare(state, px, py),
+            street: false,
           });
           // `prepare` checks without changing anything, so every plot is asked of the same world.
           const checked = prepare(state, { actor, command: { type: "settle", px, py } });

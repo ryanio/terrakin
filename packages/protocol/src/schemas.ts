@@ -1728,10 +1728,11 @@ export const WorldSnapshot = z.object({
    * The lands beyond downtown (RFC 0038), absent until the town opens its first one, which is
    * every world so far. `home` is the rectangle downtown is, in tiles: the world as it was before
    * any land opened, and still where the Commons, the Town Hall and the shop are. Each land in
-   * `list` carries the plot slots it made claimable and the bridge tiles that reach it on foot.
+   * `list` carries the plot slots it made claimable, the bridge tiles that reach it on foot, its
+   * square, and its streets.
    *
-   * Everything else follows from those three facts. A tile is **open water** when it is in bounds,
-   * outside `home`, on no land's `plots`, and not one of its `bridge` tiles: nobody walks onto it
+   * Everything else follows from those facts. A tile is **open water** when it is in bounds,
+   * outside `home`, on no land's `plots`, `square` or `streets`, and not one of its `bridge` tiles: nobody walks onto it
    * (a step is refused `blocked`), nothing lies on it to `gather`, and `settle` turns down a plot
    * slot in it. So crossing to an island is an ordinary walk over its bridge, and claiming a plot
    * there is an ordinary `settle`.
@@ -1754,6 +1755,13 @@ export const WorldSnapshot = z.object({
            * nobody can claim. Ground like its plots, so it is not water, and never one of them.
            */
           square: z.object({ px: z.number().int(), py: z.number().int() }),
+          /**
+           * Its streets (RFC 0046): whole plot slots of ground that nobody claims or builds on and
+           * anyone walks, laid so every plot has a side on one that joins the bridge and the
+           * square. Ground like its plots, so not water, and never one of them. Absent on a land
+           * with none.
+           */
+          streets: z.array(z.object({ px: z.number().int(), py: z.number().int() })).optional(),
         }),
       ),
     })
@@ -2284,8 +2292,9 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("schedule_in_person_set") }),
   /**
    * A new land opened beyond downtown (RFC 0038): the world grew to `width` by `height`, `plots`
-   * are claimable with `settle`, `bridge` is the walk across the water to them, and `square` is
-   * the slot its own Town Hall door and shop counter stand on, which nobody claims. The same facts
+   * are claimable with `settle`, `bridge` is the walk across the water to them, `square` is the
+   * slot its own Town Hall door and shop counter stand on, which nobody claims, and `streets` are
+   * the slots everyone walks and nobody claims. The same facts
    * are in `GET /v1/world`'s `lands` from now on.
    */
   z.object({
@@ -2298,6 +2307,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     bridge: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
     /** Its square: where its own hall and counter stand, and the one slot nobody can claim. */
     square: z.object({ px: z.number().int(), py: z.number().int() }),
+    /** Its streets, which nobody claims and anyone walks (RFC 0046). Absent when it has none. */
+    streets: z.array(z.object({ px: z.number().int(), py: z.number().int() })).optional(),
   }),
   /** The market opened (RFC 0008): `GET /v1/market`. */
   z.object({ type: z.literal("market_opened") }),

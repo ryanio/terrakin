@@ -39372,6 +39372,28 @@
                   "px",
                   "py"
                 ]
+              },
+              "streets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "px": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "py": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "px",
+                    "py"
+                  ]
+                }
               }
             },
             "required": [
@@ -42380,6 +42402,28 @@
                         "px",
                         "py"
                       ]
+                    },
+                    "streets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "px": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "py": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "px",
+                          "py"
+                        ]
+                      }
                     }
                   },
                   "required": [

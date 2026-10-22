@@ -83,6 +83,7 @@ import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
 import { openHomeSheet } from "./home-sheet";
 import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
+import { onStreet } from "./lands";
 import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
@@ -1500,6 +1501,7 @@ claimButton.addEventListener("click", () => {
     claimed,
     ownsAPlot: false,
     square: m.isSquare(px, py),
+    street: onStreet(m.lands, px, py),
   });
   if (myPlots().owned === 0 && problem) {
     void import("./claim-sheet").then((c) => c.openClaimSheet());

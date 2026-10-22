@@ -136,7 +136,7 @@ import {
   unearnedJobWear,
 } from "./jobs";
 import { plotKey, tileKey } from "./keys";
-import { checkOpenLand, onLand, squareWords } from "./lands";
+import { checkOpenLand, isStreet, onLand, squareWords, streetWords } from "./lands";
 import {
   checkCreditEvent,
   checkOpenLevels,
@@ -1071,6 +1071,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (isTownSquare(state, px, py)) {
         return reject("plot_is_commons", squareWords(state, px, py));
       }
+      // A land's street, which everyone walks and nobody claims (RFC 0046).
+      if (isStreet(state, px, py)) {
+        return reject(
+          "plot_is_commons",
+          `${streetWords(state, px, py)}${freePlotHint(state, actor, px, py)}`,
+        );
+      }
       // A bridge tile is inside a water plot slot, so standing on one puts a resident on a slot
       // that is nobody's ground. `settle` has always refused it; `claim` must too, or the first
       // resident across owns the channel and can wall the crossing off (RFC 0038).
@@ -1327,6 +1334,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         claimed: state.plots[key] !== undefined,
         ownsAPlot: plotsOwnedBy(state, actor).length > 0,
         square: isTownSquare(state, px, py),
+        street: isStreet(state, px, py),
         onLand: onLand(state, px, py),
       });
       switch (problem) {
@@ -1343,6 +1351,13 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           // Downtown's square is the Commons; a land's is the ground its own hall and counter
           // stand on. Both belong to everyone, so both answer with the Commons' code (RFC 0038).
           return reject("plot_is_commons", squareWords(state, px, py));
+        case "plot_is_street":
+          // A land's street is ground for everyone, like a square, so it answers with the same
+          // code, and names the nearest plot that is there to claim (RFC 0046).
+          return reject(
+            "plot_is_commons",
+            `${streetWords(state, px, py)}${freePlotHint(state, actor, px, py)}`,
+          );
         case "plot_owned":
           return reject(
             problem,

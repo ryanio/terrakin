@@ -382,6 +382,7 @@ export {
 export { parseKey, plotKey, tileKey } from "./keys";
 export {
   isSea,
+  isStreet,
   LANDS,
   type LandsFacts,
   landedFrom,

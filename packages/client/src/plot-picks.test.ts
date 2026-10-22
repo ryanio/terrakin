@@ -83,7 +83,8 @@ describe("plotPicks", () => {
 });
 
 describe("plotPicks with an island", () => {
-  // Downtown is the 5 by 5 grid; the water is plot column 5, and Willowmere is columns 6 to 7.
+  // Downtown is the 5 by 5 grid; the water is plot column 5, and Willowmere is columns 6 to 7,
+  // with a street along its north edge (RFC 0046).
   const lands = {
     home: { width: 40, height: 40 },
     list: [
@@ -98,14 +99,19 @@ describe("plotPicks with an island", () => {
         ],
         bridge: [{ x: 40, y: 19 }],
         square: { px: 6, py: 3 },
+        streets: [
+          { px: 6, py: 0 },
+          { px: 7, py: 0 },
+        ],
       },
     ],
   };
   const island = { config: { ...config, width: 64 }, commons, lands, residents: [] };
 
-  it("offers downtown before the island, and never the water between", () => {
+  it("offers downtown before the island, and never the water between or a street", () => {
     const picks = plotPicks({ ...island, plots: [] });
-    // 25 downtown, less the Commons, then the island's 4. The water column brings none.
+    // 25 downtown, less the Commons, then the island's 4. The water column and the streets bring
+    // none.
     expect(picks).toHaveLength(28);
     expect(picks.filter((p) => p.land).map((p) => [p.px, p.py])).toEqual([
       [6, 1],

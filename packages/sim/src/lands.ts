@@ -23,6 +23,11 @@ import { inBounds, isCommons, plotOf } from "./world";
  * It is in the logged input like everything else geometric, because which slot is the square is the
  * kind of choice a better planner should be free to make differently for the next land without
  * changing how this one replays.
+ *
+ * A land may bring **streets** too ([RFC 0046](../../../docs/rfcs/0046-streets.md)): whole plot
+ * slots of its own ground that nobody claims or builds on and anyone walks, laid so every plot has
+ * a side on one. Which slots they are is in the logged input, like the square; what one is (land,
+ * never a plot, nobody's) is the rule here and in `settle` and `claim`.
  */
 
 type Mutation = () => WorldEvent[];
@@ -52,6 +57,8 @@ export interface LandsFacts {
     readonly bridge: readonly (readonly [number, number])[];
     /** The land's square: its own ground, where its hall and its counter stand, never claimable. */
     readonly square: readonly [number, number];
+    /** Its streets: its own ground nobody claims, between its plots (RFC 0046). */
+    readonly streets?: readonly (readonly [number, number])[];
   }[];
 }
 
@@ -76,8 +83,19 @@ export function landedFrom(
   if (inHome(config, lands, px, py)) return true;
   return lands.list.some(
     (l) =>
-      l.plots.some(([x, y]) => x === px && y === py) || (l.square[0] === px && l.square[1] === py),
+      l.plots.some(([x, y]) => x === px && y === py) ||
+      (l.square[0] === px && l.square[1] === py) ||
+      streetIn(l, px, py),
   );
+}
+
+/** Whether plot slot (`px`, `py`) is one of a land's streets, from the facts alone. */
+function streetIn(
+  land: { readonly streets?: readonly (readonly [number, number])[] },
+  px: number,
+  py: number,
+): boolean {
+  return (land.streets ?? []).some(([x, y]) => x === px && y === py);
 }
 
 /** Whether a tile bridges the water, from the facts alone. */
@@ -97,6 +115,37 @@ export function landOfPlot(state: WorldState, px: number, py: number): Land | un
  */
 export function landOfSquare(state: WorldState, px: number, py: number): Land | undefined {
   return state.lands?.list.find((l) => l.square[0] === px && l.square[1] === py);
+}
+
+/**
+ * The land whose street a plot slot is, or undefined when it is nobody's street. A street is ground
+ * a land brought in for walking, and no resident ever claims it or builds on it (RFC 0046).
+ */
+function landOfStreet(state: WorldState, px: number, py: number): Land | undefined {
+  return state.lands?.list.find((l) => streetIn(l, px, py));
+}
+
+/** Whether a plot slot is one of a land's streets (RFC 0046). */
+export function isStreet(state: WorldState, px: number, py: number): boolean {
+  return landOfStreet(state, px, py) !== undefined;
+}
+
+/**
+ * The land a plot slot is part of, whatever kind of slot it is: one of its plots, its square, or
+ * one of its streets. Undefined downtown and in the water. Someone standing on an island street is
+ * on that island, so `nearestCounter` and `nearestPark` send them to its square (RFC 0046).
+ */
+export function landOfSlot(state: WorldState, px: number, py: number): Land | undefined {
+  return landOfPlot(state, px, py) ?? landOfSquare(state, px, py) ?? landOfStreet(state, px, py);
+}
+
+/**
+ * What a refusal says about a street: whose it is, that it belongs to everyone, and the nearest
+ * plot that is there to claim, which the caller adds (RFC 0046).
+ */
+export function streetWords(state: WorldState, px: number, py: number): string {
+  const land = landOfStreet(state, px, py);
+  return `That's one of ${land?.name ?? "the town"}'s streets, which belong to everyone and nobody claims.`;
 }
 
 /**
@@ -203,8 +252,9 @@ function tiles(list: unknown, max: number, size: number): [number, number][] | n
  * and `height` it carries, records the land's claimable plot slots and its bridge, and emits a
  * public `land_opened`. Refused, changing nothing, unless the world only grows, every slot is
  * inside the new bounds and outside every land already open, the bridge tiles are in bounds and on
- * no land's ground, which is what makes them a crossing rather than a shortcut, and the square is
- * the land's own ground, touching its plots and nothing else.
+ * no land's ground, which is what makes them a crossing rather than a shortcut, every street is
+ * held to a plot slot's rules, and the square is the land's own ground, touching its plots or its
+ * streets and nothing else.
  */
 export function checkOpenLand(
   state: WorldState,
@@ -246,6 +296,17 @@ export function checkOpenLand(
       `A land's bridge is sorted whole [x, y] pairs, up to ${LANDS.bridgeMax}.`,
     );
   }
+  // Streets are optional: a land opened without them has none, as every land before RFC 0046.
+  const streets =
+    command.streets === undefined
+      ? []
+      : tiles(command.streets, LANDS.plotsMax, Math.max(width, height) / size);
+  if (!streets) {
+    return refuse(
+      "server_only",
+      `A land's streets are sorted whole [px, py] pairs, up to ${LANDS.plotsMax}.`,
+    );
+  }
   const square = tiles([command.square], 1, Math.max(width, height) / size)?.[0];
   if (!square) {
     return refuse("server_only", "A land's square is one whole [px, py] pair.");
@@ -260,6 +321,18 @@ export function checkOpenLand(
     }
   }
   const slots = new Set(plots.map(([px, py]) => plotKey(px, py)));
+  // A street is held to a plot slot's rules: in the world this land makes, on no land already, and
+  // none of this land's plots.
+  const ways = new Set<string>();
+  for (const [px, py] of streets) {
+    if (px * size >= width || py * size >= height) {
+      return refuse("server_only", `Street ${px},${py} is outside the world this land makes.`);
+    }
+    if (onLand(state, px, py) || slots.has(plotKey(px, py))) {
+      return refuse("server_only", `Street ${px},${py} is already on land.`);
+    }
+    ways.add(plotKey(px, py));
+  }
   // The square is the land's own ground, so it is held to the plots' rules and to two more: it
   // touches the land it belongs to, side on, or no walk reaches its buildings (a diagonal step
   // past two corners of water is refused, `walk.ts`), and it touches nothing else, or it would be
@@ -268,7 +341,7 @@ export function checkOpenLand(
   if (sx * size >= width || sy * size >= height) {
     return refuse("server_only", `The square ${sx},${sy} is outside the world this land makes.`);
   }
-  if (onLand(state, sx, sy) || slots.has(plotKey(sx, sy))) {
+  if (onLand(state, sx, sy) || slots.has(plotKey(sx, sy)) || ways.has(plotKey(sx, sy))) {
     return refuse("server_only", `The square ${sx},${sy} is already on land.`);
   }
   const beside = [
@@ -277,7 +350,8 @@ export function checkOpenLand(
     [sx, sy - 1],
     [sx, sy + 1],
   ] as const;
-  if (!beside.some(([px, py]) => slots.has(plotKey(px, py)))) {
+  // Its land is its plots and its streets: where streets cross, a square touches only streets.
+  if (!beside.some(([px, py]) => slots.has(plotKey(px, py)) || ways.has(plotKey(px, py)))) {
     return refuse("server_only", `The square ${sx},${sy} doesn't touch the land it belongs to.`);
   }
   if (beside.some(([px, py]) => onLand(state, px, py))) {
@@ -291,7 +365,12 @@ export function checkOpenLand(
       return refuse("server_only", `The bridge at ${x},${y} is outside the world this land makes.`);
     }
     const { px, py } = plotOf(grown, x, y);
-    if (onLand(state, px, py) || slots.has(plotKey(px, py)) || (px === sx && py === sy)) {
+    if (
+      onLand(state, px, py) ||
+      slots.has(plotKey(px, py)) ||
+      ways.has(plotKey(px, py)) ||
+      (px === sx && py === sy)
+    ) {
       return refuse("server_only", `The bridge at ${x},${y} is on land, not across the water.`);
     }
   }
@@ -304,9 +383,26 @@ export function checkOpenLand(
       state.lands ??= { home: { width: config.width, height: config.height }, list: [] };
       state.config.width = width;
       state.config.height = height;
-      state.lands.list.push({ id: land, name, plots, bridge, square });
+      state.lands.list.push({
+        id: land,
+        name,
+        plots,
+        bridge,
+        square,
+        ...(streets.length > 0 ? { streets } : {}),
+      });
     },
-    event: { type: "land_opened", land, name, width, height, plots, bridge, square },
+    event: {
+      type: "land_opened",
+      land,
+      name,
+      width,
+      height,
+      plots,
+      bridge,
+      square,
+      ...(streets.length > 0 ? { streets } : {}),
+    },
   });
 }
 

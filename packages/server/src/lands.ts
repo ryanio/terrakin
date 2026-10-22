@@ -3,9 +3,15 @@ import {
   type Command,
   cloneWorld,
   commonsPlot,
+  counterDoor,
   type Ground,
   LANDS,
+  landSquare,
+  openingFacts,
+  openingsOf,
   plotCenter,
+  plotKey,
+  plotOf,
   plotsLeft,
   type Tile,
   TOWN_ACTOR,
@@ -36,112 +42,188 @@ const LANDS_TO_OPEN = [
   { id: "saltmarch", name: "Saltmarch" },
 ] as const;
 
-/** The shape of a new land. Plots and tiles, never a date. */
-export const LAND_PLAN = {
-  /** Plots a land is across and down: smaller than downtown, big enough to be worth crossing to. */
-  plots: 5,
+/**
+ * The shape of a new land: a long cross of streets ([RFC 0046](../../../docs/rfcs/0046-streets.md)).
+ * Plots and tiles, never a date.
+ */
+const LAND_PLAN = {
+  /** Street slots on each side of the square, west and east. The west street meets the bridge. */
+  across: 3,
+  /** Street slots on each side of the square, north and south, as far as the world's top allows. */
+  down: 4,
   /** Plot-widths of open water between the world's edge and the land. */
   channel: 1,
   /** Tile rows the bridge is wide, so two residents pass on it. */
   bridgeRows: 2,
 } as const;
 
+type OpenLand = Extract<Command, { type: "open_land" }>;
+
 /**
- * The next land's `open_land`, or undefined when the town has no name left for one. The land sits
- * a plot-width of water east of the world's edge, `LAND_PLAN.plots` square, bridged across the
- * channel at the Commons' latitude, so walking there needs no new command and the bridge lands
- * level with the middle of town. Its middle slot is its square, where its own Town Hall door and
- * shop counter stand, so the rest of its plots are a short walk from both. Every number goes in
- * the input, so replay never works any of it out and tuning this never changes how a logged land
- * replays.
+ * The next land's `open_land`, or undefined when the town has no name left for one, or its plan
+ * doesn't carry (`planProblem`).
+ *
+ * The land is a long cross: a plot-width of water east of the world's edge, then a street running
+ * east from the bridge, a street running north and south through the middle of it, and the square
+ * where they cross, where its own Town Hall building and shop counter stand. Every plot sits on a
+ * street with a whole side, so no neighbor's block at a corner can close it in, and the bridge
+ * lands on a street, so the walk home to the bridge never crosses a yard. The bridge crosses the
+ * channel at the Commons' latitude, so walking there needs no new command. On terrakin.org's 9 by
+ * 9 downtown it is 24 plots and 14 street slots, 7 slots across and 9 down.
+ *
+ * Every number goes in the input, so replay never works any of it out and tuning this never
+ * changes how a logged land replays. There is no plan without streets: the island waits for its
+ * streets rather than open the 5 by 5 the first plan laid (RFC 0046, Ryan's call 2).
  */
-export function planLand(state: WorldState): Extract<Command, { type: "open_land" }> | undefined {
+export function planLand(state: WorldState): OpenLand | undefined {
   const next = LANDS_TO_OPEN[state.lands?.list.length ?? 0];
   if (!next) return undefined;
   const { config } = state;
   const size = config.plotSize;
-  const { plots: span, channel, bridgeRows } = LAND_PLAN;
+  const { across, down, channel, bridgeRows } = LAND_PLAN;
   // Plot columns the world already covers. A world's size is whole plots (`validateConfig`) and
   // `open_land` keeps it so, so this divides exactly.
   const edge = config.width / size;
-  const px0 = edge + channel;
-  // Centered on the Commons' row, so the bridge arrives level with the middle of town.
+  const west = edge + channel;
   const commons = commonsPlot(state);
-  const py0 = Math.max(0, commons.py - Math.floor((span - 1) / 2));
-  // The middle slot is the land's square, where its own counter and hall building stand, so every
-  // one of its plots is at most two plots from the shop ([decision 0332](../../../docs/knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
-  // Nobody claims a square, so it is left out of the claimable plots.
-  const square: [number, number] = [px0 + Math.floor(span / 2), py0 + Math.floor(span / 2)];
-  const plots: [number, number][] = [];
-  for (let px = px0; px < px0 + span; px++) {
-    for (let py = py0; py < py0 + span; py++) {
-      if (px !== square[0] || py !== square[1]) plots.push([px, py]);
-    }
+  // The square sits on the Commons' row, so the bridge, which crosses at that latitude, lands on
+  // the west street.
+  const square: [number, number] = [west + across, commons.py];
+  const [sx, sy] = square;
+  const north = Math.min(down, sy);
+  const streets: [number, number][] = [];
+  for (let px = sx - across; px <= sx + across; px++) if (px !== sx) streets.push([px, sy]);
+  for (let py = sy - north; py <= sy + down; py++) if (py !== sy) streets.push([sx, py]);
+  // A plot is every slot beside a street, side on, that isn't a street or the square, and isn't
+  // past either end of one: the west end is the bridge, and the other ends stay open water.
+  const taken = new Set([plotKey(sx, sy), ...streets.map(([px, py]) => plotKey(px, py))]);
+  const plotSet = new Map<string, [number, number]>();
+  const add = (px: number, py: number) => {
+    if (py < 0 || taken.has(plotKey(px, py))) return;
+    plotSet.set(plotKey(px, py), [px, py]);
+  };
+  for (let px = sx - across; px <= sx + across; px++) {
+    add(px, sy - 1);
+    add(px, sy + 1);
   }
+  for (let py = sy - north; py <= sy + down; py++) {
+    add(sx - 1, py);
+    add(sx + 1, py);
+  }
+  const byPlace = (a: [number, number], b: [number, number]) => a[0] - b[0] || a[1] - b[1];
+  const plots = [...plotSet.values()].sort(byPlace);
+  streets.sort(byPlace);
   const bridge: [number, number][] = [];
   const y0 = plotCenter(config, commons.px, commons.py).y;
-  for (let x = edge * size; x < px0 * size; x++) {
+  for (let x = edge * size; x < west * size; x++) {
     for (let y = y0; y < y0 + bridgeRows; y++) bridge.push([x, y]);
   }
-  const command = {
-    type: "open_land" as const,
+  const command: OpenLand = {
+    type: "open_land",
     land: next.id,
     name: next.name,
-    width: (px0 + span) * size,
-    height: Math.max(config.height / size, py0 + span) * size,
+    width: (sx + across + 1) * size,
+    height: Math.max(config.height / size, sy + down + 1) * size,
     plots,
     bridge,
     square,
+    streets,
   };
-  if (reaches(state, command)) return command;
+  const problem = planProblem(state, command);
+  if (!problem) return command;
   // A land is due, a name is left, and the plan doesn't carry: without a line this is silent,
   // and `switchOn` drops an undefined command exactly as it drops "not due yet", so nobody
   // would know the town had stopped opening land. It says this once a tick, which is as often
   // as the switch is tried and rare enough: `landDue` is false until the count falls again.
-  console.warn(`Lands: ${next.id} is due and its plan doesn't carry, so no land opened.`);
+  console.warn(
+    `Lands: ${next.id} is due and its plan doesn't carry (${problem}), so no land opened.`,
+  );
   return undefined;
 }
 
 /**
- * Whether a planned land is actually reachable on foot: from a tile in downtown, a walk over the
- * sim's own step rule arrives at every plot slot the land brings and at its square. The sim can't
- * check this, because to it a bridge and a plot list are lists of tiles and nothing works out
- * what joins what.
+ * Why a planned land shouldn't open, or undefined when it carries. Nothing opens on a plan that
+ * fails, because the input is logged forever and a resident who settles on it in good faith would
+ * be stranded. The sim can't check any of this: to it a bridge, a plot list, and a street list are
+ * lists of tiles, and nothing works out what joins what. Three checks, in order:
  *
- * The plan above can't fail this today: the channel is one plot wide, the bridge spans exactly it,
- * and the island's rows always cover the Commons' own row. It is here because `LAND_PLAN` is meant
- * to be tuned, and the input is logged forever. Two ways a tuned plan goes wrong, and both end
- * with a resident stranded on ground they settled in good faith: a bridge laid from water to
- * water, and a plot joined to the rest of its island only at a corner, which no step crosses (a
- * diagonal past two corners of water is refused). Checking the bridge's ends catches the first
- * and not the second, so this walks the whole land instead. Opening no land is the better
- * failure. `lands.test.ts` pins it.
+ * 1. **Streets.** A land with none is refused outright, so no tuning and no other caller can bring
+ *    back an island where the bridge lands on a private plot (RFC 0046, Ryan's call 2).
+ * 2. **A walk from downtown.** From a tile of the Commons, a walk over the sim's own step rule
+ *    arrives at every slot the land brings. Two ways a plan goes wrong here: a bridge laid from
+ *    water to water, and a slot joined to the rest of its island only at a corner, which no step
+ *    crosses (a diagonal past two corners of water is refused).
+ * 3. **A way out for every plot, when every plot is claimed.** With each of the land's plots
+ *    counted as someone's, every plot has a way out (`openingsOf`, walked from every tile, as a
+ *    claim's notes walk a plot with no hearth) onto ground that joins the bridge and the island's
+ *    counter without crossing anyone's plot. That is what lets every island resident walk to the
+ *    shop and home over the bridge on public ground, whoever claims what (RFC 0046).
+ *
+ * `lands.test.ts` pins each.
  */
-function reaches(state: WorldState, command: Extract<Command, { type: "open_land" }>): boolean {
+export function planProblem(state: WorldState, command: OpenLand): string | undefined {
+  if (!command.streets || command.streets.length === 0) return "it has no streets";
   // The world as the land would leave it, so the ground knows about its tiles.
   const after = cloneWorld(state);
   const opened = apply(after, { actor: TOWN_ACTOR, command });
-  if (!opened.ok) return false;
+  if (!opened.ok) return `the sim refused it: ${opened.rejection.message}`;
   const ground = worldGround(after);
+  const size = after.config.plotSize;
+  const radius = Math.max(after.config.width, after.config.height);
   // Somewhere in downtown to walk from. Not the spawn tile alone: the Commons is exactly where
   // the town builds, and a passed `commons_build` may put a lantern on the centre. Hanging the
   // whole thing on one tile would mean a Town Hall vote could stop any land from ever opening,
   // with no line anywhere saying so. Take the first tile of the Commons anyone can stand on.
   const from = standableInCommons(after, ground);
-  if (!from) return false;
-  const size = after.config.plotSize;
-  const reachable = walkTree(ground, from, Math.max(after.config.width, after.config.height));
-  const arrived = new Set<string>();
-  for (const node of reachable) arrived.add(`${node.x},${node.y}`);
-  const slots: readonly (readonly [number, number])[] = [...command.plots, command.square];
-  return slots.every(([px, py]) => {
-    for (let y = py * size; y < (py + 1) * size; y++) {
-      for (let x = px * size; x < (px + 1) * size; x++) {
-        if (arrived.has(`${x},${y}`)) return true;
-      }
-    }
-    return false;
+  if (!from) return "nobody can stand anywhere on the Commons";
+  const arrived = tilesFrom(ground, from, radius);
+  const slots = [...command.plots, command.square, ...command.streets];
+  const stranded = slots.find(([px, py]) => !slotReached(arrived, size, px, py));
+  if (stranded) return `no walk from downtown reaches ${stranded[0]},${stranded[1]}`;
+
+  // Every plot of the land claimed, and every claimed slot is a wall to a walk on public ground.
+  const mine = new Set(command.plots.map(([px, py]) => plotKey(px, py)));
+  const base = openingFacts(after);
+  const claimed = (px: number, py: number) => mine.has(plotKey(px, py)) || base.claimed(px, py);
+  const facts = { ground: base.ground, claimed };
+  const publicGround: Ground = {
+    config: base.ground.config,
+    obstacle: (x, y) => {
+      const blocked = base.ground.obstacle(x, y);
+      if (blocked) return blocked;
+      const { px, py } = plotOf(base.ground.config, x, y);
+      return claimed(px, py) ? "block" : undefined;
+    },
+  };
+  const [bx, by] = command.bridge[command.bridge.length - 1] as [number, number];
+  const fromBridge = tilesFrom(publicGround, { x: bx, y: by }, radius);
+  const counter = counterDoor(after.config, landSquare(after.config, ...command.square));
+  const reach = after.config.reach;
+  const atCounter = [...fromBridge].some((key) => {
+    const [x, y] = key.split(",").map(Number) as [number, number];
+    return Math.max(Math.abs(x - counter.x), Math.abs(y - counter.y)) <= reach;
   });
+  if (!atCounter) return "no public walk joins the bridge and the counter";
+  const shut = command.plots.find(
+    ([px, py]) => !openingsOf(facts, px, py, []).some((o) => fromBridge.has(`${o.to.x},${o.to.y}`)),
+  );
+  if (shut) return `plot ${shut[0]},${shut[1]} has no way out onto a street once the land fills`;
+  return undefined;
+}
+
+/** Every tile a walk from `from` reaches, as `"x,y"`. */
+function tilesFrom(ground: Ground, from: Tile, radius: number): Set<string> {
+  return new Set(walkTree(ground, from, radius).map((n) => `${n.x},${n.y}`));
+}
+
+/** Whether a walk arrived anywhere on plot slot (`px`, `py`). */
+function slotReached(arrived: Set<string>, size: number, px: number, py: number): boolean {
+  for (let y = py * size; y < (py + 1) * size; y++) {
+    for (let x = px * size; x < (px + 1) * size; x++) {
+      if (arrived.has(`${x},${y}`)) return true;
+    }
+  }
+  return false;
 }
 
 /** The first tile of the Commons a walker can stand on, reading north to south then west to east. */

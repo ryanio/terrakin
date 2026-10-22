@@ -23,6 +23,7 @@ import {
   inventoryOf,
   isCommons,
   isFindKind,
+  isStreet,
   isTownSquare,
   isTownsfolk,
   lastDeclineDay,
@@ -171,9 +172,10 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   const free: { px: number; py: number; away: number; clear?: boolean }[] = [];
   for (let py = 0; py < config.height / config.plotSize; py++) {
     for (let px = 0; px < config.width / config.plotSize; px++) {
-      // A square is where a hall and a counter stand and water is no plot at all, so neither is
-      // ever offered as free (decisions 0326 and 0328).
-      if (isTownSquare(state, px, py) || !onLand(state, px, py)) continue;
+      // A square is where a hall and a counter stand, a street is everyone's, and water is no
+      // plot at all, so none is ever offered as free (decisions 0326 and 0328, RFC 0046).
+      if (isTownSquare(state, px, py) || isStreet(state, px, py) || !onLand(state, px, py))
+        continue;
       if (state.plots[plotKey(px, py)]) continue;
       free.push({ px, py, away: chebyshev({ x: px, y: py }, { x: here.px, y: here.py }) });
     }

@@ -85,11 +85,13 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
     if (e.type === "land_opened") {
       // Plot slots and bridge tiles are `[x, y]` pairs in the sim and named coordinates on the
       // wire, as the snapshot's `lands` has them.
+      const { streets, ...rest } = e;
       out.push({
-        ...e,
+        ...rest,
         plots: e.plots.map(([px, py]) => ({ px, py })),
         bridge: e.bridge.map(([x, y]) => ({ x, y })),
         square: { px: e.square[0], py: e.square[1] },
+        ...(streets ? { streets: streets.map(([px, py]) => ({ px, py })) } : {}),
       });
       continue;
     }
@@ -386,6 +388,7 @@ function landsField(state: WorldState) {
         plots: l.plots.map(([px, py]) => ({ px, py })),
         bridge: l.bridge.map(([x, y]) => ({ x, y })),
         square: { px: l.square[0], py: l.square[1] },
+        ...(l.streets ? { streets: l.streets.map(([px, py]) => ({ px, py })) } : {}),
       })),
     },
   };

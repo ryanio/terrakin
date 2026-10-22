@@ -2,6 +2,7 @@ import {
   claimWaysIn,
   closesNobodyIn,
   DAY_MS,
+  isStreet,
   isTownSquare,
   onLand,
   type Plot,
@@ -96,8 +97,9 @@ export function suggestPlots(state: WorldState, around: PlotRef, count: number):
         const px = around.px + dx;
         const py = around.py + dy;
         if (!plotInBounds(config, px, py) || isTownSquare(state, px, py)) continue;
-        // Nor open water, nor a town square: neither is a plot anyone can settle (decision 0332).
-        if (!onLand(state, px, py)) continue;
+        // Nor open water, nor a town square, nor a street: none is a plot anyone can settle
+        // (decision 0332, RFC 0046).
+        if (!onLand(state, px, py) || isStreet(state, px, py)) continue;
         if (state.plots[plotKey(px, py)]) continue;
         const clear = closesNobodyIn(ways(px, py));
         cells.push({ px, py, side: dx === 0 || dy === 0, clear });

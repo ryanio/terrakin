@@ -21,7 +21,7 @@ import {
   settleProblem,
 } from "@terrakin/sim";
 import { listOf } from "@terrakin/ui/format";
-import { landNameAt, onLandPlot } from "./lands";
+import { landNameAt, onLandPlot, onStreet } from "./lands";
 
 /** One plot the picker offers. */
 export interface PlotPick {
@@ -84,6 +84,7 @@ export function plotPicks(world: World, facts?: OpeningFacts): PlotPick[] {
           claimed,
           ownsAPlot: false,
           square: squares.has(key(px, py)),
+          street: onStreet(lands, px, py),
           onLand,
         })
       )

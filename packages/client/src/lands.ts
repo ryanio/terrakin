@@ -18,6 +18,7 @@ function factsOf(lands: LandsView): LandsFacts {
       plots: l.plots.map((p) => [p.px, p.py] as const),
       bridge: l.bridge.map((t) => [t.x, t.y] as const),
       square: [l.square.px, l.square.py] as const,
+      streets: (l.streets ?? []).map((p) => [p.px, p.py] as const),
     })),
   };
 }
@@ -45,6 +46,11 @@ export function onLandPlot(
   py: number,
 ): boolean {
   return !lands || landedFrom(config, factsOf(lands), px, py);
+}
+
+/** Whether a plot slot is one of a land's streets, which nobody claims (RFC 0046). */
+export function onStreet(lands: LandsView | undefined, px: number, py: number): boolean {
+  return (lands?.list ?? []).some((l) => (l.streets ?? []).some((p) => p.px === px && p.py === py));
 }
 
 /** The name of the land a plot slot is on, or undefined downtown and in the water. */

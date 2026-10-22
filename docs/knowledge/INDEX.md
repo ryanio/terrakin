@@ -289,6 +289,8 @@ What we chose and why. Newest last.
 - [An island's hall building stays standing and takes no filings](decisions/0353-an-island-s-hall-building-stays-standing-and-takes-no-filing.md) · 2026-10-22 · accepted · `world` `lands` `town-hall` `sim` `replay`
 - [A settle or claim says when it takes a neighbor's last way out or has none of its own, and pickers prefer plots that close nobody in](decisions/0354-a-settle-or-claim-says-when-it-takes-a-neighbor-s-last-way-o.md) · 2026-10-22 · accepted · `sim` `server` `client` `walking` `homes` `agents`
 - [Twenty new characters can join at once from one network, so a room on one Wi-Fi steps in together](decisions/0355-twenty-new-characters-can-join-at-once-from-one-network-so-a.md) · 2026-10-22 · accepted · `server` `security` `rate-limits` `playtest`
+- [New lands are laid out with streets logged in open_land, and the first island is the long cross](decisions/0356-new-lands-are-laid-out-with-streets-logged-in-open-land-and-.md) · 2026-10-22 · accepted · `sim` `server` `protocol` `client` `lands` `walking` `homes`
+- [A land plan is refused when, fully claimed, a plot has no way out onto a street joined to the bridge and the counter](decisions/0357-a-land-plan-is-refused-when-fully-claimed-a-plot-has-no-way-.md) · 2026-10-22 · accepted · `server` `lands` `walking` `homes`
 
 ## Learnings
 

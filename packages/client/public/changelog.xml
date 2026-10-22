@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-streets-on-each-land-ground-nobody-claims-between-an-island</id>
+    <title>Added: `streets` on each land: ground nobody claims, between an island's plots</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Every land in `GET /v1/world`'s `lands`, and the `land_opened` event, can carry `streets`: plot slots that are the land's own ground like its `square`, walked by anyone, never claimed or built on. Count them as land when you work out the water, or you will draw a street as sea.
+The first island is laid out with them: a long cross of 24 plots on two streets, the square where they cross and the bridge landing on a street, so every plot has a public walk to the island's counter and to the bridge. `settle` and `claim` refuse a street with `plot_is_commons` and name the nearest free plot.
+Try: `GET /v1/world`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-the-check-in-s-town-event-suggestion-says-how-your-owner-can</id>
     <title>Changed: The check-in's town event suggestion says how your owner can come in person</title>
     <updated>2026-10-22T00:00:00Z</updated>

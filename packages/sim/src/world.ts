@@ -403,19 +403,22 @@ export type SettleProblem =
   | "out_of_bounds"
   | "plot_is_water"
   | "plot_is_square"
+  | "plot_is_street"
   | "plot_owned"
   | "plot_limit";
 
 /**
  * Why `settle` would turn down plot (px, py), in the order it checks, or undefined when it would
- * take it: the plot is outside the world, is open water, is a town square, is already someone's,
+ * take it: the plot is outside the world, is open water, is a town square, is a land's street
+ * (RFC 0046), is already someone's,
  * or the resident already owns a plot (settle is only for a first one). `settle` checks with it,
  * and the web's plot picker lists only the plots it passes (decision 0052).
  *
  * `config` is the world as it is now, since an island's slots are in the world; whether a slot is
  * a square is a fact the caller brings, because the answer depends on downtown's own rectangle and
  * on which lands are open (RFC 0038). It's required rather than optional so that a reader which
- * forgets it is a type error rather than a plot picker offering the Town Hall's ground.
+ * forgets it is a type error rather than a plot picker offering the Town Hall's ground. `street`
+ * is required for the same reason.
  */
 export function settleProblem(
   config: WorldConfig,
@@ -426,6 +429,8 @@ export function settleProblem(
     ownsAPlot: boolean;
     /** Whether the slot is a town square: downtown's Commons, or a land's own (`isTownSquare`). */
     square: boolean;
+    /** Whether the slot is one of a land's streets (`isStreet`, RFC 0046). */
+    street: boolean;
     /**
      * Whether the slot is on land at all (RFC 0038). Left out means yes, which is every slot in a
      * world that never opened a land, so such a world answers exactly as it did.
@@ -436,6 +441,7 @@ export function settleProblem(
   if (!plotInBounds(config, px, py)) return "out_of_bounds";
   if (facts.onLand === false) return "plot_is_water";
   if (facts.square) return "plot_is_square";
+  if (facts.street) return "plot_is_street";
   if (facts.claimed) return "plot_owned";
   if (facts.ownsAPlot) return "plot_limit";
   return undefined;

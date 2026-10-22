@@ -1,5 +1,5 @@
 import { upstairsProblem } from "./floors";
-import { landOfPlot, landOfSquare } from "./lands";
+import { landOfSlot } from "./lands";
 import type { Rejection, Resident, Tile, WorldState } from "./types";
 import { walkWords } from "./walk";
 import {
@@ -110,8 +110,8 @@ function squareFor(state: WorldState, me: Tile | undefined, door: Door): Square 
 }
 
 /**
- * Which land a plot slot belongs to: `"home"` for downtown, a land's id for its plots and its
- * square, and undefined for the water between them. The one place the sim asks it of a slot
+ * Which land a plot slot belongs to: `"home"` for downtown, a land's id for its plots, its square
+ * and its streets (RFC 0046), and undefined for the water between them. The one place the sim asks it of a slot
  * rather than of a tile, so `squareFor` and nothing else reads it.
  */
 function landOf(state: WorldState, px: number, py: number): string | undefined {
@@ -119,7 +119,7 @@ function landOf(state: WorldState, px: number, py: number): string | undefined {
   if (!home) return "home";
   const size = state.config.plotSize;
   if (px >= 0 && py >= 0 && px * size < home.width && py * size < home.height) return "home";
-  return (landOfPlot(state, px, py) ?? landOfSquare(state, px, py))?.id;
+  return landOfSlot(state, px, py)?.id;
 }
 
 /** A door on a square: the shop's or the green's, which is what the choice is measured to. */

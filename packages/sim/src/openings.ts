@@ -1,6 +1,6 @@
 import type { BuildPlan } from "./build";
 import { plotKey, tileKey } from "./keys";
-import { onLand, seaFrom } from "./lands";
+import { isStreet, onLand, seaFrom } from "./lands";
 import type { Direction, ResidentId, Tile, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import {
@@ -17,7 +17,8 @@ import {
  * A plot's way out (decision 0351). A claimed plot has an **opening** when a walk on its own tiles,
  * from a hearth on it, reaches a tile on its edge from which one step (the sim's own `stepFrom`,
  * eight ways, never past a corner) lands on open ground: a tile nobody has claimed, like the
- * Commons, a town square, a plot slot still free, or a bridge, with nothing on it that stops a
+ * Commons, a town square, a land's street (RFC 0046), a plot slot still free, or a bridge, with
+ * nothing on it that stops a
  * walker. A step into a neighbour's yard is no opening, however open the yard is: a home that
  * reaches the town only across someone else's plot is **landlocked**, because the neighbour can
  * close that way at any time on their own land. Doors are open (`blocksWalkers`), and a lock, if
@@ -259,7 +260,8 @@ export function claimWaysIn(state: WorldState): (px: number, py: number) => Clai
 }
 
 /**
- * The free plot nearest to plot (`px`, `py`): unclaimed, not a town square, and on land, so one
+ * The free plot nearest to plot (`px`, `py`): unclaimed, not a town square or a street, and on
+ * land, so one
  * `settle` would take, by Chebyshev distance in plots, then north to south, then west to east. Of
  * the plots as near as the nearest, the first whose claim closes nobody in (`closesNobodyIn`),
  * else the first. With `clear`, only a plot that closes nobody in, however far. `except` is never
@@ -280,7 +282,9 @@ export function nearestFreePlot(
       if (how.except?.px === x && how.except.py === y) continue;
       // Water is never a plot to try: `settle` refuses it, so naming one sends an agent in a
       // circle between a refusal and its hint (RFC 0038).
-      if (isTownSquare(state, x, y) || state.plots[plotKey(x, y)] || !onLand(state, x, y)) continue;
+      if (isTownSquare(state, x, y) || isStreet(state, x, y) || state.plots[plotKey(x, y)])
+        continue;
+      if (!onLand(state, x, y)) continue;
       free.push({ px: x, py: y, d: Math.max(Math.abs(x - px), Math.abs(y - py)) });
     }
   }

@@ -638,6 +638,7 @@ export class Mirror {
               plots: event.plots.map((p) => ({ ...p })),
               bridge: event.bridge.map((t) => ({ ...t })),
               square: { ...event.square },
+              ...(event.streets ? { streets: event.streets.map((p) => ({ ...p })) } : {}),
             },
           ],
         });

@@ -462,6 +462,12 @@ export interface Land {
    * filings, which stay downtown (decision 0352). Never one of `plots`.
    */
   square: [number, number];
+  /**
+   * The land's streets, as `[px, py]`, sorted: whole plot slots of ground that nobody claims or
+   * builds on and anyone walks ([RFC 0046](../../../docs/rfcs/0046-streets.md)). Absent on a land
+   * opened without any, so such a land replays as it did.
+   */
+  streets?: [number, number][];
 }
 
 export interface TownState {
@@ -1954,6 +1960,8 @@ export type Command =
       bridge: [number, number][];
       /** The land's square, where its hall and its counter stand. Never one of `plots`. */
       square: [number, number];
+      /** Its streets, sorted: ground nobody claims, between its plots (RFC 0046). */
+      streets?: [number, number][];
     }
   | { type: "open_market" }
   /** Plots may be listed and bought from now on (RFC 0039). */
@@ -2445,6 +2453,8 @@ export type WorldEvent =
       plots: [number, number][];
       bridge: [number, number][];
       square: [number, number];
+      /** Only when the land has streets (RFC 0046). */
+      streets?: [number, number][];
     }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }

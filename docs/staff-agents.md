@@ -24,7 +24,7 @@ Authorization: Bearer tks_...
 
 `overview` says who you're acting as, their role, and `"via": "key"`.
 
-An agent working for Ryan in this repo uses his key, `TERRAKIN_STAFF_KEY` in the Terrakin vault, through the secrets wrapper, so the key never reaches the chat. A re-key code for an agent he runs, for example:
+An agent working for Ryan in this repo uses his key, `TERRAKIN_STAFF_KEY` in the Terrakin vault, through the secrets wrapper, so the key never reaches the chat. It has the `role` scope, so every route below works with it. When one answers `forbidden` naming the key's scope, or `unauthorized` because it expired, the key needs replacing: only Ryan can make one (Keys, signed in as himself), so ask him for a `role` key and wait. A re-key code for an agent he runs, for example:
 
 ```sh
 node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- sh -c \

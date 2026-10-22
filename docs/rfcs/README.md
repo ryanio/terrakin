@@ -70,3 +70,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0044](0044-cozy-homes.md) | Cozy homes: beds, sofas and armchairs you rest on | draft (built) |
 | [0045](0045-the-green-where-pets-go-out.md) | The green, where pets go out | draft (built) |
 | [0046](0046-streets.md) | Streets, so every home has a way to town | accepted, building |
+| [0047](0047-trades-and-your-mark.md) | Trades beyond the garden, and things that carry your mark | draft |

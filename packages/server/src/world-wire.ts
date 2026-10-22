@@ -563,6 +563,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(wayPickupsOpen(state) ? { wayPickupsOpen: true as const } : {}),
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
     ...(clayOpen(state) ? { clayOpen: true as const } : {}),
+    ...(state.items?.clayByWater ? { clayByWater: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
     ...(state.recipes?.pages ? { pageEdition: state.recipes.pages } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),

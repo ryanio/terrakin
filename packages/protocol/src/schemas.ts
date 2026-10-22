@@ -1984,10 +1984,15 @@ export const WorldSnapshot = z.object({
    */
   findsOpen: z.literal(true).optional(),
   /**
-   * Present once pottery is open (RFC 0047): clay lies on meadow and sand, and a `kiln` fires pots.
+   * Present once pottery is open (RFC 0047): clay lies on the ground, and a `kiln` fires pots.
    * Clients draw clay with the sim's `pickupOn`.
    */
   clayOpen: z.literal(true).optional(),
+  /**
+   * Present with `clayOpen` where clay lies only beside water, a pond or the sea, and a resident
+   * picks up at most a few a day (RFC 0047). Every world the server opens pottery in has it.
+   */
+  clayByWater: z.literal(true).optional(),
   /**
    * Present once recipes are learned (RFC 0024): `teach` works, and now and then a find is a
    * `recipe_page`. Clients draw pages with the sim's `pickupOn`.
@@ -2727,7 +2732,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     by: z.string(),
   }),
   /** Clay lies on the ground and kilns fire pots from now on (RFC 0047). */
-  z.object({ type: z.literal("clay_opened") }),
+  z.object({ type: z.literal("clay_opened"), water: z.literal(true).optional() }),
   /** `by` loaded the kiln at (x, y), which fires until `readyDay`. What's in it isn't said. */
   z.object({
     type: z.literal("kiln_loaded"),

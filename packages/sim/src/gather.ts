@@ -1,6 +1,7 @@
 import { type Biome, biomeAt } from "./biome";
 import type { RecipeName } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
+import { isWater, type WaterFacts, waterBeside } from "./fishing";
 import { upstairsProblem } from "./floors";
 import {
   addStack,
@@ -18,7 +19,7 @@ import { gatherJob } from "./jobs";
 import { tileKey } from "./keys";
 import { isSea } from "./lands";
 import { earned, gatherEarns } from "./levels";
-import { clayOpen, POTTERY } from "./pottery";
+import { type ClayRule, clayRule, POTTERY } from "./pottery";
 import { howToMake, knows, learn, pageEditionOf, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
 import type {
@@ -167,6 +168,9 @@ function findAt(biome: Biome, x: number, y: number, day: number): FindKind | nul
  * which with `pages` on too (`open_recipes` was logged) is now and then a recipe page. Pure: the
  * same tile, day, and switches always answer the same, on every client and replay. With `finds`
  * off it answers exactly as it did before finds, and with `pages` off as it did before pages.
+ *
+ * `clay` is how clay lies (RFC 0047, `clayRule`): `none` lays none, `meadow_and_sand` on any
+ * meadow or sand tile, and `by_water` only where `water` says the tile is beside a pond or the sea.
  */
 export function gatherableAt(
   config: WorldConfig,
@@ -176,7 +180,8 @@ export function gatherableAt(
   finds = false,
   pages = false,
   edition = 1,
-  clay = false,
+  clay: ClayRule = "none",
+  water = false,
 ): PickupKind | null {
   const biome = biomeAt(config, x, y);
   const kind: ResourceKind | null =
@@ -190,17 +195,21 @@ export function gatherableAt(
     const chance = kind === "wood" ? GATHER.woodChance : GATHER.stoneChance;
     if (roll < chance) return kind;
   }
-  const find = finds || clay ? findAt(biome, x, y, day) : null;
+  const find = finds || clay !== "none" ? findAt(biome, x, y, day) : null;
   if (finds && find) return pages && pageOn(x, y, day, edition) ? RECIPE_PAGE : find;
   // Clay (RFC 0047) lies only where a find never would, whether or not finds are out, so turning
   // it on moves no find, page, branch, or stone.
-  if (clay && !find && CLAY_BIOMES.includes(biome) && clayRoll(x, y, day) < POTTERY.clayChance) {
-    return "clay";
+  if (find) return null;
+  if (clay === "by_water") {
+    return water && clayRoll(x, y, day) < POTTERY.clayByWaterChance ? "clay" : null;
+  }
+  if (clay === "meadow_and_sand" && CLAY_BIOMES.includes(biome)) {
+    return clayRoll(x, y, day) < POTTERY.clayChance ? "clay" : null;
   }
   return null;
 }
 
-/** The ground clay lies on (RFC 0047). */
+/** The ground clay lies on under the first rule (RFC 0047, `meadow_and_sand`). */
 const CLAY_BIOMES: readonly Biome[] = ["meadow", "sand"];
 
 /**
@@ -236,8 +245,10 @@ export function pickupOn(
     finds?: boolean;
     pages?: boolean;
     edition?: number;
-    /** Clay is out (`open_clay` was logged, RFC 0047). */
-    clay?: boolean;
+    /** How clay lies in the world (`clayRule`, RFC 0047). Absent: none. */
+    clay?: ClayRule;
+    /** Whether a pond or the sea is beside the tile (`waterBeside`). Read only for `by_water`. */
+    water?: boolean;
   },
 ): PickupKind | null {
   if (tile.built || tile.picked || tile.sea === true) return null;
@@ -249,7 +260,8 @@ export function pickupOn(
     tile.finds === true,
     tile.pages === true,
     tile.edition,
-    tile.clay === true,
+    tile.clay ?? "none",
+    tile.water === true,
   );
 }
 
@@ -268,6 +280,7 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
   const day = state.day;
   if (day === undefined) return null;
   const key = tileKey(x, y);
+  const clay = clayRule(state);
   return pickupOn(state.config, x, y, day, {
     built: state.blocks[key] !== undefined,
     picked: state.items?.gathered?.[key] === day,
@@ -275,9 +288,32 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
     finds: findsOpen(state),
     pages: pagesOpen(state),
     edition: pageEditionOf(state),
-    clay: clayOpen(state),
+    clay,
+    water: clay === "by_water" && byWater(state, x, y),
   });
 }
+
+/** Whether a pond or the sea is beside (x, y), any of the eight ways (RFC 0047's clay). */
+export const byWater = (state: WaterFacts, x: number, y: number): boolean =>
+  waterBeside({ x, y }, (wx, wy) => isWater(state, wx, wy)) !== undefined;
+
+/** How much more clay `actor` may pick up today: unlimited unless clay lies beside water. */
+function clayLeftToday(state: WorldState, actor: ResidentId): number {
+  if (clayRule(state) !== "by_water") return Number.POSITIVE_INFINITY;
+  return Math.max(0, POTTERY.clayPerDay - (state.items?.today.clay?.[actor] ?? 0));
+}
+
+/** Count `n` clay picked up by `actor` today, once clay lies beside water. */
+function countClay(state: WorldState, items: ItemsState, actor: ResidentId, n: number) {
+  if (n === 0 || clayRule(state) !== "by_water") return;
+  items.today.clay = { ...items.today.clay, [actor]: (items.today.clay?.[actor] ?? 0) + n };
+}
+
+const clayLimit = () =>
+  refuse(
+    "clay_limit",
+    `You've picked up ${POTTERY.clayPerDay} clay today, as much as a day allows. More lies beside the water tomorrow.`,
+  );
 
 /**
  * Whether a resident may gather on a tile of `plot` (undefined for the Commons and unclaimed
@@ -415,7 +451,7 @@ function checkGatherAll(
   day: number,
 ): ItemsChecked {
   const lying = (x: number, y: number) => pickupLeft(state, x, y);
-  const mine = pickupsInReach(state.config, me, lying, (x, y) => mayGatherAt(state, x, y, actor));
+  let mine = pickupsInReach(state.config, me, lying, (x, y) => mayGatherAt(state, x, y, actor));
   if (mine.length === 0) {
     // Nothing here is yours to take, so the next step is the nearest one that is.
     const theirs = pickupsInReach(state.config, me, lying, () => true).length > 0;
@@ -430,6 +466,11 @@ function checkGatherAll(
     return refuse("nothing_to_gather", `${why}${next}`);
   }
   // Pages teach rather than fill your things (RFC 0024). Before recipes are learned there are none.
+  // Clay past the day's most stays where it lies (RFC 0047).
+  let clayLeft = clayLeftToday(state, actor);
+  const capped = mine.filter((t) => t.kind !== "clay" || clayLeft-- > 0);
+  if (capped.length === 0) return clayLimit();
+  mine = capped;
   const stacks = mine.filter((t) => t.kind !== RECIPE_PAGE);
   const pages: { at: PickupAt; recipe: RecipeName }[] = [];
   let knownPage: RecipeName | undefined;
@@ -479,6 +520,7 @@ function checkGatherAll(
       const inv = inventory(items, actor);
       const changes = totals.map((c) => addStack(inv, c.kind, c.amount));
       events.push(inventoryEvent(actor, "gather", changes));
+      countClay(state, items, actor, totals.find((c) => c.kind === "clay")?.amount ?? 0);
     }
     for (const { recipe } of pages) {
       learn(recipes, actor, recipe);
@@ -571,9 +613,11 @@ export function checkGather(
       `You can hold ${ITEMS.inventoryMax} things. Make or give something first.`,
     );
   }
+  if (kind === "clay" && clayLeftToday(state, actor) < GATHER.perPickup) return clayLimit();
   return () => {
     if (!items.gathered) items.gathered = {};
     items.gathered[key] = day;
+    if (kind === "clay") countClay(state, items, actor, GATHER.perPickup);
     const change = addStack(inventory(items, actor), kind, GATHER.perPickup);
     const events: WorldEvent[] = [
       { type: "gathered", x, y, kind, by: actor },

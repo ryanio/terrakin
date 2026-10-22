@@ -3,10 +3,10 @@ import { apply } from "./apply";
 import { biomeAt } from "./biome";
 import { FISHING_CONFIG } from "./fixtures/fishing-log";
 import { KILN_CONFIG, KILN_HASH, KILN_LOG } from "./fixtures/kiln-log";
-import { gatherableAt } from "./gather";
+import { byWater, gatherableAt, pickupLeft, pickupsInReach } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
-import { FINISHES, finishOf, GLAZE_COSTS, POTTERY, readyKilns } from "./pottery";
+import { type ClayRule, FINISHES, finishOf, GLAZE_COSTS, POTTERY, readyKilns } from "./pottery";
 import { knows, onShelf, shelfOn } from "./recipes";
 import { replay } from "./replay";
 import { dayOfDate } from "./season";
@@ -115,31 +115,43 @@ describe("before open_clay", () => {
   it("leaves every pickup where it lay, and lays clay only where nothing else would", () => {
     // Every tile of the fishing world for two seasons of days: clay changes no answer but a bare
     // tile's, and only on meadow or sand, so no logged gather replays differently.
+    // Under both rules: the first one's, on meadow and sand, and beside water, asked of every tile
+    // as if water lay beside it.
     const wrong: string[] = [];
-    let bare = 0;
-    let clay = 0;
+    const bare = { meadow_and_sand: 0, by_water: 0 };
+    const clay = { meadow_and_sand: 0, by_water: 0 };
+    const at = (x: number, y: number, day: number, finds: boolean, rule: ClayRule, water = true) =>
+      gatherableAt(FISHING_CONFIG, x, y, day, finds, finds, 1, rule, water);
     for (let day = 20_000; day < 20_180; day += 3) {
       for (let y = 0; y < FISHING_CONFIG.height; y++) {
         for (let x = 0; x < FISHING_CONFIG.width; x++) {
           const before = gatherableAt(FISHING_CONFIG, x, y, day, true, true);
-          const after = gatherableAt(FISHING_CONFIG, x, y, day, true, true, 1, true);
           const biome = biomeAt(FISHING_CONFIG, x, y);
-          if (before !== null && after !== before) wrong.push(`${x},${y} on ${day}: ${before}`);
-          if (after === "clay" && biome !== "meadow" && biome !== "sand") wrong.push(`${biome}`);
-          // With finds out or not, clay never lies where a find would.
-          const findsOff = gatherableAt(FISHING_CONFIG, x, y, day, false, false, 1, true);
-          if (findsOff === "clay" && after !== "clay") wrong.push(`${x},${y} on ${day} moved`);
-          if (before === null && (biome === "meadow" || biome === "sand")) {
-            bare += 1;
-            if (after === "clay") clay += 1;
+          for (const rule of ["meadow_and_sand", "by_water"] as const) {
+            const after = at(x, y, day, true, rule);
+            if (before !== null && after !== before) wrong.push(`${x},${y} on ${day}: ${before}`);
+            // With finds out or not, clay never lies where a find would.
+            if (at(x, y, day, false, rule) === "clay" && after !== "clay") {
+              wrong.push(`${x},${y} on ${day} moved under ${rule}`);
+            }
+            const ground = rule === "by_water" || biome === "meadow" || biome === "sand";
+            if (after === "clay" && !ground) wrong.push(`${biome} under ${rule}`);
+            if (before === null && ground) {
+              bare[rule] += 1;
+              if (after === "clay") clay[rule] += 1;
+            }
           }
+          // Beside water only: a dry tile holds none.
+          if (at(x, y, day, true, "by_water", false) === "clay") wrong.push(`${x},${y} dry`);
         }
       }
     }
     expect(wrong).toEqual([]);
-    // About a quarter of bare meadow and sand holds clay on a day.
-    expect(clay / bare).toBeGreaterThan(POTTERY.clayChance - 0.03);
-    expect(clay / bare).toBeLessThan(POTTERY.clayChance + 0.03);
+    // About a quarter of bare meadow and sand holds clay on a day under the first rule, and about
+    // a fifth of bare ground beside water under the second.
+    const share = (rule: keyof typeof bare) => clay[rule] / bare[rule];
+    expect(Math.abs(share("meadow_and_sand") - POTTERY.clayChance)).toBeLessThan(0.03);
+    expect(Math.abs(share("by_water") - POTTERY.clayByWaterChance)).toBeLessThan(0.03);
   });
 
   it("refuses every part of pottery, and keeps the pots off the shelf and out of what anyone knows", () => {
@@ -169,6 +181,70 @@ describe("open_clay", () => {
     refused(opened, TOWN_ACTOR, { type: "open_clay" }, "already_open");
     expect(opened.items?.clayOpen).toBe(true);
     expect(knows(opened, "ada", "bowl")).toBe(true);
+  });
+});
+
+describe("clay beside water", () => {
+  /** Ada's world with clay beside water, a pond east of her hut, and the first day clay lies by it. */
+  function byThePond() {
+    const state = town(false);
+    ok(state, TOWN_ACTOR, { type: "open_clay", water: true });
+    const pond = { x: 6, y: 3 };
+    stock(state, "ada", { stone: 2 });
+    ok(state, "ada", { type: "place", ...pond, block: "pond" });
+    const ada = state.residents.ada;
+    if (!ada) throw new Error("no Ada");
+    Object.assign(ada, { x: 6, y: 5 });
+    for (let day = DAY + 1; day < DAY + 200; day++) {
+      ok(state, TOWN_ACTOR, { type: "new_day", day });
+      const lying = pickupsInReach(
+        state.config,
+        ada,
+        (x, y) => pickupLeft(state, x, y),
+        () => true,
+      );
+      if (lying.filter((p) => p.kind === "clay").length >= 2) return { state, pond, lying };
+    }
+    throw new Error("no day with clay beside the pond");
+  }
+
+  it("lies only on tiles beside a pond or the sea", () => {
+    const { state, lying } = byThePond();
+    const wet = (x: number, y: number) => byWater(state, x, y);
+    expect(lying.filter((p) => p.kind === "clay").every((p) => wet(p.x, p.y))).toBe(true);
+    // Nowhere dry in the whole world holds any.
+    const dry: string[] = [];
+    for (let y = 0; y < CONFIG.height; y++) {
+      for (let x = 0; x < CONFIG.width; x++) {
+        if (pickupLeft(state, x, y) === "clay" && !wet(x, y)) dry.push(`${x},${y}`);
+      }
+    }
+    expect(dry).toEqual([]);
+    expect(state.items?.clayByWater).toBe(true);
+    refused(state, TOWN_ACTOR, { type: "open_clay", water: true }, "already_open");
+  });
+
+  it(`picks up at most ${POTTERY.clayPerDay} a day, leaving the rest where it lies`, () => {
+    const { state } = byThePond();
+    const items = state.items;
+    if (!items) throw new Error("no items");
+    // Up to one short of the day's most, so one more fits and the next is refused.
+    items.today.clay = { ada: POTTERY.clayPerDay - 1 };
+    ok(state, "ada", { type: "gather" });
+    expect(held(state, "ada", "clay")).toBe(1);
+    expect(items.today.clay).toEqual({ ada: POTTERY.clayPerDay });
+    const left = pickupsInReach(
+      state.config,
+      { x: 6, y: 5 },
+      (x, y) => pickupLeft(state, x, y),
+      () => true,
+    ).find((p) => p.kind === "clay");
+    if (!left) throw new Error("no clay left");
+    refused(state, "ada", { type: "gather" }, "clay_limit");
+    refused(state, "ada", { type: "gather", x: left.x, y: left.y }, "clay_limit");
+    // Tomorrow the count starts again.
+    ok(state, TOWN_ACTOR, { type: "new_day", day: (state.day ?? 0) + 1 });
+    expect(items.today.clay).toBeUndefined();
   });
 });
 

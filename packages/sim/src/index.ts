@@ -230,6 +230,7 @@ export {
   waitingTable,
 } from "./games";
 export {
+  byWater,
   checkGather,
   FIND_SPAWNS,
   type FindSpawn,
@@ -506,7 +507,9 @@ export {
 } from "./plot-market";
 export { freeRenamesLeft, PLOT_NAMES, plotNamesOf } from "./plot-names";
 export {
+  type ClayRule,
   clayOpen,
+  clayRule,
   FINISH_NAMES,
   FINISHES,
   type Finish,

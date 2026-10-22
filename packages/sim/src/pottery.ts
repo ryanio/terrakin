@@ -27,14 +27,25 @@ import {
   isReady,
 } from "./items";
 import { parseKey, tileKey } from "./keys";
-import type { Firing, Good, ItemsState, Rejection, ResidentId, WorldState } from "./types";
+import type { Command, Firing, Good, ItemsState, Rejection, ResidentId, WorldState } from "./types";
 
 /** The numbers (RFC 0047). Tuned with `scripts/economy-sim.ts --kiln`. */
 export const POTTERY = {
   /** What a kiln takes to place, given back to whoever takes it up. */
   kilnStone: 4,
-  /** Chance a meadow or sand tile with nothing else on it holds clay on a day. */
+  /**
+   * Chance a meadow or sand tile with nothing else on it holds clay on a day, in a world whose
+   * `open_clay` came without `water`. Frozen: that rule is the kiln fixture's, and no live world
+   * has it.
+   */
   clayChance: 0.25,
+  /**
+   * Chance a tile beside water (a pond, or the sea) with nothing else on it holds clay on a day,
+   * once `open_clay` came with `water`. Tuned with `scripts/economy-sim.ts --kiln`.
+   */
+  clayByWaterChance: 0.2,
+  /** The most clay a resident picks up in a UTC day once clay lies beside water. */
+  clayPerDay: 6,
   /** Days from loading a kiln to taking the pot out: ready when the next day starts. */
   fireDays: 1,
   /** A finish's roll is a whole number from 0 to one less than this, and chances are out of it. */
@@ -114,6 +125,16 @@ export const isPotKind = (k: unknown): k is GoodKind =>
 export const clayOpen = (state: Pick<WorldState, "items">): boolean =>
   state.items?.clayOpen === true;
 
+/**
+ * How clay lies in a world: nowhere before `open_clay`, on any meadow or sand tile after one without
+ * `water` (the first rule, which only the kiln fixture has), and beside water after one with it.
+ */
+export type ClayRule = "none" | "meadow_and_sand" | "by_water";
+export function clayRule(state: Pick<WorldState, "items">): ClayRule {
+  if (!clayOpen(state)) return "none";
+  return state.items?.clayByWater ? "by_water" : "meadow_and_sand";
+}
+
 /** The refusal for anything pottery before `open_clay`. */
 export function potteryClosed(state: Pick<WorldState, "items">): Rejection | null {
   return clayOpen(state)
@@ -158,18 +179,31 @@ export function firingsOf(state: WorldState): KilnAt[] {
 export const readyKilns = (state: WorldState, id: ResidentId): KilnAt[] =>
   firingsOf(state).filter((k) => k.ready && k.firing.by === id);
 
-/** `open_clay`, which only TOWN_ACTOR sends (RFC 0047). Needs items open, and comes once. */
-export function checkOpenClay(state: WorldState): ItemsChecked {
+/**
+ * `open_clay {water?}`, which only TOWN_ACTOR sends (RFC 0047). Needs items open, and comes once.
+ * With `water`, which the server always sends, clay lies only beside water and a resident picks up
+ * at most `POTTERY.clayPerDay` a day. Without it, clay lies on any meadow or sand tile, as the kiln
+ * fixture's log has it.
+ */
+export function checkOpenClay(
+  state: WorldState,
+  command: Extract<Command, { type: "open_clay" }>,
+): ItemsChecked {
   const shut = closed(state);
   if (shut) return shut;
   const items = state.items as ItemsState;
+  const { water } = command;
+  if (water !== undefined && water !== true) {
+    return refuse("server_only", "water is true or left out.");
+  }
   return oneTimeSwitch({
     on: items.clayOpen,
     already: "Clay is already out.",
     turnOn: () => {
       items.clayOpen = true;
+      if (water) items.clayByWater = true;
     },
-    event: { type: "clay_opened" },
+    event: water ? { type: "clay_opened", water } : { type: "clay_opened" },
   });
 }
 

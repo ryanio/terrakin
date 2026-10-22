@@ -113,6 +113,7 @@ describe("a world that never opened clay", () => {
     const ada = await t.settler("Ada", 0);
     const world = (await t.call("GET", "/v1/world")).body;
     expect(world).not.toHaveProperty("clayOpen");
+    expect(world).not.toHaveProperty("clayByWater");
     expect(world).not.toHaveProperty("kilns");
     expect(world.pickups.filter((p: Json) => p.kind === "clay")).toEqual([]);
     const inventory = (await t.call("GET", "/v1/inventory", undefined, ada.token)).body.inventory;
@@ -130,7 +131,10 @@ describe("a world that never opened clay", () => {
     });
     // With the option a tick logs the switch once.
     const on = await start(true);
-    expect(on.store.log.filter((i) => i.command.type === "open_clay")).toHaveLength(1);
+    // With `water`, so clay lies beside ponds and the sea.
+    expect(on.store.log.filter((i) => i.command.type === "open_clay")).toEqual([
+      expect.objectContaining({ command: { type: "open_clay", water: true } }),
+    ]);
   });
 });
 
@@ -141,7 +145,10 @@ describe("a world with clay", () => {
     const bob = await t.settler("Bob", 2);
     const tomorrow = () => (t.service.state.day ?? 0) + 1;
     expect((await t.call("POST", TEST_OPEN_CLAY_PATH)).body).toEqual({ ok: true });
-    expect((await t.call("GET", "/v1/world")).body.clayOpen).toBe(true);
+    expect((await t.call("GET", "/v1/world")).body).toMatchObject({
+      clayOpen: true,
+      clayByWater: true,
+    });
     expect(t.service.testGrant(ada.id, undefined, { stone: 4, clay: 2, herb: 1 })).toMatchObject({
       ok: true,
     });

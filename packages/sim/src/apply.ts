@@ -862,7 +862,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       case "open_jobs":
         return town(checkOpenJobs(state));
       case "open_clay":
-        return town(checkOpenClay(state));
+        return town(checkOpenClay(state, command));
       case "set_job_edition":
         return town(checkSetJobEdition(state, command));
       case "set_page_edition":

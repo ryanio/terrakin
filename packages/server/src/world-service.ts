@@ -319,8 +319,8 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
-   * Pottery (RFC 0047): once items are open, append `open_clay` if it never has, after which clay
-   * lies on meadow and sand and a kiln fires pots. **No adapter sets it**: terrakin.org,
+   * Pottery (RFC 0047): once items are open, append `open_clay` (with `water`) if it never has, after
+   * which clay lies beside water and a kiln fires pots. **No adapter sets it**: terrakin.org,
    * self-hosting, `pnpm dev`, and the e2e servers all stay without pottery until it's switched on
    * in a push of its own (decision 0362). A test world opens it through `POST /v1/test/open-clay`.
    */
@@ -666,7 +666,7 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
   {
     option: "clay",
     due: (s) => !!s.items && !clayOpen(s),
-    command: { type: "open_clay" },
+    command: { type: "open_clay", water: true },
     label: "put clay out",
   },
   // New land (RFC 0038) comes last, and comes again: unlike every switch above it this one can be
@@ -1602,7 +1602,7 @@ export class WorldService {
    * `testGrant`, since no adapter sets the `clay` option. The sim refuses it before items.
    */
   testOpenClay() {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "open_clay" } });
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_clay", water: true } });
   }
 
   /**

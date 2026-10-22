@@ -11,6 +11,7 @@ import {
   type BlockKind,
   blocksWalkers,
   bySquare,
+  type ClayRule,
   type Crop,
   circleName,
   counterTiles,
@@ -42,6 +43,7 @@ import {
   tileKey,
   upstairsGroundOf,
   type WorldConfig,
+  waterBeside,
 } from "@terrakin/sim";
 import type { EventMark } from "./event-format";
 import type { FloorLayers } from "./floors";
@@ -192,6 +194,8 @@ export class Mirror {
   findsOpen = false;
   /** Whether clay lies on the ground and kilns fire pots (`clay_opened`, RFC 0047). */
   clayOpen = false;
+  /** Whether clay lies only beside water (`clay_opened` with `water`), as every live world has it. */
+  clayByWater = false;
   /**
    * Kilns firing a pot (RFC 0047), by tileKey: who loaded each and the day it's ready. What's in
    * one is never on the wire; the loader's `GET /v1/inventory` says.
@@ -301,6 +305,7 @@ export class Mirror {
     this.wayPickupsOpen = snapshot.wayPickupsOpen === true;
     this.findsOpen = snapshot.findsOpen === true;
     this.clayOpen = snapshot.clayOpen === true;
+    this.clayByWater = snapshot.clayByWater === true;
     for (const k of snapshot.kilns ?? []) {
       this.kilns.set(tileKey(k.x, k.y), { by: k.by, readyDay: k.readyDay });
     }
@@ -737,6 +742,7 @@ export class Mirror {
       // Pottery (RFC 0047): a kiln glows from loading until its pot comes out.
       case "clay_opened":
         this.clayOpen = true;
+        this.clayByWater = event.water === true;
         break;
       case "kiln_loaded":
         this.kilns.set(tileKey(event.x, event.y), { by: event.by, readyDay: event.readyDay });
@@ -981,6 +987,11 @@ export class Mirror {
   pickupAt(x: number, y: number): PickupKind | null {
     if (this.day === undefined) return null;
     const key = tileKey(x, y);
+    const clay: ClayRule = !this.clayOpen
+      ? "none"
+      : this.clayByWater
+        ? "by_water"
+        : "meadow_and_sand";
     return pickupOn(this.config, x, y, this.day, {
       built: this.blocks.has(key),
       picked: this.gathered.has(key),
@@ -988,8 +999,19 @@ export class Mirror {
       finds: this.findsOpen,
       pages: this.recipesOpen,
       edition: this.pageEdition,
-      clay: this.clayOpen,
+      clay,
+      water: clay === "by_water" && this.byWater(x, y),
     });
+  }
+
+  /** Whether a pond or the sea is beside a tile, which is where clay lies (RFC 0047). */
+  byWater(x: number, y: number): boolean {
+    return (
+      waterBeside(
+        { x, y },
+        (wx, wy) => this.blocks.get(tileKey(wx, wy)) === "pond" || this.isSea(wx, wy),
+      ) !== undefined
+    );
   }
 
   /** Whether a resident may pick up what lies on a tile: the sim's own rule, asked of this copy. */

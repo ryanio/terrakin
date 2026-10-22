@@ -534,7 +534,7 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
         // Before anyone has seen the first board, so the whole month reads the edition.
         if (JOB_EDITION !== 1) must(TOWN_ACTOR, { type: "set_job_edition", edition: JOB_EDITION });
       }
-      if (KILN_ON) must(TOWN_ACTOR, { type: "open_clay" });
+      if (KILN_ON) must(TOWN_ACTOR, { type: "open_clay", water: true });
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -1617,6 +1617,12 @@ const pottery = {
   /** Walks by potters whose hearth stands on forest or stone ground. */
   farWalks: [] as number[],
   kilns: 0,
+  /** Tiles of pond potters dug by home, since clay lies beside water. */
+  ponds: 0,
+  /** Potter-days that began with a kiln and water within reach of home, the clay picked up near home on them, and the pots taken out. */
+  engagedDays: 0,
+  engagedClay: 0,
+  engagedFired: 0,
   stoneWalks: 0,
   fired: { bowl: 0, vase: 0, teapot: 0 } as Record<string, number>,
   finishes: { plain: 0, speckled: 0, crackle: 0, iridescent: 0 } as Record<string, number>,
@@ -1627,6 +1633,54 @@ const pottery = {
   making5: new Map<string, number>(),
 };
 const POTS = ["teapot", "vase", "bowl"] as const;
+
+/** Each potter's own tile of pond, dug for the clay beside it. */
+const potterPonds = new Map<string, { x: number; y: number }>();
+
+/**
+ * Where a potter digs their pond: the free tile on their plot with the most free tiles around it,
+ * nearest the hearth among those, never on the column south of the hearth (the hut's doorway).
+ */
+function openPondTile(state: WorldState, hearth: { x: number; y: number }) {
+  const { plotSize } = state.config;
+  const px = Math.floor(hearth.x / plotSize);
+  const py = Math.floor(hearth.y / plotSize);
+  const onPlot = (x: number, y: number) =>
+    Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  const free = (x: number, y: number) =>
+    onPlot(x, y) && state.blocks[tileKey(x, y)] === undefined && !(x === hearth.x && y >= hearth.y);
+  let best: { x: number; y: number; open: number; d: number } | undefined;
+  for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
+    for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
+      if (!free(x, y)) continue;
+      let open = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && free(x + dx, y + dy)) open++;
+      }
+      const d = Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y));
+      if (!best || open > best.open || (open === best.open && d < best.d)) best = { x, y, open, d };
+    }
+  }
+  return best && { x: best.x, y: best.y };
+}
+
+/** A walk to stand beside the potter's pond, the clay around it picked up, and home again. */
+function clayByPond(
+  rules: Rules,
+  id: string,
+  pond: { x: number; y: number },
+  hearth: { x: number; y: number },
+): number {
+  const { state } = rules;
+  const me = state.residents[id];
+  if (!me) return 0;
+  for (const dir of route(worldGround(state), me, pond, 1, 64)) {
+    if (!rules.send(id, { type: "move", dir })) break;
+  }
+  const got = gatherClay(rules, id);
+  walkBack(rules, id, hearth);
+  return got;
+}
 
 /** Every `kind` lying within reach of where a resident stands that they may pick up, picked up. */
 function gatherClay(rules: Rules, id: string, kind: "clay" | "stone" = "clay"): number {
@@ -1678,7 +1732,6 @@ function goPot(rules: Rules, id: string) {
   if (!me || !hearth) return;
   const day = today(state);
   pottery.days++;
-  pottery.nearClay += gatherClay(rules, id);
   const { reach } = state.config;
   const near = (x: number, y: number) =>
     Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y)) <= reach;
@@ -1687,18 +1740,29 @@ function goPot(rules: Rules, id: string) {
     const [x = 0, y = 0] = key.split(",").map(Number);
     if (b === "kiln" && near(x, y)) kiln = { x, y };
   }
-  if (!kiln) {
+  // A day that starts with a kiln and the potter's own pond is an engaged potter's day.
+  const dug = potterPonds.get(id);
+  const engaged = kiln !== undefined && dug !== undefined && isWater(state, dug.x, dug.y);
+  const nearClay = gatherClay(rules, id) + (dug ? clayByPond(rules, id, dug, hearth) : 0);
+  pottery.nearClay += nearClay;
+  if (engaged) {
+    pottery.engagedDays++;
+    pottery.engagedClay += nearClay;
+  }
+  // Clay lies beside water, so a potter digs a tile of pond on open ground on their plot, where
+  // the most tiles around it are free. A pond's stone and a kiln's come the same way, picked up
+  // near home or on one walk a day to the nearest loose stone.
+  const dry = dug === undefined;
+  const stoneWanted = (kiln ? 0 : POTTERY.kilnStone) + (dry ? POND.stone : 0);
+  if (stoneWanted > 0) {
     for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
       for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
-        if (holds(state, id, "stone") >= POTTERY.kilnStone) break;
+        if (holds(state, id, "stone") >= stoneWanted) break;
         if (pickupLeft(state, x, y) === "stone") rules.send(id, { type: "gather", x, y });
       }
     }
-    // Short of a kiln's stone: one walk a day to the nearest loose stone, as for clay.
     const stoneAt =
-      holds(state, id, "stone") < POTTERY.kilnStone
-        ? nearestClay(state, id, hearth, "stone")
-        : undefined;
+      holds(state, id, "stone") < stoneWanted ? nearestClay(state, id, hearth, "stone") : undefined;
     if (stoneAt) {
       for (const dir of route(worldGround(state), me, stoneAt, reach, 64)) {
         if (!rules.send(id, { type: "move", dir })) break;
@@ -1708,11 +1772,23 @@ function goPot(rules: Rules, id: string) {
       walkBack(rules, id, hearth);
       pottery.stoneWalks++;
     }
+  }
+  if (!kiln) {
     const tile = gardenTiles(state, id)[0];
     if (!tile || holds(state, id, "stone") < POTTERY.kilnStone) return;
     if (!rules.send(id, { type: "place", ...tile, block: "kiln" })) return;
     pottery.kilns++;
     kiln = tile;
+  }
+  const pond = dry ? openPondTile(state, hearth) : undefined;
+  if (
+    pond &&
+    holds(state, id, "stone") >= POND.stone &&
+    rules.send(id, { type: "place", ...pond, block: "pond" })
+  ) {
+    potterPonds.set(id, pond);
+    pottery.ponds++;
+    pottery.nearClay += clayByPond(rules, id, pond, hearth);
   }
   const firing = state.items?.firings?.[tileKey(kiln.x, kiln.y)];
   if (firing && firing.readyDay <= (state.day ?? 0)) {
@@ -1722,6 +1798,7 @@ function goPot(rules: Rules, id: string) {
     const pot = state.items?.inventories[id]?.goods.at(-1);
     if ((state.items?.inventories[id]?.goods.length ?? 0) > before && pot?.finish) {
       pottery.fired[kind] = (pottery.fired[kind] ?? 0) + 1;
+      if (engaged) pottery.engagedFired++;
       pottery.finishes[pot.finish] = (pottery.finishes[pot.finish] ?? 0) + 1;
       if (kind === "bowl" && !pottery.firstBowl.has(id)) pottery.firstBowl.set(id, day);
     }
@@ -4164,7 +4241,7 @@ function potteryLines(people: Person[]) {
     .join(", ");
   console.log("");
   console.log(
-    `Pottery (RFC 0047, --kiln): ${potterIds.length} potters, ${p.kilns} kilns placed (${p.stoneWalks} walks for a kiln's stone), ${p.days} potter-days at home.`,
+    `Pottery (RFC 0047, --kiln): ${potterIds.length} potters, ${p.kilns} kilns placed (${p.stoneWalks} walks for a kiln's stone), ${p.ponds} tiles of pond dug by home for clay, ${p.days} potter-days at home.`,
   );
   console.log(
     `  Clay: ${(p.nearClay / Math.max(1, p.days)).toFixed(2)} picked up within reach of the hearth a potter-day; ${p.walks} walks for more (${Math.round((p.walks / Math.max(1, p.days)) * 100)}% of days), median ${percentile(walks, 0.5)} tiles out, ${(p.walkClay / Math.max(1, p.walks)).toFixed(2)} clay a walk. From forest or stone ground: ${far.length} walks, median ${percentile(far, 0.5)} tiles.`,
@@ -4175,6 +4252,9 @@ function potteryLines(people: Person[]) {
       .join(
         ", ",
       )}), ${(firedAll / Math.max(1, p.days)).toFixed(2)} a potter-day; ${p.glazed} loaded in a glaze. Finishes: ${finishes}.`,
+  );
+  console.log(
+    `  Engaged potters (a kiln and water by home, clay beside water at ${POTTERY.clayByWaterChance} a tile a day): ${p.engagedDays} potter-days, ${(p.engagedClay / Math.max(1, p.engagedDays)).toFixed(2)} clay picked up near home a day, ${(p.engagedFired / Math.max(1, p.engagedDays)).toFixed(2)} pots taken out a day.`,
   );
   console.log(
     `  Cards: ${p.cards} coins burned on the vase's and the teapot's, ${(p.cards / Math.max(1, potterIds.length)).toFixed(1)} a potter. Days from a first bowl out to a first teapot loaded: median ${percentile(toTeapot, 0.5)} (n=${toTeapot.length}).`,

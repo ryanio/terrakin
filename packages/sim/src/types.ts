@@ -1365,6 +1365,11 @@ export interface ItemsToday {
   taught?: Record<ResidentId, number>;
   /** Fireworks each resident set off today (RFC 0034). Absent until the day's first. */
   fireworks?: Record<ResidentId, number>;
+  /**
+   * Clay each resident picked up today, once clay lies beside water (RFC 0047). Absent until the
+   * day's first.
+   */
+  clay?: Record<ResidentId, number>;
 }
 
 /** A firework's color (RFC 0034). */
@@ -1461,6 +1466,12 @@ export interface ItemsState {
    * `open_clay`, so gathers logged before it replay as they were made.
    */
   clayOpen?: true;
+  /**
+   * Clay lies only beside water, and a resident picks up at most `POTTERY.clayPerDay` a day (RFC
+   * 0047). Set by an `open_clay` with `water`; absent in a world that opened clay without it, where
+   * clay lies on any meadow or sand tile.
+   */
+  clayByWater?: true;
   /** Pots firing in kilns, keyed by tileKey(x, y). Absent until the first, and dropped when empty. */
   firings?: Record<string, Firing>;
   /**
@@ -2063,8 +2074,11 @@ export type Command =
   | { type: "credit_event"; event: string; guests: ResidentId[] }
   /** From now on, the town has three jobs a day and residents may take them (RFC 0030). */
   | { type: "open_jobs" }
-  /** From now on, clay lies on meadow and sand and kilns fire pots (RFC 0047). */
-  | { type: "open_clay" }
+  /**
+   * From now on, kilns fire pots and clay lies on the ground (RFC 0047): beside water with `water`,
+   * else on any meadow or sand tile, as the first `open_clay` had it.
+   */
+  | { type: "open_clay"; water?: true }
   /** From now on, the board reads this edition of the jobs table (`JOB_EDITIONS`). */
   | { type: "set_job_edition"; edition: number }
   /** From now on, pages on the ground come from this edition of the list (`PAGE_EDITIONS`). */
@@ -2559,7 +2573,7 @@ export type WorldEvent =
   /** A crop came out of a planter. Public. */
   | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
   /** Clay lies on the ground and kilns fire pots from now on (RFC 0047). Public. */
-  | { type: "clay_opened" }
+  | { type: "clay_opened"; water?: true }
   /**
    * `by` loaded the kiln at (x, y), which glows until `readyDay`. Public, without what's in it:
    * the loader's `inventory` event says what it took.
@@ -3130,6 +3144,8 @@ export const REJECTION_CODES = [
   "public_ground",
   /** Pottery isn't open in this world yet: no clay, kilns, or pots (RFC 0047). */
   "pottery_closed",
+  /** You picked up as much clay as a day allows (RFC 0047). */
+  "clay_limit",
   /** A putter or a routine's walk names more steps than one may take. */
   "too_far",
 ] as const;

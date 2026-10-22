@@ -5,6 +5,7 @@
  */
 import type { WorldEvent } from "@terrakin/protocol";
 import {
+  CARD_RECIPES,
   CATALOG,
   CROP_INFO,
   type CraftKind,
@@ -223,7 +224,8 @@ export function moreToLearn(
       .filter((r) => r.station === station && !isMaterialKind(r.recipe))
       .map((r) => recipeOf(r.recipe as Exclude<CraftKind, MaterialKind>)),
   );
-  return [...names].filter((name) => !known.includes(name)).length;
+  // Only a card teaches: a pot of tea, like the base, comes to everyone (RFC 0047).
+  return [...names].filter((name) => CARD_RECIPES.includes(name) && !known.includes(name)).length;
 }
 
 /** What you still lack for a recipe, or null when you hold enough: "Needs 1 more lemon". */

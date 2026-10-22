@@ -13,7 +13,7 @@ import { SHOP_CONFIG, SHOP_LOG } from "./fixtures/shop-log";
 import { gatherableAt, nearestOpenPickup, pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
-import { isPotKind } from "./pottery";
+import { isPotKind, isPotteryRecipe } from "./pottery";
 import {
   BASE_RECIPES,
   CARD_RECIPES,
@@ -272,8 +272,8 @@ describe("the recipe lists", () => {
     for (const recipe of RECIPE_NAMES) {
       const everyone = (BASE_RECIPES as readonly string[]).includes(recipe);
       const holiday = HOLIDAY_RECIPES.includes(recipe);
-      // The bowl is everyone's once clay is out (RFC 0047), so it has no card.
-      const clay = recipe === "bowl";
+      // The bowl and a pot of tea are everyone's once clay is out (RFC 0047), so neither has a card.
+      const clay = recipe === "bowl" || recipe === "pot_of_tea";
       expect(CARD_RECIPES.includes(recipe), recipe).toBe(!everyone && !holiday && !clay);
     }
   });
@@ -390,8 +390,8 @@ describe("open_recipes", () => {
   });
 });
 
-/** Every recipe but the pots, sorted: what knowing everything means before clay is out. */
-const NO_POTS = RECIPE_NAMES.filter((r) => !isPotKind(r)).sort();
+/** Every recipe but pottery's, sorted: what knowing everything means before clay is out. */
+const NO_POTS = RECIPE_NAMES.filter((r) => !isPotteryRecipe(r)).sort();
 
 describe("knows", () => {
   it("says yes to everyone, for everything, before open_recipes", () => {
@@ -400,7 +400,7 @@ describe("knows", () => {
     w.settle("ada", 0);
     // Every recipe but the pots, which nobody knows before clay is out (RFC 0047).
     for (const recipe of RECIPE_NAMES) {
-      expect(knows(w.state, "ada", recipe), recipe).toBe(!isPotKind(recipe));
+      expect(knows(w.state, "ada", recipe), recipe).toBe(!isPotteryRecipe(recipe));
     }
     expect(knownRecipes(w.state, "ada")).toEqual(NO_POTS);
     expect(picksLeft(w.state, "ada")).toBe(0);

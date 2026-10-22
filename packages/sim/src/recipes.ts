@@ -15,7 +15,7 @@ import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
 import { isMaterialKind } from "./materials";
 import { own, residentById } from "./own";
-import { clayOpen, isPotKind } from "./pottery";
+import { clayOpen, isPotKind, isPotteryRecipe } from "./pottery";
 import { type Season, seasonOf } from "./season";
 import {
   BUY_ORDERS,
@@ -112,10 +112,11 @@ export const knownByAll = (recipe: RecipeName): boolean =>
   (BASE_RECIPES as readonly string[]).includes(recipe) || HOLIDAY_RECIPES.includes(recipe);
 
 /**
- * The pot everyone knows once clay is out, with no card (RFC 0047). Frozen like the base: it joins
- * what everyone knows only with the logged `open_clay`, which is why it isn't in `BASE_RECIPES`.
+ * What everyone knows once clay is out, with no card (RFC 0047): the bowl, and a pot of tea, which
+ * takes a teapot. Frozen like the base: they join what everyone knows only with the logged
+ * `open_clay`, which is why they aren't in `BASE_RECIPES`.
  */
-const CLAY_BASE = ["bowl"] as const satisfies readonly RecipeName[];
+const CLAY_BASE = ["bowl", "pot_of_tea"] as const satisfies readonly RecipeName[];
 
 /**
  * Every recipe the shop sells a card for: all but the base, the holiday recipes, and the bowl.
@@ -300,8 +301,9 @@ export const knowsEverything = (state: WorldState, id: ResidentId): boolean =>
  * what the sim would refuse (decision 0052).
  */
 export function knows(state: WorldState, id: ResidentId, recipe: RecipeName): boolean {
-  // Pots (RFC 0047) are known by nobody until clay is out, and the bowl by everyone after.
-  if (isPotKind(recipe)) {
+  // Pots (RFC 0047) and a pot of tea are known by nobody until clay is out, and the bowl and the
+  // tea by everyone after.
+  if (isPotteryRecipe(recipe)) {
     if (!clayOpen(state)) return false;
     if ((CLAY_BASE as readonly string[]).includes(recipe)) return true;
   }

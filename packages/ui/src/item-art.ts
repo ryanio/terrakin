@@ -2819,6 +2819,15 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   bowl: () => potShapes("bowl"),
   vase: () => potShapes("vase"),
   teapot: () => potShapes("teapot"),
+  // A pot of tea (RFC 0047): a cream teapot with steam off its spout.
+  pot_of_tea: () => [
+    ...potShapes("teapot", "cream"),
+    path(
+      "M8 16c-2-3 2-5 0-8M12 13c-2-3 2-5 0-8",
+      "none",
+      out({ "stroke-width": 1.4, opacity: 0.5 }),
+    ),
+  ],
 };
 
 // ---------- pottery (RFC 0047) ----------

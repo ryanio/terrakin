@@ -524,6 +524,7 @@ describe("a made thing in a sentence", () => {
     bowl: "a bowl",
     vase: "a vase",
     teapot: "a teapot",
+    pot_of_tea: "a pot of tea",
   };
   const made = (kind: GoodKind | "piece") =>
     inventoryLine({

@@ -490,6 +490,27 @@ describe("a pot set down", () => {
   });
 });
 
+describe("a pot of tea", () => {
+  it("is brewed at a kitchen in a teapot you hold and keep, and only once pottery is open", () => {
+    const brew: Command = { type: "craft", recipe: "pot_of_tea", x: 3, y: 2 };
+    const shut = town(false);
+    stock(shut, "ada", { herb: 2 });
+    ok(shut, "ada", { type: "place", x: 3, y: 2, block: "kitchen" });
+    refused(shut, "ada", brew, "pottery_closed");
+    expect(knows(shut, "ada", "pot_of_tea")).toBe(false);
+    const state = town();
+    stock(state, "ada", { herb: 2 });
+    ok(state, "ada", { type: "place", x: 3, y: 2, block: "kitchen" });
+    refused(state, "ada", brew, "not_enough_items");
+    const teapot = hand(state, "ada", "teapot");
+    ok(state, "ada", brew);
+    expect(goods(state, "ada").map((g) => g.kind)).toEqual(["teapot", "pot_of_tea"]);
+    expect(goods(state, "ada")[0]).toEqual(teapot);
+    expect(held(state, "ada", "herb")).toBe(0);
+    expect(knows(state, "bob", "pot_of_tea")).toBe(true);
+  });
+});
+
 describe("the finish", () => {
   it("is read from the roll through the frozen table: one in five has one, one in a hundred shines", () => {
     expect(FINISHES).toEqual([

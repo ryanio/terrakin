@@ -523,6 +523,7 @@ export {
   type Glaze,
   isFlowerKind,
   isPotKind,
+  isPotteryRecipe,
   KILN,
   type KilnAt,
   POT_BLOCK,
@@ -532,6 +533,9 @@ export {
   potKey,
   potsOf,
   readyKilns,
+  servedTea,
+  TEA,
+  TEAPOT,
   withGlaze,
 } from "./pottery";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";

@@ -1390,6 +1390,17 @@ const WRITTEN = {
     recipe: { station: "kiln", needs: { clay: 4, wood: 1 } },
     look: { template: "drawn" },
   }),
+  // A pot of tea (RFC 0047), brewed at a kitchen in a teapot you hold, which you keep. A host
+  // serves it at their own event with `bring_dish`. In the pottery family, so a world without
+  // clay shows it nowhere.
+  pot_of_tea: entry({
+    name: "Pot of tea",
+    plural: "Pots of tea",
+    family: "pottery",
+    role: "good",
+    recipe: { station: "kitchen", needs: { herb: 2 } },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------

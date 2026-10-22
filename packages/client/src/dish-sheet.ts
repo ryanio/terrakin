@@ -3,7 +3,7 @@
  * which sends `bring_dish`. Loaded only when the button is tapped. The server decides what counts
  * as a dish and whether you can bring one; the list only leaves out what it would refuse.
  */
-import { ITEM_INFO, isDish } from "@terrakin/sim";
+import { ITEM_INFO, isDish, TEA } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { type ArtKind, itemArt } from "@terrakin/ui/item-art";
 import {
@@ -31,13 +31,15 @@ const words = (code: string, message: string) =>
  * Open the sheet for the feast `event`, and call `brought` once the server took a dish. Bring goes
  * to the feast first, as Go does, so a dish can be brought from anywhere.
  */
-export async function openDishSheet(event: string, brought: () => void) {
+export async function openDishSheet(event: string, brought: () => void, tea = false) {
   const r = await inventoryApi.inventory();
   if (!r.ok) return toast(r.message);
   const inv = r.data.inventory;
+  // At your own event the dish is a pot of tea (RFC 0047), as the world takes there.
+  const takes = (kind: string) => (tea ? kind === TEA : isDish(kind));
   const choices = [
-    ...(inv?.goods ?? []).filter((g) => isDish(g.kind)).map((g) => ({ item: g.id, kind: g.kind })),
-    ...(inv?.stacks ?? [])
+    ...(inv?.goods ?? []).filter((g) => takes(g.kind)).map((g) => ({ item: g.id, kind: g.kind })),
+    ...(tea ? [] : (inv?.stacks ?? []))
       .filter((s) => isDish(s.kind))
       .map((s) => ({ item: s.kind, kind: s.kind })),
   ];
@@ -60,7 +62,11 @@ export async function openDishSheet(event: string, brought: () => void) {
         return;
       }
       closeOverlay(s.dialog);
-      toast(`You set ${nameOf(kind).toLowerCase()} on the town's table.`);
+      toast(
+        tea
+          ? "You set out a pot of tea for your guests."
+          : `You set ${nameOf(kind).toLowerCase()} on the town's table.`,
+      );
       brought();
     });
     return itemRow({
@@ -72,9 +78,12 @@ export async function openDishSheet(event: string, brought: () => void) {
   const s = sheet(
     {
       id: "dish-sheet-title",
-      title: "Bring a dish",
-      lede:
-        choices.length > 0
+      title: tea ? "Serve tea" : "Bring a dish",
+      lede: tea
+        ? choices.length > 0
+          ? "Set out a pot of tea for your guests. Each guest counted at the end earns you a little more Hosting."
+          : "Brew a pot of tea at a kitchen first: it takes a teapot, which you keep, and two bunches of herbs."
+        : choices.length > 0
           ? "Pick one thing you made for the feast's table. It stays there for good."
           : "You hold nothing from a kitchen yet. A kitchen at your hearth makes pies, jams, soups, drinks, and sweets.",
     },

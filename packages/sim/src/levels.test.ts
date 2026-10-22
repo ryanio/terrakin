@@ -23,6 +23,7 @@ import {
   unlockedBy,
 } from "./levels";
 import { EARNED_WEAR, isShopWear, WEAR_INFO, WEAR_ITEMS } from "./looks";
+import { POTTERY } from "./pottery";
 import { replay } from "./replay";
 import { dayOfDate, weekStart } from "./season";
 import { expectSupplyHolds, fund, stock } from "./test-support";
@@ -950,7 +951,13 @@ const HOUR = 3_600_000;
  * An event on `host`'s plot today that `guests` attend: scheduled for `hour` o'clock, started,
  * sampled twice with the guests standing on the plot, and ended. Its id.
  */
-function party(w: World, host: string, guests: string[], hour = 12) {
+function party(
+  w: World,
+  host: string,
+  guests: string[],
+  hour = 12,
+  during: (event: string) => void = () => {},
+) {
   const [px, py] = PLOTS[host] ?? [0, 0];
   const scheduled = w
     .ok(host, {
@@ -965,6 +972,7 @@ function party(w: World, host: string, guests: string[], hour = 12) {
     .find((e) => e.type === "event_scheduled");
   const event = scheduled?.type === "event_scheduled" ? scheduled.event : "";
   w.town({ type: "event_start", event });
+  during(event);
   // East of the hut, outside its wall, one tile each.
   guests.forEach((guest, i) => {
     w.standAt(guest, px * 8 + 6, py * 8 + 1 + i);
@@ -995,6 +1003,41 @@ describe("credit_event", () => {
     expect(w.code(TOWN_ACTOR, credit(event, ["bob", "cy"]))).toBe("already_set");
     expect(w.code(TOWN_ACTOR, credit(event, []))).toBe("already_set");
     expect(w.points("ada")).toEqual({ hosting: 4 });
+  });
+
+  it("gives a host who served a pot of tea one more a counted guest (RFC 0047)", () => {
+    const w = levels();
+    const items = w.state.items;
+    if (!items) throw new Error("no items");
+    const give = (kind: "pot_of_tea" | "teapot") => {
+      const good = { id: `i_${items.nextId}`, kind, maker: "ada", madeDay: OPEN };
+      items.nextId += 1;
+      items.inventories.ada?.goods.push(good);
+      return good.id;
+    };
+    const tea = give("pot_of_tea");
+    const teapot = give("teapot");
+    const serve = (item: string): Command => ({ type: "bring_dish", item });
+    const event = party(w, "ada", ["bob", "cy"], 12, () => {
+      // Before pottery opens it's the feast's command, and no feast is on.
+      expect(w.code("ada", serve(tea))).toBe("out_of_holiday");
+      w.town({ type: "open_clay", water: true });
+      expect(w.code("ada", serve(teapot))).toBe("not_food");
+      expect(w.code("ada", serve("i_999"))).toBe("not_enough_items");
+      // A guest can't set the host's table.
+      expect(w.code("bob", serve(tea))).toBe("out_of_holiday");
+      expect(w.ok("ada", serve(tea))).toContainEqual({
+        type: "dish_brought",
+        by: "ada",
+        kind: "pot_of_tea",
+        event: "e_1",
+      });
+      expect(w.code("ada", serve(teapot))).toBe("already_brought");
+    });
+    const host = progress(w.town(credit(event, ["bob", "cy"]))).find(
+      (e) => e.type === "progress" && e.residentId === "ada",
+    );
+    expect(host).toMatchObject({ points: 2 * (PROGRESS.guest + POTTERY.teaPerGuest) });
   });
 
   it("takes a shorter list than the sim saw attend, and never a longer one", () => {

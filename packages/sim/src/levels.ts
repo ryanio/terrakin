@@ -4,6 +4,7 @@ import { isTownsfolk, sameHousehold } from "./economy";
 import { findEvent } from "./events";
 import { EARNED_WEAR, type EarnedWear, isEarnedWear } from "./looks";
 import { own, residentById } from "./own";
+import { POTTERY, servedTea } from "./pottery";
 import { seasonSpan, weekStart } from "./season";
 import { townEligibility } from "./town";
 import type {
@@ -497,11 +498,14 @@ export function eventCounts(
   state: WorldState,
   host: ResidentId,
   guests: readonly ResidentId[],
+  tea = false,
 ): { host: Deed[] | null; guests: { id: ResidentId; deeds: Deed[] }[] } {
+  // A host who served a pot of tea (RFC 0047) earns `POTTERY.teaPerGuest` more a guest.
+  const each = PROGRESS.guest + (tea ? POTTERY.teaPerGuest : 0);
   return {
     host:
       guests.length > 0 && counts(state, host)
-        ? [{ skill: "hosting", points: guests.length * PROGRESS.guest }]
+        ? [{ skill: "hosting", points: guests.length * each }]
         : null,
     guests: guests
       .filter((id) => counts(state, id))
@@ -741,7 +745,7 @@ export function checkCreditEvent(
     }
   }
   // What fits: under Hosting's daily cap, a host for one event a UTC day and a guest for one.
-  const counted = eventCounts(state, e.host, guests);
+  const counted = eventCounts(state, e.host, guests, servedTea(e));
   const host = progress.hostedToday?.includes(e.host)
     ? null
     : underCap(state, e.host, counted.host);

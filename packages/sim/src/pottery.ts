@@ -32,6 +32,7 @@ import type {
   Command,
   Firing,
   Good,
+  HostedEvent,
   ItemsState,
   PlacedPot,
   Rejection,
@@ -57,6 +58,11 @@ export const POTTERY = {
   clayByWaterChance: 0.2,
   /** The most clay a resident picks up in a UTC day once clay lies beside water. */
   clayPerDay: 6,
+  /**
+   * Hosting points a host earns on top of `PROGRESS.guest` for each counted guest at an event they
+   * served a pot of tea at.
+   */
+  teaPerGuest: 1,
   /** Days from loading a kiln to taking the pot out: ready when the next day starts. */
   fireDays: 1,
   /** A finish's roll is a whole number from 0 to one less than this, and chances are out of it. */
@@ -124,6 +130,18 @@ export function finishOf(roll: number): Finish {
   }
   return "plain";
 }
+
+/** A pot of tea (RFC 0047): brewed at a kitchen in a teapot you hold, and served at your own event. */
+export const TEA = "pot_of_tea" as const;
+/** The pot a pot of tea is brewed in. */
+export const TEAPOT = "teapot" as const;
+
+/** Whether a recipe is pottery's (RFC 0047): a pot, or a pot of tea. Nobody knows one before clay. */
+export const isPotteryRecipe = (r: unknown): boolean => isPotKind(r) || r === TEA;
+
+/** Whether the host of `e` served a pot of tea at it (`bring_dish` at their own event). */
+export const servedTea = (e: Pick<HostedEvent, "dishes" | "host">): boolean =>
+  (e.dishes ?? []).some((d) => d.by === e.host && d.kind === TEA);
 
 /** The pots: every good made at a kiln, in catalog order. */
 export const POT_KINDS: readonly GoodKind[] = GOOD_KINDS.filter(

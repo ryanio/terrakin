@@ -19,6 +19,7 @@ import {
   isStackKind,
 } from "./items";
 import { own, residentById } from "./own";
+import { clayOpen, servedTea, TEA } from "./pottery";
 import type {
   Command,
   HostedEvent,
@@ -50,6 +51,8 @@ export function feastDay(day: number): number | undefined {
  */
 export function isDish(kind: string): kind is ItemKind {
   if (!Object.hasOwn(CATALOG, kind)) return false;
+  // A pot of tea (RFC 0047) is in the pottery family, and it's a dish too.
+  if (kind === TEA) return true;
   const entry = CATALOG[kind as keyof typeof CATALOG];
   return (
     (entry.role === "good" || entry.role === "sweet") && familyPath(entry.family).includes("food")
@@ -101,6 +104,9 @@ export function checkBringDish(
   const day = state.day as number;
   const me = residentById(state, actor);
   if (!me) return refuse("not_joined", "Join the world first.");
+  // A host serves a pot of tea at their own event (RFC 0047), once pottery is open.
+  const hosting = clayOpen(state) ? liveEventHostedAt(state, actor, me) : undefined;
+  if (hosting) return checkServeTea(items, actor, hosting, command.item);
   const feast = liveFeast(state);
   if (!feast) {
     const on = feastDay(day);
@@ -146,6 +152,52 @@ export function checkBringDish(
   return () => {
     const change = addStack(inventory(items, actor), item, -1);
     return bring(feast, actor, item, inventoryEvent(actor, "brought", [change]));
+  };
+}
+
+/** A live event `actor` hosts whose area they stand in, on the ground floor. */
+function liveEventHostedAt(
+  state: WorldState,
+  actor: ResidentId,
+  me: { x: number; y: number; floor?: number },
+): HostedEvent | undefined {
+  if ((me.floor ?? 0) !== 0) return undefined;
+  return state.events?.list.find(
+    (e) =>
+      e.status === "live" &&
+      e.host === actor &&
+      inArea(eventArea(state.config, e.px, e.py), me.x, me.y),
+  );
+}
+
+/**
+ * `bring_dish {item}` from a host at their own live event (RFC 0047): a pot of tea of theirs, by its
+ * id, set out for the guests, once an event. It leaves their things, and when the server credits
+ * the event the host earns `POTTERY.teaPerGuest` more Hosting points a counted guest.
+ */
+function checkServeTea(
+  items: ItemsState,
+  actor: ResidentId,
+  event: HostedEvent,
+  item: unknown,
+): FeastChecked {
+  if (servedTea(event)) {
+    return refuse("already_brought", "You've served tea at this event already. Enjoy it!");
+  }
+  const good =
+    typeof item === "string" && ITEM_ID_PATTERN.test(item)
+      ? own(items.inventories, actor)?.goods.find((g) => g.id === item)
+      : undefined;
+  if (good?.kind !== TEA) {
+    return refuse(
+      good ? "not_food" : "not_enough_items",
+      `At your own event, the dish you set out is a pot of tea, by its id: brew one at a kitchen with a teapot and ${CATALOG[TEA].recipe?.needs.herb} bunches of herbs.`,
+    );
+  }
+  return () => {
+    const inv = inventory(items, actor);
+    inv.goods = inv.goods.filter((g) => g.id !== good.id);
+    return bring(event, actor, TEA, inventoryEvent(actor, "brought", [], { lost: [good.id] }));
   };
 }
 

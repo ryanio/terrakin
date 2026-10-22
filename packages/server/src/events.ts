@@ -11,6 +11,7 @@ import {
   broughtTo,
   canBuildOn,
   circleById,
+  clayOpen,
   coinsOf,
   DAY_MS,
   eventArea,
@@ -27,6 +28,7 @@ import {
   plotKey,
   type ResidentId,
   sameHousehold,
+  servedTea,
   shownCircleName,
   TOWN_ACTOR,
   type WorldState,
@@ -115,8 +117,14 @@ export function eventView(
   };
 }
 
-/** `bring_dish` while `e` is the live Thanksgiving feast and `viewer` hasn't brought one (RFC 0034). */
+/**
+ * `bring_dish` while `e` is the live Thanksgiving feast and `viewer` hasn't brought one (RFC 0034),
+ * or while it's `viewer`'s own live event and they haven't served a pot of tea at it (RFC 0047).
+ */
 function dishMove(state: WorldState, viewer: string, e: HostedEvent): "bring_dish"[] {
+  if (clayOpen(state) && e.status === "live" && e.host === viewer) {
+    return servedTea(e) ? [] : ["bring_dish"];
+  }
   if (liveFeast(state)?.id !== e.id || broughtTo(e, viewer)) return [];
   return isTownsfolk(state, viewer) ? [] : ["bring_dish"];
 }

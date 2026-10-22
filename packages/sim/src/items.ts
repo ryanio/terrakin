@@ -54,6 +54,8 @@ import {
   loadKiln,
   POTTERY,
   potteryClosed,
+  TEA,
+  TEAPOT,
   withGlaze,
 } from "./pottery";
 import type {
@@ -582,8 +584,15 @@ export function checkCraft(
   }
   // A pot (RFC 0047) is fired in a kiln, which only `open_clay` lets anyone place.
   const pot = isPotKind(recipe);
-  const potShut = pot ? potteryClosed(state) : null;
+  const potShut = pot || (recipe as string) === TEA ? potteryClosed(state) : null;
   if (potShut) return potShut;
+  // A pot of tea is brewed in a teapot of yours, which stays yours.
+  if (recipe === TEA && !items.inventories[actor]?.goods.some((g) => g.kind === TEAPOT)) {
+    return refuse(
+      "not_enough_items",
+      "A pot of tea is brewed in a teapot, and you hold none. Fire one at a kiln: it stays yours.",
+    );
+  }
   const { glaze } = command;
   if (glaze !== undefined && !pot) {
     return refuse("unknown_item", "Only a pot fired in a kiln takes a glaze. Leave out glaze.");

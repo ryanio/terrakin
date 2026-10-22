@@ -89,16 +89,18 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
     actions.append(go);
   }
   if (o.me && e.moves.includes("bring_dish")) {
-    // The Thanksgiving feast (RFC 0034): the sheet loads with its first tap.
+    // The Thanksgiving feast (RFC 0034), or tea at your own event (RFC 0047): the sheet loads
+    // with its first tap.
+    const tea = e.town !== true;
     const bring = h("button", {
       class: "pill-button small event-bring",
       attrs: { type: "button" },
-      text: "Bring a dish",
+      text: tea ? "Serve tea" : "Bring a dish",
     });
     bring.addEventListener("click", () =>
       whileBusy(bring, async () => {
         const { openDishSheet } = await import("./dish-sheet");
-        await openDishSheet(e.id, o.changed);
+        await openDishSheet(e.id, o.changed, tea);
       }),
     );
     actions.append(bring);

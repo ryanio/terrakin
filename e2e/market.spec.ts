@@ -3,6 +3,7 @@ import {
   act,
   advanceDay,
   join,
+  openPlotMarket,
   overflowsSideways,
   read,
   settler,
@@ -14,10 +15,11 @@ import {
  * The market (RFC 0008) on a phone: a resident lists a jar from their pantry on /market, and a
  * neighbor buys it from their stall on the profile; and a neighbor reports a listing, which a
  * maintainer takes down in the staff app, and its seller gets a notice from Terrakin. Listing
- * waits for a resident's fourth day, so this moves its server's clock on.
+ * waits for a resident's fourth day, so this moves its server's clock on. Last, plots go on sale
+ * (RFC 0039) on this server alone: Mara sells her plot from /market and Nils buys it.
  */
 
-test("list a jar that a neighbor buys from the stall; a reported listing taken down by a maintainer", async ({
+test("list a jar that a neighbor buys from the stall; a reported listing taken down by a maintainer; a plot sold", async ({
   page,
 }) => {
   const errors = watchErrors(page, { dialogs: true });
@@ -153,6 +155,56 @@ test("list a jar that a neighbor buys from the stall; a reported listing taken d
     await expect(appeal).toHaveAttribute("href", "/contact");
     expect((await appeal.boundingBox())?.height).toBeGreaterThanOrEqual(44);
     expect(await overflowsSideways(page)).toBe(false);
+  });
+
+  await test.step("plots go on sale: Mara lists hers, Nils buys it, and Mara hears it sold", async () => {
+    // Fourteen days after her claim a plot can be sold.
+    await openPlotMarket(page.request);
+    await advanceDay(page.request, 11);
+    const coins = await page.request.post("/v1/test/grant", {
+      data: { residentId: nils.id, coins: 400 },
+    });
+    expect(coins.ok()).toBe(true);
+
+    await signIn(page, mara);
+    await page.goto("/market#plots");
+    await expect(page.getByRole("heading", { name: "Plots for sale", exact: true })).toBeVisible();
+    const yours = page.locator(".plot-own");
+    await yours.getByRole("button", { name: /^Sell/ }).click();
+    const sell = page.locator("dialog.sheet").filter({ hasText: "Sell your plot" });
+    await sell.getByLabel("Price for the plot").fill("300");
+    await sell.getByRole("button", { name: "Check the sale" }).click();
+    await expect(sell).toContainText("285 coins");
+    const list = sell.locator("#plot-list");
+    await expect(list).toHaveText("List for 25 coins");
+    await list.click();
+    await expect(list).toHaveText("Tap again to pay 25 coins");
+    await list.click();
+    await expect(page.locator("#site-toast")).toContainText("Your plot is for sale.");
+    await expect(yours).toContainText("For sale at 300 coins");
+    expect(await overflowsSideways(page)).toBe(false);
+
+    await signIn(page, nils);
+    await page.goto("/market");
+    const row = page.locator(".plot-sale").filter({ hasText: "Mara" });
+    await row.getByRole("button", { name: /Buy for 300 coins/ }).click();
+    const buy = page.locator("dialog.sheet").filter({ hasText: "It's sold as it stands" });
+    await expect(buy).toContainText("Your coins after");
+    const pay = buy.locator("#plot-buy");
+    await expect(pay).toHaveText("Buy for 300 coins");
+    await pay.click();
+    await expect(pay).toHaveText("Tap again to pay 300 coins");
+    await pay.click();
+    await expect(page.locator("#site-toast")).toContainText("The plot is yours.");
+    await expect(page.locator("#site-toast").getByRole("link", { name: "Go there" })).toBeVisible();
+    await expect(row).toHaveCount(0);
+    expect(await overflowsSideways(page)).toBe(false);
+
+    await signIn(page, mara);
+    await page.goto("/notifications");
+    await expect(page.locator('.notif[data-type="plot_sold"]').first()).toContainText(
+      "sold for 300 coins",
+    );
   });
   expect(errors).toEqual([]);
 });

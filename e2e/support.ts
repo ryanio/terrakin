@@ -10,6 +10,7 @@ import {
   openCirclesOver,
   openJobsOver,
   openLevelsOver,
+  openPlotMarketOver,
   openRecipesOver,
   type Persona,
   type PersonaSpec,
@@ -267,6 +268,14 @@ export async function openJobs(request: APIRequestContext) {
  */
 export async function openCircles(request: APIRequestContext) {
   await openCirclesOver(httpOf(request));
+}
+
+/**
+ * Put plots on sale now (RFC 0039), with the plot cap at 3 and the next land opened first. Once
+ * per server, so only for a spec with a server of its own.
+ */
+export async function openPlotMarket(request: APIRequestContext) {
+  await openPlotMarketOver(httpOf(request));
 }
 
 /**

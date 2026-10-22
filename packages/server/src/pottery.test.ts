@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
-import { DAY_MS, POTTERY, type WorldConfig } from "@terrakin/sim";
+import { DAY_MS, POTTERY, POTTERY_JOB_EDITION, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp, TEST_OPEN_CLAY_PATH } from "./app";
 import { eventWords } from "./events";
@@ -38,7 +38,10 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(clay = false) {
+async function start(
+  clay = false,
+  more: Partial<ConstructorParameters<typeof WorldService>[0]> = {},
+) {
   let now = Date.UTC(2026, 9, 26, 9);
   const store = new MemoryStore();
   const service = new WorldService({
@@ -53,6 +56,7 @@ async function start(clay = false) {
     recipes: true,
     presence: true,
     clay,
+    ...more,
   });
   const sql = nodeSql();
   cleanups.push(() => sql.close());
@@ -135,6 +139,11 @@ describe("a world that never opened clay", () => {
     expect(on.store.log.filter((i) => i.command.type === "open_clay")).toEqual([
       expect.objectContaining({ command: { type: "open_clay", water: true } }),
     ]);
+    // And where jobs are open, the board moves to pottery's edition on the next day, never mid-day.
+    const both = await start(true, { levels: true, jobs: true });
+    expect(both.service.state.jobs?.edition).toBe(1);
+    both.later(DAY_MS);
+    expect(both.service.state.jobs?.edition).toBe(POTTERY_JOB_EDITION);
   });
 });
 

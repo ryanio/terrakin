@@ -441,7 +441,7 @@ const boardIn = (edition: number) => (day: number) => {
 /** Four years from the day jobs open here, so a leap day is in them. */
 const DAYS = Array.from({ length: 1461 }, (_, i) => OPEN + i);
 /** How many of those days have a pumpkin or a cranberry job for home, in each edition. */
-const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94 };
+const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94, 3: 94 };
 
 describe("the numbers", () => {
   it("are pinned, so a change is deliberate and comes with a run of scripts/economy-sim.ts", () => {
@@ -874,6 +874,8 @@ describe("an edition's boards", () => {
     expect(Object.fromEntries(EDITIONS.map((n) => [n, boards(n)]))).toEqual({
       1: "c5696559",
       2: "b4e03423",
+      // The third adds only pottery's jobs, which a world without clay never puts up (RFC 0047).
+      3: "b4e03423",
     });
   });
 
@@ -883,7 +885,33 @@ describe("an edition's boards", () => {
     expect(Object.fromEntries(EDITIONS.map((n) => [n, boards(n)]))).toEqual({
       1: "1b837457",
       2: "c8ccdd8c",
+      3: "c8ccdd8c",
     });
+  });
+});
+
+describe("the third edition (RFC 0047)", () => {
+  it("puts a bowl for Clem and a vase for Ansel on Making's turns once clay is out, and never before", () => {
+    const POTS = ["clem_bowl", "ansel_vase"];
+    const withClay = {
+      ...openedIn(3),
+      items: { ...opened.items, clayOpen: true },
+    } as WorldState;
+    const up = new Map<string, number[]>();
+    for (const day of DAYS) {
+      jobsOn({ ...withClay, day }).forEach((job, slot) => {
+        if (!POTS.includes(job.id)) return;
+        expect(slot, job.id).toBe(0);
+        up.set(job.id, [...(up.get(job.id) ?? []), day]);
+      });
+    }
+    // Each comes up every few weeks, as Making's other jobs do.
+    for (const id of POTS) {
+      const days = up.get(id) ?? [];
+      const gaps = days.slice(1).map((d, i) => d - (days[i] ?? d));
+      expect(Math.max(...gaps), id).toBeLessThanOrEqual(42);
+    }
+    expect(DAYS.some((day) => boardIn(3)(day).some((j) => POTS.includes(j.id)))).toBe(false);
   });
 });
 

@@ -379,6 +379,7 @@ export {
   jobUnlocks,
   jobWaits,
   laneRound,
+  POTTERY_JOB_EDITION,
   soloJob,
   takeJobProblem,
   titleLabel,

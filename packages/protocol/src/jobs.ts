@@ -51,6 +51,8 @@ export const JOB_WORDS: Readonly<Record<string, string>> = {
   bram_jack_o_lantern: "Carve a jack-o'-lantern",
   ansel_bouquet: "A bouquet for Ansel",
   ansel_flower_box: "Make a flower box",
+  clem_bowl: "A bowl fired at a kiln, for the cafe's kitchen",
+  ansel_vase: "A vase fired at a kiln, for Ansel's flowers",
   marlo_find: "Pick up a find",
   marlo_sand_find: "Pick up a find on the sand",
   marlo_forest_find: "Pick up a find in the forest",

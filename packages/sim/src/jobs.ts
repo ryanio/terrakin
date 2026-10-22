@@ -51,6 +51,7 @@ import {
 } from "./levels";
 import { isJobWear, JOB_WEAR, type JobWear, WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
+import { clayOpen, isPotKind } from "./pottery";
 import { knownByAll } from "./recipes";
 import { type Season, seasonOf, seasonSpan, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
@@ -364,9 +365,23 @@ const FIRST_TABLE: readonly Job[] = [
  * world (RFC 0030's softer case, decision 0268), since no logged day reads them. `jobs.test.ts`
  * pins the boards of every day a live world has logged, so an addition that moves one fails.
  */
+/**
+ * The third edition (RFC 0047): the second's jobs and two pottery hand-ins, a bowl for Clem's
+ * kitchen and a vase for Ansel's flowers, both in the Making lane. Neither is up until clay is out
+ * (`partOpen`), so a world on it without pottery reads the second edition's boards.
+ */
+const POTTERY_JOBS: readonly Job[] = [
+  { id: "clem_bowl", giver: "clem", skill: "making", bring: "bowl" },
+  { id: "ansel_vase", giver: "ansel", skill: "making", bring: "vase" },
+];
+
+/** The edition pottery's jobs are in, which the server moves the board to once clay is out. */
+export const POTTERY_JOB_EDITION = 3;
+
 export const JOB_EDITIONS: Readonly<Record<number, readonly Job[]>> = {
   1: FIRST_TABLE,
   2: FIRST_TABLE,
+  3: [...FIRST_TABLE, ...POTTERY_JOBS],
 };
 
 /** The edition `open_jobs` starts a world on. */
@@ -398,10 +413,11 @@ function laneOf(job: Job): Lane {
 
 /**
  * Whether the part of the game a job needs is open in this world: finds for a find, lessons for a
- * lesson, and bounties for a bounty. Nothing else a job asks for has a switch that can be off
- * once jobs are open.
+ * lesson, bounties for a bounty, and pottery for a pot (RFC 0047). Nothing else a job asks for has
+ * a switch that can be off once jobs are open.
  */
 function partOpen(state: WorldState, job: Job): boolean {
+  if (job.bring !== undefined && isPotKind(job.bring)) return clayOpen(state);
   switch (job.deed?.type) {
     case "find":
       return findsOpen(state);

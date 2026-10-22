@@ -63,6 +63,7 @@ import {
   own,
   ownerPaired,
   PLOTS,
+  POTTERY_JOB_EDITION,
   PRESENTS,
   pageEditionOf,
   pieceShowingMedia,
@@ -1109,7 +1110,12 @@ export class WorldService {
    * Called only right after a `new_day`, so a day's board never changes once it's up.
    */
   private moveJobEdition() {
-    const edition = this.jobEdition;
+    // Pottery's jobs (RFC 0047) are in an edition of their own, which clay brings with it.
+    const pottery = this.clay && clayOpen(this.state) ? POTTERY_JOB_EDITION : undefined;
+    const edition =
+      this.jobEdition === undefined || pottery === undefined
+        ? (this.jobEdition ?? pottery)
+        : Math.max(this.jobEdition, pottery);
     const jobs = this.state.jobs;
     if (edition === undefined || !jobs || jobs.edition >= edition) return;
     const set = this.run({ actor: TOWN_ACTOR, command: { type: "set_job_edition", edition } });
@@ -1586,7 +1592,22 @@ export class WorldService {
    * the Node server's test route calls it, like `testGrant`. The sim refuses it before levels.
    */
   testOpenJobs() {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "open_jobs" } });
+    const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_jobs" } });
+    if (opened.ok) this.testPotteryJobs();
+    return opened;
+  }
+
+  /**
+   * A test world with clay and jobs both open reads pottery's jobs now (RFC 0047), rather than
+   * after the next `new_day` as a live world would.
+   */
+  private testPotteryJobs() {
+    const jobs = this.state.jobs;
+    if (!clayOpen(this.state) || !jobs || jobs.edition >= POTTERY_JOB_EDITION) return;
+    this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "set_job_edition", edition: POTTERY_JOB_EDITION },
+    });
   }
 
   /**
@@ -1602,7 +1623,9 @@ export class WorldService {
    * `testGrant`, since no adapter sets the `clay` option. The sim refuses it before items.
    */
   testOpenClay() {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "open_clay", water: true } });
+    const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_clay", water: true } });
+    if (opened.ok) this.testPotteryJobs();
+    return opened;
   }
 
   /**

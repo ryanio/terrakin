@@ -26,11 +26,13 @@ import {
   ITEM_INFO,
   isGroundKind,
   isHeldBlock,
+  onGreen,
   pageKnown,
   parseKey,
   pickupsInReach,
   plotKey,
   plotOf,
+  postureOn,
   type Resident,
   route,
   STEP,
@@ -39,6 +41,7 @@ import {
   type Tile,
   tileKey,
   upstairsProblem,
+  walkedToday,
   waterBeside,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
@@ -86,7 +89,7 @@ import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { passkeyWhy, provePasskey } from "./passkey";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
-import { PatsToday, PetMotion, petCalled } from "./pets";
+import { PatsToday, PetMotion, petCalled, walkLine } from "./pets";
 import { coins } from "./purse";
 import {
   BURST_MS,
@@ -187,6 +190,8 @@ const paletteTabs = linkTabs(
 palette.prepend(paletteTabs);
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
+/** Shown while you stand on a green with a pet that hasn't been out today (RFC 0045). */
+const walkPetButton = $<HTMLButtonElement>("world-walk-pet");
 const gatherButton = $<HTMLButtonElement>("world-gather");
 /** Shown while you stand beside water (RFC 0023): cast a line. */
 const fishButton = $<HTMLButtonElement>("world-fish");
@@ -481,7 +486,10 @@ function joinRefused(code: string, message: string, free?: readonly string[]) {
   landing.setJoining(false);
   landing.setError(joinProblem(code, message, free?.length ?? 0), free);
   // A taken name may be your own character from another browser: the way back is the key.
-  if (code === "name_taken") landing.openRestore();
+  if (code === "name_taken") {
+    landing.nameTaken();
+    landing.openRestore();
+  }
   if (code === "invalid_profile") landing.focusNote();
   else landing.focusName();
 }
@@ -659,6 +667,11 @@ function onMessage(msg: ServerMessage) {
       if (applied === "applied" && msg.event.type === "fished") {
         const { x, y, caught } = msg.event;
         casts = [...casts, { x, y, caught, at: performance.now() }];
+      }
+      // A walk on the green (RFC 0045): your pet's run, or a neighbor's pet come to meet yours.
+      if (applied === "applied" && msg.event.type === "pet_walked" && me) {
+        const walked = walkLine(msg.event, me, (id) => mirror?.residents.get(id)?.pet);
+        if (walked) showToast(walked, "player");
       }
       if (applied === "applied" && msg.event.type === "firework") {
         const { x, y, color } = msg.event;
@@ -1007,6 +1020,7 @@ type TapTarget =
   | { kind: "plot" }
   | { kind: "page"; path: string; tiles: readonly Tile[] }
   | { kind: "pond" }
+  | { kind: "seat" }
   | { kind: "station" }
   | { kind: "pickup" }
   | { kind: "pet"; owner: Resident }
@@ -1031,6 +1045,8 @@ function tapTarget(tile: Tile): TapTarget | undefined {
     return { kind: "page", path: "/shop", tiles: mirror.shop };
   const block = mirror.blocks.get(tileKey(tile.x, tile.y));
   if (block === "pond") return { kind: "pond" };
+  // A seat on your own floor (RFC 0044): a tap sits you on it, or lays you on a bed.
+  if (postureOn(mirror.blocksOn(myFloor()).get(tileKey(tile.x, tile.y)))) return { kind: "seat" };
   if (block && STATIONS.includes(block)) return { kind: "station" };
   if (mirror.pickupAt(tile.x, tile.y)) return { kind: "pickup" };
   // Someone else's pet drawn on the tile. Pets are drawing only, so this asks where they were last
@@ -1100,6 +1116,14 @@ function tapTile(tile: { x: number; y: number }) {
   if (target?.kind === "pond") {
     if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
     else walkToward(tile, 1, castLine);
+    return;
+  }
+  // A seat (RFC 0044): rest on it from beside it, walking there first when it's farther. The sim
+  // has the last word, and its refusal (someone's on it, a corner in the way) says why.
+  if (target?.kind === "seat") {
+    const rest = () => tryAct({ type: "rest", ...tile, ...floorField(myFloor()) });
+    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) === 1) rest();
+    else walkToward(tile, 1, rest);
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
@@ -2107,6 +2131,7 @@ function frame() {
   if (now - petCheckAt > 250) {
     petCheckAt = now;
     paintPetButton(now);
+    paintWalkPetButton();
     paintGatherButton();
     paintFishButton();
     paintFireworkButton();
@@ -2234,6 +2259,32 @@ function paintFireworkButton() {
   fireworkButton.hidden = buildMode || !here || !fireworkNight(m?.day);
 }
 
+/**
+ * Show "Walk Biscuit" while you stand on a green with a pet that hasn't been out today (RFC 0045),
+ * by the sim's own `onGreen` and `walkedToday`, out of build mode.
+ */
+function paintWalkPetButton() {
+  const r = self();
+  const m = mirror;
+  const pet = r?.pet;
+  const show =
+    !!r &&
+    !!m &&
+    !!pet &&
+    !buildMode &&
+    !walkedToday(pet, m.day) &&
+    onGreen(m.config, m.greens(), r);
+  walkPetButton.hidden = !show;
+  if (!show || !pet) return;
+  const label = `Walk ${petCalled(pet, "your")}`;
+  const text = walkPetButton.querySelector("span");
+  if (text && text.textContent !== label) text.textContent = label;
+}
+
+walkPetButton.addEventListener("click", () => {
+  tryAct({ type: "walk_pet" });
+});
+
 /** Each tap a firework of the next color, over where you stand. */
 let fireworkTaps = 0;
 fireworkButton.addEventListener("click", () => {
@@ -2360,6 +2411,7 @@ export function stopWorld() {
   hud.hidden = true;
   worldWait.hidden = true;
   petButton.hidden = true;
+  walkPetButton.hidden = true;
   petNear = undefined;
   gatherButton.hidden = true;
   climbButton.hidden = true;

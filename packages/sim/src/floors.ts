@@ -73,7 +73,8 @@ export const HOLDING_BLOCKS: readonly BlockKind[] = ["wood", "stone", "glass", .
 /**
  * Blocks that stay on the ground floor, because other state is keyed by their tile alone: crops
  * in a planter, crafting at a station, a thing on display, fishing beside a pond, and a candy
- * bowl's candy. With their names, for the refusal.
+ * bowl's candy. And a door (decision 0349), the way into a home from the ground around it, which
+ * upstairs would open onto nothing. With their names, for the refusal.
  */
 const GROUND_FLOOR_ONLY: Readonly<Partial<Record<BlockKind, string>>> = {
   planter: "Planters",
@@ -83,6 +84,7 @@ const GROUND_FLOOR_ONLY: Readonly<Partial<Record<BlockKind, string>>> = {
   frame: "Frames",
   pond: "Ponds",
   candy_bowl: "Candy bowls",
+  door: "Doors",
 };
 
 const NO_BLOCKS: Readonly<Record<string, BlockKind>> = Object.freeze({});

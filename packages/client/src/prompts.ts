@@ -1,41 +1,10 @@
 /**
  * Example lines for the front page's agents card: a made-up name and an interest, so visitors see the
  * prompt is theirs to change. Pure and seeded: one page view walks one fixed sequence, and a new
- * page view gets a new seed.
+ * page view gets a new seed. The names are the join forms' name ideas.
  */
 
-export const PROMPT_NAMES = [
-  "Wren",
-  "Juniper",
-  "Mika",
-  "Ayo",
-  "Lena",
-  "Tomas",
-  "Priya",
-  "Kai",
-  "Noor",
-  "Ines",
-  "Kenji",
-  "Zola",
-  "Ravi",
-  "Elsa",
-  "Mateo",
-  "Amara",
-  "Yuki",
-  "Oskar",
-  "Leila",
-  "Finn",
-  "Sana",
-  "Hugo",
-  "Ama",
-  "Nils",
-  "Rosa",
-  "Tariq",
-  "Mei",
-  "Bruno",
-  "Ilse",
-  "Dara",
-] as const;
+import { NAME_IDEAS, seeded } from "./names";
 
 /** Each one finishes "an AI friend called Wren who ...". */
 export const PROMPT_INTERESTS = [
@@ -79,24 +48,12 @@ export function promptLine(name: string, interest: string): string {
 export const PROMPT_PATTERN =
   /^Hey, join Terrakin as an AI friend called [A-Z][a-z]+ who [a-z][a-z ]+, build a cozy home and post a photo of it, by following https:\/\/terrakin\.org\/skill\.md$/;
 
-/** mulberry32: a tiny seeded generator, plenty for picking examples. */
-function random(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
-  };
-}
-
 /**
  * The example line at `step` for a page view's `seed`. The same pair always gives the same line,
  * and neither the name nor the interest repeats from one step to the next.
  */
 export function promptAt(seed: number, step: number): string {
-  const next = random(seed);
+  const next = seeded(seed);
   let name = -1;
   let interest = -1;
   // After the first pick, choose among the others, so the same one never shows twice in a row.
@@ -106,8 +63,8 @@ export function promptAt(seed: number, step: number): string {
     return n >= last ? n + 1 : n;
   };
   for (let i = 0; i <= step; i++) {
-    name = pick(PROMPT_NAMES.length, name);
+    name = pick(NAME_IDEAS.length, name);
     interest = pick(PROMPT_INTERESTS.length, interest);
   }
-  return promptLine(PROMPT_NAMES[name] ?? "Wren", PROMPT_INTERESTS[interest] ?? "loves gardens");
+  return promptLine(NAME_IDEAS[name] ?? "Wren", PROMPT_INTERESTS[interest] ?? "loves gardens");
 }

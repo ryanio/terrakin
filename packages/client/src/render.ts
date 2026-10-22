@@ -51,7 +51,7 @@ import {
 } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { presentPiles } from "./presents";
-import { type BlockSkin, paintBlock, paintCrop } from "./render/blocks";
+import { type BlockSkin, paintBlock, paintCrop, paintDoor } from "./render/blocks";
 import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
 import {
   leafPath,
@@ -64,7 +64,7 @@ import {
 } from "./render/decor";
 import { lightBulbs, paintPresents } from "./render/decor-winter";
 import { type BurstMark, paintBurst } from "./render/fireworks";
-import { paintFurniture, paintGameTable } from "./render/furniture";
+import { paintFurniture, paintGameTable, paintSeatFront } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
 import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
@@ -79,6 +79,7 @@ import {
   sprite,
 } from "./render/sprites";
 import { type CastMark, paintBridge, paintCast, paintPond, paintSea } from "./render/water";
+import { postureAt, restingDraw } from "./resting";
 import { roofCover, roofsShown } from "./roofs";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
@@ -454,6 +455,12 @@ export function render(
     const size = Math.round(scale) - inset * 2;
     // Drawn flat with the ground, above.
     if (block === "pond") return;
+    // A door (decision 0349): a frame with a door in it, never dressed by the plot's theme.
+    if (block === "door") {
+      paintDoor(ctx, left, top, size, scale);
+      if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
+      return;
+    }
     // A pedestal is a little plinth; whatever's on display stands on it (RFC 0005 step 3).
     if (block === "pedestal") {
       paintPedestal(ctx, left, top, size, scale);
@@ -758,6 +765,7 @@ export function render(
       config,
       day: mirror.day,
       lying: lyingOn(mirror.asleep(me)),
+      greens: mirror.greens(),
     };
     const size = scale * PET_TILES;
     const drawn = new Set<string>();
@@ -929,7 +937,11 @@ export function render(
     const turned = fourWayFacing(facing);
     const side = turned === "e" ? 1 : turned === "w" ? -1 : 0;
     const fig = figureSprite(r, scale, dpr, facing, face, away);
-    const ground = feet - (p.lift + m.lift) * scale;
+    // On a seat's tile they sit, or lie along a bed (RFC 0044). Asleep at home is its own pose.
+    const blockUnder = (x: number, y: number) => mirror.blocksOn(r.floor ?? 0).get(tileKey(x, y));
+    const seat = away ? undefined : postureAt(blockUnder, m.x, m.y);
+    const rest = restingDraw(seat);
+    const ground = feet - (p.lift + m.lift + rest.rise) * scale;
     // Leaning, swaying, and squashing from the feet.
     // Never hidden: someone under flooring is drawn faded, with their name (RFC 0028).
     // Someone inside a home whose roof is drawn is under it too, and fades the same way (RFC 0041).
@@ -939,11 +951,32 @@ export function render(
       roofed.has(tileKey(Math.round(m.x), Math.round(m.y)));
     ctx.save();
     if (covered) ctx.globalAlpha = UNDER_FLOORING_ALPHA;
-    ctx.translate(sx, ground);
-    ctx.rotate(p.tilt * 0.5 + m.sway + m.lean * side);
-    ctx.scale(m.squash, 1 / m.squash);
-    ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
+    if (seat === "lie") {
+      // Turned on their side along the bed, centered on it.
+      ctx.translate(sx, ground + fig.dy / 2);
+      ctx.rotate(rest.turn + p.tilt * 0.2);
+      ctx.drawImage(fig.canvas, -fig.w / 2, -fig.h / 2, fig.w, fig.h);
+    } else {
+      ctx.translate(sx, ground);
+      ctx.rotate(p.tilt * 0.5 + m.sway + m.lean * side);
+      ctx.scale(m.squash, rest.squash / m.squash);
+      ctx.drawImage(fig.canvas, fig.dx, fig.dy, fig.w, fig.h);
+    }
     ctx.restore();
+    // The seat's front over them: sitting in the armchair, or tucked in under the quilt.
+    const seatKind = seat && blockUnder(m.x, m.y);
+    if (seatKind && isFurnitureKind(seatKind)) {
+      const left = Math.round(sx - half);
+      const top = Math.round(sy - half);
+      paintSeatFront(
+        ctx,
+        seatKind,
+        left,
+        top,
+        Math.round(sx + half) - left,
+        seat === "lie" ? 0.42 : 0.62,
+      );
+    }
     // A townsfolk who asks for something today wears a note, unless a feeling of the moment
     // has a sign of its own to show. Asleep or out, the note stays: the job is still asked.
     const felt = out ? "moon" : FEELING_ICON[p.feeling];
@@ -951,7 +984,10 @@ export function render(
     labels.push({
       text: r.kind === "agent" ? `${r.name} ⚙` : r.name,
       x: sx,
-      y: feet + fig.dy - 1,
+      y:
+        seat === "lie"
+          ? ground + fig.dy / 2 - fig.w / 2 - 1
+          : feet - rest.rise * scale + fig.dy * rest.squash - 1,
       mine,
       who: r.id,
       // Out on a routine, a small moon beside the name says they're away, not here.

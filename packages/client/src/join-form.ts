@@ -33,6 +33,7 @@ import { itemArt } from "@terrakin/ui/item-art";
 import { COLOR_WORDS, hairName } from "@terrakin/ui/looks";
 import { paintAvatar } from "@terrakin/ui/people";
 import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
+import { canSuggestInto, nameIdeas } from "./names";
 
 /** What every join form says when the name is taken: words for people, not the API's (decision 0148). */
 export const NAME_TAKEN_LINE =
@@ -45,6 +46,50 @@ const NAME_TAKEN_WITH_FREE =
 /** What a join form shows when the server turns a join down: its own words, or ours for a taken name. */
 export const joinProblem = (code: string, message: string, free = 0): string =>
   code === "name_taken" ? (free > 0 ? NAME_TAKEN_WITH_FREE : NAME_TAKEN_LINE) : message;
+
+/** What `onSubmit` resolves with when the server turned the join down. */
+interface JoinRefusal {
+  code: string;
+  message: string;
+}
+
+/**
+ * "Suggest a name" over a name field, for someone with nothing in mind. It fills the field only
+ * while it's empty or still holds the idea it put there (then it reads "Another name"), so a name
+ * someone typed is never overwritten. `taken` is a name the server refused with `name_taken`,
+ * which this form never suggests again.
+ */
+export function suggestName(input: HTMLInputElement) {
+  const ideas = nameIdeas(Math.floor(Math.random() * 2 ** 32));
+  let idea: string | undefined;
+  const label = h("span", { text: "Suggest a name" });
+  const button = h(
+    "button",
+    {
+      class: "pill-button small name-suggest",
+      attrs: { type: "button", id: `${input.id}-suggest`, "aria-controls": input.id },
+    },
+    icon("sparkle"),
+    label,
+  );
+  const sync = () => {
+    button.disabled = !canSuggestInto(input.value, idea);
+    label.textContent =
+      idea !== undefined && input.value === idea ? "Another name" : "Suggest a name";
+  };
+  input.addEventListener("input", sync);
+  button.addEventListener("click", () => {
+    if (!canSuggestInto(input.value, idea)) return;
+    const next = ideas.next();
+    if (next === undefined) return;
+    idea = next;
+    input.value = next;
+    // As if typed, so the form clears a refusal it was showing.
+    input.dispatchEvent(new Event("input"));
+  });
+  sync();
+  return { el: button, taken: (name: string) => ideas.taken(name) };
+}
 
 /** The look fields a join sends: always a color and shape, and hair and a top when picked. */
 export interface JoinLook {
@@ -68,8 +113,11 @@ export interface JoinFormOptions {
   busyLabel: string;
   /** Extra controls (checkboxes) shown above the button. */
   extras?: HTMLElement[];
-  /** Do the join. Resolve with an error message to show, or null when it worked. */
-  onSubmit(choice: JoinChoice): Promise<string | null>;
+  /**
+   * Do the join. Resolve with the server's refusal, which the form puts in words with
+   * `joinProblem`, a message of the page's own, or null when it worked.
+   */
+  onSubmit(choice: JoinChoice): Promise<JoinRefusal | string | null>;
 }
 
 const SHAPE_LABELS: Record<ResidentShape, string> = {
@@ -390,6 +438,7 @@ export function joinForm(options: JoinFormOptions) {
     },
   });
   const character = characterPicker(id);
+  const suggest = suggestName(name);
   name.addEventListener("input", () => {
     error.textContent = "";
     nameError.textContent = "";
@@ -415,7 +464,12 @@ export function joinForm(options: JoinFormOptions) {
     h(
       "div",
       { class: "onboard-field" },
-      h("label", { class: "field-label", attrs: { for: `${id}-name` }, text: "Your name" }),
+      h(
+        "div",
+        { class: "name-head" },
+        h("label", { class: "field-label", attrs: { for: `${id}-name` }, text: "Your name" }),
+        suggest.el,
+      ),
       name,
       nameError,
     ),
@@ -458,7 +512,13 @@ export function joinForm(options: JoinFormOptions) {
       label,
     );
     busy = false;
-    if (problem) error.textContent = problem;
+    if (problem === null) return;
+    if (typeof problem === "string") {
+      error.textContent = problem;
+      return;
+    }
+    if (problem.code === "name_taken") suggest.taken(value);
+    error.textContent = joinProblem(problem.code, problem.message);
   });
 
   return { el: form, focus: () => name.focus({ preventScroll: true }) };

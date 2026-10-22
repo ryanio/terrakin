@@ -223,6 +223,27 @@ export function hearthPull(x: number, y: number, hx: number, hy: number): number
   return Math.max(0, 1 - Math.max(Math.abs(x - hx), Math.abs(y - hy)));
 }
 
+// ---------- resting (RFC 0044) ----------
+
+/**
+ * How a figure resting on a seat stands in 3D, in tile units and radians: sitting, raised onto the
+ * cushion and a little shorter, facing out of the seat (south, its back to the north); lying,
+ * tipped onto its back along the bed with its head on the pillow to the north. `along` moves it
+ * south on its tile. Standing is no change. The heights follow the models in `furniture.ts`.
+ */
+export function restPose3d(posture: "sit" | "lie" | undefined): {
+  lift: number;
+  pitch: number;
+  squash: number;
+  along: number;
+  face?: number;
+} {
+  if (posture === "sit") return { lift: 0.26, pitch: 0, squash: 0.8, along: 0.06, face: 0 };
+  if (posture === "lie")
+    return { lift: 0.42, pitch: -Math.PI / 2, squash: 1, along: 0.36, face: 0 };
+  return { lift: 0, pitch: 0, squash: 1, along: 0 };
+}
+
 // ---------- homes with an upstairs (RFC 0028) ----------
 
 /** How tall a floor is: one wall, so flooring upstairs lies on the walls under it. */

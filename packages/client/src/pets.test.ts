@@ -4,16 +4,19 @@ import {
   bedBy,
   DOZE_OFF_MS,
   followSpot,
+  greenLine,
   HAPPY_MS,
   homePlan,
   lyingOn,
   PatsToday,
   PetMotion,
   type PetScene,
+  PLAY_AFTER_MS,
   petCalled,
   petLine,
   SLOT_MS,
   WANDER,
+  walkLine,
 } from "./pets";
 
 /** A 3 by 3 world of 8-tile plots, and a hut's walls around (3, 3) like a starter home. */
@@ -262,5 +265,66 @@ describe("words", () => {
     expect(petCalled({ kind: "fox", name: "" }, "their")).toBe("their fox");
     expect(petLine({ kind: "fox", coat: "arctic" })).toBe("an arctic fox");
     expect(petLine({ kind: "cat", coat: "ginger" })).toBe("a ginger cat");
+  });
+});
+
+describe("out on the green (RFC 0045)", () => {
+  const GREEN = { x: 12, y: 12 };
+  const out = { ...owner({ online: true }), pet: { ...PET, walkedDay: 100 } };
+
+  it("keeps to its owner there on a day it went out, and plays about them once they stop", () => {
+    const m = new PetMotion();
+    const s = scene({ greens: [GREEN], drawn: GREEN });
+    expect(film(m, out, s, 1_000).at(-1)?.doing).toBe("follow");
+    const playing = film(m, out, { ...s, now: 1_016, clock: 1_016 }, PLAY_AFTER_MS + 2_000);
+    const last = playing.at(-1);
+    expect(last?.doing).toBe("play");
+    expect(
+      playing.every((p) => Math.max(Math.abs(p.x - GREEN.x), Math.abs(p.y - GREEN.y)) <= 2),
+    ).toBe(true);
+    // It stays happy all day, and at night it sits at their heel instead of running about.
+    expect(last).toMatchObject({ happy: true, asleep: false });
+    const night = { ...s, night: true, now: 9_000, clock: 9_000 };
+    expect(m.pose(out, night)?.doing).toBe("follow");
+  });
+
+  it("stays home on a day it didn't go out, and is happy no longer", () => {
+    const m = new PetMotion();
+    const s = scene({ greens: [GREEN], drawn: GREEN, day: 101 });
+    const last = film(m, out, s, 2_000).at(-1);
+    expect(last?.doing).not.toBe("follow");
+    expect(last?.happy).toBe(false);
+  });
+
+  it("says what a walk was to you, with pets named as their owners named them", () => {
+    const pets: Record<string, Pet> = {
+      r_me: PET,
+      r_tam: { kind: "dog", coat: "golden", name: "Rex" },
+      r_ivy: { kind: "fox", coat: "red", name: "" },
+      r_bo: { kind: "duck", coat: "white", name: "Pip" },
+      r_jo: { kind: "frog", coat: "gold", name: "Hop" },
+    };
+    const petOf = (id: string) => pets[id];
+    const walk = (residentId: string, met: string[]) => ({ residentId, met });
+    expect(walkLine(walk("r_me", []), "r_me", petOf)).toBe("Biscuit had a run on the green.");
+    expect(walkLine(walk("r_me", ["r_tam", "r_ivy"]), "r_me", petOf)).toBe(
+      "Biscuit had a run on the green and met Rex and their fox.",
+    );
+    expect(walkLine(walk("r_me", ["r_tam", "r_ivy", "r_bo", "r_jo"]), "r_me", petOf)).toBe(
+      "Biscuit had a run on the green and met Rex, their fox, and 2 more.",
+    );
+    expect(walkLine(walk("r_tam", ["r_me"]), "r_me", petOf)).toBe(
+      "Rex came out on the green to meet Biscuit.",
+    );
+    expect(walkLine(walk("r_ivy", ["r_me"]), "r_me", petOf)).toBe(
+      "Their fox came out on the green to meet Biscuit.",
+    );
+    expect(walkLine(walk("r_tam", ["r_bo"]), "r_me", petOf)).toBeNull();
+    expect(greenLine({ ...PET, walkedDay: 100 }, 100)).toBe(
+      "Biscuit had a run on the green today.",
+    );
+    expect(greenLine(PET, 100)).toBe(
+      "Take Biscuit out on the green in the middle of the Commons once a day.",
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } from "./support";
 
 /**
@@ -8,7 +8,8 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * from the Furniture tab, and the world shows both. Then a neighbor with a hut builds up (RFC
  * 0028): an upstairs added from the build bar after a second tap, stairs, a loft's flooring laid with
  * Upstairs picked, and Go up beside her on the stairs, with the picker following her up, then a
- * gable roof of wood put on from the bar's Roof chip (RFC 0041).
+ * gable roof of wood put on from the bar's Roof chip (RFC 0041). Before that, her hut's door
+ * (decision 0349): drawn on the map, walked through, and hung again from the Blocks tab.
  */
 
 interface Tile {
@@ -17,6 +18,37 @@ interface Tile {
 }
 type Pickup = Tile & { kind: string };
 const STEP = { e: [1, 0], w: [-1, 0], s: [0, 1], n: [0, -1] } as const;
+
+/**
+ * How much of the middle of the tile `dy` south of you the map paints in a door's red, from 0 to 1:
+ * the panel `paintDoor` draws, which no wall, path, or grass comes near. A door frame of wood is
+ * reddish too, so only a strong red counts.
+ */
+function doorRed(page: Page, dy: number): Promise<number> {
+  return page.evaluate((dy) => {
+    const canvas = document.getElementById("world") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return 0;
+    const dpr = canvas.width / window.innerWidth;
+    const scale = Math.max(16, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 13));
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2 + dy * scale + scale * 0.1;
+    const w = Math.round(scale * 0.2 * dpr);
+    const h = Math.round(scale * 0.3 * dpr);
+    const { data } = ctx.getImageData(
+      Math.round(cx * dpr - w / 2),
+      Math.round(cy * dpr - h / 2),
+      w,
+      h,
+    );
+    let red = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
+      if (r > 120 && r - g > 70 && r - b > 70) red++;
+    }
+    return red / (w * h);
+  }, dy);
+}
 
 test("lay a path and place a table you made, from the build bar's tabs", async ({ page }) => {
   const errors = watchErrors(page);
@@ -141,13 +173,38 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
       (r: { id: string }) => r.id === bramble.id,
     );
 
+  await test.step("see her hut's door on the map, walk out through it, and hang it again from the Blocks tab", async () => {
+    // She stands on her hearth, in the middle of the hut, its door two tiles south (decision 0349).
+    const start = await where();
+    if (!start) throw new Error("Bramble isn't in the world");
+    const door = { x: start.x, y: start.y + 2 };
+    const blocks = async () => (await (await page.request.get("/v1/world")).json()).blocks;
+    expect(await blocks()).toContainEqual({ ...door, block: "door" });
+    await signIn(page, bramble);
+    await page.goto("/world");
+    await expect(page.locator("#hud")).toBeVisible();
+    await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
+    await expect.poll(() => doorRed(page, 2)).toBeGreaterThan(0.3);
+    // A tap past the door walks her out through it, and one back walks her home.
+    await tapTile(page, 0, 3);
+    await expect.poll(where).toMatchObject({ x: start.x, y: start.y + 3 });
+    await tapTile(page, 0, -3);
+    await expect.poll(where).toMatchObject({ x: start.x, y: start.y });
+    // In the build bar a tap takes the door down, and with Door picked the next hangs it again.
+    await page.click("#build");
+    await page.click('[data-block="door"]');
+    await expect(page.locator("#palette-line")).toContainText("Door: free.");
+    await tapTile(page, 0, 2);
+    await expect.poll(blocks).not.toContainEqual({ ...door, block: "door" });
+    await tapTile(page, 0, 2);
+    await expect.poll(blocks).toContainEqual({ ...door, block: "door" });
+    await page.click("#build");
+  });
+
   await test.step("add an upstairs for coins after a second tap, and put up stairs inside the hut", async () => {
     // She stands on her hearth, in the middle of the hut.
     const start = await where();
     if (!start) throw new Error("Bramble isn't in the world");
-    await signIn(page, bramble);
-    await page.goto("/world");
-    await expect(page.locator("#hud")).toBeVisible();
     await page.click("#build");
     const add = page.locator("#add-floor");
     await expect(add).toHaveText("Add an upstairs, 200 coins");

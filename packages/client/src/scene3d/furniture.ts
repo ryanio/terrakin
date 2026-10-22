@@ -1,7 +1,8 @@
 /**
  * Furniture from the workbench in 3D (RFC 0016): a table, a chair, a bookshelf of colored books, a
  * hooped barrel, a signpost, a lamp post that glows, a stone well with a roof, a low stone wall that
- * runs on to the walls beside it, a campfire, a flower box, and a jack-o'-lantern lit from inside.
+ * runs on to the walls beside it, a campfire, a flower box, a jack-o'-lantern lit from inside, and
+ * the pieces you rest on (RFC 0044): an armchair, a sofa, and a bed.
  * Each model is a few merged, shade-baked parts, placed with decor's `placeParts`, so a plot full of
  * chairs is one instanced draw per part (decision 0030). Lamps and fires glow after dark (decision
  * 0098) with an emissive shade and a soft pool of light on the ground, never a light of their own,
@@ -391,6 +392,87 @@ function jackOLanternParts(stage: Stage, grain: Texture): Part[] {
   ];
 }
 
+// ---------- cozy homes (RFC 0044) ----------
+
+/** Cream for a mattress, a pillow, and the piping on cushions. */
+const LINEN = hex("#f1e8d6");
+
+/** The top of an armchair's or a sofa's seat, in tile units above the floor (`restPose3d` sits on it). */
+const SEAT_TOP = 0.42;
+
+/**
+ * Something upholstered: a wooden plinth on short legs, a seat `w` wide at `SEAT_TOP`, a back
+ * along the north side, and an arm at each end, in the kind's cloth. A sofa's seat is split into
+ * cushions by a pale seam.
+ */
+function upholsteredParts(grain: Texture, cloth: number, w: number, cushions: number): Part[] {
+  const half = w / 2;
+  const legs = [-half + 0.06, half - 0.06].flatMap((x) =>
+    [-0.3, 0.3].map((z) => box(0.07, 0.12, 0.07, [x, 0.06, z], [0, 0, 0], 0.02)),
+  );
+  const seams = Array.from({ length: cushions - 1 }, (_, i) => {
+    const x = -half + 0.12 + ((w - 0.24) * (i + 1)) / cushions;
+    return box(0.02, 0.02, 0.5, [x, SEAT_TOP + 0.005, 0.04], [0, 0, 0], 0);
+  });
+  return [
+    {
+      geometry: merged(legs, 0.75),
+      material: paper(WOOD_DARK, grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [
+          box(w, 0.26, 0.7, [0, SEAT_TOP - 0.13, 0], [0, 0, 0], 0.06),
+          box(w, 0.5, 0.18, [0, SEAT_TOP + 0.22, -0.26], [-0.12, 0, 0], 0.07),
+          box(0.13, 0.26, 0.66, [-half + 0.065, SEAT_TOP + 0.1, 0.01], [0, 0, 0], 0.05),
+          box(0.13, 0.26, 0.66, [half - 0.065, SEAT_TOP + 0.1, 0.01], [0, 0, 0], 0.05),
+        ],
+        0.72,
+      ),
+      material: paper(cloth, grain),
+      cast: true,
+    },
+    ...(seams.length > 0
+      ? [{ geometry: merged(seams, 1), material: paper(LINEN, null), cast: false }]
+      : []),
+  ];
+}
+
+/** A bed: a wooden frame with a headboard to the north, a mattress, a pillow, and a quilt. */
+function bedParts(grain: Texture): Part[] {
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.84, 0.2, 0.9, [0, 0.16, 0.02], [0, 0, 0], 0.03),
+          box(0.84, 0.72, 0.07, [0, 0.36, -0.44], [0, 0, 0], 0.03),
+          box(0.84, 0.36, 0.06, [0, 0.18, 0.46], [0, 0, 0], 0.02),
+        ],
+        0.75,
+      ),
+      material: paper(hex(BLOCK_COLORS.chair), grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [
+          box(0.76, 0.1, 0.82, [0, 0.31, 0.02], [0, 0, 0], 0.04),
+          box(0.5, 0.08, 0.18, [0, 0.39, -0.3], [0, 0, 0], 0.04),
+        ],
+        0.9,
+      ),
+      material: paper(LINEN, grain),
+      cast: false,
+    },
+    {
+      geometry: merged([box(0.8, 0.06, 0.56, [0, 0.37, 0.15], [0, 0, 0], 0.03)], 0.85),
+      material: paper(hex(BLOCK_COLORS.bed), grain),
+      cast: false,
+    },
+  ];
+}
+
 function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
   switch (kind) {
     case "table":
@@ -415,6 +497,12 @@ function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
       return flowerBoxParts(grain);
     case "jack_o_lantern":
       return jackOLanternParts(stage, grain);
+    case "armchair":
+      return upholsteredParts(grain, hex(BLOCK_COLORS.armchair), 0.78, 1);
+    case "sofa":
+      return upholsteredParts(grain, hex(BLOCK_COLORS.sofa), 0.96, 2);
+    case "bed":
+      return bedParts(grain);
   }
 }
 

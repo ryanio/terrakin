@@ -478,6 +478,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.shop ? { shop: shopTiles(state) } : {}),
     ...(state.solidBuildings ? { solidBuildings: true as const } : {}),
     ...(state.tableSpotsKept ? { tableSpotsKept: true as const } : {}),
+    ...(state.starterDoors ? { starterDoors: true as const } : {}),
     ...(state.shop?.inPerson ? { shopInPerson: true as const } : {}),
     ...(state.proposeInPerson ? { proposeInPerson: true as const } : {}),
     ...(state.scheduleInPerson ? { scheduleInPerson: true as const } : {}),

@@ -95,6 +95,14 @@ type TodoEntry = (f: CheckinFacts) => readonly string[];
 /** Days away, by the caller's `since`, before the check-in says welcome back. */
 const WELCOME_BACK_DAYS = 3;
 
+/**
+ * The door that can stand where a block came down (decision 0349): it is walked through like an
+ * open tile, so the way stays open and the wall stays whole. A block that frees a home is on the
+ * ground floor, where a door goes.
+ */
+const doorAfter = (t: { x: number; y: number }) =>
+  ` To keep the wall whole, a door can go in its place, and a door is walked through: {"type": "place", "x": ${t.x}, "y": ${t.y}, "block": "door"}.`;
+
 const TODO: readonly TodoEntry[] = [
   (f) => f.firstVisit.map((s) => `First visit: ${s.line}`),
   // Back after days away (issue #63): one line that frames the gap before the rest of the list.
@@ -124,7 +132,7 @@ const TODO: readonly TodoEntry[] = [
       .filter((n) => n.code === "hearth_walled_in" || n.code === "walled_in")
       .map(
         (n) =>
-          `Your home at plot ${home.px},${home.py}: ${n.text} Come home first, so the wall is within reach. Until there's a gap nobody can visit you, and you can't be part of anything that happens at a door.`,
+          `Your home at plot ${home.px},${home.py}: ${n.text} Come home first, so the wall is within reach. Until there's a door or a gap nobody can visit you, and you can't be part of anything that happens at a door.`,
       );
   },
   // A home the town can't be walked to from. The note above reads one plot, so it catches a
@@ -145,7 +153,7 @@ const TODO: readonly TodoEntry[] = [
     const own = cheapestFree(shut.frees.filter((b) => b.ownerId === f.viewer));
     if (own) {
       return [
-        `${head} Taking down the ${blockName(own.block)} at ${own.x}, ${own.y} on your own plot opens a way out, and it gives back ${blockBackWords(own.block)}: come within reach, then {"type": "remove", "x": ${own.x}, "y": ${own.y}}. Tell your owner what you took down and why.`,
+        `${head} Taking down the ${blockName(own.block)} at ${own.x}, ${own.y} on your own plot opens a way out, and it gives back ${blockBackWords(own.block)}: come within reach, then {"type": "remove", "x": ${own.x}, "y": ${own.y}}.${doorAfter(own)} Tell your owner what you took down and why.`,
       ];
     }
     // The neighbour told in their own check-in, if any is: `homesShutBy` names the same block.
@@ -174,7 +182,7 @@ const TODO: readonly TodoEntry[] = [
       const who = residentById(f.state, home.residentId)?.name;
       if (!who) return [];
       return [
-        `Your ${blockName(block.block)} at ${block.x}, ${block.y} shuts ${who}'s home in: no walk reaches the town from their hearth, so they can't buy, sell or file a proposal, and nothing on their own plot opens a way. Taking it down does, and it gives back ${blockBackWords(block.block)}: come within reach, then {"type": "remove", "x": ${block.x}, "y": ${block.y}}. Build it again somewhere that leaves their way open, and tell your owner you did.`,
+        `Your ${blockName(block.block)} at ${block.x}, ${block.y} shuts ${who}'s home in: no walk reaches the town from their hearth, so they can't buy, sell or file a proposal, and nothing on their own plot opens a way. Taking it down does, and it gives back ${blockBackWords(block.block)}: come within reach, then {"type": "remove", "x": ${block.x}, "y": ${block.y}}.${doorAfter(block)} Or build it again somewhere that leaves their way open, and tell your owner what you did.`,
       ];
     }),
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.

@@ -97,7 +97,27 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   driftwood_plank: "#bfc5c2",
   // A window with the sea in it, greener than glass.
   sea_glass_pane: "#8fc9b4",
+  // A door (decision 0349): a painted plank door, red so the way into a home is the first thing
+  // you see in its walls. Its frame is drawn in `DOOR_LOOK.frame`.
+  door: "#a8483a",
+  // Cozy homes (RFC 0044): the upholstery each is drawn around, set in a wooden frame. A rose
+  // armchair, a moss-green sofa, and a bed's blue quilt, so the three read apart in a small room.
+  armchair: "#c46a5a",
+  sofa: "#6f8f5e",
+  bed: "#5b7fb0",
 };
+
+/**
+ * How a door looks (decision 0349), on the map, in both 3D views, and in plot photos: a wall-high
+ * frame of plain wood around a painted door, its knob, and how much of the tile's width the opening
+ * takes (in tile units), so every view draws the same door.
+ */
+export const DOOR_LOOK = {
+  frame: BLOCK_COLORS.wood,
+  panel: BLOCK_COLORS.door,
+  knob: "#e2c26a",
+  opening: 0.56,
+} as const;
 
 /**
  * How a pond looks (RFC 0023), on the map, in both 3D views, and in plot photos: the water, a

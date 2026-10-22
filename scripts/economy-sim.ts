@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-levels] [--no-jobs] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-cozy] [--no-levels] [--no-jobs] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -29,6 +29,8 @@
  *   --holiday-prices  `lower` (the default) logs `lower_holiday_prices` when the shop opens, as
  *                terrakin.org does; `before` leaves it out, so holiday stock costs decision 0107's
  *                prices (decision 0210)
+ *   --no-cozy    makers never go on to the armchair, the sofa, and the bed (RFC 0044), so the month
+ *                plays as it did before them
  *   --no-floors nobody builds up (RFC 0028), so the month plays as it did before homes went up (the
  *                decision 0242 baseline)
  *   --no-levels  nobody earns points (RFC 0029): no `open_levels`, and none of what residents do
@@ -242,6 +244,7 @@ const { values: args } = parseArgs({
     "no-holidays": { type: "boolean", default: false },
     "holiday-prices": { type: "string", default: "lower" },
     "no-floors": { type: "boolean", default: false },
+    "no-cozy": { type: "boolean", default: false },
     "no-levels": { type: "boolean", default: false },
     "no-jobs": { type: "boolean", default: false },
     "job-edition": { type: "string" },
@@ -301,6 +304,12 @@ const HOLIDAYS_ON = SHOP_OPEN && !args["no-holidays"];
 const FLOORS_ON = SHOP_OPEN && !args["no-floors"];
 /** Deeds earn points, and some residents play for them (RFC 0029). */
 const LEVELS_ON = SHOP_OPEN && !args["no-levels"];
+/**
+ * Makers who have made every wood-and-stone piece they know go on to the pieces you rest on (RFC 0044):
+ * a card and cushions from the shop for each. `--no-cozy` plays the month as it was before them.
+ * No draw: it is a rule over what a maker has already made, so no other stream moves.
+ */
+const COZY_ON = LEVELS_ON && !args["no-cozy"];
 /** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
 const JOBS_ON = LEVELS_ON && !args["no-jobs"];
 /** The edition of the jobs table the board reads, from the month's first day (decision 0265). */
@@ -1458,6 +1467,57 @@ const MAKER_RECIPES = FURNITURE_KINDS.filter((kind) =>
 const woodIn = (kind: (typeof MAKER_RECIPES)[number]) => FURNITURE_RECIPES[kind].needs.wood ?? 0;
 const stoneIn = (kind: (typeof MAKER_RECIPES)[number]) => FURNITURE_RECIPES[kind].needs.stone ?? 0;
 
+/** The pieces you rest on (RFC 0044), in the order a maker goes on to them. */
+const COZY_RECIPES = ["armchair", "sofa", "bed"] as const;
+/** What the cozy pieces cost residents: cards and cushions, and how many of each were made. */
+const cozy = { cards: 0, cushions: 0, made: 0, makers: new Set<string>() };
+
+/**
+ * A maker who has made every wood-and-stone piece they know makes the next piece they rest on, once each:
+ * its card from the shop if they don't know it, the cushions it takes, and then the craft, with
+ * 10 coins kept back as for anything they buy, and a floor's price while they save for one. The
+ * piece goes on their plot. False when they can't today.
+ */
+function goNest(rules: Rules, id: string, habits: Habits, wood: () => number): boolean {
+  const { state } = rules;
+  const made = firstsOf(state, id);
+  const known = MAKER_RECIPES.filter((kind) => knows(state, id, kind));
+  if (!known.every((kind) => made.includes(kind))) return false;
+  const next = COZY_RECIPES.find((kind) => !made.includes(kind));
+  if (!next || roomToday(state, id, "making") <= 0) return false;
+  const needs = FURNITURE_RECIPES[next].needs;
+  if ((needs.wood ?? 0) > wood()) return false;
+  const saving = habits.builds && !floorAdded.has(id) ? FLOORS.price : 0;
+  const spare = () => coinsOf(state, id) - 10 - saving;
+  if (!knows(state, id, next)) {
+    const price = recipeCardPrice(next);
+    if (spare() < price) return false;
+    const bought = atShop(
+      rules,
+      id,
+      () => rules.send(id, { type: "shop_buy", sku: cardSku(next) }),
+      false,
+    );
+    if (!bought) return false;
+    spend(id, price);
+    tally.cards += price;
+    cozy.cards += price;
+  }
+  const short = (needs.cushion ?? 0) - holds(state, id, "cushion");
+  if (short > 0) {
+    const cost = short * SHOP_CATALOG.cushion.price;
+    if (spare() < cost || !buy(rules, id, "cushion", short)) return false;
+    cozy.cushions += cost;
+  }
+  const bench = workbench(rules, id);
+  if (!bench || !rules.send(id, { type: "craft", recipe: next, ...bench })) return false;
+  cozy.made++;
+  cozy.makers.add(id);
+  const tile = gardenTiles(state, id)[0];
+  if (tile) rules.send(id, { type: "place", ...tile, block: next });
+  return true;
+}
+
 /** A resident's own workbench within reach of their hearth, placed now if they have none. */
 function workbench(rules: Rules, id: string): { x: number; y: number } | undefined {
   const { state } = rules;
@@ -1498,6 +1558,7 @@ function goMake(rules: Rules, id: string, habits: Habits) {
   const dig = habits.casts > 0 && !isWater(state, pond.x, pond.y) ? POND.stone : 0;
   const wood = () => holds(state, id, "wood") - loft - rod;
   const stone = () => holds(state, id, "stone") - dig;
+  if (COZY_ON) goNest(rules, id, habits, wood);
   const fits = (kind: (typeof MAKER_RECIPES)[number]) =>
     knows(state, id, kind) && woodIn(kind) <= wood() && stoneIn(kind) <= stone();
   let bench: { x: number; y: number } | undefined;
@@ -3828,6 +3889,11 @@ function flowLines(
         `bothered (--shop-trips ${Math.round(SHOP_TRIPS * 100)}%), ${trips.nowhere} with no walk ` +
         `to it. Median walk ${median} tiles, longest ${sorted[sorted.length - 1] ?? 0}. ` +
         `${asked === 0 ? "Nobody" : `${Math.round((trips.made / asked) * 100)}% of the times a ` + `resident wanted the shop they got there`}.`,
+    );
+  }
+  if (COZY_ON) {
+    console.log(
+      `Cozy pieces (RFC 0044): ${cozy.made} made by ${cozy.makers.size} makers, for ${cozy.cards} coins of cards and ${cozy.cushions} of cushions.`,
     );
   }
   console.log(

@@ -10,10 +10,10 @@
  */
 export const SPECIALTIES = {
   juniper: ["herb_sachet", "flower_wreath", "posy", "garden_salad"],
-  bram: ["barrel", "well", "pickles"],
+  bram: ["barrel", "well", "pickles", "armchair"],
   clem: ["lemonade", "tomato_sauce", "pumpkin_pie", "apple_cider"],
-  pip: ["signpost", "fried_minnows", "corn_bread"],
-  otis: ["bookshelf", "pumpkin_soup", "harvest_soup"],
+  pip: ["signpost", "fried_minnows", "corn_bread", "sofa"],
+  otis: ["bookshelf", "pumpkin_soup", "harvest_soup", "bed"],
   marlo: ["campfire", "fish_stew", "fruit_salad"],
   sable: ["lamp_post", "cranberry_punch", "grape_juice"],
   ansel: ["flower_box", "flower_wreath", "apple_pie", "berry_crumble"],

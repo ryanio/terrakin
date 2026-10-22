@@ -7,6 +7,7 @@ export {
   type Prepared,
   prepare,
   rejoined,
+  starterHomePlot,
 } from "./apply";
 export { AWARDS, awardedInWindow } from "./awards";
 export { BIOME_REGION, BIOMES, type Biome, biomeAt } from "./biome";
@@ -117,7 +118,7 @@ export {
   isShownFind,
   pieceShowingMedia,
 } from "./display";
-export { nearestCounter, nearestHall } from "./doors";
+export { nearestCounter, nearestHall, nearestPark } from "./doors";
 export {
   allowanceDue,
   coinsOf,
@@ -184,12 +185,16 @@ export {
   upstairsGroundOf,
   upstairsProblem,
 } from "./floors";
+export { doorwayWithoutDoor } from "./front-doors";
 export {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   type FurnitureKind,
   type FurnitureRecipe,
   isFurnitureKind,
+  type Posture,
+  postureOn,
+  SEATS,
 } from "./furniture";
 export {
   activeTable,
@@ -435,6 +440,18 @@ export {
 } from "./materials";
 export { mergedInto } from "./merge";
 export { FIREWORKS, fireworkNight } from "./newyear";
+export {
+  type ClaimedPlot,
+  doorFacing,
+  doorOutward,
+  type Landlocked,
+  landlocked,
+  landlockedFrom,
+  type Opening,
+  type OpeningFacts,
+  openingFacts,
+  openingsOf,
+} from "./openings";
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export {
@@ -452,6 +469,8 @@ export {
   ALL_PET_COATS,
   isCoatOf,
   isPetKind,
+  notAtTheGreen,
+  onGreen,
   PET_COATS,
   PET_KINDS,
   PETS,
@@ -461,6 +480,7 @@ export {
   type PetTreat,
   petView,
   treatedToday,
+  walkedToday,
 } from "./pets";
 export {
   listPlotProblem,
@@ -649,6 +669,7 @@ export {
   isTownHallTile,
   isTownSquare,
   landSquare,
+  parkTile,
   plotAtTile,
   plotCenter,
   plotDistance,

@@ -15,6 +15,7 @@ import {
   type SweetKind,
 } from "./catalog";
 import type { Catch } from "./fishing";
+import type { SeatKind } from "./furniture";
 import type { PickupKind } from "./gather";
 import type { GroundKind } from "./ground";
 import type {
@@ -121,6 +122,13 @@ export const BLOCK_KINDS = [
   "timber_frame",
   "driftwood_plank",
   "sea_glass_pane",
+  // A door (decision 0349): a free block on the ground floor that draws as a wall with a door in
+  // it and is walked through like an open tile.
+  "door",
+  // Cozy homes (RFC 0044): furniture you rest on, and walk onto.
+  "armchair",
+  "sofa",
+  "bed",
 ] as const;
 
 /**
@@ -488,6 +496,12 @@ export interface WorldState {
    * and closed before it replay as they were made, blocks on the spots included.
    */
   tableSpotsKept?: true;
+  /**
+   * `build_starter_home` hangs a `door` in the hut's doorway, from the server's `starter_doors` on
+   * (decision 0349). Absent until then, so starter homes built before it replay as they were made,
+   * with an open doorway.
+   */
+  starterDoors?: true;
   /**
    * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
    * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
@@ -1628,6 +1642,11 @@ export type Command =
    * fills them in from `planPutter` before logging, so replay never runs the planner.
    */
   | { type: "putter"; steps: Direction[] }
+  /**
+   * Sit or lie down on the seat on a tile one step away (RFC 0044). `floor` is the floor it's on:
+   * absent or 0 is the ground floor.
+   */
+  | { type: "rest"; x: number; y: number; floor?: number | undefined }
   | { type: "claim" }
   | { type: "release" }
   | { type: "set_hearth"; x: number; y: number }
@@ -1799,6 +1818,8 @@ export type Command =
   | { type: "groom_pet"; coat: PetCoat }
   /** One of the actor's produce to `owner`'s pet, which is happy until the day ends. */
   | { type: "treat_pet"; owner: ResidentId; item: Crop }
+  /** Take your pet out on the green in the middle of a town square, once a day (RFC 0045). */
+  | { type: "walk_pet" }
   // Party games (RFC 0011). The server fills in `salt` and `at` (its clock, in ms) before logging,
   // and `free` on a start once the first seat has let the start grace pass.
   | { type: "open_table"; game: GameKind; pace: GamePace; salt: string; at: number }
@@ -1912,6 +1933,8 @@ export type Command =
   | { type: "solid_buildings" }
   /** From now on, a Town Hall build puts no block on a game table's spot (decision 0126). */
   | { type: "keep_table_spots" }
+  /** From now on, a starter home has a door in its doorway (decision 0349). */
+  | { type: "starter_doors" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -2119,6 +2142,7 @@ export const SERVER_COMMANDS = [
   "close_round",
   "close_table",
   "keep_table_spots",
+  "starter_doors",
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
@@ -2165,6 +2189,18 @@ export type WorldEvent =
       y: number;
       floor?: number;
       routine?: StepRoutine;
+    }
+  /**
+   * Someone sat or lay down on a seat (RFC 0044), right after the `moved` that put them there.
+   * Public. `floor` is there only above the ground floor.
+   */
+  | {
+      type: "rested";
+      residentId: ResidentId;
+      x: number;
+      y: number;
+      floor?: number;
+      block: SeatKind;
     }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
@@ -2316,6 +2352,8 @@ export type WorldEvent =
   | { type: "buildings_solid" }
   /** `keep_table_spots` turned on: Town Hall builds keep the game tables' spots clear. Public. */
   | { type: "table_spots_kept" }
+  /** `starter_doors` turned on: a starter home has a door in its doorway from now on. Public. */
+  | { type: "starter_doors_set" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   | { type: "plot_market_opened" }
@@ -2516,6 +2554,18 @@ export type WorldEvent =
   | { type: "pet_groomed"; residentId: ResidentId; coat: PetCoat }
   /** `by` gave `residentId`'s pet a treat of `kind`: it's happy until the day ends. Public. */
   | { type: "pet_treated"; residentId: ResidentId; by: ResidentId; kind: Crop }
+  /**
+   * `residentId` took their pet out on a green on `day` (RFC 0045). Public. `met` lists the owners
+   * whose pets were out there, by id. `counted` lists the owners, the walker included, whose pet had
+   * its counted meeting of the day in this walk (its `metDay` became `day`): absent when none did.
+   */
+  | {
+      type: "pet_walked";
+      residentId: ResidentId;
+      day: number;
+      met: ResidentId[];
+      counted?: ResidentId[];
+    }
   // Party games (RFC 0011). All public, and none of them carries a sealed choice.
   /** A table opened at (x, y) in the Commons. Its opener takes the first seat (`seated` follows). */
   | {
@@ -2973,6 +3023,8 @@ export const REJECTION_CODES = [
   "already_brought",
   /** That isn't something a kitchen makes: a pie, a jam, a soup, a drink, or a sweet. */
   "not_food",
+  /** That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, or a bed (RFC 0044). */
+  "not_a_seat",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

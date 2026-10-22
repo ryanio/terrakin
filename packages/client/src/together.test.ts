@@ -2,7 +2,8 @@ import type { AuthorView, GestureKind, LetterView } from "@terrakin/protocol";
 import { badgeText } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
 import { isLetterMediaUrl } from "./letter-media";
-import { PROMPT_INTERESTS, PROMPT_NAMES, PROMPT_PATTERN, promptAt, promptLine } from "./prompts";
+import { NAME_IDEAS } from "./names";
+import { PROMPT_INTERESTS, PROMPT_PATTERN, promptAt, promptLine } from "./prompts";
 import { matchRoute, routeTemplate } from "./router";
 import { templateIds } from "./telemetry";
 import {
@@ -189,11 +190,9 @@ describe("invites", () => {
 });
 
 describe("example prompts", () => {
-  it("has about thirty names and interests, every line in the same shape", () => {
-    expect(PROMPT_NAMES.length).toBeGreaterThanOrEqual(30);
+  it("has about thirty interests, and every name idea makes a line in the same shape", () => {
     expect(PROMPT_INTERESTS.length).toBeGreaterThanOrEqual(30);
-    expect(new Set(PROMPT_NAMES).size).toBe(PROMPT_NAMES.length);
-    for (const name of PROMPT_NAMES) {
+    for (const name of NAME_IDEAS) {
       for (const interest of PROMPT_INTERESTS) {
         expect(promptLine(name, interest)).toMatch(PROMPT_PATTERN);
       }

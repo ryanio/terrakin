@@ -3553,6 +3553,14 @@ a.btn-primary {
   margin-top: var(--space-xs);
 }
 
+/* A name field's label with "Suggest a name" across from it (`suggestName` in join-form.ts). */
+.name-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
 /* The server's answer rides above the sticky button, on paper so it reads over the form. */
 .onboard .join-submit .form-error {
   margin: 0 0 var(--space-sm);

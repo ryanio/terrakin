@@ -1,5 +1,7 @@
 import type { BuildPlan } from "./build";
+import { plotKey } from "./keys";
 import { type PlotTiles, plotTiles } from "./map";
+import { plotOpenings } from "./openings";
 import type { BlockKind, Direction, Tile, WorldConfig, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./world";
@@ -26,6 +28,10 @@ export const DESIGN = {
 export const NOTE_CODES = [
   "hearth_walled_in",
   "walled_in",
+  "no_opening",
+  "seals_neighbor",
+  // The server writes this one, from a design's or the starter hut's door (`doorFacing`).
+  "door_no_edge",
   "out_of_reach",
   "no_path",
   "crowded",
@@ -69,12 +75,58 @@ export function designNotes(
 ): DesignNote[] {
   const tiles = plotTiles(state, px, py, plan);
   if (!tiles) return [];
-  return plotNotes(tiles, {
+  const notes = plotNotes(tiles, {
     config: state.config,
     solidBuildings: state.solidBuildings === true,
     townHall: townHallTiles(state),
     shop: state.shop ? shopTiles(state) : [],
   });
+  if (!plan) return notes;
+  const order = (n: DesignNote) => NOTE_CODES.indexOf(n.code);
+  return [...notes, ...openingNotes(state, px, py, plan)].sort((a, b) => order(a) - order(b));
+}
+
+/**
+ * What a plan does to a way out (decision 0351): `no_opening` when it takes the plot's last one,
+ * and `seals_neighbor` for each plot around it whose last one it takes. A step out of a plot is
+ * never onto someone else's, so a plan can take a neighbour's last opening only at a shared
+ * corner: a diagonal step out of their corner onto open ground passes the tile on this plot beside
+ * it. Only what the plan changes is said, so a plot already landlocked hears nothing here.
+ */
+function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan): DesignNote[] {
+  const S = state.config.plotSize;
+  const local = (t: Tile) => ({ x: t.x - px * S, y: t.y - py * S });
+  const notes: DesignNote[] = [];
+  const before = plotOpenings(state, px, py);
+  const first = before[0];
+  if (first && plotOpenings(state, px, py, plan).length === 0) {
+    const last = local(first.from);
+    notes.push({
+      code: "no_opening",
+      text: `This plan leaves the plot with no way out onto open ground: once it's built, no walk from the hearth reaches a step off the plot onto a tile nobody has claimed. The way out now is at ${words(last)}. Leave a gap or a door on that side.`,
+      tiles: [last],
+    });
+  }
+  const walls = plan.placed.filter((t) => (t.floor ?? 0) === 0 && blocksWalkers(t.block));
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = px + dx;
+      const ny = py + dy;
+      if ((dx === 0 && dy === 0) || !state.plots[plotKey(nx, ny)]) continue;
+      const theirs = plotOpenings(state, nx, ny);
+      if (theirs.length === 0 || plotOpenings(state, nx, ny, plan).length > 0) continue;
+      const corner = walls
+        .filter((w) => theirs.some((o) => chebyshev(w, o.from) <= 1 && chebyshev(w, o.to) <= 1))
+        .map(local);
+      const past = corner[0] ? ` past the corner at ${words(corner[0])}` : "";
+      notes.push({
+        code: "seals_neighbor",
+        text: `This plan closes the last way out of the plot next door, plot (${nx}, ${ny}): its only step onto open ground goes${past}. Leave that tile open.`,
+        tiles: corner,
+      });
+    }
+  }
+  return notes;
 }
 
 /** What the notes read besides the plot: the world's size and reach, and which buildings stop walkers. */
@@ -175,7 +227,7 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
       door
         ? {
             code: "hearth_walled_in",
-            text: `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no gap. Take one away for a doorway, like the wall at ${words(door)}.`,
+            text: `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no door or gap. Swap one for a door, like the wall at ${words(door)}: remove it, then place a door there.`,
             tiles: [door],
           }
         : {
@@ -191,7 +243,7 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   if (lost.length > 0) {
     notes.push({
       code: "walled_in",
-      text: `Nobody can walk to ${plural(lost.length, "open tile", "open tiles")} here, like ${words(lost[0] as Tile)}: walls close ${lost.length === 1 ? "it" : "them"} in. Leave a gap, or fill ${lost.length === 1 ? "it" : "them"}.`,
+      text: `Nobody can walk to ${plural(lost.length, "open tile", "open tiles")} here, like ${words(lost[0] as Tile)}: walls close ${lost.length === 1 ? "it" : "them"} in. Put in a door or leave a gap, or fill ${lost.length === 1 ? "it" : "them"}.`,
       tiles: lost,
     });
   }
@@ -219,7 +271,8 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   }
 
   // A path: some ground at all, and from each hearth to the edge over path and flooring. The
-  // tiles beside the hearth and a doorway (an open tile between two walls) needn't be paved.
+  // tiles beside the hearth and a doorway (an open tile or a door between two walls) needn't be
+  // paved.
   const wall = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < S && y < S && blocksWalkers(blockAt({ x, y }));
   const doorway = (t: Tile) =>

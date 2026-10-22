@@ -69,6 +69,7 @@ import {
   ROUTINE_KINDS,
   ROUTINES,
   SEASONS,
+  SEATS,
   SHOP,
   SHOP_SKUS,
   SKILLS,
@@ -311,6 +312,22 @@ export const MoveAction = z.object({
  * wave at them (`greeted` in the response).
  */
 export const PutterAction = z.object({ type: z.literal("putter"), ...dry });
+/** The blocks you rest on (RFC 0044): sit on a chair, a bench, an armchair or a sofa; lie on a bed. */
+export const SeatKind = z.enum(
+  Object.keys(SEATS) as [keyof typeof SEATS, ...(keyof typeof SEATS)[]],
+);
+export type SeatKind = z.infer<typeof SeatKind>;
+/**
+ * Sit or lie down on the seat on a tile one step away (RFC 0044): a chair, a bench, an armchair, a
+ * sofa, or a bed. Any move takes you off it again.
+ */
+export const RestAction = z.object({
+  type: z.literal("rest"),
+  x: coord,
+  y: coord,
+  ...toFloor,
+  ...dry,
+});
 export const ClaimAction = z.object({ type: z.literal("claim"), ...dry });
 export const ReleaseAction = z.object({ type: z.literal("release"), ...dry });
 export const PlaceAction = z.object({
@@ -446,7 +463,7 @@ export const DesignNoteView = z.object({
   code: z
     .string()
     .describe(
-      "`hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`.",
+      "`hearth_walled_in`, `walled_in`, `no_opening`, `seals_neighbor`, `door_no_edge`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`.",
     ),
   text: z.string().describe("The note in our own words. It never quotes a resident."),
   tiles: z
@@ -1111,6 +1128,16 @@ export const TreatPetAction = z.object({
   item: CropKind,
   ...dry,
 });
+/**
+ * Take your pet out on the green, the middle of a town square (RFC 0045): within 3 tiles of the
+ * Commons' middle downtown, or of an island's own square. Once a pet a UTC day. It meets the pets
+ * out there, and the first meeting a day with a pet from another household earns you and its owner
+ * Hosting points. Sent from anywhere else, the refusal names the walk there.
+ */
+export const WalkPetAction = z.object({
+  type: z.literal("walk_pet"),
+  ...dry,
+});
 
 // ---------- Fishing (RFC 0023) ----------
 
@@ -1505,6 +1532,7 @@ export const ChatAction = z.object({
 export const Action = z.discriminatedUnion("type", [
   MoveAction,
   PutterAction,
+  RestAction,
   ClaimAction,
   ReleaseAction,
   PlaceAction,
@@ -1563,6 +1591,7 @@ export const Action = z.discriminatedUnion("type", [
   RenamePetAction,
   GroomPetAction,
   TreatPetAction,
+  WalkPetAction,
   OpenTableAction,
   SitAction,
   StandAction,
@@ -1607,6 +1636,10 @@ export const PetView = z.object({
   renamedDay: z.number().int().optional(),
   /** Its last treat: the day, who gave it, and what. Happy until that day ends. */
   treat: z.object({ day: z.number().int(), by: z.string(), kind: CropKind }).optional(),
+  /** The day it last went out on a green (RFC 0045). Happy until that day ends. */
+  walkedDay: z.number().int().optional(),
+  /** The day of its last counted meeting on a green, which earns once a day. */
+  metDay: z.number().int().optional(),
 });
 export type PetView = z.infer<typeof PetView>;
 
@@ -1796,6 +1829,11 @@ export const WorldSnapshot = z.object({
    * rule.
    */
   tableSpotsKept: z.literal(true).optional(),
+  /**
+   * Present once `build_starter_home` hangs a `door` in the hut's doorway (decision 0349). Absent in
+   * worlds where it leaves the doorway open. Homes already standing are never changed either way.
+   */
+  starterDoors: z.literal(true).optional(),
   /**
    * Present once buying and selling need you at the shop's counter, within `config.reach` of its
    * door on the ground floor (RFC 0042). Absent in worlds where the shop serves from anywhere.
@@ -2029,6 +2067,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
     /** A step a routine took while they're away (RFC 0009): `walk_home` or `stroll`. */
     routine: StepRoutine.optional(),
   }),
+  /** Someone sat or lay down on a seat (RFC 0044), right after the `moved` that put them there. */
+  z.object({
+    type: z.literal("rested"),
+    residentId: z.string(),
+    x: z.number().int(),
+    y: z.number().int(),
+    ...onFloor,
+    block: SeatKind,
+  }),
   z.object({
     type: z.literal("plot_claimed"),
     px: z.number().int(),
@@ -2221,6 +2268,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("buildings_solid") }),
   /** From now on, Town Hall builds put no block on a game table's spot (`tableSpotsKept`). */
   z.object({ type: z.literal("table_spots_kept") }),
+  /** From now on, a starter home has a door in its doorway, walked through like an open tile. */
+  z.object({ type: z.literal("starter_doors_set") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */
@@ -2705,6 +2754,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     kind: CropKind,
   }),
   /**
+   * `residentId` took their pet out on a green on `day` (RFC 0045). `met` is the owners whose pets
+   * were out there. `counted` is the owners, the walker included, whose pet had its one counted
+   * meeting of the day in this walk, each earning Hosting points: absent when none did.
+   */
+  z.object({
+    type: z.literal("pet_walked"),
+    residentId: z.string(),
+    day: z.number().int(),
+    met: z.array(z.string()),
+    counted: z.array(z.string()).optional(),
+  }),
+  /**
    * `by` cast a line into the water at (x, y) and brought up `caught` (RFC 0023): a fish, an old
    * boot they threw back, or `nothing`. Public, like a gather.
    */
@@ -3144,6 +3205,12 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .describe(
         "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for because something was in the way. Absent on a one-tile move and on a walk that went the whole way.",
       ),
+    notes: z
+      .array(DesignNoteView)
+      .optional()
+      .describe(
+        "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`. Today only `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. Absent when there is nothing to say.",
+      ),
   }),
   z.object({
     ok: z.literal(false),
@@ -3232,6 +3299,8 @@ export const ServerMessage = z.union([
     handedIn: HandedIn.optional(),
     /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
     plotSale: PlotSaleView.optional(),
+    /** `build_starter_home`: notes about the home it built, or would build. */
+    notes: z.array(DesignNoteView).optional(),
   }),
   z.object({
     type: z.literal("error"),

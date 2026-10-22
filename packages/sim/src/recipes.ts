@@ -158,6 +158,17 @@ const PAGE_RECIPES_2 = [
 ] as const satisfies readonly RecipeName[];
 
 /**
+ * Edition 3: edition 2 and the three cozy pieces' cards (RFC 0044), in catalog order, so every
+ * card is still a page.
+ */
+const PAGE_RECIPES_3 = [
+  ...PAGE_RECIPES_2,
+  "armchair",
+  "sofa",
+  "bed",
+] as const satisfies readonly RecipeName[];
+
+/**
  * Every edition of the page list, by the number `state.recipes.pages` holds. A world with no
  * number reads edition 1, so worlds from before the switch answer exactly as they always did.
  * An edition a live world has read is frozen; a new list is the next number.
@@ -165,6 +176,7 @@ const PAGE_RECIPES_2 = [
 export const PAGE_EDITIONS: Readonly<Record<number, readonly RecipeName[]>> = {
   1: PAGE_RECIPES,
   2: PAGE_RECIPES_2,
+  3: PAGE_RECIPES_3,
 };
 
 /** The page edition a world reads: `state.recipes.pages`, or 1 where it has none. */

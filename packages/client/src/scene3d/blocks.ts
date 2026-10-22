@@ -1,4 +1,11 @@
-import { BLOCK_KINDS, DECOR_KINDS, FURNITURE_KINDS, isHeldBlock, POND_LOOK } from "@terrakin/sim";
+import {
+  BLOCK_KINDS,
+  DECOR_KINDS,
+  DOOR_LOOK,
+  FURNITURE_KINDS,
+  isHeldBlock,
+  POND_LOOK,
+} from "@terrakin/sim";
 import {
   AdditiveBlending,
   type BufferGeometry,
@@ -209,6 +216,33 @@ export function blockMeshes(
       q.identity();
       pane.renderOrder = 2;
       out.push(pane);
+    }
+  }
+
+  // Doors (decision 0349): a frame as tall as the walls beside it, turned to run along them, with
+  // its door standing open against one jamb, so a figure walks through the opening. Two draws for
+  // every door on the plot.
+  const doors = blocks.filter((b) => b.block === "door");
+  if (doors.length > 0) {
+    const { frame: frameGeo, leaf: leafGeo } = doorGeometry(blockLook("door").height);
+    const frame = new InstancedMesh(frameGeo, paper(0xffffff, grain), doors.length);
+    const leaf = new InstancedMesh(leafGeo, paper(0xffffff, grain), doors.length);
+    const solid = (b: LayoutBlock, dx: number, dy: number) => isWall(near(b, dx, dy));
+    doors.forEach((b, i) => {
+      const ns = solid(b, 0, -1) || solid(b, 0, 1);
+      const ew = solid(b, -1, 0) || solid(b, 1, 0);
+      q.setFromAxisAngle(UP, ns && !ew ? Math.PI / 2 : 0);
+      m.compose(spot(b), q, one);
+      frame.setMatrixAt(i, m);
+      frame.setColorAt(i, lin(colorFor(hex(DOOR_LOOK.frame), b)));
+      leaf.setMatrixAt(i, m);
+      leaf.setColorAt(i, lin(colorFor(hex(DOOR_LOOK.panel), b)));
+    });
+    q.identity();
+    for (const mesh of [frame, leaf]) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      out.push(mesh);
     }
   }
 
@@ -470,6 +504,41 @@ function isWall(b: LayoutBlock | undefined): boolean {
     b.block !== "stairs" &&
     !isHeldBlock(b.block)
   );
+}
+
+/** How far a door stands open in 3D, in radians from shut. */
+const DOOR_SWING = (50 * Math.PI) / 180;
+
+/**
+ * A door on one tile (decision 0349), running along x: two jambs and a lintel the depth of a wall,
+ * leaving an opening `DOOR_LOOK.opening` wide, and the door itself standing half open toward the
+ * south. Two shapes, so the frame and the door each take their own color.
+ */
+function doorGeometry(height: number): { frame: BufferGeometry; leaf: BufferGeometry } {
+  const open = DOOR_LOOK.opening;
+  const jamb = (0.96 - open) / 2;
+  const lintel = 0.24;
+  const parts: BufferGeometry[] = [];
+  for (const side of [-1, 1]) {
+    const g = new RoundedBoxGeometry(jamb, height, 0.96, 2, 0.06);
+    g.translate(side * (open / 2 + jamb / 2), height / 2, 0);
+    parts.push(g);
+  }
+  const top = new RoundedBoxGeometry(open + 0.02, lintel, 0.96, 1, 0.05);
+  top.translate(0, height - lintel / 2, 0);
+  parts.push(top);
+  const frame = bakeShade(mergeGeometries(parts.map(unindexed)), 0.62, 1);
+  for (const g of parts) g.dispose();
+  // Hinged on the west jamb's outer edge and swung half open, so its painted face shows from the
+  // camera and most of the opening stays clear for a figure walking through.
+  const tall = height - lintel - 0.02;
+  const wide = open - 0.04;
+  const door = new RoundedBoxGeometry(wide, tall, 0.07, 1, 0.02);
+  door.translate(wide / 2, tall / 2, 0);
+  door.rotateY(-DOOR_SWING);
+  door.translate(-open / 2, 0, 0.48);
+  const leaf = bakeShade(door, 0.62, 1);
+  return { frame, leaf };
 }
 
 /** How many treads a flight of stairs has. */

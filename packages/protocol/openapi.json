@@ -5397,6 +5397,7 @@
                 "sugar",
                 "jar",
                 "firework",
+                "cushion",
                 "wood",
                 "stone",
                 "lantern",
@@ -5430,6 +5431,9 @@
                 "campfire",
                 "flower_box",
                 "jack_o_lantern",
+                "armchair",
+                "sofa",
+                "bed",
                 "acorn",
                 "pinecone",
                 "mushroom",
@@ -15251,6 +15255,9 @@
                 "campfire",
                 "flower_box",
                 "jack_o_lantern",
+                "armchair",
+                "sofa",
+                "bed",
                 "candy",
                 "candy_cane",
                 "gelt",
@@ -29395,6 +29402,9 @@
             "$ref": "#/components/schemas/PutterAction"
           },
           {
+            "$ref": "#/components/schemas/RestAction"
+          },
+          {
             "$ref": "#/components/schemas/ClaimAction"
           },
           {
@@ -29569,6 +29579,9 @@
             "$ref": "#/components/schemas/TreatPetAction"
           },
           {
+            "$ref": "#/components/schemas/WalkPetAction"
+          },
+          {
             "$ref": "#/components/schemas/OpenTableAction"
           },
           {
@@ -29716,6 +29729,13 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "notes": {
+                "description": "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`. Today only `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. Absent when there is nothing to say.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DesignNoteView"
+                }
               }
             },
             "required": [
@@ -30001,7 +30021,11 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door",
+                    "armchair",
+                    "sofa",
+                    "bed"
                   ]
                 }
               },
@@ -30175,7 +30199,11 @@
               "brickwork",
               "timber_frame",
               "driftwood_plank",
-              "sea_glass_pane"
+              "sea_glass_pane",
+              "door",
+              "armchair",
+              "sofa",
+              "bed"
             ]
           },
           "windows": {
@@ -30227,7 +30255,11 @@
               "brickwork",
               "timber_frame",
               "driftwood_plank",
-              "sea_glass_pane"
+              "sea_glass_pane",
+              "door",
+              "armchair",
+              "sofa",
+              "bed"
             ]
           },
           "path": {
@@ -31321,7 +31353,7 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "`hearth_walled_in`, `walled_in`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`."
+            "description": "`hearth_walled_in`, `walled_in`, `no_opening`, `seals_neighbor`, `door_no_edge`, `out_of_reach`, `no_path`, `crowded`, `many_materials`, or one added later. Read an unknown code by its `text`."
           },
           "text": {
             "type": "string",
@@ -31651,6 +31683,7 @@
           "not_at_feast",
           "already_brought",
           "not_food",
+          "not_a_seat",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -31781,7 +31814,10 @@
           "stone_wall",
           "campfire",
           "flower_box",
-          "jack_o_lantern"
+          "jack_o_lantern",
+          "armchair",
+          "sofa",
+          "bed"
         ]
       },
       "GameKind": {
@@ -32495,6 +32531,7 @@
           "sugar",
           "jar",
           "firework",
+          "cushion",
           "wood",
           "stone",
           "lantern",
@@ -32528,6 +32565,9 @@
           "campfire",
           "flower_box",
           "jack_o_lantern",
+          "armchair",
+          "sofa",
+          "bed",
           "acorn",
           "pinecone",
           "mushroom",
@@ -33322,6 +33362,16 @@
               "by",
               "kind"
             ]
+          },
+          "walkedDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "metDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -33449,7 +33499,11 @@
               "brickwork",
               "timber_frame",
               "driftwood_plank",
-              "sea_glass_pane"
+              "sea_glass_pane",
+              "door",
+              "armchair",
+              "sofa",
+              "bed"
             ]
           },
           "dry": {
@@ -33515,7 +33569,10 @@
               "dreidel",
               "stocking",
               "bird_bath",
-              "beehive"
+              "beehive",
+              "armchair",
+              "sofa",
+              "bed"
             ]
           }
         },
@@ -33668,7 +33725,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "1": {
@@ -33719,7 +33780,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "2": {
@@ -33770,7 +33835,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "3": {
@@ -33821,7 +33890,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "4": {
@@ -33872,7 +33945,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "5": {
@@ -33923,7 +34000,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "6": {
@@ -33974,7 +34055,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "7": {
@@ -34025,7 +34110,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "8": {
@@ -34076,7 +34165,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "9": {
@@ -34127,7 +34220,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               }
             },
@@ -34226,7 +34323,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "1": {
@@ -34277,7 +34378,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "2": {
@@ -34328,7 +34433,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "3": {
@@ -34379,7 +34488,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "4": {
@@ -34430,7 +34543,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "5": {
@@ -34481,7 +34598,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "6": {
@@ -34532,7 +34653,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "7": {
@@ -34583,7 +34708,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "8": {
@@ -34634,7 +34763,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "9": {
@@ -34685,7 +34818,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               }
             },
@@ -34795,7 +34932,11 @@
                         "brickwork",
                         "timber_frame",
                         "driftwood_plank",
-                        "sea_glass_pane"
+                        "sea_glass_pane",
+                        "door",
+                        "armchair",
+                        "sofa",
+                        "bed"
                       ]
                     }
                   },
@@ -35327,7 +35468,10 @@
           "recipe:corn_bread",
           "recipe:harvest_soup",
           "recipe:garden_salad",
-          "recipe:posy"
+          "recipe:posy",
+          "recipe:armchair",
+          "recipe:sofa",
+          "recipe:bed"
         ]
       },
       "RecipeKind": {
@@ -35377,6 +35521,9 @@
           "campfire",
           "flower_box",
           "jack_o_lantern",
+          "armchair",
+          "sofa",
+          "bed",
           "candy",
           "candy_cane",
           "gelt",
@@ -35427,7 +35574,10 @@
           "corn_bread",
           "harvest_soup",
           "garden_salad",
-          "posy"
+          "posy",
+          "armchair",
+          "sofa",
+          "bed"
         ]
       },
       "ReleaseAction": {
@@ -35714,6 +35864,42 @@
           "hearth"
         ]
       },
+      "RestAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rest"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
+        ]
+      },
       "RoofMaterial": {
         "type": "string",
         "enum": [
@@ -35960,6 +36146,16 @@
           "winter"
         ]
       },
+      "SeatKind": {
+        "type": "string",
+        "enum": [
+          "chair",
+          "bench",
+          "armchair",
+          "sofa",
+          "bed"
+        ]
+      },
       "SellToTownAction": {
         "type": "object",
         "properties": {
@@ -36074,6 +36270,12 @@
                     "$ref": "#/components/schemas/PlotSaleView"
                   }
                 ]
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DesignNoteView"
+                }
               }
             },
             "required": [
@@ -36558,6 +36760,7 @@
           "sugar",
           "jar",
           "firework",
+          "cushion",
           "candy",
           "candy_cane",
           "gelt"
@@ -36649,6 +36852,7 @@
           "sugar",
           "jar",
           "firework",
+          "cushion",
           "wood",
           "stone",
           "lantern",
@@ -36682,6 +36886,9 @@
           "campfire",
           "flower_box",
           "jack_o_lantern",
+          "armchair",
+          "sofa",
+          "bed",
           "acorn",
           "pinecone",
           "mushroom",
@@ -37097,6 +37304,24 @@
           "yes",
           "no",
           "abstain"
+        ]
+      },
+      "WalkPetAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "walk_pet"
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
         ]
       },
       "WearItem": {
@@ -37965,6 +38190,46 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "rested"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "block": {
+                "$ref": "#/components/schemas/SeatKind"
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "x",
+              "y",
+              "block"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "plot_claimed"
                 ]
               },
@@ -38122,7 +38387,11 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed"
                 ]
               },
               "by": {
@@ -38905,6 +39174,20 @@
                 "type": "string",
                 "enum": [
                   "table_spots_kept"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "starter_doors_set"
                 ]
               }
             },
@@ -41045,6 +41328,43 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "pet_walked"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "day": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "met": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "counted": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "day",
+              "met"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "fished"
                 ]
               },
@@ -42237,7 +42557,11 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door",
+                    "armchair",
+                    "sofa",
+                    "bed"
                   ]
                 }
               },
@@ -42336,6 +42660,12 @@
             ]
           },
           "tableSpotsKept": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "starterDoors": {
             "type": "boolean",
             "enum": [
               true
@@ -44547,6 +44877,16 @@
                   "by",
                   "kind"
                 ]
+              },
+              "walkedDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "metDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
               "pats": {
                 "type": "integer",
@@ -53293,7 +53633,11 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door",
+                    "armchair",
+                    "sofa",
+                    "bed"
                   ]
                 }
               },
@@ -53347,7 +53691,11 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door",
+                    "armchair",
+                    "sofa",
+                    "bed"
                   ]
                 }
               },

@@ -447,6 +447,11 @@ export function newsLine(
       return event.by === me
         ? "Your home has an upstairs now. Lay flooring up there where walls below hold it up, then put up stairs."
         : null;
+    case "rested":
+      if (event.residentId !== me) return null;
+      return event.block === "bed"
+        ? "You lay down on the bed. Any step gets you up."
+        : `You sat down ${event.block === "armchair" ? "in" : "on"} the ${event.block}. Any step gets you up.`;
     case "recipe_learned":
       if (event.residentId === me) {
         return learnedLine(event.recipe, event.how, event.from && nameOf(event.from));

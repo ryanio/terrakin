@@ -3,7 +3,7 @@
  * resident color, and jam flavor looks in 3D. Plain numbers, no three.js, so tests can pin them
  * and the 2D and 3D worlds keep one look.
  */
-import { BLOCK_COLORS, type BlockKind, type ResidentColor } from "@terrakin/sim";
+import { BLOCK_COLORS, type BlockKind, DOOR_LOOK, type ResidentColor } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 
 /** `#rrggbb` to a number three.js takes as a color. */
@@ -64,9 +64,11 @@ export interface BlockLook {
    * shop's models in `decor.ts`, and "furniture" one of the workbench's in `furniture.ts`, where
    * `height` is how tall it stands; "water" is a pond tile (RFC 0023), flat in the ground with a
    * stone rim along its banks (`pondMeshes` in `blocks.ts`), where `height` is the rim's;
-   * "stairs" is a flight of treads a floor tall (RFC 0028, `stairsGeometry` in `blocks.ts`).
+   * "stairs" is a flight of treads a floor tall (RFC 0028, `stairsGeometry` in `blocks.ts`);
+   * "door" is a wall-high frame with a door standing open in it (decision 0349, `doorMeshes` in
+   * `blocks.ts`), which a figure walks through.
    */
-  form: "voxel" | "clump" | "decor" | "furniture" | "water" | "stairs";
+  form: "voxel" | "clump" | "decor" | "furniture" | "water" | "stairs" | "door";
   /**
    * Lit after dark (decision 0098): a pool of warm light `pool` tiles across on the ground, its
    * middle `at` from the tile's (x east, z south). With `home`, only in a home someone's in.
@@ -196,6 +198,12 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
     form: "voxel",
     glow: { pool: 1.7, home: true },
   },
+  // A door (decision 0349): its frame as tall as a wall, in the sim's `DOOR_LOOK`.
+  door: { color: hex(DOOR_LOOK.panel), height: 1.25, opacity: 1, form: "door" },
+  // Cozy homes (RFC 0044): furniture you rest on, modelled in furniture.ts.
+  armchair: { color: hex(BLOCK_COLORS.armchair), height: 0.95, opacity: 1, form: "furniture" },
+  sofa: { color: hex(BLOCK_COLORS.sofa), height: 0.9, opacity: 1, form: "furniture" },
+  bed: { color: hex(BLOCK_COLORS.bed), height: 0.85, opacity: 1, form: "furniture" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

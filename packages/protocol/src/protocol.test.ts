@@ -777,6 +777,7 @@ describe("levels and skills (RFC 0029)", () => {
       PROGRESS.bounty,
       PROGRESS.guest,
       PROGRESS.attend,
+      PROGRESS.petMeet,
       PROGRESS.game,
       PROGRESS.win,
     ]);
@@ -1342,7 +1343,7 @@ describe("GET /v1/catalog", () => {
 describe("SKILL.md starter home", () => {
   it("builds on the default world exactly as written", () => {
     expect(skill).toContain(
-      "stand at (19, 11), build the outline of (17, 9) to (21, 13), leave (19, 13) open",
+      "stand at (19, 11), build the outline of (17, 9) to (21, 13), with the door at (19, 13)",
     );
     const world = createWorld(DEFAULT_CONFIG);
     const act = (command: Command) => {
@@ -1371,9 +1372,11 @@ describe("SKILL.md starter home", () => {
       }
     }
     expect(placed).toBe(15);
+    act({ type: "place", x: x0 + 2, y: y0 + 4, block: "door" });
     act({ type: "set_hearth", x: x0 + 2, y: y0 + 2 });
     act({ type: "move", dir: "s" });
     act({ type: "move", dir: "s" });
+    // Out through the door, which is walked through like an open tile.
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
     act({ type: "home" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
@@ -1638,7 +1641,7 @@ describe("build_starter_home", () => {
       expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
     };
 
-    // By hand: walk, claim, place 15 blocks with windows, set the hearth.
+    // By hand: walk, claim, place 15 blocks with windows and a door, set the hearth.
     const manual = createWorld(DEFAULT_CONFIG);
     const byHand = actor(manual);
     byHand({ type: "join", name: "Wren", kind: "agent" });
@@ -1652,12 +1655,15 @@ describe("build_starter_home", () => {
         const door = x === x0 + 2 && y === y0 + 4;
         const window = (x === x0 || x === x0 + 4) && y === y0 + 2;
         if (edge && !door) byHand({ type: "place", x, y, block: window ? "glass" : "wood" });
+        if (door) byHand({ type: "place", x, y, block: "door" });
       }
     }
     byHand({ type: "set_hearth", x: x0 + 2, y: y0 + 2 });
 
-    // In two actions: settle lands on the hearth tile, then the server builds the rest.
+    // In two actions: settle lands on the hearth tile, then the server builds the rest, in a
+    // world that hangs doors in starter homes, as every live one does (decision 0349).
     const quick = createWorld(DEFAULT_CONFIG);
+    expect(apply(quick, { actor: TOWN_ACTOR, command: { type: "starter_doors" } }).ok).toBe(true);
     const twoSteps = actor(quick);
     twoSteps({ type: "join", name: "Wren", kind: "agent" });
     twoSteps({ type: "settle", px: 2, py: 1 });
@@ -1665,7 +1671,7 @@ describe("build_starter_home", () => {
     twoSteps({ type: "build_starter_home" });
 
     expect(quick.blocks).toEqual(manual.blocks);
-    expect(Object.keys(quick.blocks)).toHaveLength(15);
+    expect(Object.keys(quick.blocks)).toHaveLength(16);
     expect(quick.plots).toEqual(manual.plots);
     expect(quick.residents.muse).toEqual(manual.residents.muse);
   });

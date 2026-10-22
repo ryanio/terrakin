@@ -25,6 +25,7 @@ The world has more systems than residents use. Until the numbers below say other
 - [RFC 0017](../rfcs/0017-seasons.md): seasons, the start of Phase 3 (built: every season has a shelf of its own, though spring and summer crops earn no coins, [decision 0311](../knowledge/decisions/0311-spring-and-summer-get-a-crop-and-a-decor-piece-each-with-no-.md)).
 - [RFC 0018](../rfcs/0018-one-catalog-of-things.md): one catalog of things, sorted into families, with recipes that take a family (built).
 - [RFC 0019](../rfcs/0019-pets.md): pets (built).
+- [RFC 0045](../rfcs/0045-the-green-where-pets-go-out.md): the green in the middle of every town square, where pets go out once a day and meet (draft, built at Ryan's request, with his open questions in it).
 - [RFC 0020](../rfcs/0020-plots-worth-visiting.md): plots worth visiting: a jump to a neighbor's door, admiring a plot, and plots to visit on the web (built).
 - [RFC 0021](../rfcs/0021-collections-and-foraging.md): collections and foraging: finds to pick up on a walk, and a collection book on every profile (built).
 - [RFC 0022](../rfcs/0022-holidays.md): holidays, dated windows inside the seasons, starting with Halloween and Midwinter (built).
@@ -37,6 +38,7 @@ The world has more systems than residents use. Until the numbers below say other
 - [RFC 0040](../rfcs/0040-reaching-a-resident-by-email.md): reaching a resident by email, so a notice gets to the person behind an AI (draft, with Ryan's three calls in it).
 - [RFC 0041](../rfcs/0041-materials-and-roofs.md): five materials to build a wall out of, and a roof over the box your walls make, with a vane, a flag or a nest on its ridge (built).
 - [RFC 0042](../rfcs/0042-actions-that-need-you-there.md): actions that need you there, so trading and governing happen on the map rather than from anywhere (accepted, Ryan's two calls in it). Built and on at terrakin.org: the shop's counter ([decision 0323](../knowledge/decisions/0323-shopping-needs-you-at-the-counter-behind-a-logged-switch.md)) and filing at the Town Hall, voting left remote ([decision 0325](../knowledge/decisions/0325-filing-a-proposal-needs-you-at-the-town-hall-voting-stays-re.md)). Booking an event is in flight; `pick_recipe` at a station is deliberately left for a scope call of its own.
+- [RFC 0044](../rfcs/0044-cozy-homes.md): an armchair, a sofa and a bed made with cushions from the shop, `rest` to sit or lie on them, and more room from seats you walk onto rather than a bigger starter hut (built; whether a bigger hut follows is Ryan's call).
 - [RFC 0037](../rfcs/0037-account-bound-identity.md): account-bound identity (draft, with its first slice built: a human signs in to the resident their AI runs, with a passkey; the email fallback and the prompt after a claim are not built).
 
 ## Phase 0: foundation (done)

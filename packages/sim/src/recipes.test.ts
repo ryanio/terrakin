@@ -171,7 +171,7 @@ describe("set_page_edition", () => {
     const w = opened();
     expect(pageEditionOf(w.state)).toBe(1);
     // An edition that doesn't exist, the one in use, and anyone but the town are all refused.
-    expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 3 })).toBe("server_only");
+    expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 4 })).toBe("server_only");
     expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 0 })).toBe("server_only");
     expect(w.code(TOWN_ACTOR, { type: "set_page_edition", edition: 1 })).toBe("already_set");
     expect(w.code("ada", { type: "set_page_edition", edition: 2 })).toBe("server_only");
@@ -193,9 +193,11 @@ describe("set_page_edition", () => {
     ]);
     const edition = (n: number) => [...(PAGE_EDITIONS[n] ?? [])];
     expect(edition(1)).toEqual([...PAGE_RECIPES]);
-    // Edition 2 is edition 1 and the ten cards the new crops brought, so every card is a page.
+    // Edition 2 is edition 1 and the ten cards the new crops brought, and edition 3 is edition 2
+    // and the cozy pieces' cards (RFC 0044), so each widens the last and every card is a page.
     expect(edition(2).slice(0, PAGE_RECIPES.length)).toEqual([...PAGE_RECIPES]);
-    expect(edition(2).sort()).toEqual([...CARD_RECIPES].sort());
+    expect(edition(3).slice(0, edition(2).length)).toEqual(edition(2));
+    expect(edition(3).sort()).toEqual([...CARD_RECIPES].sort());
   });
 });
 
@@ -257,6 +259,9 @@ describe("the recipe lists", () => {
         "harvest_soup",
         "garden_salad",
         "posy",
+        "armchair",
+        "sofa",
+        "bed",
       ].sort(),
     );
     expect(CARD_SKUS).toContain("recipe:well");
@@ -298,6 +303,10 @@ describe("recipeCardPrice", () => {
       harvest_soup: 20,
       garden_salad: 20,
       posy: 20,
+      // The cozy pieces (RFC 0044): wood and cushions, priced like any furniture card.
+      armchair: 20,
+      sofa: 25,
+      bed: 30,
     });
   });
 

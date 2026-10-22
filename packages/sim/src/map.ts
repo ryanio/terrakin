@@ -24,6 +24,7 @@ export const MAP_BLOCKS = {
   d: "pedestal",
   "~": "pond",
   "^": "stairs",
+  "+": "door",
 } as const satisfies Record<string, BlockKind>;
 
 /** Each path and flooring's character: every kind has one, so a new kind won't compile without it. */

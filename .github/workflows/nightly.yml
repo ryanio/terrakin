@@ -4,6 +4,8 @@ name: Nightly
 # with one worker, and the whole 2D suite, which catches a sim-only push that broke something a
 # spec sees (CI skips e2e on those). Deploys nothing. A red night opens or comments on the
 # `nightly-red` issue (the `alert` job) and gets a line in e2e/red-runs.md, like any other red run.
+# The `landlocked` job reads the live world and keeps the `landlocked-plots` issue up to date
+# (decision 0351).
 on:
   schedule:
     - cron: "17 9 * * *"
@@ -94,4 +96,46 @@ jobs:
               --description "The nightly e2e run is red (nightly.yml)"
             gh issue create --label "$label" --title "The nightly e2e run is red" --body \
               "The nightly e2e run failed: $RUN_URL. Read it with \`gh run view $GITHUB_RUN_ID --log-failed\`, add a line to e2e/red-runs.md with its cause, and fix it. The next green night closes this issue; each red one until then comments here."
+          fi
+
+  # Every claimed plot keeps a way out (decision 0351): the live world from the public
+  # `GET /v1/world`, every claimed plot walked from its hearth with the sim's own rules, and one
+  # open issue labeled `landlocked-plots` listing those with no step onto ground nobody has
+  # claimed. A night that finds some opens it or rewrites its body (no comment each night, since
+  # the list changes slowly), and the first night with none closes it. The script needs no
+  # packages: the sim has no dependencies, and Node strips its types. Only nights on main touch
+  # the issue.
+  landlocked:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - id: check
+        run: node --import ./scripts/resolve-ts.mjs scripts/landlocked.ts --out landlocked.md
+      - name: Open, update, or close the landlocked-plots issue
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COUNT: ${{ steps.check.outputs.count }}
+        run: |
+          label=landlocked-plots
+          open=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+          if [ "$COUNT" = 0 ]; then
+            if [ -n "$open" ]; then gh issue close "$open" --comment "Every claimed plot has a way out again."; fi
+            exit 0
+          fi
+          title="$COUNT claimed plots are landlocked"
+          if [ -n "$open" ]; then
+            gh issue edit "$open" --title "$title" --body-file landlocked.md
+          else
+            gh label create "$label" --color FBCA04 --force \
+              --description "Claimed plots with no way out onto open ground (decision 0351)"
+            gh issue create --label "$label" --title "$title" --body-file landlocked.md
           fi

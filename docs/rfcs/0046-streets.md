@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-22
-- Status: draft
+- Status: accepted
 - Discussion: [issue #100](https://github.com/ryanio/terrakin/issues/100)
 - Builds on: [decision 0351](../knowledge/decisions/0351-a-plot-s-way-out-is-a-step-from-its-hearth-s-walk-onto-groun.md) (what a way out is), [decision 0354](../knowledge/decisions/0354-a-settle-or-claim-says-when-it-takes-a-neighbor-s-last-way-o.md) (claims warn, pickers prefer plots that close nobody in), [RFC 0038](0038-new-lands.md) (new lands), [decision 0341](../knowledge/decisions/0341-new-lands-are-armed-at-terrakin-org-the-worker-watches-the-c.md) (lands are armed), [decision 0352](../knowledge/decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) and [decision 0353](../knowledge/decisions/0353-an-island-s-hall-building-stays-standing-and-takes-no-filing.md) (shop on the island, filing downtown), [decision 0343](../knowledge/decisions/0343-staff-can-clear-a-block-off-a-plot-to-open-a-way-out-of-a-home.md) (staff clear a block), [RFC 0039](0039-plot-market.md) (the plot market), [RFC 0042](0042-actions-that-need-you-there.md) (the shop needs you there)
 
@@ -13,6 +13,14 @@ The town has no streets. Plots sit side by side, and the only public ground down
 This RFC proposes two things. New lands get streets in their layout before the first island opens: whole plot slots nobody can claim, logged in `open_land`, laid out so every plot has a side on a street that joins the bridge and the island's counter. Nobody owns island land yet, so this costs no one anything, and it has to land before the first `open_land`, which at the current claim rate is one to two weeks away.
 
 Downtown, where all 80 slots are fixed, the RFC lays out the options with measured costs and recommends public ways: a logged rule that keeps a one-tile strip along a plot's edge clear of blocks, starting on the townsfolk's own land and reaching residents' plots only with the owner's yes.
+
+## Decisions, 2026-10-22 (Ryan)
+
+1. **The first island is the long cross**: 24 plots, 14 street slots. This settles open question 1.
+2. **The island waits for its streets.** If streets aren't built when free downtown plots fall to 9, the town holds the island rather than open today's 5 by 5 or the canals. This settles open question 2.
+3. **Downtown ways are laid by town rule**, not plot by plot with each owner's yes. This replaces step 2 of the recommendation: the town lays the network that joins every plot and the bridge landing to the Commons (the 147-tile row in Option 1's table), across residents' and townsfolk land alike.
+4. **The town fixes up what the ways cross.** Terrakin is pre-alpha and residents expect the world to change. A block in a way's path is moved or given back to its owner, and a home a way cuts through is rebuilt by the town so it still stands, with a door onto the way. The town may leave a rebuilt home tidier or better looking than it found it. Every owner whose plot changes hears what changed and why. Open question 4 (a payment per tile) is answered by this: the town pays in work, not coins.
+5. **The townsfolk give ways through their yards** under the same rule, which settles open question 5.
 
 ## Motivation
 

@@ -3,8 +3,9 @@
  * whose plot it is (decision 0121), this week's visitors and admirers, and Next plot, which visits
  * the next plot in the Visit page's order so you can tour the town without leaving the world. On
  * someone else's plot it has Admire, and on October 31 and November 1 Trick or treat (RFC 0022),
- * shown by the sim's own `trickOrTreatDay`, which knocks at the plot's door. On your own, or one
- * shared with you, it has Name your plot instead. `world.ts` calls `update` every frame with where
+ * shown by the sim's own `trickOrTreatDay`, which knocks at the plot's door. While a plot is for
+ * sale (RFC 0039) it says its price, and on someone else's has Buy, which opens the Buy sheet. On
+ * your own, or one shared with you, it has Name your plot instead. `world.ts` calls `update` every frame with where
  * the server has you; the card only changes when the plot under you, its name, or the world's day
  * does. Names are residents' words: text only.
  */
@@ -15,6 +16,7 @@ import { whileBusy } from "@terrakin/ui/ui";
 import { plotsApi } from "./api/plots";
 import type { Mirror } from "./mirror";
 import { openPlotNameSheet } from "./plot-name-sheet";
+import { coins } from "./purse";
 import { nextPlot, plotName, quietWeek, weekLine } from "./visits";
 
 /** How long the tour's list of plots is good for before Next plot asks again. */
@@ -65,6 +67,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   const knock = $<HTMLButtonElement>("visit-knock");
   const knockLabel = knock.querySelector("span") as HTMLSpanElement;
   const next = $<HTMLButtonElement>("visit-next");
+  const sale = $("visit-sale");
+  const buy = $<HTMLButtonElement>("visit-buy");
+  /** The price of the plot under you while it's for sale, from the plot's own read. */
+  let price: number | null = null;
 
   /** The plot the card is about, as "px,py", and its coordinates. */
   let key: string | null = null;
@@ -97,8 +103,17 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     knock.disabled = done || (knocking !== null && knocking.key === key);
   }
 
+  /** For sale: its price on the card, and Buy on someone else's. Nothing while it isn't. */
+  function paintSale(listing: PlotView["listing"]) {
+    price = listing?.price ?? null;
+    sale.textContent = price === null ? "" : `For sale: ${coins(price)}`;
+    sale.hidden = price === null;
+    buy.hidden = price === null || yours;
+  }
+
   function paint(view: PlotView) {
     week.textContent = weekLine(view);
+    paintSale(view.listing);
     // A phone drops the line while it has nothing to say, so a plot you live on takes less world.
     el.toggleAttribute("data-quiet", quietWeek(view));
     const done = view.admiredToday === true;
@@ -140,6 +155,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     admire.disabled = false;
     admireLabel.textContent = "Admire";
     nameIt.hidden = !own;
+    paintSale(undefined);
     paintKnock();
     el.hidden = false;
     const mine = generation;
@@ -159,6 +175,22 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   nameIt.addEventListener("click", () => {
     if (!plot) return;
     openPlotNameSheet({ ...plot, name: named }, { say: o.toast });
+  });
+
+  buy.addEventListener("click", () => {
+    const here = plot;
+    if (!here || price === null) return;
+    const mine = generation;
+    const title = owner.textContent ?? "This plot";
+    const at = price;
+    void import("./plot-sale-sheet").then((m) =>
+      m.openBuySheet(here, title, at, () => {
+        // Bought: the card reads the plot again, which is yours now and for sale no longer.
+        void plotsApi.plot(here.px, here.py).then((r) => {
+          if (mine === generation && r.ok) paint(r.data.plot);
+        });
+      }),
+    );
   });
 
   admire.addEventListener("click", async () => {

@@ -3,7 +3,7 @@
  * Each runs the action dry first and shows what the server says it moves, then pays on a second
  * tap. The numbers and the note are the server's, never worked out here.
  */
-import type { PlotMarketResponse, PlotSaleView } from "@terrakin/protocol";
+import { PLOT_MARKET_RULES, type PlotMarketResponse, type PlotSaleView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import {
   closeOverlay,
@@ -46,8 +46,15 @@ function receipt(sale: PlotSaleView, move: "buy" | "list", rules: Rules): HTMLEl
 /**
  * Buy plot `at`, called `title`, for `price`: a dry `buy_plot` as the sheet opens says what it
  * moves, then the buy goes on a second tap. `done` reads the market again once it went through.
+ * `rules` are the market's answer's, and the protocol's own where the page has none (the world).
  */
-export function openBuySheet(at: At, title: string, price: number, rules: Rules, done: () => void) {
+export function openBuySheet(
+  at: At,
+  title: string,
+  price: number,
+  done: () => void,
+  rules: Rules = PLOT_MARKET_RULES,
+) {
   const problem = errorLine("plot-buy-problem");
   const shown = h("div", {
     class: "stack tight plot-sale-shown",

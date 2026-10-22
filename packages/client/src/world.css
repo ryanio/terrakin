@@ -414,6 +414,14 @@ a.action {
   content: "\00a0";
 }
 
+/* A plot for sale (RFC 0039): its price, in the clay that marks what you can act on. */
+.visit-card-sale {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--clay-deep);
+}
+
 .visit-card-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

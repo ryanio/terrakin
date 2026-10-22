@@ -315,11 +315,12 @@
           </form>
         </section>
 
-        <!-- On a plot someone lives on (RFC 0020): its name and whose it is (decision 0121), this week's visitors and admirers, and Next plot; Admire on someone else's, and on October 31 and November 1 Trick or treat (RFC 0022); Name your plot on your own. Filled by visit-card.ts. -->
+        <!-- On a plot someone lives on (RFC 0020): its name and whose it is (decision 0121), this week's visitors and admirers, its price while it's for sale (RFC 0039), and Next plot; Admire on someone else's, Buy on someone else's for sale, and on October 31 and November 1 Trick or treat (RFC 0022); Name your plot on your own. Filled by visit-card.ts. -->
         <section id="visit-card" class="paper visit-card" aria-labelledby="visit-card-owner" hidden>
           <a id="visit-card-owner" class="visit-card-owner" href="/">A neighbor's plot</a>
           <p id="visit-card-whose" class="visit-card-whose" hidden></p>
           <p id="visit-card-week" class="visit-card-week"></p>
+          <p id="visit-sale" class="visit-card-sale" hidden></p>
           <div class="visit-card-actions">
             <button type="button" id="visit-admire" class="pill-button small">
               <svg class="icon" data-icon="sparkle" aria-hidden="true"></svg>
@@ -332,6 +333,10 @@
             <button type="button" id="visit-knock" class="pill-button small" hidden>
               <svg class="icon" data-icon="candy" aria-hidden="true"></svg>
               <span>Trick or treat</span>
+            </button>
+            <button type="button" id="visit-buy" class="pill-button small" hidden>
+              <svg class="icon" data-icon="coin" aria-hidden="true"></svg>
+              <span>Buy</span>
             </button>
             <button type="button" id="visit-next" class="pill-button small">
               <span>Next plot</span>

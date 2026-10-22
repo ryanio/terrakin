@@ -25,6 +25,8 @@ import {
   dayPhase,
   FLOORS,
   FLOWER_TONES,
+  GLAZE_HEX,
+  type Glaze,
   GROUND_LOOK,
   groundOn,
   groundTile,
@@ -46,6 +48,7 @@ import {
   plotKey,
   plotOf,
   plotRoof,
+  potAt,
   type Resident,
   roofTone,
   SEA_LOOK,
@@ -534,7 +537,7 @@ export function areaOf(
           ...(onVine(planting.crop) ? { vine: true } : {}),
         });
       }
-      blocks.push(plotBlock(block, x, y, wx, wy, palette));
+      blocks.push(plotBlock(block, x, y, wx, wy, palette, potAt(state, wx, wy)?.good.glaze));
     }
   }
   // Each floor above the ground floor, read over the area's own tiles like the ground floor.
@@ -557,7 +560,10 @@ export function areaOf(
           });
         }
         const block = upBlocks[key];
-        if (block) standing.push(plotBlock(block, x, y, x0 + x, y0 + y, palette));
+        if (block) {
+          const glaze = potAt(state, x0 + x, y0 + y, floor)?.good.glaze;
+          standing.push(plotBlock(block, x, y, x0 + x, y0 + y, palette, glaze));
+        }
       }
     }
     floors.push({ flooring, blocks: standing });
@@ -577,13 +583,17 @@ function plotBlock(
   wx: number,
   wy: number,
   palette: (x: number, y: number) => ThemePalette | undefined,
+  glaze?: Glaze,
 ): PlotBlock {
   const pond = block === "pond";
   return {
     x,
     y,
     glass: block === "glass",
-    fill: blockFill(block, block === "glass" || pond ? undefined : palette(wx, wy)),
+    // A pot set down (RFC 0047) in its own glaze.
+    fill: glaze
+      ? GLAZE_HEX[glaze]
+      : blockFill(block, block === "glass" || pond ? undefined : palette(wx, wy)),
     ...(isDecorKind(block) ? { decor: block } : {}),
     ...(isFurnitureKind(block) ? { furniture: block } : {}),
     ...(pond ? { water: true } : {}),

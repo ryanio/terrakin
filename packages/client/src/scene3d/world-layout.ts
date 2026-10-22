@@ -30,6 +30,7 @@ import {
   type LayoutCrop,
   type LayoutDisplay,
   plotBounds,
+  potsOn,
   type ShownGood,
   shownFind,
 } from "./layout";
@@ -174,6 +175,8 @@ export interface ChunkSource {
   >;
   plots: ReadonlyMap<string, string>;
   displays?: ReadonlyMap<string, { good: ShownGood }>;
+  /** Pots set down (RFC 0047), by the sim's `potKey`. Absent reads as none. */
+  pots?: ReadonlyMap<string, { good: ShownGood }>;
   /** Finds on display (RFC 0021), by tile key. */
   shownFinds?: ReadonlyMap<string, { kind: FindKind }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
@@ -309,6 +312,11 @@ export function readChunk(
   blocks.push(...up.blocks);
   ground.push(...up.ground);
   parts.push(...up.parts);
+  // Pots set down (RFC 0047), on whichever floors are shown, each as itself.
+  for (const pot of potsShown(source, bounds, up.blocks)) {
+    displays.push(pot);
+    parts.push(potPart(pot));
+  }
   const presents = pilesOn(source, bounds);
   for (const p of presents) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   // The roof lifts away on the plot you stand on, which is the one with a cut (RFC 0041).
@@ -411,12 +419,32 @@ export function chunkSignature(
   for (let y = bounds.y0; y <= bounds.y1; y++)
     for (let x = bounds.x0; x <= bounds.x1; x++)
       parts.push(...tileThings(source, x, y, hearths, lit).parts);
-  parts.push(...upstairsOf(source, bounds, lit, cut).parts);
+  const up = upstairsOf(source, bounds, lit, cut);
+  parts.push(...up.parts);
+  for (const pot of potsShown(source, bounds, up.blocks)) parts.push(potPart(pot));
   for (const p of pilesOn(source, bounds)) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
   return parts.join("|");
 }
+
+/** The pots set down on a plot's ground floor and the floors shown above it (RFC 0047). */
+function potsShown(
+  source: ChunkSource,
+  bounds: Bounds,
+  upstairs: readonly { x: number; y: number; block: BlockKind; floor?: number }[],
+): LayoutDisplay[] {
+  if (!source.pots || source.pots.size === 0) return [];
+  const below: { x: number; y: number; block: BlockKind }[] = [];
+  for (let y = bounds.y0; y <= bounds.y1; y++)
+    for (let x = bounds.x0; x <= bounds.x1; x++)
+      if (source.blocks.get(tileKey(x, y)) === "pot") below.push({ x, y, block: "pot" });
+  return potsOn([...below, ...upstairs], source.pots);
+}
+
+/** A pot's words in a chunk's signature: where, which, and a vase's flower. */
+const potPart = (pot: LayoutDisplay) =>
+  `pot:${pot.x},${pot.y},${pot.floor ?? 0}:${pot.good.id}:${pot.good.flower ?? ""}`;
 
 /** Every resident's hearth, as tile keys. */
 export function hearthKeys(residents: Iterable<Pick<Resident, "hearth">>): Set<string> {

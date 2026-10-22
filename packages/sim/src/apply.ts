@@ -193,7 +193,15 @@ import {
   tileListedProblem,
 } from "./plot-market";
 import { checkClearPlotName, checkNamePlot } from "./plot-names";
-import { checkOpenClay, KILN, kilnRemoveProblem, potteryClosed } from "./pottery";
+import {
+  checkOpenClay,
+  checkPlacePot,
+  checkTakeUpPot,
+  KILN,
+  kilnRemoveProblem,
+  POT_BLOCK,
+  potteryClosed,
+} from "./pottery";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import { checkRebuildHome } from "./rebuild-home";
@@ -1311,6 +1319,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (command.type === "remove") {
         const taken = blocks[key];
         if (taken === undefined) return reject("no_block", "Nothing to remove there.");
+        // A pot set down (RFC 0047) goes back to whoever set it down.
+        if (taken === POT_BLOCK) return town(checkTakeUpPot(state, actor, { x, y, floor }, blocks));
         if (groundFloor && cropAt(state, x, y)) {
           return reject("tile_occupied", "Something is growing in that planter. Harvest it first.");
         }
@@ -1356,6 +1366,16 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (onWay) return { ok: false, rejection: onWay };
       const unheld = blockProblem(state, plot, x, y, floor, block);
       if (unheld) return { ok: false, rejection: unheld };
+      // A pot (RFC 0047) is set down by its id, and nothing else is.
+      if (block === POT_BLOCK) {
+        return town(checkPlacePot(state, actor, command, { x, y, floor }, blocks));
+      }
+      if (command.item !== undefined || command.flower !== undefined) {
+        return reject(
+          "unknown_item",
+          "Only a pot is set down by its id. Leave out item and flower.",
+        );
+      }
       const cost = blockPlaceProblem(state, actor, block);
       if (cost) return { ok: false, rejection: cost };
       return () => {

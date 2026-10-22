@@ -2,11 +2,22 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { biomeAt } from "./biome";
 import { FISHING_CONFIG } from "./fixtures/fishing-log";
+import { FLOORS_CONFIG, FLOORS_LOG } from "./fixtures/floors-log";
 import { KILN_CONFIG, KILN_HASH, KILN_LOG } from "./fixtures/kiln-log";
 import { byWater, gatherableAt, pickupLeft, pickupsInReach } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
-import { type ClayRule, FINISHES, finishOf, GLAZE_COSTS, POTTERY, readyKilns } from "./pottery";
+import {
+  type ClayRule,
+  FINISHES,
+  finishOf,
+  GLAZE_COSTS,
+  type Glaze,
+  POTTERY,
+  potAt,
+  potsOf,
+  readyKilns,
+} from "./pottery";
 import { knows, onShelf, shelfOn } from "./recipes";
 import { replay } from "./replay";
 import { dayOfDate } from "./season";
@@ -356,6 +367,126 @@ describe("a kiln", () => {
     refused(state, "eve", load("vase"), "recipe_unknown");
     ok(state, "eve", load("bowl"));
     expect(onShelf("vase", DAY, true) && onShelf("teapot", DAY, true)).toBe(true);
+  });
+});
+
+/** A pot straight into a resident's things, as the kiln would have fired it. */
+function hand(state: WorldState, id: string, kind: "bowl" | "vase" | "teapot", glaze = "sea") {
+  const items = state.items;
+  if (!items) throw new Error("no items");
+  const good = {
+    id: `i_${items.nextId}`,
+    kind,
+    maker: id,
+    madeDay: DAY,
+    glaze: glaze as Glaze,
+    finish: "speckled" as const,
+  };
+  items.nextId += 1;
+  const inv = items.inventories[id] ?? { stacks: {}, goods: [] };
+  inv.goods.push(good);
+  items.inventories[id] = inv;
+  return good;
+}
+
+describe("a pot set down", () => {
+  /** On Ada's plot, east of her hut and within reach of her hearth. */
+  const SPOT = { x: 6, y: 3 };
+  const setDown = (item: string, extra: Partial<Command> = {}): Command =>
+    ({ type: "place", ...SPOT, block: "pot", item, ...extra }) as Command;
+
+  it("stands on its tile as itself, keeps its maker, and comes back when taken up", () => {
+    const state = town();
+    const bowl = hand(state, "ada", "bowl", "honey");
+    const events = ok(state, "ada", setDown(bowl.id));
+    expect(events[0]).toEqual({
+      type: "block_placed",
+      ...SPOT,
+      block: "pot",
+      by: "ada",
+      pot: bowl,
+    });
+    expect(state.blocks["6,3"]).toBe("pot");
+    expect(potAt(state, SPOT.x, SPOT.y)).toEqual({ good: bowl, by: "ada", day: DAY });
+    expect(goods(state, "ada")).toEqual([]);
+    expectSupplyHolds(state);
+    // Nobody clears it or plans it away from under its owner.
+    refused(state, TOWN_ACTOR, { type: "clear_block", ...SPOT }, "tile_occupied");
+    ok(state, "ada", { type: "remove", ...SPOT });
+    expect(goods(state, "ada")).toEqual([bowl]);
+    expect(state.blocks["6,3"]).toBeUndefined();
+    expect(state.items?.pots).toBeUndefined();
+  });
+
+  it("puts a flower from your things in a vase, which keeps it", () => {
+    const state = town();
+    const vase = hand(state, "ada", "vase");
+    stock(state, "ada", { tulip: 1 });
+    ok(state, "ada", setDown(vase.id, { flower: "tulip" } as Partial<Command>));
+    expect(held(state, "ada", "tulip")).toBe(0);
+    expect(potAt(state, SPOT.x, SPOT.y)?.good.flower).toBe("tulip");
+    ok(state, "ada", { type: "remove", ...SPOT });
+    expect(goods(state, "ada")).toEqual([{ ...vase, flower: "tulip" }]);
+    // It holds one already, so another goes nowhere.
+    stock(state, "ada", { flower: 1 });
+    refused(
+      state,
+      "ada",
+      setDown(vase.id, { flower: "flower" } as Partial<Command>),
+      "already_set",
+    );
+  });
+
+  it("refuses what isn't a pot of yours, a flower it can't hold, and a pot anywhere but place", () => {
+    const state = town();
+    const bowl = hand(state, "ada", "bowl");
+    const vase = hand(state, "ada", "vase");
+    const bobs = hand(state, "bob", "teapot");
+    const cases: [Command, RejectionCode][] = [
+      [{ type: "place", ...SPOT, block: "pot" }, "unknown_item"],
+      [setDown(bobs.id), "not_enough_items"],
+      [setDown("i_999"), "not_enough_items"],
+      [setDown(bowl.id, { flower: "tulip" } as Partial<Command>), "unknown_item"],
+      [setDown(vase.id, { flower: "herb" } as Partial<Command>), "unknown_item"],
+      [setDown(vase.id, { flower: "tulip" } as Partial<Command>), "not_enough_items"],
+      [{ type: "place", ...SPOT, block: "wood", item: bowl.id } as Command, "unknown_item"],
+      [{ type: "place", x: 17, y: 3, block: "pot", item: bowl.id } as Command, "out_of_reach"],
+      [{ type: "build", px: 0, py: 0, blocks: [{ ...SPOT, block: "pot" }] }, "unknown_item"],
+    ];
+    for (const [command, code] of cases) refused(state, "ada", command, code);
+    // Not before pottery opens, though the pot itself came from somewhere.
+    const shut = town(false);
+    refused(shut, "ada", setDown(hand(shut, "ada", "bowl").id), "pottery_closed");
+  });
+
+  it("goes back to whoever set it down, held aside when a co-owner takes it up for a full owner", () => {
+    const state = town();
+    const bowl = hand(state, "ada", "bowl");
+    ok(state, "ada", setDown(bowl.id));
+    const cy = state.residents.cy;
+    if (!cy) throw new Error("no Cy");
+    Object.assign(cy, { x: 5, y: 3, online: true });
+    stock(state, "ada", { wood: ITEMS.inventoryMax - inventorySize(state.items?.inventories.ada) });
+    refused(state, "ada", { type: "remove", ...SPOT }, "inventory_full");
+    ok(state, "cy", { type: "remove", ...SPOT });
+    expect(goods(state, "cy")).toEqual([]);
+    expect(state.items?.heldAside).toEqual([{ good: bowl, by: "ada", day: DAY }]);
+  });
+
+  it("stands upstairs too, keyed by its floor", () => {
+    const state = replay(FLOORS_CONFIG, FLOORS_LOG);
+    ok(state, TOWN_ACTOR, { type: "open_clay", water: true });
+    ok(state, "dee", { type: "move", dir: "up" });
+    const teapot = hand(state, "dee", "teapot");
+    const loft = { x: 11, y: 3, floor: 1 };
+    ok(state, "dee", { type: "place", ...loft, block: "pot", item: teapot.id });
+    expect(state.floors?.["1"]?.blocks["11,3"]).toBe("pot");
+    expect(potsOf(state)).toEqual([
+      { x: 11, y: 3, floor: 1, pot: { good: teapot, by: "dee", day: state.day } },
+    ]);
+    expect(potAt(state, 11, 3)).toBeUndefined();
+    ok(state, "dee", { type: "remove", ...loft });
+    expect(goods(state, "dee").at(-1)).toEqual(teapot);
   });
 });
 

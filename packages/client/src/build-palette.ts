@@ -18,14 +18,18 @@ import {
   blockNeeds,
   DECOR_KINDS,
   type DecorKind,
+  type Finish,
+  FLOWER_KINDS,
   FURNITURE_KINDS,
   type FurnitureKind,
+  type Glaze,
   GROUND_INFO,
   GROUND_KINDS,
   type GroundKind,
   groundCostWords,
   groundShort,
   ITEM_INFO,
+  type ItemKind,
   isDecorKind,
   isFurnitureKind,
   isMaterialKind,
@@ -35,8 +39,8 @@ import {
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
-import { itemArt } from "@terrakin/ui/item-art";
-import { needsLine, thingCount } from "./things";
+import { itemArt, thingPicture } from "@terrakin/ui/item-art";
+import { needsLine, potLine, thingCount, thingName } from "./things";
 import "./build-palette.css";
 
 export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
@@ -199,6 +203,7 @@ export function blockLine(kind: string): string {
 
 /** Which tab a pick lives on. A made material is a wall, so it sits with the blocks. */
 export function tabOf(pick: string): PaletteTab {
+  if (pick === "pot") return "furniture";
   if ((GROUND_KINDS as readonly string[]).includes(pick)) return "ground";
   if (isMaterialKind(pick)) return "blocks";
   if (isDecorKind(pick) || isFurnitureKind(pick)) return "furniture";
@@ -298,4 +303,90 @@ export function paintHeldRow(row: HTMLElement, holdings: Holdings | null, picked
       });
     }),
   );
+}
+
+// ---------- pots (RFC 0047) ----------
+
+/** A pot you hold, which the build bar can set down: a made thing a kiln fired. */
+export interface HeldPot {
+  id: string;
+  kind: ItemKind;
+  glaze?: Glaze | undefined;
+  finish?: Finish | undefined;
+  flower?: string | undefined;
+}
+
+/** Your pots among your made things: the ones a kiln fired, which carry a glaze. */
+export function potsIn(goods: readonly HeldPot[]): HeldPot[] {
+  return goods.filter((g) => g.glaze !== undefined);
+}
+
+/** Your pots after an inventory event: what left goes, and a pot that came back is added. */
+export function potsAfter(
+  pots: readonly HeldPot[],
+  e: { lost?: readonly string[] | undefined; gained?: readonly HeldPot[] | undefined },
+): HeldPot[] {
+  const lost = new Set(e.lost ?? []);
+  const kept = pots.filter((p) => !lost.has(p.id));
+  const back = potsIn(e.gained ?? []).filter((g) => !kept.some((p) => p.id === g.id));
+  return [...kept, ...back];
+}
+
+/**
+ * The pots you hold at the end of the Furniture row, each drawn in its glaze, and for a picked vase
+ * with no flower yet the flowers you hold to put in it, with "No flower" first.
+ */
+export function paintPotChips(
+  row: HTMLElement,
+  pots: readonly HeldPot[],
+  picked: string | undefined,
+  holdings: Holdings,
+  flower: string | undefined,
+): void {
+  row.append(
+    ...pots.map((p) =>
+      choice({ "data-pot": p.id }, potName(p), thingPicture(p, { size: 30 }), {
+        dim: false,
+        picked: p.id === picked,
+      }),
+    ),
+  );
+  const pot = pots.find((p) => p.id === picked);
+  if (pot?.kind !== "vase" || pot.flower !== undefined) return;
+  const flowers = FLOWER_KINDS.filter((k) => heldOf(holdings, k) > 0);
+  if (flowers.length === 0) return;
+  row.append(
+    choice({ "data-flower": "" }, "No flower", null, {
+      dim: false,
+      picked: flower === undefined,
+      color: BLOCK_COLORS.pot,
+    }),
+    ...flowers.map((k) =>
+      choice(
+        { "data-flower": k },
+        `With a ${thingName(k).toLowerCase()}`,
+        itemArt(k, { size: 30 }),
+        {
+          count: heldOf(holdings, k),
+          dim: false,
+          picked: flower === k,
+        },
+      ),
+    ),
+  );
+}
+
+/** A pot in a few words: "Vase, Sea glaze, crackle, with tulips". */
+function potName(p: HeldPot): string {
+  const flower = p.flower ? `, with a ${thingName(p.flower as ItemKind).toLowerCase()}` : "";
+  return `${ITEM_INFO[p.kind].name}, ${potLine(p.glaze ?? "bare", p.finish)}${flower}`;
+}
+
+/** The line under the tabs for a pot you picked: what it is, and what a tap does with it. */
+export function potPlaceLine(pot: HeldPot | undefined, flower: string | undefined): string {
+  if (!pot) return "Pots: fire one at a kiln, then set it down on your plot from here.";
+  const holding = flower
+    ? ` It goes down with a ${thingName(flower as ItemKind).toLowerCase()} in it, which stays with the vase.`
+    : "";
+  return `${potName(pot)}: tap a tile on your plot to set it down, and tap it again to take it up.${holding}`;
 }

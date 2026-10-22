@@ -21,6 +21,7 @@ import {
   type Direction,
   FIREWORK_COLORS,
   FLOORS,
+  type FlowerKind,
   fireworkNight,
   floorField,
   type GroundKind,
@@ -61,6 +62,7 @@ import {
   canLay,
   groundLine,
   HELD_KINDS,
+  type HeldPot,
   type Holdings,
   heldLine,
   heldOf,
@@ -72,6 +74,10 @@ import {
   paintGroundRow,
   paintHeldRow,
   paintMaterialRow,
+  paintPotChips,
+  potPlaceLine,
+  potsAfter,
+  potsIn,
   stairsLine,
   tabOf,
   withChanges,
@@ -264,6 +270,10 @@ let stoodOn = 0;
  * on the Paths tab, or decor or furniture you hold on the Furniture tab.
  */
 let pick: BlockKind | GroundKind | "hearth" = "wood";
+/** Your pots (RFC 0047), the one picked to set down by the bar's `pot`, and a flower for a vase. */
+let pots: HeldPot[] = [];
+let potPick: string | undefined;
+let potFlower: string | undefined;
 /** What you hold that the build bar shows: decor and furniture counts, and what paths take. */
 let holdings: Holdings = new Map();
 /** The fishing rods you hold, by id (RFC 0023): with none, Fish says how to make one. */
@@ -695,6 +705,11 @@ function onMessage(msg: ServerMessage) {
       // What you hold changes the build bar: decor and furniture counts, and what paths take.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
         rods = rodsAfter(rods, msg.event);
+        if (msg.event.lost?.length || msg.event.gained?.length) {
+          pots = potsAfter(pots, msg.event);
+          if (potPick !== undefined && !pots.some((p) => p.id === potPick)) potPick = undefined;
+          paintPalette();
+        }
         const next = withChanges(holdings, msg.event.changes);
         if (next !== holdings) {
           const wasHeld = isHeldBlock(pick) ? heldOf(holdings, pick) : 0;
@@ -1103,7 +1118,15 @@ function tapTile(tile: { x: number; y: number }) {
       else if (canLay(pick, holdings)) tryAct({ type: "lay", ...on, ground: pick });
       else showToast(groundLine(pick, holdings));
     } else if (hasBlock) tryAct({ type: "remove", ...on });
-    else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
+    else if (pick === "pot") {
+      // A pot of yours (RFC 0047), with a flower for a vase when one is picked.
+      const pot = pots.find((p) => p.id === potPick);
+      if (!pot) showToast(potPlaceLine(undefined, undefined));
+      else {
+        const flower = potFlower ? { flower: potFlower as FlowerKind } : {};
+        tryAct({ type: "place", ...on, block: "pot", item: pot.id, ...flower });
+      }
+    } else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
     else if (blockShort(pick, holdings).length > 0) {
       // A pond's stone, stairs' wood, or a kiln's stone, by the sim's own count.
       showToast(
@@ -1596,6 +1619,20 @@ for (const button of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("but
 // One listener for every choice, including the rows painted as what you hold changes.
 palette.addEventListener("click", (e) => {
   const target = e.target as Element;
+  // A pot (RFC 0047) by its id, and a flower for a vase.
+  const pot = target.closest<HTMLButtonElement>("button[data-pot], button[data-flower]");
+  if (pot?.dataset.pot !== undefined) {
+    pick = "pot";
+    potPick = pot.dataset.pot;
+    potFlower = undefined;
+    paintPalette();
+    return;
+  }
+  if (pot?.dataset.flower !== undefined) {
+    potFlower = pot.dataset.flower || undefined;
+    paintPalette();
+    return;
+  }
   const button = target.closest<HTMLButtonElement>("button[data-block], button[data-ground]");
   if (!button) return;
   selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
@@ -1635,20 +1672,34 @@ function selectPick(next: BlockKind | GroundKind | "hearth") {
 function paintPalette() {
   paintGroundRow(paletteRows.ground, holdings, pick);
   paintHeldRow(paletteRows.furniture, holdings, pick);
+  if (mirror?.clayOpen) {
+    paintPotChips(
+      paletteRows.furniture,
+      pots,
+      pick === "pot" ? potPick : undefined,
+      holdings,
+      potFlower,
+    );
+  }
   paintMaterialRow(paletteRows.materials, holdings, pick);
   for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
     b.setAttribute("aria-pressed", String(b.dataset.block === pick));
   paletteLine.textContent = isGroundKind(pick)
     ? groundLine(pick, holdings)
-    : isHeldBlock(pick)
-      ? heldLine(pick, heldOf(holdings, pick))
-      : pick === "pond"
-        ? pondLine(holdings)
-        : pick === "stairs"
-          ? stairsLine(holdings)
-          : pick === "kiln"
-            ? kilnPlaceLine(holdings)
-            : blockLine(pick);
+    : pick === "pot"
+      ? potPlaceLine(
+          pots.find((p) => p.id === potPick),
+          potFlower,
+        )
+      : isHeldBlock(pick)
+        ? heldLine(pick, heldOf(holdings, pick))
+        : pick === "pond"
+          ? pondLine(holdings)
+          : pick === "stairs"
+            ? stairsLine(holdings)
+            : pick === "kiln"
+              ? kilnPlaceLine(holdings)
+              : blockLine(pick);
   // A kiln (RFC 0047) is on the bar only once pottery is open in this world.
   const kiln = paletteRows.blocks.querySelector<HTMLButtonElement>('[data-block="kiln"]');
   if (kiln) kiln.hidden = !mirror?.clayOpen;
@@ -1836,6 +1887,7 @@ async function loadHoldings() {
   const r = await inventoryApi.inventory();
   if (!active || !r.ok) return;
   holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
+  pots = potsIn(r.data.inventory?.goods ?? []);
   rods = rodsIn(r.data.inventory?.goods ?? []);
   knownRecipes = new Set(r.data.inventory?.recipes ?? []);
   paintPalette();

@@ -37,7 +37,7 @@ import {
 import { plotKey, tileKey } from "./keys";
 import { isStreet, streetWords } from "./lands";
 import { plotListedProblem } from "./plot-market";
-import { KILN, potteryClosed } from "./pottery";
+import { KILN, POT_BLOCK, potteryClosed } from "./pottery";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -313,6 +313,10 @@ export function planBuild(
     // A kiln (RFC 0047) waits for `open_clay`, as `place` does.
     const kilnShut = block === KILN ? potteryClosed(state) : null;
     if (kilnShut) return kilnShut;
+    // A pot is set down by its id with `place`, never from a plan.
+    if (block === POT_BLOCK) {
+      return refuse("unknown_item", "A pot is set down with place, by its id, not in a plan.");
+    }
     // A public way holds no block on the ground floor, which no turn of the world changes, so a
     // plan that puts one there is wrong rather than skipped (RFC 0046).
     const spot = tiles.blocks[i] as PlanSpot;
@@ -385,8 +389,10 @@ export function planBuild(
       if (block === undefined) skip(t, "remove", "empty");
       else if (floor === 0 && (state.items?.crops[key] || state.items?.firings?.[key])) {
         skip(t, "remove", "growing");
-      } else if (floor === 0 && displayAt(state, x, y)) skip(t, "remove", "on_display");
-      else if (removeProblem(state, x, y, floor, view)) skip(t, "remove", "holds_up");
+      } else if ((floor === 0 && displayAt(state, x, y)) || block === POT_BLOCK) {
+        // A pot set down (RFC 0047) is someone's thing, on any floor.
+        skip(t, "remove", "on_display");
+      } else if (removeProblem(state, x, y, floor, view)) skip(t, "remove", "holds_up");
       else {
         plan.removed.push({ x, y, ...floorField(floor) });
         blocksNow.set(spotKey(floor, key), undefined);

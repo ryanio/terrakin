@@ -13,7 +13,7 @@
  * and the sim never draws it: the server logs a `roll` with the `harvest`, as it does with a cast
  * (RFC 0023), and `finishOf` reads it through the frozen `FINISHES`.
  */
-import { CATALOG, GOOD_KINDS, type GoodKind, type StackKind } from "./catalog";
+import { CATALOG, GOOD_KINDS, type GoodKind, STACK_KINDS, type StackKind } from "./catalog";
 import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { dayDateWords, relativeDayWords } from "./day-words";
 import {
@@ -27,7 +27,18 @@ import {
   isReady,
 } from "./items";
 import { parseKey, tileKey } from "./keys";
-import type { Command, Firing, Good, ItemsState, Rejection, ResidentId, WorldState } from "./types";
+import type {
+  BlockKind,
+  Command,
+  Firing,
+  Good,
+  ItemsState,
+  PlacedPot,
+  Rejection,
+  ResidentId,
+  WorldEvent,
+  WorldState,
+} from "./types";
 
 /** The numbers (RFC 0047). Tuned with `scripts/economy-sim.ts --kiln`. */
 export const POTTERY = {
@@ -287,6 +298,165 @@ export function checkOpenKiln(
     inventory(items, owner).goods.push(good);
     return [...events, inventoryEvent(owner, "fired", [], { gained: [good] })];
   };
+}
+
+// ---------- pots set down on a plot ----------
+
+/**
+ * The block a pot is set down as (RFC 0047): `place {x, y, floor?, block: "pot", item, flower?}`
+ * on a tile of a plot you can build on, ground floor or upstairs, puts one of your pots there as a
+ * small decor block, and `remove` takes it up again, back to whoever set it down. The pot is the
+ * good itself, with its maker, label, glaze and finish, so it's drawn as it is.
+ */
+export const POT_BLOCK = "pot" as const;
+
+/** The flowers a vase can hold: the catalog's produce in the flower family. */
+export const FLOWER_KINDS: readonly StackKind[] = STACK_KINDS.filter(
+  (k) => CATALOG[k].family === "flower" && CATALOG[k].role === "produce",
+);
+export type FlowerKind = StackKind;
+export const isFlowerKind = (k: unknown): k is FlowerKind =>
+  typeof k === "string" && (FLOWER_KINDS as readonly string[]).includes(k);
+
+/** The pot that holds a flower. */
+const VASE = "vase";
+
+/** Where `items.pots` keeps the pot on (x, y) of `floor`. */
+export const potKey = (x: number, y: number, floor: number): string =>
+  floor === 0 ? tileKey(x, y) : `${floor}:${tileKey(x, y)}`;
+
+/** The pot set down on (x, y) of `floor`, if any. */
+export const potAt = (state: WorldState, x: number, y: number, floor = 0): PlacedPot | undefined =>
+  state.items?.pots?.[potKey(x, y, floor)];
+
+/** Every pot set down, where it is and whose it is, north to south then west to east, by floor. */
+export function potsOf(
+  state: WorldState,
+): { x: number; y: number; floor: number; pot: PlacedPot }[] {
+  return Object.entries(state.items?.pots ?? {})
+    .map(([key, pot]) => {
+      const [floorPart, tile] = key.includes(":") ? key.split(":") : ["0", key];
+      const [x, y] = parseKey(tile as string);
+      return { x, y, floor: Number(floorPart), pot };
+    })
+    .sort((a, b) => a.floor - b.floor || a.y - b.y || a.x - b.x);
+}
+
+/**
+ * The rest of `place`'s check for a pot, after the checks every block gets (where, whose, the
+ * hearth, someone standing there, a public way, what holds it up): one of your fired pots by its
+ * id, and for a vase a flower from your things, if you send one.
+ */
+export function checkPlacePot(
+  state: WorldState,
+  actor: ResidentId,
+  command: Extract<Command, { type: "place" }>,
+  at: { x: number; y: number; floor: number },
+  blocks: Record<string, BlockKind>,
+): ItemsChecked {
+  const shut = potteryClosed(state);
+  if (shut) return shut;
+  const items = state.items as ItemsState;
+  const { item, flower } = command;
+  if (typeof item !== "string") {
+    return refuse(
+      "unknown_item",
+      'Set a pot down by its id: {"type": "place", "block": "pot", "item": "i_12", "x": 4, "y": 5}. GET /v1/inventory lists your pots.',
+    );
+  }
+  const good = items.inventories[actor]?.goods.find((g) => g.id === item);
+  if (!good) return refuse("not_enough_items", "You don't hold a thing with that id.");
+  if (!isPotKind(good.kind) || good.glaze === undefined) {
+    return refuse("unknown_item", "Only a pot from a kiln is set down this way.");
+  }
+  if (flower !== undefined) {
+    if (good.kind !== VASE) return refuse("unknown_item", "Only a vase holds a flower.");
+    if (!isFlowerKind(flower)) {
+      return refuse("unknown_item", `A vase holds one of: ${FLOWER_KINDS.join(", ")}.`);
+    }
+    if (good.flower !== undefined) {
+      return refuse("already_set", "That vase holds a flower already.");
+    }
+    if ((items.inventories[actor]?.stacks[flower] ?? 0) < 1) {
+      return refuse("not_enough_items", "You don't have that flower. Grow one in a planter.");
+    }
+  }
+  const { x, y, floor } = at;
+  const day = state.day as number;
+  return () => {
+    const mine = inventory(items, actor);
+    mine.goods = mine.goods.filter((g) => g.id !== item);
+    const changes = flower === undefined ? [] : [addStack(mine, flower, -1)];
+    if (flower !== undefined) good.flower = flower;
+    blocks[tileKey(x, y)] = POT_BLOCK;
+    items.pots = { ...items.pots, [potKey(x, y, floor)]: { good, by: actor, day } };
+    return [
+      {
+        type: "block_placed" as const,
+        x,
+        y,
+        ...(floor === 0 ? {} : { floor }),
+        block: POT_BLOCK,
+        by: actor,
+        pot: { ...good },
+      },
+      inventoryEvent(actor, "placed", changes, { lost: [item] }),
+    ];
+  };
+}
+
+/**
+ * `remove` on a pot (RFC 0047): it goes back to whoever set it down, flower and all. Anyone who can
+ * build on the plot may take it up; when that's someone else and the pot's owner has no room, it's
+ * held aside for them, as a thing taken down from display is.
+ */
+export function checkTakeUpPot(
+  state: WorldState,
+  actor: ResidentId,
+  at: { x: number; y: number; floor: number },
+  blocks: Record<string, BlockKind>,
+): ItemsChecked {
+  const items = state.items as ItemsState;
+  const { x, y, floor } = at;
+  const key = potKey(x, y, floor);
+  const placed = items.pots?.[key];
+  if (!placed) return refuse("no_block", "Nothing to remove there.");
+  const { good, by } = placed;
+  const fits = inventorySize(items.inventories[by]) + 1 <= ITEMS.inventoryMax;
+  if (by === actor && !fits) {
+    return refuse(
+      "inventory_full",
+      `You can hold ${ITEMS.inventoryMax} things, and taking the pot up needs room for one more.`,
+    );
+  }
+  const day = state.day as number;
+  return () => {
+    delete blocks[tileKey(x, y)];
+    const pots = items.pots as Record<string, PlacedPot>;
+    delete pots[key];
+    if (Object.keys(pots).length === 0) delete items.pots;
+    const events: WorldEvent[] = [
+      { type: "block_removed", x, y, ...(floor === 0 ? {} : { floor }), by: actor },
+    ];
+    if (!fits) {
+      items.heldAside = [...(items.heldAside ?? []), { good, by, day }];
+      return events;
+    }
+    inventory(items, by).goods.push(good);
+    return [...events, inventoryEvent(by, "picked_up", [], { gained: [good] })];
+  };
+}
+
+/** Why a staff `clear_block` or a plan leaves a pot's tile: the pot is someone's thing. */
+export function potRemoveProblem(
+  state: WorldState,
+  x: number,
+  y: number,
+  floor = 0,
+): Rejection | null {
+  return potAt(state, x, y, floor)
+    ? refuse("tile_occupied", "A pot stands there. Whoever set it down takes it up with remove.")
+    : null;
 }
 
 /** Why the kiln at (x, y) can't be taken up: it holds a pot. Read in `remove`'s check. */

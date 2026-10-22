@@ -18,6 +18,7 @@ import {
   parseKey,
   plotDistance,
   plotKey,
+  potKey,
   type Resident,
   type Season,
   THEME_INFO,
@@ -457,6 +458,7 @@ export function render(
     block: BlockKind,
     x: number,
     y: number,
+    floor = 0,
   ) => {
     const isFence = (tx: number, ty: number) => blocks.get(tileKey(tx, ty)) === "fence";
     const isWall = (tx: number, ty: number) => blocks.get(tileKey(tx, ty)) === "stone_wall";
@@ -466,6 +468,12 @@ export function render(
     const size = Math.round(scale) - inset * 2;
     // Drawn flat with the ground, above.
     if (block === "pond") return;
+    // A pot set down (RFC 0047) is itself, in its glaze and finish, a vase with its flower.
+    if (block === "pot") {
+      const pot = mirror.pots.get(potKey(x, y, floor))?.good;
+      if (pot) paintShown(ctx, pot, left, top, size, "ground");
+      return;
+    }
     // A door (decision 0349): a frame with a door in it, never dressed by the plot's theme.
     if (block === "door") {
       paintDoor(ctx, left, top, size, scale);
@@ -690,7 +698,7 @@ export function render(
       }
       for (const [key, block] of layer.blocks) {
         const at = drawn(key);
-        if (at) paintAt(layer.blocks, key, block, at[0], at[1]);
+        if (at) paintAt(layer.blocks, key, block, at[0], at[1], floor);
       }
     }
     // Flooring above you, cut away: a faint line where it ends, so you know it's overhead.

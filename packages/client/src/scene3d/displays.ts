@@ -30,7 +30,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeShade, canvasTexture, paper, type Stage, spotTexture, unindexed } from "./art";
 import { framePicturePlane } from "./decor";
-import type { LayoutDisplay, ShownGood } from "./layout";
+import { floorY, type LayoutDisplay, type ShownGood } from "./layout";
 import { blockLook, hex } from "./palette";
 
 /** A piece's picture, cropped to the frame's shape. About 260 kB each with its mipmaps. */
@@ -174,7 +174,9 @@ function pictureFor(good: ShownGood, pictures: Pictures): Taken | undefined {
 /** A thing's drawn picture: on paper to hang in a frame, or cut out to stand on a pedestal. */
 function artFor(good: ShownGood, inFrame: boolean, pictures: Pictures): Taken {
   // A pot (RFC 0047) is drawn in its glaze and finish, so those are part of its picture's key.
-  const look = good.glaze ? `${good.kind}|${good.glaze}|${good.finish ?? ""}` : good.kind;
+  const look = good.glaze
+    ? `${good.kind}|${good.glaze}|${good.finish ?? ""}|${good.flower ?? ""}`
+    : good.kind;
   return inFrame
     ? pictures.take(`card:${look}`, () => artCanvas(good, true))
     : pictures.take(`art:${look}`, () => artCanvas(good, false));
@@ -280,11 +282,14 @@ export function displayedThings(
           shown = new Mesh(d.on === "frame" ? easelPlane : standPlane, pictureMaterial(map));
           shown.position.copy(at(d));
         } else {
-          // A jar, a bouquet, a wreath: its drawn picture standing on the pedestal, facing you.
-          const size = 0.62;
+          // A jar, a bouquet, a wreath: its drawn picture standing on the pedestal, facing you. A
+          // pot set down (RFC 0047) stands on its own tile and floor, a little bigger.
+          const ground = d.on === "ground";
+          const size = ground ? 0.78 : 0.62;
+          const base = ground ? floorY(d.floor) + blockLook("pot").height : pedestalTop;
           shown = new Sprite(new SpriteMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }));
           shown.scale.set(size, size, 1);
-          shown.position.copy(at(d)).setY(pedestalTop + size / 2 - 0.04);
+          shown.position.copy(at(d)).setY(base + size / 2 - 0.04);
         }
         group.add(shown);
         stage.invalidate();

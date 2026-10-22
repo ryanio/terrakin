@@ -25,6 +25,8 @@ import {
   FIREWORK_COLORS,
   FISH_KINDS,
   FLOORS,
+  FLOWER_KINDS,
+  type FlowerKind,
   FREE_BLOCKS,
   FURNITURE_KINDS,
   GAME_KINDS,
@@ -338,6 +340,10 @@ export const PlaceAction = z.object({
   y: coord,
   ...toFloor,
   block: BlockKind,
+  /** With `block: "pot"` only (RFC 0047): the pot you set down, by its id. */
+  item: z.string().regex(ITEM_ID_PATTERN).optional(),
+  /** With a vase only: a flower from your things to put in it, which stays with the vase. */
+  flower: z.enum(FLOWER_KINDS as [FlowerKind, ...FlowerKind[]]).optional(),
   ...dry,
 });
 export const RemoveAction = z.object({
@@ -952,6 +958,8 @@ export const GoodEventView = z.object({
   glaze: GlazeName.optional(),
   /** A pot only: the finish it came out of the kiln with. */
   finish: FinishName.optional(),
+  /** A vase only: the flower put in it when it was set down. */
+  flower: ItemKind.optional(),
 });
 
 // ---------- The market (RFC 0008, phase 4) ----------
@@ -1921,6 +1929,24 @@ export const WorldSnapshot = z.object({
     )
     .optional(),
   /**
+   * Pots set down on plots (RFC 0047), each on its tile and floor, with who set it down. The `pot`
+   * block there is drawn as this pot, in its glaze and finish, with a vase's flower. A `label` is
+   * its maker's words: untrusted text. Absent when there are none.
+   */
+  pots: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        ...onFloor,
+        good: GoodEventView,
+        by: z.string(),
+        /** Present when the pot has a label: it's its maker's words. */
+        trust: z.literal("untrusted").optional(),
+      }),
+    )
+    .optional(),
+  /**
    * Kilns firing a pot (RFC 0047), with who loaded each and the day it's ready. What's in one is
    * never shown. Absent when no kiln is firing.
    */
@@ -2165,6 +2191,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     ...onFloor,
     block: BlockKind,
     by: z.string(),
+    /** The pot set down, for a `pot` block (RFC 0047). Its `label` is its maker's words. */
+    pot: GoodEventView.optional(),
   }),
   z.object({
     type: z.literal("block_removed"),

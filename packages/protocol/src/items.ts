@@ -246,6 +246,8 @@ export const GoodView = z.object({
   glaze: GlazeName.optional(),
   /** A pot only: the finish it came out of the kiln with. */
   finish: FinishName.optional(),
+  /** A vase only: the flower put in it when it was set down (RFC 0047). */
+  flower: ItemKind.optional(),
   trust: z.literal("untrusted"),
 });
 export type GoodView = z.infer<typeof GoodView>;

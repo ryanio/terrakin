@@ -19,6 +19,7 @@ import {
   type Crop,
   type Finish,
   type FishLook,
+  GLAZE_HEX,
   type Glaze,
   growth,
   ITEM_KINDS,
@@ -73,7 +74,7 @@ const ART_BOX = 48;
  * crop is, and whether it grows on a vine along the soil: the sim's palette, which the map and the
  * 3D views draw crops with, and plot photos too.
  */
-export { CROP_HEX, growth, onVine };
+export { CROP_HEX, GLAZE_HEX, growth, onVine };
 
 // ---------- colors ----------
 
@@ -2822,21 +2823,6 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
 
 // ---------- pottery (RFC 0047) ----------
 
-/**
- * Each glaze's color, and `bare` the warm unfired-looking clay. A pot is one drawing per kind,
- * recolored by its glaze, with its finish drawn over it, so three drawings cover every pot.
- */
-export const GLAZE_HEX: Readonly<Record<Glaze, string>> = {
-  bare: "#c98a5e",
-  cream: "#efe3c8",
-  sea: "#6fb3b0",
-  crystal: "#cfe6f2",
-  rose: "#e58fb6",
-  honey: "#e6b04a",
-  berry: "#b8344a",
-  moss: "#7d9a52",
-};
-
 /** A lump of clay, wet and a little shiny. */
 function clay(): ArtShape[] {
   return [
@@ -2923,8 +2909,26 @@ export function potShapes(
   kind: "bowl" | "vase" | "teapot",
   glaze: Glaze = "bare",
   finish?: Finish,
+  flower?: string,
 ): ArtShape[] {
-  return [...POT_BODIES[kind](GLAZE_HEX[glaze]), ...finishShapes(finish), shine(18, 25, 2.6, 1.2)];
+  return [
+    ...POT_BODIES[kind](GLAZE_HEX[glaze]),
+    ...finishShapes(finish),
+    shine(18, 25, 2.6, 1.2),
+    ...(kind === "vase" && flower ? flowersInVase(flower) : []),
+  ];
+}
+
+/** A vase's flowers (RFC 0047): three stems out of its mouth, each a bloom in the flower's color. */
+function flowersInVase(flower: string): ArtShape[] {
+  const hex = (CROP_HEX as Readonly<Record<string, string>>)[flower] ?? CROP_HEX.flower;
+  return [
+    line("M24 9L24 3M22 9L17 4M26 9L31 4", "#5f8a3e", 1.4),
+    circle(17, 4, 3.2, hex, out({ "stroke-width": 1 })),
+    circle(31, 4, 3.2, hex, out({ "stroke-width": 1 })),
+    circle(24, 3, 3.4, hex, out({ "stroke-width": 1 })),
+    circle(24, 3, 1.1, INK, { opacity: 0.35 }),
+  ];
 }
 
 /** Whether a kind is one of the pots drawn by `potShapes`. */
@@ -3118,18 +3122,22 @@ export interface ThingLook {
   model?: true | undefined;
   glaze?: Glaze | undefined;
   finish?: Finish | undefined;
+  /** A vase's flower (RFC 0047), drawn in it. */
+  flower?: string | undefined;
 }
 
 /** The shapes of a made thing's drawn picture: a pot in its glaze and finish, else its kind's. */
 export function thingShapes(thing: ThingLook): ArtShape[] {
-  if (isPot(thing.kind) && thing.glaze) return potShapes(thing.kind, thing.glaze, thing.finish);
+  if (isPot(thing.kind) && thing.glaze) {
+    return potShapes(thing.kind, thing.glaze, thing.finish, thing.flower);
+  }
   return itemShapes(thing.kind);
 }
 
 /** The key a made thing's drawn picture is kept under: its kind, and a pot's glaze and finish. */
 const thingKey = (thing: ThingLook) =>
   isPot(thing.kind) && thing.glaze
-    ? `${thing.kind}|${thing.glaze}|${thing.finish ?? ""}`
+    ? `${thing.kind}|${thing.glaze}|${thing.finish ?? ""}|${thing.flower ?? ""}`
     : thing.kind;
 
 /** A made thing's drawn picture as an image for the map's canvas, as `itemArtImage` is for a kind. */

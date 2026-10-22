@@ -13,6 +13,7 @@ import {
   blockFill,
   CROP_HEX,
   FLOORS,
+  GLAZE_HEX,
   type GroundKind,
   groundTile,
   HEARTH_COLOR,
@@ -20,6 +21,7 @@ import {
   holdsRoof,
   isDecorKind,
   PAPER,
+  potKey,
   type RoofTop,
   roofShape,
   roofTone,
@@ -97,6 +99,12 @@ export function plotMarks(
       marks.push({ x, y, kind: "ground", fill });
     }
   }
+  // A pot set down (RFC 0047) is a small mark in its glaze.
+  const glazes = new Map(
+    (world.pots ?? []).map(
+      (p) => [potKey(p.x, p.y, p.floor ?? 0), p.good.glaze ?? "bare"] as const,
+    ),
+  );
   const build = (floor: number) => {
     for (const g of world.ground ?? []) {
       if (floorOf(g) !== floor || !here(g)) continue;
@@ -105,13 +113,14 @@ export function plotMarks(
     for (const b of world.blocks) {
       if (floorOf(b) !== floor || !here(b)) continue;
       const glass = b.block === "glass";
+      const glaze = b.block === "pot" ? glazes.get(potKey(b.x, b.y, floor)) : undefined;
       marks.push({
         x: b.x - x0,
         y: b.y - y0,
         kind: "block",
-        fill: blockFill(b.block, glass ? undefined : palette),
+        fill: glaze ? GLAZE_HEX[glaze] : blockFill(b.block, glass ? undefined : palette),
         glass,
-        decor: isDecorKind(b.block),
+        decor: isDecorKind(b.block) || b.block === "pot",
       });
     }
   };

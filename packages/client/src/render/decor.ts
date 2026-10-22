@@ -197,7 +197,7 @@ export function paintShown(
   left: number,
   top: number,
   size: number,
-  on: "pedestal" | "frame",
+  on: "pedestal" | "frame" | "ground",
 ) {
   const picture = good.kind === "piece" && !good.model ? lookImage(good.media) : undefined;
   const cx = left + size / 2;
@@ -223,8 +223,9 @@ export function paintShown(
     ctx.restore();
     return;
   }
-  const side = size * 0.66;
-  const y = top + size * 0.58 - side;
+  // A pot set down on the ground (RFC 0047) stands on the tile itself, a little bigger.
+  const side = on === "ground" ? size * 0.82 : size * 0.66;
+  const y = on === "ground" ? top + size * 0.92 - side : top + size * 0.58 - side;
   if (picture) {
     // A little canvas on the plinth, in a frame.
     const w = side * 0.8;

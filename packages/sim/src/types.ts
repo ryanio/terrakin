@@ -30,7 +30,7 @@ import type {
   WearStyle,
 } from "./looks";
 import type { Pet, PetCoat, PetKind } from "./pets";
-import type { Finish, Glaze } from "./pottery";
+import type { Finish, FlowerKind, Glaze } from "./pottery";
 import type { TimeOfDay } from "./time-of-day";
 import type { Weather } from "./weather";
 
@@ -132,6 +132,8 @@ export const BLOCK_KINDS = [
   "bed",
   // Pottery (RFC 0047): a station that fires a pot overnight, paid for in stone like a pond.
   "kiln",
+  // A pot set down on a plot (RFC 0047): the pot itself stands there, drawn from `items.pots`.
+  "pot",
 ] as const;
 
 /**
@@ -1290,6 +1292,18 @@ export interface Good {
   glaze?: Glaze;
   /** A pot only: the finish the kiln gave it, rolled by the server when it came out. */
   finish?: Finish;
+  /** A vase only (RFC 0047): the flower put in it when it was set down, which stays with it. */
+  flower?: FlowerKind;
+}
+
+/**
+ * A pot set down on a plot as a small decor block (RFC 0047), with its maker and label kept on the
+ * good. It goes back to whoever set it down when it's taken up.
+ */
+export interface PlacedPot {
+  good: Good;
+  by: ResidentId;
+  day: number;
 }
 
 /**
@@ -1474,6 +1488,11 @@ export interface ItemsState {
   clayByWater?: true;
   /** Pots firing in kilns, keyed by tileKey(x, y). Absent until the first, and dropped when empty. */
   firings?: Record<string, Firing>;
+  /**
+   * Pots set down on plots (RFC 0047), keyed by `potKey(x, y, floor)`: the tile key on the ground
+   * floor, and `<floor>:<tile key>` above it. Absent until the first.
+   */
+  pots?: Record<string, PlacedPot>;
   /**
    * Things taken down from display while whoever put them up had no room for them, oldest first.
    * Each waits for `by` and comes back with their first input that leaves room for it. Absent
@@ -1709,7 +1728,19 @@ export type Command =
   | { type: "set_hearth"; x: number; y: number }
   | { type: "home" }
   /** `floor` is the floor the tile is on (RFC 0028): absent or 0 is the ground floor. */
-  | { type: "place"; x: number; y: number; floor?: number | undefined; block: BlockKind }
+  /**
+   * `item` and `flower` with `block: "pot"` only (RFC 0047): the pot set down, by its id, and a
+   * flower from your things for a vase.
+   */
+  | {
+      type: "place";
+      x: number;
+      y: number;
+      floor?: number | undefined;
+      block: BlockKind;
+      item?: string | undefined;
+      flower?: string | undefined;
+    }
   | { type: "remove"; x: number; y: number; floor?: number | undefined }
   /** Lay a path or flooring on a tile, within reach (RFC 0016). */
   | { type: "lay"; x: number; y: number; floor?: number | undefined; ground: GroundKind }
@@ -2308,6 +2339,8 @@ export type WorldEvent =
       floor?: number;
       block: BlockKind;
       by: ResidentId;
+      /** The pot set down, for a `pot` block (RFC 0047). */
+      pot?: Good;
     }
   | { type: "block_removed"; x: number; y: number; floor?: number; by: ResidentId }
   /** A path or flooring went down on a tile (RFC 0016). Public. */

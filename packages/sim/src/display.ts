@@ -123,6 +123,8 @@ export function everyGood(state: WorldState): { good: Good; holder: ResidentId }
   }
   // A pot in a kiln (RFC 0047) is its loader's.
   for (const f of Object.values(items.firings ?? {})) out.push({ good: f.good, holder: f.by });
+  // A pot set down on a plot is whoever set it down's.
+  for (const p of Object.values(items.pots ?? {})) out.push({ good: p.good, holder: p.by });
   return out;
 }
 

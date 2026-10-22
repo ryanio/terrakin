@@ -334,6 +334,7 @@ describe("one plot of the world, read from the mirror", () => {
           ["13,13", "planter"],
           ["14,14", "pedestal"],
           ["15,13", "kiln"],
+          ["10,13", "pot"],
         ]),
         paving: new Map<string, GroundKind>([["11,11", "cobble"]]),
         upstairs: new Map([
@@ -387,6 +388,12 @@ describe("one plot of the world, read from the mirror", () => {
       shownFinds: source({ shownFinds: new Map([["14,14", { kind: "acorn" }]]) }),
       crops: source({ crops: new Map([["13,13", { crop: "herb", plantedDay: 1, readyDay: 5 }]]) }),
       day: source({ day: 3 }),
+      // A pot set down draws as itself, and a vase with its flower (RFC 0047).
+      pots: source({
+        pots: new Map([
+          ["10,13", { good: { id: "g3", kind: "vase", glaze: "sea", flower: "tulip" } }],
+        ]),
+      }),
       // A kiln loaded with a pot glows (RFC 0047).
       kilns: source({ kilns: new Map([["15,13", { by: "capri", readyDay: 3 }]]) }),
       pickupAt: source({ pickupAt: (x, y) => (x === 11 && y === 12 ? "stone" : null) }),

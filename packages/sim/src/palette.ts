@@ -11,6 +11,7 @@ import { type Biome, biomeAt } from "./biome";
 import { CATALOG, CROPS, type Crop } from "./catalog";
 import type { GroundKind } from "./ground";
 import type { ThemePalette } from "./looks";
+import type { Glaze } from "./pottery";
 import type { Season } from "./season";
 import { type BlockKind, BUILDING_BLOCKS, type WorldConfig } from "./types";
 
@@ -107,6 +108,8 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   bed: "#5b7fb0",
   // Pottery (RFC 0047): a kiln of fired brick, warmer than a stone wall.
   kiln: "#b0674a",
+  // A pot set down (RFC 0047) is drawn in its own glaze; this is bare clay, for a view that can't.
+  pot: "#c98b64",
 };
 
 /** A kiln's glow while it fires a pot (RFC 0047), on the map and in 3D. */
@@ -114,6 +117,21 @@ export const KILN_GLOW = "#ffb347";
 
 /** Clay (RFC 0047), lying on the ground, in your things, and in 3D. */
 export const CLAY_HEX = "#b5714c";
+
+/**
+ * Each glaze's color (RFC 0047), and `bare` the warm unglazed clay: a pot's picture, the build bar,
+ * and a plot's thumbnail all paint a pot in it.
+ */
+export const GLAZE_HEX: Readonly<Record<Glaze, string>> = {
+  bare: "#c98a5e",
+  cream: "#efe3c8",
+  sea: "#6fb3b0",
+  crystal: "#cfe6f2",
+  rose: "#e58fb6",
+  honey: "#e6b04a",
+  berry: "#b8344a",
+  moss: "#7d9a52",
+};
 
 /**
  * How a door looks (decision 0349), on the map, in both 3D views, and in plot photos: a wall-high

@@ -4,7 +4,7 @@ import { removeProblem } from "./floors";
 import { blockRemoveProblem, cropAt, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
-import { kilnRemoveProblem } from "./pottery";
+import { kilnRemoveProblem, potRemoveProblem } from "./pottery";
 import type { Command, Rejection, WorldEvent, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { inBounds, plotAtTile } from "./world";
@@ -45,6 +45,8 @@ export function checkClearBlock(
   // A kiln firing a pot (RFC 0047) stays until the pot is out, as for its owner.
   const firing = kilnRemoveProblem(state, x, y);
   if (firing) return firing;
+  const pot = potRemoveProblem(state, x, y);
+  if (pot) return pot;
   const holding = removeProblem(state, x, y, 0);
   if (holding) return holding;
   const owner = plot.ownerId;

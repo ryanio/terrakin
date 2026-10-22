@@ -100,6 +100,9 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   planter: { color: hex("#8a5a36"), height: 0.5, opacity: 1, form: "voxel" },
   kitchen: { color: hex("#c8674a"), height: 0.95, opacity: 1, form: "voxel" },
   workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
+  // A pot set down (RFC 0047): a low saucer of clay under it; the pot itself stands on it as its
+  // drawn picture (`displayedThings`, `on: "ground"`).
+  pot: { color: hex(BLOCK_COLORS.pot), height: 0.06, opacity: 1, form: "voxel" },
   // A kiln (RFC 0047): fired brick, glowing after dark while it fires a pot (`lit`).
   kiln: {
     color: hex(BLOCK_COLORS.kiln),

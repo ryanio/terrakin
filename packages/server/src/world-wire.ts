@@ -33,6 +33,7 @@ import {
   pickupLeft,
   plotAtTile,
   plotPickupsOwned,
+  potsOf,
   presentsWaiting,
   RECIPE_PAGE,
   type RecipeName,
@@ -531,6 +532,19 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         }
       : {}),
     ...(finds.length > 0 ? { displayedFinds: finds } : {}),
+    // Pots set down on plots (RFC 0047), each drawn as itself.
+    ...(state.items?.pots
+      ? {
+          pots: potsOf(state).map(({ x, y, floor, pot }) => ({
+            x,
+            y,
+            ...floorField(floor),
+            good: { ...pot.good },
+            by: pot.by,
+            ...(pot.good.label !== undefined ? { trust: "untrusted" as const } : {}),
+          })),
+        }
+      : {}),
     // Kilns firing a pot (RFC 0047): where, whose, and when, never what's in one.
     ...(state.items?.firings
       ? {

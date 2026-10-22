@@ -34,6 +34,7 @@ import {
   parkTile,
   pickupOn,
   plotKey,
+  potKey,
   type Resident,
   type RoofShape,
   roofShape,
@@ -54,6 +55,8 @@ type EventMessage = { seq: number; event: WorldEvent };
 
 /** A made thing on display, as the world shows it. Its `label` is its maker's words. */
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
+/** A pot set down on a plot (RFC 0047), as the snapshot and `block_placed` carry it. */
+export type PotView = Pick<NonNullable<WorldSnapshot["pots"]>[number], "good" | "by">;
 
 /** A find on display (RFC 0021): its kind, who put it up, and the day it went up. No words. */
 export interface ShownFindView {
@@ -182,6 +185,11 @@ export class Mirror {
   plotNames = new Map<string, string>();
   /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
   displays = new Map<string, DisplayView>();
+  /**
+   * Pots set down on plots (RFC 0047), by the sim's `potKey` (the tile key, with its floor above
+   * the ground floor): the `pot` block there is drawn as this good. Labels are untrusted text.
+   */
+  pots = new Map<string, PotView>();
   /** Finds on display on pedestals and frames (RFC 0021), by tileKey. */
   shownFinds = new Map<string, ShownFindView>();
   /** Tiles picked clean today, so a pickup that's gone isn't drawn (phase 1 gathering). */
@@ -293,6 +301,9 @@ export class Mirror {
         plantedDay: c.plantedDay,
         readyDay: c.readyDay,
       });
+    }
+    for (const p of snapshot.pots ?? []) {
+      this.pots.set(potKey(p.x, p.y, p.floor ?? 0), { good: { ...p.good }, by: p.by });
     }
     for (const d of snapshot.displays ?? []) {
       this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
@@ -638,9 +649,16 @@ export class Mirror {
       // On the floor each names (RFC 0028): absent is the ground floor.
       case "block_placed":
         this.blocksAt(event.floor).set(tileKey(event.x, event.y), event.block);
+        if (event.pot) {
+          this.pots.set(potKey(event.x, event.y, event.floor ?? 0), {
+            good: { ...event.pot },
+            by: event.by,
+          });
+        }
         break;
       case "block_removed":
         this.blocksAt(event.floor).delete(tileKey(event.x, event.y));
+        this.pots.delete(potKey(event.x, event.y, event.floor ?? 0));
         break;
       case "ground_laid":
         this.pavingAt(event.floor).set(tileKey(event.x, event.y), event.ground);

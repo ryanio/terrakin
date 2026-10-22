@@ -120,6 +120,9 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
   if (Object.values(items?.firings ?? {}).some((f) => f.by === from)) {
     return refuse("not_eligible", "The record to merge has a pot firing in a kiln.");
   }
+  if (Object.values(items?.pots ?? {}).some((p) => p.by === from)) {
+    return refuse("not_eligible", "The record to merge has a pot set down on a plot.");
+  }
   // A present (RFC 0034) names its giver and its recipient until it's opened.
   if (Object.values(items?.presents ?? {}).some((p) => p.from === from || p.to === from)) {
     return refuse("not_eligible", "The record to merge has a present waiting, given or to open.");

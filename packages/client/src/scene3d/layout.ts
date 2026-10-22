@@ -18,6 +18,7 @@ import {
   type PetCoat,
   type PetKind,
   plotKey,
+  potKey,
   type ResidentColor,
   type ResidentShape,
   type RoofShape,
@@ -653,6 +654,13 @@ export function plotLayout(
     const c = cropIn(b.block, b.x, b.y, planted.get(key), snapshot.day);
     if (c) crops.push(c);
   }
+  // Pots set down (RFC 0047), on any floor of the plot.
+  displays.push(
+    ...potsOn(
+      blocks.filter((b) => b.own),
+      new Map((snapshot.pots ?? []).map((p) => [potKey(p.x, p.y, p.floor ?? 0), p] as const)),
+    ),
+  );
 
   // Hearths, sleepers, the owner's spot, and the pet are all on the ground floor.
   const solid = new Set(blocks.flatMap((b) => (b.floor ? [] : [`${b.x},${b.y}`])));
@@ -781,6 +789,8 @@ export interface ShownGood {
   /** A pot's glaze and finish (RFC 0047), which its picture is drawn in. */
   glaze?: Glaze | undefined;
   finish?: Finish | undefined;
+  /** A vase's flower (RFC 0047). */
+  flower?: string | undefined;
 }
 
 /** A find on display, drawn like a made thing with no picture of its own: `find:<kind>` names it. */
@@ -792,8 +802,11 @@ export const shownFind = (kind: FindKind): { good: ShownGood } => ({
 export interface LayoutDisplay {
   x: number;
   y: number;
-  on: "pedestal" | "frame";
+  /** On a pedestal, in a frame, or a pot set down on the floor of its tile (RFC 0047). */
+  on: "pedestal" | "frame" | "ground";
   good: ShownGood;
+  /** The floor a pot set down stands on (RFC 0028). Absent: the ground floor. */
+  floor?: number;
 }
 
 /** A crop in a planter, and how far along it is (0 to 1, ready at 1). */
@@ -812,8 +825,33 @@ export function displayOn(
   shown: { good: ShownGood } | undefined,
 ): LayoutDisplay | undefined {
   if (!shown || (block !== "pedestal" && block !== "frame")) return undefined;
-  const { id, kind, media, model } = shown.good;
-  return { x, y, on: block, good: { id, kind, media, model } };
+  const { id, kind, media, model, glaze, finish, flower } = shown.good;
+  return { x, y, on: block, good: { id, kind, media, model, glaze, finish, flower } };
+}
+
+/**
+ * The pots set down among `blocks` (RFC 0047), each standing on its tile and floor as itself, from
+ * `pots` by the sim's `potKey`.
+ */
+export function potsOn(
+  blocks: readonly { x: number; y: number; block: BlockKind; floor?: number | undefined }[],
+  pots: ReadonlyMap<string, { good: ShownGood }> | undefined,
+): LayoutDisplay[] {
+  if (!pots || pots.size === 0) return [];
+  return blocks.flatMap((b) => {
+    const pot = b.block === "pot" ? pots.get(potKey(b.x, b.y, b.floor ?? 0)) : undefined;
+    if (!pot) return [];
+    const { id, kind, glaze, finish, flower } = pot.good;
+    return [
+      {
+        x: b.x,
+        y: b.y,
+        on: "ground" as const,
+        good: { id, kind, glaze, finish, flower },
+        ...(b.floor ? { floor: b.floor } : {}),
+      },
+    ];
+  });
 }
 
 /** What grows in a planter, drawn from the world's day the way the map draws it. */

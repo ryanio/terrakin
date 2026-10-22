@@ -42,6 +42,8 @@ export interface PersonaSpec {
   color?: string;
   /** Claim a free plot. */
   plot?: boolean;
+  /** Claim it downtown rather than across the water, since only a downtown plot can be sold. */
+  downtown?: boolean;
   /** Build the starter home on the plot (claims one too), which leaves you on your hearth. */
   home?: boolean;
   /** Coins from the treasury. */
@@ -219,7 +221,8 @@ export async function makePersona(http: Http, spec: PersonaSpec): Promise<Person
   const out: Persona = { ...who, name: spec.name };
   const home = spec.home || spec.pet !== undefined;
   if (spec.plot || home) {
-    out.plot = await settleFreeOver(http, who.token, await freePlotsOver(http, 5));
+    const corner = spec.downtown ? "bottom-left" : "bottom-right";
+    out.plot = await settleFreeOver(http, who.token, await freePlotsOver(http, 5, corner));
   }
   if (home) {
     await expectOk(

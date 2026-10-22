@@ -1,0 +1,26 @@
+/* A plot for sale or one of yours (plot-market-section.ts): a small picture at the row's start. */
+.plot-sale .plot-thumb,
+.plot-own .plot-thumb {
+  flex: none;
+  align-self: flex-start;
+  width: 48px;
+  height: 48px;
+  border-width: 1.5px;
+}
+
+/* "Go see it" reads as a link in the row's lines, not a button. */
+.plot-sale-see {
+  justify-self: start;
+  font-weight: var(--weight-bold);
+}
+
+/* `/market#plots` stops below the sticky site bar, as #jobs does. */
+#plots {
+  scroll-margin-top: calc(76px + env(safe-area-inset-top));
+}
+
+/* Why a plot of yours can't be sold yet is the world's whole sentence, so it gets the room. */
+.plot-own .item-row-line {
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}

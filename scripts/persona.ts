@@ -98,6 +98,8 @@ const spec: PersonaSpec = {
   ...(values.staff ? { staff: true } : {}),
   ...(agent ? { agent } : {}),
   ...(values.kind === "agent" || values.kind === "human" ? { kind: values.kind } : {}),
+  // Only a downtown plot can be sold (RFC 0039), so a resident made for the plot market lives there.
+  ...(values["open-plot-market"] ? { downtown: true } : {}),
 };
 
 const http = fetchHttp(base.href);

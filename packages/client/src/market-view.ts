@@ -1,5 +1,6 @@
 /**
- * `/market`: residents selling to residents (RFC 0008, phase 4). What's for sale, 200 at a time
+ * `/market`: residents selling to residents (RFC 0008, phase 4). Plots for sale first, once the
+ * world sells them (RFC 0039, `plot-market-section.ts`), then the things for sale, 200 at a time
  * with "Show more listings" after, your purse, and a form to list something you hold. Prices,
  * fees, and refusals come from the server; this page shows them and sends `list_item`,
  * `unlist_item`, and `buy_listing`, and anyone's listing but your own can be reported from its
@@ -11,7 +12,9 @@ import type {
   InventoryResponse,
   ListingView,
   MarketResponse,
+  PlotMarketResponse,
   ShopView,
+  WorldSnapshot,
 } from "@terrakin/protocol";
 import {
   BUY_ORDERS,
@@ -31,6 +34,7 @@ import {
   emptyNote,
   itemRow,
   itemRows,
+  landOnHash,
   moreButton,
   pageLayout,
   toast,
@@ -38,10 +42,14 @@ import {
 import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { marketApi } from "./api/market";
+import { plotMarketApi } from "./api/plot-market";
 import { shopApi } from "./api/shop";
+import { worldApi } from "./api/world";
 import { listingAction } from "./market-words";
 import { savedResidentId, savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
+import { plotMarketProblem } from "./plot-market";
+import { drawsAPlot, plotMarketSection } from "./plot-market-section";
 import { balanceLine, coins } from "./purse";
 import { reportMenu } from "./report-sheet";
 import { lotWords, thingName } from "./things";
@@ -226,6 +234,8 @@ export function marketView(ctx: ViewContext): View {
 
   const act = (button: HTMLButtonElement, action: Action, done: string) =>
     actFromButton(button, action, done, { gone: loader.gone, after: loader.refresh });
+  // A link to the plots for sale lands on them once.
+  const land = landOnHash("#plots", () => main.querySelector("#plots"));
 
   function sellForm(
     data: MarketResponse,
@@ -350,7 +360,13 @@ export function marketView(ctx: ViewContext): View {
     return form;
   }
 
-  function paint(data: MarketResponse, inv: InventoryResponse | null, shop: TownShop | null) {
+  function paint(
+    data: MarketResponse,
+    inv: InventoryResponse | null,
+    shop: TownShop | null,
+    plots: PlotMarketResponse | null,
+    world: WorldSnapshot | null,
+  ) {
     const { market, you } = data;
     if (!market) {
       main.replaceChildren(notOpenCard("The market isn't open yet"));
@@ -447,27 +463,64 @@ export function marketView(ctx: ViewContext): View {
           ]
         : []),
     );
+    const plotSection = plots
+      ? plotMarketSection(plots, {
+          me,
+          world,
+          moves: {
+            unlist: (button, at) =>
+              void actFromButton(
+                button,
+                { type: "unlist_plot", px: at.px, py: at.py },
+                "Your plot is yours again, and off the market.",
+                {
+                  gone: loader.gone,
+                  after: loader.refresh,
+                  words: (code, message) => plotMarketProblem(code, message, plots.rules, "unlist"),
+                },
+              ),
+          },
+        })
+      : null;
     main.replaceChildren(
+      ...(plotSection ? [plotSection] : []),
       h(
         "section",
         { class: "stack market-section", attrs: { "aria-labelledby": "market-sale-title" } },
-        h("h2", { class: "section-title", attrs: { id: "market-sale-title" }, text: "For sale" }),
+        h("h2", {
+          class: "section-title",
+          attrs: { id: "market-sale-title" },
+          // Beside plots for sale, these are the things; alone, just what's for sale.
+          text: plotSection ? "Things for sale" : "For sale",
+        }),
         ...(rows.length > 0
           ? [list, h("div", { class: "feed-foot" }, more.el)]
           : [emptyNote("Nothing for sale yet", "Be the first: list something you grew or made.")]),
       ),
     );
+    land();
   }
 
-  // Your things say what you can sell, and the shop what the town buys today; the page shows
-  // without either.
+  // Your things say what you can sell, the shop what the town buys today, and the plot market
+  // whether plots are for sale; the page shows without any of them. The world snapshot draws the
+  // plots, so it's asked for only when there's a plot to draw.
   const loader = pageData({
-    ask: () =>
-      withOptional(
-        withOptional(marketApi.market(), signedIn ? inventoryApi.inventory() : null),
-        signedIn ? shopApi.shop() : null,
-      ),
-    paint: ([[market, inv], shop]) => paint(market, inv, shop?.shop ?? null),
+    ask: async () => {
+      const first = await withOptional(
+        withOptional(
+          withOptional(marketApi.market(), signedIn ? inventoryApi.inventory() : null),
+          signedIn ? shopApi.shop() : null,
+        ),
+        plotMarketApi.plotMarket(),
+      );
+      const plots = first.ok ? first.data[1] : null;
+      return withOptional(
+        Promise.resolve(first),
+        plots && drawsAPlot(plots) ? worldApi.world() : null,
+      );
+    },
+    paint: ([[[[market, inv], shop], plots], world]) =>
+      paint(market, inv, shop?.shop ?? null, plots, world),
     fail: failInto(main),
   });
   return { el, ready: loader.ready, destroy: loader.leave };

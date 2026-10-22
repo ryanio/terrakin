@@ -15,6 +15,8 @@ export interface ActOptions {
   after?: () => unknown;
   /** Where to say how it went, when not the site's toast (the world has its own). */
   say?: (text: string) => void;
+  /** A refusal in the page's own words, by its code (`actProblem`'s `words`). */
+  words?: (code: string, message: string) => string;
 }
 
 /** Send `action` from `button` and say `done` when it worked. True when it did. */
@@ -22,11 +24,11 @@ export async function actFromButton(
   button: HTMLButtonElement,
   action: Action,
   done: string,
-  { gone, after, say = toast }: ActOptions = {},
+  { gone, after, say = toast, words }: ActOptions = {},
 ): Promise<boolean> {
   const r = await whileBusy(button, () => worldApi.act(action));
   if (gone?.()) return false;
-  const problem = actProblem(r);
+  const problem = actProblem(r, words);
   say(problem ?? done);
   if (problem) return false;
   refreshPurse(true);

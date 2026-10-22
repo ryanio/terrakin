@@ -1,6 +1,12 @@
 import { DEFAULT_CONFIG, starterHome } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { type PlantView, planFirstPlanting, plantedLine, soonestCrop } from "./first-plant";
+import {
+  type PlantView,
+  planFirstPlanting,
+  plantByHandLine,
+  plantedLine,
+  soonestCrop,
+} from "./first-plant";
 
 // Plot (2, 2) is ours; the starter hut's hearth sits in its middle.
 const { hearth } = starterHome(DEFAULT_CONFIG, 2, 2, "wood", "glass");
@@ -65,12 +71,17 @@ describe("a first seed in one tap", () => {
     expect(planFirstPlanting(view({ mine: () => false }))).toEqual({ problem: "no_room" });
   });
 
-  it("says why when it can't: no seeds, or no hut and no planter", () => {
+  it("says why when it can't, and how to do it by hand: no seeds, or no hut and no planter", () => {
     expect(planFirstPlanting(view({ held: () => 0 }))).toEqual({ problem: "no_seeds" });
     // A hearth set by hand, away from where a starter hut puts it.
-    expect(planFirstPlanting(view({ hearth: { x: hearth.x + 2, y: hearth.y } }))).toEqual({
-      problem: "no_room",
-    });
+    const byHand = planFirstPlanting(view({ hearth: { x: hearth.x + 2, y: hearth.y } }));
+    expect(byHand).toEqual({ problem: "no_room" });
+    // The tap that couldn't plant says how to, never that one tap plants it (the chip's own hint).
+    if (!("problem" in byHand)) throw new Error("expected a problem");
+    expect(plantByHandLine(byHand.problem)).toBe(
+      "There's no room for a planter by your hearth yet. Place one from Build, then tap it.",
+    );
+    expect(plantByHandLine("no_seeds")).toBe("You have no seeds to plant. The shop sells them.");
   });
 
   it("says what was planted and when it's ready", () => {

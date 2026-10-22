@@ -7,8 +7,8 @@
  * `data-step` lets style.css hide the moment that button comes or goes (decision 0312).
  * A tap does it or opens it: the plot name sheet, a starter home, a first seed planted by the
  * hearth (`sendFirstPlanting` in `first-plant.ts`, which the sheet after a home shares), the build
- * bar, or the page where it's done. It asks the server while the world is on screen and every so often
- * after, since steps are done in many places.
+ * bar, or the page where it's done. It asks the server when the world comes on screen, when the last
+ * sheet over it closes, and every so often after, since steps are done in many places.
  */
 import { h } from "@terrakin/ui/dom";
 import { everyVisible } from "@terrakin/ui/poll";
@@ -87,9 +87,11 @@ export function mountNextStep(o: {
   async function plantOrSay(row: StepRow, me: string) {
     const m = o.mirror();
     const said = m ? await whileBusy(chip, () => sendFirstPlanting(m, me)) : null;
+    // The planted line, a refusal, or how to plant by hand (`plantByHandLine`), never the hint,
+    // which says this tap plants it.
     if (said) o.toast(said);
     else {
-      // No one-tap plan for it: the build bar and the hint are how it's done by hand.
+      // No hearth to plant by: the build bar and the hint are how it's done by hand.
       if (document.getElementById("build")?.getAttribute("aria-pressed") !== "true") press("build");
       o.toast(row.hint);
     }
@@ -130,5 +132,14 @@ export function mountNextStep(o: {
     attributes: true,
     attributeFilter: ["hidden"],
   });
+  // Most first steps are done in a sheet (a home, a seed from its pantry note, a plot's name), so
+  // ask again as the last sheet closes, rather than show a step that's done until the next refresh.
+  const root = document.documentElement;
+  let sheetOpen = root.classList.contains("overlay-open");
+  new MutationObserver(() => {
+    const open = root.classList.contains("overlay-open");
+    if (sheetOpen && !open) void refresh();
+    sheetOpen = open;
+  }).observe(root, { attributes: true, attributeFilter: ["class"] });
   everyVisible(REFRESH_MS, () => void refresh());
 }

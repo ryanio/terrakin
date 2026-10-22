@@ -78,6 +78,16 @@ export function planFirstPlanting(v: PlantView): PlantPlan {
   return { problem: "no_room" };
 }
 
+/**
+ * What a tap says when there's no one-tap plan: how to do it by hand. Never the step's own hint,
+ * which says one tap plants it, since the tap that just failed was that one.
+ */
+export function plantByHandLine(problem: "no_seeds" | "no_room"): string {
+  return problem === "no_seeds"
+    ? "You have no seeds to plant. The shop sells them."
+    : "There's no room for a planter by your hearth yet. Place one from Build, then tap it.";
+}
+
 /** What the toast says once the seed is in: "You planted an herb seed by your hearth. Ready in 2 days." */
 export function plantedLine(crop: Crop): string {
   const { seed, days } = CROP_INFO[crop];
@@ -92,8 +102,9 @@ const send = async (action: Action): Promise<string | null> =>
 /**
  * Plant a first seed by `me`'s hearth: home first when away from it, then a planter inside the
  * starter hut when there's no empty one within reach, then the seed that grows soonest. It gives
- * back what to say, the planted line or the world's refusal, or null when there's no one-tap plan
- * for it (no hearth, no seeds, no room), so each caller says how in its own place.
+ * back what to say: the planted line, the world's refusal, or how to plant by hand when there are no
+ * seeds or no room (a hearth set by hand, away from where the starter hut puts it). Null only when
+ * there's no hearth or the inventory couldn't be read, so each caller says how in its own place.
  */
 export async function sendFirstPlanting(m: Mirror, me: string): Promise<string | null> {
   const r = m.residents.get(me);
@@ -126,7 +137,7 @@ export async function sendFirstPlanting(m: Mirror, me: string): Promise<string |
       ),
     held: (kind) => counts.get(kind) ?? 0,
   });
-  if ("problem" in plan) return null;
+  if ("problem" in plan) return plantByHandLine(plan.problem);
   const { tile, crop } = plan;
   const problem =
     (plan.place ? await send({ type: "place", ...tile, block: "planter" }) : null) ??

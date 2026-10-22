@@ -21,6 +21,7 @@ import {
 } from "@terrakin/ui/ui";
 import { worldApi } from "./api/world";
 import type { DesignChoice } from "./design-picks";
+import { plantByHandLine } from "./first-plant";
 import { doneAlready, homeSteps } from "./home-steps";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { pantryWords, worldProblem } from "./things";
@@ -44,7 +45,7 @@ export interface HomeSheetOptions {
   walkNear: (tile: Tile, near: number) => Promise<void>;
   /**
    * Plant the first seed by the hearth in one tap, giving back what to say: the planted line, the
-   * world's refusal, or null when there's no one-tap plan for it (`sendFirstPlanting`).
+   * world's refusal, how to plant by hand, or null when there's no hearth (`sendFirstPlanting`).
    */
   plantFirst: () => Promise<string | null>;
 }
@@ -89,9 +90,7 @@ function pantryNews(got: string, first: boolean, plantFirst: () => Promise<strin
       const said = await whileBusy(plant, plantFirst, "Planting…");
       // Either way the button has had its turn: what it did, or how to do it by hand, is the note,
       // which says it where a reader is told about it too (`role="status"`).
-      line.textContent =
-        said ??
-        "There's no room for a planter by your hearth yet. Place one from Build, then tap it.";
+      line.textContent = said ?? plantByHandLine("no_room");
       const held = document.activeElement === plant;
       plant.remove();
       // Focus was on the button that just left, so hand it to the link beside it, inside the sheet.

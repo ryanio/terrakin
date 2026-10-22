@@ -128,6 +128,12 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await name.locator("#plot-name-input").fill("Linden's Lemon Grove");
     await name.locator("#plot-name-save").click();
     await expect(name).toBeHidden();
+    // The world's next-step chip asks again as the sheet closes, so it never offers the seed she
+    // just planted or the name she just gave (it would until its 20-second refresh).
+    await expect(page.locator("#world-next")).toHaveAttribute(
+      "data-step",
+      /^(?!plot$|garden$|plot_name$)/,
+    );
   });
 
   await test.step("Your things takes Claim plot's place, and the seeds are there", async () => {

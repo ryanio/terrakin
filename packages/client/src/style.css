@@ -1586,9 +1586,9 @@ body.in-world .veil {
   display: none;
 }
 
-/* The composer's placeholder (skeleton.ts in packages/ui): an avatar and a box, and its row of buttons. */
+/* The composer's placeholder (skeleton.ts in packages/ui), as tall as the resting box. */
 .composer-skeleton {
-  min-height: 150px;
+  min-height: 115px;
 }
 
 /* ---------- composer ---------- */
@@ -1664,6 +1664,46 @@ body.in-world .veil {
 
 .composer-attach:disabled {
   opacity: 0.4;
+}
+
+.composer-tool-words {
+  display: none;
+}
+
+/* A new post's box at rest: one line to write on, and the shortcuts as chips with words. */
+.composer.at-rest .composer-input {
+  min-height: 0;
+}
+
+.composer.at-rest .composer-bar {
+  margin-top: 0;
+  padding-top: var(--space-2xs);
+  border-top-color: transparent;
+}
+
+.composer.at-rest .composer-attach {
+  display: inline-flex;
+  gap: var(--space-xs);
+  width: auto;
+  padding: 0 var(--space-lg) 0 var(--space-md);
+  border-radius: var(--r-pill);
+  background: rgba(242, 184, 75, 0.14);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.composer.at-rest .composer-attach:hover:not(:disabled) {
+  background: rgba(242, 184, 75, 0.26);
+}
+
+.composer.at-rest .composer-tool-words {
+  display: inline;
+}
+
+.composer.at-rest .composer-submit {
+  display: none;
 }
 
 .composer-spacer {
@@ -3139,6 +3179,10 @@ dialog.model-viewer {
 
   .composer {
     padding: var(--space-lg) var(--space-xl) var(--space-md);
+  }
+
+  .composer-skeleton {
+    min-height: 123px;
   }
 
   .invite-hero .avatar.xl {

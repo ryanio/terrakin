@@ -92,7 +92,10 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     // The world's HUD buttons are pressed toggles, styled by aria-pressed.
     home: "packages/client/src/world.ts",
   },
-  { pattern: /document\.addEventListener\("pointerdown"/, use: "dropdown or moreMenu (ui.ts)" },
+  {
+    pattern: /document\.addEventListener\("pointerdown"/,
+    use: "dropdown, moreMenu, or onPressOutside (ui.ts)",
+  },
   { pattern: /"[^"]*\bload-more\b/, use: "moreButton (ui.ts)" },
   {
     pattern: /"swatch-dot"|createElement\("button"\)/,

@@ -825,6 +825,22 @@ function scrolledWithin(target: EventTarget | null, card: HTMLElement): boolean 
   return false;
 }
 
+// ---------- a press outside ----------
+
+/**
+ * Call `onPress` on each press anywhere but inside `inside` (the start of a tap or a click, before
+ * focus moves). Returns the function that stops listening.
+ */
+export function onPressOutside(inside: Node[], onPress: () => void): () => void {
+  const onDown = (e: PointerEvent) => {
+    const target = e.target;
+    if (target instanceof Node && inside.some((node) => node.contains(target))) return;
+    onPress();
+  };
+  document.addEventListener("pointerdown", onDown, true);
+  return () => document.removeEventListener("pointerdown", onDown, true);
+}
+
 // ---------- small popover ----------
 
 let openPop: { el: HTMLElement; close(): void } | undefined;
@@ -838,10 +854,6 @@ export function openPopover(host: HTMLElement, el: HTMLElement, opener: HTMLElem
   openPop?.close();
   host.append(el);
   opener.setAttribute("aria-expanded", "true");
-  const onDown = (e: PointerEvent) => {
-    if (e.target instanceof Node && (el.contains(e.target) || opener.contains(e.target))) return;
-    close();
-  };
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
     close();
@@ -853,11 +865,11 @@ export function openPopover(host: HTMLElement, el: HTMLElement, opener: HTMLElem
     closed = true;
     el.remove();
     opener.setAttribute("aria-expanded", "false");
-    document.removeEventListener("pointerdown", onDown, true);
+    stopPress();
     document.removeEventListener("keydown", onKey, true);
     if (openPop?.el === el) openPop = undefined;
   }
-  document.addEventListener("pointerdown", onDown, true);
+  const stopPress = onPressOutside([el, opener], close);
   document.addEventListener("keydown", onKey, true);
   openPop = { el, close };
   el.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
@@ -922,9 +934,7 @@ export function dropdown(
   container: HTMLElement,
   onClose?: () => void,
 ) {
-  const onDown = (e: PointerEvent) => {
-    if (!(e.target instanceof Node && container.contains(e.target))) setOpen(false);
-  };
+  let stopPress: (() => void) | undefined;
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== "Escape") return;
     setOpen(false);
@@ -936,11 +946,12 @@ export function dropdown(
     panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
     if (open) {
-      document.addEventListener("pointerdown", onDown, true);
+      stopPress = onPressOutside([container], () => setOpen(false));
       document.addEventListener("keydown", onKey, true);
       return;
     }
-    document.removeEventListener("pointerdown", onDown, true);
+    stopPress?.();
+    stopPress = undefined;
     document.removeEventListener("keydown", onKey, true);
     onClose?.();
   }

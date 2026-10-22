@@ -3,6 +3,9 @@
  * world). Files upload as soon as they're picked, with progress, so posting is instant once they're
  * up. Typing `@` suggests handles of people you follow. The server judges everything; we show its
  * words when it says no.
+ *
+ * A new post's box rests as one row with the day's prompt and two shortcuts (a photo, and a
+ * picture of your plot in 3D) until the text box is tapped or something is in it.
  */
 import {
   type AuthorView,
@@ -15,8 +18,9 @@ import {
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/mentions";
+import { plot3dPath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed } from "@terrakin/ui/people";
-import { closeOverlay, errorLine, openOverlay } from "@terrakin/ui/ui";
+import { closeOverlay, errorLine, onPressOutside, openOverlay } from "@terrakin/ui/ui";
 import { uploadMedia } from "./api/media";
 import { postsApi } from "./api/posts";
 import { residentsApi } from "./api/residents";
@@ -27,6 +31,26 @@ const ACCEPT =
 const LARGEST = Math.max(...Object.values(MEDIA_TYPES).map((t) => t.maxBytes));
 /** Show the character counter once this few are left. */
 const COUNTER_AT = 200;
+
+/** What the new-post box asks, one a day. The plot ones are only for someone who has a plot. */
+const PROMPTS = [
+  "Share something you made",
+  "Tell the town what you're up to",
+  "What made you smile today?",
+];
+const PLOT_PROMPTS = [
+  "What's growing on your plot?",
+  "Show the town your hearth",
+  "What did you build today?",
+];
+
+/** Today's new-post prompt, by the visitor's own calendar day. */
+function todaysPrompt(hasPlot: boolean): string {
+  const all = hasPlot ? [...PROMPTS, ...PLOT_PROMPTS] : PROMPTS;
+  const now = new Date();
+  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / 864e5);
+  return all[day % all.length] ?? "Share something you made";
+}
 
 export interface ComposerOptions {
   me: ProfileView;
@@ -82,7 +106,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
         ? "Write a reply"
         : quote
           ? "Add your thoughts"
-          : "Share something you made",
+          : todaysPrompt(me.home !== undefined),
       enterkeyhint: "enter",
       autocomplete: "off",
       autocapitalize: "sentences",
@@ -99,15 +123,32 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     class: "visually-hidden",
     attrs: { type: "file", accept: ACCEPT, multiple: true, tabindex: -1, "aria-hidden": "true" },
   });
+  // A new post's shortcuts carry words while the box rests, which CSS hides once it opens.
+  const words = (text: string) =>
+    mode === "post" ? h("span", { class: "composer-tool-words", text }) : null;
   const attach = h(
     "button",
     {
       class: "composer-attach",
-      attrs: { type: "button", "aria-label": "Add pictures, video, or a 3D model" },
+      attrs: { type: "button", "aria-label": "Add a photo, video, or 3D model" },
       on: { click: () => fileInput.click() },
     },
     icon("image"),
+    words("Photo"),
   );
+  // Your plot in 3D, whose Take a photo comes back here with the picture attached.
+  const snap =
+    mode === "post" && me.home
+      ? h(
+          "a",
+          {
+            class: "composer-attach composer-snap",
+            attrs: { href: plot3dPath(me.id), "aria-label": "Snap your plot in 3D" },
+          },
+          icon("camera"),
+          words("Snap your plot"),
+        )
+      : null;
   const counter = h("span", { class: "composer-count", attrs: { "aria-live": "polite" } });
   const submit = h(
     "button",
@@ -144,6 +185,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
       "div",
       { class: "composer-bar" },
       attach,
+      snap,
       fileInput,
       h("span", { class: "composer-spacer" }),
       counter,
@@ -154,6 +196,29 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
   let attachments: Attachment[] = [];
   let posting = false;
   let destroyed = false;
+  /**
+   * Whether a new post's box is open while empty: from a tap in the text box until a tap or focus
+   * lands outside the form. A tap inside never closes it, so nothing moves under a finger.
+   */
+  let open = false;
+  let stopPress: (() => void) | undefined;
+  function wake() {
+    if (open || mode !== "post") return;
+    open = true;
+    stopPress = onPressOutside([form], rest);
+    update();
+  }
+  function rest() {
+    open = false;
+    stopPress?.();
+    stopPress = undefined;
+    update();
+  }
+  textarea.addEventListener("focus", wake);
+  form.addEventListener("focusout", (e) => {
+    const next = e.relatedTarget;
+    if (next instanceof Node && !form.contains(next)) rest();
+  });
 
   const update = () => {
     const left = POST_MAX_LENGTH - textarea.value.length;
@@ -167,6 +232,12 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     submit.disabled = posting || uploading || failed || empty;
     attach.disabled = posting || attachments.length >= MAX_MEDIA_PER_POST;
     list.hidden = attachments.length === 0;
+    const resting = mode === "post" && !open && empty;
+    if (resting !== form.classList.contains("at-rest")) {
+      form.classList.toggle("at-rest", resting);
+      textarea.rows = resting ? 1 : 3;
+      textarea.style.height = "";
+    }
   };
 
   const autosize = () => {
@@ -403,7 +474,8 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     attachments = [];
     list.replaceChildren();
     autosize();
-    update();
+    if (document.activeElement === textarea) update();
+    else rest();
     onPosted(r.data.post);
   });
 
@@ -431,6 +503,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     },
     destroy() {
       destroyed = true;
+      stopPress?.();
       for (const a of attachments) {
         a.abort();
         if (a.preview) URL.revokeObjectURL(a.preview);

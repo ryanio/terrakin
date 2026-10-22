@@ -48,6 +48,11 @@ export const PLOTS = {
   listingFee: 25,
   /** World days after a plot is claimed or bought before it may be listed. */
   settleDays: 14,
+  /**
+   * The most plots a resident may own that `open_plot_market` takes. The cap it logs never comes
+   * down, so a slip in the switch would stay for good.
+   */
+  capMax: 3,
 } as const;
 
 type Mutation = () => WorldEvent[];
@@ -129,10 +134,10 @@ export function checkOpenPlotMarket(
         return refuse("not_due", "Plots go on sale once a second land has opened.");
       }
       const now = state.config.maxPlotsPerResident;
-      if (!isWhole(cap) || cap < now) {
+      if (!isWhole(cap) || cap < now || cap > Math.max(now, PLOTS.capMax)) {
         return refuse(
           "invalid_amount",
-          `The plot cap is a whole number, at least today's ${now}. It never comes down.`,
+          `The plot cap is a whole number from today's ${now} to ${Math.max(now, PLOTS.capMax)}. It never comes down.`,
         );
       }
       return null;

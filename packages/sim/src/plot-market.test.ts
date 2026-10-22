@@ -80,6 +80,7 @@ describe("opening the plot market", () => {
     const open = (cap: number): Command => ({ type: "open_plot_market", maxPlotsPerResident: cap });
     refused(state, TOWN_ACTOR, open(0), "invalid_amount");
     refused(state, TOWN_ACTOR, open(2.5), "invalid_amount");
+    refused(state, TOWN_ACTOR, open(PLOTS.capMax + 1), "invalid_amount");
     expect(ok(state, TOWN_ACTOR, open(3))).toEqual([
       { type: "plot_market_opened", maxPlotsPerResident: 3 },
     ]);
@@ -255,7 +256,7 @@ describe("buying a plot", () => {
     refused(state, "bob", list(), "not_yet");
   });
 
-  it("is the only way to a second plot: claim and settle take a first one, before the switch and after it", () => {
+  it("is the only way to a second plot: claim and settle take only a first one, before the switch and after it", () => {
     // Ada owns plot (0, 0) and stands in plot (1, 0), which nobody has claimed.
     const free = { x: 9, y: 2 };
     const before = replay(
@@ -269,6 +270,11 @@ describe("buying a plot", () => {
     walkTo(after, "ada", free);
     refused(after, "ada", { type: "claim" }, "plot_limit");
     refused(after, "ada", { type: "settle", px: 1, py: 0 }, "plot_limit");
+    // A first plot is still free: Bob, who has none, claims one, and is refused a second.
+    walkTo(after, "bob", { x: 17, y: 2 });
+    ok(after, "bob", { type: "claim" });
+    walkTo(after, "bob", { x: 17, y: 10 });
+    refused(after, "bob", { type: "claim" }, "plot_limit");
 
     // Fay and Gus settle downtown and wait out the cooling-off; then Ada, Fay and Gus list, and
     // Dee, who lives on the island, buys two plots and is refused a third.

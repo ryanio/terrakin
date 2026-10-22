@@ -13,6 +13,7 @@ import {
   itemRow,
   itemRows,
   kindPill,
+  landOnHash,
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
@@ -60,7 +61,8 @@ export function circlesSection(o: {
     attrs: { "aria-labelledby": "circles", hidden: true, tabindex: -1 },
   });
   let painted = "";
-  let landed = false;
+  // A link to the section lands on it once.
+  const land = landOnHash("#circles", () => title);
 
   async function refresh() {
     const r = await circlesApi.circles();
@@ -76,11 +78,7 @@ export function circlesSection(o: {
       painted = next;
       repaintKeepingFocus(card, () => paint(r.data));
     }
-    // A link to the section lands on it once.
-    if (!landed && location.hash === "#circles") {
-      landed = true;
-      requestAnimationFrame(() => title.scrollIntoView({ block: "start" }));
-    }
+    land();
   }
 
   function foundForm(data: CirclesResponse): HTMLElement | null {

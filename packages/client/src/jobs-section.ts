@@ -7,7 +7,7 @@
  */
 import type { JobsResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { errorLine, itemRows } from "@terrakin/ui/ui";
+import { errorLine, itemRows, landOnHash } from "@terrakin/ui/ui";
 import { jobsApi } from "./api/jobs";
 import {
   heldJob,
@@ -42,7 +42,8 @@ export function jobsSection(o: {
   });
   const problem = errorLine("jobs-error");
   let painted = "";
-  let landed = false;
+  // A link to the section lands on it once.
+  const land = landOnHash("#jobs", () => title);
 
   /**
    * Read the board and draw it. A read that fails leaves what's drawn, as a page's refresh does,
@@ -63,11 +64,7 @@ export function jobsSection(o: {
         painted = next;
         repaintKeepingFocus(card, () => paint(r.data));
       }
-      // A link to the section lands on it once.
-      if (!landed && location.hash === "#jobs") {
-        landed = true;
-        requestAnimationFrame(() => title.scrollIntoView({ block: "start" }));
-      }
+      land();
     },
   );
   const acts = jobActs({ within: card, problem, reread: refresh });

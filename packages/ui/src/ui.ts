@@ -879,6 +879,22 @@ export function openPopover(host: HTMLElement, el: HTMLElement, opener: HTMLElem
 // ---------- confirm twice ----------
 
 /**
+ * A section a link names (`/shop#recipes`, `/town#jobs`), scrolled to once. Call what it returns
+ * after each paint: the first paint that draws `target` while the page's hash is `hash` lands on
+ * it, and no later paint moves the page, so a refresh never pulls a reader back up.
+ */
+export function landOnHash(hash: string, target: () => Element | null | undefined): () => void {
+  let landed = false;
+  return () => {
+    if (landed || location.hash !== hash) return;
+    const el = target();
+    if (!el) return;
+    landed = true;
+    requestAnimationFrame(() => el.scrollIntoView({ block: "start" }));
+  };
+}
+
+/**
  * A button for something hard to undo: the first tap changes its label to `again`, the second runs
  * `act`. `ask` says whether this tap needs asking at all (unblocking doesn't). Returns `disarm`,
  * which puts the label back, for example when its menu closes.

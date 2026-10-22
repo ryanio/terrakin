@@ -153,6 +153,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
     use: "pulseShell (pulse-cards.ts)",
     home: "packages/client/src/pulse-cards.ts",
   },
+  { pattern: /location\.hash === "#(?!join"|signin")/, use: "landOnHash (ui.ts)" },
   {
     pattern: /history\.state as \{ overlay/,
     use: "the router, which closes an open overlay as it navigates (leaveOverlay in ui.ts)",

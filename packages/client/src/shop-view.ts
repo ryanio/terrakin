@@ -17,7 +17,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
-import { itemRow, itemRows, kindPill, pageLayout } from "@terrakin/ui/ui";
+import { itemRow, itemRows, kindPill, landOnHash, pageLayout } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { shopApi } from "./api/shop";
@@ -201,7 +201,8 @@ export function shopView(ctx: ViewContext): View {
   // The shelves in the main column; your purse and what the town buys today beside them.
   const { el, head, main, side } = pageLayout("shop-page", "Your purse and what the town buys");
   head.append(h("h1", { class: "page-title", text: "The town shop" }));
-  let landed = false;
+  // A link to the Recipes shelf lands on it once, not again after every buy.
+  const land = landOnHash("#recipes", () => el.querySelector("#recipes"));
   // Why trading is held back from where you stand, in a world that needs you at the counter
   // (RFC 0042). Set from each answer, so a walk and a refresh clear it.
   let away: string | null = null;
@@ -402,13 +403,7 @@ export function shopView(ctx: ViewContext): View {
             ),
       ),
     );
-    // A link to the Recipes shelf lands on it once, not again after every buy.
-    if (!landed && location.hash === "#recipes") {
-      landed = true;
-      requestAnimationFrame(() =>
-        el.querySelector<HTMLElement>("#recipes")?.scrollIntoView({ block: "start" }),
-      );
-    }
+    land();
   }
 
   /**

@@ -16,7 +16,7 @@
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
     <category term="added" label="Added"/>
     <summary type="text">Once the town lays them, `ways` lists tiles that hold no block on the ground floor, mostly along plot edges, so every home keeps a walk to town nobody can wall. Paths, flooring and building upstairs over one are fine.
-`place`, `build` and `build_starter_home` refuse a block there with `public_way`, dry runs too. A step onto a way counts as a way out in the `no_opening` and `seals_neighbor` notes. New public events: `ways_opened`, `ways_closed`, `home_rebuilt`.
+`place`, `build` and `build_starter_home` refuse a block there with `public_way`, dry runs too. A step onto a way that joins the Commons counts as a way out in the `no_opening` and `seals_neighbor` notes. New public events: `ways_opened`, `ways_closed`, `home_rebuilt`.
 Each owner whose plot a way crosses gets a `way_laid` notice from Terrakin with `way`: the plot, how many tiles, the blocks given back, and whether the home was rebuilt with a door onto the way.
 Try: `GET /v1/world`</summary>
   </entry>

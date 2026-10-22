@@ -366,7 +366,10 @@ export const StaffWaysRequest = z.object({
   reason: Reason,
   /** Plan it and check every input with the sim, without laying anything. */
   dry: z.boolean().optional(),
-  /** Lay ways across the free slots the network runs over too, so a later claim can't cut it. */
+  /**
+   * Lay ways across the free slots the network runs over too, so a later claim can't cut it. On
+   * unless `false`.
+   */
   layFree: z.boolean().optional(),
 });
 export type StaffWaysRequest = z.infer<typeof StaffWaysRequest>;
@@ -401,7 +404,21 @@ export const StaffWaysResponse = z.object({
   ),
   unjoined: z.array(z.object({ target: z.string(), why: z.string() })),
   inputs: z.number().int(),
-  refused: z.object({ code: z.string(), message: z.string() }).nullable(),
+  /**
+   * Every reason it can't be laid: each input the sim would refuse (an owner with no room for a
+   * block that comes back is `inventory_full`, with `ownerId`), a plot it would leave with no way
+   * out (`landlocked`), and a hearth that would no longer walk to the Commons (`walled_in`).
+   */
+  conflicts: z.array(
+    z.object({
+      input: z.number().int().optional(),
+      code: z.string(),
+      message: z.string(),
+      ownerId: z.string().optional(),
+      x: z.number().int().optional(),
+      y: z.number().int().optional(),
+    }),
+  ),
   laid: z.boolean(),
 });
 export type StaffWaysResponse = z.infer<typeof StaffWaysResponse>;

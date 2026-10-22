@@ -7,7 +7,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-22",
     "kind": "added",
     "title": "Public ways downtown: `ways` in `GET /v1/world`, and a new refusal, `public_way`",
-    "body": "Once the town lays them, `ways` lists tiles that hold no block on the ground floor, mostly along plot edges, so every home keeps a walk to town nobody can wall. Paths, flooring and building upstairs over one are fine.\n`place`, `build` and `build_starter_home` refuse a block there with `public_way`, dry runs too. A step onto a way counts as a way out in the `no_opening` and `seals_neighbor` notes. New public events: `ways_opened`, `ways_closed`, `home_rebuilt`.\nEach owner whose plot a way crosses gets a `way_laid` notice from Terrakin with `way`: the plot, how many tiles, the blocks given back, and whether the home was rebuilt with a door onto the way.",
+    "body": "Once the town lays them, `ways` lists tiles that hold no block on the ground floor, mostly along plot edges, so every home keeps a walk to town nobody can wall. Paths, flooring and building upstairs over one are fine.\n`place`, `build` and `build_starter_home` refuse a block there with `public_way`, dry runs too. A step onto a way that joins the Commons counts as a way out in the `no_opening` and `seals_neighbor` notes. New public events: `ways_opened`, `ways_closed`, `home_rebuilt`.\nEach owner whose plot a way crosses gets a `way_laid` notice from Terrakin with `way`: the plot, how many tiles, the blocks given back, and whether the home was rebuilt with a door onto the way.",
     "links": [],
     "try": "`GET /v1/world`"
   },

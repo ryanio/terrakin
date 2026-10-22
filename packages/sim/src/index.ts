@@ -451,6 +451,7 @@ export {
   closesNobodyIn,
   doorFacing,
   doorOutward,
+  joinedWays,
   type Landlocked,
   landlocked,
   landlockedFrom,

@@ -193,7 +193,9 @@ export function render(
 
   // ---- ground: one fillRect per tile, edges rounded so neighbors share pixels (no seams) ----
   const dpr = ctx.getTransform().a || 1;
-  const paved = mirror.paving.size > 0;
+  // What's laid, and the town's own streets and ways drawn as paths under it (RFC 0046).
+  const drawnPaving = mirror.drawnPaving;
+  const paved = drawnPaving.size > 0;
   // A world of one grid has no water at all, so it draws exactly as it always did.
   const water = mirror.lands !== undefined;
   const tufts = new Path2D();
@@ -235,7 +237,7 @@ export function render(
       ctx.fillStyle = ground.fill;
       ctx.fillRect(left, top, w, h);
       // A path or flooring (RFC 0016) covers the tile's own grass: drawn once per size, then stamped.
-      const laid = paved ? mirror.paving.get(tileKey(x, y)) : undefined;
+      const laid = paved ? drawnPaving.get(tileKey(x, y)) : undefined;
       if (laid) ctx.drawImage(groundSprite(laid, w, h, dpr), left, top, w, h);
       const deco = laid ? null : ground.scenery;
       if (deco?.kind === "tuft") {

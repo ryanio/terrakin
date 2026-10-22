@@ -6,7 +6,7 @@
  * rebuild, and who would hear about it.
  *
  *   node --import ./scripts/resolve-ts.mjs scripts/ways.ts [--base https://terrakin.org]
- *                                                          [--file world.json] [--lay-free] [--json]
+ *                                                          [--file world.json] [--keep-free] [--json]
  *
  * Read-only: one GET, or none with `--file`. Applying a plan is the staff route
  * `POST /v1/admin/ways` (maintainers only), never this script. It names plots by their coordinates
@@ -23,7 +23,13 @@ import {
   type WayPlan,
   wayLanding,
 } from "../packages/server/src/way-plan.ts";
-import { type BlockKind, type Tile, tileKey } from "../packages/sim/src/index.ts";
+import {
+  type BlockKind,
+  plotKey,
+  type Tile,
+  tileKey,
+  walkTree,
+} from "../packages/sim/src/index.ts";
 import { factsOf, landlockedIn, type WorldRead } from "./landlocked.ts";
 
 /** The parts of `GET /v1/world` the plan reads, beyond what the landlocked check does. */
@@ -35,6 +41,13 @@ export interface WaysRead extends WorldRead {
   crops?: Tile[];
   displays?: Tile[];
   ways?: Tile[];
+  /** Paths and flooring, the floors above with `floor`. */
+  ground?: (Tile & { floor?: number })[];
+  /**
+   * Plots for sale. The snapshot doesn't carry listings (the plot market is dark), so the dry run
+   * reads none and the staff route, which reads the world, is what routes around them.
+   */
+  listed?: { px: number; py: number }[];
 }
 
 /** The planner's facts from the snapshot. */
@@ -57,6 +70,12 @@ export function wayFactsOf(world: WaysRead): WayFacts {
     fixed: new Set(
       [...(world.crops ?? []), ...(world.displays ?? [])].map((t) => tileKey(t.x, t.y)),
     ),
+    upstairs: new Set(
+      [...world.blocks, ...(world.ground ?? [])]
+        .filter((t) => (t.floor ?? 0) > 0)
+        .map((t) => tileKey(t.x, t.y)),
+    ),
+    listed: new Set((world.listed ?? []).map((p) => plotKey(p.px, p.py))),
     ways: new Set((world.ways ?? []).map((t) => tileKey(t.x, t.y))),
     landing: wayLanding(world.config, downtown, world.commons),
   };
@@ -75,12 +94,31 @@ export function afterPlan(world: WaysRead, plan: WayPlan): WaysRead {
   return { ...world, blocks, ways: [...(world.ways ?? []), ...plan.tiles] };
 }
 
+/**
+ * How many hearths walk to the Commons in the world the snapshot shows, over the sim's own step
+ * rule: the count the staff route refuses a plan for lowering (`walled_in`).
+ */
+export function hearthsWalking(world: WaysRead): number {
+  const { ground } = factsOf(world);
+  const S = world.config.plotSize;
+  const radius = Math.max(world.config.width, world.config.height);
+  const hearths = [...world.residents, ...(world.townsfolkResidents ?? [])].flatMap((r) =>
+    r.hearth ? [r.hearth] : [],
+  );
+  return hearths.filter((h) =>
+    walkTree(ground, h, radius).some(
+      (n) => Math.floor(n.x / S) === world.commons.px && Math.floor(n.y / S) === world.commons.py,
+    ),
+  ).length;
+}
+
 /** The plan in lines: totals, then each plot's tiles, the blocks, the homes, and who hears. */
 export function planLines(
   plan: WayPlan,
   claimed: number,
   before?: number,
   after?: number,
+  walking?: [number, number],
 ): string[] {
   const residents = plan.plots.filter((p) => !p.townsfolk);
   const townsfolk = plan.plots.filter((p) => p.townsfolk);
@@ -92,6 +130,9 @@ export function planLines(
     `${plan.blocks.length} blocks to clear and give back, ${plan.homes.length} homes to rebuild, ${new Set(plan.plots.map((p) => p.ownerId)).size} owners to tell.`,
     ...(before !== undefined && after !== undefined
       ? [`Plots with no way out (decision 0351): ${before} now, ${after} once it is laid.`]
+      : []),
+    ...(walking
+      ? [`Hearths that walk to the Commons: ${walking[0]} now, ${walking[1]} once it is laid.`]
       : []),
     ...(plan.unjoined.length > 0
       ? [`Not joined: ${plan.unjoined.map((u) => `${u.target} (${u.why})`).join("; ")}.`]
@@ -128,7 +169,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     options: {
       base: { type: "string", default: "https://terrakin.org" },
       file: { type: "string" },
-      "lay-free": { type: "boolean", default: false },
+      "keep-free": { type: "boolean", default: false },
       json: { type: "boolean", default: false },
     },
   });
@@ -144,11 +185,19 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`Couldn't read the world: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(2);
   }
-  const plan = planWays(wayFactsOf(world), { layFree: values["lay-free"] });
+  const plan = planWays(wayFactsOf(world), { layFree: !values["keep-free"] });
   if (values.json) console.log(JSON.stringify(plan, null, 2));
   else {
     const before = landlockedIn(world).length;
     const after = landlockedIn(afterPlan(world, plan)).length;
-    for (const line of planLines(plan, world.plots.length, before, after)) console.log(line);
+    const walking: [number, number] = [
+      hearthsWalking(world),
+      hearthsWalking(afterPlan(world, plan)),
+    ];
+    for (const line of planLines(plan, world.plots.length, before, after, walking))
+      console.log(line);
+    console.log(
+      "\nNot checked here: whether each owner has room for what comes back (inventories are private), and plots for sale (none are listed while the plot market is dark). The staff route's dry run checks both.",
+    );
   }
 }

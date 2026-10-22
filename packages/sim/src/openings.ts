@@ -2,10 +2,11 @@ import type { BuildPlan } from "./build";
 import { plotKey, tileKey } from "./keys";
 import { isStreet, onLand, seaFrom } from "./lands";
 import type { Direction, ResidentId, Tile, WorldState } from "./types";
-import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
+import { DIRECTIONS, type Ground, groundOf, stepFrom, walkTree } from "./walk";
 import { isWay } from "./ways";
 import {
   blocksWalkers,
+  commonsPlot,
   inBounds,
   isTownSquare,
   plotOf,
@@ -167,7 +168,7 @@ export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts 
     if ((t.floor ?? 0) === 0) changed.set(tileKey(t.x, t.y), blocksWalkers(t.block));
   }
   const sea = seaFrom(state.config, state.lands);
-  return {
+  const facts: OpeningFacts = {
     ground: groundOf({
       config: state.config,
       hasBlock: (x, y) => changed.get(tileKey(x, y)) ?? blocksWalkers(state.blocks[tileKey(x, y)]),
@@ -177,8 +178,45 @@ export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts 
       ...(sea ? { sea } : {}),
     }),
     claimed: (px, py) => state.plots[plotKey(px, py)] !== undefined,
-    ...(state.ways ? { way: (x: number, y: number) => isWay(state, x, y) } : {}),
   };
+  if (!state.ways) return facts;
+  return { ...facts, way: joinedWays(facts, (x, y) => isWay(state, x, y), commonsPlot(state)) };
+}
+
+/**
+ * Which way tiles count as open ground (RFC 0046): the ones a walk from the Commons reaches over
+ * ground nobody has claimed and over ways. A way the rest of the network doesn't reach, left over
+ * after a `close_way` or laid on its own, leads nowhere, so a step onto it is no way out. One walk
+ * over the world, so a reader asks it once and keeps the answer.
+ */
+export function joinedWays(
+  facts: Pick<OpeningFacts, "ground" | "claimed">,
+  way: (x: number, y: number) => boolean,
+  commons: { px: number; py: number },
+): (x: number, y: number) => boolean {
+  const { ground, claimed } = facts;
+  const { config } = ground;
+  const S = config.plotSize;
+  const open: Ground = {
+    config,
+    obstacle: (x, y) => {
+      const there = ground.obstacle(x, y);
+      if (there) return there;
+      const slot = plotOf(config, x, y);
+      return claimed(slot.px, slot.py) && !way(x, y) ? "block" : undefined;
+    },
+  };
+  let start: Tile | undefined;
+  for (let y = commons.py * S; y < (commons.py + 1) * S && !start; y++) {
+    for (let x = commons.px * S; x < (commons.px + 1) * S && !start; x++) {
+      if (!open.obstacle(x, y)) start = { x, y };
+    }
+  }
+  if (!start) return () => false;
+  const reached = new Set(
+    walkTree(open, start, Math.max(config.width, config.height)).map((n) => tileKey(n.x, n.y)),
+  );
+  return (x, y) => way(x, y) && reached.has(tileKey(x, y));
 }
 
 /** Every resident's hearth in the world. */

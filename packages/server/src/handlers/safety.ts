@@ -8,7 +8,6 @@ import {
 import {
   AWARDS,
   awardedInWindow,
-  type Command,
   circleById,
   findBounty,
   findEvent,
@@ -40,7 +39,7 @@ import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
 import { cleanText } from "../text";
 import { planWays } from "../way-plan";
-import { wayFactsFrom, wayInputs, wayNotices, wayRefusal } from "../ways";
+import { WayNotices, wayConflicts, wayFactsFrom, wayInputs } from "../ways";
 import {
   DAILY_CAP_RETRY_SECONDS,
   fail,
@@ -519,35 +518,42 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     layWays: ({ viewer, body }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
       const { state } = service;
-      const plan = planWays(wayFactsFrom(state), { layFree: body.layFree === true });
+      const plan = planWays(wayFactsFrom(state), { layFree: body.layFree !== false });
       const inputs = wayInputs(plan, state.config.plotSize);
-      const refusal = wayRefusal(state, inputs);
-      const answer = {
-        ...plan,
-        inputs: inputs.length,
-        refused: refusal && {
-          code: refusal.rejection.code,
-          message: `${refusal.command.type}: ${refusal.rejection.message}`,
-        },
-        laid: false,
+      const conflicts = wayConflicts(state, inputs);
+      const answer = { ...plan, inputs: inputs.length, conflicts, laid: false };
+      if (body.dry === true || conflicts.length > 0 || inputs.length === 0) {
+        return { status: 200, body: answer };
+      }
+      // Each owner hears about what committed, so a run that stops partway tells them what did
+      // change, and running it again plans only what is left and tells them about that.
+      const notices = new WayNotices(state);
+      const tell = () => {
+        for (const { ownerId, notice } of notices.all()) {
+          social().safety.recordNote(
+            viewer,
+            "open_way",
+            "resident",
+            ownerId,
+            `On ${notice.px},${notice.py}: ${body.reason}`,
+          );
+          social().wayLaid(ownerId, notice);
+        }
       };
-      if (body.dry === true || refusal || inputs.length === 0) return { status: 200, body: answer };
-      for (const command of inputs) {
-        const done = service.wayInput(
-          command as Extract<Command, { type: "clear_block" | "open_way" | "rebuild_home" }>,
-        );
-        if (!done.ok) return fail(done.error.code, done.error.message);
+      for (const [i, command] of inputs.entries()) {
+        const block =
+          command.type === "clear_block" ? state.blocks[tileKey(command.x, command.y)] : undefined;
+        const done = service.wayInput(command);
+        if (!done.ok) {
+          tell();
+          return fail(
+            done.error.code,
+            `Stopped at input ${i + 1} of ${inputs.length} (${command.type}): ${done.error.message} What went before it is laid and its owners were told. Run it again to finish the rest.`,
+          );
+        }
+        notices.committed(command, block);
       }
-      for (const { ownerId, notice } of wayNotices(plan)) {
-        social().safety.recordNote(
-          viewer,
-          "open_way",
-          "resident",
-          ownerId,
-          `On ${notice.px},${notice.py}: ${body.reason}`,
-        );
-        social().wayLaid(ownerId, notice);
-      }
+      tell();
       return { status: 200, body: { ...answer, laid: true } };
     },
     // A duplicate record merged into the one that stays (issue #46, decision 0239). What moves is

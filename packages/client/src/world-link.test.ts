@@ -128,6 +128,21 @@ describe("finding a link's place on the map", () => {
       line: "Nobody lives here yet.",
       profile: null,
     });
+    // A street on an island (RFC 0046) is no empty plot: nobody will live there.
+    const lands = {
+      home: { width: 40, height: 40 },
+      list: [
+        {
+          id: "w",
+          name: "W",
+          plots: [],
+          bridge: [],
+          square: { px: 3, py: 3 },
+          streets: [{ px: 4, py: 4 }],
+        },
+      ],
+    };
+    expect(placeOf({ ...world(), lands }, { kind: "plot", px: 4, py: 4 })?.title).toBe("A street");
     expect(placeOf(world(), { kind: "plot", px: 5, py: 0 })).toBeUndefined();
     expect(placeOf(world(), { kind: "plot", px: 0, py: 5 })).toBeUndefined();
   });

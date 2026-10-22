@@ -17,9 +17,9 @@ Downtown's 80 slots are fixed, 18 of 53 claimed plots had no way out on 2026-10-
 
 A way holds no block on the ground floor: `place`, `build` and `build_starter_home` refuse one with the new code `public_way`, and a dry run says so. A door and the seats you walk onto would pass walkers, but a door may one day lock and stairs make a stairwell, so a way takes none. Paths, flooring and building upstairs over a way are the owner's, which makes a covered passage.
 
-`openings.ts` counts a step onto a way as open ground, on anyone's plot. That amends decision 0351, whose way out was a step onto ground nobody had claimed. A claim beside a way keeps its neighbors' steps onto it (`claimWaysFrom`), and `scripts/landlocked.ts` reads `ways` off the snapshot.
+`openings.ts` counts a step onto a way as open ground, on anyone's plot, when the way joins the Commons: a walk from the Commons over unclaimed ground and ways reaches it (`joinedWays`). A way left over after a `close_way`, or laid on its own, leads nowhere and counts for nothing. That amends decision 0351, whose way out was a step onto ground nobody had claimed. A claim beside a way keeps its neighbors' steps onto it (`claimWaysFrom`), and `scripts/landlocked.ts` reads `ways` off the snapshot.
 
-The snapshot carries `ways` once there are any, and `ways_opened`, `ways_closed` and `home_rebuilt` are public events.
+The snapshot carries `ways` once there are any, and `ways_opened`, `ways_closed` and `home_rebuilt` are public events. The web draws a way as a faint dirt path and an island's streets as cobbles, through the same paving drawing every path uses, for drawing only.
 
 ## Consequences
 

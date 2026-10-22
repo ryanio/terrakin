@@ -21,6 +21,7 @@ import {
   type BlockKind,
   blocksWalkers,
   groundOf,
+  joinedWays,
   type Landlocked,
   landlockedFrom,
   type OpeningFacts,
@@ -72,7 +73,12 @@ export function factsOf(world: WorldRead): OpeningFacts {
   const sea = seaFrom(world.config, lands);
   const claimed = new Set(world.plots.map((p) => plotKey(p.px, p.py)));
   const ways = new Set((world.ways ?? []).map((t) => tileKey(t.x, t.y)));
-  return {
+  const downtown = world.lands?.home ?? world.config;
+  const commons = {
+    px: Math.floor(downtown.width / world.config.plotSize / 2),
+    py: Math.floor(downtown.height / world.config.plotSize / 2),
+  };
+  const facts: OpeningFacts = {
     ground: groundOf({
       config: world.config,
       hasBlock: (x, y) => solid.has(tileKey(x, y)),
@@ -82,8 +88,10 @@ export function factsOf(world: WorldRead): OpeningFacts {
       ...(sea ? { sea } : {}),
     }),
     claimed: (px, py) => claimed.has(plotKey(px, py)),
-    ...(ways.size > 0 ? { way: (x: number, y: number) => ways.has(tileKey(x, y)) } : {}),
   };
+  if (ways.size === 0) return facts;
+  // A way counts only where it joins the Commons, as the sim's own `openingFacts` reads it.
+  return { ...facts, way: joinedWays(facts, (x, y) => ways.has(tileKey(x, y)), commons) };
 }
 
 /** Every landlocked plot in the world the snapshot shows, north to south, then west to east. */

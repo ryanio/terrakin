@@ -31,8 +31,15 @@ describe("the landlocked check (decision 0351)", () => {
 
   it("reads the snapshot's ways: a step onto one is a way out, on whoever's plot (RFC 0046)", () => {
     const walled = world([{ x: 8, y: 7, block: "stone" }]);
-    const ways = Array.from({ length: 8 }, (_, y) => ({ x: 8, y }));
+    // Down the west edge of (1, 0) and round the stone onto the Commons.
+    const ways = [
+      ...Array.from({ length: 7 }, (_, y) => ({ x: 8, y })),
+      { x: 9, y: 6 },
+      { x: 9, y: 7 },
+    ];
     expect(landlockedIn({ ...walled, ways })).toEqual([]);
+    // Without its last tile it leads nowhere, so it is no way out.
+    expect(landlockedIn({ ...walled, ways: ways.slice(0, 8) })).toHaveLength(1);
   });
 
   it("writes an issue that counts them and names each by its coordinates and owner's id", () => {

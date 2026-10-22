@@ -159,6 +159,11 @@ export interface ChunkSource {
   /** Paths and flooring by tile key. Absent reads as none. */
   paving?: ReadonlyMap<string, GroundKind>;
   /**
+   * The ground floor's paths as they're drawn, the town's streets and ways under what's laid
+   * (`Mirror.drawnPaving`, RFC 0046). Read in place of `paving` when present.
+   */
+  drawnPaving?: ReadonlyMap<string, GroundKind>;
+  /**
    * Each floor above the ground floor (RFC 0028), by its number: its blocks and flooring by tile
    * key (`Mirror.upstairs`). Absent reads as none.
    */
@@ -212,7 +217,7 @@ function tileThings(
 ) {
   const key = tileKey(x, y);
   const block = source.blocks.get(key);
-  const ground = source.paving?.get(key);
+  const ground = (source.drawnPaving ?? source.paving)?.get(key);
   const hearth = hearths.has(key);
   const find = source.shownFinds?.get(key);
   const display = displayOn(

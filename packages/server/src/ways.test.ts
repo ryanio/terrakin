@@ -17,7 +17,7 @@ import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { planWays } from "./way-plan";
-import { wayFactsFrom, wayInputs, wayRefusal } from "./ways";
+import { wayConflicts, wayFactsFrom, wayInputs } from "./ways";
 import { WorldService } from "./world-service";
 
 /**
@@ -109,7 +109,7 @@ async function start() {
   }
   const lay = (body: Record<string, unknown>, who: Who = mira) =>
     call("POST", "/v1/admin/ways", { reason: "Streets for downtown", ...body }, who.token);
-  return { call, service, sql, mira, otto, homes, lay };
+  return { call, service, sql, store, mira, otto, homes, lay };
 }
 
 describe("laying downtown's ways", () => {
@@ -121,8 +121,9 @@ describe("laying downtown's ways", () => {
     const seq = service.state.seq;
     const dry = await lay({ dry: true });
     expect(dry.status).toBe(200);
-    expect(dry.body).toMatchObject({ laid: false, refused: null, unjoined: [] });
-    expect(dry.body.tiles.length).toBeGreaterThan(0);
+    expect(dry.body).toMatchObject({ laid: false, conflicts: [], unjoined: [] });
+    // Free slots the network runs over are laid too, so a later claim can't cut it.
+    expect(dry.body.free.length).toBeGreaterThan(0);
     expect(service.state.seq).toBe(seq);
     expect(service.state.ways).toBeUndefined();
   });
@@ -131,12 +132,12 @@ describe("laying downtown's ways", () => {
     const { call, service, sql, mira, homes, lay } = await start();
     const res = await lay({});
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ laid: true, refused: null });
+    expect(res.body).toMatchObject({ laid: true, conflicts: [] });
     expect(landlocked(service.state)).toEqual([]);
     const world = (await call("GET", "/v1/world")).body;
     expect(world.ways).toHaveLength(res.body.tiles.length);
 
-    // Each owner whose plot it crosses hears it from Terrakin, with the count of tiles.
+    // Each owner whose plot it crosses hears it from Terrakin, once, with the count of tiles.
     for (const plot of res.body.plots as { ownerId: string; tiles: unknown[] }[]) {
       const who = homes.find((h) => h.residentId === plot.ownerId);
       if (!who) throw new Error("a plot nobody here owns");
@@ -152,6 +153,9 @@ describe("laying downtown's ways", () => {
     const logged = [...sql.exec("SELECT * FROM moderation_log WHERE action = 'open_way'")];
     expect(logged).toHaveLength(res.body.plots.length);
     expect(logged[0]).toMatchObject({ actor: mira.residentId });
+
+    // Laid again, there is nothing left to do.
+    expect((await lay({})).body).toMatchObject({ inputs: 0, laid: false });
 
     // And a block on a way is refused on the wire, in the words that say why.
     const [first] = res.body.plots as { ownerId: string; tiles: { x: number; y: number }[] }[];
@@ -170,72 +174,208 @@ describe("laying downtown's ways", () => {
     );
     expect(placed.body.error.code).toBe("public_way");
   });
+
+  it("says where it stopped when a save fails, and run again finishes it", async () => {
+    const { service, store, lay } = await start();
+    const append = store.appendInput.bind(store);
+    let failed = false;
+    store.appendInput = (input) => {
+      if (input.command.type === "open_way" && !failed) {
+        failed = true;
+        throw new Error("disk full");
+      }
+      return append(input);
+    };
+    const stopped = await lay({});
+    expect(stopped.status).toBe(500);
+    expect(stopped.body.error.message).toMatch(/^Stopped at input \d+ of \d+ \(open_way\)/);
+    expect(service.state.ways).toBeUndefined();
+    expect((await lay({})).body).toMatchObject({ laid: true, conflicts: [] });
+    expect(landlocked(service.state)).toEqual([]);
+    expect(store.log.filter((i) => i.command.type === "open_way")).toHaveLength(1);
+  });
 });
 
-describe("a home the way cuts through", () => {
-  it("comes down where the way runs and goes back up beside it, closed, with a door onto it", () => {
-    // Downtown 4 plots by 1, the Commons at (2, 0). Ada's plot (0, 0) reaches the Commons only
-    // across Bo's (1, 0), whose home's walls run the whole height of his plot at x 10 and x 14,
-    // and whose top and bottom rows are planted, so the way has to go through his home.
-    const state = createWorld({
-      width: 32,
-      height: 8,
-      plotSize: 8,
-      maxPlotsPerResident: 1,
-      reach: 3,
-    });
-    for (const [id, px] of [
-      ["ada", 0],
-      ["bo", 1],
-    ] as const) {
-      expect(
-        apply(state, { actor: id, command: { type: "join", name: id, kind: "agent" } }).ok,
-      ).toBe(true);
-      expect(apply(state, { actor: id, command: { type: "settle", px, py: 0 } }).ok).toBe(true);
-    }
-    const ada = state.residents.ada;
-    const bo = state.residents.bo;
-    if (!ada || !bo) throw new Error("nobody here");
-    ada.hearth = { x: 3, y: 3 };
-    bo.hearth = { x: 12, y: 3 };
-    for (let y = 0; y < 8; y++) {
-      state.blocks[tileKey(10, y)] = "stone";
-      state.blocks[tileKey(14, y)] = "stone";
-    }
-    const planted = [11, 12, 13].flatMap((x) => [tileKey(x, 0), tileKey(x, 7)]);
-    for (const key of planted) state.blocks[key] = "planter";
-    const facts = wayFactsFrom(state);
-    const plan = planWays({ ...facts, fixed: new Set([...facts.fixed, ...planted]) });
-    expect(plan.unjoined).toEqual([]);
-    const [home] = plan.homes;
-    expect(home).toMatchObject({ px: 1, py: 0, ownerId: "bo", left: [] });
-    expect(home?.rebuild.filter((b) => b.block === "door")).toHaveLength(1);
+type World = ReturnType<typeof createWorld>;
+const PLANTED = [11, 12, 13].flatMap((x) => [tileKey(x, 0), tileKey(x, 7)]);
+/** Bo's walls the town can't clear (a crop, a display), all but the rows in `open`. */
+const shutBut = (open: readonly number[]) =>
+  [0, 1, 2, 3, 4, 5, 6, 7]
+    .filter((y) => !open.includes(y))
+    .flatMap((y) => [tileKey(10, y), tileKey(14, y)]);
 
-    const inputs = wayInputs(plan, 8);
-    expect(inputs.map((c) => c.type)).toEqual([
+/**
+ * Downtown 4 plots by 1, the Commons at (2, 0). Ada's plot (0, 0) reaches the Commons only across
+ * Bo's (1, 0), whose home's walls run the whole height of his plot at x 10 and x 14, with planters
+ * along its top and bottom rows, so the way has to go through his home.
+ */
+function stripWorld(hearth: { x: number; y: number }): World {
+  const state = createWorld({
+    width: 32,
+    height: 8,
+    plotSize: 8,
+    maxPlotsPerResident: 1,
+    reach: 3,
+  });
+  for (const command of [
+    { type: "new_day", day: 20_000 },
+    { type: "open_economy" },
+    { type: "open_items" },
+  ] as const) {
+    expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+  }
+  for (const [id, px] of [
+    ["ada", 0],
+    ["bo", 1],
+  ] as const) {
+    expect(apply(state, { actor: id, command: { type: "join", name: id, kind: "agent" } }).ok).toBe(
+      true,
+    );
+    expect(apply(state, { actor: id, command: { type: "settle", px, py: 0 } }).ok).toBe(true);
+  }
+  const ada = state.residents.ada;
+  const bo = state.residents.bo;
+  if (!ada || !bo) throw new Error("nobody here");
+  ada.hearth = { x: 3, y: 3 };
+  bo.hearth = hearth;
+  for (let y = 0; y < 8; y++) {
+    state.blocks[tileKey(10, y)] = "stone";
+    state.blocks[tileKey(14, y)] = "stone";
+  }
+  for (const key of PLANTED) state.blocks[key] = "planter";
+  return state;
+}
+
+/** The plan for the strip, with the walls but the rows in `open` held where they stand. */
+function stripPlan(state: World, open: readonly number[]) {
+  const facts = wayFactsFrom(state);
+  return planWays({ ...facts, fixed: new Set([...facts.fixed, ...PLANTED, ...shutBut(open)]) });
+}
+
+/** Whether a hearth walks to the Commons, plot (2, 0). */
+const walksToCommons = (state: World, from: { x: number; y: number }) =>
+  walkTree(worldGround(state), from, 32).some((n) => n.x >= 16 && n.x < 24);
+
+describe("a home the way cuts through", () => {
+  it.each<[string, { x: number; y: number }, number[], boolean]>([
+    ["the hearth north of the way", { x: 12, y: 2 }, [5], false],
+    ["the hearth south of the way", { x: 12, y: 5 }, [3], false],
+    // The review's repro: the door went up on the far side of the way from the hearth, and the
+    // home behind its new wall had no way out at all.
+    ["the hearth south of the way, its own door north of it", { x: 12, y: 5 }, [3], true],
+  ])(
+    "goes back up on the hearth's side, closed, with a door onto it: %s",
+    (_, hearth, open, door) => {
+      const state = stripWorld(hearth);
+      if (door) state.blocks[tileKey(14, 1)] = "door";
+      const plan = stripPlan(state, open);
+      expect(plan.unjoined).toEqual([]);
+      const [home] = plan.homes;
+      expect(home).toMatchObject({ px: 1, py: 0, ownerId: "bo", left: [] });
+      expect(home?.rebuild.filter((b) => b.block === "door")).toHaveLength(1);
+      const inputs = wayInputs(plan, 8);
+      expect(wayConflicts(state, inputs)).toEqual([]);
+      for (const command of inputs)
+        expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+
+      // With the door shut his hearth's walk on his plot reaches no way tile; through the door it
+      // steps onto one, and on to the Commons.
+      const ground = worldGround(state);
+      const shut = {
+        config: ground.config,
+        obstacle: (x: number, y: number) =>
+          state.blocks[tileKey(x, y)] === "door" ? ("block" as const) : ground.obstacle(x, y),
+      };
+      const inside = walkTree(shut, hearth, 8).map((n) => tileKey(n.x, n.y));
+      expect(inside.some((key) => state.ways?.[key])).toBe(false);
+      expect(walksToCommons(state, hearth)).toBe(true);
+      expect(landlocked(state)).toEqual([]);
+    },
+  );
+
+  it("planned again after a run that stopped anywhere, finishes without doing anything twice", () => {
+    const first = wayInputs(stripPlan(stripWorld({ x: 12, y: 5 }), [3]), 8);
+    expect(first.map((c) => c.type)).toEqual([
       "clear_block",
       "clear_block",
       "open_way",
       "rebuild_home",
     ]);
-    expect(wayRefusal(state, inputs)).toBeNull();
-    for (const command of inputs)
-      expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+    for (let stop = 1; stop < first.length; stop++) {
+      const state = stripWorld({ x: 12, y: 5 });
+      for (const command of first.slice(0, stop)) {
+        expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+      }
+      const rest = wayInputs(stripPlan(state, [3]), 8);
+      // Nothing that went in goes in again: no block cleared twice, no tile laid twice.
+      const done = new Set(first.slice(0, stop).map((c) => JSON.stringify(c)));
+      expect(rest.filter((c) => done.has(JSON.stringify(c)))).toEqual([]);
+      const laid = new Set(Object.keys(state.ways ?? {}));
+      const again = rest.flatMap((c) => (c.type === "open_way" ? c.tiles : []));
+      expect(again.filter(([x, y]) => laid.has(tileKey(x, y)))).toEqual([]);
+      expect(wayConflicts(state, rest)).toEqual([]);
+      for (const command of rest)
+        expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+      expect(wayInputs(stripPlan(state, [3]), 8)).toEqual([]);
+      expect(walksToCommons(state, { x: 12, y: 5 })).toBe(true);
+      expect(landlocked(state)).toEqual([]);
+    }
+  });
 
-    // Bo's home is closed again: with the door shut, his hearth's walk on his plot reaches no way
-    // tile, and through the door it steps straight onto one.
-    const ground = worldGround(state);
-    const shut = {
-      config: ground.config,
-      obstacle: (x: number, y: number) =>
-        state.blocks[tileKey(x, y)] === "door" ? ("block" as const) : ground.obstacle(x, y),
-    };
-    const inside = walkTree(shut, bo.hearth, 8).map((n) => tileKey(n.x, n.y));
-    expect(inside.some((key) => state.ways?.[key])).toBe(false);
-    const door = home?.rebuild.find((b) => b.block === "door");
-    if (!door) throw new Error("no door");
-    const out = walkTree(ground, bo.hearth, 8).map((n) => tileKey(n.x, n.y));
-    expect(out).toContain(tileKey(door.x, door.y));
-    expect(landlocked(state).map((p) => `${p.px},${p.py}`)).not.toContain("0,0");
+  it("refuses a plan that would wall a hearth in", () => {
+    const state = stripWorld({ x: 12, y: 5 });
+    state.blocks[tileKey(14, 5)] = "door";
+    expect(walksToCommons(state, { x: 12, y: 5 })).toBe(true);
+    // A wall across Bo's room between his hearth and his door, which no plan of ours lays.
+    const walls = [11, 12, 13].map((x) => ({ x: x - 8, y: 4, block: "stone" as const }));
+    const walls2 = [
+      { x: 5, y: 5, block: "stone" as const },
+      { x: 5, y: 6, block: "stone" as const },
+    ];
+    const conflicts = wayConflicts(state, [
+      { type: "rebuild_home", px: 1, py: 0, blocks: [...walls, ...walls2], remove: [] },
+    ]);
+    expect(conflicts.map((c) => c.code)).toContain("walled_in");
+  });
+
+  it("lists every owner a returned block wouldn't fit, before anything is laid", () => {
+    const state = stripWorld({ x: 12, y: 5 });
+    state.blocks[tileKey(14, 3)] = "fence";
+    const items = state.items;
+    if (!items) throw new Error("no items");
+    items.inventories.bo = { stacks: { wood: 200 }, goods: [] };
+    const conflicts = wayConflicts(state, wayInputs(stripPlan(state, [3]), 8));
+    expect(conflicts).toContainEqual(
+      expect.objectContaining({ code: "inventory_full", ownerId: "bo", x: 14, y: 3 }),
+    );
+  });
+
+  it.each<[string, (s: World) => void]>([
+    [
+      "stairs",
+      (s) => {
+        s.blocks[tileKey(14, 3)] = "stairs";
+      },
+    ],
+    [
+      "an upstairs over the way",
+      (s) => {
+        s.floors = { "1": { blocks: {}, ground: { [tileKey(14, 3)]: "planks" } } };
+      },
+    ],
+    [
+      "a plot for sale",
+      (s) => {
+        s.plotMarket = {
+          listings: { "1,0": { px: 1, py: 0, seller: "bo", price: 100, day: 0 } },
+        };
+      },
+    ],
+  ])("never crosses %s", (_, change) => {
+    const state = stripWorld({ x: 12, y: 5 });
+    change(state);
+    const plan = stripPlan(state, [3]);
+    expect(plan.tiles.some((t) => t.x === 14 && t.y === 3)).toBe(false);
+    expect(plan.unjoined.map((u) => u.target)).toContain("plot 0,0");
   });
 });

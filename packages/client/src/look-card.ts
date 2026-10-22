@@ -7,7 +7,7 @@
  */
 import { canBuildOn, plotKey, plotOf, type Tile, type WorldConfig } from "@terrakin/sim";
 import { profilePath } from "@terrakin/ui/paths";
-import { type LandsView, onLandPlot } from "./lands";
+import { type LandsView, onLandPlot, onStreet } from "./lands";
 import type { Dozer } from "./scene3d/layout";
 import { plotTitles } from "./visits";
 import type { LookTarget } from "./world-link";
@@ -67,6 +67,9 @@ export function placeOf(world: LookWorld, target: LookTarget, me?: string): Plac
     // Open water (RFC 0038) is no plot: nobody lives there and nobody will.
     if (!onLandPlot(world.config, world.lands, px, py))
       return { ...at, title: "Open water", line: "Cross by the bridge.", profile: null };
+    // An island's street (RFC 0046) is everyone's ground: nobody lives there and nobody will.
+    if (onStreet(world.lands, px, py))
+      return { ...at, title: "A street", line: "Everyone walks here.", profile: null };
     const owner = world.plots.get(plotKey(px, py));
     if (owner === undefined)
       return { ...at, title: "An empty plot", line: "Nobody lives here yet.", profile: null };

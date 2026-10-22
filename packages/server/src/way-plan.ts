@@ -42,6 +42,13 @@ export interface WayFacts {
   blocks: ReadonlyMap<string, BlockKind>;
   /** Tiles whose block the town can't clear: a planter with a crop in it, or under a display. */
   fixed: ReadonlySet<string>;
+  /**
+   * Tiles with anything on a floor above them (RFC 0028): a way never runs under an upstairs,
+   * where the walls below may be holding it up.
+   */
+  upstairs: ReadonlySet<string>;
+  /** Plots for sale (RFC 0039), by plot key: frozen, so no way crosses one. */
+  listed: ReadonlySet<string>;
   /** Tiles already ways. */
   ways: ReadonlySet<string>;
   /** The tiles on downtown's edge where a bridge to the first island arrives. */
@@ -85,8 +92,9 @@ const WAY_COST = {
 
 export interface WayPlanOptions {
   /**
-   * Lay ways across free slots the network runs over too, so the next claim there can't cut it.
-   * Off by default, as the RFC measured: a free slot is open ground already.
+   * Lay ways across the free slots the network runs over too, so a later claim there can't cut
+   * it. On unless set to false (Ryan's answer, 2026-10-22); off, a free slot counts as open
+   * ground, as the RFC measured.
    */
   layFree?: boolean;
   /** Other weights for the search, to compare networks. */
@@ -138,6 +146,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   const { config, openings, downtown } = facts;
   const S = config.plotSize;
   const W = { ...WAY_COST, ...options.cost };
+  const layFree = options.layFree !== false;
   const owners = new Map(facts.plots.map((p) => [plotKey(p.px, p.py), p]));
   const hearths = new Set(facts.hearths.map((h) => tileKey(h.x, h.y)));
   const inDowntown = (x: number, y: number) =>
@@ -174,7 +183,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     if (openings.ground.obstacle(x, y)) return false;
     const { px, py } = plotOf(config, x, y);
     if (isCommons(px, py)) return true;
-    return !options.layFree && !openings.claimed(px, py);
+    return !layFree && !openings.claimed(px, py);
   };
 
   /** What laying a way on this tile costs, or undefined where none can go. */
@@ -185,9 +194,13 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     const { px, py } = plotOf(config, x, y);
     if (isCommons(px, py)) return openings.ground.obstacle(x, y) ? undefined : 0;
     const plot = owners.get(plotKey(px, py));
-    if (!plot) return options.layFree ? W.free : 0;
-    // A hearth is where a home is, and stays a hearth.
-    if (hearths.has(key)) return undefined;
+    if (!plot) return layFree ? W.free : 0;
+    // A plot for sale is frozen, so the network goes round it.
+    if (facts.listed.has(plotKey(px, py))) return undefined;
+    // A hearth is where a home is, and stays a hearth; stairs, and anything under an upstairs,
+    // stay too, since what stands there may be what holds a floor up.
+    if (hearths.has(key) || facts.upstairs.has(key)) return undefined;
+    if (facts.blocks.get(key) === "stairs") return undefined;
     // A wall holding up an upstairs stays up.
     const block = facts.blocks.get(key);
     if (block && (plot.floors ?? 0) > 0 && HOLDING_BLOCKS.includes(block)) return undefined;
@@ -276,13 +289,13 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
       const [x, y] = at.split(",").map(Number) as [number, number];
       const { px, py } = plotOf(config, x, y);
       const onPlot = owners.has(plotKey(px, py));
-      if ((onPlot || options.layFree) && !isCommons(px, py) && !laid.has(at)) ways.add(at);
+      if ((onPlot || layFree) && !isCommons(px, py) && !laid.has(at)) ways.add(at);
     }
     flood();
     open = open.filter((t) => !done(t));
   }
 
-  return describe(facts, ways, owners, unjoined);
+  return describe(facts, ways, laid, owners, unjoined);
 }
 
 /** How far from a hearth its home reaches at least: a starter hut's walls stand 2 tiles out. */
@@ -327,18 +340,42 @@ function homeOf(facts: WayFacts, hearth: Tile): Set<string> {
 }
 
 /**
- * How the town rebuilds a home a way cuts through. Each tile of the home beside the way, off it,
- * with nothing standing there and no hearth, gets a wall, so the home closes again along the way;
+ * How the town rebuilds a home a way cuts through. Each tile of the home on its hearth's side of
+ * the way, beside it, with nothing standing there and no hearth, gets a wall, so the home closes again along the way;
  * and the middle one is a door, so it opens onto the way. The walls are the home's own kind: the
  * most common of the free walls the way took down (wood, stone, or a hedge), or wood.
  */
 function rebuildOf(
   facts: WayFacts,
+  hearth: Tile,
   home: ReadonlySet<string>,
   onWay: ReadonlySet<string>,
   cut: readonly { x: number; y: number; block: BlockKind }[],
 ): Pick<WayPlan["homes"][number], "walls" | "rebuild" | "left"> {
+  const { config, openings } = facts;
   const hearths = new Set(facts.hearths.map((h) => tileKey(h.x, h.y)));
+  // The hearth's side of the way: its walk on its own plot with every way tile in the way. Only
+  // that side gets walls and the door, so the door always opens from the hearth onto the way; a
+  // part of the home the way cuts off is left as open ground beside it.
+  const S = config.plotSize;
+  const { px, py } = plotOf(config, hearth.x, hearth.y);
+  const side = new Set(
+    walkTree(
+      {
+        config,
+        obstacle: (x, y) =>
+          x < px * S ||
+          y < py * S ||
+          x >= (px + 1) * S ||
+          y >= (py + 1) * S ||
+          onWay.has(tileKey(x, y))
+            ? "block"
+            : openings.ground.obstacle(x, y),
+      },
+      hearth,
+      S,
+    ).map((n) => tileKey(n.x, n.y)),
+  );
   const counts = new Map<BlockKind, number>();
   for (const b of cut) {
     if (b.block === "wood" || b.block === "stone" || b.block === "leaf") {
@@ -356,7 +393,7 @@ function rebuildOf(
     .sort((a, b) => a.y - b.y || a.x - b.x);
   for (const t of tiles) {
     const key = tileKey(t.x, t.y);
-    if (onWay.has(key)) continue;
+    if (onWay.has(key) || !side.has(key)) continue;
     if (!STEPS.some(([dx, dy]) => onWay.has(tileKey(t.x + dx, t.y + dy)))) continue;
     // Something standing there closes it already.
     if (facts.blocks.has(key)) continue;
@@ -494,6 +531,7 @@ function order(key: string): number {
 function describe(
   facts: WayFacts,
   ways: Set<string>,
+  laid: ReadonlySet<string>,
   owners: Map<string, { px: number; py: number; ownerId: string }>,
   unjoined: WayPlan["unjoined"],
 ): WayPlan {
@@ -530,24 +568,26 @@ function describe(
     const block = facts.blocks.get(tileKey(t.x, t.y));
     if (block) blocks.push({ x: t.x, y: t.y, block, ownerId: plot.ownerId, px, py });
   }
-  // A home is cut through when the way crosses one of its tiles (`homeOf`).
+  // A home is cut through when a way, new or laid before, crosses one of its tiles (`homeOf`) and
+  // leaves its hearth's side open onto it. Reading the ways laid before too is what lets a plan
+  // that stopped partway be run again to finish: a home already rebuilt is closed, so nothing is
+  // done to it twice.
   const homes: WayPlan["homes"] = [];
-  const onWay = new Set(tiles.map((t) => tileKey(t.x, t.y)));
-  for (const row of byPlot.values()) {
-    const hearth = facts.hearths.find(
-      (h) => plotOf(config, h.x, h.y).px === row.px && plotOf(config, h.x, h.y).py === row.py,
-    );
-    if (!hearth) continue;
-    const home = homeOf(facts, hearth);
-    if (!row.tiles.some((t) => home.has(tileKey(t.x, t.y)))) continue;
+  const onWay = new Set([...laid, ...tiles.map((t) => tileKey(t.x, t.y))]);
+  const done = new Set<string>();
+  for (const h of facts.hearths) {
+    const { px, py } = plotOf(config, h.x, h.y);
+    const plot = owners.get(plotKey(px, py));
+    if (!plot || done.has(plotKey(px, py))) continue;
+    done.add(plotKey(px, py));
+    const home = homeOf(facts, h);
+    if (![...home].some((key) => onWay.has(key))) continue;
     const cut = blocks.filter((b) => home.has(tileKey(b.x, b.y)) && isWall(b.block));
-    homes.push({
-      px: row.px,
-      py: row.py,
-      ownerId: row.ownerId,
-      ...rebuildOf(facts, home, onWay, cut),
-    });
+    const rebuilt = rebuildOf(facts, h, home, onWay, cut);
+    if (rebuilt.rebuild.length === 0 && rebuilt.left.length === 0 && cut.length === 0) continue;
+    homes.push({ px, py, ownerId: plot.ownerId, ...rebuilt });
   }
+  homes.sort((a, b) => a.py - b.py || a.px - b.px);
   const plots = [...byPlot.values()].sort((a, b) => a.py - b.py || a.px - b.px);
   return { tiles, plots, free, blocks, homes, unjoined };
 }

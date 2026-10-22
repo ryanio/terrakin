@@ -160,8 +160,8 @@ describe("rebuild_home", () => {
 });
 
 describe("a way out onto a way", () => {
-  it("opens a plot every plot around is claimed by, and a claim beside a way keeps it", () => {
-    // Downtown 4 by 4; plot (0, 0) has claimed plots on all three sides, so it is surrounded.
+  /** Downtown 4 by 4, the Commons at (2, 2); plot (0, 0) has a claimed plot on all three sides. */
+  function surrounded(): WorldState {
     const state = createWorld({
       width: 32,
       height: 32,
@@ -177,11 +177,21 @@ describe("a way out onto a way", () => {
     ] as const) {
       state.plots[`${px},${py}`] = { px, py, ownerId };
     }
+    return state;
+  }
+  const column = (y0: number, y1: number) =>
+    Array.from({ length: y1 - y0 + 1 }, (_, i) => [8, y0 + i] as [number, number]);
+
+  it.each<[string, [number, number][], boolean]>([
+    // Down the west edges of b's and d's plots, onto the free slot (1, 2) beside the Commons.
+    ["a way that joins the Commons", column(0, 15), true],
+    // Down b's plot alone: it ends at d's yard, so it leads nowhere.
+    ["a way that leads nowhere", column(0, 7), false],
+  ])("counts %s", (_, tiles, opens) => {
+    const state = surrounded();
     expect(landlocked(state).map((p) => `${p.px},${p.py}`)).toContain("0,0");
-    // A way down the west edge of (1, 0), on b's plot, is open ground for a's step east.
-    const tiles = Array.from({ length: 8 }, (_, y) => [8, y] as [number, number]);
     expect(code(state, TOWN_ACTOR, { type: "open_way", tiles })).toBe(null);
-    expect(plotOpenings(state, 0, 0).length).toBeGreaterThan(0);
-    expect(landlocked(state).map((p) => `${p.px},${p.py}`)).not.toContain("0,0");
+    expect(plotOpenings(state, 0, 0).length > 0).toBe(opens);
+    expect(landlocked(state).some((p) => p.px === 0 && p.py === 0)).toBe(!opens);
   });
 });

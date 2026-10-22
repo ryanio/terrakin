@@ -375,6 +375,7 @@ describe("one plot of the world, read from the mirror", () => {
       commons: source({ commons: { px: 1, py: 1 } }),
       blocks: source({ blocks: new Map([...base.source.blocks, ["8,8", "stone"]]) }),
       paving: source({ paving: new Map([["11,11", "planks"]]) }),
+      drawnPaving: source({ drawnPaving: new Map([["11,11", "dirt"]]) }),
       upstairs: source({
         upstairs: new Map([[1, { blocks: new Map(), paving: new Map([["8,8", "planks"]]) }]]),
       }),

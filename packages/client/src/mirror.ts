@@ -212,6 +212,10 @@ export class Mirror {
   #sea: ((x: number, y: number) => boolean) | undefined;
   /** The bridge tiles of every open land, by tileKey, so the map draws planks over the water. */
   #bridge = new Set<string>();
+  /** Downtown's public ways (RFC 0046), by tileKey. */
+  ways = new Set<string>();
+  /** `drawnPaving`, kept until what it reads changes. */
+  #drawn: ReadonlyMap<string, GroundKind> | undefined;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -260,6 +264,8 @@ export class Mirror {
     }
     this.townHall = snapshot.townHall.map((t) => ({ ...t }));
     this.shop = (snapshot.shop ?? []).map((t) => ({ ...t }));
+    this.ways = new Set((snapshot.ways ?? []).map((t) => tileKey(t.x, t.y)));
+    this.#drawn = undefined;
     this.solidBuildings = snapshot.solidBuildings === true;
     for (const t of snapshot.townBuilt ?? []) this.townBuilt.set(tileKey(t.x, t.y), t.proposal);
     for (const c of snapshot.crops ?? []) {
@@ -412,11 +418,38 @@ export class Mirror {
   }
 
   /**
+   * The ground floor's paths and flooring as the map and the 3D world draw them: what residents
+   * laid, and under it a look for the town's own ground that nobody laid (RFC 0046): an island's
+   * streets drawn as cobbles, downtown's public ways as a faint dirt path. Drawing only: walking,
+   * building and lifting read `paving`, where neither is.
+   */
+  get drawnPaving(): ReadonlyMap<string, GroundKind> {
+    if (this.#drawn) return this.#drawn;
+    const streets = (this.lands?.list ?? []).flatMap((l) => l.streets ?? []);
+    if (streets.length === 0 && this.ways.size === 0) {
+      this.#drawn = this.paving;
+      return this.paving;
+    }
+    const S = this.config.plotSize;
+    const drawn = new Map<string, GroundKind>();
+    for (const { px, py } of streets) {
+      for (let y = py * S; y < (py + 1) * S; y++) {
+        for (let x = px * S; x < (px + 1) * S; x++) drawn.set(tileKey(x, y), "cobble");
+      }
+    }
+    for (const key of this.ways) drawn.set(key, "dirt");
+    for (const [key, laid] of this.paving) drawn.set(key, laid);
+    this.#drawn = drawn;
+    return drawn;
+  }
+
+  /**
    * Keep the lands and what follows from them: whether a tile is water, and which tiles bridge it.
    * Both come from the sim's own rule, so the map draws the water the server walks us around.
    */
   #setLands(lands: LandsView | undefined) {
     this.lands = lands;
+    this.#drawn = undefined;
     this.#bridge = bridgeOf(lands);
     this.#sea = seaOf(this.config, lands);
   }
@@ -584,9 +617,19 @@ export class Mirror {
         break;
       case "ground_laid":
         this.pavingAt(event.floor).set(tileKey(event.x, event.y), event.ground);
+        this.#drawn = undefined;
         break;
       case "ground_lifted":
         this.pavingAt(event.floor).delete(tileKey(event.x, event.y));
+        this.#drawn = undefined;
+        break;
+      case "ways_opened":
+        for (const t of event.tiles) this.ways.add(tileKey(t.x, t.y));
+        this.#drawn = undefined;
+        break;
+      case "ways_closed":
+        for (const t of event.tiles) this.ways.delete(tileKey(t.x, t.y));
+        this.#drawn = undefined;
         break;
       case "plot_shared": {
         const key = plotKey(event.px, event.py);

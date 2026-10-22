@@ -34,6 +34,7 @@
     "start": "pnpm build && TERRAKIN_STATIC_DIR=packages/client/dist pnpm --filter @terrakin/server start",
     "e2e": "playwright test",
     "persona": "node scripts/persona.ts",
+    "funnel": "node --import ./scripts/resolve-ts.mjs scripts/funnel.ts",
     "devlog:shot": "node scripts/devlog-shot.ts",
     "cf:dev": "pnpm build && wrangler dev -c wrangler.jsonc -c wrangler.cards.jsonc --var SENTRY_DSN:",
     "cf:deploy": "pnpm build && node scripts/deploy.ts"

@@ -41,20 +41,42 @@ Who: ten or more people new to the world, plus the resident AIs already in it. T
 
 ### What we watch
 
-In the order a newcomer meets them, which is also the order the staff app counts. Step 2 is where the hour should look hardest: the dated read on 2026-10-19 found 8 people joined in the week of Oct 12, 3 claimed a plot and 1 set a hearth, with no new person setting one in a week, while agents are at 86%. Jobs need a hearth, so none of the nine newcomers who could take a job did. If that step is as confusing in person as the numbers suggest, the hour will show why.
+In the order a newcomer meets them, which is also the order the staff app counts. Step 3 is where the hour should look hardest: the dated read on 2026-10-19 found 8 people joined in the week of Oct 12, 3 claimed a plot and 1 set a hearth, with no new person setting one in a week, while agents are at 86%. Jobs need a hearth, so none of the nine newcomers who could take a job did. If that step is as confusing in person as the numbers suggest, the hour will show why.
 
 1. A character made and a name accepted.
-2. A hearth set.
-3. A plot claimed, and whether its name gets set.
+2. A plot claimed.
+3. A hearth set, and whether the plot's name gets set in the sheet that follows.
 4. A first thing planted or built.
 5. Chat noticed and used, nearby or world.
 6. One resident speaking to another, unprompted.
 
 ### How to run the hour
 
+Before the day:
+
+- Check the staff key reads the funnel: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel`. It prints the all-time table; a 401 means the key needs renewing.
+- Ask people to join on mobile data, not the venue's Wi-Fi. New characters are limited per network address: five at once, then three a minute. On one shared Wi-Fi the sixth person sees "Too many new sessions. Try again in a minute." at the name step, which would read as a failure of step 1. If everyone has to share Wi-Fi, have them step in a few at a time.
+- Tell them to use their phone's normal browser, not a private tab. A character lives in the browser that made it, and a private tab loses it when closed.
+- Make the note sheet: one row per person, one column for each of the six steps, and a column for what they said.
+- The team doesn't make new characters during the hour. Every new person counts in the funnel, and team members are not among the ten.
+
+Ten minutes before:
+
+- Save the read to compare against, outside the repo: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel --save ../funnel-before.json`.
+- Give out only the address, terrakin.org, and say nothing about how it works.
+
+During the hour:
+
 - Do not help anyone unless they are truly stuck. The point is to see where the world fails to explain itself, and a nudge hides exactly that.
 - Write down every hesitation as it happens, one line per person per step, with the words they used.
-- Take the screenshots during the hour, not after, with `pnpm devlog:shot`.
+- Look hardest at the minute after Live here. The sheet offers Build this home or I'll build it myself; note which they pick, whether they read the sheet's paragraph, and whether they name the plot or tap Not now. Someone who builds by hand gets their first pantry only once they tap Home.
+- Steps 5 and 6 come only from the notes. Chat is not kept, so the funnel cannot count it, and its "Did something social" means posts, reactions, follows, gestures, praise and letters.
+- Take the screenshots during the hour, not after, on a phone, of what people see. `pnpm devlog:shot` draws from the test world on this machine, so it can stage a scene for the devlog afterwards but cannot capture the hour itself.
+
+Afterwards:
+
+- Read what the hour changed: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel --since ../funnel-before.json`. It prints each step's change with its share of the people who joined, as Markdown. A step can also move for someone who joined earlier, so over an hour the share is close to exact rather than exact.
+- Run `pnpm funnel` again with the same prefix for the dated all-time read, and paste both into the handoff with the friction list and the real head count.
 
 ### What it produces
 

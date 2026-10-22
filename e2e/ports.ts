@@ -1,9 +1,9 @@
 /**
  * Ports for the e2e servers and the fakes they talk to. A suite uses ten ports from
- * TERRAKIN_E2E_PORT (default 8790), so set it ten or more apart to run a second suite at once (from
- * another worktree, say).
+ * TERRAKIN_E2E_PORT (default 8810, clear of `pnpm dev:test` on 8797), so set it ten or more apart
+ * to run a second suite at once (from another worktree, say).
  */
-export const E2E_PORT = Number(process.env.TERRAKIN_E2E_PORT ?? 8790);
+export const E2E_PORT = Number(process.env.TERRAKIN_E2E_PORT ?? 8810);
 export const FAKE_X_PORT = E2E_PORT + 1;
 export const FAKE_CHAIN_PORT = E2E_PORT + 2;
 

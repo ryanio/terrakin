@@ -32,7 +32,7 @@ afterEach(async () => {
   expect(problems.splice(0)).toEqual([]);
 });
 
-async function start(options: { starterDoors?: boolean } = {}) {
+async function start(options: { starterDoors?: boolean; config?: WorldConfig } = {}) {
   let now = Date.UTC(2026, 9, 6, 9);
   const store = new MemoryStore();
   const service = new WorldService({
@@ -273,6 +273,36 @@ describe("build", () => {
     expect(facing.text).toMatch(/Send "turn": 270 and it will\.$/);
     const turned = (await t.act(ada, { ...hut, turn: 270 })).plan.notes;
     expect(turned.map((n: { code: string }) => n.code)).not.toContain("door_no_edge");
+  });
+
+  it("says when a settle would take a neighbor's last way out, dry or real (decision 0354)", async () => {
+    // 5x5 plots, the Commons at (2, 2). Ada's (0, 0) has Bea east and Cee south, so its one way
+    // out is the corner step onto (1, 1).
+    const t = await start({ config: { ...CONFIG, width: 40, height: 40 } });
+    await t.settler("Ada", 0, 0);
+    await t.settler("Bea", 1, 0);
+    await t.settler("Cee", 0, 1);
+    const { body } = await t.call("POST", "/v1/session", { name: "Dee", kind: "agent" });
+    const dee = { id: body.residentId as string, token: body.token as string };
+    const dry = await t.act(dee, { type: "settle", px: 1, py: 1, dry: true });
+    expect(dry).toMatchObject({
+      ok: true,
+      dry: true,
+      notes: [{ code: "seals_neighbor", tiles: [{ x: 0, y: 0 }] }],
+    });
+    expect(dry.notes).toHaveLength(1);
+    expect(dry.notes[0].text).toContain("plot (0, 0)");
+    expect(dry.notes[0].text).toContain(
+      "The nearest free plot that closes nobody in is px 2, py 0.",
+    );
+    // A note, never a refusal: the claim goes ahead and says the same.
+    const real = await t.act(dee, { type: "settle", px: 1, py: 1 });
+    expect(real).toMatchObject({ ok: true, notes: dry.notes });
+    // A claim that closes nobody in says nothing.
+    const { body: eve } = await t.call("POST", "/v1/session", { name: "Eve", kind: "agent" });
+    const clean = await t.act(eve, { type: "settle", px: 4, py: 4 });
+    expect(clean.ok).toBe(true);
+    expect(clean).not.toHaveProperty("notes");
   });
 
   it("shows what's upstairs with its floor, and nothing about floors in a world without one (RFC 0028)", async () => {

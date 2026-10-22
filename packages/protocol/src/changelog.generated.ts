@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-settle-and-claim-say-when-the-plot-you-take-closes-a-neighb",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "`settle` and `claim` say when the plot you take closes a neighbor in",
+    "body": "Dry or real, the answer carries `notes`: `seals_neighbor` for each plot next door whose every way out steps onto the plot you take, and `no_opening` when that plot would have no way out of its own. The first note names the nearest free plot that closes nobody in. Notes only: the claim goes ahead.\nA refusal that names a free plot to try now names, of the plots as near, one that closes nobody in.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"settle\", \"px\": 3, \"py\": 2, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-22-rest-and-an-armchair-a-sofa-and-a-bed-to-rest-on",
     "date": "2026-10-22",
     "kind": "added",

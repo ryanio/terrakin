@@ -1,4 +1,6 @@
 import {
+  claimWaysIn,
+  closesNobodyIn,
   DAY_MS,
   isTownSquare,
   onLand,
@@ -77,30 +79,38 @@ export function anchorPlot(
 
 /**
  * Free plots near `around`, nearest first: ring by ring (Chebyshev distance), and within a ring
- * the four sides before the corners, then north to south and west to east. Free means inside the
+ * plots whose claim closes nobody in first (the sim's `closesNobodyIn`, decision 0354), then the
+ * four sides before the corners, then north to south and west to east. Free means inside the
  * world, not the Commons, and unclaimed.
  */
 export function suggestPlots(state: WorldState, around: PlotRef, count: number): PlotRef[] {
   const { config } = state;
   const across = Math.max(config.width, config.height) / config.plotSize;
+  const ways = claimWaysIn(state);
   const found: PlotRef[] = [];
   for (let ring = 1; ring <= across && found.length < count; ring++) {
-    const cells: (PlotRef & { side: boolean })[] = [];
+    const cells: (PlotRef & { side: boolean; clear: boolean })[] = [];
     for (let dy = -ring; dy <= ring; dy++) {
       for (let dx = -ring; dx <= ring; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        cells.push({ px: around.px + dx, py: around.py + dy, side: dx === 0 || dy === 0 });
+        const px = around.px + dx;
+        const py = around.py + dy;
+        if (!plotInBounds(config, px, py) || isTownSquare(state, px, py)) continue;
+        // Nor open water, nor a town square: neither is a plot anyone can settle (decision 0332).
+        if (!onLand(state, px, py)) continue;
+        if (state.plots[plotKey(px, py)]) continue;
+        const clear = closesNobodyIn(ways(px, py));
+        cells.push({ px, py, side: dx === 0 || dy === 0, clear });
       }
     }
-    cells.sort((a, b) => Number(b.side) - Number(a.side) || a.py - b.py || a.px - b.px);
-    for (const { px, py } of cells) {
-      if (found.length >= count) break;
-      if (!plotInBounds(config, px, py) || isTownSquare(state, px, py)) continue;
-      // Nor open water, nor a town square: neither is a plot anyone can settle (decision 0332).
-      if (!onLand(state, px, py)) continue;
-      if (state.plots[plotKey(px, py)]) continue;
-      found.push({ px, py });
-    }
+    cells.sort(
+      (a, b) =>
+        Number(b.clear) - Number(a.clear) ||
+        Number(b.side) - Number(a.side) ||
+        a.py - b.py ||
+        a.px - b.px,
+    );
+    for (const { px, py } of cells.slice(0, count - found.length)) found.push({ px, py });
   }
   return found;
 }

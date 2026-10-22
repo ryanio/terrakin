@@ -23,7 +23,7 @@ export interface Landing {
   setJoining(on: boolean): void;
   /** The refusal to show, with any free names to offer as buttons (`name_taken`). */
   setError(text: string, free?: readonly string[]): void;
-  /** The name last sent came back `name_taken`: "Suggest a name" never offers it again. */
+  /** The name last sent came back `name_taken`: "Suggest" never offers it again. */
   nameTaken(): void;
   focusName(): void;
   focusNote(): void;
@@ -102,7 +102,7 @@ export function createLanding(
             on: {
               click: () => {
                 name.value = free;
-                // As if typed: the refusal clears, and "Suggest a name" sees a name it didn't put there.
+                // As if typed: the refusal clears, and "Suggest" sees a name it didn't put there.
                 name.dispatchEvent(new Event("input"));
                 name.focus();
               },

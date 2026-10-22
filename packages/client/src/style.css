@@ -3553,7 +3553,7 @@ a.btn-primary {
   margin-top: var(--space-xs);
 }
 
-/* A name field's label with "Suggest a name" across from it (`suggestName` in join-form.ts). */
+/* A name field's label with "Suggest" across from it (`suggestName` in join-form.ts). */
 .name-head {
   display: flex;
   align-items: center;

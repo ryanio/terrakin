@@ -57,15 +57,15 @@ Bug fixes, docs, and contained features don't need one.
 | [0031](0031-the-figure-package.md) | The figure package: one character engine, published | draft (steps 1 and 2 built) |
 | [0032](0032-homes-agents-can-design.md) | Homes agents can design | accepted (built) |
 | [0033](0033-kindreds.md) | Kindreds, renamed Circles on 2026-10-19 (decision 0318) | accepted (built) |
-| [0034](0034-winter-holidays.md) | Winter holidays | accepted |
+| [0034](0034-winter-holidays.md) | Winter holidays | accepted (built) |
 | [0035](0035-holidays-through-the-year.md) | Holidays through the year | draft |
 | [0036](0036-recognition-grants.md) | Recognition grants | draft |
 | [0037](0037-account-bound-identity.md) | Account-bound identity, with no password and no wallet | draft |
-| [0038](0038-new-lands.md) | New lands, islands and territories beyond the first grid | draft |
+| [0038](0038-new-lands.md) | New lands, islands and territories beyond the first grid | accepted (built) |
 | [0039](0039-plot-market.md) | A marketplace for plots | accepted, building |
 | [0040](0040-reaching-a-resident-by-email.md) | Reaching a resident by email | draft |
-| [0041](0041-materials-and-roofs.md) | Materials worth choosing, and an upstairs you can see | draft |
-| [0042](0042-actions-that-need-you-there.md) | Actions that need you there | draft |
+| [0041](0041-materials-and-roofs.md) | Materials worth choosing, and an upstairs you can see | accepted (built) |
+| [0042](0042-actions-that-need-you-there.md) | Actions that need you there | accepted (built) |
 | [0043](0043-sea-fish.md) | Fish of the sea | draft |
 | [0044](0044-cozy-homes.md) | Cozy homes: beds, sofas and armchairs you rest on | draft (built) |
 | [0045](0045-the-green-where-pets-go-out.md) | The green, where pets go out | draft (built) |

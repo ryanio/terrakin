@@ -96,6 +96,7 @@ export {
   worldDayWords,
 } from "./day-words";
 export {
+  claimNotes,
   DESIGN,
   type DesignNote,
   designNotes,
@@ -442,11 +443,16 @@ export { mergedInto } from "./merge";
 export { FIREWORKS, fireworkNight } from "./newyear";
 export {
   type ClaimedPlot,
+  type ClaimWays,
+  claimWaysFrom,
+  claimWaysIn,
+  closesNobodyIn,
   doorFacing,
   doorOutward,
   type Landlocked,
   landlocked,
   landlockedFrom,
+  nearestFreePlot,
   type Opening,
   type OpeningFacts,
   openingFacts,

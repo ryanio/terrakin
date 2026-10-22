@@ -21,8 +21,10 @@ const STEP = { e: [1, 0], w: [-1, 0], s: [0, 1], n: [0, -1] } as const;
 
 /**
  * How much of the middle of the tile `dy` south of you the map paints in a door's red, from 0 to 1:
- * the panel `paintDoor` draws, which no wall, path, or grass comes near. A door frame of wood is
- * reddish too, so only a strong red counts.
+ * the panel `paintDoor` draws. A pixel counts by its hue, red well ahead of green and green near
+ * blue, never by how strong the red is: the weather follows the real hour, and a cloudy or foggy
+ * wash takes the strength out of every color. Wood, fallen leaves, and grass have green well
+ * above blue, so none of them counts.
  */
 function doorRed(page: Page, dy: number): Promise<number> {
   return page.evaluate((dy) => {
@@ -44,7 +46,7 @@ function doorRed(page: Page, dy: number): Promise<number> {
     let red = 0;
     for (let i = 0; i < data.length; i += 4) {
       const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
-      if (r > 120 && r - g > 70 && r - b > 70) red++;
+      if (r > 110 && r - g > 50 && r - g > 3 * (g - b)) red++;
     }
     return red / (w * h);
   }, dy);

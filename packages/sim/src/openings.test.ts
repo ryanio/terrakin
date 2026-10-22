@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
-import { designNotes } from "./design";
+import { claimNotes, designNotes } from "./design";
 import { LANDS_ISLAND } from "./fixtures/lands-log";
 import { hashWorld } from "./hash";
-import { doorFacing, doorOutward, landlocked, openingFacts, openingsOf } from "./openings";
+import {
+  claimWaysIn,
+  closesNobodyIn,
+  doorFacing,
+  doorOutward,
+  landlocked,
+  nearestFreePlot,
+  openingFacts,
+  openingsOf,
+} from "./openings";
 import { type BlockKind, type Command, TOWN_ACTOR, type WorldConfig } from "./types";
 import { createWorld } from "./world";
 
@@ -149,6 +158,62 @@ describe("openings (decision 0351)", () => {
     const out = openingsOf(openingFacts(t.state), 4, 1, []).map((o) => o.to);
     expect(out).toContainEqual({ x: 31, y: 11 });
     expect(out).toContainEqual({ x: 32, y: 16 });
+  });
+});
+
+describe("a claim's ways out (decision 0354)", () => {
+  it("names each plot next door whose last way out a claim takes, and a claim with none of its own", () => {
+    const t = town(AROUND);
+    const before = hashWorld(t.state);
+    const notes = claimNotes(t.state, 1, 1);
+    expect(hashWorld(t.state)).toBe(before);
+    expect(notes.map((n) => n.code)).toEqual([
+      "no_opening",
+      "seals_neighbor",
+      "seals_neighbor",
+      "seals_neighbor",
+    ]);
+    expect(notes[0]?.text).toContain("every tile around it is someone's plot");
+    // (3, 0) is two plots off and leaves (2, 0) its way out past (3, 1).
+    expect(notes[0]?.text).toContain("The nearest free plot that closes nobody in is px 3, py 0.");
+    const named = notes.slice(1).map((n) => /plot \((\d), (\d)\)/.exec(n.text)?.slice(1).join(","));
+    expect(named).toEqual(["0,0", "1,0", "0,1"]);
+    // (0, 0) steps out only past its corner, onto this plot's north-west tile; (1, 0) and (0, 1)
+    // step onto a whole edge of it.
+    expect(notes[1]?.tiles).toEqual([{ x: 0, y: 0 }]);
+    expect(notes[2]?.tiles).toHaveLength(8);
+    expect(notes[3]?.tiles).toHaveLength(8);
+    // Once it's claimed, the check finds what the notes said.
+    t.settle("me", 1, 1);
+    expect(at(t.state)).toEqual([
+      "0,0 surrounded",
+      "1,0 surrounded",
+      "0,1 surrounded",
+      "1,1 surrounded",
+    ]);
+    expect(claimNotes(t.state, 3, 0)).toEqual([]);
+  });
+
+  it("a refusal names, of the free plots as near, one whose claim closes nobody in", () => {
+    const t = town([
+      [0, 0],
+      [0, 1],
+      [1, 1],
+    ]);
+    t.ok("late", { type: "join", name: "late", kind: "agent" });
+    // (1, 0) is as near as (0, 2) and comes first, but it's (0, 0)'s last way out.
+    expect(claimWaysIn(t.state)(1, 0).seals.map((s) => [s.px, s.py])).toEqual([[0, 0]]);
+    expect(closesNobodyIn(claimWaysIn(t.state)(0, 2))).toBe(true);
+    expect(prepare(t.state, { actor: "late", command: { type: "settle", px: 0, py: 1 } })).toEqual({
+      ok: false,
+      rejection: {
+        code: "plot_owned",
+        message: "This plot is already claimed. Try settle at px 0, py 2.",
+      },
+    });
+    // Nearer always wins: from (0, 0) the only free plot one off is (1, 0), and it's named.
+    expect(nearestFreePlot(t.state, 0, 0)).toEqual({ px: 1, py: 0 });
+    expect(nearestFreePlot(t.state, 0, 0, { clear: true })).toEqual({ px: 2, py: 0 });
   });
 });
 

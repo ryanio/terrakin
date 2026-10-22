@@ -1,7 +1,7 @@
 import type { BuildPlan } from "./build";
 import { plotKey } from "./keys";
 import { type PlotTiles, plotTiles } from "./map";
-import { plotOpenings } from "./openings";
+import { claimWaysIn, nearestFreePlot, plotOpenings } from "./openings";
 import type { BlockKind, Direction, Tile, WorldConfig, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./world";
@@ -125,6 +125,52 @@ function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan
         tiles: corner,
       });
     }
+  }
+  return notes;
+}
+
+/**
+ * Notes for a `settle` or `claim` of plot (`px`, `py`), read before it's claimed (decision 0354):
+ * `no_opening` when the plot would have no way out of its own, and `seals_neighbor` for each plot
+ * around it whose last way out the claim takes. Their tiles are on this plot, from its north-west
+ * corner: where a neighbour's way out steps onto it. The first note names the nearest free plot
+ * whose claim closes nobody in, when there is one. Empty when the claim closes nobody in.
+ */
+export function claimNotes(state: WorldState, px: number, py: number): DesignNote[] {
+  const ways = claimWaysIn(state)(px, py);
+  const S = state.config.plotSize;
+  const notes: DesignNote[] = [];
+  if (ways.own.length === 0) {
+    notes.push({
+      code: "no_opening",
+      text:
+        ways.why === "walled"
+          ? "Once claimed, this plot has no way out onto open ground: open ground touches it, but blocks or water at its corners keep every walk off it, so a home here reaches the town only across a neighbor's yard."
+          : "Once claimed, this plot has no way out onto open ground: every tile around it is someone's plot, the water, or the world's edge, so a home here reaches the town only across a neighbor's yard, and nothing built on it changes that.",
+      tiles: [],
+    });
+  }
+  for (const sealed of ways.seals) {
+    const tiles: Tile[] = [];
+    for (const o of sealed.lost) {
+      const t = { x: o.to.x - px * S, y: o.to.y - py * S };
+      if (!tiles.some((u) => u.x === t.x && u.y === t.y)) tiles.push(t);
+    }
+    const first = tiles[0] as Tile;
+    const steps =
+      tiles.length === 1
+        ? `its only step onto open ground lands here, at ${words(first)}`
+        : `its only steps onto open ground all land here, the first at ${words(first)}`;
+    notes.push({
+      code: "seals_neighbor",
+      text: `Claiming this plot closes the last way out of the plot next door, plot (${sealed.px}, ${sealed.py}): ${steps}. Once this plot is claimed, that home reaches the town only across it.`,
+      tiles,
+    });
+  }
+  const head = notes[0];
+  const other = head && nearestFreePlot(state, px, py, { clear: true, except: { px, py } });
+  if (head && other) {
+    head.text += ` The nearest free plot that closes nobody in is px ${other.px}, py ${other.py}.`;
   }
   return notes;
 }

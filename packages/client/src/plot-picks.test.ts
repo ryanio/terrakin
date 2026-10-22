@@ -1,5 +1,6 @@
+import { groundOf } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { pickNeighbors, pickWhere, plotPicks } from "./plot-picks";
+import { pickNeighbors, pickWays, pickWhere, plotPicks } from "./plot-picks";
 
 // 5x5 plots of 8 tiles; the Commons is plot (2, 2).
 const config = { width: 40, height: 40, plotSize: 8, maxPlotsPerResident: 1, reach: 3 };
@@ -39,6 +40,45 @@ describe("plotPicks", () => {
     const picks = plotPicks({ config, commons, plots: [], residents: [] });
     expect(picks[0]).toMatchObject({ px: 1, py: 1, near: Infinity, neighbors: [] });
     expect(picks.at(-1)).toMatchObject({ px: 4, py: 4 });
+  });
+
+  it("puts a plot that closes nobody in before one as near that would, and marks that one (decision 0354)", () => {
+    // Ivy lives on (1, 0). Wren's (0, 0) has Ivy east and Moss south, so (1, 1) is its last way out.
+    const plots = [
+      { px: 1, py: 0, ownerId: "ivy" },
+      { px: 0, py: 0, ownerId: "wren" },
+      { px: 0, py: 1, ownerId: "moss" },
+    ];
+    const world = { config, commons, plots, residents: [resident({ x: 11, y: 3 })] };
+    const claimed = new Set(plots.map((p) => `${p.px},${p.py}`));
+    const facts = {
+      ground: groundOf({
+        config,
+        hasBlock: () => false,
+        solidBuildings: false,
+        townHall: [],
+        shop: [],
+      }),
+      claimed: (px: number, py: number) => claimed.has(`${px},${py}`),
+    };
+    const at = (p: { px: number; py: number }) => [p.px, p.py];
+    // Without the facts, (1, 1) leads: beside Ivy and nearest the Commons.
+    expect(plotPicks(world).slice(0, 3).map(at)).toEqual([
+      [1, 1],
+      [2, 1],
+      [2, 0],
+    ]);
+    const picks = plotPicks(world, facts);
+    expect(picks.slice(0, 3).map(at)).toEqual([
+      [2, 1],
+      [2, 0],
+      [1, 1],
+    ]);
+    expect(picks[2]).toMatchObject({ seals: ["wren"] });
+    expect(picks[0]).not.toHaveProperty("seals");
+    expect(pickWays(["Wren"], false)).toBe("Takes Wren's only way out");
+    expect(pickWays([], true)).toBe("No way out of its own");
+    expect(pickWays([], false)).toBeUndefined();
   });
 });
 

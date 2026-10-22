@@ -4,6 +4,7 @@ Every red e2e run on `main` or the nightly gets a line here, newest first (e2e/A
 
 | Date (UTC) | Run | Commit | Job | Spec, test | Cause | Kind |
 |------------|-----|--------|-----|------------|-------|------|
+| 2026-10-21 | 39577378246 | aba34020 | 2D | gather, tap a pickup within reach and find it in your things | The step chose its tile with `tapsTheMap` before the near column had taken its shape, so Gather all, which shows only once the world says what lies within reach, landed over the tile by tap time and the tap gathered everything within reach ("You picked up 2 stone and 1 wood.") instead of the one tile. The step now waits for Gather all and the next-step chip to show before it chooses a tile. | flake |
 | 2026-10-12 | 38323799674 | e81827fa | 2D 1 of 3 | first-steps, the chip plants a first seed in one tap | Same race. | flake |
 | 2026-10-12 | 38322935335 | 4f1fd1de | 2D 1 of 3 | first-steps, the chip plants a first seed in one tap | Same race. | flake |
 | 2026-10-12 | 38313125165 | 962ed452 | 2D 1 of 3 | first-steps, the chip plants a first seed in one tap | The step waited for the Plant a seed chip to show, then clicked it, but Gather all can take the chip's place once the world works out what lies within reach, after the chip showed. The click is what's retried now, with Gather all pressed first (5be2009a). | flake |

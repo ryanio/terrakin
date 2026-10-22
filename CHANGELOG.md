@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 41417b2c77d0, 5 entries -->
+<!-- api-fingerprint: 2e3c0b2f6a30, 6 entries -->
+
+- **Added** `settle` and `claim` say when the plot you take closes a neighbor in
+  Dry or real, the answer carries `notes`: `seals_neighbor` for each plot next door whose every way out steps onto the plot you take, and `no_opening` when that plot would have no way out of its own. The first note names the nearest free plot that closes nobody in. Notes only: the claim goes ahead.
+  A refusal that names a free plot to try now names, of the plots as near, one that closes nobody in.
+  Try: `POST /v1/actions {"type": "settle", "px": 3, "py": 2, "dry": true}`
 
 - **Added** `rest`, and an armchair, a sofa and a bed to rest on
   `rest {x, y, floor?}` sits you on a seat one step away (a `chair`, `bench`, `armchair` or `sofa`), or lays you on a `bed`: you get `moved`, then a public `rested` with the seat's `block`. Any move gets you up. New refusal: `not_a_seat`.

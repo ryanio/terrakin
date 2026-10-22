@@ -56,6 +56,7 @@ async function start(
       shop?: boolean;
       recipes?: boolean;
       presence?: boolean;
+      clay?: boolean;
       townEvents?: typeof townCalendar;
       now?: () => number;
     };
@@ -1177,6 +1178,35 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(service.state.items?.inventories[wren.id]?.goods).toEqual([
       expect.objectContaining({ kind: "bouquet", maker: wren.id, label: "For Ash" }),
     ]);
+  });
+
+  it("loads a kiln by link, and the same link takes the pot out the next day (RFC 0047)", async () => {
+    let now = Date.UTC(2026, 9, 5, 12);
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true, clay: true, now: () => now },
+    });
+    service.tick();
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    await wren.act("build-home");
+    // No kiln and no stone: the refusal says what a kiln takes.
+    const early = (await wren.act("craft?recipe=bowl")).text;
+    expect(codeOf(early)).toBe("not_enough_items");
+    expect(early).toContain("A kiln takes 4 stone");
+    service.testGrant(wren.id, undefined, { stone: 4, clay: 4, herb: 1 });
+    const loaded = (await wren.act("craft?recipe=bowl&glaze=moss")).text;
+    expect(loaded).toMatch(/You placed a kiln at \(\d+, \d+\)\. Your bowl is in the kiln/);
+    expect(loaded).toContain("in a moss glaze");
+    const still = (await wren.act("craft?recipe=bowl")).text;
+    expect(codeOf(still)).toBe("tile_occupied");
+    now += DAY;
+    service.tick();
+    const again = (await wren.act("craft?recipe=bowl")).text;
+    expect(again).toMatch(/Out of the kiln came your bowl, [a-z ]+\. Your bowl is in the kiln/);
+    expect(service.state.items?.inventories[wren.id]?.goods).toEqual([
+      expect.objectContaining({ kind: "bowl", glaze: "moss", finish: expect.any(String) }),
+    ]);
+    expect((await wren.act("craft")).text).toContain("- `bowl`, at a kiln: 2 clay");
   });
 
   it("lists only the recipes you know once recipes are learned, and how to learn more", async () => {

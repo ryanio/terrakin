@@ -709,9 +709,9 @@ export const LINK_ROUTES = [
     format: "markdown",
     once: true,
     summary:
-      "Make something at a kitchen or workbench by your hearth: any recipe, by name. Without `recipe`, what you can make.",
+      "Make something at a kitchen, workbench, or kiln by your hearth: any recipe, by name. Without `recipe`, what you can make.",
     description:
-      "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen or workbench within reach of your hearth (placing one inside your starter hut if there's none), and makes `recipe`. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
+      "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen, workbench, or kiln within reach of your hearth (placing one inside your starter hut if there's none; a kiln takes 4 stone), and makes `recipe`. A pot (RFC 0047) is fired overnight: when your kiln holds a pot of yours that's ready, the same link takes it out first, at the finish the server rolls, and loads the next. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
@@ -722,6 +722,9 @@ export const LINK_ROUTES = [
         words(
           `Optional, your own name for a made good (not furniture), up to ${ITEMS.labelMax} characters,`,
         ),
+      ),
+      glaze: CraftAction.shape.glaze.describe(
+        "Optional, for a pot only: its glaze, each but `bare` costing one thing as the kiln is loaded.",
       ),
     }),
     responses: { 200: text("text/markdown", "What you made, or what the world rules said") },

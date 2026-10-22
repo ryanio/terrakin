@@ -5,12 +5,14 @@ import {
   canBuildOn,
   castsToday,
   chebyshev,
+  clayOpen,
   countOf,
   dayDateWords,
   FISHING,
   FISHING_ROD,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
+  firingAt,
   GOOD_KINDS,
   holdsRod,
   ITEM_INFO,
@@ -18,6 +20,8 @@ import {
   isFurnitureKind,
   isMaterialKind,
   isPotKind,
+  isPotteryRecipe,
+  isReady,
   isSweetKind,
   isWater,
   knowsCraft,
@@ -25,6 +29,7 @@ import {
   MATERIAL_KINDS,
   MATERIAL_RECIPES,
   POND,
+  POTTERY,
   pantryDue,
   pantryWould,
   picksLeft,
@@ -283,9 +288,9 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         });
       const recipe = query.recipe;
       if (!recipe) {
-        // Pots (RFC 0047) are fired in a kiln, which a link doesn't place or open yet.
+        // Pottery's recipes (RFC 0047) only once clay is out.
         const every: CraftKind[] = [
-          ...GOOD_KINDS.filter((k) => !isPotKind(k)),
+          ...GOOD_KINDS.filter((k) => clayOpen(state) || !isPotteryRecipe(k)),
           ...FURNITURE_KINDS,
           ...SWEET_KINDS,
           ...MATERIAL_KINDS,
@@ -301,7 +306,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
           start,
           l,
           "# Make something",
-          `Made at a kitchen or a workbench by your hearth, ${ITEMS.craftPerDay} things a day at most. A good is signed with your name; furniture and sweets (candy, candy canes) stack, and placing furniture needs the API.`,
+          `Made at a kitchen or a workbench by your hearth${clayOpen(state) ? ", or fired overnight in a kiln, where this same link takes a ready pot out first" : ""}, ${ITEMS.craftPerDay} things a day at most. A good is signed with your name; furniture and sweets (candy, candy canes) stack, and placing furniture needs the API.`,
           ready.length > 0
             ? list([
                 "## You can make now",
@@ -329,13 +334,6 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
             ]),
         );
       }
-      if (isPotKind(recipe)) {
-        return refuse(
-          "no_station",
-          `${ITEM_INFO[recipe].name} is fired overnight in a kiln, which takes the API for now: a \`craft\` at the kiln, and a \`harvest\` there the next day.`,
-          `What you can make by link: ${l.craft()}`,
-        );
-      }
       const hearth = start.hearth;
       if (!hearth) {
         return refuse(
@@ -344,7 +342,10 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
           homeStep(state, viewer, l),
         );
       }
-      const missing = short(recipe);
+      // A pot (RFC 0047): a kiln of yours holding a pot that's ready is opened first, below, so a
+      // short of clay is said after it.
+      const pot = isPotKind(recipe);
+      const missing = pot ? [] : short(recipe);
       if (missing.length > 0) {
         return refuse(
           "not_enough_items",
@@ -373,6 +374,14 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         }
       }
       let placed = "";
+      // A kiln (RFC 0047) takes stone to place: say so rather than try every tile.
+      if (!spot && pot && (inv?.stacks.stone ?? 0) < POTTERY.kilnStone) {
+        return refuse(
+          "not_enough_items",
+          `${ITEM_INFO[recipe].name} is fired in a kiln, and there's none within reach of your hearth. A kiln takes ${POTTERY.kilnStone} stone, given back when it comes up.`,
+          `Pick up loose stones on stony ground: ${l.gather}`,
+        );
+      }
       if (!spot) {
         for (const t of freeHutTiles(state, viewer, hearth)) {
           const put = act({ type: "place", x: t.x, y: t.y, block: station });
@@ -391,13 +400,65 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
           `Your menu: ${l.me}`,
         );
       }
+      // A kiln of yours with a pot in it (RFC 0047): out it comes when it's ready, at the finish
+      // the server rolls; else it's still firing, and nothing else goes in.
+      let fired = "";
+      const firing = pot ? firingAt(state, spot.x, spot.y) : undefined;
+      if (firing && firing.by !== viewer) {
+        return refuse(
+          "tile_occupied",
+          `The kiln at ${at(spot)} is firing someone else's pot. It's theirs to take out.`,
+          `Your menu: ${l.me}`,
+        );
+      }
+      if (firing) {
+        if (!isReady(firing.readyDay, state.day ?? 0)) {
+          return refuse(
+            "tile_occupied",
+            `Your kiln at ${at(spot)} is still firing a ${ITEM_INFO[firing.good.kind].name.toLowerCase()}. It comes out once the next day starts at midnight UTC: open this link again then.`,
+            `Your menu: ${l.me}`,
+          );
+        }
+        const out = act({ type: "harvest", x: spot.x, y: spot.y });
+        if (!out.ok) {
+          if (out.error.code === "rate_limited") return failed("rate_limited", out.error.message);
+          return turnedDown(out, `Your menu: ${l.me}`);
+        }
+        const got = resident(viewer);
+        if ("error" in got) return got;
+        const came = state.items?.inventories[viewer]?.goods.at(-1);
+        fired = came?.finish
+          ? `Out of the kiln came your ${ITEM_INFO[came.kind].name.toLowerCase()}, ${came.finish === "plain" ? "smooth and even" : came.finish}. `
+          : "";
+        const left = short(recipe);
+        if (left.length > 0) {
+          return answer(
+            got,
+            l,
+            "# Out of the kiln",
+            `${fired}It's in your things: ${l.things}`,
+            `Another ${ITEM_INFO[recipe].name.toLowerCase()} takes ${needWords(recipe)}, and you need ${andList(left)} more. Clay lies beside water, a pond or the sea: ${l.gather}`,
+          );
+        }
+      } else if (pot) {
+        const left = short(recipe);
+        if (left.length > 0) {
+          return refuse(
+            "not_enough_items",
+            `${ITEM_INFO[recipe].name} takes ${needWords(recipe)}, and you need ${andList(left)} more.`,
+            `Clay lies beside water, a pond or the sea: ${l.gather}. What you can make now: ${l.craft()}`,
+          );
+        }
+      }
       const label = query.label;
+      const glaze = query.glaze;
       const made = act({
         type: "craft",
         recipe,
         x: spot.x,
         y: spot.y,
         ...(label ? { label } : {}),
+        ...(glaze ? { glaze } : {}),
       });
       if (!made.ok) {
         if (made.error.code === "rate_limited") return failed("rate_limited", made.error.message);
@@ -405,6 +466,15 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
       }
       const me = resident(viewer);
       if ("error" in me) return me;
+      if (pot) {
+        return answer(
+          me,
+          l,
+          "# In the kiln",
+          `${placed}${fired}Your ${ITEM_INFO[recipe].name.toLowerCase()} is in the kiln at ${at(spot)}${glaze && glaze !== "bare" ? `, in a ${glaze} glaze` : ""}, firing overnight. Open this same link once the next day starts at midnight UTC to take it out: the kiln picks its finish as it opens.`,
+          "Setting a pot down on your plot, giving it, or selling it needs the API. Tell your owner what you made.",
+        );
+      }
       const furniture = isFurnitureKind(recipe);
       return answer(
         me,

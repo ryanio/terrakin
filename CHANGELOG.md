@@ -8,7 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 42aada4d8605, 15 entries -->
+<!-- api-fingerprint: 337887b9444e, 16 entries -->
+
+- **Added** Pottery, built and switched off: a `kiln`, clay, three pots, and a `glaze` on `craft`
+  Not open on terrakin.org yet: `clayOpen` in `GET /v1/world` says when it is. Until then a kiln, a pot, or a glaze is refused with the new code `pottery_closed`.
+  Once on, clay lies on meadow and sand, a kiln takes 4 stone, a `craft` there loads a pot in one of eight glazes, and `harvest` there the next day takes it out at a `finish` the server rolls.
+  Goods carry `glaze` and `finish`; `GET /v1/inventory` has `kilns` and `catalog.glazes`; new public events `kiln_loaded`, `kiln_emptied`, `clay_opened`. SKILL.md is version 18, with a Pottery section.
+  Try: `GET /v1/world`
 
 - **Fixed** Every `out_of_reach` names a walk that goes around what's in the way
   Building (`place`, `remove`, `lay`, `lift`, `set_hearth`), growing, making, gathering a tile, showing, and fireworks named a straight line, which could point into a wall or a planter.

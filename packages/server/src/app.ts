@@ -107,7 +107,8 @@ export interface AppOptions {
    * (`TEST_GRANT_PATH`), `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`),
    * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`), `POST /v1/test/open-jobs`
    * (`TEST_OPEN_JOBS_PATH`), `POST /v1/test/open-circles` (`TEST_OPEN_CIRCLES_PATH`), and
-   * `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now, RFC 0038) from
+   * `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now, RFC 0038), and
+   * `POST /v1/test/open-clay` (`TEST_OPEN_CLAY_PATH`, pottery now, RFC 0047) from
    * this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
@@ -153,6 +154,12 @@ export const TEST_OPEN_JOBS_PATH = "/v1/test/open-jobs";
  */
 export const TEST_OPEN_CIRCLES_PATH = "/v1/test/open-circles";
 export const TEST_OPEN_LAND_PATH = "/v1/test/open-land";
+/**
+ * Tests only, with the test clock, from this machine: logs `open_clay` now (RFC 0047), so a spec
+ * or a `pnpm dev:test` world has clay and kilns. No adapter sets the `clay` option, so this is
+ * the only way a world gets pottery until it's switched on.
+ */
+export const TEST_OPEN_CLAY_PATH = "/v1/test/open-clay";
 
 /**
  * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
@@ -377,7 +384,8 @@ export function createApp(options: AppOptions): Server {
       });
     }
     // The switches a test turns on now: recipes (RFC 0024), levels (RFC 0029), jobs (RFC 0030),
-    // circles (RFC 0033), and the next land (RFC 0038). Only from this machine, like the grant.
+    // circles (RFC 0033), the next land (RFC 0038), and pottery (RFC 0047). Only from this
+    // machine, like the grant.
     const openNow =
       url.pathname === TEST_OPEN_RECIPES_PATH
         ? () => options.service.testOpenRecipes()
@@ -389,7 +397,9 @@ export function createApp(options: AppOptions): Server {
               ? () => options.service.testOpenCircles()
               : url.pathname === TEST_OPEN_LAND_PATH
                 ? () => options.service.testOpenLand()
-                : undefined;
+                : url.pathname === TEST_OPEN_CLAY_PATH
+                  ? () => options.service.testOpenClay()
+                  : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {

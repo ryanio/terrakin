@@ -115,7 +115,7 @@ export const knownByAll = (recipe: RecipeName): boolean =>
  * The pot everyone knows once clay is out, with no card (RFC 0047). Frozen like the base: it joins
  * what everyone knows only with the logged `open_clay`, which is why it isn't in `BASE_RECIPES`.
  */
-export const CLAY_BASE = ["bowl"] as const satisfies readonly RecipeName[];
+const CLAY_BASE = ["bowl"] as const satisfies readonly RecipeName[];
 
 /**
  * Every recipe the shop sells a card for: all but the base, the holiday recipes, and the bowl.

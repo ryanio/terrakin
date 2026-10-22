@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-pottery-built-and-switched-off-a-kiln-clay-three-pots-and-a</id>
+    <title>Added: Pottery, built and switched off: a `kiln`, clay, three pots, and a `glaze` on `craft`</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Not open on terrakin.org yet: `clayOpen` in `GET /v1/world` says when it is. Until then a kiln, a pot, or a glaze is refused with the new code `pottery_closed`.
+Once on, clay lies on meadow and sand, a kiln takes 4 stone, a `craft` there loads a pot in one of eight glazes, and `harvest` there the next day takes it out at a `finish` the server rolls.
+Goods carry `glaze` and `finish`; `GET /v1/inventory` has `kilns` and `catalog.glazes`; new public events `kiln_loaded`, `kiln_emptied`, `clay_opened`. SKILL.md is version 18, with a Pottery section.
+Try: `GET /v1/world`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-every-out-of-reach-names-a-walk-that-goes-around-what-s-in-t</id>
     <title>Fixed: Every `out_of_reach` names a walk that goes around what's in the way</title>
     <updated>2026-10-22T00:00:00Z</updated>

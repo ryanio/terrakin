@@ -5400,6 +5400,7 @@
                 "cushion",
                 "wood",
                 "stone",
+                "clay",
                 "lantern",
                 "frame",
                 "fence",
@@ -5504,6 +5505,9 @@
                 "harvest_soup",
                 "garden_salad",
                 "posy",
+                "bowl",
+                "vase",
+                "teapot",
                 "piece"
               ]
             }
@@ -15244,6 +15248,9 @@
                 "harvest_soup",
                 "garden_salad",
                 "posy",
+                "bowl",
+                "vase",
+                "teapot",
                 "table",
                 "chair",
                 "bookshelf",
@@ -30041,7 +30048,8 @@
                     "door",
                     "armchair",
                     "sofa",
-                    "bed"
+                    "bed",
+                    "kiln"
                   ]
                 }
               },
@@ -30219,7 +30227,8 @@
               "door",
               "armchair",
               "sofa",
-              "bed"
+              "bed",
+              "kiln"
             ]
           },
           "windows": {
@@ -30275,7 +30284,8 @@
               "door",
               "armchair",
               "sofa",
-              "bed"
+              "bed",
+              "kiln"
             ]
           },
           "path": {
@@ -31155,6 +31165,14 @@
             "type": "string",
             "maxLength": 40
           },
+          "glaze": {
+            "description": "A pot's glaze, at a kiln only. Absent is bare; each other costs one thing from your things.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GlazeName"
+              }
+            ]
+          },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
             "type": "boolean"
@@ -31701,6 +31719,7 @@
           "not_food",
           "not_a_seat",
           "public_way",
+          "pottery_closed",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -31747,6 +31766,15 @@
           "four_leaf_clover",
           "maple_leaf",
           "cherry_blossom"
+        ]
+      },
+      "FinishName": {
+        "type": "string",
+        "enum": [
+          "plain",
+          "speckled",
+          "crackle",
+          "iridescent"
         ]
       },
       "FireworkColor": {
@@ -32116,6 +32144,19 @@
           "amount"
         ]
       },
+      "GlazeName": {
+        "type": "string",
+        "enum": [
+          "bare",
+          "cream",
+          "sea",
+          "crystal",
+          "rose",
+          "honey",
+          "berry",
+          "moss"
+        ]
+      },
       "GoodEventView": {
         "type": "object",
         "properties": {
@@ -32149,6 +32190,20 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "glaze": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GlazeName"
+              }
+            ]
+          },
+          "finish": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FinishName"
+              }
+            ]
           }
         },
         "required": [
@@ -32193,7 +32248,10 @@
           "corn_bread",
           "harvest_soup",
           "garden_salad",
-          "posy"
+          "posy",
+          "bowl",
+          "vase",
+          "teapot"
         ]
       },
       "GroomPetAction": {
@@ -32459,7 +32517,8 @@
           "caught",
           "merged",
           "handed_in",
-          "brought"
+          "brought",
+          "fired"
         ]
       },
       "InviteToCircleAction": {
@@ -32551,6 +32610,7 @@
           "cushion",
           "wood",
           "stone",
+          "clay",
           "lantern",
           "frame",
           "fence",
@@ -32655,6 +32715,9 @@
           "harvest_soup",
           "garden_salad",
           "posy",
+          "bowl",
+          "vase",
+          "teapot",
           "piece"
         ]
       },
@@ -33090,6 +33153,9 @@
           "harvest_soup",
           "garden_salad",
           "posy",
+          "bowl",
+          "vase",
+          "teapot",
           "piece"
         ]
       },
@@ -33424,6 +33490,7 @@
         "enum": [
           "wood",
           "stone",
+          "clay",
           "acorn",
           "pinecone",
           "mushroom",
@@ -33520,7 +33587,8 @@
               "door",
               "armchair",
               "sofa",
-              "bed"
+              "bed",
+              "kiln"
             ]
           },
           "dry": {
@@ -33746,7 +33814,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "1": {
@@ -33801,7 +33870,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "2": {
@@ -33856,7 +33926,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "3": {
@@ -33911,7 +33982,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "4": {
@@ -33966,7 +34038,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "5": {
@@ -34021,7 +34094,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "6": {
@@ -34076,7 +34150,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "7": {
@@ -34131,7 +34206,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "8": {
@@ -34186,7 +34262,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "9": {
@@ -34241,7 +34318,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               }
             },
@@ -34344,7 +34422,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "1": {
@@ -34399,7 +34478,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "2": {
@@ -34454,7 +34534,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "3": {
@@ -34509,7 +34590,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "4": {
@@ -34564,7 +34646,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "5": {
@@ -34619,7 +34702,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "6": {
@@ -34674,7 +34758,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "7": {
@@ -34729,7 +34814,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "8": {
@@ -34784,7 +34870,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "9": {
@@ -34839,7 +34926,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               }
             },
@@ -34953,7 +35041,8 @@
                         "door",
                         "armchair",
                         "sofa",
-                        "bed"
+                        "bed",
+                        "kiln"
                       ]
                     }
                   },
@@ -35488,7 +35577,9 @@
           "recipe:posy",
           "recipe:armchair",
           "recipe:sofa",
-          "recipe:bed"
+          "recipe:bed",
+          "recipe:vase",
+          "recipe:teapot"
         ]
       },
       "RecipeKind": {
@@ -35527,6 +35618,9 @@
           "harvest_soup",
           "garden_salad",
           "posy",
+          "bowl",
+          "vase",
+          "teapot",
           "table",
           "chair",
           "bookshelf",
@@ -35594,7 +35688,10 @@
           "posy",
           "armchair",
           "sofa",
-          "bed"
+          "bed",
+          "bowl",
+          "vase",
+          "teapot"
         ]
       },
       "ReleaseAction": {
@@ -36892,6 +36989,7 @@
           "cushion",
           "wood",
           "stone",
+          "clay",
           "lantern",
           "frame",
           "fence",
@@ -38428,7 +38526,8 @@
                   "door",
                   "armchair",
                   "sofa",
-                  "bed"
+                  "bed",
+                  "kiln"
                 ]
               },
               "by": {
@@ -41008,6 +41107,86 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "clay_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kiln_loaded"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              },
+              "readyDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "by",
+              "readyDay"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "kiln_emptied"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "gathered"
                 ]
               },
@@ -42768,7 +42947,8 @@
                     "door",
                     "armchair",
                     "sofa",
-                    "bed"
+                    "bed",
+                    "kiln"
                   ]
                 }
               },
@@ -42984,6 +43164,38 @@
               ]
             }
           },
+          "kilns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "by": {
+                  "type": "string"
+                },
+                "readyDay": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "by",
+                "readyDay"
+              ]
+            }
+          },
           "crops": {
             "type": "array",
             "items": {
@@ -43090,6 +43302,12 @@
             ]
           },
           "findsOpen": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "clayOpen": {
             "type": "boolean",
             "enum": [
               true
@@ -48313,6 +48531,24 @@
           "seeds"
         ]
       },
+      "CatalogGlaze": {
+        "type": "object",
+        "properties": {
+          "glaze": {
+            "$ref": "#/components/schemas/GlazeName"
+          },
+          "costs": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StackKind"
+              }
+            ]
+          }
+        },
+        "required": [
+          "glaze"
+        ]
+      },
       "CatalogGround": {
         "type": "object",
         "properties": {
@@ -48398,7 +48634,8 @@
             "type": "string",
             "enum": [
               "kitchen",
-              "workbench"
+              "workbench",
+              "kiln"
             ]
           },
           "needs": {
@@ -48582,6 +48819,20 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "glaze": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GlazeName"
+              }
+            ]
+          },
+          "finish": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FinishName"
+              }
+            ]
+          },
           "trust": {
             "type": "string",
             "enum": [
@@ -48751,6 +49002,12 @@
             "items": {
               "$ref": "#/components/schemas/GoodView"
             }
+          },
+          "kilns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KilnView"
+            }
           }
         },
         "required": [
@@ -48796,13 +49053,20 @@
             "items": {
               "$ref": "#/components/schemas/CatalogGround"
             }
+          },
+          "glazes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogGlaze"
+            }
           }
         },
         "required": [
           "items",
           "crops",
           "recipes",
-          "ground"
+          "ground",
+          "glazes"
         ]
       },
       "ItemRules": {
@@ -48877,6 +49141,11 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "kilnStone": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -48893,7 +49162,59 @@
           "noteMax",
           "declineDays",
           "castsPerDay",
-          "pondStone"
+          "pondStone",
+          "kilnStone"
+        ]
+      },
+      "KilnView": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "y": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "readyDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "yours": {
+            "type": "boolean"
+          },
+          "pot": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/MadeKind"
+              },
+              "glaze": {
+                "$ref": "#/components/schemas/GlazeName"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "glaze"
+            ]
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "readyDay",
+          "ready",
+          "yours"
         ]
       },
       "AgentLinkRequest": {
@@ -49550,7 +49871,8 @@
                 "type": "string",
                 "enum": [
                   "kitchen",
-                  "workbench"
+                  "workbench",
+                  "kiln"
                 ]
               },
               "makes": {
@@ -51216,7 +51538,8 @@
             "type": "string",
             "enum": [
               "kitchen",
-              "workbench"
+              "workbench",
+              "kiln"
             ]
           },
           "makes": {
@@ -51344,7 +51667,8 @@
                 "type": "string",
                 "enum": [
                   "kitchen",
-                  "workbench"
+                  "workbench",
+                  "kiln"
                 ]
               },
               "needs": {
@@ -53907,7 +54231,8 @@
                     "door",
                     "armchair",
                     "sofa",
-                    "bed"
+                    "bed",
+                    "kiln"
                   ]
                 }
               },
@@ -53965,7 +54290,8 @@
                     "door",
                     "armchair",
                     "sofa",
-                    "bed"
+                    "bed",
+                    "kiln"
                   ]
                 }
               },

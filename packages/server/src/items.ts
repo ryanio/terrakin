@@ -5,9 +5,11 @@ import {
   type InventoryResponse,
   ITEM_CATALOG,
   ITEM_RULES,
+  type KilnView,
 } from "@terrakin/protocol";
 import {
   canBuildOn,
+  firingsOf,
   type Good,
   heldAsideOf,
   inventoryOf,
@@ -50,6 +52,22 @@ export function gardenOf(state: WorldState, viewer: string): GardenView[] {
   return out.sort((a, b) => a.readyDay - b.readyDay || a.y - b.y || a.x - b.x);
 }
 
+/**
+ * Kilns firing a pot on plots `viewer` can build on (RFC 0047), north to south. What's in one is
+ * shown only to whoever loaded it.
+ */
+function kilnsOf(state: WorldState, viewer: string): KilnView[] {
+  return firingsOf(state)
+    .filter((k) => canBuildOn(plotAtTile(state, k.x, k.y), viewer))
+    .map(({ x, y, firing, ready }) => {
+      const yours = firing.by === viewer;
+      const { kind, glaze, label } = firing.good;
+      const pot =
+        yours && glaze ? { kind, glaze, ...(label === undefined ? {} : { label }) } : null;
+      return { x, y, readyDay: firing.readyDay, ready, yours, ...(pot ? { pot } : {}) };
+    });
+}
+
 /** A made thing as the API shows it, with its maker's name. Its label is untrusted text. */
 export function goodView(g: Good, author: Authors): GoodView {
   const maker = author(g.maker);
@@ -63,6 +81,8 @@ export function goodView(g: Good, author: Authors): GoodView {
     ...(g.media === undefined ? {} : { media: g.media }),
     ...(g.model ? { model: true as const } : {}),
     ...(g.admired ? { admired: g.admired } : {}),
+    ...(g.glaze === undefined ? {} : { glaze: g.glaze }),
+    ...(g.finish === undefined ? {} : { finish: g.finish }),
     trust: "untrusted",
   };
 }
@@ -75,6 +95,7 @@ export function inventoryView(
 ): InventoryResponse {
   const read = inventoryOf(state, viewer);
   const held = heldAsideOf(state, viewer).map((d) => goodView(d.good, author));
+  const kilns = kilnsOf(state, viewer);
   // The pantry gives less once the town shop sells sugar and jars.
   const { pantry, stapleMax } = pantryNumbers(state);
   const rules = { ...ITEM_RULES, pantrySugar: pantry.sugar, pantryJars: pantry.jar, stapleMax };
@@ -110,6 +131,7 @@ export function inventoryView(
       }),
       ...(held.length > 0 ? { heldAside: held } : {}),
       ...presentsField(state, viewer, author),
+      ...(kilns.length > 0 ? { kilns } : {}),
     },
     ...base,
   };

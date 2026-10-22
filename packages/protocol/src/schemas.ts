@@ -21,6 +21,7 @@ import {
   EVENTS,
   EXCLUSIVE_WEAR,
   FIND_KINDS,
+  FINISH_NAMES,
   FIREWORK_COLORS,
   FISH_KINDS,
   FLOORS,
@@ -30,6 +31,7 @@ import {
   GAME_PACES,
   GARMENT_PATTERNS,
   GIFT_ID_PATTERN,
+  GLAZES,
   GOOD_KINDS,
   GROUND_KINDS,
   HAIR_COLORS,
@@ -672,7 +674,10 @@ export const PlantAction = z.object({
   seed: CropKind,
   ...dry,
 });
-/** Pick a ready crop from a planter on your plot (or one shared with you), within reach. */
+/**
+ * Pick a ready crop from a planter on your plot (or one shared with you), within reach. On a kiln's
+ * tile (RFC 0047) it takes out a pot that's ready, and the server rolls its finish as it opens.
+ */
 export const HarvestAction = z.object({
   type: z.literal("harvest"),
   x: coord,
@@ -703,6 +708,13 @@ export const GatherAction = z
   });
 /** Furniture (RFC 0016): made at a workbench, held, and placed like decor. */
 export const FurnitureKind = z.enum(FURNITURE_KINDS);
+/**
+ * A pot's glaze (RFC 0047): `bare` costs nothing, and each of the rest one thing as the kiln is
+ * loaded (`catalog.glazes` in `GET /v1/inventory` says what).
+ */
+export const GlazeName = z.enum(GLAZES);
+/** What a pot came out of the kiln as (RFC 0047): the server rolls it as the kiln opens. */
+export const FinishName = z.enum(FINISH_NAMES);
 /** Sweets (RFC 0022): made at a kitchen, and they stack, like candy. */
 export const SweetKind = z.enum(SWEET_KINDS);
 /**
@@ -716,10 +728,11 @@ export const RecipeKind = z.enum([
   ...MATERIAL_KINDS,
 ]);
 /**
- * Make something at the station on (x, y), within reach: a `kitchen` or a `workbench`. `label` is
- * your own name for a good, untrusted text that travels with it. Furniture, sweets and made
- * materials take no label, and their recipes can make more than one (candy makes 5, and a
- * material 4, since a wall is many tiles).
+ * Make something at the station on (x, y), within reach: a `kitchen`, a `workbench`, or a `kiln`.
+ * `label` is your own name for a good, untrusted text that travels with it. Furniture, sweets and
+ * made materials take no label, and their recipes can make more than one (candy makes 5, and a
+ * material 4, since a wall is many tiles). At a kiln (RFC 0047) a pot takes an optional `glaze`
+ * and fires overnight: take it out the next day with `harvest` on the kiln's tile.
  */
 export const CraftAction = z.object({
   type: z.literal("craft"),
@@ -727,6 +740,9 @@ export const CraftAction = z.object({
   x: coord,
   y: coord,
   label: z.string().trim().max(ITEMS.labelMax).optional(),
+  glaze: GlazeName.optional().describe(
+    "A pot's glaze, at a kiln only. Absent is bare; each other costs one thing from your things.",
+  ),
   ...dry,
 });
 /**
@@ -932,6 +948,10 @@ export const GoodEventView = z.object({
   model: z.literal(true).optional(),
   /** How many times residents admired it on display. Absent at 0. */
   admired: z.number().int().optional(),
+  /** A pot only (RFC 0047): its glaze. */
+  glaze: GlazeName.optional(),
+  /** A pot only: the finish it came out of the kiln with. */
+  finish: FinishName.optional(),
 });
 
 // ---------- The market (RFC 0008, phase 4) ----------
@@ -1900,6 +1920,20 @@ export const WorldSnapshot = z.object({
       }),
     )
     .optional(),
+  /**
+   * Kilns firing a pot (RFC 0047), with who loaded each and the day it's ready. What's in one is
+   * never shown. Absent when no kiln is firing.
+   */
+  kilns: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        by: z.string(),
+        readyDay: z.number().int(),
+      }),
+    )
+    .optional(),
   /** Crops growing in planters. Ready once `day` reaches `readyDay`. Absent when there are none. */
   crops: z
     .array(
@@ -1944,6 +1978,11 @@ export const WorldSnapshot = z.object({
    * by its biome and the season. Clients draw them with the sim's `pickupOn`.
    */
   findsOpen: z.literal(true).optional(),
+  /**
+   * Present once pottery is open (RFC 0047): clay lies on meadow and sand, and a `kiln` fires pots.
+   * Clients draw clay with the sim's `pickupOn`.
+   */
+  clayOpen: z.literal(true).optional(),
   /**
    * Present once recipes are learned (RFC 0024): `teach` works, and now and then a find is a
    * `recipe_page`. Clients draw pages with the sim's `pickupOn`.
@@ -2672,6 +2711,23 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     crop: CropKind,
+    by: z.string(),
+  }),
+  /** Clay lies on the ground and kilns fire pots from now on (RFC 0047). */
+  z.object({ type: z.literal("clay_opened") }),
+  /** `by` loaded the kiln at (x, y), which fires until `readyDay`. What's in it isn't said. */
+  z.object({
+    type: z.literal("kiln_loaded"),
+    x: z.number().int(),
+    y: z.number().int(),
+    by: z.string(),
+    readyDay: z.number().int(),
+  }),
+  /** `by` took the pot out of the kiln at (x, y). It went to whoever loaded it. */
+  z.object({
+    type: z.literal("kiln_emptied"),
+    x: z.number().int(),
+    y: z.number().int(),
     by: z.string(),
   }),
   /** Someone picked up a fallen branch, a loose stone, or a find. Public, like a harvest. */

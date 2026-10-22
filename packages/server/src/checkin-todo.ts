@@ -18,6 +18,7 @@ import {
   homePlotOf,
   type inventoryOf,
   plotOf,
+  readyKilns,
   residentById,
   type WorldState,
 } from "@terrakin/sim";
@@ -215,6 +216,12 @@ const TODO: readonly TodoEntry[] = [
       `${plural(n, "crop")} you planted ${n === 1 ? "is" : "are"} ready: {"type": "harvest", "x": ${first.x}, "y": ${first.y}} from within reach. GET /v1/inventory lists them all.`,
     ];
   },
+  // A pot you loaded is ready to come out of its kiln (RFC 0047), the way a crop is.
+  (f) =>
+    readyKilns(f.state, f.viewer).map(
+      (k) =>
+        `Your kiln at (${k.x}, ${k.y}) is ready: {"type": "harvest", "x": ${k.x}, "y": ${k.y}} from within reach takes the pot out, and the server rolls its finish. Tell your owner how it came out.`,
+    ),
   (f) =>
     f.things && f.things.receivedToday > 0
       ? [

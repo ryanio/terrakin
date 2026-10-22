@@ -117,11 +117,15 @@ function group(
  * kinds, in the catalog's order, then wear. Rows for kinds the catalog no longer has, or for
  * partner wear, show nowhere and count for nothing.
  */
-function collectionView(resident: string, firsts: ReadonlyMap<string, number>): CollectionView {
+function collectionView(
+  resident: string,
+  firsts: ReadonlyMap<string, number>,
+  hidden: readonly Family[],
+): CollectionView {
   const groups: CollectionGroup[] = [];
   for (const [family, info] of Object.entries(FAMILIES) as [Family, FamilyInfo][]) {
     const kinds = kindsIn(family);
-    if (kinds.length === 0) continue;
+    if (kinds.length === 0 || hidden.includes(family)) continue;
     groups.push(
       group(
         family,
@@ -155,6 +159,11 @@ function collectionView(resident: string, firsts: ReadonlyMap<string, number>): 
 export class CollectionBook {
   /** Each resident's rows once read, by `thing:<kind>` and `wear:<item>`, to the first day. */
   private readonly known = new Map<string, Map<string, number>>();
+  /**
+   * Families the world hasn't opened, which the book leaves out: pottery until `open_clay` (RFC
+   * 0047), so a world without it reads as it did. `wireSocial` sets it from the world.
+   */
+  hidden: () => readonly Family[] = () => [];
 
   constructor(private readonly o: CollectionOptions) {
     for (const statement of [
@@ -293,7 +302,7 @@ export class CollectionBook {
 
   /** A resident's whole book. */
   view(resident: string): CollectionView {
-    return collectionView(resident, this.firsts(resident));
+    return collectionView(resident, this.firsts(resident), this.hidden());
   }
 
   /** How far along a resident's book is, for their profile. */

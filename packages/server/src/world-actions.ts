@@ -18,12 +18,14 @@ import {
   isTownEvent,
   isWater,
   joinTile,
+  KILN,
   LOOK_MEDIA_KEYS,
   type LookMediaKey,
   type LooseWearStyles,
   listingById,
   own,
   type Plot,
+  POTTERY,
   type ProfileFields,
   plotAtTile,
   plotInBounds,
@@ -35,6 +37,7 @@ import {
   skyAt,
   starterHomePlot,
   starterOf,
+  tileKey,
   timeOfDayAt,
   unclaimedMessage,
   visitTile,
@@ -79,15 +82,17 @@ export interface ActionContext {
 }
 
 /**
- * A cast's roll (RFC 0023): a whole number from 0 to `FISHING.outOf - 1`, every one as likely, from
- * Web Crypto. Draws past the last whole multiple of `outOf` are drawn again, so none is favored.
+ * A roll the server logs with an input: a whole number from 0 to `outOf - 1`, every one as likely,
+ * from Web Crypto. Draws past the last whole multiple of `outOf` are drawn again, so none is
+ * favored. A cast's (RFC 0023) is out of `FISHING.outOf`, and a pot's finish (RFC 0047) out of
+ * `POTTERY.outOf`.
  */
-function castRoll(): number {
+function fairRoll(outOf: number): number {
   const span = 2 ** 32;
-  const fair = span - (span % FISHING.outOf);
+  const fair = span - (span % outOf);
   for (;;) {
     const n = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
-    if (n < fair) return n % FISHING.outOf;
+    if (n < fair) return n % outOf;
   }
 }
 
@@ -337,6 +342,20 @@ export function performAction(
       x: action.x,
       y: action.y,
       ...(label ? { label } : {}),
+      ...(action.glaze === undefined ? {} : { glaze: action.glaze }),
+    };
+    return ctx.run({ actor: residentId, command }, dry);
+  }
+  if (action.type === "harvest") {
+    // A kiln opens with `harvest` (RFC 0047): the server rolls the pot's finish and logs it with
+    // the input, as it does a cast's, so the sim never draws one. A dry run draws nothing: it says
+    // whether the kiln would open, and its answer carries no pot.
+    const kiln = ctx.state.blocks[tileKey(action.x, action.y)] === KILN;
+    const command: Command = {
+      type: "harvest",
+      x: action.x,
+      y: action.y,
+      ...(kiln ? { roll: dry ? 0 : fairRoll(POTTERY.outOf) } : {}),
     };
     return ctx.run({ actor: residentId, command }, dry);
   }
@@ -757,7 +776,7 @@ function fish(ctx: ActionContext, residentId: string, dry: boolean): ActResult {
   const now = ctx.now();
   const command: Command = {
     type: "fish",
-    roll: castRoll(),
+    roll: fairRoll(FISHING.outOf),
     weather: skyAt(now, ctx.state.day).weather,
     timeOfDay: timeOfDayAt(now, DAY_LENGTH_MS),
   };

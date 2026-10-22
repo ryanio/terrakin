@@ -4,6 +4,7 @@ import {
   CARD_RECIPES,
   dayOfDate,
   HOLIDAY_RECIPES,
+  isPotKind,
   RECIPE_NAMES,
   recipeCardPrice,
   type WorldConfig,
@@ -100,7 +101,8 @@ describe("before recipes are learned", () => {
     expect(w.service.state.recipes).toBeUndefined();
     const ada = await w.settler("Ada", 0, 0);
     const inv = await w.inventory(ada.token);
-    expect(inv.recipes).toEqual([...RECIPE_NAMES].sort());
+    // Every recipe but the pots, which wait for clay (RFC 0047).
+    expect(inv.recipes).toEqual(RECIPE_NAMES.filter((r) => !isPotKind(r)).sort());
     expect(inv.recipePicks).toBe(0);
     const { shop } = await w.shop(ada.token);
     expect(shop.recipes).toBeUndefined();
@@ -140,9 +142,10 @@ describe("once recipes are learned", () => {
   it("shows the Recipes shelf, with what you know once you're signed in", async () => {
     const w = await start();
     const anyone = (await w.shop()).shop;
-    // October: every card but winter's hot punch, each with its price and recipe.
+    // October: every card but winter's hot punch and the pots', which wait for clay (RFC 0047),
+    // each with its price and recipe.
     expect(anyone.recipes.map((c: Json) => c.sku).sort()).toEqual(
-      CARD_RECIPES.filter((r) => r !== "cranberry_punch")
+      CARD_RECIPES.filter((r) => r !== "cranberry_punch" && !isPotKind(r))
         .map((r) => `recipe:${r}`)
         .sort(),
     );

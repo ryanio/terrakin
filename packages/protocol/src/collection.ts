@@ -45,6 +45,7 @@ export const COLLECTION_WORDS: Readonly<
   shore_find: { hint: "Found on the sand", badge: "Shore finds" },
   stone_find: { hint: "Found on stony ground", badge: "Stone finds" },
   meadow_find: { hint: "Found in meadows", badge: "Meadow finds" },
+  pottery: { hint: "Clay from meadows and sand, fired in a kiln", badge: "Every pot" },
   wear: { hint: "Worn, or bought at the town shop", badge: "Full wardrobe" },
 };
 

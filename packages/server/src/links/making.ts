@@ -17,6 +17,7 @@ import {
   ITEMS,
   isFurnitureKind,
   isMaterialKind,
+  isPotKind,
   isSweetKind,
   isWater,
   knowsCraft,
@@ -282,8 +283,9 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         });
       const recipe = query.recipe;
       if (!recipe) {
+        // Pots (RFC 0047) are fired in a kiln, which a link doesn't place or open yet.
         const every: CraftKind[] = [
-          ...GOOD_KINDS,
+          ...GOOD_KINDS.filter((k) => !isPotKind(k)),
           ...FURNITURE_KINDS,
           ...SWEET_KINDS,
           ...MATERIAL_KINDS,
@@ -325,6 +327,13 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
                   : ""
               }A card is \`shop_buy\` with sku \`recipe:<name>\` and count 1, at the price on the shelf. Both need the API.`,
             ]),
+        );
+      }
+      if (isPotKind(recipe)) {
+        return refuse(
+          "no_station",
+          `${ITEM_INFO[recipe].name} is fired overnight in a kiln, which takes the API for now: a \`craft\` at the kiln, and a \`harvest\` there the next day.`,
+          `What you can make by link: ${l.craft()}`,
         );
       }
       const hearth = start.hearth;

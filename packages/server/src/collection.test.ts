@@ -1,5 +1,13 @@
 import { type CollectionView, WEAR_GROUP } from "@terrakin/protocol";
-import { DAY_MS, ITEM_KINDS, replay, STARTER_SEEDS, utcDay, type WorldConfig } from "@terrakin/sim";
+import {
+  DAY_MS,
+  ITEM_KINDS,
+  kindsIn,
+  replay,
+  STARTER_SEEDS,
+  utcDay,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { FINDS_CONFIG, FINDS_LOG } from "../../sim/src/fixtures/finds-log";
 import { createApp } from "./app";
@@ -117,7 +125,9 @@ describe("the collection book", () => {
     expect(got.get("straw_hat")).toBe(today);
     expect(got.get("geode")).toBeUndefined();
     expect(book.count).toBe(STARTER_SEEDS.length + 2 + 1 + 1);
-    expect(book.total).toBe(ITEM_KINDS.length + COLLECTIBLE_WEAR.length);
+    // Pottery (RFC 0047) is left out of a world without clay.
+    const pottery = kindsIn("pottery").length;
+    expect(book.total).toBe(ITEM_KINDS.length - pottery + COLLECTIBLE_WEAR.length);
     // Sugar and jars are the whole pantry: a family finished earns its badge.
     expect(book.groups.find((g) => g.family === "pantry")).toMatchObject({
       count: 2,

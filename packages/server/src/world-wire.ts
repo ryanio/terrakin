@@ -10,6 +10,7 @@ import {
   blocksOn,
   circleById,
   circleName,
+  clayOpen,
   commonsPlot,
   DAY_LENGTH_MS,
   type Direction,
@@ -18,6 +19,7 @@ import {
   FLOORS,
   findsOnDisplay,
   findsOpen,
+  firingsOf,
   floorField,
   groundOn,
   holidaysField,
@@ -527,6 +529,17 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         }
       : {}),
     ...(finds.length > 0 ? { displayedFinds: finds } : {}),
+    // Kilns firing a pot (RFC 0047): where, whose, and when, never what's in one.
+    ...(state.items?.firings
+      ? {
+          kilns: firingsOf(state).map((k) => ({
+            x: k.x,
+            y: k.y,
+            by: k.firing.by,
+            readyDay: k.firing.readyDay,
+          })),
+        }
+      : {}),
     ...(state.items && Object.keys(state.items.crops).length > 0
       ? {
           crops: Object.entries(state.items.crops).map(([key, c]) => {
@@ -546,6 +559,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
     ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
+    ...(clayOpen(state) ? { clayOpen: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
     ...(state.recipes?.pages ? { pageEdition: state.recipes.pages } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),

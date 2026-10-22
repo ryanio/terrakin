@@ -4,6 +4,8 @@ import {
   FISHING,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
+  GLAZE_COSTS,
+  GLAZES,
   GOOD_KINDS,
   GROUND_INFO,
   GROUND_KINDS,
@@ -13,6 +15,7 @@ import {
   MATERIAL_KINDS,
   MATERIAL_RECIPES,
   POND,
+  POTTERY,
   RECIPES,
   STATIONS,
   type StackKind,
@@ -22,7 +25,9 @@ import {
 import { z } from "zod";
 import {
   CropKind,
+  FinishName,
   GiftId,
+  GlazeName,
   GroundKind,
   ItemKind,
   MadeKind,
@@ -54,6 +59,7 @@ export const ITEM_RULES = {
   declineDays: ITEMS.declineDays,
   castsPerDay: FISHING.castsPerDay,
   pondStone: POND.stone,
+  kilnStone: POTTERY.kilnStone,
 } as const;
 
 export const ItemRules = z.object({
@@ -82,6 +88,8 @@ export const ItemRules = z.object({
   castsPerDay: z.number().int(),
   /** Stone one tile of pond takes when you dig it, and gives back when it's taken up. */
   pondStone: z.number().int(),
+  /** Stone a kiln takes when you place it, and gives back when it's taken up (RFC 0047). */
+  kilnStone: z.number().int(),
 });
 
 /** One kind of thing in the catalog. */
@@ -145,11 +153,20 @@ export const CatalogGround = z.object({
   needs: needsList,
 });
 
+/** A pot's glaze (RFC 0047): send it as `glaze` in a `craft` at a kiln. */
+export const CatalogGlaze = z.object({
+  glaze: GlazeName,
+  /** The one thing it takes from your things as the kiln is loaded. Absent for `bare`. */
+  costs: StackKindSchema.optional(),
+});
+
 export const ItemCatalog = z.object({
   items: z.array(CatalogItem),
   crops: z.array(CatalogCrop),
   recipes: z.array(CatalogRecipe),
   ground: z.array(CatalogGround),
+  /** The glazes a pot can take at a kiln (RFC 0047), and what each costs. */
+  glazes: z.array(CatalogGlaze),
 });
 export type ItemCatalog = z.infer<typeof ItemCatalog>;
 
@@ -203,6 +220,10 @@ export const ITEM_CATALOG: ItemCatalog = {
     name: GROUND_INFO[kind].name,
     needs: needsOf(GROUND_INFO[kind].needs),
   })),
+  glazes: GLAZES.map((glaze) => {
+    const costs = GLAZE_COSTS[glaze];
+    return costs ? { glaze, costs } : { glaze };
+  }),
 };
 
 /** A made thing you hold. */
@@ -221,6 +242,10 @@ export const GoodView = z.object({
   model: z.literal(true).optional(),
   /** How many times residents admired it on display. Absent at 0. */
   admired: z.number().int().optional(),
+  /** A pot only (RFC 0047): the glaze its maker chose. */
+  glaze: GlazeName.optional(),
+  /** A pot only: the finish it came out of the kiln with. */
+  finish: FinishName.optional(),
   trust: z.literal("untrusted"),
 });
 export type GoodView = z.infer<typeof GoodView>;
@@ -236,6 +261,21 @@ export const GardenView = z.object({
   ready: z.boolean(),
 });
 export type GardenView = z.infer<typeof GardenView>;
+
+/** A kiln with a pot firing in it (RFC 0047). */
+export const KilnView = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  /** The pot comes out once this day starts. */
+  readyDay: z.number().int(),
+  /** Ready to take out with `harvest` now. */
+  ready: z.boolean(),
+  /** Whether you loaded it, so the pot is yours. */
+  yours: z.boolean(),
+  /** What's in it, for whoever loaded it only: the pot's kind, glaze, and label. */
+  pot: z.object({ kind: MadeKind, glaze: GlazeName, label: z.string().optional() }).optional(),
+});
+export type KilnView = z.infer<typeof KilnView>;
 
 /** A gift you got that you can still send back with `decline_gift`. */
 export const GiftView = z.object({
@@ -312,6 +352,11 @@ export const InventoryView = z.object({
    * that leaves room for it. Absent when there are none.
    */
   heldAside: z.array(GoodView).optional(),
+  /**
+   * Kilns with a pot in them on plots you can build on (RFC 0047), north to south. Open a ready one
+   * with `harvest`; the pot goes to whoever loaded it. Absent when there are none.
+   */
+  kilns: z.array(KilnView).optional(),
 });
 export type InventoryView = z.infer<typeof InventoryView>;
 

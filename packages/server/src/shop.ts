@@ -14,6 +14,7 @@ import {
   cardLastDay,
   cardSeason,
   cardSku,
+  clayOpen,
   coinsOf,
   holidaysOn,
   ITEM_INFO,
@@ -110,7 +111,7 @@ const CARDS = CARD_RECIPES.map((recipe) => {
  */
 function cardsOn(state: WorldState, day: number, viewer: string | undefined): RecipeCardView[] {
   return CARDS.flatMap(({ recipe, view }) => {
-    if (!onShelf(recipe, day)) return [];
+    if (!onShelf(recipe, day, clayOpen(state))) return [];
     const lastDay = cardLastDay(recipe, day);
     return [
       {

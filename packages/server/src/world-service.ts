@@ -31,6 +31,7 @@ import {
   type Command,
   type Crop,
   chebyshev,
+  clayOpen,
   DAY_LENGTH_MS,
   DAY_MS,
   type DailyAward,
@@ -317,6 +318,13 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
+   * Pottery (RFC 0047): once items are open, append `open_clay` if it never has, after which clay
+   * lies on meadow and sand and a kiln fires pots. **No adapter sets it**: terrakin.org,
+   * self-hosting, `pnpm dev`, and the e2e servers all stay without pottery until it's switched on
+   * in a push of its own (decision 0362). A test world opens it through `POST /v1/test/open-clay`.
+   */
+  clay?: boolean;
+  /**
    * Circles (RFC 0033): once coins are open, append `open_circles` if it never has. The Worker
    * turns it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted
    * world, `pnpm dev`, and the e2e servers have no circles unless a test opens them through
@@ -465,6 +473,7 @@ interface TownSwitch {
     | "levels"
     | "jobs"
     | "circles"
+    | "clay"
     | "lands"
     | "retireRepeatJoins"
   >;
@@ -636,6 +645,13 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_circles" },
     label: "open circles",
   },
+  // Pottery (RFC 0047) needs items, where clay and pots live.
+  {
+    option: "clay",
+    due: (s) => !!s.items && !clayOpen(s),
+    command: { type: "open_clay" },
+    label: "put clay out",
+  },
   // New land (RFC 0038) comes last, and comes again: unlike every switch above it this one can be
   // due more than once, each time the plots left fall to `LANDS.openAt`, until the town runs out
   // of names for a land. `planLand` works out the geometry and the input carries every number of
@@ -696,6 +712,7 @@ export class WorldService {
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
+  private readonly clay: boolean;
   private readonly lands: boolean;
   /** The last refusal printed for each logged switch, so one keeps quiet until it changes. */
   private readonly switchRefused = new Map<string, string>();
@@ -800,6 +817,7 @@ export class WorldService {
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;
+    this.clay = options.clay ?? false;
     this.lands = options.lands ?? false;
     this.jobEdition = options.jobEdition;
     this.pageEdition = options.pageEdition;
@@ -1550,6 +1568,14 @@ export class WorldService {
    */
   testOpenCircles() {
     return this.run({ actor: TOWN_ACTOR, command: { type: "open_circles" } });
+  }
+
+  /**
+   * Pottery (RFC 0047), switched on now. Only the Node server's test route calls it, like
+   * `testGrant`, since no adapter sets the `clay` option. The sim refuses it before items.
+   */
+  testOpenClay() {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_clay" } });
   }
 
   /**

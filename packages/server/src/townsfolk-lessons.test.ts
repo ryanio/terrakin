@@ -2,6 +2,7 @@ import {
   CARD_RECIPES,
   cardSku,
   DAY_MS,
+  isPotKind,
   knows,
   RECIPES_RULES,
   type WorldConfig,
@@ -120,7 +121,9 @@ describe("the specialties", () => {
       for (const recipe of list) expect(CARD_RECIPES, `${who} ${recipe}`).toContain(recipe);
     }
     // Every card is somebody's specialty, so any recipe can come from a townsfolk.
-    expect(new Set(Object.values(SPECIALTIES).flat()).size).toBe(CARD_RECIPES.length);
+    // The pots (RFC 0047) wait for clay, so no townsfolk teaches them yet.
+    const cards = CARD_RECIPES.filter((r) => !isPotKind(r));
+    expect(new Set(Object.values(SPECIALTIES).flat()).size).toBe(cards.length);
   });
 });
 

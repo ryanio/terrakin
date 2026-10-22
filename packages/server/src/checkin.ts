@@ -17,6 +17,7 @@ import {
   holidaysField,
   inventoryOf,
   isTownsfolk,
+  readyKilns,
   skyAt,
   takenDownOf,
   timeOfDayAt,
@@ -92,7 +93,7 @@ export interface DigestParts {
    * Ready crops in your garden by tile, and things received in gifts today. Absent (or null)
    * before items open, so digests in a world without them stay as they were.
    */
-  items?: [string[], number] | null;
+  items?: [string[], number] | [string[], number, string[]] | null;
   /**
    * Your listings staff took down that wait for room in your things. Absent when there are none,
    * so other digests stay as they were.
@@ -337,6 +338,7 @@ export function checkinView(
     (c) => c.ready && state.items?.crops[`${c.x},${c.y}`]?.by === viewer,
   );
   const things = inventoryOf(state, viewer);
+  const kilnsReady = readyKilns(state, viewer);
   const held = takenDownOf(state, viewer).map((l) => l.id);
   const aside = heldAsideOf(state, viewer).map((d) => d.good.id);
   // Bounties (decision 0062): yours that are done and waiting for your pay, and new ones others
@@ -382,7 +384,17 @@ export function checkinView(
     notice: board[0]?.id ?? null,
     coins: coins ? [coins.balance, coins.allowanceToday, coins.today.map((l) => l.seq)] : null,
     changelog: CHANGELOG_ENTRIES[0]?.id ?? null,
-    items: things ? [ready.map((c) => `${c.x},${c.y}`), things.receivedToday] : null,
+    // A pot ready in a kiln you loaded (RFC 0047) joins only when there is one, so a world without
+    // pottery fingerprints as it did.
+    items: !things
+      ? null
+      : kilnsReady.length > 0
+        ? [
+            ready.map((c) => `${c.x},${c.y}`),
+            things.receivedToday,
+            kilnsReady.map((k) => `${k.x},${k.y}`),
+          ]
+        : [ready.map((c) => `${c.x},${c.y}`), things.receivedToday],
     ...(held.length > 0 ? { takenDown: held } : {}),
     bounties: bountyList ? [toPay.map((b) => b.id), openBounties.at(-1)?.id ?? null] : null,
     ...(aside.length > 0 ? { heldAside: aside } : {}),

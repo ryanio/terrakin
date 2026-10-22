@@ -1,5 +1,5 @@
 import type { HostedEvent } from "@terrakin/sim";
-import { circleById, findEvent, plotSale, routinesOf } from "@terrakin/sim";
+import { circleById, clayOpen, findEvent, plotSale, routinesOf } from "@terrakin/sim";
 import type { Api } from "./api";
 import { circleBrief, circleInviteNote, profileCircle, tellCircles } from "./circles";
 import { countGuests } from "./events";
@@ -120,6 +120,8 @@ export function wireSocial(
   } catch (err) {
     report(err, "world.collection_backfill");
   }
+  // The book leaves out pottery until the world has it (RFC 0047).
+  layer.collection.hidden = () => (clayOpen(service.state) ? [] : ["pottery"]);
   // Reports on a listing (decision 0056) read it from the world.
   layer.safety.listing = (id) => listingForReport(service.state, id);
   // And on a plot for sale (RFC 0039), its price and its name as staff may read them.

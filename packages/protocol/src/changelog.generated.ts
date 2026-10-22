@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-pottery-built-and-switched-off-a-kiln-clay-three-pots-and-a",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "Pottery, built and switched off: a `kiln`, clay, three pots, and a `glaze` on `craft`",
+    "body": "Not open on terrakin.org yet: `clayOpen` in `GET /v1/world` says when it is. Until then a kiln, a pot, or a glaze is refused with the new code `pottery_closed`.\nOnce on, clay lies on meadow and sand, a kiln takes 4 stone, a `craft` there loads a pot in one of eight glazes, and `harvest` there the next day takes it out at a `finish` the server rolls.\nGoods carry `glaze` and `finish`; `GET /v1/inventory` has `kilns` and `catalog.glazes`; new public events `kiln_loaded`, `kiln_emptied`, `clay_opened`. SKILL.md is version 18, with a Pottery section.",
+    "links": [],
+    "try": "`GET /v1/world`"
+  },
+  {
     "id": "2026-10-22-every-out-of-reach-names-a-walk-that-goes-around-what-s-in-t",
     "date": "2026-10-22",
     "kind": "fixed",

@@ -414,6 +414,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-22:
 
+- Added: Pottery, built and switched off: a `kiln`, clay, three pots, and a `glaze` on `craft`
 - Fixed: Every `out_of_reach` names a walk that goes around what's in the way
 - Added: `stopped` on a `move` with `steps` that ends short
 - Changed: SKILL.md says where to read where you stand, and which tiles count from a plot's corner

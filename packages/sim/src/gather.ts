@@ -18,6 +18,7 @@ import { gatherJob } from "./jobs";
 import { tileKey } from "./keys";
 import { isSea } from "./lands";
 import { earned, gatherEarns } from "./levels";
+import { clayOpen, POTTERY } from "./pottery";
 import { howToMake, knows, learn, pageEditionOf, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
 import type {
@@ -174,6 +175,7 @@ export function gatherableAt(
   finds = false,
   pages = false,
   edition = 1,
+  clay = false,
 ): PickupKind | null {
   const biome = biomeAt(config, x, y);
   const kind: ResourceKind | null =
@@ -187,9 +189,31 @@ export function gatherableAt(
     const chance = kind === "wood" ? GATHER.woodChance : GATHER.stoneChance;
     if (roll < chance) return kind;
   }
-  if (!finds) return null;
-  const find = findAt(biome, x, y, day);
-  return find && pages && pageOn(x, y, day, edition) ? RECIPE_PAGE : find;
+  const find = finds || clay ? findAt(biome, x, y, day) : null;
+  if (finds && find) return pages && pageOn(x, y, day, edition) ? RECIPE_PAGE : find;
+  // Clay (RFC 0047) lies only where a find never would, whether or not finds are out, so turning
+  // it on moves no find, page, branch, or stone.
+  if (clay && !find && CLAY_BIOMES.includes(biome) && clayRoll(x, y, day) < POTTERY.clayChance) {
+    return "clay";
+  }
+  return null;
+}
+
+/** The ground clay lies on (RFC 0047). */
+const CLAY_BIOMES: readonly Biome[] = ["meadow", "sand"];
+
+/**
+ * The roll for clay on a tile and a day, in [0, 1): its own constants through murmur3's finalizer,
+ * so it follows neither the branch-and-stone roll nor the find roll.
+ */
+function clayRoll(x: number, y: number, day: number): number {
+  let h = (Math.imul(x, 0x61c88647) + Math.imul(y, 0x7feb352d) + Math.imul(day, 0x846ca68b)) | 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 0x100000000;
 }
 
 /**
@@ -211,10 +235,21 @@ export function pickupOn(
     finds?: boolean;
     pages?: boolean;
     edition?: number;
+    /** Clay is out (`open_clay` was logged, RFC 0047). */
+    clay?: boolean;
   },
 ): PickupKind | null {
   if (tile.built || tile.picked || tile.sea === true) return null;
-  return gatherableAt(config, x, y, day, tile.finds === true, tile.pages === true, tile.edition);
+  return gatherableAt(
+    config,
+    x,
+    y,
+    day,
+    tile.finds === true,
+    tile.pages === true,
+    tile.edition,
+    tile.clay === true,
+  );
 }
 
 /** Whether finds lie on the ground in this world (`open_finds` was logged). */
@@ -239,6 +274,7 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
     finds: findsOpen(state),
     pages: pagesOpen(state),
     edition: pageEditionOf(state),
+    clay: clayOpen(state),
   });
 }
 

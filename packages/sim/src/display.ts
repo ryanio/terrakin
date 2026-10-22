@@ -121,6 +121,8 @@ export function everyGood(state: WorldState): { good: Good; holder: ResidentId }
   for (const p of Object.values(items.presents ?? {})) {
     for (const good of p.goods ?? []) out.push({ good, holder: p.from });
   }
+  // A pot in a kiln (RFC 0047) is its loader's.
+  for (const f of Object.values(items.firings ?? {})) out.push({ good: f.good, holder: f.by });
   return out;
 }
 

@@ -105,7 +105,12 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   armchair: "#c46a5a",
   sofa: "#6f8f5e",
   bed: "#5b7fb0",
+  // Pottery (RFC 0047): a kiln of fired brick, warmer than a stone wall.
+  kiln: "#b0674a",
 };
+
+/** A kiln's glow while it fires a pot (RFC 0047), on the map and in 3D. */
+export const KILN_GLOW = "#ffb347";
 
 /**
  * How a door looks (decision 0349), on the map, in both 3D views, and in plot photos: a wall-high

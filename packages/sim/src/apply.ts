@@ -192,6 +192,7 @@ import {
   tileListedProblem,
 } from "./plot-market";
 import { checkClearPlotName, checkNamePlot } from "./plot-names";
+import { checkOpenClay, KILN, kilnRemoveProblem, potteryClosed } from "./pottery";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
 import { checkRebuildHome } from "./rebuild-home";
@@ -854,6 +855,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       }
       case "open_jobs":
         return town(checkOpenJobs(state));
+      case "open_clay":
+        return town(checkOpenClay(state));
       case "set_job_edition":
         return town(checkSetJobEdition(state, command));
       case "set_page_edition":
@@ -1292,6 +1295,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         }
         const shown = groundFloor ? displayRemoveProblem(state, x, y) : null;
         if (shown) return { ok: false, rejection: shown };
+        const firing = groundFloor ? kilnRemoveProblem(state, x, y) : null;
+        if (firing) return { ok: false, rejection: firing };
         const holding = removeProblem(state, x, y, floor);
         if (holding) return { ok: false, rejection: holding };
         const full = blockRemoveProblem(state, actor, taken);
@@ -1322,6 +1327,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");
       }
+      // A kiln (RFC 0047) waits for `open_clay`.
+      const kilnShut = block === KILN ? potteryClosed(state) : null;
+      if (kilnShut) return { ok: false, rejection: kilnShut };
       // A public way holds no block on the ground floor (RFC 0046).
       const onWay = wayProblem(state, x, y, floor);
       if (onWay) return { ok: false, rejection: onWay };

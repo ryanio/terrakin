@@ -15,6 +15,7 @@ import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
 import { isMaterialKind } from "./materials";
 import { own, residentById } from "./own";
+import { clayOpen, isPotKind } from "./pottery";
 import { type Season, seasonOf } from "./season";
 import {
   BUY_ORDERS,
@@ -110,8 +111,18 @@ export const HOLIDAY_RECIPES: readonly RecipeName[] = RECIPE_NAMES.filter(
 export const knownByAll = (recipe: RecipeName): boolean =>
   (BASE_RECIPES as readonly string[]).includes(recipe) || HOLIDAY_RECIPES.includes(recipe);
 
-/** Every recipe the shop sells a card for: all but the base and the holiday recipes. */
-export const CARD_RECIPES: readonly RecipeName[] = RECIPE_NAMES.filter((r) => !knownByAll(r));
+/**
+ * The pot everyone knows once clay is out, with no card (RFC 0047). Frozen like the base: it joins
+ * what everyone knows only with the logged `open_clay`, which is why it isn't in `BASE_RECIPES`.
+ */
+export const CLAY_BASE = ["bowl"] as const satisfies readonly RecipeName[];
+
+/**
+ * Every recipe the shop sells a card for: all but the base, the holiday recipes, and the bowl.
+ */
+export const CARD_RECIPES: readonly RecipeName[] = RECIPE_NAMES.filter(
+  (r) => !knownByAll(r) && !(CLAY_BASE as readonly string[]).includes(r),
+);
 
 /**
  * The recipes a page on the ground can teach, frozen by name in the order `pageOn` counts them: a
@@ -260,15 +271,23 @@ export function recipeCardPrice(recipe: RecipeName): number {
 export const cardSeason = (recipe: RecipeName): Season | undefined =>
   orderFor(recipe) ? buySeason(recipe as SellKind) : undefined;
 
-/** Whether `recipe`'s card is on the shop's Recipes shelf on `day`. */
-export const onShelf = (recipe: RecipeName, day: number): boolean => {
+/**
+ * Whether `recipe`'s card is on the shop's Recipes shelf on `day`. A pot's card (RFC 0047) is on it
+ * only once clay is out (`clay`, the world's `clayOpen`), so a world without pottery has the shelf
+ * it always had.
+ */
+export const onShelf = (recipe: RecipeName, day: number, clay = false): boolean => {
   const season = cardSeason(recipe);
-  return CARD_RECIPES.includes(recipe) && (season === undefined || season === seasonOf(day));
+  return (
+    CARD_RECIPES.includes(recipe) &&
+    (clay || !isPotKind(recipe)) &&
+    (season === undefined || season === seasonOf(day))
+  );
 };
 
 /** The cards on the shop's Recipes shelf on `day`, in catalog order. */
-export const shelfOn = (day: number): RecipeName[] =>
-  CARD_RECIPES.filter((recipe) => onShelf(recipe, day));
+export const shelfOn = (day: number, clay = false): RecipeName[] =>
+  CARD_RECIPES.filter((recipe) => onShelf(recipe, day, clay));
 
 // ---------- reading ----------
 
@@ -281,6 +300,11 @@ export const knowsEverything = (state: WorldState, id: ResidentId): boolean =>
  * what the sim would refuse (decision 0052).
  */
 export function knows(state: WorldState, id: ResidentId, recipe: RecipeName): boolean {
+  // Pots (RFC 0047) are known by nobody until clay is out, and the bowl by everyone after.
+  if (isPotKind(recipe)) {
+    if (!clayOpen(state)) return false;
+    if ((CLAY_BASE as readonly string[]).includes(recipe)) return true;
+  }
   if (knowsEverything(state, id) || knownByAll(recipe)) return true;
   return own(state.recipes?.learned, id)?.includes(recipe) ?? false;
 }
@@ -331,7 +355,7 @@ function waysToLearn(state: WorldState, id: ResidentId, recipe: RecipeName, day:
   const card = `buy its card at the town shop (${price}, shop_buy with sku ${sku})`;
   const left = picksLeft(state, id);
   const others = otherWays(state, recipe);
-  if (!onShelf(recipe, day)) {
+  if (!onShelf(recipe, day, clayOpen(state))) {
     return `${shelfWhen(recipe, day)}Then you can ${left > 0 ? `pick it with a free pick (pick_recipe), or ` : ""}${card}.${others}`;
   }
   if (left > 0) {
@@ -428,7 +452,7 @@ export function learn(recipes: RecipesState, id: ResidentId, recipe: RecipeName)
 }
 
 /** The cards on today's shelf, for a message. */
-const shelfList = (day: number) => shelfOn(day).join(", ");
+const shelfList = (day: number, clay: boolean) => shelfOn(day, clay).join(", ");
 
 /** `pick_recipe {recipe}`: learn a card from today's Recipes shelf with a free pick. */
 export function checkPickRecipe(
@@ -448,7 +472,7 @@ export function checkPickRecipe(
   if (!isRecipeName(recipe)) {
     return refuse(
       "unknown_item",
-      `There's no recipe by that name. The shop's Recipes shelf has today: ${shelfList(day)}.`,
+      `There's no recipe by that name. The shop's Recipes shelf has today: ${shelfList(day, clayOpen(state))}.`,
     );
   }
   if (knows(state, actor, recipe)) {
@@ -461,7 +485,7 @@ export function checkPickRecipe(
   if (used >= RECIPES_RULES.starterPicks) {
     // A seasonal card out of its season can't be bought today either: say when it can.
     const card = `shop_buy with sku ${cardSku(recipe)}, ${coins(recipeCardPrice(recipe))}`;
-    const buy = onShelf(recipe, day)
+    const buy = onShelf(recipe, day, clayOpen(state))
       ? `Buy a card at the town shop instead (${card}).`
       : `${shelfWhen(recipe, day)}Then you can buy it there (${card}).`;
     return refuse(
@@ -469,10 +493,10 @@ export function checkPickRecipe(
       `You've used all ${RECIPES_RULES.starterPicks} free picks. ${buy}`,
     );
   }
-  if (!onShelf(recipe, day)) {
+  if (!onShelf(recipe, day, clayOpen(state))) {
     return refuse(
       "out_of_season",
-      `${shelfWhen(recipe, day)}Pick from the cards on the shelf today: ${shelfList(day)}.`,
+      `${shelfWhen(recipe, day)}Pick from the cards on the shelf today: ${shelfList(day, clayOpen(state))}.`,
     );
   }
   return () => {
@@ -646,7 +670,7 @@ export function checkBuyCard(
   if (!recipe) {
     return refuse(
       "unknown_item",
-      `The shop has no card by that name. Its Recipes shelf has today: ${shelfOn(day).map(cardSku).join(", ")}.`,
+      `The shop has no card by that name. Its Recipes shelf has today: ${shelfOn(day, clayOpen(state)).map(cardSku).join(", ")}.`,
     );
   }
   if (command.count !== undefined && command.count !== 1) {
@@ -658,7 +682,7 @@ export function checkBuyCard(
       `You already know ${howToMake(recipe)}, so its card would teach you nothing.`,
     );
   }
-  if (!onShelf(recipe, day)) {
+  if (!onShelf(recipe, day, clayOpen(state))) {
     return refuse(
       "out_of_season",
       `${shelfWhen(recipe, day)}GET /v1/shop lists the cards on the shelf today.`,

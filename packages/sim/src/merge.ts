@@ -116,6 +116,10 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
   ) {
     return refuse("not_eligible", "The record to merge has something on display or held aside.");
   }
+  // A pot in a kiln (RFC 0047) goes back to whoever loaded it.
+  if (Object.values(items?.firings ?? {}).some((f) => f.by === from)) {
+    return refuse("not_eligible", "The record to merge has a pot firing in a kiln.");
+  }
   // A present (RFC 0034) names its giver and its recipient until it's opened.
   if (Object.values(items?.presents ?? {}).some((p) => p.from === from || p.to === from)) {
     return refuse("not_eligible", "The record to merge has a present waiting, given or to open.");

@@ -13,6 +13,7 @@ import { SHOP_CONFIG, SHOP_LOG } from "./fixtures/shop-log";
 import { gatherableAt, nearestOpenPickup, pickupLeft } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
+import { isPotKind } from "./pottery";
 import {
   BASE_RECIPES,
   CARD_RECIPES,
@@ -197,7 +198,8 @@ describe("set_page_edition", () => {
     // and the cozy pieces' cards (RFC 0044), so each widens the last and every card is a page.
     expect(edition(2).slice(0, PAGE_RECIPES.length)).toEqual([...PAGE_RECIPES]);
     expect(edition(3).slice(0, edition(2).length)).toEqual(edition(2));
-    expect(edition(3).sort()).toEqual([...CARD_RECIPES].sort());
+    // The pots' cards (RFC 0047) came after edition 3, so they're no page until an edition of their own.
+    expect(edition(3).sort()).toEqual(CARD_RECIPES.filter((r) => !isPotKind(r)).sort());
   });
 });
 
@@ -262,13 +264,17 @@ describe("the recipe lists", () => {
         "armchair",
         "sofa",
         "bed",
+        "vase",
+        "teapot",
       ].sort(),
     );
     expect(CARD_SKUS).toContain("recipe:well");
     for (const recipe of RECIPE_NAMES) {
       const everyone = (BASE_RECIPES as readonly string[]).includes(recipe);
       const holiday = HOLIDAY_RECIPES.includes(recipe);
-      expect(CARD_RECIPES.includes(recipe), recipe).toBe(!everyone && !holiday);
+      // The bowl is everyone's once clay is out (RFC 0047), so it has no card.
+      const clay = recipe === "bowl";
+      expect(CARD_RECIPES.includes(recipe), recipe).toBe(!everyone && !holiday && !clay);
     }
   });
 });
@@ -298,6 +304,8 @@ describe("recipeCardPrice", () => {
       berry_crumble: 20,
       fruit_salad: 20,
       grape_juice: 20,
+      vase: 20,
+      teapot: 25,
       pickles: 25,
       corn_bread: 20,
       harvest_soup: 20,
@@ -382,13 +390,19 @@ describe("open_recipes", () => {
   });
 });
 
+/** Every recipe but the pots, sorted: what knowing everything means before clay is out. */
+const NO_POTS = RECIPE_NAMES.filter((r) => !isPotKind(r)).sort();
+
 describe("knows", () => {
   it("says yes to everyone, for everything, before open_recipes", () => {
     const w = world();
     w.town({ type: "new_day", day: DAY });
     w.settle("ada", 0);
-    for (const recipe of RECIPE_NAMES) expect(knows(w.state, "ada", recipe)).toBe(true);
-    expect(knownRecipes(w.state, "ada")).toEqual([...RECIPE_NAMES].sort());
+    // Every recipe but the pots, which nobody knows before clay is out (RFC 0047).
+    for (const recipe of RECIPE_NAMES) {
+      expect(knows(w.state, "ada", recipe), recipe).toBe(!isPotKind(recipe));
+    }
+    expect(knownRecipes(w.state, "ada")).toEqual(NO_POTS);
     expect(picksLeft(w.state, "ada")).toBe(0);
   });
 
@@ -401,7 +415,7 @@ describe("knows", () => {
 
   it("keeps every recipe for residents who lived here when recipes opened, even one added later", () => {
     const w = opened();
-    expect(knownRecipes(w.state, "ada")).toEqual([...RECIPE_NAMES].sort());
+    expect(knownRecipes(w.state, "ada")).toEqual(NO_POTS);
     expect(picksLeft(w.state, "ada")).toBe(0);
     // A recipe the catalog adds later is a card, and residents in `everything` know it too.
     const later = "honey_cake" as RecipeName;
@@ -414,7 +428,7 @@ describe("knows", () => {
     w.settle("clem", 3);
     expect(knows(w.state, "clem", "well")).toBe(false);
     w.town({ type: "set_townsfolk", ids: ["clem"] });
-    expect(knownRecipes(w.state, "clem")).toEqual([...RECIPE_NAMES].sort());
+    expect(knownRecipes(w.state, "clem")).toEqual(NO_POTS);
     expect(picksLeft(w.state, "clem")).toBe(0);
   });
 });
@@ -653,7 +667,10 @@ describe("teach", () => {
     expect(w.code("ada", teach("well", "eve"))).toBe("not_near");
     expect(w.code("dee", teach("lemonade", "ada"))).toBe("already_known");
     expect(teachable(w.state, "dee", "ada")).toEqual([]);
-    expect(teachable(w.state, "ada", "eve")).toHaveLength(CARD_RECIPES.length);
+    // Every card but the pots', which wait for clay (RFC 0047).
+    expect(teachable(w.state, "ada", "eve")).toHaveLength(
+      CARD_RECIPES.filter((r) => !isPotKind(r)).length,
+    );
   });
 
   it("is one a day each way: one lesson given, one taught, and both come back at new_day", () => {

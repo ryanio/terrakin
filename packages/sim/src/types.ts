@@ -30,6 +30,7 @@ import type {
   WearStyle,
 } from "./looks";
 import type { Pet, PetCoat, PetKind } from "./pets";
+import type { Finish, Glaze } from "./pottery";
 import type { TimeOfDay } from "./time-of-day";
 import type { Weather } from "./weather";
 
@@ -129,6 +130,8 @@ export const BLOCK_KINDS = [
   "armchair",
   "sofa",
   "bed",
+  // Pottery (RFC 0047): a station that fires a pot overnight, paid for in stone like a pond.
+  "kiln",
 ] as const;
 
 /**
@@ -1283,6 +1286,21 @@ export interface Good {
   model?: true;
   /** How many times residents admired it on display, wherever it went since. Absent at 0. */
   admired?: number;
+  /** A pot only (RFC 0047): the glaze its maker chose and paid for. */
+  glaze?: Glaze;
+  /** A pot only: the finish the kiln gave it, rolled by the server when it came out. */
+  finish?: Finish;
+}
+
+/**
+ * A pot in a kiln (RFC 0047): made when it was loaded, with its id, maker, label and glaze, and
+ * out of everyone's things until the day it's ready. It goes back to whoever loaded it.
+ */
+export interface Firing {
+  good: Good;
+  by: ResidentId;
+  /** It comes out once this day starts: the loading day and one. */
+  readyDay: number;
 }
 
 /** A made thing on a `pedestal` or a `frame`, out of its holder's things until it's taken down. */
@@ -1433,6 +1451,13 @@ export interface ItemsState {
    */
   findsOpen?: true;
   /**
+   * Clay lies on meadow and sand, and kilns fire pots (RFC 0047). Absent until the server logs
+   * `open_clay`, so gathers logged before it replay as they were made.
+   */
+  clayOpen?: true;
+  /** Pots firing in kilns, keyed by tileKey(x, y). Absent until the first, and dropped when empty. */
+  firings?: Record<string, Firing>;
+  /**
    * Things taken down from display while whoever put them up had no room for them, oldest first.
    * Each waits for `by` and comes back with their first input that leaves room for it. Absent
    * until the first one.
@@ -1503,6 +1528,8 @@ export const INVENTORY_REASONS = [
   "handed_in",
   /** A dish you brought to the Thanksgiving feast's table (RFC 0034). It left the world. */
   "brought",
+  /** A pot you loaded, out of a kiln with its finish (RFC 0047). */
+  "fired",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -1733,7 +1760,11 @@ export type Command =
   // Growing, making, and giving (RFC 0005). `label` and `note` are untrusted text the server
   // cleaned before logging it.
   | { type: "plant"; x: number; y: number; seed: Crop }
-  | { type: "harvest"; x: number; y: number }
+  /**
+   * `roll` only at a kiln (RFC 0047): the finish's roll, which the server draws and logs. A
+   * resident sends harvest without it.
+   */
+  | { type: "harvest"; x: number; y: number; roll?: number }
   /**
    * Pick up the fallen branch, loose stone, or find on the tile, within reach. With neither `x`
    * nor `y`, everything within reach that you may take, as far as there's room in your things.
@@ -1749,6 +1780,8 @@ export type Command =
       x: number;
       y: number;
       label?: string;
+      /** A pot's glaze, at a kiln only (RFC 0047). Absent is `bare`. */
+      glaze?: Glaze;
     }
   | {
       type: "give";
@@ -2019,6 +2052,8 @@ export type Command =
   | { type: "credit_event"; event: string; guests: ResidentId[] }
   /** From now on, the town has three jobs a day and residents may take them (RFC 0030). */
   | { type: "open_jobs" }
+  /** From now on, clay lies on meadow and sand and kilns fire pots (RFC 0047). */
+  | { type: "open_clay" }
   /** From now on, the board reads this edition of the jobs table (`JOB_EDITIONS`). */
   | { type: "set_job_edition"; edition: number }
   /** From now on, pages on the ground come from this edition of the list (`PAGE_EDITIONS`). */
@@ -2194,6 +2229,7 @@ export const SERVER_COMMANDS = [
   "clear_circle_name",
   "disband_circle",
   "award_grant",
+  "open_clay",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -2508,6 +2544,15 @@ export type WorldEvent =
     }
   /** A crop came out of a planter. Public. */
   | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
+  /** Clay lies on the ground and kilns fire pots from now on (RFC 0047). Public. */
+  | { type: "clay_opened" }
+  /**
+   * `by` loaded the kiln at (x, y), which glows until `readyDay`. Public, without what's in it:
+   * the loader's `inventory` event says what it took.
+   */
+  | { type: "kiln_loaded"; x: number; y: number; by: ResidentId; readyDay: number }
+  /** `by` took the pot out of the kiln at (x, y). Public; its loader's `inventory` has the pot. */
+  | { type: "kiln_emptied"; x: number; y: number; by: ResidentId }
   /** Someone picked up a fallen branch, a loose stone, or a find. Public. */
   | { type: "gathered"; x: number; y: number; kind: PickupKind; by: ResidentId }
   /** Someone gave someone a thing. Public, without the count or the note. */
@@ -3068,6 +3113,8 @@ export const REJECTION_CODES = [
   "not_a_seat",
   /** That tile is a public way, which holds no block, so nobody can wall the way to town (RFC 0046). */
   "public_way",
+  /** Pottery isn't open in this world yet: no clay, kilns, or pots (RFC 0047). */
+  "pottery_closed",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

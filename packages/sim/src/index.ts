@@ -500,6 +500,25 @@ export {
   plotSale,
 } from "./plot-market";
 export { freeRenamesLeft, PLOT_NAMES, plotNamesOf } from "./plot-names";
+export {
+  clayOpen,
+  FINISH_NAMES,
+  FINISHES,
+  type Finish,
+  finishOf,
+  firingAt,
+  firingsOf,
+  GLAZE_COSTS,
+  GLAZES,
+  type Glaze,
+  isPotKind,
+  KILN,
+  type KilnAt,
+  POT_KINDS,
+  POTTERY,
+  readyKilns,
+  withGlaze,
+} from "./pottery";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";
 export {
   BASE_RECIPES,

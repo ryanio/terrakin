@@ -36,6 +36,7 @@ import {
 } from "./items";
 import { plotKey, tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
+import { KILN, potteryClosed } from "./pottery";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -82,7 +83,7 @@ export const BUILD_SKIPS = [
   "hearth",
   /** Nothing there to take away. */
   "empty",
-  /** A planter with something growing in it can't go. */
+  /** A planter with something growing in it can't go, nor a kiln with a pot firing (RFC 0047). */
   "growing",
   /** A pedestal or frame with something on display can't go. */
   "on_display",
@@ -304,6 +305,9 @@ export function planBuild(
     // What a kind can never be on a floor refuses the plan: a planter upstairs, stairs on the top.
     const never = blockKindProblem(plot, (tiles.blocks[i] as PlanSpot).floor, block as BlockKind);
     if (never) return never;
+    // A kiln (RFC 0047) waits for `open_clay`, as `place` does.
+    const kilnShut = block === KILN ? potteryClosed(state) : null;
+    if (kilnShut) return kilnShut;
     // A public way holds no block on the ground floor, which no turn of the world changes, so a
     // plan that puts one there is wrong rather than skipped (RFC 0046).
     const spot = tiles.blocks[i] as PlanSpot;
@@ -374,8 +378,9 @@ export function planBuild(
       const block = view.block(floor, key);
       // Crops and displays are on the ground floor, keyed by their tile alone.
       if (block === undefined) skip(t, "remove", "empty");
-      else if (floor === 0 && state.items?.crops[key]) skip(t, "remove", "growing");
-      else if (floor === 0 && displayAt(state, x, y)) skip(t, "remove", "on_display");
+      else if (floor === 0 && (state.items?.crops[key] || state.items?.firings?.[key])) {
+        skip(t, "remove", "growing");
+      } else if (floor === 0 && displayAt(state, x, y)) skip(t, "remove", "on_display");
       else if (removeProblem(state, x, y, floor, view)) skip(t, "remove", "holds_up");
       else {
         plan.removed.push({ x, y, ...floorField(floor) });

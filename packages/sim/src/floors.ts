@@ -85,6 +85,7 @@ const GROUND_FLOOR_ONLY: Readonly<Partial<Record<BlockKind, string>>> = {
   pond: "Ponds",
   candy_bowl: "Candy bowls",
   door: "Doors",
+  kiln: "Kilns",
 };
 
 const NO_BLOCKS: Readonly<Record<string, BlockKind>> = Object.freeze({});

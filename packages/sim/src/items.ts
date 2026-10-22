@@ -44,6 +44,18 @@ import { craftEarns, earned, harvestEarns } from "./levels";
 import { isMaterialKind, MATERIAL_KINDS, MATERIAL_RECIPES, type MaterialKind } from "./materials";
 import { own, residentById } from "./own";
 import { tileListedProblem } from "./plot-market";
+import {
+  checkOpenKiln,
+  firingAt,
+  GLAZES,
+  isGlaze,
+  isPotKind,
+  KILN,
+  loadKiln,
+  POTTERY,
+  potteryClosed,
+  withGlaze,
+} from "./pottery";
 import type {
   Command,
   GiftRecord,
@@ -488,6 +500,11 @@ export function checkHarvest(
   const harvestListed = tileListedProblem(state, x, y);
   if (harvestListed) return harvestListed;
   const key = tileKey(x, y);
+  // A kiln opens with `harvest` too (RFC 0047), with the finish's roll the server logs.
+  if (state.blocks[key] === KILN) return checkOpenKiln(state, actor, x, y, command.roll);
+  if (command.roll !== undefined) {
+    return refuse("server_only", "Only a kiln's harvest carries a roll. Send x and y only.");
+  }
   const planting = items.crops[key];
   if (!planting) return refuse("no_crop", "Nothing is growing there.");
   if (!isReady(planting.readyDay, day)) {
@@ -530,6 +547,9 @@ export const cropAt = (state: WorldState, x: number, y: number) =>
 export const GATHER_HINT =
   "Fallen branches (wood) lie in forests and loose stones on stone ground: pick them up with gather.";
 
+/** Where clay comes from (RFC 0047), for a refusal that's short of it. */
+const CLAY_HINT = "Clay lies on meadow and sand: pick it up with gather.";
+
 /**
  * `craft {recipe, x, y, label?}` at the right station within reach. A good is a made thing with an
  * id and its maker; a piece of furniture (RFC 0016) or a sweet (RFC 0022) stacks, so it takes no
@@ -560,6 +580,17 @@ export function checkCraft(
       `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}, or sweets: ${SWEET_KINDS.join(", ")}, or materials: ${MATERIAL_KINDS.join(", ")}.`,
     );
   }
+  // A pot (RFC 0047) is fired in a kiln, which only `open_clay` lets anyone place.
+  const pot = isPotKind(recipe);
+  const potShut = pot ? potteryClosed(state) : null;
+  if (potShut) return potShut;
+  const { glaze } = command;
+  if (glaze !== undefined && !pot) {
+    return refuse("unknown_item", "Only a pot fired in a kiln takes a glaze. Leave out glaze.");
+  }
+  if (glaze !== undefined && !isGlaze(glaze)) {
+    return refuse("unknown_item", `A glaze is one of: ${GLAZES.join(", ")}.`);
+  }
   if ((furniture || sweet || material) && label !== undefined) {
     const what = furniture ? "Furniture stacks" : material ? "A material stacks" : "Candy stacks";
     return refuse(
@@ -574,7 +605,7 @@ export function checkCraft(
   if (far) return far;
   const {
     station,
-    needs,
+    needs: recipeNeeds,
     makes = 1,
   } = furniture
     ? FURNITURE_RECIPES[recipe]
@@ -589,6 +620,14 @@ export function checkCraft(
       `${ITEM_INFO[recipe].name} is made at a ${station}. Place one with place and block ${station}, or use one nearby.`,
     );
   }
+  // A kiln holds one pot at a time, and a pot's glaze costs one thing on top of its clay.
+  if (pot && firingAt(state, x, y)) {
+    return refuse(
+      "tile_occupied",
+      "That kiln is firing a pot already. Take it out with harvest once it's ready, or use another kiln.",
+    );
+  }
+  const needs = pot ? withGlaze(recipeNeeds, glaze ?? "bare") : recipeNeeds;
   const crafted = items.today.crafted[actor] ?? 0;
   if (crafted >= ITEMS.craftPerDay) {
     return refuse("craft_limit", `You can make ${ITEMS.craftPerDay} things a day. Try tomorrow.`);
@@ -599,7 +638,11 @@ export function checkCraft(
   );
   if (short.length > 0) {
     const missing = short.map(([kind, n]) => countOf(kind, n - held(inv, kind)));
-    const gather = short.some(([kind]) => isResourceKind(kind)) ? ` ${GATHER_HINT}` : "";
+    const gather = short.some(([kind]) => kind === "clay")
+      ? ` ${CLAY_HINT}`
+      : short.some(([kind]) => isResourceKind(kind))
+        ? ` ${GATHER_HINT}`
+        : "";
     return refuse("not_enough_items", `You need ${missing.join(", ")} more.${gather}`);
   }
   // Every good and piece of furniture uses up at least one thing to make one, so only a sweet that
@@ -633,7 +676,20 @@ export function checkCraft(
     maker: actor,
     madeDay: day,
     ...(typeof label === "string" && label !== "" ? { label } : {}),
+    ...(pot ? { glaze: glaze ?? "bare" } : {}),
   };
+  if (pot) {
+    // Made now, with its id, maker, label and glaze, and in the kiln until the next day.
+    return () => {
+      items.nextId += 1;
+      items.today.crafted[actor] = crafted + 1;
+      return [
+        ...loadKiln(items, actor, { x, y, day }, good, needs),
+        ...earned(points),
+        ...earned(job),
+      ];
+    };
+  }
   return () => {
     items.nextId += 1;
     items.today.crafted[actor] = crafted + 1;
@@ -938,13 +994,15 @@ export const POND = { block: "pond", stone: 2 } as const;
 /**
  * What placing a block takes from your things, and what taking it up gives back to whoever does:
  * one of itself for decor and furniture, which you hold before you place them, `POND.stone` stone
- * for a pond, `FLOORS.stairsWood` wood for stairs (RFC 0028), and nothing for a free block. In a
+ * for a pond, `FLOORS.stairsWood` wood for stairs (RFC 0028), `POTTERY.kilnStone` stone for a
+ * kiln (RFC 0047), and nothing for a free block. In a
  * fixed order, like a recipe's needs.
  */
 export function blockNeeds(block: string | undefined): [StackKind, number][] {
   if (isHeldBlock(block)) return [[block, 1]];
   if (block === POND.block) return [["stone", POND.stone]];
   if (block === "stairs") return [["wood", FLOORS.stairsWood]];
+  if (block === KILN) return [["stone", POTTERY.kilnStone]];
   return [];
 }
 
@@ -997,7 +1055,8 @@ export function blockPlaceProblem(
   if (short.length === 0) return null;
   const missing = short.map(([kind, n]) => countOf(kind, n - held(inv, kind)));
   const takes = needs.map(([kind, n]) => countOf(kind, n)).join(" and ");
-  const what = block === POND.block ? "A tile of pond takes" : "Stairs take";
+  const what =
+    block === POND.block ? "A tile of pond takes" : block === KILN ? "A kiln takes" : "Stairs take";
   return refuse(
     "not_enough_items",
     `${what} ${takes}, and you need ${missing.join(" and ")} more. ${GATHER_HINT}`,

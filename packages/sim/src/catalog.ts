@@ -56,6 +56,8 @@ export const FAMILIES = {
   shore_find: { name: "Shore", parent: "find" },
   stone_find: { name: "Stony ground", parent: "find" },
   meadow_find: { name: "Meadow", parent: "find" },
+  // Pottery (RFC 0047): pots fired in a kiln from clay, each in a glaze and with a finish.
+  pottery: { name: "Pottery" },
 } as const satisfies Readonly<Record<string, FamilyInfo>>;
 export type Family = keyof typeof FAMILIES;
 
@@ -96,8 +98,11 @@ export type Role =
   /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
   | "material";
 
-/** Block kinds you craft at. `craft` names the station's tile. */
-export const STATIONS = ["kitchen", "workbench"] as const;
+/**
+ * Block kinds you craft at. `craft` names the station's tile. A `kiln` (RFC 0047) fires what it
+ * makes overnight, and `harvest` takes it out.
+ */
+export const STATIONS = ["kitchen", "workbench", "kiln"] as const;
 export type Station = (typeof STATIONS)[number];
 
 /**
@@ -1350,6 +1355,39 @@ const WRITTEN = {
     family: "furniture",
     role: "furniture",
     recipe: { station: "workbench", needs: { wood: 4, cushion: 2 } },
+    look: { template: "drawn" },
+  }),
+  // Pottery (RFC 0047): clay lies on meadow and sand once the server logs `open_clay`, and a kiln
+  // fires a pot overnight. A pot's glaze and finish are on the pot, never its kind.
+  clay: entry({
+    name: "Clay",
+    plural: "Clay",
+    family: "pottery",
+    role: "resource",
+    look: { template: "drawn" },
+  }),
+  bowl: entry({
+    name: "Bowl",
+    plural: "Bowls",
+    family: "pottery",
+    role: "good",
+    recipe: { station: "kiln", needs: { clay: 2 } },
+    look: { template: "drawn" },
+  }),
+  vase: entry({
+    name: "Vase",
+    plural: "Vases",
+    family: "pottery",
+    role: "good",
+    recipe: { station: "kiln", needs: { clay: 3 } },
+    look: { template: "drawn" },
+  }),
+  teapot: entry({
+    name: "Teapot",
+    plural: "Teapots",
+    family: "pottery",
+    role: "good",
+    recipe: { station: "kiln", needs: { clay: 4, wood: 1 } },
     look: { template: "drawn" },
   }),
 };

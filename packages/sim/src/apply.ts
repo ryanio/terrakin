@@ -183,6 +183,7 @@ import {
   petView,
 } from "./pets";
 import {
+  anotherPlotWords,
   checkBuyPlot,
   checkListPlot,
   checkOpenPlotMarket,
@@ -262,6 +263,7 @@ import { checkCloseWay, checkOpenWay, isWay, wayProblem } from "./ways";
 import {
   canBuildOn,
   chebyshev,
+  claimLimit,
   inBounds,
   isSolid,
   isTownSquare,
@@ -647,8 +649,10 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
 function freePlotHint(state: WorldState, actor: string, px: number, py: number): string {
   const owned = plotsOwnedBy(state, actor).length;
   // Pointing at a free plot would only lead to plot_limit.
-  if (owned >= state.config.maxPlotsPerResident) {
-    return " You already own as many plots as you can.";
+  if (owned >= claimLimit(state.config, !!state.plotMarket)) {
+    return state.plotMarket
+      ? ` ${anotherPlotWords(state, owned)}`
+      : " You already own as many plots as you can.";
   }
   const free = nearestFreePlot(state, px, py);
   if (!free) return " Every plot is taken right now.";
@@ -837,7 +841,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       case "open_market":
         return town(checkOpenMarket(state));
       case "open_plot_market":
-        return town(checkOpenPlotMarket(state));
+        return town(checkOpenPlotMarket(state, command));
       case "remove_plot_listing":
         return town(checkRemovePlotListing(state, command));
       case "open_recipes":
@@ -1112,8 +1116,15 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           `This plot is already claimed.${freePlotHint(state, actor, px, py)}`,
         );
       }
-      if (plotsOwnedBy(state, actor).length >= config.maxPlotsPerResident) {
-        return reject("plot_limit", `You can own at most ${config.maxPlotsPerResident} plot(s).`);
+      // Only a first plot, once plots are for sale: the rest are bought (`claimLimit`).
+      const owned = plotsOwnedBy(state, actor).length;
+      if (owned >= claimLimit(config, !!state.plotMarket)) {
+        return reject(
+          "plot_limit",
+          state.plotMarket
+            ? anotherPlotWords(state, owned)
+            : `You can own at most ${config.maxPlotsPerResident} plot(s).`,
+        );
       }
       return () => {
         state.plots[plotKey(px, py)] = { px, py, ownerId: actor, ...stampDay(state) };
@@ -1401,7 +1412,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         case "plot_limit":
           return reject(
             problem,
-            "You already have a plot. Settle is for your first one; walk to another and claim it.",
+            state.plotMarket
+              ? `You already have a plot, and settle is for your first one. ${anotherPlotWords(state, plotsOwnedBy(state, actor).length)}`
+              : "You already have a plot. Settle is for your first one; walk to another and claim it.",
           );
       }
       const to = landingTile(state, actor, px, py);

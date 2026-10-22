@@ -37,8 +37,9 @@ import { plotOf, plotsOwnedBy } from "./world";
  * `marketFee`, which goes to the treasury; the listing fee is burned. Nothing is minted.
  *
  * Nothing here runs until the server sends `open_plot_market`, which needs the item market open
- * and a second land, so free land exists whenever prices do. Before it every command here is
- * refused, so older logs replay to the hash they always had.
+ * and a second land, so free land exists whenever prices do, and raises the plot cap. Before it
+ * every command here is refused, so older logs replay to the hash they always had. After it `claim`
+ * and `settle` still take only a first plot (`claimLimit`), so the plots past it are bought.
  */
 
 /** The numbers (RFC 0039's decisions of 2026-10-21). Changing one needs a logged switch. */
@@ -109,10 +110,16 @@ const isPlot = (p: Plot | Rejection): p is Plot => "ownerId" in p;
 // ---------- server input ----------
 
 /**
- * `open_plot_market`, which only TOWN_ACTOR sends. Needs the item market open and a second land,
- * so a newcomer can always claim free land while downtown has a price.
+ * `open_plot_market {maxPlotsPerResident}`, which only TOWN_ACTOR sends. Needs the item market open
+ * and a second land, so a newcomer can always claim free land while downtown has a price. It sets
+ * the plot cap in the same input, so a world can't hold more plots a resident than its log says,
+ * and never lowers it, since someone may already own that many.
  */
-export function checkOpenPlotMarket(state: WorldState): PlotMarketChecked {
+export function checkOpenPlotMarket(
+  state: WorldState,
+  command: Extract<Command, { type: "open_plot_market" }>,
+): PlotMarketChecked {
+  const cap = command.maxPlotsPerResident;
   return oneTimeSwitch({
     on: state.plotMarket,
     already: "Plots are already for sale.",
@@ -121,13 +128,35 @@ export function checkOpenPlotMarket(state: WorldState): PlotMarketChecked {
       if (!state.lands?.list.length) {
         return refuse("not_due", "Plots go on sale once a second land has opened.");
       }
+      const now = state.config.maxPlotsPerResident;
+      if (!isWhole(cap) || cap < now) {
+        return refuse(
+          "invalid_amount",
+          `The plot cap is a whole number, at least today's ${now}. It never comes down.`,
+        );
+      }
       return null;
     },
     turnOn: () => {
       state.plotMarket = { listings: {} };
+      state.config.maxPlotsPerResident = cap;
     },
-    event: { type: "plot_market_opened" },
+    event: { type: "plot_market_opened", maxPlotsPerResident: cap },
   });
+}
+
+/**
+ * Why a resident who owns `owned` plots gets no other by `claim` or `settle` once plots are for
+ * sale: they hold the most a resident can, or a plot past the first comes only by buying it.
+ */
+export function anotherPlotWords(state: WorldState, owned: number): string {
+  const cap = state.config.maxPlotsPerResident;
+  if (owned < cap) {
+    return "Only a first plot is free to claim. Another comes only by buying it: GET /v1/plot-market lists the plots for sale.";
+  }
+  return cap === 1
+    ? "You already own a plot, and a resident owns one here."
+    : `You already own ${cap} plots, the most a resident can.`;
 }
 
 // ---------- listing ----------
@@ -323,13 +352,9 @@ export function checkBuyPlot(
       "You and the seller are one household, and a sale inside one moves no land anyone else could have had.",
     );
   }
-  if (plotsOwnedBy(state, actor).length >= state.config.maxPlotsPerResident) {
-    return refuse(
-      "plot_limit",
-      state.config.maxPlotsPerResident === 1
-        ? "You already own a plot, and a resident owns one here."
-        : `You already own ${state.config.maxPlotsPerResident} plots, the most a resident can.`,
-    );
+  const owned = plotsOwnedBy(state, actor).length;
+  if (owned >= state.config.maxPlotsPerResident) {
+    return refuse("plot_limit", anotherPlotWords(state, owned));
   }
   const have = econ.coins[actor] ?? 0;
   if (have < price) {

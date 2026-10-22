@@ -209,6 +209,11 @@ export class Mirror {
   /** Whether circles are open (`circles_opened`, RFC 0033). */
   circlesOpen = false;
   /**
+   * Whether plots are for sale (`plot_market_opened`, RFC 0039), which also raises
+   * `config.maxPlotsPerResident`. Past a first plot, `claim` refuses (the sim's `claimLimit`).
+   */
+  plotMarketOpen = false;
+  /**
    * Formed circles' halls (RFC 0033): by plotKey, the circle and what it goes by, which the map
    * draws under the plot's own name. The name is its stewards' words: text only.
    */
@@ -303,6 +308,7 @@ export class Mirror {
     this.pageEdition = snapshot.pageEdition ?? 1;
     this.jobsOpen = snapshot.jobsOpen === true;
     this.circlesOpen = snapshot.circlesOpen === true;
+    this.plotMarketOpen = snapshot.plotMarketOpen === true;
     for (const h of snapshot.halls ?? []) {
       this.halls.set(plotKey(h.px, h.py), { circle: h.circle, name: h.name });
     }
@@ -826,6 +832,10 @@ export class Mirror {
       }
       case "circles_opened":
         this.circlesOpen = true;
+        break;
+      case "plot_market_opened":
+        this.plotMarketOpen = true;
+        this.config = { ...this.config, maxPlotsPerResident: event.maxPlotsPerResident };
         break;
       case "circle_hall": {
         // A circle has one hall at a time: the old one's label goes before the new one's comes.

@@ -686,6 +686,7 @@ export {
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,
+  claimLimit,
   cloneWorld,
   commonsPlot,
   counterDoor,

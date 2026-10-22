@@ -2025,8 +2025,12 @@ export type Command =
       streets?: [number, number][];
     }
   | { type: "open_market" }
-  /** Plots may be listed and bought from now on (RFC 0039). */
-  | { type: "open_plot_market" }
+  /**
+   * Plots may be listed and bought from now on (RFC 0039), and a resident may own up to
+   * `maxPlotsPerResident`, which this sets in `config` and never lowers. `claim` and `settle` still
+   * take only a first plot, so every plot past it comes by `buy_plot`.
+   */
+  | { type: "open_plot_market"; maxPlotsPerResident: number }
   /** Staff took a plot off the market after a report. */
   | { type: "remove_plot_listing"; px: number; py: number }
   /**
@@ -2435,7 +2439,7 @@ export type WorldEvent =
   | { type: "starter_doors_set" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
-  | { type: "plot_market_opened" }
+  | { type: "plot_market_opened"; maxPlotsPerResident: number }
   | { type: "plot_listed"; px: number; py: number; seller: ResidentId; price: number }
   | { type: "plot_unlisted"; px: number; py: number; seller: ResidentId }
   | {

@@ -2595,8 +2595,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * waits for them under `you.takenDown` in `GET /v1/market`.
    */
   z.object({ type: z.literal("listing_removed"), listing: z.string(), seller: z.string() }),
-  /** Plots can be put up for sale from now on (RFC 0039). */
-  z.object({ type: z.literal("plot_market_opened") }),
+  /**
+   * Plots can be put up for sale from now on (RFC 0039), and a resident may own up to
+   * `maxPlotsPerResident` of them, the snapshot's `config` from now on. `claim` and `settle` still
+   * take only a first plot: the rest come by `buy_plot`.
+   */
+  z.object({
+    type: z.literal("plot_market_opened"),
+    maxPlotsPerResident: z.number().int().min(1),
+  }),
   /** A plot went up for sale, for the whole plot as it stands. Nothing on it changes until it sells. */
   z.object({
     type: z.literal("plot_listed"),

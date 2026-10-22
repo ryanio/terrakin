@@ -4,7 +4,7 @@ import { LANDS_ISLAND } from "./lands-log";
 
 /**
  * A plot changing hands (RFC 0039, decision 0344). Downtown is 3 by 3 plots of 8 tiles and the
- * island Willowmere is open, so plots can go on sale. Ada settles plot (0, 0), builds the starter
+ * island Willowmere is open, so plots can go on sale, and the switch raises the cap to 3. Ada settles plot (0, 0), builds the starter
  * hut, and shares it with Eve; Cy is Ada's AI, so the two are one household; Dee settles on the
  * island. Two weeks later Ada lists her plot, takes it back, lists it again, and Bob buys it: the
  * hut stays, Ada's hearth and Eve's share go, and the coins move less the market's fee.
@@ -34,7 +34,7 @@ export const PLOT_MARKET_SETUP: Input[] = [
   town({ type: "open_shop" }),
   town({ type: "open_market" }),
   town(LANDS_ISLAND),
-  town({ type: "open_plot_market" }),
+  town({ type: "open_plot_market", maxPlotsPerResident: 3 }),
   as("ada", { type: "join", name: "Ada", kind: "human" }),
   as("ada", { type: "settle", px: 0, py: 0 }),
   as("ada", { type: "build_starter_home" }),
@@ -60,5 +60,8 @@ export const PLOT_MARKET_LOG: Input[] = [
   town({ type: "new_day", day: PLOT_MARKET_DAY + 15 }),
 ];
 
-/** `hashWorld(replay(PLOT_MARKET_CONFIG, PLOT_MARKET_LOG))`, pinned when the plot market landed. */
-export const PLOT_MARKET_HASH = "537d25f9";
+/**
+ * `hashWorld(replay(PLOT_MARKET_CONFIG, PLOT_MARKET_LOG))`, pinned again when `open_plot_market`
+ * came to carry the cap. No live log holds the switch, so this is the only hash it moved.
+ */
+export const PLOT_MARKET_HASH = "89b298f3";

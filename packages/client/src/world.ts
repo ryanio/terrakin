@@ -16,6 +16,7 @@ import {
   type Climb,
   canBuildOn,
   chebyshev,
+  claimLimit,
   climbsAt,
   type Direction,
   FIREWORK_COLORS,
@@ -1532,7 +1533,9 @@ claimButton.addEventListener("click", () => {
 
 /** Claim plot while you may claim one, else Your things in its place (one plot per resident). */
 function paintClaim() {
-  const full = !!mirror && !!me && myPlots().owned >= mirror.config.maxPlotsPerResident;
+  // The sim's own limit: once plots are for sale, claim takes only a first plot.
+  const full =
+    !!mirror && !!me && myPlots().owned >= claimLimit(mirror.config, mirror.plotMarketOpen);
   claimButton.hidden = full;
   thingsLink.hidden = !full;
 }

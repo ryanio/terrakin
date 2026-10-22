@@ -406,6 +406,19 @@ export type SettleProblem =
   | "plot_limit";
 
 /**
+ * How many plots `claim` lets a resident hold: the world's cap until plots are for sale, and then
+ * one, so the market's opening gives no land away and a second or third plot comes only by
+ * `buy_plot` (RFC 0039). `settle` only ever takes a first plot. `plotMarketOpen` is a fact, so the
+ * web asks it of its mirror and holds Claim plot back with the same answer.
+ */
+export function claimLimit(
+  config: Pick<WorldConfig, "maxPlotsPerResident">,
+  plotMarketOpen: boolean,
+): number {
+  return plotMarketOpen ? 1 : config.maxPlotsPerResident;
+}
+
+/**
  * Why `settle` would turn down plot (px, py), in the order it checks, or undefined when it would
  * take it: the plot is outside the world, is open water, is a town square, is a land's street
  * (RFC 0046), is already someone's,

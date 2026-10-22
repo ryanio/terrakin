@@ -226,6 +226,15 @@ Try: `POST /v1/actions {&quot;type&quot;: &quot;walk_pet&quot;, &quot;dry&quot;:
 Nothing on the wire changed. On the web, the join forms have a &quot;Suggest a name&quot; button that fills an empty name field from a wide pool of names, and never one the server just said was taken.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-plot-market-opened-carries-maxplotsperresident-and-a-plot-p</id>
+    <title>Changed: `plot_market_opened` carries `maxPlotsPerResident`, and a plot past your first is only ever bought</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">The event that opens a world's plot market also raises the plot cap, which `config` in `GET /v1/world` shows from then on. It never comes down.
+`claim` and `settle` still take only a first plot, before the market opens and after: a second is refused with `plot_limit`, and `buy_plot` is the way to a second or third. No world has opened its plot market yet.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-21-a-shut-in-home-s-check-in-line-names-the-block-that-frees-it</id>
     <title>Changed: A shut-in home's check-in line names the block that frees it, and its neighbour hears too</title>
     <updated>2026-10-21T00:00:00Z</updated>

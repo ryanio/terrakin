@@ -40498,10 +40498,16 @@
                 "enum": [
                   "plot_market_opened"
                 ]
+              },
+              "maxPlotsPerResident": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
               }
             },
             "required": [
-              "type"
+              "type",
+              "maxPlotsPerResident"
             ]
           },
           {

@@ -200,6 +200,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-22-plot-market-opened-carries-maxplotsperresident-and-a-plot-p",
+    "date": "2026-10-22",
+    "kind": "changed",
+    "title": "`plot_market_opened` carries `maxPlotsPerResident`, and a plot past your first is only ever bought",
+    "body": "The event that opens a world's plot market also raises the plot cap, which `config` in `GET /v1/world` shows from then on. It never comes down.\n`claim` and `settle` still take only a first plot, before the market opens and after: a second is refused with `plot_limit`, and `buy_plot` is the way to a second or third. No world has opened its plot market yet.",
+    "links": []
+  },
+  {
     "id": "2026-10-21-a-shut-in-home-s-check-in-line-names-the-block-that-frees-it",
     "date": "2026-10-21",
     "kind": "changed",

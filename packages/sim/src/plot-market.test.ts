@@ -11,8 +11,9 @@ import { hashWorld } from "./hash";
 import { PLOTS, plotListing } from "./plot-market";
 import { replay } from "./replay";
 import { expectSupplyHolds } from "./test-support";
-import { type Command, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
-import { createWorld } from "./world";
+import { type Command, type Input, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
+import { route, worldGround } from "./walk";
+import { createWorld, plotsOwnedBy } from "./world";
 
 /**
  * The plot market (RFC 0039, decision 0344). It moves the largest sums in the game between
@@ -44,6 +45,14 @@ function refused(state: WorldState, actor: string, command: Command, code: Rejec
   expect(hashWorld(state)).toBe(before);
 }
 
+/** Walks a resident to a tile, around whatever stands between. */
+function walkTo(state: WorldState, actor: string, to: { x: number; y: number }) {
+  const me = state.residents[actor];
+  if (!me) throw new Error(`no ${actor}`);
+  for (const dir of route(worldGround(state), me, to)) ok(state, actor, { type: "move", dir });
+  expect({ x: me.x, y: me.y }).toEqual(to);
+}
+
 const list = (price = 300): Command => ({ type: "list_plot", px: 0, py: 0, price });
 const buy: Command = { type: "buy_plot", px: 0, py: 0 };
 
@@ -58,9 +67,24 @@ describe("opening the plot market", () => {
     ] as Command[]) {
       ok(state, TOWN_ACTOR, command);
     }
-    refused(state, TOWN_ACTOR, { type: "open_plot_market" }, "not_due");
+    refused(state, TOWN_ACTOR, { type: "open_plot_market", maxPlotsPerResident: 3 }, "not_due");
     ok(state, TOWN_ACTOR, { type: "open_market" });
-    refused(state, TOWN_ACTOR, { type: "open_plot_market" }, "not_due");
+    refused(state, TOWN_ACTOR, { type: "open_plot_market", maxPlotsPerResident: 3 }, "not_due");
+  });
+
+  it("raises the plot cap in the same input, and never lowers it", () => {
+    const state = replay(
+      PLOT_MARKET_CONFIG,
+      PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market"),
+    );
+    const open = (cap: number): Command => ({ type: "open_plot_market", maxPlotsPerResident: cap });
+    refused(state, TOWN_ACTOR, open(0), "invalid_amount");
+    refused(state, TOWN_ACTOR, open(2.5), "invalid_amount");
+    expect(ok(state, TOWN_ACTOR, open(3))).toEqual([
+      { type: "plot_market_opened", maxPlotsPerResident: 3 },
+    ]);
+    expect(state.config.maxPlotsPerResident).toBe(3);
+    refused(state, TOWN_ACTOR, open(3), "already_open");
   });
 
   it("refuses every plot command before it opens", () => {
@@ -198,12 +222,6 @@ describe("buying a plot", () => {
     refused(state, "bob", buy, "unknown_listing");
     ok(state, "ada", list());
     refused(state, "ada", buy, "own_listing");
-    // Dee owns her island plot, and a resident owns one here.
-    const econ = state.economy;
-    if (!econ) throw new Error("no economy");
-    econ.coins.dee = (econ.coins.dee ?? 0) + 1000;
-    econ.minted += 1000;
-    refused(state, "dee", buy, "plot_limit");
     refused(state, "eve", buy, "not_enough_coins");
   });
 
@@ -235,6 +253,44 @@ describe("buying a plot", () => {
     });
     // A bought plot waits out the cooling-off like a claimed one, so it can't be flipped at once.
     refused(state, "bob", list(), "not_yet");
+  });
+
+  it("is the only way to a second plot: claim and settle take a first one, before the switch and after it", () => {
+    // Ada owns plot (0, 0) and stands in plot (1, 0), which nobody has claimed.
+    const free = { x: 9, y: 2 };
+    const before = replay(
+      PLOT_MARKET_CONFIG,
+      PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market"),
+    );
+    walkTo(before, "ada", free);
+    refused(before, "ada", { type: "claim" }, "plot_limit");
+    const after = world();
+    expect(after.config.maxPlotsPerResident).toBe(3);
+    walkTo(after, "ada", free);
+    refused(after, "ada", { type: "claim" }, "plot_limit");
+    refused(after, "ada", { type: "settle", px: 1, py: 0 }, "plot_limit");
+
+    // Fay and Gus settle downtown and wait out the cooling-off; then Ada, Fay and Gus list, and
+    // Dee, who lives on the island, buys two plots and is refused a third.
+    const town = (command: Command): Input => ({ actor: TOWN_ACTOR, command });
+    const later = replay(PLOT_MARKET_CONFIG, [
+      ...PLOT_MARKET_SETUP,
+      { actor: "fay", command: { type: "join", name: "Fay", kind: "human" } },
+      { actor: "fay", command: { type: "settle", px: 2, py: 0 } },
+      { actor: "gus", command: { type: "join", name: "Gus", kind: "human" } },
+      { actor: "gus", command: { type: "settle", px: 0, py: 2 } },
+      town({ type: "test_grant", to: "fay", coins: 100 }),
+      town({ type: "test_grant", to: "gus", coins: 100 }),
+      town({ type: "test_grant", to: "dee", coins: 2000 }),
+      town({ type: "new_day", day: PLOT_MARKET_DAY + 28 }),
+    ]);
+    ok(later, "ada", list(300));
+    ok(later, "fay", { type: "list_plot", px: 2, py: 0, price: 300 });
+    ok(later, "gus", { type: "list_plot", px: 0, py: 2, price: 300 });
+    ok(later, "dee", buy);
+    ok(later, "dee", { type: "buy_plot", px: 2, py: 0 });
+    expect(plotsOwnedBy(later, "dee")).toHaveLength(3);
+    refused(later, "dee", { type: "buy_plot", px: 0, py: 2 }, "plot_limit");
   });
 
   it("replays its fixture to the hash pinned when it landed", () => {

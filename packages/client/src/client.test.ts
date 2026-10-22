@@ -177,6 +177,16 @@ describe("Mirror", () => {
     expect(m.plotNames.get("0,0")).toBe("Lemon Grove");
   });
 
+  it("knows plots are for sale from the snapshot and the switch, which raises the cap (RFC 0039)", () => {
+    expect(new Mirror({ ...snapshot, plotMarketOpen: true }).plotMarketOpen).toBe(true);
+    const m = new Mirror(snapshot);
+    expect(m.plotMarketOpen).toBe(false);
+    const opened = { type: "plot_market_opened", maxPlotsPerResident: 3 } as const;
+    expect(m.apply({ seq: 4, event: opened })).toBe("applied");
+    expect(m.plotMarketOpen).toBe(true);
+    expect(m.config.maxPlotsPerResident).toBe(3);
+  });
+
   it("keeps plot names from the snapshot and events, and drops one with its plot", () => {
     const m = new Mirror({
       ...snapshot,

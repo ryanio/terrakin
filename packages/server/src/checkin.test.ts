@@ -421,7 +421,7 @@ describe("GET /v1/checkin with seen", () => {
     ]);
   });
 
-  it("moves for a new proposal, a coin line, a changelog entry, and a devlog post too", () => {
+  it("moves when any part of it changes", () => {
     const base: DigestParts = {
       unreadNotifications: 0,
       notifications: [],
@@ -437,17 +437,52 @@ describe("GET /v1/checkin with seen", () => {
     };
     const digest = checkinDigest(base);
     expect(checkinDigest({ ...base })).toBe(digest);
-    for (const change of [
-      { proposals: ["pr_1"] },
-      { coins: [50, true, [12, 14]] as DigestParts["coins"] },
-      { coins: [60, true, [12]] as DigestParts["coins"] },
-      { coins: null },
-      { changelog: "2026-10-06-b" },
-      { devlog: "2026-10-06" },
-      { notice: "n_1" },
-      { items: [["3,3"], 0] as [string[], number] },
-    ]) {
-      expect(checkinDigest({ ...base, ...change })).not.toBe(digest);
+    // One row for every part, which the type demands: a part `checkinView` fills in and
+    // `checkinDigest` leaves out would answer `unchanged` over news, and nothing else would say so.
+    const changes: { [K in keyof DigestParts]-?: Exclude<DigestParts[K], undefined>[] } = {
+      unreadNotifications: [1],
+      notifications: [[["n_1", 1, "2026-10-05T12:00:00.000Z"]]],
+      unreadLetters: [1],
+      letters: [["l_1"]],
+      gesture: ["g_1"],
+      followed: [
+        ["p_1", null],
+        ["p_1", "2026-10-05T12:00:00.000Z"],
+      ],
+      proposals: [["pr_1"]],
+      notice: ["n_1"],
+      coins: [[50, true, [12, 14]], [60, true, [12]], [50, false, [12]], null],
+      changelog: ["2026-10-06-b"],
+      items: [
+        [["3,3"], 0],
+        [[], 1],
+      ],
+      takenDown: [["li_1"]],
+      bounties: [
+        [["b_1"], null],
+        [[], "b_2"],
+      ],
+      heldAside: [["it_1"]],
+      away: [
+        ["line", 1],
+        ["line", 2],
+      ],
+      events: [
+        [["e_1"], []],
+        [[], ["e_2"]],
+      ],
+      games: [
+        [["t_1"], [], null],
+        [[], ["t_2"], null],
+        [[], [], "t_3"],
+      ],
+      devlog: ["2026-10-06"],
+      owner: ["owner:r_1"],
+    };
+    for (const [part, values] of Object.entries(changes)) {
+      for (const value of values) {
+        expect(checkinDigest({ ...base, [part]: value }), part).not.toBe(digest);
+      }
     }
   });
 });

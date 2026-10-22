@@ -30,14 +30,15 @@ no `IF NOT EXISTS` for a column. Most tables here already do this by hand
 `chatter_usage`, `chatter_log`); `plot_news` is the one that builds its column list from a constant
 and so looked like it maintained itself.
 
-Two guards are in `plots.test.ts` now:
+Two guards hold it:
 
-- One creates `plot_news` at the shape it had before `ridge`, boots the service against it, and
-  checks every field in `NEWS_FIELDS` is on the table and the old row still reads. That is the
-  shape of test a fresh-world suite can never write for itself, so write it deliberately.
-- One reads the server source and fails on any `CREATE TABLE IF NOT EXISTS` whose columns come
-  from a constant without an `ADD COLUMN` pass over the same constant. A table that keeps its
-  column list in code will gain a column sooner or later.
+- `plots.test.ts` creates `plot_news` at the shape it had before `ridge`, boots the service
+  against it, and checks every field in `NEWS_FIELDS` is on the table and the old row still
+  reads. That is the shape of test a fresh-world suite can never write for itself, so write it
+  deliberately.
+- `schema-upgrade.test.ts` does the same for every table: it creates each as it first shipped
+  (`first-tables.ts`, read from git history), boots the World object's storage on them, and
+  compares every table's columns, keys, and a write and read with a fresh world's.
 
 ## The wider shape
 

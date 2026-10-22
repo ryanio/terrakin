@@ -1,4 +1,3 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { type ErrorCode, PLOT_ADMIRE } from "@terrakin/protocol";
 import {
   apply,
@@ -12,7 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { NEWS_FIELDS } from "./plot-news";
+import { NEWS_FIELDS, noNews } from "./plot-news";
 import { PLOT_LIST_MS, PlotVisits } from "./plots";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -691,28 +690,9 @@ describe("the plot_news table's columns", () => {
     expect(rows).toEqual([{ ridge: 0 }]);
   });
 
-  it("keeps every table built from a fields constant repairing itself", () => {
-    // The source rule behind the test above. A `CREATE TABLE IF NOT EXISTS` whose columns come
-    // from a list in the code will silently skip a field added to that list later, so it needs
-    // an `ADD COLUMN` pass over the same list. Today `plot_news` is the only such table; this
-    // fails when a second one arrives without one.
-    const dir = new URL(".", import.meta.url);
-    const files = readdirSync(dir).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
-    const missing: string[] = [];
-    for (const file of files) {
-      const src = readFileSync(new URL(file, dir), "utf8");
-      // One statement at a time: a window that ran on would read the next table's columns.
-      for (const chunk of src.split("CREATE TABLE IF NOT EXISTS ").slice(1)) {
-        const statement = chunk.slice(0, chunk.indexOf("`"));
-        const table = statement.match(/^(\w+)/)?.[1];
-        const constant = statement.match(/\$\{(\w+)\.map/)?.[1];
-        if (!table || !constant) continue;
-        const adds = new RegExp(
-          `ALTER TABLE ${table} ADD COLUMN \\$\\{\\w+\\}|for \\(const \\w+ of ${constant}\\)`,
-        );
-        if (!adds.test(src)) missing.push(`${file}: ${table} from ${constant}`);
-      }
-    }
-    expect(missing).toEqual([]);
+  it("has a column for every count a day's news keeps", () => {
+    // `noNews` is a `PlotNews` literal, so the compiler holds it to every field. A field the
+    // column list leaves out is counted as inputs commit and lost at the next read.
+    expect(Object.keys(noNews()).sort()).toEqual([...NEWS_FIELDS].sort());
   });
 });

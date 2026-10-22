@@ -1,7 +1,8 @@
-import type { BlockKind, GroundKind, ResourceKind, WorldConfig } from "@terrakin/sim";
+import type { BlockKind, GroundKind, ResourceKind, Season, WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   approach,
+  type ChunkSource,
   cameraQuarter,
   chunkSignature,
   dozersAround,
@@ -12,6 +13,7 @@ import {
   hearthKeys,
   MAX_FIGURES,
   nearbyLabel,
+  type PlotChunk,
   plotsAround,
   readChunk,
   tileAtPoint,
@@ -300,6 +302,110 @@ describe("one plot of the world, read from the mirror", () => {
     );
     // A loft on the plot next door is nothing to this one.
     expect(readChunk(loft, 2, 1, none).highest).toBe(0);
+  });
+
+  it("signs what it draws, for every part of the mirror it reads", () => {
+    // `chunkSignature` decides whether a drawn plot is built again, and `readChunk` is what gets
+    // built. They have to agree, and the signature has to move whenever the drawing does, or a
+    // plot rebuilds on every input (a roof once did) or never shows a change. One row for each
+    // thing a chunk reads, which the type demands, so a new one can't be left out.
+    interface Read {
+      source: ChunkSource;
+      hearths: ReadonlySet<string>;
+      season?: Season;
+      lit?: boolean;
+      cut?: number;
+    }
+    const roof = (style: "gable" | "hip") => () => ({
+      style,
+      material: "wood" as const,
+      floor: 1,
+      tiles: [{ x: 8, y: 8, h: [0, 0, 1, 1] as [number, number, number, number] }],
+    });
+    const base: Read = {
+      source: {
+        config,
+        commons: { px: 4, py: 4 },
+        blocks: new Map<string, BlockKind>([
+          ["8,8", "wood"],
+          ["9,8", "glass"],
+          ["10,10", "little_fir"],
+          ["12,12", "pedestal"],
+          ["13,13", "planter"],
+          ["14,14", "pedestal"],
+        ]),
+        paving: new Map<string, GroundKind>([["11,11", "cobble"]]),
+        upstairs: new Map([
+          [
+            1,
+            {
+              blocks: new Map<string, BlockKind>([["8,9", "glass"]]),
+              paving: new Map<string, GroundKind>([["8,8", "planks"]]),
+            },
+          ],
+        ]),
+        plots: new Map([["1,1", "capri"]]),
+        displays: new Map([["12,12", { good: { id: "g1", kind: "lemon_jam" as const } }]]),
+        shownFinds: new Map([["14,14", { kind: "geode" as const }]]),
+        crops: new Map([["13,13", { crop: "herb" as const, plantedDay: 1, readyDay: 3 }]]),
+        day: 2,
+        pickupAt: (x, y) => (x === 11 && y === 12 ? "wood" : null),
+        residents: new Map([["capri", { hearth: { x: 9, y: 9 } }]]),
+        presents: new Map([["capri", 2]]),
+        roofAt: roof("gable"),
+        isSea: () => false,
+      },
+      hearths: new Set(["9,9"]),
+      season: "summer",
+    };
+    const read = (r: Read) => readChunk(r.source, 1, 1, r.hearths, r.season, r.lit, r.cut);
+    const sign = (r: Read) => chunkSignature(r.source, 1, 1, r.hearths, r.season, r.lit, r.cut);
+    const drawn = ({ signature, ...chunk }: PlotChunk) => JSON.stringify(chunk);
+    const before = read(base);
+    expect(sign(base)).toBe(before.signature);
+    // A tile with grass on it, for the sea to cover.
+    const grass = tileAtPoint(before.tufts[0]?.x ?? 0, before.tufts[0]?.y ?? 0);
+    const source = (change: Partial<ChunkSource>): Read => ({
+      ...base,
+      source: { ...base.source, ...change },
+    });
+    const rows: { [K in keyof ChunkSource | "hearths" | "season" | "lit" | "cut"]-?: Read } = {
+      // A land opening grows the world, which redraws nothing on a plot already there.
+      config: source({ config: { ...config, width: 80 } }),
+      commons: source({ commons: { px: 1, py: 1 } }),
+      blocks: source({ blocks: new Map([...base.source.blocks, ["8,8", "stone"]]) }),
+      paving: source({ paving: new Map([["11,11", "planks"]]) }),
+      upstairs: source({
+        upstairs: new Map([[1, { blocks: new Map(), paving: new Map([["8,8", "planks"]]) }]]),
+      }),
+      plots: source({ plots: new Map([["1,1", "wren"]]) }),
+      displays: source({
+        displays: new Map([["12,12", { good: { id: "g2", kind: "lemon_jam" } }]]),
+      }),
+      shownFinds: source({ shownFinds: new Map([["14,14", { kind: "acorn" }]]) }),
+      crops: source({ crops: new Map([["13,13", { crop: "herb", plantedDay: 1, readyDay: 5 }]]) }),
+      day: source({ day: 3 }),
+      pickupAt: source({ pickupAt: (x, y) => (x === 11 && y === 12 ? "stone" : null) }),
+      residents: source({ residents: new Map([["capri", { hearth: { x: 30, y: 30 } }]]) }),
+      presents: source({ presents: new Map([["capri", 3]]) }),
+      roofAt: source({ roofAt: roof("hip") }),
+      isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
+      hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },
+      season: { ...base, season: "autumn" },
+      lit: { ...base, lit: true },
+      cut: { ...base, cut: 0 },
+    };
+    // The Commons and the sea are drawn but not signed: neither ever changes under a plot already
+    // drawn, since a land's sea and its plots arrive together in one `land_opened`.
+    const fixed = new Set(["commons", "isSea"]);
+    for (const [part, r] of Object.entries(rows)) {
+      const chunk = read(r);
+      expect(sign(r), part).toBe(chunk.signature);
+      const redrawn = drawn(chunk) !== drawn(before);
+      const resigned = chunk.signature !== before.signature;
+      expect(resigned, part).toBe(fixed.has(part) ? false : redrawn);
+      if (part !== "config") expect(redrawn, `${part} draws something else`).toBe(true);
+    }
   });
 });
 

@@ -5,6 +5,7 @@ import {
   dayOfDate,
   HOLIDAY_RECIPES,
   isPotKind,
+  isPotteryRecipe,
   RECIPE_NAMES,
   recipeCardPrice,
   type WorldConfig,
@@ -101,8 +102,8 @@ describe("before recipes are learned", () => {
     expect(w.service.state.recipes).toBeUndefined();
     const ada = await w.settler("Ada", 0, 0);
     const inv = await w.inventory(ada.token);
-    // Every recipe but the pots, which wait for clay (RFC 0047).
-    expect(inv.recipes).toEqual(RECIPE_NAMES.filter((r) => !isPotKind(r)).sort());
+    // Every recipe but pottery's, which wait for clay (RFC 0047).
+    expect(inv.recipes).toEqual(RECIPE_NAMES.filter((r) => !isPotteryRecipe(r)).sort());
     expect(inv.recipePicks).toBe(0);
     const { shop } = await w.shop(ada.token);
     expect(shop.recipes).toBeUndefined();

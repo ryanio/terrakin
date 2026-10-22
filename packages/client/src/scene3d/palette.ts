@@ -102,7 +102,7 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
   // A pot set down (RFC 0047) is never built as a block: it stands on its tile as its drawn
   // picture (`displayedThings`, `on: "ground"`), and the layouts leave its block out.
-  pot: { color: hex(BLOCK_COLORS.pot), height: 0, opacity: 1, form: "voxel" },
+  pot: { color: hex(BLOCK_COLORS.pot), height: 0.06, opacity: 1, form: "voxel" },
   // A kiln (RFC 0047): fired brick, glowing after dark while it fires a pot (`lit`).
   kiln: {
     color: hex(BLOCK_COLORS.kiln),

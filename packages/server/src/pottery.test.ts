@@ -126,7 +126,9 @@ describe("a world that never opened clay", () => {
     const shop = (await t.call("GET", "/v1/shop", undefined, ada.token)).body.shop;
     expect(shop.recipes.map((c: Json) => c.sku)).not.toContain("recipe:vase");
     const book = (await t.call("GET", "/v1/collection", undefined, ada.token)).body.collection;
-    expect(book.groups.map((g: Json) => g.family)).not.toContain("pottery");
+    expect(book.groups.map((g: Json) => g.family)).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/^(pottery|glazes|finishes)$/)]),
+    );
     // A kiln can't go down, so no pot can be made.
     expect(t.service.testGrant(ada.id, undefined, { stone: 4 })).toMatchObject({ ok: true });
     expect(await t.act(ada.token, { type: "place", ...KILN, block: "kiln" })).toMatchObject({
@@ -224,5 +226,15 @@ describe("a world with clay", () => {
       }),
     ]);
     expect(goods[0].finish).toMatch(/^(plain|speckled|crackle|iridescent)$/);
+    // Pottery's pages in the book: the glaze it came in, and its finish unless it's plain.
+    const book = (await t.call("GET", "/v1/collection", undefined, ada.token)).body.collection;
+    const page = (family: string) => book.groups.find((g: Json) => g.family === family);
+    expect(page("glazes")).toMatchObject({ count: 1, total: 8, done: false, badge: "Every glaze" });
+    expect(page("glazes").kinds.find((k: Json) => k.kind === "moss").firstDay).toBeDefined();
+    expect(page("finishes")).toMatchObject({
+      count: goods[0].finish === "plain" ? 0 : 1,
+      total: 3,
+    });
+    expect(book.badges.includes("An iridescent pot")).toBe(goods[0].finish === "iridescent");
   });
 });

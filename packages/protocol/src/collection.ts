@@ -12,7 +12,19 @@ import { HolidayName, SeasonName } from "./schemas";
 
 /** The group wear goes in, after the catalog's families. */
 export const WEAR_GROUP = "wear";
-export type CollectionGroupId = Family | typeof WEAR_GROUP;
+/**
+ * Pottery's two pages after its family (RFC 0047): the glazes a resident's pots have come in, and
+ * the finishes they came out of the kiln with.
+ */
+export const GLAZE_GROUP = "glazes";
+export const FINISH_GROUP = "finishes";
+/** The badge for the first iridescent pot, which no group finishes: one pot in a hundred. */
+export const IRIDESCENT_BADGE = "An iridescent pot";
+export type CollectionGroupId =
+  | Family
+  | typeof WEAR_GROUP
+  | typeof GLAZE_GROUP
+  | typeof FINISH_GROUP;
 
 /**
  * What the book says about each group: a hint for what's not collected yet (where it comes from),
@@ -45,7 +57,9 @@ export const COLLECTION_WORDS: Readonly<
   shore_find: { hint: "Found on the sand", badge: "Shore finds" },
   stone_find: { hint: "Found on stony ground", badge: "Stone finds" },
   meadow_find: { hint: "Found in meadows", badge: "Meadow finds" },
-  pottery: { hint: "Clay from meadows and sand, fired in a kiln", badge: "Every pot" },
+  pottery: { hint: "Clay from beside water, fired in a kiln", badge: "Every pot" },
+  glazes: { hint: "A pot fired in it, yours or one given to you", badge: "Every glaze" },
+  finishes: { hint: "A pot that came out of the kiln with it" },
   wear: { hint: "Worn, or bought at the town shop", badge: "Full wardrobe" },
 };
 
@@ -99,7 +113,9 @@ export function bitesWhen(c: CatchChance): {
 export const CollectionKind = z.object({
   kind: z
     .string()
-    .describe("A kind from `GET /v1/catalog`, or in the `wear` group, a piece of wear."),
+    .describe(
+      "A kind from `GET /v1/catalog`, or in the `wear` group a piece of wear, in `glazes` a glaze, and in `finishes` a finish.",
+    ),
   name: z.string(),
   firstDay: z
     .number()

@@ -5,6 +5,9 @@ import {
   type CollectionGroupId,
   type CollectionKind,
   type CollectionView,
+  FINISH_GROUP,
+  GLAZE_GROUP,
+  IRIDESCENT_BADGE,
   WEAR_GROUP,
 } from "@terrakin/protocol";
 import {
@@ -14,10 +17,12 @@ import {
   type Family,
   type FamilyInfo,
   FIND_SPAWNS,
+  FINISH_NAMES,
   type FindSpawn,
   type FirstsCredit,
   familyPath,
   firstSkill,
+  GLAZES,
   type Holiday,
   type Input,
   ITEM_INFO,
@@ -60,7 +65,7 @@ export interface CollectionOptions {
 }
 
 /** Which shelf a row is on: a kind from the catalog, or a piece of wear. */
-type Shelf = "thing" | "wear";
+type Shelf = "thing" | "wear" | "glaze" | "finish";
 const keyOf = (shelf: Shelf, kind: string) => `${shelf}:${kind}`;
 
 /**
@@ -136,6 +141,7 @@ function collectionView(
         ),
       ),
     );
+    if (family === "pottery") groups.push(...potteryPages(firsts));
   }
   groups.push(
     group(
@@ -152,9 +158,31 @@ function collectionView(
     count: groups.reduce((n, g) => n + g.count, 0),
     total: groups.reduce((n, g) => n + g.total, 0),
     groups,
-    badges: groups.flatMap((g) => (g.done && g.badge ? [g.badge] : [])),
+    badges: [
+      ...groups.flatMap((g) => (g.done && g.badge ? [g.badge] : [])),
+      ...(firsts.has(keyOf("finish", "iridescent")) ? [IRIDESCENT_BADGE] : []),
+    ],
   };
 }
+
+/**
+ * Pottery's two pages after its family (RFC 0047): every glaze a pot of theirs came in, and every
+ * finish one came out with. A plain pot has no finish to collect.
+ */
+function potteryPages(firsts: ReadonlyMap<string, number>): CollectionGroup[] {
+  const glazes = GLAZES.map((g) => entry(g, glazeWords(g), firsts.get(keyOf("glaze", g))));
+  const finishes = FINISH_NAMES.filter((f) => f !== "plain").map((f) =>
+    entry(f, `${f.charAt(0).toUpperCase()}${f.slice(1)}`, firsts.get(keyOf("finish", f))),
+  );
+  return [
+    group(GLAZE_GROUP, "Glazes", ["pottery", GLAZE_GROUP], glazes),
+    group(FINISH_GROUP, "Finishes", ["pottery", FINISH_GROUP], finishes),
+  ];
+}
+
+/** A glaze in words: "Sea glaze", and "Bare clay" for none. */
+const glazeWords = (g: string) =>
+  g === "bare" ? "Bare clay" : `${g.charAt(0).toUpperCase()}${g.slice(1)} glaze`;
 
 export class CollectionBook {
   /** Each resident's rows once read, by `thing:<kind>` and `wear:<item>`, to the first day. */
@@ -229,7 +257,12 @@ export class CollectionBook {
         for (const c of e.changes ?? []) {
           if (c.amount > 0) this.note(e.residentId, "thing", c.kind, day);
         }
-        for (const g of e.gained ?? []) this.note(e.residentId, "thing", g.kind, day);
+        for (const g of e.gained ?? []) {
+          this.note(e.residentId, "thing", g.kind, day);
+          // A pot's glaze and finish (RFC 0047), on pottery's two pages.
+          if (g.glaze) this.note(e.residentId, "glaze", g.glaze, day);
+          if (g.finish) this.note(e.residentId, "finish", g.finish, day);
+        }
       } else if (e.type === "wear_bought") {
         this.note(e.residentId, "wear", e.wear, day);
       } else if (e.type === "profile_changed") {
@@ -266,6 +299,8 @@ export class CollectionBook {
       for (const kind of Object.keys(inv.stacks)) add(resident, "thing", kind);
       for (const g of inv.goods) {
         add(resident, "thing", g.kind, g.maker === resident ? g.madeDay : today);
+        if (g.glaze) add(resident, "glaze", g.glaze);
+        if (g.finish) add(resident, "finish", g.finish);
       }
     }
     for (const shown of [...Object.values(items?.displays ?? {}), ...(items?.heldAside ?? [])]) {

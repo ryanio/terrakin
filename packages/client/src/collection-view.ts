@@ -6,16 +6,25 @@
  * profile, and it never says how many of anything they hold. Their name is their own words: text
  * only.
  */
-import type {
-  CollectionGroup,
-  CollectionKind,
-  CollectionResponse,
-  CollectionView,
-  ProfileView,
+import {
+  type CollectionGroup,
+  type CollectionKind,
+  type CollectionResponse,
+  type CollectionView,
+  FINISH_GROUP,
+  GLAZE_GROUP,
+  type ProfileView,
 } from "@terrakin/protocol";
-import type { Family } from "@terrakin/sim";
+import {
+  FAMILIES,
+  type Family,
+  FINISH_NAMES,
+  type Finish,
+  GLAZES,
+  type Glaze,
+} from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { isArtKind, itemArt } from "@terrakin/ui/item-art";
+import { isArtKind, itemArt, type ThingLook, thingPicture } from "@terrakin/ui/item-art";
 import { profilePath } from "@terrakin/ui/paths";
 import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
 import { collectionApi } from "./api/collection";
@@ -26,16 +35,28 @@ import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 import "./collection-view.css";
 
+/** How pottery's pages draw a row: a vase in the glaze, or a sea vase with the finish. */
+function potLook(family: string, kind: string): ThingLook | undefined {
+  if (family === GLAZE_GROUP && (GLAZES as readonly string[]).includes(kind)) {
+    return { kind: "vase", glaze: kind as Glaze };
+  }
+  if (family === FINISH_GROUP && (FINISH_NAMES as readonly string[]).includes(kind)) {
+    return { kind: "vase", glaze: "sea", finish: kind as Finish };
+  }
+  return undefined;
+}
+
 /** One kind in a family's grid: its picture and name once collected, else its outline and "?". */
-function kindTile(k: CollectionKind, now: number): HTMLElement {
+function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
   const got = k.firstDay !== undefined;
-  const art = isArtKind(k.kind)
-    ? itemArt(k.kind, {
-        size: 48,
-        title: got ? k.name : "Not found yet",
-        ...(got ? {} : { className: "silhouette" }),
-      })
-    : null;
+  const opts = {
+    size: 48,
+    title: got ? k.name : "Not found yet",
+    ...(got ? {} : { className: "silhouette" }),
+  };
+  // Pottery's pages (RFC 0047): a vase in each glaze, and one in each finish.
+  const pot = potLook(family, k.kind);
+  const art = pot ? thingPicture(pot, opts) : isArtKind(k.kind) ? itemArt(k.kind, opts) : null;
   const under =
     k.firstDay !== undefined
       ? dayLabel(k.firstDay, now)
@@ -55,7 +76,7 @@ function kindTile(k: CollectionKind, now: number): HTMLElement {
 
 /** A family's card: its name, how many of its kinds are in, its badge or hint, and its grid. */
 function groupCard(g: CollectionGroup, now: number): HTMLElement {
-  const label = g.family === "wear" ? g.name : familyLabel(g.family as Family);
+  const label = Object.hasOwn(FAMILIES, g.family) ? familyLabel(g.family as Family) : g.name;
   const titleId = `collection-${g.family}`;
   return h(
     "section",
@@ -72,7 +93,11 @@ function groupCard(g: CollectionGroup, now: number): HTMLElement {
     g.done && g.badge
       ? kindPill(g.badge, "sun", "collection-badge")
       : h("p", { class: "hint collection-hint", text: g.hint }),
-    h("ul", { class: "plain-list collection-kinds" }, ...g.kinds.map((k) => kindTile(k, now))),
+    h(
+      "ul",
+      { class: "plain-list collection-kinds" },
+      ...g.kinds.map((k) => kindTile(k, now, g.family)),
+    ),
   );
 }
 

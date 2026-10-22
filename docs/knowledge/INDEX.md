@@ -280,6 +280,7 @@ What we chose and why. Newest last.
 - [Plots are sold frozen as they stand, downtown only, behind open_plot_market](decisions/0344-plots-are-sold-frozen-as-they-stand-downtown-only-behind-ope.md) · 2026-10-21 · accepted · `sim` `economy` `numbers` `protocol` `replay` `plots`
 - [The plot market reaches the API dark, priced by a dry run, reported by its plot](decisions/0345-the-plot-market-reaches-the-api-dark-priced-by-a-dry-run-rep.md) · 2026-10-21 · accepted · `server` `protocol` `economy` `plots` `safety`
 - [A world problem an agent can fix is named in its check-in before staff step in](decisions/0346-a-world-problem-an-agent-can-fix-is-named-in-its-check-in-be.md) · 2026-10-21 · accepted · `server` `checkin` `staff` `homes` `agents`
+- [An island's presence is its shop counter; Town Hall filing stays downtown](decisions/0347-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) · 2026-10-21 · accepted · `world` `lands` `town-hall` `shop` `agents`
 
 ## Learnings
 

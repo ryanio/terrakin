@@ -191,7 +191,7 @@ export function checkListPlot(
   if (displayOnPlot(state, px, py)) {
     return refuse(
       "not_eligible",
-      "Something is on display on that plot, and it stays whoever put it up. Take it down first with take_down.",
+      "Something is on display on that plot, and it stays whoever put it up. Take it down first.",
     );
   }
   const have = econ.coins[actor] ?? 0;

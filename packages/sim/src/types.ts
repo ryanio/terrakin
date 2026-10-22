@@ -121,6 +121,9 @@ export const BLOCK_KINDS = [
   "timber_frame",
   "driftwood_plank",
   "sea_glass_pane",
+  // A door (decision 0349): a free block on the ground floor that draws as a wall with a door in
+  // it and is walked through like an open tile.
+  "door",
 ] as const;
 
 /**
@@ -488,6 +491,12 @@ export interface WorldState {
    * and closed before it replay as they were made, blocks on the spots included.
    */
   tableSpotsKept?: true;
+  /**
+   * `build_starter_home` hangs a `door` in the hut's doorway, from the server's `starter_doors` on
+   * (decision 0349). Absent until then, so starter homes built before it replay as they were made,
+   * with an open doorway.
+   */
+  starterDoors?: true;
   /**
    * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
    * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
@@ -1914,6 +1923,8 @@ export type Command =
   | { type: "solid_buildings" }
   /** From now on, a Town Hall build puts no block on a game table's spot (decision 0126). */
   | { type: "keep_table_spots" }
+  /** From now on, a starter home has a door in its doorway (decision 0349). */
+  | { type: "starter_doors" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -2121,6 +2132,7 @@ export const SERVER_COMMANDS = [
   "close_round",
   "close_table",
   "keep_table_spots",
+  "starter_doors",
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
@@ -2318,6 +2330,8 @@ export type WorldEvent =
   | { type: "buildings_solid" }
   /** `keep_table_spots` turned on: Town Hall builds keep the game tables' spots clear. Public. */
   | { type: "table_spots_kept" }
+  /** `starter_doors` turned on: a starter home has a door in its doorway from now on. Public. */
+  | { type: "starter_doors_set" }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   | { type: "plot_market_opened" }

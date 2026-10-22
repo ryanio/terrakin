@@ -32,15 +32,17 @@ afterEach(async () => {
   expect(problems.splice(0)).toEqual([]);
 });
 
-async function start() {
+async function start(options: { starterDoors?: boolean } = {}) {
   let now = Date.UTC(2026, 9, 6, 9);
+  const store = new MemoryStore();
   const service = new WorldService({
-    store: new MemoryStore(),
+    store,
     config: CONFIG,
     now: () => now,
     days: true,
     economy: true,
     items: true,
+    ...options,
   });
   const sql = nodeSql();
   const social = new SocialService({
@@ -82,6 +84,7 @@ async function start() {
     settler,
     stone,
     service,
+    store,
     advance: (ms: number) => {
       now += ms;
     },
@@ -102,6 +105,29 @@ const PATH = {
 };
 
 describe("build", () => {
+  it("hangs a door in starter homes once it logs starter_doors, and /v1/world says so (decision 0349)", async () => {
+    const off = await start();
+    expect((await off.call("GET", "/v1/world")).body.starterDoors).toBeUndefined();
+    const t = await start({ starterDoors: true });
+    const switches = () => t.store.log.filter((i) => i.command.type === "starter_doors");
+    expect(switches()).toHaveLength(1);
+    t.service.tick();
+    expect(switches()).toHaveLength(1);
+    const ada = await t.settler("Ada", 0, 0);
+    const world = (await t.call("GET", "/v1/world")).body;
+    expect(world.starterDoors).toBe(true);
+    expect(world.blocks).toContainEqual({ x: 3, y: 5, block: "door" });
+    // The plan reads it back as `+`, and the home has no note: the door is its way in.
+    const plan = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
+    expect(plan.map.floors[0].blocks[5]).toBe(".WW+WW..");
+    expect(plan.notes.map((n: { code: string }) => n.code)).not.toContain("hearth_walled_in");
+    // Out of the hearth and through the door.
+    for (const at of [4, 5, 6]) {
+      expect(await t.act(ada, { type: "move", dir: "s" })).toMatchObject({ ok: true });
+      expect(t.service.state.residents[ada.id]).toMatchObject({ x: 3, y: at });
+    }
+  });
+
   it("prices a plan with a dry run, builds it, and shows it in the world and as a plan", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);

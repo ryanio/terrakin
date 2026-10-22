@@ -6,7 +6,16 @@ import {
   DEVLOG_POSTS,
   FIRST_VISIT_STEPS,
 } from "@terrakin/protocol";
-import { dayOfDate, designNotes, FLOORS, tileKey, type WorldConfig } from "@terrakin/sim";
+import {
+  apply,
+  type Command,
+  createWorld,
+  dayOfDate,
+  designNotes,
+  FLOORS,
+  tileKey,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { checkinDigest, checkinSince, type DigestParts } from "./checkin";
@@ -757,6 +766,23 @@ describe("first-visit steps and things to try", () => {
     await ok("POST", "/v1/actions", { type: "add_floor", px: 1, py: 1 }, wren.token);
     service.testGrant(wren.id, FLOORS.price, undefined);
     expect(pickTryNext(service.state, wren.id, tried, new Set())?.id).not.toBe("upstairs");
+  });
+
+  it("suggests a door for a home's doorway while the plot has none (decision 0349)", () => {
+    // A starter home from before doors, on plots big enough for one: its doorway is at (3, 5).
+    const state = createWorld({ ...CONFIG, plotSize: 8 });
+    const act = (command: Command) =>
+      expect(apply(state, { actor: "wren", command }).ok, JSON.stringify(command)).toBe(true);
+    act({ type: "join", name: "Wren", kind: "agent" });
+    act({ type: "settle", px: 0, py: 0 });
+    act({ type: "build_starter_home" });
+    const tried = new Set(TRY_NEXT.flatMap((t) => [...t.commands]));
+    const pick = () => pickTryNext(state, "wren", tried, new Set());
+    expect(pick()?.id).toBe("door");
+    expect(pick()?.line).toContain('{"type": "place", "x": 3, "y": 5, "block": "door"}');
+    // A door anywhere on the plot closes it: the home has a way in that shows.
+    act({ type: "place", x: 3, y: 5, block: "door" });
+    expect(pick()?.id).not.toBe("door");
   });
 
   it("suggests the rest of a loft while the upstairs has no flooring (RFC 0028)", async () => {

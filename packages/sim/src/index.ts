@@ -184,6 +184,7 @@ export {
   upstairsGroundOf,
   upstairsProblem,
 } from "./floors";
+export { doorwayWithoutDoor } from "./front-doors";
 export {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,

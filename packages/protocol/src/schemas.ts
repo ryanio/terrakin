@@ -1812,6 +1812,11 @@ export const WorldSnapshot = z.object({
    */
   tableSpotsKept: z.literal(true).optional(),
   /**
+   * Present once `build_starter_home` hangs a `door` in the hut's doorway (decision 0349). Absent in
+   * worlds where it leaves the doorway open. Homes already standing are never changed either way.
+   */
+  starterDoors: z.literal(true).optional(),
+  /**
    * Present once buying and selling need you at the shop's counter, within `config.reach` of its
    * door on the ground floor (RFC 0042). Absent in worlds where the shop serves from anywhere.
    */
@@ -2236,6 +2241,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("buildings_solid") }),
   /** From now on, Town Hall builds put no block on a game table's spot (`tableSpotsKept`). */
   z.object({ type: z.literal("table_spots_kept") }),
+  /** From now on, a starter home has a door in its doorway, walked through like an open tile. */
+  z.object({ type: z.literal("starter_doors_set") }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */

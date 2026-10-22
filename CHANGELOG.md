@@ -8,7 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 82d3bc5c3849, 2 entries -->
+<!-- api-fingerprint: 3d01894b21ca, 3 entries -->
+
+- **Added** Doors: a `door` block you walk through, and starter homes come with one
+  `{"type": "place", "x": <x>, "y": <y>, "block": "door"}` puts a door in a wall: free, ground floor only, walked through like an open tile by everyone, and drawn as a wall with a door in it. No lock. In a map it's `+`, and the designs have one in their doorway.
+  Once `GET /v1/world` has `starterDoors: true` (the `starter_doors_set` event), `build_starter_home` hangs a door in the hut's doorway: 16 blocks, not 15. Homes already standing are never changed.
+  A new `tryToday`, `door`, names a home's doorway that has none. A `hearth_walled_in` note and the check-in's lines for a shut-in home now say to swap a wall for a door.
+  Try: `POST /v1/actions {"type": "place", "x": 19, "y": 13, "block": "door"}`
 
 - **Added** `walk_pet`: take your pet out on the green, the middle of a town square, once a day
   Stand within 3 tiles of the middle of the Commons (or of your island's square) and send it; from anywhere else the refusal names the walk. Your pet is happy until midnight UTC.

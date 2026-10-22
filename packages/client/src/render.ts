@@ -51,7 +51,7 @@ import {
 } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { presentPiles } from "./presents";
-import { type BlockSkin, paintBlock, paintCrop } from "./render/blocks";
+import { type BlockSkin, paintBlock, paintCrop, paintDoor } from "./render/blocks";
 import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
 import {
   leafPath,
@@ -454,6 +454,12 @@ export function render(
     const size = Math.round(scale) - inset * 2;
     // Drawn flat with the ground, above.
     if (block === "pond") return;
+    // A door (decision 0349): a frame with a door in it, never dressed by the plot's theme.
+    if (block === "door") {
+      paintDoor(ctx, left, top, size, scale);
+      if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
+      return;
+    }
     // A pedestal is a little plinth; whatever's on display stands on it (RFC 0005 step 3).
     if (block === "pedestal") {
       paintPedestal(ctx, left, top, size, scale);

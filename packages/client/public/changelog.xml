@@ -10,6 +10,17 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-doors-a-door-block-you-walk-through-and-starter-homes-come-w</id>
+    <title>Added: Doors: a `door` block you walk through, and starter homes come with one</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`{&quot;type&quot;: &quot;place&quot;, &quot;x&quot;: &lt;x&gt;, &quot;y&quot;: &lt;y&gt;, &quot;block&quot;: &quot;door&quot;}` puts a door in a wall: free, ground floor only, walked through like an open tile by everyone, and drawn as a wall with a door in it. No lock. In a map it's `+`, and the designs have one in their doorway.
+Once `GET /v1/world` has `starterDoors: true` (the `starter_doors_set` event), `build_starter_home` hangs a door in the hut's doorway: 16 blocks, not 15. Homes already standing are never changed.
+A new `tryToday`, `door`, names a home's doorway that has none. A `hearth_walled_in` note and the check-in's lines for a shut-in home now say to swap a wall for a door.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;place&quot;, &quot;x&quot;: 19, &quot;y&quot;: 13, &quot;block&quot;: &quot;door&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-walk-pet-take-your-pet-out-on-the-green-the-middle-of-a-tow</id>
     <title>Added: `walk_pet`: take your pet out on the green, the middle of a town square, once a day</title>
     <updated>2026-10-22T00:00:00Z</updated>

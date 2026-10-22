@@ -234,6 +234,12 @@ export interface WorldServiceOptions {
    */
   tableSpots?: boolean;
   /**
+   * Starter homes hang a door in their doorway (decision 0349): once the world counts days, append
+   * `starter_doors` if it never has, so starter homes built before it replay with the open doorway
+   * they were built with. Both adapters turn this on. Off by default, like `items`.
+   */
+  starterDoors?: boolean;
+  /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
    */
@@ -433,6 +439,7 @@ interface TownSwitch {
     | "shop"
     | "solidBuildings"
     | "tableSpots"
+    | "starterDoors"
     | "market"
     | "bounties"
     | "recipes"
@@ -530,6 +537,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     due: (s) => !s.tableSpotsKept,
     command: { type: "keep_table_spots" },
     label: "keep the table spots clear",
+  },
+  {
+    option: "starterDoors",
+    due: (s) => !s.starterDoors,
+    command: { type: "starter_doors" },
+    label: "hang doors in starter homes",
   },
   {
     option: "market",
@@ -656,6 +669,7 @@ export class WorldService {
   private readonly finds: boolean;
   private readonly solidBuildings: boolean;
   private readonly tableSpots: boolean;
+  private readonly starterDoors: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -759,6 +773,7 @@ export class WorldService {
     this.finds = options.finds ?? false;
     this.solidBuildings = options.solidBuildings ?? false;
     this.tableSpots = options.tableSpots ?? false;
+    this.starterDoors = options.starterDoors ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;

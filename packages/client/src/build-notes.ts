@@ -60,9 +60,9 @@ const FREE_PATHS = "Dirt, sand, moss, and fallen leaves are free on the Paths ta
 export function noteWords(note: DesignNote): string {
   switch (note.code) {
     case "hearth_walled_in":
-      return "Nobody can walk to the hearth here: the walls around it have no gap. Take one away for a doorway.";
+      return "Nobody can walk to the hearth here: the walls around it have no door or gap. Swap one for a door.";
     case "walled_in":
-      return "Some open tiles here can't be walked to: walls close them in. Leave a gap, or fill them.";
+      return "Some open tiles here can't be walked to: walls close them in. Put in a door or leave a gap, or fill them.";
     case "out_of_reach":
       return "Nobody can get near enough to use something here, like a planter or a pond. Leave a tile beside it to stand on.";
     case "no_path":

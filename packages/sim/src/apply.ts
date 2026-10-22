@@ -89,6 +89,7 @@ import {
   stairwellProblem,
   standingFloor,
 } from "./floors";
+import { checkStarterDoors } from "./front-doors";
 import {
   checkCloseRound,
   checkCloseTable,
@@ -820,6 +821,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkSolidBuildings(state));
       case "keep_table_spots":
         return town(checkKeepTableSpots(state));
+      case "starter_doors":
+        return town(checkStarterDoors(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":
@@ -1401,6 +1404,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         plot.py,
         command.walls ?? "wood",
         command.windows ?? "glass",
+        // A door in the doorway only from the server's `starter_doors` on, so starter homes
+        // built before it replay with the open doorway they were built with (decision 0349).
+        state.starterDoors === true,
       );
       // Any block, stairs too (RFC 0028), keeps a hut's tile and its hearth.
       const blockAt = (t: Tile) => state.blocks[tileKey(t.x, t.y)] !== undefined;

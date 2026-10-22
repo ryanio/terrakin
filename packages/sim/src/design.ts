@@ -175,7 +175,7 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
       door
         ? {
             code: "hearth_walled_in",
-            text: `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no gap. Take one away for a doorway, like the wall at ${words(door)}.`,
+            text: `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no door or gap. Swap one for a door, like the wall at ${words(door)}: remove it, then place a door there.`,
             tiles: [door],
           }
         : {
@@ -191,7 +191,7 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   if (lost.length > 0) {
     notes.push({
       code: "walled_in",
-      text: `Nobody can walk to ${plural(lost.length, "open tile", "open tiles")} here, like ${words(lost[0] as Tile)}: walls close ${lost.length === 1 ? "it" : "them"} in. Leave a gap, or fill ${lost.length === 1 ? "it" : "them"}.`,
+      text: `Nobody can walk to ${plural(lost.length, "open tile", "open tiles")} here, like ${words(lost[0] as Tile)}: walls close ${lost.length === 1 ? "it" : "them"} in. Put in a door or leave a gap, or fill ${lost.length === 1 ? "it" : "them"}.`,
       tiles: lost,
     });
   }
@@ -219,7 +219,8 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   }
 
   // A path: some ground at all, and from each hearth to the edge over path and flooring. The
-  // tiles beside the hearth and a doorway (an open tile between two walls) needn't be paved.
+  // tiles beside the hearth and a doorway (an open tile or a door between two walls) needn't be
+  // paved.
   const wall = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < S && y < S && blocksWalkers(blockAt({ x, y }));
   const doorway = (t: Tile) =>

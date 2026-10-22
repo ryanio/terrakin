@@ -16,7 +16,8 @@ import { GroundKind as GroundKindSchema, PlotMapView } from "./schemas";
  * the log holds the lists and editing a design here never changes how an old log replays.
  *
  * Every design is drawn for an 8-tile plot. `W` is the walls, `G` the windows, and `:` the path,
- * each swapped for the material chosen; every other character is fixed. Each leaves the plot's
+ * each swapped for the material chosen; every other character is fixed, `+` among them, the door
+ * in a doorway (decision 0349). The hill house's front is open onto its deck, so it has none. Each leaves the plot's
  * middle four tiles open with the path through them, so a hearth at the plot's center, where
  * `build_starter_home` and SKILL.md put it, sits on the path out whichever way the design turns.
  * `design.test.ts` builds every design in every material and turn on an empty plot with a hearth
@@ -56,7 +57,7 @@ export const DESIGNS: readonly Design[] = [
   {
     id: "hut",
     name: "Hut",
-    about: "The starter home: a square hut with windows east and west and a path from its door.",
+    about: "The starter home: a square hut with windows east and west, a door, and a path from it.",
     options: { walls: WALLS, windows: WINDOWS, path: PATHS },
     blocks: [
       "........",
@@ -64,7 +65,7 @@ export const DESIGNS: readonly Design[] = [
       ".W...W..",
       ".G.h.G..",
       ".W...W..",
-      ".WW.WW..",
+      ".WW+WW..",
       "........",
       "........",
     ],
@@ -91,7 +92,7 @@ export const DESIGNS: readonly Design[] = [
       ".W...W.p",
       ".W.h.W..",
       ".W...W.p",
-      ".WW.WW..",
+      ".WW+WW..",
       ".......p",
       "........",
     ],
@@ -117,7 +118,7 @@ export const DESIGNS: readonly Design[] = [
       ".W....W.",
       ".G.h..G.",
       ".Wb...W.",
-      ".WWW.WW.",
+      ".WWW+WW.",
       ".L....L.",
       ".L....L.",
     ],
@@ -144,7 +145,7 @@ export const DESIGNS: readonly Design[] = [
       "G.k..G..",
       "W..h.W.p",
       "G....G..",
-      "WWWW.W..",
+      "WWWW+W..",
       "........",
       "........",
     ],
@@ -170,7 +171,7 @@ export const DESIGNS: readonly Design[] = [
       "..G..G..",
       "..Wh.W..",
       "..W..W..",
-      "..WW.Wd.",
+      "..WW+Wd.",
       "........",
       "........",
     ],
@@ -197,7 +198,7 @@ export const DESIGNS: readonly Design[] = [
       ".Wd..dW.",
       ".G.h..G.",
       ".W....W.",
-      ".WGW.GW.",
+      ".WGW+GW.",
       "........",
       "........",
     ],
@@ -223,7 +224,7 @@ export const DESIGNS: readonly Design[] = [
       "..G..G..",
       "L.Gh.G..",
       "..G..G..",
-      "L.WW.W..",
+      "L.WW+W..",
       "........",
       "........",
     ],
@@ -277,7 +278,7 @@ export const DESIGNS: readonly Design[] = [
       ".Gd..dW.",
       ".G.h..W.",
       ".W....W.",
-      ".WW.WWW.",
+      ".WW+WWW.",
       "........",
       "........",
     ],

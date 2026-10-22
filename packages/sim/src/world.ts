@@ -453,7 +453,8 @@ export function plotCenter(config: WorldConfig, px: number, py: number): Tile {
  * The SKILL.md starter hut on plot (px, py): the outline of the 5x5 square from (x0, y0) to
  * (x0 + 4, y0 + 4), where x0 = px * plotSize + 1 and y0 = py * plotSize + 1, with a doorway at
  * (x0 + 2, y0 + 4) and windows at (x0, y0 + 2) and (x0 + 4, y0 + 2). Fifteen blocks, west to east
- * then north to south within each column. The hearth goes at (x0 + 2, y0 + 2). On plots smaller
+ * then north to south within each column, and with `door` a sixteenth, a `door` in the doorway, in
+ * its place in that order (decision 0349). The hearth goes at (x0 + 2, y0 + 2). On plots smaller
  * than 6 tiles some of these tiles fall off the plot; callers skip those.
  */
 export function starterHome(
@@ -462,6 +463,7 @@ export function starterHome(
   py: number,
   walls: BlockKind,
   windows: BlockKind,
+  door = false,
 ): { blocks: (Tile & { block: BlockKind })[]; hearth: Tile } {
   const x0 = px * config.plotSize + 1;
   const y0 = py * config.plotSize + 1;
@@ -469,9 +471,10 @@ export function starterHome(
   for (let x = x0; x <= x0 + 4; x++) {
     for (let y = y0; y <= y0 + 4; y++) {
       const edge = x === x0 || x === x0 + 4 || y === y0 || y === y0 + 4;
-      const door = x === x0 + 2 && y === y0 + 4;
+      const doorway = x === x0 + 2 && y === y0 + 4;
       const window = (x === x0 || x === x0 + 4) && y === y0 + 2;
-      if (edge && !door) blocks.push({ x, y, block: window ? windows : walls });
+      if (edge && !doorway) blocks.push({ x, y, block: window ? windows : walls });
+      else if (doorway && door) blocks.push({ x, y, block: "door" });
     }
   }
   return { blocks, hearth: { x: x0 + 2, y: y0 + 2 } };
@@ -498,14 +501,19 @@ export function starterHutGardenTiles(config: WorldConfig, hearth: Tile): Tile[]
   return offsets.map(([dx, dy]) => ({ x: hearth.x + dx, y: hearth.y + dy }));
 }
 
-/** Whether a block on the ground floor stops walkers there. Stairs are walked onto (RFC 0028). */
+/** Whether a block on the ground floor stops walkers there. Stairs and doors are walked onto. */
 export function isSolid(state: WorldState, x: number, y: number): boolean {
   return blocksWalkers(state.blocks[tileKey(x, y)]);
 }
 
-/** Whether a block stops a walker on its tile. Stairs are the one block anyone walks onto (RFC 0028). */
+/**
+ * Whether a block stops a walker on its tile. Two blocks never do: stairs, walked onto to climb
+ * (RFC 0028), and a door, walked through like an open tile (decision 0349). Every walk reads this,
+ * so a door is open to `move`, a putter, a routine, a refusal's named walk, the design notes, and
+ * the server's shut-home walk alike.
+ */
 export const blocksWalkers = (block: BlockKind | undefined): boolean =>
-  block !== undefined && block !== "stairs";
+  block !== undefined && block !== "stairs" && block !== "door";
 
 export function chebyshev(a: Tile, b: Tile): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));

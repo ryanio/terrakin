@@ -111,7 +111,7 @@ describe("designNotes (RFC 0032)", () => {
     const notes = designNotes(t.state, 0, 0);
     expect(notes.map((n) => n.code)).toEqual(["hearth_walled_in"]);
     expect(notes[0]?.text).toBe(
-      "Nobody can walk to the hearth at (3, 3): the walls around it have no gap. Take one away for a doorway, like the wall at (3, 5).",
+      "Nobody can walk to the hearth at (3, 3): the walls around it have no door or gap. Swap one for a door, like the wall at (3, 5): remove it, then place a door there.",
     );
     expect(notes[0]?.tiles).toEqual([{ x: 3, y: 5 }]);
   });
@@ -132,7 +132,7 @@ describe("designNotes (RFC 0032)", () => {
     expect(notes.map((n) => n.code)).toEqual(["walled_in", "out_of_reach"]);
     expect(notes[0]?.tiles).toEqual([{ x: 6, y: 6 }]);
     expect(notes[0]?.text).toBe(
-      "Nobody can walk to 1 open tile here, like (6, 6): walls close it in. Leave a gap, or fill it.",
+      "Nobody can walk to 1 open tile here, like (6, 6): walls close it in. Put in a door or leave a gap, or fill it.",
     );
     expect(notes[1]).toEqual({
       code: "out_of_reach",

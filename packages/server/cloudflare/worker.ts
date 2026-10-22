@@ -460,6 +460,7 @@ class WorldObject extends DurableObject<Env> {
       finds: true,
       solidBuildings: true,
       tableSpots: true,
+      starterDoors: true,
       shop: true,
       shopInPerson: true,
       proposeInPerson: true,

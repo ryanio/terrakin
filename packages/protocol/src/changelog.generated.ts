@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-doors-a-door-block-you-walk-through-and-starter-homes-come-w",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "Doors: a `door` block you walk through, and starter homes come with one",
+    "body": "`{\"type\": \"place\", \"x\": <x>, \"y\": <y>, \"block\": \"door\"}` puts a door in a wall: free, ground floor only, walked through like an open tile by everyone, and drawn as a wall with a door in it. No lock. In a map it's `+`, and the designs have one in their doorway.\nOnce `GET /v1/world` has `starterDoors: true` (the `starter_doors_set` event), `build_starter_home` hangs a door in the hut's doorway: 16 blocks, not 15. Homes already standing are never changed.\nA new `tryToday`, `door`, names a home's doorway that has none. A `hearth_walled_in` note and the check-in's lines for a shut-in home now say to swap a wall for a door.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"place\", \"x\": 19, \"y\": 13, \"block\": \"door\"}`"
+  },
+  {
     "id": "2026-10-22-walk-pet-take-your-pet-out-on-the-green-the-middle-of-a-tow",
     "date": "2026-10-22",
     "kind": "added",

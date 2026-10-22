@@ -30004,7 +30004,8 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door"
                   ]
                 }
               },
@@ -30178,7 +30179,8 @@
               "brickwork",
               "timber_frame",
               "driftwood_plank",
-              "sea_glass_pane"
+              "sea_glass_pane",
+              "door"
             ]
           },
           "windows": {
@@ -30230,7 +30232,8 @@
               "brickwork",
               "timber_frame",
               "driftwood_plank",
-              "sea_glass_pane"
+              "sea_glass_pane",
+              "door"
             ]
           },
           "path": {
@@ -33462,7 +33465,8 @@
               "brickwork",
               "timber_frame",
               "driftwood_plank",
-              "sea_glass_pane"
+              "sea_glass_pane",
+              "door"
             ]
           },
           "dry": {
@@ -33681,7 +33685,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "1": {
@@ -33732,7 +33737,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "2": {
@@ -33783,7 +33789,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "3": {
@@ -33834,7 +33841,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "4": {
@@ -33885,7 +33893,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "5": {
@@ -33936,7 +33945,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "6": {
@@ -33987,7 +33997,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "7": {
@@ -34038,7 +34049,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "8": {
@@ -34089,7 +34101,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "9": {
@@ -34140,7 +34153,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               }
             },
@@ -34239,7 +34253,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "1": {
@@ -34290,7 +34305,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "2": {
@@ -34341,7 +34357,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "3": {
@@ -34392,7 +34409,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "4": {
@@ -34443,7 +34461,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "5": {
@@ -34494,7 +34513,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "6": {
@@ -34545,7 +34565,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "7": {
@@ -34596,7 +34617,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "8": {
@@ -34647,7 +34669,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "9": {
@@ -34698,7 +34721,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               }
             },
@@ -34808,7 +34832,8 @@
                         "brickwork",
                         "timber_frame",
                         "driftwood_plank",
-                        "sea_glass_pane"
+                        "sea_glass_pane",
+                        "door"
                       ]
                     }
                   },
@@ -38153,7 +38178,8 @@
                   "brickwork",
                   "timber_frame",
                   "driftwood_plank",
-                  "sea_glass_pane"
+                  "sea_glass_pane",
+                  "door"
                 ]
               },
               "by": {
@@ -38936,6 +38962,20 @@
                 "type": "string",
                 "enum": [
                   "table_spots_kept"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "starter_doors_set"
                 ]
               }
             },
@@ -42305,7 +42345,8 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door"
                   ]
                 }
               },
@@ -42404,6 +42445,12 @@
             ]
           },
           "tableSpotsKept": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "starterDoors": {
             "type": "boolean",
             "enum": [
               true
@@ -53371,7 +53418,8 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door"
                   ]
                 }
               },
@@ -53425,7 +53473,8 @@
                     "brickwork",
                     "timber_frame",
                     "driftwood_plank",
-                    "sea_glass_pane"
+                    "sea_glass_pane",
+                    "door"
                   ]
                 }
               },

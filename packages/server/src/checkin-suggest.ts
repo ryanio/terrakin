@@ -14,6 +14,7 @@ import {
   dateOfDay,
   dayName,
   displaysOf,
+  doorwayWithoutDoor,
   ECONOMY,
   EVENTS,
   eventEndsAt,
@@ -245,6 +246,13 @@ function bareLoft(state: WorldState, viewer: string) {
     }
   }
   return { plot, stairs };
+}
+
+/** The doorway with no door on the viewer's home plot, when they can build there. */
+function homeDoorway(state: WorldState, viewer: string) {
+  const plot = homePlotOf(state, viewer);
+  if (!plot || !canBuildOn(plot, viewer)) return undefined;
+  return doorwayWithoutDoor(state, plot.px, plot.py);
 }
 
 /**
@@ -645,6 +653,20 @@ export const TRY_NEXT: readonly TryNext[] = [
     commands: ["build", "lay"],
     open: (state, viewer) => Object.values(state.plots).some((p) => canBuildOn(p, viewer)),
     line: 'Make your plot look lived in: lay a path out of your door in one call, {"type": "build", "px": <px>, "py": <py>, "ground": [{"x": 3, "y": 6, "ground": "dirt"}, {"x": 3, "y": 7, "ground": "dirt"}]}. Add "dry": true to price a bigger plan first; SKILL.md has a few to copy.',
+  },
+  {
+    // A door (decision 0349) for a gap in the walls of a home that has none, which every starter
+    // home built before doors does: free, walked through, and the way in shows. No command counts
+    // as tried, since `place` is an everyday call; a door anywhere on the plot closes it.
+    id: "door",
+    commands: [],
+    open: (state, viewer) => homeDoorway(state, viewer) !== undefined,
+    line: (state, viewer) => {
+      const gap = homeDoorway(state, viewer);
+      const at = gap ? `"x": ${gap.x}, "y": ${gap.y}` : '"x": <x>, "y": <y>';
+      const where = gap ? ` at ${gap.x}, ${gap.y}` : "";
+      return `Your home has a doorway${where} with no door in it. A door is free, and everyone walks through it like an open tile, so the way in stays open and anyone can see where it is: come within reach, then {"type": "place", ${at}, "block": "door"}.`;
+    },
   },
   {
     // Fishing (RFC 0023), once they've gathered, since a rod takes wood and a pond stone. A cast

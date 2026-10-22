@@ -246,7 +246,7 @@ describe("every entry", () => {
     const held: readonly string[] = [...DECOR_KINDS, ...FURNITURE_KINDS, ...MATERIAL_KINDS];
     // A pond (RFC 0023) and stairs (RFC 0028) are neither free nor held: they're paid for in
     // stone and in wood.
-    const notHeld: readonly string[] = [...FREE_BLOCKS, POND.block, "stairs"];
+    const notHeld: readonly string[] = [...FREE_BLOCKS, POND.block, "stairs", "door"];
     for (const kind of held) expect(BLOCK_KINDS, kind).toContain(kind);
     expect(BLOCK_KINDS.filter((b) => !notHeld.includes(b)).sort()).toEqual([...held].sort());
   });

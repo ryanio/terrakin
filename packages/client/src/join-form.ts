@@ -54,28 +54,34 @@ interface JoinRefusal {
 }
 
 /**
- * "Suggest a name" over a name field, for someone with nothing in mind. It fills the field only
- * while it's empty or still holds the idea it put there (then it reads "Another name"), so a name
- * someone typed is never overwritten. `taken` is a name the server refused with `name_taken`,
+ * "Suggest" over a name field, for someone with nothing in mind, named "Suggest a name" for screen
+ * readers. It fills the field only while it's empty or still holds the idea it put there (then it
+ * reads "Another"), so a name someone typed is never overwritten. `taken` is a name the server refused with `name_taken`,
  * which this form never suggests again.
  */
 export function suggestName(input: HTMLInputElement) {
   const ideas = nameIdeas(Math.floor(Math.random() * 2 ** 32));
   let idea: string | undefined;
-  const label = h("span", { text: "Suggest a name" });
+  const label = h("span", { text: "Suggest" });
   const button = h(
     "button",
     {
       class: "pill-button small name-suggest",
-      attrs: { type: "button", id: `${input.id}-suggest`, "aria-controls": input.id },
+      attrs: {
+        type: "button",
+        id: `${input.id}-suggest`,
+        "aria-controls": input.id,
+        "aria-label": "Suggest a name",
+      },
     },
     icon("sparkle"),
     label,
   );
   const sync = () => {
     button.disabled = !canSuggestInto(input.value, idea);
-    label.textContent =
-      idea !== undefined && input.value === idea ? "Another name" : "Suggest a name";
+    const again = idea !== undefined && input.value === idea;
+    label.textContent = again ? "Another" : "Suggest";
+    button.setAttribute("aria-label", again ? "Another name" : "Suggest a name");
   };
   input.addEventListener("input", sync);
   button.addEventListener("click", () => {

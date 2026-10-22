@@ -243,7 +243,8 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await suggest.click();
     const idea = await page.locator("#join-name").inputValue();
     expect(idea).toMatch(/^[A-Z][a-z]+$/);
-    await expect(suggest).toHaveText("Another name");
+    await expect(suggest).toHaveText("Another");
+    await expect(suggest).toHaveAccessibleName("Another name");
     await suggest.click();
     await expect(page.locator("#join-name")).not.toHaveValue(idea);
     await page.fill("#join-name", "Heyday");

@@ -619,7 +619,13 @@ export function worldProblem(
       if (!message.includes("streets")) return message;
       return `${firstSentence(message)} ${you.hasPlot === false ? "Tap Claim plot to pick an empty plot." : "Build on your own plot."}`;
     case "plot_limit":
-      return "You already have as many plots as you can own.";
+      // Once plots are for sale a plot past the first is bought, never claimed (RFC 0039).
+      return message.includes("buying it")
+        ? "You already have a plot. Another one is bought at the market, not claimed."
+        : "You already have as many plots as you can own.";
+    case "plot_listed":
+      // The world's words name the unlist_plot call; a person takes it back at the market.
+      return "This plot is for sale, so nothing on it changes until it sells. Its owner can take it back at the market.";
     case "not_your_plot":
       // A gather on someone else's plot: the sim's message names them by id, so say it our way.
       if (message.includes(OTHERS_PLOT_GATHER)) return othersPickupLine();

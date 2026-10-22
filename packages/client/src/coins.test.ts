@@ -85,6 +85,12 @@ describe("the purse page", () => {
     expect(lineLabel({ reason: "appreciation" })).toBe("Neighbors who liked your posts");
     expect(lineLabel({ reason: "event_deposit" })).toBe("Deposit for your Commons event");
     expect(lineLabel({ reason: "event_refund" })).toBe("Your Commons deposit back");
+    expect(lineLabel({ reason: "listing_fee" })).toBe("Listing something at the market");
+    expect(lineLabel({ reason: "market_buy", with: ash })).toBe("Bought from Ash at the market");
+    expect(lineLabel({ reason: "market_sale" })).toBe("Sold at the market");
+    expect(lineLabel({ reason: "plot_listing_fee" })).toBe("Listing a plot");
+    expect(lineLabel({ reason: "plot_buy", with: ash })).toBe("A plot from Ash");
+    expect(lineLabel({ reason: "plot_sale" })).toBe("A plot you sold");
     expect(signed(10)).toBe("+10");
     expect(signed(-1500)).toBe("−1,500");
   });

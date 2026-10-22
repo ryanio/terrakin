@@ -39,6 +39,7 @@ import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { marketApi } from "./api/market";
 import { shopApi } from "./api/shop";
+import { listingAction } from "./market-words";
 import { savedResidentId, savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
@@ -133,22 +134,6 @@ export function othersAsk(kind: ItemKind, asks: readonly number[]): string {
   return asks.length === 1
     ? `One other listing asks ${range} each.`
     : `${asks.length} other listings ask ${range} each.`;
-}
-
-/**
- * What a listing's button does for the viewer: buy it, take it back (their own), or nothing
- * (signed out). Pure, so tests pin it.
- */
-export function listingAction(
-  l: Pick<ListingView, "price"> & { seller: { id: string } },
-  viewerId: string | null,
-  balance: number | null,
-): { kind: "buy" | "take" | "none"; text: string; can: boolean } {
-  if (viewerId === null || balance === null) return { kind: "none", text: "", can: false };
-  if (l.seller.id === viewerId) return { kind: "take", text: "Take back", can: true };
-  if (balance < l.price)
-    return { kind: "buy", text: `${coins(l.price - balance)} short`, can: false };
-  return { kind: "buy", text: `Buy for ${coins(l.price)}`, can: true };
 }
 
 /** "…" with Report, on listings that aren't yours. */

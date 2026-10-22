@@ -378,6 +378,16 @@ describe("things", () => {
       ],
       ["plot_limit", "You can own at most 1 plot(s).", {}],
       [
+        "plot_limit",
+        "Only a first plot is free to claim. Another comes only by buying it: GET /v1/plot-market lists the plots for sale.",
+        {},
+      ],
+      [
+        "plot_listed",
+        'That plot is for sale, so nothing on it changes until it sells. Its owner can take it back with {"type": "unlist_plot", "px": 3, "py": 2}.',
+        { hasPlot: true },
+      ],
+      [
         "not_your_plot",
         "You can only build on your own plot. You can build on x 30 to 39, y 10 to 19.",
         { hasPlot: true },

@@ -63,6 +63,18 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with"> & { amount?: 
         : "Chipped in by a circle member";
     case "circle_refund":
       return "Back from a circle that didn't form";
+    case "listing_fee":
+      return "Listing something at the market";
+    case "market_buy":
+      return `Bought from ${who} at the market`;
+    case "market_sale":
+      return "Sold at the market";
+    case "plot_listing_fee":
+      return "Listing a plot";
+    case "plot_buy":
+      return `A plot from ${who}`;
+    case "plot_sale":
+      return "A plot you sold";
     default:
       return "Coins";
   }

@@ -1,6 +1,15 @@
+import type { PlotSaleView } from "@terrakin/protocol";
 import { BUY_ORDERS, SHOP_CATALOG } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { asksFor, listingAction, othersAsk, suggestedPrice, townLine } from "./market-view";
+import { asksFor, othersAsk, suggestedPrice, townLine } from "./market-view";
+import { listingAction } from "./market-words";
+import {
+  listingFacts,
+  ownPlotLine,
+  plotMarketProblem,
+  priceProblem,
+  saleRows,
+} from "./plot-market";
 
 describe("the market page", () => {
   const listing = { price: 12, seller: { id: "r_ada" } };
@@ -84,5 +93,151 @@ describe("the market page", () => {
     expect(suggestedPrice("acorn", 3, [2 / 3, 4])).toBe(2);
     expect(suggestedPrice("acorn", 1, [0.4])).toBe(1);
     expect(suggestedPrice("acorn", 2)).toBe(6);
+  });
+});
+
+describe("plots for sale (RFC 0039)", () => {
+  const rules = { listingFee: 25, settleDays: 14, priceMax: 100_000, feePercent: 5 };
+
+  it("says every refusal in the page's words, and the world's plain ones as they are", () => {
+    const cases: [code: string, message: string, move: "buy" | "list" | "unlist", says: string][] =
+      [
+        [
+          "market_closed",
+          "Plots aren't for sale in this world yet.",
+          "buy",
+          "Plots aren't on sale yet.",
+        ],
+        ["not_joined", "Join the world first.", "buy", "Join Terrakin to buy or sell a plot."],
+        [
+          "not_eligible",
+          "Something is on display on that plot, and it stays whoever put it up. Take it down first.",
+          "list",
+          "Something is on display on that plot, and it stays whoever put it up. Take it down first.",
+        ],
+        [
+          "not_eligible",
+          "Townsfolk don't trade. Their plots are the town's.",
+          "buy",
+          "Townsfolk don't trade. Their plots are the town's.",
+        ],
+        [
+          "out_of_bounds",
+          "Name a plot by its px and py.",
+          "list",
+          "That plot isn't there anymore. Open the market again.",
+        ],
+        [
+          "not_your_plot",
+          "You can only sell a plot you own.",
+          "list",
+          "You can only sell a plot you own.",
+        ],
+        [
+          "invalid_amount",
+          "A price is a whole number of coins from 1 to 100000.",
+          "list",
+          "A price is a whole number of coins from 1 to 100,000 coins.",
+        ],
+        [
+          "plot_listed",
+          "That plot is already for sale. Take it back with unlist_plot to change its price.",
+          "list",
+          "This plot is already for sale. Take it back first to change its price.",
+        ],
+        [
+          "unknown_listing",
+          "That plot isn't for sale. GET /v1/plot-market lists the ones that are.",
+          "buy",
+          "That plot isn't for sale anymore. Someone bought it, or its owner took it back.",
+        ],
+        [
+          "unknown_listing",
+          "You have no plot for sale there. GET /v1/plot-market lists them.",
+          "unlist",
+          "That plot isn't for sale anymore.",
+        ],
+        [
+          "own_listing",
+          'That\'s your own plot. Take it back with {"type": "unlist_plot", "px": 0, "py": 0}.',
+          "buy",
+          "That's your own plot. Take it back from Your plots instead.",
+        ],
+        [
+          "plot_limit",
+          "You already own a plot, and a resident owns one here.",
+          "buy",
+          "You already own a plot, and a resident owns one here.",
+        ],
+        [
+          "plot_limit",
+          "You already own 3 plots, the most a resident can.",
+          "buy",
+          "You already own 3 plots, the most a resident can. Sell one first.",
+        ],
+        [
+          "not_enough_coins",
+          "That plot is 300 coins, and you have 120 coins.",
+          "buy",
+          "That plot is 300 coins, and you have 120 coins.",
+        ],
+      ];
+    for (const [code, message, move, says] of cases) {
+      const line = plotMarketProblem(code, message, rules, move);
+      expect(line, `${code} ${move}`).toBe(says);
+      expect(line, code).not.toMatch(/unlist_plot|\/v1\/|\bp[xy]\b|\{/);
+    }
+  });
+
+  it("checks a price before it's sent", () => {
+    for (const typed of ["", " ", "0", "-3", "2.5", "100001", "lots"]) {
+      expect(priceProblem(typed, rules), typed).toBe(
+        "A price is a whole number of coins from 1 to 100,000 coins.",
+      );
+    }
+    for (const typed of ["1", "400", "100000"]) expect(priceProblem(typed, rules)).toBeNull();
+  });
+
+  it("says what stands on a plot for sale, and when it went up once the day is known", () => {
+    expect(listingFacts({ blocks: 12, floors: 1, day: 100 }, 102)).toBe(
+      "12 blocks and an upstairs. Listed 2 days ago.",
+    );
+    expect(listingFacts({ blocks: 1, day: 100 }, 100)).toBe("1 block. Listed today.");
+    expect(listingFacts({ blocks: 30, floors: 2, day: 100 }, 101)).toBe(
+      "30 blocks and 2 floors up. Listed yesterday.",
+    );
+    expect(listingFacts({ blocks: 0, day: 100 }, undefined)).toBe("Nothing built on it yet.");
+  });
+
+  it("lays out what a dry run says a sale moves", () => {
+    const sale: PlotSaleView = {
+      px: 0,
+      py: 0,
+      price: 400,
+      fee: 20,
+      sellerGets: 380,
+      listingFee: 25,
+      balanceAfter: 75,
+      clearsHearth: true,
+      note: "x",
+    };
+    expect(saleRows({ ...sale, balanceAfter: 100 }, "buy", rules)).toEqual([
+      { label: "Price", value: "400 coins" },
+      { label: "Your coins after", value: "100 coins" },
+    ]);
+    expect(saleRows(sale, "list", rules)).toEqual([
+      { label: "Listing costs now", value: "25 coins" },
+      { label: "When it sells you get", value: "380 coins, after the town's 5%" },
+      { label: "Your coins after", value: "75 coins" },
+    ]);
+  });
+
+  it("gives each of your plots its line: for sale, ready to sell, or why not", () => {
+    const plot = { px: 0, py: 0, canList: false, listed: true };
+    expect(ownPlotLine(plot, { price: 400 }, rules)).toBe("For sale at 400 coins");
+    expect(ownPlotLine({ ...plot, listed: false, canList: true }, undefined, rules)).toBeNull();
+    const why =
+      "A plot can be sold 14 days after it was claimed or bought. This one can be in 3 days.";
+    expect(ownPlotLine({ ...plot, listed: false, why }, undefined, rules)).toBe(why);
   });
 });

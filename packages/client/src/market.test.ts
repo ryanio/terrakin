@@ -227,7 +227,7 @@ describe("plots for sale (RFC 0039)", () => {
     ]);
     expect(saleRows(sale, "list", rules)).toEqual([
       { label: "Listing costs now", value: "25 coins" },
-      { label: "When it sells you get", value: "380 coins, after the town's 5%" },
+      { label: "When it sells, after the town's 5%", value: "380 coins" },
       { label: "Your coins after", value: "75 coins" },
     ]);
   });

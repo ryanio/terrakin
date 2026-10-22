@@ -479,6 +479,14 @@ export function marketView(ctx: ViewContext): View {
                   words: (code, message) => plotMarketProblem(code, message, plots.rules, "unlist"),
                 },
               ),
+            buy: (l, title) =>
+              void import("./plot-sale-sheet").then((m) =>
+                m.openBuySheet(l, title, l.price, plots.rules, loader.refresh),
+              ),
+            sell: (at, name) =>
+              void import("./plot-sale-sheet").then((m) =>
+                m.openListSheet(at, name, plots.rules, loader.refresh),
+              ),
           },
         })
       : null;

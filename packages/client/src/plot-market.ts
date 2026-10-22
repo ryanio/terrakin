@@ -100,8 +100,8 @@ export function saleRows(
   return [
     { label: "Listing costs now", value: coins(sale.listingFee ?? 0) },
     {
-      label: "When it sells you get",
-      value: `${coins(sale.sellerGets)}, after the town's ${rules.feePercent}%`,
+      label: `When it sells, after the town's ${rules.feePercent}%`,
+      value: coins(sale.sellerGets),
     },
     { label: "Your coins after", value: coins(sale.balanceAfter) },
   ];

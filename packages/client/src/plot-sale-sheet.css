@@ -1,0 +1,33 @@
+/* The Buy and Sell sheets for a plot (plot-sale-sheet.ts). */
+
+/* What the dry run said, a little apart from the sheet's own line above it. */
+.plot-sale-shown:not(:empty) {
+  margin-block: var(--space-md);
+}
+
+/* The numbers read as a short receipt: label and value on one line each, close together. */
+.plot-sale-receipt {
+  gap: var(--space-2xs);
+}
+
+.plot-sale-receipt .item-row {
+  min-height: 0;
+}
+
+.sale-value {
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The server's note, on a soft fill so it reads as what the sale does rather than as the lede. */
+.plot-sale-note {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--r-note);
+  background: var(--field);
+}
+
+/* The price's label stands apart from the sheet's line above it. */
+.plot-price-label {
+  margin-top: var(--space-md);
+}

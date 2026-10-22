@@ -25,7 +25,19 @@ type OwnPlot = NonNullable<PlotMarketResponse["you"]>["plots"][number];
 export interface PlotMarketMoves {
   /** Take a plot of yours off the market. */
   unlist: (button: HTMLButtonElement, at: { px: number; py: number }) => void;
+  /** Open the Buy sheet for a plot for sale. */
+  buy: (listing: PlotListingView, title: string) => void;
+  /** Open the Sell sheet for a plot of yours, by its name when it has one. */
+  sell: (at: { px: number; py: number }, name: string | null) => void;
 }
+
+/** A pill in a row's trail, named with the plot it's for. */
+const rowButton = (text: string, title: string) =>
+  h("button", {
+    class: "pill-button small market-act",
+    attrs: { type: "button", "aria-label": `${text}: ${title}` },
+    text,
+  });
 
 const thumb = (world: WorldSnapshot | null, at: { px: number; py: number }, label: string) =>
   world ? plotThumb(world, at, label, 48) : null;
@@ -44,11 +56,7 @@ function takeBack(
   rules: PlotMarketResponse["rules"],
   moves: PlotMarketMoves,
 ): HTMLButtonElement {
-  const button = h("button", {
-    class: "pill-button small market-act",
-    attrs: { type: "button", "aria-label": `Take back: ${title}` },
-    text: "Take back",
-  });
+  const button = rowButton("Take back", title);
   confirmTwice(button, `Tap again: the ${coins(rules.listingFee)} aren't returned`, () =>
     moves.unlist(button, at),
   );
@@ -65,7 +73,14 @@ function listingRow(
 ): HTMLLIElement {
   const { title } = plotTitles(l, [l.seller.name]);
   const action = listingAction(l, me, data.you?.balance ?? null);
-  const trail = action.kind === "take" ? takeBack(l, title, data.rules, moves) : null;
+  let trail: HTMLButtonElement | null = null;
+  if (action.kind === "take") trail = takeBack(l, title, data.rules, moves);
+  else if (action.kind === "buy") {
+    const buy = rowButton(action.text, title);
+    buy.disabled = !action.can;
+    buy.addEventListener("click", () => moves.buy(l, title));
+    trail = buy;
+  }
   const more =
     action.kind === "take"
       ? null
@@ -87,6 +102,12 @@ function listingRow(
   });
 }
 
+function sellButton(at: { px: number; py: number }, name: string | null, moves: PlotMarketMoves) {
+  const sell = rowButton("Sell", name ?? "your plot");
+  sell.addEventListener("click", () => moves.sell(at, name));
+  return sell;
+}
+
 /** One plot of yours: for sale at its price with Take back, or why it can't be sold yet. */
 function ownRow(
   plot: OwnPlot,
@@ -96,7 +117,8 @@ function ownRow(
 ): HTMLLIElement {
   const listing = data.you?.listings.find((l) => l.px === plot.px && l.py === plot.py);
   const named = world?.plots.find((p) => p.px === plot.px && p.py === plot.py)?.name;
-  const title = listing?.name ?? named ?? "Your plot";
+  const name = listing?.name ?? named ?? null;
+  const title = name ?? "Your plot";
   const line = ownPlotLine(plot, listing, data.rules);
   return itemRow({
     className: "plot-own",
@@ -104,7 +126,11 @@ function ownRow(
     lead: thumb(world, plot, title),
     name: title,
     lines: [line, seeIt(plot)],
-    trail: plot.listed ? takeBack(plot, title, data.rules, moves) : null,
+    trail: plot.listed
+      ? takeBack(plot, title, data.rules, moves)
+      : plot.canList
+        ? sellButton(plot, name, moves)
+        : null,
   });
 }
 

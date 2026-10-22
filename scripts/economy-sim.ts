@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-cozy] [--no-levels] [--no-jobs] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-cozy] [--no-levels] [--no-jobs] [--kiln] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -29,6 +29,11 @@
  *   --holiday-prices  `lower` (the default) logs `lower_holiday_prices` when the shop opens, as
  *                terrakin.org does; `before` leaves it out, so holiday stock costs decision 0107's
  *                prices (decision 0210)
+ *   --kiln       the world logs `open_clay` (RFC 0047, off on terrakin.org until it's switched on),
+ *                and some residents, drawn from their own stream, take up pottery: they pick up clay
+ *                near home or walk for it, place a kiln, and fire a pot a day, buying the vase's and
+ *                the teapot's cards as they can. Off by default, so the month plays as terrakin.org
+ *                does; it prints RFC 0047's checks, to compare against the same month without it
  *   --no-cozy    makers never go on to the armchair, the sofa, and the bed (RFC 0044), so the month
  *                plays as it did before them
  *   --no-floors nobody builds up (RFC 0028), so the month plays as it did before homes went up (the
@@ -145,6 +150,7 @@ const {
   FURNITURE_RECIPES,
   findEvent,
   firstsOf,
+  GLAZE_COSTS,
   GOOD_KINDS,
   HOLIDAY_STOCK,
   holdsRod,
@@ -183,6 +189,7 @@ const {
   plotAtTile,
   plotOf,
   POND,
+  POTTERY,
   PROGRESS,
   pointsFor,
   pointsOf,
@@ -247,6 +254,7 @@ const { values: args } = parseArgs({
     "no-cozy": { type: "boolean", default: false },
     "no-levels": { type: "boolean", default: false },
     "no-jobs": { type: "boolean", default: false },
+    kiln: { type: "boolean", default: false },
     "job-edition": { type: "string" },
     // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
     dump: { type: "boolean", default: false },
@@ -310,6 +318,11 @@ const LEVELS_ON = SHOP_OPEN && !args["no-levels"];
  * No draw: it is a rule over what a maker has already made, so no other stream moves.
  */
 const COZY_ON = LEVELS_ON && !args["no-cozy"];
+/**
+ * Pottery (RFC 0047): clay on the ground, a kiln, and residents who fire a pot a day. Off unless
+ * asked for, as it is on terrakin.org until `open_clay` is logged; its draws are its own stream.
+ */
+const KILN_ON = LEVELS_ON && args.kiln === true;
 /** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
 const JOBS_ON = LEVELS_ON && !args["no-jobs"];
 /** The edition of the jobs table the board reads, from the month's first day (decision 0265). */
@@ -419,6 +432,8 @@ const building = draws(mulberry32(SEED ^ 0x5707));
 const climbing = draws(mulberry32(SEED ^ 0x1e7e1));
 // Who takes jobs and what they do for one (RFC 0030): `--no-jobs` draws none of it.
 const working = draws(mulberry32(SEED ^ 0x10b5));
+// Who takes up pottery, their glazes, and every finish's roll (RFC 0047): `--kiln` alone draws it.
+const potting = draws(mulberry32(SEED ^ 0xc1a7));
 /** Whether a resident bothers with the walk to the counter today (RFC 0042), its own stream. */
 const walking = draws(mulberry32(SEED ^ 0xc0117e2));
 
@@ -519,6 +534,7 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
         // Before anyone has seen the first board, so the whole month reads the edition.
         if (JOB_EDITION !== 1) must(TOWN_ACTOR, { type: "set_job_edition", edition: JOB_EDITION });
       }
+      if (KILN_ON) must(TOWN_ACTOR, { type: "open_clay" });
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -745,7 +761,7 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
     if (bench) rules.send(id, { type: "place", ...bench, block: "workbench" });
   }
   /** Their own kitchen or workbench, within reach of their hearth. */
-  const station = (block: "kitchen" | "workbench") => {
+  const station = (block: Station) => {
     const h = state.residents[id]?.hearth;
     for (const [key, b] of Object.entries(state.blocks)) {
       const [x = 0, y = 0] = key.split(",").map(Number);
@@ -1571,6 +1587,203 @@ function goMake(rules: Rules, id: string, habits: Habits) {
       can.find((kind) => !made.includes(kind)) ?? [...can].sort((a, b) => cost(a) - cost(b))[0];
     bench ??= workbench(rules, id);
     if (!next || !bench || !rules.send(id, { type: "craft", recipe: next, ...bench })) break;
+  }
+}
+
+// ---------- pottery (RFC 0047) ----------
+
+/** Who takes up pottery, by kind: the people who'd come back tomorrow to open a kiln. */
+const POTTERS: Record<Kind, number> = { regular: 0.35, visitor: 0.15, drifter: 0.05, oneday: 0 };
+/** How far from home a potter looks for clay on a walk, in tiles. */
+const CLAY_WALK = 12;
+const potters = new Map<string, boolean>();
+/** Whether a resident takes up pottery, drawn once from its own stream the first day they're home. */
+function isPotter(p: Person): boolean {
+  let is = potters.get(p.id);
+  if (is === undefined) {
+    is = potting.chance(POTTERS[p.kind]);
+    potters.set(p.id, is);
+  }
+  return is;
+}
+/** What pottery did over the month: RFC 0047's checks. */
+const pottery = {
+  /** Potter-days at home, clay picked up within reach of the hearth on them, and walks for more. */
+  days: 0,
+  nearClay: 0,
+  walks: 0,
+  walkedTiles: [] as number[],
+  walkClay: 0,
+  /** Walks by potters whose hearth stands on forest or stone ground. */
+  farWalks: [] as number[],
+  kilns: 0,
+  stoneWalks: 0,
+  fired: { bowl: 0, vase: 0, teapot: 0 } as Record<string, number>,
+  finishes: { plain: 0, speckled: 0, crackle: 0, iridescent: 0 } as Record<string, number>,
+  glazed: 0,
+  cards: 0,
+  firstBowl: new Map<string, number>(),
+  firstTeapot: new Map<string, number>(),
+  making5: new Map<string, number>(),
+};
+const POTS = ["teapot", "vase", "bowl"] as const;
+
+/** Every `kind` lying within reach of where a resident stands that they may pick up, picked up. */
+function gatherClay(rules: Rules, id: string, kind: "clay" | "stone" = "clay"): number {
+  const { state } = rules;
+  const me = state.residents[id];
+  if (!me) return 0;
+  const before = holds(state, id, kind);
+  const { reach } = state.config;
+  for (let y = me.y - reach; y <= me.y + reach; y++) {
+    for (let x = me.x - reach; x <= me.x + reach; x++) {
+      if (pickupLeft(state, x, y) === kind) rules.send(id, { type: "gather", x, y });
+    }
+  }
+  return holds(state, id, kind) - before;
+}
+
+/** The nearest `kind` lying within `CLAY_WALK` of the hearth on ground the potter may gather. */
+function nearestClay(
+  state: WorldState,
+  id: string,
+  from: { x: number; y: number },
+  kind: "clay" | "stone" = "clay",
+) {
+  for (let d = 1; d <= CLAY_WALK; d++) {
+    for (let y = from.y - d; y <= from.y + d; y++) {
+      for (let x = from.x - d; x <= from.x + d; x++) {
+        if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
+        if (pickupLeft(state, x, y) !== kind) continue;
+        const plot = plotAtTile(state, x, y);
+        if (plot && plot.ownerId !== id && !(plot.coOwners ?? []).includes(id)) continue;
+        return { x, y };
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * A potter's day (RFC 0047): the clay within reach of their hearth, a walk for more when that
+ * isn't a bowl's worth, a kiln placed from stone picked up near home, the pot that's ready taken
+ * out at a roll from their own stream, and the best pot they know and hold the clay for loaded, in
+ * a glaze half the time when they hold one's thing. They buy the vase's card once they've fired a
+ * bowl, and the teapot's once they've fired a vase, keeping 10 coins back.
+ */
+function goPot(rules: Rules, id: string) {
+  const { state } = rules;
+  const me = state.residents[id];
+  const hearth = me?.hearth;
+  if (!me || !hearth) return;
+  const day = today(state);
+  pottery.days++;
+  pottery.nearClay += gatherClay(rules, id);
+  const { reach } = state.config;
+  const near = (x: number, y: number) =>
+    Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y)) <= reach;
+  let kiln: { x: number; y: number } | undefined;
+  for (const [key, b] of Object.entries(state.blocks)) {
+    const [x = 0, y = 0] = key.split(",").map(Number);
+    if (b === "kiln" && near(x, y)) kiln = { x, y };
+  }
+  if (!kiln) {
+    for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
+      for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
+        if (holds(state, id, "stone") >= POTTERY.kilnStone) break;
+        if (pickupLeft(state, x, y) === "stone") rules.send(id, { type: "gather", x, y });
+      }
+    }
+    // Short of a kiln's stone: one walk a day to the nearest loose stone, as for clay.
+    const stoneAt =
+      holds(state, id, "stone") < POTTERY.kilnStone
+        ? nearestClay(state, id, hearth, "stone")
+        : undefined;
+    if (stoneAt) {
+      for (const dir of route(worldGround(state), me, stoneAt, reach, 64)) {
+        if (!rules.send(id, { type: "move", dir })) break;
+      }
+      gatherClay(rules, id, "stone");
+      gatherClay(rules, id);
+      walkBack(rules, id, hearth);
+      pottery.stoneWalks++;
+    }
+    const tile = gardenTiles(state, id)[0];
+    if (!tile || holds(state, id, "stone") < POTTERY.kilnStone) return;
+    if (!rules.send(id, { type: "place", ...tile, block: "kiln" })) return;
+    pottery.kilns++;
+    kiln = tile;
+  }
+  const firing = state.items?.firings?.[tileKey(kiln.x, kiln.y)];
+  if (firing && firing.readyDay <= (state.day ?? 0)) {
+    const kind = firing.good.kind;
+    const before = state.items?.inventories[id]?.goods.length ?? 0;
+    rules.send(id, { type: "harvest", ...kiln, roll: potting.between(0, POTTERY.outOf - 1) });
+    const pot = state.items?.inventories[id]?.goods.at(-1);
+    if ((state.items?.inventories[id]?.goods.length ?? 0) > before && pot?.finish) {
+      pottery.fired[kind] = (pottery.fired[kind] ?? 0) + 1;
+      pottery.finishes[pot.finish] = (pottery.finishes[pot.finish] ?? 0) + 1;
+      if (kind === "bowl" && !pottery.firstBowl.has(id)) pottery.firstBowl.set(id, day);
+    }
+  }
+  if (state.items?.firings?.[tileKey(kiln.x, kiln.y)]) return;
+  // The next card, once the pot before it has come out of the kiln.
+  const fired = (kind: string) => firstsOf(state, id).includes(kind as never);
+  const next = !knows(state, id, "vase")
+    ? fired("bowl") && "vase"
+    : !knows(state, id, "teapot") && fired("vase") && "teapot";
+  if (next && coinsOf(state, id) - 10 >= recipeCardPrice(next)) {
+    const bought = atShop(
+      rules,
+      id,
+      () => rules.send(id, { type: "shop_buy", sku: cardSku(next) }),
+      false,
+    );
+    if (bought) {
+      spend(id, recipeCardPrice(next));
+      tally.cards += recipeCardPrice(next);
+      pottery.cards += recipeCardPrice(next);
+    }
+  }
+  if (holds(state, id, "clay") < 2) {
+    const at = nearestClay(state, id, hearth);
+    if (at) {
+      let walked = 0;
+      for (const dir of route(worldGround(state), me, at, reach, 64)) {
+        if (!rules.send(id, { type: "move", dir })) break;
+        walked++;
+      }
+      const got = gatherClay(rules, id);
+      walkBack(rules, id, hearth);
+      pottery.walks++;
+      pottery.walkedTiles.push(walked);
+      pottery.walkClay += got;
+      const ground = biomeAt(state.config, hearth.x, hearth.y);
+      if (ground === "forest" || ground === "stone") pottery.farWalks.push(walked);
+    }
+  }
+  const pot = POTS.find(
+    (kind) =>
+      knows(state, id, kind) &&
+      Object.entries(RECIPES[kind].needs).every(
+        ([k, n]) => holds(state, id, k as StackKind) >= (n ?? 0),
+      ),
+  );
+  if (!pot) return;
+  const glazes = (Object.entries(GLAZE_COSTS) as [string, StackKind | null][]).filter(
+    ([, cost]) => cost !== null && holds(state, id, cost) > 0,
+  );
+  const glaze = glazes.length > 0 && potting.chance(0.5) ? potting.pick(glazes)?.[0] : undefined;
+  const loaded = rules.send(id, {
+    type: "craft",
+    recipe: pot,
+    ...kiln,
+    ...(glaze ? { glaze: glaze as never } : {}),
+  });
+  if (loaded && glaze) pottery.glazed++;
+  if (loaded && pot === "teapot" && !pottery.firstTeapot.has(id)) pottery.firstTeapot.set(id, day);
+  if (!pottery.making5.has(id) && levelOf(pointsOf(state, id).making ?? 0) >= 5) {
+    pottery.making5.set(id, day - (pottery.firstBowl.get(id) ?? day));
   }
 }
 
@@ -2768,6 +2981,7 @@ function play(rules: Rules) {
     if (p.habits.builds) goBuild(rules, p.id, p.habits);
     if (p.habits.forages) goForage(rules, p.id);
     if (p.habits.makes) goMake(rules, p.id, p.habits);
+    if (KILN_ON && isPotter(p)) goPot(rules, p.id);
     if (JOBS_ON) workJob(rules, p, planters);
     // A holiday's things sell only while it runs, so they come before the rest of the wish list.
     if (HOLIDAYS_ON) keepHoliday(rules, p);
@@ -3891,6 +4105,7 @@ function flowLines(
         `${asked === 0 ? "Nobody" : `${Math.round((trips.made / asked) * 100)}% of the times a ` + `resident wanted the shop they got there`}.`,
     );
   }
+  if (KILN_ON) potteryLines(people);
   if (COZY_ON) {
     console.log(
       `Cozy pieces (RFC 0044): ${cozy.made} made by ${cozy.makers.size} makers, for ${cozy.cards} coins of cards and ${cozy.cushions} of cushions.`,
@@ -3930,6 +4145,42 @@ function flowLines(
   const regulars = settledIds((p) => p.arrives <= 6 && p.kind === "regular");
   console.log(
     `  Median month-end purse: every settled resident ${median(all)} (n=${all.length}), those who arrived in the first week ${median(early)} (n=${early.length}), regulars among them ${median(regulars)} (n=${regulars.length}). Per active resident ${last.perActive}, supply ${last.supply}.`,
+  );
+}
+
+/** RFC 0047's checks, for a `--kiln` run: clay, walks, pots, cards, finishes, and Making. */
+function potteryLines(people: Person[]) {
+  const potterIds = people.filter((p) => potters.get(p.id)).map((p) => p.id);
+  const p = pottery;
+  const firedAll = Object.values(p.fired).reduce((a, b) => a + b, 0);
+  const walks = [...p.walkedTiles].sort((a, b) => a - b);
+  const far = [...p.farWalks].sort((a, b) => a - b);
+  const toTeapot = [...p.firstTeapot.entries()]
+    .flatMap(([id, d]) => (p.firstBowl.has(id) ? [d - (p.firstBowl.get(id) ?? d)] : []))
+    .sort((a, b) => a - b);
+  const making5 = [...p.making5.values()].sort((a, b) => a - b);
+  const finishes = Object.entries(p.finishes)
+    .map(([f, n]) => `${n} ${f}`)
+    .join(", ");
+  console.log("");
+  console.log(
+    `Pottery (RFC 0047, --kiln): ${potterIds.length} potters, ${p.kilns} kilns placed (${p.stoneWalks} walks for a kiln's stone), ${p.days} potter-days at home.`,
+  );
+  console.log(
+    `  Clay: ${(p.nearClay / Math.max(1, p.days)).toFixed(2)} picked up within reach of the hearth a potter-day; ${p.walks} walks for more (${Math.round((p.walks / Math.max(1, p.days)) * 100)}% of days), median ${percentile(walks, 0.5)} tiles out, ${(p.walkClay / Math.max(1, p.walks)).toFixed(2)} clay a walk. From forest or stone ground: ${far.length} walks, median ${percentile(far, 0.5)} tiles.`,
+  );
+  console.log(
+    `  Pots: ${firedAll} fired (${Object.entries(p.fired)
+      .map(([k, n]) => `${n} ${k}s`)
+      .join(
+        ", ",
+      )}), ${(firedAll / Math.max(1, p.days)).toFixed(2)} a potter-day; ${p.glazed} loaded in a glaze. Finishes: ${finishes}.`,
+  );
+  console.log(
+    `  Cards: ${p.cards} coins burned on the vase's and the teapot's, ${(p.cards / Math.max(1, potterIds.length)).toFixed(1)} a potter. Days from a first bowl out to a first teapot loaded: median ${percentile(toTeapot, 0.5)} (n=${toTeapot.length}).`,
+  );
+  console.log(
+    `  Making level 5: ${making5.length} potters reached it, median ${percentile(making5, 0.5)} days after their first bowl came out.`,
   );
 }
 

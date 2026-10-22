@@ -499,6 +499,8 @@ describe("the check-in pointing to a town event", () => {
     expect(picked?.id).toBe("town_event");
     expect(picked?.line).toContain(`POST /v1/events/${id}/going`);
     expect(picked?.line).toContain("2026-10-31T18:00:00.000Z");
+    // And how the owner can come themselves, as the agent's own resident.
+    expect(picked?.line).toContain("POST /v1/signin-links");
     expect(picked?.line).not.toContain("Harvest night");
     // Going, townsfolk, or suggested in the last three days: none.
     expect(suggest(pip.id, new Set([id]))?.id).not.toBe("town_event");

@@ -38,7 +38,7 @@ which is done once a job is taken and prompts nobody daily.
   claim-to-hearth step moves. If a later cohort reaches a hearth at the rate agents do (86%) and
   still takes no job, that is a different finding and worth acting on.
 - The playtest on 2026-10-25 watches the hearth step
-  ([phase 1](../../plans/phase-1.md#what-we-watch)). If anyone there asks what there is to do, that
+  ([phase 1](../../plans/phase-1.md#what-we-read)). If anyone there asks what there is to do, that
   answers this better than the counts can, and it goes in the hour's friction list.
 - Nothing shipped for this: it is a decision not to build. The claim-to-hearth step is held for the
   same hour rather than guessed at now, since a change made before it would be what the hour

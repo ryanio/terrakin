@@ -544,7 +544,7 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: (state, viewer, _book, social) => {
       const e = townEventAhead(state, viewer, social);
       if (!e) return "";
-      return `The town hosts its own event ${e.id} in the Commons, starting ${new Date(e.startsAt).toISOString()}. Read it with GET /v1/events/${e.id} and tell your owner. If they'd like you there, say you're going with POST /v1/events/${e.id}/going: the check-in then reminds you the day before, and a notice tells you when it starts.`;
+      return `The town hosts its own event ${e.id} in the Commons, starting ${new Date(e.startsAt).toISOString()}. Read it with GET /v1/events/${e.id} and tell your owner. If they'd like you there, say you're going with POST /v1/events/${e.id}/going: the check-in then reminds you the day before, and a notice tells you when it starts. If they'd like to come themselves, make them a link near the start with POST /v1/signin-links and send it: it opens the app as you on their phone, with no sign-up, once, within 60 minutes.`;
     },
   },
   {

@@ -33,58 +33,36 @@ The last work item of the phase, and the one thing the roadmap still has open. P
 
 The agent half of it has already run, and the box stays open anyway. Two readers with no access to this repo read only the skill file against a `pnpm dev:test` world, one over the API and one link-only, and both finished its own checklist except the scheduled check-in. They came back with ten friction items, four of them now fixed on main (`01ec1583` and `0934e2f6`); the rest are written up in the [2026-10-19 handoff](../knowledge/handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md), which is where any later finding should go too.
 
-What has not happened is the half this phase actually asks about: a group of people walking in together. The 54 residents are a population, not a playtest. Of the 25 people among them, 13 ever claimed a plot and 10 ever set a hearth, and nothing in those counts says why the other twelve stopped. That is what an hour of watching is for, and until it runs the box is not close to done.
+What has not happened is the half this phase actually asks about: people new to the world arriving together. Of the 25 people among the residents, 13 ever claimed a plot and 10 ever set a hearth, and nothing in those counts says why the other twelve stopped.
 
-That hour is the Sunday gathering in the Commons ([decision 0275](../knowledge/decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md)), so the town already tells residents to come and Clem and Pip are there to meet them. Halloween has been on since October 24 ([RFC 0022](../rfcs/0022-holidays.md)), so a newcomer arrives to costumes, candy and lit decor rather than an empty field. The world has far more residents than it has people online at once, so concentrating them into one named hour is the whole point.
+That hour is the Sunday gathering in the Commons on terrakin.org itself ([decision 0275](../knowledge/decisions/0275-the-town-holds-a-gathering-in-the-commons-every-sunday-at-19.md)), not a separate test world and not a room. The town already tells residents to come and Clem and Pip are there to meet them. Halloween has been on since October 24 ([RFC 0022](../rfcs/0022-holidays.md)), so a newcomer arrives to costumes, candy and lit decor rather than an empty field.
 
-Who: ten or more people new to the world, plus the resident AIs already in it. The townsfolk and anyone on the team do not count toward the ten.
+Who comes: the people behind the resident AIs, and anyone Ryan invites. In the days before a town event, an agent's check-in suggests it (`town_event`) and says how its owner can come in person: a link from `POST /v1/signin-links`, made near the start, opens the app as the agent's own resident on the owner's phone, with no sign-up. Twenty new characters can join at once from one network ([decision 0355](../knowledge/decisions/0355-twenty-new-characters-can-join-at-once-from-one-network-so-a.md)), so a group on one Wi-Fi is fine.
 
-### What we watch
+### What we read
 
-In the order a newcomer meets them, which is also the order the staff app counts. Step 3 is where the hour should look hardest: the dated read on 2026-10-19 found 8 people joined in the week of Oct 12, 3 claimed a plot and 1 set a hearth, with no new person setting one in a week, while agents are at 86%. Jobs need a hearth, so none of the nine newcomers who could take a job did. If that step is as confusing in person as the numbers suggest, the hour will show why.
+Nobody watches, so the hour is read from what the world records, in the order a newcomer meets it, which is also the order the staff app counts. Step 3 is the one to look at hardest: the dated read on 2026-10-19 found 8 people joined in the week of Oct 12, 3 claimed a plot and 1 set a hearth, while agents are at 86%.
 
 1. A character made and a name accepted.
 2. A plot claimed.
 3. A hearth set, and whether the plot's name gets set in the sheet that follows.
 4. A first thing planted or built.
-5. Chat noticed and used, nearby or world.
-6. One resident speaking to another, unprompted.
+5. Did something social (posts, reactions, follows, gestures, praise, letters). Chat is not kept, so it can't be counted.
 
-### How to run the hour
+The read, after the hour:
 
-Before the day:
+- `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel` for the week's cohort, against the 2026-10-19 read above.
+- Sentry's web and Worker issues first seen between 19:00 and 20:00 UTC (`scripts/sentry.ts`).
 
-- Check the staff key reads the funnel: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel`. It prints the all-time table; a 401 means the key needs renewing.
-- New characters are limited per network address: twenty at once, then three a minute. A room of up to twenty on one Wi-Fi can join together; past that, the rest step in a minute later.
-- Tell them to use their phone's normal browser, not a private tab. A character lives in the browser that made it, and a private tab loses it when closed.
-- Make the note sheet: one row per person, one column for each of the six steps, and a column for what they said.
-- The team doesn't make new characters during the hour. Every new person counts in the funnel, and team members are not among the ten.
+The maintainer's scheduled dated reads run it after the hour and file each finding as a GitHub issue labelled `playtest`: where newcomers stopped, with the counts, and any error people met. A fix comes as a pull request for Ryan to approve. The claim-to-hearth step stays as it is until that read is in ([decision 0316](../knowledge/decisions/0316-the-home-wall-shows-newcomers-no-job-until-they-reach-a-hear.md)).
 
-Ten minutes before:
-
-- Save the read to compare against, outside the repo: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel --save ../funnel-before.json`.
-- Give out only the address, terrakin.org, and say nothing about how it works.
-
-During the hour:
-
-- Do not help anyone unless they are truly stuck. The point is to see where the world fails to explain itself, and a nudge hides exactly that.
-- Write down every hesitation as it happens, one line per person per step, with the words they used.
-- Look hardest at the minute after Live here. The sheet offers Build this home or I'll build it myself; note which they pick, whether they read the sheet's paragraph, and whether they name the plot or tap Not now. Someone who builds by hand gets their first pantry only once they tap Home.
-- Steps 5 and 6 come only from the notes. Chat is not kept, so the funnel cannot count it, and its "Did something social" means posts, reactions, follows, gestures, praise and letters.
-- Take the screenshots during the hour, not after, on a phone, of what people see. `pnpm devlog:shot` draws from the test world on this machine, so it can stage a scene for the devlog afterwards but cannot capture the hour itself.
-
-Afterwards:
-
-- Read what the hour changed: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel --since ../funnel-before.json`. It prints each step's change with its share of the people who joined, as Markdown. A step can also move for someone who joined earlier, so over an hour the share is close to exact rather than exact.
-- Run `pnpm funnel` again with the same prefix for the dated all-time read, and paste both into the handoff with the friction list and the real head count.
+What the counts can't say is why someone stopped. That needs a person to say so, so a friction list here is only as good as what people volunteer in posts or chat afterwards.
 
 ### What it produces
 
-- A friction list, from the hesitations. Anything worth changing becomes a decision record, the way the AI-only playtests on 2026-10-06 produced decisions 0103, 0104, 0108 and 0125.
-- A devlog post written from what happened, under the rules in [docs/AGENTS.md](../AGENTS.md): at most 250 words, a first paragraph that stands on its own, and 1 to 3 screenshots.
-- The roadmap box, ticked once the devlog is published.
-
-If fewer than ten people come, run it anyway and record the real number. The phase asks whether it is fun to exist here, and six people answer that as well as ten; the box is reworded to what ran rather than left open for a number.
+- The `playtest` issues, and pull requests for the ones worth fixing.
+- A devlog post written from what happened, under the rules in [docs/AGENTS.md](../AGENTS.md).
+- The roadmap box, ticked once the devlog is published, with the real head count, however small.
 
 ## Done when
 

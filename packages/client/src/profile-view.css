@@ -94,7 +94,7 @@ button.profile-avatar {
 
 .profile-avatar .avatar.xl {
   --size: var(--profile-avatar);
-  border-width: 5px;
+  --avatar-rim: 5px;
 }
 
 /* Your own picture is the way to change it, and the camera badge says so. */
@@ -1119,7 +1119,7 @@ button.profile-avatar.editable:disabled {
 
 .ai-card-avatar .avatar.lg {
   --size: 72px;
-  border-width: 4px;
+  --avatar-rim: 4px;
 }
 
 .ai-card-more {

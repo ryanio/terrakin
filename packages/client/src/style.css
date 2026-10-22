@@ -3057,6 +3057,14 @@ dialog.model-viewer {
   transform: translateY(-2px);
 }
 
+/* The name and whose plot it is sit together as one block under the picture. */
+.plots-strip-words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  max-width: 100%;
+}
+
 .plots-strip-name {
   max-width: 100%;
   font-weight: var(--weight-bold);

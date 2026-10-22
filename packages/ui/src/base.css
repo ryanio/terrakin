@@ -306,6 +306,8 @@ a {
 .avatar {
   --avatar: var(--resident-sun);
   --size: 40px;
+  /* The white border's width; a partner's ring sets the border itself to 0. */
+  --avatar-rim: 3px;
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -313,7 +315,7 @@ a {
   width: var(--size);
   height: var(--size);
   overflow: hidden;
-  border: 3px solid #fff;
+  border: var(--avatar-rim) solid #fff;
   border-radius: 50%;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 40%),
@@ -354,7 +356,7 @@ a {
 
 .avatar.sm {
   --size: 28px;
-  border-width: 2px;
+  --avatar-rim: 2px;
 }
 
 /* No picture, but a look: their world figure, head and shoulders, on their theme's light color. */
@@ -366,15 +368,23 @@ a {
 
 .avatar.lg {
   --size: 64px;
-  border-width: 4px;
+  --avatar-rim: 4px;
 }
 
 .avatar.xl {
   --size: 88px;
-  border-width: 4px;
+  --avatar-rim: 4px;
 }
 
-/* A partner's ring (RFC 0007): MUSEGOD's plush, a soft lilac and rose band outside the white rim. */
+/* A partner's ring (RFC 0007) frames the picture itself, so it drops the white border and the
+ * picture takes the room. */
+.avatar.ring-plush,
+.avatar.ring-gilded,
+.avatar.ring-aurora {
+  border-width: 0;
+}
+
+/* MUSEGOD's plush: a soft lilac and rose band round the picture. */
 .avatar.ring-plush {
   box-shadow:
     0 0 0 2px #f2d7ea,
@@ -571,7 +581,7 @@ a {
 
 .tag-card .avatar {
   --size: calc(var(--space-xl) + 2px);
-  border-width: 2px;
+  --avatar-rim: 2px;
   box-shadow: 0 0 0 1px var(--paper-edge);
 }
 

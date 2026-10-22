@@ -561,8 +561,12 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
               o.navigate,
               "plots-strip-visit",
               world ? plotThumb(world, p, `${title}, from above`, 176) : null,
-              h("span", { class: "plots-strip-name", text: title }),
-              whose ? h("span", { class: "plots-strip-whose", text: whose }) : null,
+              h(
+                "span",
+                { class: "plots-strip-words" },
+                h("span", { class: "plots-strip-name", text: title }),
+                whose ? h("span", { class: "plots-strip-whose", text: whose }) : null,
+              ),
             ),
           );
         }),

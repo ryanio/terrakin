@@ -9,7 +9,15 @@ import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
-import { pageLayout, stateCard, whileBusy } from "@terrakin/ui/ui";
+import {
+  itemRow,
+  itemRows,
+  kindPill,
+  pageLayout,
+  progressBar,
+  stateCard,
+  whileBusy,
+} from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { api } from "./api";
 import {
@@ -26,7 +34,7 @@ import {
   tipsLine,
   todayWords,
 } from "./logic";
-import { button, outLink, quoted, type View } from "./view";
+import { button, outLink, pageHead, quoted, statePill, type View } from "./view";
 
 type Data = TownsfolkActivityResponse;
 
@@ -34,15 +42,11 @@ export function townsfolkView(): View {
   // How chatter is doing and each townsfolk resident beside what they said and did lately.
   const { el, head, main, side } = pageLayout("townsfolk-page", "Chatter today and the townsfolk");
   head.append(
-    h(
-      "section",
-      { class: "paper card hero", attrs: { "aria-labelledby": "townsfolk-title" } },
-      h("h1", { class: "state-title", attrs: { id: "townsfolk-title" }, text: "Townsfolk" }),
-      h("p", {
-        class: "hero-order",
-        text: "The founding townsfolk post, answer, react, praise, admire plots, and wave on their own a few times a day. Their words are the model's; the posts they answer are residents' own.",
-      }),
-    ),
+    pageHead({
+      id: "townsfolk-title",
+      title: "Townsfolk",
+      lede: "The founding townsfolk post, answer, react, praise, admire plots, and wave on their own a few times a day. Their words are the model's; the posts they answer are residents' own.",
+    }),
   );
   let destroyed = false;
   const site = mainSite(location.origin);
@@ -88,100 +92,83 @@ function paint(
   const now = Date.now();
   const { chatter } = data;
   const state = chatterState(chatter, now);
-  const share = chatter.callsPerDay > 0 ? Math.min(1, chatter.callsToday / chatter.callsPerDay) : 0;
   const refresh = button("Refresh", (b) => void whileBusy(b, reload, "Refreshing…"));
+  const chip = (text: string, title?: string) => {
+    const pill = statePill(text);
+    if (title) pill.title = title;
+    return h("li", {}, pill);
+  };
   const status = h(
     "section",
-    { class: "paper card stack tight townsfolk-status", attrs: { "aria-label": "Chatter today" } },
+    {
+      class: "paper card stack townsfolk-status",
+      attrs: { "aria-labelledby": "townsfolk-status-title" },
+    },
+    h("h2", {
+      class: "card-title",
+      attrs: { id: "townsfolk-status-title" },
+      text: "Chatter today",
+    }),
     h(
       "ul",
-      { class: "cluster plain-list state-chips" },
-      h("li", {
-        class: `state-chip state-${state.toLowerCase().replace(" ", "-")}`,
-        text: state,
-      }),
-      chatter.mode === "off" ? null : h("li", { class: "state-chip", text: gateWords(chatter) }),
-      chatter.mode !== "off" && chatter.mentions
-        ? h("li", { class: "state-chip", text: "Answers mentions" })
-        : null,
-      chatter.mode === "off"
-        ? null
-        : h("li", { class: "state-chip", text: modelName(chatter.model) }),
+      { class: "cluster plain-list" },
+      chip(state),
+      chatter.mode === "off" ? null : chip(gateWords(chatter)),
+      chatter.mode !== "off" && chatter.mentions ? chip("Answers mentions") : null,
+      chatter.mode === "off" ? null : chip(modelName(chatter.model)),
       chatter.lastRun
-        ? h("li", {
-            class: "state-chip",
-            text: `Last run ${sinceWords(chatter.lastRun.at, now)}`,
-            attrs: { title: chatter.lastRun.result },
-          })
+        ? chip(`Last run ${sinceWords(chatter.lastRun.at, now)}`, chatter.lastRun.result)
         : null,
     ),
     h(
       "div",
-      { class: "townsfolk-meter" },
-      h("span", {
-        class: "townsfolk-meter-label",
+      { class: "stack tight" },
+      h("p", {
+        class: "field-hint townsfolk-calls",
         text: `${chatter.callsToday} of ${plural(chatter.callsPerDay, "call", "calls")} today`,
       }),
-      h(
-        "span",
-        {
-          class: "townsfolk-meter-track",
-          attrs: {
-            role: "meter",
-            "aria-valuemin": "0",
-            "aria-valuemax": String(chatter.callsPerDay),
-            "aria-valuenow": String(chatter.callsToday),
-            "aria-label": "Model calls today",
-          },
-        },
-        meterFill(share),
+      progressBar(chatter.callsToday, chatter.callsPerDay, "Model calls today"),
+    ),
+    h(
+      "div",
+      { class: "stack tight" },
+      h("p", { class: "field-hint", text: `Spend: ${spendTodayWords(chatter)}.` }),
+      h("p", { class: "field-hint", text: tipsLine(data.tips) }),
+      ...[participationLine(chatter.participation, 30)].map((line) =>
+        line ? h("p", { class: "field-hint", text: line }) : null,
       ),
     ),
-    h("p", { class: "triage-status", text: `Spend: ${spendTodayWords(chatter)}.` }),
-    h("p", { class: "triage-status", text: tipsLine(data.tips) }),
-    ...[participationLine(chatter.participation, 30)].map((line) =>
-      line ? h("p", { class: "triage-status", text: line }) : null,
-    ),
-    h("div", { class: "townsfolk-refresh" }, refresh),
+    h("div", { class: "cluster" }, refresh),
   );
 
   const people = h(
     "section",
-    { class: "stack townsfolk-section", attrs: { "aria-labelledby": "townsfolk-today" } },
-    h("h2", { class: "section-title", attrs: { id: "townsfolk-today" }, text: "The townsfolk" }),
+    { class: "paper card stack townsfolk-people", attrs: { "aria-labelledby": "townsfolk-today" } },
+    h("h2", { class: "card-title", attrs: { id: "townsfolk-today" }, text: "The townsfolk" }),
     data.townsfolk.length === 0
       ? h("p", {
           class: "field-hint",
           text: "No townsfolk are set up on this server (TERRAKIN_TOWNSFOLK).",
         })
-      : h(
-          "ul",
-          { class: "plain-list townsfolk-grid" },
-          ...data.townsfolk.map((t) =>
-            h(
-              "li",
-              { class: "paper card townsfolk-person" },
-              h(
-                "div",
-                { class: "townsfolk-person-text" },
-                personLink(t.resident, {
-                  href: site + profilePath(t.resident.id),
-                  newTab: true,
-                  picture: false,
-                  size: "md",
-                  className: "townsfolk-name",
-                }),
-                t.resident.handle
-                  ? h("span", { class: "townsfolk-handle", text: `@${t.resident.handle}` })
-                  : null,
+      : itemRows(
+          data.townsfolk.map((t) =>
+            itemRow({
+              plain: true,
+              className: "townsfolk-person",
+              name: personLink(t.resident, {
+                href: site + profilePath(t.resident.id),
+                newTab: true,
+                picture: false,
+                className: "townsfolk-name",
+              }),
+              lines: [
+                t.resident.handle ? `@${t.resident.handle}` : null,
                 h("span", { class: "townsfolk-today", text: todayWords(t.today) }),
-                h("span", {
-                  class: "townsfolk-last",
-                  text: t.lastAt ? `Last active ${sinceWords(t.lastAt, now)}` : "Quiet so far",
-                }),
-              ),
-            ),
+                t.lastAt ? `Last active ${sinceWords(t.lastAt, now)}` : "Quiet so far",
+              ],
+            }),
           ),
+          { className: "townsfolk-rows" },
         ),
   );
 
@@ -191,9 +178,9 @@ function paint(
     h("h2", { class: "section-title", attrs: { id: "townsfolk-latest" }, text: "Latest" }),
     ...(data.activity.length === 0
       ? [
-          h("p", {
-            class: "field-hint",
-            text: "Nothing yet. Townsfolk act on a cron every two hours while chatter is on.",
+          stateCard({
+            title: "Nothing yet",
+            body: "Townsfolk act on a cron every two hours while chatter is on.",
           }),
         ]
       : byDay(data.activity, now).map(({ day, entries }) =>
@@ -210,11 +197,6 @@ function paint(
         )),
   );
   return { side: [status, people], main: [latest] };
-}
-
-/** The meter's fill, sized with a class per tenth, since the admin host allows no inline styles. */
-function meterFill(share: number): HTMLElement {
-  return h("span", { class: `townsfolk-meter-fill fill-${Math.round(share * 10)}` });
 }
 
 function byDay(activity: Data["activity"], now: number) {
@@ -259,8 +241,14 @@ function entry(e: Data["activity"][number], site: string): HTMLElement {
         activityLine(e),
       ),
       timeAgo(e.at, { className: "townsfolk-time" }),
-      e.live ? null : h("span", { class: "item-chip", text: "Draft" }),
-      e.mention ? h("span", { class: "item-chip", text: "Mention" }) : null,
+      e.live || e.mention
+        ? h(
+            "span",
+            { class: "cluster townsfolk-tags" },
+            e.live ? null : kindPill("Draft", "sun"),
+            e.mention ? kindPill("Mention", "ink") : null,
+          )
+        : null,
     ),
     e.text ? h("p", { class: "townsfolk-words", text: e.text }) : null,
     answered ? quoted(answered.text) : null,

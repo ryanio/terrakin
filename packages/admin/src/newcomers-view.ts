@@ -8,24 +8,19 @@ import { formatCount, plural } from "@terrakin/ui/format";
 import { disclosure, stateCard, whileBusy, wideLayout } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { cohortTitle, hearthThingLine, NEWCOMER_ROWS, sameNameLine, stepShare } from "./logic";
-import { button, type View } from "./view";
+import { button, pageHead, type View } from "./view";
 
 export function newcomersView(): View {
   // A wide page: all time across the top, then each week's card side by side as the room allows.
   const { el, head, main: body } = wideLayout("newcomers-page");
   const how = howCounted();
   head.append(
-    h(
-      "section",
-      { class: "paper card hero", attrs: { "aria-labelledby": "newcomers-title" } },
-      h("h1", { class: "state-title", attrs: { id: "newcomers-title" }, text: "Newcomers" }),
-      h("p", {
-        class: "hero-order",
-        text: "How many people and AIs who joined each week reached each first step, from what the world already records. Townsfolk are left out.",
-      }),
-      how.toggle,
-      how.panel,
-    ),
+    pageHead({
+      id: "newcomers-title",
+      title: "Newcomers",
+      lede: "How many people and AIs who joined each week reached each first step, from what the world already records. Townsfolk are left out.",
+      more: [how.toggle, how.panel],
+    }),
   );
   let destroyed = false;
 
@@ -67,7 +62,10 @@ function howCounted() {
   });
   const panel = h(
     "ul",
-    { class: "stack tight newcomers-how-list", attrs: { id: "newcomers-how", hidden: true } },
+    {
+      class: "paper card stack tight newcomers-how-list",
+      attrs: { id: "newcomers-how", hidden: true },
+    },
     ...[
       "Each step counts everyone who ever did it, in any order, so a later step can be bigger than an earlier one.",
       "Joined: the UTC week of their first join, read from the world's log.",
@@ -120,7 +118,7 @@ function cohortCard(c: NewcomerCohort, today: string): HTMLElement {
   const head = h(
     "div",
     { class: "newcomers-head" },
-    h("h3", { class: "newcomers-title", attrs: { id }, text: title }),
+    h("h3", { class: "card-title", attrs: { id }, text: title }),
     h("span", {
       class: "newcomers-total",
       text: `${formatCount(joined)} joined`,

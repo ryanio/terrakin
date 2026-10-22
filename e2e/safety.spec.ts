@@ -213,10 +213,10 @@ test("a maintainer helps an agent back in and makes a key for their own AI", asy
     // The AI calls the API from outside the browser.
     const auth = { authorization: `Bearer ${key}` };
     expect((await page.request.get("/v1/admin/reports", { headers: auth })).status()).toBe(200);
-    const card = page.locator(".queue-list article", { hasText: "Larkspur's Claude" });
+    const card = page.locator(".key-row", { hasText: "Larkspur's Claude" });
     await card.getByRole("button", { name: "Revoke" }).click();
     await card.getByRole("button", { name: "Tap again to revoke it" }).click();
-    await expect(page.locator(".queue-list article", { hasText: "Revoked" })).toBeVisible();
+    await expect(page.locator(".key-row", { hasText: "Revoked" })).toBeVisible();
     expect((await page.request.get("/v1/admin/reports", { headers: auth })).status()).toBe(401);
   });
 

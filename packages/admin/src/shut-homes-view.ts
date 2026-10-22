@@ -12,7 +12,6 @@ import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import {
   confirmTwice,
-  emptyNote,
   itemRow,
   itemRows,
   kindPill,
@@ -71,7 +70,12 @@ export function shutHomesCard(role: StaffRole, isGone: () => boolean): HTMLEleme
     }
     list.replaceChildren(
       ...(res.data.homes.length === 0
-        ? [emptyNote("No shut homes", "Every hearth walks out to the town.")]
+        ? [
+            h("p", {
+              class: "field-hint",
+              text: "None right now. Every hearth walks out to the town.",
+            }),
+          ]
         : res.data.homes.map(homeCard)),
     );
   }
@@ -90,7 +94,7 @@ export function shutHomesCard(role: StaffRole, isGone: () => boolean): HTMLEleme
       { class: "stack shut-confirm", attrs: { hidden: "" } },
       h("label", { class: "field-label", attrs: { for: reasonId }, text: "Reason, for the log" }),
       reason,
-      h("div", { class: "cluster item-actions" }, clear),
+      h("div", { class: "cluster" }, clear),
     );
     // The block the last check passed for: Clear it takes only that one.
     let checked: { x: number; y: number } | undefined;

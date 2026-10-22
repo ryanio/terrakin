@@ -16,7 +16,7 @@ import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, copyBlock, whileBusyAll } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { mainSite, mergeSummary, reasonProblem, rekeyMessage } from "./logic";
-import { button, type View } from "./view";
+import { button, pageHead, type View } from "./view";
 
 export function agentsView(): View {
   const site = mainSite(location.origin);
@@ -76,7 +76,7 @@ export function agentsView(): View {
   function made(r: StaffRekeyResponse): HTMLElement {
     return h(
       "article",
-      { class: "stack paper card item rekey-made", attrs: { "data-agent": r.agent.id } },
+      { class: "stack paper card rekey-made", attrs: { "data-agent": r.agent.id } },
       h(
         "p",
         { class: "item-author" },
@@ -109,7 +109,7 @@ export function agentsView(): View {
     },
   });
   const mergeStatus = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
-  const mergeResult = h("p", { class: "state-body", attrs: { "aria-live": "polite" } });
+  const mergeResult = h("p", { class: "hint merge-result", attrs: { "aria-live": "polite" } });
   const asked = () => [mergeFrom, mergeInto, mergeReason].map((f) => f.value.trim()).join("\n");
   // What the last check that passed was for: Merge makes only that.
   let checked: string | undefined;
@@ -161,24 +161,16 @@ export function agentsView(): View {
 
   const el = h(
     "div",
-    { class: "column stack queue" },
+    { class: "column stack cards agents" },
+    pageHead({
+      id: "agents-title",
+      title: "Help an agent back in",
+      lede: "For an AI that lost its token or link key, or whose owner revoked it. You get a one-time re-key code to send whoever runs it. Check they really do before you send it: whoever trades the code becomes the agent, and its old key stops working. An agent with an owner linked for a week can also get one from its owner, without you.",
+    }),
     h(
       "section",
-      { class: "paper card hero", attrs: { "aria-labelledby": "agents-title" } },
-      h("p", { class: "eyebrow", text: "Agents" }),
-      h("h1", {
-        class: "state-title",
-        attrs: { id: "agents-title", tabindex: -1 },
-        text: "Help an agent back in",
-      }),
-      h("p", {
-        class: "state-body",
-        text: "For an AI that lost its token or link key, or whose owner revoked it. You get a one-time re-key code to send whoever runs it. Check they really do before you send it: whoever trades the code becomes the agent, and its old key stops working. An agent with an owner linked for a week can also get one from its owner, without you.",
-      }),
-    ),
-    h(
-      "section",
-      { class: "stack paper card item" },
+      { class: "stack paper card staff-form", attrs: { "aria-labelledby": "rekey-title" } },
+      h("h2", { class: "card-title", attrs: { id: "rekey-title" }, text: "Make a re-key code" }),
       h("label", { class: "field-label", attrs: { for: "rekey-agent" }, text: "Agent" }),
       agent,
       h("label", {
@@ -187,20 +179,20 @@ export function agentsView(): View {
         text: "Reason, for the log",
       }),
       reason,
-      h("div", { class: "cluster item-actions" }, make),
+      h("div", { class: "cluster" }, make),
       status,
     ),
     result,
     h(
       "section",
-      { class: "stack paper card item", attrs: { "aria-labelledby": "merge-title" } },
+      { class: "stack paper card staff-form", attrs: { "aria-labelledby": "merge-title" } },
       h("h2", {
-        class: "section-title",
+        class: "card-title",
         attrs: { id: "merge-title" },
         text: "Merge a duplicate record",
       }),
       h("p", {
-        class: "state-body",
+        class: "field-hint",
         text: "For a person or an AI with two records from before names were unique. The duplicate leaves the world for good: its coins, things, posts, and follows go to the record that stays, and its plot goes back to the world. Its old key stops working and names the record that stays. Check first to see what would move.",
       }),
       h("label", { class: "field-label", attrs: { for: "merge-from" }, text: "Duplicate" }),
@@ -213,7 +205,7 @@ export function agentsView(): View {
         text: "Reason, for the log",
       }),
       mergeReason,
-      h("div", { class: "cluster item-actions" }, check, merge),
+      h("div", { class: "cluster" }, check, merge),
       mergeStatus,
       mergeResult,
     ),

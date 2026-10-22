@@ -43,7 +43,7 @@ body {
   top: 0;
   z-index: 20;
   padding-top: env(safe-area-inset-top);
-  background: rgba(255, 250, 240, 0.94);
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
   border-bottom: 1px solid var(--paper-edge);
   backdrop-filter: blur(8px);
 }
@@ -119,12 +119,28 @@ body {
 
 .nav {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--space-2xs);
   padding-bottom: var(--space-xs);
 }
 
+/*
+ * On a phone the screens don't fit one row, and three rows of links would push the page down, so
+ * the row scrolls sideways under the bar instead, with no scrollbar drawn over it.
+ */
+@media (max-width: 759px) {
+  .nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .nav-link {
+  flex: none;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -135,10 +151,14 @@ body {
   text-decoration: none;
 }
 
-.nav-link[aria-current="page"] {
-  background: var(--paper-2);
-  box-shadow: inset 0 0 0 1px var(--paper-edge);
+.nav-link:hover {
+  background: var(--hover);
   color: var(--ink);
+}
+
+.nav-link[aria-current="page"] {
+  background: color-mix(in srgb, var(--clay) 12%, var(--paper));
+  color: var(--clay-deep);
 }
 
 /* ---------- pages ---------- */
@@ -154,16 +174,11 @@ body {
   outline: none;
 }
 
-.loading {
-  color: var(--ink-soft);
-}
-
-.hero {
-  display: grid;
-  gap: var(--space-xs);
-}
-
-.hero-row {
+/*
+ * Every screen opens the same way (pageHead in view.ts): its page-title, a line beside it when it
+ * has one, and a lede held to a readable measure, even across a wide page.
+ */
+.page-head-row {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -171,8 +186,23 @@ body {
   gap: var(--space-xs) var(--space-md);
 }
 
-.hero-row > * {
+.page-head-row > p {
   margin: 0;
+}
+
+.page-lede {
+  max-width: 65ch;
+  text-wrap: pretty;
+}
+
+/* A status line under a card's buttons takes no room until it has something to say. */
+.item-status:empty,
+.merge-result:empty {
+  display: none;
+}
+
+.loading {
+  color: var(--ink-soft);
 }
 
 .queue-count {
@@ -180,25 +210,17 @@ body {
   color: var(--clay-deep);
 }
 
-.hero-order,
-.triage-status {
-  margin: 0;
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-}
-
-.triage-status {
-  font-size: var(--text-sm);
-}
-
 /* ---------- the queue's Today card ---------- */
 
-/* Each part of the town a row: its mark in a soft disc, its name and numbers, where it stands. */
+/*
+ * Each part of the town a row: its mark in a soft disc, its name and numbers, where it stands. The
+ * rows' own room is set through the list, so it outweighs a plain itemRow's padding of none.
+ */
 .today-rows {
   gap: 0;
 }
 
-.today-row {
+.today-rows > .today-row {
   align-items: flex-start;
   padding-block: var(--space-sm);
 }
@@ -239,7 +261,7 @@ body {
   background: color-mix(in srgb, var(--sun) 14%, var(--paper));
 }
 
-.shut-block {
+.shut-blocks > .shut-block {
   align-items: center;
   padding-block: var(--space-xs);
 }
@@ -257,14 +279,12 @@ body {
   flex: none;
 }
 
-/* ---------- fields ---------- */
-
 /* ---------- queue items ---------- */
 
 .item.urgent {
   border-color: var(--clay);
   box-shadow:
-    0 0 0 2px rgba(180, 83, 47, 0.35),
+    0 0 0 2px color-mix(in srgb, var(--clay) 35%, transparent),
     var(--shadow-paper);
 }
 
@@ -292,31 +312,6 @@ body {
   font-size: var(--text-sm);
   color: var(--ink-soft);
   white-space: nowrap;
-}
-
-.item-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.item-chip {
-  padding: 2px var(--space-md);
-  border-radius: var(--r-pill);
-  background: var(--paper-2);
-  box-shadow: inset 0 0 0 1px var(--paper-edge);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  color: var(--ink-soft);
-}
-
-.item-chip.urgent {
-  background: var(--clay-deep);
-  box-shadow: none;
-  color: var(--paper);
 }
 
 .item-subject {
@@ -467,8 +462,7 @@ body {
   gap: var(--space-2xs);
   padding: var(--space-md);
   border-radius: var(--r-md);
-  background: #f3efe2;
-  box-shadow: inset 0 0 0 1px #d9d1b8;
+  background: color-mix(in srgb, var(--moss-light) 12%, var(--paper));
 }
 
 .triage p {
@@ -531,9 +525,12 @@ body {
 /* ---------- log ---------- */
 
 .log-list {
-  margin: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.log-list:empty {
+  display: none;
 }
 
 .log-day {
@@ -594,145 +591,22 @@ body {
   justify-items: center;
 }
 
+/* The log's empty or error card stands where the list would, at the list's width. */
+.log-more > .state-card {
+  justify-self: stretch;
+}
+
 /* ---------- townsfolk ---------- */
 
-.state-chips {
-  gap: var(--space-xs);
-}
-
-.state-chip {
-  padding: var(--space-2xs) var(--space-md);
-  border-radius: var(--r-pill);
-  background: var(--paper-2);
-  box-shadow: inset 0 0 0 1px var(--paper-edge);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-}
-
-/* In the Today card a chip sits beside the row's words rather than sharing their width. */
+/* In the Today card a state pill sits beside the row's words rather than sharing their width. */
 .today-row .state-chip {
   flex: none;
-}
-
-.state-chip.state-live {
-  background: var(--moss-deep);
-  box-shadow: none;
-  color: var(--paper);
-}
-
-.state-chip.state-dry-run {
-  background: color-mix(in srgb, var(--sun) 45%, var(--paper));
-  box-shadow: none;
-  color: var(--ink);
-}
-
-.state-chip.state-paused {
-  background: var(--clay-deep);
-  box-shadow: none;
-  color: var(--paper);
-}
-
-.townsfolk-meter {
-  display: grid;
-  gap: var(--space-2xs);
-}
-
-.townsfolk-meter-label {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-}
-
-.townsfolk-meter-track {
-  display: block;
-  height: 8px;
-  overflow: hidden;
-  border-radius: var(--r-pill);
-  background: var(--paper-2);
-  box-shadow: inset 0 0 0 1px var(--paper-edge);
-}
-
-.townsfolk-meter-fill {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--moss);
-}
-
-.townsfolk-meter-fill.fill-1 {
-  width: 10%;
-}
-
-.townsfolk-meter-fill.fill-2 {
-  width: 20%;
-}
-
-.townsfolk-meter-fill.fill-3 {
-  width: 30%;
-}
-
-.townsfolk-meter-fill.fill-4 {
-  width: 40%;
-}
-
-.townsfolk-meter-fill.fill-5 {
-  width: 50%;
-}
-
-.townsfolk-meter-fill.fill-6 {
-  width: 60%;
-}
-
-.townsfolk-meter-fill.fill-7 {
-  width: 70%;
-}
-
-.townsfolk-meter-fill.fill-8 {
-  width: 80%;
-}
-
-.townsfolk-meter-fill.fill-9 {
-  width: 90%;
-}
-
-.townsfolk-meter-fill.fill-10 {
-  width: 100%;
-}
-
-.townsfolk-refresh {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.townsfolk-section {
-  gap: var(--space-sm);
-}
-
-.townsfolk-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 24rem), 1fr));
-  gap: var(--space-sm);
-}
-
-.townsfolk-person-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
 }
 
 .townsfolk-name .person-name {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
-}
-
-.townsfolk-handle,
-.townsfolk-last,
-.townsfolk-time {
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
 }
 
 .townsfolk-today {
@@ -756,9 +630,9 @@ body {
   gap: var(--space-xs) var(--space-sm);
 }
 
-.townsfolk-entry-head > .item-chip {
+.townsfolk-entry-head > .townsfolk-tags {
   grid-column: 2 / -1;
-  justify-self: start;
+  gap: var(--space-xs);
 }
 
 .townsfolk-line .person-link {
@@ -815,6 +689,8 @@ body {
 }
 
 .townsfolk-time {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
   white-space: nowrap;
 }
 
@@ -851,12 +727,6 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-xs) var(--space-md);
-}
-
-.newcomers-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
 }
 
 .newcomers-total {
@@ -937,6 +807,12 @@ body {
 /* A revoked or expired key stays listed, quieter. */
 .key-over {
   opacity: 0.6;
+}
+
+/* A key's Revoke status goes under the row, across its width. */
+.key-row > .item-status {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 @media (min-width: 760px) {

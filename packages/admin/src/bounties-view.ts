@@ -19,7 +19,7 @@ import {
 } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import { awardedWords, awardProblem, bountyActions, mainSite, reasonProblem } from "./logic";
-import { button, quoted, type View } from "./view";
+import { button, pageHead, quoted, type View } from "./view";
 
 export function bountiesView(overview: AdminOverviewResponse): View {
   const { me } = overview;
@@ -29,28 +29,14 @@ export function bountiesView(overview: AdminOverviewResponse): View {
   // What waits on a maintainer in the main column; every other running bounty beside it.
   const { el, head, main, side } = pageLayout("queue", "Still running", { sideLast: true });
   head.append(
-    h(
-      "section",
-      { class: "paper card hero", attrs: { "aria-labelledby": "bounties-title" } },
-      h("p", { class: "eyebrow", text: "Bounties" }),
-      h("h1", {
-        class: "state-title",
-        attrs: { id: "bounties-title", tabindex: -1 },
-        text: "Town coins, on your word",
-      }),
-      h("p", {
-        class: "state-body",
-        text: "A town bounty pays its claimant from the treasury once a maintainer checks the work. Look at what they did in the world before you confirm. You can't confirm one that you, your own AI, or your person claimed or proposed, or send back or void one any of you posted.",
-      }),
-    ),
+    pageHead({
+      id: "bounties-title",
+      title: "Town coins, on your word",
+      lede: "A town bounty pays its claimant from the treasury once a maintainer checks the work. Look at what they did in the world before you confirm. You can't confirm one that you, your own AI, or your person claimed or proposed, or send back or void one any of you posted.",
+    }),
   );
   main.append(h("h2", { class: "section-title", text: "Waiting for you" }), waiting);
-  side.append(
-    h("h2", { class: "section-title", text: "Award coins" }),
-    awardCard(),
-    h("h2", { class: "section-title", text: "Still running" }),
-    running,
-  );
+  side.append(awardCard(), h("h2", { class: "section-title", text: "Still running" }), running);
   let destroyed = false;
 
   /**
@@ -112,8 +98,9 @@ export function bountiesView(overview: AdminOverviewResponse): View {
       () => problem() === undefined,
     );
     return h(
-      "article",
-      { class: "stack paper card" },
+      "section",
+      { class: "stack paper card staff-form", attrs: { "aria-labelledby": "award-title" } },
+      h("h2", { class: "card-title", attrs: { id: "award-title" }, text: "Award coins" }),
       h("p", {
         class: "field-hint",
         text: `Up to ${AWARD_RULES.max} coins each, ${AWARD_RULES.perMonth} across every award in ${AWARD_RULES.windowDays} days, out of what the treasury can spare. Awarding your own AI or person works, and the town is told it was your household.`,
@@ -124,7 +111,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
       coins,
       h("label", { class: "field-label", attrs: { for: "award-reason" }, text: "Why" }),
       reason,
-      pressed,
+      h("div", { class: "cluster" }, pressed),
       status,
     );
   }
@@ -219,7 +206,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
       personLink(who, { href: site + profilePath(who.id), newTab: true, picture: false });
     return h(
       "article",
-      { class: "stack paper card item", attrs: { "data-bounty": b.id } },
+      { class: "stack paper card item bounty", attrs: { "data-bounty": b.id } },
       h("h2", {
         class: "eyebrow",
         text: `${b.grant ? "Grant" : b.town ? "Town bounty" : "Bounty"} ${b.id} · ${plural(b.reward, "coin", "coins")} · ${b.status}`,
@@ -239,7 +226,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
               text: "Reason, to reopen or cancel",
             }),
             reason,
-            h("div", { class: "cluster item-actions" }, ...buttons),
+            h("div", { class: "cluster" }, ...buttons),
             status,
           )
         : null,

@@ -133,7 +133,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   },
   { pattern: /class: "[^"]*-(row|line|good|order)-body\b/, use: "itemRow and itemRows (ui.ts)" },
   { pattern: /class: [`"][^`"]*\b(proposal-kind|kind-pill)\b/, use: "kindPill (ui.ts)" },
-  { pattern: /role: "progressbar"/, use: "progressBar (ui.ts)" },
+  {
+    pattern: /class: [`"][^`"]*\b(item-chip|state-chip)\b/,
+    use: "kindPill (ui.ts), or statePill (packages/admin/src/view.ts) for where a part of the town stands",
+  },
+  { pattern: /role: "(progressbar|meter)"/, use: "progressBar (ui.ts)" },
   { pattern: /class: [`"][^`"]*\blink-tabs?\b/, use: "linkTabs (ui.ts)" },
   {
     pattern: /["'`]palette-(choice|chip)\b/,

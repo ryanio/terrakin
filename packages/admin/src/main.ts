@@ -15,7 +15,7 @@ import { actorEmail, actorLabel, pathFor, type Screen, screenFor, screensFor } f
 import { newcomersView } from "./newcomers-view";
 import { queueView } from "./queue-view";
 import { townsfolkView } from "./townsfolk-view";
-import { button, type View } from "./view";
+import { button, pageHead, type View } from "./view";
 import "./style.css";
 
 /**
@@ -31,11 +31,11 @@ const main = document.getElementById("main") as HTMLElement;
 let overview: AdminOverviewResponse | undefined;
 let view: View | undefined;
 
-/** A sign-in or state screen: one card in a column. Each staff screen brings its own layout. */
-function show(el: HTMLElement) {
+/** A sign-in or state screen: a column of cards. Each staff screen brings its own layout. */
+function show(...els: HTMLElement[]) {
   view?.destroy();
   view = undefined;
-  main.replaceChildren(h("div", { class: "column stack" }, el));
+  main.replaceChildren(h("div", { class: "column stack cards" }, ...els));
 }
 
 function navLink(screen: Screen, label: string, current: Screen): HTMLAnchorElement {
@@ -115,14 +115,19 @@ function paintTop(screen: Screen | undefined) {
         });
   const account = moreMenu({ id: "staff-account", items: [signOut], className: "top-more" });
   account.el.querySelector("button")?.setAttribute("aria-label", "Account");
+  const nav = h(
+    "nav",
+    { class: "column wide nav", attrs: { "aria-label": "Staff" } },
+    ...screensFor(me.role).map((s) => navLink(s, SCREEN_NAMES[s], screen)),
+  );
   top.replaceChildren(
     h("div", { class: "column wide top-row" }, brand, signedIn(me), account.el),
-    h(
-      "nav",
-      { class: "column wide nav", attrs: { "aria-label": "Staff" } },
-      ...screensFor(me.role).map((s) => navLink(s, SCREEN_NAMES[s], screen)),
-    ),
+    nav,
   );
+  // On a phone the row scrolls sideways; keep the screen you're on in view.
+  nav
+    .querySelector<HTMLElement>('[aria-current="page"]')
+    ?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 const SCREEN_NAMES: Record<Screen, string> = {
@@ -183,14 +188,18 @@ function signIn(message?: string) {
   const form = h(
     "form",
     { class: "stack token-form", attrs: { "aria-labelledby": "token-title" } },
-    h("h2", { class: "section-title", attrs: { id: "token-title" }, text: "Sign in with a token" }),
+    h("h2", { class: "card-title", attrs: { id: "token-title" }, text: "Sign in with a token" }),
     h("p", {
       class: "field-hint",
       text: "Where Cloudflare Access isn't set up (local dev, or your own server), paste a maintainer's or moderator's resident token. It stays in this tab until you close it.",
     }),
     h("label", { class: "field-label", attrs: { for: "staff-token" }, text: "Token" }),
     input,
-    h("button", { class: "btn-primary", attrs: { type: "submit" }, text: "Sign in" }),
+    h(
+      "div",
+      { class: "cluster" },
+      h("button", { class: "btn-primary small", attrs: { type: "submit" }, text: "Sign in" }),
+    ),
     status,
   );
   form.addEventListener("submit", (e) => {
@@ -205,16 +214,19 @@ function signIn(message?: string) {
     void boot();
   });
   show(
-    h(
-      "div",
-      { class: "stack sign-in" },
-      stateCard({
-        title: "Sign in",
-        body: "On admin.terrakin.org, Cloudflare Access signs you in. If your sign-in ran out, reload the page.",
-        actions: [button("Reload", () => location.reload(), true)],
-      }),
-      h("section", { class: "paper card" }, form),
-    ),
+    pageHead({
+      id: "sign-in-title",
+      title: "Sign in",
+      lede: "On admin.terrakin.org, Cloudflare Access signs you in. If your sign-in ran out, reload the page.",
+      more: [
+        h(
+          "div",
+          { class: "cluster" },
+          button("Reload", () => location.reload()),
+        ),
+      ],
+    }),
+    h("section", { class: "paper card" }, form),
   );
 }
 

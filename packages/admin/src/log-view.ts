@@ -3,10 +3,10 @@ import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate, relativeTime } from "@terrakin/ui/format";
 import { ACTION_LABELS } from "@terrakin/ui/safety";
-import { moreButton, stateCard, whileBusy } from "@terrakin/ui/ui";
+import { kindPill, moreButton, stateCard, whileBusy } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { dayLabel, logTarget, ruleLine } from "./logic";
-import { actorName, button, type View } from "./view";
+import { actorName, button, pageHead, type View } from "./view";
 
 export function logView(): View {
   const list = h("ol", {
@@ -16,16 +16,12 @@ export function logView(): View {
   const more = h("div", { class: "log-more" });
   const el = h(
     "div",
-    { class: "column stack log" },
-    h(
-      "section",
-      { class: "paper card hero", attrs: { "aria-labelledby": "log-title" } },
-      h("h1", { class: "state-title", attrs: { id: "log-title" }, text: "Moderation log" }),
-      h("p", {
-        class: "hero-order",
-        text: "Staff, AI triage, and the automatic rules, newest first. It can't be edited or deleted.",
-      }),
-    ),
+    { class: "column stack cards log" },
+    pageHead({
+      id: "log-title",
+      title: "Moderation log",
+      lede: "Staff, AI triage, and the automatic rules, newest first. It can't be edited or deleted.",
+    }),
     list,
     more,
   );
@@ -129,8 +125,8 @@ function entryRow(entry: ModerationLogView): HTMLElement {
     notes.length
       ? h(
           "ul",
-          { class: "item-chips" },
-          ...notes.map((n) => h("li", { class: "item-chip", text: n })),
+          { class: "cluster plain-list" },
+          ...notes.map((n) => h("li", {}, kindPill(n, "ink"))),
         )
       : null,
   );

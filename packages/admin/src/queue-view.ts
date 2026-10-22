@@ -20,6 +20,7 @@ import {
   confirmTwice,
   itemRow,
   itemRows,
+  kindPill,
   pageLayout,
   stateCard,
   toast,
@@ -47,16 +48,11 @@ import {
   triageSummary,
 } from "./logic";
 import { shutHomesCard } from "./shut-homes-view";
-import { button, outLink, quoted, type View } from "./view";
+import { button, outLink, pageHead, quoted, statePill, type View } from "./view";
 
 export function queueView(overview: AdminOverviewResponse): View {
   const { me } = overview;
   const site = mainSite(location.origin);
-  const title = h("h1", {
-    class: "state-title",
-    attrs: { id: "queue-title", tabindex: -1 },
-    text: "Open reports",
-  });
   const count = h("p", { class: "queue-count", attrs: { role: "status" } });
   const list = h(
     "div",
@@ -71,13 +67,15 @@ export function queueView(overview: AdminOverviewResponse): View {
     sideLast: true,
   });
   head.append(
-    h(
-      "section",
-      { class: "paper card hero", attrs: { "aria-labelledby": "queue-title" } },
-      h("div", { class: "hero-row" }, title, count),
-      h("p", { class: "hero-order", text: "Urgent first, then most severe, then oldest." }),
-    ),
+    pageHead({
+      id: "queue-title",
+      title: "Open reports",
+      aside: count,
+      lede: "Urgent first, then most severe, then oldest.",
+    }),
   );
+  /** Where focus goes when the last card is acted on. */
+  const title = head.querySelector("h1") ?? head;
   main.append(list);
   let destroyed = false;
   side.append(
@@ -250,7 +248,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         );
       }
     }
-    const actionsRow = h("div", { class: "cluster item-actions" }, ...buttons);
+    const actionsRow = h("div", { class: "cluster" }, ...buttons);
     // Arming one button puts the others back.
     actionsRow.addEventListener(
       "click",
@@ -293,12 +291,9 @@ export function queueView(overview: AdminOverviewResponse): View {
       tags.length
         ? h(
             "ul",
-            { class: "item-chips", attrs: { "aria-label": "State" } },
+            { class: "cluster plain-list", attrs: { "aria-label": "State" } },
             ...tags.map((t, i) =>
-              h("li", {
-                class: `item-chip${item.needsHuman && i === 0 ? " urgent" : ""}`,
-                text: t,
-              }),
+              h("li", {}, kindPill(t, item.needsHuman && i === 0 ? "clay" : "ink")),
             ),
           )
         : null,
@@ -501,12 +496,7 @@ function todayCard(overview: AdminOverviewResponse, nowMs: number): HTMLElement 
           ),
           name: row.label,
           lines: row.lines,
-          trail: row.state
-            ? h("span", {
-                class: `state-chip state-${row.state.toLowerCase().replace(" ", "-")}`,
-                text: row.state,
-              })
-            : null,
+          trail: row.state ? statePill(row.state) : null,
         }),
       ),
       { className: "today-rows" },

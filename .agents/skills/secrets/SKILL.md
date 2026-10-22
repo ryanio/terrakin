@@ -36,6 +36,6 @@ node .agents/skills/secrets/1p.mjs run --only OPENSEA_API_KEY -- \
 |--------|---------|------|
 | `OPENSEA_API_KEY` | Holdings checks for partner perks (RFC 0007) | `opensea` in the Terrakin vault |
 
-`TERRAKIN_STAFF_KEY` is Ryan's staff key, for staff work he asks for in a chat (re-key codes, the review queue, merges). It goes only to `https://terrakin.org/v1/...` and never onto the Worker. How to call it: [docs/staff-agents.md](../../../docs/staff-agents.md#calling-the-staff-routes).
+`TERRAKIN_STAFF_KEY` is Ryan's staff key, for staff work he asks for in a chat (re-key codes, the review queue, merges). It goes only to `https://terrakin.org/v1/...` and never onto the Worker. Its scope is `rekey`. `TERRAKIN_STAFF_ROLE_KEY` is a short-lived key with the `role` scope, for the maintainer routes `rekey` doesn't cover (laying public ways, `POST /v1/admin/ways`); it is only there while Ryan has made one. How to call it: [docs/staff-agents.md](../../../docs/staff-agents.md#calling-the-staff-routes).
 
 Writes (new items, rotations) use `op` itself, which a person approves in the 1Password app. Rotating a secret is a question for Ryan, not a step to take on your own.

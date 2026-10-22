@@ -3087,18 +3087,6 @@ dialog.model-viewer {
   border-width: 3px;
 }
 
-.coin-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  align-items: center;
-}
-
-.coin-amount {
-  width: 7em;
-  font-size: var(--text-lg);
-}
-
 /* Sits in the top bar next to letters, and looks like it. */
 /* The icon pills in the top bar: notifications and letters. */
 .site-bell,

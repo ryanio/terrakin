@@ -9,6 +9,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { shortDate } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
 import {
+  coinField,
   confirmTwice,
   emptyNote,
   itemRow,
@@ -205,17 +206,10 @@ export function bountiesView(ctx: ViewContext): View {
         placeholder: "What needs doing, and when",
       },
     });
-    const reward = h("input", {
-      class: "field-input coin-amount",
-      attrs: {
-        id: "bounty-reward",
-        type: "number",
-        inputmode: "numeric",
-        min: 1,
-        max: Math.min(rules.rewardMax, you.balance),
-        step: 1,
-        value: String(Math.min(10, Math.max(1, you.balance))),
-      },
+    const reward = coinField({
+      id: "bounty-reward",
+      max: Math.min(rules.rewardMax, you.balance),
+      value: Math.min(10, Math.max(1, you.balance)),
     });
     const submit = h("button", {
       class: "btn-primary small",

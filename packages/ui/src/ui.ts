@@ -879,6 +879,32 @@ export function openPopover(host: HTMLElement, el: HTMLElement, opener: HTMLElem
 // ---------- confirm twice ----------
 
 /**
+ * A field for a whole number, at least 1, of coins or of things: a price, a reward, a gift, how
+ * many. Sized for a few digits, with the phone's number pad. Give it a label `for` its `id`, and set
+ * it in a `.coin-row` beside its button.
+ */
+export function coinField(o: {
+  id: string;
+  max?: number;
+  value?: number;
+  describedBy?: string;
+}): HTMLInputElement {
+  return h("input", {
+    class: "field-input coin-amount",
+    attrs: {
+      id: o.id,
+      type: "number",
+      inputmode: "numeric",
+      min: 1,
+      step: 1,
+      ...(o.max === undefined ? {} : { max: o.max }),
+      ...(o.value === undefined ? {} : { value: String(o.value) }),
+      ...(o.describedBy === undefined ? {} : { "aria-describedby": o.describedBy }),
+    },
+  });
+}
+
+/**
  * A section a link names (`/shop#recipes`, `/town#jobs`), scrolled to once. Call what it returns
  * after each paint: the first paint that draws `target` while the page's hash is `hash` lands on
  * it, and no later paint moves the page, so a refresh never pulls a reader back up.

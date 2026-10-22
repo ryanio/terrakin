@@ -26,6 +26,7 @@ import { formatCount } from "@terrakin/ui/format";
 import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import {
+  coinField,
   confirmTwice,
   emptyNote,
   itemRow,
@@ -261,28 +262,8 @@ export function marketView(ctx: ViewContext): View {
       { class: "field-input", attrs: { id: "market-pick" } },
       ...options.map((o) => h("option", { attrs: { value: o.value }, text: o.text })),
     );
-    const count = h("input", {
-      class: "field-input coin-amount",
-      attrs: {
-        id: "market-count",
-        type: "number",
-        inputmode: "numeric",
-        min: 1,
-        step: 1,
-        value: "1",
-      },
-    });
-    const price = h("input", {
-      class: "field-input coin-amount",
-      attrs: {
-        id: "market-price",
-        type: "number",
-        inputmode: "numeric",
-        min: 1,
-        max: data.rules.priceMax,
-        step: 1,
-      },
-    });
+    const count = coinField({ id: "market-count", value: 1 });
+    const price = coinField({ id: "market-price", max: data.rules.priceMax });
     const countRow = h(
       "div",
       { class: "coin-row" },

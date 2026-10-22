@@ -1021,6 +1021,19 @@ a.person-link:hover .person-name {
   margin-top: var(--space-md);
 }
 
+/* `coinField`: a whole number of coins or things, beside its button in a `.coin-row`. */
+.coin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.coin-amount {
+  width: 7em;
+  font-size: var(--text-lg);
+}
+
 .field-input::placeholder {
   color: var(--placeholder);
 }

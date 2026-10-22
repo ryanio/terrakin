@@ -35,6 +35,7 @@ import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { tip } from "@terrakin/ui/tooltip";
 import {
   checkRow,
+  coinField,
   confirmTwice,
   copyButton,
   disclosure,
@@ -1232,18 +1233,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
    * The server and the sim check every limit; their refusal is shown as it comes.
    */
   function coinGift(r: ProfileView, only: Only) {
-    const amount = h("input", {
-      class: "field-input coin-amount",
-      attrs: {
-        id: "coin-amount",
-        type: "number",
-        inputmode: "numeric",
-        min: 1,
-        step: 1,
-        value: "5",
-        "aria-describedby": "coin-hint",
-      },
-    });
+    const amount = coinField({ id: "coin-amount", value: 5, describedBy: "coin-hint" });
     const note = h("input", {
       class: "field-input",
       attrs: {
@@ -1335,18 +1325,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
    */
   function thingGift(r: ProfileView, only: Only) {
     const pick = h("select", { class: "field-input", attrs: { id: "thing-pick" } });
-    const count = h("input", {
-      class: "field-input coin-amount",
-      attrs: {
-        id: "thing-count",
-        type: "number",
-        inputmode: "numeric",
-        min: 1,
-        max: ITEM_RULES.giveCountMax,
-        step: 1,
-        value: "1",
-      },
-    });
+    const count = coinField({ id: "thing-count", max: ITEM_RULES.giveCountMax, value: 1 });
     const note = h("input", {
       class: "field-input",
       attrs: {

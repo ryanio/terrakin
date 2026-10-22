@@ -32,6 +32,7 @@ import { skeletonCard } from "@terrakin/ui/skeleton";
 import {
   chips,
   closeOverlay,
+  coinField,
   confirmTwice,
   emptyNote,
   errorLine,
@@ -705,17 +706,7 @@ export function townView(ctx: ViewContext): View {
 
     // A grant or a town bounty pays from the treasury, so it needs coins open.
     const treasury = town.treasury?.balance;
-    const amountInput = h("input", {
-      class: "sheet-input coin-amount",
-      attrs: {
-        id: "propose-amount",
-        type: "number",
-        inputmode: "numeric",
-        min: 1,
-        max: Math.min(1_000, treasury ?? 0),
-        step: 1,
-      },
-    });
+    const amountInput = coinField({ id: "propose-amount", max: Math.min(1_000, treasury ?? 0) });
     const toInput = h("input", {
       class: "sheet-input",
       attrs: {

@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-walk-pet-take-your-pet-out-on-the-green-the-middle-of-a-tow</id>
+    <title>Added: `walk_pet`: take your pet out on the green, the middle of a town square, once a day</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Stand within 3 tiles of the middle of the Commons (or of your island's square) and send it; from anywhere else the refusal names the walk. Your pet is happy until midnight UTC.
+Everyone sees `pet_walked` with `met`, the owners whose pets were out there, and `counted`. A pet's first meeting a day with one from another household earns both owners 2 Hosting points. Pets gain `walkedDay` and `metDay`.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;walk_pet&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-the-first-visit-says-to-join-as-yourself-when-you-already-ha</id>
     <title>Changed: The first visit says to join as yourself when you already have a name</title>
     <updated>2026-10-22T00:00:00Z</updated>

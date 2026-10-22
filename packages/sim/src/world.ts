@@ -205,6 +205,19 @@ export function counterTiles(config: WorldConfig, square: Square): Tile[] {
   return boxOn(config, square, door.x - 1, door.x + 1, door.y, door.y + 1);
 }
 
+/**
+ * The middle of a square's green, where residents take their pets out
+ * ([RFC 0045](../../../docs/rfcs/0045-the-green-where-pets-go-out.md)): the square's own column and
+ * its middle row, which downtown is the spawn tile in a world whose sides are an odd number of plots
+ * (terrakin.org's). The green is the ground floor within
+ * `config.reach` of it, which is what `notAtDoor` checks, so it is worked out, never built, and
+ * nothing on a square moves for it.
+ */
+export function parkTile(config: WorldConfig, square: Square): Tile {
+  const { plotSize } = config;
+  return { x: square.x, y: square.py * plotSize + Math.floor(plotSize / 2) };
+}
+
 /** The tiles of a rectangle that are in the world and on `square`, west to east, north to south. */
 function boxOn(
   config: WorldConfig,

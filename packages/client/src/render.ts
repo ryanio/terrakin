@@ -758,6 +758,7 @@ export function render(
       config,
       day: mirror.day,
       lying: lyingOn(mirror.asleep(me)),
+      greens: mirror.greens(),
     };
     const size = scale * PET_TILES;
     const drawn = new Set<string>();

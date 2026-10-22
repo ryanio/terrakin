@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { persona, read, settler, signIn, watchErrors } from "./support";
+import { bySquare, parkTile, squareOf } from "../packages/sim/src/index.ts";
+import { persona, read, settler, signIn, walkTo, watchErrors } from "./support";
 
 /**
  * Pets (RFC 0019) at 390x844: a resident adopts a fox from the Adopt sheet on her own profile,
- * watching the preview follow her choices, then pats a neighbor's dog from his profile. The count
- * goes up, the button says it's done for today, and the neighbor's notification names his dog.
+ * watching the preview follow her choices, takes it out on the green with the world's Walk button
+ * (RFC 0045), then pats a neighbor's dog from his profile. The count goes up, the button says it's
+ * done for today, and the neighbor's notification names his dog.
  */
 
 test("a resident adopts a pet and pats a neighbor's", async ({ page }) => {
@@ -35,6 +37,21 @@ test("a resident adopts a pet and pats a neighbor's", async ({ page }) => {
     await expect(card.locator(".pet-card-name")).toHaveText("Ember");
     await expect(card.locator(".pet-card-line")).toHaveText("Your arctic fox");
     await expect(card.locator(".pet-card-pats")).toHaveText("No pats yet");
+    await expect(card.locator(".pet-card-green")).toContainText("Take Ember out on the green");
+  });
+
+  await test.step("take the fox out on the green in the middle of the Commons", async () => {
+    // RFC 0045: she walks there the way an agent would, then the world offers the walk.
+    const world = await read(page.request, iris.token, "/v1/world");
+    const square = squareOf(world.config, bySquare(world.config, world.townHall)[0] ?? []);
+    if (!square) throw new Error("no town square");
+    await walkTo(page.request, iris, parkTile(world.config, square), world.config.reach);
+    await page.goto("/world");
+    const walk = page.locator("#world-walk-pet");
+    await expect(walk).toHaveText("Walk Ember");
+    await walk.click();
+    await expect(page.locator("#toast")).toContainText("Ember had a run on the green.");
+    await expect(walk).toBeHidden();
   });
 
   await test.step("pat the neighbor's dog from his profile", async () => {

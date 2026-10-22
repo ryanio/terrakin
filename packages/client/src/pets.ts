@@ -10,6 +10,9 @@
  * picked from the server's clock and a hash of its owner's id, so every screen tells roughly the
  * same story. It looks happy for a few seconds after a pat, and all day after a treat.
  *
+ * On a day it went out on the green (RFC 0045), it trots at its owner's heel wherever they stand on
+ * a green, and plays about them once they stop, by day. It's happy all that day too.
+ *
  * Times are milliseconds from the page's own clock, except `clock`, the server's. With `still`
  * (prefers-reduced-motion) a pet stands where it's going, without walking or hopping there.
  */
@@ -17,6 +20,7 @@ import {
   CROPS,
   type Crop,
   type Ground,
+  onGreen,
   type Pet,
   type PetCoat,
   type PetKind,
@@ -28,6 +32,7 @@ import {
   tileKey,
   treatedToday,
   type WorldConfig,
+  walkedToday,
   walkTree,
 } from "@terrakin/sim";
 
@@ -135,7 +140,14 @@ const HOP = 0.1;
 const PET_TAP = 0.45;
 
 /** What a pet is doing. */
-export type PetDoing = "follow" | "potter" | "nap" | "sleep";
+export type PetDoing = "follow" | "play" | "potter" | "nap" | "sleep";
+
+/** On the green, how long its owner stands still before a pet runs off to play, by day. */
+export const PLAY_AFTER_MS = 2_500;
+/** How often a playing pet picks somewhere new to run to, from the server's clock. */
+const PLAY_SLOT_MS = 2_000;
+/** How far from its owner a pet plays, in tiles. */
+const PLAY_RANGE = 2;
 
 export interface PetPose {
   /** Where its feet are, in tiles. */
@@ -166,8 +178,13 @@ export interface PetScene {
   still: boolean;
   ground: Ground;
   config: WorldConfig;
-  /** The world's day, for today's treat. */
+  /** The world's day, for today's treat and today's walk. */
   day: number | undefined;
+  /**
+   * The middle of each green, one on every town square (RFC 0045, the sim's `parkTile`), where a
+   * pet that went out today keeps to its owner's heel and plays.
+   */
+  greens?: readonly Tile[] | undefined;
   /** Where its owner is drawn now, when they're online. */
   drawn?: { x: number; y: number } | undefined;
   /**
@@ -310,6 +327,20 @@ export function homePlan(
   return { doing: roll < sleeps + naps ? "nap" : "potter", to };
 }
 
+/**
+ * Where a pet playing on the green runs to now: a spot its owner could walk to within `PLAY_RANGE`
+ * of them, or back to their heel every few runs. Pure: the same on every screen.
+ */
+function playSpot(id: string, clock: number, ground: Ground, owner: Tile): Tile {
+  const slot = Math.floor((clock + (petHash(id, 3) % PLAY_SLOT_MS)) / PLAY_SLOT_MS);
+  const h = petHash(id, slot + 101);
+  const spots = walkTree(ground, owner, PLAY_RANGE)
+    .slice(1)
+    .map(({ x, y }) => ({ x, y }));
+  if (spots.length === 0 || h % 4 === 0) return followSpot(ground, owner, owner);
+  return spots[(h >>> 8) % spots.length] as Tile;
+}
+
 const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
 
 /** The tiles a walk from `from` to `to` passes, by the sim's walking rule, `to` last. */
@@ -357,13 +388,24 @@ export class PetMotion {
       (!home ||
         (plotOf(scene.config, ownerTile.x, ownerTile.y).px === home.px &&
           plotOf(scene.config, ownerTile.x, ownerTile.y).py === home.py));
-    if (!onHome && !hearth) return undefined;
+    // Out today, it keeps to its owner on any green they stand on (RFC 0045).
+    const out =
+      ownerTile !== undefined &&
+      walkedToday(pet, scene.day) &&
+      onGreen(scene.config, scene.greens ?? [], ownerTile);
+    if (!onHome && !out && !hearth) return undefined;
 
     let t = this.tracks.get(owner.id);
     const here = t ? { x: Math.round(t.x), y: Math.round(t.y) } : undefined;
     let doing: PetDoing;
     let to: Tile;
-    if (onHome && ownerTile) {
+    // By day on the green, once its owner has stood still a moment, it runs about them.
+    const stillFor =
+      t && ownerTile && t.ownerAt === tileKey(ownerTile.x, ownerTile.y) ? now - t.ownerSince : 0;
+    if (out && ownerTile && !scene.night && stillFor > PLAY_AFTER_MS) {
+      doing = "play";
+      to = playSpot(owner.id, scene.clock, ground, ownerTile);
+    } else if ((onHome || out) && ownerTile) {
       doing = "follow";
       to = followSpot(ground, ownerTile, here ?? ownerTile);
     } else {
@@ -415,7 +457,7 @@ export class PetMotion {
       }
     }
     // Walk along the path.
-    const speed = doing === "follow" ? PET_TROT : PET_POTTER;
+    const speed = doing === "follow" || doing === "play" ? PET_TROT : PET_POTTER;
     let budget = (Math.min(250, Math.max(0, now - t.at)) / 1000) * speed;
     t.at = now;
     while (budget > 0 && t.path.length > 0) {
@@ -471,7 +513,7 @@ export class PetMotion {
       heading,
       asleep: asleep && since >= HAPPY_MS,
       lift,
-      happy: since < HAPPY_MS || treatedToday(pet, scene.day),
+      happy: since < HAPPY_MS || treatedToday(pet, scene.day) || walkedToday(pet, scene.day),
       heart: since < HAPPY_MS ? since / HAPPY_MS : undefined,
       doing,
     };
@@ -509,4 +551,51 @@ export class PetMotion {
       for (const id of map.keys()) if (!ids.has(id)) map.delete(id);
     }
   }
+}
+
+// ---------- the green (RFC 0045) ----------
+
+/** "Rex", "Rex and Shelly", "Rex, Shelly, and Pip", "Rex, Shelly, and 3 more". */
+function petList(names: readonly string[]): string {
+  if (names.length <= 2) return names.join(" and ");
+  if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
+  return `${names[0]}, ${names[1]}, and ${names.length - 2} more`;
+}
+
+const capital = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
+
+/**
+ * What a walk on the green says to you, from its `pet_walked` event: your pet's run and who it met,
+ * or a neighbor's pet coming out to meet yours. Null when it's none of yours. Pets' names are
+ * their owners' words, so the line is shown as player text.
+ */
+export function walkLine(
+  event: { residentId: string; met: readonly string[] },
+  me: string,
+  petOf: (owner: string) => Pick<Pet, "kind" | "name"> | undefined,
+): string | null {
+  if (event.residentId === me) {
+    const mine = capital(petCalled(petOf(me), "your"));
+    const met = event.met.map((id) => petCalled(petOf(id), "their"));
+    return met.length === 0
+      ? `${mine} had a run on the green.`
+      : `${mine} had a run on the green and met ${petList(met)}.`;
+  }
+  if (!event.met.includes(me)) return null;
+  const theirs = capital(petCalled(petOf(event.residentId), "their"));
+  return `${theirs} came out on the green to meet ${petCalled(petOf(me), "your")}.`;
+}
+
+/**
+ * The line on your own pet's card about the green: where to take it, or that it's been out today.
+ * `today` is the UTC day, which is the world's.
+ */
+export function greenLine(
+  pet: Pick<Pet, "kind" | "name"> & { walkedDay?: number | undefined },
+  today: number,
+): string {
+  if (pet.walkedDay === today) {
+    return `${capital(petCalled(pet, "your"))} had a run on the green today.`;
+  }
+  return `Take ${petCalled(pet, "your")} out on the green in the middle of the Commons once a day.`;
 }

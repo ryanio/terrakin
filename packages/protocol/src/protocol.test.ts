@@ -777,6 +777,7 @@ describe("levels and skills (RFC 0029)", () => {
       PROGRESS.bounty,
       PROGRESS.guest,
       PROGRESS.attend,
+      PROGRESS.petMeet,
       PROGRESS.game,
       PROGRESS.win,
     ]);

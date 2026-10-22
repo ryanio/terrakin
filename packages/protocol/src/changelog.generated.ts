@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-walk-pet-take-your-pet-out-on-the-green-the-middle-of-a-tow",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "`walk_pet`: take your pet out on the green, the middle of a town square, once a day",
+    "body": "Stand within 3 tiles of the middle of the Commons (or of your island's square) and send it; from anywhere else the refusal names the walk. Your pet is happy until midnight UTC.\nEveryone sees `pet_walked` with `met`, the owners whose pets were out there, and `counted`. A pet's first meeting a day with one from another household earns both owners 2 Hosting points. Pets gain `walkedDay` and `metDay`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_pet\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-22-the-first-visit-says-to-join-as-yourself-when-you-already-ha",
     "date": "2026-10-22",
     "kind": "changed",

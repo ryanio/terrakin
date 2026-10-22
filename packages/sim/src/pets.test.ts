@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { MARKET_CONFIG, MARKET_LOG } from "./fixtures/market-log";
+import { PET_PARK_CONFIG, PET_PARK_HASH, PET_PARK_LOG } from "./fixtures/pet-park-log";
 import { PETS_CONFIG, PETS_HASH, PETS_LOG } from "./fixtures/pets-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
+import { PROGRESS } from "./levels";
 import { petBed } from "./pet-art";
-import { PETS, treatedToday } from "./pets";
+import { PETS, treatedToday, walkedToday } from "./pets";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import { type Command, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
-import { groundOf } from "./walk";
+import { groundOf, route, worldGround } from "./walk";
 import { createWorld, DEFAULT_CONFIG } from "./world";
 
 function act(state: WorldState, actor: string, command: Command) {
@@ -261,6 +263,135 @@ describe("the pets log", () => {
     expect(state.residents.bob?.pet).toMatchObject({ kind: "tortoise", name: "Shelly" });
     expectSupplyHolds(state);
     expect(hashWorld(state)).toBe(PETS_HASH);
+  });
+});
+
+describe("taking a pet out on the green", () => {
+  /** The pets world with levels open, Cy's dog adopted, and nobody walked to the green yet. */
+  function beforeTheGreen(): WorldState {
+    const state = replay(PET_PARK_CONFIG, PETS_LOG);
+    for (const input of PET_PARK_LOG.slice(PETS_LOG.length, PETS_LOG.length + 2)) {
+      act(state, input.actor, input.command);
+    }
+    return state;
+  }
+
+  /** Walk `who` one logged step at a time onto the green in the middle of the Commons. */
+  function toTheGreen(state: WorldState, who: string) {
+    const me = state.residents[who];
+    if (!me) throw new Error(`${who} hasn't joined`);
+    for (const dir of route(worldGround(state), me, { x: 12, y: 12 }, state.config.reach)) {
+      act(state, who, { type: "move", dir });
+    }
+  }
+
+  const hosting = (residentId: string, total: number) => ({
+    type: "progress",
+    residentId,
+    skill: "hosting",
+    points: PROGRESS.petMeet,
+    total,
+    today: total,
+  });
+
+  it("meets the pets out there, and counts each pet's first meeting with another household", () => {
+    const state = replay(PET_PARK_CONFIG, PETS_LOG);
+    const walks: unknown[][] = [];
+    for (const input of PET_PARK_LOG.slice(PETS_LOG.length)) {
+      const events = act(state, input.actor, input.command);
+      if (input.command.type === "walk_pet") walks.push(events);
+    }
+    const day = (state.day ?? 0) - 1;
+    // Ada is first out, so hers meets nobody.
+    expect(walks[0]).toEqual([{ type: "pet_walked", residentId: "ada", day, met: [] }]);
+    // Bob's tortoise meets her cat, but they're one household: no meeting counts.
+    expect(walks[1]).toEqual([{ type: "pet_walked", residentId: "bob", day, met: ["ada"] }]);
+    // Cy's dog meets both, and each pet's first counted meeting earns its owner Hosting points.
+    expect(walks[2]).toEqual([
+      {
+        type: "pet_walked",
+        residentId: "cy",
+        day,
+        met: ["ada", "bob"],
+        counted: ["cy", "ada", "bob"],
+      },
+      hosting("cy", PROGRESS.petMeet),
+      hosting("ada", PROGRESS.petMeet),
+      hosting("bob", PROGRESS.petMeet),
+    ]);
+    // The next day Bob and Cy still stand there, but their pets went out yesterday.
+    expect(walks[3]).toEqual([{ type: "pet_walked", residentId: "ada", day: day + 1, met: [] }]);
+    const ada = state.residents.ada?.pet;
+    expect(ada).toMatchObject({ walkedDay: day + 1, metDay: day });
+    expect(ada && walkedToday(ada, day + 1)).toBe(true);
+    expect(state.residents.cy?.pet).toMatchObject({ walkedDay: day, metDay: day });
+    expectSupplyHolds(state);
+  });
+
+  it("goes out once a day, and a pet's second counted meeting that day earns nothing", () => {
+    const state = beforeTheGreen();
+    toTheGreen(state, "ada");
+    act(state, "ada", { type: "walk_pet" });
+    refused(state, "ada", { type: "walk_pet" }, "pet_limit");
+    toTheGreen(state, "cy");
+    act(state, "cy", { type: "walk_pet" });
+    // Dee is Cy's household, so her rabbit's meeting with his dog doesn't count. With Ada's cat it
+    // does for Dee, but Ada's cat had its meeting of the day with Cy's dog.
+    act(state, "dee", { type: "adopt_pet", kind: "rabbit", coat: "white", name: "Bun" });
+    toTheGreen(state, "dee");
+    expect(act(state, "dee", { type: "walk_pet" })).toEqual([
+      {
+        type: "pet_walked",
+        residentId: "dee",
+        day: state.day,
+        met: ["ada", "cy"],
+        counted: ["dee"],
+      },
+      hosting("dee", PROGRESS.petMeet),
+    ]);
+  });
+
+  it("meets only pets whose owners are there, and never counts a townsfolk's", () => {
+    const state = beforeTheGreen();
+    toTheGreen(state, "ada");
+    act(state, "ada", { type: "walk_pet" });
+    toTheGreen(state, "bob");
+    act(state, "bob", { type: "walk_pet" });
+    // Ada goes home and Bob logs off: their pets are out today, but not on the green.
+    act(state, "ada", { type: "home" });
+    act(state, "bob", { type: "leave" });
+    act(state, TOWN_ACTOR, { type: "set_townsfolk", ids: ["dee"] });
+    act(state, "dee", { type: "adopt_pet", kind: "frog", coat: "gold", name: "Hop" });
+    toTheGreen(state, "dee");
+    act(state, "dee", { type: "walk_pet" });
+    // Cy meets the townsfolk's frog, and nothing counts.
+    toTheGreen(state, "cy");
+    expect(act(state, "cy", { type: "walk_pet" })).toEqual([
+      { type: "pet_walked", residentId: "cy", day: state.day, met: ["dee"] },
+    ]);
+  });
+
+  it("refuses no pet and anywhere but a green, naming the walk there", () => {
+    const state = beforeTheGreen();
+    refused(state, "dee", { type: "walk_pet" }, "no_pet");
+    refused(state, "ada", { type: "walk_pet" }, "out_of_reach");
+    const away = apply(state, { actor: "ada", command: { type: "walk_pet" } });
+    expect(away.ok ? "" : away.rejection.message).toMatch(
+      /^Pets go out on the green, the middle of a town square\..* Walk there: /,
+    );
+  });
+
+  it("waits for the world to count days", () => {
+    const state = createWorld(DEFAULT_CONFIG);
+    act(state, "ada", { type: "join", name: "Ada", kind: "human" });
+    act(state, "ada", { type: "settle", px: 0, py: 0 });
+    act(state, "ada", { type: "build_starter_home" });
+    act(state, "ada", adopt());
+    refused(state, "ada", { type: "walk_pet" }, "not_due");
+  });
+
+  it("replays the green's log to the hash pinned when it landed", () => {
+    expect(hashWorld(replay(PET_PARK_CONFIG, PET_PARK_LOG))).toBe(PET_PARK_HASH);
   });
 });
 

@@ -26,6 +26,7 @@ import {
   ITEM_INFO,
   isGroundKind,
   isHeldBlock,
+  onGreen,
   pageKnown,
   parseKey,
   pickupsInReach,
@@ -39,6 +40,7 @@ import {
   type Tile,
   tileKey,
   upstairsProblem,
+  walkedToday,
   waterBeside,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
@@ -86,7 +88,7 @@ import { Motion } from "./motion";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { passkeyWhy, provePasskey } from "./passkey";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
-import { PatsToday, PetMotion, petCalled } from "./pets";
+import { PatsToday, PetMotion, petCalled, walkLine } from "./pets";
 import { coins } from "./purse";
 import {
   BURST_MS,
@@ -187,6 +189,8 @@ const paletteTabs = linkTabs(
 palette.prepend(paletteTabs);
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
+/** Shown while you stand on a green with a pet that hasn't been out today (RFC 0045). */
+const walkPetButton = $<HTMLButtonElement>("world-walk-pet");
 const gatherButton = $<HTMLButtonElement>("world-gather");
 /** Shown while you stand beside water (RFC 0023): cast a line. */
 const fishButton = $<HTMLButtonElement>("world-fish");
@@ -662,6 +666,11 @@ function onMessage(msg: ServerMessage) {
       if (applied === "applied" && msg.event.type === "fished") {
         const { x, y, caught } = msg.event;
         casts = [...casts, { x, y, caught, at: performance.now() }];
+      }
+      // A walk on the green (RFC 0045): your pet's run, or a neighbor's pet come to meet yours.
+      if (applied === "applied" && msg.event.type === "pet_walked" && me) {
+        const walked = walkLine(msg.event, me, (id) => mirror?.residents.get(id)?.pet);
+        if (walked) showToast(walked, "player");
       }
       if (applied === "applied" && msg.event.type === "firework") {
         const { x, y, color } = msg.event;
@@ -2110,6 +2119,7 @@ function frame() {
   if (now - petCheckAt > 250) {
     petCheckAt = now;
     paintPetButton(now);
+    paintWalkPetButton();
     paintGatherButton();
     paintFishButton();
     paintFireworkButton();
@@ -2237,6 +2247,32 @@ function paintFireworkButton() {
   fireworkButton.hidden = buildMode || !here || !fireworkNight(m?.day);
 }
 
+/**
+ * Show "Walk Biscuit" while you stand on a green with a pet that hasn't been out today (RFC 0045),
+ * by the sim's own `onGreen` and `walkedToday`, out of build mode.
+ */
+function paintWalkPetButton() {
+  const r = self();
+  const m = mirror;
+  const pet = r?.pet;
+  const show =
+    !!r &&
+    !!m &&
+    !!pet &&
+    !buildMode &&
+    !walkedToday(pet, m.day) &&
+    onGreen(m.config, m.greens(), r);
+  walkPetButton.hidden = !show;
+  if (!show || !pet) return;
+  const label = `Walk ${petCalled(pet, "your")}`;
+  const text = walkPetButton.querySelector("span");
+  if (text && text.textContent !== label) text.textContent = label;
+}
+
+walkPetButton.addEventListener("click", () => {
+  tryAct({ type: "walk_pet" });
+});
+
 /** Each tap a firework of the next color, over where you stand. */
 let fireworkTaps = 0;
 fireworkButton.addEventListener("click", () => {
@@ -2363,6 +2399,7 @@ export function stopWorld() {
   hud.hidden = true;
   worldWait.hidden = true;
   petButton.hidden = true;
+  walkPetButton.hidden = true;
   petNear = undefined;
   gatherButton.hidden = true;
   climbButton.hidden = true;

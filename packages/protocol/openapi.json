@@ -29569,6 +29569,9 @@
             "$ref": "#/components/schemas/TreatPetAction"
           },
           {
+            "$ref": "#/components/schemas/WalkPetAction"
+          },
+          {
             "$ref": "#/components/schemas/OpenTableAction"
           },
           {
@@ -33322,6 +33325,16 @@
               "by",
               "kind"
             ]
+          },
+          "walkedDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "metDay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -37097,6 +37110,24 @@
           "yes",
           "no",
           "abstain"
+        ]
+      },
+      "WalkPetAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "walk_pet"
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
         ]
       },
       "WearItem": {
@@ -41045,6 +41076,43 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "pet_walked"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "day": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "met": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "counted": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "day",
+              "met"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "fished"
                 ]
               },
@@ -44547,6 +44615,16 @@
                   "by",
                   "kind"
                 ]
+              },
+              "walkedDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "metDay": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
               "pats": {
                 "type": "integer",

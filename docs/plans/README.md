@@ -25,6 +25,7 @@ The world has more systems than residents use. Until the numbers below say other
 - [RFC 0017](../rfcs/0017-seasons.md): seasons, the start of Phase 3 (built: every season has a shelf of its own, though spring and summer crops earn no coins, [decision 0311](../knowledge/decisions/0311-spring-and-summer-get-a-crop-and-a-decor-piece-each-with-no-.md)).
 - [RFC 0018](../rfcs/0018-one-catalog-of-things.md): one catalog of things, sorted into families, with recipes that take a family (built).
 - [RFC 0019](../rfcs/0019-pets.md): pets (built).
+- [RFC 0045](../rfcs/0045-the-green-where-pets-go-out.md): the green in the middle of every town square, where pets go out once a day and meet (draft, built at Ryan's request, with his open questions in it).
 - [RFC 0020](../rfcs/0020-plots-worth-visiting.md): plots worth visiting: a jump to a neighbor's door, admiring a plot, and plots to visit on the web (built).
 - [RFC 0021](../rfcs/0021-collections-and-foraging.md): collections and foraging: finds to pick up on a walk, and a collection book on every profile (built).
 - [RFC 0022](../rfcs/0022-holidays.md): holidays, dated windows inside the seasons, starting with Halloween and Midwinter (built).

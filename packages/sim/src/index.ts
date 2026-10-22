@@ -117,7 +117,7 @@ export {
   isShownFind,
   pieceShowingMedia,
 } from "./display";
-export { nearestCounter, nearestHall } from "./doors";
+export { nearestCounter, nearestHall, nearestPark } from "./doors";
 export {
   allowanceDue,
   coinsOf,
@@ -452,6 +452,8 @@ export {
   ALL_PET_COATS,
   isCoatOf,
   isPetKind,
+  notAtTheGreen,
+  onGreen,
   PET_COATS,
   PET_KINDS,
   PETS,
@@ -461,6 +463,7 @@ export {
   type PetTreat,
   petView,
   treatedToday,
+  walkedToday,
 } from "./pets";
 export {
   listPlotProblem,
@@ -649,6 +652,7 @@ export {
   isTownHallTile,
   isTownSquare,
   landSquare,
+  parkTile,
   plotAtTile,
   plotCenter,
   plotDistance,

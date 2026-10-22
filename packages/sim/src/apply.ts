@@ -175,6 +175,7 @@ import {
   checkGroomPet,
   checkRenamePet,
   checkTreatPet,
+  checkWalkPet,
   type PetsChecked,
   petView,
 } from "./pets";
@@ -1618,6 +1619,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkGroomPet(state, actor, command));
     case "treat_pet":
       return town(checkTreatPet(state, actor, command));
+    case "walk_pet":
+      return town(checkWalkPet(state, actor));
     case "open_table":
       return town(checkOpenTable(state, actor, command));
     case "sit":

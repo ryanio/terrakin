@@ -293,6 +293,7 @@ describe("the numbers", () => {
       bountyMinReward: 5,
       guest: 2,
       attend: 8,
+      petMeet: 2,
       game: 6,
       win: 2,
     });

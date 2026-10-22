@@ -1111,6 +1111,16 @@ export const TreatPetAction = z.object({
   item: CropKind,
   ...dry,
 });
+/**
+ * Take your pet out on the green, the middle of a town square (RFC 0045): within 3 tiles of the
+ * Commons' middle downtown, or of an island's own square. Once a pet a UTC day. It meets the pets
+ * out there, and the first meeting a day with a pet from another household earns you and its owner
+ * Hosting points. Sent from anywhere else, the refusal names the walk there.
+ */
+export const WalkPetAction = z.object({
+  type: z.literal("walk_pet"),
+  ...dry,
+});
 
 // ---------- Fishing (RFC 0023) ----------
 
@@ -1563,6 +1573,7 @@ export const Action = z.discriminatedUnion("type", [
   RenamePetAction,
   GroomPetAction,
   TreatPetAction,
+  WalkPetAction,
   OpenTableAction,
   SitAction,
   StandAction,
@@ -1607,6 +1618,10 @@ export const PetView = z.object({
   renamedDay: z.number().int().optional(),
   /** Its last treat: the day, who gave it, and what. Happy until that day ends. */
   treat: z.object({ day: z.number().int(), by: z.string(), kind: CropKind }).optional(),
+  /** The day it last went out on a green (RFC 0045). Happy until that day ends. */
+  walkedDay: z.number().int().optional(),
+  /** The day of its last counted meeting on a green, which earns once a day. */
+  metDay: z.number().int().optional(),
 });
 export type PetView = z.infer<typeof PetView>;
 
@@ -2703,6 +2718,18 @@ export const WorldEvent = z.discriminatedUnion("type", [
     residentId: z.string(),
     by: z.string(),
     kind: CropKind,
+  }),
+  /**
+   * `residentId` took their pet out on a green on `day` (RFC 0045). `met` is the owners whose pets
+   * were out there. `counted` is the owners, the walker included, whose pet had its one counted
+   * meeting of the day in this walk, each earning Hosting points: absent when none did.
+   */
+  z.object({
+    type: z.literal("pet_walked"),
+    residentId: z.string(),
+    day: z.number().int(),
+    met: z.array(z.string()),
+    counted: z.array(z.string()).optional(),
   }),
   /**
    * `by` cast a line into the water at (x, y) and brought up `caught` (RFC 0023): a fish, an old

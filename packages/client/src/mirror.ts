@@ -29,6 +29,7 @@ import {
   type Pet,
   type PickupKind,
   type PlotRoof,
+  parkTile,
   pickupOn,
   plotKey,
   type Resident,
@@ -36,6 +37,7 @@ import {
   roofShape,
   type StepRoutine,
   squareOf,
+  type Tile,
   tileKey,
   upstairsGroundOf,
   type WorldConfig,
@@ -59,12 +61,14 @@ export interface ShownFindView {
 
 /** A pet from the wire, with unset fields left out rather than undefined. */
 function petFrom(view: PetView): Pet {
-  const { adoptedDay, renamedDay, treat, ...rest } = view;
+  const { adoptedDay, renamedDay, treat, walkedDay, metDay, ...rest } = view;
   return {
     ...rest,
     ...(adoptedDay === undefined ? {} : { adoptedDay }),
     ...(renamedDay === undefined ? {} : { renamedDay }),
     ...(treat ? { treat: { ...treat } } : {}),
+    ...(walkedDay === undefined ? {} : { walkedDay }),
+    ...(metDay === undefined ? {} : { metDay }),
   };
 }
 
@@ -382,6 +386,17 @@ export class Mirror {
   }
 
   /** Whether a tile is in the Commons, downtown's own square. */
+  /**
+   * The middle of each green, where pets go out (RFC 0045): one on every town square, read from
+   * each square's hall as the counters are, with the sim's `parkTile`.
+   */
+  greens(): Tile[] {
+    return bySquare(this.config, this.townHall).flatMap((hall) => {
+      const square = squareOf(this.config, hall);
+      return square ? [parkTile(this.config, square)] : [];
+    });
+  }
+
   inCommons(x: number, y: number): boolean {
     const size = this.config.plotSize;
     return Math.floor(x / size) === this.commons.px && Math.floor(y / size) === this.commons.py;
@@ -703,6 +718,16 @@ export class Mirror {
           r.pet = { ...r.pet, name: event.name, ...day };
         } else if (event.type === "pet_groomed") r.pet = { ...r.pet, coat: event.coat };
         else r.pet = { ...r.pet, treat: { day: this.day ?? 0, by: event.by, kind: event.kind } };
+        break;
+      }
+      // A pet went out on the green (RFC 0045); `counted` had their meeting of the day.
+      case "pet_walked": {
+        const r = this.residents.get(event.residentId);
+        if (r?.pet) r.pet = { ...r.pet, walkedDay: event.day };
+        for (const id of event.counted ?? []) {
+          const owner = this.residents.get(id);
+          if (owner?.pet) owner.pet = { ...owner.pet, metDay: event.day };
+        }
         break;
       }
       case "plot_pickups_owned":

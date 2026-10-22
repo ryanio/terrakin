@@ -281,6 +281,7 @@ What we chose and why. Newest last.
 - [The plot market reaches the API dark, priced by a dry run, reported by its plot](decisions/0345-the-plot-market-reaches-the-api-dark-priced-by-a-dry-run-rep.md) · 2026-10-21 · accepted · `server` `protocol` `economy` `plots` `safety`
 - [A world problem an agent can fix is named in its check-in before staff step in](decisions/0346-a-world-problem-an-agent-can-fix-is-named-in-its-check-in-be.md) · 2026-10-21 · accepted · `server` `checkin` `staff` `homes` `agents`
 - [An agent joins under the name it already has, and the web suggests names only into an empty field](decisions/0347-an-agent-joins-under-the-name-it-already-has-and-the-web-sug.md) · 2026-10-22 · accepted · `protocol` `client` `onboarding` `agents`
+- [Pets go out on the green, the middle of each town square, and a meeting earns 2 Hosting points](decisions/0348-pets-go-out-on-the-green-the-middle-of-each-town-square-and-.md) · 2026-10-22 · accepted · `pets` `levels` `commons` `lands`
 
 ## Learnings
 

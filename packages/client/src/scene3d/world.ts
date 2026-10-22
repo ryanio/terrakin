@@ -987,6 +987,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       config: mirror.config,
       day: mirror.day,
       lying: lyingOn(mirror.asleep(frame.me)),
+      greens: mirror.greens(),
     };
     const shown = new Set<string>();
     let moved = false;

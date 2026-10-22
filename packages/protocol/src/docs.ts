@@ -268,6 +268,11 @@ export function levelsBlock(): string {
       `${PROGRESS.guest}`,
     ],
     ["hosting", "being a counted guest at an event, once a UTC day", `${PROGRESS.attend}`],
+    [
+      "hosting",
+      "your pet's first meeting a UTC day on a green with a pet from another household, with `walk_pet`",
+      `${PROGRESS.petMeet}`,
+    ],
     ["playing", "a rated game finished, where you chose in at least one round", `${PROGRESS.game}`],
     ["playing", "finishing first in it, ties included", `${PROGRESS.win} more`],
   ];

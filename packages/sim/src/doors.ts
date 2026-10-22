@@ -7,6 +7,7 @@ import {
   counterDoor,
   hallDoor,
   outOfReach,
+  parkTile,
   plotOf,
   type Square,
   squares,
@@ -129,4 +130,9 @@ export function nearestHall(state: WorldState, me?: Tile): Tile {
 /** The shop counter `me` is sent to. Clem stands at downtown's; an island's has no keeper. */
 export function nearestCounter(state: WorldState, me?: Tile): Tile {
   return counterDoor(state.config, squareFor(state, me, counterDoor));
+}
+
+/** The green `me` is sent to with their pet (RFC 0045): the one on the land they stand on. */
+export function nearestPark(state: WorldState, me?: Tile): Tile {
+  return parkTile(state.config, squareFor(state, me, parkTile));
 }

@@ -1799,6 +1799,8 @@ export type Command =
   | { type: "groom_pet"; coat: PetCoat }
   /** One of the actor's produce to `owner`'s pet, which is happy until the day ends. */
   | { type: "treat_pet"; owner: ResidentId; item: Crop }
+  /** Take your pet out on the green in the middle of a town square, once a day (RFC 0045). */
+  | { type: "walk_pet" }
   // Party games (RFC 0011). The server fills in `salt` and `at` (its clock, in ms) before logging,
   // and `free` on a start once the first seat has let the start grace pass.
   | { type: "open_table"; game: GameKind; pace: GamePace; salt: string; at: number }
@@ -2516,6 +2518,18 @@ export type WorldEvent =
   | { type: "pet_groomed"; residentId: ResidentId; coat: PetCoat }
   /** `by` gave `residentId`'s pet a treat of `kind`: it's happy until the day ends. Public. */
   | { type: "pet_treated"; residentId: ResidentId; by: ResidentId; kind: Crop }
+  /**
+   * `residentId` took their pet out on a green on `day` (RFC 0045). Public. `met` lists the owners
+   * whose pets were out there, by id. `counted` lists the owners, the walker included, whose pet had
+   * its counted meeting of the day in this walk (its `metDay` became `day`): absent when none did.
+   */
+  | {
+      type: "pet_walked";
+      residentId: ResidentId;
+      day: number;
+      met: ResidentId[];
+      counted?: ResidentId[];
+    }
   // Party games (RFC 0011). All public, and none of them carries a sealed choice.
   /** A table opened at (x, y) in the Commons. Its opener takes the first seat (`seated` follows). */
   | {

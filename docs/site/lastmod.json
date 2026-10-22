@@ -4,59 +4,59 @@
     "lastmod": "2026-10-22"
   },
   "/world": {
-    "sha256": "b08b8c6a95d612505c1c063c077421baf2c68e6925cc66f3460e5a62d1295b98",
+    "sha256": "6c103f11cd98e4cae1cd4a25fbce534b3cacd185ed21688b7532adc8474fd282",
     "lastmod": "2026-10-22"
   },
   "/docs": {
-    "sha256": "07d7e9ecb14048d1c19870d8fcd57ab4a4969f6a3138a9b7341cc3ed917ced04",
+    "sha256": "0d17e72fe6c0cd2e67bb9418d1d8cba99831fb8b37f0acc6e3ee379c790519a9",
     "lastmod": "2026-10-22"
   },
   "/docs/api/world": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/social": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/links": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/together": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/town": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/owners": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/partners": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/moderation": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/docs": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/site": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/api/models": {
-    "sha256": "1c9b39f81e15ea0acc4deb9bdf0e6647e6a564a4f596f32939a41711ee9df62b",
-    "lastmod": "2026-10-21"
+    "sha256": "33d00eb39a71117952c9b30d2e5296f1ab1883a7e2e597943137c2cb3963f6ab",
+    "lastmod": "2026-10-22"
   },
   "/docs/skill": {
-    "sha256": "48d2f20f4b2e3e30c448fc21e102a24e936a1ca08003ebd4c8d01016b2fd1c5d",
+    "sha256": "e392c2c5f498e568eacf4408ebf49183dd6ef77b2dfcc93efb106036e537884c",
     "lastmod": "2026-10-22"
   },
   "/about": {
@@ -76,7 +76,7 @@
     "lastmod": "2026-10-07"
   },
   "/changelog": {
-    "sha256": "6404a70f601fabd2b4478c6468de0f2fe37825491336f9b7e5415f0c8495eb70",
+    "sha256": "cc08ebe94c58da15124a8f4d9b1a61bb2374a2ebc1867e7ec367c64e32f54f65",
     "lastmod": "2026-10-22"
   },
   "/devlog": {
@@ -92,7 +92,7 @@
     "lastmod": "2026-10-20"
   },
   "/skill.md": {
-    "sha256": "48d2f20f4b2e3e30c448fc21e102a24e936a1ca08003ebd4c8d01016b2fd1c5d",
+    "sha256": "e392c2c5f498e568eacf4408ebf49183dd6ef77b2dfcc93efb106036e537884c",
     "lastmod": "2026-10-22"
   },
   "/llms.txt": {

@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-22
-- Status: accepted
+- Status: accepted, built; downtown ways laid at terrakin.org 2026-10-22 (380 tiles), landlocked plots 18 to 0
 - Discussion: [issue #100](https://github.com/ryanio/terrakin/issues/100)
 - Builds on: [decision 0351](../knowledge/decisions/0351-a-plot-s-way-out-is-a-step-from-its-hearth-s-walk-onto-groun.md) (what a way out is), [decision 0354](../knowledge/decisions/0354-a-settle-or-claim-says-when-it-takes-a-neighbor-s-last-way-o.md) (claims warn, pickers prefer plots that close nobody in), [RFC 0038](0038-new-lands.md) (new lands), [decision 0341](../knowledge/decisions/0341-new-lands-are-armed-at-terrakin-org-the-worker-watches-the-c.md) (lands are armed), [decision 0352](../knowledge/decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) and [decision 0353](../knowledge/decisions/0353-an-island-s-hall-building-stays-standing-and-takes-no-filing.md) (shop on the island, filing downtown), [decision 0343](../knowledge/decisions/0343-staff-can-clear-a-block-off-a-plot-to-open-a-way-out-of-a-home.md) (staff clear a block), [RFC 0039](0039-plot-market.md) (the plot market), [RFC 0042](0042-actions-that-need-you-there.md) (the shop needs you there)
 
@@ -265,15 +265,14 @@ Nothing old replays differently at any step, and old clients keep working, thoug
 
 ## Decisions that would follow
 
-None are recorded yet; each would be a record once Ryan answers.
-
-- New lands are laid out with streets, logged in `open_land`, and the first island is the long cross.
-- A land's planner refuses a plan where, fully claimed, any plot has no way out onto a street joined to the bridge and the counter.
-- A public way is edge tiles of a plot that hold no block, opened by staff and counted as open ground (amending decision 0351).
-- Which downtown land carries the first ways, and whether the townsfolk give whole slots or ways through their yards.
-- What the treasury pays for a way on a resident's plot.
+- [Decision 0356](../knowledge/decisions/0356-new-lands-are-laid-out-with-streets-logged-in-open-land-and-.md): new lands are laid out with streets, logged in `open_land`, and the first island is the long cross.
+- [Decision 0357](../knowledge/decisions/0357-a-land-plan-is-refused-when-fully-claimed-a-plot-has-no-way-.md): a land plan is refused when, fully claimed, a plot has no exit onto a street joined to the bridge and the counter.
+- [Decision 0358](../knowledge/decisions/0358-a-public-way-is-tiles-of-a-plot-that-hold-no-block-laid-by-t.md): a public way is tiles of a plot that hold no block, laid by the town and counted as open ground, amending decision 0351.
+- [Decision 0359](../knowledge/decisions/0359-downtown-ways-are-laid-by-town-rule-across-residents-and-tow.md): downtown ways are laid by town rule across residents' and townsfolk land, and the town clears and rebuilds what they cross, paying in work rather than coins.
 
 ## Open questions
+
+All five are answered in the Decisions section above.
 
 1. Is the long cross the island layout you want (24 plots, 14 street slots, a plus-shaped island), or the rectangle with one main street (24 plots, 11 street slots, longer walks)?
 2. If streets aren't built when free plots reach 9 (early November at today's pace), should the town open today's 5 by 5 anyway, open the canal fallback, or hold the island and risk turning a newcomer away?

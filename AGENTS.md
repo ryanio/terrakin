@@ -64,7 +64,7 @@ pnpm kb           # rebuild the knowledge index
 pnpm cf:deploy    # deploy both Workers to terrakin.org by hand; main also deploys itself once CI passes (docs/deploy.md)
 ```
 
-Staff work Ryan asks for in a chat (a re-key code, the review queue, a merge) goes over the staff API with his vault key, never the staff app: [docs/staff-agents.md](docs/staff-agents.md#calling-the-staff-routes).
+Staff work Ryan asks for in a chat (a re-key code, the review queue, a merge, clearing a block, laying ways) goes over the staff API with his vault key, never the staff app: [docs/staff-agents.md](docs/staff-agents.md#calling-the-staff-routes).
 
 ## Definition of done
 

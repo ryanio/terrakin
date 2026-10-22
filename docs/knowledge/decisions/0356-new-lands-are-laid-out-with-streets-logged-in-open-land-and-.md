@@ -28,6 +28,6 @@ Whole slots rather than lanes because a plot is its slot everywhere in the sim a
 
 ## Consequences
 
-The island spends 14 slots of land on streets, so plots are 24 of the 39 slots it uses, and it is a plus shape with sea in its corners. The web draws a street as ground with no look of its own yet, the same as a free slot.
+The island spends 14 slots of land on streets, so plots are 24 of the 39 slots it uses, and it is a plus shape with sea in its corners. The web draws a street as cobbles, for drawing only ([decision 0358](0358-a-public-way-is-tiles-of-a-plot-that-hold-no-block-laid-by-t.md)).
 
 `src/fixtures/streets-log.ts` opens a small long cross, claims every plot, and walks from a plot to the counter and on to the bridge without stepping on anyone else's plot; `streets.test.ts` pins its hash and every refusal.

@@ -327,7 +327,8 @@ export function readChunk(
     py,
     bounds,
     owner,
-    blocks,
+    // A pot set down (RFC 0047) is drawn as itself, among the displays, not as a block.
+    blocks: blocks.filter((b) => b.block !== "pot"),
     ground,
     highest: up.highest,
     ...(roof ? { roof } : {}),

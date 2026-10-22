@@ -286,7 +286,7 @@ export function displayedThings(
           // pot set down (RFC 0047) stands on its own tile and floor, a little bigger.
           const ground = d.on === "ground";
           const size = ground ? 0.78 : 0.62;
-          const base = ground ? floorY(d.floor) + blockLook("pot").height : pedestalTop;
+          const base = ground ? floorY(d.floor) : pedestalTop;
           shown = new Sprite(new SpriteMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }));
           shown.scale.set(size, size, 1);
           shown.position.copy(at(d)).setY(base + size / 2 - 0.04);

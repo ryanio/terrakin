@@ -754,7 +754,8 @@ export function plotLayout(
     size: plotSize,
     center: { x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 },
     margin,
-    blocks,
+    // A pot set down (RFC 0047) is drawn as itself, among the displays, not as a block.
+    blocks: blocks.filter((b) => b.block !== "pot"),
     ground,
     top,
     ...(roof ? { roof } : {}),

@@ -295,6 +295,7 @@ What we chose and why. Newest last.
 - [Downtown ways are laid by town rule across residents and townsfolk land, and the town clears and rebuilds what they cross](decisions/0359-downtown-ways-are-laid-by-town-rule-across-residents-and-tow.md) · 2026-10-22 · accepted · `server` `admin` `walking` `homes` `townsfolk`
 - [Terrakin publishes itself as an Agent Places place, signed by the Worker](decisions/0360-terrakin-publishes-itself-as-an-agent-places-place-signed-by.md) · 2026-10-22 · accepted · `server` `partners` `integration`
 - [Staff screens open with the main app page head and name their cards from inside](decisions/0361-staff-screens-open-with-the-main-app-page-head-and-name-thei.md) · 2026-10-22 · accepted · `admin` `ui` `design-system`
+- [The kiln is built behind open_clay, which no adapter sets until the playtest is read](decisions/0362-the-kiln-is-built-behind-open-clay-which-no-adapter-sets-unt.md) · 2026-10-22 · accepted · `sim` `server` `protocol` `client` `economy`
 
 ## Learnings
 

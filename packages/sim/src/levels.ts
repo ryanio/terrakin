@@ -65,6 +65,11 @@ export const PROGRESS = {
   guest: 2,
   /** Hosting: being a counted guest at an event, once a UTC day. */
   attend: 8,
+  /**
+   * Hosting: your pet's first meeting of the day on a green with a pet from another household
+   * (RFC 0045). Both owners earn it.
+   */
+  petMeet: 2,
   /** Playing: a rated game finished. */
   game: 6,
   /** Playing: finishing first in it, ties included, on top of `game`. */
@@ -503,6 +508,13 @@ export function eventCounts(
       .map((id) => ({ id, deeds: [{ skill: "hosting", points: PROGRESS.attend }] })),
   };
 }
+
+/**
+ * Hosting: a pet's counted meeting on a green (RFC 0045). The walk decides which meetings count
+ * (other households, no townsfolk, once a pet a day); this says what one is worth to its owner.
+ */
+export const petMeetEarns = (state: WorldState, id: ResidentId) =>
+  underCap(state, id, counts(state, id) ? [{ skill: "hosting", points: PROGRESS.petMeet }] : null);
 
 /**
  * A finished job (RFC 0030): `points` in `skill`, outside the daily cap the way a first is, and

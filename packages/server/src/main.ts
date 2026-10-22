@@ -104,6 +104,7 @@ const service = new WorldService({
   finds: true,
   solidBuildings: true,
   tableSpots: true,
+  starterDoors: true,
   shop: true,
   shopInPerson: true,
   proposeInPerson: true,

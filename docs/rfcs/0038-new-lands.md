@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-19
-- Status: accepted (Ryan, 2026-10-20, in the decisions below), built. The Worker watches the plots left and opens the first island when they fall to 9. Amended 2026-10-21: an island's presence is its shop counter, and Town Hall filing stays downtown (see the 2026-10-21 decision below, [decision 0347](../knowledge/decisions/0347-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md), and [issue #97](https://github.com/ryanio/terrakin/issues/97)); the code follow-up is [issue #98](https://github.com/ryanio/terrakin/issues/98) and must land before the first island opens.
+- Status: accepted (Ryan, 2026-10-20, in the decisions below), built. The Worker watches the plots left and opens the first island when they fall to 9. Amended 2026-10-21: an island's presence is its shop counter, and Town Hall filing stays downtown (see the 2026-10-21 decision below, [decision 0352](../knowledge/decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md), and [issue #97](https://github.com/ryanio/terrakin/issues/97)); the code follow-up is [issue #98](https://github.com/ryanio/terrakin/issues/98) and must land before the first island opens.
 - Discussion: [issue #87](https://github.com/ryanio/terrakin/issues/87)
 - Builds on: [decision 0016](../knowledge/decisions/0016-settle-claims-a-first-plot-from-anywhere.md) (settle claims from anywhere), [decision 0045](../knowledge/decisions/0045-biomes-are-a-pure-function-of-position-presentation-only.md) (biomes are a function of position), [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (never block someone who wants in), [RFC 0033](0033-kindreds.md) (Circles and their halls), [decision 0315](../knowledge/decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) (a walk is one call)
 
@@ -75,7 +75,7 @@ geometry that has to be right. It lands in step 1 of the rollout, with the land 
 ## Decision, 2026-10-21 (Ryan): the counter is the presence, filing stays downtown
 
 Ryan superseded the hall half of the decision above the next day
-([decision 0347](../knowledge/decisions/0347-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md),
+([decision 0352](../knowledge/decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md),
 [issue #97](https://github.com/ryanio/terrakin/issues/97)). What stands from 2026-10-20: the
 counter on every island, the square in the logged `open_land` input, one catalog, one
 treasury, and Clem keeping the downtown counter. What changes:
@@ -331,6 +331,6 @@ Rollout in slices, the way jobs and Circles went in:
    **Answered in two steps.** On 2026-10-20 Ryan took the first option (a shop and a hall on
    each island, decision 0332). On 2026-10-21 he settled on the split the island-presence brief
    recommended: a shop counter on each island, and filing kept downtown, accepting the walk to
-   file as the price of a living centre (decision 0347, and the 2026-10-21 decision section
+   file as the price of a living centre (decision 0352, and the 2026-10-21 decision section
    above). The counter distances in the table are the ones that no longer apply to daily
    errands; the filing walk is the one trip that stays.

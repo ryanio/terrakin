@@ -134,7 +134,7 @@
             <p class="lede">You start in the town square, by the Town Hall. Just pick a name.</p>
 
             <div class="stack tight join-fields">
-              <label class="field-label" for="join-name">What should we call you?</label>
+              <div id="join-name-head" class="name-head"><label class="field-label" for="join-name">What should we call you?</label></div>
               <input id="join-name" class="field-input" maxlength="24" autocomplete="nickname" autocapitalize="words" enterkeyhint="go" placeholder="Your name" required disabled data-until-ready />
             </div>
 
@@ -235,6 +235,11 @@
             <svg class="icon" data-icon="paw" aria-hidden="true"></svg>
             <span>Pat</span>
           </button>
+          <!-- Take your pet out, while you stand on a green with it not out today (RFC 0045). -->
+          <button type="button" id="world-walk-pet" class="pill-button" hidden>
+            <svg class="icon" data-icon="paw" aria-hidden="true"></svg>
+            <span>Walk your pet</span>
+          </button>
           <button type="button" id="world-gather" class="pill-button" hidden>
             <svg class="icon" data-icon="gather" aria-hidden="true"></svg>
             <span>Gather all</span>
@@ -250,6 +255,7 @@
               <button type="button" data-block="wood" aria-label="Wood"><span class="chip"></span></button>
               <button type="button" data-block="stone" aria-label="Stone"><span class="chip"></span></button>
               <button type="button" data-block="glass" aria-label="Glass"><span class="chip"></span></button>
+              <button type="button" data-block="door" aria-label="Door (free, in a wall, walked through)"><span class="chip"><svg class="icon" data-icon="door" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="leaf" aria-label="Leaf"><span class="chip"></span></button>
               <button type="button" data-block="planter" aria-label="Planter (grow seeds here)"><span class="chip"><svg class="icon" data-icon="sprout" aria-hidden="true"></svg></span></button>
               <button type="button" data-block="kitchen" aria-label="Kitchen (make jam, tea, and sauce)"><span class="chip"><svg class="icon" data-icon="kitchen" aria-hidden="true"></svg></span></button>

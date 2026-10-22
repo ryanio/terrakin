@@ -10,7 +10,7 @@ import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
-import { characterPicker, type JoinLook, randomCharacter } from "./join-form";
+import { characterPicker, type JoinLook, randomCharacter, suggestName } from "./join-form";
 import { passkeysWork } from "./passkey";
 
 export interface Landing {
@@ -23,6 +23,8 @@ export interface Landing {
   setJoining(on: boolean): void;
   /** The refusal to show, with any free names to offer as buttons (`name_taken`). */
   setError(text: string, free?: readonly string[]): void;
+  /** The name last sent came back `name_taken`: "Suggest a name" never offers it again. */
+  nameTaken(): void;
   focusName(): void;
   focusNote(): void;
   /** Open "Restore with a key", for a saved key the server no longer knows. */
@@ -77,6 +79,9 @@ export function createLanding(
   const look = byId<HTMLDetailsElement>(root, "join-look");
   const character = characterPicker("join", randomCharacter());
   byId(root, "join-character").replaceWith(character.el);
+  const suggest = suggestName(name);
+  byId(root, "join-name-head").append(suggest.el);
+  let sent = "";
 
   // On a phone the error line scrolls into view, since the sticky Step inside button can sit over
   // it. The field it's about (the one that gets focus) is marked invalid until the error clears.
@@ -97,7 +102,8 @@ export function createLanding(
             on: {
               click: () => {
                 name.value = free;
-                showError("");
+                // As if typed: the refusal clears, and "Suggest a name" sees a name it didn't put there.
+                name.dispatchEvent(new Event("input"));
                 name.focus();
               },
             },
@@ -181,6 +187,7 @@ export function createLanding(
       return;
     }
     showError("");
+    sent = value;
     const words = note.value.trim();
     onJoin({ name: value, ...character.value(), ...(words ? { note: words } : {}) });
   });
@@ -216,6 +223,7 @@ export function createLanding(
       submitLabel.textContent = on ? "Stepping inside…" : "Step inside";
     },
     setError: showError,
+    nameTaken: () => suggest.taken(sent),
     focusName: () => markInvalid(name),
     focusNote: () => markInvalid(note),
     openRestore() {

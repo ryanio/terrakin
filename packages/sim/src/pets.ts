@@ -6,10 +6,16 @@
  * what it's doing (following its owner, napping, asleep by the hearth) is drawn by each client
  * from what it already has, like facing and motion (decision 0067), and patting is a social row on
  * the server, like praise (decision 0047). Nothing about a pet earns coins or karma.
+ *
+ * Once a day a pet can go out on the green in the middle of a town square (RFC 0045), where it
+ * meets the other pets out there. The first meeting of its day with a pet from another household
+ * earns both owners a few Hosting points.
  */
 
 import { coinCount, refuse } from "./check";
-import { isTownsfolk, movePurse } from "./economy";
+import { nearestPark, notAtDoor } from "./doors";
+import { isTownsfolk, movePurse, sameHousehold } from "./economy";
+import { standingFloor } from "./floors";
 import {
   addStack,
   CROPS,
@@ -21,6 +27,7 @@ import {
   inventoryEvent,
   isCrop,
 } from "./items";
+import { earned, petMeetEarns } from "./levels";
 import { residentById } from "./own";
 import type {
   Command,
@@ -31,6 +38,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
+import { chebyshev } from "./world";
 
 /** The kinds of pet. New kinds go on the end. */
 export const PET_KINDS = [
@@ -83,6 +91,10 @@ export interface Pet {
   renamedDay?: number;
   /** Its last treat: the day, who gave it, and what. Happy until that day ends. */
   treat?: PetTreat;
+  /** The day it last went out on a green (RFC 0045). Happy until that day ends. */
+  walkedDay?: number;
+  /** The day of its last counted meeting on a green, which earns once a day. */
+  metDay?: number;
 }
 
 export interface PetTreat {
@@ -106,6 +118,10 @@ export function petView(pet: Pet): Pet {
 /** Whether a pet had a treat today, so it's happy until the day ends. */
 export const treatedToday = (pet: Pick<Pet, "treat">, day: number | undefined) =>
   day !== undefined && pet.treat?.day === day;
+
+/** Whether a pet went out on a green today (RFC 0045), so it's happy until the day ends. */
+export const walkedToday = (pet: Pick<Pet, "walkedDay">, day: number | undefined) =>
+  day !== undefined && pet.walkedDay === day;
 
 type Mutation = () => WorldEvent[];
 export type PetsChecked = Mutation | Rejection;
@@ -270,6 +286,102 @@ export function checkTreatPet(
     return [
       { type: "pet_treated", residentId: owner.id, by: actor, kind: item },
       inventoryEvent(actor, "treat", [change], owner.id === actor ? {} : { with: owner.id }),
+    ];
+  };
+}
+
+/**
+ * Why `me` isn't on a green, or null when they are: on the ground floor within `config.reach` of
+ * the middle of the green `nearestPark` sends them to (RFC 0045). The refusal names the walk.
+ * Clients call it to show the Walk button only where `walk_pet` would go.
+ */
+export function notAtTheGreen(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+): Rejection | null {
+  return notAtDoor(state, me, nearestPark(state, me), {
+    lead: "Pets go out on the green, the middle of a town square.",
+    doing: "take your pet out",
+    there: "the green",
+  });
+}
+
+/**
+ * Whether `me` stands on one of `greens`, given as their middles (`parkTile`): on the ground floor
+ * within `config.reach` of one. The same answer `notAtTheGreen` gives, for a reader with the
+ * squares and not the world: the web shows its Walk button and draws a pet out on the green by it.
+ */
+export function onGreen(
+  config: Pick<WorldState["config"], "reach">,
+  greens: readonly { x: number; y: number }[],
+  me: Pick<Resident, "x" | "y" | "floor">,
+): boolean {
+  return standingFloor(me) === 0 && greens.some((g) => chebyshev(me, g) <= config.reach);
+}
+
+/**
+ * Whether two owners' pets meeting counts toward a pet's meeting of the day: two households, and
+ * neither of them townsfolk, whose pets the server walks and whose meetings would be points
+ * handed out by the town.
+ */
+const meetingCounts = (state: WorldState, a: ResidentId, b: ResidentId) =>
+  !isTownsfolk(state, a) && !isTownsfolk(state, b) && !sameHousehold(state, a, b);
+
+/**
+ * `walk_pet {}`: take your pet out on the green you stand on, once a day (RFC 0045). It meets every
+ * pet out today whose owner is online on the same green's ground floor. The first counted meeting
+ * of each pet's day (`meetingCounts`) sets its `metDay` and earns its owner `PROGRESS.petMeet`
+ * Hosting points, the walker's and the met owners' alike, so the first pet out isn't left with
+ * nothing. Where anyone's pet stands is still drawing only.
+ */
+export function checkWalkPet(state: WorldState, actor: ResidentId): PetsChecked {
+  const me = actorOf(state, actor);
+  const pet = me.pet;
+  if (!pet) return refuse("no_pet", "You don't have a pet yet. Adopt one with adopt_pet.");
+  const day = state.day;
+  if (day === undefined) return refuse("not_due", "Pets go out once the world counts days.");
+  if (walkedToday(pet, day)) {
+    return refuse(
+      "pet_limit",
+      "Your pet has been out today. Take it out again after midnight UTC.",
+    );
+  }
+  const away = notAtTheGreen(state, me);
+  if (away) return away;
+  const green = nearestPark(state, me);
+  const reach = state.config.reach;
+  const met = Object.values(state.residents)
+    .filter(
+      (r) =>
+        r.id !== actor &&
+        r.online &&
+        standingFloor(r) === 0 &&
+        r.pet !== undefined &&
+        walkedToday(r.pet, day) &&
+        chebyshev(r, green) <= reach,
+    )
+    .map((r) => r.id)
+    .sort();
+  const fresh = (id: ResidentId) => residentById(state, id)?.pet?.metDay !== day;
+  const theirs = met.filter((id) => meetingCounts(state, actor, id) && fresh(id));
+  const mine = fresh(actor) && met.some((id) => meetingCounts(state, actor, id));
+  const counted = [...(mine ? [actor] : []), ...theirs];
+  const points = counted.map((id) => petMeetEarns(state, id));
+  return () => {
+    me.pet = { ...pet, walkedDay: day, ...(mine ? { metDay: day } : {}) };
+    for (const id of theirs) {
+      const owner = residentById(state, id) as Resident;
+      owner.pet = { ...(owner.pet as Pet), metDay: day };
+    }
+    return [
+      {
+        type: "pet_walked",
+        residentId: actor,
+        day,
+        met,
+        ...(counted.length > 0 ? { counted } : {}),
+      },
+      ...points.flatMap(earned),
     ];
   };
 }

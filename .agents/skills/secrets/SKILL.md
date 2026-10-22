@@ -36,4 +36,6 @@ node .agents/skills/secrets/1p.mjs run --only OPENSEA_API_KEY -- \
 |--------|---------|------|
 | `OPENSEA_API_KEY` | Holdings checks for partner perks (RFC 0007) | `opensea` in the Terrakin vault |
 
+`TERRAKIN_STAFF_KEY` is Ryan's staff key, for staff work he asks for in a chat (re-key codes, the review queue, merges). It goes only to `https://terrakin.org/v1/...` and never onto the Worker. How to call it: [docs/staff-agents.md](../../../docs/staff-agents.md#calling-the-staff-routes).
+
 Writes (new items, rotations) use `op` itself, which a person approves in the 1Password app. Rotating a secret is a question for Ryan, not a step to take on your own.

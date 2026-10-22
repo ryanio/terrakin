@@ -1318,6 +1318,40 @@ const WRITTEN = {
     recipe: { station: "workbench", needs: { sea_glass: 2 }, makes: 4 },
     look: { template: "drawn" },
   }),
+  // Cozy homes (RFC 0044): a cushion from the shop, and three pieces you rest on. The town never
+  // buys a cushion back, so it is a sink with no faucet.
+  cushion: entry({
+    name: "Cushion",
+    plural: "Cushions",
+    family: "material",
+    role: "staple",
+    shop: { price: 5 },
+    look: { template: "drawn" },
+  }),
+  armchair: entry({
+    name: "Armchair",
+    plural: "Armchairs",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2, cushion: 1 } },
+    look: { template: "drawn" },
+  }),
+  sofa: entry({
+    name: "Sofa",
+    plural: "Sofas",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 3, cushion: 2 } },
+    look: { template: "drawn" },
+  }),
+  bed: entry({
+    name: "Bed",
+    plural: "Beds",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 4, cushion: 2 } },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------

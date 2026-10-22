@@ -15,7 +15,7 @@ import { forgetMe, myProfile, whoseKey } from "./api/me";
 import { ownersApi } from "./api/owners";
 import type { Result } from "./api/request";
 import { worldApi } from "./api/world";
-import { joinForm, joinProblem } from "./join-form";
+import { joinForm } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { failed, pageData } from "./page-data";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
@@ -262,7 +262,7 @@ export function claimView(code: string, ctx: ViewContext): View {
           ...(choice.note ? { note: choice.note } : {}),
         });
         if (loader.gone()) return null;
-        if (!made.ok) return joinProblem(made.code, made.message);
+        if (!made.ok) return made;
         saveToken(made.data.token, made.data.residentId);
         then({ id: made.data.residentId, name: choice.name });
         return null;

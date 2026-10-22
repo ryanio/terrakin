@@ -112,7 +112,8 @@
 }
 
 .pet-card-line,
-.pet-card-pats {
+.pet-card-pats,
+.pet-card-green {
   margin: 0;
   color: var(--ink-soft);
   font-size: var(--text-md);

@@ -6,7 +6,15 @@
  * owner's words: text only.
  */
 import type { ProfileView } from "@terrakin/protocol";
-import { PET_COATS, PET_KINDS, PETS, type Pet, type PetCoat, type PetKind } from "@terrakin/sim";
+import {
+  PET_COATS,
+  PET_KINDS,
+  PETS,
+  type Pet,
+  type PetCoat,
+  type PetKind,
+  utcDay,
+} from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
@@ -26,7 +34,7 @@ import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { residentsApi } from "./api/residents";
 import { actProblem, worldApi } from "./api/world";
-import { coatWord, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
+import { coatWord, greenLine, PET_WORDS, petCalled, petLine, TREATS } from "./pets";
 import { aThing } from "./things";
 import "./pet-sheet.css";
 
@@ -445,6 +453,10 @@ export function petCard(o: PetCardOptions): HTMLElement | undefined {
         h("h2", { class: "pet-card-name", attrs: { id: "pet-card-title" }, text: called }),
         h("p", { class: "pet-card-line", text: whosePet(pet, o.mine ? undefined : o.owner.name) }),
         count,
+        // Where to take it out (RFC 0045). The world's day is the UTC day.
+        o.mine
+          ? h("p", { class: "pet-card-green", text: greenLine(pet, utcDay(Date.now())) })
+          : null,
       ),
     ),
     actions.childElementCount ? actions : null,

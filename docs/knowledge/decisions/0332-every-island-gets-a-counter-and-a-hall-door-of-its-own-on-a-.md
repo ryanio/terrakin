@@ -8,7 +8,7 @@ tags: [world, sim, lands, town-hall, agents]
 # Every island gets a counter and a hall door of its own, on a square in its logged input
 
 Amendment, 2026-10-21: the hall half of this decision was superseded by
-[decision 0347](0347-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md). An
+[decision 0352](0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md). An
 island's presence is its shop counter, and Town Hall filing stays downtown. The counter, the
 square in the logged input, and the rest of this record stand as built; the code follow-up
 that withdraws island-hall filing is

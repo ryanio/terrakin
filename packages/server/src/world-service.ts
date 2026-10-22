@@ -35,6 +35,7 @@ import {
   DAY_MS,
   type DailyAward,
   DEFAULT_CONFIG,
+  type DesignNote,
   type Direction,
   dateOfDay,
   designNotes,
@@ -92,6 +93,7 @@ import {
   withinEarshot,
 } from "@terrakin/sim";
 import { randomId } from "./bytes";
+import { doorNote, withNote } from "./door-notes";
 import { SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";
 import { landDue, planLand } from "./lands";
@@ -156,6 +158,8 @@ export type ActResult =
       plotSale?: PlotSaleView;
       /** `move` with `steps`: tiles walked, when something stopped the walk short. */
       moved?: number;
+      /** `build_starter_home`: notes about the home it built, or would build (decision 0351). */
+      notes?: DesignNote[];
       dry?: true;
     }
   | {
@@ -233,6 +237,12 @@ export interface WorldServiceOptions {
    * they were made. Both adapters turn this on. Off by default, like `items`.
    */
   tableSpots?: boolean;
+  /**
+   * Starter homes hang a door in their doorway (decision 0349): once the world counts days, append
+   * `starter_doors` if it never has, so starter homes built before it replay with the open doorway
+   * they were built with. Both adapters turn this on. Off by default, like `items`.
+   */
+  starterDoors?: boolean;
   /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
@@ -322,9 +332,9 @@ export interface WorldServiceOptions {
    * The edition of the recipe page list this server's world reads (RFC 0024, decision 0310). Once
    * recipes are learned on an older edition, `set_page_edition` is logged right after a `new_day`,
    * like the jobs board's, since it changes which tiles hold a page from then on. It only moves
-   * forward. The Worker passes 2, so terrakin.org switches once; the Node server leaves it out,
-   * so a self-hosted world, `pnpm dev`, and the e2e servers keep the pages `open_recipes` starts
-   * with unless set.
+   * forward. The Worker passes 3 (decision 0350), so terrakin.org moves to it once; the Node
+   * server leaves it out, so a self-hosted world, `pnpm dev`, and the e2e servers keep the pages
+   * `open_recipes` starts with unless set.
    */
   pageEdition?: number;
   /**
@@ -433,6 +443,7 @@ interface TownSwitch {
     | "shop"
     | "solidBuildings"
     | "tableSpots"
+    | "starterDoors"
     | "market"
     | "bounties"
     | "recipes"
@@ -530,6 +541,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     due: (s) => !s.tableSpotsKept,
     command: { type: "keep_table_spots" },
     label: "keep the table spots clear",
+  },
+  {
+    option: "starterDoors",
+    due: (s) => !s.starterDoors,
+    command: { type: "starter_doors" },
+    label: "hang doors in starter homes",
   },
   {
     option: "market",
@@ -656,6 +673,7 @@ export class WorldService {
   private readonly finds: boolean;
   private readonly solidBuildings: boolean;
   private readonly tableSpots: boolean;
+  private readonly starterDoors: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -759,6 +777,7 @@ export class WorldService {
     this.finds = options.finds ?? false;
     this.solidBuildings = options.solidBuildings ?? false;
     this.tableSpots = options.tableSpots ?? false;
+    this.starterDoors = options.starterDoors ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -1977,7 +1996,15 @@ export class WorldService {
       if ("problem" in expanded) {
         return { ok: false, error: { code: "invalid_plan", message: expanded.problem } };
       }
-      return this.build(residentId, expanded.command, dry);
+      const result = this.build(residentId, expanded.command, dry);
+      if (!result.ok || !result.plan || action.design === undefined) return result;
+      // Whether the design's door reaches an open edge, or which turn would (decision 0351).
+      const door = doorNote(this.state, action.px, action.py, {
+        design: action.design,
+        turn: action.turn,
+      });
+      if (!door) return result;
+      return { ...result, plan: { ...result.plan, notes: withNote(result.plan.notes, door) } };
     }
     return performAction(this.actions, residentId, action, dry);
   }

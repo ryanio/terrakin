@@ -82,7 +82,7 @@ describe("notes in the build bar (RFC 0032)", () => {
     // In a person's words: no tile numbers, which the map never labels; the API keeps the sim's.
     const words = notes.map(noteWords);
     expect(words[0]).toBe(
-      "Nobody can walk to the hearth here: the walls around it have no gap. Take one away for a doorway.",
+      "Nobody can walk to the hearth here: the walls around it have no door or gap. Swap one for a door.",
     );
     expect(words[1]).toBe(
       "This plot has no path or flooring yet. Dirt, sand, moss, and fallen leaves are free on the Paths tab.",

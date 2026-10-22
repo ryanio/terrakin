@@ -31,6 +31,7 @@ import {
   type Routine,
   residentById,
   skyAt,
+  starterHomePlot,
   starterOf,
   timeOfDayAt,
   unclaimedMessage,
@@ -40,6 +41,7 @@ import {
 } from "@terrakin/sim";
 import { randomBytes, toHex } from "./bytes";
 import { seesCircle } from "./circles";
+import { doorNote } from "./door-notes";
 import { startFree } from "./games";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
 import { cleanMultiline, cleanText, nameKey } from "./text";
@@ -213,7 +215,11 @@ export function performAction(
       ...(walls ? { walls } : {}),
       ...(windows ? { windows } : {}),
     };
-    return ctx.run({ actor: residentId, command }, dry);
+    const result = ctx.run({ actor: residentId, command }, dry);
+    // Whether the hut's door reaches an open edge, or which turn of the hut design would.
+    const plot = result.ok ? starterHomePlot(ctx.state, residentId) : undefined;
+    const door = plot && doorNote(ctx.state, plot.px, plot.py, "starter_home");
+    return door && result.ok ? { ...result, notes: [door] } : result;
   }
   if (action.type === "propose" && action.kind === "grant" && action.to) {
     // Like a gift, a grant can't name someone across a block either way.

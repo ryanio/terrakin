@@ -98,6 +98,10 @@ export const PLOT_FURNITURE = [
   "campfire",
   "flower_box",
   "jack_o_lantern",
+  // Cozy homes (RFC 0044): the pieces you rest on.
+  "armchair",
+  "sofa",
+  "bed",
 ] as const;
 export type PlotFurniture = (typeof PLOT_FURNITURE)[number];
 
@@ -1496,11 +1500,13 @@ const STONE_LO = "#8f887c";
 const STONE_HI = "#c4beb2";
 const FLOWERS = ["#e58fb6", "#f2b84b", "#fff4d6", "#a98bd8"];
 const BOOKS = ["#b4532f", "#7cb9dd", "#f2b84b", "#5e7f45", "#a98bd8"];
+/** Cream piping on a cushion, and a bed's sheet. */
+const LINEN = "#f1e8d6";
 
 /**
  * One piece of furniture on tile (x, y), following its picture in the world: a table, a chair, a
  * bookshelf, a barrel, a signpost, a lamp post, a well, a low stone wall that joins the walls
- * beside it, a campfire, or a flower box. Only numbers and checked colors go in, and no ellipses.
+ * beside it, a campfire, a flower box, or a piece you rest on: an armchair, a sofa, or a bed. Only numbers and checked colors go in, and no ellipses.
  */
 function furnitureSvg(
   kind: PlotFurniture,
@@ -1632,6 +1638,34 @@ function furnitureSvg(
         ),
         rect(0.1, 0.5, 0.8, 0.36, fill, 0.05),
         rect(0.14, 0.46, 0.72, 0.07, "#6a4a33", 0.02, false),
+      ];
+    case "armchair":
+      return [
+        shade,
+        rect(0.2, 0.2, 0.6, 0.34, fill, 0.08),
+        rect(0.14, 0.42, 0.16, 0.42, fill, 0.06),
+        rect(0.7, 0.42, 0.16, 0.42, fill, 0.06),
+        rect(0.28, 0.5, 0.44, 0.3, fill, 0.05),
+        rect(0.3, 0.52, 0.4, 0.06, LINEN, 0.03, false),
+      ];
+    case "sofa":
+      return [
+        shade,
+        rect(0.06, 0.24, 0.88, 0.3, fill, 0.08),
+        rect(0.04, 0.44, 0.12, 0.42, fill, 0.05),
+        rect(0.84, 0.44, 0.12, 0.42, fill, 0.05),
+        rect(0.16, 0.5, 0.34, 0.3, fill, 0.04),
+        rect(0.5, 0.5, 0.34, 0.3, fill, 0.04),
+        rect(0.18, 0.52, 0.64, 0.05, LINEN, 0.02, false),
+      ];
+    case "bed":
+      return [
+        shade,
+        rect(0.12, 0.06, 0.76, 0.86, WOOD_DARK, 0.05),
+        rect(0.16, 0.14, 0.68, 0.72, LINEN, 0.04, false),
+        rect(0.26, 0.17, 0.48, 0.14, "#fffaf0", 0.05),
+        rect(0.16, 0.38, 0.68, 0.48, fill, 0.04),
+        `<path d="M${X(0.16)} ${Y(0.44)}H${X(0.84)}" stroke="${LINEN}" stroke-width="0.03" fill="none"/>`,
       ];
   }
 }

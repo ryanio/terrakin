@@ -2,6 +2,7 @@ import {
   type BlockKind,
   blockFill,
   type Crop,
+  DOOR_LOOK,
   mixHex,
   THEME_INFO,
   type Theme,
@@ -113,6 +114,66 @@ export function paintBlock(
     ctx.lineTo(left + size * 0.62, top + size * 0.36);
     ctx.stroke();
   }
+}
+
+/**
+ * A door (decision 0349), in the sim's `DOOR_LOOK`: a raised frame the height of a wall with a
+ * painted door set in its middle, its top rounded and a knob on one side, so the way into a home
+ * reads at a glance among its walls. Someone standing in the doorway is drawn over it.
+ */
+export function paintDoor(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+) {
+  const radius = Math.max(2, scale * 0.14);
+  const lip = Math.max(2, Math.round(scale * 0.16));
+  ctx.save();
+  ctx.fillStyle = "rgba(74, 52, 28, 0.2)";
+  ctx.beginPath();
+  ctx.roundRect(left + 1, top + lip * 0.6, size, size, radius);
+  ctx.fill();
+  ctx.fillStyle = DOOR_LOOK.frame;
+  ctx.beginPath();
+  ctx.roundRect(left, top, size, size, radius);
+  ctx.fill();
+  // The door in its opening: `opening` of the tile wide, from near the top down to the sill.
+  const w = size * DOOR_LOOK.opening;
+  const x = left + (size - w) / 2;
+  const y = top + size * 0.14;
+  const tall = size - lip * 0.6 - size * 0.14;
+  const arch = [w / 2, w / 2, 0, 0];
+  ctx.fillStyle = "rgba(60, 32, 14, 0.45)";
+  ctx.beginPath();
+  ctx.roundRect(x - 1, y - 1, w + 2, tall + 1, arch);
+  ctx.fill();
+  ctx.fillStyle = DOOR_LOOK.panel;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, tall, arch);
+  ctx.fill();
+  // A seam between its two planks, and the knob.
+  ctx.strokeStyle = "rgba(60, 24, 14, 0.35)";
+  ctx.lineWidth = Math.max(1, scale / 30);
+  ctx.beginPath();
+  ctx.moveTo(x + w / 2, y + w * 0.3);
+  ctx.lineTo(x + w / 2, y + tall);
+  ctx.stroke();
+  ctx.fillStyle = DOOR_LOOK.knob;
+  ctx.beginPath();
+  ctx.arc(x + w * 0.78, y + tall * 0.58, Math.max(1, size * 0.05), 0, Math.PI * 2);
+  ctx.fill();
+  // The frame's bottom shade and top highlight, as a wall has.
+  ctx.fillStyle = "rgba(70, 40, 18, 0.22)";
+  ctx.beginPath();
+  ctx.roundRect(left, top + size - lip, size, lip, [0, 0, radius, radius]);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 250, 235, 0.32)";
+  ctx.beginPath();
+  ctx.roundRect(left + radius * 0.5, top + 1, size - radius, Math.max(2, lip * 0.55), 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 /** The face of a planter (dark soil), a kitchen (two burners), or a workbench (planks). */

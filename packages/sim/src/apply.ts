@@ -89,6 +89,7 @@ import {
   stairwellProblem,
   standingFloor,
 } from "./floors";
+import { checkStarterDoors } from "./front-doors";
 import {
   checkCloseRound,
   checkCloseTable,
@@ -175,6 +176,7 @@ import {
   checkGroomPet,
   checkRenamePet,
   checkTreatPet,
+  checkWalkPet,
   type PetsChecked,
   petView,
 } from "./pets";
@@ -202,6 +204,7 @@ import {
 } from "./recipes";
 import { currentCommand } from "./renamed";
 import { checkRetireRepeatJoins, isRetired } from "./repeat-joins";
+import { checkRest } from "./rest";
 import { checkSetRoof } from "./roofs";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
@@ -564,6 +567,12 @@ const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
  * first one they own (north to south, then west to east), else, when `shared` is set, the first
  * one shared with them.
  */
+/** The plot `build_starter_home` builds on for `actor`, or undefined. The server's notes read it. */
+export function starterHomePlot(state: WorldState, actor: string): Plot | undefined {
+  const me = residentById(state, actor);
+  return me && workingPlot(state, me, true);
+}
+
 function workingPlot(state: WorldState, me: Resident, shared: boolean): Plot | undefined {
   const mine = (p: Plot | undefined): p is Plot =>
     p !== undefined && (shared ? canBuildOn(p, me.id) : p.ownerId === me.id);
@@ -819,6 +828,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkSolidBuildings(state));
       case "keep_table_spots":
         return town(checkKeepTableSpots(state));
+      case "starter_doors":
+        return town(checkStarterDoors(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":
@@ -1050,6 +1061,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return [{ type: "moved", residentId: actor, x, y, ...floorField(floor) }];
       };
     }
+
+    case "rest":
+      return town(checkRest(state, me, command));
 
     case "putter": {
       const { steps } = command;
@@ -1400,6 +1414,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         plot.py,
         command.walls ?? "wood",
         command.windows ?? "glass",
+        // A door in the doorway only from the server's `starter_doors` on, so starter homes
+        // built before it replay with the open doorway they were built with (decision 0349).
+        state.starterDoors === true,
       );
       // Any block, stairs too (RFC 0028), keeps a hut's tile and its hearth.
       const blockAt = (t: Tile) => state.blocks[tileKey(t.x, t.y)] !== undefined;
@@ -1618,6 +1635,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return town(checkGroomPet(state, actor, command));
     case "treat_pet":
       return town(checkTreatPet(state, actor, command));
+    case "walk_pet":
+      return town(checkWalkPet(state, actor));
     case "open_table":
       return town(checkOpenTable(state, actor, command));
     case "sit":

@@ -37,6 +37,30 @@ export function paintFurniture(
 }
 
 /**
+ * The front of a seat drawn again over someone resting on it (RFC 0044): an armchair's arms and
+ * cushion, a sofa's seat, a bed's quilt. Only the part of the picture below `from` of the tile is
+ * drawn, so the figure shows sitting in the seat or tucked in under the quilt.
+ */
+export function paintSeatFront(
+  ctx: CanvasRenderingContext2D,
+  kind: FurnitureKind,
+  left: number,
+  top: number,
+  size: number,
+  from: number,
+) {
+  const art = itemArtImage(kind);
+  if (!art) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(left - size, top + size * from, size * 3, size * 2);
+  ctx.clip();
+  const side = size * 1.12;
+  ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
+  ctx.restore();
+}
+
+/**
  * A game table in the Commons (RFC 0011): the workbench's table with a die on it, and a warm glow
  * under it while a game is being played.
  */

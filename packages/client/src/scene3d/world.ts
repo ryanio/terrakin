@@ -57,6 +57,7 @@ import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { lyingOn, type PetMotion, type PetScene } from "../pets";
 import type { BurstMark } from "../render/fireworks";
+import { postureAt } from "../resting";
 import { nightAmount } from "../time";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
@@ -109,6 +110,7 @@ import {
   hearthStand,
   type LayoutFigure,
   litHomes,
+  restPose3d,
   signSize,
   smokeStart,
 } from "./layout";
@@ -879,7 +881,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       }
       const m = motion.pose(r, now, still);
       // The way they're walking, or the server's word for someone who hasn't moved since.
-      const want = faceAngle(m.facing ?? mirror.facing.get(id));
+      // Resting on a seat (RFC 0044): sat on its cushion facing out, or lying along a bed.
+      const rest = restPose3d(
+        postureAt((sx, sy) => mirror.blocksOn(r.floor ?? 0).get(tileKey(sx, sy)), m.x, m.y),
+      );
+      const want = rest.face ?? faceAngle(m.facing ?? mirror.facing.get(id));
       const gap = turnBetween(f.turn, want);
       const turn = still || Math.abs(gap) < 1e-3 ? want : f.turn + gap * (1 - Math.exp(-TURN * dt));
       const g = f.group;
@@ -913,15 +919,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
             z += stand.y * pull;
           }
       }
-      if (x !== p.x || z !== p.z || m.lift + rise !== p.y || turn !== f.turn) moved = true;
-      p.set(x, m.lift + rise, z);
+      z += rest.along;
+      const y = m.lift + rise + rest.lift;
+      if (x !== p.x || z !== p.z || y !== p.y || turn !== f.turn || rest.pitch !== g.rotation.x)
+        moved = true;
+      p.set(x, y, z);
       f.turn = turn;
       // Turn first, then sway side to side in the figure's own frame.
-      g.rotation.set(0, turn, m.sway);
+      g.rotation.set(rest.pitch, turn, m.sway);
       // Landing from a jump, they pop up from small.
       const pop = m.poof === undefined ? 1 : 0.6 + 0.4 * Math.sin((Math.PI / 2) * m.poof);
       const sq = m.squash;
-      g.scale.set(1.3 * sq * pop, (1.3 / sq) * pop, 1.3 * sq * pop);
+      g.scale.set(1.3 * sq * pop, (1.3 / sq) * pop * rest.squash, 1.3 * sq * pop);
       const body = g.userData.body as Object3D | undefined;
       if (body) body.rotation.x = m.lean;
       // Out on a routine, they're awake.
@@ -987,6 +996,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       config: mirror.config,
       day: mirror.day,
       lying: lyingOn(mirror.asleep(frame.me)),
+      greens: mirror.greens(),
     };
     const shown = new Set<string>();
     let moved = false;

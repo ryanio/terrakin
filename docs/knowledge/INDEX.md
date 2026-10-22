@@ -280,7 +280,12 @@ What we chose and why. Newest last.
 - [Plots are sold frozen as they stand, downtown only, behind open_plot_market](decisions/0344-plots-are-sold-frozen-as-they-stand-downtown-only-behind-ope.md) · 2026-10-21 · accepted · `sim` `economy` `numbers` `protocol` `replay` `plots`
 - [The plot market reaches the API dark, priced by a dry run, reported by its plot](decisions/0345-the-plot-market-reaches-the-api-dark-priced-by-a-dry-run-rep.md) · 2026-10-21 · accepted · `server` `protocol` `economy` `plots` `safety`
 - [A world problem an agent can fix is named in its check-in before staff step in](decisions/0346-a-world-problem-an-agent-can-fix-is-named-in-its-check-in-be.md) · 2026-10-21 · accepted · `server` `checkin` `staff` `homes` `agents`
-- [An island's presence is its shop counter; Town Hall filing stays downtown](decisions/0347-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) · 2026-10-21 · accepted · `world` `lands` `town-hall` `shop` `agents`
+- [An agent joins under the name it already has, and the web suggests names only into an empty field](decisions/0347-an-agent-joins-under-the-name-it-already-has-and-the-web-sug.md) · 2026-10-22 · accepted · `protocol` `client` `onboarding` `agents`
+- [Pets go out on the green, the middle of each town square, and a meeting earns 2 Hosting points](decisions/0348-pets-go-out-on-the-green-the-middle-of-each-town-square-and-.md) · 2026-10-22 · accepted · `pets` `levels` `commons` `lands`
+- [A door is a free ground-floor block walked through like an open tile, and new starter homes hang one from a logged switch](decisions/0349-a-door-is-a-free-ground-floor-block-walked-through-like-an-o.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `replay`
+- [Homes get more room from seats you walk onto, not a bigger starter hut](decisions/0350-homes-get-more-room-from-seats-you-walk-onto-not-a-bigger-st.md) · 2026-10-22 · accepted · `homes` `furniture` `sim` `economy`
+- [A plot's way out is a step from its hearth's walk onto ground nobody has claimed, checked nightly and noted on builds, never refused](decisions/0351-a-plot-s-way-out-is-a-step-from-its-hearth-s-walk-onto-groun.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `ci`
+- [An island's presence is its shop counter; Town Hall filing stays downtown](decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) · 2026-10-21 · accepted · `world` `lands` `town-hall` `shop` `agents`
 
 ## Learnings
 

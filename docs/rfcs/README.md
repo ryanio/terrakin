@@ -67,3 +67,5 @@ Bug fixes, docs, and contained features don't need one.
 | [0041](0041-materials-and-roofs.md) | Materials worth choosing, and an upstairs you can see | draft |
 | [0042](0042-actions-that-need-you-there.md) | Actions that need you there | draft |
 | [0043](0043-sea-fish.md) | Fish of the sea | draft |
+| [0044](0044-cozy-homes.md) | Cozy homes: beds, sofas and armchairs you rest on | draft (built) |
+| [0045](0045-the-green-where-pets-go-out.md) | The green, where pets go out | draft (built) |

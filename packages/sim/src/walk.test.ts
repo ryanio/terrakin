@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { DOORS_CONFIG, DOORS_HASH, DOORS_LOG } from "./fixtures/doors-log";
 import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { WALK_CONFIG, WALK_HASH, WALK_LOG } from "./fixtures/walk-log";
+import { blockKindProblem } from "./floors";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
 import { planPutter } from "./putter";
@@ -294,6 +296,66 @@ describe("the walking log", () => {
     expect(state.solidBuildings).toBe(true);
     expect(state.residents.eve).toMatchObject({ x: 15, y: 7 });
     expect(state.residents.fay).toMatchObject({ x: 13, y: 12, online: true });
+  });
+});
+
+describe("doors (decision 0349)", () => {
+  it("let a hearth walled in but for a door walk out to the town", () => {
+    const w = world();
+    w.town({ type: "starter_doors" });
+    w.join("ada");
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    w.ok("ada", { type: "build_starter_home" });
+    // Every other tile round the hearth at (3, 3) is wall or window; the doorway holds a door.
+    expect(w.state.blocks[tileKey(3, 5)]).toBe("door");
+    for (let x = 1; x <= 5; x++) {
+      for (let y = 1; y <= 5; y++) {
+        const edge = x === 1 || x === 5 || y === 1 || y === 5;
+        if (edge && !(x === 3 && y === 5)) expect(w.state.blocks[tileKey(x, y)]).toBeDefined();
+      }
+    }
+    const shop = { x: 12, y: 14 };
+    const walk = walkWords(w.state, { x: 3, y: 3 }, shop, CONFIG.reach);
+    expect(walk.startsWith("move s")).toBe(true);
+    for (const [, dir, n] of walk.matchAll(/move (\w+) (?:(\d+) times|once)/g)) {
+      for (let i = 0; i < Number(n ?? 1); i++) w.ok("ada", { type: "move", dir } as Command);
+    }
+    expect(chebyshev(w.here("ada"), shop)).toBeLessThanOrEqual(CONFIG.reach);
+  });
+
+  it("come with a starter home only from the server's switch, once", () => {
+    const w = world();
+    w.join("ada");
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    w.ok("ada", { type: "build_starter_home" });
+    expect(w.state.blocks[tileKey(3, 5)]).toBeUndefined();
+    expect(w.refusal("ada", { type: "starter_doors" })?.code).toBe("server_only");
+    expect(w.ok(TOWN_ACTOR, { type: "starter_doors" })).toEqual([{ type: "starter_doors_set" }]);
+    expect(w.refusal(TOWN_ACTOR, { type: "starter_doors" })?.code).toBe("already_open");
+    // A home already standing is never changed by the switch.
+    expect(w.state.blocks[tileKey(3, 5)]).toBeUndefined();
+  });
+
+  it("are free to place and take up, and stay on the ground floor", () => {
+    const w = world();
+    w.join("ada");
+    w.ok("ada", { type: "settle", px: 0, py: 0 });
+    w.ok("ada", { type: "place", x: 3, y: 4, block: "door" });
+    w.ok("ada", { type: "move", dir: "s" });
+    expect(w.here("ada")).toEqual({ x: 3, y: 4 });
+    w.ok("ada", { type: "move", dir: "n" });
+    w.ok("ada", { type: "remove", x: 3, y: 4 });
+    expect(blockKindProblem(undefined, 1, "door")?.code).toBe("ground_floor_only");
+    expect(blockKindProblem(undefined, 0, "door")).toBeNull();
+  });
+
+  it("replay their log to its pinned hash", () => {
+    const state = replay(DOORS_CONFIG, DOORS_LOG);
+    expect(hashWorld(state)).toBe(DOORS_HASH);
+    expect(state.blocks[tileKey(19, 13)]).toBe("door");
+    expect(state.blocks[tileKey(3, 13)]).toBe("door");
+    expect(state.residents.fay).toMatchObject({ x: 19, y: 14 });
+    expect(state.residents.eve).toMatchObject({ x: 3, y: 14 });
   });
 });
 

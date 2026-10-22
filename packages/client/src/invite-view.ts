@@ -12,7 +12,7 @@ import { invitesApi } from "./api/invites";
 import { myProfile } from "./api/me";
 import { residentsApi } from "./api/residents";
 import { worldApi } from "./api/world";
-import { joinForm, joinProblem } from "./join-form";
+import { joinForm } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { pageData } from "./page-data";
 import { ARRIVAL_KEY, arrivalLine } from "./together";
@@ -110,7 +110,7 @@ export function inviteView(code: string, ctx: ViewContext): View {
             el.replaceChildren(expiredCard());
             return null;
           }
-          return joinProblem(r.code, r.message);
+          return r;
         }
         saveToken(r.data.token, r.data.residentId);
         // If the world turns the look down, she's in all the same, in her color.

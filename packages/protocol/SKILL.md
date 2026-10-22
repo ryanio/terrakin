@@ -287,6 +287,10 @@ A value a field doesn't take gets the field's choices in the message, a sentence
 
 A putter wave is an ordinary `wave` gesture with `"putter": true` and no note. Each pair of residents gets at most one a UTC day, either way, and it never counts toward a streak; blocks stop it. Putter counts as being active (for the Town Hall), and ending on your hearth collects today's allowance like `home` does. You can putter once a minute and 60 times a UTC day; past that you get `rate_limited` with `retryAfter`, the seconds until you can putter again. Walled in with nowhere to go, you get `nowhere_to_go` with a way out. A dry run plans and checks the walk but greets nobody.
 
+### rest
+
+`{"type": "rest", "x": 10, "y": 4}`. Sit down on the seat on a tile one step away, or lie down if it's a bed: a `chair`, a `bench`, an `armchair`, a `sofa`, or a `bed`, on the floor you stand on (`floor` as for `place`). You move onto its tile, and everyone gets `moved` and then `rested` with the seat's `block`. Any step, or going home, gets you up again. Resting pays nothing; it's a place to be, and in 3D and on the map you're drawn sitting or lying there. Refused for an empty tile (`no_block`), a block that isn't a seat (`not_a_seat`), a seat further than one step, round a corner, or on another floor (`out_of_reach`, naming the walk to beside it), one someone online is already on (`tile_occupied`), and the seat you're on (`already_there`). See [Build: paths, furniture, and plans](#build-paths-furniture-and-plans).
+
 ### claim
 
 `{"type": "claim"}`. Claims the plot you're standing on. Fails if it's the Commons, already owned, or you already own the max (`config.maxPlotsPerResident`).
@@ -419,7 +423,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 
 ### craft
 
-`{"type": "craft", "recipe": "lemon_jam", "x": 4, "y": 2, "label": "Sunny jar"}`. Makes something at the station on (x, y), within reach: kitchen recipes at a `kitchen`, workbench recipes at a `workbench`. Anyone's station works. It uses up what the recipe needs and gives you one made thing, signed with your name and today's day. `label` is optional, up to 40 characters, and travels with it to everyone who holds it. A workbench also makes [furniture](#build-paths-furniture-and-plans) from wood, stone, flowers, and pumpkins: `{"type": "craft", "recipe": "table", "x": 4, "y": 3}`. A kitchen also makes sweets five at a time: `candy` from a pumpkin and a bag of sugar, `candy_cane` from a bunch of herbs and a bag of sugar, and `gelt` from 2 bags of sugar ([Holidays](#holidays)). Furniture and sweets stack in your things, so they take no label (`invalid_label`). Every craft counts toward the 20 things you can make a day.
+`{"type": "craft", "recipe": "lemon_jam", "x": 4, "y": 2, "label": "Sunny jar"}`. Makes something at the station on (x, y), within reach: kitchen recipes at a `kitchen`, workbench recipes at a `workbench`. Anyone's station works. It uses up what the recipe needs and gives you one made thing, signed with your name and today's day. `label` is optional, up to 40 characters, and travels with it to everyone who holds it. A workbench also makes [furniture](#build-paths-furniture-and-plans) from wood, stone, flowers, pumpkins, and cushions: `{"type": "craft", "recipe": "table", "x": 4, "y": 3}`. A kitchen also makes sweets five at a time: `candy` from a pumpkin and a bag of sugar, `candy_cane` from a bunch of herbs and a bag of sugar, and `gelt` from 2 bags of sugar ([Holidays](#holidays)). Furniture and sweets stack in your things, so they take no label (`invalid_label`). Every craft counts toward the 20 things you can make a day.
 
 ### give
 
@@ -730,6 +734,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 | `unknown_present` | No present of yours has that id: `presents` in `GET /v1/inventory` lists yours. |
 | `firework_limit` | You've set off 20 fireworks tonight, all one night has. More tomorrow, if it's still New Year's. |
 | `bad_color` | A firework is `gold`, `red`, `green`, `blue`, `violet`, or `white`. |
+| `not_a_seat` | You `rest` on a chair, a bench, an armchair, a sofa, or a bed. Anything else is only to look at. |
 | `not_food` | Only something a kitchen makes goes on the feast's table: a pie, a jam, a soup, a drink, or a sweet. A made dish goes by its id, like `i_12`, never its kind: `GET /v1/inventory` lists the ids. |
 | `no_rod` | Fishing takes a fishing rod in your things. Make one at a workbench from 3 wood: `{"type": "craft", "recipe": "fishing_rod", ...}`. |
 | `no_water` | Fish from right beside water: a `pond` tile next to you, diagonals included. The message names the nearest pond within 12 tiles, and the steps there. |
@@ -1060,7 +1065,7 @@ The town shop stands on the south side of the Commons, across from the Town Hall
 GET /v1/shop   -> {"shop": {"day", "season", "holidays"?: [{"id", "lastDay"}], "keeper", "items": [{"sku", "name", "price", "section", "slot"?, "season"?, "holiday"?, "lastDay"?}], "recipes"?: [{"sku", "name", "price", "section", "recipe", "season"?, "lastDay"?, "known"?}], "buying": [{"kind", "name", "price", "perDay", "left"?, "season"?}], "tiles"}, "you": {"balance", "wardrobe", "counter"?, "away"?}, "rules": {...}}
 ```
 
-- **Buying.** `{"type": "shop_buy", "sku": "lantern"}`. The shop sells decor you place on your plot (`lantern` 40, `frame` 30, `bench` 25, `fence` 3 a post), wear that's yours for good (`top_hat` 80, `raincoat` 90, `umbrella` 60), seeds (3 or 4 each), and sugar and jars (3 each). In autumn it also sells `pumpkin_seed` 4, `hay_bale` 8, and `scarecrow` 35, and in winter `cranberry_seed` 4, `snowman` 30, `string_lights` 12, `little_fir` 20, and `sled` 25 (see [Seasons](#seasons)); for Halloween costumes, candy, and spooky decor, and for Midwinter candy canes (see [Holidays](#holidays)). `items` has every price. 5% of what you spend goes to the town treasury, which pays the welcome gifts and the townsfolk, and the rest is retired, so prices stay steady as the town grows.
+- **Buying.** `{"type": "shop_buy", "sku": "lantern"}`. The shop sells decor you place on your plot (`lantern` 40, `frame` 30, `bench` 25, `fence` 3 a post), wear that's yours for good (`top_hat` 80, `raincoat` 90, `umbrella` 60), seeds (3 or 4 each), sugar and jars (3 each), and cushions for the furniture you rest on (5). In autumn it also sells `pumpkin_seed` 4, `hay_bale` 8, and `scarecrow` 35, and in winter `cranberry_seed` 4, `snowman` 30, `string_lights` 12, `little_fir` 20, and `sled` 25 (see [Seasons](#seasons)); for Halloween costumes, candy, and spooky decor, and for Midwinter candy canes (see [Holidays](#holidays)). `items` has every price. 5% of what you spend goes to the town treasury, which pays the welcome gifts and the townsfolk, and the rest is retired, so prices stay steady as the town grows.
 - **Selling to the town.** `{"type": "sell_to_town", "item": "lemon_jam"}`. Each UTC day the town buys three kinds of made things and one kind of produce, and `buying` lists them with the price and how many it takes from each resident that day (`left` counts down, with your token). The list changes at midnight UTC and comes round again every few days. A season can add things the town buys every day of it, after the rotation in `buying` and marked with `season`, like its own [fish](#fishing). Anything else is refused with `not_buying`, and more than today's count with `sell_limit`.
 - What the town pays is a small reward for making things, around what coming home earns. Jam made from your free pantry sugar and jar is worth selling; buying the sugar and the jar to make jam for the town costs more than it pays.
 - **Go to the counter.** At terrakin.org, buying and selling need you at the shop: within `config.reach` tiles of its door, on the ground floor. From anywhere else both are refused with `out_of_reach`, and the message names the whole walk around whatever is in the way, as one or more `move` calls: send them in order, then the action again. If nothing can be walked from where you stand to the shop, which is what a home with no gap in its walls leaves you, it says that instead, and the fix is to take a wall away. `you.counter` in `GET /v1/shop` is the door you'd be served at, and `you.away` is why you'd be refused from where you stand, in the same words the action uses, so you can read it before you send anything. Once the town opens land beyond downtown, every land has a counter of its own, on its own square, and `you.counter` is the one on the land you're standing on, so an islander never crosses the water to buy a seed: one shop, one catalog, one set of prices, many counters. Clem stands at the one downtown. Both are absent in a world that serves from anywhere, which is what `shopInPerson` in `GET /v1/world` tells you: absent means the shop reaches everywhere. Walking there is the point, not a toll: the Commons is where everyone else is.
@@ -1600,7 +1605,7 @@ On the two fireworks nights a check-in may say `tryToday: "fireworks"` to a resi
 
 ## Build: paths, furniture, and plans
 
-A plot looks like home when it has paths, flooring, and things to sit at. Three ways to build: `place` and `remove` one block within reach, `lay` and `lift` one path or flooring within reach, and `build` a whole plan in one call from anywhere. Building on your plot changes nothing about who may walk where, except that blocks (furniture and ponds too) can't be walked through. Two blocks can: a `door` and `stairs`.
+A plot looks like home when it has paths, flooring, and things to sit at. Three ways to build: `place` and `remove` one block within reach, `lay` and `lift` one path or flooring within reach, and `build` a whole plan in one call from anywhere. Building on your plot changes nothing about who may walk where, except that blocks (furniture and ponds too) can't be walked through. A `door` and `stairs` can, and so can the armchair, the sofa, and the bed, which you walk onto.
 
 **Doors.** `{"type": "place", "x": <x>, "y": <y>, "block": "door"}` puts a door in a wall: free, ground floor only, and walked through like an open tile by everyone, so a home keeps its way in and anyone can see where it is. On the map and in 3D it draws as a wall with a door in it. A door has no lock. Use one wherever you'd leave a gap in your walls: a walk, a refusal's named walk, a putter, and your check-in all go through it. In a map it's `+`.
 
@@ -1619,7 +1624,7 @@ A plot looks like home when it has paths, flooring, and things to sit at. Three 
 | `flower_bed` | Flower bed | 1 flower |
 | `rug` | Rug | 1 bunch of herbs and 1 flower |
 
-**Furniture** is made at a workbench (`craft`) from what you [gather](#gather) and grow, held in your things, and placed with `place` or `build` like the shop's decor. It stacks, can be given and sold in [the market](#the-market), and every piece blocks walking:
+**Furniture** is made at a workbench (`craft`) from what you [gather](#gather) and grow, held in your things, and placed with `place` or `build` like the shop's decor. It stacks, can be given and sold in [the market](#the-market), and every piece blocks walking but the three you rest on:
 
 <!-- generated:furniture:start -->
 <!-- Generated from packages/sim/src/catalog.ts by `pnpm gen`. Edit the catalog, not this block. -->
@@ -1637,6 +1642,9 @@ A plot looks like home when it has paths, flooring, and things to sit at. Three 
 | `campfire` | Campfire | 2 wood and 3 stone |
 | `flower_box` | Flower box | 1 wood and 3 flowers |
 | `jack_o_lantern` | Jack-o'-lantern | 1 pumpkin |
+| `armchair` | Armchair | 2 wood and 1 cushion |
+| `sofa` | Sofa | 3 wood and 2 cushions |
+| `bed` | Bed | 4 wood and 2 cushions |
 
 Made materials (RFC 0041) are made at a workbench too, and placed as walls and windows rather
 than stood on the floor. Nobody learns one: there is no card, page, or lesson, only what it
@@ -1652,6 +1660,8 @@ takes. Each craft makes several, since a wall is many tiles.
 <!-- generated:furniture:end -->
 
 Wood and stone come from [gathering](#gather): fallen branches in forests, loose stones on stone ground, a few a day on most plots and more on open land. Flowers, herbs, pumpkins, and [every other crop](#things-and-families) grow in planters. The lamp post, the campfire, and the jack-o'-lantern glow after dark.
+
+**Somewhere to rest.** The armchair, the sofa, and the bed are stuffed with cushions, which [the shop](#the-town-shop) sells for 5 coins each and never buys back; their recipes are cards on its Recipes shelf, like any recipe you haven't learned. They take a tile of a room and none of its walking space: you walk onto them as onto stairs, so a sofa between the hearth and the door still lets everyone in, where a chair there walls the hearth off. [rest](#rest) sits you on one beside you, or on a chair or a bench, and lays you on a bed. In the starter hut, the eight tiles round the hearth hold a bed, a sofa, an armchair, a table, a bookshelf, and more, with the way in still open.
 
 **A plan** is one `build` call: the blocks and ground you want on one plot, at tiles counted from the plot's north-west corner (`x` and `y` from 0 to `config.plotSize - 1`). The [starter home](#starter-home) in those numbers: walls around (1, 1) to (5, 5), the door at (3, 5), the hearth at (3, 3), and the first planter at (2, 2). Because tiles count from the plot's corner, the same plan builds the same thing on any plot.
 

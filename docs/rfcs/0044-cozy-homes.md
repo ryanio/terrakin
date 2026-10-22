@@ -51,7 +51,7 @@ A **seat** is a block you can rest on. Five kinds are seats: `chair`, `bench`, `
 
 It moves you onto the tile and emits `moved` (so everything that follows a resident's position keeps working) and then a public `rested {residentId, x, y, floor?, block}`. Upstairs, the seat must stand on flooring, as anything you walk onto does.
 
-**Resting is where you are, not a field.** Someone resting is someone standing on a seat's tile, and nothing else records it. Any move takes you off: a step, a jump home, a routine's stroll. So there is no state to clear, nothing to go stale, and nothing new in the world's JSON. A client draws a resident on a seat sitting (or lying, on a bed); the sim exports `seatAt` so the views ask the same question.
+**Resting is where you are, not a field.** Someone resting is someone standing on a seat's tile, and nothing else records it. Any move takes you off: a step, a jump home, a routine's stroll. So there is no state to clear, nothing to go stale, and nothing new in the world's JSON. A client draws a resident on a seat sitting (or lying, on a bed); the views ask the sim's `postureOn` of the block under a figure, so they agree.
 
 Resting pays nothing: no coins, no points, no karma. It is a look and a place to be. Anything that paid for it would be farmed by a loop that stands up and sits down.
 
@@ -75,7 +75,7 @@ Walking onto a seat is ordinary walking: a route may cross a sofa, and a residen
 
 ## Invariants
 
-- **Server decides.** `rest` is checked in the sim like every move, and the client offers it only where the sim's own check (`checkRest` through `apply`) would take it.
+- **Server decides.** `rest` is checked in the sim like every move, and the client sends it when you tap a seat on your floor, walking beside it first, and shows the sim's refusal in its words.
 - **Determinism and replay.** No clock or randomness. Old logs never named the new kinds, so making them walked onto changes nothing they replay to, and `REPLAY_VERSION` doesn't move. `rest` is a new command, so no logged input changes meaning. A fixture log with a cozy home and a rest pins the hash.
 - **Chat is untrusted.** No text: kinds and coordinates only.
 - **Protocol.** One new action, one new event, one new error code (`not_a_seat`), and four new kinds in the enums. Additive.
@@ -84,7 +84,7 @@ Walking onto a seat is ordinary walking: a route may cross a sofa, and a residen
 
 One new sink, no new source. A cushion is 5 coins, half a day's allowance, split like any purchase (the treasury's share, the rest burned), and the town never buys one, so nothing mints. The three cards are 75 coins together, also split and burned like any card. A home with all three pieces costs 25 coins in cushions and 75 in cards, about half of one upstairs. Resting pays nothing.
 
-`scripts/economy-sim.ts` checks it: its makers who have made every wood-and-stone piece buy cushions and make a cozy piece, and `--no-cozy` plays the month as it was. A decision record has the run's numbers.
+`scripts/economy-sim.ts` checks it: its makers who have made every wood-and-stone piece they know buy a card and cushions and make a cozy piece, and `--no-cozy` plays the month as it was. [Decision 0350](../knowledge/decisions/0350-homes-get-more-room-from-seats-you-walk-onto-not-a-bigger-st.md) has the run: supply per active resident 301 against 302.
 
 ## Security considerations
 
@@ -104,7 +104,7 @@ No replay change. Old clients draw an unknown block as nothing and a resident on
 1. This RFC.
 2. The sim: kinds, cushion, `SEATS`, walked-onto seats, `rest`, tests and a fixture.
 3. The protocol, `SKILL.md`, the changelog.
-4. The views: item art, the map, both 3D views, the plot photo, a resident sitting or lying, and a Rest button on a seat beside you.
+4. The views: item art, the map, both 3D views, the plot photo, a resident sitting or lying, and a tap on a seat that rests you there.
 5. The economy run.
 
 ## Alternatives considered
@@ -116,5 +116,5 @@ No replay change. Old clients draw an unknown block as nothing and a resident on
 
 ## Open questions
 
-1. Does Ryan want the bigger starter home as well, later, behind a logged switch once the door work has landed? This RFC leaves it out for the reasons in section 3.
+1. Does Ryan want the bigger starter home as well, later, behind a logged switch, now that the hut hangs a door (decision 0349)? This RFC leaves it out for the reasons in section 3.
 2. Should a bed do something (a pet curling up on it, a morning line in the check-in), or is a place to be enough?

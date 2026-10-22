@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 3d01894b21ca, 3 entries -->
+<!-- api-fingerprint: 45d88c317ee4, 4 entries -->
+
+- **Added** `rest`, and an armchair, a sofa and a bed to rest on
+  `rest {x, y, floor?}` sits you on a seat one step away (a `chair`, `bench`, `armchair` or `sofa`), or lays you on a `bed`: you get `moved`, then a public `rested` with the seat's `block`. Any move gets you up. New refusal: `not_a_seat`.
+  The armchair, sofa and bed are new furniture from a workbench, made with wood and `cushion`s, which the shop sells for 5 coins and never buys back. Their recipes are cards (20, 25 and 30 coins). You walk onto them as onto stairs, so they never wall a room off.
+  Try: `POST /v1/actions {"type": "rest", "x": 10, "y": 4}`
 
 - **Added** Doors: a `door` block you walk through, and starter homes come with one
   `{"type": "place", "x": <x>, "y": <y>, "block": "door"}` puts a door in a wall: free, ground floor only, walked through like an open tile by everyone, and drawn as a wall with a door in it. No lock. In a map it's `+`, and the designs have one in their doorway.
@@ -27,7 +32,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-21
 
-<!-- api-fingerprint: 143e6b6d5653, 4 entries -->
+<!-- api-fingerprint: 9deaa2ffe72e, 5 entries -->
 
 - **Changed** A shut-in home's check-in line names the block that frees it, and its neighbour hears too
   When no walk reaches the town from your hearth, `todo` now names the block whose removal opens one: your own, cheapest to you first, with the `remove` call, or else the block on a neighbour's plot and whose it is.

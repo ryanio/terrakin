@@ -200,6 +200,10 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   },
   // A door (decision 0349): its frame as tall as a wall, in the sim's `DOOR_LOOK`.
   door: { color: hex(DOOR_LOOK.panel), height: 1.25, opacity: 1, form: "door" },
+  // Cozy homes (RFC 0044): furniture you rest on, modelled in furniture.ts.
+  armchair: { color: hex(BLOCK_COLORS.armchair), height: 0.95, opacity: 1, form: "furniture" },
+  sofa: { color: hex(BLOCK_COLORS.sofa), height: 0.9, opacity: 1, form: "furniture" },
+  bed: { color: hex(BLOCK_COLORS.bed), height: 0.85, opacity: 1, form: "furniture" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

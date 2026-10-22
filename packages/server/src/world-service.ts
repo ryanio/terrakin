@@ -328,9 +328,9 @@ export interface WorldServiceOptions {
    * The edition of the recipe page list this server's world reads (RFC 0024, decision 0310). Once
    * recipes are learned on an older edition, `set_page_edition` is logged right after a `new_day`,
    * like the jobs board's, since it changes which tiles hold a page from then on. It only moves
-   * forward. The Worker passes 2, so terrakin.org switches once; the Node server leaves it out,
-   * so a self-hosted world, `pnpm dev`, and the e2e servers keep the pages `open_recipes` starts
-   * with unless set.
+   * forward. The Worker passes 3 (decision 0350), so terrakin.org moves to it once; the Node
+   * server leaves it out, so a self-hosted world, `pnpm dev`, and the e2e servers keep the pages
+   * `open_recipes` starts with unless set.
    */
   pageEdition?: number;
   /**

@@ -7,6 +7,7 @@
  * the one picked, the rest cut away, and its neighbors whole.
  */
 
+import { postureOn } from "@terrakin/sim";
 import { Group, Mesh, type Texture, Vector3 } from "three";
 import { dayPhase } from "../time";
 import { UMBRELLA_RAIN, WEATHER_LOOK } from "../weather";
@@ -40,6 +41,7 @@ import {
   homeFrame,
   modelFootprint,
   type PlotLayout,
+  restPose3d,
   roofTop,
   signSize,
   smokeStart,
@@ -218,13 +220,23 @@ export function buildPlot(
     // Someone asleep at home already stands clear of the stonework.
     // Someone upstairs stands on their floor, over the hearth or not.
     const pull = home && stand && !f.away && !f.floor ? hearthPull(f.x, f.y, home.x, home.y) : 0;
+    // Resting on a seat (RFC 0044): sat on its cushion, or lying along a bed.
+    const seat = f.away
+      ? undefined
+      : layout.blocks.find((b) => b.x === f.x && b.y === f.y && (b.floor ?? 0) === (f.floor ?? 0));
+    const rest = restPose3d(postureOn(seat?.block));
     fig.position.set(
       toX(f.x) + (stand?.x ?? 0) * pull,
-      floorY(f.floor),
-      toZ(f.y) + (stand?.y ?? 0) * pull,
+      floorY(f.floor) + rest.lift,
+      toZ(f.y) + (stand?.y ?? 0) * pull + rest.along,
     );
-    // Face the camera's usual side (south-east), with a little turn each.
-    fig.rotation.y = 0.5 + ((tileHash(f.x, f.y) % 100) / 100 - 0.5) * 0.8;
+    // Face the camera's usual side (south-east), with a little turn each, or out of the seat.
+    fig.rotation.set(
+      rest.pitch,
+      rest.face ?? 0.5 + ((tileHash(f.x, f.y) % 100) / 100 - 0.5) * 0.8,
+      0,
+    );
+    fig.scale.y *= rest.squash;
     // Out in the rain an umbrella goes up; asleep at home it stays rolled up beside them.
     setUmbrella(fig, sky.rain >= UMBRELLA_RAIN && !f.away);
     root.add(fig);

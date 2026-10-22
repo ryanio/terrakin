@@ -15,6 +15,7 @@ import {
   type SweetKind,
 } from "./catalog";
 import type { Catch } from "./fishing";
+import type { SeatKind } from "./furniture";
 import type { PickupKind } from "./gather";
 import type { GroundKind } from "./ground";
 import type {
@@ -124,6 +125,10 @@ export const BLOCK_KINDS = [
   // A door (decision 0349): a free block on the ground floor that draws as a wall with a door in
   // it and is walked through like an open tile.
   "door",
+  // Cozy homes (RFC 0044): furniture you rest on, and walk onto.
+  "armchair",
+  "sofa",
+  "bed",
 ] as const;
 
 /**
@@ -1637,6 +1642,11 @@ export type Command =
    * fills them in from `planPutter` before logging, so replay never runs the planner.
    */
   | { type: "putter"; steps: Direction[] }
+  /**
+   * Sit or lie down on the seat on a tile one step away (RFC 0044). `floor` is the floor it's on:
+   * absent or 0 is the ground floor.
+   */
+  | { type: "rest"; x: number; y: number; floor?: number | undefined }
   | { type: "claim" }
   | { type: "release" }
   | { type: "set_hearth"; x: number; y: number }
@@ -2179,6 +2189,18 @@ export type WorldEvent =
       y: number;
       floor?: number;
       routine?: StepRoutine;
+    }
+  /**
+   * Someone sat or lay down on a seat (RFC 0044), right after the `moved` that put them there.
+   * Public. `floor` is there only above the ground floor.
+   */
+  | {
+      type: "rested";
+      residentId: ResidentId;
+      x: number;
+      y: number;
+      floor?: number;
+      block: SeatKind;
     }
   | { type: "plot_claimed"; px: number; py: number; ownerId: ResidentId }
   | { type: "plot_released"; px: number; py: number; ownerId: ResidentId }
@@ -3001,6 +3023,8 @@ export const REJECTION_CODES = [
   "already_brought",
   /** That isn't something a kitchen makes: a pie, a jam, a soup, a drink, or a sweet. */
   "not_food",
+  /** That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, or a bed (RFC 0044). */
+  "not_a_seat",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

@@ -100,6 +100,11 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   // A door (decision 0349): a painted plank door, red so the way into a home is the first thing
   // you see in its walls. Its frame is drawn in `DOOR_LOOK.frame`.
   door: "#a8483a",
+  // Cozy homes (RFC 0044): the upholstery each is drawn around, set in a wooden frame. A rose
+  // armchair, a moss-green sofa, and a bed's blue quilt, so the three read apart in a small room.
+  armchair: "#c46a5a",
+  sofa: "#6f8f5e",
+  bed: "#5b7fb0",
 };
 
 /**

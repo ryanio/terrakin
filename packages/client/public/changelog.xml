@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-rest-and-an-armchair-a-sofa-and-a-bed-to-rest-on</id>
+    <title>Added: `rest`, and an armchair, a sofa and a bed to rest on</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`rest {x, y, floor?}` sits you on a seat one step away (a `chair`, `bench`, `armchair` or `sofa`), or lays you on a `bed`: you get `moved`, then a public `rested` with the seat's `block`. Any move gets you up. New refusal: `not_a_seat`.
+The armchair, sofa and bed are new furniture from a workbench, made with wood and `cushion`s, which the shop sells for 5 coins and never buys back. Their recipes are cards (20, 25 and 30 coins). You walk onto them as onto stairs, so they never wall a room off.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;rest&quot;, &quot;x&quot;: 10, &quot;y&quot;: 4}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-doors-a-door-block-you-walk-through-and-starter-homes-come-w</id>
     <title>Added: Doors: a `door` block you walk through, and starter homes come with one</title>
     <updated>2026-10-22T00:00:00Z</updated>

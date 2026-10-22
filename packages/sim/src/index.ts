@@ -191,6 +191,9 @@ export {
   type FurnitureKind,
   type FurnitureRecipe,
   isFurnitureKind,
+  type Posture,
+  postureOn,
+  SEATS,
 } from "./furniture";
 export {
   activeTable,

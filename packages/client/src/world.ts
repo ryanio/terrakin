@@ -32,6 +32,7 @@ import {
   pickupsInReach,
   plotKey,
   plotOf,
+  postureOn,
   type Resident,
   route,
   STEP,
@@ -1019,6 +1020,7 @@ type TapTarget =
   | { kind: "plot" }
   | { kind: "page"; path: string; tiles: readonly Tile[] }
   | { kind: "pond" }
+  | { kind: "seat" }
   | { kind: "station" }
   | { kind: "pickup" }
   | { kind: "pet"; owner: Resident }
@@ -1043,6 +1045,8 @@ function tapTarget(tile: Tile): TapTarget | undefined {
     return { kind: "page", path: "/shop", tiles: mirror.shop };
   const block = mirror.blocks.get(tileKey(tile.x, tile.y));
   if (block === "pond") return { kind: "pond" };
+  // A seat on your own floor (RFC 0044): a tap sits you on it, or lays you on a bed.
+  if (postureOn(mirror.blocksOn(myFloor()).get(tileKey(tile.x, tile.y)))) return { kind: "seat" };
   if (block && STATIONS.includes(block)) return { kind: "station" };
   if (mirror.pickupAt(tile.x, tile.y)) return { kind: "pickup" };
   // Someone else's pet drawn on the tile. Pets are drawing only, so this asks where they were last
@@ -1112,6 +1116,14 @@ function tapTile(tile: { x: number; y: number }) {
   if (target?.kind === "pond") {
     if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
     else walkToward(tile, 1, castLine);
+    return;
+  }
+  // A seat (RFC 0044): rest on it from beside it, walking there first when it's farther. The sim
+  // has the last word, and its refusal (someone's on it, a corner in the way) says why.
+  if (target?.kind === "seat") {
+    const rest = () => tryAct({ type: "rest", ...tile, ...floorField(myFloor()) });
+    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) === 1) rest();
+    else walkToward(tile, 1, rest);
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is

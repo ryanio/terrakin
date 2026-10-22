@@ -232,6 +232,8 @@ describe("the catalog", () => {
       melon_seed: 4,
       sunflower_seed: 3,
       tulip_seed: 3,
+      // A cushion for the cozy pieces (RFC 0044): half a day's allowance, never bought back.
+      cushion: 5,
     });
   });
 

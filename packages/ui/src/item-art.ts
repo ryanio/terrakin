@@ -2657,6 +2657,77 @@ function seaGlassPane(): ArtShape[] {
   ];
 }
 
+// ---------- cozy homes (RFC 0044) ----------
+
+/** Cream piping on a cushion, and a bed's sheet. */
+const LINEN = "#f1e8d6";
+
+/** A plump square cushion with a button in the middle, the pale piping the furniture wears. */
+function cushion(): ArtShape[] {
+  const cloth = BLOCK_COLORS.armchair;
+  return [
+    shadow(14, 41),
+    path("M10 15c5-3 23-3 28 0 3 5 3 16 0 21-5 3-23 3-28 0-3-5-3-16 0-21z", cloth, out()),
+    path("M12.5 17c4.5-2 18.5-2 23 0 2 4.5 2 13 0 17-4.5 2-18.5 2-23 0-2-4-2-12.5 0-17z", "none", {
+      stroke: LINEN,
+      "stroke-width": 1.2,
+      "stroke-dasharray": "2 1.6",
+    }),
+    circle(24, 25.5, 1.8, LINEN, out({ "stroke-width": 0.8 })),
+    line("M14 19.5c4-1.4 9-1.6 12-1.2", "#ffffff", 1.2, { opacity: 0.4 }),
+  ];
+}
+
+/** An armchair: a high back, two round arms, and a cushion on the seat, on short wooden feet. */
+function armchair(): ArtShape[] {
+  const cloth = BLOCK_COLORS.armchair;
+  return [
+    shadow(15, 43),
+    rect(13, 38, 3.5, 5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(31.5, 38, 3.5, 5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    path("M13 26V12c0-4 22-4 22 0v14z", cloth, out()),
+    rect(9, 23, 8, 16, 3.5, cloth, out()),
+    rect(31, 23, 8, 16, 3.5, cloth, out()),
+    rect(15, 28, 18, 10, 2.5, cloth, out()),
+    line("M16 29.5h16", LINEN, 1.2, { opacity: 0.9 }),
+    line("M16 11.5c4-1.5 12-1.5 16 0", "#ffffff", 1.2, { opacity: 0.35 }),
+  ];
+}
+
+/** A sofa: a long back, two arms, and two seat cushions, on short wooden feet. */
+function sofa(): ArtShape[] {
+  const cloth = BLOCK_COLORS.sofa;
+  return [
+    shadow(20, 41),
+    rect(7, 36, 3.5, 5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(37.5, 36, 3.5, 5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    path("M7 27V17c0-3.5 34-3.5 34 0v10z", cloth, out()),
+    rect(3, 24, 7, 14, 3, cloth, out()),
+    rect(38, 24, 7, 14, 3, cloth, out()),
+    rect(9.5, 28, 14.5, 9, 2, cloth, out()),
+    rect(24, 28, 14.5, 9, 2, cloth, out()),
+    line("M11 29.5h11.5M25.5 29.5h11.5", LINEN, 1.2, { opacity: 0.9 }),
+    line("M10 16.8c8-1.6 20-1.6 28 0", "#ffffff", 1.2, { opacity: 0.35 }),
+  ];
+}
+
+/** A bed seen from the foot: a wooden headboard, a pillow, and a quilt turned down over a sheet. */
+function bed(): ArtShape[] {
+  const quilt = BLOCK_COLORS.bed;
+  return [
+    shadow(19, 43),
+    path("M8 26V12c0-4.5 32-4.5 32 0v14z", WOOD, out()),
+    line("M12 11.5c6-1.8 18-1.8 24 0", "#ffffff", 1.1, { opacity: 0.3 }),
+    rect(13, 17, 22, 7, 3.2, "#fffaf0", out({ "stroke-width": 1 })),
+    rect(6, 23, 36, 8, 2, LINEN, out()),
+    path("M6 27h36v9.5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z", quilt, out()),
+    line("M7 28.6h34", LINEN, 1.3),
+    line("M15 32v5M24 32v5M33 32v5", "#ffffff", 0.9, { opacity: 0.3 }),
+    rect(6, 38.5, 4, 4.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(38, 38.5, 4, 4.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+  ];
+}
+
 const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
   jar,
@@ -2681,6 +2752,10 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   timber_frame: timberFrame,
   driftwood_plank: driftwoodPlank,
   sea_glass_pane: seaGlassPane,
+  cushion,
+  armchair,
+  sofa,
+  bed,
   campfire,
   flower_box: flowerBox,
   jack_o_lantern: jackOLantern,

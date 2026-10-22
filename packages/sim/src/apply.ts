@@ -204,6 +204,7 @@ import {
 } from "./recipes";
 import { currentCommand } from "./renamed";
 import { checkRetireRepeatJoins, isRetired } from "./repeat-joins";
+import { checkRest } from "./rest";
 import { checkSetRoof } from "./roofs";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
@@ -1054,6 +1055,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return [{ type: "moved", residentId: actor, x, y, ...floorField(floor) }];
       };
     }
+
+    case "rest":
+      return town(checkRest(state, me, command));
 
     case "putter": {
       const { steps } = command;

@@ -1,4 +1,5 @@
 import { refuse } from "./check";
+import { WALKED_ONTO_SEATS } from "./furniture";
 import { plotKey, tileKey } from "./keys";
 import type {
   BlockKind,
@@ -507,13 +508,17 @@ export function isSolid(state: WorldState, x: number, y: number): boolean {
 }
 
 /**
- * Whether a block stops a walker on its tile. Two blocks never do: stairs, walked onto to climb
- * (RFC 0028), and a door, walked through like an open tile (decision 0349). Every walk reads this,
- * so a door is open to `move`, a putter, a routine, a refusal's named walk, the design notes, and
- * the server's shut-home walk alike.
+/**
+ * Whether a block stops a walker on its tile. Stairs (RFC 0028), a door (decision 0349), and the
+ * seats in `WALKED_ONTO_SEATS` (RFC 0044) never do: stairs and seats are walked onto, a door
+ * walked through like an open tile. Every walk reads this, so they are open to `move`, a putter, a
+ * routine, a refusal's named walk, the design notes, and the server's shut-home walk alike.
  */
 export const blocksWalkers = (block: BlockKind | undefined): boolean =>
-  block !== undefined && block !== "stairs" && block !== "door";
+  block !== undefined &&
+  block !== "stairs" &&
+  block !== "door" &&
+  !(WALKED_ONTO_SEATS as readonly string[]).includes(block);
 
 export function chebyshev(a: Tile, b: Tile): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));

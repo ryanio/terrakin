@@ -470,7 +470,7 @@ class WorldObject extends DurableObject<Env> {
       levels: true,
       jobs: true,
       jobEdition: 2,
-      pageEdition: 2,
+      pageEdition: 3,
       circles: true,
       // New lands (RFC 0038, Ryan's word 2026-10-20). This opens nothing today: it watches the
       // claimable plots and the town opens its first island when they fall to `LANDS.openAt` (9).

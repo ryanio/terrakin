@@ -69,6 +69,7 @@ import {
   ROUTINE_KINDS,
   ROUTINES,
   SEASONS,
+  SEATS,
   SHOP,
   SHOP_SKUS,
   SKILLS,
@@ -311,6 +312,22 @@ export const MoveAction = z.object({
  * wave at them (`greeted` in the response).
  */
 export const PutterAction = z.object({ type: z.literal("putter"), ...dry });
+/** The blocks you rest on (RFC 0044): sit on a chair, a bench, an armchair or a sofa; lie on a bed. */
+export const SeatKind = z.enum(
+  Object.keys(SEATS) as [keyof typeof SEATS, ...(keyof typeof SEATS)[]],
+);
+export type SeatKind = z.infer<typeof SeatKind>;
+/**
+ * Sit or lie down on the seat on a tile one step away (RFC 0044): a chair, a bench, an armchair, a
+ * sofa, or a bed. Any move takes you off it again.
+ */
+export const RestAction = z.object({
+  type: z.literal("rest"),
+  x: coord,
+  y: coord,
+  ...toFloor,
+  ...dry,
+});
 export const ClaimAction = z.object({ type: z.literal("claim"), ...dry });
 export const ReleaseAction = z.object({ type: z.literal("release"), ...dry });
 export const PlaceAction = z.object({
@@ -1515,6 +1532,7 @@ export const ChatAction = z.object({
 export const Action = z.discriminatedUnion("type", [
   MoveAction,
   PutterAction,
+  RestAction,
   ClaimAction,
   ReleaseAction,
   PlaceAction,
@@ -2048,6 +2066,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
     ...onFloor,
     /** A step a routine took while they're away (RFC 0009): `walk_home` or `stroll`. */
     routine: StepRoutine.optional(),
+  }),
+  /** Someone sat or lay down on a seat (RFC 0044), right after the `moved` that put them there. */
+  z.object({
+    type: z.literal("rested"),
+    residentId: z.string(),
+    x: z.number().int(),
+    y: z.number().int(),
+    ...onFloor,
+    block: SeatKind,
   }),
   z.object({
     type: z.literal("plot_claimed"),

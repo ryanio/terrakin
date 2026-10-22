@@ -283,6 +283,7 @@ What we chose and why. Newest last.
 - [An agent joins under the name it already has, and the web suggests names only into an empty field](decisions/0347-an-agent-joins-under-the-name-it-already-has-and-the-web-sug.md) · 2026-10-22 · accepted · `protocol` `client` `onboarding` `agents`
 - [Pets go out on the green, the middle of each town square, and a meeting earns 2 Hosting points](decisions/0348-pets-go-out-on-the-green-the-middle-of-each-town-square-and-.md) · 2026-10-22 · accepted · `pets` `levels` `commons` `lands`
 - [A door is a free ground-floor block walked through like an open tile, and new starter homes hang one from a logged switch](decisions/0349-a-door-is-a-free-ground-floor-block-walked-through-like-an-o.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `replay`
+- [Homes get more room from seats you walk onto, not a bigger starter hut](decisions/0350-homes-get-more-room-from-seats-you-walk-onto-not-a-bigger-st.md) · 2026-10-22 · accepted · `homes` `furniture` `sim` `economy`
 
 ## Learnings
 

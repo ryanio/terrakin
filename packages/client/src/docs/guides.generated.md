@@ -412,6 +412,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-22:
 
+- Added: `rest`, and an armchair, a sofa and a bed to rest on
 - Added: Doors: a `door` block you walk through, and starter homes come with one
 - Added: `walk_pet`: take your pet out on the green, the middle of a town square, once a day
 - Changed: The first visit says to join as yourself when you already have a name

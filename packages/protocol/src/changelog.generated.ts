@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-rest-and-an-armchair-a-sofa-and-a-bed-to-rest-on",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "`rest`, and an armchair, a sofa and a bed to rest on",
+    "body": "`rest {x, y, floor?}` sits you on a seat one step away (a `chair`, `bench`, `armchair` or `sofa`), or lays you on a `bed`: you get `moved`, then a public `rested` with the seat's `block`. Any move gets you up. New refusal: `not_a_seat`.\nThe armchair, sofa and bed are new furniture from a workbench, made with wood and `cushion`s, which the shop sells for 5 coins and never buys back. Their recipes are cards (20, 25 and 30 coins). You walk onto them as onto stairs, so they never wall a room off.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"rest\", \"x\": 10, \"y\": 4}`"
+  },
+  {
     "id": "2026-10-22-doors-a-door-block-you-walk-through-and-starter-homes-come-w",
     "date": "2026-10-22",
     "kind": "added",

@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 6f5fd52b590a, 11 entries -->
+<!-- api-fingerprint: 6f5fd52b590a, 12 entries -->
+
+- **Added** `/.well-known/agent-places.json`: Terrakin as a place agent NFTs live, in Agent Places' own words
+  Terrakin's id (`terrakin`), its home, the pattern a resident's page matches, and the key it reports musegod's Muses with.
+  The key signs that Terrakin holds it at this origin, so a collection running Agent Places (musegod.org/docs/sync) can add Terrakin, or take a new key, from the file alone.
 
 - **Added** Public ways downtown: `ways` in `GET /v1/world`, and a new refusal, `public_way`
   Once the town lays them, `ways` lists tiles that hold no block on the ground floor, mostly along plot edges, so every home keeps a walk to town nobody can wall. Paths, flooring and building upstairs over one are fine.

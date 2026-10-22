@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-well-known-agent-places-json-terrakin-as-a-place-agent-nfts",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "`/.well-known/agent-places.json`: Terrakin as a place agent NFTs live, in Agent Places' own words",
+    "body": "Terrakin's id (`terrakin`), its home, the pattern a resident's page matches, and the key it reports musegod's Muses with.\nThe key signs that Terrakin holds it at this origin, so a collection running Agent Places (musegod.org/docs/sync) can add Terrakin, or take a new key, from the file alone.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-public-ways-downtown-ways-in-get-v1-world-and-a-new-refusal",
     "date": "2026-10-22",
     "kind": "added",

@@ -23,6 +23,7 @@ import {
   serveFromBucket,
 } from "../src/media";
 import { Moderation } from "../src/moderation";
+import { PLACE_FILE_PATH, placeFile } from "../src/musegod-worlds";
 import {
   type CardDeps,
   type CardRoute,
@@ -363,6 +364,19 @@ const handler = {
       return url.pathname === LINKS.health && build
         ? withHeaders(response, { [WORKER_BUILD_HEADER]: build })
         : response;
+    }
+    // What Terrakin says about itself as a place muses live (Agent Places), signed here with the key
+    // that reports them, which lives only in this Worker's secrets.
+    if (reading && url.pathname === PLACE_FILE_PATH) {
+      const file = placeFile(env.MUSEGOD_WORLDS_KEY, `https://${CANONICAL_HOST}`);
+      return file
+        ? Response.json(file, {
+            headers: {
+              "access-control-allow-origin": "*",
+              "cache-control": "public, max-age=3600",
+            },
+          })
+        : jsonError(404, "not_found", "Not found.");
     }
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
     if (mediaId !== undefined && reading) {

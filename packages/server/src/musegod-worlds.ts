@@ -88,6 +88,34 @@ export function signerOf(key: string): string {
   return `0x${toHex(keccak_256(pub.subarray(1)).subarray(-20))}`;
 }
 
+/**
+ * Agent Places, the spec musegod.org wrote this sending half to (musegod.org/docs/sync): what a
+ * place says about itself at `/.well-known/agent-places.json`, so a collection can check it and
+ * add it, or take a new key from it, without asking. The page pattern is the one musegod holds for
+ * this place (`WORLD_URL.terrakin`), and the key signs `placeKeyLine` (musegod's
+ * `packages/chain/src/chain.ts`) for this origin, so only the place holding the key can name it.
+ * The Worker signs it on each read, since the key lives only in its secrets; signing is
+ * deterministic, so the file is the same every time. Null without a key: nothing to say.
+ */
+export const PLACE_FILE_PATH = "/.well-known/agent-places.json";
+const PLACE_PAGE = "^https:\\/\\/terrakin\\.org\\/r\\/r_[0-9a-f]{16}$";
+export const placeKeyLine = (origin: string) =>
+  `Agent Places: ${PLACE} at ${origin} holds this key.`;
+export function placeFile(key: string | undefined, origin: string) {
+  const k = key?.trim();
+  if (!k || !KEY.test(k)) return null;
+  return {
+    spec: "agent-places/0.1",
+    place: {
+      id: PLACE,
+      name: "Terrakin",
+      home: `${origin}/`,
+      page: PLACE_PAGE,
+      keys: [{ address: signerOf(k), signature: signLine(placeKeyLine(origin), k) }],
+    },
+  };
+}
+
 export interface MusegodWorldsOptions {
   /** The key this place signs with, 64 hex characters. Unset or malformed: nothing is sent. */
   key?: string | undefined;

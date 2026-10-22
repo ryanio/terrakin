@@ -293,6 +293,7 @@ What we chose and why. Newest last.
 - [A land plan is refused when, fully claimed, a plot has no way out onto a street joined to the bridge and the counter](decisions/0357-a-land-plan-is-refused-when-fully-claimed-a-plot-has-no-way-.md) · 2026-10-22 · accepted · `server` `lands` `walking` `homes`
 - [A public way is tiles of a plot that hold no block, laid by the town and counted as open ground, amending decision 0351](decisions/0358-a-public-way-is-tiles-of-a-plot-that-hold-no-block-laid-by-t.md) · 2026-10-22 · accepted · `sim` `server` `protocol` `walking` `homes`
 - [Downtown ways are laid by town rule across residents and townsfolk land, and the town clears and rebuilds what they cross](decisions/0359-downtown-ways-are-laid-by-town-rule-across-residents-and-tow.md) · 2026-10-22 · accepted · `server` `admin` `walking` `homes` `townsfolk`
+- [Terrakin publishes itself as an Agent Places place, signed by the Worker](decisions/0360-terrakin-publishes-itself-as-an-agent-places-place-signed-by.md) · 2026-10-22 · accepted · `server` `partners` `integration`
 
 ## Learnings
 

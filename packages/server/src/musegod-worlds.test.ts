@@ -2,7 +2,15 @@ import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
-import { MusegodWorlds, placeLine, residentUrl, signerOf, signLine } from "./musegod-worlds";
+import {
+  MusegodWorlds,
+  placeFile,
+  placeKeyLine,
+  placeLine,
+  residentUrl,
+  signerOf,
+  signLine,
+} from "./musegod-worlds";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
@@ -256,5 +264,26 @@ describe("what Terrakin tells musegod as it happens", () => {
     t.service.ensureOnline(id);
     expect(t.sent).toEqual([{ muse: "7", event: "joined", url: `https://terrakin.org/r/${id}` }]);
     expect(t.sent[0]?.url).toMatch(MUSEGOD_URL);
+  });
+});
+
+describe("the place file", () => {
+  it("names this place, the page musegod holds for it, and a key that signs it holds the key here", () => {
+    const file = placeFile(KEY, "https://terrakin.org");
+    expect(file?.place.id).toBe("terrakin");
+    expect(new RegExp(file?.place.page ?? "").source).toBe(MUSEGOD_URL.source);
+    expect(placeKeyLine("https://terrakin.org")).toBe(
+      "Agent Places: terrakin at https://terrakin.org holds this key.",
+    );
+    // viem's signMessage for KEY over that line: what musegod's place-check recovers.
+    expect(file?.place.keys).toEqual([
+      {
+        address: SIGNER,
+        signature:
+          "0x4bb93c44146e6eb951b459f6594968b9c889bfc2ae633e4b9a7c57f0b52d80587932aa28eff10812254006889c1e63ed22b2a390f282da4d8ddb28991cedb9051c",
+      },
+    ]);
+    expect(placeFile(undefined, "https://terrakin.org")).toBeNull();
+    expect(placeFile("not a key", "https://terrakin.org")).toBeNull();
   });
 });

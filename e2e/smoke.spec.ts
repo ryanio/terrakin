@@ -235,6 +235,21 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await expect(page.locator("#join-free")).toBeEmpty();
   });
 
+  await test.step("Suggest a name fills an empty field and never a typed one", async () => {
+    const suggest = page.locator("#join-name-suggest");
+    // The field holds the free name tapped above, a name someone picked: it stays.
+    await expect(suggest).toBeDisabled();
+    await page.fill("#join-name", "");
+    await suggest.click();
+    const idea = await page.locator("#join-name").inputValue();
+    expect(idea).toMatch(/^[A-Z][a-z]+$/);
+    await expect(suggest).toHaveText("Another name");
+    await suggest.click();
+    await expect(page.locator("#join-name")).not.toHaveValue(idea);
+    await page.fill("#join-name", "Heyday");
+    await expect(suggest).toBeDisabled();
+  });
+
   await test.step("no key, name, or note ever reaches the address bar", async () => {
     await page.goto("/world");
     // The fields have no names, so even a native submit couldn't send them.

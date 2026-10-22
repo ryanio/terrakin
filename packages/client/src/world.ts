@@ -481,7 +481,10 @@ function joinRefused(code: string, message: string, free?: readonly string[]) {
   landing.setJoining(false);
   landing.setError(joinProblem(code, message, free?.length ?? 0), free);
   // A taken name may be your own character from another browser: the way back is the key.
-  if (code === "name_taken") landing.openRestore();
+  if (code === "name_taken") {
+    landing.nameTaken();
+    landing.openRestore();
+  }
   if (code === "invalid_profile") landing.focusNote();
   else landing.focusName();
 }

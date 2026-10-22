@@ -3209,7 +3209,7 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .array(DesignNoteView)
       .optional()
       .describe(
-        "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`. Today only `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. Absent when there is nothing to say.",
+        "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`: `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. `settle` and `claim`: `seals_neighbor` for each plot next door whose last way out the claim takes, and `no_opening` when the plot would have no way out of its own, read before the claim, dry or real. Absent when there is nothing to say.",
       ),
   }),
   z.object({
@@ -3299,7 +3299,7 @@ export const ServerMessage = z.union([
     handedIn: HandedIn.optional(),
     /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
     plotSale: PlotSaleView.optional(),
-    /** `build_starter_home`: notes about the home it built, or would build. */
+    /** `build_starter_home`, `settle`, and `claim`: notes about the home or the plot, as `ActionResponse` has them. */
     notes: z.array(DesignNoteView).optional(),
   }),
   z.object({

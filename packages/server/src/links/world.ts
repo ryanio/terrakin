@@ -10,6 +10,8 @@ import {
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,
+  claimWaysIn,
+  closesNobodyIn,
   commonsPlot,
   countOf,
   dayDateWords,
@@ -158,11 +160,15 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
   ]);
 }
 
-/** Unclaimed plots, nearest first (in plots), not counting a town square or open water. */
+/**
+ * Unclaimed plots, nearest first (in plots), not counting a town square or open water. Of those as
+ * near, plots whose claim closes nobody in come first (the sim's `closesNobodyIn`, decision 0352).
+ */
 function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   const { config } = state;
   const here = plotOf(config, x, y);
-  const free: { px: number; py: number; away: number }[] = [];
+  const ways = claimWaysIn(state);
+  const free: { px: number; py: number; away: number; clear?: boolean }[] = [];
   for (let py = 0; py < config.height / config.plotSize; py++) {
     for (let px = 0; px < config.width / config.plotSize; px++) {
       // A square is where a hall and a counter stand and water is no plot at all, so neither is
@@ -172,7 +178,13 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
       free.push({ px, py, away: chebyshev({ x: px, y: py }, { x: here.px, y: here.py }) });
     }
   }
-  return free.sort((a, b) => a.away - b.away || a.py - b.py || a.px - b.px).slice(0, count);
+  // Whether a claim closes nobody in is asked only of plots as near as the ones shown.
+  free.sort((a, b) => a.away - b.away || a.py - b.py || a.px - b.px);
+  const last = free[Math.min(count, free.length) - 1];
+  const near = free.filter((p) => last && p.away <= last.away);
+  for (const p of near) p.clear = closesNobodyIn(ways(p.px, p.py));
+  near.sort((a, b) => a.away - b.away || Number(b.clear) - Number(a.clear));
+  return near.slice(0, count).map(({ px, py, away }) => ({ px, py, away }));
 }
 
 /**

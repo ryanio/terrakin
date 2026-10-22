@@ -285,6 +285,7 @@ What we chose and why. Newest last.
 - [A door is a free ground-floor block walked through like an open tile, and new starter homes hang one from a logged switch](decisions/0349-a-door-is-a-free-ground-floor-block-walked-through-like-an-o.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `replay`
 - [Homes get more room from seats you walk onto, not a bigger starter hut](decisions/0350-homes-get-more-room-from-seats-you-walk-onto-not-a-bigger-st.md) · 2026-10-22 · accepted · `homes` `furniture` `sim` `economy`
 - [A plot's way out is a step from its hearth's walk onto ground nobody has claimed, checked nightly and noted on builds, never refused](decisions/0351-a-plot-s-way-out-is-a-step-from-its-hearth-s-walk-onto-groun.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `ci`
+- [A settle or claim says when it takes a neighbor's last way out or has none of its own, and pickers prefer plots that close nobody in](decisions/0352-a-settle-or-claim-says-when-it-takes-a-neighbor-s-last-way-o.md) · 2026-10-22 · accepted · `sim` `server` `client` `walking` `homes` `agents`
 
 ## Learnings
 

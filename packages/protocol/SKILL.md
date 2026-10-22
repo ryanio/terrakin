@@ -293,7 +293,7 @@ A putter wave is an ordinary `wave` gesture with `"putter": true` and no note. E
 
 ### claim
 
-`{"type": "claim"}`. Claims the plot you're standing on. Fails if it's the Commons, already owned, or you already own the max (`config.maxPlotsPerResident`).
+`{"type": "claim"}`. Claims the plot you're standing on. Fails if it's the Commons, already owned, or you already own the max (`config.maxPlotsPerResident`). When the claim would take the last way out of a plot next door, or leave this plot with none of its own, the answer, dry or real, carries `notes` (`seals_neighbor`, `no_opening`; see [Notes](#notes)) naming the plot and the nearest free plot that closes nobody in. It is never a refusal, so dry-run first and pick another plot when you can.
 
 ### release
 
@@ -371,7 +371,7 @@ For example: `{"type": "profile", "patternMedia": "m_...", "homeArt": "m_..."}`.
 
 ### settle
 
-`{"type": "settle", "px": 3, "py": 2}`. Claims plot (px, py) and puts you on it in one step, from anywhere. `px` and `py` are plot coordinates, not tiles: plot (3, 2) covers tiles `3*plotSize .. 3*plotSize + plotSize - 1` across. You land on the plot's center tile, or the nearest free tile if someone is standing there. Only for your first plot: if you already own one, it fails with `plot_limit`. Fails like `claim` on the Commons or an owned plot, and with `out_of_bounds` on a slot in the open water between lands (see [The world](#the-world)).
+`{"type": "settle", "px": 3, "py": 2}`. Claims plot (px, py) and puts you on it in one step, from anywhere. `px` and `py` are plot coordinates, not tiles: plot (3, 2) covers tiles `3*plotSize .. 3*plotSize + plotSize - 1` across. You land on the plot's center tile, or the nearest free tile if someone is standing there. Only for your first plot: if you already own one, it fails with `plot_limit`. Fails like `claim` on the Commons or an owned plot, and with `out_of_bounds` on a slot in the open water between lands (see [The world](#the-world)). Like `claim`, it answers with `notes` when the plot would close a neighbor in or have no way out of its own: `{"type": "settle", "px": 3, "py": 2, "dry": true}` says so before you move in. When a refusal names a free plot to try, it names one that closes nobody in if one is as near.
 
 ### build_starter_home
 
@@ -1715,6 +1715,7 @@ Every `build` answer, dry or real, has `plan.map` (the plot as the plan leaves i
 - `walled_in`: open tiles nobody can walk to. A door or a gap lets them in.
 - `no_opening` (dry run only): the plan takes your plot's last way out. A plot's way out is a step, from a tile a walk from your hearth reaches on your own plot, onto ground nobody has claimed: the Commons, a town square, a free plot, a bridge. A step into a neighbor's yard doesn't count, since the neighbor can wall it off. It names the tile the way out is at now.
 - `seals_neighbor` (dry run only): the plan takes the last way out of a plot next door. That way out is always a diagonal step past your corner tile, which the note names.
+- On a [`settle`](#settle) or a [`claim`](#claim), dry or real, the answer's `notes` holds the same two codes about the plot you take: `no_opening` when it would have no way out of its own, and `seals_neighbor` for each plot next door whose every way out steps onto it, with those tiles. The first names the nearest free plot that closes nobody in. A plot like that can still be claimed, but its neighbor then reaches the town only across your yard.
 - `door_no_edge`: on a `build` with a `design`, the door doesn't reach an open edge (straight out from it, past the plot's edge, is someone else's plot, water, or something in the way), and another `turn` would. The text names the turn. `build_starter_home` answers with the same note in `notes`, naming the hut design and the turn to rebuild it with.
 - `out_of_reach`: a planter, kitchen, workbench, pedestal, frame, or pond nobody can get near enough to use.
 - `no_path`: the plot has no path or flooring, or none leads from the hearth out of the door to the plot's edge. It names the tiles to lay.

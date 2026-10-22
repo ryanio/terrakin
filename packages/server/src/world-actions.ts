@@ -7,6 +7,7 @@ import {
   canBuildOn,
   circleById,
   circleOf,
+  claimNotes,
   DAY_LENGTH_MS,
   exactWearStyles,
   FISHING,
@@ -27,6 +28,7 @@ import {
   plotAtTile,
   plotInBounds,
   plotKey,
+  plotOf,
   ROUTINES,
   type Routine,
   residentById,
@@ -206,6 +208,15 @@ export function performAction(
     const refused = closedDoor(ctx, residentId, px, py, "You can't knock at this door.");
     if (refused) return refused;
     return ctx.run({ actor: residentId, command: { type: "trick_or_treat", px, py } }, dry);
+  }
+  if (action.type === "settle" || action.type === "claim") {
+    // What the claim does to ways out, its own and the plots around it, read before it's made
+    // (decision 0352): notes, dry or real, never a refusal.
+    const me = action.type === "claim" && asJoined(ctx.state, residentId).residents[residentId];
+    const slot = action.type === "settle" ? action : me && plotOf(ctx.state.config, me.x, me.y);
+    const notes = slot ? claimNotes(ctx.state, slot.px, slot.py) : [];
+    const result = ctx.run({ actor: residentId, command: action satisfies Command }, dry);
+    return result.ok && notes.length > 0 ? { ...result, notes } : result;
   }
   if (action.type === "build_starter_home") {
     // Drop absent fields: the sim's types forbid explicit undefined.

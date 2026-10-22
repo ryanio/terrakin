@@ -1,9 +1,17 @@
 import type { BuildPlan } from "./build";
 import { plotKey, tileKey } from "./keys";
-import { seaFrom } from "./lands";
+import { onLand, seaFrom } from "./lands";
 import type { Direction, ResidentId, Tile, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
-import { blocksWalkers, inBounds, plotOf, STEP, shopTiles, townHallTiles } from "./world";
+import {
+  blocksWalkers,
+  inBounds,
+  isTownSquare,
+  plotOf,
+  STEP,
+  shopTiles,
+  townHallTiles,
+} from "./world";
 
 /**
  * A plot's way out (decision 0351). A claimed plot has an **opening** when a walk on its own tiles,
@@ -16,7 +24,8 @@ import { blocksWalkers, inBounds, plotOf, STEP, shopTiles, townHallTiles } from 
  * one ever comes, never counts against an opening.
  *
  * Read-only, like the design notes: no rule calls it, so it never refuses anything and never
- * changes how a log replays. Everything here works from `OpeningFacts`, so a script holding only
+ * changes how a log replays. Its one reader in `apply.ts` is `nearestFreePlot`, the plot a
+ * refusal names, and refusals are never logged. Everything here works from `OpeningFacts`, so a script holding only
  * the world's snapshot asks the same question as the server (`landlockedFrom`).
  */
 
@@ -177,6 +186,112 @@ export function plotOpenings(state: WorldState, px: number, py: number, plan?: B
 /** Every landlocked plot in the world, north to south, then west to east. */
 export function landlocked(state: WorldState): Landlocked[] {
   return landlockedFrom(openingFacts(state), Object.values(state.plots), hearthsOf(state));
+}
+
+// ---------- a claim (decision 0352) ----------
+
+/** What claiming a free plot would do to ways out. */
+export interface ClaimWays {
+  /**
+   * The plot's own openings once it's claimed, walked from every open tile on it (a plot nobody
+   * has claimed has no hearth on it). Empty when it would be landlocked.
+   */
+  own: Opening[];
+  /** Why it would be landlocked, as `landlockedFrom` says it, when `own` is empty. */
+  why?: Landlocked["why"];
+  /**
+   * Each claimed plot around it that has a way out now and would have none, north to south, then
+   * west to east, with the openings it would lose: all it has, every one a step onto this plot.
+   */
+  seals: { px: number; py: number; lost: Opening[] }[];
+}
+
+/** Whether a claim closes nobody in: it leaves every plot around it a way out, and has its own. */
+export const closesNobodyIn = (ways: ClaimWays): boolean =>
+  ways.seals.length === 0 && ways.own.length > 0;
+
+/**
+ * What claiming a plot slot would do to ways out, asked of one world, as a function of the slot.
+ * A claim changes no tile, only which slots count as open ground, and `openingsOf` reads that only
+ * at the step off a plot. So a neighbour's openings after the claim are its openings now less each
+ * step onto this plot, and the plot's own are its walk now. Each plot's openings are walked once
+ * and kept, so a picker asking of every free slot walks each plot once.
+ */
+export function claimWaysFrom(
+  facts: OpeningFacts,
+  hearths: readonly Tile[],
+): (px: number, py: number) => ClaimWays {
+  const { config } = facts.ground;
+  const walked = new Map<string, Opening[]>();
+  const openings = (px: number, py: number) => {
+    const key = plotKey(px, py);
+    let found = walked.get(key);
+    if (!found) {
+      found = openingsOf(facts, px, py, hearths);
+      walked.set(key, found);
+    }
+    return found;
+  };
+  return (px, py) => {
+    const seals: ClaimWays["seals"] = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = px + dx;
+        const ny = py + dy;
+        if ((dx === 0 && dy === 0) || !facts.claimed(nx, ny)) continue;
+        const theirs = openings(nx, ny);
+        const kept = theirs.some((o) => {
+          const slot = plotOf(config, o.to.x, o.to.y);
+          return slot.px !== px || slot.py !== py;
+        });
+        if (theirs.length > 0 && !kept) seals.push({ px: nx, py: ny, lost: theirs });
+      }
+    }
+    const own = openings(px, py);
+    if (own.length > 0) return { own, seals };
+    return { own, why: touchesOpenGround(facts, px, py) ? "walled" : "surrounded", seals };
+  };
+}
+
+/** What claiming a plot slot would do to ways out in the world as it stands (`claimWaysFrom`). */
+export function claimWaysIn(state: WorldState): (px: number, py: number) => ClaimWays {
+  return claimWaysFrom(openingFacts(state), hearthsOf(state));
+}
+
+/**
+ * The free plot nearest to plot (`px`, `py`): unclaimed, not a town square, and on land, so one
+ * `settle` would take, by Chebyshev distance in plots, then north to south, then west to east. Of
+ * the plots as near as the nearest, the first whose claim closes nobody in (`closesNobodyIn`),
+ * else the first. With `clear`, only a plot that closes nobody in, however far. `except` is never
+ * named. Undefined when there's none.
+ */
+export function nearestFreePlot(
+  state: WorldState,
+  px: number,
+  py: number,
+  how: { clear?: boolean; except?: { px: number; py: number } } = {},
+): { px: number; py: number } | undefined {
+  const { config } = state;
+  const across = config.width / config.plotSize;
+  const down = config.height / config.plotSize;
+  const free: { px: number; py: number; d: number }[] = [];
+  for (let y = 0; y < down; y++) {
+    for (let x = 0; x < across; x++) {
+      if (how.except?.px === x && how.except.py === y) continue;
+      // Water is never a plot to try: `settle` refuses it, so naming one sends an agent in a
+      // circle between a refusal and its hint (RFC 0038).
+      if (isTownSquare(state, x, y) || state.plots[plotKey(x, y)] || !onLand(state, x, y)) continue;
+      free.push({ px: x, py: y, d: Math.max(Math.abs(x - px), Math.abs(y - py)) });
+    }
+  }
+  free.sort((a, b) => a.d - b.d || a.py - b.py || a.px - b.px);
+  const ways = claimWaysIn(state);
+  const clear = (p: { px: number; py: number }) => closesNobodyIn(ways(p.px, p.py));
+  const first = free[0];
+  const pick = how.clear
+    ? free.find(clear)
+    : first && (free.find((p) => p.d === first.d && clear(p)) ?? first);
+  return pick && { px: pick.px, py: pick.py };
 }
 
 // ---------- a design's door ----------

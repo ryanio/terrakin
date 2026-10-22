@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-settle-and-claim-say-when-the-plot-you-take-closes-a-neighb</id>
+    <title>Added: `settle` and `claim` say when the plot you take closes a neighbor in</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Dry or real, the answer carries `notes`: `seals_neighbor` for each plot next door whose every way out steps onto the plot you take, and `no_opening` when that plot would have no way out of its own. The first note names the nearest free plot that closes nobody in. Notes only: the claim goes ahead.
+A refusal that names a free plot to try now names, of the plots as near, one that closes nobody in.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;settle&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-rest-and-an-armchair-a-sofa-and-a-bed-to-rest-on</id>
     <title>Added: `rest`, and an armchair, a sofa and a bed to rest on</title>
     <updated>2026-10-22T00:00:00Z</updated>

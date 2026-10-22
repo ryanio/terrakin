@@ -170,6 +170,7 @@ import {
 } from "./market";
 import { checkMergeResident, mergedInto } from "./merge";
 import { checkSetOffFirework } from "./newyear";
+import { nearestFreePlot } from "./openings";
 import { residentById } from "./own";
 import {
   checkAdoptPet,
@@ -631,31 +632,9 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
 // ---------- next steps: a rejection names the call that would work ----------
 
 /**
- * The unclaimed plot nearest to plot (px, py), not the Commons: by Chebyshev distance in plots,
- * then north to south, then west to east. Undefined when every plot is taken.
+ * Where to settle or claim next: the free plot nearest to plot (px, py), as a call to make. Of
+ * plots as near, one whose claim closes nobody in (`nearestFreePlot`, decision 0352).
  */
-function nearestFreePlot(
-  state: WorldState,
-  px: number,
-  py: number,
-): { px: number; py: number } | undefined {
-  const { config } = state;
-  const across = config.width / config.plotSize;
-  const down = config.height / config.plotSize;
-  let best: { px: number; py: number; d: number } | undefined;
-  for (let y = 0; y < down; y++) {
-    for (let x = 0; x < across; x++) {
-      // Water is never a plot to try: `settle` refuses it, so naming one sends an agent in a
-      // circle between this hint and that refusal (RFC 0038).
-      if (isTownSquare(state, x, y) || state.plots[plotKey(x, y)] || !onLand(state, x, y)) continue;
-      const d = Math.max(Math.abs(x - px), Math.abs(y - py));
-      if (!best || d < best.d) best = { px: x, py: y, d };
-    }
-  }
-  return best && { px: best.px, py: best.py };
-}
-
-/** Where to settle or claim next: the free plot nearest to plot (px, py), as a call to make. */
 function freePlotHint(state: WorldState, actor: string, px: number, py: number): string {
   const owned = plotsOwnedBy(state, actor).length;
   // Pointing at a free plot would only lead to plot_limit.

@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ServerMessage } from "@terrakin/protocol";
+import { RATE_LIMITS, type ServerMessage } from "@terrakin/protocol";
 import { CROPS, familyRecipeMiss, GROUND_KINDS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
@@ -663,14 +663,15 @@ describe("hardening", () => {
     const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
     const server = createApp({ service, sessionsPerMinute: 1, onResponse });
     const base = await listenOnFreePort(server, cleanups);
+    const burst = RATE_LIMITS.sessions.burst;
     const statuses = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < burst + 2; i++) {
       statuses.push(
         (await api(base, "POST", "/v1/session", { name: `n${i}`, kind: "agent" })).status,
       );
     }
-    expect(statuses.slice(0, 5)).toEqual([201, 201, 201, 201, 201]);
-    expect(statuses.slice(5)).toEqual([429, 429]);
+    expect(statuses.slice(0, burst)).toEqual(Array(burst).fill(201));
+    expect(statuses.slice(burst)).toEqual([429, 429]);
   });
 
   it("reads the client IP from X-Forwarded-For only for trusted hops", () => {

@@ -7,6 +7,7 @@ import {
   CATALOG_VIEW,
   CHANGELOG_ENTRIES,
   DEVLOG_POSTS,
+  RATE_LIMITS,
   SITEMAP_MAX_URLS,
 } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
@@ -159,8 +160,8 @@ describe("standard API headers", () => {
     // Unlimited routes don't pretend to have a limit.
     expect((await call("GET", "/v1/health")).headers.get("ratelimit")).toBeNull();
 
-    // New sessions: a burst of 5 per IP, then 429.
-    for (let i = 0; i < 4; i++) await join(`Moss${i}`);
+    // New sessions: a burst per IP, then 429. Wren took the first.
+    for (let i = 1; i < RATE_LIMITS.sessions.burst; i++) await join(`Moss${i}`);
     const refused = await call("POST", "/v1/session", { body: { name: "Late", kind: "agent" } });
     expect(refused.status).toBe(429);
     expect(refused.body.error.code).toBe("rate_limited");

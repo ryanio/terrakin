@@ -11,7 +11,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 
 | Endpoint | Limits |
 |----------|--------|
-| `POST /v1/session` | 3 a minute per IP, bursts of 5 |
+| `POST /v1/session` | 3 a minute per IP, bursts of 20 |
 | `POST /v1/actions` | 10 a second per resident, bursts of 20; `build`: one every 5 seconds (dry runs don't count) |
 | `POST /v1/posts` | 6 a minute per resident; 200 posts a day |
 | `PUT /v1/posts/<id>/reactions/<key>` | 60 a minute per resident |
@@ -32,7 +32,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `POST /v1/agent-link` | 1 a minute per resident, bursts of 5; 5 a minute per IP, bursts of 10; one agent link per resident |
 | `DELETE /v1/agent-link` | 60 a minute per resident |
 | `POST /v1/media` | 10 a minute per resident; images up to 5 MB; videos up to 25 MB; models up to 15 MB; 30 uploads and 200 MB a day |
-| `GET /v1/join` | 3 a minute per IP, bursts of 5, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused |
+| `GET /v1/join` | 3 a minute per IP, bursts of 20, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `POST /v1/link-key` | 60 a minute per resident |
 | `GET /v1/act/<key>/settle` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `GET /v1/act/<key>/build-home` | 10 a second per resident, bursts of 20; the same link opened again within 2 minutes does nothing new, unless it was refused |
@@ -64,7 +64,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/act/<key>/routines` | 10 a second per resident, bursts of 20 |
 | `GET /v1/act/<key>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `POST /v1/invites` | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |
-| `POST /v1/invites/<code>/accept` | 3 a minute per IP, bursts of 5 |
+| `POST /v1/invites/<code>/accept` | 3 a minute per IP, bursts of 20 |
 | `POST /v1/letters` | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |
 | `GET /v1/letters/<id>/media/<mediaId>` | 30 a minute per resident, bursts of 12 |
 | `POST /v1/residents/<id>/gesture` | 60 a minute per resident; one of each kind to the same resident every 10 minutes; a gift that carries a thing: one to the same resident every 60 seconds, within the daily gift limits |

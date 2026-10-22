@@ -288,6 +288,7 @@ What we chose and why. Newest last.
 - [An island's presence is its shop counter; Town Hall filing stays downtown](decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) · 2026-10-21 · accepted · `world` `lands` `town-hall` `shop` `agents`
 - [An island's hall building stays standing and takes no filings](decisions/0353-an-island-s-hall-building-stays-standing-and-takes-no-filing.md) · 2026-10-22 · accepted · `world` `lands` `town-hall` `sim` `replay`
 - [A settle or claim says when it takes a neighbor's last way out or has none of its own, and pickers prefer plots that close nobody in](decisions/0354-a-settle-or-claim-says-when-it-takes-a-neighbor-s-last-way-o.md) · 2026-10-22 · accepted · `sim` `server` `client` `walking` `homes` `agents`
+- [Twenty new characters can join at once from one network, so a room on one Wi-Fi steps in together](decisions/0355-twenty-new-characters-can-join-at-once-from-one-network-so-a.md) · 2026-10-22 · accepted · `server` `security` `rate-limits` `playtest`
 
 ## Learnings
 

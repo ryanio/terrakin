@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 2e3c0b2f6a30, 7 entries -->
+<!-- api-fingerprint: 91aedd7abdb8, 8 entries -->
+
+- **Changed** Twenty new characters can join at once from one network
+  `POST /v1/session` and the other joins that share its limit allow 20 new characters at once from one IP, up from 5, so a room of people on one Wi-Fi can all step in together. The refill is unchanged: 3 a minute.
 
 - **Changed** Proposals are filed at the Town Hall downtown, even from an island
   An island's hall building takes no filings. From anywhere but downtown's hall door, `propose` is refused with `out_of_reach` and the walk back over the bridge, and `you.hall` in `GET /v1/town` is always downtown's door. Voting stays remote.

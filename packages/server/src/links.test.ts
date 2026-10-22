@@ -1,7 +1,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CHECKIN_SUGGESTED_HOURS, JOIN_CODE_MS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
+import {
+  CHECKIN_SUGGESTED_HOURS,
+  JOIN_CODE_MS,
+  RATE_LIMITS,
+  REPEAT_WINDOW_MS,
+} from "@terrakin/protocol";
 import { FLOORS, HAIR_STYLES, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
@@ -179,16 +184,18 @@ describe("joining by link", () => {
     await joinByPost("Ada");
     await joinByPost("Bob");
     // The first page makes nothing, so it spends nothing.
+    // The two joins above took two of the burst; the links take the rest, then are refused.
+    const left = RATE_LIMITS.sessions.burst - 2;
     const links = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < left + 3; i++) {
       const first = await open(`/v1/join?name=n${i}`);
       expect(first.status).toBe(200);
       links.push(confirmLinkIn(first.text));
     }
     const statuses = [];
-    for (const link of links.slice(0, 5)) statuses.push((await open(link)).status);
-    expect(statuses).toEqual([200, 200, 200, 429, 429]);
-    const late = await open(links[5] ?? "");
+    for (const link of links.slice(0, left + 2)) statuses.push((await open(link)).status);
+    expect(statuses).toEqual([...Array(left).fill(200), 429, 429]);
+    const late = await open(links[left + 2] ?? "");
     expect(codeOf(late.text)).toBe("rate_limited");
     expect(Number(late.headers.get("retry-after"))).toBeGreaterThan(0);
   });

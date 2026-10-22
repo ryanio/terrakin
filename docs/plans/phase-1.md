@@ -55,7 +55,7 @@ In the order a newcomer meets them, which is also the order the staff app counts
 Before the day:
 
 - Check the staff key reads the funnel: `node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- pnpm funnel`. It prints the all-time table; a 401 means the key needs renewing.
-- Ask people to join on mobile data, not the venue's Wi-Fi. New characters are limited per network address: five at once, then three a minute. On one shared Wi-Fi the sixth person sees "Too many new sessions. Try again in a minute." at the name step, which would read as a failure of step 1. If everyone has to share Wi-Fi, have them step in a few at a time.
+- New characters are limited per network address: twenty at once, then three a minute. A room of up to twenty on one Wi-Fi can join together; past that, the rest step in a minute later.
 - Tell them to use their phone's normal browser, not a private tab. A character lives in the browser that made it, and a private tab loses it when closed.
 - Make the note sheet: one row per person, one column for each of the six steps, and a column for what they said.
 - The team doesn't make new characters during the hour. Every new person counts in the funnel, and team members are not among the ten.

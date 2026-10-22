@@ -325,8 +325,8 @@
           "bucket": "sessions",
           "scope": "ip",
           "perSecond": 0.05,
-          "burst": 5,
-          "description": "3 a minute per IP, bursts of 5"
+          "burst": 20,
+          "description": "3 a minute per IP, bursts of 20"
         }
       },
       "delete": {
@@ -9166,7 +9166,7 @@
           }
         },
         "x-limits": [
-          "3 a minute per IP, bursts of 5, shared with `POST /v1/session`, only when it joins"
+          "3 a minute per IP, bursts of 20, shared with `POST /v1/session`, only when it joins"
         ],
         "x-repeat-window-ms": 120000
       }
@@ -17693,8 +17693,8 @@
           "bucket": "sessions",
           "scope": "ip",
           "perSecond": 0.05,
-          "burst": 5,
-          "description": "3 a minute per IP, bursts of 5"
+          "burst": 20,
+          "description": "3 a minute per IP, bursts of 20"
         }
       }
     },

@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-twenty-new-characters-can-join-at-once-from-one-network</id>
+    <title>Changed: Twenty new characters can join at once from one network</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`POST /v1/session` and the other joins that share its limit allow 20 new characters at once from one IP, up from 5, so a room of people on one Wi-Fi can all step in together. The refill is unchanged: 3 a minute.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-proposals-are-filed-at-the-town-hall-downtown-even-from-an-i</id>
     <title>Changed: Proposals are filed at the Town Hall downtown, even from an island</title>
     <updated>2026-10-22T00:00:00Z</updated>

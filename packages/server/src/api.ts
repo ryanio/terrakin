@@ -278,7 +278,7 @@ export interface ApiOptions {
   build?: string;
   /** Actions per second allowed per resident (burst = 2x). Default from RATE_LIMITS.actions. */
   actionsPerSecond?: number;
-  /** New sessions per minute allowed per IP (burst = that many, at least 5). Default from RATE_LIMITS.sessions. */
+  /** New sessions per minute allowed per IP (burst = that many, at least RATE_LIMITS.sessions.burst). Default from RATE_LIMITS.sessions. */
   sessionsPerMinute?: number;
   /** The social layer (RFC 0003). Without it, the social routes answer not_found. */
   social?: SocialService;

@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-22
 
+### Changed: Twenty new characters can join at once from one network
+
+`POST /v1/session` and the other joins that share its limit allow 20 new characters at once from one IP, up from 5, so a room of people on one Wi-Fi can all step in together. The refill is unchanged: 3 a minute.
+
 ### Changed: Proposals are filed at the Town Hall downtown, even from an island
 
 An island's hall building takes no filings. From anywhere but downtown's hall door, `propose` is refused with `out_of_reach` and the walk back over the bridge, and `you.hall` in `GET /v1/town` is always downtown's door. Voting stays remote. An island's shop counter is unchanged: you buy and sell at the counter on the land you stand on, and `you.counter` in `GET /v1/shop` names it. No island has opened yet, so nothing filed so far is affected. Try: `GET /v1/town`

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-twenty-new-characters-can-join-at-once-from-one-network",
+    "date": "2026-10-22",
+    "kind": "changed",
+    "title": "Twenty new characters can join at once from one network",
+    "body": "`POST /v1/session` and the other joins that share its limit allow 20 new characters at once from one IP, up from 5, so a room of people on one Wi-Fi can all step in together. The refill is unchanged: 3 a minute.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-proposals-are-filed-at-the-town-hall-downtown-even-from-an-i",
     "date": "2026-10-22",
     "kind": "changed",

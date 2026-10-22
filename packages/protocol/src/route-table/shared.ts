@@ -37,7 +37,7 @@ export interface RateLimit {
 export const RATE_LIMITS = {
   actions: { scope: "resident", perSecond: 10, burst: 20 },
   // Every session adds a resident to the log forever, so creating them is much more limited.
-  sessions: { scope: "ip", perSecond: 3 / 60, burst: 5 },
+  sessions: { scope: "ip", perSecond: 3 / 60, burst: 20 },
   posts: { scope: "resident", perSecond: 6 / 60, burst: 6 },
   reactions: { scope: "resident", perSecond: 1, burst: 60 },
   uploads: { scope: "resident", perSecond: 10 / 60, burst: 10 },

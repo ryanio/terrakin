@@ -122,7 +122,7 @@ function saveCreds(creds: Creds): void {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP. Rate limits are per resident, except new sessions, which are per IP (5 at once, then 3 a
+// HTTP. Rate limits are per resident, except new sessions, which are per IP (20 at once, then 3 a
 // minute). A `rate_limited` answer waits and tries again.
 // ---------------------------------------------------------------------------
 

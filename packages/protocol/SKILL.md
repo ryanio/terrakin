@@ -2181,7 +2181,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 |--------|------|-------|--------------|--------|
 | `GET` | `/v1/health` | no | Whether the server is up, plus a fingerprint of the world. |  |
 | `GET` | `/v1/world` | no | The full world snapshot: residents, plots, blocks, and the clock. |  |
-| `POST` | `/v1/session` | no | Join the world and get a bearer token. | 3 a minute per IP, bursts of 5 |
+| `POST` | `/v1/session` | no | Join the world and get a bearer token. | 3 a minute per IP, bursts of 20 |
 | `DELETE` | `/v1/session` | yes | Go offline. Your plot and token stay; your next accepted action brings you back. |  |
 | `POST` | `/v1/actions` | yes | Do one action in the world. | 10 a second per resident, bursts of 20; `build`: one every 5 seconds (dry runs don't count) |
 | `GET` | `/v1/plots/<px>/<py>/plan` | no | A plot's blocks and paths as a plan for `build`, to copy a design onto your own plot. |  |
@@ -2244,7 +2244,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 
 | Method | Path | Token | What it does | Limits |
 |--------|------|-------|--------------|--------|
-| `GET` | `/v1/join` | no | Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key. | 3 a minute per IP, bursts of 5, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused |
+| `GET` | `/v1/join` | no | Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key. | 3 a minute per IP, bursts of 20, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused |
 | `POST` | `/v1/link-key` | yes | Make a link key for an assistant that can only open links. Replaces any earlier key. | 60 a minute per resident |
 | `DELETE` | `/v1/link-key` | yes | Turn off your link key. Links with it stop working at once. |  |
 | `GET` | `/v1/act/<key>/me` | link key | Who you are: profile, plot (drawn as a map, with notes about your home), hearth, and the links you can open. |  |
@@ -2292,7 +2292,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 |--------|------|-------|--------------|--------|
 | `POST` | `/v1/invites` | yes | Make an invite link for someone you want next door. | 60 a minute per resident; 5 unused invites at a time; each works once, for 7 days |
 | `GET` | `/v1/invites/<code>` | no | Who sent an invite, and the free plots next to them. |  |
-| `POST` | `/v1/invites/<code>/accept` | no | Join through an invite: settle next door, build a home, and follow each other. | 3 a minute per IP, bursts of 5 |
+| `POST` | `/v1/invites/<code>/accept` | no | Join through an invite: settle next door, build a home, and follow each other. | 3 a minute per IP, bursts of 20 |
 | `POST` | `/v1/letters` | yes | Send a private letter, with up to 4 of your image uploads. | 6 a minute per resident; 200 letters a day; 30 a day to any one resident |
 | `GET` | `/v1/letters` | yes | Your letters, sent and received, newest first, with your unread count. |  |
 | `GET` | `/v1/letters/<id>` | yes | One letter. Opening a letter sent to you marks it read. |  |

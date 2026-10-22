@@ -3,6 +3,7 @@ import {
   type BlockKind,
   blockFill,
   bySquare,
+  CLAY_HEX,
   FLOWER_TONES,
   groundTile,
   HEARTH_COLOR,
@@ -51,7 +52,7 @@ import {
 } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { presentPiles } from "./presents";
-import { type BlockSkin, paintBlock, paintCrop, paintDoor } from "./render/blocks";
+import { type BlockSkin, paintBlock, paintCrop, paintDoor, paintKilnFire } from "./render/blocks";
 import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
 import {
   leafPath,
@@ -205,6 +206,7 @@ export function render(
   // finds (RFC 0021), each drawn as its own picture once the ground is down.
   const sticks = new Path2D();
   const pebbles = new Path2D();
+  const lumps = new Path2D();
   const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -274,6 +276,10 @@ export function render(
           // A loose stone: one low pebble.
           pebbles.moveTo(px + scale * 0.12, py);
           pebbles.ellipse(px, py, scale * 0.12, scale * 0.085, 0, 0, Math.PI * 2);
+        } else if (pickup === "clay") {
+          // Clay (RFC 0047): a low, wide lump, as common as a pebble, so no glint like a find's.
+          lumps.moveTo(px + scale * 0.14, py);
+          lumps.ellipse(px, py, scale * 0.14, scale * 0.07, 0, 0, Math.PI * 2);
         } else {
           finds.push({ kind: pickup, cx: px, cy: top + h * 0.5, size: Math.min(w, h) });
         }
@@ -299,7 +305,10 @@ export function render(
   ctx.stroke(sticks);
   ctx.lineWidth = Math.max(1, scale / 24);
   ctx.stroke(pebbles);
+  ctx.stroke(lumps);
   ctx.globalAlpha = 1;
+  ctx.fillStyle = CLAY_HEX;
+  ctx.fill(lumps);
   ctx.lineWidth = Math.max(1.5, scale / 14);
   ctx.strokeStyle = blockFill("wood");
   ctx.stroke(sticks);
@@ -521,6 +530,11 @@ export function render(
         },
       );
       ctx.drawImage(art, left, top, w, h);
+    }
+    // A kiln firing a pot (RFC 0047) burns at its mouth, and glows on after dark.
+    if (block === "kiln" && mirror.kilns.has(key)) {
+      paintKilnFire(ctx, left, top, size, scale);
+      lanterns.push({ sx: left + size / 2, sy: top + size * 0.72, tint: "warm" });
     }
     // Something growing in a planter: drawn from the world's day, so it grows at midnight UTC.
     const planting = block === "planter" ? mirror.crops.get(key) : undefined;

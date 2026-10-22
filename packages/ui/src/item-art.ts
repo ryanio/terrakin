@@ -14,9 +14,12 @@
 import {
   BLOCK_COLORS,
   CATALOG,
+  CLAY_HEX,
   CROP_HEX,
   type Crop,
+  type Finish,
   type FishLook,
+  type Glaze,
   growth,
   ITEM_KINDS,
   type ItemKind,
@@ -2811,7 +2814,121 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sufganiyah,
   stocking,
   firework,
+  clay,
+  bowl: () => potShapes("bowl"),
+  vase: () => potShapes("vase"),
+  teapot: () => potShapes("teapot"),
 };
+
+// ---------- pottery (RFC 0047) ----------
+
+/**
+ * Each glaze's color, and `bare` the warm unfired-looking clay. A pot is one drawing per kind,
+ * recolored by its glaze, with its finish drawn over it, so three drawings cover every pot.
+ */
+export const GLAZE_HEX: Readonly<Record<Glaze, string>> = {
+  bare: "#c98a5e",
+  cream: "#efe3c8",
+  sea: "#6fb3b0",
+  crystal: "#cfe6f2",
+  rose: "#e58fb6",
+  honey: "#e6b04a",
+  berry: "#b8344a",
+  moss: "#7d9a52",
+};
+
+/** A lump of clay, wet and a little shiny. */
+function clay(): ArtShape[] {
+  return [
+    shadow(12),
+    path("M12 36c-2-6 2-12 8-13 3-5 11-5 14 0 5 1 7 7 4 13z", CLAY_HEX, out()),
+    path("M17 30c2-3 6-4 9-2", "none", out({ "stroke-width": 1, opacity: 0.6 })),
+    shine(28, 26, 3, 1.4),
+  ];
+}
+
+/** A pot's outline and the parts drawn in its glaze, in a 48 by 48 box. */
+const POT_BODIES: Readonly<Record<"bowl" | "vase" | "teapot", (body: string) => ArtShape[]>> = {
+  bowl: (body) => [
+    shadow(15),
+    path("M8 24h32c0 9-7 16-16 16S8 33 8 24z", body, out()),
+    ellipse(24, 24, 16, 3.6, body, out()),
+    ellipse(24, 24.4, 13, 2.4, INK, { opacity: 0.18 }),
+    rect(19, 39, 10, 3, 1.2, body, out({ "stroke-width": 1 })),
+  ],
+  vase: (body) => [
+    shadow(11),
+    path(
+      "M19 8h10v3c0 3 2 4 4 7 3 5 3 13 0 18-2 4-5 6-9 6s-7-2-9-6c-3-5-3-13 0-18 2-3 4-4 4-7z",
+      body,
+      out(),
+    ),
+    ellipse(24, 8, 5, 1.6, body, out()),
+    ellipse(24, 8, 3.2, 0.9, INK, { opacity: 0.25 }),
+  ],
+  teapot: (body) => [
+    shadow(15),
+    path("M36 26c5-1 7 3 5 7s-5 4-7 3", "none", out({ "stroke-width": 2.4 })),
+    path("M13 30c-4-3-7-6-8-10l3-1c2 3 4 5 7 6z", body, out()),
+    path("M11 27c0-8 6-13 13-13s13 5 13 13c0 7-5 13-13 13S11 34 11 27z", body, out()),
+    ellipse(24, 15, 7.5, 2.2, body, out()),
+    circle(24, 11.5, 2.2, body, out({ "stroke-width": 1.1 })),
+  ],
+};
+
+/** Each finish's marks over a pot's glaze; a plain pot has none. */
+function finishShapes(finish: Finish | undefined): ArtShape[] {
+  switch (finish) {
+    case "speckled":
+      return [
+        [17, 28],
+        [22, 33],
+        [28, 27],
+        [31, 33],
+        [20, 21],
+        [27, 37],
+        [25, 24],
+        [33, 29],
+      ].map(([x, y]) => circle(x as number, y as number, 0.9, INK, { opacity: 0.45 }));
+    case "crackle":
+      return [line("M15 26l4 3 3-2 4 4 3-2 4 3M18 34l3-2 4 2 3-3 3 2", INK, 0.7, { opacity: 0.4 })];
+    case "iridescent":
+      return [
+        path("M14 31c5-6 14-8 20-4", "none", {
+          stroke: "#b48ae0",
+          "stroke-width": 2.6,
+          opacity: 0.55,
+        }),
+        path("M15 35c5-5 13-6 18-3", "none", {
+          stroke: "#6fd0c8",
+          "stroke-width": 2.2,
+          opacity: 0.55,
+        }),
+        path("M17 27c4-3 9-4 13-2", "none", {
+          stroke: "#f2d36b",
+          "stroke-width": 1.8,
+          opacity: 0.6,
+        }),
+      ];
+    default:
+      return [];
+  }
+}
+
+/**
+ * A pot (RFC 0047) in its glaze, with its finish over it and a shine on top. Pure. A pot still in
+ * the kiln has no finish, and a kind's own picture is the bare one.
+ */
+export function potShapes(
+  kind: "bowl" | "vase" | "teapot",
+  glaze: Glaze = "bare",
+  finish?: Finish,
+): ArtShape[] {
+  return [...POT_BODIES[kind](GLAZE_HEX[glaze]), ...finishShapes(finish), shine(18, 25, 2.6, 1.2)];
+}
+
+/** Whether a kind is one of the pots drawn by `potShapes`. */
+const isPot = (kind: string): kind is "bowl" | "vase" | "teapot" => Object.hasOwn(POT_BODIES, kind);
 
 /** Every piece of wear's drawing. */
 const WEAR_ART: Readonly<Record<WearItem, () => ArtShape[]>> = {
@@ -2921,6 +3038,11 @@ function build(shape: ArtShape): SVGElement {
  * which case it's an image with that name. The title goes in as text, never as markup.
  */
 export function itemArt(kind: ArtKind, opts: ItemArtOptions = {}): SVGSVGElement {
+  return shapesArt(kind, itemShapes(kind), opts);
+}
+
+/** An SVG of `shapes`, named `kind` in its `data-kind`, with `itemArt`'s options. */
+function shapesArt(kind: string, shapes: ArtShape[], opts: ItemArtOptions): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   const size = opts.size ?? 28;
   svg.setAttribute("viewBox", `0 0 ${ART_BOX} ${ART_BOX}`);
@@ -2937,7 +3059,7 @@ export function itemArt(kind: ArtKind, opts: ItemArtOptions = {}): SVGSVGElement
   } else {
     svg.setAttribute("aria-hidden", "true");
   }
-  for (const shape of itemShapes(kind)) svg.append(build(shape));
+  for (const shape of shapes) svg.append(build(shape));
   return svg;
 }
 
@@ -2947,12 +3069,12 @@ interface ArtImage {
   ready: Promise<boolean>;
 }
 
-const artImages = new Map<ArtKind, ArtImage>();
+const artImages = new Map<string, ArtImage>();
 
-function artEntry(kind: ArtKind): ArtImage {
-  let entry = artImages.get(kind);
+function artEntry(key: string, shapes: () => ArtShape[]): ArtImage {
+  let entry = artImages.get(key);
   if (!entry) {
-    const svg = itemArt(kind, { size: ART_BOX });
+    const svg = shapesArt(key, shapes(), { size: ART_BOX });
     svg.setAttribute("xmlns", SVG_NS);
     const img = new Image();
     const fresh: ArtImage = { img, loaded: false, ready: Promise.resolve(false) };
@@ -2964,7 +3086,7 @@ function artEntry(kind: ArtKind): ArtImage {
       img.addEventListener("error", () => done(false));
     });
     entry = fresh;
-    artImages.set(kind, fresh);
+    artImages.set(key, fresh);
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
   }
   return entry;
@@ -2976,21 +3098,50 @@ function artEntry(kind: ArtKind): ArtImage {
  * loaded; a canvas that draws every frame picks it up then.
  */
 export function itemArtImage(kind: ArtKind): HTMLImageElement | undefined {
-  const entry = artEntry(kind);
+  const entry = artEntry(kind, () => itemShapes(kind));
   return entry.loaded ? entry.img : undefined;
 }
 
 /** The same picture once it has loaded, for a canvas drawn once (a 3D texture). */
 export async function itemArtLoaded(kind: ArtKind): Promise<HTMLImageElement | undefined> {
-  const entry = artEntry(kind);
+  const entry = artEntry(kind, () => itemShapes(kind));
   return (await entry.ready) ? entry.img : undefined;
 }
 
-/** A made thing as lists and sheets show it: its kind, and for a piece, the upload it shows. */
+/**
+ * A made thing as lists and sheets show it: its kind, for a piece the upload it shows, and for a
+ * pot its glaze and finish (RFC 0047).
+ */
 export interface ThingLook {
   kind: ArtKind;
   media?: string | undefined;
   model?: true | undefined;
+  glaze?: Glaze | undefined;
+  finish?: Finish | undefined;
+}
+
+/** The shapes of a made thing's drawn picture: a pot in its glaze and finish, else its kind's. */
+export function thingShapes(thing: ThingLook): ArtShape[] {
+  if (isPot(thing.kind) && thing.glaze) return potShapes(thing.kind, thing.glaze, thing.finish);
+  return itemShapes(thing.kind);
+}
+
+/** The key a made thing's drawn picture is kept under: its kind, and a pot's glaze and finish. */
+const thingKey = (thing: ThingLook) =>
+  isPot(thing.kind) && thing.glaze
+    ? `${thing.kind}|${thing.glaze}|${thing.finish ?? ""}`
+    : thing.kind;
+
+/** A made thing's drawn picture as an image for the map's canvas, as `itemArtImage` is for a kind. */
+export function thingArtImage(thing: ThingLook): HTMLImageElement | undefined {
+  const entry = artEntry(thingKey(thing), () => thingShapes(thing));
+  return entry.loaded ? entry.img : undefined;
+}
+
+/** The same once it has loaded, for a 3D texture. */
+export async function thingArtLoaded(thing: ThingLook): Promise<HTMLImageElement | undefined> {
+  const entry = artEntry(thingKey(thing), () => thingShapes(thing));
+  return (await entry.ready) ? entry.img : undefined;
 }
 
 /** A piece's own uploaded picture, as one of our `/media/` URLs. Undefined for anything else. */
@@ -3004,7 +3155,7 @@ export function piecePictureUrl(thing: ThingLook): string | undefined {
  */
 export function thingPicture(thing: ThingLook, opts: ItemArtOptions = {}): Element {
   const url = piecePictureUrl(thing);
-  if (!url) return itemArt(thing.kind, opts);
+  if (!url) return shapesArt(thing.kind, thingShapes(thing), opts);
   const size = opts.size ?? 28;
   const img = document.createElement("img");
   img.className = opts.className ? `thing-picture ${opts.className}` : "thing-picture";

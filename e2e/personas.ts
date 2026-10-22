@@ -322,6 +322,20 @@ export async function openLandOver(http: Http): Promise<void> {
 }
 
 /**
+ * Put clay out and let kilns fire pots in this world now (RFC 0047). No adapter sets the switch,
+ * so this is the only way a world gets pottery for now; once per world, so in a world where it's
+ * already on this does nothing. Test servers only (`POST /v1/test/open-clay`).
+ */
+export async function openClayOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { clayOpen?: boolean };
+  if (world.clayOpen) return;
+  await expectOk(
+    "open clay (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-clay"),
+  );
+}
+
+/**
  * Switch the town's jobs on in this world now (RFC 0030), opening levels first when they aren't,
  * since jobs need them. The switch is once per world, so in a world where they're already open
  * this does nothing. Test servers only (`POST /v1/test/open-jobs`).

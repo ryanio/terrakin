@@ -1,6 +1,6 @@
 import { BLOCK_COLORS, type DecorKind } from "@terrakin/sim";
 import { BRAND_HEX, STRAW } from "@terrakin/ui/brand";
-import { type ArtKind, itemArtImage, type ThingLook } from "@terrakin/ui/item-art";
+import { type ArtKind, itemArtImage, type ThingLook, thingArtImage } from "@terrakin/ui/item-art";
 import { lookImage } from "@terrakin/ui/looks";
 import { paintBatBunting, paintCandyBowl, paintCauldron } from "./decor-halloween";
 import { paintDreidel, paintMenorah } from "./decor-hanukkah";
@@ -216,7 +216,7 @@ export function paintShown(
     ctx.fillRect(x, y, w, h);
     if (picture) drawCover(ctx, picture, x, y, w, h);
     else {
-      const art = itemArtImage(good.kind);
+      const art = thingArtImage(good);
       const side = Math.min(w, h) * 1.1;
       if (art) ctx.drawImage(art, cx - side / 2, y + (h - side) / 2, side, side);
     }
@@ -241,7 +241,7 @@ export function paintShown(
     ctx.restore();
     return;
   }
-  const art = itemArtImage(good.kind);
+  const art = thingArtImage(good);
   if (art) ctx.drawImage(art, cx - side / 2, y, side, side);
 }
 

@@ -64,6 +64,7 @@ import {
   heldLine,
   heldOf,
   holdingsFromStacks,
+  kilnPlaceLine,
   PALETTE_TAB_WORDS,
   PALETTE_TABS,
   type PaletteTab,
@@ -920,7 +921,14 @@ function walkFar(tile: Tile, near: number, legs = 8, last = Number.POSITIVE_INFI
 }
 
 /** Blocks a tap opens a sheet for: what grows or is made there, or what's on display. */
-const STATIONS: readonly BlockKind[] = ["planter", "kitchen", "workbench", "pedestal", "frame"];
+const STATIONS: readonly BlockKind[] = [
+  "planter",
+  "kitchen",
+  "workbench",
+  "kiln",
+  "pedestal",
+  "frame",
+];
 
 /** Whether a tile is within the world's reach of where you stand. Only a hint: the server checks. */
 function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): boolean {
@@ -937,6 +945,9 @@ function openStation(x: number, y: number) {
   const kind = m?.blocks.get(`${x},${y}`);
   if (!m || !kind || !STATIONS.includes(kind)) return;
   const planting = m.crops.get(`${x},${y}`);
+  // A kiln's pot while it fires (RFC 0047), and who loaded it.
+  const firing = kind === "kiln" ? m.kilns.get(`${x},${y}`) : undefined;
+  const loaderName = firing ? m.residents.get(firing.by)?.name : undefined;
   const ownerId = m.ownerAt(x, y);
   // The sim's rule for whose plot this is to work on.
   const plot = ownerId ? { px: 0, py: 0, ownerId, coOwners: [...m.coOwnersAt(x, y)] } : undefined;
@@ -984,6 +995,9 @@ function openStation(x: number, y: number) {
       x,
       y,
       ...(planting ? { planting } : {}),
+      ...(firing ? { firing } : {}),
+      ...(me ? { me } : {}),
+      ...(loaderName ? { loaderName } : {}),
       day: m.day,
       yours,
       ...(ownerName ? { ownerName } : {}),
@@ -1090,8 +1104,14 @@ function tapTile(tile: { x: number; y: number }) {
     } else if (hasBlock) tryAct({ type: "remove", ...on });
     else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
     else if (blockShort(pick, holdings).length > 0) {
-      // A pond's stone or stairs' wood, by the sim's own count.
-      showToast(pick === "stairs" ? stairsLine(holdings) : pondLine(holdings));
+      // A pond's stone, stairs' wood, or a kiln's stone, by the sim's own count.
+      showToast(
+        pick === "stairs"
+          ? stairsLine(holdings)
+          : pick === "kiln"
+            ? kilnPlaceLine(holdings)
+            : pondLine(holdings),
+      );
     } else tryAct({ type: "place", ...on, block: pick });
     return;
   }
@@ -1623,7 +1643,12 @@ function paintPalette() {
         ? pondLine(holdings)
         : pick === "stairs"
           ? stairsLine(holdings)
-          : blockLine(pick);
+          : pick === "kiln"
+            ? kilnPlaceLine(holdings)
+            : blockLine(pick);
+  // A kiln (RFC 0047) is on the bar only once pottery is open in this world.
+  const kiln = paletteRows.blocks.querySelector<HTMLButtonElement>('[data-block="kiln"]');
+  if (kiln) kiln.hidden = !mirror?.clayOpen;
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }

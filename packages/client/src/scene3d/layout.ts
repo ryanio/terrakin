@@ -8,6 +8,8 @@ import {
   type BlockKind,
   type Crop,
   type FindKind,
+  type Finish,
+  type Glaze,
   type GroundKind,
   type Holiday,
   holdsRoof,
@@ -597,6 +599,8 @@ export function plotLayout(
   // The owner is always drawn at home here, so their windows light whenever their hearth is here.
   const homes = litHomes(everyone, plotSize);
   if (hearth) homes.add(plotKey(plot.px, plot.py));
+  // A kiln firing a pot glows after dark (RFC 0047).
+  const firing = new Set((snapshot.kilns ?? []).map((k) => tileKey(k.x, k.y)));
   const blocks: LayoutBlock[] = [];
   // Every floor (RFC 0028): the view lifts each by its height and cuts away what's above the pick.
   let top = 0;
@@ -611,7 +615,9 @@ export function plotLayout(
       block: b.block,
       own: d === 0,
       fade: d / (margin + 1),
-      ...(home && b.block === "glass" ? { lit: true as const } : {}),
+      ...((home && b.block === "glass") || (b.block === "kiln" && firing.has(tileKey(b.x, b.y)))
+        ? { lit: true as const }
+        : {}),
       ...(b.floor ? { floor: b.floor } : {}),
     });
   }
@@ -772,6 +778,9 @@ export interface ShownGood {
   kind: MadeKind | FindKind;
   media?: string | undefined;
   model?: true | undefined;
+  /** A pot's glaze and finish (RFC 0047), which its picture is drawn in. */
+  glaze?: Glaze | undefined;
+  finish?: Finish | undefined;
 }
 
 /** A find on display, drawn like a made thing with no picture of its own: `find:<kind>` names it. */

@@ -1,4 +1,4 @@
-import { LEAF_TONES, type ResourceKind, type Season } from "@terrakin/sim";
+import { CLAY_HEX, LEAF_TONES, type ResourceKind, type Season } from "@terrakin/sim";
 import {
   CircleGeometry,
   CylinderGeometry,
@@ -109,7 +109,8 @@ export function scenery(
 
 /**
  * Today's pickups lying on the ground (phase 1 gathering): a fallen branch as two crossed sticks,
- * a loose stone as a low pebble, in the wood and stone block colors. Each kind is one instanced
+ * a loose stone as a low pebble, in the wood and stone block colors, and clay (RFC 0047) as a low
+ * lump. Each kind is one instanced
  * draw, turned by tile so neighbors don't look stamped.
  */
 export function pickups(
@@ -150,6 +151,15 @@ export function pickups(
     geo.translate(0, 0.07, 0);
     const mat = new MeshLambertMaterial({ color: blockLook("stone").color, flatShading: true });
     place(new InstancedMesh(geo, mat, stone.length), stone);
+  }
+  // Clay (RFC 0047): a low, wide lump in the clay's own color.
+  const clay = items.filter((p) => p.kind === "clay");
+  if (clay.length) {
+    const geo = new DodecahedronGeometry(0.15, 1);
+    geo.scale(1.2, 0.4, 1);
+    geo.translate(0, 0.05, 0);
+    const mat = new MeshLambertMaterial({ color: hex(CLAY_HEX) });
+    place(new InstancedMesh(geo, mat, clay.length), clay);
   }
   return group;
 }

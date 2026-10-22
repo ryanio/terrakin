@@ -126,7 +126,7 @@ export interface PlotChunk {
   bounds: Bounds;
   owner: string | undefined;
   /** Blocks on every floor shown (RFC 0028), `floor` on those above the ground floor. */
-  blocks: { x: number; y: number; block: BlockKind; floor?: number }[];
+  blocks: { x: number; y: number; block: BlockKind; floor?: number; lit?: true }[];
   /** Paths and flooring (RFC 0016), under whatever stands on them, and flooring upstairs. */
   ground: { x: number; y: number; ground: GroundKind; floor?: number }[];
   /** The highest floor with anything on it, shown or cut away. */
@@ -176,6 +176,8 @@ export interface ChunkSource {
   /** Finds on display (RFC 0021), by tile key. */
   shownFinds?: ReadonlyMap<string, { kind: FindKind }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
+  /** Kilns firing a pot (RFC 0047), by tile key: each glows after dark. Absent reads as none. */
+  kilns?: ReadonlyMap<string, unknown>;
   day?: number | undefined;
   /** What lies on a tile to pick up today (`Mirror.pickupAt`). */
   pickupAt?(x: number, y: number): PickupKind | null;
@@ -228,7 +230,10 @@ function tileThings(
   );
   const crop = cropIn(block, x, y, source.crops?.get(key), source.day);
   const parts: string[] = [];
-  if (block) parts.push(`${key}:${block}${lit && block === "glass" ? ":lit" : ""}`);
+  // A kiln firing a pot (RFC 0047) glows, so its plot is built again when it's loaded or emptied.
+  const firing = block === "kiln" && source.kilns?.has(key) === true;
+  const shining = (lit && block === "glass") || firing;
+  if (block) parts.push(`${key}:${block}${shining ? ":lit" : ""}`);
   if (ground) parts.push(`${key}:on:${ground}`);
   if (hearth) parts.push(`${key}:hearth`);
   // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
@@ -237,7 +242,7 @@ function tileThings(
   // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
   const pickup = source.pickupAt?.(x, y) ?? null;
   if (pickup) parts.push(`${key}:${pickup}`);
-  return { block, ground, hearth, display, crop, pickup, parts };
+  return { block, ground, hearth, display, crop, pickup, parts, firing };
 }
 
 /**
@@ -272,7 +277,8 @@ export function readChunk(
     for (let x = bounds.x0; x <= bounds.x1; x++) {
       const at = tileThings(source, x, y, hearths, lit);
       parts.push(...at.parts);
-      if (at.block) blocks.push({ x, y, block: at.block });
+      if (at.block)
+        blocks.push({ x, y, block: at.block, ...(at.firing ? { lit: true as const } : {}) });
       if (at.ground) ground.push({ x, y, ground: at.ground });
       if (at.hearth) homes.push({ x, y });
       if (at.display) displays.push(at.display);

@@ -145,19 +145,43 @@ export function colorChips<N extends string = never>(
   const options: readonly (ResidentColor | N)[] = none
     ? [none.value, ...RESIDENT_COLORS]
     : RESIDENT_COLORS;
+  const blank = (c: ResidentColor | N) => none !== undefined && c === none.value;
+  return dotChips(
+    options,
+    first,
+    "Colors",
+    (c) => (blank(c) ? "var(--paper-2)" : `var(--resident-${c})`),
+    (c) => (blank(c) && none ? none.label : c),
+    onPick,
+    row,
+  );
+}
+
+/**
+ * Chips that are each a dot in a color and a name, one picked: the resident colors above, and a
+ * kiln's glazes (RFC 0047). `label` names the row for screen readers.
+ */
+export function dotChips<T extends string>(
+  options: readonly T[],
+  first: T,
+  label: string,
+  color: (value: T) => string,
+  name: (value: T) => string,
+  onPick?: (value: T) => void,
+  row?: HTMLElement,
+) {
   const picker = chips(
     options,
     first,
-    (c) => {
+    (value) => {
       const dot = h("span", { class: "swatch-dot", attrs: { "aria-hidden": "true" } });
-      const blank = none !== undefined && c === none.value;
-      dot.style.background = blank ? "var(--paper-2)" : `var(--resident-${c})`;
-      return [dot, h("span", { class: "swatch-name", text: blank ? none.label : c })];
+      dot.style.background = color(value);
+      return [dot, h("span", { class: "swatch-name", text: name(value) })];
     },
     onPick,
     row,
   );
-  picker.row.setAttribute("aria-label", "Colors");
+  picker.row.setAttribute("aria-label", label);
   return picker;
 }
 

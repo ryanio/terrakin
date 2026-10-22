@@ -7,6 +7,11 @@
  * reason in its row. What you can make leads the list and the rest waits behind "Show more", so
  * a long kitchen doesn't bury today's choice. Labels are your own words, sent as text.
  *
+ * A kiln (RFC 0047) is a station too: while it's empty it lists the pots you know with a row of
+ * glazes over them, each pot drawn in the glaze picked and what that glaze costs added to its
+ * needs, and Fire loads it. While it fires it shows the one pot, what it is only to whoever loaded
+ * it, and Take it out once the world's day says it's ready.
+ *
  * Once recipes are learned (RFC 0024), a kitchen or workbench lists only the recipes you know
  * (`inventory.recipes`), with how many more there are to learn and a link to the shop's Recipes
  * shelf. While you have free picks, the picks sheet (`recipe-picks.ts`) comes first. Neighbors
@@ -14,10 +19,19 @@
  * teach sheet (`teach-sheet.ts`).
  */
 import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
-import { type BlockKind, type Crop, harvestFits, isReady, type Station } from "@terrakin/sim";
+import {
+  type BlockKind,
+  type Crop,
+  GLAZE_COSTS,
+  GLAZES,
+  type Glaze,
+  harvestFits,
+  isReady,
+  type Station,
+} from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { listOf, plural } from "@terrakin/ui/format";
-import { itemArt } from "@terrakin/ui/item-art";
+import { GLAZE_HEX, itemArt, thingPicture } from "@terrakin/ui/item-art";
 import {
   closeOverlay,
   disclosure,
@@ -29,9 +43,12 @@ import {
   sheet,
 } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
+import { dotChips } from "./join-form";
 import {
   cropOfSeed,
+  glazeName,
   growthLine,
+  kilnLine,
   knownAt,
   missingLine,
   moreToLearn,
@@ -49,6 +66,12 @@ export interface TileSheetOptions {
   y: number;
   /** What grows in the planter, as the world shows it. */
   planting?: { crop: Crop; readyDay: number };
+  /** The pot a kiln is firing (RFC 0047), as the world shows it: who loaded it, and when it's ready. */
+  firing?: { by: string; readyDay: number };
+  /** You, to tell whether you loaded the kiln. */
+  me?: string;
+  /** Who loaded the kiln, when it's someone else. Their own words: text only. */
+  loaderName?: string;
   day: number | undefined;
   /** Whether the tile is on a plot you own or share, as the world shows it. */
   yours: boolean;
@@ -68,8 +91,13 @@ export interface TileSheetOptions {
 /** Neighbors a station sheet asks about, at most: one profile read each. */
 const NEIGHBORS_ASKED = 4;
 
-const title = (block: BlockKind) =>
-  block === "planter" ? "Planter" : block === "kitchen" ? "Kitchen" : "Workbench";
+const TITLES: Partial<Record<BlockKind, string>> = {
+  planter: "Planter",
+  kitchen: "Kitchen",
+  workbench: "Workbench",
+  kiln: "Kiln",
+};
+const title = (block: BlockKind) => TITLES[block] ?? "Workbench";
 
 /** A row with a name, a line under it, and one button (none on someone else's planter). */
 function row(
@@ -134,11 +162,37 @@ export function openTileSheet(o: TileSheetOptions) {
     attrs: {
       id: "workshop-label",
       maxlength: ITEM_RULES.labelMax,
-      placeholder: "Sunny jar",
+      placeholder: o.block === "kiln" ? "Sunday tea" : "Sunny jar",
       autocomplete: "off",
     },
   });
-  const station: Station | null = o.block === "kitchen" || o.block === "workbench" ? o.block : null;
+  const station: Station | null =
+    o.block === "kitchen" || o.block === "workbench" || o.block === "kiln" ? o.block : null;
+  // A kiln's glazes (RFC 0047): a chip each, in its color, picked before a pot.
+  let glaze: Glaze = "bare";
+  let painted: InventoryResponse | null = null;
+  const glazes =
+    o.block === "kiln"
+      ? dotChips(
+          GLAZES,
+          glaze,
+          "Glaze",
+          (g) => GLAZE_HEX[g],
+          (g) => g,
+          (g) => {
+            glaze = g;
+            if (painted) paint(painted);
+          },
+        ).row
+      : null;
+  const glazeField = glazes
+    ? h(
+        "div",
+        { class: "workshop-label" },
+        h("span", { class: "field-label", text: "Glaze (each but bare costs one thing)" }),
+        glazes,
+      )
+    : null;
   // A planter lists seeds or its crop; a station lists what it makes, a few at a time.
   list.hidden = station !== null;
   goods.el.hidden = station === null;
@@ -196,6 +250,7 @@ export function openTileSheet(o: TileSheetOptions) {
       closeOnBackdrop: true,
     },
     hint,
+    glazeField,
     labelField,
     list,
     goods.el,
@@ -223,6 +278,7 @@ export function openTileSheet(o: TileSheetOptions) {
     });
 
   function paint(data: InventoryResponse) {
+    painted = data;
     const inv = data.inventory;
     if (!inv) {
       hint.textContent = "Growing, making, and gathering aren't open in this world yet.";
@@ -230,6 +286,10 @@ export function openTileSheet(o: TileSheetOptions) {
     }
     const { rules } = data;
     const held = new Map(inv.stacks.map((st) => [st.kind, st.count]));
+    if (o.block === "kiln") {
+      paintKiln(inv, rules, held);
+      return;
+    }
     if (o.block === "planter") {
       // Only the plot's owner, and whoever they share it with, plant and pick here.
       if (!o.yours) {
@@ -328,6 +388,90 @@ export function openTileSheet(o: TileSheetOptions) {
   }
 
   /**
+   * A kiln (RFC 0047): the pot firing in it with Take it out once it's ready, or, while it's empty,
+   * the pots you know in the glaze picked, with Fire.
+   */
+  function paintKiln(
+    inv: NonNullable<InventoryResponse["inventory"]>,
+    rules: InventoryResponse["rules"],
+    held: Map<string, number>,
+  ) {
+    const firing = o.firing;
+    const busy = firing !== undefined || !o.yours;
+    if (glazeField) glazeField.hidden = busy;
+    if (labelField) labelField.hidden = busy;
+    goods.el.hidden = busy;
+    list.hidden = !busy;
+    if (firing) {
+      const mine = firing.by === o.me;
+      const pot = inv.kilns?.find((k) => k.x === o.x && k.y === o.y)?.pot;
+      const ready = isReady(firing.readyDay, inv.day);
+      const full = mine && inv.size >= rules.inventoryMax;
+      const whose = mine ? "" : ` It goes back to ${o.loaderName ?? "whoever loaded it"}.`;
+      hint.textContent = ready
+        ? "The pot is ready. Its finish is rolled as the kiln opens, so nobody knows it until then."
+        : mine
+          ? "Your pot is firing. Nobody else sees what's in it."
+          : "The kiln is firing. Nobody sees what's in it until it opens.";
+      list.replaceChildren(
+        row(
+          pot ? `${thingName(pot.kind)}, ${glazeName(pot.glaze).toLowerCase()}` : "A pot",
+          full
+            ? "Your bag is full. Give or sell something first."
+            : `${kilnLine(firing.readyDay, inv.day)}.${whose}`,
+          o.yours
+            ? button("Take it out", () => ({ type: "harvest", x: o.x, y: o.y }), ready && !full)
+            : null,
+          pot ? thingPicture({ kind: pot.kind, glaze: pot.glaze }, { size: 32 }) : null,
+        ),
+      );
+      return;
+    }
+    if (!o.yours) {
+      hint.textContent = o.ownerName
+        ? `This kiln is on ${o.ownerName}'s plot. Only they and the people they share it with can fire a pot here.`
+        : "This kiln isn't on anyone's plot, so nobody can fire a pot here.";
+      list.replaceChildren();
+      return;
+    }
+    const pots = knownAt(ITEM_CATALOG.recipes, "kiln", inv.recipes);
+    const more = moreToLearn(ITEM_CATALOG.recipes, "kiln", inv.recipes);
+    learn.hidden = more === 0;
+    learnWords.textContent = `${plural(more, "more pot", "more pots")} to learn`;
+    const doneToday = inv.craftedToday >= rules.craftPerDay;
+    hint.textContent = doneToday
+      ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
+      : "Pick a glaze and a pot. It fires overnight, and comes out tomorrow with a finish nobody can know until then.";
+    const cost = GLAZE_COSTS[glaze];
+    const potRow = (r: (typeof pots)[number]) => {
+      const needs = cost ? [...r.needs, { kind: cost, count: 1 }] : r.needs;
+      const short = missingLine(needs, (kind) => held.get(kind) ?? 0);
+      const uses = needs.map((n) => thingCount(n.kind, n.count)).join(", ");
+      return row(
+        r.name,
+        doneToday ? `You've made ${inv.craftedToday} today` : (short ?? `Uses ${uses}`),
+        button(
+          "Fire",
+          () => {
+            const text = label.value.trim();
+            return {
+              type: "craft",
+              recipe: r.recipe,
+              x: o.x,
+              y: o.y,
+              ...(glaze === "bare" ? {} : { glaze }),
+              ...(text ? { label: text } : {}),
+            };
+          },
+          short === null && !doneToday,
+        ),
+        thingPicture({ kind: r.recipe, glaze }, { size: 32 }),
+      );
+    };
+    goods.fill(pots.map(potRow), []);
+  }
+
+  /**
    * Read your things and fill the sheet. On opening, a resident with free picks at a kitchen or
    * workbench (RFC 0024) is asked to pick first, if the sheet is still open; picking the last one,
    * or Not now, brings this sheet back, read afresh.
@@ -339,7 +483,7 @@ export function openTileSheet(o: TileSheetOptions) {
       return;
     }
     const picks = r.data.inventory?.recipePicks ?? 0;
-    if (askPicks && station && picks > 0 && overlayShowing(s.dialog)) {
+    if (askPicks && station && station !== "kiln" && picks > 0 && overlayShowing(s.dialog)) {
       const { openRecipePicks } = await import("./recipe-picks");
       const asked = await openRecipePicks({
         station,

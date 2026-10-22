@@ -13,7 +13,12 @@ export const CLAY = BRAND_HEX.clay;
 export const CLAY_DEEP = BRAND_HEX.clayDeep;
 
 /** Blocks you grow or make things at (RFC 0005). */
-export const WORKSHOP_BLOCKS: ReadonlySet<BlockKind> = new Set(["planter", "kitchen", "workbench"]);
+export const WORKSHOP_BLOCKS: ReadonlySet<BlockKind> = new Set([
+  "planter",
+  "kitchen",
+  "workbench",
+  "kiln",
+]);
 
 export function blockColor(block: BlockKind): string {
   return BLOCK_COLORS[block];

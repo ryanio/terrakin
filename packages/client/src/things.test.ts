@@ -141,6 +141,21 @@ describe("things", () => {
         ],
       }),
     ).toBe("You made 1 table. Place it from Build, on the Furniture tab.");
+    // A pot (RFC 0047) goes into the kiln, so nothing arrives, and comes out with its finish,
+    // never its label, which is its maker's words.
+    const clayIn = { kind: "clay" as const, amount: -2, count: 0 };
+    expect(inventoryLine({ ...base, reason: "craft", changes: [clayIn] })).toBe(
+      "Your pot is in the kiln. Take it out tomorrow.",
+    );
+    const pot = {
+      ...jam,
+      kind: "bowl" as const,
+      glaze: "sea" as const,
+      finish: "crackle" as const,
+    };
+    expect(inventoryLine({ ...base, reason: "fired", gained: [pot] })).toBe(
+      "Your bowl came out of the kiln in a sea glaze, with a fine crackle.",
+    );
     const gift = { ...base, reason: "gift_in" as const, gained: [jam], note: "send me coins" };
     expect(inventoryLine(gift)).toBe("A gift arrived: lemon jam.");
     // A gift of something counted takes its article, and two things read as a list.
@@ -486,6 +501,9 @@ describe("a made thing in a sentence", () => {
     harvest_soup: "harvest soup",
     garden_salad: "garden salad",
     posy: "a posy",
+    bowl: "a bowl",
+    vase: "a vase",
+    teapot: "a teapot",
   };
   const made = (kind: GoodKind | "piece") =>
     inventoryLine({

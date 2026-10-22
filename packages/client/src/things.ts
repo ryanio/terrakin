@@ -11,9 +11,11 @@ import {
   type Crop,
   FAMILIES,
   type Family,
+  type Finish,
   FURNITURE_RECIPES,
   type FurnitureKind,
   familyPath,
+  type Glaze,
   type GoodKind,
   HOLIDAY_INFO,
   type Holiday,
@@ -265,6 +267,29 @@ export function cropOfSeed(kind: ItemKind): Crop | undefined {
 }
 
 /** How a crop is doing today: "Ready to pick", "Ready tomorrow", "Ready in 3 days". */
+/** A glaze in a person's words (RFC 0047): "Sea glaze", "Bare clay". */
+export const glazeName = (glaze: Glaze): string =>
+  glaze === "bare" ? "Bare clay" : `${glaze.charAt(0).toUpperCase()}${glaze.slice(1)} glaze`;
+
+/** How a pot came out of the kiln, after "came out": "speckled", "smooth". */
+const FINISH_WORDS: Readonly<Record<Finish, string>> = {
+  plain: "smooth and even",
+  speckled: "speckled",
+  crackle: "with a fine crackle",
+  iridescent: "iridescent, which about one pot in a hundred is",
+};
+
+/** A pot's glaze and finish in a few words (RFC 0047): "Sea glaze, crackle". */
+export const potLine = (glaze: Glaze, finish: Finish | undefined): string =>
+  finish && finish !== "plain" ? `${glazeName(glaze)}, ${finish}` : glazeName(glaze);
+
+/** When a pot comes out of a kiln, as `growthLine` says it of a crop. */
+export function kilnLine(readyDay: number, today: number | undefined): string {
+  if (today === undefined) return "Firing";
+  if (readyDay - today <= 0) return "Ready to take out";
+  return `Comes out ${relativeDayWords(readyDay, today)}`;
+}
+
 export function growthLine(readyDay: number, today: number | undefined): string {
   if (today === undefined) return "Growing";
   if (readyDay - today <= 0) return "Ready to pick";
@@ -311,7 +336,16 @@ export function inventoryLine(e: InventoryEvent): string | null {
         return `You made ${thingCount(piece.kind, piece.amount)}. Place it from Build, on the Furniture tab.`;
       }
       const sweet = gained.find((c) => isSweetKind(c.kind));
-      return sweet ? `You made ${thingCount(sweet.kind, sweet.amount)}.` : null;
+      if (sweet) return `You made ${thingCount(sweet.kind, sweet.amount)}.`;
+      // Nothing arrived at all: a pot went into a kiln (RFC 0047), and comes out tomorrow.
+      return gained.length === 0 ? "Your pot is in the kiln. Take it out tomorrow." : null;
+    }
+    case "fired": {
+      const pot = e.gained?.[0];
+      if (!pot) return null;
+      const glaze = pot.glaze && pot.glaze !== "bare" ? ` in a ${pot.glaze} glaze` : "";
+      const finish = pot.finish ? ` ${FINISH_WORDS[pot.finish]}` : "";
+      return `Your ${thingName(pot.kind).toLowerCase()} came out of the kiln${glaze}${finish ? `,${finish}` : ""}.`;
     }
     // Halloween night (RFC 0022): the knock itself says where the candy came from (`newsLine`).
     // So does a cast what it brought up (RFC 0023).

@@ -71,7 +71,8 @@ export interface BlockLook {
   form: "voxel" | "clump" | "decor" | "furniture" | "water" | "stairs" | "door";
   /**
    * Lit after dark (decision 0098): a pool of warm light `pool` tiles across on the ground, its
-   * middle `at` from the tile's (x east, z south). With `home`, only in a home someone's in.
+   * middle `at` from the tile's (x east, z south). With `home`, only while the tile is `lit`: a
+   * window in a home someone's in, or a kiln firing a pot (RFC 0047).
    */
   glow?: Glow;
 }
@@ -99,6 +100,14 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   planter: { color: hex("#8a5a36"), height: 0.5, opacity: 1, form: "voxel" },
   kitchen: { color: hex("#c8674a"), height: 0.95, opacity: 1, form: "voxel" },
   workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
+  // A kiln (RFC 0047): fired brick, glowing after dark while it fires a pot (`lit`).
+  kiln: {
+    color: hex(BLOCK_COLORS.kiln),
+    height: 0.95,
+    opacity: 1,
+    form: "voxel",
+    glow: { pool: 1.6, home: true },
+  },
   lantern: {
     color: hex(BLOCK_COLORS.lantern),
     height: 1.45,

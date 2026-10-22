@@ -10,7 +10,7 @@
  */
 import type { FindKind, RECIPE_PAGE } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
-import { itemArtLoaded, piecePictureUrl } from "@terrakin/ui/item-art";
+import { piecePictureUrl, type ThingLook, thingArtLoaded } from "@terrakin/ui/item-art";
 import {
   type BufferGeometry,
   type CanvasTexture,
@@ -147,8 +147,8 @@ async function pictureCanvas(url: string): Promise<HTMLCanvasElement | undefined
 }
 
 /** A thing's drawn picture: on paper to hang in a frame, or cut out to stand on a pedestal. */
-async function artCanvas(kind: ShownGood["kind"] | typeof RECIPE_PAGE, onPaper: boolean) {
-  const img = await itemArtLoaded(kind);
+async function artCanvas(thing: ThingLook, onPaper: boolean) {
+  const img = await thingArtLoaded(thing);
   if (!img) return undefined;
   const out = onPaper ? blank(CARD.width, CARD.height) : blank(ART, ART);
   if (!out) return undefined;
@@ -173,9 +173,11 @@ function pictureFor(good: ShownGood, pictures: Pictures): Taken | undefined {
 
 /** A thing's drawn picture: on paper to hang in a frame, or cut out to stand on a pedestal. */
 function artFor(good: ShownGood, inFrame: boolean, pictures: Pictures): Taken {
+  // A pot (RFC 0047) is drawn in its glaze and finish, so those are part of its picture's key.
+  const look = good.glaze ? `${good.kind}|${good.glaze}|${good.finish ?? ""}` : good.kind;
   return inFrame
-    ? pictures.take(`card:${good.kind}`, () => artCanvas(good.kind, true))
-    : pictures.take(`art:${good.kind}`, () => artCanvas(good.kind, false));
+    ? pictures.take(`card:${look}`, () => artCanvas(good, true))
+    : pictures.take(`art:${look}`, () => artCanvas(good, false));
 }
 
 /** Where the little frame on a pedestal holds its picture. */
@@ -331,7 +333,7 @@ export function foundThings(
     }),
   );
   for (const kind of new Set(list.map((f) => f.kind))) {
-    const art = pictures.take(`art:${kind}`, () => artCanvas(kind, false));
+    const art = pictures.take(`art:${kind}`, () => artCanvas({ kind }, false));
     taken.push(art);
     void art.texture.then((map) => {
       if (gone || !map) return;

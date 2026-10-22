@@ -174,6 +174,17 @@ export function stairsLine(holdings: Holdings): string {
   return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
 }
 
+/** The line under the tabs for a kiln (RFC 0047): what it takes, and what you're short of. */
+export function kilnPlaceLine(holdings: Holdings): string {
+  const cost = blockNeeds("kiln")
+    .map(([kind, n]) => thingCount(kind, n))
+    .join(" and ");
+  const lead = `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight.`;
+  const short = blockShort("kiln", holdings);
+  if (short.length === 0) return `${lead} You have enough.`;
+  return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
+}
+
 /** The line under the tabs for a free block or the hearth. */
 export function blockLine(kind: string): string {
   if (kind === "hearth") {

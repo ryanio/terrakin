@@ -3,6 +3,7 @@ import {
   blockFill,
   type Crop,
   DOOR_LOOK,
+  KILN_GLOW,
   mixHex,
   THEME_INFO,
   type Theme,
@@ -176,7 +177,10 @@ export function paintDoor(
   ctx.restore();
 }
 
-/** The face of a planter (dark soil), a kitchen (two burners), or a workbench (planks). */
+/**
+ * The face of a planter (dark soil), a kitchen (two burners), a workbench (planks), or a kiln (RFC
+ * 0047): a brick dome with a dark arched mouth, which `paintKilnFire` fills while a pot fires.
+ */
 function paintWorkshop(
   ctx: CanvasRenderingContext2D,
   block: BlockKind,
@@ -212,6 +216,19 @@ function paintWorkshop(
       ctx.arc(left + size * cx, top + size * 0.42, size * 0.07, 0, Math.PI * 2);
       ctx.stroke();
     }
+  } else if (block === "kiln") {
+    // A dome of brick, a course line across it, and the mouth low in front.
+    ctx.fillStyle = "rgba(70, 30, 18, 0.25)";
+    ctx.beginPath();
+    ctx.ellipse(left + size / 2, top + size * 0.5, size * 0.36, size * 0.3, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(70, 30, 18, 0.4)";
+    ctx.lineWidth = Math.max(1, scale / 30);
+    ctx.beginPath();
+    ctx.moveTo(left + size * 0.18, top + size * 0.5);
+    ctx.lineTo(left + size * 0.82, top + size * 0.5);
+    ctx.stroke();
+    kilnMouth(ctx, left, top, size, "#3a2219");
   } else {
     ctx.strokeStyle = "rgba(70, 40, 18, 0.45)";
     ctx.lineWidth = Math.max(1, scale / 28);
@@ -222,6 +239,51 @@ function paintWorkshop(
       ctx.stroke();
     }
   }
+  ctx.restore();
+}
+
+/** A kiln's arched mouth, low on its face, in `fill`. */
+function kilnMouth(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  fill: string,
+) {
+  const w = size * 0.3;
+  const h = size * 0.24;
+  const x = left + (size - w) / 2;
+  const y = top + size * 0.58;
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.lineTo(x, y + w / 2);
+  ctx.arc(x + w / 2, y + w / 2, w / 2, Math.PI, 0);
+  ctx.lineTo(x + w, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * A kiln firing a pot (RFC 0047): its mouth burns, and a warm glow spills out of it, by day too.
+ * Nothing says what's inside.
+ */
+export function paintKilnFire(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  scale: number,
+) {
+  ctx.save();
+  const cx = left + size / 2;
+  const cy = top + size * 0.72;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, scale * 0.8);
+  g.addColorStop(0, "rgba(255, 179, 71, 0.6)");
+  g.addColorStop(1, "rgba(255, 150, 60, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - scale, cy - scale, scale * 2, scale * 2);
+  kilnMouth(ctx, left, top, size, KILN_GLOW);
   ctx.restore();
 }
 

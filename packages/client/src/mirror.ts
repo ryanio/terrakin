@@ -187,6 +187,13 @@ export class Mirror {
   plotPickupsOwned = false;
   /** Whether finds lie on the ground (`finds_opened`, RFC 0021), so `pickupAt` draws them too. */
   findsOpen = false;
+  /** Whether clay lies on the ground and kilns fire pots (`clay_opened`, RFC 0047). */
+  clayOpen = false;
+  /**
+   * Kilns firing a pot (RFC 0047), by tileKey: who loaded each and the day it's ready. What's in
+   * one is never on the wire; the loader's `GET /v1/inventory` says.
+   */
+  kilns = new Map<string, { by: string; readyDay: number }>();
   /**
    * Whether recipes are learned (`recipes_opened`, RFC 0024): `teach` works, and `pickupAt` draws
    * recipe pages. What anyone knows isn't here; `inventory.recipes` and profiles say that.
@@ -284,6 +291,10 @@ export class Mirror {
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
     this.findsOpen = snapshot.findsOpen === true;
+    this.clayOpen = snapshot.clayOpen === true;
+    for (const k of snapshot.kilns ?? []) {
+      this.kilns.set(tileKey(k.x, k.y), { by: k.by, readyDay: k.readyDay });
+    }
     this.recipesOpen = snapshot.recipesOpen === true;
     this.pageEdition = snapshot.pageEdition ?? 1;
     this.jobsOpen = snapshot.jobsOpen === true;
@@ -712,6 +723,16 @@ export class Mirror {
       case "harvested":
         this.crops.delete(tileKey(event.x, event.y));
         break;
+      // Pottery (RFC 0047): a kiln glows from loading until its pot comes out.
+      case "clay_opened":
+        this.clayOpen = true;
+        break;
+      case "kiln_loaded":
+        this.kilns.set(tileKey(event.x, event.y), { by: event.by, readyDay: event.readyDay });
+        break;
+      case "kiln_emptied":
+        this.kilns.delete(tileKey(event.x, event.y));
+        break;
       case "displayed":
         this.displays.set(tileKey(event.x, event.y), {
           good: { ...event.good },
@@ -949,6 +970,7 @@ export class Mirror {
       finds: this.findsOpen,
       pages: this.recipesOpen,
       edition: this.pageEdition,
+      clay: this.clayOpen,
     });
   }
 

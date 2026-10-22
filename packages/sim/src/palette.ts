@@ -112,6 +112,9 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
 /** A kiln's glow while it fires a pot (RFC 0047), on the map and in 3D. */
 export const KILN_GLOW = "#ffb347";
 
+/** Clay (RFC 0047), lying on the ground, in your things, and in 3D. */
+export const CLAY_HEX = "#b5714c";
+
 /**
  * How a door looks (decision 0349), on the map, in both 3D views, and in plot photos: a wall-high
  * frame of plain wood around a painted door, its knob, and how much of the tile's width the opening

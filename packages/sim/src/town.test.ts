@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
-import { nearestHall } from "./doors";
 import { COMMONS_CONFIG, COMMONS_HASH, COMMONS_LOG } from "./fixtures/commons-log";
 import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
 import { TABLE_SPOTS_CONFIG, TABLE_SPOTS_HASH, TABLE_SPOTS_LOG } from "./fixtures/table-spots-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
+import { fund } from "./test-support";
 import { electorate, notAtTheHall, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
 import {
   type Command,
@@ -1029,42 +1029,45 @@ describe("the town's centre (RFC 0038)", () => {
     );
   });
 
-  it("gives the island a hall of its own, and sends its residents to that one", () => {
+  it("files every proposal downtown, while an island's counter serves its residents", () => {
     const w = town("ada", "bob");
+    w.ok(TOWN_ACTOR, { type: "open_economy" });
+    w.ok(TOWN_ACTOR, { type: "open_items" });
+    w.ok(TOWN_ACTOR, { type: "open_shop" });
+    w.ok(TOWN_ACTOR, { type: "shop_in_person" });
     w.ok(TOWN_ACTOR, ISLAND);
     w.ok(TOWN_ACTOR, { type: "propose_in_person" });
-    // Downtown's hall is on the Commons' spawn column; the island's is on its own square, three
-    // plots east across the water. Six tiles each, and nothing is built on either.
+    fund(w.state, "ada", 500);
+    // The island's square still has its hall building, three plots east across the water: six
+    // tiles each, and nothing is built on either. Only downtown's takes filings (decision 0352).
     expect(townHallTile(w.state)).toEqual({ x: 12, y: 9 });
     expect(townHallTiles(w.state)).toHaveLength(12);
-    expect(nearestHall(w.state, { x: 36, y: 18 })).toEqual({ x: 36, y: 17 });
-    // Ada crosses to the island and stands at its hall's door. (Set directly: the lands log walks
-    // the bridge a tile at a time, so the walk is tested there.)
+    expect(townHallTiles(w.state)).toContainEqual({ x: 36, y: 17 });
     const ada = w.state.residents.ada;
     if (!ada) throw new Error("no ada");
+    // Ada crosses to the island and stands at its hall's door. (Set directly: the lands log walks
+    // the bridge a tile at a time, so the walk is tested there.) Filing there is refused, with the
+    // walk back over the bridge to downtown's hall, and nothing is filed.
     Object.assign(ada, { x: 36, y: 18 });
+    const away = notAtTheHall(w.state, ada);
+    expect(away?.code).toBe("out_of_reach");
+    expect(away?.message).toContain("Proposals are filed at the Town Hall downtown.");
+    expect(away?.message).toContain("Walk there:");
+    expect(w.code("ada", { type: "propose", kind: "advisory", title: "A bench", text: "" })).toBe(
+      "out_of_reach",
+    );
+    expect(w.state.town?.proposals ?? []).toHaveLength(0);
+    // A few steps south, at the island's counter, the shop serves her as it always did.
+    Object.assign(ada, { x: 36, y: 21 });
+    expect(w.code("ada", { type: "shop_buy", sku: "lantern" })).toBe(null);
+    // On the bridge she is sent downtown too, however near the island's hall is.
+    Object.assign(ada, { x: 31, y: 11 });
+    expect(notAtTheHall(w.state, ada)?.message).toContain("the Town Hall downtown");
+    // Downtown, at the Commons' hall, filing works as it did before any land opened.
+    Object.assign(ada, { x: 12, y: 10 });
     expect(notAtTheHall(w.state, ada)).toBe(null);
-    // One town, many doors: filing at the island's hall files the town's proposal.
     expect(w.propose("ada", { title: "A bench by the water" }).ok).toBe(true);
     expect(w.state.town?.proposals).toHaveLength(1);
-    // Bob is home downtown, so he is sent downtown, however much nearer the crow flies.
-    const bob = w.state.residents.bob;
-    if (!bob) throw new Error("no bob");
-    expect(nearestHall(w.state, bob)).toEqual({ x: 12, y: 9 });
-    expect(notAtTheHall(w.state, bob)?.message).toContain("Walk there:");
-  });
-
-  it("sends someone on the bridge to whichever hall is nearer", () => {
-    const w = town("ada");
-    w.ok(TOWN_ACTOR, ISLAND);
-    // The bridge runs from x 24 to x 31 at the Commons' latitude, with downtown's hall at (12, 9)
-    // behind and the island's at (36, 17) ahead. Nobody stands on a land out there, so the nearer
-    // hall wins, measured hall to hall: one step onto the bridge from downtown's end (x 25) the
-    // island's is already the nearer, 11 against 13, and it only gets nearer from there.
-    expect(nearestHall(w.state, { x: 25, y: 11 })).toEqual({ x: 36, y: 17 });
-    expect(nearestHall(w.state, { x: 31, y: 11 })).toEqual({ x: 36, y: 17 });
-    // At x 24 both are 12 away, and a tie goes north to south, which is downtown's.
-    expect(nearestHall(w.state, { x: 24, y: 11 })).toEqual({ x: 12, y: 9 });
   });
 });
 

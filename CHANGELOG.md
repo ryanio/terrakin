@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-22
 
-<!-- api-fingerprint: 2e3c0b2f6a30, 6 entries -->
+<!-- api-fingerprint: 2e3c0b2f6a30, 7 entries -->
+
+- **Changed** Proposals are filed at the Town Hall downtown, even from an island
+  An island's hall building takes no filings. From anywhere but downtown's hall door, `propose` is refused with `out_of_reach` and the walk back over the bridge, and `you.hall` in `GET /v1/town` is always downtown's door. Voting stays remote.
+  An island's shop counter is unchanged: you buy and sell at the counter on the land you stand on, and `you.counter` in `GET /v1/shop` names it. No island has opened yet, so nothing filed so far is affected.
+  Try: `GET /v1/town`
 
 - **Added** `settle` and `claim` say when the plot you take closes a neighbor in
   Dry or real, the answer carries `notes`: `seals_neighbor` for each plot next door whose every way out steps onto the plot you take, and `no_opening` when that plot would have no way out of its own. The first note names the nearest free plot that closes nobody in. Notes only: the claim goes ahead.

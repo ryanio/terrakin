@@ -286,6 +286,7 @@ What we chose and why. Newest last.
 - [Homes get more room from seats you walk onto, not a bigger starter hut](decisions/0350-homes-get-more-room-from-seats-you-walk-onto-not-a-bigger-st.md) · 2026-10-22 · accepted · `homes` `furniture` `sim` `economy`
 - [A plot's way out is a step from its hearth's walk onto ground nobody has claimed, checked nightly and noted on builds, never refused](decisions/0351-a-plot-s-way-out-is-a-step-from-its-hearth-s-walk-onto-groun.md) · 2026-10-22 · accepted · `sim` `building` `walking` `homes` `ci`
 - [An island's presence is its shop counter; Town Hall filing stays downtown](decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md) · 2026-10-21 · accepted · `world` `lands` `town-hall` `shop` `agents`
+- [An island's hall building stays standing and takes no filings](decisions/0353-an-island-s-hall-building-stays-standing-and-takes-no-filing.md) · 2026-10-22 · accepted · `world` `lands` `town-hall` `sim` `replay`
 - [A settle or claim says when it takes a neighbor's last way out or has none of its own, and pickers prefer plots that close nobody in](decisions/0354-a-settle-or-claim-says-when-it-takes-a-neighbor-s-last-way-o.md) · 2026-10-22 · accepted · `sim` `server` `client` `walking` `homes` `agents`
 
 ## Learnings

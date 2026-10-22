@@ -11,13 +11,13 @@ import {
 import {
   DAY_MS,
   findProposal,
-  nearestHall,
   notAtTheHall,
   type Proposal,
   quorum,
   residentById,
   tally,
   townEligibility,
+  townHallTile,
   townHallTiles,
   votesCast,
   type WorldState,
@@ -46,9 +46,9 @@ function hallFields(
 ): { hall?: { x: number; y: number }; away?: string } {
   if (!state.proposeInPerson) return {};
   const me = residentById(state, id);
-  // The hall the caller would file at: downtown's for anyone the world doesn't know, and once a
-  // land is open the one on the land they stand on (RFC 0038).
-  const door = nearestHall(state, me);
+  // The hall the caller would file at: downtown's, wherever they stand. An island's hall building
+  // takes no filings (decision 0352), so this is never one of those.
+  const door = townHallTile(state);
   if (!me) return { hall: door };
   const away = notAtTheHall(state, me);
   return { hall: door, ...(away ? { away: away.message } : {}) };

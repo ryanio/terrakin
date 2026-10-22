@@ -9,6 +9,7 @@ import {
   spawnTile,
   stepFrom,
   tileKey,
+  townHallTile,
   type WorldConfig,
   walkTree,
   worldGround,
@@ -63,7 +64,9 @@ afterEach(async () => {
 type Json = Record<string, any>;
 
 /** The world on Tuesday 6 October 2026, with new lands off unless a test asks for them. */
-async function start(options: { lands?: boolean; testClock?: boolean } = {}) {
+async function start(
+  options: { lands?: boolean; testClock?: boolean; proposeInPerson?: boolean } = {},
+) {
   let now = Date.UTC(2026, 9, 6, 9);
   const store = new MemoryStore();
   const service = new WorldService({
@@ -75,6 +78,7 @@ async function start(options: { lands?: boolean; testClock?: boolean } = {}) {
     items: true,
     presence: true,
     lands: options.lands ?? false,
+    proposeInPerson: options.proposeInPerson ?? false,
   });
   const sql = nodeSql();
   const social = new SocialService({
@@ -258,6 +262,24 @@ describe("the snapshot's lands", () => {
     expect(photo, "no photo spec for the island settler").toBeTruthy();
     const fills = new Set((photo?.ground ?? []).map((g) => g.fill));
     expect([...fills], `the photo's ground fills`).toContain(SEA_LOOK.water);
+  });
+});
+
+describe("the Town Hall once a land is open", () => {
+  it("sends a resident on the island downtown to file", async () => {
+    const w = await start({ lands: true, proposeInPerson: true });
+    await w.crowd();
+    w.later(60_000);
+    const island = w.service.state.lands?.list[0];
+    if (!island) throw new Error("no land opened");
+    const [px, py] = island.plots[0] as [number, number];
+    const isla = await w.settler("isla", px, py);
+    // `you.hall` is downtown's door, never the hall building on the island's square, and `away`
+    // names the walk back over the bridge (decision 0352).
+    const town = (await w.call("GET", "/v1/town", undefined, isla.token)).body as Json;
+    expect(town.you.hall).toEqual(townHallTile(w.service.state));
+    expect(town.you.away).toContain("Proposals are filed at the Town Hall downtown.");
+    expect(town.you.away).toContain("Walk there:");
   });
 });
 

@@ -273,14 +273,25 @@ export function isTownSquare(state: WorldState, px: number, py: number): boolean
   return squares(state).some((s) => s.px === px && s.py === py);
 }
 
-/** Every Town Hall's tiles: one hall on each square. */
+/**
+ * Every Town Hall's tiles: one hall building on each square. Only downtown's takes filings
+ * (`townHallTile`); an island's stands on its square as a building you walk around and nothing
+ * more ([decision 0352](../../docs/knowledge/decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md)).
+ *
+ * The island's hall stays standing, rather than leaving a square laid out without one, because
+ * taking it away is not free: its tiles are solid once `solid_buildings` is logged, so they shape
+ * every walk across the square, what `openings.ts` counts as a way out, and what the client
+ * mirrors from `land_opened`. Keeping it changes none of that and no logged input's shape (the
+ * square in `open_land` still places the counter), so every log replays as it did, and a hall that
+ * files can come back later as one rule, with residents and a gathering need behind it.
+ */
 export function townHallTiles(state: WorldState): Tile[] {
   return squares(state).flatMap((square) => hallTiles(state.config, square));
 }
 
 /**
- * The Town Hall's door downtown, on the Commons. Every land brings a hall door of its own, and
- * which one a resident is sent to is `nearestHall` in `doors.ts` (RFC 0038).
+ * The Town Hall's door downtown, on the Commons: where every proposal is filed, from whatever land
+ * the resident stands on ([decision 0352](../../docs/knowledge/decisions/0352-an-island-s-presence-is-its-shop-counter-town-hall-filing-stays.md)).
  */
 export function townHallTile(state: WorldState): Tile {
   return hallDoor(state.config, squares(state)[0] as Square);

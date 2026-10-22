@@ -458,7 +458,8 @@ export interface Land {
   bridge: [number, number][];
   /**
    * The land's square, as `[px, py]`: ground it brings in that nobody can claim, where its own
-   * Town Hall door and shop counter stand (RFC 0038). Never one of `plots`.
+   * shop counter and a hall building stand (RFC 0038). The counter serves; the hall takes no
+   * filings, which stay downtown (decision 0352). Never one of `plots`.
    */
   square: [number, number];
 }

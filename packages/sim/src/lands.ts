@@ -17,8 +17,9 @@ import { inBounds, isCommons, plotOf } from "./world";
  * and nobody walks on it. Before the first `open_land` there is no sea, because every tile in
  * bounds is downtown, so every older log walks exactly as it did.
  *
- * A land also brings a square, one plot slot nobody can claim, where its own Town Hall door and
- * shop counter stand, so an island is never a day's walk from what it needs ([decision 0332](../../../docs/knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
+ * A land also brings a square, one plot slot nobody can claim, where its own shop counter and a
+ * hall building stand, so an island is never a day's walk from the shop ([decision 0332](../../../docs/knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
+ * The hall takes no filings: proposals are filed downtown (decision 0352).
  * It is in the logged input like everything else geometric, because which slot is the square is the
  * kind of choice a better planner should be free to make differently for the next land without
  * changing how this one replays.

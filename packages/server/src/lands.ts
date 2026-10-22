@@ -68,8 +68,8 @@ export function planLand(state: WorldState): Extract<Command, { type: "open_land
   // Centered on the Commons' row, so the bridge arrives level with the middle of town.
   const commons = commonsPlot(state);
   const py0 = Math.max(0, commons.py - Math.floor((span - 1) / 2));
-  // The middle slot is the land's square, where its own hall and counter stand, so every one of
-  // its plots is at most two plots from both ([decision 0332](../../../docs/knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
+  // The middle slot is the land's square, where its own counter and hall building stand, so every
+  // one of its plots is at most two plots from the shop ([decision 0332](../../../docs/knowledge/decisions/0332-every-island-gets-a-counter-and-a-hall-door-of-its-own-on-a-.md)).
   // Nobody claims a square, so it is left out of the claimable plots.
   const square: [number, number] = [px0 + Math.floor(span / 2), py0 + Math.floor(span / 2)];
   const plots: [number, number][] = [];

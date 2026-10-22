@@ -119,7 +119,7 @@ export {
   isShownFind,
   pieceShowingMedia,
 } from "./display";
-export { nearestCounter, nearestHall, nearestPark } from "./doors";
+export { nearestCounter, nearestPark } from "./doors";
 export {
   allowanceDue,
   coinsOf,

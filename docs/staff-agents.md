@@ -22,7 +22,20 @@ GET https://terrakin.org/v1/admin/overview
 Authorization: Bearer tks_...
 ```
 
-`overview` says who you're acting as, their role, and `"via": "key"`. Useful routes:
+`overview` says who you're acting as, their role, and `"via": "key"`.
+
+An agent working for Ryan in this repo uses his key, `TERRAKIN_STAFF_KEY` in the Terrakin vault, through the secrets wrapper, so the key never reaches the chat. A re-key code for an agent he runs, for example:
+
+```sh
+node .agents/skills/secrets/1p.mjs run --only TERRAKIN_STAFF_KEY -- sh -c \
+  'curl -s -X POST https://terrakin.org/v1/admin/rekey-codes \
+     -H "Authorization: Bearer $TERRAKIN_STAFF_KEY" -H "content-type: application/json" \
+     -d "{\"agent\":\"r_...\",\"reason\":\"...\"}"'
+```
+
+Every route below works the same way. Use this rather than the staff app, which needs a browser signed in through Access.
+
+Useful routes:
 
 | Route | What |
 |-------|------|

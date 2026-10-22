@@ -26,7 +26,7 @@ Why it exists: [mission.md](mission.md). What it is: [docs/vision.md](docs/visio
 
 ## Words
 
-Plot (owned land), hearth (home tile), circle (a small named group with a hall and a weekly night, [RFC 0033](docs/rfcs/0033-kindreds.md)), coins (earned currency), season (about 3 months), the Commons (shared land), townsfolk (the founding NPC residents). Personas: homesteader, delver, host, champion. The [founding plan's table](docs/plans/founding-plan.md#3-terminology-no-game-knowledge-required) is history and predates two renames: it calls a circle a kindred, and a clan before that ([decision 0318](docs/knowledge/decisions/0318-kindreds-are-circles-the-word-and-the-wire-change-together-a.md)).
+Plot (owned land), hearth (home tile), circle (a small named group with a hall and a weekly night, [RFC 0033](docs/rfcs/0033-kindreds.md)), coins (earned currency), season (about 3 months), the Commons (shared land), townsfolk (the founding NPC residents). The ground everyone walks ([RFC 0046](docs/rfcs/0046-streets.md)): a street is an island plot slot nobody owns, a public way (a way) is a downtown tile that holds no block on the ground floor, an exit is what decision 0351 calls a plot's way out, and open ground is where an exit lands; in code, "way" means only a public way. Personas: homesteader, delver, host, champion. The [founding plan's table](docs/plans/founding-plan.md#3-terminology-no-game-knowledge-required) is history and predates two renames: it calls a circle a kindred, and a clan before that ([decision 0318](docs/knowledge/decisions/0318-kindreds-are-circles-the-word-and-the-wire-change-together-a.md)).
 
 ## Map
 

@@ -38,6 +38,8 @@ export function wayFactsFrom(state: WorldState): WayFacts {
   const commons = commonsPlot(state);
   const blocks = new Map(Object.entries(state.blocks)) as Map<string, BlockKind>;
   const crops = Object.keys(state.items?.crops ?? {});
+  // A kiln with a pot in it can't be taken up (RFC 0047), so the town can't clear it either.
+  const firing = Object.keys(state.items?.firings ?? {});
   const shown = [...blocks.keys()].filter((key) => {
     const [x, y] = key.split(",").map(Number) as [number, number];
     return displayAt(state, x, y) !== undefined;
@@ -55,7 +57,7 @@ export function wayFactsFrom(state: WorldState): WayFacts {
     townsfolk: new Set(state.townsfolk ?? []),
     hearths: Object.values(state.residents).flatMap((r) => (r.hearth ? [r.hearth] : [])),
     blocks,
-    fixed: new Set([...crops, ...shown]),
+    fixed: new Set([...crops, ...firing, ...shown]),
     upstairs: new Set(upstairs),
     listed: new Set(Object.keys(state.plotMarket?.listings ?? {})),
     ways: new Set(Object.keys(state.ways ?? {})),
@@ -96,6 +98,55 @@ export function wayInputs(plan: WayPlan, plotSize: number): WayCommand[] {
         }),
       ),
   ];
+}
+
+/**
+ * Closing way tiles (RFC 0046): the one `close_way` that takes them up, north to south, then west
+ * to east, each once, and what it touches in a plan's shape: the tiles on each claimed plot with
+ * whose it is, and the ones on free slots. Nothing is cleared or rebuilt.
+ */
+export function wayClose(
+  state: WorldState,
+  tiles: readonly Tile[],
+): { command: Extract<WayCommand, { type: "close_way" }>; plan: WayPlan } {
+  const keys = [...new Set(tiles.map((t) => tileKey(t.x, t.y)))];
+  const sorted = keys
+    .map((key) => {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      return { x, y };
+    })
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  const plots = new Map<string, WayPlan["plots"][number]>();
+  const free: Tile[] = [];
+  for (const t of sorted) {
+    const { px, py } = plotOf(state.config, t.x, t.y);
+    const plot = state.plots[plotKey(px, py)];
+    if (!plot) {
+      free.push(t);
+      continue;
+    }
+    const key = plotKey(px, py);
+    const row = plots.get(key) ?? {
+      px,
+      py,
+      ownerId: plot.ownerId,
+      townsfolk: state.townsfolk?.includes(plot.ownerId) === true,
+      tiles: [],
+    };
+    row.tiles.push(t);
+    plots.set(key, row);
+  }
+  return {
+    command: { type: "close_way", tiles: sorted.map((t): [number, number] => [t.x, t.y]) },
+    plan: {
+      tiles: sorted,
+      plots: [...plots.values()].sort((a, b) => a.py - b.py || a.px - b.px),
+      free,
+      blocks: [],
+      homes: [],
+      unjoined: [],
+    },
+  };
 }
 
 /** Something about a plan that stops it being laid. */

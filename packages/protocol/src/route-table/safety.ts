@@ -616,9 +616,9 @@ export const SAFETY_ROUTES = [
     path: "/v1/admin/ways",
     auth: "staff",
     internal: true,
-    summary: "Maintainers: plan downtown's public ways, and lay them.",
+    summary: "Maintainers: plan downtown's public ways and lay them, or close way tiles.",
     description:
-      "Plans the network of public ways that joins every claimed plot downtown and the bridge landing to the Commons (RFC 0046), lists the tiles on each plot, the blocks the town clears and gives back to their owners, and the homes it rebuilds with a door onto the way, and checks every input with the sim against a copy of the world, with what the whole plan would do: no plot left with no way out that had one, and no hearth that stops walking to the Commons. Every conflict is listed. `dry: true` stops there. Otherwise, with no conflicts, it clears the blocks, opens the way, and rebuilds the homes, and each owner whose plot changed gets a notice from Terrakin. If an input fails to save partway, the error names it; run it again and it plans only what is left. Logged in the world and in the moderation log with the reason.",
+      "Plans the network of public ways that joins every claimed plot downtown and the bridge landing to the Commons (RFC 0046), lists the tiles on each plot, the blocks the town clears and gives back to their owners, and the homes it rebuilds with a door onto the way, and checks every input with the sim against a copy of the world, with what the whole plan would do: no plot left with no way out that had one, and no hearth that stops walking to the Commons. Every conflict is listed. `dry: true` stops there. Otherwise, with no conflicts, it clears the blocks, opens the way, and rebuilds the homes, and each owner whose plot changed gets a notice from Terrakin. If an input fails to save partway, the error names it; run it again and it plans only what is left. With `close`, it plans nothing: it checks one `close_way` of those tiles the same way, and closes them unless `dry` or a conflict stops it, and each owner whose plot it crossed gets a notice from Terrakin. Logged in the world and in the moderation log with the reason.",
     tags: ["Moderation"],
     body: StaffWaysRequest,
     responses: { 200: json(StaffWaysResponse) },

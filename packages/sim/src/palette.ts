@@ -374,6 +374,35 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
   },
 };
 
+/**
+ * Ground the map draws that nobody laid (RFC 0046): a public way, in a look of its own, pale
+ * gravel that no path a resident lays has, so a way never reads as someone's path. An island
+ * street keeps the cobbles (`cobble`). Drawing only: no rule reads it.
+ */
+export type DrawnGround = GroundKind | "way";
+
+/** What a public way looks like, as `GROUND_LOOK` has each path. */
+export const WAY_LOOK: GroundLook = {
+  fill: "#d3cbb8",
+  marks: [
+    dot(0.18, 0.22, 0.035, "#b2a88f"),
+    dot(0.58, 0.14, 0.03, "#b2a88f"),
+    dot(0.82, 0.5, 0.035, "#b2a88f"),
+    dot(0.38, 0.56, 0.03, "#b2a88f"),
+    dot(0.14, 0.82, 0.03, "#b2a88f"),
+    dot(0.66, 0.84, 0.035, "#b2a88f"),
+    dot(0.42, 0.3, 0.025, "#ebe5d6"),
+    dot(0.88, 0.2, 0.025, "#ebe5d6"),
+    dot(0.26, 0.6, 0.025, "#ebe5d6"),
+    dot(0.6, 0.66, 0.025, "#ebe5d6"),
+  ],
+  tone: "#d3cbb8",
+};
+
+/** The look of anything the map draws as ground: a laid path or flooring, or a public way. */
+export const drawnLook = (kind: DrawnGround): GroundLook =>
+  kind === "way" ? WAY_LOOK : GROUND_LOOK[kind];
+
 /** The hearth's roof (and the Town Hall's). */
 export const HEARTH_COLOR = "#d9653a";
 /** The hearth's door. */

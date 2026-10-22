@@ -1,4 +1,4 @@
-import { AWARDS } from "@terrakin/sim";
+import { AWARDS, WAYS } from "@terrakin/sim";
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportKind, ReportReason } from "./reports";
@@ -212,6 +212,8 @@ export const MODERATION_ACTIONS = [
   "clear_block",
   /** A maintainer laid downtown's public ways, clearing and rebuilding what stood on them (RFC 0046). */
   "open_way",
+  /** A maintainer closed public way tiles, which can hold blocks again (RFC 0046). */
+  "close_way",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;
@@ -361,7 +363,10 @@ export const StaffClearBlockResponse = z.object({
 });
 export type StaffClearBlockResponse = z.infer<typeof StaffClearBlockResponse>;
 
-/** Plan downtown's public ways, and lay them unless `dry` (RFC 0046). */
+/**
+ * Plan downtown's public ways, and lay them unless `dry` (RFC 0046). With `close`, take those way
+ * tiles back up instead, unless `dry`.
+ */
 export const StaffWaysRequest = z.object({
   reason: Reason,
   /** Plan it and check every input with the sim, without laying anything. */
@@ -371,6 +376,11 @@ export const StaffWaysRequest = z.object({
    * unless `false`.
    */
   layFree: z.boolean().optional(),
+  /**
+   * Close these way tiles rather than lay a plan: each must be a way now. Checked like a lay: no
+   * plot left with no exit that had one, and no hearth that stops walking to the Commons.
+   */
+  close: z.array(TileXY).min(1).max(WAYS.tilesMax).optional(),
 });
 export type StaffWaysRequest = z.infer<typeof StaffWaysRequest>;
 
@@ -420,6 +430,8 @@ export const StaffWaysResponse = z.object({
     }),
   ),
   laid: z.boolean(),
+  /** With `close`: whether the tiles were closed. `tiles` are the tiles asked to close. */
+  closed: z.boolean().optional(),
 });
 export type StaffWaysResponse = z.infer<typeof StaffWaysResponse>;
 

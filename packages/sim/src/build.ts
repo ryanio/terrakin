@@ -35,6 +35,7 @@ import {
   type StackKind,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
+import { isStreet, streetWords } from "./lands";
 import { plotListedProblem } from "./plot-market";
 import { KILN, potteryClosed } from "./pottery";
 import {
@@ -234,6 +235,10 @@ export function planBuild(
     return refuse("out_of_bounds", "That plot is outside the world.");
   }
   const plot = state.plots[plotKey(px, py)];
+  if (!canBuildOn(plot, actor) && isStreet(state, px, py)) {
+    // An island street is everyone's to walk, like a public way (RFC 0046).
+    return refuse("public_ground", `${streetWords(state, px, py)} Nothing is built on it.`);
+  }
   if (!canBuildOn(plot, actor)) {
     const mine = buildablePlots(state, actor);
     if (mine.length === 0) {
@@ -313,7 +318,7 @@ export function planBuild(
     const spot = tiles.blocks[i] as PlanSpot;
     if (wayProblem(state, px * S + spot.x, py * S + spot.y, spot.floor)) {
       return refuse(
-        "public_way",
+        "public_ground",
         `${spotWords(spot)} is on a public way, which holds no block: everyone walks it to town. Leave it open, or lay a path there.`,
       );
     }

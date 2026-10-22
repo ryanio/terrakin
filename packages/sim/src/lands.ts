@@ -62,6 +62,33 @@ export interface LandsFacts {
   }[];
 }
 
+/**
+ * The lands as the world snapshot carries them: slots as `px`/`py` and tiles as `x`/`y`, where
+ * the sim names both as `[x, y]` pairs. `landsFromSnapshot` turns them into `LandsFacts`.
+ */
+export interface SnapshotLands {
+  readonly home: { readonly width: number; readonly height: number };
+  readonly list: readonly {
+    readonly plots: readonly { readonly px: number; readonly py: number }[];
+    readonly bridge: readonly { readonly x: number; readonly y: number }[];
+    readonly square: { readonly px: number; readonly py: number };
+    readonly streets?: readonly { readonly px: number; readonly py: number }[] | undefined;
+  }[];
+}
+
+/** The snapshot's lands as the rules read them, so every reader of the wire asks the same rules. */
+export function landsFromSnapshot(lands: SnapshotLands): LandsFacts {
+  return {
+    home: lands.home,
+    list: lands.list.map((l) => ({
+      plots: l.plots.map((p) => [p.px, p.py] as const),
+      bridge: l.bridge.map((t) => [t.x, t.y] as const),
+      square: [l.square.px, l.square.py] as const,
+      streets: (l.streets ?? []).map((p) => [p.px, p.py] as const),
+    })),
+  };
+}
+
 /** Whether a plot slot is inside downtown, the land that needs no `open_land`. */
 function inHome(config: WorldConfig, lands: LandsFacts, px: number, py: number): boolean {
   const size = config.plotSize;

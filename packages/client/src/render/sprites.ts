@@ -1,7 +1,7 @@
 import { fourWayFacing } from "@terrakin/protocol";
 import {
   type Direction,
-  type GroundKind,
+  type DrawnGround,
   PET_BOX,
   type PetCoat,
   type PetFace,
@@ -126,7 +126,7 @@ export function figureSprite(
 
 /** One tile of a path or flooring, `w` by `h` CSS pixels, drawn once from the sim's look. */
 export function groundSprite(
-  kind: GroundKind,
+  kind: DrawnGround,
   w: number,
   h: number,
   dpr: number,

@@ -7,6 +7,7 @@ import { issueBody, landlockedIn, type WorldRead } from "./landlocked";
 function world(blocks: WorldRead["blocks"] = []): WorldRead {
   return {
     config: { width: 24, height: 24, plotSize: 8, maxPlotsPerResident: 1, reach: 3 },
+    commons: { px: 1, py: 1 },
     plots: [
       { px: 0, py: 0, ownerId: "r_a" },
       { px: 1, py: 0, ownerId: "r_b" },

@@ -1,9 +1,10 @@
 import type { BuildPlan } from "./build";
 import { plotKey } from "./keys";
 import { type PlotTiles, plotTiles } from "./map";
-import { claimWaysIn, nearestFreePlot, plotOpenings } from "./openings";
+import { claimExitsIn, nearestFreePlot, plotOpenings } from "./openings";
 import type { BlockKind, Direction, Tile, WorldConfig, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
+import { isWay } from "./ways";
 import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./world";
 
 /**
@@ -30,6 +31,8 @@ export const NOTE_CODES = [
   "walled_in",
   "no_opening",
   "seals_neighbor",
+  // A `settle` or `claim` of a plot a public way crosses (RFC 0046).
+  "way_tiles",
   // The server writes this one, from a design's or the starter hut's door (`doorFacing`).
   "door_no_edge",
   "out_of_reach",
@@ -103,7 +106,7 @@ function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan
     const last = local(first.from);
     notes.push({
       code: "no_opening",
-      text: `This plan leaves the plot with no way out onto open ground: once it's built, no walk from the hearth reaches a step off the plot onto a tile nobody has claimed. The way out now is at ${words(last)}. Leave a gap or a door on that side.`,
+      text: `This plan leaves the plot with no exit onto open ground: once it's built, no walk from the hearth reaches a step off the plot onto a tile nobody has claimed. The exit now is at ${words(last)}. Leave a gap or a door on that side.`,
       tiles: [last],
     });
   }
@@ -121,7 +124,7 @@ function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan
       const past = corner[0] ? ` past the corner at ${words(corner[0])}` : "";
       notes.push({
         code: "seals_neighbor",
-        text: `This plan closes the last way out of the plot next door, plot (${nx}, ${ny}): its only step onto open ground goes${past}. Leave that tile open.`,
+        text: `This plan closes the last exit of the plot next door, plot (${nx}, ${ny}): its only step onto open ground goes${past}. Leave that tile open.`,
         tiles: corner,
       });
     }
@@ -137,20 +140,20 @@ function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan
  * whose claim closes nobody in, when there is one. Empty when the claim closes nobody in.
  */
 export function claimNotes(state: WorldState, px: number, py: number): DesignNote[] {
-  const ways = claimWaysIn(state)(px, py);
+  const exits = claimExitsIn(state)(px, py);
   const S = state.config.plotSize;
   const notes: DesignNote[] = [];
-  if (ways.own.length === 0) {
+  if (exits.own.length === 0) {
     notes.push({
       code: "no_opening",
       text:
-        ways.why === "walled"
-          ? "Once claimed, this plot has no way out onto open ground: open ground touches it, but blocks or water at its corners keep every walk off it, so a home here reaches the town only across a neighbor's yard."
-          : "Once claimed, this plot has no way out onto open ground: every tile around it is someone's plot, the water, or the world's edge, so a home here reaches the town only across a neighbor's yard, and nothing built on it changes that.",
+        exits.why === "walled"
+          ? "Once claimed, this plot has no exit onto open ground: open ground touches it, but blocks or water at its corners keep every walk off it, so a home here reaches the town only across a neighbor's yard."
+          : "Once claimed, this plot has no exit onto open ground: every tile around it is someone's plot, the water, or the world's edge, so a home here reaches the town only across a neighbor's yard, and nothing built on it changes that.",
       tiles: [],
     });
   }
-  for (const sealed of ways.seals) {
+  for (const sealed of exits.seals) {
     const tiles: Tile[] = [];
     for (const o of sealed.lost) {
       const t = { x: o.to.x - px * S, y: o.to.y - py * S };
@@ -163,7 +166,7 @@ export function claimNotes(state: WorldState, px: number, py: number): DesignNot
         : `its only steps onto open ground all land here, the first at ${words(first)}`;
     notes.push({
       code: "seals_neighbor",
-      text: `Claiming this plot closes the last way out of the plot next door, plot (${sealed.px}, ${sealed.py}): ${steps}. Once this plot is claimed, that home reaches the town only across it.`,
+      text: `Claiming this plot closes the last exit of the plot next door, plot (${sealed.px}, ${sealed.py}): ${steps}. Once this plot is claimed, that home reaches the town only across it.`,
       tiles,
     });
   }
@@ -172,7 +175,27 @@ export function claimNotes(state: WorldState, px: number, py: number): DesignNot
   if (head && other) {
     head.text += ` The nearest free plot that closes nobody in is px ${other.px}, py ${other.py}.`;
   }
+  const way = wayTilesOn(state, px, py);
+  if (way.length > 0) {
+    const first = way[0] as Tile;
+    notes.push({
+      code: "way_tiles",
+      text: `A public way crosses this plot: ${way.length === 1 ? "1 tile" : `${way.length} tiles`}, the first at ${words(first)}. A way holds no block on the ground floor, so a wall or a starter hut leaves a gap there. Paths and flooring go on it, and so does building upstairs over it.`,
+      tiles: way,
+    });
+  }
   return notes;
+}
+
+/** The public way tiles on plot (`px`, `py`), from its north-west corner, north to south. */
+function wayTilesOn(state: WorldState, px: number, py: number): Tile[] {
+  if (!state.ways) return [];
+  const S = state.config.plotSize;
+  const out: Tile[] = [];
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) if (isWay(state, px * S + x, py * S + y)) out.push({ x, y });
+  }
+  return out;
 }
 
 /** What the notes read besides the plot: the world's size and reach, and which buildings stop walkers. */

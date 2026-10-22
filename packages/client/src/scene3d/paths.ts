@@ -1,4 +1,8 @@
-import { type BlockKind, GROUND_KINDS, type GroundKind } from "@terrakin/sim";
+import { type BlockKind, type DrawnGround, GROUND_KINDS } from "@terrakin/sim";
+
+/** Every kind the atlas holds: each path and flooring, then a public way's look (RFC 0046). */
+const ATLAS_KINDS: readonly DrawnGround[] = [...GROUND_KINDS, "way"];
+
 import { paintGround } from "@terrakin/ui/ground-art";
 import {
   BufferAttribute,
@@ -34,7 +38,7 @@ export function groundAtlas(): CanvasTexture {
   c.width = side;
   c.height = side;
   const ctx = c.getContext("2d") as CanvasRenderingContext2D;
-  GROUND_KINDS.forEach((kind, i) => {
+  ATLAS_KINDS.forEach((kind, i) => {
     const x = (i % ATLAS_CELLS) * ATLAS_CELL;
     const y = Math.floor(i / ATLAS_CELLS) * ATLAS_CELL;
     paintGround(ctx, kind, x, y, ATLAS_CELL, ATLAS_CELL);
@@ -43,8 +47,8 @@ export function groundAtlas(): CanvasTexture {
 }
 
 /** A kind's cell in the atlas as UVs, inset a little so neighbors don't bleed in at a distance. */
-function atlasCell(kind: GroundKind): [number, number, number, number] {
-  const i = GROUND_KINDS.indexOf(kind);
+function atlasCell(kind: DrawnGround): [number, number, number, number] {
+  const i = ATLAS_KINDS.indexOf(kind);
   const side = ATLAS_CELLS * ATLAS_CELL;
   const inset = 2 / side;
   const u0 = ((i % ATLAS_CELLS) * ATLAS_CELL) / side + inset;
@@ -57,7 +61,7 @@ function atlasCell(kind: GroundKind): [number, number, number, number] {
 interface Laid {
   x: number;
   y: number;
-  ground: GroundKind;
+  ground: DrawnGround;
   own?: boolean;
   fade?: number;
   /** The floor it's laid on (RFC 0028): absent on the ground floor. */

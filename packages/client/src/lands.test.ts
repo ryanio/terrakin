@@ -168,7 +168,7 @@ describe("land_opened", () => {
 });
 
 describe("the town's own ground, drawn (RFC 0046)", () => {
-  it("draws streets as cobbles and ways as a path, under what anyone laid, for drawing only", () => {
+  it("draws streets as cobbles and ways in their own look, under what anyone laid, for drawing only", () => {
     const mirror = new Mirror({
       ...opened,
       lands: {
@@ -181,7 +181,7 @@ describe("the town's own ground, drawn (RFC 0046)", () => {
     const drawn = mirror.drawnPaving;
     expect(drawn.get("40,16")).toBe("cobble");
     expect(drawn.get("47,23")).toBe("cobble");
-    expect(drawn.get("7,2")).toBe("dirt");
+    expect(drawn.get("7,2")).toBe("way");
     expect(drawn.get("7,3")).toBe("brick");
     // Lifting and walking read what was laid, where neither is.
     expect(mirror.paving.has("40,16")).toBe(false);
@@ -189,7 +189,7 @@ describe("the town's own ground, drawn (RFC 0046)", () => {
     // A way opened later is drawn at once, and one taken up goes.
     mirror.apply({ seq: 4, event: { type: "ways_opened", tiles: [{ x: 6, y: 2 }] } });
     mirror.apply({ seq: 5, event: { type: "ways_closed", tiles: [{ x: 7, y: 2 }] } });
-    expect(mirror.drawnPaving.get("6,2")).toBe("dirt");
+    expect(mirror.drawnPaving.get("6,2")).toBe("way");
     expect(mirror.drawnPaving.has("7,2")).toBe(false);
   });
 });

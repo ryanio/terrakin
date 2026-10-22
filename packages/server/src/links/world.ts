@@ -10,7 +10,7 @@ import {
   CHAT_EARSHOT,
   canBuildOn,
   chebyshev,
-  claimWaysIn,
+  claimExitsIn,
   closesNobodyIn,
   commonsPlot,
   countOf,
@@ -168,7 +168,7 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
 function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   const { config } = state;
   const here = plotOf(config, x, y);
-  const ways = claimWaysIn(state);
+  const exits = claimExitsIn(state);
   const free: { px: number; py: number; away: number; clear?: boolean }[] = [];
   for (let py = 0; py < config.height / config.plotSize; py++) {
     for (let px = 0; px < config.width / config.plotSize; px++) {
@@ -184,7 +184,7 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
   free.sort((a, b) => a.away - b.away || a.py - b.py || a.px - b.px);
   const last = free[Math.min(count, free.length) - 1];
   const near = free.filter((p) => last && p.away <= last.away);
-  for (const p of near) p.clear = closesNobodyIn(ways(p.px, p.py));
+  for (const p of near) p.clear = closesNobodyIn(exits(p.px, p.py));
   near.sort((a, b) => a.away - b.away || Number(b.clear) - Number(a.clear));
   return near.slice(0, count).map(({ px, py, away }) => ({ px, py, away }));
 }

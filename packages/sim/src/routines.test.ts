@@ -228,7 +228,7 @@ describe("routine_step", () => {
     // From his hearth, inside his hut: walls on three sides, the doorway to the south.
     expect(town(state, home("bob")).ok).toBe(true);
     refused(state, TOWN_ACTOR, stroll("bob", []), "nowhere_to_go");
-    refused(state, TOWN_ACTOR, stroll("bob", ["s", "s", "s", "s", "n", "n", "n"]), "out_of_reach");
+    refused(state, TOWN_ACTOR, stroll("bob", ["s", "s", "s", "s", "n", "n", "n"]), "too_far");
     refused(state, TOWN_ACTOR, stroll("bob", ["n", "n"]), "blocked");
     refused(state, TOWN_ACTOR, stroll("bob", ["up" as Direction]), "out_of_bounds");
     // Away from a plot they can build on, a stroll can't start.

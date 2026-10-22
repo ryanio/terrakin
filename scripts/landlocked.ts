@@ -18,86 +18,23 @@ import { appendFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
-  type BlockKind,
-  blocksWalkers,
-  groundOf,
-  joinedWays,
   type Landlocked,
   landlockedFrom,
-  type OpeningFacts,
-  plotKey,
-  seaFrom,
+  type OpeningSnapshot,
+  openingFactsFrom,
   type Tile,
-  tileKey,
-  type WorldConfig,
 } from "../packages/sim/src/index.ts";
 
-/** The parts of `GET /v1/world` the check reads. */
-export interface WorldRead {
-  config: WorldConfig;
+/** The parts of `GET /v1/world` the check reads: the opening facts, and where the hearths are. */
+export interface WorldRead extends OpeningSnapshot {
   plots: { px: number; py: number; ownerId: string }[];
-  blocks: { x: number; y: number; block: BlockKind; floor?: number }[];
   residents: { hearth?: Tile }[];
-  solidBuildings?: boolean;
-  townHall: Tile[];
-  shop?: Tile[];
-  /** Public ways (RFC 0046): a step onto one is a way out, whoever's plot it is on. */
-  ways?: Tile[];
-  lands?: {
-    home: { width: number; height: number };
-    list: {
-      plots: { px: number; py: number }[];
-      bridge: Tile[];
-      square: { px: number; py: number };
-      streets?: { px: number; py: number }[];
-    }[];
-  };
-}
-
-/** The sim's opening facts from the snapshot: the ground floor's blocks, the sea, the buildings. */
-export function factsOf(world: WorldRead): OpeningFacts {
-  const solid = new Set(
-    world.blocks
-      .filter((b) => (b.floor ?? 0) === 0 && blocksWalkers(b.block))
-      .map((b) => tileKey(b.x, b.y)),
-  );
-  const lands = world.lands && {
-    home: world.lands.home,
-    list: world.lands.list.map((l) => ({
-      plots: l.plots.map((p) => [p.px, p.py] as const),
-      bridge: l.bridge.map((t) => [t.x, t.y] as const),
-      square: [l.square.px, l.square.py] as const,
-      streets: (l.streets ?? []).map((p) => [p.px, p.py] as const),
-    })),
-  };
-  const sea = seaFrom(world.config, lands);
-  const claimed = new Set(world.plots.map((p) => plotKey(p.px, p.py)));
-  const ways = new Set((world.ways ?? []).map((t) => tileKey(t.x, t.y)));
-  const downtown = world.lands?.home ?? world.config;
-  const commons = {
-    px: Math.floor(downtown.width / world.config.plotSize / 2),
-    py: Math.floor(downtown.height / world.config.plotSize / 2),
-  };
-  const facts: OpeningFacts = {
-    ground: groundOf({
-      config: world.config,
-      hasBlock: (x, y) => solid.has(tileKey(x, y)),
-      solidBuildings: world.solidBuildings === true,
-      townHall: world.townHall,
-      shop: world.shop ?? [],
-      ...(sea ? { sea } : {}),
-    }),
-    claimed: (px, py) => claimed.has(plotKey(px, py)),
-  };
-  if (ways.size === 0) return facts;
-  // A way counts only where it joins the Commons, as the sim's own `openingFacts` reads it.
-  return { ...facts, way: joinedWays(facts, (x, y) => ways.has(tileKey(x, y)), commons) };
 }
 
 /** Every landlocked plot in the world the snapshot shows, north to south, then west to east. */
 export function landlockedIn(world: WorldRead): Landlocked[] {
   const hearths = world.residents.flatMap((r) => (r.hearth ? [r.hearth] : []));
-  return landlockedFrom(factsOf(world), world.plots, hearths);
+  return landlockedFrom(openingFactsFrom(world), world.plots, hearths);
 }
 
 /** The issue's body: the count, then a line per plot with a link that looks at it in the world. */

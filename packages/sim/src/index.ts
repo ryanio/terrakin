@@ -237,6 +237,7 @@ export {
   findsOpen,
   GATHER,
   gatherableAt,
+  mayGatherAt,
   mayGatherOn,
   nearestOpenPickup,
   OTHERS_PLOT_GATHER,
@@ -249,6 +250,7 @@ export {
   pickupsInReach,
   plotPickupsOwned,
   RECIPE_PAGE,
+  wayPickupsOpen,
 } from "./gather";
 export {
   GROUND_INFO,
@@ -391,9 +393,11 @@ export {
   landOfPlot,
   landOfSquare,
   landPlots,
+  landsFromSnapshot,
   onBridge,
   onLand,
   plotsLeft,
+  type SnapshotLands,
   seaFrom,
   squareWords,
 } from "./lands";
@@ -444,21 +448,22 @@ export {
 export { mergedInto } from "./merge";
 export { FIREWORKS, fireworkNight } from "./newyear";
 export {
+  type ClaimExits,
   type ClaimedPlot,
-  type ClaimWays,
-  claimWaysFrom,
-  claimWaysIn,
+  claimExitsFrom,
+  claimExitsIn,
   closesNobodyIn,
   doorFacing,
   doorOutward,
-  joinedWays,
   type Landlocked,
   landlocked,
   landlockedFrom,
   nearestFreePlot,
   type Opening,
   type OpeningFacts,
+  type OpeningSnapshot,
   openingFacts,
+  openingFactsFrom,
   openingsOf,
 } from "./openings";
 export { isOwnableKey, own, residentById } from "./own";

@@ -538,6 +538,14 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     label: "keep plot pickups for owners",
   },
   {
+    // With the owners-only rule, a public way's pickups are anyone's (RFC 0046): logged once, so
+    // a gather with no tile from before it replays as it was made.
+    option: "plotPickups",
+    due: (s) => s.items?.plotPickupsOwned === true && !s.items.wayPickups,
+    command: { type: "open_way_pickups" },
+    label: "open public way pickups",
+  },
+  {
     option: "finds",
     due: (s) => !!s.items && !findsOpen(s),
     command: { type: "open_finds" },

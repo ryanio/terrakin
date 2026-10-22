@@ -22,7 +22,7 @@ import type {
 } from "./types";
 import { EVENT_KINDS, TOWN_ACTOR } from "./types";
 import { visitTile } from "./visit";
-import { walkTree, walkWords, worldGround } from "./walk";
+import { walkOrWhy, walkTree, walkWords, worldGround } from "./walk";
 import {
   canBuildOn,
   chebyshev,
@@ -390,12 +390,7 @@ export function notAtThePlace(
   // point at their own walls. The refusal they get once they're down names a right one.
   if (upstairs) return { ...upstairs, message: `${upstairs.message} ${lead}` };
   const walk = walkToPlot(state, me, px, py);
-  return refuse(
-    "out_of_reach",
-    walk === ""
-      ? `${lead} There's no walk from where you stand to that plot: something has you closed in. Take a wall away to open the way out.`
-      : `${lead} Walk there: ${walk}.`,
-  );
+  return refuse("out_of_reach", walkOrWhy(lead, walk, "that plot"));
 }
 
 /**

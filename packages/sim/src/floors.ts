@@ -19,7 +19,7 @@ import {
   type WorldEvent,
   type WorldState,
 } from "./types";
-import { type Ground, walkWords, worldGround } from "./walk";
+import { type Ground, walkOrWhy, walkWords, worldGround } from "./walk";
 import {
   blocksWalkers,
   canBuildOn,
@@ -200,12 +200,15 @@ export function outOfReachHere(
   if (chebyshev(me, at) <= reach) return null;
   const floor = standingFloor(me);
   const walk = walkWords(state, me, at, reach, floorGround(state, floor));
-  if (walk !== "") return refuse("out_of_reach", `${say} Walk closer first: ${walk}.`);
+  if (walk === "" && floor !== 0) {
+    return refuse(
+      "out_of_reach",
+      `${say} There's no walk up here to within ${reach} tiles of it. Go down the stairs and walk from there.`,
+    );
+  }
   return refuse(
     "out_of_reach",
-    floor === 0
-      ? `${say} There's no walk from where you stand to within ${reach} tiles of it: walls close you in, or close it off. Take a wall away to open a way.`
-      : `${say} There's no walk up here to within ${reach} tiles of it. Go down the stairs and walk from there.`,
+    walkOrWhy(say, walk, `within ${reach} tiles of it`, "Walk closer first"),
   );
 }
 

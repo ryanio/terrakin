@@ -102,7 +102,7 @@ import {
   type GamesChecked,
   gamesNewDay,
 } from "./games";
-import { checkGather, checkOpenFinds, checkOwnPlotPickups } from "./gather";
+import { checkGather, checkOpenFinds, checkOpenWayPickups, checkOwnPlotPickups } from "./gather";
 import { checkLay, checkLift } from "./ground";
 import { checkTrickOrTreat, halloweenNewDay } from "./halloween";
 import { canonicalJson, fnv1a } from "./hash";
@@ -258,7 +258,7 @@ import {
 } from "./types";
 import { checkVisit } from "./visit";
 import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps } from "./walk";
-import { checkCloseWay, checkOpenWay, wayProblem } from "./ways";
+import { checkCloseWay, checkOpenWay, isWay, wayProblem } from "./ways";
 import {
   canBuildOn,
   chebyshev,
@@ -810,6 +810,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkTownPresents(state, actor, command));
       case "own_plot_pickups":
         return town(checkOwnPlotPickups(state));
+      case "open_way_pickups":
+        return town(checkOpenWayPickups(state));
       case "open_finds":
         return town(checkOpenFinds(state));
       case "solid_buildings":
@@ -1067,7 +1069,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return reject("nowhere_to_go", `There's nowhere to walk from here.${stuckHint(state, me)}`);
       }
       if (steps.length > PUTTER_MAX_STEPS) {
-        return reject("out_of_reach", `A putter walks at most ${PUTTER_MAX_STEPS} tiles.`);
+        return reject("too_far", `A putter walks at most ${PUTTER_MAX_STEPS} tiles.`);
       }
       // Each step is checked like a move, from where the last one left off, on your floor.
       const floor = standingFloor(me);
@@ -1091,7 +1093,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // A land's street, which everyone walks and nobody claims (RFC 0046).
       if (isStreet(state, px, py)) {
         return reject(
-          "plot_is_commons",
+          "public_ground",
           `${streetWords(state, px, py)}${freePlotHint(state, actor, px, py)}`,
         );
       }
@@ -1268,6 +1270,14 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (far) return { ok: false, rejection: far };
       const plot = plotAtTile(state, x, y);
       if (!canBuildOn(plot, actor)) {
+        const slot = plotOf(config, x, y);
+        // An island street is everyone's to walk, like a public way (RFC 0046).
+        if (isStreet(state, slot.px, slot.py)) {
+          return reject(
+            "public_ground",
+            `${streetWords(state, slot.px, slot.py)} Nothing is built on it.${buildHint(state, me)}`,
+          );
+        }
         return reject(
           "not_your_plot",
           `You can only build on your own plot.${buildHint(state, me)}`,
@@ -1377,10 +1387,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           // stand on. Both belong to everyone, so both answer with the Commons' code (RFC 0038).
           return reject("plot_is_commons", squareWords(state, px, py));
         case "plot_is_street":
-          // A land's street is ground for everyone, like a square, so it answers with the same
-          // code, and names the nearest plot that is there to claim (RFC 0046).
+          // A land's street is ground everyone walks, like a public way, so it answers with
+          // the same code, and names the nearest plot that is there to claim (RFC 0046).
           return reject(
-            "plot_is_commons",
+            "public_ground",
             `${streetWords(state, px, py)}${freePlotHint(state, actor, px, py)}`,
           );
         case "plot_owned":
@@ -1445,13 +1455,19 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // is fair game when this moves it to the middle of the hut.
       const others = standingTiles(state, actor);
       const hearths = hearthTiles(state, setHearth ? actor : undefined);
+      // A public way holds no block, so the hut leaves a gap where one crosses its walls, as it
+      // does for a block already there (RFC 0046). Every hut built before refused the whole home
+      // on a way tile, so none in a log ever met one, and they replay as they were built.
       let blocks = home.blocks.filter((b) => {
         const key = tileKey(b.x, b.y);
-        return onPlot(b) && !blockAt(b) && !hearths.has(key) && !others.has(key);
+        return (
+          onPlot(b) &&
+          !blockAt(b) &&
+          !hearths.has(key) &&
+          !others.has(key) &&
+          !isWay(state, b.x, b.y)
+        );
       });
-      // A public way holds no block, so a hut that would wall one isn't built (RFC 0046).
-      const walled = blocks.map((b) => wayProblem(state, b.x, b.y)).find((p) => p !== null);
-      if (walled) return { ok: false, rejection: walled };
       // The builder steps onto the hearth tile rather than get walled in. If that tile holds a
       // block, the wall where they stand stays open instead. Upstairs, a wall below is no matter.
       let moveTo: Tile | null = null;

@@ -5,23 +5,10 @@
  * the server walks us around, rather than a copy of the rule that could drift from it.
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
-import { type LandsFacts, landedFrom, seaFrom, tileKey, type WorldConfig } from "@terrakin/sim";
+import { landedFrom, landsFromSnapshot, seaFrom, tileKey, type WorldConfig } from "@terrakin/sim";
 
 /** The lands as the snapshot carries them. */
 export type LandsView = NonNullable<WorldSnapshot["lands"]>;
-
-/** The same facts with coordinates as the sim names them. */
-function factsOf(lands: LandsView): LandsFacts {
-  return {
-    home: lands.home,
-    list: lands.list.map((l) => ({
-      plots: l.plots.map((p) => [p.px, p.py] as const),
-      bridge: l.bridge.map((t) => [t.x, t.y] as const),
-      square: [l.square.px, l.square.py] as const,
-      streets: (l.streets ?? []).map((p) => [p.px, p.py] as const),
-    })),
-  };
-}
 
 /**
  * Whether a tile is open water, or undefined in a world of one grid, where there is none. Handed
@@ -31,7 +18,7 @@ export function seaOf(
   config: WorldConfig,
   lands: LandsView | undefined,
 ): ((x: number, y: number) => boolean) | undefined {
-  return seaFrom(config, lands && factsOf(lands));
+  return seaFrom(config, lands && landsFromSnapshot(lands));
 }
 
 /**
@@ -45,7 +32,7 @@ export function onLandPlot(
   px: number,
   py: number,
 ): boolean {
-  return !lands || landedFrom(config, factsOf(lands), px, py);
+  return !lands || landedFrom(config, landsFromSnapshot(lands), px, py);
 }
 
 /** Whether a plot slot is one of a land's streets, which nobody claims (RFC 0046). */

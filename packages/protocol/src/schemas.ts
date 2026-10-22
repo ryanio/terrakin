@@ -1974,6 +1974,11 @@ export const WorldSnapshot = z.object({
    */
   plotPickupsOwned: z.literal(true).optional(),
   /**
+   * Present once a public way's pickups are anyone's (RFC 0046), whoever's plot it crosses, while
+   * `plotPickupsOwned` keeps the rest of a claimed plot's for its owners.
+   */
+  wayPickupsOpen: z.literal(true).optional(),
+  /**
    * Present once finds lie on the ground (RFC 0021): a tile with no branch or stone may hold one,
    * by its biome and the season. Clients draw them with the sim's `pickupOn`.
    */
@@ -2316,6 +2321,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
    * unclaimed land stay open to everyone.
    */
   z.object({ type: z.literal("plot_pickups_owned") }),
+  z.object({ type: z.literal("way_pickups_opened") }),
   /** From now on, finds lie on the ground (RFC 0021): `findsOpen` in `GET /v1/world`. */
   z.object({ type: z.literal("finds_opened") }),
   /** From now on, nobody walks onto the Town Hall or the shop (`solidBuildings`). */

@@ -1,6 +1,6 @@
-import { groundOf } from "@terrakin/sim";
+import { openingFactsFrom } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { pickNeighbors, pickWays, pickWhere, plotPicks } from "./plot-picks";
+import { pickExits, pickNeighbors, pickWhere, plotPicks } from "./plot-picks";
 
 // 5x5 plots of 8 tiles; the Commons is plot (2, 2).
 const config = { width: 40, height: 40, plotSize: 8, maxPlotsPerResident: 1, reach: 3 };
@@ -43,23 +43,19 @@ describe("plotPicks", () => {
   });
 
   it("puts a plot that closes nobody in before one as near that would, and marks that one (decision 0354)", () => {
-    // Ivy lives on (1, 0). Wren's (0, 0) has Ivy east and Moss south, so (1, 1) is its last way out.
+    // Ivy lives on (1, 0). Wren's (0, 0) has Ivy east and Moss south, so (1, 1) is its last exit.
     const plots = [
       { px: 1, py: 0, ownerId: "ivy" },
       { px: 0, py: 0, ownerId: "wren" },
       { px: 0, py: 1, ownerId: "moss" },
     ];
-    const world = { config, commons, plots, residents: [resident({ x: 11, y: 3 })] };
-    const claimed = new Set(plots.map((p) => `${p.px},${p.py}`));
-    const facts = {
-      ground: groundOf({
-        config,
-        hasBlock: () => false,
-        solidBuildings: false,
-        townHall: [],
-        shop: [],
-      }),
-      claimed: (px: number, py: number) => claimed.has(`${px},${py}`),
+    const world = {
+      config,
+      commons,
+      plots,
+      residents: [resident({ x: 11, y: 3 })],
+      blocks: [],
+      townHall: [],
     };
     const at = (p: { px: number; py: number }) => [p.px, p.py];
     // Without the facts, (1, 1) leads: beside Ivy and nearest the Commons.
@@ -68,7 +64,7 @@ describe("plotPicks", () => {
       [2, 1],
       [2, 0],
     ]);
-    const picks = plotPicks(world, facts);
+    const picks = plotPicks(world, openingFactsFrom(world));
     expect(picks.slice(0, 3).map(at)).toEqual([
       [2, 1],
       [2, 0],
@@ -76,9 +72,19 @@ describe("plotPicks", () => {
     ]);
     expect(picks[2]).toMatchObject({ seals: ["wren"] });
     expect(picks[0]).not.toHaveProperty("seals");
-    expect(pickWays(["Wren"], false)).toBe("Takes Wren's only way out");
-    expect(pickWays([], true)).toBe("No way out of its own");
-    expect(pickWays([], false)).toBeUndefined();
+    // A public way along Ivy's south edge joins the Commons past (2, 1), so Wren keeps an exit
+    // onto it whoever claims (1, 1), and (1, 1) leads again (RFC 0046).
+    const ways = Array.from({ length: 8 }, (_, i) => ({ x: 8 + i, y: 7 }));
+    const withWay = plotPicks(world, openingFactsFrom({ ...world, ways }));
+    expect(withWay.slice(0, 3).map(at)).toEqual([
+      [1, 1],
+      [2, 1],
+      [2, 0],
+    ]);
+    expect(withWay[0]).not.toHaveProperty("seals");
+    expect(pickExits(["Wren"], false)).toBe("Takes Wren's only way out");
+    expect(pickExits([], true)).toBe("No way out of its own");
+    expect(pickExits([], false)).toBeUndefined();
   });
 });
 

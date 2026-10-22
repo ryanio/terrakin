@@ -48,7 +48,7 @@ export function wayProblem(
 ): Rejection | null {
   if (floor !== 0 || !isWay(state, x, y)) return null;
   return refuse(
-    "public_way",
+    "public_ground",
     `${x},${y} is a public way, so it holds no block: everyone walks it to town. Paths and flooring are fine there, and so is building upstairs over it.`,
   );
 }

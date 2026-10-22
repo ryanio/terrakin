@@ -1446,6 +1446,12 @@ export interface ItemsState {
    */
   plotPickupsOwned?: true;
   /**
+   * A public way's pickups are anyone's, whoever's plot it crosses (RFC 0046). Absent until the
+   * server logs `open_way_pickups`, so a `gather` with no tile logged before it takes what it
+   * took then.
+   */
+  wayPickups?: true;
+  /**
    * A tile with no branch or stone may hold a find (RFC 0021). Absent until the server logs
    * `open_finds`, so gathers logged before it replay as they were made.
    */
@@ -1988,6 +1994,7 @@ export type Command =
   | { type: "open_gifts" }
   /** From now on, only a claimed plot's owner and co-owners may gather on it. */
   | { type: "own_plot_pickups" }
+  | { type: "open_way_pickups" }
   /** From now on, a tile with no branch or stone may hold a find (RFC 0021). */
   | { type: "open_finds" }
   /** From now on, nobody walks onto the Town Hall or the shop. Anyone on one steps off. */
@@ -2178,6 +2185,7 @@ export const SERVER_COMMANDS = [
   "open_items",
   "open_gifts",
   "own_plot_pickups",
+  "open_way_pickups",
   "open_finds",
   "solid_buildings",
   "open_shop",
@@ -2415,6 +2423,8 @@ export type WorldEvent =
   | { type: "items_opened" }
   | { type: "gifts_opened" }
   | { type: "plot_pickups_owned" }
+  /** `open_way_pickups`: a public way's pickups are anyone's from now on. Public. */
+  | { type: "way_pickups_opened" }
   /** `open_finds`: finds lie on the ground from now on. Public. */
   | { type: "finds_opened" }
   /** `solid_buildings` turned on: the Town Hall and the shop stop walkers from now on. */
@@ -3027,8 +3037,6 @@ export const REJECTION_CODES = [
    * teaches each resident once a week.
    */
   "taught_today",
-  /** The two of you aren't within reach of each other to teach. */
-  "not_near",
   // Homes with an upstairs (RFC 0028).
   /** That plot hasn't added the floor: building on it, or stairs up to it. */
   "no_floor",
@@ -3111,10 +3119,15 @@ export const REJECTION_CODES = [
   "not_food",
   /** That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, or a bed (RFC 0044). */
   "not_a_seat",
-  /** That tile is a public way, which holds no block, so nobody can wall the way to town (RFC 0046). */
-  "public_way",
+  /**
+   * That's ground everyone walks and nobody builds on or claims: a public way, which holds no
+   * block on the ground floor, or an island street (RFC 0046).
+   */
+  "public_ground",
   /** Pottery isn't open in this world yet: no clay, kilns, or pots (RFC 0047). */
   "pottery_closed",
+  /** A putter or a routine's walk names more steps than one may take. */
+  "too_far",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

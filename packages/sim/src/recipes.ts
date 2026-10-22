@@ -35,7 +35,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { walkWords } from "./walk";
+import { walkOrWhy, walkWords } from "./walk";
 import { chebyshev } from "./world";
 
 /**
@@ -544,7 +544,7 @@ export function teachable(
  */
 function teachWalk(state: WorldState, me: Tile, them: Tile): string {
   const walk = walkWords(state, me, them, state.config.reach);
-  return walk === "" ? " There's no walk from where you stand to them." : ` Walk there: ${walk}.`;
+  return ` ${walkOrWhy("", walk, `within ${state.config.reach} tiles of them`, "Walk closer first")}`;
 }
 
 /**
@@ -608,7 +608,7 @@ export function checkTeach(
   }
   if (chebyshev(me, them) > reach) {
     return refuse(
-      "not_near",
+      "out_of_reach",
       `${them.id} is more than ${reach} tiles away. Stand within ${reach} tiles of each other to teach.${teachWalk(state, me, them)}`,
     );
   }

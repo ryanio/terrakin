@@ -248,11 +248,17 @@ describe("items", () => {
     const before = await start();
     expect((await before.call("GET", "/v1/world")).body.plotPickupsOwned).toBeUndefined();
     const t = await start(true, true, false, true);
+    // A public way's pickups are anyone's from the next switch on (RFC 0046), logged once too.
     const switches = () =>
-      t.store.log.filter((i) => i.command.type === "own_plot_pickups").map((i) => i.actor);
-    expect(switches()).toEqual([TOWN_ACTOR]);
+      t.store.log
+        .filter(
+          (i) => i.command.type === "own_plot_pickups" || i.command.type === "open_way_pickups",
+        )
+        .map((i) => i.command.type);
+    expect(switches()).toEqual(["own_plot_pickups", "open_way_pickups"]);
     t.nextDay();
-    expect(switches()).toEqual([TOWN_ACTOR]);
+    expect(switches()).toEqual(["own_plot_pickups", "open_way_pickups"]);
+    expect((await t.call("GET", "/v1/world")).body.wayPickupsOpen).toBe(true);
     const ash = t.join("Ash");
     await t.act(ash.token, { type: "settle", px: 0, py: 0 });
     const world = (await t.call("GET", "/v1/world")).body;

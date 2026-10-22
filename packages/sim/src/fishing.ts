@@ -39,7 +39,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { walkWords } from "./walk";
+import { walkOrWhy, walkWords } from "./walk";
 import { WEATHERS, type Weather } from "./weather";
 import { inBounds } from "./world";
 
@@ -202,10 +202,7 @@ const rodNeeds = () =>
  * on, so `near` of 1 ends the walk on the shore beside it.
  */
 function waterWalk(state: WorldState, me: Tile, water: Tile): string {
-  const walk = walkWords(state, me, water, 1);
-  return walk === ""
-    ? " There's no walk from where you stand to it: something has you closed in."
-    : ` Walk there: ${walk}.`;
+  return ` ${walkOrWhy("", walkWords(state, me, water, 1), "it")}`;
 }
 
 export function checkFish(

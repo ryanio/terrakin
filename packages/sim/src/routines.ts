@@ -232,7 +232,7 @@ export function checkRoutineStep(
   }
   if (steps.length === 0) return refuse("nowhere_to_go", "There's nowhere to stroll from here.");
   if (steps.length > PUTTER_MAX_STEPS) {
-    return refuse("out_of_reach", `A walk takes at most ${PUTTER_MAX_STEPS} steps at a time.`);
+    return refuse("too_far", `A walk takes at most ${PUTTER_MAX_STEPS} steps at a time.`);
   }
   // A stroll keeps to the floor its resident stands on.
   const floor = standingFloor(me);

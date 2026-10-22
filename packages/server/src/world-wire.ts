@@ -25,6 +25,7 @@ import {
   holidaysField,
   isTownEvent,
   isTownsfolk,
+  isWay,
   type PickupKind,
   pageEditionOf,
   pageOn,
@@ -45,6 +46,7 @@ import {
   townHallTiles,
   type WorldEvent,
   type WorldState,
+  wayPickupsOpen,
 } from "@terrakin/sim";
 import { shownPlotName } from "./plots";
 import { nameKey } from "./text";
@@ -558,6 +560,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
       : {}),
     ...(state.items && state.day !== undefined ? { pickups: pickupsToday(state) } : {}),
     ...(plotPickupsOwned(state) ? { plotPickupsOwned: true as const } : {}),
+    ...(wayPickupsOpen(state) ? { wayPickupsOpen: true as const } : {}),
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
     ...(clayOpen(state) ? { clayOpen: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
@@ -613,6 +616,7 @@ interface PickupView {
  */
 function pickupsToday(state: WorldState): PickupView[] {
   const owned = plotPickupsOwned(state);
+  const wayPickups = wayPickupsOpen(state);
   const day = state.day ?? 0;
   const edition = pageEditionOf(state);
   const out: PickupView[] = [];
@@ -626,7 +630,9 @@ function pickupsToday(state: WorldState): PickupView[] {
         y,
         kind,
         ...(recipe ? { recipe } : {}),
-        ...(owned && plotAtTile(state, x, y) ? { ownersOnly: true as const } : {}),
+        ...(owned && plotAtTile(state, x, y) && !(wayPickups && isWay(state, x, y))
+          ? { ownersOnly: true as const }
+          : {}),
       });
     }
   }

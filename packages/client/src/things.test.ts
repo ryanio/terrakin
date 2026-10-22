@@ -366,6 +366,16 @@ describe("things", () => {
         "That's Willowmere's square, where its own hall and counter stand. Settle on one of its plots instead.",
         {},
       ],
+      [
+        "public_ground",
+        "That's one of Willowmere's streets, which belong to everyone and nobody claims. Try settle at px 4, py 0.",
+        { hasPlot: false },
+      ],
+      [
+        "public_ground",
+        "That's one of Willowmere's streets, which belong to everyone and nobody claims. Nothing is built on it. You can build on x 30 to 39, y 10 to 19.",
+        { hasPlot: true },
+      ],
       ["plot_limit", "You can own at most 1 plot(s).", {}],
       [
         "not_your_plot",

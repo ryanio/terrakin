@@ -7,14 +7,14 @@
  * across the water opens with a reason. The water between is never offered, because the sim would
  * turn it down.
  *
- * Handed the world's opening facts, it also says what each claim would do to ways out (the sim's
- * `claimWaysFrom`, decision 0354): of plots as near to neighbors, one whose claim closes nobody in
- * comes first, and a pick that would take a neighbor's last way out, or have none of its own,
- * says so.
+ * Handed the world's opening facts (the sim's `openingFactsFrom`), it also says what each claim
+ * would do to exits (the sim's `claimExitsFrom`, decision 0354): of plots as near to neighbors, one
+ * whose claim closes nobody in comes first, and a pick that would take a neighbor's last exit, or
+ * have none of its own, says so.
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
 import {
-  claimWaysFrom,
+  claimExitsFrom,
   closesNobodyIn,
   directionOf,
   type OpeningFacts,
@@ -33,9 +33,9 @@ export interface PlotPick {
   neighbors: string[];
   /** The land it's on, by name, when it isn't downtown (RFC 0038). The town writes these names. */
   land?: string;
-  /** Owners of the plots next door whose last way out this claim would take, each once. */
+  /** Owners of the plots next door whose last exit this claim would take, each once. */
   seals?: string[];
-  /** Whether it would have no way out of its own once claimed. */
+  /** Whether it would have no exit of its own once claimed. */
   landlocked?: true;
 }
 
@@ -68,7 +68,7 @@ export function plotPicks(world: World, facts?: OpeningFacts): PlotPick[] {
     if (owners.has(key(px, py))) livedIn.push({ px, py });
   }
   const hearths = world.residents.flatMap((r) => (r.hearth ? [r.hearth] : []));
-  const ways = facts && claimWaysFrom(facts, hearths);
+  const exits = facts && claimExitsFrom(facts, hearths);
   const apart = (a: { px: number; py: number }, b: { px: number; py: number }) =>
     Math.max(Math.abs(a.px - b.px), Math.abs(a.py - b.py));
   const picks: (PlotPick & { fromCommons: number; closes: number })[] = [];
@@ -97,7 +97,7 @@ export function plotPicks(world: World, facts?: OpeningFacts): PlotPick[] {
           if (owner && !neighbors.includes(owner)) neighbors.push(owner);
         }
       }
-      const claim = ways?.(px, py);
+      const claim = exits?.(px, py);
       const seals: string[] = [];
       for (const s of claim?.seals ?? []) {
         const owner = owners.get(key(s.px, s.py));
@@ -168,11 +168,11 @@ export function pickNeighbors(names: readonly string[]): string {
 }
 
 /**
- * What a pick does to ways out (decision 0354), short enough for a phone's row, or undefined when
+ * What a pick does to exits (decision 0354), short enough for a phone's row, or undefined when
  * it closes nobody in: "Takes Ivy's only way out", or "No way out of its own". Names are
  * residents' words: the line only ever reaches the page as text.
  */
-export function pickWays(names: readonly string[], landlocked: boolean): string | undefined {
+export function pickExits(names: readonly string[], landlocked: boolean): string | undefined {
   if (names.length > 0) return `Takes ${listOf(names)}'s only way out`;
   return landlocked ? "No way out of its own" : undefined;
 }

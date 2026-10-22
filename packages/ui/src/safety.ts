@@ -105,4 +105,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   award_grant: "Awarded coins for good work",
   clear_block: "Opened a way out of a home",
   open_way: "Laid a public way across a plot",
+  close_way: "Closed public way tiles on a plot",
 };

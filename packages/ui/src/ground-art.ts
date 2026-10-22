@@ -5,7 +5,13 @@
  * a swatch as an SVG with `createElementNS`, never markup from a string.
  */
 
-import { GROUND_INFO, GROUND_LOOK, type GroundKind, type GroundMark } from "@terrakin/sim";
+import {
+  type DrawnGround,
+  drawnLook,
+  GROUND_INFO,
+  type GroundKind,
+  type GroundMark,
+} from "@terrakin/sim";
 import { SVG_NS } from "./dom";
 
 /**
@@ -14,13 +20,13 @@ import { SVG_NS } from "./dom";
  */
 export function paintGround(
   ctx: CanvasRenderingContext2D,
-  kind: GroundKind,
+  kind: DrawnGround,
   left: number,
   top: number,
   w: number,
   h: number,
 ): void {
-  const look = GROUND_LOOK[kind];
+  const look = drawnLook(kind);
   const u = Math.min(w, h);
   if (look.fill) {
     ctx.fillStyle = look.fill;
@@ -130,7 +136,7 @@ export function groundArt(
   kind: GroundKind,
   opts: { size?: number; title?: string } = {},
 ): SVGSVGElement {
-  const look = GROUND_LOOK[kind];
+  const look = drawnLook(kind);
   const svg = document.createElementNS(SVG_NS, "svg");
   const size = opts.size ?? 28;
   svg.setAttribute("viewBox", "0 0 1 1");

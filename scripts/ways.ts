@@ -25,22 +25,21 @@ import {
 } from "../packages/server/src/way-plan.ts";
 import {
   type BlockKind,
+  openingFactsFrom,
   plotKey,
   type Tile,
   tileKey,
   walkTree,
 } from "../packages/sim/src/index.ts";
-import { factsOf, landlockedIn, type WorldRead } from "./landlocked.ts";
+import { landlockedIn, type WorldRead } from "./landlocked.ts";
 
 /** The parts of `GET /v1/world` the plan reads, beyond what the landlocked check does. */
 export interface WaysRead extends WorldRead {
-  commons: { px: number; py: number };
   plots: { px: number; py: number; ownerId: string; floors?: number }[];
   townsfolk?: string[];
   townsfolkResidents?: { hearth?: Tile }[];
   crops?: Tile[];
   displays?: Tile[];
-  ways?: Tile[];
   /** Paths and flooring, the floors above with `floor`. */
   ground?: (Tile & { floor?: number })[];
   /**
@@ -60,7 +59,7 @@ export function wayFactsOf(world: WaysRead): WayFacts {
   );
   return {
     config: world.config,
-    openings: factsOf(world),
+    openings: openingFactsFrom(world),
     downtown,
     commons: world.commons,
     plots: world.plots,
@@ -99,7 +98,7 @@ export function afterPlan(world: WaysRead, plan: WayPlan): WaysRead {
  * rule: the count the staff route refuses a plan for lowering (`walled_in`).
  */
 export function hearthsWalking(world: WaysRead): number {
-  const { ground } = factsOf(world);
+  const { ground } = openingFactsFrom(world);
   const S = world.config.plotSize;
   const radius = Math.max(world.config.width, world.config.height);
   const hearths = [...world.residents, ...(world.townsfolkResidents ?? [])].flatMap((r) =>

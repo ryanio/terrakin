@@ -39,7 +39,7 @@ import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
 import { cleanText } from "../text";
 import { planWays } from "../way-plan";
-import { WayNotices, wayConflicts, wayFactsFrom, wayInputs } from "../ways";
+import { WayNotices, wayClose, wayConflicts, wayFactsFrom, wayInputs } from "../ways";
 import {
   DAILY_CAP_RETRY_SECONDS,
   fail,
@@ -518,6 +518,31 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     layWays: ({ viewer, body }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
       const { state } = service;
+      if (body.close) {
+        const close = wayClose(state, body.close);
+        const conflicts = wayConflicts(state, [close.command]);
+        const answer = {
+          ...close.plan,
+          inputs: 1,
+          conflicts,
+          laid: false,
+          closed: false,
+        };
+        if (body.dry === true || conflicts.length > 0) return { status: 200, body: answer };
+        const done = service.wayInput(close.command);
+        if (!done.ok) return fail(done.error.code, done.error.message);
+        for (const plot of close.plan.plots) {
+          social().safety.recordNote(
+            viewer,
+            "close_way",
+            "resident",
+            plot.ownerId,
+            `On ${plot.px},${plot.py}: ${body.reason}`,
+          );
+          social().wayClosed(plot.ownerId, { px: plot.px, py: plot.py, tiles: plot.tiles.length });
+        }
+        return { status: 200, body: { ...answer, closed: true } };
+      }
       const plan = planWays(wayFactsFrom(state), { layFree: body.layFree !== false });
       const inputs = wayInputs(plan, state.config.plotSize);
       const conflicts = wayConflicts(state, inputs);

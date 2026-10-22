@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
+import { claimNotes } from "./design";
 import { WAYS_CONFIG, WAYS_HASH, WAYS_LOG, WAYS_TILES } from "./fixtures/ways-log";
 import { hashWorld } from "./hash";
 import { landlocked, plotOpenings } from "./openings";
@@ -99,20 +100,26 @@ describe("a way holds no block", () => {
     ada.x = 2;
     ada.y = 6;
     const dry = prepare(state, { actor: "ada", command });
-    expect(dry.ok ? null : dry.rejection.code).toBe("public_way");
-    expect(code(state, "ada", command)).toBe("public_way");
+    expect(dry.ok ? null : dry.rejection.code).toBe("public_ground");
+    expect(code(state, "ada", command)).toBe("public_ground");
   });
 
-  it("refuses a starter home that would wall it", () => {
+  it("leaves a starter home's wall open where it crosses it, as it does for a block", () => {
     const state = opened();
-    // Take Ada's hut down, so a starter home would go up again over the way's column.
+    // Take Ada's hut down, so a starter home goes up again over the way's column.
     for (const key of Object.keys(state.blocks)) {
       const [x, y] = key.split(",").map(Number) as [number, number];
       if (x < 8 && y < 8) delete state.blocks[key];
     }
     const command: Command = { type: "build_starter_home" };
-    // The hut stands on x 1 to 5, and the way is x 1.
-    expect(code(state, "ada", command)).toBe("public_way");
+    // The hut stands on x 1 to 5, and the way is x 1: the other three walls go up.
+    expect(code(state, "ada", command)).toBe(null);
+    const walls = Object.keys(state.blocks).filter((key) => {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      return x < 8 && y < 8;
+    });
+    expect(walls.some((key) => state.ways?.[key])).toBe(false);
+    expect(walls.filter((key) => key.startsWith("5,"))).toHaveLength(5);
   });
 
   it("takes a path, and anything off the way", () => {
@@ -123,6 +130,27 @@ describe("a way holds no block", () => {
     ada.y = 6;
     expect(code(state, "ada", { type: "lay", x: 1, y: 6, ground: "dirt" })).toBe(null);
     expect(code(state, "ada", { type: "place", x: 2, y: 7, block: "wood" })).toBe(null);
+  });
+});
+
+describe("a settle or claim of a plot a way crosses", () => {
+  it.each<[string, [number, number][], string | undefined]>([
+    ["a free slot with no way", [], undefined],
+    [
+      "two tiles of way",
+      [
+        [9, 0],
+        [10, 0],
+      ],
+      "A public way crosses this plot: 2 tiles, the first at (1, 0).",
+    ],
+    ["one tile of way", [[15, 7]], "A public way crosses this plot: 1 tile, the first at (7, 7)."],
+  ])("notes %s", (_, tiles, said) => {
+    const state = opened();
+    if (tiles.length > 0) expect(code(state, TOWN_ACTOR, { type: "open_way", tiles })).toBe(null);
+    const note = claimNotes(state, 1, 0).find((n) => n.code === "way_tiles");
+    expect(note?.text.split(". ")[0]?.concat(".")).toBe(said);
+    expect(note?.tiles.length).toBe(said ? tiles.length : undefined);
   });
 });
 
@@ -145,7 +173,7 @@ describe("rebuild_home", () => {
     [
       "a wall on the way",
       { type: "rebuild_home", px: 0, py: 0, blocks: [{ x: 1, y: 6, block: "wood" }], remove: [] },
-      "public_way",
+      "public_ground",
     ],
     [
       "a tile already holding something",

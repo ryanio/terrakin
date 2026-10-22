@@ -15,6 +15,7 @@ import {
   circleName,
   counterTiles,
   type Direction,
+  type DrawnGround,
   type FindKind,
   FLOORS,
   type Ground,
@@ -185,6 +186,8 @@ export class Mirror {
   gathered = new Set<string>();
   /** Whether a claimed plot's pickups are for its owner and co-owners only (`plot_pickups_owned`). */
   plotPickupsOwned = false;
+  /** Whether a public way's pickups are anyone's (`way_pickups_opened`, RFC 0046). */
+  wayPickupsOpen = false;
   /** Whether finds lie on the ground (`finds_opened`, RFC 0021), so `pickupAt` draws them too. */
   findsOpen = false;
   /** Whether clay lies on the ground and kilns fire pots (`clay_opened`, RFC 0047). */
@@ -222,7 +225,7 @@ export class Mirror {
   /** Downtown's public ways (RFC 0046), by tileKey. */
   ways = new Set<string>();
   /** `drawnPaving`, kept until what it reads changes. */
-  #drawn: ReadonlyMap<string, GroundKind> | undefined;
+  #drawn: ReadonlyMap<string, DrawnGround> | undefined;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
   day: number | undefined;
   /** Which way each resident last walked. Only for drawing; nobody faces anywhere in the sim. */
@@ -290,6 +293,7 @@ export class Mirror {
     }
     for (const t of snapshot.gathered ?? []) this.gathered.add(tileKey(t.x, t.y));
     this.plotPickupsOwned = snapshot.plotPickupsOwned === true;
+    this.wayPickupsOpen = snapshot.wayPickupsOpen === true;
     this.findsOpen = snapshot.findsOpen === true;
     this.clayOpen = snapshot.clayOpen === true;
     for (const k of snapshot.kilns ?? []) {
@@ -431,10 +435,11 @@ export class Mirror {
   /**
    * The ground floor's paths and flooring as the map and the 3D world draw them: what residents
    * laid, and under it a look for the town's own ground that nobody laid (RFC 0046): an island's
-   * streets drawn as cobbles, downtown's public ways as a faint dirt path. Drawing only: walking,
+   * streets drawn as cobbles, downtown's public ways in a look of their own (`WAY_LOOK`), so a way
+   * never reads as a path someone laid. Drawing only: walking,
    * building and lifting read `paving`, where neither is.
    */
-  get drawnPaving(): ReadonlyMap<string, GroundKind> {
+  get drawnPaving(): ReadonlyMap<string, DrawnGround> {
     if (this.#drawn) return this.#drawn;
     const streets = (this.lands?.list ?? []).flatMap((l) => l.streets ?? []);
     if (streets.length === 0 && this.ways.size === 0) {
@@ -442,13 +447,13 @@ export class Mirror {
       return this.paving;
     }
     const S = this.config.plotSize;
-    const drawn = new Map<string, GroundKind>();
+    const drawn = new Map<string, DrawnGround>();
     for (const { px, py } of streets) {
       for (let y = py * S; y < (py + 1) * S; y++) {
         for (let x = px * S; x < (px + 1) * S; x++) drawn.set(tileKey(x, y), "cobble");
       }
     }
-    for (const key of this.ways) drawn.set(key, "dirt");
+    for (const key of this.ways) drawn.set(key, "way");
     for (const [key, laid] of this.paving) drawn.set(key, laid);
     this.#drawn = drawn;
     return drawn;
@@ -798,6 +803,9 @@ export class Mirror {
       case "plot_pickups_owned":
         this.plotPickupsOwned = true;
         break;
+      case "way_pickups_opened":
+        this.wayPickupsOpen = true;
+        break;
       case "finds_opened":
         this.findsOpen = true;
         break;
@@ -978,7 +986,8 @@ export class Mirror {
   mayGatherAt(x: number, y: number, residentId: string): boolean {
     const ownerId = this.ownerAt(x, y);
     const plot = ownerId ? { ownerId, coOwners: [...this.coOwnersAt(x, y)] } : undefined;
-    return mayGatherOn(plot, residentId, this.plotPickupsOwned);
+    const onOpenWay = this.wayPickupsOpen && this.ways.has(tileKey(x, y));
+    return mayGatherOn(plot, residentId, this.plotPickupsOwned, onOpenWay);
   }
 
   /** Whether someone's hearth is on this tile. */

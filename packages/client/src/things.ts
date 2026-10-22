@@ -613,6 +613,11 @@ export function worldProblem(
       // Downtown's Commons or a land's own square: the world names which, so use its words
       // (decision 0332) rather than always saying the Commons.
       return `${firstSentence(message)} Tap Claim plot to pick an empty plot.`;
+    case "public_ground":
+      // An island street or a public way (RFC 0046). A street's refusal goes on to name an API
+      // call, so keep its first sentence, which names the land; a way's is all plain words.
+      if (!message.includes("streets")) return message;
+      return `${firstSentence(message)} ${you.hasPlot === false ? "Tap Claim plot to pick an empty plot." : "Build on your own plot."}`;
     case "plot_limit":
       return "You already have as many plots as you can own.";
     case "not_your_plot":

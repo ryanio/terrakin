@@ -1060,6 +1060,11 @@ export const NOTIFICATION_TYPES = [
    * whether the town rebuilt your home with a door onto the way.
    */
   "way_laid",
+  /**
+   * From Terrakin itself (`system: true`): the town closed public way tiles on your plot (RFC
+   * 0046), with the plot and how many tiles. They hold blocks again.
+   */
+  "way_closed",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1212,6 +1217,13 @@ export const NotificationView = z.object({
       blocks: z.array(z.object({ x: z.number().int(), y: z.number().int(), block: z.string() })),
       rebuilt: z.boolean(),
     })
+    .optional(),
+  /**
+   * For a `way_closed`: the plot, and how many of its tiles stopped being a public way (RFC 0046).
+   * From Terrakin itself (`system: true`), no words.
+   */
+  wayClosed: z
+    .object({ px: z.number().int(), py: z.number().int(), tiles: z.number().int() })
     .optional(),
   /**
    * For a `plot_sold`: the plot you sold, its price, and the coins that reached you, the price

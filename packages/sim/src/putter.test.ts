@@ -262,7 +262,7 @@ describe("the putter command", () => {
     expect(code(["w"])).toBe("out_of_bounds");
     expect(code(["e"])).toBe("blocked");
     expect(code(["n", "e", "s"])).toBe("blocked");
-    expect(code(["n", "n", "n", "n", "n", "n", "n"])).toBe("out_of_reach");
+    expect(code(["n", "n", "n", "n", "n", "n", "n"])).toBe("too_far");
     expect(code(["up" as Direction])).toBe("out_of_bounds");
     expect(code([])).toBe("nowhere_to_go");
     expect(w.send("cal", { type: "putter", steps: ["n"] }).ok).toBe(false);

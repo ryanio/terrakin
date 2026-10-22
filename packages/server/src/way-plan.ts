@@ -4,6 +4,7 @@ import {
   type OpeningFacts,
   plotKey,
   plotOf,
+  starterHome,
   type Tile,
   tileKey,
   type WorldConfig,
@@ -40,7 +41,10 @@ export interface WayFacts {
   hearths: readonly Tile[];
   /** The ground floor's blocks, by tile key. */
   blocks: ReadonlyMap<string, BlockKind>;
-  /** Tiles whose block the town can't clear: a planter with a crop in it, or under a display. */
+  /**
+   * Tiles whose block the town can't clear: a planter with a crop in it, a kiln with a pot in it,
+   * or under a display.
+   */
   fixed: ReadonlySet<string>;
   /**
    * Tiles with anything on a floor above them (RFC 0028): a way never runs under an upstairs,
@@ -186,6 +190,16 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     return !layFree && !openings.claimed(px, py);
   };
 
+  const huts = new Map<string, Set<string>>();
+  const onHut = (px: number, py: number, key: string) => {
+    let hut = huts.get(plotKey(px, py));
+    if (!hut) {
+      hut = hutRing(config, px, py);
+      huts.set(plotKey(px, py), hut);
+    }
+    return hut.has(key);
+  };
+
   /** What laying a way on this tile costs, or undefined where none can go. */
   const cost = (x: number, y: number): number | undefined => {
     if (!inDowntown(x, y) || blocked(x, y)) return undefined;
@@ -194,7 +208,9 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     const { px, py } = plotOf(config, x, y);
     if (isCommons(px, py)) return openings.ground.obstacle(x, y) ? undefined : 0;
     const plot = owners.get(plotKey(px, py));
-    if (!plot) return layFree ? W.free : 0;
+    // A free slot's starter hut stands where `build_starter_home` puts it, door and all, and a
+    // way there would leave whoever settles a hut with a gap in its walls (RFC 0046).
+    if (!plot) return layFree ? (onHut(px, py, key) ? undefined : W.free) : 0;
     // A plot for sale is frozen, so the network goes round it.
     if (facts.listed.has(plotKey(px, py))) return undefined;
     // A hearth is where a home is, and stays a hearth; stairs, and anything under an upstairs,
@@ -239,11 +255,14 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     }
   };
 
-  // Each plot's goals: the tiles off it, side on to a tile its hearth's walk reaches on it.
+  // Each place's goals: the tiles off it, side on to a tile its hearths' walk reaches on it. A
+  // place is a plot, or one household's touching plots together (decision 0364), named by its
+  // first plot north to south, then west to east.
   const targets: Target[] = [];
-  for (const plot of [...facts.plots].sort((a, b) => a.py - b.py || a.px - b.px)) {
+  for (const place of placesOf(facts)) {
+    const plot = place[0] as { px: number; py: number };
     if (!inDowntown(plot.px * S, plot.py * S)) continue;
-    const room = roomOf(facts, plot.px, plot.py);
+    const room = roomOf(facts, place);
     const goals = new Set<string>();
     for (const key of room) {
       const [x, y] = key.split(",").map(Number) as [number, number];
@@ -251,7 +270,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
         const nx = x + dx;
         const ny = y + dy;
         if (!inDowntown(nx, ny) || room.has(tileKey(nx, ny))) continue;
-        // Off the plot, or a tile of its own that its walk doesn't reach (a wall, a garden's
+        // Off the place, or a tile of its own that its walk doesn't reach (a wall, a garden's
         // block): a way that ends there joins the home through it.
         goals.add(tileKey(nx, ny));
       }
@@ -296,6 +315,13 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   }
 
   return describe(facts, ways, laid, owners, unjoined);
+}
+
+/** The tiles a starter hut takes on plot (`px`, `py`): its walls, its windows, and its door. */
+function hutRing(config: WorldConfig, px: number, py: number): Set<string> {
+  return new Set(
+    starterHome(config, px, py, "wood", "glass", true).blocks.map((b) => tileKey(b.x, b.y)),
+  );
 }
 
 /** How far from a hearth its home reaches at least: a starter hut's walls stand 2 tiles out. */
@@ -418,34 +444,71 @@ function isWall(block: BlockKind): boolean {
 }
 
 /**
- * The tiles of plot (`px`, `py`) its hearths' walk reaches on its own tiles, or every open tile
- * when it has no hearth: where a way out starts (decision 0351). Eight ways, as walking is.
+ * The claimed plots as places, north to south, then west to east: each plot alone, or one
+ * household's touching plots, side or corner, together (`OpeningFacts.together`, decision 0364).
  */
-function roomOf(facts: WayFacts, px: number, py: number): Set<string> {
+function placesOf(facts: WayFacts): { px: number; py: number }[][] {
+  const sorted = [...facts.plots].sort((a, b) => a.py - b.py || a.px - b.px);
+  const claimed = new Set(sorted.map((p) => plotKey(p.px, p.py)));
+  const placed = new Set<string>();
+  const places: { px: number; py: number }[][] = [];
+  for (const first of sorted) {
+    if (placed.has(plotKey(first.px, first.py))) continue;
+    placed.add(plotKey(first.px, first.py));
+    const place = [{ px: first.px, py: first.py }];
+    for (let i = 0; i < place.length; i++) {
+      const at = place[i] as { px: number; py: number };
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const next = { px: at.px + dx, py: at.py + dy };
+          const key = plotKey(next.px, next.py);
+          if (placed.has(key) || !claimed.has(key) || !facts.openings.together?.(at, next))
+            continue;
+          placed.add(key);
+          place.push(next);
+        }
+      }
+    }
+    places.push(place.sort((a, b) => a.py - b.py || a.px - b.px));
+  }
+  return places;
+}
+
+/**
+ * The tiles of a place (`placesOf`) its hearths' walk reaches on its own tiles, each plot walked
+ * from its hearths, or from every open tile it has when it has none: where an exit starts
+ * (decision 0351). Eight ways, as walking is.
+ */
+function roomOf(facts: WayFacts, place: readonly { px: number; py: number }[]): Set<string> {
   const { config, openings } = facts;
   const S = config.plotSize;
-  const onPlot = (t: Tile) =>
-    t.x >= px * S && t.x < (px + 1) * S && t.y >= py * S && t.y < (py + 1) * S;
-  const own = facts.hearths.filter(onPlot);
+  const keys = new Set(place.map((p) => plotKey(p.px, p.py)));
+  const inPlace = (t: Tile) => keys.has(plotKey(Math.floor(t.x / S), Math.floor(t.y / S)));
   const out = new Set<string>();
   const starts: Tile[] = [];
-  if (own.length > 0) starts.push(...own);
-  else {
-    for (let y = py * S; y < (py + 1) * S; y++) {
-      for (let x = px * S; x < (px + 1) * S; x++) {
-        if (!openings.ground.obstacle(x, y)) starts.push({ x, y });
+  for (const { px, py } of place) {
+    const onPlot = (t: Tile) =>
+      t.x >= px * S && t.x < (px + 1) * S && t.y >= py * S && t.y < (py + 1) * S;
+    const own = facts.hearths.filter(onPlot);
+    if (own.length > 0) starts.push(...own);
+    else {
+      for (let y = py * S; y < (py + 1) * S; y++) {
+        for (let x = px * S; x < (px + 1) * S; x++) {
+          if (!openings.ground.obstacle(x, y)) starts.push({ x, y });
+        }
       }
     }
   }
-  // Walk only this plot's tiles: everything off it is a wall to this walk.
+  // Walk only the place's tiles: everything off it is a wall to this walk.
   const ground = {
     config,
     obstacle: (x: number, y: number) =>
-      onPlot({ x, y }) ? openings.ground.obstacle(x, y) : ("block" as const),
+      inPlace({ x, y }) ? openings.ground.obstacle(x, y) : ("block" as const),
   };
+  const reach = S * place.length;
   for (const start of starts) {
     if (out.has(tileKey(start.x, start.y))) continue;
-    for (const n of walkTree(ground, start, S)) out.add(tileKey(n.x, n.y));
+    for (const n of walkTree(ground, start, reach)) out.add(tileKey(n.x, n.y));
   }
   return out;
 }

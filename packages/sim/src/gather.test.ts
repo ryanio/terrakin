@@ -447,6 +447,27 @@ describe("gathering everything within reach (decision 0125)", () => {
     ]);
   });
 
+  it.each<[string, boolean, number]>([
+    ["leaves a public way's stone on Ada's plot before open_way_pickups", false, 0],
+    ["takes a public way's stone on Ada's plot once open_way_pickups is logged", true, 1],
+  ])("%s (RFC 0046)", (_, open, stones) => {
+    const w = neighbors();
+    w.ok(TOWN_ACTOR, { type: "own_plot_pickups" });
+    w.ok(TOWN_ACTOR, { type: "open_way", tiles: [[0, 5]] });
+    if (open) {
+      expect(w.ok(TOWN_ACTOR, { type: "open_way_pickups" })).toEqual([
+        { type: "way_pickups_opened" },
+      ]);
+    }
+    stand(w, "bob", { x: 2, y: 8 });
+    expect(w.code("bob", { type: "gather", x: 0, y: 5 })).toBe(open ? null : "not_your_plot");
+    if (!open) w.ok("bob", ALL);
+    expect(w.has("bob", "stone")).toBe(stones);
+    // Off the way, Ada's plot stays hers: her branch at 5,0 is no stranger's.
+    stand(w, "bob", { x: 5, y: 3 });
+    expect(w.code("bob", { type: "gather", x: 5, y: 0 })).toBe("not_your_plot");
+  });
+
   it("takes what fits, in order, and refuses when there's no room at all", () => {
     const w = neighbors();
     stand(w, "bob", { x: 2, y: 8 });

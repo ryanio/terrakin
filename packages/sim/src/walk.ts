@@ -309,6 +309,20 @@ export function walkWords(
   return moveCalls(walkLegsTo(state, me, to, near, ground) ?? []).join(", then ");
 }
 
+/**
+ * The one way a refusal says where to walk: `lead`, then the walk (`walkWords`), or, when no walk
+ * gets there, that none does and what would open one. `there` names the place ("the shop",
+ * "that plot", "within 3 tiles of it"), and `go` says what the walk does, "Walk there" unless the
+ * walk only brings it within reach. `lead` may be empty, for words a caller adds to its own.
+ */
+export function walkOrWhy(lead: string, walk: string, there: string, go = "Walk there"): string {
+  const said =
+    walk === ""
+      ? `There's no walk from where you stand to ${there}: walls close you in, or close it off. Take a wall away to open a way.`
+      : `${go}: ${walk}.`;
+  return lead === "" ? said : `${lead} ${said}`;
+}
+
 // ---------- solid buildings ----------
 
 type Mutation = () => WorldEvent[];

@@ -134,7 +134,7 @@ describe("settling on a street", () => {
   it.each(ISLAND.streets ?? [])("refuses %i,%i with the nearest free plot named", (px, py) => {
     const state = opened();
     const settled = refusal(state, "isla", { type: "settle", px, py });
-    expect(settled?.code).toBe("plot_is_commons");
+    expect(settled?.code).toBe("public_ground");
     expect(settled?.message).toContain("Willowmere's streets");
     const named = settled?.message.match(/settle at px (\d+), py (\d+)/);
     expect(named, settled?.message).not.toBeNull();
@@ -145,7 +145,7 @@ describe("settling on a street", () => {
     isla.x = px * 8 + 3;
     isla.y = py * 8 + 3;
     const claimed = refusal(state, "isla", { type: "claim" });
-    expect(claimed?.code).toBe("plot_is_commons");
+    expect(claimed?.code).toBe("public_ground");
     expect(claimed?.message).toContain("Willowmere's streets");
   });
 
@@ -167,14 +167,18 @@ describe("settling on a street", () => {
     }
   });
 
-  it("refuses building on a street, which is nobody's", () => {
+  it.each<[string, Command]>([
+    ["a block", { type: "place", x: 35, y: 12, block: "wood" }],
+    ["a path", { type: "lay", x: 35, y: 12, ground: "dirt" }],
+    ["a plan", { type: "build", px: 4, py: 1, blocks: [{ x: 3, y: 4, block: "wood" }] }],
+  ])("refuses %s on a street, which is everyone's ground", (_, command) => {
     const state = opened();
     const isla = state.residents.isla;
     if (!isla) throw new Error("isla isn't here");
     isla.x = 35;
     isla.y = 11;
-    expect(refusal(state, "isla", { type: "place", x: 35, y: 12, block: "wood" })?.code).toBe(
-      "not_your_plot",
-    );
+    const refused = refusal(state, "isla", command);
+    expect(refused?.code).toBe("public_ground");
+    expect(refused?.message).toContain("Willowmere's streets");
   });
 });

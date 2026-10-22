@@ -7,6 +7,7 @@ import {
   type BlockKind,
   type Crop,
   type Direction,
+  type DrawnGround,
   type FindKind,
   type GroundKind,
   groundTile,
@@ -128,7 +129,7 @@ export interface PlotChunk {
   /** Blocks on every floor shown (RFC 0028), `floor` on those above the ground floor. */
   blocks: { x: number; y: number; block: BlockKind; floor?: number; lit?: true }[];
   /** Paths and flooring (RFC 0016), under whatever stands on them, and flooring upstairs. */
-  ground: { x: number; y: number; ground: GroundKind; floor?: number }[];
+  ground: { x: number; y: number; ground: DrawnGround; floor?: number }[];
   /** The highest floor with anything on it, shown or cut away. */
   highest: number;
   /** Its roof (RFC 0041), drawn over the walls, or none while the plot is the one cut away. */
@@ -162,7 +163,7 @@ export interface ChunkSource {
    * The ground floor's paths as they're drawn, the town's streets and ways under what's laid
    * (`Mirror.drawnPaving`, RFC 0046). Read in place of `paving` when present.
    */
-  drawnPaving?: ReadonlyMap<string, GroundKind>;
+  drawnPaving?: ReadonlyMap<string, DrawnGround>;
   /**
    * Each floor above the ground floor (RFC 0028), by its number: its blocks and flooring by tile
    * key (`Mirror.upstairs`). Absent reads as none.

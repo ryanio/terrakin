@@ -1,19 +1,22 @@
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
 import { claimNotes, designNotes } from "./design";
 import { LANDS_ISLAND } from "./fixtures/lands-log";
 import { hashWorld } from "./hash";
 import {
-  claimWaysIn,
+  claimExitsIn,
   closesNobodyIn,
   doorFacing,
   doorOutward,
   landlocked,
+  landlockedFrom,
   nearestFreePlot,
   openingFacts,
   openingsOf,
 } from "./openings";
-import { type BlockKind, type Command, TOWN_ACTOR, type WorldConfig } from "./types";
+import { replay } from "./replay";
+import { type BlockKind, type Command, type Input, TOWN_ACTOR, type WorldConfig } from "./types";
 import { createWorld } from "./world";
 
 // 7 by 7 plots of 8 tiles, so the Commons is (3, 3) and plot (1, 1) has eight neighbours that
@@ -101,7 +104,7 @@ describe("openings (decision 0351)", () => {
     const notes = t.dry("n21", 2, 1, [{ x: 0, y: 7, block: "stone" }]);
     expect(notes).toContainEqual({
       code: "seals_neighbor",
-      text: "This plan closes the last way out of the plot next door, plot (1, 1): its only step onto open ground goes past the corner at (0, 7). Leave that tile open.",
+      text: "This plan closes the last exit of the plot next door, plot (1, 1): its only step onto open ground goes past the corner at (0, 7). Leave that tile open.",
       tiles: [{ x: 0, y: 7 }],
     });
     // A block one tile along leaves the corner open, and so does a door on it.
@@ -126,13 +129,13 @@ describe("openings (decision 0351)", () => {
       }));
     expect(t.dry("me", 1, 1, wall())).toContainEqual({
       code: "no_opening",
-      text: "This plan leaves the plot with no way out onto open ground: once it's built, no walk from the hearth reaches a step off the plot onto a tile nobody has claimed. The way out now is at (0, 0). Leave a gap or a door on that side.",
+      text: "This plan leaves the plot with no exit onto open ground: once it's built, no walk from the hearth reaches a step off the plot onto a tile nobody has claimed. The exit now is at (0, 0). Leave a gap or a door on that side.",
       tiles: [{ x: 0, y: 0 }],
     });
     // A door in the wall is a way out. The wall's west end still takes (0, 1)'s corner onto
     // (1, 0), which was its only one.
     expect(t.dry("me", 1, 1, wall(3)).map((n) => n.text)).toEqual([
-      "This plan closes the last way out of the plot next door, plot (0, 1): its only step onto open ground goes past the corner at (0, 0). Leave that tile open.",
+      "This plan closes the last exit of the plot next door, plot (0, 1): its only step onto open ground goes past the corner at (0, 0). Leave that tile open.",
     ]);
     // A plot already landlocked hears nothing from a plan: nothing it builds takes a way out.
     const shut = town(AROUND);
@@ -158,6 +161,80 @@ describe("openings (decision 0351)", () => {
     const out = openingsOf(openingFacts(t.state), 4, 1, []).map((o) => o.to);
     expect(out).toContainEqual({ x: 31, y: 11 });
     expect(out).toContainEqual({ x: 32, y: 16 });
+  });
+});
+
+describe("one household's touching plots are one place (decision 0364)", () => {
+  // Plots (0, 1), (1, 1) and (2, 1) in a row, every other plot around them someone else's. Alone,
+  // (0, 1) and (1, 1) are surrounded and (2, 1) steps east onto free ground.
+  it.each<[string, [string, string, string], [string, string][], string | undefined, string[]]>([
+    [
+      "three neighbours",
+      ["s01", "s11", "s21"],
+      [],
+      undefined,
+      ["0,1 surrounded", "1,1 surrounded"],
+    ],
+    ["one resident's three plots", ["s11", "s11", "s11"], [], undefined, []],
+    [
+      "an owner pair in the middle and the east",
+      ["s01", "s11", "s21"],
+      [["s11", "s21"]],
+      undefined,
+      ["0,1 surrounded"],
+    ],
+    [
+      "an owner pair in the west and the middle",
+      ["s01", "s11", "s21"],
+      [["s01", "s11"]],
+      undefined,
+      ["0,1 surrounded", "1,1 surrounded"],
+    ],
+    ["the east's owner sharing the middle", ["s01", "s11", "s21"], [], "s21", ["0,1 surrounded"]],
+  ])("%s", (_, owners, pairs, coOwner, expected) => {
+    const row = [
+      [0, 1],
+      [1, 1],
+      [2, 1],
+    ] as const;
+    const t = town(AROUND.filter(([, y]) => y !== 1));
+    for (const [px, py] of row) t.settle(`s${px}${py}`, px, py);
+    row.forEach(([px, py], i) => {
+      Object.assign(t.state.plots[`${px},${py}`] ?? {}, { ownerId: owners[i] });
+    });
+    if (coOwner) Object.assign(t.state.plots["1,1"] ?? {}, { coOwners: [coOwner] });
+    if (pairs.length > 0) {
+      t.ok(TOWN_ACTOR, { type: "set_owner_pairs", pairs });
+    }
+    expect(at(t.state).filter((p) => p.split(" ")[0]?.endsWith(",1"))).toEqual(expected);
+  });
+});
+
+describe("with one plot a resident, a household only ever clears a plot (decision 0364)", () => {
+  it("lists no new landlocked plot in any fixture log, and clears only a pair's touching plots", async () => {
+    const files = readdirSync(new URL("./fixtures/", import.meta.url)).filter((f) =>
+      f.endsWith("-log.ts"),
+    );
+    const added: string[] = [];
+    const cleared: string[] = [];
+    for (const file of files.sort()) {
+      const mod = (await import(`./fixtures/${file}`)) as Record<string, unknown>;
+      const name = Object.keys(mod).find((key) => key.endsWith("_LOG")) as string;
+      const config = mod[name.replace(/_LOG$/, "_CONFIG")] as WorldConfig;
+      const state = replay(config, mod[name] as Input[]);
+      const { together: _, ...alone } = openingFacts(state);
+      const hearths = Object.values(state.residents).flatMap((r) => (r.hearth ? [r.hearth] : []));
+      const was = landlockedFrom(alone, Object.values(state.plots), hearths).map(
+        (p) => `${p.px},${p.py}`,
+      );
+      const now = landlocked(state).map((p) => `${p.px},${p.py}`);
+      for (const p of now) if (!was.includes(p)) added.push(`${file} ${p}`);
+      for (const p of was) if (!now.includes(p)) cleared.push(`${file} ${p}`);
+    }
+    expect(files.length).toBeGreaterThan(40);
+    expect(added).toEqual([]);
+    // Dee's plot (1, 0) reaches the town only across (0, 0), which Cy, Dee's owner pair, shares.
+    expect(cleared).toEqual(["autumn-log.ts 1,0", "halloween-log.ts 1,0", "winter-log.ts 1,0"]);
   });
 });
 
@@ -202,8 +279,8 @@ describe("a claim's ways out (decision 0354)", () => {
     ]);
     t.ok("late", { type: "join", name: "late", kind: "agent" });
     // (1, 0) is as near as (0, 2) and comes first, but it's (0, 0)'s last way out.
-    expect(claimWaysIn(t.state)(1, 0).seals.map((s) => [s.px, s.py])).toEqual([[0, 0]]);
-    expect(closesNobodyIn(claimWaysIn(t.state)(0, 2))).toBe(true);
+    expect(claimExitsIn(t.state)(1, 0).seals.map((s) => [s.px, s.py])).toEqual([[0, 0]]);
+    expect(closesNobodyIn(claimExitsIn(t.state)(0, 2))).toBe(true);
     expect(prepare(t.state, { actor: "late", command: { type: "settle", px: 0, py: 1 } })).toEqual({
       ok: false,
       rejection: {

@@ -22,6 +22,7 @@ import {
   type Job,
   type JobUnlock,
   jobUnlocks,
+  KILN,
   kindsIn,
   MATERIAL_KINDS,
   MATERIAL_RECIPES,
@@ -149,6 +150,10 @@ const CATALOG_NOTICE =
 const needsWords = (needs: Readonly<Partial<Record<StackKind, number>>>, joiner = ", ") =>
   (Object.entries(needs) as [StackKind, number][]).map(([k, n]) => countOf(k, n)).join(joiner);
 
+/** Where a recipe is made, and for a kiln that no world has one until pottery opens (RFC 0047). */
+const stationWords = (station: string) =>
+  station === KILN ? `${station} (once pottery opens)` : station;
+
 /** A shop price in words, with the season it's sold in when it isn't all year. */
 function priceWords(kind: ItemKind): string {
   const shop = CATALOG[kind].shop;
@@ -192,7 +197,7 @@ export function catalogBlock(): string {
     "|--------|------|---------|------|",
     ...GOOD_KINDS.map(
       (kind) =>
-        `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${RECIPES[kind].station} | ${needsWords(RECIPES[kind].needs)} |`,
+        `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${stationWords(RECIPES[kind].station)} | ${needsWords(RECIPES[kind].needs)} |`,
     ),
     "",
     ...familyRecipes,

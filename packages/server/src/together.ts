@@ -1,5 +1,5 @@
 import {
-  claimWaysIn,
+  claimExitsIn,
   closesNobodyIn,
   DAY_MS,
   isStreet,
@@ -87,7 +87,7 @@ export function anchorPlot(
 export function suggestPlots(state: WorldState, around: PlotRef, count: number): PlotRef[] {
   const { config } = state;
   const across = Math.max(config.width, config.height) / config.plotSize;
-  const ways = claimWaysIn(state);
+  const exits = claimExitsIn(state);
   const found: PlotRef[] = [];
   for (let ring = 1; ring <= across && found.length < count; ring++) {
     const cells: (PlotRef & { side: boolean; clear: boolean })[] = [];
@@ -101,7 +101,7 @@ export function suggestPlots(state: WorldState, around: PlotRef, count: number):
         // (decision 0332, RFC 0046).
         if (!onLand(state, px, py) || isStreet(state, px, py)) continue;
         if (state.plots[plotKey(px, py)]) continue;
-        const clear = closesNobodyIn(ways(px, py));
+        const clear = closesNobodyIn(exits(px, py));
         cells.push({ px, py, side: dx === 0 || dy === 0, clear });
       }
     }

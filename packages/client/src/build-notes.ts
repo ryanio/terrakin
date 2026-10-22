@@ -68,6 +68,9 @@ export function noteWords(note: DesignNote): string {
       return "This would leave the plot with no way out onto open ground. Leave a gap or a door on the open side.";
     case "seals_neighbor":
       return "This would close the last way out of the plot next door. Leave its corner open.";
+    case "way_tiles":
+      // A settle's or a claim's note, which the bar never reads; here for the type alone.
+      return "A public way crosses this plot. It holds no block, so leave it open or lay a path on it.";
     case "door_no_edge":
       return "The door faces a neighbor's plot rather than open ground. Turn the design so it faces out.";
     case "out_of_reach":

@@ -31679,7 +31679,6 @@
           "already_known",
           "no_picks_left",
           "taught_today",
-          "not_near",
           "no_floor",
           "too_high",
           "nothing_under",
@@ -31718,8 +31717,9 @@
           "already_brought",
           "not_food",
           "not_a_seat",
-          "public_way",
+          "public_ground",
           "pottery_closed",
+          "too_far",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -39281,6 +39281,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "way_pickups_opened"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "finds_opened"
                 ]
               }
@@ -43301,6 +43315,12 @@
               true
             ]
           },
+          "wayPickupsOpen": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
           "findsOpen": {
             "type": "boolean",
             "enum": [
@@ -44444,7 +44464,8 @@
           "passkey_signin",
           "block_cleared",
           "plot_sold",
-          "way_laid"
+          "way_laid",
+          "way_closed"
         ]
       },
       "NotificationView": {
@@ -44636,6 +44657,31 @@
               "tiles",
               "blocks",
               "rebuilt"
+            ]
+          },
+          "wayClosed": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "tiles": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "tiles"
             ]
           },
           "sold": {
@@ -46873,6 +46919,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "close_way": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -46903,7 +46954,8 @@
               "disband_circle",
               "award_grant",
               "clear_block",
-              "open_way"
+              "open_way",
+              "close_way"
             ]
           },
           "suspendedNow": {

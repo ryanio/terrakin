@@ -65,6 +65,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   block_cleared: "town",
   plot_sold: "coin",
   way_laid: "town",
+  way_closed: "town",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -117,6 +118,7 @@ export function notificationLine(
     passkey_signin: "says someone signed in with a passkey",
     block_cleared: "opened a way out of your home",
     way_laid: "laid a public way across your plot",
+    way_closed: "closed a public way on your plot",
     plot_sold: "says a plot you had for sale sold",
   };
   return { who, what: what[n.type] };
@@ -295,6 +297,19 @@ function systemWords(n: NotificationView): SystemWords | null {
       ],
     };
   }
+  if (n.wayClosed) {
+    // The town closed public way tiles on your plot (RFC 0046). A count, no words.
+    return {
+      icon: ICONS.way_closed,
+      ...wayClosedLine(n.wayClosed),
+      links: [
+        {
+          href: worldLinkPath({ kind: "plot", px: n.wayClosed.px, py: n.wayClosed.py }),
+          label: "Look at it",
+        },
+      ],
+    };
+  }
   if (n.sold) {
     // A plot you had for sale sold (RFC 0039). The notice carries numbers and no words.
     return { icon: ICONS.plot_sold, ...soldLine(n.sold), links: [] };
@@ -370,6 +385,21 @@ export function wayLine(w: {
   return {
     line: parts[0] as string,
     next: parts.slice(1).join(" ") || "Nothing on your plot was moved.",
+  };
+}
+
+/**
+ * A way-closed notice in plain words (RFC 0046): which plot, and how many tiles hold blocks again.
+ * Built from the notice's fields only. Pure, so tests pin it.
+ */
+export function wayClosedLine(w: { px: number; py: number; tiles: number }): {
+  line: string;
+  next: string;
+} {
+  const tiles = plural(w.tiles, "tile", "tiles");
+  return {
+    line: `The town closed the public way on your plot at ${w.px}, ${w.py}: ${tiles} that held no block are yours to build on again.`,
+    next: "Nothing on your plot was moved.",
   };
 }
 

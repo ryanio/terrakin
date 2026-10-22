@@ -2,7 +2,7 @@ import { refuse } from "./check";
 import { upstairsProblem } from "./floors";
 import { landOfSlot } from "./lands";
 import type { Rejection, Resident, Tile, WorldState } from "./types";
-import { walkWords } from "./walk";
+import { walkOrWhy, walkWords } from "./walk";
 import { chebyshev, counterDoor, parkTile, plotOf, type Square, squares } from "./world";
 
 /**
@@ -51,12 +51,7 @@ export function notAtDoor(
   // world, and this runs on every accepted buy and sale and on every read of the shop and the
   // Town Hall, where the caller is usually standing at the door and the walk is thrown away.
   const walk = walkWords(state, me, door, reach);
-  return refuse(
-    "out_of_reach",
-    walk === ""
-      ? `${words.lead} There's no walk from where you stand to ${words.there}: something has you closed in. Take a wall away to open the way out.`
-      : `${words.lead} Walk there: ${walk}.`,
-  );
+  return refuse("out_of_reach", walkOrWhy(words.lead, walk, words.there));
 }
 
 /**

@@ -5,14 +5,13 @@ import {
   climbsAt,
   fireworkNight,
   knows,
-  mayGatherOn,
+  mayGatherAt,
   openDayOf,
   pageEditionOf,
   pageKnown,
   pickupLeft,
   pickupsInReach,
   plotAtTile,
-  plotPickupsOwned,
   plotsOwnedBy,
   presentsFor,
   type Resident,
@@ -220,7 +219,7 @@ export const gatherable = (state: WorldState, id: string, at: Tile) =>
         state.config,
         at,
         (x, y) => pickupLeft(state, x, y),
-        (x, y) => mayGatherOn(plotAtTile(state, x, y), id, plotPickupsOwned(state)),
+        (x, y) => mayGatherAt(state, x, y, id),
       ).filter(
         (t) =>
           !pageKnown(

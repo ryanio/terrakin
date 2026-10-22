@@ -32,7 +32,8 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { walkWords } from "./walk";
+import { walkOrWhy, walkWords } from "./walk";
+import { isWay } from "./ways";
 import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
@@ -281,14 +282,31 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
 /**
  * Whether a resident may gather on a tile of `plot` (undefined for the Commons and unclaimed
  * land). Pure, so clients ask it the same question the sim does: with `ownersOnly` off (before
- * `own_plot_pickups`), anyone may gather anywhere.
+ * `own_plot_pickups`), anyone may gather anywhere, and `onOpenWay`, a public way once
+ * `open_way_pickups` is logged, is anyone's too (RFC 0046).
  */
 export function mayGatherOn(
   plot: Pick<Plot, "ownerId" | "coOwners"> | undefined,
   residentId: ResidentId,
   ownersOnly: boolean,
+  onOpenWay: boolean,
 ): boolean {
-  return !ownersOnly || !plot || canBuildOn(plot, residentId);
+  return !ownersOnly || !plot || onOpenWay || canBuildOn(plot, residentId);
+}
+
+/** `mayGatherOn` asked of the world, for tile (`x`, `y`). */
+export function mayGatherAt(state: WorldState, x: number, y: number, residentId: ResidentId) {
+  return mayGatherOn(
+    plotAtTile(state, x, y),
+    residentId,
+    plotPickupsOwned(state),
+    wayPickupsOpen(state) && isWay(state, x, y),
+  );
+}
+
+/** Whether a public way's pickups are anyone's in this world (`open_way_pickups` was logged). */
+export function wayPickupsOpen(state: WorldState): boolean {
+  return state.items?.wayPickups === true;
 }
 
 /** Whether the owners-only rule is on in this world (`own_plot_pickups` was logged). */
@@ -326,10 +344,7 @@ export function pageKnown(
  * point through whatever is between, including your own walls.
  */
 function pickupWalk(state: WorldState, me: Tile, to: Tile): string {
-  const walk = walkWords(state, me, to, state.config.reach);
-  return walk === ""
-    ? " There's no walk from where you stand to it: something has you closed in."
-    : ` Walk there: ${walk}.`;
+  return ` ${walkOrWhy("", walkWords(state, me, to, state.config.reach), "it")}`;
 }
 
 /**
@@ -343,7 +358,6 @@ export function nearestOpenPickup(
   from: Tile,
   radius = HINT_RADIUS,
 ): Tile | null {
-  const ownersOnly = plotPickupsOwned(state);
   const day = state.day ?? 0;
   const known = (recipe: RecipeName) => knows(state, actor, recipe);
   for (let d = 0; d <= radius; d++) {
@@ -353,7 +367,7 @@ export function nearestOpenPickup(
         if (!inBounds(state.config, x, y)) continue;
         const kind = pickupLeft(state, x, y);
         if (!kind || pageKnown(kind, x, y, day, known, pageEditionOf(state))) continue;
-        if (mayGatherOn(plotAtTile(state, x, y), actor, ownersOnly)) return { x, y };
+        if (mayGatherAt(state, x, y, actor)) return { x, y };
       }
     }
   }
@@ -400,11 +414,8 @@ function checkGatherAll(
   items: ItemsState,
   day: number,
 ): ItemsChecked {
-  const ownersOnly = plotPickupsOwned(state);
   const lying = (x: number, y: number) => pickupLeft(state, x, y);
-  const mine = pickupsInReach(state.config, me, lying, (x, y) =>
-    mayGatherOn(plotAtTile(state, x, y), actor, ownersOnly),
-  );
+  const mine = pickupsInReach(state.config, me, lying, (x, y) => mayGatherAt(state, x, y, actor));
   if (mine.length === 0) {
     // Nothing here is yours to take, so the next step is the nearest one that is.
     const theirs = pickupsInReach(state.config, me, lying, () => true).length > 0;
@@ -521,7 +532,7 @@ export function checkGather(
     );
   }
   const plot = plotAtTile(state, x, y);
-  if (!mayGatherOn(plot, actor, plotPickupsOwned(state))) {
+  if (!mayGatherAt(state, x, y, actor)) {
     const near = nearestOpenPickup(state, actor, me);
     const hint = near ? ` The nearest one you may take is at x ${near.x}, y ${near.y}.` : "";
     return refuse(
@@ -586,6 +597,24 @@ export function checkOwnPlotPickups(state: WorldState): ItemsChecked {
       items.plotPickupsOwned = true;
     },
     event: { type: "plot_pickups_owned" },
+  });
+}
+
+/**
+ * `open_way_pickups`, which only TOWN_ACTOR sends: from now on, a public way's pickups are
+ * anyone's, whoever's plot it crosses (RFC 0046).
+ */
+export function checkOpenWayPickups(state: WorldState): ItemsChecked {
+  const shut = closed(state);
+  if (shut) return shut;
+  const items = state.items as ItemsState;
+  return oneTimeSwitch({
+    on: items.wayPickups,
+    already: "A public way's pickups are already anyone's.",
+    turnOn: () => {
+      items.wayPickups = true;
+    },
+    event: { type: "way_pickups_opened" },
   });
 }
 

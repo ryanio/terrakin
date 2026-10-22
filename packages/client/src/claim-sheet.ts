@@ -4,6 +4,8 @@
  * plots around it, and a line on one that would close a neighbor in (decision 0354). Picking one sends `settle`, which claims it from anywhere and puts you there;
  * the world then asks about a home (`home-sheet.ts`). Neighbors' names are their words: text only.
  */
+
+import { openingFactsFrom } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import {
   closeOverlay,
@@ -18,8 +20,7 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { actProblem, worldApi } from "./api/world";
-import { Mirror } from "./mirror";
-import { pickNeighbors, pickWays, pickWhere, plotPicks } from "./plot-picks";
+import { pickExits, pickNeighbors, pickWhere, plotPicks } from "./plot-picks";
 import { plotArea } from "./plot-thumb";
 import { worldProblem } from "./things";
 
@@ -60,12 +61,8 @@ export function openClaimSheet() {
       return;
     }
     const world = r.data;
-    // The walking ground the sim's openings read, from the same snapshot (decision 0354).
-    const claimed = new Set(world.plots.map((p) => `${p.px},${p.py}`));
-    const picks = plotPicks(world, {
-      ground: new Mirror(world).ground(0),
-      claimed: (px, py) => claimed.has(`${px},${py}`),
-    });
+    // The sim's own exit facts from the same snapshot, public ways included (decision 0354).
+    const picks = plotPicks(world, openingFactsFrom(world));
     if (picks.length === 0) {
       body.replaceChildren(
         emptyNote("Every plot is taken", "There's no empty plot right now. Try again later."),
@@ -76,7 +73,7 @@ export function openClaimSheet() {
     const row = (pick: (typeof picks)[number]) => {
       const where = pickWhere(pick, world.commons);
       const near = pickNeighbors(pick.neighbors.flatMap((id) => names.get(id) ?? []));
-      const ways = pickWays(
+      const exits = pickExits(
         (pick.seals ?? []).flatMap((id) => names.get(id) ?? []),
         pick.landlocked === true,
       );
@@ -89,7 +86,7 @@ export function openClaimSheet() {
       return itemRow({
         lead: plotArea(world, pick, `${where}, with the plots around it`, AREA_PX),
         name: where,
-        lines: ways ? [near, ways] : [near],
+        lines: exits ? [near, exits] : [near],
         trail: live,
         className: "claim-pick",
       });

@@ -664,7 +664,7 @@ describe("teach", () => {
   it("lets anyone who knows everything teach, and teaches nobody who knows it already", () => {
     const w = lesson();
     w.ok("ada", { type: "move", dir: "s" });
-    expect(w.code("ada", teach("well", "eve"))).toBe("not_near");
+    expect(w.code("ada", teach("well", "eve"))).toBe("out_of_reach");
     expect(w.code("dee", teach("lemonade", "ada"))).toBe("already_known");
     expect(teachable(w.state, "dee", "ada")).toEqual([]);
     // Every card but the pots', which wait for clay (RFC 0047).
@@ -697,8 +697,8 @@ describe("teach", () => {
     const w = lesson();
     for (const _ of [1, 2, 3, 4]) w.ok("eve", { type: "move", dir: "e" });
     const far = w.refused("dee", teach("lemonade", "eve"));
-    expect(far.code).toBe("not_near");
-    expect(far.message).toContain("move e once");
+    expect(far.code).toBe("out_of_reach");
+    expect(far.message).toContain("Walk closer first: move e once.");
     w.ok("eve", { type: "move", dir: "w" });
     w.ok("eve", { type: "leave" });
     expect(w.code("dee", teach("lemonade", "eve"))).toBe("not_joined");

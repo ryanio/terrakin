@@ -3,6 +3,7 @@ import {
   createWorld,
   type Input,
   landlocked,
+  starterHome,
   TOWN_ACTOR,
   tileKey,
   type WorldConfig,
@@ -172,7 +173,44 @@ describe("laying downtown's ways", () => {
       { type: "place", x: tile.x, y: tile.y, block: "wood", dry: true },
       owner.token,
     );
-    expect(placed.body.error.code).toBe("public_way");
+    expect(placed.body.error.code).toBe("public_ground");
+  });
+
+  it("closes way tiles for maintainers, dry first, refusing a close that would shut a home in", async () => {
+    const { call, service, sql, otto, homes, lay } = await start();
+    expect((await lay({})).body).toMatchObject({ laid: true });
+    const ways = (await call("GET", "/v1/world")).body.ways as { x: number; y: number }[];
+    const close = (tiles: { x: number; y: number }[], body: Record<string, unknown> = {}) =>
+      lay({ close: tiles, ...body });
+    expect((await lay({ close: ways }, otto)).status).toBe(403);
+    // Every tile at once would leave Ada's plot with no exit again: listed, and nothing closed.
+    const seq = service.state.seq;
+    const all = await close(ways);
+    expect(all.body).toMatchObject({ closed: false, inputs: 1 });
+    expect(all.body.conflicts.map((c: { code: string }) => c.code)).toContain("landlocked");
+    expect(service.state.seq).toBe(seq);
+    // A stray tile on Dee's plot, laid by hand, closes: dry first, then for real.
+    const dee = homes[3];
+    if (!dee) throw new Error("no Dee");
+    const tile = { x: 15, y: 15 };
+    expect(service.state.ways?.[`${tile.x},${tile.y}`]).toBeUndefined();
+    expect(service.wayInput({ type: "open_way", tiles: [[tile.x, tile.y]] }).ok).toBe(true);
+    const dry = await close([tile], { dry: true });
+    expect(dry.body).toMatchObject({ closed: false, conflicts: [] });
+    expect(service.state.ways?.["15,15"]).toBe(true);
+    const done = await close([tile]);
+    expect(done.body).toMatchObject({ closed: true, laid: false, tiles: [tile] });
+    expect(done.body.plots).toEqual([
+      expect.objectContaining({ px: 1, py: 1, ownerId: dee.residentId, tiles: [tile] }),
+    ]);
+    expect(service.state.ways?.["15,15"]).toBeUndefined();
+    const notices = (await call("GET", "/v1/notifications", undefined, dee.token)).body
+      .notifications as { type: string; system?: boolean; wayClosed?: unknown }[];
+    expect(notices.filter((n) => n.type === "way_closed")).toEqual([
+      expect.objectContaining({ system: true, wayClosed: { px: 1, py: 1, tiles: 1 } }),
+    ]);
+    const logged = [...sql.exec("SELECT * FROM moderation_log WHERE action = 'close_way'")];
+    expect(logged).toEqual([expect.objectContaining({ target: dee.residentId })]);
   });
 
   it("says where it stopped when a save fails, and run again finishes it", async () => {
@@ -251,6 +289,69 @@ function stripPlan(state: World, open: readonly number[]) {
   const facts = wayFactsFrom(state);
   return planWays({ ...facts, fixed: new Set([...facts.fixed, ...PLANTED, ...shutBut(open)]) });
 }
+
+/**
+ * Downtown 7 plots by 1, the Commons at (3, 0), and plots (0, 0), (1, 0) and (2, 0) claimed by
+ * `owners`, each sharing its plot with its `shared` co-owner. Only (2, 0) touches the Commons.
+ */
+function rowWorld(owners: readonly string[], shared: readonly (string | undefined)[] = []) {
+  const state = createWorld({
+    width: 56,
+    height: 8,
+    plotSize: 8,
+    maxPlotsPerResident: 1,
+    reach: 3,
+  });
+  for (const [px, id] of ["p0", "p1", "p2"].entries()) {
+    expect(apply(state, { actor: id, command: { type: "join", name: id, kind: "agent" } }).ok).toBe(
+      true,
+    );
+    expect(apply(state, { actor: id, command: { type: "settle", px, py: 0 } }).ok).toBe(true);
+  }
+  for (const [px, ownerId] of owners.entries()) {
+    const coOwner = shared[px];
+    Object.assign(state.plots[`${px},0`] ?? {}, {
+      ownerId,
+      ...(coOwner ? { coOwners: [coOwner] } : {}),
+    });
+  }
+  return state;
+}
+
+describe("a way across free slots", () => {
+  it("goes round where a starter hut would stand, so the hut someone settles there is whole", () => {
+    // The bridge landing is on downtown's east edge, three free slots past the Commons.
+    const state = rowWorld(["p0", "p1", "p2"]);
+    const plan = planWays(wayFactsFrom(state));
+    expect(plan.free.length).toBeGreaterThan(0);
+    const huts = new Set(
+      [4, 5, 6].flatMap((px) =>
+        starterHome(state.config, px, 0, "wood", "glass", true).blocks.map((b) =>
+          tileKey(b.x, b.y),
+        ),
+      ),
+    );
+    expect(plan.free.filter((t) => huts.has(tileKey(t.x, t.y)))).toEqual([]);
+  });
+});
+
+describe("one household's touching plots are one place to the planner (decision 0364)", () => {
+  it.each<[string, string[], (string | undefined)[], string[], boolean]>([
+    ["three neighbours", ["p0", "p1", "p2"], [], ["0,0", "1,0"], true],
+    ["one resident's three plots", ["p1", "p1", "p1"], [], [], false],
+    ["each plot shared with the next one's owner", ["p0", "p1", "p2"], ["p1", "p2"], [], false],
+  ])("%s", (_, owners, shared, stuck, through) => {
+    const state = rowWorld(owners, shared);
+    expect(landlocked(state).map((p) => `${p.px},${p.py}`)).toEqual(stuck);
+    const plan = planWays(wayFactsFrom(state));
+    expect(plan.unjoined).toEqual([]);
+    // The bridge landing on downtown's east edge has its own way; none goes west of the Commons
+    // but through the middle plot.
+    const west = plan.tiles.filter((t) => t.x < 24);
+    expect(west.some((t) => t.x >= 8 && t.x < 16)).toBe(through);
+    if (!through) expect(west).toEqual([]);
+  });
+});
 
 /** Whether a hearth walks to the Commons, plot (2, 0). */
 const walksToCommons = (state: World, from: { x: number; y: number }) =>
@@ -355,6 +456,16 @@ describe("a home the way cuts through", () => {
       "stairs",
       (s) => {
         s.blocks[tileKey(14, 3)] = "stairs";
+      },
+    ],
+    [
+      "a kiln with a pot in it",
+      (s) => {
+        s.blocks[tileKey(14, 3)] = "kiln";
+        const good = { id: "i_1", kind: "bowl" as const, maker: "bo", madeDay: 20_000 };
+        Object.assign(s.items ?? {}, {
+          firings: { [tileKey(14, 3)]: { good, by: "bo", readyDay: 20_001 } },
+        });
       },
     ],
     [

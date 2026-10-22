@@ -62,6 +62,7 @@ import {
   lastSlot,
   own,
   ownerPaired,
+  PLOTS,
   PRESENTS,
   pageEditionOf,
   pieceShowingMedia,
@@ -339,6 +340,13 @@ export interface WorldServiceOptions {
    */
   lands?: boolean;
   /**
+   * Plots for sale (RFC 0039): once the item market and a land are open, append
+   * `open_plot_market` if it never has, with the plot cap at `PLOTS.capMax`. **No adapter sets
+   * it**: the market and the cap of 3 go live together in a push Ryan approves (decision 0365).
+   * A test world opens it through `POST /v1/test/open-plot-market`.
+   */
+  plotMarket?: boolean;
+  /**
    * The edition of the jobs table this server's world reads (RFC 0030, decision 0265). Once jobs
    * are open on an older edition, `set_job_edition` is logged right after a `new_day`, never in
    * the middle of a day, since it changes the board from then on and people may be looking at
@@ -475,6 +483,7 @@ interface TownSwitch {
     | "circles"
     | "clay"
     | "lands"
+    | "plotMarket"
     | "retireRepeatJoins"
   >;
   /** Whether the world doesn't have it yet and has what it needs first. */
@@ -670,6 +679,14 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: (service) => planLand(service.state),
     label: "open the next land",
   },
+  // Plots for sale (RFC 0039) wait for the item market and a land, so free land exists whenever
+  // prices do, and raise the plot cap in the same input.
+  {
+    option: "plotMarket",
+    due: (s) => !s.plotMarket && !!s.market && !!s.lands?.list.length,
+    command: { type: "open_plot_market", maxPlotsPerResident: PLOTS.capMax },
+    label: "put plots on sale",
+  },
 ];
 
 /**
@@ -722,6 +739,7 @@ export class WorldService {
   private readonly circles: boolean;
   private readonly clay: boolean;
   private readonly lands: boolean;
+  private readonly plotMarket: boolean;
   /** The last refusal printed for each logged switch, so one keeps quiet until it changes. */
   private readonly switchRefused = new Map<string, string>();
   private readonly jobEdition: number | undefined;
@@ -827,6 +845,7 @@ export class WorldService {
     this.circles = options.circles ?? false;
     this.clay = options.clay ?? false;
     this.lands = options.lands ?? false;
+    this.plotMarket = options.plotMarket ?? false;
     this.jobEdition = options.jobEdition;
     this.pageEdition = options.pageEdition;
     this.retireRepeatJoins = options.retireRepeatJoins ?? false;
@@ -1597,6 +1616,18 @@ export class WorldService {
       return { ok: false as const, error: { code: "not_found", message: "No land left to open." } };
     }
     return this.run({ actor: TOWN_ACTOR, command });
+  }
+
+  /**
+   * Plots for sale (RFC 0039), with the cap at `PLOTS.capMax`, switched on now. Only the Node
+   * server's test route calls it, like `testGrant`, since no adapter sets the `plotMarket` option.
+   * The sim refuses it before the item market and a land.
+   */
+  testOpenPlotMarket() {
+    return this.run({
+      actor: TOWN_ACTOR,
+      command: { type: "open_plot_market", maxPlotsPerResident: PLOTS.capMax },
+    });
   }
 
   // ---------- levels (RFC 0029) ----------

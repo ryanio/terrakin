@@ -107,7 +107,8 @@ export interface AppOptions {
    * (`TEST_GRANT_PATH`), `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`),
    * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`), `POST /v1/test/open-jobs`
    * (`TEST_OPEN_JOBS_PATH`), `POST /v1/test/open-circles` (`TEST_OPEN_CIRCLES_PATH`), and
-   * `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now, RFC 0038), and
+   * `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now, RFC 0038),
+   * `POST /v1/test/open-plot-market` (`TEST_OPEN_PLOT_MARKET_PATH`, plots for sale now, RFC 0039), and
    * `POST /v1/test/open-clay` (`TEST_OPEN_CLAY_PATH`, pottery now, RFC 0047) from
    * this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
@@ -154,6 +155,12 @@ export const TEST_OPEN_JOBS_PATH = "/v1/test/open-jobs";
  */
 export const TEST_OPEN_CIRCLES_PATH = "/v1/test/open-circles";
 export const TEST_OPEN_LAND_PATH = "/v1/test/open-land";
+/**
+ * Tests only, with the test clock, from this machine: logs `open_plot_market` now (RFC 0039), so
+ * a spec or a `pnpm dev:test` world sells plots. No adapter sets the `plotMarket` option, so this
+ * is the only way a world gets plots for sale until it's switched on.
+ */
+export const TEST_OPEN_PLOT_MARKET_PATH = "/v1/test/open-plot-market";
 /**
  * Tests only, with the test clock, from this machine: logs `open_clay` now (RFC 0047), so a spec
  * or a `pnpm dev:test` world has clay and kilns. No adapter sets the `clay` option, so this is
@@ -397,9 +404,11 @@ export function createApp(options: AppOptions): Server {
               ? () => options.service.testOpenCircles()
               : url.pathname === TEST_OPEN_LAND_PATH
                 ? () => options.service.testOpenLand()
-                : url.pathname === TEST_OPEN_CLAY_PATH
-                  ? () => options.service.testOpenClay()
-                  : undefined;
+                : url.pathname === TEST_OPEN_PLOT_MARKET_PATH
+                  ? () => options.service.testOpenPlotMarket()
+                  : url.pathname === TEST_OPEN_CLAY_PATH
+                    ? () => options.service.testOpenClay()
+                    : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {

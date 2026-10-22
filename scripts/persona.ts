@@ -11,6 +11,7 @@
  *   pnpm persona stocked --open-jobs     (opens the town's jobs first, and levels with them)
  *   pnpm persona settled --open-circles (opens circles first)
  *   pnpm persona settled --open-land    (opens the next land, so there's an island to see)
+ *   pnpm persona settled --open-plot-market  (puts plots on sale, and a land with it: RFC 0039, off elsewhere)
  *   pnpm persona stocked --open-clay    (puts clay out, so kilns fire pots: RFC 0047, off elsewhere)
  *   pnpm persona stocked --job bram_chair  (moves the clock on to a day with that job)
  *
@@ -29,6 +30,7 @@ import {
   openJobsOver,
   openLandOver,
   openLevelsOver,
+  openPlotMarketOver,
   openRecipesOver,
   type PersonaSpec,
   PRESETS,
@@ -52,6 +54,7 @@ const { values, positionals } = parseArgs({
     "open-jobs": { type: "boolean" },
     "open-circles": { type: "boolean" },
     "open-land": { type: "boolean" },
+    "open-plot-market": { type: "boolean" },
     "open-clay": { type: "boolean" },
     job: { type: "string" },
     path: { type: "string", default: "/world" },
@@ -64,7 +67,7 @@ const preset = positionals[0] ?? "settled";
 if (values.help || !isPreset(preset)) {
   console.log(`Usage: pnpm persona [${Object.keys(PRESETS).join("|")}] [--name N] [--coins N]
   [--stacks kind=n,kind=n] [--staff] [--agent Name] [--kind human|agent] [--days N]
-  [--open-recipes] [--open-levels] [--open-jobs] [--open-circles] [--open-land] [--open-clay] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
+  [--open-recipes] [--open-levels] [--open-jobs] [--open-circles] [--open-land] [--open-plot-market] [--open-clay] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
   process.exit(values.help ? 0 : 2);
 }
 
@@ -110,6 +113,7 @@ try {
   if (values["open-jobs"]) await openJobsOver(http);
   if (values["open-circles"]) await openCirclesOver(http);
   if (values["open-land"]) await openLandOver(http);
+  if (values["open-plot-market"]) await openPlotMarketOver(http);
   if (values["open-clay"]) await openClayOver(http);
   if (values.job) {
     const days = await jobDayOver(http, values.job);

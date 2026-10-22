@@ -322,6 +322,22 @@ export async function openLandOver(http: Http): Promise<void> {
 }
 
 /**
+ * Put plots on sale in this world now (RFC 0039), with the plot cap at 3, opening the next land
+ * first when there's none, since the market waits for one. No adapter sets the switch, so this is
+ * the only way a world sells plots for now; once per world, so where it's on this does nothing.
+ * Test servers only (`POST /v1/test/open-plot-market`).
+ */
+export async function openPlotMarketOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { plotMarketOpen?: boolean };
+  if (world.plotMarketOpen) return;
+  await openLandOver(http);
+  await expectOk(
+    "open the plot market (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-plot-market"),
+  );
+}
+
+/**
  * Put clay out and let kilns fire pots in this world now (RFC 0047). No adapter sets the switch,
  * so this is the only way a world gets pottery for now; once per world, so in a world where it's
  * already on this does nothing. Test servers only (`POST /v1/test/open-clay`).

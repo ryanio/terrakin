@@ -1,13 +1,18 @@
-import { type Input, PLOTS, plotKey } from "@terrakin/sim";
+import { readFileSync } from "node:fs";
+import { DAY_MS, type Input, PLOTS, plotKey, TOWN_ACTOR } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
-import { PLOT_MARKET_CONFIG, PLOT_MARKET_SETUP } from "../../sim/src/fixtures/plot-market-log";
-import { createApp } from "./app";
+import {
+  PLOT_MARKET_CONFIG,
+  PLOT_MARKET_DAY,
+  PLOT_MARKET_SETUP,
+} from "../../sim/src/fixtures/plot-market-log";
+import { createApp, TEST_OPEN_PLOT_MARKET_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
-import { WorldService } from "./world-service";
+import { WorldService, type WorldServiceOptions } from "./world-service";
 
 /**
  * Plots for sale on the API (RFC 0039), started from a world log the way terrakin.org's world
@@ -27,10 +32,14 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(log: Input[] = PLOT_MARKET_SETUP) {
+async function start(
+  log: Input[] = PLOT_MARKET_SETUP,
+  options: Partial<WorldServiceOptions> = {},
+  testClock = false,
+) {
   const store = new MemoryStore();
   for (const input of log) store.appendInput(input);
-  const service = new WorldService({ store, config: PLOT_MARKET_CONFIG });
+  const service = new WorldService({ store, config: PLOT_MARKET_CONFIG, ...options });
   const sql = nodeSql();
   const maintainers = new Set<string>();
   const social = new SocialService({
@@ -46,6 +55,7 @@ async function start(log: Input[] = PLOT_MARKET_SETUP) {
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
     onResponse,
+    ...(testClock ? { testClock: { advanceDay: () => service.state.day ?? null } } : {}),
   });
   cleanups.push(() => sql.close());
   const call = jsonCaller(await listenOnFreePort(server, cleanups));
@@ -59,10 +69,49 @@ async function start(log: Input[] = PLOT_MARKET_SETUP) {
     maintainers.add(made.residentId);
     return made.token;
   }
-  return { call, act, token, staff, service, sql };
+  return { call, act, token, staff, service, sql, store };
 }
 
 const coins = (t: { service: WorldService }, id: string) => t.service.state.economy?.coins[id];
+
+/** The fixture's world on the day Ada may list, with everything open but the plot market. */
+const UNOPENED = PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market");
+
+describe("the switch that puts plots on sale", () => {
+  it("is set by no adapter, and once set logs the market with the cap of 3, once", async () => {
+    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
+    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+    expect(worker).not.toMatch(/\bplotMarket\s*:/);
+    expect(node).not.toMatch(/\bplotMarket\s*:/);
+    expect(worker).not.toMatch(/open-plot-market|testOpenPlotMarket|open_plot_market/);
+    const now = () => (PLOT_MARKET_DAY + 14) * DAY_MS;
+    const opened = async (plotMarket: boolean) => {
+      const t = await start(UNOPENED, { days: true, now, plotMarket });
+      t.service.tick();
+      t.service.tick();
+      return t.store.log.filter((i) => i.command.type === "open_plot_market");
+    };
+    expect(await opened(false)).toEqual([]);
+    expect(await opened(true)).toEqual([
+      {
+        actor: TOWN_ACTOR,
+        command: { type: "open_plot_market", maxPlotsPerResident: PLOTS.capMax },
+      },
+    ]);
+  });
+
+  it("opens on a test world's route, raising the cap the snapshot carries", async () => {
+    const t = await start(UNOPENED, {}, true);
+    expect((await t.call("GET", "/v1/world")).body.config.maxPlotsPerResident).toBe(1);
+    const open = await t.call("POST", TEST_OPEN_PLOT_MARKET_PATH);
+    expect(open).toMatchObject({ status: 200, body: { ok: true } });
+    const world = (await t.call("GET", "/v1/world")).body;
+    expect(world.plotMarketOpen).toBe(true);
+    expect(world.config.maxPlotsPerResident).toBe(PLOTS.capMax);
+    const again = await t.call("POST", TEST_OPEN_PLOT_MARKET_PATH);
+    expect(again).toMatchObject({ status: 400, body: { error: { code: "already_open" } } });
+  });
+});
 
 describe("plots for sale on the API (RFC 0039)", () => {
   it("is absent from a world that never opened it, and the actions are refused", async () => {

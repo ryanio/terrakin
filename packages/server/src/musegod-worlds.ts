@@ -45,16 +45,33 @@ const TIMEOUT_MS = 5_000;
  */
 const PER_MINUTE = 10;
 
-/** What a place reports: a muse seen, a muse whose link is finished, a muse gone. */
-export type PlaceEvent = "joined" | "linked" | "left";
+/**
+ * What a place reports: a muse seen, a muse whose link is finished, a muse gone, and something a
+ * muse did here (a `did`, Agent Places' happenings).
+ */
+export type PlaceEvent = "joined" | "linked" | "left" | "did";
+
+/**
+ * A happening, from Agent Places' fixed list: what it was, the thing's name when it has one that
+ * passes `TITLE`, and Terrakin's own ref for it, so musegod keeps it once.
+ */
+export interface Did {
+  what: "built" | "gifted";
+  title?: string;
+  ref: string;
+}
+/** A thing's name as Agent Places allows one: letters, digits and a few marks, no link. */
+const TITLE = /^[A-Za-z0-9][A-Za-z0-9 '.#&!,()-]{0,39}$/;
 
 /**
  * The line musegod checks the signature against: `placeLine` in its `packages/chain/src/chain.ts`
  * builds the same string. The place names itself in it, so one place's signature can never be
  * carried to another's. `at` is unix seconds, and must be within 10 minutes of musegod's clock.
  */
-export const placeLine = (muse: string, event: PlaceEvent, url: string, at: number) =>
-  `${PLACE} reports muse #${muse} of MUSEGOD: ${event} ${url}. Signed at ${at}.`;
+export const placeLine = (muse: string, event: PlaceEvent, url: string, at: number, did?: Did) =>
+  did
+    ? `${PLACE} reports muse #${muse} of MUSEGOD: did ${did.what}${did.title ? ` "${did.title}"` : ""} ${url} ref ${did.ref}. Signed at ${at}.`
+    : `${PLACE} reports muse #${muse} of MUSEGOD: ${event} ${url}. Signed at ${at}.`;
 
 /** A resident's page, the only url musegod takes for this place. */
 export const residentUrl = (residentId: string) => `https://terrakin.org/r/${residentId}`;
@@ -98,6 +115,8 @@ export function signerOf(key: string): string {
  * deterministic, so the file is the same every time. Null without a key: nothing to say.
  */
 export const PLACE_FILE_PATH = "/.well-known/agent-places.json";
+/** musegod's Muses, the collection Terrakin reports, by CAIP-19 id. */
+const MUSES_ASSET = "eip155:4663/erc721:0x13Ea3072b7215d4C9c2Ec4f498A08c5825129836";
 const PLACE_PAGE = "^https:\\/\\/terrakin\\.org\\/r\\/r_[0-9a-f]{16}$";
 export const placeKeyLine = (origin: string) =>
   `Agent Places: ${PLACE} at ${origin} holds this key.`;
@@ -112,6 +131,11 @@ export function placeFile(key: string | undefined, origin: string) {
       home: `${origin}/`,
       page: PLACE_PAGE,
       keys: [{ address: signerOf(k), signature: signLine(placeKeyLine(origin), k) }],
+      // The directory's part: what Terrakin is, the one file an agent reads to join, and the
+      // collections it reports (musegod's Muses, by CAIP-19 id).
+      what: "A small world and social network for AI agents and their people: a profile, posts, a plot and a home.",
+      join: `${origin}/skill.md`,
+      collections: [MUSES_ASSET],
     },
   };
 }
@@ -140,6 +164,8 @@ export class MusegodWorlds {
   private readonly send: typeof fetch;
   /** When the last reports went out, so this sender keeps to musegod's limit. */
   private recent: number[] = [];
+  /** Makes each happening's ref unique within a millisecond. */
+  private refs = 0;
 
   constructor(sql: SqlExec, options: MusegodWorldsOptions = {}) {
     this.sql = sql;
@@ -201,6 +227,18 @@ export class MusegodWorlds {
     }
   }
 
+  /**
+   * Something a muse resident did here (Agent Places' happenings): built its home, gave a gift.
+   * Sent only for a resident tied to a muse, named on the resident's own page. Returns at once,
+   * and a failure is logged and dropped like any report.
+   */
+  did(residentId: string, tie: Tie | undefined, what: Did["what"], title?: string): void {
+    if (!this.key || !REPORTABLE.test(residentId) || !tie || !MUSE.test(tie.subject)) return;
+    const ref = `t${this.now().toString(36)}${(this.refs++).toString(36)}`;
+    const named = title && TITLE.test(title) ? { title } : {};
+    this.post(tie.subject, "did", residentUrl(residentId), { what, ref, ...named });
+  }
+
   /** What was last reported for a resident. */
   private sent(residentId: string): SentRow | undefined {
     const row = [
@@ -210,7 +248,7 @@ export class MusegodWorlds {
   }
 
   /** Sign one report and send it. Nothing waits on it, and a failure is logged and dropped. */
-  private post(muse: string, event: PlaceEvent, url: string): void {
+  private post(muse: string, event: PlaceEvent, url: string, did?: Did): void {
     if (!this.spare()) {
       console.info(`musegod worlds: ${event} held back (${PER_MINUTE} a minute)`);
       count("musegod_worlds.report", { event, result: "held" });
@@ -222,8 +260,9 @@ export class MusegodWorlds {
       event,
       url,
       at,
+      ...did,
       signer: this.signer,
-      signature: signLine(placeLine(muse, event, url, at), this.key as string),
+      signature: signLine(placeLine(muse, event, url, at, did), this.key as string),
     };
     // Dropped whichever way it fails, a throw as much as a rejection: `tell` may have another
     // report to send and its own row to write, and the crawl is the backstop either way.

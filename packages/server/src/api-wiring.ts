@@ -1,5 +1,5 @@
-import type { HostedEvent } from "@terrakin/sim";
-import { circleById, clayOpen, findEvent, plotSale, routinesOf } from "@terrakin/sim";
+import type { HostedEvent, Input, WorldEvent } from "@terrakin/sim";
+import { CATALOG, circleById, clayOpen, findEvent, plotSale, routinesOf } from "@terrakin/sim";
 import type { Api } from "./api";
 import { circleBrief, circleInviteNote, profileCircle, tellCircles } from "./circles";
 import { countGuests } from "./events";
@@ -76,6 +76,29 @@ export function wireSocial(
       report(err, "musegod_worlds.tell");
     }
   };
+  // What a muse resident did here, for musegod's record (Agent Places' happenings, decision 0363):
+  // its starter home built, and a gift it gave, a thing or a present. Only a resident tied to a
+  // muse, after the input has committed, and nothing waits on it.
+  const tellMusegodDid = (input: Input, events: readonly WorldEvent[]) => {
+    if (!musegod || !layer.musegodWorlds.on) return;
+    try {
+      const did = (what: "built" | "gifted", title?: string) =>
+        layer.musegodWorlds.did(
+          input.actor,
+          partnerResidents.tie(musegod, input.actor),
+          what,
+          title,
+        );
+      if (input.command.type === "build_starter_home" && events.length)
+        did("built", "Starter home");
+      for (const e of events) {
+        if (e.type === "item_given" && e.from === input.actor) did("gifted", CATALOG[e.kind]?.name);
+        if (e.type === "present_given" && e.from === input.actor) did("gifted", "Present");
+      }
+    } catch (err) {
+      report(err, "musegod_worlds.did");
+    }
+  };
   service.onWalked = (id) => {
     routines.greetFor(id);
   };
@@ -109,6 +132,7 @@ export function wireSocial(
       api.welcome?.noteCommitted(input, events);
       layer.collection.noteCommitted(service.state, input, events);
       if (input.command.type === "join") tellMusegod(input.actor);
+      tellMusegodDid(input, events);
     }
   };
   // Greetings (decision 0237): a person's first join queues one; that never throws.

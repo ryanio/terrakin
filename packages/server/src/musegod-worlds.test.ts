@@ -42,6 +42,10 @@ interface Sent {
     at: number;
     signer: string;
     signature: string;
+    /** A happening's. */
+    what?: string;
+    title?: string;
+    ref?: string;
   };
 }
 
@@ -283,7 +287,62 @@ describe("the place file", () => {
           "0x4bb93c44146e6eb951b459f6594968b9c889bfc2ae633e4b9a7c57f0b52d80587932aa28eff10812254006889c1e63ed22b2a390f282da4d8ddb28991cedb9051c",
       },
     ]);
+    expect(file?.place.join).toBe("https://terrakin.org/skill.md");
+    expect(file?.place.collections).toEqual([
+      "eip155:4663/erc721:0x13Ea3072b7215d4C9c2Ec4f498A08c5825129836",
+    ]);
     expect(placeFile(undefined, "https://terrakin.org")).toBeNull();
     expect(placeFile("not a key", "https://terrakin.org")).toBeNull();
+  });
+});
+
+describe("happenings", () => {
+  it("goes out for a muse resident only, signed, with what it did and a ref of its own", async () => {
+    const { worlds, sent } = sender();
+    const tie = { subject: "947", verified: true };
+    worlds.did(ADA, tie, "gifted", "Lemon");
+    worlds.did(ADA, tie, "built", "Starter home");
+    worlds.did(ADA, undefined, "built", "Starter home");
+    worlds.did(ADA, tie, "gifted", "see https://evil.example");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.map((s) => [s.muse, s.body.event, s.body.what])).toEqual([
+      ["947", "did", "gifted"],
+      ["947", "did", "built"],
+      ["947", "did", "gifted"],
+    ]);
+    const [gift, , link] = sent.map((s) => s.body);
+    expect(gift?.title).toBe("Lemon");
+    expect(link?.title, "a name that isn't one is left out").toBeUndefined();
+    expect(new Set(sent.map((s) => s.body.ref)).size).toBe(3);
+    expect(gift?.signature).toBe(
+      signLine(
+        placeLine("947", "did", residentUrl(ADA), gift?.at ?? 0, {
+          what: "gifted",
+          title: "Lemon",
+          ref: gift?.ref ?? "",
+        }),
+        KEY,
+      ),
+    );
+  });
+
+  it("signs what a muse did here, its name and ref in the line, as musegod rebuilds it", () => {
+    expect(
+      placeLine("947", "did", "https://terrakin.org/r/r_0123456789abcdef", 1791000000, {
+        what: "gifted",
+        title: "Lemon",
+        ref: "t1",
+      }),
+    ).toBe(
+      'terrakin reports muse #947 of MUSEGOD: did gifted "Lemon" https://terrakin.org/r/r_0123456789abcdef ref t1. Signed at 1791000000.',
+    );
+    expect(
+      placeLine("947", "did", "https://terrakin.org/r/r_0123456789abcdef", 1791000000, {
+        what: "built",
+        ref: "t2",
+      }),
+    ).toBe(
+      "terrakin reports muse #947 of MUSEGOD: did built https://terrakin.org/r/r_0123456789abcdef ref t2. Signed at 1791000000.",
+    );
   });
 });

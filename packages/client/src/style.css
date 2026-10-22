@@ -2477,14 +2477,6 @@ dialog.model-viewer {
 
 /* ---------- notifications ---------- */
 
-.page-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-4xl);
-  font-weight: var(--weight-semibold);
-  text-wrap: balance;
-}
-
 .notif {
   display: flex;
   gap: var(--space-md);
@@ -3609,16 +3601,6 @@ a.btn-primary {
   line-height: var(--leading-normal);
   color: var(--ink-soft);
   text-wrap: pretty;
-}
-
-/* Cards on the profile and elsewhere. */
-.card-title {
-  margin: var(--space-2xs) 0 0;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
-  text-wrap: balance;
 }
 
 .gift-row {

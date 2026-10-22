@@ -113,7 +113,8 @@ export function errorLine(id?: string): HTMLParagraphElement {
 export interface ItemRowOptions {
   /** A picture or mark before the text, about 32px: `itemArt`, an avatar, a coin. */
   lead?: Node | null;
-  name: string;
+  /** The row's name: words, or a link such as `personLink` when the name goes somewhere. */
+  name: string | Node;
   /** Lines under the name in the soft color, each held to two lines. */
   lines?: readonly (string | Node | null)[];
   /** One thing after the text: an amount or a button. */
@@ -141,7 +142,9 @@ export function itemRow(o: ItemRowOptions): HTMLLIElement {
     h(
       "span",
       { class: "item-row-body" },
-      h("span", { class: "item-row-name", text: o.name }),
+      typeof o.name === "string"
+        ? h("span", { class: "item-row-name", text: o.name })
+        : h("span", { class: "item-row-name" }, o.name),
       ...(o.lines ?? []).map((line) =>
         line === null ? null : h("span", { class: "item-row-line" }, line),
       ),
@@ -188,8 +191,11 @@ export function progressBar(count: number, total: number, label: string): HTMLDi
 
 // ---------- kind pill ----------
 
-/** A kind pill's colors: moss (green), sun (warm, with clay text), or clay. Each view picks one. */
-export type PillTone = "moss" | "sun" | "clay";
+/**
+ * A kind pill's colors: moss (green), sun (warm, with clay text), clay, or ink (a quiet neutral,
+ * for a label that names a state without calling for attention). Each view picks one.
+ */
+export type PillTone = "moss" | "sun" | "clay" | "ink";
 
 /**
  * A small rounded label saying what kind of thing a card or row is: a proposal's kind, who put up

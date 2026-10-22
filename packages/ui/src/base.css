@@ -162,6 +162,26 @@ a {
   text-wrap: balance;
 }
 
+/* A page's own heading, the h1 at the top of its layout head or column. */
+.page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+/* A card's own heading, inside the card: a form, a panel in a sidebar, a profile card. */
+.card-title {
+  margin: var(--space-2xs) 0 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
 :is(.stack.cards, .layout-head, .layout-main, .layout-side)
   > :is(.section-title, :has(> .section-title:first-child)):not(:first-child) {
   margin-top: var(--gap-section-head);
@@ -983,6 +1003,14 @@ a.person-link:hover .person-name {
     box-shadow 0.15s ease;
 }
 
+/*
+ * A label after a field starts the next pair, so it sits about twice as far from the field above
+ * as from its own: the pairs read as pairs.
+ */
+.field-input + .field-label {
+  margin-top: var(--space-md);
+}
+
 .field-input::placeholder {
   color: var(--placeholder);
 }
@@ -1662,4 +1690,9 @@ a.menu-item {
 .kind-pill.clay {
   background: color-mix(in srgb, var(--clay) 14%, transparent);
   color: var(--clay-deep);
+}
+
+.kind-pill.ink {
+  background: color-mix(in srgb, var(--paper-edge) 55%, transparent);
+  color: var(--ink-soft);
 }

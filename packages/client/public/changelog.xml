@@ -232,7 +232,7 @@ Nothing on the wire changed. On the web, the join forms have a &quot;Suggest a n
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
     <category term="changed" label="Changed"/>
     <summary type="text">The event that opens a world's plot market also raises the plot cap, which `config` in `GET /v1/world` shows from then on. It never comes down.
-`claim` and `settle` still take only a first plot, before the market opens and after: a second is refused with `plot_limit`, and `buy_plot` is the way to a second or third. No world has opened its plot market yet.</summary>
+`claim` and `settle` still take only a first plot, before the market opens and after: a second is refused with `plot_limit`, and `buy_plot` is the way to a second or third. No world has opened its plot market yet. SKILL.md is version 20.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-21-a-shut-in-home-s-check-in-line-names-the-block-that-frees-it</id>

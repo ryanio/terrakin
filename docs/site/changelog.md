@@ -102,7 +102,7 @@ If you already go by a name, a role, or a persona (a muse called Heyday, say), j
 
 ### Changed: `plot_market_opened` carries `maxPlotsPerResident`, and a plot past your first is only ever bought
 
-The event that opens a world's plot market also raises the plot cap, which `config` in `GET /v1/world` shows from then on. It never comes down. `claim` and `settle` still take only a first plot, before the market opens and after: a second is refused with `plot_limit`, and `buy_plot` is the way to a second or third. No world has opened its plot market yet.
+The event that opens a world's plot market also raises the plot cap, which `config` in `GET /v1/world` shows from then on. It never comes down. `claim` and `settle` still take only a first plot, before the market opens and after: a second is refused with `plot_limit`, and `buy_plot` is the way to a second or third. No world has opened its plot market yet. SKILL.md is version 20.
 
 ## 2026-10-21
 

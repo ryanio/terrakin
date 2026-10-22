@@ -1,10 +1,12 @@
 # Plan: the plot market on the web, and switching it on
 
-RFC 0039, slice 3. Checked against main at 1831ccef. Nothing here is built yet. The web waits until after the 2026-10-25 playtest and must land before downtown fills (around mid November).
+RFC 0039, slice 3. Commits 1 to 10 of the order of work are built, dark ([decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md)); the optional `forSale` on the snapshot and the switch-on are left. The market must open before downtown fills (around mid November).
 
-## What exists, and five gaps
+## What existed, and five gaps, now closed
 
 The sim (`packages/sim/src/plot-market.ts`), `GET /v1/plot-market` (`plotMarketView` in `packages/server/src/plot-market.ts`), `listing` on `GET /v1/plots/{px}/{py}` only (the `/v1/plots` list is built once a minute and doesn't carry it), `plotSale` on the `list_plot` and `buy_plot` answers real or dry, `plotMarketOpen` on the snapshot, `plot_sold` in the mirror, the `plot_sold` notice and the `plot_listing` takedown words in `notifications-view.ts`, and the staff queue.
+
+Each is closed: the cap rides on `open_plot_market` (gap 1), the switch is the server's `plotMarket` option with `POST /v1/test/open-plot-market` (gap 2), `worldProblem` says `plot_listed` in plain words (gap 3), the HUD asks the sim's `claimLimit` (gap 4), and the purse names every market line (gap 5).
 
 1. **The cap can't change without a logged input.** `maxPlotsPerResident` lives in `state.config`, a world booted from a snapshot keeps it, and no command changes it. `open_plot_market` should carry the cap. No live log holds `open_plot_market`, so only `packages/sim/src/fixtures/plot-market-log.ts` and its pinned hash move.
 2. **Nothing logs the switch.** No `plotMarket` option on `WorldService`, no `DAY_SWITCHES` entry, no `POST /v1/test/open-plot-market`, nothing on the Worker.
@@ -77,10 +79,12 @@ Shown as the sim says them: townsfolk, island, hall, event and household `not_el
 
 Each commit ships dark.
 
+Commits 1 to 10 are done.
+
 1. ui: `landOnHash`, three callers switched, pattern in `shared-components.test.ts`.
 2. ui: `coinField`, six copies replaced, styles to `base.css`, pattern.
 3. sim: drop "with take_down" from the display refusal.
-4. sim and protocol: `open_plot_market {maxPlotsPerResident}`, never lowering the cap, setting `config` in the same input, `plot_market_opened` carrying it; fixture re-pinned; mirror reads it. Test in `plot-market.test.ts`: a second `claim` refused before, accepted after, refused at the fourth; break the guard once to see it red. Run the `reviewer` subagent.
+4. sim and protocol: `open_plot_market {maxPlotsPerResident}`, never lowering the cap, setting `config` in the same input, `plot_market_opened` carrying it; fixture re-pinned; mirror reads it. `claim` and `settle` stay first-plot-only after the switch (question 1). Test in `plot-market.test.ts`: a second `claim` refused before the switch and after it, a first claim still free after it, a `buy_plot` of a second plot accepted after, refused at the fourth; break the guard once to see it red. Run the `reviewer` subagent.
 5. server: `plotMarket` option, a `DAY_SWITCHES` entry after lands (due when the market is on, a land is open, and the plot market isn't), `POST /v1/test/open-plot-market` (loopback only). Test in `packages/server/src/plot-market.test.ts`. The Worker still doesn't set it.
 6. client words: `plot-market.ts` (`plotMarketProblem`, `priceProblem`, `listingFacts`, `saleRows`, `ownPlotLine`), `market-words.ts`, the `worldProblem` case, the purse labels. Tests in the existing tables in `market.test.ts`, `things.test.ts`, `coins.test.ts`.
 7. client: API module and the market section, mounted only when `plotMarket` isn't null. Seen by hand at 375x812.
@@ -100,21 +104,23 @@ The market and the cap of 3 go live in one push.
 |---|---|---|
 | 1 | The first island is open (`lands` on `GET /v1/world`) | nobody, watch it |
 | 2 | Issue #98 is closed | done |
-| 3 | Commits 1 to 10 on main, verify and e2e green, the copy seen on a phone | the agent; Ryan on his phone |
+| 3 | Commits 1 to 10 on main, verify and e2e green, the copy seen on a phone | built; Ryan on his phone |
 | 4 | The cap rises in the same logged input that opens the market, reviewed | the agent and the reviewer |
 | 5 | `scripts/economy-sim.ts` rerun with plot sales and the flip test (claim free, wait 14 days, sell), median purse and treasury reported | the agent runs it; Ryan accepts 25 coins and 14 days |
-| 6 | Question 1 below answered, and built if it changes `claim` | Ryan |
-| 7 | SKILL.md "Plots for sale" section (escrow, `buy_plot` only with the owner's go-ahead, untrusted plot names, the cap), version bump, CHANGELOG entry, `pnpm gen` | the agent |
+| 6 | Question 1 below answered, and built if it changes `claim` | done: option b, built |
+| 7 | SKILL.md "Plots for sale" section (escrow, `buy_plot` only with the owner's go-ahead, untrusted plot names, the cap), version bump, CHANGELOG entry, `pnpm gen` | done, version 20; a switch-on entry still to write |
 | 8 | `plotMarket: true` in `packages/server/cloudflare/worker.ts`, with its own decision record | Ryan says go |
 | 9 | `scripts/deploy-smoke.ts` expects `plotMarketOpen` and a cap of 3 | the agent |
 | 10 | Staff know the `plot_listing` report and takedown | Ryan |
 | 11 | It is one way: the cap can't come back down once someone owns 3 | Ryan accepts |
 | 12 | Close issue #88, update the plans page, a devlog post | the agent; Ryan sends anything out |
 
-## Questions for Ryan
+## Ryan's answers (2026-10-22)
 
-1. Are a second and third plot free to `claim`? As built, yes, up to the cap, so the plots left downtown and every island plot become free second homes the day it opens. Options: (a) accept it, (b) extra plots only by `buy_plot`, with `claim` first-plot-only, (c) extra free claims only on islands.
-2. Does the market open on its own when the first island opens, or in a push you trigger?
-3. Anything on `/market` while dark? Recommended: nothing. The alternative is one line, "Plots go on sale once new land opens."
-4. A "For sale" sign on the map and `/visit` cards in the first version (needs `forSale` on the snapshot), or later?
-5. After a purchase, offer to move the buyer's hearth to the new plot, or only Go there?
+Recorded in [decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md).
+
+1. A second and third plot come only by `buy_plot`: `claim` and `settle` take a first plot and no other, before the switch and after it (option b).
+2. The market opens in a push Ryan approves, not on its own.
+3. Nothing about plots for sale shows anywhere while the market is off.
+4. No "For sale" sign on the map yet: that's the optional `forSale` on the snapshot, later.
+5. After a purchase the toast offers Go there, and the buyer's hearth stays where it is.

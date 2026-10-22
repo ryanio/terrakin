@@ -298,6 +298,7 @@ What we chose and why. Newest last.
 - [The kiln is built behind open_clay, which no adapter sets until the playtest is read](decisions/0362-the-kiln-is-built-behind-open-clay-which-no-adapter-sets-unt.md) · 2026-10-22 · accepted · `sim` `server` `protocol` `client` `economy`
 - [Terrakin tells musegod what its muses did here, from one hook](decisions/0363-terrakin-tells-musegod-what-its-muses-did-here-from-one-hook.md) · 2026-10-22 · accepted · `server` `partners` `integration`
 - [One household's touching plots are one place for exits and the way planner](decisions/0364-one-household-s-touching-plots-are-one-place-for-exits-and-t.md) · 2026-10-22 · accepted · `sim` `openings` `ways` `rfc-0046`
+- [Plots past the first are only bought, the market opens with its cap in one push Ryan approves, and the web shows nothing while it is off](decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md) · 2026-10-22 · accepted · `sim` `server` `client` `economy` `plots` `numbers`
 
 ## Learnings
 

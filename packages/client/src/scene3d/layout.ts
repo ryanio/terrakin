@@ -358,6 +358,20 @@ export function stairsTurn(open: (dx: number, dy: number) => boolean): number {
   return 0;
 }
 
+/**
+ * Which way a window's pane or a door's frame turns, in radians about the vertical: 0 runs it
+ * along x, a quarter turn along y. It runs along the axis with more wall beside it, so a window
+ * between two walls running north to south turns to match them even with a planter or a bench
+ * against its other side. A corner, or nothing either way, keeps it along x. `wall(dx, dy)` says
+ * whether the tile beside it holds a wall (the sim's `holdsRoof`, or a door).
+ */
+export function paneTurn(wall: (dx: number, dy: number) => boolean): number {
+  const count = (a: boolean, b: boolean) => Number(a) + Number(b);
+  const ns = count(wall(0, -1), wall(0, 1));
+  const ew = count(wall(-1, 0), wall(1, 0));
+  return ns > ew ? Math.PI / 2 : 0;
+}
+
 // ---------- residents away, asleep at home (decision 0086) ----------
 
 /** How far apart, in tiles, two residents sleep when more share a hearth than it has open sides. */

@@ -56,6 +56,7 @@ import {
   mediaRef,
   modelFootprint,
   overBudget,
+  paneTurn,
   plotBounds,
   plotLayout,
   rawResident,
@@ -566,6 +567,21 @@ describe("homes with an upstairs in 3D (RFC 0028)", () => {
     expect(stairsTurn((dx, dy) => !(dx === 0 && dy === 1))).toBeCloseTo(Math.PI / 2);
     expect(stairsTurn((dx, dy) => dx === 0 && dy === -1)).toBeCloseTo(Math.PI);
     expect(stairsTurn(() => false)).toBe(0);
+  });
+
+  it("turns a window or a door to run along the axis with more wall beside it", () => {
+    const walls =
+      (...at: [number, number][]) =>
+      (dx: number, dy: number) =>
+        at.some(([x, y]) => x === dx && y === dy);
+    // Walls north and south, a planter east (not a wall): along y, cocoa's window on terrakin.org.
+    expect(paneTurn(walls([0, -1], [0, 1]))).toBeCloseTo(Math.PI / 2);
+    // Walls north and south and one east: still along y.
+    expect(paneTurn(walls([0, -1], [0, 1], [1, 0]))).toBeCloseTo(Math.PI / 2);
+    expect(paneTurn(walls([-1, 0], [1, 0], [0, 1]))).toBe(0);
+    // A corner, or nothing: along x.
+    expect(paneTurn(walls([0, -1], [1, 0]))).toBe(0);
+    expect(paneTurn(walls())).toBe(0);
   });
 });
 

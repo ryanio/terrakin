@@ -3,7 +3,7 @@ import {
   DECOR_KINDS,
   DOOR_LOOK,
   FURNITURE_KINDS,
-  isHeldBlock,
+  holdsRoof,
   POND_LOOK,
 } from "@terrakin/sim";
 import {
@@ -41,7 +41,7 @@ import {
 import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
-import { FLOOR_HEIGHT, floorY, type LayoutBlock, stairsTurn, tileHash } from "./layout";
+import { FLOOR_HEIGHT, floorY, type LayoutBlock, paneTurn, stairsTurn, tileHash } from "./layout";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 import { LAID_DEPTH_OFFSET } from "./paths";
 
@@ -175,12 +175,12 @@ export function blockMeshes(
     const frame = new InstancedMesh(frameGeo, paper(0xffffff, grain), glass.length);
     const paneGeo = new RoundedBoxGeometry(0.8, h - 0.3, 0.42, 1, 0.04);
     paneGeo.translate(0, 0.22 + (h - 0.3) / 2, 0);
-    // Panes turn to run along the wall they sit in: across x unless walls run north to south.
-    const solid = (b: LayoutBlock, dx: number, dy: number) => isWall(near(b, dx, dy));
+    // Panes turn to run along the wall they sit in (`paneTurn`).
     const place = (b: LayoutBlock) => {
-      const ns = solid(b, 0, -1) || solid(b, 0, 1);
-      const ew = solid(b, -1, 0) || solid(b, 1, 0);
-      q.setFromAxisAngle(UP, ns && !ew ? Math.PI / 2 : 0);
+      q.setFromAxisAngle(
+        UP,
+        paneTurn((dx, dy) => isWall(near(b, dx, dy))),
+      );
       return m.compose(spot(b), q, one);
     };
     glass.forEach((b, i) => {
@@ -227,11 +227,11 @@ export function blockMeshes(
     const { frame: frameGeo, leaf: leafGeo } = doorGeometry(blockLook("door").height);
     const frame = new InstancedMesh(frameGeo, paper(0xffffff, grain), doors.length);
     const leaf = new InstancedMesh(leafGeo, paper(0xffffff, grain), doors.length);
-    const solid = (b: LayoutBlock, dx: number, dy: number) => isWall(near(b, dx, dy));
     doors.forEach((b, i) => {
-      const ns = solid(b, 0, -1) || solid(b, 0, 1);
-      const ew = solid(b, -1, 0) || solid(b, 1, 0);
-      q.setFromAxisAngle(UP, ns && !ew ? Math.PI / 2 : 0);
+      q.setFromAxisAngle(
+        UP,
+        paneTurn((dx, dy) => isWall(near(b, dx, dy))),
+      );
       m.compose(spot(b), q, one);
       frame.setMatrixAt(i, m);
       frame.setColorAt(i, lin(colorFor(hex(DOOR_LOOK.frame), b)));
@@ -495,15 +495,12 @@ function glowPools(
   return mesh;
 }
 
-/** Whether a block makes a wall a window's pane runs along. */
+/**
+ * Whether a block makes a wall a window's pane or a door runs along: a wall or window a roof sits
+ * on, or another door. A planter, a bench or a hedge beside it is never a wall.
+ */
 function isWall(b: LayoutBlock | undefined): boolean {
-  return (
-    b !== undefined &&
-    b.block !== "leaf" &&
-    b.block !== "pond" &&
-    b.block !== "stairs" &&
-    !isHeldBlock(b.block)
-  );
+  return b !== undefined && (holdsRoof(b.block) || b.block === "door");
 }
 
 /** How far a door stands open in 3D, in radians from shut. */

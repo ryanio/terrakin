@@ -1667,6 +1667,13 @@ function paintFloors() {
   floorRow.removeAttribute("aria-label");
   if (!plot) return;
   if (plot.floors > 0) floorChips(floorRow, plot.floors, buildFloor, pickFloor);
+  // The roof over the home (RFC 0041), named by the one it has, since it's a look you change.
+  const roof = mirror?.roofs.get(plotKey(plot.px, plot.py));
+  roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
+  roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
+  floorRow.append(roofToggle);
+  if (notesToggle.textContent) floorRow.append(notesToggle);
+  // An upstairs comes last: it's the one chip here that spends coins, and a lot of them.
   if (plot.floors < FLOORS.max) {
     const add = h("button", {
       attrs: { type: "button", id: "add-floor" },
@@ -1678,12 +1685,6 @@ function paintFloors() {
     );
     floorRow.append(add);
   }
-  // The roof over the home (RFC 0041), named by the one it has, since it's a look you change.
-  const roof = mirror?.roofs.get(plotKey(plot.px, plot.py));
-  roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
-  roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
-  floorRow.append(roofToggle);
-  if (notesToggle.textContent) floorRow.append(notesToggle);
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
@@ -1740,7 +1741,9 @@ function paintNotes() {
   notesToggle.textContent = label.text;
   notesToggle.setAttribute("aria-label", label.name);
   if (notes.length === 0) notesToggle.remove();
-  else if (!notesToggle.isConnected) floorRow.append(notesToggle);
+  // Before Add an upstairs, which stays last.
+  else if (!notesToggle.isConnected)
+    floorRow.insertBefore(notesToggle, floorRow.querySelector("#add-floor"));
   notesList.replaceChildren(...notes.map((n) => h("li", { text: noteWords(n) })));
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);

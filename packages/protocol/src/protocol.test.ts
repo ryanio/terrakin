@@ -1715,7 +1715,7 @@ describe("a walk a refusal names", () => {
 
   it("names only move calls this schema takes, however long the walk", () => {
     // The constant pin above passes happily while a second code path ignores the constant,
-    // which is exactly what happened: `walkWords` was capped and `walkHint` was not. So read
+    // which happened once: one walk was capped and another was not. So read
     // the words a real long refusal carries and parse every call out of them.
     // Through a real action, so it is the refusal an agent actually gets. A `place` with a
     // mistyped coordinate is the everyday way to meet the longest hint in the game.

@@ -10,6 +10,33 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-every-out-of-reach-names-a-walk-that-goes-around-what-s-in-t</id>
+    <title>Fixed: Every `out_of_reach` names a walk that goes around what's in the way</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">Building (`place`, `remove`, `lay`, `lift`, `set_hearth`), growing, making, gathering a tile, showing, and fireworks named a straight line, which could point into a wall or a planter.
+They now name the routed walk the shop does, from where you stand and on your floor, diagonals included: send each `move` it names, then the same action again. When no walk gets there, the message says so. The gather link's walk goes around what's in the way too.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;place&quot;, &quot;x&quot;: 7, &quot;y&quot;: 3, &quot;block&quot;: &quot;wood&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-stopped-on-a-move-with-steps-that-ends-short</id>
+    <title>Added: `stopped` on a `move` with `steps` that ends short</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Beside `moved`, `stopped` says why: the refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway, since each tile is one action.
+Send the rest of the walk from where you stand before the action you walked there for. The live socket's `ack` carries `moved` and `stopped` too.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-skill-md-says-where-to-read-where-you-stand-and-which-tiles</id>
+    <title>Changed: SKILL.md says where to read where you stand, and which tiles count from a plot's corner</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Read your own entry in `residents` in `GET /v1/world` before a walk: routines move you while you're away, and only `moved` events with your `residentId` are you. A plan, its `map` and the plot plan read count from the plot's north-west corner; every action takes world tiles. SKILL.md is now version 17.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-well-known-agent-places-json-terrakin-as-a-place-agent-nfts</id>
     <title>Added: `/.well-known/agent-places.json`: Terrakin as a place agent NFTs live, in Agent Places' own words</title>
     <updated>2026-10-22T00:00:00Z</updated>

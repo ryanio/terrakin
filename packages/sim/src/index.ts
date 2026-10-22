@@ -638,6 +638,7 @@ export {
   type Step,
   stepFrom,
   type WalkNode,
+  walkLegsTo,
   walkPath,
   walkTree,
   walkWords,
@@ -701,6 +702,5 @@ export {
   townHallTiles,
   validateConfig,
   WALK_LEG_MAX,
-  walkLegs,
   withinEarshot,
 } from "./world";

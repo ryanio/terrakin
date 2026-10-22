@@ -442,6 +442,7 @@ export class LiveSession {
       ...(result.handedIn === undefined ? {} : { handedIn: result.handedIn }),
       ...(result.plotSale === undefined ? {} : { plotSale: result.plotSale }),
       ...(result.notes === undefined ? {} : { notes: result.notes }),
+      ...(result.stopped === undefined ? {} : { moved: result.moved, stopped: result.stopped }),
       ...(result.dry ? { dry: true } : {}),
     });
   }

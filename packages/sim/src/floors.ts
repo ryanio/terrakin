@@ -182,6 +182,32 @@ const TOO_HIGH =
     ? "A home has a ground floor and one upstairs, and goes no higher."
     : `Homes go up ${FLOORS.max} floors above the ground floor.`;
 
+/**
+ * `out_of_reach` for a tile more than `reach` tiles from `me`, or null when it's within reach:
+ * `say`, then the walk that brings it within reach around whatever is in the way on the floor `me`
+ * stands on, so sending that walk and then the same call works. Building, growing, making,
+ * gathering a tile, showing, and fireworks all refuse through it. When no walk gets there it says
+ * so rather than naming steps that stop at a wall.
+ */
+export function outOfReachHere(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+  at: Tile,
+  reach: number,
+  say: string,
+): Rejection | null {
+  if (chebyshev(me, at) <= reach) return null;
+  const floor = standingFloor(me);
+  const walk = walkWords(state, me, at, reach, floorGround(state, floor));
+  if (walk !== "") return refuse("out_of_reach", `${say} Walk closer first: ${walk}.`);
+  return refuse(
+    "out_of_reach",
+    floor === 0
+      ? `${say} There's no walk from where you stand to within ${reach} tiles of it: walls close you in, or close it off. Take a wall away to open a way.`
+      : `${say} There's no walk up here to within ${reach} tiles of it. Go down the stairs and walk from there.`,
+  );
+}
+
 /** The upstairs to add, with the plot to add it to when the refusal has one in hand. */
 const noFloor = (plot?: Plot) => {
   const where = plot ? ` at px ${plot.px}, py ${plot.py}` : "";

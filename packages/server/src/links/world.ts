@@ -48,7 +48,7 @@ import {
   routinesOf,
   standingFloor,
   type WorldState,
-  walkLegs,
+  walkLegsTo,
   worldDayWords,
 } from "@terrakin/sim";
 import type { Handlers } from "../handlers/shared";
@@ -190,12 +190,13 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
 }
 
 /**
- * The move links that bring `to` within reach of `from`: the sim's `walkLegs`, the walk its
- * refusals name, each link at most `MOVE_MAX_STEPS` steps.
+ * The move links that bring `to` within reach of `from`, around whatever is in the way: the sim's
+ * `walkLegsTo`, the walk its refusals name, each link at most `MOVE_MAX_STEPS` steps. Empty when
+ * no walk gets there.
  */
-function walkLinks(l: Links, from: Tile, to: Tile, reach: number): string[] {
+function walkLinks(state: WorldState, l: Links, from: Tile, to: Tile, reach: number): string[] {
   const links: string[] = [];
-  for (const [dir, steps] of walkLegs(from, to, reach)) {
+  for (const [dir, steps] of walkLegsTo(state, from, to, reach) ?? []) {
     for (let left = steps; left > 0; left -= MOVE_MAX_STEPS) {
       links.push(l.move(dir, Math.min(left, MOVE_MAX_STEPS)));
     }
@@ -222,9 +223,16 @@ function nothingToGather(state: WorldState, r: Resident, l: Links): { why: strin
       next: `Look around: ${l.world}`,
     };
   }
-  const walk = walkLinks(l, r, near, config.reach);
+  const walk = walkLinks(state, l, r, near, config.reach);
+  const what = `${why} The nearest one you may take is ${kind === RECIPE_PAGE ? "a recipe page" : countOf(kind, 1)} at ${at(near)}.`;
+  if (walk.length === 0) {
+    return {
+      why: `${what} There's no walk from where you stand to it: walls close you in. Take a wall away to open a way.`,
+      next: `Look around: ${l.world}`,
+    };
+  }
   return {
-    why: `${why} The nearest one you may take is ${kind === RECIPE_PAGE ? "a recipe page" : countOf(kind, 1)} at ${at(near)}.`,
+    why: what,
     next: list([
       `Walk there with ${walk.length === 1 ? "this link" : "these links, in order"}, then open the gather link again:`,
       "",

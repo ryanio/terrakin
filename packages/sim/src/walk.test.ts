@@ -22,12 +22,10 @@ import {
   chebyshev,
   createWorld,
   inBounds,
-  outOfReach,
   STEP,
   shopTiles,
   townHallTiles,
   WALK_LEG_MAX,
-  walkHint,
 } from "./world";
 
 // 3x3 plots of 8 tiles. The Commons is plot (1,1), tiles 8 to 15; spawn is (12,12). The Town Hall
@@ -444,8 +442,6 @@ describe("the walk a refusal names", () => {
     // Ada is on her hearth inside the hut, whose only way out is its doorway at (3, 5).
     const me = { x: 3, y: 3 };
     const far = { x: 12, y: 14 };
-    // The straight line from the hearth starts east, into the hut's own wall.
-    expect(walkHint(me, far, CONFIG.reach)).toContain("move e");
     const walk = walkWords(w.state, me, far, CONFIG.reach);
     // The real walk starts south, out of the doorway.
     expect(walk.startsWith("move s")).toBe(true);
@@ -501,29 +497,5 @@ describe("a walk a refusal names", () => {
       }
     }
     expect(at).toEqual({ x: 11, y: 5 });
-  });
-
-  it("caps the straight-line hint too, which is the one most refusals carry", () => {
-    // `walkHint` is `outOfReach`'s default, so building, planting, harvesting, gathering and
-    // showing all end with it. Capping `walkWords` and not this one caps neither: a mistyped
-    // coordinate in `place` named `move e 65 times` and that call is refused by the schema.
-    const config: WorldConfig = {
-      width: 72,
-      height: 72,
-      plotSize: 8,
-      maxPlotsPerResident: 1,
-      reach: 3,
-    };
-    const said = outOfReach({ x: 2, y: 2 }, { x: 70, y: 70 }, config.reach)?.message ?? "";
-    expect(said).toContain("Walk closer first:");
-    const legs = [...said.matchAll(/move ([nsew]{1,2}) (?:once|(\d+) times)/g)];
-    expect(legs.length).toBeGreaterThan(0);
-    for (const [, dir, n] of legs) {
-      expect(Number(n ?? 1), `${dir} in: ${said}`).toBeLessThanOrEqual(WALK_LEG_MAX);
-    }
-    // The legs still add up to the same walk: 65 east and 65 south, in calls of at most 10.
-    const east = legs.filter((l) => l[1] === "e").reduce((t, l) => t + Number(l[2] ?? 1), 0);
-    const south = legs.filter((l) => l[1] === "s").reduce((t, l) => t + Number(l[2] ?? 1), 0);
-    expect({ east, south }).toEqual({ east: 65, south: 65 });
   });
 });

@@ -140,6 +140,15 @@ import {
   worldSnapshot,
 } from "./world-wire";
 
+/**
+ * What stopped a `move` with `steps` short of the tiles it asked for: the refusal of the step it
+ * didn't take, or `rate_limited` when the walker ran out of actions partway.
+ */
+export interface WalkStop {
+  code: ErrorCode;
+  message: string;
+}
+
 export type ActResult =
   | {
       ok: true;
@@ -158,6 +167,8 @@ export type ActResult =
       plotSale?: PlotSaleView;
       /** `move` with `steps`: tiles walked, when something stopped the walk short. */
       moved?: number;
+      /** `move` with `steps`, beside `moved`: what stopped the walk short. */
+      stopped?: WalkStop;
       /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0354): notes. */
       notes?: DesignNote[];
       dry?: true;

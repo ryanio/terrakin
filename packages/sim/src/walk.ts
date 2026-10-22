@@ -255,23 +255,19 @@ export function route(ground: Ground, from: Tile, to: Tile, near = 0, radius = 2
 }
 
 /**
- * The walk from `me` to within `near` tiles of `to`, around whatever is in the way, as the `move`
- * calls that make it: consecutive steps in one direction folded into one leg. Empty when no walk
- * gets there, which is what a home with no gap in its walls leaves you.
- *
- * This is what a refusal names when the walk is more than a step or two. `walkHint` is a straight
- * line, which is right for the tile in front of you and wrong across a plot or a town: it points
- * through whatever stands between, so from a hearth inside a starter hut it points at the hut's
- * own wall, and following it never arrives.
+ * The walk from `me` to within `near` tiles of `to`, around whatever is in the way: consecutive
+ * steps in one direction folded into one leg. Empty when `me` is already there, and undefined when
+ * no walk gets there, which is what a home with no gap in its walls leaves you. The link pages
+ * turn it into `move` links; `walkWords` into the words a refusal ends with.
  */
-export function walkWords(
+export function walkLegsTo(
   state: WorldState,
   me: Tile,
   to: Tile,
   near: number,
   /** The floor's own ground, for a walk upstairs; the world's is the ground floor's. */
   ground: Ground = worldGround(state),
-): string {
+): [Direction, number][] | undefined {
   const world = Math.max(state.config.width, state.config.height);
   // A detour hardly ever needs more room than the walk itself, and this runs on refusals an agent
   // meets often, so look near first and only fall back to the whole world when that didn't arrive.
@@ -288,13 +284,29 @@ export function walkWords(
       else legs.push([dir, 1]);
     }
     // `route` falls back to the reachable tile nearest `to`, so check it arrived before naming it.
-    if (chebyshev(at, to) <= near) {
-      // A leg longer than one `move` takes is split into several, so every call it names works.
-      return moveCalls(legs).join(", then ");
-    }
+    if (chebyshev(at, to) <= near) return legs;
     if (radius === world) break;
   }
-  return "";
+  return undefined;
+}
+
+/**
+ * `walkLegsTo` as the `move` calls a refusal names: "move s once, then move e 4 times". Empty when
+ * no walk gets there. A leg longer than one `move` takes is split into several, so every call it
+ * names works.
+ *
+ * Every refusal for something out of reach names its walk this way, never a straight line: that
+ * points through whatever stands between, so from a hearth inside a starter hut it points at the
+ * hut's own wall, and following it never arrives.
+ */
+export function walkWords(
+  state: WorldState,
+  me: Tile,
+  to: Tile,
+  near: number,
+  ground: Ground = worldGround(state),
+): string {
+  return moveCalls(walkLegsTo(state, me, to, near, ground) ?? []).join(", then ");
 }
 
 // ---------- solid buildings ----------

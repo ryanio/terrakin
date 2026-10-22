@@ -915,7 +915,7 @@ describe("rejections name the next call", () => {
   it("out_of_reach says which way to walk and how far", () => {
     const state = neighbors();
     expect(message(state, "bob", { type: "place", x: 11, y: 2, block: "wood" })).toBe(
-      "You can only build within 2 tiles. Walk closer first: move e 3 times, then move n 2 times.",
+      "You can only build within 2 tiles. Walk closer first: move e once, then move ne 2 times.",
     );
     expect(message(state, "bob", { type: "set_hearth", x: 6, y: 9 })).toBe(
       "You can only build within 2 tiles. Walk closer first: move s once.",
@@ -925,8 +925,7 @@ describe("rejections name the next call", () => {
   it("out_of_reach on growing, making, gathering, and showing says which way to walk too", () => {
     const state = neighbors();
     run(state, TOWN_ACTOR, { type: "new_day", day: 20_000 }, { type: "open_items" });
-    const walk =
-      "That's more than 2 tiles away. Walk closer first: move e 3 times, then move s 3 times.";
+    const walk = "That's more than 2 tiles away. Walk closer first: move se 3 times.";
     const far: Command[] = [
       { type: "plant", x: 6, y: 6, seed: "flower" },
       { type: "harvest", x: 6, y: 6 },

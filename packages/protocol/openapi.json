@@ -29725,10 +29725,26 @@
                 ]
               },
               "moved": {
-                "description": "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for because something was in the way. Absent on a one-tile move and on a walk that went the whole way.",
+                "description": "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for. `stopped` says why. Absent on a one-tile move and on a walk that went the whole way.",
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "stopped": {
+                "description": "`move` with `steps`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "$ref": "#/components/schemas/ErrorCode"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ]
               },
               "notes": {
                 "description": "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`: `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. `settle` and `claim`: `seals_neighbor` for each plot next door whose last way out the claim takes, and `no_opening` when the plot would have no way out of its own, read before the claim, dry or real. Absent when there is nothing to say.",
@@ -36277,6 +36293,26 @@
                 "items": {
                   "$ref": "#/components/schemas/DesignNoteView"
                 }
+              },
+              "moved": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "stopped": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "$ref": "#/components/schemas/ErrorCode"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ]
               }
             },
             "required": [

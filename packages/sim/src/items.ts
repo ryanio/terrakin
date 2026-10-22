@@ -31,7 +31,7 @@ import { isWhole, oneTimeSwitch, refuse } from "./check";
 import { addPresent, wrapDay } from "./christmas";
 import { dayDateWords, relativeDayWords } from "./day-words";
 import { isTownsfolk, pairSkipsCaps } from "./economy";
-import { FLOORS } from "./floors";
+import { FLOORS, outOfReachHere } from "./floors";
 import {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
@@ -53,13 +53,14 @@ import type {
   ItemsState,
   ItemsToday,
   Rejection,
+  Resident,
   ResidentId,
   Tile,
   WorldEvent,
   WorldState,
 } from "./types";
 import { BUILDING_BLOCKS } from "./types";
-import { canBuildOn, inBounds, outOfReach, plotAtTile } from "./world";
+import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
  * Growing, making, and giving (RFC 0005, step 2): the item catalog as data, inventories, planters,
@@ -332,13 +333,23 @@ export function closed(state: WorldState): Rejection | null {
   return null;
 }
 
-/** Whether a tile is within a resident's reach, or how to get there. */
-export function reachProblem(state: WorldState, me: Tile, at: Tile): Rejection | null {
+/** Whether a tile is within a resident's reach, or the walk that brings it there. */
+export function reachProblem(
+  state: WorldState,
+  me: Pick<Resident, "x" | "y" | "floor">,
+  at: Tile,
+): Rejection | null {
   const { config } = state;
   if (!isWhole(at.x) || !isWhole(at.y) || !inBounds(config, at.x, at.y)) {
     return refuse("out_of_bounds", "That's outside the world.");
   }
-  return outOfReach(me, at, config.reach);
+  return outOfReachHere(
+    state,
+    me,
+    at,
+    config.reach,
+    `That's more than ${config.reach} tiles away.`,
+  );
 }
 
 // ---------- server input ----------

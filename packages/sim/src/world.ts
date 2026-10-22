@@ -1,11 +1,9 @@
-import { refuse } from "./check";
 import { WALKED_ONTO_SEATS } from "./furniture";
 import { plotKey, tileKey } from "./keys";
 import type {
   BlockKind,
   Direction,
   Plot,
-  Rejection,
   ResidentId,
   Tile,
   WorldConfig,
@@ -554,8 +552,7 @@ export const WALK_LEG_MAX = 10;
 
 /**
  * Legs as the `move` calls a refusal ends with, each leg split at `WALK_LEG_MAX` so every call
- * named is one the API takes. The one formatter: `walkHint`'s straight line and `walkWords`'
- * routed walk both go through it, because a cap on one of them is a cap on neither.
+ * named is one the API takes. Every walk a refusal names goes through it, in `walkWords`.
  */
 export function moveCalls(legs: readonly (readonly [string, number])[]): string[] {
   const calls: string[] = [];
@@ -565,50 +562,6 @@ export function moveCalls(legs: readonly (readonly [string, number])[]): string[
     }
   }
   return calls;
-}
-
-/**
- * The walk that brings `target` within `reach` of `me`: east or west, then north or south, each
- * leg with its steps. Empty when it's already within reach.
- */
-export function walkLegs(me: Tile, target: Tile, reach: number): ["e" | "w" | "n" | "s", number][] {
-  const dx = target.x - me.x;
-  const dy = target.y - me.y;
-  const legs: ["e" | "w" | "n" | "s", number][] = [];
-  const across = Math.abs(dx) - reach;
-  const down = Math.abs(dy) - reach;
-  if (across > 0) legs.push([dx > 0 ? "e" : "w", across]);
-  if (down > 0) legs.push([dy > 0 ? "s" : "n", down]);
-  return legs;
-}
-
-/**
- * `walkLegs` as move calls for a refusal to end with:
- * " Walk closer first: move e 3 times, then move n once." Empty when it's already within reach.
- */
-export function walkHint(me: Tile, target: Tile, reach: number): string {
-  const steps = moveCalls(walkLegs(me, target, reach));
-  return steps.length ? ` Walk closer first: ${steps.join(", then ")}.` : "";
-}
-
-/**
- * Why `target` is out of `me`'s reach, or null when it's within `reach` tiles: `out_of_reach`,
- * saying `say` and then the walk that brings it within reach.
- */
-export function outOfReach(
-  me: Tile,
-  target: Tile,
-  reach: number,
-  say = `That's more than ${reach} tiles away.`,
-  /**
-   * The walk, already in words, for a caller that can plan one around what's in the way. The
-   * default hint is a straight line, which is right for a tile in front of you and wrong for a
-   * walk across town, where a wall between the two makes it point nowhere.
-   */
-  hint?: string,
-): Rejection | null {
-  if (chebyshev(me, target) <= reach) return null;
-  return refuse("out_of_reach", `${say}${hint ?? walkHint(me, target, reach)}`);
 }
 
 /** Deep copy. WorldState is plain JSON data by design, so a JSON round trip is exact. */

@@ -298,8 +298,8 @@ export const MoveAction = z.object({
   dir: z.enum([...DIRECTIONS, ...CLIMBS]),
   /**
    * How many tiles to walk, 1 to `MOVE_MAX_STEPS`. Default 1. The walk stops at the first thing
-   * in the way and the answer's `moved` says how far you got, so a walk that ends early is still
-   * `ok`. A climb (`up`, `down`) is always one floor, whatever this says, and a dry run checks
+   * in the way, or when you run out of actions, and the answer's `moved` says how far you got and
+   * `stopped` why, so a walk that ends early is still `ok`. A climb (`up`, `down`) is always one floor, whatever this says, and a dry run checks
    * one step, since nothing has moved for the next one to start from.
    */
   steps: z.number().int().min(1).max(MOVE_MAX_STEPS).optional(),
@@ -3202,6 +3202,9 @@ export const PlotPlanResponse = z.object({
 });
 export type PlotPlanResponse = z.infer<typeof PlotPlanResponse>;
 
+/** What stopped a `move` with `steps` short of the tiles it asked for (decision 0315). */
+const WalkStop = z.object({ code: ErrorCode, message: z.string() });
+
 export const ActionResponse = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(true),
@@ -3241,8 +3244,11 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .int()
       .optional()
       .describe(
-        "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for because something was in the way. Absent on a one-tile move and on a walk that went the whole way.",
+        "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for. `stopped` says why. Absent on a one-tile move and on a walk that went the whole way.",
       ),
+    stopped: WalkStop.optional().describe(
+      "`move` with `steps`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
+    ),
     notes: z
       .array(DesignNoteView)
       .optional()
@@ -3339,6 +3345,10 @@ export const ServerMessage = z.union([
     plotSale: PlotSaleView.optional(),
     /** `build_starter_home`, `settle`, and `claim`: notes about the home or the plot, as `ActionResponse` has them. */
     notes: z.array(DesignNoteView).optional(),
+    /** `move` with `steps`: tiles walked, when something stopped the walk short. */
+    moved: z.number().int().optional(),
+    /** `move` with `steps`, beside `moved`: what stopped it. */
+    stopped: WalkStop.optional(),
   }),
   z.object({
     type: z.literal("error"),

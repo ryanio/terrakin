@@ -83,6 +83,7 @@ import {
   floorOf,
   layerFor,
   noFlooringHint,
+  outOfReachHere,
   plotHasAnything,
   removeProblem,
   setFloor,
@@ -263,7 +264,6 @@ import {
   inBounds,
   isSolid,
   isTownSquare,
-  outOfReach,
   plotAtTile,
   plotCenter,
   plotOf,
@@ -297,8 +297,14 @@ const reject = (code: RejectionCode, message: string): Prepared => ({
 });
 
 /** `out_of_reach` for building at `at`, worded for building, or null when it's within reach. */
-const outOfBuildReach = (config: WorldConfig, me: Tile, at: Tile) =>
-  outOfReach(me, at, config.reach, `You can only build within ${config.reach} tiles.`);
+const outOfBuildReach = (state: WorldState, me: Resident, at: Tile) =>
+  outOfReachHere(
+    state,
+    me,
+    at,
+    state.config.reach,
+    `You can only build within ${state.config.reach} tiles.`,
+  );
 
 /**
  * `out_of_reach` for building on `floor` from the floor `me` stands on, or null: a floor counts
@@ -1190,7 +1196,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "set_hearth": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
-      const far = outOfBuildReach(config, me, { x, y });
+      const far = outOfBuildReach(state, me, { x, y });
       if (far) return { ok: false, rejection: far };
       if (!canBuildOn(plotAtTile(state, x, y), actor)) {
         return reject(
@@ -1255,7 +1261,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "lift": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
-      const far = outOfBuildReach(config, me, { x, y });
+      const far = outOfBuildReach(state, me, { x, y });
       if (far) return { ok: false, rejection: far };
       const plot = plotAtTile(state, x, y);
       if (!canBuildOn(plot, actor)) {

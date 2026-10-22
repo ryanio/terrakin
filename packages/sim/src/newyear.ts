@@ -5,6 +5,7 @@
  * world keeps nothing of it but the count toward the night's limit.
  */
 import { isWhole, refuse } from "./check";
+import { outOfReachHere } from "./floors";
 import { addStack, closed, held, inventory, inventoryEvent } from "./items";
 import { own, residentById } from "./own";
 import { dateOfDay } from "./season";
@@ -58,9 +59,14 @@ export function checkSetOffFirework(
   if (!isWhole(x) || !isWhole(y) || !inBounds(state.config, x, y)) {
     return refuse("out_of_bounds", "That tile is outside the world.");
   }
-  if (Math.abs(x - me.x) > FIREWORKS.reach || Math.abs(y - me.y) > FIREWORKS.reach) {
-    return refuse("out_of_reach", `Set it off within ${FIREWORKS.reach} tiles of you.`);
-  }
+  const far = outOfReachHere(
+    state,
+    me,
+    { x, y },
+    FIREWORKS.reach,
+    `Set it off within ${FIREWORKS.reach} tiles of you.`,
+  );
+  if (far) return far;
   const { px, py } = plotOf(state.config, x, y);
   const plot = state.plots[`${px},${py}`];
   if (!isCommons(state, px, py) && !(plot && canBuildOn(plot, actor))) {

@@ -344,6 +344,8 @@ describe("REST", () => {
       );
       expect(short.body.ok).toBe(true);
       expect(short.body.moved).toBeLessThan(10);
+      // And says what stopped it: the refusal of the step it didn't take.
+      expect(short.body.stopped.code).toBe("out_of_bounds");
       expect(short.body.events.filter((e: { type: string }) => e.type === "moved")).toHaveLength(
         short.body.moved,
       );
@@ -380,6 +382,8 @@ describe("REST", () => {
       // The bucket refills as the walk runs, so pin that it ran out rather than the exact tile.
       expect(walked.body.moved).toBeGreaterThanOrEqual(4);
       expect(walked.body.moved).toBeLessThan(6);
+      // Nothing was in the way, so the answer says it was the actions that ran out.
+      expect(walked.body.stopped.code).toBe("rate_limited");
     });
 
     it("takes one step for a climb and for a dry run", async () => {

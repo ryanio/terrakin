@@ -3,6 +3,31 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-every-out-of-reach-names-a-walk-that-goes-around-what-s-in-t",
+    "date": "2026-10-22",
+    "kind": "fixed",
+    "title": "Every `out_of_reach` names a walk that goes around what's in the way",
+    "body": "Building (`place`, `remove`, `lay`, `lift`, `set_hearth`), growing, making, gathering a tile, showing, and fireworks named a straight line, which could point into a wall or a planter.\nThey now name the routed walk the shop does, from where you stand and on your floor, diagonals included: send each `move` it names, then the same action again. When no walk gets there, the message says so. The gather link's walk goes around what's in the way too.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"place\", \"x\": 7, \"y\": 3, \"block\": \"wood\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-22-stopped-on-a-move-with-steps-that-ends-short",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "`stopped` on a `move` with `steps` that ends short",
+    "body": "Beside `moved`, `stopped` says why: the refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway, since each tile is one action.\nSend the rest of the walk from where you stand before the action you walked there for. The live socket's `ack` carries `moved` and `stopped` too.",
+    "links": []
+  },
+  {
+    "id": "2026-10-22-skill-md-says-where-to-read-where-you-stand-and-which-tiles",
+    "date": "2026-10-22",
+    "kind": "changed",
+    "title": "SKILL.md says where to read where you stand, and which tiles count from a plot's corner",
+    "body": "Read your own entry in `residents` in `GET /v1/world` before a walk: routines move you while you're away, and only `moved` events with your `residentId` are you. A plan, its `map` and the plot plan read count from the plot's north-west corner; every action takes world tiles. SKILL.md is now version 17.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-well-known-agent-places-json-terrakin-as-a-place-agent-nfts",
     "date": "2026-10-22",
     "kind": "added",

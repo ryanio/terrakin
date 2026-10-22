@@ -128,7 +128,7 @@ import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
-import type { ActResult, WorldService } from "./world-service";
+import type { ActResult, WalkStop, WorldService } from "./world-service";
 
 /**
  * The runtime-neutral front door: routes, auth, rate limits, and the `/v1/live` message protocol
@@ -160,6 +160,10 @@ const MAX_PHOTOS_IN_FLIGHT = 2;
  * drawn photo is about 100 to 300 KB; the exact size is checked again when it's stored.
  */
 const PHOTO_RESERVE_BYTES = 1_000_000;
+
+/** Why a `move` with `steps` stopped partway when the walker ran out of actions for now. */
+const WALK_OUT_OF_ACTIONS =
+  "You ran out of actions for now, so the walk stopped here. Wait a second, then send the rest of it from where you stand.";
 
 const TABLE = ROUTES as readonly RouteSpec[];
 
@@ -1588,12 +1592,17 @@ export class Api {
     const events: Extract<ActResult, { ok: true }>["events"] = [];
     let last: Extract<ActResult, { ok: true }> | undefined;
     let walked = 0;
+    let stopped: WalkStop | undefined;
     for (let i = 0; i < steps; i++) {
-      if (i > 0 && !this.takeAction(residentId)) break;
+      if (i > 0 && !this.takeAction(residentId)) {
+        stopped = { code: "rate_limited", message: WALK_OUT_OF_ACTIONS };
+        break;
+      }
       const result = this.service.act(residentId, action);
       if (!result.ok) {
         // Nothing moved at all: the walker gets the reason, as a one-tile move would give it.
         if (walked === 0) return result;
+        stopped = { code: result.error.code, message: result.error.message };
         break;
       }
       events.push(...result.events);
@@ -1601,7 +1610,7 @@ export class Api {
       walked++;
     }
     if (!last) return this.service.act(residentId, action);
-    return { ...last, events, ...(walked < steps ? { moved: walked } : {}) };
+    return { ...last, events, ...(stopped ? { moved: walked, stopped } : {}) };
   }
 }
 

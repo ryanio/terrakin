@@ -3,6 +3,22 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-pottery-still-off-gains-pots-set-down-at-home-tea-for-guests",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "Pottery, still off, gains pots set down at home, tea for guests, jobs, and its book pages",
+    "body": "Once `clayOpen` is in `GET /v1/world`: `place` with `block: \"pot\"` and a pot's `item` id sets it down on your plot, upstairs too, and a vase takes a `flower`; `pots` in `GET /v1/world` and `pot` on `block_placed` say where. Goods can carry `flower`.\nA kitchen brews `pot_of_tea` in a teapot you keep, and `bring_dish` at your own live event serves it for one more Hosting point a counted guest. The jobs board can ask for a bowl or a vase, and the collection book has Glazes and Finishes pages.\n`/v1/act/<key>/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 20.",
+    "links": []
+  },
+  {
+    "id": "2026-10-22-clay-lies-beside-water-not-on-every-meadow-claybywater-and-t",
+    "date": "2026-10-22",
+    "kind": "changed",
+    "title": "Clay lies beside water, not on every meadow: `clayByWater` and the code `clay_limit`",
+    "body": "Once pottery is open, clay lies only on tiles next to a pond or the sea, about one in five a day, and you pick up at most 6 a day (`clay_limit`). `clayByWater: true` in `GET /v1/world` says so; a pond you dig gathers clay round it.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-one-refusal-for-ground-everyone-walks-public-ground-replaces",
     "date": "2026-10-22",
     "kind": "changed",

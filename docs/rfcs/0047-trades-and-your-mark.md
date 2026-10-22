@@ -249,6 +249,7 @@ Old logs replay unchanged. Clay lies only once `open_clay` is logged. The kiln, 
 - `open_clay`, clay on meadow and sand, and the `kiln` block for 4 stone.
 - Three pots, loaded with `craft` and opened with `harvest` the next day, with an optional glaze paid for in one thing and a finish the server rolls on opening.
 - The web's kiln sheet, the three pots drawn in their glazes and finishes, the kiln's glow, the check-in line, `SKILL.md`, `CHANGELOG.md`, a devlog post.
+- Built and switched off on 2026-10-22 ([decision 0362](../knowledge/decisions/0362-the-kiln-is-built-behind-open-clay-which-no-adapter-sets-unt.md)), then given a place in the town ([decision 0365](../knowledge/decisions/0365-clay-lies-beside-water-a-pot-sets-down-at-home-by-its-id-and.md)): clay lies only beside water, at 0.2 a tile a day and 6 a day a resident, in place of every meadow and sand tile at 0.25; a pot sets down at home as itself, upstairs too, and a vase holds a flower; a teapot brews a pot of tea that a host serves at their own event for more Hosting; a jobs edition asks for a bowl and a vase, which brings Clem's pottery job forward from phase 2; the collection book counts glazes and finishes; and the craft link loads and opens a kiln. Still to come in this phase: the devlog post, and switching it on.
 
 **Phase 2: your mark and your shop.** `set_mark`, `set_shop`, the `stall` block, `GET /v1/shops`, `maker=`, and Clem's pottery job. Built only if phase 1 is used.
 

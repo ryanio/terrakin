@@ -29,9 +29,10 @@
  *   --holiday-prices  `lower` (the default) logs `lower_holiday_prices` when the shop opens, as
  *                terrakin.org does; `before` leaves it out, so holiday stock costs decision 0107's
  *                prices (decision 0210)
- *   --kiln       the world logs `open_clay` (RFC 0047, off on terrakin.org until it's switched on),
- *                and some residents, drawn from their own stream, take up pottery: they pick up clay
- *                near home or walk for it, place a kiln, and fire a pot a day, buying the vase's and
+ *   --kiln       the world logs `open_clay` with `water` (RFC 0047, off on terrakin.org until
+ *                it's switched on), and some residents, drawn from their own stream, take up
+ *                pottery: they dig a pond, pick up the clay beside it or walk for more, place a
+ *                kiln, and fire a pot a day, buying the vase's and
  *                the teapot's cards as they can. Off by default, so the month plays as terrakin.org
  *                does; it prints RFC 0047's checks, to compare against the same month without it
  *   --no-cozy    makers never go on to the armchair, the sofa, and the bed (RFC 0044), so the month

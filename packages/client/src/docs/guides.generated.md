@@ -415,6 +415,8 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-22:
 
+- Added: Pottery, still off, gains pots set down at home, tea for guests, jobs, and its book pages
+- Changed: Clay lies beside water, not on every meadow: `clayByWater` and the code `clay_limit`
 - Changed: One refusal for ground everyone walks: `public_ground` replaces `public_way`
 - Changed: `teach` too far away is `out_of_reach`, with the walk; `not_near` is gone
 - Changed: A planned walk with too many steps is `too_far`

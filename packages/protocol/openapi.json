@@ -5508,6 +5508,7 @@
                 "bowl",
                 "vase",
                 "teapot",
+                "pot_of_tea",
                 "piece"
               ]
             }
@@ -15189,8 +15190,8 @@
     "/v1/act/{key}/craft": {
       "get": {
         "operationId": "linkCraft",
-        "summary": "Make something at a kitchen or workbench by your hearth: any recipe, by name. Without recipe, what you can make.",
-        "description": "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen or workbench within reach of your hearth (placing one inside your starter hut if there's none), and makes `recipe`. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
+        "summary": "Make something at a kitchen, workbench, or kiln by your hearth: any recipe, by name. Without recipe, what you can make.",
+        "description": "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen, workbench, or kiln within reach of your hearth (placing one inside your starter hut if there's none; a kiln takes 4 stone), and makes `recipe`. A pot (RFC 0047) is fired overnight: when your kiln holds a pot of yours that's ready, the same link takes it out first, at the finish the server rolls, and loads the next. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
         "tags": [
           "Links"
         ],
@@ -15251,6 +15252,7 @@
                 "bowl",
                 "vase",
                 "teapot",
+                "pot_of_tea",
                 "table",
                 "chair",
                 "bookshelf",
@@ -15284,6 +15286,25 @@
             "schema": {
               "type": "string",
               "maxLength": 40
+            }
+          },
+          {
+            "name": "glaze",
+            "in": "query",
+            "required": false,
+            "description": "Optional, for a pot only: its glaze, each but `bare` costing one thing as the kiln is loaded.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "bare",
+                "cream",
+                "sea",
+                "crystal",
+                "rose",
+                "honey",
+                "berry",
+                "moss"
+              ]
             }
           }
         ],
@@ -30049,7 +30070,8 @@
                     "armchair",
                     "sofa",
                     "bed",
-                    "kiln"
+                    "kiln",
+                    "pot"
                   ]
                 }
               },
@@ -30228,7 +30250,8 @@
               "armchair",
               "sofa",
               "bed",
-              "kiln"
+              "kiln",
+              "pot"
             ]
           },
           "windows": {
@@ -30285,7 +30308,8 @@
               "armchair",
               "sofa",
               "bed",
-              "kiln"
+              "kiln",
+              "pot"
             ]
           },
           "path": {
@@ -31719,6 +31743,7 @@
           "not_a_seat",
           "public_ground",
           "pottery_closed",
+          "clay_limit",
           "too_far",
           "bad_request",
           "unauthorized",
@@ -32204,6 +32229,13 @@
                 "$ref": "#/components/schemas/FinishName"
               }
             ]
+          },
+          "flower": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            ]
           }
         },
         "required": [
@@ -32251,7 +32283,8 @@
           "posy",
           "bowl",
           "vase",
-          "teapot"
+          "teapot",
+          "pot_of_tea"
         ]
       },
       "GroomPetAction": {
@@ -32718,6 +32751,7 @@
           "bowl",
           "vase",
           "teapot",
+          "pot_of_tea",
           "piece"
         ]
       },
@@ -33156,6 +33190,7 @@
           "bowl",
           "vase",
           "teapot",
+          "pot_of_tea",
           "piece"
         ]
       },
@@ -33588,7 +33623,20 @@
               "armchair",
               "sofa",
               "bed",
-              "kiln"
+              "kiln",
+              "pot"
+            ]
+          },
+          "item": {
+            "type": "string",
+            "pattern": "^i_[1-9][0-9]*$"
+          },
+          "flower": {
+            "type": "string",
+            "enum": [
+              "flower",
+              "sunflower",
+              "tulip"
             ]
           },
           "dry": {
@@ -33815,7 +33863,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "1": {
@@ -33871,7 +33920,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "2": {
@@ -33927,7 +33977,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "3": {
@@ -33983,7 +34034,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "4": {
@@ -34039,7 +34091,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "5": {
@@ -34095,7 +34148,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "6": {
@@ -34151,7 +34205,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "7": {
@@ -34207,7 +34262,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "8": {
@@ -34263,7 +34319,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "9": {
@@ -34319,7 +34376,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               }
             },
@@ -34423,7 +34481,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "1": {
@@ -34479,7 +34538,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "2": {
@@ -34535,7 +34595,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "3": {
@@ -34591,7 +34652,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "4": {
@@ -34647,7 +34709,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "5": {
@@ -34703,7 +34766,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "6": {
@@ -34759,7 +34823,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "7": {
@@ -34815,7 +34880,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "8": {
@@ -34871,7 +34937,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "9": {
@@ -34927,7 +34994,8 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               }
             },
@@ -35042,7 +35110,8 @@
                         "armchair",
                         "sofa",
                         "bed",
-                        "kiln"
+                        "kiln",
+                        "pot"
                       ]
                     }
                   },
@@ -35621,6 +35690,7 @@
           "bowl",
           "vase",
           "teapot",
+          "pot_of_tea",
           "table",
           "chair",
           "bookshelf",
@@ -35691,7 +35761,8 @@
           "bed",
           "bowl",
           "vase",
-          "teapot"
+          "teapot",
+          "pot_of_tea"
         ]
       },
       "ReleaseAction": {
@@ -38527,11 +38598,19 @@
                   "armchair",
                   "sofa",
                   "bed",
-                  "kiln"
+                  "kiln",
+                  "pot"
                 ]
               },
               "by": {
                 "type": "string"
+              },
+              "pot": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GoodEventView"
+                  }
+                ]
               }
             },
             "required": [
@@ -41129,6 +41208,12 @@
                 "enum": [
                   "clay_opened"
                 ]
+              },
+              "water": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
               }
             },
             "required": [
@@ -42968,7 +43053,8 @@
                     "armchair",
                     "sofa",
                     "bed",
-                    "kiln"
+                    "kiln",
+                    "pot"
                   ]
                 }
               },
@@ -43184,6 +43270,48 @@
               ]
             }
           },
+          "pots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "good": {
+                  "$ref": "#/components/schemas/GoodEventView"
+                },
+                "by": {
+                  "type": "string"
+                },
+                "trust": {
+                  "type": "string",
+                  "enum": [
+                    "untrusted"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "good",
+                "by"
+              ]
+            }
+          },
           "kilns": {
             "type": "array",
             "items": {
@@ -43334,6 +43462,12 @@
             ]
           },
           "clayOpen": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "clayByWater": {
             "type": "boolean",
             "enum": [
               true
@@ -48891,6 +49025,13 @@
               }
             ]
           },
+          "flower": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
+            ]
+          },
           "trust": {
             "type": "string",
             "enum": [
@@ -51903,7 +52044,7 @@
         "properties": {
           "kind": {
             "type": "string",
-            "description": "A kind from `GET /v1/catalog`, or in the `wear` group, a piece of wear."
+            "description": "A kind from `GET /v1/catalog`, or in the `wear` group a piece of wear, in `glazes` a glaze, and in `finishes` a finish."
           },
           "name": {
             "type": "string"
@@ -54297,7 +54438,8 @@
                     "armchair",
                     "sofa",
                     "bed",
-                    "kiln"
+                    "kiln",
+                    "pot"
                   ]
                 }
               },
@@ -54356,7 +54498,8 @@
                     "armchair",
                     "sofa",
                     "bed",
-                    "kiln"
+                    "kiln",
+                    "pot"
                   ]
                 }
               },

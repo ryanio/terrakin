@@ -8,6 +8,7 @@ import {
 import {
   AWARDS,
   awardedInWindow,
+  type Command,
   circleById,
   findBounty,
   findEvent,
@@ -38,6 +39,8 @@ import { reportable, type SnapshotHeader } from "../snapshots";
 import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
 import { cleanText } from "../text";
+import { planWays } from "../way-plan";
+import { wayFactsFrom, wayInputs, wayNotices, wayRefusal } from "../ways";
 import {
   DAILY_CAP_RETRY_SECONDS,
   fail,
@@ -509,6 +512,43 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         social().blockCleared(plot.ownerId, { x, y, block });
       }
       return { status: 200, body: { owner, x, y, block, walksOut, cleared: !dry } };
+    },
+    // A maintainer plans downtown's public ways and lays them (RFC 0046): every input is checked
+    // against a copy of the world first, so the network goes in whole or not at all, and each
+    // owner whose plot changed hears it from Terrakin.
+    layWays: ({ viewer, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const { state } = service;
+      const plan = planWays(wayFactsFrom(state), { layFree: body.layFree === true });
+      const inputs = wayInputs(plan, state.config.plotSize);
+      const refusal = wayRefusal(state, inputs);
+      const answer = {
+        ...plan,
+        inputs: inputs.length,
+        refused: refusal && {
+          code: refusal.rejection.code,
+          message: `${refusal.command.type}: ${refusal.rejection.message}`,
+        },
+        laid: false,
+      };
+      if (body.dry === true || refusal || inputs.length === 0) return { status: 200, body: answer };
+      for (const command of inputs) {
+        const done = service.wayInput(
+          command as Extract<Command, { type: "clear_block" | "open_way" | "rebuild_home" }>,
+        );
+        if (!done.ok) return fail(done.error.code, done.error.message);
+      }
+      for (const { ownerId, notice } of wayNotices(plan)) {
+        social().safety.recordNote(
+          viewer,
+          "open_way",
+          "resident",
+          ownerId,
+          `On ${notice.px},${notice.py}: ${body.reason}`,
+        );
+        social().wayLaid(ownerId, notice);
+      }
+      return { status: 200, body: { ...answer, laid: true } };
     },
     // A duplicate record merged into the one that stays (issue #46, decision 0239). What moves is
     // read before the merge, which takes the duplicate out of the world.

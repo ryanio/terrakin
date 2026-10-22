@@ -2229,6 +2229,15 @@ export class SocialService {
   }
 
   /**
+   * Tell a plot's owner the town laid a public way across their plot (RFC 0046): one notice from
+   * Terrakin itself, with the plot, how many tiles, the blocks given back, and whether their home
+   * was rebuilt, and no words, since the maintainer's reason stays in the moderation log.
+   */
+  wayLaid(recipient: string, way: WayLaidDetail) {
+    this.systemNotice(recipient, "way_laid", JSON.stringify(way));
+  }
+
+  /**
    * Tell a plot's seller it sold (RFC 0039): one notice from Terrakin itself, carrying the plot, its
    * price, and the coins that reached them, and no words. It never names the buyer, as the item
    * market never does, though the plot's new owner is on the map for anyone to see.
@@ -2394,6 +2403,7 @@ export class SocialService {
       if (type === "job_done") return this.jobDoneView(row, detail);
       if (type === "award") return this.awardView(row, detail);
       if (type === "block_cleared") return this.clearedView(row, detail);
+      if (type === "way_laid") return this.wayView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
       if (type === "passkey_bound" || type === "passkey_signin") {
@@ -2531,6 +2541,13 @@ export class SocialService {
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "block_cleared"), cleared: parsed.data }];
+  }
+
+  /** A stored way-laid notice (RFC 0046) as the plot's owner reads it. */
+  private wayView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = WayLaidDetail.safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "way_laid"), way: parsed.data }];
   }
 
   /** A stored plot-sold notice (RFC 0039) as the seller reads it. */
@@ -3178,7 +3195,18 @@ type SystemNoticeType =
   | "passkey_bound"
   | "passkey_signin"
   | "block_cleared"
-  | "plot_sold";
+  | "plot_sold"
+  | "way_laid";
+
+/** What a way-laid notice keeps (RFC 0046): the plot, counts, tiles and kinds, and no words. */
+const WayLaidDetail = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  tiles: z.number().int(),
+  blocks: z.array(z.object({ x: z.number().int(), y: z.number().int(), block: z.string() })),
+  rebuilt: z.boolean(),
+});
+type WayLaidDetail = z.infer<typeof WayLaidDetail>;
 
 /** What a circle notice (RFC 0033) keeps: ids only, read back as the world has them now. */
 const CircleNoticeDetail = z.object({

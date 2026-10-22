@@ -153,6 +153,11 @@ describe("a listed plot is frozen", () => {
       },
     ],
     [TOWN_ACTOR, { type: "clear_block", x: 1, y: 1 }],
+    [TOWN_ACTOR, { type: "open_way", tiles: [[0, 7]] }],
+    [
+      TOWN_ACTOR,
+      { type: "rebuild_home", px: 0, py: 0, blocks: [{ x: 0, y: 7, block: "door" }], remove: [] },
+    ],
   ] as [string, Command][];
 
   it.each(frozen)("%s %j is refused with plot_listed", (actor, command) => {

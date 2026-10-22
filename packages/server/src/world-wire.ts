@@ -82,6 +82,10 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
     ) {
       continue;
     }
+    if (e.type === "ways_opened" || e.type === "ways_closed") {
+      out.push({ ...e, tiles: e.tiles.map(([x, y]) => ({ x, y })) });
+      continue;
+    }
     if (e.type === "land_opened") {
       // Plot slots and bridge tiles are `[x, y]` pairs in the sim and named coordinates on the
       // wire, as the snapshot's `lands` has them.
@@ -394,6 +398,21 @@ function landsField(state: WorldState) {
   };
 }
 
+/**
+ * Public ways (RFC 0046), north to south, then west to east, once there are any: a world that never
+ * laid one reads as it always did.
+ */
+function waysField(state: WorldState) {
+  if (!state.ways) return {};
+  const ways = Object.keys(state.ways)
+    .map((key) => {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      return { x, y };
+    })
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  return { ways };
+}
+
 /** The world as `GET /v1/world` and a socket's `welcome` show it. */
 export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldSnapshot {
   const { nowMs, hash, facing, routineSteps, noteHidden, repeatJoins } = extras;
@@ -455,6 +474,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     },
     commons: commonsPlot(state),
     ...landsField(state),
+    ...waysField(state),
     residents: Object.values(state.residents).flatMap((r) =>
       isTownsfolk(state, r.id) ? [] : [view(r)],
     ),

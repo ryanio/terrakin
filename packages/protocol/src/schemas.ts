@@ -1766,6 +1766,13 @@ export const WorldSnapshot = z.object({
       ),
     })
     .optional(),
+  /**
+   * Public ways (RFC 0046), absent until the town lays the first: tiles of plots, or of free slots,
+   * that hold no block on the ground floor, so nobody can wall the way to town. Anyone walks them;
+   * the plot stays its owner's, who may lay a path or flooring there and build upstairs over one.
+   * A step from a plot onto a way counts as a way out, like a step onto ground nobody has claimed.
+   */
+  ways: z.array(z.object({ x: z.number().int(), y: z.number().int() })).optional(),
   residents: z
     .array(ResidentView)
     .describe(
@@ -2309,6 +2316,26 @@ export const WorldEvent = z.discriminatedUnion("type", [
     square: z.object({ px: z.number().int(), py: z.number().int() }),
     /** Its streets, which nobody claims and anyone walks (RFC 0046). Absent when it has none. */
     streets: z.array(z.object({ px: z.number().int(), py: z.number().int() })).optional(),
+  }),
+  /** The town made these tiles public ways (RFC 0046): from now on they hold no block. */
+  z.object({
+    type: z.literal("ways_opened"),
+    tiles: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  }),
+  /** The town took these tiles off the public ways. */
+  z.object({
+    type: z.literal("ways_closed"),
+    tiles: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  }),
+  /**
+   * The town rebuilt the home on plot (`px`, `py`) after a way cut through it, with a door onto
+   * the way. The blocks it moved come as the build's own `block_placed` and `block_removed`.
+   */
+  z.object({
+    type: z.literal("home_rebuilt"),
+    px: z.number().int(),
+    py: z.number().int(),
+    ownerId: z.string(),
   }),
   /** The market opened (RFC 0008): `GET /v1/market`. */
   z.object({ type: z.literal("market_opened") }),

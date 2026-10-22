@@ -3,6 +3,7 @@ import { plotKey, tileKey } from "./keys";
 import { isStreet, onLand, seaFrom } from "./lands";
 import type { Direction, ResidentId, Tile, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
+import { isWay } from "./ways";
 import {
   blocksWalkers,
   inBounds,
@@ -17,8 +18,8 @@ import {
  * A plot's way out (decision 0351). A claimed plot has an **opening** when a walk on its own tiles,
  * from a hearth on it, reaches a tile on its edge from which one step (the sim's own `stepFrom`,
  * eight ways, never past a corner) lands on open ground: a tile nobody has claimed, like the
- * Commons, a town square, a land's street (RFC 0046), a plot slot still free, or a bridge, with
- * nothing on it that stops a
+ * Commons, a town square, a land's street (RFC 0046), a plot slot still free, a bridge, or a public
+ * way on anyone's plot (RFC 0046, which amends decision 0351), with nothing on it that stops a
  * walker. A step into a neighbour's yard is no opening, however open the yard is: a home that
  * reaches the town only across someone else's plot is **landlocked**, because the neighbour can
  * close that way at any time on their own land. Doors are open (`blocksWalkers`), and a lock, if
@@ -35,6 +36,11 @@ export interface OpeningFacts {
   ground: Ground;
   /** Whether plot slot (`px`, `py`) is someone's. A step onto it is no way out. */
   claimed(px: number, py: number): boolean;
+  /**
+   * Whether a tile is a public way (RFC 0046): open ground for a way out even on someone's plot,
+   * since it holds no block. Left out where there are none.
+   */
+  way?(x: number, y: number): boolean;
 }
 
 /** One way out: the tile on the plot's edge, and the open tile one step past it, in world tiles. */
@@ -88,7 +94,7 @@ export function openingsOf(
         continue;
       }
       const slot = plotOf(ground.config, to.x, to.y);
-      if (!facts.claimed(slot.px, slot.py)) out.push({ from: at, to });
+      if (!facts.claimed(slot.px, slot.py) || facts.way?.(to.x, to.y)) out.push({ from: at, to });
     }
   }
   return out;
@@ -143,7 +149,7 @@ function touchesOpenGround(facts: OpeningFacts, px: number, py: number): boolean
       const ring = x === px * S - 1 || x === px * S + S || y === py * S - 1 || y === py * S + S;
       if (!ring || !inBounds(config, x, y) || facts.ground.obstacle(x, y) === "sea") continue;
       const slot = plotOf(config, x, y);
-      if (!facts.claimed(slot.px, slot.py)) return true;
+      if (!facts.claimed(slot.px, slot.py) || facts.way?.(x, y)) return true;
     }
   }
   return false;
@@ -171,6 +177,7 @@ export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts 
       ...(sea ? { sea } : {}),
     }),
     claimed: (px, py) => state.plots[plotKey(px, py)] !== undefined,
+    ...(state.ways ? { way: (x: number, y: number) => isWay(state, x, y) } : {}),
   };
 }
 
@@ -241,9 +248,10 @@ export function claimWaysFrom(
         const ny = py + dy;
         if ((dx === 0 && dy === 0) || !facts.claimed(nx, ny)) continue;
         const theirs = openings(nx, ny);
+        // A step onto a way stays a way out after the claim: the way holds no block (RFC 0046).
         const kept = theirs.some((o) => {
           const slot = plotOf(config, o.to.x, o.to.y);
-          return slot.px !== px || slot.py !== py;
+          return slot.px !== px || slot.py !== py || facts.way?.(o.to.x, o.to.y) === true;
         });
         if (theirs.length > 0 && !kept) seals.push({ px: nx, py: ny, lost: theirs });
       }
@@ -344,7 +352,7 @@ export function doorFacing(
     const wy = py * S + y;
     if (!inBounds(facts.ground.config, wx, wy) || facts.ground.obstacle(wx, wy)) return false;
     const slot = plotOf(facts.ground.config, wx, wy);
-    return !facts.claimed(slot.px, slot.py);
+    return !facts.claimed(slot.px, slot.py) || facts.way?.(wx, wy) === true;
   };
   if (!ALONG.includes(out)) return { faces: false };
   if (faces(door, out)) return { faces: true };

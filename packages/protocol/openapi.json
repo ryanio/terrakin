@@ -31684,6 +31684,7 @@
           "already_brought",
           "not_food",
           "not_a_seat",
+          "public_way",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -39413,6 +39414,110 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "ways_opened"
+                ]
+              },
+              "tiles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type",
+              "tiles"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ways_closed"
+                ]
+              },
+              "tiles": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type",
+              "tiles"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "home_rebuilt"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "ownerId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "ownerId"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "market_opened"
                 ]
               }
@@ -42441,6 +42546,28 @@
               "list"
             ]
           },
+          "ways": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
           "residents": {
             "type": "array",
             "items": {
@@ -44062,7 +44189,8 @@
           "passkey_bound",
           "passkey_signin",
           "block_cleared",
-          "plot_sold"
+          "plot_sold",
+          "way_laid"
         ]
       },
       "NotificationView": {
@@ -44198,6 +44326,62 @@
               "x",
               "y",
               "block"
+            ]
+          },
+          "way": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "tiles": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "blocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "block": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "block"
+                  ]
+                }
+              },
+              "rebuilt": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "tiles",
+              "blocks",
+              "rebuilt"
             ]
           },
           "sold": {
@@ -46430,6 +46614,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "open_way": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -46459,7 +46648,8 @@
               "clear_circle_notice",
               "disband_circle",
               "award_grant",
-              "clear_block"
+              "clear_block",
+              "open_way"
             ]
           },
           "suspendedNow": {

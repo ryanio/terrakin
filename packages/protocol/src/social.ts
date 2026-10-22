@@ -1053,6 +1053,13 @@ export const NOTIFICATION_TYPES = [
    * hearth there, if you had one, was cleared.
    */
   "plot_sold",
+  /**
+   * From Terrakin itself, not a resident: the town laid a public way across a plot of yours, so
+   * everyone has a walk to town that nobody can wall (RFC 0046). `way` says which plot, how many
+   * of its tiles are now a way, the blocks that stood there and went back to your things, and
+   * whether the town rebuilt your home with a door onto the way.
+   */
+  "way_laid",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1192,6 +1199,20 @@ export const NotificationView = z.object({
    * From Terrakin itself (`system: true`), and it carries no words.
    */
   cleared: z.object({ x: z.number().int(), y: z.number().int(), block: z.string() }).optional(),
+  /**
+   * For a `way_laid`: the plot a public way now crosses, how many of its tiles are the way (they
+   * hold no block), the blocks the town took off them and gave back, and whether it rebuilt your
+   * home with a door onto the way (RFC 0046). From Terrakin itself (`system: true`), no words.
+   */
+  way: z
+    .object({
+      px: z.number().int(),
+      py: z.number().int(),
+      tiles: z.number().int(),
+      blocks: z.array(z.object({ x: z.number().int(), y: z.number().int(), block: z.string() })),
+      rebuilt: z.boolean(),
+    })
+    .optional(),
   /**
    * For a `plot_sold`: the plot you sold, its price, and the coins that reached you, the price
    * less the market's fee (RFC 0039). From Terrakin itself (`system: true`), and it carries no

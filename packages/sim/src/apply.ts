@@ -193,6 +193,7 @@ import {
 import { checkClearPlotName, checkNamePlot } from "./plot-names";
 import { checkImplicitPresence, checkLeaveIdle, type PresenceChecked } from "./presence";
 import { isDirection, PUTTER_MAX_STEPS } from "./putter";
+import { checkRebuildHome } from "./rebuild-home";
 import {
   checkBuyCard,
   checkOpenRecipes,
@@ -255,6 +256,7 @@ import {
 } from "./types";
 import { checkVisit } from "./visit";
 import { checkSolidBuildings, STEPS_GO, stepFrom, walkSteps } from "./walk";
+import { checkCloseWay, checkOpenWay, wayProblem } from "./ways";
 import {
   canBuildOn,
   chebyshev,
@@ -864,6 +866,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkClearPlotName(state, command));
       case "clear_block":
         return town(checkClearBlock(state, command));
+      case "open_way":
+        return town(checkOpenWay(state, command));
+      case "close_way":
+        return town(checkCloseWay(state, command));
+      case "rebuild_home":
+        return town(checkRebuildHome(state, command));
       case "set_entitlements":
         return town(checkSetEntitlements(state, command));
       case "open_bounties":
@@ -1308,6 +1316,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");
       }
+      // A public way holds no block on the ground floor (RFC 0046).
+      const onWay = wayProblem(state, x, y, floor);
+      if (onWay) return { ok: false, rejection: onWay };
       const unheld = blockProblem(state, plot, x, y, floor, block);
       if (unheld) return { ok: false, rejection: unheld };
       const cost = blockPlaceProblem(state, actor, block);
@@ -1424,6 +1435,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         const key = tileKey(b.x, b.y);
         return onPlot(b) && !blockAt(b) && !hearths.has(key) && !others.has(key);
       });
+      // A public way holds no block, so a hut that would wall one isn't built (RFC 0046).
+      const walled = blocks.map((b) => wayProblem(state, b.x, b.y)).find((p) => p !== null);
+      if (walled) return { ok: false, rejection: walled };
       // The builder steps onto the hearth tile rather than get walled in. If that tile holds a
       // block, the wall where they stand stays open instead. Upstairs, a wall below is no matter.
       let moveTo: Tile | null = null;

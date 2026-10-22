@@ -22,6 +22,7 @@ import {
   notificationLine,
   soldLine,
   takedownLine,
+  wayLine,
 } from "./notifications-view";
 import {
   applyReaction,
@@ -724,6 +725,25 @@ describe("the notice when the team opens a way out of a home (decision 0343)", (
     expect(chair.line).toContain("69, 31");
     expect(chair.next).toMatch(/^What it cost is back in your things/);
     expect(clearedLine({ x: 1, y: 1, block: "wood" }).next).toMatch(/^It was a free block/);
+  });
+});
+
+describe("the notice when the town lays a way across your plot (RFC 0046)", () => {
+  it.each([
+    [{ px: 3, py: 2, tiles: 8, blocks: [], rebuilt: false }, /^Nothing on your plot was moved/],
+    [
+      { px: 3, py: 2, tiles: 1, blocks: [{ block: "fence" }], rebuilt: false },
+      /^The block that stood there/,
+    ],
+    [
+      { px: 8, py: 3, tiles: 2, blocks: [{ block: "chair" }], rebuilt: true },
+      /rebuilt it with a door onto the way\.$/,
+    ],
+  ])("names the plot and the tiles, and says what moved", (way, next) => {
+    const said = wayLine(way);
+    expect(said.line).toContain(`your plot at ${way.px}, ${way.py}`);
+    expect(said.line).toContain(way.tiles === 1 ? "1 tile " : `${way.tiles} tiles `);
+    expect(said.next).toMatch(next);
   });
 });
 

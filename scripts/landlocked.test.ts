@@ -29,6 +29,12 @@ describe("the landlocked check (decision 0351)", () => {
     ]);
   });
 
+  it("reads the snapshot's ways: a step onto one is a way out, on whoever's plot (RFC 0046)", () => {
+    const walled = world([{ x: 8, y: 7, block: "stone" }]);
+    const ways = Array.from({ length: 8 }, (_, y) => ({ x: 8, y }));
+    expect(landlockedIn({ ...walled, ways })).toEqual([]);
+  });
+
   it("writes an issue that counts them and names each by its coordinates and owner's id", () => {
     const found = landlockedIn(world([{ x: 8, y: 7, block: "stone" }]));
     const body = issueBody(found, 3, "https://terrakin.org");

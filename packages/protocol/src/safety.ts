@@ -210,6 +210,8 @@ export const MODERATION_ACTIONS = [
   "award_grant",
   /** A maintainer took a block off a plot to open a way out of a home (decision 0343). */
   "clear_block",
+  /** A maintainer laid downtown's public ways, clearing and rebuilding what stood on them (RFC 0046). */
+  "open_way",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;
@@ -358,6 +360,51 @@ export const StaffClearBlockResponse = z.object({
   cleared: z.boolean(),
 });
 export type StaffClearBlockResponse = z.infer<typeof StaffClearBlockResponse>;
+
+/** Plan downtown's public ways, and lay them unless `dry` (RFC 0046). */
+export const StaffWaysRequest = z.object({
+  reason: Reason,
+  /** Plan it and check every input with the sim, without laying anything. */
+  dry: z.boolean().optional(),
+  /** Lay ways across the free slots the network runs over too, so a later claim can't cut it. */
+  layFree: z.boolean().optional(),
+});
+export type StaffWaysRequest = z.infer<typeof StaffWaysRequest>;
+
+/**
+ * A plan for downtown's public ways (RFC 0046): every way tile, the tiles on each plot with whose
+ * it is, the blocks the town clears and gives back, the homes it rebuilds with a door onto the
+ * way, the targets it couldn't join, the first input the sim would refuse, and whether it was laid.
+ */
+export const StaffWaysResponse = z.object({
+  tiles: z.array(TileXY),
+  plots: z.array(
+    z.object({
+      px: z.number().int(),
+      py: z.number().int(),
+      ownerId: z.string(),
+      townsfolk: z.boolean(),
+      tiles: z.array(TileXY),
+    }),
+  ),
+  free: z.array(TileXY),
+  blocks: z.array(TileXY.extend({ block: z.string(), ownerId: z.string() })),
+  homes: z.array(
+    z.object({
+      px: z.number().int(),
+      py: z.number().int(),
+      ownerId: z.string(),
+      walls: z.array(TileXY),
+      rebuild: z.array(TileXY.extend({ block: z.string() })),
+      left: z.array(TileXY),
+    }),
+  ),
+  unjoined: z.array(z.object({ target: z.string(), why: z.string() })),
+  inputs: z.number().int(),
+  refused: z.object({ code: z.string(), message: z.string() }).nullable(),
+  laid: z.boolean(),
+});
+export type StaffWaysResponse = z.infer<typeof StaffWaysResponse>;
 
 /**
  * Every hearth with no walk to its shop counter, how many tiles its walk reaches, and the blocks

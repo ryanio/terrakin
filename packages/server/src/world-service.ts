@@ -1289,6 +1289,17 @@ export class WorldService {
   }
 
   /**
+   * One of the town's inputs that lay downtown's public ways (RFC 0046): a `clear_block`, an
+   * `open_way`, or a `rebuild_home`, in the order `wayInputs` gives them. The staff route checks
+   * the whole list against a copy of the world first.
+   */
+  wayInput(
+    command: Extract<Command, { type: "clear_block" | "open_way" | "close_way" | "rebuild_home" }>,
+  ): ActResult {
+    return this.run({ actor: TOWN_ACTOR, command });
+  }
+
+  /**
    * A maintainer merges the duplicate record `from` into `into`, the record that stays (decision
    * 0239). `dry` checks it with the sim and changes nothing.
    */

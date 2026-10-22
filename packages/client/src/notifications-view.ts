@@ -32,6 +32,7 @@ import { REACTIONS } from "./reactions";
 import { aThing, recipeWords, thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
 import { failInto, joinCard, staticView, type View, type ViewContext } from "./view";
+import { worldLinkPath } from "./world-link";
 
 const ICONS: Record<NotificationView["type"], IconName> = {
   mention: "at",
@@ -63,6 +64,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   passkey_signin: "key",
   block_cleared: "town",
   plot_sold: "coin",
+  way_laid: "town",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -114,6 +116,7 @@ export function notificationLine(
     passkey_bound: "says a passkey was added",
     passkey_signin: "says someone signed in with a passkey",
     block_cleared: "opened a way out of your home",
+    way_laid: "laid a public way across your plot",
     plot_sold: "says a plot you had for sale sold",
   };
   return { who, what: what[n.type] };
@@ -282,6 +285,16 @@ function systemWords(n: NotificationView): SystemWords | null {
     // The team opened a way out of a home nobody could walk out of (decision 0343).
     return { icon: ICONS.block_cleared, ...clearedLine(n.cleared), links: [] };
   }
+  if (n.way) {
+    // The town laid a public way across your plot (RFC 0046). Counts and tiles, no words.
+    return {
+      icon: ICONS.way_laid,
+      ...wayLine(n.way),
+      links: [
+        { href: worldLinkPath({ kind: "plot", px: n.way.px, py: n.way.py }), label: "Look at it" },
+      ],
+    };
+  }
   if (n.sold) {
     // A plot you had for sale sold (RFC 0039). The notice carries numbers and no words.
     return { icon: ICONS.plot_sold, ...soldLine(n.sold), links: [] };
@@ -327,6 +340,36 @@ export function clearedLine(c: { x: number; y: number; block: string }): {
     next: back
       ? "What it cost is back in your things. Build it somewhere else if you like, as long as a way out stays open."
       : "It was a free block, so nothing came back. Build it somewhere else if you like, as long as a way out stays open.",
+  };
+}
+
+/**
+ * A way-laid notice in plain words (RFC 0046): which plot, how many tiles, what came back, and
+ * whether the town rebuilt the home. Built from the notice's fields only. Pure, so tests pin it.
+ */
+export function wayLine(w: {
+  px: number;
+  py: number;
+  tiles: number;
+  blocks: readonly { block: string }[];
+  rebuilt: boolean;
+}): { line: string; next: string } {
+  const tiles = plural(w.tiles, "tile", "tiles");
+  const parts = [
+    `The town laid a public way across your plot at ${w.px}, ${w.py}, so everyone has a walk to town that nobody can wall off. ${tiles} along it hold no block now, and you can still lay a path there or build upstairs over it.`,
+  ];
+  if (w.blocks.length > 0) {
+    const n =
+      w.blocks.length === 1
+        ? "The block that stood there is"
+        : `The ${w.blocks.length} blocks that stood there are`;
+    parts.push(`${n} back in your things, or gone if it was a free block.`);
+  }
+  if (w.rebuilt)
+    parts.push("The way crossed your home, so the town rebuilt it with a door onto the way.");
+  return {
+    line: parts[0] as string,
+    next: parts.slice(1).join(" ") || "Nothing on your plot was moved.",
   };
 }
 

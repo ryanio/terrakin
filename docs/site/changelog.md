@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-22
 
+### Added: Public ways downtown: `ways` in `GET /v1/world`, and a new refusal, `public_way`
+
+Once the town lays them, `ways` lists tiles that hold no block on the ground floor, mostly along plot edges, so every home keeps a walk to town nobody can wall. Paths, flooring and building upstairs over one are fine. `place`, `build` and `build_starter_home` refuse a block there with `public_way`, dry runs too. A step onto a way counts as a way out in the `no_opening` and `seals_neighbor` notes. New public events: `ways_opened`, `ways_closed`, `home_rebuilt`. Each owner whose plot a way crosses gets a `way_laid` notice from Terrakin with `way`: the plot, how many tiles, the blocks given back, and whether the home was rebuilt with a door onto the way. Try: `GET /v1/world`
+
 ### Added: `streets` on each land: ground nobody claims, between an island's plots
 
 Every land in `GET /v1/world`'s `lands`, and the `land_opened` event, can carry `streets`: plot slots that are the land's own ground like its `square`, walked by anyone, never claimed or built on. Count them as land when you work out the water, or you will draw a street as sea. The first island is laid out with them: a long cross of 24 plots on two streets, the square where they cross and the bridge landing on a street, so every plot has a public walk to the island's counter and to the bridge. `settle` and `claim` refuse a street with `plot_is_commons` and name the nearest free plot. Try: `GET /v1/world`

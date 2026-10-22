@@ -40,12 +40,15 @@ export interface WorldRead {
   solidBuildings?: boolean;
   townHall: Tile[];
   shop?: Tile[];
+  /** Public ways (RFC 0046): a step onto one is a way out, whoever's plot it is on. */
+  ways?: Tile[];
   lands?: {
     home: { width: number; height: number };
     list: {
       plots: { px: number; py: number }[];
       bridge: Tile[];
       square: { px: number; py: number };
+      streets?: { px: number; py: number }[];
     }[];
   };
 }
@@ -63,10 +66,12 @@ export function factsOf(world: WorldRead): OpeningFacts {
       plots: l.plots.map((p) => [p.px, p.py] as const),
       bridge: l.bridge.map((t) => [t.x, t.y] as const),
       square: [l.square.px, l.square.py] as const,
+      streets: (l.streets ?? []).map((p) => [p.px, p.py] as const),
     })),
   };
   const sea = seaFrom(world.config, lands);
   const claimed = new Set(world.plots.map((p) => plotKey(p.px, p.py)));
+  const ways = new Set((world.ways ?? []).map((t) => tileKey(t.x, t.y)));
   return {
     ground: groundOf({
       config: world.config,
@@ -77,6 +82,7 @@ export function factsOf(world: WorldRead): OpeningFacts {
       ...(sea ? { sea } : {}),
     }),
     claimed: (px, py) => claimed.has(plotKey(px, py)),
+    ...(ways.size > 0 ? { way: (x: number, y: number) => ways.has(tileKey(x, y)) } : {}),
   };
 }
 

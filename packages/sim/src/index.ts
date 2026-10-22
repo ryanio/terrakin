@@ -181,6 +181,7 @@ export {
   floorField,
   floorGround,
   groundOn,
+  HOLDING_BLOCKS,
   solidAt,
   standingFloor,
   upstairsGroundOf,
@@ -641,6 +642,7 @@ export {
   walkWords,
   worldGround,
 } from "./walk";
+export { isWay, WAYS, wayProblem } from "./ways";
 export {
   clockHour,
   SPELL_HOURS,

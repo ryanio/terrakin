@@ -48,6 +48,7 @@ import {
   type WorldEvent,
   type WorldState,
 } from "./types";
+import { wayProblem } from "./ways";
 import { canBuildOn, plotInBounds } from "./world";
 
 /**
@@ -303,6 +304,15 @@ export function planBuild(
     // What a kind can never be on a floor refuses the plan: a planter upstairs, stairs on the top.
     const never = blockKindProblem(plot, (tiles.blocks[i] as PlanSpot).floor, block as BlockKind);
     if (never) return never;
+    // A public way holds no block on the ground floor, which no turn of the world changes, so a
+    // plan that puts one there is wrong rather than skipped (RFC 0046).
+    const spot = tiles.blocks[i] as PlanSpot;
+    if (wayProblem(state, px * S + spot.x, py * S + spot.y, spot.floor)) {
+      return refuse(
+        "public_way",
+        `${spotWords(spot)} is on a public way, which holds no block: everyone walks it to town. Leave it open, or lay a path there.`,
+      );
+    }
     blockKinds.push(block as BlockKind);
   }
   const groundKinds: GroundKind[] = [];

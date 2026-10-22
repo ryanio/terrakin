@@ -533,6 +533,12 @@ export interface WorldState {
    */
   lands?: LandsState;
   /**
+   * Public ways (RFC 0046): tiles, keyed by tileKey(x, y), that hold no block on the ground floor,
+   * so nobody can wall a way to town. Laid and taken up by the town with `open_way` and `close_way`.
+   * Absent until the first.
+   */
+  ways?: Record<string, true>;
+  /**
    * Paths and flooring (RFC 0016), keyed by tileKey(x, y): one per tile, under whatever block stands
    * there. Nobody walks differently for it. Absent until the first `lay` or `build` lays one.
    */
@@ -1905,6 +1911,21 @@ export type Command =
    * nobody can walk out of (decision 0343). What it took comes back to the plot's owner.
    */
   | { type: "clear_block"; x: number; y: number }
+  /** The town makes these tiles public ways, which hold no block (RFC 0046). Sorted `[x, y]`. */
+  | { type: "open_way"; tiles: [number, number][] }
+  /** The town takes these tiles off the public ways. */
+  | { type: "close_way"; tiles: [number, number][] }
+  /**
+   * The town rebuilds a home a public way cut through, as a build by the plot's owner: blocks to
+   * place and blocks to take up, on the ground floor, in plot tiles (RFC 0046).
+   */
+  | {
+      type: "rebuild_home";
+      px: number;
+      py: number;
+      blocks: { x: number; y: number; block: BlockKind }[];
+      remove: { x: number; y: number }[];
+    }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }
   /** One owner pair linked or unlinked, so the log grows by one pair per change, not the list. */
@@ -2134,6 +2155,9 @@ export const SERVER_COMMANDS = [
   "remove_display",
   "clear_plot_name",
   "clear_block",
+  "open_way",
+  "close_way",
+  "rebuild_home",
   "set_entitlements",
   "open_bounties",
   "confirm_town_bounty",
@@ -2456,6 +2480,12 @@ export type WorldEvent =
       /** Only when the land has streets (RFC 0046). */
       streets?: [number, number][];
     }
+  /** The town made these tiles public ways (RFC 0046). Public. */
+  | { type: "ways_opened"; tiles: [number, number][] }
+  /** The town took these tiles off the public ways. Public. */
+  | { type: "ways_closed"; tiles: [number, number][] }
+  /** The town rebuilt the home on plot (`px`, `py`) after a way cut through it. Public. */
+  | { type: "home_rebuilt"; px: number; py: number; ownerId: ResidentId }
   /** `retire_repeat_joins`: these records left the world. Public: drop them from the mirror. */
   | { type: "repeat_joins_retired"; ids: ResidentId[] }
   /** `merge_resident`: `from` left the world, merged into `into`. Public: drop `from`. */
@@ -3036,6 +3066,8 @@ export const REJECTION_CODES = [
   "not_food",
   /** That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, or a bed (RFC 0044). */
   "not_a_seat",
+  /** That tile is a public way, which holds no block, so nobody can wall the way to town (RFC 0046). */
+  "public_way",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

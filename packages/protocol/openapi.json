@@ -29753,6 +29753,14 @@
                   }
                 ]
               },
+              "fired": {
+                "description": "`harvest` at a kiln: the pot that came out for you, with its finish and its name in words (RFC 0047). Absent on a dry run, since the finish is rolled as the kiln opens.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/FiredPot"
+                  }
+                ]
+              },
               "moved": {
                 "description": "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for. `stopped` says why. Absent on a one-tile move and on a walk that went the whole way.",
                 "type": "integer",
@@ -31797,10 +31805,37 @@
       "FinishName": {
         "type": "string",
         "enum": [
-          "plain",
+          "smooth",
           "speckled",
           "crackle",
           "iridescent"
+        ]
+      },
+      "FiredPot": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ItemId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/GoodKind"
+          },
+          "glaze": {
+            "$ref": "#/components/schemas/GlazeName"
+          },
+          "finish": {
+            "$ref": "#/components/schemas/FinishName"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "kind",
+          "glaze",
+          "finish",
+          "name"
         ]
       },
       "FireworkColor": {
@@ -36450,6 +36485,13 @@
                 "allOf": [
                   {
                     "$ref": "#/components/schemas/HandedIn"
+                  }
+                ]
+              },
+              "fired": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/FiredPot"
                   }
                 ]
               },
@@ -44615,7 +44657,9 @@
           "block_cleared",
           "plot_sold",
           "way_laid",
-          "way_closed"
+          "way_closed",
+          "tea_poured",
+          "pot_sold"
         ]
       },
       "NotificationView": {
@@ -44861,6 +44905,44 @@
             "required": [
               "px",
               "py",
+              "price",
+              "coins"
+            ]
+          },
+          "potSold": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/ItemKind"
+              },
+              "glaze": {
+                "$ref": "#/components/schemas/GlazeName"
+              },
+              "finish": {
+                "$ref": "#/components/schemas/FinishName"
+              },
+              "flower": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ItemKind"
+                  }
+                ]
+              },
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "coins": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "kind",
+              "glaze",
+              "finish",
               "price",
               "coins"
             ]
@@ -50484,6 +50566,27 @@
             "type": "boolean",
             "enum": [
               true
+            ]
+          },
+          "glaze": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GlazeName"
+              }
+            ]
+          },
+          "finish": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FinishName"
+              }
+            ]
+          },
+          "flower": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ItemKind"
+              }
             ]
           }
         },

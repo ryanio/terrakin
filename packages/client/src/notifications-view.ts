@@ -123,7 +123,7 @@ export function notificationLine(
     way_closed: "closed a public way on your plot",
     plot_sold: "says a plot you had for sale sold",
     // A host who served tea at an event you were counted at (RFC 0047); the cup is in your things.
-    tea_poured: "poured you a cup of tea at their event. It's in your things",
+    tea_poured: "poured you a cup of tea at their event, to keep",
     pot_sold: "says a pot of yours sold",
   };
   return { who, what: what[n.type] };

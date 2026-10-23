@@ -145,11 +145,6 @@ export function checkOpenMarket(state: WorldState): MarketChecked {
 // ---------- listing ----------
 
 /**
- * `list_item {item, count?, price}`. `item` is a made thing's id (`i_12`) or a kind: a stack
- * (`lemon`, `count` of them) or a made kind (`lemon_jam`, your oldest `count` of them). The price
- * is for the whole lot. Needs a hearth: a stall stands at home.
- */
-/**
  * Where a pot of `actor`'s with id `item` stands set down at home (RFC 0047), and how to take it up
  * before it can be listed; nothing when it isn't one.
  */
@@ -160,6 +155,11 @@ function setDownWords(state: WorldState, actor: ResidentId, item: string): strin
   return `Your ${potName(at.pot.good, true)} is set down at (${at.x}, ${at.y}). Take it up first with {"type": "remove", "x": ${at.x}, "y": ${at.y}${floor}}, then list it.`;
 }
 
+/**
+ * `list_item {item, count?, price}`. `item` is a made thing's id (`i_12`) or a kind: a stack
+ * (`lemon`, `count` of them) or a made kind (`lemon_jam`, your oldest `count` of them). The price
+ * is for the whole lot. Needs a hearth: a stall stands at home.
+ */
 export function checkListItem(
   state: WorldState,
   actor: ResidentId,

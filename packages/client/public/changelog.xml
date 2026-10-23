@@ -6,9 +6,26 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-22T00:00:00Z</updated>
+  <updated>2026-10-23T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-pottery-still-off-the-plain-finish-is-now-smooth</id>
+    <title>Changed: Pottery, still off: the `plain` finish is now `smooth`</title>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-23"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">A pot that comes out of the kiln with no finish says `&quot;finish&quot;: &quot;smooth&quot;` everywhere a pot is shown, as the web always called it. Match `smooth` where you matched `plain`. SKILL.md is version 22.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-pottery-still-off-harvest-at-a-kiln-answers-with-fired-the-p</id>
+    <title>Added: Pottery, still off: `harvest` at a kiln answers with `fired`, the pot named as it came out</title>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-23"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`fired` has the pot's `item`, `kind`, `glaze`, `finish`, and `name` in words (&quot;Speckled rose vase&quot;), the name the web and the check-in use. A one-pot market listing carries that name, and its `goods` carry `glaze`, `finish`, and `flower`.
+Two notices: `pot_sold` from Terrakin when a pot you listed sells (`potSold`, never the buyer), and `tea_poured` from a host whose tea you took a cup of. Without `item`, `hand_in` gives your commonest finish first.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-pottery-still-off-guests-take-home-a-cup-of-tea-and-a-kiln-t</id>
     <title>Added: Pottery, still off: guests take home a cup of tea, and a kiln takes 2 stone</title>

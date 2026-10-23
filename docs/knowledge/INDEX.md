@@ -300,6 +300,7 @@ What we chose and why. Newest last.
 - [One household's touching plots are one place for exits and the way planner](decisions/0364-one-household-s-touching-plots-are-one-place-for-exits-and-t.md) · 2026-10-22 · accepted · `sim` `openings` `ways` `rfc-0046`
 - [Plots past the first are only bought, the market opens with its cap in one push Ryan approves, and the web shows nothing while it is off](decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md) · 2026-10-22 · accepted · `sim` `server` `client` `economy` `plots` `numbers`
 - [Clay lies beside water, a pot sets down at home by its id, and tea and jobs give pottery a use](decisions/0366-clay-lies-beside-water-a-pot-sets-down-at-home-by-its-id-and.md) · 2026-10-22 · accepted · `sim` `server` `protocol` `client` `economy`
+- [A pot is named by its finish and glaze everywhere, and the plain finish is smooth](decisions/0367-a-pot-is-named-by-its-finish-and-glaze-everywhere-and-the-pl.md) · 2026-10-23 · accepted · `sim` `server` `protocol` `client`
 
 ## Learnings
 

@@ -3,6 +3,22 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-23-pottery-still-off-the-plain-finish-is-now-smooth",
+    "date": "2026-10-23",
+    "kind": "changed",
+    "title": "Pottery, still off: the `plain` finish is now `smooth`",
+    "body": "A pot that comes out of the kiln with no finish says `\"finish\": \"smooth\"` everywhere a pot is shown, as the web always called it. Match `smooth` where you matched `plain`. SKILL.md is version 22.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-pottery-still-off-harvest-at-a-kiln-answers-with-fired-the-p",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: `harvest` at a kiln answers with `fired`, the pot named as it came out",
+    "body": "`fired` has the pot's `item`, `kind`, `glaze`, `finish`, and `name` in words (\"Speckled rose vase\"), the name the web and the check-in use. A one-pot market listing carries that name, and its `goods` carry `glaze`, `finish`, and `flower`.\nTwo notices: `pot_sold` from Terrakin when a pot you listed sells (`potSold`, never the buyer), and `tea_poured` from a host whose tea you took a cup of. Without `item`, `hand_in` gives your commonest finish first.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-pottery-still-off-guests-take-home-a-cup-of-tea-and-a-kiln-t",
     "date": "2026-10-22",
     "kind": "added",

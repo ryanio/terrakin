@@ -427,19 +427,27 @@ const EDITIONS = Object.keys(JOB_EDITIONS).map(Number);
 const openedIn = (edition: number) =>
   ({ ...opened, jobs: { ...opened.jobs, edition } }) as WorldState;
 /**
- * The board on a day of `edition`, each worked out once: from the second edition a board counts
- * from the day jobs opened, and these tests ask for every day of four years many times over.
+ * The board on a day of the world `key` names, each worked out once: from the second edition a
+ * board counts from the day jobs opened, so a late day costs more than an early one, and these
+ * tests ask for every day of four years many times over.
  */
-const boardsSeen = new Map<number, Map<number, Job[]>>();
-const boardIn = (edition: number) => (day: number) => {
-  const seen = boardsSeen.get(edition) ?? new Map<number, Job[]>();
-  boardsSeen.set(edition, seen);
-  const board = seen.get(day) ?? jobsOn({ ...openedIn(edition), day });
+const boardsSeen = new Map<string, Map<number, Job[]>>();
+const boardOf = (key: string, world: () => WorldState) => (day: number) => {
+  const seen = boardsSeen.get(key) ?? new Map<number, Job[]>();
+  boardsSeen.set(key, seen);
+  const board = seen.get(day) ?? jobsOn({ ...world(), day });
   seen.set(day, board);
   return board;
 };
+/** The board on a day of `edition`. */
+const boardIn = (edition: number) => boardOf(`${edition}`, () => openedIn(edition));
 /** Four years from the day jobs open here, so a leap day is in them. */
 const DAYS = Array.from({ length: 1461 }, (_, i) => OPEN + i);
+/**
+ * The time a test gets to read a job's wait from every day of `DAYS`. That's about a second on a
+ * laptop and several on a busy CI runner, past vitest's 5 seconds.
+ */
+const FOUR_YEARS_MS = 20_000;
 /** How many of those days have a pumpkin or a cranberry job for home, in each edition. */
 const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94, 3: 94 };
 
@@ -773,7 +781,9 @@ describe("a regular job's wait for the board", () => {
       .filter(({ wait, round }) => wait >= 2 * round - 1)
       .map(({ job, wait, round }) => `${job.id} ${wait} of ${round}`);
 
-  it("is under two rounds of its lane from every day of four years, from the second edition", () => {
+  it("is under two rounds of its lane from every day of four years, from the second edition", {
+    timeout: FOUR_YEARS_MS,
+  }, () => {
     // A round is the days a lane takes to give each of its regular jobs once, and a job the lane
     // skipped once waits two rounds less a day.
     const waits = waitsIn(2);
@@ -891,15 +901,18 @@ describe("an edition's boards", () => {
 });
 
 describe("the third edition (RFC 0047)", () => {
-  it("puts a bowl for Clem and a vase for Ansel on Making's turns once clay is out, and never before", () => {
+  it("puts a bowl for Clem and a vase for Ansel on Making's turns once clay is out, and never before", {
+    timeout: FOUR_YEARS_MS,
+  }, () => {
     const POTS = ["clem_bowl", "ansel_vase"];
     const withClay = {
       ...openedIn(3),
       items: { ...opened.items, clayOpen: true },
     } as WorldState;
+    const boardWithClay = boardOf("3 with clay", () => withClay);
     const up = new Map<string, number[]>();
     for (const day of DAYS) {
-      jobsOn({ ...withClay, day }).forEach((job, slot) => {
+      boardWithClay(day).forEach((job, slot) => {
         if (!POTS.includes(job.id)) return;
         expect(slot, job.id).toBe(0);
         up.set(job.id, [...(up.get(job.id) ?? []), day]);
@@ -920,7 +933,7 @@ describe("the third edition (RFC 0047)", () => {
     expect(
       fnv1a(
         DAYS.map((day) =>
-          jobsOn({ ...withClay, day })
+          boardWithClay(day)
             .map((j) => j.id)
             .join(","),
         ).join(";"),

@@ -450,7 +450,17 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       }
       api.uploadsInFlight++;
       try {
-        const bytes = await body.read();
+        let bytes: Uint8Array | undefined;
+        try {
+          bytes = await body.read();
+        } catch {
+          // The connection closed before the whole file came, as when a phone loses signal. Nobody
+          // is left to answer and nothing broke here, so it isn't reported as an error.
+          return fail(
+            "bad_request",
+            "The upload stopped before the whole file arrived. Send it again.",
+          );
+        }
         if (!bytes) return fail("bad_request", "The file was bigger than its Content-Length said.");
         const outcome = await social().upload(viewer, bytes);
         if (outcome.ok) api.countIpUpload(key, day, bytes.length);

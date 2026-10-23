@@ -1,3 +1,5 @@
+import { once } from "node:events";
+import { connect } from "node:net";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -487,6 +489,32 @@ describe("hardening", () => {
       duplex: "half",
     } as RequestInit);
     expect(res.status).toBe(400);
+  });
+
+  it("answers an upload whose connection closed partway without counting it as an error", async () => {
+    const { base, call, join } = await start();
+    const { token } = await join("Wren");
+    const errors: unknown[] = [];
+    const logError = console.error;
+    console.error = (...args: unknown[]) => errors.push(args);
+    try {
+      const { hostname, port } = new URL(base);
+      const socket = connect(Number(port), hostname);
+      await once(socket, "connect");
+      socket.write(
+        `POST /v1/media HTTP/1.1\r\nHost: ${hostname}\r\nAuthorization: Bearer ${token}\r\n` +
+          "Content-Type: application/octet-stream\r\nContent-Length: 65536\r\n\r\n",
+      );
+      socket.write(file(PNG).subarray(0, 16));
+      // The phone loses signal before the rest comes.
+      socket.destroy();
+      await once(socket, "close");
+      // The server still answers, and a whole upload still goes through.
+      expect((await call("POST", "/v1/media", file(PNG), token)).status).toBe(201);
+    } finally {
+      console.error = logError;
+    }
+    expect(errors).toEqual([]);
   });
 
   it("stops reading a stream as soon as it passes the cap", async () => {

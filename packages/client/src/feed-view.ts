@@ -809,8 +809,24 @@ export function feedView(ctx: ViewContext): View {
     const before = anchor?.getBoundingClientRect().top;
     change();
     if (!anchor?.isConnected || before === undefined) return;
-    const shift = anchor.getBoundingClientRect().top - before;
-    if (shift !== 0) window.scrollBy(0, shift);
+    scrollKept(anchor.getBoundingClientRect().top - before);
+  }
+
+  /** The part of the last `scrollKept` the browser rounded away, owed to the next one. */
+  let scrollOwed = 0;
+  /**
+   * Scroll by `shift` to undo a change above the screen. The page scrolls in whole pixels, so each
+   * call rounds, and a few corrections in a row would add up to a visible jump; the remainder is
+   * carried into the next call instead, so what's on screen never drifts by half a pixel or more.
+   */
+  function scrollKept(shift: number) {
+    if (shift === 0) return;
+    const want = shift + scrollOwed;
+    const from = window.scrollY;
+    window.scrollBy(0, want);
+    const rest = want - (window.scrollY - from);
+    // Past the top or the foot the page can't scroll that far, and nothing is owed.
+    scrollOwed = Math.abs(rest) < 1 ? rest : 0;
   }
 
   // ---------- live activity ----------
@@ -857,8 +873,7 @@ export function feedView(ctx: ViewContext): View {
       unseen.splice(unseen.indexOf(held), 1);
       const before = list.getBoundingClientRect().top;
       held.change();
-      const shift = list.getBoundingClientRect().top - before;
-      if (shift !== 0) window.scrollBy(0, shift);
+      scrollKept(list.getBoundingClientRect().top - before);
     }
     if (unseen.length === 0) window.removeEventListener("scroll", onScrolledAway);
   };

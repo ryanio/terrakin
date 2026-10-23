@@ -1022,6 +1022,10 @@ describe("credit_event", () => {
       // Before pottery opens it's the feast's command, and no feast is on.
       expect(w.code("ada", serve(tea))).toBe("out_of_holiday");
       w.town({ type: "open_clay", water: true });
+      // Away from her own event, she's told to stand at it.
+      w.standAt("ada", 20, 20);
+      expect(w.code("ada", serve(tea))).toBe("not_at_feast");
+      w.standAt("ada", 3, 3);
       expect(w.code("ada", serve(teapot))).toBe("not_food");
       expect(w.code("ada", serve("i_999"))).toBe("not_enough_items");
       // A guest can't set the host's table.

@@ -334,6 +334,14 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
             ]),
         );
       }
+      // Pottery (RFC 0047) waits for clay, before anything moves.
+      if (isPotteryRecipe(recipe) && !clayOpen(state)) {
+        return refuse(
+          "pottery_closed",
+          "Pottery hasn't opened in this world yet: no clay, kilns, or pots.",
+          `What you can make by link: ${l.craft()}`,
+        );
+      }
       const hearth = start.hearth;
       if (!hearth) {
         return refuse(
@@ -426,7 +434,9 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         }
         const got = resident(viewer);
         if ("error" in got) return got;
-        const came = state.items?.inventories[viewer]?.goods.at(-1);
+        // The pot from the harvest's own event: what came back from aside after it isn't it.
+        const firedEvent = out.events.find((e) => e.type === "inventory" && e.reason === "fired");
+        const came = firedEvent?.type === "inventory" ? firedEvent.gained?.[0] : undefined;
         fired = came?.finish
           ? `Out of the kiln came your ${ITEM_INFO[came.kind].name.toLowerCase()}, ${came.finish === "plain" ? "smooth and even" : came.finish}. `
           : "";

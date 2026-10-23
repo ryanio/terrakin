@@ -236,5 +236,22 @@ describe("a world with clay", () => {
       total: 3,
     });
     expect(book.badges.includes("An iridescent pot")).toBe(goods[0].finish === "iridescent");
+    // Set down at home, the pot goes out on the wire with its label marked as its maker's words.
+    const heardBefore = heard().length;
+    expect(
+      await t.act(ada.token, { type: "place", x: 2, y: 4, block: "pot", item: goods[0].id }),
+    ).toMatchObject({ ok: true });
+    expect(
+      heard()
+        .slice(heardBefore)
+        .find((e) => e.type === "block_placed"),
+    ).toMatchObject({
+      block: "pot",
+      pot: { kind: "bowl", label: "For tea" },
+      trust: "untrusted",
+    });
+    expect((await t.call("GET", "/v1/world")).body.pots).toEqual([
+      expect.objectContaining({ x: 2, y: 4, by: ada.id, trust: "untrusted" }),
+    ]);
   });
 });

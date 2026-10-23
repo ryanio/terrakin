@@ -5,6 +5,7 @@ import { eventsAt } from "./events";
 import { plotKey } from "./keys";
 import { landOfPlot } from "./lands";
 import { MARKET, marketFee } from "./market";
+import { potsOf } from "./pottery";
 import type {
   Command,
   EconomyState,
@@ -226,6 +227,18 @@ export function checkListPlot(
     return refuse(
       "not_eligible",
       "Something is on display on that plot, and it stays whoever put it up. Take it down first.",
+    );
+  }
+  // A pot set down (RFC 0047) is someone's thing too.
+  const { plotSize } = state.config;
+  if (
+    potsOf(state).some(
+      (p) => Math.floor(p.x / plotSize) === px && Math.floor(p.y / plotSize) === py,
+    )
+  ) {
+    return refuse(
+      "not_eligible",
+      "A pot is set down on that plot, and it stays whoever set it down. Take it up first with remove.",
     );
   }
   const have = econ.coins[actor] ?? 0;

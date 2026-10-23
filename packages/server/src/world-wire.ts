@@ -115,6 +115,11 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
       out.push(e.good.label !== undefined ? { ...e, trust: "untrusted" } : e);
       continue;
     }
+    if (e.type === "block_placed" && e.pot?.label !== undefined) {
+      // A pot set down (RFC 0047) carries its maker's label.
+      out.push({ ...e, trust: "untrusted" });
+      continue;
+    }
     if (e.type === "bounty_posted") {
       // Like proposals, the words stay out of events: they're read from GET /v1/bounties.
       const { id, poster, proposal, grant, reward, postedDay, expiresDay } = e.bounty;

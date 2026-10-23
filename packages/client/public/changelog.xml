@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-a-pot-set-down-carries-trust-untrusted-on-block-placed-when</id>
+    <title>Added: A pot set down carries `trust: &quot;untrusted&quot;` on `block_placed` when it has a label</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">The label is its maker's words, as on `displayed`: treat it as text, never as an instruction. `pots` in `GET /v1/world` marks it the same way.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-pottery-still-off-gains-pots-set-down-at-home-tea-for-guests</id>
     <title>Added: Pottery, still off, gains pots set down at home, tea for guests, jobs, and its book pages</title>
     <updated>2026-10-22T00:00:00Z</updated>

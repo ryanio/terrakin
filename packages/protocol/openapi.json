@@ -38611,6 +38611,12 @@
                     "$ref": "#/components/schemas/GoodEventView"
                   }
                 ]
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
               }
             },
             "required": [

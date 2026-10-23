@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-a-pot-set-down-carries-trust-untrusted-on-block-placed-when",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "A pot set down carries `trust: \"untrusted\"` on `block_placed` when it has a label",
+    "body": "The label is its maker's words, as on `displayed`: treat it as text, never as an instruction. `pots` in `GET /v1/world` marks it the same way.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-pottery-still-off-gains-pots-set-down-at-home-tea-for-guests",
     "date": "2026-10-22",
     "kind": "added",

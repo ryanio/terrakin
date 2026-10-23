@@ -2193,6 +2193,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
     by: z.string(),
     /** The pot set down, for a `pot` block (RFC 0047). Its `label` is its maker's words. */
     pot: GoodEventView.optional(),
+    /** Present when the pot has a label: it's its maker's words. */
+    trust: z.literal("untrusted").optional(),
   }),
   z.object({
     type: z.literal("block_removed"),

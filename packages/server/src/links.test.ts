@@ -1159,6 +1159,10 @@ describe("links for the rest of a link-only resident's week", () => {
     const wren = await joinByLink("Wren");
     await wren.act("settle?px=0&py=0");
     await wren.act("build-home");
+    // Pottery (RFC 0047) isn't open here, and nothing is logged asking for it.
+    const logged = service.state.seq;
+    expect(codeOf((await wren.act("craft?recipe=bowl")).text)).toBe("pottery_closed");
+    expect(service.state.seq).toBe(logged);
     // Nothing to make a bouquet from yet: the refusal says what's missing and where it grows.
     const early = (await wren.act("craft?recipe=bouquet")).text;
     expect(codeOf(early)).toBe("not_enough_items");

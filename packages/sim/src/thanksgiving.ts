@@ -105,9 +105,19 @@ export function checkBringDish(
   const me = residentById(state, actor);
   if (!me) return refuse("not_joined", "Join the world first.");
   // A host serves a pot of tea at their own event (RFC 0047), once pottery is open.
-  const hosting = clayOpen(state) ? liveEventHostedAt(state, actor, me) : undefined;
-  if (hosting) return checkServeTea(items, actor, hosting, command.item);
+  const hosting = clayOpen(state) ? liveEventsHostedBy(state, actor) : [];
+  const here = hosting.find(
+    (e) => (me.floor ?? 0) === 0 && inArea(eventArea(state.config, e.px, e.py), me.x, me.y),
+  );
+  if (here) return checkServeTea(items, actor, here, command.item);
   const feast = liveFeast(state);
+  const away = hosting[0];
+  if (!feast && away) {
+    return refuse(
+      "not_at_feast",
+      `Your event is on at plot (${away.px}, ${away.py}): stand in its area, on the ground floor, to serve tea there.`,
+    );
+  }
   if (!feast) {
     const on = feastDay(day);
     return refuse(
@@ -155,20 +165,9 @@ export function checkBringDish(
   };
 }
 
-/** A live event `actor` hosts whose area they stand in, on the ground floor. */
-function liveEventHostedAt(
-  state: WorldState,
-  actor: ResidentId,
-  me: { x: number; y: number; floor?: number },
-): HostedEvent | undefined {
-  if ((me.floor ?? 0) !== 0) return undefined;
-  return state.events?.list.find(
-    (e) =>
-      e.status === "live" &&
-      e.host === actor &&
-      inArea(eventArea(state.config, e.px, e.py), me.x, me.y),
-  );
-}
+/** The live events `actor` hosts (RFC 0047): where they serve tea. */
+const liveEventsHostedBy = (state: WorldState, actor: ResidentId): HostedEvent[] =>
+  (state.events?.list ?? []).filter((e) => e.status === "live" && e.host === actor);
 
 /**
  * `bring_dish {item}` from a host at their own live event (RFC 0047): a pot of tea of theirs, by its

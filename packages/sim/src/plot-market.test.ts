@@ -113,6 +113,23 @@ describe("listing a plot", () => {
     refused(early, "ada", list(), "not_yet");
   });
 
+  it("refuses a plot with a pot set down on it, which stays whoever set it down's (RFC 0047)", () => {
+    const state = world();
+    const items = state.items;
+    if (!items) throw new Error("no items");
+    const good = {
+      id: "i_99",
+      kind: "vase" as const,
+      maker: "ada",
+      madeDay: 0,
+      glaze: "sea" as const,
+    };
+    items.pots = { "6,6": { good, by: "ada", day: 0 } };
+    refused(state, "ada", list(), "not_eligible");
+    delete items.pots;
+    ok(state, "ada", list());
+  });
+
   it("burns the listing fee, and refuses a second listing or one its seller can't pay for", () => {
     const state = world();
     const burned = state.economy?.burned ?? 0;

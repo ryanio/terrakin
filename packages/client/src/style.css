@@ -1001,15 +1001,15 @@ body.in-world .veil {
 }
 
 /*
- * A visitor's live line: the town's counts, then the newest devlog post. Its height is fixed before
- * either part is in, each part one line cut short when it runs long, so nothing moves as they land.
- * Two lines on a phone, one once the cards sit side by side.
+ * A visitor's live line: the town's counts, then the newest devlog post, then the next event. Its
+ * height is fixed before any part is in, each part one line cut short when it runs long, so
+ * nothing moves as they land. Three lines on a phone, one once the cards sit side by side.
  */
 .hero-live {
   /* The dot that says the town is live hangs to the left, so both lines of it share one edge. */
   --live-dot: 7px;
   display: grid;
-  grid-template-rows: repeat(2, calc(var(--text-sm) * var(--leading-normal)));
+  grid-template-rows: repeat(3, calc(var(--text-sm) * var(--leading-normal)));
   margin: calc(var(--space-md) * -1) 0 0;
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
@@ -1018,7 +1018,8 @@ body.in-world .veil {
 }
 
 .hero-live-counts,
-.hero-live-news {
+.hero-live-news,
+.hero-live-event {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -1037,12 +1038,14 @@ body.in-world .veil {
   height: var(--live-dot);
 }
 
-/* Under the counts, the news starts where their words do rather than where the dot does. */
-.hero-live-news {
+/* Under the counts, the news and the event start where their words do rather than where the dot does. */
+.hero-live-news,
+.hero-live-event {
   padding-left: calc(var(--live-dot) + var(--space-xs));
 }
 
-.hero-live-news a {
+.hero-live-news a,
+.hero-live-event a {
   color: inherit;
   text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
   text-underline-offset: 2px;
@@ -3435,7 +3438,8 @@ dialog.model-viewer {
   }
 
   /* Side by side there is no line under the counts to line up with, only the gap between them. */
-  .hero-live-news {
+  .hero-live-news,
+  .hero-live-event {
     padding-left: 0;
   }
 

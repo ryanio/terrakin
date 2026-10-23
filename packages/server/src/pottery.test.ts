@@ -253,5 +253,7 @@ describe("a world with clay", () => {
     expect((await t.call("GET", "/v1/world")).body.pots).toEqual([
       expect.objectContaining({ x: 2, y: 4, by: ada.id, trust: "untrusted" }),
     ]);
+    // A pot set down is news on the Visit page in its own words, never its label.
+    expect((await t.call("GET", "/v1/plots/0/0")).body.plot.news).toBe("A pot set down today");
   });
 });

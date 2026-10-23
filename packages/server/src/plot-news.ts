@@ -30,8 +30,10 @@ export interface PlotNews {
   claimed: number;
   /** The plot was bought from its owner (RFC 0039), with everything on it. */
   sold: number;
-  /** Blocks placed, on every floor, decor and stations included. */
+  /** Blocks placed, on every floor, decor and stations included, pots set down apart. */
   blocks: number;
+  /** Pots set down (RFC 0047): a made thing on the floor, read as a reason to come and look. */
+  pots: number;
   /** Seeds planted. */
   planted: number;
   /** Something new on the roof's ridge (RFC 0041). A ridge left bare is no news. */
@@ -53,6 +55,7 @@ export const NEWS_FIELDS = [
   "claimed",
   "sold",
   "blocks",
+  "pots",
   "planted",
   "ridge",
   "displays",
@@ -69,6 +72,7 @@ export const noNews = (): PlotNews => ({
   claimed: 0,
   sold: 0,
   blocks: 0,
+  pots: 0,
   planted: 0,
   ridge: 0,
   displays: 0,
@@ -114,7 +118,7 @@ export function newsOfEvent(event: WorldEvent): Partial<PlotNews> | undefined {
     case "floor_added":
       return { floors: 1 };
     case "block_placed":
-      return { blocks: 1 };
+      return event.block === "pot" ? { pots: 1 } : { blocks: 1 };
     case "ground_laid":
       return { paths: 1 };
     case "planted":
@@ -157,6 +161,7 @@ function whatHappened(news: PlotNews, top: RoofTop | undefined): string | undefi
   if (news.claimed > 0) return "someone moved in";
   if (news.sold > 0) return "a new owner moved in";
   if (news.blocks > 0) return `${some(news.blocks, "new block", "new blocks")} went up`;
+  if (news.pots > 0) return news.pots === 1 ? "a pot set down" : `${news.pots} pots set down`;
   if (news.planted > 0) return `${some(news.planted, "bed", "beds")} planted`;
   // Below the building: a ridge is one tile of ornament, however far it is seen from. `top` is
   // what stands there now, so a ridge set and cleared the same day falls through, and with nothing

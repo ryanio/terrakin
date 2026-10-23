@@ -1401,7 +1401,7 @@ const WRITTEN = {
     recipe: { station: "kitchen", needs: { herb: 2 } },
     look: { template: "drawn" },
   }),
-  // A cup of tea (RFC 0047): what a counted guest keeps from an event its host served tea at. Made
+  // A cup of tea (RFC 0047): what a guest keeps from an event its host served tea at. Made
   // by nobody's recipe, like a piece of art, and signed by the host, so it says who poured it.
   cup_of_tea: entry({
     name: "Cup of tea",

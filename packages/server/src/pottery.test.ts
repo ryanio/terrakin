@@ -496,14 +496,25 @@ describe("a world with clay", () => {
       (await t.call("GET", "/v1/events/e_1", undefined, bob.token)).body.event,
     ).not.toHaveProperty("tea");
     expect(await t.act(ada.token, serve)).toMatchObject({ ok: true });
+    // Eve comes after the tea went out, so she has no cup until she has stayed to be counted.
+    const eve = join("Eve");
+    expect(await t.act(eve.token, { type: "join_event", event: "e_1" })).toMatchObject({
+      ok: true,
+    });
+    const after = (await t.call("GET", "/v1/events/e_1", undefined, ada.token)).body.event;
+    const listed = (id: string) =>
+      after.tea.guests.find((g: Json) => (g.resident as Json).id === id);
+    expect(listed(eve.id)).toMatchObject({ here: true, cup: false });
+    expect(listed(dee.id)).toMatchObject({ cup: true });
     // The minute sweep samples who's there, and the next tick after the hour ends and credits it.
     for (let i = 0; i < 13; i++) {
       t.later(5 * 60_000);
       t.service.sweepEvents();
       for (const who of [bob, dee]) await t.act(who.token, { type: "join_event", event: "e_1" });
     }
-    // Bob, counted, and Dee, not counted, each take home a cup; Cy, who blocked Ada, doesn't.
-    for (const who of [bob, dee]) {
+    // Bob, counted, Dee, not counted, and Eve, who stayed, each take home a cup; Cy, who blocked
+    // Ada, doesn't.
+    for (const who of [bob, dee, eve]) {
       const theirs = (await t.call("GET", "/v1/notifications", undefined, who.token)).body
         .notifications as Json[];
       expect(theirs.find((n) => n.type === "tea_poured")).toMatchObject({
@@ -517,7 +528,7 @@ describe("a world with clay", () => {
       .notifications as Json[];
     expect(hers.find((n) => n.type === "tea_served")).toMatchObject({
       system: true,
-      teaServed: { cups: 2 },
+      teaServed: { cups: 3 },
     });
   });
 });

@@ -744,8 +744,8 @@ export function checkCreditEvent(
       return refuse("not_eligible", "Townsfolk are never counted guests.");
     }
   }
-  // Cups of tea (RFC 0047): everyone there as it was served or who stayed, never the host or
-  // townsfolk, each once, and only where tea was served.
+  // Cups of tea (RFC 0047): everyone there as it was served or who stayed and still lives here,
+  // never the host or townsfolk, each once, and only where tea was served.
   const { cups } = command;
   if (cups !== undefined) {
     if (!servedTea(e)) return refuse("invalid_event", "No tea was served at this event.");
@@ -757,7 +757,7 @@ export function checkCreditEvent(
     }
     const there = new Set([...(e.teaFor ?? []), ...attended]);
     for (const id of cups) {
-      if (id === e.host || !there.has(id) || isTownsfolk(state, id)) {
+      if (id === e.host || !there.has(id) || !residentById(state, id) || isTownsfolk(state, id)) {
         return refuse("not_eligible", "A cup goes only to a guest who was there.");
       }
     }

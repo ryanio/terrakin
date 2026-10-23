@@ -40,7 +40,7 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
   ]);
   if (!r.ok) return toast(r.message);
   const inv = r.data.inventory;
-  // Who a cup would reach, and why not (RFC 0047): Serve waits while nobody would be counted.
+  // Who a cup would reach, and why not (RFC 0047): Serve waits while nobody is here to pour for.
   const reach = read?.ok ? read.data.event.tea : undefined;
   const nobody = reach !== undefined && !reach.guests.some((g) => g.cup);
   // At your own event the dish is a pot of tea (RFC 0047), as the world takes there.

@@ -121,7 +121,7 @@ describe("who a host's tea would reach", () => {
       teaLines({
         served: false,
         stay: 4,
-        guests: [guest("Bob"), guest("Wren", "joined too recently to count")],
+        guests: [guest("Bob"), guest("Wren", "joined too recently to count for Hosting")],
       }),
     ).toEqual([
       "Everyone here takes home a cup: Bob and Wren.",

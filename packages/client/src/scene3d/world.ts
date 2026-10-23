@@ -1359,16 +1359,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
       // evenings tinted (RFC 0022).
       if (sparks.set(frame.bursts ?? [], now, still)) moved = true;
+      // Only marks within sight, so a ready kiln across town doesn't keep every frame drawing.
+      const inSight = (at: { x: number; y: number }) => tileDistance(tile, at) <= VIEW_RADIUS;
       const teas = teaSpots({
         plotSize: mirror.config.plotSize,
         events: mirror.events.values(),
         blocks: mirror.blocks,
         hearthOf: (id) => mirror.residents.get(id)?.hearth,
-      });
+      }).filter(inSight);
       const ready = [...mirror.kilns].flatMap(([key, k]) => {
         if (!isReady(k.readyDay, mirror.day)) return [];
         const [x, y] = parseKey(key);
-        return [{ x, y }];
+        return inSight({ x, y }) ? [{ x, y }] : [];
       });
       if (marks.set(teas, ready, now, still)) moved = true;
       stage.holiday(mirror.day === undefined ? undefined : eveningHoliday(holidaysOf(mirror.day)));

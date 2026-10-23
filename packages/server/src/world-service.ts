@@ -1802,6 +1802,7 @@ export class WorldService {
           .filter(
             (guest) =>
               guest !== e.host &&
+              residentById(this.state, guest) !== undefined &&
               !isTownsfolk(this.state, guest) &&
               !this.blockedEither(e.host, guest),
           )

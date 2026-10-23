@@ -1078,6 +1078,11 @@ describe("credit_event", () => {
     expect(w.code(TOWN_ACTOR, withCups(["bob", "eve"]))).toBe("not_eligible");
     expect(w.code(TOWN_ACTOR, withCups(["ada"]))).toBe("not_eligible");
     expect(w.code(TOWN_ACTOR, withCups(["bob", "bob"]))).toBe("invalid_event");
+    // Nor someone who was there and has since left the world (a record merged away).
+    const served = w.state.events?.list.find((e) => e.id === later);
+    served?.teaFor?.push("gone");
+    expect(w.code(TOWN_ACTOR, withCups(["bob", "gone"]))).toBe("not_eligible");
+    served?.teaFor?.pop();
     const poured = w
       .town(withCups(["bob", "cy", "dee"]))
       .flatMap((e) => (e.type === "inventory" && e.reason === "poured" ? [e.residentId] : []));

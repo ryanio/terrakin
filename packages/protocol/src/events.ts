@@ -23,7 +23,7 @@ export const EVENT_LEAD_MINUTES = 60;
 /**
  * Who a pot of tea would reach at a live event (RFC 0047), shown to its host alone while pottery is
  * open, before and after they serve it. Each guest is someone seen at a sample so far or in the
- * event's area now; `why` is our own words for why they wouldn't be counted for a cup, read after
+ * event's area now; `why` is our own words for why they wouldn't be counted for Hosting, read after
  * their name ("joined too recently to count ..."). Anyone the host blocked is left out.
  */
 export const TeaView = z.object({
@@ -34,7 +34,11 @@ export const TeaView = z.object({
   guests: z.array(
     z.object({
       resident: AuthorView,
-      /** Takes home a cup of tea: everyone there but townsfolk, counted for Hosting or not. */
+      /**
+       * Takes home a cup of tea, counted for Hosting or not, never townsfolk: before the tea is
+       * served, whether they're here to be poured for now; after, whether they were here as it went
+       * out or have stayed for `stay` samples.
+       */
       cup: z.boolean(),
       /** In the event's area on the ground floor now. */
       here: z.boolean(),

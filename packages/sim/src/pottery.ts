@@ -546,8 +546,8 @@ const CUP = "cup_of_tea" as const;
 
 /**
  * At `credit_event`, for an event its host served tea at (RFC 0047): a cup of tea for each guest
- * on its `cups` list (or, without one, the credited list), signed by the host, into their things, or held aside for them when their
- * things are full, as a thing taken down from display is. With nobody on the list the pot of tea
+ * on its `cups` list (or, without one, the credited list), signed by the host, into their things,
+ * or held aside for them when their things are full, as a thing taken down from display is. With nobody on the list the pot of tea
  * goes back to its host (inventory reason `tea_kept`). Nothing when no tea was served.
  */
 export function pourTea(

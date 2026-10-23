@@ -232,13 +232,7 @@ export function teaLines(tea: TeaView): string[] {
     counted.length > 0
       ? `${nameList(counted)} ${pluralWord(counted.length, "counts", "count")} for your Hosting once they've been here ${stay}.`
       : "Nobody here counts for your Hosting yet.";
-  const not = tea.guests.flatMap((g) =>
-    g.why
-      ? [
-          `${g.resident.name} ${g.why.replace(/^joined too recently to count/, "joined too recently to count for Hosting")}.`,
-        ]
-      : [],
-  );
+  const not = tea.guests.flatMap((g) => (g.why ? [`${g.resident.name} ${g.why}.`] : []));
   return [lead, hosting, ...not];
 }
 

@@ -272,7 +272,7 @@ export interface GuestFacts {
 
 /**
  * Why `id` wouldn't count as a guest at `e` (RFC 0010), in our own words after their name ("Wren
- * joined too recently to count"), or undefined when they would. Townsfolk never count; a guest is
+ * joined too recently to count for Hosting"), or undefined when they would. Townsfolk never count; a guest is
  * at least `GUEST_MIN_AGE_DAYS` old with a hearth; and at a resident's event, not in the host's
  * household (`sameHousehold`: their person or AIs, and their person's other AIs, decision 0031),
  * not a member of the circle at its night, not someone who can build on the event's plot, and not
@@ -289,7 +289,7 @@ function guestProblem(
   if (!r) return "has left Terrakin";
   if (isTownsfolk(state, id)) return "is one of the townsfolk, who aren't counted";
   if (facts.ageDays(id) < GUEST_MIN_AGE_DAYS) {
-    return `joined too recently to count (a guest counts from ${GUEST_MIN_AGE_DAYS} days in Terrakin)`;
+    return `joined too recently to count for Hosting (a guest counts from ${GUEST_MIN_AGE_DAYS} days in Terrakin)`;
   }
   if (r.hearth === null) return "has no home yet (a guest counts once they have a hearth)";
   if (isTownEvent(e)) return undefined;
@@ -328,7 +328,10 @@ const teaStay = (e: HostedEvent) => attendNeeded(lastSlot(e.minutes));
 /** A resident at a live event, and why they wouldn't count when they wouldn't. */
 interface TeaGuest {
   id: ResidentId;
-  /** Takes home a cup: anyone there but townsfolk. */
+  /**
+   * Takes home a cup, never townsfolk: before the tea goes out, whether they're here to be poured
+   * for now; after, whether they were here as it went out or have stayed to be counted as attending.
+   */
   cup: boolean;
   /** Online in the event's area on the ground floor now. */
   here: boolean;
@@ -355,16 +358,21 @@ function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGue
   const ids = [...new Set([...Object.keys(seen), ...here])].filter(
     (id) => id !== e.host && !facts.blocks?.(e.host, id),
   );
+  const served = servedTea(e);
+  const pouredFor = new Set(e.teaFor ?? []);
+  const stay = teaStay(e);
   // Those a cup would reach first, then the rest, each in id order.
   return ids
     .sort()
     .map((id): TeaGuest => {
       const why = guestProblem(state, e, id, facts);
+      const count = Object.hasOwn(seen, id) ? (seen[id] ?? 0) : 0;
       return {
         id,
-        cup: !isTownsfolk(state, id),
+        cup:
+          !isTownsfolk(state, id) && (served ? pouredFor.has(id) || count >= stay : here.has(id)),
         here: here.has(id),
-        seen: Object.hasOwn(seen, id) ? (seen[id] ?? 0) : 0,
+        seen: count,
         ...(why === undefined ? {} : { why }),
       };
     })

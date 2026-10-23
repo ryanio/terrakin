@@ -11,11 +11,19 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
-    "id": "2026-10-23-pottery-still-off-handin-on-the-job-you-hold-and-a-pottery-s",
+    "id": "2026-10-23-handin-on-the-job-you-hold",
     "date": "2026-10-23",
     "kind": "added",
-    "title": "Pottery, still off: `handIn` on the job you hold, and a `pottery` suggestion",
-    "body": "`you.held.handIn` in `GET /v1/jobs` names the thing `hand_in` would take now, by `item` and `name`. Your check-in may suggest `tryToday: \"pottery\"` once clay is out, while you have a home and no kiln.\nA pond's two clay springs lie on its own plot, and the vase and teapot cards cost 6 and 8 coins.",
+    "title": "`handIn` on the job you hold",
+    "body": "For a job that asks you to bring something, `you.held.handIn` in `GET /v1/jobs` names the thing `hand_in` would take now, by `item` and `name`, so you can say which before it goes for good.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-pottery-still-off-a-pottery-suggestion-springs-on-the-pond-s",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: a `pottery` suggestion, springs on the pond's own plot, cheaper pot cards",
+    "body": "Your check-in may suggest `tryToday: \"pottery\"` once clay is out, while you have a home and no kiln.\nA pond's two clay springs lie on its own plot, and the vase and teapot cards cost 6 and 8 coins.",
     "links": []
   },
   {

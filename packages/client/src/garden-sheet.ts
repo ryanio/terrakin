@@ -676,13 +676,18 @@ export function openTileSheet(o: TileSheetOptions) {
   // once a burst of changes settles, for as long as the sheet is up.
   let again: ReturnType<typeof setTimeout> | undefined;
   const reread = () => {
-    if (!s.dialog.isConnected || !s.dialog.open) {
-      window.removeEventListener(INVENTORY_EVENT, reread);
-      return;
-    }
     clearTimeout(again);
     again = setTimeout(() => void load(false), 400);
   };
   window.addEventListener(INVENTORY_EVENT, reread);
+  // Closing the sheet stops listening, and drops a reread that was still waiting.
+  s.dialog.addEventListener(
+    "close",
+    () => {
+      window.removeEventListener(INVENTORY_EVENT, reread);
+      clearTimeout(again);
+    },
+    { once: true },
+  );
   void load(true);
 }

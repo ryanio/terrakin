@@ -10,6 +10,7 @@ import {
 import {
   DAY_MS,
   hashWorld,
+  ITEM_INFO,
   JOB_EDITIONS,
   JOBS,
   jobsOn,
@@ -865,8 +866,9 @@ describe("a finished job", () => {
     const bouquet = (await make("bouquet")).events.find((e: Json) => e.type === "inventory")
       .gained[0].id;
     // Making it isn't handing it in, and a dry run says which one would go and takes nothing: the
-    // oldest she made, or the one she names.
+    // oldest she made, or the one she names. The job she holds names the same one.
     expect(jobEvents(made.events)).toEqual([]);
+    expect((await heldNow()).handIn).toEqual({ item: first, name: ITEM_INFO.bouquet.name });
     const dry = await t.act(ada.token, { type: "hand_in", dry: true });
     expect(dry).toMatchObject({ ok: true, dry: true, handedIn: { item: first, kind: "bouquet" } });
     expect(await t.act(ada.token, { type: "hand_in", item: bouquet, dry: true })).toMatchObject({

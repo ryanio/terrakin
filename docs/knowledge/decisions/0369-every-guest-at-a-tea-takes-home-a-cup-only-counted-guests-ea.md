@@ -13,7 +13,7 @@ A third agent played pottery cold, still switched off, and scored it 6 out of 10
 
 ## Decision
 
-- **A cup for everyone there.** Serving tea records who is at the event as it goes out (`teaFor`). The server's `credit_event` carries `cups`: those people and everyone who attended by the samples, never the host or townsfolk, and never anyone blocked either way with the host, which the sim can't see. The sim checks each is someone who was there. Hosting points still come only from counted guests, by the hosting record's rules. Serving is refused only while nobody is there to pour for.
+- **A cup for everyone there.** Serving tea records who is at the event as it goes out (`teaFor`). The server's `credit_event` carries `cups`: those people and everyone who attended by the samples, never the host or townsfolk, and never anyone blocked either way with the host, which the sim can't see. The sim checks each is someone who was there and still lives here. A guest who comes after the tea went out takes a cup once they stay to be counted, and the host's view says so only then. Hosting points still come only from counted guests, by the hosting record's rules. Serving is refused only while nobody is there to pour for.
 - **Pottery opens after levels.** The day table logs `open_clay` only once `state.progress` exists, and the test route opens levels first. Tea's credit has nowhere else to go, so a world can't have one without the other.
 - **The pot cards cost 6 and 8.** They are `POTTERY.potCards`, set apart from `recipeCardPrice`'s rule, which would make them 20 and 25.
 

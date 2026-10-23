@@ -41,7 +41,8 @@ function goodItem(g: GoodView): HTMLLIElement {
       h(
         "span",
         { class: "things-good-maker" },
-        h("span", { text: "Made by " }),
+        // A cup of tea (RFC 0047) was poured by its host, not made.
+        h("span", { text: g.kind === "cup_of_tea" ? "Poured by " : "Made by " }),
         g.maker ? personLink(g.maker) : h("span", { text: "a former resident" }),
       ),
       admiredLine(g.admired),

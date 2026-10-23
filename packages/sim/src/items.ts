@@ -45,12 +45,12 @@ import { isMaterialKind, MATERIAL_KINDS, MATERIAL_RECIPES, type MaterialKind } f
 import { own, residentById } from "./own";
 import { tileListedProblem } from "./plot-market";
 import {
+  type ClayRule,
   checkOpenKiln,
+  clayRule,
   firingAt,
   GLAZES,
   isGlaze,
-  type ClayRule,
-  clayRule,
   isPotKind,
   KILN,
   loadKiln,

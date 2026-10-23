@@ -1566,6 +1566,8 @@ export const INVENTORY_REASONS = [
   "brought",
   /** A pot you loaded, out of a kiln with its finish (RFC 0047). */
   "fired",
+  /** A cup of tea from the host of an event you were a counted guest at (RFC 0047). */
+  "poured",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 

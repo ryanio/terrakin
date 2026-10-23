@@ -4,7 +4,7 @@ import { isTownsfolk, sameHousehold } from "./economy";
 import { findEvent } from "./events";
 import { EARNED_WEAR, type EarnedWear, isEarnedWear } from "./looks";
 import { own, residentById } from "./own";
-import { POTTERY, servedTea } from "./pottery";
+import { POTTERY, pourTea, servedTea } from "./pottery";
 import { seasonSpan, weekStart } from "./season";
 import { townEligibility } from "./town";
 import type {
@@ -765,6 +765,8 @@ export function checkCreditEvent(
       events.push(...points());
       progress.guestToday = [...(progress.guestToday ?? []), id].sort();
     }
+    // A host who served tea (RFC 0047) sends each guest home with a cup.
+    events.push(...pourTea(state, e, guests));
     return events;
   };
 }

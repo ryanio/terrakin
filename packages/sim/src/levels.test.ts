@@ -1042,6 +1042,13 @@ describe("credit_event", () => {
       (e) => e.type === "progress" && e.residentId === "ada",
     );
     expect(host).toMatchObject({ points: 2 * (PROGRESS.guest + POTTERY.teaPerGuest) });
+    // Each guest takes home a cup of tea, signed by the host who poured it.
+    for (const guest of ["bob", "cy"]) {
+      expect(items.inventories[guest]?.goods.at(-1), guest).toMatchObject({
+        kind: "cup_of_tea",
+        maker: "ada",
+      });
+    }
   });
 
   it("takes a shorter list than the sim saw attend, and never a longer one", () => {

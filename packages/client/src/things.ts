@@ -361,6 +361,9 @@ export function inventoryLine(e: InventoryEvent): string | null {
       // Nothing arrived at all: a pot went into a kiln (RFC 0047), and comes out tomorrow.
       return gained.length === 0 ? "Your pot is in the kiln. Take it out tomorrow." : null;
     }
+    // A cup of tea from an event's host who served tea (RFC 0047); the cup names who poured it.
+    case "poured":
+      return "Your host served tea, and you took home a cup. It's in your things.";
     case "fired": {
       const pot = e.gained?.[0];
       if (!pot) return null;

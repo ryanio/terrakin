@@ -492,3 +492,33 @@ export function kilnRemoveProblem(state: WorldState, x: number, y: number): Reje
       )
     : null;
 }
+
+/** The keepsake a counted guest takes home from an event its host served tea at. */
+export const CUP = "cup_of_tea" as const;
+
+/**
+ * At `credit_event`, for an event its host served tea at (RFC 0047): a cup of tea for each guest
+ * on the credited list, signed by the host, into their things, or held aside for them when their
+ * things are full, as a thing taken down from display is. Nothing when no tea was served.
+ */
+export function pourTea(
+  state: WorldState,
+  event: Pick<HostedEvent, "dishes" | "host">,
+  guests: readonly ResidentId[],
+): WorldEvent[] {
+  const items = state.items;
+  if (!items || state.day === undefined || !servedTea(event)) return [];
+  const day = state.day;
+  const events: WorldEvent[] = [];
+  for (const guest of guests) {
+    const good: Good = { id: `i_${items.nextId}`, kind: CUP, maker: event.host, madeDay: day };
+    items.nextId += 1;
+    if (inventorySize(items.inventories[guest]) + 1 > ITEMS.inventoryMax) {
+      items.heldAside = [...(items.heldAside ?? []), { good, by: guest, day }];
+      continue;
+    }
+    inventory(items, guest).goods.push(good);
+    events.push(inventoryEvent(guest, "poured", [], { gained: [good] }));
+  }
+  return events;
+}

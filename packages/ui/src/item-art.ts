@@ -2820,6 +2820,18 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   vase: () => potShapes("vase"),
   teapot: () => potShapes("teapot"),
   // A pot of tea (RFC 0047): a cream teapot with steam off its spout.
+  // A cup of tea (RFC 0047), a guest's keepsake: a cream cup on its saucer, steaming.
+  cup_of_tea: () => [
+    ellipse(24, 37, 15, 3.5, GLAZE_HEX.cream, out()),
+    path("M14 22h20v6c0 6-4 9-10 9s-10-3-10-9z", GLAZE_HEX.cream, out()),
+    path("M34 25c5 0 5 7 0 7", "none", out({ "stroke-width": 2 })),
+    ellipse(24, 22, 10, 2.2, "#b07a3a", out({ "stroke-width": 1 })),
+    path(
+      "M20 17c-2-3 2-5 0-8M27 17c-2-3 2-5 0-8",
+      "none",
+      out({ "stroke-width": 1.4, opacity: 0.5 }),
+    ),
+  ],
   pot_of_tea: () => [
     ...potShapes("teapot", "cream"),
     path(

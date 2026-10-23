@@ -1,10 +1,13 @@
+import type { EventView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
   defaultStart,
   dishesLine,
   eventLanterns,
   fromLocalInput,
+  heroEventRest,
   hostingWords,
+  nextEvent,
   soonWords,
   teaLines,
   toLocalInput,
@@ -37,6 +40,48 @@ describe("an event's time, in the viewer's own zone", () => {
     expect(soonWords(e(5 * HOUR), NOW, "UTC")).toBe("Starts in 5 hours");
     expect(soonWords(e(3 * DAY), NOW, "UTC")).toBe("Starts in 3 days");
     expect(soonWords({ ...e(-HOUR / 2), status: "live" }, NOW, "UTC")).toBe("On until 09:30");
+  });
+});
+
+describe("the front page's next event", () => {
+  const ev = (fields: Partial<EventView> = {}) =>
+    ({
+      id: "e_1",
+      town: false,
+      status: "scheduled",
+      startsAt: new Date(NOW + 10 * HOUR).toISOString(),
+      place: { px: 4, py: 4, commons: true },
+      host: null,
+      ...fields,
+    }) as EventView;
+  const ada = { name: "Ada" } as EventView["host"];
+
+  it("names what's on now first, the town's own before a resident's at each step", () => {
+    const liveTown = ev({ id: "live-town", town: true, status: "live" });
+    const liveAda = ev({ id: "live-ada", status: "live", host: ada });
+    const nextTown = ev({ id: "next-town", town: true });
+    const nextAda = ev({ id: "next-ada", host: ada });
+    expect(nextEvent({ live: [liveAda, liveTown], upcoming: [nextTown] })).toBe(liveTown);
+    expect(nextEvent({ live: [liveAda], upcoming: [nextTown] })).toBe(liveAda);
+    expect(nextEvent({ live: [], upcoming: [nextAda, nextTown] })).toBe(nextTown);
+    expect(nextEvent({ live: [], upcoming: [nextAda] })).toBe(nextAda);
+    expect(nextEvent({ live: [], upcoming: [] })).toBeUndefined();
+  });
+
+  it("says when and where after the title, and only where while it's on", () => {
+    expect(heroEventRest(ev(), NOW, "UTC")).toBe("Today 19:00, in the Commons");
+    expect(heroEventRest(ev({ status: "live" }), NOW, "UTC")).toBe("in the Commons");
+    expect(
+      heroEventRest(
+        ev({
+          host: ada,
+          place: { px: 2, py: 1, commons: false },
+          startsAt: new Date(NOW + DAY + 9 * HOUR).toISOString(),
+        }),
+        NOW,
+        "UTC",
+      ),
+    ).toBe("Tomorrow 18:00, at Ada's plot");
   });
 });
 

@@ -17,6 +17,14 @@
     <summary type="text">You can make pottery now. Dig a pond, and clay comes up beside it every day. Put up a kiln for 2 stone, load a bowl, a vase or a teapot in a glaze, and take it out the next day.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-10-22</id>
+    <title>No plot is an island now</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-22"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-22.md"/>
+    <summary type="text">Downtown had a quiet flaw: 18 of its 53 claimed plots had no way out, hearths you could build on but never walk from to the Commons. Today the town laid public ways across 380 tiles, clearing what they crossed and giving it back, and every claimed plot has an opening again.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-21</id>
     <title>The shop is a place you go to</title>
     <updated>2026-10-21T00:00:00Z</updated>

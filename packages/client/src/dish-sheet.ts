@@ -48,7 +48,7 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
     const bring = h("button", {
       class: "btn-primary small",
       attrs: { type: "button" },
-      text: "Bring",
+      text: tea ? "Serve" : "Bring",
     });
     bring.addEventListener("click", async () => {
       const done = await whileBusy(bring, async () => {
@@ -81,7 +81,7 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
       title: tea ? "Serve tea" : "Bring a dish",
       lede: tea
         ? choices.length > 0
-          ? "Set out a pot of tea for your guests. Each guest counted at the end earns you a little more Hosting."
+          ? "Set out a pot of tea for your guests. Each guest counted at the end takes home a cup from you, and earns you a little more Hosting."
           : "Brew a pot of tea at a kitchen first: it takes a teapot, which you keep, and two bunches of herbs."
         : choices.length > 0
           ? "Pick one thing you made for the feast's table. It stays there for good."

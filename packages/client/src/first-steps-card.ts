@@ -1,9 +1,11 @@
 /**
  * "Getting started" on the home wall, for a signed-in person with first steps left. Steps come in
  * rounds of three (`stepRound`): a bar for how much of this round is done, each step left in it as
- * a row that links to where it's done, and the done ones folded away behind "Show 4 done". It goes away when every step is done, or for good on this
+ * a row that links to where it's done, the done ones folded away behind "Show 4 done", and a
+ * link to How to play at its foot. It goes away when every step is done, or for good on this
  * device once hidden. Loaded only for someone signed in, so the wall's first load leaves it out.
  */
+import { LINKS } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import {
   announce,
@@ -95,7 +97,7 @@ export async function firstStepsCard(me: string): Promise<HTMLElement | null> {
       closeButton("Hide getting started", () => {
         hide(me);
         card.remove();
-        announce("Getting started is hidden on this device.");
+        announce("Getting started is hidden on this device. How to play is in the footer.");
       }),
     ),
     h("h2", { class: "card-title", attrs: { id: "first-steps-title" }, text: "Your first steps" }),
@@ -110,6 +112,12 @@ export async function firstStepsCard(me: string): Promise<HTMLElement | null> {
       { ordered: true, className: "first-steps" },
     ),
     done.length > 0 ? doneSteps(done) : null,
+    h(
+      "p",
+      { class: "hint" },
+      "New here? ",
+      h("a", { attrs: { href: LINKS.play }, text: "How to play" }),
+    ),
   );
   return card;
 }

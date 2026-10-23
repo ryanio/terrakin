@@ -13,7 +13,7 @@ import type {
   TownResponse,
   WorldSnapshot,
 } from "@terrakin/protocol";
-import { PAGES } from "@terrakin/protocol";
+import { LINKS, PAGES } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
@@ -452,6 +452,13 @@ function peopleCard(feedTarget: HTMLElement): HTMLElement {
         icon("arrow"),
       ),
       browse,
+    ),
+    h(
+      "p",
+      { class: "hint" },
+      "New here? ",
+      h("a", { attrs: { href: LINKS.play }, text: "How to play" }),
+      ", from walking around to fishing.",
     ),
   );
 }

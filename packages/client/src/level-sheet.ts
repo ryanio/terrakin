@@ -235,7 +235,7 @@ export function openLevelSheet(o: LevelSheetOptions): void {
       className: "level-sheet",
       lede: o.mine
         ? `Each skill counts up to ${PROGRESS.dailyCap} points a day. Levels bring a title and something to wear, never anything you need.`
-        : "Levels come from growing, making, foraging, hosting, and playing. They bring a title and something to wear.",
+        : "Each row says what earns that skill. Levels bring a title and something to wear.",
       closeOnBackdrop: true,
     },
     total,

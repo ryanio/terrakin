@@ -91,13 +91,14 @@ test("pick lemon, citrus, and a straw hat, and see it on the profile and in the 
     .poll(
       () =>
         page.evaluate(() => {
-          // The camera follows Capri, so her figure is at the middle of the screen.
+          // The camera follows Capri, so her figure is at the clear map's middle, `data-lift` below
+          // the screen's.
           const canvas = document.getElementById("world") as HTMLCanvasElement;
           const ctx = canvas.getContext("2d");
           if (!ctx) return 0;
           const dpr = canvas.width / window.innerWidth;
           const cx = Math.round((window.innerWidth / 2) * dpr);
-          const cy = Math.round((window.innerHeight / 2) * dpr);
+          const cy = Math.round((window.innerHeight / 2 + Number(canvas.dataset.lift ?? 0)) * dpr);
           const size = Math.round(40 * dpr);
           const { data } = ctx.getImageData(cx - size / 2, cy - size / 2, size, size);
           let lemon = 0;

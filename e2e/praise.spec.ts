@@ -1,5 +1,15 @@
 import { expect, type Page, test } from "@playwright/test";
-import { act, advanceDay, freePlots, join, read, settleFree, signIn, watchErrors } from "./support";
+import {
+  act,
+  advanceDay,
+  freePlots,
+  join,
+  openVisitCard,
+  read,
+  settleFree,
+  signIn,
+  watchErrors,
+} from "./support";
 
 /**
  * Praise (issue #36), plot names (decision 0121), and admiring a plot (RFC 0020) at 390x844: a
@@ -27,7 +37,8 @@ function labelRows(page: Page): Promise<number> {
     // middle is half a tile east of you, and its top edge three and a half tiles up. The top row
     // is open ground; the hut's wall starts on the next.
     const cx = window.innerWidth / 2 + scale / 2;
-    const top = window.innerHeight / 2 - scale * 3.5;
+    // The map keeps her in the middle of the clear map, `data-lift` below the screen's middle.
+    const top = window.innerHeight / 2 + Number(canvas.dataset.lift ?? 0) - scale * 3.5;
     const w = Math.round(40 * dpr);
     const h = Math.round(scale * 1.2 * dpr);
     const { data } = ctx.getImageData(Math.round(cx * dpr - w / 2), Math.round(top * dpr), w, h);
@@ -95,8 +106,12 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/world");
     await expect(page.locator("#hud")).toBeVisible();
-    // On her own plot the card is hers: no Admire, a way to name it. On a phone, with nobody in
-    // it this week, that is all it is: the map draws the plot's name under her (decision 0303).
+    // On a phone the card rests folded, as the plot's name in a pill on the top row.
+    await expect(page.locator("#visit-card-fold")).toBeVisible();
+    await expect(page.locator("#visit-name")).toBeHidden();
+    await openVisitCard(page);
+    // Open, on her own plot the card is hers: no Admire, a way to name it. On a phone, with nobody
+    // in it this week, that is all it is: the map draws the plot's name under her (decision 0303).
     await expect(page.locator("#visit-name")).toBeVisible();
     await expect(page.locator("#visit-admire")).toBeHidden();
     await expect(page.locator("#visit-card-owner")).toBeHidden();
@@ -134,6 +149,7 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
     // At the door: the card says what the plot is called, whose it is, and that Iris came by.
     const visit = page.locator("#visit-card");
     await expect(visit).toBeVisible();
+    await openVisitCard(page);
     await expect(page.locator("#visit-card-owner")).toHaveText("Tam's Tea Garden");
     await expect(page.locator("#visit-card-whose")).toHaveText("Tam's plot");
     await expect(page.locator("#visit-card-week")).toHaveText("1 visitor this week");

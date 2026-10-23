@@ -7,9 +7,9 @@
  * Only newcomers ever see it, so it loads on its own.
  */
 import type { RecipeCardView } from "@terrakin/protocol";
-import { cardOf, RECIPES_RULES, type Station } from "@terrakin/sim";
+import { BASE_RECIPES, cardOf, RECIPES_RULES, type Station } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { listOf, plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import {
   errorLine,
@@ -37,6 +37,15 @@ export function pickGroups(
       cards: cards.filter((c) => !c.known && c.recipe.station === station),
     }))
     .filter((g) => g.cards.length > 0);
+}
+
+/**
+ * The picks sheet's lede: what a recipe is, and the ones everyone knows, from the sim's base list.
+ * Pure, so tests pin it.
+ */
+export function picksLede(): string {
+  const known = listOf(BASE_RECIPES.map((r) => recipeWords(r).toLowerCase()));
+  return `A recipe lets you make one thing at a kitchen or workbench. These are free and yours for good. Everyone already knows ${known}; the town shop sells more.`;
 }
 
 export interface RecipePicksOptions {
@@ -108,7 +117,7 @@ export async function openRecipePicks(o: RecipePicksOptions): Promise<boolean> {
       id: "picks-title",
       title: `Pick ${RECIPES_RULES.starterPicks} recipes to start`,
       className: "picks-sheet",
-      lede: "They're free and yours for good. Everyone already knows herb tea, jam, a bouquet, and the first furniture; the town shop sells the rest.",
+      lede: picksLede(),
     },
     count,
     ...groups.map((g) =>

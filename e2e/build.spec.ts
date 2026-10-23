@@ -34,7 +34,8 @@ function doorRed(page: Page, dy: number): Promise<number> {
     const dpr = canvas.width / window.innerWidth;
     const scale = Math.max(16, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 13));
     const cx = window.innerWidth / 2;
-    const cy = window.innerHeight / 2 + dy * scale + scale * 0.1;
+    // Where she stands: the clear map's middle, `data-lift` below the screen's.
+    const cy = window.innerHeight / 2 + Number(canvas.dataset.lift ?? 0) + dy * scale + scale * 0.1;
     const w = Math.round(scale * 0.2 * dpr);
     const h = Math.round(scale * 0.3 * dpr);
     const { data } = ctx.getImageData(

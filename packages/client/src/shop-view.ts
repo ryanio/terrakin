@@ -12,9 +12,18 @@ import type {
   ShopItemView,
   ShopResponse,
 } from "@terrakin/protocol";
-import { cardOf, dateOfDay, dayName, HOLIDAY_INFO } from "@terrakin/sim";
+import {
+  CATALOG,
+  CROP_INFO,
+  type Crop,
+  cardOf,
+  dateOfDay,
+  dayName,
+  HOLIDAY_INFO,
+  type ItemKind,
+} from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { listOf, plural } from "@terrakin/ui/format";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { itemRow, itemRows, kindPill, landOnHash, pageLayout } from "@terrakin/ui/ui";
@@ -24,7 +33,16 @@ import { shopApi } from "./api/shop";
 import { savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
-import { aNamed, learnedLine, madeName, needsListLine, stackCount } from "./things";
+import { earnCoinsLink } from "./purse-view";
+import {
+  aNamed,
+  aThing,
+  learnedLine,
+  madeName,
+  needsListLine,
+  stackCount,
+  thingCount,
+} from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 type Section = ShopItemView["section"];
@@ -34,7 +52,7 @@ export const SHELVES: { section: Section; title: string; hint: string }[] = [
   {
     section: "decor",
     title: "For your plot",
-    hint: "Place them from the build bar in the world. Take one back up and it's yours to place again.",
+    hint: "Place them from Build in the world. Take one back up and it's yours to place again.",
   },
   { section: "wear", title: "To wear", hint: "One of a kind, and yours for good." },
   { section: "garden", title: "Seeds", hint: "One planter each. A harvest gives a seed back." },
@@ -124,6 +142,26 @@ export function recipesHint(picks: number): string {
  */
 export function holdsBack(what: "buy" | "sell" | "pick", away: string | null): boolean {
   return away !== null && what !== "pick";
+}
+
+/** What the shop's card says about where your coins go. */
+const SPENDING =
+  "Coins buy seeds, clothes, decor, and recipes here. Most of what you spend leaves the game; a little goes to the town.";
+
+/**
+ * How to come by a thing the town buys, from the catalog: a made thing's station and what it
+ * uses, a crop's seed, a find, or a fish. Null for anything else. Pure, so tests pin it.
+ */
+export function howToGet(kind: ItemKind): string | null {
+  const entry = CATALOG[kind];
+  if (entry.recipe) {
+    const needs = Object.entries(entry.recipe.needs).map(([k, n]) => thingCount(k as ItemKind, n));
+    return `Make it at a ${entry.recipe.station} from ${listOf(needs)}.`;
+  }
+  if (entry.crop) return `Grow it from ${aThing(CROP_INFO[kind as Crop].seed)} in a planter.`;
+  if (entry.role === "find") return "Found lying on the ground.";
+  if (entry.role === "fish") return "Caught with a fishing rod beside water.";
+  return null;
 }
 
 /** How many the town would take from you now: what's left today, up to what you hold. */
@@ -310,7 +348,12 @@ export function shopView(ctx: ViewContext): View {
       attrs: { "data-kind": order.kind },
       lead: itemArt(order.kind, { size: 32 }),
       name: order.name,
-      lines: [`${coins(order.price)} each, ${left}`, tagOf(order)],
+      // With none held, Sell stays off: say how to come by one.
+      lines: [
+        `${coins(order.price)} each, ${left}`,
+        tagOf(order),
+        signedIn && held === 0 ? howToGet(order.kind) : null,
+      ],
       trail: signedIn ? sell : null,
     });
   }
@@ -333,13 +376,10 @@ export function shopView(ctx: ViewContext): View {
               { class: "shop-keeper" },
               personLink(shop.keeper),
               h("span", {
-                text: " keeps the shop. Most of what you spend is retired; a little goes to the town.",
+                text: ` keeps the shop. ${SPENDING}`,
               }),
             )
-          : h("p", {
-              class: "shop-keeper",
-              text: "Most of what you spend is retired; a little goes to the town.",
-            }),
+          : h("p", { class: "shop-keeper", text: SPENDING }),
         away !== null
           ? h(
               "p",
@@ -360,6 +400,7 @@ export function shopView(ctx: ViewContext): View {
               h("span", { text: "Join to shop" }),
               icon("arrow"),
             ),
+        you ? earnCoinsLink() : null,
       ),
       h(
         "section",

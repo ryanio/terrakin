@@ -377,6 +377,12 @@ a.action {
   display: none;
 }
 
+/* The fold and Hide are a phone's (the media query at the foot of this file); wider, it's whole. */
+.visit-card-fold,
+.visit-card-hide {
+  display: none;
+}
+
 .visit-card-owner {
   font-family: var(--font-display);
   font-size: var(--text-xl);
@@ -562,17 +568,12 @@ a.action {
   top: calc(42vh + 76px + env(safe-area-inset-top));
 }
 
-/* Under the card on someone's plot, so a toast never covers Admire or Next plot. */
-.visit-card:not([hidden]) ~ .toast {
-  top: calc(192px + env(safe-area-inset-top));
-}
-
 /*
- * A named plot's card has a line more, whose plot it is (decision 0121): the toast goes lower.
- * `:where` keeps this as specific as the rule above, so building still moves the toast.
+ * Under the card on someone's plot, or a link's look card, so a toast never covers their buttons:
+ * `--card-bottom` is where the card ends, which `world.ts` sets as the card grows and shrinks.
  */
-.visit-card:not([hidden]):where(:has(.visit-card-whose:not([hidden]))) ~ .toast {
-  top: calc(218px + env(safe-area-inset-top));
+:is(.visit-card, .look-card):not([hidden]) ~ .toast {
+  top: calc(var(--card-bottom, 192px) + var(--space-sm));
 }
 
 /* While building, notices show under the build bar instead of over its tabs. */
@@ -765,8 +766,93 @@ a.action {
     clip-path: inset(50%);
   }
 
-  .visit-card {
+  /*
+   * The card keeps the plot's name, whose it is, and its buttons, in as few rows as it can: the
+   * week's visitors sit on the name's row, small, at its end.
+   */
+  .visit-card:not(.look-card) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-sm);
     padding: var(--space-xs) var(--space-md);
+  }
+
+  .visit-card:not(.look-card) > * {
+    grid-column: 1 / -1;
+  }
+
+  .visit-card > .visit-card-owner {
+    grid-row: 1;
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .visit-card > .visit-card-week {
+    font-size: var(--text-sm);
+  }
+
+  /*
+   * Folded, which is how it rests: only the plot's name, in a pill on the top row between Feed and
+   * Invite, so standing on a plot costs the map nothing. The pill opens the card; Hide, on the
+   * name's row, folds it again.
+   */
+  .visit-card:not(.look-card, [data-open]) {
+    top: calc(12px + env(safe-area-inset-top));
+    width: auto;
+    max-width: calc(100% - 240px);
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .visit-card:not(.look-card, [data-open]) > :not(.visit-card-fold) {
+    display: none;
+  }
+
+  .visit-card:not(.look-card, [data-open]) > .visit-card-fold {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    gap: var(--space-2xs);
+    padding: 0 var(--space-md);
+    font-size: var(--text-sm);
+  }
+
+  .visit-card-fold > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .visit-card-fold > .icon {
+    flex: none;
+    color: var(--clay);
+  }
+
+  .visit-card[data-open] > .visit-card-hide {
+    display: inline-flex;
+    grid-row: 1;
+    grid-column: 2;
+    align-self: start;
+  }
+
+  .visit-card-hide .icon {
+    color: var(--clay);
+  }
+
+  /*
+   * The chips for what's beside you (Gather all, Fish, the next step, the job) sit just over the
+   * pad, where the labelled column's 3D toggle used to be, rather than up in the map.
+   */
+  .world-near {
+    bottom: calc(14px + env(safe-area-inset-bottom) + var(--pad-cell) * 3 + var(--space-sm));
+  }
+
+  /* A notice takes less of the map: a smaller line, and wider, so it wraps less. */
+  .toast {
+    max-width: calc(100% - 24px);
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--text-md);
   }
 
   .visit-card-owner {

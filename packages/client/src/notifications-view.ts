@@ -432,7 +432,7 @@ export function soldLine(s: { px: number; py: number; price: number; coins: numb
 } {
   return {
     line: `Plot ${s.px}, ${s.py} sold for ${plural(s.price, "coin", "coins")}.`,
-    next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared, so settle again to keep your pantry and allowance.`,
+    next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared. Set a hearth on a plot of yours, or claim one, to keep your daily pantry and coins.`,
   };
 }
 

@@ -24,6 +24,18 @@ const LIST_MS = 60_000;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** Where this device keeps whether the card is open on a phone. */
+const OPEN_KEY = "terrakin.visitCardOpen";
+
+/** Whether the card was left open on this device: folded until someone opens it. */
+function savedOpen(): boolean {
+  try {
+    return localStorage.getItem(OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export interface VisitCardOptions {
   /**
    * Jump to plot (px, py): the world sends `visit` over its socket. The message's id, or
@@ -70,6 +82,33 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   const sale = $("visit-sale");
   const tea = $("visit-tea");
   const buy = $<HTMLButtonElement>("visit-buy");
+  const fold = $<HTMLButtonElement>("visit-card-fold");
+  const foldName = $("visit-card-fold-name");
+  const hideButton = $<HTMLButtonElement>("visit-card-hide");
+
+  /**
+   * On a phone the card rests folded, as the plot's name in a pill on the top row, so the map stays
+   * the point (a playtest found the open card pulled her out of the world). The pill opens it, Hide
+   * folds it again, and the choice holds from plot to plot and visit to visit on this device. The
+   * stylesheet does the folding, from 480px down only; a wider screen always shows it whole.
+   */
+  let open = savedOpen();
+  function paintFold() {
+    el.toggleAttribute("data-open", open);
+    fold.setAttribute("aria-expanded", String(open));
+  }
+  function setOpen(to: boolean) {
+    open = to;
+    try {
+      localStorage.setItem(OPEN_KEY, to ? "1" : "0");
+    } catch {
+      // No storage: it opens and folds for this visit only.
+    }
+    paintFold();
+  }
+  paintFold();
+  fold.addEventListener("click", () => setOpen(true));
+  hideButton.addEventListener("click", () => setOpen(false));
   /** The price of the plot under you while it's for sale, from the plot's own read. */
   let price: number | null = null;
 
@@ -137,6 +176,8 @@ export function visitCard(o: VisitCardOptions): VisitCard {
     );
     const whoseLine = ownerId === me ? "Your plot" : plotName(names);
     owner.textContent = named ?? whoseLine;
+    foldName.textContent = named ?? whoseLine;
+    fold.setAttribute("aria-label", `${named ?? whoseLine}: show what you can do here`);
     owner.href = profilePath(ownerId);
     whose.textContent = named ? whoseLine : "";
     whose.hidden = !named;

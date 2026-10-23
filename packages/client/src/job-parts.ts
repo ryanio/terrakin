@@ -17,6 +17,7 @@ import {
   heldBar,
   heldJobLine,
   heldMoves,
+  howLine,
   type JobStanding,
   jobProblem,
   jobRowAction,
@@ -118,8 +119,9 @@ export function repaintKeepingFocus(within: HTMLElement, paint: () => void) {
 }
 
 /**
- * One job on the board: the giver, the job's words, who it's for and its skill, and Take when the
- * server says one can be taken. The row for the job you hold says so in place of a button.
+ * One job on the board: the giver, the job's words, who it's for and its skill, how to do it, and
+ * Take when the server says one can be taken. The row for the job you hold says so in place of a
+ * button.
  */
 export function jobRow(job: JobView, you: JobStanding | null, acts: JobActs): HTMLLIElement {
   const action = jobRowAction(job, you);
@@ -138,15 +140,15 @@ export function jobRow(job: JobView, you: JobStanding | null, acts: JobActs): HT
     attrs: { "data-job": job.id },
     lead: giverMark(job.from),
     name: job.title,
-    lines: [askedBy(job)],
+    lines: [askedBy(job), howLine(job)],
     trail: take ?? (action === "held" ? kindPill("Yours", "sun", "job-yours") : null),
   });
 }
 
 /**
- * The job you hold: its words, a bar, where it stands, how long it's kept, Hand in for a bring job
- * (a second tap, since the thing leaves your things for good), and Let go. `titled` leaves off the
- * "Your job" line over it, for a sheet whose title already says so.
+ * The job you hold: its words, a bar, where it stands, how to do it, how long it's kept, Hand in
+ * for a bring job (a second tap, since the thing leaves your things for good), and Let go.
+ * `titled` leaves off the "Your job" line over it, for a sheet whose title already says so.
  */
 export function heldJob(
   held: HeldJobView,
@@ -196,6 +198,7 @@ export function heldJob(
     ),
     progressBar(bar.count, bar.total, bar.label),
     h("p", { class: "hint job-held-line", text: heldJobLine(held) }),
+    h("p", { class: "hint job-how", text: howLine(held) }),
     kept ? h("p", { class: "hint", text: kept }) : null,
     h("div", { class: "cluster job-held-moves" }, ...buttons),
   );

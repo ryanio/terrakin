@@ -81,7 +81,9 @@ describe("a first seed in one tap", () => {
     expect(plantByHandLine(byHand.problem)).toBe(
       "There's no room for a planter by your hearth yet. Place one from Build, then tap it.",
     );
-    expect(plantByHandLine("no_seeds")).toBe("You have no seeds to plant. The shop sells them.");
+    expect(plantByHandLine("no_seeds")).toBe(
+      "You have no seeds to plant. The town shop sells them, at its counter on the town square.",
+    );
   });
 
   it("says what was planted and when it's ready", () => {

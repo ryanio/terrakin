@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   act,
   advanceDay,
+  openVisitCard,
   overflowsSideways,
   type Resident,
   read,
@@ -172,6 +173,7 @@ test("Halloween: a knock at a neighbor's door on October 31", async ({ page }) =
     (await act(page.request, rowan.token, { type: "visit", px: door.px, py: door.py })).ok,
   ).toBe(true);
   await page.goto("/world");
+  await openVisitCard(page);
   const knock = page.locator("#visit-knock");
   await expect(knock).toBeVisible();
   await expect(knock).toHaveText("Trick or treat");

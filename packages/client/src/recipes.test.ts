@@ -9,7 +9,7 @@ import {
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { notificationLine } from "./notifications-view";
-import { pickGroups } from "./recipe-picks";
+import { pickGroups, picksLede } from "./recipe-picks";
 import { cardLabel, recipesHint } from "./shop-view";
 import {
   canTeachLine,
@@ -191,5 +191,11 @@ describe("the picks sheet", () => {
       ["kitchen", ["tomato_sauce"]],
     ]);
     expect(pickGroups([card("lemonade", "kitchen", true)], "kitchen")).toEqual([]);
+  });
+
+  it("says what a recipe is and names the ones everyone knows", () => {
+    expect(picksLede()).toBe(
+      "A recipe lets you make one thing at a kitchen or workbench. These are free and yours for good. Everyone already knows herb tea, jam, bouquet, chair, table, low stone wall, and fishing rod; the town shop sells more.",
+    );
   });
 });

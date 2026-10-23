@@ -85,6 +85,20 @@ export type ChipTone = "copper" | "silver" | "gold";
 export const chipTone = (level: number): ChipTone | undefined =>
   level >= 50 ? "gold" : level >= 25 ? "silver" : level >= 10 ? "copper" : undefined;
 
+/**
+ * What earns each skill's points, in a line a newcomer can act on. Each is the sim's own rule for
+ * that skill (the `...Counts` rules, the event credit, and pets meeting on the green).
+ */
+export const SKILL_HOW: Readonly<Record<Skill, string>> = {
+  growing: "Harvest crops from your planters.",
+  making: "Make things at a kitchen, workbench, or kiln.",
+  foraging:
+    "Pick up finds and recipe pages, and catch fish. Branches, stones, and clay don't count.",
+  hosting:
+    "Teach a neighbor a recipe, finish a bounty, host an event or go to one, and meet other pets when you walk yours on the green.",
+  playing: "Play rated games at the tables in the town square.",
+};
+
 /** A bar: `count` of `total`, and what a screen reader says for it. */
 interface Bar {
   count: number;
@@ -109,8 +123,8 @@ export interface SkillRow {
 
 /**
  * Your own row for a skill, from `GET /v1/progress`: the bar runs from the points this level
- * started at to the points the next one starts at, and the lines say how many points are left,
- * what today has counted against the cap, and the next thing the skill unlocks.
+ * started at to the points the next one starts at, and the lines say what earns the skill, how many
+ * points are left, what today has counted against the cap, and the next thing the skill unlocks.
  */
 export function ownSkillRow(
   s: ProgressResponse["skills"][number],
@@ -130,6 +144,7 @@ export function ownSkillRow(
     name: levelName(s),
     bar: { count, total, label: `${count} of ${total} points to ${after}` },
     lines: [
+      SKILL_HOW[s.skill],
       `${plural(left, "point", "points")} to ${after}`,
       today,
       ...(next ? [`${levelName(next)} brings ${unlockWords(next.unlocks)}.`] : []),
@@ -140,7 +155,7 @@ export function ownSkillRow(
 /**
  * Someone else's row for a skill, from their profile's `level`. Their points are private, so the
  * bar counts levels instead: from the last thing the skill unlocked (or level 1) to the next, by
- * the sim's own list, and full once nothing is left.
+ * the sim's own list, and full once nothing is left. Its first line says what earns the skill.
  */
 export function publicSkillRow(skill: Skill, level: number): SkillRow {
   const unlocks = skillUnlocks(skill);
@@ -152,7 +167,7 @@ export function publicSkillRow(skill: Skill, level: number): SkillRow {
       skill,
       name,
       bar: { count: 1, total: 1, label: `Past ${last}` },
-      lines: ["Nothing left to unlock."],
+      lines: [SKILL_HOW[skill], "Nothing left to unlock."],
     };
   }
   const from = Math.max(1, ...unlocks.filter((u) => u.level <= level).map((u) => u.level));
@@ -167,7 +182,7 @@ export function publicSkillRow(skill: Skill, level: number): SkillRow {
     skill,
     name,
     bar: { count, total, label: `${count} of ${plural(total, "level", "levels")} to ${goal}` },
-    lines: [`${goal} brings ${what}.`],
+    lines: [SKILL_HOW[skill], `${goal} brings ${what}.`],
   };
 }
 

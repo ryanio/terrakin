@@ -313,16 +313,32 @@ async function settleCamera(page: Page) {
 export async function tapTile(page: Page, dx: number, dy: number) {
   await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
   await settleCamera(page);
-  const at = tilePoint(page, dx, dy);
+  const at = await tilePoint(page, dx, dy);
   await page.mouse.click(at.x, at.y);
 }
 
-/** Where the tile `dx`, `dy` from where you stand falls on screen. */
-function tilePoint(page: Page, dx: number, dy: number) {
+/**
+ * Where the tile `dx`, `dy` from where you stand falls on screen. The map keeps your figure in the
+ * middle of the clear map rather than the screen's, and says how far below the middle in the
+ * canvas's `data-lift`.
+ */
+async function tilePoint(page: Page, dx: number, dy: number) {
   const vp = page.viewportSize();
   if (!vp) throw new Error("no viewport");
   const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
-  return { x: vp.width / 2 + dx * scale, y: vp.height / 2 + dy * scale };
+  const lift = Number((await page.locator("#world").getAttribute("data-lift")) ?? 0);
+  return { x: vp.width / 2 + dx * scale, y: vp.height / 2 + lift + dy * scale };
+}
+
+/**
+ * On a phone the card over a plot rests folded, as the plot's name in a pill on the top row: open
+ * it, when it is, so its buttons are on screen.
+ */
+export async function openVisitCard(page: Page) {
+  await expect(page.locator("#visit-card")).toBeVisible();
+  const fold = page.locator("#visit-card-fold");
+  if (await fold.isVisible()) await fold.click();
+  await expect(page.locator("#visit-next")).toBeVisible();
 }
 
 /**
@@ -332,7 +348,7 @@ function tilePoint(page: Page, dx: number, dy: number) {
  * A spec that picks its own tile asks this first.
  */
 export async function tapsTheMap(page: Page, dx: number, dy: number): Promise<boolean> {
-  const at = tilePoint(page, dx, dy);
+  const at = await tilePoint(page, dx, dy);
   return page.evaluate(
     ([x, y]) => document.elementFromPoint(x as number, y as number)?.tagName === "CANVAS",
     [at.x, at.y],

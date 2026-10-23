@@ -1,11 +1,11 @@
 /**
- * `/town` the Town Hall: open proposals with live tallies and vote buttons, the Propose sheet (an
- * advisory, a build drawn on a map of the Commons with the build bar's blocks, paths, and furniture,
- * a grant, or a town bounty), the town's jobs once they're open here (`jobs-section.ts`), the
- * town's calendar of events with the Schedule sheet, the notice board, a way to the bounties, and
- * past results. Titles, texts, notices, and names are other
- * residents' words: textContent only. The server decides who may vote and what passes; this page
- * shows its answers and its reasons.
+ * `/town` the Town Hall: the town's jobs first once they're open here (`jobs-section.ts`), open
+ * proposals with live tallies and vote buttons, the Propose sheet (an advisory, a build drawn on a
+ * map of the Commons with the build bar's blocks, paths, and furniture, a grant, or a town
+ * bounty), the town's calendar of events with the Schedule sheet, the notice board, a way to the
+ * bounties, and past results. Titles, texts, notices, and names are other residents' words:
+ * textContent only. The server decides who may vote and what passes; this page shows its answers
+ * and its reasons.
  */
 import {
   type Action,
@@ -194,12 +194,13 @@ export function townView(ctx: ViewContext): View {
     await Promise.all([jobsOpen ? jobs.refresh() : null, circlesOpen ? circles.refresh() : null]);
     if (destroyed) return;
     head.replaceChildren(hero);
+    // Someone walking in from the world most likely came for a job, so the jobs lead the page.
     main.replaceChildren(
+      ...(jobsOpen ? jobs.els : []),
       h("h2", { class: "section-title", text: "Open proposals" }),
       openList,
       queuedTitle,
       queuedList,
-      ...(jobsOpen ? jobs.els : []),
       ...(circlesOpen ? circles.els : []),
       h("h2", { class: "section-title", text: "Past results" }),
       archiveList,

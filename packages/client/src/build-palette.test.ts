@@ -48,7 +48,9 @@ describe("the build bar", () => {
     expect(heldLine("well", 0)).toBe(
       "Well: none yet. Make one at a workbench from 2 wood, 6 stone.",
     );
-    expect(heldLine("bench", 0)).toBe("Garden bench: none yet. Buy one at the town shop.");
+    expect(heldLine("bench", 0)).toBe(
+      "Garden bench: none yet. Buy one at the town shop: its counter is on the town square, beside the Town Hall.",
+    );
   });
 
   it("asks the sim whether a path can be paid for, and says what's short", () => {
@@ -56,7 +58,7 @@ describe("the build bar", () => {
     expect(canLay("dirt", none)).toBe(true);
     expect(canLay("cobble", none)).toBe(false);
     expect(groundLine("brick", holdingsFromStacks([{ kind: "stone", count: 1 }]))).toBe(
-      "Brick path: 2 stone a tile. You need 1 stone more.",
+      "Brick path: 2 stone a tile. You need 1 stone more. Pick up loose stones on the ground for stone.",
     );
     expect(canLay("rug", holdingsFromStacks([{ kind: "herb", count: 1 }]))).toBe(false);
     expect(
@@ -74,7 +76,7 @@ describe("the build bar", () => {
     const one = holdingsFromStacks([{ kind: "wood", count: 1 }]);
     expect(blockShort("stairs", one)).toEqual([{ kind: "wood", count: 3 }]);
     expect(stairsLine(one)).toBe(
-      "Stairs: 4 wood, up to the floor above. Stand on them and tap Go up. You need 3 wood more.",
+      "Stairs: 4 wood, up to the floor above. Stand on them and tap Go up. You need 3 wood more. Pick up fallen branches on the ground for wood.",
     );
     expect(blockShort("stairs", holdingsFromStacks([{ kind: "wood", count: 4 }]))).toEqual([]);
     expect(blockShort("glass", holdingsFromStacks([]))).toEqual([]);
@@ -84,7 +86,7 @@ describe("the build bar", () => {
     const cost = `${POTTERY.kilnStone} stone`;
     expect(kilnLabel()).toBe(`Kiln (${cost}, fires a pot overnight)`);
     expect(kilnPlaceLine(holdingsFromStacks([{ kind: "stone", count: 1 }]))).toBe(
-      `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. ${CLAY_WHERE} You need ${POTTERY.kilnStone - 1} stone more.`,
+      `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. ${CLAY_WHERE} You need ${POTTERY.kilnStone - 1} stone more. Pick up loose stones on the ground for stone.`,
     );
     const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
     expect(page).not.toMatch(/data-block="kiln" aria-label="[^"]*\d/);

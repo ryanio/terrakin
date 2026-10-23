@@ -4,7 +4,7 @@
  * so on. Labels and makers' names are other residents' words: textContent only.
  */
 import type { GiftView, GoodView, InventoryResponse } from "@terrakin/protocol";
-import type { ItemKind } from "@terrakin/sim";
+import { type Family, familyPath, type ItemKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
@@ -52,6 +52,49 @@ function goodItem(g: GoodView): HTMLLIElement {
   });
 }
 
+/** What your things say before you've made anything. The starter hut has no kitchen or workbench. */
+const NOTHING_MADE =
+  "Nothing made yet. Put a kitchen or a workbench on your plot from Build (they're free), then tap it to make something.";
+
+/** What a family's things are for, in a line, from the catalog's families. */
+const MADE_HINT =
+  "Give it to a friend or sell it in the market. The town shop buys a few made things each day.";
+const FAMILY_HINTS: Partial<Record<Family, string>> = {
+  fruit:
+    "Make jam with it at a kitchen, sell it in the market, give it to a friend, or give a pet a treat.",
+  vegetable:
+    "Most cook into something at a kitchen. Sell it in the market, give it to a friend, or give a pet a treat.",
+  herb: "Make herb tea with it at a kitchen, sell it in the market, or give it to a friend.",
+  preserve: MADE_HINT,
+  drink: MADE_HINT,
+  baked: MADE_HINT,
+  sweets: MADE_HINT,
+  dish: MADE_HINT,
+  keepsake: MADE_HINT,
+  fish: "Some fish cook into a dish at a kitchen. Sell any of them in the market.",
+  flower:
+    "Flowers go into bouquets and more at a workbench. Give one to a friend, or sell it in the market.",
+  seed: "Plant one in a planter on your plot.",
+  pantry: "A kitchen uses these with fruit and herbs. The pantry at home tops them up each day.",
+  material:
+    "Make furniture or a fishing rod at a workbench. Stairs take wood and a pond takes stone. Fallen branches you pick up are wood, and loose stones are stone. Walls and windows you made go up from Build, on the Blocks tab.",
+  tool: "With a fishing rod in your things, stand beside water and tap Fish.",
+  decor:
+    "Place it on your plot from Build, on the Furniture tab. Take it back up and it's yours to place again.",
+  art: "Hang it in a frame or stand it on a pedestal on your plot.",
+  find: "It counts in your collection book, on your profile. Stand one on a pedestal to show it off.",
+  pottery:
+    "Clay goes in a kiln to fire a pot. Set a pot down on your plot from Build, on the Furniture tab.",
+};
+
+/** A family's hint: its own, else the nearest family it sits in that has one. */
+function familyHint(family: Family): string | undefined {
+  return familyPath(family)
+    .reverse()
+    .map((f) => FAMILY_HINTS[f])
+    .find((hint) => hint !== undefined);
+}
+
 /** One family's things: what stacks as counts, and made things as rows with their makers. */
 function familyGroup(
   group: FamilyGroup<{
@@ -62,10 +105,12 @@ function familyGroup(
 ): HTMLElement {
   const stacks = group.things.flatMap((t) => (t.stack ? [t.stack] : []));
   const goods = group.things.flatMap((t) => (t.good ? [t.good] : []));
+  const hint = familyHint(group.family);
   return h(
     "div",
     { class: "stack tight things-family", attrs: { "data-family": group.family } },
     h("h3", { class: "eyebrow", text: group.label }),
+    hint ? h("p", { class: "hint", text: hint }) : null,
     stacks.length > 0
       ? h(
           "ul",
@@ -350,8 +395,8 @@ export function inventoryView(ctx: ViewContext): View {
             : staplesFull
               ? "Your sugar and jars are full. The pantry tops them up as you use them."
               : inv.hasHearth
-                ? `Come home today for ${thingCount("sugar", rules.pantrySugar)} and ${thingCount("jar", rules.pantryJars)}.`
-                : "Build a home on your plot to get a pantry each day.",
+                ? `Today's pantry is waiting at home: ${thingCount("sugar", rules.pantrySugar)} and ${thingCount("jar", rules.pantryJars)}. Tap the button below, or Home in the world.`
+                : "Build a home on your plot. Each day, tap Home in the world to go back to it, and the pantry there gives you sugar and jars (seeds the first time).",
         }),
         pantryDue ? comeHomeButton("Come home for the pantry", () => void loader.refresh()) : null,
       ),
@@ -446,18 +491,18 @@ export function inventoryView(ctx: ViewContext): View {
           : h("p", {
               class: "hint",
               text: !inv.hasHearth
-                ? "Empty. Build a home on your plot, then come home to it for the pantry."
+                ? "Empty. Build a home on your plot, then tap Home in the world each day: the pantry there gives you sugar and jars, and seeds the first time."
                 : inv.pantryToday
                   ? "Empty. The pantry tops you up again tomorrow."
-                  : "Empty. Come home to your hearth for today's pantry.",
+                  : "Empty. Tap Home in the world for today's pantry.",
             }),
         inv.goods.length === 0
           ? h("p", {
               class: "hint",
               // Once pottery is open (everyone knows the bowl then, RFC 0047), the kiln too.
               text: (inv.recipes ?? []).includes("bowl")
-                ? `Nothing made yet. Tap a kitchen or a workbench in the world to make something, or put up a kiln from Build, on the Blocks tab, to fire a pot. ${CLAY_WHERE}`
-                : "Nothing made yet. Tap a kitchen or a workbench in the world to make something.",
+                ? `${NOTHING_MADE} Or put up a kiln from Build, on the Blocks tab, to fire a pot. ${CLAY_WHERE}`
+                : NOTHING_MADE,
             })
           : null,
         h("p", {

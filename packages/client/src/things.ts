@@ -5,6 +5,7 @@
  */
 import type { WorldEvent } from "@terrakin/protocol";
 import {
+  blockName,
   CARD_RECIPES,
   CATALOG,
   CROP_INFO,
@@ -13,6 +14,7 @@ import {
   FAMILIES,
   type Family,
   FINISHES,
+  FISHING_ROD,
   type Finish,
   FURNITURE_RECIPES,
   type FurnitureKind,
@@ -25,11 +27,13 @@ import {
   type ItemKind,
   isFindKind,
   isFurnitureKind,
+  isHeldBlock,
   isMaterialKind,
   isSweetKind,
   MATERIAL_RECIPES,
   type MaterialKind,
   OTHERS_PLOT_GATHER,
+  PANTRY_STAPLES,
   POND,
   POTTERY,
   potName,
@@ -60,6 +64,130 @@ export const clayWhere = (waterNear: boolean): string =>
   waterNear
     ? "Clay lies beside water: look round the pond near your kiln each day, where some always comes up, and gather it."
     : CLAY_WHERE;
+
+/**
+ * Where wood and stone come from, in a person's words. The sim's own hint names the `gather` call,
+ * which is for agents; a person taps what lies on the map or presses Gather all.
+ */
+export const GATHER_WHERE =
+  "Wood is fallen branches and stone is loose stones, lying on the ground: branches most of all in the woods, stones on rocky ground. Tap one to pick it up, or tap Gather all when you stand beside some.";
+
+/**
+ * Where wood and stone come from, short enough for the line under the build bar: said only when
+ * what you're short of is one of them, else nothing.
+ */
+export function gatherHint(kinds: readonly string[]): string {
+  const wood = kinds.includes("wood");
+  const stone = kinds.includes("stone");
+  if (wood && stone) return " Pick up fallen branches for wood and loose stones for stone.";
+  if (wood) return " Pick up fallen branches on the ground for wood.";
+  if (stone) return " Pick up loose stones on the ground for stone.";
+  return "";
+}
+
+/**
+ * Where what a recipe still needs comes from, one sentence a kind of source, for the line under a
+ * kitchen's or workbench's recipes: wood and stone lie on the ground, the pantry brings sugar and
+ * jars, crops grow in a planter, fish bite beside water. Nothing for what you hold enough of.
+ */
+export function whereFromLine(kinds: readonly ItemKind[]): string {
+  const roles = new Set(kinds.map((k) => CATALOG[k]?.role));
+  const parts: string[] = [];
+  const gather = gatherHint(kinds).trim();
+  if (gather) parts.push(gather);
+  if (kinds.some((k) => (PANTRY_STAPLES as readonly string[]).includes(k)))
+    parts.push(
+      "Sugar and jars come from your pantry each day you tap Home, and the town shop sells them.",
+    );
+  if (roles.has("produce")) parts.push("Fruit, herbs, and flowers grow from seeds in a planter.");
+  if (roles.has("fish")) parts.push("Fish bite beside a pond or the sea, with a fishing rod.");
+  return parts.join(" ");
+}
+
+/** Where the town shop is, for a line that sends you there: the world has no button for it. */
+export const SHOP_WHERE =
+  "Buy one at the town shop: its counter is on the town square, beside the Town Hall.";
+
+/** "3 wood": what a fishing rod takes at a workbench, from the catalog. */
+const rodNeeds = () =>
+  Object.entries(CATALOG[FISHING_ROD].recipe?.needs ?? {})
+    .map(([kind, n]) => thingCount(kind as ItemKind, n))
+    .join(" and ");
+
+/**
+ * What to say when you'd cast with no rod: how to make one, where a workbench comes from when you
+ * have none, and where the wood lies. `nearest` is the way to the nearest branch you may pick up
+ * ("6 tiles northeast"), when the map shows one.
+ */
+export function noRodLine(o: { nearest?: string | undefined; workbench?: boolean } = {}): string {
+  const bench =
+    o.workbench === false ? " Put one on your plot first: tap Build, then pick the workbench." : "";
+  const wood = o.nearest
+    ? `Wood is fallen branches on the ground: the nearest is ${o.nearest}. Tap it to pick it up.`
+    : "Wood is fallen branches on the ground, most of all in the woods. Tap one to pick it up.";
+  return `Fishing takes a fishing rod. Make one at a workbench from ${rodNeeds()}.${bench} ${wood}`;
+}
+
+/** Blocks everyone knows on sight, which a tap names for nobody: walls, windows, hedges, doors. */
+const PLAIN_BLOCKS: readonly string[] = ["wood", "stone", "glass", "leaf", "door"];
+
+/** What a station or a dug block is for, said after its name. */
+const BLOCK_USES: Readonly<Record<string, string>> = {
+  planter: "seeds grow in it",
+  kitchen: "jam, tea, and dishes are made at it",
+  workbench: "furniture, bouquets, and tools like a fishing rod are made at it",
+  kiln: "pots are fired in it",
+  pedestal: "it shows off something its owner made",
+  pond: "fish bite beside it",
+  stairs: "they go up to the floor above",
+};
+
+/** Where a placed thing comes from, so a neighbor's home shows what you could have too. */
+function whereFrom(kind: ItemKind): string | null {
+  const entry = CATALOG[kind];
+  if (!entry) return null;
+  if (entry.recipe) {
+    const needs = Object.entries(entry.recipe.needs)
+      .map(([k, n]) => thingCount(k as ItemKind, n ?? 0))
+      .join(" and ");
+    return `Made at a ${entry.recipe.station} from ${needs}.`;
+  }
+  if (entry.shop?.holiday)
+    return `The town shop sells them at ${HOLIDAY_INFO[entry.shop.holiday].name}.`;
+  if (entry.shop?.seasons) return `The town shop sells them in ${listOf([...entry.shop.seasons])}.`;
+  if (entry.shop) return "The town shop sells them.";
+  return null;
+}
+
+/**
+ * What something in someone's home is, for a tap on it: "Moss's paper lantern. The town shop sells
+ * them." Walls, windows, hedges, and doors say nothing, since everyone knows those. `owner` is a
+ * resident's name, untrusted text, so the line only ever reaches the page through `textContent`.
+ * `pot` is a pot set down there (RFC 0047), named by its codes.
+ */
+export function thingHereLine(o: {
+  block: string;
+  owner?: string | undefined;
+  pot?:
+    | {
+        kind: string;
+        glaze?: string | undefined;
+        finish?: string | undefined;
+        flower?: string | undefined;
+      }
+    | undefined;
+}): string | null {
+  if (PLAIN_BLOCKS.includes(o.block)) return null;
+  const whose = (what: string) =>
+    o.owner ? `${o.owner}'s ${what}` : `A${/^[aeiou]/.test(what) ? "n" : ""} ${what}`;
+  if (o.pot) return `${whose(potName(o.pot, true))}. Fired in a kiln.`;
+  const name = blockName(o.block);
+  const use = BLOCK_USES[o.block];
+  if (use) return `${whose(name)}: ${use}.`;
+  if (!isHeldBlock(o.block)) return `${whose(name)}.`;
+  const from = whereFrom(o.block as ItemKind);
+  return from ? `${whose(name)}. ${from}` : `${whose(name)}.`;
+}
 
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
@@ -385,7 +513,7 @@ export function inventoryLine(e: InventoryEvent): string | null {
     case "starter":
       return "Your first pantry: seeds, sugar, and jars. Tap Plant a seed to start a garden.";
     case "pantry":
-      return gained.length > 0 ? `From the pantry: ${list(gained)}.` : null;
+      return gained.length > 0 ? `From your pantry at home: ${list(gained)}.` : null;
     case "harvest":
       return `You picked ${list(gained)}.`;
     case "gather": {
@@ -397,8 +525,8 @@ export function inventoryLine(e: InventoryEvent): string | null {
       if (finds.length === 0) return `You picked up ${words(rest)}.`;
       const book =
         finds.length === 1 && finds[0]?.amount === 1
-          ? "It's in your collection book."
-          : "They're in your collection book.";
+          ? "It's in your collection book, on your profile."
+          : "They're in your collection book, on your profile.";
       return rest.length === 0
         ? `You found ${words(finds)}. ${book}`
         : `You picked up ${words(rest)}, and found ${words(finds)}. ${book}`;
@@ -485,13 +613,13 @@ export function sendBackLine(lastDay: number, today: number): string {
 /** What to say when a planter is empty and you hold no seeds. */
 export function noSeedsHint(inv: { hasHearth: boolean; pantryToday: boolean }): string {
   if (!inv.hasHearth) {
-    return "You have no seeds. Set a hearth on your plot and come home to it: your first pantry brings some.";
+    return "You have no seeds. Build a home on your plot, then tap Home: your first pantry brings some.";
   }
   // Only the first pantry ever brings seeds. After that they come from harvests and friends.
   if (inv.pantryToday) {
-    return "You have no seeds. Every harvest gives some back, and a friend can give you some.";
+    return "You have no seeds. The town shop sells them, at its counter on the town square, and every harvest gives some back.";
   }
-  return "You have no seeds. Come home to your hearth: your first pantry brings some, and every harvest gives some back.";
+  return "You have no seeds. Tap Home: your first pantry brings some. The town shop on the town square sells them too.";
 }
 
 type CoinsEvent = Extract<WorldEvent, { type: "coins" }>;
@@ -651,7 +779,7 @@ export const NO_PLOT_LINE = "You don't have a plot yet. Tap Claim plot to pick o
  */
 export function othersPickupLine(name?: string): string {
   const whose = name ? `${name}'s plot` : "someone else's plot";
-  return `That's ${whose}, so it's theirs to gather. Your own plot, the Commons, and open land are free.`;
+  return `That's ${whose}, so it's theirs to pick up. Your own plot, the town square, and land nobody has claimed are free to pick from.`;
 }
 
 /** The first sentence of a server message, without the hint for agents that follows it. */
@@ -689,7 +817,7 @@ export function worldProblem(
     case "no_hearth":
       return you.hasPlot === false
         ? NO_PLOT_LINE
-        : "You don't have a hearth yet. Tap Build, pick the hearth, and tap a tile on your plot.";
+        : "You don't have a home yet. Tap Build a home for a free starter home, or tap Build, pick Hearth, and tap a tile on your plot.";
     case "plot_owned":
       return "Someone already lives on this plot. Tap Claim plot to pick an empty one.";
     case "plot_is_commons":
@@ -741,10 +869,35 @@ export function worldProblem(
       return "Seeds go in a planter. Tap Build and pick the planter to place one.";
     case "no_station":
       return `${firstSentence(message)} Tap Build to place one.`;
+    case "cast_limit":
+      return `${firstSentence(message)} The fish bite again tomorrow.`;
+    case "tile_occupied":
+      // A kiln still firing: the world's words name the harvest call.
+      return message.includes("with harvest")
+        ? "That kiln is still firing a pot. Tap it to take the pot out once it's ready."
+        : message;
+    case "no_rod":
+      // The world's words carry the craft call for an agent.
+      return noRodLine();
+    case "not_enough_items": {
+      // The world's words end in hints for agents that name the gather, craft, and place calls.
+      // Keep what you're short of, and say where it comes from our way.
+      if (!/ with (gather|craft|place)\b/.test(message)) return message;
+      const lead = firstSentence(message);
+      if (/\bclay\b/.test(lead)) return `${lead} ${CLAY_WHERE}`;
+      if (/\b(wood|stone)\b/.test(lead)) return `${lead} ${GATHER_WHERE}`;
+      return lead;
+    }
     default:
-      return message;
+      // Anything still written for an agent (an action's JSON, an API path, a call by name) keeps
+      // only its first sentence, which says what went wrong in plain words.
+      return AGENT_WORDS.test(message) ? firstSentence(message) : message;
   }
 }
+
+/** Words in a server message that only an agent can act on. */
+const AGENT_WORDS =
+  /\{"|\/v1\/|\bwith (gather|craft|harvest|remove|place|lay|lift)\b|\bTry [a-z]+_[a-z_]+/;
 
 /** How long a HUD toast stays up: longer for longer lines, so they can be read. */
 export function toastMs(text: string, source: "system" | "player" = "system"): number {

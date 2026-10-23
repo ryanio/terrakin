@@ -78,6 +78,7 @@ import {
   revealLine,
   thingCount,
   thingName,
+  whereFromLine,
 } from "./things";
 
 export interface TileSheetOptions {
@@ -274,7 +275,7 @@ export function openTileSheet(o: TileSheetOptions) {
     h("h3", { class: "section-title", attrs: { id: "workshop-furniture" }, text: "Furniture" }),
     h("p", {
       class: "sheet-lede",
-      text: "Made from wood and stone you gather. It stacks in your things; place it from Build, on the Furniture tab.",
+      text: "Made from wood and stone you pick up: fallen branches and loose stones on the ground. It stacks in your things; place it from Build, on the Furniture tab.",
     }),
     furnitureList.el,
   );
@@ -372,7 +373,7 @@ export function openTileSheet(o: TileSheetOptions) {
         list.replaceChildren(
           row(
             thingName(o.planting.crop),
-            ripe && full ? "Your bag is full. Make or give something first." : ready,
+            ripe && full ? "Your things are full. Use, give, or sell something first." : ready,
             button("Harvest", () => ({ type: "harvest", x: o.x, y: o.y }), ripe && !full),
           ),
         );
@@ -380,9 +381,7 @@ export function openTileSheet(o: TileSheetOptions) {
       }
       const seeds = inv.stacks.filter((st) => cropOfSeed(st.kind) !== undefined);
       hint.textContent =
-        seeds.length > 0
-          ? "Pick a seed to plant. It grows a little each day, at midnight UTC."
-          : noSeedsHint(inv);
+        seeds.length > 0 ? "Pick a seed to plant. It grows a little each day." : noSeedsHint(inv);
       list.replaceChildren(
         ...seeds.map((st) => {
           const crop = cropOfSeed(st.kind) as Crop;
@@ -445,6 +444,12 @@ export function openTileSheet(o: TileSheetOptions) {
     );
     furnitureList.fill(pieces.shown.map(recipeRow), pieces.more.map(recipeRow));
     furniture.hidden = pieces.shown.length === 0;
+    // Where what the shown recipes still need comes from, so "Needs 3 more wood" has a next step.
+    const short = [...made.shown, ...pieces.shown].flatMap((r) =>
+      r.needs.filter((n) => has(n.kind) < n.count).map((n) => n.kind),
+    );
+    const where = doneToday ? "" : whereFromLine(short);
+    if (where) hint.textContent = `${hint.textContent} ${where}`;
   }
 
   /**
@@ -491,7 +496,7 @@ export function openTileSheet(o: TileSheetOptions) {
           // The pot by the name it comes out with, less the finish it hasn't got yet (RFC 0047).
           pot ? potName(pot) : "A pot",
           full
-            ? "Your bag is full. Give or sell something first."
+            ? "Your things are full. Give or sell something first."
             : `${kilnLine(firing.readyDay, inv.day)}.${whose}`,
           o.yours ? takeOutButton(ready && !full) : null,
           pot ? thingPicture({ kind: pot.kind, glaze: pot.glaze }, { size: 32 }) : null,

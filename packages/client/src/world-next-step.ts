@@ -21,6 +21,7 @@ import { nextStep, type StepRow, stepHref, stepRows } from "./first-steps";
 import type { Mirror } from "./mirror";
 import { savedResidentId, savedToken } from "./net";
 import { openPlotNameSheet } from "./plot-name-sheet";
+import { worldProblem } from "./things";
 
 /** How often to ask again while you're in the world. */
 const REFRESH_MS = 20_000;
@@ -44,6 +45,8 @@ export function mountNextStep(o: {
   navigate: (path: string) => void;
   mirror: () => Mirror | undefined;
   toast: (line: string) => void;
+  /** The way to the nearest branch or stone you may pick up, in words, when nothing is in reach. */
+  nearestPickup: () => string | undefined;
 }) {
   const hud = document.getElementById("hud");
   const near = document.querySelector(".world-near");
@@ -109,14 +112,23 @@ export function mountNextStep(o: {
         void actFromButton(chip, { type: "build_starter_home" }, "Your home is built", {
           after: refresh,
           say: o.toast,
+          words: (code, message) => worldProblem(code, message, { hasPlot: true }),
         });
         return;
       case "garden":
         void plantOrSay(step, me);
         return;
-      case "gather":
-        if (!press("world-gather")) o.toast(step.hint);
+      case "gather": {
+        if (press("world-gather")) break;
+        // Nothing within reach: say which way the nearest one lies, so the step has somewhere to go.
+        const way = o.nearestPickup();
+        o.toast(
+          way
+            ? `Nothing to pick up right beside you. The nearest branch or stone is ${way}: walk there and tap it.`
+            : step.hint,
+        );
         break;
+      }
       case "make":
         o.toast(step.hint);
         break;

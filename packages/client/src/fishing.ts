@@ -3,12 +3,12 @@
  * `inventory` events that bring one or take one away, and the build bar's line for a pond. Pure,
  * so tests pin it. The rules are the sim's: `waterBeside` says whether you can cast where you
  * stand, and `blockNeeds` what a tile of pond takes, so the world holds back only what the server
- * would refuse (decision 0052).
+ * would refuse (decision 0052). What to say with no rod is `noRodLine` in `things.ts`.
  */
 import type { WorldEvent } from "@terrakin/protocol";
-import { CATALOG, FISHING_ROD, type ItemKind, POND } from "@terrakin/sim";
+import { FISHING_ROD, POND } from "@terrakin/sim";
 import { blockShort, type Holdings } from "./build-palette";
-import { thingCount } from "./things";
+import { gatherHint, thingCount } from "./things";
 
 /** The ids of the fishing rods among the made things you hold. */
 export function rodsIn(goods: readonly { id: string; kind: string }[]): ReadonlySet<string> {
@@ -32,16 +32,6 @@ export function rodsAfter(
   return next;
 }
 
-/** "3 wood": what a fishing rod takes at a workbench, from the catalog. */
-const rodNeeds = () =>
-  Object.entries(CATALOG[FISHING_ROD].recipe?.needs ?? {})
-    .map(([kind, n]) => thingCount(kind as ItemKind, n))
-    .join(" and ");
-
-/** What to say when you'd cast with no rod in your things. */
-export const noRodLine = () =>
-  `Fishing takes a fishing rod. Make one at a workbench from ${rodNeeds()}.`;
-
 /** Whether you hold what a tile of pond takes, by the sim's own count. */
 export const canDig = (holdings: Holdings) => blockShort(POND.block, holdings).length === 0;
 
@@ -53,7 +43,7 @@ export function pondLine(holdings: Holdings, clay = false): string {
     : `Pond: ${thingCount("stone", POND.stone)} a tile, to fish beside.`;
   const short = blockShort(POND.block, holdings);
   if (short.length === 0) return `${cost} You have enough.`;
-  return `${cost} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
+  return `${cost} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.${gatherHint(short.map((s) => s.kind))}`;
 }
 
 /** The pond chip's name on the build bar, its cost from the sim, and its clay once pottery's open. */

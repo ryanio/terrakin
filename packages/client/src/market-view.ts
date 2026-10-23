@@ -55,6 +55,7 @@ import { pageData, withOptional } from "./page-data";
 import { plotMarketProblem } from "./plot-market";
 import { drawsAPlot, plotMarketSection } from "./plot-market-section";
 import { balanceLine, coins } from "./purse";
+import { earnCoinsLink } from "./purse-view";
 import { reportMenu } from "./report-sheet";
 import { lotWords, madeName, thingName } from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
@@ -526,6 +527,7 @@ export function marketView(ctx: ViewContext): View {
               h("span", { text: "Join to buy and sell" }),
               icon("arrow"),
             ),
+        you ? earnCoinsLink() : null,
       ),
       ...(held.length > 0
         ? [

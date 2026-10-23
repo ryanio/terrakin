@@ -101,6 +101,15 @@ function lineItem(line: PurseLine): HTMLLIElement {
   });
 }
 
+/** A link to your purse page, which says how coins come in. The shop and the market show it. */
+export function earnCoinsLink(): HTMLAnchorElement {
+  return h("a", {
+    class: "pill-button small",
+    attrs: { href: "/purse" },
+    text: "How to earn coins",
+  });
+}
+
 /**
  * "Come home": sends `home` from a page, as if you'd tapped Home in the world. It pays today's
  * allowance and pantry. A toast says it worked or why it didn't, and `done` runs once it worked.

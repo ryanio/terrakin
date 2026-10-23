@@ -21,6 +21,8 @@ import {
   cropOfSeed,
   dayLabel,
   finishOdds,
+  GATHER_WHERE,
+  gatherHint,
   growthLine,
   inventoryLine,
   KEY_UNKNOWN_LINE,
@@ -31,6 +33,7 @@ import {
   NO_PLOT_LINE,
   needsLine,
   newsLine,
+  noRodLine,
   noSeedsHint,
   othersPickupLine,
   pantryWords,
@@ -39,7 +42,9 @@ import {
   sendBackLine,
   teaWhenLine,
   thingCount,
+  thingHereLine,
   toastMs,
+  whereFromLine,
   worldProblem,
 } from "./things";
 
@@ -104,7 +109,7 @@ describe("things", () => {
         reason: "gather",
         changes: [{ kind: "geode", amount: 1, count: 1 }],
       }),
-    ).toBe("You found 1 geode. It's in your collection book.");
+    ).toBe("You found 1 geode. It's in your collection book, on your profile.");
     // Gathering everything within reach brings several kinds in one event.
     const all = (changes: { kind: "wood" | "stone" | "acorn"; amount: number }[]) =>
       inventoryLine({
@@ -123,7 +128,9 @@ describe("things", () => {
         { kind: "wood", amount: 3 },
         { kind: "acorn", amount: 2 },
       ]),
-    ).toBe("You picked up 3 wood, and found 2 acorns. They're in your collection book.");
+    ).toBe(
+      "You picked up 3 wood, and found 2 acorns. They're in your collection book, on your profile.",
+    );
     // A catch (RFC 0023) is told by the cast itself, so its inventory change says nothing more.
     expect(
       inventoryLine({ ...base, reason: "caught", changes: [{ kind: "eel", amount: 1, count: 1 }] }),
@@ -282,11 +289,13 @@ describe("things", () => {
   });
 
   it("only promises seeds from the pantry when it could still bring them", () => {
-    expect(noSeedsHint({ hasHearth: false, pantryToday: false })).toContain("Set a hearth");
+    expect(noSeedsHint({ hasHearth: false, pantryToday: false })).toContain("Build a home");
     // Today's pantry is had: coming home brings nothing more, seeds or otherwise.
     const had = noSeedsHint({ hasHearth: true, pantryToday: true });
     expect(had).not.toContain("Come home");
     expect(had).toContain("harvest");
+    // With nothing to harvest yet, the shop is the way to more.
+    expect(had).toContain("town shop");
     expect(noSeedsHint({ hasHearth: true, pantryToday: false })).toContain("first pantry");
   });
 
@@ -429,13 +438,50 @@ describe("things", () => {
         "That's your own door, or your household's. Knock at a neighbor's: GET /v1/plots lists them.",
         {},
       ],
+      [
+        "not_enough_items",
+        "You need 3 wood more. Fallen branches (wood) lie in forests and loose stones on stone ground: pick them up with gather.",
+        {},
+      ],
+      [
+        "not_enough_items",
+        "Stairs take 4 wood, and you need 2 wood more. Make furniture at a workbench with craft.",
+        {},
+      ],
+      [
+        "no_rod",
+        'Fishing takes a fishing rod in your things. Make one at a workbench from 3 wood: {"type": "craft", "recipe": "fishing_rod", "x": <x>, "y": <y>}.',
+        {},
+      ],
+      [
+        "tile_occupied",
+        "That kiln is firing a pot already. Take it out with harvest once it's ready, or use another kiln.",
+        {},
+      ],
+      [
+        "recipe_unknown",
+        'You don\'t know that one. Buy its card: {"type": "shop_buy", "sku": "recipe:tea"}.',
+        {},
+      ],
     ];
+    const agentOnly = /\{"|with (gather|craft|harvest)\b/;
     for (const [code, message, you] of cases) {
       const line = worldProblem(code, message, you);
       expect(line, code).not.toMatch(agentish);
+      expect(line, code).not.toMatch(agentOnly);
       expect(line, code).not.toBe("");
     }
     expect(worldProblem("no_plot", "Try settle at px 3, py 3.")).toBe(NO_PLOT_LINE);
+    // Short of wood: what you need, then where it lies, in a person's words.
+    expect(
+      worldProblem("not_enough_items", "You need 3 wood more. Pick them up with gather."),
+    ).toBe(`You need 3 wood more. ${GATHER_WHERE}`);
+    expect(
+      worldProblem(
+        "cast_limit",
+        "You've cast 10 times today. The fish bite again after midnight UTC.",
+      ),
+    ).toBe("You've cast 10 times today. The fish bite again tomorrow.");
     // The web offers Trick or treat at every door that isn't yours, so a refused knock was at your
     // household's: never "your own plot".
     expect(
@@ -457,7 +503,7 @@ describe("things", () => {
     for (const hasPlot of [true, false]) {
       expect(worldProblem("not_your_plot", gather, { hasPlot })).toBe(othersPickupLine());
     }
-    expect(othersPickupLine("Bo")).toMatch(/^That's Bo's plot, so it's theirs to gather\./);
+    expect(othersPickupLine("Bo")).toMatch(/^That's Bo's plot, so it's theirs to pick up\./);
     expect(
       worldProblem("not_your_plot", "You can only build on your own plot. You can build on x 30.", {
         hasPlot: true,
@@ -686,5 +732,52 @@ describe("the line when a saved key opens nobody", () => {
     ).toBe(KEY_UNKNOWN_LINE);
     // And a revoked one with nothing to say falls back too.
     expect(keyNotFoundLine("revoked", undefined)).toBe(KEY_UNKNOWN_LINE);
+  });
+});
+
+describe("where things come from", () => {
+  it("tells a newcomer with no rod where the wood is, and where a workbench comes from", () => {
+    expect(noRodLine()).toBe(
+      "Fishing takes a fishing rod. Make one at a workbench from 3 wood. Wood is fallen branches on the ground, most of all in the woods. Tap one to pick it up.",
+    );
+    const pointed = noRodLine({ nearest: "6 tiles northeast", workbench: false });
+    expect(pointed).toContain("Put one on your plot first: tap Build, then pick the workbench.");
+    expect(pointed).toContain("the nearest is 6 tiles northeast. Tap it to pick it up.");
+    expect(noRodLine({ workbench: true })).not.toContain("Put one on your plot");
+  });
+
+  it("says where only what you're short of comes from", () => {
+    expect(gatherHint(["wood"])).toBe(" Pick up fallen branches on the ground for wood.");
+    expect(gatherHint(["stone", "wood"])).toContain("branches for wood and loose stones");
+    expect(gatherHint(["lemon"])).toBe("");
+    const line = whereFromLine(["wood", "sugar", "lemon"]);
+    expect(line).toContain("fallen branches");
+    expect(line).toContain("pantry");
+    expect(line).toContain("planter");
+    expect(whereFromLine([])).toBe("");
+  });
+
+  it("names what's in a neighbor's home and where one comes from, never a wall", () => {
+    expect(thingHereLine({ block: "lantern", owner: "Moss" })).toBe(
+      "Moss's paper lantern. The town shop sells them.",
+    );
+    expect(thingHereLine({ block: "table", owner: "Moss" })).toBe(
+      "Moss's table. Made at a workbench from 3 wood.",
+    );
+    expect(thingHereLine({ block: "stairs", owner: "Moss" })).toBe(
+      "Moss's stairs: they go up to the floor above.",
+    );
+    // The town's own, on the square: nobody's name.
+    expect(thingHereLine({ block: "lantern" })).toBe("A paper lantern. The town shop sells them.");
+    expect(
+      thingHereLine({
+        block: "pot",
+        owner: "Moss",
+        pot: { kind: "vase", glaze: "rose", finish: "speckled" },
+      }),
+    ).toMatch(/^Moss's speckled rose vase\. Fired in a kiln\.$/);
+    for (const plain of ["wood", "stone", "glass", "leaf", "door"]) {
+      expect(thingHereLine({ block: plain, owner: "Moss" }), plain).toBeNull();
+    }
   });
 });

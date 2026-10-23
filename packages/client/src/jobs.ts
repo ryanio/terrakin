@@ -12,17 +12,28 @@ import type {
   JobView,
 } from "@terrakin/protocol";
 import {
+  BIOME_PLACES,
+  CARD_RECIPES,
+  CATALOG,
+  CROP_INFO,
+  type CraftKind,
+  type Crop,
   ITEM_INFO,
+  type ItemKind,
   isJobWear,
+  JAM,
   type JobWear,
   jobUnlocks,
   type RecipeName,
   type ShownTitle,
+  STARTER_SEEDS,
   skillName,
+  type TimeOfDay,
   titleLabel,
   WEAR_INFO,
 } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
+import { aThing, needsLine, thingCount } from "./things";
 
 /** Where you stand, as `GET /v1/jobs` answers with a token. */
 export type JobStanding = NonNullable<JobsResponse["you"]>;
@@ -52,9 +63,94 @@ export const weekLine = (week: JobStanding["week"]): string =>
  * so they're told how to get one.
  */
 export const boardLede = (rules: JobsResponse["rules"], signedIn: boolean): string =>
-  `Small things the town asks for, ${rules.board} a day. A finished job adds ${rules.points} points to its skill, never coins. ${
+  `Small things the townsfolk ask for, ${rules.board} a day. Do one anywhere in the world and it adds ${rules.points} points to a skill, which raise your level and unlock titles and clothes. Jobs never pay coins. Bounties do. ${
     signedIn ? "Take one only if you'd enjoy it." : "Step into the world to take one."
   }`;
+
+/** The seeds a crop grows from, in running words: "herb seeds". */
+const seedsOf = (crop: Crop): string => {
+  const seed = CROP_INFO[crop].seed;
+  return seed ? ITEM_INFO[seed].plural.toLowerCase() : "seeds";
+};
+
+/** How to grow what a harvest job counts: any crop, or the one it names, and where its seeds come from. */
+function harvestHow(crops: readonly Crop[] | undefined): string {
+  const one = crops?.length === 1 ? crops[0] : undefined;
+  if (one === undefined) {
+    return "Plant seeds in a planter on your plot, then harvest them once they're ripe.";
+  }
+  const seed = CROP_INFO[one].seed;
+  const bought = seed !== undefined && !(STARTER_SEEDS as readonly string[]).includes(seed);
+  return `Plant ${seedsOf(one)} in a planter on your plot, then harvest them once they're ripe.${
+    bought ? " The town shop sells the seeds." : ""
+  }`;
+}
+
+/**
+ * How to make what a craft or bring job asks for: the station, what it takes, and, for a recipe
+ * nobody starts out knowing, where to learn it. Jam is any fruit's, so it takes three of one fruit.
+ */
+function makeHow(recipe: RecipeName): string {
+  const card = CARD_RECIPES.includes(recipe)
+    ? " Don't know the recipe? The town shop sells recipe cards."
+    : "";
+  if (recipe === JAM.suffix) {
+    const plus = Object.entries(JAM.plus).map(([kind, n]) => thingCount(kind as ItemKind, n));
+    return `Make it at a ${JAM.station}: it takes ${JAM.count} of one fruit, ${plus.join(", ")}.${card}`;
+  }
+  const station = CATALOG[recipe as CraftKind]?.recipe?.station;
+  const needs = needsLine(recipe as Parameters<typeof needsLine>[0]);
+  const where = station === "kiln" ? "Fire it in a kiln on your plot" : `Make it at a ${station}`;
+  return `${where}: it takes ${needs}.${card}`;
+}
+
+/** When a fish job's catch has to bite, after "Only a fish caught". */
+const WHEN: Readonly<Record<TimeOfDay, string>> = {
+  dawn: "at dawn",
+  day: "by day",
+  dusk: "at dusk",
+  night: "at night",
+};
+
+/**
+ * How to do a job, in one plain line, from what its deed counts or what it asks you to bring: where
+ * to go and what to tap. Every claim is the sim's rule for that deed (`fits` and the `...Counts`
+ * rules a job reads), never a rule of its own.
+ */
+export function howLine(job: Pick<JobAsked, "deed" | "bring">): string {
+  if (job.bring) return makeHow(job.bring.recipe);
+  const deed = job.deed;
+  if (!deed) return "";
+  switch (deed.type) {
+    case "harvest":
+      return harvestHow(deed.crops);
+    case "craft":
+      return makeHow(deed.recipe);
+    case "find": {
+      const where = deed.biome ? ` Look for one ${BIOME_PLACES[deed.biome]}.` : "";
+      const which = deed.kinds?.length
+        ? ` It has to be ${deed.kinds.map((k) => aThing(k)).join(" or ")}.`
+        : "";
+      return `Finds sparkle on the ground here and there. Tap one to pick it up.${where}${which}`;
+    }
+    case "fish": {
+      const when = deed.timeOfDay ? ` Only a fish caught ${WHEN[deed.timeOfDay]} counts.` : "";
+      return `Make a fishing rod at a workbench, stand beside a pond or the sea, and tap Fish.${when}`;
+    }
+    case "teach":
+      return "Tap a neighbor in the world and teach them a recipe you know. They need a home of their own.";
+    case "guest":
+      return "Go to an event on the Town Hall's calendar while it's on, and stay a while.";
+    case "host":
+      return `Host an event from Coming up at the Town Hall. ${plural(deed.guests, "guest has", "guests have")} to come and stay a while.`;
+    case "bounty":
+      return "Take a bounty from the bounties page and do it. It counts once you're paid.";
+    case "game":
+      return deed.first
+        ? "Sit at a game table in the town square and play to the end. You have to finish first."
+        : "Sit at a game table in the town square and play to the end.";
+  }
+}
 
 /**
  * What a board row offers: Take when the server says one can be taken, a mark on the job you

@@ -55,6 +55,8 @@ export const LINKS = {
   pricing: "/pricing.md",
   auth: "/auth.md",
   about: "/about",
+  /** How to play, for a person new to the world. */
+  play: "/play",
   terms: "/terms",
   privacy: "/privacy",
   contact: "/contact",
@@ -186,6 +188,16 @@ export const PAGES = [
     sources: ["docs/site/about.md"],
     markdown: "/about.md",
     prose: "about",
+  },
+  {
+    path: "/play",
+    title: "How to play · Terrakin",
+    description:
+      "The basics for people: getting around, your plot and home, gathering, growing, making, fishing, coins, jobs, levels, and neighbors.",
+    kind: "static",
+    sources: ["docs/site/play.md"],
+    markdown: "/play.md",
+    prose: "play",
   },
   {
     path: "/terms",

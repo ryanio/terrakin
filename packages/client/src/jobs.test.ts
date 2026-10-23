@@ -11,6 +11,7 @@ import {
   heldBar,
   heldJobLine,
   heldMoves,
+  howLine,
   type JobStanding,
   jobProblem,
   jobRowAction,
@@ -29,9 +30,11 @@ import {
 import { earnedState } from "./levels";
 import { wearChoices } from "./look-editor";
 
-/** A job from the sim's own table as the API shows it, its giver living here or not. */
+/** A job from the sim's own tables as the API shows it, its giver living here or not. */
 function job(id: string, giverId?: string): JobView {
-  const found = (JOB_EDITIONS[1] ?? []).find((j) => j.id === id);
+  const found = Object.values(JOB_EDITIONS)
+    .flat()
+    .find((j) => j.id === id);
   if (!found) throw new Error(`no job ${id}`);
   return jobView(found, giverId);
 }
@@ -82,7 +85,7 @@ describe("the words over the board", () => {
 
   it("take how many a day and what one pays from the server's rules", () => {
     expect(boardLede(rules, true)).toBe(
-      "Small things the town asks for, 4 a day. A finished job adds 12 points to its skill, never coins. Take one only if you'd enjoy it.",
+      "Small things the townsfolk ask for, 4 a day. Do one anywhere in the world and it adds 12 points to a skill, which raise your level and unlock titles and clothes. Jobs never pay coins. Bounties do. Take one only if you'd enjoy it.",
     );
   });
 
@@ -90,6 +93,68 @@ describe("the words over the board", () => {
     const lede = boardLede(rules, false);
     expect(lede).toContain("Step into the world to take one.");
     expect(lede).not.toContain("only if you'd enjoy it");
+  });
+});
+
+describe("how to do a job", () => {
+  // The deeds no edition has a job for yet, in the shape the board would send them.
+  const deed = (d: NonNullable<JobView["deed"]>) => ({ deed: d });
+
+  it("says where to go and what to tap for every kind of job", () => {
+    expect({
+      anyCrop: howLine(job("juniper_crops")),
+      starterCrop: howLine(job("juniper_herbs")),
+      boughtCrop: howLine(job("juniper_pumpkins")),
+      craft: howLine(job("bram_chair")),
+      card: howLine(job("bram_barrel")),
+      bring: howLine(job("clem_herb_tea")),
+      jam: howLine(job("clem_jam")),
+      kiln: howLine(job("ansel_vase")),
+      find: howLine(job("marlo_find")),
+      findOnSand: howLine(job("marlo_sand_find")),
+      findKinds: howLine(job("marlo_autumn_find")),
+      fish: howLine(job("sable_three_fish")),
+      fishAtDusk: howLine(job("sable_dusk_fish")),
+      teach: howLine(job("otis_teach")),
+      guest: howLine(deed({ type: "guest", count: 1 })),
+      host: howLine(job("otis_host")),
+      bounty: howLine(deed({ type: "bounty", count: 1 })),
+      game: howLine(job("pip_game")),
+      win: howLine(job("pip_win")),
+    }).toEqual({
+      anyCrop: "Plant seeds in a planter on your plot, then harvest them once they're ripe.",
+      starterCrop:
+        "Plant herb seeds in a planter on your plot, then harvest them once they're ripe.",
+      boughtCrop:
+        "Plant pumpkin seeds in a planter on your plot, then harvest them once they're ripe. The town shop sells the seeds.",
+      craft: "Make it at a workbench: it takes 2 wood.",
+      card: "Make it at a workbench: it takes 3 wood. Don't know the recipe? The town shop sells recipe cards.",
+      bring: "Make it at a kitchen: it takes 2 bunches of herbs, 1 jar.",
+      jam: "Make it at a kitchen: it takes 3 of one fruit, 1 bag of sugar, 1 jar.",
+      kiln: "Fire it in a kiln on your plot: it takes 3 clay. Don't know the recipe? The town shop sells recipe cards.",
+      find: "Finds sparkle on the ground here and there. Tap one to pick it up.",
+      findOnSand:
+        "Finds sparkle on the ground here and there. Tap one to pick it up. Look for one on the sand.",
+      findKinds:
+        "Finds sparkle on the ground here and there. Tap one to pick it up. It has to be a chestnut or a maple leaf.",
+      fish: "Make a fishing rod at a workbench, stand beside a pond or the sea, and tap Fish.",
+      fishAtDusk:
+        "Make a fishing rod at a workbench, stand beside a pond or the sea, and tap Fish. Only a fish caught at dusk counts.",
+      teach:
+        "Tap a neighbor in the world and teach them a recipe you know. They need a home of their own.",
+      guest: "Go to an event on the Town Hall's calendar while it's on, and stay a while.",
+      host: "Host an event from Coming up at the Town Hall. 3 guests have to come and stay a while.",
+      bounty: "Take a bounty from the bounties page and do it. It counts once you're paid.",
+      game: "Sit at a game table in the town square and play to the end.",
+      win: "Sit at a game table in the town square and play to the end. You have to finish first.",
+    });
+  });
+
+  it("has a line for every job in every edition, with no id or code in it", () => {
+    const lines = Object.values(JOB_EDITIONS)
+      .flat()
+      .map((j) => howLine(jobView(j, undefined)));
+    expect(lines.filter((line) => line === "" || /[_{}`]|undefined/.test(line))).toEqual([]);
   });
 });
 

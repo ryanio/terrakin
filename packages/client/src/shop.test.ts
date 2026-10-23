@@ -6,6 +6,7 @@ import {
   buyLabel,
   holdsBack,
   holidayHint,
+  howToGet,
   SHELVES,
   sellable,
   shelvesOf,
@@ -37,6 +38,17 @@ describe("the shop page", () => {
     expect(sellable({ ...order, left: 0 }, 5)).toBe(0);
     // Without a token there's no `left`, and nothing to sell.
     expect(sellable(order, 5)).toBe(0);
+  });
+
+  it("says how to come by what the town buys, from the catalog", () => {
+    expect(howToGet("lemon_jam")).toBe(
+      "Make it at a kitchen from 3 lemons, 1 bag of sugar, and 1 jar.",
+    );
+    expect(howToGet("herb")).toBe("Grow it from an herb seed in a planter.");
+    expect(howToGet("salmon")).toBe("Caught with a fishing rod beside water.");
+    expect(howToGet("geode")).toBe("Found lying on the ground.");
+    // Bought, not made, grown, found, or caught: nothing to say.
+    expect(howToGet("sugar")).toBeNull();
   });
 
   it("tags seasonal stock with its season and holiday stock with its holiday, and nothing else", () => {

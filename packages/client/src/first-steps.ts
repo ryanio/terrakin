@@ -68,7 +68,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
   gather: {
     name: "Gather a branch or a stone",
     chip: "Gather",
-    hint: "Tap one lying near you in the world.",
+    hint: "Fallen branches and loose stones lie on the ground. Walk to one and tap it.",
     verb: "Gather",
     icon: "gather",
     place: "world",
@@ -84,7 +84,7 @@ export const STEP_WORDS: Readonly<Record<string, StepWords>> = {
   make: {
     name: "Make a first thing",
     chip: "Make a thing",
-    hint: "Gather 3 branches, place a workbench from Build, then tap it.",
+    hint: "Pick up 3 fallen branches for wood, place a workbench from Build, then tap it.",
     verb: "Make",
     icon: "workbench",
     place: "world",

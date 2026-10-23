@@ -40,7 +40,15 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
-import { CLAY_WHERE, madeName, needsLine, thingCount, thingName } from "./things";
+import {
+  CLAY_WHERE,
+  gatherHint,
+  madeName,
+  needsLine,
+  SHOP_WHERE,
+  thingCount,
+  thingName,
+} from "./things";
 import "./build-palette.css";
 
 export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
@@ -102,7 +110,7 @@ export function heldLabel(kind: HeldKind, n: number): string {
 
 /** Where to get one more of a held block, in plain words. */
 function heldSource(kind: HeldKind): string {
-  if (isDecorKind(kind)) return "Buy one at the town shop.";
+  if (isDecorKind(kind)) return SHOP_WHERE;
   return `Make one at a workbench from ${needsLine(kind)}.`;
 }
 
@@ -150,7 +158,7 @@ export function groundLine(kind: GroundKind, holdings: Holdings): string {
   const short = groundShort(kind, (k: StackKind) => heldOf(holdings, k));
   if (short.length === 0) return `${name}: ${cost} a tile. You have enough.`;
   const missing = short.map((s) => thingCount(s.kind, s.count)).join(" and ");
-  return `${name}: ${cost} a tile. You need ${missing} more.`;
+  return `${name}: ${cost} a tile. You need ${missing} more.${gatherHint(short.map((s) => s.kind))}`;
 }
 
 /**
@@ -175,7 +183,7 @@ export function stairsLine(holdings: Holdings): string {
   const lead = `Stairs: ${cost}, up to the floor above. Stand on them and tap Go up.`;
   const short = blockShort("stairs", holdings);
   if (short.length === 0) return `${lead} You have enough.`;
-  return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
+  return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.${gatherHint(short.map((s) => s.kind))}`;
 }
 
 /** The line under the tabs for a kiln (RFC 0047): what it takes, and what you're short of. */
@@ -184,7 +192,7 @@ export function kilnPlaceLine(holdings: Holdings): string {
   const lead = `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. ${CLAY_WHERE}`;
   const short = blockShort("kiln", holdings);
   if (short.length === 0) return `${lead} You have enough.`;
-  return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
+  return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.${gatherHint(short.map((s) => s.kind))}`;
 }
 
 /** What a kiln takes to place, from the sim's `blockNeeds`: "2 stone". */
@@ -204,9 +212,29 @@ export function blockLine(kind: string): string {
   if (kind === "door") {
     return "Door: free. Put it in a gap in your walls: everyone walks through it like an open tile. Ground floor only.";
   }
-  const name = kind.charAt(0).toUpperCase() + kind.slice(1);
-  return `${name}: free. Tap a tile to place it, tap a block to remove it.`;
+  const lead =
+    BLOCK_WORDS[kind] ??
+    `${kind.charAt(0).toUpperCase() + kind.slice(1).replaceAll("_", " ")}: free.`;
+  return `${lead} Tap a tile to place it, tap a block to remove it.`;
 }
+
+/**
+ * What a free block is, and for a station what it's for, since the chip is only a color or an icon.
+ * The wood and stone walls cost none of the wood and stone you pick up, which a newcomer saving for
+ * a fishing rod needs to hear.
+ */
+const BLOCK_WORDS: Readonly<Record<string, string>> = {
+  wood: "Wood wall: free, and it uses none of the wood in your things.",
+  stone: "Stone wall: free, and it uses none of the stone in your things.",
+  glass: "Glass window: free.",
+  leaf: "Leaf hedge: free.",
+  planter: "Planter: free. Place it, then tap it to plant a seed.",
+  kitchen:
+    "Kitchen: free. Place it, then tap it to make jam, tea, and dishes from what you grow and your pantry's sugar and jars.",
+  workbench:
+    "Workbench: free. Place it, then tap it to make furniture, bouquets, and a fishing rod from wood you pick up.",
+  pedestal: "Pedestal: free. Place it, then tap it to show off something you made.",
+};
 
 /** Which tab a pick lives on. A made material is a wall, so it sits with the blocks. */
 export function tabOf(pick: string): PaletteTab {

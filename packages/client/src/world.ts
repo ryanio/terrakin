@@ -37,6 +37,7 @@ import {
   plotKey,
   plotOf,
   postureOn,
+  potKey,
   type Resident,
   route,
   STEP,
@@ -89,7 +90,7 @@ import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { sendFirstPlanting } from "./first-plant";
-import { noRodLine, pondLabel, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { pondLabel, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { floorChips } from "./floor-chips";
 import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
 import { openHomeSheet } from "./home-sheet";
@@ -99,6 +100,7 @@ import { onStreet } from "./lands";
 import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
+import { nearestTile, wayWords } from "./nearest";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
 import { passkeyWhy, provePasskey } from "./passkey";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
@@ -125,7 +127,9 @@ import {
   keyNotFoundLine,
   NO_PLOT_LINE,
   newsLine,
+  noRodLine,
   othersPickupLine,
+  thingHereLine,
   toastMs,
   worldProblem,
 } from "./things";
@@ -319,8 +323,9 @@ const walker = new Walker({
   },
   bumped: (dir, why) => {
     if (me) motion.bump(me, dir, performance.now());
-    // Never over a fresher notice, like a refusal that just came in: the bump shows it anyway.
-    if (!toast.classList.contains("show")) showToast(why);
+    // Never over a fresher notice, like a refusal that just came in: the bump shows it anyway. A
+    // hint like the welcome line gives way.
+    if (!toast.classList.contains("show") || toastSoft) showToast(why);
   },
 });
 /** The card on someone else's plot: Admire and Next plot (RFC 0020). */
@@ -371,6 +376,7 @@ mountNextStep({
   navigate: (path) => navigate?.(path),
   mirror: () => mirror,
   toast: (line) => showToast(line),
+  nearestPickup: () => nearestPickup(["wood", "stone"]),
 });
 /** Levels (RFC 0029): your points over your figure, a sparkle on anyone's level-up, your toast. */
 const levels = worldLevels({
@@ -590,13 +596,14 @@ async function resync() {
 
 function onMessage(msg: ServerMessage) {
   switch (msg.type) {
-    case "welcome":
+    case "welcome": {
       me = msg.residentId;
       mirror = new Mirror(msg.world);
       jobs.entered(mirror.jobsOpen);
       dayAnchor = anchor(msg.world.time);
       stopWalking();
       if (joiningFresh) track("join");
+      const fresh = joiningFresh;
       joiningFresh = false;
       landing.setJoining(false);
       landing.setError("");
@@ -610,10 +617,16 @@ function onMessage(msg: ServerMessage) {
       snapCamera();
       if (mode === "3d") open3d();
       revealWhenDrawn();
-      showArrival();
+      // Someone who just stepped in sees walking, Claim plot and Chat: say what to do first.
+      if (!showArrival() && fresh) {
+        showToast(FIRST_LINE);
+        // A hint, not news: the next thing the world has to say takes its place.
+        toastSoft = true;
+      }
       void loadHoldings();
       sound.enter();
       break;
+    }
     case "gesture":
       if (msg.routine) {
         // A neighbor away at home waved as you walked past (RFC 0009): they wave from where they
@@ -776,15 +789,22 @@ function onMessage(msg: ServerMessage) {
 }
 
 /** The welcome line an invite leaves for your first arrival, shown once. */
-function showArrival() {
+/** Whether an invite's arrival line was shown. */
+function showArrival(): boolean {
   try {
     const line = sessionStorage.getItem(ARRIVAL_KEY);
     sessionStorage.removeItem(ARRIVAL_KEY);
     if (line) showToast(line);
+    return !!line;
   } catch {
     // No storage: no welcome line.
+    return false;
   }
 }
+
+/** What someone who just joined hears first, with no invite's line to show instead. */
+const FIRST_LINE =
+  "Welcome to Terrakin! Tap Claim plot to pick an empty plot for your home. Walk with the round pad, or tap the map.";
 
 function act(action: Action): string | undefined {
   return conn?.send(action);
@@ -818,11 +838,17 @@ let toastAt = 0;
 /** System lines this close together came from one action (home: coins and the pantry). */
 const TOAST_JOIN_MS = 400;
 /** Player text (chat, names, notes) gets its own style so it can't pass for a system message. */
+/** Whether the notice up is only a hint that any other notice may replace (the welcome line). */
+let toastSoft = false;
+
 function showToast(text: string, source: "system" | "player" = "system") {
+  const soft = toastSoft;
+  toastSoft = false;
   const now = performance.now();
   const shown = toast.textContent ?? "";
   // Show lines from one action together, rather than the last one wiping out the rest.
   const join =
+    !soft &&
     source === "system" &&
     now - toastAt < TOAST_JOIN_MS &&
     toast.classList.contains("show") &&
@@ -1065,7 +1091,29 @@ type TapTarget =
   | { kind: "station" }
   | { kind: "pickup" }
   | { kind: "pet"; owner: Resident }
-  | { kind: "resident"; other: Resident };
+  | { kind: "resident"; other: Resident }
+  | { kind: "thing"; line: string };
+
+/**
+ * What something in a neighbor's home, or the town's, is: its name, what it's for, and where one
+ * comes from. Nothing for what's on a plot you build on, since you put it there.
+ */
+function thingAt(tile: Tile): string | null {
+  const m = mirror;
+  if (!m) return null;
+  const floor = myFloor();
+  const block = m.blocksOn(floor).get(tileKey(tile.x, tile.y));
+  if (!block) return null;
+  const ownerId = m.ownerAt(tile.x, tile.y);
+  if (ownerId && me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(tile.x, tile.y)] }, me))
+    return null;
+  const pot = block === "pot" ? m.pots.get(potKey(tile.x, tile.y, floor))?.good : undefined;
+  return thingHereLine({
+    block,
+    owner: ownerId ? m.residents.get(ownerId)?.name : undefined,
+    pot,
+  });
+}
 
 function tapTarget(tile: Tile): TapTarget | undefined {
   const r = self();
@@ -1094,7 +1142,9 @@ function tapTarget(tile: Tile): TapTarget | undefined {
   // drawn; yours sits at your heel, where you tap to walk.
   const petOwner = pets.tapped(tile, me, mirror);
   const owner = petOwner ? mirror.residents.get(petOwner) : undefined;
-  return owner?.pet ? { kind: "pet", owner } : undefined;
+  if (owner?.pet) return { kind: "pet", owner };
+  const line = thingAt(tile);
+  return line ? { kind: "thing", line } : undefined;
 }
 
 /** The tiles a click would act on, ringed under a mouse: in build mode, any tile a block goes on. */
@@ -1278,6 +1328,12 @@ function tapTile(tile: { x: number; y: number }) {
       },
     );
     if (!asks) lessonsOrName();
+    return;
+  }
+  // Something in a neighbor's home: say what it is. No walk, since it often stands behind walls.
+  if (target?.kind === "thing") {
+    lookAt(tile);
+    showToast(target.line, "player");
     return;
   }
   // Someone away is not here: asleep at home, or out on a routine (decision 0083). Say so, and
@@ -2125,12 +2181,49 @@ function targetScale() {
 
 function snapCamera() {
   const at = lookingAt ?? self();
-  if (at) Object.assign(cam, { cx: at.x, cy: at.y });
   cam.scale = targetScale();
+  if (at) Object.assign(cam, { cx: at.x, cy: at.y - (world3d ? 0 : lift) / cam.scale });
 }
 
 /** How far down the top bar's pills reach, in CSS pixels: where the visit card starts. */
 const TOP_BAR_PX = 60;
+
+/** The four actions in the corner, whose top is where the clear map ends on a phone. */
+const actionsBar = document.querySelector<HTMLElement>(".actions");
+
+/**
+ * Where the clear map's middle is, as pixels below the screen's middle: halfway between the chrome
+ * at the top (the pills, the card over a plot, the build bar, chat) and, on a phone, the controls
+ * along the foot. The camera keeps your figure there, so what's around you isn't under a card or
+ * the build bar. Nothing moves when the band is too thin to matter.
+ */
+function clearLift(): number {
+  const top = Math.max(
+    TOP_BAR_PX,
+    visiting.bottom(),
+    look.bottom(),
+    buildMode ? palette.getBoundingClientRect().bottom : 0,
+    chatPanel.hidden ? 0 : chatPanel.getBoundingClientRect().bottom,
+  );
+  const foot =
+    cam.width < 480
+      ? Math.min(
+          cam.height,
+          actionsBar?.getBoundingClientRect().top ?? cam.height,
+          pad?.getBoundingClientRect().top ?? cam.height,
+        )
+      : cam.height;
+  if (foot - top < cam.scale * 5) return 0;
+  return (top + foot) / 2 - cam.height / 2;
+}
+
+/** The card's bottom as `--card-bottom` last said it, so the style is set only when it moves. */
+let shownCardBottom = 0;
+
+/** The lift the camera has eased to, so a card coming and going glides the map, never jumps it. */
+let lift = 0;
+/** Slower than the follow, since a card shows and hides as you cross from plot to plot. */
+const LIFT_RATE = 4;
 
 /**
  * The chrome steps aside while you walk (decision 0304): once you have been going `WALK_FADE_MS`,
@@ -2166,13 +2259,23 @@ function frame() {
     motion.ahead = walker.ahead;
   }
   paintWalking(now);
+  // Where the card over a plot ends: notices go under it, wherever its rows put it.
+  const cardBottom = Math.max(visiting.bottom(), look.bottom());
+  if (cardBottom > 0 && cardBottom !== shownCardBottom) {
+    shownCardBottom = cardBottom;
+    hud.style.setProperty("--card-bottom", `${Math.round(cardBottom)}px`);
+  }
   if (focus || r) {
     // The map's camera follows your figure as it's drawn, so the world glides under a walk, or
     // the place a link named.
     const p = focus ?? (r && motion.pose(r, now, still));
     if (p) {
+      // Kept in the middle of the clear map rather than the screen's (`clearLift`), on the map only.
+      lift = approach(lift, world3d ? 0 : clearLift(), dt, LIFT_RATE);
+      const shown = Math.round(lift);
+      if (canvas.dataset.lift !== String(shown)) canvas.dataset.lift = String(shown);
       cam.cx = approach(cam.cx, p.x, dt, CAMERA_RATE);
-      cam.cy = approach(cam.cy, p.y, dt, CAMERA_RATE);
+      cam.cy = approach(cam.cy, p.y - lift / cam.scale, dt, CAMERA_RATE);
     }
   } else if (mirror) {
     // Behind the door card: a slow drift over the town square, centered in the space above the
@@ -2241,7 +2344,7 @@ function frame() {
       pets,
       clock,
       // Plots' names keep clear of the top bar and the visit card (decision 0121).
-      labelTop: Math.max(TOP_BAR_PX, visiting.bottom(), look.bottom()),
+      labelTop: Math.max(TOP_BAR_PX, cardBottom),
       casts,
       bursts,
       hover,
@@ -2384,13 +2487,50 @@ function castLine() {
   }
   lookAt(water);
   if (rods.size === 0) {
-    showToast(noRodLine());
+    showToast(noRodLine({ nearest: nearestBranch(), workbench: hasWorkbench() }));
     return;
   }
   tryAct({ type: "fish" });
 }
 
 fishButton.addEventListener("click", () => castLine());
+
+/**
+ * The way to the nearest fallen branch you may pick up, in words ("6 tiles northeast"), so the line
+ * for a missing rod points somewhere. Only a hint: the world says what you picked up.
+ */
+function nearestBranch(): string | undefined {
+  return nearestPickup(["wood"]);
+}
+
+/** The way to the nearest of these pickups lying today that you may take, in words. */
+function nearestPickup(kinds: readonly string[]): string | undefined {
+  const m = mirror;
+  const at = here();
+  const id = me;
+  if (!m || !at || !id) return undefined;
+  const { width, height } = m.config;
+  const spot = nearestTile(at, (x, y) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    const kind = m.pickupAt(x, y);
+    return kind !== null && kinds.includes(kind) && m.mayGatherAt(x, y, id);
+  });
+  return spot && wayWords(at, spot);
+}
+
+/** Whether a workbench stands on a plot you can build on, by the sim's own rule for whose it is. */
+function hasWorkbench(): boolean {
+  const m = mirror;
+  const id = me;
+  if (!m || !id) return false;
+  for (const [key, kind] of m.blocks) {
+    if (kind !== "workbench") continue;
+    const [x = 0, y = 0] = key.split(",").map(Number);
+    const ownerId = m.ownerAt(x, y);
+    if (ownerId && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, id)) return true;
+  }
+  return false;
+}
 
 /**
  * Show "Set off a firework" on a fireworks night (RFC 0034, the sim's `fireworkNight`) while you

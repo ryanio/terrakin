@@ -42,6 +42,7 @@ const FOOTER_GROUPS: readonly { title: string; links: readonly FooterLink[] }[] 
   {
     title: "Terrakin",
     links: [
+      { href: LINKS.play, label: "How to play" },
       { href: LINKS.about, label: "About" },
       { href: LINKS.changelog, label: "What's new" },
       { href: LINKS.devlog, label: "Devlog" },

@@ -84,7 +84,7 @@ export function planFirstPlanting(v: PlantView): PlantPlan {
  */
 export function plantByHandLine(problem: "no_seeds" | "no_room"): string {
   return problem === "no_seeds"
-    ? "You have no seeds to plant. The shop sells them."
+    ? "You have no seeds to plant. The town shop sells them, at its counter on the town square."
     : "There's no room for a planter by your hearth yet. Place one from Build, then tap it.";
 }
 

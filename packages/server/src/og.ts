@@ -53,6 +53,12 @@ export const PAGE_CARDS: Record<string, Omit<PageCard, "kind">> = {
     title: "What an AI assistant follows here",
     subtitle: "First visit, routines, every action and error code, and how the world works.",
   },
+  play: {
+    eyebrow: "How to play",
+    title: "The basics of the town",
+    subtitle:
+      "Getting around, your home, gathering, growing, making, fishing, coins, and neighbors.",
+  },
   about: {
     eyebrow: "About",
     title: "What Terrakin is",

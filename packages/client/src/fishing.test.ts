@@ -1,7 +1,7 @@
 import { POND } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import { holdingsFromStacks } from "./build-palette";
-import { canDig, noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { canDig, pondLine, rodsAfter, rodsIn } from "./fishing";
 
 /**
  * Fishing in the world (RFC 0023): which rods you hold, which decides whether Fish casts or says
@@ -30,7 +30,6 @@ describe("the rods you hold", () => {
     // Nothing about rods: the same set back, so nothing redraws.
     const jam = inventory({ gained: [{ id: "i_4", kind: "lemon_jam", maker: "r_1", madeDay: 1 }] });
     expect(rodsAfter(made, jam)).toBe(made);
-    expect(noRodLine()).toBe("Fishing takes a fishing rod. Make one at a workbench from 3 wood.");
   });
 });
 
@@ -38,7 +37,9 @@ describe("a pond on the build bar", () => {
   it("says what a tile takes, and what you're short of, by the sim's own count", () => {
     const short = holdingsFromStacks([{ kind: "stone", count: POND.stone - 1 }]);
     expect(canDig(short)).toBe(false);
-    expect(pondLine(short)).toBe("Pond: 2 stone a tile, to fish beside. You need 1 stone more.");
+    expect(pondLine(short)).toBe(
+      "Pond: 2 stone a tile, to fish beside. You need 1 stone more. Pick up loose stones on the ground for stone.",
+    );
     const enough = holdingsFromStacks([{ kind: "stone", count: POND.stone }]);
     expect(canDig(enough)).toBe(true);
     expect(pondLine(enough)).toBe("Pond: 2 stone a tile, to fish beside. You have enough.");

@@ -11,6 +11,7 @@ import {
   myLevelToast,
   ownSkillRow,
   publicSkillRow,
+  SKILL_HOW,
   unlockLine,
 } from "./levels";
 
@@ -125,15 +126,21 @@ describe("the skills sheet's rows (RFC 0029)", () => {
     expect(ownSkillRow(mine({ points: 10 }), undefined).bar.count).toBe(0);
   });
 
-  it("says the points left, today's count against the cap, and what comes next", () => {
+  it("says what earns the skill, the points left, today's count against the cap, and what comes next", () => {
     const next = { skill: "growing" as const, level: 5, unlocks: { wear: "sun_hat" as const } };
     expect(ownSkillRow(mine(), next)).toMatchObject({
       name: "Growing 3",
-      lines: ["46 points to Growing 4", "14 of 20 today", "Growing 5 brings the sun hat."],
+      lines: [
+        "Harvest crops from your planters.",
+        "46 points to Growing 4",
+        "14 of 20 today",
+        "Growing 5 brings the sun hat.",
+      ],
     });
-    expect(ownSkillRow(mine({ points: 119 }), undefined).lines[0]).toBe("1 point to Growing 4");
+    expect(ownSkillRow(mine({ points: 119 }), undefined).lines[1]).toBe("1 point to Growing 4");
     // At the cap the line says so, and that more counts tomorrow.
     expect(ownSkillRow(mine({ today: 20 }), undefined).lines).toEqual([
+      "Harvest crops from your planters.",
       "46 points to Growing 4",
       "20 of 20 today. That's today's most: more counts tomorrow.",
     ]);
@@ -145,22 +152,22 @@ describe("the skills sheet's rows (RFC 0029)", () => {
       skill: "growing",
       name: "Growing 1",
       bar: { count: 0, total: 2, label: "0 of 2 levels to Growing 3" },
-      lines: ["Growing 3 brings the title Gardener."],
+      lines: ["Harvest crops from your planters.", "Growing 3 brings the title Gardener."],
     });
     // The bar starts again at each thing unlocked: the title at 3, the garment at 5.
     expect(publicSkillRow("making", 4)).toMatchObject({
       bar: { count: 1, total: 2, label: "1 of 2 levels to Making 5" },
-      lines: ["Making 5 brings the tool belt."],
+      lines: ["Make things at a kitchen, workbench, or kiln.", "Making 5 brings the tool belt."],
     });
     expect(publicSkillRow("hosting", 7)).toMatchObject({
       bar: { count: 2, total: 5 },
-      lines: ["Hosting 10 brings the title Grand host."],
+      lines: [SKILL_HOW.hosting, "Hosting 10 brings the title Grand host."],
     });
     // Past the last unlock the bar is full and stays full.
     expect(publicSkillRow("playing", 14)).toMatchObject({
       name: "Playing 14",
       bar: { count: 1, total: 1, label: "Past Playing 10" },
-      lines: ["Nothing left to unlock."],
+      lines: [SKILL_HOW.playing, "Nothing left to unlock."],
     });
   });
 });

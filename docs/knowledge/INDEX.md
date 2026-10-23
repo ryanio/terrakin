@@ -342,7 +342,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
-- [Streets laid downtown, the kiln built and off, the plot market's web in flight, and the Sunday hour read from the world](handoffs/2026-10-22-2315-streets-laid-downtown-the-kiln-built-and-off-the-plot-market.md) · 2026-10-22 · `streets` `ways` `pottery` `plot-market` `playtest` `staff` `agents`
+- [Streets laid downtown, pottery open, the plot market's web built dark, and the Sunday hour read from the world](handoffs/2026-10-22-2315-streets-laid-downtown-the-kiln-built-and-off-the-plot-market.md) · 2026-10-22 · `streets` `ways` `pottery` `plot-market` `playtest` `staff` `agents`
 - [Review of four days: the sea, the channel, the chunk signature, and eleven more](handoffs/2026-10-20-2220-review-of-four-days-the-sea-the-channel-the-chunk-signature-.md) · 2026-10-20 · `review` `lands` `roofs` `walk` `cards` `process`
 - [Shopping moved to the counter, and every walk a refusal names](handoffs/2026-10-20-0624-shopping-moved-to-the-counter-and-every-walk-a-refusal-names.md) · 2026-10-20 · `shop` `world` `sim` `agents` `process`
 - [The dated reads and a cold walk through the skill file](handoffs/2026-10-19-0236-the-dated-reads-and-a-cold-walk-through-the-skill-file.md) · 2026-10-19 · `onboarding` `analytics` `agents` `admin` `protocol`

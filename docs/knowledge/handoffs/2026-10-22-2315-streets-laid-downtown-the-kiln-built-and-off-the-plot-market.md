@@ -1,5 +1,5 @@
 ---
-title: Streets laid downtown, the kiln built and off, the plot market's web in flight, and the Sunday hour read from the world
+title: Streets laid downtown, pottery open, the plot market's web built dark, and the Sunday hour read from the world
 date: 2026-10-22
 tags: [streets, ways, pottery, plot-market, playtest, staff, agents]
 ---
@@ -13,7 +13,7 @@ tags: [streets, ways, pottery, plot-market, playtest, staff, agents]
 - **Households are one place for exits and the planner** ([decision 0364](../decisions/0364-one-household-s-touching-plots-are-one-place-for-exits-and-t.md)). With owner pairs counted, it already clears a few plots from the landlocked list today; it can only shorten it.
 - **Pickups on a public way** are open to anyone once `open_way_pickups` is logged, which the server logs under the existing `plotPickups` option. A switch, because a gather-all near a way would otherwise replay differently.
 - **Every `out_of_reach` names a routed walk**, and a `move` with `steps` that stops short says why (`stopped`), from a report by the AI that runs cocoa.
-- **The kiln ([RFC 0047](../../rfcs/0047-trades-and-your-mark.md) phase 1, decision 0362)**, built behind `open_clay`, which no adapter sets.
+- **Pottery ([RFC 0047](../../rfcs/0047-trades-and-your-mark.md) phase 1, decisions 0362 and 0366 to 0371)**: clay by ponds, a kiln, pots, glazes and finishes, pots at home, tea served at events, pottery jobs, and its collection pages, now on.
 - **Playtest prep.** `pnpm funnel` reads the newcomer funnel in one command. The Sunday hour (2026-10-25, 19:00 UTC) is the weekly gathering on terrakin.org, read from the world rather than watched ([phase 1](../../plans/phase-1.md#what-we-read)). The check-in's town event line tells an agent how its owner can come in person with a sign-in link. Twenty new characters can join at once from one network ([decision 0355](../decisions/0355-twenty-new-characters-can-join-at-once-from-one-network-so-a.md)).
 - **Tests for state that exists only in production.** Every table boots from the shape it first shipped in (`schema-upgrade.test.ts`, `first-tables.ts`), and three pairs that must agree are held by tables the compiler keeps complete.
 - **The staff app** opens every screen like the main app's pages and is built from `packages/ui` ([decision 0361](../decisions/0361-staff-screens-open-with-the-main-app-page-head-and-name-thei.md)).
@@ -24,17 +24,17 @@ tags: [streets, ways, pottery, plot-market, playtest, staff, agents]
 ## State of things
 
 - **The Halloween devlog** (`docs/devlog/2026-10-24.md`) is written and checked on the branch `worktree-agent-acca5be44589ddf4c`, held because `pnpm gen` publishes a post dated in the future at once. Merge it on or after October 24.
-- **Pottery is being made worth doing**, still switched off: clay rarer and by water, pots you place at home and a vase that holds a flower, tea a host serves, townsfolk jobs that ask for pottery, a Pottery page in the collection book, and link routes. Ryan's rule: it goes on only once it's fun, judged by a fresh agent playing it cold.
-- **The plot market's web is being built, dark**, commits 1 to 10 of the plan, with Ryan's answers: second and third plots only by buying, opened in a push he approves, nothing shown while off, no map sign yet, Go there after a purchase.
+- **Pottery is open at terrakin.org** (decision 0371, commit d2217633), after six rounds of fixes and four cold plays by fresh agents that scored it 6, 5, 6 and 6 out of 10. Ryan chose to switch it on and learn from real residents. From here on its rules are frozen: a change to clay, kilns, springs, finishes, card prices or tea moves `REPLAY_VERSION` or goes behind a switch (the sim's `AGENTS.md`).
+- **The plot market's web is built, dark** (decision 0365): second and third plots only by buying, opened in a push Ryan approves.
 - Issue #100 closes on the next nightly run, which finds no landlocked plot.
 - Human-facing web copy still says "way out" in a few places; the vocabulary rule is for code and agent docs.
 
 ## Next
 
-1. Merge the pottery and plot market branches as they land: rebase, `pnpm verify`, `pnpm e2e`, push.
-2. Have a fresh agent play pottery cold, as a person on a phone and as an AI from SKILL.md alone. If it's fun, set `clay: true` on the Worker, flip the pin in `packages/server/src/pottery.test.ts`, and add a changelog entry and a devlog post; if not, improve from what it found.
-3. On or after October 24, merge the Halloween devlog branch.
-4. After the Sunday hour, the dated reads routine files the `playtest` issues; turn the claim-to-hearth findings into fixes Ryan approves.
+1. Watch pottery's first week on terrakin.org: how many residents dig a pond, place a kiln, and fire a second pot. The cold plays' open asks were a pot on a table or shelf (two blocks on one tile, a data-model change), a faster collector loop, and tea guests notice more.
+2. On or after October 24, merge the Halloween devlog branch.
+3. After the Sunday hour, the dated reads routine files the `playtest` issues; turn the claim-to-hearth findings into fixes Ryan approves.
+4. The plot market goes on only with Ryan's word, once the first island is open (its checklist is in `docs/plans/plot-market-web.md`).
 
 ## Open questions
 

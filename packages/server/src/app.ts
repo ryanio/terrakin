@@ -104,10 +104,8 @@ export interface AppOptions {
    * a day on, or `?days=N` days (1 to 400) in one jump, which the world takes as one `new_day`, or
    * `?minutes=N` minutes on (1 to 1,440), for an event's start, and `POST /v1/test/sweep` by
    * running the minute sweep now (idle residents, routines, snapshots), and `POST /v1/test/grant`
-   * (`TEST_GRANT_PATH`), `POST /v1/test/open-recipes` (`TEST_OPEN_RECIPES_PATH`),
-   * `POST /v1/test/open-levels` (`TEST_OPEN_LEVELS_PATH`), `POST /v1/test/open-jobs`
-   * (`TEST_OPEN_JOBS_PATH`), `POST /v1/test/open-circles` (`TEST_OPEN_CIRCLES_PATH`), and
-   * `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now, RFC 0038),
+   * (`TEST_GRANT_PATH`), `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now,
+   * RFC 0038),
    * `POST /v1/test/open-plot-market` (`TEST_OPEN_PLOT_MARKET_PATH`, plots for sale now, RFC 0039), and
    * `POST /v1/test/open-clay` (`TEST_OPEN_CLAY_PATH`, pottery now, RFC 0047) from
    * this machine. It's deliberately outside
@@ -131,29 +129,6 @@ export const TEST_SWEEP_PATH = "/v1/test/sweep";
  * gives a resident coins from the treasury and stacks of things (decision 0147).
  */
 export const TEST_GRANT_PATH = "/v1/test/grant";
-/**
- * Tests only, with the test clock, from this machine: logs `open_recipes` now (RFC 0024), so a spec
- * can make residents before and after it. Answers the sim's refusal when recipes are already open.
- */
-export const TEST_OPEN_RECIPES_PATH = "/v1/test/open-recipes";
-/**
- * Tests only, with the test clock, from this machine: logs `open_levels` now (RFC 0029) with the
- * one-time credit from the collection book, so a spec or a `pnpm dev:test` world has levels.
- * Answers the sim's refusal when levels are already open.
- */
-export const TEST_OPEN_LEVELS_PATH = "/v1/test/open-levels";
-/**
- * Tests only, with the test clock, from this machine: logs `open_jobs` now (RFC 0030), so a spec
- * or a `pnpm dev:test` world has the town's jobs. Answers the sim's refusal before levels are
- * open, and when jobs already are.
- */
-export const TEST_OPEN_JOBS_PATH = "/v1/test/open-jobs";
-
-/**
- * The test clock's route that opens circles now (RFC 0033), so a test or a `pnpm dev:test` world
- * has them. Answers the sim's refusal before coins are open, and when circles already are.
- */
-export const TEST_OPEN_CIRCLES_PATH = "/v1/test/open-circles";
 export const TEST_OPEN_LAND_PATH = "/v1/test/open-land";
 /**
  * Tests only, with the test clock, from this machine: logs `open_plot_market` now (RFC 0039), so
@@ -390,25 +365,17 @@ export function createApp(options: AppOptions): Server {
         body: JSON.stringify(result.ok ? { ok: true } : { ok: false, error: result.error }),
       });
     }
-    // The switches a test turns on now: recipes (RFC 0024), levels (RFC 0029), jobs (RFC 0030),
-    // circles (RFC 0033), the next land (RFC 0038), and pottery (RFC 0047). Only from this
-    // machine, like the grant.
+    // The switches a test turns on now, which no Node world logs on its own: the next land
+    // (RFC 0038), plots for sale (RFC 0039), and pottery (RFC 0047). Only from this machine, like
+    // the grant.
     const openNow =
-      url.pathname === TEST_OPEN_RECIPES_PATH
-        ? () => options.service.testOpenRecipes()
-        : url.pathname === TEST_OPEN_LEVELS_PATH
-          ? () => options.service.testOpenLevels()
-          : url.pathname === TEST_OPEN_JOBS_PATH
-            ? () => options.service.testOpenJobs()
-            : url.pathname === TEST_OPEN_CIRCLES_PATH
-              ? () => options.service.testOpenCircles()
-              : url.pathname === TEST_OPEN_LAND_PATH
-                ? () => options.service.testOpenLand()
-                : url.pathname === TEST_OPEN_PLOT_MARKET_PATH
-                  ? () => options.service.testOpenPlotMarket()
-                  : url.pathname === TEST_OPEN_CLAY_PATH
-                    ? () => options.service.testOpenClay()
-                    : undefined;
+      url.pathname === TEST_OPEN_LAND_PATH
+        ? () => options.service.testOpenLand()
+        : url.pathname === TEST_OPEN_PLOT_MARKET_PATH
+          ? () => options.service.testOpenPlotMarket()
+          : url.pathname === TEST_OPEN_CLAY_PATH
+            ? () => options.service.testOpenClay()
+            : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {

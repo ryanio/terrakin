@@ -7,11 +7,7 @@ import {
   isPreset,
   jobDayOver,
   makePersona,
-  openCirclesOver,
-  openJobsOver,
-  openLevelsOver,
   openPlotMarketOver,
-  openRecipesOver,
   type Persona,
   type PersonaSpec,
   type PresetName,
@@ -236,38 +232,6 @@ export async function persona(
     typeof preset === "string" ? stage(preset, spec ?? { name: preset }) : { ...preset, ...spec };
   const made = await makePersona(httpOf(request), full);
   return { ...made, auth: { authorization: `Bearer ${made.token}` } };
-}
-
-/**
- * Switch recipes you learn on now (RFC 0024): residents made before it know every recipe, and those
- * made after start with free picks. Once per server, so only for a spec with a server of its own.
- */
-export async function openRecipes(request: APIRequestContext) {
-  await openRecipesOver(httpOf(request));
-}
-
-/**
- * Switch levels on now (RFC 0029): residents already here get their one-time credit, and deeds earn
- * points from then on. Once per server, so only for a spec with a server of its own.
- */
-export async function openLevels(request: APIRequestContext) {
-  await openLevelsOver(httpOf(request));
-}
-
-/**
- * Switch the town's jobs on now (RFC 0030), with levels first when they aren't open. Once per
- * server, so only for a spec with a server of its own.
- */
-export async function openJobs(request: APIRequestContext) {
-  await openJobsOver(httpOf(request));
-}
-
-/**
- * Switch circles on now (RFC 0033). Once per server, so only for a spec with a server of its
- * own.
- */
-export async function openCircles(request: APIRequestContext) {
-  await openCirclesOver(httpOf(request));
 }
 
 /**

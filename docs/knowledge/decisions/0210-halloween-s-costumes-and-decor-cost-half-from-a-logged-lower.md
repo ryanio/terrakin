@@ -5,6 +5,8 @@ status: accepted
 tags: [sim, economy, numbers, holidays, server, scripts]
 ---
 
+The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world lowers holiday prices too.
+
 # Halloween's costumes and decor cost half from a logged lower_holiday_prices
 
 ## Context

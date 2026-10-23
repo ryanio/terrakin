@@ -5,6 +5,8 @@ status: accepted
 tags: [server, jobs, deploy]
 ---
 
+The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world opens jobs too, and `POST /v1/test/open-jobs` is gone.
+
 # Jobs are on at terrakin.org: the Worker sets jobs, the Node server leaves it off, and the switch ships with its docs
 
 ## Context

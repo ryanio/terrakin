@@ -28,6 +28,10 @@ test("grow herbs, make tea, and give it to a friend", async ({ page }) => {
   expect((await act(page.request, fern.token, { type: "build_starter_home" })).ok).toBe(true);
   const start = await inventory(page.request, fern.token);
   expect(start.stacks).toContainEqual({ kind: "herb_seed", count: 2 });
+  // Her free picks, over the API, so a kitchen opens on its own sheet: picking is recipes.spec's.
+  for (const recipe of ["well", "barrel", "signpost"]) {
+    expect((await act(page.request, fern.token, { type: "pick_recipe", recipe })).ok).toBe(true);
+  }
 
   await signIn(page, fern);
   await page.goto("/world");

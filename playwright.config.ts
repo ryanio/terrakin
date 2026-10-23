@@ -5,7 +5,6 @@ import {
   FAKE_CHAIN_PORT,
   FAKE_X_PORT,
   E2E_PORT as PORT,
-  SWITCH_SPECS,
 } from "./e2e/ports";
 import { NIGHTLY, SHARDS, SMOKE_3D } from "./e2e/suite";
 
@@ -47,13 +46,12 @@ if (shard && !inShard) throw new Error(`TERRAKIN_E2E_SHARD is 1 to ${SHARDS.leng
 const runs = (spec: string) => !inShard || inShard.includes(spec);
 
 const clockSpecs = CLOCK_SPECS.filter(runs);
-const switchSpecs = Object.entries(SWITCH_SPECS).filter(([spec]) => runs(spec));
 
 const flat = [
   {
     name: "phone",
     ...(inShard ? { testMatch: specFile(inShard) } : {}),
-    testIgnore: specFile([...CLOCK_SPECS, ...Object.keys(SWITCH_SPECS), ...SMOKE_3D, ...NIGHTLY]),
+    testIgnore: specFile([...CLOCK_SPECS, ...SMOKE_3D, ...NIGHTLY]),
     use: phone,
   },
   // Specs that move the clock a day on each have a server of their own (e2e/ports.ts), so they
@@ -62,12 +60,6 @@ const flat = [
     name: spec,
     testMatch: specFile([spec]),
     use: { ...phone, baseURL: `http://localhost:${clockPort(spec)}` },
-  })),
-  // Specs that switch something on for the whole world borrow a clock spec's server.
-  ...switchSpecs.map(([spec, host]) => ({
-    name: spec,
-    testMatch: specFile([spec]),
-    use: { ...phone, baseURL: `http://localhost:${clockPort(host)}` },
   })),
 ];
 
@@ -107,11 +99,7 @@ const projects =
  * specs need only the main server, and a shard only the clock servers its specs use.
  */
 const needsClock = only !== "3d" && only !== "nightly";
-const clockHosts = new Set<(typeof CLOCK_SPECS)[number]>([
-  ...clockSpecs,
-  ...switchSpecs.map(([, host]) => host),
-]);
-const ports = needsClock ? [...[...clockHosts].map(clockPort), PORT] : [PORT];
+const ports = needsClock ? [...clockSpecs.map(clockPort), PORT] : [PORT];
 const servers = {
   command: `node e2e/servers.ts ${ports.join(" ")}`,
   env: SERVER_ENV,

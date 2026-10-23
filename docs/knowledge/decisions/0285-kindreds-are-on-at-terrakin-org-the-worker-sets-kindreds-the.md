@@ -5,6 +5,8 @@ status: accepted
 tags: [server, deploy, social]
 ---
 
+The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world opens circles too, and `POST /v1/test/open-circles` is gone.
+
 # Kindreds are on at terrakin.org: the Worker sets kindreds, the Node server leaves it off, and the switch ships with its docs
 
 ## Context

@@ -21,7 +21,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { JOBS_CONFIG, JOBS_LOG } from "../../sim/src/fixtures/jobs-log";
-import { createApp, TEST_OPEN_JOBS_PATH } from "./app";
+import { createApp } from "./app";
 import { pickTryNext, TRY_NEXT } from "./checkin-suggest";
 import { eventWords } from "./events";
 import {
@@ -97,7 +97,6 @@ async function start(
     levels?: boolean;
     jobs?: boolean;
     jobEdition?: number;
-    testClock?: boolean;
     at?: number;
   } = {},
 ) {
@@ -134,7 +133,6 @@ async function start(
     onResponse,
     // The repeat window of a link opened twice runs on the test's clock too.
     now: () => now,
-    ...(options.testClock ? { testClock: { advanceDay: () => service.state.day ?? null } } : {}),
   });
   if (!options.sql) cleanups.push(() => sql.close());
   const base = await listenOnFreePort(server, cleanups);
@@ -273,7 +271,7 @@ describe("a world that never opened jobs", () => {
     return { service, refused, logged: store.log.map((input) => input.command.type) };
   }
 
-  it("is switched on only with the option, which the Worker passes once and the Node server never", () => {
+  it("is switched on only with the option, which each adapter passes once", () => {
     const off = threeDays(false);
     // The newest switch before jobs is on, so the table ran.
     expect(off.logged).toContain("open_levels");
@@ -292,13 +290,12 @@ describe("a world that never opened jobs", () => {
     const early = threeDays(true, false);
     expect(early.logged).not.toContain("open_jobs");
     expect(early.refused).toEqual([]);
-    // Jobs are on at terrakin.org (decision 0262): the Worker passes the option, once, and has no
-    // test route. The Node server doesn't pass it, so self-hosted, dev, and e2e worlds start
-    // without jobs, as the first world above did.
+    // Jobs are on at terrakin.org (decision 0262) and in every Node world (decision 0373): each
+    // adapter passes the option once, and the Worker has no test route.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
     expect(worker.match(/\bjobs\s*:\s*true\b/g)).toHaveLength(1);
-    expect(node).not.toMatch(/\bjobs\s*:/);
+    expect(node.match(/\bjobs\s*:\s*true\b/g)).toHaveLength(1);
     expect(worker).not.toMatch(/open-jobs|testOpenJobs|open_jobs/);
   });
 
@@ -468,54 +465,6 @@ describe("a world that never opened jobs", () => {
 });
 
 describe("opening jobs", () => {
-  it("has a test route that opens them now, only with the test clock and only from this machine", async () => {
-    const off = await start();
-    const post = (base: string) => fetch(base + TEST_OPEN_JOBS_PATH, { method: "POST" });
-    expect((await post(off.base)).status).toBe(404);
-
-    const on = await start({ testClock: true });
-    // Jobs pay points, so the sim refuses the switch before levels.
-    const early = await post(on.base);
-    expect(early.status).toBe(400);
-    expect(await early.json()).toMatchObject({ ok: false, error: { code: "not_due" } });
-    expect(on.service.testOpenLevels()).toMatchObject({ ok: true });
-    expect(await (await post(on.base)).json()).toEqual({ ok: true });
-    expect(on.service.state.jobs).toEqual({ opened: on.service.state.day, edition: 1 });
-    const again = await post(on.base);
-    expect(again.status).toBe(400);
-    expect(await again.json()).toMatchObject({ ok: false, error: { code: "already_open" } });
-    expect((await on.call("GET", "/v1/world")).body.jobsOpen).toBe(true);
-
-    // A caller on the network gets a 404, test clock or not.
-    const far = await start();
-    expect(far.service.testOpenLevels()).toMatchObject({ ok: true });
-    const server = createApp({
-      service: far.service,
-      onResponse,
-      testClock: { advanceDay: () => far.service.state.day ?? null },
-    });
-    const answer = await new Promise<{ status: number; body: string }>((done) => {
-      let status = 0;
-      const req = {
-        method: "POST",
-        url: TEST_OPEN_JOBS_PATH,
-        headers: { host: "localhost" },
-        socket: { remoteAddress: "10.0.0.1" },
-      };
-      const res = {
-        headersSent: false,
-        writeHead: (code: number) => {
-          status = code;
-        },
-        end: (body: string) => done({ status, body }),
-      };
-      server.emit("request", req, res);
-    });
-    expect(answer.status).toBe(404);
-    expect(far.service.state.jobs).toBeUndefined();
-    // That the Worker has no such route is `town.test.ts`'s, with the other test routes.
-  });
-
   it("opens on the server's own tick once the option is on and levels are open", async () => {
     const before = await start();
     expect(before.service.testOpenLevels()).toMatchObject({ ok: true });
@@ -529,7 +478,7 @@ describe("opening jobs", () => {
 });
 
 describe("the jobs edition", () => {
-  it("moves on right after a new day, once, and only with the option, which the Worker sets and the Node server never", async () => {
+  it("moves on right after a new day, once, and only with the option, which each adapter sets", async () => {
     // Jobs open mid-morning on the first edition, and a restart with the option comes at noon.
     const before = await start();
     expect(before.open()).toMatchObject({ ok: true });
@@ -559,12 +508,11 @@ describe("the jobs edition", () => {
     older.later(DAY_MS);
     expect(older.logged("set_job_edition")).toHaveLength(1);
     expect(older.service.state.jobs?.edition).toBe(2);
-    // terrakin.org reads edition 2 (decision 0265): the Worker passes it once. The Node server
-    // passes nothing, so self-hosted, dev, and e2e worlds stay on the edition jobs open on.
+    // terrakin.org reads edition 2 (decision 0265), and so does every Node world (decision 0373).
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
     expect(worker.match(/\bjobEdition\s*:\s*2\b/g)).toHaveLength(1);
-    expect(node).not.toMatch(/\bjobEdition\b/);
+    expect(node.match(/\bjobEdition\s*:\s*2\b/g)).toHaveLength(1);
   });
 });
 

@@ -5,6 +5,8 @@ status: accepted
 tags: [server, levels, deploy]
 ---
 
+The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world opens levels too.
+
 # Levels are on at terrakin.org: the Worker sets levels, the Node server leaves it off, and the switch ships in the same push as its docs
 
 ## Context

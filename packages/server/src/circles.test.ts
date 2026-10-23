@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { NotificationView, ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import { DAY_MS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
-import { createApp, TEST_OPEN_CIRCLES_PATH } from "./app";
+import { createApp } from "./app";
 import { foundingCost, TRY_NEXT } from "./checkin-suggest";
 import { circleWords } from "./circles";
 import { eventWords } from "./events";
@@ -41,7 +41,7 @@ afterEach(async () => {
 type Json = Record<string, any>;
 
 /** A world on Tuesday 6 October 2026, with coins, things, and presence, circles as asked. */
-async function start(options: { circles?: boolean; levels?: boolean; testClock?: boolean } = {}) {
+async function start(options: { circles?: boolean; levels?: boolean } = {}) {
   let now = Date.UTC(2026, 9, 6, 9);
   const store = new MemoryStore();
   const service = new WorldService({
@@ -78,7 +78,6 @@ async function start(options: { circles?: boolean; levels?: boolean; testClock?:
     sessionsPerMinute: 1000,
     onResponse,
     now: () => now,
-    ...(options.testClock ? { testClock: { advanceDay: () => service.state.day ?? null } } : {}),
   });
   cleanups.push(() => sql.close());
   const call = jsonCaller(await listenOnFreePort(server, cleanups));
@@ -192,23 +191,13 @@ describe("the circles switch", () => {
     expect((await t.call("GET", "/v1/world")).body.circlesOpen).toBe(true);
   });
 
-  it("is passed by the Worker once and by the Node server never", () => {
-    // Circles are on at terrakin.org (decision 0285). Self-hosted, dev, and e2e worlds start
-    // without them, as the world in "a world without circles" above does.
+  it("is passed once by the Worker and once by the Node server", () => {
+    // Circles are on at terrakin.org (decision 0285) and in every Node world (decision 0373).
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
     expect(worker.match(/\bcircles\s*:\s*true\b/g)).toHaveLength(1);
-    expect(node).not.toMatch(/\bcircles\s*:/);
+    expect(node.match(/\bcircles\s*:\s*true\b/g)).toHaveLength(1);
     expect(worker).not.toMatch(/open-circles|testOpenCircles|open_circles/);
-  });
-});
-
-describe("the test route", () => {
-  it("opens circles now in a test world, once", async () => {
-    const t = await start({ testClock: true });
-    expect((await t.call("POST", TEST_OPEN_CIRCLES_PATH)).status).toBe(200);
-    expect(t.logged("open_circles")).toHaveLength(1);
-    expect((await t.call("POST", TEST_OPEN_CIRCLES_PATH)).status).toBeGreaterThanOrEqual(400);
   });
 });
 

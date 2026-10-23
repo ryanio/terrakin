@@ -17,9 +17,7 @@ import {
   createApp,
   TEST_ADVANCE_DAY_PATH,
   TEST_GRANT_PATH,
-  TEST_OPEN_JOBS_PATH,
-  TEST_OPEN_LEVELS_PATH,
-  TEST_OPEN_RECIPES_PATH,
+  TEST_OPEN_CLAY_PATH,
   TEST_SWEEP_PATH,
 } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -710,7 +708,7 @@ describe("the test clock", () => {
     expect(await malformed.json()).toMatchObject({ error: { code: "invalid_body" } });
   });
 
-  it("opens recipes now only with the test clock on, keeping everyone already here", async () => {
+  it("opens a switch now only with the test clock on, and once", async () => {
     const service = new WorldService({
       store: new MemoryStore(),
       config: CONFIG,
@@ -722,25 +720,25 @@ describe("the test clock", () => {
     });
     service.tick();
     const advanceDay = () => service.state.day ?? null;
-    const open = (base: string) => fetch(base + TEST_OPEN_RECIPES_PATH, { method: "POST" });
-    const ada = service.createSession({ name: "Ada", kind: "human" });
-    // Without the test clock the route isn't there, and recipes stay closed.
+    // Pottery, the switch only the Worker sets (RFC 0047): its route is the one a test world has.
+    const open = (base: string) => fetch(base + TEST_OPEN_CLAY_PATH, { method: "POST" });
+    // Without the test clock the route isn't there, and clay stays closed.
     const off = await listenOnFreePort(createApp({ service, onResponse }), cleanups);
     expect((await open(off)).status).toBe(404);
-    expect(service.state.recipes).toBeUndefined();
+    expect(service.state.items?.clayOpen).toBeUndefined();
     const on = await listenOnFreePort(
       createApp({ service, onResponse, testClock: { advanceDay } }),
       cleanups,
     );
     expect(await (await open(on)).json()).toEqual({ ok: true });
-    expect(service.state.recipes?.everything).toEqual([ada.residentId]);
+    expect(service.state.items?.clayOpen).toBe(true);
     // It's a one-time switch: a second call is the sim's refusal.
     const again = await open(on);
     expect(again.status).toBe(400);
     expect(await again.json()).toMatchObject({ ok: false });
   });
 
-  it("refuses to open recipes for a caller from another machine", async () => {
+  it("refuses to open a switch for a caller from another machine", async () => {
     const service = new WorldService({
       store: new MemoryStore(),
       config: CONFIG,
@@ -758,7 +756,7 @@ describe("the test clock", () => {
       let status = 0;
       const req = {
         method: "POST",
-        url: TEST_OPEN_RECIPES_PATH,
+        url: TEST_OPEN_CLAY_PATH,
         headers: { host: "localhost" },
         socket: { remoteAddress: "10.0.0.1" },
       };
@@ -773,7 +771,7 @@ describe("the test clock", () => {
     });
     expect(answer.status).toBe(404);
     expect(JSON.parse(answer.body)).toMatchObject({ error: { code: "not_found" } });
-    expect(service.state.recipes).toBeUndefined();
+    expect(service.state.items?.clayOpen).toBeUndefined();
   });
 
   it("doesn't exist in the Worker, which serves the API through Api alone", async () => {
@@ -789,9 +787,7 @@ describe("the test clock", () => {
     const api = new Api({ service, skill: "", openapi: "{}" });
     for (const pathname of [
       TEST_ADVANCE_DAY_PATH,
-      TEST_OPEN_RECIPES_PATH,
-      TEST_OPEN_LEVELS_PATH,
-      TEST_OPEN_JOBS_PATH,
+      TEST_OPEN_CLAY_PATH,
       TEST_GRANT_PATH,
       TEST_SWEEP_PATH,
     ]) {
@@ -807,12 +803,11 @@ describe("the test clock", () => {
       });
       expect(res?.status, pathname).toBe(404);
     }
-    expect(service.state.recipes).toBeUndefined();
+    expect(service.state.items?.clayOpen).toBeUndefined();
     expect(service.state.progress).toBeUndefined();
-    expect(service.state.jobs).toBeUndefined();
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     expect(worker).not.toMatch(
-      /testClock|advance-day|test\/sweep|test\/grant|testGrant|open-recipes|testOpenRecipes|open-levels|testOpenLevels|open-jobs|testOpenJobs|TEST_CLOCK/,
+      /testClock|advance-day|test\/sweep|test\/grant|testGrant|test\/open-|testOpen|TEST_CLOCK/,
     );
   });
 });

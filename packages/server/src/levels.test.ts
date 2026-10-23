@@ -17,7 +17,7 @@ import {
   type WorldEvent,
 } from "@terrakin/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createApp, TEST_OPEN_LEVELS_PATH } from "./app";
+import { createApp } from "./app";
 import { eventWords } from "./events";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
@@ -75,7 +75,6 @@ async function start(
     store?: MemoryStore;
     sql?: ReturnType<typeof nodeSql>;
     levels?: boolean;
-    testClock?: boolean;
     at?: number;
     /** Runs on the social layer before the world is wired to it, to make a boot's read fail. */
     beforeWire?: (social: SocialService) => void;
@@ -112,7 +111,6 @@ async function start(
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
     onResponse,
-    ...(options.testClock ? { testClock: { advanceDay: () => service.state.day ?? null } } : {}),
   });
   if (!options.sql) cleanups.push(() => sql.close());
   const base = await listenOnFreePort(server, cleanups);
@@ -186,7 +184,7 @@ function keysIn(value: unknown, found = new Set<string>()): Set<string> {
 }
 
 describe("a world that never opened levels", () => {
-  it("isn't switched on without the option, which the Worker passes and the Node server doesn't", () => {
+  it("isn't switched on without the option, which both adapters pass", () => {
     let now = Date.UTC(2026, 9, 9, 12);
     const store = new MemoryStore();
     const service = new WorldService({
@@ -217,13 +215,12 @@ describe("a world that never opened levels", () => {
     expect(logged).not.toContain("open_levels");
     expect(logged).not.toContain("credit_event");
     expect(service.state.progress).toBeUndefined();
-    // Levels are on at terrakin.org (decision 0249): the Worker passes the option, once, and has
-    // no test route. The Node server doesn't pass it, so self-hosted, dev, and e2e worlds start
-    // without levels, as the world above did.
+    // Levels are on at terrakin.org (decision 0249) and in every Node world (decision 0373): each
+    // adapter passes the option once, and the Worker has no test route.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
     expect(worker.match(/\blevels\s*:\s*true\b/g)).toHaveLength(1);
-    expect(node).not.toMatch(/\blevels\s*:/);
+    expect(node.match(/\blevels\s*:\s*true\b/g)).toHaveLength(1);
     expect(worker).not.toMatch(/open-levels|testOpenLevels|open_levels/);
   });
 
@@ -533,48 +530,6 @@ describe("opening levels", () => {
     ]);
     t.later(DAY_MS);
     expect(t.logged("open_levels")).toHaveLength(1);
-  });
-
-  it("has a test route that opens them now, only with the test clock and only from this machine", async () => {
-    const off = await start();
-    const post = (base: string) => fetch(base + TEST_OPEN_LEVELS_PATH, { method: "POST" });
-    expect((await post(off.base)).status).toBe(404);
-    expect(off.service.state.progress).toBeUndefined();
-
-    const on = await start({ testClock: true });
-    expect(await (await post(on.base)).json()).toEqual({ ok: true });
-    expect(on.service.state.progress).toMatchObject({ points: {}, firsts: {} });
-    const again = await post(on.base);
-    expect(again.status).toBe(400);
-    expect(await again.json()).toMatchObject({ ok: false, error: { code: "already_open" } });
-
-    // A caller on the network gets a 404, test clock or not.
-    const far = await start();
-    const server = createApp({
-      service: far.service,
-      onResponse,
-      testClock: { advanceDay: () => far.service.state.day ?? null },
-    });
-    const answer = await new Promise<{ status: number; body: string }>((done) => {
-      let status = 0;
-      const req = {
-        method: "POST",
-        url: TEST_OPEN_LEVELS_PATH,
-        headers: { host: "localhost" },
-        socket: { remoteAddress: "10.0.0.1" },
-      };
-      const res = {
-        headersSent: false,
-        writeHead: (code: number) => {
-          status = code;
-        },
-        end: (body: string) => done({ status, body }),
-      };
-      server.emit("request", req, res);
-    });
-    expect(answer.status).toBe(404);
-    expect(far.service.state.progress).toBeUndefined();
-    // That the Worker has no such route is `town.test.ts`'s, with the other test routes.
   });
 });
 

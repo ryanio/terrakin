@@ -289,14 +289,13 @@ export interface WorldServiceOptions {
   bounties?: boolean;
   /**
    * Recipes you learn (RFC 0024): once the shop is open, append `open_recipes` if it never has.
-   * The Worker turns it on, so terrakin.org has logged it. The Node server leaves it off, so a self-hosted world, `pnpm dev`, and the e2e servers start without it (specs open recipes themselves, decision 0181).
+   * Both adapters turn it on (decision 0373), so every world they run logs it once.
    */
   recipes?: boolean;
   /**
    * Cheaper holiday stock (decision 0210): once the shop is open, append `lower_holiday_prices` if
-   * it never has, so purchases before it replay at decision 0107's prices. The Worker turns it on;
-   * the Node server leaves it off, so a self-hosted world, `pnpm dev`, and the e2e servers keep the
-   * old prices unless set.
+   * it never has, so purchases before it replay at decision 0107's prices. Both adapters turn it
+   * on (decision 0373).
    */
   holidayPrices?: boolean;
   /**
@@ -322,16 +321,12 @@ export interface WorldServiceOptions {
   /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
-   * (`levelFirsts`). The Worker turns it on, so terrakin.org logs it once; the Node server leaves
-   * it off, so a self-hosted world, `pnpm dev`, and the e2e servers have no levels unless a test
-   * opens them through `POST /v1/test/open-levels`.
+   * (`levelFirsts`). Both adapters turn it on (decision 0373), so every world they run logs it once.
    */
   levels?: boolean;
   /**
-   * Jobs (RFC 0030): once levels are open, append `open_jobs` if it never has. The Worker turns
-   * it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted world,
-   * `pnpm dev`, and the e2e servers have no jobs unless a test opens them through
-   * `POST /v1/test/open-jobs`.
+   * Jobs (RFC 0030): once levels are open, append `open_jobs` if it never has. Both adapters turn
+   * it on (decision 0373), so every world they run logs it once.
    */
   jobs?: boolean;
   /**
@@ -342,10 +337,8 @@ export interface WorldServiceOptions {
    */
   clay?: boolean;
   /**
-   * Circles (RFC 0033): once coins are open, append `open_circles` if it never has. The Worker
-   * turns it on, so terrakin.org logs it once; the Node server leaves it off, so a self-hosted
-   * world, `pnpm dev`, and the e2e servers have no circles unless a test opens them through
-   * `POST /v1/test/open-circles`.
+   * Circles (RFC 0033): once coins are open, append `open_circles` if it never has. Both adapters
+   * turn it on (decision 0373), so every world they run logs it once.
    */
   circles?: boolean;
   /**
@@ -366,18 +359,14 @@ export interface WorldServiceOptions {
    * The edition of the jobs table this server's world reads (RFC 0030, decision 0265). Once jobs
    * are open on an older edition, `set_job_edition` is logged right after a `new_day`, never in
    * the middle of a day, since it changes the board from then on and people may be looking at
-   * today's. It only moves forward. The Worker passes 2, so terrakin.org switches once; the Node
-   * server leaves it out, so a self-hosted world, `pnpm dev`, and the e2e servers stay on the
-   * edition `open_jobs` starts on unless set.
+   * today's. It only moves forward. Both adapters pass 2 (decision 0373), so a world switches once.
    */
   jobEdition?: number;
   /**
    * The edition of the recipe page list this server's world reads (RFC 0024, decision 0310). Once
    * recipes are learned on an older edition, `set_page_edition` is logged right after a `new_day`,
    * like the jobs board's, since it changes which tiles hold a page from then on. It only moves
-   * forward. The Worker passes 3 (decision 0350), so terrakin.org moves to it once; the Node
-   * server leaves it out, so a self-hosted world, `pnpm dev`, and the e2e servers keep the pages
-   * `open_recipes` starts with unless set.
+   * forward. Both adapters pass 3 (decisions 0350 and 0373), so a world moves to it once.
    */
   pageEdition?: number;
   /**
@@ -1684,17 +1673,9 @@ export class WorldService {
   }
 
   /**
-   * Recipes you learn (RFC 0024), switched on now rather than at the next tick, so a test can make
-   * residents before and after it. Only the Node server's test route calls it, like `testGrant`.
-   */
-  testOpenRecipes() {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "open_recipes" } });
-  }
-
-  /**
    * Levels (RFC 0029), switched on now rather than at the next tick, with the same one-time credit
-   * the switch carries, so a test can make residents before and after it. Only the Node server's
-   * test route calls it, like `testGrant`.
+   * the switch carries, so a test can make residents before and after it. Tests and `testOpenClay`
+   * call it.
    */
   testOpenLevels() {
     const firsts = this.levelFirsts?.() ?? [];
@@ -1702,8 +1683,8 @@ export class WorldService {
   }
 
   /**
-   * Jobs (RFC 0030), switched on now rather than at the next tick, so a test can take one. Only
-   * the Node server's test route calls it, like `testGrant`. The sim refuses it before levels.
+   * Jobs (RFC 0030), switched on now rather than at the next tick, so a test can take one. Tests
+   * call it. The sim refuses it before levels.
    */
   testOpenJobs() {
     const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_jobs" } });
@@ -1724,8 +1705,8 @@ export class WorldService {
   }
 
   /**
-   * Circles (RFC 0033), switched on now rather than at the next tick. Only the Node server's test
-   * route calls it, like `testGrant`. The sim refuses it before coins.
+   * Circles (RFC 0033), switched on now rather than at the next tick. Tests call it. The sim
+   * refuses it before coins.
    */
   testOpenCircles() {
     return this.run({ actor: TOWN_ACTOR, command: { type: "open_circles" } });

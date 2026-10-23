@@ -109,6 +109,15 @@ const service = new WorldService({
   shopInPerson: true,
   proposeInPerson: true,
   scheduleInPerson: true,
+  // The systems terrakin.org runs, so a self-hosted, dev, or e2e world plays the same game. Pottery
+  // and new lands stay the Worker's alone for now.
+  recipes: true,
+  holidayPrices: true,
+  levels: true,
+  jobs: true,
+  jobEdition: 2,
+  pageEdition: 3,
+  circles: true,
   market: true,
   bounties: true,
   presence: true,

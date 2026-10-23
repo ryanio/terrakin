@@ -5,6 +5,8 @@ status: accepted
 tags: [sim, server, jobs]
 ---
 
+The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world passes `jobEdition: 2` too.
+
 # The jobs board's second edition: a lane's regular jobs carry on from the last one it gave
 
 ## Context

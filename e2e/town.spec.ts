@@ -6,8 +6,6 @@ import {
   jobDay,
   join,
   layoutShift,
-  openCircles,
-  openJobs,
   overflowsSideways,
   type Resident,
   read,
@@ -22,9 +20,9 @@ import {
  * The Town Hall, end to end on a phone: three residents who have held their plots for three days
  * propose a fountain, a cobble path, and a bench for the Commons, vote it through, and see it
  * built. Then Fern hosts an event at her plot from the Town Hall's calendar, and Birch goes from
- * the home wall's On now card once it's on. Last, the town's jobs open (RFC 0030): Fern takes the
+ * the home wall's On now card once it's on. Last, the town's jobs (RFC 0030): Fern takes the
  * chair job from the Town Hall's Jobs section and finishes it at her workbench in the world. Then
- * circles open (RFC 0033): Fern founds one at the Town Hall, Birch joins from his invite notice,
+ * circles (RFC 0033): Fern founds one at the Town Hall, Birch joins from his invite notice,
  * and Fern makes her plot its hall and holds a circle night there. The
  * e2e server runs with TERRAKIN_TEST_CLOCK=1, so
  * `POST /v1/test/advance-day` moves its clock a day on, or some minutes. Each part is a test of its
@@ -297,44 +295,21 @@ test.describe("the Town Hall", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the town's jobs open, and Fern takes the chair job at the Town Hall and finishes it at her workbench", async ({
+  test("Fern takes the chair job at the Town Hall and finishes it at her workbench", async ({
     page,
   }) => {
     const { fern } = built();
     const errors = watchErrors(page, { console: "none" });
     await signIn(page, fern);
-    // Until jobs open here nothing asks for them: not the home wall, the world, the look editor,
-    // or the Town Hall, which has no Jobs section at all. Circles aren't open yet either, and the
-    // Town Hall doesn't ask for them.
-    const asked: string[] = [];
-    const watch = (request: { url(): string }) => {
-      const path = new URL(request.url()).pathname;
-      if (path.startsWith("/v1/jobs") || path.startsWith("/v1/circles")) asked.push(request.url());
-    };
-    page.on("request", watch);
-    await page.goto("/");
-    await expect(page.locator("#feed-list")).toBeVisible();
-    await expect(page.locator(".wall-fill")).toHaveCount(0);
-    // A second tab keeps the home wall open from before jobs open, to follow them once they do.
+    // A second tab keeps the home wall open from before she takes a job, to follow it once she does.
     const wall = await page.context().newPage();
-    wall.on("request", watch);
+    await signIn(wall, fern);
     await wall.goto("/");
     await expect(wall.locator("#feed-list")).toBeVisible();
-    await page.goto("/world");
-    await expect(page.locator("#hud")).toBeVisible();
-    await page.goto(`/r/${fern.id}`);
-    await page.getByRole("button", { name: "Dress up" }).click();
-    await expect(page.getByRole("dialog", { name: "Your look" })).toBeVisible();
-    await page.goto("/town");
-    await expect(page.locator(".town-you")).toBeVisible();
-    await expect(page.locator("#jobs, .jobs-card, #circles, .circles-card")).toHaveCount(0);
-    expect(asked).toEqual([]);
-    page.off("request", watch);
-    wall.off("request", watch);
+    await expect(wall.locator(".wall-fill")).toHaveCount(0);
 
-    // Jobs open, and levels with them, and the clock moves on to a day whose board has the
-    // chair job: which three jobs a day has depends on the date.
-    await openJobs(page.request);
+    // The clock moves on to a day whose board has the chair job: which three jobs a day has
+    // depends on the date.
     await jobDay(page.request, "bram_chair");
     // Home, a workbench in her hut, and wood for a chair, over the API: the journey is the job.
     await act(page.request, fern.token, { type: "home" });
@@ -353,6 +328,10 @@ test.describe("the Town Hall", () => {
       data: { residentId: fern.id, stacks: { wood: 2 } },
     });
     expect(granted.ok()).toBe(true);
+    // Her free picks, so the workbench opens on its own sheet: picking is recipes.spec's.
+    for (const recipe of ["well", "barrel", "signpost"]) {
+      expect((await act(page.request, fern.token, { type: "pick_recipe", recipe })).ok).toBe(true);
+    }
 
     // A link to the section lands on it.
     await page.goto("/town#jobs");
@@ -369,7 +348,7 @@ test.describe("the Town Hall", () => {
     expect(await overflowsSideways(page)).toBe(false);
     await page.screenshot({ path: "test-results/town-jobs.png" });
 
-    // The wall in the other tab, open since before jobs opened, takes her job's card in as the
+    // The wall in the other tab, open since before she took the job, takes her job's card in as the
     // town's pulses come, but only where it can't move what's being read: with the composer
     // scrolled out of sight, what's on screen stays where it was.
     await wall.setViewportSize({ width: 390, height: 500 });
@@ -421,7 +400,7 @@ test.describe("the Town Hall", () => {
     expect(errors).toEqual([]);
   });
 
-  test("circles open, Fern founds one at the Town Hall, Birch joins from his invite, and Fern holds a circle night at its hall", async ({
+  test("Fern founds a circle at the Town Hall, Birch joins from his invite, and Fern holds a circle night at its hall", async ({
     page,
     browser,
   }) => {
@@ -429,7 +408,6 @@ test.describe("the Town Hall", () => {
     const errors = watchErrors(page, { console: "none" });
     // A third household, so the circle forms.
     const third = await settler(page.request, "Sorrel");
-    await openCircles(page.request);
     await signIn(page, fern);
 
     // Fern founds Lantern Row from the Town Hall's Circles section.

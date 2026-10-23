@@ -6,10 +6,6 @@
  *   pnpm persona stocked --coins 2000 --stacks tomato=10,sugar=6
  *   pnpm persona owner --agent Pip
  *   pnpm persona settled --days 24     (moves the world's clock on first: Halloween, a season)
- *   pnpm persona stocked --open-recipes  (opens recipes first, once per world: a newcomer with picks)
- *   pnpm persona stocked --open-levels   (opens levels first, once per world: deeds earn points)
- *   pnpm persona stocked --open-jobs     (opens the town's jobs first, and levels with them)
- *   pnpm persona settled --open-circles (opens circles first)
  *   pnpm persona settled --open-land    (opens the next land, so there's an island to see)
  *   pnpm persona settled --open-plot-market  (puts plots on sale, and a land with it: RFC 0039, off elsewhere)
  *   pnpm persona stocked --open-clay    (puts clay out, so kilns fire pots: RFC 0047, off elsewhere)
@@ -25,13 +21,9 @@ import {
   isPreset,
   jobDayOver,
   makePersona,
-  openCirclesOver,
   openClayOver,
-  openJobsOver,
   openLandOver,
-  openLevelsOver,
   openPlotMarketOver,
-  openRecipesOver,
   type PersonaSpec,
   PRESETS,
   signInScript,
@@ -49,10 +41,6 @@ const { values, positionals } = parseArgs({
     agent: { type: "string" },
     kind: { type: "string" },
     days: { type: "string" },
-    "open-recipes": { type: "boolean" },
-    "open-levels": { type: "boolean" },
-    "open-jobs": { type: "boolean" },
-    "open-circles": { type: "boolean" },
     "open-land": { type: "boolean" },
     "open-plot-market": { type: "boolean" },
     "open-clay": { type: "boolean" },
@@ -67,7 +55,7 @@ const preset = positionals[0] ?? "settled";
 if (values.help || !isPreset(preset)) {
   console.log(`Usage: pnpm persona [${Object.keys(PRESETS).join("|")}] [--name N] [--coins N]
   [--stacks kind=n,kind=n] [--staff] [--agent Name] [--kind human|agent] [--days N]
-  [--open-recipes] [--open-levels] [--open-jobs] [--open-circles] [--open-land] [--open-plot-market] [--open-clay] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
+  [--open-land] [--open-plot-market] [--open-clay] [--job id] [--path /world] [--base http://localhost:8797] [--json]`);
   process.exit(values.help ? 0 : 2);
 }
 
@@ -110,10 +98,6 @@ try {
     if (moved.status !== 200)
       throw new Error("the clock didn't move: start the server with pnpm dev:test");
   }
-  if (values["open-recipes"]) await openRecipesOver(http);
-  if (values["open-levels"]) await openLevelsOver(http);
-  if (values["open-jobs"]) await openJobsOver(http);
-  if (values["open-circles"]) await openCirclesOver(http);
   if (values["open-land"]) await openLandOver(http);
   if (values["open-plot-market"]) await openPlotMarketOver(http);
   if (values["open-clay"]) await openClayOver(http);

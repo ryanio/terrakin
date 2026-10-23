@@ -5,6 +5,8 @@ status: accepted
 tags: [client, e2e, testing, items]
 ---
 
+The test route and `SWITCH_SPECS` are superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world opens recipes, so neither is needed.
+
 # Recipes on the web: picks are asked at each kitchen or workbench while they last, and e2e opens recipes on a borrowed server
 
 ## Context

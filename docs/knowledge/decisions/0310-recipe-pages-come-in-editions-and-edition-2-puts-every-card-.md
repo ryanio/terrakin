@@ -5,6 +5,8 @@ status: accepted
 tags: [sim, protocol, server, client, recipes, replay]
 ---
 
+The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world passes the Worker's `pageEdition` too.
+
 # Recipe pages come in editions, and edition 2 puts every card on the ground
 
 ## Context

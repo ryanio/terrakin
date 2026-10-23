@@ -277,40 +277,6 @@ export async function makePersona(http: Http, spec: PersonaSpec): Promise<Person
 }
 
 /**
- * Switch recipes you learn on in this world now (RFC 0024): everyone already here keeps every
- * recipe, and residents made after it start with the base and free picks. Once per world: a second
- * call is refused. Test servers only (`POST /v1/test/open-recipes`).
- */
-export async function openRecipesOver(http: Http): Promise<void> {
-  await expectOk(
-    "open recipes (is the server running with TERRAKIN_TEST_CLOCK=1?)",
-    http.call("POST", "/v1/test/open-recipes"),
-  );
-}
-
-/**
- * Switch levels on in this world now (RFC 0029): everyone already here gets a first for each kind
- * in their collection book, and from then on deeds earn points. Once per world: a second call is
- * refused. Test servers only (`POST /v1/test/open-levels`).
- */
-export async function openLevelsOver(http: Http): Promise<void> {
-  await expectOk(
-    "open levels (is the server running with TERRAKIN_TEST_CLOCK=1?)",
-    http.call("POST", "/v1/test/open-levels"),
-  );
-}
-
-/** Switch circles on now (RFC 0033), unless the world has them. Coins must be open. */
-export async function openCirclesOver(http: Http): Promise<void> {
-  const world = (await http.call("GET", "/v1/world")).body as { circlesOpen?: boolean };
-  if (world.circlesOpen) return;
-  await expectOk(
-    "open circles (is the server running with TERRAKIN_TEST_CLOCK=1?)",
-    http.call("POST", "/v1/test/open-circles"),
-  );
-}
-
-/**
  * Open the next land beyond downtown now (RFC 0038), unless this world already has one, so a test
  * world has an island, the water round it, and the bridge across to look at. The count is what
  * opens one in a real world. Test servers only (`POST /v1/test/open-land`).
@@ -355,27 +321,8 @@ export async function openClayOver(http: Http): Promise<void> {
 }
 
 /**
- * Switch the town's jobs on in this world now (RFC 0030), opening levels first when they aren't,
- * since jobs need them. The switch is once per world, so in a world where they're already open
- * this does nothing. Test servers only (`POST /v1/test/open-jobs`).
- */
-export async function openJobsOver(http: Http): Promise<void> {
-  const world = (await http.call("GET", "/v1/world")).body as {
-    levelsOpen?: boolean;
-    jobsOpen?: boolean;
-  };
-  if (world.jobsOpen) return;
-  if (!world.levelsOpen) await openLevelsOver(http);
-  await expectOk(
-    "open jobs (is the server running with TERRAKIN_TEST_CLOCK=1?)",
-    http.call("POST", "/v1/test/open-jobs"),
-  );
-}
-
-/**
- * The most days `jobDayOver` moves the clock. Every job in the first edition that isn't held to a
- * season or a holiday comes up sooner: within 35 days from any day, the longest waits beside a
- * holiday, which takes every other turn of its lane.
+ * The most days `jobDayOver` moves the clock. Every job that isn't held to a season or a holiday
+ * comes up sooner: within 23 days from any day in the second edition, which a Node world reads.
  */
 const JOB_DAY_MOST = 60;
 

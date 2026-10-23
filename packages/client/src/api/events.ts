@@ -5,6 +5,8 @@ import { request } from "./request";
 export const eventsApi = {
   /** What's on now, what's coming, and whether you can host. */
   events: () => request("GET", "/v1/events", EventsResponse),
+  /** One event, with its tea for its host (RFC 0047). */
+  event: (id: string) => request("GET", `/v1/events/${encodeURIComponent(id)}`, EventResponse),
   /** Say you're going to an event, or take it back. */
   going: (id: string, on: boolean) =>
     request(on ? "POST" : "DELETE", `/v1/events/${encodeURIComponent(id)}/going`, EventResponse),

@@ -135,7 +135,9 @@ export type Moment =
   | { kind: "lift" }
   /** Ground worked: a path laid, a seed planted. */
   | { kind: "pat"; surface: Surface }
-  | { kind: "chime"; chime: Chime };
+  | { kind: "chime"; chime: Chime }
+  /** A kiln you opened (RFC 0047): its door, then a chime, a bright one for a rare finish. */
+  | { kind: "kiln"; rare: boolean };
 
 /**
  * The sound for a world event, or none. Only your own doings and kindness aimed at you make a
@@ -164,6 +166,13 @@ export function momentOf(event: WorldEvent, me: string): Moment | undefined {
     case "admired":
       return event.maker === me && event.by !== me
         ? { kind: "chime", chime: "sparkle" }
+        : undefined;
+    case "kiln_emptied":
+      return event.by === me
+        ? {
+            kind: "kiln",
+            rare: event.pot.finish === "crackle" || event.pot.finish === "iridescent",
+          }
         : undefined;
     case "coins":
       return event.residentId === me &&

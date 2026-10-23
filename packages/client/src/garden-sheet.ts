@@ -29,6 +29,7 @@ import {
 } from "@terrakin/protocol";
 import {
   type BlockKind,
+  CATALOG,
   type Crop,
   FINISH_NAMES,
   GLAZE_COSTS,
@@ -39,6 +40,7 @@ import {
   potName,
   RARE_FINISHES,
   type Station,
+  TEA,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { listOf, plural } from "@terrakin/ui/format";
@@ -58,6 +60,7 @@ import { inventoryApi } from "./api/inventory";
 import { actProblem, worldApi } from "./api/world";
 import { dotChips } from "./join-form";
 import {
+  CLAY_WHERE,
   cropOfSeed,
   finishName,
   finishOdds,
@@ -220,7 +223,7 @@ export function openTileSheet(o: TileSheetOptions) {
           finishList,
           h("p", {
             class: "hint kiln-uses",
-            text: "What pots are for: set one down at home, a vase with a flower in it. A teapot brews tea to serve at your own events, and each guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board.",
+            text: `What pots are for: set one down at home, a vase with a flower in it. A teapot and ${CATALOG[TEA].recipe?.needs.herb ?? 2} bunches of herbs at a kitchen make a pot of tea, and you keep the teapot: serve it at your own event, and each counted guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board. ${CLAY_WHERE}`,
           }),
         )
       : null;
@@ -576,8 +579,15 @@ export function openTileSheet(o: TileSheetOptions) {
     reveal.replaceChildren(
       h(
         "div",
-        { class: "kiln-reveal-pot" },
-        thingPicture({ kind: pot.kind, glaze: pot.glaze, finish: pot.finish }, { size: 112 }),
+        { class: "kiln-reveal-stage", attrs: { "aria-hidden": "true" } },
+        h("div", { class: "kiln-reveal-mouth" }),
+        h(
+          "div",
+          { class: "kiln-reveal-pot" },
+          thingPicture({ kind: pot.kind, glaze: pot.glaze, finish: pot.finish }, { size: 112 }),
+        ),
+        h("div", { class: "kiln-reveal-door is-left" }),
+        h("div", { class: "kiln-reveal-door is-right" }),
       ),
       h("p", { class: "eyebrow kiln-reveal-eyebrow", text: "Out of the kiln" }),
       h("h3", { class: "kiln-reveal-name", text: pot.name }),

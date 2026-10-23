@@ -61,6 +61,7 @@ import {
   hashWorld,
   type Input,
   isGoodKind,
+  isTownEvent,
   isTownsfolk,
   LOOK_MEDIA_KEYS,
   lastSlot,
@@ -79,6 +80,7 @@ import {
   potName,
   prepare,
   presentsFor,
+  RARE_FINISHES,
   REPLAY_VERSION,
   type RecipeName,
   type Resident,
@@ -93,6 +95,7 @@ import {
   sameHousehold,
   seatOf,
   seatsHeld,
+  servedTea,
   starterOf,
   TOWN_ACTOR,
   treasuryShareOf,
@@ -104,7 +107,7 @@ import {
 } from "@terrakin/sim";
 import { randomId } from "./bytes";
 import { doorNote, withNote } from "./door-notes";
-import { SOON_NOTICE_MS } from "./events";
+import { type GuestFacts, SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";
 import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
@@ -145,6 +148,7 @@ import {
   holdBackNames,
   isPrivate,
   publicEvents,
+  type RarePot,
   repeatJoins,
   toWire,
   worldSnapshot,
@@ -512,6 +516,8 @@ const TICK_MS = EVENTS.tickMinutes * 60_000;
 
 /** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
 const AWARD_CATCH_UP = 7;
+/** How many rare pots out of kilns the home wall's live activity is kept (RFC 0047). */
+const RARE_POTS_KEPT = 8;
 /** How often `tick` compares every resident's partner wear with the social layer's (RFC 0007). */
 export const ENTITLEMENT_CHECK_MS = 5 * 60_000;
 
@@ -876,6 +882,7 @@ export class WorldService {
       pinLookMedia: (id) => this.onLookMedia?.(id, this.lookMedia(id)),
       pinPieceMedia: (item, media) => this.onPieceMedia?.(item, media),
       runGames: () => this.runGames(),
+      guestFacts: () => this.guestFacts?.(),
     };
     // Nobody is connected right after a restart. Mark everyone offline so presence is honest.
     this.takeOffline(
@@ -1150,6 +1157,10 @@ export class WorldService {
 
   /** Hears each cup of tea a guest took home from a host who served tea (RFC 0047). */
   onTeaPoured: ((guest: string, host: string) => void) | undefined;
+  /** Hears each credited event its host served tea at, with the cups poured (RFC 0047). */
+  onTeaServed: ((host: string, cups: number) => void) | undefined;
+  /** Who would count as a guest today (RFC 0010), for serving tea; set once the social side is wired. */
+  guestFacts: (() => GuestFacts) | undefined;
 
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
@@ -2557,6 +2568,24 @@ export class WorldService {
         report(err, "world.tea_poured", { command: input.command.type });
       }
     }
+    // A rare pot out of a kiln goes on the home wall's live activity (RFC 0047), by its codes.
+    for (const e of events) {
+      if (e.type !== "kiln_emptied" || !RARE_FINISHES.includes(e.pot.finish)) continue;
+      this.rarePots = [...this.rarePots, { seq: this.state.seq, at: this.now(), ...e.pot }].slice(
+        -RARE_POTS_KEPT,
+      );
+    }
+    // A host who served tea hears how many cups went out once the event is credited (RFC 0047).
+    for (const e of events) {
+      if (e.type !== "event_credited") continue;
+      const event = findEvent(this.state, e.event);
+      if (!event || !servedTea(event) || isTownEvent(event)) continue;
+      try {
+        this.onTeaServed?.(event.host, e.guests.length);
+      } catch (err) {
+        report(err, "world.tea_served", { command: input.command.type });
+      }
+    }
     // Levels reached (RFC 0029): each resident is told once for the input, with what it unlocked.
     for (const [residentId, levels] of levelUps(events)) {
       try {
@@ -2830,8 +2859,15 @@ export class WorldService {
       routineSteps: this.routineSteps,
       noteHidden: (id) => this.noteHidden(id),
       repeatJoins: repeatJoins(this.state, (r) => this.untouched(r)),
+      rarePots: this.rarePots.filter((p) => this.now() - p.at < DAY_MS).map(({ at, ...p }) => p),
     });
   }
+
+  /**
+   * Crackle and iridescent pots taken out of kilns in the last day (RFC 0047), for the home wall's
+   * live activity: the codes `kiln_emptied` made public, kept in memory, the newest few.
+   */
+  private rarePots: (RarePot & { at: number })[] = [];
 
   /**
    * Everyone who used their record outside the world (posts, follows, a handle, links, and the

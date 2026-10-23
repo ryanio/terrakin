@@ -68,6 +68,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   const knockLabel = knock.querySelector("span") as HTMLSpanElement;
   const next = $<HTMLButtonElement>("visit-next");
   const sale = $("visit-sale");
+  const tea = $("visit-tea");
   const buy = $<HTMLButtonElement>("visit-buy");
   /** The price of the plot under you while it's for sale, from the plot's own read. */
   let price: number | null = null;
@@ -260,6 +261,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
       // A share given or taken back changes which card this is; anything else, only its words.
       if (here !== key || own !== yours) show(mirror, px, py, own);
       else paintNames(mirror);
+      // Tea on the table while an event on this plot has tea out (RFC 0047).
+      tea.hidden = ![...mirror.events.values()].some(
+        (e) => e.tea && e.status === "live" && e.px === px && e.py === py,
+      );
     },
     hide,
     refused(id, code) {

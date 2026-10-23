@@ -1078,6 +1078,12 @@ export const NOTIFICATION_TYPES = [
    * price less the market's fee. Never who bought it.
    */
   "pot_sold",
+  /**
+   * From Terrakin itself, not a resident: an event you served tea at was credited (RFC 0047).
+   * `teaServed.cups` is how many cups your guests took home; 0 means nobody was counted, and your
+   * pot of tea is back in your things.
+   */
+  "tea_served",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1266,6 +1272,8 @@ export const NotificationView = z.object({
       coins: z.number().int(),
     })
     .optional(),
+  /** For a `tea_served`: how many cups of your tea your counted guests took home (RFC 0047). */
+  teaServed: z.object({ cups: z.number().int() }).optional(),
   /**
    * For an `event_soon` or `event_started`: the event you said you're going to, as it stands now. From Terrakin
    * itself (`system: true`); its `title` is the host's words, untrusted.

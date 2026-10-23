@@ -16,11 +16,14 @@ import {
   type Direction,
   displaysOf,
   eventOpen,
+  type Finish,
   FLOORS,
   findsOnDisplay,
   findsOpen,
   firingsOf,
   floorField,
+  type Glaze,
+  type GoodKind,
   groundOn,
   holidaysField,
   isTownEvent,
@@ -40,6 +43,7 @@ import {
   type Resident,
   residentById,
   type StepRoutine,
+  servedTea,
   shopTiles,
   shownCircleName,
   skyAt,
@@ -329,6 +333,17 @@ export interface SnapshotExtras {
   noteHidden: (residentId: string) => boolean;
   /** Residents a count leaves out (`repeatJoins`). */
   repeatJoins: readonly string[];
+  /** Crackle and iridescent pots out of kilns lately (RFC 0047), by their codes. */
+  rarePots?: readonly RarePot[];
+}
+
+/** A crackle or iridescent pot taken out of a kiln (RFC 0047), as `kiln_emptied` said it. */
+export interface RarePot {
+  seq: number;
+  maker: string;
+  kind: GoodKind;
+  glaze: Glaze;
+  finish: Finish;
 }
 
 /**
@@ -591,6 +606,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.plotMarket ? { plotMarketOpen: true as const } : {}),
     ...hallsField(state, noteHidden),
     ...presentsWaitingField(state),
+    ...(extras.rarePots?.length ? { rarePots: [...extras.rarePots] } : {}),
     ...(state.events?.list.some(eventOpen)
       ? {
           events: state.events.list.filter(eventOpen).map((e) => ({
@@ -602,6 +618,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
             startsAt: e.startsAt,
             minutes: e.minutes,
             ...(isTownEvent(e) ? { town: true as const } : {}),
+            ...(servedTea(e) ? { tea: true as const } : {}),
           })),
         }
       : {}),

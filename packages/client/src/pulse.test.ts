@@ -9,6 +9,7 @@ import {
   hourlyCounts,
   namesLine,
   phaseName,
+  potNews,
   pulsePlan,
   pulseStats,
   REAL_ENOUGH,
@@ -352,6 +353,25 @@ describe("world news", () => {
       "claimed:bo",
       "home:cy",
       "joined:dee",
+    ]);
+  });
+});
+
+describe("rare pots out of a kiln", () => {
+  it("names each new one by its maker, finish, glaze and kind (RFC 0047)", () => {
+    const pot = (seq: number, maker: string, finish: "crackle" | "iridescent") => ({
+      seq,
+      maker,
+      kind: "vase" as const,
+      glaze: "sea" as const,
+      finish,
+    });
+    const before = snapshot({ rarePots: [pot(4, "bo", "crackle")] });
+    const after = snapshot({
+      rarePots: [pot(4, "bo", "crackle"), pot(9, "cy", "iridescent"), pot(10, "gone", "crackle")],
+    });
+    expect(potNews(before, after).map((n) => [n.maker.id, n.rest])).toEqual([
+      ["cy", "fired an iridescent sea vase"],
     ]);
   });
 });

@@ -1974,6 +1974,22 @@ export const WorldSnapshot = z.object({
       }),
     )
     .optional(),
+  /**
+   * Crackle and iridescent pots taken out of kilns lately (RFC 0047), newest last, by their codes
+   * and maker, never a label: what `kiln_emptied` already said in public. `seq` is the input that
+   * opened the kiln. Kept by the server for a day while it runs. Absent when there are none.
+   */
+  rarePots: z
+    .array(
+      z.object({
+        seq: z.number().int(),
+        maker: z.string(),
+        kind: GoodKind,
+        glaze: GlazeName,
+        finish: FinishName,
+      }),
+    )
+    .optional(),
   /** Crops growing in planters. Ready once `day` reaches `readyDay`. Absent when there are none. */
   crops: z
     .array(
@@ -2122,6 +2138,8 @@ export const WorldSnapshot = z.object({
         minutes: z.number().int(),
         /** A town event: the town hosts it in the Commons. */
         town: z.literal(true).optional(),
+        /** Its host has set out a pot of tea (RFC 0047): tea is on the table. */
+        tea: z.literal(true).optional(),
       }),
     )
     .optional(),

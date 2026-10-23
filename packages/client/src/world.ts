@@ -26,6 +26,7 @@ import {
   floorField,
   type GroundKind,
   ITEM_INFO,
+  inEventArea,
   isGroundKind,
   isHeldBlock,
   onGreen,
@@ -84,6 +85,7 @@ import {
   withChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
+import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { sendFirstPlanting } from "./first-plant";
 import { noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
@@ -202,6 +204,7 @@ const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 /** Shown while you stand on a green with a pet that hasn't been out today (RFC 0045). */
 const walkPetButton = $<HTMLButtonElement>("world-walk-pet");
+const teaButton = $<HTMLButtonElement>("world-tea");
 const gatherButton = $<HTMLButtonElement>("world-gather");
 /** Shown while you stand beside water (RFC 0023): cast a line. */
 const fishButton = $<HTMLButtonElement>("world-fish");
@@ -1135,7 +1138,7 @@ function tapTile(tile: { x: number; y: number }) {
           ? stairsLine(holdings)
           : pick === "kiln"
             ? kilnPlaceLine(holdings)
-            : pondLine(holdings),
+            : pondLine(holdings, mirror?.clayOpen === true),
       );
     } else tryAct({ type: "place", ...on, block: pick });
     return;
@@ -1695,7 +1698,7 @@ function paintPalette() {
       : isHeldBlock(pick)
         ? heldLine(pick, heldOf(holdings, pick))
         : pick === "pond"
-          ? pondLine(holdings)
+          ? pondLine(holdings, mirror?.clayOpen === true)
           : pick === "stairs"
             ? stairsLine(holdings)
             : pick === "kiln"
@@ -2221,6 +2224,7 @@ function frame() {
     petCheckAt = now;
     paintPetButton(now);
     paintWalkPetButton();
+    paintTeaButton();
     paintGatherButton();
     paintFishButton();
     paintFireworkButton();
@@ -2374,6 +2378,36 @@ walkPetButton.addEventListener("click", () => {
   tryAct({ type: "walk_pet" });
 });
 
+/**
+ * Your own live event, while you stand in its area on the ground floor and no tea is out yet (RFC
+ * 0047), from the mirror's events and the sim's `inEventArea`.
+ */
+function teaEventHere(): EventMark | undefined {
+  const r = self();
+  const m = mirror;
+  if (!r || !m || !m.clayOpen || (r.floor ?? 0) !== 0) return undefined;
+  for (const e of m.events.values()) {
+    if (e.status === "live" && e.host === r.id && !e.tea && inEventArea(m.config, e, r.x, r.y)) {
+      return e;
+    }
+  }
+  return undefined;
+}
+
+/** Show "Serve tea" where the host is: at their own live event, before the tea is out. */
+function paintTeaButton() {
+  teaButton.hidden = buildMode || teaEventHere() === undefined;
+}
+
+teaButton.addEventListener("click", () => {
+  const e = teaEventHere();
+  if (!e) return;
+  void whileBusy(teaButton, async () => {
+    const { openDishSheet } = await import("./dish-sheet");
+    await openDishSheet(e.id, () => paintTeaButton(), true);
+  });
+});
+
 /** Each tap a firework of the next color, over where you stand. */
 let fireworkTaps = 0;
 fireworkButton.addEventListener("click", () => {
@@ -2501,6 +2535,7 @@ export function stopWorld() {
   worldWait.hidden = true;
   petButton.hidden = true;
   walkPetButton.hidden = true;
+  teaButton.hidden = true;
   petNear = undefined;
   gatherButton.hidden = true;
   climbButton.hidden = true;

@@ -42,5 +42,9 @@ describe("a pond on the build bar", () => {
     const enough = holdingsFromStacks([{ kind: "stone", count: POND.stone }]);
     expect(canDig(enough)).toBe(true);
     expect(pondLine(enough)).toBe("Pond: 2 stone a tile, to fish beside. You have enough.");
+    // Once pottery is open (RFC 0047), the pond says it draws clay as well as fish.
+    expect(pondLine(enough, true)).toBe(
+      "Pond: 2 stone a tile, to fish beside, and clay lies beside it each day. You have enough.",
+    );
   });
 });

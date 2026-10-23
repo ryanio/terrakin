@@ -14,6 +14,7 @@ import {
   tabOf,
   withChanges,
 } from "./build-palette";
+import { CLAY_WHERE } from "./things";
 
 describe("the build bar", () => {
   it("counts what you hold and leaves out what you don't", () => {
@@ -83,7 +84,7 @@ describe("the build bar", () => {
     const cost = `${POTTERY.kilnStone} stone`;
     expect(kilnLabel()).toBe(`Kiln (${cost}, fires a pot overnight)`);
     expect(kilnPlaceLine(holdingsFromStacks([{ kind: "stone", count: 1 }]))).toBe(
-      `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. You need ${POTTERY.kilnStone - 1} stone more.`,
+      `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. ${CLAY_WHERE} You need ${POTTERY.kilnStone - 1} stone more.`,
     );
     const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
     expect(page).not.toMatch(/data-block="kiln" aria-label="[^"]*\d/);

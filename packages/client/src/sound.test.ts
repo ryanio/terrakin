@@ -120,6 +120,39 @@ describe("moments make a sound only when they're yours", () => {
       { type: "coins", residentId: me, amount: 3, balance: 9, reason: "allowance" },
       undefined,
     ],
+    [
+      "a pot you take out of a kiln",
+      {
+        type: "kiln_emptied",
+        x: 1,
+        y: 1,
+        by: me,
+        pot: { kind: "bowl", glaze: "moss", finish: "smooth", maker: me },
+      },
+      { kind: "kiln", rare: false },
+    ],
+    [
+      "a crackle pot you take out",
+      {
+        type: "kiln_emptied",
+        x: 1,
+        y: 1,
+        by: me,
+        pot: { kind: "vase", glaze: "sea", finish: "crackle", maker: me },
+      },
+      { kind: "kiln", rare: true },
+    ],
+    [
+      "a pot someone else takes out",
+      {
+        type: "kiln_emptied",
+        x: 1,
+        y: 1,
+        by: them,
+        pot: { kind: "vase", glaze: "sea", finish: "iridescent", maker: them },
+      },
+      undefined,
+    ],
     ["anyone walking", { type: "moved", residentId: me, x: 2, y: 2 }, undefined],
   ])("%s", (_, event, moment) => {
     expect(momentOf(event, me)).toEqual(moment);

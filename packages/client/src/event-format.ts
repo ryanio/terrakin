@@ -3,7 +3,7 @@
  * viewer's own time, how long it runs, the Schedule sheet's start times, and where the world draws
  * an event's lanterns. The server decides every event; these only describe what it said.
  */
-import type { EventView, HostingView } from "@terrakin/protocol";
+import type { EventView, HostingView, TeaView } from "@terrakin/protocol";
 import { type EventKind, ITEM_INFO } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
@@ -119,7 +119,11 @@ export interface EventMark {
   py: number;
   status: "scheduled" | "live";
   startsAt: number;
+  /** The host's resident id, or `town`. */
+  host: string;
   town?: true;
+  /** Tea is on the table (RFC 0047). */
+  tea?: true;
 }
 
 /** A lantern to draw on the map. `lit` while its event is on. */
@@ -202,6 +206,31 @@ const DISHES_NAMED = 3;
  * What's on the Thanksgiving feast's table (RFC 0034), newest first: "On the table: candy from
  * Bob, pumpkin pie from Ada, and 4 more." Names are residents' own: set it as text.
  */
+/** Names in a sentence: "Ada", "Ada and Bob", "Ada, Bob, and Cy". */
+const nameList = (names: string[]) =>
+  names.length < 3
+    ? names.join(" and ")
+    : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+
+/**
+ * Who a host's pot of tea would reach (RFC 0047), from the server's `tea`: who'd get a cup once
+ * they've stayed, then each one who wouldn't, in the server's own reason after their name. Names
+ * are residents' words, so the lines go into the page as text. Pure, so tests pin it.
+ */
+export function teaLines(tea: TeaView): string[] {
+  const counted = tea.guests.filter((g) => g.counted).map((g) => g.resident.name);
+  const stay = `${tea.stay * 5} minutes`;
+  const lead = tea.served
+    ? counted.length > 0
+      ? `Tea is out. A cup goes home with ${nameList(counted)} once they've been here ${stay}.`
+      : "Tea is out. A cup goes home with each guest counted at the end."
+    : counted.length > 0
+      ? `A cup would go home with ${nameList(counted)} once they've been here ${stay}.`
+      : "Nobody here would be counted for a cup yet, so the tea would stay with you.";
+  const not = tea.guests.flatMap((g) => (g.why ? [`${g.resident.name} ${g.why}.`] : []));
+  return [lead, ...not];
+}
+
 export function dishesLine(dishes: NonNullable<EventView["dishes"]>): string {
   const named = [...dishes]
     .reverse()

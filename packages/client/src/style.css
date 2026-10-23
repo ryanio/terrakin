@@ -2847,13 +2847,56 @@ dialog.model-viewer {
   );
 }
 
+/* The kiln's mouth: its doors swing open, then the pot rises out of the glow. */
+.kiln-reveal-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 156px;
+  height: 148px;
+  perspective: 420px;
+}
+
+.kiln-reveal-mouth {
+  position: absolute;
+  inset: 10px 14px 0;
+  border-radius: 70px 70px var(--r-sm) var(--r-sm);
+  background: radial-gradient(circle at 50% 70%, #ffcf7a, #e0743a 45%, #6b3420 80%);
+  box-shadow: inset 0 0 0 6px #9a5236;
+  opacity: 0.9;
+  animation: kiln-cool 1.6s ease-out 700ms both;
+}
+
+.kiln-reveal-door {
+  position: absolute;
+  top: 10px;
+  bottom: 0;
+  width: calc(50% - 14px);
+  background: linear-gradient(#a9603f, #8f4f31);
+  box-shadow: inset 0 0 0 2px #6b3420;
+}
+
+.kiln-reveal-door.is-left {
+  left: 14px;
+  border-radius: 70px 0 0 var(--r-sm);
+  transform-origin: left center;
+  animation: kiln-door-left 600ms cubic-bezier(0.3, 0.6, 0.3, 1) 120ms both;
+}
+
+.kiln-reveal-door.is-right {
+  right: 14px;
+  border-radius: 0 70px var(--r-sm) 0;
+  transform-origin: right center;
+  animation: kiln-door-right 600ms cubic-bezier(0.3, 0.6, 0.3, 1) 120ms both;
+}
+
 .kiln-reveal-pot {
   position: relative;
   display: grid;
   place-items: center;
   width: 136px;
   height: 136px;
-  animation: kiln-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+  animation: kiln-rise 800ms cubic-bezier(0.2, 0.8, 0.2, 1.2) 520ms both;
 }
 
 .kiln-reveal[data-rare] .kiln-reveal-pot::before {
@@ -2898,7 +2941,27 @@ dialog.model-viewer {
 @keyframes kiln-rise {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.85);
+    transform: translateY(40px) scale(0.7);
+  }
+}
+
+@keyframes kiln-door-left {
+  to {
+    transform: rotateY(-110deg);
+    opacity: 0;
+  }
+}
+
+@keyframes kiln-door-right {
+  to {
+    transform: rotateY(110deg);
+    opacity: 0;
+  }
+}
+
+@keyframes kiln-cool {
+  to {
+    opacity: 0.25;
   }
 }
 
@@ -2910,8 +2973,17 @@ dialog.model-viewer {
 
 @media (prefers-reduced-motion: reduce) {
   .kiln-reveal-pot,
+  .kiln-reveal-mouth,
   .kiln-reveal[data-rare] .kiln-reveal-pot::before {
     animation: none;
+  }
+
+  .kiln-reveal-mouth {
+    opacity: 0.25;
+  }
+
+  .kiln-reveal-door {
+    display: none;
   }
 }
 

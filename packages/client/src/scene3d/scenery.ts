@@ -152,23 +152,29 @@ export function pickups(
     const mat = new MeshLambertMaterial({ color: blockLook("stone").color, flatShading: true });
     place(new InstancedMesh(geo, mat, stone.length), stone);
   }
-  // Clay (RFC 0047): a flat, uneven patch of wet earth lying in the ground, two low mounds run
-  // together, lighter on top, so nothing about it stands up like a cap on a stem.
+  // Clay (RFC 0047): two low mounds of it run together, lighter on top, in a dark patch of wet
+  // ground, so nothing about it stands up like a cap on a stem or lies dry like a branch.
   const clay = items.filter((p) => p.kind === "clay");
   if (clay.length) {
     const mounds = [
-      { r: 0.2, x: 0, z: 0.02 },
-      { r: 0.13, x: 0.08, z: -0.06 },
+      { r: 0.22, x: 0, z: 0.02 },
+      { r: 0.15, x: 0.09, z: -0.07 },
     ].map(({ r, x, z }) => {
       const g = new DodecahedronGeometry(r, 1);
-      g.scale(1.25, 0.22, 0.95);
-      g.translate(x, 0.02, z);
+      g.scale(1.25, 0.26, 0.95);
+      g.translate(x, 0.025, z);
       return g.toNonIndexed();
     });
     const geo = bakeShade(mergeGeometries(mounds), 0.72, 1);
     for (const g of mounds) g.dispose();
     const mat = new MeshLambertMaterial({ color: hex(CLAY_HEX), vertexColors: true });
     place(new InstancedMesh(geo, mat, clay.length), clay);
+    const patch = new CircleGeometry(0.36, 14);
+    patch.rotateX(-Math.PI / 2);
+    patch.scale(1, 1, 0.7);
+    patch.translate(0, 0.006, 0);
+    const damp = new MeshLambertMaterial({ color: 0x40627a, transparent: true, opacity: 0.45 });
+    place(new InstancedMesh(patch, damp, clay.length), clay);
   }
   return group;
 }

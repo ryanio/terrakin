@@ -226,6 +226,9 @@ export function wireSocial(
   // Pottery (RFC 0047): a pot sold tells its seller, and a cup of tea its guest.
   service.onPotSold = (seller, sold) => layer.potSold(seller, sold);
   service.onTeaPoured = (guest, host) => layer.teaPoured(guest, host);
+  service.onTeaServed = (host, cups) => layer.teaServed(host, cups);
+  // Serving tea where nobody would be counted is refused with why (RFC 0047): today's guest facts.
+  service.guestFacts = () => layer.guestFacts();
   // Jobs (RFC 0030): a finished job tells its resident, here or away, and profiles show the
   // count, which lives in the world.
   const givers = giverIds(service.state, (handle) => layer.residentIdByHandle(handle));

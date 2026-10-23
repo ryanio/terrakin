@@ -16,8 +16,10 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { eventsApi } from "./api/events";
 import { inventoryApi } from "./api/inventory";
 import { actProblem, worldApi } from "./api/world";
+import { teaLines } from "./event-format";
 
 /** What to call a kind: its catalog name, lowercase after "a". */
 const nameOf = (kind: string) =>
@@ -32,9 +34,15 @@ const words = (code: string, message: string) =>
  * to the feast first, as Go does, so a dish can be brought from anywhere.
  */
 export async function openDishSheet(event: string, brought: () => void, tea = false) {
-  const r = await inventoryApi.inventory();
+  const [r, read] = await Promise.all([
+    inventoryApi.inventory(),
+    tea ? eventsApi.event(event) : Promise.resolve(undefined),
+  ]);
   if (!r.ok) return toast(r.message);
   const inv = r.data.inventory;
+  // Who a cup would reach, and why not (RFC 0047): Serve waits while nobody would be counted.
+  const reach = read?.ok ? read.data.event.tea : undefined;
+  const nobody = reach !== undefined && !reach.guests.some((g) => g.counted);
   // At your own event the dish is a pot of tea (RFC 0047), as the world takes there.
   const takes = (kind: string) => (tea ? kind === TEA : isDish(kind));
   const choices = [
@@ -47,7 +55,7 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
   const rows = choices.map(({ item, kind }) => {
     const bring = h("button", {
       class: "btn-primary small",
-      attrs: { type: "button" },
+      attrs: { type: "button", ...(nobody ? { disabled: true } : {}) },
       text: tea ? "Serve" : "Bring",
     });
     bring.addEventListener("click", async () => {
@@ -87,6 +95,13 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
           ? "Pick one thing you made for the feast's table. It stays there for good."
           : "You hold nothing from a kitchen yet. A kitchen at your hearth makes pies, jams, soups, drinks, and sweets.",
     },
+    reach
+      ? h(
+          "div",
+          { class: "stack tight dish-tea" },
+          ...teaLines(reach).map((line) => h("p", { class: "hint", text: line })),
+        )
+      : null,
     rows.length > 0 ? itemRows(rows) : null,
     problem,
   );

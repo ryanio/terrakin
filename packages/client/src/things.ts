@@ -30,6 +30,7 @@ import {
   MATERIAL_RECIPES,
   type MaterialKind,
   OTHERS_PLOT_GATHER,
+  POND,
   POTTERY,
   potName,
   RECIPES,
@@ -43,6 +44,13 @@ import {
 } from "@terrakin/sim";
 import { formatCount, listOf, shortDate } from "@terrakin/ui/format";
 import { coins } from "./purse";
+
+/**
+ * Where clay comes from (RFC 0047), and how to get water when there's none near: said wherever
+ * clay is, so a world with no pond still says what to do. Every dug pond has clay beside it each
+ * day (the sim's springs).
+ */
+export const CLAY_WHERE = `Clay lies beside water, and every pond has some beside it each day. No water near you? Dig a pond from Build, on the Blocks tab, for ${POND.stone} stone a tile.`;
 
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
@@ -307,7 +315,7 @@ export function revealLine(finish: Finish): string {
   const odds = finishOdds(finish);
   switch (finish) {
     case "smooth":
-      return `Smooth and even, as ${odds} come out.`;
+      return `A good steady pot, smooth and even, the way ${odds} come out. One to use every day.`;
     case "speckled":
       return `Speckled, as ${odds} come out.`;
     case "crackle":

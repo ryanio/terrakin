@@ -31,6 +31,7 @@ import {
   lengthWords,
   placeWords,
   soonWords,
+  teaLines,
   toLocalInput,
   whenWords,
 } from "./event-format";
@@ -164,7 +165,11 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
       host,
       h("span", { text: `${placeWords(e)} · ${lengthWords(e.minutes)}` }),
     ),
-    e.dishes?.length ? h("p", { class: "event-dishes", text: dishesLine(e.dishes) }) : null,
+    e.tea
+      ? h("p", { class: "event-dishes event-tea", text: teaLines(e.tea).join(" ") })
+      : e.dishes?.length
+        ? h("p", { class: "event-dishes", text: dishesLine(e.dishes) })
+        : null,
     actions.childElementCount > 0 ? actions : null,
   );
 }

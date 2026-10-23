@@ -6,8 +6,10 @@ import {
   type EventsResponse,
   type EventView,
   type HostingView,
+  type TeaView,
 } from "@terrakin/protocol";
 import {
+  attendNeeded,
   broughtTo,
   canBuildOn,
   circleById,
@@ -22,11 +24,14 @@ import {
   type HostedEvent,
   hostingProblem,
   inCommons,
+  inEventArea,
   isTownEvent,
   isTownsfolk,
+  lastSlot,
   liveFeast,
   plotKey,
   type ResidentId,
+  residentById,
   sameHousehold,
   servedTea,
   shownCircleName,
@@ -47,7 +52,7 @@ const HOSTING_WINDOW_DAYS = 90;
 /** A guest counts for at most this many hosts a UTC day. */
 const GUEST_HOSTS_PER_DAY = 2;
 /** A guest counts once they're this many whole UTC days old, with a hearth. */
-const GUEST_MIN_AGE_DAYS = 3;
+export const GUEST_MIN_AGE_DAYS = 3;
 /** Upcoming events the Town Hall board shows. `GET /v1/events` has them all. */
 const BOARD_UPCOMING = 6;
 
@@ -65,6 +70,8 @@ export interface EventContext {
   hidden: (host: ResidentId) => boolean;
   /** Residents whose words staff hold back: a circle name they wrote goes by its id. */
   wordsHeld?: (id: ResidentId) => boolean;
+  /** Who would count as a guest today, for the tea a host is about to serve (RFC 0047). */
+  guests?: GuestFacts;
 }
 
 const person = (ctx: EventContext, id: string) => ctx.author(id) ?? unknownAuthor(id);
@@ -114,6 +121,30 @@ export function eventView(
     ...(e.dishes?.length
       ? { dishes: e.dishes.map((d) => ({ by: person(ctx, d.by), kind: d.kind })) }
       : {}),
+    ...teaField(state, e, ctx, viewer),
+  };
+}
+
+/** A live event's tea, for its host alone, once pottery is open (RFC 0047). */
+function teaField(
+  state: WorldState,
+  e: HostedEvent,
+  ctx: EventContext,
+  viewer: string | undefined,
+): { tea?: TeaView } {
+  if (!ctx.guests || !clayOpen(state) || e.status !== "live" || e.host !== viewer) return {};
+  return {
+    tea: {
+      served: servedTea(e),
+      stay: teaStay(e),
+      guests: teaGuests(state, e, ctx.guests).map((g) => ({
+        resident: person(ctx, g.id),
+        here: g.here,
+        seen: g.seen,
+        counted: g.why === undefined,
+        ...(g.why === undefined ? {} : { why: g.why }),
+      })),
+    },
   };
 }
 
@@ -227,38 +258,128 @@ export interface Guest {
   counted: boolean;
 }
 
+/** What deciding who counts as a guest reads from the social side. */
+export interface GuestFacts {
+  /** Whole UTC days since a resident joined, on the day being counted. */
+  ageDays: (id: string) => number;
+  blockedEither: (a: string, b: string) => boolean;
+  /** The other hosts a guest already counted for on the day being counted. */
+  hostsToday: (guest: string) => ReadonlySet<string>;
+}
+
 /**
- * Which of an event's attendees count (RFC 0010): at least `GUEST_MIN_AGE_DAYS` old with a hearth,
- * and, for a resident's event, not in the host's household (`sameHousehold`: their person or AIs,
- * and their person's other AIs, decision 0031), not someone who can
- * build on the event's plot, not blocked either way with the host, and not already counted for
- * `GUEST_HOSTS_PER_DAY` other hosts that day. Everyone the sim says attended is listed.
+ * Why `id` wouldn't count as a guest at `e` (RFC 0010), in our own words after their name ("Wren
+ * joined too recently to count"), or undefined when they would. Townsfolk never count; a guest is
+ * at least `GUEST_MIN_AGE_DAYS` old with a hearth; and at a resident's event, not in the host's
+ * household (`sameHousehold`: their person or AIs, and their person's other AIs, decision 0031),
+ * not a member of the circle at its night, not someone who can build on the event's plot, and not
+ * already counted for `GUEST_HOSTS_PER_DAY` other hosts that day. A block either way is the
+ * caller's to leave out, since saying so would tell the host who blocked whom.
  */
-export function countGuests(
+export function guestProblem(
   state: WorldState,
   e: HostedEvent,
-  options: {
-    ageDays: (id: string) => number;
-    blockedEither: (a: string, b: string) => boolean;
-    /** The other hosts a guest already counted for on the event's day. */
-    hostsToday: (guest: string) => ReadonlySet<string>;
-  },
-): Guest[] {
-  const plot = state.plots[plotKey(e.px, e.py)];
+  id: ResidentId,
+  facts: Pick<GuestFacts, "ageDays" | "hostsToday">,
+): string | undefined {
+  const r = residentById(state, id);
+  if (!r) return "has left Terrakin";
+  if (isTownsfolk(state, id)) return "is one of the townsfolk, who aren't counted";
+  if (facts.ageDays(id) < GUEST_MIN_AGE_DAYS) {
+    return `joined too recently to count (a guest counts from ${GUEST_MIN_AGE_DAYS} days in Terrakin)`;
+  }
+  if (r.hearth === null) return "has no home yet (a guest counts once they have a hearth)";
+  if (isTownEvent(e)) return undefined;
+  if (sameHousehold(state, e.host, id)) return "is in your household, which isn't counted";
+  // A circle's own members are never counted guests at its circle night (RFC 0033).
+  if ((e.kin ?? []).includes(id))
+    return "is in the circle, whose members aren't counted at its night";
+  if (canBuildOn(state.plots[plotKey(e.px, e.py)], id)) {
+    return "can build on this plot, so isn't a guest here";
+  }
+  const others = [...facts.hostsToday(id)].filter((h) => h !== e.host).length;
+  if (others >= GUEST_HOSTS_PER_DAY) {
+    return `has already been counted at ${GUEST_HOSTS_PER_DAY} other hosts' events today`;
+  }
+  return undefined;
+}
+
+/**
+ * Which of an event's attendees count (RFC 0010), by `guestProblem`'s rules and no block either
+ * way with the host. Everyone the sim says attended is listed.
+ */
+export function countGuests(state: WorldState, e: HostedEvent, options: GuestFacts): Guest[] {
   return (e.attended ?? []).flatMap((id) => {
     const r = state.residents[id];
     if (!r) return [];
-    const settled = options.ageDays(id) >= GUEST_MIN_AGE_DAYS && r.hearth !== null;
-    const fair =
-      isTownEvent(e) ||
-      (!sameHousehold(state, e.host, id) &&
-        // A circle's own members are never counted guests at its circle night (RFC 0033).
-        !(e.kin ?? []).includes(id) &&
-        !canBuildOn(plot, id) &&
-        !options.blockedEither(e.host, id) &&
-        [...options.hostsToday(id)].filter((h) => h !== e.host).length < GUEST_HOSTS_PER_DAY);
-    return [{ id, kind: r.kind, counted: settled && fair }];
+    const counted =
+      guestProblem(state, e, id, options) === undefined &&
+      (isTownEvent(e) || !options.blockedEither(e.host, id));
+    return [{ id, kind: r.kind, counted }];
   });
+}
+
+/** The samples a guest must be seen at by the end of `e` to have attended it. */
+export const teaStay = (e: HostedEvent) => attendNeeded(lastSlot(e.minutes));
+
+/** A resident at a live event, and why they wouldn't count when they wouldn't. */
+export interface TeaGuest {
+  id: ResidentId;
+  /** Online in the event's area on the ground floor now. */
+  here: boolean;
+  /** Samples they've been seen at so far. */
+  seen: number;
+  why?: string;
+}
+
+/**
+ * Everyone at a live event a host could pour for (RFC 0047): seen at a sample so far or in its
+ * area now, never the host, and never anyone blocked either way with them, who is left out rather
+ * than named. Each says why they wouldn't count (`guestProblem`, today's facts), so a host knows
+ * before serving who a cup would reach.
+ */
+export function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGuest[] {
+  const seen = e.seen ?? {};
+  const here = new Set(
+    Object.values(state.residents)
+      .filter((r) => r.online && (r.floor ?? 0) === 0 && inEventArea(state.config, e, r.x, r.y))
+      .map((r) => r.id),
+  );
+  const ids = [...new Set([...Object.keys(seen), ...here])].filter(
+    (id) => id !== e.host && !facts.blockedEither(e.host, id),
+  );
+  // Those a cup would reach first, then the rest, each in id order.
+  return ids
+    .sort()
+    .map((id): TeaGuest => {
+      const why = guestProblem(state, e, id, facts);
+      return {
+        id,
+        here: here.has(id),
+        seen: Object.hasOwn(seen, id) ? (seen[id] ?? 0) : 0,
+        ...(why === undefined ? {} : { why }),
+      };
+    })
+    .sort((a, b) => Number(a.why !== undefined) - Number(b.why !== undefined));
+}
+
+/**
+ * The refusal for serving tea at `e` when nobody there would be counted for a cup (RFC 0047), with
+ * each one's reason by id, or undefined when someone would. The pot of tea stays in the host's
+ * things.
+ */
+export function teaRefusal(
+  state: WorldState,
+  e: HostedEvent,
+  facts: GuestFacts,
+): string | undefined {
+  const guests = teaGuests(state, e, facts);
+  if (guests.some((g) => g.why === undefined)) return undefined;
+  const stay = teaStay(e);
+  const lead =
+    "Nobody here would be counted for a cup yet, so your pot of tea stays in your things.";
+  const why = guests.map((g) => `${g.id} ${g.why}.`).join(" ");
+  return `${lead}${why ? ` ${why}` : ""} A cup goes to each counted guest: ${GUEST_MIN_AGE_DAYS} days or more in Terrakin with a hearth, outside your household, and seen at ${stay} of the event's 5-minute checks. Serve it once one is here.`;
 }
 
 /** One host's best event on a day, for karma: its counted guests. */

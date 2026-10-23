@@ -68,6 +68,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   way_closed: "town",
   tea_poured: "kitchen",
   pot_sold: "coin",
+  tea_served: "kitchen",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -125,6 +126,7 @@ export function notificationLine(
     // A host who served tea at an event you were counted at (RFC 0047); the cup is in your things.
     tea_poured: "poured you a cup of tea at their event, to keep",
     pot_sold: "says a pot of yours sold",
+    tea_served: "says how your tea went",
   };
   return { who, what: what[n.type] };
 }
@@ -327,6 +329,10 @@ function systemWords(n: NotificationView): SystemWords | null {
       links: [{ href: "/market", label: "Open the market" }],
     };
   }
+  if (n.teaServed) {
+    // Your tea at your own event (RFC 0047): how many cups went home, or the pot back.
+    return { icon: ICONS.tea_served, ...teaServedLine(n.teaServed.cups), links: [] };
+  }
   if (n.type === "passkey_bound" || n.type === "passkey_signin") {
     // Signing in (RFC 0037). The notice carries nothing but the fact and the time, so the words
     // are fixed and the link goes where both can be undone: Signing in on your own profile.
@@ -442,6 +448,20 @@ export function potSoldLine(s: {
   return {
     line: `Your ${potName(s, true)} sold for ${plural(s.price, "coin", "coins")}.`,
     next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee.`,
+  };
+}
+
+/** How a host's tea went (RFC 0047): the cups poured, or the pot back when nobody was counted. */
+export function teaServedLine(cups: number): { line: string; next: string } {
+  if (cups === 0) {
+    return {
+      line: "Nobody at your event was counted for a cup, so your pot of tea came back to you.",
+      next: "A guest counts once they've been in Terrakin 3 days, have a home, and stay a while.",
+    };
+  }
+  return {
+    line: `Your tea poured ${plural(cups, "cup", "cups")} at your event.`,
+    next: `${cups === 1 ? "Your guest took it" : "Your guests took them"} home to keep.`,
   };
 }
 

@@ -16,7 +16,15 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import { everyoneIn, heartCount, REAL_ENOUGH, WEATHER_WORDS } from "@terrakin/protocol";
-import { clockHour, HOUR_MS, type Season, skyAt, type Weather, weatherSpells } from "@terrakin/sim";
+import {
+  clockHour,
+  HOUR_MS,
+  potName,
+  type Season,
+  skyAt,
+  type Weather,
+  weatherSpells,
+} from "@terrakin/sim";
 import { isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 
 export { REAL_ENOUGH };
@@ -377,6 +385,31 @@ export function worldNews(
     else if (old.hearth === null && r.hearth !== null) news.push({ kind: "home", resident: r });
   }
   return news;
+}
+
+/** A rare pot out of a kiln (RFC 0047), with its maker and the words for it. */
+export interface PotNews {
+  seq: number;
+  maker: WorldSnapshot["residents"][number];
+  /** "fired an iridescent sea vase": from the pot's codes, never a label. */
+  rest: string;
+}
+
+/**
+ * Crackle and iridescent pots taken out of a kiln since the wall's last look (RFC 0047), oldest
+ * first, each with its maker from the snapshot. A pot whose maker isn't in it is left out.
+ */
+export function potNews(before: WorldSnapshot, after: WorldSnapshot): PotNews[] {
+  const seen = Math.max(0, ...(before.rarePots ?? []).map((p) => p.seq));
+  const people = new Map(
+    [...after.residents, ...(after.townsfolkResidents ?? [])].map((r) => [r.id, r]),
+  );
+  return (after.rarePots ?? []).flatMap((p) => {
+    const maker = people.get(p.maker);
+    if (p.seq <= seen || !maker) return [];
+    const name = potName(p, true);
+    return [{ seq: p.seq, maker, rest: `fired ${/^[aeiou]/.test(name) ? "an" : "a"} ${name}` }];
+  });
 }
 
 export type CoinNews =

@@ -42,6 +42,7 @@ import {
   type SpringFacts,
   type StepRoutine,
   squareOf,
+  TEA,
   type Tile,
   tileKey,
   upstairsGroundOf,
@@ -343,7 +344,9 @@ export class Mirror {
         py: e.py,
         status: e.status,
         startsAt: e.startsAt,
+        host: e.host,
         ...(e.town ? { town: true as const } : {}),
+        ...(e.tea ? { tea: true as const } : {}),
       });
     }
   }
@@ -904,9 +907,16 @@ export class Mirror {
           py: event.py,
           status: "scheduled",
           startsAt: event.startsAt,
+          host: event.host,
           ...(event.town ? { town: true as const } : {}),
         });
         break;
+      case "dish_brought": {
+        // A pot of tea at a resident's own event (RFC 0047): tea is on the table.
+        const e = this.events.get(event.event);
+        if (e && event.kind === TEA) e.tea = true;
+        break;
+      }
       case "event_started": {
         const e = this.events.get(event.event);
         if (e) e.status = "live";

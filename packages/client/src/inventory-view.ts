@@ -18,6 +18,7 @@ import { comeHomeButton } from "./purse-view";
 import {
   admiredLine,
   byFamily,
+  CLAY_WHERE,
   type FamilyGroup,
   growthLine,
   madeName,
@@ -453,7 +454,7 @@ export function inventoryView(ctx: ViewContext): View {
               class: "hint",
               // Once pottery is open (everyone knows the bowl then, RFC 0047), the kiln too.
               text: (inv.recipes ?? []).includes("bowl")
-                ? "Nothing made yet. Tap a kitchen or a workbench in the world to make something, or put up a kiln from Build, on the Blocks tab, to fire a pot. Clay lies beside water."
+                ? `Nothing made yet. Tap a kitchen or a workbench in the world to make something, or put up a kiln from Build, on the Blocks tab, to fire a pot. ${CLAY_WHERE}`
                 : "Nothing made yet. Tap a kitchen or a workbench in the world to make something.",
             })
           : null,

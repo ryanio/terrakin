@@ -295,6 +295,13 @@ export class Soundscape {
       case "chime":
         if (this.chimeLimit.take(at)) chime(this.ctx, this.moments, this.momentsWet, at, m.chime);
         return;
+      case "kiln":
+        // The kiln's door, then the pot: warm, or a sparkle for a rare finish (RFC 0047).
+        knock(this.ctx, this.moments, at, "stone", this.white, true);
+        if (this.chimeLimit.take(at)) {
+          chime(this.ctx, this.moments, this.momentsWet, at + 0.35, m.rare ? "sparkle" : "warm");
+        }
+        return;
     }
   }
 

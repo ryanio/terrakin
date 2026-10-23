@@ -208,9 +208,12 @@ export function render(
   const sticks = new Path2D();
   const pebbles = new Path2D();
   const lumps = new Path2D();
+  const wet = new Path2D();
   const clayMarks: { x: number; y: number; lean: number }[] = [];
   /** The shaded side of a block of clay, under its top in the clay's own color. */
   const CLAY_SIDE = "#8f4f31";
+  /** The damp ground clay lies in, a water tone, so it never reads as a dry branch or stone. */
+  const CLAY_WET = "rgba(64, 98, 122, 0.42)";
   const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -281,16 +284,18 @@ export function render(
           pebbles.moveTo(px + scale * 0.12, py);
           pebbles.ellipse(px, py, scale * 0.12, scale * 0.085, 0, 0, Math.PI * 2);
         } else if (pickup === "clay") {
-          // Clay (RFC 0047): a squat block of it, as a potter buys it, its darker side under a
-          // lighter top with a wire's cut across it, so it reads as clay and never as a cap on a
-          // stem. Its top and cut are drawn over it below.
+          // Clay (RFC 0047): a squat block of it, as a potter buys it, in a patch of wet ground,
+          // its darker side under a lighter top with a wire's cut across it, so it reads as clay
+          // and never as a branch, a stone, or a cap on a stem. Its top and cut go over it below.
           const lean = (x * 7 + y * 13) % 2 === 0 ? 1 : -1;
+          wet.moveTo(px + scale * 0.32, py + scale * 0.03);
+          wet.ellipse(px, py + scale * 0.03, scale * 0.32, scale * 0.19, 0, 0, Math.PI * 2);
           lumps.roundRect(
-            px - scale * 0.17,
-            py - scale * 0.05,
-            scale * 0.34,
-            scale * 0.13,
-            scale * 0.05,
+            px - scale * 0.2,
+            py - scale * 0.06,
+            scale * 0.4,
+            scale * 0.16,
+            scale * 0.06,
           );
           clayMarks.push({ x: px, y: py, lean });
         } else {
@@ -312,6 +317,8 @@ export function render(
     ctx.fill(path);
   }
   // Pickups sit on ground of their own color (forest, stone), so each gets a soft ink edge.
+  ctx.fillStyle = CLAY_WET;
+  ctx.fill(wet);
   ctx.globalAlpha = 0.45;
   ctx.strokeStyle = INK;
   ctx.lineWidth = Math.max(3, scale / 8);
@@ -327,14 +334,14 @@ export function render(
     const tops = new Path2D();
     const cuts = new Path2D();
     for (const c of clayMarks) {
-      tops.moveTo(c.x + scale * 0.17, c.y - scale * 0.04);
-      tops.ellipse(c.x, c.y - scale * 0.04, scale * 0.17, scale * 0.045, 0, 0, Math.PI * 2);
-      cuts.moveTo(c.x - scale * 0.1, c.y - scale * (0.04 + 0.02 * c.lean));
+      tops.moveTo(c.x + scale * 0.2, c.y - scale * 0.05);
+      tops.ellipse(c.x, c.y - scale * 0.05, scale * 0.2, scale * 0.055, 0, 0, Math.PI * 2);
+      cuts.moveTo(c.x - scale * 0.12, c.y - scale * (0.05 + 0.025 * c.lean));
       cuts.quadraticCurveTo(
         c.x,
-        c.y - scale * 0.03,
-        c.x + scale * 0.1,
-        c.y - scale * (0.04 - 0.02 * c.lean),
+        c.y - scale * 0.04,
+        c.x + scale * 0.12,
+        c.y - scale * (0.05 - 0.025 * c.lean),
       );
     }
     ctx.fillStyle = CLAY_HEX;

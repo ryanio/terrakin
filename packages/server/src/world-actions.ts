@@ -8,6 +8,7 @@ import {
   circleById,
   circleOf,
   claimNotes,
+  clayOpen,
   DAY_LENGTH_MS,
   exactWearStyles,
   FISHING,
@@ -34,6 +35,7 @@ import {
   ROUTINES,
   type Routine,
   residentById,
+  servedTea,
   skyAt,
   starterHomePlot,
   starterOf,
@@ -47,6 +49,7 @@ import {
 import { randomBytes, toHex } from "./bytes";
 import { seesCircle } from "./circles";
 import { doorNote } from "./door-notes";
+import { type GuestFacts, teaRefusal } from "./events";
 import { startFree } from "./games";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
 import { cleanMultiline, cleanText, nameKey } from "./text";
@@ -79,6 +82,8 @@ export interface ActionContext {
   pinPieceMedia(itemId: string, mediaId: string): void;
   /** The game tables' clock (`WorldService.runGames`). */
   runGames(): void;
+  /** Who would count as a guest today, once the social side is wired (RFC 0010). */
+  guestFacts(): GuestFacts | undefined;
 }
 
 /**
@@ -214,6 +219,7 @@ export function performAction(
     if (refused) return refused;
     return ctx.run({ actor: residentId, command: { type: "trick_or_treat", px, py } }, dry);
   }
+  if (action.type === "bring_dish") return bringDish(ctx, residentId, action, dry);
   if (action.type === "settle" || action.type === "claim") {
     // What the claim does to ways out, its own and the plots around it, read before it's made
     // (decision 0354): notes, dry or real, never a refusal.
@@ -817,6 +823,37 @@ function visit(
  * way, owner or co-owner. A visit (RFC 0020) and a trick-or-treater's knock (RFC 0022) both ask.
  * Undefined when nothing out here stands in the way.
  */
+/**
+ * `bring_dish`, with one check the sim can't make (RFC 0047): a host serving tea at their own live
+ * event where nobody would be counted for a cup is refused, naming why for each one there, so the
+ * pot of tea stays theirs rather than going nowhere. The sim's own refusals come first.
+ */
+function bringDish(
+  ctx: ActionContext,
+  residentId: string,
+  action: Extract<Action, { type: "bring_dish" }>,
+  dry: boolean,
+): ActResult {
+  const input = { actor: residentId, command: action satisfies Command };
+  const facts = clayOpen(ctx.state) ? ctx.guestFacts() : undefined;
+  if (!facts) return ctx.run(input, dry);
+  const checked = ctx.run(input, true);
+  if (!checked.ok) return checked;
+  const me = asJoined(ctx.state, residentId).residents[residentId];
+  const e = (ctx.state.events?.list ?? []).find(
+    (x) =>
+      x.status === "live" &&
+      x.host === residentId &&
+      !servedTea(x) &&
+      me !== undefined &&
+      (me.floor ?? 0) === 0 &&
+      inEventArea(ctx.state.config, x, me.x, me.y),
+  );
+  const why = e && teaRefusal(ctx.state, e, facts);
+  if (why) return { ok: false, error: { code: "not_eligible", message: why } };
+  return dry ? checked : ctx.run(input, false);
+}
+
 function closedDoor(
   ctx: ActionContext,
   residentId: string,

@@ -58,6 +58,7 @@ import {
   hourlyCounts,
   namesLine,
   type PulseCard,
+  potNews,
   pulsePlan,
   pulseStats,
   startedForYou,
@@ -949,6 +950,30 @@ export function feedView(ctx: ViewContext): View {
           rest: g.rest,
           tone: g.tone,
           action: { label: "Say hi", href: people.length === 1 ? profilePath(first.id) : "/world" },
+        });
+      }
+      // A crackle or iridescent pot out of a kiln (RFC 0047): its maker and the pot by its codes.
+      for (const n of potNews(world, pulse.world)) {
+        activity.add(
+          [
+            {
+              key: `pot:${n.seq}`,
+              who: residentPerson(n.maker),
+              lead: n.maker.name,
+              rest: n.rest,
+              href: profilePath(n.maker.id),
+              at: new Date().toISOString(),
+              tone: "home",
+            },
+          ],
+          true,
+        );
+        liveToast({
+          people: [residentPerson(n.maker)],
+          lead: n.maker.name,
+          rest: `just ${n.rest}`,
+          tone: "home",
+          action: { label: "Say well done", href: profilePath(n.maker.id) },
         });
       }
     }

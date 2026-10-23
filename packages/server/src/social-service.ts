@@ -82,7 +82,13 @@ import type { CircleContext } from "./circles";
 import { createClaimTables } from "./claims";
 import { CollectionBook } from "./collection";
 import { DiscoveryLog } from "./discovery-log";
-import { type EventContext, EventsSocial, eventNoticeView, SOON_NOTICE_MS } from "./events";
+import {
+  type EventContext,
+  EventsSocial,
+  eventNoticeView,
+  type GuestFacts,
+  SOON_NOTICE_MS,
+} from "./events";
 import { imageSize, sizeFields } from "./image-size";
 import { aimedAtReader, readerMessage } from "./injection";
 import { KarmaService } from "./karma";
@@ -345,6 +351,7 @@ export class SocialService {
   private readonly maintainers: ReadonlySet<string>;
   private readonly moderators: ReadonlySet<string>;
   private readonly votesCast: ((id: string) => number) | undefined;
+  private readonly ageDays: (id: string) => number;
   /** The edge filters for posts, bios, notices, letters, and gesture notes. */
   readonly moderation: Moderation;
 
@@ -362,6 +369,7 @@ export class SocialService {
     this.maintainers = options.maintainers ?? new Set();
     this.moderators = options.moderators ?? new Set();
     this.votesCast = options.votesCast;
+    this.ageDays = options.residentAgeDays ?? (() => Number.POSITIVE_INFINITY);
     this.moderation =
       options.moderation ??
       new Moderation({
@@ -842,6 +850,7 @@ export class SocialService {
       going: (event) => this.events.going(event),
       mine: viewer === undefined ? new Set() : this.events.goingOf(viewer),
       wordsHeld: (id) => this.safety.isQuarantined(id),
+      guests: this.guestFacts(),
       hidden: (host) => {
         if (blocked.has(host)) return true;
         let shut = suspended.get(host);
@@ -851,6 +860,16 @@ export class SocialService {
         }
         return shut;
       },
+    };
+  }
+
+  /** Who would count as a guest today (RFC 0010): ages, blocks, and today's other hosts. */
+  guestFacts(): GuestFacts {
+    const day = utcDay(this.now());
+    return {
+      ageDays: (id) => this.ageDays(id),
+      blockedEither: (a, b) => this.blockedEither(a, b),
+      hostsToday: (guest) => this.events.hostsCounted(guest, day),
     };
   }
 
@@ -2267,6 +2286,14 @@ export class SocialService {
   }
 
   /**
+   * Tell a host how their tea went once their event was credited (RFC 0047): one notice from
+   * Terrakin itself with the cups poured, 0 when nobody was counted and the pot came back.
+   */
+  teaServed(host: string, cups: number) {
+    this.systemNotice(host, "tea_served", JSON.stringify({ cups }));
+  }
+
+  /**
    * Tell a guest their host poured them a cup of tea (RFC 0047): a notice from the host, through
    * `notify`, so a block either way leaves it out. The cup itself is already in their things.
    */
@@ -2435,6 +2462,7 @@ export class SocialService {
       if (type === "way_closed") return this.wayClosedView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
       if (type === "pot_sold") return this.potSoldView(row, detail);
+      if (type === "tea_served") return this.teaServedView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
       if (type === "passkey_bound" || type === "passkey_signin") {
         return [systemNotification(row, type)];
@@ -2599,6 +2627,13 @@ export class SocialService {
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "plot_sold"), sold: parsed.data }];
+  }
+
+  /** A stored tea-served notice (RFC 0047) as the host reads it. */
+  private teaServedView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = z.object({ cups: z.number().int() }).safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "tea_served"), teaServed: parsed.data }];
   }
 
   /** A stored pot-sold notice (RFC 0047) as the seller reads it. */
@@ -3241,6 +3276,7 @@ type SystemNoticeType =
   | "block_cleared"
   | "plot_sold"
   | "pot_sold"
+  | "tea_served"
   | "way_laid"
   | "way_closed";
 

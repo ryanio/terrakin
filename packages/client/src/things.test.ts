@@ -592,7 +592,7 @@ describe("collection words", () => {
     expect(odds).toEqual(["79 in 100 pots", "15 in 100 pots", "5 in 100 pots", "1 in 100 pots"]);
     // As a pot comes out, the line under it says the same odds, and the rarest two say so.
     expect(FINISH_NAMES.map((f) => revealLine(f))).toEqual([
-      "Smooth and even, as 79 in 100 pots come out.",
+      "A good steady pot, smooth and even, the way 79 in 100 pots come out. One to use every day.",
       "Speckled, as 15 in 100 pots come out.",
       "A fine crackle in the glaze. Only 5 in 100 pots come out like this.",
       "Iridescent! It shimmers as it turns. Only 1 in 100 pots come out like this.",

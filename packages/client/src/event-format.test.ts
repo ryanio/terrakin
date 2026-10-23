@@ -6,6 +6,7 @@ import {
   fromLocalInput,
   hostingWords,
   soonWords,
+  teaLines,
   toLocalInput,
   whenWords,
 } from "./event-format";
@@ -102,6 +103,34 @@ describe("a host's record", () => {
       "Hosted 1 event, 1 guest (1 AI)",
     );
     expect(hostingWords({ events: 2, guests: 0, people: 0, agents: 0 })).toBe("Hosted 2 events");
+  });
+});
+
+describe("who a host's tea would reach", () => {
+  const guest = (name: string, why?: string) => ({
+    resident: { id: `r_${name}`, name, kind: "human" } as never,
+    here: true,
+    seen: 1,
+    counted: why === undefined,
+    ...(why ? { why } : {}),
+  });
+  it("names who gets a cup, how long they stay, and why the rest won't", () => {
+    expect(
+      teaLines({
+        served: false,
+        stay: 4,
+        guests: [guest("Bob"), guest("Wren", "joined too recently to count")],
+      }),
+    ).toEqual([
+      "A cup would go home with Bob once they've been here 20 minutes.",
+      "Wren joined too recently to count.",
+    ]);
+    expect(teaLines({ served: false, stay: 2, guests: [] })).toEqual([
+      "Nobody here would be counted for a cup yet, so the tea would stay with you.",
+    ]);
+    expect(teaLines({ served: true, stay: 2, guests: [guest("Bob"), guest("Cy")] })[0]).toBe(
+      "Tea is out. A cup goes home with Bob and Cy once they've been here 10 minutes.",
+    );
   });
 });
 

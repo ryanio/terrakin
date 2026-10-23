@@ -46,8 +46,11 @@ export const noRodLine = () =>
 export const canDig = (holdings: Holdings) => blockShort(POND.block, holdings).length === 0;
 
 /** The line under the build bar's tabs for a pond: what a tile takes, and what you're short of. */
-export function pondLine(holdings: Holdings): string {
-  const cost = `Pond: ${thingCount("stone", POND.stone)} a tile, to fish beside.`;
+export function pondLine(holdings: Holdings, clay = false): string {
+  // Once pottery is open (RFC 0047), a pond is where clay comes from too.
+  const cost = clay
+    ? `Pond: ${thingCount("stone", POND.stone)} a tile, to fish beside, and clay lies beside it each day.`
+    : `Pond: ${thingCount("stone", POND.stone)} a tile, to fish beside.`;
   const short = blockShort(POND.block, holdings);
   if (short.length === 0) return `${cost} You have enough.`;
   return `${cost} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;

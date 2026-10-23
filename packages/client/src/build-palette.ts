@@ -40,7 +40,7 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
-import { madeName, needsLine, thingCount, thingName } from "./things";
+import { CLAY_WHERE, madeName, needsLine, thingCount, thingName } from "./things";
 import "./build-palette.css";
 
 export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
@@ -181,7 +181,7 @@ export function stairsLine(holdings: Holdings): string {
 /** The line under the tabs for a kiln (RFC 0047): what it takes, and what you're short of. */
 export function kilnPlaceLine(holdings: Holdings): string {
   const cost = kilnCost();
-  const lead = `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight.`;
+  const lead = `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. ${CLAY_WHERE}`;
   const short = blockShort("kiln", holdings);
   if (short.length === 0) return `${lead} You have enough.`;
   return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;

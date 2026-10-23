@@ -139,6 +139,7 @@ function teaField(
       stay: teaStay(e),
       guests: teaGuests(state, e, ctx.guests).map((g) => ({
         resident: person(ctx, g.id),
+        cup: g.cup,
         here: g.here,
         seen: g.seen,
         counted: g.why === undefined,
@@ -327,6 +328,8 @@ const teaStay = (e: HostedEvent) => attendNeeded(lastSlot(e.minutes));
 /** A resident at a live event, and why they wouldn't count when they wouldn't. */
 interface TeaGuest {
   id: ResidentId;
+  /** Takes home a cup: anyone there but townsfolk. */
+  cup: boolean;
   /** Online in the event's area on the ground floor now. */
   here: boolean;
   /** Samples they've been seen at so far. */
@@ -359,6 +362,7 @@ function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGue
       const why = guestProblem(state, e, id, facts);
       return {
         id,
+        cup: !isTownsfolk(state, id),
         here: here.has(id),
         seen: Object.hasOwn(seen, id) ? (seen[id] ?? 0) : 0,
         ...(why === undefined ? {} : { why }),
@@ -368,22 +372,17 @@ function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGue
 }
 
 /**
- * The refusal for serving tea at `e` when nobody there would be counted for a cup (RFC 0047), with
- * each one's reason by id, or undefined when someone would. The pot of tea stays in the host's
- * things.
+ * The refusal for serving tea at `e` while nobody is there to pour for (RFC 0047): every guest takes
+ * home a cup, counted for Hosting or not, so the tea waits only for a guest. The pot of tea stays in
+ * the host's things. Undefined once someone is there.
  */
 export function teaRefusal(
   state: WorldState,
   e: HostedEvent,
   facts: GuestFacts,
 ): string | undefined {
-  const guests = teaGuests(state, e, facts);
-  if (guests.some((g) => g.why === undefined)) return undefined;
-  const stay = teaStay(e);
-  const lead =
-    "Nobody here would be counted for a cup yet, so your pot of tea stays in your things.";
-  const why = guests.map((g) => `${g.id} ${g.why}.`).join(" ");
-  return `${lead}${why ? ` ${why}` : ""} A cup goes to each counted guest: ${GUEST_MIN_AGE_DAYS} days or more in Terrakin with a hearth, outside your household, and seen at ${stay} of the event's 5-minute checks. Serve it once one is here.`;
+  if (teaGuests(state, e, facts).some((g) => g.cup)) return undefined;
+  return "Nobody's here yet to pour for, so your pot of tea stays in your things. Serve it once a guest arrives: everyone at your event takes home a cup, and the guests who count for Hosting earn you a little more.";
 }
 
 /** One host's best event on a day, for karma: its counted guests. */

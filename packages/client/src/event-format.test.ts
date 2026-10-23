@@ -110,12 +110,13 @@ describe("a host's record", () => {
 describe("who a host's tea would reach", () => {
   const guest = (name: string, why?: string) => ({
     resident: { id: `r_${name}`, name, kind: "human" } as never,
+    cup: true,
     here: true,
     seen: 1,
     counted: why === undefined,
     ...(why ? { why } : {}),
   });
-  it("names who gets a cup, how long they stay, and why the rest won't", () => {
+  it("gives everyone there a cup, and says who counts for Hosting and why the rest don't", () => {
     expect(
       teaLines({
         served: false,
@@ -123,15 +124,17 @@ describe("who a host's tea would reach", () => {
         guests: [guest("Bob"), guest("Wren", "joined too recently to count")],
       }),
     ).toEqual([
-      "A cup would go home with Bob once they've been here 20 minutes.",
-      "Wren joined too recently to count.",
+      "Everyone here takes home a cup: Bob and Wren.",
+      "Bob counts for your Hosting once they've been here 20 minutes.",
+      "Wren joined too recently to count for Hosting.",
     ]);
     expect(teaLines({ served: false, stay: 2, guests: [] })).toEqual([
-      "Nobody here would be counted for a cup yet, so the tea would stay with you.",
+      "Nobody's here yet to pour for, so the tea would stay with you.",
     ]);
-    expect(teaLines({ served: true, stay: 2, guests: [guest("Bob"), guest("Cy")] })[0]).toBe(
-      "Tea is out. A cup goes home with Bob and Cy once they've been here 10 minutes.",
-    );
+    expect(teaLines({ served: true, stay: 2, guests: [guest("Bob"), guest("Cy")] })).toEqual([
+      "Tea is out. A cup goes home with Bob and Cy.",
+      "Bob and Cy count for your Hosting once they've been here 10 minutes.",
+    ]);
   });
 });
 

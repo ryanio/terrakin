@@ -750,10 +750,11 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_circles" },
     label: "open circles",
   },
-  // Pottery (RFC 0047) needs items, where clay and pots live.
+  // Pottery (RFC 0047) needs items, where clay and pots live, and levels, since tea served at an
+  // event goes out with the event's `credit_event`, which levels open.
   {
     option: "clay",
-    due: (s) => !!s.items && !clayOpen(s),
+    due: (s) => !!s.items && !!s.progress && !clayOpen(s),
     command: { type: "open_clay", water: true },
     label: "put clay out",
   },
@@ -1722,9 +1723,15 @@ export class WorldService {
 
   /**
    * Pottery (RFC 0047), switched on now. Only the Node server's test route calls it, like
-   * `testGrant`, since no adapter sets the `clay` option. The sim refuses it before items.
+   * `testGrant`, since no adapter sets the `clay` option. The sim refuses it before items. Levels
+   * open first when they aren't, as the day table waits for them: tea goes out with an event's
+   * credit, which levels open.
    */
   testOpenClay() {
+    if (!this.state.progress) {
+      const levels = this.testOpenLevels();
+      if (!levels.ok) return levels;
+    }
     const opened = this.run({ actor: TOWN_ACTOR, command: { type: "open_clay", water: true } });
     if (opened.ok) this.testPotteryJobs();
     return opened;
@@ -1788,6 +1795,18 @@ export class WorldService {
     }
     this.creditLater.delete(id);
     const attended = e.attended ?? [];
+    // Tea (RFC 0047): a cup for everyone there as it was served or who stayed, counted or not,
+    // never the host or townsfolk, and never anyone blocked either way with the host.
+    const cups = servedTea(e)
+      ? [...new Set([...(e.teaFor ?? []), ...attended])]
+          .filter(
+            (guest) =>
+              guest !== e.host &&
+              !isTownsfolk(this.state, guest) &&
+              !this.blockedEither(e.host, guest),
+          )
+          .sort()
+      : undefined;
     const guests = [...new Set(counted)]
       .filter(
         (guest) =>
@@ -1800,7 +1819,7 @@ export class WorldService {
       .sort();
     const done = this.run({
       actor: TOWN_ACTOR,
-      command: { type: "credit_event", event: id, guests },
+      command: { type: "credit_event", event: id, guests, ...(cups ? { cups } : {}) },
     });
     if (!done.ok) {
       report(new Error(`credit_event refused: ${done.error.code}`), "world.levels", {
@@ -2612,8 +2631,10 @@ export class WorldService {
       if (e.type !== "event_credited") continue;
       const event = findEvent(this.state, e.event);
       if (!event || !servedTea(event) || isTownEvent(event)) continue;
+      const { command } = input;
+      const cups = command.type === "credit_event" ? command.cups : undefined;
       try {
-        this.onTeaServed?.(event.host, e.guests.length);
+        this.onTeaServed?.(event.host, (cups ?? e.guests).length);
       } catch (err) {
         report(err, "world.tea_served", { command: input.command.type });
       }

@@ -18,7 +18,10 @@ import {
   unlockedAt,
 } from "@terrakin/protocol";
 import {
+  handInPick,
   heldJob,
+  ITEM_INFO,
+  isPotKind,
   isTownsfolk,
   JOBS,
   type Job,
@@ -28,6 +31,7 @@ import {
   jobsOn,
   jobsThisWeek,
   jobUnlocks,
+  potName,
   type Skill,
   takeJobProblem,
   titleLabel,
@@ -89,12 +93,23 @@ function heldView(
   const job = held && jobById(held.job);
   if (!held || !job) return null;
   const { id: _id, points: _points, ...asked } = boardJob(job, giverId, author);
+  // What `hand_in` would take now, so a button can name it before it goes for good.
+  const pick = job.bring === undefined ? undefined : handInPick(state, id);
+  const good = pick && !("code" in pick) ? pick.good : undefined;
   return {
     job: job.id,
     ...asked,
     count: held.count ?? 0,
     of: jobCount(job),
     lapsesDay: held.day + JOBS.keepDays,
+    ...(good
+      ? {
+          handIn: {
+            item: good.id,
+            name: isPotKind(good.kind) ? potName(good) : ITEM_INFO[good.kind].name,
+          },
+        }
+      : {}),
   };
 }
 

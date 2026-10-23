@@ -209,22 +209,37 @@ const nameList = (names: string[]) =>
     : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 
 /**
- * Who a host's pot of tea would reach (RFC 0047), from the server's `tea`: who'd get a cup once
- * they've stayed, then each one who wouldn't, in the server's own reason after their name. Names
- * are residents' words, so the lines go into the page as text. Pure, so tests pin it.
+ * Who a host's pot of tea would reach (RFC 0047), from the server's `tea`: everyone there takes
+ * home a cup, then who counts for the host's Hosting once they've stayed, then each one who
+ * wouldn't, in the server's own reason after their name. Names are residents' words, so the lines
+ * go into the page as text. Pure, so tests pin it.
  */
 export function teaLines(tea: TeaView): string[] {
+  const cups = tea.guests.filter((g) => g.cup).map((g) => g.resident.name);
   const counted = tea.guests.filter((g) => g.counted).map((g) => g.resident.name);
   const stay = `${tea.stay * EVENTS.tickMinutes} minutes`;
+  if (cups.length === 0) {
+    return [
+      tea.served
+        ? "Tea is out. Everyone who comes takes home a cup."
+        : "Nobody's here yet to pour for, so the tea would stay with you.",
+    ];
+  }
   const lead = tea.served
-    ? counted.length > 0
-      ? `Tea is out. A cup goes home with ${nameList(counted)} once they've been here ${stay}.`
-      : "Tea is out. A cup goes home with each guest counted at the end."
-    : counted.length > 0
-      ? `A cup would go home with ${nameList(counted)} once they've been here ${stay}.`
-      : "Nobody here would be counted for a cup yet, so the tea would stay with you.";
-  const not = tea.guests.flatMap((g) => (g.why ? [`${g.resident.name} ${g.why}.`] : []));
-  return [lead, ...not];
+    ? `Tea is out. A cup goes home with ${nameList(cups)}.`
+    : `Everyone here takes home a cup: ${nameList(cups)}.`;
+  const hosting =
+    counted.length > 0
+      ? `${nameList(counted)} ${counted.length === 1 ? "counts" : "count"} for your Hosting once they've been here ${stay}.`
+      : "Nobody here counts for your Hosting yet.";
+  const not = tea.guests.flatMap((g) =>
+    g.why
+      ? [
+          `${g.resident.name} ${g.why.replace(/^joined too recently to count/, "joined too recently to count for Hosting")}.`,
+        ]
+      : [],
+  );
+  return [lead, hosting, ...not];
 }
 
 /**

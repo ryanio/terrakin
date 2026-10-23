@@ -3,6 +3,7 @@ import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol"
 import { DAY_MS, POTTERY, POTTERY_JOB_EDITION, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp, TEST_OPEN_CLAY_PATH } from "./app";
+import { pickTryNext, TRY_NEXT } from "./checkin-suggest";
 import { eventWords } from "./events";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
@@ -135,8 +136,11 @@ describe("a world that never opened clay", () => {
       ok: false,
       error: { code: "pottery_closed" },
     });
-    // With the option a tick logs the switch once.
-    const on = await start(true);
+    // With the option a tick logs the switch once levels are open, since tea served at an event
+    // goes out with its credit, which levels open: before them it waits.
+    const early = await start(true);
+    expect(early.store.log.filter((i) => i.command.type === "open_clay")).toEqual([]);
+    const on = await start(true, { levels: true });
     // With `water`, so clay lies beside ponds and the sea.
     expect(on.store.log.filter((i) => i.command.type === "open_clay")).toEqual([
       expect.objectContaining({ command: { type: "open_clay", water: true } }),
@@ -158,6 +162,23 @@ describe("a world that never opened clay", () => {
 });
 
 describe("a world with clay", () => {
+  it("suggests pottery to an agent with a home and no kiln, until they place one", async () => {
+    // Every other suggestion counts as made lately, so only pottery's own rule decides.
+    const others = new Set(TRY_NEXT.map((t) => t.id).filter((id) => id !== "pottery"));
+    const pick = (t: Awaited<ReturnType<typeof start>>, id: string) =>
+      pickTryNext(t.service.state, id, new Set(), others)?.id;
+    const closed = await start();
+    expect(pick(closed, (await closed.settler("Ada", 0)).id)).toBeUndefined();
+    const t = await start(true, { levels: true });
+    const ada = await t.settler("Ada", 0);
+    expect(pick(t, ada.id)).toBe("pottery");
+    expect(t.service.testGrant(ada.id, undefined, { stone: 4 })).toMatchObject({ ok: true });
+    expect(await t.act(ada.token, { type: "place", ...KILN, block: "kiln" })).toMatchObject({
+      ok: true,
+    });
+    expect(pick(t, ada.id)).toBeUndefined();
+  });
+
   it("fires a pot overnight, shows the kiln without its pot, and opens it at the server's roll", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0);
@@ -302,7 +323,7 @@ describe("a world with clay", () => {
   });
 
   it("lists a pot in the market with its glaze and finish, named as it came out", async () => {
-    const t = await start(true, { market: true });
+    const t = await start(true, { market: true, levels: true });
     const ada = await t.settler("Ada", 0);
     const bob = await t.settler("Bob", 2);
     expect(t.service.testGrant(ada.id, undefined, { stone: 4, clay: 2 })).toMatchObject({
@@ -364,6 +385,11 @@ describe("a world with clay", () => {
     expect((await t.call("GET", "/v1/shop")).body.shop).not.toHaveProperty("potters");
     t.later(DAY_MS);
     const out = await t.act(ada.token, { type: "harvest", ...KILN });
+    // The job held names the pot a hand-in would take, so a button can say it before it goes.
+    expect((await t.call("GET", "/v1/jobs", undefined, ada.token)).body.you.held.handIn).toEqual({
+      item: out.fired.item,
+      name: out.fired.name,
+    });
     expect(await t.act(ada.token, { type: "hand_in" })).toMatchObject({ ok: true });
     expect((await t.call("GET", "/v1/shop")).body.shop.potters).toEqual([
       {
@@ -420,39 +446,51 @@ describe("a world with clay", () => {
     const tea = (
       await t.call("GET", "/v1/inventory", undefined, ada.token)
     ).body.inventory.goods.find((g: Json) => g.kind === "pot_of_tea");
-    // Cy joined today, so a cup wouldn't reach them: with only Cy there, serving is refused and
-    // says why, and the pot of tea stays Ada's.
-    const cy = t.service.createSession({ name: "Cy", kind: "agent" });
-    if (!cy.ok || !cy.token || !cy.residentId) throw new Error("Couldn't join Cy");
-    for (const [token, action] of [
-      [ada.token, { type: "join_event", event: "e_1" }],
-      [cy.token, { type: "join_event", event: "e_1" }],
-    ] as const) {
-      expect(await t.act(token, action)).toMatchObject({ ok: true });
-    }
+    // With nobody at the event yet, serving is refused and the pot of tea stays Ada's.
+    expect(await t.act(ada.token, { type: "join_event", event: "e_1" })).toMatchObject({
+      ok: true,
+    });
     const serve = { type: "bring_dish", item: tea.id };
     const refused = await t.act(ada.token, serve);
     expect(refused).toMatchObject({ ok: false, error: { code: "not_eligible" } });
-    expect(refused.error.message).toContain(`${cy.residentId} joined too recently to count`);
+    expect(refused.error.message).toContain("Nobody's here yet to pour for");
     expect(await t.act(ada.token, { ...serve, dry: true })).toMatchObject({ ok: false });
-    // Once Bob is there, the host's own view of the event says who a cup would reach, and why not.
-    expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
-      ok: true,
-    });
+    // Cy and Dee joined today, so they don't count for Ada's Hosting, but each may take a cup.
+    const join = (name: string) => {
+      const made = t.service.createSession({ name, kind: "agent" });
+      if (!made.ok || !made.token || !made.residentId) throw new Error(`Couldn't join ${name}`);
+      return { id: made.residentId, token: made.token };
+    };
+    const cy = join("Cy");
+    const dee = join("Dee");
+    for (const who of [cy, dee, bob]) {
+      expect(await t.act(who.token, { type: "join_event", event: "e_1" })).toMatchObject({
+        ok: true,
+      });
+    }
     // Cy blocks Ada while there, and is still listed: leaving Cy out would tell Ada who did.
     expect((await t.call("PUT", `/v1/residents/${ada.id}/block`, undefined, cy.token)).status).toBe(
       200,
     );
     const before = (await t.call("GET", "/v1/events/e_1", undefined, ada.token)).body.event;
     expect(before.tea).toMatchObject({ served: false, stay: 4 });
-    expect(before.tea.guests).toEqual([
-      expect.objectContaining({ resident: expect.objectContaining({ id: bob.id }), counted: true }),
-      expect.objectContaining({
-        resident: expect.objectContaining({ id: cy.residentId }),
-        counted: false,
-        why: expect.stringContaining("joined too recently to count"),
-      }),
-    ]);
+    expect(before.tea.guests[0]).toMatchObject({
+      resident: expect.objectContaining({ id: bob.id }),
+      counted: true,
+      cup: true,
+    });
+    expect(before.tea.guests.slice(1)).toEqual(
+      expect.arrayContaining(
+        [cy.id, dee.id].map((id) =>
+          expect.objectContaining({
+            resident: expect.objectContaining({ id }),
+            counted: false,
+            cup: true,
+            why: expect.stringContaining("joined too recently to count"),
+          }),
+        ),
+      ),
+    );
     // Nobody else's view of it carries the tea.
     expect(
       (await t.call("GET", "/v1/events/e_1", undefined, bob.token)).body.event,
@@ -462,19 +500,24 @@ describe("a world with clay", () => {
     for (let i = 0; i < 13; i++) {
       t.later(5 * 60_000);
       t.service.sweepEvents();
-      await t.act(bob.token, { type: "join_event", event: "e_1" });
+      for (const who of [bob, dee]) await t.act(who.token, { type: "join_event", event: "e_1" });
     }
-    const notices = (await t.call("GET", "/v1/notifications", undefined, bob.token)).body
-      .notifications as Json[];
-    expect(notices.find((n) => n.type === "tea_poured")).toMatchObject({
-      actor: { id: ada.id },
-    });
+    // Bob, counted, and Dee, not counted, each take home a cup; Cy, who blocked Ada, doesn't.
+    for (const who of [bob, dee]) {
+      const theirs = (await t.call("GET", "/v1/notifications", undefined, who.token)).body
+        .notifications as Json[];
+      expect(theirs.find((n) => n.type === "tea_poured")).toMatchObject({
+        actor: { id: ada.id },
+      });
+    }
+    const cyThings = (await t.call("GET", "/v1/inventory", undefined, cy.token)).body.inventory;
+    expect(cyThings.goods.filter((g: Json) => g.kind === "cup_of_tea")).toEqual([]);
     // And the host hears from Terrakin how many cups went home.
     const hers = (await t.call("GET", "/v1/notifications", undefined, ada.token)).body
       .notifications as Json[];
     expect(hers.find((n) => n.type === "tea_served")).toMatchObject({
       system: true,
-      teaServed: { cups: 1 },
+      teaServed: { cups: 2 },
     });
   });
 });

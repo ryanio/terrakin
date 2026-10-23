@@ -250,6 +250,7 @@ describe("clay beside water", () => {
     const { state, pond } = byThePond();
     const facts = springFacts(state);
     const short: number[] = [];
+    const offPlot: string[] = [];
     const from = (state.day ?? 0) + 1;
     for (let day = from; day < from + 60; day++) {
       ok(state, TOWN_ACTOR, { type: "new_day", day });
@@ -259,8 +260,20 @@ describe("clay beside water", () => {
         return pickupLeft(state, x, y) === "clay";
       });
       if (clay.length < POTTERY.springsPerPond) short.push(day);
+      // Every spring is on the pond's own plot, its digger's to gather, even for a pond dug on
+      // the plot's last column, beside the plot next door.
+      const size = CONFIG.plotSize;
+      const edge = { x: size - 1, y: pond.y };
+      for (const at of [pond, edge]) {
+        for (const key of springsOf(facts, at.x, at.y, day)) {
+          const [x, y] = key.split(",").map(Number) as [number, number];
+          const home = Math.floor(x / size) === Math.floor(at.x / size);
+          if (!home || Math.floor(y / size) !== Math.floor(at.y / size)) offPlot.push(key);
+        }
+      }
     }
     expect(short).toEqual([]);
+    expect(offPlot).toEqual([]);
     // A tile beside water but by no dug pond has none of its own.
     expect(onSpring({ ...facts, pond: () => false }, pond.x + 1, pond.y, state.day ?? 0)).toBe(
       false,

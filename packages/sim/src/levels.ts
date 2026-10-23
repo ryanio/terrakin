@@ -744,6 +744,24 @@ export function checkCreditEvent(
       return refuse("not_eligible", "Townsfolk are never counted guests.");
     }
   }
+  // Cups of tea (RFC 0047): everyone there as it was served or who stayed, never the host or
+  // townsfolk, each once, and only where tea was served.
+  const { cups } = command;
+  if (cups !== undefined) {
+    if (!servedTea(e)) return refuse("invalid_event", "No tea was served at this event.");
+    if (!Array.isArray(cups) || !cups.every((id) => typeof id === "string")) {
+      return refuse("invalid_event", "List the guests who take home a cup by id.");
+    }
+    if (new Set(cups).size !== cups.length) {
+      return refuse("invalid_event", "List each guest who takes home a cup once.");
+    }
+    const there = new Set([...(e.teaFor ?? []), ...attended]);
+    for (const id of cups) {
+      if (id === e.host || !there.has(id) || isTownsfolk(state, id)) {
+        return refuse("not_eligible", "A cup goes only to a guest who was there.");
+      }
+    }
+  }
   // What fits: under Hosting's daily cap, a host for one event a UTC day and a guest for one.
   const counted = eventCounts(state, e.host, guests, servedTea(e));
   const host = progress.hostedToday?.includes(e.host)
@@ -765,8 +783,8 @@ export function checkCreditEvent(
       events.push(...points());
       progress.guestToday = [...(progress.guestToday ?? []), id].sort();
     }
-    // A host who served tea (RFC 0047) sends each guest home with a cup.
-    events.push(...pourTea(state, e, guests));
+    // A host who served tea (RFC 0047) sends each guest there home with a cup.
+    events.push(...pourTea(state, e, cups ?? guests));
     return events;
   };
 }

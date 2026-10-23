@@ -9,6 +9,7 @@ import {
   type Crop,
   canBuildOn,
   circleOf,
+  clayOpen,
   countOf,
   DAY_MS,
   dateOfDay,
@@ -51,14 +52,19 @@ import {
   MINUTE_MS,
   nextHolidayStart,
   openDayOf,
+  own,
   ownDoor,
   ownsWear,
   POND,
+  POTTERY,
   PRESENTS,
+  parseKey,
+  plotKey,
   presentsFor,
   priceOf,
   purseOf,
   RECIPES,
+  residentById,
   type Season,
   seasonOf,
   TOWN_ACTOR,
@@ -212,6 +218,22 @@ function loftPlot(state: WorldState, viewer: string) {
   const plot = homePlotOf(state, viewer);
   if (!plot || !canBuildOn(plot, viewer) || (plot.floors ?? 0) >= FLOORS.max) return undefined;
   return (purseOf(state, viewer)?.balance ?? 0) >= FLOORS.price ? plot : undefined;
+}
+
+/**
+ * Pottery for an agent (RFC 0047): open once clay is out, to an AI with a hearth who isn't
+ * townsfolk and has no kiln on a plot they can build on. Placing one closes it.
+ */
+function potteryOpen(state: WorldState, viewer: string): boolean {
+  const me = residentById(state, viewer);
+  if (!clayOpen(state) || !me || me.kind !== "agent" || !me.hearth) return false;
+  if (isTownsfolk(state, viewer)) return false;
+  const s = state.config.plotSize;
+  return !Object.entries(state.blocks).some(([key, block]) => {
+    if (block !== "kiln") return false;
+    const [x, y] = parseKey(key);
+    return canBuildOn(own(state.plots, plotKey(Math.floor(x / s), Math.floor(y / s))), viewer);
+  });
 }
 
 /**
@@ -676,6 +698,14 @@ export const TRY_NEXT: readonly TryNext[] = [
     open: itemsOpen,
     after: ["gather"],
     line: `Go fishing: make a fishing rod at a workbench from ${countOf("wood", RECIPES[FISHING_ROD].needs.wood ?? 0)} ({"type": "craft", "recipe": "${FISHING_ROD}", "x": <x>, "y": <y>}), dig a pond on your plot ({"type": "place", "x": <x>, "y": <y>, "block": "pond"}, ${countOf("stone", POND.stone)} a tile), stand right beside it, and cast with {"type": "fish"}. What bites depends on the season, the time of day, and the weather (\`timeOfDay\` and \`weather\` here say what it's like now): a rainy night brings up fish a sunny noon never does. ${FISHING.castsPerDay} casts a day. Tell your owner when you catch something rare.`,
+  },
+  {
+    // Pottery (RFC 0047), once clay is out, to an agent with a home and no kiln yet. No command
+    // counts as tried, since `place` is an everyday call; a kiln of theirs closes it.
+    id: "pottery",
+    commands: [],
+    open: potteryOpen,
+    line: `Try pottery: clay lies beside water, and every pond you dig has some beside it each day (a pond is ${countOf("stone", POND.stone)} a tile: {"type": "place", "x": <x>, "y": <y>, "block": "pond"}). Gather clay like wood, put a kiln on your plot ({"type": "place", "x": <x>, "y": <y>, "block": "kiln"}, ${countOf("stone", POTTERY.kilnStone)}), load a bowl with {"type": "craft", "recipe": "bowl", "x": <x>, "y": <y>, "glaze": "bare"}, and take it out tomorrow with {"type": "harvest", "x": <x>, "y": <y>}: its finish is rolled as the kiln opens, and a crackle or iridescent one is rare. A teapot makes tea for your own events. "Pottery" in SKILL.md has the rest. Tell your owner what comes out.`,
   },
   {
     // An upstairs (RFC 0028), to someone with a home, the coins, and no upstairs yet. It spends

@@ -1063,6 +1063,30 @@ describe("credit_event", () => {
         gained: [expect.objectContaining({ kind: "pot_of_tea", maker: "ada" })],
       }),
     );
+    // With `cups`, a cup goes to everyone there, counted for Hosting or not: Dee, there as the tea
+    // went out and gone before the samples, and Cy, who stayed, though only Bob is counted.
+    const third = give("pot_of_tea");
+    const later = party(w, "ada", ["bob", "cy"], 16, () => {
+      w.standAt("ada", 3, 3);
+      w.standAt("dee", 4, 3);
+      w.ok("ada", serve(third));
+      w.standAt("dee", 20, 20);
+    });
+    expect(w.state.events?.list.find((e) => e.id === later)?.teaFor).toEqual(["bob", "cy", "dee"]);
+    const withCups = (cups: string[]) => ({ ...credit(later, ["bob"]), cups }) as Command;
+    // Only someone who was there takes a cup, never the host.
+    expect(w.code(TOWN_ACTOR, withCups(["bob", "eve"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, withCups(["ada"]))).toBe("not_eligible");
+    expect(w.code(TOWN_ACTOR, withCups(["bob", "bob"]))).toBe("invalid_event");
+    const poured = w
+      .town(withCups(["bob", "cy", "dee"]))
+      .flatMap((e) => (e.type === "inventory" && e.reason === "poured" ? [e.residentId] : []));
+    expect(poured).toEqual(["bob", "cy", "dee"]);
+    // And no cups at an event with no tea.
+    const plain = party(w, "ada", ["bob"], 18);
+    expect(w.code(TOWN_ACTOR, { ...credit(plain, ["bob"]), cups: ["bob"] } as Command)).toBe(
+      "invalid_event",
+    );
   });
 
   it("takes a shorter list than the sim saw attend, and never a longer one", () => {

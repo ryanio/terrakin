@@ -109,7 +109,7 @@ export function checkBringDish(
   const here = hosting.find(
     (e) => (me.floor ?? 0) === 0 && inArea(eventArea(state.config, e.px, e.py), me.x, me.y),
   );
-  if (here) return checkServeTea(items, actor, here, command.item);
+  if (here) return checkServeTea(state, items, actor, here, command.item);
   const feast = liveFeast(state);
   const away = hosting[0];
   if (!feast && away) {
@@ -182,6 +182,7 @@ const liveEventsHostedBy = (state: WorldState, actor: ResidentId): HostedEvent[]
  * the event the host earns `POTTERY.teaPerGuest` more Hosting points a counted guest.
  */
 function checkServeTea(
+  state: WorldState,
   items: ItemsState,
   actor: ResidentId,
   event: HostedEvent,
@@ -200,9 +201,23 @@ function checkServeTea(
       `At your own event, the dish you set out is a pot of tea, by its id: brew one at a kitchen with a teapot and ${CATALOG[TEA].recipe?.needs.herb} bunches of herbs.`,
     );
   }
+  // Everyone at the event as the tea goes out may take home a cup.
+  const area = eventArea(state.config, event.px, event.py);
+  const present = Object.values(state.residents)
+    .filter(
+      (r) =>
+        r.online &&
+        r.id !== actor &&
+        (r.floor ?? 0) === 0 &&
+        inArea(area, r.x, r.y) &&
+        !isTownsfolk(state, r.id),
+    )
+    .map((r) => r.id)
+    .sort();
   return () => {
     const inv = inventory(items, actor);
     inv.goods = inv.goods.filter((g) => g.id !== good.id);
+    if (present.length > 0) event.teaFor = present;
     return bring(event, actor, TEA, inventoryEvent(actor, "brought", [], { lost: [good.id] }));
   };
 }

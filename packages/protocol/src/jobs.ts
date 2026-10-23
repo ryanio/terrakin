@@ -2,7 +2,7 @@ import { BIOMES, JOBS, type Job, type JobGiver, type JobUnlock, jobUnlocks } fro
 import { z } from "zod";
 import { JobGiverView } from "./job-done";
 import { UnlockView } from "./levels";
-import { CropKind, FindKind, JobId, RecipeName, SkillName, TimeOfDayName } from "./schemas";
+import { CropKind, FindKind, ItemId, JobId, RecipeName, SkillName, TimeOfDayName } from "./schemas";
 import { AuthorView } from "./social";
 
 /**
@@ -176,6 +176,12 @@ export const HeldJobView = z.object({
     .int()
     .describe(
       "The world day it lapses on, at midnight UTC, if it isn't done by then. Nothing is lost when it does.",
+    ),
+  handIn: z
+    .object({ item: ItemId, name: z.string() })
+    .optional()
+    .describe(
+      'A bring job\'s: the made thing `hand_in` without `item` would take now, by id and in words (a pot by its finish, glaze and kind: "Smooth sea bowl"). Absent when you hold none.',
     ),
 });
 export type HeldJobView = z.infer<typeof HeldJobView>;

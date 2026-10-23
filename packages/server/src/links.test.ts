@@ -56,6 +56,7 @@ async function start(
       shop?: boolean;
       recipes?: boolean;
       presence?: boolean;
+      levels?: boolean;
       clay?: boolean;
       townEvents?: typeof townCalendar;
       now?: () => number;
@@ -1187,7 +1188,7 @@ describe("links for the rest of a link-only resident's week", () => {
   it("loads a kiln by link, and the same link takes the pot out the next day (RFC 0047)", async () => {
     let now = Date.UTC(2026, 9, 5, 12);
     const { joinByLink, service } = await start({
-      world: { days: true, economy: true, items: true, clay: true, now: () => now },
+      world: { days: true, economy: true, items: true, levels: true, clay: true, now: () => now },
     });
     service.tick();
     const wren = await joinByLink("Wren");

@@ -1066,6 +1066,11 @@ export interface HostedEvent {
   attended?: ResidentId[];
   /** The dishes brought to a Thanksgiving feast, in the order they came (RFC 0034). Absent until the first. */
   dishes?: { by: ResidentId; kind: ItemKind }[];
+  /**
+   * Who was at it when its host served tea (RFC 0047): online in its area on the ground floor, not
+   * the host and not townsfolk, sorted. Each may take home a cup. Absent until tea is served.
+   */
+  teaFor?: ResidentId[];
   /** The day it ended or was cancelled. */
   closedDay?: number;
   /**
@@ -2106,7 +2111,18 @@ export type Command =
    * guests, which takes ages and blocks the sim can't see. The sim checks the list against its own
    * attendance, so the server can leave a guest out and never add one.
    */
-  | { type: "credit_event"; event: string; guests: ResidentId[] }
+  | {
+      type: "credit_event";
+      event: string;
+      guests: ResidentId[];
+      /**
+       * At an event its host served tea at (RFC 0047): who takes home a cup, each of them there as
+       * it was served (`teaFor`) or attended by its samples, never the host or townsfolk. The
+       * server leaves out anyone blocked either way with the host. Absent, the cups go to `guests`,
+       * as they did before.
+       */
+      cups?: ResidentId[];
+    }
   /** From now on, the town has three jobs a day and residents may take them (RFC 0030). */
   | { type: "open_jobs" }
   /**

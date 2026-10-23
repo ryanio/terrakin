@@ -163,9 +163,12 @@ export function heldJob(
         attrs: { type: "button" },
         text: "Hand in",
       });
-      confirmTwice(button, "Hand it in for good?", () =>
-        acts.send(button, { type: "hand_in" }, held),
-      );
+      // Name what goes for good, the thing `hand_in` would take now ("Hand in your Smooth sea bowl
+      // for good?"), as the server says it.
+      const what = held.handIn
+        ? `Hand in your ${held.handIn.name} for good?`
+        : "Hand it in for good?";
+      confirmTwice(button, what, () => acts.send(button, { type: "hand_in" }, held));
       return button;
     }
     const button = h("button", {

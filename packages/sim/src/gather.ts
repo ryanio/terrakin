@@ -237,16 +237,21 @@ export interface SpringFacts {
 
 /**
  * The tiles a dug pond's clay comes up on today (RFC 0047): up to `POTTERY.springsPerPond` of the
- * open tiles around it (in the world, not water, nothing built, and nothing else lying there),
- * picked by a roll of the pond's tile and the day. Pure, so every client sees the same springs.
+ * open tiles around it on the pond's own plot (in the world, not water, nothing built, and nothing
+ * else lying there), so the clay is its digger's to gather and never lands on unclaimed ground next
+ * door, picked by a roll of the pond's tile and the day. Pure, so every client sees the same
+ * springs.
  */
 export function springsOf(f: SpringFacts, px: number, py: number, day: number): string[] {
+  const size = f.config.plotSize;
   const open = AROUND_TILE.map(([dx, dy]) => ({ x: px + dx, y: py + dy })).filter(
     ({ x, y }) =>
       x >= 0 &&
       y >= 0 &&
       x < f.config.width &&
       y < f.config.height &&
+      Math.floor(x / size) === Math.floor(px / size) &&
+      Math.floor(y / size) === Math.floor(py / size) &&
       !f.water(x, y) &&
       !f.built(x, y) &&
       gatherableAt(f.config, x, y, day, true) === null,

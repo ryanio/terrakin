@@ -34,11 +34,13 @@ export const TeaView = z.object({
   guests: z.array(
     z.object({
       resident: AuthorView,
+      /** Takes home a cup of tea: everyone there but townsfolk, counted for Hosting or not. */
+      cup: z.boolean(),
       /** In the event's area on the ground floor now. */
       here: z.boolean(),
       /** Samples they've been seen at so far. */
       seen: z.number().int(),
-      /** Whether they'd be counted for a cup, once they've stayed for `stay` samples. */
+      /** Whether they'd count for the host's Hosting points, once they've stayed for `stay` samples. */
       counted: z.boolean(),
       why: z.string().optional(),
     }),

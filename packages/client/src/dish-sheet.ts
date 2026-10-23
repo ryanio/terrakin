@@ -42,7 +42,7 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
   const inv = r.data.inventory;
   // Who a cup would reach, and why not (RFC 0047): Serve waits while nobody would be counted.
   const reach = read?.ok ? read.data.event.tea : undefined;
-  const nobody = reach !== undefined && !reach.guests.some((g) => g.counted);
+  const nobody = reach !== undefined && !reach.guests.some((g) => g.cup);
   // At your own event the dish is a pot of tea (RFC 0047), as the world takes there.
   const takes = (kind: string) => (tea ? kind === TEA : isDish(kind));
   const choices = [
@@ -89,7 +89,7 @@ export async function openDishSheet(event: string, brought: () => void, tea = fa
       title: tea ? "Serve tea" : "Bring a dish",
       lede: tea
         ? choices.length > 0
-          ? "Set out a pot of tea for your guests. Each guest counted at the end takes home a cup from you, and earns you a little more Hosting."
+          ? "Set out a pot of tea for your guests. Everyone at your event takes home a cup from you, and each guest who counts for Hosting earns you a little more."
           : "Brew a pot of tea at a kitchen first: it takes a teapot, which you keep, and two bunches of herbs."
         : choices.length > 0
           ? "Pick one thing you made for the feast's table. It stays there for good."

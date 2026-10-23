@@ -376,12 +376,17 @@ const POTTERY_JOBS: readonly Job[] = [
 ];
 
 /**
- * Whether a job takes every other turn of its lane while it's up, rather than waiting its place
- * among the lane's regular jobs: a holiday's jobs, so a short holiday's come up, and pottery's
- * (RFC 0047), so a potter meets one in any week once clay is out. Only the third edition has
- * pottery's, so the boards of the first two read as they always did.
+ * Whether a job takes turns of its own in its lane while it's up, rather than waiting its place
+ * among the lane's regular jobs: a holiday's jobs, every other turn, so a short holiday's come up,
+ * and pottery's (RFC 0047), every third turn (`turnsEvery`), so a potter meets one in any week
+ * once clay is out and the lane's regular jobs still come round within decision 0265's bound.
+ * Only the third edition has pottery's, so the boards of the first two read as they always did.
  */
 const takesTurns = (job: Job): boolean => job.holiday !== undefined || POTTERY_JOBS.includes(job);
+
+/** How often a lane's own-turn jobs come: every other turn with a holiday's up, else every third. */
+const turnsEvery = (run: { festive: readonly Job[] }): 2 | 3 =>
+  run.festive.some((job) => job.holiday !== undefined) ? 2 : 3;
 
 /** The edition pottery's jobs are in, which the server moves the board to once clay is out. */
 export const POTTERY_JOB_EDITION = 3;
@@ -572,8 +577,9 @@ function slotGives(
   const run = shared ? slot.on[day % 2] : slot.on[0];
   if (!run) return undefined;
   const turn = shared ? Math.floor(day / 2) : day;
-  if (run.festive.length > 0 && (turn % 2 === 0 || run.regular.length === 0)) {
-    const job = run.festive[Math.floor(turn / 2) % run.festive.length];
+  const every = turnsEvery(run);
+  if (run.festive.length > 0 && (turn % every === 0 || run.regular.length === 0)) {
+    const job = run.festive[Math.floor(turn / every) % run.festive.length];
     return job && { run, job, regular: false };
   }
   const job = nextOf(r, run.regular, given.get(run.lane) ?? -1);
@@ -650,15 +656,21 @@ function lastGiven(
         const shared = slot.on.length === 2;
         slot.on.forEach((run, i) => {
           if (run.regular.length === 0) return;
-          // A lane's days and, while a holiday's jobs are up in it, its odd turns only.
+          // A lane's days and, while a holiday's jobs are up in it, its odd turns only, or while
+          // only pottery's are (RFC 0047), every turn but each third.
           const festive = run.festive.length > 0;
+          const every = turnsEvery(run);
           const count = shared
-            ? festive
-              ? daysIn(start, end, 4, 2 + i)
-              : daysIn(start, end, 2, i)
-            : festive
-              ? daysIn(start, end, 2, 1)
-              : end - start;
+            ? !festive
+              ? daysIn(start, end, 2, i)
+              : every === 2
+                ? daysIn(start, end, 4, 2 + i)
+                : daysIn(start, end, 2, i) - daysIn(start, end, 6, i)
+            : !festive
+              ? end - start
+              : every === 2
+                ? daysIn(start, end, 2, 1)
+                : end - start - daysIn(start, end, 3, 0);
           if (count === 0) return;
           const last = given.get(run.lane) ?? -1;
           const first = Math.max(

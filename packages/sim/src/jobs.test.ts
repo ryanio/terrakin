@@ -905,9 +905,9 @@ describe("the third edition (RFC 0047)", () => {
         up.set(job.id, [...(up.get(job.id) ?? []), day]);
       });
     }
-    // They take every other turn of Making's lane, as a holiday's jobs do, so one of the two is up
-    // in any week outside a holiday, and each within a fortnight. While a holiday's own jobs share
-    // those turns, they come half as often.
+    // They take every third turn of Making's lane, so one of the two is up in any week outside a
+    // holiday, and each within a fortnight. While a holiday's own jobs share the lane's own turns,
+    // they come less often.
     const either = [...(up.get("clem_bowl") ?? []), ...(up.get("ansel_vase") ?? [])].sort(
       (a, b) => a - b,
     );
@@ -916,6 +916,19 @@ describe("the third edition (RFC 0047)", () => {
       Array.from({ length: day - from }, (_, d) => holidaysOf(from + d)).some((h) => h.length > 0);
     expect(gaps.filter((g) => !festive(g) && g.day - g.from > 7)).toEqual([]);
     expect(Math.max(...gaps.map((g) => g.day - g.from))).toBeLessThanOrEqual(12);
+    // Four years of boards with clay out, pinned, so a change to how the lanes take turns shows.
+    expect(
+      fnv1a(
+        DAYS.map((day) =>
+          jobsOn({ ...withClay, day })
+            .map((j) => j.id)
+            .join(","),
+        ).join(";"),
+      ),
+    ).toBe("8925abf4");
+    // And Making's own jobs still come round within two rounds of the lane (decision 0265).
+    const long = jobWaits(withClay, DAYS).filter(({ wait, round }) => wait >= 2 * round - 1);
+    expect(long.map(({ job, wait, round }) => `${job.id} ${wait} of ${round}`)).toEqual([]);
     for (const id of POTS) {
       const days = up.get(id) ?? [];
       const longest = Math.max(...days.slice(1).map((d, i) => d - (days[i] ?? d)));

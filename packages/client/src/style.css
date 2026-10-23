@@ -2961,7 +2961,7 @@ dialog.model-viewer {
 
 @keyframes kiln-cool {
   to {
-    opacity: 0.25;
+    opacity: 0;
   }
 }
 
@@ -2978,10 +2978,7 @@ dialog.model-viewer {
     animation: none;
   }
 
-  .kiln-reveal-mouth {
-    opacity: 0.25;
-  }
-
+  .kiln-reveal-mouth,
   .kiln-reveal-door {
     display: none;
   }

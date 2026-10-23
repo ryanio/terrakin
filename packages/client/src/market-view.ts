@@ -115,7 +115,9 @@ export function potPriceLine(kind: ItemKind, finish: Finish, asks: readonly numb
   const price = coins(potPrice(kind, finish, asks));
   return asks.length > 0
     ? `${pots} listed here ask about ${price}.`
-    : `${pots} usually go for about ${price}. A crackle or iridescent finish fetches more.`;
+    : finish === "crackle" || finish === "iridescent"
+      ? `${pots} usually go for about ${price}, since so few come out of the kiln like it.`
+      : `${pots} usually go for about ${price}. A crackle or iridescent finish fetches more.`;
 }
 
 /** What other sellers on the page ask for a pot of `kind` and `finish`, one pot a listing. */
@@ -469,8 +471,6 @@ export function marketView(ctx: ViewContext): View {
     };
     const rows = market.listings.map(row);
     const list = itemRows(rows, { className: "market-listings" });
-    // Why Buy waits, by the world's own check (a first day), said once over the listings.
-    if (you?.buyWhy) list.before(h("p", { class: "hint market-buy-why", text: you.buyWhy }));
     let next = market.next;
     const more = moreButton("Show more listings", async () => {
       if (!next) return;
@@ -584,6 +584,10 @@ export function marketView(ctx: ViewContext): View {
           // Beside plots for sale, these are the things; alone, just what's for sale.
           text: plotSection ? "Things for sale" : "For sale",
         }),
+        // Why Buy waits, by the world's own check (a first day), said once over the listings.
+        ...(rows.length > 0 && you?.buyWhy
+          ? [h("p", { class: "hint market-buy-why", text: you.buyWhy })]
+          : []),
         ...(rows.length > 0
           ? [list, h("div", { class: "feed-foot" }, more.el)]
           : [emptyNote("Nothing for sale yet", "Be the first: list something you grew or made.")]),

@@ -9,6 +9,7 @@
  * are `jobs.ts`'s.
  */
 import type { JobsResponse, WorldEvent } from "@terrakin/protocol";
+import { isPotKind } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { jobsApi } from "./api/jobs";
 import {
@@ -148,7 +149,11 @@ export function worldJobs(o: {
           keep({ ...board, you: { ...board.you, held: { ...held, count: event.count } } });
         }
       } else if (event.type === "job_done") {
-        o.toast(doneLine(event, job?.from));
+        // A pot handed in goes on the shop's shelf of the town's pots (RFC 0047): say where.
+        const pot = job?.bring && isPotKind(job.bring.recipe);
+        o.toast(
+          `${doneLine(event, job?.from)}${pot ? " Your pot is on the shop's shelf now." : ""}`,
+        );
       } else if (event.type === "job_dropped") {
         o.toast(droppedLine(event.lapsed === true));
       }

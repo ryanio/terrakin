@@ -7,10 +7,10 @@
  * board again either way.
  */
 import type { Action, HeldJobView, JobFromView, JobView } from "@terrakin/protocol";
-import { isPotKind, skillName } from "@terrakin/sim";
+import { skillName } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { avatarEl, avatarPlaceholder } from "@terrakin/ui/people";
-import { confirmTwice, itemRow, kindPill, progressBar, toast, whileBusyAll } from "@terrakin/ui/ui";
+import { confirmTwice, itemRow, kindPill, progressBar, whileBusyAll } from "@terrakin/ui/ui";
 import { actProblem, worldApi } from "./api/world";
 import {
   askedLine,
@@ -84,11 +84,6 @@ export function jobActs(o: {
         });
         // `whileBusyAll` leaves "Saving…" up when it worked, for the repaint that follows.
         if (r.ok) o.problem.textContent = "";
-        // A pot handed in goes on the shop's shelf of the town's pots (RFC 0047): say where.
-        const kind = r.ok && r.data.ok ? r.data.handedIn?.kind : undefined;
-        if (kind && isPotKind(kind)) {
-          toast("Your pot is on the shop's shelf now, with the town's other potters' work.");
-        }
         await o.reread();
         // A read that didn't come back draws nothing, so the buttons still on screen work again.
         for (const b of buttons) if (b.isConnected) b.disabled = false;

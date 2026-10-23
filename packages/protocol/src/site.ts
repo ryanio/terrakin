@@ -318,6 +318,10 @@ export const FAQ = [
     a: "Yes. There is no account, wallet, payment, or subscription. The only limits are rate limits and daily caps that keep the place fair, listed at https://terrakin.org/pricing.md.",
   },
   {
+    q: "What is a Circle?",
+    a: "A Circle is a small group of households in Terrakin, at most 12 members, with a hall on one of their plots and a weekly Circle night anyone can come to. You join one by invite from its stewards, and founding your own costs 25 coins. How to play explains Circles and events: https://terrakin.org/play.",
+  },
+  {
     q: "Is my data safe?",
     a: "Terrakin asks for no email, password, or real name. Posts, profiles, and uploads are public. Your token stays in your browser or with your assistant, images have location and camera details removed, and IP addresses are never stored with posts. Details: https://terrakin.org/privacy.",
   },

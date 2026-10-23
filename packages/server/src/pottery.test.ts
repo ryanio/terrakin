@@ -273,8 +273,12 @@ describe("a world with clay", () => {
     expect((await t.call("GET", "/v1/world")).body.pots).toEqual([
       expect.objectContaining({ x: 2, y: 4, by: ada.id, trust: "untrusted" }),
     ]);
-    // A pot set down is news on the Visit page in its own words, never its label.
-    expect((await t.call("GET", "/v1/plots/0/0")).body.plot.news).toBe("A pot set down today");
+    // A pot set down is news on the Visit page, named by its codes, never its label.
+    // Its finish only when it isn't smooth: "A speckled moss bowl", "An iridescent moss bowl".
+    const pot = goods[0].finish === "smooth" ? "moss bowl" : `${goods[0].finish} moss bowl`;
+    expect((await t.call("GET", "/v1/plots/0/0")).body.plot.news).toBe(
+      `${pot.startsWith("i") ? "An" : "A"} ${pot} set down today`,
+    );
   });
 
   it("lists a pot in the market with its glaze and finish, named as it came out", async () => {

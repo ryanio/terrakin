@@ -10,6 +10,7 @@ import {
   canBuildOn,
   DAY_MS,
   FLOORS,
+  type Good,
   type Input,
   knockedToday,
   own,
@@ -19,6 +20,7 @@ import {
   plotInBounds,
   plotKey,
   plotListing,
+  potsOf,
   residentById,
   tileKey,
   trickOrTreatDay,
@@ -513,6 +515,14 @@ export class PlotVisits {
     // The line is written here, with the clock the whole read shares, so the views stay pure and
     // "today" can't change halfway down a page of cards.
     const today = utcDay(this.o.now());
+    // The pots standing on each plot (RFC 0047), with the day each was set down, so a day that set
+    // down one names it.
+    const size = state.config.plotSize;
+    const pots = new Map<string, { day: number; good: Good }[]>();
+    for (const { x, y, pot } of potsOf(state)) {
+      const key = plotKey(Math.floor(x / size), Math.floor(y / size));
+      pots.set(key, [...(pots.get(key) ?? []), { day: pot.day, good: pot.good }]);
+    }
     const news = new Map<string, { owner: string; line: string }>();
     for (const row of this.o.sql.exec(
       `SELECT px, py, owner, day, ${NEWS_FIELDS.join(", ")} FROM plot_news${
@@ -523,7 +533,10 @@ export class PlotVisits {
       const counts = noNews();
       for (const field of NEWS_FIELDS) counts[field] = Number(row[field]);
       const key = plotKey(Number(row.px), Number(row.py));
-      const line = newsLine(counts, Number(row.day), today, own(state.plots, key)?.roof?.top);
+      const day = Number(row.day);
+      const setDown = (pots.get(key) ?? []).filter((p) => p.day === day);
+      const pot = setDown.length === 1 ? setDown[0]?.good : undefined;
+      const line = newsLine(counts, day, today, own(state.plots, key)?.roof?.top, pot);
       if (line === undefined) continue;
       news.set(key, { owner: String(row.owner), line });
     }

@@ -1,5 +1,5 @@
 import { PLOT_ADMIRE } from "@terrakin/protocol";
-import type { RoofTop, WorldEvent } from "@terrakin/sim";
+import { type Good, potName, type RoofTop, type WorldEvent } from "@terrakin/sim";
 
 /**
  * What is new on a plot, as the Visit page says it (RFC 0020): one public line of what changed
@@ -133,6 +133,16 @@ export function newsOfEvent(event: WorldEvent): Partial<PlotNews> | undefined {
   }
 }
 
+/**
+ * One pot set down, by its codes (RFC 0047): "a rose vase of tulips", its finish only when it
+ * isn't smooth, "a pot" when the world no longer holds it there. Never its label.
+ */
+function aPot(pot: Good | undefined): string {
+  if (!pot) return "a pot";
+  const words = potName({ ...pot, finish: pot.finish === "smooth" ? undefined : pot.finish }, true);
+  return `${/^[aeiou]/.test(words) ? "an" : "a"} ${words}`;
+}
+
 /** What stands on a roof's ridge, in the words SKILL.md gives each one (RFC 0041). */
 const RIDGE_WORDS: Record<RoofTop, string> = {
   vane: "a weather vane",
@@ -150,7 +160,11 @@ function some(count: number, one: string, many: string): string {
  * is the whole line, since a card has one line for it beside the drawing and two things joined
  * with "and" wrap on a phone.
  */
-function whatHappened(news: PlotNews, top: RoofTop | undefined): string | undefined {
+function whatHappened(
+  news: PlotNews,
+  top: RoofTop | undefined,
+  pot: Good | undefined,
+): string | undefined {
   if (news.gallery > 0) return "opened as a gallery";
   if (news.roof > 0) return "a roof went up";
   if (news.restyle > 0) return "the roof changed";
@@ -161,7 +175,9 @@ function whatHappened(news: PlotNews, top: RoofTop | undefined): string | undefi
   if (news.claimed > 0) return "someone moved in";
   if (news.sold > 0) return "a new owner moved in";
   if (news.blocks > 0) return `${some(news.blocks, "new block", "new blocks")} went up`;
-  if (news.pots > 0) return news.pots === 1 ? "a pot set down" : `${news.pots} pots set down`;
+  if (news.pots > 0) {
+    return news.pots === 1 ? `${aPot(pot)} set down` : `${news.pots} pots set down`;
+  }
   if (news.planted > 0) return `${some(news.planted, "bed", "beds")} planted`;
   // Below the building: a ridge is one tile of ornament, however far it is seen from. `top` is
   // what stands there now, so a ridge set and cleared the same day falls through, and with nothing
@@ -204,7 +220,8 @@ function whenWords(day: number, today: number): string | undefined {
 
 /**
  * The line a card says: "A roof went up on Tuesday", "3 beds planted today". `top` is what stands
- * on the plot's ridge now, which names a ridge line. Nothing for a day with nothing on it, or news
+ * on the plot's ridge now, which names a ridge line, and `pot` the one pot set down there that
+ * day and still standing, which names a pot line ("A rose vase of tulips set down today"). Nothing for a day with nothing on it, or news
  * older than the week (`NEWS_DAYS`), when the card falls back to saying how lately the plot
  * changed.
  */
@@ -213,8 +230,9 @@ export function newsLine(
   day: number,
   today: number,
   top?: RoofTop | undefined,
+  pot?: Good | undefined,
 ): string | undefined {
-  const what = whatHappened(news, top);
+  const what = whatHappened(news, top, pot);
   const when = whenWords(day, today);
   if (what === undefined || when === undefined) return undefined;
   return `${what[0]?.toUpperCase()}${what.slice(1)} ${when}`;

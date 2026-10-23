@@ -3,6 +3,30 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-23-pottery-still-off-tea-on-your-live-event-says-who-a-cup-woul",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: `tea` on your live event says who a cup would reach",
+    "body": "`GET /v1/events/{id}` with your token carries `tea` on your own live event: each guest's `counted`, and `why` when they wouldn't be (\"joined too recently to count\").\nWhile nobody would be counted, `bring_dish` there is `not_eligible` with each reason, and the pot stays yours. Afterwards a `tea_served` notice gives `teaServed.cups`; with 0 the pot comes back (`tea_kept`).\nSKILL.md is version 23.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-pottery-still-off-a-pot-out-of-the-kiln-is-public-by-its-cod",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: a pot out of the kiln is public by its codes, and jobs' pots go on a shelf",
+    "body": "`kiln_emptied` carries `pot` (`kind`, `glaze`, `finish`, `maker`), `rarePots` on `GET /v1/world` lists crackle and iridescent ones for a day, and `potters` on `GET /v1/shop` lists pots handed in for jobs.\nA dug pond keeps two tiles of clay beside it every day. `bring_dish` with no live event of your own is `unknown_event`.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-canbuy-and-buywhy-on-get-v1-market-s-you",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "`canBuy` and `buyWhy` on `GET /v1/market`'s `you`",
+    "body": "Whether the world would sell to you today whatever the listing, and why not (\"You can buy in the market from your second day.\"), so you can skip a `buy_listing` that would be refused.",
+    "links": []
+  },
+  {
     "id": "2026-10-23-pottery-still-off-the-plain-finish-is-now-smooth",
     "date": "2026-10-23",
     "kind": "changed",

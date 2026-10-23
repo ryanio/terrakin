@@ -415,6 +415,9 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-23:
 
+- Added: Pottery, still off: `tea` on your live event says who a cup would reach
+- Added: Pottery, still off: a pot out of the kiln is public by its codes, and jobs' pots go on a shelf
+- Added: `canBuy` and `buyWhy` on `GET /v1/market`'s `you`
 - Changed: Pottery, still off: the `plain` finish is now `smooth`
 - Added: Pottery, still off: `harvest` at a kiln answers with `fired`, the pot named as it came out
 

@@ -14,7 +14,7 @@ import {
 } from "@terrakin/protocol";
 import { blockNeeds, potName } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
+import { plural, pluralWord } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { RULE_WORDS } from "@terrakin/ui/safety";
@@ -461,7 +461,7 @@ export function teaServedLine(cups: number): { line: string; next: string } {
   }
   return {
     line: `Your tea poured ${plural(cups, "cup", "cups")} at your event.`,
-    next: `${cups === 1 ? "Your guest took it" : "Your guests took them"} home to keep.`,
+    next: `${pluralWord(cups, "Your guest took it", "Your guests took them")} home to keep.`,
   };
 }
 

@@ -32588,7 +32588,8 @@
           "handed_in",
           "brought",
           "fired",
-          "poured"
+          "poured",
+          "tea_kept"
         ]
       },
       "InviteToCircleAction": {
@@ -41329,13 +41330,37 @@
               },
               "by": {
                 "type": "string"
+              },
+              "pot": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "$ref": "#/components/schemas/GoodKind"
+                  },
+                  "glaze": {
+                    "$ref": "#/components/schemas/GlazeName"
+                  },
+                  "finish": {
+                    "$ref": "#/components/schemas/FinishName"
+                  },
+                  "maker": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "glaze",
+                  "finish",
+                  "maker"
+                ]
               }
             },
             "required": [
               "type",
               "x",
               "y",
-              "by"
+              "by",
+              "pot"
             ]
           },
           {
@@ -43396,6 +43421,38 @@
               ]
             }
           },
+          "rarePots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "maker": {
+                  "type": "string"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/GoodKind"
+                },
+                "glaze": {
+                  "$ref": "#/components/schemas/GlazeName"
+                },
+                "finish": {
+                  "$ref": "#/components/schemas/FinishName"
+                }
+              },
+              "required": [
+                "seq",
+                "maker",
+                "kind",
+                "glaze",
+                "finish"
+              ]
+            }
+          },
           "crops": {
             "type": "array",
             "items": {
@@ -43693,6 +43750,12 @@
                   "maximum": 9007199254740991
                 },
                 "town": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                },
+                "tea": {
                   "type": "boolean",
                   "enum": [
                     true
@@ -44659,7 +44722,8 @@
           "way_laid",
           "way_closed",
           "tea_poured",
-          "pot_sold"
+          "pot_sold",
+          "tea_served"
         ]
       },
       "NotificationView": {
@@ -44945,6 +45009,19 @@
               "finish",
               "price",
               "coins"
+            ]
+          },
+          "teaServed": {
+            "type": "object",
+            "properties": {
+              "cups": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "cups"
             ]
           },
           "event": {
@@ -50434,6 +50511,36 @@
                 "y"
               ]
             }
+          },
+          "potters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "maker": {
+                  "$ref": "#/components/schemas/AuthorView"
+                },
+                "giver": {
+                  "type": "string"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/GoodKind"
+                },
+                "glaze": {
+                  "$ref": "#/components/schemas/GlazeName"
+                },
+                "finish": {
+                  "$ref": "#/components/schemas/FinishName"
+                }
+              },
+              "required": [
+                "maker",
+                "giver",
+                "kind",
+                "glaze",
+                "finish"
+              ]
+            }
           }
         },
         "required": [
@@ -50753,6 +50860,12 @@
           "why": {
             "type": "string"
           },
+          "canBuy": {
+            "type": "boolean"
+          },
+          "buyWhy": {
+            "type": "string"
+          },
           "takenDown": {
             "type": "array",
             "items": {
@@ -50763,7 +50876,8 @@
         "required": [
           "balance",
           "listings",
-          "canList"
+          "canList",
+          "canBuy"
         ]
       },
       "OwnPlotView": {
@@ -51520,6 +51634,13 @@
                 "kind"
               ]
             }
+          },
+          "tea": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TeaView"
+              }
+            ]
           }
         },
         "required": [
@@ -51626,6 +51747,55 @@
           "canHost",
           "plots",
           "balance"
+        ]
+      },
+      "TeaView": {
+        "type": "object",
+        "properties": {
+          "served": {
+            "type": "boolean"
+          },
+          "stay": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "guests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "resident": {
+                  "$ref": "#/components/schemas/AuthorView"
+                },
+                "here": {
+                  "type": "boolean"
+                },
+                "seen": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "counted": {
+                  "type": "boolean"
+                },
+                "why": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "resident",
+                "here",
+                "seen",
+                "counted"
+              ]
+            }
+          }
+        },
+        "required": [
+          "served",
+          "stay",
+          "guests"
         ]
       },
       "AwayLine": {

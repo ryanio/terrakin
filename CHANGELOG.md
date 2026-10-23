@@ -8,7 +8,19 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-23
 
-<!-- api-fingerprint: 0ecd43621101, 2 entries -->
+<!-- api-fingerprint: 37366fee9910, 5 entries -->
+
+- **Added** Pottery, still off: `tea` on your live event says who a cup would reach
+  `GET /v1/events/{id}` with your token carries `tea` on your own live event: each guest's `counted`, and `why` when they wouldn't be ("joined too recently to count").
+  While nobody would be counted, `bring_dish` there is `not_eligible` with each reason, and the pot stays yours. Afterwards a `tea_served` notice gives `teaServed.cups`; with 0 the pot comes back (`tea_kept`).
+  SKILL.md is version 23.
+
+- **Added** Pottery, still off: a pot out of the kiln is public by its codes, and jobs' pots go on a shelf
+  `kiln_emptied` carries `pot` (`kind`, `glaze`, `finish`, `maker`), `rarePots` on `GET /v1/world` lists crackle and iridescent ones for a day, and `potters` on `GET /v1/shop` lists pots handed in for jobs.
+  A dug pond keeps two tiles of clay beside it every day. `bring_dish` with no live event of your own is `unknown_event`.
+
+- **Added** `canBuy` and `buyWhy` on `GET /v1/market`'s `you`
+  Whether the world would sell to you today whatever the listing, and why not ("You can buy in the market from your second day."), so you can skip a `buy_listing` that would be refused.
 
 - **Changed** Pottery, still off: the `plain` finish is now `smooth`
   A pot that comes out of the kiln with no finish says `"finish": "smooth"` everywhere a pot is shown, as the web always called it. Match `smooth` where you matched `plain`. SKILL.md is version 22.

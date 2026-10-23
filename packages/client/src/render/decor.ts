@@ -223,9 +223,19 @@ export function paintShown(
     ctx.restore();
     return;
   }
-  // A pot set down on the ground (RFC 0047) stands on the tile itself, a little bigger.
-  const side = on === "ground" ? size * 0.82 : size * 0.66;
-  const y = on === "ground" ? top + size * 0.92 - side : top + size * 0.58 - side;
+  // A pot set down on the ground (RFC 0047) stands on its tile and rises over the tile above, as
+  // furniture does, so it reads as a pot from a step away and a vase's flower shows.
+  const side = on === "ground" ? size * 1.25 : size * 0.66;
+  const y = on === "ground" ? top + size * 1.02 - side : top + size * 0.58 - side;
+  if (on === "ground") {
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#2b1d14";
+    ctx.beginPath();
+    ctx.ellipse(cx, top + size * 0.88, size * 0.3, size * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
   if (picture) {
     // A little canvas on the plinth, in a frame.
     const w = side * 0.8;
@@ -268,10 +278,52 @@ export function paintFind(
   const side = size * 0.76;
   if (art) ctx.drawImage(art, cx - side / 2, cy - side * 0.55, side, side);
   // The sparkle, up and to the right of the picture.
-  const sx = cx + side * 0.36;
-  const sy = cy - side * 0.42;
-  const r = Math.max(2, size * 0.09);
-  ctx.fillStyle = PAPER;
+  paintSparkle(ctx, cx + side * 0.36, cy - side * 0.42, Math.max(2, size * 0.09), PAPER);
+  ctx.restore();
+}
+
+/**
+ * A pot of tea out at an event (RFC 0047): the teapot on its tile, up on the table when it stands
+ * on one, with steam rising from its spout in three soft puffs that hold still for reduced motion.
+ */
+export function paintTeapot(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  onTable: boolean,
+  now: number,
+  still: boolean,
+) {
+  const art = itemArtImage("pot_of_tea");
+  const side = size * 0.92;
+  const cx = left + size / 2;
+  const y = top + size * (onTable ? 0.62 : 0.98) - side;
+  if (art) ctx.drawImage(art, cx - side / 2, y, side, side);
+  ctx.save();
+  for (let i = 0; i < 3; i++) {
+    const phase = still ? (i + 1) / 4 : (now / 1600 + i / 3) % 1;
+    ctx.globalAlpha = (1 - phase) * 0.75;
+    ctx.fillStyle = PAPER;
+    ctx.beginPath();
+    const r = size * (0.06 + phase * 0.08);
+    const sx = cx + size * 0.1 + Math.sin(phase * 5 + i) * size * 0.06;
+    const sy = y + side * 0.2 - phase * size * 0.7;
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A small four-pointed sparkle at (sx, sy), `r` from its middle to a point. */
+export function paintSparkle(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  r: number,
+  fill: string,
+) {
+  ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.moveTo(sx, sy - r);
   ctx.quadraticCurveTo(sx, sy, sx + r, sy);
@@ -279,7 +331,6 @@ export function paintFind(
   ctx.quadraticCurveTo(sx, sy, sx - r, sy);
   ctx.quadraticCurveTo(sx, sy, sx, sy - r);
   ctx.fill();
-  ctx.restore();
 }
 
 /**

@@ -11,6 +11,7 @@ import {
 } from "@terrakin/sim";
 import { CROP_HEX, onVine } from "@terrakin/ui/item-art";
 import { paintMotif, patternMotifs as patternMotifsFor } from "@terrakin/ui/looks";
+import { paintSparkle } from "./decor";
 import { WORKSHOP_BLOCKS } from "./palette";
 
 /** How a themed plot dresses its blocks. */
@@ -284,6 +285,32 @@ export function paintKilnFire(
   ctx.fillStyle = g;
   ctx.fillRect(cx - scale, cy - scale, scale * 2, scale * 2);
   kilnMouth(ctx, left, top, size, KILN_GLOW);
+  ctx.restore();
+}
+
+/**
+ * A kiln whose pot is ready to take out (RFC 0047): two gold sparkles over its dome, twinkling
+ * unless motion is still, so a ready kiln shows from across the plot.
+ */
+export function paintKilnReady(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  size: number,
+  now: number,
+  still: boolean,
+) {
+  const pulse = still ? 1 : 0.8 + 0.2 * Math.sin(now / 260);
+  ctx.save();
+  for (const [fx, fy, r] of [
+    [0.78, 0.08, 0.17],
+    [0.56, -0.08, 0.1],
+  ] as const) {
+    const sx = left + size * fx;
+    const sy = top + size * fy;
+    const rr = size * r * pulse;
+    paintSparkle(ctx, sx, sy, rr, "#ffe08a");
+  }
   ctx.restore();
 }
 

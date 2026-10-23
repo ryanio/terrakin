@@ -472,5 +472,18 @@ export function inventoryView(ctx: ViewContext): View {
   }
 
   const loader = pageData({ ask: () => inventoryApi.inventory(), paint, fail: failInto(main) });
-  return { el, ready: loader.ready, destroy: loader.leave };
+  // Your AI may act as you while this page is open: read your things again when you come back to
+  // the tab, so the counts aren't the ones from before.
+  const back = () => {
+    if (document.visibilityState === "visible") loader.refresh();
+  };
+  document.addEventListener("visibilitychange", back);
+  return {
+    el,
+    ready: loader.ready,
+    destroy: () => {
+      document.removeEventListener("visibilitychange", back);
+      loader.leave();
+    },
+  };
 }

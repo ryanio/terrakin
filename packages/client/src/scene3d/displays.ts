@@ -147,7 +147,7 @@ async function pictureCanvas(url: string): Promise<HTMLCanvasElement | undefined
 }
 
 /** A thing's drawn picture: on paper to hang in a frame, or cut out to stand on a pedestal. */
-async function artCanvas(thing: ThingLook, onPaper: boolean) {
+export async function artCanvas(thing: ThingLook, onPaper: boolean) {
   const img = await thingArtLoaded(thing);
   if (!img) return undefined;
   const out = onPaper ? blank(CARD.width, CARD.height) : blank(ART, ART);
@@ -285,7 +285,8 @@ export function displayedThings(
           // A jar, a bouquet, a wreath: its drawn picture standing on the pedestal, facing you. A
           // pot set down (RFC 0047) stands on its own tile and floor, a little bigger.
           const ground = d.on === "ground";
-          const size = ground ? 0.78 : 0.62;
+          // A pot set down (RFC 0047) stands a little taller than a tile, so it reads at home.
+          const size = ground ? 1.05 : 0.62;
           const base = ground ? floorY(d.floor) : pedestalTop;
           shown = new Sprite(new SpriteMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }));
           shown.scale.set(size, size, 1);

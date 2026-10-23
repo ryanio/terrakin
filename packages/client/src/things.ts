@@ -307,22 +307,46 @@ export function finishOdds(finish: Finish): string {
 export const finishName = (finish: Finish): string =>
   `${finish.charAt(0).toUpperCase()}${finish.slice(1)}`;
 
+/** Each glaze in words, after the finish: what it looks like and where it came from. */
+const GLAZE_WORDS: Record<Glaze, string> = {
+  bare: "in the clay's own warm brown",
+  cream: "in cream from a seashell, soft as milk",
+  sea: "in sea glass blue, like shallow water",
+  crystal: "in crystal, clear as ice",
+  rose: "in rose pink from a flower",
+  honey: "in honey gold from a lemon",
+  berry: "in berry red from a strawberry",
+  moss: "in moss green from a bunch of herbs",
+};
+
+/** Each pot in a sentence: what it's for. */
+const POT_WORDS: Record<string, string> = {
+  bowl: "A bowl for soup, or for keeping small things in.",
+  vase: "A vase waiting for a flower.",
+  teapot: "A teapot: two bunches of herbs at a kitchen, and it pours tea for your guests.",
+};
+
+/** How each finish opens its line. */
+const FINISH_LEADS: Record<Finish, string> = {
+  smooth: "A good steady pot, smooth and even",
+  speckled: "Speckled all over",
+  crackle: "A fine crackle runs through it",
+  iridescent: "Iridescent! It shimmers as it turns",
+};
+
 /**
- * The line under a pot as it comes out of the kiln (RFC 0047): how often its finish comes, and for
- * the rarest two that it's worth a look. "Speckled, as 15 in 100 pots come out."
+ * The lines under a pot as it comes out of the kiln (RFC 0047), fixed words keyed by its codes so
+ * twelve smooth pots don't read alike: its finish and glaze, what its kind is for, and how often
+ * the finish comes, for the rarest two that it's worth a look. "Speckled all over, in sea glass
+ * blue, like shallow water. A bowl for soup, or for keeping small things in. 15 in 100 pots come
+ * out speckled."
  */
-export function revealLine(finish: Finish): string {
-  const odds = finishOdds(finish);
-  switch (finish) {
-    case "smooth":
-      return `A good steady pot, smooth and even, the way ${odds} come out. One to use every day.`;
-    case "speckled":
-      return `Speckled, as ${odds} come out.`;
-    case "crackle":
-      return `A fine crackle in the glaze. Only ${odds} come out like this.`;
-    case "iridescent":
-      return `Iridescent! It shimmers as it turns. Only ${odds} come out like this.`;
-  }
+export function revealLine(pot: { kind: string; glaze: Glaze; finish: Finish }): string {
+  const odds = finishOdds(pot.finish);
+  const rare = pot.finish === "crackle" || pot.finish === "iridescent";
+  const often = rare ? `Only ${odds} come out like this.` : `${odds} come out ${pot.finish}.`;
+  const kind = POT_WORDS[pot.kind] ?? "";
+  return `${FINISH_LEADS[pot.finish]}, ${GLAZE_WORDS[pot.glaze]}.${kind ? ` ${kind}` : ""} ${often}`;
 }
 
 /** When a pot comes out of a kiln, as `growthLine` says it of a crop. */

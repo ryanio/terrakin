@@ -324,9 +324,14 @@ export function marketView(ctx: ViewContext): View {
         text: "You have nothing to sell yet. Grow, make, or buy something first.",
       });
     }
+    // It starts on nothing, so a tap on List never sells a teapot you meant to keep.
     const pick = h(
       "select",
       { class: "field-input", attrs: { id: "market-pick" } },
+      h("option", {
+        attrs: { value: "", disabled: "", selected: "" },
+        text: "Pick something to sell",
+      }),
       ...options.map((o) => h("option", { attrs: { value: o.value }, text: o.text })),
     );
     const count = coinField({ id: "market-count", value: 1 });
@@ -337,7 +342,7 @@ export function marketView(ctx: ViewContext): View {
       h("label", { class: "field-label", attrs: { for: "market-count" }, text: "How many?" }),
       count,
     );
-    const chosen = () => options.find((o) => o.value === pick.value) ?? options[0];
+    const chosen = () => options.find((o) => o.value === pick.value);
     // Where the picked thing sells: to the town today, or only here, and what others here ask.
     const advice = h("div", {
       class: "stack tight start market-advice",
@@ -379,7 +384,11 @@ export function marketView(ctx: ViewContext): View {
     let suggested = "";
     const sync = () => {
       const o = chosen();
-      if (!o) return;
+      if (!o) {
+        advice.replaceChildren();
+        countRow.hidden = true;
+        return;
+      }
       const asks = asksFor(o.kind, listed, me);
       advise(o.kind, asks, o.finish);
       countRow.hidden = !o.stack;
@@ -427,7 +436,11 @@ export function marketView(ctx: ViewContext): View {
       const o = chosen();
       const p = Number(price.value);
       const n = Number(count.value);
-      if (!o) return;
+      if (!o) {
+        toast("Pick what to sell first.");
+        pick.focus();
+        return;
+      }
       if (!Number.isInteger(p) || p < 1) {
         toast("A price is a whole number of coins, at least 1.");
         price.focus();

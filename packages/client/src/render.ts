@@ -12,6 +12,7 @@ import {
   holidaysOf,
   isDecorKind,
   isFurnitureKind,
+  isReady,
   LEAF_TONES,
   OUTSIDE_GROUND,
   PET_BOX,
@@ -53,7 +54,14 @@ import {
 } from "./overhead";
 import { lyingOn, type PetMotion, type PetScene } from "./pets";
 import { presentPiles } from "./presents";
-import { type BlockSkin, paintBlock, paintCrop, paintDoor, paintKilnFire } from "./render/blocks";
+import {
+  type BlockSkin,
+  paintBlock,
+  paintCrop,
+  paintDoor,
+  paintKilnFire,
+  paintKilnReady,
+} from "./render/blocks";
 import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
 import {
   leafPath,
@@ -62,6 +70,7 @@ import {
   paintLantern,
   paintPedestal,
   paintShown,
+  paintTeapot,
   paintTownMark,
 } from "./render/decor";
 import { lightBulbs, paintPresents } from "./render/decor-winter";
@@ -83,6 +92,7 @@ import {
 import { type CastMark, paintBridge, paintCast, paintPond, paintSea } from "./render/water";
 import { postureAt, restingDraw } from "./resting";
 import { roofCover, roofsShown } from "./roofs";
+import { teaSpots } from "./tea-spots";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
@@ -580,8 +590,11 @@ export function render(
       ctx.drawImage(art, left, top, w, h);
     }
     // A kiln firing a pot (RFC 0047) burns at its mouth, and glows on after dark.
-    if (block === "kiln" && mirror.kilns.has(key)) {
+    const firing = block === "kiln" ? mirror.kilns.get(key) : undefined;
+    if (firing) {
       paintKilnFire(ctx, left, top, size, scale);
+      // Ready to take out: a sparkle over it, so it shows from across the plot.
+      if (isReady(firing.readyDay, mirror.day)) paintKilnReady(ctx, left, top, size, now, still);
       lanterns.push({ sx: left + size / 2, sy: top + size * 0.72, tint: "warm" });
     }
     // Something growing in a planter: drawn from the world's day, so it grows at midnight UTC.
@@ -640,6 +653,20 @@ export function render(
     const top = Math.round(sy - half) + inset;
     const size = Math.round(scale) - inset * 2;
     paintGameTable(ctx, left, top, size, scale, inset, t.playing);
+  }
+
+  // ---- tea (RFC 0047): a teapot with steam on the host's table, or by the hearth ----
+  for (const t of teaSpots({
+    plotSize: S,
+    events: mirror.events.values(),
+    blocks: mirror.blocks,
+    hearthOf: (id) => mirror.residents.get(id)?.hearth,
+  })) {
+    if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
+    const { sx, sy } = tileToScreen(cam, t.x, t.y);
+    const left = Math.round(sx - half) + inset;
+    const top = Math.round(sy - half) + inset;
+    paintTeapot(ctx, left, top, Math.round(scale) - inset * 2, t.table, now, still);
   }
 
   // ---- hearths: a little house, drawn under residents ----

@@ -56,8 +56,9 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { inventoryApi } from "./api/inventory";
+import { INVENTORY_EVENT, inventoryApi } from "./api/inventory";
 import { actProblem, worldApi } from "./api/world";
+import { glazeCostLine, glazeName } from "./glaze-words";
 import { dotChips } from "./join-form";
 import {
   CLAY_WHERE,
@@ -203,12 +204,15 @@ export function openTileSheet(o: TileSheetOptions) {
           },
         ).row
       : null;
+  // What the picked glaze takes and where that comes from (RFC 0047): "1 sea glass, found on the sand".
+  const glazeCost = h("p", { class: "hint kiln-glaze-cost", attrs: { "aria-live": "polite" } });
   const glazeField = glazes
     ? h(
         "div",
         { class: "workshop-label" },
         h("span", { class: "field-label", text: "Glaze (each but bare costs one thing)" }),
         glazes,
+        glazeCost,
       )
     : null;
   // What can come out of a kiln (RFC 0047): a pot in the picked glaze in each finish, with its odds,
@@ -506,6 +510,7 @@ export function openTileSheet(o: TileSheetOptions) {
       ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
       : "Pick a glaze and a pot. It fires overnight, and comes out tomorrow with a finish nobody can know until then.";
     const cost = GLAZE_COSTS[glaze];
+    glazeCost.textContent = `${glazeName(glaze)}: ${glazeCostLine(glaze)}${cost ? `. You have ${held.get(cost) ?? 0}.` : "."}`;
     const potRow = (r: (typeof pots)[number]) => {
       const needs = cost ? [...r.needs, { kind: cost, count: 1 }] : r.needs;
       const short = missingLine(needs, (kind) => held.get(kind) ?? 0);
@@ -591,7 +596,7 @@ export function openTileSheet(o: TileSheetOptions) {
       ),
       h("p", { class: "eyebrow kiln-reveal-eyebrow", text: "Out of the kiln" }),
       h("h3", { class: "kiln-reveal-name", text: pot.name }),
-      h("p", { class: "kiln-reveal-line", text: revealLine(pot.finish) }),
+      h("p", { class: "kiln-reveal-line", text: revealLine(pot) }),
       again,
     );
     reveal.hidden = false;
@@ -667,5 +672,17 @@ export function openTileSheet(o: TileSheetOptions) {
   }
 
   openOverlay(s.dialog);
+  // What you hold can change while the sheet is open (your AI, acting as you): read it again,
+  // once a burst of changes settles, for as long as the sheet is up.
+  let again: ReturnType<typeof setTimeout> | undefined;
+  const reread = () => {
+    if (!s.dialog.isConnected || !s.dialog.open) {
+      window.removeEventListener(INVENTORY_EVENT, reread);
+      return;
+    }
+    clearTimeout(again);
+    again = setTimeout(() => void load(false), 400);
+  };
+  window.addEventListener(INVENTORY_EVENT, reread);
   void load(true);
 }

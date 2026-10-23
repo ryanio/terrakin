@@ -52,7 +52,7 @@ import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, disclosure, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
-import { inventoryApi } from "./api/inventory";
+import { INVENTORY_EVENT, inventoryApi } from "./api/inventory";
 import { forgetMe, whoseKey } from "./api/me";
 import { residentsApi } from "./api/residents";
 import { signinApi } from "./api/signin";
@@ -709,6 +709,7 @@ function onMessage(msg: ServerMessage) {
       }
       // What you hold changes the build bar: decor and furniture counts, and what paths take.
       if (msg.event.type === "inventory" && msg.event.residentId === me) {
+        window.dispatchEvent(new Event(INVENTORY_EVENT));
         rods = rodsAfter(rods, msg.event);
         if (msg.event.lost?.length || msg.event.gained?.length) {
           pots = potsAfter(pots, msg.event);

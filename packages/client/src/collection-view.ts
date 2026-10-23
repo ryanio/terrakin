@@ -29,6 +29,7 @@ import { profilePath } from "@terrakin/ui/paths";
 import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
 import { collectionApi } from "./api/collection";
 import { residentsApi } from "./api/residents";
+import { glazeCostLine } from "./glaze-words";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
 import {
@@ -42,13 +43,16 @@ import {
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 import "./collection-view.css";
 
-/** How pottery's pages draw a row: a vase in the glaze, or a sea vase with the finish. */
+/**
+ * How pottery's pages draw a row: a vase in the glaze, or a vase of bare clay with the finish,
+ * since the book doesn't know which glaze your pot of that finish came in.
+ */
 function potLook(family: string, kind: string): ThingLook | undefined {
   if (family === GLAZE_GROUP && (GLAZES as readonly string[]).includes(kind)) {
     return { kind: "vase", glaze: kind as Glaze };
   }
   if (family === FINISH_GROUP && (FINISH_NAMES as readonly string[]).includes(kind)) {
-    return { kind: "vase", glaze: "sea", finish: kind as Finish };
+    return { kind: "vase", glaze: "bare", finish: kind as Finish };
   }
   return undefined;
 }
@@ -59,10 +63,13 @@ function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
   // A finish (RFC 0047) shows what it looks like and how often it comes, to give a potter
   // something to hope for, faint until one of theirs has it.
   const finish = family === FINISH_GROUP && (FINISH_NAMES as readonly string[]).includes(k.kind);
+  // A glaze shows too, with what it takes and where that comes from.
+  const glaze = family === GLAZE_GROUP && (GLAZES as readonly string[]).includes(k.kind);
+  const shown = got || finish || glaze;
   const opts = {
     size: 48,
-    title: got || finish ? k.name : "Not found yet",
-    ...(got ? {} : { className: finish ? "faint" : "silhouette" }),
+    title: shown ? k.name : "Not found yet",
+    ...(got ? {} : { className: finish || glaze ? "faint" : "silhouette" }),
   };
   // Pottery's pages (RFC 0047): a vase in each glaze, and one in each finish.
   const pot = potLook(family, k.kind);
@@ -72,16 +79,18 @@ function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
       ? dayLabel(k.firstDay, now)
       : finish
         ? finishOdds(k.kind as Finish)
-        : k.seasons
-          ? seasonsLine(k.seasons)
-          : k.holiday
-            ? holidayLine(k.holiday)
-            : null;
+        : glaze
+          ? glazeCostLine(k.kind as Glaze)
+          : k.seasons
+            ? seasonsLine(k.seasons)
+            : k.holiday
+              ? holidayLine(k.holiday)
+              : null;
   return h(
     "li",
     { class: got ? "collection-kind got" : "collection-kind", attrs: { "data-kind": k.kind } },
     art,
-    h("span", { class: "collection-kind-name", text: got || finish ? k.name : "?" }),
+    h("span", { class: "collection-kind-name", text: shown ? k.name : "?" }),
     under ? h("span", { class: "collection-kind-when", text: under }) : null,
   );
 }

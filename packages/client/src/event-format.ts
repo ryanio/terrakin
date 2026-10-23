@@ -5,7 +5,7 @@
  */
 import type { EventView, HostingView, TeaView } from "@terrakin/protocol";
 import { EVENTS, type EventKind, ITEM_INFO } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { plural, pluralWord } from "@terrakin/ui/format";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -230,7 +230,7 @@ export function teaLines(tea: TeaView): string[] {
     : `Everyone here takes home a cup: ${nameList(cups)}.`;
   const hosting =
     counted.length > 0
-      ? `${nameList(counted)} ${counted.length === 1 ? "counts" : "count"} for your Hosting once they've been here ${stay}.`
+      ? `${nameList(counted)} ${pluralWord(counted.length, "counts", "count")} for your Hosting once they've been here ${stay}.`
       : "Nobody here counts for your Hosting yet.";
   const not = tea.guests.flatMap((g) =>
     g.why

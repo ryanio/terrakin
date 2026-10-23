@@ -16,8 +16,10 @@ import {
   groundTile,
   holidaysOf,
   isFindKind,
+  isReady,
   isResourceKind,
   OUTSIDE_GROUND,
+  parseKey,
   plotKey,
   plotOf,
   RECIPE_PAGE,
@@ -58,6 +60,7 @@ import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { lyingOn, type PetMotion, type PetScene } from "../pets";
 import type { BurstMark } from "../render/fireworks";
 import { postureAt } from "../resting";
+import { teaSpots } from "../tea-spots";
 import { nightAmount } from "../time";
 import { type SkyAmounts, UMBRELLA_RAIN } from "../weather";
 import {
@@ -114,6 +117,7 @@ import {
   signSize,
   smokeStart,
 } from "./layout";
+import { worldMarks } from "./marks";
 import { hex, SKY } from "./palette";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
@@ -333,6 +337,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const fog = scene.fog as Fog;
   // What's on display shares its pictures across plots, and frees each with its last display.
   const pictures = createPictures(shared);
+  // Tea out at an event, and kilns ready to open (RFC 0047), the same the map marks.
+  const marks = worldMarks(stage, pictures);
+  scene.add(marks.group);
 
   controls.enablePan = false;
   controls.enableDamping = !still;
@@ -1352,6 +1359,18 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
       // evenings tinted (RFC 0022).
       if (sparks.set(frame.bursts ?? [], now, still)) moved = true;
+      const teas = teaSpots({
+        plotSize: mirror.config.plotSize,
+        events: mirror.events.values(),
+        blocks: mirror.blocks,
+        hearthOf: (id) => mirror.residents.get(id)?.hearth,
+      });
+      const ready = [...mirror.kilns].flatMap(([key, k]) => {
+        if (!isReady(k.readyDay, mirror.day)) return [];
+        const [x, y] = parseKey(key);
+        return [{ x, y }];
+      });
+      if (marks.set(teas, ready, now, still)) moved = true;
       stage.holiday(mirror.day === undefined ? undefined : eveningHoliday(holidaysOf(mirror.day)));
       stage.timeOfDay(dayPhase);
       weather.set(sky ?? CLEAR);

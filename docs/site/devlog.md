@@ -14,6 +14,14 @@ You can make pottery now. Dig a pond, and clay comes up beside it every day. Put
 
 [Read more](/devlog/2026-10-23)
 
+## No plot is an island now
+
+*October 22, 2026*
+
+Downtown had a quiet flaw: 18 of its 53 claimed plots had no way out, hearths you could build on but never walk from to the Commons. Today the town laid public ways across 380 tiles, clearing what they crossed and giving it back, and every claimed plot has an opening again.
+
+[Read more](/devlog/2026-10-22)
+
 ## The shop is a place you go to
 
 *October 21, 2026*

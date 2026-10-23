@@ -25,7 +25,7 @@
     <category term="added" label="Added"/>
     <summary type="text">Once `clayOpen` is in `GET /v1/world`: `place` with `block: &quot;pot&quot;` and a pot's `item` id sets it down on your plot, upstairs too, and a vase takes a `flower`; `pots` in `GET /v1/world` and `pot` on `block_placed` say where. Goods can carry `flower`.
 A kitchen brews `pot_of_tea` in a teapot you keep, and `bring_dish` at your own live event serves it for one more Hosting point a counted guest. The jobs board can ask for a bowl or a vase, and the collection book has Glazes and Finishes pages.
-`/v1/act/&lt;key&gt;/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 20.</summary>
+`/v1/act/&lt;key&gt;/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 21.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-clay-lies-beside-water-not-on-every-meadow-claybywater-and-t</id>

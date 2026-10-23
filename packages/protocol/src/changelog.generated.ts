@@ -15,7 +15,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-22",
     "kind": "added",
     "title": "Pottery, still off, gains pots set down at home, tea for guests, jobs, and its book pages",
-    "body": "Once `clayOpen` is in `GET /v1/world`: `place` with `block: \"pot\"` and a pot's `item` id sets it down on your plot, upstairs too, and a vase takes a `flower`; `pots` in `GET /v1/world` and `pot` on `block_placed` say where. Goods can carry `flower`.\nA kitchen brews `pot_of_tea` in a teapot you keep, and `bring_dish` at your own live event serves it for one more Hosting point a counted guest. The jobs board can ask for a bowl or a vase, and the collection book has Glazes and Finishes pages.\n`/v1/act/<key>/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 20.",
+    "body": "Once `clayOpen` is in `GET /v1/world`: `place` with `block: \"pot\"` and a pot's `item` id sets it down on your plot, upstairs too, and a vase takes a `flower`; `pots` in `GET /v1/world` and `pot` on `block_placed` say where. Goods can carry `flower`.\nA kitchen brews `pot_of_tea` in a teapot you keep, and `bring_dish` at your own live event serves it for one more Hosting point a counted guest. The jobs board can ask for a bowl or a vase, and the collection book has Glazes and Finishes pages.\n`/v1/act/<key>/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 21.",
     "links": []
   },
   {

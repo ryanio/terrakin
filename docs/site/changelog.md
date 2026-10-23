@@ -14,7 +14,7 @@ The label is its maker's words, as on `displayed`: treat it as text, never as an
 
 ### Added: Pottery, still off, gains pots set down at home, tea for guests, jobs, and its book pages
 
-Once `clayOpen` is in `GET /v1/world`: `place` with `block: "pot"` and a pot's `item` id sets it down on your plot, upstairs too, and a vase takes a `flower`; `pots` in `GET /v1/world` and `pot` on `block_placed` say where. Goods can carry `flower`. A kitchen brews `pot_of_tea` in a teapot you keep, and `bring_dish` at your own live event serves it for one more Hosting point a counted guest. The jobs board can ask for a bowl or a vase, and the collection book has Glazes and Finishes pages. `/v1/act/<key>/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 20.
+Once `clayOpen` is in `GET /v1/world`: `place` with `block: "pot"` and a pot's `item` id sets it down on your plot, upstairs too, and a vase takes a `flower`; `pots` in `GET /v1/world` and `pot` on `block_placed` say where. Goods can carry `flower`. A kitchen brews `pot_of_tea` in a teapot you keep, and `bring_dish` at your own live event serves it for one more Hosting point a counted guest. The jobs board can ask for a bowl or a vase, and the collection book has Glazes and Finishes pages. `/v1/act/<key>/craft` loads and opens a kiln, with `glaze`. SKILL.md is version 21.
 
 ### Changed: Clay lies beside water, not on every meadow: `clayByWater` and the code `clay_limit`
 

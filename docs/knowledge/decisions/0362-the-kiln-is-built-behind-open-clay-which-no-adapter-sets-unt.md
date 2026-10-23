@@ -34,4 +34,4 @@ The RFC's open questions take its recommended answers: the kiln first; no town b
 
 Code: `packages/sim/src/pottery.ts`, `packages/server/src/world-service.ts` (the `clay` switch in `DAY_SWITCHES`, `testOpenClay`), `packages/server/src/world-actions.ts` (the finish's roll), `scripts/economy-sim.ts` (`--kiln`).
 
-Clay's rule, the link pages, and what a pot is for moved on in [decision 0365](0365-clay-lies-beside-water-a-pot-sets-down-at-home-by-its-id-and.md).
+Clay's rule, the link pages, and what a pot is for moved on in [decision 0366](0366-clay-lies-beside-water-a-pot-sets-down-at-home-by-its-id-and.md).

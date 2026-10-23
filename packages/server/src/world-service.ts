@@ -1106,18 +1106,17 @@ export class WorldService {
   }
 
   /**
-   * Move the jobs board to the `jobEdition` option's edition, when jobs are open on an older one.
-   * Called only right after a `new_day`, so a day's board never changes once it's up.
+   * Move the jobs board one edition on toward the `jobEdition` option's edition, or pottery's once
+   * clay is out (RFC 0047), when jobs are open on an older one. Called only right after a
+   * `new_day`, so a day's board never changes once it's up, and one edition a day, so a world on
+   * the first edition reads the second for a day before pottery's and never skips one.
    */
   private moveJobEdition() {
-    // Pottery's jobs (RFC 0047) are in an edition of their own, which clay brings with it.
-    const pottery = this.clay && clayOpen(this.state) ? POTTERY_JOB_EDITION : undefined;
-    const edition =
-      this.jobEdition === undefined || pottery === undefined
-        ? (this.jobEdition ?? pottery)
-        : Math.max(this.jobEdition, pottery);
+    const pottery = this.clay && clayOpen(this.state) ? POTTERY_JOB_EDITION : 0;
+    const target = Math.max(this.jobEdition ?? 0, pottery);
     const jobs = this.state.jobs;
-    if (edition === undefined || !jobs || jobs.edition >= edition) return;
+    if (!jobs || jobs.edition >= target) return;
+    const edition = jobs.edition + 1;
     const set = this.run({ actor: TOWN_ACTOR, command: { type: "set_job_edition", edition } });
     if (!set.ok) console.error(`Couldn't set the jobs edition: ${set.error.message}`);
   }
@@ -1599,15 +1598,14 @@ export class WorldService {
 
   /**
    * A test world with clay and jobs both open reads pottery's jobs now (RFC 0047), rather than
-   * after the next `new_day` as a live world would.
+   * after the next `new_day` as a live world would, logging each edition before it in turn.
    */
   private testPotteryJobs() {
     const jobs = this.state.jobs;
-    if (!clayOpen(this.state) || !jobs || jobs.edition >= POTTERY_JOB_EDITION) return;
-    this.run({
-      actor: TOWN_ACTOR,
-      command: { type: "set_job_edition", edition: POTTERY_JOB_EDITION },
-    });
+    if (!clayOpen(this.state) || !jobs) return;
+    for (let edition = jobs.edition + 1; edition <= POTTERY_JOB_EDITION; edition++) {
+      this.run({ actor: TOWN_ACTOR, command: { type: "set_job_edition", edition } });
+    }
   }
 
   /**

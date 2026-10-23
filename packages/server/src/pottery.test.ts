@@ -141,11 +141,19 @@ describe("a world that never opened clay", () => {
     expect(on.store.log.filter((i) => i.command.type === "open_clay")).toEqual([
       expect.objectContaining({ command: { type: "open_clay", water: true } }),
     ]);
-    // And where jobs are open, the board moves to pottery's edition on the next day, never mid-day.
+    // And where jobs are open, the board moves on to pottery's edition one edition a new day,
+    // never mid-day and never skipping one.
     const both = await start(true, { levels: true, jobs: true });
     expect(both.service.state.jobs?.edition).toBe(1);
     both.later(DAY_MS);
+    expect(both.service.state.jobs?.edition).toBe(2);
+    both.later(DAY_MS);
     expect(both.service.state.jobs?.edition).toBe(POTTERY_JOB_EDITION);
+    both.later(DAY_MS);
+    const editions = both.store.log.flatMap((i) =>
+      i.command.type === "set_job_edition" ? [i.command.edition] : [],
+    );
+    expect(editions).toEqual([2, POTTERY_JOB_EDITION]);
   });
 });
 

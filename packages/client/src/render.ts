@@ -208,6 +208,9 @@ export function render(
   const sticks = new Path2D();
   const pebbles = new Path2D();
   const lumps = new Path2D();
+  const clayMarks: { x: number; y: number; lean: number }[] = [];
+  /** The shaded side of a block of clay, under its top in the clay's own color. */
+  const CLAY_SIDE = "#8f4f31";
   const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -278,9 +281,18 @@ export function render(
           pebbles.moveTo(px + scale * 0.12, py);
           pebbles.ellipse(px, py, scale * 0.12, scale * 0.085, 0, 0, Math.PI * 2);
         } else if (pickup === "clay") {
-          // Clay (RFC 0047): a low, wide lump, as common as a pebble, so no glint like a find's.
-          lumps.moveTo(px + scale * 0.14, py);
-          lumps.ellipse(px, py, scale * 0.14, scale * 0.07, 0, 0, Math.PI * 2);
+          // Clay (RFC 0047): a squat block of it, as a potter buys it, its darker side under a
+          // lighter top with a wire's cut across it, so it reads as clay and never as a cap on a
+          // stem. Its top and cut are drawn over it below.
+          const lean = (x * 7 + y * 13) % 2 === 0 ? 1 : -1;
+          lumps.roundRect(
+            px - scale * 0.17,
+            py - scale * 0.05,
+            scale * 0.34,
+            scale * 0.13,
+            scale * 0.05,
+          );
+          clayMarks.push({ x: px, y: py, lean });
         } else {
           finds.push({ kind: pickup, cx: px, cy: top + h * 0.5, size: Math.min(w, h) });
         }
@@ -308,8 +320,29 @@ export function render(
   ctx.stroke(pebbles);
   ctx.stroke(lumps);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = CLAY_HEX;
+  ctx.fillStyle = CLAY_SIDE;
   ctx.fill(lumps);
+  // Each block of clay's lighter top, and the wire's cut across it.
+  if (clayMarks.length > 0) {
+    const tops = new Path2D();
+    const cuts = new Path2D();
+    for (const c of clayMarks) {
+      tops.moveTo(c.x + scale * 0.17, c.y - scale * 0.04);
+      tops.ellipse(c.x, c.y - scale * 0.04, scale * 0.17, scale * 0.045, 0, 0, Math.PI * 2);
+      cuts.moveTo(c.x - scale * 0.1, c.y - scale * (0.04 + 0.02 * c.lean));
+      cuts.quadraticCurveTo(
+        c.x,
+        c.y - scale * 0.03,
+        c.x + scale * 0.1,
+        c.y - scale * (0.04 - 0.02 * c.lean),
+      );
+    }
+    ctx.fillStyle = CLAY_HEX;
+    ctx.fill(tops);
+    ctx.lineWidth = Math.max(1, scale / 36);
+    ctx.strokeStyle = CLAY_SIDE;
+    ctx.stroke(cuts);
+  }
   ctx.lineWidth = Math.max(1.5, scale / 14);
   ctx.strokeStyle = blockFill("wood");
   ctx.stroke(sticks);

@@ -180,14 +180,21 @@ export function stairsLine(holdings: Holdings): string {
 
 /** The line under the tabs for a kiln (RFC 0047): what it takes, and what you're short of. */
 export function kilnPlaceLine(holdings: Holdings): string {
-  const cost = blockNeeds("kiln")
-    .map(([kind, n]) => thingCount(kind, n))
-    .join(" and ");
+  const cost = kilnCost();
   const lead = `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight.`;
   const short = blockShort("kiln", holdings);
   if (short.length === 0) return `${lead} You have enough.`;
   return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
 }
+
+/** What a kiln takes to place, from the sim's `blockNeeds`: "2 stone". */
+const kilnCost = () =>
+  blockNeeds("kiln")
+    .map(([kind, n]) => thingCount(kind, n))
+    .join(" and ");
+
+/** The kiln's chip's name, its cost from the sim rather than the page: "Kiln (2 stone, ...)". */
+export const kilnLabel = (): string => `Kiln (${kilnCost()}, fires a pot overnight)`;
 
 /** The line under the tabs for a free block or the hearth. */
 export function blockLine(kind: string): string {
@@ -333,8 +340,9 @@ export function potsAfter(
 }
 
 /**
- * The pots you hold at the end of the Furniture row, each drawn in its glaze, and for a picked vase
- * with no flower yet the flowers you hold to put in it, with "No flower" first.
+ * The pots you hold at the start of the Furniture row, each drawn in its glaze and named by its
+ * finish, and right after a picked vase with no flower yet the flowers you hold to put in it, "No
+ * flower" first, so the choice sits beside the vase on a phone rather than past every piece.
  */
 export function paintPotChips(
   row: HTMLElement,
@@ -343,39 +351,43 @@ export function paintPotChips(
   holdings: Holdings,
   flower: string | undefined,
 ): void {
-  row.append(
-    ...pots.map((p) =>
+  const pot = pots.find((p) => p.id === picked);
+  const flowers =
+    pot?.kind === "vase" && pot.flower === undefined
+      ? FLOWER_KINDS.filter((k) => heldOf(holdings, k) > 0)
+      : [];
+  const flowerChips =
+    flowers.length === 0
+      ? []
+      : [
+          choice({ "data-flower": "" }, "No flower", null, {
+            dim: false,
+            picked: flower === undefined,
+            color: BLOCK_COLORS.pot,
+          }),
+          ...flowers.map((k) =>
+            choice(
+              { "data-flower": k },
+              `With a ${thingName(k).toLowerCase()}`,
+              itemArt(k, { size: 30 }),
+              {
+                count: heldOf(holdings, k),
+                dim: false,
+                picked: flower === k,
+              },
+            ),
+          ),
+        ];
+  row.prepend(
+    ...pots.flatMap((p) => [
       choice({ "data-pot": p.id }, madeName(p), thingPicture(p, { size: 30 }), {
         dim: false,
         picked: p.id === picked,
       }),
-    ),
-  );
-  const pot = pots.find((p) => p.id === picked);
-  if (pot?.kind !== "vase" || pot.flower !== undefined) return;
-  const flowers = FLOWER_KINDS.filter((k) => heldOf(holdings, k) > 0);
-  if (flowers.length === 0) return;
-  row.append(
-    choice({ "data-flower": "" }, "No flower", null, {
-      dim: false,
-      picked: flower === undefined,
-      color: BLOCK_COLORS.pot,
-    }),
-    ...flowers.map((k) =>
-      choice(
-        { "data-flower": k },
-        `With a ${thingName(k).toLowerCase()}`,
-        itemArt(k, { size: 30 }),
-        {
-          count: heldOf(holdings, k),
-          dim: false,
-          picked: flower === k,
-        },
-      ),
-    ),
+      ...(p.id === picked ? flowerChips : []),
+    ]),
   );
 }
-
 
 /** The line under the tabs for a pot you picked: what it is, and what a tap does with it. */
 export function potPlaceLine(pot: HeldPot | undefined, flower: string | undefined): string {

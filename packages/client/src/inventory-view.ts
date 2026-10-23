@@ -451,7 +451,10 @@ export function inventoryView(ctx: ViewContext): View {
         inv.goods.length === 0
           ? h("p", {
               class: "hint",
-              text: "Nothing made yet. Tap a kitchen or a workbench in the world to make something.",
+              // Once pottery is open (everyone knows the bowl then, RFC 0047), the kiln too.
+              text: (inv.recipes ?? []).includes("bowl")
+                ? "Nothing made yet. Tap a kitchen or a workbench in the world to make something, or put up a kiln from Build, on the Blocks tab, to fire a pot. Clay lies beside water."
+                : "Nothing made yet. Tap a kitchen or a workbench in the world to make something.",
             })
           : null,
         h("p", {

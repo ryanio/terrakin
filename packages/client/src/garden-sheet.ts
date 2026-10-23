@@ -36,6 +36,7 @@ import {
   type Glaze,
   harvestFits,
   isReady,
+  potName,
   RARE_FINISHES,
   type Station,
 } from "@terrakin/sim";
@@ -60,7 +61,6 @@ import {
   cropOfSeed,
   finishName,
   finishOdds,
-  glazeName,
   growthLine,
   kilnLine,
   knownAt,
@@ -218,15 +218,20 @@ export function openTileSheet(o: TileSheetOptions) {
           { class: "stack tight" },
           h("span", { class: "field-label", text: "What can come out" }),
           finishList,
+          h("p", {
+            class: "hint kiln-uses",
+            text: "What pots are for: set one down at home, a vase with a flower in it. A teapot brews tea to serve at your own events, and each guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board.",
+          }),
         )
       : null;
-  const paintFinishes = () =>
+  /** The finishes drawn on a vase in `drawn`: the glaze picked, or the one in the kiln or just out. */
+  const paintFinishes = (drawn: Glaze = glaze) =>
     finishList.replaceChildren(
       ...FINISH_NAMES.map((f) =>
         h(
           "li",
           { class: "kiln-finish", attrs: { "data-finish": f } },
-          thingPicture({ kind: "vase", glaze, finish: f }, { size: 40 }),
+          thingPicture({ kind: "vase", glaze: drawn, finish: f }, { size: 40 }),
           h("span", { class: "kiln-finish-name", text: finishName(f) }),
           h("span", { class: "kiln-finish-odds", text: finishOdds(f) }),
         ),
@@ -442,7 +447,8 @@ export function openTileSheet(o: TileSheetOptions) {
   ) {
     const firing = o.firing;
     const busy = firing !== undefined || !o.yours || revealed !== null;
-    paintFinishes();
+    const inKiln = inv.kilns?.find((k) => k.x === o.x && k.y === o.y)?.pot;
+    paintFinishes(revealed?.glaze ?? inKiln?.glaze ?? glaze);
     reveal.hidden = revealed === null;
     if (revealed) {
       if (glazeField) glazeField.hidden = true;
@@ -470,7 +476,8 @@ export function openTileSheet(o: TileSheetOptions) {
           : "The kiln is firing. Nobody sees what's in it until it opens.";
       list.replaceChildren(
         row(
-          pot ? `${thingName(pot.kind)}, ${glazeName(pot.glaze).toLowerCase()}` : "A pot",
+          // The pot by the name it comes out with, less the finish it hasn't got yet (RFC 0047).
+          pot ? potName(pot) : "A pot",
           full
             ? "Your bag is full. Give or sell something first."
             : `${kilnLine(firing.readyDay, inv.day)}.${whose}`,

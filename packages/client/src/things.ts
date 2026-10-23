@@ -271,11 +271,6 @@ export function cropOfSeed(kind: ItemKind): Crop | undefined {
   return (Object.keys(CROP_INFO) as Crop[]).find((c) => CROP_INFO[c].seed === kind);
 }
 
-/** How a crop is doing today: "Ready to pick", "Ready tomorrow", "Ready in 3 days". */
-/** A glaze in a person's words (RFC 0047): "Sea glaze", "Bare clay". */
-export const glazeName = (glaze: Glaze): string =>
-  glaze === "bare" ? "Bare clay" : `${glaze.charAt(0).toUpperCase()}${glaze.slice(1)} glaze`;
-
 /**
  * A made thing's name in your things, the market, and the build bar: a pot by its glaze and finish
  * (RFC 0047, the sim's `potName`: "Speckled rose vase of tulips"), anything else by its kind.
@@ -329,6 +324,7 @@ export function kilnLine(readyDay: number, today: number | undefined): string {
   return `Comes out ${relativeDayWords(readyDay, today)}`;
 }
 
+/** How a crop is doing today: "Ready to pick", "Ready tomorrow", "Ready in 3 days". */
 export function growthLine(readyDay: number, today: number | undefined): string {
   if (today === undefined) return "Growing";
   if (readyDay - today <= 0) return "Ready to pick";

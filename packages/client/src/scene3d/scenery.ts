@@ -152,13 +152,22 @@ export function pickups(
     const mat = new MeshLambertMaterial({ color: blockLook("stone").color, flatShading: true });
     place(new InstancedMesh(geo, mat, stone.length), stone);
   }
-  // Clay (RFC 0047): a low, wide lump in the clay's own color.
+  // Clay (RFC 0047): a flat, uneven patch of wet earth lying in the ground, two low mounds run
+  // together, lighter on top, so nothing about it stands up like a cap on a stem.
   const clay = items.filter((p) => p.kind === "clay");
   if (clay.length) {
-    const geo = new DodecahedronGeometry(0.15, 1);
-    geo.scale(1.2, 0.4, 1);
-    geo.translate(0, 0.05, 0);
-    const mat = new MeshLambertMaterial({ color: hex(CLAY_HEX) });
+    const mounds = [
+      { r: 0.2, x: 0, z: 0.02 },
+      { r: 0.13, x: 0.08, z: -0.06 },
+    ].map(({ r, x, z }) => {
+      const g = new DodecahedronGeometry(r, 1);
+      g.scale(1.25, 0.22, 0.95);
+      g.translate(x, 0.02, z);
+      return g.toNonIndexed();
+    });
+    const geo = bakeShade(mergeGeometries(mounds), 0.72, 1);
+    for (const g of mounds) g.dispose();
+    const mat = new MeshLambertMaterial({ color: hex(CLAY_HEX), vertexColors: true });
     place(new InstancedMesh(geo, mat, clay.length), clay);
   }
   return group;

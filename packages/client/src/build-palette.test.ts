@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { POTTERY } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   blockShort,
@@ -6,6 +8,8 @@ import {
   heldLabel,
   heldLine,
   holdingsFromStacks,
+  kilnLabel,
+  kilnPlaceLine,
   stairsLine,
   tabOf,
   withChanges,
@@ -73,6 +77,16 @@ describe("the build bar", () => {
     );
     expect(blockShort("stairs", holdingsFromStacks([{ kind: "wood", count: 4 }]))).toEqual([]);
     expect(blockShort("glass", holdingsFromStacks([]))).toEqual([]);
+  });
+
+  it("names the kiln's cost from the sim, never the page (RFC 0047)", () => {
+    const cost = `${POTTERY.kilnStone} stone`;
+    expect(kilnLabel()).toBe(`Kiln (${cost}, fires a pot overnight)`);
+    expect(kilnPlaceLine(holdingsFromStacks([{ kind: "stone", count: 1 }]))).toBe(
+      `Kiln: ${cost}, given back when you take it up. Tap it to fire a pot overnight. You need ${POTTERY.kilnStone - 1} stone more.`,
+    );
+    const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    expect(page).not.toMatch(/data-block="kiln" aria-label="[^"]*\d/);
   });
 
   it("finds each pick's tab", () => {

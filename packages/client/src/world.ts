@@ -67,6 +67,7 @@ import {
   heldLine,
   heldOf,
   holdingsFromStacks,
+  kilnLabel,
   kilnPlaceLine,
   PALETTE_TAB_WORDS,
   PALETTE_TABS,
@@ -1702,7 +1703,10 @@ function paintPalette() {
               : blockLine(pick);
   // A kiln (RFC 0047) is on the bar only once pottery is open in this world.
   const kiln = paletteRows.blocks.querySelector<HTMLButtonElement>('[data-block="kiln"]');
-  if (kiln) kiln.hidden = !mirror?.clayOpen;
+  if (kiln) {
+    kiln.hidden = !mirror?.clayOpen;
+    kiln.setAttribute("aria-label", kilnLabel());
+  }
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }

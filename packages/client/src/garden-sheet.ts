@@ -227,7 +227,7 @@ export function openTileSheet(o: TileSheetOptions) {
           finishList,
           h("p", {
             class: "hint kiln-uses",
-            text: `What pots are for: set one down at home, a vase with a flower in it. A teapot and ${CATALOG[TEA].recipe?.needs.herb ?? 2} bunches of herbs at a kitchen make a pot of tea, and you keep the teapot: serve it at your own event, and each counted guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board. ${CLAY_WHERE}`,
+            text: `What pots are for: set one down at home, a vase with a flower in it. A teapot and ${CATALOG[TEA].recipe?.needs.herb ?? 2} bunches of herbs at a kitchen make a pot of tea, and you keep the teapot: serve it at your own event, and every guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board. ${CLAY_WHERE}`,
           }),
         )
       : null;

@@ -289,8 +289,9 @@ export function paintKilnFire(
 }
 
 /**
- * A kiln whose pot is ready to take out (RFC 0047): two gold sparkles over its dome, twinkling
- * unless motion is still, so a ready kiln shows from across the plot.
+ * A kiln whose pot is ready to take out (RFC 0047): a gold halo over its dome and three sparkles
+ * edged in amber, twinkling in turn unless motion is still, so a ready kiln shows from across the
+ * plot on any ground.
  */
 export function paintKilnReady(
   ctx: CanvasRenderingContext2D,
@@ -300,16 +301,28 @@ export function paintKilnReady(
   now: number,
   still: boolean,
 ) {
-  const pulse = still ? 1 : 0.8 + 0.2 * Math.sin(now / 260);
   ctx.save();
-  for (const [fx, fy, r] of [
-    [0.78, 0.08, 0.17],
-    [0.56, -0.08, 0.1],
-  ] as const) {
+  const cx = left + size * 0.62;
+  const cy = top + size * 0.02;
+  const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 0.5);
+  halo.addColorStop(0, "rgba(255, 214, 90, 0.55)");
+  halo.addColorStop(1, "rgba(255, 214, 90, 0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(cx - size * 0.5, cy - size * 0.5, size, size);
+  for (const [i, [fx, fy, r]] of (
+    [
+      [0.8, 0.0, 0.34],
+      [0.42, -0.18, 0.2],
+      [0.22, 0.14, 0.14],
+    ] as const
+  ).entries()) {
+    const pulse = still ? 1 : 0.8 + 0.2 * Math.sin(now / 240 + i * 2.1);
     const sx = left + size * fx;
     const sy = top + size * fy;
     const rr = size * r * pulse;
-    paintSparkle(ctx, sx, sy, rr, "#ffe08a");
+    // An amber edge first, a touch larger, so the gold reads on pale ground and on stone.
+    paintSparkle(ctx, sx, sy, rr + size * 0.035, "#b8741a");
+    paintSparkle(ctx, sx, sy, rr, "#ffd84a");
   }
   ctx.restore();
 }

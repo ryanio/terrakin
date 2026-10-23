@@ -19,7 +19,7 @@ function whereFrom(kind: string): string {
 /** What `glaze` takes and where it comes from: "1 sea glass, found on the sand". */
 export function glazeCostLine(glaze: Glaze): string {
   const kind = GLAZE_COSTS[glaze];
-  if (!kind) return "Nothing: the clay's own color";
+  if (!kind) return "nothing, the clay's own color";
   return `${thingCount(kind, 1)}, ${whereFrom(kind)}`;
 }
 

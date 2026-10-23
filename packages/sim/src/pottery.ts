@@ -541,7 +541,7 @@ export function kilnRemoveProblem(state: WorldState, x: number, y: number): Reje
     : null;
 }
 
-/** The keepsake a counted guest takes home from an event its host served tea at. */
+/** The keepsake a guest takes home from an event its host served tea at. */
 const CUP = "cup_of_tea" as const;
 
 /**

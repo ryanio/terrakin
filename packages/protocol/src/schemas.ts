@@ -2785,12 +2785,21 @@ export const WorldEvent = z.discriminatedUnion("type", [
     by: z.string(),
     readyDay: z.number().int(),
   }),
-  /** `by` took the pot out of the kiln at (x, y). It went to whoever loaded it. */
+  /**
+   * `by` took the pot out of the kiln at (x, y). It went to whoever loaded it. Once it's out the pot
+   * is public by its codes: `pot` has its kind, glaze, finish and maker, never its label.
+   */
   z.object({
     type: z.literal("kiln_emptied"),
     x: z.number().int(),
     y: z.number().int(),
     by: z.string(),
+    pot: z.object({
+      kind: GoodKind,
+      glaze: GlazeName,
+      finish: FinishName,
+      maker: z.string(),
+    }),
   }),
   /** Someone picked up a fallen branch, a loose stone, or a find. Public, like a harvest. */
   z.object({

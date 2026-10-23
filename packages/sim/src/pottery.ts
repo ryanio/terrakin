@@ -65,6 +65,12 @@ export const POTTERY = {
   /** The most clay a resident picks up in a UTC day once clay lies beside water. */
   clayPerDay: 6,
   /**
+   * The tiles around a dug pond where clay comes up every day for sure, once clay lies beside
+   * water (`onSpring` in `gather.ts`), so a newcomer's first pond is a steady start rather than a
+   * roll. Tuned with `scripts/economy-sim.ts --kiln`.
+   */
+  springsPerPond: 2,
+  /**
    * Hosting points a host earns on top of `PROGRESS.guest` for each counted guest at an event they
    * served a pot of tea at.
    */
@@ -343,7 +349,13 @@ export function checkOpenKiln(
     const firings = items.firings as Record<string, Firing>;
     delete firings[key];
     if (Object.keys(firings).length === 0) delete items.firings;
-    const events = [{ type: "kiln_emptied" as const, x, y, by: actor }];
+    const pot = {
+      kind: good.kind as GoodKind,
+      glaze: good.glaze ?? "bare",
+      finish: finishOf(roll),
+      maker: good.maker,
+    };
+    const events: WorldEvent[] = [{ type: "kiln_emptied", x, y, by: actor, pot }];
     if (!fits) {
       // Someone who can build here opened it for a loader with no room: it waits for them.
       items.heldAside = [...(items.heldAside ?? []), { good, by: owner, day }];
@@ -529,7 +541,8 @@ const CUP = "cup_of_tea" as const;
 /**
  * At `credit_event`, for an event its host served tea at (RFC 0047): a cup of tea for each guest
  * on the credited list, signed by the host, into their things, or held aside for them when their
- * things are full, as a thing taken down from display is. Nothing when no tea was served.
+ * things are full, as a thing taken down from display is. With nobody on the list the pot of tea
+ * goes back to its host (inventory reason `tea_kept`). Nothing when no tea was served.
  */
 export function pourTea(
   state: WorldState,
@@ -540,6 +553,18 @@ export function pourTea(
   if (!items || state.day === undefined || !servedTea(event)) return [];
   const day = state.day;
   const events: WorldEvent[] = [];
+  if (guests.length === 0) {
+    // Nobody was counted for a cup: the pot of tea comes back to its host, rather than going
+    // nowhere, held aside when their things are full.
+    const tea: Good = { id: `i_${items.nextId}`, kind: TEA, maker: event.host, madeDay: day };
+    items.nextId += 1;
+    if (inventorySize(items.inventories[event.host]) + 1 > ITEMS.inventoryMax) {
+      items.heldAside = [...(items.heldAside ?? []), { good: tea, by: event.host, day }];
+      return events;
+    }
+    inventory(items, event.host).goods.push(tea);
+    return [inventoryEvent(event.host, "tea_kept", [], { gained: [tea] })];
+  }
   for (const guest of guests) {
     const good: Good = { id: `i_${items.nextId}`, kind: CUP, maker: event.host, madeDay: day };
     items.nextId += 1;

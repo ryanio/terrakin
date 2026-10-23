@@ -28,6 +28,7 @@ import {
   landSquare,
   lookOf,
   mayGatherOn,
+  onSpring,
   type Pet,
   type PickupKind,
   type PlotRoof,
@@ -38,6 +39,7 @@ import {
   type Resident,
   type RoofShape,
   roofShape,
+  type SpringFacts,
   type StepRoutine,
   squareOf,
   type Tile,
@@ -1019,8 +1021,20 @@ export class Mirror {
       edition: this.pageEdition,
       clay,
       water: clay === "by_water" && this.byWater(x, y),
+      spring: clay === "by_water" && onSpring(this.springFacts, x, y, this.day),
     });
   }
+
+  /** What the sim's `onSpring` reads of this copy: dug ponds, water, and the ground floor's blocks. */
+  readonly springFacts: SpringFacts = ((m: Mirror) => ({
+    // The config grows when a land opens, so it's read each time.
+    get config() {
+      return m.config;
+    },
+    pond: (x: number, y: number) => m.blocks.get(tileKey(x, y)) === "pond",
+    water: (x: number, y: number) => m.blocks.get(tileKey(x, y)) === "pond" || m.isSea(x, y),
+    built: (x: number, y: number) => m.blocks.has(tileKey(x, y)),
+  }))(this);
 
   /** Whether a pond or the sea is beside a tile, which is where clay lies (RFC 0047). */
   byWater(x: number, y: number): boolean {

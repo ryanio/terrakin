@@ -242,6 +242,7 @@ export {
   mayGatherOn,
   nearestOpenPickup,
   OTHERS_PLOT_GATHER,
+  onSpring,
   type PickupAt,
   type PickupKind,
   pageKnown,
@@ -251,6 +252,8 @@ export {
   pickupsInReach,
   plotPickupsOwned,
   RECIPE_PAGE,
+  type SpringFacts,
+  springsOf,
   wayPickupsOpen,
 } from "./gather";
 export {

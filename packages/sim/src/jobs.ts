@@ -51,7 +51,7 @@ import {
 } from "./levels";
 import { isJobWear, JOB_WEAR, type JobWear, WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
-import { clayOpen, FINISH_NAMES, isPotKind } from "./pottery";
+import { clayOpen, FINISH_NAMES, isPotKind, potName, potsOf } from "./pottery";
 import { knownByAll } from "./recipes";
 import { type Season, seasonOf, seasonSpan, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
@@ -1262,11 +1262,20 @@ export function handInPick(
       .filter(mine)
       .sort((a, b) => finishRank(a) - finishRank(b) || madeOrder(a) - madeOrder(b))[0];
     if (!good) {
+      // A pot of theirs set down at home (RFC 0047) is theirs to take up first.
+      const down = potsOf(state).find(
+        (p) => p.pot.by === actor && mine(p.pot.good) && p.pot.good.kind === recipe,
+      );
+      const takeUp = down
+        ? ` Your ${potName(down.pot.good, true)} is set down at (${down.x}, ${down.y}): take it up with {"type": "remove", "x": ${down.x}, "y": ${down.y}${down.floor === 0 ? "" : `, "floor": ${down.floor}`}} first, then hand it in.`
+        : "";
       return refuse(
         "nothing_to_hand_in",
         ofKind.length > 0
-          ? `Someone else made the ${wanted} you hold. A job takes only a thing you made yourself.`
-          : `You hold no ${wanted} that you made. Make one with craft, then hand it in.`,
+          ? `Someone else made the ${wanted} you hold. A job takes only a thing you made yourself.${takeUp}`
+          : down
+            ? `You hold no ${wanted} that you made.${takeUp}`
+            : `You hold no ${wanted} that you made. Make one with craft, then hand it in.`,
       );
     }
   }

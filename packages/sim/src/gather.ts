@@ -182,6 +182,7 @@ export function gatherableAt(
   edition = 1,
   clay: ClayRule = "none",
   water = false,
+  spring = false,
 ): PickupKind | null {
   const biome = biomeAt(config, x, y);
   const kind: ResourceKind | null =
@@ -201,12 +202,82 @@ export function gatherableAt(
   // it on moves no find, page, branch, or stone.
   if (find) return null;
   if (clay === "by_water") {
-    return water && clayRoll(x, y, day) < POTTERY.clayByWaterChance ? "clay" : null;
+    // A dug pond's springs (`onSpring`) always hold clay, so a potter with a pond has some every
+    // day; elsewhere beside water it lies at the day's roll.
+    return spring || (water && clayRoll(x, y, day) < POTTERY.clayByWaterChance) ? "clay" : null;
   }
   if (clay === "meadow_and_sand" && CLAY_BIOMES.includes(biome)) {
     return clayRoll(x, y, day) < POTTERY.clayChance ? "clay" : null;
   }
   return null;
+}
+
+/** The eight tiles around one, north first and on round clockwise, as `waterBeside` walks them. */
+const AROUND_TILE: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+];
+
+/** What `onSpring` reads of a world: the same on the server's state and a client's mirror. */
+export interface SpringFacts {
+  config: WorldConfig;
+  /** A pond block on the ground floor (a dug pond, never the sea). */
+  pond: (x: number, y: number) => boolean;
+  /** Water of any kind: a pond or the sea. */
+  water: (x: number, y: number) => boolean;
+  /** A block on the ground floor. */
+  built: (x: number, y: number) => boolean;
+}
+
+/**
+ * The tiles a dug pond's clay comes up on today (RFC 0047): up to `POTTERY.springsPerPond` of the
+ * open tiles around it (in the world, not water, nothing built, and nothing else lying there),
+ * picked by a roll of the pond's tile and the day. Pure, so every client sees the same springs.
+ */
+export function springsOf(f: SpringFacts, px: number, py: number, day: number): string[] {
+  const open = AROUND_TILE.map(([dx, dy]) => ({ x: px + dx, y: py + dy })).filter(
+    ({ x, y }) =>
+      x >= 0 &&
+      y >= 0 &&
+      x < f.config.width &&
+      y < f.config.height &&
+      !f.water(x, y) &&
+      !f.built(x, y) &&
+      gatherableAt(f.config, x, y, day, true) === null,
+  );
+  const picked: string[] = [];
+  let roll = springRoll(px, py, day);
+  while (picked.length < POTTERY.springsPerPond && open.length > 0) {
+    const [tile] = open.splice(roll % open.length, 1);
+    if (tile) picked.push(tileKey(tile.x, tile.y));
+    roll = Math.floor(roll / 7) + 1;
+  }
+  return picked;
+}
+
+/** Whether (x, y) is one of a dug pond's springs today: clay lies there for sure (RFC 0047). */
+export function onSpring(f: SpringFacts, x: number, y: number, day: number): boolean {
+  const key = tileKey(x, y);
+  return AROUND_TILE.some(
+    ([dx, dy]) => f.pond(x + dx, y + dy) && springsOf(f, x + dx, y + dy, day).includes(key),
+  );
+}
+
+/** A pond's spring roll for a day: a whole number from murmur3's finalizer with its own constants. */
+function springRoll(x: number, y: number, day: number): number {
+  let h = (Math.imul(x, 0x2545f491) + Math.imul(y, 0x9e3779b9) + Math.imul(day, 0x632be5ab)) | 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
 }
 
 /** The ground clay lies on under the first rule (RFC 0047, `meadow_and_sand`). */
@@ -249,6 +320,8 @@ export function pickupOn(
     clay?: ClayRule;
     /** Whether a pond or the sea is beside the tile (`waterBeside`). Read only for `by_water`. */
     water?: boolean;
+    /** Whether the tile is one of a dug pond's springs today (`onSpring`). Read only for `by_water`. */
+    spring?: boolean;
   },
 ): PickupKind | null {
   if (tile.built || tile.picked || tile.sea === true) return null;
@@ -262,6 +335,7 @@ export function pickupOn(
     tile.edition,
     tile.clay ?? "none",
     tile.water === true,
+    tile.spring === true,
   );
 }
 
@@ -290,8 +364,17 @@ export function pickupLeft(state: WorldState, x: number, y: number): PickupKind 
     edition: pageEditionOf(state),
     clay,
     water: clay === "by_water" && byWater(state, x, y),
+    spring: clay === "by_water" && onSpring(springFacts(state), x, y, day),
   });
 }
+
+/** `SpringFacts` read from the world. */
+export const springFacts = (state: WorldState): SpringFacts => ({
+  config: state.config,
+  pond: (x, y) => state.blocks[tileKey(x, y)] === "pond",
+  water: (x, y) => isWater(state, x, y),
+  built: (x, y) => state.blocks[tileKey(x, y)] !== undefined,
+});
 
 /** Whether a pond or the sea is beside (x, y), any of the eight ways (RFC 0047's clay). */
 export const byWater = (state: WaterFacts, x: number, y: number): boolean =>

@@ -1028,8 +1028,8 @@ describe("credit_event", () => {
       w.standAt("ada", 3, 3);
       expect(w.code("ada", serve(teapot))).toBe("not_food");
       expect(w.code("ada", serve("i_999"))).toBe("not_enough_items");
-      // A guest can't set the host's table.
-      expect(w.code("bob", serve(tea))).toBe("out_of_holiday");
+      // A guest can't set the host's table, and is told tea goes on their own event's.
+      expect(w.code("bob", serve(tea))).toBe("unknown_event");
       expect(w.ok("ada", serve(tea))).toContainEqual({
         type: "dish_brought",
         by: "ada",
@@ -1049,6 +1049,20 @@ describe("credit_event", () => {
         maker: "ada",
       });
     }
+    // At an event where nobody is counted, the pot of tea comes back to its host, not nowhere.
+    const second = give("pot_of_tea");
+    const quiet = party(w, "ada", ["bob"], 14, () => {
+      w.standAt("ada", 3, 3);
+      w.ok("ada", serve(second));
+    });
+    expect(w.town(credit(quiet, []))).toContainEqual(
+      expect.objectContaining({
+        type: "inventory",
+        residentId: "ada",
+        reason: "tea_kept",
+        gained: [expect.objectContaining({ kind: "pot_of_tea", maker: "ada" })],
+      }),
+    );
   });
 
   it("takes a shorter list than the sim saw attend, and never a longer one", () => {

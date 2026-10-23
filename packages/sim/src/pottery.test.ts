@@ -4,7 +4,15 @@ import { biomeAt } from "./biome";
 import { FISHING_CONFIG } from "./fixtures/fishing-log";
 import { FLOORS_CONFIG, FLOORS_LOG } from "./fixtures/floors-log";
 import { KILN_CONFIG, KILN_HASH, KILN_LOG } from "./fixtures/kiln-log";
-import { byWater, gatherableAt, pickupLeft, pickupsInReach } from "./gather";
+import {
+  byWater,
+  gatherableAt,
+  onSpring,
+  pickupLeft,
+  pickupsInReach,
+  springFacts,
+  springsOf,
+} from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
 import { handInPick } from "./jobs";
@@ -238,6 +246,27 @@ describe("clay beside water", () => {
     refused(state, TOWN_ACTOR, { type: "open_clay", water: true }, "already_open");
   });
 
+  it(`comes up on ${POTTERY.springsPerPond} springs round a dug pond every day, and never on the open sea's shore by them`, () => {
+    const { state, pond } = byThePond();
+    const facts = springFacts(state);
+    const short: number[] = [];
+    const from = (state.day ?? 0) + 1;
+    for (let day = from; day < from + 60; day++) {
+      ok(state, TOWN_ACTOR, { type: "new_day", day });
+      const springs = springsOf(facts, pond.x, pond.y, day);
+      const clay = springs.filter((key) => {
+        const [x, y] = key.split(",").map(Number) as [number, number];
+        return pickupLeft(state, x, y) === "clay";
+      });
+      if (clay.length < POTTERY.springsPerPond) short.push(day);
+    }
+    expect(short).toEqual([]);
+    // A tile beside water but by no dug pond has none of its own.
+    expect(onSpring({ ...facts, pond: () => false }, pond.x + 1, pond.y, state.day ?? 0)).toBe(
+      false,
+    );
+  });
+
   it(`picks up at most ${POTTERY.clayPerDay} a day, leaving the rest where it lies`, () => {
     const { state } = byThePond();
     const items = state.items;
@@ -299,7 +328,13 @@ describe("a kiln", () => {
     refused(state, "ada", open(), "server_only");
     refused(state, "ada", open(POTTERY.outOf), "server_only");
     const out = ok(state, "ada", open(1500));
-    expect(out[0]).toEqual({ type: "kiln_emptied", ...KILN_AT, by: "ada" });
+    // Out of the kiln the pot is public by its codes, never its label.
+    expect(out[0]).toEqual({
+      type: "kiln_emptied",
+      ...KILN_AT,
+      by: "ada",
+      pot: { kind: "bowl", glaze: "honey", finish: "crackle", maker: "ada" },
+    });
     expect(goods(state, "ada")).toEqual([
       {
         id: "i_1",
@@ -587,5 +622,18 @@ describe("handing a pot in for a job", () => {
     const items = state.items?.inventories.ada;
     if (items) items.goods = items.goods.filter((g) => g.id !== smooth.id);
     expect(handInPick(state, "ada")).toMatchObject({ good: { id: speckled.id } });
+  });
+
+  it("names the remove that takes up the only one of yours that's set down", () => {
+    const state = potter();
+    const bowl = hand(state, "ada", "bowl", "sea", "smooth");
+    ok(state, "ada", { type: "place", x: 6, y: 3, block: "pot", item: bowl.id });
+    state.jobs = { opened: DAY, edition: 3, held: { ada: { job: "clem_bowl", day: DAY, seq: 1 } } };
+    expect(handInPick(state, "ada")).toMatchObject({
+      code: "nothing_to_hand_in",
+      message: expect.stringContaining(
+        'Your smooth sea bowl is set down at (6, 3): take it up with {"type": "remove", "x": 6, "y": 3} first',
+      ),
+    });
   });
 });

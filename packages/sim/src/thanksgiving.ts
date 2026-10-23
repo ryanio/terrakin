@@ -118,6 +118,13 @@ export function checkBringDish(
       `Your event is on at plot (${away.px}, ${away.py}): stand in its area, on the ground floor, to serve tea there.`,
     );
   }
+  if (!feast && clayOpen(state)) {
+    // Once pottery is open, a dish outside the feast is tea at your own event.
+    return refuse(
+      "unknown_event",
+      "You host no event that's on now. Tea is served at your own event while it's on: schedule one with schedule_event, and once it starts send bring_dish with your pot of tea's id, standing in its area. GET /v1/events lists your events.",
+    );
+  }
   if (!feast) {
     const on = feastDay(day);
     return refuse(

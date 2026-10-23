@@ -1568,6 +1568,8 @@ export const INVENTORY_REASONS = [
   "fired",
   /** A cup of tea from the host of an event you were a counted guest at (RFC 0047). */
   "poured",
+  /** Your pot of tea back from your event, when nobody there was counted for a cup (RFC 0047). */
+  "tea_kept",
 ] as const;
 export type InventoryReason = (typeof INVENTORY_REASONS)[number];
 
@@ -2615,7 +2617,18 @@ export type WorldEvent =
    */
   | { type: "kiln_loaded"; x: number; y: number; by: ResidentId; readyDay: number }
   /** `by` took the pot out of the kiln at (x, y). Public; its loader's `inventory` has the pot. */
-  | { type: "kiln_emptied"; x: number; y: number; by: ResidentId }
+  /**
+   * `by` took a pot out of the kiln at (x, y). Public, and so is the pot by its codes once it's
+   * out (decision 0368): its kind, glaze, finish and maker, never its label or id, as it would
+   * show set down in a home.
+   */
+  | {
+      type: "kiln_emptied";
+      x: number;
+      y: number;
+      by: ResidentId;
+      pot: { kind: GoodKind; glaze: Glaze; finish: Finish; maker: ResidentId };
+    }
   /** Someone picked up a fallen branch, a loose stone, or a find. Public. */
   | { type: "gathered"; x: number; y: number; kind: PickupKind; by: ResidentId }
   /** Someone gave someone a thing. Public, without the count or the note. */

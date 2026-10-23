@@ -307,6 +307,7 @@ What we chose and why. Newest last.
 - [Pottery is on at terrakin.org: the Worker sets clay, the Node server doesn't](decisions/0371-pottery-is-on-at-terrakin-org-the-worker-sets-clay-the-node-.md) · 2026-10-23 · accepted · `server` `sim` `rollout`
 - [On a phone the plot card rests folded in the top row, and the camera keeps you in the clear map](decisions/0372-on-a-phone-the-plot-card-rests-folded-in-the-top-row-and-the.md) · 2026-10-23 · accepted · `client` `design` `world` `mobile`
 - [Every Node world opens the systems terrakin.org runs: recipes, holiday prices, levels, jobs, circles, and both editions](decisions/0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md) · 2026-10-23 · accepted · `server` `deploy` `e2e`
+- [The front page's live line also names the next event](decisions/0374-the-front-page-s-live-line-also-names-the-next-event.md) · 2026-10-23 · proposed
 
 ## Learnings
 

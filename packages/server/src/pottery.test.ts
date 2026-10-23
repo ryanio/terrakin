@@ -276,4 +276,104 @@ describe("a world with clay", () => {
     // A pot set down is news on the Visit page in its own words, never its label.
     expect((await t.call("GET", "/v1/plots/0/0")).body.plot.news).toBe("A pot set down today");
   });
+
+  it("lists a pot in the market with its glaze and finish, named as it came out", async () => {
+    const t = await start(true, { market: true });
+    const ada = await t.settler("Ada", 0);
+    const bob = await t.settler("Bob", 2);
+    expect(t.service.testGrant(ada.id, undefined, { stone: 4, clay: 2 })).toMatchObject({
+      ok: true,
+    });
+    expect(await t.act(ada.token, { type: "place", ...KILN, block: "kiln" })).toMatchObject({
+      ok: true,
+    });
+    expect(await t.act(ada.token, { type: "craft", recipe: "bowl", ...KILN })).toMatchObject({
+      ok: true,
+    });
+    t.later(DAY_MS);
+    const out = (await t.act(ada.token, { type: "harvest", ...KILN })) as Json;
+    // Old enough to list (three days in Terrakin).
+    t.later(3 * DAY_MS);
+    expect(
+      await t.act(ada.token, { type: "list_item", item: out.fired.item, price: 12 }),
+    ).toMatchObject({ ok: true });
+    const listing = (await t.call("GET", "/v1/market")).body.market.listings[0];
+    expect(listing).toMatchObject({
+      name: out.fired.name,
+      goods: [{ id: out.fired.item, glaze: "bare", finish: out.fired.finish }],
+    });
+    expect(listing.name).toMatch(/^(Smooth|Speckled|Crackle|Iridescent) clay bowl$/);
+    // Bob buys it, and Ada hears what sold from Terrakin: the pot by its codes, never its buyer.
+    expect(await t.act(bob.token, { type: "buy_listing", listing: listing.id })).toMatchObject({
+      ok: true,
+    });
+    const notices = (await t.call("GET", "/v1/notifications", undefined, ada.token)).body
+      .notifications as Json[];
+    expect(notices.find((n) => n.type === "pot_sold")).toMatchObject({
+      system: true,
+      potSold: { kind: "bowl", glaze: "bare", finish: out.fired.finish, price: 12, coins: 11 },
+    });
+    expect(JSON.stringify(notices)).not.toContain(bob.id);
+  });
+
+  it("tells each counted guest their host poured them a cup of tea", async () => {
+    const t = await start(true, { levels: true });
+    const ada = await t.settler("Ada", 0);
+    const bob = await t.settler("Bob", 2);
+    expect(
+      t.service.testGrant(ada.id, undefined, { stone: 4, clay: 4, wood: 1, herb: 2 }),
+    ).toMatchObject({ ok: true });
+    for (const action of [
+      { type: "pick_recipe", recipe: "teapot" },
+      { type: "place", ...KILN, block: "kiln" },
+      { type: "craft", recipe: "teapot", ...KILN },
+    ]) {
+      expect(await t.act(ada.token, action)).toMatchObject({ ok: true });
+    }
+    t.later(DAY_MS);
+    const kitchen = { x: 4, y: 2 };
+    for (const action of [
+      { type: "harvest", ...KILN },
+      { type: "place", ...kitchen, block: "kitchen" },
+      { type: "craft", recipe: "pot_of_tea", ...kitchen },
+    ]) {
+      expect(await t.act(ada.token, action)).toMatchObject({ ok: true });
+    }
+    // Both three days in Terrakin, so Bob counts as a guest, and the event an hour from noon.
+    t.later(3 * DAY_MS);
+    const noon = Math.floor(t.service.now() / DAY_MS) * DAY_MS + DAY_MS + 12 * 3_600_000;
+    expect(
+      await t.act(ada.token, {
+        type: "schedule_event",
+        kind: "gathering",
+        title: "Tea in the garden",
+        px: 0,
+        py: 0,
+        startsAt: new Date(noon).toISOString(),
+        minutes: 60,
+      }),
+    ).toMatchObject({ ok: true });
+    t.later(noon + 60_000 - t.service.now());
+    const tea = (
+      await t.call("GET", "/v1/inventory", undefined, ada.token)
+    ).body.inventory.goods.find((g: Json) => g.kind === "pot_of_tea");
+    for (const [who, action] of [
+      [ada, { type: "join_event", event: "e_1" }],
+      [ada, { type: "bring_dish", item: tea.id }],
+      [bob, { type: "join_event", event: "e_1" }],
+    ] as const) {
+      expect(await t.act(who.token, action)).toMatchObject({ ok: true });
+    }
+    // The minute sweep samples who's there, and the next tick after the hour ends and credits it.
+    for (let i = 0; i < 13; i++) {
+      t.later(5 * 60_000);
+      t.service.sweepEvents();
+      await t.act(bob.token, { type: "join_event", event: "e_1" });
+    }
+    const notices = (await t.call("GET", "/v1/notifications", undefined, bob.token)).body
+      .notifications as Json[];
+    expect(notices.find((n) => n.type === "tea_poured")).toMatchObject({
+      actor: { id: ada.id },
+    });
+  });
 });

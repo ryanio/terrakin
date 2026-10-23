@@ -15,6 +15,7 @@ import {
   type Listing,
   listingById,
   listingsOf,
+  potName,
   takenDownOf,
   type WorldState,
 } from "@terrakin/sim";
@@ -77,7 +78,8 @@ function listingView(
     id: l.id,
     seller,
     kind: l.kind,
-    name: lotName(l.kind, l.count),
+    // A pot by its finish and glaze (RFC 0047), so a collector sees what they'd buy.
+    name: l.goods?.[0]?.glaze && l.count === 1 ? potName(l.goods[0]) : lotName(l.kind, l.count),
     count: l.count,
     price: l.price,
     ...(l.goods
@@ -89,6 +91,9 @@ function listingView(
             ...(g.label ? { label: g.label } : {}),
             ...(g.media ? { media: g.media } : {}),
             ...(g.model ? { model: true as const } : {}),
+            ...(g.glaze ? { glaze: g.glaze } : {}),
+            ...(g.finish ? { finish: g.finish } : {}),
+            ...(g.flower ? { flower: g.flower } : {}),
           })),
         }
       : {}),

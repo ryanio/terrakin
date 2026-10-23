@@ -20,6 +20,7 @@ import {
   clearedLine,
   notificationItem,
   notificationLine,
+  potSoldLine,
   soldLine,
   takedownLine,
   wayLine,
@@ -752,5 +753,22 @@ describe("the notice when a plot you had for sale sells (RFC 0039)", () => {
     const sold = soldLine({ px: 3, py: 2, price: 300, coins: 285 });
     expect(sold.line).toBe("Plot 3, 2 sold for 300 coins.");
     expect(sold.next).toMatch(/^285 coins reached you after the market's fee/);
+  });
+});
+
+describe("the notice when a pot you listed sells (RFC 0047)", () => {
+  it("names the pot by its finish, glaze and flowers, the price, and what reached the seller", () => {
+    const sold = potSoldLine({
+      kind: "vase",
+      glaze: "rose",
+      finish: "crackle",
+      flower: "tulip",
+      price: 40,
+      coins: 38,
+    });
+    expect(sold).toEqual({
+      line: "Your crackle rose vase of tulips sold for 40 coins.",
+      next: "38 coins reached you after the market's fee.",
+    });
   });
 });

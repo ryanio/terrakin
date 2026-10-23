@@ -10,14 +10,18 @@ import {
   type ErrorCode,
   FEED_DEFAULT_LIMIT,
   FEED_MAX_LIMIT,
+  FinishName,
   findMentions,
   type GameRatingView,
   GESTURE_KINDS,
   type GestureKind,
+  GlazeName,
+  GoodKind,
   HANDLE_HOLD_DAYS,
   HANDLE_PATTERN,
   HANDLE_RENAME_DAYS,
   type HostingView,
+  ItemKind,
   isReservedHandle,
   JobDoneView,
   type KeptCharacter,
@@ -2255,6 +2259,22 @@ export class SocialService {
   }
 
   /**
+   * Tell a pot's seller it sold (RFC 0047): one notice from Terrakin itself with the pot by its
+   * codes, its price, and the coins that reached them. Never the buyer, and never the pot's label.
+   */
+  potSold(recipient: string, sold: PotSoldDetail) {
+    this.systemNotice(recipient, "pot_sold", JSON.stringify(sold));
+  }
+
+  /**
+   * Tell a guest their host poured them a cup of tea (RFC 0047): a notice from the host, through
+   * `notify`, so a block either way leaves it out. The cup itself is already in their things.
+   */
+  teaPoured(guest: string, host: string) {
+    this.notify(guest, host, "tea_poured", "");
+  }
+
+  /**
    * Tell a resident a passkey was bound to them, or signed in as them (RFC 0037): one notice from
    * Terrakin itself. It is the mitigation the RFC chose over a waiting period on a first binding,
    * because it turns a silent, durable takeover by whoever holds a stolen token into one the owner
@@ -2414,6 +2434,7 @@ export class SocialService {
       if (type === "way_laid") return this.wayView(row, detail);
       if (type === "way_closed") return this.wayClosedView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
+      if (type === "pot_sold") return this.potSoldView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
       if (type === "passkey_bound" || type === "passkey_signin") {
         return [systemNotification(row, type)];
@@ -2578,6 +2599,13 @@ export class SocialService {
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "plot_sold"), sold: parsed.data }];
+  }
+
+  /** A stored pot-sold notice (RFC 0047) as the seller reads it. */
+  private potSoldView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = PotSoldDetail.safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "pot_sold"), potSold: parsed.data }];
   }
 
   /** Mark one notification and every older one read. Returns what's still unread. */
@@ -3212,8 +3240,20 @@ type SystemNoticeType =
   | "passkey_signin"
   | "block_cleared"
   | "plot_sold"
+  | "pot_sold"
   | "way_laid"
   | "way_closed";
+
+/** What a pot-sold notice keeps (RFC 0047): the pot's codes and the numbers, no words. */
+const PotSoldDetail = z.object({
+  kind: GoodKind,
+  glaze: GlazeName,
+  finish: FinishName,
+  flower: ItemKind.optional(),
+  price: z.number().int(),
+  coins: z.number().int(),
+});
+type PotSoldDetail = z.infer<typeof PotSoldDetail>;
 
 /** What a way-laid notice keeps (RFC 0046): the plot, counts, tiles and kinds, and no words. */
 const WayLaidDetail = z.object({

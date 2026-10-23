@@ -52,7 +52,7 @@ import { plotMarketProblem } from "./plot-market";
 import { drawsAPlot, plotMarketSection } from "./plot-market-section";
 import { balanceLine, coins } from "./purse";
 import { reportMenu } from "./report-sheet";
-import { lotWords, thingName } from "./things";
+import { lotWords, madeName, thingName } from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 /**
@@ -207,7 +207,7 @@ function choices(
   return [
     ...inv.goods.map((g) => ({
       value: g.id,
-      text: g.label ? `${thingName(g.kind)} “${g.label}”` : thingName(g.kind),
+      text: g.label ? `${madeName(g)} “${g.label}”` : madeName(g),
       max: 1,
       kind: g.kind as ItemKind,
       stack: false,

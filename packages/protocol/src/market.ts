@@ -1,6 +1,6 @@
 import { MARKET } from "@terrakin/sim";
 import { z } from "zod";
-import { ItemKind, ListingId } from "./schemas";
+import { FinishName, GlazeName, ItemKind, ListingId } from "./schemas";
 import { AuthorView, type KarmaTier } from "./social";
 
 /**
@@ -25,6 +25,12 @@ export const ListingGoodView = z.object({
   media: z.string().optional(),
   /** A piece only: the upload is a `.glb` model, not a picture. */
   model: z.literal(true).optional(),
+  /** A pot only (RFC 0047): the glaze its maker chose. */
+  glaze: GlazeName.optional(),
+  /** A pot only: the finish it came out of the kiln with, so a collector sees it before buying. */
+  finish: FinishName.optional(),
+  /** A vase only: the flower it holds. */
+  flower: ItemKind.optional(),
 });
 
 export const ListingView = z.object({
@@ -32,7 +38,7 @@ export const ListingView = z.object({
   id: ListingId,
   seller: AuthorView,
   kind: ItemKind,
-  /** What it is, in plain words: "6 lemons", "Lemon jam". */
+  /** What it is, in plain words: "6 lemons", "Lemon jam", a pot by its finish and glaze: "Speckled rose vase". */
   name: z.string(),
   count: z.number().int(),
   /** For the whole lot, in coins. */

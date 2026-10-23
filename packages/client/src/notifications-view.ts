@@ -12,7 +12,7 @@ import {
   type NotificationView,
   type TakedownView,
 } from "@terrakin/protocol";
-import { blockNeeds } from "@terrakin/sim";
+import { blockNeeds, potName } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -66,6 +66,8 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   plot_sold: "coin",
   way_laid: "town",
   way_closed: "town",
+  tea_poured: "kitchen",
+  pot_sold: "coin",
 };
 
 /** "Moss and 2 others reacted 🌱 to your post". Pure, so tests pin it. */
@@ -120,6 +122,9 @@ export function notificationLine(
     way_laid: "laid a public way across your plot",
     way_closed: "closed a public way on your plot",
     plot_sold: "says a plot you had for sale sold",
+    // A host who served tea at an event you were counted at (RFC 0047); the cup is in your things.
+    tea_poured: "poured you a cup of tea at their event. It's in your things",
+    pot_sold: "says a pot of yours sold",
   };
   return { who, what: what[n.type] };
 }
@@ -314,6 +319,14 @@ function systemWords(n: NotificationView): SystemWords | null {
     // A plot you had for sale sold (RFC 0039). The notice carries numbers and no words.
     return { icon: ICONS.plot_sold, ...soldLine(n.sold), links: [] };
   }
+  if (n.potSold) {
+    // A pot you listed sold (RFC 0047): its codes and numbers, never its label or its buyer.
+    return {
+      icon: ICONS.pot_sold,
+      ...potSoldLine(n.potSold),
+      links: [{ href: "/market", label: "Open the market" }],
+    };
+  }
   if (n.type === "passkey_bound" || n.type === "passkey_signin") {
     // Signing in (RFC 0037). The notice carries nothing but the fact and the time, so the words
     // are fixed and the link goes where both can be undone: Signing in on your own profile.
@@ -414,6 +427,21 @@ export function soldLine(s: { px: number; py: number; price: number; coins: numb
   return {
     line: `Plot ${s.px}, ${s.py} sold for ${plural(s.price, "coin", "coins")}.`,
     next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared, so settle again to keep your pantry and allowance.`,
+  };
+}
+
+/** A pot-sold notice in words (RFC 0047): the pot by its name, its price, and what reached you. */
+export function potSoldLine(s: {
+  kind: string;
+  glaze: string;
+  finish: string;
+  flower?: string | undefined;
+  price: number;
+  coins: number;
+}): { line: string; next: string } {
+  return {
+    line: `Your ${potName(s, true)} sold for ${plural(s.price, "coin", "coins")}.`,
+    next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee.`,
   };
 }
 

@@ -45,6 +45,7 @@ import {
   entitledTo,
   eventEndsAt,
   everyGood,
+  type Finish,
   type FirstsCredit,
   FLOORS,
   findEvent,
@@ -52,6 +53,8 @@ import {
   GAME_RULES,
   GAMES,
   type GameTable,
+  type Glaze,
+  type GoodKind,
   type HostedEvent,
   handInPick,
   hasDecided,
@@ -61,11 +64,11 @@ import {
   isTownsfolk,
   LOOK_MEDIA_KEYS,
   lastSlot,
+  marketFee,
   own,
   ownerPaired,
   PLOTS,
   POTTERY_JOB_EDITION,
-  potName,
   PRESENTS,
   pageEditionOf,
   pieceShowingMedia,
@@ -73,6 +76,7 @@ import {
   plotKey,
   plotMap,
   plotPlan,
+  potName,
   prepare,
   presentsFor,
   REPLAY_VERSION,
@@ -84,6 +88,7 @@ import {
   retireProblems,
   SHOP,
   type Skill,
+  type StackKind,
   type StepRoutine,
   sameHousehold,
   seatOf,
@@ -422,6 +427,41 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
 const priceOf = (command: Command): { price?: number } =>
   command.type === "add_floor" ? { price: FLOORS.price } : {};
+
+/** A pot sold in the market (RFC 0047), as its seller's notice says it: codes and numbers only. */
+export interface PotSold {
+  kind: GoodKind;
+  glaze: Glaze;
+  finish: Finish;
+  flower?: StackKind;
+  price: number;
+  coins: number;
+}
+
+/**
+ * The pots one input sold in the market (RFC 0047): each `listing_sold` of one pot, with the pot
+ * read from the buyer's `inventory` event in the same input, since the sale's own event names only
+ * its kind.
+ */
+function potsSold(events: readonly WorldEvent[]): { seller: string; sold: PotSold }[] {
+  const bought = events.flatMap((e) =>
+    e.type === "inventory" && e.reason === "market" ? (e.gained ?? []) : [],
+  );
+  return events.flatMap((e) => {
+    if (e.type !== "listing_sold" || e.count !== 1) return [];
+    const pot = bought.find((g) => g.kind === e.kind && g.glaze && g.finish);
+    if (!pot?.glaze || !pot.finish || !isGoodKind(pot.kind)) return [];
+    const sold: PotSold = {
+      kind: pot.kind,
+      glaze: pot.glaze,
+      finish: pot.finish,
+      ...(pot.flower ? { flower: pot.flower } : {}),
+      price: e.price,
+      coins: e.price - marketFee(e.price),
+    };
+    return [{ seller: e.seller, sold }];
+  });
+}
 
 /**
  * A kiln's `harvest` answer (RFC 0047): the pot that came out for the actor, named in the sim's
@@ -1100,6 +1140,16 @@ export class WorldService {
   onPlotSold:
     | ((seller: string, sold: { px: number; py: number; price: number }) => void)
     | undefined;
+
+  /**
+   * Hears each pot sold in the market (RFC 0047), with the pot read from the buyer's own
+   * `inventory` event in the same input, so its seller is told what sold. A failure is reported
+   * and the sale stands.
+   */
+  onPotSold: ((seller: string, sold: PotSold) => void) | undefined;
+
+  /** Hears each cup of tea a guest took home from a host who served tea (RFC 0047). */
+  onTeaPoured: ((guest: string, host: string) => void) | undefined;
 
   /** Gifts and votes from `sinceDay` on, for karma. */
   credits(sinceDay: number): WorldCredit[] {
@@ -2487,6 +2537,24 @@ export class WorldService {
       } catch (err) {
         // The sale stands; the notice misses it.
         report(err, "world.plot_sold", { command: input.command.type });
+      }
+    }
+    // Pots sold and cups of tea poured (RFC 0047): the seller and the guest are told.
+    for (const { seller, sold } of potsSold(events)) {
+      try {
+        this.onPotSold?.(seller, sold);
+      } catch (err) {
+        report(err, "world.pot_sold", { command: input.command.type });
+      }
+    }
+    for (const e of events) {
+      if (e.type !== "inventory" || e.reason !== "poured") continue;
+      const host = e.gained?.[0]?.maker;
+      if (host === undefined) continue;
+      try {
+        this.onTeaPoured?.(e.residentId, host);
+      } catch (err) {
+        report(err, "world.tea_poured", { command: input.command.type });
       }
     }
     // Levels reached (RFC 0029): each resident is told once for the input, with what it unlocked.

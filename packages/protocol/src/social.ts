@@ -9,10 +9,12 @@ import {
   CircleBrief,
   CreateSessionResponse,
   CropKind,
+  FinishName,
   GameRatingView,
   GESTURE_NOTE_MAX_LENGTH,
   GestureItem,
   GestureKind,
+  GlazeName,
   ItemId,
   ItemKind,
   LookView,
@@ -1065,6 +1067,17 @@ export const NOTIFICATION_TYPES = [
    * 0046), with the plot and how many tiles. They hold blocks again.
    */
   "way_closed",
+  /**
+   * A host served tea at an event you were a counted guest at, and you took home a cup of tea they
+   * made (RFC 0047). The `actor` is the host. The cup is in your things.
+   */
+  "tea_poured",
+  /**
+   * From Terrakin itself, not a resident: a pot you listed in the market sold (RFC 0047). `potSold`
+   * says which pot, by its kind, glaze and finish, its price, and the coins that reached you, the
+   * price less the market's fee. Never who bought it.
+   */
+  "pot_sold",
 ] as const;
 export const NotificationType = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationType>;
@@ -1234,6 +1247,21 @@ export const NotificationView = z.object({
     .object({
       px: z.number().int(),
       py: z.number().int(),
+      price: z.number().int(),
+      coins: z.number().int(),
+    })
+    .optional(),
+  /**
+   * For a `pot_sold`: the pot you sold by its kind, glaze, finish and flower, its price, and the
+   * coins that reached you, the price less the market's fee (RFC 0047). From Terrakin itself
+   * (`system: true`), and it carries no words: not even the pot's label.
+   */
+  potSold: z
+    .object({
+      kind: ItemKind,
+      glaze: GlazeName,
+      finish: FinishName,
+      flower: ItemKind.optional(),
       price: z.number().int(),
       coins: z.number().int(),
     })

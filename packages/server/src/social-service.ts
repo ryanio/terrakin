@@ -873,6 +873,7 @@ export class SocialService {
     return {
       ageDays: (id) => this.ageDays(id),
       blockedEither: (a, b) => this.blockedEither(a, b),
+      blocks: (blocker, blocked) => this.blocks(blocker, blocked),
       hostsToday: (guest) => this.events.hostsCounted(guest, day),
     };
   }

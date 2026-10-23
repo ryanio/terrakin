@@ -439,6 +439,10 @@ describe("a world with clay", () => {
     expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
       ok: true,
     });
+    // Cy blocks Ada while there, and is still listed: leaving Cy out would tell Ada who did.
+    expect((await t.call("PUT", `/v1/residents/${ada.id}/block`, undefined, cy.token)).status).toBe(
+      200,
+    );
     const before = (await t.call("GET", "/v1/events/e_1", undefined, ada.token)).body.event;
     expect(before.tea).toMatchObject({ served: false, stay: 4 });
     expect(before.tea.guests).toEqual([

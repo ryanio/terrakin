@@ -2394,7 +2394,7 @@ walkPetButton.addEventListener("click", () => {
 function teaEventHere(): EventMark | undefined {
   const r = self();
   const m = mirror;
-  if (!r || !m || !m.clayOpen || (r.floor ?? 0) !== 0) return undefined;
+  if (!(r && m?.clayOpen) || (r.floor ?? 0) !== 0) return undefined;
   for (const e of m.events.values()) {
     if (e.status === "live" && e.host === r.id && !e.tea && inEventArea(m.config, e, r.x, r.y)) {
       return e;

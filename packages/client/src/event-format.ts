@@ -4,7 +4,7 @@
  * an event's lanterns. The server decides every event; these only describe what it said.
  */
 import type { EventView, HostingView, TeaView } from "@terrakin/protocol";
-import { type EventKind, ITEM_INFO } from "@terrakin/sim";
+import { EVENTS, type EventKind, ITEM_INFO } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
 
 const MINUTE = 60_000;
@@ -202,10 +202,6 @@ export function hostingWords(h: HostingView): string {
 /** How many dishes `dishesLine` names before it counts the rest. */
 const DISHES_NAMED = 3;
 
-/**
- * What's on the Thanksgiving feast's table (RFC 0034), newest first: "On the table: candy from
- * Bob, pumpkin pie from Ada, and 4 more." Names are residents' own: set it as text.
- */
 /** Names in a sentence: "Ada", "Ada and Bob", "Ada, Bob, and Cy". */
 const nameList = (names: string[]) =>
   names.length < 3
@@ -219,7 +215,7 @@ const nameList = (names: string[]) =>
  */
 export function teaLines(tea: TeaView): string[] {
   const counted = tea.guests.filter((g) => g.counted).map((g) => g.resident.name);
-  const stay = `${tea.stay * 5} minutes`;
+  const stay = `${tea.stay * EVENTS.tickMinutes} minutes`;
   const lead = tea.served
     ? counted.length > 0
       ? `Tea is out. A cup goes home with ${nameList(counted)} once they've been here ${stay}.`
@@ -231,6 +227,10 @@ export function teaLines(tea: TeaView): string[] {
   return [lead, ...not];
 }
 
+/**
+ * What's on the Thanksgiving feast's table (RFC 0034), newest first: "On the table: candy from
+ * Bob, pumpkin pie from Ada, and 4 more." Names are residents' own: set it as text.
+ */
 export function dishesLine(dishes: NonNullable<EventView["dishes"]>): string {
   const named = [...dishes]
     .reverse()

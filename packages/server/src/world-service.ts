@@ -486,10 +486,6 @@ function firedOf(events: readonly WorldEvent[], actor: string): { fired?: FiredP
 }
 
 /**
- * A `hand_in`'s answer: the made thing the sim picks in `state`, which is the one its commit takes
- * (RFC 0030). Read before the commit, since the thing leaves the world with it.
- */
-/**
  * A pot a `hand_in` gives the town (RFC 0047), by its codes and whose job it was, read before the
  * commit takes it, for the shop's shelf.
  */
@@ -508,6 +504,10 @@ function potHandedIn(state: WorldState, input: Input): Omit<TownPot, "seq" | "da
   };
 }
 
+/**
+ * A `hand_in`'s answer: the made thing the sim picks in `state`, which is the one its commit takes
+ * (RFC 0030). Read before the commit, since the thing leaves the world with it.
+ */
 function handedInOf(state: WorldState, input: Input): { handedIn?: HandedIn } {
   if (input.command.type !== "hand_in") return {};
   const pick = handInPick(state, input.actor, input.command.item);

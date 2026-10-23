@@ -52,7 +52,7 @@ const HOSTING_WINDOW_DAYS = 90;
 /** A guest counts for at most this many hosts a UTC day. */
 const GUEST_HOSTS_PER_DAY = 2;
 /** A guest counts once they're this many whole UTC days old, with a hearth. */
-export const GUEST_MIN_AGE_DAYS = 3;
+const GUEST_MIN_AGE_DAYS = 3;
 /** Upcoming events the Town Hall board shows. `GET /v1/events` has them all. */
 const BOARD_UPCOMING = 6;
 
@@ -265,6 +265,8 @@ export interface GuestFacts {
   blockedEither: (a: string, b: string) => boolean;
   /** The other hosts a guest already counted for on the day being counted. */
   hostsToday: (guest: string) => ReadonlySet<string>;
+  /** Whether `blocker` blocked `blocked`, one way: the tea list leaves out who the host blocked. */
+  blocks?: (blocker: string, blocked: string) => boolean;
 }
 
 /**
@@ -276,7 +278,7 @@ export interface GuestFacts {
  * already counted for `GUEST_HOSTS_PER_DAY` other hosts that day. A block either way is the
  * caller's to leave out, since saying so would tell the host who blocked whom.
  */
-export function guestProblem(
+function guestProblem(
   state: WorldState,
   e: HostedEvent,
   id: ResidentId,
@@ -299,7 +301,7 @@ export function guestProblem(
   }
   const others = [...facts.hostsToday(id)].filter((h) => h !== e.host).length;
   if (others >= GUEST_HOSTS_PER_DAY) {
-    return `has already been counted at ${GUEST_HOSTS_PER_DAY} other hosts' events today`;
+    return "can't be counted at another event today";
   }
   return undefined;
 }
@@ -320,10 +322,10 @@ export function countGuests(state: WorldState, e: HostedEvent, options: GuestFac
 }
 
 /** The samples a guest must be seen at by the end of `e` to have attended it. */
-export const teaStay = (e: HostedEvent) => attendNeeded(lastSlot(e.minutes));
+const teaStay = (e: HostedEvent) => attendNeeded(lastSlot(e.minutes));
 
 /** A resident at a live event, and why they wouldn't count when they wouldn't. */
-export interface TeaGuest {
+interface TeaGuest {
   id: ResidentId;
   /** Online in the event's area on the ground floor now. */
   here: boolean;
@@ -334,11 +336,13 @@ export interface TeaGuest {
 
 /**
  * Everyone at a live event a host could pour for (RFC 0047): seen at a sample so far or in its
- * area now, never the host, and never anyone blocked either way with them, who is left out rather
- * than named. Each says why they wouldn't count (`guestProblem`, today's facts), so a host knows
- * before serving who a cup would reach.
+ * area now, never the host, and never anyone the host blocked. Someone who blocked the host is
+ * listed as anyone else is, since leaving them out would tell the host who blocked them; the
+ * credit still leaves them out, and the sim gives the pot back when nobody is credited. Each says
+ * why they wouldn't count (`guestProblem`, today's facts), so a host knows before serving who a
+ * cup would reach.
  */
-export function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGuest[] {
+function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGuest[] {
   const seen = e.seen ?? {};
   const here = new Set(
     Object.values(state.residents)
@@ -346,7 +350,7 @@ export function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts):
       .map((r) => r.id),
   );
   const ids = [...new Set([...Object.keys(seen), ...here])].filter(
-    (id) => id !== e.host && !facts.blockedEither(e.host, id),
+    (id) => id !== e.host && !facts.blocks?.(e.host, id),
   );
   // Those a cup would reach first, then the rest, each in id order.
   return ids

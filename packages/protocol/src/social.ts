@@ -1081,7 +1081,7 @@ export const NOTIFICATION_TYPES = [
   /**
    * From Terrakin itself, not a resident: an event you served tea at was credited (RFC 0047).
    * `teaServed.cups` is how many cups your guests took home; 0 means nobody was counted, and your
-   * pot of tea is back in your things.
+   * pot of tea is back in your things, or held aside for you when they're full.
    */
   "tea_served",
 ] as const;

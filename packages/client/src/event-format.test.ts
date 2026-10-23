@@ -63,6 +63,7 @@ describe("lanterns on the map", () => {
     fields: Partial<Parameters<typeof eventLanterns>[0] extends Iterable<infer M> ? M : never> = {},
   ) => ({
     id: "e_1",
+    host: "r_ada",
     px: 2,
     py: 0,
     status: "scheduled" as const,

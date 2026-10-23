@@ -8,7 +8,7 @@ import type { SqlExec } from "./sql-store";
  */
 
 /** How many pots the shop's shelf shows, newest first. */
-export const TOWN_POTS_SHOWN = 6;
+const TOWN_POTS_SHOWN = 6;
 
 export interface TownPot {
   /** The input that handed it in. */

@@ -818,12 +818,6 @@ function visit(
 }
 
 /**
- * Why a resident can't come to the door of plot (px, py), from what the sim can't see: a
- * suspended owner's plot is closed for now, and nobody comes to the door of anyone blocked either
- * way, owner or co-owner. A visit (RFC 0020) and a trick-or-treater's knock (RFC 0022) both ask.
- * Undefined when nothing out here stands in the way.
- */
-/**
  * `bring_dish`, with one check the sim can't make (RFC 0047): a host serving tea at their own live
  * event where nobody would be counted for a cup is refused, naming why for each one there, so the
  * pot of tea stays theirs rather than going nowhere. The sim's own refusals come first.
@@ -854,6 +848,12 @@ function bringDish(
   return dry ? checked : ctx.run(input, false);
 }
 
+/**
+ * Why a resident can't come to the door of plot (px, py), from what the sim can't see: a
+ * suspended owner's plot is closed for now, and nobody comes to the door of anyone blocked either
+ * way, owner or co-owner. A visit (RFC 0020) and a trick-or-treater's knock (RFC 0022) both ask.
+ * Undefined when nothing out here stands in the way.
+ */
 function closedDoor(
   ctx: ActionContext,
   residentId: string,

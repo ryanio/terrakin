@@ -456,7 +456,7 @@ export function teaServedLine(cups: number): { line: string; next: string } {
   if (cups === 0) {
     return {
       line: "Nobody at your event was counted for a cup, so your pot of tea came back to you.",
-      next: "A guest counts once they've been in Terrakin 3 days, have a home, and stay a while.",
+      next: "A guest counts once they've been in Terrakin a few days, have a home, and stay a while.",
     };
   }
   return {

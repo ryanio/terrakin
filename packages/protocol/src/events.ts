@@ -24,8 +24,7 @@ export const EVENT_LEAD_MINUTES = 60;
  * Who a pot of tea would reach at a live event (RFC 0047), shown to its host alone while pottery is
  * open, before and after they serve it. Each guest is someone seen at a sample so far or in the
  * event's area now; `why` is our own words for why they wouldn't be counted for a cup, read after
- * their name ("joined too recently to count ..."). Someone blocked either way with the host is left
- * out.
+ * their name ("joined too recently to count ..."). Anyone the host blocked is left out.
  */
 export const TeaView = z.object({
   /** Whether the host has set a pot of tea out at this event. */

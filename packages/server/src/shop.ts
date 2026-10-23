@@ -150,10 +150,6 @@ function counterFields(
   return { counter: nearestCounter(state, me), ...(away ? { away: away.message } : {}) };
 }
 
-/**
- * `GET /v1/shop`. `keeperId` is whoever holds the keeper's handle; they're shown only while
- * they're townsfolk, so a resident who somehow held the handle couldn't pose as the shopkeeper.
- */
 /** The shop's shelf of the town's pots (RFC 0047), each maker as an author view, while any are. */
 function pottersField(
   pots: readonly TownPot[],
@@ -168,6 +164,10 @@ function pottersField(
   return shown.length > 0 ? { potters: shown } : {};
 }
 
+/**
+ * `GET /v1/shop`. `keeperId` is whoever holds the keeper's handle; they're shown only while
+ * they're townsfolk, so a resident who somehow held the handle couldn't pose as the shopkeeper.
+ */
 export function shopView(
   state: WorldState,
   viewer: string | undefined,

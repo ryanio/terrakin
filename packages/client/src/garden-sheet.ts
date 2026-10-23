@@ -22,6 +22,7 @@ import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@
 import {
   type BlockKind,
   type Crop,
+  FINISH_NAMES,
   GLAZE_COSTS,
   GLAZES,
   type Glaze,
@@ -46,6 +47,8 @@ import { inventoryApi } from "./api/inventory";
 import { dotChips } from "./join-form";
 import {
   cropOfSeed,
+  finishName,
+  finishOdds,
   glazeName,
   growthLine,
   kilnLine,
@@ -193,6 +196,30 @@ export function openTileSheet(o: TileSheetOptions) {
         glazes,
       )
     : null;
+  // What can come out of a kiln (RFC 0047): a pot in the picked glaze in each finish, with its odds,
+  // so there's something to hope for before the first one opens.
+  const finishList = h("ul", { class: "plain-list kiln-finishes" });
+  const finishes =
+    o.block === "kiln"
+      ? h(
+          "div",
+          { class: "stack tight" },
+          h("span", { class: "field-label", text: "What can come out" }),
+          finishList,
+        )
+      : null;
+  const paintFinishes = () =>
+    finishList.replaceChildren(
+      ...FINISH_NAMES.map((f) =>
+        h(
+          "li",
+          { class: "kiln-finish", attrs: { "data-finish": f } },
+          thingPicture({ kind: "vase", glaze, finish: f }, { size: 40 }),
+          h("span", { class: "kiln-finish-name", text: finishName(f) }),
+          h("span", { class: "kiln-finish-odds", text: finishOdds(f) }),
+        ),
+      ),
+    );
   // A planter lists seeds or its crop; a station lists what it makes, a few at a time.
   list.hidden = station !== null;
   goods.el.hidden = station === null;
@@ -254,6 +281,7 @@ export function openTileSheet(o: TileSheetOptions) {
     labelField,
     list,
     goods.el,
+    finishes,
     furniture,
     learn,
     teach,
@@ -398,6 +426,7 @@ export function openTileSheet(o: TileSheetOptions) {
   ) {
     const firing = o.firing;
     const busy = firing !== undefined || !o.yours;
+    paintFinishes();
     if (glazeField) glazeField.hidden = busy;
     if (labelField) labelField.hidden = busy;
     goods.el.hidden = busy;

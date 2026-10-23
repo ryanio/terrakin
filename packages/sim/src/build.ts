@@ -37,7 +37,7 @@ import {
 import { plotKey, tileKey } from "./keys";
 import { isStreet, streetWords } from "./lands";
 import { plotListedProblem } from "./plot-market";
-import { KILN, POT_BLOCK, potteryClosed } from "./pottery";
+import { clayRule, KILN, POT_BLOCK, potteryClosed } from "./pottery";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -397,7 +397,7 @@ export function planBuild(
         plan.removed.push({ x, y, ...floorField(floor) });
         blocksNow.set(spotKey(floor, key), undefined);
         // Decor and furniture come back as themselves, a pond as its stone (RFC 0023).
-        for (const [kind, n] of blockNeeds(block)) add(kind, n);
+        for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, n);
       }
     }
   };
@@ -438,7 +438,7 @@ export function planBuild(
         }
         plan.placed.push({ x, y, ...floorField(floor), block });
         blocksNow.set(spotKey(floor, key), block);
-        for (const [kind, n] of blockNeeds(block)) add(kind, -n);
+        for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n);
       }
     }
   };

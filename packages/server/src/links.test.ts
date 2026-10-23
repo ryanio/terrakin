@@ -7,7 +7,7 @@ import {
   RATE_LIMITS,
   REPEAT_WINDOW_MS,
 } from "@terrakin/protocol";
-import { FLOORS, HAIR_STYLES, type WorldConfig } from "@terrakin/sim";
+import { FLOORS, HAIR_STYLES, POTTERY, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
@@ -1196,7 +1196,7 @@ describe("links for the rest of a link-only resident's week", () => {
     // No kiln and no stone: the refusal says what a kiln takes.
     const early = (await wren.act("craft?recipe=bowl")).text;
     expect(codeOf(early)).toBe("not_enough_items");
-    expect(early).toContain("A kiln takes 4 stone");
+    expect(early).toContain(`A kiln takes ${POTTERY.kilnStone} stone`);
     service.testGrant(wren.id, undefined, { stone: 4, clay: 4, herb: 1 });
     const loaded = (await wren.act("craft?recipe=bowl&glaze=moss")).text;
     expect(loaded).toMatch(/You placed a kiln at \(\d+, \d+\)\. Your bowl is in the kiln/);

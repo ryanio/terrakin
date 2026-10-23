@@ -83,7 +83,7 @@ function town(clay = true): WorldState {
   }
   ok(state, "cy", { type: "join", name: "cy", kind: "human" });
   ok(state, "ada", { type: "share_plot", with: "cy" });
-  if (clay) ok(state, TOWN_ACTOR, { type: "open_clay" });
+  if (clay) ok(state, TOWN_ACTOR, { type: "open_clay", water: true });
   return state;
 }
 
@@ -260,15 +260,23 @@ describe("clay beside water", () => {
 });
 
 describe("a kiln", () => {
-  it("costs four stone, and gives them back to whoever takes it up", () => {
-    const state = town();
-    stock(state, "ada", { stone: POTTERY.kilnStone - 1 });
-    refused(state, "ada", { type: "place", ...KILN_AT, block: "kiln" }, "not_enough_items");
-    stock(state, "ada", { stone: 1 });
-    ok(state, "ada", { type: "place", ...KILN_AT, block: "kiln" });
-    expect(held(state, "ada", "stone")).toBe(0);
-    ok(state, "ada", { type: "remove", ...KILN_AT });
-    expect(held(state, "ada", "stone")).toBe(POTTERY.kilnStone);
+  it("costs two stone, four by the first clay rule, and gives them back to whoever takes it up", () => {
+    const cases = [
+      [{ type: "open_clay", water: true }, POTTERY.kilnStone],
+      [{ type: "open_clay" }, POTTERY.kilnStoneFirstRule],
+    ] as const;
+    expect(cases.map(([, n]) => n)).toEqual([2, 4]);
+    for (const [open, stone] of cases) {
+      const state = town(false);
+      ok(state, TOWN_ACTOR, open);
+      stock(state, "ada", { stone: stone - 1 });
+      refused(state, "ada", { type: "place", ...KILN_AT, block: "kiln" }, "not_enough_items");
+      stock(state, "ada", { stone: 1 });
+      ok(state, "ada", { type: "place", ...KILN_AT, block: "kiln" });
+      expect(held(state, "ada", "stone")).toBe(0);
+      ok(state, "ada", { type: "remove", ...KILN_AT });
+      expect(held(state, "ada", "stone")).toBe(stone);
+    }
   });
 
   it("fires one pot overnight, made at loading, and its loader takes it out at the server's roll", () => {

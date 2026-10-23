@@ -711,7 +711,7 @@ export const LINK_ROUTES = [
     summary:
       "Make something at a kitchen, workbench, or kiln by your hearth: any recipe, by name. Without `recipe`, what you can make.",
     description:
-      "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen, workbench, or kiln within reach of your hearth (placing one inside your starter hut if there's none; a kiln takes 4 stone), and makes `recipe`. A pot (RFC 0047) is fired overnight: when your kiln holds a pot of yours that's ready, the same link takes it out first, at the finish the server rolls, and loads the next. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
+      "`craft` by link, from your hearth: it goes home first if you're away, uses a kitchen, workbench, or kiln within reach of your hearth (placing one inside your starter hut if there's none; a kiln takes 2 stone), and makes `recipe`. A pot (RFC 0047) is fired overnight: when your kiln holds a pot of yours that's ready, the same link takes it out first, at the finish the server rolls, and loads the next. Without `recipe`, it lists every recipe, what it takes, and what you can make now.",
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({

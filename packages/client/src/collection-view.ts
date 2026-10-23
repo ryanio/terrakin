@@ -31,7 +31,14 @@ import { collectionApi } from "./api/collection";
 import { residentsApi } from "./api/residents";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
-import { collectedLine, dayLabel, familyLabel, holidayLine, seasonsLine } from "./things";
+import {
+  collectedLine,
+  dayLabel,
+  familyLabel,
+  finishOdds,
+  holidayLine,
+  seasonsLine,
+} from "./things";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 import "./collection-view.css";
 
@@ -49,10 +56,13 @@ function potLook(family: string, kind: string): ThingLook | undefined {
 /** One kind in a family's grid: its picture and name once collected, else its outline and "?". */
 function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
   const got = k.firstDay !== undefined;
+  // A finish (RFC 0047) shows what it looks like and how often it comes, to give a potter
+  // something to hope for, faint until one of theirs has it.
+  const finish = family === FINISH_GROUP && (FINISH_NAMES as readonly string[]).includes(k.kind);
   const opts = {
     size: 48,
-    title: got ? k.name : "Not found yet",
-    ...(got ? {} : { className: "silhouette" }),
+    title: got || finish ? k.name : "Not found yet",
+    ...(got ? {} : { className: finish ? "faint" : "silhouette" }),
   };
   // Pottery's pages (RFC 0047): a vase in each glaze, and one in each finish.
   const pot = potLook(family, k.kind);
@@ -60,16 +70,18 @@ function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
   const under =
     k.firstDay !== undefined
       ? dayLabel(k.firstDay, now)
-      : k.seasons
-        ? seasonsLine(k.seasons)
-        : k.holiday
-          ? holidayLine(k.holiday)
-          : null;
+      : finish
+        ? finishOdds(k.kind as Finish)
+        : k.seasons
+          ? seasonsLine(k.seasons)
+          : k.holiday
+            ? holidayLine(k.holiday)
+            : null;
   return h(
     "li",
     { class: got ? "collection-kind got" : "collection-kind", attrs: { "data-kind": k.kind } },
     art,
-    h("span", { class: "collection-kind-name", text: got ? k.name : "?" }),
+    h("span", { class: "collection-kind-name", text: got || finish ? k.name : "?" }),
     under ? h("span", { class: "collection-kind-when", text: under }) : null,
   );
 }

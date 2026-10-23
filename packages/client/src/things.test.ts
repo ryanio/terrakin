@@ -3,6 +3,7 @@ import {
   type Command,
   createWorld,
   dayOfDate,
+  FINISH_NAMES,
   GOOD_KINDS,
   type GoodKind,
   TOWN_ACTOR,
@@ -18,6 +19,7 @@ import {
   coinsLine,
   cropOfSeed,
   dayLabel,
+  finishOdds,
   growthLine,
   inventoryLine,
   KEY_UNKNOWN_LINE,
@@ -582,6 +584,11 @@ describe("collection words", () => {
     // Late on December 31 in UTC is still this year; the day itself never shifts a timezone.
     expect(dayLabel(oct6, Date.UTC(2026, 11, 31, 23, 30))).toBe("Oct 6");
     expect(dayLabel(oct6, Date.UTC(2027, 0, 1, 0, 30))).toBe("Oct 6, 2026");
+  });
+
+  it("says how often each finish comes out of a kiln, the four adding up to every pot (RFC 0047)", () => {
+    const odds = FINISH_NAMES.map((f) => finishOdds(f));
+    expect(odds).toEqual(["79 in 100 pots", "15 in 100 pots", "5 in 100 pots", "1 in 100 pots"]);
   });
 });
 

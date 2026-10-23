@@ -43,8 +43,14 @@ import type {
 
 /** The numbers (RFC 0047). Tuned with `scripts/economy-sim.ts --kiln`. */
 export const POTTERY = {
-  /** What a kiln takes to place, given back to whoever takes it up. */
-  kilnStone: 4,
+  /**
+   * What a kiln takes to place, given back to whoever takes it up: 2 stone, as a tile of pond
+   * takes, so most potters have one in their first week (`scripts/economy-sim.ts --kiln`: 82% at
+   * 2, half at 3).
+   */
+  kilnStone: 2,
+  /** A kiln's stone in a world whose clay came by the first rule, which only the kiln fixture has. */
+  kilnStoneFirstRule: 4,
   /**
    * Chance a meadow or sand tile with nothing else on it holds clay on a day, in a world whose
    * `open_clay` came without `water`. Frozen: that rule is the kiln fixture's, and no live world

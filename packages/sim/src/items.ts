@@ -49,6 +49,8 @@ import {
   firingAt,
   GLAZES,
   isGlaze,
+  type ClayRule,
+  clayRule,
   isPotKind,
   KILN,
   loadKiln,
@@ -1014,14 +1016,20 @@ export const POND = { block: "pond", stone: 2 } as const;
  * What placing a block takes from your things, and what taking it up gives back to whoever does:
  * one of itself for decor and furniture, which you hold before you place them, `POND.stone` stone
  * for a pond, `FLOORS.stairsWood` wood for stairs (RFC 0028), `POTTERY.kilnStone` stone for a
- * kiln (RFC 0047), and nothing for a free block. In a
- * fixed order, like a recipe's needs.
+ * kiln (RFC 0047), or `POTTERY.kilnStoneFirstRule` in a world whose clay came by the first rule
+ * (`clay`, the world's `clayRule`; a reader with no world, the web, means every world that will
+ * have pottery), and nothing for a free block. In a fixed order, like a recipe's needs.
  */
-export function blockNeeds(block: string | undefined): [StackKind, number][] {
+export function blockNeeds(
+  block: string | undefined,
+  clay: ClayRule = "by_water",
+): [StackKind, number][] {
   if (isHeldBlock(block)) return [[block, 1]];
   if (block === POND.block) return [["stone", POND.stone]];
   if (block === "stairs") return [["wood", FLOORS.stairsWood]];
-  if (block === KILN) return [["stone", POTTERY.kilnStone]];
+  if (block === KILN) {
+    return [["stone", clay === "meadow_and_sand" ? POTTERY.kilnStoneFirstRule : POTTERY.kilnStone]];
+  }
   return [];
 }
 
@@ -1058,7 +1066,7 @@ export function blockPlaceProblem(
   actor: ResidentId,
   block: string,
 ): Rejection | null {
-  const needs = blockNeeds(block);
+  const needs = blockNeeds(block, clayRule(state));
   if (needs.length === 0) return null;
   const shut = closed(state);
   if (shut) return shut;
@@ -1088,7 +1096,7 @@ export function blockRemoveProblem(
   actor: ResidentId,
   block: string | undefined,
 ): Rejection | null {
-  const back = blockNeeds(block).reduce((sum, [, n]) => sum + n, 0);
+  const back = blockNeeds(block, clayRule(state)).reduce((sum, [, n]) => sum + n, 0);
   if (back === 0) return null;
   if (inventorySize(state.items?.inventories[actor]) + back > ITEMS.inventoryMax) {
     return refuse(
@@ -1113,7 +1121,7 @@ export function moveBlockCost(
   amount: 1 | -1,
 ): WorldEvent[] {
   const items = state.items;
-  const needs = blockNeeds(block);
+  const needs = blockNeeds(block, clayRule(state));
   if (!items || needs.length === 0) return [];
   const mine = inventory(items, actor);
   const changes = needs.map(([kind, n]) => addStack(mine, kind, amount * n));

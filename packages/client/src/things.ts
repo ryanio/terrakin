@@ -12,6 +12,7 @@ import {
   type Crop,
   FAMILIES,
   type Family,
+  FINISHES,
   type Finish,
   FURNITURE_RECIPES,
   type FurnitureKind,
@@ -29,6 +30,7 @@ import {
   MATERIAL_RECIPES,
   type MaterialKind,
   OTHERS_PLOT_GATHER,
+  POTTERY,
   RECIPES,
   type RecipeName,
   recipeOf,
@@ -284,6 +286,23 @@ const FINISH_WORDS: Readonly<Record<Finish, string>> = {
 /** A pot's glaze and finish in a few words (RFC 0047): "Sea glaze, crackle". */
 export const potLine = (glaze: Glaze, finish: Finish | undefined): string =>
   finish && finish !== "plain" ? `${glazeName(glaze)}, ${finish}` : glazeName(glaze);
+
+/**
+ * How often a pot comes out with a finish (RFC 0047), from the sim's frozen `FINISHES`: "15 in
+ * 100 pots", and for plain whatever the rest leave.
+ */
+export function finishOdds(finish: Finish): string {
+  const some = FINISHES.reduce((n, f) => n + f.chance, 0);
+  const chance =
+    finish === "plain"
+      ? POTTERY.outOf - some
+      : (FINISHES.find((f) => f.finish === finish)?.chance ?? 0);
+  return `${(chance * 100) / POTTERY.outOf} in 100 pots`;
+}
+
+/** A finish in a person's words, capitalized: "Speckled", "Smooth" for plain. */
+export const finishName = (finish: Finish): string =>
+  finish === "plain" ? "Smooth" : `${finish.charAt(0).toUpperCase()}${finish.slice(1)}`;
 
 /** When a pot comes out of a kiln, as `growthLine` says it of a crop. */
 export function kilnLine(readyDay: number, today: number | undefined): string {

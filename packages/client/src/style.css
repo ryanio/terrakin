@@ -2807,6 +2807,27 @@ dialog.model-viewer {
   text-decoration: none;
 }
 
+/* What can come out of a kiln (RFC 0047): four pots side by side, each with its finish and odds. */
+.kiln-finishes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.kiln-finish {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.kiln-finish-name {
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+}
+
 /* "13 more recipes to learn": the way from a kitchen or workbench to the shop's Recipes shelf. */
 .workshop-learn {
   justify-self: start;

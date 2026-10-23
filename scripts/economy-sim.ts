@@ -292,6 +292,8 @@ for (const pair of args.set ?? []) {
     (PROGRESS as unknown as Mutable)[tail] = n;
   } else if (tail && head === "jobs" && tail in JOBS) {
     (JOBS as unknown as Mutable)[tail] = n;
+  } else if (tail && head === "pottery" && tail in POTTERY) {
+    (POTTERY as unknown as Mutable)[tail] = n;
   } else if (tail && head === "shopPantry" && tail in ITEMS.shopPantry) {
     (ITEMS.shopPantry as Record<string, number>)[tail] = n;
   } else if (tail && (head === "price" || head === "buy" || head === "perDay")) {
@@ -1632,6 +1634,9 @@ const pottery = {
   firstBowl: new Map<string, number>(),
   firstTeapot: new Map<string, number>(),
   making5: new Map<string, number>(),
+  /** Each potter's first day at home as a potter, and the days from it to their first kiln. */
+  started: new Map<string, number>(),
+  toKiln: new Map<string, number>(),
 };
 const POTS = ["teapot", "vase", "bowl"] as const;
 
@@ -1733,6 +1738,7 @@ function goPot(rules: Rules, id: string) {
   if (!me || !hearth) return;
   const day = today(state);
   pottery.days++;
+  if (!pottery.started.has(id)) pottery.started.set(id, day);
   const { reach } = state.config;
   const near = (x: number, y: number) =>
     Math.max(Math.abs(x - hearth.x), Math.abs(y - hearth.y)) <= reach;
@@ -1779,6 +1785,7 @@ function goPot(rules: Rules, id: string) {
     if (!tile || holds(state, id, "stone") < POTTERY.kilnStone) return;
     if (!rules.send(id, { type: "place", ...tile, block: "kiln" })) return;
     pottery.kilns++;
+    pottery.toKiln.set(id, day - (pottery.started.get(id) ?? day));
     kiln = tile;
   }
   const pond = dry ? openPondTile(state, hearth) : undefined;
@@ -4253,6 +4260,15 @@ function potteryLines(people: Person[]) {
       .join(
         ", ",
       )}), ${(firedAll / Math.max(1, p.days)).toFixed(2)} a potter-day; ${p.glazed} loaded in a glaze. Finishes: ${finishes}.`,
+  );
+  // The first week: of potters who started a week or more before the month ended, how many had a
+  // kiln by their seventh day.
+  const lastDay = Math.max(0, ...p.started.values());
+  const weekOld = [...p.started.entries()].filter(([, d]) => lastDay - d >= 7).map(([id]) => id);
+  const inWeek = weekOld.filter((id) => (p.toKiln.get(id) ?? Number.POSITIVE_INFINITY) < 7).length;
+  const kilnDays = [...p.toKiln.values()].sort((a, b) => a - b);
+  console.log(
+    `  First kiln: ${inWeek} of ${weekOld.length} potters with a week or more had one within their first week (${Math.round((inWeek / Math.max(1, weekOld.length)) * 100)}%), at ${POTTERY.kilnStone} stone; median ${percentile(kilnDays, 0.5)} days from starting to a kiln (n=${kilnDays.length}).`,
   );
   console.log(
     `  Engaged potters (a kiln and water by home, clay beside water at ${POTTERY.clayByWaterChance} a tile a day): ${p.engagedDays} potter-days, ${(p.engagedClay / Math.max(1, p.engagedDays)).toFixed(2)} clay picked up near home a day, ${(p.engagedFired / Math.max(1, p.engagedDays)).toFixed(2)} pots taken out a day.`,

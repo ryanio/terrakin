@@ -69,6 +69,11 @@
   opacity: 0.14;
 }
 
+/* A finish not had yet (RFC 0047): shown, so there's something to chase, but faint. */
+.collection-kind .faint {
+  opacity: 0.45;
+}
+
 .collection-kind-name {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);

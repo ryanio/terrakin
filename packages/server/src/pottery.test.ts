@@ -340,6 +340,45 @@ describe("a world with clay", () => {
     expect(JSON.stringify(notices)).not.toContain(bob.id);
   });
 
+  it("puts a pot handed in for a job on the shop's shelf, and the giver thanks its maker", async () => {
+    const t = await start(true, { levels: true, jobs: true });
+    const ada = await t.settler("Ada", 0);
+    // The board moves to pottery's edition a day at a time; wait for Clem's bowl to come up.
+    let up = false;
+    for (let i = 0; i < 30 && !up; i++) {
+      t.later(DAY_MS);
+      const board = (await t.call("GET", "/v1/jobs", undefined, ada.token)).body.jobs as Json[];
+      up = board.some((j) => j.id === "clem_bowl");
+    }
+    expect(up).toBe(true);
+    expect(t.service.testGrant(ada.id, undefined, { stone: 4, clay: 2 })).toMatchObject({
+      ok: true,
+    });
+    for (const action of [
+      { type: "take_job", job: "clem_bowl" },
+      { type: "place", ...KILN, block: "kiln" },
+      { type: "craft", recipe: "bowl", ...KILN, glaze: "bare" },
+    ]) {
+      expect(await t.act(ada.token, action)).toMatchObject({ ok: true });
+    }
+    expect((await t.call("GET", "/v1/shop")).body.shop).not.toHaveProperty("potters");
+    t.later(DAY_MS);
+    const out = await t.act(ada.token, { type: "harvest", ...KILN });
+    expect(await t.act(ada.token, { type: "hand_in" })).toMatchObject({ ok: true });
+    expect((await t.call("GET", "/v1/shop")).body.shop.potters).toEqual([
+      {
+        maker: expect.objectContaining({ id: ada.id, name: "Ada" }),
+        giver: "Clem",
+        kind: "bowl",
+        glaze: "bare",
+        finish: out.fired.finish,
+      },
+    ]);
+    const notices = (await t.call("GET", "/v1/notifications", undefined, ada.token)).body
+      .notifications as Json[];
+    expect(notices.find((n) => n.type === "job_done")).toBeDefined();
+  });
+
   it("says who tea would reach, refuses it when nobody would be counted, and tells host and guest", async () => {
     const t = await start(true, { levels: true });
     const ada = await t.settler("Ada", 0);

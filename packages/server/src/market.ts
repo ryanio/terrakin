@@ -8,6 +8,7 @@ import {
   tierAtLeast,
 } from "@terrakin/protocol";
 import {
+  buyProblem,
   coinsOf,
   ITEM_INFO,
   type ItemKind,
@@ -157,12 +158,15 @@ export function marketView(
   let you: MarketResponse["you"] = null;
   if (viewer && state.residents[viewer]) {
     const why = listingRefusal(state, viewer, lister(viewer));
+    const buyWhy = buyProblem(state, viewer);
     const takenDown = takenDownOf(state, viewer).flatMap((l) => listingView(l, author) ?? []);
     you = {
       balance: coinsOf(state, viewer),
       listings: listingsOf(state).filter((l) => l.seller === viewer).length,
       canList: why === null,
       ...(why === null ? {} : { why }),
+      canBuy: buyWhy === undefined,
+      ...(buyWhy === undefined ? {} : { buyWhy }),
       ...(takenDown.length > 0 ? { takenDown } : {}),
     };
   }

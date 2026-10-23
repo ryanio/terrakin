@@ -144,9 +144,16 @@ describe("the market", () => {
       error: { code: "not_eligible" },
     });
     const mine = (await t.call("GET", "/v1/market", undefined, ada.token)).body.you;
-    expect(mine).toMatchObject({ canList: false, listings: 0 });
+    // On a first day the world won't sell to her either, and the market says so before a tap.
+    expect(mine).toMatchObject({
+      canList: false,
+      listings: 0,
+      canBuy: false,
+      buyWhy: "You can buy in the market from your second day.",
+    });
     t.days(3);
     expect((await t.call("GET", "/v1/market", undefined, ada.token)).body.you).toMatchObject({
+      canBuy: true,
       canList: true,
     });
     expect(await t.act(ada.token, sugar)).toMatchObject({ ok: true });

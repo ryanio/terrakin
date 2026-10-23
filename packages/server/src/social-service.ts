@@ -113,6 +113,7 @@ import { stripMetadata } from "./strip-metadata";
 import { report } from "./telemetry";
 import { cleanMultiline, cleanText } from "./text";
 import { TogetherService } from "./together-service";
+import { TownPots } from "./town-pots";
 import type { TriageClient } from "./triage";
 import type { WorldCredit } from "./world-service";
 import {
@@ -682,6 +683,7 @@ export class SocialService {
       moderation: this.moderation,
     });
     this.collection = new CollectionBook({ sql: this.sql, now: this.now });
+    this.townPots = new TownPots(this.sql);
     this.photoStories = new PhotoStories({ sql: this.sql, now: this.now });
     this.plots = new PlotVisits({
       sql: this.sql,
@@ -824,6 +826,8 @@ export class SocialService {
   readonly photoStories: PhotoStories;
   /** The collection book (RFC 0021): what each resident has ever held and worn, and since when. */
   readonly collection: CollectionBook;
+  /** The shop's shelf of pots handed in for the town's jobs (RFC 0047). */
+  readonly townPots: TownPots;
   /** When residents check in, for the staff app's numbers. */
   readonly checkins: CheckinLog;
   /** Start-file reads that came with a partner's `?from=`, for `arrivals7d`. */

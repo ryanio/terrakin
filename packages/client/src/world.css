@@ -671,6 +671,15 @@ a.action {
   display: none;
 }
 
+/* "Put a flower in it": the words before a vase's flower chips on the build bar (RFC 0047). */
+.palette-flower-label {
+  align-self: center;
+  padding-inline: var(--space-xs);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
 /*
  * On a phone the world is the point, so its controls give the map back as much of the screen as
  * they can ([decision 0303](../../../docs/knowledge/decisions/0303-on-a-phone-the-world-s-controls-are-icons-round-the-map.md)):

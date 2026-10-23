@@ -93,6 +93,12 @@ export const MarketYouView = z.object({
   canList: z.boolean(),
   why: z.string().optional(),
   /**
+   * Whether you can buy in the market today, by the world's own checks, whatever the listing. When
+   * you can't, `buyWhy` says why ("You can buy in the market from your second day.").
+   */
+  canBuy: z.boolean(),
+  buyWhy: z.string().optional(),
+  /**
    * Your listings staff took down while your things were too full to take the lot back. Out of the
    * market; take each back with `unlist_item` once you have room. Absent when there are none.
    */

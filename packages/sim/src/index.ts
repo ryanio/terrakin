@@ -435,6 +435,7 @@ export {
   plotMap,
 } from "./map";
 export {
+  buyProblem,
   listingById,
   listingsOf,
   MARKET,

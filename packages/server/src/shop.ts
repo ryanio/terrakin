@@ -1,11 +1,13 @@
 import {
   type AuthorView,
   type BuyOrderView,
+  JOB_GIVER_NAMES,
   type RecipeCardView,
   SHOP_ITEMS,
   SHOP_RULES,
   type ShopItemView,
   type ShopResponse,
+  type ShopView,
 } from "@terrakin/protocol";
 import {
   CARD_RECIPES,
@@ -37,6 +39,7 @@ import {
   treasuryShareOf,
   type WorldState,
 } from "@terrakin/sim";
+import type { TownPot } from "./town-pots";
 
 /**
  * The town shop (RFC 0008, phase 2) as the API shows it. The sim keeps the catalog, the buy
@@ -151,11 +154,26 @@ function counterFields(
  * `GET /v1/shop`. `keeperId` is whoever holds the keeper's handle; they're shown only while
  * they're townsfolk, so a resident who somehow held the handle couldn't pose as the shopkeeper.
  */
+/** The shop's shelf of the town's pots (RFC 0047), each maker as an author view, while any are. */
+function pottersField(
+  pots: readonly TownPot[],
+  author: (id: string) => AuthorView | undefined,
+): Pick<ShopView, "potters"> {
+  const shown = pots.flatMap((p) => {
+    const maker = author(p.maker);
+    return maker
+      ? [{ maker, giver: JOB_GIVER_NAMES[p.giver], kind: p.kind, glaze: p.glaze, finish: p.finish }]
+      : [];
+  });
+  return shown.length > 0 ? { potters: shown } : {};
+}
+
 export function shopView(
   state: WorldState,
   viewer: string | undefined,
   keeperId: string | undefined,
   author: (id: string) => AuthorView | undefined,
+  potters: readonly TownPot[] = [],
 ): ShopResponse {
   // The share in force in this world, which `SHOP_RULES` can't know before the shop opens.
   const rules = { ...SHOP_RULES, treasuryShare: treasuryShareOf(state) };
@@ -174,6 +192,7 @@ export function shopView(
       ...(state.recipes ? { recipes: cardsOn(state, state.day, mine ? viewer : undefined) } : {}),
       buying: buyingToday(state, mine ? viewer : undefined),
       tiles: shopTiles(state),
+      ...pottersField(potters, author),
     },
     you:
       mine && me

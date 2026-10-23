@@ -1,7 +1,16 @@
 import type { PlotSaleView } from "@terrakin/protocol";
 import { BUY_ORDERS, SHOP_CATALOG } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { asksFor, othersAsk, suggestedPrice, townLine } from "./market-view";
+import {
+  asksFor,
+  boughtLine,
+  othersAsk,
+  potAsks,
+  potPrice,
+  potPriceLine,
+  suggestedPrice,
+  townLine,
+} from "./market-view";
 import { listingAction } from "./market-words";
 import {
   listingFacts,
@@ -94,6 +103,61 @@ describe("the market page", () => {
     expect(suggestedPrice("acorn", 3, [2 / 3, 4])).toBe(2);
     expect(suggestedPrice("acorn", 1, [0.4])).toBe(1);
     expect(suggestedPrice("acorn", 2)).toBe(6);
+  });
+});
+
+describe("what you bought (RFC 0047)", () => {
+  it("names a pot by its finish, glaze and kind, and who made it", () => {
+    const maker = { id: "r_w", name: "Wren", kind: "human" } as never;
+    expect(
+      boughtLine({
+        kind: "vase",
+        count: 1,
+        name: "Crackle sea vase",
+        goods: [{ id: "i_1", maker, madeDay: 1, glaze: "sea", finish: "crackle" }],
+      }),
+    ).toBe("You bought a crackle sea vase made by Wren.");
+    expect(boughtLine({ kind: "lemon", count: 3, name: "3 lemons" })).toBe("You bought 3 lemons.");
+  });
+  it("holds Buy back while the world wouldn't sell to you, with its words", () => {
+    const l = { price: 5, seller: { id: "bo" } };
+    expect(listingAction(l, "me", 50, "You can buy in the market from your second day.")).toEqual({
+      kind: "buy",
+      text: "Not yet",
+      can: false,
+    });
+    expect(listingAction(l, "me", 50).can).toBe(true);
+  });
+});
+
+describe("a pot's price hint (RFC 0047)", () => {
+  it("starts from a default by kind and finish, then from what sellers here ask", () => {
+    expect(potPrice("bowl", "smooth", [])).toBe(10);
+    expect(potPrice("vase", "crackle", [])).toBe(48);
+    expect(potPrice("bowl", "speckled", [9, 14, 30])).toBe(14);
+    expect(potPriceLine("bowl", "speckled", [])).toBe(
+      "Speckled bowls usually go for about 15 coins. A crackle or iridescent finish fetches more.",
+    );
+    expect(potPriceLine("vase", "smooth", [20])).toBe(
+      "Smooth vases listed here ask about 20 coins.",
+    );
+    const seller = (id: string) => ({ id });
+    const listing = (finish: string, price: number, who = "bo") =>
+      ({
+        kind: "bowl",
+        count: 1,
+        price,
+        seller: seller(who),
+        goods: [{ id: "i_1", kind: "bowl", maker: who, finish }],
+      }) as never;
+    expect(
+      potAsks(
+        "bowl",
+        "speckled",
+        [listing("speckled", 12), listing("smooth", 8), listing("speckled", 20, "me")],
+        "me",
+      ),
+    ).toEqual([12]);
   });
 });
 

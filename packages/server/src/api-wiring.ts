@@ -227,6 +227,7 @@ export function wireSocial(
   service.onPotSold = (seller, sold) => layer.potSold(seller, sold);
   service.onTeaPoured = (guest, host) => layer.teaPoured(guest, host);
   service.onTeaServed = (host, cups) => layer.teaServed(host, cups);
+  service.onPotHandedIn = (pot) => layer.townPots.add(pot);
   // Serving tea where nobody would be counted is refused with why (RFC 0047): today's guest facts.
   service.guestFacts = () => layer.guestFacts();
   // Jobs (RFC 0030): a finished job tells its resident, here or away, and profiles show the

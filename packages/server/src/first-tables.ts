@@ -89,6 +89,7 @@ export const FIRST_TABLES: readonly string[] = [
   "CREATE TABLE staff_keys (id TEXT PRIMARY KEY, key_hash TEXT NOT NULL UNIQUE, owner TEXT NOT NULL, name TEXT NOT NULL, scope TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, last_used_at INTEGER, revoked_at INTEGER)",
   "CREATE TABLE streaks (pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL, day INTEGER NOT NULL, streak INTEGER NOT NULL)",
   "CREATE TABLE suspensions (resident_id TEXT PRIMARY KEY, until INTEGER NOT NULL, reason TEXT NOT NULL, by TEXT NOT NULL, at INTEGER NOT NULL)",
+  "CREATE TABLE town_pots (seq INTEGER PRIMARY KEY, giver TEXT NOT NULL, maker TEXT NOT NULL, kind TEXT NOT NULL, glaze TEXT NOT NULL, finish TEXT NOT NULL, day INTEGER NOT NULL)",
   "CREATE TABLE townsfolk_greetings (resident_id TEXT PRIMARY KEY, joined_at INTEGER NOT NULL, due_at INTEGER NOT NULL, done_at INTEGER, mode TEXT NOT NULL DEFAULT '', greeter TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT '')",
   "CREATE TABLE townsfolk_tips (id INTEGER PRIMARY KEY CHECK (id = 1), state TEXT NOT NULL)",
   "CREATE TABLE townsfolk_tips_runs (n INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, day INTEGER NOT NULL, mode TEXT NOT NULL, result TEXT NOT NULL)",

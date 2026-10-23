@@ -360,6 +360,8 @@ export function paintPotChips(
     flowers.length === 0
       ? []
       : [
+          // What the chips after a vase are for, said before them.
+          h("span", { class: "palette-flower-label", text: "Put a flower in it" }),
           choice({ "data-flower": "" }, "No flower", null, {
             dim: false,
             picked: flower === undefined,

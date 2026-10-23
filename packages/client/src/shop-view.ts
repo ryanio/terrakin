@@ -15,7 +15,7 @@ import type {
 import { cardOf, dateOfDay, dayName, HOLIDAY_INFO } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
-import { itemArt } from "@terrakin/ui/item-art";
+import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { itemRow, itemRows, kindPill, landOnHash, pageLayout } from "@terrakin/ui/ui";
 import { actFromButton } from "./act";
@@ -24,7 +24,7 @@ import { shopApi } from "./api/shop";
 import { savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
 import { balanceLine, coins } from "./purse";
-import { aNamed, learnedLine, needsListLine, stackCount } from "./things";
+import { aNamed, learnedLine, madeName, needsListLine, stackCount } from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 type Section = ShopItemView["section"];
@@ -385,6 +385,40 @@ export function shopView(ctx: ViewContext): View {
           ".",
         ),
       ),
+      ...(shop.potters?.length
+        ? [
+            h(
+              "section",
+              {
+                class: "stack shop-section",
+                attrs: { id: "potters", "aria-labelledby": "shop-potters-title" },
+              },
+              h("h2", {
+                class: "section-title",
+                attrs: { id: "shop-potters-title" },
+                text: "Pots from the town's potters",
+              }),
+              // Each pot handed in for a townsfolk's job (RFC 0047), by its codes and its maker.
+              itemRows(
+                shop.potters.map((p) =>
+                  itemRow({
+                    lead: thingPicture(p, { size: 40 }),
+                    name: madeName(p),
+                    lines: [
+                      h(
+                        "span",
+                        {},
+                        personLink(p.maker),
+                        h("span", { text: ` made it for ${p.giver}` }),
+                      ),
+                    ],
+                  }),
+                ),
+                { className: "shop-potters" },
+              ),
+            ),
+          ]
+        : []),
     );
     main.replaceChildren(
       ...shelvesOf(shop).map(({ key, title, hint, items }) =>

@@ -13,9 +13,12 @@ export function listingAction(
   l: { price: number; seller: { id: string } },
   viewerId: string | null,
   balance: number | null,
+  buyWhy?: string,
 ): { kind: "buy" | "take" | "none"; text: string; can: boolean } {
   if (viewerId === null || balance === null) return { kind: "none", text: "", can: false };
   if (l.seller.id === viewerId) return { kind: "take", text: "Take back", can: true };
+  // The world wouldn't sell to you today (`you.buyWhy`): Buy waits, and the page says why.
+  if (buyWhy !== undefined) return { kind: "buy", text: "Not yet", can: false };
   if (balance < l.price)
     return { kind: "buy", text: `${coins(l.price - balance)} short`, can: false };
   return { kind: "buy", text: `Buy for ${coins(l.price)}`, can: true };

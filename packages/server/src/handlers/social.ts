@@ -138,8 +138,12 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
     },
     getShop: ({ viewer }) => ({
       status: 200,
-      body: shopView(service.state, viewer, social().residentIdByHandle(SHOP_KEEPER_HANDLE), (id) =>
-        social().authorView(id),
+      body: shopView(
+        service.state,
+        viewer,
+        social().residentIdByHandle(SHOP_KEEPER_HANDLE),
+        (id) => social().authorView(id),
+        social().townPots.newest(),
       ),
     }),
     getMarket: ({ viewer, query }) => {

@@ -1212,13 +1212,17 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     raycaster.setFromCamera(ndc, camera);
     const { origin, direction } = raycaster.ray;
     const dir = [direction.x, direction.y, direction.z] as const;
-    const figureHit = raycaster.intersectObjects(
-      [...figures.values()].map((f) => f.group),
-      true,
-    )[0];
+    // A figure's body takes the tap, never the name tag, sign, or bubble floating over it, which
+    // can hang over a kiln or a planter a few tiles off and steal its tap.
+    const figureHit = raycaster
+      .intersectObjects(
+        [...figures.values()].map((f) => f.group),
+        true,
+      )
+      .find((h) => !(h.object instanceof Sprite));
     const solids: Object3D[] = [...chunks.values()].map((c) => c.group);
     for (const b of buildings.values()) solids.push(b.group);
-    const hit = raycaster.intersectObjects(solids, true)[0];
+    const hit = raycaster.intersectObjects(solids, true).find((h) => !(h.object instanceof Sprite));
     // Whichever is nearer wins: a wall in front of someone takes the tap, and so does someone
     // standing in front of a wall.
     if (figureHit && !(hit && hit.distance < figureHit.distance)) {

@@ -18,9 +18,12 @@ import type {
 } from "@terrakin/protocol";
 import {
   BUY_ORDERS,
+  type Finish,
   ITEM_INFO,
   type ItemKind,
+  isPotKind,
   isShopSku,
+  potName,
   type SellKind,
   SHOP_CATALOG,
 } from "@terrakin/sim";
@@ -70,6 +73,67 @@ export function suggestedPrice(
       ? SHOP_CATALOG[kind].price
       : (asks[0] ?? 3);
   return Math.max(1, Math.round(each * count));
+}
+
+/**
+ * What you bought, for the toast: a pot by its finish, glaze and kind with who made it ("You bought
+ * a crackle sea vase made by Wren."), anything else by its lot. A maker's name is text.
+ */
+export function boughtLine(l: Pick<ListingView, "kind" | "count" | "name" | "goods">): string {
+  const good = l.goods?.length === 1 ? l.goods[0] : undefined;
+  if (good?.finish && isPotKind(l.kind)) {
+    const name = l.name.toLowerCase();
+    const by = good.maker ? ` made by ${good.maker.name}` : "";
+    return `You bought ${/^[aeiou]/.test(name) ? "an" : "a"} ${name}${by}.`;
+  }
+  return `You bought ${lotWords(l.kind, l.count)}.`;
+}
+
+/** A pot's starting price by kind (RFC 0047), for its clay, glaze, and a day in the kiln. */
+const POT_BASE: Readonly<Record<string, number>> = { bowl: 10, vase: 16, teapot: 24 };
+/** How much more a finish fetches than a smooth pot, by how rarely it comes out. */
+const FINISH_WORTH: Readonly<Record<Finish, number>> = {
+  smooth: 1,
+  speckled: 1.5,
+  crackle: 3,
+  iridescent: 6,
+};
+
+/**
+ * A pot's price hint (RFC 0047): what other sellers on the page ask for a pot of the same kind and
+ * finish, in the middle of their asks, else a default by kind and finish. Never a rule: the seller
+ * types any price.
+ */
+export function potPrice(kind: ItemKind, finish: Finish, asks: readonly number[]): number {
+  const mid = asks.length > 0 ? asks[Math.floor((asks.length - 1) / 2)] : undefined;
+  return Math.max(1, Math.round(mid ?? (POT_BASE[kind] ?? 12) * FINISH_WORTH[finish]));
+}
+
+/** The line under a picked pot: where its price hint comes from. */
+export function potPriceLine(kind: ItemKind, finish: Finish, asks: readonly number[]): string {
+  const pots = `${potName({ kind, finish }, false)}s`.replace(/ clay /, " ");
+  const price = coins(potPrice(kind, finish, asks));
+  return asks.length > 0
+    ? `${pots} listed here ask about ${price}.`
+    : `${pots} usually go for about ${price}. A crackle or iridescent finish fetches more.`;
+}
+
+/** What other sellers on the page ask for a pot of `kind` and `finish`, one pot a listing. */
+export function potAsks(
+  kind: ItemKind,
+  finish: Finish,
+  listings: readonly (Pick<ListingView, "kind" | "count" | "price" | "goods"> & {
+    seller: { id: string };
+  })[],
+  me: string | null,
+): number[] {
+  return listings
+    .filter(
+      (l) =>
+        l.kind === kind && l.seller.id !== me && l.count === 1 && l.goods?.[0]?.finish === finish,
+    )
+    .map((l) => l.price)
+    .sort((a, b) => a - b);
 }
 
 /**
@@ -200,9 +264,14 @@ export function listingRow(
 }
 
 /** What you hold, as choices for the Sell form: made things by id, stacks by kind with a count. */
-function choices(
-  inv: InventoryResponse["inventory"],
-): { value: string; text: string; max: number; kind: ItemKind; stack: boolean }[] {
+function choices(inv: InventoryResponse["inventory"]): {
+  value: string;
+  text: string;
+  max: number;
+  kind: ItemKind;
+  stack: boolean;
+  finish?: Finish;
+}[] {
   if (!inv) return [];
   return [
     ...inv.goods.map((g) => ({
@@ -211,6 +280,7 @@ function choices(
       max: 1,
       kind: g.kind as ItemKind,
       stack: false,
+      ...(g.finish ? { finish: g.finish } : {}),
     })),
     ...inv.stacks.map((s) => ({
       value: s.kind,
@@ -272,8 +342,19 @@ export function marketView(ctx: ViewContext): View {
       attrs: { id: "market-advice", "aria-live": "polite" },
     });
     const listed = data.market?.listings ?? [];
-    const advise = (kind: ItemKind, asks: readonly number[]) => {
+    const advise = (kind: ItemKind, asks: readonly number[], finish?: Finish) => {
       const town = townLine(kind, shop);
+      // A pot (RFC 0047): a price hint by its kind and finish, in place of the town's line.
+      if (finish && isPotKind(kind)) {
+        const pots = potAsks(kind, finish, listed, me);
+        advice.replaceChildren(
+          h("p", {
+            class: "field-hint market-others",
+            text: potPriceLine(kind, finish, pots),
+          }),
+        );
+        return;
+      }
       advice.replaceChildren(
         ...(town ? [h("p", { class: "field-hint market-town", text: town.text })] : []),
         ...(town?.sell
@@ -298,14 +379,18 @@ export function marketView(ctx: ViewContext): View {
       const o = chosen();
       if (!o) return;
       const asks = asksFor(o.kind, listed, me);
-      advise(o.kind, asks);
+      advise(o.kind, asks, o.finish);
       countRow.hidden = !o.stack;
       const most = Math.min(o.max, data.rules.countMax);
       count.max = String(most);
       const n = Math.min(Math.max(1, Number(count.value) || 1), most);
       count.value = String(n);
       if (price.value === "" || price.value === suggested) {
-        suggested = String(suggestedPrice(o.kind, n, asks));
+        suggested = String(
+          o.finish && isPotKind(o.kind)
+            ? potPrice(o.kind, o.finish, potAsks(o.kind, o.finish, listed, me))
+            : suggestedPrice(o.kind, n, asks),
+        );
         price.value = suggested;
       }
     };
@@ -375,19 +460,17 @@ export function marketView(ctx: ViewContext): View {
     }
     const balance = you?.balance ?? null;
     const row = (l: ListingView) => {
-      const action = listingAction(l, me, balance);
+      const action = listingAction(l, me, balance, you?.buyWhy);
       return listingRow(l, action, (button) =>
         action.kind === "take"
           ? void act(button, { type: "unlist_item", listing: l.id }, "It's back in your things.")
-          : void act(
-              button,
-              { type: "buy_listing", listing: l.id },
-              `You bought ${lotWords(l.kind, l.count)}.`,
-            ),
+          : void act(button, { type: "buy_listing", listing: l.id }, boughtLine(l)),
       );
     };
     const rows = market.listings.map(row);
     const list = itemRows(rows, { className: "market-listings" });
+    // Why Buy waits, by the world's own check (a first day), said once over the listings.
+    if (you?.buyWhy) list.before(h("p", { class: "hint market-buy-why", text: you.buyWhy }));
     let next = market.next;
     const more = moreButton("Show more listings", async () => {
       if (!next) return;
@@ -556,15 +639,11 @@ export async function stallCard(seller: { id: string; name: string }): Promise<H
       },
     });
   const rows = res.data.market.listings.map((l) => {
-    const action = listingAction(l, me, balance);
+    const action = listingAction(l, me, balance, res.data.you?.buyWhy);
     return listingRow(l, action, (button) =>
       action.kind === "take"
         ? void act(button, { type: "unlist_item", listing: l.id }, "It's back in your things.")
-        : void act(
-            button,
-            { type: "buy_listing", listing: l.id },
-            `You bought ${lotWords(l.kind, l.count)}.`,
-          ),
+        : void act(button, { type: "buy_listing", listing: l.id }, boughtLine(l)),
     );
   });
   card.append(

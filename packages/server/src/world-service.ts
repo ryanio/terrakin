@@ -61,6 +61,7 @@ import {
   hashWorld,
   type Input,
   isGoodKind,
+  isPotKind,
   isTownEvent,
   isTownsfolk,
   LOOK_MEDIA_KEYS,
@@ -131,6 +132,7 @@ import type { Store } from "./store";
 import { count, crumb, gauge, report, span } from "./telemetry";
 import { cleanText, freeNames, nameKey } from "./text";
 import type { TownEvent } from "./town-events";
+import type { TownPot } from "./town-pots";
 import {
   type ActionContext,
   checkLookMedia,
@@ -487,6 +489,25 @@ function firedOf(events: readonly WorldEvent[], actor: string): { fired?: FiredP
  * A `hand_in`'s answer: the made thing the sim picks in `state`, which is the one its commit takes
  * (RFC 0030). Read before the commit, since the thing leaves the world with it.
  */
+/**
+ * A pot a `hand_in` gives the town (RFC 0047), by its codes and whose job it was, read before the
+ * commit takes it, for the shop's shelf.
+ */
+function potHandedIn(state: WorldState, input: Input): Omit<TownPot, "seq" | "day"> | undefined {
+  if (input.command.type !== "hand_in") return undefined;
+  const pick = handInPick(state, input.actor, input.command.item);
+  if ("code" in pick || !isGoodKind(pick.good.kind) || !isPotKind(pick.good.kind)) {
+    return undefined;
+  }
+  return {
+    giver: pick.job.giver,
+    maker: pick.good.maker,
+    kind: pick.good.kind,
+    glaze: pick.good.glaze ?? "bare",
+    finish: pick.good.finish ?? "smooth",
+  };
+}
+
 function handedInOf(state: WorldState, input: Input): { handedIn?: HandedIn } {
   if (input.command.type !== "hand_in") return {};
   const pick = handInPick(state, input.actor, input.command.item);
@@ -1157,6 +1178,8 @@ export class WorldService {
 
   /** Hears each cup of tea a guest took home from a host who served tea (RFC 0047). */
   onTeaPoured: ((guest: string, host: string) => void) | undefined;
+  /** Hears each pot handed in for a townsfolk's job (RFC 0047), for the shop's shelf. */
+  onPotHandedIn: ((pot: TownPot) => void) | undefined;
   /** Hears each credited event its host served tea at, with the cups poured (RFC 0047). */
   onTeaServed: ((host: string, cups: number) => void) | undefined;
   /** Who would count as a guest today (RFC 0010), for serving tea; set once the social side is wired. */
@@ -2427,6 +2450,7 @@ export class WorldService {
     );
     let at = was && { x: was.x, y: was.y };
     const handedIn = handedInOf(this.state, input);
+    const potIn = potHandedIn(this.state, input);
     // What a plot's sale moves, read before the commit takes the listing and the coins (RFC 0039).
     const sale = plotSaleOf(this.state, input);
     // Who could hear each circle's events before the commit, for one it disbands (RFC 0033).
@@ -2566,6 +2590,14 @@ export class WorldService {
         this.onTeaPoured?.(e.residentId, host);
       } catch (err) {
         report(err, "world.tea_poured", { command: input.command.type });
+      }
+    }
+    // A pot handed in for a job goes on the shop's shelf of the town's pots (RFC 0047).
+    if (potIn) {
+      try {
+        this.onPotHandedIn?.({ ...potIn, seq, day: this.state.day ?? 0 });
+      } catch (err) {
+        report(err, "world.town_pots", { command: input.command.type });
       }
     }
     // A rare pot out of a kiln goes on the home wall's live activity (RFC 0047), by its codes.

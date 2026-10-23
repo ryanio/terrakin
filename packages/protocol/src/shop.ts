@@ -15,7 +15,9 @@ import {
 import { z } from "zod";
 import {
   CropKind,
+  FinishName,
   FishKind,
+  GlazeName,
   GoodKind,
   HolidayName,
   RecipeCardSku,
@@ -182,6 +184,22 @@ export const ShopView = z.object({
   buying: z.array(BuyOrderView),
   /** The tiles the shop stands on, and every other counter once the town has opened land beyond downtown. */
   tiles: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
+  /**
+   * Pots from the town's potters (RFC 0047): the newest pots handed in for the townsfolk's jobs, by
+   * their codes and maker, and whose job each was (`giver`, a townsfolk's name). Never a label.
+   * Absent until the first.
+   */
+  potters: z
+    .array(
+      z.object({
+        maker: AuthorView,
+        giver: z.string(),
+        kind: GoodKind,
+        glaze: GlazeName,
+        finish: FinishName,
+      }),
+    )
+    .optional(),
 });
 export type ShopView = z.infer<typeof ShopView>;
 

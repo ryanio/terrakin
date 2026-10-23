@@ -299,6 +299,18 @@ export function checkUnlistItem(
 }
 
 /**
+ * Why `actor` couldn't buy anything in the market today, whatever the listing, or undefined: the
+ * checks `buy_listing` makes before it looks at one, which views read to hold Buy back.
+ */
+export function buyProblem(state: WorldState, actor: ResidentId): string | undefined {
+  const open = opened(state, actor);
+  if ("code" in open) return open.message;
+  return open.econ.today.newcomers.includes(actor) ? FIRST_DAY_WORDS : undefined;
+}
+
+const FIRST_DAY_WORDS = "You can buy in the market from your second day.";
+
+/**
  * `buy_listing {listing}`: pay the price and take the lot. The seller gets the price less the
  * market fee (`marketFee`), which goes to the treasury in a line that names nobody.
  */
@@ -321,7 +333,7 @@ export function checkBuyListing(
   // on your first day, the seller's proceeds count toward the coins they receive today, and the
   // lot toward the things you receive today. A person and their AI skip them, as with gifts.
   if (econ.today.newcomers.includes(actor)) {
-    return refuse("gift_limit", "You can buy in the market from your second day.");
+    return refuse("gift_limit", FIRST_DAY_WORDS);
   }
   const { seller } = listing;
   const paired = pairSkipsCaps(state, actor, seller);

@@ -600,6 +600,7 @@ function onMessage(msg: ServerMessage) {
       landing.setJoining(false);
       landing.setError("");
       enterWorld();
+      enteredAt = performance.now();
       visitor = false;
       peek = "off";
       delete hud.dataset.peek;
@@ -1103,10 +1104,18 @@ function hoverTiles(tile: Tile): readonly Tile[] | undefined {
   return [tile];
 }
 
+/**
+ * When the world last came up under you. A tap in the moment after is the tap that opened it,
+ * still landing, and opens nothing: a giver's job sheet popping up over the world as it loads.
+ */
+let enteredAt = Number.NEGATIVE_INFINITY;
+const TAP_SETTLE_MS = 700;
+
 function tapTile(tile: { x: number; y: number }) {
   const r = self();
   const at = here();
   if (!mirror || !r || !at) return;
+  if (performance.now() - enteredAt < TAP_SETTLE_MS) return;
   if (buildMode) {
     // On the floor the picker shows (RFC 0028): `floor` goes only with one above the ground.
     const floor = buildFloor;

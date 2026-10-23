@@ -79,6 +79,39 @@ export function soonWords(
   return `Starts in ${plural(Math.round(ms / DAY), "day", "days")}`;
 }
 
+/**
+ * The event the front page names for a visitor (issue #107): one on now before one to come, and
+ * a town event before a resident's within each, each list soonest first as the server sends it.
+ * The town's own calendar is a newcomer's anchor (the Sunday gathering); a resident's event
+ * fills the line only when the town has none at that step.
+ */
+export function nextEvent(events: {
+  live: readonly EventView[];
+  upcoming: readonly EventView[];
+}): EventView | undefined {
+  return (
+    events.live.find((e) => e.town) ??
+    events.live[0] ??
+    events.upcoming.find((e) => e.town) ??
+    events.upcoming[0]
+  );
+}
+
+/**
+ * The front page's words after that event's title: when it starts and where, or just where while
+ * it's on ("Today 19:00, in the Commons", "in the Commons"). The place words start lower-case
+ * here because they follow the title mid-sentence.
+ */
+export function heroEventRest(
+  e: Pick<EventView, "startsAt" | "status" | "place" | "host">,
+  now: number,
+  timeZone?: string,
+): string {
+  const place = placeWords(e);
+  const lower = place.charAt(0).toLowerCase() + place.slice(1);
+  return e.status === "live" ? lower : `${whenWords(e.startsAt, now, timeZone)}, ${lower}`;
+}
+
 /** Where it is, from the host's side: "In the Commons", or at the host's plot. */
 export function placeWords(e: Pick<EventView, "place" | "host">): string {
   if (e.place.commons) return "In the Commons";

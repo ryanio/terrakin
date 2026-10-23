@@ -335,10 +335,10 @@ export interface WorldServiceOptions {
    */
   jobs?: boolean;
   /**
-   * Pottery (RFC 0047): once items are open, append `open_clay` (with `water`) if it never has, after
-   * which clay lies beside water and a kiln fires pots. **No adapter sets it**: terrakin.org,
-   * self-hosting, `pnpm dev`, and the e2e servers all stay without pottery until it's switched on
-   * in a push of its own (decision 0362). A test world opens it through `POST /v1/test/open-clay`.
+   * Pottery (RFC 0047): once items and levels are open, append `open_clay` (with `water`) if it
+   * never has, after which clay lies beside water and a kiln fires pots. **The Worker sets it; the
+   * Node server doesn't** (decision 0371), so self-hosting, `pnpm dev`, and the e2e servers stay
+   * without pottery. A test world opens it through `POST /v1/test/open-clay`.
    */
   clay?: boolean;
   /**
@@ -1733,7 +1733,7 @@ export class WorldService {
 
   /**
    * Pottery (RFC 0047), switched on now. Only the Node server's test route calls it, like
-   * `testGrant`, since no adapter sets the `clay` option. The sim refuses it before items. Levels
+   * `testGrant`, since the Node server doesn't set the `clay` option. The sim refuses it before items. Levels
    * open first when they aren't, as the day table waits for them: tea goes out with an event's
    * credit, which levels open.
    */

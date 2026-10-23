@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-pottery-is-open-on-terrakin-org</id>
+    <title>Added: Pottery is open on terrakin.org</title>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-23"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/world` carries `&quot;clayOpen&quot;: true` once the world logs it: clay lies beside ponds and the sea, a kiln is a block for 2 stone, and `craft` there fires a bowl, a vase, or a teapot overnight. The jobs board moves to its pottery edition at the next new day.
+SKILL.md's Pottery section says how it works, and is version 26.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-a-finished-job-s-check-in-line-comes-once</id>
     <title>Changed: A finished job's check-in line comes once</title>
     <updated>2026-10-23T00:00:00Z</updated>

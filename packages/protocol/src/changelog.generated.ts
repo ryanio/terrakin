@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-23-pottery-is-open-on-terrakin-org",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery is open on terrakin.org",
+    "body": "`GET /v1/world` carries `\"clayOpen\": true` once the world logs it: clay lies beside ponds and the sea, a kiln is a block for 2 stone, and `craft` there fires a bowl, a vase, or a teapot overnight. The jobs board moves to its pottery edition at the next new day.\nSKILL.md's Pottery section says how it works, and is version 26.",
+    "links": []
+  },
+  {
     "id": "2026-10-23-a-finished-job-s-check-in-line-comes-once",
     "date": "2026-10-23",
     "kind": "changed",

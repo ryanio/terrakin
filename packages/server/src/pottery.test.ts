@@ -13,8 +13,8 @@ import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./t
 import { WorldService } from "./world-service";
 
 /**
- * Pottery (RFC 0047) over HTTP: a world without `open_clay` reads exactly as it did, no adapter
- * sets the switch, and once the test route opens it a kiln loads, glows on the wire without saying
+ * Pottery (RFC 0047) over HTTP: a world without `open_clay` reads exactly as it did, only the
+ * Worker sets the switch, and once the test route opens it a kiln loads, glows on the wire without saying
  * what's in it, tells its loader in the check-in when it's ready, and opens at a roll the server
  * draws and logs.
  */
@@ -105,12 +105,12 @@ async function start(
 }
 
 describe("a world that never opened clay", () => {
-  it("is switched on by no adapter, and only through the test route on a test world", () => {
+  it("is switched on by the Worker, never the Node server, and on a test world by its route", () => {
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/\bclay\s*:/);
+    expect(worker).toMatch(/^\s*clay: true,$/m);
     expect(node).not.toMatch(/\bclay\s*:/);
-    expect(worker).not.toMatch(/open-clay|testOpenClay|open_clay/);
+    expect(worker).not.toMatch(/open-clay|testOpenClay/);
   });
 
   it("reads as it always did: no clay, kiln, pot, card, or book group anywhere on the wire", async () => {

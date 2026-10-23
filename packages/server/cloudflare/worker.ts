@@ -486,6 +486,10 @@ class WorldObject extends DurableObject<Env> {
       jobEdition: 2,
       pageEdition: 3,
       circles: true,
+      // Pottery (RFC 0047, Ryan's word 2026-10-23): `open_clay` once items and levels are open,
+      // which on terrakin.org they are, so it's logged on the World object's first tick after
+      // this deploy, and the jobs board moves to its pottery edition at the next `new_day`.
+      clay: true,
       // New lands (RFC 0038, Ryan's word 2026-10-20). This opens nothing today: it watches the
       // claimable plots and the town opens its first island when they fall to `LANDS.openAt` (9).
       // On 2026-10-20 there were 32 free of 80, about 23 claims and two weeks out. The

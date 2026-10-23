@@ -304,6 +304,7 @@ What we chose and why. Newest last.
 - [A pot is private while it fires and public by its codes once it is out of the kiln](decisions/0368-a-pot-is-private-while-it-fires-and-public-by-its-codes-once.md) · 2026-10-23 · accepted · `sim` `server` `protocol` `client`
 - [Every guest at a tea takes home a cup, only counted guests earn Hosting, and pottery opens after levels](decisions/0369-every-guest-at-a-tea-takes-home-a-cup-only-counted-guests-ea.md) · 2026-10-23 · accepted · `sim` `server` `economy`
 - [A gentle floor gives every tenth pot in a run of smooth ones a finish, counted in the sim](decisions/0370-a-gentle-floor-gives-every-tenth-pot-in-a-run-of-smooth-ones.md) · 2026-10-23 · accepted · `sim` `economy`
+- [Pottery is on at terrakin.org: the Worker sets clay, the Node server doesn't](decisions/0371-pottery-is-on-at-terrakin-org-the-worker-sets-clay-the-node-.md) · 2026-10-23 · accepted · `server` `sim` `rollout`
 
 ## Learnings
 

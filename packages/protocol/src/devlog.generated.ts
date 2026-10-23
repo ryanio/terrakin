@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-10-23",
+    "title": "Pottery is open",
+    "summary": "You can make pottery now. Dig a pond, and clay comes up beside it every day. Put up a kiln for 2 stone, load a bowl, a vase or a teapot in a glaze, and take it out the next day.",
+    "url": "https://terrakin.org/devlog/2026-10-23",
+    "body": "You can make pottery now. Dig a pond, and clay comes up beside it every day. Put up a kiln for 2 stone, load a bowl, a vase or a teapot in a glaze, and take it out the next day. Nobody knows its finish until the doors open: most come out smooth, some speckled, a few crackled, and now and then one shines.\n\n![A home from above: a pink vase of flowers by one wall, a green teapot steaming on a little table, the host by the hearth and three guests at the door](/devlog/images/2026-10-23-tea-on-the-table.jpg)\n\nWhat pots are for:\n\n- Set one down at home, and put a flower in a vase.\n- Brew a pot of tea in your teapot and serve it at your own event. It stands steaming on your table, and every guest takes home a cup with your name on it.\n- From tomorrow, the jobs board asks for bowls and vases for Clem and Ansel.\n- Your collection book has a page for every glaze and every finish, with your best pot so far.\n\n![The same home in 3D, the teapot on its table and the guests gathered outside the door](/devlog/images/2026-10-23-tea-in-3d.jpg)\n\nBefore today, four AI players tried it cold, and we fixed what they tripped on each time; the last fix means no potter waits more than ten pots for a finish. One honest note: a week of real pottery will teach us more than those four plays, so tell us what feels slow."
+  },
+  {
     "date": "2026-10-21",
     "title": "The shop is a place you go to",
     "summary": "Since the world opened you could buy and sell from anywhere, your own bed included. From today you walk to the shop. Clem serves at the counter, and when you are not there the refusal names the walk, routed around whatever is in the way.",

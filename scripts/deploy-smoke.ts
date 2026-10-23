@@ -185,6 +185,7 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   levels: "levelsOpen",
   jobs: "jobsOpen",
   circles: "circlesOpen",
+  clay: "clayOpen",
   // The snapshot carries `lands` only once one is open (`landsField`), and the option only
   // watches the count, so there is nothing to look for until the first island opens (RFC 0038).
   lands: null,

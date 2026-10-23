@@ -163,8 +163,8 @@ export const TEST_OPEN_LAND_PATH = "/v1/test/open-land";
 export const TEST_OPEN_PLOT_MARKET_PATH = "/v1/test/open-plot-market";
 /**
  * Tests only, with the test clock, from this machine: logs `open_clay` now (RFC 0047), so a spec
- * or a `pnpm dev:test` world has clay and kilns. No adapter sets the `clay` option, so this is
- * the only way a world gets pottery until it's switched on.
+ * or a `pnpm dev:test` world has clay and kilns. Only the Worker sets the `clay` option, so this is
+ * how a Node world gets pottery.
  */
 export const TEST_OPEN_CLAY_PATH = "/v1/test/open-clay";
 

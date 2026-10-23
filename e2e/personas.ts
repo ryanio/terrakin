@@ -341,8 +341,8 @@ export async function openPlotMarketOver(http: Http): Promise<void> {
 }
 
 /**
- * Put clay out and let kilns fire pots in this world now (RFC 0047). No adapter sets the switch,
- * so this is the only way a world gets pottery for now; once per world, so in a world where it's
+ * Put clay out and let kilns fire pots in this world now (RFC 0047). Only the Worker sets the
+ * switch, so this is how a test world gets pottery; once per world, so in a world where it's
  * already on this does nothing. Test servers only (`POST /v1/test/open-clay`).
  */
 export async function openClayOver(http: Http): Promise<void> {

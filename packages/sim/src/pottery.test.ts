@@ -250,6 +250,7 @@ describe("clay beside water", () => {
     const { state, pond } = byThePond();
     const facts = springFacts(state);
     const short: number[] = [];
+    const counts: number[] = [];
     const offPlot: string[] = [];
     const from = (state.day ?? 0) + 1;
     for (let day = from; day < from + 60; day++) {
@@ -259,7 +260,10 @@ describe("clay beside water", () => {
         const [x, y] = key.split(",").map(Number) as [number, number];
         return pickupLeft(state, x, y) === "clay";
       });
-      if (clay.length < POTTERY.springsPerPond) short.push(day);
+      if (clay.length < POTTERY.springsPerPond) {
+        short.push(day);
+        counts.push(clay.length);
+      }
       // Every spring is on the pond's own plot, its digger's to gather, even for a pond dug on
       // the plot's last column, beside the plot next door.
       const size = CONFIG.plotSize;
@@ -272,7 +276,10 @@ describe("clay beside water", () => {
         }
       }
     }
-    expect(short).toEqual([]);
+    // A branch, a stone, or a find beside the pond takes a spring's place for its day, so a day
+    // now and then (at most 3 in these 60) has one fewer, and never fewer than that.
+    expect(short.length).toBeLessThanOrEqual(3);
+    expect(counts.every((n) => n === POTTERY.springsPerPond - 1)).toBe(true);
     expect(offPlot).toEqual([]);
     // A tile beside water but by no dug pond has none of its own.
     expect(onSpring({ ...facts, pond: () => false }, pond.x + 1, pond.y, state.day ?? 0)).toBe(
@@ -373,6 +380,9 @@ describe("a kiln", () => {
     Object.assign(bob, { x: KILN_AT.x, y: KILN_AT.y + 1 });
     refused(state, "bob", load("bowl"), "not_your_plot");
     refused(state, "ada", load("bowl", "sea"), "not_enough_items");
+    // The refusal says where the glaze's thing comes from.
+    const short = apply(state, { actor: "ada", command: load("bowl", "sea") });
+    expect(short.ok ? "" : short.rejection.message).toContain("Sea glass is found on the sand.");
     ok(state, "ada", { type: "place", x: 4, y: 3, block: "workbench" });
     refused(
       state,
@@ -381,6 +391,12 @@ describe("a kiln", () => {
       "unknown_item",
     );
     refused(state, "ada", { type: "craft", recipe: "bowl", x: 4, y: 3 }, "no_station");
+    // Only a kiln of your own plot's fires your pot, so the refusal never says a neighbor's will.
+    const station = apply(state, {
+      actor: "ada",
+      command: { type: "craft", recipe: "bowl", x: 4, y: 3 },
+    });
+    expect(station.ok ? "" : station.rejection.message).not.toContain("nearby");
     refused(state, "ada", { type: "harvest", x: 4, y: 3, roll: 1 }, "server_only");
     // Every glaze costs the one thing the RFC names, or nothing for bare.
     expect(GLAZE_COSTS).toEqual({
@@ -580,12 +596,57 @@ describe("a pot of tea", () => {
     ok(state, "ada", brew);
     expect(goods(state, "ada").map((g) => g.kind)).toEqual(["teapot", "pot_of_tea"]);
     expect(goods(state, "ada")[0]).toEqual(teapot);
+    // The pot of tea isn't a pot: it carries no glaze, so nothing treats it as one.
+    expect(goods(state, "ada")[1]?.glaze).toBeUndefined();
     expect(held(state, "ada", "herb")).toBe(0);
     expect(knows(state, "bob", "pot_of_tea")).toBe(true);
+  });
+
+  it("pours cups that are keepsakes: the market won't take one", () => {
+    const state = town();
+    ok(state, TOWN_ACTOR, { type: "open_market" });
+    fund(state, "bob", 10);
+    const items = state.items;
+    if (!items) throw new Error("no items");
+    const cup = {
+      id: `i_${items.nextId}`,
+      kind: "cup_of_tea" as const,
+      maker: "ada",
+      madeDay: DAY,
+    };
+    items.nextId += 1;
+    items.inventories.bob?.goods.push(cup);
+    refused(state, "bob", { type: "list_item", item: cup.id, price: 5 }, "not_eligible");
+    refused(state, "bob", { type: "list_item", item: "cup_of_tea", price: 5 }, "not_eligible");
   });
 });
 
 describe("the finish", () => {
+  it(`comes out with a finish at least once in every ${POTTERY.finishFloor} pots, by the sim's own count`, () => {
+    const state = potter();
+    stock(state, "ada", { clay: 2 * (POTTERY.finishFloor + 1) });
+    const smooth = POTTERY.outOf - 1;
+    const finishes: Finish[] = [];
+    for (let i = 0; i <= POTTERY.finishFloor; i++) {
+      ok(state, "ada", load("bowl"));
+      ok(state, TOWN_ACTOR, { type: "new_day", day: DAY + i + 1 });
+      ok(state, "ada", open(smooth));
+      finishes.push(goods(state, "ada").at(-1)?.finish ?? "smooth");
+    }
+    // Nine smooth in a row, then the tenth's smooth roll comes out speckled, and the count starts
+    // over.
+    expect(finishes).toEqual([
+      ...Array(POTTERY.finishFloor - 1).fill("smooth"),
+      "speckled",
+      "smooth",
+    ]);
+    expect(state.items?.potters?.ada).toEqual({
+      fired: POTTERY.finishFloor + 1,
+      smoothRun: 1,
+      best: { kind: "bowl", glaze: "bare", finish: "speckled" },
+    });
+  });
+
   it("is read from the roll through the frozen table: one in five has one, one in a hundred shines", () => {
     expect(FINISHES).toEqual([
       { finish: "speckled", chance: 1500 },

@@ -8,6 +8,19 @@ import { request } from "./request";
  */
 export const INVENTORY_EVENT = "terrakin:inventory";
 
+/**
+ * Fired on `window` by the kiln's Set it down (RFC 0047), with the pot's id: the world opens the
+ * build bar with that pot picked, and for a vase, with a flower of yours picked for it.
+ */
+export const SET_DOWN_EVENT = "terrakin:set-down";
+
+/** What `SET_DOWN_EVENT` carries. */
+export interface SetDown {
+  pot: string;
+  /** A vase: pick a flower for it too. */
+  flower: boolean;
+}
+
 export const inventoryApi = {
   /** Your things, your garden, and the catalog. Private to you. */
   inventory: () => request("GET", "/v1/inventory", InventoryResponse),

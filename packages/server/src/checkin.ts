@@ -205,11 +205,13 @@ export function firstVisitView(
   const setup = setupSteps(state, social, viewer, done, joinedDay);
   const today = Math.floor(social.now() / DAY_MS);
   let tryToday: string | null = null;
-  if (setup.firstVisit.length === 0) {
+  {
+    // The check-in's rule: once the first visit is done, or before it for `EARLY_TRIES`.
     const asked = options.suggestions.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
     tryToday = asked.today
       ? ([...asked.days].find(([, day]) => day === today)?.[0] ?? null)
       : (pickSuggestion({
+          early: setup.firstVisit.length > 0,
           state,
           viewer,
           done,
@@ -417,11 +419,13 @@ export function checkinView(
   // Nothing moved since `seen` and no first-visit step is left: `unchanged`, unless today's
   // suggestion is waiting.
   const quiet = options.seen !== undefined && options.seen === digest && firstVisit.length === 0;
-  // Today's suggestion, once a UTC day, and only once the first visit is done.
+  // Today's suggestion, once a UTC day, once the first visit is done, or before it for the few in
+  // `EARLY_TRIES`.
   const asked = options.suggestions?.suggested(viewer, today, today - SUGGEST_AGAIN_DAYS);
   const suggestion =
-    asked && !asked.today && firstVisit.length === 0
+    asked && !asked.today
       ? pickSuggestion({
+          early: firstVisit.length > 0,
           state,
           viewer,
           done,

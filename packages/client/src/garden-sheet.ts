@@ -56,12 +56,13 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { INVENTORY_EVENT, inventoryApi } from "./api/inventory";
+import { INVENTORY_EVENT, inventoryApi, SET_DOWN_EVENT, type SetDown } from "./api/inventory";
 import { actProblem, worldApi } from "./api/world";
 import { glazeCostLine, glazeName } from "./glaze-words";
 import { dotChips } from "./join-form";
 import {
-  CLAY_WHERE,
+  aThing,
+  clayWhere,
   cropOfSeed,
   finishName,
   finishOdds,
@@ -105,6 +106,8 @@ export interface TileSheetOptions {
   neighbors?: { id: string; name: string; kind: "human" | "agent"; note?: string }[];
   /** The world's reach, for the teach sheet. */
   reach?: number;
+  /** A kiln (RFC 0047): a pond or the sea near it, as the world shows it, so its words say so. */
+  waterNear?: boolean;
 }
 
 /** Neighbors a station sheet asks about, at most: one profile read each. */
@@ -227,7 +230,7 @@ export function openTileSheet(o: TileSheetOptions) {
           finishList,
           h("p", {
             class: "hint kiln-uses",
-            text: `What pots are for: set one down at home, a vase with a flower in it. A teapot and ${CATALOG[TEA].recipe?.needs.herb ?? 2} bunches of herbs at a kitchen make a pot of tea, and you keep the teapot: serve it at your own event, and every guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board. ${CLAY_WHERE}`,
+            text: `What pots are for: set one down at home, a vase with a flower in it. A teapot and ${CATALOG[TEA].recipe?.needs.herb ?? 2} bunches of herbs at a kitchen make a pot of tea, and you keep the teapot: serve it at your own event, and every guest takes home a cup. Clem and Ansel ask for bowls and vases on the town's jobs board. ${clayWhere(o.waterNear === true)}`,
           }),
         )
       : null;
@@ -325,10 +328,11 @@ export function openTileSheet(o: TileSheetOptions) {
     closeOverlay(s.dialog);
   };
   /** A button, or an off one when `ok` is false: its row says why. */
-  const button = (text: string, action: () => Action, ok = true) =>
+  /** A row's button. `name` tells rows with the same word apart for a screen reader. */
+  const button = (text: string, action: () => Action, ok = true, name?: string) =>
     h("button", {
       class: ok ? "btn-primary small" : "pill-button small",
-      attrs: { type: "button", disabled: !ok },
+      attrs: { type: "button", disabled: !ok, ...(name ? { "aria-label": name } : {}) },
       text,
       on: { click: () => send(action()) },
     });
@@ -463,7 +467,8 @@ export function openTileSheet(o: TileSheetOptions) {
       goods.el.hidden = true;
       list.hidden = true;
       learn.hidden = true;
-      hint.textContent = "It's in your things now.";
+      // The reveal says where the pot went once the doors are open, never before.
+      hint.textContent = "";
       return;
     }
     if (glazeField) glazeField.hidden = busy;
@@ -532,6 +537,7 @@ export function openTileSheet(o: TileSheetOptions) {
             };
           },
           short === null && !doneToday,
+          `Fire ${aThing(r.recipe)}`,
         ),
         thingPicture({ kind: r.recipe, glaze }, { size: 32 }),
       );
@@ -565,17 +571,33 @@ export function openTileSheet(o: TileSheetOptions) {
     return b;
   }
 
-  /** The pot as it came out: its picture, its name, its finish's odds, and Fire another. */
+  /**
+   * The pot as it came out: its picture, its name, the label you gave it, its finish's odds, where
+   * it went, and Set it down (for a vase, Put a flower in it) beside Fire another.
+   */
   function showReveal(pot: FiredPot) {
     revealed = pot;
     const again = h("button", {
-      class: "btn-primary",
+      class: "pill-button",
       attrs: { type: "button" },
       text: "Fire another",
       on: {
         click: () => {
           revealed = null;
           if (painted) paint(painted);
+        },
+      },
+    });
+    const vase = pot.kind === "vase";
+    const setDown = h("button", {
+      class: "btn-primary",
+      attrs: { type: "button" },
+      text: vase ? "Put a flower in it" : "Set it down",
+      on: {
+        click: () => {
+          closeOverlay(s.dialog);
+          const detail: SetDown = { pot: pot.item, flower: vase };
+          window.dispatchEvent(new CustomEvent(SET_DOWN_EVENT, { detail }));
         },
       },
     });
@@ -596,8 +618,11 @@ export function openTileSheet(o: TileSheetOptions) {
       ),
       h("p", { class: "eyebrow kiln-reveal-eyebrow", text: "Out of the kiln" }),
       h("h3", { class: "kiln-reveal-name", text: pot.name }),
+      // Your own label, as text.
+      ...(pot.label ? [h("p", { class: "kiln-reveal-label", text: `“${pot.label}”` })] : []),
       h("p", { class: "kiln-reveal-line", text: revealLine(pot) }),
-      again,
+      h("p", { class: "kiln-reveal-kept", text: "It's in your things now." }),
+      h("div", { class: "kiln-reveal-actions cluster" }, setDown, again),
     );
     reveal.hidden = false;
   }

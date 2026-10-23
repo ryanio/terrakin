@@ -27,6 +27,7 @@ import {
   isReady,
 } from "./items";
 import { parseKey, tileKey } from "./keys";
+import { own } from "./own";
 import type {
   BlockKind,
   Command,
@@ -35,6 +36,8 @@ import type {
   HostedEvent,
   ItemsState,
   PlacedPot,
+  PotCodes,
+  PotterRecord,
   Rejection,
   ResidentId,
   WorldEvent,
@@ -69,7 +72,7 @@ export const POTTERY = {
    * water (`onSpring` in `gather.ts`), so a newcomer's first pond is a steady start rather than a
    * roll. Tuned with `scripts/economy-sim.ts --kiln`.
    */
-  springsPerPond: 2,
+  springsPerPond: 3,
   /**
    * Hosting points a host earns on top of `PROGRESS.guest` for each counted guest at an event they
    * served a pot of tea at.
@@ -79,6 +82,13 @@ export const POTTERY = {
   fireDays: 1,
   /** A finish's roll is a whole number from 0 to one less than this, and chances are out of it. */
   outOf: 10_000,
+  /**
+   * A gentle floor under the finishes: of every this many pots a resident fires in a row, at least
+   * one comes out with a finish. A pot whose roll says smooth after one less than this many smooth
+   * pots in a row comes out speckled (`floorFinish`), counted in the sim, so the server still rolls
+   * every pot and a logged roll replays the same.
+   */
+  finishFloor: 10,
   /**
    * What the pot cards cost, set here rather than by `recipeCardPrice`'s rule, so the coins they
    * burn keep the money supply per active resident within 2% of a month without pottery (RFC 0047's
@@ -152,10 +162,69 @@ export function finishOf(roll: number): Finish {
   return "smooth";
 }
 
+/** How rare a finish is: smooth 0, then speckled, crackle, and iridescent. */
+export const finishRank = (finish: Finish | undefined): number =>
+  finish ? FINISH_NAMES.indexOf(finish) : 0;
+
+/** A resident's kiln record (RFC 0047), absent until their first pot comes out. */
+export const potterOf = (state: WorldState, id: ResidentId): PotterRecord | undefined =>
+  state.items?.potters ? own(state.items.potters, id) : undefined;
+
+/**
+ * The finish a pot comes out with for its loader: the roll's, unless the roll says smooth after
+ * `POTTERY.finishFloor` less one smooth pots in a row, when it's speckled.
+ */
+export function floorFinish(record: PotterRecord | undefined, roll: number): Finish {
+  const rolled = finishOf(roll);
+  return rolled === "smooth" && (record?.smoothRun ?? 0) >= POTTERY.finishFloor - 1
+    ? "speckled"
+    : rolled;
+}
+
+/** A potter's record with one more pot out of the kiln. */
+function withPot(record: PotterRecord | undefined, pot: PotCodes): PotterRecord {
+  const smoothRun = pot.finish === "smooth" ? (record?.smoothRun ?? 0) + 1 : 0;
+  const best =
+    record?.best && finishRank(record.best.finish) >= finishRank(pot.finish) ? record.best : pot;
+  return { fired: (record?.fired ?? 0) + 1, ...(smoothRun > 0 ? { smoothRun } : {}), best };
+}
+
+/**
+ * `merge_resident`'s part (RFC 0047): `from`'s pots fired add to `into`'s, the better of their best
+ * pots stays, and `into`'s run of smooth pots is kept.
+ */
+export function mergePotters(items: ItemsState, from: ResidentId, into: ResidentId) {
+  const theirs = items.potters ? own(items.potters, from) : undefined;
+  if (!items.potters || !theirs) return;
+  delete items.potters[from];
+  const mine = own(items.potters, into);
+  const best =
+    mine?.best && finishRank(mine.best.finish) >= finishRank(theirs.best.finish)
+      ? mine.best
+      : theirs.best;
+  items.potters[into] = {
+    fired: (mine?.fired ?? 0) + theirs.fired,
+    ...(mine?.smoothRun ? { smoothRun: mine.smoothRun } : {}),
+    best,
+  };
+}
+
 /** A pot of tea (RFC 0047): brewed at a kitchen in a teapot you hold, and served at your own event. */
 export const TEA = "pot_of_tea" as const;
 /** The pot a pot of tea is brewed in. */
 export const TEAPOT = "teapot" as const;
+
+/**
+ * The glaze a host's tea is drawn in when served (RFC 0047): their teapot's, the first in their
+ * things, else the first they've set down, else bare clay. Drawing only: it goes on the dish and
+ * `dish_brought`, never on the pot of tea, which isn't a pot.
+ */
+export function teapotGlaze(items: ItemsState, host: ResidentId): Glaze {
+  const held = own(items.inventories, host)?.goods.find((g) => g.kind === TEAPOT);
+  if (held) return held.glaze ?? "bare";
+  const down = Object.values(items.pots ?? {}).find((p) => p.by === host && p.good.kind === TEAPOT);
+  return down?.good.glaze ?? "bare";
+}
 
 /** Whether a recipe is pottery's (RFC 0047): a pot, or a pot of tea. Nobody knows one before clay. */
 export const isPotteryRecipe = (r: unknown): boolean => isPotKind(r) || r === TEA;
@@ -350,7 +419,8 @@ export function checkOpenKiln(
       `You can hold ${ITEMS.inventoryMax} things, and the pot needs room for one more. Give, place, or sell something first.`,
     );
   }
-  const good: Good = { ...firing.good, finish: finishOf(roll) };
+  const finish = floorFinish(potterOf(state, owner), roll);
+  const good: Good = { ...firing.good, finish };
   return () => {
     const firings = items.firings as Record<string, Firing>;
     delete firings[key];
@@ -358,9 +428,16 @@ export function checkOpenKiln(
     const pot = {
       kind: good.kind as GoodKind,
       glaze: good.glaze ?? "bare",
-      finish: finishOf(roll),
+      finish,
       maker: good.maker,
     };
+    const potters = items.potters ?? {};
+    potters[owner] = withPot(own(potters, owner), {
+      kind: pot.kind,
+      glaze: pot.glaze,
+      finish,
+    });
+    items.potters = potters;
     const events: WorldEvent[] = [{ type: "kiln_emptied", x, y, by: actor, pot }];
     if (!fits) {
       // Someone who can build here opened it for a loader with no room: it waits for them.
@@ -542,17 +619,18 @@ export function kilnRemoveProblem(state: WorldState, x: number, y: number): Reje
 }
 
 /** The keepsake a guest takes home from an event its host served tea at. */
-const CUP = "cup_of_tea" as const;
+export const CUP = "cup_of_tea" as const;
 
 /**
  * At `credit_event`, for an event its host served tea at (RFC 0047): a cup of tea for each guest
- * on its `cups` list (or, without one, the credited list), signed by the host, into their things,
- * or held aside for them when their things are full, as a thing taken down from display is. With nobody on the list the pot of tea
+ * on its `cups` list (or, without one, the credited list), signed by the host and carrying which
+ * event it was and when it started (`tea`), into their things, or held aside for them when their
+ * things are full, as a thing taken down from display is. With nobody on the list the pot of tea
  * goes back to its host (inventory reason `tea_kept`). Nothing when no tea was served.
  */
 export function pourTea(
   state: WorldState,
-  event: Pick<HostedEvent, "dishes" | "host">,
+  event: Pick<HostedEvent, "dishes" | "host" | "id" | "startsAt">,
   guests: readonly ResidentId[],
 ): WorldEvent[] {
   const items = state.items;
@@ -572,7 +650,13 @@ export function pourTea(
     return [inventoryEvent(event.host, "tea_kept", [], { gained: [tea] })];
   }
   for (const guest of guests) {
-    const good: Good = { id: `i_${items.nextId}`, kind: CUP, maker: event.host, madeDay: day };
+    const good: Good = {
+      id: `i_${items.nextId}`,
+      kind: CUP,
+      maker: event.host,
+      madeDay: day,
+      tea: { event: event.id, startsAt: event.startsAt },
+    };
     items.nextId += 1;
     if (inventorySize(items.inventories[guest]) + 1 > ITEMS.inventoryMax) {
       items.heldAside = [...(items.heldAside ?? []), { good, by: guest, day }];

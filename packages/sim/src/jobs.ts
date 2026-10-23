@@ -51,7 +51,7 @@ import {
 } from "./levels";
 import { isJobWear, JOB_WEAR, type JobWear, WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
-import { clayOpen, FINISH_NAMES, isPotKind, potName, potsOf } from "./pottery";
+import { clayOpen, finishRank, isPotKind, potName, potsOf } from "./pottery";
 import { knownByAll } from "./recipes";
 import { type Season, seasonOf, seasonSpan, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
@@ -1170,7 +1170,7 @@ export function creditJob(
 const madeOrder = (good: Good) => Number(good.id.slice(2));
 
 /** How rare a pot's finish is, smooth first (RFC 0047); 0 for anything without one. */
-const finishRank = (good: Good) => (good.finish ? FINISH_NAMES.indexOf(good.finish) : 0);
+const finishRankOf = (good: Good) => finishRank(good.finish);
 
 /**
  * `hand_in {item?}`: finish the bring job you hold with a thing of its recipe that you made
@@ -1260,7 +1260,7 @@ export function handInPick(
     // unless you name it; anything else has no finish and goes oldest first.
     good = ofKind
       .filter(mine)
-      .sort((a, b) => finishRank(a) - finishRank(b) || madeOrder(a) - madeOrder(b))[0];
+      .sort((a, b) => finishRankOf(a) - finishRankOf(b) || madeOrder(a) - madeOrder(b))[0];
     if (!good) {
       // A pot of theirs set down at home (RFC 0047) is theirs to take up first.
       const down = potsOf(state).find(

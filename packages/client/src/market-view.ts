@@ -18,6 +18,7 @@ import type {
 } from "@terrakin/protocol";
 import {
   BUY_ORDERS,
+  CUP,
   type Finish,
   ITEM_INFO,
   type ItemKind,
@@ -276,14 +277,17 @@ function choices(inv: InventoryResponse["inventory"]): {
 }[] {
   if (!inv) return [];
   return [
-    ...inv.goods.map((g) => ({
-      value: g.id,
-      text: g.label ? `${madeName(g)} “${g.label}”` : madeName(g),
-      max: 1,
-      kind: g.kind as ItemKind,
-      stack: false,
-      ...(g.finish ? { finish: g.finish } : {}),
-    })),
+    // A cup of tea is a keepsake the market won't take (RFC 0047), so it isn't offered.
+    ...inv.goods
+      .filter((g) => g.kind !== CUP)
+      .map((g) => ({
+        value: g.id,
+        text: g.label ? `${madeName(g)} “${g.label}”` : madeName(g),
+        max: 1,
+        kind: g.kind as ItemKind,
+        stack: false,
+        ...(g.finish ? { finish: g.finish } : {}),
+      })),
     ...inv.stacks.map((s) => ({
       value: s.kind,
       text: `${thingName(s.kind)} (you have ${s.count})`,

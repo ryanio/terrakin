@@ -13,6 +13,14 @@ import type { WorldConfig } from "./types";
 export const BIOMES = ["meadow", "forest", "stone", "sand"] as const;
 export type Biome = (typeof BIOMES)[number];
 
+/** Where each biome lies, in words after a verb: "found on the sand". */
+export const BIOME_PLACES: Readonly<Record<Biome, string>> = {
+  forest: "in forests",
+  sand: "on the sand",
+  stone: "on stony ground",
+  meadow: "in meadows",
+};
+
 /**
  * Tiles per side of a biome region. Bigger than a tile, so the world reads as broad organic
  * patches instead of per-tile confetti; smaller than a plot, so the plot grid stays the legible

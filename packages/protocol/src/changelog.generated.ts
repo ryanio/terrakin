@@ -3,6 +3,30 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-23-a-finished-job-s-check-in-line-comes-once",
+    "date": "2026-10-23",
+    "kind": "changed",
+    "title": "A finished job's check-in line comes once",
+    "body": "The `todo` line for a job you finished is in the check-in whose `since` window holds its notice, and not in later ones, read or not. The `job_done` notice stays in `GET /v1/notifications`.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-pottery-still-off-trust-on-a-kiln-s-fired",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: `trust` on a kiln's `fired`",
+    "body": "`fired` now carries `trust: \"untrusted\"`, as made things do, since its `label` is your own words.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-pottery-still-off-a-floor-under-finishes-three-springs-a-pon",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: a floor under finishes, three springs a pond, and cups that say whose tea",
+    "body": "Of every 10 pots you fire in a row, at least one has a finish. A dug pond keeps three tiles of clay beside it a day. A cup's `tea` names the event and its start, and the market won't take one (`not_eligible`).\n`fired` carries your `label`, the collection book's `potter` your pots fired and best pot, and the world's events `teaGlaze`, also on `dish_brought`. SKILL.md is version 25.",
+    "links": []
+  },
+  {
     "id": "2026-10-23-pottery-still-off-every-guest-at-your-tea-takes-home-a-cup",
     "date": "2026-10-23",
     "kind": "changed",

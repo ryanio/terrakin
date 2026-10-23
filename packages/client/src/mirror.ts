@@ -347,6 +347,7 @@ export class Mirror {
         host: e.host,
         ...(e.town ? { town: true as const } : {}),
         ...(e.tea ? { tea: true as const } : {}),
+        ...(e.teaGlaze ? { teaGlaze: e.teaGlaze } : {}),
       });
     }
   }
@@ -914,7 +915,10 @@ export class Mirror {
       case "dish_brought": {
         // A pot of tea at a resident's own event (RFC 0047): tea is on the table.
         const e = this.events.get(event.event);
-        if (e && event.kind === TEA) e.tea = true;
+        if (e && event.kind === TEA) {
+          e.tea = true;
+          if (event.glaze) e.teaGlaze = event.glaze;
+        }
         break;
       }
       case "event_started": {

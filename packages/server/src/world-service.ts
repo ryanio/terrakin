@@ -479,8 +479,18 @@ function firedOf(events: readonly WorldEvent[], actor: string): { fired?: FiredP
     if (e.type !== "inventory" || e.reason !== "fired" || e.residentId !== actor) continue;
     const pot = e.gained?.[0];
     if (!pot?.glaze || !pot.finish || !isGoodKind(pot.kind)) continue;
-    const { id, kind, glaze, finish } = pot;
-    return { fired: { item: id, kind, glaze, finish, name: potName(pot) } };
+    const { id, kind, glaze, finish, label } = pot;
+    return {
+      fired: {
+        item: id,
+        kind,
+        glaze,
+        finish,
+        name: potName(pot),
+        ...(label === undefined ? {} : { label }),
+        trust: "untrusted",
+      },
+    };
   }
   return {};
 }

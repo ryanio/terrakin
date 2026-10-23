@@ -10,6 +10,7 @@ import { mergeJobs } from "./jobs";
 import { plotKey } from "./keys";
 import { mergeProgress } from "./levels";
 import { own, residentById } from "./own";
+import { mergePotters } from "./pottery";
 import { knownRecipes } from "./recipes";
 import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { plotsOwnedBy } from "./world";
@@ -200,6 +201,7 @@ export function checkMergeResident(
       for (const [id, gift] of Object.entries(items.gifts ?? {})) {
         if (gift.from === from || gift.to === from) delete items.gifts?.[id];
       }
+      mergePotters(items, from, into);
     }
     const shop = state.shop;
     if (shop) {

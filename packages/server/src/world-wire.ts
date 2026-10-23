@@ -25,6 +25,7 @@ import {
   type Glaze,
   type GoodKind,
   groundOn,
+  type HostedEvent,
   holidaysField,
   isTownEvent,
   isTownsfolk,
@@ -47,6 +48,7 @@ import {
   shopTiles,
   shownCircleName,
   skyAt,
+  TEA,
   timeOfDayAt,
   townHallTiles,
   type WorldEvent,
@@ -619,6 +621,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
             minutes: e.minutes,
             ...(isTownEvent(e) ? { town: true as const } : {}),
             ...(servedTea(e) ? { tea: true as const } : {}),
+            ...teaGlazeOf(e),
           })),
         }
       : {}),
@@ -674,4 +677,10 @@ function pickupsToday(state: WorldState): PickupView[] {
     }
   }
   return out;
+}
+
+/** The glaze of the pot of tea on an event's table (RFC 0047), when it isn't bare clay. */
+function teaGlazeOf(e: HostedEvent): { teaGlaze?: Glaze } {
+  const glaze = e.dishes?.find((d) => d.by === e.host && d.kind === TEA)?.glaze;
+  return glaze ? { teaGlaze: glaze } : {};
 }

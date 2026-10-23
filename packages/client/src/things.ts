@@ -52,6 +52,15 @@ import { coins } from "./purse";
  */
 export const CLAY_WHERE = `Clay lies beside water, and every pond has some beside it each day. No water near you? Dig a pond from Build, on the Blocks tab, for ${POND.stone} stone a tile.`;
 
+/**
+ * The same, for a kiln with a pond or the sea near it: where to look, and no pond to dig. Without
+ * water near, `CLAY_WHERE`.
+ */
+export const clayWhere = (waterNear: boolean): string =>
+  waterNear
+    ? "Clay lies beside water: look round the pond near your kiln each day, where some always comes up, and gather it."
+    : CLAY_WHERE;
+
 /** "Lemon", "Bunch of herbs". */
 export const thingName = (kind: ItemKind) => ITEM_INFO[kind].name;
 
@@ -530,8 +539,15 @@ export function newsLine(
         : null;
     case "coins":
       return event.residentId === me ? coinsLine(event) : null;
-    case "inventory":
-      return event.residentId === me ? inventoryLine(event) : null;
+    case "inventory": {
+      if (event.residentId !== me) return null;
+      // A cup of tea (RFC 0047) names who poured it, as the cup itself does.
+      const host = event.reason === "poured" ? event.gained?.[0]?.maker : undefined;
+      const name = host ? nameOf(host) : undefined;
+      return name
+        ? `${name} poured you a cup of tea to keep. It's in your things.`
+        : inventoryLine(event);
+    }
     case "gallery_set":
       if (event.by !== me) return null;
       return event.open
@@ -734,4 +750,27 @@ export function worldProblem(
 export function toastMs(text: string, source: "system" | "player" = "system"): number {
   const base = source === "player" ? 4000 : 2600;
   return Math.min(7000, Math.max(base, 2600 + 40 * text.length));
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * When a cup of tea was poured (RFC 0047), from its event's start in your own time: "At their tea
+ * on Sunday evening, Oct 25." Never the event's title, which is the host's own words.
+ */
+export function teaWhenLine(startsAt: Date): string {
+  const hour = startsAt.getHours();
+  const part =
+    hour < 5
+      ? "night"
+      : hour < 12
+        ? "morning"
+        : hour < 17
+          ? "afternoon"
+          : hour < 21
+            ? "evening"
+            : "night";
+  const day = `${WEEKDAYS[startsAt.getDay()]} ${part}, ${MONTHS[startsAt.getMonth()]} ${startsAt.getDate()}`;
+  return `At their tea on ${day}.`;
 }

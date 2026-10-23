@@ -1362,7 +1362,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // Only marks within sight, so a ready kiln across town doesn't keep every frame drawing.
       const inSight = (at: { x: number; y: number }) => tileDistance(tile, at) <= VIEW_RADIUS;
       const teas = teaSpots({
-        plotSize: mirror.config.plotSize,
+        config: mirror.config,
         events: mirror.events.values(),
         blocks: mirror.blocks,
         hearthOf: (id) => mirror.residents.get(id)?.hearth,

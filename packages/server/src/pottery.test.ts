@@ -168,10 +168,28 @@ describe("a world with clay", () => {
     const pick = (t: Awaited<ReturnType<typeof start>>, id: string) =>
       pickTryNext(t.service.state, id, new Set(), others)?.id;
     const closed = await start();
-    expect(pick(closed, (await closed.settler("Ada", 0)).id)).toBeUndefined();
+    const early = await closed.settler("Ada", 0);
+    expect(pick(closed, early.id)).toBeUndefined();
+    // Without clay, a resident with first-visit steps left hears no suggestion, though one would
+    // fit once those steps are done: only pottery comes early.
+    expect(pickTryNext(closed.service.state, early.id, new Set(), new Set())).not.toBeNull();
+    const before = (await closed.call("GET", "/v1/checkin", undefined, early.token)).body;
+    expect(before.firstVisit.length).toBeGreaterThan(0);
+    expect(before.tryToday).toBeNull();
+    expect(
+      (await closed.call("GET", "/v1/first-visit", undefined, early.token)).body.tryToday,
+    ).toBe(null);
     const t = await start(true, { levels: true });
     const ada = await t.settler("Ada", 0);
     expect(pick(t, ada.id)).toBe("pottery");
+    // It comes as soon as she has a hearth, before her first visit's steps are done.
+    const checkin = (await t.call("GET", "/v1/checkin", undefined, ada.token)).body;
+    expect(checkin.firstVisit.length).toBeGreaterThan(0);
+    expect(checkin.tryToday).toBe("pottery");
+    // The web's first-visit read follows the same rule.
+    expect((await t.call("GET", "/v1/first-visit", undefined, ada.token)).body.tryToday).toBe(
+      "pottery",
+    );
     expect(t.service.testGrant(ada.id, undefined, { stone: 4 })).toMatchObject({ ok: true });
     expect(await t.act(ada.token, { type: "place", ...KILN, block: "kiln" })).toMatchObject({
       ok: true,
@@ -263,14 +281,23 @@ describe("a world with clay", () => {
       { seq: expect.any(Number), maker: ada.id, kind: "bowl", glaze: "moss", finish: "crackle" },
     ]);
     expect(JSON.stringify(heard())).not.toContain("For tea");
-    // The answer names what came out, in the words the web and the check-in use.
+    // The answer names what came out, in the words the web and the check-in use, with the label
+    // its loader gave it, which only they hear.
     const finish = (out as { fired: { finish: string } }).fired.finish;
     expect(out).toMatchObject({
       fired: {
         kind: "bowl",
         glaze: "moss",
         name: `${finish.charAt(0).toUpperCase()}${finish.slice(1)} moss bowl`,
+        label: "For tea",
       },
+    });
+    // Her book counts the pot and keeps her best so far.
+    expect(
+      (await t.call("GET", "/v1/collection", undefined, ada.token)).body.collection.potter,
+    ).toEqual({
+      fired: 1,
+      best: { kind: "bowl", glaze: "moss", finish: "crackle", name: "Crackle moss bowl" },
     });
     const logged = t.store.log.at(-1)?.command as { type: string; roll?: number };
     expect(logged.type).toBe("harvest");
@@ -410,12 +437,12 @@ describe("a world with clay", () => {
     const ada = await t.settler("Ada", 0);
     const bob = await t.settler("Bob", 2);
     expect(
-      t.service.testGrant(ada.id, undefined, { stone: 4, clay: 4, wood: 1, herb: 2 }),
+      t.service.testGrant(ada.id, undefined, { stone: 4, clay: 4, wood: 1, herb: 3 }),
     ).toMatchObject({ ok: true });
     for (const action of [
       { type: "pick_recipe", recipe: "teapot" },
       { type: "place", ...KILN, block: "kiln" },
-      { type: "craft", recipe: "teapot", ...KILN },
+      { type: "craft", recipe: "teapot", ...KILN, glaze: "moss" },
     ]) {
       expect(await t.act(ada.token, action)).toMatchObject({ ok: true });
     }
@@ -496,6 +523,10 @@ describe("a world with clay", () => {
       (await t.call("GET", "/v1/events/e_1", undefined, bob.token)).body.event,
     ).not.toHaveProperty("tea");
     expect(await t.act(ada.token, serve)).toMatchObject({ ok: true });
+    // The world draws the tea in her teapot's glaze.
+    expect((await t.call("GET", "/v1/world")).body.events).toEqual([
+      expect.objectContaining({ id: "e_1", tea: true, teaGlaze: "moss" }),
+    ]);
     // Eve comes after the tea went out, so she has no cup until she has stayed to be counted.
     const eve = join("Eve");
     expect(await t.act(eve.token, { type: "join_event", event: "e_1" })).toMatchObject({
@@ -521,6 +552,14 @@ describe("a world with clay", () => {
         actor: { id: ada.id },
       });
     }
+    // A cup says whose tea it was and when, by the event's id and start, never its title.
+    const bobCup = (
+      await t.call("GET", "/v1/inventory", undefined, bob.token)
+    ).body.inventory.goods.find((g: Json) => g.kind === "cup_of_tea");
+    expect(bobCup).toMatchObject({
+      makerId: ada.id,
+      tea: { event: "e_1", startsAt: new Date(noon).toISOString() },
+    });
     const cyThings = (await t.call("GET", "/v1/inventory", undefined, cy.token)).body.inventory;
     expect(cyThings.goods.filter((g: Json) => g.kind === "cup_of_tea")).toEqual([]);
     // And the host hears from Terrakin how many cups went home.

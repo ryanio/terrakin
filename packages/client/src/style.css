@@ -2926,9 +2926,27 @@ dialog.model-viewer {
 /* The pot's name and lines come only once the doors are open and the pot is up, never before. */
 .kiln-reveal-eyebrow,
 .kiln-reveal-name,
+.kiln-reveal-label,
 .kiln-reveal-line,
-.kiln-reveal > .btn-primary {
+.kiln-reveal-kept,
+.kiln-reveal-actions {
   animation: kiln-words 420ms ease-out 1100ms both;
+}
+
+.kiln-reveal-label {
+  margin: 0;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.kiln-reveal-kept {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.kiln-reveal-actions {
+  justify-content: center;
 }
 
 @keyframes kiln-words {
@@ -2991,8 +3009,10 @@ dialog.model-viewer {
   .kiln-reveal-mouth,
   .kiln-reveal-eyebrow,
   .kiln-reveal-name,
+  .kiln-reveal-label,
   .kiln-reveal-line,
-  .kiln-reveal > .btn-primary,
+  .kiln-reveal-kept,
+  .kiln-reveal-actions,
   .kiln-reveal[data-rare] .kiln-reveal-pot::before {
     animation: none;
   }

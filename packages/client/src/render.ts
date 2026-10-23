@@ -655,20 +655,6 @@ export function render(
     paintGameTable(ctx, left, top, size, scale, inset, t.playing);
   }
 
-  // ---- tea (RFC 0047): a teapot with steam on the host's table, or by the hearth ----
-  for (const t of teaSpots({
-    plotSize: S,
-    events: mirror.events.values(),
-    blocks: mirror.blocks,
-    hearthOf: (id) => mirror.residents.get(id)?.hearth,
-  })) {
-    if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
-    const { sx, sy } = tileToScreen(cam, t.x, t.y);
-    const left = Math.round(sx - half) + inset;
-    const top = Math.round(sy - half) + inset;
-    paintTeapot(ctx, left, top, Math.round(scale) - inset * 2, t.table, now, still);
-  }
-
   // ---- hearths: a little house, drawn under residents ----
   for (const r of mirror.residents.values()) {
     if (!r.hearth) continue;
@@ -691,6 +677,20 @@ export function render(
     ctx.lineTo(sx + half * 0.72, sy - half * 0.12);
     ctx.closePath();
     ctx.fill();
+  }
+
+  // ---- tea (RFC 0047): a teapot with steam in its glaze, on a table or on the host's hearth ----
+  for (const t of teaSpots({
+    config: mirror.config,
+    events: mirror.events.values(),
+    blocks: mirror.blocks,
+    hearthOf: (id) => mirror.residents.get(id)?.hearth,
+  })) {
+    if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
+    const { sx, sy } = tileToScreen(cam, t.x, t.y);
+    const left = Math.round(sx - half) + inset;
+    const top = Math.round(sy - half) + inset;
+    paintTeapot(ctx, left, top, Math.round(scale) - inset * 2, t, now, still);
   }
 
   // ---- presents waiting (RFC 0034): under the tree on their home plot, or by the hearth ----

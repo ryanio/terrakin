@@ -10,7 +10,7 @@ export {
   starterHomePlot,
 } from "./apply";
 export { AWARDS, awardedInWindow } from "./awards";
-export { BIOME_REGION, BIOMES, type Biome, biomeAt } from "./biome";
+export { BIOME_PLACES, BIOME_REGION, BIOMES, type Biome, biomeAt } from "./biome";
 export {
   BOUNTIES,
   BOUNTY_MOVES,
@@ -238,6 +238,7 @@ export {
   findsOpen,
   GATHER,
   gatherableAt,
+  glazeWhere,
   mayGatherAt,
   mayGatherOn,
   nearestOpenPickup,
@@ -513,6 +514,7 @@ export {
 export { freeRenamesLeft, PLOT_NAMES, plotNamesOf } from "./plot-names";
 export {
   type ClayRule,
+  CUP,
   clayOpen,
   clayRule,
   FINISH_NAMES,
@@ -521,8 +523,10 @@ export {
   FLOWER_KINDS,
   type FlowerKind,
   finishOf,
+  finishRank,
   firingAt,
   firingsOf,
+  floorFinish,
   GLAZE_COSTS,
   GLAZES,
   type Glaze,
@@ -538,11 +542,13 @@ export {
   potKey,
   potName,
   potsOf,
+  potterOf,
   RARE_FINISHES,
   readyKilns,
   servedTea,
   TEA,
   TEAPOT,
+  teapotGlaze,
   withGlaze,
 } from "./pottery";
 export { isDirection, PUTTER, PUTTER_MAX_STEPS, planPutter } from "./putter";

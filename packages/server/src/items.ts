@@ -91,6 +91,9 @@ export function goodView(g: Good, author: Authors): GoodView {
     ...(g.glaze === undefined ? {} : { glaze: g.glaze }),
     ...(g.finish === undefined ? {} : { finish: g.finish }),
     ...(g.flower === undefined ? {} : { flower: g.flower }),
+    ...(g.tea
+      ? { tea: { event: g.tea.event, startsAt: new Date(g.tea.startsAt).toISOString() } }
+      : {}),
     trust: "untrusted",
   };
 }

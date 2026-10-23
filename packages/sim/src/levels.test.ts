@@ -1042,11 +1042,14 @@ describe("credit_event", () => {
       (e) => e.type === "progress" && e.residentId === "ada",
     );
     expect(host).toMatchObject({ points: 2 * (PROGRESS.guest + POTTERY.teaPerGuest) });
-    // Each guest takes home a cup of tea, signed by the host who poured it.
+    // Each guest takes home a cup of tea, signed by the host who poured it, and saying which
+    // event it was and when it started.
+    const startsAt = w.state.events?.list.find((e) => e.id === event)?.startsAt;
     for (const guest of ["bob", "cy"]) {
       expect(items.inventories[guest]?.goods.at(-1), guest).toMatchObject({
         kind: "cup_of_tea",
         maker: "ada",
+        tea: { event, startsAt },
       });
     }
     // At an event where nobody is counted, the pot of tea comes back to its host, not nowhere.

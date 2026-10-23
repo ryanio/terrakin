@@ -44,4 +44,4 @@ export const KILN_LOG: Input[] = [
  * `hashWorld(replay(KILN_CONFIG, KILN_LOG))`. A finish's name is in the hash, so renaming one
  * moves it (decision 0367); no live world has logged `open_clay`.
  */
-export const KILN_HASH = "91280811";
+export const KILN_HASH = "44673b52";

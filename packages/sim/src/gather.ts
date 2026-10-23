@@ -1,4 +1,4 @@
-import { type Biome, biomeAt } from "./biome";
+import { BIOME_PLACES, type Biome, biomeAt } from "./biome";
 import type { RecipeName } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import { isWater, type WaterFacts, waterBeside } from "./fishing";
@@ -19,7 +19,7 @@ import { gatherJob } from "./jobs";
 import { tileKey } from "./keys";
 import { isSea } from "./lands";
 import { earned, gatherEarns } from "./levels";
-import { type ClayRule, clayRule, POTTERY } from "./pottery";
+import { type ClayRule, clayRule, GLAZE_COSTS, type Glaze, POTTERY } from "./pottery";
 import { howToMake, knows, learn, pageEditionOf, pageOn } from "./recipes";
 import { type Season, seasonOf } from "./season";
 import type {
@@ -119,6 +119,17 @@ export const FIND_SPAWNS = [
   { kind: "maple_leaf", biome: "meadow", chance: 0.0025, seasons: ["autumn"] },
   { kind: "cherry_blossom", biome: "meadow", chance: 0.0025, seasons: ["spring"] },
 ] as const satisfies readonly FindSpawn[];
+
+/**
+ * Where a glaze's thing comes from (RFC 0047), after its count: "found on the sand" for a find,
+ * from the spawn table, "grown in a planter" for a crop, or null for bare clay, which takes nothing.
+ */
+export function glazeWhere(glaze: Glaze): string | null {
+  const kind = GLAZE_COSTS[glaze];
+  if (!kind) return null;
+  const spawn = FIND_SPAWNS.find((s) => s.kind === kind);
+  return spawn ? `found ${BIOME_PLACES[spawn.biome]}` : "grown in a planter";
+}
 
 /** The finds that may lie in a biome on a day: its spawns in season, in `FIND_SPAWNS` order. */
 export function findsIn(biome: Biome, day: number): FindSpawn[] {

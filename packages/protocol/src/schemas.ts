@@ -1260,6 +1260,9 @@ export const FiredPot = z.object({
   glaze: GlazeName,
   finish: FinishName,
   name: z.string(),
+  /** The label you gave it when you loaded the kiln: your own words, untrusted text. */
+  label: z.string().optional(),
+  trust: z.literal("untrusted"),
 });
 export type FiredPot = z.infer<typeof FiredPot>;
 
@@ -2140,6 +2143,8 @@ export const WorldSnapshot = z.object({
         town: z.literal(true).optional(),
         /** Its host has set out a pot of tea (RFC 0047): tea is on the table. */
         tea: z.literal(true).optional(),
+        /** The glaze of the teapot the tea was brewed in, when it isn't bare clay. */
+        teaGlaze: GlazeName.optional(),
       }),
     )
     .optional(),
@@ -2981,12 +2986,16 @@ export const WorldEvent = z.discriminatedUnion("type", [
     y: z.number().int(),
     color: FireworkColor,
   }),
-  /** `by` set a `kind` on the table of the Thanksgiving feast `event` (RFC 0034). */
+  /**
+   * `by` set a `kind` on the table of the Thanksgiving feast `event` (RFC 0034), or a host set out
+   * a pot of tea at their own event (RFC 0047), with `glaze` when its teapot wasn't bare clay.
+   */
   z.object({
     type: z.literal("dish_brought"),
     by: z.string(),
     kind: ItemKind,
     event: z.string(),
+    glaze: GlazeName.optional(),
   }),
   /**
    * `by` knocked at the door of plot (px, py) on Halloween night and got a candy (RFC 0022): from

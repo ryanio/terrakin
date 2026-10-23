@@ -4,6 +4,7 @@ import type { Api } from "../api";
 import { bountiesView } from "../bounties";
 import { checkinView, firstVisitView } from "../checkin";
 import { purseView } from "../coins";
+import { withPotter } from "../collection";
 import { galleriesView } from "../galleries";
 import { gamesView, ladderView, tableView } from "../games";
 import { inventoryView } from "../items";
@@ -130,11 +131,14 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
     getCatalog: () => ({ status: 200, body: CATALOG_VIEW }),
     getCollection: ({ viewer }) => ({
       status: 200,
-      body: { collection: social().collection.view(viewer) },
+      body: { collection: withPotter(social().collection.view(viewer), service.state) },
     }),
     getResidentCollection: ({ params }) => {
       if (!social().authorView(params.id)) return fail("not_found", "No such resident.");
-      return { status: 200, body: { collection: social().collection.view(params.id) } };
+      return {
+        status: 200,
+        body: { collection: withPotter(social().collection.view(params.id), service.state) },
+      };
     },
     getShop: ({ viewer }) => ({
       status: 200,

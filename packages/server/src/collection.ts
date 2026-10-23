@@ -34,6 +34,8 @@ import {
   isShownFind,
   isTownsfolk,
   kindsIn,
+  potName,
+  potterOf,
   residentById,
   type Season,
   sortWear,
@@ -163,6 +165,17 @@ function collectionView(
       ...(firsts.has(keyOf("finish", "iridescent")) ? [IRIDESCENT_BADGE] : []),
     ],
   };
+}
+
+/**
+ * A book's `potter` (RFC 0047): how many pots its resident has had out of a kiln and their best so
+ * far, by codes, from the sim's kiln record. Absent until their first pot came out.
+ */
+export function withPotter(view: CollectionView, state: WorldState): CollectionView {
+  const record = potterOf(state, view.resident);
+  if (!record) return view;
+  const { best } = record;
+  return { ...view, potter: { fired: record.fired, best: { ...best, name: potName(best) } } };
 }
 
 /**

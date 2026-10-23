@@ -55,3 +55,7 @@ export function pondLine(holdings: Holdings, clay = false): string {
   if (short.length === 0) return `${cost} You have enough.`;
   return `${cost} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.`;
 }
+
+/** The pond chip's name on the build bar, its cost from the sim, and its clay once pottery's open. */
+export const pondLabel = (clay: boolean): string =>
+  `Pond (${thingCount("stone", POND.stone)} a tile, to fish beside${clay ? ", with clay beside it each day" : ""})`;

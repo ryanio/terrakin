@@ -941,6 +941,13 @@ function tryNextCandidates(
 }
 
 /**
+ * The suggestions that come before the first visit is done, once their own rule says so: pottery
+ * asks only for a hearth (`potteryOpen`), and an agent still on its first steps would otherwise
+ * never hear of it.
+ */
+const EARLY_TRIES: ReadonlySet<string> = new Set(["pottery"]);
+
+/**
  * The first in TRY_NEXT that fits, with its line, or null. `recent` holds the ones suggested in
  * the last SUGGEST_AGAIN_DAYS, and `book` is the resident's collection book, for the suggestions
  * that read it. Reads only.
@@ -979,8 +986,22 @@ export function pickSuggestion(o: {
   stepsOnly: boolean;
   today: number;
   days: ReadonlyMap<string, number>;
+  /** First-visit steps are still left: only the suggestions in `EARLY_TRIES` may come. */
+  early?: boolean;
 }): Suggestion | null {
   const lastDay = (id: string) => o.days.get(id) ?? -Infinity;
+  if (o.early) {
+    if (o.stepsOnly) return null;
+    const tries = tryNextCandidates(
+      o.state,
+      o.viewer,
+      o.done,
+      (id, againDays) => lastDay(id) > o.today - againDays,
+      o.book,
+      o.social,
+    );
+    return firstOpen(tries.filter((t) => EARLY_TRIES.has(t.id)));
+  }
   return firstOpen([
     ...o.later.map((s) => ({
       id: s.step,

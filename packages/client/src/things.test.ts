@@ -1,3 +1,4 @@
+import type { WorldEvent } from "@terrakin/protocol";
 import {
   apply,
   type Command,
@@ -36,6 +37,7 @@ import {
   recipeShelf,
   revealLine,
   sendBackLine,
+  teaWhenLine,
   thingCount,
   toastMs,
   worldProblem,
@@ -313,6 +315,20 @@ describe("things", () => {
       "A trick-or-treater came by, and you gave them a candy.",
     );
     expect(newsLine({ ...knock, from: "town" }, "r_2")).toBeNull();
+    // A cup of tea (RFC 0047) names the host who poured it, when the world knows their name.
+    const poured: WorldEvent = {
+      type: "inventory",
+      residentId: "r_1",
+      reason: "poured",
+      changes: [],
+      gained: [{ id: "i_9", kind: "cup_of_tea", maker: "r_2", madeDay: 1 }],
+    };
+    expect(newsLine(poured, "r_1", (id) => (id === "r_2" ? "Hollis" : undefined))).toBe(
+      "Hollis poured you a cup of tea to keep. It's in your things.",
+    );
+    expect(newsLine(poured, "r_1")).toBe(
+      "Your host served tea, and you took home a cup. It's in your things.",
+    );
     expect(
       newsLine(
         {
@@ -548,6 +564,17 @@ describe("a made thing in a sentence", () => {
     expect(aThing("herb")).toBe("a bunch of herbs");
     expect(aThing("acorn")).toBe("an acorn");
     expect(aThing("herb_sachet")).toBe("an herb sachet");
+  });
+});
+
+describe("a cup of tea's day", () => {
+  it("says the weekday and the part of the day in your own time, never the event's title", () => {
+    expect(teaWhenLine(new Date(2026, 9, 25, 19, 30))).toBe(
+      "At their tea on Sunday evening, Oct 25.",
+    );
+    expect(teaWhenLine(new Date(2026, 9, 27, 9, 0))).toBe(
+      "At their tea on Tuesday morning, Oct 27.",
+    );
   });
 });
 

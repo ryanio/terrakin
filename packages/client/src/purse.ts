@@ -35,11 +35,15 @@ export function balanceLine(balance: number, id: string): HTMLElement {
 /** What a purse line says as a live notice, or null for lines that don't get one. */
 export function coinNote(
   line: PurseLine,
+  days = 1,
 ): { lead: string; rest: string; snippet?: string; from?: PurseLine["with"] } | null {
   if (line.amount <= 0) return null;
   switch (line.reason) {
     case "allowance":
-      return { lead: `+${coins(line.amount)}`, rest: "for coming home today" };
+      return {
+        lead: `+${coins(line.amount)}`,
+        rest: days > 1 ? `for coming home on ${days} days` : "for coming home today",
+      };
     case "streak":
       return { lead: `+${coins(line.amount)}`, rest: "for coming home days in a row" };
     case "welcome":
@@ -70,6 +74,28 @@ export function coinNote(
  */
 export const allowanceWaiting = (purse: PurseView) =>
   purse.allowanceEligible !== false && !purse.allowanceToday && purse.hasHearth;
+
+/**
+ * New lines for notices, with every day's coming-home coins in one line and every streak bonus in
+ * another, `days` saying how many each folds, so a few days away come back as one notice each.
+ */
+export function foldLines(lines: readonly PurseLine[]): { line: PurseLine; days: number }[] {
+  const out: { line: PurseLine; days: number }[] = [];
+  const at = new Map<string, number>();
+  for (const line of lines) {
+    const folds = line.reason === "allowance" || line.reason === "streak";
+    const i = folds ? at.get(line.reason) : undefined;
+    const into = i === undefined ? undefined : out[i];
+    if (into) {
+      into.line = { ...into.line, amount: into.line.amount + line.amount };
+      into.days += 1;
+      continue;
+    }
+    if (folds) at.set(line.reason, out.length);
+    out.push({ line, days: 1 });
+  }
+  return out;
+}
 
 /** Lines newer than `seq`, oldest first. */
 export function linesAfter(ledger: readonly PurseLine[], seq: number): PurseLine[] {
@@ -146,8 +172,8 @@ function paint(res: PurseResponse, announce: boolean) {
   }
   shown = purse.balance;
   if (!announce) return;
-  for (const line of fresh.slice(-NOTICES_MAX)) {
-    const note = coinNote(line);
+  for (const { line, days } of foldLines(fresh).slice(-NOTICES_MAX)) {
+    const note = coinNote(line, days);
     if (!note) continue;
     liveToast({
       people: note.from ? [note.from] : [],

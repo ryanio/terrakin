@@ -14,7 +14,7 @@ import {
   isStackKind,
 } from "./items";
 import { own } from "./own";
-import { potName, potsOf } from "./pottery";
+import { CUP, potName, potsOf } from "./pottery";
 import type {
   Command,
   EconomyState,
@@ -202,6 +202,12 @@ export function checkListItem(
     }
   } else {
     return refuse("unknown_item", "That isn't something you can hold. Check GET /v1/inventory.");
+  }
+  if (kind === CUP) {
+    return refuse(
+      "not_eligible",
+      "A cup of tea is a keepsake from its host's tea, so it isn't for sale. Keep it, show it, or give it to a friend.",
+    );
   }
   const selling = Object.values(market.listings).filter(
     (l) => l.seller === actor && !l.takenDown,

@@ -24,6 +24,7 @@ import {
   madeName,
   sendBackLine,
   stackCount,
+  teaWhenLine,
   thingCount,
   thingName,
 } from "./things";
@@ -45,6 +46,7 @@ function goodItem(g: GoodView): HTMLLIElement {
         h("span", { text: g.kind === "cup_of_tea" ? "Poured by " : "Made by " }),
         g.maker ? personLink(g.maker) : h("span", { text: "a former resident" }),
       ),
+      g.tea ? teaWhenLine(new Date(g.tea.startsAt)) : null,
       admiredLine(g.admired),
     ],
   });

@@ -1,6 +1,12 @@
-import type { Biome, CatchChance, Family, TimeOfDay } from "@terrakin/sim";
+import {
+  BIOME_PLACES,
+  type Biome,
+  type CatchChance,
+  type Family,
+  type TimeOfDay,
+} from "@terrakin/sim";
 import { z } from "zod";
-import { HolidayName, SeasonName } from "./schemas";
+import { FinishName, GlazeName, GoodKind, HolidayName, SeasonName } from "./schemas";
 
 /**
  * The collection book (RFC 0021): every kind of thing a resident has ever held and every piece of
@@ -63,13 +69,8 @@ export const COLLECTION_WORDS: Readonly<
   wear: { hint: "Worn, or bought at the town shop", badge: "Full wardrobe" },
 };
 
-/** Where each biome's finds lie, in words: "It lies on the sand now and then." */
-export const FIND_GROUND: Readonly<Record<Biome, string>> = {
-  forest: "in forests",
-  sand: "on the sand",
-  stone: "on stony ground",
-  meadow: "in meadows",
-};
+/** Where each biome's finds lie, in words: "It lies on the sand now and then." The sim's words. */
+export const FIND_GROUND: Readonly<Record<Biome, string>> = BIOME_PLACES;
 
 /** How often a find turns up, in words, from its chance per tile a day (`FIND_SPAWNS`). */
 export function findRarity(chance: number): "common" | "uncommon" | "rare" {
@@ -167,6 +168,20 @@ export const CollectionView = z.object({
     .array(CollectionGroup)
     .describe("Each family that holds kinds, in the catalog's order, then wear."),
   badges: z.array(z.string()).describe("The badges of every group they finished, in that order."),
+  potter: z
+    .object({
+      fired: z.number().int().describe("Pots they've had out of a kiln."),
+      best: z
+        .object({
+          kind: GoodKind,
+          glaze: GlazeName,
+          finish: FinishName,
+          name: z.string().describe('Its name from its codes: "Crackle sea vase".'),
+        })
+        .describe("Their best pot so far: the first with the rarest finish they've had."),
+    })
+    .optional()
+    .describe("Pottery (RFC 0047), once they've had a pot out of a kiln."),
 });
 export type CollectionView = z.infer<typeof CollectionView>;
 

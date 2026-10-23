@@ -4,7 +4,7 @@
  * an event's lanterns. The server decides every event; these only describe what it said.
  */
 import type { EventView, HostingView, TeaView } from "@terrakin/protocol";
-import { EVENTS, type EventKind, ITEM_INFO } from "@terrakin/sim";
+import { EVENTS, type EventKind, type Glaze, ITEM_INFO } from "@terrakin/sim";
 import { plural, pluralWord } from "@terrakin/ui/format";
 
 const MINUTE = 60_000;
@@ -124,6 +124,8 @@ export interface EventMark {
   town?: true;
   /** Tea is on the table (RFC 0047). */
   tea?: true;
+  /** The glaze of the teapot the tea was brewed in, when it isn't bare clay. */
+  teaGlaze?: Glaze;
 }
 
 /** A lantern to draw on the map. `lit` while its event is on. */

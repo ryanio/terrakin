@@ -19,7 +19,7 @@ import {
   isStackKind,
 } from "./items";
 import { own, residentById } from "./own";
-import { clayOpen, servedTea, TEA } from "./pottery";
+import { clayOpen, type Glaze, servedTea, TEA, teapotGlaze } from "./pottery";
 import type {
   Command,
   HostedEvent,
@@ -218,7 +218,11 @@ function checkServeTea(
     const inv = inventory(items, actor);
     inv.goods = inv.goods.filter((g) => g.id !== good.id);
     if (present.length > 0) event.teaFor = present;
-    return bring(event, actor, TEA, inventoryEvent(actor, "brought", [], { lost: [good.id] }));
+    // The tea is drawn on the table in its host's teapot's glaze.
+    const tinted = teapotGlaze(items, actor);
+    const glaze = tinted !== "bare" ? tinted : undefined;
+    const taken = inventoryEvent(actor, "brought", [], { lost: [good.id] });
+    return bring(event, actor, TEA, taken, glaze);
   };
 }
 
@@ -228,8 +232,21 @@ const notFood = () =>
     "Bring something from a kitchen: a pie, a jam, a soup, a drink, or a sweet, by its id or, for a sweet, its kind.",
   );
 
-/** Set `kind` on the feast's table for `actor`, after their own `inventory` event. */
-function bring(feast: HostedEvent, actor: ResidentId, kind: ItemKind, taken: WorldEvent) {
-  feast.dishes = [...(feast.dishes ?? []), { by: actor, kind }];
-  return [taken, { type: "dish_brought", by: actor, kind, event: feast.id } as WorldEvent];
+/**
+ * Set `kind` on the feast's table for `actor`, after their own `inventory` event. A pot of tea
+ * brewed in a glazed teapot keeps the glaze (RFC 0047).
+ */
+function bring(
+  feast: HostedEvent,
+  actor: ResidentId,
+  kind: ItemKind,
+  taken: WorldEvent,
+  glaze?: Glaze,
+) {
+  const tinted = glaze ? { glaze } : {};
+  feast.dishes = [...(feast.dishes ?? []), { by: actor, kind, ...tinted }];
+  return [
+    taken,
+    { type: "dish_brought", by: actor, kind, event: feast.id, ...tinted } as WorldEvent,
+  ];
 }

@@ -1064,8 +1064,11 @@ export interface HostedEvent {
   faces?: ResidentId[];
   /** Who attended, sorted, once it ended. */
   attended?: ResidentId[];
-  /** The dishes brought to a Thanksgiving feast, in the order they came (RFC 0034). Absent until the first. */
-  dishes?: { by: ResidentId; kind: ItemKind }[];
+  /**
+   * The dishes brought to a Thanksgiving feast, in the order they came (RFC 0034), or a host's pot
+   * of tea with its teapot's glaze when that isn't bare clay (RFC 0047). Absent until the first.
+   */
+  dishes?: { by: ResidentId; kind: ItemKind; glaze?: Glaze }[];
   /**
    * Who was at it when its host served tea (RFC 0047): online in its area on the ground floor, not
    * the host and not townsfolk, sorted. Each may take home a cup. Absent until tea is served.
@@ -1299,6 +1302,29 @@ export interface Good {
   finish?: Finish;
   /** A vase only (RFC 0047): the flower put in it when it was set down, which stays with it. */
   flower?: FlowerKind;
+  /**
+   * A cup of tea only (RFC 0047): the event it was poured at, by id, and when that event started,
+   * so it can say whose tea it came from and when without the event's words.
+   */
+  tea?: { event: string; startsAt: number };
+}
+
+/** A pot by its codes (RFC 0047): its kind, glaze, and finish, never its label. */
+export interface PotCodes {
+  kind: GoodKind;
+  glaze: Glaze;
+  finish: Finish;
+}
+
+/**
+ * A resident's kiln record (RFC 0047): how many pots they've had out of a kiln, how many smooth
+ * ones in a row since the last with a finish (absent at 0), and their best pot so far, the first
+ * with the rarest finish.
+ */
+export interface PotterRecord {
+  fired: number;
+  smoothRun?: number;
+  best: PotCodes;
 }
 
 /**
@@ -1493,6 +1519,8 @@ export interface ItemsState {
   clayByWater?: true;
   /** Pots firing in kilns, keyed by tileKey(x, y). Absent until the first, and dropped when empty. */
   firings?: Record<string, Firing>;
+  /** Each resident's kiln record, by id (RFC 0047). Absent until the first pot comes out. */
+  potters?: Record<ResidentId, PotterRecord>;
   /**
    * Pots set down on plots (RFC 0047), keyed by `potKey(x, y, floor)`: the tile key on the ground
    * floor, and `<floor>:<tile key>` above it. Absent until the first.
@@ -2922,7 +2950,7 @@ export type WorldEvent =
   /** `by` set off a firework over (x, y) in `color` (RFC 0034). Public: everyone sees it burst. */
   | { type: "firework"; by: ResidentId; x: number; y: number; color: FireworkColor }
   /** `by` set a `kind` on the table of the feast `event` (RFC 0034). Public, like going. */
-  | { type: "dish_brought"; by: ResidentId; kind: ItemKind; event: string }
+  | { type: "dish_brought"; by: ResidentId; kind: ItemKind; event: string; glaze?: Glaze }
   /**
    * `by` knocked at the door of plot (px, py) and got a candy (RFC 0022): from `giver`, someone
    * home or their bowl by the door, or from the town. Public, like a visit.

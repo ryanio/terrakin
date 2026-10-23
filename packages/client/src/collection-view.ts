@@ -22,14 +22,16 @@ import {
   type Finish,
   GLAZES,
   type Glaze,
+  type ItemKind,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
+import { plural } from "@terrakin/ui/format";
 import { isArtKind, itemArt, type ThingLook, thingPicture } from "@terrakin/ui/item-art";
 import { profilePath } from "@terrakin/ui/paths";
 import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
 import { collectionApi } from "./api/collection";
 import { residentsApi } from "./api/residents";
-import { glazeCostLine } from "./glaze-words";
+import { glazeCostLine, potteryHint } from "./glaze-words";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";
 import {
@@ -85,7 +87,9 @@ function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
             ? seasonsLine(k.seasons)
             : k.holiday
               ? holidayLine(k.holiday)
-              : null;
+              : family === "pottery"
+                ? potteryHint(k.kind as ItemKind)
+                : null;
   return h(
     "li",
     { class: got ? "collection-kind got" : "collection-kind", attrs: { "data-kind": k.kind } },
@@ -95,8 +99,30 @@ function kindTile(k: CollectionKind, now: number, family: string): HTMLElement {
   );
 }
 
+/**
+ * The Finishes page's foot (RFC 0047): how many pots they've had out of a kiln, and their best so
+ * far, drawn in its glaze and finish.
+ */
+function potterLine(potter: NonNullable<CollectionView["potter"]>, mine: boolean): HTMLElement {
+  const { best } = potter;
+  return h(
+    "div",
+    { class: "collection-potter" },
+    thingPicture({ kind: best.kind, glaze: best.glaze, finish: best.finish }, { size: 40 }),
+    h(
+      "p",
+      { class: "hint" },
+      `${plural(potter.fired, "pot", "pots")} fired. ${mine ? "Your" : "Their"} best so far: ${best.name}.`,
+    ),
+  );
+}
+
 /** A family's card: its name, how many of its kinds are in, its badge or hint, and its grid. */
-function groupCard(g: CollectionGroup, now: number): HTMLElement {
+function groupCard(
+  g: CollectionGroup,
+  now: number,
+  potter?: { view: NonNullable<CollectionView["potter"]>; mine: boolean },
+): HTMLElement {
   const label = Object.hasOwn(FAMILIES, g.family) ? familyLabel(g.family as Family) : g.name;
   const titleId = `collection-${g.family}`;
   return h(
@@ -119,6 +145,7 @@ function groupCard(g: CollectionGroup, now: number): HTMLElement {
       { class: "plain-list collection-kinds" },
       ...g.kinds.map((k) => kindTile(k, now, g.family)),
     ),
+    ...(potter && g.family === FINISH_GROUP ? [potterLine(potter.view, potter.mine)] : []),
   );
 }
 
@@ -198,7 +225,7 @@ export function collectionView(id: string, ctx: ViewContext): View {
         ...[
           ...c.groups.filter((g) => g.path[0] === "find"),
           ...c.groups.filter((g) => g.path[0] !== "find"),
-        ].map((g) => groupCard(g, now)),
+        ].map((g) => groupCard(g, now, c.potter ? { view: c.potter, mine } : undefined)),
       ),
     );
   }

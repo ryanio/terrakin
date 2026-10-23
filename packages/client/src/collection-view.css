@@ -90,3 +90,14 @@
   line-height: var(--leading-snug);
   color: var(--ink-soft);
 }
+
+/* The Finishes page's foot (RFC 0047): pots fired and the best so far, its picture beside. */
+.collection-potter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.collection-potter > .hint {
+  margin: 0;
+}

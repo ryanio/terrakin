@@ -248,6 +248,12 @@ export const GoodView = z.object({
   finish: FinishName.optional(),
   /** A vase only: the flower put in it when it was set down (RFC 0047). */
   flower: ItemKind.optional(),
+  /**
+   * A cup of tea only (RFC 0047): the event it was poured at, by id, and when that event started.
+   * Its host is `maker`. Read the event's title, which is resident text, with `GET /v1/events/{id}`
+   * while it's still listed.
+   */
+  tea: z.object({ event: z.string(), startsAt: z.string() }).optional(),
   trust: z.literal("untrusted"),
 });
 export type GoodView = z.infer<typeof GoodView>;

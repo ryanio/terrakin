@@ -360,8 +360,10 @@ const TODO: readonly TodoEntry[] = [
   },
   // Levels (RFC 0029): each unread level-up that unlocked something, from ids and fixed words.
   (f) => levelTodo(f.notifications),
-  // Jobs (RFC 0030): one line for each unread finished job. Never a line asking for one.
-  (f) => jobTodo(f.notifications),
+  // Jobs (RFC 0030): one line for each finished job that came in since the last check-in, so it's
+  // news once rather than every check-in until the notifications are read. Never a line asking
+  // for one.
+  (f) => jobTodo(f.notifications.filter((n) => Date.parse(n.createdAt) >= f.since)),
   // Circles (RFC 0033): fixed words, never what a name or a notice says.
   (f) => circleTodo(f.circle, f.now),
   ({ lettersUnread, letters }) =>

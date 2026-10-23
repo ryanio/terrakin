@@ -31828,6 +31828,15 @@
           },
           "name": {
             "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "trust": {
+            "type": "string",
+            "enum": [
+              "untrusted"
+            ]
           }
         },
         "required": [
@@ -31835,7 +31844,8 @@
           "kind",
           "glaze",
           "finish",
-          "name"
+          "name",
+          "trust"
         ]
       },
       "FireworkColor": {
@@ -42020,6 +42030,13 @@
               },
               "event": {
                 "type": "string"
+              },
+              "glaze": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GlazeName"
+                  }
+                ]
               }
             },
             "required": [
@@ -43759,6 +43776,13 @@
                   "type": "boolean",
                   "enum": [
                     true
+                  ]
+                },
+                "teaGlaze": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/GlazeName"
+                    }
                   ]
                 }
               },
@@ -49201,6 +49225,21 @@
               }
             ]
           },
+          "tea": {
+            "type": "object",
+            "properties": {
+              "event": {
+                "type": "string"
+              },
+              "startsAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "event",
+              "startsAt"
+            ]
+          },
           "trust": {
             "type": "string",
             "enum": [
@@ -52405,6 +52444,47 @@
               "type": "string"
             },
             "description": "The badges of every group they finished, in that order."
+          },
+          "potter": {
+            "description": "Pottery (RFC 0047), once they've had a pot out of a kiln.",
+            "type": "object",
+            "properties": {
+              "fired": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Pots they've had out of a kiln."
+              },
+              "best": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "$ref": "#/components/schemas/GoodKind"
+                  },
+                  "glaze": {
+                    "$ref": "#/components/schemas/GlazeName"
+                  },
+                  "finish": {
+                    "$ref": "#/components/schemas/FinishName"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Its name from its codes: \"Crackle sea vase\"."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "glaze",
+                  "finish",
+                  "name"
+                ],
+                "description": "Their best pot so far: the first with the rarest finish they've had."
+              }
+            },
+            "required": [
+              "fired",
+              "best"
+            ]
           }
         },
         "required": [

@@ -21,6 +21,7 @@ import {
   type Direction,
   FIREWORK_COLORS,
   FLOORS,
+  FLOWER_KINDS,
   type FlowerKind,
   fireworkNight,
   floorField,
@@ -52,7 +53,7 @@ import { REDUCED_MOTION } from "@terrakin/ui/motion";
 import { plot3dPath } from "@terrakin/ui/paths";
 import { everyVisible } from "@terrakin/ui/poll";
 import { confirmTwice, disclosure, linkTabs, pickTab, whileBusy } from "@terrakin/ui/ui";
-import { INVENTORY_EVENT, inventoryApi } from "./api/inventory";
+import { INVENTORY_EVENT, inventoryApi, SET_DOWN_EVENT, type SetDown } from "./api/inventory";
 import { forgetMe, whoseKey } from "./api/me";
 import { residentsApi } from "./api/residents";
 import { signinApi } from "./api/signin";
@@ -88,7 +89,7 @@ import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { sendFirstPlanting } from "./first-plant";
-import { noRodLine, pondLine, rodsAfter, rodsIn } from "./fishing";
+import { noRodLine, pondLabel, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { floorChips } from "./floor-chips";
 import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
 import { openHomeSheet } from "./home-sheet";
@@ -701,7 +702,9 @@ function onMessage(msg: ServerMessage) {
       // Your own news, in plain words. Notes and labels stay out of it; a lesson names its teacher
       // or learner (RFC 0024), shown as text.
       const line = me ? newsLine(msg.event, me, (id) => mirror?.residents.get(id)?.name) : null;
-      const named = msg.event.type === "recipe_learned" && msg.event.from !== undefined;
+      const named =
+        (msg.event.type === "recipe_learned" && msg.event.from !== undefined) ||
+        (msg.event.type === "inventory" && msg.event.reason === "poured");
       if (line) showToast(line, named ? "player" : "system");
       if (heardJob) jobs.heard(heardJob, me);
       if (msg.event.type === "recipe_learned" && msg.event.residentId === me) {
@@ -1025,6 +1028,7 @@ function openStation(x: number, y: number) {
       ...(ownerName ? { ownerName } : {}),
       act: (action) => act(action),
       ...(neighbors.length > 0 ? { neighbors, reach: m.config.reach } : {}),
+      ...(kind === "kiln" ? { waterNear: waterWithin(m, x, y, KILN_WATER_TILES) } : {}),
     }),
   );
 }
@@ -1663,6 +1667,28 @@ function buildFromHearth() {
   showTab("blocks");
 }
 
+/**
+ * Set it down, from the kiln's reveal (RFC 0047): the build bar open on Furniture with the pot
+ * picked, and for a vase the first flower you hold, so the next tap on a tile sets it down.
+ */
+function setDownPot(e: Event) {
+  const { pot, flower } = (e as CustomEvent<SetDown>).detail;
+  if (!active) return;
+  if (!buildMode) setBuildMode(true);
+  pickTab(paletteTabs, PALETTE_TABS.indexOf("furniture"));
+  showTab("furniture");
+  pick = "pot";
+  potPick = pot;
+  potFlower = flower ? FLOWER_KINDS.find((k) => heldOf(holdings, k) > 0) : undefined;
+  paintPalette();
+  showToast(
+    flower && !potFlower
+      ? "Grow or gather a flower for it first, or tap a tile near you to set it down as it is."
+      : "Tap a tile near you to set it down.",
+  );
+}
+window.addEventListener(SET_DOWN_EVENT, setDownPot);
+
 /** Show one tab's row. A pick from another tab gives way to this tab's first choice. */
 function showTab(next: PaletteTab) {
   for (const [name, row] of Object.entries(paletteRows)) row.hidden = name !== next;
@@ -1720,6 +1746,9 @@ function paintPalette() {
     kiln.hidden = !mirror?.clayOpen;
     kiln.setAttribute("aria-label", kilnLabel());
   }
+  paletteRows.blocks
+    .querySelector('[data-block="pond"]')
+    ?.setAttribute("aria-label", pondLabel(mirror?.clayOpen === true));
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
@@ -2324,6 +2353,19 @@ function waterNear(): Tile | undefined {
   const m = mirror;
   if (!r || !m) return undefined;
   return waterBeside(r, (x, y) => m.blocks.get(tileKey(x, y)) === "pond" || m.isSea(x, y));
+}
+
+/** How far from a kiln a pond or the sea counts as near it, for the kiln sheet's words. */
+const KILN_WATER_TILES = 6;
+
+/** Whether a pond or the open sea lies within `tiles` of (x, y), on the mirror. */
+function waterWithin(m: Mirror, x: number, y: number, tiles: number): boolean {
+  for (let dy = -tiles; dy <= tiles; dy++) {
+    for (let dx = -tiles; dx <= tiles; dx++) {
+      if (m.blocks.get(tileKey(x + dx, y + dy)) === "pond" || m.isSea(x + dx, y + dy)) return true;
+    }
+  }
+  return false;
 }
 
 /** Show Fish while you stand beside water, out of build mode (RFC 0023). */

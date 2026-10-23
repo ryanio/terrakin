@@ -1,4 +1,4 @@
-import { BLOCK_COLORS, type DecorKind } from "@terrakin/sim";
+import { BLOCK_COLORS, type DecorKind, type Glaze } from "@terrakin/sim";
 import { BRAND_HEX, STRAW } from "@terrakin/ui/brand";
 import { type ArtKind, itemArtImage, type ThingLook, thingArtImage } from "@terrakin/ui/item-art";
 import { lookImage } from "@terrakin/ui/looks";
@@ -283,22 +283,24 @@ export function paintFind(
 }
 
 /**
- * A pot of tea out at an event (RFC 0047): the teapot on its tile, up on the table when it stands
- * on one, with steam rising from its spout in three soft puffs that hold still for reduced motion.
+ * A pot of tea set out at an event (RFC 0047): a teapot in its teapot's glaze with steam rising,
+ * standing on a table's top, beside the little house on the host's hearth, or on the ground, the
+ * puffs held still under reduced motion.
  */
 export function paintTeapot(
   ctx: CanvasRenderingContext2D,
   left: number,
   top: number,
   size: number,
-  onTable: boolean,
+  spot: { on: "table" | "hearth" | "ground"; glaze: Glaze },
   now: number,
   still: boolean,
 ) {
-  const art = itemArtImage("pot_of_tea");
-  const side = size * 0.92;
-  const cx = left + size / 2;
-  const y = top + size * (onTable ? 0.62 : 0.98) - side;
+  const art = thingArtImage({ kind: "teapot", glaze: spot.glaze });
+  const hearth = spot.on === "hearth";
+  const side = size * (hearth ? 0.7 : 0.92);
+  const cx = left + size / 2 + (hearth ? size * 0.42 : 0);
+  const y = top + size * (spot.on === "table" ? 0.62 : hearth ? 1.05 : 0.98) - side;
   if (art) ctx.drawImage(art, cx - side / 2, y, side, side);
   ctx.save();
   for (let i = 0; i < 3; i++) {
@@ -307,7 +309,7 @@ export function paintTeapot(
     ctx.fillStyle = PAPER;
     ctx.beginPath();
     const r = size * (0.06 + phase * 0.08);
-    const sx = cx + size * 0.1 + Math.sin(phase * 5 + i) * size * 0.06;
+    const sx = cx + side * 0.1 + Math.sin(phase * 5 + i) * size * 0.06;
     const sy = y + side * 0.2 - phase * size * 0.7;
     ctx.arc(sx, sy, r, 0, Math.PI * 2);
     ctx.fill();

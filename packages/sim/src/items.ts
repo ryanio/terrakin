@@ -38,6 +38,7 @@ import {
   type FurnitureKind,
   isFurnitureKind,
 } from "./furniture";
+import { glazeWhere } from "./gather";
 import { craftJob, harvestJob } from "./jobs";
 import { tileKey } from "./keys";
 import { craftEarns, earned, harvestEarns } from "./levels";
@@ -49,6 +50,7 @@ import {
   checkOpenKiln,
   clayRule,
   firingAt,
+  GLAZE_COSTS,
   GLAZES,
   isGlaze,
   isPotKind,
@@ -626,9 +628,12 @@ export function checkCraft(
         ? MATERIAL_RECIPES[recipe]
         : RECIPES[recipe];
   if (state.blocks[tileKey(x, y)] !== station) {
+    // Only a kiln on a plot you can build on fires your pot, so a neighbor's is no help.
     return refuse(
       "no_station",
-      `${ITEM_INFO[recipe].name} is made at a ${station}. Place one with place and block ${station}, or use one nearby.`,
+      pot
+        ? `${ITEM_INFO[recipe].name} is fired in a kiln on your own plot, or one shared with you. Place one there with place and block ${station}.`
+        : `${ITEM_INFO[recipe].name} is made at a ${station}. Place one with place and block ${station}, or use one nearby.`,
     );
   }
   // A kiln is a station on its owners' plot (RFC 0047): its pot goes back to whoever loaded it, so
@@ -664,7 +669,14 @@ export function checkCraft(
       : short.some(([kind]) => isResourceKind(kind))
         ? ` ${GATHER_HINT}`
         : "";
-    return refuse("not_enough_items", `You need ${missing.join(", ")} more.${gather}`);
+    // A glaze's thing says where it comes from, and that bare clay takes nothing.
+    const glazeKind = pot && glaze ? GLAZE_COSTS[glaze] : null;
+    const where = glaze ? glazeWhere(glaze) : null;
+    const glazeHint =
+      glazeKind && where && short.some(([kind]) => kind === glazeKind)
+        ? ` ${ITEM_INFO[glazeKind].name} is ${where}. A bare clay pot takes nothing.`
+        : "";
+    return refuse("not_enough_items", `You need ${missing.join(", ")} more.${gather}${glazeHint}`);
   }
   // Every good and piece of furniture uses up at least one thing to make one, so only a sweet that
   // makes more than it uses can run out of room, and only such a craft is checked for it.

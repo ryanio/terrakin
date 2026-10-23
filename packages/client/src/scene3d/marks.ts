@@ -4,7 +4,7 @@
  * A handful of sprites at most, rebuilt only when the list changes, and animated each frame
  * unless motion is still.
  */
-import type { Tile } from "@terrakin/sim";
+import type { Glaze, Tile } from "@terrakin/sim";
 import { Group, Sprite, SpriteMaterial } from "three";
 import { paintSparkle } from "../render/decor";
 import type { TeaSpot } from "../tea-spots";
@@ -36,6 +36,9 @@ function sparkleTexture() {
   return canvasTexture(c);
 }
 
+/** How high a teapot stands: on a table's top, on a hearth's stones, or on the ground. */
+const TEA_HEIGHT: Record<TeaSpot["on"], number> = { table: 0.78, hearth: 0.45, ground: 0.3 };
+
 export function worldMarks(stage: Stage, pictures: Pictures): WorldMarks {
   const group = new Group();
   group.name = "pottery marks";
@@ -51,20 +54,34 @@ export function worldMarks(stage: Stage, pictures: Pictures): WorldMarks {
     depthWrite: false,
     depthTest: false,
   });
-  const teapot = pictures.take("art:pot_of_tea", () => artCanvas({ kind: "pot_of_tea" }, false));
-  let teapotMaterial: SpriteMaterial | undefined;
-  void teapot.texture.then((map) => {
-    if (!map) return;
-    teapotMaterial = new SpriteMaterial({ map, alphaTest: 0.5 });
-    key = "";
-    stage.invalidate();
-  });
+  // A teapot in each glaze some tea is out in, its picture taken once and kept while the view is.
+  const teapots = new Map<Glaze, { release(): void; material?: SpriteMaterial }>();
+  const teapotIn = (glaze: Glaze): SpriteMaterial | undefined => {
+    const had = teapots.get(glaze);
+    if (had) return had.material;
+    const taken = pictures.take(`art:teapot|${glaze}`, () =>
+      artCanvas({ kind: "teapot", glaze }, false),
+    );
+    const entry: { release(): void; material?: SpriteMaterial } = {
+      release: () => taken.release(),
+    };
+    teapots.set(glaze, entry);
+    void taken.texture.then((map) => {
+      if (!map) return;
+      entry.material = new SpriteMaterial({ map, alphaTest: 0.5 });
+      key = "";
+      stage.invalidate();
+    });
+    return undefined;
+  };
   stage.keep({
     dispose() {
-      teapot.release();
+      for (const t of teapots.values()) {
+        t.release();
+        t.material?.dispose();
+      }
       steam.dispose();
       sparkle.dispose();
-      teapotMaterial?.dispose();
     },
   });
   let key = "";
@@ -73,9 +90,9 @@ export function worldMarks(stage: Stage, pictures: Pictures): WorldMarks {
   return {
     group,
     set(teas, kilns, now, still) {
-      const next = `${teas.map((t) => `${t.x},${t.y},${t.table}`).join(";")}|${kilns
+      const next = `${teas.map((t) => `${t.x},${t.y},${t.on},${t.glaze}`).join(";")}|${kilns
         .map((k) => `${k.x},${k.y}`)
-        .join(";")}|${teapotMaterial ? 1 : 0}`;
+        .join(";")}`;
       let moved = false;
       if (next !== key) {
         key = next;
@@ -83,9 +100,10 @@ export function worldMarks(stage: Stage, pictures: Pictures): WorldMarks {
         puffs = [];
         stars = [];
         for (const t of teas) {
-          const base = t.table ? 0.78 : 0.3;
-          if (teapotMaterial) {
-            const pot = new Sprite(teapotMaterial);
+          const base = TEA_HEIGHT[t.on];
+          const material = teapotIn(t.glaze);
+          if (material) {
+            const pot = new Sprite(material);
             pot.scale.set(0.62, 0.62, 1);
             pot.position.set(t.x, base, t.y);
             group.add(pot);

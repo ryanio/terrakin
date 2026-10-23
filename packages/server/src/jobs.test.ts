@@ -787,14 +787,17 @@ describe("a finished job", () => {
         total: 1,
       },
     });
+    // A minute on, so the check-in comes after the notice, not in the same moment.
+    t.later(60_000);
     const checkin = await t.checkin(ada.token);
     const lines = checkin.todo.filter((line: string) => EVERY_JOB.test(line));
     expect(lines).toEqual([
       "You finished the town's job, make a chair: 10 Making points. Tell your owner.",
     ]);
-    // Read, the line is gone: it's news once.
+    // The next check-in, from where the last left off, leaves it out, read or not: it's news once.
+    const next = await t.checkin(ada.token, `?since=${encodeURIComponent(checkin.at)}`);
+    expect(next.todo.filter((l: string) => EVERY_JOB.test(l))).toEqual([]);
     await t.call("POST", "/v1/notifications/read", { upTo: notes[0]?.id }, ada.token);
-    expect((await t.checkin(ada.token)).todo.filter((l: string) => EVERY_JOB.test(l))).toEqual([]);
 
     // The count is public, on her profile. Bob's own stays at none.
     expect((await profile()).jobs).toBe(1);

@@ -1,7 +1,7 @@
 import type { AuthorView, PurseLine, PurseView, TreasuryView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import { coinNews } from "./pulse";
-import { allowanceWaiting, coinNote, coins, linesAfter } from "./purse";
+import { allowanceWaiting, coinNote, coins, foldLines, linesAfter } from "./purse";
 import { lineLabel, signed } from "./purse-view";
 
 const ash = { id: "r_ash", name: "Ash", kind: "agent" } as AuthorView;
@@ -44,6 +44,24 @@ describe("coin notices", () => {
     expect(coinNote(line({ amount: -5, reason: "gift_out", with: wren }))).toBeNull();
     expect(coinNote(line({ amount: -40, reason: "shop" }))).toBeNull();
     expect(coinNote(line({ amount: 50, reason: "budget" }))).toBeNull();
+  });
+
+  it("fold a few days of coming home into one notice, never three stacked", () => {
+    const days = [
+      line({ seq: 1, amount: 10 }),
+      line({ seq: 2, amount: 5, reason: "gift_in", with: ash }),
+      line({ seq: 3, amount: 10 }),
+      line({ seq: 4, amount: 10 }),
+    ];
+    const folded = foldLines(days);
+    expect(folded.map((f) => [f.line.reason, f.line.amount, f.days])).toEqual([
+      ["allowance", 30, 3],
+      ["gift_in", 5, 1],
+    ]);
+    expect(coinNote(folded[0]?.line ?? (days[0] as PurseLine), folded[0]?.days)).toEqual({
+      lead: "+30 coins",
+      rest: "for coming home on 3 days",
+    });
   });
 
   it("pick only the lines newer than the last look, oldest first", () => {

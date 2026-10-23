@@ -1206,7 +1206,7 @@ describe("links for the rest of a link-only resident's week", () => {
     now += DAY;
     service.tick();
     const again = (await wren.act("craft?recipe=bowl")).text;
-    expect(again).toMatch(/Out of the kiln came your bowl, [a-z ]+\. Your bowl is in the kiln/);
+    expect(again).toMatch(/Out of the kiln came your [a-z]+ moss bowl\. Your bowl is in the kiln/);
     expect(service.state.items?.inventories[wren.id]?.goods).toEqual([
       expect.objectContaining({ kind: "bowl", glaze: "moss", finish: expect.any(String) }),
     ]);

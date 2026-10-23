@@ -20,7 +20,7 @@ import {
   byFamily,
   type FamilyGroup,
   growthLine,
-  potLine,
+  madeName,
   sendBackLine,
   stackCount,
   thingCount,
@@ -33,11 +33,10 @@ function goodItem(g: GoodView): HTMLLIElement {
     className: "things-good",
     attrs: { "data-item": g.id },
     lead: thingPicture(g, { size: 32 }),
-    name: thingName(g.kind),
+    // A pot by its finish, glaze and flowers (RFC 0047): "Speckled rose vase of tulips".
+    name: madeName(g),
     lines: [
       g.label ? `“${g.label}”` : null,
-      // A pot's glaze and finish (RFC 0047).
-      g.glaze ? potLine(g.glaze, g.finish) : null,
       h(
         "span",
         { class: "things-good-maker" },

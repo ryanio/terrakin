@@ -10,7 +10,9 @@
  * A kiln (RFC 0047) is a station too: while it's empty it lists the pots you know with a row of
  * glazes over them, each pot drawn in the glaze picked and what that glaze costs added to its
  * needs, and Fire loads it. While it fires it shows the one pot, what it is only to whoever loaded
- * it, and Take it out once the world's day says it's ready.
+ * it, and Take it out once the world's day says it's ready. Taking it out is the pot's own moment:
+ * the sheet stays open and shows it as it came out, named in its finish and glaze, with a flourish
+ * for a rare finish, and the world's toast leaves it out.
  *
  * Once recipes are learned (RFC 0024), a kitchen or workbench lists only the recipes you know
  * (`inventory.recipes`), with how many more there are to learn and a link to the shop's Recipes
@@ -18,7 +20,13 @@
  * standing within reach who don't know a recipe you do get a Teach button each, which opens their
  * teach sheet (`teach-sheet.ts`).
  */
-import { type Action, type InventoryResponse, ITEM_CATALOG, ITEM_RULES } from "@terrakin/protocol";
+import {
+  type Action,
+  type FiredPot,
+  type InventoryResponse,
+  ITEM_CATALOG,
+  ITEM_RULES,
+} from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
@@ -28,6 +36,7 @@ import {
   type Glaze,
   harvestFits,
   isReady,
+  RARE_FINISHES,
   type Station,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
@@ -42,8 +51,10 @@ import {
   openOverlay,
   overlayShowing,
   sheet,
+  whileBusy,
 } from "@terrakin/ui/ui";
 import { inventoryApi } from "./api/inventory";
+import { actProblem, worldApi } from "./api/world";
 import { dotChips } from "./join-form";
 import {
   cropOfSeed,
@@ -59,6 +70,7 @@ import {
   noSeedsHint,
   recipeShelf,
   recipeWords,
+  revealLine,
   thingCount,
   thingName,
 } from "./things";
@@ -220,6 +232,9 @@ export function openTileSheet(o: TileSheetOptions) {
         ),
       ),
     );
+  // A pot just out of the kiln (RFC 0047), shown in the sheet until Fire another.
+  const reveal = h("div", { class: "kiln-reveal", attrs: { hidden: true, "aria-live": "polite" } });
+  let revealed: FiredPot | null = null;
   // A planter lists seeds or its crop; a station lists what it makes, a few at a time.
   list.hidden = station !== null;
   goods.el.hidden = station === null;
@@ -277,6 +292,7 @@ export function openTileSheet(o: TileSheetOptions) {
       closeOnBackdrop: true,
     },
     hint,
+    reveal,
     glazeField,
     labelField,
     list,
@@ -425,8 +441,18 @@ export function openTileSheet(o: TileSheetOptions) {
     held: Map<string, number>,
   ) {
     const firing = o.firing;
-    const busy = firing !== undefined || !o.yours;
+    const busy = firing !== undefined || !o.yours || revealed !== null;
     paintFinishes();
+    reveal.hidden = revealed === null;
+    if (revealed) {
+      if (glazeField) glazeField.hidden = true;
+      if (labelField) labelField.hidden = true;
+      goods.el.hidden = true;
+      list.hidden = true;
+      learn.hidden = true;
+      hint.textContent = "It's in your things now.";
+      return;
+    }
     if (glazeField) glazeField.hidden = busy;
     if (labelField) labelField.hidden = busy;
     goods.el.hidden = busy;
@@ -448,9 +474,7 @@ export function openTileSheet(o: TileSheetOptions) {
           full
             ? "Your bag is full. Give or sell something first."
             : `${kilnLine(firing.readyDay, inv.day)}.${whose}`,
-          o.yours
-            ? button("Take it out", () => ({ type: "harvest", x: o.x, y: o.y }), ready && !full)
-            : null,
+          o.yours ? takeOutButton(ready && !full) : null,
           pot ? thingPicture({ kind: pot.kind, glaze: pot.glaze }, { size: 32 }) : null,
         ),
       );
@@ -498,6 +522,62 @@ export function openTileSheet(o: TileSheetOptions) {
       );
     };
     goods.fill(pots.map(potRow), []);
+  }
+
+  /**
+   * Take it out (RFC 0047): sent over REST so its answer comes back here, where the pot it names
+   * (`fired`) is shown as it came out. A refusal says why under the list.
+   */
+  function takeOutButton(ok: boolean): HTMLButtonElement {
+    const b = h("button", {
+      class: ok ? "btn-primary small" : "pill-button small",
+      attrs: { type: "button", disabled: !ok },
+      text: "Take it out",
+    });
+    b.addEventListener("click", async () => {
+      problem.textContent = "";
+      const r = await whileBusy(b, () => worldApi.act({ type: "harvest", x: o.x, y: o.y }));
+      const why = actProblem(r);
+      if (why) {
+        problem.textContent = why;
+        return;
+      }
+      delete o.firing;
+      const fired = r.ok && r.data.ok ? r.data.fired : undefined;
+      if (fired) showReveal(fired);
+      void load(false);
+    });
+    return b;
+  }
+
+  /** The pot as it came out: its picture, its name, its finish's odds, and Fire another. */
+  function showReveal(pot: FiredPot) {
+    revealed = pot;
+    const again = h("button", {
+      class: "btn-primary",
+      attrs: { type: "button" },
+      text: "Fire another",
+      on: {
+        click: () => {
+          revealed = null;
+          if (painted) paint(painted);
+        },
+      },
+    });
+    reveal.dataset.finish = pot.finish;
+    reveal.toggleAttribute("data-rare", RARE_FINISHES.includes(pot.finish));
+    reveal.replaceChildren(
+      h(
+        "div",
+        { class: "kiln-reveal-pot" },
+        thingPicture({ kind: pot.kind, glaze: pot.glaze, finish: pot.finish }, { size: 112 }),
+      ),
+      h("p", { class: "eyebrow kiln-reveal-eyebrow", text: "Out of the kiln" }),
+      h("h3", { class: "kiln-reveal-name", text: pot.name }),
+      h("p", { class: "kiln-reveal-line", text: revealLine(pot.finish) }),
+      again,
+    );
+    reveal.hidden = false;
   }
 
   /**

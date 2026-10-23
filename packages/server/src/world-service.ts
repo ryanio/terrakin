@@ -3,6 +3,7 @@ import type {
   BuildPlanSummary,
   ChatChannel,
   ErrorCode,
+  FiredPot,
   HandedIn,
   LevelUpView,
   PlotSaleView,
@@ -64,6 +65,7 @@ import {
   ownerPaired,
   PLOTS,
   POTTERY_JOB_EDITION,
+  potName,
   PRESENTS,
   pageEditionOf,
   pieceShowingMedia,
@@ -166,6 +168,8 @@ export type ActResult =
       price?: number;
       /** `hand_in`: the made thing it took, or would take. */
       handedIn?: HandedIn;
+      /** `harvest` at a kiln: the pot that came out for the actor (RFC 0047). */
+      fired?: FiredPot;
       /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
       plotSale?: PlotSaleView;
       /** `move` with `steps`: tiles walked, when something stopped the walk short. */
@@ -418,6 +422,22 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
 const priceOf = (command: Command): { price?: number } =>
   command.type === "add_floor" ? { price: FLOORS.price } : {};
+
+/**
+ * A kiln's `harvest` answer (RFC 0047): the pot that came out for the actor, named in the sim's
+ * words, read from the commit's own `inventory` event. A pot that went back to someone else who
+ * loaded it is theirs to hear about, so it isn't here.
+ */
+function firedOf(events: readonly WorldEvent[], actor: string): { fired?: FiredPot } {
+  for (const e of events) {
+    if (e.type !== "inventory" || e.reason !== "fired" || e.residentId !== actor) continue;
+    const pot = e.gained?.[0];
+    if (!pot?.glaze || !pot.finish || !isGoodKind(pot.kind)) continue;
+    const { id, kind, glaze, finish } = pot;
+    return { fired: { item: id, kind, glaze, finish, name: potName(pot) } };
+  }
+  return {};
+}
 
 /**
  * A `hand_in`'s answer: the made thing the sim picks in `state`, which is the one its commit takes
@@ -2520,6 +2540,7 @@ export class WorldService {
       ...planned,
       ...priceOf(command),
       ...handedIn,
+      ...firedOf(events, input.actor),
       ...sale,
     };
   }

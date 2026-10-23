@@ -34,6 +34,7 @@ import {
   pantryWould,
   picksLeft,
   plotAtTile,
+  potName,
   RECIPES,
   rejoined,
   relativeDayWords,
@@ -437,9 +438,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         // The pot from the harvest's own event: what came back from aside after it isn't it.
         const firedEvent = out.events.find((e) => e.type === "inventory" && e.reason === "fired");
         const came = firedEvent?.type === "inventory" ? firedEvent.gained?.[0] : undefined;
-        fired = came?.finish
-          ? `Out of the kiln came your ${ITEM_INFO[came.kind].name.toLowerCase()}, ${came.finish === "plain" ? "smooth and even" : came.finish}. `
-          : "";
+        fired = came?.finish ? `Out of the kiln came your ${potName(came, true)}. ` : "";
         const left = short(recipe);
         if (left.length > 0) {
           return answer(

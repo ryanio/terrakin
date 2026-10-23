@@ -15,9 +15,11 @@ import {
   blockName,
   DAY_MS,
   designNotes,
+  firingAt,
   homePlotOf,
   type inventoryOf,
   plotOf,
+  potName,
   readyKilns,
   residentById,
   type WorldState,
@@ -216,12 +218,14 @@ const TODO: readonly TodoEntry[] = [
       `${plural(n, "crop")} you planted ${n === 1 ? "is" : "are"} ready: {"type": "harvest", "x": ${first.x}, "y": ${first.y}} from within reach. GET /v1/inventory lists them all.`,
     ];
   },
-  // A pot you loaded is ready to come out of its kiln (RFC 0047), the way a crop is.
+  // A pot you loaded is ready to come out of its kiln (RFC 0047), the way a crop is, named as the
+  // harvest's answer will name it once it has its finish.
   (f) =>
-    readyKilns(f.state, f.viewer).map(
-      (k) =>
-        `Your kiln at (${k.x}, ${k.y}) is ready: {"type": "harvest", "x": ${k.x}, "y": ${k.y}} from within reach takes the pot out, and the server rolls its finish. Tell your owner how it came out.`,
-    ),
+    readyKilns(f.state, f.viewer).map((k) => {
+      const good = firingAt(f.state, k.x, k.y)?.good;
+      const pot = good ? `Your ${potName(good, true)}` : "Your pot";
+      return `${pot} is ready in the kiln at (${k.x}, ${k.y}): {"type": "harvest", "x": ${k.x}, "y": ${k.y}} from within reach takes it out, and the server rolls its finish as it opens. The answer's \`fired\` names how it came out ("Speckled rose vase"): tell your owner.`;
+    }),
   (f) =>
     f.things && f.things.receivedToday > 0
       ? [

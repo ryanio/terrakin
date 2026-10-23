@@ -51,7 +51,7 @@ import {
 } from "./levels";
 import { isJobWear, JOB_WEAR, type JobWear, WEAR_INFO } from "./looks";
 import { own, residentById } from "./own";
-import { clayOpen, isPotKind } from "./pottery";
+import { clayOpen, FINISH_NAMES, isPotKind } from "./pottery";
 import { knownByAll } from "./recipes";
 import { type Season, seasonOf, seasonSpan, weekStart } from "./season";
 import type { TimeOfDay } from "./time-of-day";
@@ -375,6 +375,14 @@ const POTTERY_JOBS: readonly Job[] = [
   { id: "ansel_vase", giver: "ansel", skill: "making", bring: "vase" },
 ];
 
+/**
+ * Whether a job takes every other turn of its lane while it's up, rather than waiting its place
+ * among the lane's regular jobs: a holiday's jobs, so a short holiday's come up, and pottery's
+ * (RFC 0047), so a potter meets one in any week once clay is out. Only the third edition has
+ * pottery's, so the boards of the first two read as they always did.
+ */
+const takesTurns = (job: Job): boolean => job.holiday !== undefined || POTTERY_JOBS.includes(job);
+
 /** The edition pottery's jobs are in, which the server moves the board to once clay is out. */
 export const POTTERY_JOB_EDITION = 3;
 
@@ -437,8 +445,8 @@ function partOpen(state: WorldState, job: Job): boolean {
  * second on, a lane's regular jobs carry on (`carriedBoard`).
  */
 function laneJob(up: readonly Job[], turn: number): Job | undefined {
-  const regular = up.filter((job) => job.holiday === undefined);
-  const festive = up.filter((job) => job.holiday !== undefined);
+  const regular = up.filter((job) => !takesTurns(job));
+  const festive = up.filter((job) => takesTurns(job));
   if (festive.length === 0) return regular[turn % regular.length];
   const half = Math.floor(turn / 2);
   if (turn % 2 === 0 || regular.length === 0) return festive[half % festive.length];
@@ -508,8 +516,8 @@ function slotRuns(up: readonly Job[]): SlotRun[] {
         const jobs = inLane(up, lane);
         return {
           lane,
-          regular: jobs.filter((job) => job.holiday === undefined),
-          festive: jobs.filter((job) => job.holiday !== undefined),
+          regular: jobs.filter((job) => !takesTurns(job)),
+          festive: jobs.filter((job) => takesTurns(job)),
         };
       })
       .filter((run) => run.regular.length + run.festive.length > 0),
@@ -719,7 +727,7 @@ export function laneRound(state: WorldState, job: Job, day: number): number {
 /** `laneRound` from the jobs up that day. */
 function roundIn(up: readonly Job[], job: Job): number {
   const lane = laneOf(job);
-  const regular = inLane(up, lane).filter((j) => j.holiday === undefined);
+  const regular = inLane(up, lane).filter((j) => !takesTurns(j));
   if (!regular.some((j) => j.id === job.id)) return 0;
   const lanes = SLOTS.find((slot) => slot.includes(lane)) ?? [];
   const shared = lanes.every((l) => inLane(up, l).length > 0);
@@ -755,7 +763,7 @@ export function jobWaits(state: WorldState, days: readonly number[]): JobWait[] 
   };
   const waits: JobWait[] = [];
   for (const job of table) {
-    if (job.holiday !== undefined) continue;
+    if (takesTurns(job)) continue;
     let longest: JobWait | undefined;
     for (const from of days) {
       let round = roundIn(dayOf(from).up, job);
@@ -1149,6 +1157,9 @@ export function creditJob(
 /** A made thing's place in the order things were made: ids come from one counter. */
 const madeOrder = (good: Good) => Number(good.id.slice(2));
 
+/** How rare a pot's finish is, smooth first (RFC 0047); 0 for anything without one. */
+const finishRank = (good: Good) => (good.finish ? FINISH_NAMES.indexOf(good.finish) : 0);
+
 /**
  * `hand_in {item?}`: finish the bring job you hold with a thing of its recipe that you made
  * yourself, your oldest or the one `item` names. The thing leaves the world. `handInPick` makes
@@ -1223,7 +1234,7 @@ export function handInPick(
     if (!good) {
       return refuse(
         "nothing_to_hand_in",
-        `You don't hold ${wanted} with that id. Leave out item to hand in the oldest one you made.`,
+        `You don't hold ${wanted} with that id. Leave out item to hand in the oldest one you made, a pot's commonest finish first.`,
       );
     }
     if (!mine(good)) {
@@ -1233,7 +1244,11 @@ export function handInPick(
       );
     }
   } else {
-    good = ofKind.filter(mine).sort((a, b) => madeOrder(a) - madeOrder(b))[0];
+    // A pot (RFC 0047) goes in its commonest finish first, so a job never takes your rarest one
+    // unless you name it; anything else has no finish and goes oldest first.
+    good = ofKind
+      .filter(mine)
+      .sort((a, b) => finishRank(a) - finishRank(b) || madeOrder(a) - madeOrder(b))[0];
     if (!good) {
       return refuse(
         "nothing_to_hand_in",

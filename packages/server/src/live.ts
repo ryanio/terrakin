@@ -440,6 +440,7 @@ export class LiveSession {
       ...(result.plan === undefined ? {} : { plan: result.plan }),
       ...(result.price === undefined ? {} : { price: result.price }),
       ...(result.handedIn === undefined ? {} : { handedIn: result.handedIn }),
+      ...(result.fired === undefined ? {} : { fired: result.fired }),
       ...(result.plotSale === undefined ? {} : { plotSale: result.plotSale }),
       ...(result.notes === undefined ? {} : { notes: result.notes }),
       ...(result.stopped === undefined ? {} : { moved: result.moved, stopped: result.stopped }),

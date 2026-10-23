@@ -8,7 +8,7 @@ import { MERGE_CONFIG, MERGE_LOG } from "./fixtures/merge-log";
 import { REPEAT_JOINS_CONFIG, REPEAT_JOINS_LOG } from "./fixtures/repeat-joins-log";
 import { pickupLeft } from "./gather";
 import { canonicalJson, fnv1a, hashWorld } from "./hash";
-import { HOLIDAYS, holidaySpan, inHoliday } from "./holiday";
+import { HOLIDAYS, holidaySpan, holidaysOf, inHoliday } from "./holiday";
 import { isFindKind, type StackKind } from "./items";
 import {
   JOB_EDITIONS,
@@ -905,11 +905,21 @@ describe("the third edition (RFC 0047)", () => {
         up.set(job.id, [...(up.get(job.id) ?? []), day]);
       });
     }
-    // Each comes up every few weeks, as Making's other jobs do.
+    // They take every other turn of Making's lane, as a holiday's jobs do, so one of the two is up
+    // in any week outside a holiday, and each within a fortnight. While a holiday's own jobs share
+    // those turns, they come half as often.
+    const either = [...(up.get("clem_bowl") ?? []), ...(up.get("ansel_vase") ?? [])].sort(
+      (a, b) => a - b,
+    );
+    const gaps = either.slice(1).map((day, i) => ({ from: either[i] ?? day, day }));
+    const festive = ({ from, day }: { from: number; day: number }) =>
+      Array.from({ length: day - from }, (_, d) => holidaysOf(from + d)).some((h) => h.length > 0);
+    expect(gaps.filter((g) => !festive(g) && g.day - g.from > 7)).toEqual([]);
+    expect(Math.max(...gaps.map((g) => g.day - g.from))).toBeLessThanOrEqual(12);
     for (const id of POTS) {
       const days = up.get(id) ?? [];
-      const gaps = days.slice(1).map((d, i) => d - (days[i] ?? d));
-      expect(Math.max(...gaps), id).toBeLessThanOrEqual(42);
+      const longest = Math.max(...days.slice(1).map((d, i) => d - (days[i] ?? d)));
+      expect(longest, id).toBeLessThanOrEqual(24);
     }
     expect(DAYS.some((day) => boardIn(3)(day).some((j) => POTS.includes(j.id)))).toBe(false);
   });

@@ -25,6 +25,7 @@ import {
   KEY_UNKNOWN_LINE,
   keyNotFoundLine,
   lotWords,
+  madeName,
   missingLine,
   NO_PLOT_LINE,
   needsLine,
@@ -33,6 +34,7 @@ import {
   othersPickupLine,
   pantryWords,
   recipeShelf,
+  revealLine,
   sendBackLine,
   thingCount,
   toastMs,
@@ -155,9 +157,8 @@ describe("things", () => {
       glaze: "sea" as const,
       finish: "crackle" as const,
     };
-    expect(inventoryLine({ ...base, reason: "fired", gained: [pot] })).toBe(
-      "Your bowl came out of the kiln in a sea glaze, with a fine crackle.",
-    );
+    // A pot out of the kiln has its own moment in the kiln sheet, never a line in the toast.
+    expect(inventoryLine({ ...base, reason: "fired", gained: [pot] })).toBeNull();
     const gift = { ...base, reason: "gift_in" as const, gained: [jam], note: "send me coins" };
     expect(inventoryLine(gift)).toBe("A gift arrived: lemon jam.");
     // A gift of something counted takes its article, and two things read as a list.
@@ -589,6 +590,19 @@ describe("collection words", () => {
   it("says how often each finish comes out of a kiln, the four adding up to every pot (RFC 0047)", () => {
     const odds = FINISH_NAMES.map((f) => finishOdds(f));
     expect(odds).toEqual(["79 in 100 pots", "15 in 100 pots", "5 in 100 pots", "1 in 100 pots"]);
+    // As a pot comes out, the line under it says the same odds, and the rarest two say so.
+    expect(FINISH_NAMES.map((f) => revealLine(f))).toEqual([
+      "Smooth and even, as 79 in 100 pots come out.",
+      "Speckled, as 15 in 100 pots come out.",
+      "A fine crackle in the glaze. Only 5 in 100 pots come out like this.",
+      "Iridescent! It shimmers as it turns. Only 1 in 100 pots come out like this.",
+    ]);
+  });
+
+  it("names a pot by its finish, glaze and flowers, and anything else by its kind (RFC 0047)", () => {
+    const vase = { kind: "vase", glaze: "rose", finish: "speckled", flower: "tulip" } as const;
+    expect(madeName(vase)).toBe("Speckled rose vase of tulips");
+    expect(madeName({ kind: "lemon_jam" })).toBe("Lemon jam");
   });
 });
 

@@ -1249,6 +1249,20 @@ export const BringDishAction = z.object({
 export const HandedIn = z.object({ item: ItemId, kind: GoodKind });
 export type HandedIn = z.infer<typeof HandedIn>;
 
+/**
+ * A pot that came out of a kiln for you (RFC 0047): `harvest` at a kiln answers with it, so you can
+ * say what came out without reading your things. `name` is the pot in words, its finish, glaze,
+ * and kind ("Speckled rose vase"), the same words the web and the check-in use.
+ */
+export const FiredPot = z.object({
+  item: ItemId,
+  kind: GoodKind,
+  glaze: GlazeName,
+  finish: FinishName,
+  name: z.string(),
+});
+export type FiredPot = z.infer<typeof FiredPot>;
+
 // ---------- Circles (RFC 0033) ----------
 // Joining, leaving, inviting, and founding are your owner's choice: ask them first, every time.
 
@@ -3343,6 +3357,9 @@ export const ActionResponse = z.discriminatedUnion("ok", [
     handedIn: HandedIn.optional().describe(
       "`hand_in`: the made thing it took, or on a dry run would take (RFC 0030).",
     ),
+    fired: FiredPot.optional().describe(
+      "`harvest` at a kiln: the pot that came out for you, with its finish and its name in words (RFC 0047). Absent on a dry run, since the finish is rolled as the kiln opens.",
+    ),
     moved: z
       .number()
       .int()
@@ -3445,6 +3462,8 @@ export const ServerMessage = z.union([
     price: z.number().int().optional(),
     /** `hand_in`: the made thing it took, or would take (RFC 0030). */
     handedIn: HandedIn.optional(),
+    /** `harvest` at a kiln: the pot that came out for you (RFC 0047). */
+    fired: FiredPot.optional(),
     /** `list_plot` and `buy_plot`: what the sale moves, or would move (RFC 0039). */
     plotSale: PlotSaleView.optional(),
     /** `build_starter_home`, `settle`, and `claim`: notes about the home or the plot, as `ActionResponse` has them. */

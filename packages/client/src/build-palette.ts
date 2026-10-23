@@ -40,7 +40,7 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
-import { needsLine, potLine, thingCount, thingName } from "./things";
+import { madeName, needsLine, thingCount, thingName } from "./things";
 import "./build-palette.css";
 
 export const PALETTE_TABS = ["blocks", "ground", "furniture"] as const;
@@ -345,7 +345,7 @@ export function paintPotChips(
 ): void {
   row.append(
     ...pots.map((p) =>
-      choice({ "data-pot": p.id }, potName(p), thingPicture(p, { size: 30 }), {
+      choice({ "data-pot": p.id }, madeName(p), thingPicture(p, { size: 30 }), {
         dim: false,
         picked: p.id === picked,
       }),
@@ -376,11 +376,6 @@ export function paintPotChips(
   );
 }
 
-/** A pot in a few words: "Vase, Sea glaze, crackle, with tulips". */
-function potName(p: HeldPot): string {
-  const flower = p.flower ? `, with a ${thingName(p.flower as ItemKind).toLowerCase()}` : "";
-  return `${ITEM_INFO[p.kind].name}, ${potLine(p.glaze ?? "bare", p.finish)}${flower}`;
-}
 
 /** The line under the tabs for a pot you picked: what it is, and what a tap does with it. */
 export function potPlaceLine(pot: HeldPot | undefined, flower: string | undefined): string {
@@ -388,5 +383,5 @@ export function potPlaceLine(pot: HeldPot | undefined, flower: string | undefine
   const holding = flower
     ? ` It goes down with a ${thingName(flower as ItemKind).toLowerCase()} in it, which stays with the vase.`
     : "";
-  return `${potName(pot)}: tap a tile on your plot to set it down, and tap it again to take it up.${holding}`;
+  return `${madeName(pot)}: tap a tile on your plot to set it down, and tap it again to take it up.${holding}`;
 }

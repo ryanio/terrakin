@@ -14,6 +14,7 @@ import {
   isStackKind,
 } from "./items";
 import { own } from "./own";
+import { potName, potsOf } from "./pottery";
 import type {
   Command,
   EconomyState,
@@ -148,6 +149,17 @@ export function checkOpenMarket(state: WorldState): MarketChecked {
  * (`lemon`, `count` of them) or a made kind (`lemon_jam`, your oldest `count` of them). The price
  * is for the whole lot. Needs a hearth: a stall stands at home.
  */
+/**
+ * Where a pot of `actor`'s with id `item` stands set down at home (RFC 0047), and how to take it up
+ * before it can be listed; nothing when it isn't one.
+ */
+function setDownWords(state: WorldState, actor: ResidentId, item: string): string | undefined {
+  const at = potsOf(state).find((p) => p.pot.good.id === item && p.pot.by === actor);
+  if (!at) return undefined;
+  const floor = at.floor === 0 ? "" : `, "floor": ${at.floor}`;
+  return `Your ${potName(at.pot.good, true)} is set down at (${at.x}, ${at.y}). Take it up first with {"type": "remove", "x": ${at.x}, "y": ${at.y}${floor}}, then list it.`;
+}
+
 export function checkListItem(
   state: WorldState,
   actor: ResidentId,
@@ -172,7 +184,8 @@ export function checkListItem(
   let goods: Good[] = [];
   if (typeof item === "string" && ITEM_ID_PATTERN.test(item)) {
     const good = inv?.goods.find((g) => g.id === item);
-    if (!good) return refuse("not_enough_items", "You don't have that.");
+    if (!good)
+      return refuse("not_enough_items", setDownWords(state, actor, item) ?? "You don't have that.");
     if (count !== 1) return refuse("invalid_amount", "An item id is one thing. Leave out count.");
     kind = good.kind;
     goods = [good];

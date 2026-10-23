@@ -171,7 +171,7 @@ function collectionView(
  */
 function potteryPages(firsts: ReadonlyMap<string, number>): CollectionGroup[] {
   const glazes = GLAZES.map((g) => entry(g, glazeWords(g), firsts.get(keyOf("glaze", g))));
-  const finishes = FINISH_NAMES.filter((f) => f !== "plain").map((f) =>
+  const finishes = FINISH_NAMES.filter((f) => f !== "smooth").map((f) =>
     entry(f, `${f.charAt(0).toUpperCase()}${f.slice(1)}`, firsts.get(keyOf("finish", f))),
   );
   return [

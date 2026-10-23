@@ -208,7 +208,10 @@ describe("a world with clay", () => {
 
     t.later(DAY_MS);
     const checkin = (await t.call("GET", "/v1/checkin", undefined, ada.token)).body;
-    expect(checkin.todo).toContainEqual(expect.stringContaining(`Your kiln at (3, 2) is ready`));
+    // The check-in names the pot as the harvest's answer will, less the finish it hasn't got yet.
+    expect(checkin.todo).toContainEqual(
+      expect.stringContaining("Your moss bowl is ready in the kiln at (3, 2)"),
+    );
     // A dry run draws nothing and logs nothing.
     const before = t.store.log.length;
     expect(await t.act(ada.token, { type: "harvest", ...KILN, dry: true })).toMatchObject({
@@ -219,6 +222,15 @@ describe("a world with clay", () => {
     expect(t.store.log.length).toBe(before);
     const out = await t.act(ada.token, { type: "harvest", ...KILN });
     expect(out).toMatchObject({ ok: true });
+    // The answer names what came out, in the words the web and the check-in use.
+    const finish = (out as { fired: { finish: string } }).fired.finish;
+    expect(out).toMatchObject({
+      fired: {
+        kind: "bowl",
+        glaze: "moss",
+        name: `${finish.charAt(0).toUpperCase()}${finish.slice(1)} moss bowl`,
+      },
+    });
     const logged = t.store.log.at(-1)?.command as { type: string; roll?: number };
     expect(logged.type).toBe("harvest");
     expect(Number.isInteger(logged.roll)).toBe(true);
@@ -233,14 +245,14 @@ describe("a world with clay", () => {
         trust: "untrusted",
       }),
     ]);
-    expect(goods[0].finish).toMatch(/^(plain|speckled|crackle|iridescent)$/);
+    expect(goods[0].finish).toMatch(/^(smooth|speckled|crackle|iridescent)$/);
     // Pottery's pages in the book: the glaze it came in, and its finish unless it's plain.
     const book = (await t.call("GET", "/v1/collection", undefined, ada.token)).body.collection;
     const page = (family: string) => book.groups.find((g: Json) => g.family === family);
     expect(page("glazes")).toMatchObject({ count: 1, total: 8, done: false, badge: "Every glaze" });
     expect(page("glazes").kinds.find((k: Json) => k.kind === "moss").firstDay).toBeDefined();
     expect(page("finishes")).toMatchObject({
-      count: goods[0].finish === "plain" ? 0 : 1,
+      count: goods[0].finish === "smooth" ? 0 : 1,
       total: 3,
     });
     expect(book.badges.includes("An iridescent pot")).toBe(goods[0].finish === "iridescent");

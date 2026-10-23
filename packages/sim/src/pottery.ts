@@ -110,14 +110,17 @@ export const GLAZE_COSTS = {
 export const isGlaze = (g: unknown): g is Glaze =>
   typeof g === "string" && (GLAZES as readonly string[]).includes(g);
 
-/** What a pot can come out of the kiln as: plain, or one of `FINISHES`. */
-export const FINISH_NAMES = ["plain", "speckled", "crackle", "iridescent"] as const;
+/**
+ * What a pot can come out of the kiln as: smooth, or one of `FINISHES`, the same words on the web
+ * and the API.
+ */
+export const FINISH_NAMES = ["smooth", "speckled", "crackle", "iridescent"] as const;
 export type Finish = (typeof FINISH_NAMES)[number];
 
 /**
  * The finishes and their chances out of `POTTERY.outOf`, frozen: a logged `harvest` at a kiln
  * replays only while this list, its order, and its numbers stay as they are. A roll picks the first
- * whose running total covers it, and past them all the pot is plain. About one pot in five has a
+ * whose running total covers it, and past them all the pot is smooth. About one pot in five has a
  * finish and one in a hundred is iridescent. New odds are a new table behind a logged switch, never
  * an edit to this one.
  */
@@ -125,7 +128,7 @@ export const FINISHES = [
   { finish: "speckled", chance: 1500 },
   { finish: "crackle", chance: 500 },
   { finish: "iridescent", chance: 100 },
-] as const satisfies readonly { finish: Exclude<Finish, "plain">; chance: number }[];
+] as const satisfies readonly { finish: Exclude<Finish, "smooth">; chance: number }[];
 
 /** The finish a roll gives. Pure. */
 export function finishOf(roll: number): Finish {
@@ -134,7 +137,7 @@ export function finishOf(roll: number): Finish {
     total += f.chance;
     if (roll < total) return f.finish;
   }
-  return "plain";
+  return "smooth";
 }
 
 /** A pot of tea (RFC 0047): brewed at a kitchen in a teapot you hold, and served at your own event. */
@@ -155,6 +158,33 @@ export const POT_KINDS: readonly GoodKind[] = GOOD_KINDS.filter(
 );
 export const isPotKind = (k: unknown): k is GoodKind =>
   typeof k === "string" && (POT_KINDS as readonly string[]).includes(k);
+
+/** The finishes past smooth, rarest last: a pot with one of these is worth saying so louder. */
+export const RARE_FINISHES: readonly Finish[] = ["crackle", "iridescent"];
+
+/**
+ * A pot in words (RFC 0047), the one name the web, the API's answers, the check-in and plot news
+ * all use: its finish once it has one, its glaze ("clay" when bare), its kind, and a vase's flowers.
+ * "Speckled rose vase of tulips", "Smooth clay bowl", "Sea teapot" before it's out of the kiln.
+ * Codes only, never a label. Capitalized; `lower` for the middle of a sentence.
+ */
+export function potName(
+  pot: {
+    kind: string;
+    glaze?: string | undefined;
+    finish?: string | undefined;
+    flower?: string | undefined;
+  },
+  lower = false,
+): string {
+  const kind = CATALOG[pot.kind as GoodKind]?.name.toLowerCase() ?? pot.kind;
+  const glaze = !pot.glaze || pot.glaze === "bare" ? "clay" : pot.glaze;
+  const flower = pot.flower
+    ? ` of ${CATALOG[pot.flower as StackKind]?.plural.toLowerCase() ?? pot.flower}`
+    : "";
+  const words = [pot.finish, glaze, kind].filter(Boolean).join(" ") + flower;
+  return lower ? words : `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+}
 
 /** Whether pottery is open in this world (`open_clay` was logged). */
 export const clayOpen = (state: Pick<WorldState, "items">): boolean =>

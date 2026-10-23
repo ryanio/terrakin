@@ -31,6 +31,7 @@ import {
   type MaterialKind,
   OTHERS_PLOT_GATHER,
   POTTERY,
+  potName,
   RECIPES,
   type RecipeName,
   recipeOf,
@@ -275,34 +276,51 @@ export function cropOfSeed(kind: ItemKind): Crop | undefined {
 export const glazeName = (glaze: Glaze): string =>
   glaze === "bare" ? "Bare clay" : `${glaze.charAt(0).toUpperCase()}${glaze.slice(1)} glaze`;
 
-/** How a pot came out of the kiln, after "came out": "speckled", "smooth". */
-const FINISH_WORDS: Readonly<Record<Finish, string>> = {
-  plain: "smooth and even",
-  speckled: "speckled",
-  crackle: "with a fine crackle",
-  iridescent: "iridescent, which about one pot in a hundred is",
-};
-
-/** A pot's glaze and finish in a few words (RFC 0047): "Sea glaze, crackle". */
-export const potLine = (glaze: Glaze, finish: Finish | undefined): string =>
-  finish && finish !== "plain" ? `${glazeName(glaze)}, ${finish}` : glazeName(glaze);
+/**
+ * A made thing's name in your things, the market, and the build bar: a pot by its glaze and finish
+ * (RFC 0047, the sim's `potName`: "Speckled rose vase of tulips"), anything else by its kind.
+ */
+export const madeName = (g: {
+  kind: ItemKind;
+  glaze?: Glaze | undefined;
+  finish?: Finish | undefined;
+  flower?: string | undefined;
+}): string => (g.glaze ? potName(g) : thingName(g.kind));
 
 /**
  * How often a pot comes out with a finish (RFC 0047), from the sim's frozen `FINISHES`: "15 in
- * 100 pots", and for plain whatever the rest leave.
+ * 100 pots", and for smooth whatever the rest leave.
  */
 export function finishOdds(finish: Finish): string {
   const some = FINISHES.reduce((n, f) => n + f.chance, 0);
   const chance =
-    finish === "plain"
+    finish === "smooth"
       ? POTTERY.outOf - some
       : (FINISHES.find((f) => f.finish === finish)?.chance ?? 0);
   return `${(chance * 100) / POTTERY.outOf} in 100 pots`;
 }
 
-/** A finish in a person's words, capitalized: "Speckled", "Smooth" for plain. */
+/** A finish in a person's words, capitalized: "Speckled", "Smooth". */
 export const finishName = (finish: Finish): string =>
-  finish === "plain" ? "Smooth" : `${finish.charAt(0).toUpperCase()}${finish.slice(1)}`;
+  `${finish.charAt(0).toUpperCase()}${finish.slice(1)}`;
+
+/**
+ * The line under a pot as it comes out of the kiln (RFC 0047): how often its finish comes, and for
+ * the rarest two that it's worth a look. "Speckled, as 15 in 100 pots come out."
+ */
+export function revealLine(finish: Finish): string {
+  const odds = finishOdds(finish);
+  switch (finish) {
+    case "smooth":
+      return `Smooth and even, as ${odds} come out.`;
+    case "speckled":
+      return `Speckled, as ${odds} come out.`;
+    case "crackle":
+      return `A fine crackle in the glaze. Only ${odds} come out like this.`;
+    case "iridescent":
+      return `Iridescent! It shimmers as it turns. Only ${odds} come out like this.`;
+  }
+}
 
 /** When a pot comes out of a kiln, as `growthLine` says it of a crop. */
 export function kilnLine(readyDay: number, today: number | undefined): string {
@@ -364,13 +382,10 @@ export function inventoryLine(e: InventoryEvent): string | null {
     // A cup of tea from an event's host who served tea (RFC 0047); the cup names who poured it.
     case "poured":
       return "Your host served tea, and you took home a cup. It's in your things.";
-    case "fired": {
-      const pot = e.gained?.[0];
-      if (!pot) return null;
-      const glaze = pot.glaze && pot.glaze !== "bare" ? ` in a ${pot.glaze} glaze` : "";
-      const finish = pot.finish ? ` ${FINISH_WORDS[pot.finish]}` : "";
-      return `Your ${thingName(pot.kind).toLowerCase()} came out of the kiln${glaze}${finish ? `,${finish}` : ""}.`;
-    }
+    // A pot out of the kiln (RFC 0047): the kiln sheet shows it, in its own moment, never in a
+    // toast beside the day's coins and pantry.
+    case "fired":
+      return null;
     // Halloween night (RFC 0022): the knock itself says where the candy came from (`newsLine`).
     // So does a cast what it brought up (RFC 0023).
     case "trick_or_treat":

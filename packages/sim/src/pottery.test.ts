@@ -7,14 +7,17 @@ import { KILN_CONFIG, KILN_HASH, KILN_LOG } from "./fixtures/kiln-log";
 import { byWater, gatherableAt, pickupLeft, pickupsInReach } from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, inventorySize } from "./items";
+import { handInPick } from "./jobs";
 import {
   type ClayRule,
   FINISHES,
+  type Finish,
   finishOf,
   GLAZE_COSTS,
   type Glaze,
   POTTERY,
   potAt,
+  potName,
   potsOf,
   readyKilns,
 } from "./pottery";
@@ -113,7 +116,7 @@ describe("the kiln log", () => {
     expectSupplyHolds(state);
     // The teapot stands on its pedestal in its glaze and finish, and the vase is in the market.
     expect(state.items?.displays?.["3,2"]).toMatchObject({
-      good: { kind: "teapot", glaze: "sea", finish: "plain" },
+      good: { kind: "teapot", glaze: "sea", finish: "smooth" },
     });
     expect(Object.values(state.market?.listings ?? {}).at(-1)?.goods?.[0]).toMatchObject({
       kind: "vase",
@@ -379,7 +382,13 @@ describe("a kiln", () => {
 });
 
 /** A pot straight into a resident's things, as the kiln would have fired it. */
-function hand(state: WorldState, id: string, kind: "bowl" | "vase" | "teapot", glaze = "sea") {
+function hand(
+  state: WorldState,
+  id: string,
+  kind: "bowl" | "vase" | "teapot",
+  glaze = "sea",
+  finish: Finish = "speckled",
+) {
   const items = state.items;
   if (!items) throw new Error("no items");
   const good = {
@@ -388,7 +397,7 @@ function hand(state: WorldState, id: string, kind: "bowl" | "vase" | "teapot", g
     maker: id,
     madeDay: DAY,
     glaze: glaze as Glaze,
-    finish: "speckled" as const,
+    finish,
   };
   items.nextId += 1;
   const inv = items.inventories[id] ?? { stacks: {}, goods: [] };
@@ -420,6 +429,15 @@ describe("a pot set down", () => {
     expectSupplyHolds(state);
     // Nobody clears it or plans it away from under its owner.
     refused(state, TOWN_ACTOR, { type: "clear_block", ...SPOT }, "tile_occupied");
+    // Listing it says where it stands and how to take it up first.
+    ok(state, TOWN_ACTOR, { type: "open_market" });
+    const listed = apply(state, {
+      actor: "ada",
+      command: { type: "list_item", item: bowl.id, price: 9 },
+    });
+    expect(listed.ok ? "" : listed.rejection.message).toBe(
+      'Your speckled honey bowl is set down at (6, 3). Take it up first with {"type": "remove", "x": 6, "y": 3}, then list it.',
+    );
     ok(state, "ada", { type: "remove", ...SPOT });
     expect(goods(state, "ada")).toEqual([bowl]);
     expect(state.blocks["6,3"]).toBeUndefined();
@@ -534,8 +552,40 @@ describe("the finish", () => {
       "crackle",
       "iridescent",
       "iridescent",
-      "plain",
-      "plain",
+      "smooth",
+      "smooth",
     ]);
+  });
+});
+
+describe("a pot's name", () => {
+  it("is its finish, its glaze or clay when bare, its kind, and a vase's flowers, from codes alone", () => {
+    const names = [
+      [{ kind: "vase", glaze: "rose", finish: "speckled", flower: "tulip" }, false],
+      [{ kind: "bowl", glaze: "bare", finish: "smooth" }, false],
+      [{ kind: "teapot", glaze: "sea" }, false],
+      [{ kind: "vase", glaze: "moss", finish: "iridescent", flower: "flower" }, true],
+    ] as const;
+    expect(names.map(([pot, lower]) => potName(pot, lower))).toEqual([
+      "Speckled rose vase of tulips",
+      "Smooth clay bowl",
+      "Sea teapot",
+      "iridescent moss vase of flowers",
+    ]);
+  });
+});
+
+describe("handing a pot in for a job", () => {
+  it("gives the commonest finish first, so a job takes the rarest pot only by its id", () => {
+    const state = potter();
+    const shiny = hand(state, "ada", "bowl", "sea", "iridescent");
+    const smooth = hand(state, "ada", "bowl", "sea", "smooth");
+    const speckled = hand(state, "ada", "bowl", "sea", "speckled");
+    state.jobs = { opened: DAY, edition: 3, held: { ada: { job: "clem_bowl", day: DAY, seq: 1 } } };
+    expect(handInPick(state, "ada")).toMatchObject({ good: { id: smooth.id } });
+    expect(handInPick(state, "ada", shiny.id)).toMatchObject({ good: { id: shiny.id } });
+    const items = state.items?.inventories.ada;
+    if (items) items.goods = items.goods.filter((g) => g.id !== smooth.id);
+    expect(handInPick(state, "ada")).toMatchObject({ good: { id: speckled.id } });
   });
 });

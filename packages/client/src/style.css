@@ -2828,6 +2828,93 @@ dialog.model-viewer {
   color: var(--ink);
 }
 
+/*
+ * A pot just out of the kiln (RFC 0047): its own moment in the sheet, the pot large in a soft warm
+ * glow, rising in as the kiln opens. A crackle or iridescent pot gets a ring of sparkles, which
+ * stay, still, under reduced motion.
+ */
+.kiln-reveal {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--r-card);
+  background: radial-gradient(
+    circle at 50% 35%,
+    color-mix(in srgb, var(--sun) 22%, var(--paper)),
+    var(--paper) 70%
+  );
+}
+
+.kiln-reveal-pot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 136px;
+  height: 136px;
+  animation: kiln-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+}
+
+.kiln-reveal[data-rare] .kiln-reveal-pot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #fff 0 2px, transparent 3px) 12% 20% / 18px 18px no-repeat,
+    radial-gradient(circle, #fff 0 2px, transparent 3px) 84% 14% / 18px 18px no-repeat,
+    radial-gradient(circle, #ffe9a8 0 3px, transparent 4px) 90% 70% / 20px 20px no-repeat,
+    radial-gradient(circle, #ffe9a8 0 3px, transparent 4px) 8% 76% / 20px 20px no-repeat,
+    radial-gradient(circle, #fff 0 2px, transparent 3px) 50% 2% / 18px 18px no-repeat,
+    conic-gradient(from 0deg, #ffd6e8, #d6f0ff, #e8ffd6, #fff1c2, #ffd6e8);
+  opacity: 0.55;
+  animation: kiln-shimmer 2.4s linear infinite;
+}
+
+.kiln-reveal-pot > * {
+  position: relative;
+}
+
+.kiln-reveal-eyebrow {
+  margin: var(--space-xs) 0 0;
+}
+
+.kiln-reveal-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+.kiln-reveal[data-rare] .kiln-reveal-name {
+  font-size: var(--text-2xl);
+}
+
+.kiln-reveal-line {
+  margin: 0 0 var(--space-sm);
+  color: var(--ink-soft);
+}
+
+@keyframes kiln-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.85);
+  }
+}
+
+@keyframes kiln-shimmer {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiln-reveal-pot,
+  .kiln-reveal[data-rare] .kiln-reveal-pot::before {
+    animation: none;
+  }
+}
+
 /* "13 more recipes to learn": the way from a kitchen or workbench to the shop's Recipes shelf. */
 .workshop-learn {
   justify-self: start;

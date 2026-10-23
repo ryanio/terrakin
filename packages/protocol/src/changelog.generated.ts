@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-22-pottery-still-off-guests-take-home-a-cup-of-tea-and-a-kiln-t",
+    "date": "2026-10-22",
+    "kind": "added",
+    "title": "Pottery, still off: guests take home a cup of tea, and a kiln takes 2 stone",
+    "body": "Once `clayOpen` is in `GET /v1/world`: at an event whose host served tea, each counted guest gets a `cup_of_tea` made by the host, in an `inventory` event with reason `poured`. No coins. A kiln takes 2 stone, and a pot set down is its plot's news on `GET /v1/plots`.\nThe jobs board moves one edition a day, so a world opening clay on the first edition reads the second for a day before pottery's.",
+    "links": []
+  },
+  {
     "id": "2026-10-22-a-pot-set-down-carries-trust-untrusted-on-block-placed-when",
     "date": "2026-10-22",
     "kind": "added",

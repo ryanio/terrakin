@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-pottery-still-off-guests-take-home-a-cup-of-tea-and-a-kiln-t</id>
+    <title>Added: Pottery, still off: guests take home a cup of tea, and a kiln takes 2 stone</title>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-22"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Once `clayOpen` is in `GET /v1/world`: at an event whose host served tea, each counted guest gets a `cup_of_tea` made by the host, in an `inventory` event with reason `poured`. No coins. A kiln takes 2 stone, and a pot set down is its plot's news on `GET /v1/plots`.
+The jobs board moves one edition a day, so a world opening clay on the first edition reads the second for a day before pottery's.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-22-a-pot-set-down-carries-trust-untrusted-on-block-placed-when</id>
     <title>Added: A pot set down carries `trust: &quot;untrusted&quot;` on `block_placed` when it has a label</title>
     <updated>2026-10-22T00:00:00Z</updated>

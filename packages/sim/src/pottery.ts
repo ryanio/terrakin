@@ -494,7 +494,7 @@ export function kilnRemoveProblem(state: WorldState, x: number, y: number): Reje
 }
 
 /** The keepsake a counted guest takes home from an event its host served tea at. */
-export const CUP = "cup_of_tea" as const;
+const CUP = "cup_of_tea" as const;
 
 /**
  * At `credit_event`, for an event its host served tea at (RFC 0047): a cup of tea for each guest

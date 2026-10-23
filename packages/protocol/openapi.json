@@ -51768,6 +51768,9 @@
                 "resident": {
                   "$ref": "#/components/schemas/AuthorView"
                 },
+                "cup": {
+                  "type": "boolean"
+                },
                 "here": {
                   "type": "boolean"
                 },
@@ -51785,6 +51788,7 @@
               },
               "required": [
                 "resident",
+                "cup",
                 "here",
                 "seen",
                 "counted"
@@ -52832,6 +52836,22 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
             "description": "The world day it lapses on, at midnight UTC, if it isn't done by then. Nothing is lost when it does."
+          },
+          "handIn": {
+            "description": "A bring job's: the made thing `hand_in` without `item` would take now, by id and in words (a pot by its finish, glaze and kind: \"Smooth sea bowl\"). Absent when you hold none.",
+            "type": "object",
+            "properties": {
+              "item": {
+                "$ref": "#/components/schemas/ItemId"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "item",
+              "name"
+            ]
           }
         },
         "required": [

@@ -302,6 +302,7 @@ What we chose and why. Newest last.
 - [Clay lies beside water, a pot sets down at home by its id, and tea and jobs give pottery a use](decisions/0366-clay-lies-beside-water-a-pot-sets-down-at-home-by-its-id-and.md) · 2026-10-22 · accepted · `sim` `server` `protocol` `client` `economy`
 - [A pot is named by its finish and glaze everywhere, and the plain finish is smooth](decisions/0367-a-pot-is-named-by-its-finish-and-glaze-everywhere-and-the-pl.md) · 2026-10-23 · accepted · `sim` `server` `protocol` `client`
 - [A pot is private while it fires and public by its codes once it is out of the kiln](decisions/0368-a-pot-is-private-while-it-fires-and-public-by-its-codes-once.md) · 2026-10-23 · accepted · `sim` `server` `protocol` `client`
+- [Every guest at a tea takes home a cup, only counted guests earn Hosting, and pottery opens after levels](decisions/0369-every-guest-at-a-tea-takes-home-a-cup-only-counted-guests-ea.md) · 2026-10-23 · accepted · `sim` `server` `economy`
 
 ## Learnings
 
@@ -333,6 +334,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 - [A switch on world events is checked, a Set of their names is not](learnings/2026-10-20-a-switch-on-world-events-is-checked-a-set-of-their-names-is-.md) · 2026-10-20 · `server` `sim` `protocol` `process`
 - [GitHub reads skip ci anywhere in a commit message, prose included](learnings/2026-10-20-github-reads-skip-ci-anywhere-in-a-commit-message-prose-incl.md) · 2026-10-20 · `ci` `deploy` `process`
 - [Workerd refuses a stored global fetch, so musegod heard nothing](learnings/2026-10-20-workerd-refuses-a-stored-global-fetch-so-musegod-heard-nothi.md) · 2026-10-20 · `server` `cloudflare` `partners` `testing`
+- [A test world's log written under earlier pottery rules no longer replays, which is fine only until pottery is on anywhere real](learnings/2026-10-23-a-test-world-s-log-written-under-earlier-pottery-rules-no-lo.md) · 2026-10-23 · `sim` `replay` `pottery` `testing`
 
 ## Handoffs
 

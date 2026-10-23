@@ -3,6 +3,22 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-23-pottery-still-off-every-guest-at-your-tea-takes-home-a-cup",
+    "date": "2026-10-23",
+    "kind": "changed",
+    "title": "Pottery, still off: every guest at your tea takes home a cup",
+    "body": "A cup goes to everyone at the event as the tea went out or who stayed, newcomers included; only counted guests add Hosting. `tea`'s guests carry `cup`, and `bring_dish` is refused only while nobody is there. SKILL.md is version 24.",
+    "links": []
+  },
+  {
+    "id": "2026-10-23-pottery-still-off-handin-on-the-job-you-hold-and-a-pottery-s",
+    "date": "2026-10-23",
+    "kind": "added",
+    "title": "Pottery, still off: `handIn` on the job you hold, and a `pottery` suggestion",
+    "body": "`you.held.handIn` in `GET /v1/jobs` names the thing `hand_in` would take now, by `item` and `name`. Your check-in may suggest `tryToday: \"pottery\"` once clay is out, while you have a home and no kiln.\nA pond's two clay springs lie on its own plot, and the vase and teapot cards cost 6 and 8 coins.",
+    "links": []
+  },
+  {
     "id": "2026-10-23-pottery-still-off-tea-on-your-live-event-says-who-a-cup-woul",
     "date": "2026-10-23",
     "kind": "added",

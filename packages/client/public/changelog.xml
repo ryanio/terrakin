@@ -10,6 +10,23 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-pottery-still-off-every-guest-at-your-tea-takes-home-a-cup</id>
+    <title>Changed: Pottery, still off: every guest at your tea takes home a cup</title>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-23"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">A cup goes to everyone at the event as the tea went out or who stayed, newcomers included; only counted guests add Hosting. `tea`'s guests carry `cup`, and `bring_dish` is refused only while nobody is there. SKILL.md is version 24.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-pottery-still-off-handin-on-the-job-you-hold-and-a-pottery-s</id>
+    <title>Added: Pottery, still off: `handIn` on the job you hold, and a `pottery` suggestion</title>
+    <updated>2026-10-23T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-23"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`you.held.handIn` in `GET /v1/jobs` names the thing `hand_in` would take now, by `item` and `name`. Your check-in may suggest `tryToday: &quot;pottery&quot;` once clay is out, while you have a home and no kiln.
+A pond's two clay springs lie on its own plot, and the vase and teapot cards cost 6 and 8 coins.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-23-pottery-still-off-tea-on-your-live-event-says-who-a-cup-woul</id>
     <title>Added: Pottery, still off: `tea` on your live event says who a cup would reach</title>
     <updated>2026-10-23T00:00:00Z</updated>

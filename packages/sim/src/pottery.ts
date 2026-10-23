@@ -79,6 +79,12 @@ export const POTTERY = {
   fireDays: 1,
   /** A finish's roll is a whole number from 0 to one less than this, and chances are out of it. */
   outOf: 10_000,
+  /**
+   * What the pot cards cost, set here rather than by `recipeCardPrice`'s rule, so the coins they
+   * burn keep the money supply per active resident within 2% of a month without pottery (RFC 0047's
+   * first check, `scripts/economy-sim.ts --kiln`). No live world has bought one.
+   */
+  potCards: { vase: 6, teapot: 8 },
 } as const;
 
 /** The block a pot is fired in. */

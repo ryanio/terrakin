@@ -15,7 +15,7 @@ import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
 import { isMaterialKind } from "./materials";
 import { own, residentById } from "./own";
-import { clayOpen, isPotKind, isPotteryRecipe } from "./pottery";
+import { clayOpen, isPotKind, isPotteryRecipe, POTTERY } from "./pottery";
 import { type Season, seasonOf } from "./season";
 import {
   BUY_ORDERS,
@@ -251,6 +251,10 @@ const orderFor = (recipe: RecipeName) =>
  * uses up, rounded to the nearest 5 (RFC 0024).
  */
 export function recipeCardPrice(recipe: RecipeName): number {
+  // A pot's card is priced by pottery's own numbers (RFC 0047).
+  if (Object.hasOwn(POTTERY.potCards, recipe)) {
+    return POTTERY.potCards[recipe as keyof typeof POTTERY.potCards];
+  }
   const { rotationTimes, seasonTimes, plainCoins, perThing, roundTo } = RECIPES_RULES;
   const order = orderFor(recipe);
   let raw: number;

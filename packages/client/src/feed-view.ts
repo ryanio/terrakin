@@ -7,6 +7,7 @@
 
 import type {
   DevlogEntry,
+  EventView,
   PlotView,
   PostMessage,
   PostView,
@@ -33,7 +34,7 @@ import { awayCard } from "./away-card";
 import { type Composer, composer } from "./composer";
 import { devlogPage, newestDevlogCard } from "./devlog-card";
 import { goToEvent, happeningCard } from "./event-cards";
-import { whenWords } from "./event-format";
+import { heroEventRest, nextEvent, whenWords } from "./event-format";
 import {
   EVERYONE_GAP_MS,
   FOLLOWING_GAP_MS,
@@ -204,16 +205,18 @@ function homeHero(feedTarget: HTMLElement): {
   return { el, live, destroy: agents.destroy };
 }
 
-/** The hero's live line, filled as the town's numbers and the devlog come in. */
+/** The hero's live line, filled as the town's numbers, the devlog, and the calendar come in. */
 interface HeroLive {
   el: HTMLElement;
   counts(text: string): void;
   latest(post: DevlogEntry): void;
+  event(e: EventView | undefined, now: number): void;
 }
 
 /**
  * One small line under the hero's sub line for a visitor: how many live here and how many plots are
- * claimed, then the newest devlog post's title as a link. Its height is set before anything is in
+ * claimed, then the newest devlog post's title as a link, then the next event's title as a link to
+ * the calendar, with when and where it is (issue #107). Its height is set before anything is in
  * it and each part keeps to one line, so nothing moves as the numbers land, and the first paint
  * never waits on it.
  */
@@ -221,11 +224,13 @@ function heroLive(): HeroLive {
   const dot = h("span", { class: "live-dot", attrs: { "aria-hidden": "true", hidden: true } });
   const counts = h("span");
   const news = h("span", { class: "hero-live-news" });
+  const happening = h("span", { class: "hero-live-event" });
   const el = h(
     "p",
     { class: "hero-live", attrs: { id: "hero-live" } },
     h("span", { class: "hero-live-counts" }, dot, counts),
     news,
+    happening,
   );
   return {
     el,
@@ -237,6 +242,17 @@ function heroLive(): HeroLive {
       news.replaceChildren(
         "Latest: ",
         h("a", { attrs: { href: devlogPage(post) }, text: post.title }),
+      );
+    },
+    event(e, now) {
+      if (!e) {
+        happening.replaceChildren();
+        return;
+      }
+      happening.replaceChildren(
+        e.status === "live" ? "On now: " : "Next event: ",
+        h("a", { attrs: { href: "/town#events" }, text: e.title }),
+        `, ${heroEventRest(e, now)}.`,
       );
     },
   };
@@ -856,6 +872,7 @@ export function feedView(ctx: ViewContext): View {
     if (pulse.town) {
       town.update(pulse.town);
       happening.update(pulse.town.events, serverNow());
+      hero?.live.event(nextEvent(pulse.town.events), serverNow());
     }
     if (pulse.plots) plots.update(pulse.plots, world);
   }

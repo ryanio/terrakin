@@ -43,6 +43,7 @@ import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import {
   CLAY_WHERE,
   gatherHint,
+  kilnCost,
   madeName,
   needsLine,
   SHOP_WHERE,
@@ -194,12 +195,6 @@ export function kilnPlaceLine(holdings: Holdings): string {
   if (short.length === 0) return `${lead} You have enough.`;
   return `${lead} You need ${short.map((s) => thingCount(s.kind, s.count)).join(" and ")} more.${gatherHint(short.map((s) => s.kind))}`;
 }
-
-/** What a kiln takes to place, from the sim's `blockNeeds`: "2 stone". */
-const kilnCost = () =>
-  blockNeeds("kiln")
-    .map(([kind, n]) => thingCount(kind, n))
-    .join(" and ");
 
 /** The kiln's chip's name, its cost from the sim rather than the page: "Kiln (2 stone, ...)". */
 export const kilnLabel = (): string => `Kiln (${kilnCost()}, fires a pot overnight)`;

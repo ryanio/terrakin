@@ -38,7 +38,20 @@ A kitchen and a workbench are free from Build. Tap one to see what you can make 
 
 Everyone knows a few recipes: herb tea, jam, a bouquet, a chair, a table, a stone wall, and a fishing rod. The first time you open a kitchen or workbench you pick three more for free. After that, the shop sells recipe cards, a neighbor can teach you one, and now and then a recipe page turns up on the ground.
 
-Pottery works the same way: clay lies beside ponds and the sea, and a kiln from Build fires bowls, vases, and teapots.
+
+## Pottery
+
+Clay lies on the ground beside ponds and the sea: a reddish lump on a patch of wet ground. Tap it to pick it up, or tap Gather all when you stand beside some. You can pick up 6 a day. Dig a pond on your plot and clay comes up beside it every day.
+
+To see how much clay you have, tap Your things. It's under Pottery.
+
+To make a pot:
+
+1. Put up a kiln on your plot from Build, on the Blocks tab. It takes 2 stone, and you get them back if you take it down.
+2. Tap the kiln, pick a glaze, and tap Fire beside the pot you want. A bowl takes 2 clay, a vase 3, and a teapot 4 clay and 1 wood. Bare clay costs nothing; every other glaze takes one thing, and the kiln says which.
+3. Come back the next day, tap the kiln, and take your pot out. Its finish is a surprise until the kiln opens.
+
+Set a pot down at home from Build, on the Furniture tab, and put a flower in a vase. A teapot and 2 bunches of herbs at a kitchen make a pot of tea to serve at your own event.
 
 ## Fishing
 

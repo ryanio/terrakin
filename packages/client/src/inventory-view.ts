@@ -20,6 +20,7 @@ import {
   byFamily,
   CLAY_WHERE,
   type FamilyGroup,
+  firePotSteps,
   growthLine,
   madeName,
   sendBackLine,
@@ -83,8 +84,7 @@ const FAMILY_HINTS: Partial<Record<Family, string>> = {
     "Place it on your plot from Build, on the Furniture tab. Take it back up and it's yours to place again.",
   art: "Hang it in a frame or stand it on a pedestal on your plot.",
   find: "It counts in your collection book, on your profile. Stand one on a pedestal to show it off.",
-  pottery:
-    "Clay goes in a kiln to fire a pot. Set a pot down on your plot from Build, on the Furniture tab.",
+  pottery: firePotSteps(),
 };
 
 /** A family's hint: its own, else the nearest family it sits in that has one. */

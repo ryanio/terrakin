@@ -103,6 +103,14 @@ describe("things", () => {
         changes: [{ kind: "wood", amount: 1, count: 4 }],
       }),
     ).toBe("You picked up 1 wood.");
+    // Clay says how much you hold now, the biggest pot it makes, and where to fire it.
+    const clay = (count: number) =>
+      inventoryLine({ ...base, reason: "gather", changes: [{ kind: "clay", amount: 1, count }] });
+    expect(clay(1)).toBe(
+      "You picked up 1 clay. You have 1 clay now, and a bowl takes 2. Fire it in a kiln, from Build on the Blocks tab.",
+    );
+    expect(clay(3)).toContain("You have 3 clay now, enough for a vase.");
+    expect(clay(5)).toContain("enough for a teapot with 1 wood.");
     expect(
       inventoryLine({
         ...base,

@@ -6,6 +6,7 @@
 import type { WorldEvent } from "@terrakin/protocol";
 import {
   blockName,
+  blockNeeds,
   CARD_RECIPES,
   CATALOG,
   CROP_INFO,
@@ -64,6 +65,57 @@ export const clayWhere = (waterNear: boolean): string =>
   waterNear
     ? "Clay lies beside water: look round the pond near your kiln each day, where some always comes up, and gather it."
     : CLAY_WHERE;
+
+/** What a kiln takes to place, from the sim's `blockNeeds`: "2 stone". */
+export const kilnCost = (): string =>
+  blockNeeds("kiln")
+    .map(([kind, n]) => thingCount(kind, n))
+    .join(" and ");
+
+/** The pots a kiln fires, smallest first (RFC 0047). */
+const POTS = ["bowl", "vase", "teapot"] as const;
+
+/** What a pot takes besides its clay, from the sim's recipe: ["1 wood"] for a teapot. */
+function potExtras(pot: (typeof POTS)[number]): string[] {
+  return Object.entries(RECIPES[pot].needs)
+    .filter(([kind]) => kind !== "clay")
+    .map(([kind, n]) => thingCount(kind as ItemKind, n ?? 0));
+}
+
+const potClay = (pot: (typeof POTS)[number]): number => RECIPES[pot].needs.clay ?? 0;
+
+/** What each pot takes, from the sim's recipes: "a bowl takes 2 clay, a vase 3, and a teapot 4 clay and 1 wood". */
+function potCostsLine(): string {
+  return listOf(
+    POTS.map((pot, i) => {
+      const extras = potExtras(pot);
+      const clay = i === 0 || extras.length > 0 ? thingCount("clay", potClay(pot)) : potClay(pot);
+      return [`${aThing(pot)} ${i === 0 ? "takes " : ""}${clay}`, ...extras].join(" and ");
+    }),
+  );
+}
+
+/**
+ * How to fire a pot, step by step, with what the kiln and each pot take from the sim: the Pottery
+ * hint on your things, so clay you picked up says what it's for.
+ */
+export function firePotSteps(): string {
+  const costs = potCostsLine();
+  return `To fire a pot, put up a kiln on your plot from Build, on the Blocks tab, for ${kilnCost()}. Tap the kiln, pick a glaze, and tap Fire beside a pot: ${costs}. Take it out the next day. You can pick up ${POTTERY.clayPerDay} clay a day. Set a pot down at home from Build, on the Furniture tab.`;
+}
+
+/**
+ * What the clay you hold now makes, said after you pick some up: the biggest pot it covers, and
+ * where to fire it. `count` is the clay held after, from the `inventory` event.
+ */
+function clayHeldLine(count: number): string {
+  const held = `You have ${thingCount("clay", count)} now`;
+  const kiln = "Fire it in a kiln, from Build on the Blocks tab.";
+  const fits = POTS.filter((pot) => potClay(pot) <= count).at(-1);
+  if (!fits) return `${held}, and a bowl takes ${potClay("bowl")}. ${kiln}`;
+  const extras = potExtras(fits);
+  return `${held}, enough for ${aThing(fits)}${extras.length > 0 ? ` with ${listOf(extras)}` : ""}. ${kiln}`;
+}
 
 /**
  * Where wood and stone come from, in a person's words. The sim's own hint names the `gather` call,
@@ -522,14 +574,18 @@ export function inventoryLine(e: InventoryEvent): string | null {
       const words = (cs: typeof gained) => listOf(cs.map((c) => thingCount(c.kind, c.amount)));
       const finds = gained.filter((c) => isFindKind(c.kind));
       const rest = gained.filter((c) => !isFindKind(c.kind));
-      if (finds.length === 0) return `You picked up ${words(rest)}.`;
+      // Clay (RFC 0047) says how much you hold now and what it makes, since a toast is where
+      // someone picking it up is looking.
+      const clay = rest.find((c) => c.kind === "clay");
+      const held = clay ? ` ${clayHeldLine(clay.count)}` : "";
+      if (finds.length === 0) return `You picked up ${words(rest)}.${held}`;
       const book =
         finds.length === 1 && finds[0]?.amount === 1
           ? "It's in your collection book, on your profile."
           : "They're in your collection book, on your profile.";
       return rest.length === 0
         ? `You found ${words(finds)}. ${book}`
-        : `You picked up ${words(rest)}, and found ${words(finds)}. ${book}`;
+        : `You picked up ${words(rest)}, and found ${words(finds)}. ${book}${held}`;
     }
     case "craft": {
       const made = e.gained?.[0];

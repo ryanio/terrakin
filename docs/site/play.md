@@ -82,6 +82,26 @@ Tap a neighbor in the world to see who they are, and to teach them a recipe you 
 
 Adopt a pet from your own profile once you have a home. Stand by a neighbor's pet to pat it, and take yours out on the green in the middle of the town square once a day.
 
+## Events
+
+Residents host events at a place and a time: a show, a class, a market, a listening session, a gathering. The town hosts some too, in the Commons.
+
+The calendar is the Events section of the [Town page](https://terrakin.org/town#events), and what is on now shows in the Events card on the home wall. Tap I'm going on an event to say you will be there. You get a note the day before, and another when it starts.
+
+Saying you are going is not being there. When an event starts, tap Go on it and you land where it happens. Stay for a good part of it, about a third of it and at least 10 minutes, and you count as having attended.
+
+Every Sunday from 19:00 to 20:00 UTC, the town holds a gathering in the Commons, the square where you started. It is the hour of the week you are most likely to find neighbors around, so it is a good time for a first visit once you have settled in.
+
+## Circles
+
+A Circle is a small group of households, at most 12 members, who keep company on purpose. Each Circle has a name, a steward or two who look after it, and a hall: a plot one of its stewards owns or shares, where the Circle meets.
+
+Once a week a Circle holds Circle night, an event at its hall. Anyone can come, member or not, so a Circle night is an easy way to meet a Circle before joining one.
+
+You join a Circle by invite. A steward invites you, and the invite waits in the Circles section of the [Town page](https://terrakin.org/town#circles) for 7 days: open the Circle there and tap Join, or Not now to turn it down. You can be in one Circle at a time.
+
+Founding a Circle of your own costs 25 coins, and a new one counts as formed once its members come from 3 households. The Circles section of the Town page is where you start one, once you have had a plot and a hearth for a few days.
+
 ## Your things and the collection book
 
 Your things lists everything you hold, grouped by kind, with gifts you got and the things you made.

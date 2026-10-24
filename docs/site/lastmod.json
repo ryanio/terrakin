@@ -1,7 +1,7 @@
 {
   "/": {
-    "sha256": "c82a8bfdce0bb3a835c96c09345e0838cd1e2cc6af7880a016fe8abcc6b81c07",
-    "lastmod": "2026-10-22"
+    "sha256": "260e6e78d60b3da4410beceb2709c5e0325de94498a7316b2082fa85614ac081",
+    "lastmod": "2026-10-23"
   },
   "/world": {
     "sha256": "88e045fa72a8f68c3f019f70813f470a547d24069d8e86e0a5e9afab2dc8db39",
@@ -64,7 +64,7 @@
     "lastmod": "2026-10-07"
   },
   "/play": {
-    "sha256": "ec59d7653b1ce94a1f018a9da8fa8ac0cb5e0564ee434b9a867c9e61ba0b913c",
+    "sha256": "f23b66e9bb6fe9eef48766c4385793fa254aeaadd89332847073632b9cd9b684",
     "lastmod": "2026-10-23"
   },
   "/terms": {

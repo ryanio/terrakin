@@ -248,13 +248,13 @@ function snapshot(over: Partial<WorldSnapshot> = {}): WorldSnapshot {
 }
 
 describe("pulse numbers", () => {
-  it("counts real residents apart from townsfolk", () => {
+  it("counts real residents apart from townsfolk, and every claimed plot", () => {
     const s = snapshot();
-    expect(pulseStats(s, townsfolkIds(s))).toEqual({
+    expect(pulseStats(s)).toEqual({
       residents: 3,
       online: 2,
       homes: 1,
-      plots: 1,
+      plots: 2,
       blocks: 1,
       townsfolk: 2,
     });
@@ -262,7 +262,7 @@ describe("pulse numbers", () => {
 
   it("leaves out a name's unused repeat records (repeatJoins)", () => {
     const s = snapshot({ repeatJoins: ["bo"] });
-    expect(pulseStats(s, townsfolkIds(s)).residents).toBe(2);
+    expect(pulseStats(s).residents).toBe(2);
   });
 
   it("learns townsfolk from post authors too", () => {
@@ -299,7 +299,7 @@ describe("pulse numbers", () => {
 
   it("puts the plots claimed in place of a 0 online, and counts in the right number", () => {
     const s = snapshot();
-    const busy = statTiles(pulseStats(s, townsfolkIds(s)));
+    const busy = statTiles(pulseStats(s));
     expect(busy.map((t) => `${t.n} ${t.label}`)).toEqual([
       "3 residents",
       "2 online now",
@@ -309,9 +309,9 @@ describe("pulse numbers", () => {
     const quiet = snapshot({
       residents: [{ ...s.residents[0], online: false }] as WorldSnapshot["residents"],
     });
-    expect(statTiles(pulseStats(quiet, townsfolkIds(quiet))).map((t) => t.label)).toEqual([
+    expect(statTiles(pulseStats(quiet)).map((t) => t.label)).toEqual([
       "resident",
-      "plot claimed",
+      "plots claimed",
       "home built",
       "block placed",
     ]);
@@ -319,11 +319,11 @@ describe("pulse numbers", () => {
 
   it("gives the front page its counts, leaving out a 0 and saying nothing for an empty town", () => {
     const s = snapshot();
-    expect(heroCounts(pulseStats(s, townsfolkIds(s)))).toBe("3 residents, 1 plot claimed.");
+    expect(heroCounts(pulseStats(s))).toBe("3 residents, 2 plots claimed.");
     const unclaimed = snapshot({ plots: [] });
-    expect(heroCounts(pulseStats(unclaimed, townsfolkIds(unclaimed)))).toBe("3 residents.");
+    expect(heroCounts(pulseStats(unclaimed))).toBe("3 residents.");
     const empty = snapshot({ residents: [], plots: [] });
-    expect(heroCounts(pulseStats(empty, townsfolkIds(empty)))).toBe("");
+    expect(heroCounts(pulseStats(empty))).toBe("");
   });
 
   it("buckets posts per hour and marks hours we haven't loaded as unknown", () => {

@@ -853,7 +853,7 @@ export function feedView(ctx: ViewContext): View {
     const ids = known();
     const world = pulse.world;
     if (world) {
-      const s = pulseStats(world, ids);
+      const s = pulseStats(world);
       // Presentation only, and the snapshot's server time goes stale between polls.
       const now = Date.now();
       const covered = state.next === null ? null : Date.parse(state.posts.at(-1)?.createdAt ?? "");

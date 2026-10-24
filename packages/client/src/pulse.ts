@@ -254,18 +254,19 @@ export interface PulseStats {
   residents: number;
   online: number;
   homes: number;
+  /** Every claimed plot, the townsfolk's too: it counts land, not people (issue #109). */
   plots: number;
   blocks: number;
   townsfolk: number;
 }
 
-export function pulseStats(snapshot: WorldSnapshot, townsfolk: ReadonlySet<string>): PulseStats {
+export function pulseStats(snapshot: WorldSnapshot): PulseStats {
   const { residents } = snapshot;
   return {
     residents: residents.length - (snapshot.repeatJoins?.length ?? 0),
     online: residents.filter((r) => r.online).length,
     homes: residents.filter((r) => r.hearth !== null).length,
-    plots: snapshot.plots.filter((p) => !townsfolk.has(p.ownerId)).length,
+    plots: snapshot.plots.length,
     blocks: snapshot.blocks.length,
     townsfolk: snapshot.townsfolk?.length ?? 0,
   };

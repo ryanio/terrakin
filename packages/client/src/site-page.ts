@@ -19,8 +19,10 @@ import {
   TRUST_PAGES,
 } from "@terrakin/protocol";
 import type { DocsPage, TocEntry } from "@terrakin/protocol/reference";
+import { CATALOG, type Glaze, type ItemKind } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
-import { iconSvg } from "@terrakin/ui/icons";
+import { type IconName, iconSvg } from "@terrakin/ui/icons";
+import { thingArtMarkup } from "@terrakin/ui/item-art";
 import { inline, markdownToHtml, slug } from "./markdown";
 import { promptLine } from "./prompts";
 
@@ -225,6 +227,101 @@ function devlogEntries(html: string): string {
   );
 }
 
+// ---------- How to play ----------
+
+/** A thing drawn on How to play: its kind, and a pot's glaze. */
+interface GuideThing {
+  kind: ItemKind;
+  glaze?: Glaze;
+}
+
+/**
+ * Each section of How to play (`docs/site/play.md`) by its heading's id: the icon beside its
+ * heading, and the things drawn under it, three or six so a row fills on a phone and on a wide
+ * screen. A test fails on a section with no entry here.
+ */
+const GUIDE_SECTIONS: Readonly<Record<string, { icon: IconName; things?: readonly GuideThing[] }>> =
+  {
+    "getting-around": { icon: "signpost" },
+    "your-plot-and-your-home": { icon: "home" },
+    gathering: {
+      icon: "gather",
+      things: ["wood", "stone", "acorn", "seashell", "geode", "clay"].map((kind) => ({
+        kind: kind as ItemKind,
+      })),
+    },
+    growing: {
+      icon: "sprout",
+      things: ["lemon_seed", "tomato", "strawberry", "lemon", "herb", "flower"].map((kind) => ({
+        kind: kind as ItemKind,
+      })),
+    },
+    "making-things": {
+      icon: "workbench",
+      things: ["herb_tea", "lemon_jam", "bouquet", "chair", "table", "fishing_rod"].map((kind) => ({
+        kind: kind as ItemKind,
+      })),
+    },
+    pottery: {
+      icon: "kiln",
+      things: [
+        { kind: "clay" },
+        { kind: "bowl", glaze: "sea" },
+        { kind: "vase", glaze: "rose" },
+        { kind: "teapot", glaze: "honey" },
+        { kind: "pot_of_tea" },
+        { kind: "cup_of_tea" },
+      ],
+    },
+    fishing: {
+      icon: "fishing",
+      things: ["fishing_rod", "minnow", "perch", "trout", "salmon", "golden_koi"].map((kind) => ({
+        kind: kind as ItemKind,
+      })),
+    },
+    coins: { icon: "coin" },
+    "town-jobs": { icon: "town" },
+    "levels-and-skills": { icon: "level" },
+    "neighbors-and-pets": { icon: "paw" },
+    events: { icon: "calendar" },
+    circles: { icon: "follow" },
+    "your-things-and-the-collection-book": { icon: "things" },
+  };
+
+/** One thing as the app draws it, with its name under it, built into the page so it loads nothing. */
+const guideThing = (thing: GuideThing): string =>
+  `<li>${thingArtMarkup(thing, 44)}<span>${attr(CATALOG[thing.kind].name)}</span></li>`;
+
+/**
+ * How to play as a card per section, so it reads in pieces: what comes before the first `##` is
+ * the first card, and each section after it gets its icon beside the heading and its things drawn
+ * under it (`GUIDE_SECTIONS`). The footnote goes in the last card.
+ */
+function guideCards(html: string, footnote: string): string {
+  const parts = html.split(/(?=<h2 )/);
+  return parts
+    .map((part, i) => {
+      const id = /^<h2 id="([^"]+)"/.exec(part)?.[1];
+      const section = id ? GUIDE_SECTIONS[id] : undefined;
+      const body = section
+        ? part.replace(
+            /^(<h2 [^>]*>[\s\S]*?<\/h2>)/,
+            (heading) =>
+              `<div class="guide-head"><span class="guide-icon" aria-hidden="true">${iconSvg(section.icon)}</span>${heading}</div>${
+                section.things
+                  ? `<ul class="guide-things" aria-hidden="true">${section.things.map(guideThing).join("")}</ul>`
+                  : ""
+              }`,
+          )
+        : part;
+      const last = i === parts.length - 1 ? `\n              ${footnote}` : "";
+      return `<section class="paper card prose${id ? " guide-card" : " guide-intro"}">
+${body}${last}
+            </section>`;
+    })
+    .join("\n            ");
+}
+
 /** One static page: the site bar, the rendered Markdown in a paper card beside the sidebar, and the footer. */
 // ---------- the docs pages ----------
 
@@ -357,11 +454,13 @@ ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a
       </header>
       <main class="page-root">
         <div class="layout">
-          <article class="layout-main${options.docs ? " stack cards" : ""}">
+          <article class="layout-main${options.docs || page.path === LINKS.play ? " stack cards" : ""}">
             ${
               options.docs
                 ? docsArticle(page, options.docs, footnote)
-                : `<div class="paper card prose">
+                : page.path === LINKS.play
+                  ? guideCards(markdownToHtml(source), footnote)
+                  : `<div class="paper card prose">
 ${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownToHtml(source, { headingLinks: isDocs(page.path) })}
               ${footnote}
             </div>`

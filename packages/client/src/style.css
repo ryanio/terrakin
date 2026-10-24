@@ -4338,6 +4338,93 @@ a.btn-primary {
   color: var(--ink-soft);
 }
 
+/* ---------- How to play: a card per section, its icon, its things, and numbered steps ---------- */
+
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.prose .guide-head h2 {
+  margin: 0;
+}
+
+.guide-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--clay) 12%, var(--paper));
+  color: var(--clay-deep);
+}
+
+.guide-icon .icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* The things a section is about, as the app draws them: three a row on a phone, six where there's room. */
+.prose .guide-things {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 560px) {
+  .prose .guide-things {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.guide-things li {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-2xs);
+  border-radius: var(--r-md);
+  background: var(--paper-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+/* Steps in order read as numbered clay circles, so a how-to stands out from the prose around it. */
+.prose:where(.guide-card, .guide-intro) ol {
+  padding-inline-start: 0;
+  list-style: none;
+  counter-reset: step;
+  gap: var(--space-sm);
+}
+
+.prose:where(.guide-card, .guide-intro) ol > li {
+  position: relative;
+  min-height: 28px;
+  padding-inline-start: var(--space-4xl);
+  counter-increment: step;
+}
+
+.prose:where(.guide-card, .guide-intro) ol > li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--clay);
+  color: var(--paper);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+}
+
 /* ---------- the /devlog list: each post is one block that opens it ---------- */
 
 .devlog-entry {

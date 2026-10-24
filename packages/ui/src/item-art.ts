@@ -3155,6 +3155,23 @@ export function thingShapes(thing: ThingLook): ArtShape[] {
   return itemShapes(thing.kind);
 }
 
+/** Escaped for an attribute's value in markup. */
+const escapeAttr = (text: string) =>
+  text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const shapeMarkup = (shape: ArtShape): string =>
+  `<${shape.tag}${Object.entries(shape.attrs)
+    .map(([k, v]) => ` ${k}="${escapeAttr(String(v))}"`)
+    .join("")}>${(shape.children ?? []).map(shapeMarkup).join("")}</${shape.tag}>`;
+
+/**
+ * A thing's drawn picture as SVG markup, decorative, for a page built ahead of time with no DOM
+ * (How to play). The same shapes `thingPicture` draws, and only the drawing's own attributes.
+ */
+export function thingArtMarkup(thing: ThingLook, size = 28): string {
+  return `<svg class="item-art" viewBox="0 0 ${ART_BOX} ${ART_BOX}" width="${size}" height="${size}" aria-hidden="true" focusable="false">${thingShapes(thing).map(shapeMarkup).join("")}</svg>`;
+}
+
 /** The key a made thing's drawn picture is kept under: its kind, and a pot's glaze and finish. */
 const thingKey = (thing: ThingLook) =>
   isPot(thing.kind) && thing.glaze

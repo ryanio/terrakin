@@ -256,6 +256,27 @@ describe("static pages", () => {
     expect(at("/about", "# About\n\n## Who\n\nUs.")).not.toContain("devlog-entry");
   });
 
+  it("draws How to play as a card per section, each with its icon, and its things as pictures", () => {
+    const md = source("play");
+    const html = staticPage({
+      page: page("/play"),
+      source: md,
+      lastUpdated: "2026-10-24",
+      css: "/a.css",
+    });
+    const sections = md.match(/^## .+$/gm) ?? [];
+    // A heading renamed without its entry in GUIDE_SECTIONS would lose its icon here.
+    expect(html.match(/<section class="paper card prose guide-card">/g)).toHaveLength(
+      sections.length,
+    );
+    expect(html.match(/class="guide-icon"/g)).toHaveLength(sections.length);
+    expect(html.match(/<section class="paper card prose guide-intro">/g)).toHaveLength(1);
+    // Every picture is drawn whole, with its name, and the page still loads no script.
+    expect(html).toContain("<span>Clay</span>");
+    expect(html).not.toMatch(/="(undefined|NaN)"|<script/);
+    expect(html.match(/Also as <a href="\/play.md">/g)).toHaveLength(1);
+  });
+
   it("renders the changelog with a heading per day, so entries can link to their day", () => {
     const html = staticPage({
       page: page("/changelog"),

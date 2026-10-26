@@ -48,7 +48,7 @@ export function watchSections(): void {
         side.scrollTop += row.top - box.top - box.height / 2;
       }
     }
-    if (here) here.textContent = lit?.textContent ?? "";
+    if (here) here.textContent = lit?.dataset.name ?? lit?.textContent ?? "";
   };
   const queue = () => {
     if (queued) return;

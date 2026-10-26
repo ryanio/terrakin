@@ -7,6 +7,7 @@ import {
   devlogPostMarkdown,
   devlogSitePage,
   homeJsonLd,
+  LINKS,
   PAGES,
   type SitePage,
 } from "@terrakin/protocol";
@@ -192,8 +193,12 @@ function sitePages(): Plugin {
       return apiPage(page.path, JSON.parse(file("packages/protocol/openapi.json")));
     return undefined;
   };
-  /** Every docs page, the skill file's too, loads the docs' one script (decision 0211). */
-  const hasDocsScript = (page: SitePage) => page.built !== undefined;
+  /**
+   * Every docs page, the skill file's too, and What's new load the docs' one script (decisions
+   * 0211 and 0376), which gives copy buttons and lights the section in view.
+   */
+  const hasDocsScript = (page: SitePage) =>
+    page.built !== undefined || page.path === LINKS.changelog;
   const read = (page: SitePage): string => {
     const docs = docsOf(page);
     if (docs) return pageMarkdown(docs);

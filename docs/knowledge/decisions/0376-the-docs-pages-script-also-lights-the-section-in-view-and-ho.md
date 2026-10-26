@@ -15,11 +15,12 @@ The static pages load no script and their policy forbids one (`STATIC_PAGE_POLIC
 
 ## Decision
 
-How to play lights its section with CSS alone: each card is a view timeline named by its place, and the stylesheet has room for 16 (`.guide-links` in `style.css`, held by `site-page.test.ts`). The docs pages' one script also runs `watchSections` (`src/docs-sections.ts`), which marks the link for the section in view `aria-current`, keeps it in sight in the pinned card, names it in the phone's menu, and closes that menu on a tap. Every docs page loads the script, the skill file's page included.
+How to play lights its section with CSS alone: each card is a view timeline named by its place, and the stylesheet has room for 16 (`.guide-links` in `style.css`, held by `site-page.test.ts`). The docs pages' one script also runs `watchSections` (`src/docs-sections.ts`), which marks the link for the section in view `aria-current`, keeps it in sight in the pinned card, names it in the phone's menu, and closes that menu on a tap. Every docs page loads the script, the skill file's page included, and so does What's new (`/changelog`), whose days already pass 16 and grow by one a day.
 
 ## Consequences
 
 - Without the script or the CSS feature the links still work; only the lit link is lost.
 - How to play past 16 sections needs more timeline rules in `style.css`; the test fails first.
 - The docs script is still one file bundled on its own (`docsCopyScript` in `vite.config.ts`), so the app's first load is unchanged.
+- What's new runs under the docs pages' policy, which allows that one script.
 - A docs page's body is a card per `##` section (`docsCards` in `src/site-page.ts`), Models a card per letter, and the pinned card takes the place of Step inside and the devlog's posts in the docs' sidebar.

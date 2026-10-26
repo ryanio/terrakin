@@ -103,7 +103,10 @@ test("the changelog page's links, feed, and API all work at phone size", async (
   await expect(
     page.getByRole("heading", { level: 1, name: "What's new in Terrakin" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2 }).first()).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
+  // A heading a day, its date in words, its id the date itself, which entries link to.
+  const day = page.getByRole("heading", { level: 2 }).first();
+  await expect(day).toHaveText(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/);
+  await expect(day).toHaveId(/^\d{4}-\d{2}-\d{2}$/);
   // Both feeds are linked from every static page, for feed readers to find.
   const feeds = page.locator('link[rel="alternate"][type="application/atom+xml"]');
   await expect(feeds).toHaveCount(2);

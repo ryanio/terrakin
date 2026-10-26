@@ -37,6 +37,16 @@ export function shortDate(t: number, nowMs?: number, timeZone?: string): string 
 }
 
 /** Full date and time for a title attribute, for example "Oct 4, 2026, 6:22 PM". */
+/** "October 23, 2026": a day written out in full, for a date over a page's section. */
+export function longDate(t: number, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    ...(timeZone ? { timeZone } : {}),
+  }).format(t);
+}
+
 export function fullDate(iso: string, timeZone?: string): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";

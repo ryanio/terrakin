@@ -21,6 +21,7 @@ import {
 import type { DocsPage, TocEntry } from "@terrakin/protocol/reference";
 import { CATALOG, type Glaze, type ItemKind } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
+import { longDate, plural, shortDate } from "@terrakin/ui/format";
 import { type IconName, iconSvg } from "@terrakin/ui/icons";
 import { thingArtMarkup } from "@terrakin/ui/item-art";
 import { inline, markdownToHtml, slug } from "./markdown";
@@ -225,15 +226,33 @@ function siteSideHtml(path: string, pinned?: string): string {
           </article>`;
 }
 
+/** A devlog post's first screenshot, from its body, for its card on /devlog. */
+const firstShot = (day: string): string | undefined =>
+  /!\[[^\]]*\]\((\/devlog\/images\/[^)\s]+)\)/.exec(
+    DEVLOG_POSTS.find((p) => p.date === day)?.body ?? "",
+  )?.[1];
+
 /**
- * The /devlog list with each post (its heading to the next one) in a `devlog-entry`, so the whole
- * entry opens the post. Pages without level-two headings come back unchanged.
+ * The /devlog list as a card per post, each with its first screenshot beside its words, the whole
+ * card opening the post. The page's own words and the footnote are the first card.
  */
-function devlogEntries(html: string): string {
-  return html.replace(
-    /<h2[\s\S]*?(?=<h2|$)/g,
-    (entry) => `<section class="devlog-entry">${entry}</section>`,
-  );
+function devlogCards(html: string, footnote: string): string {
+  const [intro = "", ...entries] = html.split(/(?=<h2 )/);
+  const cards = entries.map((entry) => {
+    const day = /href="\/devlog\/(\d{4}-\d{2}-\d{2})"/.exec(entry)?.[1];
+    const shot = day ? firstShot(day) : undefined;
+    const picture = shot
+      ? `<img class="devlog-shot" src="${attr(shot)}" alt="" loading="lazy" decoding="async" />`
+      : "";
+    return `<article class="paper card prose devlog-entry${shot ? " has-shot" : ""}">${picture}<div class="stack tight devlog-entry-words">${entry}</div></article>`;
+  });
+  return [
+    `<section class="paper card prose">
+${intro}
+              ${footnote}
+            </section>`,
+    ...cards,
+  ].join("\n            ");
 }
 
 // ---------- How to play ----------
@@ -433,6 +452,8 @@ function docsStartHtml(): string {
 interface DocsPlace {
   href: string;
   label: string;
+  /** What the phone's menu names it, when its label holds more than its name. */
+  name?: string;
 }
 
 /** The text of a rendered `##` heading, still escaped. */
@@ -487,7 +508,10 @@ const headingPlaces = (body: string): DocsPlace[] =>
 
 const placesList = (places: readonly DocsPlace[], letters: boolean) =>
   `<ul class="plain-list docs-onpage-list${letters ? " is-letters" : ""}">${places
-    .map((p) => `<li><a href="${attr(p.href)}">${p.label}</a></li>`)
+    .map(
+      (p) =>
+        `<li><a href="${attr(p.href)}"${p.name ? ` data-name="${attr(p.name)}"` : ""}>${p.label}</a></li>`,
+    )
     .join("")}</ul>`;
 
 /**
@@ -538,6 +562,7 @@ function docsNavs(
   places: readonly DocsPlace[],
   letters: boolean,
   path: string,
+  pages = true,
 ): { pinned: string; jump: string } {
   if (places.length === 0) return { pinned: "", jump: "" };
   const pinned = `<nav class="paper card side-pinned docs-onpage" aria-label="On this page">
@@ -547,14 +572,70 @@ function docsNavs(
   const jump = `<details class="docs-jump">
           <summary><span class="docs-jump-label">On this page</span><span class="docs-jump-here" data-here></span>${iconSvg("chevronDown")}</summary>
           <div class="docs-jump-panel stack">
-            ${placesList(places, letters)}
+            ${placesList(places, letters)}${
+              pages
+                ? `
             <div class="stack tight docs-jump-pages">
               <p class="eyebrow pulse-eyebrow">Docs</p>
               ${docsNavGroups(path)}
-            </div>
+            </div>`
+                : ""
+            }
           </div>
         </details>`;
   return { pinned, jump };
+}
+
+/** An entry's kind on What's new as a tinted pill: new things moss, changes sun, the rest clay or ink. */
+const CHANGE_TINT: Readonly<Record<string, string>> = {
+  Added: "moss",
+  Changed: "sun",
+  Deprecated: "sun",
+  Removed: "clay",
+  Security: "clay",
+  Fixed: "ink",
+};
+
+/**
+ * What's new as a card per day, under its date in words and how many changes it holds, each
+ * entry's kind a pill in place of its "Added:" (the heading's id, which links use, is unchanged),
+ * with the days in an "On this page" as the docs have it.
+ */
+function changelogView(
+  path: string,
+  source: string,
+  footnote: string,
+): { main: string; pinned: string; jump: string } {
+  const places: DocsPlace[] = [];
+  const body = markdownToHtml(source)
+    .split(/(?=<h2 )/)
+    .map((part) => {
+      const day = /^<h2 id="(\d{4}-\d{2}-\d{2})">[^<]*<\/h2>/.exec(part);
+      if (!day?.[1]) return part;
+      const changes = part.match(/<h3 /g)?.length ?? 0;
+      const count = plural(changes, "change", "changes");
+      const t = Date.parse(day[1]);
+      places.push({
+        href: `#${day[1]}`,
+        label: `${shortDate(t, undefined, "UTC")}<span class="changelog-nav-count" aria-label="${count}">${changes}</span>`,
+        name: longDate(t, "UTC"),
+      });
+      return part
+        .replace(
+          day[0],
+          `<h2 id="${day[1]}" class="changelog-day">${longDate(t, "UTC")}</h2><p class="changelog-count">${count}</p>`,
+        )
+        .replace(
+          /<h3 id="([^"]+)">(Added|Changed|Deprecated|Removed|Security|Fixed): /g,
+          (_, id: string, kind: string) =>
+            `<h3 id="${id}"><span class="kind-pill ${CHANGE_TINT[kind]}">${kind}</span> `,
+        );
+    })
+    .join("");
+  return {
+    main: docsCards(body, false, footnote),
+    ...docsNavs(places, false, path, false),
+  };
 }
 
 /**
@@ -593,7 +674,9 @@ export function staticPage(options: {
     ? docsView(page, options.docs, footnote)
     : isDocs(page.path)
       ? docsMarkdownView(page.path, source, footnote)
-      : undefined;
+      : page.path === LINKS.changelog
+        ? changelogView(page.path, source, footnote)
+        : undefined;
   const nav = [
     { href: "/", label: "Feed" },
     { href: "/world", label: "World" },
@@ -641,14 +724,20 @@ ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a
       </header>
       <main class="page-root">
         <div class="layout">
-          <article class="layout-main${docs || guideHtml ? " stack cards" : ""}">
+          <article class="layout-main${docs || guideHtml || page.path === LINKS.devlog ? " stack cards" : ""}">
             ${
               docs
                 ? docs.main
                 : guideHtml
                   ? guideCards(guideHtml, footnote)
-                  : `<div class="paper card prose">
-${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownToHtml(source, { headingLinks: isDocs(page.path) })}
+                  : page.path === LINKS.devlog
+                    ? devlogCards(markdownToHtml(source), footnote)
+                    : `<div class="paper card prose">${
+                        page.path === LINKS.about
+                          ? `\n              <img class="card-hero" src="/brand/x-banner.png" alt="" width="1500" height="500" decoding="async" />`
+                          : ""
+                      }
+${markdownToHtml(source)}
               ${footnote}
             </div>`
             }

@@ -4437,6 +4437,38 @@ a.btn-primary {
   margin-inline: 0;
 }
 
+/* What's new (site-page.ts changelogView): a day's date in words with how many changes it holds,
+   and each change a plain heading led by its kind as a pill. */
+/* How many changes a day holds, close under its date. */
+.prose .changelog-count {
+  margin-top: calc(-1 * var(--space-sm));
+  color: var(--ink-soft);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+.prose h3:has(> .kind-pill) {
+  margin-top: var(--space-lg);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+}
+
+.prose h3 > .kind-pill {
+  margin-inline-end: var(--space-2xs);
+  font-size: var(--text-sm);
+  vertical-align: 2px;
+}
+
+.changelog-nav-count {
+  margin-inline-start: auto;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The phone's "On this page": a row under the site bar that opens into the places and the pages. */
 .docs-jump {
   border-top: 1px solid rgba(220, 200, 165, 0.5);
@@ -4925,41 +4957,74 @@ a.btn-primary {
   }
 }
 
-/* ---------- the /devlog list: each post is one block that opens it ---------- */
+/* ---------- the /devlog list: a card per post, its first screenshot beside its words ---------- */
 
 .devlog-entry {
   position: relative;
-  display: grid;
-  gap: var(--space-sm);
-  margin-inline: calc(-1 * var(--space-md));
-  padding: var(--space-md);
-  border-radius: var(--r-md);
-  transition: background-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.devlog-entry:hover,
-.devlog-entry:focus-within {
-  background: var(--hover);
+.devlog-entry.has-shot {
+  grid-template-columns: calc(6 * var(--space-lg)) minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--space-lg);
+}
+
+@media (min-width: 640px) {
+  .devlog-entry.has-shot {
+    grid-template-columns: calc(9 * var(--space-lg)) minmax(0, 1fr);
+    column-gap: var(--space-xl);
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .devlog-entry:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* A phone's screen, cropped from the top to a shorter frame. */
+.devlog-shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--paper-2);
 }
 
 .devlog-entry h2 {
   margin: 0;
 }
 
-.devlog-entry > p:last-child a {
+/* The post's day, under its title. */
+.devlog-entry-words > p:has(> em:only-child) {
+  color: var(--ink-soft);
+  font-size: var(--text-md);
+}
+
+.devlog-entry-words > p:has(> em:only-child) em {
+  font-style: normal;
+}
+
+.devlog-entry-words > p:last-child a {
   font-weight: var(--weight-semibold);
   text-decoration: none;
 }
 
-/* The Read more link covers the whole entry, so a tap anywhere on it opens the post. */
-.devlog-entry > p:last-child a::after {
+/* The Read more link covers the whole card, so a tap anywhere on it opens the post. */
+.devlog-entry-words > p:last-child a::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
 }
 
-.devlog-entry > p:last-child a:focus-visible {
+.devlog-entry-words > p:last-child a:focus-visible {
   outline: none;
 }
 

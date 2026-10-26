@@ -243,16 +243,19 @@ describe("static pages", () => {
     expect(text.replace(/\s+/g, " ").length).toBeGreaterThan(1500);
   });
 
-  it("makes each post on /devlog one block that opens it, and leaves other pages alone", () => {
+  it("makes each post on /devlog a card that opens it, with its first screenshot", () => {
     const at = (path: string, md: string) =>
       staticPage({ page: page(path), source: md, lastUpdated: "2026-10-07", css: "/a.css" });
+    const [newest, older] = DEVLOG_POSTS;
     const devlog = at(
       "/devlog",
-      "# Devlog\n\nIntro.\n\n## Autumn\n\nLeaves.\n\n[Read more](/devlog/2026-10-06)\n\n## Pets\n\nA cat.\n\n[Read more](/devlog/2026-10-05)",
+      `# Devlog\n\nIntro.\n\n## ${newest?.title}\n\nLeaves.\n\n[Read more](/devlog/${newest?.date})\n\n## Pets\n\nA cat.\n\n[Read more](/devlog/${older?.date})`,
     );
-    expect(devlog).toContain('<p>Intro.</p>\n<section class="devlog-entry"><h2 id="autumn">');
-    expect(devlog.match(/<section class="devlog-entry">/g)).toHaveLength(2);
-    expect(devlog).toContain('<a href="/devlog/2026-10-05">Read more</a></p></section>');
+    expect(devlog.match(/<article class="paper card prose devlog-entry/g)).toHaveLength(2);
+    expect(devlog).toContain(`<a href="/devlog/${older?.date}">Read more</a></p></div></article>`);
+    // The newest post's card shows a screenshot from its own body.
+    const shot = /\]\((\/devlog\/images\/[^)]+)\)/.exec(newest?.body ?? "")?.[1];
+    expect(devlog).toContain(`<img class="devlog-shot" src="${shot}"`);
     expect(at("/about", "# About\n\n## Who\n\nUs.")).not.toContain("devlog-entry");
   });
 
@@ -292,11 +295,18 @@ describe("static pages", () => {
       css: "/assets/index.css",
     });
     expect(html).toContain('<h1 id="whats-new-in-terrakin">');
-    expect(html).toContain('<h2 id="2026-10-04">2026-10-04</h2>');
-    expect(html).toContain('<h2 id="2026-10-02">2026-10-02</h2>');
+    // A card a day, under its date in words, each change's kind a pill; the ids links use stay.
     expect(html).toMatch(
-      /<h3 id="added-a-changelog-for-agents">Added: A changelog for agents<\/h3>/,
+      /<h2 id="2026-10-04" class="changelog-day">October 4, 2026<\/h2><p class="changelog-count">\d+ changes?<\/p>/,
     );
+    expect(html).toContain('<h2 id="2026-10-02" class="changelog-day">October 2, 2026');
+    expect(html).toContain(
+      '<h3 id="added-a-changelog-for-agents"><span class="kind-pill moss">Added</span> A changelog for agents</h3>',
+    );
+    const days = source("changelog").match(/^## /gm)?.length ?? 0;
+    expect(html.match(/data-section="\d{4}-\d{2}-\d{2}"/g)).toHaveLength(days);
+    expect(html).toContain('<a href="#2026-10-04" data-name="October 4, 2026">');
+    expect(html).not.toMatch(/<h3 id="[^"]+">(Added|Changed|Fixed|Removed|Security|Deprecated):/);
   });
 
   it("gives every Markdown twin frontmatter: title, description, canonical, last-updated", () => {

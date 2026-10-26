@@ -42,6 +42,7 @@ import {
   needsListLine,
   stackCount,
   thingCount,
+  walkInWorld,
 } from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
@@ -384,7 +385,7 @@ export function shopView(ctx: ViewContext): View {
           ? h(
               "p",
               { class: "shop-away", attrs: { id: "shop-away" } },
-              h("span", { text: away }),
+              h("span", { text: walkInWorld(away, "to buy or sell") }),
               h("a", {
                 class: "pill-button small",
                 attrs: { href: "/world" },

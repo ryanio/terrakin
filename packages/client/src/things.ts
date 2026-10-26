@@ -118,6 +118,15 @@ function clayHeldLine(count: number): string {
 }
 
 /**
+ * The server's "you're not there" sentence (a shop's or a hall's `you.away`) for a person: its
+ * route, written as `move` calls for an agent, becomes a walk in the world to do `what` ("to buy
+ * or sell"). A sentence saying no walk gets there is already plain words and stays.
+ */
+export function walkInWorld(away: string, what: string): string {
+  return away.replace(/Walk (?:there|closer first): [^.]*\./, `Walk there in the world ${what}.`);
+}
+
+/**
  * Where wood and stone come from, in a person's words. The sim's own hint names the `gather` call,
  * which is for agents; a person taps what lies on the map or presses Gather all.
  */

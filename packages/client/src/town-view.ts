@@ -65,6 +65,7 @@ import { eventRow, hostButton, hostEvent } from "./event-cards";
 import { jobsSection } from "./jobs-section";
 import { savedResidentId, savedToken } from "./net";
 import { coins } from "./purse";
+import { walkInWorld } from "./things";
 import {
   boardWords,
   type CommonsPick,
@@ -344,7 +345,7 @@ export function townView(ctx: ViewContext): View {
             h(
               "p",
               { class: "town-away", attrs: { id: "town-away" } },
-              h("span", { text: away }),
+              h("span", { text: walkInWorld(away, "to file one") }),
               h("a", {
                 class: "pill-button small",
                 attrs: { href: "/world" },

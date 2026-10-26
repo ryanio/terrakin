@@ -44,6 +44,7 @@ import {
   thingCount,
   thingHereLine,
   toastMs,
+  walkInWorld,
   whereFromLine,
   worldProblem,
 } from "./things";
@@ -787,5 +788,22 @@ describe("where things come from", () => {
     for (const plain of ["wood", "stone", "glass", "leaf", "door"]) {
       expect(thingHereLine({ block: plain, owner: "Moss" }), plain).toBeNull();
     }
+  });
+});
+
+describe("walkInWorld, a place's away sentence for a person", () => {
+  it("swaps the agent's move calls for a walk in the world", () => {
+    expect(
+      walkInWorld(
+        "Clem serves at the counter. Walk there: move s 3 times, then move ne 3 times.",
+        "to buy or sell",
+      ),
+    ).toBe("Clem serves at the counter. Walk there in the world to buy or sell.");
+  });
+
+  it("keeps a sentence that already says no walk gets there", () => {
+    const shut =
+      "Clem serves at the counter. There's no walk from where you stand to the shop: walls close you in, or close it off. Take a wall away to open a way.";
+    expect(walkInWorld(shut, "to buy or sell")).toBe(shut);
   });
 });

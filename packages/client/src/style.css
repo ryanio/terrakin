@@ -6666,6 +6666,16 @@ a.btn-primary {
   margin: 0;
 }
 
+/* Your things: the count beside the heading, and each family a card, what it's for in smaller words. */
+.things-hold-head {
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.things-family-hint {
+  font-size: var(--text-md);
+}
+
 /* Shop art */
 .things-stack.has-art {
   gap: var(--space-xs);
@@ -6752,11 +6762,19 @@ a.btn-primary {
 
 .shop-item-3d {
   /* A link on its own line, so it gets a target of its own, not an inline link's. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   min-height: 32px;
   font-size: var(--text-md);
   color: var(--clay-deep);
+}
+
+/* Drawn 32px tall, it taps as 44, reaching past it above and below. */
+.shop-item-3d::after {
+  content: "";
+  position: absolute;
+  inset: calc((32px - 44px) / 2) 0;
 }
 
 .shop-buy {

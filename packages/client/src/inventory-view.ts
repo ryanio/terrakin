@@ -108,9 +108,8 @@ function familyGroup(
   const hint = familyHint(group.family);
   return h(
     "div",
-    { class: "stack tight things-family", attrs: { "data-family": group.family } },
+    { class: "paper card stack tight things-family", attrs: { "data-family": group.family } },
     h("h3", { class: "eyebrow", text: group.label }),
-    hint ? h("p", { class: "hint", text: hint }) : null,
     stacks.length > 0
       ? h(
           "ul",
@@ -126,6 +125,8 @@ function familyGroup(
         )
       : null,
     goods.length > 0 ? itemRows(goods.map(goodItem), { className: "things-goods" }) : null,
+    // What the family is for, under what you hold of it.
+    hint ? h("p", { class: "hint things-family-hint", text: hint }) : null,
   );
 }
 
@@ -335,8 +336,11 @@ function pieceCard(labelMax: number, made: () => void): HTMLElement {
 
 export function inventoryView(ctx: ViewContext): View {
   ctx.setTitle("Your things · Terrakin");
-  // What you hold in the main column; your garden, gifts, and making art beside it.
-  const { el, head, main, side } = pageLayout("things-page", "Your garden, gifts, and art");
+  // What you hold in the main column, and first on a phone; your garden, gifts, and making art
+  // beside it.
+  const { el, head, main, side } = pageLayout("things-page", "Your garden, gifts, and art", {
+    sideLast: true,
+  });
   head.append(h("h1", { class: "page-title", text: "Your things" }));
 
   if (!savedToken()) {
@@ -471,15 +475,20 @@ export function inventoryView(ctx: ViewContext): View {
       h(
         "section",
         { class: "stack things-section", attrs: { "aria-labelledby": "things-hold-title" } },
-        h("h2", {
-          class: "section-title",
-          attrs: { id: "things-hold-title" },
-          text: "What you hold",
-        }),
+        h(
+          "div",
+          { class: "cluster things-hold-head" },
+          h("h2", {
+            class: "section-title",
+            attrs: { id: "things-hold-title" },
+            text: "What you hold",
+          }),
+          h("span", { class: "hint", text: `${inv.size} of ${rules.inventoryMax} things` }),
+        ),
         inv.stacks.length + inv.goods.length > 0
           ? h(
               "div",
-              { class: "stack things-families" },
+              { class: "card-grid things-families" },
               ...byFamily(
                 [
                   ...inv.stacks.map((stack) => ({ kind: stack.kind, stack })),
@@ -507,7 +516,7 @@ export function inventoryView(ctx: ViewContext): View {
           : null,
         h("p", {
           class: "hint",
-          text: `${inv.size} of ${rules.inventoryMax} things. Give from someone's profile: up to ${rules.giveCap} a day. Only you see this page.`,
+          text: `Give from someone's profile: up to ${rules.giveCap} a day. Only you see this page.`,
         }),
         h(
           "a",

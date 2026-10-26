@@ -1338,14 +1338,14 @@ button.profile-avatar.editable:disabled {
 .profile-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--space-md) var(--space-xs);
   margin-top: var(--space-lg);
 }
 
 .profile-facts > * {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
+  min-height: 32px;
   margin: 0;
   padding: 0 var(--space-md);
   border-radius: var(--r-pill);
@@ -1424,19 +1424,23 @@ button.profile-avatar.editable:disabled {
  */
 
 .profile-facts > .profile-level {
-  position: relative;
   gap: var(--space-xs);
   color: var(--clay-deep);
   font-family: inherit;
   cursor: pointer;
 }
 
-/* A chip is 30px tall: the tap reaches 7px past it above and below, 44px in all. */
+/* A chip is 32px tall: a chip you can tap reaches 6px past it above and below (measured inside
+   its 1px border), 44px in all, which the 12px between rows leaves room for. */
 
-.profile-facts > .profile-level::after {
+.profile-facts > :is(a, button) {
+  position: relative;
+}
+
+.profile-facts > :is(a, button)::after {
   content: "";
   position: absolute;
-  inset: -7px 0;
+  inset: calc((32px - 44px) / 2 - 1px) 0;
 }
 
 .profile-facts > .profile-level .icon {

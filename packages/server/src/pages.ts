@@ -98,6 +98,17 @@ export const STAFF_SERVICE_HEADER = "x-terrakin-staff-service";
 /** The admin app is served on any host whose first label is `admin` (admin.terrakin.org, admin.localhost). */
 export const isAdminHost = (hostname: string) => hostname.toLowerCase().startsWith("admin.");
 
+/** The public site beside an admin host: the same origin without its `admin.` label. */
+export function publicOrigin(origin: string): string {
+  try {
+    const url = new URL(origin);
+    url.hostname = url.hostname.replace(/^admin\./i, "");
+    return url.origin;
+  } catch {
+    return origin;
+  }
+}
+
 /**
  * `/admin` on the main site moved to the admin host. The URL to send it to, or undefined. Both
  * adapters answer 302, not 301, so no browser caches the move before admin.terrakin.org is live.

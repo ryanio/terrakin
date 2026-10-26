@@ -102,7 +102,8 @@ import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { nearestTile, wayWords } from "./nearest";
 import { Connection, type Identity, savedToken, saveToken } from "./net";
-import { passkeyWhy, provePasskey } from "./passkey";
+import { passkeysWork, passkeyWhy, provePasskey } from "./passkey";
+import { type PasskeyMoment, passkeyMoment } from "./passkey-words";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled, walkLine } from "./pets";
 import { coins } from "./purse";
@@ -423,14 +424,17 @@ const landing = createLanding(curtain, {
     connect({ token: key });
     return null;
   },
-  async onSignin() {
+  async onSignin(how) {
+    // From the suggestions, nothing is said until someone has picked a passkey: a refused or
+    // abandoned request in the background is nobody's attempt.
     const options = await signinApi.begin();
-    if (!options.ok) return options.message;
+    if (!options.ok) return how ? null : options.message;
+    if (how?.signal.aborted) return null;
     let proof: Awaited<ReturnType<typeof provePasskey>>;
     try {
-      proof = await provePasskey(options.data);
+      proof = await provePasskey(options.data, how ?? {});
     } catch (error) {
-      return passkeyWhy(error);
+      return how ? null : passkeyWhy(error);
     }
     const session = await signinApi.finish(proof);
     if (!session.ok) return session.message;
@@ -444,6 +448,17 @@ const landing = createLanding(curtain, {
     return null;
   },
 });
+
+/**
+ * Offer a person a passkey at `moment`, if the rule says to (`passkey-ask.ts`). Its code loads only
+ * then, since most moments pass without asking.
+ */
+function offerPasskey(moment: PasskeyMoment) {
+  const id = me;
+  const kind = id ? mirror?.residents.get(id)?.kind : undefined;
+  if (!id || kind !== "human") return;
+  void import("./passkey-ask").then((m) => m.askForPasskey({ me: id, kind, moment }));
+}
 
 /** Leave the landing for the world: lift the curtain and bring the world into focus. */
 function enterWorld(instant = false) {
@@ -508,11 +523,11 @@ function joinRefused(code: string, message: string, free?: readonly string[]) {
   conn?.close();
   conn = undefined;
   landing.setJoining(false);
-  landing.setError(joinProblem(code, message, free?.length ?? 0), free);
-  // A taken name may be your own character from another browser: the way back is the key.
+  landing.setError(joinProblem(code, message, free?.length ?? 0, passkeysWork()), free);
+  // A taken name may be your own character from another browser: the way back is a passkey.
   if (code === "name_taken") {
     landing.nameTaken();
-    landing.openRestore();
+    landing.offerSignin();
   }
   if (code === "invalid_profile") landing.focusNote();
   else landing.focusName();
@@ -625,6 +640,8 @@ function onMessage(msg: ServerMessage) {
       }
       void loadHoldings();
       sound.enter();
+      // Just in, as a person: the passkey sheet, once (RFC 0037, decision 0377).
+      if (fresh) offerPasskey("joined");
       break;
     }
     case "gesture":
@@ -710,6 +727,10 @@ function onMessage(msg: ServerMessage) {
         bursts = [...bursts, { x, y, color, at: performance.now() }].slice(-BURSTS_MAX);
       }
       if (applied === "applied") levels.heard(msg.seq, msg.event, me, performance.now());
+      // A plot, a hearth, a first level-up: more to lose, so the passkey offer comes back, at
+      // most once a day and after any sheet the moment opened (decision 0377).
+      const moment = applied === "applied" && me ? passkeyMoment(msg.event, me) : undefined;
+      if (moment) offerPasskey(moment);
       // After the coins and things a deed brought, so a job it moved joins their line.
       const heardJob = applied === "applied" ? msg.event : undefined;
       // Your own news, in plain words. Notes and labels stay out of it; a lesson names its teacher
@@ -2695,6 +2716,8 @@ export function startWorld(
     }
     void resync();
     watchPopulation();
+    // A passkey saved here shows among the name field's suggestions.
+    landing.autofill();
   }
 }
 
@@ -2709,6 +2732,7 @@ export function stopWorld() {
   sound.leave();
   stopPopulation?.();
   stopPopulation = undefined;
+  landing.pause();
   conn?.close();
   conn = undefined;
   me = undefined;

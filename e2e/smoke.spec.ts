@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, SMOKE_STEPS, tapTile, watchErrors } from "./support";
+import { join, SMOKE_STEPS, skipPasskey, tapTile, watchErrors } from "./support";
 
 // Default world: spawn (36,36) is inside the Commons (tiles 32..39), so SMOKE_STEPS (5) steps west
 // and north reach plot (3,3), which `freePlots` never hands another spec (`walkedOnto`). See
@@ -23,6 +23,16 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await expect(page.locator("#join-look")).not.toHaveAttribute("open", "");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
+
+  await test.step("the passkey sheet comes once, on the way in, and Skip puts it away", async () => {
+    // Decision 0377: offered before there is anything to lose, with one tap to the device's own
+    // sheet and a plain Skip. It stays away for a day, so claiming her plot below asks nothing.
+    await expect(page.locator("#passkey-ask-title")).toHaveText(
+      "Keep your character on any device",
+    );
+    await expect(page.locator("#passkey-ask-add")).toBeVisible();
+    await skipPasskey(page);
+  });
 
   await test.step("with no plot yet, the world shows only walking, Claim plot, and Chat", async () => {
     // Decision 0234: the rest of the controls wait for a plot.
@@ -217,16 +227,16 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await expect(page.locator("#hud")).toBeHidden();
   });
 
-  await test.step("a taken name offers free ones to tap, and opens Restore with a key", async () => {
+  await test.step("a taken name offers free ones to tap, and a way to sign in as her", async () => {
     await join(page.request, "Marigold");
     await page.fill("#join-name", "marigold");
     await page.click("#world-join button[type=submit]");
     await expect(page.locator("#join-error")).toHaveText(
-      "Someone here already goes by that name. Tap a free one below, or pick your own. If it's yours, restore it with your key.",
+      "Someone here already goes by that name. Tap a free one below, or pick your own. If that's you, sign in with your passkey.",
     );
     // Built from the held name, so a sloppy try gets properly spelled names back (decision 0302).
     await expect(page.locator("#join-free button").first()).toHaveText("Marigold 2");
-    await expect(page.locator("#restore")).toHaveAttribute("open", "");
+    await expect(page.locator("#join-signin")).toHaveText("Sign in with your passkey");
     await expect(page.locator("#hud")).toBeHidden();
     // Tapping one is the whole way out of the dead end: it fills the field and clears the refusal.
     await page.locator("#join-free button").first().click();

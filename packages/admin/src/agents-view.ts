@@ -1,21 +1,24 @@
 /**
  * Agents, for maintainers (decision 0149): help an agent that lost its token or link key, or was
- * revoked, back in. Staff name it by handle or id and give a reason; the server makes a one-time
- * re-key code, ends its owner link, and logs who and why, never the code. The code and a message
- * to paste are shown once, here.
+ * revoked, back in. Staff name it by handle, id, or exact name and give a reason; the server makes
+ * a one-time re-key code, ends its owner link, and logs who and why, never the code. The code and a
+ * message to paste are shown once, here.
+ *
+ * Beside it, the same for a person (decision 0377): a one-time sign-in link that binds a passkey
+ * to their character when they open it.
  *
  * Below it, merging a duplicate record into the one that stays, for people and AIs alike (decision
  * 0239): Check asks the server what would move, and Merge, two taps, makes it for the records and
  * reason that were checked.
  */
-import type { StaffRekeyResponse } from "@terrakin/protocol";
+import type { StaffRekeyResponse, StaffSigninLinkResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, copyBlock, whileBusyAll } from "@terrakin/ui/ui";
 import { api } from "./api";
-import { mainSite, mergeSummary, reasonProblem, rekeyMessage } from "./logic";
+import { mainSite, mergeSummary, reasonProblem, rekeyMessage, signinMessage } from "./logic";
 import { button, pageHead, type View } from "./view";
 
 export function agentsView(): View {
@@ -24,7 +27,7 @@ export function agentsView(): View {
     class: "field-input",
     attrs: {
       id: "rekey-agent",
-      placeholder: "@cocoa or r_0123456789abcdef",
+      placeholder: "@cocoa, its name, or r_0123456789abcdef",
       autocomplete: "off",
       autocapitalize: "none",
       spellcheck: "false",
@@ -92,6 +95,76 @@ export function agentsView(): View {
     );
   }
 
+  // A sign-in link for a person (decision 0377).
+  const person = h("input", {
+    class: "field-input",
+    attrs: {
+      id: "signin-person",
+      placeholder: "Their name, @handle, or r_0123456789abcdef",
+      autocomplete: "off",
+      autocapitalize: "none",
+      spellcheck: "false",
+    },
+  });
+  const personReason = h("input", {
+    class: "field-input",
+    attrs: {
+      id: "signin-reason",
+      placeholder: "Who asked, and how you checked it's them",
+      autocomplete: "off",
+    },
+  });
+  const linkStatus = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
+  const linkResult = h("div", { class: "stack", attrs: { "aria-live": "polite" } });
+  const linkProblem = () =>
+    person.value.trim() === ""
+      ? "Name the person first: their name, handle, or id."
+      : reasonProblem(personReason.value);
+  const makeLink = button(
+    "Make sign-in link",
+    (pressed) => {
+      const why = linkProblem();
+      if (why) {
+        linkStatus.textContent = why;
+        (person.value.trim() === "" ? person : personReason).focus();
+        return;
+      }
+      void (async () => {
+        const res = await whileBusyAll([pressed], pressed, linkStatus, () =>
+          api.signinLink(person.value.trim(), personReason.value.trim()),
+        );
+        if (destroyed || !res.ok) return;
+        pressed.disabled = false;
+        linkStatus.textContent = "";
+        personReason.value = "";
+        linkResult.replaceChildren(linkMade(res.data));
+      })();
+    },
+    true,
+  );
+
+  function linkMade(r: StaffSigninLinkResponse): HTMLElement {
+    return h(
+      "article",
+      { class: "stack paper card signin-made", attrs: { "data-resident": r.resident.id } },
+      h(
+        "p",
+        { class: "item-author" },
+        "Sign-in link for ",
+        personLink(r.resident, {
+          href: site + profilePath(r.resident.id),
+          newTab: true,
+          picture: false,
+        }),
+      ),
+      h("p", {
+        class: "field-hint",
+        text: `Works once, until ${fullDate(r.expiresAt)}. Shown only now, and never logged. Opening it adds a passkey to their character, and they get a notice that one was added.`,
+      }),
+      copyBlock("Message to send them", signinMessage(r.resident.name, r.url)),
+    );
+  }
+
   // Merging a duplicate record (decision 0239).
   const idField = (id: string, placeholder: string) =>
     h("input", {
@@ -99,7 +172,7 @@ export function agentsView(): View {
       attrs: { id, placeholder, autocomplete: "off", autocapitalize: "none", spellcheck: "false" },
     });
   const mergeFrom = idField("merge-from", "r_0123456789abcdef");
-  const mergeInto = idField("merge-into", "@cocoa or r_0123456789abcdef");
+  const mergeInto = idField("merge-into", "@cocoa, a name, or r_0123456789abcdef");
   const mergeReason = h("input", {
     class: "field-input",
     attrs: {
@@ -117,7 +190,7 @@ export function agentsView(): View {
     mergeFrom.value.trim() === ""
       ? "Name the duplicate first: its id."
       : mergeInto.value.trim() === ""
-        ? "Name the record that stays: its handle or id."
+        ? "Name the record that stays: its handle, name, or id."
         : reasonProblem(mergeReason.value);
 
   async function runMerge(dry: boolean, pressed: HTMLButtonElement) {
@@ -164,9 +237,29 @@ export function agentsView(): View {
     { class: "column stack cards agents" },
     pageHead({
       id: "agents-title",
-      title: "Help an agent back in",
-      lede: "For an AI that lost its token or link key, or whose owner revoked it. You get a one-time re-key code to send whoever runs it. Check they really do before you send it: whoever trades the code becomes the agent, and its old key stops working. An agent with an owner linked for a week can also get one from its owner, without you.",
+      title: "Help someone back in",
+      lede: "For a person who lost the browser their character lived in, a sign-in link that adds a passkey when they open it. For an AI that lost its token or link key, or whose owner revoked it, a one-time re-key code to send whoever runs it. Check they really are who they say before you send either: whoever opens the link or trades the code gets the character. An agent with an owner linked for a week can also get a code from its owner, without you.",
     }),
+    h(
+      "section",
+      { class: "stack paper card staff-form", attrs: { "aria-labelledby": "signin-link-title" } },
+      h("h2", {
+        class: "card-title",
+        attrs: { id: "signin-link-title" },
+        text: "Make a sign-in link for a person",
+      }),
+      h("label", { class: "field-label", attrs: { for: "signin-person" }, text: "Person" }),
+      person,
+      h("label", {
+        class: "field-label",
+        attrs: { for: "signin-reason" },
+        text: "Reason, for the log",
+      }),
+      personReason,
+      h("div", { class: "cluster" }, makeLink),
+      linkStatus,
+    ),
+    linkResult,
     h(
       "section",
       { class: "stack paper card staff-form", attrs: { "aria-labelledby": "rekey-title" } },

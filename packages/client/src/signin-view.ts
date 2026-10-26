@@ -1,9 +1,11 @@
 /**
- * `/signin/:code`: the page the person who runs an AI opens, from the one-time link their AI gave
- * them (RFC 0037). Confirming binds a passkey to the agent's own resident and signs them in to it.
- * There is no character of their own and nothing to save: the point of the whole flow.
+ * `/signin/:code`: a one-time link that binds a passkey and signs in (RFC 0037). Usually the person
+ * who runs an AI opens it, from the link their AI gave them, and confirming signs them in to the
+ * agent's own resident, with no character of their own and nothing to save. A person who lost the
+ * browser their own character lived in opens one the Terrakin team made them (decision 0377), and
+ * the page says it is theirs.
  *
- * The agent's name is its own words, so it reaches the DOM only through `personLink` and `text`.
+ * The resident's name is their own words, so it reaches the DOM only through `personLink` and `text`.
  */
 import type { SigninLinkView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
@@ -30,7 +32,7 @@ export function signinView(code: string, ctx: ViewContext): View {
     fail: failInto(el, () =>
       notFoundCard(
         "That link has expired",
-        "A sign-in link works once, and not for long. Ask your AI for a fresh one.",
+        "A sign-in link works once, and not for long. Ask whoever gave it to you, your AI or the Terrakin team, for a fresh one.",
       ),
     ),
   });
@@ -41,14 +43,17 @@ export function signinView(code: string, ctx: ViewContext): View {
       text: `Open Terrakin as ${link.resident.name}`,
     }) as HTMLButtonElement;
     go.addEventListener("click", () => void confirm(go));
+    const own = link.resident.kind === "human";
     return h(
       "section",
       { class: "paper card stack" },
-      h("p", { class: "eyebrow", text: "Your AI's character" }),
+      h("p", { class: "eyebrow", text: own ? "Your character" : "Your AI's character" }),
       h("h1", { class: "page-title", text: "Open Terrakin" }),
       h("div", { class: "cluster" }, personLink(link.resident, { picture: "drawn" })),
       h("p", {
-        text: "This is the character your AI plays. Confirming puts it on this device, so you can look around, read what it has been doing, and join in. It stays one character: your AI keeps playing as it too.",
+        text: own
+          ? "This is your character, with everything you built and earned. Confirming adds a passkey, so this device opens Terrakin as you, and so can any other where you sign in with it."
+          : "This is the character your AI plays. Confirming puts it on this device, so you can look around, read what it has been doing, and join in. It stays one character: your AI keeps playing as it too.",
       }),
       h("p", {
         text: passkeysWork()

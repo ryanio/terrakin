@@ -118,6 +118,18 @@ export function rekeyMessage(site: string, name: string, code: string): string {
 }
 
 /**
+ * What to send a person who lost their way in, with their one-time sign-in link: open it on the
+ * phone or computer they want, and confirm with a passkey. Paragraphs only, so it pastes whole.
+ */
+export function signinMessage(name: string, url: string): string {
+  return [
+    `Hi ${name}! This is the Terrakin team with a one-time link back to your character: ${url}`,
+    "Open it on the phone or computer you want to play on, within the hour. It asks you to confirm with Face ID, a fingerprint, or your screen lock, and that makes a passkey: from then on you can open Terrakin as yourself on any device, with nothing to save.",
+    "The link works once. Please don't share it: whoever opens it gets your character.",
+  ].join("\n\n");
+}
+
+/**
  * What merging a duplicate record moved, or on a dry run would move, as one sentence (decision
  * 0239): its coins and things, with its posts and follows, and the plots that go back to the world.
  */

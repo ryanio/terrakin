@@ -102,8 +102,31 @@ export async function makePasskey(options: PasskeyCreationOptions) {
   };
 }
 
-/** Prove a passkey this browser already holds, as the API wants it back. */
-export async function provePasskey(options: PasskeyRequestOptions) {
+/**
+ * Whether this browser can offer a saved passkey among its own suggestions on a field marked
+ * `autocomplete="username webauthn"` (WebAuthn's conditional mediation).
+ */
+export async function passkeyAutofillWorks(): Promise<boolean> {
+  if (!passkeysWork()) return false;
+  const can = (
+    PublicKeyCredential as unknown as { isConditionalMediationAvailable?: () => Promise<boolean> }
+  ).isConditionalMediationAvailable;
+  try {
+    return typeof can === "function" ? await can.call(PublicKeyCredential) : false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prove a passkey this browser already holds, as the API wants it back. With `autofill`, the
+ * browser asks nobody until someone picks a passkey from its suggestions, and `signal` takes the
+ * request back (a browser holds one at a time).
+ */
+export async function provePasskey(
+  options: PasskeyRequestOptions,
+  how: { autofill?: boolean; signal?: AbortSignal } = {},
+) {
   if (!passkeysWork()) throw new PasskeyError("unsupported");
   let credential: Credential | null;
   try {
@@ -114,6 +137,8 @@ export async function provePasskey(options: PasskeyRequestOptions) {
         userVerification: "required",
         timeout: options.timeoutMs,
       },
+      ...(how.autofill ? { mediation: "conditional" as CredentialMediationRequirement } : {}),
+      ...(how.signal ? { signal: how.signal } : {}),
     });
   } catch (error) {
     throw new PasskeyError(failureOf(error));

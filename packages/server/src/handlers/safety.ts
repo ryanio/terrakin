@@ -33,15 +33,17 @@ import { eventView } from "../events";
 import { madeThingForReport } from "../galleries";
 import { DEFAULT_ORIGIN } from "../links";
 import { handleHolders, newcomerFunnel, socialActors, thingHolders } from "../newcomers";
+import { publicOrigin } from "../pages";
 import { shutHomes, walksOutWithout } from "../shut-homes";
 import { reportable, type SnapshotHeader } from "../snapshots";
 import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
-import { cleanText } from "../text";
+import { cleanText, nameKey } from "../text";
 import { planWays } from "../way-plan";
 import { WayNotices, wayClose, wayConflicts, wayFactsFrom, wayInputs } from "../ways";
 import {
   DAILY_CAP_RETRY_SECONDS,
+  type Failure,
   fail,
   type Handlers,
   logged,
@@ -51,6 +53,9 @@ import {
   worldStaffId,
 } from "./shared";
 
+/** What a staff route says when the resident it was given matches nobody. */
+const NOBODY = "Nobody has that handle, id, or name.";
+
 /**
  * The handlers for safety and staff: reports, transparency, review, moderation, bounties, events,
  * and world snapshots. Their routes are in the protocol's `route-table/safety.ts`.
@@ -58,6 +63,46 @@ import {
 export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]> {
   const { service } = api;
   const social = () => api.requireSocial();
+
+  /**
+   * The resident a staff route names: a resident id, a handle with or without its `@`, or failing
+   * both, the exact name, compared the way a join compares names (`nameKey`). Many people have no
+   * handle, and their name is all they can tell staff. Names are unique at join, but records from
+   * before that can share one, so several matches are listed by id rather than one picked.
+   */
+  const findResident = (asked: string): { id: string } | { problem: Failure } => {
+    const text = asked.trim();
+    if (/^r_[0-9a-f]+$/.test(text)) {
+      return social().ref(text) ? { id: text } : { problem: fail("not_found", NOBODY) };
+    }
+    const handle = text.startsWith("@");
+    const byHandleId = social().residentIdByHandle(text.replace(/^@/, ""));
+    const byHandle = byHandleId && social().ref(byHandleId) ? byHandleId : undefined;
+    // With its `@` it can only be a handle.
+    if (handle && byHandle) return { id: byHandle };
+    const key = nameKey(text.replace(/^@/, ""));
+    const named = Object.values(service.state.residents).filter((r) => nameKey(r.name) === key);
+    // Without it, a handle and someone else's name can both fit, and neither wins quietly: a
+    // link minted for the wrong one is a way into their character.
+    const fits = [
+      ...(byHandle ? [{ id: byHandle, by: "the handle" }] : []),
+      ...named.filter((r) => r.id !== byHandle).map((r) => ({ id: r.id, by: "the name" })),
+    ];
+    const [only, ...more] = fits;
+    if (!only) return { problem: fail("not_found", NOBODY) };
+    if (more.length === 0) return { id: only.id };
+    const ids = fits.map((f) => {
+      const kind = service.state.residents[f.id]?.kind === "agent" ? "an AI" : "a person";
+      return `${f.id} (${kind}, by ${f.by})`;
+    });
+    return {
+      problem: fail(
+        "bad_request",
+        `${fits.length} residents fit that: ${ids.join(", ")}. Name one by its id, or a handle with its @.`,
+      ),
+    };
+  };
+
   return {
     createReport: ({ viewer, body }) => {
       const filed = social().safety.report(viewer, body);
@@ -457,16 +502,52 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     // log keeps who, which agent, and why, never the code.
     createStaffRekeyCode: ({ viewer, body }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
-      const asked = body.agent.replace(/^@/, "");
-      const agentId = /^r_[0-9a-f]+$/.test(asked) ? asked : social().residentIdByHandle(asked);
-      const agent = agentId ? social().ref(agentId) : undefined;
-      if (!agentId || !agent) return fail("not_found", "Nobody has that handle or id.");
+      const found = findResident(body.agent);
+      if ("problem" in found) return found.problem;
+      const agentId = found.id;
+      const agent = social().ref(agentId);
+      if (!agent) return fail("not_found", NOBODY);
+      // A person has no key to re-key: their way back in is a sign-in link.
+      if (agent.kind === "human" && !agent.townsfolk) {
+        return fail(
+          "not_found",
+          `${agent.name} is a person, not an AI. Make them a sign-in link with POST /v1/admin/signin-links instead.`,
+        );
+      }
       const made = api.requireOwners().teamRekey(agentId, viewer);
       if (!made.ok) return fail(made.code, made.message);
       social().safety.recordNote(viewer, "rekey_agent", "resident", agentId, body.reason);
       return {
         status: 201,
         body: { agent, ...made.value.code, unlinked: made.value.unlinked },
+      };
+    },
+    // A person who lost their way in (a cleared browser, a lost phone) gets the same one-time link
+    // an agent makes for its person. Opening it binds a passkey; the log keeps who and why, never
+    // the link, and the person hears from Terrakin that a passkey was added.
+    createStaffSigninLink: ({ viewer, body, origin }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const found = findResident(body.resident);
+      if ("problem" in found) return found.problem;
+      const resident = social().ref(found.id);
+      if (!resident || resident.townsfolk) return fail("not_found", NOBODY);
+      if (resident.kind === "agent") {
+        return fail(
+          "bad_request",
+          `${resident.name} is an AI. Make it a re-key code with POST /v1/admin/rekey-codes. The person who runs it gets a sign-in link from the AI itself, with POST /v1/signin-links.`,
+        );
+      }
+      const made = api.requireClaims().makeLink(resident.id);
+      if (!made.ok) return fail(made.code, made.message);
+      social().safety.recordNote(viewer, "signin_link", "resident", resident.id, body.reason);
+      return {
+        status: 201,
+        body: {
+          resident,
+          path: made.value.path,
+          url: `${publicOrigin(origin)}${made.value.path}`,
+          expiresAt: made.value.expiresAt,
+        },
       };
     },
     // Homes nobody can walk out of (decision 0343), read with the sim's own walk.
@@ -585,11 +666,11 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
     // read before the merge, which takes the duplicate out of the world.
     mergeResident: ({ viewer, params, body }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
-      const asked = body.into.replace(/^@/, "");
-      const intoId = /^r_[0-9a-f]+$/.test(asked) ? asked : social().residentIdByHandle(asked);
+      const found = findResident(body.into);
+      if ("problem" in found) return found.problem;
       const from = social().ref(params.id);
-      const into = intoId ? social().ref(intoId) : undefined;
-      if (!from || !into) return fail("not_found", "Nobody has that handle or id.");
+      const into = social().ref(found.id);
+      if (!from || !into) return fail("not_found", NOBODY);
       const { state } = service;
       const moves = {
         coins: own(state.economy?.coins, from.id) ?? 0,

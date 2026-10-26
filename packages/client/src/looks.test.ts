@@ -471,6 +471,10 @@ describe("the join form's refusals", () => {
       "Another resident already goes by that name. Pick another name. If that resident is you, keep using your saved token or link key";
     expect(joinProblem("name_taken", api)).toBe(NAME_TAKEN_LINE);
     expect(NAME_TAKEN_LINE).not.toMatch(/token|link key|API/i);
+    // The way back to your own character is your passkey, or where this browser can't use one,
+    // the key it was made with; with free names offered, the line points at them first.
+    expect(joinProblem("name_taken", api, 0, false)).toContain("restore it with your key");
+    expect(joinProblem("name_taken", api, 2)).toMatch(/^.*Tap a free one below.*passkey\.$/);
     expect(joinProblem("invalid_name", "A name must be 1 to 24 characters.")).toBe(
       "A name must be 1 to 24 characters.",
     );

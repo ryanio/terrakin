@@ -27,6 +27,7 @@ import {
   StaffKeysResponse,
   StaffMergeResponse,
   StaffRekeyResponse,
+  StaffSigninLinkResponse,
   TownsfolkActivityResponse,
 } from "@terrakin/protocol";
 import { makeRequest, query, type Result } from "@terrakin/ui/http";
@@ -132,6 +133,8 @@ export const api = {
     request("POST", path("/v1/admin/keys/{id}/revoke", id), StaffKeyResponse, {}),
   rekeyCode: (agent: string, reason: string) =>
     request("POST", "/v1/admin/rekey-codes", StaffRekeyResponse, { agent, reason }),
+  signinLink: (resident: string, reason: string) =>
+    request("POST", "/v1/admin/signin-links", StaffSigninLinkResponse, { resident, reason }),
   mergeResident: (from: string, into: string, reason: string, dry: boolean) =>
     request("POST", path("/v1/admin/residents/{id}/merge", from), StaffMergeResponse, {
       into,

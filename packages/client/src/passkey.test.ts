@@ -4,7 +4,15 @@
  * what a person reads and when they're asked.
  */
 import { describe, expect, it } from "vitest";
-import { offerPasskey, passkeyLines, passkeyNoticeLine, signinSummary } from "./passkey-words";
+import {
+  ASK_AGAIN_MS,
+  offerPasskey,
+  passkeyAskLine,
+  passkeyLines,
+  passkeyMoment,
+  passkeyNoticeLine,
+  signinSummary,
+} from "./passkey-words";
 
 const NOW = Date.UTC(2026, 9, 19, 12);
 const lines = (claim: { boundAt: string; usedAt?: string; thisSession?: true }) =>
@@ -64,19 +72,53 @@ describe("both notices from Terrakin", () => {
   });
 });
 
-describe("who the home wall offers a passkey to", () => {
-  const person = { kind: "human" as const, settled: true, passkeys: 0, works: true, hidden: false };
+describe("when a person is offered a passkey", () => {
+  const NOW = Date.UTC(2026, 9, 26, 12);
+  const person = {
+    kind: "human" as const,
+    passkeys: 0,
+    works: true,
+    askedAt: undefined,
+    nowMs: NOW,
+  };
 
-  it("is a person with a plot, no passkey, a browser that can, and no answer yet", () => {
+  it("is a person with no passkey, a browser that can, and no ask within the day", () => {
+    // On the way in, before anything is lost (decision 0377).
     expect(offerPasskey(person)).toBe(true);
-    // Not on the way in: a plot claimed is the first thing there is to lose (RFC 0037).
-    expect(offerPasskey({ ...person, settled: false })).toBe(false);
     // An AI's character already has one, bound by the link that let its person in.
     expect(offerPasskey({ ...person, kind: "agent" })).toBe(false);
     expect(offerPasskey({ ...person, passkeys: 1 })).toBe(false);
     // Offered and refused is worse than not offered, so a browser that can't never sees it.
     expect(offerPasskey({ ...person, works: false })).toBe(false);
-    // One prompt: this device said no, or yes, and Signing in is the way back to it.
-    expect(offerPasskey({ ...person, hidden: true })).toBe(false);
+  });
+
+  it("comes back a day after this device last asked, and never sooner", () => {
+    expect(offerPasskey({ ...person, askedAt: NOW - ASK_AGAIN_MS + 60_000 })).toBe(false);
+    expect(offerPasskey({ ...person, askedAt: NOW - ASK_AGAIN_MS })).toBe(true);
+    // An answer from when one "Not now" was for good reads as long ago, so it comes back.
+    expect(offerPasskey({ ...person, askedAt: 0 })).toBe(true);
+  });
+});
+
+describe("the moments the world asks again", () => {
+  const me = "r_me";
+  it("are your plot, your hearth, and your first level, never anyone else's", () => {
+    expect(passkeyMoment({ type: "plot_claimed", px: 1, py: 2, ownerId: me }, me)).toBe("plot");
+    expect(passkeyMoment({ type: "hearth_set", residentId: me, x: 1, y: 2 }, me)).toBe("hearth");
+    expect(passkeyMoment({ type: "level_reached", residentId: me, level: 2 }, me)).toBe("level");
+    // A skill's level, a later level, and someone else's moments pass by.
+    expect(
+      passkeyMoment({ type: "level_reached", residentId: me, skill: "growing", level: 2 }, me),
+    ).toBeUndefined();
+    expect(passkeyMoment({ type: "level_reached", residentId: me, level: 3 }, me)).toBeUndefined();
+    expect(
+      passkeyMoment({ type: "plot_claimed", px: 1, py: 2, ownerId: "r_other" }, me),
+    ).toBeUndefined();
+  });
+
+  it("each say why now", () => {
+    const lines = (["joined", "plot", "hearth", "level"] as const).map(passkeyAskLine);
+    expect(new Set(lines).size).toBe(4);
+    for (const line of lines) expect(line).toContain("Face ID");
   });
 });

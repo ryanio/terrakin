@@ -98,7 +98,7 @@ export const SIGNIN_ROUTES = [
     tags: ["Owners"],
     responses: { 200: json(PasskeyRequestOptions) },
     errors: ["rate_limited"],
-    rateLimit: "signin",
+    rateLimit: "signinBegin",
     limits: [ceremonyLife],
   },
   {

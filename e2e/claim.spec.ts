@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { walkedOnto, watchErrors } from "./support";
+import { skipPasskey, walkedOnto, watchErrors } from "./support";
 
 /**
  * A newcomer's way home on a phone: the d-pad saying what's in the way, Claim plot in the Commons
@@ -16,6 +16,7 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
   await page.fill("#join-name", "Linden");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
+  await skipPasskey(page);
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
     .toMatch(/^r_/);

@@ -454,6 +454,7 @@ export class Api {
       owner: bucket("owner"),
       ownerCodes: bucket("ownerCodes"),
       signin: bucket("signin"),
+      signinBegin: bucket("signinBegin"),
       reports: bucket("reports"),
       photos: bucket("photos"),
       photosIp: bucket("photosIp"),

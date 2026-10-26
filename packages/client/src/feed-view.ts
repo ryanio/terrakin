@@ -676,9 +676,9 @@ export function feedView(ctx: ViewContext): View {
             if (card) composerSlot.before(card);
           });
         }),
-      // The one passkey prompt (RFC 0037), under the composer, for a person with a plot and no
-      // passkey yet. It asks the server only while that could be true of them, and once this
-      // device has answered it asks nothing at all.
+      // The passkey card (RFC 0037), under the composer, for a person with no passkey yet. It asks
+      // the server at most once a day per device, since an answer either way, or a passkey found
+      // bound, sets the same clock the offer keeps.
       import("./passkey-prompt")
         .then((m) => m.passkeyPrompt(me))
         .then((card) => {

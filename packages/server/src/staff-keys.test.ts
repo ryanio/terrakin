@@ -94,8 +94,8 @@ function town() {
     return made.body as { key: Json; secret: string };
   }
 
-  async function agent(name: string) {
-    const joined = await call("POST", "/v1/session", {}, { name, kind: "agent" });
+  async function agent(name: string, kind: "agent" | "human" = "agent") {
+    const joined = await call("POST", "/v1/session", {}, { name, kind });
     return joined.body as { residentId: string; token: string };
   }
 
@@ -220,7 +220,9 @@ describe("staff keys", () => {
       "getStaffBounties",
       "getTownsfolkActivity",
     ]);
-    expect(reach("rekey")).toEqual([...reach("read"), "createStaffRekeyCode"].sort());
+    expect(reach("rekey")).toEqual(
+      [...reach("read"), "createStaffRekeyCode", "createStaffSigninLink"].sort(),
+    );
     // Everything but the keys themselves and the world log. A new staff route lands here, and this
     // list has to change with it, so adding one is a choice.
     const never = staff
@@ -234,7 +236,7 @@ describe("staff keys", () => {
       "getWorldLog",
       "revokeStaffKey",
     ]);
-    expect(staff).toHaveLength(38);
+    expect(staff).toHaveLength(39);
   });
 
   it("are refused from another site, and need JSON to write, like a signed-in call", async () => {
@@ -278,5 +280,120 @@ describe("staff keys", () => {
     const me = await t.call("GET", "/v1/me", { auth: secret });
     expect(me.status).toBe(401);
     expect(me.body.error.message).toContain("That's a staff key");
+  });
+});
+
+describe("a sign-in link for a person who lost their way in", () => {
+  const ADMIN = { origin: "https://admin.terrakin.org" };
+
+  it("is a maintainer's to make, found by name, and opens the person's own character once", async () => {
+    const t = town();
+    // A person with no handle, known to staff only by the name they joined with.
+    const ann = await t.agent("Aloneknights", "human");
+    const body = { resident: "@aloneknights", reason: "Asked on Discord, matched their plot" };
+    const made = await t.call("POST", "/v1/admin/signin-links", { email: RYAN }, body, ADMIN);
+    expect(made.status).toBe(201);
+    expect(made.body.resident).toMatchObject({ id: ann.residentId, name: "Aloneknights" });
+    // A link for the public site, never the staff app's host.
+    expect(made.body.url).toBe(`https://terrakin.org${made.body.path}`);
+    const code = String(made.body.path).replace("/signin/", "");
+    const opened = await t.call("GET", `/v1/signin-links/${code}`, {});
+    expect(opened.body.resident.id).toBe(ann.residentId);
+
+    // Logged with who and why, never the link.
+    const log = await t.call("GET", "/v1/admin/log", { email: RYAN });
+    expect(log.body.entries[0]).toMatchObject({
+      action: "signin_link",
+      id: ann.residentId,
+      reason: body.reason,
+    });
+    expect(JSON.stringify([...t.sql.exec("SELECT * FROM moderation_log")])).not.toContain(code);
+  });
+
+  it("is refused to a moderator and to a read key, and made with a rekey key", async () => {
+    const t = town();
+    const ann = await t.agent("Annika", "human");
+    const body = { resident: ann.residentId, reason: "They wrote in" };
+    const mo = await t.call("POST", "/v1/admin/signin-links", { email: MO }, body);
+    expect(mo.status).toBe(403);
+    const moKey = (await t.key(MO, "role")).secret;
+    expect((await t.call("POST", "/v1/admin/signin-links", { auth: moKey }, body)).status).toBe(
+      403,
+    );
+    const read = (await t.key(RYAN, "read")).secret;
+    const refused = await t.call("POST", "/v1/admin/signin-links", { auth: read }, body);
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.message).toContain("scope (read)");
+    const rekey = (await t.key(RYAN, "rekey")).secret;
+    expect((await t.call("POST", "/v1/admin/signin-links", { auth: rekey }, body)).status).toBe(
+      201,
+    );
+    // Nothing was logged for the refusals.
+    const log = await t.call("GET", "/v1/admin/log", { email: RYAN });
+    expect(log.body.entries.filter((e: Json) => e.action === "signin_link")).toHaveLength(1);
+  });
+
+  it("sends an AI to its re-key code and a person to their link, and says when nobody matches", async () => {
+    const t = town();
+    await t.agent("Wren");
+    await t.agent("Juno", "human");
+    const reason = { reason: "test" };
+    const ai = await t.call(
+      "POST",
+      "/v1/admin/signin-links",
+      { email: RYAN },
+      { resident: "wren", ...reason },
+    );
+    expect(ai.status).toBe(400);
+    expect(ai.body.error.message).toContain("/v1/admin/rekey-codes");
+    const person = await t.call(
+      "POST",
+      "/v1/admin/rekey-codes",
+      { email: RYAN },
+      { agent: "JUNO", ...reason },
+    );
+    expect(person.status).toBe(404);
+    expect(person.body.error.message).toContain("/v1/admin/signin-links");
+    const nobody = await t.call(
+      "POST",
+      "/v1/admin/signin-links",
+      { email: RYAN },
+      { resident: "Nobody Here", ...reason },
+    );
+    expect(nobody.status).toBe(404);
+    // A handle and someone else's name both fit "ann": neither wins quietly, since a link for
+    // the wrong one is a way into their character. With its @ it is the handle.
+    const holder = await t.agent("Holly", "human");
+    await t.call(
+      "PUT",
+      "/v1/profile",
+      {},
+      { handle: "ann" },
+      {
+        authorization: `Bearer ${holder.token}`,
+      },
+    );
+    const named = await t.agent("Ann", "human");
+    const both = await t.call(
+      "POST",
+      "/v1/admin/signin-links",
+      { email: RYAN },
+      { resident: "ann", ...reason },
+    );
+    expect(both.status).toBe(400);
+    expect(both.body.error.message).toContain(holder.residentId);
+    expect(both.body.error.message).toContain(named.residentId);
+    const tagged = await t.call(
+      "POST",
+      "/v1/admin/signin-links",
+      { email: RYAN },
+      { resident: "@ann", ...reason },
+    );
+    expect(tagged.body.resident.id).toBe(holder.residentId);
+    // An agent found by its exact name, the way a person is.
+    expect(
+      (await t.call("POST", "/v1/admin/rekey-codes", { email: RYAN }, { agent: "Wren", ...reason }))
+        .status,
+    ).toBe(201);
   });
 });

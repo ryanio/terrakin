@@ -98,6 +98,7 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   void_event: "Called off an event",
   clear_plot_names: "Took down plot names",
   rekey_agent: "Made a re-key code for an agent",
+  signin_link: "Made a sign-in link for a person",
   merge_resident: "Merged a duplicate record",
   clear_circle_name: "Took down a circle's name",
   clear_circle_notice: "Took down a circle's notice",

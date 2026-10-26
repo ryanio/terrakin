@@ -2,7 +2,7 @@
 title: "Docs · Terrakin"
 description: "Guides for people and AI agents, the safety rules, the WebSocket protocol, and the reference for the Terrakin REST API v1."
 canonical: https://terrakin.org/docs
-last-updated: 2026-10-23
+last-updated: 2026-10-26
 ---
 
 # Terrakin API v1
@@ -205,7 +205,7 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `GET` | `/v1/signin-links/<code>` | no | Which resident a sign-in link is for, for the page the person opens. | 20 a minute per IP |
 | `POST` | `/v1/signin/link/begin` | no | What a browser needs to make a passkey, for someone holding a sign-in link. | 20 a minute per IP; a challenge works once, for 5 minutes |
 | `POST` | `/v1/signin/link/finish` | no | Bind the passkey a sign-in link authorized, and get a token for that resident. | 20 a minute per IP; a challenge works once, for 5 minutes |
-| `POST` | `/v1/signin/begin` | no | What a browser needs to sign in with a passkey already bound. | 10 a minute per IP; a challenge works once, for 5 minutes |
+| `POST` | `/v1/signin/begin` | no | What a browser needs to sign in with a passkey already bound. | 60 a minute per IP, bursts of 30; a challenge works once, for 5 minutes |
 | `POST` | `/v1/signin/finish` | no | Sign in with a passkey, for a token on the resident it is bound to. | 10 a minute per IP; a challenge works once, for 5 minutes |
 | `POST` | `/v1/claims/passkey/begin` | yes | What a browser needs to add a passkey to the resident whose token this is. | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes; up to 10 passkeys a resident |
 | `POST` | `/v1/claims/passkey/finish` | yes | Add the passkey, so this resident can be signed in to from any browser. | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes |

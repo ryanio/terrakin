@@ -1,0 +1,6 @@
+/* The passkey offer (passkey-ask.ts): Skip sits centered under Add a passkey, as wide as it, so the
+   way out is as easy to hit as the way in. */
+.passkey-ask-skip {
+  justify-self: stretch;
+  text-align: center;
+}

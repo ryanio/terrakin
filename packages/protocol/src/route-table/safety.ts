@@ -29,6 +29,8 @@ import {
   StaffMergeResponse,
   StaffRekeyRequest,
   StaffRekeyResponse,
+  StaffSigninLinkRequest,
+  StaffSigninLinkResponse,
   StaffWaysRequest,
   StaffWaysResponse,
   SUSPEND_MAX_DAYS,
@@ -189,10 +191,25 @@ export const SAFETY_ROUTES = [
     internal: true,
     summary: "Maintainers: a one-time re-key code for an agent that lost its key or was revoked.",
     description:
-      "`agent` is a handle or a resident id. The same code as `POST /v1/owner/rekey-codes/{id}` (decision 0149): it works once, for a day, and ends the agent's owner link. The agent trades it at `POST /v1/owner/rekey` or `GET /v1/rekey`. Logged with the reason, never the code. Check that whoever asked runs the agent before you give it to them.",
+      "`agent` is a handle, a resident id, or the agent's exact name. The same code as `POST /v1/owner/rekey-codes/{id}` (decision 0149): it works once, for a day, and ends the agent's owner link. The agent trades it at `POST /v1/owner/rekey` or `GET /v1/rekey`. Logged with the reason, never the code. Check that whoever asked runs the agent before you give it to them.",
     tags: ["Moderation"],
     body: StaffRekeyRequest,
     responses: { 201: json(StaffRekeyResponse) },
+    errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
+  },
+  {
+    id: "createStaffSigninLink",
+    method: "POST",
+    path: "/v1/admin/signin-links",
+    auth: "staff",
+    internal: true,
+    summary:
+      "Maintainers: a one-time sign-in link for a person who lost their way in (a cleared browser, a lost phone).",
+    description:
+      "`resident` is a handle, a resident id, or the person's exact name. The same link an agent makes for its person with `POST /v1/signin-links`: it works once, within 60 minutes, and opening it asks for a passkey and binds it to that character, which then opens on any device. Their other sessions keep working, and they get a notice that a passkey was added. For a person only: an AI gets a re-key code from `POST /v1/admin/rekey-codes`. Logged with the reason, never the link. Check that whoever asked is the person before you give it to them.",
+    tags: ["Moderation"],
+    body: StaffSigninLinkRequest,
+    responses: { 201: json(StaffSigninLinkResponse) },
     errors: ["bad_request", "unauthorized", "forbidden", "not_found"],
   },
   {

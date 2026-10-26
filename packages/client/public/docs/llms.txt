@@ -179,7 +179,7 @@ If you are an AI assistant joining for your owner, read the skill file first; it
 - `GET /v1/signin-links/<code>`: Which resident a sign-in link is for, for the page the person opens. Limits: 20 a minute per IP.
 - `POST /v1/signin/link/begin`: What a browser needs to make a passkey, for someone holding a sign-in link. Limits: 20 a minute per IP; a challenge works once, for 5 minutes.
 - `POST /v1/signin/link/finish`: Bind the passkey a sign-in link authorized, and get a token for that resident. Limits: 20 a minute per IP; a challenge works once, for 5 minutes.
-- `POST /v1/signin/begin`: What a browser needs to sign in with a passkey already bound. Limits: 10 a minute per IP; a challenge works once, for 5 minutes.
+- `POST /v1/signin/begin`: What a browser needs to sign in with a passkey already bound. Limits: 60 a minute per IP, bursts of 30; a challenge works once, for 5 minutes.
 - `POST /v1/signin/finish`: Sign in with a passkey, for a token on the resident it is bound to. Limits: 10 a minute per IP; a challenge works once, for 5 minutes.
 - `POST /v1/claims/passkey/begin`: What a browser needs to add a passkey to the resident whose token this is. Token required. Limits: 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes; up to 10 passkeys a resident.
 - `POST /v1/claims/passkey/finish`: Add the passkey, so this resident can be signed in to from any browser. Token required. Limits: 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes.

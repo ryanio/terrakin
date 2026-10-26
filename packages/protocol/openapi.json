@@ -27351,11 +27351,11 @@
           }
         },
         "x-rate-limit": {
-          "bucket": "signin",
+          "bucket": "signinBegin",
           "scope": "ip",
-          "perSecond": 0.16666666666666666,
-          "burst": 10,
-          "description": "10 a minute per IP"
+          "perSecond": 1,
+          "burst": 30,
+          "description": "60 a minute per IP, bursts of 30"
         },
         "x-limits": [
           "a challenge works once, for 5 minutes"
@@ -47223,6 +47223,11 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "signin_link": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "clear_circle_name": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -47282,6 +47287,7 @@
               "clear_plot_names",
               "rekey_agent",
               "merge_resident",
+              "signin_link",
               "clear_circle_name",
               "clear_circle_notice",
               "disband_circle",

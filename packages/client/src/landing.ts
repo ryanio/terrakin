@@ -6,12 +6,13 @@
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
 
+import { SIGNIN } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
 import { characterPicker, type JoinLook, randomCharacter, suggestName } from "./join-form";
-import { passkeysWork } from "./passkey";
+import { passkeyAutofillWorks, passkeysWork } from "./passkey";
 
 export interface Landing {
   /** True while the curtain is showing (not lifted or hidden). */
@@ -29,6 +30,18 @@ export interface Landing {
   focusNote(): void;
   /** Open "Restore with a key", for a saved key the server no longer knows. */
   openRestore(): void;
+  /**
+   * The name was taken, and it may be yours from another browser: a button under the refusal that
+   * signs in with a passkey, or where this browser can't use one, "Restore with a key" opened.
+   */
+  offerSignin(): void;
+  /**
+   * While the landing is up, offer a passkey saved for this site among the browser's own
+   * suggestions on the name field (WebAuthn's conditional mediation). Picking one signs in.
+   */
+  autofill(): void;
+  /** Leaving the world's page: take back the passkey request `autofill` holds. */
+  pause(): void;
   /** Update the live line, for example "12 residents, 3 online now". */
   setPopulation(total: number, online: number): void;
   /** How tall the door card is, in CSS pixels, so the world behind it can center above it. */
@@ -42,9 +55,11 @@ export interface LandingOptions {
   onRestore(key: string): Promise<string | null>;
   /**
    * Sign in with a passkey already bound to a character, which may be the one an AI plays
-   * (RFC 0037). Resolve with an error message, or null once the session is saved.
+   * (RFC 0037). Resolve with an error message, or null once the session is saved. With
+   * `autofill`, the browser waits for someone to pick a passkey from its suggestions, and
+   * `signal` takes that back.
    */
-  onSignin(): Promise<string | null>;
+  onSignin(how?: { autofill: true; signal: AbortSignal }): Promise<string | null>;
 }
 
 /** "12 residents, 3 online now". Pure, so tests can pin the wording. */
@@ -168,18 +183,54 @@ export function createLanding(
   const signinGo = byId<HTMLButtonElement>(root, "signin-go");
   const signinError = byId(root, "signin-error");
   if (passkeysWork()) signin.hidden = false;
-  signinGo.addEventListener("click", () => {
-    void (async () => {
-      signinGo.disabled = true;
-      signinError.textContent = "";
-      const problem = await onSignin();
-      signinGo.disabled = false;
-      if (problem) signinError.textContent = problem;
-    })();
-  });
+  const signIn = async (button: HTMLButtonElement) => {
+    // A browser holds one passkey request at a time, so the suggestions step aside meanwhile.
+    stopAutofill();
+    button.disabled = true;
+    signinError.textContent = "";
+    const problem = await onSignin();
+    button.disabled = false;
+    if (problem) {
+      signinError.textContent = problem;
+      signin.scrollIntoView({ block: "nearest" });
+      void startAutofill();
+    }
+  };
+  signinGo.addEventListener("click", () => void signIn(signinGo));
+
+  // Passkey autofill. The challenge it asks for lasts `SIGNIN.challengeMinutes`, so a fresh one
+  // replaces it a minute before; a failed pick waits for the field's next focus to try again.
+  let autofilling: AbortController | undefined;
+  let renewing = false;
+  const RENEW_MS = (SIGNIN.challengeMinutes - 1) * 60_000;
+  async function startAutofill() {
+    if (autofilling || !landing.isUp() || !(await passkeyAutofillWorks())) return;
+    if (autofilling || !landing.isUp()) return;
+    const asking = new AbortController();
+    autofilling = asking;
+    const renew = setTimeout(() => {
+      renewing = true;
+      asking.abort();
+    }, RENEW_MS);
+    const problem = await onSignin({ autofill: true, signal: asking.signal });
+    clearTimeout(renew);
+    if (autofilling === asking) autofilling = undefined;
+    if (renewing) {
+      renewing = false;
+      void startAutofill();
+    } else if (problem && !asking.signal.aborted) {
+      signinError.textContent = problem;
+    }
+  }
+  function stopAutofill() {
+    autofilling?.abort();
+    autofilling = undefined;
+  }
+  name.addEventListener("focus", () => void startAutofill());
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    stopAutofill();
     const value = name.value.trim();
     if (!value) {
       showError("Pick a name first. Anything you like, up to 24 letters.");
@@ -205,10 +256,14 @@ export function createLanding(
       clearTimeout(hideTimer);
       root.hidden = false;
       // Next frame, so the transition runs from the lifted state.
-      requestAnimationFrame(() => root.classList.remove("lifted"));
+      requestAnimationFrame(() => {
+        root.classList.remove("lifted");
+        void startAutofill();
+      });
       landing.setJoining(false);
     },
     hide({ instant = false } = {}) {
+      stopAutofill();
       if (root.hidden) return;
       root.classList.add("lifted");
       const done = () => {
@@ -229,6 +284,24 @@ export function createLanding(
     openRestore() {
       byId<HTMLDetailsElement>(root, "restore").open = true;
     },
+    offerSignin() {
+      if (!passkeysWork()) {
+        landing.openRestore();
+        return;
+      }
+      const again = h(
+        "button",
+        {
+          class: "pill-button small",
+          attrs: { type: "button", id: "join-signin" },
+          on: { click: () => void signIn(again) },
+        },
+        "Sign in with your passkey",
+      ) as HTMLButtonElement;
+      freeRow.append(again);
+    },
+    autofill: () => void startAutofill(),
+    pause: stopAutofill,
     setPopulation(total, online) {
       liveText.textContent = populationLine(total, online);
       live.hidden = false;

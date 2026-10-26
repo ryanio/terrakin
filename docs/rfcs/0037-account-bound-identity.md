@@ -118,9 +118,13 @@ POST   /v1/signin/email/finish      -> a new token
 
 For a person who arrives on an agent's one-time link, right there: binding the passkey is the whole point of the link, and they have something to lose from the moment they open it, because the character is already built.
 
-For a person who joined as a human, after a plot is claimed, not on the way in. That is the first moment they have something to lose, and it is the step the funnel says people stop at. One dismissible prompt, then a row in Settings that stays. A first visit is untouched, which keeps RFC 0002's one-URL onboarding intact.
+For a person who joined as a human, on the way in, and again until there is a passkey ([decision 0377](../knowledge/decisions/0377-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md), which reverses this section's first answer, "after a plot is claimed, not on the way in"). Right after their join works, on a browser that can make a passkey, a sheet titled "Keep your character on any device" offers one, with one button that opens the device's own passkey sheet and a plain Skip (`packages/client/src/passkey-ask.ts`). It comes back when they claim a plot, set a hearth, or reach level 2, and as a card on the home wall (`packages/client/src/passkey-prompt.ts`), at most once a day on one clock per device. It is not a first-visit step: a step is server state the check-in and an AI's `todo` lines read, and whether a person protects their own way in is not their AI's business.
 
-Both are built. The prompt is a card on the home wall beside Getting started (`packages/client/src/passkey-prompt.ts`), offered only to a person's own character with a plot and no passkey, on a browser that can make one, and only until that device answers either way. It is deliberately not a first-visit step: a step is server state the check-in and an AI's `todo` lines read, and whether a person protects their own way in is not their AI's business. The row is "Signing in" in the "…" menu on your own profile (`packages/client/src/passkey-sheet.ts`): what is bound with the dates it was added and last used, Add a passkey, Remove behind a second tap, and "Sign them out" for every other session.
+The row is "Signing in" in the "…" menu on your own profile (`packages/client/src/passkey-sheet.ts`): what is bound with the dates it was added and last used, Add a passkey, Remove behind a second tap, and "Sign them out" for every other session.
+
+A returning person signs in from the browser's own suggestions: the world's name field is marked `autocomplete="username webauthn"` and the landing holds a conditional WebAuthn request, with the Sign in button beside it as the fallback.
+
+A person with no passkey who lost their browser is let back in by staff: `POST /v1/admin/signin-links` makes them the same one-time link an agent makes for its person, and opening it binds a passkey. A person who loses the only device holding their passkey needs the same until the email fallback ships.
 
 ## Invariants
 
@@ -182,7 +186,7 @@ Existing logs replay the same, because nothing enters the log. Old clients keep 
 1. The claims table and the routes, dark behind a server option, with tests.
 2. Passkeys on the web: bind, and sign in.
 3. Email as the fallback, with the code flow.
-4. The prompt after a claim, and the Settings row. Built, with the notices on a binding and a sign-in beside them.
+4. The prompt, and the Settings row. Built, with the notices on a binding and a sign-in beside them; the prompt now comes on the way in (decision 0377).
 5. SKILL.md, `docs/site/auth.md` and a `CHANGELOG.md` entry. The auth page currently says Terrakin has "no accounts, passwords, API keys, or OAuth, by design"; that stays true and gains a paragraph, since a passkey is none of those four.
 
 ## Alternatives considered
@@ -199,6 +203,6 @@ Existing logs replay the same, because nothing enters the log. Old clients keep 
 2. Is an email stored at all, or only its hash for lookup with the address never kept?
 3. Should the handle become the sign-in identifier, or does sign-in stay keyed to the claim alone?
 4. Should RFC 0025's owner link become a claim kind of this shape, so there is one mechanism rather than two?
-5. ~~Do we prompt a resident with no claim more than once, and how often before it becomes nagging?~~ Answered by what shipped: once per device, either way. The card remembers that this device answered, and the Settings row is the way back to it, so nothing nags.
+5. ~~Do we prompt a resident with no claim more than once, and how often before it becomes nagging?~~ Answered by [decision 0377](../knowledge/decisions/0377-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md): until there is a passkey, at most once a day per device, on the way in and at a plot, a hearth, and a first level-up. Once per device, the first answer, left a person who skipped once with nothing when their browser went.
 6. ~~Does a sign-in on a new device end the old session by default?~~ Answered by decision 1: it must not, because the agent's own token is one of the sessions on that resident and ending it would stop the AI playing. "Sign out everywhere" stays a separate call.
 7. Does a first binding wait, the way RFC 0025 waits two days, to blunt a stolen token? That trades the main abuse case against the thing the RFC is for, which is a person getting back in quickly.

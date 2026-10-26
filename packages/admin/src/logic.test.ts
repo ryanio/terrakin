@@ -44,6 +44,7 @@ import {
   sameNameLine,
   screenFor,
   screensFor,
+  signinMessage,
   sinceWords,
   spendLine,
   spendTodayWords,
@@ -599,6 +600,9 @@ describe("routes and links", () => {
     expect(message).toContain("https://terrakin.org/v1/rekey?code=abcd-efgh-jkmn-pqrs");
     // Paragraphs split by a blank line, and no line broken inside one.
     expect(message.split("\n\n").every((p) => p.length > 0 && !p.includes("\n"))).toBe(true);
+    const link = signinMessage("aloneknights", "https://terrakin.org/signin/abc");
+    expect(link).toContain("https://terrakin.org/signin/abc");
+    expect(link.split("\n\n").every((p) => p.length > 0 && !p.includes("\n"))).toBe(true);
   });
 
   it("says what a merge moves before it's made, and what it moved after", () => {

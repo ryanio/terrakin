@@ -34,18 +34,29 @@ import { COLOR_WORDS, hairName } from "@terrakin/ui/looks";
 import { paintAvatar } from "@terrakin/ui/people";
 import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
 import { canSuggestInto, nameIdeas } from "./names";
+import { savedResidentId } from "./net";
+import { passkeysWork } from "./passkey";
 
-/** What every join form says when the name is taken: words for people, not the API's (decision 0148). */
+/**
+ * What every join form says when the name is taken: words for people, not the API's (decision
+ * 0148). The way back to a character of your own is a passkey, or where this browser can't use one,
+ * the key the character was made with.
+ */
 export const NAME_TAKEN_LINE =
-  "Someone here already goes by that name. Pick another, or restore your character with your key.";
-
-/** The same, where free names are offered as buttons under it, so the line points at them. */
-const NAME_TAKEN_WITH_FREE =
-  "Someone here already goes by that name. Tap a free one below, or pick your own. If it's yours, restore it with your key.";
+  "Someone here already goes by that name. Pick another. If that's you, sign in with your passkey.";
 
 /** What a join form shows when the server turns a join down: its own words, or ours for a taken name. */
-export const joinProblem = (code: string, message: string, free = 0): string =>
-  code === "name_taken" ? (free > 0 ? NAME_TAKEN_WITH_FREE : NAME_TAKEN_LINE) : message;
+export const joinProblem = (code: string, message: string, free = 0, passkeys = true): string => {
+  if (code !== "name_taken") return message;
+  const yours = passkeys
+    ? "If that's you, sign in with your passkey."
+    : "If it's yours, restore it with your key.";
+  return free > 0
+    ? `Someone here already goes by that name. Tap a free one below, or pick your own. ${yours}`
+    : passkeys
+      ? NAME_TAKEN_LINE
+      : `Someone here already goes by that name. Pick another. ${yours}`;
+};
 
 /** What `onSubmit` resolves with when the server turned the join down. */
 interface JoinRefusal {
@@ -117,6 +128,11 @@ export interface JoinFormOptions {
   id: string;
   submitLabel: string;
   busyLabel: string;
+  /**
+   * Offer a passkey right after the join (decision 0377). A page whose join is one step of
+   * something else passes false and calls `offerAfterJoin` once that is done.
+   */
+  offerPasskey?: boolean;
   /** Extra controls (checkboxes) shown above the button. */
   extras?: HTMLElement[];
   /**
@@ -440,6 +456,20 @@ export function tokenPreview(
   return { el, paint };
 }
 
+/**
+ * Right after a person's join worked: the passkey sheet (decision 0377), once whatever the page
+ * does next has happened, since an invite's join goes on to the world.
+ */
+export function offerAfterJoin() {
+  const me = savedResidentId();
+  if (!me || !passkeysWork()) return;
+  requestAnimationFrame(() => {
+    void import("./passkey-ask").then((m) =>
+      m.askForPasskey({ me, kind: "human", moment: "joined" }),
+    );
+  });
+}
+
 export function joinForm(options: JoinFormOptions) {
   const { id } = options;
 
@@ -472,6 +502,7 @@ export function joinForm(options: JoinFormOptions) {
   name.addEventListener("input", () => {
     error.textContent = "";
     nameError.textContent = "";
+    signin.hidden = true;
     name.removeAttribute("aria-invalid");
   });
 
@@ -480,6 +511,13 @@ export function joinForm(options: JoinFormOptions) {
   const nameError = errorLine(`${id}-name-error`);
   name.setAttribute("aria-describedby", nameError.id);
   const error = errorLine();
+  // Shown under a `name_taken` refusal: the character may be yours, from another browser.
+  const signin = h(
+    "a",
+    { class: "pill-button small", attrs: { href: "/world", id: `${id}-signin`, hidden: true } },
+    icon("key"),
+    h("span", { text: "Sign in with your passkey" }),
+  );
   const label = h("span", { text: options.submitLabel });
   const submit = h(
     "button",
@@ -519,7 +557,7 @@ export function joinForm(options: JoinFormOptions) {
       }),
     ),
     ...(options.extras ?? []),
-    h("div", { class: "join-submit" }, error, submit),
+    h("div", { class: "join-submit" }, error, signin, submit),
   );
 
   let busy = false;
@@ -542,13 +580,20 @@ export function joinForm(options: JoinFormOptions) {
       label,
     );
     busy = false;
-    if (problem === null) return;
+    if (problem === null) {
+      if (options.offerPasskey !== false) offerAfterJoin();
+      return;
+    }
     if (typeof problem === "string") {
       error.textContent = problem;
       return;
     }
-    if (problem.code === "name_taken") suggest.taken(value);
-    error.textContent = joinProblem(problem.code, problem.message);
+    if (problem.code === "name_taken") {
+      suggest.taken(value);
+      // The sign-in door is in the world's landing, so the line points there.
+      if (passkeysWork()) signin.hidden = false;
+    }
+    error.textContent = joinProblem(problem.code, problem.message, 0, passkeysWork());
   });
 
   return { el: form, focus: () => name.focus({ preventScroll: true }) };

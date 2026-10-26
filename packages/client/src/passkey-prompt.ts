@@ -1,54 +1,41 @@
 /**
- * The one prompt RFC 0037 asks for: a card on the home wall offering a passkey to a person who
- * joined as themselves, after a plot is claimed and never on the way in, because that is the first
- * moment they have something to lose and the step the funnel says people stop at.
+ * The home wall's card offering a passkey to a person who joined as themselves and has none yet.
+ * The world asks on the way in and at the moments that give them more to lose (`passkey-ask.ts`);
+ * this card is the one that waits on the wall rather than coming up over the page, on the same
+ * clock: answered either way, it stays away for a day, then comes back until there is a passkey.
  *
  * It is a card beside Getting started rather than a first-visit step, because a step is server
  * state the check-in and an AI's `todo` lines read, and a passkey is the person's own business, not
- * their AI's, and because a step can't be put away while this is one prompt: answer it either way
- * and the row in Signing in on your profile is the way back to it.
+ * their AI's. The row in Signing in on your profile is always there too.
  */
 import type { ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { announce, cardBar, closeButton, errorLine, toast, whileBusy } from "@terrakin/ui/ui";
 import { signinApi } from "./api/signin";
 import { passkeysWork } from "./passkey";
+import { askedAt, markAsked } from "./passkey-ask";
 import { addPasskey } from "./passkey-sheet";
 import { offerPasskey } from "./passkey-words";
 
-/** The resident this device has already answered for, either way. */
-const ASKED_KEY = "terrakin.passkeyAsked";
-
-function askedFor(me: string): boolean {
-  try {
-    return localStorage.getItem(ASKED_KEY) === me;
-  } catch {
-    return false;
-  }
-}
-
-function asked(me: string) {
-  try {
-    localStorage.setItem(ASKED_KEY, me);
-  } catch {
-    // Storage off: the prompt comes back next time, which is all that's lost.
-  }
-}
-
 /**
- * The card for `me`, or null when it isn't theirs to see: an AI's character, no plot yet, a passkey
- * already bound, a browser that can't make one, or a device that has answered before.
+ * The card for `me`, or null when it isn't theirs to see: an AI's character, a passkey already
+ * bound, a browser that can't make one, or a device that asked within the day.
  */
 export async function passkeyPrompt(me: ProfileView): Promise<HTMLElement | null> {
-  const works = passkeysWork();
-  if (!offerPasskey({ ...state(me), passkeys: 0, works, hidden: askedFor(me.id) })) return null;
+  const rule = (passkeys: number) =>
+    offerPasskey({
+      kind: me.kind,
+      passkeys,
+      works: passkeysWork(),
+      askedAt: askedAt(me.id),
+      nowMs: Date.now(),
+    });
+  if (!rule(0)) return null;
   const r = await signinApi.claims();
   if (!r.ok) return null;
-  if (!offerPasskey({ ...state(me), passkeys: r.data.claims.length, works, hidden: false })) {
-    // A passkey is already bound, so this device never needs to ask again.
-    if (r.data.claims.length > 0) asked(me.id);
-    return null;
-  }
+  // One is bound: nothing to offer, and nothing to ask the server again for a day.
+  if (r.data.claims.length > 0) markAsked(me.id);
+  if (!rule(r.data.claims.length)) return null;
 
   const problem = errorLine("passkey-prompt-error");
   const label = h("span", { text: "Add a passkey" });
@@ -72,9 +59,9 @@ export async function passkeyPrompt(me: ProfileView): Promise<HTMLElement | null
     cardBar(
       "Keep your character",
       closeButton("Hide this", () => {
-        asked(me.id);
+        markAsked(me.id);
         card.remove();
-        announce("Hidden. Signing in on your profile has it when you want it.");
+        announce("Hidden for today. Signing in on your profile has it when you want it.");
       }),
     ),
     h("h2", {
@@ -99,7 +86,6 @@ export async function passkeyPrompt(me: ProfileView): Promise<HTMLElement | null
           problem.textContent = failed;
           return;
         }
-        asked(me.id);
         card.remove();
         toast("Passkey added. You can open Terrakin as this character on any device.");
       },
@@ -108,12 +94,9 @@ export async function passkeyPrompt(me: ProfileView): Promise<HTMLElement | null
     );
   });
   later.addEventListener("click", () => {
-    asked(me.id);
+    markAsked(me.id);
     card.remove();
     announce("Not now. Signing in on your profile has it when you want it.");
   });
   return card;
 }
-
-/** What the rule reads off the profile: their kind, and whether they live on a plot. */
-const state = (me: ProfileView) => ({ kind: me.kind, settled: me.home !== undefined });

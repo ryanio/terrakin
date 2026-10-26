@@ -1,12 +1,12 @@
 /**
  * The words and the one rule behind signing in with a passkey (RFC 0037), pure so tests pin them:
  * what a notice from Terrakin says, how a bound passkey reads in the Signing in sheet, and when a
- * person with no passkey is offered one.
+ * person with no passkey is offered one, and in what words.
  *
  * Nothing here knows about a device, because the server never learns one: a passkey is told from
  * another only by when it was added.
  */
-import type { ClaimView, ProfileView } from "@terrakin/protocol";
+import type { ClaimView, ProfileView, WorldEvent } from "@terrakin/protocol";
 import { shortDate } from "@terrakin/ui/format";
 
 /** Where both halves of the undo live, named the same way everywhere a notice points at them. */
@@ -71,22 +71,65 @@ export function signinSummary(count: number): string {
   return `${count} passkeys open it. Terrakin keeps nothing about the device each one is on, so they go by when they were added.`;
 }
 
+/** How long a person who put the offer away goes before it comes back, on any screen. */
+export const ASK_AGAIN_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Whether to offer a person a passkey on the home wall: the prompt RFC 0037 asks for after a plot
- * is claimed, never on the way in. Only a person's own character (someone who plays through their
- * AI already has one, bound by the link that let them in), only once there is something to lose,
- * only where the browser can make one, and only until this device puts it away.
+ * Whether to offer a person a passkey now: only a person's own character (someone who plays
+ * through their AI already has one, bound by the link that let them in), only with none bound yet,
+ * only where the browser can make one, and at most once a day. The offer comes on the way in and
+ * keeps coming back, at the home wall and at the moments below, until there is a passkey.
  */
 export function offerPasskey(o: {
   kind: ProfileView["kind"];
-  /** They live on a plot: the first moment they have something to lose. */
-  settled: boolean;
   /** How many passkeys are bound to them already. */
   passkeys: number;
   /** Whether this browser can make a passkey at all. */
   works: boolean;
-  /** Whether this device has already put the prompt away. */
-  hidden: boolean;
+  /** When this device last asked them, if it has. */
+  askedAt: number | undefined;
+  nowMs: number;
 }): boolean {
-  return o.kind === "human" && o.settled && o.passkeys === 0 && o.works && !o.hidden;
+  const rested = o.askedAt === undefined || o.nowMs - o.askedAt >= ASK_AGAIN_MS;
+  return o.kind === "human" && o.passkeys === 0 && o.works && rested;
+}
+
+/** When the world asks: just in, or a moment that gave them more to lose. */
+export type PasskeyMoment = "joined" | "plot" | "hearth" | "level";
+
+/**
+ * The moment an applied event is, for `me`: a plot claimed, a hearth set, or the first level-up
+ * (to level 2 overall). Anything else, and anyone else's, is no moment to ask.
+ */
+export function passkeyMoment(event: WorldEvent, me: string): PasskeyMoment | undefined {
+  if (event.type === "plot_claimed" && event.ownerId === me) return "plot";
+  if (event.type === "hearth_set" && event.residentId === me) return "hearth";
+  if (
+    event.type === "level_reached" &&
+    event.residentId === me &&
+    event.skill === undefined &&
+    event.level === 2
+  ) {
+    return "level";
+  }
+  return undefined;
+}
+
+/** The sheet's title, the same at every moment. */
+export const PASSKEY_ASK_TITLE = "Keep your character on any device";
+
+const HOW = "with Face ID, a fingerprint, or your screen lock, and nothing to write down";
+
+/** What the sheet says under its title, for the moment it comes at. */
+export function passkeyAskLine(moment: PasskeyMoment): string {
+  switch (moment) {
+    case "joined":
+      return `For now this browser is the only thing holding your character. Add a passkey and you can open Terrakin as yourself on any phone or computer, ${HOW}.`;
+    case "plot":
+      return `You have a plot now. If this browser forgets you, Terrakin can't tell it's yours. A passkey brings you back on any device, ${HOW}.`;
+    case "hearth":
+      return `Your home is set. If this browser forgets you, Terrakin can't tell it's yours. A passkey brings you back on any device, ${HOW}.`;
+    case "level":
+      return `You reached level 2. Keep what you've built: a passkey brings you back on any device, ${HOW}.`;
+  }
 }

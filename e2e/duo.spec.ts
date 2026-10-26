@@ -6,6 +6,7 @@ import {
   overflowsSideways,
   settleFree,
   signIn,
+  skipPasskey,
   watchErrors,
 } from "./support";
 
@@ -68,6 +69,7 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   // She lands in the world, next door, with a home.
   await expect(page).toHaveURL("/world");
   await expect(page.locator("#hud")).toBeVisible();
+  await skipPasskey(page);
   const lina = await page.evaluate(() => ({
     id: localStorage.getItem("terrakin.resident") ?? "",
     token: localStorage.getItem("terrakin.token") ?? "",
@@ -169,6 +171,7 @@ test("a visitor joins and follows from a profile, and its counts open followers 
   await page.fill("#follow-join-name", "Teo");
   await page.click('#follow-join-top [data-value="apron"]');
   await page.locator("#follow-join-form").getByRole("button", { name: "Join and follow" }).click();
+  await skipPasskey(page);
 
   await expect(page.locator("#site-toast")).toContainText("you follow Marisol");
   await expect(page.locator(".follow")).toHaveText("Following");
@@ -314,6 +317,7 @@ test("Back from the world after accepting skips the invite, and a used invite of
   await page.fill("#invite-name", "Pim");
   await page.getByRole("button", { name: "Move in" }).click();
   await expect(page).toHaveURL("/world");
+  await skipPasskey(page);
   await page.goBack();
   await expect(page).toHaveURL("/town");
 

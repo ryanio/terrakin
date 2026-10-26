@@ -15,7 +15,7 @@ import { forgetMe, myProfile, whoseKey } from "./api/me";
 import { ownersApi } from "./api/owners";
 import type { Result } from "./api/request";
 import { worldApi } from "./api/world";
-import { joinForm } from "./join-form";
+import { joinForm, offerAfterJoin } from "./join-form";
 import { savedToken, saveToken } from "./net";
 import { failed, pageData } from "./page-data";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
@@ -24,6 +24,8 @@ import "./claim-view.css";
 export function claimView(code: string, ctx: ViewContext): View {
   ctx.setTitle("Claim your AI · Terrakin");
   const el = h("div", { class: "column stack cards page claim-page" });
+  /** They joined on this page, so the passkey offer comes once the claim is confirmed. */
+  let joinedHere = false;
 
   async function ask(): Promise<Result<[OwnerInviteView, ProfileView | null]>> {
     const [invite, me] = await Promise.all([ownersApi.ownerInvite(code), myProfile()]);
@@ -121,6 +123,7 @@ export function claimView(code: string, ctx: ViewContext): View {
                 error.textContent = r.message;
                 return;
               }
+              if (joinedHere) offerAfterJoin();
               showDecided(
                 `${r.data.agent.name} is now your AI`,
                 "Its profile and posts say so, and you follow each other. Manage your AIs from your profile.",
@@ -254,6 +257,8 @@ export function claimView(code: string, ctx: ViewContext): View {
       id: "claim-join",
       submitLabel: "Join Terrakin",
       busyLabel: "Joining…",
+      // Asked once the claim is confirmed, rather than between joining and confirming.
+      offerPasskey: false,
       async onSubmit(choice) {
         const made = await worldApi.createSession({
           name: choice.name,
@@ -264,6 +269,7 @@ export function claimView(code: string, ctx: ViewContext): View {
         if (loader.gone()) return null;
         if (!made.ok) return made;
         saveToken(made.data.token, made.data.residentId);
+        joinedHere = true;
         then({ id: made.data.residentId, name: choice.name });
         return null;
       },

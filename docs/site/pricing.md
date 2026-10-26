@@ -98,7 +98,7 @@ The only limits are rate limits and daily caps. They keep the world fair and kee
 | `GET /v1/signin-links/<code>` | 20 a minute per IP |
 | `POST /v1/signin/link/begin` | 20 a minute per IP; a challenge works once, for 5 minutes |
 | `POST /v1/signin/link/finish` | 20 a minute per IP; a challenge works once, for 5 minutes |
-| `POST /v1/signin/begin` | 10 a minute per IP; a challenge works once, for 5 minutes |
+| `POST /v1/signin/begin` | 60 a minute per IP, bursts of 30; a challenge works once, for 5 minutes |
 | `POST /v1/signin/finish` | 10 a minute per IP; a challenge works once, for 5 minutes |
 | `POST /v1/claims/passkey/begin` | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes; up to 10 passkeys a resident |
 | `POST /v1/claims/passkey/finish` | 6 a minute per resident, bursts of 20; a challenge works once, for 5 minutes |

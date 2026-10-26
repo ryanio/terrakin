@@ -469,15 +469,24 @@ describe("the guards on signing in", () => {
     ).toHaveLength(10);
   });
 
-  it("rate limits sign-in tries from one place", async () => {
+  it("rate limits sign-in tries from one place, and starting one more loosely", async () => {
     const { call } = await start();
-    // The limit is the only thing bounding guessing here, since nothing names the resident first.
-    const statuses: number[] = [];
+    // Finishing is the try: the limit is the only thing bounding guessing, since nothing names
+    // the resident first.
+    const tries: number[] = [];
     for (let n = 0; n < 12; n++) {
-      statuses.push((await call("POST", "/v1/signin/begin")).status);
+      tries.push((await call("POST", "/v1/signin/finish", {})).status);
     }
-    expect(statuses).toContain(429);
-    expect(statuses.filter((status) => status === 200).length).toBeLessThanOrEqual(11);
+    expect(tries).toContain(429);
+    expect(tries.filter((status) => status !== 429).length).toBeLessThanOrEqual(11);
+    // Starting one only issues a challenge, which the door asks for on every visit so a saved
+    // passkey shows in the browser's suggestions, so it has room the tries don't, but a limit.
+    const starts: number[] = [];
+    for (let n = 0; n < 32; n++) {
+      starts.push((await call("POST", "/v1/signin/begin")).status);
+    }
+    expect(starts.slice(0, 12)).toEqual(Array(12).fill(200));
+    expect(starts).toContain(429);
   });
 });
 

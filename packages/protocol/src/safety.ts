@@ -201,6 +201,8 @@ export const MODERATION_ACTIONS = [
   "rekey_agent",
   /** A maintainer merged a duplicate record into the record that stays (decision 0239). */
   "merge_resident",
+  /** A maintainer made a one-time sign-in link for a person who lost their way in. */
+  "signin_link",
   /** Staff took down a circle's name, or its notice (RFC 0033). */
   "clear_circle_name",
   "clear_circle_notice",
@@ -288,11 +290,16 @@ export const DismissReportsRequest = z.object({
 });
 
 /**
- * A maintainer helping an agent back in from the staff app: the agent by handle (with or without
- * `@`) or resident id, and why, which goes in the moderation log.
+ * How a staff route names a resident: a resident id, a handle with or without its `@`, or failing
+ * both, their exact name, compared as a join compares names (case and spacing aside). Many people
+ * have no handle, and their name is all they can tell staff.
  */
+const StaffResidentName = z.string().trim().min(1).max(64);
+
+/** A maintainer helping an agent back in: the agent, and why, which goes in the moderation log. */
 export const StaffRekeyRequest = z.object({
-  agent: z.string().trim().min(1).max(64),
+  /** The agent: an id, a handle, or its exact name. */
+  agent: StaffResidentName,
   reason: Reason,
 });
 export type StaffRekeyRequest = z.infer<typeof StaffRekeyRequest>;
@@ -309,10 +316,30 @@ export const StaffRekeyResponse = z.object({
 });
 export type StaffRekeyResponse = z.infer<typeof StaffRekeyResponse>;
 
+/** A one-time sign-in link for a person who lost their way in. */
+export const StaffSigninLinkRequest = z.object({
+  /** The person: an id, a handle, or their exact name. */
+  resident: StaffResidentName,
+  reason: Reason,
+});
+export type StaffSigninLinkRequest = z.infer<typeof StaffSigninLinkRequest>;
+
+/**
+ * The link, shown once: the same one-time `/signin/<code>` an agent makes for its person with
+ * `POST /v1/signin-links`. `url` is it on the public site. The code is never logged.
+ */
+export const StaffSigninLinkResponse = z.object({
+  resident: ResidentBrief,
+  path: z.string(),
+  url: z.string(),
+  expiresAt: z.string(),
+});
+export type StaffSigninLinkResponse = z.infer<typeof StaffSigninLinkResponse>;
+
 /** Merge the record in the path, a duplicate, into `into`, the record that stays (decision 0239). */
 export const StaffMergeRequest = z.object({
-  /** The record that stays: a handle or a resident id. */
-  into: z.string().trim().min(1).max(64),
+  /** The record that stays: a resident id, a handle, or its exact name. */
+  into: StaffResidentName,
   reason: Reason,
   /** Check the merge and say what would move, without making it. */
   dry: z.boolean().optional(),

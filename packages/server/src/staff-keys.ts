@@ -42,8 +42,8 @@ const READ_ROUTES = new Set([
   "getStaffBounties",
   "getShutHomes",
 ]);
-/** What `rekey` adds to reading. */
-const REKEY_ROUTES = new Set(["createStaffRekeyCode"]);
+/** What `rekey` adds to reading: the two ways back in, for an AI and for a person. */
+const REKEY_ROUTES = new Set(["createStaffRekeyCode", "createStaffSigninLink"]);
 
 /** Last-used times are written at most this often per key. */
 const TOUCH_EVERY_MS = 60_000;

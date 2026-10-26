@@ -166,7 +166,10 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   expect(errors).toEqual([]);
 });
 
-test("a maintainer helps an agent back in and makes a key for their own AI", async ({ page }) => {
+test("a maintainer helps an agent and a person back in and makes a key for their own AI", async ({
+  page,
+  browser,
+}) => {
   const errors = watchErrors(page, { dialogs: true });
   const maintainer = await join(page.request, "Larkspur");
   const grant = await page.request.post("/v1/test/maintainer", {
@@ -181,7 +184,7 @@ test("a maintainer helps an agent back in and makes a key for their own AI", asy
   await test.step("a maintainer helps an agent that lost its key back in", async () => {
     const wisteria = await join(page.request, "Wisteria", { kind: "agent" });
     await page.getByRole("link", { name: "Agents" }).click();
-    await expect(page.getByRole("heading", { name: "Help an agent back in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Help someone back in" })).toBeVisible();
     await page.locator("#rekey-agent").fill(wisteria.id);
     await page.locator("#rekey-reason").fill("Its person wrote in; checked it's theirs");
     await page.getByRole("button", { name: "Make re-key code" }).click();
@@ -195,6 +198,50 @@ test("a maintainer helps an agent back in and makes a key for their own AI", asy
     const traded = await page.request.post("/v1/owner/rekey", { data: { code } });
     expect(traded.status()).toBe(200);
     expect((await traded.json()).residentId).toBe(wisteria.id);
+  });
+
+  await test.step("a person who lost their browser gets a sign-in link and a passkey", async () => {
+    // Known to staff only by the name they joined with: no handle (decision 0377).
+    const lost = await join(page.request, "Foxglove Ash");
+    await page.locator("#signin-person").fill("foxglove ash");
+    await page.locator("#signin-reason").fill("Asked on Discord; matched their plot and join day");
+    await page.getByRole("button", { name: "Make sign-in link" }).click();
+    const made = page.locator(".signin-made");
+    await expect(made).toHaveAttribute("data-resident", lost.id);
+    const message = (await made.locator(".copy-text").textContent()) ?? "";
+    const url = message.match(/https?:\/\/\S+\/signin\/[\w-]+/)?.[0] ?? "";
+    // A link on the public site, never the staff app's host.
+    expect(new URL(url).hostname).toBe("localhost");
+
+    // They open it on a new phone, whose device can make a passkey.
+    const phone = await browser.newContext();
+    const them = await phone.newPage();
+    const cdp = await phone.newCDPSession(them);
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2",
+        transport: "internal",
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+    await them.goto(url);
+    await expect(them.getByText("Your character", { exact: true })).toBeVisible();
+    await them.getByRole("button", { name: "Open Terrakin as Foxglove Ash" }).click();
+    await expect
+      .poll(() => them.evaluate(() => localStorage.getItem("terrakin.resident")))
+      .toBe(lost.id);
+
+    // Signed out on that phone, the passkey brings them back with no link: offered among the name
+    // field's own suggestions, which this test device picks as soon as it is asked.
+    await them.evaluate(() => localStorage.clear());
+    await them.goto("/world");
+    await expect(them.locator("#hud")).toBeVisible();
+    expect(await them.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(lost.id);
+    await phone.close();
   });
 
   await test.step("a maintainer makes a key for their AI, which reads the queue until revoked", async () => {

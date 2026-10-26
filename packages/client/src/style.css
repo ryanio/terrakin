@@ -3264,6 +3264,12 @@ dialog.model-viewer {
   flex: none;
 }
 
+/* The first pick when the picker opens on its own for someone who just joined (decision 0377). */
+.claim-first {
+  outline: 2px solid var(--sun);
+  outline-offset: -2px;
+}
+
 /* Each picture fills its cell, so a row of plots spans the card. */
 .plots-strip-visit .plot-thumb {
   width: 100%;

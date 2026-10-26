@@ -87,6 +87,7 @@ import {
   withChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
+import { claimOpensOnJoin } from "./claim-on-join";
 import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { sendFirstPlanting } from "./first-plant";
@@ -604,6 +605,8 @@ function onMessage(msg: ServerMessage) {
       stopWalking();
       if (joiningFresh) track("join");
       const fresh = joiningFresh;
+      // Joined from a link's place: the place is kept for after, and comes before a plot.
+      const toPlace = peek === "joining";
       joiningFresh = false;
       landing.setJoining(false);
       landing.setError("");
@@ -617,8 +620,13 @@ function onMessage(msg: ServerMessage) {
       snapCamera();
       if (mode === "3d") open3d();
       revealWhenDrawn();
-      // Someone who just stepped in sees walking, Claim plot and Chat: say what to do first.
-      if (!showArrival() && fresh) {
+      // Someone who just joined at the door gets the claim in front of them, not left to a
+      // button: the playtest read (issue #115, decision 0377) found most people stopped between
+      // making a character and claiming a plot. An invite's arrival line still shows, under it.
+      const arrived = showArrival();
+      if (claimOpensOnJoin({ fresh, toPlace, hasPlot: hasPlot() })) {
+        void import("./claim-sheet").then((c) => c.openClaimSheet({ first: true }));
+      } else if (!arrived && fresh) {
         showToast(FIRST_LINE);
         // A hint, not news: the next thing the world has to say takes its place.
         toastSoft = true;

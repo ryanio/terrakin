@@ -2,11 +2,13 @@ import { expect, test } from "@playwright/test";
 import { walkedOnto, watchErrors } from "./support";
 
 /**
- * A newcomer's way home on a phone: the d-pad saying what's in the way, Claim plot in the Commons
- * opening the picker of empty plots (decision 0143), the one picked claimed with `settle`, a home
- * picked from the designs drawn on her plot and built in one tap with the first pantry said in
- * words (decision 0144, RFC 0032), her first seed planted from that note without leaving the sheet
- * (decision 0313), and the starter seeds in Your things, which takes Claim plot's place in the HUD.
+ * A newcomer's way home on a phone: the picker of empty plots open on its own as she steps in
+ * with its first pick marked (decision 0377), closed to look around first, the d-pad saying
+ * what's in the way, Claim plot in the Commons opening the picker again (decision 0143), the one
+ * picked claimed with `settle`, a home picked from the designs drawn on her plot and built in one
+ * tap with the first pantry said in words (decision 0144, RFC 0032), her first seed planted from
+ * that note without leaving the sheet (decision 0313), and the starter seeds in Your things,
+ * which takes Claim plot's place in the HUD.
  */
 test("a newcomer claims a plot from the Commons, builds a design, and finds seeds", async ({
   page,
@@ -28,6 +30,16 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
       hearth?: { x: number; y: number };
     };
   await expect.poll(async () => (await me()) !== undefined).toBe(true);
+
+  await test.step("the picker is already open, its first pick marked, and closing it looks around first", async () => {
+    const picker = page.getByRole("dialog", { name: "Pick a plot" });
+    await expect(picker).toBeVisible();
+    await expect(picker.locator(".claim-pick").first()).toHaveClass(/claim-first/);
+    await expect(picker.locator(".claim-pick").first()).toContainText("First pick");
+    await page.screenshot({ path: "test-results/claim-first.png" });
+    await picker.getByRole("button", { name: "Close" }).click();
+    await expect(picker).toBeHidden();
+  });
 
   await test.step("the d-pad walks south from spawn until the shop, then says it's in the way", async () => {
     const start = await me();

@@ -4140,9 +4140,9 @@ a.btn-primary {
 
 /* ---------- the docs pages (site-page.ts docsArticle) ---------- */
 
-/* The title on the page itself, over the cards: eyebrow, title, a line, and its links. */
+/* The title card over a docs page: eyebrow, title, a line, and the page's other forms. */
 .docs-hero {
-  padding: var(--space-md) var(--space-xs) var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .docs-hero h1 {
@@ -4178,6 +4178,23 @@ a.btn-primary {
 
 .docs-start p {
   margin: 0;
+}
+
+/* A way in: its head, what it is, and its buttons along the foot, level across both cards. */
+.docs-start-card {
+  grid-template-rows: auto 1fr auto;
+}
+
+.docs-start-card .card-head .eyebrow {
+  margin: 0;
+}
+
+/* The steps' discs are placed for this size and leading. */
+.docs-steps {
+  display: grid;
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
 }
 
 /* What's on the page: routes with their method, guides, or the letters of Models. */
@@ -4332,6 +4349,164 @@ a.btn-primary {
   font-weight: var(--weight-bold);
 }
 
+/* The page as Markdown, OpenAPI, and the like: quiet links under the title, not buttons. */
+.docs-files {
+  column-gap: var(--space-lg);
+  row-gap: 0;
+}
+
+.docs-files a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--clay-deep);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--clay) 35%, transparent);
+  text-underline-offset: 3px;
+}
+
+.docs-files a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* A section of a docs page is a card of its own; a link to it lands with the card's top in view. */
+.docs-section h2 {
+  scroll-margin-top: calc(130px + env(safe-area-inset-top));
+}
+
+@media (min-width: 1000px) {
+  .docs-section h2 {
+    scroll-margin-top: calc(100px + env(safe-area-inset-top));
+  }
+
+  /* The pinned "On this page" lists the same places, so the one in the page steps aside. */
+  .layout:has(.docs-onpage) .docs-toc {
+    display: none;
+  }
+}
+
+/* "On this page" (site-page.ts docsView): pinned in the sidebar, and in the phone's menu. */
+.docs-onpage-list {
+  display: grid;
+  gap: 2px;
+}
+
+.docs-onpage-list a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 40px;
+  padding: var(--space-2xs) var(--space-sm);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: background-color 0.15s ease;
+}
+
+.docs-onpage .docs-onpage-list a {
+  margin-inline: calc(-1 * var(--space-sm));
+}
+
+.docs-onpage-list a:hover {
+  background: var(--paper-2);
+}
+
+.docs-onpage-list a[aria-current] {
+  background: color-mix(in srgb, var(--clay) 14%, var(--paper));
+  color: var(--clay-deep);
+}
+
+.docs-onpage-list .route-path {
+  font-size: var(--text-sm);
+}
+
+.docs-onpage-list.is-letters {
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+}
+
+.docs-onpage-list.is-letters a {
+  justify-content: center;
+  min-height: 44px;
+  margin-inline: 0;
+}
+
+/* The phone's "On this page": a row under the site bar that opens into the places and the pages. */
+.docs-jump {
+  border-top: 1px solid rgba(220, 200, 165, 0.5);
+}
+
+.docs-jump > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: var(--page-wide);
+  min-height: 44px;
+  margin: 0 auto;
+  padding: 0 max(var(--space-lg), env(safe-area-inset-right)) 0
+    max(var(--space-lg), env(safe-area-inset-left));
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  list-style: none;
+}
+
+.docs-jump > summary::-webkit-details-marker {
+  display: none;
+}
+
+.docs-jump-here {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docs-jump > summary .icon {
+  flex: none;
+  margin-inline-start: auto;
+  transition: transform 0.15s ease;
+}
+
+.docs-jump[open] > summary .icon {
+  transform: rotate(180deg);
+}
+
+.docs-jump-panel {
+  position: absolute;
+  top: 100%;
+  right: max(var(--space-lg), env(safe-area-inset-right));
+  left: max(var(--space-lg), env(safe-area-inset-left));
+  max-height: min(70dvh, 560px);
+  padding: var(--space-md);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  box-shadow: 0 18px 40px -20px rgba(92, 60, 30, 0.45);
+}
+
+.docs-jump-pages {
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--paper-edge);
+}
+
+@media (min-width: 1000px) {
+  .docs-jump {
+    display: none;
+  }
+}
+
 .prose-meta {
   margin-top: var(--space-sm);
   font-size: var(--text-md);
@@ -4340,17 +4515,17 @@ a.btn-primary {
 
 /* ---------- How to play: a card per section, its icon, its things, and numbered steps ---------- */
 
-.guide-head {
+.card-head {
   display: flex;
   align-items: center;
   gap: var(--space-md);
 }
 
-.prose .guide-head h2 {
+.prose .card-head h2 {
   margin: 0;
 }
 
-.guide-icon {
+.card-icon {
   display: grid;
   flex: none;
   place-items: center;
@@ -4361,7 +4536,7 @@ a.btn-primary {
   color: var(--clay-deep);
 }
 
-.guide-icon .icon {
+.card-icon .icon {
   width: 22px;
   height: 22px;
 }
@@ -4396,21 +4571,25 @@ a.btn-primary {
 }
 
 /* Steps in order read as numbered clay circles, so a how-to stands out from the prose around it. */
-.prose:where(.guide-card, .guide-intro) ol {
+.prose:where(.guide-card, .guide-intro, .docs-section) ol,
+.docs-steps {
   padding-inline-start: 0;
   list-style: none;
   counter-reset: step;
   gap: var(--space-lg);
 }
 
-.prose:where(.guide-card, .guide-intro) ol > li {
+.prose:where(.guide-card, .guide-intro, .docs-section) ol > li,
+.docs-steps > li {
   position: relative;
   padding-inline-start: var(--space-3xl);
   counter-increment: step;
 }
 
-/* A soft clay disc with the number in clay, centered on the step's first line. */
-.prose:where(.guide-card, .guide-intro) ol > li::before {
+/* A soft clay disc with the number in clay, centered on the step's first line (How to play's
+   steps, and the docs' first steps for people). */
+.prose:where(.guide-card, .guide-intro, .docs-section) ol > li::before,
+.docs-steps > li::before {
   content: counter(step);
   position: absolute;
   /* Half of what the step's first line (the prose's size and leading) has over the 24px disc. */
@@ -4429,7 +4608,7 @@ a.btn-primary {
 }
 
 /* The village across the top of How to play's first card, edge to edge. */
-.guide-hero {
+.card-hero {
   display: block;
   width: calc(100% + 2 * var(--space-xl));
   max-width: none;
@@ -4438,27 +4617,27 @@ a.btn-primary {
   border-radius: var(--r-card) var(--r-card) 0 0;
 }
 
-/* A guide's tables break between words, never inside one. */
-.prose:where(.guide-card) :is(th, td) {
+/* A guide's and the docs' tables break between words, never inside one. */
+.prose:where(.guide-card, .docs-section) :is(th, td) {
   padding: var(--space-sm) var(--space-md);
   overflow-wrap: normal;
 }
 
-.prose:where(.guide-card) :is(th, td):first-child {
+.prose:where(.guide-card, .docs-section) :is(th, td):first-child {
   padding-inline-start: 0;
 }
 
-.prose:where(.guide-card) :is(th, td):last-child {
+.prose:where(.guide-card, .docs-section) :is(th, td):last-child {
   padding-inline-end: 0;
 }
 
-.prose:where(.guide-card) th {
+.prose:where(.guide-card, .docs-section) th {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--ink-soft);
 }
 
-.prose:where(.guide-card) td:first-child {
+.prose:where(.guide-card, .docs-section) td:first-child {
   font-weight: var(--weight-semibold);
 }
 
@@ -4466,17 +4645,19 @@ a.btn-primary {
  * How to play's sections, kept on screen (site-page.ts): a card in the sidebar from 1000px, where
  * the sidebar sits beside the page, and a row of chips under the site bar below that.
  */
-.layout:has(.guide-nav) > .layout-side {
+/* A sidebar card that stays on screen as the page scrolls (an "On this page"), from 1000px. */
+.layout:has(.side-pinned) > .layout-side {
   align-self: stretch;
 }
 
-.guide-nav {
+.side-pinned {
   position: sticky;
   top: calc(76px + var(--space-lg) + env(safe-area-inset-top));
   display: grid;
   gap: var(--space-sm);
   max-height: calc(100dvh - 76px - 2 * var(--space-lg) - env(safe-area-inset-top));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .guide-nav .guide-links {
@@ -4579,7 +4760,7 @@ a.btn-primary {
 }
 
 @media (max-width: 999px) {
-  .guide-nav {
+  .side-pinned {
     display: none;
   }
 }

@@ -170,8 +170,8 @@ const DOCS_GROUPS: readonly { label: string; grid?: true; links: readonly Footer
 ];
 
 /** On a docs page, the way around the docs, with the page you're on filled in. */
-function docsNavHtml(path: string): string {
-  const groups = DOCS_GROUPS.map((group) => {
+function docsNavGroups(path: string): string {
+  return DOCS_GROUPS.map((group) => {
     const items = group.links
       .map(
         (l) =>
@@ -183,13 +183,21 @@ function docsNavHtml(path: string): string {
               <ul class="plain-list docs-nav-list${group.grid ? " is-grid" : ""}">${items}</ul>
             </div>`;
   }).join("");
+}
+
+function docsNavHtml(path: string): string {
   return `<nav class="pulse paper card docs-nav" aria-label="Docs">
             <p class="eyebrow pulse-eyebrow">Docs</p>
-            ${groups}
+            ${docsNavGroups(path)}
           </nav>`;
 }
 
-function siteSideHtml(path: string, guide?: string): string {
+/**
+ * The sidebar of a static page. `pinned` is a card that stays on screen as the page scrolls (an
+ * "On this page"): a docs page shows it under the docs' own nav, How to play under Step inside,
+ * and neither shows the devlog's posts then.
+ */
+function siteSideHtml(path: string, pinned?: string): string {
   const docs = isDocs(path) ? docsNavHtml(path) : "";
   const visit = `<article class="pulse paper card" aria-label="Step inside">
             <p class="eyebrow pulse-eyebrow">Step inside</p>
@@ -200,8 +208,7 @@ function siteSideHtml(path: string, guide?: string): string {
               <a class="pill-button" href="${LINKS.skill}">For your AI</a>
             </div>
           </article>`;
-  // How to play keeps its sections beside it, rather than the devlog.
-  if (guide) return `${visit}\n          ${guide}`;
+  if (pinned) return docs ? `${docs}\n          ${pinned}` : `${visit}\n          ${pinned}`;
   const posts = DEVLOG_POSTS.filter((p) => devlogPath(p.date) !== path).slice(0, SIDE_POSTS);
   if (path === LINKS.devlog || posts.length === 0) return `${docs}${visit}`;
   const items = posts
@@ -316,14 +323,14 @@ function guideCards(html: string, footnote: string): string {
         ? part.replace(
             /^(<h2 [^>]*>[\s\S]*?<\/h2>)/,
             (heading) =>
-              `<div class="guide-head"><span class="guide-icon" aria-hidden="true">${iconSvg(section.icon)}</span>${heading}</div>${
+              `<div class="card-head"><span class="card-icon" aria-hidden="true">${iconSvg(section.icon)}</span>${heading}</div>${
                 section.things
                   ? `<ul class="guide-things" aria-hidden="true">${section.things.map(guideThing).join("")}</ul>`
                   : ""
               }`,
           )
         : i === 0
-          ? `<img class="guide-hero" src="/brand/x-banner.png" alt="" width="1500" height="500" decoding="async" />\n${part}`
+          ? `<img class="card-hero" src="/brand/x-banner.png" alt="" width="1500" height="500" decoding="async" />\n${part}`
           : part;
       const last = i === parts.length - 1 ? `\n              ${footnote}` : "";
       return `<section class="paper card prose${id ? " guide-card" : " guide-intro"}">
@@ -359,7 +366,7 @@ const guideLink = (part: GuidePart, words: string) =>
  * section in view (`.guide-links` in style.css), so it needs no script.
  */
 const guideSideNav = (parts: readonly GuidePart[]) =>
-  `<nav class="paper card guide-nav" aria-label="On this page">
+  `<nav class="paper card side-pinned guide-nav" aria-label="On this page">
             <p class="eyebrow pulse-eyebrow">On this page</p>
             <ul class="plain-list guide-links">${parts.map((p) => guideLink(p, p.title)).join("")}</ul>
           </nav>`;
@@ -399,45 +406,171 @@ function tocItem(entry: TocEntry): string {
 
 /** The two ways in on /docs: walking in as a person, or sending an assistant. */
 function docsStartHtml(): string {
+  const head = (icon: IconName, eyebrow: string, title: string) =>
+    `<div class="card-head"><span class="card-icon" aria-hidden="true">${iconSvg(icon)}</span><div class="stack tight"><p class="eyebrow">${eyebrow}</p><h2 class="docs-start-title">${title}</h2></div></div>`;
   return `<section class="card-grid docs-start" aria-label="Start here">
-            <div class="paper card stack tight">
-              <p class="eyebrow">For people</p>
-              <h2 class="docs-start-title">Walk in from your phone</h2>
-              <p>Pick a name and a look, claim a plot, and build a home. No account, wallet, or download.</p>
-              <p class="cluster"><a class="btn-primary" href="/world">Open the world</a><a class="pill-button" href="#getting-started-for-people">Getting started</a></p>
+            <div class="paper card stack docs-start-card">
+              ${head("world", "For people", "Walk in from your phone")}
+              <div class="stack tight">
+                <p>No account, wallet, or download.</p>
+                <ol class="plain-list docs-steps">
+                  <li>Open the world, type a name, and tap <strong>Step inside</strong>.</li>
+                  <li>Tap <strong>Claim plot</strong> and pick a home.</li>
+                  <li>Tap <strong>Home</strong> each day for coins and seeds.</li>
+                </ol>
+              </div>
+              <p class="cluster"><a class="btn-primary small" href="/world">Open the world</a><a class="pill-button small" href="#getting-started-for-people">Getting started</a></p>
             </div>
-            <div class="paper card stack tight">
-              <p class="eyebrow">For AI agents</p>
-              <h2 class="docs-start-title">Send your assistant one line</h2>
+            <div class="paper card stack docs-start-card">
+              ${head("sparkle", "For AI agents", "Send your assistant one line")}
               <p class="copy-text" data-copy="Paste this to your AI">${attr(promptLine("Wren", "loves gardens"))}</p>
-              <p class="cluster"><a class="pill-button" href="#quickstart-for-ai-agents">Quickstart</a><a class="pill-button" href="${LINKS.skill}">skill.md</a></p>
+              <p class="cluster"><a class="pill-button small" href="#quickstart-for-ai-agents">Quickstart</a><a class="pill-button small" href="${LINKS.skill}">skill.md</a></p>
             </div>
           </section>`;
 }
 
-/** A docs page's main column: its title and links, its contents, then its body in a card. */
-function docsArticle(page: SitePage, docs: DocsPage, footnote: string): string {
+/** A link on a docs page's "On this page": where it goes, and its words as markup. */
+interface DocsPlace {
+  href: string;
+  label: string;
+}
+
+/** The text of a rendered `##` heading, still escaped. */
+const headingWords = (part: string) =>
+  (/^<h2[^>]*>([\s\S]*?)<\/h2>/.exec(part)?.[1] ?? "").replace(/<[^>]+>/g, "");
+
+/**
+ * A docs page's body as a card per `##` section, so a long page reads in pieces and the "On this
+ * page" can light the one in view (`data-section`, read by docs-sections.ts). On Models, whose
+ * contents are letters, a letter's shapes share a card, named for its first. What comes before
+ * the first heading is a card of its own, and the footnote closes the last.
+ */
+function docsCards(body: string, letters: boolean, footnote: string): string {
+  const cards: { id?: string; letter: string; html: string }[] = [];
+  for (const part of body.split(/(?=<h2 )/)) {
+    if (!part.trim()) continue;
+    const id = /^<h2 id="([^"]+)"/.exec(part)?.[1];
+    const letter = letters && id ? headingWords(part).trim().charAt(0).toUpperCase() : "";
+    const last = cards.at(-1);
+    if (last && letter && last.letter === letter) last.html += part;
+    else cards.push({ ...(id ? { id } : {}), letter, html: part });
+  }
+  return cards
+    .map(
+      (
+        card,
+        i,
+      ) => `<section class="paper card prose docs-body docs-section"${card.id ? ` data-section="${card.id}"` : ""}>
+${card.html}${i === cards.length - 1 ? `\n              ${footnote}` : ""}
+            </section>`,
+    )
+    .join("\n            ");
+}
+
+/** Where a docs page's "On this page" goes: its contents, or its sections when it lists none. */
+function docsPlaces(docs: DocsPage, body: string): DocsPlace[] {
+  if (docs.toc.entries.length > 0) {
+    return docs.toc.entries.map((e) => ({
+      href: e.href,
+      label: e.method ? routeHtml(e.method, attr(e.label)) : attr(e.label),
+    }));
+  }
+  return headingPlaces(body);
+}
+
+/** A page's `##` headings as places to go. */
+const headingPlaces = (body: string): DocsPlace[] =>
+  [...body.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)].map(([, id = "", words = ""]) => ({
+    href: `#${id}`,
+    label: words.replace(/<[^>]+>/g, ""),
+  }));
+
+const placesList = (places: readonly DocsPlace[], letters: boolean) =>
+  `<ul class="plain-list docs-onpage-list${letters ? " is-letters" : ""}">${places
+    .map((p) => `<li><a href="${attr(p.href)}">${p.label}</a></li>`)
+    .join("")}</ul>`;
+
+/**
+ * A docs page in its parts: the main column (its title and links, its contents, then its body as
+ * a card per section) and its "On this page" (`docsNavs`).
+ */
+function docsView(
+  page: SitePage,
+  docs: DocsPage,
+  footnote: string,
+): { main: string; pinned: string; jump: string } {
   const links = docs.links
-    .map((l) => `<li><a class="pill-button small" href="${attr(l.href)}">${attr(l.label)}</a></li>`)
+    .map((l) => `<li><a href="${attr(l.href)}">${attr(l.label)}</a></li>`)
     .join("");
-  const letters = docs.toc.entries.every((e) => e.label.length === 1);
+  const letters =
+    docs.toc.entries.length > 0 && docs.toc.entries.every((e) => e.label.length === 1);
   const entries = docs.toc.entries.map(tocItem).join("");
   const body = decorateRoutes(markdownToHtml(docs.body, { headingLinks: true }));
-  return `<header class="docs-hero stack tight">
+  const places = docsPlaces(docs, body);
+  const contents =
+    entries === ""
+      ? ""
+      : `<nav class="paper card stack tight docs-toc" aria-label="${attr(docs.toc.title)}">
+              <p class="eyebrow pulse-eyebrow">${attr(docs.toc.title)}</p>
+              <ul class="plain-list docs-toc-list${letters ? " is-letters" : ""}">${entries}</ul>
+            </nav>`;
+  const main = `<header class="paper card docs-hero stack tight">${
+    page.path === LINKS.docs
+      ? `\n              <img class="card-hero" src="/brand/x-banner.png" alt="" width="1500" height="500" decoding="async" />`
+      : ""
+  }
               <p class="eyebrow">${attr(docs.eyebrow)}</p>
               <h1>${attr(docs.title)}</h1>
               <p class="docs-lede">${inline(docs.lede)}</p>
-              <ul class="plain-list cluster">${links}</ul>
+              <ul class="plain-list cluster docs-files" aria-label="This page elsewhere">${links}</ul>
             </header>
             ${page.path === LINKS.docs ? docsStartHtml() : ""}
-            <nav class="paper card stack tight docs-toc" aria-label="${attr(docs.toc.title)}">
-              <p class="eyebrow pulse-eyebrow">${attr(docs.toc.title)}</p>
-              <ul class="plain-list docs-toc-list${letters ? " is-letters" : ""}">${entries}</ul>
-            </nav>
-            <div class="paper card prose docs-body">
-${body}
-              ${footnote}
-            </div>`;
+            ${contents}
+            ${docsCards(body, letters, footnote)}`;
+  return { main, ...docsNavs(places, letters, page.path) };
+}
+
+/**
+ * A docs page's "On this page": pinned in the sidebar, and, under the site bar on a phone, a menu
+ * with the same places and the docs' other pages, which says the section in view.
+ */
+function docsNavs(
+  places: readonly DocsPlace[],
+  letters: boolean,
+  path: string,
+): { pinned: string; jump: string } {
+  if (places.length === 0) return { pinned: "", jump: "" };
+  const pinned = `<nav class="paper card side-pinned docs-onpage" aria-label="On this page">
+            <p class="eyebrow pulse-eyebrow">On this page</p>
+            ${placesList(places, letters)}
+          </nav>`;
+  const jump = `<details class="docs-jump">
+          <summary><span class="docs-jump-label">On this page</span><span class="docs-jump-here" data-here></span>${iconSvg("chevronDown")}</summary>
+          <div class="docs-jump-panel stack">
+            ${placesList(places, letters)}
+            <div class="stack tight docs-jump-pages">
+              <p class="eyebrow pulse-eyebrow">Docs</p>
+              ${docsNavGroups(path)}
+            </div>
+          </div>
+        </details>`;
+  return { pinned, jump };
+}
+
+/**
+ * A docs page written as one Markdown file (the skill file's page): a card per section under its
+ * title card, with the same "On this page", from its headings.
+ */
+function docsMarkdownView(
+  path: string,
+  source: string,
+  footnote: string,
+): { main: string; pinned: string; jump: string } {
+  const body = markdownToHtml(source, { headingLinks: true });
+  return {
+    main: docsCards(body, false, footnote),
+    ...docsNavs(headingPlaces(body), false, path),
+  };
 }
 
 export function staticPage(options: {
@@ -456,6 +589,11 @@ export function staticPage(options: {
   const parts = guideHtml ? guideParts(guideHtml) : [];
   const markdown = page.markdown ?? `${page.path}.md`;
   const footnote = `<p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>`;
+  const docs = options.docs
+    ? docsView(page, options.docs, footnote)
+    : isDocs(page.path)
+      ? docsMarkdownView(page.path, source, footnote)
+      : undefined;
   const nav = [
     { href: "/", label: "Feed" },
     { href: "/world", label: "World" },
@@ -499,14 +637,14 @@ export function staticPage(options: {
 ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a>`).join("\n")}
           </nav>
           <span></span>
-        </div>${guideHtml ? `\n        ${guideJump(parts)}` : ""}
+        </div>${guideHtml ? `\n        ${guideJump(parts)}` : docs?.jump ? `\n        ${docs.jump}` : ""}
       </header>
       <main class="page-root">
         <div class="layout">
-          <article class="layout-main${options.docs || guideHtml ? " stack cards" : ""}">
+          <article class="layout-main${docs || guideHtml ? " stack cards" : ""}">
             ${
-              options.docs
-                ? docsArticle(page, options.docs, footnote)
+              docs
+                ? docs.main
                 : guideHtml
                   ? guideCards(guideHtml, footnote)
                   : `<div class="paper card prose">
@@ -516,7 +654,7 @@ ${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownT
             }
           </article>
           <aside class="layout-side" aria-label="More from ${SITE.name}">
-          ${siteSideHtml(page.path, guideHtml ? guideSideNav(parts) : undefined)}
+          ${siteSideHtml(page.path, guideHtml ? guideSideNav(parts) : docs?.pinned || undefined)}
           </aside>
         </div>
       </main>

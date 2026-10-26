@@ -269,12 +269,12 @@ describe("static pages", () => {
     expect(html.match(/<section class="paper card prose guide-card">/g)).toHaveLength(
       sections.length,
     );
-    expect(html.match(/class="guide-icon"/g)).toHaveLength(sections.length);
+    expect(html.match(/class="card-icon"/g)).toHaveLength(sections.length);
     expect(html.match(/<section class="paper card prose guide-intro">/g)).toHaveLength(1);
     // Both navs, the sidebar's and the phone's row, link every section, and style.css lights the
     // link for the section in view by its place, with room for 16.
     expect(sections.length).toBeLessThanOrEqual(16);
-    for (const nav of ['class="paper card guide-nav"', 'class="guide-jump"']) {
+    for (const nav of ['class="paper card side-pinned guide-nav"', 'class="guide-jump"']) {
       const list = html.slice(html.indexOf(nav), html.indexOf("</nav>", html.indexOf(nav)));
       expect(list.match(/<a href="#[^"]+">/g)).toHaveLength(sections.length);
     }
@@ -340,6 +340,10 @@ describe("/docs/skill", () => {
     expect(html).toContain('<h1 id="terrakin">Terrakin</h1>');
     expect(html).not.toContain("name: terrakin");
     expect(html).toContain('<a href="#error-codes">Error codes</a>');
+    // A card a section, which its "On this page" lists, as on the other docs pages.
+    const sections = html.match(/<h2 id=/g)?.length ?? 0;
+    expect(html.match(/data-section=/g)).toHaveLength(sections);
+    expect(html).toContain('class="paper card side-pinned docs-onpage"');
     expect(html).toContain('<link rel="alternate" type="text/markdown" href="/skill.md"');
     expect(html).not.toMatch(/<script/);
   });
@@ -396,6 +400,27 @@ describe("/docs and the API reference", () => {
     });
     expect(about).not.toContain("heading-link");
     expect(about).not.toContain('aria-label="Docs"');
+  });
+
+  it("puts each section in a card that both its navs list, so the one in view can be lit", () => {
+    for (const [path, page] of html) {
+      const cards = [...page.matchAll(/data-section="([^"]+)"/g)].map((m) => m[1]);
+      expect(cards.length, path).toBeGreaterThan(1);
+      for (const nav of [
+        'class="paper card side-pinned docs-onpage"',
+        '<details class="docs-jump">',
+      ]) {
+        const from = page.indexOf(nav);
+        expect(from, `${path} ${nav}`).toBeGreaterThan(-1);
+        const list = page.slice(from, page.indexOf("</ul>", from));
+        const places = new Set([...list.matchAll(/<a href="#([^"]+)"/g)].map((m) => m[1]));
+        for (const card of cards) expect(places.has(card), `${path} ${card}`).toBe(true);
+      }
+    }
+    // Models' shapes share a card a letter, one for each letter its contents list.
+    const models = html.get("/docs/api/models") ?? "";
+    const letters = models.match(/<li class="docs-toc-item">/g)?.length ?? 0;
+    expect(models.match(/data-section=/g)).toHaveLength(letters);
   });
 
   it("renders each page with no script, and every link between them lands on an id", () => {

@@ -192,6 +192,8 @@ function sitePages(): Plugin {
       return apiPage(page.path, JSON.parse(file("packages/protocol/openapi.json")));
     return undefined;
   };
+  /** Every docs page, the skill file's too, loads the docs' one script (decision 0211). */
+  const hasDocsScript = (page: SitePage) => page.built !== undefined;
   const read = (page: SitePage): string => {
     const docs = docsOf(page);
     if (docs) return pageMarkdown(docs);
@@ -232,7 +234,7 @@ function sitePages(): Plugin {
             res.setHeader("content-type", "text/html; charset=utf-8");
             const css = "/src/style.css";
             const docs = docsOf(page);
-            const script = docs ? "/src/docs-copy.ts" : undefined;
+            const script = hasDocsScript(page) ? "/src/docs-copy.ts" : undefined;
             return res.end(
               staticPage({ page, source: read(page), lastUpdated: dated(page), css, docs, script }),
             );
@@ -275,7 +277,7 @@ function sitePages(): Plugin {
         }
         if (page.kind !== "static") continue;
         const docs = docsOf(page);
-        const script = docs ? docsScript : undefined;
+        const script = hasDocsScript(page) ? docsScript : undefined;
         const html = staticPage({ page, source, lastUpdated, css: `/${css}`, docs, script });
         this.emitFile({
           type: "asset",

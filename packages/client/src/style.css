@@ -4400,30 +4400,32 @@ a.btn-primary {
   padding-inline-start: 0;
   list-style: none;
   counter-reset: step;
-  gap: var(--space-sm);
+  gap: var(--space-lg);
 }
 
 .prose:where(.guide-card, .guide-intro) ol > li {
   position: relative;
-  min-height: 28px;
-  padding-inline-start: var(--space-4xl);
+  padding-inline-start: var(--space-3xl);
   counter-increment: step;
 }
 
+/* A soft clay disc with the number in clay, centered on the step's first line. */
 .prose:where(.guide-card, .guide-intro) ol > li::before {
   content: counter(step);
   position: absolute;
-  top: 0;
+  /* Half of what the step's first line (the prose's size and leading) has over the 24px disc. */
+  top: calc((var(--text-lg) * var(--leading-normal) - 24px) / 2);
   left: 0;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: var(--clay);
-  color: var(--paper);
-  font-size: var(--text-md);
+  background: color-mix(in srgb, var(--clay) 14%, var(--paper));
+  color: var(--clay-deep);
+  font-size: var(--text-sm);
   font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The village across the top of How to play's first card, edge to edge. */

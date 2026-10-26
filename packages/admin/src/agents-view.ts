@@ -4,7 +4,7 @@
  * a one-time re-key code, ends its owner link, and logs who and why, never the code. The code and a
  * message to paste are shown once, here.
  *
- * Beside it, the same for a person (decision 0377): a one-time sign-in link that binds a passkey
+ * Beside it, the same for a person (decision 0378): a one-time sign-in link that binds a passkey
  * to their character when they open it.
  *
  * Below it, merging a duplicate record into the one that stays, for people and AIs alike (decision
@@ -95,7 +95,7 @@ export function agentsView(): View {
     );
   }
 
-  // A sign-in link for a person (decision 0377).
+  // A sign-in link for a person (decision 0378).
   const person = h("input", {
     class: "field-input",
     attrs: {

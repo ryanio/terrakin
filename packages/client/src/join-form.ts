@@ -129,7 +129,7 @@ export interface JoinFormOptions {
   submitLabel: string;
   busyLabel: string;
   /**
-   * Offer a passkey right after the join (decision 0377). A page whose join is one step of
+   * Offer a passkey right after the join (decision 0378). A page whose join is one step of
    * something else passes false and calls `offerAfterJoin` once that is done.
    */
   offerPasskey?: boolean;
@@ -457,7 +457,7 @@ export function tokenPreview(
 }
 
 /**
- * Right after a person's join worked: the passkey sheet (decision 0377), once whatever the page
+ * Right after a person's join worked: the passkey sheet (decision 0378), once whatever the page
  * does next has happened, since an invite's join goes on to the world.
  */
 export function offerAfterJoin() {

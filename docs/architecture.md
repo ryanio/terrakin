@@ -103,7 +103,7 @@ their AI may both act as one. A human character is an optional add-on for someon
 A person who joins as themselves is offered a passkey right after the join works, and again at a
 plot, a hearth, and a first level-up, and on the home wall, at most once a day per device until one
 is bound (`packages/client/src/passkey-ask.ts`, the rule in `passkey-words.ts`,
-[decision 0377](knowledge/decisions/0377-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md)).
+[decision 0377](knowledge/decisions/0378-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md)).
 The world's door holds a conditional WebAuthn request, so a saved passkey shows among the name
 field's suggestions; starting a sign-in has its own looser rate limit for that reason, and finishing
 one keeps the tight one. A person who lost their browser before binding one gets a one-time link

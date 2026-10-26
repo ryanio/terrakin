@@ -148,7 +148,7 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
 
   await page.getByRole("button", { name: "Confirm" }).click();
   await expect(page.getByRole("heading", { name: "Alder is now your AI" })).toBeVisible();
-  // Joining here offers a passkey once the claim is confirmed, not between the two (decision 0377).
+  // Joining here offers a passkey once the claim is confirmed, not between the two (decision 0378).
   await skipPasskey(page);
   await shot(page, "claim-done");
 

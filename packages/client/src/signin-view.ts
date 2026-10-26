@@ -2,7 +2,7 @@
  * `/signin/:code`: a one-time link that binds a passkey and signs in (RFC 0037). Usually the person
  * who runs an AI opens it, from the link their AI gave them, and confirming signs them in to the
  * agent's own resident, with no character of their own and nothing to save. A person who lost the
- * browser their own character lived in opens one the Terrakin team made them (decision 0377), and
+ * browser their own character lived in opens one the Terrakin team made them (decision 0378), and
  * the page says it is theirs.
  *
  * The resident's name is their own words, so it reaches the DOM only through `personLink` and `text`.

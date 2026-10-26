@@ -24,9 +24,16 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 
-  await test.step("the passkey sheet comes once, on the way in, and Skip puts it away", async () => {
-    // Decision 0377: offered before there is anything to lose, with one tap to the device's own
-    // sheet and a plain Skip. It stays away for a day, so claiming her plot below asks nothing.
+  // A fresh join is offered a plot straight away (decision 0377): she closes the picker to look
+  // around first, and everything below starts from the world itself.
+  const picker = page.getByRole("dialog", { name: "Pick a plot" });
+  await expect(picker).toBeVisible();
+  await picker.getByRole("button", { name: "Close" }).click();
+  await expect(picker).toBeHidden();
+
+  await test.step("the passkey sheet comes once the picker is put away, and Skip puts it away", async () => {
+    // Decision 0378: offered on the way in, with one tap to the device's own sheet and a plain
+    // Skip. It stays away for a day, so claiming her plot below asks nothing.
     await expect(page.locator("#passkey-ask-title")).toHaveText(
       "Keep your character on any device",
     );

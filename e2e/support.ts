@@ -173,7 +173,7 @@ export async function signIn(
     localStorage.setItem("terrakin.token", token);
     localStorage.setItem("terrakin.resident", id);
     // A device that offered a passkey today, so the offer at a plot, a hearth, or a first level
-    // (decision 0377) never comes up over a spec about something else.
+    // (decision 0378) never comes up over a spec about something else.
     localStorage.setItem("terrakin.passkeyAsked", `${id} ${Date.now()}`);
   };
   if (now) await page.evaluate(save, [who.token, who.id] as const);
@@ -181,7 +181,7 @@ export async function signIn(
 }
 
 /**
- * Put away the passkey sheet a person's join offers (decision 0377). The suite's browser can use
+ * Put away the passkey sheet a person's join offers (decision 0378). The suite's browser can use
  * passkeys but holds none, so a spec that joins through a form answers it the way most people do.
  */
 export async function skipPasskey(page: Page) {

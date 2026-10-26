@@ -87,6 +87,7 @@ import {
   withChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
+import { claimOpensOnJoin } from "./claim-on-join";
 import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
 import { sendFirstPlanting } from "./first-plant";
@@ -619,6 +620,8 @@ function onMessage(msg: ServerMessage) {
       stopWalking();
       if (joiningFresh) track("join");
       const fresh = joiningFresh;
+      // Joined from a link's place: the place is kept for after, and comes before a plot.
+      const toPlace = peek === "joining";
       joiningFresh = false;
       landing.setJoining(false);
       landing.setError("");
@@ -632,16 +635,27 @@ function onMessage(msg: ServerMessage) {
       snapCamera();
       if (mode === "3d") open3d();
       revealWhenDrawn();
-      // Someone who just stepped in sees walking, Claim plot and Chat: say what to do first.
-      if (!showArrival() && fresh) {
-        showToast(FIRST_LINE);
-        // A hint, not news: the next thing the world has to say takes its place.
-        toastSoft = true;
+      // Someone who just joined at the door gets the claim in front of them, not left to a
+      // button: the playtest read (issue #115, decision 0377) found most people stopped between
+      // making a character and claiming a plot. An invite's arrival line still shows, under it.
+      const arrived = showArrival();
+      // Just in, as a person, the passkey sheet comes too (decision 0378), after the picker and
+      // whatever a claim from it opens, since it waits for the page to be clear.
+      if (claimOpensOnJoin({ fresh, toPlace, hasPlot: hasPlot() })) {
+        void import("./claim-sheet").then((c) => {
+          c.openClaimSheet({ first: true });
+          offerPasskey("joined");
+        });
+      } else {
+        if (!arrived && fresh) {
+          showToast(FIRST_LINE);
+          // A hint, not news: the next thing the world has to say takes its place.
+          toastSoft = true;
+        }
+        if (fresh) offerPasskey("joined");
       }
       void loadHoldings();
       sound.enter();
-      // Just in, as a person: the passkey sheet, once (RFC 0037, decision 0377).
-      if (fresh) offerPasskey("joined");
       break;
     }
     case "gesture":
@@ -728,7 +742,7 @@ function onMessage(msg: ServerMessage) {
       }
       if (applied === "applied") levels.heard(msg.seq, msg.event, me, performance.now());
       // A plot, a hearth, a first level-up: more to lose, so the passkey offer comes back, at
-      // most once a day and after any sheet the moment opened (decision 0377).
+      // most once a day and after any sheet the moment opened (decision 0378).
       const moment = applied === "applied" && me ? passkeyMoment(msg.event, me) : undefined;
       if (moment) offerPasskey(moment);
       // After the coins and things a deed brought, so a job it moved joins their line.

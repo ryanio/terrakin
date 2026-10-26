@@ -201,7 +201,7 @@ test("a maintainer helps an agent and a person back in and makes a key for their
   });
 
   await test.step("a person who lost their browser gets a sign-in link and a passkey", async () => {
-    // Known to staff only by the name they joined with: no handle (decision 0377).
+    // Known to staff only by the name they joined with: no handle (decision 0378).
     const lost = await join(page.request, "Foxglove Ash");
     await page.locator("#signin-person").fill("foxglove ash");
     await page.locator("#signin-reason").fill("Asked on Discord; matched their plot and join day");

@@ -1,13 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-  freePlots,
-  join,
-  overflowsSideways,
-  settleFree,
-  signIn,
-  skipPasskey,
-  watchErrors,
-} from "./support";
+import { freePlots, join, overflowsSideways, settleFree, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0005 looks: a newcomer picks hair and a top at the door of the world (decision 0140) and
@@ -40,7 +32,6 @@ test("a newcomer picks a ginger bun and a cardigan at the door, and wears them o
 
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
-  await skipPasskey(page);
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
     .toMatch(/^r_/);

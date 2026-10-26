@@ -83,7 +83,7 @@ describe("when a person is offered a passkey", () => {
   };
 
   it("is a person with no passkey, a browser that can, and no ask within the day", () => {
-    // On the way in, before anything is lost (decision 0377).
+    // On the way in, before anything is lost (decision 0378).
     expect(offerPasskey(person)).toBe(true);
     // An AI's character already has one, bound by the link that let its person in.
     expect(offerPasskey({ ...person, kind: "agent" })).toBe(false);

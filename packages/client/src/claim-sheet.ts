@@ -106,7 +106,7 @@ export function openClaimSheet(o: { first?: boolean } = {}) {
     );
     const more = moreButton("Show more plots", async () => {
       const next = picks.slice(shown, shown + PAGE);
-      list.append(...next.map(row));
+      list.append(...next.map((pick) => row(pick)));
       shown += next.length;
       more.el.hidden = shown >= picks.length;
       return undefined;

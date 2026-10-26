@@ -3264,7 +3264,7 @@ dialog.model-viewer {
   flex: none;
 }
 
-/* The first pick when the picker opens on its own for someone who just joined (decision 0376). */
+/* The first pick when the picker opens on its own for someone who just joined (decision 0377). */
 .claim-first {
   outline: 2px solid var(--sun);
   outline-offset: -2px;

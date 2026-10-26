@@ -3,7 +3,7 @@ import { walkedOnto, watchErrors } from "./support";
 
 /**
  * A newcomer's way home on a phone: the picker of empty plots open on its own as she steps in
- * with its first pick marked (decision 0376), closed to look around first, the d-pad saying
+ * with its first pick marked (decision 0377), closed to look around first, the d-pad saying
  * what's in the way, Claim plot in the Commons opening the picker again (decision 0143), the one
  * picked claimed with `settle`, a home picked from the designs drawn on her plot and built in one
  * tap with the first pantry said in words (decision 0144, RFC 0032), her first seed planted from

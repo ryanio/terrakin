@@ -621,7 +621,7 @@ function onMessage(msg: ServerMessage) {
       if (mode === "3d") open3d();
       revealWhenDrawn();
       // Someone who just joined at the door gets the claim in front of them, not left to a
-      // button: the playtest read (issue #115, decision 0376) found most people stopped between
+      // button: the playtest read (issue #115, decision 0377) found most people stopped between
       // making a character and claiming a plot. An invite's arrival line still shows, under it.
       const arrived = showArrival();
       if (claimOpensOnJoin({ fresh, toPlace, hasPlot: hasPlot() })) {

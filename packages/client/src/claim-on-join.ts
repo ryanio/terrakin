@@ -1,6 +1,6 @@
 /**
  * Whether stepping into the world puts the Claim plot picker in front of someone straight away
- * (issue #115, decision 0376): the playtest read found 5 of 7 people stopped after making a
+ * (issue #115, decision 0377): the playtest read found 5 of 7 people stopped after making a
  * character, before claiming a plot, with the claim left to a button and a chip. Pure, so tests
  * pin the three ways it stays away.
  */

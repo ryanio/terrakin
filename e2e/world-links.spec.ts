@@ -102,7 +102,7 @@ test("someone with no character looks at a plot from a link, steps inside, and g
     await page.fill("#join-name", "Linnea");
     await page.click("#world-join button[type=submit]");
     await expect(page.locator(".dpad")).toBeVisible();
-    // She joined to go to a place, so no claim picker opens over it (decision 0376).
+    // She joined to go to a place, so no claim picker opens over it (decision 0377).
     await expect(page.getByRole("dialog", { name: "Pick a plot" })).toBeHidden();
     await expect(card).toBeVisible();
     await expect(page.locator("#look-card-title")).toHaveText(`${wren.name}'s plot`);

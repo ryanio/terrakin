@@ -310,7 +310,7 @@ What we chose and why. Newest last.
 - [The front page's live line also names the next event](decisions/0374-the-front-page-s-live-line-also-names-the-next-event.md) · 2026-10-23 · accepted · `client` `home-wall`
 - [The front page and pulse card count every claimed plot, the townsfolk's too](decisions/0375-the-front-page-and-pulse-card-count-every-claimed-plot-the-t.md) · 2026-10-24 · accepted · `client` `home-wall`
 - [The docs pages' script also lights the section in view, and How to play does it with CSS](decisions/0376-the-docs-pages-script-also-lights-the-section-in-view-and-ho.md) · 2026-10-26 · accepted · `client` `docs` `site`
-- [A person who joins at the door is offered a plot straight away](decisions/0376-a-person-who-joins-at-the-door-is-offered-a-plot-straight-aw.md) · 2026-10-26 · accepted · `client` `design`
+- [A person who joins at the door is offered a plot straight away](decisions/0377-a-person-who-joins-at-the-door-is-offered-a-plot-straight-aw.md) · 2026-10-26 · accepted · `client` `design`
 
 ## Learnings
 

@@ -3,7 +3,7 @@
  * `settle` would take, nearest to plots people live on first (`plotPicks`), each drawn with the
  * plots around it, and a line on one that would close a neighbor in (decision 0354). Picking one sends `settle`, which claims it from anywhere and puts you there;
  * the world then asks about a home (`home-sheet.ts`). Neighbors' names are their words: text only.
- * A person who has just joined at the door gets it opened for them (`first`, decision 0376): the
+ * A person who has just joined at the door gets it opened for them (`first`, decision 0377): the
  * first pick is marked, and the lede says closing it to look around first is fine.
  */
 
@@ -33,7 +33,7 @@ const AREA_PX = 72;
 
 /**
  * Open the picker. It loads the world itself, so it shows who lives where right now. `first` is
- * the join opening (decision 0376): the lede names the way back to looking around, and the first
+ * the join opening (decision 0377): the lede names the way back to looking around, and the first
  * pick, the nearest plot beside neighbors, is marked.
  */
 export function openClaimSheet(o: { first?: boolean } = {}) {

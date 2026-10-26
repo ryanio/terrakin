@@ -24,7 +24,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
 
-  // A fresh join is offered a plot straight away (decision 0376): she closes the picker to look
+  // A fresh join is offered a plot straight away (decision 0377): she closes the picker to look
   // around first, and everything below starts from the world itself.
   const picker = page.getByRole("dialog", { name: "Pick a plot" });
   await expect(picker).toBeVisible();

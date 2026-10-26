@@ -189,7 +189,7 @@ function docsNavHtml(path: string): string {
           </nav>`;
 }
 
-function siteSideHtml(path: string): string {
+function siteSideHtml(path: string, guide?: string): string {
   const docs = isDocs(path) ? docsNavHtml(path) : "";
   const visit = `<article class="pulse paper card" aria-label="Step inside">
             <p class="eyebrow pulse-eyebrow">Step inside</p>
@@ -200,6 +200,8 @@ function siteSideHtml(path: string): string {
               <a class="pill-button" href="${LINKS.skill}">For your AI</a>
             </div>
           </article>`;
+  // How to play keeps its sections beside it, rather than the devlog.
+  if (guide) return `${visit}\n          ${guide}`;
   const posts = DEVLOG_POSTS.filter((p) => devlogPath(p.date) !== path).slice(0, SIDE_POSTS);
   if (path === LINKS.devlog || posts.length === 0) return `${docs}${visit}`;
   const items = posts
@@ -237,56 +239,62 @@ interface GuideThing {
 
 /**
  * Each section of How to play (`docs/site/play.md`) by its heading's id: the icon beside its
- * heading, and the things drawn under it, three or six so a row fills on a phone and on a wide
+ * heading, its short name on a phone's row of sections, and the things drawn under it, three or six so a row fills on a phone and on a wide
  * screen. A test fails on a section with no entry here.
  */
-const GUIDE_SECTIONS: Readonly<Record<string, { icon: IconName; things?: readonly GuideThing[] }>> =
-  {
-    "getting-around": { icon: "signpost" },
-    "your-plot-and-your-home": { icon: "home" },
-    gathering: {
-      icon: "gather",
-      things: ["wood", "stone", "acorn", "seashell", "geode", "clay"].map((kind) => ({
-        kind: kind as ItemKind,
-      })),
-    },
-    growing: {
-      icon: "sprout",
-      things: ["lemon_seed", "tomato", "strawberry", "lemon", "herb", "flower"].map((kind) => ({
-        kind: kind as ItemKind,
-      })),
-    },
-    "making-things": {
-      icon: "workbench",
-      things: ["herb_tea", "lemon_jam", "bouquet", "chair", "table", "fishing_rod"].map((kind) => ({
-        kind: kind as ItemKind,
-      })),
-    },
-    pottery: {
-      icon: "kiln",
-      things: [
-        { kind: "clay" },
-        { kind: "bowl", glaze: "sea" },
-        { kind: "vase", glaze: "rose" },
-        { kind: "teapot", glaze: "honey" },
-        { kind: "pot_of_tea" },
-        { kind: "cup_of_tea" },
-      ],
-    },
-    fishing: {
-      icon: "fishing",
-      things: ["fishing_rod", "minnow", "perch", "trout", "salmon", "golden_koi"].map((kind) => ({
-        kind: kind as ItemKind,
-      })),
-    },
-    coins: { icon: "coin" },
-    "town-jobs": { icon: "town" },
-    "levels-and-skills": { icon: "level" },
-    "neighbors-and-pets": { icon: "paw" },
-    events: { icon: "calendar" },
-    circles: { icon: "follow" },
-    "your-things-and-the-collection-book": { icon: "things" },
-  };
+const GUIDE_SECTIONS: Readonly<
+  Record<string, { icon: IconName; short: string; things?: readonly GuideThing[] }>
+> = {
+  "getting-around": { icon: "signpost", short: "Getting around" },
+  "your-plot-and-your-home": { icon: "home", short: "Your home" },
+  gathering: {
+    icon: "gather",
+    short: "Gathering",
+    things: ["wood", "stone", "acorn", "seashell", "geode", "clay"].map((kind) => ({
+      kind: kind as ItemKind,
+    })),
+  },
+  growing: {
+    icon: "sprout",
+    short: "Growing",
+    things: ["lemon_seed", "tomato", "strawberry", "lemon", "herb", "flower"].map((kind) => ({
+      kind: kind as ItemKind,
+    })),
+  },
+  "making-things": {
+    icon: "workbench",
+    short: "Making",
+    things: ["herb_tea", "lemon_jam", "bouquet", "chair", "table", "fishing_rod"].map((kind) => ({
+      kind: kind as ItemKind,
+    })),
+  },
+  pottery: {
+    icon: "kiln",
+    short: "Pottery",
+    things: [
+      { kind: "clay" },
+      { kind: "bowl", glaze: "sea" },
+      { kind: "vase", glaze: "rose" },
+      { kind: "teapot", glaze: "honey" },
+      { kind: "pot_of_tea" },
+      { kind: "cup_of_tea" },
+    ],
+  },
+  fishing: {
+    icon: "fishing",
+    short: "Fishing",
+    things: ["fishing_rod", "minnow", "perch", "trout", "salmon", "golden_koi"].map((kind) => ({
+      kind: kind as ItemKind,
+    })),
+  },
+  coins: { icon: "coin", short: "Coins" },
+  "town-jobs": { icon: "town", short: "Jobs" },
+  "levels-and-skills": { icon: "level", short: "Skills" },
+  "neighbors-and-pets": { icon: "paw", short: "Neighbors" },
+  events: { icon: "calendar", short: "Events" },
+  circles: { icon: "follow", short: "Circles" },
+  "your-things-and-the-collection-book": { icon: "things", short: "Your things" },
+};
 
 /** One thing as the app draws it, with its name under it, built into the page so it loads nothing. */
 const guideThing = (thing: GuideThing): string =>
@@ -295,7 +303,8 @@ const guideThing = (thing: GuideThing): string =>
 /**
  * How to play as a card per section, so it reads in pieces: what comes before the first `##` is
  * the first card, and each section after it gets its icon beside the heading and its things drawn
- * under it (`GUIDE_SECTIONS`). The footnote goes in the last card.
+ * under it (`GUIDE_SECTIONS`). The first card opens with the village, and the footnote goes in the
+ * last.
  */
 function guideCards(html: string, footnote: string): string {
   const parts = html.split(/(?=<h2 )/);
@@ -313,7 +322,9 @@ function guideCards(html: string, footnote: string): string {
                   : ""
               }`,
           )
-        : part;
+        : i === 0
+          ? `<img class="guide-hero" src="/brand/x-banner.png" alt="" width="1500" height="500" decoding="async" />\n${part}`
+          : part;
       const last = i === parts.length - 1 ? `\n              ${footnote}` : "";
       return `<section class="paper card prose${id ? " guide-card" : " guide-intro"}">
 ${body}${last}
@@ -321,6 +332,42 @@ ${body}${last}
     })
     .join("\n            ");
 }
+
+/** A section of How to play as its navs list it. Its title is the heading's own escaped text. */
+interface GuidePart {
+  id: string;
+  title: string;
+  short: string;
+  icon: IconName;
+}
+
+/** How to play's sections in order, from its rendered headings. */
+const guideParts = (html: string): GuidePart[] =>
+  [...html.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)].flatMap(([, id = "", words = ""]) => {
+    const section = GUIDE_SECTIONS[id];
+    return section
+      ? [{ id, title: words.replace(/<[^>]+>/g, ""), short: section.short, icon: section.icon }]
+      : [];
+  });
+
+const guideLink = (part: GuidePart, words: string) =>
+  `<li><a href="#${part.id}"><span class="guide-link-icon" aria-hidden="true">${iconSvg(part.icon)}</span>${words}</a></li>`;
+
+/**
+ * Where the sections are, kept on screen: a card in the sidebar on a wide screen, and a row of
+ * chips under the site bar on a phone. CSS shows one or the other and lights the link for the
+ * section in view (`.guide-links` in style.css), so it needs no script.
+ */
+const guideSideNav = (parts: readonly GuidePart[]) =>
+  `<nav class="paper card guide-nav" aria-label="On this page">
+            <p class="eyebrow pulse-eyebrow">On this page</p>
+            <ul class="plain-list guide-links">${parts.map((p) => guideLink(p, p.title)).join("")}</ul>
+          </nav>`;
+
+const guideJump = (parts: readonly GuidePart[]) =>
+  `<nav class="guide-jump" aria-label="Sections">
+          <ul class="plain-list guide-links">${parts.map((p) => guideLink(p, attr(p.short))).join("")}</ul>
+        </nav>`;
 
 /** One static page: the site bar, the rendered Markdown in a paper card beside the sidebar, and the footer. */
 // ---------- the docs pages ----------
@@ -405,6 +452,8 @@ export function staticPage(options: {
   script?: string | undefined;
 }): string {
   const { page, source, lastUpdated, css } = options;
+  const guideHtml = page.path === LINKS.play ? markdownToHtml(source) : undefined;
+  const parts = guideHtml ? guideParts(guideHtml) : [];
   const markdown = page.markdown ?? `${page.path}.md`;
   const footnote = `<p class="prose-meta">Last updated ${lastUpdated}. Also as <a href="${markdown}">Markdown</a>.</p>`;
   const nav = [
@@ -450,16 +499,16 @@ export function staticPage(options: {
 ${nav.map((l) => `            <a class="nav-link" href="${l.href}">${l.label}</a>`).join("\n")}
           </nav>
           <span></span>
-        </div>
+        </div>${guideHtml ? `\n        ${guideJump(parts)}` : ""}
       </header>
       <main class="page-root">
         <div class="layout">
-          <article class="layout-main${options.docs || page.path === LINKS.play ? " stack cards" : ""}">
+          <article class="layout-main${options.docs || guideHtml ? " stack cards" : ""}">
             ${
               options.docs
                 ? docsArticle(page, options.docs, footnote)
-                : page.path === LINKS.play
-                  ? guideCards(markdownToHtml(source), footnote)
+                : guideHtml
+                  ? guideCards(guideHtml, footnote)
                   : `<div class="paper card prose">
 ${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownToHtml(source, { headingLinks: isDocs(page.path) })}
               ${footnote}
@@ -467,7 +516,7 @@ ${page.path === LINKS.devlog ? devlogEntries(markdownToHtml(source)) : markdownT
             }
           </article>
           <aside class="layout-side" aria-label="More from ${SITE.name}">
-          ${siteSideHtml(page.path)}
+          ${siteSideHtml(page.path, guideHtml ? guideSideNav(parts) : undefined)}
           </aside>
         </div>
       </main>

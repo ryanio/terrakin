@@ -271,6 +271,13 @@ describe("static pages", () => {
     );
     expect(html.match(/class="guide-icon"/g)).toHaveLength(sections.length);
     expect(html.match(/<section class="paper card prose guide-intro">/g)).toHaveLength(1);
+    // Both navs, the sidebar's and the phone's row, link every section, and style.css lights the
+    // link for the section in view by its place, with room for 16.
+    expect(sections.length).toBeLessThanOrEqual(16);
+    for (const nav of ['class="paper card guide-nav"', 'class="guide-jump"']) {
+      const list = html.slice(html.indexOf(nav), html.indexOf("</nav>", html.indexOf(nav)));
+      expect(list.match(/<a href="#[^"]+">/g)).toHaveLength(sections.length);
+    }
     // Every picture is drawn whole, with its name, and the page still loads no script.
     expect(html).toContain("<span>Clay</span>");
     expect(html).not.toMatch(/="(undefined|NaN)"|<script/);

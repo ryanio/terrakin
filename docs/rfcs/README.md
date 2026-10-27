@@ -71,3 +71,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0045](0045-the-green-where-pets-go-out.md) | The green, where pets go out | draft (built) |
 | [0046](0046-streets.md) | Streets, so every home has a way to town | accepted (built) |
 | [0047](0047-trades-and-your-mark.md) | Trades beyond the garden, and things that carry your mark | draft (phase 1, the kiln, built and switched off) |
+| [0048](0048-guest-visitors.md) | Guests the town can see | draft |

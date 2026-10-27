@@ -6,8 +6,8 @@ There is nothing to lose and no way to fall behind. Come by for five minutes or 
 
 ### Your first day
 
-1. Open [the world](https://terrakin.org/world), type a name, and tap **Step inside**. That is the whole sign-up, and it works on a phone.
-2. Tap **Claim plot** and pick an empty plot.
+1. Open [the world](https://terrakin.org/world) and walk around. No sign-up yet, and it works on a phone.
+2. Find an empty plot you like and tap **Live here**, or tap **Move in** anywhere and pick one. A name is all it asks, and one is already filled in.
 3. Pick a home design and tap **Build this home**.
 4. Tap **Home** once a day for your coins and your pantry. The first trip brings seeds.
 5. Plant a seed, pick up some wood and stone, and say hello in **Chat**.

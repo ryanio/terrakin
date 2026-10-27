@@ -7,6 +7,7 @@
 import {
   type Action,
   type ChatChannel,
+  facingFrom,
   facingToward,
   type ServerMessage,
   WorldSnapshot,
@@ -43,6 +44,7 @@ import {
   STEP,
   seasonOf,
   settleProblem,
+  spawnIn,
   type Tile,
   tileKey,
   upstairsProblem,
@@ -58,6 +60,7 @@ import { INVENTORY_EVENT, inventoryApi, SET_DOWN_EVENT, type SetDown } from "./a
 import { forgetMe, whoseKey } from "./api/me";
 import { residentsApi } from "./api/residents";
 import { signinApi } from "./api/signin";
+import { actProblem, worldApi } from "./api/world";
 import { mirrorNotes, notesLabel, noteWords } from "./build-notes";
 import {
   blockLine,
@@ -87,17 +90,16 @@ import {
   withChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
-import { claimOpensOnJoin } from "./claim-on-join";
+import { claimOnJoin } from "./claim-on-join";
 import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
-import { sendFirstPlanting } from "./first-plant";
 import { pondLabel, pondLine, rodsAfter, rodsIn } from "./fishing";
 import { floorChips } from "./floor-chips";
 import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
 import { openHomeSheet } from "./home-sheet";
 import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
-import { onStreet } from "./lands";
+import { onLandPlot, onStreet } from "./lands";
 import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
@@ -217,6 +219,8 @@ const gatherButton = $<HTMLButtonElement>("world-gather");
 const fishButton = $<HTMLButtonElement>("world-fish");
 const fireworkButton = $<HTMLButtonElement>("world-firework");
 const claimButton = $<HTMLButtonElement>("claim");
+/** Claim plot's words, which say Move in or Live here to a guest. */
+const claimLabel = claimButton.querySelector("span") as HTMLElement;
 /** Takes Claim plot's place once you own all the plots you may: your things are a tap away. */
 const thingsLink = $<HTMLAnchorElement>("hud-things");
 /** What the HUD holds back until you have a plot (decision 0234). 3D view and Gather all too. */
@@ -311,11 +315,15 @@ const walker = new Walker({
   at: () => self(),
   // Your steps keep to the floor you stand on (RFC 0028).
   ground: () => mirror?.ground(myFloor()),
-  behind: () => (me ? motion.behind(me) : 0),
+  behind: () => {
+    const id = me ?? guest?.id;
+    return id ? motion.behind(id) : 0;
+  },
   steer,
   send: (dir) => {
     // A step of your own: the camera is yours again.
     stopLooking();
+    if (guest) return guestStep(guest, dir);
     const id = act({ type: "move", dir });
     // A footstep for each step your figure takes, on the path or flooring it steps onto.
     const from = walker.ahead;
@@ -324,7 +332,8 @@ const walker = new Walker({
     return id;
   },
   bumped: (dir, why) => {
-    if (me) motion.bump(me, dir, performance.now());
+    const id = me ?? guest?.id;
+    if (id) motion.bump(id, dir, performance.now());
     // Never over a fresher notice, like a refusal that just came in: the bump shows it anyway. A
     // hint like the welcome line gives way.
     if (!toast.classList.contains("show") || toastSoft) showToast(why);
@@ -356,6 +365,21 @@ let lookSnapped = false;
 let goneNote = false;
 /** No character in this browser: a link's place shows without waiting for a welcome. */
 let visitor = false;
+/**
+ * Someone with no character walking the town (decision 0380): a figure on this screen only, put in
+ * the mirror so the map draws it, walked with the sim's own step rule and never sent. Nobody else
+ * sees it, and it's gone when they join.
+ */
+let guest: Resident | undefined;
+const GUEST_ID = "guest";
+/** The way a guest last faced, which a fresh snapshot doesn't know. */
+let guestFacing: ReturnType<typeof facingFrom>;
+/** Ids for a guest's steps, which the walker counts as answered at once. */
+let guestSteps = 0;
+/** A first visit with no character walks the town as a guest once the world is in. */
+let guestWanted = false;
+/** The plot a guest tapped Live here on: settled straight after the join, with no picker. */
+let guestPlot: { px: number; py: number } | undefined;
 /**
  * Someone with no character and a link's place: looking around it with the world's controls put
  * away ("on"), or gone to the join form from there ("joining"), the place kept for after.
@@ -395,7 +419,7 @@ const jobs = worldJobs({ toast: (line) => showToast(line) });
 const CAMERA_RATE = 10;
 let lastFrame = 0;
 let resyncing = false;
-/** True between pressing "Step inside" and the server's welcome, so we count a join once. */
+/** True between pressing Move in and the server's welcome, so we count a join once. */
 let joiningFresh = false;
 /** Server time anchor from the latest snapshot, plus when we received it locally. */
 let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
@@ -409,6 +433,12 @@ const signals = readSignals();
 // ---------- landing ----------
 
 const landing = createLanding(curtain, {
+  onLater() {
+    // A join on its way answers on this card, so it stays until then.
+    if (joiningFresh) return;
+    if (peek === "joining") peek = "off";
+    startGuest();
+  },
   onJoin(choice) {
     visitor = false;
     joiningFresh = true;
@@ -486,6 +516,7 @@ function updatePopulation() {
   let online = 0;
   for (const r of mirror.residents.values()) {
     // A repeat record that has come online since the snapshot is someone using it: count it.
+    if (r.id === GUEST_ID) continue;
     if (mirror.townsfolk.has(r.id) || (mirror.repeatJoins.has(r.id) && !r.online)) continue;
     total++;
     if (r.online) online++;
@@ -496,7 +527,8 @@ function updatePopulation() {
 /** Keep the "online now" line fresh while someone reads the landing page. */
 function watchPopulation() {
   stopPopulation ??= everyVisible(20_000, () => {
-    if (landing.isUp() || peek === "on") void resync();
+    // A guest has no socket: the town's moves reach their screen this way.
+    if (landing.isUp() || peek === "on" || guest) void resync();
   });
 }
 
@@ -544,11 +576,13 @@ function keyNotFound(line: string) {
   conn = undefined;
   me = undefined;
   visitor = true;
+  endGuest();
   stopLooking();
   hud.hidden = true;
   leaveWorld();
   landing.setError(line);
   landing.openRestore();
+  landing.autofill();
   watchPopulation();
   void resync();
 }
@@ -592,11 +626,17 @@ async function resync() {
     if (parsed.success) {
       mirror = new Mirror(parsed.data);
       jobs.entered(mirror.jobsOpen);
+      if (guest) {
+        mirror.residents.set(GUEST_ID, guest);
+        if (guestFacing) mirror.facing.set(GUEST_ID, guestFacing);
+      }
       // Steps taken against the old copy may have missed what changed: start over from this one.
-      walker.reset();
+      // A guest's steps were never sent, so nothing they took is in doubt.
+      else walker.reset();
       dayAnchor = anchor(parsed.data.time);
       updatePopulation();
       if (!wasIn) loader?.reach("world");
+      if (guestWanted && !me && !looking) startGuest();
     } else {
       console.warn("Bad snapshot from server", parsed.error);
       reloadForNewerServer();
@@ -614,6 +654,12 @@ function onMessage(msg: ServerMessage) {
   switch (msg.type) {
     case "welcome": {
       me = msg.residentId;
+      // The guest's figure was this screen's only: the character the server made takes its place.
+      const chosen = guestPlot;
+      guestPlot = undefined;
+      endGuest();
+      // Someone is in: no passkey request waits on the name field any more.
+      landing.pause();
       mirror = new Mirror(msg.world);
       jobs.entered(mirror.jobsOpen);
       dayAnchor = anchor(msg.world.time);
@@ -641,7 +687,27 @@ function onMessage(msg: ServerMessage) {
       const arrived = showArrival();
       // Just in, as a person, the passkey sheet comes too (decision 0378), after the picker and
       // whatever a claim from it opens, since it waits for the page to be clear.
-      if (claimOpensOnJoin({ fresh, toPlace, hasPlot: hasPlot() })) {
+      const claim = claimOnJoin({ fresh, toPlace, hasPlot: hasPlot(), chosen });
+      if (claim?.kind === "settle") {
+        // Live here on a plot as a guest: it's theirs now, and the home sheet follows its claim.
+        // Taken meanwhile, the picker offers the others.
+        const { px, py } = claim;
+        void worldApi.act({ type: "settle", px, py }).then((r) => {
+          if (!r.ok || !r.data.ok) {
+            // Taken meanwhile, say: why, and the picker of the plots that are free.
+            const refused = r.ok && !r.data.ok ? r.data.error : undefined;
+            showToast(
+              refused?.code === "plot_owned"
+                ? "Someone just moved in there. Pick another plot."
+                : refused
+                  ? worldProblem(refused.code, refused.message, { hasPlot: false })
+                  : (actProblem(r) ?? ""),
+            );
+            void import("./claim-sheet").then((c) => c.openClaimSheet({ first: true }));
+          }
+          offerPasskey("joined");
+        });
+      } else if (claim) {
         void import("./claim-sheet").then((c) => {
           c.openClaimSheet({ first: true });
           offerPasskey("joined");
@@ -694,7 +760,7 @@ function onMessage(msg: ServerMessage) {
       if (msg.event.type === "trick_or_treated" && msg.event.by === me) {
         visiting.knocked(msg.event.px, msg.event.py);
       }
-      // A plot you just claimed offers a home, then asks for a name (decisions 0144 and 0121).
+      // A plot you just claimed offers a home (decisions 0286 and 0380).
       if (applied === "applied" && msg.event.type === "plot_claimed" && msg.event.ownerId === me) {
         const { px, py } = msg.event;
         const m = mirror;
@@ -706,8 +772,6 @@ function onMessage(msg: ServerMessage) {
             where: { config: m.config, season: m.day === undefined ? undefined : seasonOf(m.day) },
             standing: () => self(),
             hearth: () => (me ? m.residents.get(me)?.hearth : undefined),
-            // The world as it is when the button is tapped, so the home just built is in it.
-            plantFirst: async () => (mirror && me ? await sendFirstPlanting(mirror, me) : null),
             walkNear: (tile, near) =>
               new Promise((done) => {
                 // Done once the world has you within reach, not when the last step is only sent.
@@ -837,6 +901,10 @@ function showArrival(): boolean {
   }
 }
 
+/** What a guest hears first (decision 0380). */
+const GUEST_LINE =
+  "Have a look around. Walk with the round pad, or tap the map. Tap Move in when you'd like a home here.";
+
 /** What someone who just joined hears first, with no invite's line to show instead. */
 const FIRST_LINE =
   "Welcome to Terrakin! Tap Claim plot to pick an empty plot for your home. Walk with the round pad, or tap the map.";
@@ -939,7 +1007,91 @@ function paintPad(quarter: Quarter, in3d: boolean) {
 }
 
 function self() {
-  return me ? mirror?.residents.get(me) : undefined;
+  return me ? mirror?.residents.get(me) : guest;
+}
+
+/**
+ * Walk the town as a guest (decision 0380): your figure, in the look the Move in card picked, at
+ * the town square, with the d-pad and taps to walk and Move in in Claim plot's place. The card goes
+ * away; Move in brings it back.
+ */
+function startGuest() {
+  const m = mirror;
+  if (!m || me) return;
+  guestWanted = false;
+  if (!guest) {
+    // Where the server will put them when they join: downtown's middle, by the sim's own rule.
+    const at = spawnIn(m.lands?.home ?? m.config);
+    guest = {
+      id: GUEST_ID,
+      name: "You",
+      kind: "human",
+      note: "",
+      ...at,
+      online: true,
+      hearth: null,
+      ...landing.look(),
+    };
+    enteredAt = performance.now();
+    showToast(GUEST_LINE);
+    toastSoft = true;
+  } else Object.assign(guest, landing.look());
+  m.residents.set(GUEST_ID, guest);
+  motion.moved(GUEST_ID, guest.x, guest.y, performance.now());
+  stopLooking();
+  enterWorld(true);
+  hud.dataset.guest = "";
+  delete hud.dataset.peek;
+  hud.hidden = false;
+  snapCamera();
+  revealWhenDrawn();
+}
+
+/** One guest step: taken here and answered at once, since nothing goes to the server. */
+function guestStep(g: Resident, dir: Direction): string {
+  const id = `guest-${++guestSteps}`;
+  const x = g.x + STEP[dir][0];
+  const y = g.y + STEP[dir][1];
+  const facing = facingFrom(x - g.x, y - g.y);
+  if (facing) {
+    guestFacing = facing;
+    mirror?.facing.set(GUEST_ID, facing);
+  }
+  Object.assign(g, { x, y });
+  motion.moved(GUEST_ID, x, y, performance.now());
+  queueMicrotask(() => walker.answered(id, true));
+  return id;
+}
+
+/** The guest's figure leaves: they joined, or left the world. */
+function endGuest() {
+  guest = undefined;
+  guestFacing = undefined;
+  guestWanted = false;
+  mirror?.residents.delete(GUEST_ID);
+  delete hud.dataset.guest;
+}
+
+/** Move in, or Live here on a plot `settle` would take: the card, with a name already in it. */
+function openMoveIn() {
+  const g = guest;
+  const m = mirror;
+  guestPlot = g && m ? livableHere(m, g) : undefined;
+  walker.stop();
+  landing.show();
+}
+
+/** The plot under a guest, if `settle` would take it for a first plot. */
+function livableHere(m: Mirror, at: Tile): { px: number; py: number } | undefined {
+  const { px, py } = plotOf(m.config, at.x, at.y);
+  const problem = settleProblem(m.config, px, py, {
+    claimed: m.plots.has(`${px},${py}`),
+    ownsAPlot: false,
+    square: m.isSquare(px, py),
+    street: onStreet(m.lands, px, py),
+    onLand: onLandPlot(m.config, m.lands, px, py),
+  });
+  return problem ? undefined : { px, py };
 }
 
 /** The floor the server has you on (RFC 0028): 0 is the ground floor. */
@@ -1206,6 +1358,11 @@ function tapTile(tile: { x: number; y: number }) {
   const at = here();
   if (!mirror || !r || !at) return;
   if (performance.now() - enteredAt < TAP_SETTLE_MS) return;
+  // A guest only walks: everything else waits for Move in.
+  if (guest) {
+    walkToward(tile);
+    return;
+  }
   if (buildMode) {
     // On the floor the picker shows (RFC 0028): `floor` goes only with one above the ground.
     const floor = buildFloor;
@@ -1563,7 +1720,7 @@ let padClickUntil = 0;
 
 pad?.addEventListener("pointerdown", (e) => {
   const thumb = padThumbAt(e);
-  if (!active || !me || !thumb.dir || e.button > 0) return;
+  if (!active || !(me || guest) || !thumb.dir || e.button > 0) return;
   e.preventDefault();
   walker.padDown(thumb.dir, performance.now());
   paintHeld(thumb.dir);
@@ -1617,7 +1774,9 @@ window.addEventListener("keydown", (e) => {
     walker.releaseKeys();
     return;
   }
-  if (!active || !me || keysTaken() || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!active || !(me || guest) || keysTaken() || e.metaKey || e.ctrlKey || e.altKey) return;
+  // The Move in card is over a guest: keys are its, not the walk's.
+  if (guest && landing.isUp()) return;
   const dir = walkKey(e.key);
   if (!dir) return;
   e.preventDefault();
@@ -1635,6 +1794,10 @@ window.addEventListener("blur", () => {
 });
 
 claimButton.addEventListener("click", () => {
+  if (guest) {
+    openMoveIn();
+    return;
+  }
   // The claim lands after any steps still on their way, on the plot they end in.
   const r = here();
   const m = mirror;
@@ -1646,17 +1809,9 @@ claimButton.addEventListener("click", () => {
     showToast("This plot is already yours. Tap Build to start.");
     return;
   }
-  // With no plot yet, a plot `settle` wouldn't take where you stand (the Commons, or someone's)
-  // opens the picker of ones it would (decision 0143).
-  const { px, py } = plotOf(m.config, r.x, r.y);
-  const claimed = m.plots.has(`${px},${py}`);
-  const problem = settleProblem(m.config, px, py, {
-    claimed,
-    ownsAPlot: false,
-    square: m.isSquare(px, py),
-    street: onStreet(m.lands, px, py),
-  });
-  if (myPlots().owned === 0 && problem) {
+  // With no plot yet, a plot `settle` wouldn't take where you stand (the Commons, someone's, or
+  // water) opens the picker of ones it would (decision 0143).
+  if (myPlots().owned === 0 && !livableHere(m, r)) {
     void import("./claim-sheet").then((c) => c.openClaimSheet());
     return;
   }
@@ -1670,6 +1825,10 @@ function paintClaim() {
     !!mirror && !!me && myPlots().owned >= claimLimit(mirror.config, mirror.plotMarketOpen);
   claimButton.hidden = full;
   thingsLink.hidden = !full;
+  // A guest's way in: Live here on a plot that's free to claim, Move in anywhere else.
+  const label = guest && mirror && livableHere(mirror, guest) ? "Live here" : "Move in";
+  const words = guest ? label : "Claim plot";
+  if (claimLabel.textContent !== words) claimLabel.textContent = words;
 }
 
 /**
@@ -2126,12 +2285,11 @@ function startPeeking() {
   hud.hidden = false;
 }
 
-/** Back to the landing from looking around. */
+/** Done looking at a link's place: walk the town as a guest from here. */
 function stopPeeking() {
   peek = "off";
   delete hud.dataset.peek;
-  hud.hidden = true;
-  leaveWorld();
+  startGuest();
 }
 
 /** Where the camera looks while looking: the resident's figure as it's drawn, or the place. */
@@ -2207,7 +2365,7 @@ function resize() {
  * back to show more of it, far enough that the town square fits in the space above the door card.
  */
 function targetScale() {
-  if (me || lookingAt) return fitScale(cam.width, cam.height);
+  if (me || lookingAt || guest) return fitScale(cam.width, cam.height);
   const wide = fitScale(cam.width, cam.height, 17);
   if (!landing.isUp()) return wide;
   const above = cam.height - TOP_BAR_PX - landing.cardHeight();
@@ -2280,13 +2438,13 @@ function frame() {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
   const still = motionQuery.matches;
-  motion.self = me;
+  motion.self = me ?? guest?.id;
   // The 3D camera decides which way "up" walks, so turn the d-pad before the next step.
   paintPad(world3d?.heading() ?? 0, world3d !== undefined);
   settleLook();
   const r = self();
   // While you look at a link's place, its card takes the visit card's spot.
-  visiting.update(mirror, me, lookingAt ? undefined : r);
+  visiting.update(mirror, me, lookingAt || guest ? undefined : r);
   const focus = lookFocus(now, still);
   if (r) {
     // While the world reloads, the mirror is behind the server: no steps checked against it.
@@ -2367,7 +2525,7 @@ function frame() {
     if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
     render(ctx, {
       mirror,
-      me,
+      me: me ?? guest?.id,
       cam,
       buildMode,
       feelings,
@@ -2399,17 +2557,24 @@ function frame() {
   }
   if (now - petCheckAt > 250) {
     petCheckAt = now;
-    paintPetButton(now);
-    paintWalkPetButton();
-    paintTeaButton();
-    paintGatherButton();
-    paintFishButton();
-    paintFireworkButton();
     paintClaim();
     paintSettled();
-    paintEnterButton();
-    followFloor();
+    // A guest's world has only walking and Move in: what you can do where you stand comes later.
+    if (!guest) {
+      paintPetButton(now);
+      paintWalkPetButton();
+      paintTeaButton();
+      paintGatherButton();
+      paintFishButton();
+      paintFireworkButton();
+      paintEnterButton();
+      followFloor();
+    }
   }
+  // Where your figure stands, a guest's too, since only this page knows where a guest is: for
+  // tests and tools.
+  const at = r ? `${r.x},${r.y}` : "";
+  if (canvas.dataset.at !== at) canvas.dataset.at = at;
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
   if (canvas.dataset.feeling !== mine) canvas.dataset.feeling = mine;
@@ -2723,11 +2888,11 @@ export function startWorld(
     void resync();
   } else {
     visitor = true;
-    // A link's place: the loader covers the landing until the place is drawn, or isn't there.
-    if (looking) {
-      loader?.show();
-      loader?.reach("code");
-    }
+    // The loader covers the page until the town or a link's place is drawn. With no link, the
+    // visit walks the town as a guest (decision 0380).
+    guestWanted = !looking;
+    loader?.show();
+    loader?.reach("code");
     void resync();
     watchPopulation();
     // A passkey saved here shows among the name field's suggestions.
@@ -2758,6 +2923,8 @@ export function stopWorld() {
   visiting.hide();
   stopLooking();
   goneNote = false;
+  endGuest();
+  guestPlot = undefined;
   visitor = false;
   peek = "off";
   delete hud.dataset.peek;

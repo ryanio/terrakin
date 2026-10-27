@@ -3,28 +3,18 @@
  * bar with the hearth picked. The homes are the designs (RFC 0032), drawn as they'd stand on your
  * plot (`design-picks.ts`, loaded when the sheet opens). Building one sets your hearth on the
  * plot's center, which every design leaves open, steps you onto it, which brings your first pantry,
- * and sends `build` with the design, so this says what arrived and where it is. The first pantry's
- * note offers Plant a seed, which puts one in by the hearth without leaving the sheet
- * (decision 0313). Either way the plot's name is asked next (decision 0121).
+ * and sends `build` with the design, so the world's notice says what arrived. Nothing else opens:
+ * planting the first seed and naming the plot are the next-step chip's (decision 0380).
  */
 import type { Action, WorldEvent } from "@terrakin/protocol";
 import { plotCenter, type Season, type Tile, type WorldConfig } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import type { Result } from "@terrakin/ui/http";
-import {
-  closeOverlay,
-  openOverlay,
-  overlayShowing,
-  sheet,
-  whileBusy,
-  whileBusyAll,
-} from "@terrakin/ui/ui";
+import { closeOverlay, openOverlay, overlayShowing, sheet, whileBusyAll } from "@terrakin/ui/ui";
 import { worldApi } from "./api/world";
 import type { DesignChoice } from "./design-picks";
-import { plantByHandLine } from "./first-plant";
 import { doneAlready, homeSteps } from "./home-steps";
-import { openPlotNameSheet } from "./plot-name-sheet";
-import { pantryWords, worldProblem } from "./things";
+import { worldProblem } from "./things";
 
 export interface HomeSheetOptions {
   /** The plot you just claimed. */
@@ -43,11 +33,6 @@ export interface HomeSheetOptions {
    * has you there (or the walk gives up).
    */
   walkNear: (tile: Tile, near: number) => Promise<void>;
-  /**
-   * Plant the first seed by the hearth in one tap, giving back what to say: the planted line, the
-   * world's refusal, how to plant by hand, or null when there's no hearth (`sendFirstPlanting`).
-   */
-  plantFirst: () => Promise<string | null>;
 }
 
 type Inventory = Extract<WorldEvent, { type: "inventory" }>;
@@ -61,49 +46,6 @@ const pantryIn = (events: readonly WorldEvent[]) =>
     (e): e is Inventory =>
       e.type === "inventory" && (e.reason === "starter" || e.reason === "pantry"),
   );
-
-/**
- * The pantry note on the name sheet: what arrived, and, for the first pantry, Plant a seed, which
- * puts one in by the hearth without leaving the sheet (decision 0313). The plot still wants a name,
- * so the sheet stays open and the note says what happened in place of the button. Only the first
- * pantry brings seeds, so only it offers the tap.
- */
-function pantryNews(got: string, first: boolean, plantFirst: () => Promise<string | null>): Node {
-  const line = h("p", {
-    attrs: { role: "status" },
-    text: first ? `Your first pantry is in: ${got}.` : `Today's pantry is in: ${got}.`,
-  });
-  const things = h("a", {
-    class: "pill-button small",
-    attrs: { href: "/inventory", id: "home-things" },
-    text: "See your things",
-  });
-  const plant = first
-    ? h("button", {
-        class: "btn-primary small",
-        attrs: { type: "button", id: "home-plant" },
-        text: "Plant a seed",
-      })
-    : null;
-  plant?.addEventListener("click", () => {
-    void (async () => {
-      const said = await whileBusy(plant, plantFirst, "Planting…");
-      // Either way the button has had its turn: what it did, or how to do it by hand, is the note,
-      // which says it where a reader is told about it too (`role="status"`).
-      line.textContent = said ?? plantByHandLine("no_room");
-      const held = document.activeElement === plant;
-      plant.remove();
-      // Focus was on the button that just left, so hand it to the link beside it, inside the sheet.
-      if (held) things.focus();
-    })();
-  });
-  return h(
-    "div",
-    { class: "paper note home-news", attrs: { id: "home-news" } },
-    line,
-    h("div", { class: "cluster" }, plant, things),
-  );
-}
 
 export function openHomeSheet(o: HomeSheetOptions) {
   /** "Saving…" while the home goes up, or why it couldn't. */
@@ -130,7 +72,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
       id: "home-title",
       title: "This plot is yours",
       className: "home-sheet",
-      lede: "Next, a home. Pick one: its hearth goes in the middle of your plot, where Home brings you and where your pantry arrives, seeds the first time, then sugar and jars each day. Every home here is free.",
+      lede: "Next, a home. Pick one and it's built for you, free. Its hearth is where Home brings you and where your pantry arrives.",
     },
     picks,
     h("div", { class: "stack home-choices" }, status, starter, myself),
@@ -153,7 +95,6 @@ export function openHomeSheet(o: HomeSheetOptions) {
   myself.addEventListener("click", () => {
     closeOverlay(s.dialog);
     o.buildMyself();
-    openPlotNameSheet(o.plot, { say: o.say, claimed: true });
   });
 
   async function build() {
@@ -229,20 +170,8 @@ export function openHomeSheet(o: HomeSheetOptions) {
       if (!overlayShowing(s.dialog) && res.code !== CLOSED) o.say(res.message);
       return;
     }
-    // Closed while it built (Escape, the back gesture): the home is up, and nothing else opens.
-    const showing = overlayShowing(s.dialog);
+    // The home is up, and the world's own notice says what the pantry brought.
     closeOverlay(s.dialog);
-    if (!showing) return;
-    const events = res.data;
-    const pantry = pantryIn(events);
-    const got = pantryWords(pantry?.changes ?? []);
-    const first = pantry?.reason === "starter";
-    openPlotNameSheet(o.plot, {
-      say: o.say,
-      claimed: true,
-      lede: "Your home is built, with your hearth inside. Now give your plot a name everyone sees on the map. You can name it later from your profile, too.",
-      news: got ? pantryNews(got, first, o.plantFirst) : null,
-    });
   }
 
   openOverlay(s.dialog);

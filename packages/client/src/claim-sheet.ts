@@ -50,7 +50,7 @@ export function openClaimSheet(o: { first?: boolean } = {}) {
       className: "claim-sheet",
       closeOnBackdrop: true,
       lede: o.first
-        ? "Your first step: pick an empty plot for your home. The first one below is the nearest beside neighbors, and you move in as soon as you pick. Or close this and look around first: Claim plot opens it again."
+        ? "Pick an empty plot for your home. The first one below is the nearest beside neighbors, and it's yours as soon as you pick. Claim plot opens this again."
         : "Pick an empty plot for your home. The ones beside neighbors come first, and you move in as soon as you pick.",
     },
     error,

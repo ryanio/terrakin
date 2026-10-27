@@ -457,6 +457,21 @@ a.action {
   z-index: 11;
 }
 
+/*
+ * A guest walking the town (decision 0380): the way back to the feed, the d-pad, notices, and
+ * Move in in Claim plot's place, filled like the door's own button so it's the one thing to tap.
+ */
+.hud[data-guest] > :not(.hud-feed, .dpad, .actions, .status, .toast, .world-wait),
+.hud[data-guest] .actions > :not(#claim) {
+  display: none;
+}
+
+.hud[data-guest] #claim {
+  border-color: transparent;
+  background: var(--clay);
+  color: var(--paper);
+}
+
 /* Back to the feed, top left. Chat opens below it so it never covers the way out. */
 .hud-feed {
   position: absolute;

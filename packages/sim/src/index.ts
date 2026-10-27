@@ -746,6 +746,7 @@ export {
   settleProblem,
   shopTile,
   shopTiles,
+  spawnIn,
   spawnTile,
   squareOf,
   squares,

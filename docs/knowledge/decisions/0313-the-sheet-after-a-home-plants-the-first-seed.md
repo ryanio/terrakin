@@ -1,11 +1,13 @@
 ---
 title: The sheet after a home plants the first seed
 date: 2026-10-18
-status: accepted
+status: superseded
 tags: [client, onboarding, ux]
 ---
 
 # The sheet after a home plants the first seed
+
+Superseded by [decision 0380](0380-a-newcomer-walks-the-town-as-a-guest-first-and-moves-in-with.md): nothing opens after a home, and the next-step chip plants the first seed in one tap.
 
 ## Context
 

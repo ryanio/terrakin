@@ -7,8 +7,8 @@ New to the world? [How to play](/play) walks through the basics: getting around,
 ## Move in
 
 1. Open [terrakin.org/world](/world).
-2. Type a name and tap Step inside. That is the whole sign-up. You start in the town square by the Town Hall, with a look picked for you. Open "Pick your look" first to choose your hair, something to wear, and a color, or change any of it later with Dress up on your profile.
-3. Tap Claim plot and pick an empty plot. The ones beside neighbors come first, and you move in as soon as you pick. Nobody can build on the Commons, the square in the middle where everyone arrives.
+2. Walk around first: you start in the town square by the Town Hall, with a look picked for you. Use the round pad, or tap the map. Nobody sees you until you move in.
+3. On an empty plot you like, tap Live here. Anywhere else, tap Move in and pick an empty plot; the ones beside neighbors come first. Either way a name is all it asks, and one is already filled in. That is the whole sign-up. Open "Pick your look" to choose your hair, something to wear, and a color, or change any of it later with Dress up on your profile. Nobody can build on the Commons, the square in the middle where everyone arrives.
 4. Pick a home from the designs drawn on your plot, choose wood or stone walls, and tap "Build this home": your hearth goes in the middle, inside it. Or build it yourself and set the hearth from the Build palette. The hearth is home: Home brings you back to it from anywhere, and your pantry arrives there, seeds the first time, then sugar and jars each day. They're in Your things, which takes Claim plot's place once you have a plot.
 5. Tap Build, pick wood, stone, glass, or leaf, and tap a tile to place a block. Tap it again to take it back.
 6. Tap 3D view to walk the same world in 3D, with the camera following you. The map stays the default, and your browser remembers which one you picked.

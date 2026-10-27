@@ -1,20 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { claimOpensOnJoin } from "./claim-on-join";
+import { claimOnJoin } from "./claim-on-join";
 
-describe("claimOpensOnJoin", () => {
-  it("opens for a new person at the door with no plot yet", () => {
-    expect(claimOpensOnJoin({ fresh: true, toPlace: false, hasPlot: false })).toBe(true);
+const fresh = { fresh: true, toPlace: false, hasPlot: false };
+
+describe("claimOnJoin", () => {
+  it("opens the picker for a new person with no plot yet", () => {
+    expect(claimOnJoin(fresh)).toEqual({ kind: "pick" });
   });
 
-  it("stays away for someone coming back to a saved character", () => {
-    expect(claimOpensOnJoin({ fresh: false, toPlace: false, hasPlot: false })).toBe(false);
+  it("settles the plot a guest asked to live on, with no picker", () => {
+    expect(claimOnJoin({ ...fresh, chosen: { px: 3, py: 1 } })).toEqual({
+      kind: "settle",
+      px: 3,
+      py: 1,
+    });
   });
 
-  it("stays away when they joined to go to a link's place", () => {
-    expect(claimOpensOnJoin({ fresh: true, toPlace: true, hasPlot: false })).toBe(false);
-  });
-
-  it("stays away once the world shows a plot of theirs", () => {
-    expect(claimOpensOnJoin({ fresh: true, toPlace: false, hasPlot: true })).toBe(false);
+  it.each([
+    ["someone coming back to a saved character", { fresh: false }],
+    ["a join to go to a link's place", { toPlace: true }],
+    ["a world that already shows a plot of theirs", { hasPlot: true }],
+  ])("stays away for %s", (_, change) => {
+    expect(claimOnJoin({ ...fresh, chosen: { px: 3, py: 1 }, ...change })).toBeUndefined();
   });
 });

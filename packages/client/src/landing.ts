@@ -1,7 +1,8 @@
 /**
- * The landing curtain: the door card over the live town square, asking only for a name, with
- * "Pick your look" (a character picked at random, and a note) folded away, and the "Bring your AI"
- * popover.
+ * The Move in card: the door over the live town, asking only for a name, with one already
+ * suggested and "Pick your look" (a character picked at random, and a note) folded away, and the
+ * "Bring your AI" popover. Someone with no character walks the town first as a guest
+ * (decision 0380), and the card comes up when they tap Move in; Keep looking around puts it away.
  * Self-contained, so a router can show it, skip it, or put it back. It never touches the world
  * or the connection; it reports a join through `onJoin` and the caller decides what happens next.
  */
@@ -36,16 +37,19 @@ export interface Landing {
    */
   offerSignin(): void;
   /**
-   * While the landing is up, offer a passkey saved for this site among the browser's own
-   * suggestions on the name field (WebAuthn's conditional mediation). Picking one signs in.
+   * Nobody is signed in here: offer a passkey saved for this site among the browser's own
+   * suggestions on the name field (WebAuthn's conditional mediation), with the card up or away.
+   * Picking one signs in.
    */
   autofill(): void;
-  /** Leaving the world's page: take back the passkey request `autofill` holds. */
+  /** Someone is in, or the world's page is left: take back the passkey request `autofill` holds. */
   pause(): void;
   /** Update the live line, for example "12 residents, 3 online now". */
   setPopulation(total: number, online: number): void;
   /** How tall the door card is, in CSS pixels, so the world behind it can center above it. */
   cardHeight(): number;
+  /** The look picked for the character, which a guest walks the town in before joining. */
+  look(): JoinLook;
 }
 
 export interface LandingOptions {
@@ -60,6 +64,8 @@ export interface LandingOptions {
    * `signal` takes that back.
    */
   onSignin(how?: { autofill: true; signal: AbortSignal }): Promise<string | null>;
+  /** Keep looking around: put the card away and walk the town as a guest. */
+  onLater(): void;
 }
 
 /** "12 residents, 3 online now". Pure, so tests can pin the wording. */
@@ -77,7 +83,7 @@ function byId<T extends HTMLElement>(root: ParentNode, id: string): T {
 
 export function createLanding(
   root: HTMLElement,
-  { onJoin, onRestore, onSignin }: LandingOptions,
+  { onJoin, onRestore, onSignin, onLater }: LandingOptions,
 ): Landing {
   const form = byId<HTMLFormElement>(root, "world-join");
   const note = byId<HTMLInputElement>(root, "join-note");
@@ -98,7 +104,7 @@ export function createLanding(
   byId(root, "join-name-head").append(suggest.el);
   let sent = "";
 
-  // On a phone the error line scrolls into view, since the sticky Step inside button can sit over
+  // On a phone the error line scrolls into view, since the sticky Move in button can sit over
   // it. The field it's about (the one that gets focus) is marked invalid until the error clears.
   name.setAttribute("aria-describedby", "join-error");
   note.setAttribute("aria-describedby", "join-error");
@@ -169,6 +175,7 @@ export function createLanding(
     else restoreKey.value = "";
   };
   restoreGo.addEventListener("click", () => void restore());
+  byId(root, "join-later").addEventListener("click", () => onLater());
 
   restoreKey.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -200,25 +207,29 @@ export function createLanding(
 
   // Passkey autofill. The challenge it asks for lasts `SIGNIN.challengeMinutes`, so a fresh one
   // replaces it a minute before; a failed pick waits for the field's next focus to try again.
+  // While nobody is signed in (`autofill` to `pause`) it stays open with the card away too, as a
+  // guest walks the town: the browser offers the passkey only in the name field's suggestions.
   let autofilling: AbortController | undefined;
+  let held = false;
+  const asking = () => held || landing.isUp();
   let renewing = false;
   const RENEW_MS = (SIGNIN.challengeMinutes - 1) * 60_000;
   async function startAutofill() {
-    if (autofilling || !landing.isUp() || !(await passkeyAutofillWorks())) return;
-    if (autofilling || !landing.isUp()) return;
-    const asking = new AbortController();
-    autofilling = asking;
+    if (autofilling || !asking() || !(await passkeyAutofillWorks())) return;
+    if (autofilling || !asking()) return;
+    const request = new AbortController();
+    autofilling = request;
     const renew = setTimeout(() => {
       renewing = true;
-      asking.abort();
+      request.abort();
     }, RENEW_MS);
-    const problem = await onSignin({ autofill: true, signal: asking.signal });
+    const problem = await onSignin({ autofill: true, signal: request.signal });
     clearTimeout(renew);
-    if (autofilling === asking) autofilling = undefined;
+    if (autofilling === request) autofilling = undefined;
     if (renewing) {
       renewing = false;
       void startAutofill();
-    } else if (problem && !asking.signal.aborted) {
+    } else if (problem && !request.signal.aborted) {
       signinError.textContent = problem;
     }
   }
@@ -255,6 +266,8 @@ export function createLanding(
     show() {
       clearTimeout(hideTimer);
       root.hidden = false;
+      // A name is already there, so Move in is one tap; Suggest offers another, or type your own.
+      if (!name.value) suggest.fill();
       // Next frame, so the transition runs from the lifted state.
       requestAnimationFrame(() => {
         root.classList.remove("lifted");
@@ -263,7 +276,7 @@ export function createLanding(
       landing.setJoining(false);
     },
     hide({ instant = false } = {}) {
-      stopAutofill();
+      if (!held) stopAutofill();
       if (root.hidden) return;
       root.classList.add("lifted");
       const done = () => {
@@ -275,7 +288,7 @@ export function createLanding(
     },
     setJoining(on) {
       if (submit) submit.disabled = on;
-      submitLabel.textContent = on ? "Stepping inside…" : "Step inside";
+      submitLabel.textContent = on ? "Moving in…" : "Move in";
     },
     setError: showError,
     nameTaken: () => suggest.taken(sent),
@@ -300,13 +313,20 @@ export function createLanding(
       ) as HTMLButtonElement;
       freeRow.append(again);
     },
-    autofill: () => void startAutofill(),
-    pause: stopAutofill,
+    autofill() {
+      held = true;
+      void startAutofill();
+    },
+    pause() {
+      held = false;
+      stopAutofill();
+    },
     setPopulation(total, online) {
       liveText.textContent = populationLine(total, online);
       live.hidden = false;
     },
     cardHeight: () => formHeight,
+    look: () => character.value(),
   };
   return landing;
 }

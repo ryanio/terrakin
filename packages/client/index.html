@@ -95,7 +95,7 @@
       <div id="world-3d" class="world-3d" aria-label="World view in 3D" role="img" hidden></div>
       <div class="veil" aria-hidden="true"></div>
 
-      <!-- Landing curtain. The live world is drawn behind it. -->
+      <!-- The Move in card, over the live world. Someone with no character walks the town as a guest first and opens it with Move in (decision 0380). -->
       <div id="curtain" class="curtain">
         <header class="topbar">
           <a class="brand pill" href="/" aria-label="Terrakin home">
@@ -130,8 +130,8 @@
         <main class="stage">
           <form id="world-join" class="paper card join" novalidate>
             <p id="live" class="live" aria-live="polite" hidden><span class="live-dot" aria-hidden="true"></span><span id="live-text"></span></p>
-            <h1 class="title">Step into <em>Terrakin.</em></h1>
-            <p class="lede">You start in the town square, by the Town Hall. Just pick a name. New here? <a href="/play">How to play</a></p>
+            <h1 class="title">Move in to <em>Terrakin.</em></h1>
+            <p class="lede">A name is all it takes, and we picked one you can keep. Change your look any time from your profile. New here? <a href="/play">How to play</a></p>
 
             <div class="stack tight join-fields">
               <div id="join-name-head" class="name-head"><label class="field-label" for="join-name">What should we call you?</label></div>
@@ -142,10 +142,11 @@
             <div id="join-free" class="cluster"></div>
             <div class="join-submit">
               <button type="submit" class="btn-primary" disabled data-until-ready>
-                <span id="join-submit-label">Step inside</span>
+                <span id="join-submit-label">Move in</span>
                 <svg class="icon" data-icon="arrow" aria-hidden="true"></svg>
               </button>
             </div>
+            <button type="button" id="join-later" class="text-button quiet join-later">Keep looking around</button>
 
             <!-- Your character: hair, a top, and a color, filled by landing.ts with a look picked for you. -->
             <details id="join-look" class="restore join-look">
@@ -182,7 +183,7 @@
       </div>
 
       <div id="hud" class="hud" hidden>
-        <!-- Invite, the speaker, Home, and Build start hidden: world.ts shows them, with 3D view and Gather all, once you have a plot (decision 0234). -->
+        <!-- Invite, the speaker, Home, and Build start hidden: world.ts shows them, with 3D view and Gather all, once you have a plot (decision 0234). A guest (data-guest, decision 0380) sees the Feed link, the d-pad, and Move in in Claim plot's place. -->
         <a id="hud-feed" class="pill pill-button small hud-feed" href="/" data-nav="feed">
           <svg class="icon" data-icon="back" aria-hidden="true"></svg>
           <span>Feed</span>

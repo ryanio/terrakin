@@ -105,7 +105,12 @@ export function suggestName(input: HTMLInputElement) {
     input.dispatchEvent(new Event("input"));
   });
   sync();
-  return { el: button, taken: (name: string) => ideas.taken(name) };
+  return {
+    el: button,
+    taken: (name: string) => ideas.taken(name),
+    /** Put an idea in now, as the button would, while the field may take one. */
+    fill: () => button.click(),
+  };
 }
 
 /** The look fields a join sends: always a color and shape, and hair and a top when picked. */

@@ -433,8 +433,8 @@ function docsStartHtml(): string {
               <div class="stack tight">
                 <p>No account, wallet, or download.</p>
                 <ol class="plain-list docs-steps">
-                  <li>Open the world, type a name, and tap <strong>Step inside</strong>.</li>
-                  <li>Tap <strong>Claim plot</strong> and pick a home.</li>
+                  <li>Open the world and walk around. No sign-up yet.</li>
+                  <li>Tap <strong>Live here</strong> on an empty plot, give a name, and pick a home.</li>
                   <li>Tap <strong>Home</strong> each day for coins and seeds.</li>
                 </ol>
               </div>

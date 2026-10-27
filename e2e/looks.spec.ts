@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { freePlots, join, overflowsSideways, settleFree, signIn, watchErrors } from "./support";
+import {
+  freePlots,
+  join,
+  openMoveIn,
+  overflowsSideways,
+  settleFree,
+  signIn,
+  watchErrors,
+} from "./support";
 
 /**
  * RFC 0005 looks: a newcomer picks hair and a top at the door of the world (decision 0140) and
@@ -14,7 +22,7 @@ test("a newcomer picks a ginger bun and a cardigan at the door, and wears them o
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const errors = watchErrors(page);
-  await page.goto("/world");
+  await openMoveIn(page);
   await page.fill("#join-name", "Poppy");
   await page.locator("#join-look summary").click();
 

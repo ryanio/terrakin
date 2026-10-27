@@ -181,6 +181,23 @@ export async function signIn(
 }
 
 /**
+ * Someone with no character opens `/world` and walks the town as a guest (decision 0380): Move in,
+ * in Claim plot's place, brings up the card with a name already in it.
+ */
+export async function openMoveIn(page: Page) {
+  await page.goto("/world");
+  await expect(page.locator("#hud")).toHaveAttribute("data-guest", "");
+  await page.click("#claim");
+  await expect(page.locator("#join-name")).not.toHaveValue("");
+}
+
+/** Where your figure stands on this page, a guest's included (the canvas's `data-at`). */
+export async function standingAt(page: Page): Promise<{ x: number; y: number }> {
+  const [x, y] = ((await page.locator("#world").getAttribute("data-at")) ?? "").split(",");
+  return { x: Number(x), y: Number(y) };
+}
+
+/**
  * Put away the passkey sheet a person's join offers (decision 0378). The suite's browser can use
  * passkeys but holds none, so a spec that joins through a form answers it the way most people do.
  */

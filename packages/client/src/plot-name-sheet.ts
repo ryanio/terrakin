@@ -24,12 +24,6 @@ export interface PlotNameOptions {
   after?: () => unknown;
   /** Where to say it worked, when not the site's toast (the world has its own). */
   say?: (text: string) => void;
-  /** Just claimed: say so, and offer Not now, since naming it can wait for the profile. */
-  claimed?: boolean;
-  /** Words under the title in place of the usual ones. */
-  lede?: string;
-  /** Shown above the field: what just happened, like a starter home and its pantry. */
-  news?: Node | null;
 }
 
 /** Name plot (px, py), or rename it, or take its name down. */
@@ -62,37 +56,24 @@ export function openPlotNameSheet(
         text: "Take the name down",
       })
     : null;
-  const later = o.claimed
-    ? h("button", {
-        class: "pill-button small",
-        attrs: { type: "button", id: "plot-name-later" },
-        text: "Not now",
-      })
-    : null;
   const form = h(
     "form",
     { class: "stack plot-name-form" },
     h("label", { class: "field-label", attrs: { for: "plot-name-input" }, text: "Name" }),
     input,
     error,
-    h("div", { class: "cluster plot-name-actions" }, save, clear, later),
+    h("div", { class: "cluster plot-name-actions" }, save, clear),
   );
   const s = sheet(
     {
       id: "plot-name-title",
-      title: o.claimed ? "Name your new plot" : plot.name ? "Rename your plot" : "Name your plot",
+      title: plot.name ? "Rename your plot" : "Name your plot",
       className: "plot-name-sheet",
       closeOnBackdrop: true,
-      lede:
-        o.lede ??
-        (o.claimed
-          ? `This plot is yours. Give it a name everyone sees on the map and wherever it's shown, up to ${PLOT_NAMES.max} characters. You can name it later from your profile, too.`
-          : `Everyone sees it, on the map and wherever your plot is shown. Up to ${PLOT_NAMES.max} characters. It can change once a day, and each plot has ${PLOT_NAMES.freeRenames} free renames for fixing it sooner.`),
+      lede: `Everyone sees it, on the map and wherever your plot is shown. Up to ${PLOT_NAMES.max} characters. It can change once a day, and each plot has ${PLOT_NAMES.freeRenames} free renames for fixing it sooner.`,
     },
-    o.news ?? null,
     form,
   );
-  later?.addEventListener("click", () => closeOverlay(s.dialog));
 
   /** Send the name (or `null` to take it down) and close once the world took it. */
   async function send(button: HTMLButtonElement, name: string | null, done: string) {

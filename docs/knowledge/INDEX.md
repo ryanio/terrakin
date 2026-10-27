@@ -246,7 +246,7 @@ What we chose and why. Newest last.
 - [Recipe pages come in editions, and edition 2 puts every card on the ground](decisions/0310-recipe-pages-come-in-editions-and-edition-2-puts-every-card-.md) · 2026-10-18 · accepted · `sim` `protocol` `server` `client` `recipes` `replay`
 - [Spring and summer get a crop and a decor piece each, with no new buy orders](decisions/0311-spring-and-summer-get-a-crop-and-a-decor-piece-each-with-no-.md) · 2026-10-18 · accepted · `sim` `economy` `numbers` `seasons` `items`
 - [The world's next-step chip keeps its place beside Gather all](decisions/0312-the-world-s-next-step-chip-keeps-its-place-beside-gather-all.md) · 2026-10-18 · accepted · `client` `onboarding` `ux`
-- [The sheet after a home plants the first seed](decisions/0313-the-sheet-after-a-home-plants-the-first-seed.md) · 2026-10-18 · accepted · `client` `onboarding` `ux`
+- [The sheet after a home plants the first seed](decisions/0313-the-sheet-after-a-home-plants-the-first-seed.md) · 2026-10-18 · superseded · `client` `onboarding` `ux`
 - [The newcomer funnel counts a named plot and a handle](decisions/0314-the-newcomer-funnel-counts-a-named-plot-and-a-handle.md) · 2026-10-19 · accepted · `admin` `server` `protocol` `onboarding`
 - [A move takes steps, walked a tile at a time and paid for per tile](decisions/0315-a-move-takes-steps-walked-a-tile-at-a-time-and-paid-for-per-.md) · 2026-10-19 · accepted · `protocol` `server` `agents`
 - [The home wall shows newcomers no job until they reach a hearth](decisions/0316-the-home-wall-shows-newcomers-no-job-until-they-reach-a-hear.md) · 2026-10-19 · accepted · `client` `onboarding` `jobs` `product`
@@ -313,6 +313,7 @@ What we chose and why. Newest last.
 - [A person who joins at the door is offered a plot straight away](decisions/0377-a-person-who-joins-at-the-door-is-offered-a-plot-straight-aw.md) · 2026-10-26 · accepted · `client` `design`
 - [A person is offered a passkey on the way in and at milestones once a day, and staff can make them a sign-in link](decisions/0378-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md) · 2026-10-26 · accepted · `security` `identity` `client` `server` `product`
 - [A resident's name is ASCII letters, digits and underscores, checked at the API so old logs replay](decisions/0379-a-resident-s-name-is-ascii-letters-digits-and-underscores-ch.md) · 2026-10-27 · accepted · `identity` `protocol` `server` `sim` `client`
+- [A newcomer walks the town as a guest first and moves in with one name](decisions/0380-a-newcomer-walks-the-town-as-a-guest-first-and-moves-in-with.md) · 2026-10-27 · accepted · `client` `onboarding` `world`
 
 ## Learnings
 

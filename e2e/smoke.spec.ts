@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { join, SMOKE_STEPS, skipPasskey, tapTile, watchErrors } from "./support";
+import {
+  join,
+  openMoveIn,
+  SMOKE_STEPS,
+  skipPasskey,
+  standingAt,
+  tapTile,
+  watchErrors,
+} from "./support";
 
 // Default world: spawn (36,36) is inside the Commons (tiles 32..39), so SMOKE_STEPS (5) steps west
 // and north reach plot (3,3), which `freePlots` never hands another spec (`walkedOnto`). See
@@ -16,39 +24,84 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   ).json();
   expect(agent.token).toBeTruthy();
 
-  // The world lives at /world; / is the feed.
+  // The world lives at /world; / is the feed. Someone with no character walks it as a guest
+  // first (decision 0380), on this screen only, with Move in in Claim plot's place.
   await page.goto("/world");
-  // A name is all the door asks for: the look is picked for her, and stays folded away.
-  await page.fill("#join-name", "Ada");
-  await expect(page.locator("#join-look")).not.toHaveAttribute("open", "");
-  await page.click("#world-join button[type=submit]");
-  await expect(page.locator("#hud")).toBeVisible();
-
-  // A fresh join is offered a plot straight away (decision 0377): she closes the picker to look
-  // around first, and everything below starts from the world itself.
-  const picker = page.getByRole("dialog", { name: "Pick a plot" });
-  await expect(picker).toBeVisible();
-  await picker.getByRole("button", { name: "Close" }).click();
-  await expect(picker).toBeHidden();
-
-  await test.step("the passkey sheet comes once the picker is put away, and Skip puts it away", async () => {
-    // Decision 0378: offered on the way in, with one tap to the device's own sheet and a plain
-    // Skip. It stays away for a day, so claiming her plot below asks nothing.
-    await expect(page.locator("#passkey-ask-title")).toHaveText(
-      "Keep your character on any device",
-    );
-    await expect(page.locator("#passkey-ask-add")).toBeVisible();
-    await skipPasskey(page);
+  await test.step("a guest sees only walking, Move in, and the way back to the feed", async () => {
+    await expect(page.locator("#hud")).toHaveAttribute("data-guest", "");
+    await expect(page.locator("#world-join")).toBeHidden();
+    await expect(page.locator(".dpad")).toBeVisible();
+    await expect(page.locator("#claim")).toHaveText("Move in");
+    await expect(page.locator("#hud-feed")).toBeVisible();
+    for (const id of ["chat-toggle", "build", "home", "hud-invite", "sound", "world-mode"])
+      await expect(page.locator(`#${id}`)).toBeHidden();
   });
 
-  await test.step("with no plot yet, the world shows only walking, Claim plot, and Chat", async () => {
-    // Decision 0234: the rest of the controls wait for a plot.
-    await expect(page.locator(".dpad")).toBeVisible();
-    await expect(page.locator("#claim")).toBeVisible();
-    await expect(page.locator("#chat-toggle")).toBeVisible();
-    await expect(page.locator("#hud-feed")).toBeVisible();
-    for (const id of ["build", "home", "hud-invite", "sound", "world-mode", "world-gather"])
-      await expect(page.locator(`#${id}`)).toBeHidden();
+  // Nothing a guest does reaches the server, so where she stands is the page's word.
+  const at = () => standingAt(page);
+  await expect.poll(async () => (await at()).x).toBeGreaterThan(0);
+  const spawn = await at();
+
+  await test.step("taps walk a guest around the Town Hall, never across it", async () => {
+    type Tile = { x: number; y: number };
+    const { townHall, residents, pickups } = await page.request
+      .get("/v1/world")
+      .then((r) => r.json());
+    const onHall = (t: Tile) => townHall.some((h: Tile) => h.x === t.x && h.y === t.y);
+    // Each stop is the first of its tiles with nobody standing on it (Wren stands on spawn) and
+    // nothing lying there.
+    const free = (...tiles: Tile[]) =>
+      tiles.find(
+        (t) =>
+          !residents.some(
+            (r: Tile & { online: boolean }) => r.online && r.x === t.x && r.y === t.y,
+          ) && !(pickups ?? []).some((p: Tile) => p.x === t.x && p.y === t.y),
+      ) ?? (tiles[0] as Tile);
+    // From the hall's west end across to its east end, the straight way is through it, and the
+    // way round goes north of the hall or south through the Commons.
+    const row = spawn.y - 4;
+    const west = free({ x: spawn.x - 2, y: row }, { x: spawn.x - 3, y: row });
+    const east = free({ x: spawn.x + 2, y: row }, { x: spawn.x + 3, y: row });
+    const down = free({ x: east.x, y: spawn.y - 1 }, { x: east.x, y: spawn.y + 1 });
+    const along = free({ x: spawn.x - 1, y: down.y }, { x: spawn.x - 2, y: down.y });
+    const back = free({ x: along.x, y: spawn.y }, { x: along.x, y: spawn.y + 1 });
+    expect(onHall({ x: spawn.x, y: row })).toBe(true);
+    const seen: Tile[] = [];
+    let from = { x: spawn.x, y: spawn.y };
+    for (const to of [west, east, down, along, back]) {
+      await tapTile(page, to.x - from.x, to.y - from.y);
+      await expect
+        .poll(
+          async () => {
+            const r = await at();
+            seen.push(r);
+            return [r.x, r.y];
+          },
+          { intervals: [100], timeout: 10_000 },
+        )
+        .toEqual([to.x, to.y]);
+      from = to;
+    }
+    expect(seen.filter(onHall)).toEqual([]);
+  });
+
+  await test.step("on a free plot, Move in says Live here, and a name makes it hers", async () => {
+    // The plot nobody else claims (`walkedOnto`): SMOKE_STEPS west and north of spawn.
+    const here = await at();
+    await tapTile(page, spawn.x - SMOKE_STEPS - here.x, spawn.y - SMOKE_STEPS - here.y);
+    await expect
+      .poll(async () => {
+        const r = await at();
+        return [r.x, r.y];
+      })
+      .toEqual([spawn.x - SMOKE_STEPS, spawn.y - SMOKE_STEPS]);
+    await expect(page.locator("#claim")).toHaveText("Live here");
+    await page.click("#claim");
+    // A name is all the card asks for, and one is already in it: the look stays folded away.
+    await expect(page.locator("#join-name")).not.toHaveValue("");
+    await expect(page.locator("#join-look")).not.toHaveAttribute("open", "");
+    await page.fill("#join-name", "Ada");
+    await page.click("#world-join button[type=submit]");
   });
 
   // Other specs may join an Ada too, so find ours by the id the page saved.
@@ -60,88 +113,31 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     const world = await page.request.get("/v1/world").then((r) => r.json());
     return world.residents.find((r: { id: string }) => r.id === id);
   };
-  // Watch our own position rather than the world's event count: other tests may join meanwhile.
-  // Everything below is relative to where we started, so a moved spawn doesn't break the test.
-  await expect.poll(async () => (await me()) !== undefined).toBe(true);
-
-  await test.step("taps walk around the Town Hall, never across it", async () => {
-    type Tile = { x: number; y: number };
-    const { townHall, residents, pickups } = await page.request
-      .get("/v1/world")
-      .then((r) => r.json());
-    const onHall = (t: Tile) => townHall.some((h: Tile) => h.x === t.x && h.y === t.y);
-    // A tap on someone says who they are instead of walking there (Wren stands on spawn), and a
-    // tap on something lying within reach picks it up, so each stop is the first of its tiles
-    // with neither.
-    const free = (...tiles: Tile[]) =>
-      tiles.find(
-        (t) =>
-          !residents.some(
-            (r: Tile & { online: boolean }) => r.online && r.x === t.x && r.y === t.y,
-          ) && !(pickups ?? []).some((p: Tile) => p.x === t.x && p.y === t.y),
-      ) ?? (tiles[0] as Tile);
-    // From the hall's west end across to its east end, the straight way is through it, and the
-    // way round goes north of the hall or south through the Commons.
-    const spawn = await me();
-    const row = spawn.y - 4;
-    const west = free({ x: spawn.x - 2, y: row }, { x: spawn.x - 3, y: row });
-    const east = free({ x: spawn.x + 2, y: row }, { x: spawn.x + 3, y: row });
-    // Back beside spawn: straight down, along the row, and straight down again, since a tap
-    // down and to the left can land on the buttons stacked there (Pat, Fish).
-    // Down stops two rows clear of the hall, so its "Town Hall" button is gone before the tap west.
-    const down = free({ x: east.x, y: spawn.y - 1 }, { x: east.x, y: spawn.y + 1 });
-    const along = free({ x: spawn.x - 1, y: down.y }, { x: spawn.x - 2, y: down.y });
-    const back = free({ x: along.x, y: spawn.y }, { x: along.x, y: spawn.y + 1 });
-    expect(onHall({ x: spawn.x, y: row })).toBe(true);
-    const seen: { x: number; y: number }[] = [];
-    let at = { x: spawn.x, y: spawn.y };
-    for (const to of [west, east, down, along, back]) {
-      await tapTile(page, to.x - at.x, to.y - at.y);
-      await expect
-        .poll(
-          async () => {
-            const r = await me();
-            seen.push({ x: r.x, y: r.y });
-            return [r.x, r.y];
-          },
-          { intervals: [100], timeout: 10_000 },
-        )
-        .toEqual([to.x, to.y]);
-      at = to;
-      // Beside the hall's west end, a button says how to go in.
-      if (to === west) await expect(page.locator("#world-enter")).toHaveText("Town Hall");
-    }
-    expect(seen.filter(onHall)).toEqual([]);
-  });
-
+  const world = () => page.request.get("/v1/world").then((r) => r.json());
+  await expect
+    .poll(async () => (await world()).plots.some((p: { ownerId: string }) => p.ownerId === id))
+    .toBe(true);
   const xy = (r: { x: number; y: number }) => [r.x, r.y];
   const start = await me();
-  const x = start.x - SMOKE_STEPS;
-  const y = start.y - SMOKE_STEPS;
-  for (let i = 0; i < SMOKE_STEPS; i++) {
-    await page.click('[data-dir="w"]');
-    await page.click('[data-dir="n"]');
-  }
-  await expect.poll(async () => xy(await me())).toEqual([x, y]);
+  const { x, y } = start;
+  const size = (await world()).config.plotSize as number;
+  expect([Math.floor(x / size), Math.floor(y / size)]).toEqual([
+    Math.floor((spawn.x - SMOKE_STEPS) / size),
+    Math.floor((spawn.y - SMOKE_STEPS) / size),
+  ]);
 
-  // Other tests settle plots in the same world, so look for ours rather than counting.
-  const world = () => page.request.get("/v1/world").then((r) => r.json());
-  await page.click("#claim");
-  await expect
-    .poll(async () =>
-      (await world()).plots.some((p: { ownerId: string }) => p.ownerId === start.id),
-    )
-    .toBe(true);
-  await test.step("building it herself opens the build bar on the hearth, then names the plot", async () => {
-    // The world offers a home once the claim reaches this page too.
+  await test.step("the home sheet comes with no picker, then the passkey sheet, and Skip", async () => {
     const home = page.getByRole("dialog", { name: "This plot is yours" });
     await expect(home).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Pick a plot" })).toHaveCount(0);
     await home.getByRole("button", { name: "I'll build it myself" }).click();
-    const ask = page.getByRole("dialog", { name: "Name your new plot" });
-    await expect(ask).toBeVisible();
-    await ask.locator("#plot-name-input").fill("Ada's Stone Garden");
-    await ask.locator("#plot-name-save").click();
-    await expect(ask).toBeHidden();
+    // Decision 0378: offered on the way in, once the page is clear of the home sheet, with one
+    // tap to the device's own sheet and a plain Skip. It stays away for a day.
+    await expect(page.locator("#passkey-ask-title")).toHaveText(
+      "Keep your character on any device",
+    );
+    await expect(page.locator("#passkey-ask-add")).toBeVisible();
+    await skipPasskey(page);
     await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-block="hearth"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#palette-line")).toContainText("your pantry arrives here");
@@ -150,9 +146,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     await expect(page.locator("#hud-things")).toBeVisible();
     await expect(page.locator("#home")).toBeVisible();
     await expect(page.locator("#hud-invite")).toBeVisible();
-    await page.click("#build");
-    await expect(page.locator("#visit-card-owner")).toHaveText("Ada's Stone Garden");
-    await page.click("#build");
+    await expect(page.locator("#chat-toggle")).toBeVisible();
   });
 
   await page.click('[data-block="stone"]');
@@ -222,16 +216,17 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
   const errors = watchErrors(page, { console: "none" });
 
   await test.step("a name the server refuses stays on the form and says why", async () => {
-    await page.goto("/world");
+    await openMoveIn(page);
     // Official-sounding names are refused by the text filter, after the form sends it.
     await page.fill("#join-name", "Terrakin Support");
     await page.click("#world-join button[type=submit]");
     await expect(page.locator("#join-error")).not.toBeEmpty();
     await expect(page.locator("#join-error")).not.toContainText("Can't reach");
-    await expect(page.locator("#join-submit-label")).toHaveText("Step inside");
+    await expect(page.locator("#join-submit-label")).toHaveText("Move in");
     await expect(page.locator("#join-name")).toBeFocused();
     await expect(page.locator("#join-name")).toHaveAttribute("aria-invalid", "true");
-    await expect(page.locator("#hud")).toBeHidden();
+    // Still a guest under the card: nothing joined.
+    await expect(page.locator("#hud")).toHaveAttribute("data-guest", "");
   });
 
   await test.step("a taken name offers free ones to tap, and a way to sign in as her", async () => {
@@ -244,7 +239,7 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     // Built from the held name, so a sloppy try gets properly spelled names back (decision 0302).
     await expect(page.locator("#join-free button").first()).toHaveText("Marigold_2");
     await expect(page.locator("#join-signin")).toHaveText("Sign in with your passkey");
-    await expect(page.locator("#hud")).toBeHidden();
+    await expect(page.locator("#hud")).toHaveAttribute("data-guest", "");
     // Tapping one is the whole way out of the dead end: it fills the field and clears the refusal.
     await page.locator("#join-free button").first().click();
     await expect(page.locator("#join-name")).toHaveValue("Marigold_2");
@@ -269,7 +264,7 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
   });
 
   await test.step("no key, name, or note ever reaches the address bar", async () => {
-    await page.goto("/world");
+    await openMoveIn(page);
     // The fields have no names, so even a native submit couldn't send them.
     for (const id of ["join-name", "join-note", "restore-key"]) {
       expect(await page.locator(`#${id}`).getAttribute("name")).toBeNull();
@@ -278,6 +273,7 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
     await page.fill("#restore-key", "not-a-real-key");
     await page.press("#restore-key", "Enter");
     await expect(page.locator("#restore-error")).toContainText("doesn't open any character");
+    await page.fill("#join-name", "");
     await page.locator("#join-look summary").click();
     await page.fill("#join-note", "Loves lemons");
     await page.press("#join-note", "Enter");

@@ -473,6 +473,14 @@ body.in-world .veil {
   display: grid;
 }
 
+/* Back to walking the town as a guest (decision 0380): a quiet line under Move in. */
+.join-later {
+  display: block;
+  justify-self: center;
+  margin: var(--space-sm) auto 0;
+  min-height: 44px;
+}
+
 /* Wider screens: the name and the button share a row. */
 @media (min-width: 560px) {
   .join {

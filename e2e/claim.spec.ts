@@ -1,20 +1,20 @@
 import { expect, test } from "@playwright/test";
-import { skipPasskey, walkedOnto, watchErrors } from "./support";
+import { openMoveIn, skipPasskey, walkedOnto, watchErrors } from "./support";
 
 /**
- * A newcomer's way home on a phone: the picker of empty plots open on its own as she steps in
- * with its first pick marked (decision 0377), closed to look around first, the d-pad saying
- * what's in the way, Claim plot in the Commons opening the picker again (decision 0143), the one
- * picked claimed with `settle`, a home picked from the designs drawn on her plot and built in one
- * tap with the first pantry said in words (decision 0144, RFC 0032), her first seed planted from
- * that note without leaving the sheet (decision 0313), and the starter seeds in Your things,
- * which takes Claim plot's place in the HUD.
+ * A newcomer's way home on a phone: Move in from the town square as a guest (decision 0380), the
+ * picker of empty plots open on its own as she steps in with its first pick marked (decision
+ * 0377), closed to look around first, the d-pad saying what's in the way, Claim plot in the
+ * Commons opening the picker again (decision 0143), the one picked claimed with `settle`, a home
+ * picked from the designs drawn on her plot and built in one tap with nothing opening after it
+ * (decision 0144, RFC 0032), and the starter seeds in Your things, which takes Claim plot's place
+ * in the HUD.
  */
 test("a newcomer claims a plot from the Commons, builds a design, and finds seeds", async ({
   page,
 }) => {
   const errors = watchErrors(page, { console: "none" });
-  await page.goto("/world");
+  await openMoveIn(page);
   await page.fill("#join-name", "Linden");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
@@ -41,6 +41,10 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await expect(picker).toBeHidden();
     // The passkey offer waits for the picker, then comes once (decision 0378).
     await skipPasskey(page);
+    // With no plot yet the world shows walking, Claim plot, and Chat (decision 0234).
+    await expect(page.locator("#chat-toggle")).toBeVisible();
+    for (const id of ["build", "home", "hud-invite", "sound"])
+      await expect(page.locator(`#${id}`)).toBeHidden();
   });
 
   await test.step("the d-pad walks south from spawn until the shop, then says it's in the way", async () => {
@@ -54,6 +58,8 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     for (let i = 0; i < front - start.y + 1; i++) await page.click('[data-dir="s"]');
     await expect.poll(async () => (await me()).y).toBe(front - 1);
     await expect(page.locator("#toast")).toContainText("The shop is in the way.");
+    // Beside the shop, a button says how to go in.
+    await expect(page.locator("#world-enter")).toHaveText("Shop");
   });
 
   await test.step("Claim plot in the Commons opens the picker, and picking settles there", async () => {
@@ -112,10 +118,11 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await expect(offer.getByRole("button", { name: "I'll build it myself" })).toBeDisabled();
     await expect(offer.getByRole("button", { name: "Build this home" })).toBeDisabled();
     release();
-    const name = page.getByRole("dialog", { name: "Name your new plot" });
-    await expect(name).toBeVisible();
-    await expect(page.locator("dialog[open]")).toHaveCount(1);
-    await expect(name.locator("#home-news")).toContainText("seeds of 5 kinds");
+    // The home is up and nothing else opens: the world's notice says what the pantry brought, and
+    // the first seed and the plot's name are the next-step chip's (decision 0380).
+    await expect(offer).toBeHidden();
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
+    await expect(page.locator("#toast")).toContainText("Your first pantry");
     await page.screenshot({ path: "test-results/claim-home.png" });
     const r = await me();
     expect(r.hearth).toEqual({ x: r.x, y: r.y });
@@ -126,28 +133,6 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     expect(plan.map.floors[0].blocks[1]).toBe(".GGGGG..");
     expect(plan.map.floors[0].blocks[2]).toBe(".S...S.p");
     expect(plan.notes).toEqual([]);
-    // Her first seed goes in from the pantry note itself, so the home and the first thing are one
-    // go and nothing waits on her finding the chip out on the map (decision 0313). The button has
-    // had its turn either way, so it leaves and the note says what it did.
-    await name.locator("#home-plant").click();
-    await expect(name.locator("#home-news")).toContainText(
-      /You planted an? .+ seed by your hearth\./,
-    );
-    await expect(name.locator("#home-plant")).toHaveCount(0);
-    const onPlot = (c: { x: number; y: number }) =>
-      `${Math.floor(c.x / size)}/${Math.floor(c.y / size)}` === plot;
-    await expect
-      .poll(async () => ((await world()).crops as { x: number; y: number }[]).filter(onPlot).length)
-      .toBe(1);
-    await name.locator("#plot-name-input").fill("Linden's Lemon Grove");
-    await name.locator("#plot-name-save").click();
-    await expect(name).toBeHidden();
-    // The world's next-step chip asks again as the sheet closes, so it never offers the seed she
-    // just planted or the name she just gave (it would until its 20-second refresh).
-    await expect(page.locator("#world-next")).toHaveAttribute(
-      "data-step",
-      /^(?!plot$|garden$|plot_name$)/,
-    );
   });
 
   await test.step("Your things takes Claim plot's place, and the seeds are there", async () => {
@@ -155,9 +140,6 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await page.click("#hud-things");
     await expect(page).toHaveURL(/\/inventory$/);
     await expect(page.getByText(/2 lemon seeds/i)).toBeVisible();
-    // One of her two herb seeds is in the ground: herbs ripen soonest, so that's the one the
-    // pantry note planted.
-    await expect(page.getByText(/1 herb seed\b/i)).toBeVisible();
   });
 
   await test.step("your own profile links to your things", async () => {

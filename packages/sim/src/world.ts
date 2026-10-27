@@ -116,8 +116,15 @@ export function isCommons(state: WorldState, px: number, py: number): boolean {
 
 /** Where new residents appear: the middle of downtown. */
 export function spawnTile(state: WorldState): Tile {
-  const config = downtown(state);
-  return { x: Math.floor(config.width / 2), y: Math.floor(config.height / 2) };
+  return spawnIn(downtown(state));
+}
+
+/**
+ * The middle of a downtown this size: `spawnTile` for a reader with downtown's rectangle and not the
+ * world (the snapshot's `lands.home`, else its `config`), as the web's guest starts there.
+ */
+export function spawnIn(downtown: { width: number; height: number }): Tile {
+  return { x: Math.floor(downtown.width / 2), y: Math.floor(downtown.height / 2) };
 }
 
 /**

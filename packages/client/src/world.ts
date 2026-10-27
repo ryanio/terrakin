@@ -1072,13 +1072,16 @@ function endGuest() {
   delete hud.dataset.guest;
 }
 
-/** Move in, or Live here on a plot `settle` would take: the card, with a name already in it. */
-function openMoveIn() {
+/**
+ * Move in, or Live here on a plot `settle` would take: the card, with a name already in it.
+ * `signin` brings its ways to sign in into view instead.
+ */
+function openMoveIn(options?: { signin?: boolean }) {
   const g = guest;
   const m = mirror;
-  guestPlot = g && m ? livableHere(m, g) : undefined;
+  guestPlot = g && m && !options?.signin ? livableHere(m, g) : undefined;
   walker.stop();
-  landing.show();
+  landing.show(options);
 }
 
 /** The plot under a guest, if `settle` would take it for a first plot. */
@@ -1846,6 +1849,15 @@ function paintSettled() {
 
 $("hud-invite").addEventListener("click", () => {
   void import("./invite-share").then((m) => m.openInviteDialog());
+});
+
+// A guest's Sign in (decision 0380): straight to the browser's passkey prompt, which can also use
+// a phone's. Where that can't sign them in, the card comes up with the reason and the key.
+const signinButton = $<HTMLButtonElement>("hud-signin");
+signinButton.addEventListener("click", async () => {
+  if (!guest) return;
+  walker.stop();
+  if (!(await landing.signIn(signinButton)) && guest) openMoveIn({ signin: true });
 });
 
 buildButton.addEventListener("click", () => {

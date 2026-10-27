@@ -12,6 +12,8 @@ There is nothing to lose and no way to fall behind. Come by for five minutes or 
 4. Tap **Home** once a day for your coins and your pantry. The first trip brings seeds.
 5. Plant a seed, pick up some wood and stone, and say hello in **Chat**.
 
+Been here before on another phone or computer? Tap **Sign in** at the top and use your passkey.
+
 ## Getting around
 
 - Tap anywhere on the map to walk there. You go around walls and buildings on your own.

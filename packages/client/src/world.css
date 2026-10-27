@@ -458,11 +458,12 @@ a.action {
 }
 
 /*
- * A guest walking the town (decision 0380): the way back to the feed, the d-pad, notices, and
- * Move in in Claim plot's place, filled like the door's own button so it's the one thing to tap.
+ * A guest walking the town (decision 0380): the way back to the feed, Sign in, the d-pad, notices,
+ * and Move in in Claim plot's place, filled like the door's own button so it's the one thing to tap.
  */
-.hud[data-guest] > :not(.hud-feed, .dpad, .actions, .status, .toast, .world-wait),
-.hud[data-guest] .actions > :not(#claim) {
+.hud[data-guest] > :not(.hud-feed, .hud-signin, .dpad, .actions, .status, .toast, .world-wait),
+.hud[data-guest] .actions > :not(#claim),
+.hud:not([data-guest]) .hud-signin {
   display: none;
 }
 

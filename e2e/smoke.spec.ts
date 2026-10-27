@@ -27,12 +27,13 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   // The world lives at /world; / is the feed. Someone with no character walks it as a guest
   // first (decision 0380), on this screen only, with Move in in Claim plot's place.
   await page.goto("/world");
-  await test.step("a guest sees only walking, Move in, and the way back to the feed", async () => {
+  await test.step("a guest sees only walking, Move in, Sign in, and the way back to the feed", async () => {
     await expect(page.locator("#hud")).toHaveAttribute("data-guest", "");
     await expect(page.locator("#world-join")).toBeHidden();
     await expect(page.locator(".dpad")).toBeVisible();
     await expect(page.locator("#claim")).toHaveText("Move in");
     await expect(page.locator("#hud-feed")).toBeVisible();
+    await expect(page.locator("#hud-signin")).toBeVisible();
     for (const id of ["chat-toggle", "build", "home", "hud-invite", "sound", "world-mode"])
       await expect(page.locator(`#${id}`)).toBeHidden();
   });
@@ -130,6 +131,8 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     const home = page.getByRole("dialog", { name: "This plot is yours" });
     await expect(home).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Pick a plot" })).toHaveCount(0);
+    // Signed up, the guest's Sign in is gone.
+    await expect(page.locator("#hud-signin")).toBeHidden();
     await home.getByRole("button", { name: "I'll build it myself" }).click();
     // Decision 0378: offered on the way in, once the page is clear of the home sheet, with one
     // tap to the device's own sheet and a plain Skip. It stays away for a day.

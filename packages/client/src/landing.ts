@@ -25,8 +25,11 @@ import { passkeyAutofillWorks, passkeysWork } from "./passkey";
 export interface Landing {
   /** True while the curtain is showing (not lifted or hidden). */
   isUp(): boolean;
-  /** Bring the curtain back, for example after a stale token. */
-  show(): void;
+  /**
+   * Bring the curtain back, for example after a stale token. `signin` opens "Restore with a key"
+   * and brings the ways to sign in into view, after a Sign in that didn't.
+   */
+  show(options?: { signin?: boolean }): void;
   /** Lift the curtain with a short fade. `instant` skips the animation. */
   hide(options?: { instant?: boolean }): void;
   setJoining(on: boolean): void;
@@ -51,6 +54,12 @@ export interface Landing {
   autofill(): void;
   /** Someone is in, or the world's page is left: take back the passkey request `autofill` holds. */
   pause(): void;
+  /**
+   * Sign in with a passkey from outside the card (a guest's Sign in), with `button` held down
+   * meanwhile. False where this browser can't use one, or it didn't sign in; the reason is then
+   * under the card's own sign-in button.
+   */
+  signIn(button: HTMLButtonElement): Promise<boolean>;
   /** Update the live line, for example "12 residents, 3 online now". */
   setPopulation(total: number, online: number): void;
   /** How tall the door card is, in CSS pixels, so the world behind it can center above it. */
@@ -198,18 +207,18 @@ export function createLanding(
   const signinGo = byId<HTMLButtonElement>(root, "signin-go");
   const signinError = byId(root, "signin-error");
   if (passkeysWork()) signin.hidden = false;
-  const signIn = async (button: HTMLButtonElement) => {
+  const signIn = async (button: HTMLButtonElement): Promise<boolean> => {
     // A browser holds one passkey request at a time, so the suggestions step aside meanwhile.
     stopAutofill();
     button.disabled = true;
     signinError.textContent = "";
     const problem = await onSignin();
     button.disabled = false;
-    if (problem) {
-      signinError.textContent = problem;
-      signin.scrollIntoView({ block: "nearest" });
-      void startAutofill();
-    }
+    if (!problem) return true;
+    signinError.textContent = problem;
+    signin.scrollIntoView({ block: "nearest" });
+    void startAutofill();
+    return false;
   };
   signinGo.addEventListener("click", () => void signIn(signinGo));
 
@@ -278,14 +287,16 @@ export function createLanding(
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   const landing: Landing = {
     isUp: () => !root.hidden && !root.classList.contains("lifted"),
-    show() {
+    show({ signin: signingIn = false } = {}) {
       clearTimeout(hideTimer);
       root.hidden = false;
       // A name is already there, so Move in is one tap; Suggest offers another, or type your own.
       if (!name.value) suggest.fill();
+      if (signingIn) landing.openRestore();
       // Next frame, so the transition runs from the lifted state.
       requestAnimationFrame(() => {
         root.classList.remove("lifted");
+        if (signingIn) byId(root, "restore").scrollIntoView({ block: "nearest" });
         void startAutofill();
       });
       landing.setJoining(false);
@@ -336,6 +347,7 @@ export function createLanding(
       held = false;
       stopAutofill();
     },
+    signIn: (button) => (passkeysWork() ? signIn(button) : Promise.resolve(false)),
     setPopulation(total, online) {
       liveText.textContent = populationLine(total, online);
       live.hidden = false;

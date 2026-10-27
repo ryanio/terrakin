@@ -185,7 +185,7 @@
       </div>
 
       <div id="hud" class="hud" hidden>
-        <!-- Invite, the speaker, Home, and Build start hidden: world.ts shows them, with 3D view and Gather all, once you have a plot (decision 0234). A guest (data-guest, decision 0380) sees the Feed link, the d-pad, and Move in in Claim plot's place. -->
+        <!-- Invite, the speaker, Home, and Build start hidden: world.ts shows them, with 3D view and Gather all, once you have a plot (decision 0234). A guest (data-guest, decision 0380) sees the Feed link, Sign in, the d-pad, and Move in in Claim plot's place. -->
         <a id="hud-feed" class="pill pill-button small hud-feed" href="/" data-nav="feed">
           <svg class="icon" data-icon="back" aria-hidden="true"></svg>
           <span>Feed</span>
@@ -193,6 +193,11 @@
         <button type="button" id="hud-invite" class="pill pill-button small hud-invite" hidden>
           <svg class="icon" data-icon="userPlus" aria-hidden="true"></svg>
           <span>Invite</span>
+        </button>
+        <!-- A guest only (decision 0380), where Invite goes: someone back on a browser that forgot them signs in with a passkey. -->
+        <button type="button" id="hud-signin" class="pill pill-button small hud-invite hud-signin">
+          <svg class="icon" data-icon="key" aria-hidden="true"></svg>
+          <span>Sign in</span>
         </button>
         <div id="status" class="status pill" aria-live="polite"></div>
         <p id="world-wait" class="world-wait paper" hidden>Can't reach the world. Still trying…</p>

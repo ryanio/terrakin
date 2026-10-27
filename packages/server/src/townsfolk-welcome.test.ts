@@ -335,7 +335,7 @@ describe("a welcome visit", () => {
 
   it("visits at most a few newcomers a run, and the rest on the next", () => {
     const t = town();
-    const ids = [2, 3, 4, 6].map((px, i) => t.settle(`New ${i}`, px));
+    const ids = [2, 3, 4, 6].map((px, i) => t.settle(`New_${i}`, px));
     t.advance(WELCOME.afterMs);
     expect(t.api.runWelcomes()).toMatchObject({ welcomed: WELCOME.perRun });
     // The alarm comes back for the one left, no sooner than a minute on.

@@ -202,8 +202,8 @@ test("a maintainer helps an agent and a person back in and makes a key for their
 
   await test.step("a person who lost their browser gets a sign-in link and a passkey", async () => {
     // Known to staff only by the name they joined with: no handle (decision 0378).
-    const lost = await join(page.request, "Foxglove Ash");
-    await page.locator("#signin-person").fill("foxglove ash");
+    const lost = await join(page.request, "Foxglove_Ash");
+    await page.locator("#signin-person").fill("foxglove_ash");
     await page.locator("#signin-reason").fill("Asked on Discord; matched their plot and join day");
     await page.getByRole("button", { name: "Make sign-in link" }).click();
     const made = page.locator(".signin-made");
@@ -230,7 +230,7 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     });
     await them.goto(url);
     await expect(them.getByText("Your character", { exact: true })).toBeVisible();
-    await them.getByRole("button", { name: "Open Terrakin as Foxglove Ash" }).click();
+    await them.getByRole("button", { name: "Open Terrakin as Foxglove_Ash" }).click();
     await expect
       .poll(() => them.evaluate(() => localStorage.getItem("terrakin.resident")))
       .toBe(lost.id);

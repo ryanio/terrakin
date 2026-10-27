@@ -9026,11 +9026,12 @@
             "name": "name",
             "in": "query",
             "required": true,
-            "description": "Your name in the world, 1 to 24 characters.",
+            "description": "Your name in the world: letters, numbers, and underscores, up to 24, like `Juniper_2`.",
             "schema": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 24
+              "maxLength": 24,
+              "pattern": "^(?=[A-Za-z0-9_]*[A-Za-z0-9])[A-Za-z0-9_]+$"
             }
           },
           {
@@ -30937,11 +30938,9 @@
                 "type": "boolean"
               },
               "name": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/ResidentName"
-                  }
-                ]
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 24
               },
               "kind": {
                 "allOf": [
@@ -35938,7 +35937,8 @@
       "ResidentName": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 24
+        "maxLength": 24,
+        "pattern": "^(?=[A-Za-z0-9_]*[A-Za-z0-9])[A-Za-z0-9_]+$"
       },
       "ResidentNote": {
         "type": "string",
@@ -41709,6 +41709,28 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "resident_renamed"
+                ]
+              },
+              "residentId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "residentId",
+              "name"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "admired"
                 ]
               },
@@ -44742,6 +44764,7 @@
           "passkey_bound",
           "passkey_signin",
           "block_cleared",
+          "renamed",
           "plot_sold",
           "way_laid",
           "way_closed",
@@ -44883,6 +44906,17 @@
               "x",
               "y",
               "block"
+            ]
+          },
+          "renamed": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
             ]
           },
           "way": {
@@ -47228,6 +47262,11 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "rename_resident": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "clear_circle_name": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -47288,6 +47327,7 @@
               "rekey_agent",
               "merge_resident",
               "signin_link",
+              "rename_resident",
               "clear_circle_name",
               "clear_circle_notice",
               "disband_circle",

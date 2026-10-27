@@ -147,7 +147,7 @@ describe("praise", () => {
     const { join, praise, advance } = await start();
     const wren = await join("Wren");
     const others = [];
-    for (let i = 0; i <= PRAISE_LIMITS.perGiverPerDay; i++) others.push(await join(`Friend ${i}`));
+    for (let i = 0; i <= PRAISE_LIMITS.perGiverPerDay; i++) others.push(await join(`Friend_${i}`));
     for (const other of others.slice(0, PRAISE_LIMITS.perGiverPerDay)) {
       expect((await praise(wren, other)).status).toBe(201);
     }

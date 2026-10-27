@@ -100,6 +100,7 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   rekey_agent: "Made a re-key code for an agent",
   signin_link: "Made a sign-in link for a person",
   merge_resident: "Merged a duplicate record",
+  rename_resident: "Gave a resident a name that meets the naming rule",
   clear_circle_name: "Took down a circle's name",
   clear_circle_notice: "Took down a circle's notice",
   disband_circle: "Disbanded a circle",

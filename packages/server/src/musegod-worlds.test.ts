@@ -1,4 +1,4 @@
-import type { WorldConfig } from "@terrakin/sim";
+import type { Input, WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -214,9 +214,11 @@ const CONFIG: WorldConfig = {
 };
 
 /** A world with the real routes in front of it, reporting to a fake musegod. */
-async function world() {
+async function world(log: Input[] = []) {
   const sent: { muse: string; event: string; url: string }[] = [];
-  const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+  const store = new MemoryStore();
+  for (const input of log) store.appendInput(input);
+  const service = new WorldService({ store, config: CONFIG });
   const sql = nodeSql();
   cleanups.push(() => sql.close());
   const social = new SocialService({
@@ -259,15 +261,25 @@ describe("what Terrakin tells musegod as it happens", () => {
     ]);
   });
 
-  it("reports a muse named in a resident's name, once, however often it joins", async () => {
-    const t = await world();
-    t.service.createSession({ name: "Moss", kind: "agent" });
-    const { residentId } = t.service.createSession({ name: "muse #7 of MUSEGOD", kind: "agent" });
-    const id = residentId as string;
+  it("reports a muse an old name claims, once however often it joins, and its leave on a rename", async () => {
+    // A name from before the naming rule (issue #117), as an old log holds it. No new name can
+    // claim a muse, so a staff rename is the one way such a name changes.
+    const id = "r_0000000000000007";
+    const t = await world([
+      { actor: id, command: { type: "join", name: "muse #7 of MUSEGOD", kind: "agent" } },
+      { actor: id, command: { type: "leave" } },
+    ]);
+    t.service.ensureOnline(id);
     t.service.leave(id);
     t.service.ensureOnline(id);
-    expect(t.sent).toEqual([{ muse: "7", event: "joined", url: `https://terrakin.org/r/${id}` }]);
+    const url = `https://terrakin.org/r/${id}`;
+    expect(t.sent).toEqual([{ muse: "7", event: "joined", url }]);
     expect(t.sent[0]?.url).toMatch(MUSEGOD_URL);
+    expect(t.service.renameResident(id, "Seven").ok).toBe(true);
+    expect(t.sent).toEqual([
+      { muse: "7", event: "joined", url },
+      { muse: "7", event: "left", url },
+    ]);
   });
 });
 

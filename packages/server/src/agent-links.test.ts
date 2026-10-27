@@ -391,7 +391,7 @@ describe("linking a muse", () => {
     const { call, link, join, chain, links } = await start();
     // A fresh resident each time, so the per-resident limit stays out of the way.
     let n = 0;
-    const post = (body: unknown) => link(body, join(`Wren ${++n}`).token);
+    const post = (body: unknown) => link(body, join(`Wren_${++n}`).token);
     // Refused before anything is read: they cost nothing.
     expect((await post({ agent: "7055" })).status).toBe(400);
     expect((await post({ agent: `eip155:4663:0x${"1".repeat(40)}:7055` })).status).toBe(400);
@@ -515,7 +515,7 @@ describe("linking a muse", () => {
     // was refused by the resident's own limit first, so 5 are used.
     const statuses: number[] = [];
     for (let i = 0; i < 2; i++) {
-      const r = join(`Other ${i}`);
+      const r = join(`Other_${i}`);
       for (let j = 0; j < 3; j++) statuses.push((await link(muse(3), r.token)).status);
     }
     expect(statuses.filter((s) => s === 429)).toHaveLength(1);
@@ -1634,7 +1634,6 @@ describe("a partner's residents (docs/plans/partner-residents.md)", () => {
       { bio: "Hi! I'm Muse #12 of musegod. I like tea." },
       ada.token,
     );
-    const named = t.join("muse #7 of MUSEGOD");
     const pip = t.join("Pip");
     await t.call(
       "PUT",
@@ -1646,16 +1645,13 @@ describe("a partner's residents (docs/plans/partner-residents.md)", () => {
 
     const list = await residentsOf(t.call);
     const byId = new Map(list.residents.map((r: { id: string }) => [r.id, r]));
-    expect([...byId.keys()].sort()).toEqual(
-      [wren.residentId, ada.residentId, named.residentId].sort(),
-    );
+    expect([...byId.keys()].sort()).toEqual([wren.residentId, ada.residentId].sort());
     expect(byId.get(wren.residentId)).toMatchObject({
       displayName: "Wren",
       subject: "464",
       verified: true,
     });
     expect(byId.get(ada.residentId)).toMatchObject({ subject: "12", verified: false });
-    expect(byId.get(named.residentId)).toMatchObject({ subject: "7", verified: false });
     // A claim only puts a resident on the list: no badge, border, or partner wear.
     const claimed = await t.profile(ada.residentId);
     expect(claimed.partner).toBeUndefined();
@@ -1779,7 +1775,7 @@ describe("a partner's residents (docs/plans/partner-residents.md)", () => {
     const t = await start();
     const muses = [];
     for (const n of [1, 2, 3]) {
-      const r = await linkedMuse(t, n, `Muse ${n}`);
+      const r = await linkedMuse(t, n, `Muse_${n}`);
       await t.call("POST", "/v1/posts", { text: `hello from ${n}` }, r.token);
       t.advance(1_000);
       muses.push(r.residentId);

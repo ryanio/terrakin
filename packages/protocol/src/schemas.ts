@@ -52,6 +52,8 @@ import {
   MAX_WEAR,
   MEDIA_ID_PATTERN,
   NAME_MAX_LENGTH,
+  NAME_PATTERN,
+  NAME_RULE_WORDS,
   NOTE_MAX_LENGTH,
   PATTERNS,
   PET_KINDS,
@@ -161,7 +163,16 @@ const BlockKind = z.enum(BLOCK_KINDS);
 const requestId = z.string().min(1).max(64).optional();
 
 export const ResidentKind = z.enum(["human", "agent"]);
-export const ResidentName = z.string().trim().min(1).max(NAME_MAX_LENGTH);
+/**
+ * A resident's name: letters, digits and underscores, up to 24 (issue #117, decision 0379), the
+ * sim's `NAME_PATTERN`. Every way in (a join, the socket's `hello`, a join link, an invite) reads it.
+ */
+export const ResidentName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(NAME_MAX_LENGTH)
+  .regex(NAME_PATTERN, { message: NAME_RULE_WORDS });
 export const ResidentColor = z.enum(RESIDENT_COLORS);
 export const ResidentShape = z.enum(RESIDENT_SHAPES);
 export const ResidentNote = z.string().trim().max(NOTE_MAX_LENGTH);
@@ -2904,6 +2915,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** The Terrakin team took plot (px, py)'s name down after a report. It has no name now. */
   z.object({ type: z.literal("plot_name_removed"), px: z.number().int(), py: z.number().int() }),
+  /** The Terrakin team gave a resident a new name, one that meets the naming rule. */
+  z.object({ type: z.literal("resident_renamed"), residentId: z.string(), name: z.string() }),
   /** `by` admired what's on display on (x, y): the thing, its maker, and its count after. */
   z.object({
     type: z.literal("admired"),
@@ -3456,7 +3469,11 @@ export const ClientMessage = z.union([
     token: z.string().min(1).max(256).optional(),
     /** Also send `post` messages for new top-level posts. Off unless asked for. */
     posts: z.boolean().optional(),
-    name: ResidentName.optional(),
+    /**
+     * For a join with no token. Not held to the naming rule here, so a client that also sends a
+     * stored name from before the rule with its token still connects; a join checks the rule.
+     */
+    name: z.string().trim().min(1).max(NAME_MAX_LENGTH).optional(),
     kind: ResidentKind.optional(),
     ...profileFields,
   }),

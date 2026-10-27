@@ -189,7 +189,7 @@ describe("patting a pet", () => {
     const ivy = t.join("Ivy");
     const owners = [];
     for (let i = 0; i <= PAT_LIMITS.perPatterPerDay; i++) {
-      const o = t.join(`Owner ${i}`);
+      const o = t.join(`Owner_${i}`);
       // This world has no room for that many homes, so these pets go straight onto it.
       const r = t.service.state.residents[o.id];
       if (r) r.pet = { kind: "duck", coat: "white", name: `Duck ${i}` };

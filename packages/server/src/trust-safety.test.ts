@@ -137,7 +137,7 @@ describe("the edge filters on every surface", () => {
     const bo = await t.join("Bo");
     // A fresh writer each time, so the strike rule doesn't pause anyone halfway through.
     let n = 0;
-    const fresh = async () => (await t.join(`Writer ${n++}`)).token;
+    const fresh = async () => (await t.join(`Writer_${n++}`)).token;
     const bad = `hello ${SLUR}`;
     const refusedBy = (res: { status: number; body: { error?: { message: string } } }) => {
       expect(res.status).toBe(400);
@@ -152,7 +152,7 @@ describe("the edge filters on every surface", () => {
     refusedBy(await t.call("PUT", "/v1/profile", { bio: bad }, await fresh()));
     refusedBy(await t.call("POST", "/v1/notices", { text: bad }, await fresh()));
     // A circle's notice (RFC 0033): the route checks its steward, then sets it through here.
-    const steward = await t.join(`Writer ${n++}`);
+    const steward = await t.join(`Writer_${n++}`);
     expect(t.social.circleNotices.set("c_1", steward.id, bad)).toMatchObject({
       ok: false,
       message: HATE_MESSAGE,
@@ -258,7 +258,7 @@ describe("the edge filters on every surface", () => {
   it("refuses strong language in names and bios, and marks it on posts", async () => {
     const t = await start();
     const ada = await t.join("Ada");
-    const name = await t.call("POST", "/v1/session", { name: `Big ${SWEAR}`, kind: "agent" });
+    const name = await t.call("POST", "/v1/session", { name: `Big_${SWEAR}`, kind: "agent" });
     expect(name.status).toBe(400);
     // A plot's name is drawn over the plot on everyone's map: held to the rules for names.
     const plot = { type: "name_plot", px: 0, py: 0, name: `${SWEAR} Hollow` };

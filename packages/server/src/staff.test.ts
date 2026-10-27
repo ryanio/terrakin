@@ -158,7 +158,7 @@ describe("staff roles", () => {
     const t = direct(false);
     const mo = await t.join("Mo");
     const mod = await t.join("Mod");
-    const other = await t.join("Other mod");
+    const other = await t.join("Other_mod");
     t.maintainers.add(mo.id);
     t.moderators.add(mod.id);
     t.moderators.add(other.id);

@@ -252,7 +252,7 @@ describe("a human claims their AI", () => {
     const { call, join, claim, invite, profile } = await start();
     const hazel = await join("Hazel", "human");
     for (let i = 0; i < MAX_AGENTS_PER_OWNER; i++) {
-      expect((await claim(hazel, await join(`Bot ${i}`, "agent"))).status).toBe(200);
+      expect((await claim(hazel, await join(`Bot_${i}`, "agent"))).status).toBe(200);
     }
     expect((await profile(hazel.residentId)).agents).toHaveLength(MAX_AGENTS_PER_OWNER);
     const more = await call("POST", "/v1/owner/claims", undefined, hazel.token);

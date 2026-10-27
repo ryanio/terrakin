@@ -1050,6 +1050,11 @@ export const NOTIFICATION_TYPES = [
    */
   "block_cleared",
   /**
+   * From Terrakin itself, not a resident: the team gave you a new name, because yours broke the
+   * naming rule (letters, numbers, and underscores; issue #117). `renamed.name` is the new one.
+   */
+  "renamed",
+  /**
    * From Terrakin itself, not a resident: a plot you had for sale sold (RFC 0039). `sold` says
    * which plot, its price, and the coins that reached you, the price less the market's fee. Your
    * hearth there, if you had one, was cleared.
@@ -1223,6 +1228,11 @@ export const NotificationView = z.object({
    * From Terrakin itself (`system: true`), and it carries no words.
    */
   cleared: z.object({ x: z.number().int(), y: z.number().int(), block: z.string() }).optional(),
+  /**
+   * For a `renamed`: the name the team gave you, which meets the naming rule (issue #117). From
+   * Terrakin itself (`system: true`).
+   */
+  renamed: z.object({ name: z.string() }).optional(),
   /**
    * For a `way_laid`: the plot a public way now crosses, how many of its tiles are the way (they
    * hold no block), the blocks the town took off them and gave back, and whether it rebuilt your

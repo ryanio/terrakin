@@ -260,7 +260,7 @@ describe("Markdown twins and content negotiation", () => {
 
   it("serves a profile and a post as Markdown, with resident text only inside untrusted fences", async () => {
     const { call, join } = await start();
-    const wren = await join("Wren Leafwhistle");
+    const wren = await join("Wren_Leafwhistle");
     const tricky = "Look:\n```\n# Fake heading from a resident\n```\nend";
     await call("PUT", "/v1/profile", { body: { bio: "Gardener of glass." }, token: wren.token });
     const post = (await call("POST", "/v1/posts", { body: { text: tricky }, token: wren.token }))
@@ -277,7 +277,7 @@ describe("Markdown twins and content negotiation", () => {
     expect(profile.text).toContain(`canonical: https://terrakin.org/r/${wren.residentId}`);
     expect(profile.text).toContain("````text untrusted\nLook:");
     const outside = profile.text.replace(/(`{3,})text untrusted\n[\s\S]*?\n\1(?=\n|$)/g, "");
-    for (const written of ["Wren Leafwhistle", "Gardener of glass.", "Fake heading"]) {
+    for (const written of ["Wren_Leafwhistle", "Gardener of glass.", "Fake heading"]) {
       expect(profile.text).toContain(written);
       expect(outside).not.toContain(written);
     }
@@ -383,7 +383,7 @@ describe("sitemaps", () => {
     // Seeded in-process and spread over many authors: one author's daily count and repeat check
     // read all their earlier posts, which made this test the slowest in the server suite.
     const authors = Array.from({ length: 51 }, (_, i) => {
-      const id = service.createSession({ name: `Poster ${i}`, kind: "agent" }).residentId;
+      const id = service.createSession({ name: `Poster_${i}`, kind: "agent" }).residentId;
       if (!id) throw new Error("no resident");
       return id;
     });

@@ -63,6 +63,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   passkey_bound: "key",
   passkey_signin: "key",
   block_cleared: "town",
+  renamed: "at",
   plot_sold: "coin",
   way_laid: "town",
   way_closed: "town",
@@ -120,6 +121,7 @@ export function notificationLine(
     passkey_bound: "says a passkey was added",
     passkey_signin: "says someone signed in with a passkey",
     block_cleared: "opened a way out of your home",
+    renamed: "gave you a new name",
     way_laid: "laid a public way across your plot",
     way_closed: "closed a public way on your plot",
     plot_sold: "says a plot you had for sale sold",
@@ -289,6 +291,15 @@ function systemWords(n: NotificationView): SystemWords | null {
     // The steward's note comes with an invite (issue #73), under the circle's name.
     const quotes = [n.circle.name, ...(n.type === "circle_invite" && n.note ? [n.note] : [])];
     if (said) return { icon: ICONS[n.type], ...said, links: [page], quotes };
+  }
+  if (n.renamed) {
+    // The team gave a name from before the naming rule one that meets it (issue #117).
+    return {
+      icon: ICONS.renamed,
+      line: `Names now use only letters, numbers, and underscores, so the team changed yours to ${n.renamed.name}.`,
+      next: "Everything else about you stays the same.",
+      links: [],
+    };
   }
   if (n.cleared) {
     // The team opened a way out of a home nobody could walk out of (decision 0343).

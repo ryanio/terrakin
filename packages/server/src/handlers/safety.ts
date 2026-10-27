@@ -691,6 +691,29 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
       }
       return { status: 200, body: { from, into, ...moves, merged: !dry } };
     },
+    // A name from before the naming rule (issue #117) becomes one that meets it. The resident
+    // hears it from Terrakin; the maintainer's reason stays in the moderation log.
+    renameResident: ({ viewer, params, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const before = social().ref(params.id);
+      if (!before) return fail("not_found", NOBODY);
+      const dry = body.dry === true;
+      const done = service.renameResident(before.id, body.name, dry);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      const resident = social().ref(before.id) ?? before;
+      const name = dry ? body.name.trim() : resident.name;
+      if (!dry) {
+        social().safety.recordNote(
+          viewer,
+          "rename_resident",
+          "resident",
+          before.id,
+          `From ${before.name} to ${name}: ${body.reason}`,
+        );
+        social().renamed(before.id, name);
+      }
+      return { status: 200, body: { resident, from: before.name, name, renamed: !dry } };
+    },
     // Bounties (decision 0062): town coins move only on a maintainer's word.
     getStaffBounties: ({ viewer }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);

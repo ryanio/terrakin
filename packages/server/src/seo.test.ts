@@ -480,7 +480,14 @@ describe("Node server", () => {
   async function start() {
     const dir = mkdtempSync(join(tmpdir(), "terrakin-seo-"));
     writeFileSync(join(dir, "index.html"), INDEX_HTML);
-    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    // A name from before the naming rule, as an old log holds it: page meta still escapes it.
+    const store = new MemoryStore();
+    const resident = "r_00000000000000aa";
+    store.appendInput({
+      actor: resident,
+      command: { type: "join", name: '"><b>Wren</b>', kind: "agent" },
+    });
+    const service = new WorldService({ store, config: CONFIG });
     const sql = nodeSql();
     const media = new MemoryMediaStore();
     const social = new SocialService({ sql, media, resident: (id) => service.state.residents[id] });
@@ -492,7 +499,7 @@ describe("Node server", () => {
       await fetch(`${base}/v1/session`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: '"><b>Wren</b>', kind: "agent" }),
+        body: JSON.stringify({ name: "Wren", kind: "agent" }),
       })
     ).json()) as { residentId: string; token: string };
     const created = (await (
@@ -502,7 +509,7 @@ describe("Node server", () => {
         body: JSON.stringify({ text: "Hello </noscript><script>alert(1)</script> neighbors" }),
       })
     ).json()) as { post: { id: string } };
-    return { base, resident: session.residentId, postId: created.post.id };
+    return { base, resident, postId: created.post.id };
   }
 
   it("serves pages with their meta, and 404 with noindex for unknown ones", async () => {

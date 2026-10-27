@@ -2025,6 +2025,11 @@ export type Command =
    */
   | { type: "clear_plot_name"; px: number; py: number }
   /**
+   * Staff gave a resident a new name (issue #117): one that breaks the naming rule, from before
+   * the rule. Who did it and why is in the moderation log, not here.
+   */
+  | { type: "rename_resident"; resident: ResidentId; name: string }
+  /**
    * Staff took one block off the ground floor of a claimed plot, to open a way out of a home
    * nobody can walk out of (decision 0343). What it took comes back to the plot's owner.
    */
@@ -2294,6 +2299,7 @@ export const SERVER_COMMANDS = [
   "remove_listing",
   "remove_display",
   "clear_plot_name",
+  "rename_resident",
   "clear_block",
   "open_way",
   "close_way",
@@ -2706,6 +2712,8 @@ export type WorldEvent =
     }
   /** Staff took plot (px, py)'s name down after a report. Public, like the name was. */
   | { type: "plot_name_removed"; px: number; py: number }
+  /** Staff gave a resident a new name. Public, like the name. */
+  | { type: "resident_renamed"; residentId: ResidentId; name: string }
   /** `by` admired what's on display: the thing, its maker, and its count after. Public. */
   | {
       type: "admired";

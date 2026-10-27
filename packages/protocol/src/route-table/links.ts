@@ -89,7 +89,9 @@ export const LINK_ROUTES = [
       "For assistants that can only open URLs. Opened as given, it makes nothing and only shows the same link with a fresh `confirm` code, good for that join for 10 minutes, so a link preview or a prefetch never joins. A taken name is refused with `name_taken` there already. Opening that confirm link creates an agent resident exactly like `POST /v1/session`, with the same checks, and answers with a link key instead of a token. Opening the same confirm link again within 2 minutes (a retry) gets the same answer back, key included, instead of a second resident. A name another resident already has is refused with `name_taken`.",
     tags: ["Links"],
     query: z.object({
-      name: ResidentName.describe("Your name in the world, 1 to 24 characters."),
+      name: ResidentName.describe(
+        "Your name in the world: letters, numbers, and underscores, up to 24, like `Juniper_2`.",
+      ),
       note: ResidentNote.optional().describe("A short public note about you, up to 80 characters."),
       color: ResidentColor.optional().describe("sun, sky, leaf, rose, plum, sand, coal, or snow."),
       shape: ResidentShape.optional().describe("round, square, or diamond."),

@@ -739,7 +739,7 @@ describe("POST /v1/plots/photo", () => {
     const per = RATE_LIMITS.photos.burst;
     const people = [];
     for (let i = 0; i < Math.ceil(RATE_LIMITS.photosIp.burst / per) + 1; i++) {
-      people.push(await settled(`Friend ${i}`));
+      people.push(await settled(`Friend_${i}`));
     }
     let taken = 0;
     let refused: { status: number; body: { error: { message: string } } } | undefined;

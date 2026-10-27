@@ -370,7 +370,7 @@ describe("connecting X", () => {
   it(`connects one X account to at most ${X_LINKS_PER_HANDLE} residents`, async () => {
     const { call, join, postCode } = await start();
     const residents = [];
-    for (let i = 0; i <= X_LINKS_PER_HANDLE; i++) residents.push(await join(`Agent ${i}`));
+    for (let i = 0; i <= X_LINKS_PER_HANDLE; i++) residents.push(await join(`Agent_${i}`));
     for (const r of residents.slice(0, X_LINKS_PER_HANDLE)) {
       const { url } = await postCode(r.token, "owner");
       expect((await call("POST", "/v1/profile/x/verify", { url }, r.token)).status).toBe(200);
@@ -435,7 +435,7 @@ describe("connecting X", () => {
     // Fresh residents on the same network share the IP's bucket (10 at once, 5 used above).
     const statuses = [];
     for (let i = 0; i < 2; i++) {
-      const r = await join(`Other ${i}`);
+      const r = await join(`Other_${i}`);
       for (let j = 0; j < 4; j++) {
         statuses.push(
           (await call("POST", "/v1/profile/x/verify", { url: "https://x.com/a/status/1" }, r.token))

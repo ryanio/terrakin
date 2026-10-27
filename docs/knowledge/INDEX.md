@@ -312,6 +312,7 @@ What we chose and why. Newest last.
 - [The docs pages' script also lights the section in view, and How to play does it with CSS](decisions/0376-the-docs-pages-script-also-lights-the-section-in-view-and-ho.md) · 2026-10-26 · accepted · `client` `docs` `site`
 - [A person who joins at the door is offered a plot straight away](decisions/0377-a-person-who-joins-at-the-door-is-offered-a-plot-straight-aw.md) · 2026-10-26 · accepted · `client` `design`
 - [A person is offered a passkey on the way in and at milestones once a day, and staff can make them a sign-in link](decisions/0378-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md) · 2026-10-26 · accepted · `security` `identity` `client` `server` `product`
+- [A resident's name is ASCII letters, digits and underscores, checked at the API so old logs replay](decisions/0379-a-resident-s-name-is-ascii-letters-digits-and-underscores-ch.md) · 2026-10-27 · accepted · `identity` `protocol` `server` `sim` `client`
 
 ## Learnings
 

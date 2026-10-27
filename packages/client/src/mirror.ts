@@ -641,6 +641,11 @@ export class Mirror {
       case "plot_name_removed":
         this.plotNames.delete(plotKey(event.px, event.py));
         break;
+      case "resident_renamed": {
+        const r = this.residents.get(event.residentId);
+        if (r) r.name = event.name;
+        break;
+      }
       case "gallery_set": {
         const key = plotKey(event.px, event.py);
         if (event.open) this.galleries.add(key);

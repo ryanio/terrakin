@@ -170,6 +170,7 @@ import {
   type MarketChecked,
 } from "./market";
 import { checkMergeResident, mergedInto } from "./merge";
+import { checkRenameResident, NAME_MAX_LENGTH } from "./names";
 import { checkSetOffFirework } from "./newyear";
 import { nearestFreePlot } from "./openings";
 import { residentById } from "./own";
@@ -285,7 +286,7 @@ import {
   starterHome,
 } from "./world";
 
-export const NAME_MAX_LENGTH = 24;
+export { NAME_MAX_LENGTH } from "./names";
 export const NOTE_MAX_LENGTH = 80;
 
 /** How many residents an owner can share one plot with. */
@@ -887,6 +888,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkRemoveDisplay(state, command));
       case "clear_plot_name":
         return town(checkClearPlotName(state, command));
+      case "rename_resident":
+        return town(checkRenameResident(state, command));
       case "clear_block":
         return town(checkClearBlock(state, command));
       case "open_way":

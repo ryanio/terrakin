@@ -348,7 +348,7 @@ describe("greet", () => {
     const t = direct();
     const ivy = t.join("Ivy");
     const greeters = Array.from({ length: ROUTINE_LIMITS.wavesPerRecipient + 1 }, (_, i) =>
-      t.join(`Greeter ${i}`),
+      t.join(`Greeter_${i}`),
     );
     const together = t.social.together;
     const wave = (from: string, note?: string) =>
@@ -381,13 +381,13 @@ describe("greet", () => {
     for (let i = 0; i < 4; i++) await t.act(bram.token, { type: "move", dir: "s" });
     t.away(bram.id);
     // A visitor whose name is their own words walks past Bram's home.
-    const ivy = t.join("Ivy Who Writes");
+    const ivy = t.join("Ivy_Who_Writes");
     for (let i = 0; i < 9; i++) await t.act(ivy.token, { type: "move", dir: "nw" });
     t.advance(HOUR);
     expect(t.api.runRoutines()).toMatchObject({ refused: 1 });
 
     for (const row of t.social.sql.exec("SELECT * FROM away_log")) {
-      expect(JSON.stringify(row)).not.toContain("Ivy Who Writes");
+      expect(JSON.stringify(row)).not.toContain("Ivy_Who_Writes");
     }
     const checkin = (await t.call("GET", "/v1/checkin", undefined, bram.token)).body;
     const written = [...checkin.todo, ...checkin.away.items.map((l: Json) => l.reason ?? "")].join(
@@ -399,7 +399,7 @@ describe("greet", () => {
       ivy.id,
     ]);
     // The name comes only as the recipient's own `to`, like any name.
-    expect(checkin.away.items[1].to.name).toBe("Ivy Who Writes");
+    expect(checkin.away.items[1].to.name).toBe("Ivy_Who_Writes");
   });
 });
 

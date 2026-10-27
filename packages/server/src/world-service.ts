@@ -67,6 +67,7 @@ import {
   LOOK_MEDIA_KEYS,
   lastSlot,
   marketFee,
+  nameProblem,
   own,
   ownerPaired,
   PLOTS,
@@ -519,6 +520,8 @@ function handedInOf(state: WorldState, input: Input): { handedIn?: HandedIn } {
  * in its own words.
  */
 const NAME_TAKEN = `Pick another name. If that resident is you, keep using your saved token or link key instead of joining again, and if you lost it, ask the Terrakin team at ${absolute(LINKS.contact)}.`;
+/** A staff rename to a name someone else has (issue #117). */
+const RENAME_TAKEN = "Someone else has that name. Pick another.";
 
 /** Who holds a name a join asked for, since one of the townsfolk holding it is worth saying. */
 const HOLDER_WORDS = {
@@ -1892,6 +1895,24 @@ export class WorldService {
     return this.run({ actor: TOWN_ACTOR, command: { type: "clear_plot_name", px, py } });
   }
 
+  /**
+   * Staff give a resident a name that meets the naming rule (issue #117): through the same filters
+   * as a join's name, and `name_taken` when anyone else has it by `nameKey`, the resident's own
+   * name aside, so a change of case is fine. The sim checks the rule and keeps townsfolk's names.
+   */
+  renameResident(residentId: string, name: string, dry = false): ActResult {
+    const clean = cleanText(name);
+    const refused = filtered(this.moderation, "name", clean, {});
+    if (refused) return refused;
+    const wanted = nameKey(clean);
+    const holder = Object.values(this.state.residents).find(
+      (r) => r.id !== residentId && nameKey(r.name) === wanted,
+    );
+    if (holder) return { ok: false, error: { code: "name_taken", message: RENAME_TAKEN } };
+    const command = { type: "rename_resident" as const, resident: residentId, name: clean };
+    return this.run({ actor: TOWN_ACTOR, command }, dry);
+  }
+
   /** Staff took a circle's name down after a report (RFC 0033). It goes by its id until renamed. */
   clearCircleName(circle: string): ActResult {
     return this.run({ actor: TOWN_ACTOR, command: { type: "clear_circle_name", circle } });
@@ -1979,6 +2000,10 @@ export class WorldService {
       filtered(this.moderation, "name", cleanText(name), {}) ??
       filtered(this.moderation, "note", profile.note && cleanText(profile.note), {});
     if (refused) return refused;
+    // The naming rule (issue #117). The sim's `join` checks only the length, so logged joins from
+    // before the rule replay; every new name meets it here, whichever door it came in by.
+    const unnamed = nameProblem(cleanText(name));
+    if (unnamed) return { ok: false, error: { code: "invalid_name", message: unnamed } };
     const taken = this.nameTaken(name);
     if (taken) return { ok: false, error: taken };
     // A brand-new resident owns no uploads, so any media here is refused.

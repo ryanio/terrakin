@@ -443,7 +443,7 @@ describe("AI triage in the review queue", () => {
       { ...SPAM, content_shows_it: undefined },
     ]);
     const bo = await t.join("Bo");
-    const reporters = await Promise.all(["A", "B", "C", "D"].map((n) => t.join(`Reporter ${n}`)));
+    const reporters = await Promise.all(["A", "B", "C", "D"].map((n) => t.join(`Reporter_${n}`)));
     const second = await t.join("Second");
     const posts = [];
     for (const [i, reporter] of reporters.entries()) {

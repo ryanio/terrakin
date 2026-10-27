@@ -453,6 +453,7 @@ export {
   type MaterialRecipe,
 } from "./materials";
 export { mergedInto } from "./merge";
+export { NAME_PATTERN, NAME_RULE_WORDS, nameProblem } from "./names";
 export { FIREWORKS, fireworkNight } from "./newyear";
 export {
   type ClaimExits,

@@ -132,6 +132,8 @@ export function wireSocial(
       api.welcome?.noteCommitted(input, events);
       layer.collection.noteCommitted(service.state, input, events);
       if (input.command.type === "join") tellMusegod(input.actor);
+      // A name is half of what ties a muse to its resident, so a new one is news too.
+      if (input.command.type === "rename_resident") tellMusegod(input.command.resident);
       tellMusegodDid(input, events);
     }
   };

@@ -242,12 +242,12 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
       "Someone here already goes by that name. Tap a free one below, or pick your own. If that's you, sign in with your passkey.",
     );
     // Built from the held name, so a sloppy try gets properly spelled names back (decision 0302).
-    await expect(page.locator("#join-free button").first()).toHaveText("Marigold 2");
+    await expect(page.locator("#join-free button").first()).toHaveText("Marigold_2");
     await expect(page.locator("#join-signin")).toHaveText("Sign in with your passkey");
     await expect(page.locator("#hud")).toBeHidden();
     // Tapping one is the whole way out of the dead end: it fills the field and clears the refusal.
     await page.locator("#join-free button").first().click();
-    await expect(page.locator("#join-name")).toHaveValue("Marigold 2");
+    await expect(page.locator("#join-name")).toHaveValue("Marigold_2");
     await expect(page.locator("#join-error")).toBeEmpty();
     await expect(page.locator("#join-free")).toBeEmpty();
   });

@@ -2257,6 +2257,14 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident the team gave them a new name, because theirs broke the naming rule (issue
+   * #117): one notice from Terrakin itself with the new name, and no words of the maintainer's.
+   */
+  renamed(recipient: string, name: string) {
+    this.systemNotice(recipient, "renamed", JSON.stringify({ name }));
+  }
+
+  /**
    * Tell a plot's owner the town laid a public way across their plot (RFC 0046): one notice from
    * Terrakin itself, with the plot, how many tiles, the blocks given back, and whether their home
    * was rebuilt, and no words, since the maintainer's reason stays in the moderation log.
@@ -2463,6 +2471,7 @@ export class SocialService {
       if (type === "job_done") return this.jobDoneView(row, detail);
       if (type === "award") return this.awardView(row, detail);
       if (type === "block_cleared") return this.clearedView(row, detail);
+      if (type === "renamed") return this.renamedView(row, detail);
       if (type === "way_laid") return this.wayView(row, detail);
       if (type === "way_closed") return this.wayClosedView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
@@ -2604,6 +2613,13 @@ export class SocialService {
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "block_cleared"), cleared: parsed.data }];
+  }
+
+  /** A stored renamed notice (issue #117) as the resident reads it. */
+  private renamedView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = z.object({ name: z.string() }).safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "renamed"), renamed: parsed.data }];
   }
 
   /** A stored way-laid notice (RFC 0046) as the plot's owner reads it. */
@@ -3279,6 +3295,7 @@ type SystemNoticeType =
   | "passkey_bound"
   | "passkey_signin"
   | "block_cleared"
+  | "renamed"
   | "plot_sold"
   | "pot_sold"
   | "tea_served"

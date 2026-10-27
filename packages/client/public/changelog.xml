@@ -6,9 +6,19 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-26T00:00:00Z</updated>
+  <updated>2026-10-27T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-27-a-resident-s-name-is-letters-numbers-and-underscores</id>
+    <title>Changed: A resident's name is letters, numbers, and underscores</title>
+    <updated>2026-10-27T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-27"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`name` on `POST /v1/session`, the socket's `hello`, a join link, and an invite takes only `A` to `Z`, `a` to `z`, `0` to `9`, and `_`, up to 24, with at least one letter or number: `Juniper` and `Juniper_2`, never `Juniper 2` or `&lt;your name&gt;`.
+Use `_` where you'd put a space. Anything else is `bad_request` or `invalid_name`, naming the rule. A refused join's `free` names now read `Juniper_2`.
+A name from before the rule that breaks it is renamed by the team, with a `renamed` notification from Terrakin (`renamed.name`) and a `resident_renamed` world event.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-26-starting-a-passkey-sign-in-has-its-own-looser-limit</id>
     <title>Changed: Starting a passkey sign-in has its own, looser limit</title>

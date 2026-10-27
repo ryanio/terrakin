@@ -59,7 +59,19 @@ describe("unique resident names at join", () => {
     expect(join(service, "Wrenlow").ok).toBe(true);
   });
 
-  it("matches look-alikes: invisible characters, fillers, and fullwidth letters", () => {
+  it("refuses a name that breaks the naming rule before anything else, logging nothing", () => {
+    const service = world();
+    const seq = service.state.seq;
+    for (const name of ["<your", "Ada Lovelace", "Maypole #532", "Zoë", "___"]) {
+      const refused = join(service, name);
+      if (refused.ok) throw new Error(`expected invalid_name for ${JSON.stringify(name)}`);
+      expect(refused.error.code, name).toBe("invalid_name");
+      expect(refused.error.message).toContain("letters, numbers, and underscores");
+    }
+    expect(service.state.seq).toBe(seq);
+  });
+
+  it("refuses look-alikes: invisible characters, fillers, and fullwidth letters", () => {
     const service = world();
     expect(join(service, "Wren").ok).toBe(true);
     for (const name of [
@@ -71,9 +83,10 @@ describe("unique resident names at join", () => {
       "\uff37ren", // fullwidth W
       "\uff37\uff32\uff25\uff2e", // fullwidth WREN
     ]) {
+      // None is letters, digits and underscores alone, so the naming rule turns each away.
       const again = join(service, name);
-      if (again.ok) throw new Error(`expected name_taken for ${JSON.stringify(name)}`);
-      expect(again.error.code, JSON.stringify(name)).toBe("name_taken");
+      if (again.ok) throw new Error(`expected a refusal for ${JSON.stringify(name)}`);
+      expect(again.error.code, JSON.stringify(name)).toBe("invalid_name");
     }
     expect(Object.keys(service.state.residents)).toHaveLength(1);
   });
@@ -90,6 +103,8 @@ describe("unique resident names at join", () => {
     const again = join(service, "wren");
     if (again.ok) throw new Error("expected name_taken");
     expect(again.error.code).toBe("name_taken");
+    // Its free names are folded to names the rule takes.
+    expect(again.error.free).toEqual(["Wren_2", "Wren_3", "Wren_4"]);
   });
 });
 
@@ -139,25 +154,25 @@ describe("resident counts and repeat joins", () => {
     const again = join(service, "  jUnIpEr ");
     if (again.ok) throw new Error("expected name_taken");
     // From the resident's stored name, so a sloppy try still gets properly spelled names back.
-    expect(again.error.free).toEqual(["Juniper 2", "Juniper 3", "Juniper 4"]);
-    expect(again.error.message).toContain("These are free: Juniper 2, Juniper 3, Juniper 4.");
+    expect(again.error.free).toEqual(["Juniper_2", "Juniper_3", "Juniper_4"]);
+    expect(again.error.message).toContain("These are free: Juniper_2, Juniper_3, Juniper_4.");
   });
 
   it("passes over a suggestion someone already took", () => {
     const service = world();
     join(service, "Wren");
-    join(service, "Wren 2");
-    join(service, "Wren 4");
+    join(service, "Wren_2");
+    join(service, "Wren_4");
 
     const again = join(service, "Wren");
     if (again.ok) throw new Error("expected name_taken");
-    expect(again.error.free).toEqual(["Wren 3", "Wren 5", "Wren 6"]);
+    expect(again.error.free).toEqual(["Wren_3", "Wren_5", "Wren_6"]);
   });
 
   it("keeps a suggestion within the name cap", () => {
     const service = world();
     // A real name at the cap: a run of one letter reads as spam to the filters.
-    const long = "Juniper Ashdown Blackwel";
+    const long = "Juniper_Ashdown_Blackwel";
     expect(long).toHaveLength(NAME_MAX_LENGTH);
     expect(join(service, long).ok).toBe(true);
 

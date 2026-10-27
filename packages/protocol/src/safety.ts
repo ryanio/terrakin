@@ -2,6 +2,7 @@ import { AWARDS, WAYS } from "@terrakin/sim";
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportKind, ReportReason } from "./reports";
+import { ResidentName } from "./schemas";
 import { AuthorView, MediaView, ReactionKey, ResidentBrief } from "./social";
 
 /**
@@ -203,6 +204,8 @@ export const MODERATION_ACTIONS = [
   "merge_resident",
   /** A maintainer made a one-time sign-in link for a person who lost their way in. */
   "signin_link",
+  /** A maintainer gave a resident a name that meets the naming rule (issue #117). */
+  "rename_resident",
   /** Staff took down a circle's name, or its notice (RFC 0033). */
   "clear_circle_name",
   "clear_circle_notice",
@@ -360,6 +363,27 @@ export const StaffMergeResponse = z.object({
   merged: z.boolean(),
 });
 export type StaffMergeResponse = z.infer<typeof StaffMergeResponse>;
+
+/**
+ * A new name for the resident in the path, one that meets the naming rule (issue #117) and that
+ * nobody else has. They get a notice from Terrakin with it.
+ */
+export const StaffRenameRequest = z.object({
+  name: ResidentName,
+  reason: Reason,
+  /** Check the name and say what it would be, without renaming. */
+  dry: z.boolean().optional(),
+});
+export type StaffRenameRequest = z.infer<typeof StaffRenameRequest>;
+
+/** Who was renamed (or, on a dry run, would be), from what to what. */
+export const StaffRenameResponse = z.object({
+  resident: ResidentBrief,
+  from: z.string(),
+  name: z.string(),
+  renamed: z.boolean(),
+});
+export type StaffRenameResponse = z.infer<typeof StaffRenameResponse>;
 
 // ---------- homes nobody can walk out of (decision 0343) ----------
 

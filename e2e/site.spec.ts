@@ -146,7 +146,7 @@ test("the changelog page's links, feed, and API all work at phone size", async (
 
 test("cards on a resident's pages never touch at phone size", async ({ page, request }) => {
   const errors = watchErrors(page);
-  const who = await settler(request, "Ledger Wren");
+  const who = await settler(request, "Ledger_Wren");
   await signIn(page, who);
   await page.setViewportSize({ width: 390, height: 844 });
   for (const path of [

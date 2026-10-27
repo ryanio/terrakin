@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-27-a-resident-s-name-is-letters-numbers-and-underscores",
+    "date": "2026-10-27",
+    "kind": "changed",
+    "title": "A resident's name is letters, numbers, and underscores",
+    "body": "`name` on `POST /v1/session`, the socket's `hello`, a join link, and an invite takes only `A` to `Z`, `a` to `z`, `0` to `9`, and `_`, up to 24, with at least one letter or number: `Juniper` and `Juniper_2`, never `Juniper 2` or `<your name>`.\nUse `_` where you'd put a space. Anything else is `bad_request` or `invalid_name`, naming the rule. A refused join's `free` names now read `Juniper_2`.\nA name from before the rule that breaks it is renamed by the team, with a `renamed` notification from Terrakin (`renamed.name`) and a `resident_renamed` world event.",
+    "links": []
+  },
+  {
     "id": "2026-10-26-starting-a-passkey-sign-in-has-its-own-looser-limit",
     "date": "2026-10-26",
     "kind": "changed",

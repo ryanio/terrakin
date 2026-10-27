@@ -23,6 +23,8 @@ const CONFIG: WorldConfig = {
 };
 const DAY = 20_000;
 const town = (command: Input["command"]): Input => ({ actor: TOWN_ACTOR, command });
+const OLD_NAME = "r_55ca12b3aec6eb07";
+const asOldName = (command: Input["command"]): Input => ({ actor: OLD_NAME, command });
 
 const cleanups: (() => void | Promise<void>)[] = [];
 const { problems, onResponse } = responseChecker();
@@ -51,6 +53,9 @@ async function start() {
     town({ type: "new_day", day: DAY }),
     town({ type: "open_economy" }),
     town({ type: "open_items" }),
+    // A name from before the naming rule (issue #117), as the live log holds it.
+    asOldName({ type: "join", name: "<your", kind: "agent" }),
+    asOldName({ type: "leave" }),
   ]) {
     store.appendInput(input);
   }
@@ -86,7 +91,7 @@ async function start() {
   const otto = await join("Otto", "human");
   moderators.add(otto.residentId);
   const kept = await join("Maypole", "agent");
-  const dup = await join("Maypole #532", "agent");
+  const dup = await join("Maypole_532", "agent");
   // The duplicate settles a plot (and gets the welcome gift), posts, and follows Hazel, who
   // follows it back.
   expect(
@@ -115,7 +120,18 @@ async function start() {
       { reason: "Same agent, joined twice", ...body },
       who.token,
     );
-  return { call, service, sql, mira, hazel, otto, kept, dup, merge };
+  const rename = (
+    id: string,
+    body: { name: string; reason?: string; dry?: boolean },
+    who: Who = mira,
+  ) =>
+    call(
+      "POST",
+      `/v1/admin/residents/${id}/rename`,
+      { reason: "Breaks the naming rule", ...body },
+      who.token,
+    );
+  return { call, service, social, sql, mira, hazel, otto, kept, dup, merge, rename };
 }
 
 describe("merging a duplicate record", () => {
@@ -157,7 +173,7 @@ describe("merging a duplicate record", () => {
     const dry = await merge(dup.residentId, { into: kept.residentId, dry: true });
     expect(dry.status).toBe(200);
     expect(dry.body).toMatchObject({
-      from: { id: dup.residentId, name: "Maypole #532" },
+      from: { id: dup.residentId, name: "Maypole_532" },
       into: { id: kept.residentId, name: "Maypole" },
       coins,
       things: 0,
@@ -208,6 +224,55 @@ describe("merging a duplicate record", () => {
         actor: mira.residentId,
         target: dup.residentId,
         reason: `Into ${kept.residentId}: Same agent, joined twice`,
+      }),
+    ]);
+  });
+});
+
+describe("renaming a name from before the naming rule (issue #117)", () => {
+  it("refuses anyone but a maintainer, and every bad name, renaming nobody", async () => {
+    const { service, hazel, otto, rename } = await start();
+    const seq = service.state.seq;
+    expect((await rename(OLD_NAME, { name: "user_5512" }, hazel)).status).toBe(403);
+    expect((await rename(OLD_NAME, { name: "user_5512" }, otto)).status).toBe(403);
+    // The rule, read by the request's own schema.
+    const spaced = await rename(OLD_NAME, { name: "your name" });
+    expect([spaced.status, spaced.body.error.code]).toEqual([400, "bad_request"]);
+    expect(spaced.body.error.message).toContain("letters, numbers, and underscores");
+    // Someone else's name, by the same comparison a join makes.
+    expect((await rename(OLD_NAME, { name: "hazel" })).body.error.code).toBe("name_taken");
+    expect((await rename("r_0000000000000000", { name: "user_5512" })).status).toBe(404);
+    expect((await rename(OLD_NAME, { name: "user_5512", reason: "" })).status).toBe(400);
+    // A dry run checks and changes nothing.
+    const dry = await rename(OLD_NAME, { name: "user_5512", dry: true });
+    expect(dry.body).toMatchObject({ from: "<your", name: "user_5512", renamed: false });
+    expect(service.state.seq).toBe(seq);
+    expect(service.state.residents[OLD_NAME]?.name).toBe("<your");
+  });
+
+  it("gives them the name, logs it, and tells them from Terrakin", async () => {
+    const { service, social, sql, mira, rename } = await start();
+    const done = await rename(OLD_NAME, { name: "user_5512" });
+    expect(done.status).toBe(200);
+    expect(done.body).toMatchObject({
+      resident: { id: OLD_NAME, name: "user_5512" },
+      from: "<your",
+      name: "user_5512",
+      renamed: true,
+    });
+    expect(service.state.residents[OLD_NAME]?.name).toBe("user_5512");
+    // Once it meets the rule, it's no longer staff's to change.
+    expect((await rename(OLD_NAME, { name: "user_6612" })).body.error.code).toBe("not_eligible");
+    const notices = social.notifications(OLD_NAME, {}).notifications;
+    expect(notices).toEqual([
+      expect.objectContaining({ type: "renamed", system: true, renamed: { name: "user_5512" } }),
+    ]);
+    const logged = [...sql.exec("SELECT * FROM moderation_log WHERE action = 'rename_resident'")];
+    expect(logged).toEqual([
+      expect.objectContaining({
+        actor: mira.residentId,
+        target: OLD_NAME,
+        reason: "From <your to user_5512: Breaks the naming rule",
       }),
     ]);
   });

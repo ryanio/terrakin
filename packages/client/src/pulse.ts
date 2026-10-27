@@ -34,7 +34,7 @@ type Resident = WorldSnapshot["residents"][number];
 /** Real residents online before the roster stops padding with townsfolk. */
 const ROSTER_FILL = 6;
 /** Consecutive posts by one author, each within this of the next, roll up into one card. */
-const BURST_GAP_MS = 2 * 60 * 60 * 1000;
+const BURST_GAP_MS = 2 * HOUR_MS;
 const BURST_MIN = 3;
 /** Likes plus twice the replies a post needs to be flagged as the most talked about. */
 const HOT_MIN = 4;
@@ -336,15 +336,14 @@ export function hourlyCounts(
   hours: number,
   coveredFromMs: number | null,
 ): (number | null)[] {
-  const HOUR = 3_600_000;
   const counts: (number | null)[] = Array.from({ length: hours }, (_, i) => {
-    const end = nowMs - (hours - 1 - i) * HOUR;
+    const end = nowMs - (hours - 1 - i) * HOUR_MS;
     return coveredFromMs !== null && end <= coveredFromMs ? null : 0;
   });
   for (const p of posts) {
     const ago = nowMs - Date.parse(p.createdAt);
     if (!(ago >= 0)) continue;
-    const i = hours - 1 - Math.floor(ago / HOUR);
+    const i = hours - 1 - Math.floor(ago / HOUR_MS);
     const c = counts[i];
     if (i >= 0 && c !== null && c !== undefined) counts[i] = c + 1;
   }

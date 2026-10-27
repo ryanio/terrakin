@@ -6,12 +6,14 @@
  * length never changes how a logged cast replays.
  */
 
+import { MINUTE_MS } from "./clock";
+
 /**
  * One full turn of the map's day and night. It doesn't divide 24 hours, so someone who visits at
  * the same time every day sees a different part of the day each time. Tunable: clients read it
  * from the snapshot's `time`, and a cast logs the time of day it saw, never the length.
  */
-export const DAY_LENGTH_MS = 210 * 60_000;
+export const DAY_LENGTH_MS = 210 * MINUTE_MS;
 
 export const TIMES_OF_DAY = ["dawn", "day", "dusk", "night"] as const;
 export type TimeOfDay = (typeof TIMES_OF_DAY)[number];

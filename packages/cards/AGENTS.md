@@ -2,7 +2,7 @@
 
 Link preview cards (the 1200x630 images X, Discord, Slack and iMessage show for a shared link). satori lays out a template as SVG, resvg (wasm) draws the PNG. The same code runs in a Cloudflare Worker and in Node. [Decision 0028](../../docs/knowledge/decisions/0028-link-preview-cards-and-page-meta-at-the-edge.md) says why.
 
-Depends on nothing in the repo. The server turns API data into a `Card` (`packages/server/src/og.ts`) and serves it.
+Depends on nothing in the repo, so the colors and sizes it keeps from the sim, `packages/ui`, and the map are copies, and `packages/client/src/cards-copies.test.ts` checks each against its source: a new copy gets a line there. The server turns API data into a `Card` (`packages/server/src/og.ts`) and serves it.
 
 On Cloudflare this package is a Worker of its own, `terrakin-cards` (`cloudflare/worker.ts`, the root `wrangler.cards.jsonc`), which the main Worker asks for a drawing over its `CARDS` service binding ([decision 0299](../../docs/knowledge/decisions/0299-card-drawing-moves-to-a-worker-of-its-own-reached-over-a-ser.md)). satori, resvg's wasm and the fonts are about 3.5 MB, and the main Worker runs on every request, so they stay out of it. The contract is `CardDrawer` in `src/render.ts`, which both sides use; a `Card` and a `Rendered` are plain data, so both cross RPC as they are. `pnpm cf:deploy` uploads this Worker before the main one, since a service binding to a Worker that doesn't exist is refused.
 

@@ -9,7 +9,12 @@
  * like the shop's lantern (decision 0060).
  */
 import { BLOCK_COLORS, type FurnitureKind } from "@terrakin/sim";
-import { WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
+import {
+  IRON as IRON_BRAND,
+  LINEN as LINEN_BRAND,
+  STONE_HI,
+  WOOD_DARK as WOOD_BRAND,
+} from "@terrakin/ui/brand";
 import {
   BufferAttribute,
   type BufferGeometry,
@@ -30,9 +35,9 @@ import { box, type DecorPlace, merged, type Part, placeParts } from "./decor";
 import { BRAND, hex } from "./palette";
 
 const WOOD_DARK = hex(WOOD_BRAND);
-const IRON = hex("#5d5a55");
+const IRON = hex(IRON_BRAND);
 const STONE = hex(BLOCK_COLORS.stone_wall);
-const STONE_CAP = hex("#c4beb2");
+const STONE_CAP = hex(STONE_HI);
 
 /** A shape in one color, its shade baked from bottom to top, for merging into a many-colored part. */
 function colored(geometry: BufferGeometry, color: number, bottom = 0.72): BufferGeometry {
@@ -395,7 +400,7 @@ function jackOLanternParts(stage: Stage, grain: Texture): Part[] {
 // ---------- cozy homes (RFC 0044) ----------
 
 /** Cream for a mattress, a pillow, and the piping on cushions. */
-const LINEN = hex("#f1e8d6");
+const LINEN = hex(LINEN_BRAND);
 
 /** The top of an armchair's or a sofa's seat, in tile units above the floor (`restPose3d` sits on it). */
 const SEAT_TOP = 0.42;

@@ -15,6 +15,7 @@ import type {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import { LINKS, PAGES } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
@@ -93,7 +94,7 @@ const POLL_MS = 20_000;
 /** The world and the Town Hall change slower than the feed. */
 const PULSE_MS = 45_000;
 /** Plots to visit change slower still, and the server builds that list once a minute at most. */
-const PLOTS_MS = 5 * 60_000;
+const PLOTS_MS = 5 * MINUTE_MS;
 /**
  * How long the wall's first pieces (posts, the town's cards, the composer, the devlog and Getting
  * started cards) wait for each other before going in together. Anything later goes in on its own.

@@ -18,6 +18,7 @@ import {
   firingAt,
   homePlotOf,
   type inventoryOf,
+  MINUTE_MS,
   plotOf,
   potName,
   readyKilns,
@@ -410,7 +411,7 @@ const TODO: readonly TodoEntry[] = [
       .filter((e) => f.going.has(e.id))
       .map(
         (e) =>
-          `${e.id}, which you said you're going to, has started and is on until ${new Date(e.startsAt + e.minutes * 60_000).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, and stay for a third of it to be counted, at least 10 minutes and at most an hour: keep your socket open, or send the same join_event every 5 minutes, which keeps you there and brings you back if you dropped offline.`,
+          `${e.id}, which you said you're going to, has started and is on until ${new Date(e.startsAt + e.minutes * MINUTE_MS).toISOString()}. Go with {"type": "join_event", "event": "${e.id}"}, and stay for a third of it to be counted, at least 10 minutes and at most an hour: keep your socket open, or send the same join_event every 5 minutes, which keeps you there and brings you back if you dropped offline.`,
       ),
   (f) => {
     const otherLive = f.events.live.filter((e) => !f.going.has(e.id) && e.host !== f.viewer);
@@ -451,7 +452,7 @@ export function todoLines(facts: CheckinFacts): string[] {
 
 /** "in 40 minutes", "in 2 hours", for a todo line. */
 export function startsIn(ms: number): string {
-  const minutes = Math.max(1, Math.round(ms / 60_000));
+  const minutes = Math.max(1, Math.round(ms / MINUTE_MS));
   if (minutes < 90) return `in ${plural(minutes, "minute")}`;
   return `in ${plural(Math.round(minutes / 60), "hour")}`;
 }

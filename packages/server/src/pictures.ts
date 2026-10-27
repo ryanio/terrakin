@@ -43,6 +43,8 @@ import {
   plotSpecOf,
   roofsIn,
   type SpecFigure,
+  TIME_LABELS,
+  WEATHER_LABELS,
 } from "./plot-photo";
 
 /**
@@ -142,15 +144,6 @@ function lookPicture(state: WorldState, id: string): LookSpec | undefined {
     facts: lookFacts(r),
   };
 }
-
-const TIME_WORDS = { dawn: "Dawn", day: "Day", dusk: "Dusk", night: "Night" } as const;
-const WEATHER_WORDS = {
-  clear: "Clear",
-  cloudy: "Cloudy",
-  rain: "Rain",
-  fog: "Fog",
-  snow: "Snow",
-} as const;
 
 /**
  * The map around where a resident is: centered on them while they're in the world, else on their
@@ -256,8 +249,8 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
     name: r.name,
     place,
     facts: [
-      TIME_WORDS[timeOfDay(phase)],
-      WEATHER_WORDS[sky.weather],
+      TIME_LABELS[timeOfDay(phase)],
+      WEATHER_LABELS[sky.weather],
       ...(r.online ? [] : ["Away"]),
       ...(others > 0 ? [`${others} nearby`] : []),
     ],

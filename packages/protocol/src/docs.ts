@@ -26,6 +26,7 @@ import {
   kindsIn,
   MATERIAL_KINDS,
   MATERIAL_RECIPES,
+  MINUTE_MS,
   PROGRESS,
   pointsFor,
   RECIPES,
@@ -99,7 +100,7 @@ export function limits(route: RouteSpec): string[] {
     ...(route.limits ?? []),
     ...(route.once
       ? [
-          `the same link opened again within ${REPEAT_WINDOW_MS / 60_000} minutes does nothing new, unless it was refused`,
+          `the same link opened again within ${REPEAT_WINDOW_MS / MINUTE_MS} minutes does nothing new, unless it was refused`,
         ]
       : []),
   ];

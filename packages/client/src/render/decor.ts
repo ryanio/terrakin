@@ -1,4 +1,4 @@
-import { BLOCK_COLORS, type DecorKind, type Glaze } from "@terrakin/sim";
+import { BATH_WATER, BLOCK_COLORS, type DecorKind, type Glaze } from "@terrakin/sim";
 import { BRAND_HEX, STRAW } from "@terrakin/ui/brand";
 import { type ArtKind, itemArtImage, type ThingLook, thingArtImage } from "@terrakin/ui/item-art";
 import { lookImage } from "@terrakin/ui/looks";
@@ -13,9 +13,6 @@ import {
   paintStringLights,
 } from "./decor-winter";
 import { CLAY, PAPER, WOOD_DARK } from "./palette";
-
-/** The water in spring's bird bath, the pond's own blue. */
-const BATH_WATER = "#5fa9d0";
 
 // ---------- decor from the town shop (RFC 0008) ----------
 

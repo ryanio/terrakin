@@ -1,5 +1,5 @@
 import { Severity, TriageAction, TriageCategory } from "@terrakin/protocol";
-import { DAY_MS } from "@terrakin/sim";
+import { DAY_MS, MINUTE_MS } from "@terrakin/sim";
 import { z } from "zod";
 import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf, whole } from "./ai-spend";
 import { capabilitiesOf, MODELS } from "./models";
@@ -54,7 +54,7 @@ export const DEFAULT_TRIAGE: Omit<TriageConfig, "apiKey"> = {
   perReporterPerDay: 10,
   perAuthorFilterPerDay: 3,
   filterShare: 0.5,
-  breaker: { failures: 3, pauseMs: 15 * 60_000 },
+  breaker: { failures: 3, pauseMs: 15 * MINUTE_MS },
 };
 
 /** Triage settings from the environment (`ANTHROPIC_API_KEY`, `TERRAKIN_TRIAGE_*`). */

@@ -23,6 +23,7 @@ import {
   type Ladder,
   ladderRows,
   legalMoves,
+  MINUTE_MS,
   openTableProblem,
   own,
   residentById,
@@ -65,7 +66,7 @@ export function closeDue(t: GameTable, now: number): boolean {
 }
 
 /** When an open table closes if nobody starts it, in ms. */
-export const startBy = (t: GameTable) => t.openedAt + GAME_TIMES.waitMinutes[t.pace] * 60_000;
+export const startBy = (t: GameTable) => t.openedAt + GAME_TIMES.waitMinutes[t.pace] * MINUTE_MS;
 
 /**
  * Whether anyone seated may start an open table now: it has had enough seats for the start grace
@@ -74,7 +75,7 @@ export const startBy = (t: GameTable) => t.openedAt + GAME_TIMES.waitMinutes[t.p
 export const startFree = (t: GameTable, now: number) =>
   t.status === "open" &&
   t.readyAt !== undefined &&
-  now >= t.readyAt + GAME_TIMES.startGraceMinutes[t.pace] * 60_000;
+  now >= t.readyAt + GAME_TIMES.startGraceMinutes[t.pace] * MINUTE_MS;
 
 /** Every closed round as views carry it, with what each seat gained, oldest first. */
 function roundViews(t: GameTable): RoundView[] {
@@ -255,7 +256,7 @@ export const gameName = (game: GameKind) => GAME_NAMES[game];
 
 /** "about 3 hours", "about 40 minutes", "under a minute". */
 export function timeLeft(ms: number): string {
-  const minutes = Math.floor(ms / 60_000);
+  const minutes = Math.floor(ms / MINUTE_MS);
   if (minutes < 1) return "under a minute";
   if (minutes < 60) return `about ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
   const hours = Math.round(minutes / 60);

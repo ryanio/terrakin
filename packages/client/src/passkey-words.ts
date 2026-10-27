@@ -7,6 +7,7 @@
  * another only by when it was added.
  */
 import type { ClaimView, ProfileView, WorldEvent } from "@terrakin/protocol";
+import { DAY_MS } from "@terrakin/sim";
 import { shortDate } from "@terrakin/ui/format";
 
 /** Where both halves of the undo live, named the same way everywhere a notice points at them. */
@@ -72,7 +73,7 @@ export function signinSummary(count: number): string {
 }
 
 /** How long a person who put the offer away goes before it comes back, on any screen. */
-export const ASK_AGAIN_MS = 24 * 60 * 60 * 1000;
+export const ASK_AGAIN_MS = DAY_MS;
 
 /**
  * Whether to offer a person a passkey now: only a person's own character (someone who plays

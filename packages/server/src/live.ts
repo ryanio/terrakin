@@ -9,7 +9,7 @@ import {
   type ServerMessage,
   suggestFor,
 } from "@terrakin/protocol";
-import { familyRecipeMiss } from "@terrakin/sim";
+import { familyRecipeMiss, MINUTE_MS } from "@terrakin/sim";
 import type { Api } from "./api";
 import { sha256HexSync } from "./bytes";
 import { bearerToken, tokenFailure } from "./credential-help";
@@ -37,9 +37,9 @@ const HELLO_TIMEOUT_MS = 5_000;
 export const MAX_WATCHERS = 2_000;
 export const MAX_WATCHERS_PER_NETWORK = 50;
 /** A watch socket closes this long after it opened; the page opens another on the next interaction. */
-export const WATCH_MAX_MS = 20 * 60_000;
+export const WATCH_MAX_MS = 20 * MINUTE_MS;
 /** A watch socket that hasn't sent anything (a ping) for this long is dropped. Pages ping every 45 s. */
-export const WATCH_SILENT_MS = 2 * 60_000;
+export const WATCH_SILENT_MS = 2 * MINUTE_MS;
 
 /**
  * One socket that hears about new posts: a `watch` socket, or a `hello` socket that asked for

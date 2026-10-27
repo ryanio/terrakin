@@ -10,7 +10,7 @@
  * does. Names are residents' words: text only.
  */
 import type { PlotView } from "@terrakin/protocol";
-import { canBuildOn, plotKey, plotOf, trickOrTreatDay } from "@terrakin/sim";
+import { canBuildOn, MINUTE_MS, plotKey, plotOf, trickOrTreatDay } from "@terrakin/sim";
 import { profilePath } from "@terrakin/ui/paths";
 import { whileBusy } from "@terrakin/ui/ui";
 import { plotsApi } from "./api/plots";
@@ -20,7 +20,7 @@ import { coins } from "./purse";
 import { nextPlot, plotName, quietWeek, weekLine } from "./visits";
 
 /** How long the tour's list of plots is good for before Next plot asks again. */
-const LIST_MS = 60_000;
+const LIST_MS = MINUTE_MS;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 

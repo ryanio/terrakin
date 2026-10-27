@@ -6,7 +6,7 @@
  */
 import { safeColor } from "./color";
 import { type Drawing, drawingBox, drawingSvg } from "./drawing";
-import { areaParts, PET_BOX, type PlotArea, type PlotPet, petSvg } from "./plot";
+import { areaParts, PET_BOX, PET_FEET, type PlotArea, type PlotPet, petSvg } from "./plot";
 import type { Sky } from "./sky";
 
 /** The map around a resident: the world's ground and builds, who's nearby, the light and sky. */
@@ -77,7 +77,7 @@ export function lookSvg(c: LookCard, width: number, height: number): string {
     `<ellipse cx="0" cy="0" rx="27" ry="8.5" fill="rgba(60, 40, 20, 0.2)"/>`,
     figure,
     pet
-      ? `<ellipse cx="${n(46 + petSize / 2)}" cy="0" rx="${n(petSize * 0.32)}" ry="5" fill="rgba(60, 40, 20, 0.18)"/><g transform="translate(46 ${n(-petSize * (42.5 / PET_BOX))}) scale(${petSize})">${petMarkup.join("")}</g>`
+      ? `<ellipse cx="${n(46 + petSize / 2)}" cy="0" rx="${n(petSize * 0.32)}" ry="5" fill="rgba(60, 40, 20, 0.18)"/><g transform="translate(46 ${n(-petSize * (PET_FEET / PET_BOX))}) scale(${petSize})">${petMarkup.join("")}</g>`
       : "",
     "</svg>",
   ].join("");

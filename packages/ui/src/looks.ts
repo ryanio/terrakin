@@ -5,6 +5,7 @@
  */
 import {
   alphaHex,
+  BLOCK_COLORS,
   DEFAULT_HAIR_COLOR,
   type GarmentPattern,
   HAIR_COLOR_INFO,
@@ -20,7 +21,7 @@ import {
   WEAR_INFO,
   type WearItem,
 } from "@terrakin/sim";
-import { BRAND_HEX } from "./brand";
+import { BRAND_HEX, WOOD } from "./brand";
 import type { FigureLook } from "./figure";
 import { isMediaUrl } from "./format";
 
@@ -50,7 +51,7 @@ export const HALLOWEEN_HEX = {
   catEars: "#3a3340",
   catInner: "#f2a7b8",
   /** A pumpkin, its ribs and stem, and a carved face lit from inside. */
-  pumpkin: "#e8862f",
+  pumpkin: BLOCK_COLORS.jack_o_lantern,
   pumpkinRib: "#c4661c",
   pumpkinStem: "#76703a",
   lit: "#ffd36b",
@@ -59,10 +60,10 @@ export const HALLOWEEN_HEX = {
   sheet: "#f7f4ee",
   sheetShade: "#ddd5c8",
   /** Bats: wings, and the paler skin between their ribs. */
-  bat: "#3a2f4a",
+  bat: BLOCK_COLORS.bat_bunting,
   batInner: "#5b4a6e",
   /** The cauldron's iron, its rim, and the green brew in it. */
-  iron: "#3b3a40",
+  iron: BLOCK_COLORS.cauldron,
   ironRim: "#56545e",
   brew: "#8fd16a",
   brewLight: "#c8f0a8",
@@ -77,7 +78,7 @@ export const HALLOWEEN_HEX = {
  */
 export const WINTER_HEX = {
   /** The snowman: snow and its shade, coal eyes and buttons, a carrot nose, a scarf, a hat. */
-  snow: "#f4f7fb",
+  snow: BLOCK_COLORS.snowman,
   snowShade: "#c4d2e2",
   coal: "#2f2c33",
   carrot: "#ec7a2c",
@@ -86,16 +87,16 @@ export const WINTER_HEX = {
   hat: "#3a3946",
   /** A string of lights: its wire, and its bulbs from one end to the other. */
   wire: "#3f5a3c",
-  bulbs: ["#f2564c", "#f5c451", "#5ec0ea", "#7fd17a", "#c38df0"],
+  bulbs: ["#f2564c", BLOCK_COLORS.string_lights, "#5ec0ea", "#7fd17a", "#c38df0"],
   /** The little fir: its needles, a lighter side, its clay pot and rim, and a gold star. */
-  needles: "#2f6e45",
+  needles: BLOCK_COLORS.little_fir,
   needlesLight: "#4a8f5c",
   pot: "#c8674a",
   potRim: "#a9533a",
   star: "#f2c94c",
   /** The sled: iron runners, red slats, and its rope. */
   runner: "#4a4542",
-  slat: "#c4473a",
+  slat: BLOCK_COLORS.sled,
   rope: "#e3cf9c",
   /** Hot cranberry punch, and a candy cane's stripes. */
   punch: "#a3173a",
@@ -106,11 +107,11 @@ export const WINTER_HEX = {
   santa: "#c8344a",
   santaTrim: "#fbf6ec",
   /** A stocking's red felt and its white cuff. */
-  stocking: "#c8344a",
+  stocking: BLOCK_COLORS.stocking,
   stockingCuff: "#fbf6ec",
   /** A firework's rocket, its paper and its stick, and its spark. */
   rocket: "#c8344a",
-  rocketStick: "#9a6b43",
+  rocketStick: WOOD,
   spark: "#f5c451",
   /** Presents waiting under a tree: their papers, biggest box first, and the ribbon on each. */
   wrapping: ["#c8344a", "#2f6e45", "#f2c94c"],
@@ -123,7 +124,7 @@ export const WINTER_HEX = {
  */
 export const THANKSGIVING_HEX = {
   /** The cornucopia: its wicker, the weave's shade, and what spills from it. */
-  wicker: "#c8955a",
+  wicker: BLOCK_COLORS.cornucopia,
   weave: "#9c6b3a",
   apple: "#d2463a",
   gourd: "#e8862f",
@@ -131,7 +132,7 @@ export const THANKSGIVING_HEX = {
   pear: "#c9c25a",
   /** The leaf garland: its string, and its maple leaves from one end to the other. */
   twine: "#7a5a3a",
-  leaves: ["#c8642e", "#e0a33a", "#a8382c", "#d47a2a", "#b85a2a"],
+  leaves: [BLOCK_COLORS.leaf_garland, "#e0a33a", "#a8382c", "#d47a2a", "#b85a2a"],
 } as const;
 
 /**
@@ -140,13 +141,13 @@ export const THANKSGIVING_HEX = {
  */
 export const HANUKKAH_HEX = {
   /** The menorah: its brass and the brass's shade, its candles, and a flame with its core. */
-  brass: "#c9a24a",
+  brass: BLOCK_COLORS.menorah,
   brassDark: "#9c7a2e",
   candle: "#f4f1e8",
   flame: "#ffb43c",
   flameCore: "#fff3c4",
   /** The dreidel: its blue sides, a lighter face, and its handle. */
-  dreidel: "#3f6fb5",
+  dreidel: BLOCK_COLORS.dreidel,
   dreidelLight: "#6f97d0",
   /** Gelt: gold foil and its rim. */
   gelt: "#e8b84a",
@@ -166,8 +167,8 @@ export const EARNED_HEX = {
   /** Growing's sun hat: pale woven straw, a moss ribbon, and a leaf tucked in it. */
   sunHat: "#f4e3b0",
   sunHatWeave: "#d9bd7a",
-  sunHatBand: "#5e7f45",
-  sunHatLeaf: "#8fb36a",
+  sunHatBand: BRAND_HEX.moss,
+  sunHatLeaf: BRAND_HEX.mossLight,
   /** Making's tool belt: tanned leather, a darker pouch, a brass buckle, and a hammer. */
   belt: "#a8733f",
   beltPouch: "#84562c",

@@ -28,6 +28,12 @@ export type PetFace = "open" | "happy";
 /** The side of the box every picture is drawn in. The ground is at y 42. */
 export const PET_BOX = 48;
 
+/** Where a pet's feet are in its box, from the top, out of `PET_BOX`. */
+export const PET_FEET = 42.5;
+
+/** A pet's box across, in tiles, on the map and in plot photos: about half a resident's height. */
+export const PET_TILES = 1;
+
 /** A coat's colors. `mark` is markings (stripes, spots, ear backs, a shell's plates). */
 export interface PetColors {
   fur: string;
@@ -110,7 +116,8 @@ export function petColors(kind: PetKind, coat: PetCoat | string): PetColors {
 
 const INK = "#2b2620";
 const LINE = "#5a5146";
-const PINK = "#e48a8f";
+/** Noses and inner ears, which the 3D pets wear too. */
+export const PET_PINK = "#e48a8f";
 const BLUSH = "#f28a8a";
 
 // ---------- shape builders ----------
@@ -202,14 +209,14 @@ function cat(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetSh
         : []),
       ...tail("M11.4 40.6C16 44.6 29.4 44.6 35.6 40.2", c.fur, 3.2),
       path("M27 31.4l1-5.6 3.6 3.8zM33.2 29.2l3.8-3.6 1 5.6z", c.fur, out()),
-      path("M28.2 29.8l.5-2.6 1.6 1.7zM34.6 28.6l1.7-1.6.4 2.6z", PINK),
+      path("M28.2 29.8l.5-2.6 1.6 1.7zM34.6 28.6l1.7-1.6.4 2.6z", PET_PINK),
       ellipse(32.4, 34.4, 7.2, 6.2, c.fur, out()),
       ...(striped ? [marks("M30.4 28.8q.6 1.4 0 2.6M33 28.6q.5 1.4-.1 2.6", c.mark)] : []),
       ...(coat === "calico"
         ? [path("M26.2 33.6c.4-2.4 2.2-4 4.6-4.2-.2 2.2-2 3.8-4.6 4.2z", c.mark)]
         : []),
       ellipse(33.6, 37.4, 2.6, 1.8, c.belly),
-      path("M32.8 36.4h1.6l-.8 1z", PINK),
+      path("M32.8 36.4h1.6l-.8 1z", PET_PINK),
       ...eye(30, 34.2, "shut", c),
       ...eye(35.6, 34.2, "shut", c),
     ];
@@ -230,7 +237,7 @@ function cat(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetSh
     ellipse(24.6, 41.2, 2.4, 1.6, socks, out({ "stroke-width": 1 })),
     ellipse(29, 41.2, 2.4, 1.6, socks, out({ "stroke-width": 1 })),
     path("M21.6 17.4l1-8 5 4.8zM30.6 13.4l5.2-4.2 1.2 8z", c.fur, out()),
-    path("M22.9 15.6l.5-4 2.6 2.5zM32 13.8l3-2.2.6 4z", PINK),
+    path("M22.9 15.6l.5-4 2.6 2.5zM32 13.8l3-2.2.6 4z", PET_PINK),
     ellipse(29, 21, 9.2, 8.2, c.fur, out()),
     ...(striped
       ? [marks("M27.4 13.4q.6 1.6 0 3M30 13.1q.4 1.6-.2 3.2M24.2 15q1.2 1 1.2 2.6", c.mark)]
@@ -242,7 +249,7 @@ function cat(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetSh
         ]
       : []),
     ellipse(31.4, 24.6, 3.4, 2.4, c.belly),
-    path("M30.6 22.9h2l-1 1.2z", PINK),
+    path("M30.6 22.9h2l-1 1.2z", PET_PINK),
     stroke("M31.6 24.1v.8M31.6 24.9q-.9.8-1.7.1M31.6 24.9q.9.8 1.7.1", INK, 0.7),
     stroke("M34.8 24.2l3.6-.9M34.8 25.2l3.6.5M27.8 24.4l-3.4-.6", LINE, 0.5, { opacity: 0.6 }),
     ...eye(27.2, 20.4, face, c),
@@ -302,7 +309,7 @@ function dog(c: PetColors, coat: string, pose: PetPosture, face: PetFace): PetSh
     ellipse(35, 23.4, 4.6, 3.4, c.belly, out({ "stroke-width": 1.1 })),
     ellipse(38.6, 21.8, 1.6, 1.2, INK),
     stroke("M38 23.9q-1.6 1.4-3.2.4", INK, 0.75),
-    ...(face === "happy" ? [path("M35.4 24.6q.5 2.6 1.9.3z", PINK)] : []),
+    ...(face === "happy" ? [path("M35.4 24.6q.5 2.6 1.9.3z", PET_PINK)] : []),
     path("M22.4 14.6c-4 .6-4.8 8-2 11 3-1.2 4.2-6.6 4-10z", c.mark, out()),
     path("M30.6 13.2c2.8-1 5.2 2 4.2 5-2-.8-3.8-2.6-4.2-5z", c.mark, out()),
     ...eye(27.4, 19.8, face, c),
@@ -330,7 +337,7 @@ function rabbit(c: PetColors, coat: string, pose: PetPosture, face: PetFace): Pe
       ellipse(31.4, 35.4, 6.6, 5.8, c.fur, out()),
       ...(patched ? [path("M27 33.6c.4-2.4 2.2-4 4.6-4-.2 2.4-2 4-4.6 4z", c.mark)] : []),
       ellipse(33.4, 37.6, 2.4, 1.8, c.belly),
-      ellipse(35.6, 36.6, 0.9, 0.7, PINK),
+      ellipse(35.6, 36.6, 0.9, 0.7, PET_PINK),
       ...eye(31.4, 34.6, "shut", c),
     ];
   }
@@ -344,19 +351,19 @@ function rabbit(c: PetColors, coat: string, pose: PetPosture, face: PetFace): Pe
     ellipse(27, 35, 3, 4.6, c.belly),
     ellipse(28.6, 41.2, 2, 1.5, c.fur, out({ "stroke-width": 1 })),
     path("M25 17C22.6 12 22.6 5.6 25 4c2.6 1.6 3 7.6 2.6 12.6z", patched ? c.mark : c.fur, out()),
-    path("M25.6 15.4c-1.2-3.8-1-7.8-.2-8.8 1.2 1.4 1.4 5.2 1.2 8.8z", PINK),
+    path("M25.6 15.4c-1.2-3.8-1-7.8-.2-8.8 1.2 1.4 1.4 5.2 1.2 8.8z", PET_PINK),
     path(
       "M29.6 16.4c-.2-5.4 1-11.4 3.8-12.6 1.8 2.2.6 8.2-1.2 12.8z",
       patched ? c.mark : c.fur,
       out(),
     ),
-    path("M30.6 15.6c0-3.8.8-8 2.6-9.6.8 1.8.2 6.2-1.2 9.8z", PINK),
+    path("M30.6 15.6c0-3.8.8-8 2.6-9.6.8 1.8.2 6.2-1.2 9.8z", PET_PINK),
     ellipse(29, 22.6, 7.6, 7, c.fur, out()),
     ...(patched
       ? [path("M25.4 26.6c-2.4-1.2-3.6-4.6-2.4-7.4 2.6.6 4.2 3.6 2.4 7.4z", c.mark)]
       : []),
     ellipse(32.8, 25.2, 2.6, 1.9, c.belly),
-    ellipse(34.8, 24.2, 0.95, 0.75, PINK),
+    ellipse(34.8, 24.2, 0.95, 0.75, PET_PINK),
     stroke("M34.6 25q-.7.9-1.4.4", INK, 0.65),
     ...eye(27.6, 21.6, face, c),
     ...eye(32.2, 21.4, face, c),

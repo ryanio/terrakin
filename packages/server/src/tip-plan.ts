@@ -1,3 +1,4 @@
+import { DAY_MS } from "@terrakin/sim";
 /**
  * Who the townsfolk give coins to today. The server's daily run (`townsfolk-tips.ts`) reads the world
  * for it, and so does `scripts/townsfolk/tips.ts` through the public API, for self-hosting and local
@@ -24,7 +25,7 @@ export const TIPS = {
   /** The most all townsfolk together give one resident in a UTC day. */
   perResident: 25,
   /** How far back a post counts as "of the last day". */
-  postWindowMs: 86_400_000,
+  postWindowMs: DAY_MS,
   /** Best posts to try, in order, when the sim refuses one (a maintainer's, say). */
   postCandidates: 3,
   /** Posts remembered as tipped, so one that stays on top isn't tipped two days running. */

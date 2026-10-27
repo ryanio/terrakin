@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { extname, join, normalize, sep } from "node:path";
 import { cards } from "@terrakin/cards/node";
 import { buildOpenApi } from "@terrakin/protocol";
+import { MEDIA_ID_PATTERN, MINUTE_MS } from "@terrakin/sim";
 import { WebSocketServer } from "ws";
 import { adminAssetPath } from "./admin-host";
 import { AGENT_RECHECK_EVERY_MS } from "./agent-links";
@@ -11,7 +12,7 @@ import { Api, type ApiOptions, type ApiResponse, MAX_BODY_BYTES } from "./api";
 import { CHATTER_EVERY_MS, type ChatterService } from "./chatter";
 import { staticArrival } from "./discovery-log";
 import { ipKey } from "./handlers/shared";
-import { MEDIA_ID, mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
+import { mediaHeaders, type ReadableMediaStore, sniffMediaType } from "./media";
 import { applyEdits } from "./meta-html";
 import {
   type CardDeps,
@@ -221,7 +222,7 @@ export function createApp(options: AppOptions): Server {
             options.photos ??
             (async (spec) => {
               const card = await materializePlot(spec, async (id) =>
-                MEDIA_ID.test(id) ? options.media?.get(id) : undefined,
+                MEDIA_ID_PATTERN.test(id) ? options.media?.get(id) : undefined,
               );
               return (await cards.render(card)).bytes;
             }),
@@ -265,9 +266,9 @@ export function createApp(options: AppOptions): Server {
   // Cards drawn here stay in memory, the most recent few dozen, and so do the short-lived
   // pointers to which picture by link a path shows.
   const rendered = new Map<string, { bytes: Uint8Array; until: number }>();
-  const allowRender = windowLimiter(RENDERS_PER_MINUTE, 60_000);
-  const allowPicture = windowLimiter(PICTURES_PER_MINUTE, 60_000);
-  const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, 60_000);
+  const allowRender = windowLimiter(RENDERS_PER_MINUTE, MINUTE_MS);
+  const allowPicture = windowLimiter(PICTURES_PER_MINUTE, MINUTE_MS);
+  const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, MINUTE_MS);
   const cardDeps: CardDeps = {
     get,
     loadMedia: async (id) => options.media?.get(id),
@@ -511,7 +512,7 @@ export function createApp(options: AppOptions): Server {
     socket.on("close", () => session.onClose());
   });
 
-  const sweep = setInterval(() => api.sweep(), 60_000);
+  const sweep = setInterval(() => api.sweep(), MINUTE_MS);
   sweep.unref();
   // The game tables' clock (RFC 0011): a live round's window holds to the second.
   const games = setInterval(() => api.gameClock(), 1_000);
@@ -589,7 +590,7 @@ async function serveMedia(
   req: IncomingMessage,
   res: ServerResponse,
 ) {
-  const bytes = MEDIA_ID.test(id) ? await store.get(id) : undefined;
+  const bytes = MEDIA_ID_PATTERN.test(id) ? await store.get(id) : undefined;
   const type = bytes ? sniffMediaType(bytes) : undefined;
   if (!bytes || !type) return send(res, apiError("not_found", "Not found."));
   const headers = { ...mediaHeaders(type), "accept-ranges": "bytes" };

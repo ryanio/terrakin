@@ -66,6 +66,7 @@ import {
   isTownsfolk,
   LOOK_MEDIA_KEYS,
   lastSlot,
+  MINUTE_MS,
   marketFee,
   nameProblem,
   own,
@@ -535,14 +536,14 @@ const PUTTER_GREET_TRIES = 5;
 export type { WorldCredit } from "./snapshots";
 
 /** Minutes between an event's attendance samples, in ms. */
-const TICK_MS = EVENTS.tickMinutes * 60_000;
+const TICK_MS = EVENTS.tickMinutes * MINUTE_MS;
 
 /** The most ended days `tick` pays appreciation for at once, after a stretch with no requests. */
 const AWARD_CATCH_UP = 7;
 /** How many rare pots out of kilns the home wall's live activity is kept (RFC 0047). */
 const RARE_POTS_KEPT = 8;
 /** How often `tick` compares every resident's partner wear with the social layer's (RFC 0007). */
-export const ENTITLEMENT_CHECK_MS = 5 * 60_000;
+export const ENTITLEMENT_CHECK_MS = 5 * MINUTE_MS;
 
 /** One full day/night cycle, from the sim, where the time of day a cast logs is worked out. */
 export { DAY_LENGTH_MS };
@@ -865,7 +866,7 @@ export class WorldService {
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
-    this.idleTimeoutMs = options.idleTimeoutMs ?? 10 * 60_000;
+    this.idleTimeoutMs = options.idleTimeoutMs ?? 10 * MINUTE_MS;
     this.now = options.now ?? Date.now;
     this.days = options.days ?? false;
     const grant = options.townsfolk;
@@ -1436,7 +1437,7 @@ export class WorldService {
       const soon = e.startsAt - SOON_NOTICE_MS;
       const at =
         e.status === "live"
-          ? now + 60_000
+          ? now + MINUTE_MS
           : e.status === "scheduled"
             ? soon > now
               ? soon
@@ -1444,7 +1445,7 @@ export class WorldService {
             : undefined;
       if (at !== undefined && (next === undefined || at < next)) next = at;
     }
-    return next === undefined ? undefined : Math.max(next, now + 60_000);
+    return next === undefined ? undefined : Math.max(next, now + MINUTE_MS);
   }
 
   /**
@@ -1558,7 +1559,7 @@ export class WorldService {
       if (!closed.ok) gameRefused(closed.error.code, "close_table");
       return;
     }
-    const waited = now - t.openedAt >= GAME_TIMES.townsfolkAfterMinutes * 60_000;
+    const waited = now - t.openedAt >= GAME_TIMES.townsfolkAfterMinutes * MINUTE_MS;
     if (t.pace === "slow" && waited) this.fillWithTownsfolk(t);
   }
 
@@ -2743,7 +2744,7 @@ export class WorldService {
       if (!this.state.residents[id]?.online) this.lastSeen.delete(id);
     }
     // Routine steps older than the drawing's window no longer show anyone out on a routine.
-    const awake = this.now() - ROUTINE_LIMITS.awakeMinutes * 60_000;
+    const awake = this.now() - ROUTINE_LIMITS.awakeMinutes * MINUTE_MS;
     for (const [id, step] of this.routineSteps) if (step.at < awake) this.routineSteps.delete(id);
     // Putters from before today no longer limit anything.
     const today = utcDay(this.now());

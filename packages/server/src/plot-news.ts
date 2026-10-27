@@ -1,5 +1,12 @@
 import { PLOT_ADMIRE } from "@terrakin/protocol";
-import { type Good, potName, type RoofTop, type WorldEvent } from "@terrakin/sim";
+import {
+  type Good,
+  potName,
+  type RoofTop,
+  WEEKDAY_NAMES,
+  type WorldEvent,
+  weekdayOf,
+} from "@terrakin/sim";
 
 /**
  * What is new on a plot, as the Visit page says it (RFC 0020): one public line of what changed
@@ -195,17 +202,6 @@ function whatHappened(
  */
 const NEWS_DAYS = PLOT_ADMIRE.weekDays;
 
-/** Sunday first, as `getUTCDay` counts them. UTC day 0 was a Thursday, so day + 4 lands right. */
-const WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-] as const;
-
 /**
  * When a day's news happened, in words rather than a count: today, yesterday, or the weekday,
  * which reads for the week the line covers and no longer. Nothing past that week.
@@ -215,7 +211,7 @@ function whenWords(day: number, today: number): string | undefined {
   if (ago < 0 || ago >= NEWS_DAYS) return undefined;
   if (ago === 0) return "today";
   if (ago === 1) return "yesterday";
-  return `on ${WEEKDAYS[(day + 4) % 7]}`;
+  return `on ${WEEKDAY_NAMES[weekdayOf(day)]}`;
 }
 
 /**

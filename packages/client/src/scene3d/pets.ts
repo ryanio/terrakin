@@ -5,7 +5,8 @@
  * The colors are the 2D coats' (`petColors` in the sim), so a ginger cat is the same ginger on the
  * map, in a profile, and here. Shared by the world and the plot view.
  */
-import { type PetCoat, type PetKind, type PetPosture, petColors } from "@terrakin/sim";
+import { PET_PINK, type PetCoat, type PetKind, type PetPosture, petColors } from "@terrakin/sim";
+import { BRAND_HEX } from "@terrakin/ui/brand";
 import {
   BufferAttribute,
   type BufferGeometry,
@@ -21,8 +22,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { lin, unindexed } from "./art";
 import { hex } from "./palette";
 
-const INK = 0x2b2620;
-const PINK = 0xe48a8f;
+const INK = hex(BRAND_HEX.ink);
+const PINK = hex(PET_PINK);
 
 type V3 = [number, number, number];
 

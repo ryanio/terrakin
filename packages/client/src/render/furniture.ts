@@ -1,4 +1,5 @@
 import { BLOCK_COLORS, type FurnitureKind } from "@terrakin/sim";
+import { STONE_HI } from "@terrakin/ui/brand";
 import { itemArtImage } from "@terrakin/ui/item-art";
 import { paintBlock } from "./blocks";
 import type { Joins } from "./decor";
@@ -151,7 +152,7 @@ function paintStoneWall(
   }
   ctx.stroke();
   // The cap: a lighter band along the top.
-  ctx.fillStyle = "#c4beb2";
+  ctx.fillStyle = STONE_HI;
   ctx.beginPath();
   ctx.roundRect(
     x0 - (joins.w ? 0 : size * 0.03),

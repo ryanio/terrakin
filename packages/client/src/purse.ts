@@ -5,6 +5,7 @@
  * live notice. Names and gift notes are other residents' text, so they only go in as text.
  */
 import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, formatCount, pluralWord } from "@terrakin/ui/format";
 import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
@@ -212,7 +213,7 @@ const poll = visiblePoll(
     const r = await purseApi.purse();
     if (r.ok && target === pill) paint(r.data, true);
   },
-  { everyMs: 60_000, minGapMs: 15_000, ready: () => Boolean(pill && savedToken()) },
+  { everyMs: MINUTE_MS, minGapMs: 15_000, ready: () => Boolean(pill && savedToken()) },
 );
 
 /** Ask for the purse if there's a token and it's time. `force` skips the 15 second gap. */

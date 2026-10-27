@@ -42,6 +42,8 @@ import {
   onVine,
   PAPER,
   PET_BOX,
+  PET_FEET,
+  PET_TILES,
   POND_LOOK,
   petBed,
   petShapes,
@@ -351,15 +353,16 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
   };
 }
 
-const TIME_WORDS = { dawn: "Dawn", day: "Day", dusk: "Dusk", night: "Night" } as const;
-const WEATHER_WORDS = {
+/** The time of day and the weather as a picture's facts and a photo's stamp say them. */
+export const TIME_LABELS = { dawn: "Dawn", day: "Day", dusk: "Dusk", night: "Night" } as const;
+export const WEATHER_LABELS = {
   clear: "Clear",
   cloudy: "Cloudy",
   rain: "Rain",
   fog: "Fog",
   snow: "Snow",
 } as const;
-const SEASON_WORDS = {
+const SEASON_LABELS = {
   spring: "Spring",
   summer: "Summer",
   autumn: "Autumn",
@@ -377,9 +380,9 @@ function stampOf(state: WorldState, phase: number, weather: Weather): string[] {
   return [
     ...(state.day === undefined
       ? []
-      : [worldDayWords(state.day), SEASON_WORDS[seasonOf(state.day)]]),
-    ...(time === "day" ? [] : [TIME_WORDS[time]]),
-    WEATHER_WORDS[weather],
+      : [worldDayWords(state.day), SEASON_LABELS[seasonOf(state.day)]]),
+    ...(time === "day" ? [] : [TIME_LABELS[time]]),
+    WEATHER_LABELS[weather],
   ];
 }
 
@@ -601,8 +604,7 @@ function plotBlock(
   };
 }
 
-/** A pet's box across, in tiles, as the map draws it, and how far it leans toward the hearth. */
-const PET_TILES = 1;
+/** How far a sleeping pet leans toward the hearth. */
 const SNUGGLE = 0.32;
 
 /** A pet asleep on `bed`, snuggled toward `hearth`, as a plot photo draws it. */
@@ -617,7 +619,7 @@ export function petPicture(
   const feet = bed.y - y0 + 0.5 + (hearth.y - bed.y) * SNUGGLE + 0.32;
   return {
     x: cx - PET_TILES / 2,
-    y: feet - (PET_TILES * 42.5) / PET_BOX,
+    y: feet - (PET_TILES * PET_FEET) / PET_BOX,
     size: PET_TILES,
     ...(hearth.x < bed.x ? { flip: true } : {}),
     shapes: petShapes(pet.kind, pet.coat, "asleep"),

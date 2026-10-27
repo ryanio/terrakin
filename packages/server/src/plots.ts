@@ -13,6 +13,7 @@ import {
   type Good,
   type Input,
   knockedToday,
+  MINUTE_MS,
   own,
   type Plot,
   parseKey,
@@ -76,7 +77,7 @@ export interface PlotVisitsOptions {
 }
 
 /** How long `GET /v1/plots` reuses the list it built, unless an admire or a visit comes first. */
-export const PLOT_LIST_MS = 60_000;
+export const PLOT_LIST_MS = MINUTE_MS;
 
 /** What the plot views read from the tables: for every plot, or for one. */
 export interface PlotFacts {

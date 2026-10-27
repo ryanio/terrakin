@@ -14,6 +14,7 @@ import {
   type ProfileView,
   type ResidentBrief,
 } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, fullDate, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
@@ -28,7 +29,7 @@ const POLL_MS = 4_000;
 
 /** "in 30 minutes" style text for when a code stops working. */
 function minutesLeft(expiresAt: string): string {
-  const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 60_000));
+  const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / MINUTE_MS));
   return plural(minutes, "minute", "minutes");
 }
 

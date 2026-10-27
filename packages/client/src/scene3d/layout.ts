@@ -14,6 +14,7 @@ import {
   type Holiday,
   holdsRoof,
   type MadeKind,
+  MEDIA_ID_PATTERN,
   type Pattern,
   type PetCoat,
   type PetKind,
@@ -967,11 +968,9 @@ export function groundDecor(
 
 // ---------- a resident's own home model and art ----------
 
-const MEDIA_ID = /^m_[0-9a-f]{16}$/;
-
 /** A media id (`m_` and 16 hex) or one of our media URLs, as a media URL. Anything else: undefined. */
 export function mediaRef(value: unknown): string | undefined {
-  if (typeof value === "string" && MEDIA_ID.test(value)) return `/media/${value}`;
+  if (typeof value === "string" && MEDIA_ID_PATTERN.test(value)) return `/media/${value}`;
   return isMediaUrl(value) ? value : undefined;
 }
 

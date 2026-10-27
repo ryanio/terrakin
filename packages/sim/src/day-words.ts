@@ -10,7 +10,8 @@
  * Like the season, this is presentation only: never world state, never in the input log, and it
  * never changes what a day means for scheduling or replay.
  */
-import { dateOfDay, dayOfDate } from "./season";
+import { weekdayOf } from "./holiday";
+import { dateOfDay, dayOfDate, MONTH_NAMES, WEEKDAY_NAMES } from "./season";
 
 /** The world day Terrakin launched, 2026-10-04: Day 1 of Terrakin. */
 export const LAUNCH_DAY = dayOfDate(2026, 10, 4);
@@ -25,23 +26,6 @@ export const foundingDay = (day: number) => day - LAUNCH_DAY + 1;
 export const worldDayWords = (day: number) =>
   day < LAUNCH_DAY ? "before Day 1 of Terrakin" : `Day ${foundingDay(day)} of Terrakin`;
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
 /**
  * A world day as its real calendar date: "Sun, Oct 18". The year is added when the day falls in
  * another year than `today`, or when there's no `today` to compare with: "Thu, Jan 1, 1970".
@@ -50,8 +34,8 @@ const MONTHS = [
  */
 export function dayDateWords(day: number, today?: number): string {
   const { year, month, date } = dateOfDay(day);
-  const weekday = WEEKDAYS[(((day + 4) % 7) + 7) % 7] as string;
-  const words = `${weekday}, ${MONTHS[month - 1]} ${date}`;
+  const weekday = (WEEKDAY_NAMES[weekdayOf(day)] as string).slice(0, 3);
+  const words = `${weekday}, ${MONTH_NAMES[month - 1]?.slice(0, 3)} ${date}`;
   return today !== undefined && dateOfDay(today).year === year ? words : `${words}, ${year}`;
 }
 

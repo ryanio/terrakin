@@ -1,5 +1,5 @@
 import { bySquare, HEARTH_COLOR } from "@terrakin/sim";
-import { BRAND_HEX } from "@terrakin/ui/brand";
+import { BRAND_HEX, WOOD } from "@terrakin/ui/brand";
 import { CROP_HEX } from "@terrakin/ui/item-art";
 import { type Camera, tileToScreen } from "../camera";
 import type { Mirror } from "../mirror";
@@ -257,7 +257,7 @@ function paintShop(
       });
     }
     // A box of flowers under the window.
-    ctx.fillStyle = "#9a6b43";
+    ctx.fillStyle = WOOD;
     ctx.fillRect(wx, sill + s * 0.04, ww, s * 0.09);
     ctx.fillStyle = CROP_HEX.flower;
     for (let i = 0; i < 4; i++) {

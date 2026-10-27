@@ -12,6 +12,7 @@
  */
 
 import {
+  BATH_WATER,
   BLOCK_COLORS,
   CATALOG,
   CLAY_HEX,
@@ -32,7 +33,22 @@ import {
   WEAR_ITEMS,
   type WearItem,
 } from "@terrakin/sim";
-import { BRAND_HEX, STRAW, STRAW_DEEP, WICKER, WOOD_DARK } from "./brand";
+import {
+  BRAND_HEX,
+  CANOPY,
+  IRON,
+  LEATHER,
+  LINEN,
+  SLICKER,
+  SLICKER_DEEP,
+  STONE_HI,
+  STONE_LO,
+  STRAW,
+  STRAW_DEEP,
+  WICKER,
+  WOOD,
+  WOOD_DARK,
+} from "./brand";
 import { SVG_NS } from "./dom";
 import {
   batPath,
@@ -92,12 +108,7 @@ const STEM = "#5f9a43";
 const KRAFT = "#e6cfa3";
 const GLASS = "#dcefee";
 const LID = "#c9a25a";
-const WOOD = "#9a6b43";
-const LEATHER = "#9c6a3e";
 const DENIM = "#5f86b5";
-const SLICKER = "#f4c534";
-const SLICKER_DEEP = "#d9a21c";
-const CANOPY = "#e0604a";
 const SKY = RESIDENT_COLOR_HEX.sky;
 const ROSE = RESIDENT_COLOR_HEX.rose;
 const PLUM = RESIDENT_COLOR_HEX.plum;
@@ -512,7 +523,7 @@ function stone(): ArtShape[] {
     shadow(13),
     ellipse(18, 32, 7, 5.5, "#a39d93", out()),
     ellipse(16, 30, 4, 3, "#b7b0a3"),
-    ellipse(30, 34, 5.5, 4.5, "#8f887c", out()),
+    ellipse(30, 34, 5.5, 4.5, STONE_LO, out()),
     ellipse(28.5, 32.5, 3, 2.4, "#a39d93"),
   ];
 }
@@ -766,10 +777,6 @@ function scarecrow(): ArtShape[] {
 }
 
 // ---------- furniture from the workbench (RFC 0016) ----------
-
-const STONE_HI = "#c4beb2";
-const STONE_LO = "#8f887c";
-const IRON = "#5d5a55";
 
 function table(): ArtShape[] {
   const top = BLOCK_COLORS.table;
@@ -1169,7 +1176,7 @@ function starfish(): ArtShape[] {
 function crystal(): ArtShape[] {
   return [
     shadow(13),
-    ellipse(24, 38, 11.5, 3.6, "#8f887c", out()),
+    ellipse(24, 38, 11.5, 3.6, STONE_LO, out()),
     path("M13.4 38 12.6 26.4l3.2-5 3.4 4.2.8 12.4z", "#c9b4ef", out()),
     path("M29.2 38l1.4-10.2 3.6-4 2.6 5.2-1.4 9z", "#e7ddf8", out()),
     path("M20.6 38V18.2l4.2-7.4 4.2 7.4V38z", "#dccdf4", out()),
@@ -1201,7 +1208,7 @@ function geode(): ArtShape[] {
     shadow(14),
     path(
       "M24 11.5c7.4 0 13.6 5.8 14 13.4.5 8.2-5.6 14.4-14 14.4S9.5 33.1 10 24.9c.4-7.6 6.6-13.4 14-13.4z",
-      "#8f887c",
+      STONE_LO,
       out(),
     ),
     ellipse(24, 25.4, 10.6, 10.2, "#f1ebf8"),
@@ -2425,7 +2432,7 @@ function birdBath(): ArtShape[] {
     ellipse(24, 41, 9, 2.8, deep, out()),
     path("M20.5 40.5 22 24h4l1.5 16.5z", stone, out()),
     ellipse(24, 23, 14, 5, stone, out()),
-    ellipse(24, 22.4, 10.5, 3.3, "#5fa9d0", out({ "stroke-width": 0.9 })),
+    ellipse(24, 22.4, 10.5, 3.3, BATH_WATER, out({ "stroke-width": 0.9 })),
     ellipse(21, 21.8, 3, 1, "#ffffff", { opacity: 0.5 }),
     ellipse(33, 19.5, 3.4, 2.6, "#8a6a4a", out({ "stroke-width": 0.9 })),
     circle(35.6, 17.2, 2, "#8a6a4a", out({ "stroke-width": 0.9 })),
@@ -2447,7 +2454,7 @@ function beehive(): ArtShape[] {
     band(20.5, 17, 5.5),
     ellipse(24, 18, 6, 3, straw, out()),
     line("M11 34h26M14 28.5h20M18 23.5h12", deep, 0.9, { opacity: 0.5 }),
-    path("M21.5 41v-3.4a2.5 2.5 0 0 1 5 0V41z", "#6e4a2c", out({ "stroke-width": 0.9 })),
+    path("M21.5 41v-3.4a2.5 2.5 0 0 1 5 0V41z", WOOD_DARK, out({ "stroke-width": 0.9 })),
     ellipse(35, 14, 3, 2, "#f2c53d", out({ "stroke-width": 0.9 })),
     line("M33.6 13.2h2.8M33.9 15h2.6", INK, 0.7),
     ellipse(34.4, 11.4, 2, 1.1, "#ffffff", { opacity: 0.7, transform: "rotate(-25 34.4 11.4)" }),
@@ -2663,9 +2670,6 @@ function seaGlassPane(): ArtShape[] {
 
 // ---------- cozy homes (RFC 0044) ----------
 
-/** Cream piping on a cushion, and a bed's sheet. */
-const LINEN = "#f1e8d6";
-
 /** A plump square cushion with a button in the middle, the pale piping the furniture wears. */
 function cushion(): ArtShape[] {
   const cloth = BLOCK_COLORS.armchair;
@@ -2722,7 +2726,7 @@ function bed(): ArtShape[] {
     shadow(19, 43),
     path("M8 26V12c0-4.5 32-4.5 32 0v14z", WOOD, out()),
     line("M12 11.5c6-1.8 18-1.8 24 0", "#ffffff", 1.1, { opacity: 0.3 }),
-    rect(13, 17, 22, 7, 3.2, "#fffaf0", out({ "stroke-width": 1 })),
+    rect(13, 17, 22, 7, 3.2, PAPER, out({ "stroke-width": 1 })),
     rect(6, 23, 36, 8, 2, LINEN, out()),
     path("M6 27h36v9.5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z", quilt, out()),
     line("M7 28.6h34", LINEN, 1.3),

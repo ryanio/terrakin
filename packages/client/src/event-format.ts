@@ -4,12 +4,16 @@
  * an event's lanterns. The server decides every event; these only describe what it said.
  */
 import type { EventView, HostingView, TeaView } from "@terrakin/protocol";
-import { EVENTS, type EventKind, type Glaze, ITEM_INFO } from "@terrakin/sim";
+import {
+  DAY_MS,
+  EVENTS,
+  type EventKind,
+  type Glaze,
+  HOUR_MS,
+  ITEM_INFO,
+  MINUTE_MS,
+} from "@terrakin/sim";
 import { plural, pluralWord } from "@terrakin/ui/format";
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
 
 /** What each kind is called on a card and in the Schedule sheet. */
 export const KIND_WORDS: Record<EventKind, string> = {
@@ -55,7 +59,7 @@ export function whenWords(startsAt: string, now: number, timeZone?: string): str
   const clock = clockWords(ms, timeZone);
   const day = dayIn(ms, timeZone);
   if (day === dayIn(now, timeZone)) return `Today ${clock}`;
-  if (day === dayIn(now + DAY, timeZone)) return `Tomorrow ${clock}`;
+  if (day === dayIn(now + DAY_MS, timeZone)) return `Tomorrow ${clock}`;
   const date = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     weekday: "short",
@@ -73,10 +77,11 @@ export function soonWords(
 ) {
   if (e.status === "live") return `On until ${clockWords(Date.parse(e.endsAt), timeZone)}`;
   const ms = Date.parse(e.startsAt) - now;
-  if (ms <= MINUTE) return "Starting now";
-  if (ms < 90 * MINUTE) return `Starts in ${plural(Math.round(ms / MINUTE), "minute", "minutes")}`;
-  if (ms < 2 * DAY) return `Starts in ${plural(Math.round(ms / HOUR), "hour", "hours")}`;
-  return `Starts in ${plural(Math.round(ms / DAY), "day", "days")}`;
+  if (ms <= MINUTE_MS) return "Starting now";
+  if (ms < 90 * MINUTE_MS)
+    return `Starts in ${plural(Math.round(ms / MINUTE_MS), "minute", "minutes")}`;
+  if (ms < 2 * DAY_MS) return `Starts in ${plural(Math.round(ms / HOUR_MS), "hour", "hours")}`;
+  return `Starts in ${plural(Math.round(ms / DAY_MS), "day", "days")}`;
 }
 
 /**
@@ -123,7 +128,7 @@ export function placeWords(e: Pick<EventView, "place" | "host">): string {
  * past the hour's notice the server asks for even after a while in the sheet.
  */
 export function defaultStart(now: number): number {
-  return Math.ceil((now + 2 * HOUR) / HOUR) * HOUR;
+  return Math.ceil((now + 2 * HOUR_MS) / HOUR_MS) * HOUR_MS;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -192,7 +197,7 @@ export function eventLanterns(
   };
   const s = world.plotSize;
   for (const e of marks) {
-    const today = world.day !== undefined && Math.floor(e.startsAt / DAY) === world.day;
+    const today = world.day !== undefined && Math.floor(e.startsAt / DAY_MS) === world.day;
     if (e.status !== "live" && !today) continue;
     const lit = e.status === "live";
     const x0 = e.px * s;

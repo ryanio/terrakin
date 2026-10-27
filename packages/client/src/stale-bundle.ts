@@ -1,3 +1,5 @@
+import { MINUTE_MS } from "@terrakin/sim";
+
 /**
  * The page reloads itself when the server sends something it can't read: a welcome, a snapshot, or
  * any REST answer that doesn't match its schema. While Terrakin is pre-alpha the API can change in
@@ -8,7 +10,7 @@
  */
 
 const RELOADED_KEY = "terrakin.staleReloadAt";
-export const RELOAD_GAP_MS = 5 * 60_000;
+export const RELOAD_GAP_MS = 5 * MINUTE_MS;
 
 /** When this page's code started, on the clock the reload is stamped with. */
 const LOADED_AT = Date.now();

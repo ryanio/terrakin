@@ -28,6 +28,7 @@ import {
   type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
+import { DAY_MS } from "@terrakin/sim";
 import { blockBackWords, blockName, clearCost } from "@terrakin/ui/blocks";
 import { formatCount, plural, pluralWord, relativeTime, shortDate } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
@@ -607,7 +608,7 @@ export function dayLabel(iso: string, nowMs: number): string {
   const day = (ms: number) => new Date(ms).toDateString();
   const at = Date.parse(iso);
   if (day(at) === day(nowMs)) return "Today";
-  if (day(at) === day(nowMs - 86_400_000)) return "Yesterday";
+  if (day(at) === day(nowMs - DAY_MS)) return "Yesterday";
   return new Date(at).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -1004,7 +1005,7 @@ export function cohortTitle(week: string | null, today: string): string {
   if (week === null) return "All time";
   const start = Date.parse(`${week}T00:00:00Z`);
   const now = Date.parse(`${today}T00:00:00Z`);
-  if (now - start < 7 * 86_400_000) return "This week";
+  if (now - start < 7 * DAY_MS) return "This week";
   return `Week of ${shortDate(start, now, "UTC")}`;
 }
 

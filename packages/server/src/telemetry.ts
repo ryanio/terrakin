@@ -26,6 +26,7 @@ import {
   updateSpanName,
 } from "@sentry/core";
 import { compileRoutes, ROUTES, type RouteSpec } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 
 export type CrumbCategory = "api" | "world" | "live" | "sweep" | "card" | "page";
 type Attributes = Record<string, string | number | boolean>;
@@ -244,7 +245,7 @@ export class ForcedTraceBudget {
   constructor(private readonly now: () => number = Date.now) {}
 
   take(): boolean {
-    const minute = Math.floor(this.now() / 60_000);
+    const minute = Math.floor(this.now() / MINUTE_MS);
     if (minute !== this.minute) {
       this.minute = minute;
       this.used = 0;

@@ -478,7 +478,10 @@ export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";
 export {
   PET_BOX,
+  PET_FEET,
   PET_PALETTE,
+  PET_PINK,
+  PET_TILES,
   type PetColors,
   type PetFace,
   type PetPosture,
@@ -613,10 +616,12 @@ export {
 export {
   dateOfDay,
   dayOfDate,
+  MONTH_NAMES,
   SEASONS,
   type Season,
   seasonOf,
   seasonSpan,
+  WEEKDAY_NAMES,
   type WorldDate,
   weekStart,
 } from "./season";

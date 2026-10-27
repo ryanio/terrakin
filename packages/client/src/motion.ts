@@ -15,7 +15,7 @@
  * Times are in milliseconds from the page's own clock. With `still` (prefers-reduced-motion) a
  * figure stands on its tile; walks keep their pace, and bubbles and dozing still show.
  */
-import { type Direction, directionOf, STEP, type Tile } from "@terrakin/sim";
+import { type Direction, directionOf, MINUTE_MS, STEP, type Tile } from "@terrakin/sim";
 import type { Shown } from "./feelings";
 
 /** The walking pace, in tiles a second. A diagonal step is longer, so it takes longer. */
@@ -38,7 +38,7 @@ export const CUSHION_MS = 90;
 /** Stopped no longer than this, a figure walks on at once when another step comes. */
 const REST_MS = 250;
 /** Standing still this long, a resident dozes until they move or talk. */
-export const DOZE_MS = 2 * 60_000;
+export const DOZE_MS = 2 * MINUTE_MS;
 /** The puff where someone lands after a jump (going home). */
 export const POOF_MS = 450;
 /** The little kick of dust where a step pushes off. */

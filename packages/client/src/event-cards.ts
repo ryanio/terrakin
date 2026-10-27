@@ -5,7 +5,7 @@
  * off; these send its actions and show its answers.
  */
 import type { EventsResponse, EventView } from "@terrakin/protocol";
-import { EVENT_KINDS, type EventKind } from "@terrakin/sim";
+import { DAY_MS, EVENT_KINDS, type EventKind, MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
 import {
@@ -38,8 +38,6 @@ import {
 import { pulseShell } from "./pulse-cards";
 import { coins } from "./purse";
 import { reportMenu } from "./report-sheet";
-
-const MINUTE = 60_000;
 
 export interface EventRowOptions {
   /** The server's time, from the answer the event came in. */
@@ -375,8 +373,8 @@ export function openScheduleSheet(o: ScheduleOptions) {
     attrs: {
       id: "event-start",
       type: "datetime-local",
-      min: toLocalInput(now + rules.leadMinutes * MINUTE),
-      max: toLocalInput(now + rules.aheadDays * 24 * 60 * MINUTE),
+      min: toLocalInput(now + rules.leadMinutes * MINUTE_MS),
+      max: toLocalInput(now + rules.aheadDays * DAY_MS),
       step: 60,
     },
   });

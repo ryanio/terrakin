@@ -1,5 +1,5 @@
 import type { RouteSpec, StaffKeyScope, StaffKeyView } from "@terrakin/protocol";
-import { DAY_MS } from "@terrakin/sim";
+import { DAY_MS, MINUTE_MS } from "@terrakin/sim";
 import { randomBytes, sha256HexSync, toBase64Url, toHex } from "./bytes";
 import type { SqlExec } from "./sql-store";
 
@@ -46,7 +46,7 @@ const READ_ROUTES = new Set([
 const REKEY_ROUTES = new Set(["createStaffRekeyCode", "createStaffSigninLink"]);
 
 /** Last-used times are written at most this often per key. */
-const TOUCH_EVERY_MS = 60_000;
+const TOUCH_EVERY_MS = MINUTE_MS;
 
 /** Who acted, without the key: the staff member a keyed actor stands for. */
 export function staffOwner(actor: string): string {

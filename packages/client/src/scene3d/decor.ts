@@ -7,8 +7,12 @@
  * lantern's shade, a cauldron's brew, and a string's bulbs are lit from inside and a pool of light
  * lies under each (decision 0098), never a light of its own.
  */
-import type { DecorKind } from "@terrakin/sim";
-import { STRAW as STRAW_BRAND, WOOD_DARK as WOOD_BRAND } from "@terrakin/ui/brand";
+import { BATH_WATER as BATH_WATER_HEX, type DecorKind } from "@terrakin/sim";
+import {
+  STRAW as STRAW_BRAND,
+  WOOD_DARK as WOOD_BRAND,
+  WOOD as WOOD_LIGHT,
+} from "@terrakin/ui/brand";
 import {
   BAT_POINTS,
   HALLOWEEN_HEX,
@@ -76,11 +80,10 @@ export interface Part {
 }
 
 const WOOD_DARK = hex(WOOD_BRAND);
-const WOOD = hex("#9a6b43");
+const WOOD = hex(WOOD_LIGHT);
 const GOLD = hex("#d8b45a");
 const STRAW = hex(STRAW_BRAND);
-/** The water in spring's bird bath, the pond's own blue (decision 0311). */
-const BATH_WATER = hex("#5fa9d0");
+const BATH_WATER = hex(BATH_WATER_HEX);
 
 /** A rounded box, moved and turned into place, shade baked in. */
 export function box(

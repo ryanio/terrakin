@@ -1,4 +1,5 @@
 import { MEDIA_TYPES, type MediaType } from "@terrakin/protocol";
+import { MEDIA_ID_PATTERN } from "@terrakin/sim";
 
 /**
  * Where uploaded files go. R2 on Cloudflare, a directory or memory locally. Serving public media
@@ -30,12 +31,9 @@ export class MemoryMediaStore implements ReadableMediaStore {
   }
 }
 
-/** Media ids as the server makes them. Anything else in a `/media/` path is refused before any lookup. */
-export const MEDIA_ID = /^m_[0-9a-f]{16}$/;
-
 /**
  * Where a letter's image lives once attached. The prefix keeps it out of `/media/<id>` on both
- * runtimes (that path only accepts `MEDIA_ID`), so only the authenticated letter route serves it.
+ * runtimes (that path only accepts a `MEDIA_ID_PATTERN` id), so only the authenticated letter route serves it.
  */
 export const privateMediaKey = (id: string) => `letter-${id}`;
 
@@ -169,7 +167,7 @@ export async function serveFromBucket(
   id: string,
   request: Request,
 ): Promise<Response> {
-  if (!MEDIA_ID.test(id)) return notFound();
+  if (!MEDIA_ID_PATTERN.test(id)) return notFound();
   // Only revalidation preconditions. A failed If-None-Match is a 304; other preconditions aren't
   // something a media URL needs.
   const onlyIf = new Headers();

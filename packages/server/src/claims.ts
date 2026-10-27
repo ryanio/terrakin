@@ -12,6 +12,7 @@ import {
   type SigninRequest,
   type SigninResponse,
 } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 import { fromBase64Url, randomBytes, sha256HexSync, toBase64Url } from "./bytes";
 import type { Credentials } from "./owner-service";
 import {
@@ -63,7 +64,6 @@ export function relyingPartyOf(origin: string): PasskeyRelyingParty | undefined 
   }
 }
 
-const MINUTE_MS = 60_000;
 /** Long enough for a browser to show a prompt and a person to reach for their phone. */
 const CHALLENGE_TTL_MS = SIGNIN.challengeMinutes * MINUTE_MS;
 const LINK_TTL_MS = SIGNIN.linkMinutes * MINUTE_MS;

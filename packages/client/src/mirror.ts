@@ -27,6 +27,7 @@ import {
   LOOK_KEYS,
   landSquare,
   lookOf,
+  MINUTE_MS,
   mayGatherOn,
   onSpring,
   type Pet,
@@ -129,7 +130,7 @@ export interface FloorLayer {
 const NO_FLOOR: Readonly<FloorLayer> = { blocks: new Map(), paving: new Map() };
 
 /** How long an away resident is out after a routine's step reaches us, before they sleep again. */
-export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * 60_000;
+export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * MINUTE_MS;
 
 /** An away resident out on a routine (RFC 0009): which one, and when its last step reached us. */
 export interface OutOnRoutine {

@@ -8,7 +8,7 @@ import {
   type PartnerResidentWeek,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
-import { DAY_MS, utcDay } from "@terrakin/sim";
+import { DAY_MS, MINUTE_MS, utcDay } from "@terrakin/sim";
 import { claimedSubject, type PartnerConfig } from "./partners";
 import type { WorldCredit } from "./snapshots";
 import type { SqlExec } from "./sql-store";
@@ -40,7 +40,7 @@ export interface PartnerResidentsOptions {
 }
 
 /** How long a partner's list is reused before it's built again. */
-export const PARTNER_RESIDENTS_MS = PARTNER_RESIDENTS_MINUTES * 60_000;
+export const PARTNER_RESIDENTS_MS = PARTNER_RESIDENTS_MINUTES * MINUTE_MS;
 
 /** What ties a resident to a partner: which character it is, and whether a link proved it. */
 export interface Tie {

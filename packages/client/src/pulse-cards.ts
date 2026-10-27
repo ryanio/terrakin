@@ -5,6 +5,7 @@
  * go in as text.
  */
 import type { PlotView, PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { compactCount, plural } from "@terrakin/ui/format";
 import { countTo, replay } from "@terrakin/ui/motion";
@@ -290,7 +291,7 @@ export function skyCard() {
     const sky = weatherReport(now, anchor.day);
     el.dataset.weather = sky.weather;
     report.textContent = sky.next ? `${sky.now} ${sky.next}` : sky.now;
-    const minutes = Math.round(anchor.dayMs / 60_000);
+    const minutes = Math.round(anchor.dayMs / MINUTE_MS);
     const length = minutes < 120 ? `${minutes} minutes` : `${Math.round(minutes / 30) / 2} hours`;
     // Who's out only while someone is: an empty town has nothing to say here.
     line.textContent =
@@ -387,7 +388,7 @@ export function townCard() {
 function spanWords(posts: PostView[]): string {
   const times = posts.map((p) => Date.parse(p.createdAt));
   const ms = Math.max(...times) - Math.min(...times);
-  const minutes = Math.round(ms / 60_000);
+  const minutes = Math.round(ms / MINUTE_MS);
   if (minutes < 2) return "just now";
   if (minutes < 60) return `in ${minutes} minutes`;
   const hours = Math.round(minutes / 60);

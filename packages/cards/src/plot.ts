@@ -874,6 +874,8 @@ function leafPath(cx: number, cy: number, turn: number): string | undefined {
 
 /** The side of a pet picture's box, in its own units, as the sim draws it. */
 export const PET_BOX = 48;
+/** Where a pet's feet are in its box, from the top, as the sim has it. */
+export const PET_FEET = 42.5;
 const PET_TAGS = new Set(["path", "circle", "ellipse"]);
 const NUMERIC = new Set(["cx", "cy", "r", "rx", "ry", "stroke-width", "opacity"]);
 const WORDS: Record<string, ReadonlySet<string>> = {
@@ -923,7 +925,7 @@ export function petSvg(p: PlotPet, cols: number, rows = cols): string[] {
 const WOOD_DARK = "#6e4a2c";
 const EDGE = "rgba(70, 40, 18, 0.5)";
 const STRAW = "#e8c878";
-const STRAW_DEEP = "#c9a452";
+const STRAW_DEEP = "#c49a4c";
 const BURLAP = "#d9bf8f";
 /** The water in a bird bath, the pond's own blue (decision 0311). */
 const POND_WATER = "#5fa9d0";

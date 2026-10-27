@@ -10,7 +10,7 @@
  * (`halloween.ts`). A run may cross into the next year, and two holidays may run on the same day,
  * so a rule asks `inHoliday` about the one it cares about, and `holidaysOf` lists them all.
  */
-import { dateOfDay, dayOfDate } from "./season";
+import { dateOfDay, dayOfDate, MONTH_NAMES } from "./season";
 
 /** Every holiday. New ones go on the end. */
 export const HOLIDAYS = ["halloween", "midwinter", "thanksgiving", "hanukkah", "new_year"] as const;
@@ -212,29 +212,14 @@ export function nextDayOn(on: MonthDate, day: number): number {
   return here >= day ? here : dayOn(year + 1, on);
 }
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
-
 /** "October 24", for a world day. */
 export function dayName(day: number): string {
   const { month, date } = dateOfDay(day);
-  return `${MONTHS[month - 1]} ${date}`;
+  return `${MONTH_NAMES[month - 1]} ${date}`;
 }
 
 /** "October 31": a day of the year in words. */
-export const monthDateName = (on: MonthDate) => `${MONTHS[on.month - 1]} ${on.date}`;
+export const monthDateName = (on: MonthDate) => `${MONTH_NAMES[on.month - 1]} ${on.date}`;
 
 /**
  * "October 24 to November 1": a holiday's dates in words, for the run `day` is in or the next one.

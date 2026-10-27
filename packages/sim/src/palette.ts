@@ -145,6 +145,9 @@ export const DOOR_LOOK = {
   opening: 0.56,
 } as const;
 
+/** The water in spring's bird bath (decision 0311), on the map, in 3D, and in its picture. */
+export const BATH_WATER = "#5fa9d0";
+
 /**
  * How a pond looks (RFC 0023), on the map, in both 3D views, and in plot photos: the water, a
  * shade where it deepens away from the bank, the stone rim along each side that doesn't run on into

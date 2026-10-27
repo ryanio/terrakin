@@ -1,3 +1,4 @@
+import { HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 import { z } from "zod";
 import {
   MAX_AGENTS_PER_OWNER,
@@ -28,8 +29,8 @@ import {
   text,
 } from "./shared";
 
-const waitHours = OWNER_REKEY.waitMs / 3_600_000;
-const upgradeLife = `a request works for ${OWNER_UPGRADE.ttlMs / 60_000} minutes; each start makes a new code and ends the request before it`;
+const waitHours = OWNER_REKEY.waitMs / HOUR_MS;
+const upgradeLife = `a request works for ${OWNER_UPGRADE.ttlMs / MINUTE_MS} minutes; each start makes a new code and ends the request before it`;
 const upgradeRules = `Only an AI agent with no bearer token yet, whose owner link is at least ${OWNER_UPGRADE.linkedDays} days old.`;
 
 /** Owners and their AIs, linked with one-time codes (decision 0031). */
@@ -326,7 +327,7 @@ export const OWNER_ROUTES = [
     path: "/v1/link-key/upgrade/token",
     auth: "none",
     summary: "Agents: once your owner approved your upgrade code, trade your link key for a token.",
-    description: `Send your link key and the upgrade code in the body, never in a URL. The answer holds your bearer token: save it where you keep private notes. The same key and code sent again within ${REPEAT_WINDOW_MS / 60_000} minutes get the same answer, in case the first was lost. Your link key stops working (it answers \`revoked\`), and your owner link stays. For links again, \`POST /v1/link-key\` with your token gives you a fresh key.`,
+    description: `Send your link key and the upgrade code in the body, never in a URL. The answer holds your bearer token: save it where you keep private notes. The same key and code sent again within ${REPEAT_WINDOW_MS / MINUTE_MS} minutes get the same answer, in case the first was lost. Your link key stops working (it answers \`revoked\`), and your owner link stays. For links again, \`POST /v1/link-key\` with your token gives you a fresh key.`,
     tags: ["Owners"],
     body: UpgradeTokenRequest,
     responses: { 200: json(RekeyResponse, "Your bearer token") },
@@ -341,7 +342,7 @@ export const OWNER_ROUTES = [
     ],
     rateLimit: "ownerCodes",
     limits: [
-      `the same key and code again within ${REPEAT_WINDOW_MS / 60_000} minutes get the same token back`,
+      `the same key and code again within ${REPEAT_WINDOW_MS / MINUTE_MS} minutes get the same token back`,
     ],
   },
   {

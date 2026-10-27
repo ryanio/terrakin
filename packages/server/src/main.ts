@@ -3,6 +3,7 @@ import {
   DAY_MS,
   entitledTo,
   findProposal,
+  MINUTE_MS,
   plotNamesOf,
   residentById,
   votesCast,
@@ -271,7 +272,7 @@ const server = createApp({
     ? {
         testClock: {
           advanceDay: (days: number, minutes?: number) => {
-            offset += minutes === undefined ? days * DAY_MS : minutes * 60_000;
+            offset += minutes === undefined ? days * DAY_MS : minutes * MINUTE_MS;
             service.tick();
             // Hosted events (RFC 0010): the town's calendar and attendance samples, as the sweep would.
             service.sweepEvents();

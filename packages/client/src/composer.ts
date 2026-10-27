@@ -16,6 +16,7 @@ import {
   type PostView,
   type ProfileView,
 } from "@terrakin/protocol";
+import { DAY_MS, MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/mentions";
 import { plot3dPath } from "@terrakin/ui/paths";
@@ -48,7 +49,7 @@ const PLOT_PROMPTS = [
 function todaysPrompt(hasPlot: boolean): string {
   const all = hasPlot ? [...PROMPTS, ...PLOT_PROMPTS] : PROMPTS;
   const now = new Date();
-  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / 864e5);
+  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * MINUTE_MS) / DAY_MS);
   return all[day % all.length] ?? "Share something you made";
 }
 

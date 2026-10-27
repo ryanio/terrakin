@@ -11,6 +11,7 @@ import type {
   InviteView,
   LetterView,
 } from "@terrakin/protocol";
+import { HOUR_MS } from "@terrakin/sim";
 import { thingCount } from "./things";
 
 export interface Conversation {
@@ -164,7 +165,7 @@ export function reusableInvite(
   handedOut = false,
 ): saved is InviteView {
   if (!saved || saved.share !== share || handedOut) return false;
-  return Date.parse(saved.expiresAt) - nowMs > 60 * 60_000;
+  return Date.parse(saved.expiresAt) - nowMs > HOUR_MS;
 }
 
 /**

@@ -5,6 +5,7 @@
  * is a neighbor's own, put in as text.
  */
 import type { AwayLine } from "@terrakin/protocol";
+import { HOUR_MS } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { itemRow, itemRows } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
@@ -72,7 +73,7 @@ const AWAY_CARD_LINES = 4;
 export async function awayCard(): Promise<HTMLElement | null> {
   const r = await routinesApi.routines();
   if (!r.ok) return null;
-  const since = Date.now() - AWAY_CARD_HOURS * 3_600_000;
+  const since = Date.now() - AWAY_CARD_HOURS * HOUR_MS;
   const recent = r.data.away.items
     .filter((l) => Date.parse(l.at) >= since)
     .slice(0, AWAY_CARD_LINES);

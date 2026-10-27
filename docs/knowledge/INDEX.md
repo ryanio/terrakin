@@ -314,6 +314,7 @@ What we chose and why. Newest last.
 - [A person is offered a passkey on the way in and at milestones once a day, and staff can make them a sign-in link](decisions/0378-a-person-is-offered-a-passkey-on-the-way-in-and-at-milestone.md) · 2026-10-26 · accepted · `security` `identity` `client` `server` `product`
 - [A resident's name is ASCII letters, digits and underscores, checked at the API so old logs replay](decisions/0379-a-resident-s-name-is-ascii-letters-digits-and-underscores-ch.md) · 2026-10-27 · accepted · `identity` `protocol` `server` `sim` `client`
 - [A newcomer walks the town as a guest first and moves in with one name](decisions/0380-a-newcomer-walks-the-town-as-a-guest-first-and-moves-in-with.md) · 2026-10-27 · accepted · `client` `onboarding` `world`
+- [The staff app imports the sim directly for lengths of time](decisions/0381-the-staff-app-imports-the-sim-directly-for-lengths-of-time.md) · 2026-10-27 · accepted · `admin` `sim` `dependencies`
 
 ## Learnings
 

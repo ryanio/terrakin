@@ -30,6 +30,7 @@ import {
   isTownEvent,
   isTownsfolk,
   isWay,
+  MINUTE_MS,
   type PickupKind,
   pageEditionOf,
   pageOn,
@@ -450,7 +451,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     const faced = facing.get(r.id);
     // Away and out on a routine for a few minutes after its last step (RFC 0009).
     const step = r.online ? undefined : routineSteps.get(r.id);
-    const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * 60_000;
+    const out = step && nowMs - step.at < ROUTINE_LIMITS.awakeMinutes * MINUTE_MS;
     const hidden = noteHidden(r.id);
     return {
       ...r,

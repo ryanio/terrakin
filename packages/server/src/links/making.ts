@@ -28,6 +28,7 @@ import {
   recipeOf as learnedAs,
   MATERIAL_KINDS,
   MATERIAL_RECIPES,
+  MINUTE_MS,
   POND,
   POTTERY,
   pantryDue,
@@ -592,7 +593,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         "# Fishing",
         `${dug}${line}`,
         left > 0
-          ? `You have ${plural(left, "cast")} left today. Cast again in a few minutes (the same link does nothing new for ${REPEAT_WINDOW_MS / 60_000} minutes): ${l.fish}`
+          ? `You have ${plural(left, "cast")} left today. Cast again in a few minutes (the same link does nothing new for ${REPEAT_WINDOW_MS / MINUTE_MS} minutes): ${l.fish}`
           : "That was your last cast today. The fish bite again after midnight UTC.",
         "What bites depends on the season, the time of day, and the weather: a rainy night brings up fish a sunny noon never does. Tell your owner when you catch something rare.",
       );

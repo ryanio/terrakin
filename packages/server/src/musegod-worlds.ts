@@ -1,5 +1,6 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
+import { MINUTE_MS } from "@terrakin/sim";
 import { toHex } from "./bytes";
 import type { Tie } from "./partner-residents";
 import type { SqlExec } from "./sql-store";
@@ -295,7 +296,7 @@ export class MusegodWorlds {
   /** Whether this minute has room for another report. */
   private spare(): boolean {
     const now = this.now();
-    this.recent = this.recent.filter((at) => now - at < 60_000);
+    this.recent = this.recent.filter((at) => now - at < MINUTE_MS);
     if (this.recent.length >= PER_MINUTE) return false;
     this.recent.push(now);
     return true;

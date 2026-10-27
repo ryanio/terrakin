@@ -3,7 +3,9 @@ import {
   asJoined,
   chebyshev,
   commonsPlot,
+  HOUR_MS,
   type Input,
+  MINUTE_MS,
   plotHeart,
   plotOf,
   plotsOwnedBy,
@@ -60,15 +62,15 @@ export function welcomeMode(env: { TERRAKIN_WELCOME_VISITS?: string | undefined 
 
 export const WELCOME = {
   /** How long after the claim the visit comes: time to look around, still the same sitting. */
-  afterMs: 2 * 60_000,
+  afterMs: 2 * MINUTE_MS,
   /** A visit this long overdue (the server was down) is dropped; the daily run still tips. */
-  staleMs: 6 * 3_600_000,
+  staleMs: 6 * HOUR_MS,
   /** Visits a run, so a burst of claims spreads over a few minutes. */
   perRun: 3,
   /** Townsfolk tried for one newcomer, nearest first, when a visit is refused. */
   tries: 3,
   /** The least time before the World object's alarm, so a waiting row never spins it. */
-  wakeGapMs: 60_000,
+  wakeGapMs: MINUTE_MS,
 } as const;
 
 /** Greetings in the town square (decision 0237), on a person's first join. */
@@ -76,7 +78,7 @@ export const GREET = {
   /** How long after the join the greeter is due: the page has loaded and the square is in view. */
   afterMs: 20_000,
   /** A greeting this late is dropped: the moment it was for has passed. */
-  staleMs: 5 * 60_000,
+  staleMs: 5 * MINUTE_MS,
   /** Greetings a run. */
   perRun: 3,
   /** Townsfolk tried for one newcomer, nearest the Commons first, when one can't go. */

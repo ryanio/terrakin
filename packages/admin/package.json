@@ -13,6 +13,7 @@
     "@fontsource-variable/figtree": "5.3.0",
     "@fontsource-variable/fraunces": "5.3.0",
     "@terrakin/protocol": "workspace:*",
+    "@terrakin/sim": "workspace:*",
     "@terrakin/ui": "workspace:*",
     "zod": "4.6.7"
   },

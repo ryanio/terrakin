@@ -3,7 +3,15 @@ import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflar
 import type { CardDrawer } from "@terrakin/cards";
 import { buildOpenApi, LINKS } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
-import { entitledTo, findProposal, plotNamesOf, residentById, votesCast } from "@terrakin/sim";
+import {
+  entitledTo,
+  findProposal,
+  MEDIA_ID_PATTERN,
+  MINUTE_MS,
+  plotNamesOf,
+  residentById,
+  votesCast,
+} from "@terrakin/sim";
 import { AccessVerifier, accessConfig, parseEmails, parseStaffResidents } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
@@ -15,13 +23,7 @@ import { circleWords } from "../src/circles";
 import { type StartFile, staticArrival } from "../src/discovery-log";
 import { eventWords } from "../src/events";
 import { ipKey } from "../src/handlers/shared";
-import {
-  MEDIA_ID,
-  type MediaBucket,
-  type MediaStore,
-  readCapped,
-  serveFromBucket,
-} from "../src/media";
+import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
 import { Moderation } from "../src/moderation";
 import { PLACE_FILE_PATH, placeFile } from "../src/musegod-worlds";
 import {
@@ -241,10 +243,10 @@ function withHeaders(response: Response, headers: Record<string, string>): Respo
 }
 
 /** Card renders one IP (or IPv6 /64) may cause per minute, counted per isolate. */
-const allowRender = windowLimiter(RENDERS_PER_MINUTE, 60_000);
+const allowRender = windowLimiter(RENDERS_PER_MINUTE, MINUTE_MS);
 /** Pictures by link (decision 0160): asks per IP a minute, and draws per isolate a minute. */
-const allowPicture = windowLimiter(PICTURES_PER_MINUTE, 60_000);
-const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, 60_000);
+const allowPicture = windowLimiter(PICTURES_PER_MINUTE, MINUTE_MS);
+const allowDraw = windowLimiter(PICTURE_DRAWS_PER_MINUTE, MINUTE_MS);
 
 /** A GET against the world's API from inside the Worker: the same data every client sees. */
 function apiGet(env: Env, origin: string): ApiGet {
@@ -274,7 +276,7 @@ async function card(
   const deps: CardDeps = {
     get: apiGet(env, url.origin),
     loadMedia: async (id) => {
-      if (!MEDIA_ID.test(id)) return undefined;
+      if (!MEDIA_ID_PATTERN.test(id)) return undefined;
       const object = await env.MEDIA.get(id);
       return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
     },
@@ -600,7 +602,7 @@ class WorldObject extends DurableObject<Env> {
     setInterval(() => {
       this.api.sweep();
       void this.armRecheck();
-    }, 60_000);
+    }, MINUTE_MS);
     // The game tables' clock (RFC 0011), so a live round's window holds to the second. Started
     // once, here, it keeps the object in memory no longer than the sweep's interval does.
     setInterval(() => this.api.gameClock(), 1_000);
@@ -772,7 +774,7 @@ class WorldObject extends DurableObject<Env> {
 export class PlotPhotos extends WorkerEntrypoint<Env> {
   async draw(spec: PlotPhotoSpec): Promise<Uint8Array> {
     const card = await materializePlot(spec, async (id) => {
-      if (!MEDIA_ID.test(id)) return undefined;
+      if (!MEDIA_ID_PATTERN.test(id)) return undefined;
       const object = await this.env.MEDIA.get(id);
       return object ? new Uint8Array(await object.arrayBuffer()) : undefined;
     });

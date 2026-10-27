@@ -1,4 +1,4 @@
-import { purseOf, residentById, treasuryOf } from "@terrakin/sim";
+import { HOUR_MS, purseOf, residentById, treasuryOf } from "@terrakin/sim";
 import type { SocialService } from "./social-service";
 import type { SqlExec } from "./sql-store";
 import {
@@ -46,7 +46,7 @@ export function tipsMode(env: { TERRAKIN_TIPS?: string | undefined }): TipsMode 
 }
 
 /** How often the Node server asks; the run itself goes once a day. */
-export const TIPS_CHECK_MS = 3_600_000;
+export const TIPS_CHECK_MS = HOUR_MS;
 
 /** What a run came to. Counts and codes only. */
 export interface TipsResult {

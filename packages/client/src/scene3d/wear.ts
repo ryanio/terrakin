@@ -5,7 +5,7 @@
  * y 0.66, facing +z.
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
-import { BRAND_HEX, WOOD_DARK } from "@terrakin/ui/brand";
+import { BRAND_HEX, LEATHER, WOOD_DARK } from "@terrakin/ui/brand";
 import { BAT_WING, EARNED_HEX, HALLOWEEN_HEX, PatternCache, WINTER_HEX } from "@terrakin/ui/looks";
 import {
   BoxGeometry,
@@ -317,7 +317,7 @@ function piece(item: WearItem, mat: Material): Mesh[] {
     }
     case "town_satchel": {
       // The satchel's shape in the town's canvas, on a leather strap, with a gold clasp.
-      const strap = at(new TorusGeometry(0.27, 0.012, 6, 32), solid("#9c6a3e"), 0, 0.32);
+      const strap = at(new TorusGeometry(0.27, 0.012, 6, 32), solid(LEATHER), 0, 0.32);
       strap.rotation.z = 0.6;
       strap.scale.set(1, 1, 0.75);
       return [

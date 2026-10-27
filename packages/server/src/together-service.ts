@@ -23,7 +23,7 @@ import {
   type StreakView,
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
-import { DAY_MS, utcDay } from "@terrakin/sim";
+import { DAY_MS, MINUTE_MS, utcDay } from "@terrakin/sim";
 import { randomId } from "./bytes";
 import { sizeFields } from "./image-size";
 import { type MediaStore, placeFields, privateMediaKey } from "./media";
@@ -657,7 +657,7 @@ export class TogetherService {
       }
       return ok({ note });
     }
-    const cooldown = GESTURE_COOLDOWN_MINUTES * 60_000;
+    const cooldown = GESTURE_COOLDOWN_MINUTES * MINUTE_MS;
     // A putter's or a routine's wave went out on its own, so it never stands in the way of one
     // this resident chose to send, any more than it moves their streak or asks to be answered.
     // Chosen waves still cool down against each other, so this opens no way to send more.
@@ -671,7 +671,7 @@ export class TogetherService {
       now - cooldown,
     )[0];
     if (last?.at !== null && last?.at !== undefined) {
-      const minutes = Math.max(1, Math.ceil((Number(last.at) + cooldown - now) / 60_000));
+      const minutes = Math.max(1, Math.ceil((Number(last.at) + cooldown - now) / MINUTE_MS));
       return fail(
         "rate_limited",
         `You just sent them ${GESTURE_WORDS[request.kind]}. Try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,

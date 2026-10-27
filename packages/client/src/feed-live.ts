@@ -5,13 +5,14 @@
  * world's sockets.
  */
 import type { PostMessage, PostView } from "@terrakin/protocol";
+import { MINUTE_MS } from "@terrakin/sim";
 import { everyVisible } from "@terrakin/ui/poll";
 import { PostWatch } from "./net";
 
 /** With no taps, keys, or scrolling for this long, the socket closes until the next one. */
-export const LIVE_IDLE_MS = 10 * 60_000;
+export const LIVE_IDLE_MS = 10 * MINUTE_MS;
 /** While the socket is up, the feed still polls this often, to catch anything it missed. */
-export const LIVE_POLL_MS = 2 * 60_000;
+export const LIVE_POLL_MS = 2 * MINUTE_MS;
 /** A push waits a random moment up to this before the feed refreshes, so open pages spread out. */
 export const PUSH_JITTER_MS = 2_000;
 /** A refresh a push asks for waits until at least this long after the last poll, on Everyone. */
@@ -19,7 +20,7 @@ export const EVERYONE_GAP_MS = 5_000;
 /** On Following, which can only refresh the whole feed, the gap is longer. */
 export const FOLLOWING_GAP_MS = 20_000;
 /** After the server turns the socket away (or it keeps dropping), try again after this long. */
-export const LIVE_RETRY_MS = 2 * 60_000;
+export const LIVE_RETRY_MS = 2 * MINUTE_MS;
 
 /** Whether a `post` message calls for a refresh: not for a post the wall shows, or your own. */
 export function wantsRefresh(

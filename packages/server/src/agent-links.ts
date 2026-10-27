@@ -9,7 +9,7 @@ import {
   type PartnerBadge,
   parseAgentRef,
 } from "@terrakin/protocol";
-import { DAY_MS } from "@terrakin/sim";
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 import { type CardReader, cardNames, httpCardReader, residentEndpoint } from "./agent-card";
 import { sha256Hex } from "./bytes";
 import {
@@ -126,9 +126,9 @@ export function parseDailyReads(value: string | undefined): { readsPerDay?: numb
 }
 
 /** How often a link is rechecked. */
-export const RECHECK_MS = AGENT_LINK_RECHECK_MINUTES * 60_000;
+export const RECHECK_MS = AGENT_LINK_RECHECK_MINUTES * MINUTE_MS;
 /** How long to wait after the network or the card host couldn't be reached: 15 minutes, 1 hour, then 4 hours. */
-export const DOWN_BACKOFF_MS = [15 * 60_000, 60 * 60_000, 4 * 60 * 60_000] as const;
+export const DOWN_BACKOFF_MS = [15 * MINUTE_MS, HOUR_MS, 4 * HOUR_MS] as const;
 /** Checks in a row that couldn't reach the agent (about three days with the backoff) before the link goes. */
 export const DOWN_LIMIT = 20;
 /** The registry saying an agent doesn't exist this many checks in a row drops the link. */
@@ -136,7 +136,7 @@ const GONE_LIMIT = 2;
 /** A card that answers but can't be read this many checks in a row (a day) is treated as gone. */
 export const BAD_CARD_LIMIT = 24;
 /** How often the Worker's alarm and the Node timer run `recheckDue`, at the soonest. */
-export const AGENT_RECHECK_EVERY_MS = 5 * 60_000;
+export const AGENT_RECHECK_EVERY_MS = 5 * MINUTE_MS;
 /** How long an ask whose card didn't name the resident is kept and tried again. */
 export const ASK_KEEP_MS = AGENT_LINK_ASK_DAYS * DAY_MS;
 /**
@@ -153,7 +153,7 @@ export function nextRecheckAt(now: number, due: number | undefined): number | un
 const LINK_READS = 6;
 /** The most one recheck can take: card URI, holder, binding, the character's holder, the card. */
 const RECHECK_READS = 5;
-const CHAIN_CACHE_MS = 60_000;
+const CHAIN_CACHE_MS = MINUTE_MS;
 const NAME_MAX_CHARS = 64;
 
 export type Pool = "link" | "recheck";

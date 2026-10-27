@@ -20,6 +20,7 @@
  */
 
 import { MEDIA_TYPES, type MediaType } from "@terrakin/protocol";
+import { DAY_MS } from "@terrakin/sim";
 import { fetchOutside } from "./agent-card";
 import { sniffMediaType } from "./media";
 import type { SocialResult } from "./social-service";
@@ -30,7 +31,7 @@ import { count } from "./telemetry";
 export const ART_MAX_BYTES = 1_000_000;
 const ART_TIMEOUT_MS = 5_000;
 /** How long after a failed copy before trying again. */
-export const ART_RETRY_MS = 24 * 60 * 60_000;
+export const ART_RETRY_MS = DAY_MS;
 
 const IMAGE_TYPES = new Set<MediaType>(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 

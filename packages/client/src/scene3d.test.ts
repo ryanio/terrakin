@@ -5,13 +5,13 @@ import {
   BLOCK_KINDS,
   HAIR_COLOR_INFO,
   HAIR_STYLES,
-  RESIDENT_COLORS,
   type RoofShape,
   THEME_INFO,
   type WearItem,
 } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
 import { GARMENT_COLOR, garmentColor } from "@terrakin/ui/figure";
+import { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 import {
   type BufferGeometry,
   Color,
@@ -26,7 +26,7 @@ import {
   Texture,
 } from "three";
 import { describe, expect, it, vi } from "vitest";
-import { BURST_MS, BURSTS_MAX, blockColor, RESIDENT_COLOR_HEX } from "./render";
+import { BURST_MS, BURSTS_MAX } from "./render";
 import { addAll, frameDistance, type Stage } from "./scene3d/art";
 import { blockMeshes } from "./scene3d/blocks";
 import { parseGallery } from "./scene3d/catalog";
@@ -70,7 +70,7 @@ import {
   underFootprint,
   wornPieces,
 } from "./scene3d/layout";
-import { BRAND, blockLook, hex, mix, residentHex, shade } from "./scene3d/palette";
+import { BRAND, blockLook, hex, mix, shade } from "./scene3d/palette";
 import { flooringSlabs, groundTiles } from "./scene3d/paths";
 import { onHead } from "./scene3d/wear";
 
@@ -824,10 +824,6 @@ describe("hair on 3D figures", () => {
 });
 
 describe("palette", () => {
-  it("uses the same resident colors as the 2D map", () => {
-    for (const c of RESIDENT_COLORS) expect(residentHex(c)).toBe(hex(RESIDENT_COLOR_HEX[c]));
-  });
-
   it("gives every block a look, glass see-through and the rest solid", () => {
     for (const b of BLOCK_KINDS) {
       const look = blockLook(b);
@@ -835,7 +831,6 @@ describe("palette", () => {
       expect(look.opacity > 0 && look.opacity <= 1).toBe(true);
     }
     expect(blockLook("glass").opacity).toBeLessThan(1);
-    expect(blockLook("stone").color).toBe(hex(blockColor("stone")));
     expect(blockLook("leaf").form).toBe("clump");
   });
 

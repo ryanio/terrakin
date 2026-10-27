@@ -16,6 +16,8 @@ import {
   LEAF_TONES,
   OUTSIDE_GROUND,
   PET_BOX,
+  PET_FEET,
+  PET_TILES,
   parseKey,
   plotDistance,
   plotKey,
@@ -97,7 +99,6 @@ import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
 
-export { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 export { BURST_MS, BURSTS_MAX, type BurstMark } from "./render/fireworks";
 export { blockColor } from "./render/palette";
 export { faceKey } from "./render/sprites";
@@ -156,11 +157,6 @@ const FLOOR_SHADE = "rgba(43, 30, 18, 0.24)";
 const OVERHEAD_EDGE = "rgba(43, 38, 32, 0.45)";
 /** How faded a figure under flooring is drawn. */
 const UNDER_FLOORING_ALPHA = 0.5;
-
-/** A pet's box across, in tiles: about half a resident's height. */
-const PET_TILES = 1;
-/** Where a pet's feet are in its box, from the top, out of `PET_BOX`. */
-const PET_FEET = 42.5;
 
 /** Reused every frame, so drawing figures allocates nothing. */
 const posed = restingPose();

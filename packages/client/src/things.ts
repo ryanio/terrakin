@@ -12,6 +12,7 @@ import {
   CROP_INFO,
   type CraftKind,
   type Crop,
+  DAY_MS,
   FAMILIES,
   type Family,
   FINISHES,
@@ -33,6 +34,7 @@ import {
   isSweetKind,
   MATERIAL_RECIPES,
   type MaterialKind,
+  MONTH_NAMES,
   OTHERS_PLOT_GATHER,
   PANTRY_STAPLES,
   POND,
@@ -46,6 +48,7 @@ import {
   type Station,
   SWEET_RECIPES,
   type SweetKind,
+  WEEKDAY_NAMES,
 } from "@terrakin/sim";
 import { formatCount, listOf, shortDate } from "@terrakin/ui/format";
 import { coins } from "./purse";
@@ -329,7 +332,7 @@ export const collectedLine = (c: { count: number; total: number }) =>
  * year's.
  */
 export function dayLabel(day: number, nowMs: number): string {
-  return shortDate(day * 86_400_000, nowMs, "UTC");
+  return shortDate(day * DAY_MS, nowMs, "UTC");
 }
 
 /** When something turns up only in some seasons: "In autumn", "In spring and summer". */
@@ -970,9 +973,6 @@ export function toastMs(text: string, source: "system" | "player" = "system"): n
   return Math.min(7000, Math.max(base, 2600 + 40 * text.length));
 }
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 /**
  * When a cup of tea was poured (RFC 0047), from its event's start in your own time: "At their tea
  * on Sunday evening, Oct 25." Never the event's title, which is the host's own words.
@@ -989,6 +989,6 @@ export function teaWhenLine(startsAt: Date): string {
           : hour < 21
             ? "evening"
             : "night";
-  const day = `${WEEKDAYS[startsAt.getDay()]} ${part}, ${MONTHS[startsAt.getMonth()]} ${startsAt.getDate()}`;
+  const day = `${WEEKDAY_NAMES[startsAt.getDay()]} ${part}, ${MONTH_NAMES[startsAt.getMonth()]?.slice(0, 3)} ${startsAt.getDate()}`;
   return `At their tea on ${day}.`;
 }

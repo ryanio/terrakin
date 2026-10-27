@@ -12,7 +12,20 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(import.meta.dirname, "../../..");
 const APP_DIRS = ["packages/client/src", "packages/admin/src"];
 
-function sources(): { path: string; text: string }[] {
+/** Every package's sources, for the definitions that have one home in the whole repo. */
+const PACKAGE_DIRS = [
+  ...APP_DIRS,
+  "packages/sim/src",
+  "packages/protocol/src",
+  "packages/server/src",
+  "packages/server/cloudflare",
+  "packages/ui/src",
+];
+
+function sources(
+  dirs = APP_DIRS,
+  known = ["packages/client/src/post-card.ts", "packages/admin/src/queue-view.ts"],
+): { path: string; text: string }[] {
   const out: { path: string; text: string }[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -22,13 +35,59 @@ function sources(): { path: string; text: string }[] {
         out.push({ path: relative(ROOT, full), text: readFileSync(full, "utf8") });
     }
   };
-  for (const dir of APP_DIRS) walk(join(ROOT, dir));
+  for (const dir of dirs) walk(join(ROOT, dir));
   // A walk that finds nothing would pass every check below.
-  for (const known of ["packages/client/src/post-card.ts", "packages/admin/src/queue-view.ts"]) {
-    if (!out.some((f) => f.path === known)) throw new Error(`no ${known}: the walk is broken`);
+  for (const path of known) {
+    if (!out.some((f) => f.path === path)) throw new Error(`no ${path}: the walk is broken`);
   }
   return out;
 }
+
+/**
+ * Definitions with one home, which no other file in any package writes again. The sim's fixture
+ * logs are pinned history and keep their own numbers.
+ */
+const ONE_HOME: { pattern: RegExp; use: string; home: string }[] = [
+  {
+    pattern:
+      /(?<![\w.])(60_000|3_600_000|86_400_000|864e5)(?![\w.])|60 \* 60 \* 1000|const (MINUTE|HOUR|DAY) = \d/,
+    use: "MINUTE_MS, HOUR_MS, or DAY_MS",
+    home: "packages/sim/src/clock.ts",
+  },
+  {
+    pattern: /\/\^m_\[0-9a-f\]\{16\}\$\//,
+    use: "MEDIA_ID_PATTERN",
+    home: "packages/sim/src/looks.ts",
+  },
+  {
+    pattern: /"(Sun|Mon)(day)?", "(Mon|Tue)|"Jan(uary)?", "Feb/,
+    use: "WEEKDAY_NAMES or MONTH_NAMES",
+    home: "packages/sim/src/season.ts",
+  },
+];
+
+describe("one definition in the whole repo", () => {
+  const files = sources(PACKAGE_DIRS, [
+    "packages/sim/src/clock.ts",
+    "packages/server/src/api.ts",
+    "packages/ui/src/brand.ts",
+  ]).filter((f) => !f.path.includes("/fixtures/"));
+
+  for (const { pattern, use, home } of ONE_HOME) {
+    it(`only ${home} writes ${use}`, () => {
+      const hits = files
+        .filter((f) => f.path !== home)
+        .flatMap((f) =>
+          f.text
+            .split("\n")
+            .flatMap((line, i) =>
+              pattern.test(line) ? [`${f.path}:${i + 1}: ${line.trim()}`] : [],
+            ),
+        );
+      expect(hits).toEqual([]);
+    });
+  }
+});
 
 /** A tab row of buttons built by hand: a tablist, a tab, or a tab marked picked. */
 const TAB_ROW = /role(: |=)"tab(list)?"|setAttribute\("aria-selected"/;
@@ -85,6 +144,11 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   {
     pattern: /"#(fffaf0|fbf3e4|ecdcc0|2b2620|5a5146|b4532f|8f3d20|5e7f45|a3361a)"/i,
     use: "BRAND_HEX (brand.ts)",
+  },
+  {
+    pattern:
+      /"#(9a6b43|6e4a2c|e8c878|c49a4c|c9925a|9c6a3e|f4c534|d9a21c|e0604a|c4beb2|8f887c|5d5a55|f1e8d6)"/i,
+    use: "the material colors in brand.ts (WOOD, STRAW, LEATHER, STONE_HI, ...)",
   },
   {
     pattern: /(\w+)\.hidden = !\1\.hidden/,

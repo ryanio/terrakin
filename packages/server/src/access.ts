@@ -1,3 +1,4 @@
+import { HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 /**
  * Cloudflare Access sign-ins for admin.terrakin.org (RFC 0006, decision 0040). Access sits in front
  * of the admin host and adds a signed JWT to every request it lets through, as the
@@ -39,9 +40,9 @@ type Key = Awaited<ReturnType<typeof crypto.subtle.importKey>>;
 type ImportableJwk = Extract<Parameters<typeof crypto.subtle.importKey>[1], { kty?: string }>;
 
 /** How long fetched keys are trusted before they're fetched again. */
-const KEYS_TTL_MS = 60 * 60_000;
+const KEYS_TTL_MS = HOUR_MS;
 /** An unknown key id refetches at most this often, so junk tokens can't hammer the certs URL. */
-const REFETCH_MIN_MS = 60_000;
+const REFETCH_MIN_MS = MINUTE_MS;
 /** Clock skew allowed on `exp` and `nbf`, in seconds. */
 const SKEW_S = 60;
 

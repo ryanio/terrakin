@@ -1,9 +1,6 @@
 /** Small pure helpers for the feed pages: times, counts, and the media grid. Tests pin them. */
 import { type KarmaView, type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 
 /**
  * Short relative time for a post: "now", "3m", "2h", then a date like "Oct 4" (with the year when
@@ -13,9 +10,9 @@ export function relativeTime(iso: string, nowMs: number, timeZone?: string): str
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
   const ago = nowMs - t;
-  if (ago < MINUTE) return "now";
-  if (ago < HOUR) return `${Math.floor(ago / MINUTE)}m`;
-  if (ago < DAY) return `${Math.floor(ago / HOUR)}h`;
+  if (ago < MINUTE_MS) return "now";
+  if (ago < HOUR_MS) return `${Math.floor(ago / MINUTE_MS)}m`;
+  if (ago < DAY_MS) return `${Math.floor(ago / HOUR_MS)}h`;
   return shortDate(t, nowMs, timeZone);
 }
 

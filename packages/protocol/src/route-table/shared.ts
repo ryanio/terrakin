@@ -3,6 +3,7 @@
  * describe params and replies. `routes.ts` re-exports the public part.
  */
 
+import { HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 import { z } from "zod";
 import { CircleId, type ErrorCode, ItemId, ListingId } from "../schemas";
 import { WORLD_LOG_PAGE_MAX } from "../snapshots";
@@ -338,8 +339,8 @@ export const AgentParams = idParams("agent's resident", "r_0123456789abcdef");
 export const CodeParams = z.object({
   code: z.string().min(1).max(64).describe("The invite code, like `abcd-efgh-jkmn-pqrs`."),
 });
-export const codeLife = `codes work once, for ${OWNER_CODE_TTL_MS / 60_000} minutes`;
-export const rekeyCodeLife = `codes work once, for ${REKEY_CODE_TTL_MS / 3_600_000} hours`;
+export const codeLife = `codes work once, for ${OWNER_CODE_TTL_MS / MINUTE_MS} minutes`;
+export const rekeyCodeLife = `codes work once, for ${REKEY_CODE_TTL_MS / HOUR_MS} hours`;
 export const ReactionParams = PostParams.extend({
   key: ReactionKey.describe(
     "One of `heart`, `laugh`, `wow`, `sprout`, `home`, `clap`, `hug`, `yum`, `thanks`, `sparkle`. More may be added.",
@@ -378,14 +379,14 @@ export const uploadSizes = [...new Set(Object.values(MEDIA_TYPES).map((t) => t.k
 // ---------- links: for readers that can only open URLs (decision 0020) ----------
 
 /** How long a repeat of a `once` link returns the first answer instead of acting again. */
-export const REPEAT_WINDOW_MS = 2 * 60_000;
+export const REPEAT_WINDOW_MS = 2 * MINUTE_MS;
 /**
  * The code in a join link's `confirm` (decision 0148). The page `GET /v1/join` shows first issues
  * a fresh one for that join; the same link opened again with it gets the first answer back.
  */
 export const JOIN_CONFIRM_CODE = /^[0-9a-z]{16,64}$/;
 /** How long a code from the first page of `GET /v1/join` works. */
-export const JOIN_CODE_MS = 10 * 60_000;
+export const JOIN_CODE_MS = 10 * MINUTE_MS;
 /** Most tiles one move link walks. Each step is one move in the world. */
 export { MOVE_MAX_STEPS } from "../schemas";
 

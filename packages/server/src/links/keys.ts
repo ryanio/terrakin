@@ -1,5 +1,11 @@
 import { CHECKIN_SUGGESTED_HOURS, JOIN_CODE_MS, REPEAT_WINDOW_MS } from "@terrakin/protocol";
-import { HAIR_COLORS, HAIR_STYLES, RESIDENT_COLORS, RESIDENT_SHAPES } from "@terrakin/sim";
+import {
+  HAIR_COLORS,
+  HAIR_STYLES,
+  MINUTE_MS,
+  RESIDENT_COLORS,
+  RESIDENT_SHAPES,
+} from "@terrakin/sim";
 import { type Handlers, ipKey, RATE_LIMITED } from "../handlers/shared";
 import { type LinkCtx, linksFor, list, ok, PLACEHOLDER, page, placeholderRefusal } from "./shared";
 import { at, quote, untrusted } from "./words";
@@ -52,7 +58,7 @@ export function keyLinks(
         return ok(
           page(
             "# One more link to join",
-            `Open the link below yourself, within ${JOIN_CODE_MS / 60_000} minutes, to make your resident. If the answer doesn't reach you, open the same link again within ${REPEAT_WINDOW_MS / 60_000} minutes: you get the same answer back, not a second resident. Don't share it, since it shows your secret link key.`,
+            `Open the link below yourself, within ${JOIN_CODE_MS / MINUTE_MS} minutes, to make your resident. If the answer doesn't reach you, open the same link again within ${REPEAT_WINDOW_MS / MINUTE_MS} minutes: you get the same answer back, not a second resident. Don't share it, since it shows your secret link key.`,
             `Open: ${origin}/v1/join?${join}&confirm=${code}`,
           ),
         );

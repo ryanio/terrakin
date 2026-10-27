@@ -24,6 +24,7 @@ import {
   type LookMediaKey,
   type LooseWearStyles,
   listingById,
+  MINUTE_MS,
   own,
   type Plot,
   POTTERY,
@@ -726,7 +727,7 @@ function scheduleEvent(
     filtered(ctx.moderation, "event_text", text, context);
   if (refused) return refused;
   const startsAt = Date.parse(action.startsAt);
-  if (!Number.isSafeInteger(startsAt) || startsAt % 60_000 !== 0) {
+  if (!Number.isSafeInteger(startsAt) || startsAt % MINUTE_MS !== 0) {
     return {
       ok: false,
       error: {
@@ -736,7 +737,7 @@ function scheduleEvent(
     };
   }
   const now = ctx.now();
-  if (startsAt < now + EVENT_LEAD_MINUTES * 60_000) {
+  if (startsAt < now + EVENT_LEAD_MINUTES * MINUTE_MS) {
     return {
       ok: false,
       error: {

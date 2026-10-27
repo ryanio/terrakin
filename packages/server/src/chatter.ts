@@ -8,7 +8,7 @@ import {
   type ReactionKey,
   TOWNSFOLK_ACTIONS,
 } from "@terrakin/protocol";
-import { DAY_MS, HOUR_MS, jobsOn } from "@terrakin/sim";
+import { DAY_MS, HOUR_MS, jobsOn, MINUTE_MS } from "@terrakin/sim";
 import { z } from "zod";
 import {
   AiSpend,
@@ -98,7 +98,7 @@ export const DEFAULT_CHATTER: Omit<ChatterConfig, "apiKey"> = {
   gate: "quiet",
   perRun: PER_RUN,
   mentions: false,
-  breaker: { failures: 3, pauseMs: 15 * 60_000 },
+  breaker: { failures: 3, pauseMs: 15 * MINUTE_MS },
 };
 
 /** Dollars (`0.28`) as millionths of a dollar. */
@@ -178,7 +178,7 @@ export const MENTIONS = {
   /** A mention this long unanswered (the server was down, or the caps were spent) is dropped. */
   staleMs: 3 * HOUR_MS,
   /** The least time before the World object's alarm, so a waiting row never spins it. */
-  wakeGapMs: 60_000,
+  wakeGapMs: MINUTE_MS,
 } as const;
 
 /**
@@ -493,7 +493,7 @@ const Answer = z.object({
 
 const age = (ms: number) =>
   ms < HOUR_MS
-    ? `${Math.max(1, Math.round(ms / 60_000))}m`
+    ? `${Math.max(1, Math.round(ms / MINUTE_MS))}m`
     : ms < DAY_MS
       ? `${Math.round(ms / HOUR_MS)}h`
       : `${Math.round(ms / DAY_MS)}d`;

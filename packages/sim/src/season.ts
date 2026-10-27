@@ -76,3 +76,30 @@ export function seasonSpan(day: number): { season: Season; start: number; end: n
  * Thursday. Holds for days before 1970 too.
  */
 export const weekStart = (day: number) => day - ((((day + 3) % 7) + 7) % 7);
+
+/** The days of the week from Sunday, as `weekdayOf` and `Date.getDay` count them. */
+export const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/** The months from January, as `dateOfDay` counts them from 1 and `Date.getMonth` from 0. */
+export const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;

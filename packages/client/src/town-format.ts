@@ -12,6 +12,7 @@ import {
   ITEM_INFO,
   isGroundKind,
   isHeldBlock,
+  MINUTE_MS,
   type PlannedBlock,
   type PlannedGround,
   type Tile,
@@ -109,8 +110,8 @@ export function townPaintKey(
  */
 function timeUntil(iso: string, now: number): string | null {
   const ms = Date.parse(iso) - now;
-  if (!Number.isFinite(ms) || ms <= 60_000) return null;
-  const minutes = Math.round(ms / 60_000);
+  if (!Number.isFinite(ms) || ms <= MINUTE_MS) return null;
+  const minutes = Math.round(ms / MINUTE_MS);
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;

@@ -1,4 +1,12 @@
-import { EVENT_STATUSES, FLOORS, ITEMS } from "@terrakin/sim";
+import {
+  DAY_MS,
+  EVENT_STATUSES,
+  FLOORS,
+  HOUR_MS,
+  ITEMS,
+  MEDIA_ID_PATTERN,
+  MINUTE_MS,
+} from "@terrakin/sim";
 import { z } from "zod";
 import { CollectedView } from "./collection";
 import { JobDoneView } from "./job-done";
@@ -69,7 +77,7 @@ export const X_HANDLE = /^[A-Za-z0-9_]{1,15}$/;
 /** How many residents one X account may be connected to: a person and a few of their agents. */
 export const X_LINKS_PER_HANDLE = 5;
 /** How long a code to post on X stays good. */
-export const X_CODE_TTL_MS = 60 * 60_000;
+export const X_CODE_TTL_MS = HOUR_MS;
 
 /**
  * The line a resident posts from their X account to prove it's theirs. Everything in it is already
@@ -99,7 +107,7 @@ export const XAccount = z.object({ handle: z.string().regex(X_HANDLE) });
 export type XAccount = z.infer<typeof XAccount>;
 
 const PostId = z.string().regex(/^p_[0-9a-f]{16}$/);
-const MediaId = z.string().regex(/^m_[0-9a-f]{16}$/);
+const MediaId = z.string().regex(MEDIA_ID_PATTERN);
 
 // ---------- handles and mentions ----------
 
@@ -839,19 +847,19 @@ export type AcceptInviteResponse = z.infer<typeof AcceptInviteResponse>;
 // ---------- owners: a human and the AI agents they run ----------
 
 /** How long a claim or invite code works: both sides are there at once. */
-export const OWNER_CODE_TTL_MS = 30 * 60_000;
+export const OWNER_CODE_TTL_MS = 30 * MINUTE_MS;
 /**
  * How long a re-key code works. It travels to the agent through a person, often by email or a
  * chat app, so it lasts a day rather than minutes.
  */
-export const REKEY_CODE_TTL_MS = 24 * 60 * 60_000;
+export const REKEY_CODE_TTL_MS = DAY_MS;
 /**
  * An owner's own re-key for an agent that lost its token or link key: how long the request waits
  * before it gives a code, how long the owner link must have stood first, and how often one agent
  * can be asked for (RFC 0025). Any call the agent makes with its old credentials while it waits
  * cancels it.
  */
-export const OWNER_REKEY = { waitMs: 48 * 60 * 60_000, linkedDays: 7, everyDays: 30 } as const;
+export const OWNER_REKEY = { waitMs: 48 * HOUR_MS, linkedDays: 7, everyDays: 30 } as const;
 /** How many agents one human may own. */
 export const MAX_AGENTS_PER_OWNER = 10;
 
@@ -922,7 +930,7 @@ export type RekeyResponse = z.infer<typeof RekeyResponse>;
  * lasts from the start, for the owner's approval and the collection both, and how old the owner
  * link must be first.
  */
-export const OWNER_UPGRADE = { ttlMs: 60 * 60_000, linkedDays: 7 } as const;
+export const OWNER_UPGRADE = { ttlMs: HOUR_MS, linkedDays: 7 } as const;
 
 /** A link key sent in a body, so it stays out of the URL. */
 export const UpgradeRequest = z.object({

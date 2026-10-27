@@ -8,7 +8,7 @@
  */
 
 import { SIGNIN } from "@terrakin/protocol";
-import { nameProblem } from "@terrakin/sim";
+import { MINUTE_MS, nameProblem } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
@@ -230,7 +230,7 @@ export function createLanding(
   let held = false;
   const asking = () => held || landing.isUp();
   let renewing = false;
-  const RENEW_MS = (SIGNIN.challengeMinutes - 1) * 60_000;
+  const RENEW_MS = (SIGNIN.challengeMinutes - 1) * MINUTE_MS;
   async function startAutofill() {
     if (autofilling || !asking() || !(await passkeyAutofillWorks())) return;
     if (autofilling || !asking()) return;

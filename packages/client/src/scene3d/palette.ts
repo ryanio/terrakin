@@ -3,8 +3,15 @@
  * resident color, and jam flavor looks in 3D. Plain numbers, no three.js, so tests can pin them
  * and the 2D and 3D worlds keep one look.
  */
-import { BLOCK_COLORS, type BlockKind, DOOR_LOOK, type ResidentColor } from "@terrakin/sim";
+import {
+  BLOCK_COLORS,
+  type BlockKind,
+  DOOR_LOOK,
+  OUTSIDE_GROUND,
+  type ResidentColor,
+} from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
+import { RESIDENT_COLOR_HEX } from "@terrakin/ui/looks";
 
 /** `#rrggbb` to a number three.js takes as a color. */
 export function hex(color: string): number {
@@ -24,13 +31,10 @@ export const BRAND = {
   mossLight: hex(BRAND_HEX.mossLight),
   sun: hex(BRAND_HEX.sun),
   dusk: hex(BRAND_HEX.dusk),
-  /** The meadow and earth the 2D map uses around plots. */
-  grass: hex("#a5c682"),
-  grassDeep: hex("#8fb36a"),
-  earth: hex("#a77a52"),
+  /** Beyond the edge of the world, as the 2D map draws it. */
+  sand: hex(OUTSIDE_GROUND),
+  /** Dark earth, and the glow of a fire's embers. */
   earthDeep: hex("#7d5a3c"),
-  sand: hex("#e6d6b6"),
-  hearth: hex("#d9653a"),
   ember: hex("#ffb35c"),
 } as const;
 
@@ -87,19 +91,19 @@ interface Glow {
 /** Same base colors as the 2D renderer (render.ts BLOCK_COLORS). */
 const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   wood: { color: hex("#c29468"), height: 1.25, opacity: 1, form: "voxel" },
-  stone: { color: hex("#a39d93"), height: 1.25, opacity: 1, form: "voxel" },
+  stone: { color: hex(BLOCK_COLORS.stone), height: 1.25, opacity: 1, form: "voxel" },
   // A window: lit from inside after dark while someone's home.
   glass: {
-    color: hex("#bfe0ea"),
+    color: hex(BLOCK_COLORS.glass),
     height: 1.25,
     opacity: 0.42,
     form: "voxel",
     glow: { pool: 1.7, home: true },
   },
-  leaf: { color: hex("#6b9a4a"), height: 0.95, opacity: 1, form: "clump" },
-  planter: { color: hex("#8a5a36"), height: 0.5, opacity: 1, form: "voxel" },
-  kitchen: { color: hex("#c8674a"), height: 0.95, opacity: 1, form: "voxel" },
-  workbench: { color: hex("#9a6b43"), height: 0.8, opacity: 1, form: "voxel" },
+  leaf: { color: hex(BLOCK_COLORS.leaf), height: 0.95, opacity: 1, form: "clump" },
+  planter: { color: hex(BLOCK_COLORS.planter), height: 0.5, opacity: 1, form: "voxel" },
+  kitchen: { color: hex(BLOCK_COLORS.kitchen), height: 0.95, opacity: 1, form: "voxel" },
+  workbench: { color: hex(BLOCK_COLORS.workbench), height: 0.8, opacity: 1, form: "voxel" },
   // A pot set down (RFC 0047) is never built as a block: it stands on its tile as its drawn
   // picture (`displayedThings`, `on: "ground"`), and the layouts leave its block out.
   pot: { color: hex(BLOCK_COLORS.pot), height: 0.06, opacity: 1, form: "voxel" },
@@ -222,19 +226,10 @@ export function blockLook(block: BlockKind): BlockLook {
   return BLOCK_LOOKS[block];
 }
 
-/**
- * Same values as RESIDENT_COLOR_HEX in packages/ui/src/looks.ts and `--resident-*` in tokens.css.
- */
-const RESIDENT_HEX: Record<ResidentColor, number> = {
-  sun: hex("#f2b84b"),
-  sky: hex("#7cb9dd"),
-  leaf: hex("#86b65f"),
-  rose: hex("#ea8a9d"),
-  plum: hex("#a98bd8"),
-  sand: hex("#e2c993"),
-  coal: hex("#4a443d"),
-  snow: hex("#fbf7ee"),
-};
+/** The resident colors of `RESIDENT_COLOR_HEX`, as numbers. */
+const RESIDENT_HEX = Object.fromEntries(
+  Object.entries(RESIDENT_COLOR_HEX).map(([name, color]) => [name, hex(color)]),
+) as Record<ResidentColor, number>;
 
 export function residentHex(color: ResidentColor): number {
   return RESIDENT_HEX[color];

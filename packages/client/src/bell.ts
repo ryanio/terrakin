@@ -4,6 +4,7 @@
  * once a minute while the page is visible.
  */
 
+import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { badgeText } from "@terrakin/ui/format";
 import { visiblePoll } from "@terrakin/ui/poll";
@@ -47,7 +48,7 @@ const poll = visiblePoll(
     if (r.ok && target === badge) setUnread(r.data.unread);
   },
   {
-    everyMs: 60_000,
+    everyMs: MINUTE_MS,
     minGapMs: 15_000,
     ready: () => Boolean(link && savedToken()),
     when: () => document.documentElement.classList.contains("mode-site"),

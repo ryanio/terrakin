@@ -13,6 +13,8 @@
  * sentences that contain lookalikes still pass.
  */
 
+import { HOUR_MS, MINUTE_MS } from "@terrakin/sim";
+
 const rot13 = (s: string) =>
   s.replace(/[a-z]/g, (c) => String.fromCharCode(((c.charCodeAt(0) - 97 + 13) % 26) + 97));
 const decode = (list: string[]) => list.map(rot13);
@@ -342,16 +344,13 @@ export const DENIED_DOMAINS: ReadonlySet<string> = new Set([
 
 // ---------- thresholds ----------
 
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-
 export const THRESHOLDS = {
   /** Refusals in `windowMs` that pause a resident's writes for `coolDownMs`. */
-  strikes: { max: 5, windowMs: HOUR, coolDownMs: HOUR },
+  strikes: { max: 5, windowMs: HOUR_MS, coolDownMs: HOUR_MS },
   /** The same text from one resident: `max` times in `windowMs`. Short texts ("thanks!") are free. */
-  repeat: { max: 2, windowMs: 24 * HOUR, minLength: 16 },
+  repeat: { max: 2, windowMs: 24 * HOUR_MS, minLength: 16 },
   /** The same text from `residents` other residents on one network within `windowMs`. */
-  crowd: { residents: 3, windowMs: 10 * MINUTE, minLength: 16 },
+  crowd: { residents: 3, windowMs: 10 * MINUTE_MS, minLength: 16 },
   /** Most links in one post, reply, or notice. */
   links: 3,
   /**

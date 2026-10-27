@@ -8,11 +8,18 @@
  */
 
 import { SIGNIN } from "@terrakin/protocol";
+import { nameProblem } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
 import { initBrandMarks, initBringAi } from "./chrome";
-import { characterPicker, type JoinLook, randomCharacter, suggestName } from "./join-form";
+import {
+  characterPicker,
+  type JoinLook,
+  nameRule,
+  randomCharacter,
+  suggestName,
+} from "./join-form";
 import { passkeyAutofillWorks, passkeysWork } from "./passkey";
 
 export interface Landing {
@@ -106,7 +113,8 @@ export function createLanding(
 
   // On a phone the error line scrolls into view, since the sticky Move in button can sit over
   // it. The field it's about (the one that gets focus) is marked invalid until the error clears.
-  name.setAttribute("aria-describedby", "join-error");
+  nameRule(name, byId(root, "join-name-hint"));
+  name.setAttribute("aria-describedby", "join-name-hint join-error");
   note.setAttribute("aria-describedby", "join-error");
   // Names nobody has, offered after a `name_taken` refusal so a newcomer is one tap from a name
   // that works instead of inventing another themselves. The row is empty the rest of the time,
@@ -245,6 +253,13 @@ export function createLanding(
     const value = name.value.trim();
     if (!value) {
       showError("Pick a name first. Anything you like, up to 24 letters.");
+      markInvalid(name);
+      return;
+    }
+    // The rule is said before anything is sent, in the same words the server would use.
+    const rule = nameProblem(value);
+    if (rule) {
+      showError(rule);
       markInvalid(name);
       return;
     }

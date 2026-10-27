@@ -18,7 +18,9 @@ import {
   isExclusiveWear,
   isShopWear,
   NAME_MAX_LENGTH,
+  NAME_RULE_WORDS,
   NOTE_MAX_LENGTH,
+  nameProblem,
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
   type ResidentColor,
@@ -33,7 +35,7 @@ import { itemArt } from "@terrakin/ui/item-art";
 import { COLOR_WORDS, hairName } from "@terrakin/ui/looks";
 import { paintAvatar } from "@terrakin/ui/people";
 import { chips, errorLine, whileBusy } from "@terrakin/ui/ui";
-import { canSuggestInto, nameIdeas } from "./names";
+import { canSuggestInto, nameIdeas, typedName } from "./names";
 import { savedResidentId } from "./net";
 import { passkeysWork } from "./passkey";
 
@@ -111,6 +113,20 @@ export function suggestName(input: HTMLInputElement) {
     /** Put an idea in now, as the button would, while the field may take one. */
     fill: () => button.click(),
   };
+}
+
+/**
+ * A name field that keeps to the naming rule as it's typed: a space becomes an underscore, with the
+ * caret left where it was. `hint` gets the rule in the sim's own words.
+ */
+export function nameRule(input: HTMLInputElement, hint: HTMLElement) {
+  hint.textContent = NAME_RULE_WORDS;
+  input.addEventListener("input", () => {
+    if (!input.value.includes(" ")) return;
+    const at = input.selectionStart;
+    input.value = typedName(input.value);
+    if (at !== null) input.setSelectionRange(at, at);
+  });
 }
 
 /** The look fields a join sends: always a color and shape, and hair and a top when picked. */
@@ -504,6 +520,8 @@ export function joinForm(options: JoinFormOptions) {
   });
   const character = characterPicker(id);
   const suggest = suggestName(name);
+  const nameHint = h("p", { class: "field-hint", attrs: { id: `${id}-name-hint` } });
+  nameRule(name, nameHint);
   name.addEventListener("input", () => {
     error.textContent = "";
     nameError.textContent = "";
@@ -514,7 +532,7 @@ export function joinForm(options: JoinFormOptions) {
   // A missing name is said under the name field; anything the server says sits above the button,
   // inside its sticky bar, so a phone shows it without scrolling.
   const nameError = errorLine(`${id}-name-error`);
-  name.setAttribute("aria-describedby", nameError.id);
+  name.setAttribute("aria-describedby", `${nameHint.id} ${nameError.id}`);
   const error = errorLine();
   // Shown under a `name_taken` refusal: the character may be yours, from another browser.
   const signin = h(
@@ -544,6 +562,7 @@ export function joinForm(options: JoinFormOptions) {
         suggest.el,
       ),
       name,
+      nameHint,
       nameError,
     ),
     character.el,
@@ -572,6 +591,14 @@ export function joinForm(options: JoinFormOptions) {
     const value = name.value.trim();
     if (!value) {
       nameError.textContent = `Pick a name first. Anything you like, up to ${NAME_MAX_LENGTH} letters.`;
+      name.setAttribute("aria-invalid", "true");
+      name.focus();
+      return;
+    }
+    // The rule is said before anything is sent, in the same words the server would use.
+    const rule = nameProblem(value);
+    if (rule) {
+      nameError.textContent = rule;
       name.setAttribute("aria-invalid", "true");
       name.focus();
       return;

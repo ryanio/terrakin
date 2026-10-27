@@ -135,6 +135,8 @@
 
             <div class="stack tight join-fields">
               <div id="join-name-head" class="name-head"><label class="field-label" for="join-name">What should we call you?</label></div>
+              <!-- The naming rule in the sim's words (NAME_RULE_WORDS), filled by landing.ts. Above the field, so on a wide card the field and Move in keep their row. -->
+              <p id="join-name-hint" class="field-hint"></p>
               <input id="join-name" class="field-input" maxlength="24" autocomplete="username webauthn" autocapitalize="words" enterkeyhint="go" placeholder="Your name" required disabled data-until-ready />
             </div>
 

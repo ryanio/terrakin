@@ -327,6 +327,13 @@ export function nameIdeas(seed: number, pool: readonly string[] = NAME_IDEAS) {
 }
 
 /**
+ * A name as typed, with each space turned into an underscore, since a name holds only letters,
+ * numbers, and underscores (the sim's `nameProblem`): "Ada Lovelace" becomes "Ada_Lovelace" as it's
+ * typed, rather than a refusal after it's sent.
+ */
+export const typedName = (value: string): string => value.replaceAll(" ", "_");
+
+/**
  * Whether "Suggest one" may fill the name field: only while it's empty or still holds the idea it
  * put there, so a name someone typed is never overwritten.
  */

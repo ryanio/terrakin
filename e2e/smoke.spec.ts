@@ -217,8 +217,15 @@ test("the landing form refuses a bad name, an unknown key, and never puts either
 
   await test.step("a name the server refuses stays on the form and says why", async () => {
     await openMoveIn(page);
+    // A space becomes an underscore as it's typed, and the naming rule is said before sending.
+    await page.fill("#join-name", "");
+    await page.locator("#join-name").pressSequentially("Ada Lovelace");
+    await expect(page.locator("#join-name")).toHaveValue("Ada_Lovelace");
+    await page.fill("#join-name", "Ada!");
+    await page.click("#world-join button[type=submit]");
+    await expect(page.locator("#join-error")).toContainText("letters, numbers, and underscores");
     // Official-sounding names are refused by the text filter, after the form sends it.
-    await page.fill("#join-name", "Terrakin Support");
+    await page.fill("#join-name", "Terrakin_Support");
     await page.click("#world-join button[type=submit]");
     await expect(page.locator("#join-error")).not.toBeEmpty();
     await expect(page.locator("#join-error")).not.toContainText("Can't reach");

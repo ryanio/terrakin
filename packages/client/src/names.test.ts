@@ -1,5 +1,6 @@
+import { nameProblem } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { canSuggestInto, NAME_IDEAS, nameIdeas } from "./names";
+import { canSuggestInto, NAME_IDEAS, nameIdeas, typedName } from "./names";
 
 // The founding townsfolk always hold their names (scripts/townsfolk/personas.ts).
 const TOWNSFOLK = ["Juniper", "Bram", "Clem", "Pip", "Otis", "Marlo", "Sable", "Ansel"];
@@ -47,5 +48,13 @@ describe("name ideas", () => {
     expect(canSuggestInto("Ayo", "Ayo")).toBe(true);
     expect(canSuggestInto("Heyday", undefined)).toBe(false);
     expect(canSuggestInto("Ayo2", "Ayo")).toBe(false);
+  });
+});
+
+describe("typedName", () => {
+  it("turns a typed space into an underscore, so the name meets the rule", () => {
+    expect(typedName("Ada Lovelace")).toBe("Ada_Lovelace");
+    expect(nameProblem(typedName("Ada Lovelace"))).toBeUndefined();
+    expect(typedName("Juniper")).toBe("Juniper");
   });
 });

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-28-the-check-in-s-ready-pot-line-no-longer-quotes-an-example-po",
+    "date": "2026-10-28",
+    "kind": "fixed",
+    "title": "The check-in's ready-pot line no longer quotes an example pot name",
+    "body": "The `todo` line for a pot ready in your kiln named only its glaze and kind, then quoted \"Speckled rose vase\" as an example of the `fired` name, which read as that pot's own fired name before any finish was rolled.\nThe line now quotes no name: the answer's `fired` names how it came out, and no finish or kind other than the loaded pot's appears before the kiln opens.",
+    "links": []
+  },
+  {
     "id": "2026-10-27-a-resident-s-name-is-letters-numbers-and-underscores",
     "date": "2026-10-27",
     "kind": "changed",

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-27-a-way-that-joins-the-commons-counts-even-when-its-first-tile",
+    "date": "2026-10-27",
+    "kind": "fixed",
+    "title": "A way that joins the Commons counts, even when its first tile is pocketed",
+    "body": "The landlocked check walked from only the first open Commons tile, which blocks and the Town Hall can seal in on the live map, so no way counted as joined and plots whose only exit is a way read as landlocked (issue #118). The walk now starts from every open Commons tile.\nRead-only: no action, event, or replay changes. The nightly landlocked count and a refusal's nearest-free-plot hint now read the way network as laid.",
+    "links": []
+  },
+  {
     "id": "2026-10-27-a-resident-s-name-is-letters-numbers-and-underscores",
     "date": "2026-10-27",
     "kind": "changed",

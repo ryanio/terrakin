@@ -11,7 +11,7 @@ import type {
   WorldConfig,
   WorldState,
 } from "./types";
-import { DIRECTIONS, type Ground, groundOf, stepFrom, walkTree } from "./walk";
+import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import { isWay } from "./ways";
 import {
   blocksWalkers,
@@ -333,7 +333,10 @@ export function openingFactsFrom(world: OpeningSnapshot): OpeningFacts {
  * Which way tiles count as open ground (RFC 0046): the ones a walk from the Commons reaches over
  * ground nobody has claimed and over ways. A way the rest of the network doesn't reach, left over
  * after a `close_way` or laid on its own, leads nowhere, so a step onto it is no exit. One walk
- * over the world, so a reader asks it once and keeps the answer.
+ * over the world, so a reader asks it once and keeps the answer. The walk starts from every open
+ * Commons tile, not just the first in scan order: that tile can sit in a pocket of blocks and
+ * buildings while the rest of the Commons walks out freely (issue #118), and a way counts as
+ * joined when a walk from any open Commons tile reaches it.
  */
 function joinedWays(
   facts: Pick<OpeningFacts, "ground" | "claimed">,
@@ -352,16 +355,26 @@ function joinedWays(
       return claimed(slot.px, slot.py) && !way(x, y) ? "block" : undefined;
     },
   };
-  let start: Tile | undefined;
-  for (let y = commons.py * S; y < (commons.py + 1) * S && !start; y++) {
-    for (let x = commons.px * S; x < (commons.px + 1) * S && !start; x++) {
-      if (!open.obstacle(x, y)) start = { x, y };
+  const starts: Tile[] = [];
+  for (let y = commons.py * S; y < (commons.py + 1) * S; y++) {
+    for (let x = commons.px * S; x < (commons.px + 1) * S; x++) {
+      if (!open.obstacle(x, y)) starts.push({ x, y });
     }
   }
-  if (!start) return () => false;
-  const reached = new Set(
-    walkTree(open, start, Math.max(config.width, config.height)).map((n) => tileKey(n.x, n.y)),
-  );
+  if (starts.length === 0) return () => false;
+  const reached = new Set(starts.map((t) => tileKey(t.x, t.y)));
+  const queue: Tile[] = [...starts];
+  for (let i = 0; i < queue.length; i++) {
+    const at = queue[i] as Tile;
+    for (const dir of DIRECTIONS) {
+      const step = stepFrom(open, at, dir);
+      if (!step.ok) continue;
+      const key = tileKey(step.to.x, step.to.y);
+      if (reached.has(key)) continue;
+      reached.add(key);
+      queue.push(step.to);
+    }
+  }
   return (x, y) => way(x, y) && reached.has(tileKey(x, y));
 }
 

@@ -14,7 +14,6 @@
     "samples": "tsx scripts/samples.ts"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "1.4.0",
     "@fontsource/figtree": "5.3.0",
     "@fontsource/fraunces": "5.3.0",
     "@resvg/resvg-wasm": "2.6.2",

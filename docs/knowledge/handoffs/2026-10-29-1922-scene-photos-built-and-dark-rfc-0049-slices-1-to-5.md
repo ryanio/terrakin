@@ -19,6 +19,8 @@ RFC 0049, scene photos, is built through slice 5 and is dark: `POST /v1/photos`,
 
 The `reviewer` subagent's pass found that failed renders refunded without limit, a timed-out render's browser could outlive its slot, a ticket could reach Sentry, two requests could share one moment, and the dark routes still parsed bodies while off. All fixed, each with a test (`scene-photos.test.ts`, 19 cases).
 
+The first push (aae616bc) failed CI's dependency audit through `@cloudflare/puppeteer`, so nothing deployed. The cards Worker now drives Browser Run over its DevTools socket with no browser library ([decision 0387](../decisions/0387-browser-run-is-driven-over-its-devtools-socket-with-no-brows.md)), checked against the real Browser Run.
+
 ## State of things
 
 Everything RFC 0049 lists through slice 5 works on Node and passes `pnpm verify` and `pnpm e2e`. On Cloudflare the code and the cards Worker's `BROWSER` binding deploy, but no photo is taken there until the switch is on, so the Worker path (`packages/cards/cloudflare/scene.ts`) has only been exercised by the spike's scratch Worker, not by this code.

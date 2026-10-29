@@ -23,7 +23,7 @@ Node 22.18 or newer. Install the Biome extension in your editor for format-on-sa
 
 - Mobile-first: if it doesn't work well on a phone, it doesn't ship.
 - Server-authoritative: the client renders, the server decides. Never trust client-reported state.
-- Plain words: name things a stranger can understand. See the [terminology table](docs/plans/founding-plan.md#3-terminology-no-game-knowledge-required).
+- Plain words: name things a stranger can understand. See [Words](AGENTS.md#words) in `AGENTS.md`.
 - Tests for logic, especially economy and sim code. Numbers must be honest.
 - No em dashes in user-facing copy. (House style. Commas and hyphens do the job.)
 - AI-assisted contributions are welcome, but disclose them, and the work must be genuinely good. Respect reviewer time: one focused PR beats five sloppy ones.

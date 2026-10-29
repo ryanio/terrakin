@@ -19,7 +19,7 @@ How it works. Data shapes, commands, events, API changes. Examples help.
 
 ## Invariants
 
-Which existing invariants does this touch (server decides, determinism, chat is untrusted, protocol compatibility)? How are they preserved?
+Which existing invariants does this touch (server decides, determinism, chat is untrusted)? How are they preserved? What changes in the protocol, and which changes break callers (allowed while pre-alpha, decision 0146)?
 
 ## Economy impact (if any)
 

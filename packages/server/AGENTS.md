@@ -166,11 +166,6 @@ The server project runs with `isolate: false` (`vitest.config.ts`): a test file 
 
 ## Writing tests
 
-Before adding a test, answer four questions. A missing answer means don't add it yet.
-
-1. What behavior does it protect?
-2. What regression makes it fail?
-3. Why doesn't an existing test already catch that? Extend the test that owns the contract, or add a case to its table, before writing a near copy with its own server.
-4. Does it need a production seam (an export, flag, or hook) nothing else uses? Then test at the real boundary instead.
+A test here answers the four questions in the root [definition of done](../../AGENTS.md#definition-of-done) first. A near-copy here usually means a second server: extend the test that owns the contract instead.
 
 The HTTP route test owns a route's contract. A unit test of a helper behind the route earns its place only with cases the route can't reach cheaply. Every cap that guards money keeps a test that fails when the cap is bypassed. Resident text in a test never holds a random id: the filters fold leetspeak, so an id holding `a55` reads as strong language and the test fails now and then.

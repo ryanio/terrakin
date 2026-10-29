@@ -18,7 +18,7 @@
 
 ## Writing tests
 
-A test for a piece here lives in the app test that uses it (the last rule above) and passes the same four questions `packages/client/AGENTS.md` asks: what behavior it protects, what regression makes it fail, why an existing test doesn't catch that already, and whether it needs an export no production code uses (then test the real caller instead). Test at the lowest level that catches the bug, as the root `AGENTS.md` says. A test that copies a token list, restates a lookup table such as `REACTIONS`, or checks a helper against its own output protects nothing.
+A test for a piece here lives in the app test that uses it (the last rule above) and answers the four questions in the root [definition of done](../../AGENTS.md#definition-of-done). A test that copies a token list or restates a lookup table such as `REACTIONS` protects nothing.
 
 ## Where things are
 

@@ -32,14 +32,7 @@ Mobile-first web client. It shows what the server says and never decides anythin
 
 ## Writing tests
 
-Before adding a unit test here, answer four questions, and hold the test until you can:
-
-1. What behavior does it protect: something a person sees, a contract, or a rule above?
-2. What regression makes it fail?
-3. Why doesn't an existing test catch that already? Extend a table or a shared fixture instead of adding a near-copy.
-4. Does it need an export, flag, or hook that no production code uses? Then test the real caller instead.
-
-Test at the lowest level that catches the bug, as the root `AGENTS.md` says. Here that means the pure functions (words, layouts, the mirror, the walker) given real inputs. A test that copies a constant or a list, restates a lookup table, or checks a value against the function that made it protects nothing. The source checks in `shared-components.test.ts`, `scene3d.test.ts`, `sound.test.ts`, and `first-load.test.ts` stay, because each is the cheapest guard of a rule above. A module this file calls "pure and tested" keeps its decisions out of the DOM code so they can be tested that way.
+A unit test here answers the four questions in the root [definition of done](../../AGENTS.md#definition-of-done) first. Here the lowest level is the pure functions (words, layouts, the mirror, the walker) given real inputs. The source checks in `shared-components.test.ts`, `scene3d.test.ts`, `sound.test.ts`, and `first-load.test.ts` stay, because each is the cheapest guard of a rule above. A module this file calls "pure and tested" keeps its decisions out of the DOM code so they can be tested that way.
 
 ## Where things are
 

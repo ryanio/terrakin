@@ -16,10 +16,13 @@ description: Repo conventions for driving a Terrakin pull request to green and m
 
 | Step | Usual cause | Fix |
 |------|-------------|-----|
+| `check-vendored` (first in `pnpm verify`) | A file in `.agents/skills/secrets/` edited by hand | Restore it; change it upstream in `ryanio/op-secrets` and sync |
 | `lint` | Formatting or Biome rule | `pnpm format`, then fix what remains by hand |
+| `knip` | An unused file, export, or dependency | Delete it, or use it; don't add an ignore to get green |
 | `typecheck` | Type error, often in tests (root `tsconfig.json`) | Fix the types; don't add `any` or `!` |
 | `test` | Real regression | Find the root cause. Never skip or weaken the test. |
-| `kb:check` | Knowledge entry added without regenerating | `pnpm kb` and commit `INDEX.md` |
+| `kb:check` | Knowledge entry added without regenerating, or two decisions or RFCs share a number | `pnpm kb` and commit `INDEX.md`; renumber the newer entry past `origin/main` |
+| `gen:check` | Generated output stale, or the API changed with no `CHANGELOG.md` entry | Add the entry if the API changed, then `pnpm gen` |
 | `build` | Client bundle error | `pnpm build` locally |
 | `e2e` | Client flow broke, or ids changed | `pnpm e2e`; the uploaded `playwright-traces` artifact has a trace to open with `pnpm exec playwright show-trace` |
 | audit | Vulnerable dependency | Bump it (exact version), or record why it's not exploitable here |

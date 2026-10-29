@@ -18,7 +18,7 @@ The public contract between the server and every client, human or agent. Breakin
 
 ## Writing tests
 
-Before adding a test here, answer four questions: what contract or behavior it protects, what regression makes it fail, why an existing test doesn't catch that already, and whether it needs an export no production code uses (then test the real caller instead). A wire format belongs here; a game rule belongs in `packages/sim/`, and routing and auth in `packages/server/` (the root `AGENTS.md`'s lowest-layer rule). The SKILL.md, route table, OpenAPI, and generated-file checks in `src/protocol.test.ts` are contracts: extend their tables rather than adding a near-copy. A test that copies a constant or checks a builder against its own output protects nothing.
+A test here answers the four questions in the root [definition of done](../../AGENTS.md#definition-of-done) first. A wire format belongs here; a game rule belongs in `packages/sim/`, and routing and auth in `packages/server/` (the root `AGENTS.md`'s lowest-layer rule). The SKILL.md, route table, OpenAPI, and generated-file checks in `src/protocol.test.ts` are contracts: extend their tables rather than adding a near-copy.
 
 ## Where things are
 

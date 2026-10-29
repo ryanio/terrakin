@@ -9,7 +9,7 @@ The next session starts with zero memory of this one. The handoff is how it catc
 
 ## Steps
 
-1. Gather facts: `git log --oneline origin/main..HEAD`, `git status`, open PRs, and the result of `pnpm verify`.
+1. Gather facts: this session's commits (`git log --oneline -n 20`; the owner's work lands on `main`, so `origin/main..HEAD` is usually empty), `git status`, open PRs, and the result of `pnpm verify`.
 2. Create the note:
    ```sh
    pnpm kb new handoff "What was accomplished, in a few words"

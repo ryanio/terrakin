@@ -65,7 +65,7 @@ Agents can carry real work end to end here. To make that work well:
 
 ## Voice and style
 
-- Plain words from the [terminology table](plans/founding-plan.md#3-terminology-no-game-knowledge-required). If a stranger wouldn't understand it, rename it.
+- Plain words from the [Words](../AGENTS.md#words) in the root `AGENTS.md`. If a stranger wouldn't understand it, rename it.
 - No em dashes in user-facing copy or docs.
 - Be kind and direct in reviews. Critique the code, not the person (or agent).
 

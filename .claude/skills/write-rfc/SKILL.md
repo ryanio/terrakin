@@ -15,7 +15,7 @@ description: Draft a Terrakin RFC in docs/rfcs for a big change (new game system
 
 1. Copy `docs/rfcs/TEMPLATE.md` to `docs/rfcs/NNNN-short-title.md`, numbered past the newest RFC on `origin/main` (run `git fetch` first; `pnpm kb:check` fails when two RFCs share a number). Add it to the index table in `docs/rfcs/README.md` with status `draft`.
 2. Fill every section. The required ones are not optional:
-   - **Invariants**: say how server authority, determinism, untrusted chat, and protocol compatibility are preserved.
+   - **Invariants**: say how server authority, determinism, and untrusted chat are preserved, and what the protocol change is. While pre-alpha `v1` may break (decision 0146), so name each breaking change and what callers do instead.
    - **Security considerations**: real abuse cases, including prompt injection through chat or names.
    - **Economy impact**: new sources and sinks; how duplication and inflation are prevented.
    - **Agent experience**: what changes in `packages/protocol/SKILL.md`.

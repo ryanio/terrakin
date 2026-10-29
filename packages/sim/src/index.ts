@@ -473,6 +473,8 @@ export {
   openingFacts,
   openingFactsFrom,
   openingsOf,
+  placeOf,
+  placeWalk,
 } from "./openings";
 export { isOwnableKey, own, residentById } from "./own";
 export * from "./palette";

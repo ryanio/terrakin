@@ -77,8 +77,9 @@ export interface Opening {
  * The plot slots that make one place with plot (`px`, `py`), by plot key: it, and every claimed
  * slot one household holds that touches it, side or corner, or touches one that does (decision
  * 0364). Just the plot itself where `together` is left out or its household holds nothing beside it.
+ * The way planner groups plots with it too.
  */
-function placeOf(facts: OpeningFacts, px: number, py: number): Set<string> {
+export function placeOf(facts: OpeningFacts, px: number, py: number): Set<string> {
   const place = new Set([plotKey(px, py)]);
   if (!facts.together) return place;
   const queue: Slot[] = [{ px, py }];
@@ -106,25 +107,22 @@ function slotOf(key: string): Slot {
 }
 
 /**
- * Every opening of plot (`px`, `py`), in the order a walk from its hearths finds them: the tiles it
- * reaches nearest first, then the eight directions in `DIRECTIONS` order. The walk keeps to the
- * plot's place (`placeOf`): the plot, and its household's plots touching it, which share their
- * exits (decision 0364). A plot with no hearth on it is walked from every open tile it has. Empty
- * when it is landlocked.
+ * The tiles of a place (`placeOf`, by plot key) a walk reaches on the place's own tiles, nearest
+ * first: where an exit can start (decision 0351). Each plot of the place is walked as it would be
+ * alone, from its hearths that stand on open ground, or from every open tile it has when no hearth
+ * is on it, so a place never has fewer exits than a plot of it alone. Steps are the sim's own
+ * `stepFrom`, eight ways, so a corner step needs both corners open, whoever's they are. The way
+ * planner reads the same walk.
  */
-export function openingsOf(
+export function placeWalk(
   facts: OpeningFacts,
-  px: number,
-  py: number,
+  place: ReadonlySet<string>,
   hearths: readonly Tile[],
-): Opening[] {
+): Tile[] {
   const { ground } = facts;
   const S = ground.config.plotSize;
-  const place = placeOf(facts, px, py);
   const inPlace = (t: Tile) => place.has(plotKey(Math.floor(t.x / S), Math.floor(t.y / S)));
   const open = (t: Tile) => inBounds(ground.config, t.x, t.y) && !ground.obstacle(t.x, t.y);
-  // Each plot of the place is walked as it would be alone, from its hearths, or from every open
-  // tile it has when it has none, so a place never has fewer exits than a plot of it alone.
   const starts: Tile[] = [];
   for (const key of place) {
     const slot = slotOf(key);
@@ -147,19 +145,41 @@ export function openingsOf(
     seen.add(tileKey(t.x, t.y));
     queue.push(t);
   }
-  const out: Opening[] = [];
   for (let i = 0; i < queue.length; i++) {
     const at = queue[i] as Tile;
     for (const dir of DIRECTIONS) {
       const step = stepFrom(ground, at, dir);
+      if (!step.ok || !inPlace(step.to) || seen.has(tileKey(step.to.x, step.to.y))) continue;
+      seen.add(tileKey(step.to.x, step.to.y));
+      queue.push(step.to);
+    }
+  }
+  return queue;
+}
+
+/**
+ * Every opening of plot (`px`, `py`), in the order a walk from its hearths finds them: the tiles it
+ * reaches nearest first (`placeWalk`), then the eight directions in `DIRECTIONS` order. The walk
+ * keeps to the plot's place (`placeOf`): the plot, and its household's plots touching it, which
+ * share their exits (decision 0364). A plot with no hearth on it is walked from every open tile it
+ * has. Empty when it is landlocked.
+ */
+export function openingsOf(
+  facts: OpeningFacts,
+  px: number,
+  py: number,
+  hearths: readonly Tile[],
+): Opening[] {
+  const { ground } = facts;
+  const S = ground.config.plotSize;
+  const place = placeOf(facts, px, py);
+  const out: Opening[] = [];
+  for (const at of placeWalk(facts, place, hearths)) {
+    for (const dir of DIRECTIONS) {
+      const step = stepFrom(ground, at, dir);
       if (!step.ok) continue;
       const to = step.to;
-      if (inPlace(to)) {
-        if (seen.has(tileKey(to.x, to.y))) continue;
-        seen.add(tileKey(to.x, to.y));
-        queue.push(to);
-        continue;
-      }
+      if (place.has(plotKey(Math.floor(to.x / S), Math.floor(to.y / S)))) continue;
       const slot = plotOf(ground.config, to.x, to.y);
       if (!facts.claimed(slot.px, slot.py) || facts.way?.(to.x, to.y)) out.push({ from: at, to });
     }

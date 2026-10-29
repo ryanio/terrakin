@@ -2,6 +2,8 @@ import {
   type BlockKind,
   HOLDING_BLOCKS,
   type OpeningFacts,
+  placeOf,
+  placeWalk,
   plotKey,
   plotOf,
   starterHome,
@@ -24,8 +26,9 @@ import {
  *
  * Every step is side on (north, south, east or west), never diagonal, so no block at a corner, on
  * anyone's land, can ever close a way. A plot is joined when a tile its hearth's walk reaches on its
- * own plot has a side on a tile of the network off the plot, which is decision 0351's way out with
- * the step taken square.
+ * place has a side on a tile of the network off the place, which is decision 0351's way out with
+ * the step taken square. That walk is the sim's own (`placeWalk`, the one `openingsOf` takes), so a
+ * corner step inside it may pass a neighbour's open tile, as walking does.
  */
 
 /** What the planner reads, which both the world and the public snapshot carry. */
@@ -260,9 +263,12 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   // first plot north to south, then west to east.
   const targets: Target[] = [];
   for (const place of placesOf(facts)) {
-    const plot = place[0] as { px: number; py: number };
+    const plot = place.first;
     if (!inDowntown(plot.px * S, plot.py * S)) continue;
-    const room = roomOf(facts, place);
+    // The tiles its hearths' walk reaches on its own tiles, where an exit starts (decision 0351).
+    const room = new Set(
+      placeWalk(facts.openings, place.keys, facts.hearths).map((t) => tileKey(t.x, t.y)),
+    );
     const goals = new Set<string>();
     for (const key of room) {
       const [x, y] = key.split(",").map(Number) as [number, number];
@@ -445,72 +451,20 @@ function isWall(block: BlockKind): boolean {
 
 /**
  * The claimed plots as places, north to south, then west to east: each plot alone, or one
- * household's touching plots, side or corner, together (`OpeningFacts.together`, decision 0364).
+ * household's touching plots, side or corner, together (the sim's `placeOf`, decision 0364). Each
+ * place is its plot keys, its first plot north to south, then west to east, naming it.
  */
-function placesOf(facts: WayFacts): { px: number; py: number }[][] {
+function placesOf(facts: WayFacts): { keys: Set<string>; first: { px: number; py: number } }[] {
   const sorted = [...facts.plots].sort((a, b) => a.py - b.py || a.px - b.px);
-  const claimed = new Set(sorted.map((p) => plotKey(p.px, p.py)));
   const placed = new Set<string>();
-  const places: { px: number; py: number }[][] = [];
-  for (const first of sorted) {
-    if (placed.has(plotKey(first.px, first.py))) continue;
-    placed.add(plotKey(first.px, first.py));
-    const place = [{ px: first.px, py: first.py }];
-    for (let i = 0; i < place.length; i++) {
-      const at = place[i] as { px: number; py: number };
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const next = { px: at.px + dx, py: at.py + dy };
-          const key = plotKey(next.px, next.py);
-          if (placed.has(key) || !claimed.has(key) || !facts.openings.together?.(at, next))
-            continue;
-          placed.add(key);
-          place.push(next);
-        }
-      }
-    }
-    places.push(place.sort((a, b) => a.py - b.py || a.px - b.px));
+  const places: { keys: Set<string>; first: { px: number; py: number } }[] = [];
+  for (const { px, py } of sorted) {
+    if (placed.has(plotKey(px, py))) continue;
+    const keys = placeOf(facts.openings, px, py);
+    for (const key of keys) placed.add(key);
+    places.push({ keys, first: { px, py } });
   }
   return places;
-}
-
-/**
- * The tiles of a place (`placesOf`) its hearths' walk reaches on its own tiles, each plot walked
- * from its hearths, or from every open tile it has when it has none: where an exit starts
- * (decision 0351). Eight ways, as walking is.
- */
-function roomOf(facts: WayFacts, place: readonly { px: number; py: number }[]): Set<string> {
-  const { config, openings } = facts;
-  const S = config.plotSize;
-  const keys = new Set(place.map((p) => plotKey(p.px, p.py)));
-  const inPlace = (t: Tile) => keys.has(plotKey(Math.floor(t.x / S), Math.floor(t.y / S)));
-  const out = new Set<string>();
-  const starts: Tile[] = [];
-  for (const { px, py } of place) {
-    const onPlot = (t: Tile) =>
-      t.x >= px * S && t.x < (px + 1) * S && t.y >= py * S && t.y < (py + 1) * S;
-    const own = facts.hearths.filter(onPlot);
-    if (own.length > 0) starts.push(...own);
-    else {
-      for (let y = py * S; y < (py + 1) * S; y++) {
-        for (let x = px * S; x < (px + 1) * S; x++) {
-          if (!openings.ground.obstacle(x, y)) starts.push({ x, y });
-        }
-      }
-    }
-  }
-  // Walk only the place's tiles: everything off it is a wall to this walk.
-  const ground = {
-    config,
-    obstacle: (x: number, y: number) =>
-      inPlace({ x, y }) ? openings.ground.obstacle(x, y) : ("block" as const),
-  };
-  const reach = S * place.length;
-  for (const start of starts) {
-    if (out.has(tileKey(start.x, start.y))) continue;
-    for (const n of walkTree(ground, start, reach)) out.add(tileKey(n.x, n.y));
-  }
-  return out;
 }
 
 /** The cheapest side-on path from the joined ground to every tile, by `cost`. */

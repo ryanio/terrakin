@@ -353,6 +353,22 @@ describe("one household's touching plots are one place to the planner (decision 
   });
 });
 
+describe("where a place's walk starts", () => {
+  it("is the sim's: a hearth under a block starts nothing, so a plot beside the Commons stays unjoined", () => {
+    // Plot (2, 0) touches the Commons, but its one hearth is under a stone. The sim walks from
+    // hearths on open ground only, so it has no way out, and the planner must agree rather than
+    // walk from the stone and count the plot joined.
+    const state = rowWorld(["p0", "p1", "p2"]);
+    const p2 = state.residents.p2;
+    if (!p2) throw new Error("nobody here");
+    p2.hearth = { x: 19, y: 3 };
+    state.blocks[tileKey(19, 3)] = "stone";
+    expect(landlocked(state).map((p) => `${p.px},${p.py}`)).toContain("2,0");
+    const plan = planWays(wayFactsFrom(state));
+    expect(plan.unjoined.map((u) => u.target)).toContain("plot 2,0");
+  });
+});
+
 /** Whether a hearth walks to the Commons, plot (2, 0). */
 const walksToCommons = (state: World, from: { x: number; y: number }) =>
   walkTree(worldGround(state), from, 32).some((n) => n.x >= 16 && n.x < 24);

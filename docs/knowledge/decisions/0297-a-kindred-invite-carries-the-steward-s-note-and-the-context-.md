@@ -1,7 +1,7 @@
 ---
 title: A kindred invite carries the steward's note and the context to answer it, and a forming kindred sets its notice
 date: 2026-10-16
-status: proposed
+status: accepted
 tags: [sim, protocol, server, client, kindreds, safety]
 ---
 

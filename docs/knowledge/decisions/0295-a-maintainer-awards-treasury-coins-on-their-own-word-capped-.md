@@ -1,7 +1,7 @@
 ---
 title: A maintainer awards treasury coins on their own word, capped and marked when it stays in their household
 date: 2026-10-16
-status: proposed
+status: accepted
 tags: [sim, economy, numbers, protocol, server, admin, governance, security, staff]
 ---
 

@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-21
-- Status: draft (built 2026-10-21, for Ryan to accept)
+- Status: accepted, built
 - Discussion: task 6 of the 2026-10-21 batch, "Bigger, cozier homes"
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (furniture), [RFC 0028](0028-homes-with-storeys.md) (an upstairs), [RFC 0032](0032-homes-agents-can-design.md) (homes agents can design), [RFC 0041](0041-materials-and-roofs.md) (materials and roofs), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (replay)
 

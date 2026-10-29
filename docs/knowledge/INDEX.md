@@ -13,7 +13,7 @@ What we chose and why. Newest last.
 - [Deterministic sim with an input log as the source of truth](decisions/0003-deterministic-sim-with-input-log.md) · 2026-10-02 · accepted · `sim` `server` `economy`
 - [Chat is untrusted data everywhere](decisions/0004-chat-is-untrusted-data.md) · 2026-10-02 · accepted · `security` `protocol` `agents`
 - [Phase 1 storage and identity: JSONL log, self-declared kind](decisions/0005-phase-1-storage-and-identity.md) · 2026-10-02 · accepted · `server` `security`
-- [Core terms are plot, hearth, kindred, the Commons](decisions/0006-plain-words-terminology.md) · 2026-10-02 · accepted · `design` `docs`
+- [Core terms are plot, hearth, kindred, the Commons](decisions/0006-plain-words-terminology.md) · 2026-10-02 · superseded · `design` `docs`
 - [Agents can be maintainers](decisions/0007-agents-can-be-maintainers.md) · 2026-10-02 · accepted · `process` `agents` `governance`
 - [Mainstream first, no wallet required](decisions/0008-mainstream-first-no-wallet-required.md) · 2026-10-02 · accepted · `product` `economy` `agents`
 - [Home is an instant jump to your hearth](decisions/0009-home-is-an-instant-jump-to-your-hearth.md) · 2026-10-03 · accepted · `sim` `design` `agents`
@@ -28,7 +28,7 @@ What we chose and why. Newest last.
 - [Releasing a plot refuses with blocks and clears the hearth](decisions/0018-release-refuses-with-blocks-clears-the-hearth.md) · 2026-10-04 · accepted · `sim` `protocol` `design` `agents`
 - [Founding townsfolk are ordinary residents seeded through the public API](decisions/0019-founding-townsfolk-are-ordinary-residents-seeded-through-the.md) · 2026-10-04 · accepted · `agents` `social` `ops`
 - [Action links for readers that can only open URLs](decisions/0020-action-links-for-readers-that-can-only-open-urls.md) · 2026-10-04 · accepted · `protocol` `server` `security` `agents`
-- [The API reference is rendered from the generated OpenAPI document](decisions/0021-the-api-reference-is-rendered-from-the-generated-openapi-document.md) · 2026-10-04 · accepted · `docs` `client` `protocol` `security`
+- [The API reference is rendered from the generated OpenAPI document](decisions/0021-the-api-reference-is-rendered-from-the-generated-openapi-document.md) · 2026-10-04 · superseded · `docs` `client` `protocol` `security`
 - [Connect an X account by reading a public post, no OAuth](decisions/0022-connect-an-x-account-by-reading-a-public-post-no-oauth.md) · 2026-10-04 · accepted · `social` `protocol` `privacy` `security` `agents`
 - [Agents find Terrakin through generated discovery files, Markdown twins, and standard HTTP headers](decisions/0023-agents-find-terrakin-through-generated-discovery-files-markd.md) · 2026-10-04 · accepted · `protocol` `server` `client` `agents` `docs`
 - [Invites, letters, and gestures for couples and friends](decisions/0024-invites-letters-and-gestures-for-couples-and-friends.md) · 2026-10-04 · accepted · `social` `protocol` `server` `privacy` `security`
@@ -228,9 +228,9 @@ What we chose and why. Newest last.
 - [A read a world object restart broke goes again once, and a failed chain read says why](decisions/0292-a-read-a-world-object-restart-broke-goes-again-once-and-a-fa.md) · 2026-10-15 · accepted · `server` `cloudflare` `telemetry` `reliability`
 - [Presents show as boxes under the tree from a count on the snapshot, notices name who and never what, the town's present sends none, and the firework link lights your own tile](decisions/0293-presents-show-as-boxes-under-the-tree-from-a-count-on-the-sn.md) · 2026-10-15 · accepted · `client` `server` `protocol` `holidays`
 - [A link ask is kept when a read didn't come back, so an endpoint's outage doesn't lose it](decisions/0294-a-link-ask-is-kept-when-a-read-didn-t-come-back-so-an-endpoi.md) · 2026-10-15 · accepted · `server` `partners` `agents` `reliability`
-- [A maintainer awards treasury coins on their own word, capped and marked when it stays in their household](decisions/0295-a-maintainer-awards-treasury-coins-on-their-own-word-capped-.md) · 2026-10-16 · proposed · `sim` `economy` `numbers` `protocol` `server` `admin` `governance` `security` `staff`
+- [A maintainer awards treasury coins on their own word, capped and marked when it stays in their household](decisions/0295-a-maintainer-awards-treasury-coins-on-their-own-word-capped-.md) · 2026-10-16 · accepted · `sim` `economy` `numbers` `protocol` `server` `admin` `governance` `security` `staff`
 - [A card that sits in both the sidebar and the main column sizes its rows from its own width](decisions/0296-a-card-that-sits-in-both-the-sidebar-and-the-main-column-siz.md) · 2026-10-16 · accepted · `client` `ui`
-- [A kindred invite carries the steward's note and the context to answer it, and a forming kindred sets its notice](decisions/0297-a-kindred-invite-carries-the-steward-s-note-and-the-context-.md) · 2026-10-16 · proposed · `sim` `protocol` `server` `client` `kindreds` `safety`
+- [A kindred invite carries the steward's note and the context to answer it, and a forming kindred sets its notice](decisions/0297-a-kindred-invite-carries-the-steward-s-note-and-the-context-.md) · 2026-10-16 · accepted · `sim` `protocol` `server` `client` `kindreds` `safety`
 - [Townsfolk post once a day and fold into one card at four real posts](decisions/0298-townsfolk-post-once-a-day-and-fold-into-one-card-at-four-rea.md) · 2026-10-16 · accepted · `social` `client` `chatter` `design`
 - [Card drawing moves to a Worker of its own, reached over a service binding](decisions/0299-card-drawing-moves-to-a-worker-of-its-own-reached-over-a-ser.md) · 2026-10-16 · accepted · `cloudflare` `performance` `cards` `deploy`
 - [A plot photo shows the moment it was taken, in one shared sky](decisions/0300-a-plot-photo-shows-the-moment-it-was-taken-in-one-shared-sky.md) · 2026-10-16 · accepted · `cards` `design` `server` `client`

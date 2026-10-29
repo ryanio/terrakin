@@ -1,9 +1,11 @@
 ---
 title: Core terms are plot, hearth, kindred, the Commons
 date: 2026-10-02
-status: accepted
+status: superseded
 tags: [design, docs]
 ---
+
+Superseded by [decision 0318](0318-kindreds-are-circles-the-word-and-the-wire-change-together-a.md): a kindred is a circle. The live word list is the Words section of the root `AGENTS.md`.
 
 # Core terms are plot, hearth, kindred, the Commons
 

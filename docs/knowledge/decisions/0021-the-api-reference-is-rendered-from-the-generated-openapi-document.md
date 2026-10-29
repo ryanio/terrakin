@@ -1,9 +1,11 @@
 ---
 title: The API reference is rendered from the generated OpenAPI document
 date: 2026-10-04
-status: accepted
+status: superseded
 tags: [docs, client, protocol, security]
 ---
+
+Superseded by [decision 0195](0195-the-docs-are-static-pages-built-from-the-guides-and-the-open.md): the docs and the API reference are static pages built from the guides and the OpenAPI document, with no Scalar.
 
 # The API reference is rendered from the generated OpenAPI document
 

@@ -26,8 +26,8 @@ Bug fixes, docs, and contained features don't need one.
 | [0001](0001-phase-1-prototype.md) | Phase 1 prototype | accepted |
 | [0002](0002-muse-onboarding.md) | Muse onboarding, no wallet required | draft |
 | [0003](0003-social-mvp.md) | Social MVP, agents first | accepted |
-| [0004](0004-musegod-muses.md) | MUSEGOD muses as Terrakin residents | draft |
-| [0004](0004-town-hall.md) | Town Hall | draft |
+| [0004](0004-musegod-muses.md) | MUSEGOD muses as Terrakin residents | accepted (phases 0 and 1 built, with RFC 0007's proof; phase 2 needs RFCs of its own) |
+| [0004](0004-town-hall.md) | Town Hall | accepted (built) |
 | [0005](0005-make-show-and-give.md) | Make, show, and give | accepted |
 | [0006](0006-trust-and-safety.md) | Trust and safety | draft (phase 1 and the staff app built) |
 | [0007](0007-partners-and-onchain-agents.md) | Partners and onchain agents | accepted (phase 1 building) |
@@ -59,16 +59,16 @@ Bug fixes, docs, and contained features don't need one.
 | [0033](0033-kindreds.md) | Kindreds, renamed Circles on 2026-10-19 (decision 0318) | accepted (built) |
 | [0034](0034-winter-holidays.md) | Winter holidays | accepted (built) |
 | [0035](0035-holidays-through-the-year.md) | Holidays through the year | draft |
-| [0036](0036-recognition-grants.md) | Recognition grants | draft |
-| [0037](0037-account-bound-identity.md) | Account-bound identity, with no password and no wallet | draft |
+| [0036](0036-recognition-grants.md) | Recognition grants | accepted (built) |
+| [0037](0037-account-bound-identity.md) | Account-bound identity, with no password and no wallet | accepted (first slice built: passkey sign-in; the email fallback and the prompt after a claim are not) |
 | [0038](0038-new-lands.md) | New lands, islands and territories beyond the first grid | accepted (built) |
 | [0039](0039-plot-market.md) | A marketplace for plots | accepted, building |
 | [0040](0040-reaching-a-resident-by-email.md) | Reaching a resident by email | draft |
 | [0041](0041-materials-and-roofs.md) | Materials worth choosing, and an upstairs you can see | accepted (built) |
 | [0042](0042-actions-that-need-you-there.md) | Actions that need you there | accepted (built) |
 | [0043](0043-sea-fish.md) | Fish of the sea | draft |
-| [0044](0044-cozy-homes.md) | Cozy homes: beds, sofas and armchairs you rest on | draft (built) |
-| [0045](0045-the-green-where-pets-go-out.md) | The green, where pets go out | draft (built) |
+| [0044](0044-cozy-homes.md) | Cozy homes: beds, sofas and armchairs you rest on | accepted (built) |
+| [0045](0045-the-green-where-pets-go-out.md) | The green, where pets go out | accepted (built; its open questions are still Ryan's) |
 | [0046](0046-streets.md) | Streets, so every home has a way to town | accepted (built) |
-| [0047](0047-trades-and-your-mark.md) | Trades beyond the garden, and things that carry your mark | draft (phase 1, the kiln, built and switched off) |
+| [0047](0047-trades-and-your-mark.md) | Trades beyond the garden, and things that carry your mark | accepted for phase 1, the kiln, on at terrakin.org; later phases draft |
 | [0048](0048-guest-visitors.md) | Guests the town can see | draft |

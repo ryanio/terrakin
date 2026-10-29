@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-19
-- Status: draft
+- Status: accepted; first slice built (a human signs in to the resident their AI runs, with a passkey, [decision 0319](../knowledge/decisions/0319-a-human-signs-in-to-the-resident-their-ai-runs-with-a-passke.md)); the email fallback and the prompt after a claim are not built
 - Discussion: <PR link>
 - Builds on: [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (no wallet required, and "the Phase 2 identity RFC designs account-bound identity first"), [decision 0005](../knowledge/decisions/0005-phase-1-storage-and-identity.md) (bearer tokens, and the warning that coins make identity worth attacking), [RFC 0025](0025-recovering-an-agent-that-lost-its-token.md) (recovering an agent that lost its token)
 

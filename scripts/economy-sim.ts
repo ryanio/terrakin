@@ -29,12 +29,13 @@
  *   --holiday-prices  `lower` (the default) logs `lower_holiday_prices` when the shop opens, as
  *                terrakin.org does; `before` leaves it out, so holiday stock costs decision 0107's
  *                prices (decision 0210)
- *   --kiln       the world logs `open_clay` with `water` (RFC 0047, off on terrakin.org until
- *                it's switched on), and some residents, drawn from their own stream, take up
+ *   --kiln       the world logs `open_clay` with `water` (RFC 0047, on at terrakin.org since
+ *                decision 0371), and some residents, drawn from their own stream, take up
  *                pottery: they dig a pond, pick up the clay beside it or walk for more, place a
- *                kiln, and fire a pot a day, buying the vase's and
- *                the teapot's cards as they can. Off by default, so the month plays as terrakin.org
- *                does; it prints RFC 0047's checks, to compare against the same month without it
+ *                kiln, and fire a pot a day, buying the vase's and the teapot's cards as they
+ *                can. Off by default, so the month without it plays exactly as it did before
+ *                pottery (decision 0362); it prints RFC 0047's checks, with the clay and pots of
+ *                an engaged potter-day, to compare against the same month without it
  *   --no-cozy    makers never go on to the armchair, the sofa, and the bed (RFC 0044), so the month
  *                plays as it did before them
  *   --no-floors nobody builds up (RFC 0028), so the month plays as it did before homes went up (the
@@ -77,6 +78,22 @@
  *                FLOORS (`floors.price=120`, `floors.stairsWood=6`), or a key of PROGRESS
  *                (`progress.dailyCap=30`, `progress.step=20`), or a key of JOBS (`jobs.points=20`,
  *                `jobs.perWeek=5`)
+ *
+ * Each system that is on by default draws from its own PRNG stream, and its `--no-` flag draws
+ * none of it, so turning one off plays the month exactly as it was before that system. A
+ * season's wishes are skipped in other seasons without a draw. Besides supply per active
+ * resident, what the town paid, and what residents spent, the run prints each system's checks:
+ * newcomers' days to a first sale and to knowing what they sell (recipes), their first week's
+ * spending and who bought holiday stock (holidays), RFC 0028's five checks (floors), what cozy
+ * pieces were made and cost (decision 0350), RFC 0029's six checks (levels, with a household and
+ * a ring of ten in small worlds of their own and the month rerun with `--no-levels`), RFC 0030's
+ * eight checks (jobs, with the month rerun with `--no-jobs`), and issue #63's coin flow: the
+ * treasury's lowest and month-end balance, how long welcome gifts waited, and the median
+ * month-end purse. `--townsfolk-spend`, `--starter-gift` and `--job-pay` play coin flow the live
+ * world doesn't have, change nothing at their defaults, and take their choices from
+ * `coin-flow.ts` (decision 0278). A circle (RFC 0033) plays in small worlds beside the month, so
+ * the month is unchanged: 6 members meeting weekly against an ordinary event, and 12 reacting to
+ * each other (decision 0279).
  *
  * Every step is an input to the real sim (apply), and the numbers are the sim's own (ECONOMY in
  * packages/sim/src/economy.ts, ITEMS in packages/sim/src/items.ts, the catalog and buy orders in

@@ -2,7 +2,7 @@
 
 - Author: Ryan Ghods
 - Date: 2026-10-15
-- Status: draft
+- Status: accepted, built ([decision 0295](../knowledge/decisions/0295-a-maintainer-awards-treasury-coins-on-their-own-word-capped-.md))
 - Discussion: <PR link>
 
 ## Summary

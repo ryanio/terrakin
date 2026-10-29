@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-22
-- Status: draft (built at Ryan's request, 2026-10-22; the open questions below are still his)
+- Status: accepted, built (the open questions below are still Ryan's)
 - Discussion: none
 - Builds on: [RFC 0019](0019-pets.md) (pets), [RFC 0029](0029-levels-and-skills.md) (Hosting points), [RFC 0038](0038-new-lands.md) (every land has a square), [RFC 0042](0042-actions-that-need-you-there.md) (`notAtDoor`, the one "you have to be there" check), [decision 0089](../knowledge/decisions/0089-pets-live-on-the-resident-in-the-sim-where-they-are-is-drawi.md) (where a pet stands is drawing only)
 

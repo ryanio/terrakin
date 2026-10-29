@@ -18,7 +18,7 @@ import {
   portraitReach,
   sightline,
 } from "./photo-framing";
-import { layoutTags, TAG_STYLE, type TagLayout } from "./photo-tags";
+import { layoutTags, TAG_STYLE, type TagLayout, tagColors } from "./photo-tags";
 import { createWorld3d, type World3dFrame } from "./scene3d/world";
 import { dayPhase } from "./time";
 import { Sky, skyNow } from "./weather";
@@ -184,13 +184,15 @@ function drawTags(
   g.textBaseline = "middle";
   for (const t of layout.tags) {
     const { x, y, w, h: ht } = t.box;
-    g.fillStyle = "rgba(74, 52, 28, 0.22)";
+    const r = mirror.residents.get(t.id);
+    const colors = r ? tagColors(r.color, r.theme) : TAG_STYLE;
+    g.fillStyle = "rgba(74, 52, 28, 0.18)";
     g.beginPath();
     g.roundRect(x, y + 2, w, ht, ht / 2);
     g.fill();
-    g.fillStyle = TAG_STYLE.backing;
-    g.strokeStyle = TAG_STYLE.edge;
-    g.lineWidth = 2;
+    g.fillStyle = colors.backing;
+    g.strokeStyle = colors.edge;
+    g.lineWidth = 1.5;
     g.beginPath();
     g.roundRect(x, y, w, ht, ht / 2);
     g.fill();

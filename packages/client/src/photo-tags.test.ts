@@ -1,3 +1,4 @@
+import { RESIDENT_COLORS, THEMES } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
 import {
   type Box,
@@ -6,6 +7,7 @@ import {
   segmentHitsBox,
   TAG_STYLE,
   type TagHead,
+  tagColors,
 } from "./photo-tags";
 
 /** Text as wide as a 24 px semibold face sets it, near enough: 13 px a character. */
@@ -61,9 +63,18 @@ const head = (id: string, x: number, y: number, depth = 10, face = 18): TagHead 
 });
 
 describe("name tags on a scene photo", () => {
-  it("are big enough to read, ink on a solid backing well past 4.5:1", () => {
+  it("are big enough to read, ink on a backing tinted from every color and theme at 7:1 or more", () => {
     expect(TAG_STYLE.fontPx).toBeGreaterThanOrEqual(22);
-    expect(contrastRatio(TAG_STYLE.text, TAG_STYLE.backing)).toBeGreaterThanOrEqual(4.5);
+    for (const theme of [undefined, ...THEMES])
+      for (const color of RESIDENT_COLORS) {
+        const { backing } = tagColors(color, theme);
+        expect(contrastRatio(TAG_STYLE.text, backing), `${color} ${theme}`).toBeGreaterThanOrEqual(
+          7,
+        );
+      }
+    // Tinted, not all one paper white.
+    expect(tagColors("sky", undefined).backing).not.toBe(tagColors("rose", undefined).backing);
+    expect(tagColors("sky", undefined).backing).not.toBe(TAG_STYLE.backing);
   });
 
   it("sits a tag just above a lone head, with no leader", () => {

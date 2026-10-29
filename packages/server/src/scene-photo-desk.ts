@@ -7,7 +7,7 @@ import {
   SCENE_PHOTO_LIMITS,
   type ScenePhotoRequest,
 } from "@terrakin/protocol";
-import type { Crop, Input, WorldEvent, WorldState } from "@terrakin/sim";
+import { type Crop, type Input, MINUTE_MS, type WorldEvent, type WorldState } from "@terrakin/sim";
 import { type Failure, fail, ipKey, RATE_LIMITED } from "./handlers/shared";
 import type { RateLimiters } from "./rate-limit";
 import { momentsOf, type SceneDeps, type ScenePhotoBook, sceneFor } from "./scene-photos";
@@ -40,6 +40,11 @@ const SCENE_RESERVE_BYTES = 2_000_000;
 const RENDER_TIMEOUT_MS = SCENE_PHOTO_LIMITS.readyMs * 2 + 10_000;
 /** How often a waiting request looks for a free render. */
 const WAIT_STEP_MS = 250;
+/**
+ * How long after a photo is taken the same request from the same resident answers with it again:
+ * long enough for a client that gave up waiting to send it again without spending a second.
+ */
+const SAME_PHOTO_MS = MINUTE_MS;
 
 /** What the desk needs from the Api and the social layer. */
 export interface DeskDeps {
@@ -71,6 +76,11 @@ const BUSY_MESSAGE =
 export class ScenePhotoDesk {
   private inFlight = 0;
   private readonly tickets = new Map<string, { scene: PhotoScene; until: number }>();
+  /** Photos being taken or just taken, by resident and request: a resend gets the same one. */
+  private readonly recent = new Map<
+    string,
+    { result: Promise<MediaView | Failure>; until: number }
+  >();
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(private readonly d: DeskDeps) {
@@ -103,7 +113,30 @@ export class ScenePhotoDesk {
     for (const m of momentsOf(state, input, events, firstHarvest)) this.d.book.keepMoment(m);
   }
 
+  /**
+   * Take a photo, or answer with the one this resident is taking or just took for the same request
+   * (`SAME_PHOTO_MS`), so a client that gave up waiting and sent it again spends nothing more. A
+   * request that came to nothing is never kept, so trying again runs it again.
+   */
   async take(viewer: string, ip: string, request: ScenePhotoRequest): Promise<MediaView | Failure> {
+    const now = this.d.now();
+    for (const [key, r] of this.recent) if (r.until <= now) this.recent.delete(key);
+    const key = `${viewer} ${JSON.stringify(request)}`;
+    const same = this.recent.get(key);
+    if (same) return same.result;
+    const entry = { result: this.takeNew(viewer, ip, request), until: Infinity };
+    this.recent.set(key, entry);
+    const result = await entry.result;
+    if ("error" in result) this.recent.delete(key);
+    else entry.until = this.d.now() + SAME_PHOTO_MS;
+    return result;
+  }
+
+  private async takeNew(
+    viewer: string,
+    ip: string,
+    request: ScenePhotoRequest,
+  ): Promise<MediaView | Failure> {
     const { d } = this;
     const key = ipKey(ip);
     const ipTake = d.ipLimiter.takeInfo(key);

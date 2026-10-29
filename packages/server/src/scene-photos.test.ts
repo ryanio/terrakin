@@ -182,7 +182,7 @@ describe("POST /v1/photos", () => {
       expect(t.social.scenePhotos.reserve().ok).toBe(true);
     expect((await t.photo(ada, { subject: "me" })).status).toBe(201);
     expect(t.renders).toHaveLength(1);
-    const refused = await t.photo(ada, { subject: "me" });
+    const refused = await t.photo(ada, { subject: "me", framing: "wide" });
     expect([refused.status, refused.body.error.code]).toEqual([503, "photos_busy"]);
     expect(refused.body.error.message).toMatch(/POST \/v1\/plots\/photo/);
     const toMidnight = Math.ceil((Math.ceil(t.now() / DAY_MS) * DAY_MS - t.now()) / 1000);
@@ -272,8 +272,12 @@ describe("POST /v1/photos", () => {
       await t.settler("Cy", 0, 2),
       await t.settler("Di", 2, 2),
     ];
-    for (let i = 0; i < 6; i++)
-      expect((await t.photo(who[i % 3] as { token: string }, { subject: "me" })).status).toBe(201);
+    for (let i = 0; i < 6; i++) {
+      const framing = i < 3 ? "near" : "wide";
+      expect(
+        (await t.photo(who[i % 3] as { token: string }, { subject: "me", framing })).status,
+      ).toBe(201);
+    }
     const ip = await t.photo(who[3] as { token: string }, { subject: "me" });
     expect([ip.status, ip.body.error.code]).toEqual([429, "rate_limited"]);
     expect(t.renders).toHaveLength(6);
@@ -363,14 +367,43 @@ describe("POST /v1/photos", () => {
     for (let i = 0; i < SCENE_PHOTO_LIMITS.perResidentPerDay - 2; i++)
       t.social.scenePhotos.taken(ada.id, Math.floor(t.now() / DAY_MS));
     const first = t.photo(ada, { subject: "me" });
-    const second = t.photo(ada, { subject: "me" });
+    const second = t.photo(ada, { subject: "me", framing: "wide" });
     await expect.poll(() => hold.length).toBe(2);
-    const third = await t.photo(ada, { subject: "me" });
+    const third = await t.photo(ada, { subject: "me", framing: "portrait" });
     expect([third.status, third.body.error.code]).toEqual([429, "rate_limited"]);
     for (const done of hold) done();
     expect((await first).status).toBe(201);
     expect((await second).status).toBe(201);
     expect(t.social.scenePhotos.residentToday(ada.id)).toBe(SCENE_PHOTO_LIMITS.perResidentPerDay);
+  });
+
+  it("answers the same request sent again while it's taken, or a minute after, with the same photo", async () => {
+    const hold: (() => void)[] = [];
+    const t = await start({ render: () => new Promise((done) => hold.push(() => done(PNG))) });
+    const ada = await t.settler("Ada", 0, 0);
+    // A client that gave up waiting sends it again: still one browser, one photo, one of the day.
+    const first = t.photo(ada, { subject: "me" });
+    await expect.poll(() => hold.length).toBe(1);
+    const again = t.photo(ada, { subject: "me" });
+    for (const done of hold.splice(0)) done();
+    const [a, b] = [await first, await again];
+    expect([a.status, b.status]).toEqual([201, 201]);
+    expect(b.body.media.id).toBe(a.body.media.id);
+    expect(t.social.scenePhotos.residentToday(ada.id)).toBe(1);
+    // Within the minute after, too; another framing is another photo.
+    t.later(30_000);
+    expect((await t.photo(ada, { subject: "me" })).body.media.id).toBe(a.body.media.id);
+    const wide = t.photo(ada, { subject: "me", framing: "wide" });
+    await expect.poll(() => hold.length).toBe(1);
+    for (const done of hold.splice(0)) done();
+    expect((await wide).body.media.id).not.toBe(a.body.media.id);
+    // Past the minute it's a new photo.
+    t.later(MINUTE_MS);
+    const later = t.photo(ada, { subject: "me" });
+    await expect.poll(() => hold.length).toBe(1);
+    for (const done of hold.splice(0)) done();
+    expect((await later).body.media.id).not.toBe(a.body.media.id);
+    expect(t.social.scenePhotos.residentToday(ada.id)).toBe(3);
   });
 
   it("refuses a resident's seventh of the day before drawing", async () => {
@@ -457,6 +490,7 @@ describe("POST /v1/photos of friends", () => {
     expect((await t.photo(ada, { subject: "friend", id: bob.id })).body.error.code).toBe(
       "not_friends",
     );
+    t.later(MINUTE_MS);
     expect((await t.photo(ada, { subject: "me" })).status).toBe(201);
     const shown = t.renders[1]?.scene?.shown ?? [];
     expect(shown).toContain(ada.id);
@@ -573,7 +607,7 @@ describe("moments (RFC 0049)", () => {
     const [moment] = (await t.call("GET", "/v1/photos/moments", undefined, ada.token)).body.moments;
     const first = t.photo(ada, { subject: "moment", moment: moment.id });
     await expect.poll(() => hold.length).toBe(1);
-    const second = await t.photo(ada, { subject: "moment", moment: moment.id });
+    const second = await t.photo(ada, { subject: "moment", moment: moment.id, names: true });
     expect([second.status, second.body.error.code]).toEqual([409, "already_taken"]);
     for (const done of hold) done();
     expect((await first).status).toBe(201);

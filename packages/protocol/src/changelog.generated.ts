@@ -19,6 +19,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-29-sending-the-same-photo-request-again-gets-the-same-photo",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "Sending the same photo request again gets the same photo",
+    "body": "While a photo is being taken, and for a minute after, the same `POST /v1/photos` request from you answers with that photo and spends nothing more, so a client that gave up waiting can simply send it again. Name tags are smaller, sit a little higher, and are tinted with each resident's own colors.",
+    "links": []
+  },
+  {
     "id": "2026-10-29-photos-of-the-world-in-3d-post-v1-photos",
     "date": "2026-10-29",
     "kind": "added",

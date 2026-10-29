@@ -13,24 +13,29 @@
  * - Crowds: at most `maxTags`, the subject and the nearest first; the rest are counted in `more`.
  */
 
+import { mixHex, type ResidentColor, type Theme } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
+import { lookPalette } from "@terrakin/ui/looks";
 
 export const TAG_STYLE = {
   /** Text size on the 1200x900 picture. */
-  fontPx: 24,
-  font: '600 24px "Figtree Variable", system-ui, sans-serif',
-  padX: 14,
-  padY: 8,
+  fontPx: 22,
+  font: '600 22px "Figtree Variable", system-ui, sans-serif',
+  padX: 11,
+  padY: 5,
   /** The gap between the top of a head and the tag's bottom. */
-  gap: 8,
+  gap: 18,
   /** How far inside the frame's edges every tag stays. */
   inset: 24,
   /** How far apart two tags stay. */
   spacing: 6,
-  /** Ink on paper: the player-text colors of the name tags in the world. */
+  /** Ink on paper: the player-text colors of the name tags in the world. Each tag is tinted
+   * from its resident's look (`tagColors`). */
   backing: BRAND_HEX.paper,
   edge: BRAND_HEX.paperEdge,
   text: BRAND_HEX.ink,
+  /** The least contrast a tinted tag keeps with its text: AAA for body text. */
+  minContrast: 7,
   leader: BRAND_HEX.ink,
   /** A name cut past this many characters' width. */
   maxChars: 14,
@@ -186,7 +191,8 @@ export function layoutTags(heads: readonly TagHead[], o: TagOptions): TagLayout 
         ))
     ) &&
     !faces.some((f) => f.id !== own && coversCircle(b, f.cx, f.cy, f.r)) &&
-    !faces.some((f) => f.id === own && coversCircle(b, f.cx, f.cy, f.r * 0.9));
+    // Its own face keeps `gap` clear all round, even where the frame's edge pushed the tag down.
+    !faces.some((f) => f.id === own && coversCircle(b, f.cx, f.cy, f.r + gap - 2));
   // Nearest the camera first: the one further back is the one that moves.
   for (const head of [...kept].sort((a, b) => a.depth - b.depth || (a.id < b.id ? -1 : 1))) {
     const text = fitName(head.name, measure);
@@ -213,7 +219,7 @@ export function layoutTags(heads: readonly TagHead[], o: TagOptions): TagLayout 
     // Beside the face, then below it, for a head too near the top for anything above it, as in a
     // portrait.
     for (const dir of [1, -1])
-      tries.push(place(head.x + dir * (head.face + spacing + w / 2), head.y + head.face + h / 2));
+      tries.push(place(head.x + dir * (head.face + gap + w / 2), head.y + head.face + h / 2));
     // Below it last.
     for (let down = 0; down <= 2; down++)
       tries.push(place(head.x, head.y + head.face * 2 + gap + h + down * step));
@@ -268,4 +274,22 @@ export function contrastRatio(a: string, b: string): number {
   };
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
   return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+}
+
+/**
+ * A tag's colors from its resident's look: their theme's pale shade, or their color's, softened
+ * toward paper until ink on it reads at `TAG_STYLE.minContrast`, with an edge a shade deeper.
+ * Coal and the dark themes still come out pale, so every tag stays easy to read.
+ */
+export function tagColors(
+  color: ResidentColor,
+  theme: Theme | null | undefined,
+): { backing: string; edge: string } {
+  const pale = lookPalette(theme ?? undefined, color).light;
+  for (let toPaper = 0.1; toPaper < 1; toPaper += 0.05) {
+    const backing = mixHex(pale, BRAND_HEX.paper, toPaper);
+    if (contrastRatio(TAG_STYLE.text, backing) >= TAG_STYLE.minContrast)
+      return { backing, edge: mixHex(backing, TAG_STYLE.text, 0.18) };
+  }
+  return { backing: TAG_STYLE.backing, edge: TAG_STYLE.edge };
 }

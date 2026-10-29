@@ -1,4 +1,6 @@
 import type { MediaType } from "@terrakin/protocol";
+import { ascii } from "./bytes";
+import { JPEG_DROP, PNG_DROP, VP8X_METADATA_FLAGS, WEBP_DROP } from "./image-metadata";
 import { stripGlb } from "./strip-glb";
 import { stripMp4 } from "./strip-mp4";
 import { stripWebm } from "./strip-webm";
@@ -70,13 +72,7 @@ class Kept {
   }
 }
 
-const ascii = (b: Uint8Array, start: number, end: number) =>
-  String.fromCharCode(...b.subarray(start, end));
-
 // ---------- JPEG ----------
-
-/** Segments to drop: APP1 (EXIF, XMP), APP13 (IPTC), COM (comments). ICC (APP2) and Adobe (APP14) stay. */
-const JPEG_DROP = new Set([0xe1, 0xed, 0xfe]);
 
 function stripJpeg(b: Uint8Array): Uint8Array {
   if (b[0] !== 0xff || b[1] !== 0xd8) return b;
@@ -147,9 +143,6 @@ const ORIENTATION_BYTES = exifWithOrientation(1).length;
 
 // ---------- PNG ----------
 
-/** Chunks to drop: EXIF, text of every kind, and the last-modified time. */
-const PNG_DROP = new Set(["eXIf", "tEXt", "zTXt", "iTXt", "tIME"]);
-
 function stripPng(b: Uint8Array): Uint8Array {
   const kept = new Kept(b);
   kept.copy(0, Math.min(8, b.length));
@@ -189,10 +182,11 @@ function stripWebp(b: Uint8Array): Uint8Array {
     if (i + 8 + size > b.length) return b;
     // An odd chunk has a padding byte, which the last chunk of a file may lack.
     const end = Math.min(i + 8 + size + (size % 2), b.length);
-    if (fourcc !== "EXIF" && fourcc !== "XMP ") {
+    if (!WEBP_DROP.has(fourcc)) {
       const flags = kept.copy(i, end) + 8;
       // VP8X flags announce which optional chunks exist. Clear the EXIF and XMP bits.
-      if (fourcc === "VP8X" && size > 0) kept.out[flags] = (kept.out[flags] ?? 0) & ~0x0c;
+      if (fourcc === "VP8X" && size > 0)
+        kept.out[flags] = (kept.out[flags] ?? 0) & ~VP8X_METADATA_FLAGS;
     }
     i = end;
   }

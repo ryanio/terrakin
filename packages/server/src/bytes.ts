@@ -10,6 +10,10 @@ export const randomBytes = (n: number) => crypto.getRandomValues(new Uint8Array(
 export const toHex = (bytes: Uint8Array) =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
+/** Bytes `start` to `end` as text, a character a byte: a magic number or a four-character code. */
+export const ascii = (bytes: Uint8Array, start: number, end: number) =>
+  String.fromCharCode(...bytes.subarray(start, end));
+
 export const toBase64Url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-")

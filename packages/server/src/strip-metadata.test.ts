@@ -3,6 +3,7 @@ import { runInNewContext } from "node:vm";
 import { crc32 } from "node:zlib";
 import { MEDIA_TYPES } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
+import { JPEG_DROP, PNG_DROP, WEBP_DROP } from "./image-metadata";
 import {
   asText,
   box,
@@ -616,6 +617,49 @@ describe("image metadata", () => {
       ["EXIF", "GPS 37.7749"],
       ["XMP ", "<x>home</x>"],
     );
+
+  // One set of lists says what metadata is (`image-metadata.ts`). Each entry on them carries a
+  // secret here, and has to come out of an uploaded image and out of the same image as a model's
+  // texture, so a list one stripper kept of its own would fail the first entry it lacked.
+  const secret = "Ryan at home";
+  const carrying: [string, Image, Uint8Array][] = [
+    ...[...JPEG_DROP].map((marker): [string, Image, Uint8Array] => [
+      `JPEG segment 0x${marker.toString(16)}`,
+      "image/jpeg",
+      cat([0xff, 0xd8, 0xff, marker, 0, 2 + secret.length], secret, [0xff, 0xda, 0, 2, 0xff, 0xd9]),
+    ]),
+    ...[...PNG_DROP].map((type): [string, Image, Uint8Array] => [
+      `PNG chunk ${type}`,
+      "image/png",
+      png(["IHDR", new Uint8Array(13)], [type, secret], ["IEND", ""]),
+    ]),
+    ...[...WEBP_DROP].map((fourcc): [string, Image, Uint8Array] => [
+      `WebP chunk ${fourcc}`,
+      "image/webp",
+      webp(
+        ["VP8X", [0x0c, 0, 0, 0, 9, 0, 0, 9, 0, 0]],
+        ["VP8 ", [1, 2, 3, 4, 5]],
+        [fourcc, secret],
+      ),
+    ]),
+  ];
+
+  it.each(carrying)("%s comes out of an upload and out of a model's texture", (_, type, image) => {
+    expect(asText(image)).toContain(secret);
+    expect(asText(stripMetadata(image.slice(), type))).not.toContain(secret);
+    const uri = `data:${type};base64,${Buffer.from(image).toString("base64")}`;
+    const out = stripMetadata(
+      glb({ asset: { version: "2.0" }, images: [{ uri }] }),
+      "model/gltf-binary",
+    );
+    expect(out).toBeDefined();
+    const texture = Buffer.from(
+      readGlb(out ?? new Uint8Array()).json.images[0].uri.split(",")[1],
+      "base64",
+    );
+    expect(texture.length).toBe(image.length);
+    expect(texture.includes(secret)).toBe(false);
+  });
 
   setFlagsFromString("--expose-gc");
   const collect: () => void = runInNewContext("gc");

@@ -1,5 +1,6 @@
 import { MEDIA_TYPES, type MediaType } from "@terrakin/protocol";
 import { MEDIA_ID_PATTERN } from "@terrakin/sim";
+import { ascii } from "./bytes";
 
 /**
  * Where uploaded files go. R2 on Cloudflare, a directory or memory locally. Serving public media
@@ -96,9 +97,6 @@ export async function readCapped(
   }
   return out;
 }
-
-const ascii = (bytes: Uint8Array, start: number, end: number) =>
-  String.fromCharCode(...bytes.subarray(start, end));
 
 /** ISO base media brands that browsers play as MP4. HEIC, AVIF, M4A, 3GP and QuickTime aren't here. */
 const MP4_BRANDS = new Set([

@@ -1,3 +1,6 @@
+import { ascii } from "./bytes";
+import { JPEG_DROP, PNG_DROP, VP8X_METADATA_FLAGS, WEBP_DROP } from "./image-metadata";
+
 /**
  * Remove free-form metadata from a binary glTF (.glb) model: every `extras` object, XMP
  * extensions (`KHR_xmp_json_ld`, the older `KHR_xmp`), chunks after the binary one, folders in
@@ -251,9 +254,6 @@ function toDataUri(original: string, bytes: Uint8Array): string {
 
 // ---------- textures, scrubbed in place ----------
 
-const ascii = (b: Uint8Array, start: number, end: number) =>
-  String.fromCharCode(...b.subarray(start, end));
-
 /**
  * Remove EXIF, XMP, IPTC, and comments from an image without changing its length, so nothing
  * around it has to move. True if anything changed. Formats we don't know, and images we can't
@@ -268,7 +268,7 @@ export function scrubImage(b: Uint8Array): boolean {
   return false;
 }
 
-/** APP1 (EXIF, XMP), APP13 (IPTC), and comments keep their markers and lengths; their bytes go. */
+/** Dropped segments (`JPEG_DROP`) keep their markers and lengths; their bytes go. */
 function scrubJpeg(b: Uint8Array): boolean {
   let changed = false;
   let i = 2;
@@ -279,7 +279,7 @@ function scrubJpeg(b: Uint8Array): boolean {
     const length = ((b[i + 2] ?? 0) << 8) | (b[i + 3] ?? 0);
     const end = i + 2 + length;
     if (length < 2 || end > b.length) return changed;
-    if (marker === 0xe1 || marker === 0xed || marker === 0xfe) {
+    if (JPEG_DROP.has(marker)) {
       b.fill(0, i + 4, end);
       changed = true;
     }
@@ -289,7 +289,7 @@ function scrubJpeg(b: Uint8Array): boolean {
 }
 
 /**
- * Text, EXIF, and time chunks become `voId`, a private ancillary chunk every decoder skips, with
+ * Dropped chunks (`PNG_DROP`) become `voId`, a private ancillary chunk every decoder skips, with
  * zeroed data and a fresh CRC.
  */
 function scrubPng(b: Uint8Array): boolean {
@@ -301,13 +301,7 @@ function scrubPng(b: Uint8Array): boolean {
     const type = ascii(b, i + 4, i + 8);
     const end = i + 12 + length;
     if (end > b.length) return changed;
-    if (
-      type === "eXIf" ||
-      type === "tEXt" ||
-      type === "zTXt" ||
-      type === "iTXt" ||
-      type === "tIME"
-    ) {
+    if (PNG_DROP.has(type)) {
       b.set([0x76, 0x6f, 0x49, 0x64], i + 4);
       b.fill(0, i + 8, i + 8 + length);
       view.setUint32(i + 8 + length, crc32(b.subarray(i + 4, i + 8 + length)));
@@ -319,7 +313,7 @@ function scrubPng(b: Uint8Array): boolean {
   return changed;
 }
 
-/** EXIF and XMP chunks become zeroed `JUNK` chunks, and VP8X stops announcing them. */
+/** Dropped chunks (`WEBP_DROP`) become zeroed `JUNK` chunks, and VP8X stops announcing them. */
 function scrubWebp(b: Uint8Array): boolean {
   const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
   let changed = false;
@@ -328,11 +322,11 @@ function scrubWebp(b: Uint8Array): boolean {
     const fourcc = ascii(b, i, i + 4);
     const size = view.getUint32(i + 4, true);
     if (i + 8 + size > b.length) return changed;
-    if (fourcc === "VP8X" && size >= 1 && ((b[i + 8] ?? 0) & 0x0c) !== 0) {
-      b[i + 8] = (b[i + 8] ?? 0) & ~0x0c;
+    if (fourcc === "VP8X" && size >= 1 && ((b[i + 8] ?? 0) & VP8X_METADATA_FLAGS) !== 0) {
+      b[i + 8] = (b[i + 8] ?? 0) & ~VP8X_METADATA_FLAGS;
       changed = true;
     }
-    if (fourcc === "EXIF" || fourcc === "XMP ") {
+    if (WEBP_DROP.has(fourcc)) {
       b.set([0x4a, 0x55, 0x4e, 0x4b], i);
       b.fill(0, i + 8, i + 8 + size);
       changed = true;

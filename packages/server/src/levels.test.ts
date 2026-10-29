@@ -215,12 +215,8 @@ describe("a world that never opened levels", () => {
     expect(logged).not.toContain("open_levels");
     expect(logged).not.toContain("credit_event");
     expect(service.state.progress).toBeUndefined();
-    // Levels are on at terrakin.org (decision 0249) and in every Node world (decision 0373): each
-    // adapter passes the option once, and the Worker has no test route.
+    // Both adapters set levels (world-switches.test.ts), and the Worker has no test route.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker.match(/\blevels\s*:\s*true\b/g)).toHaveLength(1);
-    expect(node.match(/\blevels\s*:\s*true\b/g)).toHaveLength(1);
     expect(worker).not.toMatch(/open-levels|testOpenLevels|open_levels/);
   });
 

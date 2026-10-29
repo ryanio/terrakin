@@ -31,6 +31,7 @@ import { TownsfolkTips, tipsMode } from "./townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "./townsfolk-welcome";
 import { TriageClient, triageConfig } from "./triage";
 import { DAY_LENGTH_MS, WorldService } from "./world-service";
+import { WORLD_SWITCHES } from "./world-switches";
 import { oembedReader } from "./x-link";
 
 // Resolve relative paths from where the user ran the command. `pnpm --filter` runs this file
@@ -97,31 +98,9 @@ const store = dataDir ? new JsonlStore(fromCwd(dataDir)) : new MemoryStore();
 const service = new WorldService({
   store,
   now,
-  days: true,
-  economy: true,
-  items: true,
-  gifts: true,
-  plotPickups: true,
-  finds: true,
-  solidBuildings: true,
-  tableSpots: true,
-  starterDoors: true,
-  shop: true,
-  shopInPerson: true,
-  proposeInPerson: true,
-  scheduleInPerson: true,
-  // The systems terrakin.org runs, so a self-hosted, dev, or e2e world plays the same game. Pottery
-  // and new lands stay the Worker's alone for now.
-  recipes: true,
-  holidayPrices: true,
-  levels: true,
-  jobs: true,
-  jobEdition: 2,
-  pageEdition: 3,
-  circles: true,
-  market: true,
-  bounties: true,
-  presence: true,
+  // The switches terrakin.org runs, so a self-hosted, dev, or e2e world plays the same game.
+  // Pottery, new lands, and the repeat-join cleanup are the Worker's alone (decision 0373).
+  ...WORLD_SWITCHES,
   townEvents,
   townsfolk,
   maintainers,

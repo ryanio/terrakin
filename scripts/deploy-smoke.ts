@@ -35,6 +35,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { WORLD_SWITCHES } from "../packages/server/src/world-switches.ts";
 
 /** What one GET gave back, redirects not followed. */
 export interface Got {
@@ -197,8 +198,9 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
 
 /**
  * The options the Worker's source sets to `true` on its `WorldService`, read from the text of
- * `worker.ts` so the list is the Worker's own. A line may end in a comment. Throws when the call
- * isn't where it looks.
+ * `worker.ts` so the list is the Worker's own: the shared ones (`WORLD_SWITCHES`, where it
+ * spreads them) and its own. A line may end in a comment. Throws when the call isn't where it
+ * looks.
  */
 export function workerSwitches(source: string): string[] {
   const start = source.indexOf("new WorldService({");
@@ -209,6 +211,9 @@ export function workerSwitches(source: string): string[] {
     if (depth === 0 && /^\s*\}\)/.test(line)) return options;
     const option = depth === 0 ? /^\s*(\w+): true,?\s*(?:\/\/.*)?$/.exec(line)?.[1] : undefined;
     if (option) options.push(option);
+    if (depth === 0 && /^\s*\.\.\.WORLD_SWITCHES,?\s*$/.test(line)) {
+      for (const [name, on] of Object.entries(WORLD_SWITCHES)) if (on === true) options.push(name);
+    }
     for (const c of line.replace(/\/\/.*$/, "")) {
       if (c === "{" || c === "(" || c === "[") depth++;
       if (c === "}" || c === ")" || c === "]") depth--;

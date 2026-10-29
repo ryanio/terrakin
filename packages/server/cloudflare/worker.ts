@@ -64,6 +64,7 @@ import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "../src/townsfolk-welcome";
 import { TriageClient, triageConfig } from "../src/triage";
 import { WorldService } from "../src/world-service";
+import { WORLD_SWITCHES } from "../src/world-switches";
 import { rewritePage } from "./meta-rewriter";
 
 /**
@@ -468,26 +469,8 @@ class WorldObject extends DurableObject<Env> {
     const service = new WorldService({
       // Snapshots are written in one transaction; a Durable Object refuses BEGIN.
       store: new SqlStore(ctx.storage.sql, (fn) => ctx.storage.transactionSync(fn)),
-      days: true,
-      economy: true,
-      items: true,
-      gifts: true,
-      plotPickups: true,
-      finds: true,
-      solidBuildings: true,
-      tableSpots: true,
-      starterDoors: true,
-      shop: true,
-      shopInPerson: true,
-      proposeInPerson: true,
-      scheduleInPerson: true,
-      recipes: true,
-      holidayPrices: true,
-      levels: true,
-      jobs: true,
-      jobEdition: 2,
-      pageEdition: 3,
-      circles: true,
+      ...WORLD_SWITCHES,
+      // The switches below run here alone, never on a Node world (decision 0373).
       // Pottery (RFC 0047, Ryan's word 2026-10-23): `open_clay` once items and levels are open,
       // which on terrakin.org they are, so it's logged on the World object's first tick after
       // this deploy, and the jobs board moves to its pottery edition at the next `new_day`.
@@ -499,10 +482,8 @@ class WorldObject extends DurableObject<Env> {
       // Terrakin must never do. `planLand` refuses a plan no walk reaches, and says so when a due
       // island can't be opened, so a bad plan opens nothing rather than stranding a settler.
       lands: true,
+      // Retires terrakin.org's old repeat joins once, by a logged input (decision 0230).
       retireRepeatJoins: true,
-      market: true,
-      bounties: true,
-      presence: true,
       townEvents: townCalendar,
       townsfolk,
       maintainers,

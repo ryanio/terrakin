@@ -290,12 +290,8 @@ describe("a world that never opened jobs", () => {
     const early = threeDays(true, false);
     expect(early.logged).not.toContain("open_jobs");
     expect(early.refused).toEqual([]);
-    // Jobs are on at terrakin.org (decision 0262) and in every Node world (decision 0373): each
-    // adapter passes the option once, and the Worker has no test route.
+    // Both adapters set jobs (world-switches.test.ts), and the Worker has no test route.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker.match(/\bjobs\s*:\s*true\b/g)).toHaveLength(1);
-    expect(node.match(/\bjobs\s*:\s*true\b/g)).toHaveLength(1);
     expect(worker).not.toMatch(/open-jobs|testOpenJobs|open_jobs/);
   });
 
@@ -508,11 +504,6 @@ describe("the jobs edition", () => {
     older.later(DAY_MS);
     expect(older.logged("set_job_edition")).toHaveLength(1);
     expect(older.service.state.jobs?.edition).toBe(2);
-    // terrakin.org reads edition 2 (decision 0265), and so does every Node world (decision 0373).
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker.match(/\bjobEdition\s*:\s*2\b/g)).toHaveLength(1);
-    expect(node.match(/\bjobEdition\s*:\s*2\b/g)).toHaveLength(1);
   });
 });
 

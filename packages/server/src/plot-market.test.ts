@@ -78,11 +78,9 @@ const coins = (t: { service: WorldService }, id: string) => t.service.state.econ
 const UNOPENED = PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market");
 
 describe("the switch that puts plots on sale", () => {
-  it("is set by no adapter, and once set logs the market with the cap of 3, once", async () => {
+  it("has no test route in the Worker, and once set logs the market with the cap of 3, once", async () => {
+    // No adapter sets plotMarket (world-switches.test.ts).
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/\bplotMarket\s*:/);
-    expect(node).not.toMatch(/\bplotMarket\s*:/);
     expect(worker).not.toMatch(/open-plot-market|testOpenPlotMarket|open_plot_market/);
     const now = () => (PLOT_MARKET_DAY + 14) * DAY_MS;
     const opened = async (plotMarket: boolean) => {

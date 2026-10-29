@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 import { RENDERS_PER_MINUTE } from "../packages/server/src/og";
+import { WORLD_SWITCHES } from "../packages/server/src/world-switches";
 import {
   ask,
   checkBuild,
@@ -57,20 +58,23 @@ describe("the Worker's switches", () => {
     );
   });
 
-  it("takes only the world's own options set to true, a trailing comment or not", () => {
+  it("takes the world's options set to true, the shared ones where it spreads them, a trailing comment or not", () => {
     const source = [
       "const service = new WorldService({",
       "  store: new SqlStore(sql, (fn) => {",
       "    inner: true,",
       "  }),",
-      "  days: true,",
+      "  ...WORLD_SWITCHES,",
       "  levels: true, // RFC 0029 {",
       "  market: false,",
       "  townsfolk,",
       "});",
       "const other = { later: true };",
     ].join("\n");
-    expect(workerSwitches(source)).toEqual(["days", "levels"]);
+    const shared = Object.keys(WORLD_SWITCHES).filter(
+      (name) => name !== "jobEdition" && name !== "pageEdition",
+    );
+    expect(workerSwitches(source)).toEqual([...shared, "levels"]);
   });
 
   it("fails loudly on a Worker whose world isn't built where it looks", () => {

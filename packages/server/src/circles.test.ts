@@ -191,12 +191,9 @@ describe("the circles switch", () => {
     expect((await t.call("GET", "/v1/world")).body.circlesOpen).toBe(true);
   });
 
-  it("is passed once by the Worker and once by the Node server", () => {
-    // Circles are on at terrakin.org (decision 0285) and in every Node world (decision 0373).
+  it("has no test route in the Worker", () => {
+    // Both adapters set circles (world-switches.test.ts).
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker.match(/\bcircles\s*:\s*true\b/g)).toHaveLength(1);
-    expect(node.match(/\bcircles\s*:\s*true\b/g)).toHaveLength(1);
     expect(worker).not.toMatch(/open-circles|testOpenCircles|open_circles/);
   });
 });

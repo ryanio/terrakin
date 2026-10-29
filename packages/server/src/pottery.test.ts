@@ -105,11 +105,9 @@ async function start(
 }
 
 describe("a world that never opened clay", () => {
-  it("is switched on by the Worker, never the Node server, and on a test world by its route", () => {
+  it("has no test route in the Worker", () => {
+    // Only the Worker sets clay (world-switches.test.ts); a test world opens it by its route.
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    const node = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-    expect(worker).toMatch(/^\s*clay: true,$/m);
-    expect(node).not.toMatch(/\bclay\s*:/);
     expect(worker).not.toMatch(/open-clay|testOpenClay/);
   });
 

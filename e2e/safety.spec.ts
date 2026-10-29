@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, overflowsSideways, signIn, watchErrors } from "./support";
+import { join, overflowsSideways, signedInAs, signIn, watchErrors } from "./support";
 
 /**
  * RFC 0006 on a phone: a resident reports a post, and a maintainer hides it from the staff app on
@@ -231,18 +231,14 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     await them.goto(url);
     await expect(them.getByText("Your character", { exact: true })).toBeVisible();
     await them.getByRole("button", { name: "Open Terrakin as Foxglove_Ash" }).click();
-    await expect
-      .poll(() => them.evaluate(() => localStorage.getItem("terrakin.resident")))
-      .toBe(lost.id);
+    await signedInAs(them, lost.id);
 
     // Signed out on that phone, the passkey brings them back with no link: offered among the name
     // field's own suggestions, which this test device picks as soon as it is asked.
     await them.evaluate(() => localStorage.clear());
     await them.goto("/world");
     await expect(them.locator("#hud")).toBeVisible();
-    await expect
-      .poll(() => them.evaluate(() => localStorage.getItem("terrakin.resident")))
-      .toBe(lost.id);
+    await signedInAs(them, lost.id);
 
     // On a browser that doesn't offer passkeys among a field's suggestions, they walk in as a
     // guest and tap Sign in, which asks the device for one straight away.
@@ -256,9 +252,7 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     await them.goto("/world");
     await expect(them.locator("#hud")).toHaveAttribute("data-guest", "");
     await them.locator("#hud-signin").click();
-    await expect
-      .poll(() => them.evaluate(() => localStorage.getItem("terrakin.resident")))
-      .toBe(lost.id);
+    await signedInAs(them, lost.id);
     await expect(them.locator("#hud")).not.toHaveAttribute("data-guest");
     await phone.close();
   });

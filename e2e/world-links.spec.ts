@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { persona, read, signIn, skipPasskey, tapTile, watchErrors } from "./support";
+import { persona, read, signedInAs, signIn, skipPasskey, tapTile, watchErrors } from "./support";
 
 /**
  * Links into the world at 390x844 (decision 0162): `/world?at=<resident>` opens looking at that
@@ -108,9 +108,7 @@ test("someone with no character looks at a plot from a link, steps inside, and g
     await expect(page.getByRole("dialog", { name: "Pick a plot" })).toBeHidden();
     await expect(card).toBeVisible();
     await expect(page.locator("#look-card-title")).toHaveText(`${wren.name}'s plot`);
-    const token = await page.evaluate(() => localStorage.getItem("terrakin.token"));
-    const id = await page.evaluate(() => localStorage.getItem("terrakin.resident"));
-    if (!token || !id) throw new Error("not signed in");
+    const { id, token } = await signedInAs(page);
     await page.getByRole("button", { name: "Go there", exact: true }).click();
     await expect.poll(() => plotOf(page, token, id)).toEqual([px, py]);
   });

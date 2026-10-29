@@ -298,6 +298,8 @@ let rods: ReadonlySet<string> = new Set();
  * the pages for them, as `gather` does.
  */
 let knownRecipes: ReadonlySet<string> = new Set();
+/** Whether your things have been asked for since the welcome, answered or not. */
+let holdingsRead = false;
 /** Casts made lately, anyone's, drawn on the water for a moment. */
 let casts: CastMark[] = [];
 /** Fireworks set off lately (RFC 0034), anyone's, bursting on the map for a moment. */
@@ -398,7 +400,7 @@ const look = lookCard({
   },
 });
 /** The chip naming your next first step, in the near-actions slot while it is free. */
-mountNextStep({
+const nextStep = mountNextStep({
   navigate: (path) => navigate?.(path),
   mirror: () => mirror,
   toast: (line) => showToast(line),
@@ -678,6 +680,10 @@ function onMessage(msg: ServerMessage) {
       delete hud.dataset.peek;
       hud.hidden = false;
       worldWait.hidden = true;
+      // The near column takes its shape again for whoever was welcomed.
+      delete canvas.dataset.settled;
+      holdingsRead = false;
+      nextStep.ask();
       snapCamera();
       if (mode === "3d") open3d();
       revealWhenDrawn();
@@ -2193,6 +2199,7 @@ climbButton.addEventListener("click", () => {
 /** Ask what you hold. Quietly nothing when items aren't open or the request fails. */
 async function loadHoldings() {
   const r = await inventoryApi.inventory();
+  holdingsRead = true;
   if (!active || !r.ok) return;
   holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
   pots = potsIn(r.data.inventory?.goods ?? []);
@@ -2582,6 +2589,7 @@ function frame() {
       paintEnterButton();
       followFloor();
     }
+    markNearSettled();
   }
   // Where your figure stands, a guest's too, since only this page knows where a guest is: for
   // tests and tools.
@@ -2638,6 +2646,19 @@ function paintGatherButton() {
   // Gathering happens on the ground floor (RFC 0028): upstairs the sim refuses it.
   const upstairs = upstairsProblem(self() ?? {}, "gather") !== null;
   gatherButton.hidden = (lying === 0 && !gathering) || !hasPlot() || upstairs;
+}
+
+/**
+ * Say on the canvas (`data-settled`) once the near column has taken its first shape, so a tap
+ * waiting for it lands on what will stay there: render state for tests and tools, like `data-at`.
+ * For a resident that is once Gather all has been worked out from the world and your things, and
+ * the next-step chip has its first answer; a guest or someone only looking has no near column, so
+ * it is as soon as the world is in.
+ */
+function markNearSettled() {
+  if (canvas.dataset.settled !== undefined || !mirror || (!self() && !looking)) return;
+  if (me && !(holdingsRead && nextStep.answered())) return;
+  canvas.dataset.settled = "";
 }
 
 gatherButton.addEventListener("click", () => {
@@ -2956,6 +2977,8 @@ export function stopWorld() {
   enterButton.hidden = true;
   rods = new Set();
   knownRecipes = new Set();
+  holdingsRead = false;
+  delete canvas.dataset.settled;
   casts = [];
   bursts = [];
   landing.setJoining(false);

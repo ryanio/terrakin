@@ -180,6 +180,36 @@ export async function signIn(
   else await page.addInitScript(save, [who.token, who.id] as const);
 }
 
+/** Who this page has saved as signed in, read once: `null` for what isn't saved. */
+export async function savedSignIn(
+  page: Page,
+): Promise<{ id: string | null; token: string | null }> {
+  return page.evaluate(() => ({
+    id: localStorage.getItem("terrakin.resident"),
+    token: localStorage.getItem("terrakin.token"),
+  }));
+}
+
+/**
+ * The resident this page is signed in as, once the sign-in has landed. A join or a passkey
+ * finishes after the HUD shows, so this waits for the saved id (`id`, when given, else any) and
+ * a token beside it, rather than reading them the moment the page looks ready.
+ */
+export async function signedInAs(page: Page, id?: string): Promise<{ id: string; token: string }> {
+  let saved = { id: "", token: "" };
+  await expect
+    .poll(
+      async () => {
+        const now = await savedSignIn(page);
+        saved = { id: now.id ?? "", token: now.token ?? "" };
+        return saved.token !== "" && (id ? saved.id === id : saved.id.startsWith("r_"));
+      },
+      `signed in as ${id ?? "someone"}`,
+    )
+    .toBe(true);
+  return saved;
+}
+
 /**
  * Someone with no character opens `/world` and walks the town as a guest (decision 0380): Move in,
  * in Claim plot's place, brings up the card with a name already in it.
@@ -300,11 +330,22 @@ async function settleCamera(page: Page) {
 }
 
 /**
+ * Wait until the world's buttons are where they will stay: the loader a returning resident sees
+ * has stepped aside, and the near column (Gather all, the next-step chip) has taken its first
+ * shape, which the world says with `data-settled` on its canvas. Until then a button can still
+ * land over a tile that was the map a moment before.
+ */
+async function worldSettled(page: Page) {
+  await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
+  await expect(page.locator("#world")).toHaveAttribute("data-settled", "", { timeout: 15_000 });
+}
+
+/**
  * On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (the middle of the screen),
- * once the loader a returning resident sees has stepped aside.
+ * once the world's buttons are where they will stay.
  */
 export async function tapTile(page: Page, dx: number, dy: number) {
-  await expect(page.locator("#world-loader")).toBeHidden({ timeout: 15_000 });
+  await worldSettled(page);
   await settleCamera(page);
   const at = await tilePoint(page, dx, dy);
   await page.mouse.click(at.x, at.y);
@@ -341,6 +382,7 @@ export async function openVisitCard(page: Page) {
  * A spec that picks its own tile asks this first.
  */
 export async function tapsTheMap(page: Page, dx: number, dy: number): Promise<boolean> {
+  await worldSettled(page);
   const at = await tilePoint(page, dx, dy);
   return page.evaluate(
     ([x, y]) => document.elementFromPoint(x as number, y as number)?.tagName === "CANVAS",

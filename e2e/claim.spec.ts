@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openMoveIn, skipPasskey, walkedOnto, watchErrors } from "./support";
+import { openMoveIn, signedInAs, skipPasskey, walkedOnto, watchErrors } from "./support";
 
 /**
  * A newcomer's way home on a phone: Move in from the town square as a guest (decision 0380), the
@@ -18,10 +18,7 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
   await page.fill("#join-name", "Linden");
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
-    .toMatch(/^r_/);
-  const id = await page.evaluate(() => localStorage.getItem("terrakin.resident"));
+  const { id } = await signedInAs(page);
   const world = () => page.request.get("/v1/world").then((r) => r.json());
   const me = async () =>
     (await world()).residents.find((r: { id: string }) => r.id === id) as {

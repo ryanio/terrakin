@@ -5,6 +5,7 @@ import {
   openMoveIn,
   overflowsSideways,
   settleFree,
+  signedInAs,
   signIn,
   watchErrors,
 } from "./support";
@@ -40,10 +41,7 @@ test("a newcomer picks a ginger bun and a cardigan at the door, and wears them o
 
   await page.click("#world-join button[type=submit]");
   await expect(page.locator("#hud")).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
-    .toMatch(/^r_/);
-  const id = await page.evaluate(() => localStorage.getItem("terrakin.resident"));
+  const { id } = await signedInAs(page);
 
   // The join carried the look: the world has it, and the profile draws and says it.
   const world = await (await page.request.get("/v1/world")).json();

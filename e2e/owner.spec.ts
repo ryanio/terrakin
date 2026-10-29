@@ -1,6 +1,6 @@
 import { join as joinPath } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { join, signIn, skipPasskey, watchErrors } from "./support";
+import { join, savedSignIn, signedInAs, signIn, skipPasskey, watchErrors } from "./support";
 
 // New sessions share a small per-IP budget with the other spec files, so joins wait their turn.
 test.setTimeout(120_000);
@@ -176,12 +176,12 @@ test("an AI invites its person, who joins or pastes a key, and confirms on the c
     await page.locator("#claim-key").fill(elm.token);
     await page.getByRole("button", { name: "Use my key" }).click();
     await expect(page.locator("#claim-key-error")).toContainText("Only a person can claim an AI");
-    expect(await page.evaluate(() => localStorage.getItem("terrakin.token"))).toBeNull();
+    expect((await savedSignIn(page)).token).toBeNull();
 
     await page.locator("#claim-key").fill(fern.token);
     await page.getByRole("button", { name: "Use my key" }).click();
     await expect(page.locator(".claim-as")).toHaveText("You're confirming as Flax");
-    expect(await page.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(fern.id);
+    await signedInAs(page, fern.id);
 
     await page.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByRole("heading", { name: "Elm is now your AI" })).toBeVisible();

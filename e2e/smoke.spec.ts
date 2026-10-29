@@ -3,6 +3,7 @@ import {
   join,
   openMoveIn,
   SMOKE_STEPS,
+  signedInAs,
   skipPasskey,
   standingAt,
   tapTile,
@@ -106,10 +107,7 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   });
 
   // Other specs may join an Ada too, so find ours by the id the page saved.
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("terrakin.resident")))
-    .toMatch(/^r_/);
-  const id = await page.evaluate(() => localStorage.getItem("terrakin.resident"));
+  const { id } = await signedInAs(page);
   const me = async () => {
     const world = await page.request.get("/v1/world").then((r) => r.json());
     return world.residents.find((r: { id: string }) => r.id === id);

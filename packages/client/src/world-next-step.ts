@@ -36,6 +36,14 @@ function press(id: string): boolean {
   return true;
 }
 
+/** What the world asks of the chip. */
+export interface NextStepChip {
+  /** Ask the server now: the world has just welcomed you. */
+  ask(): void;
+  /** Whether the server has answered since the last `ask`, so the chip is where it will stay. */
+  answered(): boolean;
+}
+
 /**
  * Put the chip in the world's HUD. `navigate` goes to another page of the site, `mirror` is the
  * world as this page has it, and `toast` is the world's own toast, which shows over the map. Call
@@ -47,10 +55,10 @@ export function mountNextStep(o: {
   toast: (line: string) => void;
   /** The way to the nearest branch or stone you may pick up, in words, when nothing is in reach. */
   nearestPickup: () => string | undefined;
-}) {
+}): NextStepChip {
   const hud = document.getElementById("hud");
   const near = document.querySelector(".world-near");
-  if (!hud || !near) return;
+  if (!hud || !near) return { ask() {}, answered: () => true };
   const label = h("span", { class: "world-next-label" });
   const chip = h(
     "button",
@@ -64,12 +72,14 @@ export function mountNextStep(o: {
 
   let step: StepRow | undefined;
   let asking = false;
+  let answered = false;
   async function refresh() {
     const me = savedResidentId();
     if (asking || hud?.hidden || !me || !savedToken()) return;
     asking = true;
     const r = await firstVisitApi.firstVisit();
     asking = false;
+    answered = true;
     step = r.ok ? nextStep(stepRows(r.data)) : undefined;
     chip.hidden = !step || step.id === "plot";
     if (!step) return;
@@ -154,4 +164,11 @@ export function mountNextStep(o: {
     sheetOpen = open;
   }).observe(root, { attributes: true, attributeFilter: ["class"] });
   everyVisible(REFRESH_MS, () => void refresh());
+  return {
+    ask() {
+      answered = false;
+      void refresh();
+    },
+    answered: () => answered,
+  };
 }

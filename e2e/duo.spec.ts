@@ -4,7 +4,9 @@ import {
   freePlots,
   join,
   overflowsSideways,
+  savedSignIn,
   settleFree,
+  signedInAs,
   signIn,
   skipPasskey,
   watchErrors,
@@ -70,11 +72,7 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   await expect(page).toHaveURL("/world");
   await expect(page.locator("#hud")).toBeVisible();
   await skipPasskey(page);
-  const lina = await page.evaluate(() => ({
-    id: localStorage.getItem("terrakin.resident") ?? "",
-    token: localStorage.getItem("terrakin.token") ?? "",
-  }));
-  expect(lina.token).not.toBe("");
+  const lina = await signedInAs(page);
   const linaAuth = { authorization: `Bearer ${lina.token}` };
 
   const world = await (await page.request.get("/v1/world")).json();
@@ -180,7 +178,7 @@ test("a visitor joins and follows from a profile, and its counts open followers 
 
   await test.step("a profile's counts open its followers and friends", async () => {
     // Marisol follows Teo back, so Teo is a friend and Rue only a follower.
-    const teo = await page.evaluate(() => localStorage.getItem("terrakin.resident") ?? "");
+    const { id: teo } = await signedInAs(page);
     await page.request.put(`/v1/residents/${teo}/follow`, { headers: host.auth });
     await page.reload();
     await page.locator(".profile .stat-link", { hasText: "followers" }).click();
@@ -278,21 +276,16 @@ test("the invite sheet: one link until it's sent, no home to share yet, and a di
   });
 
   await test.step("Use a different key checks the key, then swaps the character here", async () => {
-    const saved = () =>
-      page.evaluate(() => ({
-        token: localStorage.getItem("terrakin.token"),
-        id: localStorage.getItem("terrakin.resident"),
-      }));
     await page.getByText("Use a different key").click();
     await page.locator("#switch-key").fill("not-a-real-key");
     await page.getByRole("button", { name: "Use this key" }).click();
     await expect(page.locator("#switch-key-error")).toContainText("doesn't open any character");
-    expect(await saved()).toEqual({ token: me.token, id: me.id });
+    expect(await savedSignIn(page)).toEqual({ token: me.token, id: me.id });
 
     await page.locator("#switch-key").fill(tam.token);
     await page.getByRole("button", { name: "Use this key" }).click();
     await expect(page).toHaveURL("/world");
-    expect(await saved()).toEqual({ token: tam.token, id: tam.id });
+    expect((await signedInAs(page, tam.id)).token).toBe(tam.token);
   });
 
   expect(errors).toEqual([]);

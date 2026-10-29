@@ -19,6 +19,15 @@
 The line now quotes no name: the answer's `fired` names how it came out, and no finish or kind other than the loaded pot's appears before the kiln opens.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-27-a-way-that-joins-the-commons-counts-even-when-its-first-tile</id>
+    <title>Fixed: A way that joins the Commons counts, even when its first tile is pocketed</title>
+    <updated>2026-10-27T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-27"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">The landlocked check walked from only the first open Commons tile, which blocks and the Town Hall can seal in on the live map, so no way counted as joined and plots whose only exit is a way read as landlocked (issue #118). The walk now starts from every open Commons tile.
+Read-only: no action, event, or replay changes. The nightly landlocked count and a refusal's nearest-free-plot hint now read the way network as laid.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-27-a-resident-s-name-is-letters-numbers-and-underscores</id>
     <title>Changed: A resident's name is letters, numbers, and underscores</title>
     <updated>2026-10-27T00:00:00Z</updated>

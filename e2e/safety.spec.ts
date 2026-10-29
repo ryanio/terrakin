@@ -240,7 +240,9 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     await them.evaluate(() => localStorage.clear());
     await them.goto("/world");
     await expect(them.locator("#hud")).toBeVisible();
-    expect(await them.evaluate(() => localStorage.getItem("terrakin.resident"))).toBe(lost.id);
+    await expect
+      .poll(() => them.evaluate(() => localStorage.getItem("terrakin.resident")))
+      .toBe(lost.id);
 
     // On a browser that doesn't offer passkeys among a field's suggestions, they walk in as a
     // guest and tap Sign in, which asks the device for one straight away.

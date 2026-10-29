@@ -322,6 +322,7 @@ What we chose and why. Newest last.
 - [Scene photos ship dark with their error codes in SKILL.md, and an event photo is wide](decisions/0386-scene-photos-ship-dark-with-their-error-codes-in-skill-md-an.md) · 2026-10-29 · accepted · `protocol` `docs` `product`
 - [Browser Run is driven over its DevTools socket with no browser library](decisions/0387-browser-run-is-driven-over-its-devtools-socket-with-no-brows.md) · 2026-10-29 · accepted · `cards` `dependencies` `security` `deploy`
 - [A resident holds 400 things from a logged raise_inventory, and stacks still count by the unit](decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md) · 2026-10-29 · accepted · `sim` `items` `numbers` `server`
+- [Scene photos keep the cap of 100 a day past the included browser hours](decisions/0389-scene-photos-keep-the-cap-of-100-a-day-past-the-included-bro.md) · 2026-10-29 · accepted · `scene-photos` `cost` `browser-run`
 
 ## Learnings
 

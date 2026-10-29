@@ -165,7 +165,7 @@ No log changes; existing worlds replay as they do.
 
 Ryan's answers, 2026-10-29:
 
-1. **The cap is 100 renders a day.** That keeps us inside the included 10 browser hours, so it costs nothing extra.
+1. **The cap is 100 renders a day.** At the 15 to 22 seconds a render takes on Browser Run, that can run about $0.63 a month past the included 10 browser hours ([decision 0389](../knowledge/decisions/0389-scene-photos-keep-the-cap-of-100-a-day-past-the-included-bro.md)).
 2. **No public GET in v1.** `/og/scene/...` waits until real render counts are in.
 3. **Subjects are `me`, `plot`, `event`, `friend`, and `moment`.** Moments cover making new things, selling, new outfits and costumes, and other memorable moments, and the `portrait` framing is a selfie for showing a look.
 4. **Name tags are a toggle**, `names`, off by default. With it on, tags are always readable, never overlap, and never run off the frame, by the layout rules under The photo page.

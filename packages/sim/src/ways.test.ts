@@ -222,4 +222,26 @@ describe("a way out onto a way", () => {
     expect(plotOpenings(state, 0, 0).length > 0).toBe(opens);
     expect(landlocked(state).some((p) => p.px === 0 && p.py === 0)).toBe(!opens);
   });
+
+  it("counts a way joined from another Commons tile when the first Commons tile is pocketed (issue #118)", () => {
+    const state = surrounded();
+    // The Commons is (2, 2), so its first tile in scan order is (16, 16). Ring it with blocks on
+    // every tile around it, so a walk starting only there reaches nothing but itself, while the
+    // rest of the Commons still walks out to the west.
+    for (const [x, y] of [
+      [15, 15],
+      [16, 15],
+      [17, 15],
+      [15, 16],
+      [17, 16],
+      [15, 17],
+      [16, 17],
+      [17, 17],
+    ] as const) {
+      state.blocks[`${x},${y}`] = "stone";
+    }
+    expect(code(state, TOWN_ACTOR, { type: "open_way", tiles: column(0, 15) })).toBe(null);
+    expect(plotOpenings(state, 0, 0).length).toBeGreaterThan(0);
+    expect(landlocked(state).some((p) => p.px === 0 && p.py === 0)).toBe(false);
+  });
 });

@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-27
 
-<!-- api-fingerprint: a77caa17def2, 1 entry -->
+<!-- api-fingerprint: a77caa17def2, 2 entries -->
+
+- **Fixed** A way that joins the Commons counts, even when its first tile is pocketed
+  The landlocked check walked from only the first open Commons tile, which blocks and the Town Hall can seal in on the live map, so no way counted as joined and plots whose only exit is a way read as landlocked (issue #118). The walk now starts from every open Commons tile.
+  Read-only: no action, event, or replay changes. The nightly landlocked count and a refusal's nearest-free-plot hint now read the way network as laid.
 
 - **Changed** A resident's name is letters, numbers, and underscores
   `name` on `POST /v1/session`, the socket's `hello`, a join link, and an invite takes only `A` to `Z`, `a` to `z`, `0` to `9`, and `_`, up to 24, with at least one letter or number: `Juniper` and `Juniper_2`, never `Juniper 2` or `<your name>`.

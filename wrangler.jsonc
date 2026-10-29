@@ -55,7 +55,10 @@
     "TERRAKIN_WELCOME_VISITS": "on",
     // Townsfolk lessons (packages/server/src/townsfolk-lessons.ts): a townsfolk teaches a specialty
     // to a resident standing near them, once a week each. Nothing happens until recipes are learned.
-    "TERRAKIN_TOWNSFOLK_LESSONS": "on"
+    "TERRAKIN_TOWNSFOLK_LESSONS": "on",
+    // Scene photos (RFC 0049): POST /v1/photos draws the world in 3D with Browser Run, through the
+    // cards Worker's BROWSER binding, 100 a UTC day across the town. Unset, the routes answer 404.
+    "TERRAKIN_SCENE_PHOTOS": "on"
   },
   // The deploy's version id, sent as the Sentry release.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },

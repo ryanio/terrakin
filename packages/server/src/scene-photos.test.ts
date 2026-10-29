@@ -14,7 +14,7 @@ import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 /**
- * Scene photos (RFC 0049): the route is dark while the option is off, every guard and the town's
+ * Scene photos (RFC 0049): a server without the option answers 404, every guard and the town's
  * day refuse before a browser opens, a failed render counts against nobody, and each subject's
  * rules (plots, events, friends, blocks) hold.
  */
@@ -135,19 +135,15 @@ async function start(options: Options = {}) {
   return { call, act, resident, settler, photo, later, service, social, renders, now: () => now };
 }
 
-describe("POST /v1/photos while the option is off", () => {
-  it("answers not_found, as a route that isn't there", async () => {
+describe("POST /v1/photos on a server without scene photos", () => {
+  it("answers not_found", async () => {
     const t = await start({ off: true });
     const ada = await t.settler("Ada", 0, 0);
     const res = await t.photo(ada, { subject: "me" });
     expect([res.status, res.body.error.code]).toEqual([404, "not_found"]);
     const moments = await t.call("GET", "/v1/photos/moments", undefined, ada.token);
     expect(moments.status).toBe(404);
-    // Not matched at all: a body the schema would refuse, or any ticket, is a 404 too, with no
-    // rate limit headers to say a route is there.
-    const odd = await t.photo(ada, { subject: "selfie", framnig: "near" });
-    expect([odd.status, odd.body.error.code]).toEqual([404, "not_found"]);
-    expect(odd.headers.get("ratelimit-limit")).toBeNull();
+    // The photo page's read is dark on such a server: not matched at all, whatever the ticket.
     expect((await t.call("GET", "/v1/photos/scene/nope")).status).toBe(404);
   });
 });

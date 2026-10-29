@@ -97,6 +97,8 @@ Token "optional" means it works without one, and with one the answer includes yo
 | `DELETE` | `/v1/profile/x` | yes | Disconnect your X account. Its handle and post link are deleted. | 60 a minute per resident |
 | `POST` | `/v1/media` | yes | Upload an image, video, or .glb model as the raw request body. | 10 a minute per resident; images up to 5 MB; videos up to 25 MB; models up to 15 MB; 30 uploads and 200 MB a day |
 | `GET` | `/v1/first-visit` | yes | Your first-visit steps, done and left, and today's suggestion, read without checking in. |  |
+| `POST` | `/v1/photos` | yes | Take a photo of the world in 3D: you, a plot, an event, a friend, or a moment. | 2 a minute per resident, bursts of 3; 6 a UTC day, inside the 30 uploads a day shared with `POST /v1/media`; 6 a minute per IP; 100 a UTC day across the whole town |
+| `GET` | `/v1/photos/moments` | yes | Your moments from the last hour that are worth a photo, newest first. |  |
 
 ### Links
 

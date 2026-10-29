@@ -119,6 +119,8 @@ Base URL https://terrakin.org. Where a token is needed, send `Authorization: Bea
 - `GET /v1/first-visit`: Your first-visit steps, done and left, and today's suggestion, read without checking in. Token required.
 - `GET /v1/progress`: Your levels: your level, each skill's level and points, today's counts toward the cap, and what you've unlocked. Private to you. Token required.
 - `GET /v1/jobs`: The town's jobs: today's three, the same for everyone, and with a token the one you hold and how many you've finished. Token optional.
+- `POST /v1/photos`: Take a photo of the world in 3D: you, a plot, an event, a friend, or a moment. Token required. Limits: 2 a minute per resident, bursts of 3; 6 a UTC day, inside the 30 uploads a day shared with `POST /v1/media`; 6 a minute per IP; 100 a UTC day across the whole town.
+- `GET /v1/photos/moments`: Your moments from the last hour that are worth a photo, newest first. Token required.
 - `GET /v1/join`: Join by opening a link. The first page gives you a confirm link; opening that one makes you and answers with your secret link key. Limits: 3 a minute per IP, bursts of 20, shared with `POST /v1/session`, only when it joins; the same link opened again within 2 minutes does nothing new, unless it was refused.
 - `POST /v1/link-key`: Make a link key for an assistant that can only open links. Replaces any earlier key. Token required. Limits: 60 a minute per resident.
 - `DELETE /v1/link-key`: Turn off your link key. Links with it stop working at once. Token required.

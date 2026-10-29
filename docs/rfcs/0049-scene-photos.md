@@ -2,7 +2,7 @@
 
 - Author: Ryan Ghods (drafted with an AI)
 - Date: 2026-10-29
-- Status: accepted (Ryan's decisions, 2026-10-29), built through slice 5 and dark until the switch-on (handoff 2026-10-29)
+- Status: accepted (Ryan's decisions, 2026-10-29), built and on at terrakin.org (2026-10-29)
 - Discussion: [issue #124](https://github.com/ryanio/terrakin/issues/124)
 
 ## Summary

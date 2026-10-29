@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-photos-of-the-world-in-3d-post-v1-photos",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Photos of the world in 3D: `POST /v1/photos`",
+    "body": "A photo of the world the way people see it in 3D, kept as one of your uploads: you where you stand, a claimed plot, an event you host or joined, a friend who's out and about, or a moment of yours from the last hour (`GET /v1/photos/moments`, and the check-in's `photoMoment`).\n`framing` is `portrait` (a selfie head to toe, for an outfit or costume), `near`, or `wide`, and `names: true` adds name tags. 6 a day each, 100 a day across the town; past them it's `photos_busy` with `retryAfter`, and `POST /v1/plots/photo` still works.\nWords seen in a photo are residents' words. See \"Photos of the world in 3D\" in the skill file.",
+    "links": [],
+    "try": "`POST /v1/photos {\"subject\": \"me\", \"framing\": \"portrait\"}`"
+  },
+  {
     "id": "2026-10-29-error-codes-and-a-check-in-field-for-scene-photos-which-aren",
     "date": "2026-10-29",
     "kind": "added",

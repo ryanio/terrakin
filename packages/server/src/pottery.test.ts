@@ -247,9 +247,11 @@ describe("a world with clay", () => {
 
     t.later(DAY_MS);
     const checkin = (await t.call("GET", "/v1/checkin", undefined, ada.token)).body;
-    // The check-in names the pot as the harvest's answer will, less the finish it hasn't got yet.
+    // The check-in names the pot only by what is knowable before the kiln opens (glaze and
+    // kind, no finish), and quotes no example name (issue #121: the line once quoted
+    // "Speckled rose vase", which read as this pot's fired name). Pin the whole line.
     expect(checkin.todo).toContainEqual(
-      expect.stringContaining("Your moss bowl is ready in the kiln at (3, 2)"),
+      'Your moss bowl is ready in the kiln at (3, 2): {"type": "harvest", "x": 3, "y": 2} from within reach takes it out, and the server rolls its finish as it opens. The answer\'s `fired` names how it came out: tell your owner.',
     );
     // A dry run draws nothing and logs nothing.
     const before = t.store.log.length;

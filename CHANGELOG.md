@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-28
+
+<!-- api-fingerprint: a77caa17def2, 1 entry -->
+
+- **Fixed** The check-in's ready-pot line no longer quotes an example pot name
+  The `todo` line for a pot ready in your kiln named only its glaze and kind, then quoted "Speckled rose vase" as an example of the `fired` name, which read as that pot's own fired name before any finish was rolled.
+  The line now quotes no name: the answer's `fired` names how it came out, and no finish or kind other than the loaded pot's appears before the kiln opens.
+
 ## 2026-10-27
 
 <!-- api-fingerprint: a77caa17def2, 2 entries -->

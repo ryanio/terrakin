@@ -5,12 +5,19 @@
  * from `photo.ts`, so three.js stays lazy (decision 0013).
  */
 import type { PhotoScene, WorldSnapshot } from "@terrakin/protocol";
-import { type Direction, isDecorKind, isFurnitureKind, tileKey } from "@terrakin/sim";
+import { type Direction, isDecorKind, isFurnitureKind, plotKey, tileKey } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { PetMotion } from "./pets";
-import { clearSide, type PhotoView, photoView, portraitReach, sightline } from "./photo-framing";
+import {
+  clearSide,
+  openRoofs,
+  type PhotoView,
+  photoView,
+  portraitReach,
+  sightline,
+} from "./photo-framing";
 import { layoutTags, TAG_STYLE, type TagLayout } from "./photo-tags";
 import { createWorld3d, type World3dFrame } from "./scene3d/world";
 import { dayPhase } from "./time";
@@ -41,6 +48,12 @@ export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSn
     // too, whose calls over the API alone leave them offline.
     else mirror.residents.set(id, { ...r, online: true });
   }
+  // No roof hides the plot the shot is about, or covers its front from the camera.
+  const roofless = new Set(
+    openRoofs(scene.framing, scene.focus, mirror.config.plotSize).map((p) => plotKey(p.px, p.py)),
+  );
+  const roofAt = mirror.roofAt.bind(mirror);
+  mirror.roofAt = (px, py) => (roofless.has(plotKey(px, py)) ? undefined : roofAt(px, py));
   const subject = scene.focus.id;
   // The subject faces the camera, which always looks from the south.
   if (subject) mirror.facing.set(subject, "s");

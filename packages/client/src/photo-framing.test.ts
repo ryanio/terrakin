@@ -3,6 +3,7 @@ import {
   clearSide,
   heightShare,
   NEAR_ACROSS,
+  openRoofs,
   type PhotoFramingName,
   PORTRAIT_FILL,
   photoView,
@@ -94,5 +95,16 @@ describe("scene photo framings", () => {
     const east = sightline(tile, { x: 1, z: 0 }, 4).map((t) => `${t.x},${t.y}`);
     expect(east).toContain("12,10");
     expect(east).not.toContain("10,12");
+  });
+
+  it("takes the roofs off the plot a near or wide shot is about and the plot in front of it", () => {
+    // Plot (5, 3) of 8-tile plots; the camera looks from the south, over plot (5, 4).
+    const focus = { x: 5 * 8 + 3, y: 3 * 8 + 2 };
+    for (const framing of ["near", "wide"] as const)
+      expect(openRoofs(framing, focus, 8)).toEqual([
+        { px: 5, py: 3 },
+        { px: 5, py: 4 },
+      ]);
+    expect(openRoofs("portrait", focus, 8)).toEqual([]);
   });
 });

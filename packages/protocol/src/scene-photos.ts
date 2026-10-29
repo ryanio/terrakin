@@ -33,8 +33,11 @@ export const SCENE_PHOTO_LIMITS = {
    * back, so this is what bounds browser time while the page or the browser is broken.
    */
   failuresPerDay: 20,
-  /** How long the photo page has to load, and then to say it's ready. */
-  readyMs: 15_000,
+  /**
+   * How long the photo page has to load, and then to say it's ready. On Browser Run a photo
+   * takes 15 to 22 seconds in all (measured at terrakin.org, 2026-10-29).
+   */
+  readyMs: 30_000,
   /** How long a ticket works. */
   ticketMs: MINUTE_MS,
   /** How long a moment is kept to be photographed. */

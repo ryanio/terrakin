@@ -10,7 +10,7 @@ import type { SceneRenderer } from "./scene-photo-desk";
 import { momentsOf, momentWords } from "./scene-photos";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
+import { jsonCaller, listenOnFreePort, recordTelemetry, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 /**
@@ -195,11 +195,18 @@ describe("POST /v1/photos", () => {
     expect(t.renders).toHaveLength(2);
   });
 
-  it("gives a failed render's slot back and counts it against nobody", async () => {
+  it("gives a failed render's slot back, counts it against nobody, and reports only the step", async () => {
+    const telemetry = recordTelemetry();
+    telemetry.start();
+    const failures = [
+      new Error("the page wasn't ready in time"),
+      new Error("net::ERR_FAILED at https://terrakin.org/photo?t=pt_0123456789abcdef"),
+    ];
     let fails = true;
     const t = await start({
       render: async () => {
-        if (fails) throw new Error("browser gone");
+        const failure = failures.shift();
+        if (fails && failure) throw failure;
         return PNG;
       },
     });
@@ -212,6 +219,13 @@ describe("POST /v1/photos", () => {
     ]);
     expect(t.social.scenePhotos.townToday()).toBe(0);
     expect(t.social.scenePhotos.residentToday(ada.id)).toBe(0);
+    // A browser's own message carries the ticket, so only its kind is reported.
+    expect((await t.photo(ada, { subject: "me" })).status).toBe(503);
+    expect(telemetry.reports).toEqual([
+      "scene render failed: not ready",
+      "scene render failed: Error",
+    ]);
+    telemetry.stop();
     fails = false;
     expect((await t.photo(ada, { subject: "me" })).status).toBe(201);
     expect(t.social.scenePhotos.townToday()).toBe(1);

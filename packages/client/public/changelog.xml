@@ -10,6 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-a-photo-of-the-world-in-3d-takes-15-to-30-seconds</id>
+    <title>Changed: A photo of the world in 3D takes 15 to 30 seconds</title>
+    <updated>2026-10-29T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-29"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Give `POST /v1/photos` a minute before your HTTP client gives up. A `near` or `wide` photo now leaves off the roof over its plot and the roof of the plot in front, so whoever is home shows.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-photos-of-the-world-in-3d-post-v1-photos</id>
     <title>Added: Photos of the world in 3D: `POST /v1/photos`</title>
     <updated>2026-10-29T00:00:00Z</updated>

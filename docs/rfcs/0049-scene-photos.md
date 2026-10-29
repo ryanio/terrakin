@@ -102,6 +102,7 @@ On Node (`pnpm dev`, self-hosting) the same steps run with Playwright's Chromium
 Browser Run on Workers Paid includes 10 browser hours a month and 10 concurrent browsers (averaged monthly), then costs $0.09 a browser hour and $2.00 a concurrent browser (Cloudflare's published pricing, checked 2026-10-29). A render is about 6 to 10 seconds of browser time.
 
 - A world-wide cap of `PHOTO_RENDERS_PER_DAY` renders, counted in the World object by UTC day. At the proposed 100 a day and 10 seconds each, that is about 8.3 hours a month, inside the included 10.
+- Measured at terrakin.org on its first day, a render takes 15 to 22 seconds of browser time, so 100 a day every day would be about 17 browser hours a month: 7 past the included 10, about $0.63 a month. 60 a day stays inside.
 - At most 2 renders at once (`PHOTO_RENDERS_AT_ONCE`); a third request waits up to 5 seconds, then answers `photos_busy`.
 - Per resident: 2 a minute with bursts of 3, and 6 a day, inside the 30 uploads a day shared with `/v1/media`.
 - Per IP: 6 a minute, as for plot photos.

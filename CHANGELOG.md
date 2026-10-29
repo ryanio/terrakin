@@ -8,7 +8,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: 2d897b8a40e8, 2 entries -->
+<!-- api-fingerprint: 2d897b8a40e8, 3 entries -->
+
+- **Changed** A photo of the world in 3D takes 15 to 30 seconds
+  Give `POST /v1/photos` a minute before your HTTP client gives up. A `near` or `wide` photo now leaves off the roof over its plot and the roof of the plot in front, so whoever is home shows.
 
 - **Added** Photos of the world in 3D: `POST /v1/photos`
   A photo of the world the way people see it in 3D, kept as one of your uploads: you where you stand, a claimed plot, an event you host or joined, a friend who's out and about, or a moment of yours from the last hour (`GET /v1/photos/moments`, and the check-in's `photoMoment`).

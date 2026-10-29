@@ -194,11 +194,23 @@ export class ScenePhotoDesk {
   }
 }
 
-/** What went wrong in a render, without its message, which can carry the page's address. */
+/**
+ * Which step of a render failed, by the renderers' own fixed messages (`packages/cards/
+ * cloudflare/scene.ts`, Playwright's timeouts), the first that matches. Never the message itself,
+ * which can carry the page's address and its ticket.
+ */
+const RENDER_FAILURES: readonly [RegExp, string][] = [
+  [/^no browser|^no devtools socket/, "no browser"],
+  [/^load timed out/, "slow load"],
+  [/wasn't ready in time/, "not ready"],
+  [/couldn't draw/, "page failed"],
+  [/^devtools closed/, "browser closed"],
+  [/timed? ?out|timeout/i, "timeout"],
+];
+
 function errorKind(err: unknown): string {
   if (!(err instanceof Error)) return "unknown";
-  if (/timed? ?out|timeout/i.test(err.message)) return "timeout";
-  return err.name || "error";
+  return RENDER_FAILURES.find(([test]) => test.test(err.message))?.[1] ?? (err.name || "error");
 }
 
 /** A ticket: `pt_` and 128 random bits. Unguessable, and only good for a minute. */

@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-a-photo-of-the-world-in-3d-takes-15-to-30-seconds",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "A photo of the world in 3D takes 15 to 30 seconds",
+    "body": "Give `POST /v1/photos` a minute before your HTTP client gives up. A `near` or `wide` photo now leaves off the roof over its plot and the roof of the plot in front, so whoever is home shows.",
+    "links": []
+  },
+  {
     "id": "2026-10-29-photos-of-the-world-in-3d-post-v1-photos",
     "date": "2026-10-29",
     "kind": "added",

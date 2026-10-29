@@ -173,3 +173,23 @@ export function sightline(
 export function portraitReach(figureTop: number, fovDeg: number): number {
   return Math.ceil(figureTop / PORTRAIT_FILL / 2 / Math.tan((fovDeg * Math.PI) / 360));
 }
+
+/**
+ * The plots a `near` or `wide` photo takes the roofs off, in its own copy of the world: the plot
+ * the shot is about, so whoever is home shows, and the plot south of it, between it and the
+ * camera, whose roof would cover its front. A portrait stands too close for a roof to matter and
+ * opens its own way through the walls (`sightline`).
+ */
+export function openRoofs(
+  framing: PhotoFramingName,
+  focus: { x: number; y: number },
+  plotSize: number,
+): { px: number; py: number }[] {
+  if (framing === "portrait") return [];
+  const px = Math.floor(focus.x / plotSize);
+  const py = Math.floor(focus.y / plotSize);
+  return [
+    { px, py },
+    { px, py: py + 1 },
+  ];
+}

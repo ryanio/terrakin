@@ -207,6 +207,35 @@ export function scrubEvent<T extends object>(event: T, token: string | null): T 
   return scrubValue(JSON.parse(json), 0) as T;
 }
 
+/** A script a browser extension injected: a wallet, a password manager, an ad blocker. */
+const EXTENSION_URL =
+  /^(?:chrome|moz|safari(?:-web)?|ms-browser)-extension:\/\/|^webkit-masked-url:/;
+/** Any URL in a line of a stack trace, like `at o (chrome-extension://abc/background.js:4:8)`. */
+const URL_IN_STACK = /[a-z][a-z-]*:\/\/[^\s)]+|webkit-masked-url:[^\s)]+/g;
+
+/**
+ * True when every script an error passed through belongs to a browser extension, so it isn't
+ * ours to fix. A promise an extension rejects with a plain object (a wallet's "disconnected from
+ * all chains") reaches Sentry with no frames, only the object under `extra.__serialized__`, so its
+ * `stack` text counts too. An error with no URLs at all is kept.
+ */
+export function fromBrowserExtension(event: {
+  exception?: { values?: { stacktrace?: { frames?: { filename?: string }[] } }[] };
+  extra?: Record<string, unknown>;
+}): boolean {
+  const urls = (event.exception?.values ?? []).flatMap((v) =>
+    (v.stacktrace?.frames ?? []).map((f) => f.filename ?? ""),
+  );
+  const serialized = event.extra?.__serialized__;
+  const stack =
+    serialized && typeof serialized === "object"
+      ? (serialized as { stack?: unknown }).stack
+      : undefined;
+  if (typeof stack === "string") urls.push(...(stack.match(URL_IN_STACK) ?? []));
+  const known = urls.filter((u) => u && u !== "<anonymous>");
+  return known.length > 0 && known.every((u) => EXTENSION_URL.test(u));
+}
+
 /** Span attributes that hold a URL. Their query strings go; the rest is templated by `scrubEvent`. */
 const SPAN_URL_KEYS = ["url", "url.full", "http.url", "http.target"];
 
@@ -324,7 +353,8 @@ export async function initErrorReporting() {
         new RegExp(`^${window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/v1/`),
       ],
       beforeBreadcrumb: (crumb, hint) => filterBreadcrumb(crumb, hint),
-      beforeSend: (event: ErrorEvent) => scrubEvent(event, savedToken()),
+      beforeSend: (event: ErrorEvent) =>
+        fromBrowserExtension(event) ? null : scrubEvent(event, savedToken()),
       beforeSendSpan: (span) => scrubSpan(span, savedToken()),
     });
   } catch {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { populationLine } from "./landing";
 import {
   filterBreadcrumb,
+  fromBrowserExtension,
   isProductionSite,
   pageView,
   scrubEvent,
@@ -159,6 +160,46 @@ describe("error reports carry nothing private", () => {
     const crumb = { category: "ui.click", message: 'a[title="photo of Wren.png"]' };
     expect(filterBreadcrumb(crumb)).toBeNull();
     expect(filterBreadcrumb(crumb, { event: { target: null } })).toBeNull();
+  });
+});
+
+describe("error reports are ours to fix", () => {
+  const frames = (...filenames: string[]) => ({
+    exception: {
+      values: [{ stacktrace: { frames: filenames.map((filename) => ({ filename })) } }],
+    },
+  });
+
+  it("drops an error whose every frame is a browser extension's", () => {
+    expect(fromBrowserExtension(frames("chrome-extension://abc/inpage.js"))).toBe(true);
+    expect(
+      fromBrowserExtension(frames("moz-extension://x/content.js", "webkit-masked-url://hidden/")),
+    ).toBe(true);
+  });
+
+  it("drops a wallet's rejected plain object, known only by its serialized stack", () => {
+    const event = {
+      exception: { values: [{}] },
+      extra: {
+        __serialized__: {
+          code: 4900,
+          message: "The provider is disconnected from all chains.",
+          stack:
+            "Error: The provider is disconnected from all chains.\n    at o (chrome-extension://acm/background.js:4:8452536)\n    at chrome-extension://acm/background.js:4:10318288",
+        },
+      },
+    };
+    expect(fromBrowserExtension(event)).toBe(true);
+  });
+
+  it("keeps an error that passed through our own code, or that names no script", () => {
+    expect(
+      fromBrowserExtension(
+        frames("chrome-extension://abc/inpage.js", "https://terrakin.org/assets/index.js"),
+      ),
+    ).toBe(false);
+    expect(fromBrowserExtension(frames("https://terrakin.org/assets/world.js"))).toBe(false);
+    expect(fromBrowserExtension({ exception: { values: [{}] } })).toBe(false);
   });
 });
 

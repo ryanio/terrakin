@@ -13,10 +13,10 @@ import {
   countOf,
   GATHER_HINT,
   held,
-  ITEMS,
   type ItemsChecked,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   isResourceKind,
   type StackKind,
@@ -200,10 +200,10 @@ export function checkLift(
     if (shut) return shut;
     items = state.items as ItemsState;
     const back = needs.reduce((sum, [, n]) => sum + n, 0);
-    if (inventorySize(items.inventories[actor]) + back > ITEMS.inventoryMax) {
+    if (inventorySize(items.inventories[actor]) + back > inventoryMaxOf(state)) {
       return refuse(
         "inventory_full",
-        `You can hold ${ITEMS.inventoryMax} things, and lifting this gives back ${needsWords(needs)}. Make, place, or give something first.`,
+        `You can hold ${inventoryMaxOf(state)} things, and lifting this gives back ${needsWords(needs)}. Make, place, or give something first.`,
       );
     }
   }

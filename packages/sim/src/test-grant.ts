@@ -1,7 +1,7 @@
 import { STACK_KINDS, type StackKind } from "./catalog";
 import { isWhole, refuse } from "./check";
 import { movePurse, moveTreasury } from "./economy";
-import { addStack, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
+import { addStack, inventory, inventoryEvent, inventoryMaxOf, inventorySize } from "./items";
 import { residentById } from "./own";
 import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 
@@ -16,8 +16,8 @@ import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 
 type Mutation = () => WorldEvent[];
 
-/** The most a single grant gives: enough for any test, small enough to spot by eye. */
-export const TEST_GRANT = { coinsMax: 100_000, unitsMax: ITEMS.inventoryMax } as const;
+/** The most coins a single grant gives: enough for any test, small enough to spot by eye. Things stop at the world's cap. */
+export const TEST_GRANT = { coinsMax: 100_000 } as const;
 
 export function checkTestGrant(
   state: WorldState,
@@ -43,8 +43,8 @@ export function checkTestGrant(
   }
   if (stacks.length > 0 && !items) return refuse("items_closed", "Items aren't open yet.");
   const units = stacks.reduce((n, [, count]) => n + count, 0);
-  if (items && inventorySize(items.inventories[command.to]) + units > TEST_GRANT.unitsMax) {
-    return refuse("inventory_full", `A resident holds at most ${TEST_GRANT.unitsMax} things.`);
+  if (items && inventorySize(items.inventories[command.to]) + units > inventoryMaxOf(state)) {
+    return refuse("inventory_full", `A resident holds at most ${inventoryMaxOf(state)} things.`);
   }
   if (coins === 0 && stacks.length === 0) return refuse("invalid_amount", "Grant something.");
   const at = { seq: state.seq + 1, day: state.day ?? 0 };

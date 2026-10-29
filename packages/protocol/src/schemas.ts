@@ -2429,6 +2429,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("shop_share_set"), percent: z.number().int().min(0).max(100) }),
   /** From now on, Halloween's costumes and decor cost less at the town shop (`GET /v1/shop`). */
   z.object({ type: z.literal("holiday_prices_lowered") }),
+  /** From now on, a resident holds up to `max` things (`rules.inventoryMax` in `GET /v1/inventory`). */
+  z.object({ type: z.literal("inventory_raised"), max: z.number().int().positive() }),
   /** From now on, buying and selling need you at the shop's counter (`shopInPerson`, RFC 0042). */
   z.object({ type: z.literal("shop_in_person_set") }),
   /** From now on, filing a proposal needs you at the Town Hall (`proposeInPerson`, RFC 0042). */

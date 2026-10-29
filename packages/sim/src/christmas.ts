@@ -6,7 +6,14 @@
  */
 import { refuse } from "./check";
 import { isTownsfolk } from "./economy";
-import { addStack, closed, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
+import {
+  addStack,
+  closed,
+  inventory,
+  inventoryEvent,
+  inventoryMaxOf,
+  inventorySize,
+} from "./items";
 import { own, residentById } from "./own";
 import { dateOfDay, dayOfDate } from "./season";
 import {
@@ -105,7 +112,7 @@ export function checkOpenPresent(
   if (day < openDayOf(present.day)) {
     return refuse("not_yet", `Presents open from December ${PRESENTS.openFrom}. Not long now.`);
   }
-  if (inventorySize(own(items.inventories, actor)) + present.count > ITEMS.inventoryMax) {
+  if (inventorySize(own(items.inventories, actor)) + present.count > inventoryMaxOf(state)) {
     return refuse("inventory_full", "Make room in your things first: it won't fit.");
   }
   return () => unwrap(items, present);
@@ -172,7 +179,7 @@ export function presentsNewDay(state: WorldState, day: number): Mutation | null 
   return () => {
     const events: WorldEvent[] = [];
     for (const present of due.sort((a, b) => Number(a.id.slice(8)) - Number(b.id.slice(8)))) {
-      const room = ITEMS.inventoryMax - inventorySize(own(items.inventories, present.to));
+      const room = inventoryMaxOf(state) - inventorySize(own(items.inventories, present.to));
       if (present.count <= room) events.push(...unwrap(items, present));
     }
     return events;

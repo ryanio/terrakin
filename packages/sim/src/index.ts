@@ -331,6 +331,7 @@ export {
   type ItemCategory,
   type ItemInfo,
   type ItemKind,
+  inventoryMaxOf,
   inventoryOf,
   inventorySize,
   isDecorKind,

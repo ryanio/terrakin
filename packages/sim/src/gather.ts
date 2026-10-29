@@ -7,10 +7,10 @@ import {
   addStack,
   closed,
   type FindKind,
-  ITEMS,
   type ItemsChecked,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   type ResourceKind,
   reachProblem,
@@ -579,7 +579,7 @@ function checkGatherAll(
     if (knows(state, actor, recipe) || pages.some((p) => p.recipe === recipe)) knownPage ??= recipe;
     else pages.push({ at, recipe });
   }
-  const room = ITEMS.inventoryMax - inventorySize(items.inventories[actor]);
+  const room = inventoryMaxOf(state) - inventorySize(items.inventories[actor]);
   const fits = Math.floor(room / GATHER.perPickup);
   if (pages.length === 0 && stacks.length === 0 && knownPage) {
     return refuse(
@@ -590,7 +590,7 @@ function checkGatherAll(
   if (fits < 1 && pages.length === 0) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things. Make or give something first.`,
+      `You can hold ${inventoryMaxOf(state)} things. Make or give something first.`,
     );
   }
   const kept = new Set(stacks.slice(0, Math.max(0, fits)));
@@ -706,10 +706,10 @@ export function checkGather(
       ];
     };
   }
-  if (inventorySize(items.inventories[actor]) + GATHER.perPickup > ITEMS.inventoryMax) {
+  if (inventorySize(items.inventories[actor]) + GATHER.perPickup > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things. Make or give something first.`,
+      `You can hold ${inventoryMaxOf(state)} things. Make or give something first.`,
     );
   }
   if (kind === "clay" && clayLeftToday(state, actor) < GATHER.perPickup) return clayLimit();

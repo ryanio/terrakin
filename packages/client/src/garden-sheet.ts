@@ -368,7 +368,7 @@ export function openTileSheet(o: TileSheetOptions) {
         const ready = growthLine(o.planting.readyDay, inv.day);
         // The sim's own checks, so the sheet never disagrees with what harvest would answer.
         const ripe = isReady(o.planting.readyDay, inv.day);
-        const full = !harvestFits(inv.size, o.planting.crop);
+        const full = !harvestFits(inv.size, o.planting.crop, rules.inventoryMax);
         hint.textContent = `${thingName(o.planting.crop)}: ${ready.toLowerCase()}.`;
         list.replaceChildren(
           row(

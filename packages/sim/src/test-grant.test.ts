@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { hashWorld } from "./hash";
+import { inventoryMaxOf } from "./items";
 import { TEST_GRANT } from "./test-grant";
 import { expectSupplyHolds } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldConfig } from "./types";
@@ -80,7 +81,7 @@ describe("test_grant", () => {
     expect(grant({ stacks: { dragon: 1 } })).toBe("unknown_item");
     expect(grant({ stacks: JSON.parse('{"__proto__": 1}') })).toBe("unknown_item");
     expect(grant({ stacks: { wood: 0 } })).toBe("invalid_amount");
-    expect(grant({ stacks: { wood: TEST_GRANT.unitsMax + 1 } })).toBe("inventory_full");
+    expect(grant({ stacks: { wood: inventoryMaxOf(w.state) + 1 } })).toBe("inventory_full");
   });
 
   it("waits for coins and items to open", () => {

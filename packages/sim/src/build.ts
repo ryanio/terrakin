@@ -25,9 +25,9 @@ import {
   countOf,
   GATHER_HINT,
   held,
-  ITEMS,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   isDecorKind,
   isResourceKind,
@@ -512,10 +512,10 @@ export function planBuild(
       );
     }
     const net = plan.changes.reduce((sum, c) => sum + c.amount, 0);
-    if (net > 0 && inventorySize(inv) + net > ITEMS.inventoryMax) {
+    if (net > 0 && inventorySize(inv) + net > inventoryMaxOf(state)) {
       return refuse(
         "inventory_full",
-        `This plan gives you back ${net} more things than it uses, and you can hold ${ITEMS.inventoryMax}. Make, place, or give something first.`,
+        `This plan gives you back ${net} more things than it uses, and you can hold ${inventoryMaxOf(state)}. Make, place, or give something first.`,
       );
     }
   }

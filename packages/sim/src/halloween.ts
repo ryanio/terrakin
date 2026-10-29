@@ -22,7 +22,15 @@ import {
   monthDateName,
   nextDayOn,
 } from "./holiday";
-import { addStack, closed, held, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
+import {
+  addStack,
+  closed,
+  held,
+  inventory,
+  inventoryEvent,
+  inventoryMaxOf,
+  inventorySize,
+} from "./items";
 import { plotKey, tileKey } from "./keys";
 import { residentById } from "./own";
 import { dateOfDay } from "./season";
@@ -211,10 +219,10 @@ export function checkTrickOrTreat(
       `You've knocked on ${TRICK_OR_TREAT.doorsPerDay} doors tonight, which is all one night has. Enjoy your candy.`,
     );
   }
-  if (inventorySize(items.inventories[actor]) + 1 > ITEMS.inventoryMax) {
+  if (inventorySize(items.inventories[actor]) + 1 > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and a candy needs room for one more.`,
+      `You can hold ${inventoryMaxOf(state)} things, and a candy needs room for one more.`,
     );
   }
   const candy = candyFor(state, plot);

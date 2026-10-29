@@ -83,8 +83,8 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - Nothing about items runs until `open_items`; `src/fixtures/items-log.ts` pins a log on top of the post-economy one.
 - Growth reads only `state.day` (`plantedDay`, `readyDay`), so `new_day` changes nothing about crops and a skipped day counts like any other.
 - The first pantry gives `STARTER_SEEDS` and every pantry tops up `PANTRY_STAPLES`, both frozen, so a new seed or staple never changes what an old pantry gave. `catalog.test.ts` pins them. Read the pantry's numbers through `pantryNumbers(state)`.
-- Every unit counts toward `inventoryMax`. A made thing keeps its id, maker, and made day wherever it goes. Inventories are private: an `inventory` event belongs to its `residentId`; `planted`, `harvested`, `gathered`, and `item_given` (no count, no note) are public.
-- Anything that goes back to a resident whose things are full is held aside (`items.heldAside`) and returned in `prepare()`'s commit with their first input that leaves room. Nothing goes past `inventoryMax`.
+- Every unit counts toward the cap, which rules read through `inventoryMaxOf(state)`: 200, or 400 once `raise_inventory` is logged ([decision 0388](../../docs/knowledge/decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md)). `src/fixtures/raised-inventory-log.ts` pins both sides. A made thing keeps its id, maker, and made day wherever it goes. Inventories are private: an `inventory` event belongs to its `residentId`; `planted`, `harvested`, `gathered`, and `item_given` (no count, no note) are public.
+- Anything that goes back to a resident whose things are full is held aside (`items.heldAside`) and returned in `prepare()`'s commit with their first input that leaves room. Nothing goes past the cap.
 - A planter with a crop, a pedestal or frame with something on it, and a kiln with a pot can't be removed.
 - Gifts can be sent back once `open_gifts` is logged.
 

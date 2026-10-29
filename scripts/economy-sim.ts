@@ -176,6 +176,7 @@ const {
   holidaySpan,
   holidaysOf,
   ITEMS,
+  inventoryMaxOf,
   inventorySize,
   isCommons,
   isDecorKind,
@@ -523,6 +524,8 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
       must(TOWN_ACTOR, { type: "open_economy" });
       if (SHOP_OPEN) {
         must(TOWN_ACTOR, { type: "open_items" });
+        // terrakin.org holds 400 things (decision 0388).
+        must(TOWN_ACTOR, { type: "raise_inventory" });
         must(TOWN_ACTOR, { type: "open_shop" });
         // As the server does: log the share when it isn't the one the shop opened with (`--set`
         // can change it, so compare as numbers).
@@ -871,7 +874,7 @@ function tendGarden(rules: Rules, id: string, habits: Habits, planters: Map<stri
       knows(state, id, recipeOf(kind)) && needs(kind).every(([k, n]) => holds(state, id, k) >= n);
     while (
       roomToday(state, id, "making") > 0 &&
-      inventorySize(state.items?.inventories[id]) < ITEMS.inventoryMax - 50
+      inventorySize(state.items?.inventories[id]) < inventoryMaxOf(state) - 50
     ) {
       const made = firstsOf(state, id);
       const ready = GOOD_KINDS.filter(can);
@@ -1309,7 +1312,7 @@ function goFishing(rules: Rules, id: string, habits: Habits) {
   if (holdsRod(inv()) && !firstRod.has(id)) firstRod.set(id, today(state));
   if (!holdsRod(inv()) || !waterBeside(me, (x, y) => isWater(state, x, y))) return;
   for (let i = castsToday(state, id); i < Math.min(habits.casts, FISHING.castsPerDay); i++) {
-    if (inventorySize(inv()) > ITEMS.inventoryMax - 50) break;
+    if (inventorySize(inv()) > inventoryMaxOf(state) - 50) break;
     // As the server would log it: its roll, and the sky at a moment of the day.
     const roll = angling.between(0, FISHING.outOf - 1);
     const weather = weatherAt(day, angling.between(0, 23));
@@ -1320,7 +1323,10 @@ function goFishing(rules: Rules, id: string, habits: Habits) {
   // stream, so the casts above are the ones a month without levels makes.
   if (habits.climbs) {
     for (let i = castsToday(state, id); i < FISHING.castsPerDay; i++) {
-      if (inventorySize(inv()) > ITEMS.inventoryMax - 50 || roomToday(state, id, "foraging") <= 0)
+      if (
+        inventorySize(inv()) > inventoryMaxOf(state) - 50 ||
+        roomToday(state, id, "foraging") <= 0
+      )
         break;
       const roll = climbing.between(0, FISHING.outOf - 1);
       const weather = weatherAt(day, climbing.between(0, 23));
@@ -1580,7 +1586,7 @@ function goMake(rules: Rules, id: string, habits: Habits) {
   const hearth = me?.hearth;
   if (!me || !hearth) return;
   const inv = () => state.items?.inventories[id];
-  if (inventorySize(inv()) > ITEMS.inventoryMax - 50) return;
+  if (inventorySize(inv()) > inventoryMaxOf(state) - 50) return;
   const { reach } = state.config;
   for (let y = hearth.y - reach; y <= hearth.y + reach; y++) {
     for (let x = hearth.x - reach; x <= hearth.x + reach; x++) {
@@ -2819,7 +2825,7 @@ function workJob(rules: Rules, p: Person, planters: Map<string, Set<string>>, ea
   }
   if (d.type === "fish") {
     for (let i = castsToday(state, id); i < FISHING.castsPerDay && heldJob(state, id); i++) {
-      if (inventorySize(state.items?.inventories[id]) > ITEMS.inventoryMax - 50) break;
+      if (inventorySize(state.items?.inventories[id]) > inventoryMaxOf(state) - 50) break;
       const roll = working.between(0, FISHING.outOf - 1);
       const weather = weatherAt(day, working.between(0, 23));
       const timeOfDay = working.pick(TIMES_OF_DAY) ?? "day";
@@ -4204,7 +4210,7 @@ function flowLines(
       `\nThe shop's counter (RFC 0042): ${trips.made} trips made, ${trips.skipped} days nobody ` +
         `bothered (--shop-trips ${Math.round(SHOP_TRIPS * 100)}%), ${trips.nowhere} with no walk ` +
         `to it. Median walk ${median} tiles, longest ${sorted[sorted.length - 1] ?? 0}. ` +
-        `${asked === 0 ? "Nobody" : `${Math.round((trips.made / asked) * 100)}% of the times a ` + `resident wanted the shop they got there`}.`,
+        `${asked === 0 ? "Nobody" : `${Math.round((trips.made / asked) * 100)}% of the times a resident wanted the shop they got there`}.`,
     );
   }
   if (KILN_ON) potteryLines(people);

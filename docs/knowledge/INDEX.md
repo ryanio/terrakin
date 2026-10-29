@@ -321,6 +321,7 @@ What we chose and why. Newest last.
 - [A scene photo frames its subject from a clear side and tags only who it shows](decisions/0385-a-scene-photo-frames-its-subject-from-a-clear-side-and-tags-.md) · 2026-10-29 · accepted · `client` `design` `3d`
 - [Scene photos ship dark with their error codes in SKILL.md, and an event photo is wide](decisions/0386-scene-photos-ship-dark-with-their-error-codes-in-skill-md-an.md) · 2026-10-29 · accepted · `protocol` `docs` `product`
 - [Browser Run is driven over its DevTools socket with no browser library](decisions/0387-browser-run-is-driven-over-its-devtools-socket-with-no-brows.md) · 2026-10-29 · accepted · `cards` `dependencies` `security` `deploy`
+- [A resident holds 400 things from a logged raise_inventory, and stacks still count by the unit](decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md) · 2026-10-29 · accepted · `sim` `items` `numbers` `server`
 
 ## Learnings
 

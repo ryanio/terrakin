@@ -1,10 +1,17 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { ITEMS_CONFIG, ITEMS_HASH, ITEMS_LOG } from "./fixtures/items-log";
+import {
+  RAISED_INVENTORY_CONFIG,
+  RAISED_INVENTORY_HASH,
+  RAISED_INVENTORY_LOG,
+} from "./fixtures/raised-inventory-log";
 import { hashWorld } from "./hash";
 import {
   CROP_INFO,
   ITEMS,
+  inventoryMaxOf,
   inventoryOf,
   inventorySize,
   lastDeclineDay,
@@ -46,7 +53,7 @@ function world(config = CONFIG) {
     if (result.ok) log.push({ actor, command });
     else expect(hashWorld(state)).toBe(before);
     for (const inv of Object.values(state.items?.inventories ?? {})) {
-      expect(inventorySize(inv)).toBeLessThanOrEqual(ITEMS.inventoryMax);
+      expect(inventorySize(inv)).toBeLessThanOrEqual(inventoryMaxOf(state));
       for (const n of Object.values(inv.stacks)) expect(n).toBeGreaterThan(0);
     }
     return result;
@@ -651,6 +658,56 @@ describe("give", () => {
     const room = ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.bob);
     stock(w.state, "bob", { tomato: room });
     expect(w.code("ada", { type: "give", item: "lemon_seed", to: "bob" })).toBe("inventory_full");
+  });
+});
+
+describe("raising the cap", () => {
+  it("opens only from the server, once items are open, and only once", () => {
+    const w = world();
+    w.day(DAY);
+    w.join("ada");
+    expect(w.code(TOWN_ACTOR, { type: "raise_inventory" })).toBe("items_closed");
+    w.open();
+    expect(inventoryMaxOf(w.state)).toBe(ITEMS.inventoryMax);
+    expect(w.ok(TOWN_ACTOR, { type: "raise_inventory" })).toEqual([
+      { type: "inventory_raised", max: ITEMS.raisedInventoryMax },
+    ]);
+    expect(inventoryMaxOf(w.state)).toBe(ITEMS.raisedInventoryMax);
+    expect(w.code(TOWN_ACTOR, { type: "raise_inventory" })).toBe("already_open");
+  });
+
+  it("lets a gift reach a resident at the old cap, and still stops at the new one", () => {
+    const w = garden();
+    w.settle("bob", 1);
+    stock(w.state, "bob", {
+      herb: ITEMS.inventoryMax - inventorySize(w.state.items?.inventories.bob),
+    });
+    const gift: Command = { type: "give", item: "lemon_seed", to: "bob" };
+    expect(w.code("ada", gift)).toBe("inventory_full");
+    w.ok(TOWN_ACTOR, { type: "raise_inventory" });
+    w.ok("ada", gift);
+    stock(w.state, "bob", {
+      herb: ITEMS.raisedInventoryMax - inventorySize(w.state.items?.inventories.bob),
+    });
+    expect(w.code("ada", gift)).toBe("inventory_full");
+  });
+
+  it("is read through inventoryMaxOf by every rule, never the constant", () => {
+    // A rule reading ITEMS.inventoryMax would ignore the switch and replay at 200 forever.
+    const dir = new URL("./", import.meta.url);
+    const readers = readdirSync(dir)
+      .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && f !== "items.ts")
+      .filter((f) => readFileSync(new URL(f, dir), "utf8").includes("ITEMS.inventoryMax"));
+    expect(readers).toEqual([]);
+  });
+
+  it("replays a log on both sides of the switch to its pinned hash", () => {
+    const before = replay(RAISED_INVENTORY_CONFIG, RAISED_INVENTORY_LOG.slice(0, -4));
+    // At 199 the pantry had room for 1 of its 2 bags of sugar.
+    expect(inventorySize(before.items?.inventories.ada)).toBe(ITEMS.inventoryMax);
+    const state = replay(RAISED_INVENTORY_CONFIG, RAISED_INVENTORY_LOG);
+    expect(hashWorld(state)).toBe(RAISED_INVENTORY_HASH);
+    expect(inventorySize(state.items?.inventories.ada)).toBe(ITEMS.raisedInventoryMax);
   });
 });
 

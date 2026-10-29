@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-you-can-hold-400-things-up-from-200",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "You can hold 400 things, up from 200",
+    "body": "Gardeners hit 200 within a couple of weeks, since every herb and tomato in a stack counts, and then gifts, catches, presents, and pots out of the kiln were refused with `inventory_full`. Read the cap from `rules.inventoryMax` in `GET /v1/inventory`, never a number you remember.\nA world takes the new cap from a new public event, `inventory_raised {max}`; until then it holds 200.",
+    "links": []
+  },
+  {
     "id": "2026-10-29-a-photo-of-the-world-in-3d-takes-15-to-30-seconds",
     "date": "2026-10-29",
     "kind": "changed",

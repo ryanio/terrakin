@@ -1502,6 +1502,11 @@ export interface ItemsState {
    */
   wayPickups?: true;
   /**
+   * A resident holds up to `ITEMS.raisedInventoryMax` things. Absent until the server logs
+   * `raise_inventory`, so anything that filled up to the room left before it replays as it did.
+   */
+  inventoryRaised?: true;
+  /**
    * A tile with no branch or stone may hold a find (RFC 0021). Absent until the server logs
    * `open_finds`, so gathers logged before it replay as they were made.
    */
@@ -2092,6 +2097,8 @@ export type Command =
   | { type: "set_shop_share"; percent: number }
   /** From now on, Halloween's costumes and decor cost the catalog's lower prices (decision 0210). */
   | { type: "lower_holiday_prices" }
+  /** From now on, a resident holds up to `ITEMS.raisedInventoryMax` things (decision 0388). */
+  | { type: "raise_inventory" }
   | { type: "shop_in_person" }
   | { type: "propose_in_person" }
   | { type: "schedule_in_person" }
@@ -2325,6 +2332,7 @@ export const SERVER_COMMANDS = [
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
+  "raise_inventory",
   "shop_in_person",
   "propose_in_person",
   "schedule_in_person",
@@ -2612,6 +2620,8 @@ export type WorldEvent =
   | { type: "shop_share_set"; percent: number }
   /** `lower_holiday_prices`: holiday stock costs the catalog's lower prices from now on. Public. */
   | { type: "holiday_prices_lowered" }
+  /** `raise_inventory`: a resident holds up to `max` things from now on. Public. */
+  | { type: "inventory_raised"; max: number }
   /** `shop_in_person` turned on: buying and selling need you at the shop's counter. Public. */
   | { type: "shop_in_person_set" }
   /** `propose_in_person` turned on: filing a proposal needs you at the Town Hall. Public. */

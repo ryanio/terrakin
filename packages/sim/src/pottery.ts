@@ -19,10 +19,10 @@ import { dayDateWords, relativeDayWords } from "./day-words";
 import {
   addStack,
   closed,
-  ITEMS,
   type ItemsChecked,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   isReady,
 } from "./items";
@@ -412,11 +412,11 @@ export function checkOpenKiln(
     );
   }
   const owner = firing.by;
-  const fits = inventorySize(items.inventories[owner]) + 1 <= ITEMS.inventoryMax;
+  const fits = inventorySize(items.inventories[owner]) + 1 <= inventoryMaxOf(state);
   if (owner === actor && !fits) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and the pot needs room for one more. Give, place, or sell something first.`,
+      `You can hold ${inventoryMaxOf(state)} things, and the pot needs room for one more. Give, place, or sell something first.`,
     );
   }
   const finish = floorFinish(potterOf(state, owner), roll);
@@ -571,11 +571,11 @@ export function checkTakeUpPot(
   const placed = items.pots?.[key];
   if (!placed) return refuse("no_block", "Nothing to remove there.");
   const { good, by } = placed;
-  const fits = inventorySize(items.inventories[by]) + 1 <= ITEMS.inventoryMax;
+  const fits = inventorySize(items.inventories[by]) + 1 <= inventoryMaxOf(state);
   if (by === actor && !fits) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and taking the pot up needs room for one more.`,
+      `You can hold ${inventoryMaxOf(state)} things, and taking the pot up needs room for one more.`,
     );
   }
   const day = state.day as number;
@@ -642,7 +642,7 @@ export function pourTea(
     // nowhere, held aside when their things are full.
     const tea: Good = { id: `i_${items.nextId}`, kind: TEA, maker: event.host, madeDay: day };
     items.nextId += 1;
-    if (inventorySize(items.inventories[event.host]) + 1 > ITEMS.inventoryMax) {
+    if (inventorySize(items.inventories[event.host]) + 1 > inventoryMaxOf(state)) {
       items.heldAside = [...(items.heldAside ?? []), { good: tea, by: event.host, day }];
       return events;
     }
@@ -658,7 +658,7 @@ export function pourTea(
       tea: { event: event.id, startsAt: event.startsAt },
     };
     items.nextId += 1;
-    if (inventorySize(items.inventories[guest]) + 1 > ITEMS.inventoryMax) {
+    if (inventorySize(items.inventories[guest]) + 1 > inventoryMaxOf(state)) {
       items.heldAside = [...(items.heldAside ?? []), { good, by: guest, day }];
       continue;
     }

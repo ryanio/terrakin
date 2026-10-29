@@ -17,10 +17,10 @@ import {
   closed,
   countOf,
   GATHER_HINT,
-  ITEMS,
   type ItemsChecked,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   POND,
 } from "./items";
@@ -256,10 +256,10 @@ export function checkFish(
       `You've cast ${FISHING.castsPerDay} times today, all one day has. The fish bite again after midnight UTC.`,
     );
   }
-  if (inventorySize(inv) + 1 > ITEMS.inventoryMax) {
+  if (inventorySize(inv) + 1 > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and a catch needs room for one more. Cook, give, or sell something first.`,
+      `You can hold ${inventoryMaxOf(state)} things, and a catch needs room for one more. Cook, give, or sell something first.`,
     );
   }
   const caught = catchOf(roll, seasonOf(state.day as number), timeOfDay, weather);

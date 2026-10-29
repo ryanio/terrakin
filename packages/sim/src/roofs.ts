@@ -7,9 +7,9 @@ import {
   closed,
   countOf,
   held,
-  ITEMS,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
@@ -437,10 +437,10 @@ function roofCostProblem(
   }
   const back = change.reduce((sum, [, n]) => sum + Math.max(0, n), 0);
   const gone = change.reduce((sum, [, n]) => sum + Math.max(0, -n), 0);
-  if (back > gone && inventorySize(inv) + back - gone > ITEMS.inventoryMax) {
+  if (back > gone && inventorySize(inv) + back - gone > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and a roof coming down gives back ${back}. Make, place, or give something first.`,
+      `You can hold ${inventoryMaxOf(state)} things, and a roof coming down gives back ${back}. Make, place, or give something first.`,
     );
   }
   return null;

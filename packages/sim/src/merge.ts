@@ -5,7 +5,7 @@ import { mergeCircles } from "./circles";
 import { isMaintainer, isTownsfolk, movePurse } from "./economy";
 import { plotHasAnything } from "./floors";
 import { activeTables } from "./games";
-import { addStack, ITEMS, inventory, inventoryEvent, inventorySize } from "./items";
+import { addStack, inventory, inventoryEvent, inventoryMaxOf, inventorySize } from "./items";
 import { mergeJobs } from "./jobs";
 import { plotKey } from "./keys";
 import { mergeProgress } from "./levels";
@@ -131,11 +131,11 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
   if (
     items &&
     inventorySize(items.inventories[from]) + inventorySize(items.inventories[into]) >
-      ITEMS.inventoryMax
+      inventoryMaxOf(state)
   ) {
     return refuse(
       "inventory_full",
-      `The record to keep hasn't room for the duplicate's things: a resident holds at most ${ITEMS.inventoryMax}.`,
+      `The record to keep hasn't room for the duplicate's things: a resident holds at most ${inventoryMaxOf(state)}.`,
     );
   }
   return null;

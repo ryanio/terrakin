@@ -136,8 +136,13 @@ export {
  * The numbers. Every count is a whole number of items. Decision 0051 has the reasoning.
  */
 export const ITEMS = {
-  /** The most things one resident can hold: every unit of a stack counts, and every made thing. */
+  /**
+   * The most things one resident can hold: every unit of a stack counts, and every made thing.
+   * This is the cap until `raise_inventory`; read the world's cap through `inventoryMaxOf(state)`.
+   */
   inventoryMax: 200,
+  /** The cap from `raise_inventory` on (decision 0388). */
+  raisedInventoryMax: 400,
   /** What the pantry gives each UTC day, the first time you're at your hearth. */
   pantry: { sugar: 2, jar: 2 } as Readonly<Record<PantryStaple, number>>,
   /** The pantry stops topping up a staple once you hold this many. */
@@ -227,9 +232,17 @@ export const held = (inv: Inventory | undefined, kind: StackKind) => inv?.stacks
 export const isReady = (readyDay: number, day: number | undefined) =>
   day !== undefined && day >= readyDay;
 
-/** Whether a crop's harvest (its yield and its seeds back) fits next to `held` things. */
-export const harvestFits = (held: number, crop: Crop) =>
-  held + CROP_INFO[crop].yield + CROP_INFO[crop].seeds <= ITEMS.inventoryMax;
+/**
+ * The most things one resident can hold in this world: `ITEMS.inventoryMax`, or
+ * `ITEMS.raisedInventoryMax` once the server logs `raise_inventory`, so everything that fills up to
+ * the room left (pickups, the pantry, presents, things held aside) replays as it was made.
+ */
+export const inventoryMaxOf = (state: WorldState): number =>
+  state.items?.inventoryRaised ? ITEMS.raisedInventoryMax : ITEMS.inventoryMax;
+
+/** Whether a crop's harvest (its yield and its seeds back) fits next to `held` things, under `max`. */
+export const harvestFits = (held: number, crop: Crop, max: number) =>
+  held + CROP_INFO[crop].yield + CROP_INFO[crop].seeds <= max;
 
 /** What `GET /v1/inventory` shows a resident. Private to them. */
 export interface InventoryRead {
@@ -436,6 +449,27 @@ export function checkOpenGifts(state: WorldState): ItemsChecked {
   });
 }
 
+/**
+ * `raise_inventory`, which only TOWN_ACTOR sends: from now on a resident holds up to
+ * `ITEMS.raisedInventoryMax` things (decision 0388).
+ */
+export function checkRaiseInventory(state: WorldState): ItemsChecked {
+  const items = state.items;
+  if (!items)
+    return refuse(
+      "items_closed",
+      "Growing, making, and gathering haven't opened in this world yet.",
+    );
+  return oneTimeSwitch({
+    on: items.inventoryRaised,
+    already: `Residents can already hold ${ITEMS.raisedInventoryMax} things.`,
+    turnOn: () => {
+      items.inventoryRaised = true;
+    },
+    event: { type: "inventory_raised", max: ITEMS.raisedInventoryMax },
+  });
+}
+
 // ---------- planting and harvesting ----------
 
 /** `plant {x, y, seed}`: one of your seeds into an empty planter on a plot you can build on. */
@@ -520,10 +554,10 @@ export function checkHarvest(
     );
   }
   const info = CROP_INFO[planting.crop];
-  if (!harvestFits(inventorySize(items.inventories[actor]), planting.crop)) {
+  if (!harvestFits(inventorySize(items.inventories[actor]), planting.crop, inventoryMaxOf(state))) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and this harvest needs room for ${info.yield + info.seeds}. Make or give something first.`,
+      `You can hold ${inventoryMaxOf(state)} things, and this harvest needs room for ${info.yield + info.seeds}. Make or give something first.`,
     );
   }
   const { crop } = planting;
@@ -681,10 +715,10 @@ export function checkCraft(
   // Every good and piece of furniture uses up at least one thing to make one, so only a sweet that
   // makes more than it uses can run out of room, and only such a craft is checked for it.
   const used = Object.values(needs).reduce((sum, n) => sum + (n ?? 0), 0);
-  if (makes > used && inventorySize(inv) - used + makes > ITEMS.inventoryMax) {
+  if (makes > used && inventorySize(inv) - used + makes > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and this makes ${countOf(recipe, makes)}. Give, place, or sell something first.`,
+      `You can hold ${inventoryMaxOf(state)} things, and this makes ${countOf(recipe, makes)}. Give, place, or sell something first.`,
     );
   }
   const points = craftEarns(state, actor, recipe);
@@ -815,7 +849,7 @@ export function checkGiveItem(
       `A resident can receive ${ITEMS.receiveCap} things in gifts a day, and they've had that today. Try tomorrow.`,
     );
   }
-  if (inventorySize(items.inventories[to]) + count > ITEMS.inventoryMax) {
+  if (inventorySize(items.inventories[to]) + count > inventoryMaxOf(state)) {
     return refuse("inventory_full", "They can't hold that many more things right now.");
   }
   const withNote = typeof note === "string" && note !== "" ? { note } : {};
@@ -912,7 +946,7 @@ export function checkDeclineGift(
       "You no longer have all of it, so it can't go back. Keep what's left, or give it with give.",
     );
   }
-  if (inventorySize(items.inventories[from]) + count > ITEMS.inventoryMax) {
+  if (inventorySize(items.inventories[from]) + count > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
       "They have no room for it right now. Try again another day, or keep it.",
@@ -962,7 +996,7 @@ function pantryAdds(state: WorldState, id: ResidentId): [StackKind, number][] {
   if (!items || state.day === undefined || isTownsfolk(state, id)) return [];
   if (!state.residents[id]?.hearth || items.pantry[id] === state.day) return [];
   const inv = items.inventories[id];
-  let room = ITEMS.inventoryMax - inventorySize(inv);
+  let room = inventoryMaxOf(state) - inventorySize(inv);
   const adds: [StackKind, number][] = [];
   const add = (kind: StackKind, want: number) => {
     const n = Math.min(want, room);
@@ -1110,12 +1144,12 @@ export function blockRemoveProblem(
 ): Rejection | null {
   const back = blockNeeds(block, clayRule(state)).reduce((sum, [, n]) => sum + n, 0);
   if (back === 0) return null;
-  if (inventorySize(state.items?.inventories[actor]) + back > ITEMS.inventoryMax) {
+  if (inventorySize(state.items?.inventories[actor]) + back > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
       back === 1
-        ? `You can hold ${ITEMS.inventoryMax} things, and taking this up needs room for one more.`
-        : `You can hold ${ITEMS.inventoryMax} things, and taking this up gives back ${back}. Make, place, or give something first.`,
+        ? `You can hold ${inventoryMaxOf(state)} things, and taking this up needs room for one more.`
+        : `You can hold ${inventoryMaxOf(state)} things, and taking this up gives back ${back}. Make, place, or give something first.`,
     );
   }
   return null;

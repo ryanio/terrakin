@@ -41,6 +41,7 @@ async function start(
   gifts = false,
   plotPickups = false,
   finds = false,
+  raisedInventory = false,
 ) {
   let now = Date.UTC(2026, 9, 5, 9);
   const store = new MemoryStore();
@@ -54,6 +55,7 @@ async function start(
     gifts,
     plotPickups,
     finds,
+    raisedInventory,
   });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
@@ -164,6 +166,13 @@ describe("items", () => {
     const world = (await t.call("GET", "/v1/world")).body;
     expect(world).not.toHaveProperty("items");
     expect(JSON.stringify(world)).not.toContain("lemon_seed");
+  });
+
+  it("hold the raised cap once the world logs raise_inventory", async () => {
+    const t = await start(true, true, false, false, false, true);
+    expect(t.service.state.items?.inventoryRaised).toBe(true);
+    const ash = await t.gardener("Ash", 0, 0);
+    expect((await t.inventory(ash.token)).rules.inventoryMax).toBe(ITEMS.raisedInventoryMax);
   });
 
   it("stay closed in a world that never opened them", async () => {

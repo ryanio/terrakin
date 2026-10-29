@@ -43,9 +43,11 @@ import { AuthorView } from "./social";
  * private, like your purse: only you can read it. Crops in planters are public, in the snapshot.
  */
 
-/** The caps and amounts a client can show next to the inventory. From the sim's `ITEMS`. */
+/**
+ * The caps and amounts a client can show next to the inventory. From the sim's `ITEMS`. What
+ * depends on the world (the cap, the pantry's numbers) the server fills into `rules` from it.
+ */
 export const ITEM_RULES = {
-  inventoryMax: ITEMS.inventoryMax,
   pantrySugar: ITEMS.pantry.sugar,
   pantryJars: ITEMS.pantry.jar,
   stapleMax: ITEMS.stapleMax,
@@ -63,7 +65,7 @@ export const ITEM_RULES = {
 } as const;
 
 export const ItemRules = z.object({
-  /** The most things you can hold: every seed, lemon, and jar counts, and every made thing. */
+  /** The most things you can hold in this world: every seed, lemon, and jar counts, and every made thing. */
   inventoryMax: z.number().int(),
   /** Bags of sugar the pantry adds each UTC day you come home. */
   pantrySugar: z.number().int(),

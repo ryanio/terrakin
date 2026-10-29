@@ -118,6 +118,7 @@ import {
   checkOpenGifts,
   checkOpenItems,
   checkPlant,
+  checkRaiseInventory,
   cropAt,
   type ItemsChecked,
   itemsNewDay,
@@ -839,6 +840,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkSetShopShare(state, command));
       case "lower_holiday_prices":
         return town(checkLowerHolidayPrices(state));
+      case "raise_inventory":
+        return town(checkRaiseInventory(state));
       case "shop_in_person":
         return town(checkShopInPerson(state));
       case "propose_in_person":

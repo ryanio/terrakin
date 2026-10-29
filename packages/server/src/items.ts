@@ -12,6 +12,7 @@ import {
   firingsOf,
   type Good,
   heldAsideOf,
+  inventoryMaxOf,
   inventoryOf,
   isReady,
   knownRecipes,
@@ -107,9 +108,16 @@ export function inventoryView(
   const read = inventoryOf(state, viewer);
   const held = heldAsideOf(state, viewer).map((d) => goodView(d.good, author));
   const kilns = kilnsOf(state, viewer);
-  // The pantry gives less once the town shop sells sugar and jars.
+  // The pantry gives less once the town shop sells sugar and jars, and the bag holds more once
+  // `raise_inventory` is logged.
   const { pantry, stapleMax } = pantryNumbers(state);
-  const rules = { ...ITEM_RULES, pantrySugar: pantry.sugar, pantryJars: pantry.jar, stapleMax };
+  const rules = {
+    ...ITEM_RULES,
+    inventoryMax: inventoryMaxOf(state),
+    pantrySugar: pantry.sugar,
+    pantryJars: pantry.jar,
+    stapleMax,
+  };
   const base = { rules, catalog: ITEM_CATALOG };
   if (!read) return { inventory: null, ...base };
   return {

@@ -19,7 +19,7 @@ import {
   freeRenamesLeft,
   homePlotOf,
   ITEM_INFO,
-  ITEMS,
+  inventoryMaxOf,
   inventoryOf,
   isCommons,
   isFindKind,
@@ -606,7 +606,7 @@ export function worldLinks(
         r,
         l,
         "# Your things",
-        `Only you see this page. You hold ${things.size} of the ${ITEMS.inventoryMax} things you have room for.${purse ? ` Your purse has ${plural(purse.balance, "coin")}.` : ""}`,
+        `Only you see this page. You hold ${things.size} of the ${inventoryMaxOf(state)} things you have room for.${purse ? ` Your purse has ${plural(purse.balance, "coin")}.` : ""}`,
         things.stacks.length > 0
           ? list([
               "## What you hold",

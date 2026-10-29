@@ -8,6 +8,7 @@ import {
   type ItemsChecked,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   isFindKind,
   reachProblem,
@@ -142,8 +143,8 @@ export function pieceShowingMedia(state: WorldState, mediaId: string): string | 
   return everyGood(state).find((g) => g.good.kind === "piece" && g.good.media === mediaId)?.good.id;
 }
 
-const fitsOne = (items: ItemsState, id: ResidentId) =>
-  inventorySize(items.inventories[id]) + 1 <= ITEMS.inventoryMax;
+const fitsOne = (state: WorldState, items: ItemsState, id: ResidentId) =>
+  inventorySize(items.inventories[id]) + 1 <= inventoryMaxOf(state);
 
 /** Keep a thing taken down from display for whoever put it up, until they have room. */
 function holdAside(items: ItemsState, shown: Shown) {
@@ -163,7 +164,7 @@ export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[]
   const back: Good[] = [];
   const finds = new Map<FindKind, number>();
   const keep = aside.filter((d) => {
-    if (d.by !== id || size + 1 > ITEMS.inventoryMax) return true;
+    if (d.by !== id || size + 1 > inventoryMaxOf(state)) return true;
     size += 1;
     if (isShownFind(d)) finds.set(d.find, (finds.get(d.find) ?? 0) + 1);
     else back.push(d.good);
@@ -220,10 +221,10 @@ export function checkMakePiece(
   if (crafted >= ITEMS.craftPerDay) {
     return refuse("craft_limit", `You can make ${ITEMS.craftPerDay} things a day. Try tomorrow.`);
   }
-  if (inventorySize(items.inventories[actor]) + 1 > ITEMS.inventoryMax) {
+  if (inventorySize(items.inventories[actor]) + 1 > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things. Give or display something first.`,
+      `You can hold ${inventoryMaxOf(state)} things. Give or display something first.`,
     );
   }
   const good: Good = {
@@ -337,11 +338,11 @@ export function checkTakeDown(
       "Only whoever put it up, or someone who can build on this plot, can take it down.",
     );
   }
-  const room = fitsOne(items, shown.by);
+  const room = fitsOne(state, items, shown.by);
   if (!room && shown.by === actor) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things, and taking this down needs room for one more.`,
+      `You can hold ${inventoryMaxOf(state)} things, and taking this down needs room for one more.`,
     );
   }
   const { by } = shown;
@@ -401,7 +402,7 @@ export function checkRemoveDisplay(
   } else if (!on) {
     return refuse("nothing_displayed", "That isn't on display.");
   }
-  const room = on ? fitsOne(items, on.shown.by) : false;
+  const room = on ? fitsOne(state, items, on.shown.by) : false;
   return () => {
     const events: WorldEvent[] = [];
     if (media !== undefined) {

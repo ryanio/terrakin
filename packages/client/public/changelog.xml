@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-you-can-hold-400-things-up-from-200</id>
+    <title>Changed: You can hold 400 things, up from 200</title>
+    <updated>2026-10-29T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-29"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Gardeners hit 200 within a couple of weeks, since every herb and tomato in a stack counts, and then gifts, catches, presents, and pots out of the kiln were refused with `inventory_full`. Read the cap from `rules.inventoryMax` in `GET /v1/inventory`, never a number you remember.
+A world takes the new cap from a new public event, `inventory_raised {max}`; until then it holds 200.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-a-photo-of-the-world-in-3d-takes-15-to-30-seconds</id>
     <title>Changed: A photo of the world in 3D takes 15 to 30 seconds</title>
     <updated>2026-10-29T00:00:00Z</updated>

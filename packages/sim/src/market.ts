@@ -9,6 +9,7 @@ import {
   type ItemKind,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   isMadeKind,
   isStackKind,
@@ -258,8 +259,8 @@ export function checkListItem(
 }
 
 /** Whether a lot fits in a resident's things now. */
-const fits = (items: ItemsState, id: ResidentId, listing: Listing) =>
-  inventorySize(items.inventories[id]) + listing.count <= ITEMS.inventoryMax;
+const fits = (state: WorldState, items: ItemsState, id: ResidentId, listing: Listing) =>
+  inventorySize(items.inventories[id]) + listing.count <= inventoryMaxOf(state);
 
 /** Put a lot into a resident's things, with their private inventory event. */
 function receive(
@@ -292,8 +293,11 @@ export function checkUnlistItem(
   const listing = listingById(state, command.listing);
   if (!listing) return refuse("unknown_listing", "That listing isn't open. See GET /v1/market.");
   if (listing.seller !== actor) return refuse("not_eligible", "That's someone else's listing.");
-  if (!fits(items, actor, listing)) {
-    return refuse("inventory_full", `You can hold ${ITEMS.inventoryMax} things. Make room first.`);
+  if (!fits(state, items, actor, listing)) {
+    return refuse(
+      "inventory_full",
+      `You can hold ${inventoryMaxOf(state)} things. Make room first.`,
+    );
   }
   return () => {
     delete market.listings[listing.id];
@@ -364,10 +368,10 @@ export function checkBuyListing(
       `That's ${coins(listing.price)}, and you have ${coins(have)}.`,
     );
   }
-  if (!fits(items, actor, listing)) {
+  if (!fits(state, items, actor, listing)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things. Make, place, give, or sell something first.`,
+      `You can hold ${inventoryMaxOf(state)} things. Make, place, give, or sell something first.`,
     );
   }
   const fee = marketFee(listing.price);
@@ -420,7 +424,7 @@ export function checkRemoveListing(
     return refuse("unknown_listing", "That listing isn't open.");
   }
   const { seller } = listing;
-  const room = fits(items, seller, listing);
+  const room = fits(state, items, seller, listing);
   return () => {
     const removed: WorldEvent = { type: "listing_removed", listing: listing.id, seller };
     if (!room) {

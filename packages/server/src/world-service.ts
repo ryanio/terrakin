@@ -301,6 +301,11 @@ export interface WorldServiceOptions {
    */
   holidayPrices?: boolean;
   /**
+   * A bigger bag (decision 0388): once items are open, append `raise_inventory` if it never has,
+   * after which a resident holds up to 400 things instead of 200. Both adapters turn it on.
+   */
+  raisedInventory?: boolean;
+  /**
    * Shopping in person (RFC 0042): once the shop is open, append `shop_in_person` if it never has,
    * after which buying and selling need you within `config.reach` of the shop's door on the ground
    * floor. Both adapters turn it on, since walking to the shop is a world rule rather than a
@@ -566,6 +571,7 @@ interface TownSwitch {
     | "bounties"
     | "recipes"
     | "holidayPrices"
+    | "raisedInventory"
     | "shopInPerson"
     | "proposeInPerson"
     | "scheduleInPerson"
@@ -700,6 +706,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "lower_holiday_prices" },
     label: "lower the holiday prices",
   },
+  {
+    option: "raisedInventory",
+    due: (s) => !!s.items && !s.items.inventoryRaised,
+    command: { type: "raise_inventory" },
+    label: "raise the inventory cap",
+  },
   // Shopping in person (RFC 0042) waits for the shop, whose counter it sends residents to.
   {
     option: "shopInPerson",
@@ -823,6 +835,7 @@ export class WorldService {
   private readonly bounties: boolean;
   private readonly recipes: boolean;
   private readonly holidayPrices: boolean;
+  private readonly raisedInventory: boolean;
   private readonly shopInPerson: boolean;
   private readonly proposeInPerson: boolean;
   private readonly scheduleInPerson: boolean;
@@ -930,6 +943,7 @@ export class WorldService {
     this.bounties = options.bounties ?? false;
     this.recipes = options.recipes ?? false;
     this.holidayPrices = options.holidayPrices ?? false;
+    this.raisedInventory = options.raisedInventory ?? false;
     this.shopInPerson = options.shopInPerson ?? false;
     this.proposeInPerson = options.proposeInPerson ?? false;
     this.scheduleInPerson = options.scheduleInPerson ?? false;

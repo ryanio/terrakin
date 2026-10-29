@@ -36,10 +36,10 @@ import {
   held,
   ITEM_ID_PATTERN,
   ITEM_INFO,
-  ITEMS,
   type ItemKind,
   inventory,
   inventoryEvent,
+  inventoryMaxOf,
   inventorySize,
   isGoodKind,
   isStackKind,
@@ -608,10 +608,10 @@ export function checkShopBuy(
       `That's ${coins(total)}, and you have ${coins(have)}. ${tip}`,
     );
   }
-  if (!wear && inventorySize(items.inventories[actor]) + count > ITEMS.inventoryMax) {
+  if (!wear && inventorySize(items.inventories[actor]) + count > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
-      `You can hold ${ITEMS.inventoryMax} things. Make, place, give, or sell something first.`,
+      `You can hold ${inventoryMaxOf(state)} things. Make, place, give, or sell something first.`,
     );
   }
   const at = { seq: state.seq + 1, day };

@@ -126,6 +126,20 @@ export function wireSocial(
   // book (RFC 0021): what each input brought anyone, filled in once from the world as it is.
   // Welcome visits (decision 0142): a person's first claim queues one; that never throws.
   service.onCommitted = (input, events) => {
+    // Moments worth a scene photo (RFC 0049), while they're on: read before the collection book
+    // counts this input, since a first harvest is one the book hasn't seen.
+    if (api.scenes) {
+      try {
+        api.scenes.noteCommitted(
+          service.state,
+          input,
+          events,
+          (r, crop) => !layer.collection.has(r, crop),
+        );
+      } catch (err) {
+        report(err, "photo.moments");
+      }
+    }
     try {
       layer.plots.noteCommitted(service.state, input, events);
     } finally {

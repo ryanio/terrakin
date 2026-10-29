@@ -24,6 +24,7 @@ import {
   type RouteMatch,
   type RouteSpec,
   renamedField,
+  type ScenePhotoRequest,
   type StaffRole,
   suggestFor,
   type TownsfolkActivityResponse,
@@ -120,6 +121,7 @@ import { type PlotPhotoRenderer, photoPlace, plotPhotoSpec } from "./plot-photo"
 import { type PlotViewer, shownPlotName } from "./plots";
 import { RateLimiters } from "./rate-limit";
 import { type Routines, type RoutinesRun, runRoutines } from "./routines";
+import { ScenePhotoDesk, type ScenePhotoOptions } from "./scene-photo-desk";
 import type { SocialService } from "./social-service";
 import { keyAllows, keyedActor, STAFF_KEY_PREFIX, staffOwner } from "./staff-keys";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
@@ -310,6 +312,11 @@ export interface ApiOptions {
    */
   photos?: PlotPhotoRenderer;
   /**
+   * Scene photos (RFC 0049): the 3D world drawn by a headless browser. Unset, `POST /v1/photos`
+   * and its reads answer `not_found`, which is how the route stays dark.
+   */
+  scenePhotos?: ScenePhotoOptions;
+  /**
    * Townsfolk chatter (docs/plans/townsfolk-chatter.md), run by `runChatter()` from the Worker's
    * cron or the Node timer. Built on `social`. Without it, chatter is off.
    */
@@ -360,6 +367,8 @@ export class Api {
   uploadsInFlight = 0;
   private photosInFlight = 0;
   private readonly photos: PlotPhotoRenderer | undefined;
+  /** Scene photos (RFC 0049), while the option is on. */
+  readonly scenes: ScenePhotoDesk | undefined;
   letterReadsInFlight = 0;
   /** Sockets that hear about new posts. @internal Used by LiveSession and the wiring. */
   readonly postListeners: PostListeners;
@@ -458,15 +467,59 @@ export class Api {
       reports: bucket("reports"),
       photos: bucket("photos"),
       photosIp: bucket("photosIp"),
+      scenePhotos: bucket("scenePhotos"),
+      scenePhotosIp: bucket("scenePhotosIp"),
       agentLink: bucket("agentLink"),
       agentLinkIp: bucket("agentLinkIp"),
     };
+    const scenes = options.scenePhotos;
+    this.scenes =
+      scenes && layer
+        ? new ScenePhotoDesk({
+            options: scenes,
+            book: layer.scenePhotos,
+            state: () => this.service.state,
+            now: this.now,
+            ipLimiter: this.limiters.scenePhotosIp,
+            sceneDeps: (viewer) => ({
+              // The world's own clock, the one its snapshot and its sky go by.
+              now: this.service.now(),
+              blockedEither: (a, b) => layer.blockedEither(a, b),
+              friends: (a, b) => layer.friendsWith(a, b),
+              suspended: (id) => layer.safety.suspendedUntil(id) !== undefined,
+              picturesRemoved: (id) => layer.safety.picturesRemoved(id),
+              held: this.service.noteHidden,
+              moment: (id) => layer.scenePhotos.moment(viewer, id),
+            }),
+            uploadRoom: (viewer, bytes) => {
+              const room = layer.uploadRoom(viewer, bytes);
+              return room.ok
+                ? undefined
+                : fail(
+                    room.code,
+                    room.message,
+                    room.code === "rate_limited"
+                      ? (room.retryAfter ?? DAILY_CAP_RETRY_SECONDS)
+                      : undefined,
+                  );
+            },
+            ipUploadRefusal: (key, bytes) => this.ipUploadRefusal(key, bytes),
+            countIpUpload: (key, bytes) => this.countIpUpload(key, utcDay(this.now()), bytes),
+            upload: async (viewer, png, place) => {
+              const outcome = await layer.upload(viewer, png, place);
+              return outcome.ok ? outcome.value : fail(outcome.code, outcome.message);
+            },
+          })
+        : undefined;
     // Without a social service its routes don't exist, so they answer not_found like any unknown
     // path. The Town Hall needs it too: its notice board and author faces live there.
+    // Dark routes (scene photos, RFC 0049) aren't matched at all until their option is on, so they
+    // answer 404 before any rate limit or parse, like a path that isn't there.
+    const open = this.scenes ? TABLE : TABLE.filter((r) => !r.dark);
     this.match = compileRoutes(
       options.social
-        ? TABLE
-        : TABLE.filter(
+        ? open
+        : open.filter(
             (r) =>
               !r.tags.some(
                 (tag) =>
@@ -961,6 +1014,31 @@ export class Api {
     } finally {
       this.photosInFlight--;
     }
+  }
+
+  /** `POST /v1/photos` (RFC 0049): every guard and the town's cap are the desk's. */
+  async takeScenePhoto(
+    viewer: string,
+    ip: string,
+    body: ScenePhotoRequest,
+  ): Promise<Reply<"takeScenePhoto">> {
+    if (!this.scenes) return fail("not_found", "Not found.");
+    const taken = await this.scenes.take(viewer, ip, body);
+    return "error" in taken ? taken : { status: 201 as const, body: { media: taken } };
+  }
+
+  /** `GET /v1/photos/moments` (RFC 0049). */
+  photoMoments(viewer: string): Reply<"listPhotoMoments"> {
+    if (!this.scenes) return fail("not_found", "Not found.");
+    return { status: 200 as const, body: { moments: this.scenes.moments(viewer) } };
+  }
+
+  /** `GET /v1/photos/scene/{ticket}`: what the photo page draws, while its ticket lasts. */
+  photoScene(ticket: string): Reply<"readPhotoScene"> {
+    const scene = this.scenes?.scene(ticket);
+    return scene
+      ? { status: 200 as const, body: scene }
+      : fail("not_found", "That photo ticket has expired.");
   }
 
   /**

@@ -315,6 +315,11 @@ What we chose and why. Newest last.
 - [A resident's name is ASCII letters, digits and underscores, checked at the API so old logs replay](decisions/0379-a-resident-s-name-is-ascii-letters-digits-and-underscores-ch.md) · 2026-10-27 · accepted · `identity` `protocol` `server` `sim` `client`
 - [A newcomer walks the town as a guest first and moves in with one name](decisions/0380-a-newcomer-walks-the-town-as-a-guest-first-and-moves-in-with.md) · 2026-10-27 · accepted · `client` `onboarding` `world`
 - [The staff app imports the sim directly for lengths of time](decisions/0381-the-staff-app-imports-the-sim-directly-for-lengths-of-time.md) · 2026-10-27 · accepted · `admin` `sim` `dependencies`
+- [Scene photos are drawn by Browser Run in the cards Worker, one browser per photo](decisions/0382-scene-photos-are-drawn-by-browser-run-in-the-cards-worker-on.md) · 2026-10-29 · accepted · `server` `cards` `deploy` `cost`
+- [A scene photo's ticket is a random id the World object holds for a minute](decisions/0383-a-scene-photo-s-ticket-is-a-random-id-the-world-object-holds.md) · 2026-10-29 · accepted · `server` `security`
+- [The scene photo page is its own small build beside the app's](decisions/0384-the-scene-photo-page-is-its-own-small-build-beside-the-app-s.md) · 2026-10-29 · accepted · `client` `performance`
+- [A scene photo frames its subject from a clear side and tags only who it shows](decisions/0385-a-scene-photo-frames-its-subject-from-a-clear-side-and-tags-.md) · 2026-10-29 · accepted · `client` `design` `3d`
+- [Scene photos ship dark with their error codes in SKILL.md, and an event photo is wide](decisions/0386-scene-photos-ship-dark-with-their-error-codes-in-skill-md-an.md) · 2026-10-29 · accepted · `protocol` `docs` `product`
 
 ## Learnings
 
@@ -352,6 +357,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Scene photos built and dark, RFC 0049 slices 1 to 5](handoffs/2026-10-29-1922-scene-photos-built-and-dark-rfc-0049-slices-1-to-5.md) · 2026-10-29 · `server` `client` `cards` `protocol` `photos`
 - [Streets laid downtown, pottery open, the plot market's web built dark, and the Sunday hour read from the world](handoffs/2026-10-22-2315-streets-laid-downtown-the-kiln-built-and-off-the-plot-market.md) · 2026-10-22 · `streets` `ways` `pottery` `plot-market` `playtest` `staff` `agents`
 - [Review of four days: the sea, the channel, the chunk signature, and eleven more](handoffs/2026-10-20-2220-review-of-four-days-the-sea-the-channel-the-chunk-signature-.md) · 2026-10-20 · `review` `lands` `roofs` `walk` `cards` `process`
 - [Shopping moved to the counter, and every walk a refusal names](handoffs/2026-10-20-0624-shopping-moved-to-the-counter-and-every-walk-a-refusal-names.md) · 2026-10-20 · `shop` `world` `sim` `agents` `process`

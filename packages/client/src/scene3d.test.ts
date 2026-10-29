@@ -1007,6 +1007,8 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/fireworks.ts",
     "scene3d/marks.ts",
     "scene3d/world.ts",
+    // The scene photo page (RFC 0049), reached only through import() from photo.ts.
+    "photo-page.ts",
   ]);
 
   it("imports three only from the lazy 3D files", () => {

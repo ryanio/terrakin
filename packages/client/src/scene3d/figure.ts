@@ -8,6 +8,7 @@ import {
 } from "@terrakin/ui/figure";
 import { lookPalette } from "@terrakin/ui/looks";
 import {
+  type Box3,
   type BufferGeometry,
   type CanvasTexture,
   CircleGeometry,
@@ -268,6 +269,23 @@ export function overheadTop(fig: Object3D): number {
   const rig = rigs.get(fig);
   if (!rig) return 0;
   return rig.icon.visible ? rig.icon.position.y + rig.iconSize / 2 : rig.tagTop;
+}
+
+/** A scene photo (RFC 0049) draws its own tags, laid out for the picture, so the world's go. */
+export function hideTag(fig: Object3D) {
+  const rig = rigs.get(fig);
+  if (rig) rig.label.visible = false;
+}
+
+/** The figure's head, hat and hair included, in world space, into `out`. Empty for no figure. */
+export function headBounds(fig: Object3D, out: Box3): Box3 {
+  const rig = rigs.get(fig);
+  out.makeEmpty();
+  if (rig) {
+    rig.head.updateWorldMatrix(true, true);
+    out.setFromObject(rig.head);
+  }
+  return out;
 }
 
 /** Turn a figure's head `yaw` radians from where its body faces, to look at someone. */

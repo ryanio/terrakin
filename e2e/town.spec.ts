@@ -61,6 +61,8 @@ test.describe("the Town Hall", () => {
     | {
         fern: Resident;
         birch: Resident;
+        /** Fern's event, once she has hosted it. */
+        event?: string;
         world: {
           townHall: { x: number; y: number }[];
           residents: { id: string; x: number; y: number }[];
@@ -262,7 +264,108 @@ test.describe("the Town Hall", () => {
     expect(at.y).toBeGreaterThanOrEqual(area.y0);
     expect(at.y).toBeLessThanOrEqual(area.y1);
     await birchPage.close();
+    built().event = id;
     expect(errors).toEqual([]);
+  });
+
+  test("a crowd at Fern's event, photographed in 3D with name tags that all fit and touch nothing", async ({
+    page,
+    browser,
+  }) => {
+    // Scene photos (RFC 0049): the route on this server draws with Playwright's Chromium. What it
+    // refuses and counts is the server tests'; this is the photo page in a real browser.
+    const { fern, event } = built();
+    if (!event) throw new Error("Fern's event comes first");
+    const world0 = await (await page.request.get("/v1/world")).json();
+    const S = world0.config.plotSize as number;
+    const center = { x: 4 * S + (S - 1) / 2, y: 5 * S + (S - 1) / 2 };
+    // Fourteen more guests, and one standing off to the east where the frame ends.
+    const guests: Resident[] = [];
+    for (let i = 0; i < 14; i++) {
+      const guest = await join(page.request, `Lantern${i}`, { kind: i % 2 ? "agent" : "human" });
+      expect(await act(page.request, guest.token, { type: "join_event", event })).toMatchObject({
+        ok: true,
+      });
+      guests.push(guest);
+    }
+    const edge = guests[0] as Resident;
+    await walkTo(page.request, edge, { x: center.x + 8.5, y: center.y + 2 }, 1);
+
+    await test.step("Fern takes the event's photo with names, kept as her upload", async () => {
+      const res = await page.request.post("/v1/photos", {
+        headers: { authorization: `Bearer ${fern.token}` },
+        data: { subject: "event", event, names: true },
+      });
+      expect(res.status(), await res.text()).toBe(201);
+      const { media } = await res.json();
+      expect(media).toMatchObject({
+        type: "image/png",
+        width: 1200,
+        height: 900,
+        place: { px: 4, py: 5 },
+      });
+    });
+
+    await test.step("the photo page lays out every tag inside the frame, none touching", async () => {
+      // The page reads its scene with a ticket only the server's own browser holds, so here the
+      // scene is the one the event's photo was: wide over Fern's plot, everyone there in it.
+      const world = await (await page.request.get("/v1/world")).json();
+      const shown = world.residents
+        .filter((r: { online: boolean }) => r.online)
+        .map((r: { id: string }) => r.id);
+      const photo = await browser.newPage({
+        viewport: { width: 1200, height: 900 },
+        deviceScaleFactor: 1,
+      });
+      const errors = watchErrors(photo, { console: "none" });
+      await photo.route("**/v1/photos/scene/*", (route) =>
+        route.fulfill({
+          json: {
+            framing: "wide",
+            names: true,
+            focus: center,
+            plot: { px: 4, py: 5 },
+            shown,
+            // The guest at the edge ranks just after Fern, as a friend's photo would rank them,
+            // so the crowd's cap of 12 keeps their tag and the edge rule is what's tested.
+            first: [fern.id, edge.id],
+            nowMs: world.time.nowMs,
+            dayLengthMs: world.time.dayLengthMs,
+            stamp: "Plot 4, 5",
+          },
+        }),
+      );
+      await photo.goto(`/photo?t=pt_${"0".repeat(32)}`);
+      await expect(photo.locator("body")).toHaveAttribute("data-photo", "ready", {
+        timeout: 20_000,
+      });
+      await photo.screenshot({ path: "test-results/scene-photo-crowd.png" });
+      const tags: { id: string; x: number; y: number; w: number; h: number }[] = JSON.parse(
+        (await photo.locator("canvas.photo-tags").getAttribute("data-tags")) ?? "[]",
+      );
+      const frame = await photo.locator("canvas.photo-tags").evaluate((c: HTMLCanvasElement) => ({
+        w: c.width,
+        h: c.height,
+      }));
+      expect(tags.length).toBeGreaterThanOrEqual(6);
+      expect(tags.length).toBeLessThanOrEqual(12);
+      for (const t of tags) {
+        expect(t.x, t.id).toBeGreaterThanOrEqual(24);
+        expect(t.y, t.id).toBeGreaterThanOrEqual(24);
+        expect(t.x + t.w, t.id).toBeLessThanOrEqual(frame.w - 24);
+        expect(t.y + t.h, t.id).toBeLessThanOrEqual(frame.h - 24);
+        for (const o of tags) {
+          if (o === t) continue;
+          const apart =
+            t.x + t.w <= o.x || o.x + o.w <= t.x || t.y + t.h <= o.y || o.y + o.h <= t.y;
+          expect(apart, `${t.id} and ${o.id}`).toBe(true);
+        }
+      }
+      // The guest at the frame's edge is named, with the tag kept inside it (checked above).
+      expect(tags.map((t) => t.id)).toContain(edge.id);
+      await photo.close();
+      expect(errors).toEqual([]);
+    });
   });
 
   test("Fern pins a notice, and the board says when it comes down", async ({ page }) => {

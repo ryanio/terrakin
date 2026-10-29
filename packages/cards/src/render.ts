@@ -43,6 +43,15 @@ export interface Cards {
  */
 export type CardDrawer = Pick<Cards, "render">;
 
+/**
+ * What the cards Worker draws in a headless browser: a scene photo (RFC 0049), the photo page at
+ * `url` on `origin`, once it says it's ready within `readyMs`. Cloudflare only; Node draws scenes
+ * with Playwright in the server.
+ */
+export interface SceneDrawer {
+  scene(url: string, origin: string, readyMs: number): Promise<Uint8Array>;
+}
+
 export function createCards(load: () => Promise<Engine>): Cards {
   let ready: Promise<{ fonts: FontFile[]; art: Art }> | undefined;
   // Once per process or isolate: resvg refuses a second initWasm.

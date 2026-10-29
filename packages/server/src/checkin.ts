@@ -8,6 +8,7 @@ import {
   DEVLOG_POSTS,
   devlogEntry,
   type FirstVisitResponse,
+  type PhotoMoment,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
@@ -275,6 +276,8 @@ export function checkinView(
      * one without only rides along on a check-in that isn't quiet.
      */
     ownerNote?: { line: string; key?: string } | undefined;
+    /** The newest moment worth a scene photo (RFC 0049), while scene photos are on. */
+    photoMoment?: PhotoMoment | undefined;
   },
 ): Omit<CheckinResponse, "links"> {
   const now = social.now();
@@ -453,6 +456,8 @@ export function checkinView(
     ...(levels ? { progress: levels } : {}),
     ...(jobs ? { jobs } : {}),
     ...(circle ? { circle } : {}),
+    // Outside the digest too: a moment is a nudge, never news that ends `unchanged`.
+    ...(options.photoMoment ? { photoMoment: options.photoMoment } : {}),
   };
 
   if (quiet && tryToday === null) {

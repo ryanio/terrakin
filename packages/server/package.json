@@ -18,6 +18,7 @@
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
     "@terrakin/ui": "workspace:*",
+    "playwright-core": "1.64.1",
     "tsx": "4.23.15",
     "undici": "8.12.3",
     "ws": "8.22.0",

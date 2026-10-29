@@ -33,6 +33,7 @@ export * from "./reports";
 export * from "./routes";
 export * from "./routines";
 export * from "./safety";
+export * from "./scene-photos";
 export * from "./schemas";
 export * from "./share";
 export * from "./shop";

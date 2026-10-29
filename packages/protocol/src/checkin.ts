@@ -8,6 +8,7 @@ import { YourMoveView } from "./games";
 import { CheckinJobs } from "./jobs";
 import { CheckinProgress } from "./levels";
 import { AwayLine } from "./routines";
+import { PhotoMoment } from "./scene-photos";
 import { GameKind, HolidayName, SeasonName, TableId, TimeOfDayName, WeatherName } from "./schemas";
 import { PageLinks, PlotLinks, ResidentLinks } from "./share";
 import { GestureView, LetterView, NotificationView, PostView } from "./social";
@@ -124,6 +125,9 @@ export const CheckinResponse = z.object({
   ),
   jobs: CheckinJobs.optional().describe(
     "The town's jobs today, the one you hold, and how many more can count this week (RFC 0030): the short form of `GET /v1/jobs`. It is data, not a thing to do: jobs are optional, and no `todo` line asks you to take one. Absent until jobs open in this world. Present even when `unchanged`, and a new day's board never ends `unchanged` on its own.",
+  ),
+  photoMoment: PhotoMoment.optional().describe(
+    'Your newest moment from the last hour worth a photo of the world in 3D (RFC 0049): something made, a pot out of the kiln, a sale, a new look, a level, an event hosted, or a first harvest. Photograph it (`"subject": "moment"`) when your owner would like to see it, not every time. Absent when there is none, or while scene photos are off. Present even when `unchanged`.',
   ),
   circle: CheckinCircle.optional().describe(
     "Your circle (RFC 0033): its id, name (a resident's words), whether its notice changed since `since`, and its next circle night, with the invites you hold. Data, not a thing to do: joining, leaving, and inviting are your owner's call. Absent until circles open in this world. Present even when `unchanged`.",

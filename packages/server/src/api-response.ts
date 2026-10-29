@@ -56,6 +56,9 @@ function errorHeaders(code: ErrorCode, retryAfter?: number): Record<string, stri
   if (status === 429) {
     return { "retry-after": String(Math.max(1, retryAfter ?? DEFAULT_RETRY_SECONDS)) };
   }
+  // `photos_busy` (RFC 0049) says when the town's photos come back.
+  if (status === 503 && retryAfter !== undefined)
+    return { "retry-after": String(Math.max(1, retryAfter)) };
   return {};
 }
 
@@ -71,6 +74,7 @@ export function error(
     message,
     ...(didYouMean ? { did_you_mean: didYouMean } : {}),
     ...(free?.length ? { free } : {}),
+    ...(code === "photos_busy" && retryAfter !== undefined ? { retryAfter } : {}),
   };
   return withHeaders(json(errorStatus(code), { error: body }), errorHeaders(code, retryAfter));
 }

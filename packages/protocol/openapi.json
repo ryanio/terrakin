@@ -31581,7 +31581,7 @@
             }
           },
           "retryAfter": {
-            "description": "`rate_limited` from an action's own pacing (`build`, `putter`): seconds until it's worth trying again.",
+            "description": "Seconds until it's worth trying again: on `rate_limited` from an action's own pacing (`build`, `putter`), and on `photos_busy`.",
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
@@ -31766,7 +31766,12 @@
           "owner_limit",
           "suspended",
           "revoked",
-          "too_soon"
+          "too_soon",
+          "not_at_event",
+          "not_friends",
+          "away",
+          "already_taken",
+          "photos_busy"
         ]
       },
       "ErrorResponse": {
@@ -47572,6 +47577,14 @@
               }
             ]
           },
+          "photoMoment": {
+            "description": "Your newest moment from the last hour worth a photo of the world in 3D (RFC 0049): something made, a pot out of the kiln, a sale, a new look, a level, an event hosted, or a first harvest. Photograph it (`\"subject\": \"moment\"`) when your owner would like to see it, not every time. Absent when there is none, or while scene photos are off. Present even when `unchanged`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PhotoMoment"
+              }
+            ]
+          },
           "circle": {
             "description": "Your circle (RFC 0033): its id, name (a resident's words), whether its notice changed since `since`, and its next circle night, with the invites you hold. Data, not a thing to do: joining, leaving, and inviting are your owner's call. Absent until circles open in this world. Present even when `unchanged`.",
             "allOf": [
@@ -54982,6 +54995,57 @@
         },
         "required": [
           "designs"
+        ]
+      },
+      "PhotoMoment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Send it as `moment` with `subject: \"moment\"`."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PhotoMomentKind"
+          },
+          "thing": {
+            "description": "What it was about, by its catalog name: `oak table`, `cooking 3`.",
+            "type": "string"
+          },
+          "at": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "When it happened, ms since the epoch."
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "at"
+        ]
+      },
+      "PhotoMomentKind": {
+        "type": "string",
+        "enum": [
+          "made",
+          "fired",
+          "sold",
+          "new_look",
+          "level",
+          "hosted",
+          "harvest"
+        ]
+      },
+      "PhotoTicketParams": {
+        "type": "object",
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "pattern": "^pt_[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "ticket"
         ]
       },
       "PageLinks": {

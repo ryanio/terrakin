@@ -32,6 +32,7 @@ import {
   tileKey,
 } from "@terrakin/sim";
 import {
+  Box3,
   BufferGeometry,
   type CanvasTexture,
   CircleGeometry,
@@ -58,6 +59,7 @@ import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
 import { lyingOn, type PetMotion, type PetScene } from "../pets";
+import type { PhotoView } from "../photo-framing";
 import type { BurstMark } from "../render/fireworks";
 import { postureAt } from "../resting";
 import { teaSpots } from "../tea-spots";
@@ -90,6 +92,8 @@ import { createPictures, displayedThings, foundThings } from "./displays";
 import {
   fadeFigure,
   figure,
+  headBounds,
+  hideTag,
   ICON_TEXTURES,
   iconTexture,
   OVERHEAD_ORDER,
@@ -158,6 +162,42 @@ export interface World3dOptions {
   tappable?(tile: Tile): boolean;
   /** The 3D view can't go on here: too slow even after stepping down, or the GPU went away. */
   onFail(reason: "slow" | "lost"): void;
+  /**
+   * A scene photo (RFC 0049): no name tags, signs, or notes over anyone (the photo draws its own
+   * tags), and the camera goes where `photo.aim` puts it.
+   */
+  photo?: true;
+}
+
+/** Where a resident's head is in the picture, for a photo's name tags. */
+export interface PhotoHead {
+  id: string;
+  /** The top of the head, in canvas pixels. */
+  x: number;
+  y: number;
+  /** Distance from the camera, in tiles. */
+  depth: number;
+  /** The face's radius, in canvas pixels. */
+  face: number;
+  /** Behind a wall, or behind someone nearer the camera. */
+  hidden: boolean;
+}
+
+/** What the photo page asks of the scene. */
+export interface PhotoKit {
+  /** Plots still waiting to be built: keep syncing until this is false. */
+  busy(): boolean;
+  /**
+   * Where this resident's figure is drawn (a hearth's stand pulls it off its tile), how high the
+   * top of its head stands over its feet, and its feet's height.
+   */
+  figure(id: string): { x: number; z: number; top: number; floorY: number } | undefined;
+  /** The camera's vertical field of view in degrees, and the picture's width over its height. */
+  lens(): { fovDeg: number; aspect: number };
+  /** Put the camera, the haze, and the sun where the framing says. */
+  aim(view: PhotoView): void;
+  /** Every head in front of the camera, as drawn now, and whether something hides it. */
+  heads(): PhotoHead[];
 }
 
 export interface World3dFrame {
@@ -209,6 +249,8 @@ export interface World3d {
   screenOf(id: string, over?: boolean): { x: number; y: number } | undefined;
   /** Which way is away from the camera, snapped to a direction: what "up" on the d-pad means. */
   heading(): Quarter;
+  /** For the photo page (RFC 0049). */
+  readonly photo: PhotoKit;
   dispose(): void;
 }
 
@@ -846,6 +888,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       });
       group.position.copy(at);
       group.rotation.y = turn;
+      if (opts.photo) hideTag(group);
       scene.add(group);
       if (have) dropBubble(have);
       figures.set(r.id, {
@@ -1339,8 +1382,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       let moved = moveFigures(mirror, motion, dt, feelings?.speaker(now), cut);
       if (movePets(mirror, tile, frame, dt, now)) moved = true;
       stackBubbles3d();
-      // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`.
-      for (const [id, f] of figures) {
+      // A feeling from what happened to them wins; otherwise a doze shows as `sleepy`. A photo
+      // shows faces, with nothing floating over them.
+      for (const [id, f] of opts.photo ? [] : figures) {
         if (showNote(f.group, notes?.has(id) ?? false)) moved = true;
         if (showFeeling(f.group, feelings?.get(id, now) ?? f.doze, now)) moved = true;
       }
@@ -1399,6 +1443,90 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         x: rect.left + ((onScreen.x + 1) / 2) * rect.width + (over ? 0 : BESIDE_PX),
         y: rect.top + ((1 - onScreen.y) / 2) * rect.height,
       };
+    },
+    photo: {
+      busy: () => pending || recheck,
+      figure(id) {
+        const fig = figures.get(id);
+        if (!fig) return undefined;
+        scene.updateMatrixWorld();
+        const box = headBounds(fig.group, new Box3());
+        return box.isEmpty()
+          ? undefined
+          : {
+              x: fig.group.position.x,
+              z: fig.group.position.z,
+              top: box.max.y - fig.group.position.y,
+              floorY: fig.group.position.y,
+            };
+      },
+      lens: () => ({ fovDeg: camera.fov, aspect: camera.aspect }),
+      aim(view) {
+        started = true;
+        // The walking camera's limits don't hold a photo: a selfie stands close and level.
+        controls.minDistance = 0;
+        controls.maxDistance = Infinity;
+        controls.minPolarAngle = 0;
+        controls.maxPolarAngle = Math.PI / 2;
+        controls.target.set(view.target.x, view.target.y, view.target.z);
+        camera.position.set(view.position.x, view.position.y, view.position.z);
+        camera.near = 0.1;
+        camera.updateProjectionMatrix();
+        controls.update();
+        const reach = stage.hazeReach();
+        fog.near = view.fogNear * reach;
+        fog.far = view.fogFar * reach;
+        weather.follow(view.target.x, view.target.z);
+        stage.light(new Vector3(view.target.x, 0, view.target.z), view.lightRadius);
+        stage.invalidate();
+      },
+      heads() {
+        scene.updateMatrixWorld();
+        camera.updateMatrixWorld();
+        const rect = { w: canvas.clientWidth, h: canvas.clientHeight };
+        const box = new Box3();
+        const out: PhotoHead[] = [];
+        const sight = new Raycaster();
+        sight.camera = camera;
+        // What can stand in the way: solid things, never a sprite, a spark, or the haze.
+        const solids = (o: Object3D) =>
+          o.visible &&
+          (o as Mesh).isMesh === true &&
+          !(o as Mesh & { isSprite?: boolean }).isSprite;
+        // Each head's middle and its distance, so a figure only hides one further back.
+        const middles = new Map<Group, number>();
+        for (const f of figures.values()) {
+          headBounds(f.group, box);
+          if (!box.isEmpty())
+            middles.set(f.group, box.getCenter(new Vector3()).distanceTo(camera.position));
+        }
+        const figureOf = (o: Object3D) =>
+          ownerOf(o, (at) => (middles.has(at as Group) ? (at as Group) : undefined));
+        for (const [id, f] of figures) {
+          headBounds(f.group, box);
+          if (box.isEmpty()) continue;
+          const center = box.getCenter(new Vector3());
+          const depth = center.distanceTo(camera.position);
+          // A head behind a wall, or behind someone nearer, gets no tag: a tag pointing at whoever
+          // is in front would name the wrong person.
+          sight.set(camera.position, center.clone().sub(camera.position).normalize());
+          sight.far = depth;
+          const hidden = sight.intersectObjects(scene.children, true).some((hit) => {
+            if (!solids(hit.object)) return false;
+            const who = figureOf(hit.object);
+            if (who === f.group) return false;
+            return who === undefined || (middles.get(who) ?? Infinity) < depth - 0.01;
+          });
+          const top = new Vector3(center.x, box.max.y, center.z).project(camera);
+          const mid = center.clone().project(camera);
+          if (top.z > 1 || mid.z > 1) continue;
+          const x = ((top.x + 1) / 2) * rect.w;
+          const y = ((1 - top.y) / 2) * rect.h;
+          const my = ((1 - mid.y) / 2) * rect.h;
+          out.push({ id, x, y, depth, face: Math.max(4, my - y), hidden });
+        }
+        return out;
+      },
     },
     heading() {
       if (!started) return 0;

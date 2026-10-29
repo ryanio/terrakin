@@ -1,0 +1,69 @@
+/* The scene photo page (RFC 0049): one 1200x900 picture, the scene over a stamp, nothing else. */
+
+@import "@terrakin/ui/tokens.css";
+
+.photo-page {
+  margin: 0;
+  width: 1200px;
+  height: 900px;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.photo-frame {
+  position: relative;
+  width: 1200px;
+  height: 900px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+.photo-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+.photo-scene > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.photo-tags {
+  pointer-events: none;
+}
+
+/* The stamp under the picture, sized for the picture rather than a phone. */
+.photo-stamp {
+  box-sizing: border-box;
+  height: 84px;
+  padding: 0 var(--space-3xl);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2xs);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+.photo-title {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.photo-line {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

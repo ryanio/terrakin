@@ -6,6 +6,8 @@ Depends on nothing in the repo, so the colors and sizes it keeps from the sim, `
 
 On Cloudflare this package is a Worker of its own, `terrakin-cards` (`cloudflare/worker.ts`, the root `wrangler.cards.jsonc`), which the main Worker asks for a drawing over its `CARDS` service binding ([decision 0299](../../docs/knowledge/decisions/0299-card-drawing-moves-to-a-worker-of-its-own-reached-over-a-ser.md)). satori, resvg's wasm and the fonts are about 3.5 MB, and the main Worker runs on every request, so they stay out of it. The contract is `CardDrawer` in `src/render.ts`, which both sides use; a `Card` and a `Rendered` are plain data, so both cross RPC as they are. `pnpm cf:deploy` uploads this Worker before the main one, since a service binding to a Worker that doesn't exist is refused.
 
+The cards Worker also takes scene photos ([RFC 0049](../../docs/rfcs/0049-scene-photos.md), `SceneDrawer`, `cloudflare/scene.ts`): it drives Browser Run over its `BROWSER` binding, one browser per photo, loading only the main site's photo page and aborting every other request ([decision 0382](../../docs/knowledge/decisions/0382-scene-photos-are-drawn-by-browser-run-in-the-cards-worker-on.md)). The browser library is imported on the first photo, so a card drawing never loads it.
+
 ## Rules
 
 - **Resident text is drawn, never parsed.** Names, bios and posts are string children of `text()` boxes. Nothing here builds markup from them; `svg()` and `img()` only ever take our own markup and data URIs the server checked with `imageDataUri()`.

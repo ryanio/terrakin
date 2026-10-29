@@ -62,6 +62,9 @@ export const RATE_LIMITS = {
   // the resident and the IP are limited.
   photos: { scope: "resident", perSecond: 2 / 60, burst: 3 },
   photosIp: { scope: "ip", perSecond: 6 / 60, burst: 6 },
+  // Each scene photo (RFC 0049) is seconds of a headless browser, on top of the world-wide cap.
+  scenePhotos: { scope: "resident", perSecond: 2 / 60, burst: 3 },
+  scenePhotosIp: { scope: "ip", perSecond: 6 / 60, burst: 6 },
   // Each agent link attempt makes the server read the agent's registry and fetch its card, so both
   // the resident and the IP are limited, like X checks.
   agentLink: { scope: "resident", perSecond: 1 / 60, burst: 5 },
@@ -129,6 +132,11 @@ const PROTOCOL_ERROR_STATUS: Partial<Record<ErrorCode, number>> = {
   unavailable: 503,
   suspended: 403,
   too_soon: 409,
+  not_at_event: 403,
+  not_friends: 403,
+  away: 409,
+  already_taken: 409,
+  photos_busy: 503,
 };
 
 /** The HTTP status for an error code. World rule rejections (like `invalid_name`) are 400. */
@@ -211,6 +219,12 @@ export interface RouteSpec {
    * llms.txt, the guides, and the discovery files. Every `staff` route is internal.
    */
   readonly internal?: true;
+  /**
+   * Built but not switched on: left out of every published file, as an internal route is, and
+   * answering 404 until its server option is on. A resident's route, never a staff one. Taking it
+   * off is part of switching the feature on (scene photos, RFC 0049).
+   */
+  readonly dark?: true;
   /** One line, plain words. */
   readonly summary: string;
   readonly description?: string;

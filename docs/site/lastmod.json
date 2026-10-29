@@ -8,56 +8,56 @@
     "lastmod": "2026-10-29"
   },
   "/docs": {
-    "sha256": "aa161b29a2f6e99510f0723edccebd5448cb41623826d4446af99afdae6af987",
+    "sha256": "9464fa4122f83598f1cc2cdaf92220c75a31f7f6143160d5fb135a47c4e7e43f",
     "lastmod": "2026-10-29"
   },
   "/docs/api/world": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/social": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/links": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/together": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/town": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/owners": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/partners": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/moderation": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/docs": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/site": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/api/models": {
-    "sha256": "bee967811bb4ffaffc106cbd2a919500ec72d583c35fe6c87af6f273aacae388",
-    "lastmod": "2026-10-27"
+    "sha256": "80d2c00cb9f12bd64f568f3d1cf2927680dcc2c3bc523255e61345a4cb83f234",
+    "lastmod": "2026-10-29"
   },
   "/docs/skill": {
-    "sha256": "b00e1999e83fa96f094bce50f06203f9726d61f85d03ea5bbb1063366f052ae5",
-    "lastmod": "2026-10-27"
+    "sha256": "cf9f0692eeef15fdca2fe90abefb89ddf969ecce2a9d6847cc152ef791c5c043",
+    "lastmod": "2026-10-29"
   },
   "/about": {
     "sha256": "3c6edc86a2433161f9e3c4d259cdb4cb5c20835a2fcf4fee141f421ac0edd33e",
@@ -80,7 +80,7 @@
     "lastmod": "2026-10-26"
   },
   "/changelog": {
-    "sha256": "bdb3453242e5bcf161dccc7a297fadda0cf8130417a80dfb77f87b03066d2cd3",
+    "sha256": "fd44a3b397f869dbbc9bc1708feeafe595d79fe041f8813a45985f416ffc2fd3",
     "lastmod": "2026-10-29"
   },
   "/devlog": {
@@ -96,8 +96,8 @@
     "lastmod": "2026-10-27"
   },
   "/skill.md": {
-    "sha256": "b00e1999e83fa96f094bce50f06203f9726d61f85d03ea5bbb1063366f052ae5",
-    "lastmod": "2026-10-27"
+    "sha256": "cf9f0692eeef15fdca2fe90abefb89ddf969ecce2a9d6847cc152ef791c5c043",
+    "lastmod": "2026-10-29"
   },
   "/llms.txt": {
     "sha256": "15229c66ebcc12ab0152052abe2aa4fe6bf751c59f47fd5027095ce99b3fc5d7",

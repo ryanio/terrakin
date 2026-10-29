@@ -27,6 +27,8 @@ const SERVER_ENV = {
   TERRAKIN_TEST_CHAIN: FAKE_CHAIN,
   TERRAKIN_TEST_CLOCK: "1",
   TERRAKIN_TOWN_EVENTS: "off",
+  // Scene photos (RFC 0049), drawn from this server's own build.
+  TERRAKIN_SCENE_PHOTOS: "on",
 };
 
 const phone = { ...devices["iPhone 13"], browserName: "chromium" as const };

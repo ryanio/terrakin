@@ -375,7 +375,7 @@ const SEASON_LABELS = {
  * words from the world's own day and clock, never anything a resident wrote. A world that has never
  * counted a day has no day and no season to stamp.
  */
-function stampOf(state: WorldState, phase: number, weather: Weather): string[] {
+export function stampOf(state: WorldState, phase: number, weather: Weather): string[] {
   const time = timeOfDay(phase);
   return [
     ...(state.day === undefined

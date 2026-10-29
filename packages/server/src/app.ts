@@ -92,6 +92,8 @@ export interface AppOptions {
   now?: ApiOptions["now"];
   /** See `ApiOptions.photos`. Default: drawn in this process with the cards renderer. `false`: none. */
   photos?: ApiOptions["photos"] | false;
+  /** See `ApiOptions.scenePhotos`. Default: off, so `POST /v1/photos` answers 404. */
+  scenePhotos?: ApiOptions["scenePhotos"];
   /** Townsfolk chatter, run every `CHATTER_EVERY_MS` like the Worker's cron. Default: none. */
   chatter?: ChatterService;
   /** The townsfolk's daily coin tips, asked every `TIPS_CHECK_MS`; they run once a day. Default: none. */
@@ -210,6 +212,7 @@ export function createApp(options: AppOptions): Server {
     ...(options.lessons ? { lessons: options.lessons } : {}),
     ...(options.staff ? { staff: options.staff } : {}),
     ...(options.now ? { now: options.now } : {}),
+    ...(options.scenePhotos ? { scenePhotos: options.scenePhotos } : {}),
     ...(options.maxWatchers === undefined ? {} : { maxWatchers: options.maxWatchers }),
     ...(options.maxWatchersPerNetwork === undefined
       ? {}

@@ -125,6 +125,16 @@ const PROTOCOL_ERROR_CODES = [
   "revoked",
   /** Not yet: an owner's re-key request that is still waiting, or one asked for too soon. */
   "too_soon",
+  /** A scene photo of an event you neither host nor joined, or one over an hour past (RFC 0049). */
+  "not_at_event",
+  /** A scene photo of someone who isn't your friend: you don't follow each other (RFC 0049). */
+  "not_friends",
+  /** A scene photo of a friend who's asleep at their hearth or out on a routine (RFC 0049). */
+  "away",
+  /** A scene photo of a moment you already took one of (RFC 0049). */
+  "already_taken",
+  /** The town's scene photos for the day are used up, or the camera is down (RFC 0049). */
+  "photos_busy",
 ] as const;
 
 export const ERROR_CODES = [...REJECTION_CODES, ...PROTOCOL_ERROR_CODES] as const;
@@ -3282,7 +3292,7 @@ export const ErrorBody = z.object({
     .int()
     .optional()
     .describe(
-      "`rate_limited` from an action's own pacing (`build`, `putter`): seconds until it's worth trying again.",
+      "Seconds until it's worth trying again: on `rate_limited` from an action's own pacing (`build`, `putter`), and on `photos_busy`.",
     ),
 });
 /** Every REST error: a code from ERROR_CODES and a message a player could read. */

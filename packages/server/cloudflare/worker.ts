@@ -1,7 +1,7 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
-import type { CardDrawer } from "@terrakin/cards";
-import { buildOpenApi, LINKS } from "@terrakin/protocol";
+import type { CardDrawer, SceneDrawer } from "@terrakin/cards";
+import { buildOpenApi, LINKS, SCENE_PHOTO_LIMITS } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import {
   entitledTo,
@@ -84,12 +84,14 @@ interface Env {
    * to draw plot photos, so the drawing runs in the Worker, never in the world.
    */
   PHOTOS: Service<PlotPhotos>;
+  /** Scene photos (RFC 0049): `on` opens `POST /v1/photos`. Unset, the route answers 404. */
+  TERRAKIN_SCENE_PHOTOS?: string;
   /**
    * The cards Worker (`wrangler.cards.jsonc`, decision 0299), which holds satori, resvg's wasm and
    * the card fonts. Keeping them out of this Worker is what keeps its cold start short, so nothing
    * here imports `@terrakin/cards/worker`: every draw goes over this binding.
    */
-  CARDS: CardDrawer;
+  CARDS: CardDrawer & SceneDrawer;
   /** Resident ids of the founding townsfolk (NPC badge), comma separated. Set in wrangler.jsonc vars. */
   TERRAKIN_TOWNSFOLK?: string;
   /** Resident ids of Town Hall maintainers (void proposals, answer petitions), comma separated. */
@@ -202,6 +204,8 @@ const sentry = (env: Env) => sentryOptions(env.SENTRY_DSN, env.CF_VERSION_METADA
 
 const OPENAPI = JSON.stringify(buildOpenApi());
 const CANONICAL_HOST = "terrakin.org";
+/** Where the browser that takes scene photos loads the photo page (RFC 0049). */
+const SITE_ORIGIN = `https://${CANONICAL_HOST}`;
 /** The Worker's own build on `GET /v1/health`, beside the World object's `build` in the body. */
 const WORKER_BUILD_HEADER = "terrakin-worker-build";
 
@@ -567,6 +571,11 @@ class WorldObject extends DurableObject<Env> {
       }),
       // Plot photos are drawn by the Worker (PlotPhotos), never in this object.
       photos: (spec) => env.PHOTOS.draw(spec),
+      // Scene photos too: the Worker drives Browser Run, while this object checks, counts, and
+      // keeps the PNG (RFC 0049). Off unless TERRAKIN_SCENE_PHOTOS is `on`.
+      ...(env.TERRAKIN_SCENE_PHOTOS === "on"
+        ? { scenePhotos: { render: (url: string) => env.PHOTOS.scene(url), origin: SITE_ORIGIN } }
+        : {}),
       staff: {
         access: accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD) !== undefined,
         maintainerEmails: parseEmails(env.TERRAKIN_MAINTAINER_EMAILS),
@@ -753,6 +762,11 @@ class WorldObject extends DurableObject<Env> {
  * reachable from the internet: only a service binding can call a named entrypoint.
  */
 export class PlotPhotos extends WorkerEntrypoint<Env> {
+  /** A scene photo (RFC 0049): the photo page at `url`, drawn by Browser Run in the cards Worker. */
+  scene(url: string): Promise<Uint8Array> {
+    return this.env.CARDS.scene(url, SITE_ORIGIN, SCENE_PHOTO_LIMITS.readyMs);
+  }
+
   async draw(spec: PlotPhotoSpec): Promise<Uint8Array> {
     const card = await materializePlot(spec, async (id) => {
       if (!MEDIA_ID_PATTERN.test(id)) return undefined;

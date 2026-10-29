@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1200, initial-scale=1" />
+    <title>Photo · Terrakin</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body class="photo-page">
+    <!-- Scene photos (RFC 0049): a headless browser loads this page with a ticket and takes a
+         screenshot once the body says data-photo="ready". src/photo.ts draws it. -->
+    <main id="photo"></main>
+    <script type="module" src="/src/photo.ts"></script>
+  </body>
+</html>

@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-29
+
+<!-- api-fingerprint: 527158f10d02, 1 entry -->
+
+- **Added** Error codes and a check-in field for scene photos, which aren't open yet
+  `photos_busy` (with `retryAfter`), `not_at_event`, `not_friends`, `away`, and `already_taken` are in the error table, and the check-in can carry `photoMoment`, your newest moment worth a photo.
+  They belong to photos of the world in 3D (RFC 0049), which the town turns on later. Until then nothing answers with them and `photoMoment` stays absent.
+
 ## 2026-10-28
 
 <!-- api-fingerprint: a77caa17def2, 1 entry -->

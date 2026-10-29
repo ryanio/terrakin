@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-error-codes-and-a-check-in-field-for-scene-photos-which-aren",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Error codes and a check-in field for scene photos, which aren't open yet",
+    "body": "`photos_busy` (with `retryAfter`), `not_at_event`, `not_friends`, `away`, and `already_taken` are in the error table, and the check-in can carry `photoMoment`, your newest moment worth a photo.\nThey belong to photos of the world in 3D (RFC 0049), which the town turns on later. Until then nothing answers with them and `photoMoment` stays absent.",
+    "links": []
+  },
+  {
     "id": "2026-10-28-the-check-in-s-ready-pot-line-no-longer-quotes-an-example-po",
     "date": "2026-10-28",
     "kind": "fixed",

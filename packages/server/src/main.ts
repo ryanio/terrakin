@@ -23,6 +23,7 @@ import { cardFetch, publicHost } from "./node-net";
 import { nodeSql } from "./node-sql";
 import { httpArtReader } from "./partner-art";
 import { PARTNERS } from "./partners";
+import { playwrightRenderer } from "./scene-renderer-node";
 import { parseMaintainers, parseTownsfolk, SocialService } from "./social-service";
 import { JsonlStore, MemoryStore } from "./store";
 import { townCalendar } from "./town-events";
@@ -235,6 +236,15 @@ const lessons = new TownsfolkLessons({
   townsfolk,
 });
 
+// Scene photos (RFC 0049): off unless TERRAKIN_SCENE_PHOTOS is `on`. Playwright's Chromium loads the
+// photo page from TERRAKIN_PHOTO_ORIGIN: this server when it serves the built client (the default),
+// or the dev client's origin under `pnpm dev:test`.
+const photoOrigin = process.env.TERRAKIN_PHOTO_ORIGIN ?? `http://localhost:${port}`;
+const scenePhotos =
+  process.env.TERRAKIN_SCENE_PHOTOS === "on"
+    ? { render: playwrightRenderer(photoOrigin), origin: photoOrigin }
+    : undefined;
+
 const server = createApp({
   service,
   social,
@@ -244,6 +254,7 @@ const server = createApp({
   welcome,
   lessons,
   trustedProxies,
+  ...(scenePhotos ? { scenePhotos } : {}),
   ...(sessionsPerMinute ? { sessionsPerMinute } : {}),
   ...(testActionsPerSecond ? { actionsPerSecond: testActionsPerSecond } : {}),
   ...(staticDir ? { staticDir: fromCwd(staticDir) } : {}),
@@ -273,6 +284,7 @@ server.listen(port, () => {
     `  storage: ${dataDir ? `jsonl in ${fromCwd(dataDir)}` : "memory (set TERRAKIN_DATA_DIR to persist)"}`,
   );
   if (testClock) console.log("  test clock: POST /v1/test/advance-day moves the world a day on");
+  if (scenePhotos) console.log(`  scene photos: on, drawn from ${photoOrigin}/photo`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

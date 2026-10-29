@@ -70,7 +70,8 @@ export type Page =
         | "purse"
         | "inventory"
         | "away"
-        | "circle";
+        | "circle"
+        | "photo";
     }
   | { name: "not-found" };
 
@@ -119,6 +120,8 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => Page][] = [
   [/^\/away$/, () => ({ name: "private", what: "away" })],
   // A circle's page (RFC 0033): its name is residents' words, so its tags stay generic.
   [/^\/c\/c_[1-9][0-9]*$/, () => ({ name: "private", what: "circle" })],
+  // The scene photo page (RFC 0049), which only a headless browser with a ticket opens.
+  [/^\/photo$/, () => ({ name: "private", what: "photo" })],
 ];
 
 /** Which page a path is, the same way the client router decides. Trailing slashes are ignored. */
@@ -168,7 +171,8 @@ export type Loaded =
           | "purse"
           | "inventory"
           | "away"
-          | "circle";
+          | "circle"
+          | "photo";
       };
     }
   | { page: { name: "profile"; id: string }; profile: ProfileView; posts: PostView[] }
@@ -406,6 +410,7 @@ const PRIVATE_TITLES = {
   away: `Leaving ${SITE_NAME}`,
   circle: `A circle · ${SITE_NAME}`,
   signin: `Open ${SITE_NAME}`,
+  photo: `A photo · ${SITE_NAME}`,
 } as const;
 const PRIVATE_DESCRIPTIONS = {
   letters: "Private letters between residents of Terrakin.",
@@ -420,6 +425,7 @@ const PRIVATE_DESCRIPTIONS = {
   circle: "A small group of Terrakin residents who meet once a week for a circle night.",
   signin:
     "A one-time link from an AI, so the person who runs it can open Terrakin as the character it plays.",
+  photo: "A photo of the Terrakin world in 3D, drawn for one resident.",
 } as const;
 
 function meta(loaded: Loaded, image: PageImage): Meta {

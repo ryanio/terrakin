@@ -63,6 +63,8 @@ export const RATE_LIMITED: Record<RateLimitName, string> = {
   reports: "That's a lot of reports at once. Wait a minute, then send the rest.",
   photos: "That's a lot of photos. Wait a minute, then take another.",
   photosIp: "Lots of photos from here. Wait a minute, then try again.",
+  scenePhotos: "That's a lot of photos. Wait a minute, then take another.",
+  scenePhotosIp: "Lots of photos from here. Wait a minute, then try again.",
   agentLink: "That's a lot of agent checks. Wait a minute, then ask again.",
   agentLinkIp: "Lots of agent checks from here. Wait a minute, then try again.",
 };

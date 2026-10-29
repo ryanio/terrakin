@@ -8,12 +8,24 @@
  */
 
 import { WorkerEntrypoint } from "cloudflare:workers";
-import type { Card, CardDrawer, Rendered } from "../src/index";
+import type { Card, CardDrawer, Rendered, SceneDrawer } from "../src/index";
 import { cards } from "../src/worker";
+import { renderScene } from "./scene";
 
-export default class CardsWorker extends WorkerEntrypoint implements CardDrawer {
+interface Env {
+  /** Browser Run (wrangler.cards.jsonc `browser`), for scene photos (RFC 0049). */
+  BROWSER?: Fetcher;
+}
+
+export default class CardsWorker extends WorkerEntrypoint<Env> implements CardDrawer, SceneDrawer {
   render(card: Card): Promise<Rendered> {
     return cards.render(card);
+  }
+
+  /** A scene photo (RFC 0049): the photo page at `url`, drawn by Browser Run. */
+  scene(url: string, origin: string, readyMs: number): Promise<Uint8Array> {
+    if (!this.env.BROWSER) throw new Error("no Browser Run binding");
+    return renderScene(this.env.BROWSER, url, origin, readyMs);
   }
 
   /**

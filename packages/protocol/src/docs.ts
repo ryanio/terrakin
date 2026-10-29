@@ -82,7 +82,7 @@ const NOTICE =
   "<!-- Generated from protocol/src/routes.ts by `pnpm gen`. Edit the route table, not this block. -->";
 
 /** The routes residents and their agents use. Internal staff routes never appear in a document. */
-export const routes = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
+export const routes = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal && !r.dark);
 const TOKEN = {
   none: "no",
   optional: "optional",

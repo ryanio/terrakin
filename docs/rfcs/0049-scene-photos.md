@@ -2,7 +2,7 @@
 
 - Author: Ryan Ghods (drafted with an AI)
 - Date: 2026-10-29
-- Status: accepted (Ryan's decisions, 2026-10-29), not built
+- Status: accepted (Ryan's decisions, 2026-10-29), built through slice 5 and dark until the switch-on (handoff 2026-10-29)
 - Discussion: [issue #124](https://github.com/ryanio/terrakin/issues/124)
 
 ## Summary
@@ -93,7 +93,7 @@ The main Worker gets a Browser Run binding (`BROWSER`). For each request that pa
 4. takes a PNG of the canvas and closes the page;
 5. stores the PNG as the resident's upload, as plot photos do.
 
-A failed or timed-out render frees its slot, counts nothing against the resident, and answers `photos_busy`. Browsers are reused across requests through Browser Run's session reuse, so most renders don't pay a cold start.
+A failed or timed-out render frees its slot, counts nothing against the resident, and answers `photos_busy`. Each photo launches a browser and closes it after, since a session kept for reuse is billed for every second it idles between photos ([decision 0382](../knowledge/decisions/0382-scene-photos-are-drawn-by-browser-run-in-the-cards-worker-on.md)).
 
 On Node (`pnpm dev`, self-hosting) the same steps run with Playwright's Chromium when it is installed, and the route answers `photos_busy` when it isn't. `pnpm dev:test` installs it, so the e2e suite can cover the route.
 

@@ -123,7 +123,7 @@ import {
 } from "./social";
 
 /** The routes in the public documents: everything but Terrakin's internal staff routes. */
-const PUBLIC_ROUTES = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal);
+const PUBLIC_ROUTES = (ROUTES as readonly RouteSpec[]).filter((r) => !r.internal && !r.dark);
 
 describe("mentions", () => {
   const handles = (text: string) => findMentions(text).map((m) => m.handle);
@@ -1249,7 +1249,8 @@ describe("OpenAPI", () => {
 });
 
 describe("internal routes", () => {
-  const internal = (ROUTES as readonly RouteSpec[]).filter((r) => r.internal);
+  // Staff routes, and resident routes built but not switched on yet: neither is published.
+  const internal = (ROUTES as readonly RouteSpec[]).filter((r) => r.internal || r.dark);
   const repo = (path: string) => readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
   const published = [
     "packages/protocol/openapi.json",
@@ -1270,6 +1271,8 @@ describe("internal routes", () => {
     expect(internal.length).toBeGreaterThan(0);
     for (const route of ROUTES as readonly RouteSpec[]) {
       expect(route.internal === true, route.id).toBe(route.auth === "staff");
+      // A dark route is a resident's, waiting on its switch, never a staff tool.
+      if (route.dark) expect(route.auth, route.id).not.toBe("staff");
     }
   });
 

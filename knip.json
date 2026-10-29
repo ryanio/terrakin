@@ -6,6 +6,7 @@
       "project": ["scripts/**/*.ts", "e2e/**/*.ts", "*.ts"]
     },
     "packages/*": {},
+    "packages/client": { "entry": ["src/photo.ts"] },
     "packages/cards": { "entry": ["cloudflare/worker.ts"] },
     "packages/figure": {
       "entry": ["demo/main.ts"]

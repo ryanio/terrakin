@@ -282,6 +282,7 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         suggestions: social().checkins,
         devlogAt: (date) => social().checkins.published(date),
         ownerNote: api.owners?.checkinNote(viewer, service.joinedDay(viewer), "api"),
+        photoMoment: api.scenes?.newestMoment(viewer),
       });
       const home = api.homeField(viewer).home;
       return { status: 200, body: checkinWithLinks(origin, viewer, home, view) };
@@ -439,6 +440,9 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
         body: { resident: profileWithLinks(origin, resident) },
       })),
     takePlotPhoto: ({ viewer, ip, body }) => api.takePlotPhoto(viewer, ip, body?.floor),
+    takeScenePhoto: ({ viewer, ip, body }) => api.takeScenePhoto(viewer, ip, body),
+    listPhotoMoments: ({ viewer }) => api.photoMoments(viewer),
+    readPhotoScene: ({ params }) => api.photoScene(params.ticket),
     uploadMedia: async ({ viewer, body, ip }) => {
       const key = ipKey(ip);
       const day = utcDay(api.now());

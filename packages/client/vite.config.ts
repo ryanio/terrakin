@@ -177,6 +177,53 @@ async function docsCopyScript(): Promise<{ fileName: string; code: string }> {
   return { fileName: `assets/docs-copy-${hash}.js`, code: chunk.code };
 }
 
+/**
+ * The scene photo page (`/photo`, RFC 0049), which a headless browser loads to take a photo. It is
+ * built on its own, like the docs script, rather than as a second entry of the app: the app's
+ * chunks put what its entry shares into the entry itself, so a second entry would load and run the
+ * app. Its files go in beside the app's, and `/photo` serves `photo.html`, in dev too.
+ */
+function photoPage(): Plugin {
+  return {
+    name: "terrakin-photo-page",
+    configureServer(dev) {
+      dev.middlewares.use((req, _res, next) => {
+        const [path, query] = (req.url ?? "").split("?");
+        if (path === "/photo") req.url = `/photo.html${query === undefined ? "" : `?${query}`}`;
+        next();
+      });
+    },
+    async generateBundle(_options, bundle) {
+      const out = await build({
+        configFile: false,
+        logLevel: "warn",
+        root: fileURLToPath(new URL(".", import.meta.url)),
+        plugins: [noSchemaDescriptions(), noJsonSchema(), contentSecurityPolicy()],
+        build: {
+          write: false,
+          sourcemap: true,
+          chunkSizeWarningLimit: 900,
+          rolldownOptions: { input: fileURLToPath(new URL("./photo.html", import.meta.url)) },
+        },
+      });
+      const outputs = (Array.isArray(out) ? out : [out]).flatMap((o) =>
+        "output" in o ? o.output : [],
+      );
+      if (!outputs.some((o) => o.fileName === "photo.html"))
+        throw new Error("terrakin-photo-page: photo.html didn't build");
+      for (const o of outputs) {
+        // A font or a library the app already ships under the same hashed name is the same file.
+        if (bundle[o.fileName]) continue;
+        this.emitFile({
+          type: "asset",
+          fileName: o.fileName,
+          source: o.type === "chunk" ? o.code : o.source,
+        });
+      }
+    },
+  };
+}
+
 function sitePages(): Plugin {
   const prose = (PAGES as readonly SitePage[]).filter((p) => p.prose || p.built);
   const lastmod = () =>
@@ -440,6 +487,7 @@ export default defineConfig({
     noJsonSchema(),
     icons(),
     sitePages(),
+    photoPage(),
     contentSecurityPolicy(),
     readsOnlyFromElsewhere(),
     firstLoadBudget(),

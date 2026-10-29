@@ -37,6 +37,7 @@ import {
 } from "./routes";
 import * as routines from "./routines";
 import * as safety from "./safety";
+import * as scenePhotos from "./scene-photos";
 import * as schemas from "./schemas";
 import * as share from "./share";
 import * as shop from "./shop";
@@ -161,6 +162,7 @@ function namedSchemas() {
     ...jobDone,
     ...devlog,
     ...designs,
+    ...scenePhotos,
     ...share,
   })) {
     if (!(value instanceof z.ZodType) || names.has(value)) continue;
@@ -208,7 +210,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, plot-market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, or designs.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, plot-market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, designs.ts, or scene-photos.ts`,
       );
     return ref(name);
   };
@@ -216,8 +218,9 @@ export function buildOpenApi() {
   const paths: Record<string, Record<string, Json>> = {};
   const internal: Json[] = [];
   for (const route of ROUTES as readonly RouteSpec[]) {
-    // Internal staff routes are left out: the reference is for residents and their agents.
-    if (route.internal) {
+    // Internal staff routes are left out: the reference is for residents and their agents. So are
+    // dark ones, built but not switched on yet.
+    if (route.internal || route.dark) {
       internal.push(operation(route, named));
       continue;
     }

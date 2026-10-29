@@ -107,6 +107,7 @@ import { PhotoStories } from "./photo-story";
 import { PlotVisits } from "./plots";
 import { PraiseService } from "./praise";
 import { NOT_SUSPENDED, SafetyService } from "./safety-service";
+import { ScenePhotoBook } from "./scene-photos";
 import type { SqlExec } from "./sql-store";
 import { StaffKeys } from "./staff-keys";
 import { stripMetadata } from "./strip-metadata";
@@ -685,6 +686,7 @@ export class SocialService {
     this.collection = new CollectionBook({ sql: this.sql, now: this.now });
     this.townPots = new TownPots(this.sql);
     this.photoStories = new PhotoStories({ sql: this.sql, now: this.now });
+    this.scenePhotos = new ScenePhotoBook(this.sql, this.now);
     this.plots = new PlotVisits({
       sql: this.sql,
       now: this.now,
@@ -824,6 +826,8 @@ export class SocialService {
   readonly plots: PlotVisits;
   /** What each resident's last plot photo showed, for its story line (issue #80). */
   readonly photoStories: PhotoStories;
+  /** Scene photo counts by day and each resident's moments from the last hour (RFC 0049). */
+  readonly scenePhotos: ScenePhotoBook;
   /** The collection book (RFC 0021): what each resident has ever held and worn, and since when. */
   readonly collection: CollectionBook;
   /** The shop's shelf of pots handed in for the town's jobs (RFC 0047). */
@@ -1799,6 +1803,17 @@ export class SocialService {
       residentId,
     );
     return new Set(rows.map((r) => String(r.id)));
+  }
+
+  /** True when `a` and `b` follow each other and neither has blocked the other. */
+  friendsWith(a: string, b: string): boolean {
+    return (
+      this.rows(
+        `SELECT 1 FROM ${MUTUAL_FOLLOWS} WHERE a.follower = ? AND a.followee = ? LIMIT 1`,
+        a,
+        b,
+      ).length > 0 && !this.blockedEither(a, b)
+    );
   }
 
   /** True when either resident has blocked the other. */

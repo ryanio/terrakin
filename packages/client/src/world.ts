@@ -832,7 +832,6 @@ function onMessage(msg: ServerMessage) {
             where: {
               config: m.config,
               season: m.day === undefined ? undefined : seasonOf(m.day),
-              roomy: m.starterEdges,
             },
             standing: () => self(),
             hearth: () => (me ? m.residents.get(me)?.hearth : undefined),

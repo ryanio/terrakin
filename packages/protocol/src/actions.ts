@@ -344,12 +344,6 @@ export const BuildAction = z.object({
     .enum(DESIGN_IDS)
     .optional()
     .describe("A whole home by name, from `GET /v1/designs`, in place of the lists or a map."),
-  roomy: z
-    .boolean()
-    .optional()
-    .describe(
-      "With a design: build its roomy version, its walls on the lines between tiles (RFC 0050). Only where `GET /v1/designs` lists `roomy`.",
-    ),
   walls: BlockKind.optional().describe("A design's walls: one its `options.walls` lists."),
   windows: BlockKind.optional().describe("A design's windows: one its `options.windows` lists."),
   path: GroundKind.optional().describe("A design's path: one its `options.path` lists."),

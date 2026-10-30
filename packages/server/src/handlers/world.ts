@@ -7,9 +7,8 @@ import { fail, type Handlers } from "./shared";
  * The handlers for the world: health, the snapshot, sessions, actions, plot plans, and designs. Their routes
  * are in the protocol's `route-table/world.ts`.
  */
-/** The designs never change while the server runs; the roomy ones are offered after `starter_edges`. */
+/** The designs never change while the server runs. */
 const DESIGNS = designViews();
-const ROOMY_DESIGNS = designViews({ roomy: true });
 
 export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
   const { service } = api;
@@ -60,9 +59,6 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
       const notes = designNotes(state, params.px, params.py);
       return { status: 200, body: { plan: { ...plan, map, notes } } };
     },
-    getDesigns: () => ({
-      status: 200,
-      body: service.state.starterEdges ? ROOMY_DESIGNS : DESIGNS,
-    }),
+    getDesigns: () => ({ status: 200, body: DESIGNS }),
   };
 }

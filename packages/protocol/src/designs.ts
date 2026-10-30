@@ -25,9 +25,8 @@ import { GroundKind as GroundKindSchema, PlotMapView } from "./schemas";
  * `maps.test.ts` builds every design in every material and turn on an empty plot with a hearth
  * there: nothing is skipped and the notes are empty.
  *
- * Each design has a roomy version (RFC 0050, `roomyGrids`): its walls on the lines between tiles
- * instead of on tiles, so the room keeps the floor they took. A world offers it once its starter
- * homes are built that way (`starter_edges`), and `build` takes it with `roomy: true`.
+ * A design is drawn with its walls on tiles, and built with them on the lines between tiles (RFC
+ * 0050, `roomyGrids`), so the room keeps the floor they took.
  */
 
 /** The materials a design lets you choose, first the one it uses when you don't. */
@@ -315,7 +314,7 @@ function turned(rows: readonly string[], turns: number): string[] {
 const WALLISH: ReadonlySet<string> = new Set(["W", "G", "+"]);
 
 /**
- * A design's roomy version (RFC 0050): its blocks with the walls taken off their tiles, and an
+ * A design as it builds (RFC 0050): its blocks with the walls taken off their tiles, and an
  * `edges` grid with them on lines instead, still in placeholders (`W`, `G`, and `D` for the door).
  * The room is the box its walls stand in, and each line round the box takes the kind of the wall
  * tile it runs along: a tile with no wall leaves its line open, as the hill house's front is. A
@@ -378,17 +377,30 @@ const charOf = (table: Record<string, string>, kind: string) =>
   Object.entries(table).find(([, k]) => k === kind)?.[0];
 
 /**
- * A design with its materials chosen and its turn, as a map of the ground floor, or why not. With
- * `roomy`, its roomy version (`roomyGrids`), the map's `edges` grid holding its walls.
+ * A design with its materials chosen and its turn, as a map of the ground floor, or why not. Its
+ * walls stand on the lines between tiles (`roomyGrids`), in the map's `edges` grid.
  */
 export function designToPlan(
   design: Design,
-  choices: DesignChoices & { turn?: DesignTurn | undefined; roomy?: boolean | undefined },
+  choices: DesignChoices & { turn?: DesignTurn | undefined },
 ): { map: MapInput } | { problem: string } {
-  const roomy = choices.roomy ? roomyGrids(design) : undefined;
-  let blocks = roomy ? roomy.blocks : [...design.blocks];
-  let edges = roomy?.edges;
-  let ground = [...design.ground];
+  return drawDesign(design, choices, roomyGrids(design));
+}
+
+/**
+ * A design's ground floor as it is drawn, its walls on tiles, in its own materials and turned:
+ * where its door stands and which way it opens, which are the same once its walls move onto lines.
+ */
+export function designOnTiles(design: Design, turn: DesignTurn = 0): string[] {
+  const drawn = drawDesign(design, { turn }, { blocks: [...design.blocks] });
+  return "problem" in drawn ? [] : (drawn.map.floors[0]?.blocks ?? []);
+}
+
+function drawDesign(
+  design: Design,
+  choices: DesignChoices & { turn?: DesignTurn | undefined },
+  grids: { blocks: string[]; edges?: string[] },
+): { map: MapInput } | { problem: string } {
   for (const part of ["walls", "windows", "path"] as const) {
     const choice = choices[part];
     if (choice === undefined) continue;
@@ -408,12 +420,16 @@ export function designToPlan(
   // The windows aside first, so walls of glass don't become windows.
   const dressed = (rows: string[]) =>
     swapped(swapped(swapped(rows, "G", "\0"), "W", walls), "\0", windows);
-  blocks = dressed(blocks);
-  if (edges) edges = dressed(edges);
-  ground = swapped(ground, ":", path);
   const turns = DESIGN_TURNS.indexOf(choices.turn ?? 0);
-  const floor = { floor: 0, blocks: turned(blocks, turns), ground: turned(ground, turns) };
-  return { map: { floors: [edges ? { ...floor, edges: turned(edges, turns) } : floor] } };
+  const floor = {
+    floor: 0,
+    blocks: turned(dressed(grids.blocks), turns),
+    ground: turned(swapped([...design.ground], ":", path), turns),
+  };
+  const { edges } = grids;
+  return {
+    map: { floors: [edges ? { ...floor, edges: turned(dressed(edges), turns) } : floor] },
+  };
 }
 
 /** A design as `GET /v1/designs` lists it: its map in the materials it uses when you choose none. */
@@ -435,10 +451,7 @@ export const DesignView = z.object({
     .int()
     .describe("How many floors above the ground floor it needs: 0 for every design so far."),
   map: PlotMapView.describe(
-    "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes.",
-  ),
-  roomy: PlotMapView.optional().describe(
-    "The same home with its walls on the lines between tiles (RFC 0050), drawn in its floor's `edges` grid, so the room keeps the floor they took. `build` takes it with `roomy: true`. Present once this world builds starter homes that way.",
+    "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes. Its walls stand on the lines between tiles, drawn in the floor's `edges` grid, so the room keeps every tile.",
   ),
 });
 export type DesignView = z.infer<typeof DesignView>;
@@ -446,8 +459,8 @@ export const DesignsResponse = z.object({ designs: z.array(DesignView) });
 export type DesignsResponse = z.infer<typeof DesignsResponse>;
 
 /** A design's map as the API draws it, in the materials it uses by default. */
-function viewMap(d: Design, roomy: boolean): PlotMapView {
-  const drawn = designToPlan(d, { roomy });
+function viewMap(d: Design): PlotMapView {
+  const drawn = designToPlan(d, {});
   if ("problem" in drawn) throw new Error(`${d.id}: ${drawn.problem}`);
   const [floor] = drawn.map.floors;
   return {
@@ -462,8 +475,8 @@ function viewMap(d: Design, roomy: boolean): PlotMapView {
   };
 }
 
-/** Every design as the API lists it, with its roomy version once the world offers it. */
-export function designViews(offer: { roomy?: boolean } = {}): DesignsResponse {
+/** Every design as the API lists it. */
+export function designViews(): DesignsResponse {
   return {
     designs: DESIGNS.map((d) => ({
       id: d.id,
@@ -475,8 +488,7 @@ export function designViews(offer: { roomy?: boolean } = {}): DesignsResponse {
         path: [...d.options.path],
       },
       floors: 0,
-      map: viewMap(d, false),
-      ...(offer.roomy ? { roomy: viewMap(d, true) } : {}),
+      map: viewMap(d),
     })),
   };
 }

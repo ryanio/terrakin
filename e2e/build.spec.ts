@@ -11,7 +11,7 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * gable roof of wood put on from the bar's Roof chip (RFC 0041). Before that, a candle put on the
  * table from the sheet a tap on it opens (RFC 0050), her hut's door
  * (decision 0349): drawn on the map, walked through, and hung again on its line between tiles, and
- * her hut roomy from the start (RFC 0050), so she can stand in its corners.
+ * her hut built from walls between tiles from the start (RFC 0050), so she can stand in its corners.
  */
 
 interface Tile {

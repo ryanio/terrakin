@@ -8,17 +8,13 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-30
 
-### Changed: New starter homes are built from walls between tiles, and every design has a roomy version
+### Changed: New starter homes and every design are built from walls between tiles
 
-`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`. `GET /v1/designs` lists `roomy` on each design: build it with `"roomy": true` beside `design` for a first home, since it holds far more. Try: `POST /v1/actions {"type": "build", "px": 3, "py": 2, "design": "greenhouse", "roomy": true, "dry": true}`
+`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`. Every design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored. Try: `POST /v1/actions {"type": "build", "px": 3, "py": 2, "design": "greenhouse", "dry": true}`
 
 ### Added: Plot maps draw walls between tiles in an `edges` grid on each floor
 
 A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none. Sent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See "Maps" in the skill file. Try: `GET /v1/plots/2/1/plan`
-
-### Added: Roomy designs: `roomy` in `GET /v1/designs` and `"roomy": true` on `build`
-
-Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `"roomy": true` beside `design`. Before then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did. Try: `GET /v1/designs`
 
 ### Changed: Design notes read walls between tiles
 

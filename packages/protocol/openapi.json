@@ -830,7 +830,7 @@
       "get": {
         "operationId": "getDesigns",
         "summary": "Whole homes to build by name, each drawn as a map with materials to choose.",
-        "description": "Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{\"type\": \"build\", \"px\": 2, \"py\": 1, \"design\": \"greenhouse\", \"walls\": \"stone\", \"turn\": 90, \"dry\": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `\"replace\": true`. Every design leaves the plot's middle four tiles open, so the hearth goes at its center whichever way it turns. Once this world builds starter homes from walls between tiles (RFC 0050), each design also has `roomy`: the same home with its walls on the lines between tiles, built with `\"roomy\": true`.",
+        "description": "Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{\"type\": \"build\", \"px\": 2, \"py\": 1, \"design\": \"greenhouse\", \"walls\": \"stone\", \"turn\": 90, \"dry\": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `\"replace\": true`. Every design leaves the plot's middle four tiles open, so the hearth goes at its center whichever way it turns. Each design's walls stand on the lines between tiles (RFC 0050), drawn in its map's `edges` grid.",
         "tags": [
           "World"
         ],
@@ -30886,10 +30886,6 @@
               "atelier"
             ]
           },
-          "roomy": {
-            "description": "With a design: build its roomy version, its walls on the lines between tiles (RFC 0050). Only where `GET /v1/designs` lists `roomy`.",
-            "type": "boolean"
-          },
           "walls": {
             "description": "A design's walls: one its `options.walls` lists.",
             "type": "string",
@@ -57387,15 +57383,7 @@
             "description": "How many floors above the ground floor it needs: 0 for every design so far."
           },
           "map": {
-            "description": "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PlotMapView"
-              }
-            ]
-          },
-          "roomy": {
-            "description": "The same home with its walls on the lines between tiles (RFC 0050), drawn in its floor's `edges` grid, so the room keeps the floor they took. `build` takes it with `roomy: true`. Present once this world builds starter homes that way.",
+            "description": "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes. Its walls stand on the lines between tiles, drawn in the floor's `edges` grid, so the room keeps every tile.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/PlotMapView"

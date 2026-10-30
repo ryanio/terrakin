@@ -47,7 +47,7 @@ function expand(state: WorldState, action: Record<string, unknown>) {
   const parsed = Action.parse({ type: "build", px: 2, py: 1, ...action });
   if (parsed.type !== "build") throw new Error("not a build");
   const now = plotPlan(state, 2, 1) ?? EMPTY;
-  return buildCommand(parsed, { size: S, now, roomy: state.starterEdges === true });
+  return buildCommand(parsed, { size: S, now });
 }
 
 /** An `edges` grid for a plot of 8 tiles with nothing on any line. */
@@ -331,10 +331,6 @@ describe("buildCommand (RFC 0032)", () => {
       /^replace goes with a map or a design/,
     );
     expect(problem({ design: "hut", walls: "glass" })).toBe("The hut takes walls: wood, stone.");
-    expect(problem({ map, roomy: true })).toBe("roomy goes with a design.");
-    expect(problem({ design: "hut", roomy: true })).toBe(
-      "This world doesn't build roomy designs yet: a design has one only when GET /v1/designs lists its roomy. Send the design without roomy.",
-    );
     expect(() => Action.parse({ type: "build", px: 2, py: 1, design: "castle" })).toThrow();
     expect(() => Action.parse({ type: "build", px: 2, py: 1, design: "hut", turn: 45 })).toThrow();
     const lists = expand(state, { ground: [{ x: 0, y: 0, ground: "dirt" }] });
@@ -355,7 +351,7 @@ describe("buildCommand (RFC 0032)", () => {
 });
 
 describe("designs (RFC 0032)", () => {
-  it("build whole in every material and turn, roomy too, free by default, with a hearth at the center and no notes", () => {
+  it("build whole in every material and turn, free by default, with a hearth at the center and no notes", () => {
     const failures: string[] = [];
     const turnsOf = (d: (typeof DESIGNS)[number]) =>
       d.options.walls.flatMap((walls) =>
@@ -367,9 +363,8 @@ describe("designs (RFC 0032)", () => {
       );
     for (const design of DESIGNS) {
       const all = [{}, ...turnsOf(design)];
-      for (const choices of [...all, ...all.map((c) => ({ ...c, roomy: true }))]) {
+      for (const choices of all) {
         const { state, ok } = world();
-        if ("roomy" in choices) ok(TOWN_ACTOR, { type: "starter_edges" });
         // The hearth where build_starter_home and SKILL.md put it: the plot's center.
         const center = { x: 2 * S + 3, y: 1 * S + 3 };
         Object.assign(state.residents.wren ?? {}, center);
@@ -387,8 +382,7 @@ describe("designs (RFC 0032)", () => {
           continue;
         }
         if (prepared.plan.skipped.length > 0) failures.push(`${label}: skipped some`);
-        const chosen = Object.keys(choices).filter((k) => k !== "roomy");
-        if (chosen.length === 0 && prepared.plan.changes.length > 0) {
+        if (Object.keys(choices).length === 0 && prepared.plan.changes.length > 0) {
           failures.push(`${label}: costs something by default`);
         }
         const notes = designNotes(state, 2, 1, prepared.plan).map((n) => n.code);
@@ -409,29 +403,22 @@ describe("designs (RFC 0032)", () => {
     expect(designs.find((d) => d.id === "hill_house")?.map.floors[0]?.ground[5]).toBe(".,,,,,,.");
   });
 
-  it("offer a roomy version only when asked, the hut's the starter hut of lines (RFC 0050)", () => {
-    // A world without starter_edges lists every design exactly as it did, with no roomy.
-    expect(designViews().designs.every((d) => !("roomy" in d))).toBe(true);
-    expect(designViews({ roomy: false })).toEqual(designViews());
-    const roomy = designViews({ roomy: true }).designs;
-    for (const d of roomy) {
-      expect({ ...d, roomy: undefined }).toEqual({
-        ...designViews().designs.find((v) => v.id === d.id),
-        roomy: undefined,
-      });
-      expect(d.roomy?.floors[0]?.edges, d.id).toHaveLength(17);
-      expect(d.roomy?.floors[0]?.blocks.join(""), d.id).not.toMatch(/[WG+]/);
+  it("stand on the lines between tiles, and the hut is the starter hut of lines (RFC 0050)", () => {
+    const { designs } = designViews();
+    for (const d of designs) {
+      expect(d.map.floors[0]?.edges, d.id).toHaveLength(17);
+      expect(d.map.floors[0]?.blocks.join(""), d.id).not.toMatch(/[WG+]/);
     }
     // The cafe stands in the plot's corner, so its room moves one tile in off the border.
-    expect(roomy.find((d) => d.id === "cafe")?.roomy?.floors[0]?.edges?.slice(0, 3)).toEqual([
+    expect(designs.find((d) => d.id === "cafe")?.map.floors[0]?.edges?.slice(0, 3)).toEqual([
       "+ + + + + + + + +",
       " . . . . . . . . ",
       "+ +W+W+W+W+W+ + +",
     ]);
-    // Built, the roomy hut is the starter hut of lines, line for line.
+    // Built, the hut is the starter hut of lines, line for line.
     const { state, ok } = world();
     ok(TOWN_ACTOR, { type: "starter_edges" });
-    const out = expand(state, { design: "hut", roomy: true });
+    const out = expand(state, { design: "hut" });
     if ("problem" in out) throw new Error(out.problem);
     expect(out.command.blocks).toBeUndefined();
     ok("wren", out.command);
@@ -440,9 +427,9 @@ describe("designs (RFC 0032)", () => {
     ok("ivy", { type: "build_starter_home" });
     expect(plotPlan(state, 2, 1)?.edges).toHaveLength(20);
     expect(plotPlan(state, 2, 1)?.edges).toEqual(plotPlan(state, 3, 1)?.edges);
-    // A picture of the roomy hut's map reads the same lines out of its grid.
-    const hut = roomy.find((d) => d.id === "hut")?.roomy;
-    if (!hut) throw new Error("no roomy hut");
+    // A picture of the hut's map reads the same lines out of its grid.
+    const hut = designs.find((d) => d.id === "hut")?.map;
+    if (!hut) throw new Error("no hut");
     const key = (e: { x: number; y: number; side: string; block: string }) =>
       `${e.x},${e.y},${e.side},${e.block}`;
     expect(mapEdges(hut, 8).map(key).sort()).toEqual(

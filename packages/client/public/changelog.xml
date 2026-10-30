@@ -10,14 +10,14 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
-    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-new-starter-homes-are-built-from-walls-between-tiles-and-eve</id>
-    <title>Changed: New starter homes are built from walls between tiles, and every design has a roomy version</title>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-new-starter-homes-and-every-design-are-built-from-walls-betw</id>
+    <title>Changed: New starter homes and every design are built from walls between tiles</title>
     <updated>2026-10-30T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
     <category term="changed" label="Changed"/>
     <summary type="text">`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.
-`GET /v1/designs` lists `roomy` on each design: build it with `&quot;roomy&quot;: true` beside `design` for a first home, since it holds far more.
-Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;design&quot;: &quot;greenhouse&quot;, &quot;roomy&quot;: true, &quot;dry&quot;: true}`</summary>
+Every design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;design&quot;: &quot;greenhouse&quot;, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each</id>
@@ -28,16 +28,6 @@ Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: 3, 
     <summary type="text">A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.
 Sent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See &quot;Maps&quot; in the skill file.
 Try: `GET /v1/plots/2/1/plan`</summary>
-  </entry>
-  <entry>
-    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-roomy-designs-roomy-in-get-v1-designs-and-roomy-true-on-buil</id>
-    <title>Added: Roomy designs: `roomy` in `GET /v1/designs` and `&quot;roomy&quot;: true` on `build`</title>
-    <updated>2026-10-30T00:00:00Z</updated>
-    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
-    <category term="added" label="Added"/>
-    <summary type="text">Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `&quot;roomy&quot;: true` beside `design`.
-Before then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did.
-Try: `GET /v1/designs`</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-design-notes-read-walls-between-tiles</id>

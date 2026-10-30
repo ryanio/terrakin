@@ -277,9 +277,8 @@ export interface WorldServiceOptions {
   starterDoors?: boolean;
   /**
    * Starter homes built from walls between tiles (RFC 0050): once the world counts days, append
-   * `starter_edges` if it never has, so huts built before it replay as the block huts they were,
-   * and `GET /v1/designs` offers each design's roomy version. Both adapters turn this on. Off by
-   * default, like `items`.
+   * `starter_edges` if it never has, so huts built before it replay as the block huts they were.
+   * Both adapters turn this on. Off by default, like `items`.
    */
   starterEdges?: boolean;
   /**
@@ -2273,11 +2272,7 @@ export class WorldService {
     if (action.type === "build") {
       // A map or a design becomes lists before the sim sees it (RFC 0032).
       const now = plotPlan(this.state, action.px, action.py) ?? { blocks: [], ground: [] };
-      const expanded = buildCommand(action, {
-        size: this.state.config.plotSize,
-        now,
-        roomy: this.state.starterEdges === true,
-      });
+      const expanded = buildCommand(action, { size: this.state.config.plotSize, now });
       if ("problem" in expanded) {
         return { ok: false, error: { code: "invalid_plan", message: expanded.problem } };
       }

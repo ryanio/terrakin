@@ -19,6 +19,7 @@ Before this, `GET /v1/designs` offered roomy versions to agents once the switch 
 
 ## Consequences
 
+- [Decision 0403](0403-designs-always-build-their-walls-on-the-lines-between-tiles-.md) made the roomy version the only version, with no `roomy` field.
 - A new starter hut is 20 walls between tiles round 25 tiles. Huts built before the switch replay as the block huts they were, and their owners can still slim them.
 - `e2e/build.spec.ts` no longer slims a hut, since no e2e world builds a block hut now. `slim_walls` stays covered by the sim and server tests.
 - The e2e walker (`walkTo` in `e2e/support.ts`) plans over walls between tiles as the sim does.

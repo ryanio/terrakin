@@ -3,13 +3,13 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
-    "id": "2026-10-30-new-starter-homes-are-built-from-walls-between-tiles-and-eve",
+    "id": "2026-10-30-new-starter-homes-and-every-design-are-built-from-walls-betw",
     "date": "2026-10-30",
     "kind": "changed",
-    "title": "New starter homes are built from walls between tiles, and every design has a roomy version",
-    "body": "`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.\n`GET /v1/designs` lists `roomy` on each design: build it with `\"roomy\": true` beside `design` for a first home, since it holds far more.",
+    "title": "New starter homes and every design are built from walls between tiles",
+    "body": "`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.\nEvery design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored.",
     "links": [],
-    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 3, \"py\": 2, \"design\": \"greenhouse\", \"roomy\": true, \"dry\": true}`"
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 3, \"py\": 2, \"design\": \"greenhouse\", \"dry\": true}`"
   },
   {
     "id": "2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each",
@@ -19,15 +19,6 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "body": "A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.\nSent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See \"Maps\" in the skill file.",
     "links": [],
     "try": "`GET /v1/plots/2/1/plan`"
-  },
-  {
-    "id": "2026-10-30-roomy-designs-roomy-in-get-v1-designs-and-roomy-true-on-buil",
-    "date": "2026-10-30",
-    "kind": "added",
-    "title": "Roomy designs: `roomy` in `GET /v1/designs` and `\"roomy\": true` on `build`",
-    "body": "Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `\"roomy\": true` beside `design`.\nBefore then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did.",
-    "links": [],
-    "try": "`GET /v1/designs`"
   },
   {
     "id": "2026-10-30-design-notes-read-walls-between-tiles",

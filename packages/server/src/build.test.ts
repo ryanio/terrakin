@@ -77,12 +77,20 @@ async function start(options: { starterDoors?: boolean; config?: WorldConfig } =
     if (!items) throw new Error("items aren't open");
     items.inventories[id] = { stacks: { stone: n }, goods: [] };
   };
+  /** Log `starter_edges` as the town does, so starter huts are built from lines (RFC 0050). */
+  const linesOn = () => {
+    const run = (service as unknown as { run(input: Input): { ok: boolean } }).run;
+    expect(
+      run.call(service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } }),
+    ).toMatchObject({ ok: true });
+  };
   return {
     base,
     call,
     act,
     settler,
     stone,
+    linesOn,
     service,
     store,
     advance: (ms: number) => {
@@ -184,10 +192,12 @@ describe("build", () => {
 
   it("builds from a map or a design, answering with the plot as a map and notes about it (RFC 0032)", async () => {
     const t = await start();
+    t.linesOn();
     const ada = await t.settler("Ada", 0, 0);
     // Her hut with no path yet: the plan route draws it and says so.
     const read = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
-    expect(read.map.floors[0].blocks[3]).toBe(".G.h.G..");
+    expect(read.map.floors[0].blocks[3]).toBe("...h....");
+    expect(read.map.floors[0].edges[7]).toBe(" .G. . h . .G. . ");
     expect(read.notes.map((n: { code: string }) => n.code)).toEqual(["no_path"]);
     // A path out of the door drawn as a map, priced dry: the answer draws the plot it would make.
     const path = [
@@ -239,37 +249,28 @@ describe("build", () => {
       replace: true,
     };
     const swapped = await t.act(bob, { ...swap, dry: true });
-    expect(swapped).toMatchObject({ ok: true, plan: { removed: 15, uses: [], notes: [] } });
-    expect(swapped.plan.map.floors[0].blocks.join("")).not.toContain("W");
+    expect(swapped).toMatchObject({
+      ok: true,
+      plan: { removed: 0, unwalled: 19, walled: 19, uses: [], notes: [] },
+    });
+    expect(swapped.plan.map.floors[0].edges.join("")).not.toContain("W");
     // Turned, it clears only where it puts something: the hut's other walls stay, and say so.
     const turned = await t.act(bob, { ...swap, turn: 90, dry: true });
     expect(turned.plan.notes.map((n: { code: string }) => n.code)).toContain("hearth_walled_in");
   });
 
-  it("offers the designs' roomy versions only once starter homes are built from lines, and draws a plot's lines (RFC 0050)", async () => {
+  it("builds a design's walls on the lines between tiles, and draws a plot's lines (RFC 0050)", async () => {
     const t = await start();
     const { body } = await t.call("POST", "/v1/session", { name: "Ada", kind: "agent" });
     const ada = { id: body.residentId as string, token: body.token as string };
     await t.act(ada, { type: "settle", px: 0, py: 0 });
-    const roomyHut = { type: "build", px: 0, py: 0, design: "hut", roomy: true, dry: true };
-    // A world without starter_edges answers exactly as it always did, and builds no roomy design.
+    const hut = { type: "build", px: 0, py: 0, design: "hut", dry: true };
     expect((await t.call("GET", "/v1/designs")).body).toEqual(designViews());
-    expect(await t.act(ada, roomyHut)).toMatchObject({
-      ok: false,
-      error: { code: "invalid_plan" },
-    });
-    // No adapter logs the switch yet, so the test logs it as the town would.
-    const run = (t.service as unknown as { run(input: Input): { ok: boolean } }).run;
-    expect(
-      run.call(t.service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } }),
-    ).toMatchObject({ ok: true });
-    const designs = (await t.call("GET", "/v1/designs")).body.designs;
-    expect(designs).toEqual(designViews({ roomy: true }).designs);
-    const priced = await t.act(ada, roomyHut);
+    const priced = await t.act(ada, hut);
     expect(priced).toMatchObject({ ok: true, plan: { walled: 20, uses: [] } });
     // The door of lines on the south side of (3, 5).
     expect(priced.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
-    await t.act(ada, { ...roomyHut, dry: false });
+    await t.act(ada, { ...hut, dry: false });
     const read = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
     expect(read.edges).toHaveLength(20);
     expect(read.map.floors[0].edges).toHaveLength(17);

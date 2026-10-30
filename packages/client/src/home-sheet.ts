@@ -24,8 +24,7 @@ export interface HomeSheetOptions {
   /** Say something in the world's own notice line. */
   say: (text: string) => void;
   /** The world's size and reach, and its season, for drawing the designs on your plot. */
-  /** `roomy` where the world builds homes from walls between tiles (RFC 0050). */
-  where: { config: WorldConfig; season?: Season | undefined; roomy?: boolean | undefined };
+  where: { config: WorldConfig; season?: Season | undefined };
   /** Where the world says you stand now, and your hearth, from the mirror. */
   standing: () => Tile | undefined;
   hearth: () => Tile | null | undefined;

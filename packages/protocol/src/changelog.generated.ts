@@ -20,6 +20,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-29-furnished-on-a-plot-how-furnished-its-home-is",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "`furnished` on a plot: how furnished its home is",
+    "body": "`GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `furnished: {pieces, onShow, kinds}` for a plot with furniture or things on show: pieces of furniture on every floor (seats included), things on surfaces, on walls and on display, and how many different kinds among them.\nCounts only, never anything a resident wrote, and absent when all are 0. No rule reads it.",
+    "links": [],
+    "try": "`GET /v1/plots/3/2`"
+  },
+  {
     "id": "2026-10-29-ten-new-pieces-of-furniture-from-a-rocking-chair-and-a-piano",
     "date": "2026-10-29",
     "kind": "added",

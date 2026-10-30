@@ -10,6 +10,9 @@ import {
   canBuildOn,
   DAY_MS,
   FLOORS,
+  type Furnishing,
+  furnishing,
+  furnishings,
   type Good,
   type Input,
   knockedToday,
@@ -678,6 +681,10 @@ function plotViews(
     for (const layer of floors) for (const tile of Object.keys(layer)) add(blocks, tile);
     for (const tile of Object.keys(shown)) add(displays, tile);
   }
+  // How furnished each home is (RFC 0050): the one plot's own tiles, or one pass over the world.
+  const furnished = only
+    ? new Map([[plotKey(only.px, only.py), furnishing(state, only.px, only.py)]])
+    : furnishings(state);
   const one = only ? own(state.plots, plotKey(only.px, only.py)) : undefined;
   // For sale (RFC 0039): on the one plot's read only, since the list is built once a minute.
   const forSale = only ? plotListing(state, only.px, only.py) : undefined;
@@ -713,11 +720,20 @@ function plotViews(
       blocks: blocks.get(key) ?? 0,
       ...(plot.floors ? { floors: plot.floors } : {}),
       displays: displays.get(key) ?? 0,
+      ...furnishedView(furnished.get(key)),
       ...(forSale ? { listing: { price: forSale.price, day: forSale.day } } : {}),
       ...(plot.gallery ? { gallery: true as const } : {}),
     });
   }
   return views;
+}
+
+/** A plot's `furnished` counts, or nothing when it has none to show. */
+function furnishedView(f: Furnishing | undefined): Pick<PlotView, "furnished"> {
+  if (!f) return {};
+  const onShow = f.onSurfaces + f.onWalls + f.onDisplay;
+  if (f.pieces === 0 && onShow === 0) return {};
+  return { furnished: { pieces: f.pieces, onShow, kinds: f.kinds } };
 }
 
 /** Every tile key of plot (px, py). */

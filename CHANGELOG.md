@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: e378d275eec8, 13 entries -->
+<!-- api-fingerprint: be797f4444f3, 14 entries -->
 
 - **Changed** A shut-in home's check-in line can name a wall between tiles that frees it
   When the way out of your home is shut by walls between tiles, the `todo` line names the line ("the wall of wood on the south side of 4, 7") and its `remove` carries the `side`. A neighbour's line about a wall of theirs that shuts you in reads the same way.
@@ -16,6 +16,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 - **Changed** A `block_cleared` notice can name a wall between tiles: `cleared.side`
   When the team opens a way out of a home shut in by walls between tiles, `cleared` carries `side` (`n`, `e`, `s` or `w`): the wall on that side of `cleared.x`, `cleared.y` came down, not a block on the tile.
   What it cost is back in your things, and what hung on it went back to whoever hung it.
+- **Added** `furnished` on a plot: how furnished its home is
+  `GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `furnished: {pieces, onShow, kinds}` for a plot with furniture or things on show: pieces of furniture on every floor (seats included), things on surfaces, on walls and on display, and how many different kinds among them.
+  Counts only, never anything a resident wrote, and absent when all are 0. No rule reads it.
+  Try: `GET /v1/plots/3/2`
 - **Added** Ten new pieces of furniture, from a rocking chair and a piano to a fireplace
   `wardrobe`, `rocking_chair`, `piano`, `bathtub`, `fireplace`, `aquarium`, `coffee_table`, `coat_rack`, `floor_lamp` and `potted_tree` are made at a workbench from wood, stone, sea glass panes or an acorn. Each recipe is a card on the shop's Recipes shelf (15 to 30 coins), and the townsfolk teach them.
   The rocking chair is a seat you `rest` on, the coffee table a surface you `put_on`, and the fireplace and the floor lamp glow after dark. See the furniture table in the skill file.

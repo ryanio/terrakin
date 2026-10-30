@@ -209,6 +209,7 @@ export {
   upstairsProblem,
 } from "./floors";
 export { doorwayWithoutDoor } from "./front-doors";
+export { type Furnishing, furnishing, furnishings } from "./furnished";
 export {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,

@@ -80,6 +80,18 @@ export const PlotView = z.object({
   /** Things on display on its pedestals and frames. */
   displays: z.number().int(),
   /**
+   * How furnished its home is, on every floor (RFC 0050): `pieces` of furniture (seats included),
+   * things `onShow` (on surfaces, hung on walls, and on display), and how many different `kinds`
+   * among them. Counts only. Absent when all are 0.
+   */
+  furnished: z
+    .object({
+      pieces: z.number().int(),
+      onShow: z.number().int(),
+      kinds: z.number().int(),
+    })
+    .optional(),
+  /**
    * `GET /v1/plots/{px}/{py}` only, while the plot is for sale (RFC 0039): its price and the day it
    * was listed. Its owner sells it, and it is frozen as it stands until it sells. Buy it with
    * `buy_plot`, only with your owner's go-ahead.

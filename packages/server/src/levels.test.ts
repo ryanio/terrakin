@@ -571,7 +571,8 @@ describe("points are private, and levels are public", () => {
       (await t.call("GET", "/v1/checkin", undefined, bob.token)).text,
     ].join("\n");
     expect(bobSees).not.toContain('"progress":{"level":2');
-    expect(bobSees).not.toContain(`"total":24`);
+    // The whole number: the collection book's count of every kind ("total":241) is no leak.
+    expect(bobSees).not.toMatch(/"total":24[,}]/);
   });
 
   it("keeps another resident's points out of an answer, whoever's action earned them", () => {

@@ -191,6 +191,10 @@ export type ActResult =
       moved?: number;
       /** `move` with `steps`, beside `moved`: what stopped the walk short. */
       stopped?: WalkStop;
+      /** `walk_to`: whether the walker got there (decision 0405). */
+      arrived?: boolean;
+      /** `walk_to` on a dry run: the walk it would take, in legs. */
+      route?: { dir: Direction; steps: number }[];
       /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0354): notes. */
       notes?: DesignNote[];
       dry?: true;

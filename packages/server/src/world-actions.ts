@@ -656,6 +656,16 @@ export function performAction(
     if (result.ok && !dry) ctx.runGames();
     return result;
   }
+  // `walk_to` is walked as moves by `Api.actWalk` (decision 0405); it's never a sim command.
+  if (action.type === "walk_to") {
+    return {
+      ok: false,
+      error: {
+        code: "bad_request",
+        message: "Send walk_to to POST /v1/actions or the live socket.",
+      },
+    };
+  }
   return ctx.run({ actor: residentId, command: action satisfies Command }, dry);
 }
 

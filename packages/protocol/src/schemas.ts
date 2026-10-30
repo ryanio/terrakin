@@ -2502,6 +2502,8 @@ export type PlotPlanResponse = z.infer<typeof PlotPlanResponse>;
 
 /** What stopped a `move` with `steps` short of the tiles it asked for (decision 0315). */
 const WalkStop = z.object({ code: ErrorCode, message: z.string() });
+/** One leg of a `walk_to`'s route: `steps` tiles in one direction (decision 0405). */
+const WalkLeg = z.object({ dir: z.enum(DIRECTIONS), steps: z.number().int() });
 
 export const ActionResponse = z.discriminatedUnion("ok", [
   z.object({
@@ -2548,8 +2550,20 @@ export const ActionResponse = z.discriminatedUnion("ok", [
         "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for. `stopped` says why. Absent on a one-tile move and on a walk that went the whole way.",
       ),
     stopped: WalkStop.optional().describe(
-      "`move` with `steps`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
+      "`move` with `steps` and `walk_to`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
     ),
+    arrived: z
+      .boolean()
+      .optional()
+      .describe(
+        "`walk_to`: whether you got there. When you didn't, `moved` says how far you got and `stopped` why, or neither when the walk was longer than one `walk_to` goes: send it again to go on.",
+      ),
+    route: z
+      .array(WalkLeg)
+      .optional()
+      .describe(
+        "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, nothing moved.",
+      ),
     notes: z
       .array(DesignNoteView)
       .optional()
@@ -2624,6 +2638,10 @@ export const ServerMessage = z.union([
     moved: z.number().int().optional(),
     /** `move` with `steps`, beside `moved`: what stopped it. */
     stopped: WalkStop.optional(),
+    /** `walk_to`: whether you got there (decision 0405). */
+    arrived: z.boolean().optional(),
+    /** `walk_to` on a dry run: the walk it would take. */
+    route: z.array(WalkLeg).optional(),
   }),
   z.object({
     type: z.literal("error"),

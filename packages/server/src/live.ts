@@ -444,6 +444,11 @@ export class LiveSession {
       ...(result.plotSale === undefined ? {} : { plotSale: result.plotSale }),
       ...(result.notes === undefined ? {} : { notes: result.notes }),
       ...(result.stopped === undefined ? {} : { moved: result.moved, stopped: result.stopped }),
+      ...(result.stopped === undefined && result.moved !== undefined
+        ? { moved: result.moved }
+        : {}),
+      ...(result.arrived === undefined ? {} : { arrived: result.arrived }),
+      ...(result.route === undefined ? {} : { route: result.route }),
       ...(result.dry ? { dry: true } : {}),
     });
   }

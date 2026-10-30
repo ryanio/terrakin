@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-walk-to-walk-to-a-tile-round-whatever-is-in-the-way-in-one</id>
+    <title>Added: `walk_to`: walk to a tile round whatever is in the way, in one call</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`{&quot;type&quot;: &quot;walk_to&quot;, &quot;x&quot;: 40, &quot;y&quot;: 30}` finds the fewest steps on your floor, through doors and past walls on tiles and lines, and walks them as `move`s, one action each. `&quot;near&quot;: 1` stops beside something you can't stand on, and `&quot;dry&quot;: true` answers with the `route` without moving.
+The answer says whether you `arrived`; short of it, `moved` and `stopped` say how far and why. One call walks up to 40 tiles.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;walk_to&quot;, &quot;x&quot;: 40, &quot;y&quot;: 30, &quot;near&quot;: 1, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-the-town-slims-every-home-s-walls-once-upstairs-included-and</id>
     <title>Changed: The town slims every home's walls once, upstairs included, and tells each owner</title>
     <updated>2026-10-30T00:00:00Z</updated>

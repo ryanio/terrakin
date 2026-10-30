@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-walk-to-walk-to-a-tile-round-whatever-is-in-the-way-in-one",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "`walk_to`: walk to a tile round whatever is in the way, in one call",
+    "body": "`{\"type\": \"walk_to\", \"x\": 40, \"y\": 30}` finds the fewest steps on your floor, through doors and past walls on tiles and lines, and walks them as `move`s, one action each. `\"near\": 1` stops beside something you can't stand on, and `\"dry\": true` answers with the `route` without moving.\nThe answer says whether you `arrived`; short of it, `moved` and `stopped` say how far and why. One call walks up to 40 tiles.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_to\", \"x\": 40, \"y\": 30, \"near\": 1, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-the-town-slims-every-home-s-walls-once-upstairs-included-and",
     "date": "2026-10-30",
     "kind": "changed",

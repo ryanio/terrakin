@@ -29942,6 +29942,9 @@
             "$ref": "#/components/schemas/MoveAction"
           },
           {
+            "$ref": "#/components/schemas/WalkToAction"
+          },
+          {
             "$ref": "#/components/schemas/PutterAction"
           },
           {
@@ -30297,7 +30300,7 @@
                 "maximum": 9007199254740991
               },
               "stopped": {
-                "description": "`move` with `steps`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
+                "description": "`move` with `steps` and `walk_to`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
                 "type": "object",
                 "properties": {
                   "code": {
@@ -30311,6 +30314,41 @@
                   "code",
                   "message"
                 ]
+              },
+              "arrived": {
+                "description": "`walk_to`: whether you got there. When you didn't, `moved` says how far you got and `stopped` why, or neither when the walk was longer than one `walk_to` goes: send it again to go on.",
+                "type": "boolean"
+              },
+              "route": {
+                "description": "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, nothing moved.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "dir": {
+                      "type": "string",
+                      "enum": [
+                        "n",
+                        "e",
+                        "s",
+                        "w",
+                        "ne",
+                        "se",
+                        "sw",
+                        "nw"
+                      ]
+                    },
+                    "steps": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "dir",
+                    "steps"
+                  ]
+                }
               },
               "notes": {
                 "description": "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`: `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. `settle` and `claim`: `seals_neighbor` for each plot next door whose last way out the claim takes, and `no_opening` when the plot would have no way out of its own, read before the claim, dry or real. Absent when there is nothing to say.",
@@ -37934,6 +37972,39 @@
                   "code",
                   "message"
                 ]
+              },
+              "arrived": {
+                "type": "boolean"
+              },
+              "route": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "dir": {
+                      "type": "string",
+                      "enum": [
+                        "n",
+                        "e",
+                        "s",
+                        "w",
+                        "ne",
+                        "se",
+                        "sw",
+                        "nw"
+                      ]
+                    },
+                    "steps": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "dir",
+                    "steps"
+                  ]
+                }
               }
             },
             "required": [
@@ -39218,6 +39289,42 @@
         },
         "required": [
           "type"
+        ]
+      },
+      "WalkToAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "walk_to"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "near": {
+            "description": "Stop within this many tiles of (x, y), 0 to 10. Default 0, on it.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
         ]
       },
       "WallDecorKind": {

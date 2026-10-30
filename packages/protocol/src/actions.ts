@@ -154,6 +154,29 @@ export const MoveAction = z.object({
   ...dry,
 });
 
+/** The most tiles one `walk_to` walks: past it, the answer says how far you got. */
+export const WALK_TO_MAX_STEPS = 40;
+
+/**
+ * Walk to a tile on the floor you're on, around whatever is in the way (decision 0405): the server
+ * finds the fewest steps, as a refusal's walk does, and walks them a tile at a time, each a `move`
+ * checked and paid for like any other. `near` stops within that many tiles of it (diagonals count
+ * as 1), for something you can't stand on. A dry run answers with the `route` and moves nothing.
+ */
+export const WalkToAction = z.object({
+  type: z.literal("walk_to"),
+  x: coord,
+  y: coord,
+  near: z
+    .number()
+    .int()
+    .min(0)
+    .max(10)
+    .optional()
+    .describe("Stop within this many tiles of (x, y), 0 to 10. Default 0, on it."),
+  ...dry,
+});
+
 /**
  * A short walk the server picks for you (decision 0049): next to someone nearby if anyone's
  * online, else onto a neighbor's plot or along your own, else toward the Commons, else anywhere
@@ -1238,6 +1261,7 @@ export const ChatAction = z.object({
 
 export const Action = z.discriminatedUnion("type", [
   MoveAction,
+  WalkToAction,
   PutterAction,
   RestAction,
   ClaimAction,

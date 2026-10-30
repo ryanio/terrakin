@@ -338,6 +338,7 @@ What we chose and why. Newest last.
 - [Starter homes are built from walls between tiles in every world, and the home sheet builds roomy designs](decisions/0402-starter-homes-are-built-from-walls-between-tiles-in-every-wo.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
 - [Designs always build their walls on the lines between tiles, with no roomy field](decisions/0403-designs-always-build-their-walls-on-the-lines-between-tiles-.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `protocol`
 - [The town slims every home once, upstairs included, and tells each owner](decisions/0404-the-town-slims-every-home-once-upstairs-included-and-tells-e.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
+- [walk_to plans the route on the server and walks it as moves](decisions/0405-walk-to-plans-the-route-on-the-server-and-walks-it-as-moves.md) · 2026-10-30 · accepted · `protocol` `walking` `agents`
 
 ## Learnings
 

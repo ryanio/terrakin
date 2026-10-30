@@ -1,6 +1,7 @@
 import type { BuildPlan } from "./build";
 import { type EdgeSide, edgeAt, edgeKey } from "./edges";
 import { blocksOn, groundOn, standingFloor } from "./floors";
+import { type Grade, gradeAt, type PastPlain, unitKey } from "./grades";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import type { BlockKind, Tile, WorldState } from "./types";
@@ -88,10 +89,15 @@ export interface MapFloor {
   edges?: string[];
 }
 
-/** A plot as a map, with a legend for the decor and furniture on it when there is any. */
+/**
+ * A plot as a map, with a legend for the decor, furniture and made materials on it when there is
+ * any. A graded made material (RFC 0051) has a digit of its own, and `grades` says which digits
+ * are graded; a digit not in it is plain.
+ */
 export interface PlotMap {
   floors: MapFloor[];
   legend?: Record<string, BlockKind>;
+  grades?: Record<string, PastPlain>;
 }
 
 /**
@@ -112,6 +118,11 @@ export interface PlotTiles {
    * for the plot's south and east borders, which are the north and west lines of the tiles past it.
    */
   edge(floor: number, x: number, y: number, side: EdgeSide): BlockKind | undefined;
+  /**
+   * The grade of the block on (x, y), or with `side` of the wall on that line (RFC 0051). Left out
+   * where nothing is graded, and then everything reads as plain.
+   */
+  grade?(floor: number, x: number, y: number, side?: EdgeSide): Grade;
   /** Hearths on the plot, north to south, then west to east. They're on the ground floor. */
   hearths: Tile[];
   /** Online residents standing on the plot, with their floor. */
@@ -145,6 +156,14 @@ export function plotTiles(
     `${floor}:${edgeKey(x, y, side)}`;
   for (const t of plan?.unwalled ?? []) edges.set(line(t.floor ?? 0, t.x, t.y, t.side), null);
   for (const t of plan?.walled ?? []) edges.set(line(t.floor ?? 0, t.x, t.y, t.side), t.block);
+  // The plan's grades (RFC 0051), by the same keys: whatever it takes down is plain.
+  const grades = new Map<string, Grade>();
+  for (const t of plan?.removed ?? []) grades.set(at(t.floor ?? 0, t.x, t.y), "plain");
+  for (const t of plan?.placed ?? []) grades.set(at(t.floor ?? 0, t.x, t.y), t.grade ?? "plain");
+  for (const t of plan?.unwalled ?? []) grades.set(line(t.floor ?? 0, t.x, t.y, t.side), "plain");
+  for (const t of plan?.walled ?? []) {
+    grades.set(line(t.floor ?? 0, t.x, t.y, t.side), t.grade ?? "plain");
+  }
   const onPlot = (t: Tile) => t.x >= x0 && t.x < x0 + S && t.y >= y0 && t.y < y0 + S;
   const order = (a: Tile, b: Tile) => a.y - b.y || a.x - b.x;
   const hearths = new Map<string, Tile>();
@@ -175,6 +194,14 @@ export function plotTiles(
       const key = line(floor, x0 + x, y0 + y, side);
       if (edges.has(key)) return edges.get(key) ?? undefined;
       return edgeAt(state, x0 + x, y0 + y, side, floor);
+    },
+    grade: (floor, x, y, side) => {
+      const key =
+        side === undefined ? at(floor, x0 + x, y0 + y) : line(floor, x0 + x, y0 + y, side);
+      const planned = grades.get(key);
+      if (planned !== undefined) return planned;
+      const world = side === undefined ? tileKey(x0 + x, y0 + y) : edgeKey(x0 + x, y0 + y, side);
+      return gradeAt(state, world, floor);
     },
     hearths: [...hearths.values()].sort(order),
     standing: standing.sort((a, b) => a.floor - b.floor || order(a, b)),
@@ -218,18 +245,24 @@ export function plotMap(
   if (!tiles) return undefined;
   const S = tiles.size;
   const legend: Record<string, BlockKind> = {};
-  const digits = new Map<BlockKind, string>();
-  const blockChar = (kind: BlockKind): string => {
+  const grades: Record<string, PastPlain> = {};
+  // A digit for each kind at each grade (RFC 0051): a graded made material has one of its own.
+  const digits = new Map<string, string>();
+  const blockChar = (kind: BlockKind, grade: Grade = "plain"): string => {
     const fixed = BLOCK_CHAR[kind];
     if (fixed) return fixed;
-    const known = digits.get(kind);
+    const unit = unitKey(kind as never, grade);
+    const known = digits.get(unit);
     if (known) return known;
     if (digits.size >= MAP_LEGEND_MAX) return MAP_MARKS.more;
     const digit = String(digits.size);
-    digits.set(kind, digit);
+    digits.set(unit, digit);
     legend[digit] = kind;
+    if (grade !== "plain") grades[digit] = grade;
     return digit;
   };
+  const gradeOf = (floor: number, x: number, y: number, side?: EdgeSide): Grade =>
+    tiles.grade?.(floor, x, y, side) ?? "plain";
   const hearths = new Set(tiles.hearths.map((h) => tileKey(h.x, h.y)));
   const standing = new Set(tiles.standing.map((s) => `${s.floor}:${tileKey(s.x, s.y)}`));
   const floors = tiles.floors.map((floor): MapFloor => {
@@ -241,7 +274,7 @@ export function plotMap(
       for (let x = 0; x < S; x++) {
         const block = tiles.block(floor, x, y);
         const key = tileKey(x, y);
-        if (block !== undefined) blockRow += blockChar(block);
+        if (block !== undefined) blockRow += blockChar(block, gradeOf(floor, x, y));
         else if (floor === 0 && hearths.has(key)) blockRow += MAP_MARKS.hearth;
         else if (standing.has(`${floor}:${key}`)) blockRow += MAP_MARKS.standing;
         else blockRow += MAP_MARKS.keep;
@@ -253,22 +286,29 @@ export function plotMap(
     }
     if (plotLines(tiles, floor).length === 0) return { floor, blocks, ground };
     const { corner, door, none } = MAP_EDGE_MARKS;
-    const lineChar = (kind: BlockKind | undefined) =>
-      kind === undefined ? none : kind === "door" ? door : blockChar(kind);
+    const lineChar = (x: number, y: number, side: EdgeSide) => {
+      const kind = tiles.edge(floor, x, y, side);
+      return kind === undefined
+        ? none
+        : kind === "door"
+          ? door
+          : blockChar(kind, gradeOf(floor, x, y, side));
+    };
     const edges: string[] = [];
     for (let y = 0; y <= S; y++) {
       let lines = corner;
-      for (let x = 0; x < S; x++) lines += lineChar(tiles.edge(floor, x, y, "n")) + corner;
+      for (let x = 0; x < S; x++) lines += lineChar(x, y, "n") + corner;
       edges.push(lines);
       if (y === S) break;
       let row = "";
       for (let x = 0; x <= S; x++) {
-        row += lineChar(tiles.edge(floor, x, y, "w"));
+        row += lineChar(x, y, "w");
         if (x < S) row += blocks[y]?.[x] ?? MAP_MARKS.keep;
       }
       edges.push(row);
     }
     return { floor, blocks, ground, edges };
   });
-  return digits.size === 0 ? { floors } : { floors, legend };
+  if (digits.size === 0) return { floors };
+  return Object.keys(grades).length === 0 ? { floors, legend } : { floors, legend, grades };
 }

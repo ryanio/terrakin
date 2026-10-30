@@ -29,7 +29,7 @@ import {
 } from "@terrakin/sim";
 import { z } from "zod";
 import { DESIGN_IDS, DESIGN_TURNS } from "./design-ids";
-import { BlockKind, coord, MapLegend } from "./fields";
+import { BlockKind, coord, Grade, MapGrades, MapLegend } from "./fields";
 import {
   BountyId,
   ChatChannel,
@@ -217,12 +217,20 @@ const onSide = {
   ),
 };
 
+/** `grade` on anything that names a made material (RFC 0051). */
+const graded = {
+  grade: Grade.optional().describe(
+    "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+  ),
+};
+
 export const PlaceAction = z.object({
   type: z.literal("place"),
   x: coord,
   y: coord,
   ...toFloor,
   block: BlockKind,
+  ...graded,
   /** With `block: "pot"` only (RFC 0047): the pot you set down, by its id. */
   item: z.string().regex(ITEM_ID_PATTERN).optional(),
   /** With a vase only: a flower from your things to put in it, which stays with the vase. */
@@ -289,6 +297,7 @@ export const SetRoofAction = z.object({
   top: RoofTop.optional().describe(
     "What stands on the ridge, free. Absent leaves it bare, so send it with every change you want to keep.",
   ),
+  ...graded,
   ...dry,
 });
 
@@ -327,6 +336,7 @@ export const PlotMapInput = z.object({
     .min(1)
     .max(FLOORS.max + 1),
   legend: MapLegend.optional(),
+  grades: MapGrades.optional(),
 });
 
 export type PlotMapInput = z.infer<typeof PlotMapInput>;
@@ -345,7 +355,7 @@ export const BuildAction = z.object({
   px: coord,
   py: coord,
   blocks: z
-    .array(z.object({ x: planCoord, y: planCoord, ...toFloor, block: BlockKind }))
+    .array(z.object({ x: planCoord, y: planCoord, ...toFloor, block: BlockKind, ...graded }))
     .max(PLAN_MAX)
     .optional(),
   ground: z
@@ -355,7 +365,9 @@ export const BuildAction = z.object({
   remove: z.array(planTile).max(PLAN_MAX).optional(),
   lift: z.array(planTile).max(PLAN_MAX).optional(),
   edges: z
-    .array(z.object({ x: planCoord, y: planCoord, side: Side, ...toFloor, block: BlockKind }))
+    .array(
+      z.object({ x: planCoord, y: planCoord, side: Side, ...toFloor, block: BlockKind, ...graded }),
+    )
     .max(PLAN_MAX)
     .optional()
     .describe(
@@ -575,6 +587,9 @@ export const CraftAction = z.object({
   glaze: GlazeName.optional().describe(
     "A pot's glaze, at a kiln only. Absent is bare; each other costs one thing from your things.",
   ),
+  grade: Grade.optional().describe(
+    "`fine` for a made material's fine recipe (RFC 0051): its plain recipe plus one more thing, making 2. Each fine craft may come out masterwork by chance. Absent is plain.",
+  ),
   ...dry,
 });
 
@@ -617,6 +632,7 @@ export const GiveAction = z.object({
     .describe(
       "From December 1 to 25: wrap it as a present. It leaves your things now and waits for them, unopened, until December 25 (RFC 0034).",
     ),
+  ...graded,
   ...dry,
 });
 
@@ -816,6 +832,7 @@ export const ListItemAction = z.object({
   item: z.union([ItemId, ItemKind]),
   count: z.number().int().min(1).max(MARKET.countMax).optional(),
   price: z.number().int().min(1).max(MARKET.priceMax),
+  ...graded,
   ...dry,
 });
 

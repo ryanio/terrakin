@@ -51,6 +51,14 @@ Readings the RFC left open, chosen while building slice 1:
 - `item_given` carries `grade` past plain, like the other public events about a material.
 - The two rejection codes and the `grades_opened` event went into the protocol with slice 1, since the API's error list and event schema are built from the sim's.
 
+Readings chosen while building slice 2, the server and protocol:
+
+- A dry fine craft is checked with the one roll that is never masterwork (`GRADING.outOf - 1`), as a dry kiln is checked with a fixed roll, and its `cost` counts a masterwork batch as fine, so a dry run can't be used to learn when the floor comes.
+- A `roll` a caller sends on `craft` is dropped by the action's schema like any field it doesn't name (it isn't close enough to one for the near-miss refusal), and the server adds its own. The server test sends a roll the sim would refuse and sees the craft go through on the server's.
+- The world snapshot carries `grade` on its `blocks`, `edges` and plots' `roof`, and `gradesOpen` once the switch is logged, so a client can mirror the grades its events name. The RFC's security section already counts on the snapshot carrying them.
+- A plot read's `walls` counts each graded block or line on the plot of the tile its key names (a line by the tile whose north or west side it is), so a rare wall on a household's shared border counts on one of the two plots.
+- The web's build bar holds plain material only and skips graded stacks and changes, so a graded stack never stands for the plain count before slice 3 brings a grade picker.
+
 ## Consequences
 
 - No live replay changes: every fixture keeps its hash, `REPLAY_VERSION` stays 2, and `src/fixtures/grades-log.ts` pins a log with inputs on both sides of `open_grades`.

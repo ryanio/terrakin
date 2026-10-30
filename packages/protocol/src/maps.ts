@@ -9,6 +9,7 @@ import {
   MAP_EDGE_MARKS,
   MAP_GROUND,
   MAP_MARKS,
+  type PastPlain,
   type Side,
 } from "@terrakin/sim";
 
@@ -28,13 +29,28 @@ export interface MapInput {
     edges?: string[] | undefined;
   }[];
   legend?: { [digit: string]: BlockKind | undefined } | undefined;
+  /** Which legend digits are a graded made material (RFC 0051). A digit not here is plain. */
+  grades?: { [digit: string]: PastPlain | undefined } | undefined;
 }
 
 /** What stands on a plot now, from its north-west corner, as `plotPlan` reads it. */
 export interface PlotNow {
-  blocks: readonly { x: number; y: number; floor?: number; block: BlockKind }[];
+  blocks: readonly {
+    x: number;
+    y: number;
+    floor?: number;
+    block: BlockKind;
+    grade?: PastPlain;
+  }[];
   ground: readonly { x: number; y: number; floor?: number; ground: GroundKind }[];
-  edges?: readonly { x: number; y: number; floor?: number; side: Side; block: BlockKind }[];
+  edges?: readonly {
+    x: number;
+    y: number;
+    floor?: number;
+    side: Side;
+    block: BlockKind;
+    grade?: PastPlain;
+  }[];
 }
 
 /** The lists of a `build`, as the sim takes them. */
@@ -195,17 +211,25 @@ export function mapToPlan(
 ): { plan: PlanLists } | { problem: string } {
   const { size, now, replace = false } = options;
   const legend = map.legend ?? {};
+  // A digit's grade (RFC 0051) goes on the plan entry, so the sim sees lists as it always has.
+  const gradeOf = (char: string): { grade?: PastPlain } => {
+    const grade = map.grades?.[char];
+    return grade && legend[char] !== undefined ? { grade } : {};
+  };
   const at = (t: Tile) => `${t.floor ?? 0}:${t.x},${t.y}`;
-  const blocksNow = new Map(now.blocks.map((b) => [at(b), b.block]));
+  // What stands where, as its kind and grade, so `replace` takes away a wall of another grade too.
+  const unit = (s: { block: BlockKind; grade?: PastPlain | undefined }) =>
+    s.grade ? `${s.block}:${s.grade}` : s.block;
+  const blocksNow = new Map(now.blocks.map((b) => [at(b), unit(b)]));
   const groundNow = new Map(now.ground.map((g) => [at(g), g.ground]));
-  const edgesNow = new Map((now.edges ?? []).map((e) => [lineKey(e), e.block]));
+  const edgesNow = new Map((now.edges ?? []).map((e) => [lineKey(e), unit(e)]));
   const plan = {
     remove: [] as Tile[],
     lift: [] as Tile[],
-    blocks: [] as (Tile & { block: BlockKind })[],
+    blocks: [] as (Tile & { block: BlockKind; grade?: PastPlain })[],
     ground: [] as (Tile & { ground: GroundKind })[],
     removeEdges: [] as Line[],
-    edges: [] as (Line & { block: BlockKind })[],
+    edges: [] as (Line & { block: BlockKind; grade?: PastPlain })[],
   };
   const seen = new Set<number>();
   for (const entry of map.floors) {
@@ -225,8 +249,10 @@ export function mapToPlan(
           char === MAP_EDGE_MARKS.door
             ? "door"
             : ((MAP_BLOCKS as Record<string, BlockKind>)[char] ?? (legend[char] as BlockKind));
-        if (replace && there !== undefined && there !== kind) plan.removeEdges.push(line);
-        plan.edges.push({ ...line, block: kind });
+        const graded = gradeOf(char);
+        const wanted = unit({ block: kind, ...graded });
+        if (replace && there !== undefined && there !== wanted) plan.removeEdges.push(line);
+        plan.edges.push({ ...line, block: kind, ...graded });
       }
     }
     for (const grid of ["blocks", "ground"] as const) {
@@ -261,8 +287,10 @@ export function mapToPlan(
                 problem: `${cap(which)} ${have} ${shown(c)} at (${x}, ${y}), which isn't a block. Blocks: ${BLOCK_WORDS}, and digits from the map's legend; ${MARK_WORDS}.`,
               };
             }
-            if (replace && there !== undefined && there !== kind) plan.remove.push(tile);
-            plan.blocks.push({ ...tile, block: kind });
+            const graded = gradeOf(c);
+            const wanted = unit({ block: kind, ...graded });
+            if (replace && there !== undefined && there !== wanted) plan.remove.push(tile);
+            plan.blocks.push({ ...tile, block: kind, ...graded });
           } else {
             const there = groundNow.get(at(tile));
             if (c === MAP_MARKS.clear) {

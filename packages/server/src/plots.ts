@@ -14,6 +14,8 @@ import {
   furnishing,
   furnishings,
   type Good,
+  type GradedWalls,
+  gradedWalls,
   type Input,
   knockedToday,
   MINUTE_MS,
@@ -685,6 +687,8 @@ function plotViews(
   const furnished = only
     ? new Map([[plotKey(only.px, only.py), furnishing(state, only.px, only.py)]])
     : furnishings(state);
+  // Its graded walls (RFC 0051): one pass over the world's grades either way, which are few.
+  const graded = gradedWalls(state);
   const one = only ? own(state.plots, plotKey(only.px, only.py)) : undefined;
   // For sale (RFC 0039): on the one plot's read only, since the list is built once a minute.
   const forSale = only ? plotListing(state, only.px, only.py) : undefined;
@@ -721,11 +725,19 @@ function plotViews(
       ...(plot.floors ? { floors: plot.floors } : {}),
       displays: displays.get(key) ?? 0,
       ...furnishedView(furnished.get(key)),
+      ...wallsView(graded.get(key)),
       ...(forSale ? { listing: { price: forSale.price, day: forSale.day } } : {}),
       ...(plot.gallery ? { gallery: true as const } : {}),
     });
   }
   return views;
+}
+
+/** A plot's `walls` counts (RFC 0051), or nothing when it has no graded wall. */
+function wallsView(w: GradedWalls | undefined): Pick<PlotView, "walls"> {
+  return w && w.fine + w.masterwork > 0
+    ? { walls: { fine: w.fine, masterwork: w.masterwork } }
+    : {};
 }
 
 /** A plot's `furnished` counts, or nothing when it has none to show. */

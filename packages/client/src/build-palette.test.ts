@@ -42,6 +42,17 @@ describe("the build bar", () => {
     expect([...withChanges(made, [{ kind: "table", count: 0 }])]).toEqual([["chair", 2]]);
   });
 
+  it("holds plain material only: a graded stack or change never stands for the plain count", () => {
+    // RFC 0051: `GET /v1/inventory` lists fine plaster as its own entry after the plain one, and a
+    // graded change's count is of its grade.
+    const held = holdingsFromStacks([
+      { kind: "plaster", count: 3 },
+      { kind: "plaster", grade: "fine", count: 8 },
+    ]);
+    expect([...held]).toEqual([["plaster", 3]]);
+    expect(withChanges(held, [{ kind: "plaster", grade: "fine", count: 6 }])).toBe(held);
+  });
+
   it("says how many of a piece are left, and where to get one when none are", () => {
     expect(heldLabel("lantern", 3)).toBe("Paper lantern, 3 left");
     expect(heldLabel("table", 0)).toBe("Table, none left");

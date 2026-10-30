@@ -143,6 +143,7 @@ export function inventoryView(
           fromId: g.from,
           kind: g.kind,
           count: g.count,
+          ...(g.grade ? { grade: g.grade } : {}),
           ...(g.goods ? { goods: g.goods } : {}),
           day: g.day,
           lastDay: lastDeclineDay(g.day),

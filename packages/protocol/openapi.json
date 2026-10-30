@@ -30909,6 +30909,15 @@
                     "floor_lamp",
                     "potted_tree"
                   ]
+                },
+                "grade": {
+                  "description": "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+                  "type": "string",
+                  "enum": [
+                    "plain",
+                    "fine",
+                    "masterwork"
+                  ]
                 }
               },
               "required": [
@@ -31103,6 +31112,15 @@
                     "coat_rack",
                     "floor_lamp",
                     "potted_tree"
+                  ]
+                },
+                "grade": {
+                  "description": "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+                  "type": "string",
+                  "enum": [
+                    "plain",
+                    "fine",
+                    "masterwork"
                   ]
                 }
               },
@@ -31416,6 +31434,13 @@
                 "kind": {
                   "$ref": "#/components/schemas/StackKind"
                 },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
+                  ]
+                },
                 "count": {
                   "type": "integer",
                   "minimum": -9007199254740991,
@@ -31435,6 +31460,13 @@
               "properties": {
                 "kind": {
                   "$ref": "#/components/schemas/StackKind"
+                },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
+                  ]
                 },
                 "count": {
                   "type": "integer",
@@ -32219,6 +32251,15 @@
               }
             ]
           },
+          "grade": {
+            "description": "`fine` for a made material's fine recipe (RFC 0051): its plain recipe plus one more thing, making 2. Each fine craft may come out masterwork by chance. Absent is plain.",
+            "type": "string",
+            "enum": [
+              "plain",
+              "fine",
+              "masterwork"
+            ]
+          },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
             "type": "boolean"
@@ -32574,6 +32615,13 @@
                 "kind": {
                   "type": "string"
                 },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
+                  ]
+                },
                 "count": {
                   "type": "integer",
                   "minimum": -9007199254740991,
@@ -32593,6 +32641,13 @@
               "properties": {
                 "kind": {
                   "type": "string"
+                },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
+                  ]
                 },
                 "count": {
                   "type": "integer",
@@ -33259,6 +33314,15 @@
             "type": "boolean",
             "enum": [
               true
+            ]
+          },
+          "grade": {
+            "description": "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+            "type": "string",
+            "enum": [
+              "plain",
+              "fine",
+              "masterwork"
             ]
           },
           "dry": {
@@ -34207,6 +34271,15 @@
             "minimum": 1,
             "maximum": 100000
           },
+          "grade": {
+            "description": "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+            "type": "string",
+            "enum": [
+              "plain",
+              "fine",
+              "masterwork"
+            ]
+          },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
             "type": "boolean"
@@ -34276,6 +34349,13 @@
             "items": {
               "$ref": "#/components/schemas/GoodEventView"
             }
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "fine",
+              "masterwork"
+            ]
           },
           "price": {
             "type": "integer",
@@ -34895,6 +34975,15 @@
               "coat_rack",
               "floor_lamp",
               "potted_tree"
+            ]
+          },
+          "grade": {
+            "description": "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+            "type": "string",
+            "enum": [
+              "plain",
+              "fine",
+              "masterwork"
             ]
           },
           "item": {
@@ -35812,6 +35901,83 @@
             },
             "additionalProperties": false,
             "description": "Decor and furniture in the map, on the digits 0 to 9, like `{\"1\": \"table\"}`. The fixed characters can't be redefined."
+          },
+          "grades": {
+            "type": "object",
+            "properties": {
+              "0": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "1": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "2": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "3": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "4": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "5": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "6": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "7": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "8": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "9": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "description": "The grade of each graded made material in the legend (RFC 0051), like `{\"1\": \"fine\"}`. A digit not here is plain."
           }
         },
         "required": [
@@ -36567,6 +36733,83 @@
             },
             "additionalProperties": false,
             "description": "Decor and furniture in the map, on the digits 0 to 9, like `{\"1\": \"table\"}`. The fixed characters can't be redefined."
+          },
+          "grades": {
+            "type": "object",
+            "properties": {
+              "0": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "1": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "2": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "3": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "4": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "5": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "6": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "7": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "8": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
+              "9": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "description": "The grade of each graded made material in the legend (RFC 0051), like `{\"1\": \"fine\"}`. A digit not here is plain."
           }
         },
         "required": [
@@ -36691,6 +36934,13 @@
                         "coat_rack",
                         "floor_lamp",
                         "potted_tree"
+                      ]
+                    },
+                    "grade": {
+                      "type": "string",
+                      "enum": [
+                        "fine",
+                        "masterwork"
                       ]
                     }
                   },
@@ -36832,6 +37082,13 @@
                         "coat_rack",
                         "floor_lamp",
                         "potted_tree"
+                      ]
+                    },
+                    "grade": {
+                      "type": "string",
+                      "enum": [
+                        "fine",
+                        "masterwork"
                       ]
                     }
                   },
@@ -38615,6 +38872,15 @@
               {
                 "$ref": "#/components/schemas/RoofTop"
               }
+            ]
+          },
+          "grade": {
+            "description": "A made material's grade (RFC 0051): `fine` or `masterwork`, from your graded things. Absent is plain. Anything else has no grade.",
+            "type": "string",
+            "enum": [
+              "plain",
+              "fine",
+              "masterwork"
             ]
           },
           "dry": {
@@ -40755,6 +41021,13 @@
                   "potted_tree"
                 ]
               },
+              "grade": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
               "by": {
                 "type": "string"
               },
@@ -40957,6 +41230,13 @@
                   }
                 ]
               },
+              "grade": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
               "top": {
                 "allOf": [
                   {
@@ -41042,6 +41322,13 @@
               },
               "material": {
                 "$ref": "#/components/schemas/RoofMaterial"
+              },
+              "grade": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
               },
               "top": {
                 "allOf": [
@@ -41711,6 +41998,13 @@
                   "coat_rack",
                   "floor_lamp",
                   "potted_tree"
+                ]
+              },
+              "grade": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
                 ]
               },
               "by": {
@@ -43154,6 +43448,13 @@
               "kind": {
                 "$ref": "#/components/schemas/ItemKind"
               },
+              "grade": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
+              },
               "count": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -43786,6 +44087,13 @@
               },
               "kind": {
                 "$ref": "#/components/schemas/ItemKind"
+              },
+              "grade": {
+                "type": "string",
+                "enum": [
+                  "fine",
+                  "masterwork"
+                ]
               }
             },
             "required": [
@@ -44701,6 +45009,13 @@
                   "properties": {
                     "kind": {
                       "$ref": "#/components/schemas/StackKind"
+                    },
+                    "grade": {
+                      "type": "string",
+                      "enum": [
+                        "fine",
+                        "masterwork"
+                      ]
                     },
                     "amount": {
                       "type": "integer",
@@ -45654,6 +45969,13 @@
                           "$ref": "#/components/schemas/RoofTop"
                         }
                       ]
+                    },
+                    "grade": {
+                      "type": "string",
+                      "enum": [
+                        "fine",
+                        "masterwork"
+                      ]
                     }
                   },
                   "required": [
@@ -45758,6 +46080,13 @@
                     "coat_rack",
                     "floor_lamp",
                     "potted_tree"
+                  ]
+                },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
                   ]
                 }
               },
@@ -45896,6 +46225,13 @@
                     "coat_rack",
                     "floor_lamp",
                     "potted_tree"
+                  ]
+                },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
                   ]
                 }
               },
@@ -46456,6 +46792,12 @@
             ]
           },
           "clayByWater": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "gradesOpen": {
             "type": "boolean",
             "enum": [
               true
@@ -52079,6 +52421,13 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "fine",
+              "masterwork"
+            ]
+          },
           "goods": {
             "type": "array",
             "items": {
@@ -52236,6 +52585,13 @@
               "properties": {
                 "kind": {
                   "$ref": "#/components/schemas/StackKind"
+                },
+                "grade": {
+                  "type": "string",
+                  "enum": [
+                    "fine",
+                    "masterwork"
+                  ]
                 },
                 "count": {
                   "type": "integer",
@@ -53118,6 +53474,25 @@
               "kinds"
             ]
           },
+          "walls": {
+            "type": "object",
+            "properties": {
+              "fine": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "masterwork": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "fine",
+              "masterwork"
+            ]
+          },
           "listing": {
             "allOf": [
               {
@@ -53728,6 +54103,13 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "fine",
+              "masterwork"
+            ]
           },
           "price": {
             "type": "integer",
@@ -55225,6 +55607,48 @@
               "needs"
             ]
           },
+          "fine": {
+            "description": "A made material only (RFC 0051): its fine recipe, at the same station, made with `craft` and `\"grade\": \"fine\"`. `needs` are plain unless they name a `grade`. Each fine craft may come out masterwork by chance.",
+            "type": "object",
+            "properties": {
+              "needs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "$ref": "#/components/schemas/StackKind"
+                    },
+                    "grade": {
+                      "type": "string",
+                      "enum": [
+                        "fine",
+                        "masterwork"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count"
+                  ]
+                }
+              },
+              "makes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "needs",
+              "makes"
+            ]
+          },
           "usedIn": {
             "description": "The recipes that use it up. Absent when none do.",
             "type": "array",
@@ -55269,13 +55693,26 @@
               "$ref": "#/components/schemas/CatalogFamilyRecipe"
             },
             "description": "Recipes that take any one kind from a family, like jam from any fruit. Each kind they make is in `kinds` with its own recipe."
+          },
+          "grades": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "plain",
+                "fine",
+                "masterwork"
+              ]
+            },
+            "description": "A made material's grades, lowest first (RFC 0051). Only made materials have them; the rest are plain."
           }
         },
         "required": [
           "version",
           "families",
           "kinds",
-          "familyRecipes"
+          "familyRecipes",
+          "grades"
         ]
       },
       "CollectedView": {

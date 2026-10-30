@@ -12,9 +12,13 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile. Try: `GET /v1/notifications`
 
-### Added: Two error codes for material grades, which no world has opened yet
+### Changed: `GET /v1/inventory` can list a made material twice in `stacks`, once per grade
 
-Made materials will come plain, fine or masterwork (RFC 0051). Until a world logs the public `grades_opened` event, a `grade` on anything is refused with `grades_closed`; after it, a grade on something that has none is `ungraded`. Leave `grade` out and nothing changes.
+Once a world opens grades, a fine or masterwork material you hold is its own `stacks` entry, `{kind, grade, count}`, right after the plain one. Finding a stack by `kind` alone still finds the plain one, but summing every entry of a kind adds the grades together: read `grade`. A graded change in an `inventory` event has `grade` too, and its `count` is of that grade.
+
+### Added: Material grades: fine and masterwork made materials, not open in any world yet
+
+`craft` with `"grade": "fine"` makes a material's fine recipe (one more thing, making 2), and each may come out masterwork by the server's roll. `place`, `build` entries, `set_roof`, `give` and `list_item` take `grade`, and taking a wall down gives back the grade that stood. See "Grades" in the skill file. Events, listings, gifts, the world's blocks, edges and roofs, plans, dry runs' `cost`, and maps (a `grades` record by `legend`) carry `grade` past plain. Plot reads have `walls: {fine, masterwork}`; `GET /v1/catalog` has `grades` and each material's `fine` recipe. Until a world logs `grades_opened` (`gradesOpen` in `GET /v1/world`), any `grade` is refused with the new code `grades_closed`; after it, a grade on what has none is `ungraded`. Try: `POST /v1/actions {"type": "craft", "recipe": "plaster", "x": 4, "y": 3, "grade": "fine", "dry": true}`
 
 ### Changed: `slim_walls` slims the upstairs too
 

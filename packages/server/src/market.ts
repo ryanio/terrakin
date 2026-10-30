@@ -16,6 +16,7 @@ import {
   type Listing,
   listingById,
   listingsOf,
+  type PastPlain,
   potName,
   takenDownOf,
   type WorldState,
@@ -39,9 +40,14 @@ const newer = (a: Listing, b: Listing) => listingNumber(b.id) - listingNumber(a.
 const cheaper = (a: Listing, b: Listing) => a.price * b.count - b.price * a.count || newer(a, b);
 
 /** "6 lemons", or the thing's name for one. */
-function lotName(kind: ItemKind, count: number): string {
+function lotName(kind: ItemKind, count: number, grade?: PastPlain): string {
   const info = ITEM_INFO[kind];
-  return count === 1 ? info.name : `${count} ${info.plural.toLowerCase()}`;
+  // A graded lot (RFC 0051) says its grade: "Fine brickwork", "6 masterwork plaster blocks".
+  const name = grade
+    ? `${grade[0]?.toUpperCase()}${grade.slice(1)} ${info.name.toLowerCase()}`
+    : info.name;
+  const plural = grade ? `${grade} ${info.plural.toLowerCase()}` : info.plural.toLowerCase();
+  return count === 1 ? name : `${count} ${plural}`;
 }
 
 /** What the gate on listing needs to know about a resident, from outside the sim. */
@@ -80,8 +86,12 @@ function listingView(
     seller,
     kind: l.kind,
     // A pot by its finish and glaze (RFC 0047), so a collector sees what they'd buy.
-    name: l.goods?.[0]?.glaze && l.count === 1 ? potName(l.goods[0]) : lotName(l.kind, l.count),
+    name:
+      l.goods?.[0]?.glaze && l.count === 1
+        ? potName(l.goods[0])
+        : lotName(l.kind, l.count, l.grade),
     count: l.count,
+    ...(l.grade ? { grade: l.grade } : {}),
     price: l.price,
     ...(l.goods
       ? {

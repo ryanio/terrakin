@@ -171,6 +171,41 @@ export function setGrade(state: WorldState, floor: number, key: string, grade: G
   layer.grades[key] = grade;
 }
 
+// ---------- what a plot's read counts ----------
+
+/** A plot's graded walls (RFC 0051), for its read: counts only, and no rule reads them. */
+export interface GradedWalls {
+  fine: number;
+  masterwork: number;
+}
+
+/**
+ * The graded walls of every plot that has one, by `plotKey`: blocks and walls between tiles on
+ * every floor, each counted on the plot of the tile its key names (a line by the tile whose north
+ * or west side it is), and a graded roof as one. One pass over the world, so `GET /v1/plots` reads
+ * it once. A view reads it; no rule does.
+ */
+export function gradedWalls(state: WorldState): Map<string, GradedWalls> {
+  const S = state.config.plotSize;
+  const out = new Map<string, GradedWalls>();
+  const add = (key: string, grade: PastPlain) => {
+    const at = out.get(key) ?? { fine: 0, masterwork: 0 };
+    at[grade] += 1;
+    out.set(key, at);
+  };
+  const layers = [state.grades, ...Object.values(state.floors ?? {}).map((f) => f.grades)];
+  for (const grades of layers) {
+    for (const [key, grade] of Object.entries(grades ?? {})) {
+      const [x = 0, y = 0] = key.split(",").map(Number);
+      add(`${Math.floor(x / S)},${Math.floor(y / S)}`, grade);
+    }
+  }
+  for (const plot of Object.values(state.plots)) {
+    if (plot.roof?.grade) add(`${plot.px},${plot.py}`, plot.roof.grade);
+  }
+  return out;
+}
+
 // ---------- counting things by kind and grade ----------
 
 /** A tally's key for a kind at a grade: the kind alone for plain, `kind:grade` past it. */

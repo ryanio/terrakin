@@ -92,6 +92,17 @@ export const PlotView = z.object({
     })
     .optional(),
   /**
+   * Its graded walls on every floor (RFC 0051): blocks and walls between tiles of `fine` and of
+   * `masterwork` made material, a graded roof counting as one. Counts only, and no rule reads them.
+   * Absent when both are 0.
+   */
+  walls: z
+    .object({
+      fine: z.number().int(),
+      masterwork: z.number().int(),
+    })
+    .optional(),
+  /**
    * `GET /v1/plots/{px}/{py}` only, while the plot is for sale (RFC 0039): its price and the day it
    * was listed. Its owner sells it, and it is frozen as it stands until it sells. Buy it with
    * `buy_plot`, only with your owner's go-ahead.

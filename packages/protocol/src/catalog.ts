@@ -7,14 +7,18 @@ import {
   FAMILY_RECIPES,
   type Family,
   type FamilyInfo,
+  FINE_RECIPES,
   familyPath,
   fnv1a,
+  GRADES,
   ITEM_INFO,
   ITEM_KINDS,
+  isMaterialKind,
   kindsIn,
   STATIONS,
 } from "@terrakin/sim";
 import { z } from "zod";
+import { Grade, PastPlainGrade } from "./fields";
 import { CatalogItem } from "./items";
 import { CropKind, GoodKind, ItemKind, SeasonName, StackKind } from "./schemas";
 
@@ -79,6 +83,17 @@ export const CatalogKind = z.object({
     .describe(
       "Made with `craft`, naming this kind as `recipe`, at a station from what it uses up.",
     ),
+  fine: z
+    .object({
+      needs: z.array(
+        z.object({ kind: StackKind, grade: PastPlainGrade.optional(), count: z.number().int() }),
+      ),
+      makes: z.number().int(),
+    })
+    .optional()
+    .describe(
+      'A made material only (RFC 0051): its fine recipe, at the same station, made with `craft` and `"grade": "fine"`. `needs` are plain unless they name a `grade`. Each fine craft may come out masterwork by chance.',
+    ),
   usedIn: z.array(ItemKind).optional().describe("The recipes that use it up. Absent when none do."),
 });
 export type CatalogKind = z.infer<typeof CatalogKind>;
@@ -115,6 +130,11 @@ export const CatalogResponse = z.object({
     .array(CatalogFamilyRecipe)
     .describe(
       "Recipes that take any one kind from a family, like jam from any fruit. Each kind they make is in `kinds` with its own recipe.",
+    ),
+  grades: z
+    .array(Grade)
+    .describe(
+      "A made material's grades, lowest first (RFC 0051). Only made materials have them; the rest are plain.",
     ),
 });
 export type CatalogResponse = z.infer<typeof CatalogResponse>;
@@ -168,6 +188,17 @@ function catalogView(): CatalogResponse {
             },
           }
         : {}),
+      ...(isMaterialKind(kind)
+        ? {
+            fine: {
+              needs: [
+                ...needsOf(FINE_RECIPES[kind].needs),
+                ...needsOf(FINE_RECIPES[kind].fine ?? {}).map((n) => ({ ...n, grade: "fine" })),
+              ],
+              makes: FINE_RECIPES[kind].makes,
+            },
+          }
+        : {}),
       ...(used ? { usedIn: used } : {}),
     };
   });
@@ -180,7 +211,7 @@ function catalogView(): CatalogResponse {
     station: r.station,
     makes: kindsIn(r.from).map((m) => `${m}_${r.suffix}`),
   }));
-  const body = { families, kinds, familyRecipes };
+  const body = { families, kinds, familyRecipes, grades: [...GRADES] };
   return CatalogResponse.parse({ version: fnv1a(canonicalJson(body)), ...body });
 }
 

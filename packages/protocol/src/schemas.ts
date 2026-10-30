@@ -85,7 +85,10 @@ import {
   type WallDecorKind as WorldWallDecorKind,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { BlockKind, coord, MapLegend } from "./fields";
+import { BlockKind, coord, MapGrades, MapLegend, PastPlainGrade } from "./fields";
+
+/** `grade` on what names a made material (RFC 0051), present only past plain. */
+const pastPlain = { grade: PastPlainGrade.optional() };
 
 /** Bump only with an RFC. Old versions keep working until a published sunset date. */
 export const PROTOCOL_VERSION = 1;
@@ -290,6 +293,7 @@ export const PlotMapView = z.object({
     }),
   ),
   legend: MapLegend.optional(),
+  grades: MapGrades.optional(),
 });
 export type PlotMapView = z.infer<typeof PlotMapView>;
 /**
@@ -568,6 +572,7 @@ export const ListingEventView = z.object({
   kind: ItemKind,
   count: z.number().int(),
   goods: z.array(GoodEventView).optional(),
+  ...pastPlain,
   price: z.number().int(),
   day: z.number().int(),
 });
@@ -839,13 +844,24 @@ export const WorldSnapshot = z.object({
           style: RoofStyle.exclude(["flat"]),
           material: RoofMaterial,
           top: RoofTop.optional(),
+          /** Its covering's grade (RFC 0051), past plain only. */
+          ...pastPlain,
         })
         .optional(),
     }),
   ),
-  /** Blocks, one per tile on each floor: the ground floor's, then each floor's above it. */
+  /**
+   * Blocks, one per tile on each floor: the ground floor's, then each floor's above it. A graded
+   * made material (RFC 0051) has its `grade`.
+   */
   blocks: z.array(
-    z.object({ x: z.number().int(), y: z.number().int(), ...onFloor, block: BlockKind }),
+    z.object({
+      x: z.number().int(),
+      y: z.number().int(),
+      ...onFloor,
+      block: BlockKind,
+      ...pastPlain,
+    }),
   ),
   /**
    * Paths and flooring (RFC 0016), one per tile on each floor, under whatever block stands there.
@@ -868,6 +884,8 @@ export const WorldSnapshot = z.object({
         side: z.enum(["n", "w"]),
         ...onFloor,
         block: BlockKind,
+        /** A graded made material's grade (RFC 0051), past plain only. */
+        ...pastPlain,
       }),
     )
     .optional(),
@@ -1104,6 +1122,11 @@ export const WorldSnapshot = z.object({
    */
   clayByWater: z.literal(true).optional(),
   /**
+   * Present once made materials come in grades (RFC 0051): a `grade` of `fine` or `masterwork` is
+   * taken wherever a made material is named. Before it, any `grade` is refused with `grades_closed`.
+   */
+  gradesOpen: z.literal(true).optional(),
+  /**
    * Present once recipes are learned (RFC 0024): `teach` works, and now and then a find is a
    * `recipe_page`. Clients draw pages with the sim's `pickupOn`.
    */
@@ -1278,6 +1301,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     y: z.number().int(),
     ...onFloor,
     block: BlockKind,
+    ...pastPlain,
     by: z.string(),
     /** The pot set down, for a `pot` block (RFC 0047). Its `label` is its maker's words. */
     pot: GoodEventView.optional(),
@@ -1326,6 +1350,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     py: z.number().int(),
     style: RoofStyle,
     material: RoofMaterial.optional(),
+    ...pastPlain,
     top: RoofTop.optional(),
     by: z.string(),
   }),
@@ -1351,6 +1376,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     py: z.number().int(),
     style: RoofStyle.exclude(["flat"]),
     material: RoofMaterial,
+    ...pastPlain,
     top: RoofTop.optional(),
     by: z.string(),
   }),
@@ -1465,6 +1491,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     side: z.enum(["n", "w"]),
     ...onFloor,
     block: BlockKind,
+    ...pastPlain,
     by: z.string(),
   }),
   /** The wall on the line on `side` (`n` or `w`) of (x, y) came down (RFC 0050). Public. */
@@ -1798,6 +1825,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     listing: z.string(),
     seller: z.string(),
     kind: ItemKind,
+    ...pastPlain,
     count: z.number().int(),
     price: z.number().int(),
   }),
@@ -1920,7 +1948,13 @@ export const WorldEvent = z.discriminatedUnion("type", [
     by: z.string(),
   }),
   /** Someone gave someone a thing. Public, without the count or the note. */
-  z.object({ type: z.literal("item_given"), from: z.string(), to: z.string(), kind: ItemKind }),
+  z.object({
+    type: z.literal("item_given"),
+    from: z.string(),
+    to: z.string(),
+    kind: ItemKind,
+    ...pastPlain,
+  }),
   /**
    * A made thing went on display on a `pedestal` or `frame`. Public. Its `label` (a piece's title)
    * is its maker's words, so the event is marked untrusted when it has one.
@@ -2153,8 +2187,16 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("inventory"),
     residentId: z.string(),
     reason: InventoryReason,
+    /** A graded made material's change (RFC 0051) has its `grade`, and `count` is of that grade. */
     changes: z
-      .array(z.object({ kind: StackKind, amount: z.number().int(), count: z.number().int() }))
+      .array(
+        z.object({
+          kind: StackKind,
+          ...pastPlain,
+          amount: z.number().int(),
+          count: z.number().int(),
+        }),
+      )
       .optional(),
     gained: z.array(GoodEventView).optional(),
     lost: z.array(z.string()).optional(),
@@ -2423,8 +2465,8 @@ export const CreateSessionResponse = z.object({
   token: z.string(),
   world: WorldSnapshot,
 });
-/** Things by kind and count, in a build's answer. */
-const kindCounts = z.array(z.object({ kind: StackKind, count: z.number().int() }));
+/** Things by kind and count, in a build's answer, a graded made material by its grade (RFC 0051). */
+const kindCounts = z.array(z.object({ kind: StackKind, ...pastPlain, count: z.number().int() }));
 /**
  * What a `build` did, or on a dry run would do: how many tiles changed, its net change to your
  * things, and the tiles it left alone with why, as the plan gave them (from the plot's corner). On
@@ -2482,7 +2524,13 @@ export const PlotPlanResponse = z.object({
     /** Who owns it. Absent for an unclaimed plot and the Commons. */
     ownerId: z.string().optional(),
     blocks: z.array(
-      z.object({ x: z.number().int(), y: z.number().int(), ...onFloor, block: BlockKind }),
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        ...onFloor,
+        block: BlockKind,
+        ...pastPlain,
+      }),
     ),
     ground: z.array(
       z.object({ x: z.number().int(), y: z.number().int(), ...onFloor, ground: GroundKind }),
@@ -2495,6 +2543,7 @@ export const PlotPlanResponse = z.object({
           side: z.enum(SIDES),
           ...onFloor,
           block: BlockKind,
+          ...pastPlain,
         }),
       )
       .optional()
@@ -2517,8 +2566,8 @@ const WalkStop = z.object({ code: ErrorCode, message: z.string() });
  * made things included, and the net change in coins, spent below 0.
  */
 export const DryCost = z.object({
-  uses: z.array(z.object({ kind: z.string(), count: z.number().int() })),
-  gets: z.array(z.object({ kind: z.string(), count: z.number().int() })),
+  uses: z.array(z.object({ kind: z.string(), ...pastPlain, count: z.number().int() })),
+  gets: z.array(z.object({ kind: z.string(), ...pastPlain, count: z.number().int() })),
   coins: z.number().int(),
 });
 export type DryCost = z.infer<typeof DryCost>;

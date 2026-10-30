@@ -1,5 +1,6 @@
 import { MARKET } from "@terrakin/sim";
 import { z } from "zod";
+import { PastPlainGrade } from "./fields";
 import { FinishName, GlazeName, ItemKind, ListingId } from "./schemas";
 import { AuthorView, type KarmaTier } from "./social";
 
@@ -41,6 +42,8 @@ export const ListingView = z.object({
   /** What it is, in plain words: "6 lemons", "Lemon jam", a pot by its finish and glaze: "Speckled rose vase". */
   name: z.string(),
   count: z.number().int(),
+  /** A lot of graded made material (RFC 0051): every unit in it is of this grade. Absent is plain. */
+  grade: PastPlainGrade.optional(),
   /** For the whole lot, in coins. */
   price: z.number().int(),
   /** Made things only, with their makers and labels. */

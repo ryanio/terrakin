@@ -25,6 +25,8 @@ import {
   floorField,
   type Glaze,
   type GoodKind,
+  gradeAt,
+  gradeField,
   groundOn,
   type HostedEvent,
   holidaysField,
@@ -496,14 +498,15 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
   const blocks = floors.flatMap((floor) =>
     Object.entries(blocksOn(state, floor)).map(([key, block]) => {
       const [x, y] = parseKey(key);
-      return { x, y, ...floorField(floor), block };
+      return { x, y, ...floorField(floor), block, ...gradeField(gradeAt(state, key, floor)) };
     }),
   );
   // Walls between tiles (RFC 0050), each on its `n` or `w` line, `floor` above the ground floor.
+  // A graded wall (RFC 0051) has its `grade`, so a mirror reads it as the events say it.
   const edges = floors.flatMap((floor) =>
     Object.entries(edgesOn(state, floor)).map(([key, block]) => {
       const { x, y, side } = parseEdgeKey(key);
-      return { x, y, side, ...floorField(floor), block };
+      return { x, y, side, ...floorField(floor), block, ...gradeField(gradeAt(state, key, floor)) };
     }),
   );
   const ground = floors.flatMap((floor) =>
@@ -657,6 +660,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(findsOpen(state) ? { findsOpen: true as const } : {}),
     ...(clayOpen(state) ? { clayOpen: true as const } : {}),
     ...(state.items?.clayByWater ? { clayByWater: true as const } : {}),
+    ...(state.items?.gradesOpen ? { gradesOpen: true as const } : {}),
     ...(state.recipes ? { recipesOpen: true as const } : {}),
     ...(state.recipes?.pages ? { pageEdition: state.recipes.pages } : {}),
     ...(state.progress ? { levelsOpen: true as const } : {}),

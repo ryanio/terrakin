@@ -265,6 +265,37 @@ describe("slimPlan", () => {
     expect(slimPlan(state, 0, 0)).toHaveProperty("problem");
   });
 
+  it("puts each line up at the grade of the wall it stands for, so a fine home slims fine (RFC 0051)", () => {
+    const { state, ok } = hut();
+    ok(TOWN_ACTOR, { type: "open_economy" });
+    ok(TOWN_ACTOR, { type: "open_items" });
+    ok(TOWN_ACTOR, { type: "open_grades" });
+    // The hut's wood walls swapped for fine plaster; its windows and door stay as they are.
+    const wood = Object.entries(state.blocks)
+      .filter(([, b]) => b === "wood")
+      .map(([key]) => key.split(",").map(Number) as [number, number]);
+    const items = state.items;
+    if (!items) throw new Error("items aren't open");
+    items.inventories.ada = { stacks: {}, goods: [], graded: { plaster: { fine: wood.length } } };
+    ok("ada", {
+      type: "build",
+      px: 0,
+      py: 0,
+      remove: wood.map(([x, y]) => ({ x, y })),
+      blocks: wood.map(([x, y]) => ({ x, y, block: "plaster", grade: "fine" })),
+    });
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    const kinds = new Set(plan.edges.map((e) => `${e.block}:${e.grade ?? "plain"}`));
+    expect(kinds).toEqual(new Set(["plaster:fine", "glass:plain", "door:plain"]));
+    // The sim takes it whole: the fine blocks it takes up and the town's fine gift pay for it.
+    ok("ada", { type: "slim_walls", px: 0, py: 0, ...plan });
+    expect(state.items?.inventories.ada?.graded).toBeUndefined();
+    expect(Object.keys(state.grades ?? {})).toHaveLength(
+      plan.edges.filter((e) => e.grade === "fine").length,
+    );
+  });
+
   it("slims a hut built before doors, its open doorway becoming a door", () => {
     const { state, ok } = hut(false);
     expect(state.blocks["3,5"]).toBeUndefined();

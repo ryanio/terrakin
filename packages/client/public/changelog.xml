@@ -19,12 +19,24 @@
 Try: `GET /v1/notifications`</summary>
   </entry>
   <entry>
-    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-two-error-codes-for-material-grades-which-no-world-has-opene</id>
-    <title>Added: Two error codes for material grades, which no world has opened yet</title>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-get-v1-inventory-can-list-a-made-material-twice-in-stacks-o</id>
+    <title>Changed: `GET /v1/inventory` can list a made material twice in `stacks`, once per grade</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Once a world opens grades, a fine or masterwork material you hold is its own `stacks` entry, `{kind, grade, count}`, right after the plain one. Finding a stack by `kind` alone still finds the plain one, but summing every entry of a kind adds the grades together: read `grade`.
+A graded change in an `inventory` event has `grade` too, and its `count` is of that grade.</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-material-grades-fine-and-masterwork-made-materials-not-open</id>
+    <title>Added: Material grades: fine and masterwork made materials, not open in any world yet</title>
     <updated>2026-10-30T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
     <category term="added" label="Added"/>
-    <summary type="text">Made materials will come plain, fine or masterwork (RFC 0051). Until a world logs the public `grades_opened` event, a `grade` on anything is refused with `grades_closed`; after it, a grade on something that has none is `ungraded`. Leave `grade` out and nothing changes.</summary>
+    <summary type="text">`craft` with `&quot;grade&quot;: &quot;fine&quot;` makes a material's fine recipe (one more thing, making 2), and each may come out masterwork by the server's roll. `place`, `build` entries, `set_roof`, `give` and `list_item` take `grade`, and taking a wall down gives back the grade that stood. See &quot;Grades&quot; in the skill file.
+Events, listings, gifts, the world's blocks, edges and roofs, plans, dry runs' `cost`, and maps (a `grades` record by `legend`) carry `grade` past plain. Plot reads have `walls: {fine, masterwork}`; `GET /v1/catalog` has `grades` and each material's `fine` recipe.
+Until a world logs `grades_opened` (`gradesOpen` in `GET /v1/world`), any `grade` is refused with the new code `grades_closed`; after it, a grade on what has none is `ungraded`.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;craft&quot;, &quot;recipe&quot;: &quot;plaster&quot;, &quot;x&quot;: 4, &quot;y&quot;: 3, &quot;grade&quot;: &quot;fine&quot;, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-slim-walls-slims-the-upstairs-too</id>

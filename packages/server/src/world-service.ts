@@ -75,6 +75,7 @@ import {
   nameProblem,
   own,
   ownerPaired,
+  type PastPlain,
   PLOTS,
   POTTERY_JOB_EDITION,
   PRESENTS,
@@ -468,25 +469,37 @@ const NO_COST: ReadonlySet<string> = new Set(["build", "slim_walls", "move", "pu
  * none of them, or when the copy refuses what the check took, which leaves the answer as it was.
  */
 function costOf(view: WorldState, input: Input): { cost?: DryCost } {
-  if (NO_COST.has(input.command.type)) return {};
+  const { command } = input;
+  if (NO_COST.has(command.type)) return {};
   const after = cloneWorld(view);
   if (!apply(after, input).ok) return {};
+  // A dry fine craft (RFC 0051) says it makes fine and no more: its batch's masterwork counts as
+  // fine, so the answer never says when the floor would make the next one masterwork.
+  const fineCraft = command.type === "craft" && command.grade === "fine" ? command.recipe : null;
   const counts = (w: WorldState) => {
     const inv = w.items?.inventories[input.actor];
     const m = new Map<string, number>();
-    for (const [kind, n] of Object.entries(inv?.stacks ?? {}))
-      m.set(kind, (m.get(kind) ?? 0) + (n ?? 0));
-    for (const g of inv?.goods ?? []) m.set(g.kind, (m.get(g.kind) ?? 0) + 1);
+    const add = (key: string, n: number) => m.set(key, (m.get(key) ?? 0) + n);
+    for (const [kind, n] of Object.entries(inv?.stacks ?? {})) add(kind, n ?? 0);
+    for (const [kind, grades] of Object.entries(inv?.graded ?? {})) {
+      for (const [grade, n] of Object.entries(grades ?? {})) {
+        const shown = kind === fineCraft && grade === "masterwork" ? "fine" : grade;
+        add(`${kind}:${shown}`, n ?? 0);
+      }
+    }
+    for (const g of inv?.goods ?? []) add(g.kind, 1);
     return m;
   };
   const before = counts(view);
   const now = counts(after);
   const uses: DryCost["uses"] = [];
   const gets: DryCost["gets"] = [];
-  for (const kind of [...new Set([...before.keys(), ...now.keys()])].sort()) {
-    const d = (now.get(kind) ?? 0) - (before.get(kind) ?? 0);
-    if (d < 0) uses.push({ kind, count: -d });
-    if (d > 0) gets.push({ kind, count: d });
+  for (const key of [...new Set([...before.keys(), ...now.keys()])].sort()) {
+    const d = (now.get(key) ?? 0) - (before.get(key) ?? 0);
+    const [kind = key, grade] = key.split(":") as [string, PastPlain | undefined];
+    const at = { kind, ...(grade ? { grade } : {}) };
+    if (d < 0) uses.push({ ...at, count: -d });
+    if (d > 0) gets.push({ ...at, count: d });
   }
   const coins = (after.economy?.coins[input.actor] ?? 0) - (view.economy?.coins[input.actor] ?? 0);
   if (uses.length === 0 && gets.length === 0 && coins === 0) return {};

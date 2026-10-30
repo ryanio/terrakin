@@ -1335,9 +1335,9 @@ describe("GET /v1/catalog", () => {
   it("is versioned by a hash of everything else in it, 8 hex characters long", () => {
     const { version, ...rest } = CATALOG_VIEW;
     // A new field joins the hash, so the version changes whenever anything an agent reads does.
-    expect(Object.keys(rest)).toEqual(["families", "kinds", "familyRecipes"]);
-    const { families, kinds, familyRecipes } = CATALOG_VIEW;
-    expect(version).toBe(fnv1a(canonicalJson({ families, kinds, familyRecipes })));
+    expect(Object.keys(rest)).toEqual(["families", "kinds", "familyRecipes", "grades"]);
+    const { families, kinds, familyRecipes, grades } = CATALOG_VIEW;
+    expect(version).toBe(fnv1a(canonicalJson({ families, kinds, familyRecipes, grades })));
     expect(version).toMatch(/^[0-9a-f]{8}$/);
   });
 });

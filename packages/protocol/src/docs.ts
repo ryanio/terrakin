@@ -10,10 +10,12 @@ import {
   FAMILY_RECIPES,
   type FamilyInfo,
   FIND_SPAWNS,
+  FINE_RECIPES,
   type FindSpawn,
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
   GOOD_KINDS,
+  gradedCountOf,
   HOLIDAY_INFO,
   ITEM_INFO,
   type ItemKind,
@@ -245,11 +247,24 @@ export function furnitureBlock(): string {
     "than stood on the floor. Nobody learns one: there is no card, page, or lesson, only what it",
     "takes. Each craft makes several, since a wall is many tiles.",
     "",
-    "| material | name | made from | a craft makes |",
-    "|----------|------|-----------|---------------|",
+    "Each also has a fine recipe (RFC 0051, once a world opens grades): `craft` with",
+    '`"grade": "fine"` takes what the last column says and makes 2, each craft with a chance of',
+    "coming out masterwork.",
+    "",
+    "| material | name | made from | a craft makes | fine, from |",
+    "|----------|------|-----------|---------------|------------|",
     ...MATERIAL_KINDS.map((kind) => {
       const { needs, makes = 1 } = MATERIAL_RECIPES[kind];
-      return `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${needsWords(needs, " and ")} | ${makes} |`;
+      const fine = FINE_RECIPES[kind];
+      const fineFrom = [
+        needsWords(fine.needs, " and "),
+        ...(Object.entries(fine.fine ?? {}) as [StackKind, number][]).map(([k, n]) =>
+          gradedCountOf(k, n, "fine"),
+        ),
+      ]
+        .filter((w) => w !== "")
+        .join(" and ");
+      return `| \`${kind}\` | ${ITEM_INFO[kind].name} | ${needsWords(needs, " and ")} | ${makes} | ${fineFrom} |`;
     }),
     end,
   ].join("\n");

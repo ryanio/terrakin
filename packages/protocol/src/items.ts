@@ -23,6 +23,7 @@ import {
   SWEET_RECIPES,
 } from "@terrakin/sim";
 import { z } from "zod";
+import { PastPlainGrade } from "./fields";
 import {
   CropKind,
   FinishName,
@@ -310,6 +311,8 @@ export const GiftView = z.object({
   fromId: z.string(),
   kind: ItemKind,
   count: z.number().int(),
+  /** A graded made material's grade (RFC 0051). Absent is plain. */
+  grade: PastPlainGrade.optional(),
   /** The made things' ids, for a made thing. */
   goods: z.array(z.string()).optional(),
   /** The day you got it (UTC days since 1970-01-01). */
@@ -322,8 +325,14 @@ export type GiftView = z.infer<typeof GiftView>;
 export const InventoryView = z.object({
   /** Today, in UTC days since 1970-01-01, as the world counts it. Compare with `readyDay`. */
   day: z.number().int(),
-  /** Seeds, produce, sugar, jars, wood, stone, decor, and furniture you hold, in catalog order. */
-  stacks: z.array(z.object({ kind: StackKindSchema, count: z.number().int() })),
+  /**
+   * Seeds, produce, sugar, jars, wood, stone, decor, furniture and made materials you hold, in
+   * catalog order. A made material you hold at a grade (RFC 0051) has an entry of its own with
+   * `grade` set, after the plain one, so a kind can be here more than once: read `grade`.
+   */
+  stacks: z.array(
+    z.object({ kind: StackKindSchema, grade: PastPlainGrade.optional(), count: z.number().int() }),
+  ),
   /** Made things you hold, oldest first. */
   goods: z.array(GoodView),
   /** Everything you hold, counted the way `inventoryMax` counts. */

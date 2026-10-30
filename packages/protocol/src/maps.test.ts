@@ -200,6 +200,46 @@ describe("mapToPlan (RFC 0032)", () => {
     }));
     expect(plotMap(state, 3, 1)).toEqual({ ...drawn, floors: unhearthed });
   });
+
+  it("gives a graded digit's grade to its plan entry, and replace swaps a wall of another grade (RFC 0051)", () => {
+    const { state, ok } = world();
+    ok(TOWN_ACTOR, { type: "open_grades" });
+    ok(TOWN_ACTOR, { type: "test_grant", to: "wren", stacks: { plaster: 1 } });
+    const wren = state.items?.inventories.wren;
+    if (!wren) throw new Error("Wren holds nothing");
+    wren.graded = { plaster: { fine: 3 } };
+    ok("wren", {
+      type: "build",
+      px: 2,
+      py: 1,
+      blocks: [
+        { x: 0, y: 0, block: "plaster" },
+        { x: 1, y: 0, block: "plaster", grade: "fine" },
+      ],
+    });
+    // Drawn by the server, plain and fine plaster are two digits, and the map reads back as the
+    // plot stands: nothing to take away.
+    const drawn = plotMap(state, 2, 1);
+    expect(drawn?.legend).toEqual({ "0": "plaster", "1": "plaster" });
+    expect(drawn?.grades).toEqual({ "1": "fine" });
+    const same = expand(state, { map: drawn, replace: true });
+    if ("problem" in same) throw new Error(same.problem);
+    expect(same.command.remove).toBeUndefined();
+    // Fine drawn over the plain wall: replace takes the plain one away first.
+    const rest = Array.from({ length: 7 }, () => "........");
+    const map = {
+      floors: [{ blocks: ["11......", ...rest] }],
+      legend: { "1": "plaster" },
+      grades: { "1": "fine" },
+    };
+    const swaps = expand(state, { map, replace: true });
+    if ("problem" in swaps) throw new Error(swaps.problem);
+    expect(swaps.command.remove).toEqual([{ x: 0, y: 0 }]);
+    expect(swaps.command.blocks).toEqual([
+      { x: 0, y: 0, block: "plaster", grade: "fine" },
+      { x: 1, y: 0, block: "plaster", grade: "fine" },
+    ]);
+  });
 });
 
 describe("mapToPlan's edges grid (RFC 0050)", () => {

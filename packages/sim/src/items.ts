@@ -48,6 +48,7 @@ import {
   gradedName,
   gradeField,
   gradeFor,
+  PAST_PLAIN,
   type PastPlain,
 } from "./grades";
 import { craftJob, harvestJob } from "./jobs";
@@ -269,7 +270,8 @@ export const harvestFits = (held: number, crop: Crop, max: number) =>
 
 /** What `GET /v1/inventory` shows a resident. Private to them. */
 export interface InventoryRead {
-  stacks: { kind: StackKind; count: number }[];
+  /** In catalog order; a graded made material (RFC 0051) has an entry per grade after the plain one. */
+  stacks: { kind: StackKind; grade?: PastPlain; count: number }[];
   goods: Good[];
   size: number;
   pantryToday: boolean;
@@ -293,7 +295,11 @@ export function inventoryOf(state: WorldState, id: ResidentId): InventoryRead | 
   return {
     stacks: STACK_KINDS.flatMap((kind) => {
       const count = held(inv, kind);
-      return count > 0 ? [{ kind, count }] : [];
+      const graded = PAST_PLAIN.flatMap((grade) => {
+        const n = heldGraded(inv, kind, grade);
+        return n > 0 ? [{ kind, grade, count: n }] : [];
+      });
+      return [...(count > 0 ? [{ kind, count }] : []), ...graded];
     }),
     goods: (inv?.goods ?? []).map((g) => ({ ...g })),
     size: inventorySize(inv),

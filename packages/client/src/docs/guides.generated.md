@@ -443,7 +443,8 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 Latest, 2026-10-30:
 
 - Changed: A public way can take down a wall on a line between tiles, and `way_laid` says so
-- Added: Two error codes for material grades, which no world has opened yet
+- Changed: `GET /v1/inventory` can list a made material twice in `stacks`, once per grade
+- Added: Material grades: fine and masterwork made materials, not open in any world yet
 - Changed: `slim_walls` slims the upstairs too
 - Changed: `walk_to` takes stairs: it walks to a tile on any floor, climbing on the way
 - Changed: A plot photo is a tall 1080x1350 picture that the instant photo fills

@@ -2,7 +2,7 @@ import type { StackKind } from "./catalog";
 import { refuse } from "./check";
 import { edgesOn, hasEdges } from "./edges";
 import { blocksOn, HOLDING_BLOCKS } from "./floors";
-import { type Grade, gradedCountOf, gradeField, gradeFor, unitKey } from "./grades";
+import { type Grade, gradedCountOf, gradeField, gradeFor, type PastPlain, unitKey } from "./grades";
 import {
   addStack,
   blockNeeds,
@@ -310,7 +310,12 @@ export function roofShape(facts: {
    * The plot's own roof, or one read off the wire, where an absent ridge may come as `undefined`
    * rather than not at all. State itself never holds an undefined (`PlotRoof`).
    */
-  roof: (Omit<PlotRoof, "top"> & { top?: RoofTop | undefined }) | undefined;
+  roof:
+    | (Omit<PlotRoof, "top" | "grade"> & {
+        top?: RoofTop | undefined;
+        grade?: PastPlain | undefined;
+      })
+    | undefined;
   /** Floors the plot added above its ground floor (`Plot.floors`). */
   floors: number;
   /** Whether a wall or window stands on the tile of that floor. */

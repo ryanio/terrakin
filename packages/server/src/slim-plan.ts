@@ -7,6 +7,9 @@ import {
   designNotes,
   edgeAt,
   FLOORS,
+  type Grade,
+  gradeAt,
+  gradeField,
   groundOn,
   HOLDING_BLOCKS,
   type PlanEdge,
@@ -48,6 +51,12 @@ const byRow = (a: string, b: string) => {
   const [bx, by] = xy(b);
   return ay - by || ax - bx;
 };
+
+/** A wall that stood on a tile: its kind, and its grade (RFC 0051). */
+interface Wall {
+  block: BlockKind;
+  grade: Grade;
+}
 
 /** One floor's part of a slim: the wall blocks it takes up and the lines it puts up. */
 interface FloorSlim {
@@ -228,14 +237,26 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
     }
   }
   if (taken.size === 0) return { room: true, taken, edges: [] };
-  const counts = new Map<BlockKind, number>();
-  for (const kind of taken.values()) {
-    if (plain(kind)) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  // What stood on each tile the room grows into: its block at its grade (RFC 0051), or a door for
+  // a doorway. A line takes the kind and grade of the wall it stands for, so a fine brick home
+  // slims into a fine brick home.
+  const stood = new Map<string, Wall>();
+  for (const [key, block] of taken) {
+    const [x, y] = xy(key);
+    stood.set(key, { block, grade: gradeAt(state, tileKey(x0 + x, y0 + y), floor) });
   }
-  const most = ([...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "wood") as BlockKind;
-  // What stood on each tile the room grows into: its block, or a door for a doorway.
-  const stood = new Map(taken);
-  for (const key of doorways) stood.set(key, "door");
+  for (const key of doorways) stood.set(key, { block: "door", grade: "plain" });
+  const counts = new Map<string, { wall: Wall; n: number }>();
+  for (const wall of stood.values()) {
+    if (!plain(wall.block)) continue;
+    const unit = `${wall.block}:${wall.grade}`;
+    const at = counts.get(unit) ?? { wall, n: 0 };
+    counts.set(unit, { wall, n: at.n + 1 });
+  }
+  const most: Wall = [...counts.values()].sort((a, b) => b.n - a.n)[0]?.wall ?? {
+    block: "wood",
+    grade: "plain",
+  };
 
   // The room: inside, and the walls that came up and the doorways where there's floor, less the
   // plot's own rim.
@@ -288,11 +309,11 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
   for (const key of rest) roomOf.set(key, rooms++);
 
   // Between two rooms, a plain wall before a door or a window.
-  const between = (a: string, b: string): BlockKind => {
+  const between = (a: string, b: string): Wall => {
     const ka = stood.get(a);
     const kb = stood.get(b);
     if (!ka || !kb) return ka ?? kb ?? most;
-    return plain(ka) || !plain(kb) ? ka : kb;
+    return plain(ka.block) || !plain(kb.block) ? ka : kb;
   };
   const edges: PlanEdge[] = [];
   const seen = new Set<string>();
@@ -310,16 +331,17 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
       seen.add(line);
       // Facing out, the kind that stood there: the room's own tile if it was a wall, else the one
       // beyond it.
-      const kind = room.has(next)
+      const wall = room.has(next)
         ? between(key, next)
         : (stood.get(key) ?? stood.get(next) ?? most);
+      const kind = wall.block;
       if (floor === 0) {
-        edges.push({ x, y, side, block: kind });
+        edges.push({ x, y, side, block: kind, ...gradeField(wall.grade) });
         continue;
       }
       // Upstairs a doorway stays open, and a line stands only beside flooring.
       if (kind === "door" || !(floored(key) || floored(next))) continue;
-      edges.push({ x, y, side, floor, block: kind });
+      edges.push({ x, y, side, floor, block: kind, ...gradeField(wall.grade) });
     }
   }
   return { room: true, taken, edges };

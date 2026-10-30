@@ -341,8 +341,12 @@ export class Mirror {
       if (p.floors) this.floors.set(plotKey(p.px, p.py), p.floors);
       if (p.roof) {
         // The wire may carry an absent ridge as `undefined`; the sim's own roof never holds one.
-        const { top, ...roof } = p.roof;
-        this.roofs.set(plotKey(p.px, p.py), { ...roof, ...(top ? { top } : {}) });
+        const { top, grade, ...roof } = p.roof;
+        this.roofs.set(plotKey(p.px, p.py), {
+          ...roof,
+          ...(top ? { top } : {}),
+          ...(grade ? { grade } : {}),
+        });
       }
     }
     for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);

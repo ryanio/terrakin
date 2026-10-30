@@ -77,9 +77,12 @@ export const HELD_KINDS: readonly (DecorKind | FurnitureKind)[] = [
 export type Holdings = ReadonlyMap<string, number>;
 
 /** Holdings from your things' stacks. */
-export function holdingsFromStacks(stacks: readonly { kind: string; count: number }[]): Holdings {
+export function holdingsFromStacks(
+  stacks: readonly { kind: string; grade?: string | undefined; count: number }[],
+): Holdings {
   const out = new Map<string, number>();
-  for (const s of stacks) if (s.count > 0) out.set(s.kind, s.count);
+  // The bar places plain material: a graded stack (RFC 0051) is an entry of its own, left out.
+  for (const s of stacks) if (s.count > 0 && s.grade === undefined) out.set(s.kind, s.count);
   return out;
 }
 
@@ -89,9 +92,12 @@ export function holdingsFromStacks(stacks: readonly { kind: string; count: numbe
  */
 export function withChanges(
   holdings: Holdings,
-  changes: readonly { kind: string; count: number }[] | undefined,
+  changes: readonly { kind: string; grade?: string | undefined; count: number }[] | undefined,
 ): Holdings {
-  const moved = (changes ?? []).filter((c) => (holdings.get(c.kind) ?? 0) !== c.count);
+  // A graded change's `count` is of its grade (RFC 0051), never the plain stack the bar holds.
+  const moved = (changes ?? []).filter(
+    (c) => c.grade === undefined && (holdings.get(c.kind) ?? 0) !== c.count,
+  );
   if (moved.length === 0) return holdings;
   const next = new Map(holdings);
   for (const c of moved) {

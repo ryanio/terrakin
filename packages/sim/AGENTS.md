@@ -32,7 +32,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - `src/check.ts`: `refuse`, `isWhole`, `coinCount`, `oneTimeSwitch`. `src/test-support.ts`: `expectSupplyHolds`, `fund`, `stock`.
 - `src/catalog.ts`: every kind of thing (see [Adding a kind](#adding-a-kind)). `src/looks.ts`: themes, prints, wear slots, hair.
 - A system's rules are in a module named for it (`economy.ts` for coins, `pottery.ts`, one per holiday). Less obvious homes: `ground.ts` paths and flooring, `furniture.ts` and `rest.ts` seats, `materials.ts` made walls and windows, `front-doors.ts` built doors, `display.ts` pieces and galleries, `entitlements.ts` partner wear, `awards.ts` recognition awards, `town.ts` the Town Hall, `doors.ts` the counter, park, and hall door an action needs you at ([RFC 0042](../../docs/rfcs/0042-actions-that-need-you-there.md)), `rebuild-home.ts` the server's `rebuild_home`, `openings.ts` exits, `design.ts` design notes, `map.ts` a plot as a map.
-- Pure functions of place, day, or hour: `biome.ts`, `season.ts`, `holiday.ts`, `weather.ts`, `time-of-day.ts`, `day-words.ts`, `clock.ts`. `palette.ts`: colors and looks.
+- Pure functions of place, day, or hour: `biome.ts`, `season.ts`, `holiday.ts`, `weather.ts`, `time-of-day.ts`, `day-words.ts`, `clock.ts`. `palette.ts`: colors and looks, and `wall-look.ts` what each wall is made of (kept out of the web's first load).
 
 ## The world, walking, and reach
 
@@ -242,7 +242,7 @@ A new kind of thing is an entry in `src/catalog.ts`, on the end of `WRITTEN`:
 
 1. One entry: a `fruit(...)` or `crop(...)` call for something that grows (it makes the seed too, and a fruit's jam comes from the jam family recipe), or an `entry(...)` with its name and plural, family, role, and, as it needs them, a recipe or a shop price with seasons or a holiday.
 2. Its look: a template and colors (`produce`, `sprig`, `bloom`, `jar`), or `drawn` with a picture under its id in `packages/ui/src/item-art.ts`.
-3. Decor, furniture and made materials are blocks too: their id goes on the end of `BLOCK_KINDS` in `types.ts`, with a color in `BLOCK_COLORS` and their 3D and plot photo pictures.
+3. Decor, furniture and made materials are blocks too: their id goes on the end of `BLOCK_KINDS` in `types.ts`, with a color in `BLOCK_COLORS` and their 3D and plot photo pictures. A made material's surface goes in `WALL_LOOK`.
 
 The tests that run over every entry cover the rest: ids, families, names, looks, seeds and crops that pair up, recipes from things that stack, a jam for every fruit, and a picture for every kind ([decision 0085](../../docs/knowledge/decisions/0085-furniture-keeps-its-own-role-in-decor-furniture-and-pomegran.md), [decision 0308](../../docs/knowledge/decisions/0308-a-basket-of-fourteen-crops-sold-all-year-with-ten-recipes-an.md)). A new kind never joins a frozen list or what the town buys by being added: those are their own decisions. A new find lies nowhere until a new spawn table starts at a logged switch. A new family recipe, template, role, or family needs a decision record.
 

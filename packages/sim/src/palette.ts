@@ -174,7 +174,7 @@ export const POND_LOOK = {
 /**
  * How the open water between lands and the bridges over it look ([RFC 0038](../../../docs/rfcs/0038-new-lands.md)):
  * the sea (deeper than a pond, so a channel reads as water to cross rather than a puddle), the
- * deeper water out of sight of either bank, foam where it meets land, and the timber of a bridge
+ * deeper water out of sight of either bank, the shallows and foam where it meets land, and the timber of a bridge
  * with its planks and its rail. The map, the 3D world, and the plot photos all read it, so
  * a crossing looks the same everywhere.
  */
@@ -182,6 +182,8 @@ export const SEA_LOOK = {
   water: "#3f86b4",
   deep: "rgba(24, 58, 90, 0.18)",
   foam: "rgba(255, 255, 255, 0.5)",
+  /** The paler water just off the shore, under the foam. */
+  shallow: "rgba(190, 232, 236, 0.28)",
   deck: "#b08b5c",
   plank: "rgba(92, 62, 36, 0.45)",
   rail: "#8a6a42",
@@ -222,7 +224,15 @@ export interface GroundLook {
   tone: string;
 }
 
-const rect = (x: number, y: number, w: number, h: number, r: number, fill: string): GroundMark => ({
+/** A rounded rect mark, for `GROUND_LOOK` and `WALL_LOOK`. */
+export const markRect = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill: string,
+): GroundMark => ({
   shape: "rect",
   x,
   y,
@@ -231,7 +241,8 @@ const rect = (x: number, y: number, w: number, h: number, r: number, fill: strin
   r,
   fill,
 });
-const dot = (cx: number, cy: number, r: number, fill: string): GroundMark => ({
+/** A round mark. */
+export const markDot = (cx: number, cy: number, r: number, fill: string): GroundMark => ({
   shape: "circle",
   cx,
   cy,
@@ -247,7 +258,8 @@ const leafMark = (cx: number, cy: number, turn: number, fill: string): GroundMar
   turn,
   fill,
 });
-const seam = (
+/** A line mark with round ends. */
+export const markLine = (
   x1: number,
   y1: number,
   x2: number,
@@ -266,38 +278,38 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
   dirt: {
     fill: "#bf9461",
     marks: [
-      dot(0.22, 0.28, 0.045, "#a67c4c"),
-      dot(0.68, 0.22, 0.035, "#a67c4c"),
-      dot(0.5, 0.62, 0.05, "#a67c4c"),
-      dot(0.84, 0.76, 0.04, "#a67c4c"),
-      dot(0.3, 0.84, 0.03, "#cfa776"),
-      dot(0.8, 0.45, 0.03, "#cfa776"),
+      markDot(0.22, 0.28, 0.045, "#a67c4c"),
+      markDot(0.68, 0.22, 0.035, "#a67c4c"),
+      markDot(0.5, 0.62, 0.05, "#a67c4c"),
+      markDot(0.84, 0.76, 0.04, "#a67c4c"),
+      markDot(0.3, 0.84, 0.03, "#cfa776"),
+      markDot(0.8, 0.45, 0.03, "#cfa776"),
     ],
     tone: "#bf9461",
   },
   sand: {
     fill: "#ecd9a4",
     marks: [
-      dot(0.2, 0.25, 0.025, "#d6c088"),
-      dot(0.55, 0.18, 0.025, "#d6c088"),
-      dot(0.8, 0.42, 0.025, "#d6c088"),
-      dot(0.35, 0.6, 0.025, "#d6c088"),
-      dot(0.7, 0.78, 0.025, "#d6c088"),
-      dot(0.15, 0.82, 0.025, "#d6c088"),
-      dot(0.45, 0.4, 0.03, "#f6e8c0"),
-      dot(0.86, 0.14, 0.03, "#f6e8c0"),
+      markDot(0.2, 0.25, 0.025, "#d6c088"),
+      markDot(0.55, 0.18, 0.025, "#d6c088"),
+      markDot(0.8, 0.42, 0.025, "#d6c088"),
+      markDot(0.35, 0.6, 0.025, "#d6c088"),
+      markDot(0.7, 0.78, 0.025, "#d6c088"),
+      markDot(0.15, 0.82, 0.025, "#d6c088"),
+      markDot(0.45, 0.4, 0.03, "#f6e8c0"),
+      markDot(0.86, 0.14, 0.03, "#f6e8c0"),
     ],
     tone: "#ecd9a4",
   },
   moss: {
     fill: "#6e9a4c",
     marks: [
-      dot(0.3, 0.3, 0.17, "#82ae5d"),
-      dot(0.72, 0.64, 0.14, "#82ae5d"),
-      dot(0.78, 0.2, 0.1, "#7aa656"),
-      dot(0.2, 0.74, 0.04, "#5a8440"),
-      dot(0.5, 0.5, 0.035, "#5a8440"),
-      dot(0.88, 0.88, 0.04, "#5a8440"),
+      markDot(0.3, 0.3, 0.17, "#82ae5d"),
+      markDot(0.72, 0.64, 0.14, "#82ae5d"),
+      markDot(0.78, 0.2, 0.1, "#7aa656"),
+      markDot(0.2, 0.74, 0.04, "#5a8440"),
+      markDot(0.5, 0.5, 0.035, "#5a8440"),
+      markDot(0.88, 0.88, 0.04, "#5a8440"),
     ],
     tone: "#6e9a4c",
   },
@@ -316,55 +328,55 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
   cobble: {
     fill: "#857e73",
     marks: [
-      rect(0.05, 0.06, 0.42, 0.38, 0.12, "#b0a99c"),
-      rect(0.53, 0.05, 0.42, 0.4, 0.12, "#a69f92"),
-      rect(0.04, 0.5, 0.3, 0.45, 0.12, "#a69f92"),
-      rect(0.39, 0.51, 0.57, 0.43, 0.12, "#b0a99c"),
-      rect(0.1, 0.09, 0.2, 0.06, 0.03, "#c4beb2"),
-      rect(0.58, 0.08, 0.2, 0.06, 0.03, "#bdb7aa"),
-      rect(0.08, 0.54, 0.14, 0.06, 0.03, "#bdb7aa"),
-      rect(0.45, 0.55, 0.26, 0.06, 0.03, "#c4beb2"),
+      markRect(0.05, 0.06, 0.42, 0.38, 0.12, "#b0a99c"),
+      markRect(0.53, 0.05, 0.42, 0.4, 0.12, "#a69f92"),
+      markRect(0.04, 0.5, 0.3, 0.45, 0.12, "#a69f92"),
+      markRect(0.39, 0.51, 0.57, 0.43, 0.12, "#b0a99c"),
+      markRect(0.1, 0.09, 0.2, 0.06, 0.03, "#c4beb2"),
+      markRect(0.58, 0.08, 0.2, 0.06, 0.03, "#bdb7aa"),
+      markRect(0.08, 0.54, 0.14, 0.06, 0.03, "#bdb7aa"),
+      markRect(0.45, 0.55, 0.26, 0.06, 0.03, "#c4beb2"),
     ],
     tone: "#a39d91",
   },
   stepping_stones: {
     marks: [
-      dot(0.34, 0.39, 0.2, "rgba(70, 52, 30, 0.2)"),
-      dot(0.72, 0.74, 0.18, "rgba(70, 52, 30, 0.2)"),
-      dot(0.32, 0.35, 0.2, "#b7b0a3"),
-      dot(0.7, 0.7, 0.18, "#aba497"),
-      dot(0.27, 0.3, 0.08, "#ccc6ba"),
-      dot(0.65, 0.65, 0.07, "#c2bcaf"),
+      markDot(0.34, 0.39, 0.2, "rgba(70, 52, 30, 0.2)"),
+      markDot(0.72, 0.74, 0.18, "rgba(70, 52, 30, 0.2)"),
+      markDot(0.32, 0.35, 0.2, "#b7b0a3"),
+      markDot(0.7, 0.7, 0.18, "#aba497"),
+      markDot(0.27, 0.3, 0.08, "#ccc6ba"),
+      markDot(0.65, 0.65, 0.07, "#c2bcaf"),
     ],
     tone: "#b7b0a3",
   },
   brick: {
     fill: "#d9c7ab",
     marks: [
-      rect(0.03, 0.04, 0.45, 0.27, 0.03, "#b5573a"),
-      rect(0.52, 0.04, 0.45, 0.27, 0.03, "#a84e33"),
-      rect(0, 0.365, 0.21, 0.27, 0.03, "#a84e33"),
-      rect(0.26, 0.365, 0.47, 0.27, 0.03, "#b5573a"),
-      rect(0.78, 0.365, 0.22, 0.27, 0.03, "#b5573a"),
-      rect(0.03, 0.69, 0.45, 0.27, 0.03, "#b5573a"),
-      rect(0.52, 0.69, 0.45, 0.27, 0.03, "#a84e33"),
+      markRect(0.03, 0.04, 0.45, 0.27, 0.03, "#b5573a"),
+      markRect(0.52, 0.04, 0.45, 0.27, 0.03, "#a84e33"),
+      markRect(0, 0.365, 0.21, 0.27, 0.03, "#a84e33"),
+      markRect(0.26, 0.365, 0.47, 0.27, 0.03, "#b5573a"),
+      markRect(0.78, 0.365, 0.22, 0.27, 0.03, "#b5573a"),
+      markRect(0.03, 0.69, 0.45, 0.27, 0.03, "#b5573a"),
+      markRect(0.52, 0.69, 0.45, 0.27, 0.03, "#a84e33"),
     ],
     tone: "#b5573a",
   },
   planks: {
     fill: "#c08a55",
     marks: [
-      seam(0, 0.335, 1, 0.335, 0.03, "#93633b"),
-      seam(0, 0.665, 1, 0.665, 0.03, "#93633b"),
-      seam(0.4, 0, 0.4, 0.335, 0.025, "#93633b"),
-      seam(0.75, 0.335, 0.75, 0.665, 0.025, "#93633b"),
-      seam(0.25, 0.665, 0.25, 1, 0.025, "#93633b"),
-      seam(0.1, 0.17, 0.33, 0.17, 0.015, "#a9764a"),
-      seam(0.5, 0.5, 0.88, 0.5, 0.015, "#a9764a"),
-      seam(0.4, 0.84, 0.8, 0.84, 0.015, "#a9764a"),
-      dot(0.45, 0.06, 0.02, "#7a5232"),
-      dot(0.7, 0.39, 0.02, "#7a5232"),
-      dot(0.3, 0.72, 0.02, "#7a5232"),
+      markLine(0, 0.335, 1, 0.335, 0.03, "#93633b"),
+      markLine(0, 0.665, 1, 0.665, 0.03, "#93633b"),
+      markLine(0.4, 0, 0.4, 0.335, 0.025, "#93633b"),
+      markLine(0.75, 0.335, 0.75, 0.665, 0.025, "#93633b"),
+      markLine(0.25, 0.665, 0.25, 1, 0.025, "#93633b"),
+      markLine(0.1, 0.17, 0.33, 0.17, 0.015, "#a9764a"),
+      markLine(0.5, 0.5, 0.88, 0.5, 0.015, "#a9764a"),
+      markLine(0.4, 0.84, 0.8, 0.84, 0.015, "#a9764a"),
+      markDot(0.45, 0.06, 0.02, "#7a5232"),
+      markDot(0.7, 0.39, 0.02, "#7a5232"),
+      markDot(0.3, 0.72, 0.02, "#7a5232"),
     ],
     tone: "#c08a55",
   },
@@ -374,27 +386,27 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
       leafMark(0.36, 0.42, -30, "#5f9a43"),
       leafMark(0.62, 0.5, 40, "#5f9a43"),
       leafMark(0.3, 0.9, 10, "#5f9a43"),
-      dot(0.25, 0.28, 0.1, "#e58fb6"),
-      dot(0.7, 0.24, 0.09, "#f2d04b"),
-      dot(0.46, 0.66, 0.1, "#fff4d6"),
-      dot(0.82, 0.72, 0.09, "#a98bd8"),
-      dot(0.18, 0.8, 0.08, "#e58fb6"),
-      dot(0.25, 0.28, 0.035, "#f2b84b"),
-      dot(0.46, 0.66, 0.035, "#f2b84b"),
-      dot(0.82, 0.72, 0.03, "#fff4d6"),
+      markDot(0.25, 0.28, 0.1, "#e58fb6"),
+      markDot(0.7, 0.24, 0.09, "#f2d04b"),
+      markDot(0.46, 0.66, 0.1, "#fff4d6"),
+      markDot(0.82, 0.72, 0.09, "#a98bd8"),
+      markDot(0.18, 0.8, 0.08, "#e58fb6"),
+      markDot(0.25, 0.28, 0.035, "#f2b84b"),
+      markDot(0.46, 0.66, 0.035, "#f2b84b"),
+      markDot(0.82, 0.72, 0.03, "#fff4d6"),
     ],
     tone: "#8a6a4a",
   },
   rug: {
     fill: "#c8674a",
     marks: [
-      rect(0.07, 0.07, 0.86, 0.86, 0.05, "#e9b85a"),
-      rect(0.13, 0.13, 0.74, 0.74, 0.03, "#c8674a"),
-      rect(0.13, 0.44, 0.74, 0.12, 0, "#f3e3c3"),
-      dot(0.3, 0.27, 0.05, "#f3e3c3"),
-      dot(0.7, 0.27, 0.05, "#f3e3c3"),
-      dot(0.3, 0.73, 0.05, "#f3e3c3"),
-      dot(0.7, 0.73, 0.05, "#f3e3c3"),
+      markRect(0.07, 0.07, 0.86, 0.86, 0.05, "#e9b85a"),
+      markRect(0.13, 0.13, 0.74, 0.74, 0.03, "#c8674a"),
+      markRect(0.13, 0.44, 0.74, 0.12, 0, "#f3e3c3"),
+      markDot(0.3, 0.27, 0.05, "#f3e3c3"),
+      markDot(0.7, 0.27, 0.05, "#f3e3c3"),
+      markDot(0.3, 0.73, 0.05, "#f3e3c3"),
+      markDot(0.7, 0.73, 0.05, "#f3e3c3"),
     ],
     tone: "#c8674a",
   },
@@ -412,16 +424,16 @@ export type DrawnGround = GroundKind | "way" | "plaza";
 export const WAY_LOOK: GroundLook = {
   fill: "#d3cbb8",
   marks: [
-    dot(0.18, 0.22, 0.035, "#b2a88f"),
-    dot(0.58, 0.14, 0.03, "#b2a88f"),
-    dot(0.82, 0.5, 0.035, "#b2a88f"),
-    dot(0.38, 0.56, 0.03, "#b2a88f"),
-    dot(0.14, 0.82, 0.03, "#b2a88f"),
-    dot(0.66, 0.84, 0.035, "#b2a88f"),
-    dot(0.42, 0.3, 0.025, "#ebe5d6"),
-    dot(0.88, 0.2, 0.025, "#ebe5d6"),
-    dot(0.26, 0.6, 0.025, "#ebe5d6"),
-    dot(0.6, 0.66, 0.025, "#ebe5d6"),
+    markDot(0.18, 0.22, 0.035, "#b2a88f"),
+    markDot(0.58, 0.14, 0.03, "#b2a88f"),
+    markDot(0.82, 0.5, 0.035, "#b2a88f"),
+    markDot(0.38, 0.56, 0.03, "#b2a88f"),
+    markDot(0.14, 0.82, 0.03, "#b2a88f"),
+    markDot(0.66, 0.84, 0.035, "#b2a88f"),
+    markDot(0.42, 0.3, 0.025, "#ebe5d6"),
+    markDot(0.88, 0.2, 0.025, "#ebe5d6"),
+    markDot(0.26, 0.6, 0.025, "#ebe5d6"),
+    markDot(0.6, 0.66, 0.025, "#ebe5d6"),
   ],
   tone: "#d3cbb8",
 };
@@ -443,8 +455,8 @@ function plazaMarks(): GroundMark[] {
   const row = 0.5;
   const gap = 0.04;
   const sett = (x: number, y: number, w: number, round: number, tone: string, lit = true) => {
-    marks.push(rect(x, y, w, row - gap, round, tone));
-    if (lit) marks.push(rect(x + gap, y + gap * 0.75, w - gap * 2, 0.045, 0.02, SETT_LIGHT));
+    marks.push(markRect(x, y, w, row - gap, round, tone));
+    if (lit) marks.push(markRect(x + gap, y + gap * 0.75, w - gap * 2, 0.045, 0.02, SETT_LIGHT));
   };
   for (let c = 0; c < 3; c++) {
     sett(c * wide + gap / 2, gap / 2, wide - gap, 0.05, SETTS[c * 2] as string);

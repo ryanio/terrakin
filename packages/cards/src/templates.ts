@@ -21,7 +21,7 @@ export const W = 1200;
 export const H = 630;
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 12;
+export const CARDS_VERSION = 13;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {

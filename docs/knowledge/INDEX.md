@@ -326,6 +326,7 @@ What we chose and why. Newest last.
 - [Scene photos keep a browser and its photo page open two minutes after each photo](decisions/0390-scene-photos-keep-a-browser-and-its-photo-page-open-two-minu.md) · 2026-10-29 · accepted · `scene-photos` `browser-run` `performance` `cost`
 - [The first load's budget is 136 kB, for the events and snapshot fields of things on tables and walls](decisions/0391-the-first-load-s-budget-is-136-kb-for-the-events-and-snapsho.md) · 2026-10-30 · accepted · `client` `performance` `tooling`
 - [Things on surfaces and walls are kept by tile and face, shop-only, and come back when their wall does](decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `economy` `design`
+- [A wall's surface is marks in the sim's palette that the map, the 3D textures and the plot photos all draw](decisions/0393-a-wall-s-surface-is-marks-in-the-sim-s-palette-that-the-map-.md) · 2026-10-30 · accepted · `art` `map` `3d` `cards` `materials`
 
 ## Learnings
 

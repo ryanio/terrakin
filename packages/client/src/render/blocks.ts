@@ -8,7 +8,9 @@ import {
   THEME_INFO,
   type Theme,
   type ThemePalette,
+  wallMarks,
 } from "@terrakin/sim";
+import { paintMarks } from "@terrakin/ui/ground-art";
 import { CROP_HEX, onVine } from "@terrakin/ui/item-art";
 import { paintMotif, patternMotifs as patternMotifsFor } from "@terrakin/ui/looks";
 import { paintSparkle } from "./decor";
@@ -28,7 +30,11 @@ function skinnedColor(block: BlockKind, skin: BlockSkin | undefined): string {
   return blockFill(block, skin?.palette);
 }
 
-/** One raised block with its ground shadow, at (left, top), `size` across. */
+/**
+ * One raised block with its ground shadow, at (left, top), `size` across, a wall or window with its
+ * surface (`WALL_LOOK`). A wall costs a clip and a dozen marks, so the map draws each wall once per
+ * size into a sprite and stamps that, rather than calling this every frame.
+ */
 export function paintBlock(
   ctx: CanvasRenderingContext2D,
   block: BlockKind,
@@ -50,6 +56,17 @@ export function paintBlock(
   ctx.roundRect(left, top, size, size, radius);
   ctx.fill();
   const walls = block === "wood" || block === "stone";
+  const marks = skin?.image && walls ? [] : wallMarks(block);
+  if (marks.length > 0) {
+    // The wall's surface (bricks, beams, boards, panes), the same marks the 3D views and the plot
+    // photos draw, over its color, so a theme's wood keeps its planks.
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(left, top, size, size, radius);
+    ctx.clip();
+    paintMarks(ctx, marks, left, top, size, size);
+    ctx.restore();
+  }
   if (skin?.image && walls) {
     // The owner's own pattern as the face of the wall, cropped square.
     const img = skin.image;
@@ -107,14 +124,6 @@ export function paintBlock(
       ctx.fillStyle = "rgba(255, 250, 235, 0.3)";
       ctx.fillRect(left + inset, top + tread * i + 1, size - inset * 2, Math.max(1, scale / 30));
     }
-  }
-  if (block === "glass") {
-    ctx.strokeStyle = "rgba(255,255,255,0.75)";
-    ctx.lineWidth = Math.max(1, scale / 22);
-    ctx.beginPath();
-    ctx.moveTo(left + size * 0.3, top + size * 0.68);
-    ctx.lineTo(left + size * 0.62, top + size * 0.36);
-    ctx.stroke();
   }
 }
 

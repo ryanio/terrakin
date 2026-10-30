@@ -210,7 +210,7 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   sea_glass_pane: {
     color: hex(BLOCK_COLORS.sea_glass_pane),
     height: 1.25,
-    opacity: 0.42,
+    opacity: 0.82,
     form: "voxel",
     glow: { pool: 1.7, home: true },
   },
@@ -228,6 +228,11 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
 
 export function blockLook(block: BlockKind): BlockLook {
   return BLOCK_LOOKS[block];
+}
+
+/** A window, which lights from inside after dark in a home someone's in (decision 0098). */
+export function isWindow(block: BlockKind): boolean {
+  return block === "glass" || block === "sea_glass_pane";
 }
 
 /** The resident colors of `RESIDENT_COLOR_HEX`, as numbers. */

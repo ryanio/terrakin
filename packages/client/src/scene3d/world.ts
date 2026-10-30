@@ -123,12 +123,14 @@ import {
   smokeStart,
 } from "./layout";
 import { worldMarks } from "./marks";
-import { hex, SKY } from "./palette";
+import { wallTextures } from "./materials";
+import { hex, isWindow, SKY } from "./palette";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
 import { presentBoxes } from "./presents";
 import { roofMesh } from "./roofs";
 import { pickups, scenery } from "./scenery";
+import { type SeaLook, type SeaTile, seaLook, seaMeshes } from "./sea";
 import { createWeather } from "./weather";
 import {
   approach,
@@ -380,6 +382,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     }
     return atlas;
   };
+  // Each wall kind's surface, drawn the first time a plot shows one and shared by every plot.
+  const walls = { ...surfaces, wall: wallTextures(stage, shared) };
   const fog = scene.fog as Fog;
   // What's on display shares its pictures across plots, and frees each with its last display.
   const pictures = createPictures(shared);
@@ -425,7 +429,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const buildings = new Map<string, Building>();
   /** Each town square's kerb, by its plot slot. */
   const kerbs = new Map<string, Mesh>();
-  let ground: { mesh: Mesh; signature: string } | undefined;
+  /** The ground under the view, and the sea's ripples and foam over it (`seaMeshes`). */
+  let ground:
+    | { mesh: Mesh; sea: { parts: Object3D[]; stop: () => void }; signature: string }
+    | undefined;
+  let seaTextures: SeaLook | undefined;
   let mirrorSeen: Mirror | undefined;
   let seqSeen = -1;
   /** Who was out on a routine at the last frame, so the cast changes when one goes back to sleep. */
@@ -484,9 +492,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       ...b,
       own: true,
       fade: 0,
-      ...(data.lit && b.block === "glass" ? { lit: true as const } : {}),
+      ...(data.lit && isWindow(b.block) ? { lit: true as const } : {}),
     }));
-    addAll(group, blockMeshes(scope, origin, blocks, grain, surfaces));
+    addAll(group, blockMeshes(scope, origin, blocks, grain, walls));
     if (data.ground.length) {
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
       if (paved) group.add(paved);
@@ -591,6 +599,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     if (ground) {
       scene.remove(ground.mesh);
       disposeTree(ground.mesh, shared);
+      ground.sea.stop();
+      for (const part of ground.sea.parts) {
+        scene.remove(part);
+        disposeTree(part, shared);
+      }
     }
     const S = config.plotSize;
     const plotTint = new Color(hex(seasonTone("#b4cd86", season)));
@@ -652,7 +665,31 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       return { color: c, alpha: 1 - t * t * t };
     });
     scene.add(mesh);
-    ground = { mesh, signature };
+    // Ripples and foam on the sea near enough to see, out to where the ground fades.
+    const waters: SeaTile[] = [];
+    const reach = (fadeStart + fadeEnd) / 2;
+    if (mirror.lands !== undefined) {
+      const dry = (tx: number, ty: number) => !mirror.isSea(tx, ty);
+      for (let ty = at.y - GROUND_RING; ty <= at.y + GROUND_RING; ty++) {
+        for (let tx = at.x - GROUND_RING; tx <= at.x + GROUND_RING; tx++) {
+          if (!inWorld(tx, ty) || !mirror.isSea(tx, ty)) continue;
+          if (Math.hypot(tx - at.x, ty - at.y) > reach) continue;
+          const shore = {
+            n: dry(tx, ty - 1),
+            e: dry(tx + 1, ty),
+            s: dry(tx, ty + 1),
+            w: dry(tx - 1, ty),
+          };
+          waters.push({ x: tx, y: ty, shore });
+        }
+      }
+    }
+    if (waters.length > 0) seaTextures ??= seaLook(stage, shared);
+    const seaParts = seaTextures
+      ? seaMeshes(stage, waters, seaTextures)
+      : { parts: [], stop: () => {} };
+    addAll(scene, seaParts.parts);
+    ground = { mesh, sea: seaParts, signature };
   }
 
   // ---------- the Town Hall and the shop ----------

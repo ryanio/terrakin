@@ -5,6 +5,7 @@ import {
   bySquare,
   CLAY_HEX,
   FLOWER_TONES,
+  type GroundTile,
   groundTile,
   HEARTH_COLOR,
   HEARTH_DOOR,
@@ -31,6 +32,7 @@ import {
   tileHash,
   tileKey,
   tuftStroke,
+  wallMarks,
 } from "@terrakin/sim";
 import {
   FEELING_ICON,
@@ -84,6 +86,7 @@ import { lightBulbs, paintPresents } from "./render/decor-winter";
 import { type BurstMark, paintBurst } from "./render/fireworks";
 import { paintFurniture, paintGameTable, paintSeatFront } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
+import { groundWash } from "./render/ground-blend";
 import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
 import { CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
@@ -205,7 +208,7 @@ export function render(
   const y1 = Math.min(config.height - 1, Math.ceil(cam.cy + height / scale / 2) + 1);
   const half = scale / 2;
 
-  // ---- ground: one fillRect per tile, edges rounded so neighbors share pixels (no seams) ----
+  // ---- ground: a soft wash of every tile's tone, then what's laid, grows, or lies on each ----
   const dpr = ctx.getTransform().a || 1;
   // What's laid, and the town's own streets and ways drawn as paths under it (RFC 0046).
   const drawnPaving = mirror.drawnPaving;
@@ -227,6 +230,24 @@ export function render(
   /** The damp ground clay lies in, a water tone, so it never reads as a dry branch or stone. */
   const CLAY_WET = "rgba(64, 98, 122, 0.42)";
   const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
+  // Every tile's tone and scenery from the sim's palette (shared with the plot photos), laid down
+  // first as one soft wash, so tiles blend into their neighbors instead of reading as squares.
+  const cols = x1 - x0 + 1;
+  const rows = y1 - y0 + 1;
+  const grounds: GroundTile[] = [];
+  const wash = cols > 0 && rows > 0 ? groundWash(cols, rows) : null;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
+      const ground = groundTile(config, x, y, inCommons, season);
+      grounds.push(ground);
+      wash?.tone(x - x0, y - y0, ground.fill);
+    }
+  }
+  if (wash) {
+    const corner = tileToScreen(cam, x0, y0);
+    wash.paint(ctx, corner.sx - half, corner.sy - half, scale);
+  }
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const { sx, sy } = tileToScreen(cam, x, y);
@@ -252,11 +273,7 @@ export function render(
           continue;
         }
       }
-      const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
-      // Tone and scenery come from the sim's palette, shared with the plot photos.
-      const ground = groundTile(config, x, y, inCommons, season);
-      ctx.fillStyle = ground.fill;
-      ctx.fillRect(left, top, w, h);
+      const ground = grounds[(y - y0) * cols + (x - x0)] as GroundTile;
       // A path or flooring (RFC 0016) covers the tile's own grass: drawn once per size, then stamped.
       const laid = paved ? drawnPaving.get(tileKey(x, y)) : undefined;
       if (laid) ctx.drawImage(groundSprite(laid, w, h, dpr), left, top, w, h);
@@ -574,17 +591,18 @@ export function render(
       return;
     }
     const skin = block === "glass" ? null : skinOf(mirror.ownerAt(x, y));
-    if (!skin) paintBlock(ctx, block, left, top, size, scale);
+    // A wall's surface and a theme's dress are drawn once per size and stamped after that.
+    if (!skin && wallMarks(block).length === 0) paintBlock(ctx, block, left, top, size, scale);
     else {
       const w = size + 2;
       const h = size + lip + 2;
       const art = sprite(
-        `blk|${block}|${skin.theme ?? ""}|${skin.imageId ?? ""}|${size}|${scale.toFixed(2)}|${dpr}`,
+        `blk|${block}|${skin?.theme ?? ""}|${skin?.imageId ?? ""}|${size}|${scale.toFixed(2)}|${dpr}`,
         w * dpr,
         h * dpr,
         (c) => {
           c.scale(dpr, dpr);
-          paintBlock(c, block, 0, 0, size, scale, skin);
+          paintBlock(c, block, 0, 0, size, scale, skin ?? undefined);
         },
       );
       ctx.drawImage(art, left, top, w, h);

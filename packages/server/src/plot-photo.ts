@@ -67,6 +67,7 @@ import {
   tuftStroke,
   type Weather,
   type WorldState,
+  wallMarks,
   worldDayWords,
   worldGround,
 } from "@terrakin/sim";
@@ -601,6 +602,7 @@ function plotBlock(
     ...(isFurnitureKind(block) ? { furniture: block } : {}),
     ...(pond ? { water: true } : {}),
     ...(pond && tileHash(wx, wy) % 3 === 0 ? { lily: true } : {}),
+    ...(wallMarks(block).length > 0 ? { marks: wallMarks(block) } : {}),
   };
 }
 

@@ -91,6 +91,8 @@ Walking and the map:
 Building:
 - A pick the world would refuse stays pickable, dimmed, with the reason under the tabs, and the world holds back the tap; the checks are the sim's (`groundShort`, `blockNeeds`). A build note never holds a tap back. Building closes chat, and opening chat ends building.
 - Floors (RFC 0028): the mirror's `blocks` and `paving` stay the ground floor's, and a walk keeps to one floor. `floors.ts` decides which floor each tile shows. A world with nothing upstairs draws as it did.
+- A wall's surface is the sim's `WALL_LOOK`, painted over its color: the map draws each wall once per size into a sprite and stamps it, and the 3D views wear it as one texture per kind (`materialTexture` in `scene3d/materials.ts`), kept apart from any wall's shape. Change a surface there, never in one view.
+- The map's ground is one soft wash of every tile's tone (`render/ground-blend.ts`), never a square per tile. The sea laps: foam scallops in `paintShore` on the map, and in 3D ripples and foam (`scene3d/sea.ts`) that slide while motion is allowed.
 - Roofs (RFC 0041) use the sim's `roofShape` and `roofTone`. The roof over the plot you stand on lifts away, and a picture of a plot leaves its own roof off.
 - Lands, streets, and ways (RFC 0038, RFC 0046): the sea comes from the sim's `seaFrom`. Town squares (a plaza, `PLAZA_LOOK`), streets, and public ways are drawn through `Mirror.drawnPaving` only; walking, building, and lifting never see them, and a way never looks like a path someone laid.
 - A Town Hall build dims nothing, since the town pays.

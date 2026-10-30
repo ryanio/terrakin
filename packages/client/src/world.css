@@ -495,7 +495,7 @@ a.action {
  * and Move in in Claim plot's place, filled like the door's own button so it's the one thing to tap.
  */
 .hud[data-guest]
-> :not(.hud-feed, .hud-signin, .dpad, .actions, .map-tools, .status, .toast, .world-wait),
+  > :not(.hud-feed, .hud-signin, .dpad, .actions, .map-tools, .status, .toast, .world-wait),
 .hud[data-guest] .actions > :not(#claim),
 .hud:not([data-guest]) .hud-signin {
   display: none;

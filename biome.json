@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -14,7 +14,8 @@
       "!packages/protocol/src/devlog.generated.ts",
       "!packages/client/public/.well-known",
       "!docs/site/lastmod.json",
-      "!.agents/skills/secrets"
+      "!.agents/skills/secrets",
+      "!pnpm-lock.yaml"
     ]
   },
   "formatter": {
@@ -47,5 +48,22 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "markdown": {
+    "formatter": {
+      "enabled": false
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["scripts/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "usePlaywrightValidDescribeCallback": "off"
+          }
+        }
+      }
+    }
+  ]
 }

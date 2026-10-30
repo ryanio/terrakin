@@ -58,6 +58,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - `openings.ts`, `design.ts`, and `map.ts` are read-only: no rule calls them, and `apply` reads only `nearestFreePlot`, for a refusal's words. `scripts/landlocked.ts`, `scripts/ways.ts`, and the web's claim picker ask the same question through `openingFactsFrom`, and the server's way planner reads the exported `placeOf` and `placeWalk` so it plans on the same place and walk.
 - One household's touching plots are one place for exits, so a place never has fewer exits than a plot of it alone (decision 0364).
 - A design note's words are fixed strings with numbers and tiles, never a name or anything a resident wrote, and a note never refuses.
+- Design notes and maps read a plot through `PlotTiles`, whose `edge` gives the walls between tiles, so notes walk past lines with `stepFrom` and `plotMap` draws them in a floor's `edges` grid. The web builds its `PlotTiles` from the mirror.
 
 ## Coins
 

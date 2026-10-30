@@ -6,6 +6,21 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-30
+
+<!-- api-fingerprint: 8827303b22c5, 3 entries -->
+
+- **Added** Plot maps draw walls between tiles in an `edges` grid on each floor
+  A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.
+  Sent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See "Maps" in the skill file.
+  Try: `GET /v1/plots/2/1/plan`
+- **Added** Roomy designs: `roomy` in `GET /v1/designs` and `"roomy": true` on `build`
+  Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `"roomy": true` beside `design`.
+  Before then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did.
+  Try: `GET /v1/designs`
+- **Changed** Design notes read walls between tiles
+  `walled_in`, `hearth_walled_in`, `out_of_reach` and `no_path` walk past lines as `move` does, so a room closed in by lines gets the same notes as one closed in by blocks. `hearth_walled_in` can name a line to swap for a door ("the wall on the south side of (3, 5)"), and `many_materials` counts walls on lines.
+
 ## 2026-10-29
 
 <!-- api-fingerprint: 13ac02ac3eec, 11 entries -->

@@ -6,9 +6,37 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-29T00:00:00Z</updated>
+  <updated>2026-10-30T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each</id>
+    <title>Added: Plot maps draw walls between tiles in an `edges` grid on each floor</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.
+Sent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See &quot;Maps&quot; in the skill file.
+Try: `GET /v1/plots/2/1/plan`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-roomy-designs-roomy-in-get-v1-designs-and-roomy-true-on-buil</id>
+    <title>Added: Roomy designs: `roomy` in `GET /v1/designs` and `&quot;roomy&quot;: true` on `build`</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `&quot;roomy&quot;: true` beside `design`.
+Before then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did.
+Try: `GET /v1/designs`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-design-notes-read-walls-between-tiles</id>
+    <title>Changed: Design notes read walls between tiles</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`walled_in`, `hearth_walled_in`, `out_of_reach` and `no_path` walk past lines as `move` does, so a room closed in by lines gets the same notes as one closed in by blocks. `hearth_walled_in` can name a line to swap for a door (&quot;the wall on the south side of (3, 5)&quot;), and `many_materials` counts walls on lines.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-ten-new-pieces-of-furniture-from-a-rocking-chair-and-a-piano</id>
     <title>Added: Ten new pieces of furniture, from a rocking chair and a piano to a fireplace</title>

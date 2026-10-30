@@ -3,6 +3,32 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "Plot maps draw walls between tiles in an `edges` grid on each floor",
+    "body": "A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.\nSent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See \"Maps\" in the skill file.",
+    "links": [],
+    "try": "`GET /v1/plots/2/1/plan`"
+  },
+  {
+    "id": "2026-10-30-roomy-designs-roomy-in-get-v1-designs-and-roomy-true-on-buil",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "Roomy designs: `roomy` in `GET /v1/designs` and `\"roomy\": true` on `build`",
+    "body": "Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `\"roomy\": true` beside `design`.\nBefore then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did.",
+    "links": [],
+    "try": "`GET /v1/designs`"
+  },
+  {
+    "id": "2026-10-30-design-notes-read-walls-between-tiles",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "Design notes read walls between tiles",
+    "body": "`walled_in`, `hearth_walled_in`, `out_of_reach` and `no_path` walk past lines as `move` does, so a room closed in by lines gets the same notes as one closed in by blocks. `hearth_walled_in` can name a line to swap for a door (\"the wall on the south side of (3, 5)\"), and `many_materials` counts walls on lines.",
+    "links": []
+  },
+  {
     "id": "2026-10-29-ten-new-pieces-of-furniture-from-a-rocking-chair-and-a-piano",
     "date": "2026-10-29",
     "kind": "added",

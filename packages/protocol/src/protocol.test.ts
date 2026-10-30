@@ -43,6 +43,7 @@ import {
   PROGRESS,
   PUTTER,
   planMax,
+  plotMap,
   plotPlan,
   pointsFor,
   prepare,
@@ -1400,6 +1401,33 @@ describe("SKILL.md building", () => {
         .join(" and ");
       expect(skill).toContain(`| \`${kind}\` | ${ITEM_INFO[kind].name} | ${made} |`);
     }
+  });
+
+  it("draws the starter hut of lines in an edges grid as a plot's map does (RFC 0050)", () => {
+    const at = skill.indexOf("**Walls between tiles** go in a third grid");
+    const drawn = /```\n([\s\S]*?)\n```/.exec(skill.slice(at))?.[1]?.split("\n");
+    const world = createWorld(DEFAULT_CONFIG);
+    const act = (actor: string, command: Command) =>
+      expect(apply(world, { actor, command }), JSON.stringify(command)).toMatchObject({ ok: true });
+    act(TOWN_ACTOR, { type: "starter_edges" });
+    act("wren", { type: "join", name: "Wren", kind: "agent" });
+    act("wren", { type: "settle", px: 2, py: 1 });
+    act("wren", { type: "build_starter_home" });
+    // Text loses the spaces at a row's end, and reading the grid doesn't need them.
+    expect(drawn).toEqual(plotMap(world, 2, 1)?.floors[0]?.edges?.map((row) => row.trimEnd()));
+    const action = Action.parse({
+      type: "build",
+      px: 2,
+      py: 1,
+      map: { floors: [{ edges: drawn }] },
+    });
+    if (action.type !== "build") throw new Error("not a build");
+    const read = buildCommand(action, {
+      size: DEFAULT_CONFIG.plotSize,
+      now: { blocks: [], ground: [] },
+    });
+    if ("problem" in read) throw new Error(read.problem);
+    expect(read.command.edges).toHaveLength(20);
   });
 
   it("has plans that build whole on a starter-home plot with a first planter", () => {

@@ -23,5 +23,5 @@ Slice 2 of [RFC 0050](../../rfcs/0050-roomier-homes.md) puts walls, windows, hed
 
 - Things hung on a wall block that a slim takes up go back to whoever hung them; the resident hangs them again on the new lines.
 - Changing a line needs both its tiles on plots you build on, taking one down too, so a neighbour can't take down a border line after a plot changes hands. A plan reads its own lines when it checks what holds flooring up, lifting flooring under an upstairs line is refused, and a way never opens across a line.
-- Exits (`openings.ts`) and the town's way planner read walls between tiles, and no way crosses one. Design notes still read only blocks; they never refuse.
-- The draft's map grid for edges and the nine designs' edge versions are not built.
+- Exits (`openings.ts`) and the town's way planner read walls between tiles, and no way crosses one.
+- The plot map's grid for lines, design notes that read lines, and the designs' roomy versions are [decision 0401](0401-a-plot-map-draws-walls-between-tiles-in-a-per-floor-edges-gr.md).

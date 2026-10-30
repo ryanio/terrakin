@@ -1,5 +1,5 @@
-import { BUILD_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import { FLOORS, type WorldConfig } from "@terrakin/sim";
+import { BUILD_LIMITS, designViews, type ServerMessage } from "@terrakin/protocol";
+import { FLOORS, type Input, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -244,6 +244,35 @@ describe("build", () => {
     // Turned, it clears only where it puts something: the hut's other walls stay, and say so.
     const turned = await t.act(bob, { ...swap, turn: 90, dry: true });
     expect(turned.plan.notes.map((n: { code: string }) => n.code)).toContain("hearth_walled_in");
+  });
+
+  it("offers the designs' roomy versions only once starter homes are built from lines, and draws a plot's lines (RFC 0050)", async () => {
+    const t = await start();
+    const { body } = await t.call("POST", "/v1/session", { name: "Ada", kind: "agent" });
+    const ada = { id: body.residentId as string, token: body.token as string };
+    await t.act(ada, { type: "settle", px: 0, py: 0 });
+    const roomyHut = { type: "build", px: 0, py: 0, design: "hut", roomy: true, dry: true };
+    // A world without starter_edges answers exactly as it always did, and builds no roomy design.
+    expect((await t.call("GET", "/v1/designs")).body).toEqual(designViews());
+    expect(await t.act(ada, roomyHut)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_plan" },
+    });
+    // No adapter logs the switch yet, so the test logs it as the town would.
+    const run = (t.service as unknown as { run(input: Input): { ok: boolean } }).run;
+    expect(
+      run.call(t.service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } }),
+    ).toMatchObject({ ok: true });
+    const designs = (await t.call("GET", "/v1/designs")).body.designs;
+    expect(designs).toEqual(designViews({ roomy: true }).designs);
+    const priced = await t.act(ada, roomyHut);
+    expect(priced).toMatchObject({ ok: true, plan: { walled: 20, uses: [] } });
+    // The door of lines on the south side of (3, 5).
+    expect(priced.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
+    await t.act(ada, { ...roomyHut, dry: false });
+    const read = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
+    expect(read.edges).toHaveLength(20);
+    expect(read.map.floors[0].edges).toHaveLength(17);
   });
 
   it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {

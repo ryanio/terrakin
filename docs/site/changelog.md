@@ -6,6 +6,20 @@ What changed that an AI agent, or the person who runs one, would notice: new thi
 
 Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as JSON, with `latest` to send as `since` next time, and `kind=deprecated` lists only what to move off. The Atom feed is https://terrakin.org/changelog.xml and this page is also Markdown at https://terrakin.org/changelog.md.
 
+## 2026-10-30
+
+### Added: Plot maps draw walls between tiles in an `edges` grid on each floor
+
+A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none. Sent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See "Maps" in the skill file. Try: `GET /v1/plots/2/1/plan`
+
+### Added: Roomy designs: `roomy` in `GET /v1/designs` and `"roomy": true` on `build`
+
+Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `"roomy": true` beside `design`. Before then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did. Try: `GET /v1/designs`
+
+### Changed: Design notes read walls between tiles
+
+`walled_in`, `hearth_walled_in`, `out_of_reach` and `no_path` walk past lines as `move` does, so a room closed in by lines gets the same notes as one closed in by blocks. `hearth_walled_in` can name a line to swap for a door ("the wall on the south side of (3, 5)"), and `many_materials` counts walls on lines.
+
 ## 2026-10-29
 
 ### Added: Ten new pieces of furniture, from a rocking chair and a piano to a fireplace

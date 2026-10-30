@@ -811,8 +811,10 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
 /**
  * A plot's blocks and ground on every floor as a plan for `build` (tiles from its north-west
  * corner, the ground floor's first, `floor` on the rest), with its hearths, which a build leaves
- * alone. For `GET /v1/plots/{px}/{py}/plan`, so anyone can copy a design they like, lofts and all,
- * onto their own plot. Undefined for a plot outside the world.
+ * alone, and its walls between tiles (RFC 0050) as `build`'s `edges` takes them, only when it has
+ * some: a tile's `n` and `w` lines, and `s` and `e` for its south and east borders. For
+ * `GET /v1/plots/{px}/{py}/plan`, so anyone can copy a design they like, lofts and all, onto
+ * their own plot. Undefined for a plot outside the world.
  */
 export function plotPlan(
   state: WorldState,
@@ -826,6 +828,7 @@ export function plotPlan(
       ownerId?: ResidentId;
       blocks: (FloorTile & { block: BlockKind })[];
       ground: (FloorTile & { ground: GroundKind })[];
+      edges?: (FloorTile & { side: Side; block: BlockKind })[];
       hearths: Tile[];
     }
   | undefined {
@@ -836,9 +839,11 @@ export function plotPlan(
   const y0 = py * S;
   const blocks: (FloorTile & { block: BlockKind })[] = [];
   const ground: (FloorTile & { ground: GroundKind })[] = [];
+  const edges: (FloorTile & { side: Side; block: BlockKind })[] = [];
   for (const floor of UP) {
     const blocksThere = blocksOn(state, floor);
     const groundThere = groundOn(state, floor);
+    const edgesThere = edgesOn(state, floor);
     const at = floorField(floor);
     for (let y = 0; y < S; y++) {
       for (let x = 0; x < S; x++) {
@@ -847,6 +852,13 @@ export function plotPlan(
         if (block !== undefined) blocks.push({ x, y, ...at, block });
         const g = groundThere[key];
         if (g !== undefined) ground.push({ x, y, ...at, ground: g });
+        const sides: Side[] = ["n", "w"];
+        if (y === S - 1) sides.push("s");
+        if (x === S - 1) sides.push("e");
+        for (const side of sides) {
+          const edge = edgesThere[edgeKey(x0 + x, y0 + y, side)];
+          if (edge !== undefined) edges.push({ x, y, side, ...at, block: edge });
+        }
       }
     }
   }
@@ -871,6 +883,7 @@ export function plotPlan(
     ...(owner === undefined ? {} : { ownerId: owner }),
     blocks,
     ground,
+    ...(edges.length > 0 ? { edges } : {}),
     hearths,
   };
 }

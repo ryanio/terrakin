@@ -280,6 +280,12 @@ export const PlotMapView = z.object({
       floor: z.number().int().describe("0 for the ground floor, 1 upstairs."),
       blocks: z.array(z.string()).describe("A row of text per row of tiles, north first."),
       ground: z.array(z.string()).describe("Paths and flooring, the same way."),
+      edges: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "The lines between tiles (RFC 0050), two characters per tile plus one each way: `+` at the corners, a wall's letter (`D` for a door) on a line with a wall, a space on one without, and each tile's block character between. Absent on a floor with no wall on a line.",
+        ),
     }),
   ),
   legend: MapLegend.optional(),
@@ -2467,6 +2473,20 @@ export const PlotPlanResponse = z.object({
     ground: z.array(
       z.object({ x: z.number().int(), y: z.number().int(), ...onFloor, ground: GroundKind }),
     ),
+    edges: z
+      .array(
+        z.object({
+          x: z.number().int(),
+          y: z.number().int(),
+          side: z.enum(SIDES),
+          ...onFloor,
+          block: BlockKind,
+        }),
+      )
+      .optional()
+      .describe(
+        "Walls between tiles (RFC 0050) as `build`'s `edges` takes them: each tile's `n` and `w` lines, and `s` and `e` on the plot's south and east borders. Absent when there are none.",
+      ),
     hearths: z.array(z.object({ x: z.number().int(), y: z.number().int() })),
     map: PlotMapView.describe("The plot drawn as a map, every floor (RFC 0032)."),
     notes: z

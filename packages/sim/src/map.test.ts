@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
+import { plotPlan } from "./build";
 import { designNotes } from "./design";
 import { GROUND_KINDS } from "./ground";
 import { hashWorld } from "./hash";
@@ -131,5 +132,60 @@ describe("plotMap (RFC 0032)", () => {
     prepared.commit();
     expect(plotMap(state, 0, 0)).toEqual(dry);
     expect(designNotes(state, 0, 0)).toEqual(dryNotes);
+  });
+
+  it("draws walls between tiles in an edges grid, only on a floor that has them, as a plan leaves them (RFC 0050)", () => {
+    const { state, ok } = world();
+    ok(TOWN_ACTOR, { type: "starter_edges" });
+    ok("bob", { type: "join", name: "Bob", kind: "agent" });
+    ok("bob", { type: "settle", px: 2, py: 0 });
+    ok("bob", { type: "build_starter_home" });
+    Object.assign(state.residents.bob ?? {}, { x: 4, y: 20 });
+    expect(plotMap(state, 0, 0)?.floors[0]?.edges).toBeUndefined();
+    expect(plotPlan(state, 0, 0)?.edges).toBeUndefined();
+    const hut = [
+      "+ + + + + + + + +",
+      " . . . . . . . . ",
+      "+ +W+W+W+W+W+ + +",
+      " .W. . . . .W. . ",
+      "+ + + + + + + + +",
+      " .W. . . . .W. . ",
+      "+ + + + + + + + +",
+      " .G. . h . .G. . ",
+      "+ + + + + + + + +",
+      " .W. . . . .W. . ",
+      "+ + + + + + + + +",
+      " .W. . . . .W. . ",
+      "+ +W+W+D+W+W+ + +",
+      " . . . . . . . . ",
+      "+ + + + + + + + +",
+      " . . . . . . . . ",
+      "+ + + + + + + + +",
+    ];
+    expect(plotMap(state, 2, 0)?.floors[0]?.edges).toEqual(hut);
+    // Its plan lists the lines as build takes them: the door is the north line of (3, 6).
+    expect(plotPlan(state, 2, 0)?.edges).toHaveLength(20);
+    expect(plotPlan(state, 2, 0)?.edges).toContainEqual({ x: 3, y: 6, side: "n", block: "door" });
+    // A dry run that swaps the door for plaster and puts glass between two tiles inside.
+    stock(state, "bob", { plaster: 1 });
+    const plan: Build = {
+      type: "build",
+      px: 2,
+      py: 0,
+      removeEdges: [{ x: 3, y: 5, side: "s" }],
+      edges: [
+        { x: 3, y: 5, side: "s", block: "plaster" },
+        { x: 3, y: 2, side: "w", block: "glass" },
+      ],
+    };
+    const prepared = prepare(state, { actor: "bob", command: plan });
+    if (!prepared.ok || !prepared.plan) throw new Error("the plan was refused");
+    const dry = plotMap(state, 2, 0, prepared.plan);
+    expect(dry?.legend).toEqual({ "0": "plaster" });
+    expect(dry?.floors[0]?.edges).toEqual(
+      hut.map((row, r) => (r === 12 ? "+ +W+W+0+W+W+ + +" : r === 5 ? " .W. .G. . .W. . " : row)),
+    );
+    prepared.commit();
+    expect(plotMap(state, 2, 0)).toEqual(dry);
   });
 });

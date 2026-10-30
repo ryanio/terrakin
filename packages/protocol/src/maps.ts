@@ -1,25 +1,31 @@
 import {
   type BlockKind,
   type Command,
+  EDGE_KINDS,
   GROUND_KINDS,
   type GroundKind,
+  isEdgeKind,
   MAP_BLOCKS,
+  MAP_EDGE_MARKS,
   MAP_GROUND,
   MAP_MARKS,
+  type Side,
 } from "@terrakin/sim";
 
 /**
  * Reading a map back into a plan (RFC 0032). A map is a drawing of a plot, a row of text per row
- * of tiles; `mapToPlan` turns it into the four lists `build` has always taken, so the sim checks
- * and logs exactly what it would for a list plan. Pure: the plot as it stands comes in as data.
+ * of tiles; `mapToPlan` turns it into the lists `build` takes, so the sim checks and logs exactly
+ * what it would for a list plan. Pure: the plot as it stands comes in as data.
  */
 
-/** A map as `build` takes it: `floor` absent is the ground floor, and either grid may be left out. */
+/** A map as `build` takes it: `floor` absent is the ground floor, and any grid may be left out. */
 export interface MapInput {
   floors: {
     floor?: number | undefined;
     blocks?: string[] | undefined;
     ground?: string[] | undefined;
+    /** The lines between tiles (RFC 0050): two characters per tile plus one, each way. */
+    edges?: string[] | undefined;
   }[];
   legend?: { [digit: string]: BlockKind | undefined } | undefined;
 }
@@ -28,13 +34,16 @@ export interface MapInput {
 export interface PlotNow {
   blocks: readonly { x: number; y: number; floor?: number; block: BlockKind }[];
   ground: readonly { x: number; y: number; floor?: number; ground: GroundKind }[];
+  edges?: readonly { x: number; y: number; floor?: number; side: Side; block: BlockKind }[];
 }
 
-/** The four lists of a `build`, as the sim takes them. */
+/** The lists of a `build`, as the sim takes them. */
 export type PlanLists = Pick<
   Extract<Command, { type: "build" }>,
-  "blocks" | "ground" | "remove" | "lift"
+  "blocks" | "ground" | "remove" | "lift" | "edges" | "removeEdges"
 >;
+
+type Line = { x: number; y: number; floor?: number; side: Side };
 
 type Tile = { x: number; y: number; floor?: number };
 
@@ -46,6 +55,13 @@ const GROUND_WORDS = Object.entries(MAP_GROUND)
   .map(([c, kind]) => `${c} ${kind}`)
   .join(", ");
 const MARK_WORDS = `${MAP_MARKS.keep} to leave a tile as it is, ${MAP_MARKS.clear} to clear it`;
+/** The letters a line takes, in words: the walls and windows of `MAP_BLOCKS`, and `D` for a door. */
+const EDGE_WORDS = [
+  ...Object.entries(MAP_BLOCKS)
+    .filter(([, kind]) => kind !== "door" && isEdgeKind(kind))
+    .map(([c, kind]) => `${c} ${kind}`),
+  `${MAP_EDGE_MARKS.door} door`,
+].join(", ");
 
 /** A character as a refusal may show it: one printable character, or nothing of it at all. */
 const shown = (c: string) => (/^[\x21-\x7e]$/.test(c) ? `"${c}"` : "a character it can't read");
@@ -62,10 +78,82 @@ const isGroundKind = (k: unknown): k is GroundKind =>
   typeof k === "string" && (GROUND_KINDS as readonly string[]).includes(k);
 
 /**
+ * A floor's `edges` grid (RFC 0050) as lines, or why not. The grid is `2 * size + 1` rows of as
+ * many characters, or fewer when a row leaves off the spaces at its end. Even rows hold the lines along the north side of each row of tiles at odd
+ * columns, and odd rows the lines along the west side of each tile at even columns; the rest are
+ * corners and tiles, drawn for orientation and never read. On a line, a letter or a legend digit
+ * is a wall of that kind, `D` a door, `x` takes down what's there, and a space or `.` leaves it.
+ * The plot's south and east borders come back as `s` and `e` lines of its last row and column.
+ */
+function readEdges(
+  rows: readonly string[],
+  floor: number,
+  size: number,
+  legend: { [digit: string]: BlockKind | undefined },
+): { problem: string } | { lines: (Line & { char: string })[] } {
+  const span = 2 * size + 1;
+  const which = `floor ${floor}'s edges`;
+  if (rows.length !== span) {
+    return {
+      problem: `${cap(which)} have ${rows.length} rows. A plot of ${size} tiles has ${span} rows of ${span} characters there: two per tile and one more.`,
+    };
+  }
+  const lines: (Line & { char: string })[] = [];
+  for (const [r, row] of rows.entries()) {
+    const chars = [...row];
+    if (chars.length > span) {
+      return {
+        problem: `Row ${r} of ${which} is ${chars.length} characters long. A plot of ${size} tiles is ${span} wide there.`,
+      };
+    }
+    // A row may stop at its last wall, since text often loses the spaces at the end of a line.
+    for (const [c, char] of chars.entries()) {
+      // A line sits where exactly one of its row and column is odd.
+      if (r % 2 === c % 2) continue;
+      if (char === MAP_EDGE_MARKS.none || char === MAP_MARKS.keep) continue;
+      if (char !== MAP_EDGE_MARKS.door && char !== MAP_MARKS.clear) {
+        const kind = (MAP_BLOCKS as Record<string, BlockKind>)[char] ?? legend[char];
+        if (kind === undefined || kind === "door" || !isEdgeKind(kind)) {
+          return {
+            problem: `${cap(which)} have ${shown(char)} on a line at row ${r}, column ${c}, which can't stand between tiles. Lines: ${EDGE_WORDS}, digits from the map's legend for ${EDGE_KINDS.filter((k) => !Object.values(MAP_BLOCKS).includes(k as never)).join(", ")}; a space or ${MAP_MARKS.keep} leaves a line as it is, ${MAP_MARKS.clear} takes its wall down.`,
+          };
+        }
+      }
+      const at = floor === 0 ? {} : { floor };
+      const x = Math.floor(c / 2);
+      const y = Math.floor(r / 2);
+      // Even rows: the north line of tile (x, y), or the south line of the last row.
+      if (r % 2 === 0) {
+        lines.push(
+          y < size ? { x, y, ...at, side: "n", char } : { x, y: size - 1, ...at, side: "s", char },
+        );
+      } else {
+        lines.push(
+          x < size ? { x, y, ...at, side: "w", char } : { x: size - 1, y, ...at, side: "e", char },
+        );
+      }
+    }
+  }
+  return { lines };
+}
+
+/** A line's key, with `s` and `e` read as the next tile's `n` and `w`. */
+function lineKey(l: { x: number; y: number; floor?: number | undefined; side: Side }): string {
+  const [x, y, side] =
+    l.side === "s"
+      ? [l.x, l.y + 1, "n"]
+      : l.side === "e"
+        ? [l.x + 1, l.y, "w"]
+        : [l.x, l.y, l.side];
+  return `${l.floor ?? 0}:${x},${y},${side}`;
+}
+
+/**
  * A map as a plan for a plot of `size` tiles, or why not. A letter places, `x` clears, and `.`
  * leaves a tile alone; a letter on a tile that holds something else is skipped by the sim as
- * `occupied`, unless `replace` asks to clear what differs first. Shape problems refuse the whole
- * map, naming the floor, the grid, and the tile.
+ * `occupied`, unless `replace` asks to clear what differs first. A floor's `edges` grid does the
+ * same for the lines between tiles (`readEdges`). Shape problems refuse the whole map, naming the
+ * floor, the grid, and the tile.
  */
 export function mapToPlan(
   map: MapInput,
@@ -76,17 +164,37 @@ export function mapToPlan(
   const at = (t: Tile) => `${t.floor ?? 0}:${t.x},${t.y}`;
   const blocksNow = new Map(now.blocks.map((b) => [at(b), b.block]));
   const groundNow = new Map(now.ground.map((g) => [at(g), g.ground]));
+  const edgesNow = new Map((now.edges ?? []).map((e) => [lineKey(e), e.block]));
   const plan = {
     remove: [] as Tile[],
     lift: [] as Tile[],
     blocks: [] as (Tile & { block: BlockKind })[],
     ground: [] as (Tile & { ground: GroundKind })[],
+    removeEdges: [] as Line[],
+    edges: [] as (Line & { block: BlockKind })[],
   };
   const seen = new Set<number>();
   for (const entry of map.floors) {
     const floor = entry.floor ?? 0;
     if (seen.has(floor)) return { problem: `Floor ${floor} is in the map twice.` };
     seen.add(floor);
+    if (entry.edges !== undefined) {
+      const read = readEdges(entry.edges, floor, size, legend);
+      if ("problem" in read) return read;
+      for (const { char, ...line } of read.lines) {
+        const there = edgesNow.get(lineKey(line));
+        if (char === MAP_MARKS.clear) {
+          if (there !== undefined) plan.removeEdges.push(line);
+          continue;
+        }
+        const kind =
+          char === MAP_EDGE_MARKS.door
+            ? "door"
+            : ((MAP_BLOCKS as Record<string, BlockKind>)[char] ?? (legend[char] as BlockKind));
+        if (replace && there !== undefined && there !== kind) plan.removeEdges.push(line);
+        plan.edges.push({ ...line, block: kind });
+      }
+    }
     for (const grid of ["blocks", "ground"] as const) {
       const rows = entry[grid];
       if (rows === undefined) continue;
@@ -146,6 +254,8 @@ export function mapToPlan(
       ...(plan.lift.length > 0 ? { lift: plan.lift } : {}),
       ...(plan.blocks.length > 0 ? { blocks: plan.blocks } : {}),
       ...(plan.ground.length > 0 ? { ground: plan.ground } : {}),
+      ...(plan.edges.length > 0 ? { edges: plan.edges } : {}),
+      ...(plan.removeEdges.length > 0 ? { removeEdges: plan.removeEdges } : {}),
     },
   };
 }

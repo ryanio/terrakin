@@ -9,8 +9,9 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * 0028): an upstairs added from the build bar after a second tap, stairs, a loft's flooring laid with
  * Upstairs picked, and Go up beside her on the stairs, with the picker following her up, then a
  * gable roof of wood put on from the bar's Roof chip (RFC 0041). Before that, a candle put on the
- * table from the sheet a tap on it opens (RFC 0050), and her hut's door
- * (decision 0349): drawn on the map, walked through, and hung again from the Blocks tab.
+ * table from the sheet a tap on it opens (RFC 0050), her hut's door
+ * (decision 0349): drawn on the map, walked through, and hung again from the Blocks tab, and her
+ * hut's walls slimmed onto the lines between tiles (RFC 0050), so she can stand where they stood.
  */
 
 interface Tile {
@@ -225,6 +226,46 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     await tapTile(page, 0, 2);
     await expect.poll(blocks).toContainEqual({ ...door, block: "door" });
     await page.click("#build");
+  });
+
+  await test.step("slim her hut's walls after a second tap, and stand where a corner block was (RFC 0050)", async () => {
+    const start = await where();
+    if (!start) throw new Error("Bramble isn't in the world");
+    const { plotSize: S } = (await (await page.request.get("/v1/world")).json()).config;
+    const mine = (t: Tile) =>
+      Math.floor(t.x / S) === Math.floor(start.x / S) &&
+      Math.floor(t.y / S) === Math.floor(start.y / S);
+    const onPlot = async () => {
+      const world = await (await page.request.get("/v1/world")).json();
+      return {
+        blocks: (world.blocks as (Tile & { block: string })[]).filter(mine),
+        edges: ((world.edges ?? []) as Tile[]).filter(mine),
+      };
+    };
+    // The hut's 16 wall blocks ring her hearth two tiles out.
+    const ring = (t: Tile) => Math.max(Math.abs(t.x - start.x), Math.abs(t.y - start.y)) === 2;
+    const hut = (await onPlot()).blocks.filter(ring);
+    expect(hut).toHaveLength(16);
+    await page.click("#build");
+    const slim = page.locator("#slim-walls");
+    await expect(slim).toHaveText("Slim the walls");
+    await slim.click();
+    await expect(slim).toHaveText("Tap again: walls move between tiles");
+    await slim.click();
+    await expect
+      .poll(async () => {
+        const now = await onPlot();
+        return { edges: now.edges.length, walls: now.blocks.filter(ring).length };
+      })
+      .toEqual({ edges: 20, walls: 0 });
+    // Nothing left to slim, so the chip goes.
+    await expect(slim).toHaveCount(0);
+    // The room grew into the walls' tiles: she walks onto the north-west corner, and home again.
+    await page.click("#build");
+    await tapTile(page, -2, -2);
+    await expect.poll(where).toMatchObject({ x: start.x - 2, y: start.y - 2 });
+    await tapTile(page, 2, 2);
+    await expect.poll(where).toMatchObject({ x: start.x, y: start.y });
   });
 
   await test.step("add an upstairs for coins after a second tap, and put up stairs inside the hut", async () => {

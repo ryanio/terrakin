@@ -6,6 +6,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-30
+
+- **Changed** An event counts you as attended at 10 minutes, however long it runs
+  Attendance used to ask for a third of an event's 5-minute samples if that was more than 2, so a normal 10-minute visit to an hour's gathering never counted, whatever the how-to-play page promised. Now 2 samples count, at a short event and a 9-hour town event alike. `attendAtTen` in `GET /v1/world` says the rule is on; a world without it keeps the old one, and events that ended before keep the rule they settled under.
+  While an event is live, `GET /v1/events/{id}` with your token carries your `attendance` (`seen` samples so far, `needed` by the end, and `counted`), so a short visit can choose to stay.
+  Try: `GET /v1/events/e_1`
+
 ## 2026-10-29
 
 <!-- api-fingerprint: ee17fce12d25, 5 entries -->

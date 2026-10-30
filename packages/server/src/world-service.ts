@@ -2,6 +2,7 @@ import type {
   Action,
   BuildPlanSummary,
   ChatChannel,
+  DryCost,
   ErrorCode,
   FiredPot,
   HandedIn,
@@ -26,6 +27,7 @@ import {
 import {
   activeTable,
   activeTables,
+  apply,
   asJoined,
   type BuildPlan,
   buildSummary,
@@ -33,6 +35,7 @@ import {
   type Crop,
   chebyshev,
   clayOpen,
+  cloneWorld,
   DAY_LENGTH_MS,
   DAY_MS,
   type DailyAward,
@@ -195,6 +198,8 @@ export type ActResult =
       arrived?: boolean;
       /** `walk_to` on a dry run: the walk it would take, in legs. */
       route?: { dir: Direction; steps: number }[];
+      /** A dry run: what it would take from the actor's things and purse, and give. */
+      cost?: DryCost;
       /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0354): notes. */
       notes?: DesignNote[];
       dry?: true;
@@ -444,6 +449,41 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
   const map = plotMap(state, plan.px, plan.py, over);
   const notes = designNotes(state, plan.px, plan.py, over);
   return { plan: { ...summary, ...(map ? { map } : {}), notes } };
+}
+
+/** Dry runs whose answer says what they cost some other way, or that never cost anything. */
+const NO_COST: ReadonlySet<string> = new Set(["build", "slim_walls", "move", "putter", "chat"]);
+
+/**
+ * What a dry run would take from the actor's things and purse, and give (decision 0406): the input
+ * applied to a copy of the view it was checked against, and the actor's things, counted by kind
+ * with made things included, and coins compared before and after. Nothing when it would change
+ * none of them, or when the copy refuses what the check took, which leaves the answer as it was.
+ */
+function costOf(view: WorldState, input: Input): { cost?: DryCost } {
+  if (NO_COST.has(input.command.type)) return {};
+  const after = cloneWorld(view);
+  if (!apply(after, input).ok) return {};
+  const counts = (w: WorldState) => {
+    const inv = w.items?.inventories[input.actor];
+    const m = new Map<string, number>();
+    for (const [kind, n] of Object.entries(inv?.stacks ?? {}))
+      m.set(kind, (m.get(kind) ?? 0) + (n ?? 0));
+    for (const g of inv?.goods ?? []) m.set(g.kind, (m.get(g.kind) ?? 0) + 1);
+    return m;
+  };
+  const before = counts(view);
+  const now = counts(after);
+  const uses: DryCost["uses"] = [];
+  const gets: DryCost["gets"] = [];
+  for (const kind of [...new Set([...before.keys(), ...now.keys()])].sort()) {
+    const d = (now.get(kind) ?? 0) - (before.get(kind) ?? 0);
+    if (d < 0) uses.push({ kind, count: -d });
+    if (d > 0) gets.push({ kind, count: d });
+  }
+  const coins = (after.economy?.coins[input.actor] ?? 0) - (view.economy?.coins[input.actor] ?? 0);
+  if (uses.length === 0 && gets.length === 0 && coins === 0) return {};
+  return { cost: { uses, gets, coins } };
 }
 
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
@@ -2549,6 +2589,7 @@ export class WorldService {
       ...priceOf(input.command),
       ...handedInOf(view, input),
       ...plotSaleOf(view, input),
+      ...costOf(view, input),
     };
   }
 

@@ -455,7 +455,15 @@ describe("build", () => {
     const before = await purse();
     const seq = t.service.state.seq;
     const dry = await t.act(ada, { type: "add_floor", px: 0, py: 0, dry: true });
-    expect(dry).toEqual({ ok: true, dry: true, seq, events: [], price: FLOORS.price });
+    expect(dry).toEqual({
+      ok: true,
+      dry: true,
+      seq,
+      events: [],
+      price: FLOORS.price,
+      // The same price as what it would take from her purse (decision 0406).
+      cost: { uses: [], gets: [], coins: -FLOORS.price },
+    });
     expect(await purse()).toEqual(before);
     expect(t.service.state.seq).toBe(seq);
     expect((await t.call("GET", "/v1/plots/0/0")).body.plot.floors).toBeUndefined();

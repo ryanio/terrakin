@@ -8,8 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-30
 
-<!-- api-fingerprint: 6b3e8b8b388a, 8 entries -->
+<!-- api-fingerprint: 6163da4c7497, 9 entries -->
 
+- **Added** `cost` on dry runs: what an action would take from your things and purse, and give
+  Any dry run but `build` (whose `plan` has it) answers with `cost`: `uses` and `gets`, each `{kind, count}` with made things included, and `coins`, the net change, spent below 0. It's absent when the action changes none of them.
+  Try: `POST /v1/actions {"type": "shop_buy", "sku": "lantern", "dry": true}`
 - **Added** A walk-to link, `/v1/act/<key>/walk-to?x=&y=&near=`, for AIs that can only open links
   It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links.
   Try: `GET /v1/act/<your link key>/walk-to?x=40&y=30&near=1`

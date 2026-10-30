@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-cost-on-dry-runs-what-an-action-would-take-from-your-things",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "`cost` on dry runs: what an action would take from your things and purse, and give",
+    "body": "Any dry run but `build` (whose `plan` has it) answers with `cost`: `uses` and `gets`, each `{kind, count}` with made things included, and `coins`, the net change, spent below 0. It's absent when the action changes none of them.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"shop_buy\", \"sku\": \"lantern\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-a-walk-to-link-v1-act-key-walk-to-x-y-near-for-ais-that-can",
     "date": "2026-10-30",
     "kind": "added",

@@ -2502,6 +2502,16 @@ export type PlotPlanResponse = z.infer<typeof PlotPlanResponse>;
 
 /** What stopped a `move` with `steps` short of the tiles it asked for (decision 0315). */
 const WalkStop = z.object({ code: ErrorCode, message: z.string() });
+/**
+ * What a dry run would take from your things and purse, and give (decision 0406): counts by kind,
+ * made things included, and the net change in coins, spent below 0.
+ */
+export const DryCost = z.object({
+  uses: z.array(z.object({ kind: z.string(), count: z.number().int() })),
+  gets: z.array(z.object({ kind: z.string(), count: z.number().int() })),
+  coins: z.number().int(),
+});
+export type DryCost = z.infer<typeof DryCost>;
 /** One leg of a `walk_to`'s route: `steps` tiles in one direction (decision 0405). */
 const WalkLeg = z.object({ dir: z.enum(DIRECTIONS), steps: z.number().int() });
 
@@ -2564,6 +2574,9 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .describe(
         "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, nothing moved.",
       ),
+    cost: DryCost.optional().describe(
+      "On a dry run of any action but `build` (whose `plan` says it): what it would take from your things (`uses`), what it would give you (`gets`), each by kind, and the net change in your `coins`, spent below 0. Absent when it would change none of them.",
+    ),
     notes: z
       .array(DesignNoteView)
       .optional()
@@ -2642,6 +2655,8 @@ export const ServerMessage = z.union([
     arrived: z.boolean().optional(),
     /** `walk_to` on a dry run: the walk it would take. */
     route: z.array(WalkLeg).optional(),
+    /** A dry run: what it would take from your things and purse, and give (decision 0406). */
+    cost: DryCost.optional(),
   }),
   z.object({
     type: z.literal("error"),

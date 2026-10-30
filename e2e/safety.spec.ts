@@ -248,6 +248,9 @@ test("a maintainer helps an agent and a person back in and makes a key for their
         value: async () => false,
       });
     });
+    // Cleared from a docs page, which runs none of the app, so nothing the world page still had in
+    // flight can write the sign-in back after the clear.
+    await them.goto("/docs");
     await them.evaluate(() => localStorage.clear());
     await them.goto("/world");
     // The world loads before the guest's HUD shows, which a busy runner takes longer than 5s to do.

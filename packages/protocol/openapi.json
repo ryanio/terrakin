@@ -30577,6 +30577,14 @@
                   ]
                 }
               },
+              "cost": {
+                "description": "On a dry run of any action but `build` (whose `plan` says it): what it would take from your things (`uses`), what it would give you (`gets`), each by kind, and the net change in your `coins`, spent below 0. Absent when it would change none of them.",
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DryCost"
+                  }
+                ]
+              },
               "notes": {
                 "description": "`build_starter_home`: notes about the home it built, or on a dry run would build, like a `build`'s `plan.notes`: `door_no_edge`, when the hut's door doesn't reach an open edge and a turn of the hut design would. `settle` and `claim`: `seals_neighbor` for each plot next door whose last way out the claim takes, and `no_opening` when the plot would have no way out of its own, read before the claim, dry or real. Absent when there is nothing to say.",
                 "type": "array",
@@ -32541,6 +32549,61 @@
         },
         "required": [
           "type"
+        ]
+      },
+      "DryCost": {
+        "type": "object",
+        "properties": {
+          "uses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          },
+          "gets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "count"
+              ]
+            }
+          },
+          "coins": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "uses",
+          "gets",
+          "coins"
         ]
       },
       "EarnedWear": {
@@ -38232,6 +38295,13 @@
                     "steps"
                   ]
                 }
+              },
+              "cost": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DryCost"
+                  }
+                ]
               }
             },
             "required": [

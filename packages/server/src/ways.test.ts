@@ -1,6 +1,7 @@
 import {
   apply,
   createWorld,
+  edgeKey,
   type Input,
   landlocked,
   starterHome,
@@ -350,6 +351,19 @@ describe("one household's touching plots are one place to the planner (decision 
     const west = plan.tiles.filter((t) => t.x < 24);
     expect(west.some((t) => t.x >= 8 && t.x < 16)).toBe(through);
     if (!through) expect(west).toEqual([]);
+  });
+});
+
+describe("a wall on the line between two tiles (RFC 0050)", () => {
+  it("is never crossed by a way, so a plot only beyond one stays unjoined", () => {
+    // Walls on the lines down x = 12's west side, the whole height of plot (1, 0): the way west
+    // from the Commons can't go on past them to plot (0, 0).
+    const state = rowWorld(["p0", "p1", "p2"]);
+    state.edges = {};
+    for (let y = 0; y < 8; y++) state.edges[edgeKey(12, y, "w")] = "wood";
+    const plan = planWays(wayFactsFrom(state));
+    expect(plan.unjoined.map((u) => u.target)).toContain("plot 0,0");
+    expect(plan.tiles.filter((t) => t.x < 12)).toEqual([]);
   });
 });
 

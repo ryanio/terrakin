@@ -1993,7 +1993,10 @@ function open3d() {
       if (mode !== "3d" || !active || !(me || lookingAt)) return liftLoader();
       host3d.hidden = false;
       world3d = m.createWorld3d(host3d, {
-        onTap: tapTile,
+        onTap: (tile, within) => {
+          tapIn = within;
+          tapTile(tile);
+        },
         tappable: (tile) => !!hoverTiles(tile),
         onFail: fallBack,
       });

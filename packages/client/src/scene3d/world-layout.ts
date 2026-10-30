@@ -549,6 +549,19 @@ export function tileOfHit(point: Vec, dir: Vec, step = 0.05): Tile {
 }
 
 /**
+ * Where a ray hit: `tileOfHit`'s tile, and how far east and south of that tile's middle the hit
+ * itself was, in tiles. A tap on the face of a wall between tiles lands on that wall's side of
+ * the tile, which is how the build bar finds the line a 3D tap meant.
+ */
+export function spotOfHit(
+  point: Vec,
+  dir: Vec,
+): { tile: Tile; within: { fx: number; fy: number } } {
+  const tile = tileOfHit(point, dir);
+  return { tile, within: { fx: point[0] - tile.x, fy: point[2] - tile.y } };
+}
+
+/**
  * How far to turn a figure (about y) so it faces the way it last walked, any of the eight. South
  * faces the camera.
  */

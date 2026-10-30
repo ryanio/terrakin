@@ -4,7 +4,7 @@
     "lastmod": "2026-10-23"
   },
   "/world": {
-    "sha256": "5a9f6ef2cd1dfd3ef61e57622c8743cdfb3ae98deb62ac1c535f5395d8c4ff74",
+    "sha256": "a096b0b6f8c89f264009acaf7f3d2d3c9e1148dee23be42d75e5ae78dd8a58a7",
     "lastmod": "2026-10-30"
   },
   "/docs": {
@@ -80,7 +80,7 @@
     "lastmod": "2026-10-26"
   },
   "/changelog": {
-    "sha256": "e7e02a310e84869640f8eab1796eb5565d928724fed1db758ca162dff28cfee4",
+    "sha256": "91fde159947e4b2997d73c0c43d16286a1d807700e8c740e24b99d31321227b1",
     "lastmod": "2026-10-30"
   },
   "/devlog": {

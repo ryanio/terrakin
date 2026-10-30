@@ -6,6 +6,7 @@ import {
   commonsPlot,
   displayAt,
   landlocked,
+  type OpeningFacts,
   openingFacts,
   plotKey,
   plotOf,
@@ -30,6 +31,16 @@ export type WayCommand = Extract<
   Command,
   { type: "clear_block" | "open_way" | "close_way" | "rebuild_home" }
 >;
+
+/**
+ * Opening facts whose ground has the world's walls between tiles (RFC 0050), which `openingFacts`
+ * leaves out, so the planner walks a slimmed home as the sim's own walk does.
+ */
+function withLines(state: WorldState, openings: OpeningFacts): OpeningFacts {
+  const { edge } = worldGround(state);
+  if (!edge || openings.ground.edge) return openings;
+  return { ...openings, ground: { ...openings.ground, edge } };
+}
 
 /** The planner's facts from the world as it stands. */
 export function wayFactsFrom(state: WorldState): WayFacts {
@@ -57,7 +68,7 @@ export function wayFactsFrom(state: WorldState): WayFacts {
   ]);
   return {
     config,
-    openings: openingFacts(state),
+    openings: withLines(state, openingFacts(state)),
     downtown,
     commons,
     plots: Object.values(state.plots),

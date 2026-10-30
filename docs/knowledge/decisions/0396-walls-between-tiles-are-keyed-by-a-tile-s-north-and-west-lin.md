@@ -22,5 +22,5 @@ Slice 2 of [RFC 0050](../../rfcs/0050-roomier-homes.md) puts walls, windows, hed
 ## Consequences
 
 - Things hung on a wall block that a slim takes up go back to whoever hung them; the resident hangs them again on the new lines.
-- Design notes, exits and the town's way planner still read only blocks, so they don't yet see walls between tiles. They never refuse, and the sim's walking does see them.
+- Design notes and exits still read only blocks, so they don't yet see walls between tiles. They never refuse, and the sim's walking does see them. The town's way planner reads them, and no way crosses one.
 - The draft's map grid for edges and the nine designs' edge versions are not built.

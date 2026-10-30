@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { eventHeld, findEvent, joinTile, notAtThePlace } from "./events";
+import {
+  ATTENDANCE_CONFIG,
+  ATTENDANCE_HASH,
+  ATTENDANCE_LOG,
+} from "./fixtures/attendance-log";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
@@ -780,6 +785,16 @@ describe("booking in person (RFC 0042)", () => {
 });
 
 describe("the events fixture", () => {
+  it("replays the attendance fixture on both sides of attend_at_ten", () => {
+    const state = replay(ATTENDANCE_CONFIG, ATTENDANCE_LOG);
+    expect(hashWorld(state)).toBe(ATTENDANCE_HASH);
+    expect(state.attendAtTen).toBe(true);
+    // Dee was seen at 2 of the late gathering's 11 samples and attended under the new rule.
+    expect(findEvent(state, "e_5")).toMatchObject({ status: "ended", ticks: 11 });
+    expect(findEvent(state, "e_5")?.attended).toContain("dee");
+    expectSupplyHolds(state);
+  });
+
   it("replays to its pinned hash with the coins adding up", () => {
     const state = replay(EVENTS_CONFIG, EVENTS_LOG);
     expect(hashWorld(state)).toBe(EVENTS_HASH);

@@ -10,6 +10,10 @@
 
 Surfaces and hanging are built on the sim, the API, the map, both 3D views and plot photos. [Decision 0392](../knowledge/decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md) records what building it changed from this draft: `put_on` and `hang` take one `item` as `display` does, so the separate `kind` and `flower` fields and the `hung_frame` kind went (a made thing hung on a wall is drawn framed); trinkets and wall things are shop-only, with no recipes; and the fish mount waits for a way to make one. The economy run was not extended, since these are sinks with no source.
 
+## Built, 2026-10-30: slice 2, walls between tiles
+
+Walls between tiles, `slim_walls` and the `starter_edges` switch are built on the sim, the API, the map, both 3D views and plot photos, with a Walls chip and Slim the walls on the build bar. [Decision 0396](../knowledge/decisions/0396-walls-between-tiles-are-keyed-by-a-tile-s-north-and-west-lin.md) records what changed from this draft: `build`'s lists are `edges` and `removeEdges`, since `walls` already names a design's material; the plot map's edges grid and the designs' edge versions are left for later; and design notes, exits and the way planner don't read lines yet. `starter_edges` is built and no adapter logs it until slimmed homes have been seen in play.
+
 ## Summary
 
 A home holds very little, because everything in it takes a whole tile: a wall, a table, the pot on the table, the picture on the wall. This RFC adds three things, in the order they would be built.

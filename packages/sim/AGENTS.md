@@ -141,6 +141,13 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 
 - Resting is where you stand, never a field: someone on a seat's tile is resting, and any move takes them off. `rest` pays nothing. `src/fixtures/cozy-log.ts` and `rest.test.ts` pin it.
 
+## Walls between tiles (RFC 0050)
+
+- A line between two tiles has one key, a tile and `n` or `w` (`edgeKey`); readers go through `edgeAt` and `edgesOn`, and nothing else reaches into `state.edges` or a floor's `edges` ([decision 0396](../../docs/knowledge/decisions/0396-walls-between-tiles-are-keyed-by-a-tile-s-north-and-west-lin.md)).
+- `stepFrom` reads a ground's `edge` only when it has one, and `worldGround` and `floorGround` give one only to a world with edges (`withEdges`), so a world without them walks as it always did. Every wrapper of a `Ground` passes `edge` through.
+- A line counts as a wall at both its tiles for holding flooring up, for a roof (`spanBoxes`, only when a plot has edges), and for hanging. Taking one down gives back its cost and what hung on it, by `remove`, a plan's `removeEdges`, or a slim.
+- `slim_walls` is the server's plan logged as lists and checked as the resident's `build`; the plot's first one gets a gift of made material through `planBuild`'s `gift`. `src/fixtures/edges-log.ts` and `edges.test.ts` pin it.
+
 ## Roofs (RFC 0041)
 
 - A roof is one `roof` field on the plot, never on tiles. What it covers is read from the walls each time it's drawn (`roofShape`), so taking a wall down never has to be checked against a roof. Every view draws from `roofShape`, so all of them agree tile for tile.

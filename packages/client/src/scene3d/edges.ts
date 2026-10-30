@@ -41,7 +41,8 @@ export function edgeMeshes(
   const kinds = [...new Set(edges.map((e) => e.block))];
   for (const kind of kinds) {
     const list = edges.filter((e) => e.block === kind);
-    const height = kind === "door" ? FLOOR_HEIGHT : blockLook(kind).height || FLOOR_HEIGHT;
+    // A door is a door's height, with a wooden lintel over it up to the walls' height.
+    const height = kind === "door" ? FLOOR_HEIGHT * 0.78 : blockLook(kind).height || FLOOR_HEIGHT;
     const geo = bakeShade(
       new RoundedBoxGeometry(1 + EDGE_DEPTH, height, EDGE_DEPTH, 2, EDGE_DEPTH * 0.35),
       0.62,
@@ -70,6 +71,24 @@ export function edgeMeshes(
     mesh.castShadow = !isPane(kind);
     mesh.receiveShadow = true;
     out.push(mesh);
+    if (kind === "door") {
+      const lintel = FLOOR_HEIGHT - height;
+      const top = bakeShade(
+        new RoundedBoxGeometry(1 + EDGE_DEPTH, lintel, EDGE_DEPTH * 1.1, 2, EDGE_DEPTH * 0.3),
+        0.7,
+        1,
+      );
+      top.translate(0, height + lintel / 2, 0);
+      stage.keep(top);
+      const wood = stage.keep(paper(hex(DOOR_LOOK.frame), null));
+      const frames = new InstancedMesh(top, wood, list.length);
+      list.forEach((e, i) => {
+        m.compose(spot(e), e.side === "n" ? across : along, one);
+        frames.setMatrixAt(i, m);
+      });
+      frames.castShadow = true;
+      out.push(frames);
+    }
   }
   return out;
 }

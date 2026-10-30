@@ -92,7 +92,7 @@ Building:
 - A pick the world would refuse stays pickable, dimmed, with the reason under the tabs, and the world holds back the tap; the checks are the sim's (`groundShort`, `blockNeeds`). A build note never holds a tap back. Building closes chat, and opening chat ends building.
 - Floors (RFC 0028): the mirror's `blocks` and `paving` stay the ground floor's, and a walk keeps to one floor. `floors.ts` decides which floor each tile shows. A world with nothing upstairs draws as it did.
 - Roofs (RFC 0041) use the sim's `roofShape` and `roofTone`. The roof over the plot you stand on lifts away, and a picture of a plot leaves its own roof off.
-- Lands, streets, and ways (RFC 0038, RFC 0046): the sea comes from the sim's `seaFrom`. Streets and public ways are drawn through `Mirror.drawnPaving` only; walking, building, and lifting never see them, and a way never looks like a path someone laid.
+- Lands, streets, and ways (RFC 0038, RFC 0046): the sea comes from the sim's `seaFrom`. Town squares (a plaza, `PLAZA_LOOK`), streets, and public ways are drawn through `Mirror.drawnPaving` only; walking, building, and lifting never see them, and a way never looks like a path someone laid.
 - A Town Hall build dims nothing, since the town pays.
 
 Growing, making, and finds:
@@ -115,7 +115,7 @@ Visiting, markets, and money:
 Looks, weather, and the night:
 - Hair is a style and a color, drawn under hats. The look editor offers holiday, partner, earned, and job wear only when the shop, `entitled`, `GET /v1/progress`, or `GET /v1/jobs` says so.
 - Weather is a pure function of the world's day and the UTC hour, from the sim's `skyAt` and `weatherSpells`. Holidays come from the snapshot and the sim (`trickOrTreatDay`, `fireworkNight`).
-- At night, what glows is the `glow` mark on a block's look in `scene3d/palette.ts`, and `daylight.test.ts` keeps the map's `mapGlow` and the 3D views lighting the same kinds. Windows light only in a home someone's in. Plot photos stay in daylight.
+- At night, what glows is the `glow` mark on a block's look in `scene3d/palette.ts`, and `daylight.test.ts` keeps the map's `mapGlow` and the 3D views lighting the same kinds. Windows light only in a home someone's in, and every night in the Town Hall and the shop, whose lit windows the map reads from `civicLights` in `render/buildings.ts` to match the 3D glass. Plot photos stay in daylight.
 
 Docs and static pages:
 - terrakin.org/docs is static pages whose one script is `src/docs-copy.ts`, bundled alone by `docsCopyScript` so the app's first load never changes for it. `/docs` keeps only SKILL.md's getting-going sections. Which pages are built is the `built` field in the protocol's `PAGES`. A docs page's title has no id, since the app's stylesheet styles ids like `#world`.

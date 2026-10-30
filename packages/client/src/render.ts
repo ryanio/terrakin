@@ -66,7 +66,7 @@ import {
   paintKilnFire,
   paintKilnReady,
 } from "./render/blocks";
-import { drawShop, drawTownHall, tilesBox } from "./render/buildings";
+import { civicLights, civicRise, drawShop, drawTownHall, tilesBox } from "./render/buildings";
 import {
   leafPath,
   paintDecor,
@@ -87,6 +87,7 @@ import { type MapGlow, mapGlow } from "./render/glow";
 import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
 import { CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
+import { drawPlazaEdges } from "./render/plaza";
 import { paintRoof } from "./render/roofs";
 import {
   AWAY_TAG_ALPHA,
@@ -315,6 +316,8 @@ export function render(
       }
     }
   }
+  // Each town square's plaza gets its kerb and a soft edge of grass, under the tufts beside it.
+  drawPlazaEdges(ctx, mirror, cam, season);
   ctx.lineCap = "round";
   ctx.lineWidth = Math.max(1, scale / 24);
   ctx.strokeStyle = tuftStroke(season);
@@ -405,7 +408,6 @@ export function render(
           mine: owner === me,
         });
       }
-      const isCommons = px === commons.px && py === commons.py;
       ctx.setLineDash([]);
       if (owner) {
         const mine = owner === me;
@@ -421,11 +423,8 @@ export function render(
         ctx.lineWidth = mine ? 2.5 : 1.75;
         ctx.strokeStyle = mine ? CLAY_DEEP : "rgba(180, 83, 47, 0.75)";
         ctx.strokeRect(left + 2, top + 2, plotPx - 4, plotPx - 4);
-      } else if (isCommons) {
-        ctx.setLineDash([scale * 0.12, scale * 0.18]);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(201, 150, 62, 0.75)";
-        ctx.strokeRect(left + 2, top + 2, plotPx - 4, plotPx - 4);
+      } else if (mirror.isSquare(px, py)) {
+        // A town square is its plaza, kerb and all (`drawPlazaEdges`): no line of its own.
       } else {
         ctx.lineWidth = 1;
         ctx.strokeStyle = "rgba(70, 96, 48, 0.14)";
@@ -994,13 +993,15 @@ export function render(
     paper?: number;
   }[] = [];
   // A label over each building of each kind: one square's, or every open land's too.
-  for (const [text, tiles] of [
-    ["Town Hall", mirror.townHall],
-    ["Shop", mirror.shop],
+  for (const [text, kind, tiles] of [
+    ["Town Hall", "hall", mirror.townHall],
+    ["Shop", "shop", mirror.shop],
   ] as const) {
     for (const group of bySquare(mirror.config, tiles)) {
       const box = tilesBox(group, cam);
-      if (box) labels.push({ text, x: box.left + box.w / 2, y: box.top - 2, mine: false });
+      if (!box) continue;
+      const y = box.top - civicRise(kind, box) - 2;
+      labels.push({ text, x: box.left + box.w / 2, y, mine: false });
     }
   }
   // `m` is how they move between tiles (`motion.ts`); `p` below is their face (`feelings.ts`).
@@ -1223,11 +1224,16 @@ export function render(
         ctx.fillStyle = g;
         ctx.fillRect(l.sx - reach, l.sy - reach, reach * 2, reach * 2);
       }
-      for (const group of bySquare(mirror.config, mirror.shop)) {
-        const box = tilesBox(group, cam);
-        if (!box) continue;
-        for (const f of [0.255, 0.745])
-          glow(box.left + box.w * f, box.top + box.h * 0.7, scale * 1.1, 0.4);
+      // The shop's and the Town Hall's windows, on every square.
+      for (const [kind, tiles] of [
+        ["shop", mirror.shop],
+        ["hall", mirror.townHall],
+      ] as const) {
+        for (const group of bySquare(mirror.config, tiles)) {
+          const box = tilesBox(group, cam);
+          if (!box) continue;
+          for (const p of civicLights(kind, box)) glow(p.x, p.y, scale * 0.9, 0.36);
+        }
       }
       // Strings of lights: a soft warm pool on the snow under each string, then each bulb.
       for (let i = 0; i + 4 < bulbs.length; i += 5) {

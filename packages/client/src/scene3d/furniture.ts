@@ -16,7 +16,6 @@ import {
   WOOD_DARK as WOOD_BRAND,
 } from "@terrakin/ui/brand";
 import {
-  BufferAttribute,
   type BufferGeometry,
   ConeGeometry,
   CylinderGeometry,
@@ -30,7 +29,7 @@ import {
   Vector2,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { lin, paper, type Stage, unindexed } from "./art";
+import { colored, paper, type Stage, unindexed } from "./art";
 import { box, type DecorPlace, merged, type Part, placeParts } from "./decor";
 import { BRAND, hex } from "./palette";
 
@@ -38,23 +37,6 @@ const WOOD_DARK = hex(WOOD_BRAND);
 const IRON = hex(IRON_BRAND);
 const STONE = hex(BLOCK_COLORS.stone_wall);
 const STONE_CAP = hex(STONE_HI);
-
-/** A shape in one color, its shade baked from bottom to top, for merging into a many-colored part. */
-function colored(geometry: BufferGeometry, color: number, bottom = 0.72): BufferGeometry {
-  const g = unindexed(geometry);
-  g.computeBoundingBox();
-  const pos = g.getAttribute("position");
-  const y0 = g.boundingBox?.min.y ?? 0;
-  const span = Math.max(1e-6, (g.boundingBox?.max.y ?? 1) - y0);
-  const c = lin(color);
-  const colors = new Float32Array(pos.count * 3);
-  for (let i = 0; i < pos.count; i++) {
-    const k = bottom + (1 - bottom) * Math.sqrt((pos.getY(i) - y0) / span);
-    colors.set([c.r * k, c.g * k, c.b * k], i * 3);
-  }
-  g.setAttribute("color", new BufferAttribute(colors, 3));
-  return g;
-}
 
 /** Many-colored pieces as one part, in one draw. */
 function mixedPart(pieces: BufferGeometry[], grain: Texture, cast = true): Part {

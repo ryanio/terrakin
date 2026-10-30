@@ -403,9 +403,10 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
 /**
  * Ground the map draws that nobody laid (RFC 0046): a public way, in a look of its own, pale
  * gravel that no path a resident lays has, so a way never reads as someone's path. An island
- * street keeps the cobbles (`cobble`). Drawing only: no rule reads it.
+ * street keeps the cobbles (`cobble`). A town square is a plaza of laid setts (`PLAZA_LOOK`).
+ * Drawing only: no rule reads it.
  */
-export type DrawnGround = GroundKind | "way";
+export type DrawnGround = GroundKind | "way" | "plaza";
 
 /** What a public way looks like, as `GROUND_LOOK` has each path. */
 export const WAY_LOOK: GroundLook = {
@@ -425,9 +426,51 @@ export const WAY_LOOK: GroundLook = {
   tone: "#d3cbb8",
 };
 
-/** The look of anything the map draws as ground: a laid path or flooring, or a public way. */
+/** The plaza's warm sandstone setts, in the order `PLAZA_LOOK` lays them. */
+const SETTS = ["#d8c39d", "#cdb58b", "#e0cfac", "#c8ad84", "#d3bc94"] as const;
+
+/** The pale, worn top edge each sett catches the light on. */
+const SETT_LIGHT = "#ebdfc4";
+
+/**
+ * Two rows of three setts, the second row half a sett over (a running bond), so a square of tiles
+ * reads as one paved plaza. The half setts at a tile's sides meet their other halves on the next
+ * tile, and each sett's tone is fixed here, so the paving repeats with no seam.
+ */
+function plazaMarks(): GroundMark[] {
+  const marks: GroundMark[] = [];
+  const wide = 1 / 3;
+  const row = 0.5;
+  const gap = 0.04;
+  const sett = (x: number, y: number, w: number, round: number, tone: string, lit = true) => {
+    marks.push(rect(x, y, w, row - gap, round, tone));
+    if (lit) marks.push(rect(x + gap, y + gap * 0.75, w - gap * 2, 0.045, 0.02, SETT_LIGHT));
+  };
+  for (let c = 0; c < 3; c++) {
+    sett(c * wide + gap / 2, gap / 2, wide - gap, 0.05, SETTS[c * 2] as string);
+  }
+  // The second row: two whole setts, and one split across the tile's sides. Its halves share a
+  // tone, and only the one on the right side carries the light edge, so the two meet as one stone.
+  const half = wide / 2 - gap / 2;
+  const y = row + gap / 2;
+  for (let c = 0; c < 2; c++) {
+    sett(wide / 2 + c * wide + gap / 2, y, wide - gap, 0.05, SETTS[c * 2 + 1] as string);
+  }
+  sett(0, y, half, 0, SETTS[4] as string, false);
+  sett(1 - half, y, half, 0, SETTS[4] as string);
+  return marks;
+}
+
+/** What a town square is paved with: the Commons, and every land's own square. */
+export const PLAZA_LOOK: GroundLook = {
+  fill: "#b39d7a",
+  marks: plazaMarks(),
+  tone: "#d3bc94",
+};
+
+/** The look of anything the map draws as ground: a laid path or flooring, a way, or a plaza. */
 export const drawnLook = (kind: DrawnGround): GroundLook =>
-  kind === "way" ? WAY_LOOK : GROUND_LOOK[kind];
+  kind === "way" ? WAY_LOOK : kind === "plaza" ? PLAZA_LOOK : GROUND_LOOK[kind];
 
 /** The hearth's roof (and the Town Hall's). */
 export const HEARTH_COLOR = "#d9653a";

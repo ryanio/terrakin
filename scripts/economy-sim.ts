@@ -3,7 +3,7 @@
  * world whose economy, items, and town shop have just opened, and prints supply per active
  * resident each day.
  *
- *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-cozy] [--no-levels] [--no-jobs] [--kiln] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
+ *   node scripts/economy-sim.ts [--seed 1] [--days 30] [--residents 300] [--start 2024-10-04] [--no-shop] [--no-shop-counter] [--shop-trips 100] [--no-appreciation] [--no-fishing] [--no-recipes] [--picks sell] [--no-holidays] [--holiday-prices lower] [--no-floors] [--no-cozy] [--no-levels] [--no-jobs] [--kiln] [--grades] [--townsfolk-spend 80] [--starter-gift 0] [--starter-from resident] [--job-pay 0] [--job-pay-from treasury] [--set key=value ...]
  *
  *   --seed       PRNG seed, so a run repeats exactly (default 1)
  *   --days       days to play (default 30)
@@ -36,6 +36,14 @@
  *                can. Off by default, so the month without it plays exactly as it did before
  *                pottery (decision 0362); it prints RFC 0047's checks, with the clay and pots of
  *                an engaged potter-day, to compare against the same month without it
+ *   --grades     the world logs `open_grades` (RFC 0051), and some residents, drawn from their own
+ *                stream, grade their homes: every day at home they pick up the finds, branches and
+ *                stones within reach, once a week they make fine material for one wall run at a
+ *                workbench (the material they can make most of from what they hold), and whenever
+ *                they hold a wall run of fine or a masterwork pair they swap that many of their
+ *                home's wood or stone walls for it in one `build`. Off by default, so the month
+ *                without it plays exactly as before; it prints the finds fine crafts spend against
+ *                those picked up, the stock left, and the masterwork pairs a regular makes
  *   --no-cozy    makers never go on to the armchair, the sofa, and the bed (RFC 0044), so the month
  *                plays as it did before them
  *   --no-floors nobody builds up (RFC 0028), so the month plays as it did before homes went up (the
@@ -131,6 +139,7 @@ import type {
   Job,
   JobDeed,
   JobWait,
+  MaterialKind,
   RecipeName,
   SellKind,
   ShopSku,
@@ -209,6 +218,10 @@ const {
   plotOf,
   POND,
   POTTERY,
+  FINE_RECIPES,
+  GRADING,
+  heldGraded,
+  MATERIAL_KINDS,
   PROGRESS,
   pointsFor,
   pointsOf,
@@ -274,6 +287,7 @@ const { values: args } = parseArgs({
     "no-levels": { type: "boolean", default: false },
     "no-jobs": { type: "boolean", default: false },
     kiln: { type: "boolean", default: false },
+    grades: { type: "boolean", default: false },
     "job-edition": { type: "string" },
     // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
     dump: { type: "boolean", default: false },
@@ -344,6 +358,12 @@ const COZY_ON = LEVELS_ON && !args["no-cozy"];
  * asked for, as it is on terrakin.org until `open_clay` is logged; its draws are its own stream.
  */
 const KILN_ON = LEVELS_ON && args.kiln === true;
+/**
+ * Material grades (RFC 0051): fine crafts with the server's masterwork roll, and residents who swap
+ * their walls for graded ones. Off unless asked for, as on every world until `open_grades` is
+ * logged; its draws are its own stream.
+ */
+const GRADES_ON = LEVELS_ON && args.grades === true;
 /** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
 const JOBS_ON = LEVELS_ON && !args["no-jobs"];
 /** The edition of the jobs table the board reads, from the month's first day (decision 0265). */
@@ -455,6 +475,8 @@ const climbing = draws(mulberry32(SEED ^ 0x1e7e1));
 const working = draws(mulberry32(SEED ^ 0x10b5));
 // Who takes up pottery, their glazes, and every finish's roll (RFC 0047): `--kiln` alone draws it.
 const potting = draws(mulberry32(SEED ^ 0xc1a7));
+// Who grades their home, their weekday, and every fine craft's roll (RFC 0051): `--grades` alone.
+const grading = draws(mulberry32(SEED ^ 0x67ade));
 /** Whether a resident bothers with the walk to the counter today (RFC 0042), its own stream. */
 const walking = draws(mulberry32(SEED ^ 0xc0117e2));
 
@@ -508,6 +530,7 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
   const paysJobs = JOB_PAY > 0 && heard === monthJobs;
   const send = (actor: string, command: Command) => {
     const result = apply(state, { actor, command });
+    if (result.ok && GRADES_ON && command.type === "gather") hearFinds(actor, result.events);
     if (result.ok && JOBS_ON) hearJobs(heard, state, result.events);
     if (result.ok && paysJobs) payForJobs(state, result.events);
     return result.ok;
@@ -558,6 +581,7 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
         if (JOB_EDITION !== 1) must(TOWN_ACTOR, { type: "set_job_edition", edition: JOB_EDITION });
       }
       if (KILN_ON) must(TOWN_ACTOR, { type: "open_clay", water: true });
+      if (GRADES_ON) must(TOWN_ACTOR, { type: "open_grades" });
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -1615,6 +1639,252 @@ function goMake(rules: Rules, id: string, habits: Habits) {
     if (!next || !bench || !rules.send(id, { type: "craft", recipe: next, ...bench })) break;
   }
 }
+
+// ---------- material grades (RFC 0051) ----------
+
+/**
+ * Who grades their home, by kind: someone who comes back most days and has a home worth working
+ * on. A guess, as the potters' share was; the run's job is what a grader does to the finds.
+ */
+const GRADERS: Record<Kind, number> = { regular: 0.3, visitor: 0.1, drifter: 0, oneday: 0 };
+/** Fine crafts in a week's wall run: 3 crafts make 6 units, a 5-tile wall and one spare. */
+const RUN_CRAFTS = 3;
+/** Fine units a resident holds before they swap a wall run's worth of walls. */
+const RUN_WALLS = 5;
+const graders = new Map<string, number | null>();
+/** A grader's weekday (0 to 6 from the month's first day), or null, drawn once from its own stream. */
+function graderDay(p: Person): number | null {
+  let day = graders.get(p.id);
+  if (day === undefined) {
+    day = grading.chance(GRADERS[p.kind]) ? grading.between(0, 6) : null;
+    graders.set(p.id, day);
+  }
+  return day;
+}
+/** What grades did over the month: RFC 0051's checks. */
+const grades = {
+  crafts: 0,
+  /** Walks from home for a find. */
+  walks: 0,
+  /** Fine crafts that came out masterwork, by the roll and by the floor. */
+  byRoll: 0,
+  byFloor: 0,
+  /** Walls swapped for graded ones, fine and masterwork. */
+  placedFine: 0,
+  placedMasterwork: 0,
+  /** Finds picked up by anyone, and by graders, and spent by fine crafts, by kind. */
+  picked: new Map<string, number>(),
+  pickedByGraders: new Map<string, number>(),
+  spent: new Map<string, number>(),
+  /** Masterwork pairs each grader made. */
+  pairs: new Map<string, number>(),
+  /** Each fine craft's material. */
+  made: new Map<string, number>(),
+};
+const countUp = (m: Map<string, number>, k: string, n: number) => m.set(k, (m.get(k) ?? 0) + n);
+
+/** Count the finds a `gather` picked up, for everyone and for graders. */
+function hearFinds(actor: string, events: WorldEvent[]) {
+  const grader = (graders.get(actor) ?? null) !== null;
+  for (const e of events) {
+    if (e.type !== "inventory" || e.reason !== "gather") continue;
+    for (const c of e.changes ?? []) {
+      if (!isFindKind(c.kind) || c.amount <= 0) continue;
+      countUp(grades.picked, c.kind, c.amount);
+      if (grader) countUp(grades.pickedByGraders, c.kind, c.amount);
+    }
+  }
+}
+
+/** How far from home a grader walks for a find, in tiles, as a potter does for clay. */
+const FIND_WALK = 12;
+
+/** Every find, branch and stone within reach of where a grader stands, picked up. */
+function pickUpForGrades(rules: Rules, id: string) {
+  const { state } = rules;
+  const me = state.residents[id];
+  if (!me) return;
+  const { reach } = state.config;
+  for (let y = me.y - reach; y <= me.y + reach; y++) {
+    for (let x = me.x - reach; x <= me.x + reach; x++) {
+      const kind = pickupLeft(state, x, y);
+      if (isFindKind(kind) || kind === "wood" || kind === "stone") {
+        rules.send(id, { type: "gather", x, y });
+      }
+    }
+  }
+}
+
+/** The nearest find a fine recipe takes, within `FIND_WALK` of home, on ground the grader may gather. */
+function nearestFineFind(state: WorldState, id: string, from: { x: number; y: number }) {
+  for (let d = state.config.reach + 1; d <= FIND_WALK; d++) {
+    for (let y = from.y - d; y <= from.y + d; y++) {
+      for (let x = from.x - d; x <= from.x + d; x++) {
+        if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
+        if (!FINE_KINDS_FINDS.includes(pickupLeft(state, x, y) as never)) continue;
+        const plot = plotAtTile(state, x, y);
+        if (plot && plot.ownerId !== id && !(plot.coOwners ?? []).includes(id)) continue;
+        return { x, y };
+      }
+    }
+  }
+  return undefined;
+}
+
+/** How many fine crafts of `kind` a resident's things make now. */
+function fineCrafts(state: WorldState, id: string, kind: MaterialKind): number {
+  const inv = state.items?.inventories[id];
+  const recipe = FINE_RECIPES[kind];
+  let n = Number.POSITIVE_INFINITY;
+  for (const [need, k] of Object.entries(recipe.needs) as [StackKind, number][]) {
+    n = Math.min(n, Math.floor(heldGraded(inv, need, "plain") / k));
+  }
+  for (const [need, k] of Object.entries(recipe.fine ?? {}) as [StackKind, number][]) {
+    n = Math.min(n, Math.floor(heldGraded(inv, need, "fine") / k));
+  }
+  return n;
+}
+
+/**
+ * A grader's day at home: pick up every find, branch and stone within reach; on their weekday, a
+ * wall run of fine crafts in the material their things make most of; then any wall run of fine or
+ * masterwork pair they hold goes up in place of their home's wood and stone walls.
+ */
+function goGrade(rules: Rules, p: Person) {
+  const { state } = rules;
+  const id = p.id;
+  const hearth = state.residents[id]?.hearth;
+  const weekday = graderDay(p);
+  if (!hearth || weekday === null) return;
+  const inv = () => state.items?.inventories[id];
+  if (inventorySize(inv()) > inventoryMaxOf(state) - 50) return;
+  pickUpForGrades(rules, id);
+  // One walk a day to the nearest find a fine recipe takes, on ground they may gather, and home.
+  const me = state.residents[id];
+  const at = me ? nearestFineFind(state, id, hearth) : undefined;
+  if (me && at) {
+    for (const dir of route(worldGround(state), me, at, state.config.reach, 64)) {
+      if (!rules.send(id, { type: "move", dir })) break;
+    }
+    pickUpForGrades(rules, id);
+    walkBack(rules, id, hearth);
+    grades.walks++;
+  }
+  if (today(state) % 7 === weekday) {
+    // Clay lies only where pottery is out, so brickwork is a choice only with `--kiln`.
+    const kinds = MATERIAL_KINDS.filter((k) => k !== "brickwork" || KILN_ON);
+    const best = [...kinds].sort((a, b) => fineCrafts(state, id, b) - fineCrafts(state, id, a))[0];
+    const bench = best && fineCrafts(state, id, best) > 0 ? workbench(rules, id) : undefined;
+    for (let i = 0; best && bench && i < RUN_CRAFTS && fineCrafts(state, id, best) > 0; i++) {
+      const roll = grading.between(0, GRADING.outOf - 1);
+      const before = heldGraded(inv(), best, "masterwork");
+      const craft: Command = { type: "craft", recipe: best, ...bench, grade: "fine", roll };
+      if (!rules.send(id, craft)) break;
+      grades.crafts++;
+      countUp(craftsBy, id, 1);
+      countUp(grades.made, best, 1);
+      for (const [need, k] of Object.entries(FINE_RECIPES[best].needs)) {
+        if (isFindKind(need)) countUp(grades.spent, need, k ?? 0);
+      }
+      if (heldGraded(inv(), best, "masterwork") > before) {
+        countUp(grades.pairs, id, 1);
+        if (roll < GRADING.masterwork) grades.byRoll++;
+        else grades.byFloor++;
+      }
+    }
+  }
+  placeGraded(rules, id);
+}
+
+/** Swap a grader's wood and stone walls for a wall run of fine, or a masterwork pair, they hold. */
+function placeGraded(rules: Rules, id: string) {
+  const { state } = rules;
+  const hearth = state.residents[id]?.hearth;
+  if (!hearth) return;
+  const { plotSize } = state.config;
+  const { px, py } = plotOf(state.config, hearth.x, hearth.y);
+  const walls = Object.entries(state.blocks)
+    .filter(([key, b]) => {
+      const [x = 0, y = 0] = key.split(",").map(Number);
+      const here = plotOf(state.config, x, y);
+      return here.px === px && here.py === py && (b === "wood" || b === "stone");
+    })
+    .map(([key]) => key.split(",").map(Number) as [number, number]);
+  const inv = state.items?.inventories[id];
+  for (const kind of MATERIAL_KINDS) {
+    for (const [grade, least] of [
+      ["masterwork", 2],
+      ["fine", RUN_WALLS],
+    ] as const) {
+      const have = heldGraded(inv, kind, grade);
+      if (have < least || walls.length === 0) continue;
+      const tiles = walls.splice(0, have);
+      const plan: Command = {
+        type: "build",
+        px,
+        py,
+        remove: tiles.map(([x, y]) => ({ x: x - px * plotSize, y: y - py * plotSize })),
+        blocks: tiles.map(([x, y]) => ({
+          x: x - px * plotSize,
+          y: y - py * plotSize,
+          block: kind,
+          grade,
+        })),
+      };
+      if (!rules.send(id, plan)) continue;
+      const placed = have - heldGraded(state.items?.inventories[id], kind, grade);
+      if (grade === "fine") grades.placedFine += placed;
+      else grades.placedMasterwork += placed;
+    }
+  }
+}
+
+/** RFC 0051's checks, for a `--grades` run: finds spent against picked up, and masterwork pairs. */
+function gradeLines(rules: Rules, people: Person[]) {
+  const { state } = rules;
+  const graderIds = people.filter((p) => (graders.get(p.id) ?? null) !== null);
+  const masterwork = grades.byRoll + grades.byFloor;
+  console.log(
+    `\nGrades (RFC 0051, --grades): ${graderIds.length} graders (${graderIds.filter((p) => p.kind === "regular").length} regulars), ${grades.walks} walks for a find, ${grades.crafts} fine crafts (${[...grades.made].map(([k, n]) => `${k} ${n}`).join(", ")}), ${masterwork} of them masterwork (${grades.byRoll} by the roll, ${grades.byFloor} by the floor of ${GRADING.floor}, at ${GRADING.masterwork} in ${GRADING.outOf}). Walls swapped: ${grades.placedFine} fine, ${grades.placedMasterwork} masterwork.`,
+  );
+  const held = (kind: string) => {
+    let n = 0;
+    let holders = 0;
+    for (const inv of Object.values(state.items?.inventories ?? {})) {
+      const c = inv.stacks[kind as StackKind] ?? 0;
+      n += c;
+      if (c > 0) holders++;
+    }
+    return { n, holders };
+  };
+  const spentKinds = [...new Set([...FINE_KINDS_FINDS])];
+  for (const kind of spentKinds) {
+    const picked = grades.picked.get(kind) ?? 0;
+    const spent = grades.spent.get(kind) ?? 0;
+    const stock = held(kind);
+    console.log(
+      `  ${kind}: ${picked} picked up in the month (${grades.pickedByGraders.get(kind) ?? 0} by graders), ${spent} spent by fine crafts (${Math.round((spent / Math.max(1, picked)) * 100)}%), ${stock.n} held at month end by ${stock.holders} residents.`,
+    );
+  }
+  const regulars = graderIds.filter((p) => p.kind === "regular" && p.arrives <= 2);
+  const pairs = regulars.map((p) => grades.pairs.get(p.id) ?? 0).sort((a, b) => a - b);
+  const mean = pairs.reduce((s, n) => s + n, 0) / Math.max(1, pairs.length);
+  const crafted = regulars.length
+    ? Math.round(
+        (regulars.reduce((s, p) => s + (craftsBy.get(p.id) ?? 0), 0) / regulars.length) * 10,
+      ) / 10
+    : 0;
+  console.log(
+    `  Masterwork pairs a regular grader made over the month (arrived by day 2, n=${pairs.length}): median ${percentile(pairs, 0.5)}, mean ${mean.toFixed(2)}, most ${pairs.at(-1) ?? 0}, with none ${pairs.filter((n) => n === 0).length}; ${crafted} fine crafts each.`,
+  );
+}
+
+/** The finds a fine recipe spends, in catalog order. */
+const FINE_KINDS_FINDS = FIND_KINDS.filter((k) =>
+  MATERIAL_KINDS.some((m) => (FINE_RECIPES[m].needs as Record<string, number>)[k] !== undefined),
+);
+/** Fine crafts each grader made. */
+const craftsBy = new Map<string, number>();
 
 // ---------- pottery (RFC 0047) ----------
 
@@ -3090,6 +3360,7 @@ function play(rules: Rules) {
     if (p.habits.forages) goForage(rules, p.id);
     if (p.habits.makes) goMake(rules, p.id, p.habits);
     if (KILN_ON && isPotter(p)) goPot(rules, p.id);
+    if (GRADES_ON) goGrade(rules, p);
     if (JOBS_ON) workJob(rules, p, planters);
     // A holiday's things sell only while it runs, so they come before the rest of the wish list.
     if (HOLIDAYS_ON) keepHoliday(rules, p);
@@ -4214,6 +4485,7 @@ function flowLines(
     );
   }
   if (KILN_ON) potteryLines(people);
+  if (GRADES_ON) gradeLines(rules, people);
   if (COZY_ON) {
     console.log(
       `Cozy pieces (RFC 0044): ${cozy.made} made by ${cozy.makers.size} makers, for ${cozy.cards} coins of cards and ${cozy.cushions} of cushions.`,

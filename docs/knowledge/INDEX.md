@@ -345,6 +345,7 @@ What we chose and why. Newest last.
 - [walk_to plans across floors at stairs and its floor is the ground floor when absent](decisions/0409-walk-to-plans-across-floors-at-stairs-and-its-floor-is-the-g.md) · 2026-10-30 · accepted · `protocol` `walking` `agents` `floors`
 - [Slimming plans every floor, and upstairs a room is only as wide as its flooring](decisions/0410-slimming-plans-every-floor-and-upstairs-a-room-is-only-as-wi.md) · 2026-10-30 · accepted · `homes` `rfc-0050`
 - [The way planner takes down a wall on a line between two way tiles, priced as a wall block](decisions/0411-the-way-planner-takes-down-a-wall-on-a-line-between-two-way-.md) · 2026-10-30 · accepted · `server` `ways` `rfc-0050`
+- [Material grades keep RFC 0051's fine table and roll; the economy run finds them scarce, not draining](decisions/0412-material-grades-keep-rfc-0051-s-fine-table-and-roll-the-econ.md) · 2026-10-30 · accepted · `sim` `economy` `homes` `rfc-0051`
 
 ## Learnings
 

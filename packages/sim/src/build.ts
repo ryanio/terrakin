@@ -31,21 +31,30 @@ import {
   standingFloor,
 } from "./floors";
 import { isFurnitureKind } from "./furniture";
+import {
+  type Grade,
+  gradeAt,
+  gradedCountOf,
+  gradeField,
+  gradeFor,
+  type PastPlain,
+  setGrade,
+  unitKey,
+  unitsOf,
+} from "./grades";
 import { GROUND_KINDS, type GroundKind, groundNeeds, isGroundKind } from "./ground";
 import {
   addStack,
   blockNeeds,
   closed,
-  countOf,
   GATHER_HINT,
-  held,
+  heldGraded,
   inventory,
   inventoryEvent,
   inventoryMaxOf,
   inventorySize,
   isDecorKind,
   isResourceKind,
-  STACK_KINDS,
   type StackKind,
 } from "./items";
 import { plotKey, tileKey } from "./keys";
@@ -136,14 +145,18 @@ export interface BuildPlan {
   py: number;
   removed: FloorTile[];
   lifted: FloorTile[];
-  placed: (FloorTile & { block: BlockKind })[];
+  /** With `grade` only for a graded made material (RFC 0051). */
+  placed: (FloorTile & { block: BlockKind; grade?: PastPlain })[];
   laid: (FloorTile & { ground: GroundKind })[];
   /** Walls taken off lines between tiles (RFC 0050), as `n` or `w` lines. World tiles. */
   unwalled: (FloorTile & { side: EdgeSide })[];
   /** Walls put on lines between tiles (RFC 0050), as `n` or `w` lines. World tiles. */
-  walled: (FloorTile & { side: EdgeSide; block: BlockKind })[];
-  /** The net change to the builder's things, in catalog order: negative uses, positive gives back. */
-  changes: { kind: StackKind; amount: number }[];
+  walled: (FloorTile & { side: EdgeSide; block: BlockKind; grade?: PastPlain })[];
+  /**
+   * The net change to the builder's things, in catalog order, each kind plain then by grade (RFC
+   * 0051): negative uses, positive gives back.
+   */
+  changes: { kind: StackKind; grade?: PastPlain; amount: number }[];
   skipped: BuildSkipped[];
 }
 
@@ -158,10 +171,10 @@ export interface BuildSummary {
   /** Walls put up and taken off lines between tiles (RFC 0050). */
   walled: number;
   unwalled: number;
-  /** What it takes from your things, net. */
-  uses: { kind: StackKind; count: number }[];
+  /** What it takes from your things, net, a graded material by its grade (RFC 0051). */
+  uses: { kind: StackKind; grade?: PastPlain; count: number }[];
   /** What it gives back to your things, net. */
-  returns: { kind: StackKind; count: number }[];
+  returns: { kind: StackKind; grade?: PastPlain; count: number }[];
   skipped: BuildSkipped[];
 }
 
@@ -238,8 +251,8 @@ const spotKey = (floor: number, key: string) => (floor === 0 ? key : `${floor}:$
 const spotWords = (t: { x: number; y: number; floor?: number }) =>
   `(${t.x}, ${t.y})${t.floor ? ` on floor ${t.floor}` : ""}`;
 
-/** Where a refusal can send a builder for what they're short of. */
-function shortHint(kinds: readonly StackKind[]): string {
+/** Where a refusal can send a builder for what they're short of, plain or `graded` (RFC 0051). */
+function shortHint(kinds: readonly StackKind[], graded: boolean): string {
   const hints: string[] = [];
   if (kinds.some((k) => isResourceKind(k))) hints.push(GATHER_HINT);
   if (kinds.some((k) => k === "flower" || k === "herb")) {
@@ -248,6 +261,9 @@ function shortHint(kinds: readonly StackKind[]): string {
   if (kinds.some((k) => isFurnitureKind(k)))
     hints.push("Make furniture at a workbench with craft.");
   if (kinds.some((k) => isDecorKind(k))) hints.push("Decor comes from the town shop (shop_buy).");
+  if (graded) {
+    hints.push('Fine materials are made at a workbench with craft and "grade": "fine".');
+  }
   return hints.length > 0 ? ` ${hints.join(" ")}` : "";
 }
 
@@ -257,10 +273,11 @@ export function planBuild(
   actor: ResidentId,
   command: Extract<Command, { type: "build" }>,
   /**
-   * What the town gives toward the plan before it's checked (RFC 0050's first `slim_walls`): the
-   * plan's own changes take it in, so it's spent on the plan and never lands in anyone's things.
+   * What the town gives toward the plan before it's checked (RFC 0050's first `slim_walls`), by
+   * `unitKey` so a graded material's gift is of its grade (RFC 0051): the plan's own changes take it
+   * in, so it's spent on the plan and never lands in anyone's things.
    */
-  gift: Partial<Record<StackKind, number>> = {},
+  gift: Readonly<Record<string, number>> = {},
   /**
    * Check the ground floor's new lines before any removal, as a slim does (RFC 0050), so a wall
    * block that holds flooring upstairs can come out once the line beside it holds it instead.
@@ -343,6 +360,8 @@ export function planBuild(
     }
   }
   const blockKinds: BlockKind[] = [];
+  // Each block's grade (RFC 0051), plain when the entry names none.
+  const blockGrades: Grade[] = [];
   for (const [i, entry] of all.blocks.entries()) {
     const block = (entry as { block?: unknown }).block;
     if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
@@ -351,6 +370,9 @@ export function planBuild(
         `${String(block)} isn't a block. Blocks: ${BLOCK_KINDS.join(", ")}.`,
       );
     }
+    const grade = gradeFor(state, block, (entry as { grade?: unknown }).grade);
+    if (typeof grade !== "string") return grade;
+    blockGrades.push(grade);
     // What a kind can never be on a floor refuses the plan: a planter upstairs, stairs on the top.
     const never = blockKindProblem(plot, (tiles.blocks[i] as PlanSpot).floor, block as BlockKind);
     if (never) return never;
@@ -397,7 +419,7 @@ export function planBuild(
   }
   const wallSpots: Record<
     "edges" | "removeEdges",
-    (PlanSpot & { side: Side; block?: BlockKind })[]
+    (PlanSpot & { side: Side; block?: BlockKind; grade?: Grade })[]
   > = {
     edges: [],
     removeEdges: [],
@@ -423,7 +445,9 @@ export function planBuild(
             `${String(block)} doesn't stand between tiles. Walls: ${EDGE_KINDS.join(", ")}.`,
           );
         }
-        wallSpots.edges.push({ ...t, side, block });
+        const grade = gradeFor(state, block, (entry as { grade?: unknown }).grade);
+        if (typeof grade !== "string") return grade;
+        wallSpots.edges.push({ ...t, side, block, grade });
       } else wallSpots.removeEdges.push({ ...t, side });
     }
   }
@@ -445,6 +469,10 @@ export function planBuild(
     const at = spotKey(floor, key);
     return edgesNow.has(at) ? edgesNow.get(at) : edgesOn(state, floor)[key];
   };
+  // Grades of walls (RFC 0051) as the plan leaves them, by tile key or edge key, which never meet.
+  const gradesNow = new Map<string, Grade>();
+  const gradeNow = (floor: number, key: string): Grade =>
+    gradesNow.get(spotKey(floor, key)) ?? gradeAt(state, key, floor);
   const view: FloorView = {
     block: (floor, key) => {
       const at = spotKey(floor, key);
@@ -459,8 +487,13 @@ export function planBuild(
       ? { edge: edgeNow }
       : {}),
   };
-  const delta = new Map<StackKind, number>();
-  const add = (kind: StackKind, n: number) => delta.set(kind, (delta.get(kind) ?? 0) + n);
+  // Each kind at each grade counts on its own (RFC 0051), so a plan that swaps a plain wall for a
+  // fine one gives back one plain and takes one fine.
+  const delta = new Map<string, number>();
+  const add = (kind: StackKind, n: number, grade: Grade = "plain") => {
+    const key = unitKey(kind, grade);
+    delta.set(key, (delta.get(key) ?? 0) + n);
+  };
   const plan: BuildPlan = {
     px,
     py,
@@ -506,9 +539,12 @@ export function planBuild(
       } else if (removeProblem(state, x, y, floor, view)) skip(t, "remove", "holds_up");
       else {
         plan.removed.push({ x, y, ...floorField(floor) });
+        const grade = gradeNow(floor, key);
         blocksNow.set(spotKey(floor, key), undefined);
-        // Decor and furniture come back as themselves, a pond as its stone (RFC 0023).
-        for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, n);
+        gradesNow.set(spotKey(floor, key), "plain");
+        // Decor and furniture come back as themselves, a pond as its stone (RFC 0023), and a made
+        // material at the grade it stood at (RFC 0051).
+        for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, n, grade);
       }
     }
   };
@@ -530,12 +566,14 @@ export function planBuild(
   const placeOn = (floor: number) => {
     for (const [i, t] of on(tiles.blocks, floor)) {
       const block = blockKinds[i] as BlockKind;
+      const grade = blockGrades[i] as Grade;
       const x = x0 + t.x;
       const y = y0 + t.y;
       const key = tileKey(x, y);
       const there = view.block(floor, key);
-      // Hearths are on the ground floor; who stands where is on their own floor.
-      if (there === block) skip(t, "block", "same");
+      // Hearths are on the ground floor; who stands where is on their own floor. The same kind at
+      // another grade is something else there (RFC 0051): the plan takes it away first.
+      if (there === block && gradeNow(floor, key) === grade) skip(t, "block", "same");
       else if (there !== undefined) skip(t, "block", "occupied");
       else if (floor === 0 && hearths.has(key)) skip(t, "block", "hearth");
       else if (standing.has(spotKey(floor, key))) skip(t, "block", "standing");
@@ -549,9 +587,10 @@ export function planBuild(
           skip(t, "block", unheld.code === "tile_occupied" ? "occupied" : "unsupported");
           continue;
         }
-        plan.placed.push({ x, y, ...floorField(floor), block });
+        plan.placed.push({ x, y, ...floorField(floor), block, ...gradeField(grade) });
         blocksNow.set(spotKey(floor, key), block);
-        for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n);
+        gradesNow.set(spotKey(floor, key), grade);
+        for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n, grade);
       }
     }
   };
@@ -570,8 +609,10 @@ export function planBuild(
       } else {
         const e = edgeOf(x, y, t.side);
         plan.unwalled.push({ x: e.x, y: e.y, side: e.side, ...floorField(floor) });
+        const grade = gradeNow(floor, key);
         edgesNow.set(spotKey(floor, key), undefined);
-        for (const [kind, n] of blockNeeds(there, clayRule(state))) add(kind, n);
+        gradesNow.set(spotKey(floor, key), "plain");
+        for (const [kind, n] of blockNeeds(there, clayRule(state))) add(kind, n, grade);
       }
     }
     return null;
@@ -579,11 +620,12 @@ export function planBuild(
   const wallOn = (floor: number): Rejection | null => {
     for (const t of wallSpots.edges.filter((w) => w.floor === floor)) {
       const block = t.block as BlockKind;
+      const grade = t.grade ?? "plain";
       const x = x0 + t.x;
       const y = y0 + t.y;
       const key = edgeKey(x, y, t.side);
       const there = edgeNow(floor, key);
-      if (there === block) {
+      if (there === block && gradeNow(floor, key) === grade) {
         skip(t, "wall", "same");
         continue;
       }
@@ -603,9 +645,17 @@ export function planBuild(
         return refuse(problem.code, `${spotWords(t)}: ${problem.message}`);
       }
       const e = edgeOf(x, y, t.side);
-      plan.walled.push({ x: e.x, y: e.y, side: e.side, ...floorField(floor), block });
+      plan.walled.push({
+        x: e.x,
+        y: e.y,
+        side: e.side,
+        ...floorField(floor),
+        block,
+        ...gradeField(grade),
+      });
       edgesNow.set(spotKey(floor, key), block);
-      for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n);
+      gradesNow.set(spotKey(floor, key), grade);
+      for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n, grade);
     }
     return null;
   };
@@ -677,27 +727,32 @@ export function planBuild(
     );
   }
 
-  // The town's gift goes toward what the plan uses of its kind, never past it.
-  for (const [kind, n] of Object.entries(gift) as [StackKind, number][]) {
-    const uses = -(delta.get(kind) ?? 0);
-    if (uses > 0) add(kind, Math.min(uses, n));
+  // The town's gift goes toward what the plan uses of its kind and grade, never past it.
+  for (const [key, n] of Object.entries(gift)) {
+    const uses = -(delta.get(key) ?? 0);
+    if (uses > 0) delta.set(key, -uses + Math.min(uses, n));
   }
-  plan.changes = STACK_KINDS.flatMap((kind) => {
-    const amount = delta.get(kind) ?? 0;
-    return amount === 0 ? [] : [{ kind, amount }];
-  });
+  plan.changes = unitsOf(delta).map(({ kind, grade, amount }) => ({
+    kind,
+    ...gradeField(grade),
+    amount,
+  }));
   if (plan.changes.length > 0) {
     const shut = closed(state);
     if (shut) return shut;
     const inv = state.items?.inventories[actor];
     const short = plan.changes.flatMap((c) => {
-      const missing = -(held(inv, c.kind) + c.amount);
-      return missing > 0 ? [{ kind: c.kind, missing }] : [];
+      const grade: Grade = c.grade ?? "plain";
+      const missing = -(heldGraded(inv, c.kind, grade) + c.amount);
+      return missing > 0 ? [{ kind: c.kind, grade, missing }] : [];
     });
     if (short.length > 0) {
       return refuse(
         "not_enough_items",
-        `This plan needs ${short.map((s) => countOf(s.kind, s.missing)).join(", ")} more than you have.${shortHint(short.map((s) => s.kind))}`,
+        `This plan needs ${short.map((s) => gradedCountOf(s.kind, s.missing, s.grade)).join(", ")} more than you have.${shortHint(
+          short.map((s) => s.kind),
+          short.some((s) => s.grade !== "plain"),
+        )}`,
       );
     }
     const net = plan.changes.reduce((sum, c) => sum + c.amount, 0);
@@ -725,9 +780,18 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     return state.ground;
   };
   const place = (floor: number) => {
-    for (const { x, y, block } of plan.placed.filter((t) => level(t) === floor)) {
+    for (const { x, y, block, grade } of plan.placed.filter((t) => level(t) === floor)) {
       blocksFor(floor)[tileKey(x, y)] = block;
-      events.push({ type: "block_placed", x, y, ...floorField(floor), block, by: actor });
+      setGrade(state, floor, tileKey(x, y), grade ?? "plain");
+      events.push({
+        type: "block_placed",
+        x,
+        y,
+        ...floorField(floor),
+        block,
+        ...gradeField(grade),
+        by: actor,
+      });
     }
   };
   const lay = (floor: number) => {
@@ -737,19 +801,32 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     }
   };
   const wall = (floor: number) => {
-    for (const { x, y, side, block } of plan.walled.filter((t) => level(t) === floor)) {
+    for (const { x, y, side, block, grade } of plan.walled.filter((t) => level(t) === floor)) {
       edgesFor(state, floor)[`${tileKey(x, y)},${side}`] = block;
-      events.push({ type: "edge_placed", x, y, side, ...floorField(floor), block, by: actor });
+      setGrade(state, floor, `${tileKey(x, y)},${side}`, grade ?? "plain");
+      events.push({
+        type: "edge_placed",
+        x,
+        y,
+        side,
+        ...floorField(floor),
+        block,
+        ...gradeField(grade),
+        by: actor,
+      });
     }
   };
+  // A wall's grade goes with it (RFC 0051), in the same commit.
   for (const floor of DOWN) {
     for (const { x, y, side } of plan.unwalled.filter((t) => level(t) === floor)) {
       delete edgesFor(state, floor)[`${tileKey(x, y)},${side}`];
       tidyEdges(state, floor);
+      setGrade(state, floor, `${tileKey(x, y)},${side}`, "plain");
       events.push({ type: "edge_removed", x, y, side, ...floorField(floor), by: actor });
     }
     for (const { x, y } of plan.removed.filter((t) => level(t) === floor)) {
       delete blocksFor(floor)[tileKey(x, y)];
+      setGrade(state, floor, tileKey(x, y), "plain");
       events.push({ type: "block_removed", x, y, ...floorField(floor), by: actor });
     }
     for (const { x, y } of plan.lifted.filter((t) => level(t) === floor)) {
@@ -770,7 +847,7 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
   }
   if (plan.changes.length > 0 && state.items) {
     const mine = inventory(state.items, actor);
-    const changes = plan.changes.map((c) => addStack(mine, c.kind, c.amount));
+    const changes = plan.changes.map((c) => addStack(mine, c.kind, c.amount, c.grade));
     events.push(inventoryEvent(actor, "built", changes));
   }
   // What hung on a wall that came down goes back to whoever hung it (RFC 0050), after the plan's
@@ -811,10 +888,12 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
     lifted: plan.lifted.length,
     walled: plan.walled.length,
     unwalled: plan.unwalled.length,
-    uses: plan.changes.filter((c) => c.amount < 0).map((c) => ({ kind: c.kind, count: -c.amount })),
+    uses: plan.changes
+      .filter((c) => c.amount < 0)
+      .map((c) => ({ kind: c.kind, ...gradeField(c.grade), count: -c.amount })),
     returns: plan.changes
       .filter((c) => c.amount > 0)
-      .map((c) => ({ kind: c.kind, count: c.amount })),
+      .map((c) => ({ kind: c.kind, ...gradeField(c.grade), count: c.amount })),
     skipped: plan.skipped.map((s) => ({ ...s })),
   };
 }
@@ -837,9 +916,9 @@ export function plotPlan(
       py: number;
       size: number;
       ownerId?: ResidentId;
-      blocks: (FloorTile & { block: BlockKind })[];
+      blocks: (FloorTile & { block: BlockKind; grade?: PastPlain })[];
       ground: (FloorTile & { ground: GroundKind })[];
-      edges?: (FloorTile & { side: Side; block: BlockKind })[];
+      edges?: (FloorTile & { side: Side; block: BlockKind; grade?: PastPlain })[];
       hearths: Tile[];
     }
   | undefined {
@@ -848,9 +927,9 @@ export function plotPlan(
   const S = config.plotSize;
   const x0 = px * S;
   const y0 = py * S;
-  const blocks: (FloorTile & { block: BlockKind })[] = [];
+  const blocks: (FloorTile & { block: BlockKind; grade?: PastPlain })[] = [];
   const ground: (FloorTile & { ground: GroundKind })[] = [];
-  const edges: (FloorTile & { side: Side; block: BlockKind })[] = [];
+  const edges: (FloorTile & { side: Side; block: BlockKind; grade?: PastPlain })[] = [];
   for (const floor of UP) {
     const blocksThere = blocksOn(state, floor);
     const groundThere = groundOn(state, floor);
@@ -860,15 +939,28 @@ export function plotPlan(
       for (let x = 0; x < S; x++) {
         const key = tileKey(x0 + x, y0 + y);
         const block = blocksThere[key];
-        if (block !== undefined) blocks.push({ x, y, ...at, block });
+        // A graded wall (RFC 0051) copies at its grade.
+        if (block !== undefined) {
+          blocks.push({ x, y, ...at, block, ...gradeField(gradeAt(state, key, floor)) });
+        }
         const g = groundThere[key];
         if (g !== undefined) ground.push({ x, y, ...at, ground: g });
         const sides: Side[] = ["n", "w"];
         if (y === S - 1) sides.push("s");
         if (x === S - 1) sides.push("e");
         for (const side of sides) {
-          const edge = edgesThere[edgeKey(x0 + x, y0 + y, side)];
-          if (edge !== undefined) edges.push({ x, y, side, ...at, block: edge });
+          const line = edgeKey(x0 + x, y0 + y, side);
+          const edge = edgesThere[line];
+          if (edge !== undefined) {
+            edges.push({
+              x,
+              y,
+              side,
+              ...at,
+              block: edge,
+              ...gradeField(gradeAt(state, line, floor)),
+            });
+          }
         }
       }
     }

@@ -793,6 +793,8 @@ Not open in any world yet: refused with `market_closed` until `plotMarketOpen` i
 | `too_far` | A walk the town planned for you, a putter or a routine's stroll, named more steps than one walk takes. You never send those steps; putter again later. |
 | `pottery_closed` | Pottery isn't open in this world yet: no clay lies about, and a kiln, a pot, and a glaze are refused. `clayOpen` in `GET /v1/world` says when it is. |
 | `clay_limit` | You picked up as much clay as a day allows (6). The rest stays where it lies; more lies beside the water tomorrow. |
+| `grades_closed` | Material grades aren't open in this world yet, so any `grade` is refused. Leave `grade` out. |
+| `ungraded` | Only the five made materials come in grades. Wood, stone, glass and leaf are always free, and a door, furniture or decor has no grade: leave `grade` out. |
 | `not_food` | Only something a kitchen makes goes on the feast's table: a pie, a jam, a soup, a drink, or a sweet. A made dish goes by its id, like `i_12`, never its kind: `GET /v1/inventory` lists the ids. |
 | `no_rod` | Fishing takes a fishing rod in your things. Make one at a workbench from 3 wood: `{"type": "craft", "recipe": "fishing_rod", ...}`. |
 | `no_water` | Fish from right beside water: a `pond` tile next to you, diagonals included. The message names the nearest pond within 12 tiles, and the steps there. |

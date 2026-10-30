@@ -2,12 +2,12 @@ import type { StackKind } from "./catalog";
 import { refuse } from "./check";
 import { edgesOn, hasEdges } from "./edges";
 import { blocksOn, HOLDING_BLOCKS } from "./floors";
+import { type Grade, gradedCountOf, gradeField, gradeFor, unitKey } from "./grades";
 import {
   addStack,
   blockNeeds,
   closed,
-  countOf,
-  held,
+  heldGraded,
   inventory,
   inventoryEvent,
   inventoryMaxOf,
@@ -438,7 +438,17 @@ export function checkSetRoof(
     );
   } else if (command.top !== undefined && !isRoofTop(command.top)) {
     return refuse("unknown_item", `A roof wears one of ${ROOF_TOPS.join(", ")} on its ridge.`);
-  } else if (was?.style === style && was.material === command.material && was.top === command.top) {
+  }
+  // A covering of made material may come at a grade (RFC 0051). Flat takes none.
+  const grade = gradeFor(state, style === "flat" ? undefined : command.material, command.grade);
+  if (typeof grade !== "string") return grade;
+  if (
+    style !== "flat" &&
+    was?.style === style &&
+    was.material === command.material &&
+    was.top === command.top &&
+    (was.grade ?? "plain") === grade
+  ) {
     return refuse("already_set", "That's the roof it has already.");
   }
   const next: PlotRoof | undefined =
@@ -449,6 +459,7 @@ export function checkSetRoof(
           material: command.material as BlockKind,
           // Absent leaves the ridge bare, so a `set_roof` from before ridges reads as it did.
           ...(command.top ? { top: command.top } : {}),
+          ...gradeField(grade),
         };
   // What a roof covers is read from the walls, so one with nothing under it would draw nothing.
   const wall = (x: number, y: number, floor: number) =>
@@ -465,7 +476,12 @@ export function checkSetRoof(
   // A roof that keeps its shape and its covering and changes only what stands on its ridge says
   // so, rather than reading as a roof going up: the roof has been there since it went up, and a
   // reader that counts new roofs (the Visit cards' news) would count it again every time.
-  const ridgeOnly = !!was && !!next && was.style === next.style && was.material === next.material;
+  const ridgeOnly =
+    !!was &&
+    !!next &&
+    was.style === next.style &&
+    was.material === next.material &&
+    was.grade === next.grade;
   // A roof that was already up and changes its shape or its covering says that instead, for the
   // same reason: it did not go up today. `roof_set` is left for a roof going up and a roof
   // coming down, which are the two deeds its readers count (decision 0342).
@@ -489,6 +505,7 @@ export function checkSetRoof(
               py,
               style: next.style,
               material: next.material,
+              ...gradeField(next.grade),
               ...(next.top ? { top: next.top } : {}),
               by: actor,
             }
@@ -497,7 +514,7 @@ export function checkSetRoof(
               px,
               py,
               style,
-              ...(next ? { material: next.material } : {}),
+              ...(next ? { material: next.material, ...gradeField(next.grade) } : {}),
               ...(next?.top ? { top: next.top } : {}),
               by: actor,
             },
@@ -506,38 +523,44 @@ export function checkSetRoof(
   };
 }
 
+/** One kind at one grade a roof change moves: a plus comes back, a minus leaves. */
+type RoofMove = [StackKind, number, Grade];
+
 /**
- * What changing a roof's covering moves, by kind: a plus comes back to whoever changed it, a minus
- * leaves their things. Changing the style alone, in the same material, moves nothing.
+ * What changing a roof's covering moves, by kind and grade (RFC 0051): a plus comes back to
+ * whoever changed it, a minus leaves their things. Changing the style alone, in the same material
+ * at the same grade, moves nothing.
  */
-function roofChange(was: PlotRoof | undefined, next: PlotRoof | undefined): [StackKind, number][] {
-  const change = new Map<StackKind, number>();
+function roofChange(was: PlotRoof | undefined, next: PlotRoof | undefined): RoofMove[] {
+  const change = new Map<string, RoofMove>();
   const add = (roof: PlotRoof, sign: 1 | -1) => {
+    const grade = roof.grade ?? "plain";
     for (const [kind, n] of roofNeeds(roof.material)) {
-      change.set(kind, (change.get(kind) ?? 0) + sign * n);
+      const key = unitKey(kind, grade);
+      change.set(key, [kind, (change.get(key)?.[1] ?? 0) + sign * n, grade]);
     }
   };
   if (was) add(was, 1);
   if (next) add(next, -1);
-  return [...change].filter(([, n]) => n !== 0);
+  return [...change.values()].filter(([, n]) => n !== 0);
 }
 
 /** Why `actor` can't pay for a roof's covering, or null: items shut, too few, or no room back. */
 function roofCostProblem(
   state: WorldState,
   actor: ResidentId,
-  change: [StackKind, number][],
+  change: RoofMove[],
 ): Rejection | null {
   if (change.length === 0) return null;
   const shut = closed(state);
   if (shut) return shut;
   const inv = state.items?.inventories[actor];
-  const short = change.find(([kind, n]) => n < 0 && held(inv, kind) < -n);
+  const short = change.find(([kind, n, grade]) => n < 0 && heldGraded(inv, kind, grade) < -n);
   if (short) {
-    const [kind, n] = short;
+    const [kind, n, grade] = short;
     return refuse(
       "not_enough_items",
-      `Covering a roof takes ${countOf(kind, -n)}, and you have ${held(inv, kind)}. Make more at a workbench.`,
+      `Covering a roof takes ${gradedCountOf(kind, -n, grade)}, and you have ${heldGraded(inv, kind, grade)}. Make more at a workbench.`,
     );
   }
   const back = change.reduce((sum, [, n]) => sum + Math.max(0, n), 0);
@@ -552,14 +575,10 @@ function roofCostProblem(
 }
 
 /** The commit side: what a roof's covering took or gave back, with its private event. */
-function moveRoofCost(
-  state: WorldState,
-  actor: ResidentId,
-  change: [StackKind, number][],
-): WorldEvent[] {
+function moveRoofCost(state: WorldState, actor: ResidentId, change: RoofMove[]): WorldEvent[] {
   const items = state.items;
   if (!items || change.length === 0) return [];
   const mine = inventory(items, actor);
-  const changes = change.map(([kind, n]) => addStack(mine, kind, n));
+  const changes = change.map(([kind, n, grade]) => addStack(mine, kind, n, grade));
   return [inventoryEvent(actor, change.some(([, n]) => n < 0) ? "placed" : "picked_up", changes)];
 }

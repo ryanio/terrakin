@@ -4,7 +4,7 @@ import { RECIPE_NAMES } from "./catalog";
 import { hashWorld } from "./hash";
 import { blockNeeds, ITEMS, isHeldBlock } from "./items";
 import { isMaterialKind, MATERIAL_KINDS, MATERIAL_RECIPES } from "./materials";
-import { expectSupplyHolds, stock } from "./test-support";
+import { expectMaterialsHold, expectSupplyHolds, stock } from "./test-support";
 import {
   BUILDING_BLOCKS,
   type Command,
@@ -35,7 +35,7 @@ const CONFIG: WorldConfig = {
 };
 
 function ok(state: WorldState, actor: string, command: Command): WorldEvent[] {
-  const result = apply(state, { actor, command });
+  const result = expectMaterialsHold(state, () => apply(state, { actor, command }));
   if (!result.ok) {
     throw new Error(`${actor} ${JSON.stringify(command)}: ${result.rejection.message}`);
   }

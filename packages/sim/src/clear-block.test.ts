@@ -6,7 +6,7 @@ import { hashWorld } from "./hash";
 import { held, ITEMS } from "./items";
 import { tileKey } from "./keys";
 import { replay } from "./replay";
-import { stock } from "./test-support";
+import { expectMaterialsHold, stock } from "./test-support";
 import {
   type Command,
   type RejectionCode,
@@ -33,7 +33,7 @@ const CONFIG: WorldConfig = {
 };
 
 function ok(state: WorldState, actor: string, command: Command): WorldEvent[] {
-  const result = apply(state, { actor, command });
+  const result = expectMaterialsHold(state, () => apply(state, { actor, command }));
   if (!result.ok)
     throw new Error(`${actor} ${JSON.stringify(command)}: ${result.rejection.message}`);
   return result.events;

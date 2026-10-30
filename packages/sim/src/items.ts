@@ -39,6 +39,17 @@ import {
   isFurnitureKind,
 } from "./furniture";
 import { glazeWhere } from "./gather";
+import {
+  FINE_RECIPES,
+  fineCraftGrade,
+  GRADING,
+  type Grade,
+  gradedCountOf,
+  gradedName,
+  gradeField,
+  gradeFor,
+  type PastPlain,
+} from "./grades";
 import { craftJob, harvestJob } from "./jobs";
 import { tileKey } from "./keys";
 import { craftEarns, earned, harvestEarns } from "./levels";
@@ -217,16 +228,28 @@ export function countOf(kind: ItemKind, n: number): string {
 
 // ---------- reading ----------
 
-/** How many units a resident holds: every stacked unit plus every made thing. */
+/** How many units a resident holds: every stacked unit at every grade plus every made thing. */
 export function inventorySize(inv: Inventory | undefined): number {
   if (!inv) return 0;
   let n = inv.goods.length;
   for (const count of Object.values(inv.stacks)) n += count ?? 0;
+  for (const grades of Object.values(inv.graded ?? {})) {
+    for (const count of Object.values(grades ?? {})) n += count ?? 0;
+  }
   return n;
 }
 
-/** How many of a stack a resident holds. */
+/** How many of a stack a resident holds: the plain ones, for a made material (RFC 0051). */
 export const held = (inv: Inventory | undefined, kind: StackKind) => inv?.stacks[kind] ?? 0;
+
+/**
+ * How many of a stack a resident holds at a grade (RFC 0051): `held` for plain, else the graded
+ * count of a made material. `kind` and `grade` are checked before they get here.
+ */
+export function heldGraded(inv: Inventory | undefined, kind: StackKind, grade: Grade): number {
+  if (grade === "plain") return held(inv, kind);
+  return inv?.graded?.[kind as MaterialKind]?.[grade] ?? 0;
+}
 
 /** A crop's state on a given day. */
 export const isReady = (readyDay: number, day: number | undefined) =>
@@ -288,9 +311,11 @@ export function inventoryOf(state: WorldState, id: ResidentId): InventoryRead | 
 
 const giftNumber = (id: string) => Number(id.slice("gift_".length));
 
-/** Whether a resident still holds all of a gift, so it could go back. */
+/** Whether a resident still holds all of a gift, at its grade, so it could go back. */
 function holdsWhole(inv: Inventory | undefined, gift: GiftRecord): boolean {
-  if (isStackKind(gift.kind)) return held(inv, gift.kind) >= gift.count;
+  if (isStackKind(gift.kind)) {
+    return heldGraded(inv, gift.kind, gift.grade ?? "plain") >= gift.count;
+  }
   const ids = gift.goods ?? [];
   return ids.every((id) => inv?.goods.some((g) => g.id === id));
 }
@@ -302,9 +327,13 @@ export type ItemsChecked = Mutation | Rejection;
 
 const emptyToday = (): ItemsToday => ({ given: {}, received: {}, crafted: {} });
 
-/** One stack's change in an `inventory` event: signed `amount`, and the `count` held after it. */
+/**
+ * One stack's change in an `inventory` event: signed `amount`, and the `count` held after it, of
+ * its grade when it has one past plain (RFC 0051).
+ */
 interface StackChange {
   kind: StackKind;
+  grade?: PastPlain;
   amount: number;
   count: number;
 }
@@ -319,12 +348,32 @@ export function inventory(items: ItemsState, id: ResidentId): Inventory {
   return inv;
 }
 
-/** Add (or with a negative amount, take) units of a stack. A stack at 0 is dropped. */
-export function addStack(inv: Inventory, kind: StackKind, amount: number): StackChange {
-  const count = (inv.stacks[kind] ?? 0) + amount;
-  if (count === 0) delete inv.stacks[kind];
-  else inv.stacks[kind] = count;
-  return { kind, amount, count };
+/**
+ * Add (or with a negative amount, take) units of a stack, plain unless `grade` says otherwise (a
+ * made material's, RFC 0051). A stack at 0 is dropped, and so is `graded` once it holds nothing.
+ */
+export function addStack(
+  inv: Inventory,
+  kind: StackKind,
+  amount: number,
+  grade: Grade = "plain",
+): StackChange {
+  if (grade === "plain") {
+    const count = (inv.stacks[kind] ?? 0) + amount;
+    if (count === 0) delete inv.stacks[kind];
+    else inv.stacks[kind] = count;
+    return { kind, amount, count };
+  }
+  const material = kind as MaterialKind;
+  inv.graded ??= {};
+  const row = inv.graded[material] ?? {};
+  const count = (row[grade] ?? 0) + amount;
+  if (count === 0) delete row[grade];
+  else row[grade] = count;
+  if (Object.keys(row).length > 0) inv.graded[material] = row;
+  else delete inv.graded[material];
+  if (Object.keys(inv.graded).length === 0) delete inv.graded;
+  return { kind, grade, amount, count };
 }
 
 /** The private event for one resident's inventory change. Absent parts stay absent. */
@@ -620,6 +669,25 @@ export function checkCraft(
       `There's no recipe for that. Try one of: ${GOOD_KINDS.join(", ")}, or furniture: ${FURNITURE_KINDS.join(", ")}, or sweets: ${SWEET_KINDS.join(", ")}, or materials: ${MATERIAL_KINDS.join(", ")}.`,
     );
   }
+  // A made material's fine recipe (RFC 0051), with the masterwork roll the server logs with it.
+  const grade = gradeFor(state, recipe, command.grade);
+  if (typeof grade !== "string") return grade;
+  if (grade === "masterwork") {
+    return refuse(
+      "unknown_item",
+      `There's no masterwork recipe: each fine craft has a chance of coming out masterwork. Craft {"recipe": "${recipe}", "grade": "fine"}.`,
+    );
+  }
+  const fine = grade === "fine" && material;
+  const { roll } = command;
+  if (fine ? !isWhole(roll) || roll < 0 || roll >= GRADING.outOf : roll !== undefined) {
+    return refuse(
+      "server_only",
+      fine
+        ? "The server rolls each fine craft's chance of masterwork. Send craft with recipe, x, y and grade."
+        : "Only a fine craft carries a roll, and the server adds it. Leave out roll.",
+    );
+  }
   // A pot (RFC 0047) is fired in a kiln, which only `open_clay` lets anyone place.
   const pot = isPotKind(recipe);
   const potShut = pot || (recipe as string) === TEA ? potteryClosed(state) : null;
@@ -653,7 +721,7 @@ export function checkCraft(
   const {
     station,
     needs: recipeNeeds,
-    makes = 1,
+    makes: plainMakes = 1,
   } = furniture
     ? FURNITURE_RECIPES[recipe]
     : sweet
@@ -687,7 +755,16 @@ export function checkCraft(
       "That kiln is firing a pot already. Take it out with harvest once it's ready, or use another kiln.",
     );
   }
-  const needs = pot ? withGlaze(recipeNeeds, glaze ?? "bare") : recipeNeeds;
+  // A fine craft takes its own recipe's plain things and the fine materials it names, and makes
+  // fewer (`FINE_RECIPES`).
+  const fineRecipe = fine ? FINE_RECIPES[recipe as MaterialKind] : undefined;
+  const needs = pot
+    ? withGlaze(recipeNeeds, glaze ?? "bare")
+    : fineRecipe
+      ? fineRecipe.needs
+      : recipeNeeds;
+  const fineNeeds = Object.entries(fineRecipe?.fine ?? {}) as [StackKind, number][];
+  const makes = fineRecipe ? fineRecipe.makes : plainMakes;
   const crafted = items.today.crafted[actor] ?? 0;
   if (crafted >= ITEMS.craftPerDay) {
     return refuse("craft_limit", `You can make ${ITEMS.craftPerDay} things a day. Try tomorrow.`);
@@ -696,6 +773,22 @@ export function checkCraft(
   const short = (Object.entries(needs) as [StackKind, number][]).filter(
     ([kind, n]) => held(inv, kind) < n,
   );
+  const fineShort = fineNeeds.filter(([kind, n]) => heldGraded(inv, kind, "fine") < n);
+  if (fineShort.length > 0) {
+    const missing = [
+      ...short.map(([kind, n]) => countOf(kind, n - held(inv, kind))),
+      ...fineShort.map(([kind, n]) =>
+        gradedCountOf(kind, n - heldGraded(inv, kind, "fine"), "fine"),
+      ),
+    ];
+    const makeFine = fineShort
+      .map(
+        ([kind]) =>
+          `Make ${gradedName(kind, "fine")} with craft {"recipe": "${kind}", "grade": "fine"}.`,
+      )
+      .join(" ");
+    return refuse("not_enough_items", `You need ${missing.join(", ")} more. ${makeFine}`);
+  }
   if (short.length > 0) {
     const missing = short.map(([kind, n]) => countOf(kind, n - held(inv, kind)));
     const gather = short.some(([kind]) => kind === "clay")
@@ -714,7 +807,9 @@ export function checkCraft(
   }
   // Every good and piece of furniture uses up at least one thing to make one, so only a sweet that
   // makes more than it uses can run out of room, and only such a craft is checked for it.
-  const used = Object.values(needs).reduce((sum, n) => sum + (n ?? 0), 0);
+  const used =
+    Object.values(needs).reduce((sum, n) => sum + (n ?? 0), 0) +
+    fineNeeds.reduce((sum, [, n]) => sum + n, 0);
   if (makes > used && inventorySize(inv) - used + makes > inventoryMaxOf(state)) {
     return refuse(
       "inventory_full",
@@ -723,6 +818,10 @@ export function checkCraft(
   }
   const points = craftEarns(state, actor, recipe);
   const job = craftJob(state, actor, recipe);
+  // A fine craft's batch is all fine or all masterwork: the roll, or the floor once a resident's
+  // run of fine crafts with no masterwork reaches it.
+  const run = fine ? (own(items.fineRun, actor) ?? 0) : 0;
+  const out: Grade = fine ? fineCraftGrade(run, roll as number) : "plain";
   // Furniture, sweets and made materials all stack: no id, no maker, no label, so the craft adds
   // a count rather than making a thing of its own.
   if (furniture || sweet || material) {
@@ -732,7 +831,12 @@ export function checkCraft(
       const changes = (Object.entries(needs) as [StackKind, number][]).map(([kind, n]) =>
         addStack(mine, kind, -n),
       );
-      changes.push(addStack(mine, recipe, makes));
+      for (const [kind, n] of fineNeeds) changes.push(addStack(mine, kind, -n, "fine"));
+      changes.push(addStack(mine, recipe, makes, out));
+      if (fine) {
+        items.fineRun ??= {};
+        items.fineRun[actor] = out === "masterwork" ? 0 : run + 1;
+      }
       return [inventoryEvent(actor, "craft", changes), ...earned(points), ...earned(job)];
     };
   }
@@ -809,6 +913,9 @@ export function checkGiveItem(
   if (wrapped && note !== undefined) {
     return refuse("invalid_gift", "A present carries no note. Send a letter with it instead.");
   }
+  // A made material at a grade (RFC 0051): only a kind that stacks takes one, never an id.
+  const grade = gradeFor(state, item, command.grade);
+  if (typeof grade !== "string") return grade;
   const inv = items.inventories[actor];
   let kind: ItemKind;
   let goods: Good[] = [];
@@ -826,8 +933,9 @@ export function checkGiveItem(
     }
   } else if (isStackKind(item)) {
     kind = item;
-    if (held(inv, item) < count) {
-      return refuse("not_enough_items", `You have ${countOf(item, held(inv, item))}.`);
+    const have = heldGraded(inv, item, grade);
+    if (have < count) {
+      return refuse("not_enough_items", `You have ${gradedCountOf(item, have, grade)}.`);
     }
   } else {
     return refuse("unknown_item", "That isn't something you can hold. Check GET /v1/inventory.");
@@ -863,7 +971,7 @@ export function checkGiveItem(
     if (wrapped) {
       // A present (RFC 0034): out of the giver's things, and held until its recipient opens it.
       const mine = inventory(items, actor);
-      const changes = isStackKind(kind) ? [addStack(mine, kind, -count)] : [];
+      const changes = isStackKind(kind) ? [addStack(mine, kind, -count, grade)] : [];
       if (!isStackKind(kind)) mine.goods = mine.goods.filter((g) => !ids.includes(g.id));
       const present = addPresent(items, {
         from: actor,
@@ -871,6 +979,7 @@ export function checkGiveItem(
         kind,
         count,
         ...(goods.length > 0 ? { goods: goods.map((g) => ({ ...g })) } : {}),
+        ...gradeField(grade),
         day,
       });
       return [
@@ -890,6 +999,7 @@ export function checkGiveItem(
         kind,
         count,
         ...(ids.length > 0 ? { goods: [...ids] } : {}),
+        ...gradeField(grade),
         day,
       };
       gift = { gift: id };
@@ -897,12 +1007,12 @@ export function checkGiveItem(
     const mine = inventory(items, actor);
     const theirs = inventory(items, to);
     if (isStackKind(kind)) {
-      const out = addStack(mine, kind, -count);
-      const into = addStack(theirs, kind, count);
+      const out = addStack(mine, kind, -count, grade);
+      const into = addStack(theirs, kind, count, grade);
       return [
         inventoryEvent(actor, "gift_out", [out], { with: to, ...withNote, ...gift }),
         inventoryEvent(to, "gift_in", [into], { with: actor, ...withNote, ...gift }),
-        { type: "item_given", from: actor, to, kind },
+        { type: "item_given", from: actor, to, kind, ...gradeField(grade) },
       ];
     }
     mine.goods = mine.goods.filter((g) => !ids.includes(g.id));
@@ -958,8 +1068,8 @@ export function checkDeclineGift(
     const mine = inventory(items, actor);
     const theirs = inventory(items, from);
     if (isStackKind(kind)) {
-      const out = addStack(mine, kind, -count);
-      const back = addStack(theirs, kind, count);
+      const out = addStack(mine, kind, -count, record.grade);
+      const back = addStack(theirs, kind, count, record.grade);
       return [
         inventoryEvent(actor, "declined", [out], { with: from, gift: id }),
         inventoryEvent(from, "returned", [back], { with: actor, gift: id }),
@@ -1045,8 +1155,17 @@ export function payPantry(state: WorldState, id: ResidentId): WorldEvent[] {
 
 // ---------- blocks that cost: decor, furniture, and ponds ----------
 
-/** Where to get one more of a held block, for a refusal. */
-function heldBlockHint(kind: DecorKind | FurnitureKind | MaterialKind): string {
+/** Where to get one more of a held block, at its grade (RFC 0051), for a refusal. */
+function heldBlockHint(
+  kind: DecorKind | FurnitureKind | MaterialKind,
+  grade: Grade = "plain",
+): string {
+  if (grade === "fine") {
+    return `Make some at a workbench with craft {"recipe": "${kind}", "grade": "fine"}.`;
+  }
+  if (grade === "masterwork") {
+    return `Masterwork comes by chance from a fine craft: craft {"recipe": "${kind}", "grade": "fine"}.`;
+  }
   return isFurnitureKind(kind) || isMaterialKind(kind)
     ? `Make one at a workbench with craft {"recipe": "${kind}"}.`
     : "Buy one at the town shop with shop_buy.";
@@ -1104,13 +1223,14 @@ export function blockBackWords(block: string): string {
 
 /**
  * Whether `actor` can place a block that costs something (decor, furniture, a pond, or stairs):
- * items open and what it takes in their things. A free block is always fine here. Read in
- * `place`'s check.
+ * items open and what it takes in their things, at `grade` for a made material (RFC 0051), which
+ * its caller checked with `gradeFor`. A free block is always fine here. Read in `place`'s check.
  */
 export function blockPlaceProblem(
   state: WorldState,
   actor: ResidentId,
   block: string,
+  grade: Grade = "plain",
 ): Rejection | null {
   const needs = blockNeeds(block, clayRule(state));
   if (needs.length === 0) return null;
@@ -1118,10 +1238,10 @@ export function blockPlaceProblem(
   if (shut) return shut;
   const inv = state.items?.inventories[actor];
   if (isHeldBlock(block)) {
-    if (held(inv, block) >= 1) return null;
+    if (heldGraded(inv, block, grade) >= 1) return null;
     return refuse(
       "not_enough_items",
-      `You have no ${ITEM_INFO[block].plural.toLowerCase()}. ${heldBlockHint(block)}`,
+      `You have no ${gradedName(block, grade, true)}. ${heldBlockHint(block, grade)}`,
     );
   }
   const short = needs.filter(([kind, n]) => held(inv, kind) < n);
@@ -1157,19 +1277,21 @@ export function blockRemoveProblem(
 
 /**
  * Commit side of placing or removing a block that costs something: what it takes leaves the
- * actor's things (`-1`) or comes back to them (`+1`), with its private event. Free blocks change
- * nothing.
+ * actor's things (`-1`) or comes back to them (`+1`), at the wall's `grade` (RFC 0051), with its
+ * private event. Free blocks change nothing. Only a made material has a grade past plain, and it
+ * costs one of itself, so the grade is the grade of everything it moves.
  */
 export function moveBlockCost(
   state: WorldState,
   actor: ResidentId,
   block: string | undefined,
   amount: 1 | -1,
+  grade: Grade = "plain",
 ): WorldEvent[] {
   const items = state.items;
   const needs = blockNeeds(block, clayRule(state));
   if (!items || needs.length === 0) return [];
   const mine = inventory(items, actor);
-  const changes = needs.map(([kind, n]) => addStack(mine, kind, amount * n));
+  const changes = needs.map(([kind, n]) => addStack(mine, kind, amount * n, grade));
   return [inventoryEvent(actor, amount < 0 ? "placed" : "picked_up", changes)];
 }

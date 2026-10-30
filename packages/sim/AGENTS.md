@@ -154,6 +154,14 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - A roof is one `roof` field on the plot, never on tiles. What it covers is read from the walls each time it's drawn (`roofShape`), so taking a wall down never has to be checked against a roof. Every view draws from `roofShape`, so all of them agree tile for tile.
 - Its covering costs `blockNeeds(material)` times `ROOFS.blocks`, taken when it goes up and given back when it changes or comes down. `roof_set`, `roof_changed`, and `roof_top_set` are distinct so readers can count roofs. `src/fixtures/roof-log.ts` and `roofs.test.ts` pin it.
 
+## Material grades (RFC 0051)
+
+- A grade is a property of a stack and a wall, never a kind: `graded` on an inventory beside `stacks` (which keeps meaning plain), and `grades` on the ground floor and each floor, keyed by `tileKey` for a block and `edgeKey` for a line. Plain is never stored, so every event and record from before grades is byte for byte the same. Read through `heldGraded` and `gradeAt`; write a wall's grade with `setGrade`, and whatever takes a block or line down sets it back to plain in the same commit.
+- Nothing about grades runs until `open_grades`: before it any `grade` is refused (`grades_closed`), and after it a grade on anything but the five made materials is `ungraded`. `gradeFor` checks a grade against `GRADES` before it's a key. `src/fixtures/grades-log.ts` pins both sides.
+- The sim never rolls: a fine craft carries the server's `roll`, and `items.fineRun` counts the floor. `FINE_RECIPES` and `GRADING` are frozen once a live world logs `open_grades`.
+- Each kind at each grade counts on its own (`unitKey`): a plan's running view, a roof change, and a slim's gift. Whatever gives a material back (a removal, a plan, `clear_block`, `rebuild_home`, a slim, a roof, `unlist_item`, `remove_listing`, `decline_gift`, a present) gives back the grade that was there. No grade reads a level, and no rule reads a grade.
+- Every test that moves a material calls `expectMaterialsHold`, which counts every material by kind and grade before and after an input.
+
 ## Displays and plot names
 
 - A displayed thing stays its displayer's. A find on display is never admired, reported, or in a gallery; the made-thing helpers leave finds out.
@@ -243,7 +251,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 
 ## Tuning numbers
 
-Rerun `scripts/economy-sim.ts` before changing a number in `ECONOMY`, the pantry, the shop, a season, `RECIPES_RULES`, `FLOORS`, `PROGRESS`, `JOBS`, or `CIRCLES`. Its header comment lists the flags.
+Rerun `scripts/economy-sim.ts` before changing a number in `ECONOMY`, the pantry, the shop, a season, `RECIPES_RULES`, `FLOORS`, `PROGRESS`, `JOBS`, `CIRCLES`, `FINE_RECIPES`, or `GRADING` (`--grades`). Its header comment lists the flags.
 
 ## Adding a kind
 

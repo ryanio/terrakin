@@ -27,9 +27,11 @@ function build(): WorldState {
       ok: true,
     });
   ok(TOWN_ACTOR, { type: "open_gifts" });
+  ok(TOWN_ACTOR, { type: "open_grades" });
   for (const id of ["ada", "bob", "cy", "dee"]) {
     fund(state, id, 100);
-    stock(state, id, { lemon: 5, sugar: 2 });
+    stock(state, id, { lemon: 5, sugar: 2, plaster: 10 });
+    stock(state, id, { plaster: 10 }, "fine");
   }
   ok("ada", { type: "list_item", item: "lemon", price: 5 });
   ok("dee", { type: "post_bounty", title: "Paint the fence", reward: 5 });
@@ -122,6 +124,46 @@ function inputs(id: string, day: number): [string, Command][] {
       remove: [],
       edges: [{ x: 1, y: 1, side: "n", block: id }],
     } as unknown as Command),
+    // A grade is checked against GRADES before it's ever a key (RFC 0051).
+    ada({ type: "craft", recipe: "plaster", x: 0, y: 0, grade: id, roll: 1 } as unknown as Command),
+    ada({ type: "place", x: 1, y: 1, block: "plaster", grade: id } as unknown as Command),
+    ada({
+      type: "place",
+      x: 2,
+      y: 2,
+      side: "n",
+      block: "plaster",
+      grade: id,
+    } as unknown as Command),
+    ada({
+      type: "build",
+      px: 0,
+      py: 0,
+      blocks: [{ x: 1, y: 1, block: "plaster", grade: id }],
+    } as unknown as Command),
+    ada({
+      type: "build",
+      px: 0,
+      py: 0,
+      edges: [{ x: 1, y: 1, side: "n", block: "plaster", grade: id }],
+    } as unknown as Command),
+    ada({
+      type: "slim_walls",
+      px: 0,
+      py: 0,
+      remove: [],
+      edges: [{ x: 1, y: 1, side: "n", block: "plaster", grade: id }],
+    } as unknown as Command),
+    ada({
+      type: "set_roof",
+      px: 0,
+      py: 0,
+      style: "gable",
+      material: "plaster",
+      grade: id,
+    } as unknown as Command),
+    ada({ type: "give", item: "plaster", to: "bob", grade: id } as unknown as Command),
+    ada({ type: "list_item", item: "plaster", price: 5, grade: id } as unknown as Command),
     // A roof's style and covering come from input too (RFC 0041), and neither is ever a key.
     ada({ type: "set_roof", px: 0, py: 0, style: id, material: "wood" } as unknown as Command),
     ada({ type: "set_roof", px: 0, py: 0, style: "gable", material: id } as unknown as Command),

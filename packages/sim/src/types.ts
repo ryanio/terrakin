@@ -19,6 +19,7 @@ import {
 import type { Catch } from "./fishing";
 import type { SeatKind } from "./furniture";
 import type { PickupKind } from "./gather";
+import type { Grade, PastPlain } from "./grades";
 import type { GroundKind } from "./ground";
 import type {
   EarnedWear,
@@ -353,6 +354,8 @@ export interface PlotRoof {
   material: BlockKind;
   /** What stands on its ridge, absent while nothing does, as every roof was at first. */
   top?: RoofTop;
+  /** Its covering's grade (RFC 0051), past plain only. */
+  grade?: PastPlain;
 }
 
 /** One floor above the ground floor (RFC 0028): its blocks and its flooring. */
@@ -361,6 +364,8 @@ export interface FloorLayer {
   ground: Record<string, GroundKind>;
   /** Walls between tiles on this floor (RFC 0050), keyed by `edgeKey`. Absent until the first. */
   edges?: Record<string, BlockKind>;
+  /** Graded walls on this floor (RFC 0051), as `WorldState.grades`. Absent until the first. */
+  grades?: Record<string, PastPlain>;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -416,6 +421,8 @@ export interface PlanTile {
 /** One block a `build` places. */
 export interface PlanBlock extends PlanTile {
   block: BlockKind;
+  /** A made material's grade (RFC 0051). Absent is plain. */
+  grade?: Grade | undefined;
 }
 
 /** One path or flooring a `build` lays. */
@@ -431,6 +438,8 @@ export interface PlanEdgeSpot extends PlanTile {
 /** One wall a `build` puts on a line between tiles (RFC 0050). */
 export interface PlanEdge extends PlanEdgeSpot {
   block: BlockKind;
+  /** A made material's grade (RFC 0051). Absent is plain. */
+  grade?: Grade | undefined;
 }
 
 export interface Proposal {
@@ -532,6 +541,12 @@ export interface WorldState {
    * `edgeKey`: a tile and the `n` or `w` line it owns. Absent until the first.
    */
   edges?: Record<string, BlockKind>;
+  /**
+   * The grade of each graded wall on the ground floor (RFC 0051), keyed by `tileKey` for a block
+   * and `edgeKey` for a wall between tiles. Absent until the first graded wall; plain is never here.
+   * Whatever takes a wall down drops its key in the same commit (`setGrade`).
+   */
+  grades?: Record<string, PastPlain>;
   /**
    * The Town Hall and the shop stop walkers, from the server's `solid_buildings` on. Absent until
    * then, so older logs replay as they were made, when residents walked across both.
@@ -1269,6 +1284,8 @@ export interface Listing {
   count: number;
   /** The made things in the lot, with their makers and labels. Absent for things that stack. */
   goods?: Good[];
+  /** A made material's grade (RFC 0051), from the units escrowed. Absent is plain. */
+  grade?: PastPlain;
   price: number;
   /** The day it was listed. */
   day: number;
@@ -1463,6 +1480,11 @@ export interface Inventory {
   stacks: Partial<Record<StackKind, number>>;
   /** Made things, in the order they arrived. */
   goods: Good[];
+  /**
+   * Graded made materials (RFC 0051), past plain: `stacks` holds the plain ones. Absent until the
+   * first, and each kind and grade dropped at 0.
+   */
+  graded?: Partial<Record<MaterialKind, Partial<Record<PastPlain, number>>>>;
 }
 
 /** A crop in a planter. */
@@ -1519,6 +1541,8 @@ export interface Present {
   count: number;
   /** The made things in it, whole. Absent for things that stack. */
   goods?: Good[];
+  /** A made material's grade (RFC 0051). Absent is plain. */
+  grade?: PastPlain;
   /** The day it was wrapped. */
   day: number;
 }
@@ -1536,6 +1560,8 @@ export interface GiftRecord {
   count: number;
   /** The made things' ids. Absent for things that stack. */
   goods?: string[];
+  /** A made material's grade (RFC 0051). Absent is plain. */
+  grade?: PastPlain;
   /** The day it was given. */
   day: number;
 }
@@ -1632,6 +1658,16 @@ export interface ItemsState {
    * until the first one.
    */
   heldAside?: Shown[];
+  /**
+   * Made materials come in grades (RFC 0051). Absent until the server logs `open_grades`, before
+   * which any `grade` is refused.
+   */
+  gradesOpen?: true;
+  /**
+   * Each resident's fine crafts in a row with no masterwork among them (RFC 0051), which the
+   * masterwork floor reads. Absent until their first fine craft; a masterwork sets it to 0.
+   */
+  fineRun?: Record<ResidentId, number>;
 }
 
 /** Why an inventory changed. */
@@ -1883,6 +1919,8 @@ export type Command =
       flower?: string | undefined;
       /** On the line on this side of the tile rather than on the tile (RFC 0050). */
       side?: Side | undefined;
+      /** A made material's grade (RFC 0051). Absent is plain. */
+      grade?: Grade | undefined;
     }
   | {
       type: "remove";
@@ -1910,6 +1948,8 @@ export type Command =
       material?: BlockKind | undefined;
       /** What stands on the ridge (`ROOF_TOPS`), free. Absent leaves the ridge bare. */
       top?: RoofTop | undefined;
+      /** The covering's grade, for a made material (RFC 0051). Absent is plain. */
+      grade?: Grade | undefined;
     }
   /**
    * A plan built on plot (px, py) in one input, from anywhere (RFC 0016). Tiles count from the
@@ -1993,6 +2033,13 @@ export type Command =
       label?: string;
       /** A pot's glaze, at a kiln only (RFC 0047). Absent is `bare`. */
       glaze?: Glaze;
+      /** `fine` for a made material's fine recipe (RFC 0051). Absent is plain. */
+      grade?: Grade | undefined;
+      /**
+       * A fine craft's masterwork roll (RFC 0051), which the server draws and logs. A resident
+       * sends craft without it, and the sim refuses it on any other craft.
+       */
+      roll?: number | undefined;
     }
   | {
       type: "give";
@@ -2002,6 +2049,8 @@ export type Command =
       note?: string;
       /** From December 1 to 25: wrapped as a present, opened from December 25 (RFC 0034). */
       wrapped?: true | undefined;
+      /** A made material's grade (RFC 0051). Absent is plain. */
+      grade?: Grade | undefined;
     }
   /** Open a present you were given, from December 25 (RFC 0034). */
   | { type: "open_present"; present: string }
@@ -2040,7 +2089,14 @@ export type Command =
   /** Turn routines on and off (RFC 0009): the whole list, `[]` for all off. */
   | { type: "set_routines"; routines: Routine[] }
   // The market (RFC 0008, phase 4).
-  | { type: "list_item"; item: string; count?: number; price: number }
+  | {
+      type: "list_item";
+      item: string;
+      count?: number;
+      price: number;
+      /** A made material's grade (RFC 0051). Absent is plain. */
+      grade?: Grade | undefined;
+    }
   /** Put a plot you own up for sale, as it stands (RFC 0039). */
   | { type: "list_plot"; px: number; py: number; price: number }
   | { type: "unlist_plot"; px: number; py: number }
@@ -2306,6 +2362,8 @@ export type Command =
    * else on any meadow or sand tile, as the first `open_clay` had it.
    */
   | { type: "open_clay"; water?: true }
+  /** From now on, made materials come plain, fine or masterwork (RFC 0051). */
+  | { type: "open_grades" }
   /** From now on, the board reads this edition of the jobs table (`JOB_EDITIONS`). */
   | { type: "set_job_edition"; edition: number }
   /** From now on, pages on the ground come from this edition of the list (`PAGE_EDITIONS`). */
@@ -2489,6 +2547,7 @@ export const SERVER_COMMANDS = [
   "disband_circle",
   "award_grant",
   "open_clay",
+  "open_grades",
 ] as const satisfies readonly CommandType[];
 
 /** A command plus who issued it. This is the unit the server logs and replays. */
@@ -2540,6 +2599,8 @@ export type WorldEvent =
       y: number;
       floor?: number;
       block: BlockKind;
+      /** A made material's grade (RFC 0051), past plain only. */
+      grade?: PastPlain;
       by: ResidentId;
       /** The pot set down, for a `pot` block (RFC 0047). */
       pot?: Good;
@@ -2553,6 +2614,8 @@ export type WorldEvent =
       side: "n" | "w";
       floor?: number;
       block: BlockKind;
+      /** A made material's grade (RFC 0051), past plain only. */
+      grade?: PastPlain;
       by: ResidentId;
     }
   /** The wall on the line on `side` of (x, y) came down (RFC 0050). Public. */
@@ -2577,6 +2640,8 @@ export type WorldEvent =
       py: number;
       style: RoofStyle;
       material?: BlockKind;
+      /** The covering's grade (RFC 0051), past plain only. */
+      grade?: PastPlain;
       /** What stands on its ridge, absent while nothing does. */
       top?: RoofTop;
       by: ResidentId;
@@ -2602,6 +2667,8 @@ export type WorldEvent =
       py: number;
       style: Exclude<RoofStyle, "flat">;
       material: BlockKind;
+      /** The covering's grade (RFC 0051), past plain only. */
+      grade?: PastPlain;
       /** What stands on its ridge, absent while nothing does. */
       top?: RoofTop;
       by: ResidentId;
@@ -2743,6 +2810,8 @@ export type WorldEvent =
       listing: string;
       seller: ResidentId;
       kind: ItemKind;
+      /** A made material's grade (RFC 0051), past plain only. */
+      grade?: PastPlain;
       count: number;
       price: number;
     }
@@ -2830,6 +2899,8 @@ export type WorldEvent =
   | { type: "harvested"; x: number; y: number; crop: Crop; by: ResidentId }
   /** Clay lies on the ground and kilns fire pots from now on (RFC 0047). Public. */
   | { type: "clay_opened"; water?: true }
+  /** Made materials come in grades from now on (RFC 0051). */
+  | { type: "grades_opened" }
   /**
    * `by` loaded the kiln at (x, y), which glows until `readyDay`. Public, without what's in it:
    * the loader's `inventory` event says what it took.
@@ -2851,7 +2922,14 @@ export type WorldEvent =
   /** Someone picked up a fallen branch, a loose stone, or a find. Public. */
   | { type: "gathered"; x: number; y: number; kind: PickupKind; by: ResidentId }
   /** Someone gave someone a thing. Public, without the count or the note. */
-  | { type: "item_given"; from: ResidentId; to: ResidentId; kind: ItemKind }
+  | {
+      type: "item_given";
+      from: ResidentId;
+      to: ResidentId;
+      kind: ItemKind;
+      /** A made material's grade (RFC 0051), past plain only. */
+      grade?: PastPlain;
+    }
   /** A made thing went on display. Public: it shows in the world, label and all. */
   | { type: "displayed"; x: number; y: number; good: Good; by: ResidentId }
   /** A find went on display (RFC 0021). Public: it has no words on it. */
@@ -3179,8 +3257,11 @@ export type WorldEvent =
       type: "inventory";
       residentId: ResidentId;
       reason: InventoryReason;
-      /** Stacks that changed: signed `amount`, and the `count` held after. */
-      changes?: { kind: StackKind; amount: number; count: number }[];
+      /**
+       * Stacks that changed: signed `amount`, and the `count` held after. `grade` is there only
+       * for a graded made material (RFC 0051), whose `count` is of that grade.
+       */
+      changes?: { kind: StackKind; grade?: PastPlain; amount: number; count: number }[];
       /** Made things that arrived. */
       gained?: Good[];
       /** Ids of made things that left. */
@@ -3456,6 +3537,10 @@ export const REJECTION_CODES = [
   "clay_limit",
   /** A putter or a routine's walk names more steps than one may take. */
   "too_far",
+  /** A grade on something that has none: only made materials come in grades (RFC 0051). */
+  "ungraded",
+  /** Material grades aren't open in this world yet (RFC 0051). */
+  "grades_closed",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

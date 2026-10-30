@@ -10,7 +10,7 @@ import { held } from "./items";
 import { replay } from "./replay";
 import { plotRoof } from "./roofs";
 import { starterEdgeHut } from "./slim";
-import { stock } from "./test-support";
+import { expectMaterialsHold, stock } from "./test-support";
 import {
   type Command,
   type Rejection,
@@ -36,7 +36,9 @@ function world() {
   const state = createWorld(CONFIG);
   const send = (actor: string, command: Command) => {
     const before = hashWorld(state);
-    const result = apply(state, { actor, command });
+    // A test grant is where a test's materials come from; everything else keeps them where they are.
+    const run = () => apply(state, { actor, command });
+    const result = command.type === "test_grant" ? run() : expectMaterialsHold(state, run);
     if (!result.ok) expect(hashWorld(state)).toBe(before);
     return result;
   };

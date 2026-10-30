@@ -1,9 +1,10 @@
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { ECONOMY, isTownsfolk, movePurse, moveTreasury, pairSkipsCaps } from "./economy";
+import { gradedCountOf, gradeField, gradeFor } from "./grades";
 import {
   addStack,
   countOf,
-  held,
+  heldGraded,
   ITEM_ID_PATTERN,
   ITEMS,
   type ItemKind,
@@ -180,6 +181,9 @@ export function checkListItem(
   if (!state.residents[actor]?.hearth) {
     return refuse("no_hearth", "Your stall stands at your hearth. Set one on your plot first.");
   }
+  // A lot of a made material is of one grade (RFC 0051), and its grade comes from what's escrowed.
+  const grade = gradeFor(state, item, command.grade);
+  if (typeof grade !== "string") return grade;
   const inv = items.inventories[actor];
   let kind: ItemKind;
   let goods: Good[] = [];
@@ -198,8 +202,9 @@ export function checkListItem(
     }
   } else if (isStackKind(item)) {
     kind = item;
-    if (held(inv, item) < count) {
-      return refuse("not_enough_items", `You have ${countOf(item, held(inv, item))}.`);
+    const have = heldGraded(inv, item, grade);
+    if (have < count) {
+      return refuse("not_enough_items", `You have ${gradedCountOf(item, have, grade)}.`);
     }
   } else {
     return refuse("unknown_item", "That isn't something you can hold. Check GET /v1/inventory.");
@@ -237,6 +242,7 @@ export function checkListItem(
       kind,
       count,
       ...(goods.length > 0 ? { goods: goods.map((g) => ({ ...g })) } : {}),
+      ...gradeField(grade),
       price,
       day,
     };
@@ -244,7 +250,7 @@ export function checkListItem(
     const mine = inventory(items, actor);
     let moved: WorldEvent;
     if (isStackKind(kind)) {
-      moved = inventoryEvent(actor, "listed", [addStack(mine, kind, -count)]);
+      moved = inventoryEvent(actor, "listed", [addStack(mine, kind, -count, grade)]);
     } else {
       mine.goods = mine.goods.filter((g) => !ids.includes(g.id));
       moved = inventoryEvent(actor, "listed", [], { lost: ids });
@@ -271,7 +277,9 @@ function receive(
 ) {
   const theirs = inventory(items, id);
   if (isStackKind(listing.kind)) {
-    return inventoryEvent(id, reason, [addStack(theirs, listing.kind, listing.count)]);
+    return inventoryEvent(id, reason, [
+      addStack(theirs, listing.kind, listing.count, listing.grade),
+    ]);
   }
   const goods = listing.goods ?? [];
   theirs.goods.push(...goods.map((g) => ({ ...g })));
@@ -395,6 +403,7 @@ export function checkBuyListing(
       listing: listing.id,
       seller,
       kind: listing.kind,
+      ...gradeField(listing.grade),
       count: listing.count,
       price,
     });

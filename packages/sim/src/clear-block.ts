@@ -2,6 +2,7 @@ import { refuse } from "./check";
 import { displayRemoveProblem } from "./display";
 import { checkEdgeRemove } from "./edge-actions";
 import { removeProblem } from "./floors";
+import { gradeAt, setGrade } from "./grades";
 import { blockRemoveProblem, cropAt, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
@@ -59,11 +60,14 @@ export function checkClearBlock(
   const full = blockRemoveProblem(state, owner, taken);
   if (full)
     return refuse("inventory_full", "The plot's owner has no room for what that block gives back.");
+  // The owner gets back the grade that stood there, never a lower one (RFC 0051).
+  const was = gradeAt(state, key);
   return () => {
     delete state.blocks[key];
+    setGrade(state, 0, key, "plain");
     return [
       { type: "block_removed", x, y, by: TOWN_ACTOR },
-      ...moveBlockCost(state, owner, taken, 1),
+      ...moveBlockCost(state, owner, taken, 1, was),
       ...releaseHungOn(state, x, y, 0, TOWN_ACTOR),
     ];
   };

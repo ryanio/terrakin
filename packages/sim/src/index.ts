@@ -280,6 +280,18 @@ export {
   wayPickupsOpen,
 } from "./gather";
 export {
+  FINE_RECIPES,
+  type FineRecipe,
+  GRADES,
+  GRADING,
+  type Grade,
+  gradeAt,
+  gradedName,
+  isGrade,
+  PAST_PLAIN,
+  type PastPlain,
+} from "./grades";
+export {
   GROUND_INFO,
   GROUND_KINDS,
   type GroundInfo,
@@ -345,6 +357,7 @@ export {
   GOOD_KINDS,
   type GoodKind,
   harvestFits,
+  heldGraded,
   type InventoryRead,
   ITEM_ID_PATTERN,
   ITEM_INFO,

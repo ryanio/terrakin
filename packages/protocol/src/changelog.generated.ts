@@ -12,6 +12,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/notifications`"
   },
   {
+    "id": "2026-10-30-two-error-codes-for-material-grades-which-no-world-has-opene",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "Two error codes for material grades, which no world has opened yet",
+    "body": "Made materials will come plain, fine or masterwork (RFC 0051). Until a world logs the public `grades_opened` event, a `grade` on anything is refused with `grades_closed`; after it, a grade on something that has none is `ungraded`. Leave `grade` out and nothing changes.",
+    "links": []
+  },
+  {
     "id": "2026-10-30-slim-walls-slims-the-upstairs-too",
     "date": "2026-10-30",
     "kind": "changed",

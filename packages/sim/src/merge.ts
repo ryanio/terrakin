@@ -5,6 +5,7 @@ import { mergeCircles } from "./circles";
 import { isMaintainer, isTownsfolk, movePurse } from "./economy";
 import { plotHasAnything } from "./floors";
 import { activeTables } from "./games";
+import type { PastPlain } from "./grades";
 import { addStack, inventory, inventoryEvent, inventoryMaxOf, inventorySize } from "./items";
 import { mergeJobs } from "./jobs";
 import { plotKey } from "./keys";
@@ -194,14 +195,24 @@ export function checkMergeResident(
       const theirs = own(items.inventories, from);
       delete items.inventories[from];
       const stacks = Object.entries(theirs?.stacks ?? {}) as [StackKind, number][];
+      // Graded made materials (RFC 0051) move at their grades, after the plain stacks.
+      const graded = Object.entries(theirs?.graded ?? {}).flatMap(([kind, grades]) =>
+        (Object.entries(grades ?? {}) as [PastPlain, number][]).map(
+          ([grade, count]) => [kind as StackKind, count, grade] as const,
+        ),
+      );
       const goods = theirs?.goods ?? [];
-      if (stacks.length > 0 || goods.length > 0) {
+      if (stacks.length > 0 || graded.length > 0 || goods.length > 0) {
         const inv = inventory(items, into);
         const changes = stacks.map(([kind, count]) => addStack(inv, kind, count));
+        for (const [kind, count, grade] of graded) changes.push(addStack(inv, kind, count, grade));
         inv.goods.push(...goods);
         events.push(inventoryEvent(into, "merged", changes, { gained: goods }));
       }
       dropKey(items.pantry, from);
+      // The masterwork floor is a kindness to one run of crafts, not a balance: it drops.
+      dropKey(items.fineRun, from);
+      if (items.fineRun && Object.keys(items.fineRun).length === 0) delete items.fineRun;
       for (const counts of Object.values(items.today)) dropKey(counts, from);
       for (const [id, gift] of Object.entries(items.gifts ?? {})) {
         if (gift.from === from || gift.to === from) delete items.gifts?.[id];

@@ -9,6 +9,7 @@ import {
   tidyEdges,
 } from "./edges";
 import { edgeRemoveProblem, floorField, groundOn } from "./floors";
+import { gradeAt, gradeField, gradeFor, setGrade } from "./grades";
 import { blockPlaceProblem, blockRemoveProblem, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { isSide, releaseHungOnEdge } from "./surfaces";
@@ -51,13 +52,26 @@ export function checkEdge(
     (tx, ty) => flooring[tileKey(tx, ty)] !== undefined,
   );
   if (where) return where;
-  const cost = blockPlaceProblem(state, actor, block);
+  // A made material may come at a grade (RFC 0051), kept on the line by its edge key.
+  const grade = gradeFor(state, block, command.type === "place" ? command.grade : undefined);
+  if (typeof grade !== "string") return grade;
+  const cost = blockPlaceProblem(state, actor, block, grade);
   if (cost) return cost;
   return () => {
     edgesFor(state, floor)[key] = block;
+    setGrade(state, floor, key, grade);
     return [
-      { type: "edge_placed", x: e.x, y: e.y, side: e.side, ...floorField(floor), block, by: actor },
-      ...moveBlockCost(state, actor, block, -1),
+      {
+        type: "edge_placed",
+        x: e.x,
+        y: e.y,
+        side: e.side,
+        ...floorField(floor),
+        block,
+        ...gradeField(grade),
+        by: actor,
+      },
+      ...moveBlockCost(state, actor, block, -1, grade),
     ];
   };
 }
@@ -88,12 +102,15 @@ export function checkEdgeRemove(
   if (holding) return holding;
   const full = blockRemoveProblem(state, owner, taken);
   if (full) return full;
+  // What comes back is the grade that stood there (RFC 0051).
+  const was = gradeAt(state, key, floor);
   return () => {
     delete edgesFor(state, floor)[key];
     tidyEdges(state, floor);
+    setGrade(state, floor, key, "plain");
     return [
       { type: "edge_removed", x: e.x, y: e.y, side: e.side, ...floorField(floor), by },
-      ...moveBlockCost(state, owner, taken, 1),
+      ...moveBlockCost(state, owner, taken, 1, was),
       ...releaseHungOnEdge(state, e.x, e.y, e.side, floor, by),
     ];
   };

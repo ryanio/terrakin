@@ -1885,6 +1885,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   }),
   /** Clay lies on the ground and kilns fire pots from now on (RFC 0047). */
   z.object({ type: z.literal("clay_opened"), water: z.literal(true).optional() }),
+  /** Made materials come plain, fine or masterwork from now on (RFC 0051). */
+  z.object({ type: z.literal("grades_opened") }),
   /** `by` loaded the kiln at (x, y), which fires until `readyDay`. What's in it isn't said. */
   z.object({
     type: z.literal("kiln_loaded"),

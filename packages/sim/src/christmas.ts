@@ -82,7 +82,7 @@ function unwrap(items: ItemsState, present: Present): WorldEvent[] {
   const opened = inventoryEvent(
     present.to,
     "present",
-    present.goods ? [] : [addStack(inv, present.kind as never, present.count)],
+    present.goods ? [] : [addStack(inv, present.kind as never, present.count, present.grade)],
     present.goods ? { gained: present.goods, with: present.from } : { with: present.from },
   );
   if (present.goods) inv.goods.push(...present.goods.map((g) => ({ ...g })));

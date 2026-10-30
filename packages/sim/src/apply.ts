@@ -106,6 +106,7 @@ import {
   gamesNewDay,
 } from "./games";
 import { checkGather, checkOpenFinds, checkOpenWayPickups, checkOwnPlotPickups } from "./gather";
+import { checkOpenGrades, gradeAt, gradeField, gradeFor, setGrade } from "./grades";
 import { checkLay, checkLift } from "./ground";
 import { checkTrickOrTreat, halloweenNewDay } from "./halloween";
 import { canonicalJson, fnv1a } from "./hash";
@@ -907,6 +908,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkOpenJobs(state));
       case "open_clay":
         return town(checkOpenClay(state, command));
+      case "open_grades":
+        return town(checkOpenGrades(state));
       case "set_job_edition":
         return town(checkSetJobEdition(state, command));
       case "set_page_edition":
@@ -1391,11 +1394,14 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         if (holding) return { ok: false, rejection: holding };
         const full = blockRemoveProblem(state, actor, taken);
         if (full) return { ok: false, rejection: full };
+        // A graded wall (RFC 0051) gives back the grade it was, and its grade goes with it.
+        const was = gradeAt(state, key, floor);
         return () => {
           delete blocks[key];
+          setGrade(state, floor, key, "plain");
           return [
             { type: "block_removed", x, y, ...floorField(floor), by: actor },
-            ...moveBlockCost(state, actor, taken, 1),
+            ...moveBlockCost(state, actor, taken, 1, was),
             // What hung on the wall goes back to whoever hung it (RFC 0050).
             ...releaseHungOn(state, x, y, floor, actor),
           ];
@@ -1422,6 +1428,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");
       }
+      // A made material may come at a grade (RFC 0051); nothing else takes one.
+      const grade = gradeFor(state, block, command.grade);
+      if (typeof grade !== "string") return { ok: false, rejection: grade };
       // A kiln (RFC 0047) waits for `open_clay`.
       const kilnShut = block === KILN ? potteryClosed(state) : null;
       if (kilnShut) return { ok: false, rejection: kilnShut };
@@ -1440,13 +1449,22 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           "Only a pot is set down by its id. Leave out item and flower.",
         );
       }
-      const cost = blockPlaceProblem(state, actor, block);
+      const cost = blockPlaceProblem(state, actor, block, grade);
       if (cost) return { ok: false, rejection: cost };
       return () => {
         blocks[key] = block;
+        setGrade(state, floor, key, grade);
         return [
-          { type: "block_placed", x, y, ...floorField(floor), block, by: actor },
-          ...moveBlockCost(state, actor, block, -1),
+          {
+            type: "block_placed",
+            x,
+            y,
+            ...floorField(floor),
+            block,
+            ...gradeField(grade),
+            by: actor,
+          },
+          ...moveBlockCost(state, actor, block, -1, grade),
         ];
       };
     }

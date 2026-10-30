@@ -1,7 +1,7 @@
 import { type BuildPlan, checkBuild } from "./build";
-import type { StackKind } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import { EDGE_KINDS, edgeKey, edgesOn, edgeTiles } from "./edges";
+import { type Grade, gradeAt, isGrade, unitKey } from "./grades";
 import { blockNeeds } from "./items";
 import { plotKey, tileKey } from "./keys";
 import {
@@ -59,30 +59,41 @@ export function starterEdgeHut(
   return out;
 }
 
-/** What the lines of a slim take beyond the blocks it gives back, in made materials only. */
-function slimGift(state: WorldState, command: Slim): Partial<Record<StackKind, number>> {
+/**
+ * What the lines of a slim take beyond the blocks it gives back, in made materials only, by kind
+ * and grade (`unitKey`, RFC 0051), so a fine brick home slims into a fine brick home.
+ */
+function slimGift(state: WorldState, command: Slim): Record<string, number> {
   const S = state.config.plotSize;
   const x0 = command.px * S;
   const y0 = command.py * S;
-  const back = new Map<StackKind, number>();
+  const back = new Map<string, number>();
   for (const t of command.remove) {
     const floor = t.floor ?? 0;
     const blocks = floor === 0 ? state.blocks : (state.floors?.[String(floor)]?.blocks ?? {});
-    for (const [kind, n] of blockNeeds(blocks[tileKey(x0 + t.x, y0 + t.y)])) {
-      back.set(kind, (back.get(kind) ?? 0) + n);
+    const key = tileKey(x0 + t.x, y0 + t.y);
+    const grade = gradeAt(state, key, floor);
+    for (const [kind, n] of blockNeeds(blocks[key])) {
+      const unit = unitKey(kind, grade);
+      back.set(unit, (back.get(unit) ?? 0) + n);
     }
   }
-  const uses = new Map<StackKind, number>();
+  const uses = new Map<string, number>();
   for (const w of command.edges) {
-    for (const [kind, n] of blockNeeds(w.block)) uses.set(kind, (uses.get(kind) ?? 0) + n);
+    // An unknown grade gets no gift here; `build` refuses it.
+    const grade: Grade = isGrade(w.grade) ? w.grade : "plain";
+    for (const [kind, n] of blockNeeds(w.block)) {
+      const unit = unitKey(kind, grade);
+      uses.set(unit, (uses.get(unit) ?? 0) + n);
+    }
   }
-  const gift: Partial<Record<StackKind, number>> = {};
-  for (const [kind, n] of uses) {
-    // Only a kind the home's own walls were made of, and at most a quarter more than they gave
-    // back, which is what a ring of walls needs: a slim never yields another material, and an odd
-    // shape can't be drawn to win more.
-    const had = back.get(kind) ?? 0;
-    if (had > 0 && n > had) gift[kind] = Math.min(n - had, Math.ceil(had / 4));
+  const gift: Record<string, number> = {};
+  for (const [unit, n] of uses) {
+    // Only a kind and grade the home's own walls were made of, and at most a quarter more than
+    // they gave back, which is what a ring of walls needs: a slim never yields another material
+    // or grade, and an odd shape can't be drawn to win more.
+    const had = back.get(unit) ?? 0;
+    if (had > 0 && n > had) gift[unit] = Math.min(n - had, Math.ceil(had / 4));
   }
   return gift;
 }

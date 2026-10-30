@@ -12,6 +12,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile. Try: `GET /v1/notifications`
 
+### Added: Two error codes for material grades, which no world has opened yet
+
+Made materials will come plain, fine or masterwork (RFC 0051). Until a world logs the public `grades_opened` event, a `grade` on anything is refused with `grades_closed`; after it, a grade on something that has none is `ungraded`. Leave `grade` out and nothing changes.
+
 ### Changed: `slim_walls` slims the upstairs too
 
 One call now turns the wall blocks on every floor into walls between tiles, not just the ground floor's. Upstairs a line needs flooring on one side, so the room there is as wide as its flooring; a line with no flooring on either side is left out, and an opening in an upstairs wall stays open. A home whose ground floor was slimmed before, by you or the town, can send it again for its upstairs. Try: `POST /v1/actions {"type": "slim_walls", "px": 3, "py": 2, "dry": true}`

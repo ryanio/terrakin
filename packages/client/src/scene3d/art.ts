@@ -110,6 +110,8 @@ export interface Stage {
   light(center: Vector3, radius: number): void;
   /** Ask for one more frame (reduced motion renders only when something changes). */
   invalidate(): void;
+  /** Draw one frame now: the only way a `still` stage draws. */
+  draw(): void;
   /**
    * Grey the light, the sky, and the haze for the weather (decision 0073): cloud dims the sun and
    * greys the sky, and fog pales the haze and pulls it in. Cheap to call every frame.
@@ -146,6 +148,12 @@ export interface StageOptions {
   onSlow?: () => void;
   /** Vertical field of view in degrees on tall screens and on wide ones. Default 44 and 34. */
   fov?: { tall: number; wide: number };
+  /**
+   * A still picture (a scene photo): nothing animates or draws on its own, and `draw()` draws
+   * the one frame. Drawing in software, as a headless browser does, a frame takes most of a
+   * second, so a photo draws exactly once.
+   */
+  still?: true;
 }
 
 /**
@@ -430,7 +438,7 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
   };
 
   const start = () => {
-    if (disposed || raf || document.hidden) return;
+    if (disposed || raf || document.hidden || options.still) return;
     last = performance.now();
     raf = requestAnimationFrame(loop);
   };
@@ -487,6 +495,12 @@ export function createStage(host: HTMLElement, options: StageOptions = {}): Stag
     invalidate() {
       dirty = true;
       start();
+    },
+    draw() {
+      controls.update();
+      stars.follow(camera, renderer.getPixelRatio());
+      renderer.render(scene, camera);
+      dirty = false;
     },
     skyLook(look) {
       weather = look;

@@ -125,8 +125,8 @@ export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSn
     ...lens,
   });
   w.photo.aim(view);
-  // Two frames drawn after the camera settles, as the world's own `data-settled` waits.
-  await frames(3);
+  // The one frame the photo draws: a still stage draws nothing on its own.
+  w.photo.draw();
 
   let more = 0;
   if (scene.names) {

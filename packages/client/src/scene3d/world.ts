@@ -198,6 +198,8 @@ export interface PhotoKit {
   aim(view: PhotoView): void;
   /** Every head in front of the camera, as drawn now, and whether something hides it. */
   heads(): PhotoHead[];
+  /** Draw the picture: the photo's one frame. */
+  draw(): void;
 }
 
 export interface World3dFrame {
@@ -345,6 +347,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     autoRotate: false,
     onSlow: () => fail("slow"),
     fov: { tall: 58, wide: 40 },
+    ...(opts.photo ? { still: true as const } : {}),
   });
   const { scene, camera, controls, renderer } = stage;
   const still = stage.reducedMotion;
@@ -1461,6 +1464,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
             };
       },
       lens: () => ({ fovDeg: camera.fov, aspect: camera.aspect }),
+      draw: () => stage.draw(),
       aim(view) {
         started = true;
         // The walking camera's limits don't hold a photo: a selfie stands close and level.

@@ -1931,6 +1931,11 @@ export const WorldSnapshot = z.object({
    * floor (RFC 0042). Absent in worlds that take a booking from anywhere.
    */
   scheduleInPerson: z.literal(true).optional(),
+  /**
+   * Present once an event counts a resident as attended at 2 samples (10 minutes in its area),
+   * however long it runs (issue #126). Absent in worlds that ask for a third of the samples.
+   */
+  attendAtTen: z.literal(true).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -2437,6 +2442,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("propose_in_person_set") }),
   /** From now on, booking an event needs you on the place booked (`scheduleInPerson`, RFC 0042). */
   z.object({ type: z.literal("schedule_in_person_set") }),
+  /** From now on, an event counts attendance at 2 samples, 10 minutes (`attendAtTen`). */
+  z.object({ type: z.literal("attendance_at_ten_set") }),
   /**
    * A new land opened beyond downtown (RFC 0038): the world grew to `width` by `height`, `plots`
    * are claimable with `settle`, `bridge` is the walk across the water to them, `square` is the

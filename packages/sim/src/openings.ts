@@ -11,7 +11,7 @@ import type {
   WorldConfig,
   WorldState,
 } from "./types";
-import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
+import { DIRECTIONS, type Ground, groundOf, stepFrom, withEdges } from "./walk";
 import { isWay } from "./ways";
 import {
   blocksWalkers,
@@ -268,6 +268,8 @@ export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts 
       townHall: townHallTiles(state),
       shop: state.shop ? shopTiles(state) : [],
       ...(sea ? { sea } : {}),
+      // Walls between tiles (RFC 0050) close a way out as wall blocks do.
+      ...withEdges(state, 0),
     }),
     claimed: (px, py) => state.plots[plotKey(px, py)] !== undefined,
     together: (a, b) => plotsTogether(state, a, b),

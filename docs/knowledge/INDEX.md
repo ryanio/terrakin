@@ -328,6 +328,7 @@ What we chose and why. Newest last.
 - [Things on surfaces and walls are kept by tile and face, shop-only, and come back when their wall does](decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `economy` `design`
 - [A wall's surface is marks in the sim's palette that the map, the 3D textures and the plot photos all draw](decisions/0393-a-wall-s-surface-is-marks-in-the-sim-s-palette-that-the-map-.md) · 2026-10-30 · accepted · `art` `map` `3d` `cards` `materials`
 - [The 2D map zooms from close to the whole world, and draws a picture of the ground when zoomed out](decisions/0394-the-2d-map-zooms-from-close-to-the-whole-world-and-draws-a-p.md) · 2026-10-30 · accepted · `client` `map` `performance`
+- [Town squares are drawn as cobbled plazas from the drawn paving, and the Commons loses its dashed border](decisions/0395-town-squares-are-drawn-as-cobbled-plazas-from-the-drawn-pavi.md) · 2026-10-30 · accepted · `client` `design` `3d`
 
 ## Learnings
 

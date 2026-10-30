@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-a-plot-photo-is-a-tall-1080x1350-picture-that-the-instant-ph",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "A plot photo is a tall 1080x1350 picture that the instant photo fills",
+    "body": "`POST /v1/plots/photo` used to answer a 1200x630 PNG with the photo in the middle and empty paper on both sides. It now answers a 4:5 picture at twice the detail: the photo with its caption and stamp, on a thin clear margin. `media.width` and `media.height` say 1080 and 1350.\nA post's link card shows a posted plot photo whole, at its own shape. Photos already taken stay as they are.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
     "id": "2026-10-30-cost-on-dry-runs-what-an-action-would-take-from-your-things",
     "date": "2026-10-30",
     "kind": "added",

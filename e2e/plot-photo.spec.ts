@@ -28,7 +28,7 @@ test("a resident takes a photo of their home and posts it", async ({ page }) => 
   await expect(sheet).toBeVisible();
   const img = sheet.locator(".plot-photo-img");
   await expect(img).toHaveAttribute("src", /^\/media\/m_[0-9a-f]{16}$/);
-  await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBe(1200);
+  await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBe(1080);
   await page.screenshot({ path: "test-results/plot-photo-sheet.png" });
 
   await sheet.locator("#plot-photo-text").fill("Our little hut");

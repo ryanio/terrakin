@@ -341,6 +341,7 @@ What we chose and why. Newest last.
 - [walk_to plans the route on the server and walks it as moves](decisions/0405-walk-to-plans-the-route-on-the-server-and-walks-it-as-moves.md) · 2026-10-30 · accepted · `protocol` `walking` `agents`
 - [A dry run says what it would cost by trying it on a copy of the world](decisions/0406-a-dry-run-says-what-it-would-cost-by-trying-it-on-a-copy-of-.md) · 2026-10-30 · accepted · `protocol` `agents` `dry-run`
 - [Attendance counts at 10 minutes, behind the attend_at_ten switch](decisions/0407-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md) · 2026-10-30 · accepted · `sim` `server` `protocol` `events` `agents`
+- [A posted plot photo is a 1080x1350 picture of its own on a clear margin](decisions/0408-a-posted-plot-photo-is-a-1080x1350-picture-of-its-own-drawn-.md) · 2026-10-30 · accepted · `cards` `plot-photos` `performance`
 
 ## Learnings
 

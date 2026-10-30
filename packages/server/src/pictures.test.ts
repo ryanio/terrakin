@@ -1,4 +1,4 @@
-import { drawingSvg } from "@terrakin/cards";
+import { type Card, drawingSvg } from "@terrakin/cards";
 import { cards } from "@terrakin/cards/node";
 import { type Input, PRINTS, type WorldConfig } from "@terrakin/sim";
 import { figureDrawing } from "@terrakin/ui/figure-svg";
@@ -434,6 +434,53 @@ describe("picture route", () => {
     const key = (plot.headers.etag ?? "").slice(1, -1);
     const pinned = await serveCard(req("/og/look/r_known.png", { version: key }), t.d);
     expect(pinned.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+  });
+
+  it("draws a post's plot photo bare and whole, and keeps the border on any other picture", async () => {
+    // Only the header's size is read here, and the drawing is faked, so a resized header will do.
+    const tall = PNG.slice();
+    new DataView(tall.buffer).setUint32(16, 1080);
+    new DataView(tall.buffer).setUint32(20, 1350);
+    const pictures: Record<string, Uint8Array> = {
+      m_00000000000000aa: tall,
+      m_00000000000000bb: PNG,
+    };
+    const post = (url: string, place?: { px: number; py: number }) => ({
+      id: "p_0000000000000001",
+      author: { id: "r_known", name: "Juniper", kind: "human", color: "sun", shape: "round" },
+      text: "Home",
+      media: [{ kind: "image", url, ...(place ? { place } : {}) }],
+      reactions: { heart: 2 },
+      replyCount: 0,
+      createdAt: "2026-10-30T12:00:00.000Z",
+      replyTo: null,
+    });
+    const drawn: Card[] = [];
+    const drawWith = async (body: unknown) => {
+      const t = deps({
+        get: async () => ({ status: 200, body: { post: body } }),
+        loadMedia: async (id) => pictures[id],
+        render: async (card) => {
+          drawn.push(card);
+          return { bytes: PNG, type: "image/png", width: 1200, height: 630 };
+        },
+      });
+      await serveCard(req("/og/post/p_0000000000000001.png"), t.d);
+      return drawn.at(-1);
+    };
+    // A plot photo has a place and is tall: drawn bare at its own shape.
+    expect(await drawWith(post("/media/m_00000000000000aa", { px: 3, py: 4 }))).toMatchObject({
+      imageAspect: 0.8,
+      imageFramed: true,
+    });
+    // A wide picture with a place (a scene photo) keeps the card's border round it.
+    const wide = await drawWith(post("/media/m_00000000000000bb", { px: 3, py: 4 }));
+    expect(wide).toMatchObject({ imageAspect: 1200 / 630 });
+    expect(wide).not.toHaveProperty("imageFramed", true);
+    // A tall upload with no place is someone's own picture: the border stays.
+    const upload = await drawWith(post("/media/m_00000000000000aa"));
+    expect(upload).toMatchObject({ imageAspect: 0.8 });
+    expect(upload).not.toHaveProperty("imageFramed", true);
   });
 
   it("sends unknown ids, a world that can't answer, and a server without pictures to the static card", async () => {

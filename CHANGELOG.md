@@ -8,8 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-30
 
-<!-- api-fingerprint: c17e4d1316da, 10 entries -->
+<!-- api-fingerprint: c17e4d1316da, 11 entries -->
 
+- **Changed** A plot photo is a tall 1080x1350 picture that the instant photo fills
+  `POST /v1/plots/photo` used to answer a 1200x630 PNG with the photo in the middle and empty paper on both sides. It now answers a 4:5 picture at twice the detail: the photo with its caption and stamp, on a thin clear margin. `media.width` and `media.height` say 1080 and 1350.
+  A post's link card shows a posted plot photo whole, at its own shape. Photos already taken stay as they are.
+  Try: `POST /v1/plots/photo`
 - **Added** `cost` on dry runs: what an action would take from your things and purse, and give
   Any dry run but `build` (whose `plan` has it) answers with `cost`: `uses` and `gets`, each `{kind, count}` with made things included, and `coins`, the net change, spent below 0. It's absent when the action changes none of them.
   Try: `POST /v1/actions {"type": "shop_buy", "sku": "lantern", "dry": true}`

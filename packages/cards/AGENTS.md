@@ -17,7 +17,7 @@ The cards Worker also takes scene photos ([RFC 0049](../../docs/rfcs/0049-scene-
 - **Keep a render cheap**, about 100 ms in Node. No blurred `boxShadow` (each is a Gaussian blur), no SVG filters per card. The paper grain is rasterized once per process (`render.ts`).
 - **Boot the wasm once.** `createCards()` boots once per process or isolate, since resvg refuses a second `initWasm`; each engine keeps one.
 - **resvg reads `mix-blend-mode` only as CSS** (`style="..."`), never as an attribute.
-- **A posted photo keeps what matters in the middle 630 pixels**, since a post's card crops it to a square from the middle. Its stamp never lands on the brand under it.
+- **A posted plot photo is a picture of its own, not a link card**: 1080x1350 (`POSTED`, laid out at 540x675 and drawn twice over), the instant photo filling it but for a thin clear margin, so whatever shows it is its paper. It has no grain of its own, since stretching the grain over a picture that size costs more than the rest of the drawing. Its stamp never lands on the brand under it. A post's card draws it bare and whole at the card's height (`imageFramed`), never in a second border.
 - **Crops grow as the map grows them.** `FRUIT_SET` and the swell in `src/plot.ts` match the map's `paintCrop` (`packages/client/src/render/blocks.ts`); change both together.
 - **Bump `CARDS_VERSION`** in `templates.ts` when a card's look changes, so cached cards are drawn again.
 - **`src/brand.ts` is generated** by `pnpm brand` from `scripts/brand/logo.ts`. Don't edit it.
@@ -26,8 +26,8 @@ The cards Worker also takes scene photos ([RFC 0049](../../docs/rfcs/0049-scene-
 
 ## Layout
 
-- `src/templates.ts` the card types (`site`, `page`, `profile`, `post`, `plot`, `near`, `look`), their element trees, and `CARDS_VERSION`. `src/h.ts` the element builder (`div`, `text`, `img`, `svg`). `src/text.ts` cleaning, clipping, counts and dates (`cardText`, `drawable`, `clip`, `fit`).
-- `src/plot.ts` the plot photo (`plotSvg`, `PlotCard`): our own SVG of a plot from data the server builds, with walls and their surfaces (a block's `marks`, from the sim's `WALL_LOOK`), decor (`PLOT_DECOR`), furniture (`PLOT_FURNITURE`), paths, ponds, crops (`PlotCrop`), pets (`petSvg`), upper floors (`PlotFloor`), and the sliver of world around it. `areaParts` draws any rectangle of the world (`PlotArea`). A photo can be `posted` (a tall instant photo for a post) or the card for a link, and can carry a `sky`, a `stamp`, a `title`, and a `story`.
+- `src/templates.ts` the card types (`site`, `page`, `profile`, `post`, `plot`, `near`, `look`), their element trees, `cardSize` (1200x630, or `POSTED` for a posted plot photo), and `CARDS_VERSION`. `src/h.ts` the element builder (`div`, `text`, `img`, `svg`). `src/text.ts` cleaning, clipping, counts and dates (`cardText`, `drawable`, `clip`, `fit`).
+- `src/plot.ts` the plot photo (`plotSvg`, `PlotCard`): our own SVG of a plot from data the server builds, with walls and their surfaces (a block's `marks`, from the sim's `WALL_LOOK`), decor (`PLOT_DECOR`), furniture (`PLOT_FURNITURE`), paths, ponds, crops (`PlotCrop`), pets (`petSvg`), upper floors (`PlotFloor`), and the sliver of world around it. `areaParts` draws any rectangle of the world (`PlotArea`). A photo can be `posted` (a tall instant photo, 1080x1350, for a post) or the card for a link, and can carry a `sky`, a `stamp`, a `title`, and a `story`.
 - `src/pictures.ts` the other pictures by link: the map around someone (`nearSvg`) and the look card (`lookSvg`), both through `areaParts`.
 - `src/drawing.ts` figures as recorded `Drawing`s, checked and drawn by `drawingSvg`. `src/color.ts` `safeColor`.
 - `src/sky.ts` the sky every picture from above shares: `Sky`, `skyParts`, `nightWash`.

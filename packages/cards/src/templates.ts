@@ -20,8 +20,20 @@ import { clip, count, day, drawable, fit, plural } from "./text";
 export const W = 1200;
 export const H = 630;
 
+/**
+ * A posted plot photo is its own picture, not a link card: the instant photo fills a 4:5 sheet with
+ * a thin clear margin for its tilt and shadow, so a chat or a feed shows it with no bands at its sides. It is laid out at
+ * this size and drawn at `scale`, so the picture is 1080x1350.
+ */
+export const POSTED = { width: 540, height: 675, scale: 2 } as const;
+
+/** A card's size as laid out, and how many times over it is drawn. Link cards are 1200x630. */
+export function cardSize(card: Card): { width: number; height: number; scale: number } {
+  return card.kind === "plot" && card.posted === true ? POSTED : { width: W, height: H, scale: 1 };
+}
+
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 15;
+export const CARDS_VERSION = 16;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -77,6 +89,13 @@ export interface PostCard {
   text: string;
   /** The first image as a data URI, if the post has one. */
   image?: string | undefined;
+  /** That image's width over its height, when known. A tall one is shown whole, not cropped. */
+  imageAspect?: number | undefined;
+  /**
+   * The image is a posted plot photo, which carries its own frame on its own paper: it is drawn bare
+   * at the card's height, with no second border round it.
+   */
+  imageFramed?: boolean | undefined;
   likes: number;
   replies: number;
   /** ISO time the post was made. */
@@ -121,6 +140,23 @@ function sheet(art: Art, ...content: Content): El {
       color: C.ink,
     },
     art.paper ? img(art.paper, W, H, full) : svg(PAPER_SVG, W, H, full),
+    ...content,
+  );
+}
+
+/**
+ * A clear sheet for a picture of its own size: whatever shows it (a post's card, the app, a chat)
+ * is the paper, so its margin never sits on it as a second, slightly different paper.
+ */
+function clear(size: { width: number; height: number }, ...content: Content): El {
+  return div(
+    {
+      width: size.width,
+      height: size.height,
+      position: "relative",
+      fontFamily: SANS,
+      color: C.ink,
+    },
     ...content,
   );
 }
@@ -470,6 +506,12 @@ function post(c: PostCard, art: Art): El {
   const name = drawn ?? "A resident";
   const narrow = Boolean(c.image);
   const width = narrow ? 600 : 1020;
+  // A tall picture (a posted plot photo) is shown whole at its own shape; a wide one is cropped square.
+  const tall = c.imageAspect !== undefined && c.imageAspect < 1 ? c.imageAspect : 1;
+  const across = Math.round(410 * Math.max(tall, 0.6)) + 20;
+  // A plot photo stands on the card's paper as it is, inside the card's soft frame.
+  const bareHeight = H - 72;
+  const bare = c.image && c.imageFramed && tall < 1 ? Math.round(bareHeight * tall) : 0;
   const body = drawable(c.text, narrow ? 150 : 230);
   const date = day(c.date);
   const words = body
@@ -530,37 +572,39 @@ function post(c: PostCard, art: Art): El {
           words,
         )
       : null,
-    c.image
-      ? div(
-          abs({ right: 78, top: 70, width: 430, height: 440, transform: "rotate(1.5deg)" }),
-          div(
-            abs({
-              left: 0,
-              top: 10,
-              width: 430,
-              height: 430,
-              borderRadius: 28,
-              backgroundColor: SHADOW,
-            }),
-          ),
-          div(
-            abs({
-              left: 0,
-              top: 0,
-              width: 430,
-              height: 430,
-              borderRadius: 28,
-              border: "10px solid #ffffff",
-              overflow: "hidden",
-              backgroundColor: "#ffffff",
-            }),
-            img(c.image, 410, 410, { objectFit: "cover", borderRadius: 18 }),
-          ),
-        )
-      : null,
+    bare && c.image
+      ? img(c.image, bare, bareHeight, abs({ right: 40, top: 36 }))
+      : c.image
+        ? div(
+            abs({ right: 78, top: 70, width: across, height: 440, transform: "rotate(1.5deg)" }),
+            div(
+              abs({
+                left: 0,
+                top: 10,
+                width: across,
+                height: 430,
+                borderRadius: 28,
+                backgroundColor: SHADOW,
+              }),
+            ),
+            div(
+              abs({
+                left: 0,
+                top: 0,
+                width: across,
+                height: 430,
+                borderRadius: 28,
+                border: "10px solid #ffffff",
+                overflow: "hidden",
+                backgroundColor: "#ffffff",
+              }),
+              img(c.image, across - 20, 410, { objectFit: "cover", borderRadius: 18 }),
+            ),
+          )
+        : null,
     signature(),
     div(
-      abs({ right: 80, bottom: 58, alignItems: "center", gap: 28 }),
+      abs({ right: bare ? 40 + bare + 16 : 80, bottom: 58, alignItems: "center", gap: 28 }),
       div(
         { alignItems: "center", gap: 10 },
         svg(HEART, 34, 34),
@@ -670,11 +714,10 @@ function stamp(words: string[], width: number, align: "center" | "flex-start"): 
 }
 
 /**
- * A plot photo (issue #34), as a postcard. A photo taken to post (`posted`) is a tall instant photo
- * in the middle of the card with its caption on the frame: a post's card crops it to a square from
- * the middle, so nothing that matters may leave the middle 630 pixels. The card for a link has the
- * photo on the left and its caption beside it, so the picture is as big as the card is tall and no
- * band of empty paper is left over (issue #80).
+ * A plot photo (issue #34). A photo taken to post (`posted`) is a tall instant photo filling a 4:5
+ * sheet of its own (`POSTED`), with its caption, stamp and brand on the frame. The card for a link
+ * has the photo on the left and its caption beside it, so the picture is as big as the card is tall
+ * and no band of empty paper is left over (issue #80).
  */
 function plot(c: PlotCard, art: Art): El {
   const named = c.title ? drawable(c.title, 40) : undefined;
@@ -683,20 +726,22 @@ function plot(c: PlotCard, art: Art): El {
   const marks = c.stamp ?? [];
   const told = c.story ? clip(c.story, 58) : "";
   if (c.posted === true) {
-    // A story line needs its own room under the caption, so the photo gives up what it takes and
-    // the frame stays the same height: its stamp must never land on the brand under it.
-    const photo = told ? 406 : 430;
+    // The frame fills the sheet but for a margin that keeps its tilt and shadow on the paper. A
+    // story line needs its own room under the caption, so the photo gives up what the lip takes.
+    const margin = 22;
     const pad = 20;
+    const lip = told ? 194 : 170;
+    const photo = POSTED.height - margin * 2 - pad - lip;
     const caption = clip(named ? [homeTitle(c.name), c.place].join("  ·  ") : facts, 60);
-    return sheet(
-      art,
+    return clear(
+      POSTED,
       photoFrame(
         c,
         photo,
         pad,
-        told ? 182 : 158,
+        lip,
         -1.2,
-        { left: (W - (photo + pad * 2)) / 2, top: 9 },
+        { left: (POSTED.width - (photo + pad * 2)) / 2, top: margin },
         text(
           {
             fontFamily: SERIF,

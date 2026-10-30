@@ -302,6 +302,8 @@ export function sampleLoft(name: string, floor?: 0 | 1): PlotCard {
 export interface SampleImages {
   avatar?: string;
   photo?: string;
+  /** A posted plot photo (4:5), for the card of a post that carries one. */
+  plotPhoto?: string;
 }
 
 export function samples(images: SampleImages = {}): [string, Card][] {
@@ -383,6 +385,24 @@ export function samples(images: SampleImages = {}): [string, Card][] {
         ...(images.photo ? { image: images.photo } : {}),
       },
     ],
+    ...(images.plotPhoto
+      ? [
+          [
+            "post-plot-photo",
+            {
+              kind: "post",
+              author: juniper,
+              text: "The greenhouse is done, and the scarecrow finally has company.",
+              likes: 7,
+              replies: 2,
+              date: "2026-10-04T09:30:00.000Z",
+              image: images.plotPhoto,
+              imageAspect: 4 / 5,
+              imageFramed: true,
+            },
+          ] satisfies [string, Card],
+        ]
+      : []),
     [
       "post-long",
       {

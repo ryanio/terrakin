@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Resvg } from "@resvg/resvg-wasm";
 import { cards } from "../src/node";
-import { samples } from "../src/samples";
+import { samplePlotInTown, samples } from "../src/samples";
 
 const dir = resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2] ?? "card-samples");
 mkdirSync(dir, { recursive: true });
@@ -30,6 +30,7 @@ const images = {
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120"><rect width="160" height="120" fill="#bfe0f2"/><circle cx="124" cy="30" r="14" fill="#f2b84b"/><path d="M0 82 Q40 60 80 78 T160 70 V120 H0z" fill="#8fb36a"/><path d="M50 84 l20 -18 l20 18 v22 h-40z" fill="#fffaf0" stroke="#2b2620" stroke-width="2"/><path d="M46 86 l24 -22 l24 22" fill="none" stroke="#b4532f" stroke-width="5" stroke-linejoin="round"/></svg>',
     1200,
   ),
+  plotPhoto: `data:image/png;base64,${Buffer.from((await cards.render({ ...samplePlotInTown("Juniper"), posted: true })).bytes).toString("base64")}`,
 };
 
 for (const [name, card] of samples(images)) {

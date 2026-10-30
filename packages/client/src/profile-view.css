@@ -188,11 +188,14 @@ button.profile-avatar.editable:disabled {
 
 /* A plot photo (plot-photo.ts): the picture, then a line to post with it. */
 
+/* A posted plot photo is tall (4:5): it keeps its shape and leaves room for the words under it. */
 .plot-photo-img {
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: auto;
-  border-radius: var(--r-note);
-  background: var(--paper-2);
+  max-height: min(52vh, 460px);
+  margin-inline: auto;
 }
 
 .praise-star.filled {

@@ -5,7 +5,7 @@
 
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import satori, { init as initSatori } from "satori/standalone";
-import { type Art, type Card, element, H, PAPER_SVG, W } from "./templates";
+import { type Art, type Card, cardSize, element, PAPER_SVG, W } from "./templates";
 
 /** Whatever each runtime can hand the wasm loaders: bytes in Node, a compiled module in a Worker. */
 type Wasm = Parameters<typeof initWasm>[0] & Parameters<typeof initSatori>[0];
@@ -33,7 +33,7 @@ export interface Rendered {
 export interface Cards {
   /** The card as SVG, before rasterizing. Tests read it; nothing serves it. */
   svg(card: Card): Promise<string>;
-  /** The card as a 1200x630 PNG. */
+  /** The card as a PNG: 1200x630 for a link card, 1080x1350 for a posted plot photo. */
   render(card: Card): Promise<Rendered>;
 }
 
@@ -89,16 +89,18 @@ export function createCards(load: () => Promise<Engine>): Cards {
   async function svg(card: Card): Promise<string> {
     const { fonts, art } = await boot();
     // satori's types want a ReactNode; our plain element objects are what it reads.
+    const { width, height } = cardSize(card);
     return satori(element(card, art) as unknown as Parameters<typeof satori>[0], {
-      width: W,
-      height: H,
+      width,
+      height,
       fonts: fonts.map((f) => ({ name: f.name, data: f.data, weight: f.weight, style: "normal" })),
     });
   }
 
   async function render(card: Card): Promise<Rendered> {
-    const bytes = rasterize(unmask(await svg(card)));
-    return { bytes, type: "image/png", width: W, height: H };
+    const { width, height, scale } = cardSize(card);
+    const bytes = rasterize(unmask(await svg(card)), width * scale);
+    return { bytes, type: "image/png", width: width * scale, height: height * scale };
   }
 
   return { svg, render };
@@ -128,9 +130,9 @@ export function unmask(svg: string): string {
   );
 }
 
-function rasterize(markup: string): Uint8Array {
+function rasterize(markup: string, width = W): Uint8Array {
   const resvg = new Resvg(markup, {
-    fitTo: { mode: "width", value: W },
+    fitTo: { mode: "width", value: width },
     font: { loadSystemFonts: false },
   });
   try {

@@ -38,12 +38,18 @@ export function plotPhotoButton(): HTMLButtonElement {
       );
       return;
     }
-    openPhotoSheet(res.data.media.id, res.data.media.url);
+    openPhotoSheet(res.data.media);
   });
   return b;
 }
 
-function openPhotoSheet(mediaId: string, url: string) {
+function openPhotoSheet(media: {
+  id: string;
+  url: string;
+  width?: number | undefined;
+  height?: number | undefined;
+}) {
+  const { id: mediaId, url } = media;
   const text = h("input", {
     class: "field-input",
     attrs: {
@@ -67,7 +73,12 @@ function openPhotoSheet(mediaId: string, url: string) {
     isMediaUrl(url)
       ? h("img", {
           class: "plot-photo-img",
-          attrs: { src: url, alt: "Your plot from above", width: 1200, height: 630 },
+          attrs: {
+            src: url,
+            alt: "Your plot from above",
+            width: media.width ?? 1080,
+            height: media.height ?? 1350,
+          },
         })
       : null,
     h("label", { class: "field-label", attrs: { for: "plot-photo-text" }, text: "Say something" }),

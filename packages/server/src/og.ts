@@ -5,6 +5,7 @@ import {
   type PageCard,
   type PostCard,
   type ProfileCard,
+  probeImage,
   type Rendered,
 } from "@terrakin/cards";
 import type { PostView, ProfileView } from "@terrakin/protocol";
@@ -171,6 +172,8 @@ function postSpec(p: PostView): CardSpec {
     },
     text: p.text,
     image: mediaId(photo?.url),
+    // A plot photo has a place and its own frame; a scene photo has a place too but is wide.
+    ...(photo?.place ? { imageFramed: true } : {}),
     likes: heartCount(p),
     replies: p.replyCount,
     date: p.createdAt,
@@ -488,8 +491,22 @@ async function materialize(spec: CardSpec, loadMedia: CardDeps["loadMedia"]): Pr
     return { ...spec, person: { ...spec.person, avatar: await picture(spec.person.avatar) } };
   }
   if (spec.kind === "post") {
-    const [avatar, image] = await Promise.all([picture(spec.author.avatar), picture(spec.image)]);
-    return { ...spec, author: { ...spec.author, avatar }, image };
+    const [avatar, photo] = await Promise.all([
+      picture(spec.author.avatar),
+      spec.image ? loadMedia(spec.image).catch(() => undefined) : undefined,
+    ]);
+    const image = photo ? imageDataUri(photo) : undefined;
+    const size = image && photo ? probeImage(photo) : undefined;
+    const imageAspect = size && size.height > 0 ? size.width / size.height : undefined;
+    // Only a tall plot photo is drawn bare; a wide one with a place (a scene photo) keeps the border.
+    const imageFramed = spec.imageFramed === true && imageAspect !== undefined && imageAspect < 1;
+    return {
+      ...spec,
+      author: { ...spec.author, avatar },
+      image,
+      imageAspect,
+      ...(imageFramed ? { imageFramed } : { imageFramed: undefined }),
+    };
   }
   return spec;
 }

@@ -26,7 +26,7 @@ import {
   samples,
 } from "./samples";
 import { nightWash } from "./sky";
-import { type Card, element, H, W } from "./templates";
+import { type Card, cardSize, element, H, POSTED, W } from "./templates";
 import { cardText, clip, count, drawable } from "./text";
 
 const require = createRequire(import.meta.url);
@@ -46,9 +46,10 @@ async function textNodes(card: Card) {
     data: readFileSync(require.resolve(f.file)),
   }));
   const nodes: { text: string; left: number; top: number; width: number; height: number }[] = [];
+  const { width, height } = cardSize(card);
   await satori(element(card) as never, {
-    width: W,
-    height: H,
+    width,
+    height,
     fonts,
     onNodeDetected: (n) => {
       if (n.textContent?.trim()) nodes.push({ ...n, text: n.textContent });
@@ -64,7 +65,7 @@ const picture = async () => {
 };
 
 describe("cards", () => {
-  it("renders every template as a 1200x630 PNG within a time budget", async () => {
+  it("renders every template as a 1200x630 PNG, and a posted photo 1080x1350, within a time budget", async () => {
     await cards.render({ kind: "site" }); // boot the wasm once
     const photo = await picture();
     for (const [name, card] of samples({ avatar: photo, photo })) {
@@ -73,7 +74,10 @@ describe("cards", () => {
       const started = process.cpuUsage();
       const out = await cards.render(card);
       const { user, system } = process.cpuUsage(started);
-      expect(pngSize(out.bytes), name).toEqual({ width: 1200, height: 630 });
+      const posted = card.kind === "plot" && card.posted === true;
+      expect(pngSize(out.bytes), name).toEqual(
+        posted ? { width: 1080, height: 1350 } : { width: 1200, height: 630 },
+      );
       expect(out.type).toBe("image/png");
       // About 100 ms on a laptop; the budget leaves room for a slow CI machine.
       expect((user + system) / 1000, name).toBeLessThan(2_000);
@@ -224,17 +228,28 @@ describe("cards", () => {
     expect(await cards.svg({ ...samplePlot("Juniper"), homeArt })).not.toContain("rgba(26, 18, 54");
   });
 
-  it("puts a posted photo's brand on its frame, inside what a phone's crop of the picture shows", async () => {
+  it("draws a posted photo as a tall picture of its own, with its brand on the frame", async () => {
     const title = "Wild Meadow Workshop & Windmill Gardens!";
     const marks = ["Day 13 of Terrakin", "Autumn", "Rain"];
-    const nodes = await textNodes({ ...sampleLoft("Juniper"), title, stamp: marks, posted: true });
-    const brand = nodes.find((n) => n.text === "terrakin");
-    const line = nodes.find((n) => n.text.startsWith("Juniper's home"));
-    expect(brand && line && brand.top >= line.top + line.height, "under the caption").toBe(true);
-    // A 3:4 crop of the picture, narrower than any phone shows it, keeps every word whole.
-    const side = (W - (H * 3) / 4) / 2;
-    for (const n of nodes) {
-      expect(n.left >= side && n.left + n.width <= W - side, n.text).toBe(true);
+    for (const story of [undefined, "New since your last photo: 4 new blocks, a pet"]) {
+      const nodes = await textNodes({
+        ...sampleLoft("Juniper"),
+        title,
+        stamp: marks,
+        posted: true,
+        ...(story ? { story } : {}),
+      });
+      const brand = nodes.find((n) => n.text === "terrakin");
+      const stampLine = nodes.find((n) => n.text.startsWith("Day 13"));
+      expect(
+        brand && stampLine && brand.top >= stampLine.top + stampLine.height,
+        "under the stamp",
+      ).toBe(true);
+      // Every word sits on the frame, clear of the paper margin round it.
+      for (const n of nodes) {
+        expect(n.left >= 30 && n.left + n.width <= POSTED.width - 30, n.text).toBe(true);
+        expect(n.top + n.height <= POSTED.height - 30, n.text).toBe(true);
+      }
     }
     // The card for a link has the whole width: the photo on one side, its words and its brand on
     // the other, so no band of paper is left over (issue #80).

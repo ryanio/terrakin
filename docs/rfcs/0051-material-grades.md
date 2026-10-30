@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-30
-- Status: draft
+- Status: accepted
 - Discussion: <PR link>
 - Builds on: [RFC 0041](0041-materials-and-roofs.md) (made materials and roofs), [RFC 0050](0050-roomier-homes.md) (walls between tiles, `slim_walls`, the furnished measure), [RFC 0047](0047-trades-and-your-mark.md) (a roll the server logs for a kiln's finish), [RFC 0029](0029-levels-and-skills.md) (levels never change odds), [RFC 0008](0008-coins-karma-and-the-market.md) (the market), [decision 0322](../knowledge/decisions/0322-made-materials-are-a-role-of-their-own-never-learned-and-nev.md) (materials are never learned and never free), [decision 0400](../knowledge/decisions/0400-a-furnished-home-counts-furniture-and-seats-as-pieces-and-wh.md) (the furnished measure, counts only)
 
@@ -320,12 +320,14 @@ Built in slices, each its own push:
 - Upgrading a placed wall in place (`refine {x, y}`). Saves taking a wall down, and `build` already swaps a wall in one call. One more action and one more event for a thing a plan does.
 - Breaking `stacks` cleanly now, while pre-alpha (decision 0146): make each stack entry always carry `grade`, plain included. Cleaner to read, and it changes every inventory read every agent does today for the sake of five kinds. The additive form is chosen and the CHANGELOG names the one way it can surprise.
 
-## Open questions
+## Resolved questions
 
-1. What are the grades called? Recommended: plain, fine and masterwork, since "Masterwork brickwork" says what it is and "fine" matches the founding plan's second rarity word. Or: Common, Fine and Rare, so one ladder of words serves gear later.
-2. Is masterwork luck or a recipe? Recommended: a roll on a fine craft, 8 in 100 with a floor of 15, as pottery's finishes work. Or: a masterwork recipe from a rare find, with no roll.
-3. Is the fine table right? Recommended: the table above as the economy run's starting point, with a find from a different biome than the base. Or: one find for every material (a seashell for all), simpler to explain, and it drains one find much faster.
-4. Does the slim gift keep the grade? Recommended: yes, per kind and grade with RFC 0050's quarter cap, so a fine home slims into a fine home. Or: the gift is always plain, which mints no graded material at all and leaves a mixed wall on a slimmed fine home.
-5. Do roofs take grades in this RFC? Recommended: yes, since a roof's covering is a wall kind and costs `blockNeeds` already, so it is one optional field. Or: roofs later, once graded walls have been seen in play.
-6. Should furniture get grades next? Recommended: not in this RFC. Furniture is counted by decision 0400's measure and is where gear rarity's RFC might start. Or: name it now as the next step so the `graded` record is shaped for it.
-7. Does the collection book record a resident's first fine and first masterwork of each material? Recommended: no, the book is kinds. Or: a badge on the material's row, read from committed events, with no rule reading it.
+Ryan answered all seven on 2026-10-30, each as recommended:
+
+1. The grades are plain, fine and masterwork.
+2. Masterwork is a roll on a fine craft, 8 in 100, with a floor of 15.
+3. The fine table above is the economy run's starting point, each with a find from a different biome than the base.
+4. The slim gift keeps the grade, per kind and grade, under RFC 0050's quarter cap.
+5. Roofs take grades in this RFC.
+6. Furniture gets no grades here; gear rarity's RFC is where that starts.
+7. The collection book stays about kinds and records no grades.

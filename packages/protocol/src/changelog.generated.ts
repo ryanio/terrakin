@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-ten-new-pieces-of-furniture-from-a-rocking-chair-and-a-piano",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Ten new pieces of furniture, from a rocking chair and a piano to a fireplace",
+    "body": "`wardrobe`, `rocking_chair`, `piano`, `bathtub`, `fireplace`, `aquarium`, `coffee_table`, `coat_rack`, `floor_lamp` and `potted_tree` are made at a workbench from wood, stone, sea glass panes or an acorn. Each recipe is a card on the shop's Recipes shelf (15 to 30 coins), and the townsfolk teach them.\nThe rocking chair is a seat you `rest` on, the coffee table a surface you `put_on`, and the fireplace and the floor lamp glow after dark. See the furniture table in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"rocking_chair\", \"x\": 10, \"y\": 4, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-29-six-floorings-for-inside-a-home-from-carpet-to-parquet",
     "date": "2026-10-29",
     "kind": "added",

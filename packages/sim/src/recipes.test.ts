@@ -198,9 +198,23 @@ describe("set_page_edition", () => {
     // and the cozy pieces' cards (RFC 0044), so each widens the last and every card is a page.
     expect(edition(2).slice(0, PAGE_RECIPES.length)).toEqual([...PAGE_RECIPES]);
     expect(edition(3).slice(0, edition(2).length)).toEqual(edition(2));
-    // The pots' cards (RFC 0047) and the surfaces' (RFC 0050) came after edition 3, so they're no
-    // page until an edition of their own.
-    const later = new Set<string>(["desk", "side_table", "dresser"]);
+    // The pots' cards (RFC 0047), the surfaces' (RFC 0050) and the furniture after them came after
+    // edition 3, so they're no page until an edition of their own.
+    const later = new Set<string>([
+      "desk",
+      "side_table",
+      "dresser",
+      "wardrobe",
+      "rocking_chair",
+      "piano",
+      "bathtub",
+      "fireplace",
+      "aquarium",
+      "coffee_table",
+      "coat_rack",
+      "floor_lamp",
+      "potted_tree",
+    ]);
     expect(edition(3).sort()).toEqual(
       CARD_RECIPES.filter((r) => !isPotKind(r) && !later.has(r)).sort(),
     );
@@ -273,6 +287,16 @@ describe("the recipe lists", () => {
         "desk",
         "side_table",
         "dresser",
+        "wardrobe",
+        "rocking_chair",
+        "piano",
+        "bathtub",
+        "fireplace",
+        "aquarium",
+        "coffee_table",
+        "coat_rack",
+        "floor_lamp",
+        "potted_tree",
       ].sort(),
     );
     expect(CARD_SKUS).toContain("recipe:well");
@@ -326,6 +350,17 @@ describe("recipeCardPrice", () => {
       desk: 20,
       side_table: 15,
       dresser: 20,
+      // More for a home: 10 and 3 a thing used up, rounded to 5.
+      wardrobe: 25,
+      rocking_chair: 20,
+      piano: 30,
+      bathtub: 20,
+      fireplace: 25,
+      aquarium: 20,
+      coffee_table: 15,
+      coat_rack: 15,
+      floor_lamp: 20,
+      potted_tree: 20,
     });
   });
 

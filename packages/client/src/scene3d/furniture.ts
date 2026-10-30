@@ -2,7 +2,9 @@
  * Furniture from the workbench in 3D (RFC 0016): a table, a chair, a bookshelf of colored books, a
  * hooped barrel, a signpost, a lamp post that glows, a stone well with a roof, a low stone wall that
  * runs on to the walls beside it, a campfire, a flower box, a jack-o'-lantern lit from inside, and
- * the pieces you rest on (RFC 0044): an armchair, a sofa, and a bed.
+ * the pieces you rest on (RFC 0044): an armchair, a sofa, and a bed, the surfaces of roomier homes
+ * (RFC 0050), and a wardrobe, a rocking chair, a piano, a bathtub, a fireplace that burns, an
+ * aquarium, a coffee table, a coat rack, a floor lamp that glows, and a potted tree.
  * Each model is a few merged, shade-baked parts, placed with decor's `placeParts`, so a plot full of
  * chairs is one instanced draw per part (decision 0030). Lamps and fires glow after dark (decision
  * 0098) with an emissive shade and a soft pool of light on the ground, never a light of their own,
@@ -527,6 +529,412 @@ function bedParts(grain: Texture): Part[] {
   ];
 }
 
+// ---------- more for a home ----------
+
+const BRASS = 0xe7c27a;
+
+/** A wardrobe: a tall cabinet under a crown, two doors with brass knobs, on four short feet. */
+function wardrobeParts(grain: Texture): Part[] {
+  const feet = [-0.36, 0.36].flatMap((x) =>
+    [-0.24, 0.14].map((z) => box(0.08, 0.08, 0.08, [x, 0.04, z], [0, 0, 0], 0.02)),
+  );
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.86, 1.46, 0.5, [0, 0.81, -0.05], [0, 0, 0], 0.03),
+          box(0.94, 0.08, 0.56, [0, 1.58, -0.05], [0, 0, 0], 0.03),
+        ],
+        0.7,
+      ),
+      material: paper(hex(BLOCK_COLORS.wardrobe), grain),
+      cast: true,
+    },
+    { geometry: merged(feet, 0.8), material: paper(WOOD_DARK, grain), cast: true },
+    {
+      geometry: merged(
+        [-0.205, 0.205].map((x) => box(0.36, 1.26, 0.02, [x, 0.82, 0.205], [0, 0, 0], 0.01)),
+        0.9,
+      ),
+      material: paper(0x6a452c, grain),
+      cast: false,
+    },
+    {
+      geometry: merged(
+        [-0.04, 0.04].map((x) => box(0.04, 0.06, 0.04, [x, 0.82, 0.225], [0, 0, 0], 0.01)),
+        1,
+      ),
+      material: paper(BRASS, grain),
+      cast: false,
+    },
+  ];
+}
+
+/** One rocker: an arc along the tile from north to south, its low point on the ground at `x`. */
+function rocker(x: number): BufferGeometry {
+  const radius = 1.3;
+  const arc = 0.62;
+  const g = new TorusGeometry(radius, 0.03, 4, 10, arc);
+  g.rotateZ(-Math.PI / 2 - arc / 2);
+  g.translate(0, radius + 0.03, 0);
+  g.rotateY(Math.PI / 2);
+  g.translate(x, 0, 0);
+  return g.toNonIndexed();
+}
+
+/**
+ * A rocking chair (a seat, RFC 0044): a chair's seat and a back of spindles, its legs set on two
+ * rockers. Its seat is the chair's height, so `restPose3d` sits a resident in it the same way.
+ */
+function rockingChairParts(grain: Texture): Part[] {
+  const legs = [-0.2, 0.2].flatMap((x) =>
+    [-0.17, 0.22].map((z) => box(0.06, 0.42, 0.06, [x, 0.25, z], [0, 0, 0], 0.02)),
+  );
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.5, 0.07, 0.5, [0, 0.47, 0.03], [0, 0, 0], 0.02),
+          box(0.06, 0.64, 0.06, [-0.22, 0.79, -0.2], [0, 0, 0], 0.02),
+          box(0.06, 0.64, 0.06, [0.22, 0.79, -0.2], [0, 0, 0], 0.02),
+          box(0.52, 0.11, 0.06, [0, 1.04, -0.2], [0, 0, 0], 0.02),
+          ...[-0.1, 0, 0.1].map((x) => box(0.035, 0.46, 0.035, [x, 0.76, -0.2], [0, 0, 0], 0.01)),
+          ...legs,
+        ],
+        0.75,
+      ),
+      material: paper(hex(BLOCK_COLORS.rocking_chair), grain),
+      cast: true,
+    },
+    {
+      geometry: merged([rocker(-0.2), rocker(0.2)], 0.8),
+      material: paper(WOOD_DARK, grain),
+      cast: true,
+    },
+  ];
+}
+
+/** An upright piano: a tall dark case, a keyboard of white and black keys, music, and pedals. */
+function pianoParts(grain: Texture): Part[] {
+  const blackKeys = [-0.33, -0.25, -0.09, -0.01, 0.07, 0.23, 0.31].map((x) =>
+    box(0.04, 0.03, 0.11, [x, 0.835, 0.09], [0, 0, 0], 0.005),
+  );
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.94, 1.26, 0.36, [0, 0.66, -0.13], [0, 0, 0], 0.03),
+          box(0.96, 0.05, 0.4, [0, 1.3, -0.13], [0, 0, 0], 0.02),
+          box(0.94, 0.08, 0.28, [0, 0.74, 0.12], [0, 0, 0], 0.02),
+          ...[-0.43, 0.43].map((x) => box(0.07, 0.7, 0.07, [x, 0.35, 0.21], [0, 0, 0], 0.02)),
+        ],
+        0.7,
+      ),
+      material: paper(hex(BLOCK_COLORS.piano), grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [
+          box(0.86, 0.04, 0.2, [0, 0.8, 0.14], [0, 0, 0], 0.01),
+          box(0.28, 0.2, 0.02, [0, 1.0, 0.06], [-0.2, 0, 0], 0.005),
+        ],
+        0.95,
+      ),
+      material: paper(LINEN, grain),
+      cast: false,
+    },
+    { geometry: merged(blackKeys, 1), material: paper(0x1f1a18, grain), cast: false },
+    {
+      geometry: merged(
+        [-0.07, 0.07].map((x) => box(0.05, 0.02, 0.09, [x, 0.06, 0.1], [0, 0, 0], 0.005)),
+        1,
+      ),
+      material: paper(BRASS, grain),
+      cast: false,
+    },
+  ];
+}
+
+/** A bathtub: a deep enamel tub with a rolled rim, full of water and bubbles, on brass feet. */
+function bathtubParts(grain: Texture): Part[] {
+  const feet = [-0.34, 0.34].flatMap((x) =>
+    [-0.18, 0.18].map((z) => {
+      const g = new IcosahedronGeometry(0.055, 0);
+      g.translate(x, 0.05, z);
+      return g.toNonIndexed();
+    }),
+  );
+  const tap = new CylinderGeometry(0.025, 0.025, 0.2, 6);
+  tap.translate(0.42, 0.62, 0);
+  const bubbles = [
+    [-0.25, 0.04, 0.07],
+    [-0.15, -0.08, 0.05],
+    [0.05, 0.1, 0.06],
+    [0.2, -0.04, 0.045],
+  ].map(([x, z, r]) => {
+    const g = new IcosahedronGeometry(r as number, 0);
+    g.translate(x as number, 0.53, z as number);
+    return g.toNonIndexed();
+  });
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.9, 0.42, 0.54, [0, 0.29, 0], [0, 0, 0], 0.15),
+          box(0.96, 0.07, 0.07, [0, 0.5, -0.27], [0, 0, 0], 0.03),
+          box(0.96, 0.07, 0.07, [0, 0.5, 0.27], [0, 0, 0], 0.03),
+          box(0.07, 0.07, 0.6, [-0.45, 0.5, 0], [0, 0, 0], 0.03),
+          box(0.07, 0.07, 0.6, [0.45, 0.5, 0], [0, 0, 0], 0.03),
+        ],
+        0.75,
+      ),
+      material: paper(hex(BLOCK_COLORS.bathtub), grain),
+      cast: true,
+    },
+    {
+      geometry: merged([box(0.84, 0.02, 0.48, [0, 0.5, 0], [0, 0, 0], 0.005)], 1),
+      material: paper(hex("#9fd3e0"), null),
+      cast: false,
+    },
+    {
+      geometry: merged([...feet, tap.toNonIndexed()], 0.85),
+      material: paper(BRASS, grain),
+      cast: true,
+    },
+    { geometry: merged(bubbles, 1), material: paper(0xffffff, grain), cast: false },
+  ];
+}
+
+/**
+ * A fireplace: a stone chimney breast with an opening at the front, a wooden mantel, and logs
+ * burning on the hearth, lit warm after dark like a campfire.
+ */
+function fireplaceParts(stage: Stage, grain: Texture): Part[] {
+  const logs = [0.5, -0.5].map((turn, i) => {
+    const log = new CylinderGeometry(0.04, 0.045, 0.4, 6);
+    log.rotateZ(Math.PI / 2);
+    log.rotateY(turn);
+    log.translate(0, 0.06 + i * 0.045, -0.04);
+    return log.toNonIndexed();
+  });
+  const outer = new ConeGeometry(0.12, 0.34, 7);
+  outer.translate(0, 0.27, -0.04);
+  const inner = new ConeGeometry(0.07, 0.22, 6);
+  inner.translate(0, 0.22, -0.01);
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.94, 1.2, 0.12, [0, 0.6, -0.26], [0, 0, 0], 0.03),
+          box(0.24, 0.9, 0.44, [-0.35, 0.45, -0.02], [0, 0, 0], 0.04),
+          box(0.24, 0.9, 0.44, [0.35, 0.45, -0.02], [0, 0, 0], 0.04),
+          box(0.94, 0.3, 0.44, [0, 0.75, -0.02], [0, 0, 0], 0.04),
+          box(0.56, 0.36, 0.3, [0, 1.07, -0.18], [0, 0, 0], 0.03),
+        ],
+        0.65,
+      ),
+      material: paper(hex(BLOCK_COLORS.fireplace), grain),
+      cast: true,
+    },
+    {
+      geometry: merged([box(0.48, 0.6, 0.02, [0, 0.3, -0.19], [0, 0, 0], 0.005)], 1),
+      material: paper(0x3a2a22, null),
+      cast: false,
+    },
+    {
+      geometry: merged(
+        [
+          box(1.02, 0.07, 0.56, [0, 0.93, 0], [0, 0, 0], 0.02),
+          box(0.9, 0.05, 0.22, [0, 0.025, 0.31], [0, 0, 0], 0.02),
+        ],
+        0.8,
+      ),
+      material: paper(STONE_CAP, grain),
+      cast: true,
+    },
+    { geometry: merged(logs, 0.8), material: paper(WOOD_DARK, grain), cast: false },
+    {
+      geometry: merged([outer.toNonIndexed()], 1),
+      material: flicker(stage, hex(BLOCK_COLORS.campfire), grain, 0.75),
+      cast: false,
+    },
+    {
+      geometry: merged([inner.toNonIndexed()], 1),
+      material: flicker(stage, BRAND.sun, grain, 0.9),
+      cast: false,
+    },
+  ];
+}
+
+/** An aquarium: a tank of water on a wooden stand, with sand, weed and two fish at the front. */
+function aquariumParts(grain: Texture): Part[] {
+  const front = 0.215;
+  const fish = (x: number, y: number, s: number, color: number) => [
+    colored(box(0.1 * s, 0.06 * s, 0.02, [x, y, front], [0, 0, 0], 0.01), color, 1),
+    colored(
+      box(0.04 * s, 0.06 * s, 0.02, [x - 0.07 * s, y, front], [0, 0, Math.PI / 4], 0.005),
+      color,
+      1,
+    ),
+  ];
+  const sea = [
+    colored(box(0.82, 0.06, 0.02, [0, 0.56, front], [0, 0, 0], 0.01), hex("#e6cfa3"), 1),
+    colored(box(0.025, 0.24, 0.02, [-0.3, 0.68, front], [0, 0, 0.12], 0.005), BRAND.moss, 1),
+    colored(box(0.025, 0.18, 0.02, [-0.24, 0.65, front], [0, 0, -0.15], 0.005), BRAND.moss, 1),
+    ...fish(0.08, 0.8, 1, BRAND.sun),
+    ...fish(0.26, 0.68, 0.7, hex("#e58fb6")),
+  ];
+  return [
+    {
+      geometry: merged([box(0.88, 0.5, 0.44, [0, 0.25, 0], [0, 0, 0], 0.03)], 0.7),
+      material: paper(hex(BLOCK_COLORS.table), grain),
+      cast: true,
+    },
+    {
+      geometry: merged([box(0.84, 0.46, 0.4, [0, 0.76, 0], [0, 0, 0], 0.02)], 0.85),
+      material: paper(hex(BLOCK_COLORS.aquarium), grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [
+          box(0.9, 0.05, 0.46, [0, 1.01, 0], [0, 0, 0], 0.015),
+          box(0.9, 0.04, 0.46, [0, 0.52, 0], [0, 0, 0], 0.015),
+        ],
+        0.85,
+      ),
+      material: paper(WOOD_DARK, grain),
+      cast: false,
+    },
+    mixedPart(sea, grain, false),
+  ];
+}
+
+/** The top of a coffee table, in tile units above the floor: where a small thing stands on it. */
+const COFFEE_TOP = 0.42;
+
+/** A coffee table (a surface, RFC 0050): a long low top on four short legs, with a shelf under it. */
+function coffeeTableParts(grain: Texture): Part[] {
+  const legs = [-0.4, 0.4].flatMap((x) =>
+    [-0.21, 0.21].map((z) =>
+      box(0.06, COFFEE_TOP - 0.05, 0.06, [x, (COFFEE_TOP - 0.05) / 2, z], [0, 0, 0], 0.02),
+    ),
+  );
+  return [
+    {
+      geometry: merged(
+        [box(0.94, 0.06, 0.56, [0, COFFEE_TOP - 0.03, 0], [0, 0, 0], 0.03), ...legs],
+        0.75,
+      ),
+      material: paper(hex(BLOCK_COLORS.coffee_table), grain),
+      cast: true,
+    },
+    {
+      geometry: merged([box(0.8, 0.03, 0.44, [0, 0.12, 0], [0, 0, 0], 0.01)], 0.85),
+      material: paper(WOOD_DARK, grain),
+      cast: false,
+    },
+  ];
+}
+
+/** A coat rack: a pole on crossed feet with hooks at the top, a coat on one and a scarf on another. */
+function coatRackParts(grain: Texture): Part[] {
+  const pole = new CylinderGeometry(0.03, 0.035, 1.46, 6);
+  pole.translate(0, 0.78, 0);
+  const knob = new IcosahedronGeometry(0.055, 0);
+  knob.translate(0, 1.55, 0);
+  const hooks = [0, Math.PI / 2, Math.PI, -Math.PI / 2].map((turn) => {
+    const g = box(0.16, 0.03, 0.03, [0.08, 1.4, 0], [0, 0, 0.5], 0.01);
+    g.rotateY(turn);
+    return g;
+  });
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.52, 0.05, 0.07, [0, 0.025, 0], [0, Math.PI / 4, 0], 0.02),
+          box(0.52, 0.05, 0.07, [0, 0.025, 0], [0, -Math.PI / 4, 0], 0.02),
+          pole.toNonIndexed(),
+          knob.toNonIndexed(),
+          ...hooks,
+        ],
+        0.75,
+      ),
+      material: paper(hex(BLOCK_COLORS.coat_rack), grain),
+      cast: true,
+    },
+    mixedPart(
+      [
+        colored(box(0.24, 0.56, 0.12, [0.15, 1.12, 0.02], [0, 0, 0.12], 0.05), hex("#5f86b5")),
+        colored(box(0.08, 0.42, 0.03, [-0.15, 1.2, 0], [0, 0, -0.1], 0.01), BRAND.clay),
+      ],
+      grain,
+    ),
+  ];
+}
+
+/** A floor lamp: a cloth shade on a tall pole and a round stone foot, glowing warm after dark. */
+function floorLampParts(stage: Stage, grain: Texture): Part[] {
+  const foot = new CylinderGeometry(0.17, 0.19, 0.05, 10);
+  foot.translate(0, 0.025, 0);
+  const pole = new CylinderGeometry(0.022, 0.022, 1.26, 6);
+  pole.translate(0, 0.68, 0);
+  const shade = new CylinderGeometry(0.13, 0.23, 0.3, 8);
+  shade.translate(0, 1.42, 0);
+  return [
+    { geometry: merged([foot.toNonIndexed()], 0.8), material: paper(STONE_CAP, grain), cast: true },
+    { geometry: merged([pole.toNonIndexed()], 0.8), material: paper(WOOD_DARK, grain), cast: true },
+    {
+      geometry: merged([shade.toNonIndexed()], 1),
+      material: flicker(stage, hex(BLOCK_COLORS.floor_lamp), grain, 0.6),
+      cast: false,
+    },
+  ];
+}
+
+/** A potted tree: a little oak in a wooden tub with iron hoops. */
+function pottedTreeParts(grain: Texture): Part[] {
+  const tub = new CylinderGeometry(0.25, 0.2, 0.34, 10);
+  tub.translate(0, 0.17, 0);
+  const hoops = [0.08, 0.27].map((y) => {
+    const t = new TorusGeometry(0.235 - y * 0.08, 0.018, 4, 14);
+    t.rotateX(Math.PI / 2);
+    t.translate(0, y, 0);
+    return t.toNonIndexed();
+  });
+  const trunk = new CylinderGeometry(0.035, 0.05, 0.6, 6);
+  trunk.translate(0, 0.6, 0);
+  const canopy = [
+    [0, 1.05, 0, 0.3],
+    [-0.17, 0.92, 0.05, 0.2],
+    [0.17, 0.95, -0.04, 0.21],
+    [0.02, 1.25, 0.02, 0.18],
+  ].map(([x, y, z, r]) => {
+    const g = new IcosahedronGeometry(r as number, 0);
+    g.translate(x as number, y as number, z as number);
+    return g.toNonIndexed();
+  });
+  return [
+    {
+      geometry: merged([tub.toNonIndexed()], 0.75),
+      material: paper(hex(BLOCK_COLORS.table), grain),
+      cast: true,
+    },
+    { geometry: merged(hoops, 0.9), material: paper(IRON, grain), cast: true },
+    {
+      geometry: merged([trunk.toNonIndexed()], 0.8),
+      material: paper(WOOD_DARK, grain),
+      cast: true,
+    },
+    {
+      geometry: merged(canopy, 0.7),
+      material: paper(hex(BLOCK_COLORS.potted_tree), grain),
+      cast: true,
+    },
+  ];
+}
+
 function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
   switch (kind) {
     case "table":
@@ -563,6 +971,26 @@ function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
       return sideTableParts(grain);
     case "dresser":
       return dresserParts(grain);
+    case "wardrobe":
+      return wardrobeParts(grain);
+    case "rocking_chair":
+      return rockingChairParts(grain);
+    case "piano":
+      return pianoParts(grain);
+    case "bathtub":
+      return bathtubParts(grain);
+    case "fireplace":
+      return fireplaceParts(stage, grain);
+    case "aquarium":
+      return aquariumParts(grain);
+    case "coffee_table":
+      return coffeeTableParts(grain);
+    case "coat_rack":
+      return coatRackParts(grain);
+    case "floor_lamp":
+      return floorLampParts(stage, grain);
+    case "potted_tree":
+      return pottedTreeParts(grain);
   }
 }
 

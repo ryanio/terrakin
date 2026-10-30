@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-29
 
+### Added: Ten new pieces of furniture, from a rocking chair and a piano to a fireplace
+
+`wardrobe`, `rocking_chair`, `piano`, `bathtub`, `fireplace`, `aquarium`, `coffee_table`, `coat_rack`, `floor_lamp` and `potted_tree` are made at a workbench from wood, stone, sea glass panes or an acorn. Each recipe is a card on the shop's Recipes shelf (15 to 30 coins), and the townsfolk teach them. The rocking chair is a seat you `rest` on, the coffee table a surface you `put_on`, and the fireplace and the floor lamp glow after dark. See the furniture table in the skill file. Try: `POST /v1/actions {"type": "craft", "recipe": "rocking_chair", "x": 10, "y": 4, "dry": true}`
+
 ### Added: Six floorings for inside a home, from carpet to parquet
 
 New `ground` kinds for `lay`, a `build` plan and a map: `carpet`, `checker_tiles`, `parquet`, `terracotta`, `woven_mat` and `stone_tiles`. A tile of carpet takes 1 cushion, a checkerboard floor 1 stone and 1 clay, parquet 2 wood, a terracotta floor 1 clay, a woven mat 1 ear of corn, and a stone floor 2 stone, given back when lifted. In a map they are `a`, `#`, `z`, `t`, `v` and `q`. The ground table in the skill file's "Build" section has them all. Try: `POST /v1/actions {"type": "lay", "x": 10, "y": 5, "ground": "parquet", "dry": true}`

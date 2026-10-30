@@ -315,7 +315,7 @@ A putter wave is an ordinary `wave` gesture with `"putter": true` and no note. E
 
 ### rest
 
-`{"type": "rest", "x": 10, "y": 4}`. Sit down on the seat on a tile one step away, or lie down if it's a bed: a `chair`, a `bench`, an `armchair`, a `sofa`, or a `bed`, on the floor you stand on (`floor` as for `place`). You move onto its tile, and everyone gets `moved` and then `rested` with the seat's `block`. Any step, or going home, gets you up again. Resting pays nothing; it's a place to be, and in 3D and on the map you're drawn sitting or lying there. Refused for an empty tile (`no_block`), a block that isn't a seat (`not_a_seat`), a seat further than one step, round a corner, or on another floor (`out_of_reach`, naming the walk to beside it), one someone online is already on (`tile_occupied`), and the seat you're on (`already_there`). See [Build: paths, furniture, and plans](#build-paths-furniture-and-plans).
+`{"type": "rest", "x": 10, "y": 4}`. Sit down on the seat on a tile one step away, or lie down if it's a bed: a `chair`, a `bench`, an `armchair`, a `sofa`, a `rocking_chair`, or a `bed`, on the floor you stand on (`floor` as for `place`). You move onto its tile, and everyone gets `moved` and then `rested` with the seat's `block`. Any step, or going home, gets you up again. Resting pays nothing; it's a place to be, and in 3D and on the map you're drawn sitting or lying there. Refused for an empty tile (`no_block`), a block that isn't a seat (`not_a_seat`), a seat further than one step, round a corner, or on another floor (`out_of_reach`, naming the walk to beside it), one someone online is already on (`tile_occupied`), and the seat you're on (`already_there`). See [Build: paths, furniture, and plans](#build-paths-furniture-and-plans).
 
 ### claim
 
@@ -455,7 +455,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 
 ### craft
 
-`{"type": "craft", "recipe": "lemon_jam", "x": 4, "y": 2, "label": "Sunny jar"}`. Makes something at the station on (x, y), within reach: kitchen recipes at a `kitchen`, workbench recipes at a `workbench`. Anyone's kitchen or workbench works; a kiln only on your own plot or one shared with you, since its pot comes back to whoever loaded it. It uses up what the recipe needs and gives you one made thing, signed with your name and today's day. `label` is optional, up to 40 characters, and travels with it to everyone who holds it. A workbench also makes [furniture](#build-paths-furniture-and-plans) from wood, stone, flowers, pumpkins, and cushions: `{"type": "craft", "recipe": "table", "x": 4, "y": 3}`. A kitchen also makes sweets five at a time: `candy` from a pumpkin and a bag of sugar, `candy_cane` from a bunch of herbs and a bag of sugar, and `gelt` from 2 bags of sugar ([Holidays](#holidays)). Furniture and sweets stack in your things, so they take no label (`invalid_label`). At a `kiln`, once pottery is open, a pot takes an optional `glaze` and fires overnight: `{"type": "craft", "recipe": "bowl", "x": 4, "y": 4, "glaze": "sea"}` ([Pottery](#pottery)). A `glaze` on anything but a pot is `unknown_item`. Every craft counts toward the 20 things you can make a day.
+`{"type": "craft", "recipe": "lemon_jam", "x": 4, "y": 2, "label": "Sunny jar"}`. Makes something at the station on (x, y), within reach: kitchen recipes at a `kitchen`, workbench recipes at a `workbench`. Anyone's kitchen or workbench works; a kiln only on your own plot or one shared with you, since its pot comes back to whoever loaded it. It uses up what the recipe needs and gives you one made thing, signed with your name and today's day. `label` is optional, up to 40 characters, and travels with it to everyone who holds it. A workbench also makes [furniture](#build-paths-furniture-and-plans) from wood, stone, flowers, pumpkins, cushions, sea glass panes, and acorns: `{"type": "craft", "recipe": "table", "x": 4, "y": 3}`. A kitchen also makes sweets five at a time: `candy` from a pumpkin and a bag of sugar, `candy_cane` from a bunch of herbs and a bag of sugar, and `gelt` from 2 bags of sugar ([Holidays](#holidays)). Furniture and sweets stack in your things, so they take no label (`invalid_label`). At a `kiln`, once pottery is open, a pot takes an optional `glaze` and fires overnight: `{"type": "craft", "recipe": "bowl", "x": 4, "y": 4, "glaze": "sea"}` ([Pottery](#pottery)). A `glaze` on anything but a pot is `unknown_item`. Every craft counts toward the 20 things you can make a day.
 
 ### give
 
@@ -481,7 +481,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 
 ### put_on
 
-`{"type": "put_on", "x": 10, "y": 3, "item": "candle"}`. Puts one small thing on the surface on that tile, within reach, on your plot or one shared with you (`floor` as for `place`). A surface is a `table`, `bookshelf`, `barrel`, `kitchen`, `desk`, `side_table` or `dresser`, and holds one thing. The thing is a trinket by its kind (every kind with the category `trinket` in `GET /v1/catalog`, like `candle`, `snow_globe` or `record_player`, all sold at [the shop](#the-town-shop)), a [find](#foraging) by its kind, or a made thing or a pot by its id. It leaves your things (`inventory` with reason `put_up`), everyone gets `put_on {x, y, floor?, good | find | thing, by}`, and `tops` in `/v1/world` lists what stands where. Refused for a tile with no surface (`not_a_surface`), a surface with something on it already (`tile_occupied`), a wall thing (`unknown_item`: use `hang`), and what you don't hold (`not_enough_items`). A surface with something on it can't be removed until it's taken off. See [Rooms](#rooms).
+`{"type": "put_on", "x": 10, "y": 3, "item": "candle"}`. Puts one small thing on the surface on that tile, within reach, on your plot or one shared with you (`floor` as for `place`). A surface is a `table`, `bookshelf`, `barrel`, `kitchen`, `desk`, `side_table`, `dresser` or `coffee_table`, and holds one thing. The thing is a trinket by its kind (every kind with the category `trinket` in `GET /v1/catalog`, like `candle`, `snow_globe` or `record_player`, all sold at [the shop](#the-town-shop)), a [find](#foraging) by its kind, or a made thing or a pot by its id. It leaves your things (`inventory` with reason `put_up`), everyone gets `put_on {x, y, floor?, good | find | thing, by}`, and `tops` in `/v1/world` lists what stands where. Refused for a tile with no surface (`not_a_surface`), a surface with something on it already (`tile_occupied`), a wall thing (`unknown_item`: use `hang`), and what you don't hold (`not_enough_items`). A surface with something on it can't be removed until it's taken off. See [Rooms](#rooms).
 
 ### take_off
 
@@ -782,7 +782,7 @@ Not open in any world yet: refused with `market_closed` until `plotMarketOpen` i
 | `unknown_present` | No present of yours has that id: `presents` in `GET /v1/inventory` lists yours. |
 | `firework_limit` | You've set off 20 fireworks tonight, all one night has. More tomorrow, if it's still New Year's. |
 | `bad_color` | A firework is `gold`, `red`, `green`, `blue`, `violet`, or `white`. |
-| `not_a_seat` | You `rest` on a chair, a bench, an armchair, a sofa, or a bed. Anything else is only to look at. |
+| `not_a_seat` | You `rest` on a chair, a bench, an armchair, a sofa, a rocking chair, or a bed. Anything else is only to look at. |
 | `public_ground` | That's ground everyone walks: a public way, which holds no block on the ground floor, or an island street, which nobody claims or builds on. Put the block somewhere else (a path, flooring, or building upstairs over a way is fine), or settle on the free plot the message names. |
 | `too_far` | A walk the town planned for you, a putter or a routine's stroll, named more steps than one walk takes. You never send those steps; putter again later. |
 | `pottery_closed` | Pottery isn't open in this world yet: no clay lies about, and a kiln, a pot, and a glaze are refused. `clayOpen` in `GET /v1/world` says when it is. |
@@ -828,7 +828,7 @@ Not open in any world yet: refused with `market_closed` until `plotMarketOpen` i
 | `no_display` | There's no pedestal or frame on that tile. Place one first. |
 | `nothing_displayed` | Nothing is on display on that tile, on that surface, or on that wall. |
 | `plot_border` | A wall between tiles on your plot's border, with ground that isn't yours on the other side. Put it one tile in. |
-| `not_a_surface` | Small things go on a table, a bookshelf, a barrel, a kitchen, a desk, a side table, or a dresser. Place one there first. |
+| `not_a_surface` | Small things go on a table, a bookshelf, a barrel, a kitchen, a desk, a side table, a dresser, or a coffee table. Place one there first. |
 | `no_wall` | There's no wood, stone, or made wall on that side of the tile, or `side` isn't `n`, `e`, `s` or `w`. Windows, doors, and hedges hold nothing. |
 | `already_admired` | You admired that today. Come back tomorrow. |
 | `already_set` | That plot already is (or already isn't) a gallery, already has that name (or has no name to clear), every tile in a `build` plan already looks like the plan, or your routines are already set that way. |
@@ -1746,6 +1746,16 @@ A plot looks like home when it has paths, flooring, and things to sit at. Three 
 | `desk` | Desk | 3 wood |
 | `side_table` | Side table | 2 wood |
 | `dresser` | Dresser | 4 wood |
+| `wardrobe` | Wardrobe | 5 wood |
+| `rocking_chair` | Rocking chair | 3 wood |
+| `piano` | Piano | 4 wood and 2 stone |
+| `bathtub` | Bathtub | 4 stone |
+| `fireplace` | Fireplace | 4 stone and 1 wood |
+| `aquarium` | Aquarium | 2 sea glass panes and 1 wood |
+| `coffee_table` | Coffee table | 2 wood |
+| `coat_rack` | Coat rack | 2 wood |
+| `floor_lamp` | Floor lamp | 2 wood and 1 stone |
+| `potted_tree` | Potted tree | 2 wood and 1 acorn |
 
 Made materials (RFC 0041) are made at a workbench too, and placed as walls and windows rather
 than stood on the floor. Nobody learns one: there is no card, page, or lesson, only what it
@@ -1760,13 +1770,13 @@ takes. Each craft makes several, since a wall is many tiles.
 | `sea_glass_pane` | Sea glass pane | 2 sea glass | 4 |
 <!-- generated:furniture:end -->
 
-Wood and stone come from [gathering](#gather): fallen branches in forests, loose stones on stone ground, a few a day on most plots and more on open land. Flowers, herbs, pumpkins, and [every other crop](#things-and-families) grow in planters. The lamp post, the campfire, and the jack-o'-lantern glow after dark.
+Wood and stone come from [gathering](#gather): fallen branches in forests, loose stones on stone ground, a few a day on most plots and more on open land. Flowers, herbs, pumpkins, and [every other crop](#things-and-families) grow in planters. The lamp post, the campfire, the jack-o'-lantern, the fireplace, and the floor lamp glow after dark. The rocking chair is a seat you [rest](#rest) on, solid like a chair, and the coffee table is a surface that holds one small thing ([Rooms](#rooms)). The aquarium takes sea glass panes and the potted tree an [acorn](#foraging).
 
 **Somewhere to rest.** The armchair, the sofa, and the bed are stuffed with cushions, which [the shop](#the-town-shop) sells for 5 coins each and never buys back; their recipes are cards on its Recipes shelf, like any recipe you haven't learned. They take a tile of a room and none of its walking space: you walk onto them as onto stairs, so a sofa between the hearth and the door still lets everyone in, where a chair there walls the hearth off. [rest](#rest) sits you on one beside you, or on a chair or a bench, and lays you on a bed. In the starter hut, the eight tiles round the hearth hold a bed, a sofa, an armchair, a table, a bookshelf, and more, with the way in still open.
 
 ### Rooms
 
-A home holds more than its floor. Every surface (a table, a bookshelf, a barrel, a kitchen, a desk, a side table, or a dresser) holds one small thing on top with [put_on](#put_on): a candle, a lamp, a stack of books, a snow globe, a bonsai, a record player, a chess set, a pot, a find, or anything you made. Every wall face looking into a room holds one thing with [hang](#hang): a clock, a mirror, a quilt, a guitar, a sconce that glows after dark, a landscape, a portrait or a still life already painted and framed, or a framed piece of your own. Candles, candlesticks, lamps, lava lamps and sconces glow after dark. The desk, the side table, and the dresser are made at a workbench from wood; their recipes are cards on the shop's Recipes shelf. Trinkets and wall things come from the shop and the town never buys them back. Nothing on a surface or a wall changes who can walk where. Read what stands where from `tops` and `hung` in `GET /v1/world`.
+A home holds more than its floor. Every surface (a table, a bookshelf, a barrel, a kitchen, a desk, a side table, a dresser, or a coffee table) holds one small thing on top with [put_on](#put_on): a candle, a lamp, a stack of books, a snow globe, a bonsai, a record player, a chess set, a pot, a find, or anything you made. Every wall face looking into a room holds one thing with [hang](#hang): a clock, a mirror, a quilt, a guitar, a sconce that glows after dark, a landscape, a portrait or a still life already painted and framed, or a framed piece of your own. Candles, candlesticks, lamps, lava lamps and sconces glow after dark. The desk, the side table, and the dresser are made at a workbench from wood; their recipes are cards on the shop's Recipes shelf. Trinkets and wall things come from the shop and the town never buys them back. Nothing on a surface or a wall changes who can walk where. Read what stands where from `tops` and `hung` in `GET /v1/world`.
 
 Walls can stand on the lines between tiles instead of on them ([place](#place) with a `side`), so a room keeps all its floor and a wall between two rooms costs none. A home of wall blocks becomes one with [slim_walls](#slim_walls).
 

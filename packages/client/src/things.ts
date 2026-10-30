@@ -764,7 +764,7 @@ export function newsLine(
       if (event.residentId !== me) return null;
       return event.block === "bed"
         ? "You lay down on the bed. Any step gets you up."
-        : `You sat down ${event.block === "armchair" ? "in" : "on"} the ${event.block}. Any step gets you up.`;
+        : `You sat down ${event.block === "armchair" || event.block === "rocking_chair" ? "in" : "on"} the ${event.block.replace("_", " ")}. Any step gets you up.`;
     case "recipe_learned":
       if (event.residentId === me) {
         return learnedLine(event.recipe, event.how, event.from && nameOf(event.from));

@@ -246,7 +246,10 @@ export type LookView = z.infer<typeof LookView>;
 /** The way a step goes: `n`, `s`, `e`, `w`, or a diagonal (`ne`, `nw`, `se`, `sw`). */
 export const Direction = z.enum(DIRECTIONS);
 
-/** The blocks you rest on (RFC 0044): sit on a chair, a bench, an armchair or a sofa; lie on a bed. */
+/**
+ * The blocks you rest on (RFC 0044): sit on a chair, a bench, an armchair, a sofa or a rocking
+ * chair; lie on a bed.
+ */
 export const SeatKind = z.enum(
   Object.keys(SEATS) as [keyof typeof SEATS, ...(keyof typeof SEATS)[]],
 );

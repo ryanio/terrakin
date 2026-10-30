@@ -106,6 +106,17 @@ export const PLOT_FURNITURE = [
   "desk",
   "side_table",
   "dresser",
+  // More for a home: furniture made at a workbench.
+  "wardrobe",
+  "rocking_chair",
+  "piano",
+  "bathtub",
+  "fireplace",
+  "aquarium",
+  "coffee_table",
+  "coat_rack",
+  "floor_lamp",
+  "potted_tree",
 ] as const;
 export type PlotFurniture = (typeof PLOT_FURNITURE)[number];
 
@@ -996,6 +1007,7 @@ export function petSvg(p: PlotPet, cols: number, rows = cols): string[] {
 }
 
 const WOOD_DARK = "#6e4a2c";
+const WOOD = "#9a6b43";
 const EDGE = "rgba(70, 40, 18, 0.5)";
 const STRAW = "#e8c878";
 const STRAW_DEEP = "#c49a4c";
@@ -1592,7 +1604,10 @@ const LINEN = "#f1e8d6";
 /**
  * One piece of furniture on tile (x, y), following its picture in the world: a table, a chair, a
  * bookshelf, a barrel, a signpost, a lamp post, a well, a low stone wall that joins the walls
- * beside it, a campfire, a flower box, or a piece you rest on: an armchair, a sofa, or a bed. Only numbers and checked colors go in, and no ellipses.
+ * beside it, a campfire, a flower box, a piece you rest on (an armchair, a sofa, a bed, or a rocking
+ * chair), a surface (a desk, a side table, a dresser, or a coffee table), a wardrobe, a piano, a
+ * bathtub, a fireplace, an aquarium, a coat rack, a floor lamp, or a potted tree. Only numbers and
+ * checked colors go in, and no ellipses.
  */
 function furnitureSvg(
   kind: PlotFurniture,
@@ -1774,6 +1789,107 @@ function furnitureSvg(
         rect(0.26, 0.17, 0.48, 0.14, "#fffaf0", 0.05),
         rect(0.16, 0.38, 0.68, 0.48, fill, 0.04),
         `<path d="M${X(0.16)} ${Y(0.44)}H${X(0.84)}" stroke="${LINEN}" stroke-width="0.03" fill="none"/>`,
+      ];
+    case "wardrobe":
+      return [
+        shade,
+        rect(0.18, 0.06, 0.64, 0.82, fill, 0.04),
+        rect(0.22, 0.16, 0.26, 0.68, "rgba(60, 36, 20, 0.3)", 0.02, false),
+        rect(0.52, 0.16, 0.26, 0.68, "rgba(60, 36, 20, 0.3)", 0.02, false),
+        dot(0.45, 0.5, 0.025, "#e7c27a"),
+        dot(0.55, 0.5, 0.025, "#e7c27a"),
+        rect(0.14, 0.02, 0.72, 0.08, fill, 0.03),
+      ];
+    case "rocking_chair":
+      return [
+        shade,
+        rect(0.27, 0.1, 0.08, 0.5, fill, 0.02),
+        rect(0.65, 0.1, 0.08, 0.5, fill, 0.02),
+        rect(0.41, 0.2, 0.04, 0.36, fill, 0.01, false),
+        rect(0.55, 0.2, 0.04, 0.36, fill, 0.01, false),
+        rect(0.26, 0.13, 0.48, 0.09, fill, 0.02),
+        rect(0.3, 0.66, 0.06, 0.2, WOOD_DARK, 0.02, false),
+        rect(0.64, 0.66, 0.06, 0.2, WOOD_DARK, 0.02, false),
+        rect(0.2, 0.56, 0.6, 0.12, fill, 0.03),
+        `<path d="M${X(0.1)} ${Y(0.82)}Q${X(0.5)} ${Y(1)} ${X(0.9)} ${Y(0.82)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+      ];
+    case "piano":
+      return [
+        shade,
+        rect(0.16, 0.62, 0.68, 0.26, fill, 0.03),
+        rect(0.12, 0.1, 0.76, 0.42, fill, 0.04),
+        rect(0.4, 0.17, 0.2, 0.16, "#fffaf0", 0.01, false),
+        rect(0.08, 0.5, 0.84, 0.14, LINEN, 0.02),
+        ...[0.18, 0.28, 0.46, 0.56, 0.66, 0.8].map((fx) =>
+          rect(fx, 0.5, 0.05, 0.07, "#1f1a18", 0.005, false),
+        ),
+      ];
+    case "bathtub":
+      return [
+        shade,
+        dot(0.24, 0.86, 0.05, "#e7c27a"),
+        dot(0.76, 0.86, 0.05, "#e7c27a"),
+        `<path d="M${X(0.1)} ${Y(0.44)}H${X(0.9)}C${X(0.9)} ${Y(0.7)} ${X(0.8)} ${Y(0.84)} ${X(0.66)} ${Y(0.84)}H${X(0.34)}C${X(0.2)} ${Y(0.84)} ${X(0.1)} ${Y(0.7)} ${X(0.1)} ${Y(0.44)}z" fill="${fill}" ${stroke}/>`,
+        dot(0.3, 0.34, 0.06, "#ffffff"),
+        dot(0.4, 0.3, 0.045, "#ffffff"),
+        dot(0.62, 0.33, 0.05, "#ffffff"),
+        rect(0.06, 0.38, 0.88, 0.1, fill, 0.05),
+        rect(0.12, 0.4, 0.76, 0.04, "#9fd3e0", 0.02, false),
+      ];
+    case "fireplace":
+      return [
+        shade,
+        rect(0.1, 0.18, 0.8, 0.72, fill, 0.03),
+        `<path d="M${X(0.32)} ${Y(0.9)}V${Y(0.58)}Q${X(0.32)} ${Y(0.4)} ${X(0.5)} ${Y(0.4)}Q${X(0.68)} ${Y(0.4)} ${X(0.68)} ${Y(0.58)}V${Y(0.9)}z" fill="#3a2a22"/>`,
+        `<path d="M${X(0.5)} ${Y(0.5)}C${X(0.6)} ${Y(0.62)} ${X(0.62)} ${Y(0.7)} ${X(0.6)} ${Y(0.78)}C${X(0.57)} ${Y(0.86)} ${X(0.43)} ${Y(0.86)} ${X(0.4)} ${Y(0.78)}C${X(0.38)} ${Y(0.7)} ${X(0.42)} ${Y(0.62)} ${X(0.5)} ${Y(0.5)}z" fill="#e0603f"/>`,
+        dot(0.5, 0.76, 0.06, "#f2b84b"),
+        `<path d="M${X(0.36)} ${Y(0.88)}L${X(0.64)} ${Y(0.82)}M${X(0.36)} ${Y(0.82)}L${X(0.64)} ${Y(0.88)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+        rect(0.04, 0.12, 0.92, 0.1, WOOD, 0.03),
+      ];
+    case "aquarium":
+      return [
+        shade,
+        rect(0.16, 0.56, 0.68, 0.32, WOOD, 0.03),
+        rect(0.1, 0.14, 0.8, 0.44, fill, 0.04),
+        rect(0.12, 0.48, 0.76, 0.08, "#e6cfa3", 0.01, false),
+        `<path d="M${X(0.36)} ${Y(0.32)}l-0.06 -0.05v0.1z" fill="#e0603f"/>`,
+        dot(0.44, 0.32, 0.06, "#f2b84b"),
+        dot(0.66, 0.42, 0.04, "#e58fb6"),
+        rect(0.08, 0.1, 0.84, 0.06, WOOD_DARK, 0.02, false),
+      ];
+    case "coffee_table":
+      return [
+        shade,
+        rect(0.14, 0.56, 0.07, 0.32, WOOD_DARK, 0.02, false),
+        rect(0.79, 0.56, 0.07, 0.32, WOOD_DARK, 0.02, false),
+        rect(0.18, 0.72, 0.64, 0.05, WOOD_DARK, 0.01, false),
+        rect(0.06, 0.48, 0.88, 0.14, fill, 0.06),
+      ];
+    case "coat_rack":
+      return [
+        `<path d="M${X(0.28)} ${Y(0.9)}L${X(0.5)} ${Y(0.8)}L${X(0.72)} ${Y(0.9)}" stroke="${fill}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+        rect(0.47, 0.1, 0.06, 0.78, fill, 0.02, false),
+        dot(0.5, 0.1, 0.05, fill),
+        rect(0.3, 0.2, 0.08, 0.4, "#e0603f", 0.02),
+        rect(0.56, 0.2, 0.2, 0.46, "#5f86b5", 0.06),
+      ];
+    case "floor_lamp":
+      return [
+        shade,
+        dot(0.5, 0.22, 0.24, "rgba(242, 181, 68, 0.28)"),
+        rect(0.47, 0.32, 0.06, 0.54, WOOD_DARK, 0.02, false),
+        rect(0.34, 0.84, 0.32, 0.07, STONE_HI, 0.03),
+        `<path d="M${X(0.32)} ${Y(0.34)}L${X(0.4)} ${Y(0.08)}H${X(0.6)}L${X(0.68)} ${Y(0.34)}z" fill="${fill}" ${stroke}/>`,
+      ];
+    case "potted_tree":
+      return [
+        shade,
+        rect(0.46, 0.36, 0.08, 0.3, WOOD_DARK, 0.02, false),
+        dot(0.34, 0.38, 0.16, fill),
+        dot(0.66, 0.38, 0.16, fill),
+        dot(0.5, 0.26, 0.22, fill),
+        `<path d="M${X(0.28)} ${Y(0.62)}H${X(0.72)}L${X(0.68)} ${Y(0.9)}H${X(0.32)}z" fill="${WOOD}" ${stroke}/>`,
+        rect(0.24, 0.58, 0.52, 0.08, WOOD, 0.02),
       ];
   }
 }

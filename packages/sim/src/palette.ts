@@ -115,6 +115,18 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   desk: "#9a6a42",
   side_table: "#c79a66",
   dresser: "#7a5236",
+  // More for a home: each in the wood, stone, glass or leaf it is mostly made of, with a piano in
+  // near black and a bathtub in enamel white so they read apart from the woods and the walls.
+  wardrobe: "#86593a",
+  rocking_chair: "#a8764a",
+  piano: "#3b302c",
+  bathtub: "#e9e4da",
+  fireplace: "#9b8f84",
+  aquarium: "#7fc3c9",
+  coffee_table: "#b07c4f",
+  coat_rack: "#6e4b30",
+  floor_lamp: "#f2d7a0",
+  potted_tree: "#5f9a4a",
 };
 
 /** A kiln's glow while it fires a pot (RFC 0047), on the map and in 3D. */

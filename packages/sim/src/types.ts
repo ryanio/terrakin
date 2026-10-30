@@ -140,6 +140,17 @@ export const BLOCK_KINDS = [
   "desk",
   "side_table",
   "dresser",
+  // More for a home: furniture made at a workbench.
+  "wardrobe",
+  "rocking_chair",
+  "piano",
+  "bathtub",
+  "fireplace",
+  "aquarium",
+  "coffee_table",
+  "coat_rack",
+  "floor_lamp",
+  "potted_tree",
 ] as const;
 
 /**
@@ -3397,7 +3408,10 @@ export const REJECTION_CODES = [
   "already_brought",
   /** That isn't something a kitchen makes: a pie, a jam, a soup, a drink, or a sweet. */
   "not_food",
-  /** That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, or a bed (RFC 0044). */
+  /**
+   * That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, a rocking chair, or a
+   * bed (RFC 0044).
+   */
   "not_a_seat",
   /**
    * That's ground everyone walks and nobody builds on or claims: a public way, which holds no

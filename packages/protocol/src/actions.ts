@@ -164,7 +164,7 @@ export const PutterAction = z.object({ type: z.literal("putter"), ...dry });
 
 /**
  * Sit or lie down on the seat on a tile one step away (RFC 0044): a chair, a bench, an armchair, a
- * sofa, or a bed. Any move takes you off it again.
+ * sofa, a rocking chair, or a bed. Any move takes you off it again.
  */
 export const RestAction = z.object({
   type: z.literal("rest"),
@@ -649,7 +649,8 @@ export const TakeDownAction = z.object({
 
 /**
  * Put a small thing on the surface on (x, y) within reach, on your plot or one shared with you
- * (RFC 0050): a table, a bookshelf, a barrel, a kitchen, a desk, a side table or a dresser. A
+ * (RFC 0050): a table, a bookshelf, a barrel, a kitchen, a desk, a side table, a dresser or a
+ * coffee table. A
  * trinket by its kind (like `candle`), a find by its kind, or a made thing or a piece by its id.
  */
 export const PutOnAction = z.object({

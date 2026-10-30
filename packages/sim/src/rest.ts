@@ -8,14 +8,21 @@ import { chebyshev, inBounds } from "./world";
 
 /**
  * Resting (RFC 0044): `rest {x, y, floor?}` puts you on the seat on that tile, one step away. You
- * sit on a chair, a bench, an armchair or a sofa, and lie on a bed (`SEATS`). Resting is where you
- * stand, never a field, so any move takes you off and nothing can go stale. It pays nothing.
+ * sit on a chair, a bench, an armchair, a sofa or a rocking chair, and lie on a bed (`SEATS`).
+ * Resting is where you stand, never a field, so any move takes you off and nothing can go stale. It pays nothing.
  */
 
 type Mutation = () => WorldEvent[];
 
 const words = (kind: SeatKind) =>
-  ({ chair: "chair", bench: "bench", armchair: "armchair", sofa: "sofa", bed: "bed" })[kind];
+  ({
+    chair: "chair",
+    bench: "bench",
+    armchair: "armchair",
+    sofa: "sofa",
+    bed: "bed",
+    rocking_chair: "rocking chair",
+  })[kind];
 
 /** The floor's own walking ground with one tile counted open: the step onto a solid seat. */
 const openingOnto = (ground: Ground, seat: Tile): Ground => ({
@@ -77,7 +84,7 @@ export function checkRest(
   if (!isSeatKind(block)) {
     return refuse(
       "not_a_seat",
-      `You can't rest on that. Seats are ${Object.keys(SEATS).join(", ")}: sit on the first four, lie on a bed.`,
+      `You can't rest on that. Seats are ${(Object.keys(SEATS) as SeatKind[]).map(words).join(", ")}: lie on a bed, and sit on the rest.`,
     );
   }
   if (me.x === x && me.y === y) {

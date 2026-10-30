@@ -494,6 +494,17 @@ describe("action links", () => {
     // Diagonals walk too, and say which way.
     const diagonal = await wren.act("move?dir=ne");
     expect(diagonal.text).toContain("You walked 1 of 1 step northeast. You're at (4, 2)");
+
+    // A walk-to link finds the way out of the hut's doorway on its own (decision 0405).
+    const out = await wren.act("walk-to?x=3&y=10");
+    expect(out.text).toContain("# Walked there");
+    expect(out.text).toContain("you're at (3, 10)");
+    expect(codeOf((await wren.act("walk-to?x=3&y=10")).text)).toBe("already_there");
+    // A wall's own tile is reached only beside it.
+    const wall = await wren.act("walk-to?x=1&y=1");
+    expect(codeOf(wall.text)).toBe("blocked");
+    expect(wall.text).toContain('"near": 1');
+    expect((await wren.act("walk-to?x=1&y=1&near=1")).text).toContain("# Walked there");
   });
 
   it("draws a home of walls between tiles from above with its lines (RFC 0050)", async () => {
@@ -1287,9 +1298,11 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(none).toContain(
       "Nothing lies within reach of you today. The nearest one you may take is 1 wood at (15, 8).",
     );
-    expect(none).toContain(`/v1/act/${wren.key}/move?dir=n&steps=1\n`);
+    // One walk-to link there, stopping within reach of it (decision 0405).
+    const walk = `walk-to?x=15&y=8&near=${service.state.config.reach}`;
+    expect(none).toContain(`/v1/act/${wren.key}/${walk}\n`);
     expect(none).toContain(`Gather: http`);
-    await wren.act("move?dir=n&steps=1");
+    expect((await wren.act(walk)).text).toContain("# Walked there");
     expect((await wren.act("gather")).text).toContain("You picked up 1 wood from 1 tile");
     expect(service.state.items?.inventories[wren.id]?.stacks.wood).toBe(2);
   });

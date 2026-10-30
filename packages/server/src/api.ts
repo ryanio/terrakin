@@ -28,24 +28,18 @@ import {
   type StaffRole,
   suggestFor,
   type TownsfolkActivityResponse,
-  WALK_TO_MAX_STEPS,
 } from "@terrakin/protocol";
 import {
-  asJoined,
-  chebyshev,
   DAY_MS,
   eventOpen,
   findBounty,
   findEvent,
-  floorGround,
   type HostedEvent,
   homePlotOf,
-  inBounds,
   isTownEvent,
   mergedInto,
   plotKey,
   utcDay,
-  walkLegsTo,
 } from "@terrakin/sim";
 import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE, SERVICE_ACTOR } from "./access";
 import { AiSpend } from "./ai-spend";
@@ -136,6 +130,7 @@ import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
+import { planWalkTo, walkLegs } from "./walk-to";
 import type { ActResult, WalkStop, WorldService } from "./world-service";
 
 /**
@@ -1709,57 +1704,27 @@ export class Api {
    * only ran past the cap, why (`stopped`).
    */
   private walkTo(residentId: string, action: Extract<Action, { type: "walk_to" }>): ActResult {
-    const state = asJoined(this.service.state, residentId);
-    const me = state.residents[residentId];
-    const fail = (code: ErrorCode, message: string): ActResult => ({
-      ok: false,
-      error: { code, message },
-      ...(action.dry ? { dry: true as const } : {}),
-    });
-    if (!me) return fail("not_joined", "Join the world first.");
-    if (!inBounds(state.config, action.x, action.y)) {
-      return fail("out_of_bounds", "That's outside the world.");
-    }
-    const to = { x: action.x, y: action.y };
-    const near = action.near ?? 0;
-    if (chebyshev(me, to) <= near) return fail("already_there", "You're already there.");
-    const legs = walkLegsTo(state, me, to, near, floorGround(state, me.floor ?? 0));
-    if (!legs || legs.length === 0) {
-      const beside =
-        near === 0 ? ' If something stands on that tile, send "near": 1 to stop beside it.' : "";
-      return fail(
-        "blocked",
-        `No walk from where you stand reaches x ${to.x}, y ${to.y} on this floor.${beside}`,
-      );
-    }
+    const dry = action.dry ? { dry: true as const } : {};
+    const planned = planWalkTo(this.service.state, residentId, action, action.near ?? 0);
+    if ("code" in planned) return { ok: false, error: planned, ...dry };
     if (action.dry) {
-      const { seq } = this.service.state;
-      const route = legs.map(([dir, steps]) => ({ dir, steps }));
-      return { ok: true, seq, events: [], dry: true, arrived: false, route };
+      const route = planned.legs.map(([dir, steps]) => ({ dir, steps }));
+      return {
+        ok: true,
+        seq: this.service.state.seq,
+        events: [],
+        dry: true,
+        arrived: false,
+        route,
+      };
     }
-    const dirs = legs.flatMap(([dir, n]) => Array.from({ length: n }, () => dir));
-    const events: Extract<ActResult, { ok: true }>["events"] = [];
-    let last: Extract<ActResult, { ok: true }> | undefined;
-    let walked = 0;
-    let stopped: WalkStop | undefined;
-    for (const dir of dirs.slice(0, WALK_TO_MAX_STEPS)) {
-      if (walked > 0 && !this.takeAction(residentId)) {
-        stopped = { code: "rate_limited", message: WALK_OUT_OF_ACTIONS };
-        break;
-      }
-      const result = this.service.act(residentId, { type: "move", dir });
-      if (!result.ok) {
-        // Nothing moved at all: the walker gets the reason, as a one-tile move would give it.
-        if (walked === 0) return result;
-        stopped = { code: result.error.code, message: result.error.message };
-        break;
-      }
-      events.push(...result.events);
-      last = result;
-      walked++;
-    }
-    if (!last) return fail("blocked", "Something is in the way.");
-    const arrived = walked === dirs.length;
+    const walk = walkLegs(planned.legs, (dir, i) =>
+      i > 0 && !this.takeAction(residentId)
+        ? { ok: false, error: { code: "rate_limited", message: WALK_OUT_OF_ACTIONS } }
+        : this.service.act(residentId, { type: "move", dir }),
+    );
+    if ("refused" in walk) return walk.refused;
+    const { last, events, walked, arrived, stopped } = walk;
     return {
       ...last,
       events,

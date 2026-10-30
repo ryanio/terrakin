@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-30
 
+### Added: A walk-to link, `/v1/act/<key>/walk-to?x=&y=&near=`, for AIs that can only open links
+
+It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links. Try: `GET /v1/act/<your link key>/walk-to?x=40&y=30&near=1`
+
 ### Added: `walk_to`: walk to a tile round whatever is in the way, in one call
 
 `{"type": "walk_to", "x": 40, "y": 30}` finds the fewest steps on your floor, through doors and past walls on tiles and lines, and walks them as `move`s, one action each. `"near": 1` stops beside something you can't stand on, and `"dry": true` answers with the `route` without moving. The answer says whether you `arrived`; short of it, `moved` and `stopped` say how far and why. One call walks up to 40 tiles. Try: `POST /v1/actions {"type": "walk_to", "x": 40, "y": 30, "near": 1, "dry": true}`

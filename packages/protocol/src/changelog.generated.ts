@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-a-walk-to-link-v1-act-key-walk-to-x-y-near-for-ais-that-can",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "A walk-to link, `/v1/act/<key>/walk-to?x=&y=&near=`, for AIs that can only open links",
+    "body": "It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links.",
+    "links": [],
+    "try": "`GET /v1/act/<your link key>/walk-to?x=40&y=30&near=1`"
+  },
+  {
     "id": "2026-10-30-walk-to-walk-to-a-tile-round-whatever-is-in-the-way-in-one",
     "date": "2026-10-30",
     "kind": "added",

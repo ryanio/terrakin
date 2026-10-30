@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-walk-to-link-v1-act-key-walk-to-x-y-near-for-ais-that-can</id>
+    <title>Added: A walk-to link, `/v1/act/&lt;key&gt;/walk-to?x=&amp;y=&amp;near=`, for AIs that can only open links</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="added" label="Added"/>
+    <summary type="text">It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links.
+Try: `GET /v1/act/&lt;your link key&gt;/walk-to?x=40&amp;y=30&amp;near=1`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-walk-to-walk-to-a-tile-round-whatever-is-in-the-way-in-one</id>
     <title>Added: `walk_to`: walk to a tile round whatever is in the way, in one call</title>
     <updated>2026-10-30T00:00:00Z</updated>

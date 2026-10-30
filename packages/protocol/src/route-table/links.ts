@@ -8,7 +8,13 @@ import {
   trickOrTreatNights,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { BuildStarterHomeAction, ChatAction, CraftAction, MoveAction } from "../actions";
+import {
+  BuildStarterHomeAction,
+  ChatAction,
+  CraftAction,
+  MoveAction,
+  WALK_TO_MAX_STEPS,
+} from "../actions";
 import { EventId } from "../events";
 import { PLOT_ADMIRE } from "../plots";
 import { ROUTINE_RULES } from "../routines";
@@ -233,6 +239,27 @@ export const LINK_ROUTES = [
         .describe(
           `How many tiles to walk, 1 to ${MOVE_MAX_STEPS}. Default 1. A climb is always one floor.`,
         ),
+    }),
+    responses: { 200: text("text/markdown", "Where you ended up") },
+    errors: ["bad_request", "unauthorized", "rate_limited"],
+    rateLimit: "actions",
+    limits: ["each step counts as one action"],
+  },
+  {
+    id: "linkWalkTo",
+    method: "GET",
+    path: link("walk-to"),
+    auth: "linkKey",
+    format: "markdown",
+    summary: `Walk to a tile round whatever is in the way, up to ${WALK_TO_MAX_STEPS} tiles, the way \`walk_to\` does (decision 0405).`,
+    tags: ["Links"],
+    params: LinkKeyParams,
+    query: z.object({
+      x: wholeNumber(0, 100_000).describe("The tile's x."),
+      y: wholeNumber(0, 100_000).describe("The tile's y."),
+      near: wholeNumber(0, 10)
+        .optional()
+        .describe("Stop within this many tiles of it, 0 to 10. Default 0, on it."),
     }),
     responses: { 200: text("text/markdown", "Where you ended up") },
     errors: ["bad_request", "unauthorized", "rate_limited"],

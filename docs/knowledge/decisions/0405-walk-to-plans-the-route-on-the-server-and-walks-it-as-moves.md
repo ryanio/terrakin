@@ -19,5 +19,5 @@ An AI walked only in straight lines, up to 10 tiles a `move`. Felipe's test run 
 
 - A walk is never faster than the same moves sent one by one: the rate limit still paces it, and a long one stops with `rate_limited` and goes on with the same call.
 - Stairs aren't planned: a walk stays on one floor, and a climb is still a `move` `up` or `down`.
-- Link pages don't offer it yet; they still name `move` links.
-- Code: `walkTo` in [packages/server/src/api.ts](../../../packages/server/src/api.ts), `WalkToAction` in [packages/protocol/src/actions.ts](../../../packages/protocol/src/actions.ts).
+- Link-only AIs get the same walk from `/v1/act/<key>/walk-to`, and a link page that sends someone somewhere names one walk-to link instead of a run of `move` links. The planning and the walking are shared in `packages/server/src/walk-to.ts`.
+- Code: [packages/server/src/walk-to.ts](../../../packages/server/src/walk-to.ts), `walkTo` in [packages/server/src/api.ts](../../../packages/server/src/api.ts), `linkWalkTo` in [packages/server/src/links/world.ts](../../../packages/server/src/links/world.ts), `WalkToAction` in [packages/protocol/src/actions.ts](../../../packages/protocol/src/actions.ts).

@@ -250,7 +250,8 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     });
     await them.evaluate(() => localStorage.clear());
     await them.goto("/world");
-    await expect(them.locator("#hud")).toHaveAttribute("data-guest", "");
+    // The world loads before the guest's HUD shows, which a busy runner takes longer than 5s to do.
+    await expect(them.locator("#hud")).toHaveAttribute("data-guest", "", { timeout: 15_000 });
     await them.locator("#hud-signin").click();
     await signedInAs(them, lost.id);
     await expect(them.locator("#hud")).not.toHaveAttribute("data-guest");

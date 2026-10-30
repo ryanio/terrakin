@@ -49,11 +49,67 @@ const byRow = (a: string, b: string) => {
   return ay - by || ax - bx;
 };
 
+/** One floor's part of a slim: the wall blocks it takes up and the lines it puts up. */
+interface FloorSlim {
+  /** Whether a room is walled in by blocks or lines on this floor. */
+  room: boolean;
+  taken: Map<string, BlockKind>;
+  edges: PlanEdge[];
+}
+
 /**
- * The plan that turns the wall blocks of the home on plot (px, py)'s ground floor into walls between
- * tiles (RFC 0050), as a `slim_walls` logs it: the blocks it takes up and the lines it walls, in
- * plot coordinates. Pure, so replay never runs it; the sim checks what it logs as the resident's
- * own build.
+ * The plan that turns the wall blocks of the home on plot (px, py) into walls between tiles (RFC
+ * 0050), as a `slim_walls` logs it: the blocks it takes up and the lines it walls, in plot
+ * coordinates, on the ground floor and on every floor above it (`slimFloor`). Pure, so replay never
+ * runs it; the sim checks what it logs as the resident's own build.
+ *
+ * The ground floor's lines go up before any block comes out, so flooring upstairs stays held. A
+ * block upstairs with no flooring under it stands on the wall below it, so when that wall comes up
+ * it comes down too, with whatever stands on it the same way, and goes back to the builder's things.
+ */
+export function slimPlan(
+  state: WorldState,
+  px: number,
+  py: number,
+): { remove: PlanTile[]; edges: PlanEdge[] } | { problem: string } {
+  const S = state.config.plotSize;
+  const at = (x: number, y: number) => tileKey(px * S + x, py * S + y);
+  const floors = Array.from({ length: FLOORS.max + 1 }, (_, floor) =>
+    slimFloor(state, px, py, floor),
+  );
+  if (!floors.some((f) => f.room)) {
+    return { problem: "There's no room walled in by blocks on this plot to slim." };
+  }
+  if (floors.every((f) => f.taken.size === 0)) {
+    return {
+      problem: "This home has no wall blocks left to slim: its walls already stand between tiles.",
+    };
+  }
+  const remove: PlanTile[] = [];
+  const listed = new Set<string>();
+  const take = (x: number, y: number, floor: number) => {
+    if (listed.has(`${floor}:${x},${y}`)) return;
+    listed.add(`${floor}:${x},${y}`);
+    remove.push(floor === 0 ? { x, y } : { x, y, floor });
+  };
+  for (const key of (floors[0] as FloorSlim).taken.keys()) {
+    const [x, y] = xy(key);
+    take(x, y, 0);
+    for (let floor = 1; floor <= FLOORS.max; floor++) {
+      const up = blocksOn(state, floor)[at(x, y)];
+      if (up === undefined || groundOn(state, floor)[at(x, y)] !== undefined) break;
+      take(x, y, floor);
+      if (!HOLDING_BLOCKS.includes(up)) break;
+    }
+  }
+  for (const [floor, f] of floors.entries()) {
+    for (const key of floor === 0 ? [] : f.taken.keys()) take(...xy(key), floor);
+  }
+  return { remove, edges: floors.flatMap((f) => f.edges) };
+}
+
+/**
+ * One floor of a slim: the wall blocks round its rooms, and the lines that take their place.
  *
  * A doorway is an open tile in a straight run of wall blocks: wall blocks on both its sides along
  * the run, none on either side across it (the shape `doorwayWithoutDoor` reads), and neither tile
@@ -76,23 +132,30 @@ const byRow = (a: string, b: string) => {
  * them, of the kind that stood on one of them, a plain wall before a door or a window: a door or a
  * doorway in an inner wall stays a door, and the inner wall's ends stay walls.
  *
- * Upstairs, flooring stays held, since the lines go up before the blocks come out. A block upstairs
- * with no flooring under it stands on the wall below it, so it comes down too, with whatever stands
- * on it the same way, and goes back to the builder's things.
+ * Upstairs is planned the same way but for what flooring decides, since a floor above the ground is
+ * only as wide as its flooring and a line there needs flooring on one side (decision 0408). Walls
+ * round no flooring at all wall in no room, so they stay. The room grows only into wall tiles with
+ * flooring, so a wall that stood on the wall below, with no flooring under it, leaves its line on
+ * the flooring's edge. A line with no flooring on either side is left out. And a doorway stays an
+ * opening with no line, since doors stay on the ground floor.
  */
-export function slimPlan(
-  state: WorldState,
-  px: number,
-  py: number,
-): { remove: PlanTile[]; edges: PlanEdge[] } | { problem: string } {
+function slimFloor(state: WorldState, px: number, py: number, floor: number): FloorSlim {
   const S = state.config.plotSize;
   const x0 = px * S;
   const y0 = py * S;
+  const blocks = blocksOn(state, floor);
+  const flooring = groundOn(state, floor);
   const onPlot = (x: number, y: number) => x >= 0 && y >= 0 && x < S && y < S;
-  const block = (x: number, y: number) => state.blocks[tileKey(x0 + x, y0 + y)];
+  const block = (x: number, y: number) => blocks[tileKey(x0 + x, y0 + y)];
   const wall = (x: number, y: number) => onPlot(x, y) && isWall(block(x, y));
   const lined = (x: number, y: number, side: Side) =>
-    edgeAt(state, x0 + x, y0 + y, side) !== undefined;
+    edgeAt(state, x0 + x, y0 + y, side, floor) !== undefined;
+  // Whether a tile is floor to stand on: every tile of the ground floor, and flooring upstairs.
+  const floored = (key: string) => {
+    if (floor === 0) return true;
+    const [x, y] = xy(key);
+    return flooring[tileKey(x0 + x, y0 + y)] !== undefined;
+  };
 
   // The doorways, each with the two tiles across it. An open tile between two wall blocks across
   // from it too is a room one tile wide, so neither it nor its neighbour is a doorway.
@@ -150,9 +213,8 @@ export function slimPlan(
       if (!closed(x, y) && !outside.has(`${x},${y}`)) inside.add(`${x},${y}`);
     }
   }
-  if (inside.size === 0) {
-    return { problem: "There's no room walled in by blocks on this plot to slim." };
-  }
+  // Upstairs, walls round no flooring at all wall in no room: a parapet stays a parapet.
+  if (![...inside].some(floored)) return { room: false, taken: new Map(), edges: [] };
 
   // The walls that touch the room, sides or corners, come up and their tiles join it.
   const taken = new Map<string, BlockKind>();
@@ -165,11 +227,7 @@ export function slimPlan(
       }
     }
   }
-  if (taken.size === 0) {
-    return {
-      problem: "This home has no wall blocks left to slim: its walls already stand between tiles.",
-    };
-  }
+  if (taken.size === 0) return { room: true, taken, edges: [] };
   const counts = new Map<BlockKind, number>();
   for (const kind of taken.values()) {
     if (plain(kind)) counts.set(kind, (counts.get(kind) ?? 0) + 1);
@@ -179,10 +237,11 @@ export function slimPlan(
   const stood = new Map(taken);
   for (const key of doorways) stood.set(key, "door");
 
-  // The room: inside, the walls that came up and the doorways, less the plot's own rim.
+  // The room: inside, and the walls that came up and the doorways where there's floor, less the
+  // plot's own rim.
   const rim = (x: number, y: number) => x === 0 || y === 0 || x === S - 1 || y === S - 1;
   const room = new Set<string>();
-  for (const key of [...inside, ...stood.keys()]) {
+  for (const key of [...inside, ...[...stood.keys()].filter(floored)]) {
     const [x, y] = xy(key);
     if (!rim(x, y)) room.add(key);
   }
@@ -254,22 +313,16 @@ export function slimPlan(
       const kind = room.has(next)
         ? between(key, next)
         : (stood.get(key) ?? stood.get(next) ?? most);
-      edges.push({ x, y, side, block: kind });
+      if (floor === 0) {
+        edges.push({ x, y, side, block: kind });
+        continue;
+      }
+      // Upstairs a doorway stays open, and a line stands only beside flooring.
+      if (kind === "door" || !(floored(key) || floored(next))) continue;
+      edges.push({ x, y, side, floor, block: kind });
     }
   }
-  const remove: PlanTile[] = [];
-  for (const key of taken.keys()) {
-    const [x, y] = xy(key);
-    remove.push({ x, y });
-    const at = tileKey(x0 + x, y0 + y);
-    for (let floor = 1; floor <= FLOORS.max; floor++) {
-      const up = blocksOn(state, floor)[at];
-      if (up === undefined || groundOn(state, floor)[at] !== undefined) break;
-      remove.push({ x, y, floor });
-      if (!HOLDING_BLOCKS.includes(up)) break;
-    }
-  }
-  return { remove, edges };
+  return { room: true, taken, edges };
 }
 
 /** A design note as the town's slim compares them: its code and the tiles it names. */

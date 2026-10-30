@@ -2459,14 +2459,17 @@ function paintFloors() {
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
 
-/** Whether a plot's ground floor has a wall block a slim could move between tiles (RFC 0050). */
-function hasWallBlocks(plot: { px: number; py: number }): boolean {
+/** Whether any floor of a plot has a wall block a slim could move between tiles (RFC 0050). */
+function hasWallBlocks(plot: { px: number; py: number; floors: number }): boolean {
   const m = mirror;
   if (!m) return false;
   const S = m.config.plotSize;
-  for (let y = plot.py * S; y < (plot.py + 1) * S; y++) {
-    for (let x = plot.px * S; x < (plot.px + 1) * S; x++) {
-      if (holdsRoof(m.blocks.get(tileKey(x, y)))) return true;
+  for (let floor = 0; floor <= plot.floors; floor++) {
+    const blocks = m.blocksOn(floor);
+    for (let y = plot.py * S; y < (plot.py + 1) * S; y++) {
+      for (let x = plot.px * S; x < (plot.px + 1) * S; x++) {
+        if (holdsRoof(blocks.get(tileKey(x, y)))) return true;
+      }
     }
   }
   return false;

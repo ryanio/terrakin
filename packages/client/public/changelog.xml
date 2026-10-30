@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-slim-walls-slims-the-upstairs-too</id>
+    <title>Changed: `slim_walls` slims the upstairs too</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">One call now turns the wall blocks on every floor into walls between tiles, not just the ground floor's. Upstairs a line needs flooring on one side, so the room there is as wide as its flooring; a line with no flooring on either side is left out, and an opening in an upstairs wall stays open.
+A home whose ground floor was slimmed before, by you or the town, can send it again for its upstairs.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;slim_walls&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-walk-to-takes-stairs-it-walks-to-a-tile-on-any-floor-climbi</id>
     <title>Changed: `walk_to` takes stairs: it walks to a tile on any floor, climbing on the way</title>
     <updated>2026-10-30T00:00:00Z</updated>

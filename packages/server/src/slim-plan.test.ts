@@ -2,6 +2,8 @@ import {
   apply,
   createWorld,
   edgeKey,
+  edgesOn,
+  floorGround,
   hashWorld,
   prepare,
   TOWN_ACTOR,
@@ -75,6 +77,100 @@ describe("slimPlan", () => {
     expect(state.floors?.["1"]?.blocks).toEqual({});
     expect(state.floors?.["1"]?.ground).toEqual({ [tileKey(3, 3)]: "moss" });
     expect(Object.keys(state.edges ?? {})).toHaveLength(20);
+  });
+
+  /**
+   * The hut with an upstairs: flooring on floor 1 over `floored` (plot coordinates), and a ring of
+   * wood on floor 1 from (1, 1) to (5, 5) but for the open tile at (3, 1).
+   */
+  function twoFloors(floored: (x: number, y: number) => boolean) {
+    const { state, ok } = hut();
+    const plot = state.plots["0,0"];
+    if (!plot) throw new Error("no plot");
+    plot.floors = 1;
+    state.floors = { "1": { blocks: {}, ground: {} } };
+    const ground = [];
+    const blocks = [];
+    for (let y = 1; y <= 5; y++) {
+      for (let x = 1; x <= 5; x++) {
+        if (floored(x, y)) ground.push({ x, y, floor: 1, ground: "moss" as const });
+        const ring = x === 1 || y === 1 || x === 5 || y === 5;
+        if (ring && !(x === 3 && y === 1)) blocks.push({ x, y, floor: 1, block: "wood" as const });
+      }
+    }
+    ok("ada", { type: "build", px: 0, py: 0, ground, blocks });
+    return { state, ok };
+  }
+
+  /** The plan, checked by the sim as Ada's slim with nothing skipped, then made. */
+  function slimWhole(state: ReturnType<typeof hut>["state"]) {
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    const command = { type: "slim_walls" as const, px: 0, py: 0, ...plan };
+    expect(prepare(state, { actor: "ada", command })).toMatchObject({
+      ok: true,
+      plan: { skipped: [] },
+    });
+    expect(apply(state, { actor: "ada", command })).toMatchObject({ ok: true });
+    return plan;
+  }
+
+  it("slims the upstairs too, its doorway left open and its flooring kept", () => {
+    const { state } = twoFloors(() => true);
+    const plan = slimWhole(state);
+    // The hut's 16 blocks and the 15 upstairs, with the hut's 20 lines and 19 upstairs: the ring
+    // round 25 tiles of flooring, less the line out of the open tile at (3, 1).
+    expect(plan.remove).toHaveLength(31);
+    expect(plan.edges.filter((e) => e.floor === 1)).toHaveLength(19);
+    expect(state.blocks).toEqual({});
+    expect(state.floors?.["1"]?.blocks).toEqual({});
+    expect(Object.keys(state.floors?.["1"]?.ground ?? {})).toHaveLength(25);
+    expect(Object.keys(edgesOn(state, 0))).toHaveLength(20);
+    expect(Object.values(edgesOn(state, 1))).toEqual(Array(19).fill("wood"));
+    // Downstairs the door is still a door; upstairs the doorway is still a way out.
+    expect(edgesOn(state, 0)[edgeKey(3, 6, "n")]).toBe("door");
+    expect(edgesOn(state, 1)[edgeKey(3, 1, "n")]).toBeUndefined();
+    expect(floorGround(state, 1).edge?.(2, 1, "n")).toBe(true);
+    expect(slimPlan(state, 0, 0)).toHaveProperty("problem");
+  });
+
+  it("slims the upstairs of a home whose ground floor was slimmed before", () => {
+    const { state, ok } = twoFloors(() => true);
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    // The ground floor alone, as a slim did before upstairs had a plan of its own.
+    const ground = {
+      remove: plan.remove.filter((t) => t.floor === undefined),
+      edges: plan.edges.filter((e) => e.floor === undefined),
+    };
+    ok("ada", { type: "slim_walls", px: 0, py: 0, ...ground });
+    const upstairs = slimWhole(state);
+    expect(upstairs.remove).toHaveLength(15);
+    expect(upstairs.remove.every((t) => t.floor === 1)).toBe(true);
+    expect(upstairs.edges).toHaveLength(19);
+    expect(state.floors?.["1"]?.blocks).toEqual({});
+  });
+
+  it("puts the upstairs lines on the flooring's edge, and none where neither side has flooring", () => {
+    // Flooring only inside the ring, which stands on the walls below, and none at (2, 2).
+    const { state } = twoFloors(
+      (x, y) => x >= 2 && x <= 4 && y >= 2 && y <= 4 && !(x === 2 && y === 2),
+    );
+    // Over the hut's door, which holds nothing up, the ring has a second open tile at (3, 5).
+    expect(state.floors?.["1"]?.blocks[tileKey(3, 5)]).toBeUndefined();
+    const plan = slimWhole(state);
+    // The ring stood on the hut's walls, so it comes down with them, each block once.
+    expect(plan.remove).toHaveLength(30);
+    const upstairs = edgesOn(state, 1);
+    // Round the 3 by 3 of tiles inside: less the two lines beside bare (2, 2), and none out of
+    // the open tiles at (3, 1) and (3, 5).
+    expect(Object.keys(upstairs)).toHaveLength(8);
+    expect(upstairs[edgeKey(2, 2, "n")]).toBeUndefined();
+    expect(upstairs[edgeKey(2, 2, "w")]).toBeUndefined();
+    expect(upstairs[edgeKey(3, 2, "n")]).toBeUndefined();
+    expect(upstairs[edgeKey(3, 5, "n")]).toBeUndefined();
+    expect(upstairs[edgeKey(2, 3, "w")]).toBe("wood");
+    expect(state.floors?.["1"]?.blocks).toEqual({});
   });
 
   it("is made for the owner by the town, and marked done once (decision 0404)", () => {

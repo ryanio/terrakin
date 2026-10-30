@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-slim-walls-slims-the-upstairs-too",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "`slim_walls` slims the upstairs too",
+    "body": "One call now turns the wall blocks on every floor into walls between tiles, not just the ground floor's. Upstairs a line needs flooring on one side, so the room there is as wide as its flooring; a line with no flooring on either side is left out, and an opening in an upstairs wall stays open.\nA home whose ground floor was slimmed before, by you or the town, can send it again for its upstairs.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 3, \"py\": 2, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-walk-to-takes-stairs-it-walks-to-a-tile-on-any-floor-climbi",
     "date": "2026-10-30",
     "kind": "changed",

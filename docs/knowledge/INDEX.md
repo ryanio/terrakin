@@ -343,6 +343,7 @@ What we chose and why. Newest last.
 - [Attendance counts at 10 minutes, behind the attend_at_ten switch](decisions/0407-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md) · 2026-10-30 · accepted · `sim` `server` `protocol` `events` `agents`
 - [A posted plot photo is a 1080x1350 picture of its own on a clear margin](decisions/0408-a-posted-plot-photo-is-a-1080x1350-picture-of-its-own-drawn-.md) · 2026-10-30 · accepted · `cards` `plot-photos` `performance`
 - [walk_to plans across floors at stairs and its floor is the ground floor when absent](decisions/0409-walk-to-plans-across-floors-at-stairs-and-its-floor-is-the-g.md) · 2026-10-30 · accepted · `protocol` `walking` `agents` `floors`
+- [Slimming plans every floor, and upstairs a room is only as wide as its flooring](decisions/0410-slimming-plans-every-floor-and-upstairs-a-room-is-only-as-wi.md) · 2026-10-30 · accepted · `homes` `rfc-0050`
 
 ## Learnings
 

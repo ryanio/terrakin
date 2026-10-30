@@ -78,6 +78,7 @@ import {
   SEATS,
   SHOP,
   SHOP_SKUS,
+  SIDES,
   SKILLS,
   STACK_KINDS,
   STEP_ROUTINES,
@@ -88,10 +89,14 @@ import {
   TIMES_OF_DAY,
   TITLES,
   TOWN_LIMITS,
+  TRINKET_KINDS,
   VOTE_CHOICES,
+  WALL_DECOR_KINDS,
   WEAR_ITEMS,
   WEATHERS,
   type BlockKind as WorldBlockKind,
+  type TrinketKind as WorldTrinketKind,
+  type WallDecorKind as WorldWallDecorKind,
 } from "@terrakin/sim";
 import { z } from "zod";
 import { DESIGN_IDS, DESIGN_TURNS } from "./design-ids";
@@ -888,6 +893,63 @@ export const TakeDownAction = z.object({
   ...dry,
 });
 
+/** A small thing that stands on a surface (RFC 0050). */
+export const TrinketKind = z.enum(
+  TRINKET_KINDS as unknown as [WorldTrinketKind, ...WorldTrinketKind[]],
+);
+/** A thing that hangs on a wall (RFC 0050). */
+export const WallDecorKind = z.enum(
+  WALL_DECOR_KINDS as unknown as [WorldWallDecorKind, ...WorldWallDecorKind[]],
+);
+/** The side of a tile a wall is on, seen from the tile (RFC 0050). */
+export const Side = z.enum(SIDES);
+export type Side = z.infer<typeof Side>;
+
+/**
+ * Put a small thing on the surface on (x, y) within reach, on your plot or one shared with you
+ * (RFC 0050): a table, a bookshelf, a barrel, a kitchen, a desk, a side table or a dresser. A
+ * trinket by its kind (like `candle`), a find by its kind, or a made thing or a piece by its id.
+ */
+export const PutOnAction = z.object({
+  type: z.literal("put_on"),
+  x: coord,
+  y: coord,
+  ...toFloor,
+  item: z.union([ItemId, FindKind, TrinketKind]),
+  ...dry,
+});
+/** Take the small thing off the surface on (x, y). It goes back to whoever put it there. */
+export const TakeOffAction = z.object({
+  type: z.literal("take_off"),
+  x: coord,
+  y: coord,
+  ...toFloor,
+  ...dry,
+});
+/**
+ * Hang a thing on the wall on `side` of (x, y), standing on (x, y) (RFC 0050): a wall thing by its
+ * kind (like `wall_clock`), a find by its kind, or a made thing or a piece by its id. The wall is a
+ * wood, stone or made wall on that side; windows, doors and hedges hold nothing.
+ */
+export const HangAction = z.object({
+  type: z.literal("hang"),
+  x: coord,
+  y: coord,
+  side: Side,
+  ...toFloor,
+  item: z.union([ItemId, FindKind, WallDecorKind]),
+  ...dry,
+});
+/** Take down what hangs on the wall on `side` of (x, y). It goes back to whoever hung it. */
+export const UnhangAction = z.object({
+  type: z.literal("unhang"),
+  x: coord,
+  y: coord,
+  side: Side,
+  ...toFloor,
+  ...dry,
+});
+
 /**
  * Admire what's on display on (x, y): once a UTC day for each thing, and never your own (something
  * you made or put up). You don't need to be near it. It counts toward its maker's karma.
@@ -1630,6 +1692,10 @@ export const Action = z.discriminatedUnion("type", [
   MakePieceAction,
   DisplayAction,
   TakeDownAction,
+  PutOnAction,
+  TakeOffAction,
+  HangAction,
+  UnhangAction,
   AdmireAction,
   SetGalleryAction,
   NamePlotAction,
@@ -1980,6 +2046,45 @@ export const WorldSnapshot = z.object({
         good: GoodEventView,
         by: z.string(),
         /** Present when the pot has a label: it's its maker's words. */
+        trust: z.literal("untrusted").optional(),
+      }),
+    )
+    .optional(),
+  /**
+   * Small things on surfaces (RFC 0050), each on its tile and floor: a made thing (`good`), a find
+   * (`find`), or a trinket (`thing`), with who put it there. A `label` is its maker's words:
+   * untrusted text. Absent when there are none.
+   */
+  tops: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        ...onFloor,
+        good: GoodEventView.optional(),
+        find: FindKind.optional(),
+        thing: z.union([TrinketKind, WallDecorKind]).optional(),
+        by: z.string(),
+        /** Present when the thing has a label: it's its maker's words. */
+        trust: z.literal("untrusted").optional(),
+      }),
+    )
+    .optional(),
+  /**
+   * Things hung on walls (RFC 0050): each on the wall on `side` of its tile, seen from the tile, on
+   * its floor, shaped like `tops`. Absent when there are none.
+   */
+  hung: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        side: Side,
+        ...onFloor,
+        good: GoodEventView.optional(),
+        find: FindKind.optional(),
+        thing: z.union([TrinketKind, WallDecorKind]).optional(),
+        by: z.string(),
         trust: z.literal("untrusted").optional(),
       }),
     )
@@ -2882,6 +2987,52 @@ export const WorldEvent = z.discriminatedUnion("type", [
     type: z.literal("taken_down"),
     x: z.number().int(),
     y: z.number().int(),
+    by: z.string(),
+  }),
+  /**
+   * A small thing went on a surface (RFC 0050): a made thing (`good`), a find (`find`), or a
+   * trinket (`thing`). Public. A made thing's `label` is its maker's words, so the event is marked
+   * untrusted when it has one.
+   */
+  z.object({
+    type: z.literal("put_on"),
+    x: z.number().int(),
+    y: z.number().int(),
+    ...onFloor,
+    good: GoodEventView.optional(),
+    find: FindKind.optional(),
+    thing: z.union([TrinketKind, WallDecorKind]).optional(),
+    by: z.string(),
+    trust: z.literal("untrusted").optional(),
+  }),
+  /** What stood on a surface was taken off, by `by` (RFC 0050). Public. */
+  z.object({
+    type: z.literal("taken_off"),
+    x: z.number().int(),
+    y: z.number().int(),
+    ...onFloor,
+    by: z.string(),
+  }),
+  /** A thing was hung on the wall on `side` of (x, y), seen from (x, y) (RFC 0050). Public. */
+  z.object({
+    type: z.literal("hung"),
+    x: z.number().int(),
+    y: z.number().int(),
+    side: Side,
+    ...onFloor,
+    good: GoodEventView.optional(),
+    find: FindKind.optional(),
+    thing: z.union([TrinketKind, WallDecorKind]).optional(),
+    by: z.string(),
+    trust: z.literal("untrusted").optional(),
+  }),
+  /** What hung on the wall on `side` of (x, y) was taken down, by `by` (RFC 0050). Public. */
+  z.object({
+    type: z.literal("unhung"),
+    x: z.number().int(),
+    y: z.number().int(),
+    side: Side,
+    ...onFloor,
     by: z.string(),
   }),
   /**

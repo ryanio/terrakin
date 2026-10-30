@@ -131,6 +131,12 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - A `build` plan's order is fixed (removals from the top floor down, then the ground floor, then each floor up), and each tile is checked against the plan's running view. The protocol's `PLAN_MAX` is `planMax`. `src/fixtures/floors-log.ts` pins it.
 - The client builds its walking ground and climbs from its mirror with the same pure functions (`groundOf`, `upstairsGroundOf`, `climbsAt`, `upstairsProblem`).
 
+## Surfaces and walls (RFC 0050)
+
+- A surface (`SURFACE_BLOCKS`) holds one small thing in `items.tops`, keyed like a pot; a solid wall face holds one thing in `items.hung`, keyed by the tile it's seen from and the side its wall is on (`faceKey`). Both keep whoever put it there and give it back, held aside when they're full ([decision 0392](../../docs/knowledge/decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md)).
+- A surface with something on it refuses `remove`, `clear_block` and a plan's removal. A wall coming down any way gives back what hung on it (`releaseHungOn`) in the same commit, never refuses. A tile something hangs facing takes no block.
+- `src/fixtures/surfaces-log.ts` and `surfaces.test.ts` pin it.
+
 ## Resting (RFC 0044)
 
 - Resting is where you stand, never a field: someone on a seat's tile is resting, and any move takes them off. `rest` pays nothing. `src/fixtures/cozy-log.ts` and `rest.test.ts` pin it.

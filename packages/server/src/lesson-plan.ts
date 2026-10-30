@@ -14,9 +14,9 @@ export const SPECIALTIES = {
   clem: ["lemonade", "tomato_sauce", "pumpkin_pie", "apple_cider"],
   pip: ["signpost", "fried_minnows", "corn_bread", "sofa"],
   otis: ["bookshelf", "pumpkin_soup", "harvest_soup", "bed"],
-  marlo: ["campfire", "fish_stew", "fruit_salad"],
-  sable: ["lamp_post", "cranberry_punch", "grape_juice"],
-  ansel: ["flower_box", "flower_wreath", "apple_pie", "berry_crumble"],
+  marlo: ["campfire", "fish_stew", "fruit_salad", "desk"],
+  sable: ["lamp_post", "cranberry_punch", "grape_juice", "side_table"],
+  ansel: ["flower_box", "dresser", "apple_pie", "berry_crumble"],
 } as const satisfies Record<string, readonly string[]>;
 
 /** A townsfolk's specialties, by its handle. None for a handle with no list above. */

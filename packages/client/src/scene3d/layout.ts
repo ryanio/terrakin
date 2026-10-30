@@ -9,15 +9,18 @@ import {
   type Crop,
   type FindKind,
   type Finish,
+  faceKey,
   type Glaze,
   type GroundKind,
   type Holiday,
   holdsRoof,
+  isSurface,
   type MadeKind,
   MEDIA_ID_PATTERN,
   type Pattern,
   type PetCoat,
   type PetKind,
+  parseFaceKey,
   plotKey,
   potKey,
   type ResidentColor,
@@ -25,10 +28,14 @@ import {
   type RoofShape,
   roofShape,
   type Season,
+  type Side,
   sortWear,
   type ThemePalette,
   type Tile,
+  type TrinketKind,
   tileKey,
+  topKey,
+  type WallDecorKind,
   WEAR_INFO,
   type WearItem,
   type Weather,
@@ -662,6 +669,18 @@ export function plotLayout(
       new Map((snapshot.pots ?? []).map((p) => [potKey(p.x, p.y, p.floor ?? 0), p] as const)),
     ),
   );
+  // Things on surfaces and walls (RFC 0050), on any floor of the plot.
+  displays.push(
+    ...roomThingsOn(
+      blocks.filter((b) => b.own),
+      new Map((snapshot.tops ?? []).map((t) => [topKey(t.x, t.y, t.floor ?? 0), t] as const)),
+      new Map(
+        (snapshot.hung ?? []).map((h) => [faceKey(h.x, h.y, h.side, h.floor ?? 0), h] as const),
+      ),
+      (x, y) => inBounds(bounds, x, y),
+      new Set([0, ...blocks.flatMap((b) => (b.floor ? [b.floor] : []))]),
+    ),
+  );
 
   // Hearths, sleepers, the owner's spot, and the pet are all on the ground floor.
   const solid = new Set(blocks.flatMap((b) => (b.floor ? [] : [`${b.x},${b.y}`])));
@@ -785,7 +804,7 @@ export function plotLayout(
 /** A made thing on display, or a find (RFC 0021), as the 3D views draw it. */
 export interface ShownGood {
   id: string;
-  kind: MadeKind | FindKind;
+  kind: MadeKind | FindKind | TrinketKind | WallDecorKind;
   media?: string | undefined;
   model?: true | undefined;
   /** A pot's glaze and finish (RFC 0047), which its picture is drawn in. */
@@ -804,8 +823,15 @@ export const shownFind = (kind: FindKind): { good: ShownGood } => ({
 export interface LayoutDisplay {
   x: number;
   y: number;
-  /** On a pedestal, in a frame, or a pot set down on the floor of its tile (RFC 0047). */
-  on: "pedestal" | "frame" | "ground";
+  /**
+   * On a pedestal, in a frame, a pot set down on the floor of its tile (RFC 0047), on a surface,
+   * or hung on a wall (RFC 0050).
+   */
+  on: "pedestal" | "frame" | "ground" | "surface" | "wall";
+  /** On a surface: how high its top stands above its floor (RFC 0050). */
+  top?: number;
+  /** On a wall: the side of its tile the wall is on, seen from the tile (RFC 0050). */
+  side?: Side;
   good: ShownGood;
   /** The floor a pot set down stands on (RFC 0028). Absent: the ground floor. */
   floor?: number;
@@ -855,6 +881,72 @@ export function potsOn(
     ];
   });
 }
+
+/** What stands on a surface or hangs on a wall (RFC 0050), as the snapshot and the mirror keep it. */
+export interface RoomShown {
+  good?: (Omit<ShownGood, "kind"> & { kind: MadeKind }) | undefined;
+  find?: FindKind | undefined;
+  thing?: TrinketKind | WallDecorKind | undefined;
+}
+
+/** The look a room thing is drawn by: a made thing as itself, a find or a kind by its picture. */
+function roomGood(r: RoomShown): ShownGood | undefined {
+  if (r.good) {
+    const { id, kind, media, model, glaze, finish, flower } = r.good;
+    return { id, kind, media, model, glaze, finish, flower };
+  }
+  if (r.find) return shownFind(r.find).good;
+  if (r.thing) return { id: `thing:${r.thing}`, kind: r.thing };
+  return undefined;
+}
+
+/**
+ * Things on surfaces and walls (RFC 0050) among `blocks`: each surface's small thing at its top,
+ * and each thing hung on a wall seen from a tile `inside` says is shown, on a floor in `floors`.
+ */
+export function roomThingsOn(
+  blocks: readonly { x: number; y: number; block: BlockKind; floor?: number | undefined }[],
+  tops: ReadonlyMap<string, RoomShown> | undefined,
+  hung: ReadonlyMap<string, RoomShown> | undefined,
+  inside: (x: number, y: number) => boolean,
+  floors: ReadonlySet<number>,
+): LayoutDisplay[] {
+  const out: LayoutDisplay[] = [];
+  if (tops && tops.size > 0) {
+    for (const b of blocks) {
+      if (!isSurface(b.block)) continue;
+      const shown = tops.get(topKey(b.x, b.y, b.floor ?? 0));
+      const good = shown ? roomGood(shown) : undefined;
+      if (!good) continue;
+      out.push({
+        x: b.x,
+        y: b.y,
+        on: "surface",
+        top: blockLook(b.block).height,
+        good,
+        ...(b.floor ? { floor: b.floor } : {}),
+      });
+    }
+  }
+  for (const [key, shown] of hung ?? []) {
+    const at = parseFaceKey(key);
+    const good = roomGood(shown);
+    if (!good || !floors.has(at.floor) || !inside(at.x, at.y)) continue;
+    out.push({
+      x: at.x,
+      y: at.y,
+      on: "wall",
+      side: at.side,
+      good,
+      ...(at.floor ? { floor: at.floor } : {}),
+    });
+  }
+  return out;
+}
+
+/** A room thing's words in a chunk's signature, so a plot is built again when one changes. */
+export const roomPart = (d: LayoutDisplay) =>
+  `room:${d.on}:${d.x},${d.y},${d.floor ?? 0}${d.side ?? ""}:${d.good.id}:${d.good.media ?? ""}`;
 
 /** What grows in a planter, drawn from the world's day the way the map draws it. */
 export function cropIn(

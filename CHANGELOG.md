@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: ee17fce12d25, 6 entries -->
+<!-- api-fingerprint: 788fc93f4648, 7 entries -->
+
+- **Added** Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`
+  A surface (table, bookshelf, barrel, kitchen, or the new `desk`, `side_table`, `dresser`) holds one small thing, and each solid wall face holds one hung thing: a trinket or wall thing by kind, a find by kind, or a made thing by id. It goes back to whoever put it there. `tops` and `hung` in `GET /v1/world`.
+  New categories `trinket` and `wall_decor` at the shop, and codes `not_a_surface` and `no_wall`. Taking a wall down gives back what hung on it. See "Rooms" in the skill file.
+  Try: `POST /v1/actions {"type": "hang", "x": 10, "y": 4, "side": "w", "item": "wall_clock", "dry": true}`
 
 - **Changed** You can hold 400 things, up from 200
   Gardeners hit 200 within a couple of weeks, since every herb and tomato in a stack counts, and then gifts, catches, presents, and pots out of the kiln were refused with `inventory_full`. Read the cap from `rules.inventoryMax` in `GET /v1/inventory`, never a number you remember.

@@ -18,7 +18,9 @@ import {
   PET_BOX,
   PET_FEET,
   PET_TILES,
+  parseFaceKey,
   parseKey,
+  parseTopKey,
   plotDistance,
   plotKey,
   potKey,
@@ -70,10 +72,13 @@ import {
   paintDecor,
   paintFind,
   paintLantern,
+  paintOnSurface,
+  paintOnWall,
   paintPedestal,
   paintShown,
   paintTeapot,
   paintTownMark,
+  roomThingGlows,
 } from "./render/decor";
 import { lightBulbs, paintPresents } from "./render/decor-winter";
 import { type BurstMark, paintBurst } from "./render/fireworks";
@@ -613,6 +618,45 @@ export function render(
     paintAt(mirror.blocks, key, block, x, y);
   }
 
+  /**
+   * Small things on surfaces and things hung on walls (RFC 0050), on one floor, after its blocks.
+   * `place` turns a tile of that floor into the tile it's drawn on, or undefined when it isn't.
+   */
+  const paintRoomThings = (
+    floor: number,
+    place: (x: number, y: number) => readonly [number, number] | undefined,
+  ) => {
+    const box = (x: number, y: number) => {
+      const at = place(x, y);
+      if (!at) return undefined;
+      const { sx, sy } = tileToScreen(cam, at[0], at[1]);
+      return {
+        left: Math.round(sx - half) + inset,
+        top: Math.round(sy - half) + inset,
+        size: Math.round(scale) - inset * 2,
+      };
+    };
+    for (const [key, thing] of mirror.tops) {
+      const t = parseTopKey(key);
+      const b = t.floor === floor ? box(t.x, t.y) : undefined;
+      if (!b) continue;
+      paintOnSurface(ctx, thing, b.left, b.top, b.size);
+      if (roomThingGlows(thing)) {
+        lanterns.push({ sx: b.left + b.size * 0.5, sy: b.top + b.size * 0.2, tint: "warm" });
+      }
+    }
+    for (const [key, thing] of mirror.hung) {
+      const h = parseFaceKey(key);
+      const b = h.floor === floor ? box(h.x, h.y) : undefined;
+      if (!b) continue;
+      paintOnWall(ctx, thing, h.side, b.left, b.top, b.size);
+      if (roomThingGlows(thing)) {
+        lanterns.push({ sx: b.left + b.size * 0.5, sy: b.top + b.size * 0.3, tint: "warm" });
+      }
+    }
+  };
+  paintRoomThings(0, (x, y) => (x < x0 || x > x1 || y < y0 || y > y1 ? undefined : [x, y]));
+
   drawTownHall(ctx, mirror, cam);
   drawShop(ctx, mirror, cam);
 
@@ -763,6 +807,7 @@ export function render(
         const at = drawn(key);
         if (at) paintAt(layer.blocks, key, block, at[0], at[1], floor);
       }
+      paintRoomThings(floor, (x, y) => drawn(tileKey(x, y)));
     }
     // Flooring above you, cut away: a faint line where it ends, so you know it's overhead.
     if (cut) {

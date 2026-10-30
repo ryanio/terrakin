@@ -653,3 +653,82 @@ function paintScarecrow(
   ctx.fill();
   ctx.stroke();
 }
+
+// ---------- roomier homes (RFC 0050) ----------
+
+/** What stands on a surface or hangs on a wall: a made thing, a find, or a kind from the shop. */
+export interface RoomThing {
+  good?: ThingLook | undefined;
+  find?: ArtKind | undefined;
+  thing?: ArtKind | undefined;
+}
+
+/** The look a room thing is drawn by. */
+const roomLook = (t: RoomThing): ThingLook | undefined =>
+  t.good ?? (t.find ? { kind: t.find } : t.thing ? { kind: t.thing } : undefined);
+
+/** Whether a room thing gives light after dark: a candle, a table lamp, a sconce. */
+export const roomThingGlows = (t: RoomThing): boolean =>
+  t.thing === "candle" || t.thing === "table_lamp" || t.thing === "sconce";
+
+/**
+ * A small thing on a surface: a little over half a tile, standing on the surface's top, so it
+ * reads as on the table rather than beside it.
+ */
+export function paintOnSurface(
+  ctx: CanvasRenderingContext2D,
+  thing: RoomThing,
+  left: number,
+  top: number,
+  size: number,
+) {
+  const look = roomLook(thing);
+  if (!look) return;
+  if (thing.good) {
+    paintShown(ctx, thing.good, left, top - size * 0.12, size, "pedestal");
+    return;
+  }
+  const art = thingArtImage(look);
+  if (!art) return;
+  const side = size * 0.6;
+  ctx.drawImage(art, left + (size - side) / 2, top + size * 0.42 - side, side, side);
+}
+
+/**
+ * A thing hung on a wall, seen from the tile in front of it: half a tile, pressed against the
+ * side of the tile its wall is on. A made thing or a piece hangs in a small frame.
+ */
+export function paintOnWall(
+  ctx: CanvasRenderingContext2D,
+  thing: RoomThing,
+  side: "n" | "e" | "s" | "w",
+  left: number,
+  top: number,
+  size: number,
+) {
+  const look = roomLook(thing);
+  if (!look) return;
+  const w = size * 0.5;
+  const x =
+    side === "w" ? left - w * 0.18 : side === "e" ? left + size - w * 0.82 : left + (size - w) / 2;
+  const y =
+    side === "n" ? top - w * 0.3 : side === "s" ? top + size - w * 0.85 : top + (size - w) / 2;
+  if (thing.good) {
+    const picture =
+      thing.good.kind === "piece" && !thing.good.model ? lookImage(thing.good.media) : undefined;
+    const border = Math.max(1.5, w * 0.08);
+    ctx.fillStyle = BLOCK_COLORS.frame;
+    ctx.fillRect(x, y, w, w * 0.8);
+    ctx.fillStyle = PAPER;
+    ctx.fillRect(x + border, y + border, w - border * 2, w * 0.8 - border * 2);
+    if (picture)
+      drawCover(ctx, picture, x + border, y + border, w - border * 2, w * 0.8 - border * 2);
+    else {
+      const art = thingArtImage(thing.good);
+      if (art) ctx.drawImage(art, x + border, y, w - border * 2, w - border * 2);
+    }
+    return;
+  }
+  const art = thingArtImage(look);
+  if (art) ctx.drawImage(art, x, y, w, w);
+}

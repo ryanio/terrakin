@@ -66,6 +66,10 @@ export {
   SWEET_KINDS,
   SWEET_RECIPES,
   type SweetKind,
+  TRINKET_KINDS,
+  type TrinketKind,
+  WALL_DECOR_KINDS,
+  type WallDecorKind,
 } from "./catalog";
 export { openDayOf, PRESENTS, presentsFor, presentsWaiting, wrapDay } from "./christmas";
 export {
@@ -117,6 +121,8 @@ export {
   heldAsideOf,
   isDisplayBlock,
   isShownFind,
+  isShownGood,
+  isShownThing,
   pieceShowingMedia,
 } from "./display";
 export { nearestCounter, nearestPark } from "./doors";
@@ -660,6 +666,21 @@ export {
   stockSeason,
   townBuys,
 } from "./shop";
+export {
+  faceKey,
+  hungAt,
+  hungOf,
+  isHangingWall,
+  isSide,
+  isSurface,
+  parseFaceKey,
+  parseTopKey,
+  SIDE_STEP,
+  SURFACE_BLOCKS,
+  topAt,
+  topKey,
+  topsOf,
+} from "./surfaces";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export { broughtTo, FEAST, feastDay, feastToday, isDish, liveFeast } from "./thanksgiving";
 export {

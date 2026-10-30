@@ -110,6 +110,11 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   kiln: "#b0674a",
   // A pot set down (RFC 0047) is drawn in its own glaze; this is bare clay, for a view that can't.
   pot: "#c98b64",
+  // Roomier homes (RFC 0050): surfaces in three woods, so a desk, a side table and a dresser read
+  // apart from the table (#b88552) and the bookshelf (#8c5a36).
+  desk: "#9a6a42",
+  side_table: "#c79a66",
+  dresser: "#7a5236",
 };
 
 /** A kiln's glow while it fires a pot (RFC 0047), on the map and in 3D. */

@@ -19,6 +19,7 @@ import {
   type DrawnGround,
   type FindKind,
   FLOORS,
+  faceKey,
   type Ground,
   type GroundKind,
   groundOf,
@@ -46,6 +47,7 @@ import {
   TEA,
   type Tile,
   tileKey,
+  topKey,
   upstairsGroundOf,
   type WorldConfig,
   waterBeside,
@@ -61,6 +63,23 @@ type EventMessage = { seq: number; event: WorldEvent };
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
 /** A pot set down on a plot (RFC 0047), as the snapshot and `block_placed` carry it. */
 export type PotView = Pick<NonNullable<WorldSnapshot["pots"]>[number], "good" | "by">;
+
+/**
+ * What stands on a surface or hangs on a wall (RFC 0050): a made thing, a find, or a trinket or
+ * wall thing by its kind, and who put it there. A made thing's `label` is its maker's words.
+ */
+export type ShownOnHome = Pick<
+  NonNullable<WorldSnapshot["tops"]>[number],
+  "good" | "find" | "thing" | "by"
+>;
+
+/** What a snapshot or an event says stands somewhere, as the mirror keeps it. */
+const onHome = (s: ShownOnHome): ShownOnHome => ({
+  ...(s.good ? { good: { ...s.good } } : {}),
+  ...(s.find ? { find: s.find } : {}),
+  ...(s.thing ? { thing: s.thing } : {}),
+  by: s.by,
+});
 
 /** A find on display (RFC 0021): its kind, who put it up, and the day it went up. No words. */
 export interface ShownFindView {
@@ -196,6 +215,10 @@ export class Mirror {
   pots = new Map<string, PotView>();
   /** Finds on display on pedestals and frames (RFC 0021), by tileKey. */
   shownFinds = new Map<string, ShownFindView>();
+  /** Small things on surfaces (RFC 0050), by the sim's `topKey`. Labels are untrusted text. */
+  tops = new Map<string, ShownOnHome>();
+  /** Things hung on walls (RFC 0050), by the sim's `faceKey`. Labels are untrusted text. */
+  hung = new Map<string, ShownOnHome>();
   /** Tiles picked clean today, so a pickup that's gone isn't drawn (phase 1 gathering). */
   gathered = new Set<string>();
   /** Whether a claimed plot's pickups are for its owner and co-owners only (`plot_pickups_owned`). */
@@ -311,6 +334,10 @@ export class Mirror {
     }
     for (const d of snapshot.displays ?? []) {
       this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
+    }
+    for (const t of snapshot.tops ?? []) this.tops.set(topKey(t.x, t.y, t.floor ?? 0), onHome(t));
+    for (const h of snapshot.hung ?? []) {
+      this.hung.set(faceKey(h.x, h.y, h.side, h.floor ?? 0), onHome(h));
     }
     for (const f of snapshot.displayedFinds ?? []) {
       this.shownFinds.set(tileKey(f.x, f.y), { kind: f.kind, by: f.by, day: f.day });
@@ -800,11 +827,27 @@ export class Mirror {
         this.shownFinds.delete(tileKey(event.x, event.y));
         break;
       case "picture_removed":
-        for (const shown of this.displays.values()) {
-          if (!event.items.includes(shown.good.id)) continue;
+        for (const shown of [
+          ...this.displays.values(),
+          ...this.tops.values(),
+          ...this.hung.values(),
+        ]) {
+          if (!shown.good || !event.items.includes(shown.good.id)) continue;
           delete shown.good.media;
           delete shown.good.model;
         }
+        break;
+      case "put_on":
+        this.tops.set(topKey(event.x, event.y, event.floor ?? 0), onHome(event));
+        break;
+      case "taken_off":
+        this.tops.delete(topKey(event.x, event.y, event.floor ?? 0));
+        break;
+      case "hung":
+        this.hung.set(faceKey(event.x, event.y, event.side, event.floor ?? 0), onHome(event));
+        break;
+      case "unhung":
+        this.hung.delete(faceKey(event.x, event.y, event.side, event.floor ?? 0));
         break;
       case "admired": {
         const shown = this.displays.get(tileKey(event.x, event.y));

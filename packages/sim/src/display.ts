@@ -1,3 +1,4 @@
+import type { StackKind } from "./catalog";
 import { refuse } from "./check";
 import {
   addStack,
@@ -26,6 +27,7 @@ import type {
   ResidentId,
   Shown,
   ShownFind,
+  ShownThing,
   WorldEvent,
   WorldState,
 } from "./types";
@@ -50,6 +52,12 @@ export const isDisplayBlock = (block: unknown): boolean =>
 /** Whether what's on display is a find, not a made thing. */
 export const isShownFind = (shown: Shown): shown is ShownFind => "find" in shown;
 
+/** Whether what's shown is a small thing by its kind (RFC 0050), not a made thing or a find. */
+export const isShownThing = (shown: Shown): shown is ShownThing => "thing" in shown;
+
+/** Whether what's shown is a made thing, with an id and a maker. */
+export const isShownGood = (shown: Shown): shown is Display => "good" in shown;
+
 /** What's on display on a tile, a made thing or a find, if anything. */
 export const displayAt = (state: WorldState, x: number, y: number): Shown | undefined =>
   state.items?.displays?.[tileKey(x, y)];
@@ -58,7 +66,7 @@ export const displayAt = (state: WorldState, x: number, y: number): Shown | unde
 export function displaysOf(state: WorldState): Record<string, Display> {
   const out: Record<string, Display> = {};
   for (const [key, shown] of Object.entries(state.items?.displays ?? {})) {
-    if (!isShownFind(shown)) out[key] = shown;
+    if (isShownGood(shown)) out[key] = shown;
   }
   return out;
 }
@@ -92,7 +100,7 @@ export function displayOfItem(
  * back with that resident's first input that leaves room for them.
  */
 export const heldAsideOf = (state: WorldState, id: ResidentId): Display[] =>
-  (state.items?.heldAside ?? []).filter((d): d is Display => d.by === id && !isShownFind(d));
+  (state.items?.heldAside ?? []).filter((d): d is Display => d.by === id && isShownGood(d));
 
 /** A resident's finds taken down from display while they had no room, oldest first. */
 export const findsHeldAsideOf = (state: WorldState, id: ResidentId): ShownFind[] =>
@@ -110,10 +118,14 @@ export function everyGood(state: WorldState): { good: Good; holder: ResidentId }
     for (const good of inv.goods) out.push({ good, holder });
   }
   for (const d of Object.values(items.displays ?? {})) {
-    if (!isShownFind(d)) out.push({ good: d.good, holder: d.by });
+    if (isShownGood(d)) out.push({ good: d.good, holder: d.by });
   }
   for (const d of items.heldAside ?? []) {
-    if (!isShownFind(d)) out.push({ good: d.good, holder: d.by });
+    if (isShownGood(d)) out.push({ good: d.good, holder: d.by });
+  }
+  // On a surface or a wall (RFC 0050), it's whoever put it there's.
+  for (const d of [...Object.values(items.tops ?? {}), ...Object.values(items.hung ?? {})]) {
+    if (isShownGood(d)) out.push({ good: d.good, holder: d.by });
   }
   for (const l of Object.values(state.market?.listings ?? {})) {
     for (const good of l.goods ?? []) out.push({ good, holder: l.seller });
@@ -143,11 +155,11 @@ export function pieceShowingMedia(state: WorldState, mediaId: string): string | 
   return everyGood(state).find((g) => g.good.kind === "piece" && g.good.media === mediaId)?.good.id;
 }
 
-const fitsOne = (state: WorldState, items: ItemsState, id: ResidentId) =>
+export const fitsOne = (state: WorldState, items: ItemsState, id: ResidentId) =>
   inventorySize(items.inventories[id]) + 1 <= inventoryMaxOf(state);
 
 /** Keep a thing taken down from display for whoever put it up, until they have room. */
-function holdAside(items: ItemsState, shown: Shown) {
+export function holdAside(items: ItemsState, shown: Shown) {
   items.heldAside = [...(items.heldAside ?? []), shown];
 }
 
@@ -162,11 +174,12 @@ export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[]
   if (!items || !aside?.some((d) => d.by === id)) return [];
   let size = inventorySize(items.inventories[id]);
   const back: Good[] = [];
-  const finds = new Map<FindKind, number>();
+  const finds = new Map<StackKind, number>();
   const keep = aside.filter((d) => {
     if (d.by !== id || size + 1 > inventoryMaxOf(state)) return true;
     size += 1;
     if (isShownFind(d)) finds.set(d.find, (finds.get(d.find) ?? 0) + 1);
+    else if (isShownThing(d)) finds.set(d.thing, (finds.get(d.thing) ?? 0) + 1);
     else back.push(d.good);
     return false;
   });
@@ -179,7 +192,7 @@ export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[]
   return [inventoryEvent(id, "held", changes, { gained: back })];
 }
 
-function closed(state: WorldState): Rejection | null {
+export function closed(state: WorldState): Rejection | null {
   if (!state.items || state.day === undefined) {
     return refuse("items_closed", "Growing and making haven't opened in this world yet.");
   }

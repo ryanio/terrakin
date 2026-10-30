@@ -266,9 +266,12 @@ export function displayedThings(
   const standPlane = stage.keep(placeOnPedestal(new PlaneGeometry(STAND.width, STAND.height)));
   const easelPlane = stage.keep(framePicturePlane(0.02));
   const pedestalTop = blockLook("pedestal").height;
+  const wallPlane = stage.keep(new PlaneGeometry(WALL_THING, WALL_THING));
   for (const d of list) {
-    // A piece stands in a frame on a pedestal; a model piece shows its drawn picture there.
-    const inFrame = d.on === "frame" || d.good.kind === "piece";
+    // A piece stands in a frame on a pedestal; a model piece shows its drawn picture there. On a
+    // surface or a wall (RFC 0050) it shows as its picture, framed on a wall.
+    const inFrame =
+      d.on === "frame" || (d.good.kind === "piece" && d.on !== "surface" && d.on !== "wall");
     const show = (t: Taken, fallback?: () => Taken) => {
       taken.push(t);
       void t.texture.then((map) => {
@@ -278,7 +281,22 @@ export function displayedThings(
           return;
         }
         let shown: Mesh | Sprite;
-        if (inFrame) {
+        if (d.on === "wall") {
+          // Flat against its wall, facing the tile it's seen from, at about eye height.
+          shown = new Mesh(
+            wallPlane,
+            new MeshBasicMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }),
+          );
+          const [dx, dz] = SIDE_OUT[d.side ?? "n"];
+          shown.position.copy(at(d)).add(new Vector3(dx * 0.49, floorY(d.floor) + 0.72, dz * 0.49));
+          shown.rotation.y = SIDE_TURN[d.side ?? "n"];
+        } else if (d.on === "surface") {
+          // A small thing standing on the surface's top, facing you.
+          const size = 0.4;
+          shown = new Sprite(new SpriteMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }));
+          shown.scale.set(size, size, 1);
+          shown.position.copy(at(d)).setY(floorY(d.floor) + (d.top ?? 0.8) + size / 2 - 0.03);
+        } else if (inFrame) {
           shown = new Mesh(d.on === "frame" ? easelPlane : standPlane, pictureMaterial(map));
           shown.position.copy(at(d));
         } else {
@@ -303,6 +321,25 @@ export function displayedThings(
   }
   return group;
 }
+
+/** How big a thing hung on a wall is (RFC 0050), in tiles. */
+const WALL_THING = 0.42;
+
+/** Toward each side's wall from the middle of a tile, on the map's x and the 3D z. */
+const SIDE_OUT: Readonly<Record<"n" | "e" | "s" | "w", readonly [number, number]>> = {
+  n: [0, -1],
+  e: [1, 0],
+  s: [0, 1],
+  w: [-1, 0],
+};
+
+/** The turn that faces a plane back into the room from each side's wall. */
+const SIDE_TURN: Readonly<Record<"n" | "e" | "s" | "w", number>> = {
+  n: 0,
+  e: -Math.PI / 2,
+  s: Math.PI,
+  w: Math.PI / 2,
+};
 
 /**
  * Finds lying on the ground (RFC 0021): each one's drawn picture standing on its tile, facing you,

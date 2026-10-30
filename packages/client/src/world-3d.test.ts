@@ -335,6 +335,7 @@ describe("one plot of the world, read from the mirror", () => {
           ["14,14", "pedestal"],
           ["15,13", "kiln"],
           ["10,13", "pot"],
+          ["11,13", "table"],
         ]),
         paving: new Map<string, GroundKind>([["11,11", "cobble"]]),
         upstairs: new Map([
@@ -354,6 +355,8 @@ describe("one plot of the world, read from the mirror", () => {
         pickupAt: (x, y) => (x === 11 && y === 12 ? "wood" : null),
         residents: new Map([["capri", { hearth: { x: 9, y: 9 } }]]),
         presents: new Map([["capri", 2]]),
+        tops: new Map([["11,13", { thing: "candle" as const }]]),
+        hung: new Map([["8,9,n", { thing: "wall_clock" as const }]]),
         roofAt: roof("gable"),
         isSea: () => false,
       },
@@ -399,6 +402,9 @@ describe("one plot of the world, read from the mirror", () => {
       pickupAt: source({ pickupAt: (x, y) => (x === 11 && y === 12 ? "stone" : null) }),
       residents: source({ residents: new Map([["capri", { hearth: { x: 30, y: 30 } }]]) }),
       presents: source({ presents: new Map([["capri", 3]]) }),
+      // A thing on a surface, and one on a wall, draw as themselves (RFC 0050).
+      tops: source({ tops: new Map([["11,13", { thing: "globe" }]]) }),
+      hung: source({ hung: new Map([["8,9,n", { thing: "mirror" }]]) }),
       roofAt: source({ roofAt: roof("hip") }),
       isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
       hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-things-on-tables-and-things-on-walls-put-on-take-off-hang-un",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`",
+    "body": "A surface (table, bookshelf, barrel, kitchen, or the new `desk`, `side_table`, `dresser`) holds one small thing, and each solid wall face holds one hung thing: a trinket or wall thing by kind, a find by kind, or a made thing by id. It goes back to whoever put it there. `tops` and `hung` in `GET /v1/world`.\nNew categories `trinket` and `wall_decor` at the shop, and codes `not_a_surface` and `no_wall`. Taking a wall down gives back what hung on it. See \"Rooms\" in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"hang\", \"x\": 10, \"y\": 4, \"side\": \"w\", \"item\": \"wall_clock\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-29-you-can-hold-400-things-up-from-200",
     "date": "2026-10-29",
     "kind": "changed",

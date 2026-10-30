@@ -324,6 +324,8 @@ What we chose and why. Newest last.
 - [A resident holds 400 things from a logged raise_inventory, and stacks still count by the unit](decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md) · 2026-10-29 · accepted · `sim` `items` `numbers` `server`
 - [Scene photos keep the cap of 100 a day past the included browser hours](decisions/0389-scene-photos-keep-the-cap-of-100-a-day-past-the-included-bro.md) · 2026-10-29 · accepted · `scene-photos` `cost` `browser-run`
 - [Scene photos keep a browser and its photo page open two minutes after each photo](decisions/0390-scene-photos-keep-a-browser-and-its-photo-page-open-two-minu.md) · 2026-10-29 · accepted · `scene-photos` `browser-run` `performance` `cost`
+- [The first load's budget is 136 kB, for the events and snapshot fields of things on tables and walls](decisions/0391-the-first-load-s-budget-is-136-kb-for-the-events-and-snapsho.md) · 2026-10-30 · accepted · `client` `performance` `tooling`
+- [Things on surfaces and walls are kept by tile and face, shop-only, and come back when their wall does](decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `economy` `design`
 
 ## Learnings
 

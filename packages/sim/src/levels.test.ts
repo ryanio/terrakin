@@ -633,7 +633,8 @@ describe("firsts", () => {
     const fromFirsts = (skill: Skill) =>
       levelOf(ITEM_KINDS.filter((kind) => firstSkill(kind) === skill).length * PROGRESS.first);
     expect(fromFirsts("growing")).toBe(UNLOCKS.wear);
-    expect(fromFirsts("making")).toBe(7);
+    // RFC 0050's three surfaces moved it from 7 to 8.
+    expect(fromFirsts("making")).toBe(8);
     expect(fromFirsts("foraging")).toBe(UNLOCKS.wear);
     // Nothing a resident holds earns these: they come from neighbors and tables.
     expect(fromFirsts("hosting")).toBe(1);

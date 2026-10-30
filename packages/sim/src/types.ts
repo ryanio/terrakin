@@ -13,6 +13,8 @@ import {
   type RecipeName,
   type StackKind,
   type SweetKind,
+  type TrinketKind,
+  type WallDecorKind,
 } from "./catalog";
 import type { Catch } from "./fishing";
 import type { SeatKind } from "./furniture";
@@ -134,6 +136,10 @@ export const BLOCK_KINDS = [
   "kiln",
   // A pot set down on a plot (RFC 0047): the pot itself stands there, drawn from `items.pots`.
   "pot",
+  // Roomier homes (RFC 0050): surfaces made at a workbench, each holding one small thing on top.
+  "desk",
+  "side_table",
+  "dresser",
 ] as const;
 
 /**
@@ -1369,8 +1375,27 @@ export interface ShownFind {
   day: number;
 }
 
-/** What stands on a pedestal or hangs in a frame: a made thing, or a find. */
-export type Shown = Display | ShownFind;
+/**
+ * A small thing on a surface or a thing on a wall (RFC 0050), by its kind: one of a stack, out of
+ * its holder's things until it's taken off.
+ */
+export interface ShownThing {
+  thing: TrinketKind | WallDecorKind;
+  /** Who put it there. It goes back to them when it's taken off. */
+  by: ResidentId;
+  /** The day it went there. */
+  day: number;
+}
+
+/**
+ * What stands on a pedestal or hangs in a frame: a made thing, or a find. On a surface or a wall
+ * (RFC 0050) it can also be a small thing by its kind.
+ */
+export type Shown = Display | ShownFind | ShownThing;
+
+/** The side of a tile a wall stands on, as seen from the tile (RFC 0050). */
+export const SIDES = ["n", "e", "s", "w"] as const;
+export type Side = (typeof SIDES)[number];
 
 /** What one resident holds. */
 export interface Inventory {
@@ -1483,7 +1508,7 @@ export interface ItemsState {
    * Made things and finds on display, keyed by tileKey(x, y). Absent until the first `display`.
    * A find (`ShownFind`) can stand there only once finds are out.
    */
-  displays?: Record<string, Shown>;
+  displays?: Record<string, Display | ShownFind>;
   /**
    * Tiles picked clean today, by tileKey(x, y) to the day they were gathered. Absent until the
    * first `gather`, so worlds from before gathering replay as they always have. `new_day`
@@ -1532,6 +1557,16 @@ export interface ItemsState {
    */
   pots?: Record<string, PlacedPot>;
   /**
+   * Small things on surfaces (RFC 0050), keyed by `potKey(x, y, floor)` like pots. Absent until the
+   * first `put_on`, and dropped when empty.
+   */
+  tops?: Record<string, Shown>;
+  /**
+   * Things hung on walls (RFC 0050), keyed by `faceKey(x, y, side, floor)`: the tile you stand on
+   * to see it, and the side its wall is on. Absent until the first `hang`, and dropped when empty.
+   */
+  hung?: Record<string, Shown>;
+  /**
    * Things taken down from display while whoever put them up had no room for them, oldest first.
    * Each waits for `by` and comes back with their first input that leaves room for it. Absent
    * until the first one.
@@ -1576,6 +1611,10 @@ export const INVENTORY_REASONS = [
   "displayed",
   /** Taken down from display, back into your things. */
   "off_display",
+  /** Put on a surface or hung on a wall (RFC 0050). */
+  "put_up",
+  /** Taken off a surface or a wall, back into your things (RFC 0050). */
+  "taken_off",
   /** Held aside for you while your things were full, and back now that they have room. */
   "held",
   /** What a path or flooring took, laid with `lay` (RFC 0016). */
@@ -1894,6 +1933,15 @@ export type Command =
   | { type: "display"; item: string; x: number; y: number }
   | { type: "take_down"; x: number; y: number }
   | { type: "admire"; x: number; y: number }
+  // Roomier homes (RFC 0050). `item` is what `display` takes, or a trinket or wall decor by kind.
+  /** Put a small thing on the surface at (x, y). */
+  | { type: "put_on"; x: number; y: number; floor?: number | undefined; item: string }
+  /** Take the small thing off the surface at (x, y), back to whoever put it there. */
+  | { type: "take_off"; x: number; y: number; floor?: number | undefined }
+  /** Hang a thing on the wall on `side` of (x, y), seen from (x, y). */
+  | { type: "hang"; x: number; y: number; side: Side; floor?: number | undefined; item: string }
+  /** Take down what hangs on the wall on `side` of (x, y), back to whoever hung it. */
+  | { type: "unhang"; x: number; y: number; side: Side; floor?: number | undefined }
   | { type: "set_gallery"; px: number; py: number; open: boolean }
   /**
    * Name plot (px, py), or clear its name with `null` (decision 0121). `name` is untrusted text the
@@ -2699,6 +2747,36 @@ export type WorldEvent =
   | { type: "find_displayed"; x: number; y: number; kind: FindKind; by: ResidentId }
   /** A displayed thing was taken down by `by`. Public. */
   | { type: "taken_down"; x: number; y: number; by: ResidentId }
+  /**
+   * A small thing went on a surface (RFC 0050): a made thing, a find, or a trinket by its kind.
+   * Public: it shows in the world, label and all.
+   */
+  | {
+      type: "put_on";
+      x: number;
+      y: number;
+      floor?: number;
+      good?: Good;
+      find?: FindKind;
+      thing?: TrinketKind | WallDecorKind;
+      by: ResidentId;
+    }
+  /** What stood on a surface was taken off by `by` (RFC 0050). Public. */
+  | { type: "taken_off"; x: number; y: number; floor?: number; by: ResidentId }
+  /** A thing was hung on the wall on `side` of (x, y) (RFC 0050). Public. */
+  | {
+      type: "hung";
+      x: number;
+      y: number;
+      side: Side;
+      floor?: number;
+      good?: Good;
+      find?: FindKind;
+      thing?: TrinketKind | WallDecorKind;
+      by: ResidentId;
+    }
+  /** What hung on the wall on `side` of (x, y) was taken down by `by` (RFC 0050). Public. */
+  | { type: "unhung"; x: number; y: number; side: Side; floor?: number; by: ResidentId }
   /** Staff took a made thing off display. `by` put it up. Public, like the display was. */
   | { type: "display_removed"; x: number; y: number; item: string; by: ResidentId }
   /** Staff removed these pieces' picture: they keep their titles and show none. Public. */
@@ -3068,6 +3146,10 @@ export const REJECTION_CODES = [
   "invalid_piece",
   "no_display",
   "nothing_displayed",
+  /** Nothing on that tile holds a thing on top (RFC 0050). */
+  "not_a_surface",
+  /** No wall stands on that side of the tile to hang a thing on (RFC 0050). */
+  "no_wall",
   "not_entitled",
   "already_admired",
   "bounties_closed",

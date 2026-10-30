@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-29:
 
+- Added: Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`
 - Changed: You can hold 400 things, up from 200
 - Changed: A photo of the world in 3D takes 15 to 30 seconds
 - Changed: Photos of the world in 3D taken soon after another are much faster

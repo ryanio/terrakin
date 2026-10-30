@@ -8,7 +8,8 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * from the Furniture tab, and the world shows both. Then a neighbor with a hut builds up (RFC
  * 0028): an upstairs added from the build bar after a second tap, stairs, a loft's flooring laid with
  * Upstairs picked, and Go up beside her on the stairs, with the picker following her up, then a
- * gable roof of wood put on from the bar's Roof chip (RFC 0041). Before that, her hut's door
+ * gable roof of wood put on from the bar's Roof chip (RFC 0041). Before that, a candle put on the
+ * table from the sheet a tap on it opens (RFC 0050), and her hut's door
  * (decision 0349): drawn on the map, walked through, and hung again from the Blocks tab.
  */
 
@@ -167,6 +168,28 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     // Her last table: the bar says none are left, and where to make one.
     await expect(page.locator("#palette-line")).toContainText("Table: none yet.");
     await page.screenshot({ path: "test-results/build-bar.png" });
+  });
+
+  await test.step("put a candle on the table from the sheet a tap on it opens (RFC 0050)", async () => {
+    const granted = await page.request.post("/v1/test/grant", {
+      data: { residentId: wren.id, stacks: { candle: 1 } },
+    });
+    expect(granted.ok()).toBe(true);
+    // Out of building, a tap on her own table opens what she can put on it.
+    await page.click("#build");
+    await expect(page.locator("#palette")).toBeHidden();
+    const at = await me();
+    const table = (await (await page.request.get("/v1/world")).json()).blocks.find(
+      (b: Tile & { block: string }) =>
+        b.block === "table" && Math.abs(b.x - at.x) + Math.abs(b.y - at.y) === 1,
+    );
+    if (!table) throw new Error("Her table isn't beside her");
+    await tapTile(page, table.x - at.x, table.y - at.y);
+    await expect(page.locator("#room-title")).toHaveText("Table");
+    await page.locator(".room-list").getByRole("button", { name: "Put on" }).first().click();
+    await expect
+      .poll(async () => (await (await page.request.get("/v1/world")).json()).tops ?? [])
+      .toContainEqual({ x: table.x, y: table.y, thing: "candle", by: wren.id });
   });
 
   // Building up (RFC 0028): a neighbor with a hut, coins, and wood.

@@ -102,6 +102,10 @@ export const PLOT_FURNITURE = [
   "armchair",
   "sofa",
   "bed",
+  // Roomier homes (RFC 0050): surfaces that hold a small thing on top.
+  "desk",
+  "side_table",
+  "dresser",
 ] as const;
 export type PlotFurniture = (typeof PLOT_FURNITURE)[number];
 
@@ -1569,6 +1573,28 @@ function furnitureSvg(
             ),
           ),
         ),
+      ];
+    case "desk":
+      return [
+        shade,
+        rect(0.12, 0.5, 0.08, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.56, 0.48, 0.32, 0.4, fill, 0.03),
+        rect(0.6, 0.56, 0.24, 0.04, WOOD_DARK, 0.01, false),
+        rect(0.08, 0.32, 0.84, 0.18, fill, 0.04),
+      ];
+    case "side_table":
+      return [
+        shade,
+        rect(0.3, 0.5, 0.07, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.63, 0.5, 0.07, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.22, 0.36, 0.56, 0.16, fill, 0.06),
+      ];
+    case "dresser":
+      return [
+        shade,
+        rect(0.12, 0.16, 0.76, 0.72, fill, 0.04),
+        ...[0.24, 0.46, 0.68].map((fy) => rect(0.18, fy, 0.64, 0.16, WOOD_DARK, 0.02, false)),
+        ...[0.32, 0.54, 0.76].map((fy) => dot(0.5, fy, 0.03, "#e7c27a")),
       ];
     case "barrel":
       return [

@@ -51,7 +51,7 @@ describe("a station's recipes", () => {
       ).length;
     expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", NEWCOMER)).toBe(at("kitchen"));
     expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", NEWCOMER)).toBe(16);
-    expect(moreToLearn(ITEM_CATALOG.recipes, "workbench", NEWCOMER)).toBe(13);
+    expect(moreToLearn(ITEM_CATALOG.recipes, "workbench", NEWCOMER)).toBe(16);
     expect(moreToLearn(ITEM_CATALOG.recipes, "kitchen", [...NEWCOMER, "lemonade"])).toBe(15);
   });
 

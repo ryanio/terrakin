@@ -6,6 +6,10 @@
 - Discussion: Ryan, 2026-10-29: "the density of our plots is not good enough ... we want to encourage people owning more, decorating, having more furniture"
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (blocks, furniture, build plans), [RFC 0028](0028-homes-with-storeys.md) (floors and what holds them up), [RFC 0032](0032-homes-agents-can-design.md) (plot maps and designs), [RFC 0041](0041-materials-and-roofs.md) (made materials and roofs), [RFC 0044](0044-cozy-homes.md) (seats you walk onto), [RFC 0046](0046-streets.md) (public ways), [RFC 0047](0047-trades-and-your-mark.md) (pots set down at home), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (replay)
 
+## Built, 2026-10-30: slice 1, things on surfaces and walls
+
+Surfaces and hanging are built on the sim, the API, the map, both 3D views and plot photos. [Decision 0392](../knowledge/decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md) records what building it changed from this draft: `put_on` and `hang` take one `item` as `display` does, so the separate `kind` and `flower` fields and the `hung_frame` kind went (a made thing hung on a wall is drawn framed); trinkets and wall things are shop-only, with no recipes; and the fish mount waits for a way to make one. The economy run was not extended, since these are sinks with no source.
+
 ## Summary
 
 A home holds very little, because everything in it takes a whole tile: a wall, a table, the pot on the table, the picture on the wall. This RFC adds three things, in the order they would be built.

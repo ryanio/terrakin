@@ -16,6 +16,10 @@ import {
   type StapleKind,
   SWEET_KINDS,
   type SweetKind,
+  TRINKET_KINDS,
+  type TrinketKind,
+  WALL_DECOR_KINDS,
+  type WallDecorKind,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { nearestCounter, notAtDoor } from "./doors";
@@ -106,8 +110,18 @@ export const SHOP_SKUS: readonly ShopSku[] = [
   ...sold(SEED_KINDS),
   ...sold(STAPLE_KINDS),
   ...sold(SWEET_KINDS),
+  // Roomier homes (RFC 0050), on the end so no sku moves.
+  ...sold(TRINKET_KINDS),
+  ...sold(WALL_DECOR_KINDS),
 ];
-export type ShopSku = DecorKind | ShopWear | SeedKind | StapleKind | SweetKind;
+export type ShopSku =
+  | DecorKind
+  | ShopWear
+  | SeedKind
+  | StapleKind
+  | SweetKind
+  | TrinketKind
+  | WallDecorKind;
 
 export type ShopSection = "decor" | "wear" | "garden" | "pantry";
 
@@ -141,6 +155,8 @@ const SECTION: Partial<Record<Role, ShopSection>> = {
   seed: "garden",
   staple: "pantry",
   sweet: "pantry",
+  trinket: "decor",
+  wall_decor: "decor",
 };
 
 /**

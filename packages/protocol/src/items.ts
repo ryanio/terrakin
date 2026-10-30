@@ -112,6 +112,10 @@ export const CatalogItem = z.object({
     "fish",
     /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
     "material",
+    /** A small thing that stands on a table or a shelf (RFC 0050), with `put_on`. */
+    "trinket",
+    /** A thing that hangs on a wall (RFC 0050), with `hang`. */
+    "wall_decor",
   ]),
 });
 

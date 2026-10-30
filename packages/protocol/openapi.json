@@ -5435,6 +5435,9 @@
                 "armchair",
                 "sofa",
                 "bed",
+                "desk",
+                "side_table",
+                "dresser",
                 "acorn",
                 "pinecone",
                 "mushroom",
@@ -5472,6 +5475,21 @@
                 "timber_frame",
                 "driftwood_plank",
                 "sea_glass_pane",
+                "candle",
+                "table_lamp",
+                "book_stack",
+                "potted_fern",
+                "jar_of_shells",
+                "teacup",
+                "globe",
+                "music_box",
+                "wall_clock",
+                "mirror",
+                "wreath",
+                "wall_shelf",
+                "sconce",
+                "pennant",
+                "wall_map",
                 "lemon_jam",
                 "strawberry_jam",
                 "lemonade",
@@ -15715,6 +15733,9 @@
                 "armchair",
                 "sofa",
                 "bed",
+                "desk",
+                "side_table",
+                "dresser",
                 "candy",
                 "candy_cane",
                 "gelt",
@@ -29974,6 +29995,18 @@
             "$ref": "#/components/schemas/TakeDownAction"
           },
           {
+            "$ref": "#/components/schemas/PutOnAction"
+          },
+          {
+            "$ref": "#/components/schemas/TakeOffAction"
+          },
+          {
+            "$ref": "#/components/schemas/HangAction"
+          },
+          {
+            "$ref": "#/components/schemas/UnhangAction"
+          },
+          {
             "$ref": "#/components/schemas/AdmireAction"
           },
           {
@@ -30527,7 +30560,10 @@
                     "sofa",
                     "bed",
                     "kiln",
-                    "pot"
+                    "pot",
+                    "desk",
+                    "side_table",
+                    "dresser"
                   ]
                 }
               },
@@ -30707,7 +30743,10 @@
               "sofa",
               "bed",
               "kiln",
-              "pot"
+              "pot",
+              "desk",
+              "side_table",
+              "dresser"
             ]
           },
           "windows": {
@@ -30765,7 +30804,10 @@
               "sofa",
               "bed",
               "kiln",
-              "pot"
+              "pot",
+              "desk",
+              "side_table",
+              "dresser"
             ]
           },
           "path": {
@@ -32103,6 +32145,8 @@
           "invalid_piece",
           "no_display",
           "nothing_displayed",
+          "not_a_surface",
+          "no_wall",
           "not_entitled",
           "already_admired",
           "bounties_closed",
@@ -32383,7 +32427,10 @@
           "jack_o_lantern",
           "armchair",
           "sofa",
-          "bed"
+          "bed",
+          "desk",
+          "side_table",
+          "dresser"
         ]
       },
       "GameKind": {
@@ -32894,6 +32941,60 @@
           "kind"
         ]
       },
+      "HangAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "hang"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemId"
+              },
+              {
+                "$ref": "#/components/schemas/FindKind"
+              },
+              {
+                "$ref": "#/components/schemas/WallDecorKind"
+              }
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "side",
+          "item"
+        ]
+      },
       "HarvestAction": {
         "type": "object",
         "properties": {
@@ -33034,6 +33135,8 @@
           "returned",
           "displayed",
           "off_display",
+          "put_up",
+          "taken_off",
           "held",
           "laid",
           "lifted",
@@ -33176,6 +33279,9 @@
           "armchair",
           "sofa",
           "bed",
+          "desk",
+          "side_table",
+          "dresser",
           "acorn",
           "pinecone",
           "mushroom",
@@ -33213,6 +33319,21 @@
           "timber_frame",
           "driftwood_plank",
           "sea_glass_pane",
+          "candle",
+          "table_lamp",
+          "book_stack",
+          "potted_fern",
+          "jar_of_shells",
+          "teacup",
+          "globe",
+          "music_box",
+          "wall_clock",
+          "mirror",
+          "wreath",
+          "wall_shelf",
+          "sconce",
+          "pennant",
+          "wall_map",
           "lemon_jam",
           "strawberry_jam",
           "lemonade",
@@ -34124,7 +34245,10 @@
               "sofa",
               "bed",
               "kiln",
-              "pot"
+              "pot",
+              "desk",
+              "side_table",
+              "dresser"
             ]
           },
           "item": {
@@ -34205,7 +34329,10 @@
               "beehive",
               "armchair",
               "sofa",
-              "bed"
+              "bed",
+              "desk",
+              "side_table",
+              "dresser"
             ]
           }
         },
@@ -34364,7 +34491,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "1": {
@@ -34421,7 +34551,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "2": {
@@ -34478,7 +34611,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "3": {
@@ -34535,7 +34671,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "4": {
@@ -34592,7 +34731,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "5": {
@@ -34649,7 +34791,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "6": {
@@ -34706,7 +34851,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "7": {
@@ -34763,7 +34911,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "8": {
@@ -34820,7 +34971,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "9": {
@@ -34877,7 +35031,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               }
             },
@@ -34982,7 +35139,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "1": {
@@ -35039,7 +35199,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "2": {
@@ -35096,7 +35259,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "3": {
@@ -35153,7 +35319,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "4": {
@@ -35210,7 +35379,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "5": {
@@ -35267,7 +35439,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "6": {
@@ -35324,7 +35499,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "7": {
@@ -35381,7 +35559,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "8": {
@@ -35438,7 +35619,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "9": {
@@ -35495,7 +35679,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               }
             },
@@ -35611,7 +35798,10 @@
                         "sofa",
                         "bed",
                         "kiln",
-                        "pot"
+                        "pot",
+                        "desk",
+                        "side_table",
+                        "dresser"
                       ]
                     }
                   },
@@ -36070,6 +36260,56 @@
           "title"
         ]
       },
+      "PutOnAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "put_on"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemId"
+              },
+              {
+                "$ref": "#/components/schemas/FindKind"
+              },
+              {
+                "$ref": "#/components/schemas/TrinketKind"
+              }
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "item"
+        ]
+      },
       "PutterAction": {
         "type": "object",
         "properties": {
@@ -36148,7 +36388,10 @@
           "recipe:sofa",
           "recipe:bed",
           "recipe:vase",
-          "recipe:teapot"
+          "recipe:teapot",
+          "recipe:desk",
+          "recipe:side_table",
+          "recipe:dresser"
         ]
       },
       "RecipeKind": {
@@ -36205,6 +36448,9 @@
           "armchair",
           "sofa",
           "bed",
+          "desk",
+          "side_table",
+          "dresser",
           "candy",
           "candy_cane",
           "gelt",
@@ -36262,7 +36508,10 @@
           "bowl",
           "vase",
           "teapot",
-          "pot_of_tea"
+          "pot_of_tea",
+          "desk",
+          "side_table",
+          "dresser"
         ]
       },
       "ReleaseAction": {
@@ -37476,7 +37725,31 @@
           "cushion",
           "candy",
           "candy_cane",
-          "gelt"
+          "gelt",
+          "candle",
+          "table_lamp",
+          "book_stack",
+          "potted_fern",
+          "jar_of_shells",
+          "teacup",
+          "globe",
+          "music_box",
+          "wall_clock",
+          "mirror",
+          "wreath",
+          "wall_shelf",
+          "sconce",
+          "pennant",
+          "wall_map"
+        ]
+      },
+      "Side": {
+        "type": "string",
+        "enum": [
+          "n",
+          "e",
+          "s",
+          "w"
         ]
       },
       "SitAction": {
@@ -37603,6 +37876,9 @@
           "armchair",
           "sofa",
           "bed",
+          "desk",
+          "side_table",
+          "dresser",
           "acorn",
           "pinecone",
           "mushroom",
@@ -37639,7 +37915,22 @@
           "brickwork",
           "timber_frame",
           "driftwood_plank",
-          "sea_glass_pane"
+          "sea_glass_pane",
+          "candle",
+          "table_lamp",
+          "book_stack",
+          "potted_fern",
+          "jar_of_shells",
+          "teacup",
+          "globe",
+          "music_box",
+          "wall_clock",
+          "mirror",
+          "wreath",
+          "wall_shelf",
+          "sconce",
+          "pennant",
+          "wall_map"
         ]
       },
       "StandAction": {
@@ -37765,6 +38056,42 @@
           "job"
         ]
       },
+      "TakeOffAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "take_off"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y"
+        ]
+      },
       "TeachAction": {
         "type": "object",
         "properties": {
@@ -37876,6 +38203,59 @@
           "type",
           "px",
           "py"
+        ]
+      },
+      "TrinketKind": {
+        "type": "string",
+        "enum": [
+          "candle",
+          "table_lamp",
+          "book_stack",
+          "potted_fern",
+          "jar_of_shells",
+          "teacup",
+          "globe",
+          "music_box"
+        ]
+      },
+      "UnhangAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "unhang"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "side"
         ]
       },
       "UnlistItemAction": {
@@ -38036,6 +38416,18 @@
         },
         "required": [
           "type"
+        ]
+      },
+      "WallDecorKind": {
+        "type": "string",
+        "enum": [
+          "wall_clock",
+          "mirror",
+          "wreath",
+          "wall_shelf",
+          "sconce",
+          "pennant",
+          "wall_map"
         ]
       },
       "WearItem": {
@@ -39107,7 +39499,10 @@
                   "sofa",
                   "bed",
                   "kiln",
-                  "pot"
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
                 ]
               },
               "by": {
@@ -42015,6 +42410,218 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "put_on"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "good": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GoodEventView"
+                  }
+                ]
+              },
+              "find": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/FindKind"
+                  }
+                ]
+              },
+              "thing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TrinketKind"
+                  },
+                  {
+                    "$ref": "#/components/schemas/WallDecorKind"
+                  }
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "taken_off"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "hung"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "side": {
+                "$ref": "#/components/schemas/Side"
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "good": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GoodEventView"
+                  }
+                ]
+              },
+              "find": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/FindKind"
+                  }
+                ]
+              },
+              "thing": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TrinketKind"
+                  },
+                  {
+                    "$ref": "#/components/schemas/WallDecorKind"
+                  }
+                ]
+              },
+              "by": {
+                "type": "string"
+              },
+              "trust": {
+                "type": "string",
+                "enum": [
+                  "untrusted"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "side",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "unhung"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "side": {
+                "$ref": "#/components/schemas/Side"
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "side",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "display_removed"
                 ]
               },
@@ -43642,7 +44249,10 @@
                     "sofa",
                     "bed",
                     "kiln",
-                    "pot"
+                    "pot",
+                    "desk",
+                    "side_table",
+                    "dresser"
                   ]
                 }
               },
@@ -43896,6 +44506,134 @@
                 "x",
                 "y",
                 "good",
+                "by"
+              ]
+            }
+          },
+          "tops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "good": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/GoodEventView"
+                    }
+                  ]
+                },
+                "find": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FindKind"
+                    }
+                  ]
+                },
+                "thing": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TrinketKind"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WallDecorKind"
+                    }
+                  ]
+                },
+                "by": {
+                  "type": "string"
+                },
+                "trust": {
+                  "type": "string",
+                  "enum": [
+                    "untrusted"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "by"
+              ]
+            }
+          },
+          "hung": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "side": {
+                  "$ref": "#/components/schemas/Side"
+                },
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "good": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/GoodEventView"
+                    }
+                  ]
+                },
+                "find": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FindKind"
+                    }
+                  ]
+                },
+                "thing": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/TrinketKind"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WallDecorKind"
+                    }
+                  ]
+                },
+                "by": {
+                  "type": "string"
+                },
+                "trust": {
+                  "type": "string",
+                  "enum": [
+                    "untrusted"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "side",
                 "by"
               ]
             }
@@ -49521,7 +50259,9 @@
               "find",
               "sweet",
               "fish",
-              "material"
+              "material",
+              "trinket",
+              "wall_decor"
             ]
           }
         },
@@ -52654,7 +53394,9 @@
               "find",
               "sweet",
               "fish",
-              "material"
+              "material",
+              "trinket",
+              "wall_decor"
             ],
             "description": "What it is to the rules: a `good` is a made thing with an id and a maker; everything else stacks."
           },
@@ -55348,7 +56090,10 @@
                     "sofa",
                     "bed",
                     "kiln",
-                    "pot"
+                    "pot",
+                    "desk",
+                    "side_table",
+                    "dresser"
                   ]
                 }
               },
@@ -55408,7 +56153,10 @@
                     "sofa",
                     "bed",
                     "kiln",
-                    "pot"
+                    "pot",
+                    "desk",
+                    "side_table",
+                    "dresser"
                   ]
                 }
               },

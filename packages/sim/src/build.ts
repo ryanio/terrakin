@@ -38,6 +38,7 @@ import { plotKey, tileKey } from "./keys";
 import { isStreet, streetWords } from "./lands";
 import { plotListedProblem } from "./plot-market";
 import { clayRule, KILN, POT_BLOCK, potteryClosed } from "./pottery";
+import { hungFrom, releaseHungOn, topAt } from "./surfaces";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -389,8 +390,12 @@ export function planBuild(
       if (block === undefined) skip(t, "remove", "empty");
       else if (floor === 0 && (state.items?.crops[key] || state.items?.firings?.[key])) {
         skip(t, "remove", "growing");
-      } else if ((floor === 0 && displayAt(state, x, y)) || block === POT_BLOCK) {
-        // A pot set down (RFC 0047) is someone's thing, on any floor.
+      } else if (
+        (floor === 0 && displayAt(state, x, y)) ||
+        block === POT_BLOCK ||
+        topAt(state, x, y, floor)
+      ) {
+        // A pot set down (RFC 0047), and a thing on a surface (RFC 0050), is someone's thing.
         skip(t, "remove", "on_display");
       } else if (removeProblem(state, x, y, floor, view)) skip(t, "remove", "holds_up");
       else {
@@ -428,6 +433,8 @@ export function planBuild(
       else if (there !== undefined) skip(t, "block", "occupied");
       else if (floor === 0 && hearths.has(key)) skip(t, "block", "hearth");
       else if (standing.has(spotKey(floor, key))) skip(t, "block", "standing");
+      // A tile something hangs facing stays open (RFC 0050).
+      else if (hungFrom(state, x, y, floor)) skip(t, "block", "occupied");
       else if (stairwellProblem(state, x, y, floor, view)) skip(t, "block", "occupied");
       else {
         const unheld = blockSupportProblem(state, x, y, floor, block, view);
@@ -551,6 +558,8 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     for (const { x, y } of plan.removed.filter((t) => level(t) === floor)) {
       delete blocksFor(floor)[tileKey(x, y)];
       events.push({ type: "block_removed", x, y, ...floorField(floor), by: actor });
+      // What hung on a wall that came down goes back to whoever hung it (RFC 0050).
+      events.push(...releaseHungOn(state, x, y, floor, actor));
     }
     for (const { x, y } of plan.lifted.filter((t) => level(t) === floor)) {
       delete groundFor(floor)[tileKey(x, y)];

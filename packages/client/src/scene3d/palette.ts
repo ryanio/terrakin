@@ -220,6 +220,10 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   armchair: { color: hex(BLOCK_COLORS.armchair), height: 0.95, opacity: 1, form: "furniture" },
   sofa: { color: hex(BLOCK_COLORS.sofa), height: 0.9, opacity: 1, form: "furniture" },
   bed: { color: hex(BLOCK_COLORS.bed), height: 0.85, opacity: 1, form: "furniture" },
+  // Roomier homes (RFC 0050): surfaces, at the height a small thing stands on.
+  desk: { color: hex(BLOCK_COLORS.desk), height: 0.78, opacity: 1, form: "furniture" },
+  side_table: { color: hex(BLOCK_COLORS.side_table), height: 0.56, opacity: 1, form: "furniture" },
+  dresser: { color: hex(BLOCK_COLORS.dresser), height: 0.88, opacity: 1, form: "furniture" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {

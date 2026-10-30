@@ -27,6 +27,9 @@ import {
   groundOn,
   type HostedEvent,
   holidaysField,
+  hungOf,
+  isShownFind,
+  isShownGood,
   isTownEvent,
   isTownsfolk,
   isWay,
@@ -44,6 +47,7 @@ import {
   type RecipeName,
   type Resident,
   residentById,
+  type Shown,
   type StepRoutine,
   servedTea,
   shopTiles,
@@ -51,12 +55,24 @@ import {
   skyAt,
   TEA,
   timeOfDayAt,
+  topsOf,
   townHallTiles,
   type WorldEvent,
   type WorldState,
   wayPickupsOpen,
 } from "@terrakin/sim";
 import { shownPlotName } from "./plots";
+
+/** What stands on a surface or hangs on a wall (RFC 0050), as the snapshot carries it. */
+function shownOnWire(shown: Shown) {
+  if (isShownGood(shown)) {
+    const words = shown.good.label !== undefined ? { trust: "untrusted" as const } : {};
+    return { good: { ...shown.good }, by: shown.by, ...words };
+  }
+  if (isShownFind(shown)) return { find: shown.find, by: shown.by };
+  return { thing: shown.thing, by: shown.by };
+}
+
 import { nameKey } from "./text";
 
 /**
@@ -120,6 +136,11 @@ export function toWire(events: WorldEvent[], townsfolk: readonly string[] = []):
     if (e.type === "displayed") {
       // A made thing's label, or a piece's title, is its maker's words.
       out.push(e.good.label !== undefined ? { ...e, trust: "untrusted" } : e);
+      continue;
+    }
+    if ((e.type === "put_on" || e.type === "hung") && e.good?.label !== undefined) {
+      // A made thing on a surface or a wall (RFC 0050) carries its maker's label.
+      out.push({ ...e, trust: "untrusted" });
       continue;
     }
     if (e.type === "block_placed" && e.pot?.label !== undefined) {
@@ -565,6 +586,28 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
             good: { ...pot.good },
             by: pot.by,
             ...(pot.good.label !== undefined ? { trust: "untrusted" as const } : {}),
+          })),
+        }
+      : {}),
+    // Things on surfaces and walls (RFC 0050), each with what it is and who put it there.
+    ...(state.items?.tops
+      ? {
+          tops: topsOf(state).map(({ x, y, floor, shown }) => ({
+            x,
+            y,
+            ...floorField(floor),
+            ...shownOnWire(shown),
+          })),
+        }
+      : {}),
+    ...(state.items?.hung
+      ? {
+          hung: hungOf(state).map(({ x, y, side, floor, shown }) => ({
+            x,
+            y,
+            side,
+            ...floorField(floor),
+            ...shownOnWire(shown),
           })),
         }
       : {}),

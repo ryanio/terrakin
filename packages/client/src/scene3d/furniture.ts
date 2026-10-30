@@ -94,6 +94,73 @@ function tableParts(grain: Texture): Part[] {
   ];
 }
 
+/** A desk (RFC 0050): a long top on a leg at one end and a set of drawers at the other. */
+function deskParts(grain: Texture): Part[] {
+  return [
+    {
+      geometry: merged(
+        [
+          box(0.94, 0.07, 0.6, [0, 0.74, 0], [0, 0, 0], 0.03),
+          ...[-0.27, 0.22].map((z) => box(0.07, 0.7, 0.07, [-0.4, 0.35, z], [0, 0, 0], 0.02)),
+          box(0.36, 0.7, 0.54, [0.26, 0.35, 0], [0, 0, 0], 0.03),
+        ],
+        0.75,
+      ),
+      material: paper(hex(BLOCK_COLORS.desk), grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [0.2, 0.46].map((y) => box(0.3, 0.16, 0.02, [0.26, y, 0.28], [0, 0, 0], 0.01)),
+        0.9,
+      ),
+      material: paper(0x6b4a32, grain),
+      cast: false,
+    },
+  ];
+}
+
+/** A side table (RFC 0050): a small round-cornered top on four slim legs, lower than a table. */
+function sideTableParts(grain: Texture): Part[] {
+  const legs = [-0.2, 0.2].flatMap((x) =>
+    [-0.2, 0.2].map((z) => box(0.06, 0.5, 0.06, [x, 0.25, z], [0, 0, 0], 0.02)),
+  );
+  return [
+    {
+      geometry: merged([box(0.56, 0.06, 0.56, [0, 0.53, 0], [0, 0, 0], 0.05), ...legs], 0.75),
+      material: paper(hex(BLOCK_COLORS.side_table), grain),
+      cast: true,
+    },
+  ];
+}
+
+/** A dresser (RFC 0050): a chest of three drawers, waist high, with brass knobs. */
+function dresserParts(grain: Texture): Part[] {
+  return [
+    {
+      geometry: merged([box(0.86, 0.86, 0.5, [0, 0.45, -0.05], [0, 0, 0], 0.03)], 0.7),
+      material: paper(hex(BLOCK_COLORS.dresser), grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [0.2, 0.46, 0.72].map((y) => box(0.74, 0.2, 0.02, [0, y, 0.21], [0, 0, 0], 0.01)),
+        0.9,
+      ),
+      material: paper(0x5a3c27, grain),
+      cast: false,
+    },
+    {
+      geometry: merged(
+        [0.2, 0.46, 0.72].map((y) => box(0.06, 0.05, 0.04, [0, y, 0.23], [0, 0, 0], 0.01)),
+        1,
+      ),
+      material: paper(0xe7c27a, grain),
+      cast: false,
+    },
+  ];
+}
+
 function chairParts(grain: Texture): Part[] {
   const legs = [-0.2, 0.2].flatMap((x) =>
     [-0.17, 0.22].map((z) => box(0.06, 0.46, 0.06, [x, 0.23, z], [0, 0, 0], 0.02)),
@@ -508,6 +575,12 @@ function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
       return upholsteredParts(grain, hex(BLOCK_COLORS.sofa), 0.96, 2);
     case "bed":
       return bedParts(grain);
+    case "desk":
+      return deskParts(grain);
+    case "side_table":
+      return sideTableParts(grain);
+    case "dresser":
+      return dresserParts(grain);
   }
 }
 

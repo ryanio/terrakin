@@ -31,6 +31,9 @@ import {
   type LayoutDisplay,
   plotBounds,
   potsOn,
+  type RoomShown,
+  roomPart,
+  roomThingsOn,
   type ShownGood,
   shownFind,
 } from "./layout";
@@ -177,6 +180,10 @@ export interface ChunkSource {
   displays?: ReadonlyMap<string, { good: ShownGood }>;
   /** Pots set down (RFC 0047), by the sim's `potKey`. Absent reads as none. */
   pots?: ReadonlyMap<string, { good: ShownGood }>;
+  /** Small things on surfaces (RFC 0050), by the sim's `topKey`. Absent reads as none. */
+  tops?: ReadonlyMap<string, RoomShown>;
+  /** Things hung on walls (RFC 0050), by the sim's `faceKey`. Absent reads as none. */
+  hung?: ReadonlyMap<string, RoomShown>;
   /** Finds on display (RFC 0021), by tile key. */
   shownFinds?: ReadonlyMap<string, { kind: FindKind }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
@@ -317,6 +324,11 @@ export function readChunk(
     displays.push(pot);
     parts.push(potPart(pot));
   }
+  // Things on surfaces and walls (RFC 0050), on the same floors.
+  for (const thing of roomShown(source, bounds, up.blocks)) {
+    displays.push(thing);
+    parts.push(roomPart(thing));
+  }
   const presents = pilesOn(source, bounds);
   for (const p of presents) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   // The roof lifts away on the plot you stand on, which is the one with a cut (RFC 0041).
@@ -423,6 +435,7 @@ export function chunkSignature(
   const up = upstairsOf(source, bounds, lit, cut);
   parts.push(...up.parts);
   for (const pot of potsShown(source, bounds, up.blocks)) parts.push(potPart(pot));
+  for (const thing of roomShown(source, bounds, up.blocks)) parts.push(roomPart(thing));
   for (const p of pilesOn(source, bounds)) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
@@ -441,6 +454,29 @@ function potsShown(
     for (let x = bounds.x0; x <= bounds.x1; x++)
       if (source.blocks.get(tileKey(x, y)) === "pot") below.push({ x, y, block: "pot" });
   return potsOn([...below, ...upstairs], source.pots);
+}
+
+/** The things on surfaces and walls (RFC 0050) on a plot's ground floor and the floors shown. */
+function roomShown(
+  source: ChunkSource,
+  bounds: Bounds,
+  upstairs: readonly { x: number; y: number; block: BlockKind; floor?: number }[],
+): LayoutDisplay[] {
+  if (!source.tops?.size && !source.hung?.size) return [];
+  const below: { x: number; y: number; block: BlockKind }[] = [];
+  for (let y = bounds.y0; y <= bounds.y1; y++)
+    for (let x = bounds.x0; x <= bounds.x1; x++) {
+      const block = source.blocks.get(tileKey(x, y));
+      if (block) below.push({ x, y, block });
+    }
+  const floors = new Set([0, ...upstairs.flatMap((b) => (b.floor ? [b.floor] : []))]);
+  return roomThingsOn(
+    [...below, ...upstairs],
+    source.tops,
+    source.hung,
+    (x, y) => x >= bounds.x0 && x <= bounds.x1 && y >= bounds.y0 && y <= bounds.y1,
+    floors,
+  );
 }
 
 /** A pot's words in a chunk's signature: where, which, and a vase's flower. */

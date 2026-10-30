@@ -157,6 +157,43 @@ const CASES: { name: string; setUp?: (w: World) => void; command: (w: World) => 
     },
     command: () => ({ type: "take_down", ...THERE }),
   },
+  // Roomier homes (RFC 0050): a table on THERE, and a wall to the north of it.
+  {
+    name: "put_on",
+    setUp: (w) => {
+      stock(w.state, "ada", { table: 1, candle: 1 });
+      w.build({ blocks: [{ ...THERE, block: "table" }] });
+    },
+    command: () => ({ type: "put_on", ...THERE, item: "candle" }),
+  },
+  {
+    name: "take_off",
+    setUp: (w) => {
+      stock(w.state, "ada", { table: 1, candle: 1 });
+      w.build({ blocks: [{ ...THERE, block: "table" }] });
+      w.goTo(BESIDE);
+      w.ok({ type: "put_on", ...THERE, item: "candle" });
+    },
+    command: () => ({ type: "take_off", ...THERE }),
+  },
+  {
+    name: "hang",
+    setUp: (w) => {
+      w.build({ blocks: [{ x: THERE.x, y: THERE.y - 1, block: "wood" }] });
+      stock(w.state, "ada", { mirror: 1 });
+    },
+    command: () => ({ type: "hang", ...THERE, side: "n", item: "mirror" }),
+  },
+  {
+    name: "unhang",
+    setUp: (w) => {
+      w.build({ blocks: [{ x: THERE.x, y: THERE.y - 1, block: "wood" }] });
+      stock(w.state, "ada", { mirror: 1 });
+      w.goTo(BESIDE);
+      w.ok({ type: "hang", ...THERE, side: "n", item: "mirror" });
+    },
+    command: () => ({ type: "unhang", ...THERE, side: "n" }),
+  },
   { name: "gather a tile", command: (w) => ({ type: "gather", ...pickupTile(w.state) }) },
   {
     name: "set_off_firework",

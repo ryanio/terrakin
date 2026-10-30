@@ -301,11 +301,22 @@ export function plotSale(state: WorldState, px: number, py: number, price: numbe
   return { price, fee, sellerGets: price - fee, hearths };
 }
 
-/** Whether anything stands on display on plot (px, py). */
+/**
+ * Whether anything stands on display on plot (px, py): on a pedestal or a frame, or on a surface or
+ * a wall (RFC 0050). A surface or wall key may carry a floor before a colon and a side after the
+ * tile; the tile alone says the plot.
+ */
 function displayOnPlot(state: WorldState, px: number, py: number): boolean {
   const { plotSize } = state.config;
-  return Object.keys(state.items?.displays ?? {}).some((key) => {
-    const [x, y] = key.split(",").map(Number) as [number, number];
+  const items = state.items;
+  const keys = [
+    ...Object.keys(items?.displays ?? {}),
+    ...Object.keys(items?.tops ?? {}),
+    ...Object.keys(items?.hung ?? {}),
+  ];
+  return keys.some((key) => {
+    const tile = key.includes(":") ? (key.split(":")[1] as string) : key;
+    const [x, y] = tile.split(",").map(Number) as [number, number];
     return Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
   });
 }

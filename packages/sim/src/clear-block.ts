@@ -5,6 +5,7 @@ import { blockRemoveProblem, cropAt, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
 import { kilnRemoveProblem, potRemoveProblem } from "./pottery";
+import { releaseHungOn, topRemoveProblem } from "./surfaces";
 import type { Command, Rejection, WorldEvent, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { inBounds, plotAtTile } from "./world";
@@ -47,6 +48,8 @@ export function checkClearBlock(
   if (firing) return firing;
   const pot = potRemoveProblem(state, x, y);
   if (pot) return pot;
+  const onTop = topRemoveProblem(state, x, y);
+  if (onTop) return onTop;
   const holding = removeProblem(state, x, y, 0);
   if (holding) return holding;
   const owner = plot.ownerId;
@@ -58,6 +61,7 @@ export function checkClearBlock(
     return [
       { type: "block_removed", x, y, by: TOWN_ACTOR },
       ...moveBlockCost(state, owner, taken, 1),
+      ...releaseHungOn(state, x, y, 0, TOWN_ACTOR),
     ];
   };
 }

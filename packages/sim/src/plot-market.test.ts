@@ -182,6 +182,10 @@ describe("a listed plot is frozen", () => {
     ["ada", { type: "set_gallery", px: 0, py: 0, open: true }],
     ["ada", { type: "name_plot", px: 0, py: 0, name: "Ada's Corner" }],
     ["ada", { type: "display", item: "i_1", x: 2, y: 2 }],
+    ["ada", { type: "put_on", x: 2, y: 2, item: "candle" }],
+    ["ada", { type: "take_off", x: 2, y: 2 }],
+    ["ada", { type: "hang", x: 2, y: 2, side: "n", item: "mirror" }],
+    ["ada", { type: "unhang", x: 2, y: 2, side: "n" }],
     [
       "ada",
       {

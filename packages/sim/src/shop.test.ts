@@ -234,6 +234,22 @@ describe("the catalog", () => {
       tulip_seed: 3,
       // A cushion for the cozy pieces (RFC 0044): half a day's allowance, never bought back.
       cushion: 5,
+      // Roomier homes (RFC 0050): small things for surfaces and walls, never bought back.
+      candle: 4,
+      table_lamp: 15,
+      book_stack: 8,
+      potted_fern: 10,
+      jar_of_shells: 6,
+      teacup: 6,
+      globe: 25,
+      music_box: 30,
+      wall_clock: 30,
+      mirror: 25,
+      wreath: 12,
+      wall_shelf: 10,
+      sconce: 20,
+      pennant: 6,
+      wall_map: 20,
     });
   });
 

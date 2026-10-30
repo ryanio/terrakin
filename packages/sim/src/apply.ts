@@ -234,6 +234,15 @@ import {
   shopNewDay,
   stockHoliday,
 } from "./shop";
+import {
+  checkHang,
+  checkPutOn,
+  checkTakeOff,
+  checkUnhang,
+  hungPlaceProblem,
+  releaseHungOn,
+  topRemoveProblem,
+} from "./surfaces";
 import { checkTestGrant } from "./test-grant";
 import { checkBringDish } from "./thanksgiving";
 import {
@@ -1288,7 +1297,11 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "place":
     case "remove":
     case "lay":
-    case "lift": {
+    case "lift":
+    case "put_on":
+    case "take_off":
+    case "hang":
+    case "unhang": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
       const far = outOfBuildReach(state, me, { x, y });
@@ -1318,6 +1331,11 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // Paths and flooring (RFC 0016) keep the same where-rules, and their own checks.
       if (command.type === "lay") return town(checkLay(state, actor, command, floor));
       if (command.type === "lift") return town(checkLift(state, actor, command, floor));
+      // Things on surfaces and walls (RFC 0050) keep the same where-rules, and their own checks.
+      if (command.type === "put_on") return town(checkPutOn(state, actor, command, floor));
+      if (command.type === "take_off") return town(checkTakeOff(state, actor, command, floor));
+      if (command.type === "hang") return town(checkHang(state, actor, command, floor));
+      if (command.type === "unhang") return town(checkUnhang(state, actor, command, floor));
       const key = tileKey(x, y);
       const blocks = floor === 0 ? state.blocks : layerFor(state, floor).blocks;
       // Hearths, crops, and displays are on the ground floor, keyed by their tile alone.
@@ -1334,6 +1352,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         if (shown) return { ok: false, rejection: shown };
         const firing = groundFloor ? kilnRemoveProblem(state, x, y) : null;
         if (firing) return { ok: false, rejection: firing };
+        const onTop = topRemoveProblem(state, x, y, floor);
+        if (onTop) return { ok: false, rejection: onTop };
         const holding = removeProblem(state, x, y, floor);
         if (holding) return { ok: false, rejection: holding };
         const full = blockRemoveProblem(state, actor, taken);
@@ -1343,6 +1363,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           return [
             { type: "block_removed", x, y, ...floorField(floor), by: actor },
             ...moveBlockCost(state, actor, taken, 1),
+            // What hung on the wall goes back to whoever hung it (RFC 0050).
+            ...releaseHungOn(state, x, y, floor, actor),
           ];
         };
       }
@@ -1360,6 +1382,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         (r) => r.online && r.x === x && r.y === y && standingFloor(r) === floor,
       );
       if (standingThere) return reject("tile_occupied", "Someone is standing there.");
+      // A tile something hangs facing stays open (RFC 0050).
+      const facing = hungPlaceProblem(state, x, y, floor);
+      if (facing) return { ok: false, rejection: facing };
       const { block } = command;
       if (!(BLOCK_KINDS as readonly unknown[]).includes(block)) {
         return reject("unknown_item", "That isn't a block you can place.");

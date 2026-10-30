@@ -14,6 +14,7 @@ import {
 } from "@terrakin/protocol";
 import {
   type BlockKind,
+  blocksWalkers,
   type Climb,
   canBuildOn,
   chebyshev,
@@ -24,13 +25,16 @@ import {
   FLOORS,
   FLOWER_KINDS,
   type FlowerKind,
+  faceKey,
   fireworkNight,
   floorField,
   type GroundKind,
   ITEM_INFO,
   inEventArea,
   isGroundKind,
+  isHangingWall,
   isHeldBlock,
+  isSurface,
   onGreen,
   pageKnown,
   parseKey,
@@ -41,12 +45,14 @@ import {
   potKey,
   type Resident,
   route,
+  type Side,
   STEP,
   seasonOf,
   settleProblem,
   spawnIn,
   type Tile,
   tileKey,
+  topKey,
   upstairsProblem,
   walkedToday,
   waterBeside,
@@ -121,6 +127,7 @@ import {
   render,
 } from "./render";
 import { ROOF_STYLE_WORDS } from "./roofs";
+import { wallFace } from "./room-spots";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
@@ -1285,6 +1292,8 @@ type TapTarget =
   | { kind: "pond" }
   | { kind: "seat" }
   | { kind: "station" }
+  | { kind: "surface" }
+  | { kind: "wall"; face: { x: number; y: number; side: Side } }
   | { kind: "pickup" }
   | { kind: "pet"; owner: Resident }
   | { kind: "resident"; other: Resident }
@@ -1333,6 +1342,10 @@ function tapTarget(tile: Tile): TapTarget | undefined {
   // A seat on your own floor (RFC 0044): a tap sits you on it, or lays you on a bed.
   if (postureOn(mirror.blocksOn(myFloor()).get(tileKey(tile.x, tile.y)))) return { kind: "seat" };
   if (block && STATIONS.includes(block)) return { kind: "station" };
+  // A surface or a solid wall on your own floor (RFC 0050): what stands or hangs there, or what
+  // you could put there when it's yours.
+  const room = roomTarget(tile, at);
+  if (room) return room;
   if (mirror.pickupAt(tile.x, tile.y)) return { kind: "pickup" };
   // Someone else's pet drawn on the tile. Pets are drawing only, so this asks where they were last
   // drawn; yours sits at your heel, where you tap to walk.
@@ -1341,6 +1354,60 @@ function tapTarget(tile: Tile): TapTarget | undefined {
   if (owner?.pet) return { kind: "pet", owner };
   const line = thingAt(tile);
   return line ? { kind: "thing", line } : undefined;
+}
+
+/** Whether a tile is on a plot you can build on, by the sim's rule. */
+function buildableHere(m: Mirror, x: number, y: number): boolean {
+  const ownerId = m.ownerAt(x, y);
+  return !!ownerId && !!me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, me);
+}
+
+/**
+ * A tap on a surface or a solid wall on your floor (RFC 0050). A surface opens when it's yours or
+ * something stands on it; a wall opens on your own plot, at the face seen from the open tile
+ * beside it nearest you (`wallFace`). Anything else isn't a room tap.
+ */
+function roomTarget(tile: Tile, at: Tile): TapTarget | undefined {
+  const m = mirror;
+  if (!m) return undefined;
+  const floor = myFloor();
+  const here = m.blocksOn(floor);
+  const block = here.get(tileKey(tile.x, tile.y));
+  if (isSurface(block) && block !== "kitchen") {
+    const mine = buildableHere(m, tile.x, tile.y);
+    return mine || m.tops.has(topKey(tile.x, tile.y, floor)) ? { kind: "surface" } : undefined;
+  }
+  if (!isHangingWall(block) || !buildableHere(m, tile.x, tile.y)) return undefined;
+  const face = wallFace(tile, at, (x, y) => {
+    if (x < 0 || y < 0 || x >= m.config.width || y >= m.config.height) return false;
+    return !blocksWalkers(here.get(tileKey(x, y))) && buildableHere(m, x, y);
+  });
+  return face ? { kind: "wall", face } : undefined;
+}
+
+/** Open the sheet for a surface or a wall face (RFC 0050), once it's in reach. */
+function openRoom(spot: { x: number; y: number; side?: Side }) {
+  const m = mirror;
+  if (!m) return;
+  const floor = myFloor();
+  const block = m.blocksOn(floor).get(tileKey(spot.x, spot.y));
+  const side = spot.side;
+  const shown = side
+    ? m.hung.get(faceKey(spot.x, spot.y, side, floor))
+    : m.tops.get(topKey(spot.x, spot.y, floor));
+  void import("./room-sheet").then((r) =>
+    r.openRoomSheet({
+      x: spot.x,
+      y: spot.y,
+      floor,
+      place: side ? { side } : { surface: block ?? "table" },
+      shown,
+      yours: buildableHere(m, spot.x, spot.y),
+      me,
+      nameOf: (id) => m.residents.get(id)?.name,
+      act: (action) => act(action),
+    }),
+  );
 }
 
 /** The tiles a click would act on, ringed under a mouse: in build mode, any tile a block goes on. */
@@ -1438,6 +1505,30 @@ function tapTile(tile: { x: number; y: number }) {
     const rest = () => tryAct({ type: "rest", ...tile, ...floorField(myFloor()) });
     if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) === 1) rest();
     else walkToward(tile, 1, rest);
+    return;
+  }
+  // A surface or a wall face (RFC 0050) opens its sheet once it's in reach, as a station does.
+  if (target?.kind === "surface") {
+    reachThen(() => {
+      lookAt(tile);
+      openRoom(tile);
+    });
+    return;
+  }
+  if (target?.kind === "wall") {
+    const face = target.face;
+    const reach = mirror.config.reach;
+    const open = () => {
+      lookAt(tile);
+      openRoom(face);
+    };
+    if (inReach(at, face)) open();
+    else
+      walkToward(face, reach, () => {
+        const there = here();
+        if (there && inReach(there, face)) open();
+        else showToast("You can't get close enough to reach that from here.");
+      });
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is

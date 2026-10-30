@@ -169,6 +169,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 ## Hosted events
 
 - The server logs an event's life (`event_start`, `event_tick`, `event_end`); the sim has no clock and never compares a time. `src/fixtures/events-log.ts` pins it.
+- Attendance is read through `attendNeeded(ticks, state.attendAtTen)`: a third of the samples until `attend_at_ten` is logged, then 2 samples (10 minutes) however long the event runs ([decision 0390](../../docs/knowledge/decisions/0390-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md)). `src/fixtures/attendance-log.ts` pins both sides.
 - A Commons deposit counts in the supply identity (`eventHeld`) and comes back only when the event counted enough attendees outside the host's household, was called off in time, or was voided.
 - `event_scheduled` carries where and when, never the words. `event_ticked` stays off the wire.
 

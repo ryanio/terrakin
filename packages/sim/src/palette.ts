@@ -269,6 +269,74 @@ export const markLine = (
 ): GroundMark => ({ shape: "line", x1, y1, x2, y2, width, stroke });
 
 /**
+ * Parquet's herringbone: planks two quarters long and one quarter wide, each row of them a step to
+ * the side of the last, the long way and the short way in turn. The pattern repeats every four
+ * quarters both ways, so a tile holds it whole: a plank the tile's side cuts through is drawn as
+ * the part on this tile, with no seam on the cut, and the next tile draws the rest.
+ */
+function herringboneMarks(): GroundMark[] {
+  const marks: GroundMark[] = [];
+  const q = 0.25;
+  const seam = 0.06;
+  // One plank lying east-west and one standing north-south, in quarters; the pattern is these two
+  // moved by any (p, r) with p - r a multiple of 4.
+  const planks = [
+    { x0: 0, y0: 0, x1: 2, y1: 1, tone: "#c99262" },
+    { x0: 2, y0: -1, x1: 3, y1: 1, tone: "#b67d4c" },
+  ];
+  for (let p = -4; p <= 7; p++) {
+    for (let r = -4; r <= 7; r++) {
+      if ((((p - r) % 4) + 4) % 4 !== 0) continue;
+      for (const k of planks) {
+        const x0 = Math.max(0, k.x0 + p);
+        const y0 = Math.max(0, k.y0 + r);
+        const x1 = Math.min(4, k.x1 + p);
+        const y1 = Math.min(4, k.y1 + r);
+        if (x1 <= x0 || y1 <= y0) continue;
+        // A seam only on a plank's own ends and sides, never where the tile cuts it.
+        const left = x0 === k.x0 + p ? seam : 0;
+        const top = y0 === k.y0 + r ? seam : 0;
+        const right = x1 === k.x1 + p ? seam : 0;
+        const bottom = y1 === k.y1 + r ? seam : 0;
+        marks.push(
+          markRect(
+            (x0 + left) * q,
+            (y0 + top) * q,
+            (x1 - x0 - left - right) * q,
+            (y1 - y0 - top - bottom) * q,
+            0,
+            k.tone,
+          ),
+        );
+      }
+    }
+  }
+  return marks;
+}
+
+/**
+ * Four square tiles to a tile, with grout between them and around them, half at each side so the
+ * next tile's half makes a whole line. Each square keeps its own tone, so a floor of them reads as
+ * laid by hand.
+ */
+function quarterTiles(
+  tones: readonly [string, string, string, string],
+  grout: number,
+): GroundMark[] {
+  const half = grout / 2;
+  return tones.map((tone, i) =>
+    markRect(
+      (i % 2) * 0.5 + half,
+      Math.floor(i / 2) * 0.5 + half,
+      0.5 - grout,
+      0.5 - grout,
+      0.04,
+      tone,
+    ),
+  );
+}
+
+/**
  * What each kind of path and flooring looks like (RFC 0016), as data. The map
  * (`packages/client/src/render.ts`), the build palette's swatches, the 3D views' ground, and the
  * plot photos (`packages/cards/`) all draw from it, so a cobble path is the same cobble path
@@ -409,6 +477,71 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
       markDot(0.7, 0.73, 0.05, "#f3e3c3"),
     ],
     tone: "#c8674a",
+  },
+  carpet: {
+    fill: "#b4506a",
+    // A soft pile: low tufts in two tones on a half-tile lattice, so a room of it has no seams.
+    marks: [
+      markDot(0.125, 0.125, 0.07, "#c1617a"),
+      markDot(0.625, 0.125, 0.07, "#c1617a"),
+      markDot(0.125, 0.625, 0.07, "#c1617a"),
+      markDot(0.625, 0.625, 0.07, "#c1617a"),
+      markDot(0.375, 0.375, 0.06, "#a3445d"),
+      markDot(0.875, 0.375, 0.06, "#a3445d"),
+      markDot(0.375, 0.875, 0.06, "#a3445d"),
+      markDot(0.875, 0.875, 0.06, "#a3445d"),
+    ],
+    tone: "#b4506a",
+  },
+  checker_tiles: {
+    fill: "#efe6cf",
+    // Two dark squares on the diagonal: the next tile starts dark again, so the checks run on.
+    marks: [
+      markRect(0, 0, 0.5, 0.5, 0, "#2f2a2c"),
+      markRect(0.5, 0.5, 0.5, 0.5, 0, "#2f2a2c"),
+      markDot(0.12, 0.12, 0.04, "#4a4446"),
+      markDot(0.62, 0.62, 0.04, "#4a4446"),
+      markDot(0.62, 0.12, 0.04, "#fbf6e8"),
+      markDot(0.12, 0.62, 0.04, "#fbf6e8"),
+    ],
+    tone: "#8f8a80",
+  },
+  parquet: {
+    fill: "#7d5532",
+    marks: herringboneMarks(),
+    tone: "#bf8857",
+  },
+  terracotta: {
+    fill: "#d9bf9c",
+    marks: quarterTiles(["#c8643c", "#bd5a34", "#c45f37", "#cf6c43"], 0.05),
+    tone: "#c4613a",
+  },
+  woven_mat: {
+    fill: "#d8c68c",
+    // Straw woven across the tile, bound in cloth at each side, so mats laid side by side read as
+    // rows of them.
+    marks: [
+      markLine(0.08, 0.17, 0.92, 0.17, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.33, 0.92, 0.33, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.5, 0.92, 0.5, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.67, 0.92, 0.67, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.83, 0.92, 0.83, 0.025, "#c2ad6c"),
+      markRect(0, 0, 0.06, 1, 0, "#55704e"),
+      markRect(0.94, 0, 0.06, 1, 0, "#55704e"),
+    ],
+    tone: "#d8c68c",
+  },
+  stone_tiles: {
+    fill: "#9b968b",
+    // One pale flagstone a tile, with grout half on each side, so a floor of them is a grid.
+    marks: [
+      markRect(0.03, 0.03, 0.94, 0.94, 0.03, "#d8d3c6"),
+      markRect(0.08, 0.07, 0.6, 0.05, 0.02, "#e8e4d9"),
+      markDot(0.3, 0.42, 0.025, "#c3bdae"),
+      markDot(0.7, 0.6, 0.03, "#c3bdae"),
+      markDot(0.45, 0.8, 0.02, "#c3bdae"),
+    ],
+    tone: "#d8d3c6",
   },
 };
 

@@ -78,6 +78,12 @@ const GROUND_SURFACE: Partial<Record<GroundKind, Surface>> = {
   planks: "wood",
   flower_bed: "soft",
   rug: "rug",
+  carpet: "rug",
+  checker_tiles: "stone",
+  parquet: "wood",
+  terracotta: "stone",
+  woven_mat: "rug",
+  stone_tiles: "stone",
 };
 
 /** The surface of a tile: its path or flooring, or grass, which is snow in winter. */

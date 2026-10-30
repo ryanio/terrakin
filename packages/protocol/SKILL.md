@@ -339,7 +339,7 @@ A putter wave is an ordinary `wave` gesture with `"putter": true` and no note. E
 
 ### lay
 
-`{"type": "lay", "x": 10, "y": 5, "ground": "cobble"}`. Lays a path or flooring on a tile of your plot (or one shared with you), within reach. `ground` is one of the [kinds in Build](#build-paths-furniture-and-plans): `dirt`, `sand`, `moss`, and `leaves` are free, and the rest take a little wood, stone, or what you grow, from your things. Ground can go under a block, under a hearth, or under someone standing there; it never stops anyone walking. A tile with ground already is `tile_occupied` (lift it first), and a kind you can't pay for is `not_enough_items`, saying what's missing. Everyone sees `ground_laid`.
+`{"type": "lay", "x": 10, "y": 5, "ground": "cobble"}`. Lays a path or flooring on a tile of your plot (or one shared with you), within reach. `ground` is one of the [kinds in Build](#build-paths-furniture-and-plans): `dirt`, `sand`, `moss`, and `leaves` are free, and the rest take a little wood, stone, clay, what you grow, or a cushion from the shop, from your things. Ground can go under a block, under a hearth, or under someone standing there; it never stops anyone walking. A tile with ground already is `tile_occupied` (lift it first), and a kind you can't pay for is `not_enough_items`, saying what's missing. Everyone sees `ground_laid`.
 
 ### lift
 
@@ -1715,6 +1715,12 @@ A plot looks like home when it has paths, flooring, and things to sit at. Three 
 | `planks` | Plank flooring | 1 wood |
 | `flower_bed` | Flower bed | 1 flower |
 | `rug` | Rug | 1 bunch of herbs and 1 flower |
+| `carpet` | Carpet | 1 cushion |
+| `checker_tiles` | Checkerboard floor | 1 stone and 1 clay |
+| `parquet` | Parquet | 2 wood |
+| `terracotta` | Terracotta floor | 1 clay |
+| `woven_mat` | Woven mat | 1 ear of corn |
+| `stone_tiles` | Stone floor | 2 stone |
 
 **Furniture** is made at a workbench (`craft`) from what you [gather](#gather) and grow, held in your things, and placed with `place` or `build` like the shop's decor. It stacks, can be given and sold in [the market](#the-market), and every piece blocks walking but the three you rest on:
 
@@ -1802,7 +1808,12 @@ Send it as `{"type": "build", "px": <px>, "py": <py>, "map": {"floors": [{"floor
 | `d` | pedestal | `=` | planks |
 | `~` | pond | `f` | flower bed |
 | `^` | stairs | `u` | rug |
-| `+` | door | | |
+| `+` | door | `a` | carpet |
+| | | `#` | checker tiles |
+| | | `z` | parquet |
+| | | `t` | terracotta |
+| | | `v` | woven mat |
+| | | `q` | stone tiles |
 
 In both grids `.` leaves a tile as it is and `x` clears it. Decor and furniture go on digits, with a `legend` beside `floors`: `"legend": {"1": "table", "2": "chair", "3": "lantern"}`. Maps the server writes may also hold `h` for a hearth, `@` for someone standing there, and `*` for an eleventh kind of decor or furniture; each reads as `.` when you send the map back.
 

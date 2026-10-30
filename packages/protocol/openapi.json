@@ -32999,7 +32999,13 @@
           "brick",
           "planks",
           "flower_bed",
-          "rug"
+          "rug",
+          "carpet",
+          "checker_tiles",
+          "parquet",
+          "terracotta",
+          "woven_mat",
+          "stone_tiles"
         ]
       },
       "HairColor": {

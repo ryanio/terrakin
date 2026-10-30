@@ -80,11 +80,12 @@ export const EVENTS = {
   ring: 2,
   /** Samples a resident must be seen at to have attended... */
   attendTicks: 2,
-  /** ...or one in this many of the samples taken, if that's more... */
+  /** ...or, until `attend_at_ten` is logged, one in this many of the samples taken, if that's more... */
   attendShare: 3,
   /**
    * ...counting at most the samples of the longest resident event (35 in 180 minutes), so a long
-   * town event asks for an hour, as a three-hour one does (decision 0081).
+   * town event asks for an hour, as a three-hour one does (decision 0081). Once `attend_at_ten`
+   * is logged, 2 samples (10 minutes) always count, however long the event runs (issue #126).
    */
   attendTicksCap: 35,
   /** Townsfolk a town event may name as its face. */
@@ -122,8 +123,13 @@ export const eventDayOf = (startsAt: number) => Math.floor(startsAt / DAY_MS);
  */
 export const lastSlot = (minutes: number) => Math.ceil(minutes / EVENTS.tickMinutes) - 1;
 
-/** Samples a resident must have been seen at to have attended, given how many were taken. */
-export function attendNeeded(ticks: number): number {
+/**
+ * Samples a resident must have been seen at to have attended, given how many were taken. With
+ * `atTen` (the world's `attend_at_ten` switch is logged), 2 samples, 10 minutes in the area,
+ * always count, matching what the how-to-play page promises (issue #126).
+ */
+export function attendNeeded(ticks: number, atTen = false): number {
+  if (atTen) return EVENTS.attendTicks;
   const counted = Math.min(ticks, EVENTS.attendTicksCap);
   return Math.max(EVENTS.attendTicks, Math.ceil(counted / EVENTS.attendShare));
 }
@@ -366,6 +372,24 @@ export function checkScheduleInPerson(state: WorldState): EventsChecked {
       state.scheduleInPerson = true;
     },
     event: { type: "schedule_in_person_set" },
+  });
+}
+
+/**
+ * `attend_at_ten`, which only TOWN_ACTOR sends (issue #126): from now on, an event counts a
+ * resident as attended once they have been seen at 2 samples, 10 minutes in its area, however
+ * long it runs. Events that ended before it keep the third-of-the-samples rule they settled
+ * under, so their logs replay as they were made (decision 0080: changing EVENTS numbers needs
+ * a logged switch).
+ */
+export function checkAttendAtTen(state: WorldState): EventsChecked {
+  return oneTimeSwitch({
+    on: state.attendAtTen,
+    already: "Attendance already counts at 10 minutes.",
+    turnOn: () => {
+      state.attendAtTen = true;
+    },
+    event: { type: "attendance_at_ten_set" },
   });
 }
 
@@ -777,7 +801,7 @@ export function checkEventTick(
 
 /** Who attended: seen at `attendNeeded` samples, never the host or townsfolk. Sorted. */
 export function attendedOf(state: WorldState, e: HostedEvent): ResidentId[] {
-  const need = attendNeeded(e.ticks);
+  const need = attendNeeded(e.ticks, state.attendAtTen);
   return Object.entries(e.seen ?? {})
     .filter(([id, n]) => n >= need && id !== e.host && !isTownsfolk(state, id))
     .map(([id]) => id)
@@ -802,7 +826,7 @@ export function checkEventEnd(
   const guests = attended.filter((id) => !sameHousehold(state, e.host, id)).length;
   const refund = guests >= EVENTS.refundAt;
   // A circle night (RFC 0033): which members were there, and whether its week counts.
-  const night = circleNightEnd(state, e, attendNeeded(e.ticks));
+  const night = circleNightEnd(state, e, attendNeeded(e.ticks, state.attendAtTen));
   return () => {
     const gathered = night ? night() : [];
     const settled = settleDeposit(state, e, refund, state.seq + 1);

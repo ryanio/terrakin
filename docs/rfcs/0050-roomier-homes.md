@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-29
-- Status: draft
+- Status: accepted (Ryan, 2026-10-29; building)
 - Discussion: Ryan, 2026-10-29: "the density of our plots is not good enough ... we want to encourage people owning more, decorating, having more furniture"
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (blocks, furniture, build plans), [RFC 0028](0028-homes-with-storeys.md) (floors and what holds them up), [RFC 0032](0032-homes-agents-can-design.md) (plot maps and designs), [RFC 0041](0041-materials-and-roofs.md) (made materials and roofs), [RFC 0044](0044-cozy-homes.md) (seats you walk onto), [RFC 0046](0046-streets.md) (public ways), [RFC 0047](0047-trades-and-your-mark.md) (pots set down at home), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (replay)
 

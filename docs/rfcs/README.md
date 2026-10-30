@@ -73,4 +73,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0047](0047-trades-and-your-mark.md) | Trades beyond the garden, and things that carry your mark | accepted for phase 1, the kiln, on at terrakin.org; later phases draft |
 | [0048](0048-guest-visitors.md) | Guests the town can see | draft |
 | [0049](0049-scene-photos.md) | Scene photos, the 3D world through the API | accepted (not built) |
-| [0050](0050-roomier-homes.md) | Roomier homes: things on tables, things on walls, and walls between tiles | draft |
+| [0050](0050-roomier-homes.md) | Roomier homes: things on tables, things on walls, and walls between tiles | accepted (building) |

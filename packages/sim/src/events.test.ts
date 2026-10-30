@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { eventHeld, findEvent, joinTile, notAtThePlace } from "./events";
-import {
-  ATTENDANCE_CONFIG,
-  ATTENDANCE_HASH,
-  ATTENDANCE_LOG,
-} from "./fixtures/attendance-log";
+import { ATTENDANCE_CONFIG, ATTENDANCE_HASH, ATTENDANCE_LOG } from "./fixtures/attendance-log";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
@@ -384,17 +380,13 @@ describe("an event's life", () => {
     sample(before, "e_1", 1, 3);
     ok(act(before, "bob", { type: "leave" }));
     sample(before, "e_1", 4, 11);
-    expect(ok(town(before, { type: "event_end", event: "e_1" }))).toMatchObject([
-      { attended: [] },
-    ]);
+    expect(ok(town(before, { type: "event_end", event: "e_1" }))).toMatchObject([{ attended: [] }]);
 
     // The switch is the town's alone, and it lands once.
     const state = world();
     expect(code(act(state, "ada", { type: "attend_at_ten" } as Command))).toBe("server_only");
     expect(state.attendAtTen).toBeUndefined();
-    expect(ok(town(state, { type: "attend_at_ten" }))).toEqual([
-      { type: "attendance_at_ten_set" },
-    ]);
+    expect(ok(town(state, { type: "attend_at_ten" }))).toEqual([{ type: "attendance_at_ten_set" }]);
     expect(code(town(state, { type: "attend_at_ten" }))).toBe("already_open");
 
     // After it: 2 samples, a 10-minute visit like Cocoa's at the playtest, count, at a

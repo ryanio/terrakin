@@ -19,12 +19,31 @@ import type { SceneOptions, SceneShot } from "../src/render";
 
 /** The host the binding's calls are addressed to. The binding routes them; the name is ignored. */
 const BINDING_HOST = "https://browser.binding";
-/** How often the page is asked whether it's ready. */
-const POLL_MS = 250;
+/** The longest one wait on the page runs before it's asked again. */
+const WAIT_STEP_MS = 5_000;
 /** A photo page's ticket, the only thing put into a script the page runs. */
 const TICKET = /^pt_[0-9a-f]{32}$/;
-/** What the photo page says on its body once a photo is drawn, or couldn't be. */
-const SAID = "document.body?.dataset.photo ?? ''";
+
+/**
+ * What the photo page says on its body once a photo is drawn, or couldn't be: `ready`, `failed`,
+ * or `''` when it said nothing within `ms`. It answers the moment the page says it, rather than at
+ * the next of a fixed round of questions.
+ */
+const said = (ms: number) => `new Promise((done) => {
+  const now = () => document.body?.dataset.photo ?? "";
+  if (now()) return done(now());
+  if (!document.body) return setTimeout(() => done(""), 50);
+  const seen = new MutationObserver(() => {
+    if (!now()) return;
+    seen.disconnect();
+    done(now());
+  });
+  seen.observe(document.body, { attributes: true, attributeFilter: ["data-photo"] });
+  setTimeout(() => {
+    seen.disconnect();
+    done(now());
+  }, ${Math.max(0, Math.round(ms))});
+})`;
 
 interface Shot {
   url: string;
@@ -153,15 +172,25 @@ async function shoot(cdp: Devtools, how: "next" | "load", shot: Shot): Promise<U
     }
     // The page says `ready` once the scene has drawn, or `failed`.
     for (;;) {
-      const { result } = await cdp.send<{ result: { value?: unknown } }>(
-        "Runtime.evaluate",
-        { expression: SAID, returnByValue: true },
-        page,
-      );
+      const left = until - Date.now();
+      if (left <= 0) throw new Error("the page wasn't ready in time");
+      const { result } = await cdp
+        .send<{ result: { value?: unknown } }>(
+          "Runtime.evaluate",
+          {
+            expression: said(Math.min(left, WAIT_STEP_MS)),
+            awaitPromise: true,
+            returnByValue: true,
+          },
+          page,
+        )
+        // A wait begun on the blank page a new tab opens with ends as the photo page replaces it.
+        .catch((err: Error) => {
+          if (/context|navigat/i.test(err.message)) return { result: { value: "" } };
+          throw err;
+        });
       if (result.value === "ready") break;
       if (result.value === "failed") throw new PageFailed("the page couldn't draw the scene");
-      if (Date.now() > until) throw new Error("the page wasn't ready in time");
-      await new Promise((done) => setTimeout(done, POLL_MS));
     }
     const { data } = await cdp.send<{ data: string }>(
       "Page.captureScreenshot",

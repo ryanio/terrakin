@@ -157,7 +157,10 @@ export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSn
   if (scene.title) title.textContent = scene.title;
   else title.hidden = true;
   line.textContent = more > 0 ? `${scene.stamp} · and ${more} more` : scene.stamp;
-  await frames(1);
+  // The stamp's faces are loaded before the page says it's ready. The screenshot draws the frame,
+  // so waiting for one here would only draw it twice.
+  stamp.getBoundingClientRect();
+  await document.fonts.ready;
 }
 
 /** Lay the tags out for the picture and draw them, leader lines first so no line crosses a tag. */

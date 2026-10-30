@@ -23,10 +23,12 @@ A browser stays open two minutes after its photo (`SCENE_PHOTO_LIMITS.warmMs`), 
 - A photo page says no to `photoNext` once it's `pageLifeMs` (10 minutes) old, so a deploy reaches it, and a page whose GPU context was lost fails its photo rather than store a blank one.
 - The Node renderer keeps its photo pages the same way, so `pnpm dev:test` and the e2e suite run the same page code.
 - A photo's stage is still: it never draws on its own, and the page draws the one frame it needs.
+- The cards Worker waits on the page's `data-photo` with one call that answers when the page says it, and the page says `ready` once its stamp's fonts are in, without waiting for a frame, since the screenshot draws one.
 
 ## Consequences
 
 - Locally, the first photo through the route takes about 6 s with a fresh browser and the next ones 0.4 to 1.1 s. On Browser Run a reconnect to an open browser and a new screenshot took 1.7 to 1.9 s from a laptop. On terrakin.org on 2026-10-30, by Sentry's `photo.scene` spans, a first photo took 10.0 s and one taken seconds after it 5.2 s, about four times the local times, as Browser Run's machines were for a fresh browser.
 - The first photo after a quiet spell still opens a new browser and compiles the drawing programs.
+- A profile of warm photos on Browser Run found, inside the page: fetching the world and the scene 0.25 s, building 0.1 to 0.3 s, and drawing about 0.7 s (about 400,000 triangles; 0.4 s of it goes with the geometry and 0.3 s with the pixels, and shadows are 0.2 s), then 0.5 s to show the frame. A page meeting content it hasn't drawn before (a portrait after a near photo) also compiles programs for it, 0.5 to 3 s. Turning off antialiasing or using the smaller shadow map changed nothing measurable, and the same photo took twice as long on one Browser Run machine as on another.
 - Browser time grows by up to two minutes per photo that comes alone: at the cap of 100 a day, all alone, about $9.50 a month past the included hours. Photos that come in bursts share their minutes.
 - The photo page is now long lived, so anything it keeps between photos (the 3D world, its stage) has to come out of each photo the same as from a fresh page. The QA was five photos in a row of different subjects and framings, each drawn as a fresh page draws it.

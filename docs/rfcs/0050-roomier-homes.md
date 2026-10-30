@@ -203,7 +203,7 @@ Everything that walks goes through `Ground` already: `walkTree`, `route`, `walkO
 
 #### Slimming an existing home
 
-`slim_walls {px, py, floor?, dry?}` turns a home's wall blocks into edges. The server plans it and logs the result as an ordinary `build` by the resident, the same way a design becomes a build's lists before anything is logged ([decision 0280](../knowledge/decisions/0280-a-map-or-a-design-becomes-a-build-s-lists-in-the-protocol-be.md)). The sim never runs the planner, so improving it never changes replay.
+`slim_walls {px, py, floor?, dry?}` turns a home's wall blocks into edges. The server plans it and logs the plan's lists with the command, as it logs a putter's steps: `slim_walls {px, py, remove, walls}`. The sim checks those lists exactly as it checks a `build` by the resident, plus the one free top-up below. It never runs the planner, so improving the planner never changes replay.
 
 The plan, for each floor asked:
 
@@ -212,7 +212,9 @@ The plan, for each floor asked:
 3. Where that line is the plot's own border, the edge moves one line in, since a border edge is refused.
 4. Flooring, furniture and everything else stays where it is. A wall tile that came up is plain floor.
 
-The starter hut becomes a 5 by 5 room with edges on all four sides, a window edge on east and west, and a door edge on the south, needing 20 edges for the 16 blocks it gave back. Free walls cost nothing. A home of made materials needs the difference in that material, and the dry run says how many (`short`, as `build` does today).
+The starter hut becomes a 5 by 5 room with edges on all four sides, a window edge on east and west, and a door edge on the south, needing 20 edges for the 16 blocks it gave back. Free walls cost nothing.
+
+The first slim on a plot is free for made materials too. Where the edges of a made material outnumber the blocks of it that came up, the town supplies the difference, once, and the plot records it with `slimmed: true` (absent until then). The top-up covers only edges that replace that home's own walls of the same kind, so it can't be used to get material for anything else. A later slim on the same plot, after it was rebuilt in blocks, costs the difference like any build, and the dry run says how many (`short`, as `build` does today).
 
 #### New starter homes
 
@@ -242,14 +244,14 @@ Prices and recipes come from the economy run (below), not this table.
 - Determinism and replay: no clock or randomness. `tops`, `hung`, `edges` and each floor's `edges` are absent until an input that didn't exist before sets them, so `canonicalJson` skips them and every fixture keeps its pinned hash. `stepFrom` changes only where an edge exists, and no old log has one. `starter_edges` is a logged switch with a fixture on both sides. New fixtures: `surfaces-log.ts`, `hung-log.ts`, `edges-log.ts`, `slim-log.ts`.
 - New kinds go on the end of `BLOCK_KINDS` (the three surfaces) and `STACK_KINDS` (trinkets and wall decor). Nothing joins a frozen list.
 - Chat is untrusted: no new text. A hung frame shows a piece, which went through the upload checks already and is taken down like any piece ([decision 0065](../knowledge/decisions/0065-piece-picture-takedowns-tell-holders-and-purges-clear.md)).
-- Protocol: additive: `side` on `place` and `remove`, `walls` and `removeWalls` on `build`, four new actions (`put_on`, `take_off`, `hang`, `unhang`) and the server-planned `slim_walls`, six new events, new kinds in the enums, and the rejection codes `not_a_surface`, `no_wall` and `plot_border`. One change can surprise a caller: a plot's map (RFC 0032) and its plan read gain an `edges` grid (below). An agent that ignores it still reads every block correctly but won't see walls between tiles, so SKILL.md says to read it. Nothing is removed.
+- Protocol: additive: `side` on `place` and `remove`, `walls` and `removeWalls` on `build`, four new actions (`put_on`, `take_off`, `hang`, `unhang`) and `slim_walls` with its server-planned lists, `slimmed` on a plot, six new events, new kinds in the enums, and the rejection codes `not_a_surface`, `no_wall` and `plot_border`. One change can surprise a caller: a plot's map (RFC 0032) and its plan read gain an `edges` grid (below). An agent that ignores it still reads every block correctly but won't see walls between tiles, so SKILL.md says to read it. Nothing is removed.
 
 ## Economy impact (if any)
 
-No new source. New sinks only.
+No new coin source. One small item source, and new sinks.
 
 - Trinkets, wall decor and the three surfaces are sold at the shop (the treasury's share, the rest burned) or made at the workbench from gathered things. The town never buys them, so nothing mints.
-- Edges cost what blocks cost. Free walls stay free, so no starter home or design gets more expensive. Slimming a made-material home costs the extra edges in that material, about a quarter more than the blocks it gives back.
+- Edges cost what blocks cost. Free walls stay free, so no starter home or design gets more expensive. The first slim on a plot supplies the extra made-material edges it needs, about a quarter more than the blocks it gives back, once per plot (`slimmed`). Those edges stay on the wall: taking one down gives it back like any block, so a resident could slim, then pull the walls for the material. The most one plot can yield is a quarter of its made-material walls, once, which is a handful of plaster or brick. Most homes are free walls and get nothing.
 - Things put on surfaces and hung on walls stay their owner's and come back whole, so nothing is duplicated: each is in exactly one of someone's things, a surface, a face, or held aside. `everyGood` and the merge rules count `tops` and `hung` the way they count pots and displays, and `merge_resident` moves them.
 - Inventory stays capped at 400. More places to put things is what makes a bigger collection worth having, but the cap doesn't move here.
 - `scripts/economy-sim.ts` gets decorators who buy a trinket or a wall piece when they hold a spare surface or face, with `--no-decor` to play the month without them. The numbers in the table above are set from that run and recorded in a decision.
@@ -306,10 +308,16 @@ Old clients keep working until they meet an edge: one that doesn't draw edges sh
 - Several things per tile, freely stacked. No limit means no picture of what a tile holds and unbounded state. One surface thing and one face thing per spot keeps it drawable and countable.
 - Refuse to take down a wall with something hung on it. Consistent with planters and pedestals, but it would make every plan that moves a wall and every town rebuild fail on one clock. Giving it back is safe because it goes to whoever hung it.
 
+## Decided
+
+Ryan's calls on the draft's open questions, 2026-10-29.
+
+1. Edges on a plot's own border stay refused. A single plot's biggest room is 6 by 6 (36 tiles, against the hut's 9 today), with a one-tile yard kept around every home for its way out and the walk between homes. Allowing border edges that face a way, a street, the sea or open land is for later, once homes are in use.
+2. A home across a household's two plots gets two roofs, one per plot, as roofs work now. Joining them waits until people build across the line.
+3. The first `slim_walls` on a plot is free for made materials, as the Slimming section describes.
+4. No more walked-onto furniture in this RFC. It waits to see how full homes get.
+5. A furnished-home measure is a follow-up of its own after surfaces and hanging ship. No rule reads it, so it needs no RFC.
+
 ## Open questions
 
-1. Edges on a plot's own border. Refused here, so a single plot's biggest room stays 6 by 6, the same as today with block walls on the plot's rim (but with the rim left as yard instead of wall). Allowing border edges where the other side is a way, a street or the sea would give a full 8 by 8. Worth it, or does the yard ring matter for exits and the look of the town?
-2. Homes across two plots. Edges between two touching plots of one household are allowed here. Roofs are still one per plot, so a home across the line gets two roofs. Fine for now, or does a household home want one roof?
-3. Should `slim_walls` be free for made materials (the town gives the extra edges once), so nobody is held back from a roomier home by the conversion's cost?
-4. More walked-onto furniture. With more room, should a rug-like `low_table` or a `bench_seat` be walked onto like the sofa, or does that wait for use?
-5. A furnished-home measure (pieces placed, faces hung, materials used) on a plot's card and the Visit page, with no coins attached. In this RFC or its own?
+None left from the draft.

@@ -153,7 +153,7 @@ test.describe("the Town Hall", () => {
     await page.reload();
     await expect(page.locator(`[data-proposal="${id}"] .tally-counts`)).toContainText("3 yes");
     await expect(page.locator(`[data-proposal="${id}"] .tally-quorum`)).toHaveText("Passing");
-    await page.screenshot({ path: "test-results/town-page.png", fullPage: true });
+    await page.screenshot({ path: "test-results/town-page.png" });
 
     // Two nights later the vote closes and the town builds it.
     await advanceDay(page.request, 2);

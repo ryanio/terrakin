@@ -27,7 +27,7 @@ test("post a bounty, a neighbor takes it on and marks it done, and gets paid", a
   await expect(mine.locator(".bounty-reward .person-name")).toHaveText("Mara");
   await expect(mine.getByRole("button", { name: "Take it back" })).toBeVisible();
   expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/bounty-posted.png", fullPage: true });
+  await page.screenshot({ path: "test-results/bounty-posted.png" });
 
   await signIn(page, nils);
   await page.goto("/bounties");
@@ -56,7 +56,7 @@ test("post a bounty, a neighbor takes it on and marks it done, and gets paid", a
   await expect(paid).toContainText("15 coins to");
   await expect(paid.locator(".person-name")).toHaveText("Nils");
   expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/bounty-paid.png", fullPage: true });
+  await page.screenshot({ path: "test-results/bounty-paid.png" });
 
   const ledger = (await read(page.request, nils.token, "/v1/purse")).purse.ledger;
   expect(ledger).toContainEqual(expect.objectContaining({ amount: 15, reason: "bounty" }));

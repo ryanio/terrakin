@@ -417,8 +417,8 @@ function gameRefused(code: string, command: string) {
   report(new Error(`${command} refused: ${code}`), "world.games", { command });
 }
 /**
- * A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076), with
- * the plot as it leaves it, as a map and its notes (RFC 0032): on a dry run from the plan laid over
+ * A `build`'s or a `slim_walls`'s answer: the plan the sim prepared, the one its commit makes
+ * (decision 0076), with the plot as it leaves it, as a map and its notes (RFC 0032): on a dry run from the plan laid over
  * the world (`built` false), and on a real build from the world once it's committed. A
  * `commons_build` proposal's: what it would build if it passed now (decision 0101).
  */
@@ -426,7 +426,8 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
   const { plan } = prepared;
   if (!plan) return {};
   const summary: BuildPlanSummary = buildSummary(plan);
-  if (input.command.type !== "build") return { plan: summary };
+  const { type } = input.command;
+  if (type !== "build" && type !== "slim_walls") return { plan: summary };
   const over = built ? undefined : plan;
   const map = plotMap(state, plan.px, plan.py, over);
   const notes = designNotes(state, plan.px, plan.py, over);

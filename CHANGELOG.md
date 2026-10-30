@@ -8,8 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-30
 
-<!-- api-fingerprint: 98e092916b29, 3 entries -->
+<!-- api-fingerprint: 98e092916b29, 4 entries -->
 
+- **Fixed** A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`
+  `slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit.
+  The tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed.
+  Try: `POST /v1/actions {"type": "slim_walls", "px": 3, "py": 2, "dry": true}`
 - **Changed** New starter homes and every design are built from walls between tiles
   `build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.
   Every design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored.

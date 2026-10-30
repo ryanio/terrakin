@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-slim-walls-answer-draws-the-home-it-leaves-and-slimming-no</id>
+    <title>Fixed: A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit.
+The tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;slim_walls&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-new-starter-homes-and-every-design-are-built-from-walls-betw</id>
     <title>Changed: New starter homes and every design are built from walls between tiles</title>
     <updated>2026-10-30T00:00:00Z</updated>

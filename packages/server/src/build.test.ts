@@ -276,6 +276,23 @@ describe("build", () => {
     expect(read.map.floors[0].edges).toHaveLength(17);
   });
 
+  it("previews a slim as the home it leaves, a map and its notes, and builds the same (RFC 0050)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const out = [
+      { x: 3, y: 6, ground: "dirt" },
+      { x: 3, y: 7, ground: "dirt" },
+    ];
+    await t.act(ada, { type: "build", px: 0, py: 0, ground: out });
+    t.advance(BUILD_LIMITS.secondsBetween * 1000);
+    const dry = await t.act(ada, { type: "slim_walls", px: 0, py: 0, dry: true });
+    expect(dry).toMatchObject({ ok: true, plan: { walled: 20, notes: [] } });
+    // The door on the line south of (3, 5), and the path from it still counts.
+    expect(dry.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
+    const real = await t.act(ada, { type: "slim_walls", px: 0, py: 0 });
+    expect(real.plan).toEqual(dry.plan);
+  });
+
   it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {
     const t = await start();
     // Bea's plot is south of Ada's, so the hut's door at (3, 5) faces Bea's yard, and west and

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { designNotes } from "./design";
 import { edgeAt, edgeKey, edgeOf } from "./edges";
 import { EDGES_CONFIG, EDGES_HASH, EDGES_LOG } from "./fixtures/edges-log";
 import { hashWorld } from "./hash";
@@ -195,6 +196,17 @@ describe("a starter hut of walls between tiles", () => {
 describe("slim_walls", () => {
   it("turns a block hut into walls between tiles, and marks the plot", () => {
     const w = world();
+    // A path out of the hut's doorway to the plot's edge: nothing to note, before or after.
+    w.ok("ada", {
+      type: "build",
+      px: 0,
+      py: 0,
+      ground: [
+        { x: 3, y: 6, ground: "dirt" },
+        { x: 3, y: 7, ground: "dirt" },
+      ],
+    });
+    expect(designNotes(w.state, 0, 0)).toEqual([]);
     const ring = Object.keys(w.state.blocks).map((key) => {
       const [x, y] = key.split(",").map(Number) as [number, number];
       return { x, y };
@@ -210,6 +222,7 @@ describe("slim_walls", () => {
     expect(w.state.blocks).toEqual({});
     expect(Object.keys(w.state.edges ?? {})).toHaveLength(20);
     expect(w.state.slimmed).toEqual({ "0,0": true });
+    expect(designNotes(w.state, 0, 0)).toEqual([]);
   });
 
   it("tops up the made material its lines need on the plot's first slim only", () => {

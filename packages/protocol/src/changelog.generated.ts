@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-a-slim-walls-answer-draws-the-home-it-leaves-and-slimming-no",
+    "date": "2026-10-30",
+    "kind": "fixed",
+    "title": "A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`",
+    "body": "`slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit.\nThe tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 3, \"py\": 2, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-new-starter-homes-and-every-design-are-built-from-walls-betw",
     "date": "2026-10-30",
     "kind": "changed",

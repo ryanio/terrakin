@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-30:
 
+- Fixed: A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`
 - Changed: New starter homes and every design are built from walls between tiles
 - Added: Plot maps draw walls between tiles in an `edges` grid on each floor
 - Changed: Design notes read walls between tiles

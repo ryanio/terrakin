@@ -216,6 +216,19 @@
           <svg class="icon" data-icon="cube" aria-hidden="true"></svg>
           <span>3D view</span>
         </button>
+        <!-- The map (map-zoom.ts, places.ts): Places lists Home, the Town Hall, the shop, the Green, and each land's square to walk to, and + and - zoom the map by their sign alone, like the speaker. Zoom stays away in 3D. -->
+        <div class="stack tight map-tools">
+          <button type="button" id="map-places" class="pill-button map-places" aria-haspopup="dialog">
+            <svg class="icon map-icon" data-icon="map" aria-hidden="true"></svg>
+            <span>Places</span>
+          </button>
+          <button type="button" id="map-zoom-in" class="pill-button map-zoom" aria-label="Zoom in">
+            <svg class="icon map-icon" data-icon="plus" aria-hidden="true"></svg>
+          </button>
+          <button type="button" id="map-zoom-out" class="pill-button map-zoom" aria-label="Zoom out">
+            <svg class="icon map-icon" data-icon="minus" aria-hidden="true"></svg>
+          </button>
+        </div>
         <!-- What you can do where you stand, above the 3D toggle: go into the Town Hall or the shop beside you, cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
         <!-- Up or down the stairs you stand on (RFC 0028), beside your figure on the map. -->
         <button type="button" id="world-climb" class="pill-button world-climb" data-dir="up" hidden>

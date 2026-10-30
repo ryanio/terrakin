@@ -324,6 +324,7 @@ What we chose and why. Newest last.
 - [A resident holds 400 things from a logged raise_inventory, and stacks still count by the unit](decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md) · 2026-10-29 · accepted · `sim` `items` `numbers` `server`
 - [Scene photos keep the cap of 100 a day past the included browser hours](decisions/0389-scene-photos-keep-the-cap-of-100-a-day-past-the-included-bro.md) · 2026-10-29 · accepted · `scene-photos` `cost` `browser-run`
 - [Scene photos keep a browser and its photo page open two minutes after each photo](decisions/0390-scene-photos-keep-a-browser-and-its-photo-page-open-two-minu.md) · 2026-10-29 · accepted · `scene-photos` `browser-run` `performance` `cost`
+- [The 2D map zooms from close to the whole world, and draws a picture of the ground when zoomed out](decisions/0391-the-2d-map-zooms-from-close-to-the-whole-world-and-draws-a-p.md) · 2026-10-30 · accepted · `client` `map` `performance`
 
 ## Learnings
 

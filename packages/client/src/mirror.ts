@@ -57,6 +57,22 @@ import { type Dozer, dozers } from "./scene3d/layout";
 
 type EventMessage = { seq: number; event: WorldEvent };
 
+/** Events that never change the zoomed-out map's ground picture (`groundRev`). */
+const GROUND_STILL: ReadonlySet<WorldEvent["type"]> = new Set([
+  "moved",
+  "joined",
+  "left",
+  "profile_changed",
+  "resident_renamed",
+  "plot_named",
+  "plot_name_removed",
+  "admired",
+  "pet_renamed",
+  "pet_groomed",
+  "pet_treated",
+  "pet_walked",
+]);
+
 /** A made thing on display, as the world shows it. Its `label` is its maker's words. */
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
 /** A pot set down on a plot (RFC 0047), as the snapshot and `block_placed` carry it. */
@@ -245,6 +261,12 @@ export class Mirror {
   #bridge = new Set<string>();
   /** Downtown's public ways (RFC 0046), by tileKey. */
   ways = new Set<string>();
+  /**
+   * Counts the events that may change how the zoomed-out map draws the ground (its picture in
+   * `render/ground-picture.ts`): every one but walking, coming and going, and words on profiles,
+   * plots, and pets. A new snapshot is a new mirror, which starts again.
+   */
+  groundRev = 0;
   /** `drawnPaving`, kept until what it reads changes. */
   #drawn: ReadonlyMap<string, DrawnGround> | undefined;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
@@ -550,6 +572,7 @@ export class Mirror {
     if (seq > this.seq + 1) return "gap";
     this.seq = seq;
     this.#dozing = undefined;
+    if (!GROUND_STILL.has(event.type)) this.groundRev++;
     switch (event.type) {
       case "joined":
         this.residents.set(event.resident.id, residentFrom(event.resident));

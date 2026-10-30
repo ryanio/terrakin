@@ -285,6 +285,39 @@ a.action {
 }
 
 /*
+ * The map's own controls (map-zoom.ts, places.ts): Places, then + and - round under it, on the
+ * right edge under the top bar. The column takes no taps itself, so the map between them stays
+ * tappable.
+ */
+.map-tools {
+  position: absolute;
+  right: calc(12px + env(safe-area-inset-right));
+  top: calc(64px + env(safe-area-inset-top));
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+.map-tools > * {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.map-icon {
+  color: var(--clay);
+}
+
+.map-zoom {
+  width: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+}
+
+/* Places (places-sheet.ts): each place's mark in clay, like the map's. */
+.places-mark {
+  color: var(--clay);
+}
+
+/*
  * The build bar (RFC 0016): tabs, one row of choices for the tab, and a line about the pick. It
  * sits under the top bar, so the tiles in reach around you (the middle of the screen) and the
  * d-pad and actions at the bottom all stay in view while you build.
@@ -461,7 +494,8 @@ a.action {
  * A guest walking the town (decision 0380): the way back to the feed, Sign in, the d-pad, notices,
  * and Move in in Claim plot's place, filled like the door's own button so it's the one thing to tap.
  */
-.hud[data-guest] > :not(.hud-feed, .hud-signin, .dpad, .actions, .status, .toast, .world-wait),
+.hud[data-guest]
+> :not(.hud-feed, .hud-signin, .dpad, .actions, .map-tools, .status, .toast, .world-wait),
 .hud[data-guest] .actions > :not(#claim),
 .hud:not([data-guest]) .hud-signin {
   display: none;
@@ -774,6 +808,29 @@ a.action {
     border-radius: 50%;
   }
 
+  /*
+   * The map's controls sit over the settings row on the right, clear of the top row and of the
+   * cards and chat that open under it, in reach of the thumb.
+   */
+  .map-tools {
+    top: auto;
+    right: calc(14px + env(safe-area-inset-right));
+    bottom: calc(
+      14px +
+      env(safe-area-inset-bottom) +
+      var(--act-h) *
+      2 +
+      var(--space-sm) *
+      3 +
+      44px
+    );
+  }
+
+  .map-zoom {
+    width: 44px;
+    min-height: 44px;
+  }
+
   .world-mode > span {
     position: absolute;
     width: 1px;
@@ -907,6 +964,7 @@ a.action {
  */
 .actions,
 .world-mode,
+.map-tools,
 .hud-feed,
 .hud-invite,
 .world-near {
@@ -915,6 +973,7 @@ a.action {
 
 .hud[data-walking] .actions,
 .hud[data-walking] .world-mode,
+.hud[data-walking] .map-tools,
 .hud[data-walking] .hud-feed,
 .hud[data-walking] .hud-invite,
 .hud[data-walking] .visit-card,
@@ -925,6 +984,7 @@ a.action {
 /* Coming back is quicker than going: you stopped because you want them. */
 .hud:not([data-walking]) .actions,
 .hud:not([data-walking]) .world-mode,
+.hud:not([data-walking]) .map-tools,
 .hud:not([data-walking]) .hud-feed,
 .hud:not([data-walking]) .hud-invite,
 .hud:not([data-walking]) .visit-card,

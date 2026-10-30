@@ -38,11 +38,12 @@ import {
   signPx,
 } from "@terrakin/ui/figure";
 import { type ArtKind, growth } from "@terrakin/ui/item-art";
-import { lookImage, withAlpha } from "@terrakin/ui/looks";
+import { lookImage, lookPalette, withAlpha } from "@terrakin/ui/looks";
 import { type Camera, screenToTile, tileToScreen } from "./camera";
 import { eventLanterns } from "./event-format";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
 import { type Cutaway, cutaway, tileShows, underFlooring } from "./floors";
+import { mapDetail } from "./map-zoom";
 import type { Mirror } from "./mirror";
 import { awayPose, type Motion, type Pose as MotionPose } from "./motion";
 import {
@@ -79,9 +80,11 @@ import { lightBulbs, paintPresents } from "./render/decor-winter";
 import { type BurstMark, paintBurst } from "./render/fireworks";
 import { paintFurniture, paintGameTable, paintSeatFront } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
+import { groundPicture } from "./render/ground-picture";
 import { paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
-import { CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
+import { paintMapMarks } from "./render/marks";
+import { blockColor, CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
 import { paintRoof } from "./render/roofs";
 import {
   AWAY_TAG_ALPHA,
@@ -189,6 +192,9 @@ export function render(
   const { width, height, scale } = cam;
   const { config, commons } = mirror;
   const S = config.plotSize;
+  // Zoomed out, the small things go and blocks are plain fills, so a phone keeps up (map-zoom.ts).
+  const detail = mapDetail(scale);
+  const simple = detail.simple;
   ctx.fillStyle = OUTSIDE_GROUND;
   ctx.fillRect(0, 0, width, height);
 
@@ -221,95 +227,114 @@ export function render(
   /** The damp ground clay lies in, a water tone, so it never reads as a dry branch or stone. */
   const CLAY_WET = "rgba(64, 98, 122, 0.42)";
   const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const { sx, sy } = tileToScreen(cam, x, y);
-      const left = Math.round(sx - half);
-      const top = Math.round(sy - half);
-      const w = Math.round(sx + half) - left;
-      const h = Math.round(sy + half) - top;
-      // Open water and the bridges over it (RFC 0038) take the tile instead of any ground: no
-      // biome, no scenery, and nothing lying there, since nobody stands on water.
-      if (water) {
-        const sea = mirror.isSea(x, y);
-        const bridge = !sea && mirror.onBridge(x, y);
-        if (sea || bridge) {
-          const dry = (tx: number, ty: number) => !mirror.isSea(tx, ty);
-          const sides = {
-            n: dry(x, y - 1),
-            e: dry(x + 1, y),
-            s: dry(x, y + 1),
-            w: dry(x - 1, y),
-          };
-          if (sea) paintSea(ctx, left, top, w, h, sides, tileHash(x, y), now, still);
-          else paintBridge(ctx, left, top, w, h, sides, tileHash(x, y));
-          continue;
+  if (simple) {
+    // Zoomed out, the whole ground and every ground-floor block is one picture, stretched.
+    const corner = tileToScreen(cam, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      groundPicture(mirror, season),
+      corner.sx - half,
+      corner.sy - half,
+      config.width * scale,
+      config.height * scale,
+    );
+    ctx.imageSmoothingEnabled = true;
+  } else
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const { sx, sy } = tileToScreen(cam, x, y);
+        const left = Math.round(sx - half);
+        const top = Math.round(sy - half);
+        const w = Math.round(sx + half) - left;
+        const h = Math.round(sy + half) - top;
+        // Open water and the bridges over it (RFC 0038) take the tile instead of any ground: no
+        // biome, no scenery, and nothing lying there, since nobody stands on water.
+        if (water) {
+          const sea = mirror.isSea(x, y);
+          const bridge = !sea && mirror.onBridge(x, y);
+          if (sea || bridge) {
+            const dry = (tx: number, ty: number) => !mirror.isSea(tx, ty);
+            const sides = {
+              n: dry(x, y - 1),
+              e: dry(x + 1, y),
+              s: dry(x, y + 1),
+              w: dry(x - 1, y),
+            };
+            if (sea) paintSea(ctx, left, top, w, h, sides, tileHash(x, y), now, still);
+            else paintBridge(ctx, left, top, w, h, sides, tileHash(x, y));
+            continue;
+          }
         }
-      }
-      const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
-      // Tone and scenery come from the sim's palette, shared with the plot photos.
-      const ground = groundTile(config, x, y, inCommons, season);
-      ctx.fillStyle = ground.fill;
-      ctx.fillRect(left, top, w, h);
-      // A path or flooring (RFC 0016) covers the tile's own grass: drawn once per size, then stamped.
-      const laid = paved ? drawnPaving.get(tileKey(x, y)) : undefined;
-      if (laid) ctx.drawImage(groundSprite(laid, w, h, dpr), left, top, w, h);
-      const deco = laid ? null : ground.scenery;
-      if (deco?.kind === "tuft") {
-        // A little tuft of grass.
-        const bx = left + w * deco.fx;
-        const by = top + h * 0.72;
-        tufts.moveTo(bx - w * 0.08, by);
-        tufts.lineTo(bx - w * 0.12, by - h * 0.14);
-        tufts.moveTo(bx, by);
-        tufts.lineTo(bx, by - h * 0.2);
-        tufts.moveTo(bx + w * 0.08, by);
-        tufts.lineTo(bx + w * 0.13, by - h * 0.13);
-      } else if (deco?.kind === "flower") {
-        const fx = left + w * deco.fx;
-        const fy = top + h * deco.fy;
-        const path = flowers[deco.tone] as Path2D;
-        path.moveTo(fx + scale * 0.06, fy);
-        path.arc(fx, fy, scale * 0.06, 0, Math.PI * 2);
-      } else if (deco?.kind === "leaf") {
-        // A fallen leaf: two curves from tip to tip, as the plot photos draw it.
-        leafPath(leaves[deco.tone] as Path2D, left + w * deco.fx, top + h * deco.fy, deco.turn, w);
-      }
-      const pickup = mirror.pickupAt(x, y);
-      if (pickup) {
-        const px = left + w * 0.5;
-        const py = top + h * 0.55;
-        if (pickup === "wood") {
-          // A fallen branch: two crossed sticks.
-          sticks.moveTo(px - w * 0.13, py + h * 0.07);
-          sticks.lineTo(px + w * 0.13, py - h * 0.07);
-          sticks.moveTo(px - w * 0.1, py - h * 0.09);
-          sticks.lineTo(px + w * 0.11, py + h * 0.1);
-        } else if (pickup === "stone") {
-          // A loose stone: one low pebble.
-          pebbles.moveTo(px + scale * 0.12, py);
-          pebbles.ellipse(px, py, scale * 0.12, scale * 0.085, 0, 0, Math.PI * 2);
-        } else if (pickup === "clay") {
-          // Clay (RFC 0047): a squat block of it, as a potter buys it, in a patch of wet ground,
-          // its darker side under a lighter top with a wire's cut across it, so it reads as clay
-          // and never as a branch, a stone, or a cap on a stem. Its top and cut go over it below.
-          const lean = (x * 7 + y * 13) % 2 === 0 ? 1 : -1;
-          wet.moveTo(px + scale * 0.32, py + scale * 0.03);
-          wet.ellipse(px, py + scale * 0.03, scale * 0.32, scale * 0.19, 0, 0, Math.PI * 2);
-          lumps.roundRect(
-            px - scale * 0.2,
-            py - scale * 0.06,
-            scale * 0.4,
-            scale * 0.16,
-            scale * 0.06,
+        const inCommons = Math.floor(x / S) === commons.px && Math.floor(y / S) === commons.py;
+        // Tone and scenery come from the sim's palette, shared with the plot photos.
+        const ground = groundTile(config, x, y, inCommons, season);
+        ctx.fillStyle = ground.fill;
+        ctx.fillRect(left, top, w, h);
+        // A path or flooring (RFC 0016) covers the tile's own grass: drawn once per size, then stamped.
+        const laid = paved ? drawnPaving.get(tileKey(x, y)) : undefined;
+        if (laid) ctx.drawImage(groundSprite(laid, w, h, dpr), left, top, w, h);
+        const deco = laid ? null : ground.scenery;
+        if (deco?.kind === "tuft") {
+          // A little tuft of grass.
+          const bx = left + w * deco.fx;
+          const by = top + h * 0.72;
+          tufts.moveTo(bx - w * 0.08, by);
+          tufts.lineTo(bx - w * 0.12, by - h * 0.14);
+          tufts.moveTo(bx, by);
+          tufts.lineTo(bx, by - h * 0.2);
+          tufts.moveTo(bx + w * 0.08, by);
+          tufts.lineTo(bx + w * 0.13, by - h * 0.13);
+        } else if (deco?.kind === "flower") {
+          const fx = left + w * deco.fx;
+          const fy = top + h * deco.fy;
+          const path = flowers[deco.tone] as Path2D;
+          path.moveTo(fx + scale * 0.06, fy);
+          path.arc(fx, fy, scale * 0.06, 0, Math.PI * 2);
+        } else if (deco?.kind === "leaf") {
+          // A fallen leaf: two curves from tip to tip, as the plot photos draw it.
+          leafPath(
+            leaves[deco.tone] as Path2D,
+            left + w * deco.fx,
+            top + h * deco.fy,
+            deco.turn,
+            w,
           );
-          clayMarks.push({ x: px, y: py, lean });
-        } else {
-          finds.push({ kind: pickup, cx: px, cy: top + h * 0.5, size: Math.min(w, h) });
+        }
+        const pickup = mirror.pickupAt(x, y);
+        if (pickup) {
+          const px = left + w * 0.5;
+          const py = top + h * 0.55;
+          if (pickup === "wood") {
+            // A fallen branch: two crossed sticks.
+            sticks.moveTo(px - w * 0.13, py + h * 0.07);
+            sticks.lineTo(px + w * 0.13, py - h * 0.07);
+            sticks.moveTo(px - w * 0.1, py - h * 0.09);
+            sticks.lineTo(px + w * 0.11, py + h * 0.1);
+          } else if (pickup === "stone") {
+            // A loose stone: one low pebble.
+            pebbles.moveTo(px + scale * 0.12, py);
+            pebbles.ellipse(px, py, scale * 0.12, scale * 0.085, 0, 0, Math.PI * 2);
+          } else if (pickup === "clay") {
+            // Clay (RFC 0047): a squat block of it, as a potter buys it, in a patch of wet ground,
+            // its darker side under a lighter top with a wire's cut across it, so it reads as clay
+            // and never as a branch, a stone, or a cap on a stem. Its top and cut go over it below.
+            const lean = (x * 7 + y * 13) % 2 === 0 ? 1 : -1;
+            wet.moveTo(px + scale * 0.32, py + scale * 0.03);
+            wet.ellipse(px, py + scale * 0.03, scale * 0.32, scale * 0.19, 0, 0, Math.PI * 2);
+            lumps.roundRect(
+              px - scale * 0.2,
+              py - scale * 0.06,
+              scale * 0.4,
+              scale * 0.16,
+              scale * 0.06,
+            );
+            clayMarks.push({ x: px, y: py, lean });
+          } else {
+            finds.push({ kind: pickup, cx: px, cy: top + h * 0.5, size: Math.min(w, h) });
+          }
         }
       }
     }
-  }
   ctx.lineCap = "round";
   ctx.lineWidth = Math.max(1, scale / 24);
   ctx.strokeStyle = tuftStroke(season);
@@ -389,7 +414,11 @@ export function render(
       const named = owner ? mirror.plotNames.get(plotKey(px, py)) : undefined;
       // A circle's hall (RFC 0033) carries the circle's name under the plot's own.
       const hall = owner ? mirror.halls.get(plotKey(px, py))?.name : undefined;
-      const fade = named || hall ? plotLabelFade(plotDistance(config, here, px, py), scale) : 0;
+      // Zoomed out, the lands' names take their place (`paintMapMarks`).
+      const fade =
+        (named || hall) && !detail.marks
+          ? plotLabelFade(plotDistance(config, here, px, py), scale)
+          : 0;
       if ((named || hall) && fade > 0) {
         plotLabels.push({
           ...(named ? { text: named } : {}),
@@ -462,7 +491,8 @@ export function render(
   // any cast on them drawn before the blocks and figures.
   const isPond = (x: number, y: number) => mirror.blocks.get(tileKey(x, y)) === "pond";
   for (const [key, block] of mirror.blocks) {
-    if (block !== "pond") continue;
+    // Zoomed out, ponds are in the ground's picture.
+    if (block !== "pond" || simple) continue;
     const [x, y] = key.split(",").map(Number) as [number, number];
     if (x < x0 || x > x1 || y < y0 || y > y1) continue;
     const { sx, sy } = tileToScreen(cam, x, y);
@@ -489,7 +519,7 @@ export function render(
       paintTownMark(ctx, left + inset, top + inset, Math.round(scale) - inset * 2, scale);
     }
   }
-  for (const c of casts ?? []) {
+  for (const c of simple ? [] : (casts ?? [])) {
     if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
     const { sx, sy } = tileToScreen(cam, c.x, c.y);
     paintCast(ctx, c, sx, sy, scale, now, still);
@@ -514,6 +544,12 @@ export function render(
     const size = Math.round(scale) - inset * 2;
     // Drawn flat with the ground, above.
     if (block === "pond") return;
+    // Zoomed out, a block is its own color and nothing more.
+    if (simple) {
+      ctx.fillStyle = blockColor(block);
+      ctx.fillRect(left - inset, top - inset, Math.round(scale), Math.round(scale));
+      return;
+    }
     // A pot set down (RFC 0047) is itself, in its glaze and finish, a vase with its flower.
     if (block === "pot") {
       const pot = mirror.pots.get(potKey(x, y, floor))?.good;
@@ -607,7 +643,8 @@ export function render(
     }
     if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
   };
-  for (const [key, block] of mirror.blocks) {
+  // Zoomed out, the ground floor's blocks are in the ground's picture.
+  for (const [key, block] of simple ? [] : mirror.blocks) {
     const [x, y] = key.split(",").map(Number) as [number, number];
     if (x < x0 || x > x1 || y < y0 || y > y1) continue;
     paintAt(mirror.blocks, key, block, x, y);
@@ -617,12 +654,18 @@ export function render(
   drawShop(ctx, mirror, cam);
 
   // ---- events (RFC 0010): a lantern on an event's plot on its day, lit while it's on ----
-  for (const l of eventLanterns(mirror.events.values(), {
-    plotSize: S,
-    day: mirror.day,
-    taken: (x, y) =>
-      mirror.blocks.has(tileKey(x, y)) || mirror.isTownHall(x, y) || mirror.isShop(x, y),
-  })) {
+  // Zoomed out, the small things on the ground stay away: lanterns, tables, hearths, teapots,
+  // presents, home pictures, and pets.
+  const smallThings = !simple;
+  const lanternsOut = !smallThings
+    ? []
+    : eventLanterns(mirror.events.values(), {
+        plotSize: S,
+        day: mirror.day,
+        taken: (x, y) =>
+          mirror.blocks.has(tileKey(x, y)) || mirror.isTownHall(x, y) || mirror.isShop(x, y),
+      });
+  for (const l of lanternsOut) {
     if (l.x < x0 || l.x > x1 || l.y < y0 || l.y > y1) continue;
     const { sx, sy } = tileToScreen(cam, l.x, l.y);
     const left = Math.round(sx - half) + inset;
@@ -642,7 +685,7 @@ export function render(
   }
 
   // ---- game tables (RFC 0011): a table with a die on it, glowing while a game plays ----
-  for (const t of mirror.tables.values()) {
+  for (const t of smallThings ? mirror.tables.values() : []) {
     if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
     const { sx, sy } = tileToScreen(cam, t.x, t.y);
     const left = Math.round(sx - half) + inset;
@@ -652,7 +695,7 @@ export function render(
   }
 
   // ---- hearths: a little house, drawn under residents ----
-  for (const r of mirror.residents.values()) {
+  for (const r of smallThings ? mirror.residents.values() : []) {
     if (!r.hearth) continue;
     const { sx, sy } = tileToScreen(cam, r.hearth.x, r.hearth.y);
     if (sx < -scale || sy < -scale || sx > width + scale || sy > height + scale) continue;
@@ -676,12 +719,14 @@ export function render(
   }
 
   // ---- tea (RFC 0047): a teapot with steam in its glaze, on a table or on the host's hearth ----
-  for (const t of teaSpots({
-    config: mirror.config,
-    events: mirror.events.values(),
-    blocks: mirror.blocks,
-    hearthOf: (id) => mirror.residents.get(id)?.hearth,
-  })) {
+  for (const t of !smallThings
+    ? []
+    : teaSpots({
+        config: mirror.config,
+        events: mirror.events.values(),
+        blocks: mirror.blocks,
+        hearthOf: (id) => mirror.residents.get(id)?.hearth,
+      })) {
     if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
     const { sx, sy } = tileToScreen(cam, t.x, t.y);
     const left = Math.round(sx - half) + inset;
@@ -690,7 +735,7 @@ export function render(
   }
 
   // ---- presents waiting (RFC 0034): under the tree on their home plot, or by the hearth ----
-  if (mirror.presents.size > 0) {
+  if (smallThings && mirror.presents.size > 0) {
     // A pile stands on its hearth's plot, so hearths a plot beyond the view are read too.
     const near = { x0: x0 - S, y0: y0 - S, x1: x1 + S, y1: y1 + S };
     for (const [key, pile] of presentPiles(mirror, near)) {
@@ -800,7 +845,7 @@ export function render(
   }
 
   // ---- home pictures: a resident's own art of their home, standing over their hearth ----
-  for (const [key, owner] of mirror.plots) {
+  for (const [key, owner] of smallThings ? mirror.plots : []) {
     const r = mirror.residents.get(owner);
     const img = lookImage(r?.homeArt);
     if (!r?.homeArt || !img) continue;
@@ -842,7 +887,7 @@ export function render(
   if (hover) paintHover(ctx, cam, hover);
 
   // ---- pets: beside their owners, or at home by the hearth (RFC 0019), under the residents ----
-  if (pets) {
+  if (pets && smallThings) {
     const scene: PetScene = {
       now,
       clock: clock ?? now,
@@ -948,11 +993,14 @@ export function render(
     /** How much of the tag's paper shows (`tagPaper`): less over something standing behind it. */
     paper?: number;
   }[] = [];
-  // A label over each building of each kind: one square's, or every open land's too.
-  for (const [text, tiles] of [
-    ["Town Hall", mirror.townHall],
-    ["Shop", mirror.shop],
-  ] as const) {
+  // A label over each building of each kind: one square's, or every open land's too. Zoomed out,
+  // each has a mark instead (`paintMapMarks`).
+  for (const [text, tiles] of detail.marks
+    ? []
+    : ([
+        ["Town Hall", mirror.townHall],
+        ["Shop", mirror.shop],
+      ] as const)) {
     for (const group of bySquare(mirror.config, tiles)) {
       const box = tilesBox(group, cam);
       if (box) labels.push({ text, x: box.left + box.w / 2, y: box.top - 2, mine: false });
@@ -991,6 +1039,20 @@ export function render(
     const { sx, sy } = tileToScreen(cam, m.x, m.y);
     const feet = sy + scale * 0.38;
     const mine = r.id === me;
+    if (simple) {
+      // Zoomed out, a figure is a dot in its own color, with no tag: yours ringed in clay.
+      const radius = Math.max(2, scale * (mine ? 0.55 : 0.4));
+      ctx.globalAlpha = away ? AWAY_TAG_ALPHA : 1;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = lookPalette(r.theme, r.color).main;
+      ctx.fill();
+      ctx.lineWidth = mine ? 2 : 1;
+      ctx.strokeStyle = mine ? CLAY_DEEP : PAPER;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      continue;
+    }
     if (mine) {
       ctx.fillStyle = "rgba(242, 184, 75, 0.45)";
       ctx.beginPath();
@@ -1135,7 +1197,8 @@ export function render(
         ctx.fillRect(0, 0, width, height);
       }
     }
-    if (night > 0.25) {
+    // Zoomed out, a hearth's glow would be a speck: the night alone.
+    if (night > 0.25 && !simple) {
       ctx.globalCompositeOperation = "lighter";
       const strength = (night - 0.25) / 0.75;
       for (const r of mirror.residents.values()) {
@@ -1223,6 +1286,12 @@ export function render(
   // ---- plots' names, softly, along the top of each named plot near you (decision 0121) ----
   if (plotLabels.length > 0) {
     paintPlotLabels(ctx, plotLabels, { plotPx, scale, width, height, labelTop });
+  }
+
+  // ---- zoomed out: each land's name at its square, its hall and shop, and your home's pin ----
+  if (detail.marks) {
+    const hearth = me ? mirror.residents.get(me)?.hearth : undefined;
+    paintMapMarks(ctx, cam, mirror, hearth);
   }
 
   // ---- name labels on little paper tags, above the night so they stay readable ----

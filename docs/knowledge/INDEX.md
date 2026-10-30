@@ -337,6 +337,7 @@ What we chose and why. Newest last.
 - [A plot map draws walls between tiles in a per-floor edges grid, and each design's roomy version is built with roomy: true](decisions/0401-a-plot-map-draws-walls-between-tiles-in-a-per-floor-edges-gr.md) · 2026-10-30 · accepted · `protocol` `sim` `server` `design`
 - [Starter homes are built from walls between tiles in every world, and the home sheet builds roomy designs](decisions/0402-starter-homes-are-built-from-walls-between-tiles-in-every-wo.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
 - [Designs always build their walls on the lines between tiles, with no roomy field](decisions/0403-designs-always-build-their-walls-on-the-lines-between-tiles-.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `protocol`
+- [The town slims every home once, upstairs included, and tells each owner](decisions/0404-the-town-slims-every-home-once-upstairs-included-and-tells-e.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
 
 ## Learnings
 

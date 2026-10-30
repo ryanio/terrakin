@@ -117,6 +117,7 @@ import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import { plotSaleOf } from "./plot-market";
+import { slimPlan, townSlim } from "./slim-plan";
 import {
   boot,
   encodeSnapshot,
@@ -282,6 +283,13 @@ export interface WorldServiceOptions {
    */
   starterEdges?: boolean;
   /**
+   * The town slims every home it can (RFC 0050, decision 0404): once starter homes are built from
+   * walls between tiles, plan each held plot's slim, log it as `town_slim` where a dry run skips
+   * nothing and adds no note, tell the owner, then log `slim_homes` so it never runs again. It
+   * waits until `onHomeSlimmed` is wired. Both adapters turn this on. Off by default, like `items`.
+   */
+  slimHomes?: boolean;
+  /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
    */
@@ -427,7 +435,7 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
   if (!plan) return {};
   const summary: BuildPlanSummary = buildSummary(plan);
   const { type } = input.command;
-  if (type !== "build" && type !== "slim_walls") return { plan: summary };
+  if (type !== "build" && type !== "slim_walls" && type !== "town_slim") return { plan: summary };
   const over = built ? undefined : plan;
   const map = plotMap(state, plan.px, plan.py, over);
   const notes = designNotes(state, plan.px, plan.py, over);
@@ -846,6 +854,7 @@ export class WorldService {
   private readonly tableSpots: boolean;
   private readonly starterDoors: boolean;
   private readonly starterEdges: boolean;
+  private readonly slimHomes: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -955,6 +964,7 @@ export class WorldService {
     this.tableSpots = options.tableSpots ?? false;
     this.starterDoors = options.starterDoors ?? false;
     this.starterEdges = options.starterEdges ?? false;
+    this.slimHomes = options.slimHomes ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -1217,6 +1227,10 @@ export class WorldService {
   onPotHandedIn: ((pot: TownPot) => void) | undefined;
   /** Hears each credited event its host served tea at, with the cups poured (RFC 0047). */
   onTeaServed: ((host: string, cups: number) => void) | undefined;
+  /** Hears each home the town slimmed (RFC 0050), with its owner, for their notice. */
+  onHomeSlimmed:
+    | ((owner: string, slimmed: { px: number; py: number; walls: number; back: number }) => void)
+    | undefined;
   /** Who would count as a guest today (RFC 0010), for serving tea; set once the social side is wired. */
   guestFacts: (() => GuestFacts) | undefined;
 
@@ -1291,6 +1305,42 @@ export class WorldService {
     console.error(`Couldn't ${sw.label}: ${on.error.message}`);
   }
 
+  /**
+   * The town's one sweep over every held plot not slimmed before (RFC 0050, decision 0404): each
+   * home `townSlim` finds safe to slim, logged as `town_slim`, so no home comes out worse or half
+   * done. Then `slim_homes`, so it never
+   * runs again. A home it leaves keeps its walls, and its owner can still `slim_walls` it. It waits
+   * for `onHomeSlimmed`, which is wired after the constructor's own tick.
+   */
+  private slimEveryHome() {
+    if (!this.slimHomes || !this.state.starterEdges || this.state.homesSlimmed) return;
+    // Not from the constructor's tick: only once the notices are wired, so every owner hears.
+    if (!this.onHomeSlimmed) return;
+    let slimmed = 0;
+    let left = 0;
+    const plots = Object.values(this.state.plots).sort((a, b) => a.py - b.py || a.px - b.px);
+    for (const { px, py, ownerId } of plots) {
+      // A plot slimmed already was its owner's call: whatever blocks still wall it are theirs.
+      if (ownerId === undefined || this.state.slimmed?.[plotKey(px, py)]) continue;
+      if ("problem" in slimPlan(this.state, px, py)) continue;
+      const slim = townSlim(this.state, px, py);
+      const done = slim && this.run({ actor: TOWN_ACTOR, command: slim.command });
+      if (!slim || !done?.ok) {
+        left++;
+        continue;
+      }
+      slimmed++;
+      try {
+        this.onHomeSlimmed?.(ownerId, { px, py, walls: slim.walls, back: slim.back });
+      } catch (err) {
+        report(err, "world.slim_homes");
+      }
+    }
+    const marked = this.run({ actor: TOWN_ACTOR, command: { type: "slim_homes" } });
+    if (!marked.ok) console.error(`Couldn't mark the homes slimmed: ${marked.error.message}`);
+    console.log(`The town slimmed ${slimmed} homes and left ${left} as they were.`);
+  }
+
   private tickDays() {
     this.reconcileEntitlements();
     this.switchOn(PRESENCE_SWITCH);
@@ -1309,6 +1359,7 @@ export class WorldService {
     const day = this.state.day;
     if (day === undefined) return;
     for (const sw of DAY_SWITCHES) this.switchOn(sw);
+    this.slimEveryHome();
     // The treasury's share of shop spending follows the sim's number, logged when it changes so
     // earlier purchases replay at the share they were made at.
     if (this.shop && this.state.shop && treasuryShareOf(this.state) !== SHOP.treasuryShare) {

@@ -1,5 +1,5 @@
 import { BUILD_LIMITS, designViews, type ServerMessage } from "@terrakin/protocol";
-import { FLOORS, type Input, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
+import { designNotes, FLOORS, type Input, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -291,6 +291,61 @@ describe("build", () => {
     expect(dry.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
     const real = await t.act(ada, { type: "slim_walls", px: 0, py: 0 });
     expect(real.plan).toEqual(dry.plan);
+  });
+
+  it("slims every home the town can, once, and tells each owner (decision 0404)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const bob = await t.settler("Bob", 2, 0);
+    const out = [
+      { x: 3, y: 6, ground: "dirt" },
+      { x: 3, y: 7, ground: "dirt" },
+    ];
+    await t.act(ada, { type: "build", px: 0, py: 0, ground: out });
+    // Cee slimmed her own hut, then walled a little room in blocks: hers to leave as it is.
+    const cee = await t.settler("Cee", 0, 2);
+    await t.act(cee, { type: "slim_walls", px: 0, py: 2 });
+    const ring = [
+      [4, 1],
+      [5, 1],
+      [6, 1],
+      [4, 2],
+      [6, 2],
+      [4, 3],
+      [5, 3],
+      [6, 3],
+    ].map(([x, y]) => ({ x, y, block: "wood" }));
+    expect(await t.act(cee, { type: "build", px: 0, py: 2, blocks: ring })).toMatchObject({
+      ok: true,
+    });
+    // The same world, booted again with the switches terrakin.org runs.
+    const reborn = new WorldService({
+      store: t.store,
+      config: CONFIG,
+      now: () => Date.UTC(2026, 9, 7, 9),
+      days: true,
+      economy: true,
+      items: true,
+      starterEdges: true,
+      slimHomes: true,
+    });
+    const told: unknown[] = [];
+    reborn.onHomeSlimmed = (owner, slimmed) => told.push({ owner, ...slimmed });
+    reborn.tick();
+    expect(reborn.state.homesSlimmed).toBe(true);
+    expect(Object.keys(reborn.state.blocks)).toHaveLength(8);
+    expect(Object.keys(reborn.state.edges ?? {})).toHaveLength(60);
+    expect(told).toEqual([
+      { owner: ada.id, px: 0, py: 0, walls: 20, back: 0 },
+      { owner: bob.id, px: 2, py: 0, walls: 20, back: 0 },
+    ]);
+    // Ada's path out of the door still counts, and Bob's plot has no more notes than it had.
+    expect(designNotes(reborn.state, 0, 0)).toEqual([]);
+    expect(designNotes(reborn.state, 2, 0).map((n) => n.code)).toEqual(["no_path"]);
+    // Never again.
+    const seq = reborn.state.seq;
+    reborn.tick();
+    expect(reborn.state.seq).toBe(seq);
   });
 
   it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {

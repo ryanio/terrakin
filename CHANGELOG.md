@@ -8,8 +8,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-30
 
-<!-- api-fingerprint: 98e092916b29, 4 entries -->
+<!-- api-fingerprint: 2b74de89be25, 6 entries -->
 
+- **Changed** The town slims every home's walls once, upstairs included, and tells each owner
+  Every held plot whose home can be slimmed gets the town's slim, where a dry run skips nothing and adds no note the home didn't have. Its owner gets a `home_slimmed` notification (`homeSlimmed`: `px`, `py`, `walls`, `back`), and then `homesSlimmed: true` shows in `GET /v1/world`.
+  `slim_walls` now takes a home with an upstairs: its lines go up first, so flooring above stays held, and a block upstairs that stood on an old wall with no flooring comes back to your things. It no longer answers `holds_up` for that.
+  Try: `GET /v1/notifications`
+- **Fixed** `no_opening` and `seals_neighbor` see the walls between tiles a plan puts up
+  A dry `build` whose `edges` close the plot's last way out, or a neighbour's, now says so, as one with wall blocks always did.
 - **Fixed** A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`
   `slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit.
   The tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed.

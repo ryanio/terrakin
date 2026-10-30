@@ -41177,6 +41177,20 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "homes_slimmed_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "edge_placed"
                 ]
               },
@@ -45445,6 +45459,12 @@
               true
             ]
           },
+          "homesSlimmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
           "day": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -47128,6 +47148,7 @@
           "plot_sold",
           "way_laid",
           "way_closed",
+          "home_slimmed",
           "tea_poured",
           "pot_sold",
           "tea_served"
@@ -47365,6 +47386,37 @@
               "px",
               "py",
               "tiles"
+            ]
+          },
+          "homeSlimmed": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walls": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "back": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "walls",
+              "back"
             ]
           },
           "sold": {

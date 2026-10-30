@@ -872,6 +872,8 @@ export const WorldSnapshot = z.object({
     .optional(),
   /** Present once starter homes are built from walls between tiles (RFC 0050). */
   starterEdges: z.literal(true).optional(),
+  /** Present once the town has moved every home's wall blocks it could onto lines (RFC 0050). */
+  homesSlimmed: z.literal(true).optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /**
@@ -1447,6 +1449,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("starter_doors_set") }),
   /** From now on a starter home is built from walls between tiles (RFC 0050). */
   z.object({ type: z.literal("starter_edges_set") }),
+  /** The town has moved every home's wall blocks it could onto the lines between tiles (RFC 0050). */
+  z.object({ type: z.literal("homes_slimmed_set") }),
   /** A wall went up on the line on `side` (`n` or `w`) of (x, y) (RFC 0050). Public. */
   z.object({
     type: z.literal("edge_placed"),

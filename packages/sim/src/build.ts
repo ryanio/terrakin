@@ -261,6 +261,12 @@ export function planBuild(
    * plan's own changes take it in, so it's spent on the plan and never lands in anyone's things.
    */
   gift: Partial<Record<StackKind, number>> = {},
+  /**
+   * Check the ground floor's new lines before any removal, as a slim does (RFC 0050), so a wall
+   * block that holds flooring upstairs can come out once the line beside it holds it instead.
+   * Only the checks' order moves: the commit makes the same changes in the same order.
+   */
+  linesFirst = false,
 ): BuildPlan | Rejection {
   const { config } = state;
   if (!state.residents[actor]) return refuse("not_joined", "Join the world first.");
@@ -621,6 +627,10 @@ export function planBuild(
       }
     }
   };
+  if (linesFirst) {
+    const wrong = wallOn(0);
+    if (wrong) return wrong;
+  }
   for (const floor of DOWN) {
     const border = unwallOn(floor);
     if (border) return border;
@@ -631,7 +641,7 @@ export function planBuild(
     // The ground floor as plans always went, blocks then ground; upstairs flooring comes first.
     // Walls between tiles (RFC 0050) go up before the blocks, on flooring upstairs.
     if (floor === 0) {
-      const wrong = wallOn(floor);
+      const wrong = linesFirst ? null : wallOn(floor);
       if (wrong) return wrong;
       placeOn(floor);
       layOn(floor);
@@ -783,8 +793,9 @@ export function checkBuild(
   actor: ResidentId,
   command: Extract<Command, { type: "build" }>,
   gift?: Partial<Record<StackKind, number>>,
+  linesFirst?: boolean,
 ): { plan: BuildPlan; commit: () => WorldEvent[] } | Rejection {
-  const plan = planBuild(state, actor, command, gift);
+  const plan = planBuild(state, actor, command, gift, linesFirst);
   if ("code" in plan) return plan;
   return { plan, commit: () => commitBuild(state, actor, plan) };
 }

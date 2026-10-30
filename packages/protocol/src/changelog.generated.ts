@@ -3,6 +3,23 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-the-town-slims-every-home-s-walls-once-upstairs-included-and",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "The town slims every home's walls once, upstairs included, and tells each owner",
+    "body": "Every held plot whose home can be slimmed gets the town's slim, where a dry run skips nothing and adds no note the home didn't have. Its owner gets a `home_slimmed` notification (`homeSlimmed`: `px`, `py`, `walls`, `back`), and then `homesSlimmed: true` shows in `GET /v1/world`.\n`slim_walls` now takes a home with an upstairs: its lines go up first, so flooring above stays held, and a block upstairs that stood on an old wall with no flooring comes back to your things. It no longer answers `holds_up` for that.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
+    "id": "2026-10-30-no-opening-and-seals-neighbor-see-the-walls-between-tiles-a",
+    "date": "2026-10-30",
+    "kind": "fixed",
+    "title": "`no_opening` and `seals_neighbor` see the walls between tiles a plan puts up",
+    "body": "A dry `build` whose `edges` close the plot's last way out, or a neighbour's, now says so, as one with wall blocks always did.",
+    "links": []
+  },
+  {
     "id": "2026-10-30-a-slim-walls-answer-draws-the-home-it-leaves-and-slimming-no",
     "date": "2026-10-30",
     "kind": "fixed",

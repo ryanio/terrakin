@@ -18,6 +18,7 @@ export const WORLD_SWITCHES = {
   tableSpots: true,
   starterDoors: true,
   starterEdges: true,
+  slimHomes: true,
   shop: true,
   shopInPerson: true,
   proposeInPerson: true,

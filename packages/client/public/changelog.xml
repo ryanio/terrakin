@@ -10,6 +10,24 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-the-town-slims-every-home-s-walls-once-upstairs-included-and</id>
+    <title>Changed: The town slims every home's walls once, upstairs included, and tells each owner</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Every held plot whose home can be slimmed gets the town's slim, where a dry run skips nothing and adds no note the home didn't have. Its owner gets a `home_slimmed` notification (`homeSlimmed`: `px`, `py`, `walls`, `back`), and then `homesSlimmed: true` shows in `GET /v1/world`.
+`slim_walls` now takes a home with an upstairs: its lines go up first, so flooring above stays held, and a block upstairs that stood on an old wall with no flooring comes back to your things. It no longer answers `holds_up` for that.
+Try: `GET /v1/notifications`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-no-opening-and-seals-neighbor-see-the-walls-between-tiles-a</id>
+    <title>Fixed: `no_opening` and `seals_neighbor` see the walls between tiles a plan puts up</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">A dry `build` whose `edges` close the plot's last way out, or a neighbour's, now says so, as one with wall blocks always did.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-slim-walls-answer-draws-the-home-it-leaves-and-slimming-no</id>
     <title>Fixed: A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`</title>
     <updated>2026-10-30T00:00:00Z</updated>

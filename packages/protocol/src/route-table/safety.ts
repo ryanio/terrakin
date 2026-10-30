@@ -613,7 +613,7 @@ export const SAFETY_ROUTES = [
     internal: true,
     summary: "Maintainers: take one block off a plot to open a way out of a home.",
     description:
-      "The block at (`x`, `y`) on the ground floor of a claimed plot comes off, and what it cost goes back to the plot's owner, as if they had taken it up themselves (a free block gives nothing back). It is refused wherever the owner's own `remove` would be: a planter with something growing, a block under a display, a wall that holds up an upstairs, or an owner with no room for what comes back. The owner gets a notice from Terrakin naming the tile. `walksOut` says whether their hearth walks to the town once it's gone. `dry: true` checks it and clears nothing. Logged in the world and in the moderation log with the reason.",
+      "The block at (`x`, `y`) on the ground floor of a claimed plot comes off, and what it cost goes back to the plot's owner, as if they had taken it up themselves (a free block gives nothing back). With `side` (`n`, `e`, `s` or `w`), the wall on the ground-floor line on that side of the tile comes off instead, as the owner's own `remove` with that side would take it, with what hung on it back to whoever hung it. It is refused wherever the owner's own `remove` would be: a planter with something growing, a block under a display, a wall that holds up an upstairs, a plot listed for sale, or an owner with no room for what comes back. The owner gets a notice from Terrakin naming the tile, and the side when it was a line. `walksOut` says whether their hearth walks to the town once it's gone. `dry: true` checks it and clears nothing. Logged in the world and in the moderation log with the reason.",
     tags: ["Moderation"],
     body: StaffClearBlockRequest,
     responses: { 200: json(StaffClearBlockResponse) },
@@ -626,6 +626,8 @@ export const SAFETY_ROUTES = [
       "no_block",
       "tile_occupied",
       "holds_up",
+      "plot_listed",
+      "plot_border",
       "inventory_full",
     ],
   },

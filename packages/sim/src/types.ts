@@ -2144,9 +2144,10 @@ export type Command =
   | { type: "rename_resident"; resident: ResidentId; name: string }
   /**
    * Staff took one block off the ground floor of a claimed plot, to open a way out of a home
-   * nobody can walk out of (decision 0343). What it took comes back to the plot's owner.
+   * nobody can walk out of (decision 0343). What it took comes back to the plot's owner. With a
+   * `side`, it took the wall on the ground-floor line on that side of (x, y) instead (RFC 0050).
    */
-  | { type: "clear_block"; x: number; y: number }
+  | { type: "clear_block"; x: number; y: number; side?: Side | undefined }
   /** The town makes these tiles public ways, which hold no block (RFC 0046). Sorted `[x, y]`. */
   | { type: "open_way"; tiles: [number, number][] }
   /** The town takes these tiles off the public ways. */

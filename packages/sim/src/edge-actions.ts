@@ -12,7 +12,7 @@ import { edgeRemoveProblem, floorField, groundOn } from "./floors";
 import { blockPlaceProblem, blockRemoveProblem, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { isSide, releaseHungOnEdge } from "./surfaces";
-import type { Command, Rejection, ResidentId, WorldEvent, WorldState } from "./types";
+import type { Command, Rejection, ResidentId, Side, WorldEvent, WorldState } from "./types";
 
 type Mutation = () => WorldEvent[];
 
@@ -32,27 +32,9 @@ export function checkEdge(
   if (!isSide(side)) {
     return refuse("out_of_bounds", "side is n, e, s or w: the line on that side of the tile.");
   }
+  if (command.type === "remove") return checkEdgeRemove(state, actor, x, y, side, floor, actor);
   const e = edgeOf(x, y, side);
   const key = edgeKey(x, y, side);
-  if (command.type === "remove") {
-    const taken = edgesOn(state, floor)[key];
-    if (taken === undefined) return refuse("no_block", "No wall stands on that line.");
-    const where = edgeWhereProblem(state, actor, x, y, side);
-    if (where) return where;
-    const holding = edgeRemoveProblem(state, x, y, side, floor);
-    if (holding) return holding;
-    const full = blockRemoveProblem(state, actor, taken);
-    if (full) return full;
-    return () => {
-      delete edgesFor(state, floor)[key];
-      tidyEdges(state, floor);
-      return [
-        { type: "edge_removed", x: e.x, y: e.y, side: e.side, ...floorField(floor), by: actor },
-        ...moveBlockCost(state, actor, taken, 1),
-        ...releaseHungOnEdge(state, e.x, e.y, e.side, floor, actor),
-      ];
-    };
-  }
   if (command.item !== undefined || command.flower !== undefined) {
     return refuse("unknown_item", "A wall between tiles takes no item. Leave out item and flower.");
   }
@@ -76,6 +58,43 @@ export function checkEdge(
     return [
       { type: "edge_placed", x: e.x, y: e.y, side: e.side, ...floorField(floor), block, by: actor },
       ...moveBlockCost(state, actor, block, -1),
+    ];
+  };
+}
+
+/**
+ * Taking down the line on `side` of (x, y) on `floor` as `owner` would: a wall stands there, it's
+ * on plots `owner` can build on and not listed, it holds up no flooring above, and `owner` has
+ * room for what it gives back. Its cost goes back to `owner`, and what hung on either face to
+ * whoever hung it. `by` is who the events name: the owner on their own `remove`, the town on a
+ * staff `clear_block` with a side.
+ */
+export function checkEdgeRemove(
+  state: WorldState,
+  owner: ResidentId,
+  x: number,
+  y: number,
+  side: Side,
+  floor: number,
+  by: ResidentId,
+): Mutation | Rejection {
+  const e = edgeOf(x, y, side);
+  const key = edgeKey(x, y, side);
+  const taken = edgesOn(state, floor)[key];
+  if (taken === undefined) return refuse("no_block", "No wall stands on that line.");
+  const where = edgeWhereProblem(state, owner, x, y, side);
+  if (where) return where;
+  const holding = edgeRemoveProblem(state, x, y, side, floor);
+  if (holding) return holding;
+  const full = blockRemoveProblem(state, owner, taken);
+  if (full) return full;
+  return () => {
+    delete edgesFor(state, floor)[key];
+    tidyEdges(state, floor);
+    return [
+      { type: "edge_removed", x: e.x, y: e.y, side: e.side, ...floorField(floor), by },
+      ...moveBlockCost(state, owner, taken, 1),
+      ...releaseHungOnEdge(state, e.x, e.y, e.side, floor, by),
     ];
   };
 }

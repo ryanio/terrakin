@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { edgeAt } from "./edges";
 import { CLEAR_BLOCK_CONFIG, CLEAR_BLOCK_HASH, CLEAR_BLOCK_LOG } from "./fixtures/clear-block-log";
 import { hashWorld } from "./hash";
-import { ITEMS } from "./items";
+import { held, ITEMS } from "./items";
 import { tileKey } from "./keys";
 import { replay } from "./replay";
 import { stock } from "./test-support";
@@ -103,6 +104,64 @@ describe("staff clearing a block off a plot", () => {
   it("is staff's alone: a resident sending it is refused", () => {
     const state = town();
     refused(state, "ada", clear(1, 1), "server_only");
+  });
+
+  it("with a side, takes the wall on that line instead of the block, back to the owner as her own remove would", () => {
+    const state = town();
+    stock(state, "ada", { plaster: 1, mirror: 1 });
+    // A plaster line inside the hut, east of the hearth, with a mirror hung facing the hearth.
+    ok(state, "ada", { type: "place", x: 3, y: 3, side: "e", block: "plaster" });
+    ok(state, "ada", { type: "hang", x: 3, y: 3, side: "e", item: "mirror" });
+    // A line on the inside of the hut's north wall, which also has a block on its tile.
+    ok(state, "ada", { type: "place", x: 2, y: 2, side: "n", block: "wood" });
+    expect(held(state.items?.inventories.ada, "plaster")).toBe(0);
+    expect(held(state.items?.inventories.ada, "mirror")).toBe(0);
+
+    const events = ok(state, TOWN_ACTOR, { type: "clear_block", x: 3, y: 3, side: "e" });
+    expect(events[0]).toEqual({ type: "edge_removed", x: 4, y: 3, side: "w", by: TOWN_ACTOR });
+    expect(events).toContainEqual({ type: "unhung", x: 3, y: 3, side: "e", by: TOWN_ACTOR });
+    expect(edgeAt(state, 3, 3, "e")).toBeUndefined();
+    expect(held(state.items?.inventories.ada, "plaster")).toBe(1);
+    expect(held(state.items?.inventories.ada, "mirror")).toBe(1);
+
+    // The side picks the line; without one, the block on the tile.
+    ok(state, TOWN_ACTOR, { type: "clear_block", x: 2, y: 1, side: "s" });
+    expect(edgeAt(state, 2, 2, "n")).toBeUndefined();
+    expect(state.blocks[tileKey(2, 1)]).toBeDefined();
+    ok(state, TOWN_ACTOR, clear(2, 1));
+    expect(state.blocks[tileKey(2, 1)]).toBeUndefined();
+  });
+
+  it("with a side, refuses what the owner's own remove of that line would", () => {
+    const state = town();
+    // No line stands there, and a side that isn't one.
+    refused(state, TOWN_ACTOR, { type: "clear_block", x: 3, y: 3, side: "s" }, "no_block");
+    refused(
+      state,
+      TOWN_ACTOR,
+      { type: "clear_block", x: 3, y: 3, side: "up" as never },
+      "out_of_bounds",
+    );
+    // A line holding up the flooring above it stays until the flooring is lifted. Bob's plot
+    // (2, 0) is bare, so that line is all that holds his upstairs.
+    ok(state, "bob", { type: "join", name: "bob", kind: "human" });
+    ok(state, "bob", { type: "settle", px: 2, py: 0 });
+    const plot = state.plots["2,0"];
+    const bob = state.residents.bob;
+    if (!plot || !bob) throw new Error("no bob");
+    plot.floors = 1;
+    state.floors = { "1": { blocks: {}, ground: {} } };
+    bob.x = 18;
+    bob.y = 3;
+    ok(state, "bob", { type: "place", x: 18, y: 3, side: "n", block: "stone" });
+    stock(state, "bob", { wood: 1 });
+    ok(state, "bob", { type: "lay", x: 18, y: 3, floor: 1, ground: "planks" });
+    refused(state, TOWN_ACTOR, { type: "clear_block", x: 18, y: 3, side: "n" }, "holds_up");
+    // An owner with no room for what the line gives back keeps it.
+    stock(state, "ada", { plaster: 1 });
+    ok(state, "ada", { type: "place", x: 6, y: 6, side: "w", block: "plaster" });
+    stock(state, "ada", { wood: ITEMS.inventoryMax });
+    refused(state, TOWN_ACTOR, { type: "clear_block", x: 6, y: 6, side: "w" }, "inventory_full");
   });
 
   it("replays its fixture to the hash pinned when it landed, with both blocks back in Ada's things", () => {

@@ -47133,6 +47133,13 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "side": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/Side"
+                  }
+                ]
+              },
               "block": {
                 "type": "string"
               }

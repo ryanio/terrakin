@@ -12,7 +12,7 @@ import {
   type NotificationView,
   type TakedownView,
 } from "@terrakin/protocol";
-import { blockNeeds, potName } from "@terrakin/sim";
+import { blockNeeds, potName, type Side } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural, pluralWord } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -370,18 +370,23 @@ function systemWords(n: NotificationView): SystemWords | null {
   return null;
 }
 
+const SIDE_WORDS: Record<Side, string> = { n: "north", e: "east", s: "south", w: "west" };
+
 /**
- * A block-cleared notice in plain words (decision 0343): where the block was, and whether
- * anything came back, by the sim's own `blockNeeds`. Built from the notice's fields only. Pure, so
- * tests pin it.
+ * A block-cleared notice in plain words (decision 0343): where the block was, or the wall on a
+ * line (RFC 0050), and whether anything came back, by the sim's own `blockNeeds`. Built from the
+ * notice's fields only. Pure, so tests pin it.
  */
-export function clearedLine(c: { x: number; y: number; block: string }): {
+export function clearedLine(c: { x: number; y: number; side?: Side | undefined; block: string }): {
   line: string;
   next: string;
 } {
   const back = blockNeeds(c.block).length > 0;
+  const what = c.side
+    ? `the wall on the ${SIDE_WORDS[c.side]} side of ${c.x}, ${c.y}`
+    : `the block at ${c.x}, ${c.y}`;
   return {
-    line: `Your hearth had no way out to the town, so the team took the block at ${c.x}, ${c.y} off your plot.`,
+    line: `Your hearth had no way out to the town, so the team took ${what} off your plot.`,
     next: back
       ? "What it cost is back in your things. Build it somewhere else if you like, as long as a way out stays open."
       : "It was a free block, so nothing came back. Build it somewhere else if you like, as long as a way out stays open.",

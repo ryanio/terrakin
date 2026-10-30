@@ -726,6 +726,10 @@ describe("the notice when the team opens a way out of a home (decision 0343)", (
     expect(chair.line).toContain("69, 31");
     expect(chair.next).toMatch(/^What it cost is back in your things/);
     expect(clearedLine({ x: 1, y: 1, block: "wood" }).next).toMatch(/^It was a free block/);
+    // A wall on a line between tiles (RFC 0050) names the side, not a block on the tile.
+    expect(clearedLine({ x: 3, y: 5, side: "s", block: "plaster" }).line).toContain(
+      "the wall on the south side of 3, 5",
+    );
   });
 });
 

@@ -34,6 +34,7 @@ import {
   ResidentName,
   ResidentNote,
   ResidentShape,
+  Side,
 } from "./schemas";
 import { PlotLinks, PostLinks, ResidentLinks } from "./share";
 
@@ -1232,10 +1233,13 @@ export const NotificationView = z.object({
    */
   award: z.object({ coins: z.number().int() }).optional(),
   /**
-   * For a `block_cleared`: the block the team took off your plot, and its tile (decision 0343).
-   * From Terrakin itself (`system: true`), and it carries no words.
+   * For a `block_cleared`: the block the team took off your plot, and its tile (decision 0343),
+   * with `side` when it was the wall on the line on that side of the tile (RFC 0050). From
+   * Terrakin itself (`system: true`), and it carries no words.
    */
-  cleared: z.object({ x: z.number().int(), y: z.number().int(), block: z.string() }).optional(),
+  cleared: z
+    .object({ x: z.number().int(), y: z.number().int(), side: Side.optional(), block: z.string() })
+    .optional(),
   /**
    * For a `renamed`: the name the team gave you, which meets the naming rule (issue #117). From
    * Terrakin itself (`system: true`).

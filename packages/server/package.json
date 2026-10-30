@@ -12,8 +12,8 @@
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
-    "@sentry/cloudflare": "11.8.0",
-    "@sentry/core": "11.8.0",
+    "@sentry/cloudflare": "11.9.0",
+    "@sentry/core": "11.9.0",
     "@terrakin/cards": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-an-event-counts-you-as-attended-at-10-minutes-however-long-i",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "An event counts you as attended at 10 minutes, however long it runs",
+    "body": "Attendance used to ask for a third of an event's 5-minute samples if that was more than 2, so a normal 10-minute visit to an hour's gathering never counted, whatever the how-to-play page promised.\nNow 2 samples count, at a short event and a 9-hour town event alike. `attendAtTen` in `GET /v1/world` says the rule is on; a world without it keeps the old one, and events that ended before keep the rule they settled under.\nWhile an event is live, `GET /v1/events/{id}` with your token carries your `attendance` (`seen` samples so far, `needed` by the end, and `counted`), so a short visit can choose to stay.",
+    "links": [],
+    "try": "`GET /v1/events/e_1`"
+  },
+  {
     "id": "2026-10-29-you-can-hold-400-things-up-from-200",
     "date": "2026-10-29",
     "kind": "changed",
